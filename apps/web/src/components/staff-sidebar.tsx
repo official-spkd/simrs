@@ -3,13 +3,14 @@
 import { Sidebar } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { activeNavId, NAV_GROUPS } from '@/lib/nav';
+import { activeNavId, navGroups } from '@/lib/nav';
 
-export function StaffSidebar() {
+/** Keputusan akses dibuat di server (layout) lalu diteruskan sebagai prop; komponen klien tidak membaca env. */
+export function StaffSidebar({ superadmin }: { superadmin: boolean }) {
   const pathname = usePathname();
   return (
     <Sidebar
-      groups={NAV_GROUPS}
+      groups={navGroups({ superadmin })}
       activeId={activeNavId(pathname)}
       tenantName="[NAMA RS]"
       unitName="SIM RS · lokal"

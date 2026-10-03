@@ -14,6 +14,7 @@ Sumber kebenaran:
 - Integrasi: `docs/06-integrasi.md` · pembayaran BTN × TPDI: `docs/07-pembayaran-btn-tpdi.md`
 - UI: `docs/08-desain-ui.md` dan mockup di `design/mockups/*.dc.html`
 - Urutan kerja: `docs/09-rencana-fase.md` · status: `docs/PROGRESS.md`
+- Panduan pengembang (juga tampil di `/superadmin/panduan`): `docs/panduan/` — perbarui bila struktur kode atau alur berubah
 
 Bila dokumen dan permintaan pengguna bertentangan, **tanya dulu**. Bila dokumen tidak mengatur, pilih opsi paling sederhana yang tidak melanggar prinsip di bagian 4, lalu catat sebagai ADR baru di `docs/adr/`.
 
@@ -41,7 +42,8 @@ design/         token + mockup acuan (read-only)
 
 ```bash
 pnpm install                 # pasang dependensi
-docker compose up -d         # infra lokal
+docker compose up -d         # infra lokal (tanpa Docker: pnpm pg:portable, Postgres saja)
+pnpm doctor                  # cek prasyarat dan port
 pnpm db:migrate              # prisma migrate dev
 pnpm db:seed                 # data fiktif (2 tenant RS, staf, pasien)
 pnpm dev                     # api + worker + web + mock (turbo)

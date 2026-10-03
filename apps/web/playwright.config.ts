@@ -10,6 +10,8 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   retries: 0,
+  // Server dev Next mengompilasi rute saat pertama dikunjungi; di bawah 6 worker paralel bisa > 5 detik.
+  expect: { timeout: 10_000 },
   reporter: [['list']],
   use: {
     baseURL: process.env.WEB_BASE_URL ?? 'http://localhost:3000',

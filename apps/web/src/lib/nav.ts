@@ -81,15 +81,28 @@ export const NAV_GROUPS: NavGroup[] = [
         available: false,
       },
       { id: 'integrasi', label: 'Integrasi', href: '/sistem/integrasi', icon: 'plug', available: false },
-      { id: 'devui', label: 'Fondasi UI (dev)', href: '/dev/ui', icon: 'award', available: true },
     ],
   },
 ];
 
 /** Cari menu aktif dari pathname: cocokkan prefix terpanjang. */
+/** Area superadmin platform; hanya tampil bila `superadminAccess()` mengizinkan (lihat lib/access.ts). */
+export const SUPERADMIN_GROUP: NavGroup = {
+  title: 'SUPERADMIN',
+  items: [
+    { id: 'panduan', label: 'Panduan sistem', href: '/superadmin/panduan', icon: 'info', available: true },
+    { id: 'devui', label: 'Fondasi UI', href: '/dev/ui', icon: 'palette', available: true },
+  ],
+};
+
+/** Grup menu untuk pengguna saat ini. Grup superadmin disembunyikan bila aksesnya tertutup. */
+export function navGroups(opts: { superadmin: boolean }): NavGroup[] {
+  return opts.superadmin ? [...NAV_GROUPS, SUPERADMIN_GROUP] : NAV_GROUPS;
+}
+
 export function activeNavId(pathname: string): string | undefined {
   let best: { id: string; len: number } | undefined;
-  for (const g of NAV_GROUPS) {
+  for (const g of [...NAV_GROUPS, SUPERADMIN_GROUP]) {
     for (const item of g.items) {
       const match =
         item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);

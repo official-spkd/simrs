@@ -1,73 +1,84 @@
-# SIM RS · Starter Kit untuk Claude Code
+# SIM RS
 
-Repo awal untuk membangun **SIM RS multi-RS (SaaS, deployment hibrida)** bersama Claude Code, dimulai dari **localhost**.
-Isi repo ini belum berupa aplikasi jadi. Repo ini berisi semua bahan yang dibutuhkan Claude Code untuk membangunnya fase demi fase tanpa menebak:
+Sistem Informasi Manajemen Rumah Sakit **multi-RS (SaaS, deployment hibrida)**: satu platform untuk banyak rumah sakit, dengan isolasi data per RS ditegakkan di database. Dibangun bertahap dalam 11 fase; saat ini **fase 0 (fondasi)**.
 
-| Bahan | Lokasi |
-|---|---|
-| Aturan kerja proyek untuk Claude Code | `CLAUDE.md`, `.claude/` |
-| Arsitektur, data model, keamanan | `docs/01`–`docs/05` |
-| 81 komponen dalam 7 lapisan (kode P/F/K/S/U/B/I) | `docs/02-katalog-komponen.md` |
-| Bedah KMK 1596/2024 (51 EP MRMIK) | `docs/03-regulasi-mrmik.md` |
-| Integrasi BPJS, SATUSEHAT, E-Klaim, Dukcapil | `docs/06-integrasi.md` |
-| Pembayaran TPDI × BTN dan pembiayaan BTN | `docs/07-pembayaran-btn-tpdi.md` |
-| Sistem desain dan peta layar | `docs/08-desain-ui.md`, `design/` |
-| Rencana fase + kriteria selesai | `docs/09-rencana-fase.md` |
-| Prompt siap tempel untuk tiap fase | `docs/10-prompt-claude-code.md` |
-| Persiapan Windows (WSL2, Docker, Node, Claude Code) | `docs/11-setup-windows.md` |
-| Keputusan arsitektur (ADR) | `docs/adr/` |
-| Papan progres yang diperbarui Claude Code | `docs/PROGRESS.md` |
-| Infrastruktur lokal (Postgres, Redis, MinIO, Mailpit) | `docker-compose.yml`, `infra/` |
+> **Pengembang baru: mulai dari panduan.** Jalankan web lalu buka http://localhost:3000/superadmin/panduan, atau baca langsung berkasnya:
+>
+> 1. [Cara sistem bekerja](docs/panduan/01-cara-kerja-sistem.md): gambaran besar, multi-tenant, outbox, keamanan
+> 2. [Cara kode bekerja](docs/panduan/02-cara-kerja-kode.md): struktur repo, alur permintaan, database, tes, konvensi
+> 3. [Tutorial](docs/panduan/03-tutorial.md): menyiapkan mesin, menjalankan, membuat modul/layar/endpoint, pemecahan masalah
+
+## Mulai cepat
+
+Prasyarat: Node ≥ 22, Git, dan Docker Desktop (atau Postgres portabel, lihat Tutorial §1).
+
+```bash
+corepack enable                 # Windows tanpa admin: corepack enable --install-directory "%APPDATA%\npm" pnpm
+pnpm install
+cp .env.example .env            # lalu isi kunci acak (lihat Tutorial §1)
+pnpm doctor                     # cek prasyarat dan port
+
+pnpm infra:up                   # Postgres, Redis, MinIO, Mailpit (Docker)
+#   atau tanpa Docker:  pnpm pg:portable   (jendela terpisah; Postgres saja)
+
+pnpm build                      # paket bersama
+pnpm db:deploy && pnpm db:seed  # migrasi + 2 tenant RS fiktif
+pnpm dev                        # api + worker + web + mock
+```
+
+| Layanan                        | Alamat                                             |
+| ------------------------------ | -------------------------------------------------- |
+| Web staf                       | http://localhost:3000                              |
+| Panduan superadmin             | http://localhost:3000/superadmin/panduan           |
+| API · Swagger                  | http://127.0.0.1:4000 · http://127.0.0.1:4000/docs |
+| Mock integrasi + panel kendali | http://127.0.0.1:4100                              |
+| Mailpit                        | http://localhost:8025                              |
+| MinIO console                  | http://localhost:9001 (atau `MINIO_CONSOLE_PORT`)  |
+
+## Perintah harian
+
+| Perintah                                     | Fungsi                                                       |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| `pnpm dev`                                   | Semua aplikasi dalam mode watch                              |
+| `pnpm lint` · `pnpm typecheck` · `pnpm test` | Wajib hijau sebelum commit                                   |
+| `pnpm --filter @simrs/web test:e2e`          | Playwright (web harus jalan)                                 |
+| `pnpm db:migrate`                            | Buat/terapkan migrasi (pengembangan)                         |
+| `pnpm db:deploy` · `pnpm db:seed`            | Terapkan migrasi · isi data fiktif                           |
+| `pnpm db:test:recreate -- --yes`             | Buat ulang database **tes** (destruktif, hanya `simrs_test`) |
+| `pnpm doctor`                                | Periksa prasyarat                                            |
+| `pnpm audit --prod`                          | Periksa kerentanan dependensi                                |
+
+## Isi repo
+
+| Bagian                                       | Lokasi                            |
+| -------------------------------------------- | --------------------------------- |
+| Aplikasi: API, worker, web, mock             | `apps/`                           |
+| Paket bersama: shared, db, ui, config        | `packages/`                       |
+| Panduan pengembang (juga tampil di aplikasi) | `docs/panduan/`                   |
+| Arsitektur, data model, keamanan, integrasi  | `docs/01`–`docs/07`               |
+| Desain UI + mockup acuan                     | `docs/08-desain-ui.md`, `design/` |
+| Rencana fase + kriteria selesai              | `docs/09-rencana-fase.md`         |
+| Status terkini, keputusan, utang teknis      | `docs/PROGRESS.md`                |
+| Keputusan arsitektur                         | `docs/adr/`                       |
+| Aturan kerja untuk Claude Code               | `CLAUDE.md`, `.claude/`           |
 
 ## Stack
 
-- **Monorepo**: pnpm workspaces + Turborepo, TypeScript di semua lapisan.
-- **API**: NestJS (REST + OpenAPI), Prisma, PostgreSQL 16 dengan Row-Level Security per tenant.
-- **Worker**: NestJS standalone + BullMQ (Redis) untuk outbox integrasi, retry, dan job terjadwal.
-- **Web staf, anjungan, display**: Next.js (App Router) + Tailwind dengan token desain "Klinis Bersih".
-- **Aplikasi pasien & dokter**: Expo (React Native), mulai fase 9.
-- **Mock integrasi**: satu layanan lokal yang meniru BPJS (VClaim, Antrean, Aplicare), E-Klaim, SATUSEHAT, Dukcapil, TTE, TPDI, dan BTN.
-- **Infra lokal**: Docker Compose (Postgres, Redis, MinIO, Mailpit; HAPI FHIR opsional).
-
-Alasan pilihan ada di `docs/adr/`.
-
-## Mulai cepat (Windows)
-
-1. Ikuti `docs/11-setup-windows.md` sekali saja (WSL2 Ubuntu, Docker Desktop, Git, Node 22, pnpm, Claude Code).
-2. Di terminal Ubuntu (WSL):
-   ```bash
-   cd ~/proyek && unzip simrs-starter-kit.zip && cd simrs
-   bash scripts/doctor.sh          # cek prasyarat
-   cp .env.example .env
-   docker compose up -d            # Postgres, Redis, MinIO, Mailpit
-   git init && git add -A && git commit -m "chore: starter kit"
-   claude                          # buka Claude Code di root repo
-   ```
-3. Di Claude Code, jalankan `/fase 0`. Setelah selesai dan lolos kriteria, lanjut `/fase 1`, dan seterusnya.
-   Bila belum yakin, ketik `/lanjut`: Claude Code membaca `docs/PROGRESS.md` dan mengerjakan langkah berikutnya.
-
-## Alamat lokal (setelah fase 0)
-
-| Layanan | URL |
-|---|---|
-| Web staf | http://localhost:3000 |
-| API + Swagger | http://localhost:4000 · http://localhost:4000/docs |
-| Mock integrasi + panel kendali | http://localhost:4100 |
-| Mailpit (email/OTP lokal) | http://localhost:8025 |
-| MinIO console | http://localhost:9001 |
-| Postgres | localhost:5432 |
+pnpm + Turborepo · TypeScript 6 · NestJS 12 (API, worker) · Prisma 7 + PostgreSQL 16 dengan Row-Level Security · BullMQ + Redis · Next.js 16 + Tailwind 4 · Fastify 5 (mock) · Vitest 5 + Playwright. Alasan pemilihan ada di ADR-0001 dan ADR-0007.
 
 ## Prinsip yang tidak boleh dilanggar
 
-1. **Data klinis tidak pernah dihapus atau ditimpa**: koreksi membuat versi baru dengan alasan (MRMIK 8).
-2. **Setiap akses ke data pasien tercatat** di audit trail append-only (MRMIK 2.1, 10).
-3. **Setiap baris data milik satu tenant**, dan isolasinya ditegakkan di database (RLS), bukan hanya di kode.
-4. **Integrasi eksternal lewat outbox + retry**; transaksi klinis tidak boleh gagal karena BPJS/SATUSEHAT/bank sedang down.
-5. **Uang pasien tidak pernah transit di TPDI**: TPDI mengorkestrasi, BTN memegang dana (ADR-0005).
-6. **Lokal = data fiktif**. Jangan memasukkan data pasien asli ke lingkungan pengembangan.
+1. **Setiap baris data milik satu tenant**, dan isolasinya ditegakkan database (RLS). Query tanpa konteks tenant gagal.
+2. **Data klinis tidak dihapus atau ditimpa**: koreksi membuat versi baru dengan alasan.
+3. **Setiap akses ke data pasien tercatat** di audit trail append-only.
+4. **Integrasi eksternal lewat outbox + retry + idempotency**; layanan klinis tidak boleh berhenti karena BPJS/SATUSEHAT/bank gangguan.
+5. **Uang = `bigint` rupiah**; uang pasien tidak transit di TPDI (ADR-0005).
+6. **Lokal = data fiktif**; rahasia hanya di `.env`; fitur pengembangan mati bila `APP_ENV` bukan `local`/`staging`.
 
-## Catatan penting
+Daftar lengkap ada di `CLAUDE.md` §4. Daftar periksa keamanan per perubahan ada di [Cara kode bekerja](docs/panduan/02-cara-kerja-kode.md#daftar-periksa-keamanan-per-perubahan).
 
-- Spesifikasi API BPJS, SATUSEHAT, E-Klaim, TPDI, dan BTN di repo ini adalah **rangkuman untuk mock**. Sebelum integrasi nyata, cocokkan dengan dokumen resmi yang diterima RS/mitra (katalog API BPJS, dokumentasi SATUSEHAT, manual web service E-Klaim, spesifikasi API TPDI dan BTN).
-- Angka tarif, margin, dan aturan selisih kelas di mock adalah **simulasi**.
-- Mockup interaktif seluruh layar: https://claude.ai/artifact/68mwSh34uMk31GWyNDJfHj (salinan sumbernya ada di `design/mockups/`).
+## Catatan
+
+- Kontrak API BPJS, SATUSEHAT, E-Klaim, TPDI, dan BTN di repo ini adalah **rangkuman untuk mock**. Cocokkan dengan dokumen resmi sebelum integrasi nyata.
+- Angka tarif, margin, dan kode CBG di mock adalah **simulasi**.
+- Mockup interaktif seluruh layar: https://claude.ai/artifact/68mwSh34uMk31GWyNDJfHj (sumber di `design/mockups/`).

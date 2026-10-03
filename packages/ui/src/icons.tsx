@@ -30,6 +30,9 @@ export const iconPaths = {
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   check: 'M20 6 9 17l-5-5',
   menu: 'M3 6h18M3 12h18M3 18h18',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  palette:
+    'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22zM7.5 11h.01M10 7h.01M15 7h.01M17.5 11h.01',
 } as const;
 
 export type IconName = keyof typeof iconPaths;
