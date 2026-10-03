@@ -1,15 +1,21 @@
 import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Card, Chip } from '@simrs/ui';
 import Link from 'next/link';
-import { API_BASE_URL, apiGet, type Readiness, readinessSchema } from '@/lib/api';
+import { API_BASE_URL, type Readiness, readinessSchema } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
 const CHECK_LABEL: Record<string, string> = { database: 'PostgreSQL', redis: 'Redis', storage: 'MinIO (S3)' };
 
+/** `/ready` menjawab 503 saat ada dependensi gagal; isinya tetap dibaca agar tiap pemeriksaan terlihat. */
 async function loadReadiness(): Promise<Readiness | null> {
   try {
-    return await apiGet('/ready', readinessSchema, { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${API_BASE_URL}/ready`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
+    });
+    const parsed = readinessSchema.safeParse(await res.json());
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
