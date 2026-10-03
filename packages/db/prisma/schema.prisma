@@ -97,10 +97,13 @@ model InboundEvent {
   @@map("inbound_events")
 }
 
-/// P04 · Audit trail append-only (kerangka fase 0; hash berantai diisi fase 1). UPDATE/DELETE dicabut.
+/// P04 · Audit trail append-only dengan hash berantai per tenant. seq, prev_hash, hash, dan occurred_at
+/// diisi trigger database (app_audit_chain), bukan aplikasi. UPDATE/DELETE ditolak.
 model AuditEvent {
   id           String   @id @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
+  /// Nomor urut per tenant (1, 2, 3, …); celah = baris hilang.
+  seq          BigInt   @default(0)
   occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
   actorUserId  String?  @map("actor_user_id") @db.Uuid
   actorRole    String?  @map("actor_role")
@@ -108,16 +111,22 @@ model AuditEvent {
   resourceType String   @map("resource_type")
   resourceId   String?  @map("resource_id")
   action       String
+  /// success | denied
+  outcome      String   @default("success")
   reason       String?
   ip           String?
   userAgent    String?  @map("user_agent")
   requestId    String?  @map("request_id")
+  /// Metadata tanpa PHI (mis. nama field yang berubah, jumlah hasil pencarian).
+  details      Json?
   prevHash     String?  @map("prev_hash")
-  hash         String?
+  hash         String   @default("")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, seq])
   @@index([tenantId, occurredAt])
   @@index([tenantId, patientId, occurredAt])
+  @@index([tenantId, actorUserId, occurredAt])
   @@map("audit_events")
 }

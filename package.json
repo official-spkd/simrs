@@ -22,7 +22,8 @@
     "infra:up": "docker compose up -d",
     "infra:ps": "docker compose ps",
     "pg:portable": "node scripts/pg-portable.mjs",
-    "db:test:recreate": "node scripts/recreate-test-db.mjs"
+    "db:test:recreate": "node scripts/recreate-test-db.mjs",
+    "with-pg": "node scripts/with-pg.mjs"
   },
   "devDependencies": {
     "@types/node": "^24",

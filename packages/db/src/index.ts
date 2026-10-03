@@ -5,6 +5,8 @@ export {
   Prisma,
   PrismaClient,
   withTenant,
+  verifyAuditChain,
+  type AuditChainResult,
   type CreateClientOptions,
   type TenantTx,
 } from './client';

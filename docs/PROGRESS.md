@@ -7,7 +7,7 @@ Diperbarui oleh Claude Code di akhir setiap potongan kerja. Format: centang krit
 | Fase | Nama                               | Status                                                                                |
 | ---- | ---------------------------------- | ------------------------------------------------------------------------------------- |
 | 0    | Fondasi repo dan infrastruktur     | 🟨 hampir selesai: tinggal tes BullMQ + `/ready` hijau (butuh Redis/MinIO via Docker) |
-| 1    | Platform inti                      | ⬜                                                                                    |
+| 1    | Platform inti                      | 🟨 berjalan (fase 0: 2 kriteria menunggu Docker, disetujui lanjut)                    |
 | 2    | Front office                       | ⬜                                                                                    |
 | 3    | Klinis RME                         | ⬜                                                                                    |
 | 4    | Penunjang                          | ⬜                                                                                    |
@@ -47,6 +47,24 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 
 - **Docker belum jalan**: firmware virtualisasi aktif, tetapi hypervisor Windows belum menyala. Perlu `wsl --install --no-distribution` (PowerShell Admin) lalu restart. Sementara itu Postgres dijalankan dengan `pnpm pg:portable` (ADR-0009).
 
+## Fase 1 · potongan
+
+Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); RS dikenali dari subdomain (produksi) + kolom kode RS (lokal); urutan potongan 1 dan 2 ditukar agar modul P01 langsung memakai fondasi audit.
+
+| #   | Potongan                                                                                                                        | Status | Bukti                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------- |
+| 2   | P04 inti: transaksi per permintaan (`@TenantScoped`), `@Audited` di transaksi yang sama, hash berantai via trigger + verifikasi | ✅     | db 12 tes (paralel, waktu server, tamper), api 34 tes |
+| 1   | P01 struktur RS + P08 penomoran + P12 pengaturan                                                                                | ⬜     |                                                       |
+| 3   | P02 identitas & login                                                                                                           | ⬜     |                                                       |
+| 4   | P03 otorisasi + break-the-glass                                                                                                 | ⬜     |                                                       |
+| 5   | Layar Login + Akses                                                                                                             | ⬜     |                                                       |
+| 6   | Layar Audit + anomali                                                                                                           | ⬜     |                                                       |
+| 7   | P05 MPI                                                                                                                         | ⬜     |                                                       |
+| 8   | P06 master rujukan                                                                                                              | ⬜     |                                                       |
+| 9   | P07 form engine + layar Formulir                                                                                                | ⬜     |                                                       |
+| 10  | P09–P11 dokumen, TTE, notifikasi, seed staf                                                                                     | ⬜     |                                                       |
+| 11  | Penutup fase 1                                                                                                                  | ⬜     |                                                       |
+
 ## Langkah berikutnya
 
 - Setelah Docker hidup: `pnpm infra:up` → `pnpm test` (tes BullMQ harus hijau) → `/ready` hijau → centang dua kriteria sisa → fase 0 ✅.
@@ -78,6 +96,10 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 - 3 Okt 2026 · Panduan superadmin dari `docs/panduan/*.md` (react-markdown, server-only, tanpa HTML mentah); peran `superadmin_platform` direncanakan fase 1 · ADR-0010
 - 3 Okt 2026 · Hardening API: header keamanan tanpa helmet, rate limit per IP (`@nestjs/throttler`), body 1 MB, timeout koneksi, bind 127.0.0.1, log galat tanpa pesan (anti-PHI); worker: peta operasi `Map` + cek origin (anti-SSRF)
 
+- 4 Okt 2026 · Satu transaksi bertenant per permintaan (AsyncLocalStorage) + audit ditulis sebelum commit (gagal tertutup); handler tidak boleh memanggil sistem eksternal (pakai outbox)
+- 4 Okt 2026 · Hash berantai audit dihitung trigger database dengan advisory lock per tenant; waktu, seq, hash dari server; kanonik = larik JSON
+- 4 Okt 2026 · `pnpm with-pg <perintah>`: Postgres portabel hanya selama perintah berjalan, dihentikan bersih lewat IPC (tanpa shell)
+
 ## Utang teknis
 
 - `apps/web` · menu sidebar memakai data statis; hitungan (antrean, IGD) dan status integrasi akan diisi dari API (fase 2 & 7).
@@ -87,3 +109,5 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 - `apps/web` · CSP masih `'unsafe-inline'` untuk skrip (hidrasi Next tanpa nonce); pindah ke CSP ber-nonce di hardening fase 10.
 - `apps/api` · rate limit per IP di memori per instans; pindah ke penyimpanan Redis + batas per pengguna saat P02, dan set `trust proxy` saat di belakang load balancer.
 - `apps/worker` · dispatcher mengirim berurutan per tenant; paralelkan terbatas bila volume naik (fase 7).
+- `packages/db` · Rantai audit tidak mendeteksi penghapusan baris TERAKHIR (truncation); perlu jangkar hash berkala ke penyimpanan terpisah (fase 10).
+- `packages/db` · Advisory lock audit per tenant menyerialkan penulisan audit dalam satu tenant sampai commit; pantau saat beban tinggi.

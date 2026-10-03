@@ -1,26 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infra/prisma.service';
+import { TenantDb } from '../../infra/tenant-db';
 
-/** Akses data tenant. Satu-satunya lapisan yang menyentuh Prisma; selalu lewat `forTenant` (RLS). */
+/** Akses data tenant. Satu-satunya lapisan yang menyentuh Prisma; selalu lewat transaksi permintaan (RLS). */
 @Injectable()
 export class TenancyRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: TenantDb) {}
 
-  findCurrent(tenantId: string) {
-    return this.prisma.forTenant(tenantId, (tx) =>
-      tx.tenant.findUnique({
-        where: { id: tenantId },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          kemenkesCode: true,
-          bpjsPpkCode: true,
-          satusehatOrgId: true,
-          hospitalClass: true,
-          status: true,
-        },
-      }),
-    );
+  findCurrent() {
+    return this.db.tx().tenant.findUnique({
+      where: { id: this.db.tenantId() },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        kemenkesCode: true,
+        bpjsPpkCode: true,
+        satusehatOrgId: true,
+        hospitalClass: true,
+        status: true,
+      },
+    });
   }
 }

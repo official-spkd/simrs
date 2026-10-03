@@ -49,3 +49,18 @@ export async function listActiveTenantIds(prisma: PrismaClient): Promise<string[
 export function isTenantRequiredError(err: unknown): boolean {
   return err instanceof Error && err.message.includes('TENANT_REQUIRED');
 }
+
+export interface AuditChainResult {
+  /** Jumlah baris yang diperiksa (berhenti di baris rusak pertama). */
+  checked: number;
+  /** seq pertama yang rusak, atau null bila rantai utuh. */
+  firstBrokenSeq: bigint | null;
+}
+
+/** Verifikasi hash berantai audit tenant aktif (harus di dalam `withTenant`). */
+export async function verifyAuditChain(tx: TenantTx): Promise<AuditChainResult> {
+  const rows = await tx.$queryRaw<Array<{ checked: bigint; first_broken_seq: bigint | null }>>`
+    SELECT checked, first_broken_seq FROM app_verify_audit_chain()`;
+  const row = rows[0];
+  return { checked: Number(row?.checked ?? 0), firstBrokenSeq: row?.first_broken_seq ?? null };
+}

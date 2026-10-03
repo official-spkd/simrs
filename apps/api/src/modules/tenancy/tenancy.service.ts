@@ -18,8 +18,8 @@ export class TenancyService {
   constructor(private readonly repo: TenancyRepository) {}
 
   /** Tenant aktif sesuai konteks. RLS menjamin hanya baris tenant itu sendiri yang terlihat. */
-  async current(tenantId: string): Promise<TenantView> {
-    const tenant = await this.repo.findCurrent(tenantId);
+  async current(): Promise<TenantView> {
+    const tenant = await this.repo.findCurrent();
     if (!tenant) throw new AppError('NOT_FOUND', 'Tenant tidak ditemukan', 404);
     return tenant;
   }

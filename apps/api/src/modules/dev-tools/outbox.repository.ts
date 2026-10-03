@@ -1,22 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { enqueueOutbox } from '@simrs/db';
 import type { OutboxEnvelope } from '@simrs/shared';
-import { PrismaService } from '../../infra/prisma.service';
+import { TenantDb } from '../../infra/tenant-db';
 
 @Injectable()
 export class OutboxRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: TenantDb) {}
 
-  enqueue(tenantId: string, envelope: OutboxEnvelope) {
-    return this.prisma.forTenant(tenantId, (tx) => enqueueOutbox(tx, tenantId, envelope));
+  enqueue(envelope: OutboxEnvelope) {
+    return enqueueOutbox(this.db.tx(), this.db.tenantId(), envelope);
   }
 
-  findWithDeliveries(tenantId: string, id: string) {
-    return this.prisma.forTenant(tenantId, (tx) =>
-      tx.outboxMessage.findUnique({
-        where: { id },
-        include: { deliveries: { orderBy: { attemptNo: 'asc' } } },
-      }),
-    );
+  findWithDeliveries(id: string) {
+    return this.db.tx().outboxMessage.findUnique({
+      where: { id },
+      include: { deliveries: { orderBy: { attemptNo: 'asc' } } },
+    });
   }
 }

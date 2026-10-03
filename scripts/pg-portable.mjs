@@ -75,6 +75,12 @@ async function main() {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+  // Dikendalikan scripts/with-pg.mjs lewat IPC: di Windows sinyal tidak menjalankan handler,
+  // sehingga penghentian bersih (pg.stop) diminta lewat pesan.
+  if (process.send) {
+    process.on('message', (m) => m === 'stop' && void shutdown());
+    process.send('ready');
+  }
 }
 
 main().catch(async (err) => {

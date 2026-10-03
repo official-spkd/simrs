@@ -19,8 +19,8 @@ export class DevToolsService {
   constructor(private readonly outbox: OutboxRepository) {}
 
   /** Pesan outbox contoh untuk membuktikan alur API → outbox → worker → mock. */
-  async enqueuePing(tenantId: string, target: IntegrationTarget) {
-    const msg = await this.outbox.enqueue(tenantId, {
+  async enqueuePing(target: IntegrationTarget) {
+    const msg = await this.outbox.enqueue({
       target,
       operation: 'ping',
       idempotencyKey: `ping-${newId()}`,
@@ -29,8 +29,8 @@ export class DevToolsService {
     return { id: msg.id, target: msg.target, idempotencyKey: msg.idempotencyKey, status: msg.status };
   }
 
-  async outboxStatus(tenantId: string, id: string): Promise<OutboxStatusView> {
-    const msg = await this.outbox.findWithDeliveries(tenantId, id);
+  async outboxStatus(id: string): Promise<OutboxStatusView> {
+    const msg = await this.outbox.findWithDeliveries(id);
     if (!msg) throw new AppError('NOT_FOUND', 'Pesan outbox tidak ditemukan', 404);
     return {
       id: msg.id,

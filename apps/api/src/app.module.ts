@@ -7,6 +7,7 @@ import { genRequestId } from './common/request-id';
 import type { ApiEnv } from './config/env';
 import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 
@@ -45,6 +46,7 @@ export class AppModule {
         ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: env.RATE_LIMIT_PER_MIN }]),
         HealthModule,
         TenancyModule,
+        AuditModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],
