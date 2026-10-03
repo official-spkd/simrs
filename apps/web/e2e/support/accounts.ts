@@ -1,5 +1,11 @@
 import { expect, type Page } from '@playwright/test';
-import { createPrismaClient, type PrismaClient, withTenant } from '@simrs/db';
+import {
+  createPrismaClient,
+  insertPatient,
+  type NewPatientRecord,
+  type PrismaClient,
+  withTenant,
+} from '@simrs/db';
 import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import {
@@ -7,6 +13,7 @@ import {
   encryptField,
   generateTotpSecret,
   hashPassword,
+  PatientCrypto,
   totpCode,
   totpStep,
 } from '@simrs/shared/node';
@@ -136,10 +143,26 @@ export async function loginAs(page: Page, account: Account, path = '/'): Promise
   await expect(page).not.toHaveURL(/\/masuk/);
 }
 
+/** Pasien fiktif langsung di DB dengan kunci enkripsi yang sama dengan API. */
+export function createPatient(
+  tenantCode: TenantCode,
+  rec: Partial<NewPatientRecord> = {},
+): Promise<{ id: string; mrn: string }> {
+  const tenantId = TENANTS[tenantCode];
+  const crypto = new PatientCrypto(
+    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
+    tenantId,
+  );
+  return withTenant(prisma(), tenantId, (tx) =>
+    insertPatient(tx, crypto, { name: 'Pasien Uji Fiktif', sex: 'female', birthDate: '1980-01-01', ...rec }),
+  );
+}
+
 /** Izin akses darurat langsung di DB (layar klinis peminta akses darurat dibangun di fase 2–3). */
 export async function createBreakGlassGrant(account: Account, reason: string): Promise<string> {
   const id = newId();
   const tenantId = TENANTS[account.tenantCode];
+  const patient = await createPatient(account.tenantCode);
   const grantedAt = new Date();
   await withTenant(prisma(), tenantId, (tx) =>
     tx.breakGlassGrant.create({
@@ -147,7 +170,7 @@ export async function createBreakGlassGrant(account: Account, reason: string): P
         id,
         tenantId,
         userId: account.id,
-        patientId: newId(),
+        patientId: patient.id,
         reason,
         grantedAt,
         expiresAt: new Date(grantedAt.getTime() + 3_600_000),

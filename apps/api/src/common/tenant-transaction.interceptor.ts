@@ -6,6 +6,7 @@ import type { Request } from 'express';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import { type AuditMeta, writeAudit } from '../infra/audit-writer';
 import { PrismaService } from '../infra/prisma.service';
+import { AuditedDenial } from './audited-denial';
 import { AUDITED_KEY, type AuditedOptions } from './audited.decorator';
 import { DEV_ROLE, type RequestActor, requestContext, type TenantRequestContext } from './request-context';
 import { REQUIRED_MODULE_KEY } from './require-module.decorator';
@@ -19,7 +20,8 @@ const MAX_USER_AGENT = 300;
  * Dua tahap per permintaan bertenant:
  * 1. Otorisasi (P03) di transaksi singkat terpisah: peran tanpa izin → audit `access_denied` DI-COMMIT, lalu 403.
  * 2. Unit of work: satu transaksi ber-RLS membungkus pemeriksaan modul (P10), handler, dan penulisan audit
- *    sebelum commit. Galat di mana pun → seluruh perubahan dan audit batal.
+ *    sebelum commit. Galat di mana pun → seluruh perubahan dan audit batal, kecuali penolakan `AuditedDenial`
+ *    (ABAC akses pasien) yang dicatat ulang sebagai `access_denied` di transaksi terpisah.
  * Konsekuensi: handler tidak boleh memanggil sistem eksternal (pakai outbox, CLAUDE.md §4.5).
  */
 @Injectable()
@@ -60,37 +62,49 @@ export class TenantTransactionInterceptor implements NestInterceptor {
         ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
         : null;
 
-      return this.prisma.forTenant(tenantId, (tx) => {
-        const store: TenantRequestContext = {
-          tenantId,
-          tx,
-          actor,
-          requestId: auditMeta.requestId,
-          ip: auditMeta.ip,
-          userAgent: auditMeta.userAgent,
-          permissionScope,
-          audit: [],
-        };
-        return requestContext.run(store, async () => {
-          if (requiredModule && !(await isModuleEnabled(tx, requiredModule))) {
-            throw new AppError('MODULE_DISABLED', `Modul ${requiredModule} tidak aktif untuk RS ini`, 403);
+      return this.prisma
+        .forTenant(tenantId, (tx) => {
+          const store: TenantRequestContext = {
+            tenantId,
+            tx,
+            actor,
+            requestId: auditMeta.requestId,
+            ip: auditMeta.ip,
+            userAgent: auditMeta.userAgent,
+            permissionScope,
+            audit: [],
+          };
+          return requestContext.run(store, async () => {
+            if (requiredModule && !(await isModuleEnabled(tx, requiredModule))) {
+              throw new AppError('MODULE_DISABLED', `Modul ${requiredModule} tidak aktif untuk RS ini`, 403);
+            }
+            const result = await lastValueFrom(next.handle(), { defaultValue: undefined });
+            if (audited) {
+              const src = { params: req.params, query: req.query, body: req.body as unknown, result };
+              store.audit.unshift({
+                action: audited.action,
+                resourceType: audited.resource,
+                resourceId: audited.resourceId?.(src) ?? null,
+                patientId: audited.patientId?.(src) ?? null,
+                details: audited.details?.(src),
+                reason: audited.reason?.(src) ?? null,
+              });
+            }
+            await writeAudit(tx, tenantId, auditMeta, store.audit);
+            return result;
+          });
+        })
+        .catch(async (err: unknown) => {
+          // Transaksi permintaan sudah batal; penolakan ABAC tetap dicatat di transaksi tersendiri.
+          if (err instanceof AuditedDenial) {
+            await this.prisma.forTenant(tenantId, (tx) =>
+              writeAudit(tx, tenantId, auditMeta, [
+                { ...err.entry, action: 'access_denied', outcome: 'denied' },
+              ]),
+            );
           }
-          const result = await lastValueFrom(next.handle(), { defaultValue: undefined });
-          if (audited) {
-            const src = { params: req.params, query: req.query, body: req.body as unknown, result };
-            store.audit.unshift({
-              action: audited.action,
-              resourceType: audited.resource,
-              resourceId: audited.resourceId?.(src) ?? null,
-              patientId: audited.patientId?.(src) ?? null,
-              details: audited.details?.(src),
-              reason: audited.reason?.(src) ?? null,
-            });
-          }
-          await writeAudit(tx, tenantId, auditMeta, store.audit);
-          return result;
+          throw err;
         });
-      });
     };
     return from(run());
   }

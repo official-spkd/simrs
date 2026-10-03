@@ -51,6 +51,8 @@ model Tenant {
   relationships    AccessRelationship[]
   breakGlassGrants BreakGlassGrant[]
   notifications    Notification[]
+  patients         Patient[]
+  identifiers      PatientIdentifier[]
 
   @@map("tenants")
 }
@@ -485,10 +487,12 @@ model AccessRelationship {
   sourceId   String?   @map("source_id") @db.Uuid
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  user    User    @relation(fields: [tenantId, userId], references: [tenantId, id])
+  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
 
   @@index([tenantId, userId, patientId])
+  @@index([tenantId, patientId])
   @@map("access_relationships")
 }
 
@@ -507,9 +511,10 @@ model BreakGlassGrant {
   reviewedBy    String?   @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
 
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
-  user     User   @relation("BreakGlassUser", fields: [tenantId, userId], references: [tenantId, id])
-  reviewer User?  @relation("BreakGlassReviewer", fields: [tenantId, reviewedBy], references: [tenantId, id])
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  user     User    @relation("BreakGlassUser", fields: [tenantId, userId], references: [tenantId, id])
+  reviewer User?   @relation("BreakGlassReviewer", fields: [tenantId, reviewedBy], references: [tenantId, id])
+  patient  Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
 
   @@index([tenantId, userId, patientId, expiresAt])
   @@index([tenantId, reviewOutcome])
@@ -533,4 +538,86 @@ model Notification {
 
   @@index([tenantId, recipientUserId, readAt])
   @@map("notifications")
+}
+
+/// P05 · Master Patient Index. Satu baris = satu rekam medis (nomor RM). Data identitas, bukan entri klinis:
+/// boleh diubah (diaudit per nama field), tidak pernah dihapus. Penggabungan = penanda `merged` + rujukan ke
+/// rekam medis yang dipertahankan (P05, potongan 7b); nomor RM tidak berubah.
+/// NIK dan identifier lain di `patient_identifiers`; alamat dan no. HP dienkripsi di aplikasi (docs/04 §1).
+model Patient {
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  /// Nomor rekam medis `00-41-27-88` dari layanan penomoran (P08, jenis `mrn`). Tidak bisa diubah (hak kolom).
+  mrn                String
+  name               String
+  /// Nama ternormalisasi untuk trigram/duplikat (`normalizePersonName`), indeks GIN di migrasi.
+  nameSearch         String    @map("name_search")
+  /// male | female | unknown (kode FHIR gender)
+  sex                String
+  birthDate          DateTime? @map("birth_date") @db.Date
+  birthDateEstimated Boolean   @default(false) @map("birth_date_estimated")
+  motherName         String?   @map("mother_name")
+  /// AES-256-GCM (`encryptField`, tujuan `contact`).
+  addressEnc         String?   @map("address_enc")
+  phoneEnc           String?   @map("phone_enc")
+  /// Blind index HMAC no. HP baku `62…` untuk pencocokan duplikat.
+  phoneHash          String?   @map("phone_hash")
+  /// Pasien tanpa identitas (mis. IGD tidak sadar, "Tn. X").
+  unidentified       Boolean   @default(false)
+  /// active | merged
+  status             String    @default("active")
+  mergedIntoId       String?   @map("merged_into_id") @db.Uuid
+  mergedAt           DateTime? @map("merged_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?   @map("updated_by") @db.Uuid
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
+  mergedInto    Patient?             @relation("PatientMerge", fields: [tenantId, mergedIntoId], references: [tenantId, id])
+  mergedFrom    Patient[]            @relation("PatientMerge")
+  identifiers   PatientIdentifier[]
+  relationships AccessRelationship[]
+  breakGlass    BreakGlassGrant[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, mrn])
+  @@index([tenantId, birthDate])
+  @@index([tenantId, phoneHash])
+  @@index([tenantId, mergedIntoId])
+  @@map("patients")
+}
+
+/// P05 · Identifier eksternal pasien (NIK, no. BPJS, IHS SATUSEHAT, paspor). Nilai terenkripsi + blind index.
+/// Nilai tidak pernah diubah: koreksi = baris baru, baris lama dinonaktifkan dengan alasan (hak kolom).
+/// Maksimal satu identifier aktif per sistem per pasien (indeks unik parsial di migrasi).
+model PatientIdentifier {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  patientId           String    @map("patient_id") @db.Uuid
+  /// nik | bpjs | ihs | paspor
+  system              String
+  /// AES-256-GCM (`encryptField`, tujuan `patient_identifier`).
+  valueEnc            String    @map("value_enc")
+  /// HMAC `sistem:nilai` (`blindIndex`) untuk pencarian sama-persis tanpa menyimpan nilai.
+  valueHash           String    @map("value_hash")
+  active              Boolean   @default(true)
+  /// unverified | pending | verified | mismatch | not_found (verifikasi Dukcapil, potongan 7c)
+  verificationStatus  String    @default("unverified") @map("verification_status")
+  verifiedAt          DateTime? @map("verified_at") @db.Timestamptz(3)
+  /// Hasil verifikasi tanpa PHI (mis. field yang tidak cocok).
+  verificationDetails Json?     @map("verification_details")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?   @map("created_by") @db.Uuid
+  deactivatedAt       DateTime? @map("deactivated_at") @db.Timestamptz(3)
+  deactivatedBy       String?   @map("deactivated_by") @db.Uuid
+  deactivationReason  String?   @map("deactivation_reason")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, system, valueHash])
+  @@index([tenantId, patientId])
+  @@map("patient_identifiers")
 }

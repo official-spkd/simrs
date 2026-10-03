@@ -46,8 +46,13 @@ const EVENT_SELECT = {
   hash: true,
 } as const;
 
-/** Aksi yang membuka data pasien (dasar deteksi akses malam dan volume). */
+/** Aksi yang menyentuh data pasien (dasar deteksi akses di luar jam dinas). */
 const PATIENT_READ_ACTIONS = ['read', 'search', 'print', 'export'];
+/**
+ * Dasar temuan volume: membuka, mencetak, mengekspor rekam medis. Tampil di hasil pencarian (`search`) tidak
+ * dihitung: satu pencarian memuat hingga 20 pasien, sehingga petugas pendaftaran akan selalu melewati ambang.
+ */
+const PATIENT_VOLUME_ACTIONS = ['read', 'print', 'export'];
 const MAX_FINDINGS_PER_KIND = 50;
 
 @Injectable()
@@ -162,7 +167,7 @@ export class AuditRepository {
              count(DISTINCT patient_id)::int AS n, max(occurred_at) AS last
       FROM audit_events
       WHERE patient_id IS NOT NULL AND actor_user_id IS NOT NULL
-        AND action = ANY(${PATIENT_READ_ACTIONS}::text[])
+        AND action = ANY(${PATIENT_VOLUME_ACTIONS}::text[])
         AND occurred_at >= ${since}
       GROUP BY 1, 3
       HAVING count(DISTINCT patient_id) >= ${threshold}

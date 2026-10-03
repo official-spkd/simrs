@@ -12,6 +12,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzModule } from './modules/authz/authz.module';
 import { IamModule } from './modules/iam/iam.module';
+import { MpiModule } from './modules/mpi/mpi.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
@@ -66,6 +67,7 @@ export class AppModule {
         AuthzModule,
         TenancyModule,
         AuditModule,
+        MpiModule,
         SettingsModule,
         NumberingModule,
         FacilityModule,

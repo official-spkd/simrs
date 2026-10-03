@@ -61,3 +61,15 @@ export function periodYYMM(input: Date | string): string {
   const p = jakartaParts(input);
   return `${String(p.year % 100).padStart(2, '0')}${String(p.month).padStart(2, '0')}`;
 }
+
+/** Tanggal kalender WIB `YYYY-MM-DD` (mis. "hari ini" untuk validasi tanggal lahir). */
+export function isoDateJakarta(input: Date | string = new Date()): string {
+  const p = jakartaParts(input);
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** Tanggal saja dari `YYYY-MM-DD` (tanpa zona): `14 Mar 1972`. Untuk tanggal lahir. */
+export function formatTanggalLahir(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-').map(Number) as [number, number, number];
+  return `${d} ${BULAN[m - 1] ?? '?'} ${y}`;
+}

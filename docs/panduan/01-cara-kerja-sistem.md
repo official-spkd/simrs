@@ -125,6 +125,12 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 - **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa.
 - **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
 
+## Data pasien (MPI)
+
+Setiap pasien punya satu **nomor rekam medis** (contoh `00-41-27-88`) yang dibuat sistem dan tidak bisa diubah. NIK, no. peserta BPJS, IHS SATUSEHAT, paspor, alamat, dan no. HP disimpan terenkripsi; layar menampilkan bentuk tersamar (`3174••••••••0012`). Hanya peran tertentu (pendaftaran, rekam medis) yang bisa membuka nilai utuh, dan setiap pembukaan tercatat.
+
+Petugas mencari pasien dengan satu kotak: nomor RM, NIK, no. BPJS, IHS, atau nama (ejaan berbeda tetap ketemu). Sistem menolak pendaftaran baru dengan NIK yang sudah dipakai pasien lain dan menunjukkan nomor RM pemiliknya, sehingga rekam medis ganda tidak bertambah. Setiap pasien yang tampil di hasil pencarian atau dibuka tercatat di jejak audit. Perawat dan dokter hanya melihat pasien yang mereka rawat, kecuali lewat akses darurat.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |
@@ -139,7 +145,7 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 | Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0 |
 | Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                                | ✅ fase 1 |
 | Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1 |
-| Data           | Enkripsi kolom identitas (NIK, no. BPJS) + hash untuk pencarian                                               | ⬜ fase 1 |
+| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1 |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.
 

@@ -10,10 +10,15 @@ import { defineConfig, devices } from '@playwright/test';
  * Lokal memakai Microsoft Edge bawaan Windows (tanpa unduhan browser Playwright); set PW_CHANNEL=chromium
  * setelah `pnpm exec playwright install chromium` bila perlu (mis. CI Linux).
  */
-// Dari .env root hanya daftar putih ini (seperti next.config.ts): kunci enkripsi kolom yang sama dengan API
-// (akun uji ber-MFA dibuat langsung di simrs_test) dan URL DB tes. Memuat seluruh .env akan ikut mewariskan
+// Dari .env root hanya daftar putih ini (seperti next.config.ts): kunci enkripsi/hash kolom yang sama dengan API
+// (akun uji ber-MFA dan pasien fiktif dibuat langsung di simrs_test) dan URL DB tes. Memuat seluruh .env akan ikut mewariskan
 // NODE_ENV=development ke `next build` dan merusak build produksi.
-const ENV_ALLOWLIST = ['FIELD_ENCRYPTION_KEY', 'TEST_DATABASE_URL', 'TEST_APP_DATABASE_URL'] as const;
+const ENV_ALLOWLIST = [
+  'FIELD_ENCRYPTION_KEY',
+  'FIELD_HASH_KEY',
+  'TEST_DATABASE_URL',
+  'TEST_APP_DATABASE_URL',
+] as const;
 if (existsSync('../../.env')) {
   const parsed = parseEnv(readFileSync('../../.env', 'utf8'));
   for (const key of ENV_ALLOWLIST) {

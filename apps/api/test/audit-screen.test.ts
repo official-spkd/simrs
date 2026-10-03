@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   bearer,
   createTestApp,
+  createTestPatient,
   createTestTenant,
   createTestUser,
   login,
@@ -151,11 +152,16 @@ describe('temuan anomali', () => {
       { actor: u.kasir as TestUser, role: 'kasir', action: 'read', patientId: newId() },
       // Perawat jaga malam: bukan anomali "di luar jam dinas".
       { actor: u.perawat as TestUser, role: 'perawat', action: 'read', patientId: newId() },
+      // Tampil di hasil pencarian: dihitung untuk "di luar jam dinas", tidak untuk volume.
+      { actor: u.admin as TestUser, role: 'admin_tenant', action: 'search', patientId: newId() },
+      { actor: u.admin as TestUser, role: 'admin_tenant', action: 'search', patientId: newId() },
+      { actor: u.admin as TestUser, role: 'admin_tenant', action: 'search', patientId: newId() },
     ]);
     await as('perawat').get('/api/v1/iam/users').expect(403);
+    const patient = await createTestPatient(T.id);
     const grant = await as('perawat')
       .post('/api/v1/authz/break-glass', {
-        patientId: newId(),
+        patientId: patient.id,
         reason: 'Pasien henti napas di koridor, perlu riwayat alergi',
       })
       .expect(201);
@@ -168,6 +174,8 @@ describe('temuan anomali', () => {
     expect(byKey.get(`night:${u.kasir?.id}:${day}`)).toMatchObject({ count: 2, kind: 'night' });
     expect(byKey.has(`night:${u.perawat?.id}:${day}`)).toBe(false);
     expect(byKey.get(`volume:${u.kasir?.id}:${day}`)).toMatchObject({ count: 2, severity: 'tinggi' });
+    expect(byKey.get(`night:${u.admin?.id}:${day}`)).toMatchObject({ count: 3, kind: 'night' });
+    expect(byKey.has(`volume:${u.admin?.id}:${day}`)).toBe(false);
     expect(byKey.get(`break_glass:${grant.body.id}`)).toMatchObject({
       grantId: grant.body.id,
       actor: { id: u.perawat?.id },
@@ -259,9 +267,10 @@ describe('paket bukti dan laporan akses darurat', () => {
   });
 
   it('laporan harian akses darurat: per tanggal WIB, dengan nama pemohon; detail diaudit', async () => {
+    const { id: patientId } = await createTestPatient(T.id);
     const g = await as('perawat')
       .post('/api/v1/authz/break-glass', {
-        patientId: newId(),
+        patientId,
         reason: 'Pasien rujukan tidak sadar, perlu daftar obat rutin',
       })
       .expect(201);

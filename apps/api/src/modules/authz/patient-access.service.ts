@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AppError } from '@simrs/shared';
+import { AuditedDenial } from '../../common/audited-denial';
 import { TenantDb } from '../../infra/tenant-db';
 
 export type AccessBasis = 'role' | 'relationship' | 'break_glass';
@@ -40,14 +40,22 @@ export class PatientAccessService {
     return bg ? 'break_glass' : null;
   }
 
-  /** Lempar 403 bila tidak berhak; pesan mengarahkan ke akses darurat (yang tercatat dan ditinjau). */
+  /**
+   * Lempar 403 bila tidak berhak; pesan mengarahkan ke akses darurat (yang tercatat dan ditinjau).
+   * Penolakan dicatat `access_denied` (dengan patientId) walau transaksi permintaan batal — bahan temuan
+   * "akses ditolak berulang" di layar Audit.
+   */
   async assert(patientId: string): Promise<AccessBasis> {
     const b = await this.basis(patientId);
     if (!b) {
-      throw new AppError(
-        'FORBIDDEN',
+      throw new AuditedDenial(
         'Anda tidak terdaftar merawat pasien ini. Gunakan akses darurat bila ada alasan klinis (tercatat dan ditinjau).',
-        403,
+        {
+          resourceType: 'patient',
+          resourceId: patientId,
+          patientId,
+          details: { scope: this.db.permissionScope() },
+        },
         { breakGlassAvailable: true },
       );
     }

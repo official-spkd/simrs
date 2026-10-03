@@ -1,7 +1,14 @@
 import 'reflect-metadata';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import { createPrismaClient, ensureSystemRoles, type PrismaClient, withTenant } from '@simrs/db';
+import {
+  createPrismaClient,
+  ensureSystemRoles,
+  insertPatient,
+  type NewPatientRecord,
+  type PrismaClient,
+  withTenant,
+} from '@simrs/db';
 import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import {
@@ -9,6 +16,7 @@ import {
   encryptField,
   generateTotpSecret,
   hashPassword,
+  PatientCrypto,
   totpCode,
   totpStep,
 } from '@simrs/shared/node';
@@ -157,6 +165,29 @@ export const bearer = (t: { accessToken: string }) => ({ Authorization: `Bearer 
 
 export function testDb(): PrismaClient {
   return db();
+}
+
+/** Enkripsi identitas pasien dengan kunci .env (sama dengan API yang diuji). */
+export function testPatientCrypto(tenantId: string): PatientCrypto {
+  return new PatientCrypto(
+    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
+    tenantId,
+  );
+}
+
+/** Pasien fiktif langsung di DB (tanpa API/audit), mis. untuk relasi dan akses darurat. */
+export function createTestPatient(
+  tenantId: string,
+  rec: Partial<NewPatientRecord> = {},
+): Promise<{ id: string; mrn: string }> {
+  return withTenant(db(), tenantId, (tx) =>
+    insertPatient(tx, testPatientCrypto(tenantId), {
+      name: 'Pasien Uji Fiktif',
+      sex: 'female',
+      birthDate: '1980-01-01',
+      ...rec,
+    }),
+  );
 }
 
 /** Tenant fiktif baru (dengan 16 peran sistem) untuk tes yang butuh keadaan bersih, mis. "admin terakhir". */

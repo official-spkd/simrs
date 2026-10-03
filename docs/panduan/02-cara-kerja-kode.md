@@ -146,6 +146,27 @@ Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoi
 - Peninjau tidak boleh meninjau temuan atau akses darurat **miliknya sendiri** (`409`), dan akses darurat yang sudah ditinjau tidak bisa ditinjau ulang.
 - Query SQL temuan mengelompokkan per hari dengan `AT TIME ZONE 'Asia/Jakarta'` secara eksplisit, tidak bergantung pada zona sesi database.
 
+### Master Patient Index (P05)
+
+Modul `apps/api/src/modules/mpi/` (rute `/api/v1/patients`). Satu baris `patients` = satu rekam medis dengan nomor RM dari layanan penomoran; identifier eksternal di `patient_identifiers` (ADR-0015).
+
+| Endpoint                                | Izin                    | Catatan                                                                                                                             |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /patients?q=&birthDate=`           | `patient.read`          | Satu kotak: RM (8 digit, strip opsional), NIK (16), BPJS (13), IHS (`P…`), selain itu nama mirip (pg_trgm). Tanpa kursor, maks. 50. |
+| `POST /patients`                        | `patient.write`         | Nomor RM otomatis; NIK/BPJS/IHS/paspor yang sudah aktif di pasien lain → `409` berisi RM pemiliknya.                                |
+| `GET /patients/:id`                     | `patient.read`          | Identitas tersamar; alamat utuh; no. HP tersamar.                                                                                   |
+| `PATCH /patients/:id`                   | `patient.write`         | Ubah data identitas; rekam medis yang sudah digabung → `409`.                                                                       |
+| `PUT /patients/:id/identifiers/:system` | `patient.write`         | Isi/ganti identifier; mengganti wajib `reason`, nilai lama disimpan nonaktif.                                                       |
+| `GET /patients/:id/reveal?field=`       | `patient.identity.read` | Nilai utuh NIK/BPJS/IHS/paspor/no. HP, dicatat per pembukaan.                                                                       |
+
+Aturan yang perlu dijaga saat menambah fitur pasien:
+
+- Enkripsi lewat `PatientCrypto` (`@simrs/shared/node`) dan simpan lewat `insertPatient` (`@simrs/db`); jangan menulis NIK, alamat, atau no. HP apa adanya. CHECK database menolak nilai yang bukan format `v1.…`.
+- Normalisasi dulu (`normalizeIdentifier`, `normalizePhone`, `normalizePersonName`) agar hash dan pencarian konsisten.
+- Setiap pasien yang ditampilkan wajib masuk audit dengan `patientId` (detail `read`, daftar `search`), tanpa teks pencarian atau nilai identitas di `details`.
+- Lingkup selain `all` (perawat, dokter) hanya melihat pasien berelasi atau dengan akses darurat aktif, baik di detail (`PatientAccessService.assert`) maupun di query daftar (filter SQL sebelum `LIMIT`). Penolakan ABAC memakai `AuditedDenial` sehingga tetap tercatat.
+- Tes membuat pasien fiktif dengan `createTestPatient()` (`apps/api/test/helpers.ts`) atau `createPatient()` (E2E).
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -220,6 +241,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `roleGrantScope(tx, role, resource, action)`  | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
 | `activeAssignments(tx, userId)`               | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
 | `lockTenantScope(tx, scope)`                  | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
+| `insertPatient(tx, crypto, record)`           | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
 | `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
 | `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |

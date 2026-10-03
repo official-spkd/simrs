@@ -58,6 +58,8 @@ export class BreakGlassService {
     if (!userId) throw new AppError('UNAUTHENTICATED', 'Akses darurat membutuhkan login', 401);
     const tx = this.db.tx();
     const tenantId = this.db.tenantId();
+    const patient = await tx.patient.findUnique({ where: { id: input.patientId }, select: { id: true } });
+    if (!patient) throw new AppError('NOT_FOUND', 'Pasien tidak ditemukan', 404);
     const minutes = await readTenantSetting(tx, 'break_glass.duration_minutes');
     const grantedAt = new Date();
     const expiresAt = new Date(grantedAt.getTime() + minutes * 60_000);

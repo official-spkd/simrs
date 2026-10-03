@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   bearer,
   createTestApp,
+  createTestPatient,
   createTestTenant,
   createTestUser,
   login,
@@ -57,6 +58,7 @@ beforeAll(async () => {
   u.locked = await mk([{ code: 'koder' }]);
   u.dormant = await mk([{ code: 'akuntan' }]);
   adminTok = await login(app, u.admin);
+  const patient = await createTestPatient(T.id);
 
   await withTenant(testDb(), T.id, async (tx) => {
     await tx.user.update({
@@ -74,7 +76,7 @@ beforeAll(async () => {
           id: newId(),
           tenantId: T.id,
           userId: u.locked?.id as string,
-          patientId: newId(),
+          patientId: patient.id,
           reason: 'Alasan klinis uji yang cukup panjang',
           grantedAt,
           expiresAt: new Date(grantedAt.getTime() + 3_600_000),

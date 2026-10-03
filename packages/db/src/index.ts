@@ -24,3 +24,4 @@ export {
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
 export { activeAssignments, ensureSystemRoles, lockTenantScope, roleGrantScope } from './authz';
+export { insertPatient, toDbDate, type NewPatientRecord } from './patients';

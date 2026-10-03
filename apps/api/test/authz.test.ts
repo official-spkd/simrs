@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   bearer,
   createTestApp,
+  createTestPatient,
   createTestTenant,
   createTestUser,
   login,
@@ -144,7 +145,7 @@ describe('relasi pasien (ABAC) dan akses darurat', () => {
   });
 
   it('perawat dengan relasi aktif → boleh; relasi berakhir → tidak', async () => {
-    const patientId = newId();
+    const { id: patientId } = await createTestPatient(TENANT_A);
     await withTenant(testDb(), TENANT_A, (tx) =>
       tx.accessRelationship.create({
         data: {
@@ -160,7 +161,7 @@ describe('relasi pasien (ABAC) dan akses darurat', () => {
       allowed: true,
       basis: 'relationship',
     });
-    const ended = newId();
+    const { id: ended } = await createTestPatient(TENANT_A);
     await withTenant(testDb(), TENANT_A, (tx) =>
       tx.accessRelationship.create({
         data: {
@@ -178,7 +179,7 @@ describe('relasi pasien (ABAC) dan akses darurat', () => {
   });
 
   it('akses darurat: alasan wajib, berlaku sementara, petugas privasi diberi tahu, tercatat, lalu ditinjau', async () => {
-    const patientId = newId();
+    const { id: patientId } = await createTestPatient(TENANT_A);
     await as('perawat').post('/api/v1/authz/break-glass', { patientId, reason: 'singkat' }).expect(400);
     const reason = 'Pasien tidak sadar di IGD, DPJP belum tiba, perlu riwayat alergi';
     const g = await as('perawat').post('/api/v1/authz/break-glass', { patientId, reason }).expect(201);
