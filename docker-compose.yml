@@ -47,7 +47,7 @@ services:
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-simrs_local_secret}
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - miniodata:/data
     healthcheck:

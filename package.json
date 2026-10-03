@@ -17,7 +17,10 @@
     "db:seed": "pnpm --filter @simrs/db seed",
     "db:studio": "pnpm --filter @simrs/db studio",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "doctor": "node scripts/doctor.mjs",
+    "infra:up": "docker compose up -d",
+    "infra:ps": "docker compose ps"
   },
   "devDependencies": {
     "@types/node": "^24",
