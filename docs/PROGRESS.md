@@ -51,19 +51,19 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 
 Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); RS dikenali dari subdomain (produksi) + kolom kode RS (lokal); urutan potongan 1 dan 2 ditukar agar modul P01 langsung memakai fondasi audit.
 
-| #   | Potongan                                                                                                                        | Status | Bukti                                                 |
-| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------- |
-| 2   | P04 inti: transaksi per permintaan (`@TenantScoped`), `@Audited` di transaksi yang sama, hash berantai via trigger + verifikasi | ✅     | db 12 tes (paralel, waktu server, tamper), api 34 tes |
-| 1   | P01 struktur RS + P08 penomoran + P12 pengaturan                                                                                | ⬜     |                                                       |
-| 3   | P02 identitas & login                                                                                                           | ⬜     |                                                       |
-| 4   | P03 otorisasi + break-the-glass                                                                                                 | ⬜     |                                                       |
-| 5   | Layar Login + Akses                                                                                                             | ⬜     |                                                       |
-| 6   | Layar Audit + anomali                                                                                                           | ⬜     |                                                       |
-| 7   | P05 MPI                                                                                                                         | ⬜     |                                                       |
-| 8   | P06 master rujukan                                                                                                              | ⬜     |                                                       |
-| 9   | P07 form engine + layar Formulir                                                                                                | ⬜     |                                                       |
-| 10  | P09–P11 dokumen, TTE, notifikasi, seed staf                                                                                     | ⬜     |                                                       |
-| 11  | Penutup fase 1                                                                                                                  | ⬜     |                                                       |
+| #   | Potongan                                                                                                                        | Status | Bukti                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
+| 2   | P04 inti: transaksi per permintaan (`@TenantScoped`), `@Audited` di transaksi yang sama, hash berantai via trigger + verifikasi | ✅     | db 12 tes (paralel, waktu server, tamper), api 34 tes                                          |
+| 1   | P01 struktur RS (faskes, unit, ruang→kamar→bed) + P08 penomoran + P10 modul aktif + P12 pengaturan                              | ✅     | db 20 tes (nomor paralel/batal, FK komposit, CHECK), api 44 tes; seed 12 unit + 5 kamar per RS |
+| 3   | P02 identitas & login                                                                                                           | ⬜     |                                                                                                |
+| 4   | P03 otorisasi + break-the-glass                                                                                                 | ⬜     |                                                                                                |
+| 5   | Layar Login + Akses                                                                                                             | ⬜     |                                                                                                |
+| 6   | Layar Audit + anomali                                                                                                           | ⬜     |                                                                                                |
+| 7   | P05 MPI                                                                                                                         | ⬜     |                                                                                                |
+| 8   | P06 master rujukan                                                                                                              | ⬜     |                                                                                                |
+| 9   | P07 form engine + layar Formulir                                                                                                | ⬜     |                                                                                                |
+| 10  | P09–P11 dokumen, TTE, notifikasi, seed staf                                                                                     | ⬜     |                                                                                                |
+| 11  | Penutup fase 1                                                                                                                  | ⬜     |                                                                                                |
 
 ## Langkah berikutnya
 
@@ -99,6 +99,10 @@ Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); R
 - 4 Okt 2026 · Satu transaksi bertenant per permintaan (AsyncLocalStorage) + audit ditulis sebelum commit (gagal tertutup); handler tidak boleh memanggil sistem eksternal (pakai outbox)
 - 4 Okt 2026 · Hash berantai audit dihitung trigger database dengan advisory lock per tenant; waktu, seq, hash dari server; kanonik = larik JSON
 - 4 Okt 2026 · `pnpm with-pg <perintah>`: Postgres portabel hanya selama perintah berjalan, dihentikan bersih lewat IPC (tanpa shell)
+
+- 4 Okt 2026 · FK antar-tabel tenant memakai pasangan (tenant_id, id): FK tidak tunduk RLS
+- 4 Okt 2026 · Paginasi kursor eksplisit `id > cursor` (UUID v7); `@RequireModule` dicek di dalam transaksi permintaan
+- 4 Okt 2026 · Contoh tutorial modul API diganti ke `holidays` karena `units` kini kode nyata (P01)
 
 ## Utang teknis
 

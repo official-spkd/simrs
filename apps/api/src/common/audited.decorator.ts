@@ -8,6 +8,8 @@ export interface AuditSource {
   params: Request['params'];
   /** Query string mentah (sudah lolos validasi pipe sebelum handler berjalan). */
   query: Request['query'];
+  /** Body yang sudah lolos validasi. Gunakan hanya NAMA field untuk audit, jangan nilainya (bisa PHI). */
+  body: unknown;
   result: unknown;
 }
 
@@ -39,6 +41,17 @@ export const resultId = ({ result }: AuditSource): string | undefined =>
 export const queryPatientId = ({ query }: AuditSource): string | undefined =>
   typeof query.patientId === 'string' ? query.patientId : undefined;
 
+/** Nama field yang dikirim (tanpa nilai) untuk `details` audit perubahan. */
+export const changedFields = ({ body }: AuditSource): Record<string, unknown> | undefined =>
+  typeof body === 'object' && body !== null ? { fields: Object.keys(body).sort() } : undefined;
+
+/** Ambil parameter rute bernama (hanya bila string tunggal). */
+export const param =
+  (name: string) =>
+  ({ params }: AuditSource): string | undefined => {
+    const v = params[name];
+    return typeof v === 'string' ? v : undefined;
+  };
+
 /** Ambil parameter rute `:id`. */
-export const paramId = ({ params }: AuditSource): string | undefined =>
-  typeof params.id === 'string' ? params.id : undefined;
+export const paramId = param('id');

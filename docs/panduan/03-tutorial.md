@@ -43,6 +43,12 @@ Untuk mesin yang belum bisa menjalankan Docker. Hanya Postgres; Redis, MinIO, da
 pnpm pg:portable     # biarkan jendela ini terbuka; Ctrl+C untuk berhenti
 ```
 
+Atau nyalakan Postgres hanya selama satu perintah, lalu otomatis dimatikan:
+
+```powershell
+pnpm with-pg pnpm test
+```
+
 Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker.
 
 ### Siapkan database pengembangan
@@ -106,169 +112,184 @@ Di panel mock (http://127.0.0.1:4100), tabel "Pesan outbox diterima" menampilkan
 
 ## 4. Membuat modul API baru
 
-Contoh: master **unit layanan** (`units`, bagian dari P01). Pola ini berlaku untuk semua modul.
+Contoh: master **hari libur RS** (`holidays`), yang nanti dipakai jadwal dokter (F01). Pola ini berlaku untuk semua modul. Contoh nyata yang sudah ada dan bisa ditiru: `apps/api/src/modules/facility/` (P01).
 
 ### 4a. Model dan migrasi dengan RLS
 
-Tambahkan model di `packages/db/prisma/schema.prisma`:
+Tambahkan model di `packages/db/prisma/schema.prisma`. Setiap referensi ke tabel tenant lain memakai **FK komposit `(tenantId, …)`**, karena FK tidak tunduk RLS: tanpa itu sebuah baris bisa menunjuk (dan memastikan keberadaan) baris milik RS lain.
 
 ```prisma
-/// P01 · Unit layanan (instalasi, poli, bangsal, depo). Master: tidak dihapus, dinonaktifkan.
-model Unit {
-  id        String   @id @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  code      String
-  name      String
-  kind      String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+/// F01 · Hari libur RS (berlaku untuk seluruh faskes atau satu faskes).
+model Holiday {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  facilityId String?  @map("facility_id") @db.Uuid
+  date       DateTime @db.Date
+  name       String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  facility Facility? @relation(fields: [tenantId, facilityId], references: [tenantId, id])
 
-  @@unique([tenantId, code])
-  @@map("units")
+  @@unique([tenantId, facilityId, date])
+  @@map("holidays")
 }
 ```
 
-Tambahkan juga `units Unit[]` di model `Tenant`. Lalu buat migrasi **tanpa langsung menerapkannya**:
+Tambahkan relasi balik (`holidays Holiday[]`) di model `Tenant` dan `Facility`. Lalu buat migrasi **tanpa langsung menerapkannya**:
 
 ```powershell
-pnpm --filter @simrs/db exec prisma migrate dev --create-only --name units
+pnpm --filter @simrs/db exec prisma migrate dev --create-only --name holidays
 ```
 
-Buka berkas `migration.sql` yang baru dan **tambahkan blok RLS di bawahnya**. Tabel domain tanpa blok ini adalah kebocoran data antar-RS.
+Buka `migration.sql` yang baru dan **tambahkan blok ini di bawahnya**. Tabel domain tanpa blok ini adalah kebocoran data antar-RS.
 
 ```sql
-ALTER TABLE "units" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "units" FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON "units"
+ALTER TABLE "holidays" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "holidays" FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON "holidays"
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 
--- Master data tidak dihapus (pakai kolom active).
-GRANT SELECT, INSERT, UPDATE ON "units" TO simrs_app;
-REVOKE DELETE ON "units" FROM simrs_app;
+-- Master tidak dihapus (pakai kolom active). DELETE dicabut eksplisit karena default privileges
+-- di init.sql memberikannya otomatis untuk tabel baru.
+GRANT SELECT, INSERT, UPDATE ON "holidays" TO simrs_app;
+REVOKE DELETE, TRUNCATE ON "holidays" FROM simrs_app;
 ```
 
-Terapkan: `pnpm db:migrate`, lalu `pnpm --filter @simrs/db build`.
+Terapkan: `pnpm db:migrate`, lalu `pnpm --filter @simrs/db build`. Migrasi yang sudah diterapkan di mana pun **tidak diubah lagi**; perbaikan selalu migrasi baru.
 
 ### 4b. Skema validasi bersama
 
-Skema zod disimpan di `packages/shared` agar dipakai API dan web, misalnya `packages/shared/src/schemas/unit.ts`:
+Skema zod disimpan di `packages/shared/src/schemas/` agar dipakai API dan web. Contoh `holiday.ts`:
 
 ```ts
 import { z } from 'zod';
 
-export const UNIT_KINDS = ['instalasi', 'poli', 'bangsal', 'depo'] as const;
-
-export const createUnitSchema = z.strictObject({
-  code: z.string().regex(/^[A-Z0-9-]{2,20}$/, 'Kode 2–20 huruf kapital/angka/strip'),
+export const createHolidaySchema = z.strictObject({
+  facilityId: z.uuid().optional(),
+  date: z.iso.date(),
   name: z.string().trim().min(2).max(120),
-  kind: z.enum(UNIT_KINDS),
 });
-export type CreateUnitInput = z.infer<typeof createUnitSchema>;
+export type CreateHolidayInput = z.infer<typeof createHolidaySchema>;
 ```
 
-Ekspor dari `packages/shared/src/index.ts`, lalu `pnpm --filter @simrs/shared build`.
+Ekspor dari `packages/shared/src/index.ts`, lalu `pnpm --filter @simrs/shared build`. `strictObject` menolak field tak dikenal, sehingga klien tidak bisa menyelipkan `tenantId` atau field lain.
 
 ### 4c. Repository, service, controller
 
-`apps/api/src/modules/units/units.repository.ts`:
+**Repository** (`apps/api/src/modules/holidays/holidays.repository.ts`) memakai `TenantDb`: transaksi permintaan yang sudah ber-RLS. Jangan membuka transaksi sendiri dan jangan menerima `tenantId` dari luar.
 
 ```ts
 import { Injectable } from '@nestjs/common';
-import { newId, type CreateUnitInput } from '@simrs/shared';
-import { PrismaService } from '../../infra/prisma.service';
+import { newId, type CreateHolidayInput } from '@simrs/shared';
+import { TenantDb } from '../../infra/tenant-db';
 
-const UNIT_SELECT = { id: true, code: true, name: true, kind: true, active: true } as const;
+const HOLIDAY_SELECT = { id: true, facilityId: true, date: true, name: true, active: true } as const;
 
 @Injectable()
-export class UnitsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class HolidaysRepository {
+  constructor(private readonly db: TenantDb) {}
 
-  list(tenantId: string) {
-    return this.prisma.forTenant(tenantId, (tx) =>
-      tx.unit.findMany({ where: { active: true }, orderBy: { name: 'asc' }, select: UNIT_SELECT }),
-    );
+  list() {
+    return this.db
+      .tx()
+      .holiday.findMany({ where: { active: true }, orderBy: { date: 'asc' }, select: HOLIDAY_SELECT });
   }
 
-  create(tenantId: string, input: CreateUnitInput) {
-    return this.prisma.forTenant(tenantId, (tx) =>
-      tx.unit.create({ data: { id: newId(), tenantId, ...input }, select: UNIT_SELECT }),
-    );
+  create(input: CreateHolidayInput) {
+    const actor = this.db.actorUserId();
+    return this.db.tx().holiday.create({
+      data: {
+        id: newId(),
+        tenantId: this.db.tenantId(),
+        facilityId: input.facilityId,
+        date: new Date(input.date),
+        name: input.name,
+        createdBy: actor,
+        updatedBy: actor,
+      },
+      select: HOLIDAY_SELECT,
+    });
   }
 }
 ```
 
-`units.service.ts` berisi aturan bisnis. Contoh: kode unit unik per RS, sehingga pelanggaran unik Prisma (`P2002`) diterjemahkan menjadi `CONFLICT`:
+**Service** berisi aturan bisnis dan melempar `AppError` berkode. Galat database yang umum tidak perlu ditangkap: tanggal ganda (unik, P2002) otomatis menjadi `409 CONFLICT` dan referensi faskes yang tidak valid (P2003) menjadi `400` oleh `AppErrorFilter`.
 
 ```ts
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@simrs/db';
-import { AppError, type CreateUnitInput } from '@simrs/shared';
-import { UnitsRepository } from './units.repository';
+import { AppError, type CreateHolidayInput } from '@simrs/shared';
+import { HolidaysRepository } from './holidays.repository';
 
 @Injectable()
-export class UnitsService {
-  constructor(private readonly repo: UnitsRepository) {}
+export class HolidaysService {
+  constructor(private readonly repo: HolidaysRepository) {}
 
-  list(tenantId: string) {
-    return this.repo.list(tenantId);
+  list() {
+    return this.repo.list();
   }
 
-  async create(tenantId: string, input: CreateUnitInput) {
-    try {
-      return await this.repo.create(tenantId, input);
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-        throw new AppError('CONFLICT', 'Kode unit sudah dipakai', 409);
-      }
-      throw e;
+  create(input: CreateHolidayInput) {
+    if (new Date(input.date).getUTCFullYear() < 2000) {
+      throw new AppError('VALIDATION_FAILED', 'Tanggal libur tidak wajar', 400);
     }
+    return this.repo.create(input);
   }
 }
 ```
 
-`units.controller.ts` tetap tipis:
+**Controller** tetap tipis. Tiga dekorator wajib dipahami:
+
+| Dekorator               | Fungsi                                                                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@TenantScoped()`       | Menetapkan tenant + membuka **satu transaksi ber-RLS untuk seluruh permintaan**. Wajib untuk semua controller yang menyentuh data tenant.            |
+| `@Audited({...})`       | Menulis jejak audit **di transaksi yang sama**. Bila permintaan gagal, data dan auditnya sama-sama batal; bila audit gagal, data tidak dikembalikan. |
+| `@RequireModule('F01')` | Endpoint hanya aktif bila modul aktif untuk RS ini (P10). Modul mati → `403 MODULE_DISABLED`.                                                        |
 
 ```ts
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { createUnitSchema, type CreateUnitInput } from '@simrs/shared';
+import { createHolidaySchema, type CreateHolidayInput } from '@simrs/shared';
+import { Audited, resultId } from '../../common/audited.decorator';
+import { RequireModule } from '../../common/require-module.decorator';
+import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import { CurrentTenant, TenantGuard } from '../tenancy/tenant-context';
-import { UnitsService } from './units.service';
+import { HolidaysService } from './holidays.service';
 
-@ApiTags('units')
-@UseGuards(TenantGuard)
-@Controller('units')
-export class UnitsController {
-  constructor(private readonly units: UnitsService) {}
+@ApiTags('holidays (F01)')
+@TenantScoped()
+@RequireModule('F01')
+@Controller('holidays')
+export class HolidaysController {
+  constructor(private readonly holidays: HolidaysService) {}
 
   @Get()
-  list(@CurrentTenant() tenantId: string) {
-    return this.units.list(tenantId);
+  list() {
+    return this.holidays.list();
   }
 
   @Post()
-  create(
-    @CurrentTenant() tenantId: string,
-    @Body(new ZodValidationPipe(createUnitSchema)) body: CreateUnitInput,
-  ) {
-    return this.units.create(tenantId, body);
+  @Audited({ action: 'create', resource: 'holiday', resourceId: resultId })
+  create(@Body(new ZodValidationPipe(createHolidaySchema)) body: CreateHolidayInput) {
+    return this.holidays.create(body);
   }
 }
 ```
 
-Daftarkan di `units.module.ts` (impor `TenancyModule` untuk `TenantGuard`), lalu tambahkan `UnitsModule` ke daftar `imports` di `AppModule.forRoot`.
+Untuk data pasien, isi juga `patientId` di `@Audited` (atau panggil `TenantDb.audit(...)` dari service untuk setiap pasien yang tampil di daftar). Untuk perubahan, pakai `details: changedFields` agar audit mencatat **nama** field yang berubah, bukan nilainya.
+
+Daftarkan provider di `holidays.module.ts`, lalu tambahkan `HolidaysModule` ke daftar `imports` di `AppModule.forRoot`. Handler **tidak boleh** memanggil sistem eksternal (transaksi masih terbuka); kirim lewat outbox (§6).
 
 ### 4d. Tes wajib
 
-`apps/api/test/units.test.ts`. Minimal: tenant B tidak melihat unit tenant A, input salah ditolak, dan kode ganda menjadi `CONFLICT`.
+`apps/api/test/holidays.test.ts`. Minimal: tenant B tidak melihat data tenant A, input salah ditolak, data ganda menjadi `CONFLICT`, dan perubahan tercatat di audit. Contoh lengkap pola tes ada di `apps/api/test/facility.test.ts`.
 
 ```ts
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { newId } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createTestApp, TENANT_A, TENANT_B } from './helpers';
@@ -277,19 +298,22 @@ let app: NestExpressApplication;
 beforeAll(async () => (app = await createTestApp()));
 afterAll(async () => app?.close());
 
-it('unit tenant A tidak terlihat oleh tenant B', async () => {
-  const code = `U-${newId().slice(-8).toUpperCase()}`;
+it('hari libur tenant A tidak terlihat oleh tenant B', async () => {
+  const name = `Libur uji ${Date.now()}`;
   await request(app.getHttpServer())
-    .post('/api/v1/units')
+    .post('/api/v1/holidays')
     .set('X-Tenant-Id', TENANT_A)
-    .send({ code, name: 'Poli Fiktif', kind: 'poli' })
+    .send({ date: '2031-12-25', name })
     .expect(201);
-  const b = await request(app.getHttpServer()).get('/api/v1/units').set('X-Tenant-Id', TENANT_B).expect(200);
-  expect(b.body.map((u: { code: string }) => u.code)).not.toContain(code);
+  const b = await request(app.getHttpServer())
+    .get('/api/v1/holidays')
+    .set('X-Tenant-Id', TENANT_B)
+    .expect(200);
+  expect(b.body.map((h: { name: string }) => h.name)).not.toContain(name);
 });
 ```
 
-Jalankan `pnpm --filter @simrs/api test`, lalu catat modul di `docs/PROGRESS.md`. Mulai fase 1, tambahkan juga tes izin (peran yang tidak berhak menerima 403).
+Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --filter @simrs/api test`), lalu catat modul di `docs/PROGRESS.md`. Mulai potongan otorisasi fase 1, tambahkan juga tes izin (peran yang tidak berhak menerima 403).
 
 ## 5. Membuat layar web dari mockup
 
@@ -345,15 +369,15 @@ Sebelum commit:
 
 ## 8. Pemecahan masalah
 
-| Gejala                                              | Penyebab dan solusi                                                                                                                                                                   |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Docker: "virtualization is not enabled" / galat 500 | Aktifkan virtualisasi di BIOS, `wsl --install --no-distribution` (Admin), restart. Sementara itu pakai `pnpm pg:portable`.                                                            |
-| `corepack enable` gagal EPERM                       | Folder Node di Program Files butuh admin. Pakai `--install-directory "$env:APPDATA\npm"`.                                                                                             |
-| Port 9001 sudah dipakai                             | Program lain (mis. Laravel Herd). Setel `MINIO_CONSOLE_PORT=9011` di `.env`.                                                                                                          |
-| `TENANT_REQUIRED` di tes atau log                   | Query dijalankan di luar `withTenant`/`forTenant`. Bungkus akses data dengan helper itu.                                                                                              |
-| `new row violates row-level security policy`        | Menulis baris dengan `tenant_id` berbeda dari konteks. Ambil `tenantId` dari `@CurrentTenant()`, jangan dari body.                                                                    |
-| Tes: "prisma migrate deploy gagal untuk simrs_test" | Postgres mati, atau migrasi lama diubah. Jalankan Postgres. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (menghapus simrs_test saja).                                      |
-| Prisma menolak `migrate reset` dari agen AI         | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
-| `/docs` atau `/superadmin` 404                      | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
-| Tes worker: "Redis tidak terjangkau"                | Redis butuh Docker (`pnpm infra:up`). Tes ini sengaja tidak dilewati.                                                                                                                 |
-| `pnpm install`: "Ignored build scripts"             | pnpm memblokir skrip instalasi yang belum disetujui. Periksa paketnya, lalu `pnpm approve-builds <paket>` atau tolak dengan `!<paket>`. Keputusan tersimpan di `pnpm-workspace.yaml`. |
+| Gejala                                                       | Penyebab dan solusi                                                                                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docker: "virtualization is not enabled" / galat 500          | Aktifkan virtualisasi di BIOS, `wsl --install --no-distribution` (Admin), restart. Sementara itu pakai `pnpm pg:portable`.                                                            |
+| `corepack enable` gagal EPERM                                | Folder Node di Program Files butuh admin. Pakai `--install-directory "$env:APPDATA\npm"`.                                                                                             |
+| Port 9001 sudah dipakai                                      | Program lain (mis. Laravel Herd). Setel `MINIO_CONSOLE_PORT=9011` di `.env`.                                                                                                          |
+| `TENANT_REQUIRED` atau "Akses data di luar transaksi tenant" | Controller lupa `@TenantScoped()`, atau kode di luar permintaan (seed, worker) tidak memakai `withTenant`.                                                                            |
+| `new row violates row-level security policy`                 | Menulis baris dengan `tenant_id` berbeda dari konteks. Ambil `tenantId` dari `@CurrentTenant()`, jangan dari body.                                                                    |
+| Tes: "prisma migrate deploy gagal untuk simrs_test"          | Postgres mati, atau migrasi lama diubah. Jalankan Postgres. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (menghapus simrs_test saja).                                      |
+| Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
+| `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
+| Tes worker: "Redis tidak terjangkau"                         | Redis butuh Docker (`pnpm infra:up`). Tes ini sengaja tidak dilewati.                                                                                                                 |
+| `pnpm install`: "Ignored build scripts"                      | pnpm memblokir skrip instalasi yang belum disetujui. Periksa paketnya, lalu `pnpm approve-builds <paket>` atau tolak dengan `!<paket>`. Keputusan tersimpan di `pnpm-workspace.yaml`. |

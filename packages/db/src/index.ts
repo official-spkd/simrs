@@ -1,6 +1,8 @@
 export {
   createPrismaClient,
   isTenantRequiredError,
+  knownDbError,
+  type KnownDbError,
   listActiveTenantIds,
   Prisma,
   PrismaClient,
@@ -18,3 +20,4 @@ export {
   type AttemptResult,
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
+export { allocateNumber, isModuleEnabled, type AllocatedNumber } from './platform';

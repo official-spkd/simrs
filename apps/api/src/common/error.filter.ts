@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import { isTenantRequiredError } from '@simrs/db';
+import { isTenantRequiredError, type KnownDbError, knownDbError } from '@simrs/db';
 import { AppError, type ErrorBody, type ErrorCode } from '@simrs/shared';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
@@ -23,6 +23,33 @@ function isBodyParserError(e: unknown): e is { type: string; status: number } {
     (e as { type: string }).type.startsWith('entity.') &&
     typeof (e as { status?: unknown }).status === 'number'
   );
+}
+
+/**
+ * Galat Prisma yang punya makna untuk klien. Hanya nama field (bukan nilai) yang dikembalikan.
+ * Kode lain jatuh ke INTERNAL_ERROR (dan tercatat di log tanpa pesan).
+ */
+function mapDbError(e: KnownDbError): [number, ErrorBody] | null {
+  switch (e.code) {
+    case 'P2002':
+      return [
+        409,
+        {
+          code: 'CONFLICT',
+          message: 'Data dengan kunci yang sama sudah ada',
+          details: e.fields ? { fields: e.fields } : undefined,
+        },
+      ];
+    case 'P2003':
+      return [400, { code: 'VALIDATION_FAILED', message: 'Referensi ke data lain tidak valid' }];
+    case 'P2004':
+    case 'P2011':
+      return [400, { code: 'VALIDATION_FAILED', message: 'Data melanggar aturan validasi' }];
+    case 'P2025':
+      return [404, { code: 'NOT_FOUND', message: 'Data tidak ditemukan' }];
+    default:
+      return null;
+  }
 }
 
 /**
@@ -77,6 +104,15 @@ export class AppErrorFilter implements ExceptionFilter {
     }
     if (isTenantRequiredError(e)) {
       return [400, { code: 'TENANT_REQUIRED', message: 'Konteks tenant wajib untuk permintaan ini' }];
+    }
+    const dbError = knownDbError(e);
+    if (dbError) {
+      const mapped = mapDbError(dbError);
+      if (mapped) return mapped;
+    }
+    if (e instanceof Error && /row-level security/i.test(e.message)) {
+      // Menulis baris atas nama tenant lain: bug program atau upaya manipulasi.
+      return [403, { code: 'TENANT_MISMATCH', message: 'Data bukan milik tenant ini' }];
     }
     if (isBodyParserError(e)) {
       return e.type === 'entity.too.large'

@@ -52,23 +52,40 @@ Tes memakai `configureApp` yang sama lewat `test/helpers.ts`, sehingga perilaku 
 
 ```
 Express:  securityHeaders → CORS → body parser (1 MB) → pino-http (X-Request-Id)
-Nest:     ThrottlerGuard (global) → TenantGuard (per controller) → pipe validasi (zod / ParseUUID)
-          → Controller → Service → Repository → PrismaService.forTenant(tenantId, fn)
-DB:       BEGIN · set_config('app.tenant_id', $1, true) · query (RLS aktif) · COMMIT
-Galat:    di mana pun → AppErrorFilter → { code, message, details?, requestId }
+Nest:     ThrottlerGuard (global) → TenantGuard (@TenantScoped) → pipe validasi (zod / ParseUUID)
+          → TenantTransactionInterceptor: BEGIN · set_config(app.tenant_id) · cek @RequireModule
+              → Controller → Service → Repository (TenantDb.tx(), RLS aktif)
+              → tulis audit (@Audited + TenantDb.audit) · COMMIT
+Galat:    di mana pun → ROLLBACK (data + audit batal) → AppErrorFilter → { code, message, details?, requestId }
 ```
+
+Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditnya selalu konsisten, nomor dokumen yang dialokasikan ikut batal bila permintaan gagal, dan **handler tidak boleh memanggil sistem eksternal** (transaksi masih terbuka) — kirim lewat outbox.
+
+### Fondasi di `src/common` dan `src/infra`
+
+| Berkas                                     | Isi                                                                                                         |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `TenantGuard` + `TenantTransactionInterceptor`                                          |
+| `common/tenant-transaction.interceptor.ts` | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
+| `common/request-context.ts`                | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku, antrean audit                            |
+| `infra/tenant-db.ts`                       | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant |
+| `common/audited.decorator.ts`              | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`               |
+| `common/require-module.decorator.ts`       | `@RequireModule(code)` untuk feature flag per RS                                                            |
+| `common/pagination.ts`                     | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
+
+Contoh modul lengkap: `modules/facility/` (P01) dan `modules/settings/` (P10, P12).
 
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
 
-| Berkas                  | Tanggung jawab                               | Boleh                                              | Tidak boleh                             |
-| ----------------------- | -------------------------------------------- | -------------------------------------------------- | --------------------------------------- |
-| `tenancy.controller.ts` | Rute, guard, pipe validasi                   | memanggil service                                  | menyentuh Prisma, menulis aturan bisnis |
-| `tenancy.service.ts`    | Aturan bisnis, lempar `AppError` berkode     | memanggil repository dan service publik modul lain | menyentuh Prisma langsung               |
-| `tenancy.repository.ts` | Akses data, selalu lewat `forTenant`         | Prisma, `select` eksplisit                         | aturan bisnis                           |
-| `tenant-context.ts`     | `TenantGuard` + dekorator `@CurrentTenant()` |                                                    |                                         |
-| `tenancy.module.ts`     | Mendaftarkan semuanya                        |                                                    |                                         |
+| Berkas                  | Tanggung jawab                                          | Boleh                                              | Tidak boleh                             |
+| ----------------------- | ------------------------------------------------------- | -------------------------------------------------- | --------------------------------------- |
+| `tenancy.controller.ts` | Rute, guard, pipe validasi                              | memanggil service                                  | menyentuh Prisma, menulis aturan bisnis |
+| `tenancy.service.ts`    | Aturan bisnis, lempar `AppError` berkode                | memanggil repository dan service publik modul lain | menyentuh Prisma langsung               |
+| `tenancy.repository.ts` | Akses data lewat `TenantDb.tx()` (transaksi permintaan) | Prisma, `select` eksplisit                         | aturan bisnis                           |
+| `tenant-context.ts`     | `TenantGuard` (dipasang lewat `@TenantScoped()`)        |                                                    |                                         |
+| `tenancy.module.ts`     | Mendaftarkan semuanya                                   |                                                    |                                         |
 
 Modul lain hanya boleh memakai yang diekspor di `*.module.ts`, bukan mengimpor repository modul lain.
 
@@ -111,22 +128,27 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Fungsi database
 
-| Fungsi                    | Guna                                                                                   |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `app_current_tenant()`    | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong. |
-| `app_active_tenant_ids()` | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).       |
-| `app_reject_mutation()`   | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).          |
+| Fungsi                     | Guna                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app_current_tenant()`     | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong.                                                         |
+| `app_active_tenant_ids()`  | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).                                                               |
+| `app_reject_mutation()`    | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                  |
+| `app_audit_chain()`        | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant. |
+| `app_verify_audit_chain()` | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                       |
 
 ### Helper di `@simrs/db`
 
-| Ekspor                                        | Guna                                                                                         |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `createPrismaClient({ connectionString })`    | Klien Prisma 7 dengan driver adapter `pg`.                                                   |
-| `withTenant(prisma, tenantId, fn)`            | Transaksi + `SET LOCAL app.tenant_id`. Semua akses data domain lewat sini.                   |
-| `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                 |
-| `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                             |
-| `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                         |
-| `@simrs/db/testing` → `prepareTestDatabase()` | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`. |
+| Ekspor                                        | Guna                                                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `createPrismaClient({ connectionString })`    | Klien Prisma 7 dengan driver adapter `pg`.                                                               |
+| `withTenant(prisma, tenantId, fn)`            | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.             |
+| `allocateNumber(tx, tenantId, kind)`          | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
+| `isModuleEnabled(tx, code)`                   | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
+| `verifyAuditChain(tx)`                        | P04 · Periksa hash berantai audit tenant aktif.                                                          |
+| `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
+| `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
+| `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
+| `@simrs/db/testing` → `prepareTestDatabase()` | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`.             |
 
 ## Worker
 
@@ -232,7 +254,9 @@ Aturan:
 
 ## Daftar periksa keamanan per perubahan
 
-- [ ] Semua akses data lewat `forTenant` / `withTenant`; tidak ada koneksi role migrator di runtime.
+- [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
+- [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).
+- [ ] FK antar-tabel tenant memakai pasangan `(tenant_id, id)`.
 - [ ] Tabel domain baru: `tenant_id` + `ENABLE` + `FORCE` RLS + kebijakan `tenant_isolation` + GRANT minimal.
 - [ ] Input divalidasi zod (`strictObject` untuk body); output memakai `select` eksplisit.
 - [ ] Galat memakai `AppError` dengan kode dari `ERROR_CODES`; tidak ada detail internal ke klien.

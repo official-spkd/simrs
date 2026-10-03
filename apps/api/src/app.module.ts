@@ -9,6 +9,9 @@ import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
+import { FacilityModule } from './modules/facility/facility.module';
+import { NumberingModule } from './modules/numbering/numbering.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 
 /**
@@ -47,6 +50,9 @@ export class AppModule {
         HealthModule,
         TenancyModule,
         AuditModule,
+        SettingsModule,
+        NumberingModule,
+        FacilityModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],

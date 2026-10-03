@@ -19,3 +19,28 @@ export const SEED_TENANTS = [
     hospitalClass: 'C',
   },
 ] as const;
+
+/** Struktur RS fiktif yang sama untuk setiap tenant seed (kode unik per tenant). */
+export const SEED_UNITS = [
+  { code: 'IGD', name: 'Instalasi Gawat Darurat', kind: 'igd' },
+  { code: 'POLI-DALAM', name: 'Poli Penyakit Dalam', kind: 'poli' },
+  { code: 'POLI-ANAK', name: 'Poli Anak', kind: 'poli' },
+  { code: 'POLI-BEDAH', name: 'Poli Bedah', kind: 'poli' },
+  { code: 'MELATI', name: 'Bangsal Melati', kind: 'rawat_inap' },
+  { code: 'MAWAR', name: 'Bangsal Mawar', kind: 'rawat_inap' },
+  { code: 'LAB', name: 'Laboratorium Patologi Klinik', kind: 'penunjang' },
+  { code: 'RAD', name: 'Radiologi', kind: 'penunjang' },
+  { code: 'FARMASI', name: 'Instalasi Farmasi', kind: 'farmasi' },
+  { code: 'OK', name: 'Kamar Operasi', kind: 'kamar_operasi' },
+  { code: 'REKAM-MEDIS', name: 'Unit Rekam Medis', kind: 'administrasi' },
+  { code: 'KASIR', name: 'Kasir', kind: 'administrasi' },
+] as const;
+
+/** Kamar dan bed: [kode unit, kode kamar, nama, kelas, jumlah bed]. */
+export const SEED_ROOMS = [
+  ['MELATI', 'MLT-101', 'Melati 101 (VIP)', 'vip', 1],
+  ['MELATI', 'MLT-201', 'Melati 201', 'kelas_2', 2],
+  ['MELATI', 'MLT-301', 'Melati 301', 'kelas_3', 4],
+  ['MAWAR', 'MWR-101', 'Mawar 101', 'kelas_1', 2],
+  ['MAWAR', 'MWR-ISO', 'Mawar Isolasi', 'isolasi', 1],
+] as const;

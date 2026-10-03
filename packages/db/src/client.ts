@@ -64,3 +64,20 @@ export async function verifyAuditChain(tx: TenantTx): Promise<AuditChainResult> 
   const row = rows[0];
   return { checked: Number(row?.checked ?? 0), firstBrokenSeq: row?.first_broken_seq ?? null };
 }
+
+export interface KnownDbError {
+  /** Kode Prisma, mis. P2002 (unik), P2003 (FK), P2025 (tidak ditemukan). */
+  code: string;
+  /** Nama kolom/constraint yang terlibat (bukan nilai). */
+  fields?: string[];
+}
+
+/** Ringkas galat database yang dikenal tanpa membawa pesan/nilai (bisa memuat PHI). */
+export function knownDbError(err: unknown): KnownDbError | null {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return null;
+  const target = (err.meta as { target?: unknown } | undefined)?.target;
+  return {
+    code: err.code,
+    fields: Array.isArray(target) ? target.filter((t): t is string => typeof t === 'string') : undefined,
+  };
+}

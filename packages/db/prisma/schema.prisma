@@ -30,6 +30,12 @@ model Tenant {
   deliveryAttempts DeliveryAttempt[]
   inboundEvents    InboundEvent[]
   auditEvents      AuditEvent[]
+  facilities       Facility[]
+  units            Unit[]
+  locations        Location[]
+  modules          TenantModule[]
+  settings         TenantSetting[]
+  numberSequences  NumberSequence[]
 
   @@map("tenants")
 }
@@ -129,4 +135,125 @@ model AuditEvent {
   @@index([tenantId, patientId, occurredAt])
   @@index([tenantId, actorUserId, occurredAt])
   @@map("audit_events")
+}
+
+/// P01 · Faskes/cabang milik tenant (RS). Master: tidak dihapus, dinonaktifkan (active = false).
+model Facility {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String
+  name         String
+  kemenkesCode String?  @map("kemenkes_code")
+  address      String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  units  Unit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("facilities")
+}
+
+/// P01 · Unit layanan (instalasi, poli, IGD, bangsal, penunjang, farmasi, OK, administrasi).
+model Unit {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  facilityId String   @map("facility_id") @db.Uuid
+  parentId   String?  @map("parent_id") @db.Uuid
+  code       String
+  name       String
+  kind       String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
+  facility  Facility   @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent    Unit?      @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children  Unit[]     @relation("UnitTree")
+  locations Location[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, facilityId])
+  @@map("units")
+}
+
+/// P01 · Lokasi fisik: ruang → kamar → bed. Kelas perawatan dipakai Aplicare/BPJS dan tarif.
+model Location {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  unitId              String   @map("unit_id") @db.Uuid
+  parentId            String?  @map("parent_id") @db.Uuid
+  kind                String
+  code                String
+  name                String
+  careClass           String?  @map("care_class")
+  satusehatLocationId String?  @map("satusehat_location_id")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?  @map("created_by") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  unit     Unit       @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  parent   Location?  @relation("LocationTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children Location[] @relation("LocationTree")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, unitId])
+  @@map("locations")
+}
+
+/// P10 · Modul aktif per RS (feature flag). Tidak ada baris = bawaan katalog (MVP aktif).
+model TenantModule {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  moduleCode String   @map("module_code")
+  enabled    Boolean
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, moduleCode])
+  @@map("tenant_modules")
+}
+
+/// P12 · Pengaturan per RS. Kunci dan bentuk nilai divalidasi registri di @simrs/shared (kunci asing ditolak).
+model TenantSetting {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
+  @@map("tenant_settings")
+}
+
+/// P08 · Penomoran dokumen per tenant × jenis × periode. Nilai hanya naik; nomor tidak pernah dipakai ulang.
+model NumberSequence {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  kind      String
+  /// '' untuk nomor tanpa periode (No. RM), 'YYMM' untuk dokumen bulanan.
+  period    String
+  lastValue BigInt   @map("last_value")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, kind, period])
+  @@map("number_sequences")
 }

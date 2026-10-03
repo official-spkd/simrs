@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { INTEGRATION_TARGETS } from '@simrs/shared';
 import { z } from 'zod';
 import { Audited, resultId } from '../../common/audited.decorator';
+import { RequireModule } from '../../common/require-module.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { DevToolsService } from './dev-tools.service';
@@ -13,6 +14,7 @@ type PingBody = z.infer<typeof pingSchema>;
 /** Endpoint bantu pengembangan. Modulnya hanya didaftarkan bila dev tools aktif (lihat AppModule). */
 @ApiTags('dev (non-produksi)')
 @TenantScoped()
+@RequireModule('I01')
 @Controller('dev')
 export class DevToolsController {
   constructor(private readonly dev: DevToolsService) {}
