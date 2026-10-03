@@ -1,0 +1,25 @@
+{
+  "name": "@simrs/mock",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/main.ts",
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@simrs/shared": "workspace:*",
+    "fastify": "^5.12.5",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@simrs/config": "workspace:*",
+    "eslint": "^10",
+    "tsx": "^4",
+    "vitest": "^5"
+  }
+}
