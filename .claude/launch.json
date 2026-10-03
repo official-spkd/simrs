@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@simrs/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "mock",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@simrs/mock", "dev"],
+      "port": 4100
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+/*
+ * Token Klinis Bersih (sumber: design/tokens.json, design/tokens.css) sebagai tema Tailwind v4.
+ * Dipakai lewat `@import '@simrs/ui/theme.css';` setelah `@import 'tailwindcss';`.
+ * Kelas yang tersedia: bg-brand-600, text-ink-700, border-line, bg-danger-bg, rounded-control, rounded-card, dst.
+ */
+@theme {
+  --color-brand-50: #e6f4f1;
+  --color-brand-100: #d5ece7;
+  --color-brand-200: #bfddd8;
+  --color-brand-500: #1d7e77;
+  --color-brand-600: #0f766e;
+  --color-brand-700: #0b5d56;
+  --color-brand-800: #0d6861;
+
+  --color-ink-900: #14212b;
+  --color-ink-700: #3f4c58;
+  --color-ink-500: #5b6b79;
+  --color-ink-400: #8c99a6;
+
+  --color-line: #e3e8ee;
+  --color-line-strong: #cbd3db;
+  --color-line-soft: #eef1f4;
+
+  --color-canvas: #f5f7f9;
+  --color-card: #ffffff;
+  --color-subtle: #f8fafb;
+  --color-selected: #f2faf8;
+  --color-muted: #f1f4f6;
+
+  --color-danger: #b42318;
+  --color-danger-strong: #8e1b13;
+  --color-danger-bg: #fdecea;
+  --color-danger-border: #f0c2bd;
+  --color-warning: #8a4b00;
+  --color-warning-strong: #6b3a00;
+  --color-warning-bg: #fff3e0;
+  --color-warning-border: #f1d3a8;
+  --color-success: #1e6b34;
+  --color-success-bg: #eaf5ec;
+  --color-success-border: #bfe3c6;
+  --color-info: #1e3a8a;
+  --color-info-bg: #eef2fb;
+  --color-info-border: #c9d3ee;
+
+  --color-triage-1: #b42318;
+  --color-triage-2: #c4320a;
+  --color-triage-3: #fef0c7;
+  --color-triage-4: #eaf6ec;
+  --color-triage-5: #eef4ff;
+
+  --font-sans: var(--font-plex-sans, 'IBM Plex Sans'), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono, 'IBM Plex Mono'), ui-monospace, monospace;
+
+  --text-caption: 12px;
+  --text-small: 13px;
+  --text-body: 14px;
+  --text-kiosk: 20px;
+  --text-h2: 18px;
+  --text-h1: 20px;
+  --text-kpi: 24px;
+
+  --radius-control: 10px;
+  --radius-card: 14px;
+
+  --shadow-button: 0 1px 2px rgba(16, 24, 40, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --shadow-tab: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  --spacing-touch: 44px;
+  --spacing-kiosk-touch: 64px;
+  --spacing-sidebar: 240px;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    color: var(--color-ink-900);
+    background-color: var(--color-canvas);
+    background-image:
+      radial-gradient(900px 360px at 88% -8%, rgba(15, 118, 110, 0.09), rgba(15, 118, 110, 0) 70%),
+      radial-gradient(circle at 1px 1px, rgba(20, 33, 43, 0.07) 1px, rgba(20, 33, 43, 0) 1.5px);
+    background-size:
+      auto,
+      22px 22px;
+    font-variant-numeric: tabular-nums;
+  }
+  a {
+    color: var(--color-brand-600);
+  }
+  a:hover {
+    color: var(--color-brand-700);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+
+@utility bg-btn-primary {
+  background-image: linear-gradient(180deg, #1d7e77, #0f766e);
+}
+@utility bg-btn-danger {
+  background-image: linear-gradient(180deg, #c0331f, #b42318);
+}
+@utility bg-card-header {
+  background-image: linear-gradient(100deg, rgba(15, 118, 110, 0.07), #ffffff 60%);
+}
+@utility bg-nav-active {
+  background-image: linear-gradient(90deg, #e2f2ee, #f1f9f7);
+}
