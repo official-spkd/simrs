@@ -21,11 +21,13 @@
     "doctor": "node scripts/doctor.mjs",
     "infra:up": "docker compose up -d",
     "infra:ps": "docker compose ps",
-    "pg:portable": "node scripts/pg-portable.mjs"
+    "pg:portable": "node scripts/pg-portable.mjs",
+    "db:test:recreate": "node scripts/recreate-test-db.mjs"
   },
   "devDependencies": {
     "@types/node": "^24",
     "embedded-postgres": "16.14.0-beta.17",
+    "pg": "^8.23.1",
     "prettier": "^3",
     "turbo": "^2",
     "typescript": "~6.0.2"

@@ -20,6 +20,6 @@ ADR-0002 menetapkan RLS dengan `current_setting('app.tenant_id')`. Dua hal belum
 
 ## Konsekuensi
 
-- Lupa konteks tenant = galat keras di tes dan runtime, bukan kebocoran atau data hilang diam-diam.
-- Tidak ada role aplikasi dengan `BYPASSRLS`.
-  − Setiap fungsi `SECURITY DEFINER` baru wajib ditinjau keamanan dan dicatat di ADR. Fungsinya harus mengembalikan data seminimal mungkin.
++ Lupa konteks tenant = galat keras di tes dan runtime, bukan kebocoran atau data hilang diam-diam.
++ Tidak ada role aplikasi dengan `BYPASSRLS`.
+− Setiap fungsi `SECURITY DEFINER` baru wajib ditinjau keamanan dan dicatat di ADR. Fungsinya harus mengembalikan data seminimal mungkin.

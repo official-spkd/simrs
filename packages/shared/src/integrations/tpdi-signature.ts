@@ -8,7 +8,8 @@ export function tpdiSignature(timestamp: string, rawBody: string, secret: string
   return createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
 }
 
-export type TpdiVerifyResult = { ok: true } | { ok: false; reason: 'SIGNATURE_INVALID' | 'TIMESTAMP_EXPIRED' };
+export type TpdiVerifyResult =
+  { ok: true } | { ok: false; reason: 'SIGNATURE_INVALID' | 'TIMESTAMP_EXPIRED' };
 
 /** Timestamp boleh ISO 8601 atau detik epoch. */
 export function verifyTpdiWebhook(

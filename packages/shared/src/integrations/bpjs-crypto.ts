@@ -26,7 +26,10 @@ export function verifyBpjsSignature(creds: BpjsCredentials, timestamp: string, s
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
-export function bpjsHeaders(creds: BpjsCredentials & { userKey: string }, now?: Date): Record<string, string> {
+export function bpjsHeaders(
+  creds: BpjsCredentials & { userKey: string },
+  now?: Date,
+): Record<string, string> {
   const ts = bpjsTimestamp(now);
   return {
     'X-cons-id': creds.consId,
@@ -50,7 +53,11 @@ export function bpjsEncryptResponse(data: unknown, creds: BpjsCredentials, times
 }
 
 /** Kebalikan dari `bpjsEncryptResponse`. Dipakai konektor. */
-export function bpjsDecryptResponse<T = unknown>(payload: string, creds: BpjsCredentials, timestamp: string): T {
+export function bpjsDecryptResponse<T = unknown>(
+  payload: string,
+  creds: BpjsCredentials,
+  timestamp: string,
+): T {
   const { key, iv } = keyAndIv(creds, timestamp);
   const decipher = createDecipheriv('aes-256-cbc', key, iv);
   const compressed = Buffer.concat([decipher.update(payload, 'base64'), decipher.final()]).toString('utf8');

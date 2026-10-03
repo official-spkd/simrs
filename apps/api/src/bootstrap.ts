@@ -1,15 +1,31 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import { securityHeaders } from './common/security-headers';
+import type { ApiEnv } from './config/env';
+
+/** Batas ukuran body JSON. Unggahan berkas memakai jalur terpisah (MinIO, URL bertanda tangan) di P08. */
+export const JSON_BODY_LIMIT = '1mb';
 
 /** Konfigurasi bersama untuk main.ts dan tes, agar perilaku tes = perilaku runtime. */
-export function configureApp(app: INestApplication, opts: { webOrigin: string; docs: boolean }): void {
+export function configureApp(app: NestExpressApplication, env: ApiEnv): void {
+  // Paling awal: berlaku untuk semua rute termasuk Swagger dan 404.
+  app.use(securityHeaders({ hsts: env.APP_ENV === 'production' }));
+  app.disable('x-powered-by');
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] });
-  app.enableCors({ origin: opts.webOrigin, credentials: true });
+  app.enableCors({
+    origin: env.WEB_BASE_URL,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'X-Tenant-Id', 'Idempotency-Key'],
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 600,
+  });
   app.enableShutdownHooks();
 
-  if (opts.docs) {
+  if (env.devTools) {
     const config = new DocumentBuilder()
       .setTitle('SIM RS API')
       .setDescription(

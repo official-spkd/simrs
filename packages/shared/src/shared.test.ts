@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   backoffDelayMs,
   COMPONENTS,
+  devToolsAllowed,
   envSchemas,
   formatRupiah,
   formatTanggalWaktu,
@@ -84,5 +85,25 @@ describe('env', () => {
     const schema = envSchemas.database;
     expect(() => parseEnv(schema, { DATABASE_URL: 'bukan-url-rahasia' })).toThrow(/DATABASE_URL/);
     expect(() => parseEnv(schema, { DATABASE_URL: 'bukan-url-rahasia' })).not.toThrow(/bukan-url-rahasia/);
+  });
+});
+
+describe('devToolsAllowed (gagal aman)', () => {
+  it('hanya aktif bila APP_ENV eksplisit non-produksi dan NODE_ENV bukan production', () => {
+    expect(devToolsAllowed({ APP_ENV: 'local', NODE_ENV: 'development' })).toBe(true);
+    expect(devToolsAllowed({ APP_ENV: 'staging', NODE_ENV: 'test' })).toBe(true);
+    expect(devToolsAllowed({ APP_ENV: 'production', NODE_ENV: 'development' })).toBe(false);
+    expect(devToolsAllowed({ APP_ENV: 'local', NODE_ENV: 'production' })).toBe(false);
+    expect(devToolsAllowed({ NODE_ENV: 'development' })).toBe(false);
+    expect(devToolsAllowed({ APP_ENV: 'lokal-salah-ketik', NODE_ENV: 'development' })).toBe(false);
+  });
+});
+
+describe('envSchemas.base.APP_ENV', () => {
+  it('tidak disetel atau kosong → production; nilai tak dikenal ditolak', () => {
+    expect(parseEnv(envSchemas.base, {}).APP_ENV).toBe('production');
+    expect(parseEnv(envSchemas.base, { APP_ENV: '' }).APP_ENV).toBe('production');
+    expect(parseEnv(envSchemas.base, { APP_ENV: 'local' }).APP_ENV).toBe('local');
+    expect(() => parseEnv(envSchemas.base, { APP_ENV: 'prod' })).toThrow(/APP_ENV/);
   });
 });

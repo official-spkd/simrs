@@ -7,7 +7,7 @@ export const COMPONENT_LAYERS = {
   S: 'penunjang',
   U: 'keuangan',
   B: 'back-office',
-  I: 'integrasi'
+  I: 'integrasi',
 } as const;
 
 export const COMPONENTS = {

@@ -6,3 +6,12 @@ docs/03-regulasi-mrmik.md
 **/coverage
 **/src/generated
 .turbo
+docs/adr/
+# Dokumen asli starter kit: gaya penulisannya dipertahankan apa adanya
+docs/0[0-9]-*.md
+docs/1[0-9]-*.md
+CLAUDE.md
+.claude/
+docker-compose.yml
+# Dikelola pnpm (approve-builds menulis ulang berkas ini)
+pnpm-workspace.yaml

@@ -16,6 +16,6 @@ Status: diterima · 3 Okt 2026
 
 ## Konsekuensi
 
-- Mulai tanpa restart mesin dan tanpa memindahkan repo.
-  − File watcher dan I/O node_modules di NTFS sedikit lebih lambat dibanding filesystem Linux.
-  − Bila nanti pindah ke WSL, cukup clone ulang repo; tidak ada kode yang bergantung pada Windows.
++ Mulai tanpa restart mesin dan tanpa memindahkan repo.
+− File watcher dan I/O node_modules di NTFS sedikit lebih lambat dibanding filesystem Linux.
+− Bila nanti pindah ke WSL, cukup clone ulang repo; tidak ada kode yang bergantung pada Windows.

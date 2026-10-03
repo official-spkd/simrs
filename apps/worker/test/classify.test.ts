@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { classifyStatus } from '../src/outbox/http-connector';
+import type { WorkerEnv } from '../src/config/env';
+import { classifyStatus, HttpConnector } from '../src/outbox/http-connector';
+import { OUTBOX_OPERATIONS } from '../src/outbox/operations';
 
 describe('classifyStatus', () => {
   it('2xx terkirim', () => {
@@ -17,5 +19,39 @@ describe('classifyStatus', () => {
     for (const s of [400, 401, 403, 404, 409, 422]) {
       expect(classifyStatus(s)).toEqual({ ok: false, permanent: true });
     }
+  });
+});
+
+describe('OUTBOX_OPERATIONS', () => {
+  it('nama operasi yang mirip properti bawaan objek tidak dianggap operasi', () => {
+    for (const name of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+      expect(OUTBOX_OPERATIONS.get(name)).toBeUndefined();
+    }
+  });
+
+  it('ping diarahkan ke /<target>/_echo', () => {
+    const spec = OUTBOX_OPERATIONS.get('ping')?.({
+      target: 'bpjs',
+      operation: 'ping',
+      idempotencyKey: 'k',
+      payload: {},
+    });
+    expect(spec).toMatchObject({ method: 'POST', path: '/bpjs/_echo' });
+  });
+});
+
+describe('HttpConnector', () => {
+  it('menolak path yang keluar dari host tujuan (SSRF) tanpa melakukan permintaan', async () => {
+    const connector = new HttpConnector({
+      MOCK_BASE_URL: 'http://127.0.0.1:4100',
+      OUTBOX_HTTP_TIMEOUT_MS: 500,
+    } as WorkerEnv);
+    const res = await connector.send({
+      target: '/jahat.example',
+      operation: 'ping',
+      idempotencyKey: 'k',
+      payload: {},
+    });
+    expect(res).toMatchObject({ ok: false, permanent: true, error: 'Path operasi keluar dari host tujuan' });
   });
 });

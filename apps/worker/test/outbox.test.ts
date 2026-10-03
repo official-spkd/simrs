@@ -126,11 +126,13 @@ describe('dispatcher', () => {
     expect(s.attempts).toBe(1);
   });
 
-  it('operasi yang belum didukung langsung DLQ tanpa memanggil target', async () => {
+  it('operasi yang belum didukung (termasuk nama properti bawaan) langsung DLQ tanpa memanggil target', async () => {
+    const proto = await enqueue(A, 'satusehat', 'constructor');
     const msg = await enqueue(A, 'satusehat', 'Encounter.create');
     await dispatcher.dispatchOnce();
     expect((await status(A, msg.id)).status).toBe('dead');
     expect(received.find((r) => r.key === msg.idempotencyKey)).toBeUndefined();
+    expect((await status(A, proto.id)).status).toBe('dead');
   });
 
   it('target pulih: pesan yang gagal terkirim pada putaran berikutnya', async () => {

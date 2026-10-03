@@ -7,11 +7,11 @@ Prisma 7 (driver adapter `pg`) + PostgreSQL 16 dengan RLS per tenant (ADR-0002, 
 - Outbox: `enqueueOutbox` (idempoten per key), `claimDueOutbox` (`SKIP LOCKED`), `recordOutboxAttempt` (retry eksponensial → DLQ `dead`).
 - Tabel fase 0: `tenants`, `outbox_messages`, `delivery_attempts`, `inbound_events`, `audit_events` (append-only).
 
-| Perintah                       | Fungsi                                                            |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `pnpm db:migrate` (root)       | `prisma migrate dev` sebagai `simrs_migrator`                     |
-| `pnpm db:deploy`               | `prisma migrate deploy`                                           |
-| `pnpm db:seed`                 | 2 tenant RS fiktif                                                |
+| Perintah                       | Fungsi                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| `pnpm db:migrate` (root)       | `prisma migrate dev` sebagai `simrs_migrator`                                |
+| `pnpm db:deploy`               | `prisma migrate deploy`                                                      |
+| `pnpm db:seed`                 | 2 tenant RS fiktif                                                           |
 | `pnpm --filter @simrs/db test` | Tes RLS + outbox di `simrs_test` (migrate deploy + upsert, tidak destruktif) |
 
 Kebijakan RLS, GRANT, trigger, dan fungsi ditulis manual di `migration.sql`. Untuk migrasi baru: `prisma migrate dev --create-only`, lalu tambahkan blok RLS untuk tabel domain baru.

@@ -8,5 +8,6 @@ allowBuilds:
   '@scarf/scarf': false
   '@swc/core': false
   '@embedded-postgres/windows-x64': true
+  msgpackr-extract: false
 minimumReleaseAgeExclude:
   - nestjs-pino@5.3.1

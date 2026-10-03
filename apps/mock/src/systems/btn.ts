@@ -26,13 +26,11 @@ export function registerBtn(app: FastifyInstance, config: MockConfig, state: Moc
   );
 
   app.post('/btn/v1/financing/patient-applications', async (_req, reply) =>
-    reply
-      .code(201)
-      .send({
-        application_id: randomUUID(),
-        status: 'verifikasi_btn',
-        received_at: config.now().toISOString(),
-      }),
+    reply.code(201).send({
+      application_id: randomUUID(),
+      status: 'verifikasi_btn',
+      received_at: config.now().toISOString(),
+    }),
   );
 
   app.post('/btn/v1/financing/receivables/drawdowns', async (_req, reply) =>

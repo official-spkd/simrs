@@ -10,7 +10,12 @@ export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 export const OUTBOX_MAX_ATTEMPTS = 8;
 
 /** Backoff eksponensial dengan jitter: setengah tetap + setengah acak dari dasar × 2^(n−1), dibatasi `capMs`. */
-export function backoffDelayMs(attempt: number, baseMs = 1000, capMs = 5 * 60_000, random = Math.random): number {
+export function backoffDelayMs(
+  attempt: number,
+  baseMs = 1000,
+  capMs = 5 * 60_000,
+  random = Math.random,
+): number {
   const exp = Math.min(capMs, baseMs * 2 ** Math.max(0, attempt - 1));
   return Math.round(exp / 2 + random() * (exp / 2));
 }
