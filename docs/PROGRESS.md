@@ -4,34 +4,34 @@ Diperbarui oleh Claude Code di akhir setiap potongan kerja. Format: centang krit
 
 ## Status fase
 
-| Fase | Nama | Status |
-|---|---|---|
-| 0 | Fondasi repo dan infrastruktur | 🟨 berjalan (terhambat Docker, lihat bawah) |
-| 1 | Platform inti | ⬜ |
-| 2 | Front office | ⬜ |
-| 3 | Klinis RME | ⬜ |
-| 4 | Penunjang | ⬜ |
-| 5 | Keuangan | ⬜ |
-| 6 | Pembayaran TPDI × BTN + pembiayaan | ⬜ |
-| 7 | Integration hub + SATUSEHAT | ⬜ |
-| 8 | Back office | ⬜ |
-| 9 | Dasbor + aplikasi mobile | ⬜ |
-| 10 | Simulasi E2E, ketahanan, pilot | ⬜ |
+| Fase | Nama                               | Status                                      |
+| ---- | ---------------------------------- | ------------------------------------------- |
+| 0    | Fondasi repo dan infrastruktur     | 🟨 berjalan (terhambat Docker, lihat bawah) |
+| 1    | Platform inti                      | ⬜                                          |
+| 2    | Front office                       | ⬜                                          |
+| 3    | Klinis RME                         | ⬜                                          |
+| 4    | Penunjang                          | ⬜                                          |
+| 5    | Keuangan                           | ⬜                                          |
+| 6    | Pembayaran TPDI × BTN + pembiayaan | ⬜                                          |
+| 7    | Integration hub + SATUSEHAT        | ⬜                                          |
+| 8    | Back office                        | ⬜                                          |
+| 9    | Dasbor + aplikasi mobile           | ⬜                                          |
+| 10   | Simulasi E2E, ketahanan, pilot     | ⬜                                          |
 
 Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 
 ## Fase 0 · potongan
 
-| # | Potongan | Status | Bukti |
-|---|---|---|---|
-| 1 | Workspace pnpm + Turborepo + `packages/config` | ✅ | commit `chore(repo)` |
-| 2 | `packages/shared` (uang bigint, tanggal WIB, galat, env, UUID v7, 81 komponen, kripto BPJS/TPDI) | ✅ | 15 tes unit |
-| 3 | `packages/ui` + `apps/web` (AppShell, Sidebar, komponen dasar, `/dev/ui`) | ✅ | 6 tes komponen + 3 tes nav + build Next |
-| 4 | `apps/mock` 7 sistem + panel kendali | ✅ | 12 tes (tanda tangan, enkripsi, skenario, webhook HMAC, idempotensi) |
-| 5 | `packages/db` Prisma + RLS + `withTenant` + outbox | 🟨 kode + build hijau; **tes RLS belum dijalankan** (butuh Postgres) | `test/rls.test.ts` |
-| 6 | `apps/api` health/ready/Swagger/galat/request-id/tenancy | 🟨 kode + build hijau; **tes integrasi belum dijalankan** | `test/app.test.ts` |
-| 7 | `apps/worker` outbox → mock, retry, DLQ (BullMQ) | 🟨 kode + build hijau; **tes integrasi belum dijalankan** | `test/outbox.test.ts` |
-| 8 | Skrip root, Playwright smoke, README per aplikasi | ✅ | 10 tes Playwright (Edge, desktop + tablet) |
+| #   | Potongan                                                                                         | Status                                                               | Bukti                                                                |
+| --- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 1   | Workspace pnpm + Turborepo + `packages/config`                                                   | ✅                                                                   | commit `chore(repo)`                                                 |
+| 2   | `packages/shared` (uang bigint, tanggal WIB, galat, env, UUID v7, 81 komponen, kripto BPJS/TPDI) | ✅                                                                   | 15 tes unit                                                          |
+| 3   | `packages/ui` + `apps/web` (AppShell, Sidebar, komponen dasar, `/dev/ui`)                        | ✅                                                                   | 6 tes komponen + 3 tes nav + build Next                              |
+| 4   | `apps/mock` 7 sistem + panel kendali                                                             | ✅                                                                   | 12 tes (tanda tangan, enkripsi, skenario, webhook HMAC, idempotensi) |
+| 5   | `packages/db` Prisma + RLS + `withTenant` + outbox                                               | 🟨 kode + build hijau; **tes RLS belum dijalankan** (butuh Postgres) | `test/rls.test.ts`                                                   |
+| 6   | `apps/api` health/ready/Swagger/galat/request-id/tenancy                                         | 🟨 kode + build hijau; **tes integrasi belum dijalankan**            | `test/app.test.ts`                                                   |
+| 7   | `apps/worker` outbox → mock, retry, DLQ (BullMQ)                                                 | 🟨 kode + build hijau; **tes integrasi belum dijalankan**            | `test/outbox.test.ts`                                                |
+| 8   | Skrip root, Playwright smoke, README per aplikasi                                                | ✅                                                                   | 10 tes Playwright (Edge, desktop + tablet)                           |
 
 ### Definisi selesai fase 0
 

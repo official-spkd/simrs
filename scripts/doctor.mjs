@@ -12,7 +12,9 @@ const wrn = (m) => (warn++, console.log(`  \x1b[33m!\x1b[0m ${m}`));
 const bad = (m) => (fail++, console.log(`  \x1b[31m✗\x1b[0m ${m}`));
 const run = (cmd) => {
   try {
-    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'], timeout: 15_000 }).toString().trim();
+    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'], timeout: 15_000 })
+      .toString()
+      .trim();
   } catch {
     return null;
   }
@@ -34,17 +36,22 @@ pnpm ? pass(`pnpm ${pnpm}`) : bad('pnpm belum aktif (corepack enable, lihat ADR-
 const git = run('git --version');
 git ? pass(git) : bad('git belum terpasang');
 const dockerVer = run('docker info --format "{{.ServerVersion}}"');
-dockerVer ? pass(`Docker engine ${dockerVer}`) : bad('Docker engine tidak terjangkau (Docker Desktop mati, atau virtualisasi/WSL2 belum aktif)');
+dockerVer
+  ? pass(`Docker engine ${dockerVer}`)
+  : bad('Docker engine tidak terjangkau (Docker Desktop mati, atau virtualisasi/WSL2 belum aktif)');
 run('docker compose version') ? pass('docker compose tersedia') : bad('docker compose tidak tersedia');
 existsSync('.env') ? pass('.env ada') : wrn('.env belum ada (salin dari .env.example)');
 
 const services = { 5432: 'Postgres', 6379: 'Redis', 9000: 'MinIO', 8025: 'Mailpit' };
 for (const [port, name] of Object.entries(services)) {
-  (await portOpen(Number(port))) ? pass(`${name} mendengar di :${port}`) : wrn(`${name} belum berjalan di :${port} (docker compose up -d)`);
+  (await portOpen(Number(port)))
+    ? pass(`${name} mendengar di :${port}`)
+    : wrn(`${name} belum berjalan di :${port} (docker compose up -d)`);
 }
 const apps = { 3000: 'web', 4000: 'api', 4100: 'mock' };
 for (const [port, name] of Object.entries(apps)) {
-  if (await portOpen(Number(port))) wrn(`Port ${port} (${name}) sudah dipakai — abaikan bila itu \`pnpm dev\` SIM RS`);
+  if (await portOpen(Number(port)))
+    wrn(`Port ${port} (${name}) sudah dipakai — abaikan bila itu \`pnpm dev\` SIM RS`);
 }
 
 console.log(`\nHasil: ${ok} lolos, ${warn} peringatan, ${fail} gagal`);
