@@ -3,3 +3,10 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+  prisma: true
+  "@prisma/engines": true
+  '@scarf/scarf': false
+  '@swc/core': false
+  '@embedded-postgres/windows-x64': true
+minimumReleaseAgeExclude:
+  - nestjs-pino@5.3.1

@@ -1,0 +1,6 @@
+{
+  "extends": "@simrs/config/tsconfig/nest.json",
+  "compilerOptions": { "types": ["node"], "rootDir": "src", "outDir": "dist" },
+  "include": ["src"],
+  "exclude": ["test", "dist"]
+}

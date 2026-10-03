@@ -1,0 +1,123 @@
+// Skema SIM RS. Konvensi: docs/04-data-model.md §1.
+// - PK UUID v7 dibangkitkan aplikasi; tabel domain punya tenant_id + RLS (lihat migrasi, ADR-0002, ADR-0008).
+// - Nama tabel/kolom snake_case jamak; model Prisma PascalCase.
+// - Kebijakan RLS, GRANT, trigger, dan fungsi ditulis manual di migration.sql (Prisma tidak memodelkannya).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// P01 · Tenant = satu RS. RLS: baris hanya terlihat oleh tenant itu sendiri.
+model Tenant {
+  id             String   @id @db.Uuid
+  code           String   @unique
+  name           String
+  kemenkesCode   String?  @map("kemenkes_code")
+  bpjsPpkCode    String?  @map("bpjs_ppk_code")
+  satusehatOrgId String?  @map("satusehat_org_id")
+  hospitalClass  String?  @map("hospital_class")
+  status         String   @default("active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outboxMessages   OutboxMessage[]
+  deliveryAttempts DeliveryAttempt[]
+  inboundEvents    InboundEvent[]
+  auditEvents      AuditEvent[]
+
+  @@map("tenants")
+}
+
+/// I01 · Transactional outbox (ADR-0003). Ditulis dalam transaksi domain; dikirim worker.
+model OutboxMessage {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  target         String
+  operation      String
+  idempotencyKey String    @map("idempotency_key")
+  payload        Json
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
+  deadAt         DateTime? @map("dead_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  deliveries DeliveryAttempt[]
+
+  @@unique([tenantId, target, idempotencyKey])
+  @@index([tenantId, status, nextAttemptAt])
+  @@map("outbox_messages")
+}
+
+/// Jejak setiap percobaan kirim (request/response tersamar, durasi, kode).
+model DeliveryAttempt {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  outboxMessageId String   @map("outbox_message_id") @db.Uuid
+  attemptNo       Int      @map("attempt_no")
+  startedAt       DateTime @map("started_at") @db.Timestamptz(3)
+  durationMs      Int      @map("duration_ms")
+  statusCode      Int?     @map("status_code")
+  outcome         String
+  error           String?
+  responseExcerpt String?  @map("response_excerpt")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  outboxMessage OutboxMessage @relation(fields: [outboxMessageId], references: [id])
+
+  @@index([tenantId, outboxMessageId])
+  @@map("delivery_attempts")
+}
+
+/// Webhook masuk mentah (TPDI, BTN). Unik per sumber + idempotency key; diproses async.
+model InboundEvent {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  source         String
+  idempotencyKey String    @map("idempotency_key")
+  headers        Json
+  rawBody        String    @map("raw_body")
+  status         String    @default("received")
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(3)
+  error          String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, source, idempotencyKey])
+  @@map("inbound_events")
+}
+
+/// P04 · Audit trail append-only (kerangka fase 0; hash berantai diisi fase 1). UPDATE/DELETE dicabut.
+model AuditEvent {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  actorRole    String?  @map("actor_role")
+  patientId    String?  @map("patient_id") @db.Uuid
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  action       String
+  reason       String?
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  requestId    String?  @map("request_id")
+  prevHash     String?  @map("prev_hash")
+  hash         String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, patientId, occurredAt])
+  @@map("audit_events")
+}

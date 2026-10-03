@@ -12,3 +12,7 @@ playwright-report/
 test-results/
 apps/mobile/.expo/
 .claude/settings.local.json
+.local/
+*.tsbuildinfo
+next-env.d.ts
+packages/db/src/generated/
