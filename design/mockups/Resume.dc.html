@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Resume medis pulang</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="ranap" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Rawat inap / Melati / M-203 / Pulang</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Resume medis · Ny. Endang Wijaya</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="font-size: 13px; color: #3F4C58">Rencana pulang 4 Okt 10.00 · batas resume final 24 jam setelah pulang</span>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Pratinjau PDF</button>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<section aria-label="Isi resume" style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; background: linear-gradient(100deg, rgba(15,118,110,0.07), #FFFFFF 60%); border-bottom: 1px solid #E3E8EE; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; font-size: 13px">
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Masuk</span><span style="font-weight: 600">29 Sep 2026 · via IGD</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Pulang</span><span style="font-weight: 600">4 Okt 2026 · LOS 6 hari</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Cara pulang</span><span style="font-weight: 600">Atas persetujuan dokter</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Kondisi</span><span style="font-weight: 600">Membaik</span></span>
+</div>
+<sc-for list="{{secs}}" as="s" hint-placeholder-count="7">
+<div style="padding: 14px 18px; border-bottom: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap"><span style="font-weight: 600">{{s.title}}</span><span style="font-size: 12px; color: {{s.srcFg}}">{{s.src}}</span></div>
+<span style="font-size: 13.5px; color: #14212B; white-space: pre-line">{{s.body}}</span>
+<sc-if value="{{s.showConfirm}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 2px">
+<button type="button" onClick="{{s.toggle}}" aria-pressed="{{s.pressed}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: {{s.btnBd}}; background: {{s.btnBg}}; color: {{s.btnFg}}; cursor: pointer">{{s.btnLabel}}</button>
+<span style="font-size: 12.5px; color: #5B6B79">{{s.btnHint}}</span>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Diagnosis dan prosedur (dikode)</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid #BFDDD8; background: #F2FAF8"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #0B5D56">J18.9</span> Pneumonia, tidak spesifik · utama</span>
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid #E3E8EE"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">E11.9</span> DM tipe 2 tanpa komplikasi</span>
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid #E3E8EE"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">87.44</span> Foto toraks rutin</span>
+</div>
+</div>
+</section>
+
+<aside aria-label="Kelengkapan dan tanda tangan" style="flex: 1 1 300px; max-width: 340px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Kelengkapan</span><span style="font-size: 20px; font-weight: 700; color: #0B5D56">{{score}}</span></div>
+<span role="progressbar" aria-label="Kelengkapan resume" aria-valuemin="0" aria-valuemax="12" aria-valuenow="{{nDone}}" style="height: 8px; border-radius: 999px; background: #EEF1F4; overflow: hidden"><span style="display: block; width: {{pct}}; height: 8px; background: linear-gradient(90deg, #1D7E77, #0F766E)"></span></span>
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="12">
+<label style="display: flex; gap: 8px; font-size: 13px; align-items: flex-start; cursor: {{c.cursor}}"><input type="checkbox" checked="{{c.ok}}" onChange="{{c.toggle}}" disabled="{{c.locked}}" style="width: 16px; height: 16px; margin: 2px 0 0; flex: none; accent-color: #0F766E"><span style="color: {{c.fg}}; font-weight: {{c.w}}">{{c.text}}</span></label>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Setelah ditandatangani, otomatis:</span>
+<span style="font-size: 13px; color: #3F4C58">• Kirim Composition dan Condition ke SATUSEHAT</span>
+<span style="font-size: 13px; color: #3F4C58">• Masuk antrean koder untuk klaim INA-CBG</span>
+<span style="font-size: 13px; color: #3F4C58">• Surat kontrol BPJS dan jadwal kontrol 14 Okt</span>
+<span style="font-size: 13px; color: #3F4C58">• Resume tampil di aplikasi pasien</span>
+</div>
+<sc-if value="{{notFinal}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{sign}}" disabled="{{signDisabled}}" aria-describedby="alasanTte" style="font: inherit; font-weight: 600; height: 48px; width: 100%; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: {{signCursor}}; opacity: {{signOp}}; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15)">Tanda tangani resume (TTE)</button>
+</sc-if>
+<sc-if value="{{final}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="background: #EAF6EC; border: 1px solid #B7DEC1; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 700; color: #1E6B34">Resume final</span><span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #FFFFFF; color: #1E6B34; border: 1px solid #B7DEC1">TTE {{signedAt}}</span></span>
+<span style="font-size: 13px; color: #3F4C58">Ditandatangani dr. [Nama DPJP] pukul {{signedAt}}. Terkirim ke SATUSEHAT dan masuk antrean koder.</span>
+<a href="Klaim.dc.html" style="display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; text-decoration: none">Lanjut ke klaim INA-CBG</a>
+</div>
+</sc-if>
+<span id="alasanTte" style="font-size: 12px; color: {{hintFg}}; font-weight: {{hintW}}; text-align: center">{{signHint}}</span>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+done: { ident: true, anam: true, fisik: true, penunjang: true, dx: true, proc: true, emar: true, edukasi: true, instruksi: true, kontrol: true, kondisi: true },
+recon: false,
+reconAt: '',
+final: false,
+signedAt: ''
+};
+}
+now() {
+var d = new Date();
+return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var setRecon = function (v) { self.setState({ recon: v, reconAt: v ? self.now() : '' }); };
+
+var secs = [
+{ title: 'Alasan masuk dan anamnesis singkat', body: 'Demam 4 hari, batuk berdahak, sesak. Riwayat DM tipe 2 sejak 2019.', src: 'dari asesmen awal IGD', auto: true },
+{ title: 'Pemeriksaan fisik penting', body: 'Masuk: T 38,9 °C, RR 28, SpO2 91%, ronki basah paru kanan. Pulang: T 36,8 °C, RR 18, SpO2 97%.', src: 'dari observasi + CPPT', auto: true },
+{ title: 'Pemeriksaan penunjang', body: 'Foto toraks: infiltrat lobus kanan bawah (29 Sep). Leukosit 16.200 → 8.900. GDS 254 → 168 mg/dL. Kultur sputum: Streptococcus pneumoniae, sensitif seftriakson.', src: 'dari hasil lab dan radiologi', auto: true },
+{ title: 'Terapi selama dirawat', body: 'Seftriakson 2 g IV 1×24 jam (H1–H6), insulin basal-bolus, N-asetilsistein, O2 nasal 2 lpm (H1–H3).', src: 'dari eMAR', auto: true },
+{ title: 'Obat pulang (hasil rekonsiliasi)', body: 'Sefiksim 200 mg 2×1 PO · 4 hari\nMetformin 500 mg 2×1 PO · lanjut\nInsulin glargine 16 unit SC malam · baru\nAmlodipin 5 mg · dihentikan sementara (TD terkontrol)', src: st.recon ? 'dikonfirmasi DPJP · ' + st.reconAt : 'perlu konfirmasi DPJP', warn: !st.recon, okay: st.recon, recon: true },
+{ title: 'Instruksi dan edukasi', body: 'Cek gula darah mandiri 2×/hari, catat di aplikasi. Kembali ke IGD bila demam ≥ 38,5 °C atau sesak.', src: 'ditulis DPJP' },
+{ title: 'Tindak lanjut', body: 'Kontrol Poli PD 14 Okt 2026 · dr. [Nama DPJP]. Foto toraks ulang 6 minggu.', src: 'surat kontrol otomatis', auto: true }
+].map(function (s) {
+return Object.assign({}, s, {
+srcFg: s.okay ? '#1E6B34' : (s.warn ? '#8A4B00' : (s.auto ? '#0B5D56' : '#5B6B79')),
+showConfirm: !!s.recon && !st.final,
+pressed: st.recon ? 'true' : 'false',
+btnLabel: st.recon ? 'Batalkan konfirmasi' : 'Konfirmasi DPJP',
+btnBd: st.recon ? '1px solid #CBD3DB' : '1px solid #0D6861',
+btnBg: st.recon ? '#FFFFFF' : '#0F766E',
+btnFg: st.recon ? '#3F4C58' : '#FFFFFF',
+btnHint: st.recon ? 'Daftar obat pulang dikunci untuk resep pulang.' : 'Periksa ulang dosis dan obat yang dihentikan sebelum konfirmasi.',
+toggle: function () { setRecon(!st.recon); }
+});
+});
+
+var defs = [
+{ k: 'ident', text: 'Identitas pasien dan data kunjungan' },
+{ k: 'anam', text: 'Alasan masuk dan anamnesis' },
+{ k: 'fisik', text: 'Pemeriksaan fisik masuk dan pulang' },
+{ k: 'penunjang', text: 'Hasil penunjang penting' },
+{ k: 'dx', text: 'Diagnosis utama dan sekunder berkode' },
+{ k: 'proc', text: 'Prosedur berkode ICD-9-CM' },
+{ k: 'emar', text: 'Ringkasan terapi dari eMAR' },
+{ k: 'recon', text: '' },
+{ k: 'edukasi', text: 'Edukasi pasien terdokumentasi' },
+{ k: 'instruksi', text: 'Instruksi pulang dan tanda bahaya' },
+{ k: 'kontrol', text: 'Jadwal kontrol dan surat kontrol' },
+{ k: 'kondisi', text: 'Kondisi dan cara pulang' }
+];
+var nDone = 0, missing = [];
+var checks = defs.map(function (d) {
+var ok = d.k === 'recon' ? st.recon : !!st.done[d.k];
+var text = d.k === 'recon' ? (ok ? 'Rekonsiliasi obat pulang dikonfirmasi DPJP' : 'Rekonsiliasi obat pulang belum dikonfirmasi') : d.text;
+if (ok) nDone++; else missing.push(d.k === 'recon' ? 'rekonsiliasi obat pulang' : d.text.toLowerCase());
+return {
+ok: ok, text: text, locked: st.final,
+fg: ok ? '#3F4C58' : '#8A4B00', w: ok ? 400 : 600, cursor: st.final ? 'default' : 'pointer',
+toggle: function () {
+if (st.final) return;
+if (d.k === 'recon') { setRecon(!ok); return; }
+var nd = Object.assign({}, st.done); nd[d.k] = !ok;
+self.setState({ done: nd });
+}
+};
+});
+
+var complete = nDone === 12;
+var signHint, hintFg = '#5B6B79', hintW = 400;
+if (st.final) signHint = 'Setelah final, perubahan hanya lewat addendum berversi.';
+else if (!complete) { signHint = 'TTE terkunci: lengkapi ' + (12 - nDone) + ' butir lagi (' + missing.join(', ') + ').'; hintFg = '#8A4B00'; hintW = 600; }
+else signHint = 'Setelah final, perubahan hanya lewat addendum berversi.';
+
+return {
+secs: secs,
+checks: checks,
+nDone: nDone,
+score: nDone + '/12',
+pct: Math.round(nDone / 12 * 100) + '%',
+notFinal: !st.final,
+final: st.final,
+signedAt: st.signedAt,
+signDisabled: !complete,
+signOp: complete ? 1 : 0.5,
+signCursor: complete ? 'pointer' : 'not-allowed',
+sign: function () { if (!complete) return; self.setState({ final: true, signedAt: self.now() }); },
+signHint: signHint, hintFg: hintFg, hintW: hintW
+};
+}
+}
+</script>
+</body>
+</html>

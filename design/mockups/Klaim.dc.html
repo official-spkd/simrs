@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Klaim INA-CBG</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="klaim" user="Arif Nugroho, A.Md.RMIK" role="Koder · Casemix" initials="AN" unit="Casemix dan klaim" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Keuangan / Casemix / Pelayanan Oktober 2026</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Klaim JKN · koding dan grouping</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 999px; background: #EAF5EC; color: #1E6B34; font-weight: 500">● E-Klaim terhubung · grouper INA-CBG v5</span>
+<a href="Akuntansi.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Jurnal piutang BPJS</a>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{kpi}}" as="k" hint-placeholder-count="5">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 12.5px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 22px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Daftar klaim" style="flex: 1 1 320px; max-width: 360px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div role="group" aria-label="Filter klaim" style="padding: 12px 14px; border-bottom: 1px solid #E3E8EE; display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="f" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{f.on}}" onClick="{{f.pick}}" style="font: inherit; font-size: 12px; font-weight: 600; margin: 0; padding: 4px 10px; border-radius: 999px; border: 0; background: {{f.bg}}; color: {{f.fg}}; cursor: pointer">{{f.label}}</button>
+</sc-for>
+</div>
+<sc-for list="{{list}}" as="l" hint-placeholder-count="8">
+<button type="button" aria-pressed="{{l.pressed}}" onClick="{{l.pick}}" style="font: inherit; color: inherit; text-align: left; width: 100%; box-sizing: border-box; margin: 0; border: 0; border-bottom: 1px solid #EEF1F4; border-radius: 0; cursor: pointer; display: grid; grid-template-columns: 4px 1fr auto; gap: 10px; padding: 10px 14px 10px 0; background: {{l.bg}}">
+<span style="background: {{l.bar}}"></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{l.name}}</span><span style="font-size: 12.5px; color: #5B6B79">{{l.meta}}</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{l.chipBg}}; color: {{l.chipFg}}">{{l.tag}}</span><span style="font-size: 12px; color: #5B6B79">{{l.age}}</span></span>
+</button>
+</sc-for>
+<span style="display: block; padding: 8px 14px; font-size: 12px; color: #5B6B79">{{listFoot}}</span>
+</section>
+
+<section aria-label="Berkas klaim" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; border-bottom: 1px solid #E3E8EE; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; background: linear-gradient(100deg, rgba(15,118,110,0.06), #FFFFFF 60%)">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 16px">{{c.title}}</span><span style="font-size: 12.5px; color: #5B6B79">{{c.sub}}</span></span>
+<span aria-live="polite" style="font-size: 12.5px; color: {{c.stFg}}; font-weight: 600; align-self: center">{{c.status}}</span>
+</div>
+<div style="display: grid; grid-template-columns: 1fr 1fr">
+<div style="padding: 14px 18px; border-right: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Diagnosis ICD-10</span>
+<sc-for list="{{dx}}" as="d" hint-placeholder-count="3">
+<span style="display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; align-items: center; font-size: 13px"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #0B5D56">{{d.code}}</span><span>{{d.name}}</span><span style="font-size: 11.5px; color: #5B6B79">{{d.role}}</span></span>
+</sc-for>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: {{nb.bg}}; border: 1px solid {{nb.bd}}; font-size: 12.5px">
+<span style="display: flex; gap: 10px">
+<span style="font-weight: 700; color: {{nb.markFg}}">{{nb.mark}}</span>
+<span style="color: #3F4C58"><span style="font-weight: 600; color: {{nb.titleFg}}">{{nb.title}}</span> {{nb.pre}}<span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{nb.code}}</span>{{nb.post}}</span>
+</span>
+<sc-if value="{{nb.waiting}}" hint-placeholder-val="{{ false }}">
+<span style="padding-left: 18px; font-weight: 600; color: #1E3A8A">{{nb.waitText}}</span>
+</sc-if>
+<sc-if value="{{nb.actions}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; gap: 8px; flex-wrap: wrap; padding-left: 18px">
+<button type="button" onClick="{{acceptJ13}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">{{nb.acceptLabel}}</button>
+<sc-if value="{{nb.canQuery}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{sendQuery}}" style="font: inherit; font-size: 13px; font-weight: 500; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Kirim query ke DPJP</button>
+</sc-if>
+</span>
+</sc-if>
+</div>
+</div>
+<div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Prosedur ICD-9-CM</span>
+<sc-for list="{{px}}" as="p" hint-placeholder-count="3">
+<span style="display: grid; grid-template-columns: 64px 1fr; gap: 8px; font-size: 13px"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #0B5D56">{{p.code}}</span><span>{{p.name}}</span></span>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Kode ditarik otomatis dari resume, order, dan tindakan. Koder memvalidasi, bukan mengetik ulang.</span>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background-image: linear-gradient(160deg, #FFFFFF 60%, rgba(15,118,110,0.06))">
+<span style="font-weight: 600">Hasil grouper (simulasi)</span>
+<div aria-live="polite" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+<sc-for list="{{grp}}" as="g" hint-placeholder-count="4">
+<span style="display: flex; flex-direction: column; padding: 10px 12px; border-radius: 10px; background: {{g.bg}}; border: 1px solid #E3E8EE"><span style="font-size: 12px; color: #5B6B79">{{g.k}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 15px; color: {{g.fg}}">{{g.v}}</span><span style="font-size: 12px; color: #3F4C58">{{g.s}}</span></span>
+</sc-for>
+</div>
+<sc-if value="{{hasRatio}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; justify-content: space-between; font-size: 12.5px; color: #3F4C58"><span>{{ratio.label}}</span><span style="font-family: 'IBM Plex Mono', monospace">{{ratio.pct}}</span></span>
+<span style="height: 8px; border-radius: 999px; background: #EEF1F4; overflow: hidden; display: flex"><span style="width: {{ratio.w1}}; background: #0F766E"></span><span style="width: {{ratio.w2}}; background: #F4C98E"></span></span>
+<span style="font-size: 12px; color: #5B6B79">{{ratio.note}}</span>
+</div>
+</sc-if>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Kelengkapan berkas</span><span style="font-size: 12px; font-weight: 600; color: {{docFg}}">{{docCount}}</span></span>
+<sc-for list="{{docs}}" as="d" hint-placeholder-count="7">
+<label style="display: flex; gap: 8px; align-items: flex-start; font-size: 13px; cursor: {{d.cur}}"><input type="checkbox" checked="{{d.ok}}" onChange="{{d.toggle}}" style="width: 16px; height: 16px; margin: 2px 0 0; flex: none; accent-color: #0F766E"><span style="color: {{d.fg}}">{{d.t}}</span></label>
+</sc-for>
+<sc-if value="{{notSent}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap">
+<button type="button" onClick="{{sendQuery}}" aria-disabled="{{qBtn.dis}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: {{qBtn.bg}}; color: {{qBtn.fg}}; cursor: {{qBtn.cur}}">{{qBtn.label}}</button>
+<button type="button" onClick="{{finalize}}" aria-disabled="{{fin.dis}}" aria-describedby="alasanFinal" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{fin.bd}}; background: {{fin.bg}}; color: {{fin.fg}}; cursor: {{fin.cur}}">{{fin.label}}</button>
+</div>
+<span id="alasanFinal" style="font-size: 12px; color: #8A4B00; font-weight: 500">{{fin.reason}}</span>
+</sc-if>
+<sc-if value="{{isSent}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: #EAF5EC; border: 1px solid #B7DEC0; font-size: 12.5px">
+<span style="font-weight: 700; color: #1E6B34">{{sentTitle}}</span>
+<span style="color: #3F4C58">{{sentNote}}</span>
+<a href="Akuntansi.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; text-decoration: none">Lihat jurnal piutang di Akuntansi</a>
+</div>
+</sc-if>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { filter: 'koding', sel: 'endang', j13At: '', queries: {}, docs: {}, sent: {} };
+}
+renderVals() {
+var self = this;
+var st = this.state;
+function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function jam() { var d = new Date(); var p = function (x) { return (x < 10 ? '0' : '') + x; }; return p(d.getHours()) + '.' + p(d.getMinutes()); }
+
+var kpi = [
+{ label: 'Klaim bulan ini', value: '1.284', sub: 'RJ 1.031 · RI 253', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Nilai diajukan', value: 'Rp 6,9 M', sub: 'periode berjalan', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Rata-rata koding', value: '1,8 hari', sub: 'setelah pasien pulang', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Pending verifikator', value: '12', sub: 'Rp 184 jt tertahan', fg: '#8A4B00', tint: 'rgba(138,75,0,0.07)' },
+{ label: 'Dispute', value: '3', sub: 'Rp 41 jt', fg: '#B42318', tint: 'rgba(180,35,24,0.07)' }
+];
+
+var RI = ['SEP dan identitas peserta', 'Resume medis final ber-TTE', 'Hasil lab dan radiologi pendukung', 'Billing final (tarif RS)', 'Surat perintah rawat inap'];
+var RJ = ['SEP dan identitas peserta', 'Catatan poli / resume RJ ber-TTE', 'Hasil penunjang', 'Billing final (tarif RS)', 'Surat rujukan atau PRB'];
+function PD(extra) { return ['Berkas klaim awal (sudah terkirim)', 'Jawaban tertulis atas pertanyaan verifikator', extra, 'Persetujuan koordinator casemix']; }
+var DS = ['Berita acara dispute dari verifikator', 'Telaah DPJP dan komite medik', 'Bukti klinis pendukung (CPPT, lab, radiologi)', 'Rekomendasi TKMKB / dewan pertimbangan klinis'];
+
+var claims = [
+{ id: 'endang', g: 'koding', name: 'Ny. Endang Wijaya', meta: 'RI · pneumonia · 6 hari', tag: 'Ada saran', age: 'pulang H-0', kind: 'w' },
+{ id: 'bambang', g: 'koding', name: 'Tn. Bambang H.', meta: 'RI · ICU · sepsis', tag: 'Resume belum final', age: 'H+2', kind: 'bad',
+title: 'Tn. Bambang H. · rawat inap 9 hari (ICU 5 hari)', sub: 'SEP 0301R0011026V004352 · hak kelas 1 · DPJP dr. [Nama DPJP], Sp.An · resume belum ber-TTE', status: 'Grouping ditahan',
+dx: [['A41.9', 'Sepsis, tidak spesifik', 'utama'], ['J96.0', 'Gagal napas akut', 'sekunder'], ['E87.2', 'Asidosis', 'sekunder']],
+px: [['96.71', 'Ventilasi mekanik < 96 jam'], ['38.93', 'Pemasangan kateter vena sentral'], ['89.65', 'Analisis gas darah arteri']],
+cbg: 'A-4-10-III', cbgName: 'Septikemia berat', tk: 'kelas 1', cbgNum: 24318600, rsNum: 41260000,
+warn: { lvl: 'bad', t: 'Resume belum final:', x: 'DPJP belum menandatangani resume (TTE). Grouping final ditahan; pengingat otomatis terkirim ke DPJP 08.00.' }, docs: RI, miss: [1] },
+{ id: 'ratna', g: 'koding', name: 'Ny. Ratna Sari', meta: 'RI · lap. kolesistektomi', tag: 'Siap', age: 'H+1',
+title: 'Ny. Ratna Sari · rawat inap 3 hari', sub: 'SEP 0301R0011026V004398 · hak kelas 2 · DPJP dr. [Nama DPJP], Sp.B · resume final 2 Okt 14.20', status: 'Siap grouping',
+dx: [['K80.2', 'Batu kandung empedu tanpa kolesistitis', 'utama'], ['I10', 'Hipertensi esensial', 'sekunder']],
+px: [['51.23', 'Kolesistektomi laparoskopik'], ['88.76', 'USG abdomen'], ['89.52', 'EKG pra-operasi']],
+cbg: 'K-1-14-I', cbgName: 'Prosedur kandung empedu ringan', tk: 'kelas 2', cbgNum: 11845200, rsNum: 10920000,
+warn: { lvl: 'ok', t: 'Tidak ada saran koding.', x: 'Kode sesuai resume dan laporan operasi ber-TTE.' }, docs: RI.concat(['Laporan operasi ber-TTE']), miss: [] },
+{ id: 'suryo', g: 'koding', name: 'Tn. Suryo A.', meta: 'RJ · DM tipe 2 · PRB', tag: 'Siap', age: 'H+0',
+dx: [['E11.9', 'DM tipe 2 tanpa komplikasi', 'utama'], ['I10', 'Hipertensi esensial', 'sekunder']], px: [['89.03', 'Pemeriksaan dan evaluasi'], ['90.59', 'Pemeriksaan gula darah']],
+cbg: 'Q-5-44-0', cbgName: 'Penyakit kronis kecil lain-lain', tk: 'RJ', cbgNum: 213800, rsNum: 245000, docs: RJ, miss: [] },
+{ id: 'raka', g: 'koding', name: 'An. Raka P.', meta: 'RI · DBD', tag: 'Siap', age: 'H+1',
+dx: [['A91', 'Demam berdarah dengue', 'utama']], px: [['99.18', 'Infus cairan elektrolit'], ['90.59', 'Pemeriksaan darah serial']],
+cbg: 'A-4-14-I', cbgName: 'Infeksi virus ringan', tk: 'kelas 3', cbgNum: 3182400, rsNum: 3540000, docs: RI, miss: [] },
+{ id: 'agus', g: 'koding', name: 'Tn. Agus Santoso', meta: 'RI · SKA · rawat', tag: 'Belum pulang', age: '—', status: 'Belum pulang',
+dx: [['I21.4', 'Infark miokard akut non-ST elevasi', 'sementara']], px: [['88.56', 'Angiografi koroner'], ['89.52', 'EKG']],
+cbg: '—', cbgName: 'dihitung setelah pulang', tk: 'kelas 1', cbgNum: 0, rsNum: 0,
+warn: { lvl: 'info', t: 'Pasien masih dirawat.', x: 'Berkas klaim dibuka setelah pasien pulang dan resume final; koding sementara hanya untuk estimasi.' }, docs: RI, miss: [1, 3] },
+{ id: 'lestari', g: 'koding', name: 'Ny. Lestari', meta: 'RI · SC elektif', tag: 'Siap', age: 'H+2',
+dx: [['O82.0', 'Persalinan dengan seksio sesarea elektif', 'utama'], ['Z37.0', 'Lahir hidup tunggal', 'sekunder']], px: [['74.1', 'Seksio sesarea segmen bawah'], ['99.55', 'Imunisasi bayi baru lahir']],
+cbg: 'O-6-10-I', cbgName: 'Prosedur sesar ringan', tk: 'kelas 2', cbgNum: 7604500, rsNum: 8120000, docs: RI, miss: [] },
+{ id: 'rahmat', g: 'koding', name: 'Tn. Rahmat', meta: 'RJ · hemodialisis', tag: 'Siap', age: 'H+0',
+dx: [['N18.5', 'Penyakit ginjal kronik stadium 5', 'utama'], ['Z99.2', 'Ketergantungan dialisis', 'sekunder']], px: [['39.95', 'Hemodialisis']],
+cbg: 'N-3-15-0', cbgName: 'Prosedur dialisis', tk: 'RJ', cbgNum: 1006500, rsNum: 950000, docs: RJ, miss: [] },
+
+{ id: 'hasan', g: 'pending', name: 'Tn. Hasan B.', meta: 'RI · ICU · sepsis', tag: 'Konfirmasi resume', age: '34 hr', kind: 'w',
+dx: [['A41.9', 'Sepsis, tidak spesifik', 'utama'], ['J96.0', 'Gagal napas akut', 'sekunder']], px: [['96.72', 'Ventilasi mekanik ≥ 96 jam']],
+cbg: 'A-4-10-III', cbgName: 'Septikemia berat', tk: 'kelas 2', cbgNum: 20265500, rsNum: 36480000,
+warn: { lvl: 'w', t: 'Pertanyaan verifikator:', x: 'durasi ventilasi tidak sesuai catatan ICU. Lampirkan lembar observasi ventilator.' }, docs: PD('Lembar observasi ventilator ICU'), miss: [1, 2, 3] },
+{ id: 'siti', g: 'pending', name: 'Ny. Siti A.', meta: 'RI · ICU · syok sepsis', tag: 'Konfirmasi koding', age: '31 hr', kind: 'w',
+dx: [['A41.9', 'Sepsis, tidak spesifik', 'utama'], ['R57.2', 'Syok septik', 'sekunder']], px: [['00.17', 'Infus agen vasopresor']],
+cbg: 'A-4-10-III', cbgName: 'Septikemia berat', tk: 'kelas 3', cbgNum: 17371800, rsNum: 29950000,
+warn: { lvl: 'w', t: 'Pertanyaan verifikator:', x: 'R57.2 sebagai diagnosis sekunder perlu bukti pemakaian vasopresor.' }, docs: PD('Catatan pemberian norepinefrin (eMAR)'), miss: [1, 2, 3] },
+{ id: 'darmawan', g: 'pending', name: 'Tn. Darmawan', meta: 'RI · stroke iskemik', tag: 'Lampiran CT', age: '22 hr', kind: 'w',
+dx: [['I63.9', 'Infark serebral', 'utama']], px: [['87.03', 'CT scan kepala']],
+cbg: 'G-4-14-II', cbgName: 'Gangguan pembuluh darah otak sedang', tk: 'kelas 2', cbgNum: 8730600, rsNum: 11240000,
+warn: { lvl: 'w', t: 'Pertanyaan verifikator:', x: 'ekspertise CT kepala belum terlampir di berkas.' }, docs: PD('Ekspertise CT kepala'), miss: [1, 2, 3] },
+{ id: 'wulan', g: 'pending', name: 'Ny. Wulan', meta: 'RI · SC + sterilisasi', tag: 'Konfirmasi tindakan', age: '15 hr', kind: 'w',
+dx: [['O82.0', 'Persalinan dengan seksio sesarea elektif', 'utama']], px: [['74.1', 'Seksio sesarea segmen bawah'], ['66.39', 'Sterilisasi tuba bilateral']],
+cbg: 'O-6-10-I', cbgName: 'Prosedur sesar ringan', tk: 'kelas 2', cbgNum: 7604500, rsNum: 8960000,
+warn: { lvl: 'w', t: 'Pertanyaan verifikator:', x: 'tindakan sterilisasi perlu persetujuan tertulis pasien dan suami.' }, docs: PD('Formulir persetujuan sterilisasi'), miss: [1, 2, 3] },
+{ id: 'yosef', g: 'pending', name: 'Tn. Yosef', meta: 'RJ · kemoterapi', tag: 'Protokol kemo', age: '9 hr', kind: 'w',
+dx: [['C18.9', 'Neoplasma ganas kolon', 'utama'], ['Z51.1', 'Sesi kemoterapi', 'sekunder']], px: [['99.25', 'Injeksi kemoterapi']],
+cbg: 'Q-5-29-0', cbgName: 'Kemoterapi RJ', tk: 'RJ', cbgNum: 3102700, rsNum: 3380000,
+warn: { lvl: 'w', t: 'Pertanyaan verifikator:', x: 'protokol kemoterapi siklus 3 belum dilampirkan.' }, docs: PD('Protokol kemoterapi bertanda tangan DPJP'), miss: [1, 2, 3] },
+
+{ id: 'joko', g: 'dispute', name: 'Tn. Joko S.', meta: 'RI · ICU · pneumonia · Rp 12,4 jt', tag: 'Dispute medis', age: '48 hr', kind: 'bad',
+dx: [['J18.9', 'Pneumonia, tidak spesifik', 'utama'], ['J96.0', 'Gagal napas akut', 'sekunder']], px: [['93.90', 'Ventilasi non-invasif']],
+cbg: 'J-4-15-III', cbgName: 'Pneumonia berat', tk: 'kelas 2', cbgNum: 12400000, rsNum: 19870000,
+warn: { lvl: 'bad', t: 'Alasan dispute:', x: 'verifikator menilai indikasi rawat ICU tidak terpenuhi (CURB-65 = 2).' }, docs: DS, miss: [1, 2, 3] },
+{ id: 'maria', g: 'dispute', name: 'Ny. Maria T.', meta: 'RI · DBD derajat III · Rp 17,9 jt', tag: 'Dispute koding', age: '27 hr', kind: 'bad',
+dx: [['A91', 'Demam berdarah dengue', 'utama'], ['R57.9', 'Syok, tidak spesifik', 'sekunder']], px: [['99.18', 'Infus cairan elektrolit']],
+cbg: 'A-4-14-III', cbgName: 'Infeksi virus berat', tk: 'kelas 1', cbgNum: 17900000, rsNum: 21300000,
+warn: { lvl: 'bad', t: 'Alasan dispute:', x: 'kode syok dinilai tidak didukung hasil hematokrit serial.' }, docs: DS, miss: [1, 2, 3] },
+{ id: 'ilham', g: 'dispute', name: 'Tn. Ilham', meta: 'RI · fraktur femur ORIF · Rp 10,7 jt', tag: 'Dispute tarif', age: '19 hr', kind: 'bad',
+dx: [['S72.3', 'Fraktur batang femur', 'utama']], px: [['79.35', 'Reduksi terbuka dengan fiksasi internal femur']],
+cbg: 'M-1-30-II', cbgName: 'Prosedur tungkai bawah sedang', tk: 'kelas 2', cbgNum: 10700000, rsNum: 24150000,
+warn: { lvl: 'bad', t: 'Alasan dispute:', x: 'implan ORIF ditagihkan terpisah; verifikator menilai sudah termasuk tarif INA-CBG.' }, docs: DS, miss: [2, 3] }
+];
+
+var counts = { koding: 46, pending: 12, dispute: 3 };
+var chips = [
+{ id: 'koding', label: 'Perlu koding 46' },
+{ id: 'pending', label: 'Pending BPJS 12' },
+{ id: 'dispute', label: 'Dispute 3' }
+].map(function (f) {
+var on = st.filter === f.id;
+return { label: f.label, on: on ? 'true' : 'false', bg: on ? '#0F766E' : '#F1F3F5', fg: on ? '#FFFFFF' : '#3F4C58',
+pick: function () { var first = claims.filter(function (x) { return x.g === f.id; })[0]; self.setState({ filter: f.id, sel: first ? first.id : self.state.sel }); } };
+});
+
+var isEndangSel = st.sel === 'endang';
+var j13 = !!st.j13At;
+
+function docsFor(c) {
+var base = c.id === 'endang'
+? [true, true, true, true, true, false, true]
+: c.docs.map(function (t, i) { return c.miss.indexOf(i) < 0; });
+return st.docs[c.id] || base;
+}
+function tagFor(c) {
+if (st.sent[c.id]) return { tag: c.g === 'koding' ? 'Terkirim' : (c.g === 'pending' ? 'Tanggapan terkirim' : 'Banding diajukan'), lvl: 'ok' };
+if (c.id === 'endang') {
+if (j13) return { tag: 'Saran diterima', lvl: 'ok' };
+if (st.queries.endang) return { tag: 'Menunggu DPJP', lvl: 'info' };
+}
+return { tag: c.tag, lvl: c.kind || (c.tag === 'Siap' ? 'ok' : 'none') };
+}
+var chipCol = { bad: ['#FDECEA', '#B42318'], w: ['#FFF3E0', '#8A4B00'], ok: ['#EAF5EC', '#1E6B34'], info: ['#EEF2FB', '#1E3A8A'], none: ['#F1F3F5', '#3F4C58'] };
+
+var shown = claims.filter(function (x) { return x.g === st.filter; });
+var list = shown.map(function (l) {
+var sel = l.id === st.sel;
+var tg = tagFor(l);
+return { name: l.name, meta: l.meta, tag: tg.tag, age: l.age, pressed: sel ? 'true' : 'false', bar: sel ? '#0F766E' : 'transparent', bg: sel ? '#F2FAF8' : '#FFFFFF',
+chipBg: chipCol[tg.lvl][0], chipFg: chipCol[tg.lvl][1], pick: function () { self.setState({ sel: l.id }); } };
+});
+var listFoot = 'Menampilkan ' + shown.length + ' dari ' + counts[st.filter] + ' · urut menurut tanggal pulang';
+
+var c = claims.filter(function (x) { return x.id === st.sel; })[0] || claims[0];
+var docOk = docsFor(c);
+var sentAt = st.sent[c.id] || '';
+var queryAt = st.queries[c.id] || '';
+var n17 = c.id === 'endang' && docOk[5];
+var tingkat3 = c.id === 'endang' && j13 && n17;
+
+var nbCol = {
+w: { bg: '#FFFAF2', bd: '#F1D3A8', mark: '!', markFg: '#8A4B00', titleFg: '#6B3A00' },
+bad: { bg: '#FDECEA', bd: '#F4C7C1', mark: '!', markFg: '#B42318', titleFg: '#8F1D14' },
+ok: { bg: '#F2FAF4', bd: '#B7DEC0', mark: '✓', markFg: '#1E6B34', titleFg: '#1E6B34' },
+info: { bg: '#F6F8FD', bd: '#C9D3EE', mark: 'i', markFg: '#1E3A8A', titleFg: '#1E3A8A' }
+};
+
+var head, dx, px, grp, ratio, nb, docLabels;
+var gLabel = { koding: 'perlu koding', pending: 'pending verifikator BPJS', dispute: 'dispute' };
+var stFgMap = { bad: '#B42318', w: '#8A4B00', ok: '#0B5D56', info: '#1E3A8A', none: '#3F4C58' };
+
+if (c.id === 'endang') {
+var status = sentAt ? 'Terkirim ke E-Klaim' : (j13 ? (tingkat3 ? 'Siap final · J-4-15-III' : 'Siap grouping · J13') : (queryAt ? 'Menunggu jawaban DPJP' : 'Siap grouping'));
+head = { title: 'Ny. Endang Wijaya · rawat inap 6 hari', sub: 'SEP 0301R0011026V004417 · hak kelas 2 · naik kelas 1 · DPJP dr. [Nama DPJP], Sp.PD · resume final 4 Okt 11.02', status: status, stFg: queryAt && !j13 && !sentAt ? '#1E3A8A' : (sentAt ? '#1E6B34' : '#0B5D56') };
+dx = [
+j13 ? { code: 'J13', name: 'Pneumonia akibat S. pneumoniae', role: 'utama' } : { code: 'J18.9', name: 'Pneumonia, tidak spesifik', role: 'utama' },
+{ code: 'E11.9', name: 'DM tipe 2 tanpa komplikasi', role: 'sekunder' },
+{ code: 'N17.9', name: 'Gagal ginjal akut (kreatinin naik)', role: n17 ? 'sekunder' : 'perlu bukti' }
+];
+px = [{ code: '87.44', name: 'Foto toraks rutin' }, { code: '93.96', name: 'Terapi oksigen' }, { code: '99.21', name: 'Injeksi antibiotik' }];
+var cbgNum = tingkat3 ? 9104300 : 6612800;
+var g3;
+if (tingkat3) g3 = { k: 'Sebelumnya', v: 'J-4-15-II', s: 'Rp 6.612.800 · naik Rp 2.491.500', lvl: 'ok' };
+else if (j13) g3 = { k: 'Jika N17.9 terbukti', v: 'J-4-15-III', s: 'Rp 9.104.300 · lengkapi bukti CPPT', lvl: 'w' };
+else if (n17) g3 = { k: 'Jika J13 diterima', v: 'J-4-15-III', s: 'Rp 9.104.300 · tunggu konfirmasi J13', lvl: 'w' };
+else g3 = { k: 'Jika J13 + N17.9', v: 'J-4-15-III', s: 'Rp 9.104.300 · butuh bukti', lvl: 'w' };
+grp = [
+{ k: 'Kode CBG', v: tingkat3 ? 'J-4-15-III' : 'J-4-15-II', s: tingkat3 ? 'Pneumonia berat · J13 + N17.9' : (j13 ? 'Pneumonia sedang · dx utama J13' : 'Pneumonia sedang') },
+{ k: 'Tarif kelas 2', v: 'Rp ' + fmt(cbgNum), s: 'regional, RS kelas B' },
+g3,
+{ k: 'Special CMG', v: 'tidak ada', s: '—' }
+];
+ratio = { label: 'Tarif RS vs INA-CBG kelas 2', rs: 18742500, cbg: cbgNum,
+note: tingkat3 ? 'Selisih menyempit setelah koding spesifik; LOS 6 vs target 5 tetap dicatat untuk analisis clinical pathway pneumonia.' : 'Margin negatif kasus ini dicatat untuk analisis clinical pathway pneumonia (LOS 6 vs target 5).' };
+if (j13) {
+nb = Object.assign({}, nbCol.ok, { title: 'Saran diterima:', pre: 'kode utama J18.9 → ', code: 'J13', post: ' (' + st.j13At + '). Hasil grouper dihitung ulang.', waiting: false, actions: false });
+} else {
+nb = Object.assign({}, nbCol.w, { title: 'Saran koding:', pre: 'kultur sputum positif S. pneumoniae. J18.9 → ', code: 'J13', post: ' lebih spesifik dan didukung bukti. Perlu konfirmasi DPJP (query koder).',
+waiting: !!queryAt, waitText: 'Query terkirim ke DPJP ' + queryAt + ' · menunggu jawaban', actions: !sentAt, canQuery: !queryAt, acceptLabel: queryAt ? 'DPJP setuju · terapkan J13' : 'Terima J13' });
+}
+docLabels = ['SEP dan identitas peserta', 'Resume medis final ber-TTE', 'Hasil lab dan radiologi pendukung', 'Billing final (tarif RS)', 'Surat perintah rawat inap', n17 ? 'Bukti klinis N17.9 di CPPT' : 'Bukti klinis N17.9 di CPPT (belum ada)', 'Persetujuan naik kelas bertanda tangan'];
+} else {
+var tg = tagFor(c);
+head = { title: c.title || (c.name + ' · ' + c.meta), sub: c.sub || (c.meta + ' · ' + gLabel[c.g] + ' · ringkasan dibangkitkan dari data klaim'),
+status: sentAt ? (c.g === 'koding' ? 'Terkirim ke E-Klaim' : tg.tag) : (c.status || tg.tag), stFg: sentAt ? '#1E6B34' : stFgMap[c.kind || (c.tag === 'Siap' ? 'ok' : 'none')] };
+dx = c.dx.map(function (d) { return { code: d[0], name: d[1], role: d[2] }; });
+px = c.px.map(function (p) { return { code: p[0], name: p[1] }; });
+grp = [
+{ k: 'Kode CBG', v: c.cbg, s: c.cbgName },
+{ k: 'Tarif ' + c.tk, v: c.cbgNum ? 'Rp ' + fmt(c.cbgNum) : '—', s: 'regional, RS kelas B' },
+{ k: 'Tarif RS', v: c.rsNum ? 'Rp ' + fmt(c.rsNum) : '—', s: c.rsNum ? 'billing final' : 'billing berjalan' },
+{ k: 'Special CMG', v: 'tidak ada', s: '—' }
+];
+ratio = { label: 'Tarif RS vs INA-CBG ' + c.tk, rs: c.rsNum, cbg: c.cbgNum,
+note: c.rsNum > c.cbgNum ? 'Tarif RS melebihi INA-CBG; selisih dicatat untuk analisis clinical pathway.' : 'Tarif RS di bawah INA-CBG; margin kasus positif.' };
+var w = c.warn || { lvl: 'ok', t: 'Tidak ada saran koding.', x: 'Kode sesuai bukti di resume dan order.' };
+nb = Object.assign({}, nbCol[w.lvl], { title: w.t, pre: w.x, code: '', post: '', waiting: !!queryAt, waitText: 'Query terkirim ke DPJP ' + queryAt + ' · menunggu jawaban', actions: false, canQuery: false, acceptLabel: '' });
+docLabels = c.docs.map(function (t, i) { return docOk[i] ? t : t + ' (belum ada)'; });
+}
+grp = grp.map(function (g) { return { k: g.k, v: g.v, s: g.s, bg: g.lvl === 'w' ? '#FFFAF2' : (g.lvl === 'ok' ? '#EAF5EC' : '#FFFFFF'), fg: g.lvl === 'w' ? '#8A4B00' : (g.lvl === 'ok' ? '#1E6B34' : '#14212B') }; });
+
+var hasRatio = ratio.cbg > 0 && ratio.rs > 0;
+var ratioOut = { label: ratio.label, note: ratio.note, pct: '0%', w1: '100%', w2: '0%' };
+if (hasRatio) {
+ratioOut.pct = Math.round(ratio.rs / ratio.cbg * 100) + '%';
+var w1 = ratio.rs > ratio.cbg ? Math.round(ratio.cbg / ratio.rs * 100) : 100;
+ratioOut.w1 = w1 + '%'; ratioOut.w2 = (100 - w1) + '%';
+}
+
+var cid = c.id;
+var docs = docLabels.map(function (t, i) {
+return { t: t, ok: !!docOk[i], fg: docOk[i] ? '#3F4C58' : '#8A4B00', cur: sentAt ? 'default' : 'pointer',
+toggle: function () {
+if (self.state.sent[cid]) return;
+var cur = docsFor(c).slice(); cur[i] = !cur[i];
+var all = Object.assign({}, self.state.docs); all[cid] = cur;
+self.setState({ docs: all });
+} };
+});
+var missing = docLabels.filter(function (t, i) { return !docOk[i]; }).map(function (t) { return t.replace(' (belum ada)', ''); });
+var lengkap = missing.length === 0;
+var nOk = docLabels.length - missing.length;
+
+var finLabel = { koding: 'Final dan kirim E-Klaim', pending: 'Kirim tanggapan ke verifikator', dispute: 'Ajukan penyelesaian dispute' }[c.g];
+var sentTitle = { koding: 'Terkirim ke E-Klaim ' + sentAt, pending: 'Tanggapan terkirim ke verifikator ' + sentAt, dispute: 'Penyelesaian dispute diajukan ' + sentAt }[c.g];
+var sentNote = c.g === 'koding'
+? 'Berkas dikunci untuk verifikasi BPJS. Jurnal piutang BPJS terbentuk otomatis di Akuntansi.'
+: 'Berkas tambahan dikunci dan tercatat di audit. Piutang BPJS tetap terbuka sampai dana cair.';
+
+return {
+kpi: kpi, chips: chips, list: list, listFoot: listFoot,
+c: head, dx: dx, px: px, grp: grp, nb: nb, hasRatio: hasRatio, ratio: ratioOut,
+docs: docs, docCount: nOk + '/' + docLabels.length + ' lengkap', docFg: lengkap ? '#1E6B34' : '#8A4B00',
+acceptJ13: function () { if (self.state.j13At || self.state.sent.endang) return; self.setState({ j13At: jam() }); },
+sendQuery: function () {
+if (self.state.queries[cid] || self.state.sent[cid]) return;
+var q = Object.assign({}, self.state.queries); q[cid] = jam(); self.setState({ queries: q });
+},
+qBtn: queryAt
+? { dis: 'true', label: 'Query terkirim ' + queryAt, bg: '#F1F3F5', fg: '#5B6B79', cur: 'default' }
+: { dis: 'false', label: 'Kirim query ke DPJP', bg: '#FFFFFF', fg: '#14212B', cur: 'pointer' },
+fin: lengkap
+? { dis: 'false', label: finLabel, bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', label: finLabel, bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: 'Belum bisa dikirim: lengkapi ' + missing.length + ' berkas (' + missing.join('; ') + ').' },
+finalize: function () {
+if (!lengkap || self.state.sent[cid]) return;
+var s = Object.assign({}, self.state.sent); s[cid] = jam(); self.setState({ sent: s });
+},
+notSent: !sentAt, isSent: !!sentAt, sentTitle: sentTitle, sentNote: sentNote
+};
+}
+}
+</script>
+</body>
+</html>

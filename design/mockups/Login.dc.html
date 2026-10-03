@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Masuk SIM RS</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.5">
+
+<section aria-label="Tentang sistem" style="flex: 1 1 480px; min-height: 420px; box-sizing: border-box; padding: 56px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; color: #FFFFFF; background-color: #0B5D56; background-image: radial-gradient(700px 420px at 100% 0%, rgba(255,255,255,0.12), rgba(255,255,255,0) 70%), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1px, rgba(255,255,255,0) 1.5px), linear-gradient(160deg, #0F766E 0%, #0B5D56 100%); background-size: auto, 22px 22px, auto">
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></div>
+<div style="display: flex; flex-direction: column"><span style="font-weight: 700; font-size: 16px">[NAMA PRODUK SIM RS]</span><span style="font-size: 13px; color: #CDEBE5">Sistem informasi rumah sakit terintegrasi</span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 16px; max-width: 460px">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 700">Satu rekam medis untuk setiap pasien, dari pendaftaran sampai pulang.</h1>
+<p style="margin: 0; color: #DDF2EE">Terhubung dengan SATUSEHAT, BPJS Kesehatan, dan sistem nasional. Setiap akses dicatat untuk melindungi kerahasiaan pasien.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<span style="font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25)">Enkripsi end-to-end</span>
+<span style="font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25)">Sesuai Permenkes 24/2022</span>
+<span style="font-size: 12px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25)">UU PDP</span>
+</div>
+</section>
+
+
+<section aria-label="Formulir masuk" style="flex: 1 1 480px; display: flex; align-items: center; justify-content: center; padding: 48px 24px; box-sizing: border-box; background-color: #F5F7F9; background-image: radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1px, rgba(20,33,43,0) 1.5px); background-size: 22px 22px">
+<div style="width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 20px">
+
+<ol aria-label="Langkah masuk" style="list-style: none; margin: 0; padding: 0; display: flex; gap: 8px">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+<li aria-current="{{s.cur}}" style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 4px; border-radius: 999px; background: {{s.bar}}"></span><span style="font-size: 12px; color: {{s.fg}}; font-weight: {{s.fw}}">{{s.label}}</span></li>
+</sc-for>
+</ol>
+
+<sc-if value="{{isStep1}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.06)">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">Masuk ke SIM RS</h2>
+<p style="margin: 0; color: #3F4C58">Gunakan NIP atau email RS dan kata sandi Anda. Setelah itu sistem meminta kode verifikasi.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="nip" style="font-size: 13px; font-weight: 600">NIP atau email RS</label>
+<input id="nip" autocomplete="username" value="{{nip}}" onInput="{{setNip}}" aria-invalid="{{nipInvalid}}" style="font: inherit; height: 44px; padding: 0 12px; border: {{nipBorder}}; border-radius: 10px; box-sizing: border-box; background: #FFFFFF">
+<sc-if value="{{hasErrNip}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; font-weight: 600; color: #B42318">{{errNip}}</span></sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="sandi" style="font-size: 13px; font-weight: 600">Kata sandi</label>
+<input id="sandi" type="password" autocomplete="current-password" value="{{pass}}" onInput="{{setPass}}" aria-invalid="{{passInvalid}}" style="font: inherit; height: 44px; padding: 0 12px; border: {{passBorder}}; border-radius: 10px; box-sizing: border-box; background: #FFFFFF">
+<sc-if value="{{hasErrPass}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; font-weight: 600; color: #B42318">{{errPass}}</span></sc-if>
+</div>
+<button type="button" onClick="{{submitAkun}}" style="font: inherit; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15); cursor: pointer">Masuk dan minta kode</button>
+<span style="font-size: 12px; color: #5B6B79; text-align: center">Lupa kata sandi? Hubungi admin SIM RS untuk reset akun.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{isStep2}}" hint-placeholder-val="{{ true }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.06)">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">Verifikasi dua langkah</h2>
+<p style="margin: 0; color: #3F4C58">Masukkan 6 digit kode dari aplikasi autentikator untuk akun <span style="font-weight: 600">{{akun}}</span>.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="otp-label" style="font-size: 13px; font-weight: 600">Kode verifikasi</span>
+<div role="group" aria-labelledby="otp-label" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{digits}}" as="d" hint-placeholder-count="6">
+<input aria-label="{{d.label}}" inputmode="numeric" autocomplete="one-time-code" value="{{d.v}}" onInput="{{d.set}}" style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; text-align: center; height: 52px; border: {{d.border}}; border-radius: 10px; box-sizing: border-box; background: {{d.bg}}">
+</sc-for>
+</div>
+<sc-if value="{{hasErrOtp}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; font-weight: 600; color: #B42318">{{errOtp}}</span></sc-if>
+<span style="font-size: 12px; color: #5B6B79">Kode berlaku 30 detik. Tidak punya akses aplikasi? <button type="button" onClick="{{kirimWa}}" style="font: inherit; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; cursor: pointer">Kirim kode lewat WhatsApp</button></span>
+<sc-if value="{{waSent}}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 12px; color: #1E6B34">Kode dikirim ke nomor WhatsApp yang terdaftar pukul {{waJam}}.</span></sc-if>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #3F4C58"><input type="checkbox" checked="{{trust}}" onChange="{{toggleTrust}}" style="width: 18px; height: 18px; accent-color: #0F766E">Percayai perangkat ini selama 12 jam (hanya komputer milik RS)</label>
+<button type="button" onClick="{{submitOtp}}" style="font: inherit; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15); cursor: pointer">Verifikasi dan lanjut</button>
+<button type="button" onClick="{{keStep1}}" style="font: inherit; font-size: 13px; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; text-align: center; cursor: pointer">Kembali ke halaman masuk</button>
+</div>
+</sc-if>
+
+<sc-if value="{{isStep3}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px rgba(16,24,40,0.06)">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">Pilih unit kerja</h2>
+<p style="margin: 0; color: #3F4C58">Akun <span style="font-weight: 600">{{akun}}</span> terverifikasi. Hak akses mengikuti unit dan shift yang dipilih (RBAC + relasi pasien).</p>
+</div>
+<div role="radiogroup" aria-label="Unit kerja" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{units}}" as="u" hint-placeholder-count="2">
+<button type="button" role="radio" aria-checked="{{u.on}}" onClick="{{u.pick}}" style="font: inherit; font-size: 13px; text-align: left; min-height: 56px; padding: 10px 12px; border-radius: 10px; border: {{u.border}}; background: {{u.bg}}; color: #14212B; display: flex; flex-direction: column; justify-content: center; cursor: pointer"><span style="font-weight: 600; color: {{u.fg}}">{{u.name}}</span><span style="font-size: 12px; color: #5B6B79">{{u.note}}</span></button>
+</sc-for>
+</div>
+<sc-if value="{{noUnit}}" hint-placeholder-val="{{ true }}"><span style="font-size: 12px; color: #5B6B79">Pilih salah satu unit untuk melanjutkan.</span></sc-if>
+<sc-if value="{{hasUnit}}" hint-placeholder-val="{{ false }}"><a href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; font-weight: 600; height: 48px; box-sizing: border-box; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15); text-decoration: none">Masuk ke {{unitName}}</a></sc-if>
+<button type="button" onClick="{{keStep2}}" style="font: inherit; font-size: 13px; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; text-align: center; cursor: pointer">Kembali ke verifikasi</button>
+</div>
+</sc-if>
+
+<sc-if value="{{showPreview}}" hint-placeholder-val="{{ true }}">
+<div style="background: rgba(255,255,255,0.8); border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 13px; font-weight: 600">Langkah berikutnya: pilih unit kerja</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<span style="padding: 10px 12px; border-radius: 10px; border: 1px solid #0F766E; background: #F2FAF8; font-size: 13px"><span style="font-weight: 600; color: #0B5D56">Rawat inap Melati</span><span style="display: block; font-size: 12px; color: #5B6B79">Shift pagi · 07.00–14.00</span></span>
+<span style="padding: 10px 12px; border-radius: 10px; border: 1px solid #E3E8EE; background: #FFFFFF; font-size: 13px"><span style="font-weight: 600">IGD</span><span style="display: block; font-size: 12px; color: #5B6B79">Tugas tambahan</span></span>
+</div>
+<span style="font-size: 12px; color: #5B6B79">Hak akses mengikuti unit dan shift yang dipilih (RBAC + relasi pasien).</span>
+</div>
+</sc-if>
+
+<p style="margin: 0; font-size: 12px; color: #5B6B79; text-align: center">Akun bersifat pribadi dan tidak boleh dipakai bersama. Seluruh aktivitas tercatat di jejak audit sesuai MRMIK 2.1.</p>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+step: 2,
+nip: 'perawat.rina@[domain-rs]',
+pass: '',
+errNip: '',
+errPass: '',
+otp: ['4', '8', '1', '', '', ''],
+errOtp: '',
+waJam: '',
+trust: false,
+unit: ''
+};
+}
+renderVals() {
+var self = this;
+var s = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+
+var steps = ['1 Akun', '2 Verifikasi', '3 Unit kerja'].map(function (label, i) {
+var on = i + 1 <= s.step;
+return { label: label, bar: on ? '#0F766E' : '#CBD3DB', fg: on ? '#0B5D56' : '#5B6B79', fw: on ? '600' : '400', cur: i + 1 === s.step ? 'step' : 'false' };
+});
+
+var firstEmpty = s.otp.indexOf('');
+var digits = s.otp.map(function (v, i) {
+var border, bg;
+if (v) { border = '1px solid #0F766E'; bg = '#F2FAF8'; }
+else if (i === firstEmpty) { border = s.errOtp ? '2px solid #B42318' : '2px solid #0F766E'; bg = '#FFFFFF'; }
+else { border = s.errOtp ? '1px solid #F04438' : '1px solid #CBD3DB'; bg = '#FFFFFF'; }
+return {
+label: 'Digit ' + (i + 1), v: v, border: border, bg: bg,
+set: function (e) {
+var raw = String((e && e.target && e.target.value) || '').replace(/\D/g, '');
+var otp = self.state.otp.slice();
+var prev = otp[i];
+if (raw.length <= 1) { otp[i] = raw; }
+else if (raw.length === 2 && prev && raw.indexOf(prev) !== -1) { otp[i] = raw.replace(prev, ''); }
+else { for (var k = 0; k < raw.length && i + k < 6; k++) { otp[i + k] = raw.charAt(k); } }
+self.setState({ otp: otp, errOtp: '' });
+}
+};
+});
+
+var units = [
+{ id: 'melati', name: 'Rawat inap Melati', note: 'Shift pagi · 07.00–14.00' },
+{ id: 'igd', name: 'IGD', note: 'Tugas tambahan' }
+].map(function (u) {
+var on = s.unit === u.id;
+return Object.assign({}, u, {
+on: on ? 'true' : 'false',
+border: on ? '1px solid #0F766E' : '1px solid #E3E8EE',
+bg: on ? '#F2FAF8' : '#FFFFFF',
+fg: on ? '#0B5D56' : '#14212B',
+pick: function () { self.setState({ unit: u.id }); }
+});
+});
+var chosen = units.filter(function (u) { return u.on === 'true'; })[0];
+
+return {
+steps: steps,
+isStep1: s.step === 1,
+isStep2: s.step === 2,
+isStep3: s.step === 3,
+showPreview: s.step < 3,
+akun: s.nip.trim() || 'perawat.rina@[domain-rs]',
+
+nip: s.nip,
+pass: s.pass,
+errNip: s.errNip,
+errPass: s.errPass,
+hasErrNip: !!s.errNip,
+hasErrPass: !!s.errPass,
+nipInvalid: s.errNip ? 'true' : 'false',
+passInvalid: s.errPass ? 'true' : 'false',
+nipBorder: s.errNip ? '1px solid #B42318' : '1px solid #CBD3DB',
+passBorder: s.errPass ? '1px solid #B42318' : '1px solid #CBD3DB',
+setNip: function (e) { self.setState({ nip: e.target.value, errNip: '' }); },
+setPass: function (e) { self.setState({ pass: e.target.value, errPass: '' }); },
+submitAkun: function () {
+var errNip = self.state.nip.trim() ? '' : 'NIP atau email RS wajib diisi.';
+var errPass = self.state.pass ? '' : 'Kata sandi wajib diisi.';
+if (errNip || errPass) { self.setState({ errNip: errNip, errPass: errPass }); return; }
+self.setState({ step: 2, errNip: '', errPass: '', otp: ['', '', '', '', '', ''], errOtp: '', waJam: '' });
+},
+
+digits: digits,
+errOtp: s.errOtp,
+hasErrOtp: !!s.errOtp,
+waSent: !!s.waJam,
+waJam: s.waJam,
+kirimWa: function () { self.setState({ waJam: jam() }); },
+trust: s.trust,
+toggleTrust: function (e) { self.setState({ trust: !!e.target.checked }); },
+submitOtp: function () {
+var n = self.state.otp.join('').length;
+if (n < 6) {
+self.setState({ errOtp: n === 0 ? 'Kode verifikasi wajib diisi (6 digit).' : 'Kode harus 6 digit. Baru terisi ' + n + ' digit.' });
+return;
+}
+self.setState({ step: 3, errOtp: '' });
+},
+keStep1: function () { self.setState({ step: 1, pass: '', errNip: '', errPass: '', errOtp: '' }); },
+
+units: units,
+hasUnit: !!chosen,
+noUnit: !chosen,
+unitName: chosen ? chosen.name : '',
+keStep2: function () { self.setState({ step: 2, unit: '' }); }
+};
+}
+}
+</script>
+</body>
+</html>

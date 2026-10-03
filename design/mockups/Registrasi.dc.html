@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Pendaftaran rawat jalan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="daftar" user="Bambang Kurniawan" role="Petugas pendaftaran · Loket 3" initials="BK" unit="SIM RS · Front office" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Front office / Pendaftaran / Rawat jalan</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Pendaftaran pasien rawat jalan</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E8EE; font-size: 13px"><span style="width: 7px; height: 7px; border-radius: 999px; background: #16A34A"></span>VClaim 320 ms</span>
+<span style="display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 10px; background: #F1F4F6; font-size: 13px">Antrean loket: {{waitLabel}}</span>
+<button type="button" onClick="{{callNext}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Panggil berikutnya · {{loketNo}}</button>
+</div>
+</header>
+
+<ol aria-label="Langkah pendaftaran" style="list-style: none; margin: 0; padding: 16px 28px 0; display: flex; gap: 10px; flex-wrap: wrap">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.current}}" style="flex: 1 1 180px; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: {{s.bg}}; border: 1px solid {{s.border}}">
+<span style="flex: 0 0 26px; height: 26px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{s.dotBg}}; color: {{s.dotFg}}">{{s.mark}}</span>
+<span style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-weight: 600">{{s.label}}</span><span style="font-size: 12px; color: #5B6B79">{{s.note}}</span></span>
+</li>
+</sc-for>
+</ol>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+
+<section aria-label="Identitas pasien" style="flex: 1 1 300px; max-width: 340px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<label for="cariPasien" style="font-size: 13px; font-weight: 600">Cari pasien (NIK, No. RM, No. BPJS, nama + tgl lahir)</label>
+<input id="cariPasien" value="{{q}}" onInput="{{setQ}}" aria-invalid="{{qInvalid}}" aria-describedby="cariPasienMsg" style="font: inherit; font-family: 'IBM Plex Mono', monospace; height: 42px; padding: 0 12px; border: 1px solid {{qBorder}}; border-radius: 10px; box-sizing: border-box">
+<sc-if value="{{qErrShow}}" hint-placeholder-val="{{ false }}"><span id="cariPasienMsg" style="font-size: 12px; color: #B42318">{{qErr}}</span></sc-if>
+<sc-if value="{{notFound}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{cari}}" style="font: inherit; font-weight: 600; height: 40px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Cari pasien</button></sc-if>
+<div style="display: flex; gap: 8px"><button type="button" onClick="{{bacaKtp}}" style="flex: 1; font: inherit; font-size: 13px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Baca e-KTP</button><button type="button" onClick="{{pindaiKartu}}" style="flex: 1; font: inherit; font-size: 13px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Pindai kartu BPJS</button></div>
+</div>
+<sc-if value="{{found}}" hint-placeholder-val="{{ true }}">
+<div style="background: linear-gradient(160deg, rgba(15,118,110,0.07), #FFFFFF 55%); border: 1px solid #D5E3E1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; gap: 12px; align-items: center">
+<span style="width: 46px; height: 46px; border-radius: 999px; border: 2px solid #0F766E; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-weight: 700">SR</span>
+<span style="display: flex; flex-direction: column"><span style="font-weight: 700; font-size: 16px">Siti Rahmawati</span><span style="font-size: 12px; color: #3F4C58">Pasien lama · RM <span style="font-family: 'IBM Plex Mono', monospace">00-12-45-78</span></span></span>
+</div>
+<sc-for list="{{ident}}" as="i" hint-placeholder-count="6">
+<div style="display: flex; justify-content: space-between; gap: 8px; font-size: 13px; border-top: 1px solid #EEF1F4; padding-top: 8px"><span style="color: #5B6B79">{{i.k}}</span><span style="font-weight: 500; text-align: right">{{i.v}}</span></div>
+</sc-for>
+<span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #1E6B34; font-weight: 600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>NIK cocok dengan Dukcapil dan SATUSEHAT</span>
+<a href="#" style="font-size: 13px; font-weight: 600">Perbarui data pasien</a>
+</div>
+</sc-if>
+<sc-if value="{{notFound}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px dashed #CBD3DB; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Belum ada pasien dipilih</span>
+<span style="font-size: 13px; color: #3F4C58">Ketik NIK, No. RM, atau No. BPJS lalu tekan Cari pasien, atau baca e-KTP / pindai kartu BPJS. Langkah penjaminan aktif setelah pasien ditemukan.</span>
+</div>
+</sc-if>
+</section>
+
+<section aria-label="Penjaminan" style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Penjamin: {{penjLabel}}</h2>
+<div role="group" aria-label="Pilih penjamin" style="display: flex; gap: 6px">
+<sc-for list="{{penjs}}" as="p" hint-placeholder-count="3"><button type="button" aria-pressed="{{p.pressed}}" disabled="{{p.dis}}" onClick="{{p.pick}}" style="font: inherit; font-size: 13px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid {{p.border}}; background: {{p.bg}}; color: {{p.fg}}; font-weight: {{p.weight}}; cursor: {{p.cursor}}">{{p.label}}</button></sc-for>
+</div>
+</div>
+<sc-if value="{{isBpjs}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{cekOk}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 16px 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; background: linear-gradient(180deg, #F8FCFB, #FFFFFF)">
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">Status peserta</span><span style="font-weight: 700; color: #1E6B34">AKTIF</span></span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">No. kartu</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">0001234•••890</span></span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">Hak kelas</span><span style="font-weight: 600">Kelas 2 · PBPU</span></span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">FKTP</span><span style="font-weight: 600">Puskesmas Duren Sawit</span></span>
+</div>
+</sc-if>
+<sc-if value="{{cekNo}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: linear-gradient(180deg, #F8FAFB, #FFFFFF)">
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">Status peserta</span><span style="font-weight: 600; color: #3F4C58">{{cekText}}</span></span>
+<button type="button" disabled="{{cekDis}}" onClick="{{cekBpjs}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid {{cekBtn.border}}; background: {{cekBtn.bg}}; color: {{cekBtn.fg}}; cursor: {{cekBtn.cursor}}">Cek kepesertaan</button>
+</div>
+</sc-if>
+<div style="padding: 0 18px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 600">Pilih rujukan aktif</span>
+<sc-for list="{{refs}}" as="r" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{r.pressed}}" disabled="{{r.dis}}" onClick="{{r.pick}}" style="text-align: left; display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; border: {{r.border}}; background: {{r.bg}}; font: inherit; color: #14212B; cursor: {{r.cursor}}">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{r.title}}</span><span style="font-size: 12px; color: #5B6B79">{{r.meta}}</span></span>
+<span style="font-size: 12px; font-weight: 600; color: {{r.fg}}">{{r.status}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{notBpjs}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; background: linear-gradient(180deg, #F8FAFB, #FFFFFF)">
+<span style="font-weight: 600">{{nonTitle}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{nonText}}</span>
+</div>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 600">{{sepTitle}}</h2><span style="font-size: 12px; color: #5B6B79">{{sepSub}}</span></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="sepPoli" style="font-size: 13px; font-weight: 600">Poli tujuan</label><select id="sepPoli" disabled="{{tujuanLock}}" onChange="{{setPoli}}" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF"><option value="INT" selected="{{poliSel.INT}}">Penyakit Dalam (INT)</option><option value="JAN" selected="{{poliSel.JAN}}">Jantung (JAN)</option><option value="SAR" selected="{{poliSel.SAR}}">Saraf (SAR)</option><option value="PAR" selected="{{poliSel.PAR}}">Paru (PAR)</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="sepDpjp" style="font-size: 13px; font-weight: 600">DPJP (dari HFIS)</label><select id="sepDpjp" disabled="{{tujuanLock}}" onChange="{{setDpjp}}" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF"><option value="" disabled selected="{{dpNone}}">Pilih DPJP</option><option value="{{dp0.val}}" hidden="{{dp0.hide}}" disabled="{{dp0.dis}}" selected="{{dp0.sel}}">{{dp0.label}}</option><option value="{{dp1.val}}" hidden="{{dp1.hide}}" disabled="{{dp1.dis}}" selected="{{dp1.sel}}">{{dp1.label}}</option><option value="{{dp2.val}}" hidden="{{dp2.hide}}" disabled="{{dp2.dis}}" selected="{{dp2.sel}}">{{dp2.label}}</option></select></div>
+<sc-if value="{{isBpjs}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="sepDiag" style="font-size: 13px; font-weight: 600">Diagnosa awal (ICD-10)</label><input id="sepDiag" value="{{diag}}" onInput="{{setDiag}}" disabled="{{sepLock}}" aria-invalid="{{diagInvalid}}" aria-describedby="sepDiagMsg" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid {{diagBorder}}; border-radius: 10px; box-sizing: border-box"><sc-if value="{{diagErr}}" hint-placeholder-val="{{ false }}"><span id="sepDiagMsg" style="font-size: 12px; color: #B42318">Diagnosa awal wajib diisi untuk SEP (kode ICD-10).</span></sc-if></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="sepTujuan" style="font-size: 13px; font-weight: 600">Tujuan kunjungan</label><select id="sepTujuan" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF"><option>{{tujuanLabel}}</option></select></div>
+</sc-if>
+</div>
+<sc-if value="{{isBpjs}}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{info0}}" hint-placeholder-val="{{ true }}"><div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EEF4FF, #FFFFFF); border: 1px solid #C7D7FE; font-size: 13px"><span style="font-weight: 700; color: #1E3A8A">Info</span><span style="color: #3F4C58">Surat kontrol <span style="font-family: 'IBM Plex Mono', monospace">0301R0011025K000456</span> dari kunjungan 12 Sep 2026 ditemukan dan dipakai otomatis.</span></div></sc-if>
+<sc-if value="{{info1}}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EEF4FF, #FFFFFF); border: 1px solid #C7D7FE; font-size: 13px"><span style="font-weight: 700; color: #1E3A8A">Info</span><span style="color: #3F4C58">Rujukan FKTP <span style="font-family: 'IBM Plex Mono', monospace">0301U0420926P001234</span> dari Puskesmas Duren Sawit dipakai · kunjungan ke-3. Pilih DPJP di poli tujuan.</span></div></sc-if>
+<sc-if value="{{infoNone}}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EEF4FF, #FFFFFF); border: 1px solid #C7D7FE; font-size: 13px"><span style="font-weight: 700; color: #1E3A8A">Info</span><span style="color: #3F4C58">{{infoNoneText}}</span></div></sc-if>
+<sc-if value="{{sep}}" hint-placeholder-val="{{ false }}"><div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EAF6EC, #FFFFFF); border: 1px solid #BFE3C6; font-size: 13px"><span style="font-weight: 700; color: #1E6B34">Berhasil</span><span style="color: #3F4C58">SEP <span style="font-family: 'IBM Plex Mono', monospace">0301R0011026V000812</span> terbit pukul {{sepAt}}. Lanjut pilih poli dan dokter.</span></div></sc-if>
+</sc-if>
+</div>
+</section>
+
+<aside aria-label="Tujuan dan konfirmasi" style="flex: 1 1 280px; max-width: 320px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Kuota dokter hari ini</span>
+<sc-for list="{{quota}}" as="q" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{q.pressed}}" disabled="{{q.dis}}" onClick="{{q.pick}}" style="font: inherit; text-align: left; color: #14212B; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; border: {{q.border}}; background: {{q.bg}}; cursor: {{q.cursor}}">
+<span style="display: flex; justify-content: space-between"><span style="font-weight: 600">{{q.doc}}</span><span style="font-size: 12px; color: #5B6B79">{{q.time}}</span></span>
+<span style="display: block; height: 6px; border-radius: 999px; background: #EEF1F4; overflow: hidden"><span style="display: block; height: 6px; width: {{q.pct}}; background: {{q.bar}}; border-radius: 999px"></span></span>
+<span style="font-size: 12px; color: #3F4C58">{{q.used}} dari {{q.total}} terisi · JKN {{q.jkn}} · non-JKN {{q.non}}</span>
+</button>
+</sc-for>
+<sc-if value="{{kuotaHintShow}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #5B6B79">{{kuotaHint}}</span></sc-if>
+</div>
+<div style="background: linear-gradient(180deg, #F2FAF8, #FFFFFF); border: 1px solid #D5ECE7; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #0B5D56">{{pvLabel}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 34px; font-weight: 600; color: #0B5D56">{{pvNo}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{pvLine}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{pvNote}}</span>
+</div>
+<label style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #3F4C58"><input type="checkbox" checked="{{consent}}" onChange="{{toggleConsent}}" disabled="{{done}}" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #0F766E">Persetujuan umum (general consent) sudah ditandatangani pasien di tablet</label>
+<sc-if value="{{notDone}}" hint-placeholder-val="{{ true }}">
+<button type="button" disabled="{{prim.dis}}" onClick="{{prim.act}}" style="font: inherit; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid {{prim.border}}; background: {{prim.bg}}; color: {{prim.fg}}; cursor: {{prim.cursor}}; box-shadow: {{prim.shadow}}">{{prim.label}}</button>
+<sc-if value="{{prim.hasReason}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #8A4B00; margin-top: -8px">{{prim.reason}}</span></sc-if>
+</sc-if>
+<sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EAF6EC, #FFFFFF); border: 1px solid #BFE3C6; font-size: 13px"><span style="font-weight: 700; color: #1E6B34">Berhasil</span><span style="color: #3F4C58">{{doneMsg}}</span></div>
+<a href="DisplayAntrean.dc.html" style="display: flex; align-items: center; justify-content: center; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15); text-decoration: none">Lihat antrean</a>
+</sc-if>
+<button type="button" disabled="{{notDone}}" onClick="{{cetak}}" style="font: inherit; font-weight: 500; height: 44px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: {{cetakCursor}}">{{cetakLabel}}</button>
+<sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{pasienBaru}}" style="font: inherit; font-weight: 500; height: 44px; border-radius: 10px; border: 0; background: transparent; color: #0F766E; cursor: pointer">Pasien berikutnya</button>
+</sc-if>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+q: '3174••••••••4521', found: true, qErr: '',
+penj: 'BPJS', cek: true, ref: 0, diag: 'I10 · Hipertensi esensial', diagTouched: false,
+sep: false, sepAt: '',
+poli: 'INT', doc: 'd1', tujuanOk: false,
+consent: true, done: false, doneAt: '', printed: false, printAt: '',
+loket: 41, wait: 14
+};
+}
+renderVals() {
+var self = this, st = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+function fresh() { return { penj: 'BPJS', cek: false, ref: -1, diag: 'I10 · Hipertensi esensial', diagTouched: false, sep: false, sepAt: '', poli: 'INT', doc: null, tujuanOk: false, done: false, doneAt: '', printed: false, printAt: '' }; }
+var bpjs = st.penj === 'BPJS';
+var POLI = { INT: 'Penyakit Dalam', JAN: 'Jantung', SAR: 'Saraf', PAR: 'Paru' };
+var DOCS = [
+{ id: 'd1', poli: 'INT', doc: 'dr. [Nama DPJP], Sp.PD', time: '08.00–12.00', jU: 17, jT: 24, nU: 4, nT: 6, no: 'A-016', room: 'Ruang 2', eta: '09.35' },
+{ id: 'd2', poli: 'INT', doc: 'dr. [Nama 2], Sp.PD', time: '13.00–16.00', jU: 7, jT: 20, nU: 2, nT: 5, no: 'A-110', room: 'Ruang 3', eta: '13.40' },
+{ id: 'd3', poli: 'INT', doc: 'dr. [Nama 3], Sp.PD-KGH', time: '09.00–11.00', jU: 12, jT: 12, nU: 3, nT: 3, no: 'A-216', room: 'Ruang 1', eta: '—' },
+{ id: 'd4', poli: 'JAN', doc: 'dr. [Nama 4], Sp.JP', time: '09.00–12.00', jU: 15, jT: 16, nU: 3, nT: 4, no: 'B-019', room: 'Ruang 4', eta: '11.30' },
+{ id: 'd5', poli: 'JAN', doc: 'dr. [Nama 5], Sp.JP', time: '13.00–15.00', jU: 5, jT: 12, nU: 1, nT: 3, no: 'B-107', room: 'Ruang 4', eta: '13.20' },
+{ id: 'd6', poli: 'SAR', doc: 'dr. [Nama 6], Sp.N', time: '09.30–12.00', jU: 12, jT: 16, nU: 3, nT: 4, no: 'C-016', room: 'Ruang 5', eta: '11.15' },
+{ id: 'd7', poli: 'PAR', doc: 'dr. [Nama 7], Sp.P', time: '08.00–11.00', jU: 11, jT: 16, nU: 3, nT: 4, no: 'D-015', room: 'Ruang 6', eta: '10.20' }
+];
+
+// Status langkah
+var s1 = st.found;
+var s2 = s1 && (!bpjs || st.sep);
+var s3 = s2 && st.tujuanOk;
+var s4 = s3 && st.done;
+var doneArr = [s1, s2, s3, s4];
+var active = doneArr.indexOf(false);
+var canPickDoc = st.found && !st.tujuanOk;
+
+// Kuota dokter: kuota bertambah terisi 1 untuk dokter yang dipilih
+var selDoc = null;
+var list = DOCS.filter(function (d) { return d.poli === st.poli; });
+var quota = list.map(function (d) {
+var sel = d.id === st.doc;
+if (sel) selDoc = d;
+var jU = d.jU + (sel && bpjs ? 1 : 0), nU = d.nU + (sel && !bpjs ? 1 : 0);
+var full = bpjs ? d.jU >= d.jT : d.nU >= d.nT;
+var used = jU + nU, total = d.jT + d.nT;
+var p = Math.round(used / total * 100);
+var dis = !canPickDoc || (full && !sel);
+return Object.assign({}, d, {
+used: used, total: total, jkn: jU + '/' + d.jT, non: nU + '/' + d.nT, full: full,
+pct: p + '%', bar: p >= 100 ? '#B42318' : (p >= 80 ? '#D97706' : '#0F766E'),
+border: sel ? '2px solid #0F766E' : '1px solid #E3E8EE', bg: sel ? '#F3FAF8' : '#FFFFFF',
+pressed: sel ? 'true' : 'false', dis: dis, cursor: dis ? (full ? 'not-allowed' : 'default') : 'pointer',
+pick: function () { self.setState({ doc: d.id }); }
+});
+});
+var kuotaHint = !st.found ? 'Cari pasien dulu untuk memilih dokter.' : (st.tujuanOk ? 'Jadwal dikunci untuk pendaftaran ini.' : '');
+
+// Langkah
+var notes = [
+s1 ? 'Pasien lama ditemukan' : 'Cari NIK, RM, atau BPJS',
+!s1 ? 'Penjamin dan rujukan' : (!bpjs ? (st.penj + ' · tanpa SEP') : (st.sep ? 'SEP terbit ' + st.sepAt : (!st.cek ? 'Cek kepesertaan BPJS' : (st.ref < 0 ? 'BPJS aktif · pilih rujukan' : 'BPJS aktif · rujukan dipilih')))),
+s3 && selDoc ? (POLI[st.poli] + ' · ' + selDoc.time) : 'Poli, dokter, jadwal',
+s4 ? 'Terdaftar ' + st.doneAt : 'SEP, antrean, cetak'
+];
+var steps = ['Pasien', 'Penjamin', 'Tujuan', 'Konfirmasi'].map(function (label, i) {
+var d = doneArr[i], a = i === active;
+return { label: label, note: notes[i], current: a ? 'step' : 'false', mark: d ? '✓' : String(i + 1), bg: a ? 'linear-gradient(90deg, #E6F4F1, #FFFFFF)' : '#FFFFFF', border: a ? '#0F766E' : '#E3E8EE', dotBg: d ? '#E6F4F1' : (a ? '#0F766E' : '#F1F4F6'), dotFg: d ? '#0B5D56' : (a ? '#FFFFFF' : '#5B6B79') };
+});
+
+var ident = [
+{ k: 'Tanggal lahir', v: '14 Mar 1972 · 54 th' }, { k: 'Jenis kelamin', v: 'Perempuan' }, { k: 'No. HP', v: '0812•••4567' }, { k: 'Alamat', v: 'Jl. Kenanga 12, Jakarta Timur' }, { k: 'Penanggung jawab', v: 'Andi (anak)' }, { k: 'Kunjungan terakhir', v: '12 Sep 2026 · Poli PD' }
+];
+
+// Penjamin
+var penjLock = !st.found || st.done;
+var penjs = [{ id: 'BPJS', label: 'BPJS' }, { id: 'Umum', label: 'Umum' }, { id: 'Asuransi', label: 'Asuransi' }].map(function (p) {
+var on = p.id === st.penj;
+return Object.assign({}, p, {
+pressed: on ? 'true' : 'false', dis: penjLock,
+border: on ? '#0F766E' : '#E3E8EE', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : '#14212B', weight: on ? 600 : 400,
+cursor: penjLock ? 'default' : 'pointer',
+pick: function () { if (self.state.penj !== p.id) self.setState({ penj: p.id, sep: false, sepAt: '', tujuanOk: false }); }
+});
+});
+var penjLabel = { BPJS: 'BPJS Kesehatan', Umum: 'Umum (bayar sendiri)', Asuransi: 'Asuransi swasta' }[st.penj];
+
+// Rujukan
+var refLock = !st.found || !st.cek || st.sep || st.done;
+var refs = [
+{ title: 'Surat kontrol · Poli Penyakit Dalam', meta: 'dari kunjungan 12 Sep 2026 · berlaku s.d. 12 Okt 2026' },
+{ title: 'Rujukan FKTP · Puskesmas Duren Sawit', meta: 'I10 · berlaku s.d. 28 Des 2026 · kunjungan ke-3' },
+{ title: 'Rujukan FKTP · Klinik Pratama Sehat', meta: 'K29.7 · berakhir 1 Sep 2026', expired: true }
+].map(function (r, i) {
+var sel = i === st.ref, dis = !!(refLock || r.expired);
+return Object.assign({}, r, {
+status: r.expired ? 'Kedaluwarsa' : (sel ? 'Dipakai' : 'Aktif'),
+border: sel ? '2px solid #0F766E' : '1px solid #E3E8EE', bg: sel ? '#F3FAF8' : '#FFFFFF',
+fg: r.expired ? '#B42318' : (sel ? '#0B5D56' : '#3F4C58'),
+pressed: sel ? 'true' : 'false', dis: dis, cursor: r.expired ? 'not-allowed' : (dis ? 'default' : 'pointer'),
+pick: function () { self.setState({ ref: i, poli: 'INT', doc: i === 0 ? 'd1' : null }); }
+});
+});
+var cekDis = !st.found;
+
+// SEP
+var diagEmpty = !String(st.diag || '').trim();
+var poliSel = { INT: st.poli === 'INT', JAN: st.poli === 'JAN', SAR: st.poli === 'SAR', PAR: st.poli === 'PAR' };
+function slot(i) {
+var d = list[i];
+if (!d) return { val: '', label: '', hide: true, dis: true, sel: false };
+var full = bpjs ? d.jU >= d.jT : d.nU >= d.nT;
+return { val: d.id, label: d.doc + ' · ' + d.time + (full ? ' · kuota penuh' : ''), hide: false, dis: full, sel: d.id === st.doc };
+}
+
+// Tombol utama per langkah
+var prim = { label: 'Terbitkan SEP dan daftarkan', dis: false, reason: '', act: function () {} };
+if (active === 0) {
+prim = { label: 'Terbitkan SEP dan daftarkan', dis: true, reason: 'Langkah 1 belum selesai: cari pasien dulu.' };
+} else if (active === 1) {
+var r1 = !st.cek ? 'Cek kepesertaan BPJS dulu.' : (st.ref < 0 ? 'Pilih rujukan aktif dulu.' : (diagEmpty ? 'Isi diagnosa awal dulu.' : ''));
+prim = { label: 'Terbitkan SEP dan daftarkan', dis: !!r1, reason: r1, act: function () { self.setState({ sep: true, sepAt: jam() }); } };
+} else if (active === 2) {
+var r2 = !selDoc ? 'Pilih dokter dengan kuota tersedia.' : '';
+prim = { label: 'Pakai jadwal ini dan bentuk antrean', dis: !!r2, reason: r2, act: function () { self.setState({ tujuanOk: true }); } };
+} else if (active === 3) {
+var r3 = !st.consent ? 'Persetujuan umum belum ditandatangani pasien.' : '';
+prim = { label: 'Kirim antrean dan selesaikan', dis: !!r3, reason: r3, act: function () { self.setState({ done: true, doneAt: jam() }); } };
+}
+prim = Object.assign({}, prim, {
+hasReason: !!prim.reason,
+border: prim.dis ? '#E3E8EE' : '#0D6861',
+bg: prim.dis ? '#F1F4F6' : 'linear-gradient(180deg, #1D7E77, #0F766E)',
+fg: prim.dis ? '#8C99A6' : '#FFFFFF',
+cursor: prim.dis ? 'not-allowed' : 'pointer',
+shadow: prim.dis ? 'none' : '0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15)',
+act: prim.act || function () {}
+});
+
+// Pratinjau antrean
+var pvNo = st.found && selDoc ? selDoc.no : '—';
+var pvLine = st.found && selDoc ? ('Poli ' + POLI[selDoc.poli] + ' · ' + selDoc.room + ' · perkiraan dipanggil ' + selDoc.eta) : 'Pilih pasien dan dokter untuk membentuk nomor antrean.';
+var pvLabel = st.done ? 'NOMOR ANTREAN' : (st.tujuanOk ? 'ANTREAN TERBENTUK' : 'PRATINJAU ANTREAN');
+var pvNote = st.done ? (bpjs ? 'Task ID 1–3 Antrean BPJS terkirim ' + st.doneAt : 'Antrean non-JKN tercatat ' + st.doneAt) : (bpjs ? 'Task ID 1–3 Antrean BPJS terkirim otomatis' : 'Antrean non-JKN · tidak dikirim ke Antrean BPJS');
+
+var loketNo = 'B-' + (st.loket < 100 ? '0' : '') + st.loket;
+
+return {
+waitLabel: st.wait + ' menunggu',
+loketNo: loketNo,
+callNext: function () { self.setState({ loket: self.state.loket + 1, wait: Math.max(0, self.state.wait - 1) }); },
+steps: steps,
+q: st.q,
+qBorder: st.found ? '#0F766E' : (st.qErr ? '#B42318' : '#CBD3DB'),
+qErr: st.qErr, qErrShow: !!st.qErr && !st.found, qInvalid: st.qErr ? 'true' : 'false',
+setQ: function (e) { self.setState(Object.assign(fresh(), { q: e.target.value, found: false, qErr: '' })); },
+cari: function () {
+var v = String(self.state.q || '').trim();
+if (v.length < 3) self.setState({ qErr: 'Masukkan minimal 3 karakter: NIK, No. RM, No. BPJS, atau nama + tgl lahir.' });
+else self.setState(Object.assign(fresh(), { found: true, qErr: '' }));
+},
+bacaKtp: function () { self.setState(Object.assign(fresh(), { q: '3174••••••••4521', found: true, qErr: '' })); },
+pindaiKartu: function () { self.setState(Object.assign(fresh(), { q: '0001234•••890', found: true, qErr: '' })); },
+found: st.found, notFound: !st.found,
+ident: ident,
+penjs: penjs, penjLabel: penjLabel,
+isBpjs: bpjs, notBpjs: !bpjs,
+nonTitle: st.penj === 'Umum' ? 'Pasien umum · tanpa SEP' : 'Asuransi swasta · tanpa SEP',
+nonText: st.penj === 'Umum' ? 'Tarif sesuai kelas layanan, dibayar di kasir setelah pemeriksaan. Lanjut pilih poli dan dokter.' : 'Kartu dan limit asuransi diverifikasi kasir. Lanjut pilih poli dan dokter.',
+cekOk: st.found && st.cek, cekNo: !(st.found && st.cek),
+cekText: st.found ? 'Belum dicek ke VClaim' : 'Menunggu data pasien',
+cekDis: cekDis,
+cekBtn: { border: cekDis ? '#E3E8EE' : '#0D6861', bg: cekDis ? '#F1F4F6' : 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: cekDis ? '#8C99A6' : '#FFFFFF', cursor: cekDis ? 'not-allowed' : 'pointer' },
+cekBpjs: function () { self.setState({ cek: true }); },
+refs: refs,
+sepTitle: bpjs ? 'Data SEP' : 'Tujuan kunjungan',
+sepSub: bpjs ? 'Terisi otomatis dari rujukan · bisa disunting' : 'Pilih poli dan DPJP',
+tujuanLock: !canPickDoc,
+poliSel: poliSel,
+setPoli: function (e) { self.setState({ poli: e.target.value, doc: null }); },
+dpNone: !selDoc, dp0: slot(0), dp1: slot(1), dp2: slot(2),
+setDpjp: function (e) { if (e.target.value) self.setState({ doc: e.target.value }); },
+diag: st.diag, sepLock: st.sep || !st.found,
+setDiag: function (e) { self.setState({ diag: e.target.value, diagTouched: true }); },
+diagErr: diagEmpty && (st.diagTouched || active === 1), diagInvalid: diagEmpty ? 'true' : 'false',
+diagBorder: diagEmpty ? '#B42318' : '#CBD3DB',
+tujuanLabel: st.ref === 1 ? 'Rujukan baru dari FKTP (kunjungan ke-3)' : 'Kontrol (dengan surat kontrol)',
+info0: st.ref === 0 && !st.sep, info1: st.ref === 1 && !st.sep, infoNone: st.ref < 0 && !st.sep,
+infoNoneText: !st.found ? 'Data SEP terisi setelah pasien ditemukan dan rujukan dipilih.' : (!st.cek ? 'Cek kepesertaan BPJS untuk menampilkan rujukan aktif.' : 'Pilih rujukan aktif untuk mengisi data SEP otomatis.'),
+sep: st.sep, sepAt: st.sepAt,
+quota: quota,
+kuotaHintShow: !!kuotaHint, kuotaHint: kuotaHint,
+pvLabel: pvLabel, pvNo: pvNo, pvLine: pvLine, pvNote: pvNote,
+consent: st.consent,
+toggleConsent: function (e) { self.setState({ consent: !!e.target.checked }); },
+prim: prim,
+done: st.done, notDone: !st.done,
+doneMsg: 'Terdaftar pukul ' + st.doneAt + ' · antrean ' + pvNo + (bpjs ? ' · SEP 0301R0011026V000812' : '') + '.',
+cetakLabel: st.printed ? ('Tercetak ' + st.printAt + ' · cetak ulang') : (bpjs ? 'Cetak tiket, SEP, dan gelang' : 'Cetak tiket dan gelang'),
+cetakCursor: st.done ? 'pointer' : 'default',
+cetak: function () { self.setState({ printed: true, printAt: jam() }); },
+pasienBaru: function () { self.setState(Object.assign(fresh(), { q: '', found: false, qErr: '', consent: false })); }
+};
+}
+}
+</script>
+</body>
+</html>

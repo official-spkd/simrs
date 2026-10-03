@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Opsi A Klinis Bersih</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button,a,input,textarea{transition:background-color .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(700px 300px at 10% 105%, rgba(14,116,144,0.05), rgba(14,116,144,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, auto, 22px 22px">
+
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="poli" user="dr. [Nama DPJP], Sp.PD" role="DPJP · Poli Penyakit Dalam" initials="DR" unit="SIM RS · Rawat jalan" hint-size="240px,1180px"></dc-import></div>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Rawat jalan / Poli Penyakit Dalam / Pemeriksaan</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Pemeriksaan pasien</h1>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="position: relative; display: flex; align-items: center">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7A87" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 12px"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg>
+<label for="cariA" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Cari pasien</label>
+<input id="cariA" type="search" placeholder="Cari nama, No. RM, NIK" value="{{q}}" onInput="{{setQ}}" style="width: 300px; max-width: 100%; height: 40px; padding: 0 14px 0 36px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; color: #14212B; background: #FFFFFF; box-sizing: border-box">
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 10px; background: #F1F4F6; font-size: 13px; color: #3F4C58">Sabtu, 3 Okt 2026 · 08.52</span>
+<button type="button" aria-label="Notifikasi, 3 baru" style="position: relative; width: 44px; height: 44px; border-radius: 10px; border: 1px solid #E3E8EE; background: #FFFFFF; color: #3F4C58; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 8px; right: 9px; width: 8px; height: 8px; border-radius: 999px; background: #B42318; border: 2px solid #FFFFFF"></span>
+</button>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+
+<section aria-label="Antrean poli" style="flex: 1 1 290px; max-width: 330px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.05)">
+<div style="padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Antrean hari ini</h2>
+<span style="font-size: 12px; color: #5B6B79">data contoh</span>
+</div>
+<div role="group" aria-label="Filter antrean" style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="font: inherit; font-size: 12px; font-weight: {{c.weight}}; padding: 5px 10px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<sc-for list="{{patients}}" as="p" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}" style="width: 100%; text-align: left; display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border: 0; border-bottom: 1px solid #EEF1F4; border-left: 3px solid {{p.edge}}; background: {{p.rowBg}}; font: inherit; color: #14212B; cursor: pointer">
+<span style="flex: 0 0 34px; height: 34px; border-radius: 999px; background: {{p.avatarBg}}; color: {{p.avatarFg}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700">{{p.initials}}</span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">{{p.name}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{p.queue}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{p.rm}} · {{p.age}} · {{p.payer}}</span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{p.badgeBg}}; color: {{p.badgeFg}}">{{p.status}}</span><span style="font-size: 12px; color: #5B6B79">{{p.wait}}</span></span>
+</span>
+</button>
+</sc-for>
+<sc-if value="{{noPatients}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px; font-size: 13px; color: #5B6B79">Tidak ada pasien yang cocok dengan filter atau pencarian.</div>
+</sc-if>
+<div style="padding: 12px 16px; display: flex; flex-direction: column; gap: 6px">
+<button type="button" onClick="{{callNext}}" disabled="{{callDisabled}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid {{callBorder}}; background: {{callBg}}; color: {{callFg}}; cursor: {{callCursor}}">{{callLabel}}</button>
+<sc-if value="{{hasCalled}}" hint-placeholder-val="{{ false }}">
+<span role="status" style="font-size: 12px; color: #1E6B34">{{called}}</span>
+</sc-if>
+</div>
+</section>
+
+<section aria-label="Rekam medis pasien" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+<div style="border: 1px solid #D5E3E1; border-radius: 14px; padding: 18px 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; background: linear-gradient(100deg, rgba(15,118,110,0.07) 0%, rgba(255,255,255,1) 55%); box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<div style="display: flex; gap: 14px; align-items: center">
+<div style="width: 52px; height: 52px; border-radius: 999px; background: #FFFFFF; border: 2px solid {{accent}}; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px">{{cur.initials}}</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0; font-size: 19px; font-weight: 700">{{cur.name}}</h2>
+<span style="font-size: 13px; color: #3F4C58">{{cur.gender}} · {{cur.ageText}} · No. RM <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 500">{{cur.rm}}</span> · NIK ••••••••••••{{cur.nik}}</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-if value="{{cur.hasAllergy}}" hint-placeholder-val="{{ true }}">
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: #FEF3F2; color: #B42318; border: 1px solid #FECDCA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"></path></svg>Alergi: {{cur.allergy}}</span>
+</sc-if>
+<sc-if value="{{cur.noAllergy}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; color: #3F4C58; border: 1px solid #E3E8EE">Tidak ada alergi tercatat</span>
+</sc-if>
+<span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; color: #3F4C58; border: 1px solid #E3E8EE">{{cur.risk}}</span>
+<span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; color: #3F4C58; border: 1px solid #E3E8EE">{{cur.payerLabel}}<span style="font-family: 'IBM Plex Mono', monospace">{{cur.payerCode}}</span></span>
+</div>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"></path></svg>Riwayat</button>
+<button type="button" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"></path></svg>Rujuk</button>
+<button type="button" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"></path></svg>Cetak</button>
+</div>
+</div>
+
+<ol aria-label="Tahapan kunjungan" style="list-style: none; margin: 0; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 12px">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+<li style="display: flex; align-items: center; gap: 8px; flex: 1 1 120px">
+<span style="flex: 0 0 24px; height: 24px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{s.dotBg}}; color: {{s.dotFg}}; border: 1px solid {{s.dotBorder}}">{{s.mark}}</span>
+<span style="font-size: 13px; font-weight: {{s.weight}}; color: {{s.fg}}">{{s.label}}</span>
+<span style="flex: 1; height: 1px; background: #E3E8EE; min-width: 8px"></span>
+</li>
+</sc-for>
+</ol>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 20px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #3F4C58; letter-spacing: 0.04em">{{vitalsHead}}</h3>
+<a href="#" style="font-size: 13px; font-weight: 500">Lihat grafik</a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{vitals}}" as="v" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; background: {{v.bg}}; border: 1px solid {{v.border}}">
+<span style="font-size: 12px; color: #5B6B79">{{v.label}}</span>
+<span style="font-size: 19px; font-weight: 700; color: {{v.fg}}">{{v.value}} <span style="font-size: 12px; font-weight: 400; color: #5B6B79">{{v.unit}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{v.prev}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div role="note" style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 12px; border: 1px solid #F5D9A8; background: linear-gradient(90deg, #FFF8EB, #FFFFFF)">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A4B00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px; margin-top: 2px"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600; color: #7A4300">Cek klinis sebelum tanda tangan</span>
+<span style="font-size: 13px; color: #5C4A2E">{{cur.cds}}</span>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap">
+<h3 style="margin: 0; font-size: 16px; font-weight: 600">CPPT · SOAP</h3>
+<span role="status" style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #5B6B79"><span style="width: 6px; height: 6px; border-radius: 999px; background: {{draftDot}}"></span>{{draftLabel}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="sA" style="font-size: 13px; font-weight: 600">S · Subjektif</label>
+<textarea id="sA" rows="3" value="{{soapS}}" onInput="{{setS}}" placeholder="Keluhan utama dan riwayat singkat" style="font: inherit; padding: 10px 12px; border: 1px solid #CBD3DB; border-radius: 10px; resize: vertical; color: #14212B; background: #FCFDFD"></textarea>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="oA" style="font-size: 13px; font-weight: 600">O · Objektif</label>
+<textarea id="oA" rows="3" value="{{soapO}}" onInput="{{setO}}" placeholder="Temuan pemeriksaan fisik" style="font: inherit; padding: 10px 12px; border: 1px solid #CBD3DB; border-radius: 10px; resize: vertical; color: #14212B; background: #FCFDFD"></textarea>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 600">A · Asesmen (ICD-10)</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<sc-for list="{{dx}}" as="d" hint-placeholder-count="2">
+<span style="font-size: 13px; padding: 7px 11px; border-radius: 10px; border: 1px solid {{d.border}}; background: {{d.bg}}"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{d.codeFg}}">{{d.code}}</span> {{d.name}}{{d.sep}}<span style="font-weight: 600">{{d.mainLabel}}</span></span>
+</sc-for>
+<sc-if value="{{showAddDx}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{togglePicker}}" aria-expanded="{{pickerOpen}}" style="font: inherit; font-size: 13px; padding: 7px 11px; border-radius: 10px; border: 1px dashed #8C99A6; background: #FFFFFF; color: #3F4C58; cursor: pointer">{{addDxLabel}}</button>
+</sc-if>
+<sc-if value="{{picker}}" hint-placeholder-val="{{ false }}">
+<label for="dxPick" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Pilih kode ICD-10</label>
+<select id="dxPick" value="" onChange="{{addDx}}" style="font: inherit; font-size: 13px; height: 36px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF; color: #14212B">
+<option value="">Pilih kode ICD-10…</option>
+<option value="I10">I10 · Hipertensi esensial (primer)</option>
+<option value="E11.9">E11.9 · Diabetes melitus tipe 2 tanpa komplikasi</option>
+<option value="E78.5">E78.5 · Hiperlipidemia, tidak spesifik</option>
+<option value="M10.9">M10.9 · Gout, tidak spesifik</option>
+<option value="K30">K30 · Dispepsia</option>
+<option value="R50.9">R50.9 · Demam, tidak spesifik</option>
+<option value="J06.9">J06.9 · Infeksi saluran napas atas akut</option>
+</select>
+</sc-if>
+</div>
+<sc-if value="{{noDx}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #B42318">Belum ada diagnosis. Minimal satu diagnosis wajib diisi sebelum kunjungan diselesaikan.</span>
+</sc-if>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<span style="font-size: 13px; font-weight: 600">P · Rencana</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="CPOE.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 500; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9.5V3M7 15h10"></path></svg>Order penunjang</a>
+<a href="CPOE.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 500; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7"></path></svg>Tulis resep</a>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; border: 1px solid #E3E8EE; border-radius: 10px; overflow: hidden">
+<sc-for list="{{plan}}" as="r" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid #EEF1F4">
+<span style="flex: 0 0 64px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-align: center; padding: 3px 0; border-radius: 6px; background: {{r.tagBg}}; color: {{r.tagFg}}">{{r.tag}}</span>
+<span style="flex: 1">{{r.text}}</span>
+<span style="font-size: 12px; font-weight: 500; color: {{r.noteFg}}">{{r.note}}</span>
+</div>
+</sc-for>
+<sc-if value="{{noPlan}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 12px; font-size: 13px; color: #5B6B79">Belum ada rencana. Tambahkan order penunjang atau resep lewat CPOE.</div>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{signed}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px; border: 1px solid #BFE3C6; background: linear-gradient(90deg, #EAF6EC, #FFFFFF)">
+<span style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: #1E6B34"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3"></path></svg>Kunjungan selesai · ditandatangani {{signedAt}}</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; font-size: 13px">
+<sc-for list="{{summary}}" as="m" hint-placeholder-count="3">
+<span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E8EE"><span style="font-size: 12px; color: #5B6B79">{{m.label}}</span><span style="font-weight: 600">{{m.value}}</span></span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<a href="Kasir.dc.html" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid {{accentDark}}; background: linear-gradient(180deg, {{accentLight}}, {{accent}}); color: #FFFFFF; font-weight: 600; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14v4M3 7v10a2 2 0 0 0 2 2h16V9H5a2 2 0 0 1-2-2zM17 14h.01"></path></svg>Lanjut ke kasir</a>
+<span style="font-size: 12px; color: #3F4C58">Resep terkirim ke farmasi, tagihan kunjungan siap di kasir.</span>
+</div>
+</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-top: 6px; border-top: 1px solid #EEF1F4">
+<span style="font-size: 12px; color: #5B6B79">{{authorLine}}</span>
+<div style="display: flex; gap: 10px">
+<button type="button" onClick="{{saveDraft}}" disabled="{{signed}}" style="font: inherit; font-weight: 500; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: {{saveFg}}; cursor: {{saveCursor}}">Simpan draf</button>
+<button type="button" onClick="{{finish}}" disabled="{{finishDisabled}}" aria-describedby="finishWhy" style="font: inherit; font-weight: 600; height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid {{fBorder}}; background: {{fBg}}; color: {{fFg}}; cursor: {{fCursor}}; box-shadow: {{fShadow}}">{{finishLabel}}</button>
+</div>
+<sc-if value="{{showFinishWhy}}" hint-placeholder-val="{{ false }}">
+<span id="finishWhy" style="flex: 1 1 100%; text-align: right; font-size: 12px; color: #B42318">{{finishWhy}}</span>
+</sc-if>
+</div>
+</div>
+</section>
+
+<aside aria-label="Konteks pasien" style="flex: 1 1 260px; max-width: 300px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h3 style="margin: 0; font-size: 14px; font-weight: 600">Hasil lab terakhir</h3><span style="font-size: 12px; color: #5B6B79">{{cur.labDate}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px">
+<sc-for list="{{labs}}" as="l" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="display: flex; justify-content: space-between"><span>{{l.name}}</span><span style="font-weight: 700; color: {{l.fg}}">{{l.value}} {{l.flag}}</span></div>
+<span style="font-size: 12px; color: #5B6B79">Rujukan {{l.ref}}</span>
+</div>
+</sc-for>
+<sc-if value="{{noLabs}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #5B6B79">Belum ada hasil lab di rumah sakit ini.</span>
+</sc-if>
+</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<h3 style="margin: 0 0 10px; font-size: 14px; font-weight: 600">Obat aktif</h3>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{meds}}" as="o" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column"><span style="font-weight: 500">{{o.name}}</span><span style="font-size: 12px; color: #5B6B79">{{o.since}}</span></div>
+</sc-for>
+<sc-if value="{{noMeds}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #5B6B79">Tidak ada obat rutin tercatat.</span>
+</sc-if>
+</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 600">Riwayat kunjungan</h3>
+<div style="display: flex; flex-direction: column; gap: 0; border-left: 2px solid #E3E8EE; margin-left: 5px">
+<sc-for list="{{history}}" as="h" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 0 0 {{h.pad}} 14px; position: relative"><span style="position: absolute; left: -7px; top: 4px; width: 12px; height: 12px; border-radius: 999px; background: #FFFFFF; border: 2px solid {{h.dot}}"></span><span style="font-weight: 500">{{h.when}}</span><span style="font-size: 12px; color: #5B6B79">{{h.what}}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<h3 style="margin: 0 0 10px; font-size: 14px; font-weight: 600">Dokumen kunjungan</h3>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+<sc-for list="{{docs}}" as="k" hint-placeholder-count="3">
+<span style="display: flex; justify-content: space-between"><span>{{k.name}}</span><span style="color: {{k.fg}}; font-weight: {{k.weight}}">{{k.value}}</span></span>
+</sc-for>
+</div>
+</div>
+</aside>
+
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0F766E","options":["#0F766E","#0E7490","#1D4ED8"]},"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.ticks = 0;
+this.base = [
+{ queue: 'A-012', name: 'Siti Rahmawati', initials: 'SR', rm: '00-12-45-78', age: '54 th', payer: 'BPJS', status: 'Diperiksa', wait: 'mulai 08.44' },
+{ queue: 'A-013', name: 'Budi Santoso', initials: 'BS', rm: '00-09-33-21', age: '61 th', payer: 'BPJS', status: 'Menunggu', wait: 'tunggu 18 mnt' },
+{ queue: 'A-014', name: 'Maria Kristina', initials: 'MK', rm: '00-15-02-66', age: '38 th', payer: 'Umum', status: 'Menunggu', wait: 'tunggu 9 mnt' },
+{ queue: 'A-015', name: 'Ahmad Fauzi', initials: 'AF', rm: '00-04-87-10', age: '47 th', payer: 'Asuransi', status: 'Menunggu hasil', wait: 'lab 25 mnt' },
+{ queue: 'A-011', name: 'Dewi Lestari', initials: 'DL', rm: '00-11-20-05', age: '29 th', payer: 'BPJS', status: 'Selesai', wait: 'selesai 08.31' }
+];
+this.det = {
+'A-012': {
+gender: 'Perempuan', nik: '4521', allergy: 'Amoksisilin', risk: 'Risiko jatuh rendah', payerLabel: 'BPJS Kelas 2 · SEP ', payerCode: '0301R001…0123',
+vitalsAt: '08.42', created: '08.44', savedAt: '08.51',
+vitals: [['Tekanan darah', '150/95', 'mmHg', '↑ dari 142/90', true], ['Nadi', '88', 'x/mnt', 'sebelumnya 84'], ['Suhu', '36,8', '°C', 'sebelumnya 36,6'], ['Napas', '20', 'x/mnt', 'sebelumnya 18'], ['SpO2', '97', '%', 'sebelumnya 98'], ['Berat', '72', 'kg', 'IMT 28,1']],
+cds: 'Dosis amlodipin dinaikkan dari 5 mg ke 10 mg. Tidak ditemukan interaksi dengan obat aktif. Alergi amoksisilin tidak terkait resep ini.',
+s: 'Pusing dan tengkuk terasa berat sejak 3 hari. Kontrol rutin hipertensi dan DM.',
+o: 'Kompos mentis. TD 150/95 mmHg. Pemeriksaan fisik lain dalam batas normal.',
+dx: [{ code: 'I10', name: 'Hipertensi esensial (primer)' }, { code: 'E11.9', name: 'Diabetes melitus tipe 2 tanpa komplikasi' }],
+plan: [['LAB', 'HbA1c, profil lipid', 'Order baru'], ['OBAT', 'Amlodipin 10 mg · 1×1 pagi · 30 tablet', 'Dosis naik dari 5 mg', true], ['OBAT', 'Metformin 500 mg · 2×1 sesudah makan · 60 tablet', 'Lanjutkan'], ['KONTROL', 'Kontrol 4 minggu · surat kontrol BPJS', 'Dibuat otomatis']],
+labDate: '12 Sep 2026',
+labs: [['Gula darah puasa', '168 mg/dL', 'H', '70–99'], ['HbA1c', '7,9 %', 'H', '< 5,7'], ['Kreatinin', '0,9 mg/dL', '', '0,6–1,1']],
+meds: [['Amlodipin 5 mg · 1×1', 'sejak Agu 2026'], ['Metformin 500 mg · 2×1', 'sejak Jan 2025']],
+history: [['12 Sep 2026 · Poli PD', 'I10, E11.9 · amlodipin dimulai'], ['14 Agu 2026 · Poli PD', 'I10, E11.9'], ['3 Jun 2026 · Lab', 'Profil lipid']]
+},
+'A-013': {
+gender: 'Laki-laki', nik: '7710', allergy: '', risk: 'Risiko jatuh sedang', payerLabel: 'BPJS Kelas 1 · SEP ', payerCode: '0301R001…0187',
+vitalsAt: '08.30', created: '', savedAt: '',
+vitals: [['Tekanan darah', '132/84', 'mmHg', 'sebelumnya 130/82'], ['Nadi', '76', 'x/mnt', 'sebelumnya 78'], ['Suhu', '36,5', '°C', 'sebelumnya 36,7'], ['Napas', '18', 'x/mnt', 'sebelumnya 18'], ['SpO2', '96', '%', 'sebelumnya 97'], ['Berat', '65', 'kg', 'IMT 23,9']],
+cds: 'Belum ada resep baru. Obat aktif allopurinol dan simvastatin; pemeriksaan interaksi berjalan otomatis saat resep ditulis.',
+s: 'Kontrol pasca rawat inap. Nyeri sendi ibu jari kaki kanan sudah berkurang.', o: '',
+dx: [], plan: [],
+labDate: '20 Sep 2026',
+labs: [['Asam urat', '7,8 mg/dL', 'H', '3,4–7,0'], ['Kolesterol LDL', '128 mg/dL', 'H', '< 100'], ['Kreatinin', '1,1 mg/dL', '', '0,7–1,3']],
+meds: [['Allopurinol 100 mg · 1×1', 'sejak Sep 2026'], ['Simvastatin 20 mg · 1×1 malam', 'sejak Mar 2025']],
+history: [['20 Sep 2026 · Rawat inap', 'M10.9 · pulang membaik'], ['2 Mar 2026 · Poli PD', 'E78.5 · simvastatin dimulai']]
+},
+'A-014': {
+gender: 'Perempuan', nik: '3390', allergy: 'NSAID', risk: 'Risiko jatuh rendah', payerLabel: 'Umum · bayar mandiri', payerCode: '',
+vitalsAt: '08.47', created: '', savedAt: '',
+vitals: [['Tekanan darah', '118/76', 'mmHg', 'sebelumnya 115/75'], ['Nadi', '92', 'x/mnt', 'sebelumnya 80'], ['Suhu', '37,9', '°C', 'sebelumnya 36,6', true], ['Napas', '20', 'x/mnt', 'sebelumnya 18'], ['SpO2', '98', '%', 'sebelumnya 99'], ['Berat', '58', 'kg', 'IMT 22,7']],
+cds: 'Alergi NSAID tercatat. Hindari ibuprofen dan asam mefenamat; parasetamol dapat dipakai sebagai antipiretik.',
+s: 'Demam dan nyeri ulu hati sejak 2 hari, mual tanpa muntah.', o: '',
+dx: [], plan: [],
+labDate: '—', labs: [], meds: [],
+history: [['5 Jan 2026 · Poli Umum', 'J06.9']]
+}
+};
+this.icd = { 'I10': 'Hipertensi esensial (primer)', 'E11.9': 'Diabetes melitus tipe 2 tanpa komplikasi', 'E78.5': 'Hiperlipidemia, tidak spesifik', 'M10.9': 'Gout, tidak spesifik', 'K30': 'Dispepsia', 'R50.9': 'Demam, tidak spesifik', 'J06.9': 'Infeksi saluran napas atas akut' };
+this.state = { sel: 'A-012', filter: 'semua', q: '', status: {}, wait: {}, soap: {}, dx: {}, dirty: {}, saved: {}, signed: {}, picker: false, called: '' };
+}
+stamp() {
+this.ticks += 1;
+var m = 8 * 60 + 52 + Math.floor((Date.now() - this.t0) / 60000) + this.ticks;
+var h = Math.floor(m / 60) % 24, mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+detail(p) {
+var d = this.det[p.queue];
+if (d) return d;
+var dewi = p.queue === 'A-011';
+return {
+gender: dewi ? 'Perempuan' : 'Laki-laki', nik: dewi ? '6208' : '1934', allergy: '', risk: 'Risiko jatuh rendah',
+payerLabel: p.payer === 'BPJS' ? 'BPJS Kelas 3 · SEP ' : (p.payer === 'Asuransi' ? 'Asuransi swasta · terverifikasi' : 'Umum · bayar mandiri'), payerCode: p.payer === 'BPJS' ? '0301R001…0119' : '',
+vitalsAt: '', created: dewi ? '08.20' : '08.25', savedAt: '', signedAt: dewi ? '08.31' : '',
+vitals: [['Tekanan darah', '—', 'mmHg', 'lihat rekam medis'], ['Nadi', '—', 'x/mnt', ''], ['Suhu', '—', '°C', ''], ['Napas', '—', 'x/mnt', ''], ['SpO2', '—', '%', ''], ['Berat', '—', 'kg', '']],
+cds: dewi ? 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.' : 'Menunggu hasil lab sebelum asesmen akhir. Tidak ada peringatan klinis terbuka.',
+s: dewi ? 'Batuk pilek 4 hari, tanpa demam.' : 'Kontrol rutin, keluhan nyeri ulu hati.', o: dewi ? 'Faring hiperemis ringan. Paru bersih.' : '',
+dx: dewi ? [{ code: 'J06.9', name: 'Infeksi saluran napas atas akut' }] : [],
+plan: dewi ? [['OBAT', 'Parasetamol 500 mg · 3×1 bila perlu · 10 tablet', 'Selesai']] : [['LAB', 'Darah lengkap, fungsi hati', 'Menunggu hasil']],
+labDate: '—', labs: [], meds: [],
+history: [['Kunjungan hari ini', p.queue + ' · Poli PD']]
+};
+}
+renderVals() {
+var self = this, st = this.state;
+function mix(hex, t, to) {
+var n = parseInt(hex.replace('#', ''), 16);
+var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+var tr = to === 'w' ? 255 : 0;
+r = Math.round(r + (tr - r) * t); g = Math.round(g + (tr - g) * t); b = Math.round(b + (tr - b) * t);
+return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+function put(obj, k, v) { var n = Object.assign({}, obj); n[k] = v; return n; }
+var accent = this.props.accent ?? '#0F766E';
+var badge = {
+'Diperiksa': ['#E6F4F1', '#0B5D56', accent],
+'Menunggu': ['#F1F3F5', '#3F4C58', 'transparent'],
+'Menunggu hasil': ['#FFF4E5', '#8A4B00', 'transparent'],
+'Dijeda': ['#FFF4E5', '#8A4B00', 'transparent'],
+'Selesai': ['#EAF6EC', '#1E6B34', 'transparent']
+};
+var base = this.base;
+function statusOf(p) { return st.status[p.queue] || p.status; }
+function waitOf(p) { return st.wait[p.queue] || p.wait; }
+
+var counts = { semua: base.length, menunggu: 0, hasil: 0 };
+base.forEach(function (p) { var s = statusOf(p); if (s === 'Menunggu') counts.menunggu++; if (s === 'Menunggu hasil') counts.hasil++; });
+var chips = [['semua', 'Semua'], ['menunggu', 'Menunggu'], ['hasil', 'Hasil']].map(function (c) {
+var on = st.filter === c[0];
+return { label: c[1] + ' ' + counts[c[0]], pressed: on ? 'true' : 'false', weight: on ? 600 : 400, border: on ? accent : '#E3E8EE', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : '#3F4C58', pick: function () { self.setState({ filter: c[0] }); } };
+});
+
+var q = (st.q || '').trim().toLowerCase();
+var sel = st.sel;
+var patients = base.filter(function (p) {
+var s = statusOf(p);
+if (st.filter === 'menunggu' && s !== 'Menunggu') return false;
+if (st.filter === 'hasil' && s !== 'Menunggu hasil') return false;
+if (q) {
+var hay = (p.name + ' ' + p.rm + ' ' + p.rm.replace(/-/g, '') + ' ' + p.queue + ' ' + self.detail(p).nik).toLowerCase();
+if (hay.indexOf(q) < 0) return false;
+}
+return true;
+}).map(function (p) {
+var s = statusOf(p), b = badge[s], on = p.queue === sel;
+return Object.assign({}, p, { status: s, wait: waitOf(p), badgeBg: b[0], badgeFg: b[1], edge: b[2], rowBg: on ? '#F3FAF8' : '#FFFFFF', avatarBg: on ? accent : '#EEF1F4', avatarFg: on ? '#FFFFFF' : '#3F4C58', pressed: on ? 'true' : 'false', pick: function () { self.setState({ sel: p.queue, picker: false }); } });
+});
+
+var curP = base.filter(function (p) { return p.queue === sel; })[0] || base[0];
+var det = this.detail(curP);
+var curStatus = statusOf(curP);
+var signedAt = st.signed[sel] || (curP.status === 'Selesai' && !st.status[sel] ? (det.signedAt || '') : '');
+var signed = !!signedAt;
+
+var next = base.filter(function (p) { return statusOf(p) === 'Menunggu'; })[0];
+var callNext = function () {
+if (!next) return;
+var S = self.state, t = self.stamp();
+var stat = Object.assign({}, S.status), wt = Object.assign({}, S.wait);
+base.forEach(function (p) {
+var s = S.status[p.queue] || p.status;
+if (s === 'Diperiksa') { stat[p.queue] = 'Dijeda'; wt[p.queue] = 'dijeda ' + t; }
+});
+stat[next.queue] = 'Diperiksa'; wt[next.queue] = 'mulai ' + t;
+self.setState({ status: stat, wait: wt, sel: next.queue, filter: 'semua', picker: false, called: next.queue + ' · ' + next.name + ' dipanggil ' + t + ' · tampil di layar antrean' });
+};
+
+var soap = st.soap[sel] || { s: det.s, o: det.o };
+var setS = function (e) { var v = e.target.value; var S = self.state; var cur = S.soap[sel] || { s: det.s, o: det.o }; self.setState({ soap: put(S.soap, sel, { s: v, o: cur.o }), dirty: put(S.dirty, sel, true) }); };
+var setO = function (e) { var v = e.target.value; var S = self.state; var cur = S.soap[sel] || { s: det.s, o: det.o }; self.setState({ soap: put(S.soap, sel, { s: cur.s, o: v }), dirty: put(S.dirty, sel, true) }); };
+
+var dxRaw = st.dx[sel] || det.dx;
+var dx = dxRaw.map(function (d, i) {
+var main = i === 0;
+return { code: d.code, name: d.name, sep: main ? ' · ' : '', mainLabel: main ? 'utama' : '', border: main ? '#BFDDD8' : '#E3E8EE', bg: main ? '#F2FAF8' : '#FFFFFF', codeFg: main ? '#0B5D56' : '#14212B' };
+});
+var addDx = function (e) {
+var code = e.target.value;
+if (!code) return;
+var S = self.state, curDx = S.dx[sel] || det.dx;
+if (curDx.some(function (d) { return d.code === code; })) { self.setState({ picker: false }); return; }
+self.setState({ dx: put(S.dx, sel, curDx.concat([{ code: code, name: self.icd[code] }])), picker: false, dirty: put(S.dirty, sel, true) });
+};
+
+var tags = { LAB: ['#EEF4FF', '#1E3A8A'], OBAT: ['#E6F4F1', '#0B5D56'], KONTROL: ['#F1F3F5', '#3F4C58'] };
+var plan = det.plan.map(function (r) { return { tag: r[0], text: r[1], note: r[2], tagBg: tags[r[0]][0], tagFg: tags[r[0]][1], noteFg: r[3] ? '#8A4B00' : '#5B6B79' }; });
+
+var activeIdx = signed ? 5 : (curStatus === 'Menunggu hasil' ? 3 : 2);
+var steps = ['Registrasi', 'Tanda vital', 'Pemeriksaan', 'Order', 'Farmasi', 'Kasir'].map(function (label, i) {
+var done = i < activeIdx, act = i === activeIdx;
+return { label: label, mark: done ? '✓' : String(i + 1), dotBg: done ? '#E6F4F1' : (act ? accent : '#FFFFFF'), dotFg: done ? '#0B5D56' : (act ? '#FFFFFF' : '#6B7A87'), dotBorder: done ? '#BFDDD8' : (act ? accent : '#CBD3DB'), fg: act ? '#14212B' : (done ? '#3F4C58' : '#5B6B79'), weight: act ? 600 : 400 };
+});
+var vitals = det.vitals.map(function (v) {
+var high = !!v[4];
+return { label: v[0], value: v[1], unit: v[2], prev: v[3], bg: high ? 'linear-gradient(180deg, #FEF3F2, #FFFFFF)' : '#F8FAFB', border: high ? '#FECDCA' : '#EEF1F4', fg: high ? '#B42318' : '#14212B' };
+});
+var labs = det.labs.map(function (l) { return { name: l[0], value: l[1], flag: l[2], ref: l[3], fg: l[2] ? '#B42318' : '#14212B' }; });
+var meds = det.meds.map(function (m) { return { name: m[0], since: m[1] }; });
+var history = det.history.map(function (h, i, arr) { return { when: h[0], what: h[1], dot: i === 0 ? accent : '#CBD3DB', pad: i === arr.length - 1 ? '0' : '12px' }; });
+var bpjs = curP.payer === 'BPJS';
+var docs = [
+{ name: 'Persetujuan umum', value: 'Ditandatangani', fg: '#1E6B34', weight: 600 },
+bpjs ? { name: 'SEP BPJS', value: 'Terbit', fg: '#1E6B34', weight: 600 } : { name: 'Penjaminan', value: curP.payer === 'Asuransi' ? 'Terverifikasi' : 'Umum', fg: '#1E6B34', weight: 600 },
+{ name: bpjs ? 'Surat kontrol' : 'Surat keterangan', value: signed ? 'Dibuat' : 'Menunggu', fg: signed ? '#1E6B34' : '#5B6B79', weight: signed ? 600 : 400 }
+];
+
+var dirty = !!st.dirty[sel];
+var draftLabel, draftDot;
+if (signed) { draftLabel = 'Final · ditandatangani ' + signedAt; draftDot = '#16A34A'; }
+else if (dirty) { draftLabel = 'Perubahan belum disimpan'; draftDot = '#D97706'; }
+else if (st.saved[sel]) { draftLabel = 'Draf disimpan ' + st.saved[sel]; draftDot = '#16A34A'; }
+else if (det.savedAt) { draftLabel = 'Draf tersimpan otomatis ' + det.savedAt; draftDot = '#16A34A'; }
+else { draftLabel = 'Belum ada draf'; draftDot = '#CBD3DB'; }
+var saveDraft = function () {
+if (signed) return;
+var S = self.state;
+self.setState({ saved: put(S.saved, sel, self.stamp()), dirty: put(S.dirty, sel, false), soap: put(S.soap, sel, S.soap[sel] || { s: det.s, o: det.o }) });
+};
+
+var w = waitOf(curP);
+var created = det.created || (w.indexOf('mulai ') === 0 ? w.slice(6) : '—');
+var authorLine = 'Penulis: dr. [Nama DPJP] · dibuat ' + created + ' · ' + (signed ? 'versi 2 (final)' : 'versi 1 (draf)') + ' · setiap perubahan tercatat';
+
+var canFinish = !signed && dxRaw.length > 0;
+var finishWhy = signed ? '' : (dxRaw.length === 0 ? 'Isi minimal satu diagnosis (A · Asesmen ICD-10) agar kunjungan bisa diselesaikan.' : '');
+var finish = function () {
+if (!canFinish) return;
+var S = self.state, t = self.stamp();
+self.setState({ signed: put(S.signed, sel, t), status: put(S.status, sel, 'Selesai'), wait: put(S.wait, sel, 'selesai ' + t), dirty: put(S.dirty, sel, false), picker: false });
+};
+var mainDx = dxRaw[0];
+var nLab = det.plan.filter(function (r) { return r[0] === 'LAB'; }).length;
+var nRx = det.plan.filter(function (r) { return r[0] === 'OBAT'; }).length;
+var summary = [
+{ label: 'Diagnosis utama', value: mainDx ? mainDx.code + ' · ' + mainDx.name : '—' },
+{ label: 'Order & resep', value: nLab + ' order penunjang · ' + nRx + ' resep' },
+{ label: 'Tindak lanjut', value: det.plan.some(function (r) { return r[0] === 'KONTROL'; }) ? 'Kontrol 4 minggu' : 'Sesuai kebutuhan' }
+];
+
+return {
+accent: accent, accentLight: mix(accent, 0.06, 'w'), accentDark: mix(accent, 0.15, 'b'),
+q: st.q, setQ: function (e) { self.setState({ q: e.target.value }); },
+chips: chips, patients: patients, noPatients: patients.length === 0,
+callNext: callNext, callDisabled: !next, callLabel: next ? 'Panggil berikutnya · ' + next.queue : 'Tidak ada pasien menunggu',
+callBorder: next ? mix(accent, 0.15, 'b') : '#E3E8EE', callBg: next ? 'linear-gradient(180deg, ' + mix(accent, 0.06, 'w') + ', ' + accent + ')' : '#F1F4F6', callFg: next ? '#FFFFFF' : '#8C99A6', callCursor: next ? 'pointer' : 'not-allowed',
+hasCalled: !!st.called, called: st.called,
+cur: {
+name: curP.name, initials: curP.initials, rm: curP.rm, gender: det.gender, ageText: curP.age.replace(' th', ' tahun'), nik: det.nik,
+hasAllergy: !!det.allergy, noAllergy: !det.allergy, allergy: det.allergy, risk: det.risk, payerLabel: det.payerLabel, payerCode: det.payerCode,
+cds: det.cds, labDate: det.labDate
+},
+steps: steps, vitals: vitals,
+vitalsHead: det.vitalsAt ? 'TANDA VITAL · diukur perawat ' + det.vitalsAt : 'TANDA VITAL · belum diukur hari ini',
+soapS: soap.s, soapO: soap.o, setS: setS, setO: setO,
+dx: dx, noDx: dxRaw.length === 0 && !signed, showAddDx: !signed, picker: st.picker && !signed, pickerOpen: st.picker ? 'true' : 'false',
+addDxLabel: st.picker ? 'Batal' : '+ Tambah diagnosis', togglePicker: function () { self.setState({ picker: !self.state.picker }); }, addDx: addDx,
+plan: plan, noPlan: plan.length === 0,
+draftLabel: draftLabel, draftDot: draftDot, saveDraft: saveDraft, saveFg: signed ? '#8C99A6' : '#14212B', saveCursor: signed ? 'not-allowed' : 'pointer',
+authorLine: authorLine,
+signed: signed, signedAt: signedAt, summary: summary,
+finish: finish, finishDisabled: !canFinish, finishLabel: signed ? 'Kunjungan selesai' : 'Tanda tangani dan selesai',
+fBorder: canFinish ? mix(accent, 0.15, 'b') : '#E3E8EE', fBg: canFinish ? 'linear-gradient(180deg, ' + mix(accent, 0.06, 'w') + ', ' + accent + ')' : '#F1F4F6', fFg: canFinish ? '#FFFFFF' : '#8C99A6', fCursor: canFinish ? 'pointer' : 'not-allowed', fShadow: canFinish ? '0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15)' : 'none',
+showFinishWhy: !!finishWhy, finishWhy: finishWhy,
+labs: labs, noLabs: labs.length === 0, meds: meds, noMeds: meds.length === 0, history: history, docs: docs
+};
+}
+}
+</script>
+</body>
+</html>

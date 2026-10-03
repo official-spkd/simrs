@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Fondasi desain Klinis Bersih</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.5; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="max-width: 1320px; margin: 0 auto; padding: 48px 40px 64px; display: flex; flex-direction: column; gap: 40px">
+
+<header style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.1em; color: #0B5D56">SIM RS · DESIGN SYSTEM</span>
+<h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.01em">Klinis Bersih</h1>
+<p style="margin: 0; max-width: 720px; color: #3F4C58">Bahasa visual untuk seluruh layar SIM RS: tenang, padat informasi tanpa sesak, dan selalu menempatkan keselamatan pasien (alergi, nilai kritis, peringatan) di posisi yang paling cepat terlihat.</p>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Versi 0.1 · 3 Okt 2026</span>
+</header>
+
+<section aria-labelledby="h-warna" style="display: flex; flex-direction: column; gap: 16px">
+<h2 id="h-warna" style="margin: 0; font-size: 20px; font-weight: 600">1. Warna</h2>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+<sc-for list="{{palettes}}" as="pal" hint-placeholder-count="4">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 2px rgba(16,24,40,0.04)">
+<span style="font-weight: 600">{{pal.name}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{pal.use}}</span>
+<sc-for list="{{pal.swatches}}" as="s" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="flex: 0 0 40px; height: 32px; border-radius: 8px; background: {{s.hex}}; border: 1px solid rgba(20,33,43,0.08)"></span>
+<span style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-size: 13px; font-weight: 500">{{s.name}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{s.hex}}</span></span>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{triage}}" as="t" hint-placeholder-count="5">
+<div style="border-radius: 12px; padding: 12px 14px; background: {{t.bg}}; color: {{t.fg}}; border: 1px solid {{t.border}}; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; font-weight: 600">Triase {{t.level}}</span>
+<span style="font-size: 16px; font-weight: 700">{{t.name}}</span>
+<span style="font-size: 12px">{{t.target}}</span>
+</div>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 13px; color: #3F4C58">Warna triase hanya dipakai di IGD dan selalu disertai angka level dan label, tidak pernah warna saja. Merah semantik (#B42318) dicadangkan untuk alergi, nilai kritis, dan tindakan berbahaya.</p>
+</section>
+
+<section aria-labelledby="h-latar" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<h2 id="h-latar" style="margin: 0; font-size: 20px; font-weight: 600; grid-column: 1 / -1">2. Latar, gradien, dan elevasi</h2>
+<div style="height: 140px; border-radius: 14px; border: 1px solid #E3E8EE; background-color: #F5F7F9; background-image: radial-gradient(420px 160px at 90% -10%, rgba(15,118,110,0.12), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.09) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px; display: flex; align-items: flex-end; padding: 14px; box-sizing: border-box"><span style="font-size: 13px; background: #FFFFFF; padding: 4px 8px; border-radius: 6px">Latar halaman: titik 7% + cahaya teal 9%</span></div>
+<div style="height: 140px; border-radius: 14px; border: 1px solid #D5E3E1; background: linear-gradient(100deg, rgba(15,118,110,0.08) 0%, #FFFFFF 55%); display: flex; align-items: flex-end; padding: 14px; box-sizing: border-box"><span style="font-size: 13px">Gradien banner: teal 8% → putih, hanya untuk identitas pasien dan header modul</span></div>
+<div style="height: 140px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E3E8EE; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 4px 12px rgba(16,24,40,0.06); display: flex; align-items: flex-end; padding: 14px; box-sizing: border-box"><span style="font-size: 13px">Kartu: putih, garis #E3E8EE, bayangan sangat tipis, radius 14</span></div>
+</section>
+
+<section aria-labelledby="h-tipo" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+<h2 id="h-tipo" style="margin: 0; font-size: 20px; font-weight: 600; grid-column: 1 / -1">3. Tipografi</h2>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{types}}" as="ty" hint-placeholder-count="6">
+<div style="display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid #EEF1F4; padding-bottom: 10px">
+<span style="flex: 0 0 120px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{ty.token}}</span>
+<span style="font-size: {{ty.size}}; font-weight: {{ty.weight}}">{{ty.sample}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="padding: 16px; border-radius: 10px; background: #F8FAFB; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">IBM Plex Sans</span>
+<span style="color: #3F4C58">Seluruh teks antarmuka. Angka tabular untuk dosis, tarif, dan tanda vital.</span>
+</div>
+<div style="padding: 16px; border-radius: 10px; background: #F8FAFB; display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600">IBM Plex Mono · 00-12-45-78 · I10 · E11.9</span>
+<span style="color: #3F4C58">Hanya untuk pengenal: nomor RM, kode ICD, nomor SEP, nomor resep, kode barang. Membantu verifikasi visual karakter per karakter.</span>
+</div>
+<div style="padding: 16px; border-radius: 10px; background: #F8FAFB; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Aturan</span>
+<span style="color: #3F4C58">Ukuran isi minimum 13 px di layar kerja, 16 px di aplikasi pasien. Tanggal ditulis "3 Okt 2026", jam "08.42". Desimal memakai koma: 36,8 °C.</span>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="h-spasi" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<h2 id="h-spasi" style="margin: 0; font-size: 20px; font-weight: 600">4. Spasi, radius, ukuran sentuh</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end">
+<sc-for list="{{spaces}}" as="sp" hint-placeholder-count="8">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+<span style="width: {{sp.px}}; height: {{sp.px}}; background: #D5ECE7; border: 1px solid #0F766E; border-radius: 3px"></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #3F4C58">{{sp.px}}</span>
+</div>
+</sc-for>
+<span style="width: 1px; height: 56px; background: #E3E8EE"></span>
+<div style="display: flex; gap: 12px; align-items: flex-end">
+<span style="width: 56px; height: 40px; border: 1px solid #0F766E; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px">8</span>
+<span style="width: 56px; height: 40px; border: 1px solid #0F766E; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 12px">10</span>
+<span style="width: 56px; height: 40px; border: 1px solid #0F766E; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 12px">14</span>
+<span style="width: 56px; height: 40px; border: 1px solid #0F766E; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px">pill</span>
+</div>
+<span style="width: 1px; height: 56px; background: #E3E8EE"></span>
+<div style="display: flex; gap: 8px; align-items: center"><span style="width: 44px; height: 44px; border: 2px dashed #0F766E; border-radius: 8px"></span><span style="font-size: 13px; color: #3F4C58">Target sentuh minimum 44 × 44 px</span></div>
+</div>
+</section>
+
+<section aria-labelledby="h-komp" style="display: flex; flex-direction: column; gap: 16px">
+<h2 id="h-komp" style="margin: 0; font-size: 20px; font-weight: 600">5. Komponen</h2>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-weight: 600">Tombol</span>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<button type="button" onClick="{{tekanUtama}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15); cursor: pointer">Utama</button>
+<button type="button" onClick="{{tekanSekunder}}" style="font: inherit; font-weight: 500; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer">Sekunder</button>
+<button type="button" onClick="{{tekanTeks}}" style="font: inherit; font-weight: 500; height: 44px; padding: 0 14px; border-radius: 10px; border: 0; background: transparent; color: #0F766E; cursor: pointer">Teks</button>
+<button type="button" onClick="{{bukaBatal}}" aria-expanded="{{batalAria}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #9A1E14; background: linear-gradient(180deg, #C0331F, #B42318); color: #FFFFFF; cursor: pointer">Batalkan tindakan</button>
+<button type="button" disabled style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #E3E8EE; background: #F1F4F6; color: #8C99A6">Nonaktif</button>
+</div>
+<sc-if value="{{batalOpen}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 10px; background: linear-gradient(90deg, #FEF3F2, #FFFFFF); border: 1px solid #FECDCA">
+<label for="fAlasan" style="font-size: 13px; font-weight: 600">Alasan pembatalan <span style="color: #B42318">*</span></label>
+<input id="fAlasan" value="{{alasan}}" onInput="{{setAlasan}}" aria-describedby="fAlasanMsg" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid #CBD3DB; border-radius: 10px; box-sizing: border-box; background: #FFFFFF">
+<span id="fAlasanMsg" style="font-size: 12px; color: {{alasanFg}}">{{alasanMsg}}</span>
+<div style="display: flex; gap: 8px"><button type="button" onClick="{{konfirmBatal}}" disabled="{{alasanKurang}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{konfirmBtn.border}}; background: {{konfirmBtn.bg}}; color: {{konfirmBtn.fg}}; cursor: {{konfirmBtn.cursor}}">Ya, batalkan</button><button type="button" onClick="{{tutupBatal}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer">Kembali</button></div>
+</div>
+</sc-if>
+<sc-if value="{{hasFeedback}}" hint-placeholder-val="{{ false }}"><span role="status" style="font-size: 13px; color: {{feedbackFg}}; font-weight: 600">{{feedback}}</span></sc-if>
+<span style="font-size: 13px; color: #5B6B79">Satu tombol utama per area. Aksi final klinis (tanda tangan, verifikasi, serahkan obat) selalu tombol utama di kanan bawah; aksi destruktif selalu meminta konfirmasi dan alasan.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-weight: 600">Input</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="f1" style="font-size: 13px; font-weight: 600">NIK <span style="color: #B42318">*</span></label><input id="f1" value="{{nik}}" onInput="{{setNik}}" inputmode="numeric" aria-invalid="{{nikV.invalid}}" aria-describedby="f1m" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid {{nikV.border}}; border-radius: 10px; box-sizing: border-box; background: {{nikV.bg}}"><span id="f1m" style="font-size: 12px; color: {{nikV.fg}}">{{nikV.msg}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="f2" style="font-size: 13px; font-weight: 600">Tanggal lahir <span style="color: #B42318">*</span></label><input id="f2" value="{{tgl}}" onInput="{{setTgl}}" placeholder="dd/mm/yyyy" aria-invalid="{{tglV.invalid}}" aria-describedby="f2e" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid {{tglV.border}}; border-radius: 10px; box-sizing: border-box; background: {{tglV.bg}}"><span id="f2e" style="font-size: 12px; color: {{tglV.fg}}">{{tglV.msg}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="f3" style="font-size: 13px; font-weight: 600">Penjamin</label><select id="f3" onChange="{{setPenjamin}}" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF"><option>BPJS Kesehatan</option><option>Umum</option><option>Asuransi swasta</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; font-weight: 600">Jenis kelamin</span><div role="group" aria-label="Jenis kelamin" style="display: flex; gap: 6px"><sc-for list="{{jk}}" as="g" hint-placeholder-count="2"><button type="button" aria-pressed="{{g.pressed}}" onClick="{{g.pick}}" style="flex: 1; font: inherit; height: 40px; border-radius: 10px; border: 1px solid {{g.border}}; background: {{g.bg}}; color: {{g.fg}}; font-weight: {{g.weight}}; cursor: pointer">{{g.label}}</button></sc-for></div></div>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Label selalu terlihat di atas field, tidak hanya placeholder. Pesan galat tepat di bawah field dan menjelaskan cara memperbaiki.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-weight: 600">Status, label, dan chip</span>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #E6F4F1; color: #0B5D56">Diperiksa</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #F1F3F5; color: #3F4C58">Menunggu</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #FFF4E5; color: #8A4B00">Menunggu hasil</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #EAF6EC; color: #1E6B34">Selesai</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #FEF3F2; color: #B42318">Dibatalkan</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #EEF4FF; color: #1E3A8A">Terkirim SATUSEHAT</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: #FEF3F2; color: #B42318; border: 1px solid #FECDCA"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"></path></svg>Alergi: Amoksisilin</span>
+<span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 8px; border: 1px solid #E3E8EE">Risiko jatuh tinggi</span>
+<span style="font-size: 12px; font-weight: 500; padding: 4px 9px; border-radius: 8px; border: 1px solid #E3E8EE">Pasien rahasia</span>
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 1px solid #BFDDD8; background: #F2FAF8"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #0B5D56">I10</span> Hipertensi esensial</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #EEF1F4; padding-top: 12px">
+<span style="font-size: 12px; font-weight: 600; color: #3F4C58">Chip filter (bisa dipilih) · {{chipInfo}}</span>
+<div role="group" aria-label="Filter status" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{chips}}" as="ch" hint-placeholder-count="4"><button type="button" aria-pressed="{{ch.pressed}}" onClick="{{ch.pick}}" style="display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: {{ch.weight}}; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{ch.border}}; background: {{ch.bg}}; color: {{ch.fg}}; cursor: pointer"><sc-if value="{{ch.on}}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>{{ch.label}}</button></sc-for>
+</div>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Status tidak pernah dibedakan hanya dengan warna: selalu ada teks. Chip kode memakai Mono.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-weight: 600">Peringatan klinis (4 tingkat)</span>
+<div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #FEF3F2, #FFFFFF); border: 1px solid #FECDCA"><span style="font-weight: 700; color: #B42318">Kritis</span><span style="color: #3F4C58">Kalium 6,8 mmol/L. Wajib konfirmasi DPJP dalam 30 menit.</span></div>
+<div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #FFF8EB, #FFFFFF); border: 1px solid #F5D9A8"><span style="font-weight: 700; color: #8A4B00">Perhatian</span><span style="color: #3F4C58">Dosis amlodipin dinaikkan 5 → 10 mg.</span></div>
+<div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EEF4FF, #FFFFFF); border: 1px solid #C7D7FE"><span style="font-weight: 700; color: #1E3A8A">Info</span><span style="color: #3F4C58">SEP terbit otomatis dari rujukan FKTP.</span></div>
+<div style="display: flex; gap: 10px; padding: 10px 14px; border-radius: 10px; background: linear-gradient(90deg, #EAF6EC, #FFFFFF); border: 1px solid #BFE3C6"><span style="font-weight: 700; color: #1E6B34">Berhasil</span><span style="color: #3F4C58">Resume ditandatangani dan dikirim ke SATUSEHAT.</span></div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-weight: 600">Toggle</span>
+<sc-for list="{{toggles}}" as="tg" hint-placeholder-count="2">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px">
+<span style="display: flex; flex-direction: column"><span id="{{tg.id}}" style="font-size: 13px; font-weight: 600">{{tg.label}}</span><span style="font-size: 12px; color: #5B6B79">{{tg.desc}}</span></span>
+<button type="button" role="switch" aria-checked="{{tg.aria}}" aria-labelledby="{{tg.id}}" onClick="{{tg.flip}}" style="flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 4px; border: 0; background: transparent; font: inherit; font-size: 12px; font-weight: 600; color: {{tg.textFg}}; cursor: pointer"><span style="width: 44px; height: 24px; border-radius: 999px; background: {{tg.track}}; border: 1px solid {{tg.trackBorder}}; box-sizing: border-box; display: flex; align-items: center; justify-content: {{tg.justify}}; padding: 2px"><span style="width: 18px; height: 18px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(16,24,40,0.25)"></span></span>{{tg.state}}</button>
+</div>
+</sc-for>
+<span style="font-size: 13px; color: #5B6B79">Toggle untuk pengaturan yang langsung berlaku tanpa tombol simpan. Status selalu tertulis di samping sakelar. Mode padat langsung terlihat di tabel data di bawah.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span style="font-weight: 600">Tab</span>
+<div role="tablist" aria-label="Contoh tab rekam medis" style="display: flex; gap: 4px; border-bottom: 1px solid #E3E8EE">
+<sc-for list="{{tabs}}" as="tb" hint-placeholder-count="3"><button type="button" role="tab" id="{{tb.id}}" aria-selected="{{tb.sel}}" aria-controls="fTabPanel" onClick="{{tb.pick}}" style="font: inherit; font-size: 13px; font-weight: {{tb.weight}}; height: 44px; padding: 0 14px; border: 0; border-bottom: 2px solid {{tb.line}}; margin-bottom: -1px; background: transparent; color: {{tb.fg}}; cursor: pointer">{{tb.label}}</button></sc-for>
+</div>
+<div id="fTabPanel" role="tabpanel" aria-labelledby="{{tabActiveId}}" style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 10px; background: #F8FAFB; min-height: 64px">
+<span style="font-weight: 600">{{tabPanel.title}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{tabPanel.text}}</span>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Tab mengganti isi di tempat tanpa memuat ulang halaman. Tab aktif ditandai garis teal dan teks tebal, bukan warna saja.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; grid-column: 1 / -1">
+<span style="font-weight: 600">Banner identitas pasien (wajib di setiap layar klinis)</span>
+<div style="border: 1px solid #D5E3E1; border-radius: 14px; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: linear-gradient(100deg, rgba(15,118,110,0.08) 0%, #FFFFFF 55%)">
+<div style="display: flex; gap: 12px; align-items: center">
+<span style="width: 44px; height: 44px; border-radius: 999px; border: 2px solid #0F766E; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-weight: 700">SR</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 17px; font-weight: 700">Siti Rahmawati</span><span style="font-size: 13px; color: #3F4C58">P · 54 th · 14 Mar 1972 · RM <span style="font-family: 'IBM Plex Mono', monospace">00-12-45-78</span></span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span style="font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: #FEF3F2; color: #B42318; border: 1px solid #FECDCA">Alergi: Amoksisilin</span><span style="font-size: 12px; padding: 4px 9px; border-radius: 8px; border: 1px solid #E3E8EE; background: #FFFFFF">BPJS Kelas 2</span><span style="font-size: 12px; padding: 4px 9px; border-radius: 8px; border: 1px solid #E3E8EE; background: #FFFFFF">DPJP dr. [Nama]</span></div>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Dua pengenal (nama + tanggal lahir atau No. RM) sesuai SKP 1 identifikasi pasien. Alergi berada dalam satu baris pandang dengan nama. Banner tidak pernah tergulir keluar layar.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px; grid-column: 1 / -1">
+<span style="font-weight: 600">Tabel data</span>
+<div style="border: 1px solid #E3E8EE; border-radius: 10px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr; background: #F8FAFB; font-size: 12px; font-weight: 600; color: #3F4C58"><span style="padding: 10px 14px">Pemeriksaan</span><span style="padding: 10px 14px">Hasil</span><span style="padding: 10px 14px">Satuan</span><span style="padding: 10px 14px">Rujukan</span><span style="padding: 10px 14px">Flag</span></div>
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr; border-top: 1px solid #EEF1F4"><span style="padding: {{cellPad}}">Hemoglobin</span><span style="padding: {{cellPad}}; font-weight: 600">12,8</span><span style="padding: {{cellPad}}; color: #5B6B79">g/dL</span><span style="padding: {{cellPad}}; color: #5B6B79">12,0–15,5</span><span style="padding: {{cellPad}}">—</span></div>
+<div style="display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 0.8fr; border-top: 1px solid #EEF1F4; background: #FFFBFA"><span style="padding: {{cellPad}}">Kalium</span><span style="padding: {{cellPad}}; font-weight: 700; color: #B42318">6,8</span><span style="padding: {{cellPad}}; color: #5B6B79">mmol/L</span><span style="padding: {{cellPad}}; color: #5B6B79">3,5–5,1</span><span style="padding: {{cellPad}}; font-weight: 700; color: #B42318">Kritis</span></div>
+</div>
+<span style="font-size: 13px; color: #5B6B79">Baris 44 px untuk layar kerja, 36 px untuk mode padat. Angka rata kanan saat dibandingkan antar baris. Nilai abnormal: warna + teks flag.</span>
+</div>
+
+</div>
+</section>
+
+<section aria-labelledby="h-prinsip" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<h2 id="h-prinsip" style="margin: 0; font-size: 20px; font-weight: 600">6. Prinsip interaksi klinis</h2>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<sc-for list="{{principles}}" as="pr" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 10px; background: #F8FAFB">
+<span style="font-weight: 600">{{pr.title}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{pr.text}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2600}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { nik: '3174••••••••4521', tgl: '31/02/1972', penjamin: 'BPJS Kesehatan', jk: 'P', chip: ['Menunggu'], toggles: { satusehat: true, padat: false }, tab: 'cppt', feedback: '', feedbackKind: 'info', batalOpen: false, alasan: '' };
+}
+renderVals() {
+var self = this, st = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+function ok(msg) { return { invalid: 'false', border: '#CBD3DB', bg: '#FFFFFF', fg: '#1E6B34', msg: msg }; }
+function bad(msg) { return { invalid: 'true', border: '#B42318', bg: '#FFFBFA', fg: '#B42318', msg: msg }; }
+// Validasi NIK: nilai tersamar bawaan dianggap sudah terverifikasi
+var nik = st.nik;
+var nikV = nik === '3174••••••••4521' ? ok('Terverifikasi Dukcapil')
+: (!nik ? bad('NIK wajib diisi.')
+: (/[^0-9]/.test(nik) ? bad('NIK hanya berisi angka.')
+: (nik.length !== 16 ? bad('NIK harus 16 digit (sekarang ' + nik.length + ').') : ok('Format benar · siap dicek ke Dukcapil'))));
+// Validasi tanggal lahir dd/mm/yyyy
+var tglV, m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(st.tgl);
+if (!st.tgl) tglV = bad('Tanggal lahir wajib diisi.');
+else if (!m) tglV = bad('Gunakan format dd/mm/yyyy, misalnya 14/03/1972.');
+else {
+var dd = +m[1], mm = +m[2], yy = +m[3], dt = new Date(yy, mm - 1, dd);
+var valid = mm >= 1 && mm <= 12 && dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd;
+if (!valid) tglV = bad('Tanggal tidak valid. Periksa hari dan bulan.');
+else if (dt.getTime() > Date.now()) tglV = bad('Tanggal lahir tidak boleh di masa depan.');
+else tglV = ok('Tanggal valid');
+}
+var jk = [{ id: 'P', label: 'Perempuan' }, { id: 'L', label: 'Laki-laki' }].map(function (g) {
+var on = g.id === st.jk;
+return Object.assign({}, g, { pressed: on ? 'true' : 'false', border: on ? '#0F766E' : '#CBD3DB', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : '#3F4C58', weight: on ? 600 : 400, pick: function () { self.setState({ jk: g.id }); } });
+});
+var chips = ['Menunggu', 'Diperiksa', 'Menunggu hasil', 'Selesai'].map(function (label) {
+var on = st.chip.indexOf(label) >= 0;
+return { label: label, on: on, pressed: on ? 'true' : 'false', border: on ? '#0F766E' : '#CBD3DB', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : '#3F4C58', weight: on ? 600 : 400,
+pick: function () { var cur = self.state.chip.slice(), i = cur.indexOf(label); if (i >= 0) cur.splice(i, 1); else cur.push(label); self.setState({ chip: cur }); } };
+});
+var toggles = [
+{ key: 'satusehat', id: 'fTgl1', label: 'Kirim otomatis ke SATUSEHAT', desc: 'Setelah resume ditandatangani' },
+{ key: 'padat', id: 'fTgl2', label: 'Mode padat', desc: 'Baris tabel 36 px untuk layar kerja' }
+].map(function (t) {
+var on = !!st.toggles[t.key];
+return Object.assign({}, t, { aria: on ? 'true' : 'false', state: on ? 'Aktif' : 'Nonaktif', textFg: on ? '#0B5D56' : '#5B6B79', track: on ? '#0F766E' : '#E3E8EE', trackBorder: on ? '#0D6861' : '#CBD3DB', justify: on ? 'flex-end' : 'flex-start',
+flip: function () { var tg = Object.assign({}, self.state.toggles); tg[t.key] = !tg[t.key]; self.setState({ toggles: tg }); } });
+});
+var TABS = [
+{ id: 'cppt', label: 'CPPT', title: 'CPPT · SOAP 3 Okt 2026 08.42', text: 'S: pusing dan tengkuk berat sejak 3 hari. O: TD 162/98 mmHg. A: hipertensi esensial (I10). P: amlodipin 10 mg.' },
+{ id: 'ttv', label: 'Tanda vital', title: 'Tanda vital terakhir · 08.30', text: 'TD 162/98 mmHg · nadi 88 x/menit · suhu 36,8 °C · SpO2 98% · BB 64 kg.' },
+{ id: 'resep', label: 'Resep', title: 'Resep aktif · 1 item', text: 'Amlodipin 10 mg, 1 x 1 tablet pagi, 30 hari. Telaah apoteker: tidak ada interaksi.' }
+];
+var tabs = TABS.map(function (t) {
+var on = t.id === st.tab;
+return { id: 'fTab-' + t.id, label: t.label, sel: on ? 'true' : 'false', weight: on ? 600 : 500, line: on ? '#0F766E' : 'transparent', fg: on ? '#0B5D56' : '#3F4C58', pick: function () { self.setState({ tab: t.id }); } };
+});
+var tabPanel = TABS.filter(function (t) { return t.id === st.tab; })[0];
+function tekan(label) { return function () { self.setState({ feedback: 'Tombol ' + label + ' ditekan pukul ' + jam() + '.', feedbackKind: 'info', batalOpen: false }); }; }
+var alasanKurang = String(st.alasan || '').trim().length < 5;
+return {
+nik: st.nik, nikV: nikV,
+setNik: function (e) { self.setState({ nik: e.target.value }); },
+tgl: st.tgl, tglV: tglV,
+setTgl: function (e) { self.setState({ tgl: e.target.value }); },
+setPenjamin: function (e) { self.setState({ penjamin: e.target.value }); },
+jk: jk,
+chips: chips,
+chipInfo: st.chip.length ? (st.chip.length + ' dipilih') : 'belum ada yang dipilih',
+toggles: toggles,
+cellPad: st.toggles.padat ? '6px 14px' : '10px 14px',
+tabs: tabs, tabPanel: tabPanel, tabActiveId: 'fTab-' + st.tab,
+tekanUtama: tekan('Utama'), tekanSekunder: tekan('Sekunder'), tekanTeks: tekan('Teks'),
+bukaBatal: function () { self.setState({ batalOpen: true, alasan: '', feedback: '' }); },
+batalOpen: st.batalOpen, batalAria: st.batalOpen ? 'true' : 'false',
+alasan: st.alasan,
+setAlasan: function (e) { self.setState({ alasan: e.target.value }); },
+alasanKurang: alasanKurang,
+alasanMsg: alasanKurang ? 'Tulis alasan minimal 5 karakter. Pembatalan tercatat di jejak audit.' : 'Alasan cukup. Pembatalan akan tercatat di jejak audit.',
+alasanFg: alasanKurang ? '#8A4B00' : '#1E6B34',
+konfirmBtn: { border: alasanKurang ? '#E3E8EE' : '#9A1E14', bg: alasanKurang ? '#F1F4F6' : 'linear-gradient(180deg, #C0331F, #B42318)', fg: alasanKurang ? '#8C99A6' : '#FFFFFF', cursor: alasanKurang ? 'not-allowed' : 'pointer' },
+konfirmBatal: function () { if (String(self.state.alasan || '').trim().length >= 5) self.setState({ batalOpen: false, feedback: 'Tindakan dibatalkan pukul ' + jam() + ' · alasan: ' + self.state.alasan.trim(), feedbackKind: 'danger' }); },
+tutupBatal: function () { self.setState({ batalOpen: false }); },
+hasFeedback: !!st.feedback, feedback: st.feedback, feedbackFg: st.feedbackKind === 'danger' ? '#B42318' : '#0B5D56',
+palettes: [
+{ name: 'Teal klinis (aksen)', use: 'Navigasi aktif, tombol utama, fokus', swatches: [{ name: 'Teal 800', hex: '#0B5D56' }, { name: 'Teal 700 · utama', hex: '#0F766E' }, { name: 'Teal 100', hex: '#D5ECE7' }, { name: 'Teal 50', hex: '#E6F4F1' }] },
+{ name: 'Netral', use: 'Teks, garis, permukaan', swatches: [{ name: 'Tinta', hex: '#14212B' }, { name: 'Abu 700', hex: '#3F4C58' }, { name: 'Abu 600 · teks sekunder', hex: '#5B6B79' }, { name: 'Garis', hex: '#E3E8EE' }, { name: 'Latar', hex: '#F5F7F9' }] },
+{ name: 'Semantik', use: 'Status dan peringatan klinis', swatches: [{ name: 'Bahaya', hex: '#B42318' }, { name: 'Perhatian', hex: '#8A4B00' }, { name: 'Berhasil', hex: '#1E6B34' }, { name: 'Info', hex: '#1E3A8A' }] },
+{ name: 'Permukaan semantik', use: 'Latar badge dan kotak peringatan', swatches: [{ name: 'Bahaya 50', hex: '#FEF3F2' }, { name: 'Perhatian 50', hex: '#FFF4E5' }, { name: 'Berhasil 50', hex: '#EAF6EC' }, { name: 'Info 50', hex: '#EEF4FF' }] }
+],
+triage: [
+{ level: '1', name: 'Resusitasi', target: 'segera', bg: '#B42318', fg: '#FFFFFF', border: '#9A1E14' },
+{ level: '2', name: 'Emergensi', target: '≤ 10 menit', bg: '#C4320A', fg: '#FFFFFF', border: '#A42A08' },
+{ level: '3', name: 'Urgen', target: '≤ 30 menit', bg: '#FEF0C7', fg: '#7A4300', border: '#F5D9A8' },
+{ level: '4', name: 'Semi-urgen', target: '≤ 60 menit', bg: '#EAF6EC', fg: '#1E6B34', border: '#BFE3C6' },
+{ level: '5', name: 'Tidak urgen', target: '≤ 120 menit', bg: '#EEF4FF', fg: '#1E3A8A', border: '#C7D7FE' }
+],
+types: [
+{ token: 'display / 28', size: '28px', weight: 700, sample: 'Pemeriksaan pasien' },
+{ token: 'judul / 20', size: '20px', weight: 600, sample: 'CPPT · SOAP' },
+{ token: 'subjudul / 16', size: '16px', weight: 600, sample: 'Hasil lab terakhir' },
+{ token: 'isi / 14', size: '14px', weight: 400, sample: 'Pusing dan tengkuk terasa berat sejak 3 hari.' },
+{ token: 'kecil / 13', size: '13px', weight: 400, sample: 'Perempuan · 54 tahun · BPJS Kelas 2' },
+{ token: 'label / 12', size: '12px', weight: 600, sample: 'TANDA VITAL · 08.42' }
+],
+spaces: [{ px: '4px' }, { px: '8px' }, { px: '12px' }, { px: '16px' }, { px: '20px' }, { px: '24px' }, { px: '32px' }, { px: '48px' }],
+principles: [
+{ title: 'Pasien yang benar', text: 'Banner identitas tetap di atas. Saat berpindah pasien, layar berganti penuh; tidak ada data pasien lama yang tersisa di form.' },
+{ title: 'Draf dulu, final kemudian', text: 'Semua catatan tersimpan otomatis sebagai draf. Status final hanya lewat tanda tangan; setelahnya hanya koreksi berversi atau addendum.' },
+{ title: 'Peringatan yang tidak bising', text: 'Peringatan kritis memblokir dan meminta alasan; perhatian tampil di samping tanpa memblokir; info cukup sebagai teks.' },
+{ title: 'Dua klik ke data penting', text: 'Alergi, obat aktif, hasil terakhir, dan problem list terlihat tanpa membuka menu.' },
+{ title: 'Keyboard untuk pengguna berat', text: 'Pencarian dengan "/", simpan dengan Ctrl+S, tanda tangan dengan Ctrl+Enter, berpindah tab dengan Alt+angka.' },
+{ title: 'Selalu jelas statusnya', text: 'Setiap aksi yang mengirim ke luar (BPJS, SATUSEHAT, lab) menampilkan status terkirim, gagal, atau menunggu, beserta waktu.' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Persetujuan tindakan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 16px; line-height: 1.5; background-color: #F5F7F9; background-image: radial-gradient(700px 300px at 100% 0%, rgba(15,118,110,0.10), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+
+<header style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 28px; background: rgba(255,255,255,0.9); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column">
+<span style="font-size: 13px; color: #5B6B79">Persetujuan tindakan kedokteran · K11</span>
+<span style="font-size: 20px; font-weight: 600">Pemasangan kateter vena sentral</span>
+</div>
+<div style="display: flex; gap: 6px" role="group" aria-label="Ukuran teks">
+<button type="button" onClick="{{smaller}}" disabled="{{minFs}}" aria-label="Perkecil teks" style="font: inherit; font-size: 14px; min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer; opacity: {{smallOp}}">A−</button>
+<button type="button" onClick="{{bigger}}" disabled="{{maxFs}}" aria-label="Perbesar teks" style="font: inherit; font-size: 18px; font-weight: 600; min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer; opacity: {{bigOp}}">A+</button>
+</div>
+</header>
+
+<nav aria-label="Langkah" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px 28px 0">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="4">
+<span aria-current="{{st.current}}" style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: {{st.fg}}; font-weight: {{st.w}}"><span style="height: 4px; border-radius: 999px; background: {{st.bar}}"></span>{{st.label}}</span>
+</sc-for>
+</nav>
+
+<main style="flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 28px 24px; font-size: {{fs}}px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; font-size: 0.875em">
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Pasien</span><span style="font-weight: 600">Ny. Endang Wijaya · RM 00-41-27-88</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Yang memberi persetujuan</span><span style="font-weight: 600">Pasien sendiri (kompeten)</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Dokter pelaksana</span><span style="font-weight: 600">dr. [Nama DPJP], Sp.PD</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Pemberi informasi</span><span style="font-weight: 600">dr. [Nama DPJP], Sp.PD</span></span>
+</div>
+
+<section aria-label="Informasi tindakan" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<sc-for list="{{info}}" as="i" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #EEF1F4; align-items: start">
+<span style="width: 26px; height: 26px; border-radius: 999px; background: #E6F4F1; color: #0B5D56; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center">✓</span>
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">{{i.t}}</span><span style="font-size: 0.9375em; color: #3F4C58">{{i.d}}</span></span>
+</div>
+</sc-for>
+<div style="padding: 12px 18px; display: flex; gap: 10px; align-items: center; background: linear-gradient(90deg, rgba(30,58,138,0.06), #FFFFFF 70%)">
+<span style="font-size: 0.875em; color: #1E3A8A">Dibacakan dan dijelaskan oleh dokter pada 3 Okt 2026 15.42 · durasi penjelasan 9 menit · pasien diberi kesempatan bertanya</span>
+</div>
+</section>
+
+<section aria-label="Tanda tangan" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px">
+<sc-for list="{{sigs}}" as="g" hint-placeholder-count="2">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap"><span style="font-weight: 600">{{g.title}}</span><span style="display: flex; gap: 6px"><button type="button" onClick="{{g.clear}}" disabled="{{g.clearOff}}" aria-label="{{g.clearLabel}}" style="font: inherit; font-size: 14px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer; opacity: {{g.clearOp}}">Ulangi</button><button type="button" onClick="{{g.sign}}" disabled="{{g.signOff}}" aria-label="{{g.signLabel}}" style="font: inherit; font-size: 14px; font-weight: 600; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer; opacity: {{g.signOp}}">Tanda tangani</button></span></span>
+<div style="height: 150px; border-radius: 10px; border: 1.5px dashed {{g.bd}}; background: #FAFCFC; position: relative; display: flex; align-items: center; justify-content: center; color: #5B6B79; font-size: 0.9375em">
+<sc-if value="{{g.signed}}" hint-placeholder-val="{{ true }}">
+<svg width="200" height="70" viewBox="0 0 200 70" role="img" aria-label="{{g.svgLabel}}"><path d="{{g.path}}" fill="none" stroke="#14212B" stroke-width="2.4" stroke-linecap="round"></path></svg>
+<span style="position: absolute; left: 12px; right: 12px; bottom: 26px; border-top: 1px solid #CBD3DB"></span>
+</sc-if>
+<sc-if value="{{g.empty}}" hint-placeholder-val="{{ false }}">
+<span>{{g.placeholder}}</span>
+</sc-if>
+</div>
+<span style="font-size: 0.8125em; color: #5B6B79">{{g.capPre}}<span style="color: {{g.capFg}}; font-weight: {{g.capW}}">{{g.cap}}</span></span>
+</div>
+</sc-for>
+</section>
+
+<sc-if value="{{showOfficer}}" hint-placeholder-val="{{ false }}">
+<label style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: #FFFFFF; border: 1px solid #E3E8EE; cursor: pointer"><input type="checkbox" checked="{{officer}}" onChange="{{toggleOfficer}}" disabled="{{officerLocked}}" style="width: 22px; height: 22px; margin: 0; flex: none; accent-color: #0F766E"><span>Saksi kedua (petugas): Ns. [Nama perawat] hadir dan menyaksikan penandatanganan</span></label>
+</sc-if>
+
+<sc-if value="{{showWarn}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: #FFF7EB; border: 1px solid #F1D3A8; color: #8A4B00; font-size: 0.875em">
+<span style="font-weight: 700">!</span><span>Saksi kedua dari petugas dan TTE dokter dibutuhkan sebelum dokumen final. Pasien berhak menolak atau menarik persetujuan kapan saja.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{showTte}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #0F766E">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">TTE dokter pelaksana</span><span style="font-size: 0.875em; color: #3F4C58">dr. [Nama DPJP], Sp.PD · sertifikat elektronik BSrE · pasien dan saksi sudah menandatangani</span></span>
+<span style="font-size: 0.875em; font-weight: 600; color: #0B5D56">Tekan "Tanda tangani (TTE)" di bawah</span>
+</div>
+</sc-if>
+
+<sc-if value="{{final}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 12px; background: #EAF6EC; border: 1px solid #B7DEC1; color: #1E6B34; font-size: 0.875em">
+<span style="font-weight: 700">✓</span><span>Dokumen final · TTE dr. [Nama DPJP] pukul {{finalAt}}. Salinan dikirim ke rekam medis dan aplikasi pasien.</span>
+</div>
+</sc-if>
+
+<sc-if value="{{refusing}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Konfirmasi penolakan" style="background: #FFFFFF; border: 1px solid #E6B8B3; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600; color: #8E1B13">Konfirmasi penolakan tindakan</span>
+<span style="font-size: 0.875em; color: #3F4C58">Penolakan dicatat dengan formulir penolakan tindakan. Dokter akan menjelaskan risiko bila tindakan tidak dilakukan.</span>
+<label for="alasanTolak" style="font-weight: 600; font-size: 0.875em">Alasan penolakan (wajib)</label>
+<textarea id="alasanTolak" value="{{reason}}" onInput="{{setReason}}" rows="3" placeholder="Tulis alasan dengan kata-kata pasien" style="font: inherit; font-size: 1em; padding: 10px 12px; border: 1px solid {{reasonBd}}; border-radius: 10px; resize: vertical"></textarea>
+<span style="font-size: 0.8125em; color: #B42318">{{reasonErr}}</span>
+<div style="display: flex; gap: 10px; justify-content: flex-end">
+<button type="button" onClick="{{cancelRefuse}}" style="font: inherit; font-weight: 500; height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="button" onClick="{{confirmRefuse}}" style="font: inherit; font-weight: 600; height: 48px; padding: 0 18px; border-radius: 12px; border: 1px solid #8E1B13; background: #B42318; color: #FFFFFF; cursor: pointer">Catat penolakan</button>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{refused}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #FEF3F2; border: 1px solid #FECDCA; color: #8E1B13; font-size: 0.875em">
+<span style="font-weight: 700">Pasien menolak tindakan · tercatat {{refusedAt}}</span>
+<span style="color: #3F4C58">Alasan: {{reasonSaved}}. DPJP diberi notifikasi untuk edukasi lanjutan dan rencana alternatif.</span>
+</div>
+</sc-if>
+</main>
+
+<footer style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 28px; background: #FFFFFF; border-top: 1px solid #E3E8EE">
+<button type="button" onClick="{{openRefuse}}" disabled="{{refuseOff}}" style="font: inherit; font-weight: 500; height: 52px; padding: 0 20px; border-radius: 12px; border: 1px solid #E6B8B3; background: #FFFFFF; color: #B42318; cursor: pointer; opacity: {{refuseOp}}">Saya menolak tindakan</button>
+<div style="display: flex; gap: 10px; align-items: center">
+<sc-if value="{{hasHint}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #8A4B00; font-weight: 600; max-width: 220px; text-align: right">{{nextHint}}</span></sc-if>
+<button type="button" onClick="{{back}}" disabled="{{backOff}}" style="font: inherit; font-weight: 500; height: 52px; padding: 0 20px; border-radius: 12px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer; opacity: {{backOp}}">Kembali</button>
+<button type="button" onClick="{{next}}" disabled="{{nextOff}}" style="font: inherit; font-weight: 600; height: 52px; padding: 0 24px; border-radius: 12px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer; opacity: {{nextOp}}; box-shadow: inset 0 1px 0 rgba(255,255,255,0.15)">{{nextLabel}}</button>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":834,"height":1194}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+step: 1,
+fs: 16,
+pSigned: true, pAt: '15.51',
+wSigned: false, wAt: '',
+officer: false,
+final: false, finalAt: '',
+refusing: false, reason: '', reasonErr: '', refused: false, refusedAt: '', reasonSaved: ''
+};
+}
+now() {
+var d = new Date();
+return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var locked = st.final || st.refused;
+
+var labels = ['Informasi', 'Tanda tangan pasien', 'Saksi', 'TTE dokter'];
+var steps = labels.map(function (l, i) {
+var done = st.final || i < st.step, cur = !st.final && i === st.step;
+return { label: (i + 1) + '. ' + l, current: cur ? 'step' : 'false', bar: done ? '#0F766E' : (cur ? 'linear-gradient(90deg, #0F766E, #5FB3AA)' : '#E3E8EE'), fg: done || cur ? '#0B5D56' : '#5B6B79', w: cur ? 600 : 500 };
+});
+
+var info = [
+{ t: 'Diagnosis', d: 'Pneumonia dengan kebutuhan akses vena jangka menengah.' },
+{ t: 'Tindakan dan tujuannya', d: 'Memasang selang kecil di pembuluh vena leher untuk obat dan cairan.' },
+{ t: 'Cara pelaksanaan', d: 'Bius lokal, panduan USG, sekitar 30 menit, di kamar tindakan.' },
+{ t: 'Risiko', d: 'Nyeri, perdarahan, infeksi, kolaps paru (jarang, < 1%).' },
+{ t: 'Komplikasi dan penanganannya', d: 'Dipantau dengan foto toraks setelah pemasangan.' },
+{ t: 'Alternatif', d: 'Infus perifer berulang, atau kateter PICC.' },
+{ t: 'Prognosis', d: 'Baik bila tindakan dan terapi berjalan sesuai rencana.' }
+];
+
+function sig(o) {
+var active = !locked && st.step === o.step;
+return {
+title: o.title, signed: o.signed, empty: !o.signed, path: o.path, svgLabel: 'Tanda tangan ' + o.who,
+bd: o.signed ? '#9FB7B3' : '#CBD3DB',
+placeholder: 'Tanda tangan di sini',
+capPre: o.capPre, cap: o.cap, capFg: o.capFg, capW: o.capW,
+signOff: !active || o.signed, signOp: (!active || o.signed) ? 0.45 : 1,
+clearOff: !active || !o.signed, clearOp: (!active || !o.signed) ? 0.45 : 1,
+signLabel: 'Tanda tangani: ' + o.who, clearLabel: 'Ulangi tanda tangan ' + o.who,
+sign: o.sign, clear: o.clear
+};
+}
+var sigs = [
+sig({ step: 1, title: 'Tanda tangan pasien', who: 'pasien', signed: st.pSigned,
+path: 'M8 48 C 30 10, 42 62, 62 34 S 92 18, 104 44 S 140 54, 152 28 S 178 30, 192 40',
+capPre: '', cap: st.pSigned ? 'Endang Wijaya · 3 Okt 2026 ' + st.pAt + ' · lokasi tablet: Melati' : 'Endang Wijaya · belum menandatangani', capFg: '#5B6B79', capW: 400,
+sign: function () { self.setState({ pSigned: true, pAt: self.now() }); },
+clear: function () { self.setState({ pSigned: false, pAt: '' }); } }),
+sig({ step: 2, title: 'Saksi (keluarga)', who: 'saksi keluarga', signed: st.wSigned,
+path: 'M10 44 C 24 20, 36 20, 44 40 S 60 58, 74 30 S 100 22, 112 42 C 124 58, 140 18, 158 36 S 182 44, 190 30',
+capPre: 'Nama dan hubungan: ', cap: st.wSigned ? 'Budi Wijaya · anak · ' + st.wAt : 'Budi Wijaya · anak', capFg: '#14212B', capW: 500,
+sign: function () { self.setState({ wSigned: true, wAt: self.now() }); },
+clear: function () { self.setState({ wSigned: false, wAt: '' }); } })
+];
+
+var canNext = false, nextLabel = '', nextHint = '';
+if (st.refused) { nextLabel = 'Lanjut'; nextHint = 'Alur dihentikan karena pasien menolak.'; }
+else if (st.final) { nextLabel = 'Dokumen final'; }
+else if (st.step === 0) { canNext = true; nextLabel = 'Lanjut ke tanda tangan'; }
+else if (st.step === 1) { canNext = st.pSigned; nextLabel = 'Lanjut ke saksi'; if (!canNext) nextHint = 'Pasien belum menandatangani.'; }
+else if (st.step === 2) { canNext = st.wSigned && st.officer; nextLabel = 'Lanjut ke TTE dokter'; if (!st.wSigned) nextHint = 'Saksi keluarga belum tanda tangan.'; else if (!st.officer) nextHint = 'Centang kehadiran saksi petugas.'; }
+else { canNext = true; nextLabel = 'Tanda tangani (TTE)'; }
+
+var backOff = locked || st.step === 0;
+
+return {
+fs: st.fs,
+minFs: st.fs <= 14, maxFs: st.fs >= 24,
+smallOp: st.fs <= 14 ? 0.45 : 1, bigOp: st.fs >= 24 ? 0.45 : 1,
+smaller: function () { self.setState({ fs: Math.max(14, st.fs - 2) }); },
+bigger: function () { self.setState({ fs: Math.min(24, st.fs + 2) }); },
+steps: steps, info: info, sigs: sigs,
+showOfficer: st.step >= 2 && !st.refused,
+officer: st.officer, officerLocked: locked || st.step !== 2,
+toggleOfficer: function () { if (!locked && st.step === 2) self.setState({ officer: !st.officer }); },
+showWarn: !st.final && !st.refused && st.step < 3,
+showTte: !st.final && !st.refused && st.step === 3,
+final: st.final, finalAt: st.finalAt,
+refusing: st.refusing && !st.refused,
+reason: st.reason, reasonErr: st.reasonErr, reasonBd: st.reasonErr ? '#B42318' : '#CBD3DB',
+setReason: function (e) { self.setState({ reason: e.target.value, reasonErr: '' }); },
+openRefuse: function () { if (!locked) self.setState({ refusing: true }); },
+cancelRefuse: function () { self.setState({ refusing: false, reason: '', reasonErr: '' }); },
+confirmRefuse: function () {
+var r = (st.reason || '').trim();
+if (r.length < 5) { self.setState({ reasonErr: 'Alasan wajib diisi (minimal 5 karakter).' }); return; }
+self.setState({ refused: true, refusing: false, refusedAt: self.now(), reasonSaved: r });
+},
+refused: st.refused, refusedAt: st.refusedAt, reasonSaved: st.reasonSaved,
+refuseOff: locked, refuseOp: locked ? 0.45 : 1,
+hasHint: !!nextHint, nextHint: nextHint,
+back: function () { if (!backOff) self.setState({ step: st.step - 1 }); },
+backOff: backOff, backOp: backOff ? 0.45 : 1,
+next: function () {
+if (!canNext) return;
+if (st.step === 3) self.setState({ final: true, finalAt: self.now() });
+else self.setState({ step: st.step + 1 });
+},
+nextOff: !canNext, nextOp: canNext ? 1 : 0.5,
+nextLabel: nextLabel
+};
+}
+}
+</script>
+</body>
+</html>

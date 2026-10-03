@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Dasbor direksi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,a:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="dasbor" user="dr. [Nama Direktur], MARS" role="Direktur utama" initials="DU" unit="Direksi" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Manajemen / Dasbor direksi · data per 10.45</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">{{title}}</h1>
+</div>
+<div role="tablist" aria-label="Rentang" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #EEF1F4">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="3">
+<button type="button" role="tab" aria-selected="{{t.sel}}" aria-controls="kpiDasbor" onClick="{{t.pick}}" style="font: inherit; font-weight: {{t.fw}}; height: 34px; padding: 0 12px; border-radius: 9px; border: 0; background: {{t.bg}}; color: {{t.fg}}; box-shadow: {{t.sh}}; cursor: pointer">{{t.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<div id="kpiDasbor" role="tabpanel" aria-label="{{panelLabel}}" aria-live="polite" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{kpi}}" as="k" hint-placeholder-count="6">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 12px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 22px; font-weight: 700">{{k.value}}</span>
+<span style="font-size: 12px; color: {{k.fg}}; font-weight: 500">{{k.delta}}</span>
+<span style="font-size: 11.5px; color: #5B6B79">{{k.target}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; padding: 16px 28px 0">
+<section aria-label="Pendapatan" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Pendapatan harian vs anggaran (Rp juta)</span><span style="font-size: 12.5px; color: #5B6B79">realisasi 104% dari anggaran berjalan</span></span>
+<svg viewBox="0 0 620 200" width="100%" height="200" role="img" aria-label="Grafik pendapatan harian 30 hari terakhir terhadap anggaran">
+<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0F766E" stop-opacity="0.22"/><stop offset="1" stop-color="#0F766E" stop-opacity="0"/></linearGradient></defs>
+<g stroke="#EEF1F4"><line x1="40" y1="20" x2="610" y2="20"/><line x1="40" y1="70" x2="610" y2="70"/><line x1="40" y1="120" x2="610" y2="120"/><line x1="40" y1="170" x2="610" y2="170"/></g>
+<g font-family="IBM Plex Mono, monospace" font-size="10" fill="#5B6B79"><text x="4" y="24">300</text><text x="4" y="74">250</text><text x="4" y="124">200</text><text x="4" y="174">150</text></g>
+<path d="M40 120 L59 112 L78 118 L97 98 L116 104 L135 132 L154 140 L173 108 L192 96 L211 100 L230 92 L249 110 L268 128 L287 136 L306 102 L325 90 L344 96 L363 84 L382 104 L401 124 L420 130 L439 94 L458 88 L477 80 L496 86 L515 98 L534 118 L553 126 L572 82 L591 76 L610 70 L610 170 L40 170 Z" fill="url(#ga)"/>
+<path d="M40 120 L59 112 L78 118 L97 98 L116 104 L135 132 L154 140 L173 108 L192 96 L211 100 L230 92 L249 110 L268 128 L287 136 L306 102 L325 90 L344 96 L363 84 L382 104 L401 124 L420 130 L439 94 L458 88 L477 80 L496 86 L515 98 L534 118 L553 126 L572 82 L591 76 L610 70" fill="none" stroke="#0F766E" stroke-width="2"/>
+<path d="M40 110 L610 96" fill="none" stroke="#8A4B00" stroke-width="1.5" stroke-dasharray="5 4"/>
+<g font-size="11" fill="#3F4C58"><text x="40" y="192">4 Sep</text><text x="300" y="192">19 Sep</text><text x="560" y="192">3 Okt</text></g>
+</svg>
+<div style="display: flex; gap: 16px; font-size: 12px; color: #3F4C58"><span><span style="display: inline-block; width: 14px; height: 2px; background: #0F766E; vertical-align: middle; margin-right: 6px"></span>Realisasi 30 hari</span><span><span style="display: inline-block; width: 14px; border-top: 2px dashed #8A4B00; vertical-align: middle; margin-right: 6px"></span>Anggaran harian</span></div>
+</section>
+
+<section aria-label="Bauran penjamin" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-weight: 600">Bauran penjamin dan margin</span>
+<sc-for list="{{mix}}" as="m" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 1.2fr 2fr 60px 70px; gap: 10px; align-items: center; font-size: 13px">
+<span>{{m.name}}</span>
+<span style="height: 10px; border-radius: 999px; background: #EEF1F4; overflow: hidden"><span style="display: block; height: 10px; width: {{m.w}}; background: {{m.c}}"></span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; text-align: right">{{m.w}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; text-align: right; color: {{m.mf}}">{{m.margin}}</span>
+</div>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Kolom terakhir: margin kontribusi. JKN negatif terutama di kasus pneumonia, stroke, dan sepsis (LOS melebihi clinical pathway).</span>
+</section>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 16px 28px 28px">
+<section aria-label="Mutu" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Indikator nasional mutu</span>
+<sc-for list="{{inm}}" as="i" hint-placeholder-count="6">
+<span style="display: grid; grid-template-columns: 1fr auto auto; gap: 10px; font-size: 13px; align-items: center"><span style="color: #3F4C58">{{i.n}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{i.fg}}">{{i.v}}</span><span style="font-size: 11.5px; color: #5B6B79">{{i.t}}</span></span>
+</sc-for>
+</section>
+<section aria-label="Kapasitas" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Kapasitas saat ini</span>
+<sc-for list="{{cap}}" as="c" hint-placeholder-count="5">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #3F4C58">{{c.n}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{c.fg}}">{{c.v}}</span></span>
+<span style="height: 6px; border-radius: 999px; background: #EEF1F4; overflow: hidden"><span style="display: block; height: 6px; width: {{c.w}}; background: {{c.bar}}"></span></span>
+</div>
+</sc-for>
+</section>
+<section aria-label="Perlu perhatian" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background-image: linear-gradient(160deg, #FFFFFF 60%, rgba(180,35,24,0.05))">
+<span style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px"><span style="font-weight: 600">Perlu keputusan direksi</span><span aria-live="polite" style="font-size: 12px; font-weight: 600; color: {{openFg}}">{{openText}}</span></span>
+<sc-for list="{{alerts}}" as="a" hint-placeholder-count="4">
+<div style="display: flex; gap: 10px; font-size: 13px">
+<span style="width: 8px; height: 8px; border-radius: 999px; background: {{a.c}}; margin-top: 6px; flex: none"></span>
+<span style="display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; color: {{a.tFg}}">{{a.t}}</span><span style="color: #3F4C58">{{a.d}}</span></span>
+<sc-if value="{{a.isDone}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; font-weight: 600; color: #1E6B34">{{a.doneText}}</span>
+</sc-if>
+<span style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-if value="{{a.hasLink}}" hint-placeholder-val="{{ true }}">
+<a href="{{a.href}}" style="display: inline-flex; align-items: center; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-size: 12.5px; font-weight: 600; text-decoration: none">{{a.linkLabel}}</a>
+</sc-if>
+<button type="button" aria-pressed="{{a.pressed}}" onClick="{{a.toggle}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid #CBD3DB; background: {{a.btnBg}}; color: #14212B; cursor: pointer">{{a.btnLabel}}</button>
+</span>
+</span>
+</div>
+</sc-for>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { range: 'bulan', done: {} };
+}
+renderVals() {
+var self = this;
+var st = this.state;
+function jam() { var d = new Date(); var p = function (x) { return (x < 10 ? '0' : '') + x; }; return p(d.getHours()) + '.' + p(d.getMinutes()); }
+function k(label, value, delta, target, good) { return { label: label, value: value, delta: delta, target: target, fg: good ? '#1E6B34' : '#B42318', tint: good ? 'rgba(30,107,52,0.06)' : 'rgba(180,35,24,0.06)' }; }
+var sets = {
+hari: [
+k('BOR', '82%', '▲ 1 poin vs kemarin', 'ideal 60–85%', true),
+k('ALOS', '4,8 hari', '▲ 0,5 hari vs kemarin', 'pasien pulang hari ini · target ≤ 4,3', false),
+k('Kunjungan RJ / hari', '736', '▲ 3% vs minggu lalu', 'data s.d. 10.45 · kapasitas 1.300', true),
+k('Waktu tunggu RJ', '47 mnt', '▼ 5 mnt vs kemarin', 'target ≤ 60', true),
+k('Klaim terbayar', '93,8%', '▼ 0,3 poin vs kemarin', 'target ≥ 96%', false),
+k('Kepuasan pasien', '88%', '▲ 2 poin vs kemarin', 'target ≥ 80%', true)
+],
+bulan: [
+k('BOR', '82%', '▲ 3 poin vs Sep', 'ideal 60–85%', true),
+k('ALOS', '4,6 hari', '▲ 0,3 hari', 'target ≤ 4,3', false),
+k('Kunjungan RJ / hari', '1.148', '▲ 5%', 'kapasitas 1.300', true),
+k('Waktu tunggu RJ', '52 mnt', '▼ 9 mnt', 'target ≤ 60', true),
+k('Klaim terbayar', '94,1%', '▼ 1,2 poin', 'target ≥ 96%', false),
+k('Kepuasan pasien', '86%', '▲ 2 poin', 'target ≥ 80%', true)
+],
+ytd: [
+k('BOR', '78%', '▲ 4 poin vs 2025', 'ideal 60–85%', true),
+k('ALOS', '4,4 hari', '▼ 0,2 hari vs 2025', 'target ≤ 4,3', true),
+k('Kunjungan RJ / hari', '1.092', '▲ 7% vs 2025', 'kapasitas 1.300', true),
+k('Waktu tunggu RJ', '58 mnt', '▼ 14 mnt vs 2025', 'target ≤ 60', true),
+k('Klaim terbayar', '95,2%', '▲ 0,8 poin vs 2025', 'target ≥ 96%', true),
+k('Kepuasan pasien', '84%', '▲ 3 poin vs 2025', 'target ≥ 80%', true)
+]
+};
+var kpi = sets[st.range];
+var tabDefs = [{ id: 'hari', label: 'Hari ini' }, { id: 'bulan', label: 'Bulan berjalan' }, { id: 'ytd', label: 'YTD' }];
+var tabs = tabDefs.map(function (t) {
+var on = st.range === t.id;
+return { label: t.label, sel: on ? 'true' : 'false', fw: on ? 600 : 400, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#14212B' : '#3F4C58', sh: on ? '0 1px 2px rgba(16,24,40,0.08)' : 'none',
+pick: function () { self.setState({ range: t.id }); } };
+});
+var titles = { hari: 'Kinerja rumah sakit · hari ini', bulan: 'Kinerja rumah sakit · Oktober 2026', ytd: 'Kinerja rumah sakit · Januari–Oktober 2026' };
+var panelLabels = { hari: 'KPI hari ini', bulan: 'KPI bulan berjalan', ytd: 'KPI year to date' };
+var mix = [
+{ name: 'JKN / BPJS', w: '71%', c: '#0F766E', margin: '−3,8%' },
+{ name: 'Asuransi swasta', w: '14%', c: '#4A9B92', margin: '+22%' },
+{ name: 'Umum', w: '11%', c: '#8CC4BC', margin: '+28%' },
+{ name: 'Kerja sama', w: '4%', c: '#C2DEDA', margin: '+15%' }
+].map(function (m) { return Object.assign({}, m, { mf: m.margin.charAt(0) === '−' ? '#B42318' : '#1E6B34' }); });
+var inm = [
+{ n: 'Kepatuhan kebersihan tangan', v: '88%', t: '≥ 85%', ok: true },
+{ n: 'Kepatuhan identifikasi pasien', v: '97%', t: '100%', ok: false },
+{ n: 'Waktu tanggap SC emergensi', v: '91%', t: '≥ 80%', ok: true },
+{ n: 'Kepatuhan clinical pathway', v: '76%', t: '≥ 80%', ok: false },
+{ n: 'Pelaporan nilai kritis lab', v: '100%', t: '100%', ok: true },
+{ n: 'Kepatuhan upaya pencegahan jatuh', v: '93%', t: '100%', ok: false }
+].map(function (i) { return Object.assign({}, i, { fg: i.ok ? '#1E6B34' : '#8A4B00' }); });
+var cap = [
+{ n: 'Rawat inap kelas', v: '214/260', p: 82 }, { n: 'ICU', v: '11/12', p: 92 }, { n: 'IGD bed', v: '18/20', p: 90 }, { n: 'Kamar operasi hari ini', v: '13/16 kasus', p: 81 }, { n: 'Isolasi', v: '3/6', p: 50 }
+].map(function (c) { var hi = c.p >= 90; return { n: c.n, v: c.v, w: c.p + '%', bar: hi ? '#B42318' : '#0F766E', fg: hi ? '#B42318' : '#14212B' }; });
+var alertDefs = [
+{ id: 'icu', t: 'ICU 92% · 3 pasien IGD menunggu', d: 'Usulan: aktifkan HCU sebagai step-down 4 bed.', c: '#B42318', href: 'BedManagement.dc.html', link: 'Buka manajemen bed' },
+{ id: 'klaim', t: 'Klaim pending Rp 184 jt > 30 hari', d: 'Mayoritas ICU sepsis, resume belum final.', c: '#8A4B00', href: 'Klaim.dc.html', link: 'Lihat klaim pending' },
+{ id: 'alos', t: 'ALOS pneumonia 6,2 vs pathway 5', d: 'Rapat komite medik dijadwalkan 8 Okt.', c: '#8A4B00' },
+{ id: 'stok', t: 'Stok enoksaparin < 7 hari', d: 'PO darurat menunggu persetujuan.', c: '#8A4B00', href: 'Logistik.dc.html', link: 'Tinjau stok dan PO' }
+];
+var nOpen = 0;
+var alerts = alertDefs.map(function (a) {
+var at = st.done[a.id];
+if (!at) nOpen++;
+return { t: a.t, d: a.d, c: at ? '#1E6B34' : a.c, tFg: at ? '#5B6B79' : '#14212B', isDone: !!at, doneText: at ? 'Ditindaklanjuti ' + at + ' · tercatat di log direksi' : '',
+hasLink: !!a.href, href: a.href || '', linkLabel: a.link || '',
+pressed: at ? 'true' : 'false', btnLabel: at ? 'Batalkan tanda' : 'Tandai ditindaklanjuti', btnBg: at ? '#F1F3F5' : '#FFFFFF',
+toggle: function () { var d = Object.assign({}, self.state.done); if (d[a.id]) { delete d[a.id]; } else { d[a.id] = jam(); } self.setState({ done: d }); } };
+});
+return { kpi: kpi, tabs: tabs, title: titles[st.range], panelLabel: panelLabels[st.range], mix: mix, inm: inm, cap: cap, alerts: alerts,
+openText: nOpen ? nOpen + ' terbuka' : 'semua ditindaklanjuti', openFg: nOpen ? '#B42318' : '#1E6B34' };
+}
+}
+</script>
+</body>
+</html>

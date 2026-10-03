@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Laboratorium</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="lab" user="Rina Kartika, A.Md.AK" role="Analis · Lab patologi klinik" initials="RK" unit="Laboratorium" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Penunjang / Laboratorium / Worklist</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Laboratorium · validasi hasil</h1>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 999px; background: #EAF5EC; color: #1E6B34; font-weight: 500">● Analyzer Sysmex XN terhubung (HL7 ORU)</span>
+<span style="font-size: 13px; padding: 6px 10px; border-radius: 999px; background: #EAF5EC; color: #1E6B34; font-weight: 500">● Cobas c311 terhubung</span>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{kpi}}" as="k" hint-placeholder-count="4">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12.5px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 24px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12.5px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Worklist" style="flex: 1 1 340px; max-width: 380px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between"><span style="font-weight: 600">Worklist</span><span style="font-size: 12.5px; color: #5B6B79">urut: prioritas, lalu waktu</span></div>
+<sc-for list="{{work}}" as="w" hint-placeholder-count="8">
+<button type="button" onClick="{{w.pick}}" aria-pressed="{{w.pressed}}" style="display: grid; grid-template-columns: 4px 1fr auto; gap: 10px; width: 100%; padding: 10px 14px 10px 0; border: 0; border-bottom: 1px solid #EEF1F4; background: {{w.bg}}; font: inherit; color: inherit; text-align: left; cursor: pointer">
+<span style="background: {{w.bar}}; align-self: stretch"></span>
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 600">{{w.name}}</span><span style="font-size: 12.5px; color: #5B6B79">{{w.meta}}</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px"><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{w.chipBg}}; color: {{w.chipFg}}">{{w.status}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: {{w.tatFg}}">{{w.tat}}</span></span>
+</button>
+</sc-for>
+</section>
+
+<section aria-label="Hasil" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div role="alert" style="display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: {{crit.bg}}; border: 1px solid {{crit.bd}}">
+<span style="width: 28px; height: 28px; border-radius: 999px; background: {{crit.icoBg}}; color: #FFFFFF; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none">{{crit.ico}}</span>
+<span style="display: flex; flex-direction: column; gap: 4px; flex: 1"><span style="font-weight: 600; color: {{crit.titleFg}}">{{crit.title}}</span><span style="font-size: 13px; color: #3F4C58">{{crit.sub}}</span>
+<sc-if value="{{crit.form}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #F0C2BD">
+<label for="penerimaKritis" style="font-size: 13px; font-weight: 600">Nama penerima laporan (DPJP / dokter jaga)</label>
+<input id="penerimaKritis" value="{{crit.name}}" onInput="{{crit.setName}}" placeholder="mis. dr. Andi, dokter jaga IGD" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid {{crit.nameBd}}; border-radius: 10px; box-sizing: border-box">
+<span style="font-size: 12px; color: #B42318">{{crit.nameErr}}</span>
+<label style="display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer"><input type="checkbox" checked="{{crit.rb}}" onChange="{{crit.toggleRb}}" style="width: 18px; height: 18px; margin: 0; accent-color: #0F766E">Read-back: penerima mengulang nilai "Kalium 6,8 mmol/L" dengan benar</label>
+<span style="font-size: 12px; color: #B42318">{{crit.rbErr}}</span>
+<span style="display: flex; gap: 8px; justify-content: flex-end">
+<button type="button" onClick="{{crit.cancel}}" style="font: inherit; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="button" onClick="{{crit.save}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #8E1B13; background: #B42318; color: #FFFFFF; cursor: pointer">Simpan pelaporan</button>
+</span>
+</span>
+</sc-if>
+</span>
+<sc-if value="{{crit.showBtn}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{crit.open}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #8E1B13; background: #B42318; color: #FFFFFF; cursor: pointer">Catat pelaporan</button>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; border-bottom: 1px solid #E3E8EE; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; background: linear-gradient(100deg, rgba(15,118,110,0.06), #FFFFFF 60%)">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 16px">{{p.title}}</span><span style="font-size: 12.5px; color: #5B6B79">{{p.subA}}<span style="font-family: 'IBM Plex Mono', monospace">{{p.labNo}}</span>{{p.subB}}</span></span>
+<span style="font-size: 12.5px; color: #3F4C58">{{p.sender}}</span>
+</div>
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr 1fr 1.2fr; gap: 0; font-size: 12px; color: #5B6B79; font-weight: 600; padding: 8px 18px; border-bottom: 1px solid #E3E8EE; background: #F8FAFB">
+<span>Pemeriksaan</span><span>Hasil</span><span>Satuan</span><span>Rujukan</span><span>Flag</span><span>Tren 3 hari</span>
+</div>
+<sc-for list="{{res}}" as="r" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr 1fr 1.2fr; align-items: center; padding: 9px 18px; border-bottom: 1px solid #EEF1F4; background: {{r.bg}}">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 500">{{r.name}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #5B6B79">LOINC {{r.loinc}}</span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{r.fg}}">{{r.val}}</span>
+<span style="color: #3F4C58">{{r.unit}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; color: #3F4C58">{{r.ref}}</span>
+<span><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{r.flagBg}}; color: {{r.fg}}">{{r.flag}}</span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{r.trend}}</span>
+</div>
+</sc-for>
+<sc-if value="{{p.noRes}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px; border-bottom: 1px solid #EEF1F4; font-size: 13px; color: #5B6B79">{{p.emptyText}}</div>
+</sc-if>
+<sc-if value="{{p.hasDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 12px 18px 0; padding: 8px 12px; border-radius: 10px; background: {{p.doneBg}}; border: 1px solid {{p.doneBd}}; color: {{p.doneFg}}; font-size: 13px; font-weight: 600">{{p.doneText}}</div>
+</sc-if>
+<div style="padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between">
+<span style="font-size: 13px; color: #3F4C58">{{p.note}}</span>
+<div style="display: flex; gap: 8px">
+<button type="button" onClick="{{p.resample}}" disabled="{{p.resampleOff}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer; opacity: {{p.resampleOp}}">{{p.resampleLabel}}</button>
+<button type="button" onClick="{{p.validate}}" disabled="{{p.valOff}}" aria-describedby="alasanValidasi" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer; opacity: {{p.valOp}}">{{p.valLabel}}</button>
+</div>
+<sc-if value="{{p.hasBlock}}" hint-placeholder-val="{{ false }}">
+<span id="alasanValidasi" style="flex-basis: 100%; text-align: right; font-size: 12.5px; font-weight: 600; color: #8A4B00">{{p.block}}</span>
+</sc-if>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Alur validasi</span>
+<sc-for list="{{flow}}" as="f" hint-placeholder-count="4">
+<span style="display: flex; gap: 10px; align-items: center; font-size: 13px"><span style="width: 22px; height: 22px; border-radius: 999px; background: {{f.bg}}; color: {{f.fg}}; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{f.n}}</span><span style="color: #3F4C58">{{f.t}}</span></span>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Setelah validasi klinis</span>
+<span style="font-size: 13px; color: #3F4C58">• Hasil tampil di CPPT dan notifikasi ke DPJP</span>
+<span style="font-size: 13px; color: #3F4C58">• Observation + DiagnosticReport ke SATUSEHAT</span>
+<span style="font-size: 13px; color: #3F4C58">• Tarif masuk billing otomatis (charge capture)</span>
+<span style="font-size: 13px; color: #3F4C58">• Koreksi setelah rilis hanya lewat hasil revisi berversi</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+sel: 'endang',
+val: {},
+resample: {},
+doneAt: {},
+critSec: 372,
+critDone: false,
+critForm: false,
+critName: '',
+critRb: false,
+critErr: false,
+critAt: '',
+critTo: '',
+critTook: ''
+};
+}
+componentDidMount() {
+var self = this;
+this.timer = setInterval(function () {
+if (!self.state.critDone) self.setState({ critSec: self.state.critSec + 1 });
+}, 1000);
+}
+componentWillUnmount() {
+if (this.timer) clearInterval(this.timer);
+}
+now() {
+var d = new Date();
+return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+}
+patients() {
+function r(name, loinc, val, unit, ref, flag, trend, extra) { return Object.assign({ name: name, loinc: loinc, val: val, unit: unit, ref: ref, flag: flag, trend: trend }, extra || {}); }
+return {
+endang: {
+title: 'Ny. Endang Wijaya · P · 58 th', subA: 'RM 00-41-27-88 · Melati M-203 · no. lab ', labNo: 'L2610030142', subB: ' · sampel diterima 07.12',
+sender: 'Pengirim: dr. [Nama DPJP], Sp.PD · cito: tidak',
+note: 'Delta check: Kreatinin naik 0,4 dalam 24 jam · QC harian lolos (Westgard 1-2s) · hasil dari analyzer, belum diubah manual',
+res: [
+r('Hemoglobin', '718-7', '11,2', 'g/dL', '12,0–15,5', 'L', '10,8 → 11,0 → 11,2'),
+r('Leukosit', '6690-2', '8.900', '/µL', '4.000–11.000', 'N', '16,2 → 11,4 → 8,9 rb'),
+r('Trombosit', '777-3', '312.000', '/µL', '150–450 rb', 'N', 'stabil'),
+r('CRP', '1988-5', '24', 'mg/L', '< 5', 'H', '142 → 68 → 24'),
+r('Glukosa sewaktu', '2345-7', '168', 'mg/dL', '70–140', 'H', '254 → 201 → 168'),
+r('Ureum', '3094-0', '38', 'mg/dL', '15–40', 'N', 'stabil'),
+r('Kreatinin', '2160-0', '1,3', 'mg/dL', '0,5–1,1', 'H Δ', '0,9 → 0,9 → 1,3', { delta: true }),
+r('Natrium', '2951-2', '137', 'mmol/L', '135–145', 'N', 'stabil'),
+r('Kalium', '2823-3', '4,1', 'mmol/L', '3,5–5,1', 'N', 'stabil')
+]
+},
+hartono: {
+title: 'Tn. Hartono · L · 61 th', subA: 'RM 00-27-63-15 · IGD bed 4 · no. lab ', labNo: 'L2610030188', subB: ' · sampel diterima 10.02',
+sender: 'Pengirim: dokter jaga IGD · cito: ya', crit: true,
+note: 'Kalium melewati batas kritis (> 6,0) · sampel tidak hemolisis · QC harian lolos · hasil dari analyzer',
+res: [
+r('Natrium', '2951-2', '133', 'mmol/L', '135–145', 'L', 'pemeriksaan pertama'),
+r('Kalium', '2823-3', '6,8', 'mmol/L', '3,5–5,1', 'Kritis', 'pemeriksaan pertama', { critical: true }),
+r('Klorida', '2075-0', '101', 'mmol/L', '98–107', 'N', 'pemeriksaan pertama'),
+r('Ureum', '3094-0', '78', 'mg/dL', '15–40', 'H', 'pemeriksaan pertama'),
+r('Kreatinin', '2160-0', '2,1', 'mg/dL', '0,7–1,3', 'H', 'pemeriksaan pertama'),
+r('Troponin I', '10839-9', '0,02', 'ng/mL', '< 0,04', 'N', 'serial jam 0')
+]
+},
+lestari: {
+title: 'Ny. Lestari · P · 29 th', subA: 'RM 00-44-08-71 · VK · no. lab ', labNo: 'L2610030163', subB: ' · sampel diterima 08.15',
+sender: 'Pengirim: dokter jaga VK · cito: tidak',
+note: 'QC harian lolos (Westgard 1-2s) · golongan darah dikonfirmasi forward dan reverse typing',
+res: [
+r('Hemoglobin', '718-7', '11,8', 'g/dL', '12,0–15,5', 'L', 'pemeriksaan pertama'),
+r('Leukosit', '6690-2', '9.800', '/µL', '4.000–11.000', 'N', 'pemeriksaan pertama'),
+r('Trombosit', '777-3', '245.000', '/µL', '150–450 rb', 'N', 'pemeriksaan pertama'),
+r('Golongan darah ABO', '883-9', 'O', '—', '—', 'N', '—'),
+r('Rhesus', '10331-7', 'Positif', '—', '—', 'N', '—')
+]
+},
+suryo: {
+title: 'Tn. Suryo A. · L · 52 th', subA: 'RM 00-18-90-44 · Poli PD · no. lab ', labNo: 'L2610030151', subB: ' · sampel diterima 07.48',
+sender: 'Pengirim: dr. [Nama DPJP], Sp.PD · cito: tidak', pending: 4,
+note: 'HbA1c selesai di analyzer · profil lipid masih diproses Cobas c311',
+res: [
+r('HbA1c', '4548-4', '7,4', '%', '< 6,5', 'H', '7,9 → 7,4'),
+r('Kolesterol total', '2093-3', '…', 'mg/dL', '< 200', 'Proses', '—', { pend: true }),
+r('LDL', '13457-7', '…', 'mg/dL', '< 100', 'Proses', '—', { pend: true }),
+r('HDL', '2085-9', '…', 'mg/dL', '> 40', 'Proses', '—', { pend: true }),
+r('Trigliserida', '2571-8', '…', 'mg/dL', '< 150', 'Proses', '—', { pend: true })
+]
+}
+};
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var P = this.patients();
+function mmss(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+
+var kpi = [
+{ label: 'Sampel hari ini', value: '412', sub: '38 menunggu validasi', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'TAT rata-rata (rutin)', value: '58 mnt', sub: 'target ≤ 60 mnt', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'TAT cito', value: '41 mnt', sub: 'target ≤ 45 mnt', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+st.critDone ? { label: 'Nilai kritis terbuka', value: '0', sub: 'semua sudah dilaporkan', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' }
+: { label: 'Nilai kritis terbuka', value: '1', sub: 'belum dilaporkan', fg: '#B42318', tint: 'rgba(180,35,24,0.07)' }
+];
+
+var base = [
+{ id: 'hartono', name: 'Tn. Hartono', meta: 'IGD · elektrolit, troponin · cito', status: 'Kritis', tat: '00:31', crit: true },
+{ id: 'endang', name: 'Ny. Endang Wijaya', meta: 'Melati M-203 · DL, kimia', status: 'Validasi', tat: '00:52' },
+{ id: 'raka', name: 'An. Raka P.', meta: 'Anak · DL · cito', status: 'Proses', tat: '00:18' },
+{ id: 'suryo', name: 'Tn. Suryo A.', meta: 'Poli PD · HbA1c, lipid', status: 'Proses', tat: '00:44' },
+{ id: 'lestari', name: 'Ny. Lestari', meta: 'VK · DL, golongan darah', status: 'Validasi', tat: '00:39' },
+{ id: 'bambang', name: 'Tn. Bambang H.', meta: 'ICU · AGD', status: 'Selesai', tat: '00:12' },
+{ id: 'sri', name: 'Ny. Sri W.', meta: 'Poli Saraf · elektrolit', status: 'Sampling', tat: '00:05' },
+{ id: 'agus', name: 'Tn. Agus S.', meta: 'Anggrek A-12 · kultur darah', status: 'Inkubasi', tat: 'H+1' }
+];
+function statusOf(w) {
+var v = st.val[w.id] || 0;
+if (st.resample[w.id]) return 'Sampel ulang';
+if (v === 2) return 'Selesai';
+if (v === 1) return 'Validasi klinis';
+if (w.crit && st.critDone) return 'Dilaporkan';
+return w.status;
+}
+var work = base.map(function (w) {
+var status = statusOf(w);
+var sel = st.sel === w.id;
+var critOpen = w.crit && !st.critDone;
+var done = status === 'Selesai';
+var val = status === 'Validasi' || status === 'Validasi klinis';
+var amber = status === 'Sampel ulang' || status === 'Dilaporkan';
+return {
+name: w.name, meta: w.meta, status: status, tat: w.tat, pressed: sel ? 'true' : 'false',
+bar: critOpen ? '#B42318' : (sel ? '#0F766E' : 'transparent'),
+bg: sel ? '#F2FAF8' : '#FFFFFF',
+chipBg: critOpen ? '#FDECEA' : (done ? '#EAF5EC' : (amber ? '#FFF3E0' : (val ? '#E6F4F1' : '#F1F3F5'))),
+chipFg: critOpen ? '#B42318' : (done ? '#1E6B34' : (amber ? '#8A4B00' : (val ? '#0B5D56' : '#3F4C58'))),
+tatFg: critOpen ? '#B42318' : '#5B6B79',
+pick: function () { self.setState({ sel: w.id }); }
+};
+});
+
+var wSel = base.filter(function (w) { return w.id === st.sel; })[0];
+var d = P[st.sel];
+var v = st.val[st.sel] || 0;
+var rs = !!st.resample[st.sel];
+var p;
+if (d) {
+p = { title: d.title, subA: d.subA, labNo: d.labNo, subB: d.subB, sender: d.sender, note: d.note };
+} else {
+p = { title: wSel.name, subA: wSel.meta + ' · no. lab ', labNo: '—', subB: ' · status: ' + statusOf(wSel), sender: 'Pengirim: sesuai order di SIM RS', note: 'Rincian hasil tampil setelah analyzer mengirim data (HL7 ORU).' };
+}
+var res = (d ? d.res : []).map(function (r) {
+var abn = r.flag !== 'N';
+var fg = r.pend ? '#5B6B79' : (r.critical ? '#B42318' : (abn ? '#8A4B00' : '#14212B'));
+var flagBg = r.pend ? '#F1F3F5' : (r.critical ? '#FDECEA' : (abn ? '#FFF3E0' : '#F1F3F5'));
+return Object.assign({}, r, { fg: fg, flagBg: flagBg, bg: r.critical ? '#FFF5F4' : (r.delta ? '#FFFAF2' : '#FFFFFF') });
+});
+p.noRes = res.length === 0;
+var stTxt = wSel ? statusOf(wSel) : '';
+p.emptyText = stTxt === 'Selesai' ? 'Hasil sudah divalidasi klinis dan dirilis. Buka riwayat untuk melihat rincian.' : (stTxt === 'Inkubasi' ? 'Kultur dalam inkubasi. Laporan pertumbuhan tersedia H+1, uji kepekaan H+3.' : 'Hasil belum lengkap (status: ' + stTxt + '). Rincian tampil setelah analyzer mengirim hasil.');
+
+var block = '';
+if (rs) block = 'Validasi ditunda: menunggu sampel ulang.';
+else if (!d) block = (stTxt === 'Selesai') ? '' : 'Belum ada hasil untuk divalidasi.';
+else if (d.pending) block = 'Validasi menunggu ' + d.pending + ' parameter yang masih diproses analyzer.';
+else if (d.crit && !st.critDone) block = 'Laporkan nilai kritis ke dokter (dengan read-back) sebelum validasi.';
+var finished = v === 2 || (!d && stTxt === 'Selesai');
+p.valLabel = finished ? 'Tervalidasi' : (v === 1 ? 'Validasi klinis (TTE Sp.PK)' : 'Validasi teknis');
+p.valOff = finished || !!block;
+p.valOp = (finished || !!block) ? 0.5 : 1;
+p.block = finished ? '' : block;
+p.hasBlock = !!p.block && !finished;
+p.validate = function () {
+if (p.valOff) return;
+var nv = Object.assign({}, st.val); nv[st.sel] = v + 1;
+var na = Object.assign({}, st.doneAt); na[st.sel] = self.now();
+self.setState({ val: nv, doneAt: na });
+};
+var canResample = !!d && v < 2;
+p.resampleLabel = rs ? 'Batalkan sampel ulang' : 'Minta ulang sampel';
+p.resampleOff = !canResample && !rs;
+p.resampleOp = p.resampleOff ? 0.5 : 1;
+p.resample = function () {
+if (p.resampleOff) return;
+var nr = Object.assign({}, st.resample); nr[st.sel] = !rs;
+var na = Object.assign({}, st.doneAt); na[st.sel + '_rs'] = self.now();
+var nv = Object.assign({}, st.val); if (!rs) nv[st.sel] = 0;
+self.setState({ resample: nr, doneAt: na, val: nv });
+};
+var at = st.doneAt[st.sel] || '';
+p.hasDone = rs || v > 0;
+if (rs) { p.doneText = 'Permintaan sampel ulang dikirim ke ruangan pukul ' + st.doneAt[st.sel + '_rs'] + '. Hasil lama ditandai tidak valid.'; p.doneBg = '#FFF7EB'; p.doneBd = '#F1D3A8'; p.doneFg = '#8A4B00'; }
+else if (v === 2) { p.doneText = 'Validasi klinis selesai pukul ' + at + ' · hasil dirilis ke CPPT, DPJP, dan SATUSEHAT.'; p.doneBg = '#EAF6EC'; p.doneBd = '#B7DEC1'; p.doneFg = '#1E6B34'; }
+else { p.doneText = 'Validasi teknis tersimpan pukul ' + at + ' oleh Rina Kartika. Menunggu validasi klinis Sp.PK.'; p.doneBg = '#F2FAF8'; p.doneBd = '#D5ECE7'; p.doneFg = '#0B5D56'; }
+
+var flowDef = [
+{ t: 'Sampel diterima dan diverifikasi barcode' },
+{ t: d && d.pending ? 'Hasil dari analyzer (' + d.pending + ' parameter masih diproses)' : 'Hasil dari analyzer, QC lolos' },
+{ t: 'Validasi teknis oleh analis' },
+{ t: 'Validasi klinis oleh dokter Sp.PK (TTE)' }
+];
+var stage;
+if (!d) stage = stTxt === 'Selesai' ? 4 : (stTxt === 'Sampling' ? 0 : 1);
+else if (rs) stage = 0;
+else if (d.pending) stage = 1;
+else stage = 2 + v;
+var flow = flowDef.map(function (f, i) {
+var done = i < stage, cur = i === stage;
+return { t: f.t, n: done ? '✓' : String(i + 1), bg: done ? '#0F766E' : (cur ? '#E6F4F1' : '#F1F3F5'), fg: done ? '#FFFFFF' : (cur ? '#0B5D56' : '#5B6B79') };
+});
+
+var over = st.critSec >= 1800;
+var crit;
+if (st.critDone) {
+crit = {
+bg: 'linear-gradient(100deg, rgba(30,107,52,0.10), #F3FAF5 60%)', bd: '#B7DEC1', icoBg: '#1E6B34', ico: '✓', titleFg: '#1E6B34',
+title: 'Nilai kritis dilaporkan: Kalium 6,8 mmol/L · Tn. Hartono (IGD bed 4)',
+sub: 'Diterima ' + st.critTo + ' pukul ' + st.critAt + ' · read-back terkonfirmasi · waktu lapor ' + st.critTook + ' (timer berhenti).',
+form: false, showBtn: false
+};
+} else {
+crit = {
+bg: 'linear-gradient(100deg, rgba(180,35,24,0.10), #FFF5F4 60%)', bd: '#F0C2BD', icoBg: '#B42318', ico: '!', titleFg: '#8E1B13',
+title: 'Nilai kritis: Kalium 6,8 mmol/L · Tn. Hartono (IGD bed 4)',
+sub: (over ? 'Melewati batas 30 menit, segera laporkan dengan read-back. ' : 'Wajib dilaporkan ke DPJP/dokter jaga ≤ 30 menit dengan read-back. ') + 'Timer berjalan: ' + mmss(st.critSec) + '.',
+form: st.critForm, showBtn: !st.critForm
+};
+}
+var nameErr = st.critErr && !(st.critName || '').trim() ? 'Nama penerima wajib diisi.' : '';
+var rbErr = st.critErr && !st.critRb ? 'Read-back wajib dikonfirmasi sebelum disimpan.' : '';
+Object.assign(crit, {
+name: st.critName, nameErr: nameErr, rbErr: rbErr, rb: st.critRb, nameBd: nameErr ? '#B42318' : '#CBD3DB',
+setName: function (e) { self.setState({ critName: e.target.value }); },
+toggleRb: function () { self.setState({ critRb: !st.critRb }); },
+open: function () { self.setState({ critForm: true }); },
+cancel: function () { self.setState({ critForm: false, critErr: false }); },
+save: function () {
+var n = (st.critName || '').trim();
+if (!n || !st.critRb) { self.setState({ critErr: true }); return; }
+self.setState({ critDone: true, critForm: false, critErr: false, critAt: self.now(), critTo: n, critTook: mmss(st.critSec) });
+}
+});
+
+return { kpi: kpi, work: work, res: res, flow: flow, p: p, crit: crit };
+}
+}
+</script>
+</body>
+</html>

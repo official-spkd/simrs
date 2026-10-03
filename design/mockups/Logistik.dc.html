@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Logistik</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+button:disabled{cursor:not-allowed}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="logistik" user="Sari Rahmawati, S.Farm" role="Kepala gudang farmasi" initials="SR" unit="Logistik" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Manajemen / Logistik / Gudang farmasi dan BHP</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Rantai pasok · stok dan pengadaan</h1>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<sc-if value="{{noPick}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: #8A4B00">Centang item dulu untuk membuat usulan</span></sc-if>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Stok opname</button>
+<button type="button" onClick="{{makePO}}" disabled="{{noPick}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer; opacity: {{poOp}}">{{poLabel}}</button>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{kpi}}" as="k" hint-placeholder-count="5">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 12px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 22px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Stok perlu tindakan" style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Item di bawah titik pesan ulang</span><span style="font-size: 12.5px; color: #5B6B79">ROP = pemakaian harian rata-rata 90 hari × lead time + stok pengaman</span></span>
+<span role="tablist" aria-label="Filter kelas" style="display: flex; gap: 6px">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="3"><button type="button" role="tab" aria-selected="{{c.sel}}" onClick="{{c.pick}}" style="font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 0; margin: 0; background: {{c.bg}}; color: {{c.fg}}; cursor: pointer">{{c.label}}</button></sc-for>
+</span>
+</div>
+<sc-if value="{{hasFlash}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 8px 18px; font-size: 12.5px; font-weight: 500; background: #EAF5EC; color: #1E6B34; border-bottom: 1px solid #E3E8EE">{{flash}}</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: 34px 2.2fr 0.7fr 0.8fr 0.8fr 1fr 1.6fr; align-items: center; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px 8px 0; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><label style="display: flex; align-items: center; justify-content: center; padding-left: 8px; cursor: pointer"><input type="checkbox" checked="{{allOn}}" onChange="{{toggleAll}}" aria-label="Pilih semua item yang tampil untuk usulan PO" style="width: 16px; height: 16px; margin: 0; accent-color: #0F766E; cursor: pointer"></label><span>Item</span><span>Kelas</span><span style="text-align: right">Stok</span><span style="text-align: right">ROP</span><span style="text-align: right">Cukup</span><span>Usulan</span></div>
+<sc-for list="{{items}}" as="it" hint-placeholder-count="12">
+<label style="display: grid; grid-template-columns: 34px 2.2fr 0.7fr 0.8fr 0.8fr 1fr 1.6fr; align-items: center; padding: 9px 18px 9px 0; border-bottom: 1px solid #EEF1F4; font-size: 13px; background: {{it.bg}}; cursor: {{it.cur}}">
+<span style="display: flex; align-items: center; justify-content: center; padding-left: 8px"><input type="checkbox" checked="{{it.on}}" disabled="{{it.done}}" onChange="{{it.toggle}}" aria-label="{{it.aria}}" style="width: 16px; height: 16px; margin: 0; accent-color: #0F766E; cursor: {{it.cur}}"></span>
+<span style="display: flex; flex-direction: column"><span style="font-weight: 500">{{it.name}}</span><span style="font-size: 11.5px; color: #5B6B79">{{it.meta}}</span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{it.cls}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{it.stok}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; color: #5B6B79">{{it.rop}}</span>
+<span style="text-align: right; font-weight: 600; color: {{it.fg}}">{{it.days}}</span>
+<span style="font-size: 12.5px; color: {{it.sugFg}}; font-weight: {{it.sugW}}; padding-left: 12px">{{it.sugText}}</span>
+</label>
+</sc-for>
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px; font-size: 13px; color: #5B6B79">Tidak ada item kelas ini di bawah titik pesan ulang.</div>
+</sc-if>
+</section>
+
+<aside style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background-image: linear-gradient(160deg, #FFFFFF 60%, rgba(138,75,0,0.05))">
+<span style="display: flex; justify-content: space-between"><span style="font-weight: 600">Kedaluwarsa ≤ 90 hari</span><span style="font-family: 'IBM Plex Mono', monospace; color: #8A4B00; font-weight: 600">Rp 38,2 jt</span></span>
+<sc-for list="{{ed}}" as="e" hint-placeholder-count="4">
+<span style="display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px"><span style="font-weight: 500">{{e.n}}</span><span style="font-family: 'IBM Plex Mono', monospace; color: {{e.fg}}">{{e.d}}</span><span style="font-size: 12px; color: {{e.sFg}}; font-weight: {{e.sW}}; grid-column: 1 / -1">{{e.s}}</span>
+<sc-if value="{{e.open}}" hint-placeholder-val="{{ true }}"><span style="grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 4px"><button type="button" onClick="{{e.move}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">{{e.moveLabel}}</button><button type="button" onClick="{{e.ret}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Retur ke distributor</button></span></sc-if>
+</span>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Dispensing memakai FEFO: batch dengan ED terdekat keluar lebih dulu.</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Pengadaan berjalan</span>
+<sc-for list="{{po}}" as="p" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px"><span style="font-weight: 500">{{p.n}}</span><span style="font-size: 12px; color: #5B6B79; white-space: nowrap">{{p.v}}</span></span>
+<span style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px"><sc-for list="{{p.steps}}" as="s" hint-placeholder-count="5"><span style="height: 5px; border-radius: 999px; background: {{s}}"></span></sc-for></span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 12px; color: {{p.stFg}}">{{p.st}}</span>
+<sc-if value="{{p.canApprove}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{p.approve}}" style="font: inherit; font-size: 12.5px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer; flex: none">Setujui</button></sc-if>
+</span>
+</div>
+</sc-for>
+<span style="font-size: 11.5px; color: #5B6B79">Tahap: usulan · persetujuan · PO / e-katalog · kirim · terima dan cek mutu</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+var off = {};
+this.state = { cls: 'all', off: off, done: {}, ed: {}, newPO: [], approved: {}, nextNo: 32, flash: '' };
+}
+renderVals() {
+var self = this;
+var S = this.state;
+var t0 = this.t0;
+function jam() {
+var m = 10 * 60 + 45 + Math.floor((Date.now() - t0) / 60000);
+var h = Math.floor(m / 60) % 24, mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+var kpi = [
+{ label: 'Nilai persediaan', value: 'Rp 4,82 M', sub: '3.416 SKU aktif', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Perputaran', value: '8,4×/thn', sub: 'target ≥ 8', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Stockout bulan ini', value: '3 item', sub: '2 VEN-V', fg: '#B42318', tint: 'rgba(180,35,24,0.06)' },
+{ label: 'Akurasi opname', value: '98,7%', sub: 'opname 30 Sep', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Lead time rata-rata', value: '4,2 hari', sub: 'e-katalog 6,1 hari', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' }
+];
+var all = [
+{ id: 'i1', short: 'Enoksaparin', name: 'Enoksaparin 60 mg/0,6 mL', meta: 'High alert · Fornas', cls: 'A · V', stok: '46', rop: '120', days: '4 hari', sug: 'PO darurat 300 · PT Sanofi', crit: true },
+{ id: 'i2', short: 'Seftriakson', name: 'Seftriakson 1 g inj', meta: 'Fornas', cls: 'A · V', stok: '310', rop: '400', days: '6 hari', sug: 'e-katalog 1.500', crit: true },
+{ id: 'i3', short: 'Infus RL', name: 'Infus RL 500 mL', meta: 'Cairan', cls: 'A · V', stok: '820', rop: '900', days: '8 hari', sug: 'e-katalog 3.000' },
+{ id: 'i4', short: 'Kateter IV', name: 'Kateter IV 20G', meta: 'BHP', cls: 'B · E', stok: '540', rop: '600', days: '9 hari', sug: 'PO 2.000' },
+{ id: 'i5', short: 'Insulin glargine', name: 'Insulin glargine pen', meta: 'Rantai dingin 2–8 °C', cls: 'A · V', stok: '38', rop: '40', days: '9 hari', sug: 'e-katalog 120' },
+{ id: 'i6', short: 'Kasa steril', name: 'Kasa steril 16×16', meta: 'BHP OK', cls: 'C · E', stok: '1.900', rop: '2.000', days: '10 hari', sug: 'PO 6.000' },
+{ id: 'i7', short: 'Benang PGA', name: 'Benang PGA 2-0', meta: 'BHP OK', cls: 'B · E', stok: '64', rop: '70', days: '11 hari', sug: 'PO 200' },
+{ id: 'i8', short: 'Reagen HbA1c', name: 'Reagen HbA1c', meta: 'Lab · Cobas', cls: 'A · E', stok: '2 kit', rop: '2 kit', days: '12 hari', sug: 'PO 4 kit · kontrak KSO' },
+{ id: 'i9', short: 'Parasetamol infus', name: 'Parasetamol infus 1 g/100 mL', meta: 'Fornas', cls: 'B · V', stok: '180', rop: '200', days: '12 hari', sug: 'e-katalog 600' },
+{ id: 'i10', short: 'Omeprazol inj', name: 'Omeprazol 40 mg inj', meta: 'Fornas', cls: 'B · E', stok: '150', rop: '160', days: '13 hari', sug: 'e-katalog 500' },
+{ id: 'i11', short: 'Spuit 3 mL', name: 'Spuit 3 mL', meta: 'BHP', cls: 'C · E', stok: '2.400', rop: '2.500', days: '13 hari', sug: 'PO 8.000' },
+{ id: 'i12', short: 'Sarung tangan steril', name: 'Sarung tangan steril 7,5', meta: 'BHP OK', cls: 'C · E', stok: '410', rop: '450', days: '14 hari', sug: 'PO 1.500' }
+];
+function match(it) {
+if (S.cls === 'A') return it.cls.charAt(0) === 'A';
+if (S.cls === 'V') return it.cls.slice(-1) === 'V';
+return true;
+}
+var vis = all.filter(match);
+var pickable = vis.filter(function (it) { return !S.done[it.id]; });
+var picked = pickable.filter(function (it) { return !S.off[it.id]; });
+var allOn = pickable.length > 0 && picked.length === pickable.length;
+var items = vis.map(function (it) {
+var done = S.done[it.id];
+var on = !done && !S.off[it.id];
+return Object.assign({}, it, {
+fg: it.crit ? '#B42318' : '#8A4B00',
+bg: done ? '#F8FAFB' : (it.crit ? '#FFF8F7' : '#FFFFFF'),
+on: on, done: !!done, cur: done ? 'default' : 'pointer',
+sugText: done ? 'Masuk ' + done : it.sug,
+sugFg: done ? '#1E6B34' : '#3F4C58', sugW: done ? 600 : 400,
+aria: 'Masukkan ' + it.name + ' ke usulan PO',
+toggle: function () { var o = Object.assign({}, self.state.off); if (o[it.id]) delete o[it.id]; else o[it.id] = true; self.setState({ off: o }); }
+});
+});
+function toggleAll() {
+var o = Object.assign({}, self.state.off);
+pickable.forEach(function (it) { if (allOn) o[it.id] = true; else delete o[it.id]; });
+self.setState({ off: o });
+}
+function makePO() {
+if (!picked.length) return;
+var no = 'PO-2610-0' + S.nextNo;
+var d = Object.assign({}, S.done);
+picked.forEach(function (it) { d[it.id] = no; });
+var label = picked[0].short + (picked.length > 1 ? ' +' + (picked.length - 1) + ' item' : '');
+var po = [{ id: no, n: no + ' · ' + label, v: picked.length + ' item', st: 'Menunggu persetujuan direktur', stage: 1, at: jam() }].concat(S.newPO);
+self.setState({ done: d, newPO: po, nextNo: S.nextNo + 1, flash: 'Usulan ' + no + ' dibuat pukul ' + jam() + ' · ' + picked.length + ' item · tahap 1, menunggu persetujuan direktur.' });
+}
+var chips = [{ k: 'all', label: 'Semua kelas' }, { k: 'A', label: 'ABC-A' }, { k: 'V', label: 'VEN-V' }].map(function (c) {
+var on = S.cls === c.k;
+return Object.assign({}, c, { sel: on ? 'true' : 'false', bg: on ? '#0F766E' : '#F1F3F5', fg: on ? '#FFFFFF' : '#3F4C58', pick: function () { self.setState({ cls: c.k }); } });
+});
+var edBase = [
+{ id: 'e1', n: 'Albumin 20% 100 mL · 14 vial', d: '28 hari', s: 'Usul pindah ke depo ICU (pemakaian tertinggi)', hot: true, to: 'depo ICU', moveLabel: 'Pindahkan ke ICU' },
+{ id: 'e2', n: 'Meropenem 1 g · 60 vial', d: '45 hari', s: 'Retur ke distributor sesuai kontrak', to: 'depo ICU', moveLabel: 'Pindahkan ke ICU' },
+{ id: 'e3', n: 'Vaksin hepatitis B · 30 vial', d: '62 hari', s: 'Prioritaskan untuk skrining karyawan', to: 'klinik karyawan', moveLabel: 'Pindahkan ke klinik' },
+{ id: 'e4', n: 'Reagen troponin · 1 kit', d: '81 hari', s: 'Pemakaian cukup sebelum ED', to: 'depo IGD', moveLabel: 'Pindahkan ke IGD' }
+];
+var ed = edBase.map(function (e) {
+var a = S.ed[e.id];
+function act(txt) { return function () { var o = Object.assign({}, self.state.ed); o[e.id] = txt + ' · ' + jam(); self.setState({ ed: o }); }; }
+return Object.assign({}, e, {
+fg: e.hot ? '#B42318' : '#8A4B00',
+s: a ? a : e.s, sFg: a ? '#1E6B34' : '#5B6B79', sW: a ? 600 : 400,
+open: !a,
+move: act('Dipindahkan ke ' + e.to + ' · stok depo diperbarui'),
+ret: act('Diretur ke distributor · menunggu nota kredit')
+});
+});
+function steps(n) { var a = []; for (var i = 0; i < 5; i++) a.push(i < n ? '#0F766E' : '#E3E8EE'); return a; }
+var STAGE = ['', 'Menunggu persetujuan direktur', 'Disetujui direktur', 'PO terkirim ke pemasok', 'Dalam pengiriman', 'Diterima · cek suhu dan batch lolos'];
+var poBase = S.newPO.concat([
+{ id: 'PO-2610-031', n: 'PO-2610-031 · Enoksaparin', v: 'Rp 41,4 jt', st: 'Menunggu persetujuan direktur', stage: 1 },
+{ id: 'PO-2610-028', n: 'PO-2610-028 · Cairan infus', v: 'Rp 96,0 jt', st: 'Dalam pengiriman · tiba 5 Okt', stage: 4 },
+{ id: 'PO-2610-024', n: 'PO-2610-024 · BHP OK', v: 'Rp 22,7 jt', st: 'PO terkirim ke pemasok', stage: 3 },
+{ id: 'PO-2609-117', n: 'PO-2609-117 · Reagen kimia', v: 'Rp 63,2 jt', st: 'Diterima · cek suhu dan batch lolos', stage: 5 }
+]);
+var po = poBase.map(function (p) {
+var ap = S.approved[p.id];
+var stage = ap ? 2 : p.stage;
+return Object.assign({}, p, {
+steps: steps(stage),
+st: ap ? STAGE[2] + ' ' + ap + ' · siap diproses PO / e-katalog' : p.st,
+stFg: ap ? '#1E6B34' : '#3F4C58',
+canApprove: stage === 1,
+approve: function () { var o = Object.assign({}, self.state.approved); o[p.id] = jam(); self.setState({ approved: o }); }
+});
+});
+var n = picked.length;
+return {
+kpi: kpi, items: items, ed: ed, po: po, chips: chips,
+allOn: allOn, toggleAll: toggleAll, makePO: makePO,
+noPick: n === 0, poOp: n === 0 ? '0.5' : '1',
+poLabel: 'Buat usulan PO (' + n + ')',
+empty: vis.length === 0,
+hasFlash: !!S.flash, flash: S.flash
+};
+}
+}
+</script>
+</body>
+</html>

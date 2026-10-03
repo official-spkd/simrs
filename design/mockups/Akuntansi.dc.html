@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Akuntansi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="akuntansi" user="Hendra Wijaya, S.E., Ak." role="Kepala akuntansi" initials="HW" unit="Keuangan" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Keuangan / Akuntansi / Periode Oktober 2026</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Akuntansi · jurnal dan piutang</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="font-size: 13px; color: #3F4C58">{{per.label}} <span style="font-weight: 600; color: #1E6B34">{{per.val}}</span></span>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Ekspor laporan</button>
+<sc-if value="{{canClose}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openClose}}" aria-expanded="{{confirmExp}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Tutup periode Oktober</button>
+</sc-if>
+</div>
+</header>
+
+<sc-if value="{{showConfirm}}" hint-placeholder-val="{{ false }}">
+<div role="alertdialog" aria-labelledby="judulTutup" style="margin: 18px 28px 0; padding: 14px 16px; border-radius: 14px; border: 1px solid #F1D3A8; background: linear-gradient(100deg, rgba(138,75,0,0.08), #FFFAF2 60%); display: flex; flex-direction: column; gap: 10px">
+<span id="judulTutup" style="font-weight: 600">Tutup periode Oktober 2026?</span>
+<span style="font-size: 13px; color: #3F4C58">Semua jurnal periode ini akan dikunci. Koreksi setelahnya hanya lewat jurnal balik di periode berikut; membuka ulang butuh persetujuan direktur keuangan.</span>
+<sc-for list="{{prereq}}" as="p" hint-placeholder-count="2">
+<span style="display: flex; gap: 8px; font-size: 13px"><span style="font-weight: 700; color: {{p.fg}}">{{p.mark}}</span><span style="color: #3F4C58">{{p.t}}</span></span>
+</sc-for>
+<span style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<button type="button" onClick="{{cancelClose}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="button" onClick="{{doClose}}" aria-disabled="{{closeBtn.dis}}" aria-describedby="alasanTutup" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{closeBtn.bd}}; background: {{closeBtn.bg}}; color: {{closeBtn.fg}}; cursor: {{closeBtn.cur}}">Ya, tutup dan kunci periode</button>
+<span id="alasanTutup" style="font-size: 12.5px; color: #8A4B00; font-weight: 500">{{closeBtn.reason}}</span>
+</span>
+</div>
+</sc-if>
+<sc-if value="{{isClosed}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 18px 28px 0; padding: 12px 16px; border-radius: 14px; border: 1px solid #B7DEC0; background: #EAF5EC; display: flex; gap: 10px; font-size: 13px">
+<span style="font-weight: 700; color: #1E6B34">✓</span>
+<span style="color: #3F4C58"><span style="font-weight: 600; color: #1E6B34">Periode Oktober 2026 ditutup {{closedAt}}.</span> Jurnal dikunci; pemetaan dan pemadanan tidak bisa diubah lagi.</span>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{kpi}}" as="k" hint-placeholder-count="4">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12.5px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 24px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12.5px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Jurnal otomatis" style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Jurnal otomatis hari ini</span><span style="font-size: 12.5px; color: #5B6B79">Dibentuk dari event transaksi: kasir, klaim, farmasi, logistik, penggajian</span></span>
+<span style="font-size: 12.5px; color: #3F4C58">{{jrCount}}</span>
+</div>
+<div role="group" aria-label="Filter sumber jurnal" style="padding: 8px 18px; border-bottom: 1px solid #E3E8EE; display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
+<span style="font-size: 12px; color: #5B6B79; margin-right: 4px">Sumber</span>
+<sc-for list="{{srcChips}}" as="f" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{f.on}}" onClick="{{f.pick}}" style="font: inherit; font-size: 12px; font-weight: 600; margin: 0; height: 30px; padding: 0 10px; border-radius: 999px; border: 0; background: {{f.bg}}; color: {{f.fg}}; cursor: pointer">{{f.label}}</button>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: 0.9fr 1.3fr 2fr 1.1fr 1.1fr; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><span>No.</span><span>Sumber</span><span>Akun</span><span style="text-align: right">Debit</span><span style="text-align: right">Kredit</span></div>
+<sc-for list="{{jr}}" as="j" hint-placeholder-count="10">
+<div style="display: grid; grid-template-columns: 0.9fr 1.3fr 2fr 1.1fr 1.1fr; align-items: center; padding: 8px 18px; border-bottom: {{j.bb}}; background: {{j.bg}}; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', monospace; color: #5B6B79">{{j.no}}</span>
+<span style="color: #3F4C58">{{j.src}}</span>
+<span style="padding-left: {{j.ind}}; color: {{j.accFg}}">{{j.acc}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{j.d}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{j.k}}</span>
+</div>
+</sc-for>
+<sc-if value="{{needMap}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 18px; align-items: center; background: linear-gradient(100deg, rgba(138,75,0,0.08), #FFFAF2 60%); border-top: 1px solid #F1D3A8">
+<span style="font-weight: 700; color: #8A4B00">!</span>
+<span style="font-size: 13px; color: #3F4C58; flex: 1; min-width: 240px">JU-26100417: klaim dispute Rp 12,4 jt belum punya akun cadangan penurunan nilai. Pemetaan akun diperlukan sebelum jurnal diposting.</span>
+<sc-if value="{{mapClosed}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openMap}}" aria-expanded="false" style="font: inherit; font-weight: 600; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Petakan akun</button>
+</sc-if>
+<sc-if value="{{mapOpen}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+<label for="akunLawan" style="font-size: 12.5px; font-weight: 600; color: #6B3A00">Akun lawan (kredit)</label>
+<select id="akunLawan" value="{{mapSel}}" onChange="{{pickAcc}}" style="font: inherit; font-size: 13px; height: 38px; max-width: 300px; padding: 0 8px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #14212B; cursor: pointer">
+<option value="">Pilih akun…</option>
+<option value="ckpn">Cadangan kerugian penurunan nilai — piutang BPJS</option>
+<option value="piutang">Piutang BPJS — RI (pengurang langsung)</option>
+<option value="koreksi">Pendapatan RI — JKN (koreksi)</option>
+</select>
+<button type="button" onClick="{{closeMap}}" style="font: inherit; font-size: 13px; font-weight: 500; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+</span>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{mapped}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; gap: 10px; padding: 12px 18px; align-items: center; background: #F2FAF4; border-top: 1px solid #B7DEC0; font-size: 13px">
+<span style="font-weight: 700; color: #1E6B34">✓</span>
+<span style="color: #3F4C58; flex: 1">JU-26100417 dipetakan ke <span style="font-weight: 600; color: #14212B">{{mapName}}</span> · {{mapAt}} · siap diposting setelah disetujui penyetuju kedua.</span>
+</div>
+</sc-if>
+</section>
+
+<aside style="flex: 1 1 320px; max-width: 400px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="display: flex; justify-content: space-between"><span style="font-weight: 600">Umur piutang</span><span style="font-size: 12.5px; color: #5B6B79">Rp juta</span></span>
+<sc-for list="{{aging}}" as="a" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<span style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 500">{{a.name}}</span><span style="font-family: 'IBM Plex Mono', monospace">{{a.total}}</span></span>
+<span style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #EEF1F4"><span style="width: {{a.b1}}; background: #0F766E"></span><span style="width: {{a.b2}}; background: #6FB5AC"></span><span style="width: {{a.b3}}; background: #E9B26B"></span><span style="width: {{a.b4}}; background: #C9564B"></span></span>
+</div>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #3F4C58">
+<span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: #0F766E; margin-right: 5px"></span>0–30 hr</span>
+<span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: #6FB5AC; margin-right: 5px"></span>31–60</span>
+<span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: #E9B26B; margin-right: 5px"></span>61–90</span>
+<span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: #C9564B; margin-right: 5px"></span>&gt; 90</span>
+</div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Rekonsiliasi bank otomatis</span>
+<sc-for list="{{rek}}" as="r" hint-placeholder-count="3">
+<span style="display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13px"><span style="font-weight: 500">{{r.bank}}</span><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{r.bg}}; color: {{r.fg}}">{{r.st}}</span><span style="font-size: 12px; color: #5B6B79; grid-column: 1 / -1">{{r.note}}</span>
+<sc-if value="{{r.canMatch}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{r.match}}" style="grid-column: 1 / -1; justify-self: start; font: inherit; font-size: 13px; font-weight: 600; height: 36px; margin-top: 2px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Padankan 2 transfer ke batch klaim</button>
+</sc-if>
+</span>
+</sc-for>
+<a href="PembayaranBTN.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 500; text-decoration: none; box-sizing: border-box">Rekonsiliasi 3 arah TPDI × BTN</a>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Kontrol</span>
+<span style="font-size: 13px; color: #3F4C58">• Jurnal terposting tidak bisa diedit, hanya dibalik</span>
+<span style="font-size: 13px; color: #3F4C58">• Pemisahan tugas: pembuat ≠ penyetuju</span>
+<span style="font-size: 13px; color: #3F4C58">• Periode tertutup dikunci, buka ulang butuh direktur keuangan</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { src: 'semua', mapOpen: false, mapSel: '', mapAt: '', rekAt: '', confirm: false, closedAt: '' };
+}
+renderVals() {
+var self = this;
+var st = this.state;
+function jam() { var d = new Date(); var p = function (x) { return (x < 10 ? '0' : '') + x; }; return p(d.getHours()) + '.' + p(d.getMinutes()); }
+var closed = !!st.closedAt;
+var mapped = !!st.mapAt;
+var matched = !!st.rekAt;
+
+var kpi = [
+{ label: 'Pendapatan MTD', value: 'Rp 7,82 M', sub: '+6,1% vs Sep (hari sama)', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Piutang BPJS', value: 'Rp 21,4 M', sub: 'rata-rata cair 34 hari', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Kas dan bank', value: 'Rp 9,15 M', sub: 'cukup 41 hari operasional', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Utang jatuh tempo 7 hari', value: 'Rp 2,26 M', sub: '14 pemasok', fg: '#8A4B00', tint: 'rgba(138,75,0,0.07)' }
+];
+
+var accOpts = [
+{ id: 'ckpn', name: 'Cadangan kerugian penurunan nilai — piutang BPJS' },
+{ id: 'piutang', name: 'Piutang BPJS — RI (pengurang langsung)' },
+{ id: 'koreksi', name: 'Pendapatan RI — JKN (koreksi)' }
+];
+var mapName = '';
+accOpts.forEach(function (o) { if (o.id === st.mapSel) mapName = o.name; });
+
+function row(no, src, acc, d, k, first, last, warn) { return { no: first ? no : '', src: first ? src : '', acc: acc, d: d, k: k, ind: k && !d ? '20px' : '0', bb: last ? '1px solid #E3E8EE' : '0', bg: warn ? '#FFFAF2' : '#FFFFFF', accFg: '#14212B' }; }
+var lawan = row('', '', mapped ? mapName : '(akun lawan belum dipetakan)', '', '12.400.000', false, true, !mapped);
+if (!mapped) lawan.accFg = '#8A4B00';
+var entries = [
+{ src: 'kasir', rows: [
+row('JU-26100388', 'Kasir · INV-2610-02217', 'Bank BTN ••••4417 — QRIS', '250.400', '', true),
+row('', '', 'Uang muka pasien', '1.000.000', ''),
+row('', '', 'Piutang pasien', '', '1.250.400', false, true)
+] },
+{ src: 'klaim', rows: [
+row('JU-26100391', 'Klaim · E-Klaim final', 'Piutang BPJS — RI', '6.612.800', '', true),
+row('', '', 'Pendapatan RI — JKN', '', '6.612.800', false, true)
+] },
+{ src: 'farmasi', rows: [
+row('JU-26100402', 'Farmasi · retur pemasok', 'Utang usaha — PT Kimia Farma', '4.120.000', '', true),
+row('', '', 'Persediaan obat', '', '4.120.000', false, true)
+] },
+{ src: 'klaim', rows: [
+row('JU-26100417', 'Klaim · dispute verifikator', 'Beban penurunan nilai piutang', '12.400.000', '', true, false, !mapped),
+lawan
+] }
+];
+var jr = [];
+entries.forEach(function (e) { if (st.src === 'semua' || st.src === e.src) jr = jr.concat(e.rows); });
+var nEntri = entries.filter(function (e) { return st.src === 'semua' || st.src === e.src; }).length;
+
+var srcChips = [
+{ id: 'semua', label: 'Semua' }, { id: 'kasir', label: 'Kasir' }, { id: 'klaim', label: 'Klaim' }, { id: 'farmasi', label: 'Farmasi' }
+].map(function (f) {
+var on = st.src === f.id;
+return { label: f.label, on: on ? 'true' : 'false', bg: on ? '#0F766E' : '#F1F3F5', fg: on ? '#FFFFFF' : '#3F4C58', pick: function () { self.setState({ src: f.id }); } };
+});
+var tinjau = mapped ? 2 : 3;
+var jrCount = st.src === 'semua' ? '2.416 jurnal · ' + tinjau + ' perlu tinjauan' : 'menampilkan ' + nEntri + ' jurnal contoh · ' + tinjau + ' perlu tinjauan';
+
+var aging = [
+{ name: 'BPJS Kesehatan', total: '21.412', b1: '58%', b2: '27%', b3: '11%', b4: '4%' },
+{ name: 'Asuransi swasta (12)', total: '3.870', b1: '44%', b2: '30%', b3: '16%', b4: '10%' },
+{ name: 'Perusahaan kerja sama', total: '1.204', b1: '35%', b2: '25%', b3: '20%', b4: '20%' },
+{ name: 'Pasien umum', total: '386', b1: '62%', b2: '18%', b3: '8%', b4: '12%' }
+];
+var rek = [
+{ bank: 'BTN ••••4417 · operasional (VA/QRIS via TPDI)', st: 'Cocok 100%', note: 'mutasi H2H 412 · dicocokkan 3 arah dengan kasir dan laporan TPDI · sinkron 10.30', ok: true },
+matched
+? { bank: 'BTN ••••9021 · penampungan klaim BPJS', st: 'Cocok 100%', note: 'transfer BPJS Rp 1,82 M dipadankan ke 2 batch klaim · ' + st.rekAt, ok: true }
+: { bank: 'BTN ••••9021 · penampungan klaim BPJS', st: '2 selisih', note: 'transfer BPJS Rp 1,82 M belum dipadankan ke klaim', can: !closed },
+{ bank: 'Mandiri · penggajian dan pemasok', st: 'Cocok 100%', note: 'mutasi 96 · terakhir sinkron 10.30', ok: true }
+].map(function (r) { return Object.assign({}, r, { bg: r.ok ? '#EAF5EC' : '#FFF3E0', fg: r.ok ? '#1E6B34' : '#8A4B00', canMatch: !!r.can,
+match: function () { if (self.state.rekAt || self.state.closedAt) return; self.setState({ rekAt: jam() }); } }); });
+
+var ready = mapped && matched;
+var prereq = [
+{ ok: mapped, t: mapped ? 'Semua jurnal terpetakan (JU-26100417 sudah dipetakan)' : 'JU-26100417 belum dipetakan ke akun lawan' },
+{ ok: matched, t: matched ? 'Rekonsiliasi bank cocok di semua rekening' : 'Rekonsiliasi BTN penampungan klaim ••••9021 masih 2 selisih' }
+].map(function (p) { return { t: p.t, mark: p.ok ? '✓' : '!', fg: p.ok ? '#1E6B34' : '#8A4B00' }; });
+var reasonParts = [];
+if (!mapped) reasonParts.push('petakan akun JU-26100417');
+if (!matched) reasonParts.push('padankan selisih BTN ••••9021');
+
+return {
+kpi: kpi, jr: jr, jrCount: jrCount, srcChips: srcChips, aging: aging, rek: rek,
+per: closed ? { label: 'Periode Oktober:', val: 'ditutup hari ini ' + st.closedAt } : { label: 'Periode September:', val: 'ditutup 2 Okt' },
+canClose: !closed, confirmExp: st.confirm ? 'true' : 'false',
+showConfirm: st.confirm && !closed, isClosed: closed, closedAt: st.closedAt,
+openClose: function () { self.setState({ confirm: !self.state.confirm }); },
+cancelClose: function () { self.setState({ confirm: false }); },
+prereq: prereq,
+closeBtn: ready
+? { dis: 'false', bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: 'Belum bisa ditutup: ' + reasonParts.join(' dan ') + '.' },
+doClose: function () { if (!ready || self.state.closedAt) return; self.setState({ closedAt: jam(), confirm: false }); },
+needMap: !mapped, mapped: mapped, mapName: mapName, mapAt: st.mapAt,
+mapOpen: st.mapOpen && !mapped, mapClosed: !st.mapOpen && !mapped,
+openMap: function () { if (self.state.closedAt) return; self.setState({ mapOpen: true }); },
+closeMap: function () { if (self.state.mapAt) return; self.setState({ mapOpen: false, mapSel: '' }); },
+mapSel: st.mapSel, accOpts: accOpts,
+pickAcc: function (e) { var v = e.target.value; if (!v || self.state.closedAt) return; self.setState({ mapSel: v, mapAt: jam(), mapOpen: false }); }
+};
+}
+}
+</script>
+</body>
+</html>

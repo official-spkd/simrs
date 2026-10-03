@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Manajemen tempat tidur</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="bed" user="Ns. Maya Sari" role="Bed manager · admisi" initials="MS" unit="SIM RS · Rawat inap" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Klinis / Rawat inap / Tempat tidur</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Manajemen tempat tidur</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E8EE; font-size: 13px"><span style="width: 7px; height: 7px; border-radius: 999px; background: #16A34A"></span>Aplicare &amp; SIRANAP diperbarui 09.00</span>
+<div role="tablist" aria-label="Tampilan" style="display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: #EEF1F4">
+<sc-for list="{{views}}" as="t" hint-placeholder-count="2">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="font: inherit; font-size: 13px; font-weight: {{t.weight}}; height: 34px; padding: 0 12px; border-radius: 8px; border: 0; background: {{t.bg}}; color: #14212B; cursor: pointer">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 28px 0">
+<sc-for list="{{sum}}" as="k" hint-placeholder-count="5">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; gap: 12px; align-items: center">
+<span style="width: 12px; height: 40px; border-radius: 4px; background: {{k.color}}; border: 1px solid {{k.border}}"></span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">{{k.label}}</span><span style="font-size: 22px; font-weight: 700">{{k.value}}</span></span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<section aria-label="Peta tempat tidur" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div role="group" aria-label="Filter tempat tidur" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 10px 14px">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #3F4C58">Bangsal
+<select value="{{fWard}}" onChange="{{setWard}}" style="font: inherit; font-size: 13px; font-weight: 400; height: 40px; min-width: 170px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF; color: #14212B">
+<option value="semua">Semua bangsal</option>
+<option value="Melati">Melati · Penyakit dalam</option>
+<option value="Anggrek">Anggrek · Bedah</option>
+<option value="Isolasi">Isolasi · Airborne</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #3F4C58">Kelas
+<select value="{{fKelas}}" onChange="{{setKelas}}" style="font: inherit; font-size: 13px; font-weight: 400; height: 40px; min-width: 140px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF; color: #14212B">
+<option value="semua">Semua kelas</option>
+<option value="Kelas 1">Kelas 1</option>
+<option value="Kelas 2">Kelas 2</option>
+<option value="Khusus">Khusus (isolasi)</option>
+</select></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: #3F4C58">Status
+<select value="{{fStatus}}" onChange="{{setStatus}}" style="font: inherit; font-size: 13px; font-weight: 400; height: 40px; min-width: 160px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; background: #FFFFFF; color: #14212B">
+<option value="semua">Semua status</option>
+<option value="kosong">Siap</option>
+<option value="isi">Terisi</option>
+<option value="pesan">Dipesan</option>
+<option value="pulang">Pulang hari ini</option>
+<option value="kotor">Kotor</option>
+<option value="bersih">Dibersihkan</option>
+<option value="iso">Isolasi</option>
+</select></label>
+<span style="flex: 1 1 120px; text-align: right; font-size: 12px; color: #5B6B79; padding-bottom: 10px">{{shownLabel}}</span>
+</div>
+
+<sc-if value="{{isMap}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{wards}}" as="w" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap"><span style="font-weight: 700">{{w.name}}</span><span style="font-size: 13px; color: #3F4C58">{{w.meta}}</span></div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{w.beds}}" as="b" hint-placeholder-count="12">
+<button type="button" aria-pressed="{{b.pressed}}" onClick="{{b.pick}}" style="text-align: left; font: inherit; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-height: 70px; border-radius: 10px; border: 1px solid {{b.border}}; background: {{b.bg}}; color: #14212B; cursor: pointer; box-shadow: {{b.ring}}">
+<span style="display: flex; justify-content: space-between"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600">{{b.id}}</span><span style="font-size: 11px; font-weight: 700; color: {{b.fg}}">{{b.tag}}</span></span>
+<span style="font-size: 12.5px; font-weight: 600">{{b.pt}}</span>
+<span style="font-size: 11.5px; color: #5B6B79">{{b.note}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 90px 1.4fr 1fr 1.2fr 1.4fr; font-size: 12px; font-weight: 600; color: #3F4C58; background: #F8FAFB">
+<span style="padding: 10px 14px">Bed</span><span style="padding: 10px 14px">Bangsal</span><span style="padding: 10px 14px">Status</span><span style="padding: 10px 14px">Pasien</span><span style="padding: 10px 14px">Catatan</span>
+</div>
+<sc-for list="{{flat}}" as="b" hint-placeholder-count="8">
+<button type="button" aria-pressed="{{b.pressed}}" onClick="{{b.pick}}" style="width: 100%; font: inherit; color: #14212B; text-align: left; padding: 0; border: 0; border-top: 1px solid #EEF1F4; display: grid; grid-template-columns: 90px 1.4fr 1fr 1.2fr 1.4fr; align-items: center; min-height: 44px; background: {{b.rowBg}}; cursor: pointer">
+<span style="padding: 8px 14px; font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{b.id}}</span>
+<span style="padding: 8px 14px; font-size: 13px; color: #3F4C58">{{b.wardLabel}}</span>
+<span style="padding: 8px 14px"><span style="font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: {{b.bg}}; border: 1px solid {{b.border}}; color: {{b.fg}}">{{b.tag}}</span></span>
+<span style="padding: 8px 14px; font-weight: 600; font-size: 13px">{{b.pt}}</span>
+<span style="padding: 8px 14px; font-size: 12.5px; color: #5B6B79">{{b.note}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{noBeds}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px dashed #CBD3DB; border-radius: 14px; padding: 18px; font-size: 13px; color: #5B6B79">Tidak ada bed yang cocok dengan filter bangsal, kelas, dan status ini.</div>
+</sc-if>
+</section>
+
+<aside aria-label="Permintaan bed" style="flex: 1 1 300px; max-width: 360px; display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #BFDDD8; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 0 0 3px rgba(15,118,110,0.08)">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">Bed terpilih</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 700">{{d.id}}</span></span>
+<span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: {{d.bg}}; border: 1px solid {{d.border}}; color: {{d.fg}}">{{d.tag}}</span>
+</div>
+<div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px">
+<span style="color: #5B6B79">Bangsal</span><span>{{d.wardLabel}}</span>
+<span style="color: #5B6B79">Kelas</span><span>{{d.kelas}}</span>
+<span style="color: #5B6B79">Pasien</span><span style="font-weight: 600">{{d.pt}}</span>
+<span style="color: #5B6B79">Catatan</span><span>{{d.note}}</span>
+</div>
+<span style="font-size: 12.5px; color: #3F4C58">{{d.hint}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-if value="{{d.hasAction}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{d.act}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">{{d.actLabel}}</button>
+</sc-if>
+<sc-if value="{{d.hasPatient}}" hint-placeholder-val="{{ true }}">
+<a href="Ranap.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none">Buka rawat inap</a>
+</sc-if>
+<button type="button" onClick="{{clearSel}}" style="font: inherit; font-size: 13px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3E8EE; background: #FFFFFF; color: #3F4C58; cursor: pointer">Tutup</button>
+</div>
+</div>
+</sc-if>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between"><span style="font-weight: 600">Permintaan bed</span><span style="font-size: 12px; color: #5B6B79">{{reqCount}}</span></div>
+<sc-if value="{{hasMsg}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 10px 16px; border-bottom: 1px solid #EEF1F4; font-size: 12.5px; font-weight: 600; color: {{msgFg}}; background: {{msgBg}}">{{msg}}</div>
+</sc-if>
+<sc-for list="{{reqs}}" as="r" hint-placeholder-count="4">
+<div style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 6px; background: {{r.bg}}">
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">{{r.pt}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: {{r.waitFg}}">{{r.wait}}</span></span>
+<span style="font-size: 12px; color: #3F4C58">{{r.from}} · {{r.need}}</span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-size: 12px; color: #0B5D56; font-weight: 600">{{r.match}}</span><button type="button" onClick="{{r.alloc}}" aria-label="{{r.aria}}" style="font: inherit; font-size: 12.5px; font-weight: 600; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid {{r.btnBorder}}; background: {{r.btnBg}}; color: {{r.btnFg}}; cursor: pointer; white-space: nowrap">{{r.btnLabel}}</button></span>
+</div>
+</sc-for>
+<sc-if value="{{noReqs}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; font-size: 13px; color: #5B6B79">Semua permintaan sudah dialokasikan.</div>
+</sc-if>
+</div>
+<div style="background: linear-gradient(180deg, #F2FAF8, #FFFFFF); border: 1px solid #D5ECE7; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600; color: #0B5D56">Perkiraan sore ini</span>
+<span style="font-size: 13px; color: #3F4C58">6 pasien rencana pulang sebelum 13.00 (4 resume sudah final). Jika selesai tepat waktu, permintaan IGD terpenuhi tanpa boarding.</span>
+<a href="Ranap.dc.html" style="font-size: 13px; font-weight: 600">Lihat pasien rawat inap</a>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.ticks = 0;
+function b(ward, id, k, pt, note) { return { ward: ward, id: id, k: k, pt: pt, note: note }; }
+var beds = [
+b('Melati', 'M-201', 'isi', 'Siti R.', 'H2 · I10'), b('Melati', 'M-202', 'pulang', 'Budi S.', 'resume final'), b('Melati', 'M-203', 'isi', 'Endang W.', 'H5 · E11.6'), b('Melati', 'M-204', 'kosong', '—', 'P · siap'), b('Melati', 'M-205', 'isi', 'Rohani', 'H1 · risiko jatuh'), b('Melati', 'M-206', 'pesan', 'Ny. Sulastri', 'dari IGD 10.00'),
+b('Melati', 'M-207', 'isi', 'Yati', 'H3'), b('Melati', 'M-208', 'bersih', '—', 'estimasi 09.40'), b('Melati', 'M-209', 'isi', 'Darmi', 'H7 · LOS panjang'), b('Melati', 'M-210', 'pulang', 'Asih', 'resume draf'), b('Melati', 'M-211', 'isi', 'Murni', 'H2'), b('Melati', 'M-212', 'isi', 'Sri', 'H4'),
+b('Anggrek', 'A-101', 'isi', 'Tn. Joko', 'pasca-op H1'), b('Anggrek', 'A-102', 'isi', 'Tn. Agus', 'H3'), b('Anggrek', 'A-103', 'isi', 'Tn. Rudi', 'H2'), b('Anggrek', 'A-104', 'pulang', 'Tn. Iwan', 'resume draf'), b('Anggrek', 'A-105', 'isi', 'Tn. Bayu', 'H1'), b('Anggrek', 'A-106', 'isi', 'Tn. Andi', 'H5'),
+b('Isolasi', 'I-01', 'iso', 'Tn. Fajar', 'TB paru · H6'), b('Isolasi', 'I-02', 'iso', 'Ny. Lilis', 'suspek TB'), b('Isolasi', 'I-03', 'kosong', '—', 'siap'), b('Isolasi', 'I-04', 'bersih', '—', 'dekontaminasi')
+];
+this.state = {
+view: 'peta', fWard: 'semua', fKelas: 'semua', fStatus: 'semua', sel: '', msg: '', msgOk: true,
+beds: beds,
+reqs: [
+{ id: 'q1', pt: 'Tn. Wahyu · L 45', short: 'Tn. Wahyu', from: 'IGD B5', need: 'Bedah · kelas 2 · BPJS', wait: '4 j 40 m', match: 'Cocok: A-104 setelah 11.00', late: true },
+{ id: 'q2', pt: 'Ny. Sulastri · P 72', short: 'Ny. Sulastri', from: 'IGD B3', need: 'PD · kelas 2 · O2', wait: '1 j 35 m', match: 'Dipesan: M-206' },
+{ id: 'q3', pt: 'An. Rafa · L 4', short: 'An. Rafa', from: 'IGD B4', need: 'Anak · kelas 3', wait: '0 j 55 m', match: 'Cocok: C-305 (siap)' },
+{ id: 'q4', pt: 'Ny. Ratna · P 31', short: 'Ny. Ratna', from: 'Jadwal OK 13.00', need: 'Kebidanan · kelas 1', wait: 'terjadwal', match: 'Cocok: K-110 (dibersihkan)' }
+]
+};
+}
+stamp() {
+this.ticks += 1;
+var m = 9 * 60 + 2 + Math.floor((Date.now() - this.t0) / 60000) + this.ticks;
+var h = Math.floor(m / 60), mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+renderVals() {
+var self = this, st = this.state;
+var K = {
+isi: ['#FFFFFF', '#E3E8EE', '#3F4C58', 'Terisi'],
+kosong: ['linear-gradient(180deg, #EAF6EC, #FFFFFF)', '#BFE3C6', '#1E6B34', 'Siap'],
+bersih: ['#FFF8EB', '#F5D9A8', '#8A4B00', 'Dibersihkan'],
+kotor: ['#F7F3EE', '#D9CDBE', '#6B4E2E', 'Kotor'],
+pesan: ['#EEF4FF', '#C7D7FE', '#1E3A8A', 'Dipesan'],
+pulang: ['linear-gradient(180deg, #F2FAF8, #FFFFFF)', '#BFDDD8', '#0B5D56', 'Pulang hari ini'],
+iso: ['#FEF3F2', '#FECDCA', '#B42318', 'Isolasi']
+};
+var WARD = {
+Melati: { name: 'Melati · Penyakit dalam · Kelas 2', label: 'Melati · Penyakit dalam', kelas: 'Kelas 2', total: 12, hidden: 0 },
+Anggrek: { name: 'Anggrek · Bedah · Kelas 1', label: 'Anggrek · Bedah', kelas: 'Kelas 1', total: 8, hidden: 2 },
+Isolasi: { name: 'Isolasi · Infeksi airborne', label: 'Isolasi · Airborne', kelas: 'Khusus', total: 4, hidden: 0 }
+};
+function setBed(id, patch) {
+return self.state.beds.map(function (x) { return x.id === id ? Object.assign({}, x, patch) : x; });
+}
+function occ(k) { return k === 'isi' || k === 'pulang' || k === 'iso'; }
+
+var beds = st.beds.map(function (x) {
+var s = K[x.k], on = x.id === st.sel, w = WARD[x.ward];
+return { id: x.id, ward: x.ward, k: x.k, wardLabel: w.label, kelas: w.kelas, bg: s[0], border: on ? '#0F766E' : s[1], fg: s[2], tag: s[3], pt: x.pt, note: x.note, pressed: on ? 'true' : 'false', ring: on ? '0 0 0 2px rgba(15,118,110,0.35)' : 'none', rowBg: on ? '#F1F8F6' : '#FFFFFF', pick: function () { self.setState({ sel: on ? '' : x.id, msg: '' }); } };
+});
+var shown = beds.filter(function (x) {
+return (st.fWard === 'semua' || x.ward === st.fWard) && (st.fKelas === 'semua' || x.kelas === st.fKelas) && (st.fStatus === 'semua' || x.k === st.fStatus);
+});
+var wards = ['Melati', 'Anggrek', 'Isolasi'].map(function (wid) {
+var w = WARD[wid], all = beds.filter(function (x) { return x.ward === wid; });
+var terisi = w.hidden + all.filter(function (x) { return occ(x.k); }).length;
+var pulang = all.filter(function (x) { return x.k === 'pulang'; }).length;
+var siap = all.filter(function (x) { return x.k === 'kosong'; }).length;
+var meta = wid === 'Melati' ? w.total + ' bed · ' + terisi + ' terisi · ' + pulang + ' pulang hari ini'
+: (wid === 'Anggrek' ? w.total + ' bed · ' + terisi + ' terisi · ' + siap + ' siap' : w.total + ' bed tekanan negatif · ' + terisi + ' terisi');
+return { name: w.name, meta: meta, beds: shown.filter(function (x) { return x.ward === wid; }) };
+}).filter(function (w) { return w.beds.length > 0; });
+
+var init = { kosong: 2, bersih: 2, isi: 14, pulang: 3 };
+function count(k) { return beds.filter(function (x) { return x.k === k; }).length; }
+var terisiAll = 151 + (count('isi') + count('iso') + count('pulang')) - (init.isi + init.pulang);
+var sum = [
+{ label: 'Total bed', value: '186', color: '#F1F4F6', border: '#CBD3DB' },
+{ label: 'Terisi', value: terisiAll + ' · ' + Math.round(terisiAll / 186 * 100) + '%', color: '#FFFFFF', border: '#CBD3DB' },
+{ label: 'Siap pakai', value: String(14 + count('kosong') - init.kosong), color: '#EAF6EC', border: '#BFE3C6' },
+{ label: 'Dibersihkan', value: String(7 + count('bersih') + count('kotor') - init.bersih), color: '#FFF8EB', border: '#F5D9A8' },
+{ label: 'Rencana pulang hari ini', value: String(22 + count('pulang') - init.pulang), color: '#E6F4F1', border: '#BFDDD8' }
+];
+
+var selBed = beds.filter(function (x) { return x.id === st.sel; })[0];
+var selFree = !!selBed && selBed.k === 'kosong';
+var reqs = st.reqs.map(function (r) {
+return Object.assign({}, r, {
+waitFg: r.late ? '#B42318' : '#3F4C58', bg: r.late ? '#FFFBFA' : '#FFFFFF',
+btnLabel: selFree ? 'Alokasikan ke ' + selBed.id : 'Alokasikan',
+aria: selFree ? 'Alokasikan ' + r.short + ' ke bed ' + selBed.id : 'Alokasikan ' + r.short + ' (pilih bed Siap dulu)',
+btnBorder: selFree ? '#0D6861' : '#CBD3DB', btnBg: selFree ? 'linear-gradient(180deg, #1D7E77, #0F766E)' : '#FFFFFF', btnFg: selFree ? '#FFFFFF' : '#14212B',
+alloc: function () {
+var S = self.state, cur = S.beds.filter(function (x) { return x.id === S.sel; })[0];
+if (!cur || cur.k !== 'kosong') {
+self.setState({ msg: 'Pilih dulu bed berstatus Siap di peta, lalu tekan Alokasikan pada permintaan.', msgOk: false });
+return;
+}
+var t = self.stamp();
+self.setState({
+beds: setBed(cur.id, { k: 'pesan', pt: r.short, note: 'dari ' + r.from + ' · ' + t }),
+reqs: S.reqs.filter(function (x) { return x.id !== r.id; }),
+msg: r.short + ' dialokasikan ke ' + cur.id + ' · dipesan ' + t + ' · notifikasi ke ' + r.from, msgOk: true
+});
+}
+});
+});
+
+var d = null;
+if (selBed) {
+var act = null, actLabel = '', hint = '';
+if (selBed.k === 'kosong') hint = 'Bed siap. Tekan "Alokasikan ke ' + selBed.id + '" pada permintaan di bawah.';
+else if (selBed.k === 'pesan') { hint = 'Dipesan untuk ' + selBed.pt + '. Tandai terisi saat pasien tiba di bangsal.'; actLabel = 'Pasien tiba · tandai terisi'; act = function () { var t = self.stamp(); self.setState({ beds: setBed(selBed.id, { k: 'isi', note: 'H1 · masuk ' + t }), msg: selBed.pt + ' tiba di ' + selBed.id + ' · ' + t, msgOk: true }); }; }
+else if (selBed.k === 'pulang') { hint = 'Pasien rencana pulang. Setelah pasien keluar, bed masuk antrean kebersihan.'; actLabel = 'Pasien sudah pulang'; act = function () { var t = self.stamp(); self.setState({ beds: setBed(selBed.id, { k: 'kotor', pt: '—', note: 'kosong sejak ' + t }), msg: selBed.id + ' kosong ' + t + ' · menunggu dibersihkan', msgOk: true }); }; }
+else if (selBed.k === 'kotor') { hint = 'Bed kotor. Tandai saat petugas kebersihan mulai bekerja.'; actLabel = 'Tandai dibersihkan'; act = function () { var t = self.stamp(); self.setState({ beds: setBed(selBed.id, { k: 'bersih', note: 'mulai ' + t }), msg: selBed.id + ' sedang dibersihkan sejak ' + t, msgOk: true }); }; }
+else if (selBed.k === 'bersih') { hint = 'Sedang dibersihkan. Tandai siap setelah verifikasi kebersihan.'; actLabel = 'Selesai dibersihkan · siap pakai'; act = function () { var t = self.stamp(); self.setState({ beds: setBed(selBed.id, { k: 'kosong', pt: '—', note: 'siap ' + t }), msg: selBed.id + ' siap pakai ' + t, msgOk: true }); }; }
+else hint = 'Bed terisi. Buka rawat inap untuk CPPT dan eMAR pasien.';
+d = Object.assign({}, selBed, { hint: hint, hasAction: !!act, act: act || function () {}, actLabel: actLabel, hasPatient: selBed.pt !== '—' && selBed.k !== 'pesan' });
+}
+
+var views = [['peta', 'Peta bed'], ['daftar', 'Daftar']].map(function (v) {
+var on = st.view === v[0];
+return { label: v[1], sel: on ? 'true' : 'false', weight: on ? 600 : 400, bg: on ? '#FFFFFF' : 'transparent', pick: function () { self.setState({ view: v[0] }); } };
+});
+var filtered = st.fWard !== 'semua' || st.fKelas !== 'semua' || st.fStatus !== 'semua';
+return {
+views: views, sum: sum,
+fWard: st.fWard, fKelas: st.fKelas, fStatus: st.fStatus,
+setWard: function (e) { self.setState({ fWard: e.target.value }); },
+setKelas: function (e) { self.setState({ fKelas: e.target.value }); },
+setStatus: function (e) { self.setState({ fStatus: e.target.value }); },
+shownLabel: filtered ? shown.length + ' dari ' + beds.length + ' bed ditampilkan' : beds.length + ' bed ditampilkan',
+isMap: st.view === 'peta' && shown.length > 0, isList: st.view === 'daftar' && shown.length > 0, noBeds: shown.length === 0,
+wards: wards, flat: shown,
+hasSel: !!d, d: d || { id: '', tag: '', bg: '', border: '', fg: '', wardLabel: '', kelas: '', pt: '', note: '', hint: '', hasAction: false, act: function () {}, actLabel: '', hasPatient: false },
+clearSel: function () { self.setState({ sel: '' }); },
+reqs: reqs, noReqs: reqs.length === 0, reqCount: reqs.length + ' menunggu',
+hasMsg: !!st.msg, msg: st.msg, msgFg: st.msgOk ? '#1E6B34' : '#8A4B00', msgBg: st.msgOk ? '#EAF6EC' : '#FFF8EB'
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Master Patient Index</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="rm" user="Lestari Ayu" role="Perekam medis" initials="LA" unit="SIM RS · Rekam medis" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Rekam medis / Master Patient Index</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Kemungkinan rekam medis ganda</h1>
+</div>
+<span style="font-size: 13px; color: #3F4C58">{{antreanInfo}}</span>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<section aria-label="Antrean tinjauan" style="flex: 1 1 300px; max-width: 340px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; font-weight: 600">Antrean tinjauan</div>
+<sc-for list="{{pairs}}" as="p" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}" style="width: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border: 0; border-bottom: 1px solid #EEF1F4; border-left: 3px solid {{p.edge}}; background: {{p.bg}}; font: inherit; color: #14212B; cursor: pointer">
+<span style="display: flex; justify-content: space-between"><span style="font-weight: 600">{{p.name}}</span><span style="font-weight: 700; color: {{p.fg}}">{{p.score}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{p.reason}}</span>
+</button>
+</sc-for>
+</section>
+
+<section aria-label="Perbandingan" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 12px; padding: 12px 16px; border-radius: 12px; background: linear-gradient(90deg, #FFF8EB, #FFFFFF); border: 1px solid #F5D9A8; align-items: center; flex-wrap: wrap">
+<span style="font-weight: 700; color: #8A4B00">Skor kecocokan {{cur.score}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{cur.banner}}</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 1fr 1.4fr 1.4fr 0.6fr; background: #F8FAFB; font-size: 12px; font-weight: 600; color: #3F4C58">
+<span style="padding: 12px 16px">Atribut</span>
+<span style="padding: 12px 16px; display: flex; flex-direction: column"><span>Rekam medis A · dipertahankan</span><span style="font-family: 'IBM Plex Mono', monospace; color: #0B5D56; font-size: 13px">{{cur.rmA}}</span></span>
+<span style="padding: 12px 16px; display: flex; flex-direction: column"><span>Rekam medis B · digabungkan</span><span style="font-family: 'IBM Plex Mono', monospace; color: #8A4B00; font-size: 13px">{{cur.rmB}}</span></span>
+<span style="padding: 12px 16px">Cocok</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: 1fr 1.4fr 1.4fr 0.6fr; border-top: 1px solid #EEF1F4; align-items: center; background: {{r.bg}}">
+<span style="padding: 10px 16px; color: #3F4C58">{{r.attr}}</span>
+<button type="button" aria-pressed="{{r.aPressed}}" aria-disabled="{{r.aDis}}" aria-label="{{r.aAria}}" onClick="{{r.pickA}}" style="align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 10px 16px; margin: 0; border: 0; background: {{r.aBg}}; font: inherit; font-weight: 500; color: {{r.aFg}}; text-decoration: {{r.aDeco}}; text-align: left; cursor: {{r.aCur}}">{{r.a}}</button>
+<button type="button" aria-pressed="{{r.bPressed}}" aria-disabled="{{r.bDis}}" aria-label="{{r.bAria}}" onClick="{{r.pickB}}" style="align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 10px 16px; margin: 0; border: 0; background: {{r.bBg}}; font: inherit; font-weight: {{r.bFw}}; color: {{r.bFg}}; text-decoration: {{r.bDeco}}; text-align: left; cursor: {{r.bCur}}">{{r.b}}</button>
+<span style="padding: 10px 16px; font-weight: 700; color: {{r.fg}}">{{r.m}}</span>
+</div>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-weight: 600">{{impactTitle}}</span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; font-size: 13px">
+<sc-for list="{{cur.impact}}" as="m" hint-placeholder-count="3">
+<span style="padding: 12px; border-radius: 10px; background: #F8FAFB"><span style="display: block; font-weight: 700; font-size: 18px">{{m.n}}</span>{{m.t}}</span>
+</sc-for>
+</div>
+<sc-if value="{{hasPickB}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #0B5D56; font-weight: 500">{{pickBInfo}}</span></sc-if>
+<sc-if value="{{isOpen}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="alasanMerge" style="font-size: 13px; font-weight: 600">Alasan penggabungan <span style="color: #B42318">*</span></label><textarea id="alasanMerge" rows="2" value="{{alasan}}" onInput="{{setAlasan}}" aria-describedby="alasanHint" style="font: inherit; padding: 10px 12px; border: 1px solid #CBD3DB; border-radius: 10px; resize: vertical"></textarea>
+<sc-if value="{{noAlasan}}" hint-placeholder-val="{{ false }}"><span id="alasanHint" style="font-size: 12px; font-weight: 600; color: #8A4B00">Isi alasan dan dasar verifikasi (mis. KTP, wawancara) untuk mengaktifkan tombol keputusan.</span></sc-if></div>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center">
+<span style="font-size: 12px; color: #5B6B79">Penggabungan berjejak dan dapat dibatalkan dalam 30 hari. Nomor RM B dialihkan ke A dan link ke SATUSEHAT diperbarui.</span>
+<sc-if value="{{hasAlasan}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 10px">
+<button type="button" onClick="{{bukan}}" style="font: inherit; font-weight: 500; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Bukan orang yang sama</button>
+<button type="button" onClick="{{gabung}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Gabungkan ke {{cur.rmA}}</button>
+</div>
+</sc-if>
+<sc-if value="{{noAlasan}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 10px">
+<button type="button" disabled aria-describedby="alasanHint" style="font: inherit; font-weight: 500; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #E3E8EE; background: #F5F7F9; color: #8C99A6; cursor: not-allowed">Bukan orang yang sama</button>
+<button type="button" disabled aria-describedby="alasanHint" style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #E3E8EE; background: #EEF1F4; color: #8C99A6; cursor: not-allowed">Gabungkan ke {{cur.rmA}}</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 12px; background: {{done.bg}}; border: 1px solid {{done.border}}">
+<span style="font-weight: 700; color: {{done.fg}}">{{done.title}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{done.desc}}</span>
+<span style="font-size: 13px; color: #3F4C58">Alasan: {{alasan}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px">
+<a href="Audit.dc.html" style="font-weight: 600">Lihat di jejak audit</a>
+<button type="button" onClick="{{undo}}" style="font: inherit; font-weight: 600; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; cursor: pointer">Batalkan keputusan</button>
+</span>
+</div>
+</sc-if>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+sel: 0,
+reasons: { 0: 'Dikonfirmasi dengan KTP dan wawancara pasien di loket 3 Okt 2026.' },
+keep: {},
+status: {}
+};
+}
+renderVals() {
+var self = this;
+var s = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+var TOTAL = 12;
+
+var data = [
+{ name: 'Siti Rahmawati / Siti Rachmawati', score: '92%', reason: 'NIK, tgl lahir, ibu kandung sama', rmA: '00-12-45-78', rmB: '00-31-07-92',
+banner: 'NIK, tanggal lahir, dan nama ibu kandung sama. Nama berbeda ejaan. Kemungkinan pasien didaftarkan ulang tanpa NIK pada 2024.',
+rows: [['Nama', 'Siti Rahmawati', 'Siti Rachmawati', 'mirip'], ['NIK', '3174••••••••4521', '3174••••••••4521', 'sama'], ['Tanggal lahir', '14 Mar 1972', '14 Mar 1972', 'sama'], ['Nama ibu kandung', 'Aminah', 'Aminah', 'sama'], ['Alamat', 'Jl. Kenanga 12, Jakarta Timur', 'Kenanga No.12, Jaktim', 'mirip'], ['No. peserta BPJS', '0001234•••890', '—', 'kosong'], ['No. HP', '0812•••4567', '0812•••4567', 'sama'], ['Kunjungan', '14 kunjungan, terakhir 3 Okt 2026', '3 kunjungan, terakhir Mar 2024', '—'], ['IHS SATUSEHAT', 'P0213•••771', '—', 'kosong']],
+impact: [['3', 'kunjungan B dipindah ke A'], ['1', 'alergi B digabung ke A (penisilin)'], ['2', 'dokumen bertanda tangan tetap utuh']] },
+{ name: 'Budi Santoso / Budi Santosa', score: '78%', reason: 'Tgl lahir dan alamat sama, NIK kosong di B', rmA: '00-08-77-12', rmB: '00-29-40-05',
+banner: 'Tanggal lahir dan alamat sama, nama berbeda satu huruf. NIK kosong di rekam medis B, verifikasi KTP sebelum digabung.',
+rows: [['Nama', 'Budi Santoso', 'Budi Santosa', 'mirip'], ['NIK', '3175••••••••0937', '—', 'kosong'], ['Tanggal lahir', '2 Jun 1965', '2 Jun 1965', 'sama'], ['Nama ibu kandung', 'Sumiati', 'Sumiyati', 'mirip'], ['Alamat', 'Jl. Melati 4, Jakarta Timur', 'Jl. Melati 4, Jakarta Timur', 'sama'], ['No. peserta BPJS', '0002217•••315', '0002217•••315', 'sama'], ['No. HP', '0813•••2210', '—', 'kosong'], ['Kunjungan', '22 kunjungan, terakhir 28 Sep 2026', '1 kunjungan, terakhir Jan 2025', '—'], ['IHS SATUSEHAT', 'P0198•••402', '—', 'kosong']],
+impact: [['1', 'kunjungan B dipindah ke A'], ['0', 'alergi baru dari B'], ['1', 'dokumen bertanda tangan tetap utuh']] },
+{ name: 'Bayi Ny. Ratna / Arka Pratama', score: '74%', reason: 'Bayi baru lahir sudah diberi nama', rmA: '00-45-12-30', rmB: '00-45-19-02',
+banner: 'Bayi didaftarkan saat lahir sebagai "Bayi Ny. Ratna", lalu didaftarkan ulang dengan nama sendiri saat kontrol. Nama dan No. BPJS sebaiknya diambil dari B.',
+rows: [['Nama', 'Bayi Ny. Ratna', 'Arka Pratama', 'beda'], ['NIK', '—', '—', 'kosong'], ['Tanggal lahir', '21 Sep 2026', '21 Sep 2026', 'sama'], ['Nama ibu kandung', 'Ratna Sari', 'Ratna Sari', 'sama'], ['Alamat', 'Jl. Anggrek 7, Jakarta Timur', 'Jl. Anggrek 7, Jakarta Timur', 'sama'], ['No. peserta BPJS', '—', '0003390•••118', 'kosong'], ['No. HP', '0857•••3301', '0857•••3301', 'sama'], ['Kunjungan', '1 kunjungan (persalinan) 21 Sep 2026', '1 kunjungan, terakhir 2 Okt 2026', '—'], ['IHS SATUSEHAT', 'P0221•••905', '—', 'kosong']],
+impact: [['1', 'kunjungan B dipindah ke A'], ['0', 'alergi baru dari B'], ['1', 'dokumen bertanda tangan tetap utuh']],
+keep: { 0: 'b' } },
+{ name: 'Muhammad Rizki / M. Rizky', score: '61%', reason: 'Nama dan tgl lahir mirip, alamat beda', rmA: '00-19-63-44', rmB: '00-38-02-71',
+banner: 'Nama dan tanggal lahir mirip, tetapi NIK, alamat, dan nomor HP berbeda. Skor rendah: pastikan bukan dua orang berbeda.',
+rows: [['Nama', 'Muhammad Rizki', 'M. Rizky', 'mirip'], ['NIK', '3172••••••••1180', '3172••••••••1810', 'beda'], ['Tanggal lahir', '9 Nov 1998', '9 Nov 1998', 'sama'], ['Nama ibu kandung', 'Halimah', '—', 'kosong'], ['Alamat', 'Jl. Cempaka 21, Jakarta Utara', 'Jl. Cemara 3, Bekasi', 'beda'], ['No. HP', '0821•••7781', '0896•••1202', 'beda'], ['Kunjungan', '5 kunjungan, terakhir Agu 2026', '2 kunjungan, terakhir Jul 2026', '—']],
+impact: [['2', 'kunjungan B dipindah ke A'], ['0', 'alergi baru dari B'], ['2', 'dokumen bertanda tangan tetap utuh']] },
+{ name: 'Tn. X (tanpa identitas) IGD', score: '55%', reason: 'Pasien tak dikenal, kandidat dari foto dan usia', rmA: '00-03-88-41', rmB: '00-52-00-17',
+banner: 'Rekam medis B adalah pasien IGD tanpa identitas. Kandidat A dicocokkan dari foto dan perkiraan usia; konfirmasi keluarga diperlukan sebelum digabung.',
+rows: [['Nama', 'Darmawan', 'Tn. X (tanpa identitas)', 'beda'], ['NIK', '3171••••••••6612', '—', 'kosong'], ['Tanggal lahir', '17 Agu 1962', 'perkiraan usia 60–65 tahun', 'mirip'], ['Alamat', 'Jl. Flamboyan 9, Jakarta Pusat', '—', 'kosong'], ['Kunjungan', '6 kunjungan, terakhir Mei 2026', '1 kunjungan IGD, 3 Okt 2026', '—']],
+impact: [['1', 'kunjungan B dipindah ke A'], ['0', 'alergi baru dari B'], ['0', 'dokumen bertanda tangan tetap utuh']] }
+];
+
+var doneCount = Object.keys(s.status).length;
+var pairs = data.map(function (p, i) {
+var on = i === s.sel;
+var stt = s.status[i];
+var sc = parseInt(p.score, 10);
+return {
+name: p.name, reason: p.reason,
+score: stt ? (stt.kind === 'merge' ? 'Digabung' : 'Bukan duplikat') : p.score,
+fg: stt ? (stt.kind === 'merge' ? '#1E6B34' : '#5B6B79') : (sc >= 85 ? '#B42318' : (sc >= 70 ? '#8A4B00' : '#5B6B79')),
+edge: on ? '#0F766E' : 'transparent',
+bg: on ? '#F3FAF8' : '#FFFFFF',
+pressed: on ? 'true' : 'false',
+pick: function () { self.setState({ sel: i }); }
+};
+});
+
+var sel = s.sel;
+var P = data[sel];
+var keepMap = Object.assign({}, P.keep || {}, s.keep[sel] || {});
+var stt = s.status[sel];
+var locked = !!stt;
+function setKeep(ri, side) {
+if (locked) return;
+var k = Object.assign({}, s.keep);
+k[sel] = Object.assign({}, k[sel] || {});
+k[sel][ri] = side;
+self.setState({ keep: k });
+}
+var pickedB = [];
+var rows = P.rows.map(function (r, ri) {
+var m = r[3];
+var fixed = r[0] === 'Kunjungan';
+var aOk = !fixed && r[1] !== '—';
+var bOk = !fixed && r[2] !== '—';
+var side = keepMap[ri] || (r[1] === '—' && r[2] !== '—' ? 'b' : 'a');
+if (fixed) side = 'a';
+var useB = side === 'b' && bOk;
+if (useB) pickedB.push(r[0]);
+var diff = aOk && bOk && r[1] !== r[2];
+return {
+attr: r[0], a: r[1], b: r[2], m: m,
+fg: m === 'sama' ? '#1E6B34' : (m === 'mirip' ? '#8A4B00' : (m === 'beda' ? '#B42318' : '#5B6B79')),
+bg: m === 'mirip' ? '#FFFCF5' : (m === 'beda' ? '#FFFBFA' : '#FFFFFF'),
+aBg: 'transparent',
+aFg: useB && diff ? '#8C99A6' : '#14212B',
+aDeco: useB && diff ? 'line-through' : 'none',
+aPressed: useB ? 'false' : 'true',
+aDis: aOk && !locked ? 'false' : 'true',
+aCur: aOk && bOk && !locked ? 'pointer' : 'default',
+aAria: r[0] + ' dari A: ' + r[1] + (useB ? '' : ' (dipakai)'),
+pickA: function () { if (aOk) setKeep(ri, 'a'); },
+bBg: useB && diff ? '#E6F4F1' : 'transparent',
+bFg: useB && diff ? '#0B5D56' : '#14212B',
+bFw: useB && diff ? '600' : '500',
+bDeco: 'none',
+bPressed: useB ? 'true' : 'false',
+bDis: bOk && !locked ? 'false' : 'true',
+bCur: aOk && bOk && !locked ? 'pointer' : (bOk && !aOk && !locked ? 'pointer' : 'default'),
+bAria: r[0] + ' dari B: ' + r[2] + (useB ? ' (dipakai)' : ''),
+pickB: function () { if (bOk) setKeep(ri, 'b'); }
+};
+});
+
+var alasan = s.reasons[sel] || '';
+var ada = alasan.trim().length > 0;
+function decide(kind) {
+if (!self.state.reasons[sel] || !self.state.reasons[sel].trim()) return;
+var st = Object.assign({}, self.state.status);
+st[sel] = { kind: kind, jam: jam() };
+self.setState({ status: st });
+}
+var done = { bg: '#FFFFFF', border: '#E3E8EE', fg: '#14212B', title: '', desc: '' };
+if (stt && stt.kind === 'merge') {
+done = { bg: 'linear-gradient(90deg, #EAF6EC, #FFFFFF)', border: '#BFE3C6', fg: '#1E6B34',
+title: 'Berhasil digabung pukul ' + stt.jam,
+desc: 'RM ' + P.rmB + ' kini dialihkan ke ' + P.rmA + '. ' + (pickedB.length ? 'Diambil dari B: ' + pickedB.join(', ') + '. ' : '') + 'Penggabungan tercatat di jejak audit dan dapat dibatalkan dalam 30 hari.' };
+} else if (stt) {
+done = { bg: 'linear-gradient(90deg, #F1F3F5, #FFFFFF)', border: '#CBD3DB', fg: '#3F4C58',
+title: 'Ditandai bukan orang yang sama pukul ' + stt.jam,
+desc: 'Kedua rekam medis tetap terpisah dan pasangan ini tidak diusulkan lagi. Keputusan tercatat di jejak audit.' };
+}
+
+return {
+antreanInfo: (TOTAL - doneCount) + ' pasangan menunggu tinjauan · terdeteksi otomatis saat registrasi',
+pairs: pairs,
+cur: { score: P.score, banner: P.banner, rmA: P.rmA, rmB: P.rmB, impact: P.impact.map(function (m) { return { n: m[0], t: m[1] }; }) },
+rows: rows,
+impactTitle: stt && stt.kind === 'merge' ? 'Yang terjadi setelah digabung' : 'Yang akan terjadi saat digabung',
+hasPickB: pickedB.length > 0 && !stt,
+pickBInfo: 'Diambil dari B: ' + pickedB.join(', ') + '. Klik nilai di tabel untuk memilih sumber per atribut.',
+isOpen: !stt,
+isDone: !!stt,
+done: done,
+alasan: alasan,
+hasAlasan: ada,
+noAlasan: !ada,
+setAlasan: function (e) { var r = Object.assign({}, self.state.reasons); r[sel] = e.target.value; self.setState({ reasons: r }); },
+gabung: function () { decide('merge'); },
+bukan: function () { decide('distinct'); },
+undo: function () { var st = Object.assign({}, self.state.status); delete st[sel]; self.setState({ status: st }); }
+};
+}
+}
+</script>
+</body>
+</html>

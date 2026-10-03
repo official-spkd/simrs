@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Aplikasi pasien</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+button:disabled{cursor:not-allowed}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 16px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(420px 260px at 100% 0%, rgba(15,118,110,0.14), rgba(15,118,110,0) 70%)">
+<div style="display: flex; justify-content: space-between; padding: 12px 22px 4px; font-size: 14px; font-weight: 600"><span>10:45</span><span aria-hidden="true">▂▄▆ ◔ ▮</span></div>
+
+<header style="padding: 10px 20px 14px; display: flex; justify-content: space-between; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-size: 14px; color: #5B6B79">Selamat pagi,</span><span style="font-size: 22px; font-weight: 700">Ibu Endang</span></span>
+<span style="width: 44px; height: 44px; border-radius: 999px; background: linear-gradient(160deg, #1D7E77, #0B5D56); color: #FFFFFF; font-weight: 600; display: flex; align-items: center; justify-content: center">EW</span>
+</header>
+
+<main style="flex: 1; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{vHome}}" hint-placeholder-val="{{ true }}">
+<section aria-label="Antrean aktif" style="border-radius: 18px; padding: 16px; color: #FFFFFF; background: linear-gradient(150deg, #128078 0%, #0F766E 45%, #0B5D56 100%); box-shadow: 0 8px 20px rgba(11,93,86,0.25); display: flex; flex-direction: column; gap: 12px">
+<span style="display: flex; justify-content: space-between; font-size: 13px; opacity: 0.9"><span>Kontrol Poli Penyakit Dalam · Rabu 14 Okt</span><span>BPJS</span></span>
+<span style="display: flex; justify-content: space-between; align-items: flex-end">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; opacity: 0.85">Nomor antrean Anda</span><span style="font-size: 40px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; line-height: 1.1">PD-027</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-size: 13px; opacity: 0.85">Sedang dilayani</span><span style="font-size: 22px; font-weight: 600; font-family: 'IBM Plex Mono', monospace">{{serving}}</span></span>
+</span>
+<span style="height: 6px; border-radius: 999px; background: rgba(255,255,255,0.25); overflow: hidden"><span style="display: block; width: {{qPct}}; height: 6px; background: #FFFFFF"></span></span>
+<span aria-live="polite" style="display: flex; gap: 10px; align-items: center; justify-content: space-between">
+<span style="font-size: 14px">{{qPre}}<span style="font-weight: 700">{{qTime}}</span>{{qPost}}</span>
+<sc-if value="{{canAdvance}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{advance}}" aria-label="Simulasi antrean maju satu pasien" style="flex: none; font: inherit; font-size: 13px; font-weight: 600; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.14); color: #FFFFFF; cursor: pointer">Maju</button></sc-if>
+</span>
+</section>
+
+<section aria-label="Menu" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px">
+<sc-for list="{{menu}}" as="m" hint-placeholder-count="8">
+<button type="button" onClick="{{m.open}}" style="font: inherit; color: inherit; margin: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 2px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E3E8EE; text-align: center; min-height: 44px">
+<span style="width: 36px; height: 36px; border-radius: 12px; background: #E6F4F1; color: #0B5D56; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.icon}}"></path></svg></span>
+<span style="font-size: 12px; line-height: 1.25; color: #3F4C58">{{m.label}}</span>
+</button>
+</sc-for>
+</section>
+
+<section aria-label="Terbaru" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; overflow: hidden">
+<div style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #EEF1F4"><span style="font-weight: 600">Terbaru untuk Anda</span><button type="button" onClick="{{goNotif}}" style="font: inherit; font-size: 14px; color: #0B5D56; font-weight: 500; border: 0; background: transparent; padding: 0; margin: 0; cursor: pointer">Semua</button></div>
+<sc-for list="{{feed}}" as="f" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #EEF1F4; align-items: start">
+<span style="width: 8px; height: 8px; border-radius: 999px; background: {{f.dot}}; margin-top: 7px"></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 15px">{{f.t}}</span><span style="font-size: 13.5px; color: #3F4C58">{{f.d}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{f.when}}</span>
+</div>
+</sc-for>
+</section>
+
+<section aria-label="Gula darah" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Gula darah mandiri</span><span style="font-size: 13px; color: #5B6B79">7 hari</span></span>
+<svg viewBox="0 0 320 70" width="100%" height="70" role="img" aria-label="{{chartLabel}}"><rect x="0" y="20" width="320" height="26" fill="#EAF5EC"/><path d="{{chartD}}" fill="none" stroke="#0F766E" stroke-width="2.2"/><circle cx="{{lastX}}" cy="{{lastY}}" r="4" fill="{{lastFill}}"/></svg>
+<span style="font-size: 13.5px; color: #3F4C58">Terakhir <span style="font-weight: 600; color: #14212B">{{lastVal}} mg/dL</span> {{lastWhen}} · pita hijau = target dokter</span>
+<sc-if value="{{logClosed}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{openLog}}" style="font: inherit; font-weight: 600; height: 48px; border-radius: 12px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Catat hasil hari ini</button>
+</sc-if>
+<sc-if value="{{logOpen}}" hint-placeholder-val="{{ false }}">
+<form onSubmit="{{saveLog}}" style="display: flex; flex-direction: column; gap: 6px; margin: 0">
+<span style="font-size: 14px; font-weight: 500">Hasil gula darah (mg/dL)</span>
+<span style="display: grid; grid-template-columns: 1fr auto auto; gap: 8px">
+<input id="gd-input" type="number" inputmode="numeric" aria-label="Hasil gula darah dalam mg/dL" placeholder="mis. 132" value="{{logVal}}" onInput="{{typeLog}}" aria-invalid="{{logInvalid}}" aria-describedby="gd-msg" style="font: inherit; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid {{logBd}}; background: #FFFFFF; min-width: 0; box-sizing: border-box">
+<button type="button" onClick="{{cancelLog}}" style="font: inherit; font-weight: 500; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="submit" style="font: inherit; font-weight: 600; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Simpan</button>
+</span>
+<span id="gd-msg" style="font-size: 13px; color: {{logMsgFg}}">{{logMsg}}</span>
+</form>
+</sc-if>
+</section>
+</sc-if>
+
+<sc-if value="{{vPage}}" hint-placeholder-val="{{ false }}">
+<section aria-label="{{page.title}}" style="display: flex; flex-direction: column; gap: 12px">
+<sc-if value="{{showBack}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{back}}" style="align-self: flex-start; font: inherit; font-size: 15px; font-weight: 600; height: 44px; padding: 0 14px 0 8px; border-radius: 12px; border: 1px solid #E3E8EE; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; gap: 4px; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>Kembali</button>
+</sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 20px; font-weight: 700">{{page.title}}</span><span style="font-size: 14px; color: #3F4C58">{{page.intro}}</span></span>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 16px; overflow: hidden">
+<sc-for list="{{page.rows}}" as="r" hint-placeholder-count="4">
+<sc-if value="{{r.plain}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #EEF1F4; align-items: start">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 600; font-size: 15px">{{r.t}}</span><span style="font-size: 13.5px; color: #3F4C58">{{r.d}}</span></span>
+<span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right"><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14px; color: {{r.vFg}}">{{r.v}}</span><span style="font-size: 12px; font-weight: 600; color: {{r.fFg}}">{{r.f}}</span></span>
+</div>
+</sc-if>
+<sc-if value="{{r.link}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{r.go}}" style="font: inherit; color: inherit; text-align: left; margin: 0; width: 100%; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; min-height: 48px; border: 0; border-bottom: 1px solid #EEF1F4; background: #FFFFFF; align-items: center">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 600; font-size: 15px">{{r.t}}</span><span style="font-size: 13.5px; color: #3F4C58">{{r.d}}</span></span>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B6B79" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+</button>
+</sc-if>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #5B6B79">{{page.note}}</span>
+</section>
+</sc-if>
+</main>
+
+<nav aria-label="Navigasi utama" role="tablist" style="display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 8px 22px; background: rgba(255,255,255,0.96); border-top: 1px solid #E3E8EE">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="font: inherit; margin: 0; border: 0; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 48px; justify-content: center; color: {{t.fg}}; font-weight: {{t.w}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg><span style="font-size: 12px">{{t.label}}</span></button>
+</sc-for>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.state = {
+tab: 'beranda', sub: null,
+ahead: 6, serving: 21, qNotes: [],
+logOpen: false, logVal: '', logErr: '',
+ys: [18, 24, 30, 28, 36, 40, 42], vals: [182, 171, 160, 164, 149, 142, 138], lastWhen: 'pagi ini'
+};
+}
+renderVals() {
+var self = this;
+var S = this.state;
+var t0 = this.t0;
+function jam() {
+var m = 10 * 60 + 45 + Math.floor((Date.now() - t0) / 60000);
+var h = Math.floor(m / 60) % 24, mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+function hm(m) { var h = Math.floor(m / 60), mm = m % 60; return h + '.' + (mm < 10 ? '0' : '') + mm; }
+function rp(n) { return 'Rp ' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+var I = {
+cal: 'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
+flask: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3',
+file: 'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h6',
+pill: 'M10.5 20.5a5 5 0 0 1-7-7l6-6a5 5 0 0 1 7 7zM8.5 8.5l7 7',
+card: 'M3 6h18v12H3zM3 10h18M7 15h3',
+users: 'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+chat: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z',
+shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z',
+home: 'M3 11l9-7 9 7M5 10v10h14V10',
+bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0',
+user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4 21a8 8 0 0 1 16 0'
+};
+var OK = '#1E6B34', HI = '#B42318', MUTE = '#5B6B79', INK = '#14212B';
+function row(t, d, v, f, fFg, vFg) { return { t: t, d: d, v: v || '', f: f || '', fFg: fFg || MUTE, vFg: vFg || INK, plain: true, link: false, go: null }; }
+function link(t, d, key) { return { t: t, d: d, v: '', f: '', fFg: MUTE, vFg: INK, plain: false, link: true, go: function () { self.setState({ sub: key }); } }; }
+var SUBS = {
+daftar: { title: 'Daftar berobat', intro: 'Pendaftaran online poli rawat jalan, terhubung dengan antrean BPJS.', rows: [
+row('Poli Penyakit Dalam', 'Kontrol terjadwal · Rabu 14 Okt', 'PD-027', 'Terdaftar', OK),
+row('Daftar ke poli lain', 'Pilih poli, dokter, dan jam praktik yang tersedia', '', 'Rujukan aktif', MUTE)
+], note: 'Pendaftaran ditutup H-1 pukul 20.00. Bawa kartu BPJS atau KTP saat datang.' },
+lab: { title: 'Hasil lab', intro: 'Darah lengkap dan kimia · diambil pagi ini · sudah dibaca dokter.', rows: [
+row('Hemoglobin', 'Rujukan 12–16 g/dL', '12,8', 'Normal', OK),
+row('Leukosit', 'Rujukan 4.000–10.000 /µL', '8.900', 'Normal', OK),
+row('Trombosit', 'Rujukan 150–400 rb/µL', '265 rb', 'Normal', OK),
+row('Gula darah puasa', 'Rujukan 70–100 mg/dL', '138', 'Tinggi', HI, HI),
+row('HbA1c', 'Target di bawah 7%', '7,4%', 'Tinggi', HI, HI),
+row('Kreatinin', 'Rujukan 0,6–1,1 mg/dL', '0,9', 'Normal', OK)
+], note: 'Nilai di luar rujukan dibahas dokter saat kontrol 14 Okt. Jangan ubah dosis obat sendiri.' },
+resume: { title: 'Resume medis', intro: 'Dokumen resmi yang ditandatangani dokter secara elektronik.', rows: [
+row('Resume rawat inap', 'Dirawat 29 Sep – 4 Okt · Melati M-203', 'TTE', 'Final', OK),
+row('Resume rawat jalan', 'Poli Penyakit Dalam · kontrol sebelumnya', 'TTE', 'Final', OK)
+], note: 'Resume juga terkirim ke SATUSEHAT dan bisa dibuka di aplikasi SATUSEHAT Mobile.' },
+obat: { title: 'Obat saya', intro: 'Obat aktif dari resep terakhir dan jadwal minumnya.', rows: [
+row('Metformin 500 mg', '2× sehari · sesudah makan pagi dan siang', '12.00', 'Berikutnya', '#8A4B00'),
+row('Sefiksim 200 mg', '2× sehari · habiskan sesuai resep', '18.00', 'Berikutnya', '#8A4B00')
+], note: 'Pengingat dikirim lewat notifikasi aplikasi dan WhatsApp.' },
+tagihan: { title: 'Tagihan', intro: 'Riwayat tagihan dan pembayaran atas nama Anda.', rows: [
+row('Rawat inap · selisih naik kelas', 'Lunas 4 Okt · QRIS', rp(1250400), 'Lunas', OK),
+row('Rawat inap · paket INA-CBG', 'Dijamin BPJS Kesehatan', 'Rp 0', 'Dijamin', OK),
+row('Kontrol Poli Penyakit Dalam', 'Rabu 14 Okt · BPJS', 'Rp 0', 'Belum ada tagihan', MUTE)
+], note: 'Tidak ada tagihan yang perlu dibayar saat ini.' },
+keluarga: { title: 'Keluarga', intro: 'Hubungkan anggota keluarga agar bisa mendaftarkan dan melihat jadwal mereka.', rows: [
+row('Belum ada anggota keluarga', 'Tambahkan lewat loket pendaftaran dengan membawa KK', '', '', MUTE)
+], note: 'Akses keluarga ke data medis Anda hanya diberikan dengan persetujuan tertulis.' },
+tanya: { title: 'Tanya RS', intro: 'Pertanyaan non-darurat dijawab petugas pada jam layanan.', rows: [
+row('Chat petugas', 'Setiap hari 07.00–21.00', '', 'Buka', OK),
+row('Keadaan darurat', 'Datang langsung ke IGD 24 jam atau hubungi 119', '', 'Darurat', HI)
+], note: 'Jangan kirim foto dokumen identitas lewat chat.' },
+privasi: { title: 'Data & privasi', intro: 'Kendalikan siapa yang dapat melihat data kesehatan Anda.', rows: [
+row('Akses rekam medis', 'Hanya tenaga kesehatan yang merawat · setiap akses tercatat', '', 'Tercatat', OK),
+row('Berbagi ke SATUSEHAT', 'Sesuai ketentuan Kemenkes', '', 'Aktif', OK),
+row('Salinan data pribadi', 'Ajukan unduhan rekam medis Anda', '', 'Tersedia', MUTE)
+], note: 'Data diproses sesuai UU Pelindungan Data Pribadi.' }
+};
+var menuDef = [
+{ k: 'daftar', label: 'Daftar berobat', icon: I.cal }, { k: 'lab', label: 'Hasil lab', icon: I.flask }, { k: 'resume', label: 'Resume medis', icon: I.file }, { k: 'obat', label: 'Obat saya', icon: I.pill },
+{ k: 'tagihan', label: 'Tagihan', icon: I.card }, { k: 'keluarga', label: 'Keluarga', icon: I.users }, { k: 'tanya', label: 'Tanya RS', icon: I.chat }, { k: 'privasi', label: 'Data & privasi', icon: I.shield }
+];
+var menu = menuDef.map(function (m) { return Object.assign({}, m, { open: function () { self.setState({ sub: m.k }); } }); });
+var feed = [
+{ t: 'Hasil lab sudah tersedia', d: 'Darah lengkap dan kimia · sudah dibaca dokter', when: '07.58', dot: '#0F766E' },
+{ t: 'Pengingat obat 12.00', d: 'Metformin 500 mg · sesudah makan siang', when: 'hari ini', dot: '#8A4B00' },
+{ t: 'Resume rawat inap', d: 'Dirawat 29 Sep – 4 Okt · ditandatangani dokter', when: '4 Okt', dot: '#1E3A8A' },
+{ t: 'Pembayaran diterima', d: 'Selisih naik kelas Rp 1.250.400 · QRIS', when: '4 Okt', dot: '#1E6B34' }
+];
+var ahead = S.ahead;
+var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+var qPre, qTime, qPost;
+if (ahead > 3) { qPre = 'Perkiraan dipanggil '; qTime = hm(638 + ahead * 7); qPost = ' · ' + ahead + ' pasien lagi. Kami kirim notifikasi saat tersisa 3.'; }
+else if (ahead > 0) { qPre = 'Tersisa ' + ahead + ' pasien · perkiraan '; qTime = hm(638 + ahead * 7); qPost = '. Silakan menuju ruang tunggu Poli Penyakit Dalam.'; }
+else { qPre = 'Giliran Anda. '; qTime = 'Silakan masuk'; qPost = ' ke ruang Poli Penyakit Dalam.'; }
+function advance() {
+if (S.ahead <= 0) return;
+var a = S.ahead - 1;
+var notes = S.qNotes.slice();
+if (a === 3) notes.unshift({ t: 'Antrean tersisa 3 pasien', d: 'PD-027 · silakan menuju ruang tunggu poli', when: jam(), dot: '#8A4B00' });
+if (a === 0) notes.unshift({ t: 'Giliran Anda dipanggil', d: 'PD-027 · Poli Penyakit Dalam', when: jam(), dot: '#B42318' });
+self.setState({ ahead: a, serving: S.serving + 1, qNotes: notes });
+}
+function yOf(v) { var y = 18 + (182 - v) * 24 / 44; return Math.max(4, Math.min(66, Math.round(y * 10) / 10)); }
+var ys = S.ys, vals = S.vals;
+var d = ys.map(function (y, i) { return (i ? 'L' : 'M') + (8 + i * 50) + ' ' + y; }).join(' ');
+var lastY = ys[ys.length - 1], lastV = vals[vals.length - 1];
+var inBand = lastY >= 20 && lastY <= 46;
+function saveLog(e) {
+if (e && e.preventDefault) e.preventDefault();
+var raw = String(self.state.logVal).replace(',', '.').trim();
+var v = Math.round(parseFloat(raw));
+if (!raw || isNaN(v)) { self.setState({ logErr: 'Isi angka hasil pemeriksaan.' }); return; }
+if (v < 20 || v > 600) { self.setState({ logErr: 'Angka di luar jangkauan alat (20–600 mg/dL). Periksa lagi.' }); return; }
+self.setState({ ys: S.ys.slice(1).concat([yOf(v)]), vals: S.vals.slice(1).concat([v]), lastWhen: 'dicatat ' + jam(), logOpen: false, logVal: '', logErr: '' });
+}
+var tabDef = [
+{ k: 'beranda', label: 'Beranda', icon: I.home }, { k: 'jadwal', label: 'Jadwal', icon: I.cal }, { k: 'notif', label: 'Notifikasi', icon: I.bell }, { k: 'profil', label: 'Profil', icon: I.user }
+];
+var tabs = tabDef.map(function (t) {
+var on = S.tab === t.k;
+return Object.assign({}, t, { sel: on ? 'true' : 'false', fg: on ? '#0B5D56' : '#5B6B79', w: on ? 600 : 400, pick: function () { self.setState({ tab: t.k, sub: null }); } });
+});
+var notifRows = S.qNotes.concat(feed).map(function (f) { return row(f.t, f.d, '', f.when, MUTE); });
+var TABS = {
+jadwal: { title: 'Jadwal', intro: 'Kunjungan dan pengingat yang akan datang.', rows: [
+row('Kontrol Poli Penyakit Dalam', 'Rabu 14 Okt · antrean PD-027 · BPJS', '14 Okt', 'Terdaftar', OK),
+row('Metformin 500 mg', 'Sesudah makan siang', '12.00', 'Hari ini', '#8A4B00'),
+row('Sefiksim 200 mg', 'Sesudah makan malam', '18.00', 'Hari ini', '#8A4B00'),
+row('Cek gula darah mandiri', 'Sebelum sarapan', 'Pagi', 'Setiap hari', MUTE)
+], note: 'Ubah atau batalkan jadwal kontrol paling lambat H-1.' },
+notif: { title: 'Notifikasi', intro: 'Pemberitahuan dari rumah sakit untuk Anda.', rows: notifRows, note: 'Notifikasi penting juga dikirim lewat WhatsApp.' },
+profil: { title: 'Profil', intro: 'Endang Wijaya · pasien terdaftar', rows: [
+row('Penjamin', 'BPJS Kesehatan', '', 'Aktif', OK),
+row('Nomor HP', 'Dipakai untuk notifikasi dan masuk aplikasi', '', 'Terverifikasi', OK),
+link('Keluarga', 'Anggota keluarga yang terhubung', 'keluarga'),
+link('Data & privasi', 'Akses data dan persetujuan berbagi', 'privasi'),
+link('Tagihan', 'Riwayat tagihan dan pembayaran', 'tagihan')
+], note: 'Perubahan data identitas dilakukan di loket pendaftaran dengan KTP.' }
+};
+var page = S.sub ? SUBS[S.sub] : (TABS[S.tab] || { title: '', intro: '', rows: [], note: '' });
+var vHome = !S.sub && S.tab === 'beranda';
+var logErr = S.logErr;
+return {
+menu: menu, feed: feed, tabs: tabs,
+vHome: vHome, vPage: !vHome, showBack: !!S.sub, page: page,
+back: function () { self.setState({ sub: null }); },
+goNotif: function () { self.setState({ tab: 'notif', sub: null }); },
+serving: 'PD-0' + pad2(S.serving), qPct: Math.round(100 - ahead * 28 / 6) + '%', qPre: qPre, qTime: qTime, qPost: qPost,
+canAdvance: ahead > 0, advance: advance,
+chartD: d, lastX: String(8 + (ys.length - 1) * 50), lastY: String(lastY), lastFill: inBand ? '#0F766E' : '#C27A1A',
+chartLabel: 'Gula darah 7 hari dari ' + vals[0] + ' ke ' + lastV + ' mg/dL',
+lastVal: String(lastV), lastWhen: S.lastWhen,
+logOpen: S.logOpen, logClosed: !S.logOpen, logVal: S.logVal,
+openLog: function () { self.setState({ logOpen: true, logErr: '' }); },
+cancelLog: function () { self.setState({ logOpen: false, logVal: '', logErr: '' }); },
+typeLog: function (e) { self.setState({ logVal: e.target.value, logErr: '' }); },
+saveLog: saveLog,
+logInvalid: logErr ? 'true' : 'false', logBd: logErr ? '#B42318' : '#CBD3DB',
+logMsg: logErr || 'Masukkan angka dari glukometer. Nilai akan muncul di grafik.', logMsgFg: logErr ? '#B42318' : '#5B6B79'
+};
+}
+}
+</script>
+</body>
+</html>

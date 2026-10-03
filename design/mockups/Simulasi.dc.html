@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Simulasi pasien end-to-end</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0B5D56}a:hover{color:#084A44}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="simulasi" user="Tim implementasi" role="Mode simulasi · data fiktif" initials="SM" unit="SIM RS · Simulasi" hint-size="240px,1500px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Umum / Simulasi / Data fiktif, tidak tersimpan</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Simulasi pasien end-to-end</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<div role="tablist" aria-label="Skenario" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #EEF1F4">
+<sc-for list="{{scTabs}}" as="t" hint-placeholder-count="2">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="font: inherit; font-weight: {{t.w}}; height: 36px; padding: 0 14px; border-radius: 9px; border: 0; background: {{t.bg}}; color: {{t.fg}}; box-shadow: {{t.sh}}; cursor: pointer">{{t.label}}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{toggleAuto}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: {{autoBg}}; color: {{autoFg}}; cursor: pointer; display: flex; align-items: center; gap: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{autoIcon}}"></path></svg>{{autoLabel}}</button>
+<button type="button" onClick="{{restart}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer">Mulai ulang</button>
+</div>
+</header>
+
+<section aria-label="Pasien" style="margin: 16px 28px 0; padding: 14px 18px; border-radius: 14px; border: 1px solid #E3E8EE; background-color: #FFFFFF; background-image: linear-gradient(100deg, rgba(15,118,110,0.08), rgba(255,255,255,0) 55%); display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<div style="display: flex; gap: 12px; align-items: center">
+<span style="width: 44px; height: 44px; border-radius: 999px; background: linear-gradient(160deg, #1D7E77, #0B5D56); color: #FFFFFF; font-weight: 600; display: flex; align-items: center; justify-content: center">{{pt.initials}}</span>
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 17px">{{pt.nama}}</span><span style="font-size: 12.5px; color: #5B6B79">{{pt.meta}}</span></span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 360px">
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #F1F3F5; color: #3F4C58; font-weight: 600">{{pt.alergi}}</span>
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #FFF3E0; color: #8A4B00; font-weight: 600">{{pt.riwayat}}</span>
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #E6F4F1; color: #0B5D56; font-weight: 600">{{pt.penjamin}}</span>
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #EEF2FB; color: #1E3A8A; font-weight: 600">Lokasi: {{pt.lokasi}}</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end">
+<span style="font-size: 12px; color: #5B6B79">Jam simulasi</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600">{{clockText}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{clockSub}}</span>
+</div>
+</section>
+
+<nav aria-label="Tahap perjalanan pasien" style="margin: 14px 28px 0; display: flex; flex-direction: column; gap: 8px">
+<div style="overflow-x: auto">
+<div style="display: flex; gap: 8px; width: max-content; padding-bottom: 4px">
+<sc-for list="{{journey}}" as="j" hint-placeholder-count="9">
+<button type="button" onClick="{{j.pick}}" disabled="{{j.disabled}}" aria-current="{{j.cur}}" style="font: inherit; text-align: left; cursor: {{j.cursor}}; width: 132px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; border: 1.5px solid {{j.bd}}; background: {{j.bg}}; color: #14212B">
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 24px; height: 24px; flex: none; border-radius: 999px; background: {{j.dotBg}}; color: {{j.dotFg}}; border: 1.5px solid {{j.dotBd}}; box-sizing: border-box; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{j.mark}}</span><span style="font-size: 11.5px; color: #5B6B79; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{j.time}}</span></span>
+<span style="font-size: 13px; font-weight: 600; line-height: 1.25">{{j.label}}</span>
+<span style="font-size: 11.5px; color: #5B6B79; line-height: 1.25">{{j.actor}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+<span style="display: block; height: 4px; border-radius: 999px; background: #E3E8EE; overflow: hidden"><span style="display: block; height: 4px; width: {{progressW}}; background: linear-gradient(90deg, #1D7E77, #0F766E)"></span></span>
+</nav>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<section aria-label="Langkah aktif" style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+
+<sc-if value="{{showStep}}" hint-placeholder-val="{{ true }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 16px 18px; border-bottom: 1px solid #E3E8EE; background: linear-gradient(100deg, rgba(15,118,110,0.07), #FFFFFF 60%); display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between">
+<span style="font-size: 12.5px; color: #5B6B79">Langkah {{sv.no}} · {{sv.stage}}</span>
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #E6F4F1; color: #0B5D56">Peran: {{sv.actor}}</span>
+</span>
+<h2 style="margin: 0; font-size: 19px; font-weight: 600">{{sv.title}}</h2>
+<p style="margin: 0; font-size: 13.5px; color: #3F4C58; max-width: 760px">{{sv.desc}}</p>
+<a href="{{sv.screen}}" style="font-size: 13px; font-weight: 600; text-decoration: none; align-self: flex-start">Buka layar lengkap: {{sv.screenName}} →</a>
+</div>
+
+<sc-if value="{{sv.past}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 18px; background: #EEF2FB; border-bottom: 1px solid #C9D3EE; font-size: 13px; color: #1E3A8A">
+<span>Langkah ini sudah selesai. Anda sedang meninjau hasilnya.</span>
+<button type="button" onClick="{{goActive}}" style="font: inherit; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #1E3A8A; background: #FFFFFF; color: #1E3A8A; cursor: pointer">{{sv.backLabel}}</button>
+</div>
+</sc-if>
+
+<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{sv.tasks}}" as="k" hint-placeholder-count="3">
+<div style="border-radius: 12px; border: 1px solid {{k.bd}}; background: {{k.bg}}; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; opacity: {{k.op}}">
+<div style="display: flex; gap: 12px; align-items: flex-start">
+<span style="width: 28px; height: 28px; flex: none; border-radius: 999px; background: {{k.numBg}}; color: {{k.numFg}}; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">{{k.num}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0"><span style="font-weight: 600; color: {{k.titleFg}}">{{k.label}}</span><span style="font-size: 12.5px; color: #5B6B79">{{k.hint}}</span></span>
+<span style="font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{k.chipBg}}; color: {{k.chipFg}}; white-space: nowrap">{{k.status}}</span>
+</div>
+<sc-if value="{{k.showAct}}" hint-placeholder-val="{{ true }}">
+<div style="padding-left: 40px">
+<button type="button" onClick="{{k.run}}" disabled="{{k.disabled}}" style="font: inherit; font-weight: 600; min-height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid {{k.btnBd}}; background: {{k.btnBg}}; color: {{k.btnFg}}; cursor: {{k.cursor}}">{{k.btn}}</button>
+</div>
+</sc-if>
+<sc-if value="{{k.isChoice}}" hint-placeholder-val="{{ false }}">
+<div style="padding-left: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px">
+<sc-for list="{{k.opts}}" as="o" hint-placeholder-count="2">
+<button type="button" onClick="{{o.pick}}" disabled="{{o.disabled}}" aria-pressed="{{o.pressed}}" style="font: inherit; text-align: left; min-height: 44px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid {{o.bd}}; background: {{o.bg}}; color: #14212B; cursor: {{o.cursor}}; opacity: {{o.op}}; display: flex; flex-direction: column; gap: 2px">
+<span style="font-weight: 600; font-size: 13.5px">{{o.label}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{o.sub}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{k.showInput}}" hint-placeholder-val="{{ false }}">
+<div style="padding-left: 40px; display: flex; gap: 8px; flex-wrap: wrap">
+<input type="text" aria-label="{{k.label}}" value="{{k.val}}" placeholder="{{k.ph}}" onInput="{{k.onInput}}" disabled="{{k.disabled}}" style="font: inherit; height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid {{k.inBd}}; background: #FFFFFF; color: #14212B; flex: 1 1 260px; min-width: 0; box-sizing: border-box">
+<button type="button" onClick="{{k.save}}" disabled="{{k.disabled}}" style="font: inherit; font-weight: 600; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid {{k.btnBd}}; background: {{k.btnBg}}; color: {{k.btnFg}}; cursor: {{k.cursor}}">Simpan</button>
+</div>
+</sc-if>
+<sc-if value="{{k.hasErr}}" hint-placeholder-val="{{ false }}">
+<span role="alert" style="padding-left: 40px; font-size: 12.5px; color: #B42318">{{k.err}}</span>
+</sc-if>
+<sc-if value="{{k.showDone}}" hint-placeholder-val="{{ false }}">
+<span style="padding-left: 40px; font-size: 13px; color: #1E6B34; font-weight: 500">✓ {{k.doneText}}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<div style="padding: 14px 18px; border-top: 1px solid #E3E8EE; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: #FAFBFC">
+<span style="font-size: 13px; color: #3F4C58">{{sv.footNote}}</span>
+<button type="button" onClick="{{next}}" disabled="{{sv.nextDisabled}}" style="font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid {{sv.nextBd}}; background: {{sv.nextBg}}; color: {{sv.nextFg}}; cursor: {{sv.nextCursor}}">{{sv.nextLabel}}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{showSummary}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 18px; border-bottom: 1px solid #E3E8EE; background: linear-gradient(100deg, rgba(30,107,52,0.10), #FFFFFF 60%); display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #EAF5EC; color: #1E6B34; align-self: flex-start">Simulasi selesai</span>
+<h2 style="margin: 0; font-size: 20px; font-weight: 600">{{sum.title}}</h2>
+<p style="margin: 0; font-size: 13.5px; color: #3F4C58">{{sum.sub}}</p>
+</div>
+<div style="padding: 16px 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{sum.stats}}" as="s" hint-placeholder-count="8">
+<div style="border: 1px solid #E3E8EE; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; background: linear-gradient(160deg, #FFFFFF 55%, rgba(15,118,110,0.06))">
+<span style="font-size: 12px; color: #5B6B79">{{s.label}}</span>
+<span style="font-size: 20px; font-weight: 700">{{s.value}}</span>
+<span style="font-size: 12px; color: #3F4C58">{{s.note}}</span>
+</div>
+</sc-for>
+</div>
+<div style="padding: 0 18px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Waktu per tahap</span>
+<sc-for list="{{sum.bars}}" as="b" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: 170px minmax(0, 1fr) 200px; gap: 12px; align-items: center; font-size: 13px">
+<span>{{b.label}}</span>
+<span style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #F1F3F5"><span style="width: {{b.waitW}}; background: #E9B26B"></span><span style="width: {{b.svcW}}; background: #0F766E"></span></span>
+<span style="font-size: 12.5px; color: #3F4C58">{{b.text}}</span>
+</div>
+</sc-for>
+<span style="display: flex; gap: 16px; font-size: 12px; color: #3F4C58; flex-wrap: wrap"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #E9B26B; margin-right: 6px"></span>Jeda atau menunggu sebelum tahap dimulai</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #0F766E; margin-right: 6px"></span>Waktu pengerjaan</span></span>
+</div>
+<div style="padding: 0 18px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Terjadi otomatis, tanpa input ulang</span>
+<sc-for list="{{sum.auto}}" as="a" hint-placeholder-count="6">
+<span style="font-size: 13px; color: #3F4C58">• {{a.t}}</span>
+</sc-for>
+</div>
+<div style="padding: 14px 18px; border-top: 1px solid #E3E8EE; display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" onClick="{{restart}}" style="font: inherit; font-weight: 600; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Ulangi skenario</button>
+<button type="button" onClick="{{switchOther}}" style="font: inherit; font-weight: 500; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; cursor: pointer">{{sum.otherLabel}}</button>
+<a href="AppPasien.dc.html" style="display: inline-flex; align-items: center; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font-weight: 500; text-decoration: none">Lihat dari sisi pasien</a>
+<a href="Dasbor.dc.html" style="display: inline-flex; align-items: center; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font-weight: 500; text-decoration: none">Dasbor direksi</a>
+</div>
+</div>
+</sc-if>
+</section>
+
+<aside aria-label="Rekam pasien dan jejak sistem" style="flex: 1 1 360px; max-width: 440px; display: flex; flex-direction: column; gap: 14px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Rekam medis terbentuk</span><span style="font-size: 12px; color: #5B6B79">diisi sekali, dipakai semua unit</span></span>
+<sc-for list="{{recRows}}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding-top: 6px; border-top: 1px solid #EEF1F4">
+<span style="font-size: 12.5px; color: #5B6B79">{{r.k}}</span>
+<span style="font-size: 13px; white-space: pre-line">{{r.v}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Integrasi dan keselamatan</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{intStats}}" as="s" hint-placeholder-count="4">
+<span style="display: flex; flex-direction: column; padding: 8px 10px; border-radius: 10px; background: {{s.bg}}"><span style="font-size: 20px; font-weight: 700; color: {{s.fg}}">{{s.value}}</span><span style="font-size: 11.5px; color: #3F4C58; line-height: 1.25">{{s.label}}</span></span>
+</sc-for>
+</div>
+<sc-if value="{{isRJ}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 12.5px; color: #5B6B79">Status antrean ke BPJS (task ID)</span>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{bpjsChips}}" as="c" hint-placeholder-count="7">
+<span title="{{c.title}}" style="display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 8px; border: 1px solid {{c.bd}}; background: {{c.bg}}"><span style="font-weight: 700; color: {{c.fg}}">{{c.n}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #5B6B79">{{c.time}}</span></span>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Tagihan berjalan</span><span style="font-size: 12px; color: #5B6B79">charge capture otomatis</span></span>
+<sc-if value="{{noCharges}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #5B6B79">Belum ada layanan yang ditagihkan.</span>
+</sc-if>
+<sc-for list="{{charges}}" as="c" hint-placeholder-count="4">
+<span style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; font-size: 13px"><span>{{c.name}}</span><span style="font-family: 'IBM Plex Mono', monospace">{{c.amt}}</span><span style="font-size: 11.5px; color: #5B6B79">{{c.src}}</span></span>
+</sc-for>
+<span style="display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; border-top: 1px solid #E3E8EE"><span>Total tarif RS</span><span style="font-family: 'IBM Plex Mono', monospace">{{bill.total}}</span></span>
+<span style="display: flex; justify-content: space-between; font-size: 13px; color: #1E6B34"><span>Ditanggung penjamin</span><span style="font-family: 'IBM Plex Mono', monospace">{{bill.covered}}</span></span>
+<span style="display: flex; justify-content: space-between; font-size: 13px; color: #3F4C58"><span>Dibayar pasien</span><span style="font-family: 'IBM Plex Mono', monospace">{{bill.patient}}</span></span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Jejak sistem</span><span style="font-size: 12px; color: #5B6B79">{{logCount}} kejadian · terbaru di atas</span></div>
+<div style="max-height: 420px; overflow-y: auto">
+<sc-if value="{{noLogs}}" hint-placeholder-val="{{ false }}">
+<span style="display: block; padding: 12px 16px; font-size: 13px; color: #5B6B79">Mulai langkah pertama untuk melihat apa yang dicatat sistem.</span>
+</sc-if>
+<sc-for list="{{logs}}" as="l" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; padding: 9px 16px; border-bottom: 1px solid #EEF1F4">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #5B6B79; line-height: 1.3">{{l.time}}</span>
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-size: 13px">{{l.text}}</span>
+<span style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center"><span style="font-size: 11.5px; color: #5B6B79">{{l.actor}}</span><sc-if value="{{l.hasSys}}" hint-placeholder-val="{{ true }}"><span style="font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: {{l.sysBg}}; color: {{l.sysFg}}">{{l.sys}}</span></sc-if></span>
+</span>
+</div>
+</sc-for>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = this.fresh('rj');
+this.timer = null;
+}
+fresh(sc) { return { sc: sc, step: 0, view: 0, seq: [], drafts: {}, errs: {}, auto: false, finished: false }; }
+componentDidMount() {
+var self = this;
+this.timer = setInterval(function () { if (self.state.auto) self.tick(); }, 1500);
+}
+componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+
+defs() {
+if (this._defs) return this._defs;
+var has = function (arr, s) { return arr.some(function (x) { return x.indexOf(s) === 0; }); };
+var rj = {
+label: 'Rawat jalan BPJS',
+date: 'Senin 5 Okt 2026',
+startMin: 7 * 60 + 10,
+base: { nama: 'Tn. Suryo Adi Nugroho', initials: 'SA', jk: 'L', umur: 54, rm: '00-28-44-17', alergi: 'Tidak ada', riwayat: 'DM tipe 2 sejak 2018 · hipoglikemia berat 2025', penjamin: 'BPJS · belum diverifikasi', lokasi: 'Rumah, booking via aplikasi', sep: '', antrean: '', ttv: '', triase: '', dx: [], order: [], hasil: [], obat: [], tindakan: [], kontrol: '', klaim: '', bayarPasien: null, pulangAt: null },
+auto: ['Kode booking menjadi antrean, SEP, dan kunjungan tanpa ketik ulang', 'Tanda vital perawat langsung tampil di layar dokter', 'Order dokter langsung masuk worklist lab, hasil analyzer langsung ke dokter', 'Resep dokter menjadi worklist farmasi dan memotong stok saat diserahkan', 'Setiap layanan otomatis menjadi baris tagihan (charge capture)', 'Status antrean BPJS task 1–7 dan data SATUSEHAT terkirim di latar belakang'],
+steps: [
+{ stage: 'Kedatangan', actor: 'Pasien · anjungan', screen: 'Anjungan.dc.html', screenName: 'Anjungan mandiri', title: 'Check-in di anjungan mandiri', desc: 'Pasien sudah booking lewat aplikasi. Di rumah sakit cukup pindai kode booking, verifikasi biometrik, lalu ambil tiket.', wait: 0, tasks: [
+{ id: 'scan', kind: 'act', label: 'Pindai kode booking dari aplikasi pasien', btn: 'Pindai kode booking', dur: 1, result: 'Booking 2610050117 · Poli Penyakit Dalam · dr. [Nama DPJP]', apply: function (r, v, c) { r.lokasi = 'Ruang tunggu admisi'; c.log('Check-in dengan kode booking 2610050117', 'BPJS Antrean · task 1'); } },
+{ id: 'bio', kind: 'choice', label: 'Verifikasi biometrik peserta JKN', hint: 'Dipakai sebagai syarat penerbitan SEP rawat jalan.', options: [{ id: 'wajah', label: 'Pengenalan wajah cocok' }, { id: 'jari', label: 'Sidik jari cocok' }], dur: 1, apply: function (r, v, c) { c.log('Biometrik peserta terverifikasi: ' + c.opt.toLowerCase(), 'BPJS · biometrik'); } },
+{ id: 'tiket', kind: 'act', label: 'Cetak tiket antrean admisi', btn: 'Cetak tiket', dur: 1, result: 'Tiket A-031 · perkiraan dipanggil 12 menit', apply: function (r, v, c) { r.antrean = 'A-031 (admisi)'; c.log('Tiket A-031 tercetak, notifikasi dikirim ke aplikasi pasien'); } }
+] },
+{ stage: 'Pendaftaran & SEP', actor: 'Petugas pendaftaran', screen: 'Registrasi.dc.html', screenName: 'Pendaftaran', title: 'Verifikasi penjaminan dan terbitkan SEP', desc: 'Kepesertaan, surat kontrol, dan kuota dokter dicek otomatis ke VClaim. Petugas cukup mengonfirmasi.', wait: 11, tasks: [
+{ id: 'panggil', kind: 'act', label: 'Panggil A-031 ke loket 3', btn: 'Panggil', dur: 1, result: 'Pasien di loket 3', apply: function (r, v, c) { r.lokasi = 'Loket pendaftaran 3'; c.log('A-031 dipanggil ke loket 3', 'BPJS Antrean · task 2'); } },
+{ id: 'cek', kind: 'act', label: 'Cek kepesertaan dan surat kontrol', btn: 'Cek ke VClaim', dur: 2, result: 'Peserta aktif · PBPU kelas 2 · surat kontrol berlaku s.d. 12 Okt', apply: function (r, v, c) { r.penjamin = 'BPJS PBPU kelas 2 · aktif'; c.log('Peserta aktif, surat kontrol valid', 'BPJS VClaim'); } },
+{ id: 'sep', kind: 'act', label: 'Terbitkan SEP rawat jalan', btn: 'Terbitkan SEP', dur: 2, result: 'SEP 0301R0011026V005102 · antrean poli PD-027', apply: function (r, v, c) { r.sep = '0301R0011026V005102'; r.antrean = 'PD-027 (Poli PD)'; r.lokasi = 'Ruang tunggu Poli PD'; c.charge('Administrasi rawat jalan', 30000); c.log('SEP 0301R0011026V005102 terbit', 'BPJS VClaim · insert SEP'); c.log('Masuk antrean poli PD-027', 'BPJS Antrean · task 3'); c.log('Kunjungan rawat jalan dibuat', 'SATUSEHAT · Encounter'); } }
+] },
+{ stage: 'Asesmen perawat', actor: 'Perawat poli', screen: 'Main.dc.html', screenName: 'Pemeriksaan poli', title: 'Asesmen awal keperawatan', desc: 'Perawat mengisi tanda vital dan skrining. Nilai di luar batas langsung ditandai untuk dokter.', wait: 18, tasks: [
+{ id: 'td', kind: 'input', label: 'Tekanan darah (mmHg)', def: '138/86', ph: 'mis. 120/80', check: function (v) { return /^\d{2,3}\/\d{2,3}$/.test(String(v).trim()) ? '' : 'Isi dengan format sistolik/diastolik, mis. 120/80.'; }, dur: 2, apply: function (r, v, c) { r.ttv = 'TD ' + String(v).trim(); c.log('Tekanan darah ' + String(v).trim() + ' mmHg', 'SATUSEHAT · Observation'); } },
+{ id: 'gds', kind: 'input', label: 'Gula darah sewaktu dengan glukometer (mg/dL)', def: '212', ph: '20–600', check: function (v) { var n = Number(String(v).trim()); return (n >= 20 && n <= 600) ? '' : 'Isi angka antara 20 dan 600.'; }, dur: 2, apply: function (r, v, c) { var n = Number(String(v).trim()); r.ttv += ' · GDS ' + n + ' mg/dL'; c.charge('Pemeriksaan GDS glukometer', 25000); c.log('GDS ' + n + ' mg/dL' + (n >= 200 ? ', ditandai tinggi untuk dokter' : ''), 'SATUSEHAT · Observation'); } },
+{ id: 'jatuh', kind: 'choice', label: 'Skrining risiko jatuh (Get Up and Go)', options: [{ id: 'tidak', label: 'Tidak berisiko' }, { id: 'rendah', label: 'Risiko rendah' }, { id: 'tinggi', label: 'Risiko tinggi', sub: 'pasang gelang kuning' }], dur: 1, apply: function (r, v, c) { if (v === 'tinggi') r.lokasi += ' · gelang kuning'; c.charge('Asesmen keperawatan', 25000); c.log('Skrining risiko jatuh: ' + c.opt.toLowerCase()); } }
+] },
+{ stage: 'Pemeriksaan dokter', actor: 'DPJP Poli PD', screen: 'Main.dc.html', screenName: 'Pemeriksaan poli', title: 'Pemeriksaan dan order penunjang', desc: 'Dokter melihat ringkasan pasien, skrining perawat, dan riwayat. Order dikirim lewat CPOE dan langsung masuk worklist lab.', wait: 24, tasks: [
+{ id: 'panggil', kind: 'act', label: 'Panggil PD-027 ke ruang periksa 2', btn: 'Panggil pasien', dur: 1, result: 'Pasien di ruang periksa 2', apply: function (r, v, c) { r.lokasi = 'Ruang periksa 2 Poli PD'; c.log('Mulai pelayanan poli', 'BPJS Antrean · task 4'); } },
+{ id: 'dx', kind: 'act', label: 'Tetapkan diagnosis kerja: E11.9 · DM tipe 2 tanpa komplikasi', hint: 'Anamnesis dan pemeriksaan fisik dicatat di SOAP. GDS tinggi dari perawat sudah tampil.', btn: 'Simpan SOAP dan diagnosis', dur: 7, result: 'SOAP tersimpan, diagnosis E11.9', apply: function (r, v, c) { r.dx = ['E11.9 · DM tipe 2 tanpa komplikasi']; c.charge('Konsultasi dokter spesialis', 150000); c.log('SOAP dan diagnosis kerja E11.9', 'SATUSEHAT · Condition'); } },
+{ id: 'order', kind: 'choice', label: 'Order penunjang lewat CPOE', options: [{ id: 'paket', label: 'Paket kontrol DM', sub: 'HbA1c, profil lipid, kreatinin' }, { id: 'hba1c', label: 'HbA1c saja' }], dur: 2, apply: function (r, v, c) { r.order = v === 'paket' ? ['HbA1c', 'Profil lipid', 'Kreatinin'] : ['HbA1c']; r.lokasi = 'Laboratorium (sampling)'; c.log('Order lab dikirim: ' + r.order.join(', '), 'SATUSEHAT · ServiceRequest'); } }
+] },
+{ stage: 'Laboratorium', actor: 'Analis lab', screen: 'Lab.dc.html', screenName: 'Laboratorium', title: 'Sampling, analisis, dan validasi', desc: 'Label barcode tabung dibuat dari order. Hasil analyzer masuk otomatis (HL7), lalu QC dan delta check dijalankan sebelum validasi.', wait: 7, tasks: [
+{ id: 'sampling', kind: 'act', label: 'Ambil sampel darah dan pindai barcode tabung', btn: 'Pindai tabung', dur: 4, result: 'Sampel L2610050088 diterima', apply: function (r, v, c) { c.log('Sampel L2610050088 diterima laboratorium'); } },
+{ id: 'hasil', kind: 'act', label: 'Terima hasil dari analyzer', btn: 'Terima hasil (HL7 ORU)', dur: 52, result: 'Hasil masuk, QC harian lolos', apply: function (r, v, c) { r.hasil = r.order.length > 1 ? ['HbA1c 8,4% (tinggi)', 'LDL 142 mg/dL (tinggi)', 'Kreatinin 1,1 mg/dL · eGFR 74'] : ['HbA1c 8,4% (tinggi)']; c.log('Hasil analyzer masuk, QC lolos', 'LIS · HL7 ORU'); } },
+{ id: 'validasi', kind: 'act', label: 'Validasi klinis dokter Sp.PK (TTE)', btn: 'Validasi dan rilis', dur: 5, result: 'Hasil dirilis ke dokter dan aplikasi pasien', apply: function (r, v, c) { c.charge('HbA1c', 185000); if (r.order.length > 1) { c.charge('Profil lipid', 160000); c.charge('Kreatinin', 45000); } r.lokasi = 'Ruang tunggu Poli PD'; c.log('Hasil divalidasi dan dirilis', 'SATUSEHAT · DiagnosticReport'); } }
+] },
+{ stage: 'Tinjau hasil & resep', actor: 'DPJP Poli PD', screen: 'CPOE.dc.html', screenName: 'CPOE', title: 'Tinjau hasil dan tulis resep', desc: 'Hasil lab tampil di CPPT. Resep diperiksa CDS terhadap alergi, interaksi, fungsi ginjal, dan riwayat pasien.', wait: 9, tasks: [
+{ id: 'terapi', kind: 'choice', label: 'Rencana terapi', def: 'a', options: [{ id: 'a', label: 'Metformin + glimepirid + atorvastatin', sub: 'Metformin 1000 mg 2×1, glimepirid 2 mg 1×1, atorvastatin 20 mg' }, { id: 'b', label: 'Metformin + atorvastatin', sub: 'Metformin 1000 mg 2×1, atorvastatin 20 mg, evaluasi 1 bulan' }], dur: 4, apply: function (r, v, c) { r.obat = v === 'a' ? ['Metformin 1000 mg 2×1', 'Glimepirid 2 mg 1×1 pagi', 'Atorvastatin 20 mg 1×1 malam'] : ['Metformin 1000 mg 2×1', 'Atorvastatin 20 mg 1×1 malam']; if (has(r.order, 'Profil lipid')) r.dx.push('E78.5 · Hiperlipidemia'); c.log('Resep disusun, ' + r.obat.length + ' item'); } },
+{ id: 'cds', kind: 'choice', tone: 'danger', when: function (r, d) { return d('terapi') === 'a'; }, label: 'CDS: sulfonilurea pada pasien dengan riwayat hipoglikemia berat', hint: 'Glimepirid meningkatkan risiko hipoglikemia berulang. Resep tidak bisa dikirim sebelum ditindaklanjuti.', def: 'ganti', options: [{ id: 'ganti', label: 'Hapus glimepirid', sub: 'optimalkan metformin, evaluasi 1 bulan' }, { id: 'lanjut', label: 'Tetap lanjut dengan alasan', sub: 'edukasi hipoglikemia + cek gula mandiri' }], dur: 1, apply: function (r, v, c) { if (v === 'ganti') { r.obat = r.obat.filter(function (o) { return o.indexOf('Glimepirid') !== 0; }); c.log('Peringatan CDS ditindaklanjuti: glimepirid dihapus', 'Keselamatan · CDS'); } else { c.log('Peringatan CDS di-override, alasan terdokumentasi', 'Keselamatan · CDS'); } } },
+{ id: 'prb', kind: 'choice', label: 'Program rujuk balik (PRB)', options: [{ id: 'ya', label: 'Ya · obat PRB 30 hari', sub: 'kontrol rutin di FKTP' }, { id: 'tidak', label: 'Tidak · resep 7 hari' }], dur: 1, apply: function (r, v, c) { r.prb = v === 'ya'; r.obat = r.obat.map(function (o) { return o + (v === 'ya' ? ' · 30 hari' : ' · 7 hari'); }); c.log(v === 'ya' ? 'Pasien didaftarkan PRB' : 'Resep 7 hari', v === 'ya' ? 'BPJS · PRB' : ''); } },
+{ id: 'tte', kind: 'act', label: 'Tanda tangani resume rawat jalan', btn: 'Tanda tangani (TTE)', dur: 3, result: 'Resume final, resep terkirim ke farmasi', apply: function (r, v, c) { r.lokasi = 'Farmasi rawat jalan'; c.log('Pelayanan poli selesai, resep ke farmasi', 'BPJS Antrean · task 5'); c.log('Resume dan resep terkirim', 'SATUSEHAT · Composition'); } }
+] },
+{ stage: 'Farmasi', actor: 'Apoteker', screen: 'Farmasi.dc.html', screenName: 'Farmasi', title: 'Telaah, siapkan, dan serahkan obat', desc: 'Apoteker menerima resep yang sama persis dengan yang ditulis dokter, tanpa ketik ulang. Stok depo berkurang saat obat diserahkan.', wait: 14, tasks: [
+{ id: 'telaah', kind: 'act', label: 'Telaah resep (administratif, farmasetik, klinis)', btn: 'Telaah lolos', dur: 3, result: 'Tidak ada masalah terapi', apply: function (r, v, c) { c.log('Telaah resep lolos, mulai disiapkan', 'BPJS Antrean · task 6'); } },
+{ id: 'siap', kind: 'act', label: 'Siapkan obat dan cetak label', btn: 'Selesai disiapkan', dur: 11, result: 'Obat siap, label aturan pakai tercetak', apply: function (r, v, c) { var n = r.obat.length; c.charge('Obat ' + (r.prb ? '30 hari (PRB)' : '7 hari') + ' · ' + n + ' item', r.prb ? (n > 2 ? 246000 : 186000) : (n > 2 ? 58000 : 44000)); c.log('Obat selesai disiapkan', 'BPJS Antrean · task 7'); } },
+{ id: 'serah', kind: 'choice', label: 'Serah terima dan edukasi', options: [{ id: 'pasien', label: 'Diterima pasien sendiri' }, { id: 'keluarga', label: 'Diterima keluarga' }], dur: 4, apply: function (r, v, c) { r.lokasi = 'Kasir'; c.log('Obat diserahkan dengan edukasi cara minum', 'SATUSEHAT · MedicationDispense'); } }
+] },
+{ stage: 'Kasir', actor: 'Kasir rawat jalan', screen: 'Kasir.dc.html', screenName: 'Kasir', title: 'Tagihan final dan tutup kunjungan', desc: 'Semua tarif sudah tertangkap dari setiap langkah. Kasir hanya memfinalkan, tidak memasukkan item manual.', wait: 3, tasks: [
+{ id: 'final', kind: 'act', label: 'Finalkan tagihan', btn: 'Finalkan', dur: 1, result: 'Tagihan terkunci', apply: function (r, v, c) { c.log('Tagihan difinalkan'); } },
+{ id: 'tutup', kind: 'act', label: 'Tutup kunjungan: ditanggung BPJS, pasien bayar Rp 0', btn: 'Tutup kunjungan', dur: 1, result: 'Pasien pulang', apply: function (r, v, c) { r.bayarPasien = 0; r.lokasi = 'Pulang'; r.pulangAt = c.now; r.penjamin = 'BPJS PBPU kelas 2 · ditagihkan'; c.log('Kunjungan ditutup', 'SATUSEHAT · Encounter finished'); } }
+] },
+{ stage: 'Pasca kunjungan', actor: 'Sistem dan koder', screen: 'Klaim.dc.html', screenName: 'Klaim', title: 'Setelah pasien pulang', desc: 'Data yang sama dipakai untuk notifikasi pasien, jadwal kontrol, dan klaim.', wait: 0, tasks: [
+{ id: 'notif', kind: 'act', label: 'Kirim resume, hasil lab, dan pengingat obat ke aplikasi pasien', btn: 'Kirim notifikasi', dur: 1, result: 'Terkirim ke aplikasi pasien', apply: function (r, v, c) { c.log('Notifikasi terkirim ke aplikasi pasien'); } },
+{ id: 'kontrol', kind: 'choice', label: 'Jadwal kontrol berikutnya', options: function (r) { return r.prb ? [{ id: 'fktp', label: 'Rujuk balik ke FKTP', sub: 'evaluasi di RS Senin 4 Jan 2027' }] : [{ id: '2mg', label: 'Kontrol 2 minggu', sub: 'Senin 19 Okt 2026' }, { id: '4mg', label: 'Kontrol 4 minggu', sub: 'Senin 2 Nov 2026' }]; }, dur: 1, apply: function (r, v, c) { r.kontrol = c.opt + ' · ' + c.optSub; c.log('Jadwal kontrol dibuat: ' + c.optSub, 'BPJS Antrean · booking'); } },
+{ id: 'klaim', kind: 'act', label: 'Kirim ke antrean koder dan E-Klaim', btn: 'Kirim berkas klaim', dur: 2, result: 'Berkas klaim lengkap otomatis', apply: function (r, v, c) { r.klaim = 'Siap grouping · ' + r.dx.map(function (d) { return d.split(' ')[0]; }).join(', '); c.log('Berkas klaim lengkap, masuk antrean koder', 'E-Klaim'); } }
+] }
+]
+};
+
+var igd = {
+label: 'IGD → rawat inap',
+date: 'Sabtu 3 Okt 2026',
+startDate: '2026-10-03',
+startMin: 21 * 60 + 40,
+base: { nama: 'Tn. Hartono Wibisono', initials: 'HW', jk: 'L', umur: 61, rm: '00-61-30-05', alergi: 'Tidak ada', riwayat: 'Hipertensi · CKD st. 3 · obat rutin amlodipin, omeprazol', penjamin: 'Belum dicek · gawat darurat', lokasi: 'Pintu IGD, diantar keluarga', sep: '', antrean: '', ttv: '', triase: '', dx: [], order: [], hasil: [], obat: [], tindakan: [], kontrol: '', klaim: '', bayarPasien: null, pulangAt: null },
+auto: ['Identitas ditemukan di MPI, riwayat CKD dan obat rutin langsung terbaca', 'Order set IGD sekaligus mengisi worklist lab, radiologi, dan tagihan', 'Nilai kritis memicu alarm, timer, dan pelaporan dengan read-back', 'Permintaan bed masuk papan bed, SEP rawat inap terbit dari data IGD', 'Resume pulang dihimpun dari CPPT, hasil, dan eMAR', 'Kode diagnosis dan prosedur ditarik ke klaim tanpa input ulang'],
+steps: [
+{ stage: 'Kedatangan IGD', actor: 'Petugas admisi IGD', screen: 'IGD.dc.html', screenName: 'IGD', title: 'Pasien datang dengan nyeri dada', desc: 'Pasien gawat darurat dilayani lebih dulu; penjaminan menyusul (BPJS memberi waktu 3×24 jam hari kerja). Identitas dicari di MPI agar riwayat lama terbaca.', wait: 0, tasks: [
+{ id: 'id', kind: 'choice', label: 'Identifikasi pasien', options: [{ id: 'ktp', label: 'Baca e-KTP', sub: 'NIK cocok di MPI' }, { id: 'nama', label: 'Cari di MPI', sub: 'nama + tanggal lahir' }], dur: 2, apply: function (r, v, c) { c.log('Pasien ditemukan di MPI (RM 00-61-30-05), riwayat CKD terbaca', 'MPI'); } },
+{ id: 'gelang', kind: 'act', label: 'Pasang gelang identitas dan buka kunjungan IGD', btn: 'Buka kunjungan', dur: 1, result: 'Gelang terpasang, kunjungan IGD terbuka', apply: function (r, v, c) { r.lokasi = 'IGD · area triase'; c.charge('Administrasi IGD', 50000); c.log('Kunjungan gawat darurat dibuka', 'SATUSEHAT · Encounter'); } }
+] },
+{ stage: 'Triase', actor: 'Perawat triase', screen: 'IGD.dc.html', screenName: 'IGD', title: 'Triase dalam 5 menit', desc: 'Sistem menyarankan level dari keluhan dan tanda vital. Menurunkan level di bawah saran wajib disertai alasan.', wait: 2, tasks: [
+{ id: 'ttv', kind: 'input', label: 'Tanda vital (TD · nadi · RR · SpO2)', def: '158/94 · 112 · 24 · 94%', ph: 'TD · nadi · RR · SpO2', check: function (v) { return String(v).trim().length >= 10 ? '' : 'Lengkapi TD, nadi, RR, dan SpO2.'; }, dur: 2, apply: function (r, v, c) { r.ttv = String(v).trim(); c.log('Tanda vital ' + String(v).trim(), 'SATUSEHAT · Observation'); } },
+{ id: 'level', kind: 'choice', label: 'Level triase', hint: 'Saran sistem: level 2 (nyeri dada + takikardia + SpO2 94%).', def: '2', options: [{ id: '1', label: 'Level 1 · resusitasi' }, { id: '2', label: 'Level 2 · emergensi', sub: 'disarankan sistem' }, { id: '3', label: 'Level 3 · urgen', sub: 'di bawah saran, butuh alasan' }], dur: 1, apply: function (r, v, c) { r.triase = 'Level ' + v; c.log('Triase level ' + v); } },
+{ id: 'alasan', kind: 'input', tone: 'danger', when: function (r, d) { return d('level') === '3'; }, label: 'Level di bawah saran sistem: tulis alasan klinis', hint: 'Tercatat di jejak audit dan ditinjau komite mutu.', def: '', ph: 'Alasan minimal 10 karakter', check: function (v) { return String(v).trim().length >= 10 ? '' : 'Alasan minimal 10 karakter.'; }, dur: 1, apply: function (r, v, c) { c.log('Override triase: ' + String(v).trim(), 'Keselamatan · audit'); } },
+{ id: 'bed', kind: 'act', label: 'Tempatkan di bed resusitasi 2 dan pasang monitor', btn: 'Tempatkan pasien', dur: 2, result: 'Monitor EKG, SpO2, dan TD terpasang', apply: function (r, v, c) { r.lokasi = 'IGD · bed resusitasi 2'; c.log('Pasien di bed R2, monitor terpasang'); } }
+] },
+{ stage: 'Asesmen dokter', actor: 'Dokter jaga IGD', screen: 'CPOE.dc.html', screenName: 'CPOE', title: 'EKG dan order set nyeri dada', desc: 'Order set mencegah pemeriksaan wajib terlewat, sekaligus mengisi worklist unit terkait dan tagihan.', wait: 3, tasks: [
+{ id: 'ekg', kind: 'act', label: 'Rekam EKG 12 sadapan', btn: 'Rekam EKG', dur: 6, result: 'Depresi ST V4–V6, gelombang T tinggi runcing', apply: function (r, v, c) { r.hasil.push('EKG: depresi ST V4–V6, T tinggi runcing'); r.tindakan.push('89.52 · EKG'); c.charge('EKG 12 sadapan', 85000); c.log('EKG tersimpan di RME', 'SATUSEHAT · Procedure'); } },
+{ id: 'orderset', kind: 'choice', label: 'Order penunjang', options: [{ id: 'set', label: 'Order set nyeri dada', sub: 'troponin I, elektrolit, DL, ureum/kreatinin, foto toraks' }, { id: 'manual', label: 'Order manual', sub: 'troponin I + elektrolit' }], dur: 3, apply: function (r, v, c) { if (v === 'set') { r.order = ['Troponin I', 'Elektrolit', 'Darah lengkap', 'Ureum/kreatinin', 'Foto toraks']; c.charge('Lab order set nyeri dada', 735000); c.charge('Foto toraks', 150000); } else { r.order = ['Troponin I', 'Elektrolit']; c.charge('Troponin I + elektrolit', 420000); } c.log('Order dikirim: ' + r.order.join(', '), 'SATUSEHAT · ServiceRequest'); } },
+{ id: 'awal', kind: 'choice', label: 'Terapi awal', options: [{ id: 'asa', label: 'Aspirin 160 mg dikunyah + ISDN 5 mg SL' }, { id: 'tunda', label: 'Tunda sampai hasil lab' }], dur: 3, apply: function (r, v, c) { if (v === 'asa') { r.obat.push('Aspirin 160 mg (dosis awal)', 'ISDN 5 mg SL'); c.charge('Obat dan BHP IGD', 185000); c.log('Terapi awal diberikan, tercatat di eMAR IGD'); } else { c.log('Terapi ditunda menunggu hasil lab'); } } }
+] },
+{ stage: 'Lab & nilai kritis', actor: 'Analis lab → dokter jaga', screen: 'Lab.dc.html', screenName: 'Laboratorium', title: 'Hasil keluar dengan nilai kritis', desc: 'Nilai kritis memicu alarm dan timer 30 menit. Laporan baru sah setelah penerima membacakan ulang (read-back).', wait: 32, tasks: [
+{ id: 'hasil', kind: 'act', tone: 'danger', label: 'Hasil keluar: kalium 6,8 mmol/L (KRITIS), troponin I meningkat', btn: 'Buka hasil', dur: 1, result: 'Alarm nilai kritis aktif, timer lapor 30 menit berjalan', apply: function (r, v, c) { r.hasil.push('Kalium 6,8 mmol/L (KRITIS)', 'Troponin I meningkat', 'Kreatinin 1,8 mg/dL · eGFR 38'); c.log('Nilai kritis kalium terdeteksi, timer lapor dimulai', 'Keselamatan · nilai kritis'); } },
+{ id: 'lapor', kind: 'input', tone: 'danger', label: 'Laporkan ke dokter: nama penerima', def: 'dr. Rina (dokter jaga IGD)', ph: 'Nama dan peran penerima', check: function (v) { return String(v).trim().length >= 5 ? '' : 'Isi nama penerima laporan.'; }, dur: 4, apply: function (r, v, c) { c.log('Nilai kritis dilaporkan ke ' + String(v).trim()); } },
+{ id: 'readback', kind: 'act', tone: 'danger', label: 'Konfirmasi read-back dari penerima', btn: 'Read-back benar', dur: 1, result: 'Dilaporkan 5 menit setelah hasil keluar (target ≤ 30 menit)', apply: function (r, v, c) { c.log('Read-back terkonfirmasi, pelaporan nilai kritis selesai', 'Keselamatan · nilai kritis'); } }
+] },
+{ stage: 'Tata laksana', actor: 'Dokter jaga + DPJP jantung', screen: 'CPOE.dc.html', screenName: 'CPOE', title: 'Atasi hiperkalemia, tetapkan rawat', desc: 'Diagnosis kerja NSTEMI dengan hiperkalemia. DPJP jantung menyetujui rencana lewat aplikasi dokter.', wait: 4, tasks: [
+{ id: 'k', kind: 'choice', label: 'Tata laksana hiperkalemia', options: [{ id: 'lengkap', label: 'Kalsium glukonat IV + insulin–dekstrosa', sub: 'monitor EKG, cek kalium ulang 1 jam' }, { id: 'ca', label: 'Kalsium glukonat IV saja', sub: 'cek kalium ulang 1 jam' }], dur: 8, apply: function (r, v, c) { r.obat.push(v === 'lengkap' ? 'Kalsium glukonat 10% IV + insulin–dekstrosa' : 'Kalsium glukonat 10% IV'); r.dx = ['I21.4 · NSTEMI (kerja)', 'E87.5 · Hiperkalemia']; c.charge('Obat tata laksana hiperkalemia', 95000); c.log('Diagnosis kerja NSTEMI dan hiperkalemia', 'SATUSEHAT · Condition'); } },
+{ id: 'cds', kind: 'choice', tone: 'danger', label: 'CDS: klopidogrel berinteraksi dengan omeprazol (obat rutin pasien)', hint: 'Omeprazol menurunkan efek antiplatelet klopidogrel. Order antiplatelet tertahan sampai ditindaklanjuti.', def: 'ganti', options: [{ id: 'ganti', label: 'Ganti omeprazol ke pantoprazol', sub: 'klopidogrel 300 mg loading tetap diberikan' }, { id: 'lanjut', label: 'Lanjutkan dengan alasan klinis' }], dur: 2, apply: function (r, v, c) { r.ppi = v === 'ganti' ? 'Pantoprazol 40 mg 1×1' : 'Omeprazol 20 mg 1×1'; r.obat.push('Klopidogrel 300 mg (loading)', r.ppi); c.log(v === 'ganti' ? 'Interaksi dicegah: omeprazol diganti pantoprazol' : 'Interaksi di-override dengan alasan', 'Keselamatan · CDS'); } },
+{ id: 'dispo', kind: 'choice', label: 'Keputusan rawat', def: 'icu', options: [{ id: 'icu', label: 'ICU/ICCU' }, { id: 'hcu', label: 'HCU' }, { id: 'bangsal', label: 'Bangsal dengan telemetri' }], dur: 3, apply: function (r, v, c) { r.dispo = v; c.log('Disposisi: rawat ' + c.opt); } },
+{ id: 'consent', kind: 'act', label: 'Persetujuan rawat dan tindakan di tablet', hint: 'Pasien kompeten; istri menjadi saksi.', btn: 'Tanda tangani', dur: 6, result: 'Ditandatangani pasien, saksi, dan dokter (TTE)', apply: function (r, v, c) { c.log('Persetujuan tindakan final, dokumen ber-TTE', 'RME · consent'); } }
+] },
+{ stage: 'Bed & admisi', actor: 'Admisi rawat inap', screen: 'BedManagement.dc.html', screenName: 'Manajemen tempat tidur', title: 'Alokasi tempat tidur dan SEP rawat inap', desc: 'Permintaan bed masuk papan bed. Admisi mencocokkan hak kelas, jenis ruang, dan kebutuhan isolasi.', wait: 18, tasks: [
+{ id: 'bpjs', kind: 'act', label: 'Cek kepesertaan BPJS', btn: 'Cek ke VClaim', dur: 2, result: 'Peserta aktif · PPU kelas 1', apply: function (r, v, c) { r.penjamin = 'BPJS PPU kelas 1 · aktif'; c.log('Peserta aktif, PPU kelas 1', 'BPJS VClaim'); } },
+{ id: 'alok', kind: 'choice', label: 'Alokasikan tempat tidur', options: function (r) { var m = { icu: [{ id: 'ICU 3', label: 'ICU 3', sub: 'siap sekarang' }, { id: 'ICU 5', label: 'ICU 5', sub: 'sedang dibersihkan, siap ±30 menit' }], hcu: [{ id: 'HCU 2', label: 'HCU 2', sub: 'siap sekarang' }, { id: 'HCU 4', label: 'HCU 4', sub: 'sedang dibersihkan, siap ±30 menit' }], bangsal: [{ id: 'Anggrek A-07', label: 'Anggrek A-07 · kelas 1', sub: 'siap, telemetri tersedia' }, { id: 'Anggrek A-09', label: 'Anggrek A-09 · kelas 1', sub: 'sedang dibersihkan' }] }; return m[r.dispo || 'icu']; }, dur: function (v) { return /5|4|09/.test(v) ? 30 : 2; }, apply: function (r, v, c) { r.bed = v; c.log('Tempat tidur ' + v + ' dipesan', 'ADT · papan bed'); } },
+{ id: 'sep', kind: 'act', label: 'Terbitkan SPRI dan SEP rawat inap', btn: 'Terbitkan SEP', dur: 3, result: 'SEP 0301R0011026V004988', apply: function (r, v, c) { r.sep = '0301R0011026V004988'; c.log('SEP rawat inap terbit', 'BPJS VClaim · insert SEP'); c.log('Kunjungan berubah menjadi rawat inap', 'SATUSEHAT · Encounter'); } },
+{ id: 'transfer', kind: 'act', label: 'Transfer pasien dan serah terima SBAR', btn: 'Serah terima', dur: 15, result: 'Pasien tiba di ruang rawat', apply: function (r, v, c) { r.lokasi = r.bed; c.charge('Pelayanan IGD (dokter, perawat, tindakan)', 420000); c.log('Serah terima SBAR IGD → ' + r.bed); } }
+] },
+{ stage: 'Rawat inap', actor: 'PPA ruangan', screen: 'Ranap.dc.html', screenName: 'Rawat inap', title: 'Perawatan hari ke-1 sampai ke-4', desc: 'Setiap pemberian obat lewat pindai gelang. CPPT ditulis semua PPA dan di-co-sign DPJP. Gunakan tombol untuk melompat antarhari.', wait: 20, tasks: [
+{ id: 'emar', kind: 'act', label: 'Pindai gelang dan berikan obat jadwal pertama', btn: 'Pindai gelang', dur: 10, result: 'Identitas cocok, obat tercatat di eMAR', apply: function (r, v, c) { c.log('Identitas cocok, obat jadwal pertama diberikan', 'eMAR · pindai gelang'); } },
+{ id: 'h1', kind: 'act', label: 'Hari 1: kalium turun ke 5,1, nyeri dada hilang', btn: 'Lompat ke hari 1 pagi', dur: 600, result: 'CPPT dokter dan perawat, co-sign DPJP', apply: function (r, v, c) { r.hasil.push('Kalium ulang 5,1 mmol/L'); c.log('CPPT hari 1, co-sign DPJP'); } },
+{ id: 'echo', kind: 'act', label: 'Hari 2: ekokardiografi, rawat bersama Sp.JP', btn: 'Lompat ke hari 2', dur: 1500, result: 'EF 48%, hipokinetik anterior', apply: function (r, v, c) { r.hasil.push('Ekokardiografi: EF 48%, hipokinetik anterior'); r.tindakan.push('88.72 · Ekokardiografi'); c.charge('Ekokardiografi', 450000); c.log('Hasil ekokardiografi masuk RME', 'SATUSEHAT · Procedure'); } },
+{ id: 'pindah', kind: 'act', when: function (r) { return r.dispo !== 'bangsal'; }, label: 'Hari 3: pindah ke bangsal kelas 1 (step-down)', btn: 'Lompat ke hari 3', dur: 1440, result: 'Pindah ke Anggrek A-12', apply: function (r, v, c) { r.lokasi = 'Anggrek A-12 · kelas 1'; c.log('Transfer intra-RS ke Anggrek A-12', 'ADT · papan bed'); } },
+{ id: 'akhir', kind: 'act', label: 'Hari 4: stabil, rencana pulang besok', btn: 'Lompat ke hari 4', dur: 1440, result: 'Rencana pulang dan edukasi dimulai', apply: function (r, v, c) { var d = r.dispo || 'icu'; if (d === 'icu') { c.charge('Akomodasi ICU · 2 hari', 3000000); c.charge('Akomodasi kelas 1 · 3 hari', 1350000); } else if (d === 'hcu') { c.charge('Akomodasi HCU · 2 hari', 2000000); c.charge('Akomodasi kelas 1 · 3 hari', 1350000); } else { c.charge('Akomodasi kelas 1 · 5 hari', 2250000); } c.charge('Visite dan konsultasi dokter', 1320000); c.charge('Obat dan alkes rawat inap', 2140000); c.charge('Laboratorium harian', 640000); c.log('Rencana pulang disusun'); } }
+] },
+{ stage: 'Resume & pulang', actor: 'DPJP jantung', screen: 'Resume.dc.html', screenName: 'Resume medis', title: 'Resume medis dan rekonsiliasi obat', desc: 'Resume dihimpun otomatis dari CPPT, hasil, dan eMAR. Dokter memverifikasi, bukan mengetik ulang.', wait: 1200, tasks: [
+{ id: 'resume', kind: 'act', label: 'Tarik ringkasan otomatis ke resume', btn: 'Himpun resume', dur: 3, result: 'Diagnosis, tindakan, hasil, dan terapi terisi', apply: function (r, v, c) { r.dx = ['I21.4 · NSTEMI', 'E87.5 · Hiperkalemia', 'N18.3 · CKD stadium 3', 'I10 · Hipertensi']; c.log('Draf resume terisi otomatis'); } },
+{ id: 'rekon', kind: 'choice', label: 'Rekonsiliasi obat pulang', options: [{ id: 'lanjut', label: 'Lanjutkan amlodipin', sub: 'aspirin, klopidogrel, atorvastatin, bisoprolol, PPI, amlodipin' }, { id: 'stop', label: 'Hentikan amlodipin', sub: 'TD terkontrol dengan bisoprolol' }], dur: 5, apply: function (r, v, c) { r.obat = ['Aspirin 80 mg 1×1', 'Klopidogrel 75 mg 1×1', 'Atorvastatin 40 mg 1×1 malam', 'Bisoprolol 2,5 mg 1×1', r.ppi || 'Pantoprazol 40 mg 1×1']; if (v === 'lanjut') r.obat.push('Amlodipin 10 mg 1×1'); c.log('Rekonsiliasi obat pulang dikonfirmasi DPJP'); } },
+{ id: 'tte', kind: 'act', label: 'Tanda tangani resume dan surat kontrol', btn: 'Tanda tangani (TTE)', dur: 2, result: 'Resume final · kontrol Poli Jantung Kamis 15 Okt', apply: function (r, v, c) { r.kontrol = 'Poli Jantung · Kamis 15 Okt 2026'; c.log('Resume medis final', 'SATUSEHAT · Composition'); c.log('Surat kontrol terbit', 'BPJS VClaim · surat kontrol'); } }
+] },
+{ stage: 'Kasir', actor: 'Kasir rawat inap', screen: 'Kasir.dc.html', screenName: 'Kasir', title: 'Tagihan rawat inap', desc: 'Semua tarif sejak dari IGD sudah tertangkap otomatis dari order, eMAR, lab, dan ADT.', wait: 30, tasks: [
+{ id: 'final', kind: 'act', label: 'Finalkan tagihan rawat inap', btn: 'Finalkan', dur: 3, result: 'Tagihan terkunci', apply: function (r, v, c) { c.log('Tagihan rawat inap difinalkan'); } },
+{ id: 'pulang', kind: 'act', label: 'Ditanggung BPJS sesuai hak kelas 1; pasien bayar Rp 0, lalu pulang', btn: 'Pasien pulang', dur: 10, result: 'Pasien pulang, bed berstatus kotor', apply: function (r, v, c) { r.bayarPasien = 0; r.pulangAt = c.now; c.log('Pasien pulang, bed ' + String(r.lokasi).split(' ·')[0] + ' → kotor', 'ADT · papan bed'); r.lokasi = 'Pulang'; c.log('Kunjungan selesai', 'SATUSEHAT · Encounter finished'); } }
+] },
+{ stage: 'Koding & klaim', actor: 'Koder casemix', screen: 'Klaim.dc.html', screenName: 'Klaim', title: 'Koding dan kirim klaim', desc: 'Koder memvalidasi kode yang sudah ditarik dari resume. Bukti klinis dicek sebelum kirim.', wait: 1440, tasks: [
+{ id: 'utama', kind: 'choice', label: 'Validasi diagnosis utama', def: 'I21.4', options: [{ id: 'I21.4', label: 'I21.4 · NSTEMI', sub: 'didukung troponin naik + EKG iskemik' }, { id: 'I20.0', label: 'I20.0 · Angina tidak stabil', sub: 'tidak sesuai hasil troponin' }], dur: 10, apply: function (r, v, c) { r.dxUtama = v; c.log('Diagnosis utama divalidasi: ' + v); } },
+{ id: 'bukti', kind: 'choice', tone: 'warn', when: function (r, d) { return d('utama') === 'I20.0'; }, label: 'Kode tidak sesuai bukti: troponin meningkat', hint: 'Sistem menandai ketidaksesuaian antara kode dan hasil lab.', options: [{ id: 'kembali', label: 'Kembali ke I21.4', sub: 'sesuai bukti klinis' }, { id: 'query', label: 'Kirim query ke DPJP', sub: 'klaim ditahan sampai dijawab' }], def: 'kembali', dur: 2, apply: function (r, v, c) { r.dxUtama = 'I21.4'; c.log(v === 'kembali' ? 'Kode dikoreksi ke I21.4' : 'Query dijawab DPJP: I21.4', 'Keselamatan · koding'); } },
+{ id: 'sekunder', kind: 'act', label: 'Validasi diagnosis sekunder dan prosedur', btn: 'Validasi', dur: 8, result: 'E87.5, N18.3, I10 · 89.52, 88.72', apply: function (r, v, c) { c.log('Diagnosis sekunder dan prosedur divalidasi'); } },
+{ id: 'kirim', kind: 'act', label: 'Grouping dan kirim E-Klaim', btn: 'Kirim klaim', dur: 3, result: 'Terkirim ke verifikator BPJS', apply: function (r, v, c) { r.klaim = 'Terkirim · ' + (r.dxUtama || 'I21.4') + ' + E87.5, N18.3, I10'; c.log('Klaim terkirim ke verifikator', 'E-Klaim'); } }
+] }
+]
+};
+var btn = {
+label: 'Bedah elektif · BTN',
+date: 'Senin 12 Okt 2026',
+startDate: '2026-10-12',
+startMin: 7 * 60 + 30,
+base: { nama: 'Ny. Ratna Sari', initials: 'RS', jk: 'P', umur: 45, rm: '00-52-03-19', alergi: 'Tidak ada', riwayat: 'Kolelitiasis simptomatik · rencana laparoskopi elektif', penjamin: 'BPJS · belum diverifikasi', lokasi: 'Admisi rawat inap', sep: '', antrean: '', ttv: '', triase: '', dx: [], order: [], hasil: [], obat: [], tindakan: [], kontrol: '', klaim: '', bayarPasien: null, pulangAt: null, bayar: [], biaya: [], deposit: 0, dibiayai: 0, piutangBiaya: 0 },
+auto: ['Tagihan deposit dibuat lewat API TPDI; dana langsung masuk rekening RS di BTN, tidak transit di TPDI', 'Webhook TPDI melunasi deposit di kasir secara otomatis; callback ganda diabaikan', 'Tarif operasi, BHP, dan akomodasi VIP tertangkap otomatis dari OK dan ADT', 'Sisa selisih dibiayai BTN: RS menerima pelunasan penuh, pasien mengangsur ke BTN', 'Rekonsiliasi 3 arah kasir ↔ TPDI ↔ mutasi BTN tanpa pencocokan manual', 'Klaim layak bayar langsung bisa dibiayai BTN dan dilunasi otomatis saat BPJS membayar'],
+extra: function (r, rp) { return [
+{ label: 'Diterima via TPDI × BTN', value: rp(r.deposit + (r.lunasQris || 0)), note: 'VA/QRIS, langsung ke ••••4417' },
+{ label: 'Cicilan dibiayai BTN', value: rp(r.dibiayai), note: r.dibiayai ? 'RS lunas, pasien mengangsur ke BTN' : 'tidak dipakai' },
+{ label: 'Piutang BPJS dibiayai', value: rp(r.piutangBiaya), note: r.piutangBiaya ? 'cair sebelum BPJS membayar' : 'tidak dipakai' }
+]; },
+steps: [
+{ stage: 'Admisi elektif', actor: 'Admisi rawat inap', screen: 'BedManagement.dc.html', screenName: 'Manajemen tempat tidur', title: 'Admisi bedah elektif dan pilihan kelas', desc: 'Pasien datang sehari sebelum operasi. Hak kelas dicek ke VClaim; bila pasien minta naik kelas, estimasi selisih biaya disetujui tertulis sebelum dirawat.', wait: 0, tasks: [
+{ id: 'cek', kind: 'act', label: 'Cek kepesertaan BPJS', btn: 'Cek ke VClaim', dur: 2, result: 'Aktif · PPU kelas 2', apply: function (r, v, c) { r.penjamin = 'BPJS PPU kelas 2 · aktif'; c.log('Peserta aktif, hak kelas 2', 'BPJS VClaim'); } },
+{ id: 'kelas', kind: 'choice', label: 'Kelas perawatan yang diminta pasien', def: 'vip', options: [{ id: 'vip', label: 'Naik kelas VIP', sub: 'selisih biaya dibayar pasien' }, { id: 'hak', label: 'Sesuai hak kelas 2', sub: 'ditanggung BPJS' }], dur: 2, apply: function (r, v, c) { r.vip = v === 'vip'; c.log(r.vip ? 'Pasien meminta naik kelas VIP' : 'Dirawat sesuai hak kelas 2'); } },
+{ id: 'setuju', kind: 'act', when: function (r) { return r.vip; }, label: 'Persetujuan selisih biaya naik kelas', hint: 'Estimasi selisih Rp 9.400.000 (angka simulasi, dihitung dari master aturan selisih JKN).', btn: 'Tanda tangani persetujuan', dur: 4, result: 'Ditandatangani pasien dan petugas (TTE)', apply: function (r, v, c) { c.log('Persetujuan selisih biaya naik kelas final', 'RME · consent'); } },
+{ id: 'sep', kind: 'act', label: 'Terbitkan SPRI dan SEP rawat inap', btn: 'Terbitkan SEP', dur: 3, result: 'SEP 0301R0011026V005377', apply: function (r, v, c) { r.sep = '0301R0011026V005377'; r.lokasi = r.vip ? 'Paviliun VIP 3' : 'Melati M-210 · kelas 2'; c.charge('Administrasi rawat inap', 75000); c.log('SEP rawat inap terbit', 'BPJS VClaim · insert SEP'); c.log('Kunjungan rawat inap dibuat', 'SATUSEHAT · Encounter'); } }
+] },
+{ stage: 'Deposit via TPDI', actor: 'Kasir rawat inap', screen: 'PembayaranBTN.dc.html', screenName: 'Pembayaran digital', title: 'Deposit naik kelas lewat kanal BTN', desc: 'Kasir membuat tagihan lewat API TPDI. Pasien membayar ke VA atau QRIS BTN, dana langsung masuk rekening operasional RS di BTN, dan TPDI mengirim notifikasi ke SIM RS.', wait: 8, tasks: [
+{ id: 'kanal', kind: 'choice', when: function (r) { return r.vip; }, label: 'Kanal pembayaran deposit', options: [{ id: 'va', label: 'Virtual Account BTN', sub: 'berlaku 24 jam, bisa dari bank mana pun' }, { id: 'qris', label: 'QRIS dinamis', sub: 'acquirer BTN, berlaku 10 menit' }], dur: 1, apply: function (r, v, c) { r.kanal = v; c.log('Kanal deposit: ' + c.opt); } },
+{ id: 'buat', kind: 'act', when: function (r) { return r.vip; }, label: 'Buat tagihan deposit Rp 3.000.000 lewat API TPDI', btn: 'Buat tagihan', dur: 1, result: 'Tagihan INV-DP-2610-0412 dikirim ke WhatsApp dan aplikasi pasien', apply: function (r, v, c) { r.bayar.push('Deposit Rp 3.000.000 · ' + (r.kanal === 'qris' ? 'QRIS' : 'VA 8808 0127 0005 2031') + ' · menunggu'); c.log(r.kanal === 'qris' ? 'QRIS dinamis dibuat' : 'VA BTN 8808 0127 0005 2031 dibuat', 'TPDI · buat tagihan'); } },
+{ id: 'bayar', kind: 'act', when: function (r) { return r.vip; }, label: 'Pasien membayar dari m-banking', btn: 'Simulasikan pembayaran', dur: 18, result: 'Dana Rp 3.000.000 masuk rekening operasional RS BTN ••••4417', apply: function (r, v, c) { c.log('Kredit Rp 3.000.000 ke rekening RS ••••4417', 'BTN · kredit rekening'); } },
+{ id: 'webhook', kind: 'act', when: function (r) { return r.vip; }, label: 'Terima webhook TPDI', hint: 'Signature HMAC diverifikasi sebelum status diubah.', btn: 'Proses webhook', dur: 1, result: 'Signature valid · deposit lunas di kasir', apply: function (r, v, c) { r.deposit = 3000000; r.bayar[r.bayar.length - 1] = 'Deposit Rp 3.000.000 · ' + (r.kanal === 'qris' ? 'QRIS' : 'VA BTN') + ' · lunas'; c.log('Webhook pembayaran diterima, deposit lunas', 'TPDI · webhook'); } },
+{ id: 'dupe', kind: 'act', tone: 'warn', when: function (r) { return r.vip; }, label: 'Webhook yang sama datang lagi (retry dari TPDI)', hint: 'Tanpa idempotensi, deposit bisa tercatat dua kali.', btn: 'Proses webhook kedua', dur: 1, result: 'Diabaikan: idempotency key sudah tercatat, saldo deposit tetap Rp 3.000.000', apply: function (r, v, c) { c.log('Callback ganda diabaikan (idempotent)', 'Keselamatan · idempotensi'); } },
+{ id: 'none', kind: 'act', when: function (r) { return !r.vip; }, label: 'Deposit tidak diperlukan', hint: 'Seluruh perawatan kelas 2 ditanggung BPJS.', btn: 'Lanjutkan', dur: 1, result: 'Tanpa deposit', apply: function (r, v, c) { c.log('Tanpa deposit, sesuai hak kelas'); } }
+] },
+{ stage: 'Operasi', actor: 'Tim bedah IBS', screen: 'OK.dc.html', screenName: 'Kamar operasi', title: 'Laparoskopi kolesistektomi', desc: 'Daftar tilik keselamatan WHO wajib lengkap. Pemakaian BHP dan alat dicatat sekali dan langsung menjadi tagihan.', wait: 1350, tasks: [
+{ id: 'tilik', kind: 'act', label: 'Sign in, time out, sign out lengkap', btn: 'Konfirmasi daftar tilik', dur: 12, result: 'Tiga fase lengkap, hitung kasa cocok', apply: function (r, v, c) { c.log('Surgical safety checklist lengkap', 'Keselamatan · checklist'); } },
+{ id: 'op', kind: 'act', label: 'Operasi berjalan', btn: 'Catat operasi selesai', dur: 95, result: 'Kolesistektomi laparoskopik tanpa penyulit', apply: function (r, v, c) { r.tindakan.push('51.23 · Kolesistektomi laparoskopik'); c.charge('Jasa operator dan anestesi', 6500000); c.charge('Sewa kamar operasi', 2200000); c.charge('BHP dan alat laparoskopi', 3100000); c.log('Laporan operasi dan anestesi tersimpan', 'SATUSEHAT · Procedure'); } },
+{ id: 'pulih', kind: 'act', label: 'Ruang pulih, lalu kembali ke kamar', btn: 'Pindahkan ke kamar', dur: 90, result: 'Aldrete 10, kembali ke kamar', apply: function (r, v, c) { c.log('Serah terima dari ruang pulih ke ' + r.lokasi); } }
+] },
+{ stage: 'Pasca operasi', actor: 'PPA ruangan', screen: 'Ranap.dc.html', screenName: 'Rawat inap', title: 'Perawatan pasca operasi', desc: 'Obat diberikan lewat pindai gelang, CPPT ditulis semua PPA. Lompat hari dengan tombol.', wait: 20, tasks: [
+{ id: 'emar', kind: 'act', label: 'Analgesik dan antibiotik lewat pindai gelang', btn: 'Pindai gelang', dur: 10, result: 'Tercatat di eMAR', apply: function (r, v, c) { c.log('Obat pasca operasi diberikan', 'eMAR · pindai gelang'); } },
+{ id: 'h2', kind: 'act', label: 'Hari berikutnya: mobilisasi, diet lunak, nyeri terkontrol', btn: 'Lompat ke esok hari', dur: 1320, result: 'Layak pulang besok pagi', apply: function (r, v, c) { var malam = 2; c.charge(r.vip ? 'Akomodasi VIP · ' + malam + ' malam' : 'Akomodasi kelas 2 · ' + malam + ' malam', r.vip ? 3600000 : 700000); c.charge('Visite dokter', 900000); c.charge('Obat dan alkes', 1150000); c.charge('Laboratorium', 380000); c.log('CPPT pasca operasi, co-sign DPJP'); } }
+] },
+{ stage: 'Resume & pulang', actor: 'DPJP bedah', screen: 'Resume.dc.html', screenName: 'Resume medis', title: 'Resume medis pulang', desc: 'Resume dihimpun dari laporan operasi, CPPT, dan eMAR.', wait: 60, tasks: [
+{ id: 'resume', kind: 'act', label: 'Himpun resume dan rekonsiliasi obat', btn: 'Himpun resume', dur: 4, result: 'K80.2 · 51.23 · obat pulang: parasetamol, sefiksim', apply: function (r, v, c) { r.dx = ['K80.2 · Batu kandung empedu tanpa kolesistitis']; r.obat = ['Parasetamol 500 mg 3×1 · 5 hari', 'Sefiksim 100 mg 2×1 · 3 hari']; c.log('Draf resume terisi otomatis'); } },
+{ id: 'tte', kind: 'act', label: 'Tanda tangani resume dan surat kontrol', btn: 'Tanda tangani (TTE)', dur: 2, result: 'Kontrol Poli Bedah · Kamis 22 Okt 2026', apply: function (r, v, c) { r.kontrol = 'Poli Bedah · Kamis 22 Okt 2026'; c.log('Resume medis final', 'SATUSEHAT · Composition'); c.log('Surat kontrol terbit', 'BPJS VClaim · surat kontrol'); } }
+] },
+{ stage: 'Kasir & cicilan', actor: 'Kasir rawat inap', screen: 'Kasir.dc.html', screenName: 'Kasir', title: 'Pelunasan selisih naik kelas', desc: 'Selisih dikurangi deposit. Sisanya bisa dilunasi langsung atau dibiayai BTN; untuk RS hasilnya sama: tagihan lunas penuh hari ini.', wait: 20, tasks: [
+{ id: 'final', kind: 'act', label: 'Finalkan tagihan dan hitung selisih', btn: 'Finalkan', dur: 3, result: function (r) { return r.vip ? 'Selisih Rp 9.400.000 − deposit Rp 3.000.000 = sisa Rp 6.400.000' : 'Ditanggung BPJS sesuai hak kelas 2'; }, apply: function (r, v, c) { r.selisih = r.vip ? 9400000 : 0; c.log('Tagihan difinalkan'); } },
+{ id: 'cara', kind: 'choice', when: function (r) { return r.vip; }, label: 'Pelunasan sisa Rp 6.400.000', def: 'cicil', options: [{ id: 'cicil', label: 'Cicilan BTN', sub: '[Nama produk pembiayaan BTN]' }, { id: 'qris', label: 'Bayar lunas via QRIS', sub: 'TPDI · acquirer BTN' }], dur: 2, apply: function (r, v, c) { r.cara = v; c.log(v === 'cicil' ? 'Pasien memilih cicilan BTN' : 'Pasien memilih lunas via QRIS'); } },
+{ id: 'tenor', kind: 'choice', when: function (r) { return r.vip && r.cara === 'cicil'; }, label: 'Tenor cicilan', def: '6', options: [{ id: '3', label: '3 bulan', sub: '±Rp 2.192.000/bulan (simulasi)' }, { id: '6', label: '6 bulan', sub: '±Rp 1.125.000/bulan (simulasi)' }, { id: '12', label: '12 bulan', sub: '±Rp 592.000/bulan (simulasi)' }], dur: 1, apply: function (r, v, c) { r.tenor = v; } },
+{ id: 'ajukan', kind: 'act', when: function (r) { return r.vip && r.cara === 'cicil'; }, label: 'Ajukan ke BTN', hint: 'Data identitas dan kontak diambil dari profil pasien; pasien mengisi penghasilan di aplikasi.', btn: 'Ajukan pembiayaan', dur: 3, result: 'Pengajuan PB-2610-0088 terkirim', apply: function (r, v, c) { c.log('Pengajuan cicilan Rp 6.400.000, tenor ' + r.tenor + ' bulan', 'BTN · pembiayaan'); } },
+{ id: 'setuju', kind: 'act', when: function (r) { return r.vip && r.cara === 'cicil'; }, label: 'BTN menyetujui, pasien menandatangani akad digital', btn: 'Simulasikan persetujuan', dur: 35, result: 'Disetujui · akad ditandatangani (TTE)', apply: function (r, v, c) { c.log('Pembiayaan disetujui, akad digital ditandatangani', 'BTN · pembiayaan'); } },
+{ id: 'cair', kind: 'act', when: function (r) { return r.vip && r.cara === 'cicil'; }, label: 'BTN mencairkan Rp 6.400.000 ke rekening RS', btn: 'Simulasikan pencairan', dur: 5, result: 'Tagihan RS lunas · angsuran pasien ke BTN', apply: function (r, v, c) { r.dibiayai = 6400000; r.bayarPasien = r.selisih; r.bayar.push('Sisa Rp 6.400.000 · dibiayai BTN, tenor ' + r.tenor + ' bulan · lunas di RS'); r.biaya.push('Cicilan pasien Rp 6.400.000 · tenor ' + r.tenor + ' bulan'); c.log('Kredit Rp 6.400.000 ke rekening RS ••••4417, tagihan lunas', 'BTN · kredit rekening'); } },
+{ id: 'qrisbayar', kind: 'act', when: function (r) { return r.vip && r.cara === 'qris'; }, label: 'Buat QRIS Rp 6.400.000 dan terima pembayaran', btn: 'Simulasikan pembayaran', dur: 4, result: 'Webhook TPDI diterima, tagihan lunas', apply: function (r, v, c) { r.lunasQris = 6400000; r.bayarPasien = r.selisih; r.bayar.push('Sisa Rp 6.400.000 · QRIS · lunas'); c.log('Kredit Rp 6.400.000 ke rekening RS ••••4417', 'BTN · kredit rekening'); c.log('Webhook pembayaran diterima', 'TPDI · webhook'); } },
+{ id: 'pulang', kind: 'act', label: 'Pasien pulang', btn: 'Pulangkan pasien', dur: 10, result: 'Bed berstatus kotor, kunjungan selesai', apply: function (r, v, c) { if (!r.vip) r.bayarPasien = 0; r.pulangAt = c.now; c.log('Pasien pulang, bed ' + r.lokasi + ' → kotor', 'ADT · papan bed'); r.lokasi = 'Pulang'; c.log('Kunjungan selesai', 'SATUSEHAT · Encounter finished'); } }
+] },
+{ stage: 'Rekonsiliasi', actor: 'Staf keuangan', screen: 'PembayaranBTN.dc.html', screenName: 'Pembayaran digital', title: 'Rekonsiliasi 3 arah keesokan pagi', desc: 'Transaksi kasir, laporan TPDI, dan mutasi rekening BTN dicocokkan otomatis. Hanya selisih yang perlu disentuh manusia.', wait: 1320, tasks: [
+{ id: 'tarik', kind: 'act', label: 'Tarik laporan TPDI dan mutasi BTN (H2H)', btn: 'Tarik data', dur: 2, result: 'Laporan TPDI dan mutasi ••••4417 tersinkron', apply: function (r, v, c) { c.log('Laporan transaksi harian ditarik', 'TPDI · laporan'); c.log('Mutasi rekening ••••4417 ditarik', 'BTN · mutasi H2H'); } },
+{ id: 'cocok', kind: 'act', label: 'Jalankan rekonsiliasi kasir ↔ TPDI ↔ BTN', btn: 'Rekonsiliasi', dur: 1, result: function (r) { var n = (r.deposit ? 1 : 0) + (r.dibiayai || r.lunasQris ? 1 : 0); return n ? n + ' transaksi pasien cocok di tiga sumber, 0 selisih' : 'Tidak ada transaksi pasien untuk dicocokkan'; }, apply: function (r, v, c) { c.log('Rekonsiliasi 3 arah selesai tanpa selisih'); } },
+{ id: 'jurnal', kind: 'act', label: 'Posting jurnal otomatis', btn: 'Posting', dur: 1, result: 'Bank BTN ••••4417 (D) · uang muka dan piutang pasien (K)', apply: function (r, v, c) { c.log('Jurnal penerimaan terposting', 'Akuntansi · jurnal'); } }
+] },
+{ stage: 'Klaim BPJS', actor: 'Koder casemix', screen: 'Klaim.dc.html', screenName: 'Klaim', title: 'Koding dan verifikasi klaim', desc: 'Kode ditarik dari resume dan laporan operasi. Setelah verifikator menyatakan layak bayar, klaim bisa dibiayai BTN.', wait: 240, tasks: [
+{ id: 'kode', kind: 'act', label: 'Validasi kode K80.2 dan 51.23', btn: 'Validasi', dur: 8, result: 'Kode sesuai bukti', apply: function (r, v, c) { c.log('Kode diagnosis dan prosedur divalidasi'); } },
+{ id: 'kirim', kind: 'act', label: 'Grouping dan kirim E-Klaim', btn: 'Kirim klaim', dur: 3, result: 'Terkirim ke verifikator BPJS', apply: function (r, v, c) { r.klaim = 'Terkirim · tarif INA-CBG kelas 2 Rp 7.140.000 (simulasi)'; c.log('Klaim terkirim ke verifikator', 'E-Klaim'); } },
+{ id: 'layak', kind: 'act', label: 'Verifikator menyatakan layak bayar', btn: 'Lompat ke hasil verifikasi', dur: 14 * 1440, result: 'Layak bayar Rp 7.140.000', apply: function (r, v, c) { r.klaim = 'Layak bayar · Rp 7.140.000 (simulasi)'; c.log('Klaim berstatus layak bayar', 'BPJS · verifikasi klaim'); } }
+] },
+{ stage: 'Pembiayaan piutang', actor: 'Kepala akuntansi', screen: 'PembiayaanBTN.dc.html', screenName: 'Pembiayaan BTN', title: 'Piutang BPJS dibiayai BTN', desc: 'Klaim layak bayar masuk pool fasilitas BTN. RS bisa mencairkan dana lebih awal; saat BPJS membayar ke rekening penampungan, pelunasan berjalan otomatis.', wait: 60, tasks: [
+{ id: 'pool', kind: 'act', label: 'Masukkan klaim ke pool pembiayaan BTN', btn: 'Masukkan ke pool', dur: 1, result: 'Eligible · advance rate 90% (parameter perjanjian)', apply: function (r, v, c) { c.log('Klaim masuk pool pembiayaan piutang', 'BTN · pembiayaan'); } },
+{ id: 'ajukan', kind: 'choice', label: 'Cairkan lebih awal?', def: 'ya', options: [{ id: 'ya', label: 'Ajukan 90% · Rp 6.426.000', sub: 'margin simulasi 8% p.a.' }, { id: 'tidak', label: 'Tunggu BPJS membayar', sub: 'tanpa biaya pembiayaan' }], dur: 2, apply: function (r, v, c) { r.ajukan = v === 'ya'; c.log(r.ajukan ? 'Pencairan Rp 6.426.000 diajukan' : 'Tidak diajukan pencairan'); } },
+{ id: 'cair', kind: 'act', when: function (r) { return r.ajukan; }, label: 'BTN mencairkan ke rekening operasional ••••4417', btn: 'Simulasikan pencairan', dur: 120, result: 'Dana Rp 6.426.000 diterima RS', apply: function (r, v, c) { r.piutangBiaya = 6426000; r.biaya.push('Piutang klaim Rp 6.426.000 · cair lebih awal'); c.log('Kredit Rp 6.426.000 ke rekening RS ••••4417', 'BTN · kredit rekening'); } },
+{ id: 'bpjs', kind: 'act', label: 'BPJS membayar klaim ke rekening penampungan ••••9021', btn: 'Lompat ke pembayaran BPJS', dur: 21 * 1440, result: function (r) { return r.ajukan ? 'Rp 7.140.000 masuk · pelunasan BTN Rp 6.455.600 (pokok + margin 21 hari) · sisa Rp 684.400 ke ••••4417' : 'Rp 7.140.000 masuk dan diteruskan penuh ke ••••4417'; }, apply: function (r, v, c) { c.log('BPJS membayar Rp 7.140.000 ke ••••9021', 'BPJS · pembayaran klaim'); if (r.ajukan) { c.log('Auto-debit pelunasan pokok + margin Rp 6.455.600', 'BTN · pelunasan'); c.log('Sisa Rp 684.400 diteruskan ke ••••4417', 'BTN · kredit rekening'); r.biaya.push('Lunas otomatis saat BPJS membayar'); } else { c.log('Rp 7.140.000 diteruskan ke ••••4417', 'BTN · kredit rekening'); } r.klaim = 'Dibayar BPJS · Rp 7.140.000 (simulasi)'; } }
+] }
+]
+};
+this._defs = { rj: rj, igd: igd, btn: btn };
+return this._defs;
+}
+
+opts(tk, rec) { return typeof tk.options === 'function' ? tk.options(rec) : (tk.options || []); }
+
+run(sc, seq) {
+var self = this;
+var D = this.defs()[sc];
+var rec = JSON.parse(JSON.stringify(D.base));
+var logs = [], charges = [], clock = D.startMin;
+var per = D.steps.map(function () { return { wait: 0, svc: 0 }; });
+var stepStart = D.steps.map(function () { return null; });
+stepStart[0] = clock;
+var done = {}, tmap = {};
+var ctx = { now: clock, actor: '', stage: '', opt: '', optSub: '',
+log: function (text, sys) { logs.push({ t: clock, actor: ctx.actor, text: text, sys: sys || '' }); },
+charge: function (name, amt) { charges.push({ name: name, amt: amt, src: ctx.stage }); } };
+seq.forEach(function (e) {
+if (e.adv != null) { var w = D.steps[e.adv].wait || 0; clock += w; per[e.adv].wait += w; stepStart[e.adv] = clock; return; }
+var st = D.steps[e.s];
+var tk = st.tasks.filter(function (t) { return t.id === e.t; })[0];
+if (!tk) return;
+var du = typeof tk.dur === 'function' ? tk.dur(e.v) : (tk.dur || 1);
+clock += du; per[e.s].svc += du;
+ctx.now = clock; ctx.actor = st.actor; ctx.stage = st.stage; ctx.opt = ''; ctx.optSub = '';
+if (tk.kind === 'choice') { var o = self.opts(tk, rec).filter(function (x) { return x.id === e.v; })[0]; ctx.opt = o ? o.label : String(e.v); ctx.optSub = o && o.sub ? o.sub : ''; }
+done[e.s + '.' + e.t] = e.v; tmap[e.s + '.' + e.t] = clock;
+if (tk.apply) tk.apply(rec, e.v, ctx);
+});
+return { D: D, rec: rec, logs: logs, charges: charges, clock: clock, per: per, stepStart: stepStart, done: done, tmap: tmap };
+}
+
+vis(si, R) {
+var st = R.D.steps[si];
+var d = function (id) { return R.done[si + '.' + id]; };
+return st.tasks.filter(function (t) { return !t.when || t.when(R.rec, d); });
+}
+complete(si, R) { return this.vis(si, R).every(function (t) { return R.done[si + '.' + t.id] !== undefined; }); }
+firstOpen(si, R) { var v = this.vis(si, R); for (var i = 0; i < v.length; i++) { if (R.done[si + '.' + v[i].id] === undefined) return v[i]; } return null; }
+
+act(si, tk, v) {
+var st = this.state;
+if (st.finished || si !== st.step) return;
+var R = this.run(st.sc, st.seq);
+var open = this.firstOpen(si, R);
+if (!open || open.id !== tk.id) return;
+var key = si + '.' + tk.id;
+var errs = Object.assign({}, st.errs);
+if (tk.check) { var err = tk.check(v); if (err) { errs[key] = err; this.setState({ errs: errs }); return; } }
+delete errs[key];
+this.setState({ seq: st.seq.concat([{ s: si, t: tk.id, v: v }]), errs: errs });
+}
+next() {
+var st = this.state;
+if (st.finished) return;
+var R = this.run(st.sc, st.seq);
+if (!this.complete(st.step, R)) return;
+var N = R.D.steps.length;
+if (st.step < N - 1) this.setState({ seq: st.seq.concat([{ adv: st.step + 1 }]), step: st.step + 1, view: st.step + 1 });
+else this.setState({ finished: true, view: N, auto: false });
+}
+tick() {
+var st = this.state;
+if (st.finished) { this.setState({ auto: false }); return; }
+if (st.view !== st.step) { this.setState({ view: st.step }); return; }
+var R = this.run(st.sc, st.seq);
+var tk = this.firstOpen(st.step, R);
+if (!tk) { this.next(); return; }
+var v;
+if (tk.kind === 'act') v = true;
+else if (tk.kind === 'input') { var dr = st.drafts[st.step + '.' + tk.id]; v = (dr != null && (!tk.check || !tk.check(dr))) ? dr : tk.def; if (tk.check && tk.check(v)) { this.setState({ auto: false }); return; } }
+else { var os = this.opts(tk, R.rec); v = tk.def != null ? tk.def : os[0].id; }
+this.act(st.step, tk, v);
+}
+
+renderVals() {
+var self = this, st = this.state;
+var R = this.run(st.sc, st.seq), D = R.D, rec = R.rec, N = D.steps.length;
+var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+var HARI = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'], BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+var dayLbl = function (d) { var p = D.startDate.split('-'); var dt = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + d); return HARI[dt.getDay()] + ' ' + dt.getDate() + ' ' + BLN[dt.getMonth()]; };
+var fmtT = function (m) { var d = Math.floor(m / 1440), r = m - d * 1440; return (D.startDate ? dayLbl(d) + ' · ' : '') + pad(Math.floor(r / 60)) + '.' + pad(r % 60); };
+var durT = function (m) { if (m < 60) return m + ' mnt'; if (m < 1440) { var h = Math.floor(m / 60), mm = m % 60; return h + ' j' + (mm ? ' ' + mm + ' mnt' : ''); } var d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60); return d + ' hr' + (hh ? ' ' + hh + ' j' : ''); };
+var rp = function (n) { return 'Rp ' + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+var ORDER = ['rj', 'igd', 'btn']; var other = ORDER[(ORDER.indexOf(st.sc) + 1) % ORDER.length];
+
+var scTabs = [{ id: 'rj', label: 'Rawat jalan BPJS' }, { id: 'igd', label: 'IGD → rawat inap' }, { id: 'btn', label: 'Elektif · TPDI × BTN' }].map(function (t) {
+var on = t.id === st.sc;
+return { label: t.label, sel: on ? 'true' : 'false', bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#14212B' : '#3F4C58', w: on ? 600 : 400, sh: on ? '0 1px 2px rgba(16,24,40,0.08)' : 'none', pick: function () { self.setState(self.fresh(t.id)); } };
+});
+
+var pt = { nama: rec.nama, initials: rec.initials, meta: rec.jk + ' · ' + rec.umur + ' th · RM ' + rec.rm + ' · ' + D.label, alergi: 'Alergi: ' + rec.alergi, riwayat: rec.riwayat, penjamin: rec.penjamin, lokasi: rec.lokasi };
+
+var journey = D.steps.map(function (s, i) {
+var done = st.finished || i < st.step, cur = !st.finished && i === st.step, viewing = st.view === i, can = st.finished || i <= st.step;
+return { label: s.stage, actor: s.actor, mark: done ? '✓' : String(i + 1), time: (done || cur) ? fmtT(R.stepStart[i]) : 'Belum',
+cur: cur ? 'step' : 'false', disabled: !can, cursor: can ? 'pointer' : 'default',
+bd: viewing ? '#0F766E' : (cur ? '#9FCFC8' : '#E3E8EE'), bg: viewing ? '#F2FAF8' : '#FFFFFF',
+dotBg: done ? '#0F766E' : '#FFFFFF', dotFg: done ? '#FFFFFF' : (cur ? '#0B5D56' : '#5B6B79'), dotBd: done ? '#0F766E' : (cur ? '#0F766E' : '#CBD3DB'),
+pick: function () { if (can) self.setState({ view: i }); } };
+});
+journey.push({ label: 'Selesai', actor: 'Ringkasan simulasi', mark: st.finished ? '✓' : String(N + 1), time: st.finished ? fmtT(R.clock) : 'Belum', cur: 'false', disabled: !st.finished, cursor: st.finished ? 'pointer' : 'default',
+bd: st.view === N ? '#1E6B34' : '#E3E8EE', bg: st.view === N ? '#F3FAF4' : '#FFFFFF', dotBg: st.finished ? '#1E6B34' : '#FFFFFF', dotFg: st.finished ? '#FFFFFF' : '#5B6B79', dotBd: st.finished ? '#1E6B34' : '#CBD3DB',
+pick: function () { if (self.state.finished) self.setState({ view: N }); } });
+
+var curVis = this.vis(Math.min(st.step, N - 1), R);
+var curDone = curVis.filter(function (t) { return R.done[st.step + '.' + t.id] !== undefined; }).length;
+var progress = st.finished ? 100 : Math.round(((st.step + (curVis.length ? curDone / curVis.length : 0)) / N) * 100);
+
+var showSummary = st.finished && st.view === N;
+var vi = Math.min(st.view, N - 1);
+var S = D.steps[vi];
+var past = st.finished || vi < st.step;
+var prevDone = true;
+var vt = this.vis(vi, R);
+var tasks = vt.map(function (tk, j) {
+var key = vi + '.' + tk.id, v = R.done[key], done = v !== undefined;
+var enabled = !past && !done && prevDone && vi === st.step;
+prevDone = prevDone && done;
+var danger = tk.tone === 'danger', warn = tk.tone === 'warn';
+var opts = tk.kind === 'choice' ? self.opts(tk, rec).map(function (o) {
+var sel = done && v === o.id;
+return { label: o.label, sub: o.sub || '', pressed: sel ? 'true' : 'false', disabled: !enabled, cursor: enabled ? 'pointer' : 'default', op: (done && !sel) ? 0.45 : 1,
+bg: sel ? (danger ? '#FDECEA' : '#E6F4F1') : '#FFFFFF', bd: sel ? (danger ? '#B42318' : '#0F766E') : (enabled ? '#9FB7B3' : '#E3E8EE'),
+pick: function () { self.act(vi, tk, o.id); } };
+}) : [];
+var draft = st.drafts[key];
+var val = draft != null ? draft : (tk.def || '');
+var err = st.errs[key] || '';
+var doneText = '';
+if (done && tk.kind === 'input') doneText = String(v).trim();
+if (done && tk.kind === 'act') doneText = typeof tk.result === 'function' ? tk.result(rec) : (tk.result || 'Selesai');
+var bg, bd;
+if (done) { bg = '#FFFFFF'; bd = '#D5ECE7'; }
+else if (danger) { bg = 'linear-gradient(100deg, rgba(180,35,24,0.09), #FFF8F7 60%)'; bd = '#F0C2BD'; }
+else if (warn) { bg = 'linear-gradient(100deg, rgba(138,75,0,0.09), #FFFAF2 60%)'; bd = '#F1D3A8'; }
+else if (enabled) { bg = 'linear-gradient(100deg, rgba(15,118,110,0.06), #FFFFFF 60%)'; bd = '#9FCFC8'; }
+else { bg = '#FFFFFF'; bd = '#E3E8EE'; }
+var accent = danger ? '#B42318' : (warn ? '#8A4B00' : '#0F766E');
+return {
+num: done ? '✓' : String(j + 1),
+numBg: done ? '#0F766E' : ((danger || warn) ? accent : (enabled ? '#E6F4F1' : '#F1F3F5')),
+numFg: done ? '#FFFFFF' : ((danger || warn) ? '#FFFFFF' : (enabled ? '#0B5D56' : '#5B6B79')),
+label: tk.label, hint: tk.hint || '', titleFg: (danger && !done) ? '#8E1B13' : ((warn && !done) ? '#6B3A00' : '#14212B'),
+status: done ? 'Selesai · ' + fmtT(R.tmap[key]) : (enabled ? 'Giliran sekarang' : 'Menunggu'),
+chipBg: done ? '#EAF5EC' : (enabled ? (danger ? '#FDECEA' : (warn ? '#FFF3E0' : '#E6F4F1')) : '#F1F3F5'),
+chipFg: done ? '#1E6B34' : (enabled ? (danger ? '#B42318' : (warn ? '#8A4B00' : '#0B5D56')) : '#5B6B79'),
+bg: bg, bd: bd, op: (!done && !enabled && !past) ? 0.6 : 1,
+showAct: tk.kind === 'act' && !done, isChoice: tk.kind === 'choice', showInput: tk.kind === 'input' && !done,
+showDone: done && tk.kind !== 'choice', doneText: doneText,
+btn: tk.btn || 'Kerjakan', disabled: !enabled, cursor: enabled ? 'pointer' : 'not-allowed',
+btnBg: enabled ? (danger ? '#B42318' : 'linear-gradient(180deg, #1D7E77, #0F766E)') : '#E9EDF1',
+btnFg: enabled ? '#FFFFFF' : '#5B6B79',
+btnBd: enabled ? (danger ? '#8E1B13' : '#0D6861') : '#D5DCE3',
+run: function () { self.act(vi, tk, true); },
+opts: opts, val: val, ph: tk.ph || '', inBd: err ? '#B42318' : '#CBD3DB',
+onInput: function (e) { var dr = Object.assign({}, self.state.drafts); dr[key] = e.target.value; var er = Object.assign({}, self.state.errs); delete er[key]; self.setState({ drafts: dr, errs: er }); },
+save: function () { var cur = self.state.drafts[key]; self.act(vi, tk, cur != null ? cur : (tk.def || '')); },
+hasErr: !!err, err: err
+};
+});
+var comp = this.complete(vi, R);
+var isLast = vi === N - 1;
+var doneCount = vt.filter(function (t) { return R.done[vi + '.' + t.id] !== undefined; }).length;
+var canNext = !past && comp;
+var sv = {
+no: (vi + 1) + ' dari ' + N, stage: S.stage, actor: S.actor, title: S.title, desc: S.desc, screen: S.screen, screenName: S.screenName,
+past: past, backLabel: st.finished ? 'Lihat ringkasan' : 'Kembali ke langkah aktif', tasks: tasks,
+footNote: past ? 'Langkah selesai pada ' + fmtT(R.stepStart[vi]) + ', durasi ' + durT(R.per[vi].svc) + '.' : (comp ? (isLast ? 'Semua tugas selesai. Simulasi siap ditutup.' : 'Semua tugas selesai. Jeda sebelum tahap berikutnya: ' + durT(D.steps[vi + 1].wait)) : doneCount + ' dari ' + vt.length + ' tugas selesai. Tahap berikutnya terbuka setelah semua tugas selesai.'),
+nextLabel: isLast ? 'Selesaikan simulasi' : 'Lanjut: ' + D.steps[vi + 1].stage, nextDisabled: !canNext,
+nextBg: canNext ? 'linear-gradient(180deg, #1D7E77, #0F766E)' : '#E9EDF1', nextFg: canNext ? '#FFFFFF' : '#5B6B79', nextBd: canNext ? '#0D6861' : '#D5DCE3', nextCursor: canNext ? 'pointer' : 'not-allowed'
+};
+
+var recRows = [
+['Penjamin', rec.penjamin], ['No. SEP', rec.sep], ['Antrean', rec.antrean], ['Tanda vital', rec.ttv], ['Triase', rec.triase],
+['Diagnosis', rec.dx.join('\n')], ['Order', rec.order.join('\n')], ['Hasil', rec.hasil.join('\n')], ['Obat', rec.obat.join('\n')],
+['Tindakan', rec.tindakan.join('\n')], ['Pembayaran', (rec.bayar || []).join('\n')], ['Pembiayaan BTN', (rec.biaya || []).join('\n')], ['Kontrol', rec.kontrol], ['Klaim', rec.klaim]
+].filter(function (x) { return x[1]; }).map(function (x) { return { k: x[0], v: x[1] }; });
+if (!recRows.length) recRows = [{ k: 'Status', v: 'Belum ada data. Mulai langkah pertama.' }];
+
+var kindOf = function (s) { if (!s) return 'int'; if (s.indexOf('BPJS') === 0 || s.indexOf('E-Klaim') === 0) return 'bpjs'; if (s.indexOf('SATUSEHAT') === 0) return 'ss'; if (s.indexOf('Keselamatan') === 0) return 'safe'; if (s.indexOf('TPDI') === 0 || s.indexOf('BTN') === 0) return 'pay'; return 'int'; };
+var col = { bpjs: ['#EEF2FB', '#1E3A8A'], ss: ['#E6F4F1', '#0B5D56'], safe: ['#FDECEA', '#B42318'], int: ['#F1F3F5', '#3F4C58'], pay: ['#E8EDF2', '#14212B'] };
+var nB = 0, nS = 0, nK = 0, nP = 0;
+R.logs.forEach(function (l) { var k = kindOf(l.sys); if (k === 'bpjs') nB++; if (k === 'ss') nS++; if (k === 'safe') nK++; if (k === 'pay') nP++; });
+var intStats = [
+{ label: 'Pesan BPJS', value: String(nB), bg: '#EEF2FB', fg: '#1E3A8A' },
+{ label: 'Kirim SATUSEHAT', value: String(nS), bg: '#E6F4F1', fg: '#0B5D56' },
+{ label: 'Pesan TPDI · BTN', value: String(nP), bg: '#E8EDF2', fg: '#14212B' },
+{ label: 'Gerbang keselamatan', value: String(nK), bg: '#FDECEA', fg: '#B42318' }
+];
+var taskNames = ['Mulai tunggu admisi', 'Mulai layan admisi', 'Mulai tunggu poli', 'Mulai layan poli', 'Mulai tunggu farmasi', 'Mulai layan farmasi', 'Obat selesai'];
+var bpjsChips = taskNames.map(function (nm, i) {
+var hit = R.logs.filter(function (l) { return l.sys === 'BPJS Antrean · task ' + (i + 1); })[0];
+return { n: String(i + 1), title: 'Task ' + (i + 1) + ': ' + nm, time: hit ? fmtT(hit.t) : '—', bg: hit ? '#EEF2FB' : '#F8FAFB', bd: hit ? '#C9D3EE' : '#E3E8EE', fg: hit ? '#1E3A8A' : '#9AA6B1' };
+});
+
+var total = R.charges.reduce(function (a, c) { return a + c.amt; }, 0);
+var charges = R.charges.map(function (c) { return { name: c.name, src: c.src, amt: rp(c.amt) }; });
+var bill = { total: rp(total), covered: rec.bayarPasien == null ? 'Belum difinalkan' : rp(total - rec.bayarPasien), patient: rec.bayarPasien == null ? 'Belum difinalkan' : rp(rec.bayarPasien) };
+
+var logs = R.logs.slice().reverse().map(function (l) { var k = kindOf(l.sys); return { time: fmtT(l.t), actor: l.actor, text: l.text, sys: l.sys, hasSys: !!l.sys, sysBg: col[k][0], sysFg: col[k][1] }; });
+
+var totWait = 0, totSvc = 0, maxT = 1;
+R.per.forEach(function (p) { totWait += p.wait; totSvc += p.svc; if (p.wait + p.svc > maxT) maxT = p.wait + p.svc; });
+var bars = D.steps.map(function (s, i) { var p = R.per[i]; return { label: s.stage, waitW: (p.wait / maxT * 100).toFixed(1) + '%', svcW: Math.max(p.svc / maxT * 100, 0.8).toFixed(1) + '%', text: durT(p.wait) + ' jeda · ' + durT(p.svc) + ' kerja' }; });
+var los = rec.pulangAt != null ? rec.pulangAt - D.startMin : R.clock - D.startMin;
+var extraStats = D.extra ? D.extra(rec, rp) : [];
+var sum = {
+title: D.label + ': ' + rec.nama,
+sub: 'Datang ' + (D.startDate ? fmtT(D.startMin) : D.date + ' ' + fmtT(D.startMin)) + ', pulang ' + (rec.pulangAt != null ? fmtT(rec.pulangAt) : '—') + '. Semua data di bawah dihasilkan dari keputusan Anda di tiap langkah.',
+stats: [
+{ label: 'Lama di rumah sakit', value: durT(los), note: 'dari kedatangan sampai pulang' },
+{ label: 'Total jeda/menunggu', value: durT(totWait), note: Math.round(totWait / Math.max(totWait + totSvc, 1) * 100) + '% dari seluruh waktu' },
+{ label: 'Tarif RS', value: rp(total), note: R.charges.length + ' baris tagihan otomatis' },
+{ label: 'Dibayar pasien', value: bill.patient, note: rec.penjamin },
+{ label: 'Pesan ke BPJS', value: String(nB), note: 'VClaim, antrean, E-Klaim' },
+{ label: 'Kiriman SATUSEHAT', value: String(nS), note: 'Encounter, Observation, dll.' },
+{ label: 'Gerbang keselamatan', value: String(nK), note: 'CDS, nilai kritis, override' },
+{ label: 'Jejak audit', value: String(R.logs.length), note: 'kejadian tercatat dengan jam dan peran' }
+].concat(extraStats),
+bars: bars,
+auto: D.auto.map(function (t) { return { t: t }; }),
+otherLabel: 'Coba skenario ' + self.defs()[other].label
+};
+
+return {
+scTabs: scTabs,
+autoLabel: st.auto ? 'Jeda' : (st.finished ? 'Putar ulang otomatis' : 'Putar otomatis'),
+autoIcon: st.auto ? 'M8 5v14M16 5v14' : 'M7 4l13 8-13 8z',
+autoBg: st.auto ? '#FFFFFF' : 'linear-gradient(180deg, #1D7E77, #0F766E)', autoFg: st.auto ? '#0B5D56' : '#FFFFFF',
+toggleAuto: function () { var s = self.state; if (s.finished) { var f = self.fresh(s.sc); f.auto = true; self.setState(f); } else self.setState({ auto: !s.auto, view: s.step }); },
+restart: function () { self.setState(self.fresh(self.state.sc)); },
+switchOther: function () { self.setState(self.fresh(other)); },
+goActive: function () { var s = self.state; self.setState({ view: s.finished ? N : s.step }); },
+next: function () { self.next(); },
+pt: pt, clockText: fmtT(R.clock), clockSub: (D.startDate ? '' : D.date + ' · ') + 'berjalan ' + durT(R.clock - D.startMin),
+journey: journey, progressW: progress + '%',
+showStep: !showSummary, showSummary: showSummary, sv: sv, sum: sum,
+recRows: recRows, intStats: intStats, isRJ: st.sc === 'rj', bpjsChips: bpjsChips,
+charges: charges, noCharges: charges.length === 0, bill: bill,
+logs: logs, noLogs: logs.length === 0, logCount: String(logs.length)
+};
+}
+}
+</script>
+</body>
+</html>

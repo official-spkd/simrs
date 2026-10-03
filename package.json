@@ -1,0 +1,24 @@
+{
+  "name": "simrs",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "db:migrate": "pnpm --filter @simrs/db migrate",
+    "db:seed": "pnpm --filter @simrs/db seed",
+    "db:studio": "pnpm --filter @simrs/db studio",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3",
+    "turbo": "^2",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Jejak audit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="audit" user="Lestari Ayu" role="Tim reviu keamanan RM" initials="LA" unit="SIM RS · Sistem" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Sistem / Jejak audit</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Jejak audit rekam medis</h1>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="font-size: 12px; color: #5B6B79">Log bersifat append-only dan tidak dapat diubah</span>
+<button type="button" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Unduh paket bukti akreditasi</button>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 28px 0; align-items: center">
+<label for="aPasien" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Pasien</label>
+<input id="aPasien" value="Siti Rahmawati · 00-12-45-78" style="flex: 1 1 260px; height: 40px; padding: 0 12px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; box-sizing: border-box; background: #FFFFFF">
+<label for="aRentang" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Rentang waktu</label>
+<select id="aRentang" value="{{rentang}}" onChange="{{setRentang}}" style="height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; background: #FFFFFF"><option value="30 hari terakhir">30 hari terakhir</option><option value="Hari ini">Hari ini</option></select>
+<label for="aPeran" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Peran pengguna</label>
+<select id="aPeran" value="{{peran}}" onChange="{{setPeran}}" style="height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; background: #FFFFFF"><sc-for list="{{peranOpts}}" as="o" hint-placeholder-count="8"><option value="{{o.v}}">{{o.v}}</option></sc-for></select>
+<div role="group" aria-label="Jenis aksi" style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="5">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="font: inherit; font-size: 13px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; font-weight: {{c.fw}}; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 16px 28px 0">
+<sc-for list="{{anomalies}}" as="a" hint-placeholder-count="3">
+<div style="border-radius: 14px; padding: 14px 16px; background: {{a.bg}}; border: 1px solid {{a.border}}; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; font-weight: 700; color: {{a.fg}}">{{a.tag}}</span>
+<span style="font-weight: 600">{{a.title}}</span>
+<span style="font-size: 13px; color: #3F4C58">{{a.desc}}</span>
+<button type="button" onClick="{{a.go}}" style="align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; margin-top: 4px; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; text-align: left; cursor: pointer">{{a.cta}}</button>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<section aria-label="Log aktivitas" style="flex: 999 1 560px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow-x: auto">
+<div style="min-width: 780px">
+<div style="display: grid; grid-template-columns: 1fr 1.6fr 1fr 1.8fr 1.2fr; font-size: 12px; font-weight: 600; color: #3F4C58; background: #F8FAFB"><span style="padding: 10px 16px">Waktu</span><span style="padding: 10px 16px">Pengguna</span><span style="padding: 10px 16px">Aksi</span><span style="padding: 10px 16px">Objek</span><span style="padding: 10px 16px">Perangkat</span></div>
+<sc-if value="{{noLogs}}" hint-placeholder-val="{{ false }}"><div style="padding: 16px; border-top: 1px solid #EEF1F4; font-size: 13px; color: #5B6B79">Tidak ada aktivitas yang cocok dengan filter jenis, peran, dan rentang waktu.</div></sc-if>
+<sc-for list="{{logs}}" as="l" hint-placeholder-count="9">
+<button type="button" aria-pressed="{{l.pressed}}" onClick="{{l.pick}}" style="width: 100%; display: grid; grid-template-columns: 1fr 1.6fr 1fr 1.8fr 1.2fr; align-items: center; padding: 0; margin: 0; border: 0; border-top: 1px solid #EEF1F4; box-shadow: {{l.edge}}; background: {{l.rowBg}}; font: inherit; color: inherit; text-align: left; cursor: pointer">
+<span style="padding: 10px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">{{l.time}}</span>
+<span style="padding: 10px 16px; display: flex; flex-direction: column; line-height: 1.3"><span style="font-weight: 600">{{l.user}}</span><span style="font-size: 12px; color: #5B6B79">{{l.role}}</span></span>
+<span style="padding: 10px 16px"><span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{l.aBg}}; color: {{l.aFg}}">{{l.action}}</span></span>
+<span style="padding: 10px 16px; font-size: 13px">{{l.object}}</span>
+<span style="padding: 10px 16px; font-size: 12px; color: #5B6B79">{{l.device}}</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<aside aria-label="Detail perubahan" style="flex: 1 1 360px; max-width: 440px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 16px 18px; border-bottom: 1px solid #E3E8EE; background: linear-gradient(100deg, rgba(15,118,110,0.08), #FFFFFF 60%)">
+<span style="font-size: 12px; color: #5B6B79">{{det.sub}}</span>
+<h2 style="margin: 2px 0 0; font-size: 17px; font-weight: 700">{{det.title}}</h2>
+</div>
+<div style="padding: 16px 18px; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{isKoreksi}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; font-weight: 600; color: #5B6B79">ALASAN KOREKSI (WAJIB)</span><span>Salah tulis dosis saat entri, dikonfirmasi ulang dengan pasien.</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; color: #5B6B79">PERUBAHAN</span>
+<div style="border-radius: 10px; border: 1px solid #FECDCA; background: #FFFBFA; padding: 10px 12px; font-size: 13px"><span style="font-weight: 700; color: #B42318">− v1</span> Pasien minum amlodipin <span style="text-decoration: line-through">10 mg</span> 1×1 di rumah.</div>
+<div style="border-radius: 10px; border: 1px solid #BFE3C6; background: #F6FCF7; padding: 10px 12px; font-size: 13px"><span style="font-weight: 700; color: #1E6B34">+ v2</span> Pasien minum amlodipin <span style="font-weight: 700">5 mg</span> 1×1 di rumah.</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; font-size: 13px">
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Penulis asli</span><span style="font-weight: 600">Rina Wulandari, S.Kep</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Dikoreksi oleh</span><span style="font-weight: 600">Rina Wulandari, S.Kep</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Waktu catat server</span><span style="font-family: 'IBM Plex Mono', monospace">2 Okt 14.10.22</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Tanda tangan</span><span style="font-weight: 600; color: #1E6B34">TTE valid</span></span>
+</div>
+<span style="font-size: 12px; color: #5B6B79">Versi 1 tetap tersimpan dan dapat dibuka. Entri final tidak pernah dihapus atau ditimpa (MRMIK 8c).</span>
+</sc-if>
+<sc-if value="{{isLain}}" hint-placeholder-val="{{ false }}">
+<sc-if value="{{det.hasAlasan}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; font-weight: 600; color: #5B6B79">ALASAN AKSES DARURAT (WAJIB)</span><span>{{det.alasan}}</span></div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; font-weight: 600; color: #5B6B79">OBJEK</span><span>{{det.object}}</span></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; font-size: 13px">
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Pengguna</span><span style="font-weight: 600">{{det.user}}</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Peran</span><span style="font-weight: 600">{{det.role}}</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Waktu catat server</span><span style="font-family: 'IBM Plex Mono', monospace">{{det.time}}</span></span>
+<span style="display: flex; flex-direction: column"><span style="color: #5B6B79">Perangkat</span><span style="font-weight: 600">{{det.device}}</span></span>
+</div>
+<span style="font-size: 12px; color: #5B6B79">{{det.note}}</span>
+</sc-if>
+<sc-if value="{{hasReview}}" hint-placeholder-val="{{ false }}">
+<div style="border-radius: 10px; border: 1px solid {{rv.border}}; background: {{rv.bg}}; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; font-weight: 600; color: #5B6B79">TINJAUAN ANOMALI</span>
+<span style="font-weight: 600; color: {{rv.fg}}">{{rv.status}}</span>
+<sc-if value="{{rv.open}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 13px; color: #3F4C58">Beri keputusan sebelum menutup temuan. Keputusan tercatat atas nama Anda dan tidak dapat dihapus.</span>
+<span style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" onClick="{{rv.sah}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Ditinjau: akses sah</button>
+<button type="button" onClick="{{rv.klarifikasi}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Ditinjau: perlu klarifikasi</button>
+</span>
+</sc-if>
+<sc-if value="{{rv.done}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{rv.buka}}" style="align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; padding: 0; border: 0; background: none; color: #0F766E; text-decoration: underline; cursor: pointer">Buka kembali tinjauan</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { jenis: 'Semua', peran: 'Semua peran', rentang: '30 hari terakhir', sel: null, review: {} };
+}
+renderVals() {
+var self = this;
+var s = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+var DEFAULT_DETAIL = 5;
+
+var ac = { 'Baca': ['#F1F3F5', '#3F4C58'], 'Ubah': ['#EEF4FF', '#1E3A8A'], 'Koreksi': ['#FFF4E5', '#8A4B00'], 'Cetak': ['#F1F3F5', '#3F4C58'], 'Break-the-glass': ['#FEF3F2', '#B42318'], 'Tanda tangan': ['#EAF6EC', '#1E6B34'], 'Kirim': ['#E6F4F1', '#0B5D56'] };
+var raw = [
+['3 Okt 08.51', 'dr. [Nama DPJP], Sp.PD', 'DPJP', 'Ubah', 'CPPT kunjungan 3 Okt (draf)', 'PC-POLI-PD-02 · 10.12.4.21'],
+['3 Okt 08.50', 'Integrasi SATUSEHAT', 'Sistem', 'Kirim', 'Encounter dan Observation TTV', 'server edge RS'],
+['3 Okt 08.42', 'Rina Wulandari, S.Kep', 'Perawat', 'Ubah', 'Tanda vital', 'Tablet-POLI-07'],
+['3 Okt 07.15', 'dr. Nur Fadilah', 'Residen IGD', 'Break-the-glass', 'Ringkasan pasien · alasan: konsul jaga', 'PC-IGD-01', 'btg'],
+['2 Okt 22.47', 'Bambang Kurniawan', 'Pendaftaran', 'Baca', 'Identitas pasien', 'PC-LOKET-03 · di luar jam dinas', 'malam'],
+['2 Okt 14.10', 'Rina Wulandari, S.Kep', 'Perawat', 'Koreksi', 'CPPT 2 Okt · v1 → v2', 'PC-MELATI-02'],
+['2 Okt 13.02', 'dr. [Nama DPJP], Sp.PD', 'DPJP', 'Tanda tangan', 'Resume medis rawat jalan', 'PC-POLI-PD-02'],
+['2 Okt 13.05', 'Lestari Ayu, A.Md.Kes', 'Perekam medis', 'Cetak', 'Resume medis · untuk BPJS', 'PC-RM-01'],
+['1 Okt 09.30', 'Yusuf Saputra, Apt', 'Apoteker', 'Baca', 'Daftar obat aktif', 'PC-FARMASI-01']
+];
+var all = raw.map(function (r, i) { return { id: i, time: r[0], user: r[1], role: r[2], action: r[3], object: r[4], device: r[5], anom: r[6] || '' }; });
+
+var groups = { 'Semua': null, 'Baca': ['Baca'], 'Ubah dan koreksi': ['Ubah', 'Koreksi'], 'Cetak dan ekspor': ['Cetak', 'Kirim'], 'Break-the-glass': ['Break-the-glass'] };
+var chips = Object.keys(groups).map(function (label) {
+var on = s.jenis === label;
+return {
+label: label, pressed: on ? 'true' : 'false',
+border: on ? '#0F766E' : '#E3E8EE', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : 'buttontext', fw: on ? '600' : '400',
+pick: function () { self.setState({ jenis: label }); }
+};
+});
+var peranOpts = [{ v: 'Semua peran' }];
+all.forEach(function (l) { if (!peranOpts.some(function (o) { return o.v === l.role; })) peranOpts.push({ v: l.role }); });
+
+var logs = all.filter(function (l) {
+var g = groups[s.jenis];
+if (g && g.indexOf(l.action) === -1) return false;
+if (s.peran !== 'Semua peran' && l.role !== s.peran) return false;
+if (s.rentang === 'Hari ini' && l.time.indexOf('3 Okt') !== 0) return false;
+return true;
+}).map(function (l) {
+var on = s.sel === l.id;
+var flagged = l.anom && !s.review[l.anom];
+return Object.assign({}, l, {
+aBg: ac[l.action][0], aFg: ac[l.action][1],
+rowBg: on ? '#F3FAF8' : (flagged ? '#FFFBFA' : '#FFFFFF'),
+edge: on ? 'inset 3px 0 0 #0F766E' : 'none',
+pressed: on ? 'true' : 'false',
+pick: function () { self.setState({ sel: l.id }); }
+});
+});
+
+var openRow = function (id) { self.setState({ sel: id, jenis: 'Semua', peran: 'Semua peran', rentang: '30 hari terakhir' }); };
+var anomDefs = [
+{ key: 'btg', row: 3, tag: 'BREAK-THE-GLASS', title: '1 akses darurat belum ditinjau', desc: 'Residen IGD membuka ringkasan pasien di luar unit, 3 Okt 07.15.', cta: 'Tinjau dan beri keputusan', bg: 'linear-gradient(180deg, #FEF3F2, #FFFFFF)', border: '#FECDCA', fg: '#B42318' },
+{ key: 'malam', row: 4, tag: 'DI LUAR JAM DINAS', title: 'Akses identitas pukul 22.47', desc: 'Petugas pendaftaran shift pagi membuka data pasien di malam hari.', cta: 'Minta klarifikasi', bg: 'linear-gradient(180deg, #FFF8EB, #FFFFFF)', border: '#F5D9A8', fg: '#8A4B00' }
+];
+var anomalies = anomDefs.map(function (a) {
+var r = s.review[a.key];
+var base = { go: function () { openRow(a.row); } };
+if (!r) return Object.assign({}, a, base);
+return Object.assign({}, a, base, {
+tag: a.tag + ' · DITINJAU',
+title: a.key === 'btg' ? 'Akses darurat sudah ditinjau' : 'Akses malam sudah ditinjau',
+desc: 'Ditinjau Lestari Ayu pukul ' + r.jam + ': ' + (r.dec === 'sah' ? 'akses sah.' : 'perlu klarifikasi ke pengguna.'),
+cta: 'Lihat detail',
+bg: '#FFFFFF', border: '#BFE3C6', fg: '#1E6B34'
+});
+});
+anomalies.push({ tag: 'RINGKASAN 30 HARI', title: '17 pengguna mengakses RM pasien ini', desc: 'Semua dengan relasi unit yang sah, kecuali 2 kasus di atas.', cta: 'Lihat semua pengakses', bg: '#FFFFFF', border: '#E3E8EE', fg: '#0B5D56', go: function () { self.setState({ jenis: 'Semua', peran: 'Semua peran', rentang: '30 hari terakhir' }); } });
+
+var cur = all[s.sel === null ? DEFAULT_DETAIL : s.sel];
+var notes = {
+'Baca': 'Akses baca tidak mengubah data, tetapi tetap dicatat untuk pemantauan kerahasiaan pasien.',
+'Ubah': 'Nilai sebelum dan sesudah tersimpan di riwayat versi entri. Draf dapat diubah sampai ditandatangani.',
+'Kirim': 'Dikirim otomatis oleh sistem integrasi. Status pengiriman dapat ditelusuri di modul Integrasi.',
+'Tanda tangan': 'Ditandatangani dengan TTE. Setelah final, entri hanya dapat dikoreksi dengan alasan.',
+'Cetak': 'Cetak dan ekspor dicatat beserta tujuan penggunaan dokumen.',
+'Break-the-glass': 'Akses darurat memicu notifikasi ke tim reviu dan wajib diberi keputusan tinjauan.'
+};
+var tgl = cur.time.split(' ');
+var det = cur.action === 'Koreksi'
+? { sub: 'Detail koreksi · CPPT 2 Okt 2026 14.10', title: 'Versi 1 → versi 2' }
+: {
+sub: 'Detail aktivitas · ' + tgl[0] + ' ' + tgl[1] + ' 2026 ' + tgl[2],
+title: cur.action + ' · ' + cur.object.split(' · ')[0],
+object: cur.object, user: cur.user, role: cur.role, device: cur.device,
+time: tgl[0] + ' ' + tgl[1] + ' ' + tgl[2],
+note: notes[cur.action] || '',
+hasAlasan: cur.action === 'Break-the-glass',
+alasan: cur.action === 'Break-the-glass' ? 'Konsul jaga (diisi pengguna saat membuka rekam medis).' : ''
+};
+
+var rv = { open: false, done: false };
+if (cur.anom) {
+var r = s.review[cur.anom];
+var key = cur.anom;
+var mark = function (dec) { var rev = Object.assign({}, self.state.review); rev[key] = { dec: dec, jam: jam() }; self.setState({ review: rev }); };
+rv = {
+open: !r, done: !!r,
+status: r ? ('Ditinjau pukul ' + r.jam + ' oleh Lestari Ayu · ' + (r.dec === 'sah' ? 'akses sah' : 'perlu klarifikasi')) : 'Belum ditinjau',
+fg: r ? '#1E6B34' : '#B42318',
+border: r ? '#BFE3C6' : '#FECDCA',
+bg: r ? '#F6FCF7' : '#FFFBFA',
+sah: function () { mark('sah'); },
+klarifikasi: function () { mark('klarifikasi'); },
+buka: function () { var rev = Object.assign({}, self.state.review); delete rev[key]; self.setState({ review: rev }); }
+};
+}
+
+return {
+chips: chips,
+peranOpts: peranOpts,
+peran: s.peran,
+rentang: s.rentang,
+setPeran: function (e) { self.setState({ peran: e.target.value }); },
+setRentang: function (e) { self.setState({ rentang: e.target.value }); },
+logs: logs,
+noLogs: logs.length === 0,
+anomalies: anomalies,
+det: det,
+isKoreksi: cur.action === 'Koreksi',
+isLain: cur.action !== 'Koreksi',
+hasReview: !!cur.anom,
+rv: rv
+};
+}
+}
+</script>
+</body>
+</html>

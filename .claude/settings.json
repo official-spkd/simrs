@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose up:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(bash scripts/doctor.sh)",
+      "Bash(curl -s http://localhost:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(docker compose down:*)",
+      "Bash(bash scripts/db-reset.sh)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(docker volume rm:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(git push --force:*)",
+      "Bash(rm -rf /:*)"
+    ]
+  }
+}

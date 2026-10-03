@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>IGD papan pelacakan dan triase</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(180,35,24,0.06), rgba(180,35,24,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="igd" user="dr. Nur Fadilah" role="Dokter jaga IGD" initials="NF" unit="SIM RS · IGD" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Klinis / IGD / Papan pelacakan</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Instalasi Gawat Darurat</h1>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="font-size: 13px; color: #3F4C58">Kapasitas 9 / 14 bed · 2 ambulans menuju (SISRUTE)</span>
+<button type="button" style="font: inherit; font-weight: 600; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #9A1E14; background: linear-gradient(180deg, #C0331F, #B42318); color: #FFFFFF; cursor: pointer">Pasien tanpa identitas</button>
+<button type="button" style="font: inherit; font-weight: 600; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">+ Triase pasien baru</button>
+</div>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px 28px 0">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+<div style="background: {{k.bg}}; border: 1px solid {{k.border}}; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 24px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{k.note}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<section aria-label="Papan pasien IGD" style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow-x: auto">
+<div style="min-width: 900px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #E3E8EE">
+<div role="tablist" aria-label="Zona IGD" style="display: flex; gap: 4px; padding: 3px; border-radius: 10px; background: #EEF1F4">
+<sc-for list="{{zones}}" as="z" hint-placeholder-count="4">
+<button type="button" role="tab" aria-selected="{{z.sel}}" onClick="{{z.pick}}" style="font: inherit; font-size: 13px; font-weight: {{z.weight}}; height: 34px; padding: 0 12px; border-radius: 8px; border: 0; background: {{z.bg}}; box-shadow: {{z.shadow}}; color: {{z.fg}}; cursor: pointer">{{z.label}}</button>
+</sc-for>
+</div>
+<div role="group" aria-label="Filter level triase" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap">
+<span style="font-size: 12px; font-weight: 600; color: #3F4C58">Level triase</span>
+<sc-for list="{{lvChips}}" as="c" hint-placeholder-count="6">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" aria-label="{{c.aria}}" style="font: inherit; font-size: 12px; font-weight: 700; min-width: 36px; height: 34px; padding: 0 10px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: 60px 1.8fr 1fr 1.6fr 1.1fr 0.9fr 1.3fr; font-size: 12px; font-weight: 600; color: #3F4C58; background: #F8FAFB">
+<span style="padding: 10px 12px">Bed</span><span style="padding: 10px 12px">Pasien</span><span style="padding: 10px 12px">Triase</span><span style="padding: 10px 12px">Keluhan utama</span><span style="padding: 10px 12px">Dokter</span><span style="padding: 10px 12px">Lama</span><span style="padding: 10px 12px">Status</span>
+</div>
+<sc-for list="{{pts}}" as="p" hint-placeholder-count="9">
+<button type="button" aria-pressed="{{p.pressed}}" onClick="{{p.pick}}" style="width: 100%; font: inherit; color: inherit; text-align: left; padding: 0; border: 0; border-top: 1px solid #EEF1F4; display: grid; grid-template-columns: 60px 1.8fr 1fr 1.6fr 1.1fr 0.9fr 1.3fr; align-items: center; box-shadow: inset 4px 0 0 {{p.tBg}}; background: {{p.rowBg}}; cursor: pointer">
+<span style="padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{p.bed}}</span>
+<span style="padding: 10px 12px; display: flex; flex-direction: column; line-height: 1.3"><span style="font-weight: 600">{{p.name}}</span><span style="font-size: 12px; color: #5B6B79">{{p.meta}}</span></span>
+<span style="padding: 10px 12px"><span style="display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: {{p.tBg}}; color: {{p.tFg}}; border: 1px solid {{p.tBorder}}">{{p.tLevel}} · {{p.tName}}</span></span>
+<span style="padding: 10px 12px; font-size: 13px">{{p.cc}}</span>
+<span style="padding: 10px 12px; font-size: 13px; color: #3F4C58">{{p.doc}}</span>
+<span style="padding: 10px 12px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{p.timeFg}}">{{p.time}}</span>
+<span style="padding: 10px 12px"><span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{p.sBg}}; color: {{p.sFg}}">{{p.status}}</span></span>
+</button>
+</sc-for>
+<sc-if value="{{noPts}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 12px; font-size: 13px; color: #5B6B79; border-top: 1px solid #EEF1F4">Tidak ada pasien pada zona dan level triase ini.</div>
+</sc-if>
+</div>
+</section>
+
+<aside aria-label="Triase pasien" style="flex: 1 1 340px; max-width: 400px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; background: linear-gradient(100deg, rgba(196,50,10,0.08), #FFFFFF 60%); border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">{{sel.arrival}}</span>
+<h2 style="margin: 0; font-size: 17px; font-weight: 700">{{sel.title}}</h2>
+</div>
+<span role="timer" aria-label="Lama di IGD" style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px"><span style="font-size: 11px; color: #5B6B79">Lama di IGD</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: {{sel.timerFg}}">{{sel.timer}}</span></span>
+</div>
+<div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="tKeluhan" style="font-size: 13px; font-weight: 600">Keluhan utama</label><input id="tKeluhan" value="{{sel.cc}}" onInput="{{setCc}}" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; box-sizing: border-box"></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{vit}}" as="v" hint-placeholder-count="6">
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: {{v.bg}}; border: 1px solid {{v.border}}"><span style="font-size: 11.5px; color: #5B6B79">{{v.l}}</span><span style="font-weight: 700; color: {{v.fg}}">{{v.v}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 600">Level triase</span>
+<div role="radiogroup" aria-label="Level triase" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{levels}}" as="l" hint-placeholder-count="5">
+<button type="button" role="radio" aria-checked="{{l.checked}}" onClick="{{l.pick}}" style="font: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 10px; border: {{l.border}}; background: {{l.bg}}; color: {{l.fg}}; cursor: pointer; box-shadow: {{l.ring}}"><span style="font-size: 18px; font-weight: 700">{{l.n}}</span><span style="font-size: 11px; font-weight: 600">{{l.name}}</span></button>
+</sc-for>
+</div>
+</div>
+<div role="status" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: {{advice.bg}}; border: 1px solid {{advice.border}}; font-size: 13px"><span style="font-weight: 700; color: {{advice.fg}}; white-space: nowrap">Saran sistem</span><span style="color: #3F4C58">{{advice.text}}</span></div>
+<sc-if value="{{under}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="tAlasan" style="font-size: 13px; font-weight: 600">Alasan memilih level lebih rendah dari saran (triase {{sel.rec}})</label>
+<input id="tAlasan" value="{{reason}}" onInput="{{setReason}}" placeholder="Contoh: nyeri dada atipikal, EKG awal normal" aria-describedby="tAlasanInfo" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid {{reasonBorder}}; border-radius: 10px; box-sizing: border-box">
+<span id="tAlasanInfo" style="font-size: 12px; color: {{reasonFg}}">{{reasonMsg}}</span>
+</div>
+</sc-if>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 13px; font-weight: 600">{{orderTitle}}</span>
+<sc-for list="{{orders}}" as="o" hint-placeholder-count="3">
+<label style="display: flex; gap: 8px; align-items: center; font-size: 13px"><input type="checkbox" checked="{{o.on}}" onChange="{{o.toggle}}" style="width: 18px; height: 18px; accent-color: #0F766E">{{o.label}}</label>
+</sc-for>
+</div>
+<button type="button" onClick="{{save}}" disabled="{{saveDisabled}}" style="font: inherit; font-weight: 700; height: 48px; border-radius: 10px; border: 1px solid {{saveBorder}}; background: {{saveBg}}; color: {{saveFg}}; cursor: {{saveCursor}}">{{saveLabel}}</button>
+<sc-if value="{{hasSaved}}" hint-placeholder-val="{{ false }}">
+<span role="status" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; background: #EAF6EC; border: 1px solid #BFE3C6; color: #1E6B34; font-size: 13px; font-weight: 600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>{{savedMsg}}</span>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<a href="BedManagement.dc.html" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3zM3 9h18M9 21V9"></path></svg>Minta bed</a>
+<a href="Ranap.dc.html" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"></path></svg>Rawat inap</a>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.base = [
+['R1', 'Tn. X (tanpa identitas)', 'L · ±40 th · KLL', 1, 'Penurunan kesadaran, GCS 8', 'dr. Nur F. + tim', '00.22', 'Resusitasi aktif', true],
+['R2', 'Tn. Hartono', 'L · 67 th · BPJS', 2, 'Nyeri dada kiri 40 menit', 'dr. Nur F.', '00.08', 'Pemeriksaan'],
+['B3', 'Ny. Sulastri', 'P · 72 th · BPJS', 2, 'Sesak napas, SpO2 89%', 'dr. Rudi', '01.35', 'Tunggu lab'],
+['B4', 'An. Rafa', 'L · 4 th · BPJS', 3, 'Demam 3 hari, muntah', 'dr. Rudi', '00.55', 'Observasi'],
+['B5', 'Tn. Wahyu', 'L · 45 th · Umum', 3, 'Nyeri perut kanan bawah', 'dr. Nur F.', '04.40', 'Tunggu bed ranap', true],
+['B6', 'Nn. Putri', 'P · 22 th · Asuransi', 4, 'Luka robek telapak tangan', 'dr. Rudi', '00.40', 'Pemeriksaan'],
+['B7', 'Ny. Rohani', 'P · 58 th · BPJS', 4, 'Pusing berputar', '—', '00.31', 'Tunggu dokter'],
+['K1', 'Tn. Gilang', 'L · 30 th · Umum', 5, 'Batuk pilek 5 hari', 'dr. Rudi', '01.10', 'Siap pulang'],
+['B8', 'Ny. Endang', 'P · 61 th · BPJS', 3, 'Gula darah 412 mg/dL', 'dr. Nur F.', '02.15', 'Tunggu lab']
+].map(function (r) {
+return { bed: r[0], name: r[1], meta: r[2], level: r[3], cc: r[4], doc: r[5], mins: parseInt(r[6].split('.')[0], 10) * 60 + parseInt(r[6].split('.')[1], 10), status: r[7], flag: !!r[8] };
+});
+this.extra = {
+R1: { mode: 'ambulans', vit: [['TD', '90/60', 1], ['Nadi', '124', 1], ['Napas', '8', 1], ['SpO2', '91%', 1], ['Suhu', '36,2'], ['GCS', '8', 1]], recText: 'Penurunan kesadaran pasca trauma: triase 1, amankan jalan napas, aktifkan tim trauma dan CT kepala segera setelah stabil.', orderTitle: 'Order awal otomatis (alur trauma)', orders: [['CT kepala tanpa kontras', true], ['Darah lengkap, golongan darah, crossmatch', true], ['Konsul bedah saraf jaga', false]] },
+R2: { mode: 'ambulans', vit: [['TD', '168/98', 1], ['Nadi', '112', 1], ['Napas', '24', 1], ['SpO2', '94%'], ['Suhu', '36,9'], ['GCS', '15']], recText: 'Nyeri dada tipikal + usia > 65: triase 2, EKG ≤ 10 menit, aktifkan alur sindrom koroner akut.', orderTitle: 'Order awal otomatis (alur SKA)', orders: [['EKG 12 sadapan', true], ['Troponin I, darah lengkap, elektrolit', true], ['Konsul kardiologi jaga', false]] },
+B3: { mode: 'diantar keluarga', vit: [['TD', '150/90', 1], ['Nadi', '104', 1], ['Napas', '28', 1], ['SpO2', '89%', 1], ['Suhu', '37,8'], ['GCS', '15']], recText: 'Sesak dengan SpO2 < 90% pada lansia: triase 2, oksigen sesuai target, analisis gas darah dan foto toraks segera.', orderTitle: 'Order awal otomatis (alur sesak napas)', orders: [['Analisis gas darah', true], ['Foto toraks', true], ['Konsul paru jaga', false]] }
+};
+this.state = { sel: 'R2', zone: 'semua', lvF: 0, sec: 0, draft: {}, saved: {}, cc: {}, orders: {}, reason: {} };
+}
+componentDidMount() {
+var self = this;
+this.iv = setInterval(function () { self.setState({ sec: Math.floor((Date.now() - self.t0) / 1000) }); }, 1000);
+}
+componentWillUnmount() {
+if (this.iv) clearInterval(this.iv);
+}
+renderVals() {
+var self = this, st = this.state;
+function put(obj, k, v) { var n = Object.assign({}, obj); n[k] = v; return n; }
+function two(n) { return (n < 10 ? '0' : '') + n; }
+var T = {
+1: ['Resusitasi', '#B42318', '#FFFFFF', '#9A1E14'],
+2: ['Emergensi', '#C4320A', '#FFFFFF', '#A42A08'],
+3: ['Urgen', '#FEF0C7', '#7A4300', '#F5D9A8'],
+4: ['Semi-urgen', '#EAF6EC', '#1E6B34', '#BFE3C6'],
+5: ['Tidak urgen', '#EEF4FF', '#1E3A8A', '#C7D7FE']
+};
+var BTN = { 1: ['#C8402F', '#B42318', '#9A1E14'], 2: ['#D0400F', '#C4320A', '#A42A08'], 3: ['#C25A1A', '#B54708', '#93370D'], 4: ['#2A7D42', '#1E6B34', '#17562A'], 5: ['#2B4A9E', '#1E3A8A', '#172E6E'] };
+var RING = { 1: 'rgba(180,35,24,0.18)', 2: 'rgba(196,50,10,0.18)', 3: 'rgba(181,71,8,0.18)', 4: 'rgba(30,107,52,0.18)', 5: 'rgba(30,58,138,0.18)' };
+var ADV = { 1: ['linear-gradient(90deg, #FEF3F2, #FFFFFF)', '#FECDCA', '#B42318'], 2: ['linear-gradient(90deg, #FEF3F2, #FFFFFF)', '#FECDCA', '#B42318'], 3: ['linear-gradient(90deg, #FFF8EB, #FFFFFF)', '#F5D9A8', '#8A4B00'], 4: ['linear-gradient(90deg, #EAF6EC, #FFFFFF)', '#BFE3C6', '#1E6B34'], 5: ['linear-gradient(90deg, #EEF4FF, #FFFFFF)', '#C7D7FE', '#1E3A8A'] };
+var GEN = {
+1: 'Resusitasi: penanganan segera di bed resusitasi, aktifkan tim kode biru, dokter 0 menit.',
+2: 'Emergensi: tempatkan di bed resusitasi/akut, dokter ≤ 10 menit, monitor tanda vital kontinu.',
+3: 'Urgen: zona akut, dokter ≤ 30 menit, ulang tanda vital tiap 30 menit.',
+4: 'Semi-urgen: zona akut atau kursi, dokter ≤ 60 menit, tanda vital tiap 1 jam.',
+5: 'Tidak urgen: fast track, dokter ≤ 120 menit; pertimbangkan rujuk balik ke FKTP.'
+};
+var ST = { 'Resusitasi aktif': ['#FEF3F2', '#B42318'], 'Pemeriksaan': ['#E6F4F1', '#0B5D56'], 'Tunggu lab': ['#FFF4E5', '#8A4B00'], 'Tunggu bed ranap': ['#FFF4E5', '#8A4B00'], 'Siap pulang': ['#EAF6EC', '#1E6B34'], 'Observasi': ['#F1F3F5', '#3F4C58'], 'Tunggu dokter': ['#EEF4FF', '#1E3A8A'] };
+var ZONES = [['semua', 'Semua zona', ''], ['R', 'Resusitasi', 'R'], ['B', 'Akut', 'B'], ['K', 'Fast track', 'K']];
+var addMin = Math.floor(st.sec / 60);
+var nowMin = 9 * 60 + 12 + addMin;
+function levelOf(r) { return st.saved[r.bed] ? st.saved[r.bed].level : r.level; }
+function ccOf(r) { return st.cc[r.bed] != null ? st.cc[r.bed] : r.cc; }
+function hm(m) { return two(Math.floor(m / 60)) + '.' + two(m % 60); }
+
+var all = this.base.map(function (r) {
+var lv = levelOf(r), t = T[lv], s = ST[r.status], mins = r.mins + addMin, on = r.bed === st.sel;
+var late = (lv <= 2 && mins > 10 && r.status === 'Tunggu dokter') || mins >= 240;
+return { bed: r.bed, zone: r.bed.charAt(0), name: r.name, meta: r.meta, tLevel: lv, tName: t[0], tBg: t[1], tFg: t[2], tBorder: t[3], cc: ccOf(r), doc: r.doc, time: hm(mins) + ' j', status: r.status, sBg: s[0], sFg: s[1], timeFg: late ? '#B42318' : '#14212B', rowBg: on ? '#F1F8F6' : (r.flag ? '#FFFBFA' : '#FFFFFF'), pressed: on ? 'true' : 'false', boarding: r.status === 'Tunggu bed ranap' && mins >= 240, pick: function () { self.setState({ sel: r.bed }); } };
+});
+var pts = all.filter(function (p) { return (st.zone === 'semua' || p.zone === st.zone) && (!st.lvF || p.tLevel === st.lvF); });
+var zones = ZONES.map(function (z) {
+var on = st.zone === z[0];
+var n = z[2] ? all.filter(function (p) { return p.zone === z[2]; }).length : all.length;
+return { label: z[1] + ' · ' + n, sel: on ? 'true' : 'false', weight: on ? 600 : 400, bg: on ? '#FFFFFF' : 'transparent', shadow: on ? '0 1px 2px rgba(16,24,40,0.08)' : 'none', fg: on ? '#14212B' : '#3F4C58', pick: function () { self.setState({ zone: z[0] }); } };
+});
+var lvChips = [0, 1, 2, 3, 4, 5].map(function (n) {
+var on = st.lvF === n, t = T[n];
+return { label: n ? String(n) : 'Semua', aria: n ? 'Level ' + n + ' · ' + t[0] : 'Semua level', pressed: on ? 'true' : 'false', bg: on ? (n ? t[1] : '#E6F4F1') : '#FFFFFF', fg: on ? (n ? t[2] : '#0B5D56') : '#3F4C58', border: on ? (n ? t[3] : '#0F766E') : '#E3E8EE', pick: function () { self.setState({ lvF: n }); } };
+});
+var high = all.filter(function (p) { return p.tLevel <= 2; }).length;
+var boarding = all.filter(function (p) { return p.boarding; }).length;
+var kpis = [
+{ label: 'Pasien di IGD', value: String(all.length), note: 'kapasitas 14', fg: '#14212B', bg: '#FFFFFF', border: '#E3E8EE' },
+{ label: 'Triase 1–2', value: String(high), note: 'semua ditangani', fg: '#B42318', bg: 'linear-gradient(180deg, #FEF3F2, #FFFFFF)', border: '#FECDCA' },
+{ label: 'Waktu tunggu dokter', value: '7 mnt', note: 'median hari ini', fg: '#0B5D56', bg: '#FFFFFF', border: '#E3E8EE' },
+{ label: 'Boarding > 4 jam', value: String(boarding), note: 'menunggu bed bedah', fg: '#8A4B00', bg: 'linear-gradient(180deg, #FFF8EB, #FFFFFF)', border: '#F5D9A8' },
+{ label: 'Pulang tanpa diperiksa', value: '0', note: '24 jam terakhir', fg: '#1E6B34', bg: '#FFFFFF', border: '#E3E8EE' }
+];
+
+var r = this.base.filter(function (x) { return x.bed === st.sel; })[0] || this.base[1];
+var ex = this.extra[r.bed] || { mode: 'datang sendiri', vit: [['TD', '—'], ['Nadi', '—'], ['Napas', '—'], ['SpO2', '—'], ['Suhu', '—'], ['GCS', '—']], recText: '', orderTitle: 'Order awal (alur umum)', orders: [['Darah lengkap', true], ['Gula darah sewaktu', false], ['Konsul DPJP jaga', false]] };
+var rec = r.level;
+var savedLv = levelOf(r);
+var lv = st.draft[r.bed] || savedLv;
+var totalSec = r.mins * 60 + st.sec;
+var metaParts = r.meta.split(' · ');
+var sel = {
+arrival: 'Triase · tiba ' + hm(9 * 60 + 12 - r.mins) + ' · ' + ex.mode,
+title: r.name + ' · ' + metaParts[0] + ' · ' + metaParts[1],
+timer: two(Math.floor(totalSec / 3600)) + ':' + two(Math.floor(totalSec / 60) % 60) + ':' + two(totalSec % 60),
+timerFg: totalSec >= 4 * 3600 ? '#B42318' : '#14212B',
+cc: ccOf(r), rec: rec
+};
+var vit = ex.vit.map(function (v) { var hi = !!v[2]; return { l: v[0], v: v[1], bg: hi ? '#FFFBFA' : '#F8FAFB', border: hi ? '#FECDCA' : '#EEF1F4', fg: hi ? '#B42318' : '#14212B' }; });
+var levels = [1, 2, 3, 4, 5].map(function (n) {
+var t = T[n], on = n === lv;
+return { n: n, name: t[0], checked: on ? 'true' : 'false', bg: on ? t[1] : '#FFFFFF', fg: on ? t[2] : '#3F4C58', border: on ? '2px solid ' + t[3] : '1px solid #CBD3DB', ring: on ? '0 0 0 3px ' + RING[n] : 'none', pick: function () { self.setState({ draft: put(self.state.draft, r.bed, n) }); } };
+});
+var a = ADV[lv];
+var advice = { bg: a[0], border: a[1], fg: a[2], text: (lv === rec && ex.recText) ? ex.recText : GEN[lv] + (lv > rec ? ' Sistem menyarankan triase ' + rec + '.' : '') };
+var under = lv > rec;
+var reason = st.reason[r.bed] || '';
+var reasonOk = reason.trim().length >= 5;
+var ordState = st.orders[r.bed] || ex.orders.map(function (o) { return o[1]; });
+var orders = ex.orders.map(function (o, i) {
+return { label: o[0], on: !!ordState[i], toggle: function () { var cur = (self.state.orders[r.bed] || ex.orders.map(function (x) { return x[1]; })).slice(); cur[i] = !cur[i]; self.setState({ orders: put(self.state.orders, r.bed, cur) }); } };
+});
+var canSave = !under || reasonOk;
+var b = BTN[lv];
+var save = function () {
+if (!canSave) return;
+var n = ordState.filter(Boolean).length;
+self.setState({ saved: put(self.state.saved, r.bed, { level: lv, t: hm(nowMin), n: n }) });
+};
+var sv = st.saved[r.bed];
+return {
+pts: pts, noPts: pts.length === 0, zones: zones, lvChips: lvChips, kpis: kpis,
+sel: sel, setCc: function (e) { self.setState({ cc: put(self.state.cc, r.bed, e.target.value) }); },
+vit: vit, levels: levels, advice: advice,
+under: under, reason: reason, setReason: function (e) { self.setState({ reason: put(self.state.reason, r.bed, e.target.value) }); },
+reasonBorder: reasonOk ? '#CBD3DB' : '#F04438', reasonFg: reasonOk ? '#5B6B79' : '#B42318', reasonMsg: reasonOk ? 'Alasan tercatat di jejak audit triase.' : 'Wajib diisi (minimal 5 karakter) sebelum triase bisa disimpan.',
+orderTitle: ex.orderTitle, orders: orders,
+save: save, saveDisabled: !canSave, saveLabel: 'Simpan triase ' + lv + ' dan tempatkan di bed ' + r.bed,
+saveBorder: canSave ? b[2] : '#E3E8EE', saveBg: canSave ? 'linear-gradient(180deg, ' + b[0] + ', ' + b[1] + ')' : '#F1F4F6', saveFg: canSave ? '#FFFFFF' : '#8C99A6', saveCursor: canSave ? 'pointer' : 'not-allowed',
+hasSaved: !!sv, savedMsg: sv ? 'Triase ' + sv.level + ' tersimpan ' + sv.t + ' · bed ' + r.bed + ' · ' + sv.n + ' order dikirim' : ''
+};
+}
+}
+</script>
+</body>
+</html>

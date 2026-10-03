@@ -1,0 +1,92 @@
+# Infrastruktur lokal SIM RS (data fiktif saja).
+# Jalankan: docker compose up -d        · FHIR opsional: docker compose --profile fhir up -d
+name: simrs
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres_local}
+      POSTGRES_DB: simrs
+      TZ: Asia/Jakarta
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d simrs"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Catatan: bila image MinIO tidak bisa ditarik, ganti dengan S3-compatible lain
+  # (mis. SeaweedFS: image chrislusf/seaweedfs, command "server -s3") dan sesuaikan S3_ENDPOINT.
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-simrs_local}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-simrs_local_secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${S3_ACCESS_KEY:-simrs_local} $${S3_SECRET_KEY:-simrs_local_secret} &&
+      mc mb --ignore-existing local/simrs-documents &&
+      mc mb --ignore-existing local/simrs-backups &&
+      echo 'bucket siap'"
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-simrs_local}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-simrs_local_secret}
+    restart: "no"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  hapi-fhir:
+    image: hapiproject/hapi:latest
+    profiles: ["fhir"]
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

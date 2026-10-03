@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Kamar operasi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="ok" user="Ns. Yudi Pratama, S.Kep" role="Perawat sirkuler · IBS" initials="YP" unit="Instalasi bedah sentral" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Penunjang / Instalasi bedah sentral / Sabtu 3 Okt 2026</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Kamar operasi · jadwal dan keselamatan</h1>
+</div>
+<div style="display: flex; gap: 14px; font-size: 13px; color: #3F4C58; flex-wrap: wrap">
+<span>Utilisasi <span style="font-weight: 700; color: #14212B">78%</span></span>
+<span>On-time start <span style="font-weight: 700; color: #8A4B00">67%</span></span>
+<span>Pembatalan <span style="font-weight: 700; color: #14212B">1</span></span>
+</div>
+</header>
+
+<section aria-label="Jadwal kamar" style="margin: 18px 28px 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 90px repeat(10, 1fr); font-size: 12px; color: #5B6B79; border-bottom: 1px solid #E3E8EE; background: #F8FAFB">
+<span style="padding: 8px 12px; font-weight: 600">Kamar</span>
+<sc-for list="{{hours}}" as="h" hint-placeholder-count="10"><span style="padding: 8px 6px; border-left: 1px solid #EEF1F4; font-family: 'IBM Plex Mono', monospace">{{h}}</span></sc-for>
+</div>
+<sc-for list="{{rooms}}" as="r" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: 90px 1fr; border-bottom: 1px solid #EEF1F4; min-height: 64px">
+<span style="padding: 10px 12px; font-weight: 600; display: flex; flex-direction: column"><span>{{r.name}}</span><span style="font-size: 11.5px; color: #5B6B79; font-weight: 400">{{r.kind}}</span></span>
+<div style="position: relative; background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(10% - 1px), #EEF1F4 calc(10% - 1px), #EEF1F4 10%)">
+<sc-for list="{{r.cases}}" as="c" hint-placeholder-count="2">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" title="{{c.tip}}" style="position: absolute; top: 8px; bottom: 8px; left: {{c.left}}; width: {{c.width}}; margin: 0; border-radius: 8px; background: {{c.bg}}; border: 1px solid {{c.bd}}; box-shadow: {{c.ring}}; padding: 5px 8px; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; font: inherit; text-align: left; cursor: pointer"><span style="font-size: 12.5px; font-weight: 600; color: {{c.fg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{c.title}}</span><span style="font-size: 11.5px; color: {{c.subFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{c.sub}}</span></button>
+</sc-for>
+<span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; left: 36.67%; width: 2px; background: #B42318; opacity: 0.8"></span>
+</div>
+</div>
+</sc-for>
+<div style="display: flex; gap: 16px; padding: 10px 14px; font-size: 12.5px; color: #3F4C58; flex-wrap: wrap">
+<span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #0F766E; margin-right: 6px"></span>Sedang berlangsung</span>
+<span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #D5ECE7; margin-right: 6px"></span>Terjadwal</span>
+<span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #E8EDF2; margin-right: 6px"></span>Selesai</span>
+<span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: #FDECEA; margin-right: 6px"></span>Cito</span>
+<span style="margin-left: auto; color: #5B6B79">Garis merah = sekarang 10.40</span>
+</div>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Daftar tilik keselamatan" style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: linear-gradient(100deg, rgba(15,118,110,0.06), #FFFFFF 60%)">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 16px">{{sel.title}}</span><span style="font-size: 12.5px; color: #5B6B79">{{sel.sub}}</span></span>
+<span style="font-size: 13px; color: {{sel.phaseFg}}; font-weight: 600; align-self: center">{{sel.phase}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr)">
+<sc-for list="{{phases}}" as="p" hint-placeholder-count="3">
+<div style="padding: 14px 16px; border-right: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 8px; background: {{p.bg}}">
+<span style="display: flex; justify-content: space-between; align-items: center"><span style="font-weight: 600">{{p.name}}</span><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{p.chipBg}}; color: {{p.chipFg}}">{{p.state}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{p.when}}</span>
+<sc-for list="{{p.items}}" as="i" hint-placeholder-count="5">
+<label style="display: flex; gap: 8px; font-size: 13px; align-items: flex-start; cursor: {{i.cursor}}"><input type="checkbox" checked="{{i.ok}}" onChange="{{i.toggle}}" disabled="{{i.locked}}" aria-label="{{i.aria}}" style="width: 18px; height: 18px; margin: 0; flex: none; accent-color: #0F766E"><span style="color: {{i.fg}}">{{i.t}}</span></label>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{hasDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 0 18px 12px; padding: 8px 12px; border-radius: 10px; background: #EAF6EC; border: 1px solid #B7DEC1; color: #1E6B34; font-size: 13px; font-weight: 600">{{doneText}}</div>
+</sc-if>
+<div style="padding: 12px 18px; border-top: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<span id="alasanFase" style="font-size: 13px; color: {{footFg}}; font-weight: {{footW}}">{{footText}}</span>
+<button type="button" onClick="{{confirm}}" disabled="{{confirmOff}}" aria-describedby="alasanFase" style="font: inherit; font-weight: 600; height: 42px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer; opacity: {{confirmOp}}">{{confirmLabel}}</button>
+</div>
+</section>
+
+<aside style="flex: 1 1 300px; max-width: 360px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Hitung kasa dan instrumen</span>
+<sc-for list="{{count}}" as="c" hint-placeholder-count="4">
+<span style="display: grid; grid-template-columns: 1fr 50px 64px 18px; font-size: 13px; gap: 6px; align-items: center"><label for="{{c.id}}" style="color: #3F4C58">{{c.n}}</label><span style="font-family: 'IBM Plex Mono', monospace">{{c.a}}</span><input id="{{c.id}}" type="number" min="0" inputmode="numeric" value="{{c.b}}" onInput="{{c.set}}" disabled="{{c.off}}" placeholder="—" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; width: 64px; height: 32px; padding: 0 6px; box-sizing: border-box; border: 1px solid {{c.bd}}; border-radius: 8px; background: {{c.bg}}; color: #14212B"><span aria-hidden="true" style="font-weight: 700; color: {{c.mFg}}">{{c.mark}}</span></span>
+</sc-for>
+<span style="font-size: 12px; color: {{countFg}}; font-weight: {{countW}}">{{countText}}</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Terhubung otomatis</span>
+<span style="font-size: 13px; color: #3F4C58">• Laporan operasi dan laporan anestesi (K10)</span>
+<span style="font-size: 13px; color: #3F4C58">• BHP dan implan terpakai → stok depo OK dan billing</span>
+<span style="font-size: 13px; color: #3F4C58">• Kode ICD-9-CM 51.23 → klaim INA-CBG</span>
+<span style="font-size: 13px; color: #3F4C58">• Procedure ke SATUSEHAT</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { selCase: 'ok2-2', cases: {} };
+}
+now() {
+var d = new Date();
+return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+}
+roomsDef() {
+function cs(id, start, dur, title, full, sub, st) { return { id: id, start: start, dur: dur, title: title, full: full, sub: sub, st: st }; }
+return [
+{ name: 'OK 1', kind: 'Bedah umum', cases: [cs('ok1-1', 7, 1.5, 'Herniorafi', 'Herniorafi', 'dr. Fajar · selesai 08.34', 'done'), cs('ok1-2', 9, 2.5, 'Laparotomi eksplorasi', 'Laparotomi eksplorasi', 'dr. Fajar · berjalan 1 j 40 m', 'live'), cs('ok1-3', 13, 1.5, 'Eksisi lipoma', 'Eksisi lipoma', 'dr. Hadi', 'plan')] },
+{ name: 'OK 2', kind: 'Laparoskopi', cases: [cs('ok2-1', 7.5, 2, 'Lap. apendektomi', 'Laparoskopi apendektomi', 'dr. Dian · selesai', 'done'), cs('ok2-2', 10.5, 2, 'Lap. kolesistektomi', 'Laparoskopi kolesistektomi', 'dr. Fajar · time out', 'live'), cs('ok2-3', 14, 2, 'Lap. hernia', 'Laparoskopi hernia', 'dr. Dian', 'plan')] },
+{ name: 'OK 3', kind: 'Obsgin', cases: [cs('ok3-1', 8, 1.2, 'SC elektif', 'Seksio sesarea elektif', 'dr. Wulan · selesai', 'done'), cs('ok3-2', 11, 1.3, 'SC cito · gawat janin', 'Seksio sesarea cito · gawat janin', 'dr. Wulan · persiapan', 'cito'), cs('ok3-3', 13.5, 1.5, 'Histerektomi', 'Histerektomi', 'dr. Sinta', 'plan')] },
+{ name: 'OK 4', kind: 'Ortopedi', cases: [cs('ok4-1', 8, 3, 'ORIF femur', 'ORIF femur', 'dr. Rudi · selesai 10.52', 'done'), cs('ok4-2', 12, 3.5, 'TKR kanan', 'Total knee replacement kanan', 'dr. Rudi', 'plan')] }
+];
+}
+initCase(c) {
+function arr(n, v) { var a = []; for (var i = 0; i < n; i++) a.push(v); return a; }
+if (c.id === 'ok2-2') return { ck: [arr(5, true), [true, true, true, false, false], arr(5, false)], conf: ['10.21', '', ''], cnt: { kb: '', kk: '', jr: '', set: '' } };
+if (c.st === 'done') return { ck: [arr(5, true), arr(5, true), arr(5, true)], conf: ['tercatat', 'tercatat', 'tercatat'], cnt: { kb: '20', kk: '30', jr: '6', set: '1' } };
+if (c.st === 'live') return { ck: [arr(5, true), arr(5, true), arr(5, false)], conf: ['tercatat', 'tercatat', ''], cnt: { kb: '', kk: '', jr: '', set: '' } };
+return { ck: [arr(5, false), arr(5, false), arr(5, false)], conf: ['', '', ''], cnt: { kb: '', kk: '', jr: '', set: '' } };
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var hours = ['07', '08', '09', '10', '11', '12', '13', '14', '15', '16'];
+var M = { live: ['#0F766E', '#0D6861', '#FFFFFF', 'rgba(255,255,255,0.85)'], plan: ['#E6F4F1', '#BFDDD8', '#0B5D56', '#3F4C58'], done: ['#EEF1F4', '#E3E8EE', '#3F4C58', '#3F4C58'], cito: ['#FDECEA', '#F0C2BD', '#B42318', '#3F4C58'] };
+var defs = this.roomsDef();
+var selC = null, selRoom = null;
+var rooms = defs.map(function (r) {
+return { name: r.name, kind: r.kind, cases: r.cases.map(function (c) {
+var m = M[c.st], on = st.selCase === c.id;
+if (on) { selC = c; selRoom = r; }
+return { left: ((c.start - 7) * 10) + '%', width: 'calc(' + (c.dur * 10) + '% - 4px)', title: c.title, sub: c.sub, bg: m[0], bd: m[1], fg: m[2], subFg: c.st === 'live' ? m[3] : '#3F4C58',
+pressed: on ? 'true' : 'false', ring: on ? '0 0 0 2px #FFFFFF, 0 0 0 4px #0B5D56' : 'none', tip: 'Pilih kasus ' + r.name + ': ' + c.full,
+pick: function () { self.setState({ selCase: c.id }); } };
+}) };
+});
+
+var cs = st.cases[selC.id] || this.initCase(selC);
+function save(patch) { var all = Object.assign({}, st.cases); all[selC.id] = Object.assign({}, cs, patch); self.setState({ cases: all }); }
+
+var isMain = selC.id === 'ok2-2';
+var names = ['Sign in', 'Time out', 'Sign out'];
+var whenBase = ['Sebelum induksi', 'Sebelum insisi', 'Sebelum pasien keluar kamar'];
+var texts = [
+['Identitas, lokasi, prosedur dikonfirmasi pasien', 'Penandaan lokasi operasi', 'Mesin dan obat anestesi dicek', 'Pulse oksimetri terpasang', isMain ? 'Risiko jalan napas sulit / aspirasi: tidak' : 'Risiko jalan napas sulit / aspirasi dinilai'],
+['Semua anggota tim memperkenalkan diri', 'Nama pasien, prosedur, lokasi insisi', isMain ? 'Antibiotik profilaksis ≤ 60 mnt: sefazolin 10.18' : 'Antibiotik profilaksis ≤ 60 mnt sebelum insisi', 'Antisipasi kejadian kritis (bedah, anestesi, perawat)', 'Pencitraan penting ditampilkan'],
+['Nama prosedur yang dicatat', 'Hitung kasa, jarum, instrumen lengkap', 'Label spesimen', 'Masalah alat', 'Rencana pemulihan']
+];
+
+var countDef = [{ k: 'kb', n: 'Kasa besar', a: '20', v: 20 }, { k: 'kk', n: 'Kasa kecil', a: '30', v: 30 }, { k: 'jr', n: 'Jarum', a: '6', v: 6 }, { k: 'set', n: 'Set laparoskopi', a: '1 set', v: 1 }];
+var cur = cs.conf[0] ? (cs.conf[1] ? (cs.conf[2] ? 3 : 2) : 1) : 0;
+var countOpen = cur === 2;
+var mism = [], filled = 0;
+var count = countDef.map(function (d) {
+var b = cs.cnt[d.k] || '';
+var has = b !== '';
+if (has) filled++;
+var match = has && Number(b) === d.v;
+if (has && !match) mism.push(d.n.toLowerCase() + ' ' + b + ' dari ' + d.v);
+return { id: 'hitung-' + d.k, n: d.n, a: d.a, b: b, off: !countOpen,
+bd: has ? (match ? '#7BC08F' : '#E58A80') : '#CBD3DB', bg: countOpen ? '#FFFFFF' : '#F8FAFB',
+mark: has ? (match ? '✓' : '✕') : '', mFg: match ? '#1E6B34' : '#B42318',
+set: function (e) { var c = Object.assign({}, cs.cnt); c[d.k] = e.target.value; save({ cnt: c }); } };
+});
+var countsOk = filled === countDef.length && mism.length === 0;
+var countText, countFg = '#5B6B79', countW = 400;
+if (cs.conf[2]) countText = 'Hitung akhir cocok dengan hitung awal · tercatat saat sign out.';
+else if (!countOpen) countText = 'Kolom: awal · akhir (diisi saat sign out)';
+else if (mism.length) { countText = 'Tidak cocok: ' + mism.join(', ') + '. Hitung ulang sebelum sign out.'; countFg = '#B42318'; countW = 600; }
+else if (filled < countDef.length) countText = 'Isi hitung akhir (' + filled + '/' + countDef.length + ' terisi). Sign out butuh semua cocok.';
+else { countText = 'Semua hitungan cocok dengan hitung awal.'; countFg = '#1E6B34'; countW = 600; }
+
+var phases = names.map(function (nm, pi) {
+var confirmed = !!cs.conf[pi];
+var isCur = pi === cur;
+var locked = pi > cur;
+var items = texts[pi].map(function (t, ii) {
+var auto = pi === 2 && ii === 1;
+var ok = auto ? (confirmed || (isCur && countsOk)) : !!cs.ck[pi][ii];
+var dis = !isCur || auto;
+return { t: auto && isCur && !countsOk ? t + ' (isi hitung akhir)' : t, ok: ok, locked: dis, cursor: dis ? 'default' : 'pointer',
+fg: '#3F4C58', aria: nm + ': ' + t,
+toggle: function () {
+if (dis) return;
+var ck = cs.ck.map(function (a) { return a.slice(); }); ck[pi][ii] = !ck[pi][ii]; save({ ck: ck });
+} };
+});
+var when = whenBase[pi] + (confirmed ? (cs.conf[pi] === 'tercatat' ? ' · tercatat' : ' · ' + cs.conf[pi] + ' · Ns. Yudi') : (pi === 1 && isCur ? ' · tim lengkap hadir' : ''));
+return { name: nm, items: items, when: when, state: confirmed ? 'Lengkap' : (isCur ? 'Berjalan' : 'Belum'),
+bg: isCur ? '#F7FBFA' : '#FFFFFF', chipBg: confirmed ? '#EAF5EC' : (isCur ? '#E6F4F1' : '#F1F3F5'), chipFg: confirmed ? '#1E6B34' : (isCur ? '#0B5D56' : '#5B6B79') };
+});
+
+var curDone = false, footText, footFg = '#3F4C58', footW = 400, label, left = 0;
+if (cur < 3) {
+var its = phases[cur].items;
+left = its.filter(function (i) { return !i.ok; }).length;
+curDone = left === 0;
+label = 'Konfirmasi ' + names[cur].toLowerCase();
+if (cur === 0) footText = curDone ? 'Sign in lengkap. Konfirmasi untuk membuka time out.' : 'Induksi tidak dapat dimulai sebelum sign in lengkap (' + left + ' butir tersisa).';
+else if (cur === 1) footText = 'Insisi tidak dapat dicatat sebelum time out lengkap. Semua centang tercatat nama dan jam.';
+else footText = curDone ? 'Sign out lengkap dan hitungan cocok. Konfirmasi sebelum pasien keluar kamar.' : (countsOk ? 'Lengkapi ' + left + ' butir sign out.' : 'Sign out butuh hitung akhir kasa, jarum, dan instrumen yang cocok.');
+if (!curDone && cur === 2 && !countsOk && mism.length) { footFg = '#B42318'; footW = 600; }
+} else {
+label = 'Daftar tilik lengkap';
+footText = 'Ketiga fase lengkap. Laporan operasi dapat ditutup.';
+footFg = '#1E6B34'; footW = 600;
+}
+var doneText = '';
+if (cs.conf[2]) doneText = cs.conf[2] === 'tercatat' ? 'Daftar tilik keselamatan lengkap untuk kasus ini.' : 'Sign out dikonfirmasi pukul ' + cs.conf[2] + ' · pasien boleh dipindahkan ke ruang pemulihan.';
+else if (cs.conf[1] && cs.conf[1] !== 'tercatat') doneText = 'Time out dikonfirmasi pukul ' + cs.conf[1] + ' · insisi dapat dicatat.';
+else if (cs.conf[0] && cs.conf[0] !== 'tercatat' && cs.conf[0] !== '10.21') doneText = 'Sign in dikonfirmasi pukul ' + cs.conf[0] + ' · induksi dapat dimulai.';
+
+var sub = isMain ? 'Ny. Ratna Sari · P · 45 th · RM 00-52-03-19 · dr. Fajar, Sp.B · anestesi dr. Maya, Sp.An · GA' : selRoom.kind + ' · ' + selC.sub + ' · ' + { done: 'selesai', live: 'sedang berlangsung', plan: 'terjadwal', cito: 'cito' }[selC.st];
+return {
+hours: hours, rooms: rooms, phases: phases, count: count,
+sel: { title: selRoom.name + ' · ' + selC.full, sub: sub, phase: cur < 3 ? 'Fase: ' + names[cur] : 'Fase: selesai', phaseFg: cur < 3 ? '#0B5D56' : '#1E6B34' },
+countText: countText, countFg: countFg, countW: countW,
+footText: footText, footFg: footFg, footW: footW,
+confirmLabel: label, confirmOff: cur >= 3 || !curDone, confirmOp: (cur >= 3 || !curDone) ? 0.5 : 1,
+confirm: function () {
+if (cur >= 3 || !curDone) return;
+var conf = cs.conf.slice(); conf[cur] = self.now();
+var patch = { conf: conf };
+if (cur === 2) { var ck = cs.ck.map(function (a) { return a.slice(); }); ck[2][1] = true; patch.ck = ck; }
+save(patch);
+},
+hasDone: !!doneText, doneText: doneText
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Integration hub</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="integrasi" user="Bayu Saputra" role="Admin integrasi · TI" initials="BS" unit="Instalasi TI" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Sistem / Integration hub · I01–I06</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Integrasi · pemantauan antarmuka</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<sc-if value="{{online}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 13px; color: #3F4C58">Server edge: <span style="font-weight: 600; color: #1E6B34">online</span> · replikasi ke cloud tertinggal 2 dtk</span>
+<button type="button" onClick="{{startDown}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Uji mode downtime</button>
+</sc-if>
+<sc-if value="{{down}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #3F4C58">Server edge: <span style="font-weight: 600; color: #8A4B00">mode downtime (uji)</span> · replikasi ke cloud dijeda</span>
+</sc-if>
+<a href="Audit.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none; box-sizing: border-box">Log audit</a>
+</div>
+</header>
+
+<sc-if value="{{down}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 18px 28px 0; padding: 12px 16px; border-radius: 14px; border: 1px solid #F1D3A8; background: linear-gradient(120deg, #FFF3E0, #FFFFFF 75%); display: flex; gap: 14px; align-items: center; flex-wrap: wrap">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A4B00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M12 3l9 16H3zM12 10v4M12 17h.01"></path></svg>
+<span style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: #3F4C58">
+<span style="font-weight: 600; color: #8A4B00; font-size: 14px">Mode downtime aktif sejak {{downAt}} · uji terkendali</span>
+<span>Layanan klinis dan kasir tetap berjalan. Setiap transaksi disimpan lokal di server edge dengan penanda waktu dan kunci idempotensi. Saat koneksi pulih, antrean lokal disinkronkan ulang ke cloud, SATUSEHAT, dan BPJS sesuai urutan kejadian.</span>
+<span>Transaksi tersimpan lokal selama uji: <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #14212B">{{lokal}}</span></span>
+</span>
+<button type="button" onClick="{{restore}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Pulihkan</button>
+</div>
+</sc-if>
+<sc-if value="{{showRestored}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 18px 28px 0; padding: 10px 16px; border-radius: 14px; border: 1px solid #BFE0C7; background: #EAF5EC; font-size: 13px; color: #1E6B34; font-weight: 500">{{restoredMsg}}</div>
+</sc-if>
+
+<section aria-label="Status antarmuka" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 18px 28px 0">
+<sc-for list="{{ifs}}" as="i" hint-placeholder-count="9">
+<button type="button" onClick="{{i.pick}}" aria-pressed="{{i.pressed}}" title="Filter dead-letter queue ke {{i.name}}" style="font: inherit; color: inherit; text-align: left; margin: 0; width: 100%; cursor: pointer; background: linear-gradient(160deg, #FFFFFF 60%, {{i.tint}}); border: 1px solid {{i.bd}}; box-shadow: {{i.ring}}; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%"><span style="font-weight: 600">{{i.name}}</span><span style="font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{i.chipBg}}; color: {{i.chipFg}}">{{i.st}}</span></span>
+<span style="font-size: 12px; color: #5B6B79">{{i.proto}}</span>
+<span style="display: flex; gap: 14px; font-size: 12.5px; color: #3F4C58"><span>24 j: <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #14212B">{{i.vol}}</span></span><span>gagal: <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: {{i.errFg}}">{{i.err}}</span></span><span>p95: <span style="font-family: 'IBM Plex Mono', monospace">{{i.lat}}</span></span></span>
+<span style="display: flex; gap: 2px; height: 18px; align-items: flex-end; width: 100%">
+<sc-for list="{{i.spark}}" as="s" hint-placeholder-count="24"><span style="flex: 1; height: {{s.h}}; background: {{s.c}}; border-radius: 2px"></span></sc-for>
+</span>
+</button>
+</sc-for>
+</section>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 18px 28px 28px; align-items: flex-start">
+<section aria-label="Antrean pesan gagal" style="flex: 999 1 600px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Dead-letter queue</span><span style="font-size: 12.5px; color: #5B6B79">Pesan gagal setelah 5× retry eksponensial. Transaksi klinis tetap tersimpan lokal.</span>
+<sc-if value="{{filtered}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12.5px; color: #0B5D56; font-weight: 600">Tujuan: {{dest}} · {{visN}} pesan · klik kartu lagi untuk semua tujuan</span></sc-if>
+</span>
+<button type="button" onClick="{{resend}}" style="font: inherit; font-weight: 600; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">{{resendLabel}}</button>
+</div>
+<sc-if value="{{hasFlash}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 8px 18px; font-size: 12.5px; font-weight: 500; background: {{flashBg}}; color: {{flashFg}}; border-bottom: 1px solid #E3E8EE">{{flashText}}</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: 34px 0.8fr 1.1fr 1.4fr 2.4fr 0.6fr; align-items: center; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px 8px 0; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><label style="display: flex; align-items: center; justify-content: center; padding-left: 8px; cursor: pointer"><input type="checkbox" checked="{{allOn}}" onChange="{{toggleAll}}" aria-label="Pilih semua pesan yang tampil" style="width: 16px; height: 16px; margin: 0; accent-color: #0F766E; cursor: pointer"></label><span>Waktu</span><span>Tujuan</span><span>Resource / event</span><span>Galat</span><span>Coba</span></div>
+<sc-for list="{{dlq}}" as="d" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 34px 1fr; align-items: stretch; border-bottom: 1px solid #EEF1F4; background: {{d.bg}}; box-shadow: {{d.ring}}">
+<label style="display: flex; align-items: center; justify-content: center; padding-left: 8px; cursor: pointer"><input type="checkbox" checked="{{d.on}}" onChange="{{d.toggle}}" aria-label="{{d.aria}}" style="width: 16px; height: 16px; margin: 0; accent-color: #0F766E; cursor: pointer"></label>
+<button type="button" onClick="{{d.pick}}" aria-pressed="{{d.pressed}}" style="font: inherit; color: inherit; text-align: left; margin: 0; width: 100%; background: transparent; border: 0; cursor: pointer; display: grid; grid-template-columns: 0.8fr 1.1fr 1.4fr 2.4fr 0.6fr; align-items: center; padding: 9px 18px 9px 0; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', monospace; color: #5B6B79">{{d.t}}</span>
+<span style="font-weight: 500">{{d.dest}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{d.res}}</span>
+<span style="color: #3F4C58">{{d.err}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace">{{d.n}}</span>
+</button>
+</div>
+</sc-for>
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 18px; font-size: 13px; color: #5B6B79; border-bottom: 1px solid #EEF1F4">Tidak ada pesan gagal untuk tujuan ini.</div>
+</sc-if>
+<div aria-live="polite" aria-label="Payload galat" style="padding: 12px 18px; background: #F8FAFB; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #3F4C58; white-space: pre; overflow: hidden">{{payload}}</div>
+</section>
+
+<aside style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Kepatuhan SATUSEHAT hari ini</span>
+<sc-for list="{{fhir}}" as="f" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 1fr 64px; gap: 8px; align-items: center; font-size: 13px">
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="color: #3F4C58">{{f.n}}</span><span style="height: 6px; border-radius: 999px; background: #EEF1F4; overflow: hidden"><span style="display: block; height: 6px; width: {{f.p}}; background: {{f.c}}"></span></span></span>
+<span style="font-family: 'IBM Plex Mono', monospace; text-align: right; font-weight: 600">{{f.p}}</span>
+</div>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Kredensial dan sertifikat</span>
+<sc-for list="{{creds}}" as="c" hint-placeholder-count="6">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px"><span style="color: #3F4C58">{{c.n}}</span><span style="font-weight: 600; color: {{c.fg}}">{{c.v}}</span></span>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Backup (aturan 3-2-1)</span>
+<span style="font-size: 13px; color: #3F4C58">• Lokal edge: 10.00 · berhasil</span>
+<span style="font-size: 13px; color: #3F4C58">• Cloud region Jakarta: 10.00 · berhasil</span>
+<span style="font-size: 13px; color: #3F4C58">• Offsite terenkripsi: 02.00 · berhasil · uji restore 28 Sep</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.state = { dest: null, sel: null, picked: {}, gone: {}, sent: {}, flash: null, down: false, downAt: '', lokal: 0, restored: '' };
+}
+componentDidMount() {
+var self = this;
+this.timer = setInterval(function () {
+if (self.state.down) self.setState({ lokal: self.state.lokal + 1 });
+}, 2000);
+}
+componentWillUnmount() {
+if (this.timer) clearInterval(this.timer);
+}
+renderVals() {
+var self = this;
+var S = this.state;
+var t0 = this.t0;
+function jam() {
+var m = 10 * 60 + 45 + Math.floor((Date.now() - t0) / 60000);
+var h = Math.floor(m / 60) % 24, mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+function spark(seed, bad) {
+var out = [];
+for (var i = 0; i < 24; i++) {
+var v = 30 + ((i * 37 + seed * 13) % 60);
+var isBad = bad && (i === bad || i === bad + 1);
+out.push({ h: v + '%', c: isBad ? '#C9564B' : '#8CC4BC' });
+}
+return out;
+}
+var M = { ok: ['Normal', '#EAF5EC', '#1E6B34', '#E3E8EE', 'rgba(15,118,110,0.05)'], warn: ['Lambat', '#FFF3E0', '#8A4B00', '#F1D3A8', 'rgba(138,75,0,0.06)'], bad: ['Gangguan', '#FDECEA', '#B42318', '#F0C2BD', 'rgba(180,35,24,0.06)'], hold: ['Antre lokal', '#F1F3F5', '#3F4C58', '#CBD3DB', 'rgba(63,76,88,0.06)'] };
+function I(name, proto, st, vol, err, lat, seed, bad, ext) {
+var key = (S.down && ext && st !== 'bad') ? 'hold' : st;
+var m = M[key];
+var e = Math.max(0, err - (S.sent[name] || 0));
+var on = S.dest === name;
+return {
+name: name, proto: proto, st: m[0], chipBg: m[1], chipFg: m[2], bd: on ? '#0F766E' : m[3], tint: m[4], vol: vol,
+err: String(e), lat: lat, errFg: e === 0 ? '#14212B' : '#B42318', spark: spark(seed, bad),
+ring: on ? '0 0 0 1px #0F766E, 0 4px 12px rgba(15,118,110,0.18)' : 'none',
+pressed: on ? 'true' : 'false',
+pick: function () { self.setState({ dest: S.dest === name ? null : name, sel: null, flash: null }); }
+};
+}
+var ifs = [
+I('SATUSEHAT', 'FHIR R4 · OAuth2', 'warn', '18.402', 37, '820 ms', 1, 20, true),
+I('BPJS VClaim', 'REST · signature HMAC', 'ok', '1.312', 0, '410 ms', 2, 0, true),
+I('BPJS Antrean', 'REST · task ID 1–7', 'ok', '7.886', 4, '290 ms', 3, 0, true),
+I('E-Klaim INA-CBG', 'REST lokal · enkripsi', 'ok', '214', 0, '180 ms', 4, 0, false),
+I('LIS analyzer', 'HL7 v2 ORU/ORM · MLLP', 'ok', '3.920', 0, '40 ms', 5, 0, false),
+I('PACS', 'DICOM · HL7 ORM', 'bad', '96', 12, '— ', 6, 21, false),
+I('TPDI · VA BTN, QRIS', 'REST · webhook HMAC · idempotensi', 'ok', '611', 1, '350 ms', 7, 0, true),
+I('API BTN (mutasi H2H)', 'H2H · mTLS · tarik mutasi tiap 5 mnt', 'ok', '1.284', 0, '620 ms', 9, 0, true),
+I('Notifikasi', 'WhatsApp Business · SMS', 'ok', '4.207', 9, '1,2 s', 8, 0, true)
+];
+var P = {
+pacs: function (id) {
+return [
+'MLLP 10.20.4.15:2575  → ECONNREFUSED (percobaan 5/5, backoff terakhir 16 dtk)',
+'MSH|^~\\&|SIMRS|RSU|PACS|RAD|20261003' + (id === '118' ? '1041' : '1039') + '||ORM^O01|RAD-2610-' + id + '|P|2.5',
+'ORC|NW|RAD-2610-' + id + '|||SC||^^^^^R',
+'OBR|1|RAD-2610-' + id + '||CT-KEPALA^CT kepala tanpa kontras'
+].join('\n');
+},
+enc: [
+'POST /fhir/Encounter  → 422 Unprocessable Entity',
+'{ "issue": [{ "severity": "error", "code": "required",',
+'  "diagnostics": "Encounter.subject: IHS number pasien belum ada (NIK belum tervalidasi)" }] }'
+].join('\n'),
+obs: [
+'POST /fhir/Observation  → 400 Bad Request',
+'{ "issue": [{ "severity": "error", "code": "code-invalid",',
+'  "diagnostics": "Observation.code.coding[0]: \'lokal-HbA1c\' tidak ada di http://loinc.org",',
+'  "expression": ["Observation.code"] }] }'
+].join('\n'),
+med: [
+'POST /fhir/MedicationRequest  → 400 Bad Request',
+'{ "issue": [{ "severity": "error", "code": "code-invalid",',
+'  "diagnostics": "medicationReference: kode KFA tidak valid untuk racikan;',
+'                  racikan wajib Medication dengan daftar ingredient" }] }'
+].join('\n'),
+antre: [
+'POST /antreanrs/antrean/updatewaktu  → 200 OK (ditolak di level bisnis)',
+'{ "metadata": { "code": 201,',
+'  "message": "Task 4 belum dikirim untuk kodebooking ini" },',
+'  "request": { "taskid": 5, "waktu": 1759462800000 } }'
+].join('\n'),
+tpdi: [
+'POST https://api.tpdi.[domain].id/v1/invoices  → 504 Gateway Timeout',
+'Idempotency-Key: INV-2610-02240-VA-01  (aman diulang, tidak membuat VA ganda)',
+'{ "merchant_id": "TPDI-RS-00127", "channel": "VA_BTN",',
+'  "invoice": "INV-2610-02240", "amount": 1320000, "expires_in": "24h" }',
+'upstream: API VA BTN tidak merespons 30 dtk · nomor VA belum terbit, dana tidak terdampak'
+].join('\n'),
+wa: [
+'POST /whatsapp/messages  → 400 · recipient not on WhatsApp',
+'fallback  POST /sms/send  → 202 Accepted · terkirim 08.13',
+'template: reminder_kontrol · tujuan 08xx-xxxx-x417 (disamarkan)'
+].join('\n')
+};
+var base = [
+{ id: 'd1', t: '10.41', dest: 'PACS', res: 'ORM^O01 · RAD-2610-118', err: 'Koneksi MLLP ditolak (port 2575)', n: '5', crit: true, payload: P.pacs('118') },
+{ id: 'd2', t: '10.39', dest: 'PACS', res: 'ORM^O01 · RAD-2610-117', err: 'Koneksi MLLP ditolak (port 2575)', n: '5', crit: true, payload: P.pacs('117') },
+{ id: 'd3', t: '10.22', dest: 'SATUSEHAT', res: 'Encounter', err: 'IHS number pasien belum ada', n: '5', payload: P.enc },
+{ id: 'd4', t: '10.18', dest: 'SATUSEHAT', res: 'Observation', err: 'Kode LOINC tidak dikenal: lokal-HbA1c', n: '5', payload: P.obs },
+{ id: 'd5', t: '09.57', dest: 'SATUSEHAT', res: 'MedicationRequest', err: 'KFA code tidak valid untuk racikan', n: '5', payload: P.med },
+{ id: 'd6', t: '09.40', dest: 'BPJS Antrean', res: 'updatewaktu task 5', err: 'Task 4 belum dikirim untuk kode booking', n: '5', payload: P.antre },
+{ id: 'd7', t: '08.12', dest: 'Notifikasi', res: 'reminder kontrol', err: 'Nomor tidak terdaftar WhatsApp → SMS', n: '1', payload: P.wa },
+{ id: 'd8', t: '07.58', dest: 'TPDI · VA BTN, QRIS', res: 'POST /v1/invoices · VA BTN', err: 'API BTN timeout via TPDI (504)', n: '5', payload: P.tpdi }
+];
+var vis = base.filter(function (d) { return !S.gone[d.id] && (!S.dest || d.dest === S.dest); });
+var visIds = vis.map(function (d) { return d.id; });
+var pickedVis = vis.filter(function (d) { return S.picked[d.id]; });
+var allOn = vis.length > 0 && pickedVis.length === vis.length;
+var dlq = vis.map(function (d) {
+var isSel = S.sel === d.id;
+return Object.assign({}, d, {
+bg: isSel ? '#EEF6F5' : (d.crit ? '#FFF8F7' : '#FFFFFF'),
+ring: isSel ? 'inset 3px 0 0 #0F766E' : 'none',
+pressed: isSel ? 'true' : 'false',
+on: !!S.picked[d.id],
+aria: 'Pilih pesan ' + d.dest + ' ' + d.res + ' pukul ' + d.t,
+toggle: function () { var p = Object.assign({}, self.state.picked); if (p[d.id]) delete p[d.id]; else p[d.id] = true; self.setState({ picked: p, flash: null }); },
+pick: function () { self.setState({ sel: d.id }); }
+});
+});
+function toggleAll() {
+var p = Object.assign({}, self.state.picked);
+visIds.forEach(function (id) { if (allOn) delete p[id]; else p[id] = true; });
+self.setState({ picked: p, flash: null });
+}
+function resend() {
+if (S.down) { self.setState({ flash: { k: 'warn', t: 'Kirim ulang ditahan: server edge sedang mode downtime. Pesan tetap di antrean lokal sampai koneksi pulih.' } }); return; }
+if (pickedVis.length === 0) { self.setState({ flash: { k: 'warn', t: 'Centang minimal satu pesan untuk dikirim ulang.' } }); return; }
+var g = Object.assign({}, S.gone), s = Object.assign({}, S.sent), p = Object.assign({}, S.picked);
+pickedVis.forEach(function (d) { g[d.id] = true; s[d.dest] = (s[d.dest] || 0) + 1; delete p[d.id]; });
+var sel = S.sel && g[S.sel] ? null : S.sel;
+self.setState({ gone: g, sent: s, picked: p, sel: sel, flash: { k: 'ok', t: pickedVis.length + ' pesan dikirim ulang pukul ' + jam() + ' · diterima tujuan, dihapus dari antrean dan tercatat di log audit.' } });
+}
+var selRow = null;
+vis.forEach(function (d) { if (d.id === S.sel) selRow = d; });
+if (!selRow) vis.forEach(function (d) { if (!selRow && d.id === 'd3') selRow = d; });
+if (!selRow && vis.length) selRow = vis[0];
+var payload = selRow ? selRow.payload : 'Tidak ada payload galat untuk ditampilkan.';
+var fl = S.flash;
+var fhir = [
+{ n: 'Encounter', p: '98%' }, { n: 'Condition', p: '96%' }, { n: 'Observation', p: '93%' }, { n: 'Procedure', p: '97%' }, { n: 'MedicationRequest', p: '89%' }, { n: 'Composition (resume)', p: '99%' }
+].map(function (f) { return Object.assign({}, f, { c: parseInt(f.p, 10) >= 95 ? '#0F766E' : '#E9B26B' }); });
+var creds = [
+{ n: 'Client secret SATUSEHAT', v: 'berlaku 214 hari', fg: '#1E6B34' },
+{ n: 'Cons ID / secret BPJS', v: 'aktif', fg: '#1E6B34' },
+{ n: 'Sertifikat TTE (BSrE)', v: 'habis 23 hari', fg: '#8A4B00' },
+{ n: 'Secret webhook TPDI', v: 'dirotasi 12 Sep', fg: '#1E6B34' },
+{ n: 'Sertifikat mTLS H2H BTN', v: 'berlaku 180 hari', fg: '#1E6B34' },
+{ n: 'TLS domain publik', v: 'auto-renew 61 hari', fg: '#1E6B34' }
+];
+return {
+ifs: ifs, dlq: dlq, fhir: fhir, creds: creds,
+online: !S.down, down: S.down, downAt: S.downAt, lokal: String(S.lokal),
+startDown: function () { self.setState({ down: true, downAt: jam(), lokal: 0, restored: '', flash: null }); },
+restore: function () { var n = self.state.lokal; self.setState({ down: false, restored: 'Koneksi pulih pukul ' + jam() + ' · ' + n + ' transaksi lokal disinkronkan ulang berurutan tanpa duplikasi. Server edge kembali online.' }); },
+showRestored: !S.down && !!S.restored, restoredMsg: S.restored,
+filtered: !!S.dest, dest: S.dest || '', visN: String(vis.length), empty: vis.length === 0,
+allOn: allOn, toggleAll: toggleAll, resend: resend,
+resendLabel: pickedVis.length ? 'Kirim ulang terpilih (' + pickedVis.length + ')' : 'Kirim ulang terpilih',
+hasFlash: !!fl, flashText: fl ? fl.t : '', flashBg: fl && fl.k === 'ok' ? '#EAF5EC' : '#FFF3E0', flashFg: fl && fl.k === 'ok' ? '#1E6B34' : '#8A4B00',
+payload: payload
+};
+}
+}
+</script>
+</body>
+</html>

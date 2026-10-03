@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Pembuat formulir klinis</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="formulir" user="Lestari Ayu" role="Komite rekam medis" initials="LA" unit="SIM RS · Sistem" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Sistem / Formulir klinis / Keperawatan</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Asesmen risiko jatuh dewasa (Morse) <span style="font-size: 13px; font-weight: 500; padding: 3px 9px; border-radius: 999px; background: {{chip.bg}}; color: {{chip.fg}}; vertical-align: middle">{{chip.label}}</span></h1>
+</div>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<sc-if value="{{isDiajukan}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #5B6B79">Diajukan ke Komite RM pukul {{ajuJam}}</span></sc-if>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Pratinjau di tablet</button>
+<button type="button" onClick="{{aksiVersi}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">{{aksiLabel}}</button>
+</div>
+</header>
+<sc-if value="{{hasErr}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="margin: 16px 28px 0; padding: 12px 16px; border-radius: 12px; background: linear-gradient(90deg, #FEF3F2, #FFFFFF); border: 1px solid #FECDCA; font-weight: 600; color: #B42318">{{err}}</div>
+</sc-if>
+<sc-if value="{{showPub}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="margin: 16px 28px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 12px; background: linear-gradient(90deg, #EAF6EC, #FFFFFF); border: 1px solid #BFE3C6">
+<span style="font-weight: 700; color: #1E6B34">{{pubTitle}}</span>
+<span style="font-size: 13px; color: #3F4C58">Entri baru memakai versi ini; entri lama tetap ditampilkan dengan versi saat diisi.</span>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+
+<aside aria-label="Jenis field" style="flex: 1 1 200px; max-width: 220px; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: #6B7A87; padding-bottom: 4px">JENIS FIELD</span>
+<sc-for list="{{fields}}" as="f" hint-placeholder-count="10">
+<button type="button" onClick="{{f.add}}" aria-label="{{f.aria}}" style="display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; font-size: 13px; padding: 9px 10px; border-radius: 8px; border: 1px solid #EEF1F4; background: #FAFBFC; cursor: copy; color: #14212B"><span style="flex: 0 0 26px; height: 22px; border-radius: 6px; background: #E6F4F1; color: #0B5D56; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">{{f.k}}</span>{{f.label}}</button>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79; padding-top: 6px">Seret ke kanvas. Paket bawaan: 40+ formulir standar akreditasi.</span>
+</aside>
+
+<section aria-label="Kanvas formulir" style="flex: 999 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12px; color: #5B6B79">Bagian 1 dari 2</span>
+<h2 style="margin: 0; font-size: 17px; font-weight: 700">Penilaian Morse Fall Scale</h2>
+<span style="font-size: 13px; color: #3F4C58">Diisi perawat saat admisi, pindah ruang, perubahan kondisi, dan setelah jatuh.</span>
+</div>
+<sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+<div style="background: #FFFFFF; border: {{it.border}}; border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: {{it.shadow}}">
+<button type="button" aria-pressed="{{it.pressed}}" onClick="{{it.pick}}" style="display: flex; justify-content: space-between; gap: 12px; align-items: baseline; width: 100%; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer">
+<span style="font-weight: 600">{{it.q}}<sc-if value="{{it.req}}" hint-placeholder-val="{{ true }}"><span style="color: #B42318; margin-left: 0.28em">*</span></sc-if></span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{it.code}}</span>
+</button>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{it.opts}}" as="o" hint-placeholder-count="2">
+<button type="button" aria-pressed="{{o.pressed}}" onClick="{{o.pick}}" style="font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 10px; border: {{o.border}}; background: {{o.bg}}; color: #14212B; text-align: left; cursor: pointer">{{o.t}} <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #0B5D56">{{o.st}}</span></button>
+</sc-for>
+<sc-if value="{{it.hasPh}}" hint-placeholder-val="{{ false }}"><span style="flex: 1 1 100%; font-size: 13px; color: #8C99A6; padding: 9px 12px; border: 1px dashed #CBD3DB; border-radius: 10px; background: #FAFBFC">{{it.ph}}</span></sc-if>
+</div>
+</div>
+</sc-for>
+<div style="background: linear-gradient(100deg, rgba(15,118,110,0.08), #FFFFFF 60%); border: 1px solid #D5E3E1; border-radius: 14px; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 700">Skor total (otomatis)</span><span style="font-size: 13px; color: #3F4C58">0–24 rendah · 25–44 sedang · ≥ 45 tinggi</span></span>
+<sc-if value="{{hasSkor}}" hint-placeholder-val="{{ false }}">
+<span role="status" style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 700; color: {{skor.fg}}">{{skor.total}}</span><span style="display: flex; flex-direction: column"><span style="font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: {{skor.bg}}; color: {{skor.fg}}">{{skor.kat}}</span><span style="font-size: 12px; color: #5B6B79">{{skor.terjawab}}</span></span></span>
+</sc-if>
+<span style="font-size: 13px; color: {{aturanFg}}; font-weight: {{aturanFw}}">{{aturan}}</span>
+</div>
+</section>
+
+<aside aria-label="Properti field" style="flex: 1 1 300px; max-width: 340px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-weight: 600">Properti field terpilih</span>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="pLabel" style="font-size: 13px; font-weight: 600">Label</label><input id="pLabel" value="{{p.q}}" onInput="{{p.setQ}}" aria-invalid="{{p.qInvalid}}" style="font: inherit; height: 38px; padding: 0 10px; border: {{p.qBorder}}; border-radius: 10px; box-sizing: border-box"><sc-if value="{{p.qEmpty}}" hint-placeholder-val="{{ false }}"><span role="alert" style="font-size: 12px; font-weight: 600; color: #B42318">Label wajib diisi sebelum formulir diajukan.</span></sc-if></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="pCode" style="font-size: 13px; font-weight: 600">Kode terminologi</label><input id="pCode" value="{{p.term}}" onInput="{{p.setTerm}}" placeholder="Belum dipetakan ke terminologi" style="font: inherit; font-family: 'IBM Plex Mono', monospace; font-size: 13px; height: 38px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; box-sizing: border-box"><span style="font-size: 12px; color: #5B6B79">Dipakai saat mengirim Observation ke SATUSEHAT</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="pShow" style="font-size: 13px; font-weight: 600">Logika tampil</label><input id="pShow" value="{{p.show}}" onInput="{{p.setShow}}" style="font: inherit; height: 38px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; box-sizing: border-box"></div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px"><input type="checkbox" checked="{{p.req}}" onChange="{{p.setReq}}" style="width: 18px; height: 18px; accent-color: #0F766E">Wajib diisi sebelum tanda tangan</label>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px"><input type="checkbox" checked="{{p.sum}}" onChange="{{p.setSum}}" style="width: 18px; height: 18px; accent-color: #0F766E">Tampil di ringkasan pasien</label>
+<sc-if value="{{p.isNew}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{p.hapus}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #FECDCA; background: #FFFFFF; color: #B42318; cursor: pointer">Hapus field dari kanvas</button></sc-if>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Riwayat versi</span>
+<sc-for list="{{versions}}" as="v" hint-placeholder-count="4">
+<div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; border-top: 1px solid #EEF1F4; padding-top: 8px">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">{{v.v}}</span><span style="font-size: 12px; color: #5B6B79">{{v.note}}</span></span>
+<span style="font-size: 12px; font-weight: 600; color: {{v.fg}}">{{v.status}}</span>
+</div>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Entri lama tetap ditampilkan dengan versi formulir saat diisi (MRMIK 6c).</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+var morse = [
+{ q: 'Riwayat jatuh dalam 3 bulan', code: 'q_riwayat_jatuh', opts: [{ t: 'Tidak', s: 0 }, { t: 'Ya', s: 25 }] },
+{ q: 'Diagnosis sekunder (lebih dari satu)', code: 'q_diag_sekunder', opts: [{ t: 'Tidak', s: 0 }, { t: 'Ya', s: 15 }] },
+{ q: 'Alat bantu berjalan', code: 'q_alat_bantu', opts: [{ t: 'Tidak ada / tirah baring / dibantu perawat', s: 0 }, { t: 'Kruk / tongkat / walker', s: 15 }, { t: 'Berpegangan pada furnitur', s: 30 }] },
+{ q: 'Terpasang infus atau heparin lock', code: 'q_infus', opts: [{ t: 'Tidak', s: 0 }, { t: 'Ya', s: 20 }] },
+{ q: 'Cara berjalan', code: 'q_gaya_jalan', opts: [{ t: 'Normal / tirah baring', s: 0 }, { t: 'Lemah', s: 10 }, { t: 'Terganggu', s: 20 }] },
+{ q: 'Status mental', code: 'q_mental', opts: [{ t: 'Sadar akan kemampuan', s: 0 }, { t: 'Lupa keterbatasan', s: 15 }] }
+].map(function (i) {
+return Object.assign({}, i, { id: i.code, term: 'morse.' + i.code.replace('q_', '') + ' → total LOINC 59460-6', show: 'selalu', req: true, sum: true, scored: true, ph: '', isNew: false });
+});
+this.state = {
+items: morse,
+sel: 'q_alat_bantu',
+ans: {},
+seq: 0,
+ver: 4,
+phase: 'draf',
+draftNote: 'Tambah logika bundle pencegahan',
+ajuJam: '',
+pubJam: '',
+err: '',
+hist: [
+{ n: 3, d: '12 Sep 2026', note: 'Disetujui Komite RM', status: 'Berlaku' },
+{ n: 2, d: '3 Mar 2026', note: 'Perbaikan kode LOINC', status: 'Arsip' },
+{ n: 1, d: '10 Jan 2026', note: 'Impor dari formulir kertas', status: 'Arsip' }
+]
+};
+}
+renderVals() {
+var self = this;
+var s = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+function tanggal() { var d = new Date(); var b = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']; return d.getDate() + ' ' + b[d.getMonth()] + ' ' + d.getFullYear(); }
+function updateItem(id, patch) {
+self.setState({ items: self.state.items.map(function (it) { return it.id === id ? Object.assign({}, it, patch) : it; }), err: '' });
+}
+
+var tipe = {
+'Aa': { ph: 'Isian teks pendek' },
+'¶': { ph: 'Isian teks panjang (paragraf)' },
+'#': { ph: 'Angka · satuan' },
+'◉': { opts: true },
+'☑': { opts: true },
+'Σ': { ph: 'Dihitung otomatis dari field skor' },
+'D': { ph: 'dd/mm/yyyy · jj:mm' },
+'ICD': { ph: 'Cari kode ICD-10' },
+'✎': { ph: 'Area tanda tangan elektronik (TTE)' },
+'▦': { ph: 'Gambar tubuh untuk anotasi' }
+};
+var fields = [
+{ k: 'Aa', label: 'Teks pendek' }, { k: '¶', label: 'Teks panjang' }, { k: '#', label: 'Angka + satuan' }, { k: '◉', label: 'Pilihan tunggal' }, { k: '☑', label: 'Pilihan ganda' }, { k: 'Σ', label: 'Skor terhitung' }, { k: 'D', label: 'Tanggal / jam' }, { k: 'ICD', label: 'Diagnosis ICD-10' }, { k: '✎', label: 'Tanda tangan' }, { k: '▦', label: 'Gambar anotasi tubuh' }
+].map(function (f) {
+return Object.assign({}, f, {
+aria: 'Tambah field ' + f.label + ' ke kanvas',
+add: function () {
+var n = self.state.seq + 1;
+var t = tipe[f.k];
+var item = {
+id: 'f_baru_' + n, code: 'f_baru_' + n, q: f.label + ' (field baru)', term: '', show: 'selalu', req: false, sum: false, scored: false, isNew: true,
+opts: t.opts ? [{ t: 'Opsi 1', s: 0 }, { t: 'Opsi 2', s: 0 }] : [], ph: t.ph || ''
+};
+self.setState({ items: self.state.items.concat([item]), sel: item.id, seq: n, err: '' });
+}
+});
+});
+
+var total = 0, answered = 0, scoredCount = 0;
+var items = s.items.map(function (it) {
+var on = it.id === s.sel;
+if (it.scored) {
+scoredCount++;
+if (s.ans[it.id] !== undefined) { answered++; total += it.opts[s.ans[it.id]].s; }
+}
+return {
+q: it.q || '(tanpa label)', code: it.code, req: it.req,
+border: on ? '2px solid #0F766E' : '1px solid #E3E8EE',
+shadow: on ? '0 0 0 4px rgba(15,118,110,0.12)' : 'none',
+pressed: on ? 'true' : 'false',
+pick: function () { self.setState({ sel: it.id }); },
+hasPh: !!it.ph, ph: it.ph,
+opts: it.opts.map(function (o, oi) {
+var chosen = s.ans[it.id] === oi;
+return {
+t: o.t, st: it.scored ? '+' + o.s : '',
+pressed: chosen ? 'true' : 'false',
+border: chosen ? '1px solid #0F766E' : '1px solid #CBD3DB',
+bg: chosen ? '#E6F4F1' : '#FFFFFF',
+pick: function () {
+var a = Object.assign({}, self.state.ans);
+if (a[it.id] === oi) { delete a[it.id]; } else { a[it.id] = oi; }
+self.setState({ ans: a, sel: it.id });
+}
+};
+})
+};
+});
+
+var kat = total >= 45 ? ['Risiko tinggi', '#B42318', '#FEF3F2'] : (total >= 25 ? ['Risiko sedang', '#8A4B00', '#FFF4E5'] : ['Risiko rendah', '#1E6B34', '#EAF6EC']);
+var tinggi = answered > 0 && total >= 45;
+
+var cur = s.items.filter(function (it) { return it.id === s.sel; })[0] || s.items[0];
+var cid = cur.id;
+var p = {
+q: cur.q, term: cur.term, show: cur.show, req: cur.req, sum: cur.sum, isNew: cur.isNew,
+qEmpty: !cur.q.trim(),
+qInvalid: cur.q.trim() ? 'false' : 'true',
+qBorder: cur.q.trim() ? '1px solid #CBD3DB' : '1px solid #B42318',
+setQ: function (e) { updateItem(cid, { q: e.target.value }); },
+setTerm: function (e) { updateItem(cid, { term: e.target.value }); },
+setShow: function (e) { updateItem(cid, { show: e.target.value }); },
+setReq: function (e) { updateItem(cid, { req: !!e.target.checked }); },
+setSum: function (e) { updateItem(cid, { sum: !!e.target.checked }); },
+hapus: function () {
+var rest = self.state.items.filter(function (it) { return it.id !== cid; });
+var a = Object.assign({}, self.state.ans); delete a[cid];
+self.setState({ items: rest, ans: a, sel: rest.length ? rest[rest.length - 1].id : '' });
+}
+};
+
+var ver = s.ver;
+var versions = [];
+if (s.phase !== 'berlaku') {
+versions.push({ v: 'v' + ver + ' · draf', note: s.draftNote, status: s.phase === 'diajukan' ? 'Diajukan' : 'Draf', fg: s.phase === 'diajukan' ? '#1E3A8A' : '#8A4B00' });
+}
+s.hist.forEach(function (h) {
+versions.push({ v: 'v' + h.n + ' · ' + h.d, note: h.note, status: h.status, fg: h.status === 'Berlaku' ? '#1E6B34' : '#5B6B79' });
+});
+
+var chip = s.phase === 'draf' ? { label: 'Draf v' + ver, bg: '#FFF4E5', fg: '#8A4B00' }
+: (s.phase === 'diajukan' ? { label: 'Diajukan v' + ver, bg: '#EEF4FF', fg: '#1E3A8A' } : { label: 'Berlaku v' + ver, bg: '#EAF6EC', fg: '#1E6B34' });
+var aksiLabel = s.phase === 'draf' ? 'Ajukan persetujuan komite' : (s.phase === 'diajukan' ? 'Terbitkan v' + ver : 'Buat draf v' + (ver + 1));
+
+return {
+fields: fields,
+items: items,
+versions: versions,
+p: p,
+hasSkor: answered > 0,
+skor: { total: total, kat: kat[0], fg: kat[1], bg: kat[2], terjawab: answered + ' dari ' + scoredCount + ' pertanyaan terjawab' },
+aturan: tinggi ? 'Aturan aktif: bundle pencegahan jatuh ditampilkan dan flag "Risiko jatuh tinggi" dipasang di banner pasien' : 'Aturan: skor ≥ 45 → tampilkan bundle pencegahan jatuh dan pasang flag "Risiko jatuh tinggi" di banner pasien',
+aturanFg: tinggi ? '#B42318' : '#3F4C58',
+aturanFw: tinggi ? '600' : '400',
+chip: chip,
+aksiLabel: aksiLabel,
+isDiajukan: s.phase === 'diajukan',
+ajuJam: s.ajuJam,
+showPub: s.phase === 'berlaku',
+pubTitle: 'v' + ver + ' diterbitkan pukul ' + s.pubJam,
+hasErr: !!s.err,
+err: s.err,
+aksiVersi: function () {
+var st = self.state;
+if (st.phase === 'draf') {
+var kosong = st.items.filter(function (it) { return !it.q.trim(); });
+if (kosong.length) { self.setState({ err: 'Belum bisa diajukan: ' + kosong.length + ' field belum berlabel.', sel: kosong[0].id }); return; }
+self.setState({ phase: 'diajukan', ajuJam: jam(), err: '' });
+} else if (st.phase === 'diajukan') {
+var hist = [{ n: st.ver, d: tanggal(), note: 'Disetujui Komite RM', status: 'Berlaku' }].concat(st.hist.map(function (h) { return Object.assign({}, h, { status: 'Arsip' }); }));
+self.setState({ phase: 'berlaku', hist: hist, pubJam: jam() });
+} else {
+self.setState({ phase: 'draf', ver: st.ver + 1, draftNote: 'Salinan dari v' + st.ver, pubJam: '' });
+}
+}
+};
+}
+}
+</script>
+</body>
+</html>

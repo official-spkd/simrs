@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Kasir</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="kasir" user="Fitri Handayani" role="Kasir · Loket rawat inap" initials="FH" unit="Keuangan" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Keuangan / Kasir / Rawat inap</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Kasir · tagihan pasien</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span style="font-size: 13px; color: #3F4C58">Shift pagi · dibuka 07.00 · saldo awal Rp 500.000</span>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Tutup shift</button>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<section aria-label="Rincian tagihan" style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 18px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; background-image: linear-gradient(100deg, rgba(15,118,110,0.06), rgba(255,255,255,0) 60%)">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 16px">Ny. Endang Wijaya · RM 00-41-27-88</span><span style="font-size: 12.5px; color: #5B6B79">Rawat inap 29 Sep – 4 Okt · Melati M-203 · no. tagihan <span style="font-family: 'IBM Plex Mono', monospace">INV-2610-02217</span></span></span>
+<span style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #E6F4F1; color: #0B5D56; font-weight: 600">BPJS hak kelas 2</span>
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #FFF3E0; color: #8A4B00; font-weight: 600">Naik kelas 1 (atas permintaan)</span>
+<span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #F1F3F5; color: #3F4C58; font-weight: 600">SEP 0301R0011026V004417</span>
+</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 2.2fr 0.6fr 1fr 1fr; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><span>Kategori</span><span>Item</span><span style="text-align: right">Tarif RS</span><span style="text-align: right">Sumber</span></div>
+<sc-for list="{{cats}}" as="c" hint-placeholder-count="9">
+<button type="button" aria-expanded="{{c.exp}}" onClick="{{c.toggle}}" style="font: inherit; color: inherit; text-align: left; width: 100%; box-sizing: border-box; margin: 0; border: 0; border-bottom: 1px solid #EEF1F4; border-radius: 0; background: {{c.bg}}; cursor: pointer; display: grid; grid-template-columns: 2.2fr 0.6fr 1fr 1fr; align-items: center; padding: 10px 18px">
+<span style="display: flex; gap: 8px; align-items: center"><span style="color: #5B6B79; font-size: 12px">{{c.arrow}}</span><span style="font-weight: 500">{{c.name}}</span></span>
+<span style="color: #3F4C58">{{c.n}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{c.amt}}</span>
+<span style="text-align: right; font-size: 12px; color: #5B6B79">{{c.src}}</span>
+</button>
+<sc-if value="{{c.open}}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{c.items}}" as="it" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 2.2fr 0.6fr 1fr 1fr; align-items: center; padding: 7px 18px; border-bottom: 1px solid #EEF1F4; background: #FAFBFC; font-size: 13px">
+<span style="padding-left: 20px; color: #3F4C58">{{it.name}}</span>
+<span style="color: #5B6B79">{{it.q}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; color: #3F4C58">{{it.amt}}</span>
+<span style="text-align: right; font-size: 12px; color: #5B6B79">{{it.when}}</span>
+</div>
+</sc-for>
+</sc-if>
+</sc-for>
+<div style="display: grid; grid-template-columns: 2.8fr 1fr 1fr; padding: 12px 18px; background: #F8FAFB; font-weight: 600">
+<span>Total tarif RS</span><span style="text-align: right; font-family: 'IBM Plex Mono', monospace">Rp 18.742.500</span><span></span>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; padding: 12px 16px; border-radius: 14px; background: linear-gradient(100deg, rgba(30,58,138,0.07), #F6F8FD 60%); border: 1px solid #C9D3EE; font-size: 13px">
+<span style="font-weight: 700; color: #1E3A8A">i</span>
+<span style="color: #3F4C58">Semua item berasal dari charge capture otomatis (order, eMAR, lab, radiologi, OK). Kasir tidak menambah item manual; koreksi diajukan ke unit asal dengan alasan dan tercatat di audit.</span>
+</div>
+</section>
+
+<aside aria-label="Pembayaran" style="flex: 1 1 340px; max-width: 400px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Pembagian penjamin</span>
+<sc-for list="{{split}}" as="s" hint-placeholder-count="5">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: {{s.fg}}; font-weight: {{s.w}}; padding-top: {{s.pt}}; border-top: {{s.bt}}"><span>{{s.k}}</span><span style="font-family: 'IBM Plex Mono', monospace">{{s.v}}</span></span>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Selisih naik kelas 1 = tarif INA-CBG kelas 1 − kelas 2. Rumus per jenis kenaikan kelas diambil dari master aturan selisih biaya JKN, jadi bisa diperbarui tanpa rilis ulang.</span>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background-image: linear-gradient(160deg, #FFFFFF 60%, rgba(15,118,110,0.06))">
+<span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-weight: 600">Dibayar pasien</span><span style="font-size: 26px; font-weight: 700; color: #0B5D56; font-family: 'IBM Plex Mono', monospace">Rp 1.250.400</span></span>
+<span style="font-size: 12.5px; color: #3F4C58">Deposit masuk Rp 1.000.000 · sisa bayar <span style="font-weight: 600; color: #14212B">{{sisa}}</span></span>
+<div role="radiogroup" aria-label="Metode" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<sc-for list="{{methods}}" as="m" hint-placeholder-count="5">
+<button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="font: inherit; color: inherit; text-align: left; margin: 0; grid-column: {{m.span}}; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid {{m.bd}}; background: {{m.bg}}; cursor: {{m.cur}}"><span style="font-weight: 600">{{m.name}}</span><span style="font-size: 12px; color: #5B6B79">{{m.sub}}</span></button>
+</sc-for>
+</div>
+
+<sc-if value="{{isQris}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 10px; background: {{qr.bg}}; border: 1px solid {{qr.bd}}">
+<svg width="72" height="72" viewBox="0 0 9 9" aria-label="Contoh kode QR" style="flex: none; opacity: {{qr.op}}"><rect width="9" height="9" fill="#FFFFFF"/><path d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0z" fill="#14212B"/><path d="M1 1h1v1H1zM7 1h1v1H7zM1 7h1v1H1z" fill="#FFFFFF"/><path d="M4 0h1v2H4zM3 4h2v1H3zM6 4h1v2H6zM4 6h1v3H4zM7 6h2v1H7zM8 8h1v1H8zM5 3h1v1H5z" fill="#14212B"/></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: #3F4C58"><span style="font-weight: 600; color: {{qr.titleFg}}">{{qr.title}}</span><span>{{qr.note}}</span></span>
+</div>
+<sc-if value="{{qrisWaiting}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{simulateQris}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px dashed #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Simulasikan pembayaran diterima</button>
+</sc-if>
+</sc-if>
+
+<sc-if value="{{isCash}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: #F8FAFB; border: 1px solid #E3E8EE">
+<label for="uangDiterima" style="font-size: 12.5px; font-weight: 600; color: #14212B">Uang diterima</label>
+<span style="display: flex; align-items: center; gap: 8px">
+<span style="font-family: 'IBM Plex Mono', monospace; color: #5B6B79">Rp</span>
+<input id="uangDiterima" type="text" inputmode="numeric" autocomplete="off" placeholder="0" value="{{cashShown}}" onInput="{{setCash}}" style="font: inherit; font-family: 'IBM Plex Mono', monospace; font-size: 16px; flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid {{cashBd}}; background: #FFFFFF; color: #14212B">
+</span>
+<span style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" onClick="{{cashExact}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Uang pas</button>
+<button type="button" onClick="{{cash300}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Rp 300.000</button>
+<button type="button" onClick="{{cash500}}" style="font: inherit; font-size: 12.5px; font-weight: 500; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Rp 500.000</button>
+</span>
+<span aria-live="polite" style="display: flex; justify-content: space-between; font-size: 13px; padding-top: 6px; border-top: 1px solid #E3E8EE"><span style="color: #3F4C58">{{cashLabel}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 700; color: {{cashFg}}">{{cashValue}}</span></span>
+</div>
+</sc-if>
+
+<sc-if value="{{isDebit}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; background: #F8FAFB; border: 1px solid #E3E8EE; font-size: 12.5px; color: #3F4C58">
+<span style="font-weight: 600; color: #14212B">EDC BTN kasir RI-01 · Rp 250.400 sudah dikirim ke mesin</span>
+<span>1. Minta pasien tap atau masukkan kartu debit/kredit, lalu PIN.</span>
+<span>2. Tunggu struk "APPROVED"; kode approval tercatat otomatis.</span>
+<span>3. Jika ditolak, tawarkan metode lain. Jangan input nominal manual di EDC.</span>
+<label style="display: flex; gap: 8px; align-items: center; min-height: 40px; cursor: pointer; color: #14212B; font-weight: 500"><input type="checkbox" checked="{{edcOk}}" onChange="{{toggleEdc}}" style="width: 18px; height: 18px; accent-color: #0F766E; margin: 0">Struk EDC approved diterima</label>
+</div>
+</sc-if>
+
+<sc-if value="{{isVa}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 10px; background: #F8FAFB; border: 1px solid #E3E8EE; font-size: 12.5px; color: #3F4C58">
+<span style="display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap"><span style="font-weight: 600; color: #14212B">VA BTN <span style="font-family: 'IBM Plex Mono', monospace">8808 0127 4127 8802</span></span><span style="font-size: 12px; color: #5B6B79">via TPDI · berlaku 24 jam</span></span>
+<span>1. Berikan nomor VA ke pasien (tercetak di slip dan dikirim lewat WhatsApp).</span>
+<span>2. Pasien transfer tepat Rp 250.400 lewat m-banking/ATM BTN atau bank lain; berlaku s.d. besok 10.41.</span>
+<span>3. Status lunas otomatis saat webhook TPDI masuk (signature diverifikasi); dana langsung ke BTN ••••4417.</span>
+<sc-if value="{{vaWaiting}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{simulateVa}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px dashed #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Simulasikan pembayaran</button>
+</sc-if>
+<sc-if value="{{vaOk}}" hint-placeholder-val="{{ false }}">
+<span role="status" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; background: #EAF5EC; border: 1px solid #B7DEC0"><span style="font-weight: 600; color: #1E6B34">Webhook TPDI diterima {{vaAt}} · status lunas</span><span>payment.succeeded · signature valid · ref TPDI-TX-2610-004438</span></span>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{isCicilan}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #F8FAFB; border: 1px solid #E3E8EE; font-size: 12.5px; color: #3F4C58">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; color: #14212B">Cicilan BTN · Rp 250.400</span><span>[Nama produk pembiayaan BTN] · keputusan kredit oleh BTN</span></span>
+<div role="radiogroup" aria-label="Tenor cicilan" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{tenors}}" as="t" hint-placeholder-count="3">
+<button type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" style="font: inherit; color: inherit; text-align: left; margin: 0; display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: 9px; border: 1.5px solid {{t.bd}}; background: {{t.bg}}; cursor: {{t.cur}}"><span style="font-weight: 600; color: #14212B">{{t.label}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{t.cicil}}</span></button>
+</sc-for>
+</div>
+<span style="font-size: 12px; color: #5B6B79">Estimasi angsuran/bulan · <span style="font-weight: 600; color: #8A4B00">simulasi</span> margin 1,5%/bln flat. Angka final ditetapkan BTN setelah verifikasi.</span>
+<sc-if value="{{cicilIdle}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{ajukanCicil}}" aria-disabled="{{cicilBtn.dis}}" aria-describedby="alasanCicil" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{cicilBtn.bd}}; background: {{cicilBtn.bg}}; color: {{cicilBtn.fg}}; cursor: {{cicilBtn.cur}}">Ajukan ke BTN</button>
+<span id="alasanCicil" style="font-size: 12px; color: #8A4B00; font-weight: 500">{{cicilBtn.reason}}</span>
+</sc-if>
+<sc-if value="{{cicilActive}}" hint-placeholder-val="{{ false }}">
+<ol aria-label="Status pengajuan cicilan" style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{cicilSteps}}" as="s" hint-placeholder-count="6">
+<li style="display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center"><span style="width: 10px; height: 10px; border-radius: 999px; box-sizing: border-box; background: {{s.dot}}; border: 2px solid {{s.ring}}"></span><span style="color: {{s.fg}}; font-weight: {{s.fw}}">{{s.l}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #5B6B79">{{s.t}}</span></li>
+</sc-for>
+</ol>
+<sc-if value="{{cicilCanNext}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{cicilNext}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px dashed #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">{{cicilNextLabel}}</button>
+</sc-if>
+</sc-if>
+<span style="padding: 8px 10px; border-radius: 8px; background: #EEF2FB; color: #1E3A8A; font-size: 12px">Angsuran dibayar pasien langsung ke BTN, bukan ke RS. Setelah dana cair ke rekening RS (BTN ••••4417), tagihan RS lunas dan RS tidak menanggung risiko gagal bayar (kecuali diatur lain di perjanjian).</span>
+</div>
+</sc-if>
+
+<sc-if value="{{notLunas}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{finish}}" aria-disabled="{{fin.dis}}" aria-describedby="alasanSelesai" style="font: inherit; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid {{fin.bd}}; background: {{fin.bg}}; color: {{fin.fg}}; cursor: {{fin.cur}}">Selesaikan dan cetak kuitansi</button>
+<span id="alasanSelesai" style="font-size: 12.5px; color: #8A4B00; text-align: center; font-weight: 500">{{fin.reason}}</span>
+</sc-if>
+
+<sc-if value="{{lunas}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: #EAF5EC; border: 1px solid #B7DEC0">
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px"><span style="font-weight: 700; color: #1E6B34">Lunas</span><span style="font-size: 12px; color: #1E6B34; font-weight: 600">{{lunasAt}}</span></span>
+<span style="font-size: 12.5px; color: #3F4C58">{{lunasNote}}</span>
+<span style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Klaim.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; text-decoration: none">Lanjut ke klaim BPJS</a>
+<a href="Akuntansi.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Lihat jurnal</a>
+<a href="PembayaranBTN.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Pembayaran digital</a>
+</span>
+</div>
+</sc-if>
+<span style="font-size: 12px; color: #5B6B79; text-align: center">Jurnal otomatis: Kas/Bank BTN ••••4417 D · Piutang pasien K · Piutang BPJS tetap terbuka sampai klaim dibayar</span>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { open: {}, method: 'qris', cash: '', qrisPaid: false, qrisAt: '', edcOk: false, vaOk: false, vaAt: '', tenor: '', cicil: 0, cicilT: [], lunasAt: '' };
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var DUE = 250400;
+function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function jam() { var d = new Date(); var p = function (x) { return (x < 10 ? '0' : '') + x; }; return p(d.getHours()) + '.' + p(d.getMinutes()); }
+var lunas = !!st.lunasAt;
+
+var raw = [
+{ name: 'Akomodasi kelas 1 · 5 malam', n: '5', amt: '3.750.000', src: 'ADT', items: [
+{ name: 'Kamar kelas 1 Melati M-203 · @750.000', q: '2', amt: '1.500.000', when: '29 Sep – 1 Okt' },
+{ name: 'Kamar kelas 1 Melati M-203 · @750.000', q: '3', amt: '2.250.000', when: '1 – 4 Okt' }
+] },
+{ name: 'Visite dan konsultasi dokter', n: '9', amt: '1.620.000', src: 'CPPT', items: [
+{ name: 'Visite DPJP Sp.PD · @180.000', q: '6', amt: '1.080.000', when: 'harian' },
+{ name: 'Konsultasi Sp.P · @200.000', q: '2', amt: '400.000', when: '30 Sep, 2 Okt' },
+{ name: 'Konsultasi gizi klinik', q: '1', amt: '140.000', when: '1 Okt' }
+] },
+{ name: 'Tindakan keperawatan', n: '34', amt: '1.105.000', src: 'Askep', items: [
+{ name: 'Pemberian obat injeksi · @25.000', q: '18', amt: '450.000', when: 'eMAR' },
+{ name: 'Nebulisasi · @35.000', q: '12', amt: '420.000', when: 'eMAR' },
+{ name: 'Pemasangan kateter urin · @72.500', q: '2', amt: '145.000', when: '29 Sep' },
+{ name: 'Pemasangan infus · @45.000', q: '2', amt: '90.000', when: '29 Sep, 2 Okt' }
+] },
+{ name: 'Laboratorium', n: '27', amt: '2.418.500', src: 'LIS', items: [
+{ name: 'Kultur sputum + uji kepekaan', q: '1', amt: '450.000', when: '29 Sep' },
+{ name: 'Ureum dan kreatinin · @110.000', q: '4', amt: '440.000', when: 'serial' },
+{ name: 'Darah lengkap · @95.000', q: '4', amt: '380.000', when: 'serial' },
+{ name: '18 pemeriksaan lain', q: '18', amt: '1.148.500', when: 'LIS' }
+] },
+{ name: 'Radiologi', n: '2', amt: '480.000', src: 'RIS', items: [
+{ name: 'Foto toraks PA (awal)', q: '1', amt: '240.000', when: '29 Sep' },
+{ name: 'Foto toraks PA (evaluasi)', q: '1', amt: '240.000', when: '2 Okt' }
+] },
+{ name: 'Obat dan alkes', n: '61', amt: '6.912.000', src: 'eMAR', items: [
+{ name: 'Seftriakson 1 g inj · @85.000', q: '12', amt: '1.020.000', when: 'eMAR' },
+{ name: 'Insulin aspart pen · @185.000', q: '2', amt: '370.000', when: 'eMAR' },
+{ name: 'Azitromisin 500 mg · @32.000', q: '5', amt: '160.000', when: 'eMAR' },
+{ name: '42 item obat dan alkes lain', q: '42', amt: '5.362.000', when: 'eMAR' }
+] },
+{ name: 'Oksigen dan gas medis', n: '3', amt: '357.000', src: 'eMAR', items: [
+{ name: 'Oksigen sungkup 6 lpm', q: '1', amt: '147.000', when: '29 Sep' },
+{ name: 'Oksigen nasal kanul 3 lpm', q: '1', amt: '105.000', when: '30 Sep' },
+{ name: 'Oksigen nasal kanul 2 lpm', q: '1', amt: '105.000', when: '1 Okt' }
+] },
+{ name: 'Gawat darurat (asal IGD)', n: '1', amt: '1.580.000', src: 'IGD', items: [
+{ name: 'Paket layanan IGD triase kuning', q: '1', amt: '1.580.000', when: '29 Sep' },
+{ name: 'Mencakup dokter jaga, EKG, nebulisasi awal', q: '', amt: '', when: 'dalam paket' }
+] },
+{ name: 'Administrasi dan rekam medis', n: '1', amt: '520.000', src: 'Sistem', items: [
+{ name: 'Administrasi rawat inap', q: '1', amt: '520.000', when: '29 Sep' },
+{ name: 'Mencakup materai, resume, dan kartu pasien', q: '', amt: '', when: 'dalam paket' }
+] }
+];
+var cats = raw.map(function (c, i) {
+var op = !!st.open[i];
+return { name: c.name, n: c.n, amt: c.amt, src: c.src, items: c.items, open: op, arrow: op ? '▾' : '▸', exp: op ? 'true' : 'false', bg: op ? '#F8FAFB' : '#FFFFFF',
+toggle: function () { var o = Object.assign({}, self.state.open); o[i] = !o[i]; self.setState({ open: o }); } };
+});
+
+var split = [
+{ k: 'Tarif INA-CBG J-4-15-II (kelas 2)', v: 'Rp 6.612.800' },
+{ k: 'Tarif INA-CBG kelas 1', v: 'Rp 7.863.200' },
+{ k: 'Ditanggung BPJS (hak kelas 2)', v: 'Rp 6.612.800', ok: true },
+{ k: 'Selisih naik kelas', v: 'Rp 1.250.400', warn: true },
+{ k: 'Dibayar pasien', v: 'Rp 1.250.400', tot: true }
+].map(function (s) { return { k: s.k, v: s.v, fg: s.tot ? '#14212B' : (s.ok ? '#1E6B34' : (s.warn ? '#8A4B00' : '#3F4C58')), w: s.tot ? 700 : 400, pt: s.tot ? '10px' : '0', bt: s.tot ? '1px solid #E3E8EE' : '0' }; });
+
+var methods = [
+{ id: 'qris', name: 'QRIS', sub: 'via TPDI · acquirer BTN' },
+{ id: 'va', name: 'Virtual Account BTN', sub: 'via TPDI · berlaku 24 jam' },
+{ id: 'debit', name: 'Debit / kredit', sub: 'EDC BTN terintegrasi' },
+{ id: 'tunai', name: 'Tunai', sub: 'hitung kembalian' },
+{ id: 'cicilan', name: 'Cicilan BTN', sub: 'tenor 3 / 6 / 12 bulan · angsuran dibayar pasien ke BTN', wide: true }
+].map(function (m) {
+var on = st.method === m.id;
+return { name: m.name, sub: m.sub, span: m.wide ? '1 / -1' : 'auto', on: on ? 'true' : 'false', bd: on ? '#0F766E' : '#E3E8EE', bg: on ? '#F2FAF8' : '#FFFFFF', cur: lunas ? 'default' : 'pointer',
+pick: function () { if (self.state.lunasAt) return; self.setState({ method: m.id }); } };
+});
+
+var cashNum = parseInt(st.cash || '0', 10) || 0;
+var cukup = false, reason = '';
+if (st.method === 'qris') { cukup = st.qrisPaid; reason = 'Menunggu pembayaran QRIS diterima.'; }
+if (st.method === 'tunai') { cukup = cashNum >= DUE; reason = st.cash ? 'Uang diterima kurang Rp ' + fmt(DUE - cashNum) + '.' : 'Isi jumlah uang yang diterima.'; }
+if (st.method === 'debit') { cukup = st.edcOk; reason = 'Menunggu struk EDC approved.'; }
+if (st.method === 'va') { cukup = st.vaOk; reason = 'Menunggu webhook TPDI bahwa VA BTN sudah dibayar.'; }
+if (st.method === 'cicilan') { cukup = st.cicil >= 5; reason = st.cicil === 0 ? (st.tenor ? 'Ajukan cicilan ke BTN terlebih dulu.' : 'Pilih tenor lalu ajukan ke BTN.') : 'Menunggu dana cair dari BTN ke rekening RS.'; }
+
+var TENOR = [3, 6, 12];
+var tenors = TENOR.map(function (n) {
+var on = st.tenor === String(n);
+var locked = st.cicil > 0 || lunas;
+var cicil = Math.round(DUE * (1 + 0.015 * n) / n);
+return { label: n + ' bulan', cicil: 'Rp ' + fmt(cicil) + '/bln', on: on ? 'true' : 'false', bd: on ? '#0F766E' : '#E3E8EE', bg: on ? '#F2FAF8' : '#FFFFFF', cur: locked ? 'default' : 'pointer',
+pick: function () { if (self.state.cicil > 0 || self.state.lunasAt) return; self.setState({ tenor: String(n) }); } };
+});
+var CSTEP = ['Diajukan ke BTN', 'Diverifikasi BTN (NIK, penghasilan)', 'Disetujui BTN', 'Akad digital ditandatangani (TTE)', 'Dana cair ke rekening RS · BTN ••••4417', 'Tagihan RS lunas'];
+var NEXT = ['', 'Simulasikan: BTN memverifikasi data', 'Simulasikan: BTN menyetujui', 'Simulasikan: pasien tanda tangan akad (TTE)', 'Simulasikan: BTN mencairkan dana ke RS'];
+var cicilDone = lunas && st.method === 'cicilan' ? 6 : st.cicil;
+var cicilSteps = CSTEP.map(function (l, i) {
+var done = i < cicilDone, cur = i === cicilDone;
+var t = done ? (i === 5 ? st.lunasAt : (st.cicilT[i] || '')) : (cur ? 'berikutnya' : '');
+return { l: l, t: t, dot: done ? '#0F766E' : '#FFFFFF', ring: done ? '#0F766E' : (cur ? '#E9B26B' : '#CBD3DB'), fg: done ? '#14212B' : (cur ? '#8A4B00' : '#5B6B79'), fw: cur ? 600 : 400 };
+});
+function cicilAdvance() {
+if (self.state.lunasAt || self.state.cicil < 1 || self.state.cicil >= 5) return;
+self.setState({ cicil: self.state.cicil + 1, cicilT: self.state.cicilT.concat([jam()]) });
+}
+var cicilBtn = st.tenor
+? { dis: 'false', bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: 'Pilih tenor terlebih dulu.' };
+
+var cashLabel = 'Kembalian', cashValue = '—', cashFg = '#5B6B79';
+if (st.cash) {
+if (cashNum >= DUE) { cashValue = 'Rp ' + fmt(cashNum - DUE); cashFg = '#1E6B34'; }
+else { cashLabel = 'Kurang'; cashValue = 'Rp ' + fmt(DUE - cashNum); cashFg = '#B42318'; }
+}
+function setCashVal(v) { if (self.state.lunasAt) return; self.setState({ cash: v }); }
+
+var qr = st.qrisPaid
+? { title: 'Pembayaran QRIS diterima · Rp 250.400', note: 'Webhook TPDI masuk ' + st.qrisAt + ' · signature valid · ref QR-2610-88417 · dana ke BTN ••••4417', titleFg: '#1E6B34', bg: '#EAF5EC', bd: '#B7DEC0', op: '0.35' }
+: { title: 'QRIS dinamis · Rp 250.400', note: 'Diterbitkan via TPDI · acquirer BTN · berlaku 10 menit · status diperbarui otomatis lewat webhook TPDI', titleFg: '#14212B', bg: '#F8FAFB', bd: '#E3E8EE', op: '1' };
+
+var noteByMethod = {
+qris: 'QRIS via TPDI Rp 250.400 · ref QR-2610-88417 · masuk BTN ••••4417',
+debit: 'Debit/kredit EDC BTN Rp 250.400 · approval tercatat',
+tunai: 'Tunai Rp ' + fmt(cashNum) + ' · kembalian Rp ' + fmt(Math.max(cashNum - DUE, 0)),
+va: 'VA BTN Rp 250.400 · lunas via webhook TPDI',
+cicilan: 'Cicilan BTN ' + (st.tenor || '-') + ' bulan · dana Rp 250.400 cair dari BTN ke ••••4417 · angsuran dibayar pasien ke BTN'
+};
+
+return {
+cats: cats, split: split, methods: methods,
+sisa: lunas ? 'Rp 0 (lunas)' : 'Rp 250.400',
+isQris: st.method === 'qris', isCash: st.method === 'tunai', isDebit: st.method === 'debit', isVa: st.method === 'va', isCicilan: st.method === 'cicilan',
+tenors: tenors, cicilBtn: cicilBtn, cicilIdle: st.cicil === 0 && !lunas, cicilActive: st.cicil > 0 || (lunas && st.method === 'cicilan'),
+cicilSteps: cicilSteps, cicilCanNext: st.cicil >= 1 && st.cicil < 5 && !lunas, cicilNextLabel: NEXT[st.cicil] || '', cicilNext: cicilAdvance,
+ajukanCicil: function () { if (!self.state.tenor || self.state.cicil > 0 || self.state.lunasAt) return; self.setState({ cicil: 1, cicilT: [jam()] }); },
+vaWaiting: !st.vaOk && !lunas, vaAt: st.vaAt,
+simulateVa: function () { if (self.state.vaOk || self.state.lunasAt) return; self.setState({ vaOk: true, vaAt: jam() }); },
+qr: qr, qrisWaiting: !st.qrisPaid && !lunas,
+simulateQris: function () { self.setState({ qrisPaid: true, qrisAt: jam() }); },
+cashShown: st.cash ? fmt(cashNum) : '', cashBd: st.cash && cashNum < DUE ? '#B42318' : '#CBD3DB',
+setCash: function (e) { setCashVal(String(e.target.value || '').replace(/\D/g, '').replace(/^0+/, '')); },
+cashExact: function () { setCashVal(String(DUE)); },
+cash300: function () { setCashVal('300000'); },
+cash500: function () { setCashVal('500000'); },
+cashLabel: cashLabel, cashValue: cashValue, cashFg: cashFg,
+edcOk: st.edcOk, vaOk: st.vaOk,
+toggleEdc: function () { if (self.state.lunasAt) return; self.setState({ edcOk: !self.state.edcOk }); },
+notLunas: !lunas, lunas: lunas, lunasAt: 'kuitansi KW-2610-02217 · ' + st.lunasAt,
+lunasNote: noteByMethod[st.method] + ' · jurnal bank terbentuk otomatis. Klaim BPJS hak kelas 2 diteruskan ke casemix.',
+fin: cukup
+? { dis: 'false', bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: reason },
+finish: function () { if (!cukup || self.state.lunasAt) return; self.setState({ lunasAt: jam() }); }
+};
+}
+}
+</script>
+</body>
+</html>

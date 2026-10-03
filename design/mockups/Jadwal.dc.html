@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Jadwal praktik dokter</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="jadwal" user="Dewi Kartika" role="Koordinator rawat jalan" initials="DK" unit="SIM RS · Front office" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; color: #5B6B79">Front office / Jadwal dokter</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Jadwal praktik · 5–10 Okt 2026</h1>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span role="status" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E3E8EE; font-size: 13px"><span style="width: 7px; height: 7px; border-radius: 999px; background: {{syncDot}}"></span>{{syncLabel}}</span>
+<label for="jPoli" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Poli</label>
+<select id="jPoli" onChange="{{setPoli}}" style="height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; background: #FFFFFF"><option value="all" selected="{{poliSel.all}}">Semua poli (12)</option><option value="Penyakit Dalam" selected="{{poliSel.pd}}">Penyakit Dalam</option><option value="Jantung" selected="{{poliSel.jan}}">Jantung</option><option value="Saraf" selected="{{poliSel.sar}}">Saraf</option><option value="Paru" selected="{{poliSel.par}}">Paru</option></select>
+<label for="jHari" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Hari</label>
+<select id="jHari" onChange="{{setHari}}" style="height: 40px; padding: 0 10px; border: 1px solid #CBD3DB; border-radius: 10px; font: inherit; background: #FFFFFF"><option value="all" selected="{{hariSel.all}}">Semua hari</option><option value="0" selected="{{hariSel.d0}}">Senin 5 Okt</option><option value="1" selected="{{hariSel.d1}}">Selasa 6 Okt</option><option value="2" selected="{{hariSel.d2}}">Rabu 7 Okt</option><option value="3" selected="{{hariSel.d3}}">Kamis 8 Okt</option><option value="4" selected="{{hariSel.d4}}">Jumat 9 Okt</option><option value="5" selected="{{hariSel.d5}}">Sabtu 10 Okt</option></select>
+<button type="button" style="font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">+ Catat cuti atau pengganti</button>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<section aria-label="Grid jadwal" style="flex: 999 1 640px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow-x: auto">
+<div style="min-width: 900px">
+<div style="display: grid; grid-template-columns: {{cols}}; background: #F8FAFB; font-size: 12px; font-weight: 600; color: #3F4C58">
+<span style="padding: 12px 16px">Dokter · poli</span>
+<sc-for list="{{days}}" as="d" hint-placeholder-count="6"><span style="padding: 12px 10px; text-align: center; color: {{d.fg}}">{{d.label}}</span></sc-for>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: {{cols}}; border-top: 1px solid #EEF1F4; align-items: stretch">
+<span style="padding: 12px 16px; display: flex; flex-direction: column; line-height: 1.3"><span style="font-weight: 600">{{r.doc}}</span><span style="font-size: 12px; color: #5B6B79">{{r.poli}}</span></span>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="6">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" aria-label="{{c.aria}}" style="font: inherit; text-align: left; align-self: stretch; justify-self: stretch; margin: 6px; padding: 8px; border-radius: 10px; background: {{c.bg}}; border: 1px solid {{c.border}}; box-shadow: {{c.ring}}; display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; font-size: 12px; min-height: 52px; box-sizing: border-box; cursor: pointer">
+<span style="font-weight: 600; color: {{c.fg}}">{{c.time}}</span>
+<span style="color: #3F4C58">{{c.note}}</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+<sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+<div style="border-top: 1px solid #EEF1F4; padding: 24px 16px; color: #3F4C58; font-size: 13px">Tidak ada dokter praktik untuk filter ini. Ubah pilihan poli atau hari.</div>
+</sc-if>
+</div>
+</section>
+
+<aside aria-label="Ringkasan dan perbedaan" style="flex: 1 1 280px; max-width: 320px; display: flex; flex-direction: column; gap: 16px">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ false }}">
+<div aria-label="Detail slot jadwal" style="background: #FFFFFF; border: 2px solid #0F766E; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #5B6B79">Slot dipilih</span><span style="font-weight: 600">{{det.doc}}</span><span style="font-size: 13px; color: #3F4C58">{{det.poli}} · {{det.day}} · {{det.time}}</span></span>
+<button type="button" onClick="{{clearSel}}" aria-label="Tutup detail slot" style="flex: 0 0 40px; width: 40px; height: 40px; border-radius: 10px; border: 1px solid #E3E8EE; background: #FFFFFF; color: #3F4C58; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+<span style="align-self: flex-start; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: {{det.chipBg}}; color: {{det.chipFg}}">{{det.status}}</span>
+<sc-if value="{{det.hasQuota}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Kuota JKN</span><span style="font-size: 12px; color: #5B6B79">Mobile JKN dan loket</span></span>
+<span style="display: flex; align-items: center; gap: 6px"><button type="button" onClick="{{jknMin}}" disabled="{{det.jknMinDis}}" aria-label="Kurangi kuota JKN" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 18px; color: {{det.jknMinFg}}; cursor: pointer">−</button><span style="min-width: 32px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">{{det.jkn}}</span><button type="button" onClick="{{jknPlus}}" aria-label="Tambah kuota JKN" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 18px; color: #14212B; cursor: pointer">+</button></span>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Kuota non-JKN</span><span style="font-size: 12px; color: #5B6B79">Umum dan asuransi</span></span>
+<span style="display: flex; align-items: center; gap: 6px"><button type="button" onClick="{{nonMin}}" disabled="{{det.nonMinDis}}" aria-label="Kurangi kuota non-JKN" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 18px; color: {{det.nonMinFg}}; cursor: pointer">−</button><span style="min-width: 32px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">{{det.non}}</span><button type="button" onClick="{{nonPlus}}" aria-label="Tambah kuota non-JKN" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 18px; color: #14212B; cursor: pointer">+</button></span>
+</div>
+<span style="height: 6px; border-radius: 999px; background: #EEF1F4; overflow: hidden; display: block"><span style="display: block; height: 6px; width: {{det.pct}}; background: {{det.bar}}; border-radius: 999px"></span></span>
+<span style="font-size: 12px; color: #3F4C58">{{det.used}} pasien booking dari {{det.total}} kuota · {{det.pct}} terisi</span>
+<sc-if value="{{det.atMin}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #8A4B00">Total kuota tidak bisa di bawah jumlah pasien yang sudah booking ({{det.used}}).</span></sc-if>
+<sc-if value="{{det.dirty}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #8A4B00; font-weight: 600">Perubahan kuota belum dikirim ke HFIS.</span></sc-if>
+</sc-if>
+<sc-if value="{{det.noQuota}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #3F4C58">{{det.text}}</span></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{pending}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(180deg, #FFF8EB, #FFFFFF); border: 1px solid #F5D9A8">
+<span style="font-weight: 700; color: #8A4B00">Perbedaan dengan HFIS</span>
+<span style="font-size: 13px; color: #3F4C58">{{diffText}}</span>
+<button type="button" onClick="{{sync}}" style="align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Perbarui jadwal ke HFIS</button>
+</div>
+</sc-if>
+<sc-if value="{{inSync}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(180deg, #EAF6EC, #FFFFFF); border: 1px solid #BFE3C6">
+<span style="font-weight: 700; color: #1E6B34">Tersinkron dengan HFIS</span>
+<span style="font-size: 13px; color: #3F4C58">Jadwal RS dan HFIS sama per pukul {{syncAt}}. Cuti dr. [Nama 4], Sp.JP Rabu sudah tercatat, slot tidak bisa dibooking di Mobile JKN.</span>
+</div>
+</sc-if>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Legenda</span>
+<span style="display: flex; gap: 8px; align-items: center; font-size: 13px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #F2FAF8; border: 1px solid #BFDDD8"></span>Praktik · kuota tersedia</span>
+<span style="display: flex; gap: 8px; align-items: center; font-size: 13px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #FFF8EB; border: 1px solid #F5D9A8"></span>Kuota hampir penuh (≥ 80%)</span>
+<span style="display: flex; gap: 8px; align-items: center; font-size: 13px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #FEF3F2; border: 1px solid #FECDCA"></span>Cuti · pasien perlu dijadwal ulang</span>
+<span style="display: flex; gap: 8px; align-items: center; font-size: 13px"><span style="width: 14px; height: 14px; border-radius: 4px; background: #EEF4FF; border: 1px solid #C7D7FE"></span>Dokter pengganti</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">Dampak cuti Rabu</span>
+<span style="font-size: 13px; color: #3F4C58">18 pasien sudah booking. Notifikasi WhatsApp dan pengalihan ke dr. [Nama 5] siap dikirim setelah disetujui.</span>
+<button type="button" style="align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Tinjau 18 pasien</button>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { poli: 'all', hari: 'all', sel: null, kuota: {}, dirty: {}, synced: false, syncAt: '07.30' };
+}
+renderVals() {
+var self = this, st = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+var DAYS = [{ label: 'Sen 5', full: 'Senin 5 Okt' }, { label: 'Sel 6', full: 'Selasa 6 Okt' }, { label: 'Rab 7', full: 'Rabu 7 Okt' }, { label: 'Kam 8', full: 'Kamis 8 Okt' }, { label: 'Jum 9', full: 'Jumat 9 Okt' }, { label: 'Sab 10', full: 'Sabtu 10 Okt' }];
+var S = {
+ok: ['#F2FAF8', '#BFDDD8', '#0B5D56'],
+full: ['#FFF8EB', '#F5D9A8', '#8A4B00'],
+off: ['#FEF3F2', '#FECDCA', '#B42318'],
+sub: ['#EEF4FF', '#C7D7FE', '#1E3A8A'],
+none: ['#FFFFFF', '#FFFFFF', '#8C99A6']
+};
+function c(t, n, k) { return { time: t, note: n, kind: k }; }
+var RAW = [
+{ doc: 'dr. [Nama DPJP], Sp.PD', poli: 'Penyakit Dalam', cells: [c('08–12', '22/30', 'ok'), c('08–12', '26/30', 'full'), c('08–12', '12/30', 'ok'), c('08–12', '9/30', 'ok'), c('—', 'tidak praktik', 'none'), c('08–11', '5/20', 'ok')] },
+{ doc: 'dr. [Nama 2], Sp.PD', poli: 'Penyakit Dalam', cells: [c('13–16', '9/25', 'ok'), c('—', 'tidak praktik', 'none'), c('13–16', '20/25', 'full'), c('13–16', '4/25', 'ok'), c('13–16', '2/25', 'ok'), c('—', 'tidak praktik', 'none')] },
+{ doc: 'dr. [Nama 4], Sp.JP', poli: 'Jantung', cells: [c('09–12', '18/20', 'full'), c('09–12', '11/20', 'ok'), c('Cuti', 'HFIS belum diubah', 'off'), c('09–12', '7/20', 'ok'), c('09–12', '6/20', 'ok'), c('—', 'tidak praktik', 'none')] },
+{ doc: 'dr. [Nama 5], Sp.JP', poli: 'Jantung', cells: [c('—', 'tidak praktik', 'none'), c('13–15', '6/15', 'ok'), c('09–12', 'pengganti', 'sub'), c('13–15', '3/15', 'ok'), c('—', 'tidak praktik', 'none'), c('08–10', '1/10', 'ok')] },
+{ doc: 'dr. [Nama 6], Sp.N', poli: 'Saraf', cells: [c('09.30–12', '15/20', 'ok'), c('09.30–12', '17/20', 'full'), c('09.30–12', '10/20', 'ok'), c('—', 'tidak praktik', 'none'), c('09.30–12', '8/20', 'ok'), c('—', 'tidak praktik', 'none')] },
+{ doc: 'dr. [Nama 7], Sp.P', poli: 'Paru', cells: [c('08–11', '14/20', 'ok'), c('08–11', '9/20', 'ok'), c('08–11', '16/20', 'full'), c('08–11', '5/20', 'ok'), c('08–11', '4/20', 'ok'), c('08–10', '2/10', 'ok')] }
+];
+// Kuota per slot: default dipecah 80% JKN / 20% non-JKN, bisa diubah lewat panel detail
+function slotQ(ri, ci) {
+var cell = RAW[ri].cells[ci];
+var m = /^(\d+)\/(\d+)$/.exec(cell.note);
+if (!m) return null;
+var used = +m[1], total = +m[2];
+var o = st.kuota[ri + '-' + ci];
+var jkn = o ? o.jkn : Math.round(total * 0.8), non = o ? o.non : total - Math.round(total * 0.8);
+return { used: used, jkn: jkn, non: non, total: jkn + non };
+}
+function cellView(ri, ci) {
+var cell = RAW[ri].cells[ci];
+var q = slotQ(ri, ci);
+var kind = cell.kind, note = cell.note;
+if (q) { note = q.used + '/' + q.total; kind = q.total > 0 && q.used / q.total >= 0.8 ? 'full' : 'ok'; }
+if (kind === 'off') note = st.synced ? 'HFIS diperbarui' : 'HFIS belum diubah';
+return { time: cell.time, note: note, kind: kind, q: q };
+}
+var dayIdx = st.hari === 'all' ? [0, 1, 2, 3, 4, 5] : [+st.hari];
+var days = dayIdx.map(function (i) { return { label: DAYS[i].label, fg: '#3F4C58' }; });
+var rows = [];
+RAW.forEach(function (r, ri) {
+if (st.poli !== 'all' && r.poli !== st.poli) return;
+if (st.hari !== 'all' && r.cells[+st.hari].kind === 'none') return;
+rows.push({ doc: r.doc, poli: r.poli, cells: dayIdx.map(function (ci) {
+var v = cellView(ri, ci), s = S[v.kind], key = ri + '-' + ci;
+var on = st.sel === key;
+return { time: v.time, note: v.note, bg: s[0], border: s[1], fg: s[2], ring: on ? '0 0 0 2px #0F766E' : 'none', pressed: on ? 'true' : 'false', aria: r.doc + ', ' + DAYS[ci].full + ', ' + v.time + ', ' + v.note, pick: function () { self.setState({ sel: key }); } };
+}) });
+});
+
+// Detail slot terpilih
+var BLANK = { doc: '', poli: '', day: '', time: '', status: '', chipBg: '#F1F3F5', chipFg: '#3F4C58', hasQuota: false, noQuota: true, text: '', jkn: 0, non: 0, used: 0, total: 0, pct: '0%', bar: '#0F766E', atMin: false, jknMinDis: true, nonMinDis: true, jknMinFg: '#8C99A6', nonMinFg: '#8C99A6', dirty: false };
+var det = null;
+if (st.sel) {
+var p = st.sel.split('-'), ri = +p[0], ci = +p[1];
+var v = cellView(ri, ci), q = v.q;
+var STATUS = { ok: ['Praktik · kuota tersedia', '#E6F4F1', '#0B5D56'], full: ['Kuota hampir penuh', '#FFF4E5', '#8A4B00'], off: ['Cuti', '#FEF3F2', '#B42318'], sub: ['Dokter pengganti', '#EEF4FF', '#1E3A8A'], none: ['Tidak praktik', '#F1F3F5', '#3F4C58'] }[v.kind];
+var TEXT = { off: 'Dokter cuti. 18 pasien yang sudah booking perlu dialihkan atau dijadwal ulang.', sub: 'Menggantikan dr. [Nama 4], Sp.JP. Kuota mengikuti slot dokter yang digantikan.', none: 'Tidak ada jadwal praktik di hari ini. Tambahkan lewat Catat cuti atau pengganti.' };
+det = Object.assign({}, BLANK, { doc: RAW[ri].doc, poli: RAW[ri].poli, day: DAYS[ci].full, time: v.time === '—' ? 'tanpa jam' : v.time, status: STATUS[0], chipBg: STATUS[1], chipFg: STATUS[2], hasQuota: !!q, noQuota: !q, text: TEXT[v.kind] || '' });
+if (q) {
+var pct = q.total ? Math.round(q.used / q.total * 100) : 100;
+var atMin = q.total <= q.used;
+det = Object.assign(det, { jkn: q.jkn, non: q.non, used: q.used, total: q.total, pct: Math.min(pct, 100) + '%', bar: pct >= 100 ? '#B42318' : (pct >= 80 ? '#D97706' : '#0F766E'), atMin: atMin, jknMinDis: atMin || q.jkn <= 0, nonMinDis: atMin || q.non <= 0, jknMinFg: (atMin || q.jkn <= 0) ? '#8C99A6' : '#14212B', nonMinFg: (atMin || q.non <= 0) ? '#8C99A6' : '#14212B', dirty: !!st.dirty[st.sel] });
+}
+}
+function ubah(field, delta) {
+return function () {
+var s2 = self.state; if (!s2.sel) return;
+var pp = s2.sel.split('-'), q2 = slotQ(+pp[0], +pp[1]); if (!q2) return;
+var nx = { jkn: q2.jkn, non: q2.non }; nx[field] = nx[field] + delta;
+if (nx[field] < 0 || nx.jkn + nx.non < q2.used) return;
+var k = Object.assign({}, s2.kuota); k[s2.sel] = nx;
+var d = Object.assign({}, s2.dirty); d[s2.sel] = true;
+self.setState({ kuota: k, dirty: d });
+};
+}
+var dirtyN = Object.keys(st.dirty).length;
+var pendingN = (st.synced ? 0 : 1) + dirtyN;
+var diffText = !st.synced
+? 'dr. [Nama 4], Sp.JP tercatat praktik Rabu 13.00 di HFIS, tetapi cuti di jadwal RS. Pasien Mobile JKN bisa salah booking.' + (dirtyN ? ' Ditambah ' + dirtyN + ' perubahan kuota yang belum dikirim.' : '')
+: dirtyN + ' perubahan kuota di jadwal RS belum dikirim ke HFIS. Mobile JKN masih memakai kuota lama.';
+return {
+syncDot: dirtyN ? '#D97706' : '#16A34A',
+syncLabel: pendingN ? ('Sinkron HFIS ' + st.syncAt + ' · ' + pendingN + ' perbedaan') : ('Tersinkron HFIS ' + st.syncAt),
+syncAt: st.syncAt,
+pending: pendingN > 0, inSync: pendingN === 0, diffText: diffText,
+sync: function () { self.setState({ synced: true, syncAt: jam(), dirty: {} }); },
+poliSel: { all: st.poli === 'all', pd: st.poli === 'Penyakit Dalam', jan: st.poli === 'Jantung', sar: st.poli === 'Saraf', par: st.poli === 'Paru' },
+hariSel: { all: st.hari === 'all', d0: st.hari === '0', d1: st.hari === '1', d2: st.hari === '2', d3: st.hari === '3', d4: st.hari === '4', d5: st.hari === '5' },
+setPoli: function (e) { self.setState({ poli: e.target.value }); },
+setHari: function (e) { self.setState({ hari: e.target.value }); },
+cols: '1.6fr repeat(' + dayIdx.length + ', minmax(0, 1fr))',
+days: days, rows: rows, empty: rows.length === 0,
+hasSel: !!det, det: det || BLANK,
+clearSel: function () { self.setState({ sel: null }); },
+jknPlus: ubah('jkn', 1), jknMin: ubah('jkn', -1), nonPlus: ubah('non', 1), nonMin: ubah('non', -1)
+};
+}
+}
+</script>
+</body>
+</html>

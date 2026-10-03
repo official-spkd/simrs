@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>CPOE order dan resep</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="poli" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<div style="padding: 14px 28px; background: rgba(255,255,255,0.88); border-bottom: 1px solid #E3E8EE; display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: #5B6B79">Rawat jalan / Poli Penyakit Dalam / Order</span>
+<div style="border: 1px solid #D5E3E1; border-radius: 14px; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: linear-gradient(100deg, rgba(15,118,110,0.08) 0%, #FFFFFF 55%)">
+<div style="display: flex; gap: 12px; align-items: center"><span style="width: 40px; height: 40px; border-radius: 999px; border: 2px solid #0F766E; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">SR</span><div style="display: flex; flex-direction: column"><h1 style="margin: 0; font-size: 17px; font-weight: 700">Siti Rahmawati</h1><span style="font-size: 13px; color: #3F4C58">P · 54 th · RM <span style="font-family: 'IBM Plex Mono', monospace">00-12-45-78</span> · BB 72 kg · eGFR 74</span></div></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><span style="font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 8px; background: #FEF3F2; color: #B42318; border: 1px solid #FECDCA">Alergi: Amoksisilin</span><span style="font-size: 12px; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E3E8EE">BPJS Kelas 2 · SEP aktif</span></div>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<aside aria-label="Katalog dan order set" style="flex: 1 1 260px; max-width: 290px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<label for="cariOrder" style="font-size: 13px; font-weight: 600">Cari pemeriksaan, obat, tindakan</label>
+<input id="cariOrder" value="{{q}}" onInput="{{setQ}}" autocomplete="off" style="font: inherit; height: 40px; padding: 0 12px; border: 1px solid #0F766E; border-radius: 10px; box-sizing: border-box">
+<sc-if value="{{hasRes}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; border: 1px solid #E3E8EE; border-radius: 10px; overflow: hidden; font-size: 13px">
+<sc-for list="{{results}}" as="r" hint-placeholder-count="2">
+<button type="button" onClick="{{r.add}}" title="{{r.tip}}" style="text-align: left; font: inherit; padding: 9px 10px; border: 0; border-bottom: {{r.bb}}; background: {{r.bg}}; cursor: pointer"><span style="font-weight: 600">{{r.name}}</span> <span style="color: #5B6B79">· {{r.meta}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{noRes}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12.5px; color: #5B6B79">Tidak ada item katalog yang cocok. Coba kata lain, mis. "lipid", "EKG", "klindamisin".</span>
+</sc-if>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; font-weight: 600">Order set institusi</span>
+<sc-for list="{{sets}}" as="s" hint-placeholder-count="4">
+<button type="button" onClick="{{s.apply}}" aria-pressed="{{s.pressed}}" style="text-align: left; font: inherit; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: {{s.border}}; background: {{s.bg}}; cursor: pointer"><span style="font-weight: 600; font-size: 13px">{{s.name}}</span><span style="font-size: 12px; color: #5B6B79">{{s.meta}}</span></button>
+</sc-for>
+<span style="font-size: 12px; color: #5B6B79">Order set ditetapkan Komite Medik dan terhubung ke clinical pathway.</span>
+</div>
+</aside>
+
+<section aria-label="Daftar order" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{hasNote}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 8px 8px 14px; border-radius: 10px; background: #F2FAF8; border: 1px solid #D5ECE7; font-size: 13px; color: #0B5D56"><span>{{note}}</span><button type="button" onClick="{{clearNote}}" style="font: inherit; font-size: 12.5px; height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid #D5ECE7; background: #FFFFFF; color: #0B5D56; cursor: pointer">Tutup</button></div>
+</sc-if>
+<sc-if value="{{noOrders}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px dashed #CBD3DB; border-radius: 14px; padding: 18px; font-size: 13px; color: #5B6B79">Belum ada order. Cari item katalog atau terapkan order set di kiri.</div>
+</sc-if>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 10px 16px; background: linear-gradient(90deg, #F8FAFB, #FFFFFF); border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between"><span style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: #3F4C58">{{g.title}}</span><span style="font-size: 12px; color: #5B6B79">{{g.dest}}</span></div>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="2">
+<div style="padding: 12px 16px; border-bottom: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 8px; background: {{it.rowBg}}">
+<div style="display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="font-weight: 600">{{it.name}}</span>
+<span style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center"><span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{it.covBg}}; color: {{it.covFg}}">{{it.cov}}</span><span style="font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #F1F3F5; color: #3F4C58">{{it.prio}}</span><button type="button" onClick="{{it.remove}}" aria-label="{{it.removeLabel}}" style="font: inherit; font-size: 12px; font-weight: 600; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #E3E8EE; background: #FFFFFF; color: #5B6B79; cursor: pointer">Hapus</button></span>
+</div>
+<span style="font-size: 13px; color: #3F4C58">{{it.detail}}</span>
+<span style="font-size: 12.5px; font-weight: 600; color: {{it.cdsFg}}">{{it.cds}}</span>
+<sc-if value="{{it.showActs}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<button type="button" onClick="{{it.toKlin}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Ganti klindamisin 300 mg</button>
+<button type="button" onClick="{{it.toAzi}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Ganti azitromisin 500 mg</button>
+<button type="button" onClick="{{it.openOv}}" style="font: inherit; font-size: 13px; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #E6B8B3; background: #FFFFFF; color: #B42318; cursor: pointer">Override dengan alasan</button>
+</div>
+</sc-if>
+<sc-if value="{{it.showOv}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid #F0C2BD; background: #FFFFFF">
+<span style="font-size: 12.5px; font-weight: 600; color: #8E1B13">Alasan klinis override alergi (wajib, tercatat di audit trail)</span>
+<textarea value="{{it.ovVal}}" onInput="{{it.setOv}}" aria-label="Alasan klinis override" rows="2" placeholder="Mis. riwayat alergi amoksisilin berupa ruam ringan, sudah pernah toleran sefalosporin" style="font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid #CBD3DB; border-radius: 8px; resize: vertical"></textarea>
+<span style="font-size: 12px; color: #B42318">{{it.ovErr}}</span>
+<div style="display: flex; gap: 6px; justify-content: flex-end">
+<button type="button" onClick="{{it.cancelOv}}" style="font: inherit; font-size: 13px; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="button" onClick="{{it.saveOv}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #8E1B13; background: #B42318; color: #FFFFFF; cursor: pointer">Simpan override</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</section>
+
+<aside aria-label="Ringkasan order" style="flex: 1 1 260px; max-width: 300px; display: flex; flex-direction: column; gap: 14px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Pemeriksaan sebelum kirim</span>
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="5">
+<span style="display: flex; gap: 8px; font-size: 13px; align-items: flex-start"><span style="font-weight: 700; color: {{c.fg}}">{{c.mark}}</span><span style="color: #3F4C58">{{c.text}}</span></span>
+</sc-for>
+</div>
+<div style="background: linear-gradient(180deg, #F2FAF8, #FFFFFF); border: 1px solid #D5ECE7; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #0B5D56">ESTIMASI BIAYA PASIEN</span>
+<span style="font-size: 26px; font-weight: 700; color: {{costFg}}">{{costText}}</span>
+<span style="font-size: 12px; color: #3F4C58">{{costNote}}</span>
+</div>
+<button type="button" onClick="{{send}}" disabled="{{sendDisabled}}" aria-describedby="alasanKirim" style="font: inherit; font-weight: 600; height: 48px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: {{sendCursor}}; opacity: {{sendOp}}; box-shadow: 0 1px 2px rgba(16,24,40,0.12), inset 0 1px 0 rgba(255,255,255,0.15)">{{sendLabel}}</button>
+<span id="alasanKirim" style="font-size: 12px; color: {{hintFg}}; font-weight: {{hintW}}; text-align: center">{{sendHint}}</span>
+<sc-if value="{{sent}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="background: #EAF6EC; border: 1px solid #B7DEC1; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 700; color: #1E6B34">{{sentTitle}}</span>
+<span style="font-size: 13px; color: #3F4C58">Ditandatangani dr. [Nama DPJP] dengan TTE. Order sudah masuk antrean unit penerima.</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Farmasi.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; font-size: 13px; text-decoration: none">Lihat di Farmasi</a>
+<a href="Lab.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; font-size: 13px; text-decoration: none">Lihat di Laboratorium</a>
+</div>
+</div>
+</sc-if>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+q: 'hba1c',
+setSel: 0,
+orders: [{ id: 'hba1c', ov: '' }, { id: 'lipid', ov: '' }, { id: 'amlo', ov: '' }, { id: 'metf', ov: '' }, { id: 'sefa', ov: '' }, { id: 'surat', ov: '' }],
+ovFor: '',
+ovDraft: '',
+ovErr: '',
+note: '',
+sent: false,
+sentAt: '',
+sentN: 0
+};
+}
+catalog() {
+function c(id, g, name, meta, detail, cov, covK, prio, cds, cdsK, extra) {
+return Object.assign({ id: id, g: g, name: name, meta: meta, detail: detail, cov: cov, covK: covK, prio: prio, cds: cds, cdsK: cdsK, wk: '', cost: 0, kw: '' }, extra || {});
+}
+var A = '✓ Bukan beta-laktam: aman dengan alergi amoksisilin.';
+var list = [
+c('hba1c', 'LAB', 'HbA1c', 'Lab PK · LOINC 4548-4', 'Indikasi: evaluasi kontrol glikemik 3 bulan', 'Ditanggung', 'ok', 'Rutin', '✓ Terakhir 12 Sep 2026 (7,9%). Diulang setelah 3 bulan sesuai PPK.', 'ok', { kw: 'hba1c hemoglobin glikat diabetes dm' }),
+{ id: 'paket', paket: true, name: 'Paket monitoring DM', meta: '4 item', items: ['hba1c', 'gdp', 'kreat', 'malb'], kw: 'hba1c paket monitoring dm diabetes glukosa' },
+c('lipid', 'LAB', 'Profil lipid', 'Lab PK · 4 parameter', 'Kolesterol total, LDL, HDL, trigliserida · puasa 10 jam', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi dalam 6 bulan', 'ok', { kw: 'lipid kolesterol ldl hdl trigliserida' }),
+c('gdp', 'LAB', 'Glukosa darah puasa', 'Lab PK · LOINC 1558-6', 'Puasa 8–10 jam · evaluasi target terapi', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi dalam 1 bulan', 'ok', { kw: 'glukosa gula puasa gdp diabetes dm' }),
+c('kreat', 'LAB', 'Kreatinin serum', 'Lab PK · LOINC 2160-0', 'Indikasi: pemantauan fungsi ginjal pada terapi metformin', 'Ditanggung', 'ok', 'Rutin', '✓ eGFR terakhir 74. Pemantauan rutin sesuai PPK.', 'ok', { kw: 'kreatinin ginjal egfr' }),
+c('malb', 'LAB', 'Mikroalbumin urin', 'Lab PK · LOINC 14957-5', 'Urin sewaktu · skrining nefropati diabetik', 'Ditanggung', 'ok', 'Rutin', '✓ Belum diperiksa tahun ini', 'ok', { kw: 'mikroalbumin urin albumin nefropati diabetes' }),
+c('vitd', 'LAB', 'Vitamin D (25-OH)', 'Lab PK · di luar paket', 'Atas permintaan pasien · tidak ada indikasi di PPK', 'Tidak ditanggung', 'warn', 'Rutin', '! Di luar paket INA-CBG: biaya ditanggung pasien, perlu persetujuan pasien.', 'warn', { wk: 'biaya', cost: 385000, kw: 'vitamin d 25-oh' }),
+c('dl', 'LAB', 'Darah lengkap', 'Lab PK · hematologi', 'Hb, leukosit, hitung jenis, trombosit', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi hari ini', 'ok', { kw: 'darah lengkap dl hematologi hemoglobin leukosit' }),
+c('elek', 'LAB', 'Elektrolit (Na, K, Cl)', 'Lab PK · kimia klinik', 'Indikasi: pemantauan elektrolit', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi hari ini', 'ok', { kw: 'elektrolit natrium kalium klorida' }),
+c('trop', 'LAB', 'Troponin I', 'Lab PK · LOINC 10839-9', 'Serial jam 0 dan jam 3', 'Ditanggung', 'ok', 'Cito', '✓ Masuk alur SKA', 'ok', { kw: 'troponin jantung ska' }),
+c('ckmb', 'LAB', 'CK-MB', 'Lab PK · kimia klinik', 'Penanda kerusakan miokard', 'Ditanggung', 'ok', 'Cito', '✓ Masuk alur SKA', 'ok', { kw: 'ckmb ck-mb jantung' }),
+c('crp', 'LAB', 'CRP', 'Lab PK · LOINC 1988-5', 'Penanda inflamasi', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi hari ini', 'ok', { kw: 'crp inflamasi' }),
+c('kultsp', 'LAB', 'Kultur sputum + uji kepekaan', 'Lab mikrobiologi', 'Sampel pagi sebelum antibiotik pertama', 'Ditanggung', 'ok', 'Rutin', '✓ Diambil sebelum antibiotik', 'ok', { kw: 'kultur sputum mikrobiologi' }),
+c('kultdr', 'LAB', 'Kultur darah 2 set', 'Lab mikrobiologi', 'Dua lokasi berbeda sebelum antibiotik', 'Ditanggung', 'ok', 'Rutin', '✓ Diambil sebelum antibiotik', 'ok', { kw: 'kultur darah mikrobiologi' }),
+c('agd', 'LAB', 'Analisa gas darah', 'Lab PK · arteri', 'Arteri radialis · bila SpO2 < 94%', 'Ditanggung', 'ok', 'Cito', '✓ Tidak ada duplikasi hari ini', 'ok', { kw: 'agd analisa gas darah arteri' }),
+c('hemo', 'LAB', 'PT / APTT', 'Lab PK · hemostasis', 'Skrining hemostasis pra-operasi', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada duplikasi dalam 1 bulan', 'ok', { kw: 'pt aptt hemostasis koagulasi' }),
+c('rontgen', 'RAD', 'Foto toraks PA', 'Radiologi · ICD-9-CM 87.44', 'Proyeksi PA · posisi tegak', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada foto toraks dalam 30 hari', 'ok', { kw: 'foto toraks rontgen thorax radiologi' }),
+c('ekg', 'TIND', 'EKG 12 sadapan', 'Tindakan · dikerjakan di poli', 'Dikerjakan di poli sebelum pasien pulang', 'Ditanggung', 'ok', 'Rutin', '✓ Tidak ada EKG dalam 3 bulan', 'ok', { kw: 'ekg elektrokardiogram jantung' }),
+c('konsan', 'TIND', 'Konsultasi anestesi pra-operasi', 'Tindakan · poli anestesi', 'Asesmen ASA dan jalan napas', 'Ditanggung', 'ok', 'Rutin', '✓ Jadwal poli anestesi tersedia', 'ok', { kw: 'konsul anestesi pra operasi' }),
+c('amlo', 'OBAT', 'Amlodipin 10 mg tablet', 'Obat · Fornas · antihipertensi', '1 × 1 pagi · oral · 30 tablet · indikasi I10', 'Fornas', 'ok', 'Rutin', '! Dosis naik dari 5 mg. Pantau edema tungkai dan TD 2 minggu.', 'warn', { wk: 'dosis', kw: 'amlodipin hipertensi' }),
+c('metf', 'OBAT', 'Metformin 500 mg tablet', 'Obat · Fornas · antidiabetik', '2 × 1 sesudah makan · oral · 60 tablet · indikasi E11.9', 'Fornas', 'ok', 'Rutin', '✓ eGFR 74: dosis aman. Tidak ada interaksi dengan obat lain di daftar.', 'ok', { kw: 'metformin diabetes' }),
+c('sefa', 'OBAT', 'Sefadroksil 500 mg kapsul', 'Obat · Fornas · sefalosporin', 'Diusulkan dari order set lama · 2 × 1 · 5 hari', 'Fornas', 'ok', 'Rutin', '✕ Diblokir: reaksi silang mungkin dengan alergi amoksisilin (beta-laktam). Pilih alternatif atau isi alasan klinis.', 'block', { kw: 'sefadroksil antibiotik sefalosporin' }),
+c('klin', 'OBAT', 'Klindamisin 300 mg kapsul', 'Obat · Fornas · linkosamid', '3 × 1 · oral · 5 hari · 15 kapsul', 'Fornas', 'ok', 'Rutin', A, 'ok', { kw: 'klindamisin antibiotik' }),
+c('azi', 'OBAT', 'Azitromisin 500 mg tablet', 'Obat · Fornas · makrolid', '1 × 1 · oral · 3 hari · 3 tablet', 'Fornas', 'ok', 'Rutin', A, 'ok', { kw: 'azitromisin antibiotik makrolid' }),
+c('glim', 'OBAT', 'Glimepirid 2 mg tablet', 'Obat · Fornas · sulfonilurea', '1 × 1 sebelum makan pagi · 30 tablet · indikasi E11.9', 'Fornas', 'ok', 'Rutin', '! Kombinasi dengan metformin: risiko hipoglikemia. Edukasi pasien.', 'warn', { wk: 'cds', kw: 'glimepirid diabetes' }),
+c('asp', 'OBAT', 'Asetosal 160 mg tablet kunyah', 'Obat · Fornas · antiplatelet', 'Dosis muat · dikunyah · 1 kali', 'Fornas', 'ok', 'Cito', '✓ Tidak ada riwayat perdarahan aktif', 'ok', { kw: 'asetosal aspirin antiplatelet' }),
+c('clop', 'OBAT', 'Klopidogrel 75 mg tablet', 'Obat · Fornas · antiplatelet', 'Dosis muat 300 mg (4 tablet) · 1 kali', 'Fornas', 'ok', 'Cito', '✓ Tidak ada interaksi dengan obat lain di daftar', 'ok', { kw: 'klopidogrel clopidogrel antiplatelet' }),
+c('isdn', 'OBAT', 'Isosorbid dinitrat 5 mg sublingual', 'Obat · Fornas · nitrat', 'Bila nyeri dada · maksimal 3 kali', 'Fornas', 'ok', 'Cito', '✓ TD terakhir memadai', 'ok', { kw: 'isosorbid isdn nitrat nyeri dada' }),
+c('seft', 'OBAT', 'Seftriakson 2 g injeksi', 'Obat · Fornas · sefalosporin gen. 3', '1 × 2 g IV · 5–7 hari', 'Fornas', 'ok', 'Rutin', '! Sefalosporin gen. 3: reaksi silang dengan alergi amoksisilin rendah. Pantau reaksi pada dosis pertama.', 'warn', { wk: 'cds', kw: 'seftriakson ceftriaxone antibiotik' }),
+c('nac', 'OBAT', 'N-asetilsistein 200 mg kapsul', 'Obat · Fornas · mukolitik', '3 × 1 · oral', 'Fornas', 'ok', 'Rutin', '✓ Tidak ada interaksi', 'ok', { kw: 'asetilsistein nac mukolitik' }),
+c('pct', 'OBAT', 'Parasetamol 500 mg tablet', 'Obat · Fornas · analgetik', '3 × 1 bila demam · oral', 'Fornas', 'ok', 'Rutin', '✓ Dosis harian di bawah batas', 'ok', { kw: 'parasetamol paracetamol demam' }),
+c('surat', 'LANJUT', 'Surat kontrol 4 minggu', 'Tindak lanjut · BPJS', 'Kontrol 31 Okt 2026 · Poli PD · dr. [Nama DPJP]', 'BPJS', 'ok', '—', '✓ Kuota tersedia, terkirim ke Mobile JKN', 'ok', { kw: 'surat kontrol tindak lanjut' })
+];
+var map = {};
+list.forEach(function (x) { map[x.id] = x; });
+return { list: list, map: map };
+}
+setsDef() {
+return [
+{ name: 'Kontrol hipertensi + DM tipe 2', meta: '6 item · PPK Penyakit Dalam 2026', ids: ['hba1c', 'lipid', 'kreat', 'amlo', 'metf', 'surat'] },
+{ name: 'Nyeri dada akut (SKA)', meta: '9 item · alur IGD', ids: ['ekg', 'trop', 'ckmb', 'dl', 'elek', 'asp', 'clop', 'isdn', 'rontgen'] },
+{ name: 'Pneumonia komunitas rawat inap', meta: '11 item', ids: ['dl', 'crp', 'kultsp', 'kultdr', 'rontgen', 'agd', 'elek', 'seft', 'azi', 'nac', 'pct'] },
+{ name: 'Pra-operasi elektif dewasa', meta: '8 item', ids: ['dl', 'hemo', 'gdp', 'kreat', 'elek', 'ekg', 'rontgen', 'konsan'] }
+];
+}
+addIds(ids, label) {
+var cat = this.catalog().map;
+var have = {};
+this.state.orders.forEach(function (o) { have[o.id] = true; });
+var add = ids.filter(function (id) { return !have[id]; });
+var orders = this.state.orders.concat(add.map(function (id) { return { id: id, ov: '' }; }));
+var dup = ids.length - add.length;
+var note;
+if (ids.length === 1) {
+note = add.length ? 'Ditambahkan: ' + cat[ids[0]].name + '.' : cat[ids[0]].name + ' sudah ada di daftar order (duplikasi dicegah).';
+} else {
+note = label + ' diterapkan: ' + add.length + ' item ditambahkan' + (dup ? ', ' + dup + ' sudah ada (duplikasi dicegah).' : '.');
+}
+this.setState({ orders: orders, note: note, sent: false });
+}
+removeId(id) {
+var cat = this.catalog().map;
+var orders = this.state.orders.filter(function (o) { return o.id !== id; });
+var patch = { orders: orders, note: 'Dihapus: ' + cat[id].name + '.', sent: false };
+if (this.state.ovFor === id) { patch.ovFor = ''; patch.ovDraft = ''; patch.ovErr = ''; }
+this.setState(patch);
+}
+replaceId(id, newId) {
+var cat = this.catalog().map;
+var exists = this.state.orders.some(function (o) { return o.id === newId; });
+var orders = exists ? this.state.orders.filter(function (o) { return o.id !== id; }) : this.state.orders.map(function (o) { return o.id === id ? { id: newId, ov: '' } : o; });
+this.setState({ orders: orders, ovFor: '', ovDraft: '', ovErr: '', sent: false, note: cat[id].name + ' diganti ' + cat[newId].name + (exists ? ' (sudah ada di daftar).' : '.') });
+}
+saveOverride(id) {
+var r = (this.state.ovDraft || '').trim();
+if (r.length < 10) { this.setState({ ovErr: 'Tulis alasan klinis minimal 10 karakter.' }); return; }
+var orders = this.state.orders.map(function (o) { return o.id === id ? { id: o.id, ov: r } : o; });
+this.setState({ orders: orders, ovFor: '', ovDraft: '', ovErr: '', sent: false, note: 'Override tercatat atas nama dr. [Nama DPJP].' });
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var cat = this.catalog();
+var C = { ok: ['#EAF6EC', '#1E6B34'], warn: ['#FFF4E5', '#8A4B00'] };
+
+var q = (st.q || '').trim().toLowerCase();
+var found = cat.list.filter(function (x) { return q === '' || (x.name + ' ' + x.kw).toLowerCase().indexOf(q) >= 0; }).slice(0, 6);
+var results = found.map(function (x, i) {
+return { name: x.name, meta: x.meta, tip: 'Tambah ' + x.name + ' ke order', bg: i === 0 ? '#F3FAF8' : '#FFFFFF', bb: i === found.length - 1 ? '0' : '1px solid #EEF1F4',
+add: function () { self.addIds(x.paket ? x.items : [x.id], x.paket ? x.name : ''); } };
+});
+
+var sets = this.setsDef().map(function (s, i) {
+var sel = st.setSel === i;
+return { name: s.name, meta: s.meta, pressed: sel ? 'true' : 'false', border: sel ? '2px solid #0F766E' : '1px solid #E3E8EE', bg: sel ? '#F3FAF8' : '#FFFFFF',
+apply: function () { self.setState({ setSel: i }); self.addIds(s.ids, 'Order set "' + s.name + '"'); } };
+});
+
+var nBlock = 0, nDose = 0, nOther = 0, nOv = 0, nCostItems = 0, cost = 0, blockedNames = [];
+var view = st.orders.map(function (o) {
+var x = cat.map[o.id];
+var cds = x.cds, cdsK = x.cdsK, wk = x.wk;
+if (o.ov) { cds = '! Override alergi oleh dr. [Nama DPJP] · alasan: ' + o.ov; cdsK = 'warn'; wk = 'ov'; }
+if (cdsK === 'block') { nBlock++; blockedNames.push(x.name.split(' ')[0].toLowerCase()); }
+if (wk === 'dosis') nDose++;
+if (wk === 'cds') nOther++;
+if (wk === 'ov') nOv++;
+if (x.cost) { nCostItems++; cost += x.cost; }
+var blocked = cdsK === 'block';
+var ovOpen = st.ovFor === o.id;
+return {
+id: o.id, g: x.g, name: x.name, detail: x.detail, cov: x.cov, covBg: C[x.covK][0], covFg: C[x.covK][1], prio: x.prio, cds: cds,
+cdsFg: cdsK === 'warn' ? '#8A4B00' : (cdsK === 'block' ? '#B42318' : '#1E6B34'), rowBg: cdsK === 'block' ? '#FFFBFA' : '#FFFFFF',
+removeLabel: 'Hapus ' + x.name,
+showActs: blocked && !ovOpen, showOv: blocked && ovOpen,
+ovVal: ovOpen ? st.ovDraft : '', ovErr: ovOpen ? st.ovErr : '',
+remove: function () { self.removeId(o.id); },
+toKlin: function () { self.replaceId(o.id, 'klin'); },
+toAzi: function () { self.replaceId(o.id, 'azi'); },
+openOv: function () { self.setState({ ovFor: o.id, ovDraft: '', ovErr: '' }); },
+cancelOv: function () { self.setState({ ovFor: '', ovDraft: '', ovErr: '' }); },
+setOv: function (e) { self.setState({ ovDraft: e.target.value, ovErr: '' }); },
+saveOv: function () { self.saveOverride(o.id); }
+};
+});
+
+var gdef = [
+{ k: 'LAB', title: 'LABORATORIUM', dest: 'Lab PK · sampel diambil hari ini' },
+{ k: 'RAD', title: 'RADIOLOGI', dest: 'Radiologi · jadwal hari ini' },
+{ k: 'OBAT', title: 'OBAT', dest: 'Farmasi rawat jalan · 30 hari' },
+{ k: 'TIND', title: 'TINDAKAN', dest: 'Poli PD · dikerjakan hari ini' },
+{ k: 'LANJUT', title: 'TINDAK LANJUT', dest: 'Otomatis' }
+];
+var groups = gdef.map(function (g) { return { title: g.title, dest: g.dest, items: view.filter(function (v) { return v.g === g.k; }) }; })
+.filter(function (g) { return g.items.length > 0; });
+
+var nSend = view.filter(function (v) { return v.g !== 'LANJUT'; }).length;
+
+var checks = [
+{ mark: '✓', text: 'Kewenangan klinis dr. [Nama DPJP] sesuai untuk semua order', fg: '#1E6B34' },
+{ mark: '✓', text: 'Diagnosis ICD-10 terhubung ke setiap order', fg: '#1E6B34' },
+nDose ? { mark: '!', text: nDose + ' perubahan dosis perlu perhatian', fg: '#8A4B00' } : { mark: '✓', text: 'Tidak ada perubahan dosis yang perlu dipantau', fg: '#1E6B34' }
+];
+if (nOther) checks.push({ mark: '!', text: nOther + ' peringatan CDS lain perlu perhatian', fg: '#8A4B00' });
+if (nCostItems) checks.push({ mark: '!', text: nCostItems + ' item di luar paket, perlu persetujuan biaya pasien', fg: '#8A4B00' });
+checks.push(nBlock ? { mark: '✕', text: nBlock + ' obat diblokir karena alergi; hapus atau beri alasan', fg: '#B42318' } : { mark: '✓', text: 'Tidak ada order yang diblokir', fg: '#1E6B34' });
+if (nOv) checks.push({ mark: '!', text: nOv + ' override CDS tercatat dengan alasan', fg: '#8A4B00' });
+checks.push({ mark: '✓', text: 'Tidak ada duplikasi pemeriksaan', fg: '#1E6B34' });
+
+function rp(n) { return 'Rp ' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+
+var sendDisabled = st.sent || nBlock > 0 || nSend === 0;
+var sendHint, hintFg = '#5B6B79', hintW = 400;
+if (nBlock > 0) { sendHint = 'Belum bisa dikirim: ' + nBlock + ' order diblokir CDS (' + blockedNames.join(', ') + '). Ganti alternatif, hapus, atau override dengan alasan.'; hintFg = '#B42318'; hintW = 600; }
+else if (nSend === 0) { sendHint = 'Belum ada order untuk dikirim.'; }
+else { sendHint = 'Lab dan farmasi menerima order langsung; biaya tercatat otomatis (charge capture).'; }
+
+return {
+q: st.q,
+setQ: function (e) { self.setState({ q: e.target.value }); },
+results: results, hasRes: results.length > 0, noRes: results.length === 0,
+sets: sets,
+note: st.note, hasNote: !!st.note, clearNote: function () { self.setState({ note: '' }); },
+noOrders: view.length === 0,
+groups: groups,
+checks: checks,
+costText: rp(cost), costFg: cost ? '#8A4B00' : '#14212B',
+costNote: cost ? nCostItems + ' item di luar paket INA-CBG ditanggung pasien. Minta persetujuan pasien sebelum kirim.' : 'Seluruh item masuk paket INA-CBG rawat jalan. 1 obat non-Fornas sudah diganti.',
+send: function () {
+if (sendDisabled) return;
+var d = new Date();
+var t = String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+self.setState({ sent: true, sentAt: t, sentN: nSend, note: '' });
+},
+sendDisabled: sendDisabled,
+sendOp: (nBlock > 0 || nSend === 0) ? 0.5 : (st.sent ? 0.75 : 1),
+sendCursor: sendDisabled ? 'not-allowed' : 'pointer',
+sendLabel: st.sent ? 'Order terkirim · ' + st.sentAt : 'Tanda tangani dan kirim ' + nSend + ' order',
+sendHint: sendHint, hintFg: hintFg, hintW: hintW,
+sent: st.sent,
+sentTitle: st.sentN + ' order terkirim pukul ' + st.sentAt
+};
+}
+}
+</script>
+</body>
+</html>

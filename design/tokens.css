@@ -1,0 +1,18 @@
+/* Token Klinis Bersih — salin ke packages/ui/src/tokens.css dan petakan ke tailwind.config */
+:root {
+  --brand-50: #E6F4F1; --brand-100: #D5ECE7; --brand-200: #BFDDD8; --brand-500: #1D7E77; --brand-600: #0F766E; --brand-700: #0B5D56; --brand-800: #0D6861;
+  --ink-900: #14212B; --ink-700: #3F4C58; --ink-500: #5B6B79; --ink-400: #8C99A6;
+  --line: #E3E8EE; --line-strong: #CBD3DB; --line-soft: #EEF1F4;
+  --canvas: #F5F7F9; --card: #FFFFFF; --subtle: #F8FAFB; --selected: #F2FAF8;
+  --danger: #B42318; --danger-strong: #8E1B13; --danger-bg: #FDECEA; --danger-border: #F0C2BD;
+  --warning: #8A4B00; --warning-strong: #6B3A00; --warning-bg: #FFF3E0; --warning-border: #F1D3A8;
+  --success: #1E6B34; --success-bg: #EAF5EC; --success-border: #BFE3C6;
+  --info: #1E3A8A; --info-bg: #EEF2FB; --info-border: #C9D3EE;
+  --triage-1: #B42318; --triage-2: #C4320A; --triage-3: #FEF0C7; --triage-4: #EAF6EC; --triage-5: #EEF4FF;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif; --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --radius-control: 10px; --radius-card: 14px;
+  --bg-page: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px);
+  --btn-primary: linear-gradient(180deg, #1D7E77, #0F766E);
+}
+body { margin: 0; font-family: var(--font-sans); color: var(--ink-900); background-color: var(--canvas); background-image: var(--bg-page); background-size: auto, 22px 22px; }
+:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 2px; }

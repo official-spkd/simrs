@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anjungan pendaftaran mandiri</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+button:focus-visible,a:focus-visible{outline:4px solid #0F766E;outline-offset:4px}
+</style>
+</helmet>
+<div style="width: 1080px; height: 1920px; box-sizing: border-box; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; background-color: #F5F7F9; background-image: radial-gradient(1100px 600px at 100% 0%, rgba(15,118,110,0.12), rgba(15,118,110,0) 70%), radial-gradient(900px 500px at 0% 100%, rgba(14,116,144,0.07), rgba(14,116,144,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px); background-size: auto, auto, 30px 30px">
+
+<header style="display: flex; justify-content: space-between; align-items: center; padding: 48px 64px 0">
+<div style="display: flex; align-items: center; gap: 18px">
+<div style="width: 72px; height: 72px; border-radius: 18px; background: linear-gradient(135deg, #1D7E77, #0F766E); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(15,118,110,0.3)"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></div>
+<div style="display: flex; flex-direction: column"><span style="font-size: 30px; font-weight: 700">[NAMA RS]</span><span style="font-size: 20px; color: #3F4C58">Anjungan Pendaftaran Mandiri</span></div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 44px; font-weight: 600">07.48</span><span style="font-size: 20px; color: #3F4C58">Sabtu, 3 Oktober 2026</span></div>
+</header>
+
+<sc-if value="{{scr.home}}" hint-placeholder-val="{{ true }}">
+<div style="padding: 72px 64px 32px; display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 56px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em">Selamat pagi.<span style="display: block; color: #0B5D56">Apa yang ingin Anda lakukan?</span></h1>
+<p style="margin: 0; font-size: 24px; color: #3F4C58">Sentuh salah satu pilihan di bawah. Petugas siap membantu di meja informasi.</p>
+</div>
+
+<div style="padding: 0 64px; display: flex; flex-direction: column; gap: 24px">
+<sc-for list="{{choices}}" as="c" hint-placeholder-count="4">
+<button type="button" onClick="{{c.pick}}" style="display: flex; align-items: center; gap: 32px; text-align: left; padding: 36px 40px; border-radius: 28px; border: {{c.border}}; background: {{c.bg}}; box-shadow: 0 2px 4px rgba(16,24,40,0.05), 0 10px 30px rgba(16,24,40,0.07); font: inherit; color: {{c.fg}}; cursor: pointer; min-height: 188px">
+<span style="flex: 0 0 112px; height: 112px; border-radius: 26px; background: {{c.iconBg}}; display: flex; align-items: center; justify-content: center; color: {{c.iconFg}}"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.d}}"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 36px; font-weight: 700">{{c.title}}</span><span style="font-size: 22px; color: {{c.sub}}">{{c.desc}}</span></span>
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.metode}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 64px 0; display: flex; flex-direction: column; gap: 40px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 20px">
+<button type="button" onClick="{{kembali}}" style="display: inline-flex; align-items: center; gap: 12px; height: 88px; padding: 0 32px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; color: #14212B; font: inherit; font-size: 26px; font-weight: 600; cursor: pointer"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali</button>
+<span style="font-size: 22px; font-weight: 600; color: #3F4C58">{{stepLabel}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 56px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em">Bagaimana kami menemukan data Anda?</h1>
+<p style="margin: 0; font-size: 24px; color: #3F4C58">{{purposeTitle}}. Pilih salah satu cara di bawah.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 24px">
+<sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+<button type="button" onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 32px; text-align: left; padding: 32px 40px; border-radius: 28px; border: {{m.border}}; background: {{m.bg}}; box-shadow: 0 2px 4px rgba(16,24,40,0.05), 0 10px 30px rgba(16,24,40,0.07); font: inherit; color: {{m.fg}}; cursor: pointer; min-height: 168px">
+<span style="flex: 0 0 104px; height: 104px; border-radius: 26px; background: {{m.iconBg}}; display: flex; align-items: center; justify-content: center; color: {{m.iconFg}}"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{m.d}}"></path></svg></span>
+<span style="flex: 1; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 36px; font-weight: 700">{{m.title}}</span><span style="font-size: 22px; color: {{m.sub}}">{{m.desc}}</span></span>
+<span style="font-size: 20px; font-weight: 600; color: {{m.sub}}">{{m.tag}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.input}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 64px 0; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 20px">
+<button type="button" onClick="{{kembali}}" style="display: inline-flex; align-items: center; gap: 12px; height: 88px; padding: 0 32px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; color: #14212B; font: inherit; font-size: 26px; font-weight: 600; cursor: pointer"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali</button>
+<span style="font-size: 22px; font-weight: 600; color: #3F4C58">{{stepLabel}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 52px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em">Masukkan {{met.title}}</h1>
+<p style="margin: 0; font-size: 24px; color: #3F4C58">{{met.desc}}. Sentuh angka pada layar.</p>
+</div>
+<div role="status" aria-live="polite" aria-label="{{inputAria}}" style="display: flex; flex-direction: column; gap: 10px; padding: 28px 36px; border-radius: 26px; background: #FFFFFF; border: 2px solid {{inputBorder}}; box-shadow: 0 2px 4px rgba(16,24,40,0.05)">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 60px; font-weight: 600; letter-spacing: 0.06em; color: #14212B; white-space: nowrap">{{disp}}</span>
+<span style="font-size: 22px; font-weight: 600; color: {{hintFg}}">{{hint}}</span>
+</div>
+<div role="group" aria-label="Keypad angka" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+<sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+<button type="button" onClick="{{k.press}}" aria-label="{{k.aria}}" style="height: 124px; border-radius: 24px; border: 2px solid {{k.border}}; background: {{k.bg}}; color: {{k.fg}}; font: inherit; font-family: {{k.family}}; font-size: {{k.size}}; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(16,24,40,0.05)">{{k.label}}</button>
+</sc-for>
+</div>
+<button type="button" onClick="{{lanjut}}" disabled="{{lanjutDis}}" style="height: 112px; border-radius: 24px; border: 2px solid {{lanjutBtn.border}}; background: {{lanjutBtn.bg}}; color: {{lanjutBtn.fg}}; font: inherit; font-size: 32px; font-weight: 700; cursor: {{lanjutBtn.cursor}}">Lanjut</button>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.konfirmasi}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 64px 0; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 20px">
+<button type="button" onClick="{{kembali}}" style="display: inline-flex; align-items: center; gap: 12px; height: 88px; padding: 0 32px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; color: #14212B; font: inherit; font-size: 26px; font-weight: 600; cursor: pointer"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali</button>
+<span style="font-size: 22px; font-weight: 600; color: #3F4C58">{{stepLabel}}</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 52px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em">Apakah ini data Anda?</h1>
+<p style="margin: 0; font-size: 24px; color: #3F4C58">Periksa nama dan tanggal lahir. Bila tidak sesuai, sentuh Bukan saya.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 36px 40px; border-radius: 28px; background: linear-gradient(160deg, rgba(15,118,110,0.08), #FFFFFF 55%); border: 2px solid #D5E3E1">
+<div style="display: flex; align-items: center; gap: 24px; padding-bottom: 20px">
+<span style="flex: 0 0 96px; height: 96px; border-radius: 999px; border: 3px solid #0F766E; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700">SR</span>
+<span style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 40px; font-weight: 700">Siti Rahmawati</span><span style="font-size: 24px; color: #3F4C58">14 Maret 1972 · RM <span style="font-family: 'IBM Plex Mono', monospace">00-12-45-78</span></span></span>
+</div>
+<sc-for list="{{confirmRows}}" as="cr" hint-placeholder-count="4">
+<div style="display: flex; justify-content: space-between; gap: 24px; padding: 18px 0; border-top: 1px solid #E3E8EE; font-size: 24px"><span style="color: #5B6B79">{{cr.k}}</span><span style="font-weight: 600; text-align: right">{{cr.v}}</span></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 20px">
+<button type="button" onClick="{{cetak}}" style="height: 120px; border-radius: 24px; border: 2px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; font: inherit; font-size: 32px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(15,118,110,0.25)">Ya, data saya benar · cetak tiket</button>
+<button type="button" onClick="{{bukanSaya}}" style="height: 96px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; color: #14212B; font: inherit; font-size: 26px; font-weight: 600; cursor: pointer">Bukan saya, ulangi</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{scr.tiket}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 64px 0; display: flex; flex-direction: column; gap: 32px; align-items: stretch">
+<div role="status" style="display: flex; align-items: center; gap: 20px; padding: 24px 28px; border-radius: 22px; background: linear-gradient(90deg, #EAF6EC, #FFFFFF); border: 2px solid #BFE3C6">
+<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#1E6B34" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+<span style="font-size: 28px; font-weight: 600; color: #1E6B34">Tiket sedang dicetak. Ambil di bawah layar.</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 40px; border-radius: 32px; background: #FFFFFF; border: 2px dashed #CBD3DB; box-shadow: 0 10px 30px rgba(16,24,40,0.07)">
+<span style="font-size: 26px; font-weight: 600; letter-spacing: 0.08em; color: #0B5D56">NOMOR ANTREAN ANDA</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 200px; line-height: 1; font-weight: 700; color: #0B5D56; letter-spacing: -0.02em">{{tik.no}}</span>
+<span style="font-size: 36px; font-weight: 700; text-align: center">{{tik.tujuan}}</span>
+<span style="font-size: 26px; color: #3F4C58; text-align: center">{{tik.lokasi}}</span>
+<sc-if value="{{tik.hasSep}}" hint-placeholder-val="{{ true }}"><span style="font-size: 22px; color: #3F4C58; text-align: center">SEP <span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #14212B">0301R0011026V000812</span> ikut tercetak</span></sc-if>
+</div>
+<button type="button" onClick="{{selesai}}" style="height: 120px; border-radius: 24px; border: 2px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; font: inherit; font-size: 34px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(15,118,110,0.25)">Selesai</button>
+<a href="DisplayAntrean.dc.html" style="align-self: center; font-size: 22px; font-weight: 600; color: #0F766E; padding: 12px 16px">Lihat layar antrean ruang tunggu</a>
+</div>
+</sc-if>
+
+<div style="margin-top: auto; padding: 0 64px 56px; display: flex; flex-direction: column; gap: 24px">
+<sc-if value="{{petugas}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; gap: 20px; padding: 24px 28px; border-radius: 22px; background: linear-gradient(90deg, #EEF4FF, #FFFFFF); border: 2px solid #C7D7FE; align-items: center">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1E3A8A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path></svg>
+<span style="font-size: 24px; font-weight: 600; color: #1E3A8A">Petugas dipanggil pukul {{petugasAt}} dan segera menuju anjungan ini. Mohon tunggu.</span>
+</div>
+</sc-if>
+<div style="display: flex; gap: 20px; padding: 24px 28px; border-radius: 22px; background: rgba(255,255,255,0.9); border: 1px solid #E3E8EE; align-items: center">
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0B5D56" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01"></path></svg>
+<span style="font-size: 22px; color: #3F4C58">Pasien BPJS: siapkan kartu atau NIK. Verifikasi sidik jari diperlukan untuk poli tertentu sesuai ketentuan BPJS.</span>
+</div>
+<div style="display: flex; gap: 20px">
+<button type="button" style="flex: 1; height: 96px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 26px; font-weight: 600; color: #14212B; cursor: pointer">English</button>
+<button type="button" style="flex: 1; height: 96px; border-radius: 22px; border: 2px solid #CBD3DB; background: #FFFFFF; font: inherit; font-size: 26px; font-weight: 600; color: #14212B; cursor: pointer">Huruf lebih besar</button>
+<button type="button" onClick="{{panggil}}" aria-pressed="{{petugasPressed}}" style="flex: 1.4; height: 96px; border-radius: 22px; border: 2px solid #0D6861; background: {{petugasBg}}; font: inherit; font-size: 26px; font-weight: 700; color: {{petugasFg}}; cursor: pointer">{{petugasLabel}}</button>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1080,"height":1920}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { screen: 'home', purpose: 0, method: null, digits: '', petugas: false, petugasAt: '' };
+}
+renderVals() {
+var self = this, st = this.state;
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function jam() { var d = new Date(); return pad(d.getHours()) + '.' + pad(d.getMinutes()); }
+var ICON = {
+qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2',
+card: 'M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20M6 15h4',
+user: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6',
+list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+id: 'M3 5h18v14H3zM7 10a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM5.5 16a3.5 3.5 0 0 1 7 0M14 9h5M14 13h5'
+};
+var PURPOSES = [
+{ title: 'Saya sudah punya booking', desc: 'Pindai kode QR dari aplikasi, Mobile JKN, atau WhatsApp', d: ICON.qr, primary: true, rec: 'booking' },
+{ title: 'Pasien BPJS', desc: 'Kontrol atau rujukan baru. Cetak SEP dan nomor antrean', d: ICON.card, rec: 'bpjs' },
+{ title: 'Pasien umum atau asuransi', desc: 'Daftar ke poli dan pilih dokter', d: ICON.user, rec: 'nik' },
+{ title: 'Ambil antrean farmasi atau kasir', desc: 'Setelah pemeriksaan selesai', d: ICON.list, rec: 'nik' }
+];
+var METHODS = {
+nik: { id: 'nik', title: 'NIK e-KTP', desc: '16 digit angka pada KTP elektronik', len: 16, d: ICON.id },
+booking: { id: 'booking', title: 'Kode booking', desc: '10 digit dari Mobile JKN, aplikasi, atau WhatsApp', len: 10, d: ICON.qr },
+bpjs: { id: 'bpjs', title: 'Nomor kartu BPJS', desc: '13 digit pada kartu JKN-KIS', len: 13, d: ICON.card }
+};
+function style(on) {
+return {
+bg: on ? 'linear-gradient(135deg, #12807A 0%, #0F766E 55%, #0B5D56 100%)' : '#FFFFFF',
+border: on ? '2px solid #0B5D56' : '2px solid #E3E8EE',
+fg: on ? '#FFFFFF' : '#14212B',
+sub: on ? '#DDF2EE' : '#3F4C58',
+iconBg: on ? 'rgba(255,255,255,0.16)' : '#E6F4F1',
+iconFg: on ? '#FFFFFF' : '#0B5D56'
+};
+}
+var choices = PURPOSES.map(function (c, i) {
+return Object.assign({}, c, style(c.primary), { pick: function () { self.setState({ screen: 'metode', purpose: i, method: null, digits: '' }); } });
+});
+var pur = PURPOSES[st.purpose];
+var methods = ['nik', 'booking', 'bpjs'].map(function (id) {
+var m = METHODS[id], rec = id === pur.rec;
+return Object.assign({}, m, style(rec), { tag: rec ? 'Disarankan' : '', pick: function () { self.setState({ screen: 'input', method: id, digits: '' }); } });
+});
+var met = METHODS[st.method] || METHODS.nik;
+var dg = st.digits;
+var full = dg.length >= met.len;
+// tampilan digit dikelompokkan per 4, sisa ditandai garis bawah
+var raw = (dg + new Array(met.len - dg.length + 1).join('_')).slice(0, met.len);
+var disp = raw.replace(/(.{4})(?=.)/g, '$1 ');
+var kurang = met.len - dg.length;
+var hint = dg.length === 0 ? (met.len + ' digit diperlukan') : (full ? 'Lengkap. Sentuh Lanjut.' : 'Kurang ' + kurang + ' digit lagi');
+function press(ch) { return function () { var d = self.state.digits; if (d.length < met.len) self.setState({ digits: d + ch }); }; }
+var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(function (n) { return { label: n, aria: 'Angka ' + n, press: press(n), kind: 'num' }; });
+keys.push({ label: 'Kosongkan', aria: 'Kosongkan semua angka', press: function () { self.setState({ digits: '' }); }, kind: 'fn' });
+keys.push({ label: '0', aria: 'Angka 0', press: press('0'), kind: 'num' });
+keys.push({ label: 'Hapus', aria: 'Hapus satu angka terakhir', press: function () { self.setState({ digits: self.state.digits.slice(0, -1) }); }, kind: 'fn' });
+keys = keys.map(function (k) {
+var num = k.kind === 'num';
+return Object.assign({}, k, { bg: num ? '#FFFFFF' : '#F1F4F6', border: num ? '#E3E8EE' : '#CBD3DB', fg: '#14212B', family: num ? "'IBM Plex Mono', monospace" : "'IBM Plex Sans', system-ui, sans-serif", size: num ? '48px' : '26px' });
+});
+var bpjsPur = st.purpose === 0 || st.purpose === 1;
+var confirmRows = [
+{ k: 'Penjamin', v: st.purpose === 2 ? 'Umum' : 'BPJS Kesehatan · Kelas 2' },
+{ k: 'Tujuan', v: st.purpose === 3 ? 'Farmasi rawat jalan' : 'Poli Penyakit Dalam' },
+{ k: st.purpose === 3 ? 'Asal resep' : 'Dokter', v: 'dr. [Nama DPJP], Sp.PD' + (st.purpose === 3 ? '' : ' · 08.00–12.00') },
+{ k: 'Dasar', v: ['Booking Mobile JKN', 'Surat kontrol 12 Sep 2026', 'Pendaftaran langsung', 'Resep elektronik hari ini'][st.purpose] }
+];
+var tik = st.purpose === 3
+? { no: 'F-021', tujuan: 'Farmasi rawat jalan', lokasi: 'Lantai 1 · loket 2 · perkiraan dipanggil 10.05', hasSep: false }
+: { no: st.purpose === 2 ? 'A-017' : 'A-016', tujuan: 'Poli Penyakit Dalam', lokasi: 'Lantai 2 · Ruang 2 · perkiraan dipanggil ' + (st.purpose === 2 ? '09.47' : '09.35'), hasSep: bpjsPur };
+var stepNo = { metode: 1, input: 2, konfirmasi: 3, tiket: 4 }[st.screen] || 0;
+var back = { metode: 'home', input: 'metode', konfirmasi: 'input', tiket: 'home' }[st.screen] || 'home';
+return {
+scr: { home: st.screen === 'home', metode: st.screen === 'metode', input: st.screen === 'input', konfirmasi: st.screen === 'konfirmasi', tiket: st.screen === 'tiket' },
+choices: choices,
+methods: methods,
+purposeTitle: pur.title,
+stepLabel: 'Langkah ' + stepNo + ' dari 4',
+kembali: function () { self.setState({ screen: back }); },
+met: met,
+disp: disp,
+inputAria: met.title + ': ' + (dg || 'kosong'),
+inputBorder: full ? '#0F766E' : '#CBD3DB',
+hint: hint, hintFg: full ? '#1E6B34' : '#3F4C58',
+keys: keys,
+lanjutDis: !full,
+lanjutBtn: { border: full ? '#0D6861' : '#E3E8EE', bg: full ? 'linear-gradient(180deg, #1D7E77, #0F766E)' : '#F1F4F6', fg: full ? '#FFFFFF' : '#8C99A6', cursor: full ? 'pointer' : 'not-allowed' },
+lanjut: function () { if (self.state.digits.length >= met.len) self.setState({ screen: 'konfirmasi' }); },
+confirmRows: confirmRows,
+cetak: function () { self.setState({ screen: 'tiket' }); },
+bukanSaya: function () { self.setState({ screen: 'input', digits: '' }); },
+tik: tik,
+selesai: function () { self.setState({ screen: 'home', method: null, digits: '', purpose: 0 }); },
+petugas: st.petugas, petugasAt: st.petugasAt,
+petugasPressed: st.petugas ? 'true' : 'false',
+petugasLabel: st.petugas ? 'Batalkan panggilan' : 'Panggil petugas',
+petugasBg: st.petugas ? '#FFFFFF' : 'linear-gradient(180deg, #1D7E77, #0F766E)',
+petugasFg: st.petugas ? '#0B5D56' : '#FFFFFF',
+panggil: function () { self.setState(self.state.petugas ? { petugas: false } : { petugas: true, petugasAt: jam() }); }
+};
+}
+}
+</script>
+</body>
+</html>

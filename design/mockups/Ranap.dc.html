@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Rawat inap CPPT dan eMAR</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+a{color:#0F766E}a:hover{color:#0B5D56}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="ranap" user="Rina Wulandari, S.Kep" role="Perawat · Melati · pagi" initials="RW" unit="SIM RS · Rawat inap" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<div style="padding: 16px 28px; background: rgba(255,255,255,0.88); border-bottom: 1px solid #E3E8EE; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; color: #5B6B79">Rawat inap / Melati / M-203</span>
+<div style="border: 1px solid #D5E3E1; border-radius: 14px; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; background: linear-gradient(100deg, rgba(15,118,110,0.08) 0%, #FFFFFF 55%)">
+<div style="display: flex; gap: 12px; align-items: center">
+<span style="width: 46px; height: 46px; border-radius: 999px; border: 2px solid #0F766E; background: #FFFFFF; color: #0B5D56; display: flex; align-items: center; justify-content: center; font-weight: 700">EW</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><h1 style="margin: 0; font-size: 18px; font-weight: 700">Ny. Endang Wijaya</h1><span style="font-size: 13px; color: #3F4C58">P · 61 th · 2 Jun 1965 · RM <span style="font-family: 'IBM Plex Mono', monospace">00-07-61-33</span> · Hari rawat ke-5 · BPJS Kelas 2</span></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E3E8EE">Tidak ada alergi diketahui</span>
+<span style="font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 8px; background: #FFF4E5; color: #8A4B00; border: 1px solid #F5D9A8">Risiko jatuh sedang · Morse 35</span>
+<span style="font-size: 12px; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E3E8EE">J18.9 Pneumonia · E11.9 DM tipe 2</span>
+<span style="font-size: 12px; padding: 4px 9px; border-radius: 8px; background: #FFFFFF; border: 1px solid #E3E8EE">DPJP dr. [Nama DPJP], Sp.PD</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 100%; justify-content: flex-end">
+<a href="CPOE.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7"></path></svg>Order &amp; resep (CPOE)</a>
+<a href="Consent.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 15l2 2 4-4"></path></svg>Persetujuan tindakan</a>
+<a href="Resume.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-size: 13px; font-weight: 600; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"></path></svg>Resume medis</a>
+</div>
+</div>
+<nav aria-label="Bagian rawat inap" style="display: flex; gap: 2px; flex-wrap: wrap; align-items: center">
+<div role="tablist" aria-label="Bagian rekam rawat inap" style="display: flex; gap: 2px; flex-wrap: wrap">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+<button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="font: inherit; border: 0; color: {{t.fg}}; padding: 8px 12px; border-radius: 8px; background: {{t.bg}}; font-weight: {{t.weight}}; cursor: pointer">{{t.label}}</button>
+</sc-for>
+</div>
+<a href="CPOE.dc.html" style="text-decoration: none; color: #3F4C58; padding: 8px 12px; border-radius: 8px">Order</a>
+<a href="Resume.dc.html" style="text-decoration: none; color: #3F4C58; padding: 8px 12px; border-radius: 8px">Perencanaan pulang</a>
+</nav>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 28px 28px; align-items: flex-start">
+<sc-if value="{{isCppt}}" hint-placeholder-val="{{ true }}">
+<section aria-label="CPPT terintegrasi" style="flex: 1 1 460px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">CPPT terintegrasi · 3 Okt</h2>
+<div role="group" aria-label="Filter profesi" style="display: flex; gap: 4px; flex-wrap: wrap">
+<sc-for list="{{ppa}}" as="c" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="font: inherit; font-size: 12px; font-weight: {{c.weight}}; height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid {{c.border}}; background: {{c.bg}}; color: {{c.fg}}; cursor: pointer">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<sc-if value="{{formOpen}}" hint-placeholder-val="{{ false }}">
+<form onSubmit="{{submitNote}}" aria-label="Tulis CPPT baru" style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; background: #F8FBFA; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">CPPT baru · Rina Wulandari, S.Kep · perawat</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{fields}}" as="f" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<label for="{{f.id}}" style="font-size: 13px; font-weight: 600">{{f.label}}</label>
+<textarea id="{{f.id}}" rows="2" value="{{f.value}}" onInput="{{f.set}}" placeholder="{{f.ph}}" style="font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid {{f.border}}; border-radius: 10px; resize: vertical; color: #14212B; background: #FFFFFF"></textarea>
+<span style="font-size: 12px; color: #B42318">{{f.err}}</span>
+</div>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="submit" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">Simpan dan tanda tangani</button>
+<button type="button" onClick="{{closeForm}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+</div>
+</form>
+</sc-if>
+<sc-if value="{{hasCpptMsg}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 10px 16px; border-bottom: 1px solid #EEF1F4; font-size: 12.5px; font-weight: 600; color: #1E6B34; background: #EAF6EC">{{cpptMsg}}</div>
+</sc-if>
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="4">
+<article style="padding: 14px 16px; border-bottom: 1px solid #EEF1F4; display: flex; gap: 12px">
+<span style="flex: 0 0 34px; height: 34px; border-radius: 999px; background: {{n.bg}}; color: {{n.fg}}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{n.tag}}</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span style="font-weight: 600">{{n.who}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5B6B79">{{n.time}}</span></div>
+<span style="font-size: 13px; color: #14212B; white-space: pre-line">{{n.text}}</span>
+<span style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap"><span style="font-size: 12px; font-weight: 600; color: {{n.vFg}}">{{n.verify}}</span>
+<sc-if value="{{n.needCosign}}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{n.cosign}}" style="font: inherit; font-size: 12.5px; font-weight: 600; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">Setujui co-sign DPJP</button>
+</sc-if>
+</span>
+</div>
+</article>
+</sc-for>
+<sc-if value="{{noNotes}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 14px 16px; font-size: 13px; color: #5B6B79; border-bottom: 1px solid #EEF1F4">Belum ada catatan dari profesi ini hari ini.</div>
+</sc-if>
+<div style="padding: 12px 16px; display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" onClick="{{openForm}}" aria-expanded="{{formExpanded}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">+ Tulis CPPT (SOAP)</button>
+<button type="button" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Serah terima SBAR</button>
+</div>
+</section>
+
+<section aria-label="eMAR" style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow-x: auto">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">eMAR · jadwal pemberian obat</h2>
+<span style="font-size: 12px; color: #5B6B79">Sumber: resep terverifikasi apoteker</span>
+</div>
+<div style="min-width: 560px">
+<div style="display: grid; grid-template-columns: 2.2fr repeat(5, minmax(0, 1fr)); font-size: 12px; font-weight: 600; color: #3F4C58; background: #F8FAFB">
+<span style="padding: 8px 14px">Obat · dosis · rute</span><span style="padding: 8px 6px; text-align: center">06</span><span style="padding: 8px 6px; text-align: center">08</span><span style="padding: 8px 6px; text-align: center; background: #E6F4F1; color: #0B5D56">12 · kini</span><span style="padding: 8px 6px; text-align: center">18</span><span style="padding: 8px 6px; text-align: center">22</span>
+</div>
+<sc-for list="{{meds}}" as="m" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 2.2fr repeat(5, minmax(0, 1fr)); border-top: 1px solid #EEF1F4; align-items: center">
+<span style="padding: 10px 14px; display: flex; flex-direction: column; line-height: 1.3"><span style="font-weight: 600">{{m.name}}</span><span style="font-size: 12px; color: #5B6B79">{{m.sig}}</span></span>
+<sc-for list="{{m.slots}}" as="s" hint-placeholder-count="5">
+<button type="button" onClick="{{s.give}}" disabled="{{s.dis}}" title="{{s.tip}}" aria-label="{{s.aria}}" style="margin: 4px; padding: 6px 4px; border-radius: 8px; text-align: center; font: inherit; font-size: 11.5px; font-weight: 600; min-height: 30px; background: {{s.bg}}; color: {{s.fg}}; border: 1px solid {{s.border}}; box-shadow: {{s.ring}}; cursor: {{s.cursor}}">{{s.t}}</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{lateOpen}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 12px 16px; border-top: 1px solid #FECDCA; background: #FFFBFA; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 700; color: #B42318">{{lateTitle}}</span>
+<label for="lateWhy" style="font-size: 13px; font-weight: 600">Alasan keterlambatan (wajib, tercatat di jejak audit)</label>
+<input id="lateWhy" value="{{lateReason}}" onInput="{{setLateReason}}" placeholder="Contoh: pasien sedang pemeriksaan foto toraks" aria-describedby="lateWhyInfo" style="font: inherit; height: 40px; padding: 0 10px; border: 1px solid {{lateBorder}}; border-radius: 10px; box-sizing: border-box">
+<span id="lateWhyInfo" style="font-size: 12px; color: {{lateMsgFg}}">{{lateMsg}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" onClick="{{confirmLate}}" disabled="{{lateDis}}" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{lateBtnBorder}}; background: {{lateBtnBg}}; color: {{lateBtnFg}}; cursor: {{lateBtnCursor}}">Catat pemberian terlambat</button>
+<button type="button" onClick="{{cancelLate}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+</div>
+</div>
+</sc-if>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: linear-gradient(100deg, rgba(15,118,110,0.10), #FFFFFF 70%); border: 1px solid #BFDDD8; flex-wrap: wrap">
+<span style="flex: 0 0 48px; height: 48px; border-radius: 12px; background: #FFFFFF; border: 1px solid #BFDDD8; display: flex; align-items: center; justify-content: center; color: #0B5D56"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"></path></svg></span>
+<span style="flex: 1 1 260px; display: flex; flex-direction: column"><span style="font-weight: 700">{{bannerTitle}}</span><span style="font-size: 13px; color: #3F4C58">Pindai gelang pasien, lalu pindai label obat. GDS 12.00: 236 mg/dL → skala 6 unit SC.</span></span>
+<span role="status" style="display: flex; flex-direction: column; gap: 4px; font-size: 12px"><span style="color: {{scanFg}}; font-weight: 600">{{scanLine}}</span><span style="color: {{drugFg}}">{{drugLine}}</span></span>
+<button type="button" onClick="{{scan}}" disabled="{{scanned}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid {{scanBorder}}; background: {{scanBg}}; color: {{scanBtnFg}}; cursor: {{scanCursor}}">{{scanLabel}}</button>
+</div>
+<sc-if value="{{hasLog}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px; font-weight: 600">Pemberian tercatat shift ini</span>
+<sc-for list="{{log}}" as="g" hint-placeholder-count="2">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: #3F4C58"><span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #1E6B34">{{g.t}}</span> · {{g.what}}</span><span style="color: #5B6B79">{{g.note}}</span></span>
+</sc-for>
+</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #5B6B79">EWS dewasa 11.00</span><span style="font-size: 22px; font-weight: 700; color: #8A4B00">3 · rendah</span><span style="font-size: 12px; color: #5B6B79">ulang tiap 4 jam</span></div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #5B6B79">GDS terakhir</span><span style="font-size: 22px; font-weight: 700; color: #B42318">236 mg/dL</span><span style="font-size: 12px; color: #5B6B79">pagi 188 · kemarin 254</span></div>
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #5B6B79">Balans cairan 24 jam</span><span style="font-size: 22px; font-weight: 700">+350 ml</span><span style="font-size: 12px; color: #5B6B79">masuk 2.100 · keluar 1.750</span></div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isObs}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Observasi dan EWS" style="flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow-x: auto">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Observasi tanda vital · 3 Okt</h2>
+<span style="font-size: 12px; color: #5B6B79">EWS dewasa · ulang tiap 4 jam (skor 1–4)</span>
+</div>
+<div style="min-width: 640px">
+<div style="display: grid; grid-template-columns: 90px repeat(6, minmax(0, 1fr)); font-size: 12px; font-weight: 600; color: #3F4C58; background: #F8FAFB">
+<span style="padding: 8px 14px">Jam</span><span style="padding: 8px 10px">Suhu °C</span><span style="padding: 8px 10px">Nadi</span><span style="padding: 8px 10px">Napas</span><span style="padding: 8px 10px">TD</span><span style="padding: 8px 10px">SpO2</span><span style="padding: 8px 10px">EWS</span>
+</div>
+<sc-for list="{{obs}}" as="o" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 90px repeat(6, minmax(0, 1fr)); border-top: 1px solid #EEF1F4; font-size: 13px">
+<span style="padding: 10px 14px; font-family: 'IBM Plex Mono', monospace; font-weight: 600">{{o.t}}</span><span style="padding: 10px">{{o.temp}}</span><span style="padding: 10px">{{o.hr}}</span><span style="padding: 10px">{{o.rr}}</span><span style="padding: 10px">{{o.bp}}</span><span style="padding: 10px">{{o.spo2}}</span><span style="padding: 10px; font-weight: 700; color: #8A4B00">{{o.ews}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-radius: 12px; border: 1px solid #F5D9A8; background: linear-gradient(90deg, #FFF8EB, #FFFFFF); font-size: 13px"><span style="font-weight: 700; color: #8A4B00">EWS 3 · rendah</span><span style="color: #3F4C58">Lanjutkan observasi tiap 4 jam. Observasi berikutnya 15.00.</span></div>
+</section>
+</sc-if>
+
+<sc-if value="{{isAskep}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Asuhan keperawatan" style="flex: 1 1 100%; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Intervensi keperawatan · shift pagi</h2>
+<span style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600"><span style="width: 140px; height: 8px; border-radius: 999px; background: #EEF1F4; overflow: hidden; display: block"><span style="display: block; height: 8px; width: {{askepPct}}; background: #0F766E"></span></span>{{askepLabel}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0">
+<sc-for list="{{askep}}" as="a" hint-placeholder-count="3">
+<div style="padding: 14px 16px; border-right: 1px solid #EEF1F4; display: flex; flex-direction: column; gap: 8px">
+<span style="font-weight: 600">{{a.dx}}</span>
+<span style="font-size: 12px; color: #5B6B79">{{a.progress}}</span>
+<sc-for list="{{a.items}}" as="i" hint-placeholder-count="3">
+<label style="display: flex; gap: 8px; align-items: flex-start; font-size: 13px; min-height: 28px"><input type="checkbox" checked="{{i.on}}" onChange="{{i.toggle}}" style="width: 18px; height: 18px; margin: 1px 0 0; accent-color: #0F766E">{{i.label}}</label>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isHasil}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Hasil penunjang" style="flex: 1 1 100%; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E3E8EE"><h2 style="margin: 0; font-size: 16px; font-weight: 600">Hasil penunjang terbaru</h2></div>
+<sc-for list="{{results}}" as="r" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 130px 1fr auto; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #EEF1F4; align-items: center; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', monospace; color: #5B6B79">{{r.t}}</span><span>{{r.name}}</span><span style="font-weight: 700; color: {{r.fg}}">{{r.value}}</span>
+</div>
+</sc-for>
+</section>
+</sc-if>
+
+<sc-if value="{{isRingkas}}" hint-placeholder-val="{{ false }}">
+<section aria-label="Ringkasan pasien" style="flex: 1 1 100%; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 16px; font-weight: 600">Ringkasan rawat inap</h2>
+<div style="display: grid; grid-template-columns: 200px 1fr; gap: 8px 16px; font-size: 13px">
+<sc-for list="{{summary}}" as="k" hint-placeholder-count="5">
+<span style="color: #5B6B79">{{k.label}}</span><span>{{k.value}}</span>
+</sc-for>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="Resume.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; font-weight: 600; text-decoration: none">Siapkan resume medis</a>
+<a href="Consent.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 600; text-decoration: none">Persetujuan tindakan</a>
+</div>
+</section>
+</sc-if>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.t0 = Date.now();
+this.ticks = 0;
+this.meds = [
+{ name: 'Ceftriaxone 2 g', sig: 'IV · 1×24 jam · H5/7', short: 'Ceftriaxone 2 g IV', slots: [['none', ''], ['given', '✓ 08.05'], ['none', ''], ['none', ''], ['none', '']] },
+{ name: 'Insulin aspart sesuai skala', sig: 'SC · sebelum makan · cek GDS', short: 'Insulin aspart 6 unit SC', dose: '6u', slots: [['given', '✓ 06.10 · 4u'], ['none', ''], ['due', 'Sekarang'], ['plan', 'Rencana'], ['none', '']] },
+{ name: 'Insulin glargine 16 unit', sig: 'SC · 1×/hari 22.00 · dosis baru', short: 'Insulin glargine 16 unit SC', slots: [['none', ''], ['none', ''], ['none', ''], ['none', ''], ['plan', 'Rencana']] },
+{ name: 'Metformin 500 mg', sig: 'PO · 2×1 · sesudah makan', short: 'Metformin 500 mg PO', slots: [['none', ''], ['held', 'Ditunda · mual'], ['none', ''], ['plan', 'Rencana'], ['none', '']] },
+{ name: 'N-asetilsistein 200 mg', sig: 'PO · 3×1 (06, 14, 22)', short: 'N-asetilsistein 200 mg PO', slots: [['given', '✓ 06.00'], ['none', ''], ['none', ''], ['none', ''], ['plan', 'Rencana']] },
+{ name: 'Parasetamol 1 g', sig: 'IV · bila suhu ≥ 38,5 °C', short: 'Parasetamol 1 g IV', slots: [['none', ''], ['none', ''], ['none', ''], ['none', ''], ['none', '']] },
+{ name: 'Omeprazol 40 mg', sig: 'IV · 1×24 jam pagi', short: 'Omeprazol 40 mg IV', slots: [['none', ''], ['late', 'Terlambat 4 j'], ['none', ''], ['none', ''], ['none', '']] }
+];
+this.state = {
+tab: 'cppt', ppa: 'semua', formOpen: false, tried: false, f: { s: '', o: '', a: '', p: '' }, cpptMsg: '',
+notes: [
+{ id: 'n1', tag: 'RS', who: 'dr. Arif · residen PPDS PD', time: '3 Okt 07.40', text: 'S: batuk berkurang, sesak (-).\nO: T 37,4 · RR 20 · SpO2 96% udara bebas. Ronki basah kanan berkurang.\nA: Pneumonia komunitas perbaikan; DM hiperglikemia.\nP: lanjut ceftriaxone H5, naikkan glargine 14 → 16 unit.', verify: 'Menunggu co-sign DPJP · dibuat 4 jam lalu', ok: false, needCosign: true },
+{ id: 'n2', tag: 'FA', who: 'Yusuf Saputra, Apt · farmasi klinis', time: '3 Okt 08.15', text: 'Telaah: rencana antibiotik H5 sesuai pedoman; usul evaluasi de-eskalasi ke oral H6. Tidak ada interaksi bermakna.', verify: 'Terbaca DPJP', ok: true },
+{ id: 'n3', tag: 'GZ', who: 'Ani, S.Gz · dietisien', time: '3 Okt 09.00', text: 'ADIME: asupan 70% kebutuhan. Diet DM 1.700 kkal dibagi 3 makan + 2 selingan.', verify: 'Terverifikasi DPJP 09.20', ok: true },
+{ id: 'n4', tag: 'NS', who: 'Rina Wulandari, S.Kep · perawat', time: '3 Okt 06.00', text: 'Malam tidur cukup. Infus lancar. Edukasi pencegahan jatuh diulang ke keluarga.', verify: 'Final · TTE', ok: true }
+],
+scanned: false, scanAt: '', given: {}, lateKey: '', lateReason: '', log: [],
+askep: {}
+};
+}
+stamp() {
+this.ticks += 1;
+var m = 12 * 60 + 2 + Math.floor((Date.now() - this.t0) / 60000) + this.ticks;
+var h = Math.floor(m / 60), mm = m % 60;
+return (h < 10 ? '0' : '') + h + '.' + (mm < 10 ? '0' : '') + mm;
+}
+renderVals() {
+var self = this, st = this.state;
+function put(obj, k, v) { var n = Object.assign({}, obj); n[k] = v; return n; }
+var HOURS = ['06.00', '08.00', '12.00', '18.00', '22.00'];
+
+var tabs = [['ringkasan', 'Ringkasan'], ['cppt', 'CPPT & eMAR'], ['obs', 'Observasi & EWS'], ['askep', 'Asuhan keperawatan'], ['hasil', 'Hasil']].map(function (t) {
+var on = st.tab === t[0];
+return { label: t[1], sel: on ? 'true' : 'false', fg: on ? '#0B5D56' : '#3F4C58', bg: on ? '#E6F4F1' : 'transparent', weight: on ? 600 : 400, pick: function () { self.setState({ tab: t[0] }); } };
+});
+
+var P = { DR: ['#E6F4F1', '#0B5D56'], RS: ['#EEF4FF', '#1E3A8A'], NS: ['#F1F3F5', '#3F4C58'], GZ: ['#EAF6EC', '#1E6B34'], FA: ['#FFF4E5', '#8A4B00'] };
+var ppa = [['semua', 'Semua PPA'], ['dokter', 'Dokter'], ['perawat', 'Perawat']].map(function (c) {
+var on = st.ppa === c[0];
+return { label: c[1], pressed: on ? 'true' : 'false', weight: on ? 600 : 400, border: on ? '#0F766E' : '#E3E8EE', bg: on ? '#E6F4F1' : '#FFFFFF', fg: on ? '#0B5D56' : '#14212B', pick: function () { self.setState({ ppa: c[0] }); } };
+});
+var notes = st.notes.filter(function (n) {
+if (st.ppa === 'dokter') return n.tag === 'DR' || n.tag === 'RS';
+if (st.ppa === 'perawat') return n.tag === 'NS';
+return true;
+}).map(function (n) {
+return Object.assign({}, n, { bg: P[n.tag][0], fg: P[n.tag][1], vFg: n.ok ? '#1E6B34' : '#8A4B00', needCosign: !!n.needCosign, cosign: function () {
+var t = self.stamp();
+self.setState({ notes: self.state.notes.map(function (x) { return x.id === n.id ? Object.assign({}, x, { verify: 'Co-sign DPJP disetujui ' + t + ' · TTE', ok: true, needCosign: false }) : x; }), cpptMsg: 'CPPT residen ' + n.time.slice(6) + ' disetujui DPJP ' + t + '.' });
+} });
+});
+
+var f = st.f;
+var errS = st.tried && !f.s.trim() ? 'S wajib diisi.' : '';
+var errA = st.tried && !f.a.trim() ? 'A wajib diisi.' : '';
+function setF(k) { return function (e) { self.setState({ f: put(self.state.f, k, e.target.value) }); }; }
+var fields = [['s', 'cS', 'S · Subjektif', 'Keluhan pasien', errS], ['o', 'cO', 'O · Objektif', 'Tanda vital, temuan', ''], ['a', 'cA', 'A · Asesmen', 'Masalah keperawatan / klinis', errA], ['p', 'cP', 'P · Rencana', 'Intervensi dan tindak lanjut', '']].map(function (x) {
+return { id: x[1], label: x[2], ph: x[3], value: f[x[0]], set: setF(x[0]), err: x[4], border: x[4] ? '#F04438' : '#CBD3DB' };
+});
+var submitNote = function (e) {
+if (e && e.preventDefault) e.preventDefault();
+var F = self.state.f;
+if (!F.s.trim() || !F.a.trim()) { self.setState({ tried: true }); return; }
+var t = self.stamp();
+var text = ['S: ' + F.s.trim(), F.o.trim() ? 'O: ' + F.o.trim() : '', 'A: ' + F.a.trim(), F.p.trim() ? 'P: ' + F.p.trim() : ''].filter(Boolean).join('\n');
+var note = { id: 'n' + Date.now(), tag: 'NS', who: 'Rina Wulandari, S.Kep · perawat', time: '3 Okt ' + t, text: text, verify: 'Final · TTE ' + t, ok: true };
+self.setState({ notes: [note].concat(self.state.notes), formOpen: false, tried: false, f: { s: '', o: '', a: '', p: '' }, cpptMsg: 'CPPT baru tersimpan ' + t + ' dan ditandatangani elektronik.', ppa: self.state.ppa === 'dokter' ? 'semua' : self.state.ppa });
+};
+
+var S = {
+given: ['#EAF6EC', '#1E6B34', '#BFE3C6'],
+due: ['linear-gradient(180deg, #E6F4F1, #FFFFFF)', '#0B5D56', '#0F766E'],
+late: ['#FEF3F2', '#B42318', '#FECDCA'],
+held: ['#FFF4E5', '#8A4B00', '#F5D9A8'],
+none: ['#FFFFFF', '#CBD3DB', '#FFFFFF'],
+plan: ['#F8FAFB', '#5B6B79', '#EEF1F4']
+};
+var scanned = st.scanned;
+var meds = this.meds.map(function (m, mi) {
+return { name: m.name, sig: m.sig, slots: m.slots.map(function (raw, si) {
+var key = mi + '-' + si, g = st.given[key];
+var k = g ? 'given' : raw[0], label = g ? g.label : raw[1];
+var x = S[k];
+var actionable = !g && (k === 'due' || k === 'late');
+var open = st.lateKey === key;
+var tip = actionable ? (scanned ? (k === 'late' ? 'Terlambat: wajib isi alasan sebelum dicatat' : 'Klik untuk pindai label obat dan catat pemberian') : 'Pindai gelang pasien dulu') : '';
+return {
+t: label, bg: x[0], fg: x[1], border: x[2], ring: open ? '0 0 0 2px rgba(180,35,24,0.35)' : 'none',
+dis: !actionable || !scanned, cursor: actionable ? (scanned ? 'pointer' : 'not-allowed') : 'default', tip: tip,
+aria: m.name + ' jam ' + HOURS[si] + (label ? ' · ' + label : ' · tidak dijadwalkan') + (actionable && !scanned ? ' · pindai gelang dulu' : ''),
+give: function () {
+if (!actionable || !self.state.scanned) return;
+if (k === 'late') { self.setState({ lateKey: key, lateReason: '' }); return; }
+var t = self.stamp();
+self.setState({ given: put(self.state.given, key, { label: '✓ ' + t + (m.dose ? ' · ' + m.dose : '') }), log: self.state.log.concat([{ t: t, what: m.short, note: 'jadwal ' + HOURS[si] + ' · Rina W.' }]) });
+}
+};
+}) };
+});
+
+var lateMed = null, lateSlot = -1;
+if (st.lateKey) { var parts = st.lateKey.split('-'); lateMed = this.meds[+parts[0]]; lateSlot = +parts[1]; }
+var reasonOk = st.lateReason.trim().length >= 5;
+var confirmLate = function () {
+if (!reasonOk || !lateMed) return;
+var t = self.stamp();
+var reason = self.state.lateReason.trim();
+self.setState({ given: put(self.state.given, self.state.lateKey, { label: '✓ ' + t + ' · telat' }), log: self.state.log.concat([{ t: t, what: lateMed.short, note: 'jadwal ' + HOURS[lateSlot] + ' · terlambat · ' + reason }]), lateKey: '', lateReason: '' });
+};
+
+var insulinGiven = st.given['1-2'];
+var anyGiven = st.log.length > 0;
+
+var askepDef = [
+{ dx: 'Risiko jatuh (Morse 35)', items: [['Gelang kuning risiko jatuh terpasang', true], ['Pagar tempat tidur terpasang, roda terkunci', true], ['Bel pasien dalam jangkauan', false], ['Edukasi pencegahan jatuh ke keluarga', true]] },
+{ dx: 'Ketidakstabilan kadar glukosa darah', items: [['Cek GDS sebelum makan', true], ['Edukasi tanda hipoglikemia', false], ['Koordinasi diet DM 1.700 kkal dengan gizi', true]] },
+{ dx: 'Bersihan jalan napas tidak efektif', items: [['Latih batuk efektif', false], ['Posisi semi-Fowler', true], ['Pantau SpO2 tiap 4 jam', true]] }
+];
+var done = 0, total = 0;
+var askep = askepDef.map(function (a, ai) {
+var d = 0;
+var items = a.items.map(function (it, ii) {
+var key = ai + '-' + ii, on = st.askep[key] != null ? st.askep[key] : it[1];
+if (on) d++;
+return { label: it[0], on: on, toggle: function () { var cur = self.state.askep[key] != null ? self.state.askep[key] : it[1]; self.setState({ askep: put(self.state.askep, key, !cur) }); } };
+});
+done += d; total += items.length;
+return { dx: a.dx, items: items, progress: d + ' dari ' + items.length + ' intervensi selesai' };
+});
+
+return {
+tabs: tabs, isCppt: st.tab === 'cppt', isObs: st.tab === 'obs', isAskep: st.tab === 'askep', isHasil: st.tab === 'hasil', isRingkas: st.tab === 'ringkasan',
+ppa: ppa, notes: notes, noNotes: notes.length === 0,
+formOpen: st.formOpen, formExpanded: st.formOpen ? 'true' : 'false', fields: fields, submitNote: submitNote,
+openForm: function () { self.setState({ formOpen: true, cpptMsg: '' }); },
+closeForm: function () { self.setState({ formOpen: false, tried: false }); },
+hasCpptMsg: !!st.cpptMsg, cpptMsg: st.cpptMsg,
+meds: meds,
+lateOpen: !!lateMed, lateTitle: lateMed ? lateMed.name + ' · jadwal ' + HOURS[lateSlot] + ' terlambat 4 jam' : '',
+lateReason: st.lateReason, setLateReason: function (e) { self.setState({ lateReason: e.target.value }); },
+lateBorder: reasonOk ? '#CBD3DB' : '#F04438', lateMsgFg: reasonOk ? '#5B6B79' : '#B42318', lateMsg: reasonOk ? 'Alasan akan disimpan bersama catatan pemberian.' : 'Isi alasan (minimal 5 karakter) agar pemberian bisa dicatat.',
+lateDis: !reasonOk, lateBtnBorder: reasonOk ? '#9A1E14' : '#E3E8EE', lateBtnBg: reasonOk ? 'linear-gradient(180deg, #C8402F, #B42318)' : '#F1F4F6', lateBtnFg: reasonOk ? '#FFFFFF' : '#8C99A6', lateBtnCursor: reasonOk ? 'pointer' : 'not-allowed',
+confirmLate: confirmLate, cancelLate: function () { self.setState({ lateKey: '', lateReason: '' }); },
+bannerTitle: insulinGiven ? 'Insulin aspart 6 unit SC tercatat ' + insulinGiven.label.slice(2, 7) : 'Pemberian jam 12.00 · insulin aspart',
+scanned: scanned,
+scanLine: scanned ? '✓ Pasien benar · gelang terpindai ' + st.scanAt : '○ Pasien · gelang belum dipindai', scanFg: scanned ? '#1E6B34' : '#8A4B00',
+drugLine: !scanned ? '○ Obat · pemberian nonaktif sampai gelang cocok' : (anyGiven ? '✓ Obat benar · label terpindai' : '○ Obat · menunggu pindai (klik dosis)'), drugFg: anyGiven && scanned ? '#1E6B34' : '#5B6B79',
+scan: function () { if (self.state.scanned) return; self.setState({ scanned: true, scanAt: self.stamp() }); },
+scanLabel: scanned ? 'Gelang cocok' : 'Pindai gelang', scanBorder: scanned ? '#BFE3C6' : '#0D6861', scanBg: scanned ? '#EAF6EC' : 'linear-gradient(180deg, #1D7E77, #0F766E)', scanBtnFg: scanned ? '#1E6B34' : '#FFFFFF', scanCursor: scanned ? 'default' : 'pointer',
+hasLog: st.log.length > 0, log: st.log,
+obs: [
+{ t: '06.00', temp: '37,6', hr: '92', rr: '22', bp: '128/80', spo2: '95%', ews: '4 · rendah' },
+{ t: '07.40', temp: '37,4', hr: '88', rr: '20', bp: '126/78', spo2: '96%', ews: '3 · rendah' },
+{ t: '11.00', temp: '37,3', hr: '86', rr: '20', bp: '124/78', spo2: '96%', ews: '3 · rendah' }
+],
+askep: askep, askepLabel: done + '/' + total + ' intervensi', askepPct: Math.round(done / total * 100) + '%',
+results: [
+{ t: '3 Okt 12.00', name: 'Gula darah sewaktu', value: '236 mg/dL H', fg: '#B42318' },
+{ t: '3 Okt 06.00', name: 'Gula darah sewaktu', value: '188 mg/dL H', fg: '#B42318' },
+{ t: '2 Okt', name: 'Gula darah sewaktu', value: '254 mg/dL H', fg: '#B42318' }
+],
+summary: [
+{ label: 'Diagnosis kerja', value: 'J18.9 Pneumonia komunitas · E11.9 DM tipe 2' },
+{ label: 'DPJP', value: 'dr. [Nama DPJP], Sp.PD' },
+{ label: 'Hari rawat', value: 'Ke-5 · Melati M-203 · BPJS Kelas 2' },
+{ label: 'Rencana terapi', value: 'Ceftriaxone H5/7, evaluasi de-eskalasi oral H6; glargine 16 unit malam' },
+{ label: 'Keselamatan', value: 'Tidak ada alergi diketahui · risiko jatuh sedang (Morse 35)' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

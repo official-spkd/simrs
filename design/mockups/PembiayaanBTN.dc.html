@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Pembiayaan BTN</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F7F9}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #14212B; font-size: 14px; line-height: 1.45; background-color: #F5F7F9; background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,0.09), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.07) 1px, rgba(20,33,43,0) 1.5px); background-size: auto, 22px 22px">
+<div style="flex: 0 0 240px"><dc-import name="Sidebar" active="pembiayaan" user="Hendra Wijaya, S.E., Ak." role="Kepala akuntansi" initials="HW" unit="Keuangan" hint-size="240px,1180px"></dc-import></div>
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 28px; background: rgba(255,255,255,0.85); border-bottom: 1px solid #E3E8EE">
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="font-size: 12px; color: #5B6B79">Keuangan / Pembiayaan / BTN</span>
+<h1 style="margin: 0; font-size: 20px; font-weight: 600">Pembiayaan BTN · [Nama produk pembiayaan BTN]</h1>
+<span style="font-size: 12.5px; color: #3F4C58">No. perjanjian <span style="font-family: 'IBM Plex Mono', monospace">0127/PKS-PB/BTN-RS/VIII/2026</span> (fiktif) · berlaku 1 Sep 2026 – 31 Agu 2027 · semua angka simulasi</span>
+</div>
+<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<a href="Klaim.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Klaim BPJS</a>
+<a href="Akuntansi.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Jurnal pembiayaan</a>
+<a href="PembayaranBTN.dc.html" style="display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; font-weight: 600; text-decoration: none">Pembayaran via BTN</a>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 28px 0">
+<div role="tablist" aria-label="Jenis pembiayaan" style="display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: #EEF1F4">
+<button type="button" role="tab" id="tabPiutang" aria-controls="panelPiutang" aria-selected="{{tabA.sel}}" onClick="{{tabA.pick}}" style="font: inherit; font-size: 13.5px; font-weight: {{tabA.w}}; height: 40px; padding: 0 16px; border-radius: 9px; border: 0; background: {{tabA.bg}}; color: {{tabA.fg}}; box-shadow: {{tabA.sh}}; cursor: pointer">A · Pembiayaan piutang BPJS</button>
+<button type="button" role="tab" id="tabCicilan" aria-controls="panelCicilan" aria-selected="{{tabB.sel}}" onClick="{{tabB.pick}}" style="font: inherit; font-size: 13.5px; font-weight: {{tabB.w}}; height: 40px; padding: 0 16px; border-radius: 9px; border: 0; background: {{tabB.bg}}; color: {{tabB.fg}}; box-shadow: {{tabB.sh}}; cursor: pointer">B · Cicilan biaya pasien</button>
+</div>
+<span style="font-size: 12.5px; color: #5B6B79">{{tabNote}}</span>
+</div>
+
+<sc-if value="{{isA}}" hint-placeholder-val="{{ true }}">
+<div role="tabpanel" id="panelPiutang" aria-labelledby="tabPiutang" style="display: flex; flex-direction: column">
+
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding: 14px 28px 0">
+<sc-for list="{{kpiA}}" as="k" hint-placeholder-count="6">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span style="font-size: 12px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 20px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<div style="flex: 999 1 600px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+<section aria-label="Pool klaim BPJS" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Pool klaim BPJS</span><span style="font-size: 12.5px; color: #5B6B79">Hanya batch berstatus layak bayar (BA verifikasi BPJS terbit) yang bisa dijaminkan</span></span>
+<button type="button" onClick="{{pickAll}}" style="font: inherit; font-size: 13px; font-weight: 600; height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #0D6861; background: #FFFFFF; color: #0B5D56; cursor: pointer">{{pickAllLabel}}</button>
+</div>
+<div style="display: grid; grid-template-columns: 40px 2fr 0.8fr 1.2fr 1.5fr 1.2fr; gap: 8px; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><span></span><span>Bulan pelayanan · jenis</span><span style="text-align: right">Berkas</span><span style="text-align: right">Nilai klaim</span><span>Status</span><span style="text-align: right">Advance 90%</span></div>
+<sc-for list="{{pool}}" as="p" hint-placeholder-count="9">
+<div style="display: grid; grid-template-columns: 40px 2fr 0.8fr 1.2fr 1.5fr 1.2fr; gap: 8px; align-items: center; padding: 7px 18px; border-bottom: 1px solid #EEF1F4; background: {{p.bg}}; font-size: 13px">
+<span style="display: flex; align-items: center">
+<sc-if value="{{p.can}}" hint-placeholder-val="{{ true }}">
+<input type="checkbox" checked="{{p.chk}}" onChange="{{p.toggle}}" aria-label="{{p.aria}}" style="width: 20px; height: 20px; margin: 0; accent-color: #0F766E; cursor: pointer">
+</sc-if>
+<sc-if value="{{p.cannot}}" hint-placeholder-val="{{ false }}">
+<span aria-hidden="true" style="display: inline-block; width: 18px; height: 18px; border-radius: 5px; border: 1px dashed #CBD3DB; background: #F5F7F9"></span>
+</sc-if>
+</span>
+<span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 500">{{p.per}} · {{p.jenis}}</span><span style="font-size: 12px; color: #5B6B79">{{p.note}}</span></span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; color: #3F4C58">{{p.berkas}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{p.nilai}}</span>
+<span><span style="display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{p.chipBg}}; color: {{p.chipFg}}">{{p.chip}}</span></span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; color: {{p.advFg}}">{{p.adv}}</span>
+</div>
+</sc-for>
+<div style="padding: 12px 18px; display: flex; flex-direction: column; gap: 10px; background: #FBFCFD">
+<div style="display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; font-size: 13px; color: #3F4C58">
+<span>Terpilih <span style="font-weight: 600; color: #14212B">{{calc.n}}</span> · nilai klaim <span style="font-family: 'IBM Plex Mono', monospace; color: #14212B">{{calc.tot}}</span></span>
+<span>× advance rate 90% = <span style="font-family: 'IBM Plex Mono', monospace; color: #14212B">{{calc.adv}}</span></span>
+<span>Sisa plafon <span style="font-family: 'IBM Plex Mono', monospace; color: #14212B">{{calc.sisa}}</span></span>
+</div>
+<sc-if value="{{calc.over}}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="display: flex; gap: 8px; padding: 9px 12px; border-radius: 10px; border: 1px solid #F1D3A8; background: #FFFAF2; font-size: 13px"><span style="font-weight: 700; color: #8A4B00">!</span><span style="color: #3F4C58">{{calc.overMsg}}</span></div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between">
+<span style="display: flex; flex-direction: column"><span style="font-size: 12px; color: #5B6B79">Nilai pencairan ke rekening operasional ••••4417</span><span style="font-size: 22px; font-weight: 700; color: #0B5D56; font-family: 'IBM Plex Mono', monospace">{{calc.cair}}</span></span>
+<span style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+<span id="alasanAjukan" style="font-size: 12.5px; color: #8A4B00; font-weight: 500">{{ajukanBtn.reason}}</span>
+<button type="button" onClick="{{ajukan}}" aria-disabled="{{ajukanBtn.dis}}" aria-describedby="alasanAjukan" style="font: inherit; font-weight: 600; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid {{ajukanBtn.bd}}; background: {{ajukanBtn.bg}}; color: {{ajukanBtn.fg}}; cursor: {{ajukanBtn.cur}}">Ajukan pencairan</button>
+</span>
+</div>
+<sc-if value="{{prog.show}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid #C9DDF7; background: #F4F8FE">
+<span style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px"><span style="font-weight: 600">Pengajuan {{prog.id}} · <span style="font-family: 'IBM Plex Mono', monospace">{{prog.amt}}</span></span><span style="font-size: 12.5px; color: #3F4C58">{{prog.basis}}</span></span>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{prog.steps}}" as="s" hint-placeholder-count="3">
+<span style="display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: #FFFFFF; border: 1px solid {{s.bd}}">
+<span style="flex: none; width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{s.dotBg}}; color: {{s.dotFg}}">{{s.mark}}</span>
+<span style="display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600; color: {{s.fg}}">{{s.t}}</span><span style="font-size: 12px; color: #5B6B79">{{s.at}}</span></span>
+</span>
+</sc-for>
+</div>
+<sc-if value="{{prog.canNext}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{prog.next}}" style="align-self: flex-start; font: inherit; font-size: 13px; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #1E3A8A; background: #FFFFFF; color: #1E3A8A; cursor: pointer">{{prog.nextLabel}}</button>
+</sc-if>
+<sc-if value="{{prog.done}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #1E6B34; font-weight: 600">{{prog.doneMsg}}</span>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</section>
+
+<section aria-label="Pencairan berjalan" style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center">
+<span style="display: flex; flex-direction: column"><span style="font-weight: 600">Pencairan berjalan</span><span style="font-size: 12.5px; color: #5B6B79">Tenor maks. 90 hari per pencairan; pelunasan auto-debit dari rekening penampungan ••••9021</span></span>
+<span style="font-size: 12.5px; color: #3F4C58">{{drawCount}}</span>
+</div>
+<div style="display: grid; grid-template-columns: 1.1fr 1.5fr 1.3fr 0.9fr 0.9fr 1.2fr 1.3fr; gap: 8px; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><span>No.</span><span>Klaim dasar</span><span style="text-align: right">Pokok</span><span>Cair</span><span>Jatuh tempo</span><span style="text-align: right">Margin berjalan</span><span>Status</span></div>
+<sc-for list="{{drawRows}}" as="d" hint-placeholder-count="2">
+<div style="display: grid; grid-template-columns: 1.1fr 1.5fr 1.3fr 0.9fr 0.9fr 1.2fr 1.3fr; gap: 8px; align-items: center; padding: 8px 18px; border-bottom: 1px solid #EEF1F4; font-size: 13px">
+<span style="font-family: 'IBM Plex Mono', monospace; color: #3F4C58">{{d.id}}</span>
+<span>{{d.basis}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace">{{d.pokok}}</span>
+<span style="color: #3F4C58">{{d.cair}}</span>
+<span style="color: {{d.jtFg}}">{{d.jt}}</span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; color: #3F4C58">{{d.margin}}</span>
+<span><span style="display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{d.chipBg}}; color: {{d.chipFg}}">{{d.chip}}</span></span>
+</div>
+</sc-for>
+</section>
+</div>
+
+<aside style="flex: 1 1 320px; max-width: 380px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="font-weight: 600">Alur dana pelunasan</span><span style="font-size: 12px; color: #5B6B79">{{flow.cap}}</span></span>
+<div style="display: flex; flex-direction: column; align-items: stretch">
+<div style="border: 1px solid {{flow.bd}}; background: {{flow.bg}}; border-radius: 10px; padding: 8px 12px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline"><span style="font-size: 13px; font-weight: 600">BPJS Kesehatan</span><span style="font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: {{flow.fg}}">{{flow.bpjs}}</span></div>
+<span style="display: flex; justify-content: center; height: 24px"><svg width="20" height="24" viewBox="0 0 20 24" fill="none" stroke="#5B6B79" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v19M5 16l5 5 5-5"></path></svg></span>
+<div style="border: 1px solid {{flow.bd}}; background: {{flow.bg}}; border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 1px"><span style="display: flex; justify-content: space-between; gap: 8px; align-items: baseline"><span style="font-size: 13px; font-weight: 600">Rekening penampungan BTN</span><span style="font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: {{flow.fg}}">{{flow.esc}}</span></span><span style="font-size: 12px; color: #5B6B79">••••9021 · escrow klaim BPJS · auto-debit</span></div>
+<span aria-hidden="true" style="display: block; width: 0; height: 10px; margin: 0 auto; border-left: 1.8px solid #5B6B79"></span>
+<span aria-hidden="true" style="display: block; height: 8px; margin: 0 25%; border: 1.8px solid #5B6B79; border-bottom: 0; border-radius: 4px 4px 0 0"></span>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+<span style="display: flex; justify-content: center; height: 14px"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#5B6B79" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 0v12M3 8l4 4 4-4"></path></svg></span>
+<span style="display: flex; justify-content: center; height: 14px"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#5B6B79" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 0v12M3 8l4 4 4-4"></path></svg></span>
+<div style="border: 1px solid #C9DDF7; background: #F4F8FE; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 12.5px; font-weight: 600; color: #1E3A8A">Pelunasan BTN</span><span style="font-size: 12px; color: #5B6B79">pokok + margin</span><span style="font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: #14212B">{{flow.lunas}}</span></div>
+<div style="border: 1px solid #B7DEC0; background: #F2FAF4; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 12.5px; font-weight: 600; color: #1E6B34">Sisa ke RS</span><span style="font-size: 12px; color: #5B6B79">operasional ••••4417</span><span style="font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: #14212B">{{flow.sisa}}</span></div>
+</div>
+</div>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 600">Simulasi pembayaran BPJS</span>
+<span style="font-size: 13px; color: #3F4C58">{{payInfo}}</span>
+<button type="button" onClick="{{payBpjs}}" aria-disabled="{{payBtn.dis}}" aria-describedby="alasanBayar" style="font: inherit; font-weight: 600; min-height: 44px; padding: 6px 14px; border-radius: 10px; border: 1px solid {{payBtn.bd}}; background: {{payBtn.bg}}; color: {{payBtn.fg}}; cursor: {{payBtn.cur}}; text-align: left">BPJS membayar klaim</button>
+<span id="alasanBayar" style="font-size: 12.5px; color: #8A4B00; font-weight: 500">{{payBtn.reason}}</span>
+<sc-if value="{{hasPay}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid #B7DEC0; background: #F2FAF4">
+<span style="font-size: 13px; font-weight: 600; color: #1E6B34">{{payHead}}</span>
+<sc-for list="{{payRows}}" as="r" hint-placeholder-count="4">
+<span style="display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding-top: {{r.pt}}; border-top: {{r.bt}}"><span style="color: #3F4C58">{{r.k}}</span><span style="font-family: 'IBM Plex Mono', monospace; font-weight: {{r.w}}; color: #14212B; white-space: nowrap">{{r.v}}</span></span>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+<div style="background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 600">Parameter fasilitas (simulasi)</span>
+<span style="font-size: 13px; color: #3F4C58">• Advance rate 90% dari klaim layak bayar</span>
+<span style="font-size: 13px; color: #3F4C58">• Margin 8% p.a., dihitung harian sejak cair</span>
+<span style="font-size: 13px; color: #3F4C58">• Dana cair ke operasional ••••4417; BPJS membayar ke penampungan ••••9021</span>
+</div>
+</aside>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isB}}" hint-placeholder-val="{{ false }}">
+<div role="tabpanel" id="panelCicilan" aria-labelledby="tabCicilan" style="display: flex; flex-direction: column">
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding: 14px 28px 0">
+<sc-for list="{{kpiB}}" as="k" hint-placeholder-count="4">
+<div style="background: linear-gradient(160deg, #FFFFFF 55%, {{k.tint}}); border: 1px solid #E3E8EE; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 12.5px; color: #5B6B79">{{k.label}}</span>
+<span style="font-size: 24px; font-weight: 700; color: {{k.fg}}">{{k.value}}</span>
+<span style="font-size: 12.5px; color: #3F4C58">{{k.sub}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 16px 28px 28px; align-items: flex-start">
+<section aria-label="Daftar pengajuan cicilan" style="flex: 1 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; overflow: hidden">
+<div style="padding: 12px 18px; border-bottom: 1px solid #E3E8EE; display: flex; flex-direction: column">
+<span style="font-weight: 600">Pengajuan cicilan</span>
+<span style="font-size: 12.5px; color: #5B6B79">Pasien umum dan selisih naik kelas · diajukan dari kasir atau aplikasi pasien</span>
+</div>
+<div style="display: grid; grid-template-columns: 2.4fr 1.1fr 1.1fr; gap: 8px; font-size: 12px; font-weight: 600; color: #5B6B79; padding: 8px 18px; background: #F8FAFB; border-bottom: 1px solid #E3E8EE"><span>Pasien · layanan</span><span style="text-align: right">Nilai</span><span>Status</span></div>
+<sc-for list="{{apps}}" as="a" hint-placeholder-count="7">
+<button type="button" aria-pressed="{{a.on}}" onClick="{{a.pick}}" style="font: inherit; color: inherit; text-align: left; width: 100%; box-sizing: border-box; margin: 0; border: 0; border-bottom: 1px solid #EEF1F4; border-left: 3px solid {{a.bl}}; border-radius: 0; background: {{a.bg}}; cursor: pointer; display: grid; grid-template-columns: 2.4fr 1.1fr 1.1fr; gap: 8px; align-items: center; padding: 9px 18px 9px 15px; min-height: 52px">
+<span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 600; font-size: 13.5px">{{a.name}}</span><span style="font-size: 12px; color: #5B6B79">{{a.layanan}} · {{a.src}}</span></span>
+<span style="text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 13px">{{a.nilai}}</span>
+<span><span style="display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: {{a.chipBg}}; color: {{a.chipFg}}">{{a.chip}}</span></span>
+</button>
+</sc-for>
+</section>
+
+<section aria-label="Detail pengajuan" style="flex: 1 1 420px; min-width: 0; background: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; gap: 10px; align-items: flex-start">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 17px; font-weight: 600">{{det.name}}</span><span style="font-size: 12.5px; color: #5B6B79">{{det.layanan}}</span><span style="font-size: 12.5px; color: #3F4C58">{{det.pemohon}}</span></span>
+<span style="flex: none; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: {{det.chipBg}}; color: {{det.chipFg}}">{{det.chip}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{det.facts}}" as="f" hint-placeholder-count="6">
+<span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #F8FAFB; border: 1px solid #EEF1F4; min-width: 0"><span style="font-size: 11.5px; color: #5B6B79">{{f.k}}</span><span style="font-size: 13.5px; font-weight: 600; font-family: {{f.ff}}">{{f.v}}</span></span>
+</sc-for>
+</div>
+<sc-if value="{{det.hasNote}}" hint-placeholder-val="{{ true }}">
+<span style="font-size: 12.5px; color: #3F4C58">{{det.note}}</span>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 0">
+<span style="font-size: 12.5px; font-weight: 600; color: #5B6B79; margin-bottom: 6px">Timeline status</span>
+<sc-for list="{{det.tl}}" as="t" hint-placeholder-count="5">
+<span style="display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: start">
+<span style="display: flex; flex-direction: column; align-items: center; align-self: stretch"><span style="flex: none; width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; background: {{t.dotBg}}; color: {{t.dotFg}}; border: 1px solid {{t.dotBd}}">{{t.mark}}</span><span style="flex: 1; width: 0; min-height: 8px; border-left: 2px solid {{t.line}}"></span></span>
+<span style="display: flex; flex-direction: column; padding-bottom: 8px"><span style="font-size: 13px; font-weight: 600; color: {{t.fg}}">{{t.t}}</span><span style="font-size: 12px; color: #5B6B79">{{t.sub}}</span></span>
+<span style="font-size: 12px; color: #3F4C58; font-family: 'IBM Plex Mono', monospace; white-space: nowrap">{{t.at}}</span>
+</span>
+</sc-for>
+</div>
+
+<sc-if value="{{det.isDone}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #B7DEC0; background: #EAF5EC; font-size: 13px"><span style="font-weight: 700; color: #1E6B34">✓</span><span style="color: #3F4C58">{{det.doneMsg}}</span></div>
+</sc-if>
+<sc-if value="{{det.isRej}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #F3C5C0; background: #FDF3F2; font-size: 13px"><span style="font-weight: 700; color: #B42318">✕</span><span style="color: #3F4C58">{{det.rejMsg}}</span></div>
+</sc-if>
+
+<sc-if value="{{det.canAct}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center">
+<button type="button" onClick="{{det.next}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #0D6861; background: linear-gradient(180deg, #1D7E77, #0F766E); color: #FFFFFF; cursor: pointer">{{det.nextLabel}}</button>
+<sc-if value="{{det.canRej}}" hint-placeholder-val="{{ true }}">
+<button type="button" onClick="{{det.openRej}}" aria-expanded="{{det.rejExp}}" style="font: inherit; font-weight: 600; height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #E4A9A2; background: #FFFFFF; color: #B42318; cursor: pointer">Tolak</button>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{det.showRej}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid #F3C5C0; background: #FFFBFA">
+<label for="alasanTolak" style="font-size: 12.5px; font-weight: 600; color: #8C1D13">Alasan penolakan dari BTN (wajib)</label>
+<textarea id="alasanTolak" rows="2" value="{{rejText}}" onInput="{{typeRej}}" aria-invalid="{{det.rejInvalid}}" aria-describedby="pesanTolak" placeholder="mis. Data penghasilan tidak dapat diverifikasi" style="font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 10px; border: 1px solid {{det.rejBd}}; resize: vertical; min-height: 56px; box-sizing: border-box"></textarea>
+<span id="pesanTolak" style="font-size: 12px; color: {{det.rejMsgFg}}">{{det.rejHint}}</span>
+<span style="display: flex; gap: 8px; flex-wrap: wrap">
+<button type="button" onClick="{{det.cancelRej}}" style="font: inherit; font-weight: 500; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; cursor: pointer">Batal</button>
+<button type="button" onClick="{{det.doRej}}" aria-disabled="{{det.rejDis}}" aria-describedby="pesanTolak" style="font: inherit; font-weight: 600; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid {{det.rejBtnBd}}; background: {{det.rejBtnBg}}; color: {{det.rejBtnFg}}; cursor: {{det.rejCur}}">Konfirmasi tolak</button>
+</span>
+</div>
+</sc-if>
+
+<div style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #C9DDF7; background: #F4F8FE; font-size: 12.5px">
+<span style="font-weight: 700; color: #1E3A8A">i</span>
+<span style="color: #3F4C58">Angsuran dibayar pasien <span style="font-weight: 600; color: #14212B">langsung ke BTN</span>, bukan ke RS. RS menerima pelunasan penuh ke rekening operasional ••••4417 saat pencairan, dan tidak menanggung risiko gagal bayar kecuali diatur lain di perjanjian. Keputusan kredit sepenuhnya oleh BTN.</span>
+</div>
+<a href="PembayaranBTN.dc.html" style="align-self: flex-start; display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #CBD3DB; background: #FFFFFF; color: #14212B; font-weight: 500; text-decoration: none">Lihat penerimaan di Pembayaran via BTN</a>
+</section>
+</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+function h(arr) { return arr.map(function (x) { return { s: x[0], at: x[1] }; }); }
+this.state = {
+tab: 'piutang',
+sel: { p3: true, p4: true },
+draws: [
+{ id: 'PCR-2609-01', pool: ['p1'], pokok: 4320000000, cair: '4 Sep 2026', jt: '3 Des 2026', days: 29, stage: 'cair', okAt: '', cairAt: '', lunasAt: '', margin: 0 },
+{ id: 'PCR-2609-02', pool: ['p2'], pokok: 3150000000, cair: '22 Sep 2026', jt: '21 Des 2026', days: 11, stage: 'cair', okAt: '', cairAt: '', lunasAt: '', margin: 0 }
+],
+active: '', seq: 1, pay: null,
+app: 'a1', rejOpen: false, rejText: '', rejTried: false,
+apps: {
+a1: { status: 'verifikasi', reason: '', hist: h([['diajukan', '2 Okt 19.22'], ['verifikasi', '3 Okt 08.05']]) },
+a2: { status: 'diajukan', reason: '', hist: h([['diajukan', '3 Okt 09.47']]) },
+a3: { status: 'akad', reason: '', hist: h([['diajukan', '1 Okt 10.15'], ['verifikasi', '1 Okt 10.16'], ['disetujui', '2 Okt 14.30'], ['akad', '3 Okt 08.52']]) },
+a4: { status: 'disetujui', reason: '', hist: h([['diajukan', '30 Sep 11.02'], ['verifikasi', '30 Sep 11.03'], ['disetujui', '1 Okt 16.20']]) },
+a5: { status: 'dicairkan', reason: '', hist: h([['diajukan', '1 Okt 08.10'], ['verifikasi', '1 Okt 08.11'], ['disetujui', '1 Okt 13.45'], ['akad', '1 Okt 15.02'], ['dicairkan', '2 Okt 09.30']]) },
+a6: { status: 'dicairkan', reason: '', hist: h([['diajukan', '29 Sep 14.20'], ['verifikasi', '29 Sep 14.21'], ['disetujui', '30 Sep 10.05'], ['akad', '30 Sep 11.40'], ['dicairkan', '1 Okt 09.15']]) },
+a7: { status: 'ditolak', reason: 'Data penghasilan tidak dapat diverifikasi BTN', hist: h([['diajukan', '1 Okt 16.40'], ['verifikasi', '1 Okt 16.41'], ['ditolak', '2 Okt 11.05']]) }
+}
+};
+}
+renderVals() {
+var self = this;
+var st = this.state;
+function jam() { var d = new Date(); var p = function (x) { return (x < 10 ? '0' : '') + x; }; return p(d.getHours()) + '.' + p(d.getMinutes()); }
+function dots(n) { return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function rp(n) { return 'Rp ' + dots(n); }
+function rs(n) {
+if (n >= 1e9) return 'Rp ' + (n / 1e9).toFixed(2).replace('.', ',') + ' M';
+if (n >= 1e6) return 'Rp ' + (n / 1e6).toFixed(1).replace('.', ',') + ' jt';
+return rp(n);
+}
+var PLAFON = 15000000000, ADV = 0.9, RATE = 0.08, AVG_DAYS = 34;
+var isA = st.tab === 'piutang';
+
+function tabSty(on, pick) { return { sel: on ? 'true' : 'false', pick: pick, bg: on ? '#FFFFFF' : 'transparent', fg: on ? '#0B5D56' : '#3F4C58', w: on ? '600' : '500', sh: on ? '0 1px 2px rgba(20,33,43,0.12)' : 'none' }; }
+
+// ---------- A. Piutang BPJS ----------
+var poolDef = [
+{ id: 'p1', per: 'Jul 2026', jenis: 'RJ + RI', berkas: 3214, nilai: 4800000000, base: 'layak', note: 'BA verifikasi 26 Agu' },
+{ id: 'p2', per: 'Agu 2026', jenis: 'RI tahap 1', berkas: 402, nilai: 3500000000, base: 'layak', note: 'BA verifikasi 15 Sep' },
+{ id: 'p3', per: 'Agu 2026', jenis: 'Rawat jalan', berkas: 1842, nilai: 2140000000, base: 'layak', note: 'BA verifikasi 24 Sep' },
+{ id: 'p4', per: 'Agu 2026', jenis: 'RI tahap 2', berkas: 210, nilai: 1960000000, base: 'layak', note: 'BA verifikasi 28 Sep' },
+{ id: 'p5', per: 'Sep 2026', jenis: 'Rawat jalan', berkas: 1910, nilai: 2480000000, base: 'layak', note: 'BA verifikasi 2 Okt' },
+{ id: 'p6', per: 'Sep 2026', jenis: 'RI tahap 1', berkas: 388, nilai: 3120000000, base: 'layak', note: 'BA verifikasi 2 Okt' },
+{ id: 'p7', per: 'Sep 2026', jenis: 'RI tahap 2', berkas: 486, nilai: 2940000000, base: 'pending', note: 'menunggu BA verifikasi BPJS' },
+{ id: 'p8', per: 'Sep 2026', jenis: 'RJ susulan', berkas: 96, nilai: 118000000, base: 'pending', note: 'berkas perbaikan dikirim ulang' },
+{ id: 'p9', per: 'Agu 2026', jenis: 'RI dispute', berkas: 14, nilai: 12400000, base: 'dispute', note: 'dispute verifikator · lihat Klaim' }
+];
+var poolById = {};
+poolDef.forEach(function (p) { poolById[p.id] = p; });
+var drawOf = {};
+st.draws.forEach(function (d) { d.pool.forEach(function (pid) { drawOf[pid] = d; }); });
+function klaimOf(d) { var t = 0; d.pool.forEach(function (pid) { t += poolById[pid].nilai; }); return t; }
+function basisOf(d) { return d.pool.map(function (pid) { var p = poolById[pid]; return p.per.replace(' 2026', '') + ' ' + p.jenis; }).join(', '); }
+
+var outstanding = 0, reserved = 0, marginRun = 0, nCair = 0;
+var inProc = null;
+st.draws.forEach(function (d) {
+if (d.stage === 'cair') { outstanding += d.pokok; marginRun += d.pokok * RATE * d.days / 365; nCair++; }
+if (d.stage === 'diajukan' || d.stage === 'disetujui') { reserved += d.pokok; inProc = d; }
+});
+var sisa = PLAFON - outstanding - reserved;
+if (sisa < 0) sisa = 0;
+
+var chipMap = {
+layak: { t: 'Layak bayar', bg: '#EAF5EC', fg: '#1E6B34' },
+pending: { t: 'Pending', bg: '#FFF3E0', fg: '#8A4B00' },
+dispute: { t: 'Dispute', bg: '#FDECEA', fg: '#B42318' }
+};
+var eligible = 0, selTot = 0, selIds = [], layakFree = [];
+var pool = poolDef.map(function (p) {
+var d = drawOf[p.id];
+var chip;
+if (d && d.stage === 'lunas') chip = { t: 'Dibayar BPJS · lunas', bg: '#F1F3F5', fg: '#3F4C58' };
+else if (d && d.stage === 'cair') chip = { t: 'Dibiayai · ' + d.id, bg: '#E6F4F1', fg: '#0B5D56' };
+else if (d) chip = { t: 'Diajukan · ' + d.id, bg: '#E8EEF9', fg: '#1E3A8A' };
+else chip = chipMap[p.base];
+var can = !d && p.base === 'layak';
+var chk = can && !!st.sel[p.id];
+if (can) { eligible += p.nilai; layakFree.push(p.id); }
+if (chk) { selTot += p.nilai; selIds.push(p.id); }
+return {
+per: p.per, jenis: p.jenis, note: p.note, berkas: dots(p.berkas), nilai: rs(p.nilai),
+chip: chip.t, chipBg: chip.bg, chipFg: chip.fg,
+can: can, cannot: !can, chk: chk,
+aria: 'Pilih klaim ' + p.per + ' ' + p.jenis + ' untuk dijaminkan',
+adv: can ? rs(p.nilai * ADV) : '—', advFg: chk ? '#0B5D56' : '#5B6B79',
+bg: chk ? '#F3FAF8' : '#FFFFFF',
+toggle: function () { var s = Object.assign({}, self.state.sel); s[p.id] = !s[p.id]; self.setState({ sel: s }); }
+};
+});
+var allPicked = layakFree.length > 0 && layakFree.every(function (id) { return !!st.sel[id]; });
+var adv = Math.round(selTot * ADV);
+var over = adv > sisa;
+var cairVal = over ? sisa : adv;
+var calc = {
+n: selIds.length + ' batch', tot: rp(selTot), adv: rp(adv), sisa: rp(sisa), cair: rp(cairVal), over: over && selIds.length > 0,
+overMsg: 'Advance 90% (' + rs(adv) + ') melebihi sisa plafon ' + rs(sisa) + '. Nilai pencairan dibatasi ke sisa plafon; kurangi pilihan agar klaim tidak terikat berlebih.'
+};
+var ajukanReason = '';
+if (inProc) ajukanReason = 'Selesaikan pengajuan ' + inProc.id + ' dulu.';
+else if (selIds.length === 0) ajukanReason = 'Pilih minimal satu batch layak bayar.';
+else if (sisa <= 0) ajukanReason = 'Plafon fasilitas sudah terpakai penuh.';
+var canAjukan = !ajukanReason;
+
+var activeDraw = null;
+st.draws.forEach(function (d) { if (d.id === st.active) activeDraw = d; });
+var prog = { show: false, id: '', amt: '', basis: '', steps: [], canNext: false, nextLabel: '', next: function () {}, done: false, doneMsg: '' };
+if (activeDraw && activeDraw.stage !== 'lunas') {
+var stg = activeDraw.stage;
+var order = { diajukan: 1, disetujui: 2, cair: 3 };
+var lvl = order[stg];
+var stepDef = [
+{ t: 'Diajukan ke BTN', at: activeDraw.ajuAt },
+{ t: 'Disetujui BTN', at: activeDraw.okAt },
+{ t: 'Dana cair ke ••••4417', at: activeDraw.cairAt }
+];
+prog = {
+show: true, id: activeDraw.id, amt: rp(activeDraw.pokok), basis: 'dasar: ' + basisOf(activeDraw) + ' · ' + rs(klaimOf(activeDraw)),
+steps: stepDef.map(function (s, i) {
+var done = i < lvl, next = i === lvl;
+return { t: s.t, at: done ? 'pukul ' + s.at : (next ? 'menunggu' : '—'), mark: done ? '✓' : String(i + 1),
+dotBg: done ? '#1E6B34' : (next ? '#E8EEF9' : '#F1F3F5'), dotFg: done ? '#FFFFFF' : (next ? '#1E3A8A' : '#5B6B79'),
+fg: done ? '#14212B' : '#5B6B79', bd: next ? '#C9DDF7' : '#E3E8EE' };
+}),
+canNext: stg !== 'cair',
+nextLabel: stg === 'diajukan' ? 'Simulasi: BTN menyetujui' : 'Simulasi: BTN mencairkan dana',
+next: function () {
+var t = jam();
+self.setState({ draws: self.state.draws.map(function (d) {
+if (d.id !== activeDraw.id) return d;
+if (d.stage === 'diajukan') return Object.assign({}, d, { stage: 'disetujui', okAt: t });
+if (d.stage === 'disetujui') return Object.assign({}, d, { stage: 'cair', cairAt: t, cair: '3 Okt 2026', jt: '1 Jan 2027', days: 0 });
+return d;
+}) });
+},
+done: stg === 'cair',
+doneMsg: rp(activeDraw.pokok) + ' masuk rekening operasional ••••4417 pukul ' + activeDraw.cairAt + '. Outstanding dan sisa plafon diperbarui.'
+};
+}
+
+var drawRows = st.draws.map(function (d) {
+var chip, margin = '—';
+if (d.stage === 'cair') { chip = { t: 'Berjalan', bg: '#E6F4F1', fg: '#0B5D56' }; margin = rs(d.pokok * RATE * d.days / 365) + ' · ' + d.days + ' hr'; }
+else if (d.stage === 'lunas') { chip = { t: 'Lunas ' + d.lunasAt, bg: '#F1F3F5', fg: '#3F4C58' }; margin = rs(d.margin) + ' dibayar'; }
+else if (d.stage === 'disetujui') chip = { t: 'Disetujui BTN', bg: '#E8EEF9', fg: '#1E3A8A' };
+else chip = { t: 'Diajukan', bg: '#E8EEF9', fg: '#1E3A8A' };
+return { id: d.id, basis: basisOf(d), pokok: rp(d.pokok), cair: d.cair || '—', jt: d.jt || '—', jtFg: d.stage === 'lunas' ? '#5B6B79' : '#14212B', margin: margin, chip: chip.t, chipBg: chip.bg, chipFg: chip.fg };
+});
+var drawCount = nCair + ' berjalan · outstanding ' + rs(outstanding);
+
+var target = null;
+st.draws.forEach(function (d) { if (!target && d.stage === 'cair') target = d; });
+var payInfo = target
+? 'Pembayaran berikutnya: klaim ' + basisOf(target) + ' (' + rs(klaimOf(target)) + ') untuk ' + target.id + '. Dana masuk ••••9021, pokok + margin didebit otomatis, sisanya diteruskan ke ••••4417.'
+: 'Tidak ada pencairan berjalan untuk dilunasi.';
+var payBtn = target
+? { dis: 'false', bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: 'Belum ada pencairan berstatus berjalan.' };
+var pay = st.pay;
+var payRows = [], payHead = '';
+if (pay) {
+payHead = 'Klaim ' + pay.basis + ' dibayar BPJS · ' + pay.at;
+payRows = [
+{ k: 'Dana BPJS masuk ••••9021', v: rp(pay.klaim), w: '600', pt: '0', bt: '0' },
+{ k: 'Pelunasan pokok ' + pay.id, v: '− ' + rp(pay.pokok), w: '500', pt: '0', bt: '0' },
+{ k: 'Margin ' + pay.days + ' hari × 8% p.a.' + (pay.assumed ? ' (asumsi)' : ''), v: '− ' + rp(pay.margin), w: '500', pt: '0', bt: '0' },
+{ k: 'Diteruskan ke operasional ••••4417', v: rp(pay.sisa), w: '700', pt: '6px', bt: '1px solid #B7DEC0' }
+];
+}
+var flow = pay
+? { cap: 'pembayaran terakhir', bpjs: rs(pay.klaim), esc: rs(pay.klaim), lunas: rs(pay.pokok + pay.margin), sisa: rs(pay.sisa), bd: '#9FD3C9', bg: '#F3FAF8', fg: '#0B5D56' }
+: { cap: 'belum ada pembayaran', bpjs: 'membayar klaim', esc: '—', lunas: 'auto-debit', sisa: 'diteruskan', bd: '#E3E8EE', bg: '#FFFFFF', fg: '#5B6B79' };
+
+var kpiA = [
+{ label: 'Plafon fasilitas', value: rs(PLAFON), sub: 'simulasi · revolving', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Outstanding', value: rs(outstanding), sub: nCair + ' pencairan berjalan', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Sisa plafon', value: rs(sisa), sub: reserved ? rs(reserved) + ' dalam proses' : Math.round(sisa / PLAFON * 100) + '% tersedia', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Klaim layak bayar eligible', value: rs(eligible), sub: layakFree.length + ' batch belum dijaminkan', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Rata-rata hari cair BPJS', value: '34 hari', sub: 'sejak klaim diajukan', fg: '#8A4B00', tint: 'rgba(138,75,0,0.07)' },
+{ label: 'Margin berjalan', value: rs(marginRun), sub: '8% p.a. (simulasi)', fg: '#14212B', tint: 'rgba(30,58,138,0.06)' }
+];
+
+// ---------- B. Cicilan pasien ----------
+var appDef = [
+{ id: 'a1', name: 'Ny. Ratna Sari', rm: '00-41-87-22', layanan: 'Selisih naik kelas VIP · bedah elektif', inv: 'INV-2610-02240', nilai: 18600000, tenor: 12, src: 'Aplikasi pasien', pemohon: 'Pemohon: pasien sendiri', note: 'Deposit Rp 5.000.000 via VA BTN 8808 0127 4100 2240 sudah diterima; sisa selisih diajukan cicilan.' },
+{ id: 'a2', name: 'Tn. Suryo A.', rm: '00-38-12-09', layanan: 'Rawat inap pasien umum · kelas 1', inv: 'INV-2610-02251', nilai: 9450000, tenor: 6, src: 'Kasir', pemohon: 'Pemohon: pasien sendiri', note: '' },
+{ id: 'a3', name: 'Ny. Lestari', rm: '00-52-30-14', layanan: 'Persalinan sesar · pasien umum', inv: 'INV-2610-02198', nilai: 14200000, tenor: 12, src: 'Aplikasi pasien', pemohon: 'Pemohon: pasien sendiri', note: '' },
+{ id: 'a4', name: 'Tn. Bambang H.', rm: '00-29-77-41', layanan: 'Operasi ortopedi · pasien umum', inv: 'INV-2610-02187', nilai: 22300000, tenor: 18, src: 'Kasir', pemohon: 'Pemohon: pasien sendiri', note: '' },
+{ id: 'a5', name: 'An. Raka P.', rm: '00-61-04-58', layanan: 'Rawat inap anak · pasien umum', inv: 'INV-2610-02105', nilai: 6750000, tenor: 6, src: 'Kasir', pemohon: 'Pemohon: orang tua (wali)', note: '' },
+{ id: 'a6', name: 'Tn. Hasan M.', rm: '00-47-90-33', layanan: 'Selisih naik kelas 1 ke VIP · rawat inap', inv: 'INV-2609-01988', nilai: 11900000, tenor: 12, src: 'Aplikasi pasien', pemohon: 'Pemohon: pasien sendiri', note: '' },
+{ id: 'a7', name: 'Ny. Dewi K.', rm: '00-55-18-06', layanan: 'Rawat jalan tindakan · pasien umum', inv: 'INV-2610-02133', nilai: 4800000, tenor: 3, src: 'Kasir', pemohon: 'Pemohon: pasien sendiri', note: '' }
+];
+var stMap = {
+diajukan: { t: 'Diajukan', bg: '#F1F3F5', fg: '#3F4C58' },
+verifikasi: { t: 'Verifikasi BTN', bg: '#E8EEF9', fg: '#1E3A8A' },
+disetujui: { t: 'Disetujui', bg: '#E6F4F1', fg: '#0B5D56' },
+akad: { t: 'Akad TTE', bg: '#E6F4F1', fg: '#0B5D56' },
+dicairkan: { t: 'Dicairkan', bg: '#EAF5EC', fg: '#1E6B34' },
+ditolak: { t: 'Ditolak', bg: '#FDECEA', fg: '#B42318' }
+};
+var flowOrder = ['diajukan', 'verifikasi', 'disetujui', 'akad', 'dicairkan'];
+var flowLabel = {
+diajukan: { t: 'Diajukan', sub: 'data pasien dan tagihan dikirim ke BTN' },
+verifikasi: { t: 'Verifikasi BTN', sub: 'NIK, penghasilan, dan skor kredit oleh BTN' },
+disetujui: { t: 'Disetujui BTN', sub: 'limit dan tenor ditetapkan BTN' },
+akad: { t: 'Akad digital (TTE)', sub: 'pasien menandatangani akad secara elektronik' },
+dicairkan: { t: 'Dicairkan ke RS', sub: 'BTN mentransfer pelunasan ke ••••4417' }
+};
+var nextLabel = { diajukan: 'Simulasi: teruskan ke verifikasi BTN', verifikasi: 'Simulasi: BTN menyetujui', disetujui: 'Simulasi: pasien tanda tangan akad (TTE)', akad: 'Simulasi: BTN mencairkan dana' };
+function pmt(P, n) { var r = 0.11 / 12; return P * r / (1 - Math.pow(1 + r, -n)); }
+
+var totCair = 0, nApproved = 0, nRej = 0, nProc = 0, nCairB = 0;
+appDef.forEach(function (a) {
+var s = st.apps[a.id].status;
+if (s === 'dicairkan') { totCair += a.nilai; nCairB++; }
+if (s === 'disetujui' || s === 'akad' || s === 'dicairkan') nApproved++;
+if (s === 'ditolak') nRej++;
+if (s === 'diajukan' || s === 'verifikasi' || s === 'disetujui' || s === 'akad') nProc++;
+});
+var decided = nApproved + nRej;
+var kpiB = [
+{ label: 'Dicairkan bulan ini', value: rs(totCair), sub: nCairB + ' pengajuan · masuk ••••4417', fg: '#1E6B34', tint: 'rgba(30,107,52,0.07)' },
+{ label: 'Approval rate', value: decided ? Math.round(nApproved / decided * 100) + '%' : '—', sub: nApproved + ' disetujui dari ' + decided + ' diputuskan BTN', fg: '#14212B', tint: 'rgba(15,118,110,0.06)' },
+{ label: 'Dalam proses', value: String(nProc), sub: 'menunggu verifikasi, akad, atau cair', fg: '#1E3A8A', tint: 'rgba(30,58,138,0.06)' },
+{ label: 'Ditolak', value: String(nRej), sub: 'tagihan tetap terbuka di kasir', fg: '#B42318', tint: 'rgba(180,35,24,0.06)' }
+];
+
+var apps = appDef.map(function (a) {
+var s = st.apps[a.id].status, c = stMap[s], on = st.app === a.id;
+return { name: a.name, layanan: a.layanan, src: a.src, nilai: rs(a.nilai), chip: c.t, chipBg: c.bg, chipFg: c.fg,
+on: on ? 'true' : 'false', bg: on ? '#F3FAF8' : '#FFFFFF', bl: on ? '#0F766E' : 'transparent',
+pick: function () { self.setState({ app: a.id, rejOpen: false, rejText: '', rejTried: false }); } };
+});
+
+var A = appDef[0];
+appDef.forEach(function (a) { if (a.id === st.app) A = a; });
+var D = st.apps[A.id];
+var sNow = D.status, cNow = stMap[sNow];
+var atOf = {};
+D.hist.forEach(function (x) { atOf[x.s] = x.at; });
+var tl = [];
+if (sNow === 'ditolak') {
+D.hist.forEach(function (x) {
+if (x.s === 'ditolak') tl.push({ t: 'Ditolak BTN', sub: D.reason, at: x.at, mark: '✕', dotBg: '#B42318', dotFg: '#FFFFFF', dotBd: '#B42318', fg: '#B42318', line: 'transparent' });
+else tl.push({ t: flowLabel[x.s].t, sub: flowLabel[x.s].sub, at: x.at, mark: '✓', dotBg: '#1E6B34', dotFg: '#FFFFFF', dotBd: '#1E6B34', fg: '#14212B', line: '#B7DEC0' });
+});
+} else {
+var lvlB = flowOrder.indexOf(sNow);
+flowOrder.forEach(function (k, i) {
+var done = i <= lvlB, next = i === lvlB + 1, last = i === flowOrder.length - 1;
+tl.push({ t: flowLabel[k].t, sub: flowLabel[k].sub, at: done ? atOf[k] : (next ? 'menunggu' : ''),
+mark: done ? '✓' : String(i + 1), dotBg: done ? '#1E6B34' : (next ? '#E8EEF9' : '#FFFFFF'), dotFg: done ? '#FFFFFF' : (next ? '#1E3A8A' : '#5B6B79'),
+dotBd: done ? '#1E6B34' : (next ? '#9DB7E8' : '#CBD3DB'), fg: done || next ? '#14212B' : '#5B6B79', line: last ? 'transparent' : (i < lvlB ? '#B7DEC0' : '#E3E8EE') });
+});
+}
+var canAct = sNow !== 'dicairkan' && sNow !== 'ditolak';
+var canRej = sNow === 'diajukan' || sNow === 'verifikasi';
+var rejLen = st.rejText.trim().length;
+var rejOk = rejLen >= 10;
+var rejShowErr = st.rejTried && !rejOk;
+var det = {
+name: A.name + ' · ' + A.rm, layanan: A.layanan, pemohon: A.pemohon, chip: cNow.t, chipBg: cNow.bg, chipFg: cNow.fg,
+facts: [
+{ k: 'Nilai pembiayaan', v: rp(A.nilai), ff: "'IBM Plex Mono', monospace" },
+{ k: 'Tenor', v: A.tenor + ' bulan', ff: 'inherit' },
+{ k: 'Estimasi angsuran (simulasi)', v: rp(Math.round(pmt(A.nilai, A.tenor) / 100) * 100) + '/bln', ff: "'IBM Plex Mono', monospace" },
+{ k: 'Sumber pengajuan', v: A.src, ff: 'inherit' },
+{ k: 'Tagihan RS', v: A.inv, ff: "'IBM Plex Mono', monospace" },
+{ k: 'Margin', v: '11% p.a. (simulasi)', ff: 'inherit' }
+],
+hasNote: !!A.note, note: A.note, tl: tl,
+isDone: sNow === 'dicairkan', doneMsg: 'BTN mencairkan ' + rp(A.nilai) + ' ke rekening operasional ••••4417 (' + (atOf.dicairkan || '') + '). Tagihan ' + A.inv + ' lunas; angsuran berikutnya dibayar pasien langsung ke BTN.',
+isRej: sNow === 'ditolak', rejMsg: 'Ditolak BTN: ' + D.reason + '. Tagihan ' + A.inv + ' tetap terbuka; tawarkan kanal bayar lain (VA, QRIS, EDC).',
+canAct: canAct, canRej: canRej, nextLabel: nextLabel[sNow] || '',
+next: function () {
+var cur = self.state.apps[A.id];
+var i = flowOrder.indexOf(cur.status);
+if (i < 0 || i >= flowOrder.length - 1) return;
+var ns = flowOrder[i + 1];
+var upd = Object.assign({}, self.state.apps);
+upd[A.id] = Object.assign({}, cur, { status: ns, hist: cur.hist.concat([{ s: ns, at: '3 Okt ' + jam() }]) });
+self.setState({ apps: upd, rejOpen: false, rejText: '', rejTried: false });
+},
+rejExp: st.rejOpen ? 'true' : 'false',
+openRej: function () { self.setState({ rejOpen: !self.state.rejOpen, rejTried: false }); },
+showRej: st.rejOpen && canRej,
+cancelRej: function () { self.setState({ rejOpen: false, rejText: '', rejTried: false }); },
+rejInvalid: rejShowErr ? 'true' : 'false', rejBd: rejShowErr ? '#B42318' : '#CBD3DB',
+rejHint: rejShowErr ? 'Alasan wajib diisi, minimal 10 karakter.' : (rejOk ? 'Alasan tercatat di jejak audit dan dikirim ke pasien.' : 'Minimal 10 karakter (' + rejLen + '/10).'),
+rejMsgFg: rejShowErr ? '#B42318' : '#5B6B79',
+rejDis: rejOk ? 'false' : 'true', rejBtnBd: rejOk ? '#B42318' : '#CBD3DB', rejBtnBg: rejOk ? '#B42318' : '#E9EDF1', rejBtnFg: rejOk ? '#FFFFFF' : '#5B6B79', rejCur: rejOk ? 'pointer' : 'not-allowed',
+doRej: function () {
+var txt = self.state.rejText.trim();
+if (txt.length < 10) { self.setState({ rejTried: true }); return; }
+var cur = self.state.apps[A.id];
+if (cur.status !== 'diajukan' && cur.status !== 'verifikasi') return;
+var upd = Object.assign({}, self.state.apps);
+upd[A.id] = Object.assign({}, cur, { status: 'ditolak', reason: txt, hist: cur.hist.concat([{ s: 'ditolak', at: '3 Okt ' + jam() }]) });
+self.setState({ apps: upd, rejOpen: false, rejText: '', rejTried: false });
+}
+};
+
+return {
+isA: isA, isB: !isA,
+tabA: tabSty(isA, function () { self.setState({ tab: 'piutang' }); }),
+tabB: tabSty(!isA, function () { self.setState({ tab: 'cicilan' }); }),
+tabNote: isA ? 'Supply chain financing atas piutang klaim BPJS · advance rate 90% (simulasi)' : 'Cicilan pasien diputuskan dan ditagih oleh BTN · RS menerima pelunasan penuh',
+kpiA: kpiA, pool: pool, calc: calc,
+pickAllLabel: allPicked ? 'Kosongkan pilihan' : 'Pilih semua layak bayar',
+pickAll: function () {
+var s = {};
+if (!allPicked) layakFree.forEach(function (id) { s[id] = true; });
+self.setState({ sel: s });
+},
+ajukanBtn: canAjukan
+? { dis: 'false', bd: '#0D6861', bg: 'linear-gradient(180deg, #1D7E77, #0F766E)', fg: '#FFFFFF', cur: 'pointer', reason: '' }
+: { dis: 'true', bd: '#CBD3DB', bg: '#E9EDF1', fg: '#5B6B79', cur: 'not-allowed', reason: ajukanReason },
+ajukan: function () {
+if (!canAjukan) return;
+var n = self.state.seq;
+var id = 'PCR-2610-' + (n < 10 ? '0' : '') + n;
+var d = { id: id, pool: selIds.slice(), pokok: cairVal, cair: '', jt: '', days: 0, stage: 'diajukan', ajuAt: jam(), okAt: '', cairAt: '', lunasAt: '', margin: 0 };
+self.setState({ draws: self.state.draws.concat([d]), active: id, seq: n + 1, sel: {} });
+},
+prog: prog, drawRows: drawRows, drawCount: drawCount,
+payInfo: payInfo, payBtn: payBtn, hasPay: !!pay, payHead: payHead, payRows: payRows, flow: flow,
+payBpjs: function () {
+if (!target) return;
+var klaim = klaimOf(target);
+var assumed = target.days <= 0;
+var days = assumed ? AVG_DAYS : target.days;
+var margin = Math.round(target.pokok * RATE * days / 365);
+var t = jam();
+self.setState({
+draws: self.state.draws.map(function (d) { return d.id === target.id ? Object.assign({}, d, { stage: 'lunas', lunasAt: t, margin: margin }) : d; }),
+pay: { id: target.id, basis: basisOf(target), klaim: klaim, pokok: target.pokok, margin: margin, days: days, assumed: assumed, sisa: klaim - target.pokok - margin, at: t }
+});
+},
+kpiB: kpiB, apps: apps, det: det, rejText: st.rejText,
+typeRej: function (e) { self.setState({ rejText: e.target.value }); }
+};
+}
+}
+</script>
+</body>
+</html>
