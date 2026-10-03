@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { createPrismaClient, ensureSystemRoles, type PrismaClient, withTenant } from '@simrs/db';
-import { testDbUrls } from '@simrs/db/testing';
+import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import {
   base32Decode,
@@ -19,7 +19,13 @@ import { loadApiEnv } from '../src/config/env';
 
 export const TENANT_A = '0199a000-0000-7000-8000-000000000001';
 export const TENANT_B = '0199a000-0000-7000-8000-000000000002';
-export const TENANT_CODES: Record<string, string> = { [TENANT_A]: 'RSFA', [TENANT_B]: 'RSFB' };
+/** Tenant khusus operator platform (superadmin_platform). */
+export const TENANT_PLATFORM: string = SEED_PLATFORM_TENANT.id;
+export const TENANT_CODES: Record<string, string> = {
+  [TENANT_A]: 'RSFA',
+  [TENANT_B]: 'RSFB',
+  [TENANT_PLATFORM]: SEED_PLATFORM_TENANT.code,
+};
 
 /** Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app). */
 export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
@@ -31,6 +37,8 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     // Tes modul memakai mode header pengembang; tes auth memakai token sungguhan.
     ALLOW_DEV_TENANT_HEADER: 'true',
     AUTH_RATE_LIMIT_PER_MIN: '1000',
+    // Supertest datang dari loopback; X-Forwarded-For hanya dipercaya dari sana (seperti web BFF lokal).
+    TRUST_PROXY: 'loopback',
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();

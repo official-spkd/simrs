@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { activeAssignments, lockTenantScope, type Prisma } from '@simrs/db';
-import { ACCESS_ADMIN_GRANTS, newId, PROTECTED_ROLE } from '@simrs/shared';
+import { ACCESS_ADMIN_GRANTS, newId, PROTECTED_ROLES, type TenantKind } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
 
 const now = () => new Date();
@@ -65,6 +65,13 @@ export class IamRepository {
     return this.db
       .tx()
       .user.findUnique({ where: { id }, select: { id: true, username: true, status: true } });
+  }
+
+  async tenantKind(): Promise<TenantKind> {
+    const t = await this.db
+      .tx()
+      .tenant.findUnique({ where: { id: this.db.tenantId() }, select: { kind: true } });
+    return t?.kind === 'platform' ? 'platform' : 'hospital';
   }
 
   /** Serialkan perubahan yang bisa mengurangi jumlah admin (lihat `lockTenantScope`). */
@@ -210,7 +217,7 @@ export class IamRepository {
     return this.db.tx().staffAssignment.count({
       where: {
         ...activeAt(now()),
-        role: { code: PROTECTED_ROLE, active: true },
+        role: { code: { in: [...PROTECTED_ROLES] }, active: true },
         user: { status: 'active' },
         ...(exclude.assignmentId ? { id: { not: exclude.assignmentId } } : {}),
         ...(exclude.userId ? { userId: { not: exclude.userId } } : {}),

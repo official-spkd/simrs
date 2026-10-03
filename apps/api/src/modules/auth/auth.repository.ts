@@ -130,7 +130,7 @@ export class AuthRepository {
           select: { id: true },
           take: 1,
         },
-        tenant: { select: { code: true, name: true } },
+        tenant: { select: { id: true, code: true, name: true, kind: true } },
       },
     });
   }

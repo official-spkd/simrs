@@ -6,7 +6,7 @@
 import { newId } from '@simrs/shared';
 import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type TenantTx, withTenant } from '../src/client';
-import { SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
+import { SEED_PLATFORM_TENANT, SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 
 const url = process.env.MIGRATOR_DATABASE_URL;
 if (!url) throw new Error('MIGRATOR_DATABASE_URL belum disetel');
@@ -64,6 +64,14 @@ try {
     });
     console.warn(`Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit)`);
   }
+  const p = SEED_PLATFORM_TENANT;
+  await withTenant(prisma, p.id, async (tx) => {
+    await tx.tenant.upsert({ where: { id: p.id }, update: { name: p.name }, create: { ...p } });
+    await ensureSystemRoles(tx, p.id, 'platform');
+  });
+  console.warn(
+    `Tenant siap: ${p.code} · ${p.name} (buat superadmin: pnpm db:create-admin --tenant ${p.code} …)`,
+  );
 } finally {
   await prisma.$disconnect();
 }

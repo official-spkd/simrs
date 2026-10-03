@@ -11,8 +11,12 @@ export type AppEnv = (typeof APP_ENVS)[number];
  * APP_ENV yang tidak disetel dianggap `production` (gagal aman).
  */
 export function devToolsAllowed(env: { APP_ENV?: string; NODE_ENV?: string }): boolean {
-  const appEnv = (APP_ENVS as readonly string[]).includes(env.APP_ENV ?? '') ? env.APP_ENV : 'production';
-  return appEnv !== 'production' && env.NODE_ENV !== 'production';
+  return resolveAppEnv(env.APP_ENV) !== 'production' && env.NODE_ENV !== 'production';
+}
+
+/** APP_ENV gagal aman: tidak disetel, kosong, atau tak dikenal → `production`. */
+export function resolveAppEnv(value: string | undefined): AppEnv {
+  return (APP_ENVS as readonly string[]).includes(value ?? '') ? (value as AppEnv) : 'production';
 }
 
 /** Potongan skema env; tiap aplikasi menggabungkan yang ia butuhkan. */

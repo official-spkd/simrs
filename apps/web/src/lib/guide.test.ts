@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { superadminAccess } from './access';
 import {
   extractToc,
   findGuidePage,
@@ -74,15 +73,5 @@ describe('rewriteGuideHref', () => {
     expect(rewriteGuideHref('./03-tutorial.md')).toBe('/superadmin/panduan/tutorial');
     expect(rewriteGuideHref('./tidak-ada.md')).toBe('./tidak-ada.md');
     expect(rewriteGuideHref('https://contoh.id')).toBe('https://contoh.id');
-  });
-});
-
-describe('superadminAccess (gagal aman)', () => {
-  it('terbuka hanya untuk APP_ENV local/staging', () => {
-    expect(superadminAccess({ APP_ENV: 'local' }).allowed).toBe(true);
-    expect(superadminAccess({ APP_ENV: 'staging' }).allowed).toBe(true);
-    expect(superadminAccess({ APP_ENV: 'production' }).allowed).toBe(false);
-    expect(superadminAccess({}).allowed).toBe(false);
-    expect(superadminAccess({ APP_ENV: 'Local' }).allowed).toBe(false);
   });
 });

@@ -1,20 +1,18 @@
 import { Alert } from '@simrs/ui';
-import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { superadminAccess } from '@/lib/access';
+import { requireSuperadmin } from '@/lib/server/session';
 
-// Gerbang dievaluasi per permintaan (bukan saat build) agar keputusan akses mengikuti env runtime.
-export const dynamic = 'force-dynamic';
-
-export default function SuperadminLayout({ children }: { children: ReactNode }) {
-  const access = superadminAccess();
-  if (!access.allowed) notFound();
+/**
+ * Area operator platform (ADR-0010, ADR-0013). Gerbang juga dipanggil di setiap halaman di dalamnya: layout
+ * tidak menghentikan halaman anak dirender, jadi pemeriksaan di layout saja tidak cukup.
+ */
+export default async function SuperadminLayout({ children }: { children: ReactNode }) {
+  await requireSuperadmin();
   return (
     <div className="flex flex-col gap-5">
-      <Alert level="warning" title="Area superadmin">
-        Fase 0 belum memiliki login, sehingga area ini hanya terbuka di lingkungan non-produksi (APP_ENV
-        local/staging). Di produksi halaman ini tidak ada (404) sampai peran superadmin platform tersedia di
-        fase 1.
+      <Alert level="info" title="Area superadmin">
+        Hanya untuk operator platform (peran superadmin_platform). Akun RS mana pun tidak bisa membuka halaman
+        ini.
       </Alert>
       {children}
     </div>

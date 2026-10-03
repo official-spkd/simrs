@@ -24,6 +24,7 @@ Isi `.env` yang perlu diperhatikan:
 | `HOST`                                   | `127.0.0.1`                                  | API dan mock tidak terbuka ke jaringan                                                                                 |
 | `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya                                     |
 | `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi |
+| `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
 ### Pilihan A: Docker (jalur utama)
@@ -56,8 +57,19 @@ Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/ini
 ```powershell
 pnpm build           # bangun paket bersama (shared, db)
 pnpm db:deploy       # terapkan semua migrasi ke database simrs
-pnpm db:seed         # 2 tenant RS fiktif
+pnpm db:seed         # 2 tenant RS fiktif + tenant PLATFORM (operator)
 ```
+
+### Buat akun untuk masuk
+
+Tidak ada akun bawaan. Buat admin RS dan operator platform (untuk membuka panduan ini) lewat CLI:
+
+```powershell
+pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif"
+pnpm db:create-admin --tenant PLATFORM --username superadmin --name "Operator Platform"
+```
+
+Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSFA` atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
 ## 2. Menjalankan dan memeriksa
 
@@ -65,15 +77,16 @@ pnpm db:seed         # 2 tenant RS fiktif
 pnpm dev             # api + worker + web + mock sekaligus (Turborepo)
 ```
 
-| Alamat                                   | Yang terlihat                                                         |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| http://localhost:3000                    | Web staf. Kartu "Status sistem" di Beranda menampilkan hasil `/ready` |
-| http://localhost:3000/superadmin/panduan | Panduan ini                                                           |
-| http://localhost:3000/dev/ui             | Galeri token dan komponen                                             |
-| http://127.0.0.1:4000/docs               | Swagger API                                                           |
-| http://127.0.0.1:4000/ready              | Kesehatan DB, Redis, MinIO (JSON)                                     |
-| http://127.0.0.1:4100                    | Panel kendali mock                                                    |
-| http://localhost:8025                    | Mailpit (email lokal)                                                 |
+| Alamat                                   | Yang terlihat                                                        |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| http://localhost:3000/masuk              | Layar masuk (kode RS → sandi → kode TOTP → unit)                     |
+| http://localhost:3000                    | Web staf. Operator platform melihat kartu "Status sistem" (`/ready`) |
+| http://localhost:3000/superadmin/panduan | Panduan ini (akun `superadmin_platform`)                             |
+| http://localhost:3000/dev/ui             | Galeri token dan komponen (akun `superadmin_platform`)               |
+| http://127.0.0.1:4000/docs               | Swagger API                                                          |
+| http://127.0.0.1:4000/ready              | Kesehatan DB, Redis, MinIO (JSON)                                    |
+| http://127.0.0.1:4100                    | Panel kendali mock                                                   |
+| http://localhost:8025                    | Mailpit (email lokal)                                                |
 
 Pemeriksaan cepat:
 

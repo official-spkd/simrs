@@ -42,15 +42,42 @@ export class AccountService {
     return { userId: actor.userId, sessionId: actor.sessionId };
   }
 
+  /**
+   * Profil sesi untuk web: pengguna, RS, peran + unit dari penugasan aktif, dan izin peran itu. Peran diambil
+   * dari hasil validasi sesi di guard (sumber yang sama dengan pemeriksaan izin), bukan dihitung ulang.
+   * Web memakai `permissions` hanya untuk menampilkan menu; penegakan tetap di setiap endpoint API.
+   */
   async me() {
-    const { userId } = this.current();
-    const session = await this.db.tx().authSession.findUnique({
-      where: { id: this.current().sessionId },
+    const { userId, sessionId } = this.current();
+    const actor = requestContext.getStore()?.actor;
+    const tx = this.db.tx();
+    const session = await tx.authSession.findUnique({
+      where: { id: sessionId },
       select: { mfaVerified: true, accessExpiresAt: true, refreshExpiresAt: true, unitId: true },
     });
-    const p = await this.repo.findUserProfile(this.db.tx(), userId);
+    const p = await this.repo.findUserProfile(tx, userId);
     if (!p || !session) throw new AppError('UNAUTHENTICATED', 'Sesi tidak valid', 401);
+    const role = actor?.role
+      ? await tx.role.findFirst({
+          where: { code: actor.role, active: true },
+          select: {
+            code: true,
+            name: true,
+            permissions: {
+              select: { resource: true, action: true, scope: true },
+              orderBy: [{ resource: 'asc' }, { action: 'asc' }],
+            },
+          },
+        })
+      : null;
+    const unit =
+      role && actor?.unitId
+        ? await tx.unit.findUnique({ where: { id: actor.unitId }, select: { id: true, name: true } })
+        : null;
     return {
+      role: role ? { code: role.code, name: role.name } : null,
+      unit,
+      permissions: role?.permissions ?? [],
       user: {
         id: p.id,
         username: p.username,

@@ -2,6 +2,7 @@
  * Penjaga struktural skema: berlaku otomatis untuk SETIAP tabel baru, sehingga lupa menambah blok RLS
  * di migrasi langsung ketahuan di tes, bukan di produksi.
  */
+import { newId } from '@simrs/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient } from '../src/index';
 import { testDbUrls } from '../src/testing';
@@ -65,6 +66,24 @@ describe('penjaga skema', () => {
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
       FROM unnest(${tables}::text[]) AS t`;
     expect(rows.filter((r) => r.can_delete).map((r) => r.table)).toEqual([]);
+  });
+
+  it('indeks unik parsial manual (tidak dimodelkan Prisma) tetap ada', async () => {
+    const rows = await owner.$queryRaw<Array<{ name: string }>>`
+      SELECT indexname AS name FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname IN ('mfa_factors_one_active_per_user', 'tenants_single_platform')
+      ORDER BY 1`;
+    expect(rows.map((r) => r.name)).toEqual(['mfa_factors_one_active_per_user', 'tenants_single_platform']);
+  });
+
+  it('hanya satu tenant platform, dan jenis tenant dibatasi', async () => {
+    const code = () => `PX${newId().slice(-8).toUpperCase()}`;
+    await expect(
+      owner.tenant.create({ data: { id: newId(), code: code(), name: 'Platform kedua', kind: 'platform' } }),
+    ).rejects.toThrow();
+    await expect(
+      owner.tenant.create({ data: { id: newId(), code: code(), name: 'Jenis tak dikenal', kind: 'klinik' } }),
+    ).rejects.toThrow();
   });
 
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {

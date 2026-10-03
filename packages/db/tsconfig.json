@@ -1,5 +1,5 @@
 {
   "extends": "@simrs/config/tsconfig/library.json",
   "compilerOptions": { "types": ["node"] },
-  "include": ["src", "prisma", "test", "*.config.ts"]
+  "include": ["src", "prisma", "scripts", "test", "*.config.ts"]
 }

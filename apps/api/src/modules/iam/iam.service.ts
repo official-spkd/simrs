@@ -6,7 +6,8 @@ import {
   type CreateUserInput,
   isPermission,
   PERMISSION_CATALOG,
-  PROTECTED_ROLE,
+  isProtectedRole,
+  permissionAllowedFor,
   type RolePermissionsInput,
   type UpdateUserInput,
 } from '@simrs/shared';
@@ -44,7 +45,7 @@ export class IamService {
   /** Pemegang izin kelola pengguna hasil delegasi tidak boleh menyentuh akun/peran setara admin (eskalasi). */
   private async assertMayManage(target: { userId?: string; roleId?: string }) {
     const role = this.db.actor().role;
-    if (role === PROTECTED_ROLE || role === DEV_ROLE) return;
+    if (isProtectedRole(role) || role === DEV_ROLE) return;
     const privileged =
       (target.roleId !== undefined && (await this.repo.isAccessAdminRole(target.roleId))) ||
       (target.userId !== undefined && (await this.repo.holdsAccessAdminRole(target.userId)));
@@ -169,7 +170,7 @@ export class IamService {
     const end = new Date(Math.max(Date.now(), a.validFrom.getTime()));
     if (a.validUntil && a.validUntil <= end) throw conflict('Penugasan sudah berakhir');
     await this.assertMayManage({ roleId: a.roleId });
-    if (a.role.code === PROTECTED_ROLE) await this.assertKeepsAnAdmin({ assignmentId });
+    if (isProtectedRole(a.role.code)) await this.assertKeepsAnAdmin({ assignmentId });
     const r = await this.repo.endAssignment(assignmentId, end, reason);
     return { id: r.id, validUntil: r.validUntil?.toISOString() ?? null };
   }
@@ -193,7 +194,11 @@ export class IamService {
     const keys = input.grants.map((g) => `${g.resource}.${g.action}`);
     if (new Set(keys).size !== keys.length) throw invalid('Izin ganda dalam satu peran');
     if (!input.grants.every((g) => isPermission(g.resource, g.action))) throw invalid('Izin tidak dikenal');
-    if (code === PROTECTED_ROLE) {
+    const kind = await this.repo.tenantKind();
+    if (!input.grants.every((g) => permissionAllowedFor(kind, g.resource))) {
+      throw invalid('Izin platform tidak bisa diberikan ke peran RS');
+    }
+    if (isProtectedRole(code)) {
       const missing = ACCESS_ADMIN_GRANTS.filter(
         ([r, a]) => !input.grants.some((g) => g.resource === r && g.action === a && g.scope === 'all'),
       );

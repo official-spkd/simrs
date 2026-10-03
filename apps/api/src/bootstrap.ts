@@ -12,6 +12,8 @@ export function configureApp(app: NestExpressApplication, env: ApiEnv): void {
   // Paling awal: berlaku untuk semua rute termasuk Swagger dan 404.
   app.use(securityHeaders({ hsts: env.APP_ENV === 'production' }));
   app.disable('x-powered-by');
+  // IP klien dan host asli dari web BFF/reverse proxy tepercaya saja (audit, batas laju, RS dari subdomain).
+  if (env.TRUST_PROXY !== undefined) app.set('trust proxy', env.TRUST_PROXY);
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] });

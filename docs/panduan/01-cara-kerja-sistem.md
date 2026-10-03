@@ -71,6 +71,8 @@ Worker harus memproses outbox milik semua RS. Ia memakai fungsi `app_active_tena
 
 Contoh: staf membuka data tenant aktif (`GET /api/v1/tenancy/current`).
 
+Browser tidak pernah memanggil API langsung. Web (Next.js) menjadi perantara: token login disimpan di cookie yang tidak bisa dibaca skrip, web memanggil API atas nama pengguna, dan memperpanjang sesi secara otomatis. Di sisi API, langkahnya:
+
 1. **Header keamanan** dipasang di respons (CSP, anti-framing, `no-store` agar data tidak tersimpan di cache).
 2. **Request id** dibuat atau diteruskan (`X-Request-Id`). Id ini muncul di log dan di setiap pesan galat, sehingga keluhan pengguna bisa ditelusuri tanpa mencatat data pasien.
 3. **Rate limit** memeriksa jumlah permintaan per IP.
@@ -130,7 +132,7 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 | API            | Rate limit per IP, batas body 1 MB, batas waktu koneksi (anti-slowloris)                          | ✅ fase 0 |
 | Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                           | ✅ fase 0 |
 | Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                       | ✅ fase 0 |
-| Web            | CSP, anti-framing, area superadmin tertutup di produksi                                           | ✅ fase 0 |
+| Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform | ✅ fase 1 |
 | Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit        | ✅ fase 0 |
 | Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                    | ✅ fase 1 |
 | Audit          | Hash berantai ✅; audit setiap baca data pasien dan laporan anomali menyusul                      | 🟨 fase 1 |

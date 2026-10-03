@@ -46,6 +46,7 @@ docker compose up -d         # infra lokal (tanpa Docker: pnpm pg:portable, Post
 pnpm doctor                  # cek prasyarat dan port
 pnpm db:migrate              # prisma migrate dev
 pnpm db:seed                 # data fiktif (2 tenant RS, staf, pasien)
+pnpm db:create-admin --tenant RSFA --username … --name …   # akun pertama (tidak ada akun bawaan)
 pnpm dev                     # api + worker + web + mock (turbo)
 pnpm lint && pnpm typecheck  # wajib hijau sebelum commit
 pnpm test                    # unit + integrasi (vitest / jest)

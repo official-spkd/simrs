@@ -234,23 +234,26 @@ Fase 0 hanya mengenal operasi `ping` (ke `/<sistem>/_echo` di mock). Konektor ny
 
 `apps/web/src/`:
 
-| Path                      | Isi                                                                                                             |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`          | Root: font IBM Plex, `lang="id"`, CSS global                                                                    |
-| `app/(staf)/layout.tsx`   | Kerangka staf (sidebar + konten). Keputusan akses superadmin dibuat di sini (server) lalu diteruskan ke sidebar |
-| `app/(staf)/page.tsx`     | Beranda + status `/ready` API                                                                                   |
-| `app/(staf)/superadmin/…` | Area superadmin: layout dengan gerbang akses, panduan ini                                                       |
-| `app/(staf)/dev/ui/`      | Galeri token dan komponen (Fondasi)                                                                             |
-| `components/`             | Komponen khusus web: `staff-sidebar.tsx`, `markdown.tsx`                                                        |
-| `lib/nav.ts`              | Menu dan rute (nyalakan `available: true` saat layar selesai)                                                   |
-| `lib/access.ts`           | Gerbang area superadmin                                                                                         |
-| `lib/guide.ts`            | Daftar halaman panduan, pembaca berkas, daftar isi                                                              |
-| `lib/api.ts`              | Klien API bertipe (respons divalidasi zod)                                                                      |
+| Path                      | Isi                                                                                                            |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`          | Root: font IBM Plex, `lang="id"`, CSS global                                                                   |
+| `proxy.ts`                | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel) |
+| `app/masuk/`              | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)   |
+| `app/(staf)/layout.tsx`   | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                  |
+| `app/(staf)/page.tsx`     | Beranda; status `/ready` hanya untuk operator platform                                                         |
+| `app/(staf)/superadmin/…` | Area superadmin (peran `superadmin_platform`): panduan ini                                                     |
+| `app/(staf)/dev/ui/`      | Galeri token dan komponen (Fondasi), juga khusus operator platform                                             |
+| `lib/server/`             | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`       |
+| `lib/nav.ts`              | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                              |
+| `lib/guide.ts`            | Daftar halaman panduan, pembaca berkas, daftar isi                                                             |
 
 Aturan web:
 
-- Komponen **server** secara default. `'use client'` hanya untuk yang butuh interaksi (sidebar, tab, galeri Fondasi).
+- Komponen **server** secara default. `'use client'` hanya untuk yang butuh interaksi (sidebar, formulir, tab, galeri Fondasi).
 - Komponen klien tidak membaca env atau rahasia; keputusan dibuat di server lalu dikirim sebagai prop.
+- Web adalah **BFF** (ADR-0013): browser tidak pernah memegang token API. Semua panggilan API lewat `api()` di `lib/server/api.ts` (token dari cookie httpOnly, IP/host/user agent klien diteruskan). Respons API divalidasi skema di `lib/server/schemas.ts`; respons di luar bentuk itu ditolak.
+- Setiap halaman staf memanggil `requireSession()` (atau `requireSuperadmin()`), **tidak cukup** di layout saja: layout tidak dirender ulang saat navigasi dan tidak menghentikan halaman anaknya.
+- Setiap Server Action memeriksa input dan sesinya sendiri (action = endpoint POST publik), dan hanya mengembalikan pesan untuk UI.
 - `next.config.ts` memasang header keamanan dan hanya mengambil `APP_ENV`, `API_BASE_URL`, `WEB_BASE_URL` dari `.env` root.
 
 ### Panduan superadmin (halaman ini)
@@ -258,7 +261,28 @@ Aturan web:
 - Konten = berkas `docs/panduan/*.md`. Daftar halaman tetap di `GUIDE_PAGES` (`lib/guide.ts`); slug dari URL hanya dicocokkan dengan daftar itu, tidak pernah dipakai sebagai path berkas.
 - Dirender oleh `components/markdown.tsx` (react-markdown + GFM) sebagai komponen server. HTML mentah di Markdown **tidak** dirender, jadi konten tidak bisa menyisipkan skrip.
 - Tautan antar-berkas (`./02-cara-kerja-kode.md#…`) otomatis menjadi rute aplikasi, sehingga tautan bekerja di GitHub maupun di aplikasi.
-- Gerbang: `superadminAccess()` di `lib/access.ts`. Fase 1 menggantinya dengan sesi + peran `superadmin_platform` (ADR-0010).
+- Gerbang: `requireSuperadmin()` di `lib/server/session.ts`: tenant `platform` + izin `platform.guide.read` (peran `superadmin_platform`, ADR-0013). Selain itu 404.
+
+### Sesi web dan alur masuk
+
+```
+/masuk  langkah 1  loginAction ──► POST /auth/login ──► cookie tantangan MFA (5 menit)  atau  sesi terbatas (belum MFA)
+        langkah 2  verifyMfaAction ──► POST /auth/mfa/verify ──► cookie sesi (akses + refresh)
+                   (akun baru) startEnrollmentAction → QR (uqr, data URI) → confirmEnrollmentAction
+                   (sandi sementara) changePasswordAction ──► POST /auth/password
+        langkah 3  selectUnitAction ──► POST /auth/assignment ──► redirect ke ?lanjut (divalidasi safeNextPath)
+halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() sekali per token → cookie baru
+                   requireSession() → GET /auth/me (sekali per render) → identitas, peran, unit, izin
+```
+
+| Hal                  | Aturan                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cookie               | `simrs_at` (akses), `simrs_rt` (refresh), `simrs_mfa*` (tantangan). httpOnly, SameSite=Lax, path /; di luar lokal Secure + `__Host-`.             |
+| Umur cookie akses    | 60 detik lebih pendek dari token akses, agar proxy sempat memperbarui sebelum API menolak.                                                        |
+| Refresh paralel      | `refreshSession()` menyimpan janji per hash refresh token selama 30 detik: banyak permintaan, satu panggilan API. Hanya berlaku satu instans web. |
+| Tujuan setelah login | `?lanjut=` hanya path internal (`safeNextPath`: tanpa `//`, skema, backslash, karakter kendali).                                                  |
+| IP klien ke API      | Entri paling kanan `X-Forwarded-For` (ditambahkan reverse proxy tepercaya). API mempercayainya hanya dari alamat `TRUST_PROXY`.                   |
+| Menu                 | Dari `permissions` di `/auth/me` (kenyamanan saja); izin tetap ditegakkan API.                                                                    |
 
 ## UI dan sistem desain
 
@@ -288,7 +312,7 @@ Aturan web:
 | Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                    | Postgres         | `pnpm --filter @simrs/api test`     |
 | Integrasi worker | `apps/worker/test`                                                                                                                       | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
 | Mock             | `apps/mock/src/mock.test.ts`                                                                                                             | –                | `pnpm --filter @simrs/mock test`    |
-| E2E              | `apps/web/e2e` (Playwright, Edge di Windows)                                                                                             | web jalan        | `pnpm --filter @simrs/web test:e2e` |
+| E2E              | `apps/web/e2e` (Playwright, Edge di Windows): API :4010 + web build :3010 di DB `simrs_test`, akun uji dibuat langsung di DB             | Postgres         | `pnpm --filter @simrs/web test:e2e` |
 
 Aturan:
 

@@ -2,10 +2,12 @@ import { Card } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GUIDE_PAGES, guideSourcePath } from '@/lib/guide';
+import { requireSuperadmin } from '@/lib/server/session';
 
 export const metadata: Metadata = { title: 'Panduan sistem' };
 
-export default function GuideIndexPage() {
+export default async function GuideIndexPage() {
+  await requireSuperadmin();
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-1">

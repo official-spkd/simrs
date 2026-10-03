@@ -1,9 +1,35 @@
+import { isIP } from 'node:net';
 import { devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
 import { z } from 'zod';
 
 const base64Key32 = z
   .string()
   .refine((v) => Buffer.from(v, 'base64').length === 32, 'Harus 32 byte base64 (openssl rand -base64 32)');
+
+const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
+
+/**
+ * Nilai `trust proxy` Express: jumlah hop (1–5) atau daftar alamat/CIDR/nama. `true`/`*` sengaja ditolak:
+ * mempercayai semua pengirim membuat klien bisa memalsukan IP (dan lolos dari batas laju per IP).
+ */
+export function parseTrustProxy(raw: string): number | string[] | null {
+  if (/^\d+$/.test(raw)) {
+    const hops = Number(raw);
+    return hops >= 1 && hops <= 5 ? hops : null;
+  }
+  const parts = raw
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const valid = (p: string) => {
+    if (TRUST_PROXY_NAMES.has(p)) return true;
+    const [addr = '', bits, ...rest] = p.split('/');
+    const family = isIP(addr);
+    if (rest.length > 0 || family === 0) return false;
+    return bits === undefined || (/^\d+$/.test(bits) && Number(bits) <= (family === 4 ? 32 : 128));
+  };
+  return parts.length > 0 && parts.every(valid) ? parts : null;
+}
 
 export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.host.shape)
@@ -31,12 +57,39 @@ export const apiEnvSchema = envSchemas.base
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+    /**
+     * Proxy tepercaya untuk `X-Forwarded-For`/`-Host` (web BFF, reverse proxy). Contoh: `loopback`,
+     * `10.0.0.0/8,loopback`, atau jumlah hop `1`. Tanpa ini, semua permintaan lewat web tampak datang dari
+     * satu IP (server web), sehingga batas laju login berlaku untuk seluruh RS sekaligus. Wajib di produksi.
+     */
+    TRUST_PROXY: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v, ctx) => {
+        if (!v) return undefined;
+        const parsed = parseTrustProxy(v);
+        if (parsed === null) {
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'Isi dengan jumlah hop (1–5) atau daftar alamat/CIDR/loopback/uniquelocal; true/* ditolak',
+          });
+          return z.NEVER;
+        }
+        return parsed;
+      }),
   });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema> & { devTools: boolean; devTenantHeader: boolean };
 
 export function loadApiEnv(source: Record<string, string | undefined> = process.env): ApiEnv {
   const env = parseEnv(apiEnvSchema, source);
+  if (env.APP_ENV === 'production' && env.TRUST_PROXY === undefined) {
+    throw new Error(
+      'Konfigurasi env tidak valid → TRUST_PROXY wajib di produksi (alamat web/reverse proxy di depan API)',
+    );
+  }
   const devTools = devToolsAllowed(env);
   return {
     ...env,

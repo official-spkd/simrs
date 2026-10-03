@@ -1,9 +1,17 @@
-import type { NavGroup } from '@simrs/ui';
+import type { TenantKind } from '@simrs/shared';
+import type { NavGroup, NavItem } from '@simrs/ui';
+
+/** Menu web: `requires` = izin (`sumber.aksi`) yang harus dimiliki peran aktif agar menu tampil. */
+export type WebNavItem = NavItem & { requires?: string };
+export interface WebNavGroup extends NavGroup {
+  items: WebNavItem[];
+}
 
 /**
  * Peta menu → rute (docs/08-desain-ui.md §4). `available` dinyalakan saat layar fase terkait selesai.
+ * Menyembunyikan menu hanya kenyamanan; setiap halaman dan endpoint API tetap memeriksa izinnya sendiri.
  */
-export const NAV_GROUPS: NavGroup[] = [
+export const NAV_GROUPS: WebNavGroup[] = [
   {
     title: 'UMUM',
     items: [
@@ -71,8 +79,22 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'SISTEM',
     items: [
-      { id: 'akses', label: 'Pengguna & akses', href: '/sistem/akses', icon: 'shield', available: false },
-      { id: 'audit', label: 'Jejak audit', href: '/sistem/audit', icon: 'history', available: false },
+      {
+        id: 'akses',
+        label: 'Pengguna & akses',
+        href: '/sistem/akses',
+        icon: 'shield',
+        available: false,
+        requires: 'iam.users.read',
+      },
+      {
+        id: 'audit',
+        label: 'Jejak audit',
+        href: '/sistem/audit',
+        icon: 'history',
+        available: false,
+        requires: 'audit.read',
+      },
       {
         id: 'formulir',
         label: 'Formulir klinis',
@@ -85,9 +107,8 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** Cari menu aktif dari pathname: cocokkan prefix terpanjang. */
-/** Area superadmin platform; hanya tampil bila `superadminAccess()` mengizinkan (lihat lib/access.ts). */
-export const SUPERADMIN_GROUP: NavGroup = {
+/** Area superadmin platform; hanya untuk peran superadmin_platform di tenant PLATFORM (ADR-0010, ADR-0013). */
+export const SUPERADMIN_GROUP: WebNavGroup = {
   title: 'SUPERADMIN',
   items: [
     { id: 'panduan', label: 'Panduan sistem', href: '/superadmin/panduan', icon: 'info', available: true },
@@ -95,11 +116,30 @@ export const SUPERADMIN_GROUP: NavGroup = {
   ],
 };
 
-/** Grup menu untuk pengguna saat ini. Grup superadmin disembunyikan bila aksesnya tertutup. */
-export function navGroups(opts: { superadmin: boolean }): NavGroup[] {
-  return opts.superadmin ? [...NAV_GROUPS, SUPERADMIN_GROUP] : NAV_GROUPS;
+/** Menu RS yang relevan bagi operator platform (tanpa modul klinis/keuangan). */
+const PLATFORM_ITEM_IDS = new Set(['beranda', 'akses', 'audit']);
+
+/**
+ * Grup menu untuk sesi saat ini: menu ber-`requires` hanya tampil bila peran memegang izinnya; tenant PLATFORM
+ * hanya melihat menu sistem; grup superadmin hanya untuk superadmin platform.
+ */
+export function navGroups(opts: {
+  kind: TenantKind;
+  superadmin: boolean;
+  permissions: readonly string[];
+}): WebNavGroup[] {
+  const groups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter(
+      (item) =>
+        (!item.requires || opts.permissions.includes(item.requires)) &&
+        (opts.kind !== 'platform' || PLATFORM_ITEM_IDS.has(item.id)),
+    ),
+  })).filter((g) => g.items.length > 0);
+  return opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups;
 }
 
+/** Cari menu aktif dari pathname: cocokkan prefix terpanjang. */
 export function activeNavId(pathname: string): string | undefined {
   let best: { id: string; len: number } | undefined;
   for (const g of [...NAV_GROUPS, SUPERADMIN_GROUP]) {

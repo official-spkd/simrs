@@ -6,13 +6,24 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   required?: boolean;
   /** Teks bantuan atau status valid (mis. "Terverifikasi Dukcapil"). */
   hint?: ReactNode;
+  /** Warna hint: `success` untuk status valid (bawaan), `muted` untuk teks bantuan netral. */
+  hintTone?: 'success' | 'muted';
   /** Pesan galat; bila ada, field ditandai invalid dan pesan menjelaskan cara memperbaiki. */
   error?: string | null;
   id?: string;
 }
 
 /** Label selalu terlihat di atas field; galat tepat di bawah field. */
-export function Field({ label, required, hint, error, id, className, ...input }: FieldProps) {
+export function Field({
+  label,
+  required,
+  hint,
+  hintTone = 'success',
+  error,
+  id,
+  className,
+  ...input
+}: FieldProps) {
   const autoId = useId();
   const fieldId = id ?? autoId;
   const msgId = `${fieldId}-msg`;
@@ -40,7 +51,13 @@ export function Field({ label, required, hint, error, id, className, ...input }:
         {...input}
       />
       {(error || hint) && (
-        <span id={msgId} className={cx('text-caption', invalid ? 'text-danger' : 'text-success')}>
+        <span
+          id={msgId}
+          className={cx(
+            'text-caption',
+            invalid ? 'text-danger' : hintTone === 'muted' ? 'text-ink-500' : 'text-success',
+          )}
+        >
           {error ?? hint}
         </span>
       )}

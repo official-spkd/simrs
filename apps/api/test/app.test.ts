@@ -1,4 +1,5 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { newId } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, TENANT_A, TENANT_B } from './helpers';
@@ -123,7 +124,8 @@ describe('tenancy', () => {
   it('tenant tidak dikenal → 404', async () => {
     await http()
       .get('/api/v1/tenancy/current')
-      .set('X-Tenant-Id', '0199a000-0000-7000-8000-0000000000ff')
+      // UUID acak: dijamin bukan tenant yang ada (ID tetap bisa bentrok dengan seed baru).
+      .set('X-Tenant-Id', newId())
       .expect(404);
   });
 });

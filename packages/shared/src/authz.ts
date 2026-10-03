@@ -20,6 +20,7 @@ export const PERMISSION_CATALOG = {
   documents: { label: 'Dokumen & cetak', actions: ['read', 'write', 'print'] },
   break_glass: { label: 'Akses darurat', actions: ['use', 'review'] },
   'dev.tools': { label: 'Alat pengembang (non-produksi)', actions: ['use'] },
+  'platform.guide': { label: 'Panduan sistem (operator platform)', actions: ['read'] },
 } as const;
 
 export type PermissionResource = keyof typeof PERMISSION_CATALOG;
@@ -59,7 +60,8 @@ export const SYSTEM_ROLES = {
 } as const;
 export type SystemRoleCode = keyof typeof SYSTEM_ROLES;
 
-type Grant = readonly [PermissionResource, string, PermissionScope];
+export type RoleGrant = readonly [PermissionResource, string, PermissionScope];
+type Grant = RoleGrant;
 
 const CLINICAL_READ: Grant[] = [
   ['patient', 'read', 'relationship'],
@@ -173,12 +175,61 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
   ],
 };
 
-/** Kode peran yang wajib selalu ada minimal satu penugasan aktif (mencegah RS terkunci dari pengaturannya). */
-export const PROTECTED_ROLE = 'admin_tenant' satisfies SystemRoleCode;
+/** Jenis tenant: RS, atau satu tenant khusus untuk operator platform (ADR-0010, ADR-0013). */
+export const TENANT_KINDS = ['hospital', 'platform'] as const;
+export type TenantKind = (typeof TENANT_KINDS)[number];
+
+/** Peran tenant PLATFORM. Tidak punya akses data pasien RS mana pun (ADR-0010). */
+export const PLATFORM_ROLES = { superadmin_platform: 'Superadmin platform' } as const;
+export type PlatformRoleCode = keyof typeof PLATFORM_ROLES;
+
+export const PLATFORM_ROLE_GRANTS: Record<PlatformRoleCode, readonly Grant[]> = {
+  superadmin_platform: [
+    ['platform.guide', 'read', 'all'],
+    ['iam.users', 'read', 'all'],
+    ['iam.users', 'write', 'all'],
+    ['iam.roles', 'read', 'all'],
+    ['iam.roles', 'write', 'all'],
+    ['audit', 'read', 'all'],
+  ],
+};
+
+/** Peran bawaan beserta matriks bawaannya untuk satu jenis tenant. */
+export function defaultRolesFor(
+  kind: TenantKind,
+): Array<{ code: string; name: string; grants: readonly Grant[] }> {
+  if (kind === 'platform') {
+    return (Object.keys(PLATFORM_ROLES) as PlatformRoleCode[]).map((code) => ({
+      code,
+      name: PLATFORM_ROLES[code],
+      grants: PLATFORM_ROLE_GRANTS[code],
+    }));
+  }
+  return (Object.keys(SYSTEM_ROLES) as SystemRoleCode[]).map((code) => ({
+    code,
+    name: SYSTEM_ROLES[code],
+    grants: DEFAULT_ROLE_GRANTS[code],
+  }));
+}
 
 /**
- * Izin kelola akses. Peran yang memegang salah satunya setara admin: selalu dimiliki PROTECTED_ROLE, dan
- * akun/peran yang memegangnya hanya boleh dikelola oleh PROTECTED_ROLE (cegah eskalasi lewat delegasi).
+ * Peran pelindung (admin RS di tenant RS, superadmin di tenant PLATFORM): selalu tersisa minimal satu
+ * penugasan aktif, sehingga tenant tidak pernah terkunci dari pengaturan aksesnya sendiri.
+ */
+export const PROTECTED_ROLES = ['admin_tenant', 'superadmin_platform'] as const;
+
+export function isProtectedRole(code: string | null | undefined): boolean {
+  return (PROTECTED_ROLES as readonly (string | null | undefined)[]).includes(code);
+}
+
+/** Sumber `platform.*` hanya bermakna di tenant PLATFORM; tidak boleh diberikan ke peran RS. */
+export function permissionAllowedFor(kind: TenantKind, resource: string): boolean {
+  return kind === 'platform' || !resource.startsWith('platform.');
+}
+
+/**
+ * Izin kelola akses. Peran yang memegang salah satunya setara admin: selalu dimiliki peran pelindung, dan
+ * akun/peran yang memegangnya hanya boleh dikelola oleh peran pelindung (cegah eskalasi lewat delegasi).
  */
 export const ACCESS_ADMIN_GRANTS = [
   ['iam.users', 'write'],

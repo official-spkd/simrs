@@ -1,27 +1,25 @@
-import {
-  DEFAULT_ROLE_GRANTS,
-  newId,
-  type PermissionScope,
-  SCOPE_RANK,
-  SYSTEM_ROLES,
-  type SystemRoleCode,
-} from '@simrs/shared';
+import { defaultRolesFor, newId, type PermissionScope, SCOPE_RANK, type TenantKind } from '@simrs/shared';
 import type { TenantTx } from './client';
 
 /**
- * P03 · Pastikan 16 peran sistem ada untuk tenant ini. Matriks bawaan hanya diisi saat peran BARU dibuat,
- * sehingga matriks yang sudah disesuaikan RS tidak pernah ditimpa. Idempoten.
+ * P03 · Pastikan peran bawaan ada untuk tenant ini: 16 peran RS, atau peran platform untuk tenant PLATFORM.
+ * Matriks bawaan hanya diisi saat peran BARU dibuat, sehingga matriks yang sudah disesuaikan tidak pernah
+ * ditimpa. Idempoten.
  */
-export async function ensureSystemRoles(tx: TenantTx, tenantId: string): Promise<Map<string, string>> {
+export async function ensureSystemRoles(
+  tx: TenantTx,
+  tenantId: string,
+  kind: TenantKind = 'hospital',
+): Promise<Map<string, string>> {
   const existing = new Map(
     (await tx.role.findMany({ select: { id: true, code: true } })).map((r) => [r.code, r.id] as const),
   );
-  for (const [code, name] of Object.entries(SYSTEM_ROLES) as Array<[SystemRoleCode, string]>) {
-    if (existing.has(code)) continue;
+  for (const role of defaultRolesFor(kind)) {
+    if (existing.has(role.code)) continue;
     const id = newId();
-    await tx.role.create({ data: { id, tenantId, code, name, isSystem: true } });
+    await tx.role.create({ data: { id, tenantId, code: role.code, name: role.name, isSystem: true } });
     await tx.rolePermission.createMany({
-      data: DEFAULT_ROLE_GRANTS[code].map(([resource, action, scope]) => ({
+      data: role.grants.map(([resource, action, scope]) => ({
         tenantId,
         roleId: id,
         resource,
@@ -29,7 +27,7 @@ export async function ensureSystemRoles(tx: TenantTx, tenantId: string): Promise
         scope,
       })),
     });
-    existing.set(code, id);
+    existing.set(role.code, id);
   }
   return existing;
 }

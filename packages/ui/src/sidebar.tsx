@@ -43,6 +43,8 @@ export interface SidebarProps {
   integrations?: IntegrationStatusItem[];
   integrationHref?: string;
   LinkComponent?: LinkLike;
+  /** Aksi akun di bawah identitas pengguna (mis. tombol Keluar). */
+  userActions?: ReactNode;
 }
 
 const dot = { normal: 'bg-[#16A34A]', gangguan: 'bg-danger', 'tidak-diketahui': 'bg-ink-400' } as const;
@@ -57,6 +59,7 @@ export function Sidebar({
   integrations = [],
   integrationHref = '#',
   LinkComponent = DefaultLink,
+  userActions,
 }: SidebarProps) {
   return (
     <nav
@@ -153,6 +156,7 @@ export function Sidebar({
             <span className="text-caption text-ink-500">{user.role}</span>
           </div>
         </div>
+        {userActions && <div className="px-1.5">{userActions}</div>}
       </div>
     </nav>
   );

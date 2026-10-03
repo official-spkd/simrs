@@ -20,6 +20,17 @@ export const SEED_TENANTS = [
   },
 ] as const;
 
+/**
+ * Tenant khusus operator platform (superadmin_platform, ADR-0013). Bukan RS: tanpa struktur, tanpa pasien.
+ * Akun superadmin dibuat lewat `pnpm db:create-admin --tenant PLATFORM …`, tidak pernah di-seed.
+ */
+export const SEED_PLATFORM_TENANT = {
+  id: '0199a000-0000-7000-8000-0000000000ff',
+  code: 'PLATFORM',
+  name: 'Platform SIM RS',
+  kind: 'platform',
+} as const;
+
 /** Struktur RS fiktif yang sama untuk setiap tenant seed (kode unik per tenant). */
 export const SEED_UNITS = [
   { code: 'IGD', name: 'Instalasi Gawat Darurat', kind: 'igd' },

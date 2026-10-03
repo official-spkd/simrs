@@ -20,8 +20,22 @@ describe('activeNavId', () => {
 });
 
 describe('navGroups', () => {
-  it('grup superadmin hanya tampil bila akses terbuka', () => {
-    expect(navGroups({ superadmin: false }).map((g) => g.title)).not.toContain('SUPERADMIN');
-    expect(navGroups({ superadmin: true }).at(-1)?.title).toBe('SUPERADMIN');
+  const ids = (groups: ReturnType<typeof navGroups>) => groups.flatMap((g) => g.items.map((i) => i.id));
+
+  it('menu berizin hanya tampil bila peran memegang izinnya', () => {
+    const perawat = navGroups({ kind: 'hospital', superadmin: false, permissions: ['patient.read'] });
+    expect(ids(perawat)).not.toContain('akses');
+    expect(ids(perawat)).toContain('igd');
+    const admin = navGroups({ kind: 'hospital', superadmin: false, permissions: ['iam.users.read'] });
+    expect(ids(admin)).toContain('akses');
+  });
+
+  it('grup superadmin hanya untuk superadmin; tenant PLATFORM tanpa menu klinis', () => {
+    expect(
+      navGroups({ kind: 'hospital', superadmin: false, permissions: [] }).map((g) => g.title),
+    ).not.toContain('SUPERADMIN');
+    const platform = navGroups({ kind: 'platform', superadmin: true, permissions: ['iam.users.read'] });
+    expect(platform.at(-1)?.title).toBe('SUPERADMIN');
+    expect(ids(platform)).toEqual(['beranda', 'akses', 'panduan', 'devui']);
   });
 });

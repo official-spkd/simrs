@@ -11,9 +11,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSystemRoles } from './authz';
 import { createPrismaClient, withTenant } from './client';
-import { SEED_TENANTS } from './seed-data';
+import { SEED_PLATFORM_TENANT, SEED_TENANTS } from './seed-data';
 
-export { SEED_TENANTS };
+export { SEED_PLATFORM_TENANT, SEED_TENANTS };
 
 export interface TestDbUrls {
   /** simrs_migrator → simrs_test: untuk migrasi dan seed. */
@@ -69,6 +69,11 @@ export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Prom
         await ensureSystemRoles(tx, t.id);
       });
     }
+    const p = SEED_PLATFORM_TENANT;
+    await withTenant(prisma, p.id, async (tx) => {
+      await tx.tenant.upsert({ where: { id: p.id }, update: {}, create: { ...p } });
+      await ensureSystemRoles(tx, p.id, 'platform');
+    });
   } finally {
     await prisma.$disconnect();
   }

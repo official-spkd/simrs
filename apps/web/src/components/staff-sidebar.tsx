@@ -3,25 +3,41 @@
 import { Sidebar } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { activeNavId, navGroups } from '@/lib/nav';
+import type { ReactNode } from 'react';
+import { activeNavId, type WebNavGroup } from '@/lib/nav';
 
-/** Keputusan akses dibuat di server (layout) lalu diteruskan sebagai prop; komponen klien tidak membaca env. */
-export function StaffSidebar({ superadmin }: { superadmin: boolean }) {
+/**
+ * Sidebar staf. Semua isinya (identitas, menu sesuai izin) dihitung di server dari sesi lalu diteruskan sebagai
+ * prop; komponen klien ini hanya menandai menu aktif dari URL.
+ */
+export function StaffSidebar({
+  tenantName,
+  unitName,
+  user,
+  groups,
+  userActions,
+}: {
+  tenantName: string;
+  unitName: string;
+  user: { name: string; role: string; initials: string };
+  groups: WebNavGroup[];
+  userActions?: ReactNode;
+}) {
   const pathname = usePathname();
   return (
     <Sidebar
-      groups={navGroups({ superadmin })}
+      groups={groups}
       activeId={activeNavId(pathname)}
-      tenantName="[NAMA RS]"
-      unitName="SIM RS · lokal"
-      // Fase 0 belum punya login; identitas pengguna datang dari P02 (fase 1).
-      user={{ name: 'Pengembang lokal', role: 'Belum masuk', initials: 'PL' }}
+      tenantName={tenantName}
+      unitName={unitName}
+      user={user}
       integrations={[
         { label: 'SATUSEHAT', state: 'tidak-diketahui', text: 'mock' },
         { label: 'BPJS', state: 'tidak-diketahui', text: 'mock' },
       ]}
       integrationHref="/"
       LinkComponent={Link}
+      userActions={userActions}
     />
   );
 }

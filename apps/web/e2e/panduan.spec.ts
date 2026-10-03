@@ -1,21 +1,26 @@
 import { expect, test } from '@playwright/test';
+import { createAccount, loginAs } from './support/accounts';
 
-test.describe('panduan superadmin (APP_ENV=local)', () => {
+test.describe('panduan superadmin (peran superadmin_platform)', () => {
+  test.beforeEach(async ({ page }) => {
+    const operator = await createAccount({ tenant: 'PLATFORM', roles: ['superadmin_platform'] });
+    await loginAs(page, operator, '/superadmin/panduan');
+  });
+
   test('indeks menampilkan tiga panduan dan menu superadmin', async ({ page, viewport }) => {
-    await page.goto('/superadmin/panduan');
     await expect(page.getByRole('heading', { name: 'Panduan sistem SIM RS', level: 1 })).toBeVisible();
     for (const title of ['Cara sistem bekerja', 'Cara kode bekerja', 'Tutorial']) {
       await expect(page.getByRole('link', { name: new RegExp(title) })).toBeVisible();
     }
     if ((viewport?.width ?? 1280) >= 768) {
-      await expect(
-        page.getByRole('navigation', { name: 'Navigasi utama' }).getByText('SUPERADMIN'),
-      ).toBeVisible();
+      const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+      await expect(nav.getByText('SUPERADMIN', { exact: true })).toBeVisible();
+      // Operator platform tidak melihat menu klinis RS.
+      await expect(nav.getByText('IGD')).toHaveCount(0);
     }
   });
 
   test('membuka tutorial dan berpindah lewat daftar isi', async ({ page }) => {
-    await page.goto('/superadmin/panduan');
     await page.getByRole('link', { name: /Tutorial/ }).click();
     await expect(page).toHaveURL(/\/superadmin\/panduan\/tutorial$/);
     await expect(page.getByRole('heading', { name: 'Tutorial', level: 1 })).toBeVisible();
@@ -46,5 +51,22 @@ test.describe('panduan superadmin (APP_ENV=local)', () => {
     expect(headers['x-content-type-options']).toBe('nosniff');
     expect(headers['x-powered-by']).toBeUndefined();
     expect(headers['strict-transport-security']).toContain('max-age=31536000');
+  });
+});
+
+test.describe('area superadmin tertutup bagi akun RS', () => {
+  test('admin RS: panduan dan /dev/ui → 404, menu superadmin tidak ada', async ({ page, viewport }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin);
+    if ((viewport?.width ?? 1280) >= 768) {
+      await expect(
+        page.getByRole('navigation', { name: 'Navigasi utama' }).getByText('SUPERADMIN', { exact: true }),
+      ).toHaveCount(0);
+    }
+    for (const path of ['/superadmin/panduan', '/superadmin/panduan/tutorial', '/dev/ui']) {
+      const res = await page.goto(path);
+      expect(res?.status(), path).toBe(404);
+      await expect(page.getByText('Cara kode bekerja')).toHaveCount(0);
+    }
   });
 });
