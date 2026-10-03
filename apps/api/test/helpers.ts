@@ -1,13 +1,25 @@
 import 'reflect-metadata';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { createPrismaClient, type PrismaClient, withTenant } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
+import { newId } from '@simrs/shared';
+import {
+  base32Decode,
+  encryptField,
+  generateTotpSecret,
+  hashPassword,
+  totpCode,
+  totpStep,
+} from '@simrs/shared/node';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { loadApiEnv } from '../src/config/env';
 
 export const TENANT_A = '0199a000-0000-7000-8000-000000000001';
 export const TENANT_B = '0199a000-0000-7000-8000-000000000002';
+export const TENANT_CODES: Record<string, string> = { [TENANT_A]: 'RSFA', [TENANT_B]: 'RSFB' };
 
 /** Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app). */
 export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
@@ -16,6 +28,9 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     NODE_ENV: 'test',
     APP_ENV: 'local',
     DATABASE_URL: testDbUrls().app,
+    // Tes modul memakai mode header pengembang; tes auth memakai token sungguhan.
+    ALLOW_DEV_TENANT_HEADER: 'true',
+    AUTH_RATE_LIMIT_PER_MIN: '1000',
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();
@@ -23,4 +38,95 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
   configureApp(app, env);
   await app.init();
   return app;
+}
+
+export interface TestUser {
+  id: string;
+  tenantId: string;
+  tenantCode: string;
+  username: string;
+  password: string;
+  totpSecret: string | null;
+}
+
+let sharedDb: PrismaClient | undefined;
+function db(): PrismaClient {
+  sharedDb ??= createPrismaClient({ connectionString: testDbUrls().app, max: 4 });
+  return sharedDb;
+}
+
+/** Pengguna fiktif dengan kata sandi kuat, opsional MFA TOTP terkonfirmasi. Username unik per tes. */
+export async function createTestUser(
+  tenantId: string,
+  opts: { mfa?: boolean; mustChangePassword?: boolean; status?: 'active' | 'disabled' } = {},
+): Promise<TestUser> {
+  const id = newId();
+  const username = `uji.${id.slice(-12)}`;
+  const password = `frasa uji panjang ${id.slice(-6)}`;
+  const totpSecret = opts.mfa === false ? null : generateTotpSecret();
+  const passwordHash = await hashPassword(password);
+  await withTenant(db(), tenantId, async (tx) => {
+    await tx.user.create({
+      data: {
+        id,
+        tenantId,
+        username,
+        displayName: 'Pengguna Uji Fiktif',
+        status: opts.status ?? 'active',
+        mustChangePassword: opts.mustChangePassword ?? false,
+      },
+    });
+    await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    if (totpSecret) {
+      await tx.mfaFactor.create({
+        data: {
+          id: newId(),
+          tenantId,
+          userId: id,
+          secretEnc: encryptField(totpSecret, {
+            keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+            tenantId,
+            purpose: 'mfa_secret',
+          }),
+          confirmedAt: new Date(),
+        },
+      });
+    }
+  });
+  return { id, tenantId, tenantCode: TENANT_CODES[tenantId] ?? '', username, password, totpSecret };
+}
+
+/** Kode TOTP untuk langkah berikutnya yang belum dipakai pengguna ini (anti-replay sungguhan berlaku). */
+const lastStep = new Map<string, number>();
+export function nextTotp(user: TestUser): string {
+  if (!user.totpSecret) throw new Error('Pengguna tanpa MFA');
+  const step = Math.max(totpStep(), (lastStep.get(user.id) ?? -Infinity) + 1);
+  if (step > totpStep() + 1) throw new Error('Kode TOTP habis untuk jendela ini; tunggu 30 detik');
+  lastStep.set(user.id, step);
+  return totpCode(base32Decode(user.totpSecret), step);
+}
+
+export interface Tokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+/** Login penuh: kata sandi → kode TOTP → token sesi. */
+export async function login(app: NestExpressApplication, user: TestUser): Promise<Tokens> {
+  const step1 = await request(app.getHttpServer())
+    .post('/api/v1/auth/login')
+    .send({ tenantCode: user.tenantCode, username: user.username, password: user.password })
+    .expect(200);
+  if (step1.body.status !== 'mfa_required') throw new Error(`Login tanpa MFA: ${step1.body.status}`);
+  const step2 = await request(app.getHttpServer())
+    .post('/api/v1/auth/mfa/verify')
+    .send({ challengeToken: step1.body.challengeToken, code: nextTotp(user) })
+    .expect(200);
+  return { accessToken: step2.body.accessToken, refreshToken: step2.body.refreshToken };
+}
+
+export const bearer = (t: { accessToken: string }) => ({ Authorization: `Bearer ${t.accessToken}` });
+
+export function testDb(): PrismaClient {
+  return db();
 }

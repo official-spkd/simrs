@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Prisma } from '@simrs/db';
+import { type Prisma, readTenantSetting } from '@simrs/db';
 import {
   AppError,
   COMPONENTS,
@@ -12,6 +12,7 @@ import {
   type TenantSettingKey,
   type TenantSettingValue,
 } from '@simrs/shared';
+import { TenantDb } from '../../infra/tenant-db';
 import { SettingsRepository } from './settings.repository';
 
 export interface SettingView {
@@ -25,13 +26,14 @@ export interface SettingView {
 /** P12 · Pengaturan per RS dan P10 · modul aktif. */
 @Injectable()
 export class SettingsService {
-  constructor(private readonly repo: SettingsRepository) {}
+  constructor(
+    private readonly repo: SettingsRepository,
+    private readonly db: TenantDb,
+  ) {}
 
   /** Nilai efektif: tersimpan bila ada dan masih valid terhadap skema saat ini, selain itu bawaan. */
-  async get<K extends TenantSettingKey>(key: K): Promise<TenantSettingValue<K>> {
-    const row = await this.repo.findSetting(key);
-    const parsed = row ? TENANT_SETTINGS[key].schema.safeParse(row.value) : undefined;
-    return (parsed?.success ? parsed.data : TENANT_SETTINGS[key].default) as TenantSettingValue<K>;
+  get<K extends TenantSettingKey>(key: K): Promise<TenantSettingValue<K>> {
+    return readTenantSetting(this.db.tx(), key);
   }
 
   async list(): Promise<SettingView[]> {

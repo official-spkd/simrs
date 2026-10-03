@@ -29,8 +29,10 @@ const portOpen = (port) =>
   });
 
 console.log('SIM RS · pemeriksaan prasyarat');
-const major = Number(process.versions.node.split('.')[0]);
-major >= 22 ? pass(`Node v${process.versions.node}`) : bad(`Node v${process.versions.node} — butuh ≥ 22`);
+const [major, minor] = process.versions.node.split('.').map(Number);
+major > 24 || (major === 24 && minor >= 7)
+  ? pass(`Node v${process.versions.node} (argon2id bawaan tersedia)`)
+  : bad(`Node v${process.versions.node} — butuh ≥ 24.7 untuk argon2id bawaan (ADR-0011)`);
 const pnpm = run('pnpm -v');
 pnpm ? pass(`pnpm ${pnpm}`) : bad('pnpm belum aktif (corepack enable, lihat ADR-0007 untuk Windows)');
 const git = run('git --version');

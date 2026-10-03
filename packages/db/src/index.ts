@@ -4,6 +4,8 @@ export {
   knownDbError,
   type KnownDbError,
   listActiveTenantIds,
+  resolveTenantByCode,
+  resolveTenantByHost,
   Prisma,
   PrismaClient,
   withTenant,
@@ -20,4 +22,4 @@ export {
   type AttemptResult,
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
-export { allocateNumber, isModuleEnabled, type AllocatedNumber } from './platform';
+export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';

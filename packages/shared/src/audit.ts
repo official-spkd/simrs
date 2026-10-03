@@ -12,6 +12,8 @@ export const AUDIT_ACTIONS = [
   'login_failed',
   'logout',
   'mfa_enrolled',
+  'password_change',
+  'session_revoked',
   'access_denied',
   'break_glass',
   'merge',

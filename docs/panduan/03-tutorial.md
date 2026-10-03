@@ -4,7 +4,7 @@ Langkah praktis untuk pengembang baru. Konsepnya dijelaskan di [Cara sistem beke
 
 ## 1. Menyiapkan mesin
 
-Prasyarat: Node 22 atau lebih baru, Git, dan salah satu dari Docker Desktop (disarankan) atau Postgres portabel.
+Prasyarat: Node 24.7 atau lebih baru (argon2id bawaan, ADR-0011), Git, dan salah satu dari Docker Desktop (disarankan) atau Postgres portabel.
 
 ```powershell
 # pnpm lewat corepack, dipasang ke folder pengguna (tanpa hak admin)
@@ -12,19 +12,19 @@ corepack enable --install-directory "$env:APPDATA\npm" pnpm
 
 # di root repo
 pnpm install
-copy .env.example .env      # Git Bash: cp .env.example .env
+pnpm env:init              # buat .env dengan kunci enkripsi acak (tidak menimpa .env yang ada)
 pnpm doctor                 # memeriksa Node, pnpm, Docker, port
 ```
 
 Isi `.env` yang perlu diperhatikan:
 
-| Variabel                                 | Nilai lokal         | Catatan                                                                              |
-| ---------------------------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `APP_ENV`                                | `local`             | Wajib untuk Swagger, endpoint `/dev`, dan area superadmin. Tidak disetel = produksi. |
-| `HOST`                                   | `127.0.0.1`         | API dan mock tidak terbuka ke jaringan                                               |
-| `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`        |
-| `JWT_*_SECRET`                           | acak panjang        | jangan dipakai ulang di lingkungan lain                                              |
-| `MINIO_CONSOLE_PORT`                     | `9001`              | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                              |
+| Variabel                                 | Nilai lokal                                  | Catatan                                                                                                                |
+| ---------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                | `local`                                      | Wajib untuk Swagger, endpoint `/dev`, dan area superadmin. Tidak disetel = produksi.                                   |
+| `HOST`                                   | `127.0.0.1`                                  | API dan mock tidak terbuka ke jaringan                                                                                 |
+| `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya                                     |
+| `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi |
+| `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
 ### Pilihan A: Docker (jalur utama)
 
@@ -83,7 +83,7 @@ curl.exe -s http://127.0.0.1:4000/ready
 curl.exe -s -H "X-Tenant-Id: 0199a000-0000-7000-8000-000000000001" http://127.0.0.1:4000/api/v1/tenancy/current
 ```
 
-Tanpa header `X-Tenant-Id` hasilnya `400 TENANT_REQUIRED`. Itu disengaja.
+Tanpa header `X-Tenant-Id` hasilnya `400 TENANT_REQUIRED`. Itu disengaja. Header ini hanya bekerja di lokal (`ALLOW_DEV_TENANT_HEADER=true`); di staging/produksi semua akses wajib login (`POST /api/v1/auth/login` → kode TOTP → `Authorization: Bearer …`).
 
 ## 3. Mengirim pesan outbox contoh
 

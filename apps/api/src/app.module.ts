@@ -2,12 +2,14 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
+import { isAuthRateLimited } from './common/auth-rate-limited.decorator';
 import { AppErrorFilter } from './common/error.filter';
 import { genRequestId } from './common/request-id';
 import type { ApiEnv } from './config/env';
 import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
@@ -46,8 +48,18 @@ export class AppModule {
         }),
         InfraModule.forRoot(env),
         // Per IP per menit. Di RS banyak staf berbagi satu IP (NAT); batas per pengguna menyusul di P02.
-        ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: env.RATE_LIMIT_PER_MIN }]),
+        ThrottlerModule.forRoot([
+          { name: 'default', ttl: 60_000, limit: env.RATE_LIMIT_PER_MIN },
+          // Batas ketat khusus endpoint kredensial (@AuthRateLimited), per IP per menit.
+          {
+            name: 'auth',
+            ttl: 60_000,
+            limit: env.AUTH_RATE_LIMIT_PER_MIN,
+            skipIf: (ctx) => !isAuthRateLimited(ctx),
+          },
+        ]),
         HealthModule,
+        AuthModule,
         TenancyModule,
         AuditModule,
         SettingsModule,

@@ -15,7 +15,11 @@ export interface PendingAudit {
 
 export interface RequestActor {
   userId: string | null;
+  /** Peran aktif (diisi P03); 'dev' untuk mode header pengembang. */
   role: string | null;
+  sessionId: string | null;
+  /** Unit kerja yang dipilih saat login (diisi P03/layar Login). */
+  unitId: string | null;
 }
 
 /**

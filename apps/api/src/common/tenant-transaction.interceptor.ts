@@ -1,9 +1,10 @@
 import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { isModuleEnabled } from '@simrs/db';
-import { AppError, type ComponentCode, newId } from '@simrs/shared';
+import { AppError, type ComponentCode } from '@simrs/shared';
 import type { Request } from 'express';
 import { from, lastValueFrom, type Observable } from 'rxjs';
+import { writeAudit } from '../infra/audit-writer';
 import { PrismaService } from '../infra/prisma.service';
 import { AUDITED_KEY, type AuditedOptions } from './audited.decorator';
 import { REQUIRED_MODULE_KEY } from './require-module.decorator';
@@ -29,8 +30,8 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     const req = ctx.switchToHttp().getRequest<TenantRequest>();
     const tenantId = req.tenantId;
     if (!tenantId) {
-      // TenantGuard selalu dipasang bersama interceptor ini (@TenantScoped); ini pengaman bila tidak.
-      throw new Error('TenantTransactionInterceptor tanpa TenantGuard');
+      // AuthGuard selalu dipasang bersama interceptor ini (@TenantScoped); ini pengaman bila tidak.
+      throw new Error('TenantTransactionInterceptor tanpa AuthGuard');
     }
     const audited = this.reflector.get<AuditedOptions | undefined>(AUDITED_KEY, ctx.getHandler());
     const requiredModule = this.reflector.getAllAndOverride<ComponentCode | undefined>(REQUIRED_MODULE_KEY, [
@@ -42,7 +43,7 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       const store: TenantRequestContext = {
         tenantId,
         tx,
-        actor: req.actor ?? { userId: null, role: null },
+        actor: req.actor ?? { userId: null, role: null, sessionId: null, unitId: null },
         requestId: typeof req.id === 'string' ? req.id : null,
         ip: req.ip ?? null,
         userAgent: req.headers['user-agent']?.slice(0, MAX_USER_AGENT) ?? null,
@@ -63,26 +64,18 @@ export class TenantTransactionInterceptor implements NestInterceptor {
             details: audited.details?.(src),
           });
         }
-        if (store.audit.length > 0) {
-          await tx.auditEvent.createMany({
-            data: store.audit.map((e) => ({
-              id: newId(),
-              tenantId,
-              actorUserId: store.actor.userId,
-              actorRole: store.actor.role,
-              patientId: e.patientId ?? null,
-              resourceType: e.resourceType,
-              resourceId: e.resourceId ?? null,
-              action: e.action,
-              outcome: e.outcome ?? 'success',
-              reason: e.reason ?? null,
-              ip: store.ip,
-              userAgent: store.userAgent,
-              requestId: store.requestId,
-              details: e.details === undefined ? undefined : (e.details as object),
-            })),
-          });
-        }
+        await writeAudit(
+          tx,
+          tenantId,
+          {
+            actorUserId: store.actor.userId,
+            actorRole: store.actor.role,
+            ip: store.ip,
+            userAgent: store.userAgent,
+            requestId: store.requestId,
+          },
+          store.audit,
+        );
         return result;
       });
     });

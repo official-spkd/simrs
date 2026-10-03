@@ -81,3 +81,19 @@ export function knownDbError(err: unknown): KnownDbError | null {
     fields: Array.isArray(target) ? target.filter((t): t is string => typeof t === 'string') : undefined,
   };
 }
+
+/** P02 · Tenant dari kode RS (login lokal/staging). Fungsi SECURITY DEFINER sempit: hanya ID tenant aktif. */
+export async function resolveTenantByCode(prisma: PrismaClient, code: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string | null }>
+  >`SELECT app_resolve_tenant_by_code(${code}) AS id`;
+  return rows[0]?.id ?? null;
+}
+
+/** P02 · Tenant dari host/subdomain (login produksi). */
+export async function resolveTenantByHost(prisma: PrismaClient, host: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string | null }>
+  >`SELECT app_resolve_tenant_by_host(${host}) AS id`;
+  return rows[0]?.id ?? null;
+}

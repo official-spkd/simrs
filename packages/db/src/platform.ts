@@ -4,6 +4,9 @@ import {
   formatDocumentNumber,
   type NumberKind,
   numberPeriod,
+  TENANT_SETTINGS,
+  type TenantSettingKey,
+  type TenantSettingValue,
 } from '@simrs/shared';
 import type { TenantTx } from './client';
 
@@ -42,4 +45,17 @@ export async function allocateNumber(
 export async function isModuleEnabled(tx: TenantTx, code: ComponentCode): Promise<boolean> {
   const row = await tx.tenantModule.findFirst({ where: { moduleCode: code }, select: { enabled: true } });
   return row?.enabled ?? defaultModuleEnabled(code);
+}
+
+/**
+ * P12 · Nilai pengaturan efektif di transaksi bertenant: tersimpan bila ada dan masih lolos skema saat ini,
+ * selain itu bawaan registri. Dipakai juga di luar permintaan (alur login, worker).
+ */
+export async function readTenantSetting<K extends TenantSettingKey>(
+  tx: TenantTx,
+  key: K,
+): Promise<TenantSettingValue<K>> {
+  const row = await tx.tenantSetting.findFirst({ where: { key }, select: { value: true } });
+  const parsed = row ? TENANT_SETTINGS[key].schema.safeParse(row.value) : undefined;
+  return (parsed?.success ? parsed.data : TENANT_SETTINGS[key].default) as TenantSettingValue<K>;
 }

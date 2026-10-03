@@ -75,6 +75,32 @@ Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditn
 
 Contoh modul lengkap: `modules/facility/` (P01) dan `modules/settings/` (P10, P12).
 
+### Autentikasi dan sesi (P02)
+
+Alur login (endpoint publik, `modules/auth/auth.controller.ts`):
+
+```
+POST /api/v1/auth/login       { tenantCode?, username, password }
+  → RS dari subdomain (produksi) atau tenantCode (lokal/staging)
+  → kata sandi argon2id benar?  ya → { status: 'mfa_required', challengeToken }   (tantangan 5 menit, maks 5 percobaan)
+                                 ya, belum punya MFA → { status: 'mfa_enrollment_required', accessToken, … }  (sesi terbatas)
+                                 tidak → hitungan gagal + audit di-commit, lalu 401 (pesan seragam)
+POST /api/v1/auth/mfa/verify  { challengeToken, code } → { accessToken, refreshToken, … }
+POST /api/v1/auth/refresh     { refreshToken } → token baru (rotasi; token lama dipakai lagi → sesi dicabut)
+```
+
+| Bagian             | Berkas                                  | Catatan                                                                                                                          |
+| ------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash                                                         |
+| Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                 |
+| Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                 |
+| Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |
+| Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)        |
+| Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                  |
+| Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                             |
+
+Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=local` dan `ALLOW_DEV_TENANT_HEADER=true`; tes modul memakainya, tes auth memakai token sungguhan (`apps/api/test/helpers.ts` → `createTestUser`, `login`). Alasan desain: ADR-0011.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.

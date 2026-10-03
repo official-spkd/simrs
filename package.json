@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@12.8.1",
   "engines": {
-    "node": ">=22"
+    "node": ">=24.7"
   },
   "scripts": {
     "dev": "turbo run dev --parallel",
@@ -23,7 +23,8 @@
     "infra:ps": "docker compose ps",
     "pg:portable": "node scripts/pg-portable.mjs",
     "db:test:recreate": "node scripts/recreate-test-db.mjs",
-    "with-pg": "node scripts/with-pg.mjs"
+    "with-pg": "node scripts/with-pg.mjs",
+    "env:init": "node scripts/init-env.mjs"
   },
   "devDependencies": {
     "@types/node": "^24",

@@ -7,5 +7,7 @@ export * from './ids';
 export * from './money';
 export * from './numbering';
 export * from './outbox';
+export * from './schemas/auth';
 export * from './schemas/facility';
+export * from './security/password-policy';
 export * from './settings';

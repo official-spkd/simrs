@@ -10,12 +10,12 @@ Sistem Informasi Manajemen Rumah Sakit **multi-RS (SaaS, deployment hibrida)**: 
 
 ## Mulai cepat
 
-Prasyarat: Node ≥ 22, Git, dan Docker Desktop (atau Postgres portabel, lihat Tutorial §1).
+Prasyarat: Node ≥ 24.7, Git, dan Docker Desktop (atau Postgres portabel, lihat Tutorial §1).
 
 ```bash
 corepack enable                 # Windows tanpa admin: corepack enable --install-directory "%APPDATA%\npm" pnpm
 pnpm install
-cp .env.example .env            # lalu isi kunci acak (lihat Tutorial §1)
+pnpm env:init                   # .env dengan kunci enkripsi acak
 pnpm doctor                     # cek prasyarat dan port
 
 pnpm infra:up                   # Postgres, Redis, MinIO, Mailpit (Docker)
@@ -24,6 +24,7 @@ pnpm infra:up                   # Postgres, Redis, MinIO, Mailpit (Docker)
 pnpm build                      # paket bersama
 pnpm db:deploy && pnpm db:seed  # migrasi + 2 tenant RS fiktif
 pnpm dev                        # api + worker + web + mock
+#   tes tanpa Docker:  pnpm with-pg pnpm test
 ```
 
 | Layanan                        | Alamat                                             |
@@ -64,7 +65,7 @@ pnpm dev                        # api + worker + web + mock
 
 ## Stack
 
-pnpm + Turborepo · TypeScript 6 · NestJS 12 (API, worker) · Prisma 7 + PostgreSQL 16 dengan Row-Level Security · BullMQ + Redis · Next.js 16 + Tailwind 4 · Fastify 5 (mock) · Vitest 5 + Playwright. Alasan pemilihan ada di ADR-0001 dan ADR-0007.
+pnpm + Turborepo · TypeScript 6 · Node 24 · NestJS 12 (API, worker) · Prisma 7 + PostgreSQL 16 dengan Row-Level Security · BullMQ + Redis · Next.js 16 + Tailwind 4 · Fastify 5 (mock) · Vitest 5 + Playwright. Alasan pemilihan ada di ADR-0001 dan ADR-0007.
 
 ## Prinsip yang tidak boleh dilanggar
 

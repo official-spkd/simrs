@@ -10,10 +10,6 @@ export class SettingsRepository {
     return this.db.tx().tenantSetting.findMany({ select: { key: true, value: true, updatedAt: true } });
   }
 
-  findSetting(key: string) {
-    return this.db.tx().tenantSetting.findFirst({ where: { key }, select: { value: true } });
-  }
-
   upsertSetting(key: string, value: Prisma.InputJsonValue) {
     const tenantId = this.db.tenantId();
     const updatedBy = this.db.actorUserId();
