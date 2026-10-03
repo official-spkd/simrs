@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+design/
+docs/03-regulasi-mrmik.md
+**/dist
+**/.next
+**/coverage
+**/src/generated
+.turbo

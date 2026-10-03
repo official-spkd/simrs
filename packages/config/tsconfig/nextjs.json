@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "jsx": "preserve",
+    "allowJs": false,
+    "noEmit": true,
+    "incremental": true,
+    "declaration": false,
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    "plugins": [{ "name": "next" }]
+  }
+}
