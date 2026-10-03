@@ -146,7 +146,15 @@ Tambahkan relasi balik (`holidays Holiday[]`) di model `Tenant` dan `Facility`. 
 pnpm --filter @simrs/db exec prisma migrate dev --create-only --name holidays
 ```
 
-Buka `migration.sql` yang baru dan **tambahkan blok ini di bawahnya**. Tabel domain tanpa blok ini adalah kebocoran data antar-RS.
+Buka `migration.sql` yang baru. **Di baris paling atas**, matikan sementara `FORCE` RLS pada setiap tabel lama yang dirujuk FK baru (di sini `facilities`). Validasi FK berjalan sebagai pemilik tabel tanpa konteks tenant, sehingga tanpa baris ini migrasi gagal `TENANT_REQUIRED`, bahkan bila tabel barunya masih kosong.
+
+```sql
+-- Validasi FK baru ke tabel ber-FORCE RLS tidak punya konteks tenant. Seluruh migrasi berjalan dalam
+-- satu transaksi, jadi aplikasi tidak pernah melihat tabel tanpa FORCE.
+ALTER TABLE "facilities" NO FORCE ROW LEVEL SECURITY;
+```
+
+Lalu **tambahkan blok ini di bawahnya**. Tabel domain tanpa blok ini adalah kebocoran data antar-RS.
 
 ```sql
 ALTER TABLE "holidays" ENABLE ROW LEVEL SECURITY;
@@ -158,7 +166,12 @@ CREATE POLICY tenant_isolation ON "holidays"
 -- di init.sql memberikannya otomatis untuk tabel baru.
 GRANT SELECT, INSERT, UPDATE ON "holidays" TO simrs_app;
 REVOKE DELETE, TRUNCATE ON "holidays" FROM simrs_app;
+
+-- Pasang lagi FORCE yang dimatikan di atas.
+ALTER TABLE "facilities" FORCE ROW LEVEL SECURITY;
 ```
+
+Hal yang sama berlaku bila menambah kolom FK ke tabel lama yang ber-`FORCE` (contoh nyata: migrasi `20261004030000_authz` membungkus `users`, `units`, `auth_sessions`). Tes `packages/db/test/schema-guard.test.ts` gagal bila ada tabel yang lupa dipasang `FORCE` lagi.
 
 Terapkan: `pnpm db:migrate`, lalu `pnpm --filter @simrs/db build`. Migrasi yang sudah diterapkan di mana pun **tidak diubah lagi**; perbaikan selalu migrasi baru.
 
@@ -249,6 +262,7 @@ export class HolidaysService {
 | `@TenantScoped()`       | Menetapkan tenant + membuka **satu transaksi ber-RLS untuk seluruh permintaan**. Wajib untuk semua controller yang menyentuh data tenant.            |
 | `@Audited({...})`       | Menulis jejak audit **di transaksi yang sama**. Bila permintaan gagal, data dan auditnya sama-sama batal; bila audit gagal, data tidak dikembalikan. |
 | `@RequireModule('F01')` | Endpoint hanya aktif bila modul aktif untuk RS ini (P10). Modul mati → `403 MODULE_DISABLED`.                                                        |
+| `@RequirePermission(…)` | Peran pengguna harus memegang izin sumber × aksi itu (P03). Tidak berhak → `403 FORBIDDEN` + audit `access_denied`.                                  |
 
 ```ts
 import { Body, Controller, Get, Post } from '@nestjs/common';
@@ -256,6 +270,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { createHolidaySchema, type CreateHolidayInput } from '@simrs/shared';
 import { Audited, resultId } from '../../common/audited.decorator';
 import { RequireModule } from '../../common/require-module.decorator';
+import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { HolidaysService } from './holidays.service';
@@ -268,17 +283,21 @@ export class HolidaysController {
   constructor(private readonly holidays: HolidaysService) {}
 
   @Get()
+  @RequirePermission('facility', 'read')
   list() {
     return this.holidays.list();
   }
 
   @Post()
+  @RequirePermission('facility', 'write')
   @Audited({ action: 'create', resource: 'holiday', resourceId: resultId })
   create(@Body(new ZodValidationPipe(createHolidaySchema)) body: CreateHolidayInput) {
     return this.holidays.create(body);
   }
 }
 ```
+
+Hari libur memakai izin `facility` yang sudah ada di katalog. Sumber izin baru ditambahkan di `PERMISSION_CATALOG` dan `DEFAULT_ROLE_GRANTS` (`packages/shared/src/authz.ts`); ingat bahwa bawaan hanya diisi untuk peran yang baru dibuat, jadi RS yang sudah berjalan mendapat izin baru lewat layar Akses atau migrasi data.
 
 Untuk data pasien, isi juga `patientId` di `@Audited` (atau panggil `TenantDb.audit(...)` dari service untuk setiap pasien yang tampil di daftar). Untuk perubahan, pakai `details: changedFields` agar audit mencatat **nama** field yang berubah, bukan nilainya.
 
@@ -313,7 +332,23 @@ it('hari libur tenant A tidak terlihat oleh tenant B', async () => {
 });
 ```
 
-Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --filter @simrs/api test`), lalu catat modul di `docs/PROGRESS.md`. Mulai potongan otorisasi fase 1, tambahkan juga tes izin (peran yang tidak berhak menerima 403).
+Tes izin memakai login sungguhan (mode header melewati matriks):
+
+```ts
+import { bearer, createTestUser, login } from './helpers';
+
+it('kasir tidak boleh menambah hari libur', async () => {
+  const kasir = await createTestUser(TENANT_A, { roles: [{ code: 'kasir' }] });
+  const tokens = await login(app, kasir);
+  await request(app.getHttpServer())
+    .post('/api/v1/holidays')
+    .set(bearer(tokens))
+    .send({ date: '2031-12-26', name: 'Uji izin' })
+    .expect(403);
+});
+```
+
+Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --filter @simrs/api test`), lalu catat modul di `docs/PROGRESS.md`.
 
 ## 5. Membuat layar web dari mockup
 

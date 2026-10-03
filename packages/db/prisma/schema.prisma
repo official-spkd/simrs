@@ -42,6 +42,12 @@ model Tenant {
   mfaFactors       MfaFactor[]
   sessions         AuthSession[]
   loginChallenges  LoginChallenge[]
+  roles            Role[]
+  rolePermissions  RolePermission[]
+  assignments      StaffAssignment[]
+  relationships    AccessRelationship[]
+  breakGlassGrants BreakGlassGrant[]
+  notifications    Notification[]
 
   @@map("tenants")
 }
@@ -180,12 +186,13 @@ model Unit {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy  String?  @map("updated_by") @db.Uuid
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
   /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
-  facility  Facility   @relation(fields: [tenantId, facilityId], references: [tenantId, id])
-  parent    Unit?      @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
-  children  Unit[]     @relation("UnitTree")
-  locations Location[]
+  facility    Facility          @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent      Unit?             @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children    Unit[]            @relation("UnitTree")
+  locations   Location[]
+  assignments StaffAssignment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -296,11 +303,12 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy          String?   @map("updated_by") @db.Uuid
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
   credential      UserCredential?
   mfaFactors      MfaFactor[]
   sessions        AuthSession[]
   loginChallenges LoginChallenge[]
+  assignments     StaffAssignment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, username])
@@ -356,6 +364,8 @@ model AuthSession {
   idleTimeoutMinutes  Int       @map("idle_timeout_minutes")
   mfaVerified         Boolean   @default(false) @map("mfa_verified")
   unitId              String?   @map("unit_id") @db.Uuid
+  /// P03 · Penugasan aktif yang dipilih (menentukan peran dan unit sesi).
+  assignmentId        String?   @map("assignment_id") @db.Uuid
   /// active | revoked
   status              String    @default("active")
   revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
@@ -364,8 +374,9 @@ model AuthSession {
   userAgent           String?   @map("user_agent")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  user       User             @relation(fields: [tenantId, userId], references: [tenantId, id])
+  assignment StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
 
   @@index([tenantId, userId, status])
   @@map("auth_sessions")
@@ -386,4 +397,129 @@ model LoginChallenge {
   user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
 
   @@map("login_challenges")
+}
+
+/// P03 · Peran per RS. Peran sistem (16 bawaan) dibuat otomatis; matriks izinnya bisa diubah per RS.
+model Role {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  isSystem  Boolean  @default(true) @map("is_system")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  assignments StaffAssignment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+/// P03 · Izin peran: sumber × aksi × lingkup (all | unit | relationship). Katalog sah di @simrs/shared.
+model RolePermission {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  resource  String
+  action    String
+  scope     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id])
+
+  @@id([roleId, resource, action])
+  @@index([tenantId, roleId])
+  @@map("role_permissions")
+}
+
+/// P03 · Penugasan staf: pengguna × peran × unit × periode. Tidak dihapus; diakhiri dengan valid_until.
+model StaffAssignment {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  roleId     String    @map("role_id") @db.Uuid
+  unitId     String?   @map("unit_id") @db.Uuid
+  validFrom  DateTime  @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime? @map("valid_until") @db.Timestamptz(3)
+  endReason  String?   @map("end_reason")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?   @map("updated_by") @db.Uuid
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  user     User          @relation(fields: [tenantId, userId], references: [tenantId, id])
+  role     Role          @relation(fields: [tenantId, roleId], references: [tenantId, id])
+  unit     Unit?         @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  sessions AuthSession[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@index([tenantId, roleId])
+  @@map("staff_assignments")
+}
+
+/// P03 · Relasi klinisi–pasien untuk ABAC (DPJP, perawat penanggung jawab, rawat bersama, konsultan).
+/// Diisi modul klinis (fase 2–3) dari encounter; FK ke patients ditambahkan saat tabel pasien dibuat (P05).
+model AccessRelationship {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  patientId  String    @map("patient_id") @db.Uuid
+  kind       String
+  validFrom  DateTime  @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime? @map("valid_until") @db.Timestamptz(3)
+  sourceType String?   @map("source_type")
+  sourceId   String?   @map("source_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, userId, patientId])
+  @@map("access_relationships")
+}
+
+/// P03 · Akses darurat (break-the-glass): alasan wajib, berbatas waktu, ditinjau petugas privasi.
+/// Aplikasi hanya boleh mengubah kolom tinjauan (column privilege); alasan & waktu tidak bisa diubah.
+model BreakGlassGrant {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  patientId     String    @map("patient_id") @db.Uuid
+  reason        String
+  grantedAt     DateTime  @default(now()) @map("granted_at") @db.Timestamptz(3)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  reviewOutcome String?   @map("review_outcome")
+  reviewNote    String?   @map("review_note")
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, userId, patientId, expiresAt])
+  @@index([tenantId, reviewOutcome])
+  @@map("break_glass_grants")
+}
+
+/// P11 (awal) · Notifikasi in-app. Tanpa PHI di judul/isi; tautan ke halaman yang menerapkan izin.
+model Notification {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  recipientUserId String    @map("recipient_user_id") @db.Uuid
+  kind            String
+  title           String
+  body            String
+  link            String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, recipientUserId, readAt])
+  @@map("notifications")
 }

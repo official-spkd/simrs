@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { Audited, queryPatientId } from '../../common/audited.decorator';
+import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AuditService, auditListSchemaLimits } from './audit.service';
@@ -29,12 +30,14 @@ type ListQuery = z.infer<typeof listQuerySchema>;
 export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
+  @RequirePermission('audit', 'read')
   @Get('verify')
   @Audited({ action: 'verify', resource: 'audit_chain' })
   verify() {
     return this.audit.verifyChain();
   }
 
+  @RequirePermission('audit', 'read')
   @Get('events')
   @Audited({
     action: 'read',

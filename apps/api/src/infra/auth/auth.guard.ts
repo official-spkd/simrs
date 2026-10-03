@@ -2,7 +2,7 @@ import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@ne
 import { Reflector } from '@nestjs/core';
 import { AppError, isUuid } from '@simrs/shared';
 import type { Request } from 'express';
-import type { RequestActor } from '../../common/request-context';
+import { DEV_ROLE, type RequestActor } from '../../common/request-context';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { PrismaService } from '../prisma.service';
 import { ALLOW_INCOMPLETE_SESSION_KEY } from './allow-incomplete-session.decorator';
@@ -60,7 +60,7 @@ export class AuthGuard implements CanActivate {
       req.tenantId = parsed.tenantId;
       req.actor = {
         userId: session.userId,
-        role: null,
+        role: session.roleCode,
         sessionId: session.sessionId,
         unitId: session.unitId,
       };
@@ -72,7 +72,7 @@ export class AuthGuard implements CanActivate {
         throw new AppError('TENANT_REQUIRED', 'Header X-Tenant-Id (UUID) wajib', 400);
       }
       req.tenantId = header.toLowerCase();
-      req.actor = { userId: null, role: 'dev', sessionId: null, unitId: null };
+      req.actor = { userId: null, role: DEV_ROLE, sessionId: null, unitId: null };
       return true;
     }
 

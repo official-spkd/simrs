@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import { createPrismaClient, type PrismaClient, withTenant } from '@simrs/db';
+import { createPrismaClient, ensureSystemRoles, type PrismaClient, withTenant } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import {
@@ -58,7 +58,14 @@ function db(): PrismaClient {
 /** Pengguna fiktif dengan kata sandi kuat, opsional MFA TOTP terkonfirmasi. Username unik per tes. */
 export async function createTestUser(
   tenantId: string,
-  opts: { mfa?: boolean; mustChangePassword?: boolean; status?: 'active' | 'disabled' } = {},
+  opts: {
+    mfa?: boolean;
+    mustChangePassword?: boolean;
+    status?: 'active' | 'disabled';
+    /** Penugasan peran (kode peran sistem), opsional per unit. */
+    roles?: Array<{ code: string; unitId?: string }>;
+    tenantCode?: string;
+  } = {},
 ): Promise<TestUser> {
   const id = newId();
   const username = `uji.${id.slice(-12)}`;
@@ -77,6 +84,12 @@ export async function createTestUser(
       },
     });
     await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    for (const r of opts.roles ?? []) {
+      const role = await tx.role.findFirstOrThrow({ where: { code: r.code } });
+      await tx.staffAssignment.create({
+        data: { id: newId(), tenantId, userId: id, roleId: role.id, unitId: r.unitId ?? null },
+      });
+    }
     if (totpSecret) {
       await tx.mfaFactor.create({
         data: {
@@ -93,7 +106,14 @@ export async function createTestUser(
       });
     }
   });
-  return { id, tenantId, tenantCode: TENANT_CODES[tenantId] ?? '', username, password, totpSecret };
+  return {
+    id,
+    tenantId,
+    tenantCode: opts.tenantCode ?? TENANT_CODES[tenantId] ?? '',
+    username,
+    password,
+    totpSecret,
+  };
 }
 
 /** Kode TOTP untuk langkah berikutnya yang belum dipakai pengguna ini (anti-replay sungguhan berlaku). */
@@ -129,4 +149,23 @@ export const bearer = (t: { accessToken: string }) => ({ Authorization: `Bearer 
 
 export function testDb(): PrismaClient {
   return db();
+}
+
+/** Tenant fiktif baru (dengan 16 peran sistem) untuk tes yang butuh keadaan bersih, mis. "admin terakhir". */
+export async function createTestTenant(): Promise<{ id: string; code: string }> {
+  const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
+  const id = newId();
+  const code = `T${id
+    .slice(-10)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, 'X')}`;
+  try {
+    await withTenant(owner, id, async (tx) => {
+      await tx.tenant.create({ data: { id, code, name: 'RS Fiktif Uji' } });
+      await ensureSystemRoles(tx, id);
+    });
+  } finally {
+    await owner.$disconnect();
+  }
+  return { id, code };
 }

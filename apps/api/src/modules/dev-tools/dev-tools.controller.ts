@@ -4,6 +4,7 @@ import { INTEGRATION_TARGETS } from '@simrs/shared';
 import { z } from 'zod';
 import { Audited, resultId } from '../../common/audited.decorator';
 import { RequireModule } from '../../common/require-module.decorator';
+import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { DevToolsService } from './dev-tools.service';
@@ -15,6 +16,7 @@ type PingBody = z.infer<typeof pingSchema>;
 @ApiTags('dev (non-produksi)')
 @TenantScoped()
 @RequireModule('I01')
+@RequirePermission('dev.tools', 'use')
 @Controller('dev')
 export class DevToolsController {
   constructor(private readonly dev: DevToolsService) {}

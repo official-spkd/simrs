@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { Audited, param } from '../../common/audited.decorator';
+import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { SettingsService } from './settings.service';
@@ -21,11 +22,13 @@ const schemas = {
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}
 
+  @RequirePermission('tenant.settings', 'read')
   @Get()
   list() {
     return this.settings.list();
   }
 
+  @RequirePermission('tenant.settings', 'write')
   @Put(':key')
   @Audited({ action: 'update', resource: 'tenant_setting', resourceId: param('key') })
   set(
@@ -35,11 +38,13 @@ export class SettingsController {
     return this.settings.set(key, body.value);
   }
 
+  @RequirePermission('tenant.settings', 'read')
   @Get('modules')
   listModules() {
     return this.settings.listModules();
   }
 
+  @RequirePermission('tenant.settings', 'write')
   @Put('modules/:code')
   @Audited({
     action: 'update',

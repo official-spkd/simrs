@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { TenantTx } from '@simrs/db';
+import { activeAssignments, type TenantTx } from '@simrs/db';
 import { newId, type SessionTokens } from '@simrs/shared';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { issueToken, type ParsedToken, secretMatches } from './session-tokens';
@@ -9,6 +9,8 @@ export interface ValidatedSession {
   userId: string;
   mfaVerified: boolean;
   mustChangePassword: boolean;
+  /** Peran dari penugasan terpilih yang MASIH berlaku; null bila belum dipilih atau sudah berakhir. */
+  roleCode: string | null;
   unitId: string | null;
 }
 
@@ -44,6 +46,9 @@ export class SessionStore {
     const refresh = issueToken('sr1', input.tenantId, id);
     const accessExpiresAt = new Date(now + this.accessTtlMs());
     const refreshExpiresAt = new Date(now + this.env.SESSION_TTL_HOURS * 3_600_000);
+    // Satu penugasan aktif → langsung dipakai; lebih dari satu → pengguna memilih (POST /auth/assignment).
+    const assignments = await activeAssignments(tx, input.userId);
+    const only = assignments.length === 1 ? assignments[0] : undefined;
     await tx.authSession.create({
       data: {
         id,
@@ -56,6 +61,8 @@ export class SessionStore {
         lastSeenAt: new Date(now),
         idleTimeoutMinutes: input.idleMinutes,
         mfaVerified: input.mfaVerified,
+        assignmentId: only?.id ?? null,
+        unitId: only?.unitId ?? null,
         ip: input.ip,
         userAgent: input.userAgent?.slice(0, 300) ?? null,
       },
@@ -85,6 +92,9 @@ export class SessionStore {
         mfaVerified: true,
         unitId: true,
         user: { select: { status: true, mustChangePassword: true } },
+        assignment: {
+          select: { validFrom: true, validUntil: true, role: { select: { code: true, active: true } } },
+        },
       },
     });
     if (!s || s.status !== 'active' || !secretMatches(t.secret, s.accessHash)) return null;
@@ -100,12 +110,16 @@ export class SessionStore {
     if (now.getTime() - s.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
       await tx.authSession.update({ where: { id: s.id }, data: { lastSeenAt: now } });
     }
+    const a = s.assignment;
+    const assignmentValid =
+      !!a && a.role.active && a.validFrom <= now && (a.validUntil === null || a.validUntil > now);
     return {
       sessionId: s.id,
       userId: s.userId,
       mfaVerified: s.mfaVerified,
       mustChangePassword: s.user.mustChangePassword,
-      unitId: s.unitId,
+      roleCode: assignmentValid ? a.role.code : null,
+      unitId: assignmentValid ? s.unitId : null,
     };
   }
 
@@ -195,6 +209,16 @@ export class SessionStore {
       data: { status: 'revoked', revokedAt: new Date(), revokedReason: reason },
     });
     return r.count;
+  }
+
+  /** Pilih penugasan untuk sesi (harus milik pengguna dan masih berlaku; diperiksa pemanggil). */
+  async selectAssignment(
+    tx: TenantTx,
+    sessionId: string,
+    assignmentId: string,
+    unitId: string | null,
+  ): Promise<void> {
+    await tx.authSession.update({ where: { id: sessionId }, data: { assignmentId, unitId } });
   }
 
   async markMfaVerified(tx: TenantTx, sessionId: string): Promise<void> {

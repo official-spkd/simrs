@@ -1,4 +1,4 @@
-import { argon2, randomBytes, timingSafeEqual } from 'node:crypto';
+import { argon2, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 /**
  * Hash kata sandi argon2id memakai implementasi bawaan Node (≥ 24.7), tanpa dependensi native tambahan.
@@ -69,4 +69,17 @@ let dummyHash: Promise<string> | undefined;
 export function dummyPasswordHash(): Promise<string> {
   dummyHash ??= hashPassword(randomBytes(24).toString('base64'));
   return dummyHash;
+}
+
+const TEMP_ALPHABET = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/**
+ * Kata sandi sementara acak (bawaan 16 karakter dari alfabet tanpa karakter mirip 0/O/1/l/I),
+ * ditampilkan sekali ke admin; pengguna wajib menggantinya saat login pertama.
+ */
+export function generateTemporaryPassword(length = 16): string {
+  if (length < 12) throw new RangeError('Kata sandi sementara minimal 12 karakter');
+  let out = '';
+  for (let i = 0; i < length; i++) out += TEMP_ALPHABET[randomInt(TEMP_ALPHABET.length)];
+  return out;
 }

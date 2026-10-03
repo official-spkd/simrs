@@ -23,6 +23,8 @@ export interface AuditedOptions {
   patientId?: (src: AuditSource) => string | null | undefined;
   /** Metadata tanpa PHI, mis. jumlah hasil. */
   details?: (src: AuditSource) => Record<string, unknown> | undefined;
+  /** Alasan yang diketik pengguna (mis. mengakhiri penugasan); disimpan di kolom `reason`. */
+  reason?: (src: AuditSource) => string | null | undefined;
 }
 
 /**
@@ -52,6 +54,12 @@ export const param =
     const v = params[name];
     return typeof v === 'string' ? v : undefined;
   };
+
+/** Ambil `reason` dari body yang sudah tervalidasi. */
+export const bodyReason = ({ body }: AuditSource): string | undefined =>
+  typeof body === 'object' && body !== null && typeof (body as { reason?: unknown }).reason === 'string'
+    ? (body as { reason: string }).reason
+    : undefined;
 
 /** Ambil parameter rute `:id`. */
 export const paramId = param('id');

@@ -52,8 +52,10 @@ Tes memakai `configureApp` yang sama lewat `test/helpers.ts`, sehingga perilaku 
 
 ```
 Express:  securityHeaders → CORS → body parser (1 MB) → pino-http (X-Request-Id)
-Nest:     ThrottlerGuard (global) → TenantGuard (@TenantScoped) → pipe validasi (zod / ParseUUID)
-          → TenantTransactionInterceptor: BEGIN · set_config(app.tenant_id) · cek @RequireModule
+Nest:     ThrottlerGuard (global) → AuthGuard (@TenantScoped: token → tenant, pengguna, peran) → pipe validasi (zod / ParseUUID)
+          → TenantTransactionInterceptor:
+              cek @RequirePermission (ditolak → audit access_denied di-commit lebih dulu, lalu 403)
+              → BEGIN · set_config(app.tenant_id) · cek @RequireModule
               → Controller → Service → Repository (TenantDb.tx(), RLS aktif)
               → tulis audit (@Audited + TenantDb.audit) · COMMIT
 Galat:    di mana pun → ROLLBACK (data + audit batal) → AppErrorFilter → { code, message, details?, requestId }
@@ -65,15 +67,16 @@ Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditn
 
 | Berkas                                     | Isi                                                                                                         |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `TenantGuard` + `TenantTransactionInterceptor`                                          |
+| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `AuthGuard` + `TenantTransactionInterceptor` (+ dokumentasi bearer Swagger)             |
+| `common/require-permission.decorator.ts`   | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`       |
 | `common/tenant-transaction.interceptor.ts` | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
-| `common/request-context.ts`                | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku, antrean audit                            |
+| `common/request-context.ts`                | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit      |
 | `infra/tenant-db.ts`                       | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant |
-| `common/audited.decorator.ts`              | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`               |
+| `common/audited.decorator.ts`              | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason` |
 | `common/require-module.decorator.ts`       | `@RequireModule(code)` untuk feature flag per RS                                                            |
 | `common/pagination.ts`                     | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
 
-Contoh modul lengkap: `modules/facility/` (P01) dan `modules/settings/` (P10, P12).
+Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12), dan `modules/iam/` (P03).
 
 ### Autentikasi dan sesi (P02)
 
@@ -101,6 +104,31 @@ POST /api/v1/auth/refresh     { refreshToken } → token baru (rotasi; token lam
 
 Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=local` dan `ALLOW_DEV_TENANT_HEADER=true`; tes modul memakainya, tes auth memakai token sungguhan (`apps/api/test/helpers.ts` → `createTestUser`, `login`). Alasan desain: ADR-0011.
 
+### Otorisasi (P03)
+
+Izin = **sumber × aksi × lingkup**. Katalog sumber dan aksi ada di `packages/shared/src/authz.ts` (`PERMISSION_CATALOG`). Lingkupnya `all` (seluruh data RS), `unit` (unit kerja), atau `relationship` (hanya pasien yang punya relasi dengan pengguna).
+
+| Bagian                      | Berkas                                                  | Catatan                                                                                                                                                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Peran dan matriks bawaan    | `@simrs/shared` → `SYSTEM_ROLES`, `DEFAULT_ROLE_GRANTS` | 16 peran sistem, dibuat per RS oleh `ensureSystemRoles` (seed, persiapan tes). Matriks bawaan hanya diisi saat peran dibuat, jadi penyesuaian RS tidak pernah ditimpa. Bawaan mengikuti hak minimum.                                                                                                           |
+| Penugasan                   | tabel `staff_assignments`                               | Pengguna × peran × unit × masa berlaku. Sesi memakai **satu** penugasan: otomatis bila hanya satu, selain itu dipilih pengguna (`GET /auth/assignments`, `POST /auth/assignment`). Penugasan berakhir → izin sesi hilang di permintaan berikutnya.                                                             |
+| Pemeriksaan                 | `@RequirePermission(resource, action)`                  | Dicek interceptor sebelum transaksi permintaan. Ditolak → audit `access_denied` di-commit lebih dulu, lalu `403`. Lingkup yang lolos dibaca service lewat `TenantDb.permissionScope()`.                                                                                                                        |
+| Akses pasien (ABAC)         | `modules/authz/patient-access.service.ts`               | `assert(patientId)`: lingkup `all` → boleh. Selain itu wajib relasi aktif (`access_relationships`: DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit) atau akses darurat yang masih berlaku. Lingkup `unit` diperlakukan sama sampai data kunjungan (ADT) ada.                            |
+| Akses darurat               | `modules/authz/break-glass.service.ts`                  | Alasan klinis 20–500 karakter, berlaku `break_glass.duration_minutes` (bawaan 60), notifikasi ke semua petugas privasi aktif (tanpa PHI), audit `break_glass` berisi pasien dan alasan. Ditinjau petugas privasi, tidak boleh meninjau milik sendiri. Alasan dan waktu tidak bisa diubah (hak kolom database). |
+| Kelola pengguna dan matriks | `modules/iam/`                                          | Lihat aturan pengaman di bawah.                                                                                                                                                                                                                                                                                |
+
+Aturan pengaman di `IamService`:
+
+- Admin tidak bisa menonaktifkan, mereset sandi/MFA, atau menambah peran **akunnya sendiri** lewat menu admin.
+- Selalu tersisa **minimal satu admin aktif**. Pemeriksaannya dikunci per tenant (`lockTenantScope`), sehingga dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos. Tanpa kunci, keduanya lolos di READ COMMITTED (sudah dibuktikan tes).
+- Izin `iam.users.write` dan `iam.roles.write` (`ACCESS_ADMIN_GRANTS`) tidak bisa dicabut dari `admin_tenant`.
+- Bila izin kelola pengguna didelegasikan ke peran lain, pemegangnya **tidak bisa menyentuh akun atau peran setara admin** (mereset, menonaktifkan, memberi atau mencabut peran admin). Ini menutup eskalasi hak lewat delegasi.
+- Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya.
+- Penugasan yang belum mulai bisa dibatalkan: disimpan sebagai rentang kosong (akhir = awal), tidak dihapus. Alasannya tercatat di kolom `reason` audit.
+- Perubahan matriks diaudit sebagai selisih (`added`/`removed`) dan berlaku di permintaan berikutnya.
+
+Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **jangan dipakai untuk menguji izin**. Tes izin memakai token sungguhan: `createTestUser(TENANT_A, { roles: [{ code: 'perawat' }] })` lalu `login(app, user)`. Contoh lengkapnya di `apps/api/test/authz.test.ts`.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -110,7 +138,6 @@ Contoh nyata: `apps/api/src/modules/tenancy/`.
 | `tenancy.controller.ts` | Rute, guard, pipe validasi                              | memanggil service                                  | menyentuh Prisma, menulis aturan bisnis |
 | `tenancy.service.ts`    | Aturan bisnis, lempar `AppError` berkode                | memanggil repository dan service publik modul lain | menyentuh Prisma langsung               |
 | `tenancy.repository.ts` | Akses data lewat `TenantDb.tx()` (transaksi permintaan) | Prisma, `select` eksplisit                         | aturan bisnis                           |
-| `tenant-context.ts`     | `TenantGuard` (dipasang lewat `@TenantScoped()`)        |                                                    |                                         |
 | `tenancy.module.ts`     | Mendaftarkan semuanya                                   |                                                    |                                         |
 
 Modul lain hanya boleh memakai yang diekspor di `*.module.ts`, bukan mengimpor repository modul lain.
@@ -171,6 +198,10 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `allocateNumber(tx, tenantId, kind)`          | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
 | `isModuleEnabled(tx, code)`                   | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
 | `verifyAuditChain(tx)`                        | P04 · Periksa hash berantai audit tenant aktif.                                                          |
+| `ensureSystemRoles(tx, tenantId)`             | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).    |
+| `roleGrantScope(tx, role, resource, action)`  | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
+| `activeAssignments(tx, userId)`               | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
+| `lockTenantScope(tx, scope)`                  | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
 | `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
 | `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
@@ -262,7 +293,7 @@ Aturan web:
 Aturan:
 
 - Tes integrasi memakai database **`simrs_test`** (bukan `simrs`). Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
-- Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** (peran tak berhak → 403, mulai fase 1).
+- Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** dengan token sungguhan (peran tak berhak → 403; lihat `apps/api/test/authz.test.ts`).
 - Tes yang butuh infrastruktur gagal dengan pesan jelas bila infrastruktur mati. Tes tidak boleh dilewati diam-diam atau dilemahkan agar hijau.
 
 ## Konvensi
@@ -281,6 +312,8 @@ Aturan:
 ## Daftar periksa keamanan per perubahan
 
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
+- [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
+- [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.
 - [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).
 - [ ] FK antar-tabel tenant memakai pasangan `(tenant_id, id)`.
 - [ ] Tabel domain baru: `tenant_id` + `ENABLE` + `FORCE` RLS + kebijakan `tenant_isolation` + GRANT minimal.

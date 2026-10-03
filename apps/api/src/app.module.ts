@@ -10,6 +10,8 @@ import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AuthzModule } from './modules/authz/authz.module';
+import { IamModule } from './modules/iam/iam.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
@@ -60,6 +62,8 @@ export class AppModule {
         ]),
         HealthModule,
         AuthModule,
+        IamModule,
+        AuthzModule,
         TenancyModule,
         AuditModule,
         SettingsModule,

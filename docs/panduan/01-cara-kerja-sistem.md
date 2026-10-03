@@ -74,11 +74,21 @@ Contoh: staf membuka data tenant aktif (`GET /api/v1/tenancy/current`).
 1. **Header keamanan** dipasang di respons (CSP, anti-framing, `no-store` agar data tidak tersimpan di cache).
 2. **Request id** dibuat atau diteruskan (`X-Request-Id`). Id ini muncul di log dan di setiap pesan galat, sehingga keluhan pengguna bisa ditelusuri tanpa mencatat data pasien.
 3. **Rate limit** memeriksa jumlah permintaan per IP.
-4. **Konteks tenant** ditetapkan. Di fase 0 dari header `X-Tenant-Id` (hanya di lingkungan non-produksi). Mulai fase 1 dari token login.
-5. **Validasi input** dengan skema zod. Field tak dikenal ditolak.
-6. **Aturan bisnis** di _service_, **akses data** di _repository_.
-7. **Transaksi bertenant**: PostgreSQL menerapkan RLS.
+4. **Konteks tenant dan pengguna** ditetapkan dari token login: RS, pengguna, dan peran dari penugasan yang dipilih. Header `X-Tenant-Id` tanpa login hanya ada di mode pengembang lokal.
+5. **Izin** diperiksa: peran harus memegang izin untuk aksi itu. Bila tidak, penolakan dicatat di audit lalu klien menerima `403`.
+6. **Validasi input** dengan skema zod. Field tak dikenal ditolak.
+7. **Aturan bisnis** di _service_, **akses data** di _repository_, semuanya di **satu transaksi bertenant** (PostgreSQL menerapkan RLS) bersama jejak auditnya.
 8. Bila ada galat di titik mana pun, klien menerima format seragam `{ code, message, details, requestId }` dengan `code` yang stabil (mis. `TENANT_REQUIRED`, `RATE_LIMITED`). Pesan internal tidak pernah dikirim ke klien.
+
+## Siapa boleh apa
+
+Hak akses berlapis. Setiap lapis harus lolos:
+
+1. **Peran (RBAC).** Setiap staf punya satu atau lebih _penugasan_: peran di unit tertentu dengan masa berlaku. Saat login, staf memakai satu penugasan. Setiap RS punya 16 peran sistem dengan matriks izin bawaan berprinsip hak minimum. Admin SIM RS bisa menyesuaikan matriks itu, dan setiap perubahannya diaudit.
+2. **Relasi dengan pasien (ABAC).** Peran klinis (dokter, perawat, dan lainnya) hanya bisa membuka pasien yang sedang dirawatnya: sebagai DPJP, perawat penanggung jawab, rawat bersama, konsultan, atau petugas unit. Peran administratif seperti pendaftaran dan rekam medis berizin ke seluruh pasien.
+3. **Akses darurat (break-the-glass).** Bila keadaan klinis mendesak dan relasi belum tercatat, staf boleh membuka pasien dengan menulis alasan klinis. Akses berlaku sementara (bawaan 60 menit), petugas privasi langsung diberi tahu, dan setiap akses darurat wajib ditinjau.
+
+Pengaman tambahan: RS tidak bisa kehilangan admin terakhirnya, admin tidak bisa mengubah akses akunnya sendiri lewat menu admin, dan izin kelola pengguna yang didelegasikan tidak bisa dipakai untuk mengambil alih akun admin.
 
 ## Integrasi lewat outbox
 
@@ -122,8 +132,8 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 | Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                       | ✅ fase 0 |
 | Web            | CSP, anti-framing, area superadmin tertutup di produksi                                           | ✅ fase 0 |
 | Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit        | ✅ fase 0 |
-| Identitas      | Login, MFA TOTP, sesi pendek, RBAC + ABAC, break-the-glass                                        | ⬜ fase 1 |
-| Audit          | Hash berantai, audit setiap baca/ubah data pasien, laporan anomali                                | ⬜ fase 1 |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                    | ✅ fase 1 |
+| Audit          | Hash berantai ✅; audit setiap baca data pasien dan laporan anomali menyusul                      | 🟨 fase 1 |
 | Data           | Enkripsi kolom identitas (NIK, no. BPJS) + hash untuk pencarian                                   | ⬜ fase 1 |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.

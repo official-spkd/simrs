@@ -51,24 +51,33 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 
 Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); RS dikenali dari subdomain (produksi) + kolom kode RS (lokal); urutan potongan 1 dan 2 ditukar agar modul P01 langsung memakai fondasi audit.
 
-| #   | Potongan                                                                                                                                     | Status                                           | Bukti                                                                                          |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| 2   | P04 inti: transaksi per permintaan (`@TenantScoped`), `@Audited` di transaksi yang sama, hash berantai via trigger + verifikasi              | ✅                                               | db 12 tes (paralel, waktu server, tamper), api 34 tes                                          |
-| 1   | P01 struktur RS (faskes, unit, ruang→kamar→bed) + P08 penomoran + P10 modul aktif + P12 pengaturan                                           | ✅                                               | db 20 tes (nomor paralel/batal, FK komposit, CHECK), api 44 tes; seed 12 unit + 5 kamar per RS |
-| 3   | P02 identitas & login: argon2id, TOTP + anti-replay, sesi buram berotasi + deteksi pemakaian ulang, kunci akun, MFA wajib, subdomain/kode RS | ✅ (PIN perangkat & OTP cadangan email menyusul) | shared 45 tes (vektor RFC 6238), api 61 tes (17 auth), diulang 2× stabil                       |
-| 4   | P03 otorisasi + break-the-glass                                                                                                              | ⬜                                               |                                                                                                |
-| 5   | Layar Login + Akses                                                                                                                          | ⬜                                               |                                                                                                |
-| 6   | Layar Audit + anomali                                                                                                                        | ⬜                                               |                                                                                                |
-| 7   | P05 MPI                                                                                                                                      | ⬜                                               |                                                                                                |
-| 8   | P06 master rujukan                                                                                                                           | ⬜                                               |                                                                                                |
-| 9   | P07 form engine + layar Formulir                                                                                                             | ⬜                                               |                                                                                                |
-| 10  | P09–P11 dokumen, TTE, notifikasi, seed staf                                                                                                  | ⬜                                               |                                                                                                |
-| 11  | Penutup fase 1                                                                                                                               | ⬜                                               |                                                                                                |
+| #   | Potongan                                                                                                                                            | Status                                            | Bukti                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 2   | P04 inti: transaksi per permintaan (`@TenantScoped`), `@Audited` di transaksi yang sama, hash berantai via trigger + verifikasi                     | ✅                                                | db 12 tes (paralel, waktu server, tamper), api 34 tes                                                                    |
+| 1   | P01 struktur RS (faskes, unit, ruang→kamar→bed) + P08 penomoran + P10 modul aktif + P12 pengaturan                                                  | ✅                                                | db 20 tes (nomor paralel/batal, FK komposit, CHECK), api 44 tes; seed 12 unit + 5 kamar per RS                           |
+| 3   | P02 identitas & login: argon2id, TOTP + anti-replay, sesi buram berotasi + deteksi pemakaian ulang, kunci akun, MFA wajib, subdomain/kode RS        | ✅ (PIN perangkat & OTP cadangan email menyusul)  | shared 45 tes (vektor RFC 6238), api 61 tes (17 auth), diulang 2× stabil                                                 |
+| 4   | P03 otorisasi: 16 peran + matriks per RS, penugasan per sesi, `@RequirePermission`, ABAC relasi pasien, break-the-glass + tinjauan, kelola pengguna | ✅ (laporan harian break-the-glass di potongan 6) | db 24 tes (schema-guard), api 98 tes (37 otorisasi: 16 peran × aksi, relasi/darurat, race admin terakhir, anti-eskalasi) |
+| 5   | Layar Login + Akses                                                                                                                                 | ⬜                                                |                                                                                                                          |
+| 6   | Layar Audit + anomali                                                                                                                               | ⬜                                                |                                                                                                                          |
+| 7   | P05 MPI                                                                                                                                             | ⬜                                                |                                                                                                                          |
+| 8   | P06 master rujukan                                                                                                                                  | ⬜                                                |                                                                                                                          |
+| 9   | P07 form engine + layar Formulir                                                                                                                    | ⬜                                                |                                                                                                                          |
+| 10  | P09–P11 dokumen, TTE, notifikasi, seed staf                                                                                                         | ⬜                                                |                                                                                                                          |
+| 11  | Penutup fase 1                                                                                                                                      | ⬜                                                |                                                                                                                          |
+
+### Definisi selesai fase 1
+
+- [ ] Login + MFA berjalan; akun tanpa MFA tidak bisa membuka modul sensitif. API ✅ (P02: sesi tanpa MFA hanya ke endpoint akun, selain itu `403 MFA_REQUIRED`); layar Login di potongan 5.
+- [x] Matriks izin: tes otomatis untuk ≥ 10 kombinasi peran × aksi × relasi (`apps/api/test/authz.test.ts`: 16 kombinasi peran × aksi + relasi aktif/berakhir + akses darurat)
+- [ ] Setiap baca/ubah data pasien menghasilkan `audit_events`; hash berantai terverifikasi oleh tes. Hash berantai ✅ (P04); audit baca data pasien menunggu P05.
+- [ ] Break-the-glass mencatat alasan dan muncul di laporan. Alasan tercatat di audit + daftar tinjauan petugas privasi (API) ✅; laporan di layar Audit (potongan 6).
+- [ ] Merge MPI tidak menghapus apa pun dan bisa ditelusuri (P05, potongan 7)
+- [ ] Koreksi form_response menghasilkan versi baru dengan alasan; diff tampil (P07, potongan 9)
 
 ## Langkah berikutnya
 
 - Setelah Docker hidup: `pnpm infra:up` → `pnpm test` (tes BullMQ harus hijau) → `/ready` hijau → centang dua kriteria sisa → fase 0 ✅.
-- Fase 1 (P01 → P02 → P03 → P04 → P05 …) dengan rencana yang disetujui dulu. P02/P03 juga menggantikan gerbang sementara area superadmin dengan peran `superadmin_platform` (ADR-0010) dan tenant dari header dengan klaim token.
+- Fase 1 potongan 5: layar Login (kode RS / subdomain, MFA, ganti sandi, pilih unit) dan layar Akses (pengguna, penugasan, matriks) lewat BFF Next dengan cookie httpOnly; gerbang sementara area superadmin diganti peran `superadmin_platform` (ADR-0010).
 
 ## Asumsi yang dipakai (belum dikonfirmasi pemilik produk)
 
@@ -107,6 +116,11 @@ Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); R
 - 4 Okt 2026 · Token sesi buram (bukan JWT), MFA wajib, Node ≥ 24.7 untuk argon2id bawaan · ADR-0011
 - 4 Okt 2026 · Throttler `auth` terpisah (`AUTH_RATE_LIMIT_PER_MIN`) untuk endpoint kredensial
 
+- 4 Okt 2026 · Otorisasi: katalog izin di kode, matriks per RS di DB (bawaan hanya untuk peran baru), satu penugasan per sesi, penolakan diaudit sebelum 403, lingkup `unit` sementara = `relationship` sampai ADT · ADR-0012
+- 4 Okt 2026 · Pengaman admin: minimal satu admin aktif dengan advisory lock per tenant (write skew dibuktikan tes), akun/peran setara admin hanya dikelola `admin_tenant`, tidak ada ubah akses akun sendiri lewat menu admin · ADR-0012
+- 4 Okt 2026 · Penugasan yang belum mulai dibatalkan sebagai rentang kosong (CHECK `>=`), migrasi `20261004040000`
+- 4 Okt 2026 · Migrasi yang menambah FK ke tabel ber-`FORCE` RLS dibungkus `NO FORCE`/`FORCE`: validasi FK tanpa konteks tenant gagal `TENANT_REQUIRED`, bahkan untuk tabel baru yang kosong (dibuktikan di `simrs_scratch`). Tutorial 4a diperbaiki; `schema-guard.test.ts` menjaga FORCE terpasang lagi.
+
 ## Utang teknis
 
 - `apps/web` · menu sidebar memakai data statis; hitungan (antrean, IGD) dan status integrasi akan diisi dari API (fase 2 & 7).
@@ -120,3 +134,8 @@ Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); R
 - `packages/db` · Advisory lock audit per tenant menyerialkan penulisan audit dalam satu tenant sampai commit; pantau saat beban tinggi.
 - `P02` · PIN login cepat per perangkat terdaftar dan OTP cadangan (email/WhatsApp) belum dibangun; menyusul bersama notifikasi (potongan 10).
 - `P02` · Daftar kata sandi bocor masih statis kecil; produksi perlu daftar besar (mis. k-anonymity HIBP offline).
+- `P03` · Izin baru di katalog tidak otomatis masuk ke peran RS yang sudah berjalan (bawaan hanya untuk peran baru); perlu migrasi data atau penyesuaian di layar Akses setiap menambah sumber izin.
+- `P03` · `access_relationships` dan `break_glass_grants` belum ber-FK ke `patients` (tabel pasien dibuat P05); tambahkan FK komposit di potongan 7.
+- `P03` · Lingkup `unit` belum memakai lokasi pasien (menunggu ADT fase 2–3); laporan harian break-the-glass (docs/05) dibuat bersama layar Audit (potongan 6).
+- `P03` · Matriks izin dibaca dari DB tiap permintaan berizin; tambahkan cache per tenant + invalidasi bila beban naik.
+- `P03` · Notifikasi baru tersimpan in-app; pengiriman email/WhatsApp menyusul P11 (potongan 10).

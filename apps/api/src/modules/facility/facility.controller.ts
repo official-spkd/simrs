@@ -20,6 +20,7 @@ import {
 import { z } from 'zod';
 import { Audited, changedFields, paramId, resultId } from '../../common/audited.decorator';
 import { RequireModule } from '../../common/require-module.decorator';
+import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { FacilityService } from './facility.service';
@@ -46,17 +47,20 @@ const uuid = new ParseUUIDPipe();
 export class FacilityController {
   constructor(private readonly facility: FacilityService) {}
 
+  @RequirePermission('facility', 'read')
   @Get('facilities')
   listFacilities(@Query(new ZodValidationPipe(listQuerySchema)) q: z.infer<typeof listQuerySchema>) {
     return this.facility.listFacilities(q);
   }
 
+  @RequirePermission('facility', 'write')
   @Post('facilities')
   @Audited({ action: 'create', resource: 'facility', resourceId: resultId })
   createFacility(@Body(new ZodValidationPipe(createFacilitySchema)) body: CreateFacilityInput) {
     return this.facility.createFacility(body);
   }
 
+  @RequirePermission('facility', 'write')
   @Patch('facilities/:id')
   @Audited({ action: 'update', resource: 'facility', resourceId: paramId, details: changedFields })
   updateFacility(
@@ -66,17 +70,20 @@ export class FacilityController {
     return this.facility.updateFacility(id, body);
   }
 
+  @RequirePermission('facility', 'read')
   @Get('units')
   listUnits(@Query(new ZodValidationPipe(unitListSchema)) q: z.infer<typeof unitListSchema>) {
     return this.facility.listUnits(q);
   }
 
+  @RequirePermission('facility', 'write')
   @Post('units')
   @Audited({ action: 'create', resource: 'unit', resourceId: resultId })
   createUnit(@Body(new ZodValidationPipe(createUnitSchema)) body: CreateUnitInput) {
     return this.facility.createUnit(body);
   }
 
+  @RequirePermission('facility', 'write')
   @Patch('units/:id')
   @Audited({ action: 'update', resource: 'unit', resourceId: paramId, details: changedFields })
   updateUnit(
@@ -86,17 +93,20 @@ export class FacilityController {
     return this.facility.updateUnit(id, body);
   }
 
+  @RequirePermission('facility', 'read')
   @Get('locations')
   listLocations(@Query(new ZodValidationPipe(locationListSchema)) q: z.infer<typeof locationListSchema>) {
     return this.facility.listLocations(q);
   }
 
+  @RequirePermission('facility', 'write')
   @Post('locations')
   @Audited({ action: 'create', resource: 'location', resourceId: resultId })
   createLocation(@Body(new ZodValidationPipe(createLocationSchema)) body: CreateLocationInput) {
     return this.facility.createLocation(body);
   }
 
+  @RequirePermission('facility', 'write')
   @Patch('locations/:id')
   @Audited({ action: 'update', resource: 'location', resourceId: paramId, details: changedFields })
   updateLocation(

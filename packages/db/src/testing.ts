@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureSystemRoles } from './authz';
 import { createPrismaClient, withTenant } from './client';
 import { SEED_TENANTS } from './seed-data';
 
@@ -63,9 +64,10 @@ export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Prom
   const prisma = createPrismaClient({ connectionString: urls.migrator, max: 2 });
   try {
     for (const t of SEED_TENANTS) {
-      await withTenant(prisma, t.id, (tx) =>
-        tx.tenant.upsert({ where: { id: t.id }, update: {}, create: { ...t } }),
-      );
+      await withTenant(prisma, t.id, async (tx) => {
+        await tx.tenant.upsert({ where: { id: t.id }, update: {}, create: { ...t } });
+        await ensureSystemRoles(tx, t.id);
+      });
     }
   } finally {
     await prisma.$disconnect();

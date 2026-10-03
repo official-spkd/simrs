@@ -9,6 +9,7 @@ import {
   mfaVerifySchema,
   type MfaVerifyInput,
   refreshSchema,
+  selectAssignmentSchema,
 } from '@simrs/shared';
 import type { Request } from 'express';
 import type { z } from 'zod';
@@ -97,5 +98,26 @@ export class AccountController {
   @AuthRateLimited()
   confirmMfa(@Body(new ZodValidationPipe(mfaConfirmSchema)) body: z.infer<typeof mfaConfirmSchema>) {
     return this.account.confirmMfaEnrollment(body.code);
+  }
+}
+
+/** P03 · Pemilihan unit kerja/peran untuk sesi (setelah MFA). */
+@ApiTags('auth (P02)')
+@TenantScoped()
+@Controller('auth')
+export class SessionAssignmentController {
+  constructor(private readonly account: AccountService) {}
+
+  @Get('assignments')
+  listAssignments() {
+    return this.account.listAssignments();
+  }
+
+  @Post('assignment')
+  @HttpCode(200)
+  selectAssignment(
+    @Body(new ZodValidationPipe(selectAssignmentSchema)) body: z.infer<typeof selectAssignmentSchema>,
+  ) {
+    return this.account.selectAssignment(body.assignmentId);
   }
 }

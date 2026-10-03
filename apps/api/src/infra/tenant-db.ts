@@ -29,6 +29,15 @@ export class TenantDb {
     return this.context().actor.userId;
   }
 
+  actor() {
+    return this.context().actor;
+  }
+
+  /** Lingkup izin endpoint ini (all | unit | relationship) untuk penyaringan data di service. */
+  permissionScope() {
+    return this.context().permissionScope;
+  }
+
   /**
    * Tambah entri audit dari service (mis. satu entri per pasien yang tampil di hasil pencarian).
    * Ditulis di transaksi yang sama sebelum commit; bila gagal, seluruh permintaan dibatalkan.

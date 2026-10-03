@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { readTenantSetting } from '@simrs/db';
+import { activeAssignments, readTenantSetting } from '@simrs/db';
 import {
   AppError,
   type ChangePasswordInput,
@@ -67,6 +67,42 @@ export class AccountService {
         unitId: session.unitId,
       },
     };
+  }
+
+  /** Penugasan aktif pengguna (untuk layar "Pilih unit kerja"). */
+  async listAssignments() {
+    const { userId, sessionId } = this.current();
+    const tx = this.db.tx();
+    const rows = await activeAssignments(tx, userId);
+    const session = await tx.authSession.findUnique({
+      where: { id: sessionId },
+      select: { assignmentId: true },
+    });
+    return rows.map((a) => ({
+      id: a.id,
+      roleCode: a.role.code,
+      roleName: a.role.name,
+      unitId: a.unitId,
+      unitName: a.unit?.name ?? null,
+      validUntil: a.validUntil?.toISOString() ?? null,
+      selected: a.id === session?.assignmentId,
+    }));
+  }
+
+  /** Pilih penugasan untuk sesi ini; harus milik pengguna dan masih berlaku. */
+  async selectAssignment(assignmentId: string) {
+    const { userId, sessionId } = this.current();
+    const tx = this.db.tx();
+    const a = (await activeAssignments(tx, userId)).find((x) => x.id === assignmentId);
+    if (!a) throw new AppError('NOT_FOUND', 'Penugasan tidak ditemukan atau sudah tidak berlaku', 404);
+    await this.sessions.selectAssignment(tx, sessionId, a.id, a.unitId);
+    this.db.audit({
+      action: 'update',
+      resourceType: 'session',
+      resourceId: sessionId,
+      details: { assignment: a.id, role: a.role.code },
+    });
+    return { assignmentId: a.id, roleCode: a.role.code, unitId: a.unitId };
   }
 
   async logout() {

@@ -4,6 +4,7 @@
  * Staf dan pasien fiktif ditambahkan di potongan berikutnya fase 1.
  */
 import { newId } from '@simrs/shared';
+import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type TenantTx, withTenant } from '../src/client';
 import { SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 
@@ -59,6 +60,7 @@ try {
     await withTenant(prisma, t.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });
       await seedStructure(tx, t.id);
+      await ensureSystemRoles(tx, t.id);
     });
     console.warn(`Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit)`);
   }

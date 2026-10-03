@@ -132,3 +132,15 @@ describe('kebijakan kata sandi', () => {
     expect(checkPasswordPolicy('kopi pagi di bangsal tenang', ctx)).toEqual([]);
   });
 });
+
+describe('kata sandi sementara', () => {
+  it('panjang, acak, tanpa karakter mirip, dan lolos kebijakan', async () => {
+    const { generateTemporaryPassword } = await import('./password-hash');
+    const a = generateTemporaryPassword();
+    expect(a).toHaveLength(16);
+    expect(a).not.toMatch(/[0O1lI]/);
+    expect(a).not.toBe(generateTemporaryPassword());
+    expect(checkPasswordPolicy(a, { minLength: 12, username: 'admin.rs' })).toEqual([]);
+    expect(() => generateTemporaryPassword(8)).toThrow(RangeError);
+  });
+});
