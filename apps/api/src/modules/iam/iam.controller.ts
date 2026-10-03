@@ -35,6 +35,11 @@ const schemas = {
     limit: z.coerce.number().int().min(1).max(200).default(50),
     search: z.string().trim().min(2).max(60).optional(),
     status: z.enum(['active', 'disabled']).optional(),
+    role: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{2,40}$/)
+      .optional(),
+    unitId: z.uuid().optional(),
   }),
   roleCode: z.string().regex(/^[a-z][a-z0-9_]{2,40}$/),
 };
@@ -51,6 +56,19 @@ export class IamController {
   @RequirePermission('iam.users', 'read')
   listUsers(@Query(new ZodValidationPipe(schemas.list)) q: z.infer<typeof schemas.list>) {
     return this.iam.listUsers(q);
+  }
+
+  /** Angka ringkas untuk reviu akses: akun aktif, tanpa MFA, terkunci, dorman, akses darurat. */
+  @Get('summary')
+  @RequirePermission('iam.users', 'read')
+  summary() {
+    return this.iam.summary();
+  }
+
+  @Get('users/:id')
+  @RequirePermission('iam.users', 'read')
+  userDetail(@Param('id', uuid) id: string) {
+    return this.iam.userDetail(id);
   }
 
   @Post('users')

@@ -16,8 +16,27 @@ const accessAdminGrant = { OR: ACCESS_ADMIN_GRANTS.map(([resource, action]) => (
 export class IamRepository {
   constructor(private readonly db: TenantDb) {}
 
-  listUsers(q: { cursor?: string; limit: number; search?: string; status?: string }) {
+  listUsers(q: {
+    cursor?: string;
+    limit: number;
+    search?: string;
+    status?: string;
+    role?: string;
+    unitId?: string;
+  }) {
     const at = now();
+    const byAssignment =
+      q.role || q.unitId
+        ? {
+            assignments: {
+              some: {
+                ...activeAt(at),
+                ...(q.role ? { role: { code: q.role } } : {}),
+                ...(q.unitId ? { unitId: q.unitId } : {}),
+              },
+            },
+          }
+        : {};
     return this.db.tx().user.findMany({
       where: {
         ...(q.cursor ? { id: { gt: q.cursor } } : {}),
@@ -27,9 +46,11 @@ export class IamRepository {
               OR: [
                 { username: { contains: q.search.toLowerCase() } },
                 { displayName: { contains: q.search, mode: 'insensitive' } },
+                { email: { contains: q.search.toLowerCase() } },
               ],
             }
           : {}),
+        ...byAssignment,
       },
       orderBy: { id: 'asc' },
       take: q.limit + 1,
@@ -42,6 +63,7 @@ export class IamRepository {
         lastLoginAt: true,
         lockedUntil: true,
         mustChangePassword: true,
+        createdAt: true,
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -65,6 +87,62 @@ export class IamRepository {
     return this.db
       .tx()
       .user.findUnique({ where: { id }, select: { id: true, username: true, status: true } });
+  }
+
+  /** Detail satu pengguna untuk panel Akses: penugasan yang belum berakhir (berlaku sekarang atau akan datang). */
+  findUserDetail(id: string) {
+    return this.db.tx().user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        email: true,
+        status: true,
+        lastLoginAt: true,
+        lockedUntil: true,
+        mustChangePassword: true,
+        createdAt: true,
+        mfaFactors: {
+          where: { disabledAt: null, confirmedAt: { not: null } },
+          select: { id: true },
+          take: 1,
+        },
+        assignments: {
+          where: { OR: [{ validUntil: null }, { validUntil: { gt: now() } }] },
+          orderBy: { validFrom: 'asc' },
+          select: {
+            id: true,
+            unitId: true,
+            validFrom: true,
+            validUntil: true,
+            role: { select: { code: true, name: true } },
+            unit: { select: { name: true } },
+          },
+        },
+      },
+    });
+  }
+
+  /** Angka ringkas layar Akses (MRMIK 2.1c: reviu akses berkala). */
+  async summary(at: Date, dormantBefore: Date) {
+    const tx = this.db.tx();
+    const neverOrStale = {
+      OR: [{ lastLoginAt: { lt: dormantBefore } }, { lastLoginAt: null, createdAt: { lt: dormantBefore } }],
+    };
+    return {
+      total: await tx.user.count(),
+      active: await tx.user.count({ where: { status: 'active' } }),
+      locked: await tx.user.count({ where: { status: 'active', lockedUntil: { gt: at } } }),
+      mfaMissing: await tx.user.count({
+        where: { status: 'active', mfaFactors: { none: { disabledAt: null, confirmedAt: { not: null } } } },
+      }),
+      dormant: await tx.user.count({ where: { status: 'active', ...neverOrStale } }),
+      breakGlass7d: await tx.breakGlassGrant.count({
+        where: { grantedAt: { gte: new Date(at.getTime() - 7 * 86_400_000) } },
+      }),
+      breakGlassPending: await tx.breakGlassGrant.count({ where: { reviewOutcome: null } }),
+    };
   }
 
   async tenantKind(): Promise<TenantKind> {

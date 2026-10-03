@@ -71,17 +71,46 @@ export class IamService {
     }
   }
 
-  async listUsers(q: { cursor?: string; limit: number; search?: string; status?: string }) {
+  /** Keadaan akun untuk reviu akses: dorman = aktif tapi tidak login 60 hari (atau tidak pernah, sejak dibuat). */
+  private accountFlags(
+    u: {
+      status: string;
+      lastLoginAt: Date | null;
+      lockedUntil: Date | null;
+      createdAt: Date;
+      mfaFactors: unknown[];
+    },
+    at: number,
+  ) {
+    const dormantBefore = at - DORMANT_DAYS * 86_400_000;
+    const active = u.status === 'active';
+    return {
+      mfaEnrolled: u.mfaFactors.length > 0,
+      locked: active && !!u.lockedUntil && u.lockedUntil.getTime() > at,
+      /** Belum pernah login sejak dibuat (akun baru / undangan). */
+      neverLoggedIn: !u.lastLoginAt,
+      dormant:
+        active &&
+        (u.lastLoginAt ? u.lastLoginAt.getTime() < dormantBefore : u.createdAt.getTime() < dormantBefore),
+    };
+  }
+
+  async listUsers(q: {
+    cursor?: string;
+    limit: number;
+    search?: string;
+    status?: string;
+    role?: string;
+    unitId?: string;
+  }) {
     const page = toPage(await this.repo.listUsers(q), q.limit);
-    const dormantBefore = Date.now() - DORMANT_DAYS * 86_400_000;
+    const at = Date.now();
     return {
       ...page,
-      items: page.items.map(({ mfaFactors, lockedUntil, ...u }) => ({
+      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, ...u }) => ({
         ...u,
+        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
-        mfaEnrolled: mfaFactors.length > 0,
-        locked: !!lockedUntil && lockedUntil.getTime() > Date.now(),
-        dormant: u.status === 'active' && (!u.lastLoginAt || u.lastLoginAt.getTime() < dormantBefore),
         assignments: u.assignments.map((a) => ({
           id: a.id,
           roleCode: a.role.code,
@@ -92,6 +121,39 @@ export class IamService {
         })),
       })),
     };
+  }
+
+  /** Detail pengguna + penugasan yang belum berakhir (yang dibatalkan sebelum mulai tidak ditampilkan). */
+  async userDetail(id: string) {
+    const u = await this.repo.findUserDetail(id);
+    if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
+    const at = Date.now();
+    const { mfaFactors, lockedUntil, createdAt, assignments, ...rest } = u;
+    return {
+      ...rest,
+      ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
+      lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+      createdAt: createdAt.toISOString(),
+      assignments: assignments
+        .filter((a) => !a.validUntil || a.validUntil > a.validFrom)
+        .map((a) => ({
+          id: a.id,
+          roleCode: a.role.code,
+          roleName: a.role.name,
+          unitId: a.unitId,
+          unitName: a.unit?.name ?? null,
+          validFrom: a.validFrom.toISOString(),
+          validUntil: a.validUntil?.toISOString() ?? null,
+          /** Belum mulai berlaku (mis. rotasi bulan depan). */
+          pending: a.validFrom.getTime() > at,
+        })),
+    };
+  }
+
+  async summary() {
+    const at = new Date();
+    const s = await this.repo.summary(at, new Date(at.getTime() - DORMANT_DAYS * 86_400_000));
+    return { ...s, dormantDays: DORMANT_DAYS };
   }
 
   async createUser(input: CreateUserInput) {

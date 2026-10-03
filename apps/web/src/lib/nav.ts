@@ -84,7 +84,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         label: 'Pengguna & akses',
         href: '/sistem/akses',
         icon: 'shield',
-        available: false,
+        available: true,
         requires: 'iam.users.read',
       },
       {

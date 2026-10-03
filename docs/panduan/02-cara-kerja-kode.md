@@ -234,18 +234,19 @@ Fase 0 hanya mengenal operasi `ping` (ke `/<sistem>/_echo` di mock). Konektor ny
 
 `apps/web/src/`:
 
-| Path                      | Isi                                                                                                            |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`          | Root: font IBM Plex, `lang="id"`, CSS global                                                                   |
-| `proxy.ts`                | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel) |
-| `app/masuk/`              | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)   |
-| `app/(staf)/layout.tsx`   | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                  |
-| `app/(staf)/page.tsx`     | Beranda; status `/ready` hanya untuk operator platform                                                         |
-| `app/(staf)/superadmin/…` | Area superadmin (peran `superadmin_platform`): panduan ini                                                     |
-| `app/(staf)/dev/ui/`      | Galeri token dan komponen (Fondasi), juga khusus operator platform                                             |
-| `lib/server/`             | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`       |
-| `lib/nav.ts`              | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                              |
-| `lib/guide.ts`            | Daftar halaman panduan, pembaca berkas, daftar isi                                                             |
+| Path                       | Isi                                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`           | Root: font IBM Plex, `lang="id"`, CSS global                                                                   |
+| `proxy.ts`                 | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel) |
+| `app/masuk/`               | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)   |
+| `app/(staf)/layout.tsx`    | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                  |
+| `app/(staf)/page.tsx`      | Beranda; status `/ready` hanya untuk operator platform                                                         |
+| `app/(staf)/sistem/akses/` | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien       |
+| `app/(staf)/superadmin/…`  | Area superadmin (peran `superadmin_platform`): panduan ini                                                     |
+| `app/(staf)/dev/ui/`       | Galeri token dan komponen (Fondasi), juga khusus operator platform                                             |
+| `lib/server/`              | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`       |
+| `lib/nav.ts`               | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                              |
+| `lib/guide.ts`             | Daftar halaman panduan, pembaca berkas, daftar isi                                                             |
 
 Aturan web:
 

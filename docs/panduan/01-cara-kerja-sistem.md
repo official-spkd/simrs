@@ -90,6 +90,8 @@ Hak akses berlapis. Setiap lapis harus lolos:
 2. **Relasi dengan pasien (ABAC).** Peran klinis (dokter, perawat, dan lainnya) hanya bisa membuka pasien yang sedang dirawatnya: sebagai DPJP, perawat penanggung jawab, rawat bersama, konsultan, atau petugas unit. Peran administratif seperti pendaftaran dan rekam medis berizin ke seluruh pasien.
 3. **Akses darurat (break-the-glass).** Bila keadaan klinis mendesak dan relasi belum tercatat, staf boleh membuka pasien dengan menulis alasan klinis. Akses berlaku sementara (bawaan 60 menit), petugas privasi langsung diberi tahu, dan setiap akses darurat wajib ditinjau.
 
+Semua ini dikelola admin RS di layar **Pengguna & akses** (`/sistem/akses`): undang pengguna, atur penugasan, reset sandi/MFA, nonaktifkan akun, dan sesuaikan matriks izin per peran. Setiap perubahan tercatat di jejak audit. Angka di atas layar (akun tanpa MFA, akun dorman, akses darurat yang belum ditinjau) dipakai untuk reviu akses bulanan (MRMIK 2.1c).
+
 Pengaman tambahan: RS tidak bisa kehilangan admin terakhirnya, admin tidak bisa mengubah akses akunnya sendiri lewat menu admin, dan izin kelola pengguna yang didelegasikan tidak bisa dipakai untuk mengambil alih akun admin.
 
 ## Integrasi lewat outbox
