@@ -1,11 +1,83 @@
 import { Injectable } from '@nestjs/common';
-import { AuditRepository } from './audit.repository';
+import { readTenantSetting } from '@simrs/db';
+import {
+  AUDIT_ACTION_GROUPS,
+  AUDIT_ANOMALY_KEY,
+  type AuditActionGroup,
+  type AuditAnomalyReviewInput,
+  AppError,
+  formatTanggal,
+  formatTanggalWaktu,
+  NIGHT_SHIFT_ROLES,
+} from '@simrs/shared';
+import { TenantDb } from '../../infra/tenant-db';
+import { type AuditFilter, AuditRepository, type DayBucket } from './audit.repository';
 
 export const auditListSchemaLimits = { defaultLimit: 50, maxLimit: 200 } as const;
 
+const DAY = 86_400_000;
+/** Ekspor dibatasi agar satu permintaan tidak membebani server; persempit rentang bila lebih. */
+export const EXPORT_MAX_ROWS = 10_000;
+export const EXPORT_MAX_DAYS = 92;
+
+export interface AuditQuery {
+  patientId?: string;
+  actorUserId?: string;
+  actorRole?: string;
+  group?: AuditActionGroup;
+  from?: string;
+  to?: string;
+  outcome?: string;
+}
+
+type Severity = 'tinggi' | 'sedang';
+
+export interface AnomalyFinding {
+  key: string;
+  kind: 'break_glass' | 'login_failed' | 'access_denied' | 'night' | 'volume';
+  severity: Severity;
+  title: string;
+  description: string;
+  actor: { id: string; displayName: string } | null;
+  count: number;
+  lastAt: string;
+  /** Akses darurat: id izin (ditinjau lewat /authz/break-glass/:id/review). */
+  grantId: string | null;
+  review: { outcome: string; note: string | null; reviewedAt: string; reviewerId: string | null } | null;
+}
+
+function toFilter(q: AuditQuery): AuditFilter {
+  return {
+    patientId: q.patientId,
+    actorUserId: q.actorUserId,
+    actorRole: q.actorRole,
+    actions: q.group ? AUDIT_ACTION_GROUPS[q.group].actions : undefined,
+    from: q.from ? new Date(q.from) : undefined,
+    to: q.to ? new Date(q.to) : undefined,
+    outcome: q.outcome,
+  };
+}
+
+const minutes = (hhmm: string) => {
+  const [h = '0', m = '0'] = hhmm.split(':');
+  return Number(h) * 60 + Number(m);
+};
+const dayLabel = (day: string) => formatTanggal(`${day}T12:00:00+07:00`);
+
+/** Sel CSV aman: diapit kutip, dan nilai yang bisa dieksekusi spreadsheet (=, +, -, @) diberi awalan '. */
+export function csvCell(value: unknown): string {
+  const s =
+    value === null || value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value);
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
 @Injectable()
 export class AuditService {
-  constructor(private readonly repo: AuditRepository) {}
+  constructor(
+    private readonly repo: AuditRepository,
+    private readonly db: TenantDb,
+  ) {}
 
   async verifyChain() {
     const r = await this.repo.verifyChain();
@@ -17,18 +89,219 @@ export class AuditService {
     };
   }
 
-  /** Paginasi kursor berbasis seq (terbaru dulu). bigint diserialisasi sebagai string. */
-  async list(q: { cursor?: string; limit: number; patientId?: string; actorUserId?: string }) {
+  private async actorMap(ids: Array<string | null>) {
+    const unique = [...new Set(ids.filter((x): x is string => !!x))];
+    const rows = await this.repo.users(unique);
+    return new Map(rows.map((u) => [u.id, u]));
+  }
+
+  /** Paginasi kursor berbasis seq (terbaru dulu), dengan nama pelaku. bigint diserialisasi sebagai string. */
+  async list(q: AuditQuery & { cursor?: string; limit: number }) {
     const rows = await this.repo.list({
+      ...toFilter(q),
       beforeSeq: q.cursor ? BigInt(q.cursor) : undefined,
       limit: q.limit,
-      patientId: q.patientId,
-      actorUserId: q.actorUserId,
     });
     const page = rows.slice(0, q.limit);
+    const actors = await this.actorMap(page.map((r) => r.actorUserId));
     return {
-      items: page.map((r) => ({ ...r, seq: r.seq.toString(), occurredAt: r.occurredAt.toISOString() })),
+      items: page.map((r) => ({
+        ...r,
+        seq: r.seq.toString(),
+        occurredAt: r.occurredAt.toISOString(),
+        actor: r.actorUserId ? (actors.get(r.actorUserId) ?? null) : null,
+      })),
       nextCursor: rows.length > q.limit ? (page.at(-1)?.seq.toString() ?? null) : null,
     };
+  }
+
+  async detail(seq: string) {
+    const r = await this.repo.findBySeq(BigInt(seq));
+    if (!r) throw new AppError('NOT_FOUND', 'Entri audit tidak ditemukan', 404);
+    const actors = await this.actorMap([r.actorUserId]);
+    return {
+      ...r,
+      seq: r.seq.toString(),
+      occurredAt: r.occurredAt.toISOString(),
+      actor: r.actorUserId ? (actors.get(r.actorUserId) ?? null) : null,
+    };
+  }
+
+  /**
+   * Temuan anomali dalam `days` hari terakhir, dihitung dari jejak audit + izin akses darurat. Ambang mengikuti
+   * pengaturan RS (P12): `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`.
+   */
+  async anomalies(days: number) {
+    const tx = this.db.tx();
+    const since = new Date(Date.now() - days * DAY);
+    const night = await readTenantSetting(tx, 'audit.night_hours');
+    const volumeThreshold = await readTenantSetting(tx, 'audit.volume_threshold');
+    const burstThreshold = await readTenantSetting(tx, 'audit.burst_threshold');
+
+    const grants = await this.repo.pendingBreakGlass(since);
+    const buckets: Array<{ kind: Exclude<AnomalyFinding['kind'], 'break_glass'>; b: DayBucket }> = [
+      ...(await this.repo.bursts('login_failed', since, burstThreshold)).map((b) => ({
+        kind: 'login_failed' as const,
+        b,
+      })),
+      ...(await this.repo.bursts('access_denied', since, burstThreshold)).map((b) => ({
+        kind: 'access_denied' as const,
+        b,
+      })),
+      ...(
+        await this.repo.nightAccess(since, minutes(night.start), minutes(night.end), NIGHT_SHIFT_ROLES)
+      ).map((b) => ({ kind: 'night' as const, b })),
+      ...(await this.repo.patientVolume(since, volumeThreshold)).map((b) => ({ kind: 'volume' as const, b })),
+    ];
+    const actors = await this.actorMap(buckets.map((x) => x.b.userId));
+    const keys = buckets.map(({ kind, b }) => `${kind}:${b.userId ?? '-'}:${b.day}`);
+    const reviews = new Map<string, Awaited<ReturnType<AuditRepository['anomalyReviews']>>[number]>();
+    for (const r of await this.repo.anomalyReviews(keys)) {
+      if (r.resourceId && !reviews.has(r.resourceId)) reviews.set(r.resourceId, r);
+    }
+
+    const findings: AnomalyFinding[] = grants.map((g) => ({
+      key: `break_glass:${g.id}`,
+      kind: 'break_glass',
+      severity: 'tinggi',
+      title: 'Akses darurat belum ditinjau',
+      description: `${g.user.displayName} membuka rekam medis lewat akses darurat, ${formatTanggalWaktu(g.grantedAt)}.`,
+      actor: g.user,
+      count: 1,
+      lastAt: g.grantedAt.toISOString(),
+      grantId: g.id,
+      review: null,
+    }));
+    buckets.forEach(({ kind, b }, i) => {
+      const key = keys[i] as string;
+      const actor = b.userId ? (actors.get(b.userId) ?? null) : null;
+      const who = actor?.displayName ?? 'Akun tidak dikenal';
+      const when = dayLabel(b.day);
+      const text: Record<typeof kind, { title: string; description: string; severity: Severity }> = {
+        login_failed: {
+          title: `${b.n}× gagal masuk dalam sehari`,
+          description: `${who}, ${when}. Bisa salah sandi berulang atau upaya menebak sandi.`,
+          severity: b.n >= burstThreshold * 2 ? 'tinggi' : 'sedang',
+        },
+        access_denied: {
+          title: `${b.n}× akses ditolak`,
+          description: `${who} mencoba membuka fitur di luar izinnya, ${when}.`,
+          severity: 'sedang',
+        },
+        night: {
+          title: 'Akses data pasien di luar jam dinas',
+          description: `${who} membuka data ${b.n} pasien antara ${night.start} dan ${night.end} WIB, ${when}.`,
+          severity: 'sedang',
+        },
+        volume: {
+          title: `${b.n} pasien dibuka dalam sehari`,
+          description: `${who} membuka data ${b.n} pasien berbeda, ${when} (batas ${volumeThreshold}).`,
+          severity: 'tinggi',
+        },
+      };
+      const r = reviews.get(key);
+      const outcome = (r?.details as { outcome?: string } | null)?.outcome;
+      findings.push({
+        key,
+        kind,
+        ...text[kind],
+        actor: actor ? { id: actor.id, displayName: actor.displayName } : null,
+        count: b.n,
+        lastAt: b.last.toISOString(),
+        grantId: null,
+        review:
+          r && outcome
+            ? { outcome, note: r.reason, reviewedAt: r.occurredAt.toISOString(), reviewerId: r.actorUserId }
+            : null,
+      });
+    });
+    findings.sort(
+      (a, b) => Number(a.review !== null) - Number(b.review !== null) || b.lastAt.localeCompare(a.lastAt),
+    );
+    return { since: since.toISOString(), days, findings };
+  }
+
+  /**
+   * Keputusan tinjauan anomali = entri audit `review` (append-only). Pelaku tidak boleh meninjau temuan tentang
+   * dirinya sendiri.
+   */
+  reviewAnomaly(input: AuditAnomalyReviewInput) {
+    const m = AUDIT_ANOMALY_KEY.exec(input.key);
+    const subject = m?.[2];
+    if (subject && subject === this.db.actorUserId()) {
+      throw new AppError('CONFLICT', 'Tidak bisa meninjau temuan tentang akun sendiri', 409);
+    }
+    this.db.audit({
+      action: 'review',
+      resourceType: 'audit_anomaly',
+      resourceId: input.key,
+      reason: input.note ?? null,
+      details: { outcome: input.outcome },
+    });
+    return { key: input.key, outcome: input.outcome, reviewedAt: new Date().toISOString() };
+  }
+
+  /** Paket bukti: CSV (UTF-8 + BOM agar terbaca Excel), urut seq naik dengan prev_hash/hash untuk verifikasi ulang. */
+  async exportCsv(q: AuditQuery & { from: string; to: string }) {
+    const from = new Date(q.from);
+    const to = new Date(q.to);
+    if (to <= from || to.getTime() - from.getTime() > EXPORT_MAX_DAYS * DAY) {
+      throw new AppError('VALIDATION_FAILED', `Rentang ekspor harus 1 sampai ${EXPORT_MAX_DAYS} hari`, 400);
+    }
+    const rows = await this.repo.forExport(toFilter(q), EXPORT_MAX_ROWS);
+    if (rows.length > EXPORT_MAX_ROWS) {
+      throw new AppError(
+        'VALIDATION_FAILED',
+        `Lebih dari ${EXPORT_MAX_ROWS.toLocaleString('id-ID')} entri. Persempit rentang waktu atau filter.`,
+        400,
+      );
+    }
+    const actors = await this.actorMap(rows.map((r) => r.actorUserId));
+    const header = [
+      'seq',
+      'waktu_server',
+      'pelaku_id',
+      'pelaku_nama',
+      'peran',
+      'aksi',
+      'hasil',
+      'sumber',
+      'sumber_id',
+      'pasien_id',
+      'alasan',
+      'ip',
+      'request_id',
+      'rincian',
+      'prev_hash',
+      'hash',
+    ];
+    const lines = rows.map((r) =>
+      [
+        r.seq.toString(),
+        r.occurredAt.toISOString(),
+        r.actorUserId,
+        r.actorUserId ? actors.get(r.actorUserId)?.displayName : null,
+        r.actorRole,
+        r.action,
+        r.outcome,
+        r.resourceType,
+        r.resourceId,
+        r.patientId,
+        r.reason,
+        r.ip,
+        r.requestId,
+        r.details,
+        r.prevHash,
+        r.hash,
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+    this.db.audit({
+      action: 'export',
+      resourceType: 'audit_event',
+      details: { count: rows.length, from: from.toISOString(), to: to.toISOString(), group: q.group ?? null },
+    });
+    return `\uFEFF${[header.map(csvCell).join(','), ...lines].join('\r\n')}\r\n`;
   }
 }

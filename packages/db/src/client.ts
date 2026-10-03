@@ -13,8 +13,15 @@ export interface CreateClientOptions {
   max?: number;
 }
 
+/**
+ * Klien Prisma 7 + driver adapter `pg`. Zona waktu sesi DIPAKSA UTC: adapter menulis `Date` sebagai waktu UTC
+ * tanpa zona (ditafsirkan Postgres dalam zona sesi) dan membuang offset saat membaca `timestamptz`. Dengan zona
+ * sesi selain UTC (mis. server `timezone = Asia/Jakarta`), tanggal tersimpan bergeser (−7 jam) dan waktu buatan
+ * database (`now()`, trigger audit) terbaca bergeser (+7 jam); kedaluwarsa sesi pun ikut salah. Dijaga tes
+ * `packages/db/test/time-zone.test.ts`. Tampilan WIB tetap urusan aplikasi (`@simrs/shared` datetime).
+ */
 export function createPrismaClient({ connectionString, max = 10 }: CreateClientOptions): PrismaClient {
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString, max }) });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString, max, options: '-c TimeZone=UTC' }) });
 }
 
 /**

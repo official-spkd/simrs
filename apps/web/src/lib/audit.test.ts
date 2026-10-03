@@ -1,0 +1,75 @@
+import { describe, expect, it } from 'vitest';
+import {
+  actionTone,
+  auditHref,
+  deviceLabel,
+  formatWaktuServer,
+  formatWaktuSingkat,
+  objectLabel,
+  rangeStart,
+  roleLabel,
+  tanggalWib,
+} from './audit';
+
+describe('rentang dan format waktu (WIB)', () => {
+  const now = new Date('2026-10-03T21:30:00Z'); // Min, 4 Okt 2026 04.30 WIB
+  it('"hari ini" mulai 00.00 WIB, bukan 00.00 UTC', () => {
+    expect(rangeStart('hari-ini', now).toISOString()).toBe('2026-10-03T17:00:00.000Z');
+    expect(rangeStart('7-hari', now).toISOString()).toBe('2026-09-26T21:30:00.000Z');
+    expect(tanggalWib(now)).toBe('2026-10-04');
+  });
+
+  it('format ringkas dan waktu server dengan detik', () => {
+    expect(formatWaktuSingkat('2026-10-03T01:51:07.000Z')).toBe('3 Okt 08.51');
+    expect(formatWaktuServer('2026-10-03T01:51:07.123Z')).toBe('Sab, 3 Okt 2026 · 08.51.07');
+  });
+});
+
+describe('label baris audit', () => {
+  it('nama peran, bukan kode', () => {
+    expect(roleLabel('admin_tenant')).toBe('Admin SIM RS');
+    expect(roleLabel('superadmin_platform')).toBe('Superadmin platform');
+    expect(roleLabel('peran_khusus')).toBe('peran_khusus');
+    expect(roleLabel(null)).toBe('—');
+  });
+
+  it('nada chip: penolakan merah, tinjauan hijau, baca netral, darurat merah', () => {
+    expect(actionTone('access_denied')).toBe('danger');
+    expect(actionTone('read', 'denied')).toBe('danger');
+    expect(actionTone('review')).toBe('success');
+    expect(actionTone('read')).toBe('neutral');
+    expect(actionTone('break_glass')).toBe('danger');
+    expect(actionTone('update')).toBe('info');
+  });
+
+  it('objek tanpa PHI: label + potongan id', () => {
+    expect(
+      objectLabel({
+        resourceType: 'patient',
+        resourceId: 'x',
+        patientId: '0199a1b2-1111-7000-8000-000000000001',
+      }),
+    ).toBe('Pasien · 0199a1b2');
+    expect(objectLabel({ resourceType: 'audit_chain', resourceId: null, patientId: null })).toBe(
+      'Rantai audit',
+    );
+    expect(objectLabel({ resourceType: 'tak_dikenal', resourceId: null, patientId: null })).toBe(
+      'tak_dikenal',
+    );
+  });
+
+  it('perangkat ringkas dari user agent', () => {
+    const edge =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140 Safari/537.36 Edg/140';
+    expect(deviceLabel('10.12.4.21', edge)).toBe('10.12.4.21 · Edge · Windows');
+    expect(deviceLabel(null, null)).toBe('—');
+    expect(deviceLabel('::1', 'node')).toBe('::1 · perangkat lain');
+  });
+
+  it('auditHref mempertahankan filter', () => {
+    expect(auditHref({ rentang: '7-hari', jenis: 'baca' }, { kejadian: '42' })).toBe(
+      '/sistem/audit?rentang=7-hari&jenis=baca&kejadian=42',
+    );
+    expect(auditHref({ kursor: '9' }, { kursor: undefined })).toBe('/sistem/audit');
+  });
+});

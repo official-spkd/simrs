@@ -7,6 +7,7 @@ import {
   type BreakGlassInput,
 } from '@simrs/shared';
 import { z } from 'zod';
+import { Audited, paramId } from '../../common/audited.decorator';
 import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
@@ -19,6 +20,8 @@ const listSchema = z.strictObject({
     .default('true')
     .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Laporan harian: tanggal WIB. */
+  date: z.iso.date().optional(),
 });
 const uuid = new ParseUUIDPipe();
 
@@ -48,8 +51,25 @@ export class AuthzController {
 
   @Get('break-glass')
   @RequirePermission('break_glass', 'review')
+  @Audited({
+    action: 'read',
+    resource: 'break_glass',
+    details: ({ result }) => ({ count: (result as unknown[]).length }),
+  })
   list(@Query(new ZodValidationPipe(listSchema)) q: z.infer<typeof listSchema>) {
-    return this.breakGlass.list({ pendingOnly: q.pending, limit: q.limit });
+    return this.breakGlass.list({ pendingOnly: q.pending, limit: q.limit, date: q.date });
+  }
+
+  @Get('break-glass/:id')
+  @RequirePermission('break_glass', 'review')
+  @Audited({
+    action: 'read',
+    resource: 'break_glass',
+    resourceId: paramId,
+    patientId: ({ result }) => (result as { patientId: string }).patientId,
+  })
+  get(@Param('id', uuid) id: string) {
+    return this.breakGlass.get(id);
   }
 
   @Post('break-glass/:id/review')

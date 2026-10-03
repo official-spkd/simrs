@@ -129,6 +129,23 @@ Aturan pengaman di `IamService`:
 
 Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **jangan dipakai untuk menguji izin**. Tes izin memakai token sungguhan: `createTestUser(TENANT_A, { roles: [{ code: 'perawat' }] })` lalu `login(app, user)`. Contoh lengkapnya di `apps/api/test/authz.test.ts`.
 
+### Layar Audit (P04)
+
+Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoint membaca `audit_events` lewat RLS biasa; tidak ada jalur khusus.
+
+| Endpoint                                  | Izin           | Isi                                                                                                                                                        |
+| ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /audit/events`, `/audit/events/:seq` | `audit.read`   | Daftar berfilter (pasien, pengguna, peran, kelompok aksi, rentang waktu, hasil) berpaginasi kursor `seq`; detail berisi hash. Membuka detail ikut diaudit. |
+| `GET /audit/verify`                       | `audit.read`   | Periksa seluruh rantai hash tenant. Mahal, jadi web hanya menjalankannya bila diminta (`?verifikasi=1`, tidak terbawa ke tautan lain).                     |
+| `GET /audit/anomalies?days=`              | `audit.read`   | Temuan dihitung dari jejak: gagal masuk/akses ditolak berulang, akses pasien di luar jam dinas, volume tak wajar, akses darurat belum ditinjau.            |
+| `POST /audit/anomalies/review`            | `audit.review` | Tinjauan temuan. Disimpan sebagai entri audit (`action=review`, `resource_type=audit_anomaly`, `resource_id`=kunci temuan), bukan tabel baru.              |
+| `GET /audit/export`                       | `audit.export` | CSV bukti akreditasi: BOM UTF-8, maks. 92 hari / 10.000 baris, sel berawalan `= + - @` diberi `'` (anti formula injection). Ekspor ikut diaudit.           |
+
+- **Kunci temuan** berbentuk `jenis:pengguna:tanggal WIB` (`AUDIT_ANOMALY_KEY` di `@simrs/shared`). Kunci yang sama di hari yang sama = temuan yang sama, sehingga tinjauan tetap melekat walau jumlah kejadian bertambah.
+- **Ambang** diatur per RS lewat pengaturan: `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`. Peran jaga malam (`NIGHT_SHIFT_ROLES`) tidak dihitung sebagai akses di luar jam dinas.
+- Peninjau tidak boleh meninjau temuan atau akses darurat **miliknya sendiri** (`409`), dan akses darurat yang sudah ditinjau tidak bisa ditinjau ulang.
+- Query SQL temuan mengelompokkan per hari dengan `AT TIME ZONE 'Asia/Jakarta'` secara eksplisit, tidak bergantung pada zona sesi database.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -178,6 +195,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 - Model Prisma: `packages/db/prisma/schema.prisma`. Klien dibangkitkan ke `packages/db/src/generated` (tidak di-commit).
 - Migrasi: `packages/db/prisma/migrations/<timestamp>_<nama>/migration.sql`. Bagian `CREATE TABLE` dibangkitkan Prisma; **blok RLS, GRANT, trigger, dan fungsi ditulis manual** di berkas yang sama. Contohnya di migrasi `20261003000000_fondasi`.
 - Migrasi yang sudah diterapkan tidak diubah. Perbaikan selalu migrasi baru (contoh: `20261003010000_tenants_registry_owner_read`).
+- Waktu: kolom `timestamptz`, sesi Prisma selalu UTC (`createPrismaClient`), tampilan dan pengelompokan per hari **eksplisit** Asia/Jakarta (`jakartaParts` di aplikasi, `AT TIME ZONE 'Asia/Jakarta'` di SQL). Jangan mengandalkan zona server: adapter `pg` Prisma menggeser waktu bila zona sesi bukan UTC (ADR-0014, tes `packages/db/test/time-zone.test.ts`).
 
 ### Fungsi database
 
@@ -193,7 +211,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 | Ekspor                                        | Guna                                                                                                     |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `createPrismaClient({ connectionString })`    | Klien Prisma 7 dengan driver adapter `pg`.                                                               |
+| `createPrismaClient({ connectionString })`    | Klien Prisma 7 dengan driver adapter `pg`; sesi database selalu ber-zona UTC (ADR-0014).                 |
 | `withTenant(prisma, tenantId, fn)`            | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.             |
 | `allocateNumber(tx, tenantId, kind)`          | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
 | `isModuleEnabled(tx, code)`                   | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
@@ -234,19 +252,20 @@ Fase 0 hanya mengenal operasi `ping` (ke `/<sistem>/_echo` di mock). Konektor ny
 
 `apps/web/src/`:
 
-| Path                       | Isi                                                                                                            |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`           | Root: font IBM Plex, `lang="id"`, CSS global                                                                   |
-| `proxy.ts`                 | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel) |
-| `app/masuk/`               | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)   |
-| `app/(staf)/layout.tsx`    | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                  |
-| `app/(staf)/page.tsx`      | Beranda; status `/ready` hanya untuk operator platform                                                         |
-| `app/(staf)/sistem/akses/` | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien       |
-| `app/(staf)/superadmin/…`  | Area superadmin (peran `superadmin_platform`): panduan ini                                                     |
-| `app/(staf)/dev/ui/`       | Galeri token dan komponen (Fondasi), juga khusus operator platform                                             |
-| `lib/server/`              | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`       |
-| `lib/nav.ts`               | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                              |
-| `lib/guide.ts`             | Daftar halaman panduan, pembaca berkas, daftar isi                                                             |
+| Path                       | Isi                                                                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`           | Root: font IBM Plex, `lang="id"`, CSS global                                                                            |
+| `proxy.ts`                 | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)          |
+| `app/masuk/`               | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)            |
+| `app/(staf)/layout.tsx`    | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                           |
+| `app/(staf)/page.tsx`      | Beranda; status `/ready` hanya untuk operator platform                                                                  |
+| `app/(staf)/sistem/akses/` | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien                |
+| `app/(staf)/sistem/audit/` | Layar Audit (P04): jejak + filter lewat URL, panel detail/temuan/akses darurat, `ekspor/route.ts` (unduh CSV lewat BFF) |
+| `app/(staf)/superadmin/…`  | Area superadmin (peran `superadmin_platform`): panduan ini                                                              |
+| `app/(staf)/dev/ui/`       | Galeri token dan komponen (Fondasi), juga khusus operator platform                                                      |
+| `lib/server/`              | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`                |
+| `lib/nav.ts`               | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                                       |
+| `lib/guide.ts`             | Daftar halaman panduan, pembaca berkas, daftar isi                                                                      |
 
 Aturan web:
 
@@ -327,7 +346,7 @@ Aturan:
 | --------------- | ----------------------------------------------------------------------------------------- |
 | Bahasa          | Teks UI dan dokumen: Bahasa Indonesia. Kode, nama variabel, commit: Inggris.              |
 | ID              | UUID v7 dari aplikasi (`newId()`)                                                         |
-| Waktu           | `timestamptz` di DB, ISO 8601 di API, tampilan Asia/Jakarta                               |
+| Waktu           | `timestamptz` di DB (sesi UTC), ISO 8601 di API, tampilan Asia/Jakarta                    |
 | Uang            | `bigint` rupiah, tanpa desimal; setiap mutasi uang menghasilkan jurnal seimbang (fase 5)  |
 | DB              | `snake_case`, tabel jamak, FK `<entitas>_id`, setiap tabel domain punya `tenant_id` + RLS |
 | REST            | `/api/v1/<konteks>/<sumber>`, daftar dengan paginasi kursor                               |

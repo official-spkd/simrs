@@ -1,30 +1,62 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import {
+  AUDIT_ACTION_GROUPS,
+  AUDIT_OUTCOMES,
+  auditAnomalyReviewSchema,
+  type AuditAnomalyReviewInput,
+} from '@simrs/shared';
 import { z } from 'zod';
-import { Audited, queryPatientId } from '../../common/audited.decorator';
+import { Audited, param, queryPatientId } from '../../common/audited.decorator';
 import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { AuditService, auditListSchemaLimits } from './audit.service';
 
-const listQuerySchema = z.strictObject({
-  cursor: z
+const SEQ = z.string().regex(/^\d{1,18}$/);
+const groupKeys = Object.keys(AUDIT_ACTION_GROUPS) as [
+  keyof typeof AUDIT_ACTION_GROUPS,
+  ...Array<keyof typeof AUDIT_ACTION_GROUPS>,
+];
+
+const filterShape = {
+  patientId: z.uuid().optional(),
+  actorUserId: z.uuid().optional(),
+  actorRole: z
     .string()
-    .regex(/^\d{1,18}$/)
+    .regex(/^[a-z][a-z0-9_]{2,40}$/)
     .optional(),
+  group: z.enum(groupKeys).optional(),
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+  outcome: z.enum(AUDIT_OUTCOMES).optional(),
+};
+
+const listQuerySchema = z.strictObject({
+  ...filterShape,
+  cursor: SEQ.optional(),
   limit: z.coerce
     .number()
     .int()
     .min(1)
     .max(auditListSchemaLimits.maxLimit)
     .default(auditListSchemaLimits.defaultLimit),
-  patientId: z.uuid().optional(),
-  actorUserId: z.uuid().optional(),
 });
 type ListQuery = z.infer<typeof listQuerySchema>;
 
-/** P04 · Jejak audit. Membaca audit juga diaudit (siapa melihat jejak siapa). Izin per peran menyusul di P03. */
-@ApiTags('audit')
+const exportQuerySchema = z.strictObject({
+  ...filterShape,
+  from: z.iso.datetime({ offset: true }),
+  to: z.iso.datetime({ offset: true }),
+});
+
+const anomalyQuerySchema = z.strictObject({ days: z.coerce.number().int().min(1).max(90).default(30) });
+
+/**
+ * P04 · Jejak audit (layar /sistem/audit). Membaca audit juga diaudit (siapa melihat jejak siapa).
+ * Anomali dihitung dari jejak itu sendiri; keputusan tinjauannya juga menjadi entri audit.
+ */
+@ApiTags('audit (P04)')
 @TenantScoped()
 @Controller('audit')
 export class AuditController {
@@ -47,5 +79,40 @@ export class AuditController {
   })
   list(@Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery) {
     return this.audit.list(q);
+  }
+
+  @RequirePermission('audit', 'read')
+  @Get('events/:seq')
+  @Audited({ action: 'read', resource: 'audit_event', resourceId: param('seq') })
+  detail(@Param('seq', new ZodValidationPipe(SEQ)) seq: string) {
+    return this.audit.detail(seq);
+  }
+
+  @RequirePermission('audit', 'read')
+  @Get('anomalies')
+  @Audited({
+    action: 'read',
+    resource: 'audit_anomaly',
+    details: ({ result }) => ({ count: (result as { findings: unknown[] }).findings.length }),
+  })
+  anomalies(@Query(new ZodValidationPipe(anomalyQuerySchema)) q: z.infer<typeof anomalyQuerySchema>) {
+    return this.audit.anomalies(q.days);
+  }
+
+  /** Keputusan tinjauan temuan (bukan akses darurat; itu lewat /authz/break-glass/:id/review). */
+  @RequirePermission('audit', 'review')
+  @Post('anomalies/review')
+  @HttpCode(200)
+  reviewAnomaly(@Body(new ZodValidationPipe(auditAnomalyReviewSchema)) body: AuditAnomalyReviewInput) {
+    return this.audit.reviewAnomaly(body);
+  }
+
+  /** Paket bukti akreditasi (CSV). Ekspor dicatat di audit oleh service (beserta jumlah baris). */
+  @RequirePermission('audit', 'export')
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="jejak-audit.csv"')
+  exportCsv(@Query(new ZodValidationPipe(exportQuerySchema)) q: z.infer<typeof exportQuerySchema>) {
+    return this.audit.exportCsv(q);
   }
 }

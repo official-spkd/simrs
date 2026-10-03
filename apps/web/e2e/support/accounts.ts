@@ -135,3 +135,49 @@ export async function loginAs(page: Page, account: Account, path = '/'): Promise
   await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
   await expect(page).not.toHaveURL(/\/masuk/);
 }
+
+/** Izin akses darurat langsung di DB (layar klinis peminta akses darurat dibangun di fase 2–3). */
+export async function createBreakGlassGrant(account: Account, reason: string): Promise<string> {
+  const id = newId();
+  const tenantId = TENANTS[account.tenantCode];
+  const grantedAt = new Date();
+  await withTenant(prisma(), tenantId, (tx) =>
+    tx.breakGlassGrant.create({
+      data: {
+        id,
+        tenantId,
+        userId: account.id,
+        patientId: newId(),
+        reason,
+        grantedAt,
+        expiresAt: new Date(grantedAt.getTime() + 3_600_000),
+      },
+    }),
+  );
+  return id;
+}
+
+/** Entri audit sintetis milik akun (waktu, nomor urut, dan hash tetap diisi trigger server). */
+export async function insertAuditEvents(
+  account: Account,
+  role: string,
+  action: string,
+  count: number,
+): Promise<void> {
+  const tenantId = TENANTS[account.tenantCode];
+  await withTenant(prisma(), tenantId, async (tx) => {
+    for (let i = 0; i < count; i++) {
+      await tx.auditEvent.create({
+        data: {
+          id: newId(),
+          tenantId,
+          actorUserId: account.id,
+          actorRole: role,
+          resourceType: 'session',
+          action,
+          outcome: action === 'login_failed' ? 'denied' : 'success',
+        },
+      });
+    }
+  });
+}

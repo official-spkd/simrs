@@ -40,6 +40,16 @@ export const TENANT_SETTINGS = {
     z.strictObject({ start: hhmm, end: hhmm }),
     { start: '22:00', end: '05:00' },
   ),
+  'audit.volume_threshold': def(
+    'Batas pasien berbeda per pengguna per hari sebelum ditandai anomali',
+    z.number().int().min(2).max(1000),
+    50,
+  ),
+  'audit.burst_threshold': def(
+    'Batas gagal login atau akses ditolak per pengguna per hari sebelum ditandai anomali',
+    z.number().int().min(2).max(100),
+    5,
+  ),
 } as const;
 
 export type TenantSettingKey = keyof typeof TENANT_SETTINGS;

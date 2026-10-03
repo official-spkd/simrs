@@ -3,6 +3,47 @@ import { readTenantSetting } from '@simrs/db';
 import { AppError, type BreakGlassInput, type BreakGlassReviewInput, newId } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
 
+const GRANT_SELECT = {
+  id: true,
+  userId: true,
+  patientId: true,
+  reason: true,
+  grantedAt: true,
+  expiresAt: true,
+  reviewOutcome: true,
+  reviewNote: true,
+  reviewedBy: true,
+  reviewedAt: true,
+  user: { select: { displayName: true, username: true } },
+  reviewer: { select: { displayName: true } },
+} as const;
+
+type GrantRow = {
+  id: string;
+  userId: string;
+  patientId: string;
+  reason: string;
+  grantedAt: Date;
+  expiresAt: Date;
+  reviewOutcome: string | null;
+  reviewNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  user: { displayName: string; username: string };
+  reviewer: { displayName: string } | null;
+};
+
+function present({ user, reviewer, ...r }: GrantRow) {
+  return {
+    ...r,
+    grantedAt: r.grantedAt.toISOString(),
+    expiresAt: r.expiresAt.toISOString(),
+    reviewedAt: r.reviewedAt?.toISOString() ?? null,
+    user: { id: r.userId, displayName: user.displayName, username: user.username },
+    reviewer: r.reviewedBy && reviewer ? { id: r.reviewedBy, displayName: reviewer.displayName } : null,
+  };
+}
+
 /**
  * P03 · Akses darurat (break-the-glass): alasan klinis wajib, berlaku `break_glass.duration_minutes` (bawaan 60),
  * notifikasi ke semua petugas privasi aktif, tercatat di audit (dengan id pasien dan alasan), lalu ditinjau.
@@ -60,30 +101,25 @@ export class BreakGlassService {
     return { id, patientId: input.patientId, expiresAt: expiresAt.toISOString(), notified: officers.length };
   }
 
-  async list(q: { pendingOnly: boolean; limit: number }) {
+  /** Daftar untuk tinjauan dan laporan harian (`date` = tanggal WIB YYYY-MM-DD). */
+  async list(q: { pendingOnly: boolean; limit: number; date?: string }) {
+    const dayStart = q.date ? new Date(`${q.date}T00:00:00+07:00`) : null;
     const rows = await this.db.tx().breakGlassGrant.findMany({
-      where: q.pendingOnly ? { reviewOutcome: null } : {},
+      where: {
+        ...(q.pendingOnly ? { reviewOutcome: null } : {}),
+        ...(dayStart ? { grantedAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 86_400_000) } } : {}),
+      },
       orderBy: { grantedAt: 'desc' },
       take: q.limit,
-      select: {
-        id: true,
-        userId: true,
-        patientId: true,
-        reason: true,
-        grantedAt: true,
-        expiresAt: true,
-        reviewOutcome: true,
-        reviewNote: true,
-        reviewedBy: true,
-        reviewedAt: true,
-      },
+      select: GRANT_SELECT,
     });
-    return rows.map((r) => ({
-      ...r,
-      grantedAt: r.grantedAt.toISOString(),
-      expiresAt: r.expiresAt.toISOString(),
-      reviewedAt: r.reviewedAt?.toISOString() ?? null,
-    }));
+    return rows.map(present);
+  }
+
+  async get(id: string) {
+    const g = await this.db.tx().breakGlassGrant.findUnique({ where: { id }, select: GRANT_SELECT });
+    if (!g) throw new AppError('NOT_FOUND', 'Akses darurat tidak ditemukan', 404);
+    return present(g);
   }
 
   async review(id: string, input: BreakGlassReviewInput) {
@@ -91,11 +127,13 @@ export class BreakGlassService {
     const tx = this.db.tx();
     const g = await tx.breakGlassGrant.findUnique({
       where: { id },
-      select: { id: true, userId: true, patientId: true },
+      select: { id: true, userId: true, patientId: true, reviewOutcome: true },
     });
     if (!g) throw new AppError('NOT_FOUND', 'Akses darurat tidak ditemukan', 404);
     if (reviewer && g.userId === reviewer)
       throw new AppError('CONFLICT', 'Tidak bisa meninjau akses darurat sendiri', 409);
+    // Keputusan pertama tidak ditimpa (riwayatnya juga ada di jejak audit).
+    if (g.reviewOutcome) throw new AppError('CONFLICT', 'Akses darurat ini sudah ditinjau', 409);
     await tx.breakGlassGrant.update({
       where: { id },
       data: {

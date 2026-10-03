@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /** Aksi audit yang dikenal (P04). Tambahkan di sini, jangan mengarang string di modul. */
 export const AUDIT_ACTIONS = [
   'read',
@@ -27,3 +29,85 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const AUDIT_OUTCOMES = ['success', 'denied'] as const;
 export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number];
+
+/** Label aksi untuk layar Audit. */
+export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
+  read: 'Baca',
+  search: 'Cari',
+  create: 'Buat',
+  update: 'Ubah',
+  deactivate: 'Nonaktifkan',
+  print: 'Cetak',
+  export: 'Ekspor',
+  verify: 'Verifikasi',
+  login: 'Masuk',
+  login_failed: 'Gagal masuk',
+  logout: 'Keluar',
+  mfa_enrolled: 'Daftar MFA',
+  password_change: 'Ganti sandi',
+  session_revoked: 'Sesi dicabut',
+  access_denied: 'Akses ditolak',
+  break_glass: 'Break-the-glass',
+  merge: 'Gabung',
+  unmerge: 'Pisah',
+  correct: 'Koreksi',
+  sign: 'Tanda tangan',
+  review: 'Tinjau',
+};
+
+/** Kelompok aksi untuk filter layar Audit (design/mockups/Audit.dc.html). */
+export const AUDIT_ACTION_GROUPS = {
+  baca: { label: 'Baca', actions: ['read', 'search'] },
+  ubah: {
+    label: 'Ubah dan koreksi',
+    actions: ['create', 'update', 'deactivate', 'correct', 'merge', 'unmerge', 'sign'],
+  },
+  cetak: { label: 'Cetak dan ekspor', actions: ['print', 'export'] },
+  akun: {
+    label: 'Akun dan akses',
+    actions: [
+      'login',
+      'login_failed',
+      'logout',
+      'mfa_enrolled',
+      'password_change',
+      'session_revoked',
+      'access_denied',
+    ],
+  },
+  darurat: { label: 'Break-the-glass', actions: ['break_glass', 'review'] },
+} as const satisfies Record<string, { label: string; actions: readonly AuditAction[] }>;
+export type AuditActionGroup = keyof typeof AUDIT_ACTION_GROUPS;
+
+/**
+ * Temuan anomali yang dihitung dari jejak audit (bukan tabel tersendiri). Kunci stabil
+ * `<jenis>:<id pengguna | ->:<tanggal WIB>`; keputusan tinjauan dicatat sebagai entri audit `review`
+ * dengan `resource_type = audit_anomaly` dan `resource_id = kunci` (append-only, tidak bisa dihapus).
+ */
+export const AUDIT_ANOMALY_KINDS = ['login_failed', 'access_denied', 'night', 'volume'] as const;
+export type AuditAnomalyKind = (typeof AUDIT_ANOMALY_KINDS)[number];
+export const AUDIT_ANOMALY_KEY =
+  /^(login_failed|access_denied|night|volume):([0-9a-f-]{36}|-):(\d{4}-\d{2}-\d{2})$/;
+
+export const AUDIT_REVIEW_OUTCOMES = ['sah', 'perlu_klarifikasi'] as const;
+
+export const auditAnomalyReviewSchema = z.strictObject({
+  key: z.string().regex(AUDIT_ANOMALY_KEY, 'Kunci temuan tidak valid'),
+  outcome: z.enum(AUDIT_REVIEW_OUTCOMES),
+  note: z.string().trim().max(500).optional(),
+});
+export type AuditAnomalyReviewInput = z.infer<typeof auditAnomalyReviewSchema>;
+
+/**
+ * Peran yang wajar bekerja malam (jaga 24 jam). Akses data pasien di jam malam oleh peran lain ditandai
+ * sebagai anomali. Diperhalus dengan jadwal shift (F01) setelah tersedia.
+ */
+export const NIGHT_SHIFT_ROLES = [
+  'perawat',
+  'bidan',
+  'dokter',
+  'dokter_residen',
+  'apoteker',
+  'analis_lab',
+  'radiografer',
+] as const;

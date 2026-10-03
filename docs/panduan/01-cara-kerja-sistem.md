@@ -122,23 +122,24 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 ## Rekam medis dan jejak audit
 
 - **Tidak ada hapus atau timpa untuk data klinis.** Koreksi membuat versi baru dengan alasan (`version`, `supersedes_id`, `correction_reason`). Data yang sudah ditandatangani elektronik hanya bisa ditambah addendum. Aturan ini berlaku mulai fase 3 (ADR-0004).
-- **Audit append-only.** Tabel `audit_events` sudah ada. Role aplikasi tidak punya hak `UPDATE`/`DELETE`, dan trigger database menolak perubahan dari siapa pun. Hash berantai dan pencatatan otomatis setiap akses data pasien dibangun di fase 1 (P04).
+- **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa.
+- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
 
 ## Keamanan berlapis
 
-| Lapisan        | Kontrol                                                                                           | Status    |
-| -------------- | ------------------------------------------------------------------------------------------------- | --------- |
-| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only              | ✅ fase 0 |
-| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI       | ✅ fase 0 |
-| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web | ✅ fase 0 |
-| API            | Rate limit per IP, batas body 1 MB, batas waktu koneksi (anti-slowloris)                          | ✅ fase 0 |
-| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                           | ✅ fase 0 |
-| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                       | ✅ fase 0 |
-| Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform | ✅ fase 1 |
-| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit        | ✅ fase 0 |
-| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                    | ✅ fase 1 |
-| Audit          | Hash berantai ✅; audit setiap baca data pasien dan laporan anomali menyusul                      | 🟨 fase 1 |
-| Data           | Enkripsi kolom identitas (NIK, no. BPJS) + hash untuk pencarian                                   | ⬜ fase 1 |
+| Lapisan        | Kontrol                                                                                                       | Status    |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | --------- |
+| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0 |
+| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0 |
+| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0 |
+| API            | Rate limit per IP, batas body 1 MB, batas waktu koneksi (anti-slowloris)                                      | ✅ fase 0 |
+| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0 |
+| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0 |
+| Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform             | ✅ fase 1 |
+| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0 |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                                | ✅ fase 1 |
+| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1 |
+| Data           | Enkripsi kolom identitas (NIK, no. BPJS) + hash untuk pencarian                                               | ⬜ fase 1 |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.
 

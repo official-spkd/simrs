@@ -15,6 +15,8 @@ test.describe('layar Akses (/sistem/akses)', () => {
     page,
     browser,
   }) => {
+    // Dua login penuh (admin + pengguna baru: daftar MFA, ganti sandi) dalam satu tes.
+    test.setTimeout(90_000);
     const admin = await createAccount({ roles: ['admin_tenant'], displayName: 'Andi Pratama' });
     await loginAs(page, admin, '/sistem/akses');
     await expect(page.getByRole('heading', { name: 'Pengguna dan peran', level: 1 })).toBeVisible();

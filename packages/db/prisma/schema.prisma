@@ -306,12 +306,16 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy          String?   @map("updated_by") @db.Uuid
 
-  tenant          Tenant            @relation(fields: [tenantId], references: [id])
-  credential      UserCredential?
-  mfaFactors      MfaFactor[]
-  sessions        AuthSession[]
-  loginChallenges LoginChallenge[]
-  assignments     StaffAssignment[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  credential          UserCredential?
+  mfaFactors          MfaFactor[]
+  sessions            AuthSession[]
+  loginChallenges     LoginChallenge[]
+  assignments         StaffAssignment[]
+  accessRelationships AccessRelationship[]
+  breakGlassGrants    BreakGlassGrant[]    @relation("BreakGlassUser")
+  breakGlassReviews   BreakGlassGrant[]    @relation("BreakGlassReviewer")
+  notifications       Notification[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, username])
@@ -482,6 +486,7 @@ model AccessRelationship {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
 
   @@index([tenantId, userId, patientId])
   @@map("access_relationships")
@@ -502,7 +507,9 @@ model BreakGlassGrant {
   reviewedBy    String?   @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  user     User   @relation("BreakGlassUser", fields: [tenantId, userId], references: [tenantId, id])
+  reviewer User?  @relation("BreakGlassReviewer", fields: [tenantId, reviewedBy], references: [tenantId, id])
 
   @@index([tenantId, userId, patientId, expiresAt])
   @@index([tenantId, reviewOutcome])
@@ -521,7 +528,8 @@ model Notification {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   readAt          DateTime? @map("read_at") @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  recipient User   @relation(fields: [tenantId, recipientUserId], references: [tenantId, id])
 
   @@index([tenantId, recipientUserId, readAt])
   @@map("notifications")

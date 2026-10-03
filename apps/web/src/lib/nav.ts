@@ -92,7 +92,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         label: 'Jejak audit',
         href: '/sistem/audit',
         icon: 'history',
-        available: false,
+        available: true,
         requires: 'audit.read',
       },
       {
