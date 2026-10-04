@@ -193,6 +193,8 @@ Selama pengembangan, semua sistem luar ditiru oleh `apps/mock` di `http://localh
 
 Semua data lokal **fiktif**. NIK uji berawalan `9999`, kode CBG berawalan `SIM-`. Tenant RSFA/RSFB bernama "RS Fiktif …"; tenant RSCM memakai nama RS sebenarnya (fokus pengembangan lokal), tetapi kode Kemenkes/BPJS/SATUSEHAT, pasien, dan stafnya fiktif. Jangan pernah memasukkan data pasien asli ke lingkungan pengembangan.
 
+Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NIP fiktif berawalan `9999` sebagai nama pengguna. Staf seed sengaja dibuat **tanpa kata sandi**: tidak ada akun dengan sandi bawaan yang bisa dipakai siapa pun. Staf baru bisa masuk setelah admin SIM RS memberi sandi sementara lewat **Reset kata sandi** di layar Pengguna & akses, lalu mendaftarkan MFA dan mengganti sandi saat login pertama.
+
 ## Peta fase
 
 | Fase | Isi                                                                                        | Status                                        |
