@@ -128,8 +128,9 @@ test.describe('klinis rawat jalan', () => {
     expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'(;|$)/);
     // Pencarian antrean berjalan di klien: hanya bekerja bila halaman terhidrasi.
     const queue = page.getByRole('region', { name: 'Antrean poli' });
-    await queue.getByLabel('Cari pasien').fill('00124578');
+    await queue.getByLabel('Cari pasien').fill('00315746');
     await expect(queue.getByRole('link')).toHaveCount(1);
+    await expect(queue.getByRole('link', { name: /Ny\. Sri Wahyuni/ })).toBeVisible();
     expect(violations).toEqual([]);
   });
 
