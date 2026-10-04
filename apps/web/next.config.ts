@@ -57,7 +57,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@simrs/ui'],
   poweredByHeader: false,
   typedRoutes: false,
-  // Dev: izinkan membuka lewat 127.0.0.1 (mis. bila localhost:3000 IPv6 dipakai aplikasi lain). Hanya berlaku di `next dev`.
+  // Hanya `next dev`: izinkan membuka lewat 127.0.0.1 (mis. bila localhost:3000 di IPv6 dipakai aplikasi lain).
   allowedDevOrigins: ['127.0.0.1'],
   // Panduan superadmin dibaca dari docs/panduan saat runtime; sertakan saat output standalone.
   outputFileTracingIncludes: { '/superadmin/panduan/**': ['../../docs/panduan/**/*.md'] },
