@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Alert, Button, Field, PatientBanner, Segmented, Sidebar, Tabs } from './index';
+import { Alert, Button, Field, LineChart, PatientBanner, Segmented, Sidebar, Tabs } from './index';
 
 afterEach(cleanup);
 
@@ -125,5 +125,28 @@ describe('Segmented', () => {
     expect(screen.getByRole('tab', { name: 'IGD' }).getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement?.textContent).toBe('IGD');
     expect(screen.getByRole('status').textContent).toBe('igd');
+  });
+});
+
+describe('LineChart', () => {
+  it('gambar berlabel + tabel data tersembunyi untuk pembaca layar', () => {
+    render(
+      <LineChart
+        id="uji"
+        ariaLabel="Pendapatan harian"
+        yTicks={[150, 300]}
+        xLabels={[{ index: 0, label: '1 Okt' }]}
+        rowLabels={['1 Okt', '2 Okt', '3 Okt']}
+        series={[
+          { label: 'Realisasi', values: [200, 250, 220], tone: 'brand', area: true },
+          { label: 'Anggaran', values: [210, 212, 214], tone: 'warning', dashed: true },
+        ]}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Pendapatan harian' })).toBeTruthy();
+    const table = screen.getByRole('table');
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
+    expect(table.textContent).toContain('250');
+    expect(document.querySelectorAll('path')).toHaveLength(3);
   });
 });

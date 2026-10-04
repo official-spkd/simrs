@@ -68,7 +68,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         />
       }
     >
-      {children}
+      {/* Mode presentasi: ruang di bawah agar pil panduan tidak menutupi isi terakhir halaman. */}
+      {demo ? <div className="pb-16">{children}</div> : children}
       {demo && (
         <>
           <DemoGuide

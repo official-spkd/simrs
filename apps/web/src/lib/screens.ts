@@ -331,7 +331,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Dasbor',
     components: ['I09'],
     phase: 9,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'dashboard.read',
     demoRoles: ['manajemen'],
     layout: 'staf',

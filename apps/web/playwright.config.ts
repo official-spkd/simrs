@@ -44,6 +44,9 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   retries: 0,
+  // Stack penuh (API + dua server web + browser paralel) di laptop pengembang yang juga menjalankan server
+  // pengembangan: alur panjang (login + beberapa aksi) bisa melewati 30 dtk bawaan. Batas tiap langkah tetap 10 dtk.
+  timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['list']],
   use: {

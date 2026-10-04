@@ -6,6 +6,7 @@ export { cx } from './cx';
 export { Field, type FieldProps } from './field';
 export { Icon, iconPaths, type IconName } from './icons';
 export { Card, KpiCard } from './kpi-card';
+export { LineChart, type ChartSeries } from './line-chart';
 export { PatientBanner, type PatientBannerProps } from './patient-banner';
 export {
   Sidebar,

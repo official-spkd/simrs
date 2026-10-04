@@ -6,6 +6,9 @@ import type { LogKind } from '@/lib/demo/engine/format';
 import { runScenario } from '@/lib/demo/engine/run';
 import { SCENARIO_ORDER, SCENARIOS } from '@/lib/demo/skenario';
 import { simulationView } from '@/lib/demo/simulasi-view';
+import { OpenScreenButton } from '@/components/open-screen-button';
+import { screenById } from '@/lib/screens';
+import { SYSTEM_ROLES, type SystemRoleCode } from '@simrs/shared';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { loadDemoRuns } from '@/lib/server/demo/scenario';
 import { SimulasiControls } from './simulasi-controls';
@@ -239,6 +242,21 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                 scenario={runs.active}
                 nextScenario={{ id: nextId, label: SCENARIOS[nextId].label }}
               />
+              <div className="flex flex-wrap gap-4 px-[18px] pb-4">
+                {(['dasbor', 'app-pasien'] as const).map((id) => {
+                  const target = screenById(id);
+                  if (!target || target.status === 'belum') return null;
+                  const role = target.demoRoles === 'semua' ? null : (target.demoRoles[0] ?? null);
+                  return (
+                    <OpenScreenButton
+                      key={id}
+                      screen={{ id: target.id, label: target.label, ready: true }}
+                      role={role}
+                      roleName={role ? SYSTEM_ROLES[role as SystemRoleCode] : null}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
         </section>

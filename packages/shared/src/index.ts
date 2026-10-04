@@ -15,6 +15,7 @@ export * from './outbox';
 export * from './patient';
 export * from './patient-match';
 export * from './schemas/auth';
+export * from './schemas/dashboard';
 export * from './schemas/facility';
 export * from './schemas/iam';
 export * from './schemas/patient';
