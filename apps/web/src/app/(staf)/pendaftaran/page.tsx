@@ -1,68 +1,18 @@
 import type { Metadata } from 'next';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { ScenarioBanner } from '@/components/scenario-banner';
-import { SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
-import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
-import { simClock, taskDoneAt } from '@/lib/front-office';
-import {
-  getRegistrationDesk,
-  getScenarioRegistrationPatient,
-} from '@/lib/server/data/front-office/pendaftaran';
-import {
-  activeStepId,
-  milestone,
-  scenarioRuns,
-  scenariosHere,
-  stepReached,
-} from '@/lib/server/demo/scenario-context';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { PendaftaranClient } from './pendaftaran-client';
-import type { RegScenarioView } from './use-registration';
+import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { DemoPendaftaran } from './demo-pendaftaran';
 
 export const metadata: Metadata = { title: 'Pendaftaran' };
 
-/** F03/F06 · Pendaftaran rawat jalan + SEP (mockup `Registrasi.dc.html`). Mode presentasi: data dummy (ADR-0023). */
+/**
+ * F03/F06 · Pendaftaran rawat jalan + SEP (mockup `Registrasi.dc.html`). Layar hibrida (`requireScreen`): mode
+ * presentasi memakai data dummy (`demo-pendaftaran.tsx`); mode api untuk peran ber-izin `encounter.write`, jalur API
+ * diisi fase 2 potongan 5b.
+ */
 export default async function PendaftaranPage() {
-  const { session, screen, allowed } = await requireDemoScreen('daftar');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const [desk, suryo, runs] = await Promise.all([
-    getRegistrationDesk(session),
-    getScenarioRegistrationPatient(),
-    scenarioRuns(session),
-  ]);
-  const rj = runs.results['rawat-jalan'];
-  const here = scenariosHere(runs, 'daftar').find((h) => h.scenario === 'rawat-jalan');
-  const enabled = (id: string) => here?.step.tasks.some((t) => t.id === id && t.enabled) ?? false;
-  const arrival = activeStepId(rj) === 'kedatangan';
-  const scenario: RegScenarioView = {
-    rev: runs.rev,
-    stepIndex: here ? here.step.index : null,
-    arrivalPending: arrival && milestone(rj, 'kedatangan', 'tiket'),
-    callable: milestone(rj, 'kedatangan', 'tiket') && !milestone(rj, 'pendaftaran', 'panggil'),
-    atCounter: milestone(rj, 'pendaftaran', 'panggil') && !stepReached(rj, 'asesmen-perawat'),
-    checked: milestone(rj, 'pendaftaran', 'cek'),
-    sepIssued: milestone(rj, 'pendaftaran', 'sep'),
-    sepAt: taskDoneAt(rj, 'pendaftaran', 'sep'),
-    clock: simClock(rj.clock),
-    enabled: { panggil: enabled('panggil'), cek: enabled('cek'), sep: enabled('sep') },
-  };
-  return (
-    <div className="flex flex-col gap-4">
-      <ScenarioBanner session={session} screen="daftar" />
-      <PendaftaranClient
-        key={scenario.atCounter ? 'skenario' : 'lokal'}
-        desk={desk}
-        scenarioPatient={suryo}
-        scenario={scenario}
-        fixed={{
-          ticket: SCENARIO_RJ.ticket,
-          sep: SCENARIO_RJ.sep,
-          queueNo: SCENARIO_RJ.poliQueue,
-          diagnosis: SCENARIO_RJ.diagnosis,
-          patientId: SCENARIO_RJ.patientId,
-        }}
-        today={DEMO_TODAY}
-      />
-    </div>
-  );
+  const access = await requireScreen('daftar');
+  if (access.mode === 'demo') return <DemoPendaftaran access={access} />;
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
 }
