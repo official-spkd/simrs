@@ -1,4 +1,4 @@
-import { Chip } from '@simrs/ui';
+import { Chip, Icon } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -8,6 +8,7 @@ import { CpoeWorkspace, type ScenarioGate } from '@/components/klinis/cpoe-works
 import { KlinisPatientHeader } from '@/components/klinis/patient-header';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientByEncounterId } from '@/lib/demo/fixtures/pasien';
+import { egfrLow } from '@/lib/klinis';
 import { screenById } from '@/lib/screens';
 import { getCpoeContext } from '@/lib/server/data/klinis';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
@@ -53,6 +54,7 @@ export default async function CpoePage({ params }: { params: Promise<{ encounter
     return s && s.status !== 'belum' ? [{ href: s.route, label: `Lihat di ${s.label}` }] : [];
   });
   const poli = screenById('poli');
+  const lowEgfr = egfrLow(ctx.egfr);
   const signature = ctx.orders.map((o) => `${o.id}:${o.status}:${o.override ?? ''}`).join('|');
 
   return (
@@ -69,8 +71,12 @@ export default async function CpoePage({ params }: { params: Promise<{ encounter
         actions={
           <>
             {ctx.weightKg && <Chip tone="neutral">BB {ctx.weightKg} kg</Chip>}
-            <Chip tone={ctx.egfr !== null && ctx.egfr < 45 ? 'warning' : 'neutral'}>
+            <Chip
+              tone={lowEgfr ? 'warning' : 'neutral'}
+              icon={lowEgfr ? <Icon name="arrowDown" size={13} strokeWidth={2.2} /> : undefined}
+            >
               eGFR {ctx.egfr ?? 'belum ada'}
+              {lowEgfr ? ' · rendah' : ''}
             </Chip>
             {ctx.setting === 'rawat-jalan' && poli && poli.status !== 'belum' && (
               <Link

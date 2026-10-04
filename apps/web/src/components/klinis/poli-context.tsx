@@ -1,7 +1,8 @@
 import type { PoliEncounter } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import type { ReactNode } from 'react';
-import { LAB_FLAG_LABEL } from '@/lib/klinis';
+import { labValueFlag } from '@/lib/klinis';
+import { ValueFlagBadge } from './status-flag';
 
 function Box({
   title,
@@ -39,21 +40,29 @@ export function PoliContext({ encounter }: { encounter: PoliEncounter }) {
           <span className="text-small text-ink-500">Belum ada hasil lab di rumah sakit ini.</span>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-            {e.labs.map((l) => (
-              <li key={`${l.name}-${l.value}`} className="flex flex-col gap-0.5">
-                <span className="flex items-baseline justify-between gap-2">
-                  <span>{l.name}</span>
-                  <span className={cx('text-right font-bold', l.flag ? 'text-danger' : 'text-ink-900')}>
-                    {l.value}
-                    {l.flag && <span className="ml-1 text-caption">({LAB_FLAG_LABEL[l.flag]})</span>}
+            {e.labs.map((l) => {
+              const flag = labValueFlag(l.flag);
+              return (
+                <li key={`${l.name}-${l.value}`} className="flex flex-col gap-0.5">
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span>{l.name}</span>
+                    <span
+                      className={cx(
+                        'inline-flex flex-wrap items-center justify-end gap-1 text-right font-bold',
+                        flag ? 'text-danger' : 'text-ink-900',
+                      )}
+                    >
+                      {l.value}
+                      {flag && <ValueFlagBadge flag={flag} />}
+                    </span>
                   </span>
-                </span>
-                <span className="text-caption text-ink-500">
-                  {l.reference ? `Rujukan ${l.reference}` : 'Tanpa nilai rujukan'}
-                  {l.loinc && <span className="font-mono"> · LOINC {l.loinc}</span>}
-                </span>
-              </li>
-            ))}
+                  <span className="text-caption text-ink-500">
+                    {l.reference ? `Rujukan ${l.reference}` : 'Tanpa nilai rujukan'}
+                    {l.loinc && <span className="font-mono"> · LOINC {l.loinc}</span>}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Box>

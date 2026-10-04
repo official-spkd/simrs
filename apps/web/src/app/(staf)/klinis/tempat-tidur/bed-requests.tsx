@@ -2,7 +2,8 @@
 
 import type { Bed, BedRequest } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
-import { formatWait } from '@/lib/rawat-inap';
+import { StatusFlag } from '@/components/klinis/status-flag';
+import { BOARDING_LATE_LABEL, formatWait } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { ScenarioRequestTasks } from './scenario-request';
 
@@ -58,18 +59,20 @@ export function BedRequests({
                 r.late ? 'bg-[#FFFBFA]' : r.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
               )}
             >
-              <span className="flex justify-between gap-2">
+              <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
                 <span className="font-semibold">
                   {r.patientName} · {r.sex} {r.ageYears}
                 </span>
-                <span
-                  className={cx(
-                    'font-mono text-caption font-semibold',
-                    r.late ? 'text-danger' : 'text-ink-700',
-                  )}
-                >
-                  {formatWait(r.waitMinutes)}
-                  {r.late && <span className="sr-only"> (melewati 4 jam)</span>}
+                <span className="flex flex-wrap items-center justify-end gap-1.5">
+                  <span
+                    className={cx(
+                      'font-mono text-caption font-semibold',
+                      r.late ? 'text-danger' : 'text-ink-700',
+                    )}
+                  >
+                    {formatWait(r.waitMinutes)}
+                  </span>
+                  {r.late && <StatusFlag icon="clock">{BOARDING_LATE_LABEL}</StatusFlag>}
                 </span>
               </span>
               <span className="text-caption text-ink-700">
