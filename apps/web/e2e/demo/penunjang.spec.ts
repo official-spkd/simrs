@@ -206,4 +206,85 @@ test.describe('penunjang · farmasi', () => {
     await serah.getByRole('button', { name: 'Serahkan obat' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'diserahkan ke keluarga pasien' })).toBeVisible();
   });
+
+  test('tablet 768 px tanpa scroll horizontal', async ({ page }) => {
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await loginAs(page, apoteker, '/penunjang/farmasi');
+    await expect(page.getByRole('region', { name: 'Item resep' })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+});
+
+test.describe('penunjang · radiologi', () => {
+  test('papan modalitas dan worklist; dosis CT wajib; ekspertise ditandatangani radiolog', async ({
+    page,
+  }) => {
+    const radiografer = await createAccount({ roles: ['radiografer'] });
+    await loginAs(page, radiografer, '/penunjang/radiologi');
+    await expect(
+      page.getByRole('heading', { name: 'Radiologi · pemeriksaan dan ekspertise', level: 1 }),
+    ).toBeVisible();
+    const board = page.getByRole('region', { name: 'Papan modalitas' });
+    await expect(board.getByText('CT scan 64 slice')).toBeVisible();
+    await expect(board.getByText('13/18 slot')).toBeVisible();
+    const worklist = page.getByRole('region', { name: 'Worklist radiologi' });
+    await expect(worklist.getByText('ICD-9-CM 87.03')).toBeVisible();
+    await expect(worklist.getByText('kode belum dipetakan').first()).toBeVisible();
+
+    // CT berlangsung: dosis radiasi wajib sebelum dikirim ke ekspertise.
+    await worklist.getByRole('button', { name: /Ny\. Maria Ulfa/ }).click();
+    const akuisisi = page.getByRole('region', { name: 'Selesai pemeriksaan' });
+    const kirim = akuisisi.getByRole('button', { name: 'Selesai, kirim ke ekspertise' });
+    await expect(kirim).toBeDisabled();
+    await expect(akuisisi.getByText('Isi CTDIvol (mGy) antara 0 dan 200.')).toBeVisible();
+    await akuisisi.getByRole('textbox', { name: 'CTDIvol (mGy)' }).fill('14,2');
+    await akuisisi.getByRole('textbox', { name: 'DLP (mGy·cm)' }).fill('720');
+    await kirim.click();
+    await expect(page.getByRole('status').filter({ hasText: 'masuk antrean ekspertise' })).toBeVisible();
+
+    // Ekspertise: templat, lalu TTE radiolog.
+    const ekspertise = page.getByRole('region', { name: 'Ekspertise' });
+    const tte = ekspertise.getByRole('button', { name: 'Tandatangani (TTE)' });
+    await expect(tte).toBeDisabled();
+    await expect(ekspertise.getByText('Temuan wajib diisi (minimal 20 karakter).')).toBeVisible();
+    await ekspertise
+      .getByRole('textbox', { name: 'Temuan' })
+      .fill(
+        'Massa di kolon sigmoid mengecil dibanding CT sebelumnya. Tidak tampak lesi hepar baru. Tidak tampak asites.',
+      );
+    await ekspertise.getByRole('textbox', { name: 'Kesan' }).fill('Respons parsial pasca kemoterapi.');
+    await tte.click();
+    const laporan = page.getByRole('region', { name: 'Laporan radiologi' });
+    await expect(laporan).toContainText('Ditandatangani dr. Arman Siregar, Sp.Rad');
+    await expect(laporan).toContainText('Respons parsial pasca kemoterapi.');
+    await expect(page.getByRole('region', { name: 'Order pemeriksaan' })).toContainText('DLP 720 mGy·cm');
+
+    // Pemeriksaan terjadwal: mulai hanya setelah identitas dicek.
+    await worklist.getByRole('button', { name: /Tn\. Rizky Ramadhan/ }).click();
+    const mulai = page.getByRole('region', { name: 'Mulai pemeriksaan' });
+    await expect(mulai.getByRole('button', { name: 'Mulai pemeriksaan' })).toBeDisabled();
+    await mulai.getByRole('checkbox', { name: /Identitas dicek dengan 2 penanda/ }).check();
+    await mulai.getByRole('button', { name: 'Mulai pemeriksaan' }).click();
+    await expect(page.getByRole('region', { name: 'Selesai pemeriksaan' })).toBeVisible();
+  });
+
+  test('skenario IGD: foto toraks Tn. Hartono muncul dari order set', async ({ page }) => {
+    const radiografer = await createAccount({ roles: ['radiografer'] });
+    await loginAs(page, radiografer, '/simulasi');
+    await jumpTo(page, 'IGD → rawat inap', 'Lab & nilai kritis');
+    await page.goto('/penunjang/radiologi');
+    const worklist = page.getByRole('region', { name: 'Worklist radiologi' });
+    await expect(worklist.getByRole('button', { name: /Tn\. Hartono Wibisono/ })).toContainText(
+      'Foto toraks',
+    );
+  });
+
+  test('tablet 768 px tanpa scroll horizontal', async ({ page }) => {
+    const radiografer = await createAccount({ roles: ['radiografer'] });
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await loginAs(page, radiografer, '/penunjang/radiologi?pilih=rad-dewi');
+    await expect(page.getByRole('region', { name: 'Ekspertise' })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
 });

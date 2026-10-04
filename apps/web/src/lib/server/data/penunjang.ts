@@ -1,6 +1,14 @@
 import 'server-only';
-import { type LabWorklist, labWorklistSchema, type PharmacyQueue, pharmacyQueueSchema } from '@simrs/shared';
-import { demoLabWorklist, demoPharmacyQueue } from '../../demo/fixtures/penunjang';
+import {
+  type LabWorklist,
+  labWorklistSchema,
+  type PharmacyQueue,
+  pharmacyQueueSchema,
+  type RadiologyWorklist,
+  radiologyWorklistSchema,
+} from '@simrs/shared';
+import { demoLabWorklist, demoPharmacyQueue, demoRadiologyWorklist } from '../../demo/fixtures/penunjang';
+import { scenarioRadiologyExams } from '../../penunjang-skenario-radiologi';
 import { scenarioPrescriptions } from '../../penunjang-skenario-farmasi';
 import {
   type ScenarioResults,
@@ -52,4 +60,13 @@ export async function getPharmacyQueue(scenario: ScenarioResults): Promise<Pharm
     return pharmacyQueueSchema.parse(demoPharmacyQueue(scenarioPrescriptions(scenario)));
   }
   return notImplemented('farmasi');
+}
+
+/** Papan modalitas dan worklist radiologi termasuk pemeriksaan pasien skenario (foto toraks IGD). */
+export async function getRadiologyWorklist(scenario: ScenarioResults): Promise<RadiologyWorklist> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    return radiologyWorklistSchema.parse(demoRadiologyWorklist(scenarioRadiologyExams(scenario)));
+  }
+  return notImplemented('radiologi');
 }

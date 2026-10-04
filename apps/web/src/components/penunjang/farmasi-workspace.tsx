@@ -139,7 +139,7 @@ export function FarmasiWorkspace({
           () => reviewRxAction({ rxId: p.id, decision: 'setujui' }),
           (r) => {
             patch(p.id, (c) => ({ ...c, stage: 'siap' }));
-            setFlash({ ...next, text: `${r.message}: ${name}.` });
+            setFlash({ ...next, text: `${next.text.slice(0, -1)} · ${r.at} (simulasi, tidak disimpan).` });
           },
         );
       },
@@ -176,7 +176,7 @@ export function FarmasiWorkspace({
             () => prepareRxAction({ rxId: p.id }),
             (r) => {
               patch(p.id, (c) => ({ ...c, stage: 'serah' }));
-              setFlash({ ...next, text: `${r.message}: ${name}.` });
+              setFlash({ ...next, text: `${next.text.slice(0, -1)} · ${r.at} (simulasi, tidak disimpan).` });
             },
           );
         }
@@ -198,7 +198,10 @@ export function FarmasiWorkspace({
           () => dispenseRxAction({ rxId: p.id, receiver }),
           (r) => {
             patch(p.id, (c) => ({ ...c, stage: 'selesai' }));
-            setFlash({ text: `${r.message}: ${name}.`, lines });
+            setFlash({
+              text: `Obat ${name} diserahkan ke ${RECEIVER_LABEL[receiver]} · ${r.at} (simulasi, tidak disimpan). Tercatat di eMAR dan billing.`,
+              lines,
+            });
           },
         );
       },

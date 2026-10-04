@@ -7,6 +7,8 @@ import type {
   PharmacyItem,
   PharmacyPrescription,
   PharmacyQueue,
+  RadiologyExam,
+  RadiologyWorklist,
   SupportPatient,
 } from '@simrs/shared';
 import { deltaCheck, labFlag } from '../../penunjang';
@@ -1028,5 +1030,247 @@ export function demoPharmacyQueue(extra: readonly PharmacyPrescription[] = []): 
     asOf: DEMO_NOW,
     pharmacists: [...APOTEKER_JAGA],
     prescriptions: [...extra, ...demoPrescriptions()],
+  };
+}
+
+// ───────────────────────────── Radiologi (S03) ─────────────────────────────
+
+export const RADIOLOG = doctorName('dr-arman');
+
+type ExamSeed = Omit<RadiologyExam, 'patient' | 'startedAt' | 'dose' | 'report' | 'contrast'> & {
+  patientId: string;
+  startedAt?: string;
+  contrast?: boolean;
+  dose?: RadiologyExam['dose'];
+  report?: { findings: string; impression: string; signedAt: string | null };
+};
+
+export function exam(s: ExamSeed): RadiologyExam {
+  const { patientId, report, ...rest } = s;
+  return {
+    ...rest,
+    patient: supportPatient(patientId),
+    startedAt: s.startedAt ?? null,
+    contrast: s.contrast ?? false,
+    dose: s.dose ?? null,
+    report: report ? { ...report, radiologist: RADIOLOG } : null,
+  };
+}
+
+/** Pemeriksaan radiologi hari demo (9; kode ICD-9-CM hanya dari seed, selebihnya belum dipetakan). */
+export function demoRadiologyExams(): RadiologyExam[] {
+  return [
+    exam({
+      id: 'rad-hendro',
+      accession: 'RAD-2610-0411',
+      patientId: 'ps-hendro',
+      location: 'ICU/ICCU · ICU 7',
+      sender: doctorName('dr-kartika'),
+      modality: 'DR',
+      procedure: 'Foto toraks AP (portabel)',
+      procedureCode: null,
+      priority: 'cito',
+      status: 'berlangsung',
+      room: 'Portabel ICU',
+      scheduledAt: at('10.30'),
+      startedAt: at('10.38'),
+      indication: 'Evaluasi posisi ETT dan infiltrat, pneumonia dengan gagal napas',
+    }),
+    exam({
+      id: 'rad-maria',
+      accession: 'RAD-2610-0406',
+      patientId: 'ps-maria',
+      location: 'Poli Penyakit Dalam',
+      sender: doctorName('dr-rahmat'),
+      modality: 'CT',
+      procedure: 'CT abdomen-pelvis dengan kontras',
+      procedureCode: null,
+      priority: 'rutin',
+      status: 'berlangsung',
+      room: 'CT 1',
+      scheduledAt: at('10.15'),
+      startedAt: at('10.24'),
+      contrast: true,
+      indication: 'Restaging neoplasma ganas kolon setelah 4 siklus kemoterapi',
+    }),
+    exam({
+      id: 'rad-endang',
+      accession: 'RAD-2610-0398',
+      patientId: 'ps-endang',
+      location: 'Bangsal Melati · M-203',
+      sender: doctorName('dr-kartika'),
+      modality: 'DR',
+      procedure: 'Foto toraks PA',
+      procedureCode: null,
+      priority: 'rutin',
+      status: 'ekspertise',
+      room: 'Rontgen 1',
+      scheduledAt: at('09.00'),
+      startedAt: at('09.12'),
+      indication: 'Evaluasi pneumonia komunitas hari ke-5 terapi',
+    }),
+    exam({
+      id: 'rad-dewi',
+      accession: 'RAD-2610-0402',
+      patientId: 'ps-dewi',
+      location: 'Poli Penyakit Dalam',
+      sender: doctorName('dr-andini'),
+      modality: 'USG',
+      procedure: 'USG abdomen',
+      procedureCode: '88.76',
+      priority: 'rutin',
+      status: 'ekspertise',
+      room: 'USG 1',
+      scheduledAt: at('09.45'),
+      startedAt: at('09.52'),
+      indication: 'Dispepsia kronis, nyeri epigastrium berulang',
+    }),
+    exam({
+      id: 'rad-lestiani',
+      accession: 'RAD-2610-0389',
+      patientId: 'ps-lestiani',
+      location: 'Poli Saraf',
+      sender: doctorName('dr-yudha'),
+      modality: 'CT',
+      procedure: 'CT kepala tanpa kontras',
+      procedureCode: '87.03',
+      priority: 'rutin',
+      status: 'ditandatangani',
+      room: 'CT 1',
+      scheduledAt: at('08.30'),
+      startedAt: at('08.41'),
+      dose: { ctdiVol: 52, dlp: 880 },
+      indication: 'Kontrol pasca infark serebral 2024, keluhan baru pusing berputar',
+      report: {
+        findings:
+          'Lesi hipodens berbatas tegas di lobus parietal kiri sesuai infark lama. Tidak tampak lesi hiperdens. Sistem ventrikel dan sisterna normal. Garis tengah tidak bergeser.',
+        impression: 'Infark lama parietal kiri. Tidak tampak perdarahan atau infark akut.',
+        signedAt: at('09.40'),
+      },
+    }),
+    exam({
+      id: 'rad-fajar',
+      accession: 'RAD-2610-0381',
+      patientId: 'ps-fajar',
+      location: 'Poli Bedah',
+      sender: doctorName('dr-yohanes'),
+      modality: 'USG',
+      procedure: 'USG abdomen',
+      procedureCode: '88.76',
+      priority: 'rutin',
+      status: 'ditandatangani',
+      room: 'USG 1',
+      scheduledAt: at('07.30'),
+      startedAt: at('07.36'),
+      indication: 'Konfirmasi batu kandung empedu pra-operasi',
+      report: {
+        findings:
+          'Kandung empedu: tampak batu multipel ukuran terbesar 1,2 cm dengan acoustic shadow, dinding tidak menebal (2 mm). Duktus koledokus tidak melebar. Hepar, pankreas, lien, dan kedua ginjal normal.',
+        impression: 'Kolelitiasis multipel tanpa tanda kolesistitis.',
+        signedAt: at('08.05'),
+      },
+    }),
+    exam({
+      id: 'rad-rizky',
+      accession: 'RAD-2610-0415',
+      patientId: 'ps-rizky',
+      location: 'Bangsal Kenanga · K-07',
+      sender: doctorName('dr-yohanes'),
+      modality: 'DR',
+      procedure: 'Foto femur kanan AP/lateral',
+      procedureCode: null,
+      priority: 'rutin',
+      status: 'terjadwal',
+      room: 'Rontgen 1',
+      scheduledAt: at('11.00'),
+      indication: 'Evaluasi posisi implan pasca ORIF fraktur batang femur hari ke-2',
+    }),
+    exam({
+      id: 'rad-sutan',
+      accession: 'RAD-2610-0418',
+      patientId: 'ps-sutan',
+      location: 'Bangsal Anggrek · A-14',
+      sender: doctorName('dr-melati'),
+      modality: 'ANGIO',
+      procedure: 'Angiografi koroner',
+      procedureCode: '88.56',
+      priority: 'rutin',
+      status: 'terjadwal',
+      room: 'Cath lab',
+      scheduledAt: at('13.00'),
+      contrast: true,
+      indication: 'Angina tidak stabil, stratifikasi risiko invasif; eGFR 42, hidrasi pra-kontras',
+    }),
+    exam({
+      id: 'rad-darmawan',
+      accession: 'RAD-2610-0421',
+      patientId: 'ps-darmawan',
+      location: 'Poli Saraf',
+      sender: doctorName('dr-yudha'),
+      modality: 'MRI',
+      procedure: 'MRI lumbosakral tanpa kontras',
+      procedureCode: null,
+      priority: 'rutin',
+      status: 'terjadwal',
+      room: 'MRI 1,5 T',
+      scheduledAt: at('14.00'),
+      indication: 'Nyeri pinggang menjalar ke tungkai kiri 6 minggu, curiga HNP',
+    }),
+  ];
+}
+
+/** Worklist radiologi hari demo; `extra` = pemeriksaan pasien skenario (sudah diproyeksikan). */
+export function demoRadiologyWorklist(extra: readonly RadiologyExam[] = []): RadiologyWorklist {
+  return {
+    asOf: DEMO_NOW,
+    stats: { tatExpertiseMinutes: 160, tatExpertiseTarget: 180 },
+    modalities: [
+      {
+        modality: 'CT',
+        name: 'CT scan 64 slice',
+        room: 'CT 1',
+        status: 'dipakai',
+        slotsTotal: 18,
+        slotsUsed: 13,
+        nextSlot: '11.30',
+      },
+      {
+        modality: 'DR',
+        name: 'Radiografi digital (DR)',
+        room: 'Rontgen 1 + portabel',
+        status: 'siap',
+        slotsTotal: 40,
+        slotsUsed: 32,
+        nextSlot: '10.50',
+      },
+      {
+        modality: 'USG',
+        name: 'USG',
+        room: 'USG 1',
+        status: 'siap',
+        slotsTotal: 16,
+        slotsUsed: 11,
+        nextSlot: '11.15',
+      },
+      {
+        modality: 'MRI',
+        name: 'MRI 1,5 T',
+        room: 'MRI',
+        status: 'siap',
+        slotsTotal: 8,
+        slotsUsed: 5,
+        nextSlot: '15.00',
+      },
+      {
+        modality: 'ANGIO',
+        name: 'Angiografi (cath lab)',
+        room: 'Cath lab',
+        status: 'siap',
+        slotsTotal: 4,
+        slotsUsed: 2,
+        nextSlot: '15.00',
+      },
+    ],
+    exams: [...extra, ...demoRadiologyExams()],
   };
 }
