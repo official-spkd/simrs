@@ -26,6 +26,7 @@ import {
   type Ward,
   type WardClass,
 } from '@simrs/shared';
+import type { ValueFlag } from './klinis';
 
 /**
  * K03–K13 · Fungsi murni tampilan IGD, tempat tidur, rawat inap, resume, dan persetujuan tindakan (mode
@@ -166,12 +167,58 @@ export function formatTimer(seconds: number): string {
   return `${two(Math.floor(seconds / 3600))}:${two(Math.floor(seconds / 60) % 60)}:${two(seconds % 60)}`;
 }
 
-/** Lama tinggal melewati batas: boarding ≥ 4 jam, atau level 1–2 menunggu dokter > 10 menit. */
+/** Target boarding: pasien di IGD (atau permintaan bed dari IGD) menunggu ≥ 4 jam = lewat batas. */
+export const BOARDING_TARGET_MINUTES = 240;
+/** Teks penanda boarding lewat batas (papan IGD, panel triase, permintaan bed). */
+export const BOARDING_LATE_LABEL = 'Lewat 4 jam';
+/** Target ditemui dokter untuk triase 1–2 (menit). */
+const HIGH_TRIAGE_DOCTOR_MINUTES = 10;
+
+/**
+ * Teks penanda lama tinggal yang melewati batas (status tidak hanya lewat warna): ≥ 4 jam di IGD, atau triase 1–2
+ * menunggu dokter > 10 menit. Null = masih dalam batas.
+ */
+export function edLosAlert(
+  item: Pick<EdTrackingItem, 'triageLevel' | 'status'>,
+  minutes: number,
+): string | null {
+  if (minutes >= BOARDING_TARGET_MINUTES) return BOARDING_LATE_LABEL;
+  if (
+    item.triageLevel !== null &&
+    item.triageLevel <= 2 &&
+    item.status === 'tunggu-dokter' &&
+    minutes > HIGH_TRIAGE_DOCTOR_MINUTES
+  ) {
+    return `Dokter lewat ${HIGH_TRIAGE_DOCTOR_MINUTES} menit`;
+  }
+  return null;
+}
+
+/** Lama tinggal melewati batas (lihat `edLosAlert`). */
 export function losOverdue(item: Pick<EdTrackingItem, 'triageLevel' | 'status'>, minutes: number): boolean {
-  if (minutes >= 240) return true;
-  return (
-    item.triageLevel !== null && item.triageLevel <= 2 && item.status === 'tunggu-dokter' && minutes > 10
-  );
+  return edLosAlert(item, minutes) !== null;
+}
+
+/** Titik tengah rentang normal dewasa per tanda vital IGD (TD = sistolik). */
+const ED_VITAL_MIDPOINT: Readonly<Record<string, number>> = { TD: 120, Nadi: 80, Napas: 16, Suhu: 37 };
+/** Tanda vital yang hanya bisa abnormal ke bawah (SpO2 maks. 100%, GCS maks. 15). */
+const ED_VITAL_LOW_ONLY: readonly string[] = ['SpO2', 'GCS'];
+
+/**
+ * Arah tanda vital IGD yang ditandai abnormal oleh sumber data (kontrak hanya memuat `abnormal`), agar layar
+ * menulis "Tinggi"/"Rendah": di atas titik tengah rentang normal = tinggi, di bawahnya = rendah. Tanda vital tak
+ * dikenal atau nilai tak terbaca → 'abnormal' (tanpa arah). Null = tidak abnormal.
+ */
+export function edVitalFlag(
+  v: Pick<EdTrackingItem['vitals'][number], 'label' | 'value' | 'abnormal'>,
+): ValueFlag | null {
+  if (!v.abnormal) return null;
+  if (ED_VITAL_LOW_ONLY.includes(v.label)) return 'rendah';
+  const mid = ED_VITAL_MIDPOINT[v.label];
+  // "186/104" → 186 (sistolik), "38,9" → 38.9.
+  const n = Number.parseFloat(v.value.replace(',', '.'));
+  if (mid === undefined || Number.isNaN(n)) return 'abnormal';
+  return n > mid ? 'tinggi' : 'rendah';
 }
 
 export function filterEdItems<T extends Pick<EdTrackingItem, 'zone' | 'triageLevel'>>(
@@ -194,7 +241,8 @@ export function edKpis(items: readonly EdTrackingItem[]): EdKpis {
     total: items.length,
     high: items.filter((p) => p.triageLevel !== null && p.triageLevel <= 2).length,
     untriaged: items.filter((p) => p.triageLevel === null).length,
-    boarding: items.filter((p) => p.status === 'tunggu-bed' && p.losMinutes >= 240).length,
+    boarding: items.filter((p) => p.status === 'tunggu-bed' && p.losMinutes >= BOARDING_TARGET_MINUTES)
+      .length,
   };
 }
 
@@ -315,12 +363,21 @@ export function filterBeds(beds: readonly Bed[], wards: readonly Ward[], f: BedF
   );
 }
 
-/** Ringkasan per ruang: "60 bed · 50 terisi · 3 siap". */
-export function wardSummary(ward: Ward, beds: readonly Bed[]): { counts: BedCounts; text: string } {
+/** Okupansi ruang ≥ 90% = hampir penuh (sama dengan kapasitas Dasbor direksi). */
+export const WARD_NEARLY_FULL_PERCENT = 90;
+
+/** Ringkasan per ruang: "60 bed · 50 terisi (83%) · 3 siap" + okupansi dan tanda hampir penuh. */
+export function wardSummary(
+  ward: Ward,
+  beds: readonly Bed[],
+): { counts: BedCounts; text: string; percent: number; nearlyFull: boolean } {
   const counts = bedCounts(beds.filter((b) => b.wardCode === ward.code));
+  const pct = percent(counts.occupied, counts.total);
   return {
     counts,
-    text: `${counts.total} bed · ${counts.occupied} terisi (${percent(counts.occupied, counts.total)}%) · ${counts.siap} siap`,
+    text: `${counts.total} bed · ${counts.occupied} terisi (${pct}%) · ${counts.siap} siap`,
+    percent: pct,
+    nearlyFull: pct >= WARD_NEARLY_FULL_PERCENT,
   };
 }
 

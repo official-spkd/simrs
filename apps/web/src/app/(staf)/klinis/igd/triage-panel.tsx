@@ -4,9 +4,12 @@ import { type EdTrackingItem, formatJam, type TriageLevel } from '@simrs/shared'
 import { Button, cx, Field, SafetyGate } from '@simrs/ui';
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { StatusFlag, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { TriageLevelPicker } from '@/components/rawat-inap/triage-level-picker';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import {
+  edLosAlert,
+  edVitalFlag,
   formatTimer,
   TRIAGE_GENERIC,
   TRIAGE_ROLE_REASON,
@@ -111,6 +114,7 @@ export function TriagePanel({
   };
 
   const secs = item.losMinutes * 60 + addSeconds;
+  const losAlert = edLosAlert(item, Math.floor(secs / 60));
   const blocker = !canTriage
     ? `${TRIAGE_ROLE_REASON}; posisi ini mengerjakan identifikasi dan admisi.`
     : !identified
@@ -147,11 +151,14 @@ export function TriagePanel({
           </h2>
           {item.rm && <span className="font-mono text-caption text-ink-700">RM {item.rm}</span>}
         </div>
-        <span role="timer" aria-label="Lama di IGD" className="flex flex-none flex-col items-end">
-          <span className="text-[11px] text-ink-500">Lama di IGD</span>
-          <span className={cx('font-mono font-semibold', secs >= 4 * 3600 ? 'text-danger' : 'text-ink-900')}>
-            {formatTimer(secs)}
+        <span className="flex flex-none flex-col items-end gap-1">
+          <span role="timer" aria-label="Lama di IGD" className="flex flex-col items-end">
+            <span className="text-[11px] text-ink-500">Lama di IGD</span>
+            <span className={cx('font-mono font-semibold', losAlert ? 'text-danger' : 'text-ink-900')}>
+              {formatTimer(secs)}
+            </span>
           </span>
+          {losAlert && <StatusFlag icon="clock">{losAlert}</StatusFlag>}
         </span>
       </div>
       <div className="flex flex-col gap-3 px-4 py-3.5">
@@ -163,21 +170,24 @@ export function TriagePanel({
           <VitalsEntry tr={tr} pending={pending} runTask={runTask} />
         ) : (
           <ul aria-label="Tanda vital" className="m-0 grid list-none grid-cols-3 gap-2 p-0">
-            {item.vitals.map((v) => (
-              <li
-                key={v.label}
-                className={cx(
-                  'flex flex-col rounded-control border px-2.5 py-2',
-                  v.abnormal ? 'border-danger-border bg-[#FFFBFA]' : 'border-line-soft bg-subtle',
-                )}
-              >
-                <span className="text-[11.5px] text-ink-500">{v.label}</span>
-                <span className={cx('font-bold', v.abnormal ? 'text-danger' : 'text-ink-900')}>
-                  {v.value}
-                  {v.abnormal && <span className="sr-only"> (abnormal)</span>}
-                </span>
-              </li>
-            ))}
+            {item.vitals.map((v) => {
+              const flag = edVitalFlag(v);
+              return (
+                <li
+                  key={v.label}
+                  className={cx(
+                    'flex min-w-0 flex-col rounded-control border px-2.5 py-2',
+                    flag ? 'border-danger-border bg-[#FFFBFA]' : 'border-line-soft bg-subtle',
+                  )}
+                >
+                  <span className="flex flex-wrap items-center justify-between gap-1 text-[11.5px] text-ink-500">
+                    {v.label}
+                    {flag && <ValueFlagBadge flag={flag} />}
+                  </span>
+                  <span className={cx('font-bold', flag ? 'text-danger' : 'text-ink-900')}>{v.value}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
         <TriageLevelPicker

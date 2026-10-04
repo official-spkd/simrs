@@ -1,6 +1,7 @@
 import { formatTanggal } from '@simrs/shared';
 import { Alert, Chip } from '@simrs/ui';
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { PoliContext } from '@/components/klinis/poli-context';
 import { PoliWorkspace } from '@/components/klinis/poli-workspace';
@@ -17,19 +18,21 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * K01/K02 · Pemeriksaan poli + CPPT/SOAP (mockup `Main.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023);
  * Tn. Suryo (skenario rawat jalan) masuk antrean setelah SEP terbit dan langkah asesmen perawat / pemeriksaan dokter
- * dibawakan lewat tombol asli layar ini.
+ * dibawakan lewat tombol asli layar ini. Kunjungan yang diminta (`?pasien=`) tetapi tidak ada di antrean hari ini →
+ * 404, bukan diam-diam membuka rekam pasien lain (cegah salah pasien).
  */
 export default async function PoliPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('poli');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
-  const requested = typeof sp.pasien === 'string' ? sp.pasien : undefined;
+  const requested = typeof sp.pasien === 'string' && sp.pasien ? sp.pasien : undefined;
   const [worklist, runs] = await Promise.all([getPoliWorklist(session), scenarioRuns(session)]);
   const here = scenariosHere(runs, 'poli');
   const scenarioItem = worklist.items.find((i) => i.scenario && here.some((h) => h.scenario === i.scenario));
   const fallback = scenarioItem ?? worklist.items.find((i) => i.status === 'diperiksa') ?? worklist.items[0];
-  const selected = worklist.items.find((i) => i.patientId === requested) ?? fallback;
+  const selected = requested ? worklist.items.find((i) => i.patientId === requested) : fallback;
   const encounter = selected ? await getPoliEncounter(session, selected.patientId) : null;
+  if (requested && !encounter) notFound();
   const h = selected?.scenario ? here.find((x) => x.scenario === selected.scenario) : undefined;
   const kasir = screenById('kasir');
 
@@ -50,11 +53,6 @@ export default async function PoliPage({ searchParams }: { searchParams: SearchP
         </span>
       </header>
       <ScenarioBanner session={session} screen="poli" />
-      {requested && selected?.patientId !== requested && (
-        <Alert level="info">
-          Pasien yang diminta tidak ada di antrean poli hari ini; menampilkan pasien lain.
-        </Alert>
-      )}
       {selected && encounter ? (
         <PoliWorkspace
           worklist={worklist}
