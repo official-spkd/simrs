@@ -247,7 +247,6 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - `apps/mock` · state di memori (hilang saat restart); cukup untuk lokal.
 - `apps/api` · `HealthService` memakai endpoint kesehatan khusus MinIO; ganti dengan HeadBucket bila memakai S3 lain.
 - `packages/db` · seed berisi 3 tenant RS (RSCM, RSFA, RSFB) + pasien fiktif; staf fiktif menyusul di 10d (sementara akun dibuat lewat CLI).
-- `apps/web` · CSP masih `'unsafe-inline'` untuk skrip (hidrasi Next tanpa nonce); pindah ke CSP ber-nonce di hardening fase 10.
 - `apps/api` · rate limit per IP di memori per instans; pindah ke penyimpanan Redis + batas per pengguna saat P02, dan set `trust proxy` saat di belakang load balancer.
 - `apps/worker` · dispatcher mengirim berurutan per tenant; paralelkan terbatas bila volume naik (fase 7).
 - `packages/db` · Rantai audit tidak mendeteksi penghapusan baris TERAKHIR (truncation); perlu jangkar hash berkala ke penyimpanan terpisah (fase 10).
@@ -258,7 +257,7 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - `P03` · Lingkup `unit` belum memakai lokasi pasien (menunggu ADT fase 2–3).
 - `P03` · Matriks izin dibaca dari DB tiap permintaan berizin; tambahkan cache per tenant + invalidasi bila beban naik.
 - `P03` · Notifikasi baru tersimpan in-app; pengiriman email/WhatsApp menyusul P11 (potongan 10).
-- `apps/web` · Peta refresh sesi di memori satu proses: web multi-instans butuh sticky session atau penyimpanan bersama (Redis) + `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama (ADR-0013).
+- `apps/web` · Deployment web multi-instans wajib menyetel `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama di semua instans (build + runtime) dan Redis bersama untuk peta refresh sesi (ADR-0073); belum ada pemeriksaan otomatis saat start.
 - `apps/web` · Login: PIN perangkat terdaftar, OTP cadangan WhatsApp/email, dan "percayai perangkat 12 jam" dari mockup belum dibangun (P02/P11, potongan 10).
 - `apps/web` · Pergantian unit kerja di tengah sesi belum ada (sekarang: keluar lalu masuk lagi).
 - `apps/web` · Layar Akses: "Sinkron dari data SDM" (B03) dan "Aturan kontekstual" (pasien VIP, shift) dari mockup belum ada; daftar pengguna berpaginasi maju saja (kursor).

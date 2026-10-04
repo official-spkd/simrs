@@ -157,19 +157,20 @@ Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifik
 
 ## Keamanan berlapis
 
-| Lapisan        | Kontrol                                                                                                       | Status    |
-| -------------- | ------------------------------------------------------------------------------------------------------------- | --------- |
-| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0 |
-| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0 |
-| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0 |
-| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0 |
-| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0 |
-| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0 |
-| Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform             | ✅ fase 1 |
-| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0 |
-| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                                | ✅ fase 1 |
-| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1 |
-| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1 |
+| Lapisan        | Kontrol                                                                                                       | Status     |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | ---------- |
+| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0  |
+| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0  |
+| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0  |
+| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0  |
+| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0  |
+| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0  |
+| Web            | CSP ber-nonce per permintaan (tanpa skrip inline), anti-framing; token hanya di cookie httpOnly (BFF)         | ✅ fase 10 |
+| Web            | Refresh sesi sekali per token, dibagi antar-server web lewat Redis; area superadmin khusus operator platform  | ✅ fase 10 |
+| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0  |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                                | ✅ fase 1  |
+| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1  |
+| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1  |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.
 
