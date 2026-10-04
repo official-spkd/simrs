@@ -485,9 +485,13 @@ export function demoRegistrationDesk(p: FrontOfficeProgress = NO_PROGRESS): Regi
 // F05 · Anjungan pendaftaran mandiri (lokal, di luar skenario: Siti Rahmawati)
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Tiket anjungan lokal per tujuan (mockup Anjungan): booking/BPJS A-016, umum A-017, farmasi F-021. */
+/**
+ * Tiket anjungan per tujuan (mockup Anjungan): booking/BPJS A-016, umum A-017, farmasi F-021; Tn. Suryo (skenario)
+ * A-031 ke loket pendaftaran. `waitMin` = perkiraan menit sampai dipanggil, dihitung dari jam anjungan.
+ */
 export const KIOSK_TICKETS = {
-  bpjs: { no: 'A-016', eta: '09.35' },
-  umum: { no: 'A-017', eta: '09.47' },
-  farmasi: { no: 'F-021', eta: '10.05' },
+  bpjs: { no: 'A-016', waitMin: 14 },
+  umum: { no: 'A-017', waitMin: 26 },
+  farmasi: { no: 'F-021', waitMin: 9 },
+  skenario: { no: SCENARIO_RJ.ticket, waitMin: 12 },
 } as const;

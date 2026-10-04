@@ -119,6 +119,34 @@ export function dateShort(iso: string): string {
   return `${p.d} ${BULAN[p.m - 1]} ${p.y}`;
 }
 
+/** `1972-03-14` → `14 Maret 1972` (tanggal lahir di layar anjungan). */
+export function dateLong(iso: string): string {
+  const p = ymd(iso);
+  return `${p.d} ${BULAN_PANJANG[p.m - 1]} ${p.y}`;
+}
+
+/** Jam dinding `HH.MM` ditambah `minutes` menit (perkiraan dipanggil). */
+export function addMinutes(clock: string, minutes: number): string {
+  const [h = 0, m = 0] = clock.split('.').map(Number);
+  return simClock(h * 60 + m + minutes);
+}
+
+/** Salam sesuai jam dinding: pagi (< 11), siang (< 15), sore (< 18), malam. */
+export function greeting(clock: string): string {
+  const h = Number(clock.split('.')[0] ?? 0);
+  return h < 11 ? 'Selamat pagi.' : h < 15 ? 'Selamat siang.' : h < 18 ? 'Selamat sore.' : 'Selamat malam.';
+}
+
+/** Inisial dua huruf dari nama (tanpa gelar Tn./Ny./An.). */
+export function initials(name: string): string {
+  return name
+    .replace(/^(Tn|Ny|An|Nn)\.\s+/, '')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 /** Jam slot ringkas untuk sel grid: `08.00`–`12.00` → `08–12`, `09.30`–`12.00` → `09.30–12`. */
 export function slotTimeShort(start: string, end: string): string {
   const s = (t: string) => t.replace(/\.00$/, '');
