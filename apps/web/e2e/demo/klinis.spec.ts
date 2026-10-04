@@ -32,19 +32,19 @@ test.describe('klinis rawat jalan', () => {
 
     const queue = page.getByRole('region', { name: 'Antrean poli' });
     await expect(queue.getByRole('link')).toHaveCount(5);
-    await expect(queue.getByRole('button', { name: 'Panggil berikutnya · PD-024' })).toBeEnabled();
-    await queue.getByLabel('Cari pasien').fill('00124578');
+    await expect(queue.getByRole('button', { name: 'Panggil berikutnya · PD-026' })).toBeEnabled();
+    await queue.getByLabel('Cari pasien').fill('00315746');
     await expect(queue.getByRole('link')).toHaveCount(1);
-    await expect(queue.getByRole('link', { name: /Siti Rahmawati/ })).toBeVisible();
+    await expect(queue.getByRole('link', { name: /Ny\. Sri Wahyuni/ })).toBeVisible();
     await queue.getByLabel('Cari pasien').fill('');
     await queue.getByRole('button', { name: 'Hasil 1' }).click();
     await expect(queue.getByRole('link')).toHaveCount(1);
     await expect(queue.getByRole('link', { name: /Ny\. Dewi Kurniasih/ })).toContainText('Menunggu hasil');
     await queue.getByRole('button', { name: 'Semua 5' }).click();
-    await queue.getByRole('link', { name: /Ny\. Endang Wijaya/ }).click();
-    await expect(page).toHaveURL(/pasien=ps-endang/);
+    await queue.getByRole('link', { name: /Ny\. Rohana Siregar/ }).click();
+    await expect(page).toHaveURL(/pasien=ps-rohana/);
 
-    await expect(banner(page).getByText('Ny. Endang Wijaya')).toBeVisible();
+    await expect(banner(page).getByText('Ny. Rohana Siregar')).toBeVisible();
     await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
     await expect(page.getByText(/^NIK 9999•+\d{4}$/)).toBeVisible();
     const vitals = page.getByRole('region', { name: 'Tanda vital' });
@@ -65,7 +65,7 @@ test.describe('klinis rawat jalan', () => {
       page.getByText(/Ditandatangani \d{2}\.\d{2} · CPPT versi final \(simulasi, tidak disimpan\)/),
     ).toBeVisible();
     await expect(page.getByText(/Kunjungan selesai · ditandatangani \d{2}\.\d{2}/)).toBeVisible();
-    await expect(queue.getByRole('link', { name: /Ny\. Endang Wijaya/ })).toContainText('Selesai');
+    await expect(queue.getByRole('link', { name: /Ny\. Rohana Siregar/ })).toContainText('Selesai');
 
     await noHorizontalOverflowAtTablet(page);
   });
@@ -74,8 +74,8 @@ test.describe('klinis rawat jalan', () => {
     page,
   }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/klinis/order/kj-endang');
-    await page.goto('/klinis/order/kj-endang');
+    await loginAs(page, dokter, '/klinis/order/kj-rohana');
+    await page.goto('/klinis/order/kj-rohana');
     await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
     await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
 

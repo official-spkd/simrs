@@ -64,7 +64,7 @@ test.describe('pendaftaran rawat jalan', () => {
     await page.getByLabel(/Persetujuan umum \(general consent\)/).check();
     await finish.click();
     await expect(
-      page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-032 · SEP 0301R0011026V000812/),
+      page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028 · SEP 0301R0011026V000812/),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Cetak tiket, SEP, dan gelang' }).click();
     await expect(page.getByRole('button', { name: /Tercetak \d{2}\.\d{2} · cetak ulang/ })).toBeVisible();
