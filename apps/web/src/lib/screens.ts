@@ -343,7 +343,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'AppPasien',
     components: ['I07'],
     phase: 9,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'preview.read',
     demoRoles: 'semua',
     layout: 'perangkat',
