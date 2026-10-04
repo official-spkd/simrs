@@ -662,6 +662,11 @@ export function ewsLevel(score: number, maxParam = 0): EwsLevel {
   return { level: 'rendah', action: 'Lanjutkan observasi tiap 4 jam.', tone: 'bg-success-bg text-success' };
 }
 
+/** Tingkat EWS satu observasi: skor total + aturan parameter tunggal NEWS2 (dihitung dari parameternya). */
+export function observationEwsLevel(o: EwsInput & Pick<EwsObservation, 'score'>): EwsLevel {
+  return ewsLevel(o.score, ewsMaxParam(o));
+}
+
 export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string }> = {
   diberikan: { label: 'Diberikan', cls: 'border-success-border bg-success-bg text-success' },
   jadwal: {
