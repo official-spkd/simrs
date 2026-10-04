@@ -19,20 +19,33 @@ import { testDbUrls } from '../src/testing';
 
 const [A, B] = SEED_TENANTS;
 let app: PrismaClient;
-/**
- * Batas ambil outbox di tes: DB tes tidak dikosongkan (ADR-0009) dan pesan `ping` dari run sebelumnya yang tidak
- * pernah selesai menumpuk di tenant A. Dengan batas kecil (50) pesan baru milik tes bisa tidak terambil
- * (urut `created_at`), sehingga tes gagal setelah cukup banyak run.
- */
-const CLAIM_LIMIT = 10_000;
+let owner: PrismaClient;
 
 beforeAll(() => {
   app = createPrismaClient({ connectionString: testDbUrls().app, max: 4 });
+  owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
 });
 
 afterAll(async () => {
   await app.$disconnect();
+  await owner.$disconnect();
 });
+
+/**
+ * RS fiktif baru khusus tes outbox. `claimDueOutbox` mengambil pesan jatuh tempo TERTUA lebih dulu (LIMIT); di
+ * tenant seed bersama, pesan sisa tes API (tidak ada worker di database tes) menumpuk sampai pesan tes ini tidak
+ * lagi masuk batch, sehingga tes gagal sesekali tergantung isi database. Tenant sendiri membuat batch hanya berisi
+ * pesan tes ini (lebih kuat daripada menaikkan batas ambil, yang tetap bergantung pada jumlah pesan sisa).
+ */
+async function outboxTenant(): Promise<string> {
+  const id = newId();
+  const code = `OBX${id
+    .slice(-10)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, 'X')}`;
+  await withTenant(owner, id, (tx) => tx.tenant.create({ data: { id, code, name: 'RS Fiktif Uji Outbox' } }));
+  return id;
+}
 
 describe('RLS isolasi tenant', () => {
   it('query tanpa app.tenant_id gagal dengan TENANT_REQUIRED', async () => {
@@ -111,18 +124,19 @@ describe('audit_events append-only', () => {
 
 describe('outbox', () => {
   it('idempoten per idempotency key, retry eksponensial, lalu DLQ', async () => {
+    const tenantId = await outboxTenant();
     const key = `dlq-${newId()}`;
     const env = { target: 'bpjs' as const, operation: 'ping', idempotencyKey: key, payload: { n: 1 } };
-    const first = await withTenant(app, A.id, (tx) => enqueueOutbox(tx, A.id, env));
-    const again = await withTenant(app, A.id, (tx) => enqueueOutbox(tx, A.id, env));
+    const first = await withTenant(app, tenantId, (tx) => enqueueOutbox(tx, tenantId, env));
+    const again = await withTenant(app, tenantId, (tx) => enqueueOutbox(tx, tenantId, env));
     expect(again.id).toBe(first.id);
 
     let now = new Date(Date.now() + 1000);
     for (let i = 1; i <= 3; i++) {
-      const claimed = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, CLAIM_LIMIT, now));
+      const claimed = await withTenant(app, tenantId, (tx) => claimDueOutbox(tx, 50, now));
       const msg = claimed.find((m) => m.id === first.id);
       expect(msg, `percobaan ${i} harus mengambil pesan`).toBeDefined();
-      const updated = await withTenant(app, A.id, (tx) =>
+      const updated = await withTenant(app, tenantId, (tx) =>
         recordOutboxAttempt(
           tx,
           msg!,
@@ -139,7 +153,7 @@ describe('outbox', () => {
         expect(updated.deadAt).not.toBeNull();
       }
     }
-    const attempts = await withTenant(app, A.id, (tx) =>
+    const attempts = await withTenant(app, tenantId, (tx) =>
       tx.deliveryAttempt.count({ where: { outboxMessageId: first.id } }),
     );
     expect(attempts).toBe(3);
@@ -148,8 +162,9 @@ describe('outbox', () => {
 
 describe('outbox lease', () => {
   it('pesan processing yang lease-nya habis diambil ulang (worker mati di tengah kirim)', async () => {
-    const msg = await withTenant(app, A.id, (tx) =>
-      enqueueOutbox(tx, A.id, {
+    const tenantId = await outboxTenant();
+    const msg = await withTenant(app, tenantId, (tx) =>
+      enqueueOutbox(tx, tenantId, {
         target: 'tte',
         operation: 'ping',
         idempotencyKey: `lease-${newId()}`,
@@ -157,14 +172,14 @@ describe('outbox lease', () => {
       }),
     );
     const t0 = new Date(Date.now() + 1000);
-    const first = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, CLAIM_LIMIT, t0, 30_000));
+    const first = await withTenant(app, tenantId, (tx) => claimDueOutbox(tx, 50, t0, 30_000));
     expect(first.map((m) => m.id)).toContain(msg.id);
-    const during = await withTenant(app, A.id, (tx) =>
-      claimDueOutbox(tx, CLAIM_LIMIT, new Date(t0.getTime() + 10_000), 30_000),
+    const during = await withTenant(app, tenantId, (tx) =>
+      claimDueOutbox(tx, 50, new Date(t0.getTime() + 10_000), 30_000),
     );
     expect(during.map((m) => m.id)).not.toContain(msg.id);
-    const after = await withTenant(app, A.id, (tx) =>
-      claimDueOutbox(tx, CLAIM_LIMIT, new Date(t0.getTime() + 31_000), 30_000),
+    const after = await withTenant(app, tenantId, (tx) =>
+      claimDueOutbox(tx, 50, new Date(t0.getTime() + 31_000), 30_000),
     );
     expect(after.map((m) => m.id)).toContain(msg.id);
   });
