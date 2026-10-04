@@ -32,6 +32,7 @@ export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.database.shape)
   .extend(envSchemas.redis.shape)
   .extend(envSchemas.s3.shape)
+  .extend(envSchemas.storage.shape)
   .extend(envSchemas.api.shape)
   .extend(envSchemas.integration.shape)
   .extend(envSchemas.fieldCrypto.shape)
@@ -83,6 +84,9 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
     throw new Error(
       'Konfigurasi env tidak valid → TRUST_PROXY wajib di produksi (alamat web/reverse proxy di depan API)',
     );
+  }
+  if (env.STORAGE_DRIVER === 's3') {
+    throw new Error('Konfigurasi env tidak valid → STORAGE_DRIVER=s3 belum tersedia (ADR-0020); pakai disk');
   }
   const devTools = devToolsAllowed(env);
   return {

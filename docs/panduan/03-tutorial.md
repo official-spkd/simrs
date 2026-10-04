@@ -84,7 +84,8 @@ Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000
 ## 2. Menjalankan dan memeriksa
 
 ```powershell
-pnpm dev             # api + worker + web + mock sekaligus (Turborepo)
+pnpm dev             # api + worker + web + mock sekaligus (Turborepo; butuh Docker untuk Redis)
+pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web dalam satu terminal (Ctrl+C berhenti)
 ```
 
 | Alamat                                   | Yang terlihat                                                        |
@@ -94,7 +95,8 @@ pnpm dev             # api + worker + web + mock sekaligus (Turborepo)
 | http://localhost:3000/superadmin/panduan | Panduan ini (akun `superadmin_platform`)                             |
 | http://localhost:3000/dev/ui             | Galeri token dan komponen (akun `superadmin_platform`)               |
 | http://127.0.0.1:4000/docs               | Swagger API                                                          |
-| http://127.0.0.1:4000/ready              | Kesehatan DB, Redis, MinIO (JSON)                                    |
+| http://127.0.0.1:4000/ready              | Kesehatan DB, Redis, penyimpanan berkas (JSON)                       |
+| http://localhost:3000/verifikasi/{kode}  | Verifikasi QR dokumen bertanda tangan (publik, tanpa data pasien)    |
 | http://127.0.0.1:4100                    | Panel kendali mock                                                   |
 | http://localhost:8025                    | Mailpit (email lokal)                                                |
 

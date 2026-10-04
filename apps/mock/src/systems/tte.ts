@@ -10,7 +10,7 @@ function sign(documentHash: string, signerId: string, signedAt: string): string 
     .digest('base64');
 }
 
-/** Mock penyelenggara TTE (P10): tanda tangan tiruan atas hash dokumen + verifikasi. */
+/** Mock penyelenggara TTE (P08 dokumen + TTE): tanda tangan tiruan atas hash dokumen + verifikasi. */
 export function registerTte(app: FastifyInstance, config: MockConfig): void {
   app.post<{ Body: { documentHash?: string; signerId?: string } }>('/tte/sign', async (req, reply) => {
     const { documentHash, signerId } = req.body ?? {};

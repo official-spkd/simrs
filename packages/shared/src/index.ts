@@ -2,6 +2,7 @@ export * from './audit';
 export * from './authz';
 export * from './components';
 export * from './datetime';
+export * from './documents';
 export * from './env';
 export * from './errors';
 export * from './forms';

@@ -15,8 +15,8 @@ import { webEnv } from '@/lib/server/web-env';
  * Server Action (POST) tidak dialihkan; setiap action memeriksa sesinya sendiri.
  */
 
-/** Rute yang boleh dibuka tanpa login. */
-const PUBLIC_PREFIXES = ['/masuk'];
+/** Rute yang boleh dibuka tanpa login (verifikasi QR dokumen: publik, tanpa PHI). */
+const PUBLIC_PREFIXES = ['/masuk', '/verifikasi'];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

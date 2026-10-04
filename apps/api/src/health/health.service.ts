@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { API_ENV, type ApiEnv } from '../config/env';
+import { OBJECT_STORAGE, type ObjectStorage } from '../infra/object-storage';
 import { PrismaService } from '../infra/prisma.service';
 import { RedisService } from '../infra/redis.service';
 
@@ -36,18 +36,15 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    @Inject(API_ENV) private readonly env: ApiEnv,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
   async readiness(): Promise<Readiness> {
     const [database, redis, storage] = await Promise.all([
       timed(() => this.prisma.client.$queryRaw`SELECT 1`),
       timed(() => this.redis.ping()),
-      // MinIO menyediakan endpoint kesehatan tanpa autentikasi. Untuk S3 lain, ganti dengan HeadBucket.
-      timed(async () => {
-        const res = await fetch(new URL('/minio/health/ready', this.env.S3_ENDPOINT));
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      }),
+      // Penyimpanan berkas dokumen sesuai driver (disk: folder bisa ditulis). Driver S3/MinIO menyusul (ADR-0020).
+      timed(() => this.storage.check()),
     ]);
     const checks = { database, redis, storage };
     return { status: Object.values(checks).every((c) => c.ok) ? 'ok' : 'degraded', checks };

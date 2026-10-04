@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import 'reflect-metadata';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -35,6 +37,9 @@ export const TENANT_CODES: Record<string, string> = {
   [TENANT_PLATFORM]: SEED_PLATFORM_TENANT.code,
 };
 
+/** Folder penyimpanan berkas dokumen saat tes (bukan `.local/storage` milik pengembangan). */
+export const TEST_STORAGE_ROOT = join(tmpdir(), 'simrs-api-test-storage');
+
 /** Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app). */
 export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
   const env = loadApiEnv({
@@ -47,6 +52,8 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     AUTH_RATE_LIMIT_PER_MIN: '1000',
     // Supertest datang dari loopback; X-Forwarded-For hanya dipercaya dari sana (seperti web BFF lokal).
     TRUST_PROXY: 'loopback',
+    STORAGE_DRIVER: 'disk',
+    STORAGE_DISK_ROOT: TEST_STORAGE_ROOT,
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();

@@ -1,12 +1,13 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { API_ENV, type ApiEnv } from '../config/env';
+import { DiskObjectStorage, OBJECT_STORAGE } from './object-storage';
 import { PrismaService } from './prisma.service';
 import { RedisService } from './redis.service';
 import { AuthGuard } from './auth/auth.guard';
 import { SessionStore } from './auth/session-store';
 import { TenantDb } from './tenant-db';
 
-/** Konfigurasi tervalidasi + koneksi DB/Redis, tersedia global untuk semua modul. */
+/** Konfigurasi tervalidasi + koneksi DB/Redis + penyimpanan berkas, tersedia global untuk semua modul. */
 @Global()
 @Module({})
 export class InfraModule {
@@ -20,8 +21,9 @@ export class InfraModule {
         TenantDb,
         SessionStore,
         AuthGuard,
+        { provide: OBJECT_STORAGE, useValue: new DiskObjectStorage(env.STORAGE_DISK_ROOT) },
       ],
-      exports: [API_ENV, PrismaService, RedisService, TenantDb, SessionStore, AuthGuard],
+      exports: [API_ENV, PrismaService, RedisService, TenantDb, SessionStore, AuthGuard, OBJECT_STORAGE],
     };
   }
 }

@@ -47,6 +47,14 @@ export const envSchemas = {
     S3_SECRET_KEY: z.string().min(1),
     S3_BUCKET_DOCUMENTS: z.string().default('simrs-documents'),
   }),
+  /**
+   * Penyimpanan berkas dokumen (P08, ADR-0020): `disk` = folder lokal (pengembangan tanpa Docker / server edge),
+   * `s3` = MinIO/S3 (belum tersedia). Path relatif dihitung dari folder kerja aplikasi (`apps/<app>`).
+   */
+  storage: z.object({
+    STORAGE_DRIVER: z.enum(['disk', 's3']).default('disk'),
+    STORAGE_DISK_ROOT: z.string().trim().min(1).default('../../.local/storage'),
+  }),
   api: z.object({ API_PORT: port.default(4000), WEB_BASE_URL: z.url().default('http://localhost:3000') }),
   mock: z.object({
     MOCK_PORT: port.default(4100),

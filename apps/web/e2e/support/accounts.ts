@@ -13,6 +13,8 @@ import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
 import {
   base32Decode,
   encryptField,
+  newVerifyCode,
+  sha256Hex,
   generateTotpSecret,
   hashPassword,
   PatientCrypto,
@@ -325,4 +327,59 @@ export async function createFormCorrection(
     });
     return { seq: event.seq.toString(), patientId: patient.id };
   });
+}
+
+/**
+ * Dokumen pasien dengan tanda tangan elektronik (selesai atau masih diproses) langsung di DB; layar dokumen di
+ * rekam medis klinis dibangun di fase 3. Mengembalikan kode verifikasi QR.
+ */
+export async function createSignedDocument(
+  signer: Account,
+  opts: { title: string; signed: boolean },
+): Promise<{ code: string; sha256: string; patientName: string }> {
+  const tenantId = TENANTS[signer.tenantCode];
+  const patientName = 'Pasien Rahasia Fiktif';
+  const patient = await createPatient(signer.tenantCode, { name: patientName });
+  const docId = newId();
+  const sha256 = sha256Hex(docId);
+  const code = newVerifyCode(tenantId);
+  await withTenant(prisma(), tenantId, async (tx) => {
+    await tx.document.create({
+      data: {
+        id: docId,
+        tenantId,
+        patientId: patient.id,
+        kind: 'resume',
+        title: opts.title,
+        fileName: 'resume.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 100,
+        sha256,
+        storageKey: `${tenantId}/2026/10/${newId()}`,
+        createdBy: signer.id,
+      },
+    });
+    await tx.documentSignature.create({
+      data: {
+        id: newId(),
+        tenantId,
+        documentId: docId,
+        signerUserId: signer.id,
+        documentSha256: sha256,
+        verifyCode: code,
+      },
+    });
+    if (opts.signed) {
+      await tx.documentSignature.update({
+        where: { verifyCode: code },
+        data: {
+          status: 'signed',
+          signedAt: new Date(),
+          certificate: `CN=${signer.displayName}, O=Mock TTE Lokal, C=ID`,
+          signature: 'c2lnbmF0dXJlLWZpa3RpZg==',
+        },
+      });
+    }
+  });
+  return { code, sha256, patientName };
 }

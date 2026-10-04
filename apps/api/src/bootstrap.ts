@@ -1,10 +1,12 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
+import { MAX_DOCUMENT_BYTES } from '@simrs/shared';
+import { rawUpload } from './common/raw-upload.middleware';
 import { securityHeaders } from './common/security-headers';
 import type { ApiEnv } from './config/env';
 
-/** Batas ukuran body JSON. Unggahan berkas memakai jalur terpisah (MinIO, URL bertanda tangan) di P08. */
+/** Batas ukuran body JSON. Berkas dokumen diunggah sebagai body biner di rute unggahan (P08). */
 export const JSON_BODY_LIMIT = '1mb';
 
 /** Konfigurasi bersama untuk main.ts dan tes, agar perilaku tes = perilaku runtime. */
@@ -15,6 +17,8 @@ export function configureApp(app: NestExpressApplication, env: ApiEnv): void {
   // IP klien dan host asli dari web BFF/reverse proxy tepercaya saja (audit, batas laju, RS dari subdomain).
   if (env.TRUST_PROXY !== undefined) app.set('trust proxy', env.TRUST_PROXY);
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  // Unggah dokumen pasien: body biner dibaca sebelum transaksi dibuka (lihat rawUpload).
+  app.use('/api/v1/patients/:patientId/documents', rawUpload(MAX_DOCUMENT_BYTES));
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'ready'] });
   app.enableCors({

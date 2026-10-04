@@ -82,6 +82,8 @@ describe('penjaga skema', () => {
       'privacy_consents',
       'form_definitions',
       'form_responses',
+      'documents',
+      'document_signatures',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

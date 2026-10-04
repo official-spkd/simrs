@@ -14,6 +14,7 @@ import { AuthzModule } from './modules/authz/authz.module';
 import { IamModule } from './modules/iam/iam.module';
 import { MpiModule } from './modules/mpi/mpi.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { FormsModule } from './modules/forms/forms.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
@@ -72,6 +73,7 @@ export class AppModule {
         MpiModule,
         RefModule,
         FormsModule,
+        DocumentsModule,
         SettingsModule,
         NumberingModule,
         FacilityModule,

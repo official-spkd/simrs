@@ -145,6 +145,12 @@ Formulir asesmen (mis. risiko jatuh Morse) adalah **data**, bukan kode: komite r
 
 Isian yang sudah disimpan tidak pernah ditimpa. Koreksi membuat versi baru dengan alasan wajib; nilai lama tetap tersimpan. Hanya profesi yang tercantum di formulir (mis. perawat dan bidan untuk Morse) yang boleh mengisi, dan hanya untuk pasien yang mereka rawat. Skor dan kategori risiko dihitung sistem. Di layar Audit, petugas privasi melihat koreksi sebagai "Versi 1 → versi 2": alasan, nilai sebelum dan sesudah, penulis asli, dan pengoreksi.
 
+## Dokumen dan tanda tangan elektronik
+
+Hasil scan, foto, dan dokumen pasien disimpan sebagai berkas dengan nama acak; sistem hanya menerima PDF, PNG, dan JPEG yang dikenali dari isi berkasnya, maksimal 10 MB. Setiap berkas punya sidik digital (SHA-256) yang dicocokkan ulang setiap kali dibuka, jadi berkas yang diubah di penyimpanan tidak pernah diserahkan. Dokumen tidak pernah dihapus atau ditimpa: salah unggah ditandai batal dengan alasan, dan dokumen yang sudah ditandatangani tidak bisa dibatalkan.
+
+Tanda tangan elektronik dimintakan ke penyelenggara TTE lewat antrean integrasi; yang dikirim hanya sidik digital dokumen, bukan isinya. Setiap tanda tangan punya kode QR. Siapa pun yang memindai QR melihat halaman verifikasi: rumah sakit, jenis dokumen, penanda tangan, waktu, dan sidik digital, tanpa judul dokumen atau identitas pasien.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |
