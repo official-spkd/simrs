@@ -14,6 +14,7 @@ import {
   AppError,
   formatTanggal,
   formatTanggalWaktu,
+  isoDateJakarta,
   NIGHT_SHIFT_ROLES,
 } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
@@ -76,6 +77,15 @@ const minutes = (hhmm: string) => {
   return Number(h) * 60 + Number(m);
 };
 const dayLabel = (day: string) => formatTanggal(`${day}T12:00:00+07:00`);
+
+/**
+ * Awal jendela temuan: 00.00 WIB, `days - 1` hari sebelum hari ini. Temuan dikelompokkan per tanggal WIB, jadi hari
+ * pertama ikut dihitung utuh; jendela bergulir (sekarang − n×24 jam) memotong hari pertama sehingga jumlah dan
+ * ambang temuan dengan kunci yang sama berubah-ubah menurut rentang yang dipilih. WIB tanpa DST.
+ */
+export function anomalyWindowStart(days: number, now: Date = new Date()): Date {
+  return new Date(new Date(`${isoDateJakarta(now)}T00:00:00+07:00`).getTime() - (days - 1) * DAY);
+}
 
 /** Keputusan dari entri audit `review` (`details.outcome`); entri tanpa keputusan yang dikenal diabaikan. */
 function reviewOutcome(details: unknown): AuditReviewOutcome | null {
@@ -191,7 +201,7 @@ export class AuditService {
    */
   async anomalies(days: number) {
     const tx = this.db.tx();
-    const since = new Date(Date.now() - days * DAY);
+    const since = anomalyWindowStart(days);
     const night = await readTenantSetting(tx, 'audit.night_hours');
     const volumeThreshold = await readTenantSetting(tx, 'audit.volume_threshold');
     const burstThreshold = await readTenantSetting(tx, 'audit.burst_threshold');

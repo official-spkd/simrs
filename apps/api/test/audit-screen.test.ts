@@ -232,6 +232,14 @@ describe('temuan anomali', () => {
       .post('/api/v1/audit/anomalies/review', { key: 'bukan:kunci', outcome: 'sah' })
       .expect(400);
   });
+
+  it('jendela temuan mulai 00.00 WIB sehingga hari pertama dihitung utuh', async () => {
+    const midnight = new Date(`${todayWib()}T00:00:00+07:00`).getTime();
+    const one = await as('privasi').get('/api/v1/audit/anomalies?days=1').expect(200);
+    expect(one.body.since).toBe(new Date(midnight).toISOString());
+    const week = await as('privasi').get('/api/v1/audit/anomalies?days=7').expect(200);
+    expect(week.body.since).toBe(new Date(midnight - 6 * 86_400_000).toISOString());
+  });
 });
 
 describe('riwayat tinjauan temuan', () => {
