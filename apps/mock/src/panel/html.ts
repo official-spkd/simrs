@@ -66,6 +66,18 @@ export const PANEL_HTML = /* html */ `<!doctype html>
     <tbody id="seps"><tr><td colspan="8" class="muted">Belum ada SEP.</td></tr></tbody></table>
   </section>
 
+  <section class="card" aria-labelledby="h-rk">
+    <h2 id="h-rk">BPJS · Rujukan keluar</h2>
+    <table><thead><tr><th>No. rujukan</th><th>Tanggal</th><th>No. SEP</th><th>Tujuan</th><th>Tipe</th><th>Poli · diagnosa</th><th>Status</th></tr></thead>
+    <tbody id="rujukan-keluar"><tr><td colspan="7" class="muted">Belum ada rujukan keluar.</td></tr></tbody></table>
+  </section>
+
+  <section class="card" aria-labelledby="h-aplicare">
+    <h2 id="h-aplicare">BPJS · Aplicare (ketersediaan tempat tidur)</h2>
+    <table><thead><tr><th>PPK</th><th>Kelas</th><th>Ruang</th><th>Kapasitas</th><th>Tersedia</th><th>Pria · wanita · campur</th><th>Diperbarui</th></tr></thead>
+    <tbody id="aplicare"><tr><td colspan="7" class="muted">Belum ada ruang terdaftar.</td></tr></tbody></table>
+  </section>
+
   <section class="card" aria-labelledby="h-tpdi">
     <h2 id="h-tpdi">Tagihan TPDI</h2>
     <p class="muted" id="target"></p>
@@ -161,8 +173,20 @@ async function refresh() {
   setHtml('seps', s.bpjs.seps.length ? s.bpjs.seps.map((x) =>
     '<tr><td class="mono">' + esc(x.noSep) + '</td><td>' + esc(x.tglSep) + '</td><td class="mono">' + esc(x.noKartu) + '</td><td>' + esc(x.jnsPelayanan) +
     '</td><td>' + esc(x.poli || '—') + (x.dpjpLayan ? ' · ' + esc(x.dpjpLayan) : '') + '</td><td class="mono">' + esc(x.noRujukan || x.noSurat || '—') +
-    '</td><td>' + x.versi + '</td><td><span class="chip ' + (x.status === 'terbit' ? 'ok' : 'bad') + '">' + esc(x.status) + '</span></td></tr>').join('')
+    '</td><td>' + x.versi + '</td><td><span class="chip ' + (x.status === 'terbit' ? 'ok' : 'bad') + '">' + esc(x.status) + '</span>' +
+    (x.tglPulang ? ' <span class="chip neutral">pulang ' + esc(x.tglPulang) + '</span>' : '') + '</td></tr>').join('')
     : '<tr><td colspan="8" class="muted">Belum ada SEP.</td></tr>');
+  setHtml('rujukan-keluar', s.bpjs.rujukanKeluar.length ? s.bpjs.rujukanKeluar.map((r) =>
+    '<tr><td class="mono">' + esc(r.noRujukan) + '</td><td>' + esc(r.tglRujukan) + '</td><td class="mono">' + esc(r.noSep) +
+    '</td><td class="mono">' + esc(r.ppkDirujuk) + '</td><td>' + ({ '0': 'Penuh', '1': 'Partial', '2': 'Rujuk balik' }[r.tipeRujukan] || esc(r.tipeRujukan)) +
+    '</td><td>' + esc(r.poliRujukan || '—') + ' · ' + esc(r.diagRujukan) + '</td><td><span class="chip ' + (r.status === 'terbit' ? 'ok' : 'bad') + '">' + esc(r.status) + '</span></td></tr>').join('')
+    : '<tr><td colspan="7" class="muted">Belum ada rujukan keluar.</td></tr>');
+  const beds = s.bpjs.aplicare.flatMap((p) => p.ruang);
+  setHtml('aplicare', beds.length ? beds.map((b) =>
+    '<tr><td class="mono">' + esc(b.kodeppk) + '</td><td>' + esc(b.namakelas) + '</td><td>' + esc(b.namaruang) + ' <span class="mono muted">' + esc(b.koderuang) +
+    '</span></td><td>' + b.kapasitas + '</td><td><span class="chip ' + (b.tersedia === 0 ? 'bad' : 'ok') + '">' + b.tersedia + '</span></td><td>' +
+    b.tersediapria + ' · ' + b.tersediawanita + ' · ' + b.tersediapriawanita + '</td><td>' + esc(b.lastupdate) + '</td></tr>').join('')
+    : '<tr><td colspan="7" class="muted">Belum ada ruang terdaftar.</td></tr>');
   setHtml('log', s.log.map((l) =>
     '<tr><td>' + jam(l.at) + '</td><td>' + esc(l.system) + '</td><td>' + esc(l.method) + '</td><td class="mono">' + esc(l.path) + '</td><td>' + statusChip(l.status) + '</td><td>' + l.durationMs + ' ms</td></tr>').join(''));
   document.getElementById('updated').textContent = 'Diperbarui ' + jam(new Date().toISOString());

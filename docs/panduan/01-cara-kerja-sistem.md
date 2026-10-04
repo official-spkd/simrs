@@ -159,19 +159,20 @@ Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifik
 
 ## Keamanan berlapis
 
-| Lapisan        | Kontrol                                                                                                       | Status    |
-| -------------- | ------------------------------------------------------------------------------------------------------------- | --------- |
-| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0 |
-| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0 |
-| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0 |
-| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0 |
-| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0 |
-| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0 |
-| Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform             | ✅ fase 1 |
-| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0 |
-| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, PIN per perangkat terdaftar, RBAC + ABAC, break-the-glass (API)   | ✅ fase 1 |
-| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1 |
-| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1 |
+| Lapisan        | Kontrol                                                                                                       | Status     |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | ---------- |
+| Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0  |
+| API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0  |
+| API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0  |
+| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0  |
+| Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0  |
+| Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0  |
+| Web            | CSP ber-nonce per permintaan (tanpa skrip inline), anti-framing; token hanya di cookie httpOnly (BFF)         | ✅ fase 10 |
+| Web            | Refresh sesi sekali per token, dibagi antar-server web lewat Redis; area superadmin khusus operator platform  | ✅ fase 10 |
+| Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0  |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, PIN per perangkat terdaftar, RBAC + ABAC, break-the-glass (API)   | ✅ fase 1  |
+| Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1  |
+| Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1  |
 
 Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022 tentang PDP. Ringkasannya di `docs/03-regulasi-mrmik.md`; terjemahan ke kontrol teknis di `docs/05-keamanan.md`.
 
@@ -186,6 +187,8 @@ Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilai yang tid
 | Tenant dari header `X-Tenant-Id`              | diizinkan           | ditolak `401` sampai login tersedia |
 | Area superadmin web (panduan ini, Fondasi UI) | terbuka tanpa login | tertutup (404)                      |
 | HSTS                                          | mati                | aktif                               |
+
+**Penyimpanan berkas dokumen.** `STORAGE_DRIVER=disk` (folder lokal) hanya diterima bila `APP_ENV=local`; staging dan produksi wajib `s3` (MinIO/S3), dan API menolak start bila tidak (ADR-0020).
 
 **Mode presentasi (ADR-0023).** Layar fase 2–10 yang backend-nya belum ada dibangun lebih dulu dengan data dummy fiktif untuk presentasi ke klien dan direksi. Mode ini hanya hidup bila `APP_ENV=local` **dan** `DATA_SOURCE=demo` (jalankan `pnpm dev:demo`); di staging dan produksi layar itu tidak ada (404) dan menunya redup. Selama mode ini aktif, header selalu menampilkan lencana "Mode presentasi · data fiktif". Status tiap layar (`belum`, `demo`, `api`) ada di `apps/web/src/lib/screens.ts`.
 

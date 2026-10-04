@@ -27,6 +27,8 @@ Isi `.env` yang perlu diperhatikan:
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
 | `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
+| `STORAGE_DRIVER`                         | `disk` atau `s3`                             | Berkas dokumen: `disk` = folder `STORAGE_DISK_ROOT` (hanya lokal), `s3` = MinIO Docker. Staging/produksi wajib `s3`    |
+| `S3_*`                                   | lihat `.env.example`                         | MinIO lokal (`S3_BUCKET_DOCUMENTS=simrs-documents`). Produksi: kredensial khusus aplikasi, bukan root                  |
 
 ### Mesin baru (macOS)
 
@@ -561,6 +563,7 @@ Aturan:
 | Tes: "prisma migrate deploy gagal untuk simrs_test…"         | Postgres mati, database tes belum dibuat, atau migrasi lama diubah. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (hanya database tes di `TEST_DATABASE_URL`).              |
 | Tes: "Persiapan tes menolak database …"                      | `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL` harus menunjuk `simrs_test` atau `simrs_test_<nama>` ([salinan paralel](#beberapa-salinan-repo-sekaligus-git-worktree)).                  |
 | `node -v` bukan v24, atau `corepack` tidak dikenal           | Alat lain menaruh `node`-nya lebih dulu di `PATH`. Lihat [Mesin baru (macOS)](#mesin-baru-macos).                                                                                     |
+| Migrasi: "FK … belum divalidasi: N baris merujuk pasien…"    | Relasi/akses darurat lama ke pasien yang tidak ada. Tidak ada yang dihapus; FK tetap memeriksa baris baru. Tes: `pnpm db:test:recreate -- --yes`; lainnya: ADR-0015 (5 Okt 2026).     |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
 | Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |

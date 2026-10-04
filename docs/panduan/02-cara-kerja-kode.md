@@ -65,20 +65,26 @@ Galat:    di mana pun → ROLLBACK (data + audit batal) → AppErrorFilter → {
 
 Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditnya selalu konsisten, nomor dokumen yang dialokasikan ikut batal bila permintaan gagal, dan **handler tidak boleh memanggil sistem eksternal** (transaksi masih terbuka) — kirim lewat outbox.
 
+Pengecualian hanya untuk dua pola fase 2: lookup baca-saja ke BPJS/Dukcapil (ADR-0025) dan aliran SSE (ADR-0026). Keduanya memakai `@NoRequestTransaction()`, lihat [Lookup sinkron, SSE, dan event domain](#lookup-sinkron-sse-dan-event-domain-fase-2).
+
 ### Fondasi di `src/common` dan `src/infra`
 
-| Berkas                                     | Isi                                                                                                         |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)  |
-| `common/require-permission.decorator.ts`   | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`       |
-| `common/tenant-transaction.interceptor.ts` | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
-| `common/request-context.ts`                | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit      |
-| `infra/tenant-db.ts`                       | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant |
-| `common/audited.decorator.ts`              | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason` |
-| `common/require-module.decorator.ts`       | `@RequireModule(code)` untuk feature flag per RS                                                            |
-| `common/pagination.ts`                     | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
-| `infra/rate-limit.ts`                      | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard` |
-| `infra/rate-limit.storage.ts`              | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup            |
+| Berkas                                       | Isi                                                                                                         |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `common/tenant-scoped.decorator.ts`          | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)  |
+| `common/require-permission.decorator.ts`     | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`       |
+| `common/tenant-transaction.interceptor.ts`   | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
+| `common/request-context.ts`                  | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit      |
+| `infra/tenant-db.ts`                         | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant |
+| `common/audited.decorator.ts`                | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason` |
+| `common/require-module.decorator.ts`         | `@RequireModule(code)` untuk feature flag per RS                                                            |
+| `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
+| `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard` |
+| `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup            |
+| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (hanya lookup ADR-0025 dan SSE ADR-0026)      |
+| `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)          |
+| `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                           |
+| `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`     |
 
 Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12), dan `modules/iam/` (P03).
 
@@ -194,6 +200,7 @@ Aturan yang perlu dijaga saat menambah fitur pasien:
 - Setiap pasien yang ditampilkan wajib masuk audit dengan `patientId` (detail `read`, daftar `search`), tanpa teks pencarian atau nilai identitas di `details`.
 - Lingkup selain `all` (perawat, dokter) hanya melihat pasien berelasi atau dengan akses darurat aktif, baik di detail (`PatientAccessService.assert`) maupun di query daftar (filter SQL sebelum `LIMIT`). Penolakan ABAC memakai `AuditedDenial` sehingga tetap tercatat.
 - Tes membuat pasien fiktif dengan `createTestPatient()` (`apps/api/test/helpers.ts`) atau `createPatient()` (E2E).
+- Pencarian nama memakai `app_search_patient_names(teks)` (tabel `search.patient_names` + indeks trigram, disalin trigger dari `patients.name_search`), lalu pasiennya dibaca lewat `patients` dengan RLS. Jangan menulis kueri `%`/`<%` langsung ke `patients`: di bawah RLS operator trigram tidak bisa memakai indeks (ADR-0015, pembaruan 5 Okt 2026).
 
 #### Rekam medis ganda (layar MPI)
 
@@ -253,12 +260,15 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 | Bagian                              | Isi                                                                                                                                                                           |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                     |
-| `infra/object-storage.ts`           | `ObjectStorage` + `DiskObjectStorage` (`STORAGE_DRIVER=disk`, `STORAGE_DISK_ROOT`); kunci `<tenant>/<tahun>/<bulan>/<uuid>` selalu buatan server                              |
+| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)        |
+| `infra/s3-client.ts`, `sigv4.ts`    | Klien S3 minimal tanpa SDK: SigV4 (diuji vektor AWS), gaya path, `If-None-Match: *`, checksum SHA-256 sisi server; `/ready` = HeadBucket                                      |
 | `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
 | `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
 | API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
 | Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`                                                                                |
 | Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
+
+Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
 
 Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan header `X-Document-Kind`, `X-Document-Title`, `X-Document-Filename` (UTF-8 di-percent-encode). Header dan query tidak masuk log API; judul dokumen bisa memuat PHI, jadi jangan pernah taruh di path URL.
 
@@ -271,6 +281,74 @@ Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan head
 - Worker `outbox/notify.ts`: alamat dibaca saat kirim, no. HP didekripsi (`staff_phone`), akun nonaktif/tanpa alamat dilewati, respons tidak disimpan.
 - Mock: `POST /email/send`, `POST /whatsapp/send`, kotak masuk `GET /messages` dan panel.
 - Web: lonceng di header (`components/notification-bell.tsx`, jumlah dari layout), halaman `app/(staf)/notifikasi/`.
+
+### Lookup sinkron, SSE, dan event domain (fase 2)
+
+Infrastruktur bersama front office (potongan 1b). Semuanya modul global yang sudah terdaftar di `AppModule`, begitu juga kerangka modul `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, dan `patient-portal-gateway` (F01–F08). Potongan berikutnya cukup mengisi folder modulnya; `app.module.ts` tidak perlu diubah lagi.
+
+**Handler tanpa transaksi permintaan.** `@NoRequestTransaction()` dipasang di handler (controllernya tetap `@TenantScoped()`). Interceptor tetap menjalankan `@RequirePermission`, `@RequireModule`, dan `@Audited`, masing-masing di transaksi pendek. Handler berjalan dengan `tx: null`:
+
+- `TenantDb.tx()` langsung → galat program,
+- `TenantDb.transaction(fn)` membuka transaksi pendek bertenant. Di dalamnya repository, `TenantDb.audit()`, dan event domain bekerja seperti biasa; tidak boleh bersarang.
+
+Hanya untuk dua pola di bawah. Peninjau menolak pemakaian lain.
+
+**Lookup sinkron (ADR-0025).** Untuk cek peserta/rujukan VClaim dan demografi Dukcapil yang ditunggu pengguna. Semua penulisan ke sistem luar tetap lewat outbox.
+
+```ts
+@NoRequestTransaction()
+@RequirePermission('patient', 'read')
+@Post(':patientId/bpjs-eligibility')
+check(@Param('patientId') patientId: string, @Body() body: EligibilityInput) {
+  return this.gateway.lookup(this.pesertaConnector, { cardNo: body.cardNo }, {
+    patientId,
+    persist: (out) => this.repo.saveSnapshot(patientId, out), // opsional, transaksi pendek ke-3
+  });
+}
+```
+
+- Urutan: audit `requested` di-commit → konektor dipanggil tanpa transaksi (maks 5 dtk, `AbortSignal`) → audit `completed` + `persist`, atomik.
+- Gagal/terlambat → audit `failed` → 503 `BPJS_UNAVAILABLE` (BPJS) atau `INTEGRATION_UNAVAILABLE` (Dukcapil). `AppError` dari konektor (penolakan bisnis berkode) diteruskan apa adanya.
+- Konektor = `LookupConnector<I, O>` (`infra/lookup/lookup-connector.ts`): `name` (mis. `bpjs.vclaim.peserta`, jadi `resource_type` audit), `target`, `call(input, signal)`, `summarize?` (fakta tanpa PHI untuk audit). Disuntikkan modul domain lewat token DI-nya sendiri. Klien BPJS bersama ada di `@simrs/shared/node`. Tes memakai `apps/api/test/fakes/fake-lookup-connector.ts`.
+- Masukan/keluaran tidak pernah masuk log atau audit.
+
+**SSE (ADR-0026).** Event berasal dari `pg_notify` yang dipicu trigger `AFTER INSERT` (fungsi `app_notify_row('<kanal>')`, payload hanya `{ tenant_id, id }`). `PgNotificationHub` memegang satu koneksi `LISTEN` per instans (dibuka saat pelanggan pertama, sambung ulang otomatis) dan meneruskan notifikasi ke pelanggan kanal + tenant yang sama.
+
+```ts
+const queueCalls: SseChannel<QueueCallView> = {
+  name: 'queue_calls',
+  load: (tx, id) => loadCallView(tx, id),                       // null → tidak dikirim
+  replay: (tx, afterId, limit) => callsAfter(tx, afterId, limit),  // untuk Last-Event-ID
+};
+
+@NoRequestTransaction()
+@RequirePermission('queue', 'read')
+@Get('display/stream')
+stream(@Req() req: Request, @Res() res: Response, @Query('services') services: string) {
+  this.sse.stream(req, res, queueCalls, { filter: (e) => wanted(e, services) });
+}
+```
+
+- Setiap event dibaca di transaksi pendek `withTenant` tenant pelanggan (RLS). Hasil `load` dibagi ke semua koneksi selama 2 dtk.
+- `id:` event = id baris (UUID v7). `Last-Event-ID` (atau query `lastEventId` dari BFF) memanggil `replay`; replay juga dijalankan setelah koneksi LISTEN tersambung ulang. Lebih dari 200 event atau kanal tanpa `replay` → `event: reset` (klien memuat ulang snapshot).
+- Heartbeat `: ping` 15 dtk; umur koneksi maks 5 menit lalu klien menyambung ulang (sesi dan izin diperiksa ulang); klien lambat diputus; langganan dilepas saat klien putus.
+- Header `X-Accel-Buffering: no` dan `Cache-Control: no-store, no-transform` agar proxy tidak menahan aliran.
+
+**Event domain.** `DomainEvents` (`infra/events/domain-events.ts`) sinkron di dalam transaksi penerbit. Nama dan payload (ID saja, tanpa PHI) ada di `domain-event-map.ts`; daftar namanya sementara disalin dari rencana potongan 0a dan diganti impor dari `@simrs/shared` setelah 0a tergabung.
+
+```ts
+// Modul pemakai, mis. mesin task ID di modul queue:
+onModuleInit() {
+  this.events.on('booking.checked_in', (e, { tx }) => this.taskIds.record(tx, e.payload.appointmentId, 1),
+    { label: 'queue.task-id' });
+}
+// Penerbit (service, di dalam transaksi permintaan atau TenantDb.transaction()):
+await this.events.publish('booking.checked_in', { appointmentId, patientId });
+```
+
+- Penangan berjalan berurutan dengan transaksi yang sama. Penangan gagal → seluruh permintaan batal, termasuk tulisan penerbit.
+- `publish` di luar transaksi → galat program. Rantai lebih dari 8 tingkat dianggap siklus.
+- Efek ke sistem luar dari penangan tetap lewat outbox.
 
 ### Anatomi modul
 
@@ -322,6 +400,8 @@ Setiap hit Redis dibatasi 500 ms (Redis macet tidak menahan permintaan). Gagal t
 | Rate limit               | `RATE_LIMITED`                            | 429                  |
 | Lainnya                  | `INTERNAL_ERROR` (pesan generik)          | 500                  |
 
+Galat yang muncul setelah respons mulai dikirim (mis. aliran SSE) hanya dicatat di log lalu koneksi ditutup, karena status HTTP tidak bisa diubah lagi.
+
 Untuk galat 500, log hanya mencatat **nama, kode, dan frame stack**. Pesan galat dibuang karena galat Prisma bisa mencetak nilai data (`sanitizeForLog`). Daftar kode ada di `packages/shared/src/errors.ts`; tambahkan kode baru di sana, jangan mengarang string di modul.
 
 ### Log
@@ -347,13 +427,16 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Fungsi database
 
-| Fungsi                     | Guna                                                                                                                                           |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app_current_tenant()`     | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong.                                                         |
-| `app_active_tenant_ids()`  | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).                                                               |
-| `app_reject_mutation()`    | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                  |
-| `app_audit_chain()`        | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant. |
-| `app_verify_audit_chain()` | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                       |
+| Fungsi                           | Guna                                                                                                                                                            |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app_current_tenant()`           | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong.                                                                          |
+| `app_active_tenant_ids()`        | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).                                                                                |
+| `app_reject_mutation()`          | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                                   |
+| `app_audit_chain()`              | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant.                  |
+| `app_verify_audit_chain()`       | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                                        |
+| `app_search_patient_names(teks)` | P05 · `SECURITY DEFINER`: kandidat nama mirip (`patient_id`, `score`) dari `search.patient_names` milik tenant `app_current_tenant()`; indeks trigram terpakai. |
+| `app_sync_patient_name()`        | Trigger `patients` → `search.patient_names` (INSERT, UPDATE `name_search`).                                                                                     |
+| `app_validate_patient_fks()`     | Operator/migrator: hitung baris yatim lalu `VALIDATE` FK relasi/akses darurat → pasien; ada yatim → peringatan, FK tetap `NOT VALID`, tanpa hapus.              |
 
 ### Helper di `@simrs/db`
 
@@ -402,14 +485,17 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 
 `apps/mock/src/`:
 
-| Berkas                            | Isi                                                                                                         |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak); log 50 request; penerima `_echo` |
-| `systems/*.ts`                    | Satu berkas per sistem: `bpjs`, `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`                     |
-| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                  |
-| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                            |
-| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                          |
-| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                              |
+| Berkas                            | Isi                                                                                                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                          |
+| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                  |
+| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0, Antrean RS + urutan task ID, HFIS; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
+| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                    |
+| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                              |
+| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                            |
+| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                |
+
+Mode `timeout` **memproses** permintaan lalu menahan jawabannya (meniru jawaban BPJS yang hilang: SEP sudah terbit, RS tidak tahu), berbeda dengan `gagal` yang menolak tanpa memproses. Aturan kartu/NIK/rujukan fiktif dan daftar API panel ada di `apps/mock/README.md`.
 
 ## Web
 
@@ -418,7 +504,7 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 | Path                          | Isi                                                                                                                           |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `app/layout.tsx`              | Root: font IBM Plex, `lang="id"`, CSS global                                                                                  |
-| `proxy.ts`                    | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)                |
+| `proxy.ts`                    | Proxy Next 16: CSP ber-nonce per permintaan; belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali       |
 | `app/masuk/`                  | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)                  |
 | `app/(staf)/layout.tsx`       | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                                 |
 | `app/(staf)/page.tsx`         | Beranda; status `/ready` hanya untuk operator platform                                                                        |
@@ -478,15 +564,15 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
                    requireSession() → GET /auth/me (sekali per render) → identitas, peran, unit, izin
 ```
 
-| Hal                  | Aturan                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cookie               | `simrs_at` (akses), `simrs_rt` (refresh), `simrs_mfa*` (tantangan). httpOnly, SameSite=Lax, path /; di luar lokal Secure + `__Host-`.             |
-| Cookie perangkat     | `simrs_td` (perangkat tepercaya) dan `simrs_pin` (token PIN, maks 8 akun, 30 hari) milik perangkat: tidak dihapus saat keluar.                    |
-| Umur cookie akses    | 60 detik lebih pendek dari token akses, agar proxy sempat memperbarui sebelum API menolak.                                                        |
-| Refresh paralel      | `refreshSession()` menyimpan janji per hash refresh token selama 30 detik: banyak permintaan, satu panggilan API. Hanya berlaku satu instans web. |
-| Tujuan setelah login | `?lanjut=` hanya path internal (`safeNextPath`: tanpa `//`, skema, backslash, karakter kendali).                                                  |
-| IP klien ke API      | Entri paling kanan `X-Forwarded-For` (ditambahkan reverse proxy tepercaya). API mempercayainya hanya dari alamat `TRUST_PROXY`.                   |
-| Menu                 | Dari `permissions` di `/auth/me` (kenyamanan saja); izin tetap ditegakkan API.                                                                    |
+| Hal                  | Aturan                                                                                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cookie               | `simrs_at` (akses), `simrs_rt` (refresh), `simrs_mfa*` (tantangan). httpOnly, SameSite=Lax, path /; di luar lokal Secure + `__Host-`.                |
+| Cookie perangkat     | `simrs_td` (perangkat tepercaya) dan `simrs_pin` (token PIN, maks 8 akun, 30 hari) milik perangkat: tidak dihapus saat keluar.                       |
+| Umur cookie akses    | 60 detik lebih pendek dari token akses, agar proxy sempat memperbarui sebelum API menolak.                                                           |
+| Refresh paralel      | `refreshSession()`: janji per hash refresh token 30 detik di memori + peta bersama Redis (`SET NX`, hasil terenkripsi) antar-instans web (ADR-0073). |
+| Tujuan setelah login | `?lanjut=` hanya path internal (`safeNextPath`: tanpa `//`, skema, backslash, karakter kendali).                                                     |
+| IP klien ke API      | Entri paling kanan `X-Forwarded-For` (ditambahkan reverse proxy tepercaya). API mempercayainya hanya dari alamat `TRUST_PROXY`.                      |
+| Menu                 | Dari `permissions` di `/auth/me` (kenyamanan saja); izin tetap ditegakkan API.                                                                       |
 
 ## UI dan sistem desain
 
@@ -498,16 +584,17 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Paket shared
 
-| Modul                            | Isi utama                                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                 |
-| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran |
-| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                             |
-| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                       |
-| `ids.ts`                         | `newId()` UUID v7                                                                                 |
-| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                        |
-| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                |
-| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, HMAC TPDI                                       |
+| Modul                            | Isi utama                                                                                                                                                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                                                                                                                                                            |
+| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran                                                                                                                                            |
+| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                                                                                                                                                                        |
+| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                                                                                                                                                                  |
+| `ids.ts`                         | `newId()` UUID v7                                                                                                                                                                                                                            |
+| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                                                                                                                                                                   |
+| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                                                                                                                                                           |
+| `integrations/bpjs/`             | Kontrak kabel BPJS (I03) dipakai mock, worker, API: tabel endpoint + `bpjsPath()`, skema zod VClaim/Antrean/HFIS, `BPJS_REJECTIONS` + `classifyBpjsRejection()` (galat bisnis HTTP 200 → kode stabil), `checkAntreanTask()` (urutan task ID) |
+| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `decodeVclaimResponse`/`decodeAntreanResponse` (amplop → `ok`/`rejected`/`invalid`), HMAC TPDI                                                                                             |
 
 ## Strategi tes
 
@@ -551,6 +638,7 @@ Aturan:
 
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
 - [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
+- [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025) dan aliran `SseService` (ADR-0026); akses data di dalamnya lewat `TenantDb.transaction()`.
 - [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.
 - [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).
 - [ ] FK antar-tabel tenant memakai pasangan `(tenant_id, id)`.

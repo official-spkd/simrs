@@ -33,7 +33,11 @@ export interface RequestActor {
  */
 export interface TenantRequestContext {
   tenantId: string;
-  tx: TenantTx;
+  /**
+   * Transaksi permintaan. `null` pada handler `@NoRequestTransaction()` (lookup sinkron ADR-0025, SSE ADR-0026)
+   * di luar transaksi pendek `TenantDb.transaction()`: di sana `TenantDb.tx()` menolak dengan galat program.
+   */
+  tx: TenantTx | null;
   actor: RequestActor;
   requestId: string | null;
   ip: string | null;
@@ -44,6 +48,8 @@ export interface TenantRequestContext {
   /**
    * Dijalankan interceptor setelah transaksi permintaan COMMIT (tidak dijalankan bila batal), mis. invalidasi
    * cache matriks izin. Tidak boleh mengubah data atau memanggil sistem eksternal (pakai outbox).
+   * Handler `@NoRequestTransaction()`: setelah transaksi pendek `TenantDb.transaction()` yang mendaftarkannya commit,
+   * atau setelah handler selesai bila didaftarkan di luar transaksi pendek.
    */
   afterCommit: Array<() => Promise<void> | void>;
 }

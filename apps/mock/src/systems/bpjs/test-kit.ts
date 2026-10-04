@@ -1,5 +1,7 @@
 import {
   type AntreanAddRequest,
+  type AplicareDecoded,
+  decodeAplicareResponse,
   BPJS_SERVICE_PREFIX,
   type BpjsEndpoint,
   bpjsPath,
@@ -66,6 +68,12 @@ export interface Harness {
     params?: Params,
     body?: unknown,
   ): Promise<BpjsDecoded<T>>;
+  aplicare<T = undefined>(
+    endpoint: BpjsEndpoint,
+    schema: z.ZodType<T> | null,
+    params?: Params,
+    body?: unknown,
+  ): Promise<AplicareDecoded<T>>;
   /** Nomor rujukan FKTP aktif (urut 01) dan kedaluwarsa (urut 99) milik kartu. */
   rujukanOf(noKartu: string): Promise<{ aktif: string; kedaluwarsa: string }>;
 }
@@ -109,6 +117,11 @@ export function createHarness(now: Date = TEST_NOW): Harness {
       const res = await h.raw('antrean', endpoint, { params, body, headers });
       if (res.statusCode !== 200) throw new Error(`HTTP ${res.statusCode}: ${res.body}`);
       return decodeAntreanResponse(res.json(), schema, config.bpjs, headers['X-timestamp'] ?? '');
+    },
+    async aplicare(endpoint, schema, params, body) {
+      const res = await h.raw('aplicare', endpoint, { params, body });
+      if (res.statusCode !== 200) throw new Error(`HTTP ${res.statusCode}: ${res.body}`);
+      return decodeAplicareResponse(res.json(), schema);
     },
     async rujukanOf(noKartu) {
       const r = await h.vclaim(VCLAIM_ENDPOINTS.rujukanListByKartu, vclaimRujukanListResponseSchema, {

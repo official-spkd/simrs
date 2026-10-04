@@ -37,6 +37,8 @@ export const VCLAIM_ENDPOINTS = {
   sepUpdate: { method: 'PUT', path: '/SEP/2.0/update' },
   /** Hapus SEP (body JSON pada DELETE) → `vclaimNoSepResponseSchema`. */
   sepDelete: { method: 'DELETE', path: '/SEP/2.0/delete' },
+  /** Tanggal + status pulang SEP rawat inap → `vclaimNoSepResponseSchema`. */
+  sepUpdateTglPulang: { method: 'PUT', path: '/SEP/2.0/updtglplg' },
   /** Detail SEP → `vclaimSepDetailSchema`. */
   sepByNomor: { method: 'GET', path: '/SEP/:noSep' },
   /** Status rekam sidik jari peserta pada tanggal pelayanan → `vclaimFingerprintResponseSchema`. */
@@ -45,8 +47,22 @@ export const VCLAIM_ENDPOINTS = {
   rencanaKontrolInsert: { method: 'POST', path: '/RencanaKontrol/insert' },
   /** Surat perintah rawat inap → `vclaimSpriResponseSchema`. */
   spriInsert: { method: 'POST', path: '/RencanaKontrol/InsertSPRI' },
+  /** Ubah surat kontrol (belum dipakai SEP) → `vclaimRencanaKontrolResponseSchema`. */
+  rencanaKontrolUpdate: { method: 'PUT', path: '/RencanaKontrol/Update' },
+  /** Ubah SPRI (belum dipakai SEP) → `vclaimSpriResponseSchema`. */
+  spriUpdate: { method: 'PUT', path: '/RencanaKontrol/UpdateSPRI' },
+  /** Hapus surat kontrol/SPRI yang belum dipakai SEP (body JSON pada DELETE) → `vclaimNoSuratResponseSchema`. */
+  rencanaKontrolDelete: { method: 'DELETE', path: '/RencanaKontrol/Delete' },
   /** Detail surat kontrol/SPRI → `vclaimSuratKontrolSchema`. */
   suratKontrolByNomor: { method: 'GET', path: '/RencanaKontrol/noSuratKontrol/:noSuratKontrol' },
+  /** F07 · Rujukan keluar dari SEP RS ini → `vclaimRujukanKeluarResponseSchema`. */
+  rujukanKeluarInsert: { method: 'POST', path: '/Rujukan/2.0/insert' },
+  /** Ubah rujukan keluar → `vclaimNoRujukanResponseSchema`. */
+  rujukanKeluarUpdate: { method: 'PUT', path: '/Rujukan/2.0/Update' },
+  /** Hapus rujukan keluar (body JSON pada DELETE) → `vclaimNoRujukanResponseSchema`. */
+  rujukanKeluarDelete: { method: 'DELETE', path: '/Rujukan/delete' },
+  /** Detail rujukan keluar → `vclaimRujukanKeluarResponseSchema`. */
+  rujukanKeluarByNomor: { method: 'GET', path: '/Rujukan/Keluar/:noRujukan' },
   /** Referensi poli (kode atau nama mengandung `param`) → `vclaimRefPoliResponseSchema`. */
   refPoli: { method: 'GET', path: '/referensi/poli/:param' },
   /** Referensi DPJP per jenis pelayanan (1 RI, 2 RJ), tanggal, spesialis/poli → `vclaimRefDokterResponseSchema`. */
@@ -54,6 +70,10 @@ export const VCLAIM_ENDPOINTS = {
     method: 'GET',
     path: '/referensi/dokter/pelayanan/:jnsPelayanan/tglPelayanan/:tglPelayanan/Spesialis/:kodeSpesialis',
   },
+  /** Referensi diagnosa ICD-10 (kode berawalan / nama mengandung `param`) → `vclaimRefDiagnosaResponseSchema`. */
+  refDiagnosa: { method: 'GET', path: '/referensi/diagnosa/:param' },
+  /** Referensi faskes (kode / nama mengandung `param`); jenis 1 = FKTP, 2 = RS → `vclaimRefFaskesResponseSchema`. */
+  refFaskes: { method: 'GET', path: '/referensi/faskes/:param/:jenisFaskes' },
   /** Histori SEP peserta pada rentang tanggal → `vclaimHistoriResponseSchema` (cek SEP sebelum kirim ulang). */
   historiPelayanan: {
     method: 'GET',
@@ -388,3 +408,140 @@ export const vclaimHistoriSchema = z.object({
 export type VclaimHistori = z.infer<typeof vclaimHistoriSchema>;
 export const vclaimHistoriResponseSchema = z.object({ histori: z.array(vclaimHistoriSchema) });
 export type VclaimHistoriResponse = z.infer<typeof vclaimHistoriResponseSchema>;
+
+export const vclaimRefDiagnosaResponseSchema = z.object({ diagnosa: z.array(bpjsKodeNamaSchema) });
+export type VclaimRefDiagnosaResponse = z.infer<typeof vclaimRefDiagnosaResponseSchema>;
+export const vclaimRefFaskesResponseSchema = z.object({ faskes: z.array(bpjsKodeNamaSchema) });
+export type VclaimRefFaskesResponse = z.infer<typeof vclaimRefFaskesResponseSchema>;
+/** `jenisFaskes` referensi faskes. */
+export const VCLAIM_JENIS_FASKES = { fktp: '1', rs: '2' } as const;
+
+// ---------------------------------------------------------------------------------------------------------------
+// SEP pulang (rawat inap)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** `statusPulang`: 1 atas persetujuan dokter, 3 atas permintaan sendiri, 4 meninggal, 5 lain-lain. */
+export const VCLAIM_STATUS_PULANG = {
+  persetujuanDokter: '1',
+  permintaanSendiri: '3',
+  meninggal: '4',
+  lainLain: '5',
+} as const;
+
+export const vclaimSepPulangRequestSchema = z.object({
+  request: z.object({
+    t_sep: z
+      .object({
+        noSep: z.string().min(1),
+        statusPulang: z.enum(['1', '3', '4', '5']),
+        /** Wajib bila meninggal. */
+        noSuratMeninggal: optionalText,
+        tglMeninggal: z.union([bpjsDateSchema, z.literal('')]),
+        tglPulang: bpjsDateSchema,
+        noLPManual: optionalText,
+        user: z.string().min(1).max(30),
+      })
+      .refine((t) => t.statusPulang !== '4' || (t.noSuratMeninggal !== '' && t.tglMeninggal !== ''), {
+        message: 'noSuratMeninggal dan tglMeninggal wajib bila meninggal',
+        path: ['noSuratMeninggal'],
+      }),
+  }),
+});
+export type VclaimSepPulangRequest = z.infer<typeof vclaimSepPulangRequestSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Ubah/hapus rencana kontrol + SPRI
+// ---------------------------------------------------------------------------------------------------------------
+
+export const vclaimRencanaKontrolUpdateRequestSchema = z.object({
+  request: z.object({
+    noSuratKontrol: z.string().min(1),
+    noSEP: z.string().min(1),
+    kodeDokter: z.string().min(1),
+    poliKontrol: z.string().min(1),
+    tglRencanaKontrol: bpjsDateSchema,
+    user: z.string().min(1).max(30),
+  }),
+});
+export type VclaimRencanaKontrolUpdateRequest = z.infer<typeof vclaimRencanaKontrolUpdateRequestSchema>;
+
+export const vclaimSpriUpdateRequestSchema = z.object({
+  request: z.object({
+    noSPRI: z.string().min(1),
+    kodeDokter: z.string().min(1),
+    poliKontrol: z.string().min(1),
+    tglRencanaKontrol: bpjsDateSchema,
+    user: z.string().min(1).max(30),
+  }),
+});
+export type VclaimSpriUpdateRequest = z.infer<typeof vclaimSpriUpdateRequestSchema>;
+
+export const vclaimRencanaKontrolDeleteRequestSchema = z.object({
+  request: z.object({
+    t_suratkontrol: z.object({ noSuratKontrol: z.string().min(1), user: z.string().min(1).max(30) }),
+  }),
+});
+export type VclaimRencanaKontrolDeleteRequest = z.infer<typeof vclaimRencanaKontrolDeleteRequestSchema>;
+
+/** Respons hapus surat: nomor surat (string terenkripsi). */
+export const vclaimNoSuratResponseSchema = z.string().min(1);
+
+// ---------------------------------------------------------------------------------------------------------------
+// F07 · Rujukan keluar
+// ---------------------------------------------------------------------------------------------------------------
+
+/** `tipeRujukan`: 0 penuh, 1 partial (ke RS), 2 rujuk balik (ke FKTP). */
+export const VCLAIM_TIPE_RUJUKAN = { penuh: '0', partial: '1', rujukBalik: '2' } as const;
+
+const rujukanKeluarFields = {
+  tglRujukan: bpjsDateSchema,
+  tglRencanaKunjungan: bpjsDateSchema,
+  ppkDirujuk: bpjsKodePpkSchema,
+  jnsPelayanan: z.enum(['1', '2']),
+  catatan: optionalText,
+  diagRujukan: bpjsIcd10Schema,
+  tipeRujukan: z.enum(['0', '1', '2']),
+  /** Kode poli BPJS tujuan; boleh kosong untuk rujuk balik dan rawat inap. */
+  poliRujukan: optionalText,
+  user: z.string().min(1).max(30),
+};
+
+export const vclaimRujukanKeluarInsertRequestSchema = z.object({
+  request: z.object({ t_rujukan: z.object({ noSep: z.string().min(1), ...rujukanKeluarFields }) }),
+});
+export type VclaimRujukanKeluarInsertRequest = z.infer<typeof vclaimRujukanKeluarInsertRequestSchema>;
+export type VclaimRujukanKeluarTRujukan = VclaimRujukanKeluarInsertRequest['request']['t_rujukan'];
+
+export const vclaimRujukanKeluarUpdateRequestSchema = z.object({
+  request: z.object({ t_rujukan: z.object({ noRujukan: z.string().min(1), ...rujukanKeluarFields }) }),
+});
+export type VclaimRujukanKeluarUpdateRequest = z.infer<typeof vclaimRujukanKeluarUpdateRequestSchema>;
+
+export const vclaimRujukanKeluarDeleteRequestSchema = z.object({
+  request: z.object({
+    t_rujukan: z.object({ noRujukan: z.string().min(1), user: z.string().min(1).max(30) }),
+  }),
+});
+export type VclaimRujukanKeluarDeleteRequest = z.infer<typeof vclaimRujukanKeluarDeleteRequestSchema>;
+
+/** Format nomor `<PPK asal 8><MMYY>B<6 digit>`; berlaku s.d. `tglBerlakuKunjungan` (90 hari). */
+export const vclaimRujukanKeluarSchema = z.object({
+  noRujukan: z.string(),
+  noSep: z.string(),
+  tglRujukan: bpjsDateSchema,
+  tglRencanaKunjungan: bpjsDateSchema,
+  tglBerlakuKunjungan: bpjsDateSchema,
+  jnsPelayanan: z.enum(['1', '2']),
+  tipeRujukan: bpjsKodeNamaSchema,
+  AsalRujukan: bpjsKodeNamaSchema,
+  tujuanRujukan: bpjsKodeNamaSchema,
+  poliTujuan: bpjsKodeNamaSchema,
+  diagnosa: bpjsKodeNamaSchema,
+  catatan: z.string(),
+  peserta: vclaimSepPesertaSchema,
+});
+export type VclaimRujukanKeluar = z.infer<typeof vclaimRujukanKeluarSchema>;
+export const vclaimRujukanKeluarResponseSchema = z.object({ rujukan: vclaimRujukanKeluarSchema });
+export type VclaimRujukanKeluarResponse = z.infer<typeof vclaimRujukanKeluarResponseSchema>;
+/** Respons ubah/hapus rujukan keluar: nomor rujukan (string terenkripsi). */
+export const vclaimNoRujukanResponseSchema = z.string().min(1);

@@ -18,11 +18,24 @@ import {
   type VclaimSpriResponse,
   vclaimSpriRequestSchema,
   type VclaimSuratKontrol,
+  VCLAIM_JENIS_FASKES,
+  vclaimRencanaKontrolDeleteRequestSchema,
+  vclaimRencanaKontrolUpdateRequestSchema,
+  vclaimSepPulangRequestSchema,
+  vclaimSpriUpdateRequestSchema,
 } from '@simrs/shared';
 import type { FastifyInstance } from 'fastify';
 import { type BpjsContext, mmyy, vclaimFail, zodDetail } from './context';
 import { hfisJadwalOn } from './hfis';
-import { diagnosaLabel, dokterByKode, MOCK_DOKTER, MOCK_POLI, poliByKode } from './master';
+import {
+  diagnosaLabel,
+  dokterByKode,
+  MOCK_DIAGNOSA,
+  MOCK_DOKTER,
+  MOCK_FASKES,
+  MOCK_POLI,
+  poliByKode,
+} from './master';
 import { needsFingerprint, pesertaAktif, pesertaByKartu, pesertaByNik } from './peserta';
 import { buildRujukan, type JenisRujukan, parseNoRujukan, rujukanNumbersFor } from './rujukan';
 import type { SepRecord, SuratRecord } from './state';
@@ -214,7 +227,7 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
       }
       if (t.skdp.noSurat) {
         const surat = bpjs.surat.get(t.skdp.noSurat);
-        if (!surat || surat.jenis !== 'kontrol' || surat.noKartu !== t.noKartu) {
+        if (!surat || surat.status !== 'aktif' || surat.jenis !== 'kontrol' || surat.noKartu !== t.noKartu) {
           return vclaimFail('BPJS_SURAT_TIDAK_DITEMUKAN', t.skdp.noSurat);
         }
       }
@@ -226,13 +239,22 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
       }
     } else {
       const spri = bpjs.surat.get(t.skdp.noSurat);
-      if (!spri || spri.jenis !== 'spri' || spri.noKartu !== t.noKartu) {
+      if (!spri || spri.status !== 'aktif' || spri.jenis !== 'spri' || spri.noKartu !== t.noKartu) {
         return vclaimFail(
           'BPJS_SURAT_TIDAK_DITEMUKAN',
           `SPRI ${t.skdp.noSurat || '(kosong)'} wajib untuk rawat inap`,
         );
       }
       if (terbit.length > 0) return vclaimFail('BPJS_SEP_GANDA', `rawat inap tanggal ${t.tglSep}`);
+      // Rawat inap sebelumnya belum dipulangkan (`updtglplg`) = masih dirawat.
+      const dirawat = [...bpjs.seps.values()].find(
+        (s) =>
+          s.status === 'terbit' &&
+          s.tSep.noKartu === t.noKartu &&
+          s.tSep.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatInap &&
+          !s.pulang,
+      );
+      if (dirawat) return vclaimFail('BPJS_SEP_GANDA', `masih rawat inap sejak ${dirawat.tSep.tglSep}`);
     }
 
     const noSep = `${t.ppkPelayanan}${mmyy(t.tglSep)}V${String(bpjs.nextSepSeq()).padStart(6, '0')}`;
@@ -245,6 +267,7 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
       dibuat: now(),
       diubah: null,
       dihapus: null,
+      pulang: null,
     };
     bpjs.seps.set(noSep, rec);
     return ctx.vclaimOk(req, { sep: sepView(rec) });
@@ -289,6 +312,29 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     const rec = bpjs.seps.get(req.params.noSep);
     if (!rec || rec.status !== 'terbit') return vclaimFail('BPJS_SEP_TIDAK_DITEMUKAN', req.params.noSep);
     return ctx.vclaimOk(req, sepDetail(rec, bpjs.surat.get(rec.tSep.skdp.noSurat)));
+  });
+
+  app.put(VCLAIM_ENDPOINTS.sepUpdateTglPulang.path, async (req) => {
+    const parsed = vclaimSepPulangRequestSchema.safeParse(req.body);
+    if (!parsed.success) return vclaimFail('BPJS_VALIDASI', zodDetail(parsed.error));
+    const p = parsed.data.request.t_sep;
+    const rec = bpjs.seps.get(p.noSep);
+    if (!rec || rec.status !== 'terbit') return vclaimFail('BPJS_SEP_TIDAK_DITEMUKAN', p.noSep);
+    if (rec.tSep.jnsPelayanan !== VCLAIM_JENIS_PELAYANAN.rawatInap) {
+      return vclaimFail('BPJS_SEP_BUKAN_RAWAT_INAP', p.noSep);
+    }
+    if (p.tglPulang < rec.tSep.tglSep || p.tglPulang > ctx.today()) {
+      return vclaimFail('BPJS_TANGGAL_TIDAK_VALID', 'tglPulang harus antara tglSep dan hari ini');
+    }
+    rec.pulang = {
+      tglPulang: p.tglPulang,
+      statusPulang: p.statusPulang,
+      noSuratMeninggal: p.noSuratMeninggal,
+      tglMeninggal: p.tglMeninggal,
+    };
+    rec.versi += 1;
+    rec.diubah = now();
+    return ctx.vclaimOk(req, rec.noSep);
   });
 
   // --- Sidik jari ----------------------------------------------------------------------------------------------
@@ -351,6 +397,8 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     const surat: SuratRecord = {
       noSurat: newSurat(sep.tSep.ppkPelayanan),
       jenis: 'kontrol',
+      status: 'aktif',
+      diubah: null,
       noKartu: sep.tSep.noKartu,
       noSepAsal: sep.noSep,
       kodeDokter: r.kodeDokter,
@@ -381,6 +429,8 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     const surat: SuratRecord = {
       noSurat: newSurat(config.bpjs.ppkCode),
       jenis: 'spri',
+      status: 'aktif',
+      diubah: null,
       noKartu: r.noKartu,
       noSepAsal: null,
       kodeDokter: r.kodeDokter,
@@ -394,9 +444,81 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     return ctx.vclaimOk(req, body);
   });
 
+  /** Surat aktif berjenis tertentu yang belum dipakai SEP; selain itu kembalikan penolakan. */
+  function suratBisaDiubah(noSurat: string, jenis: SuratRecord['jenis']) {
+    const s = bpjs.surat.get(noSurat);
+    if (!s || s.status !== 'aktif' || s.jenis !== jenis) {
+      return { fail: vclaimFail('BPJS_SURAT_TIDAK_DITEMUKAN', noSurat) };
+    }
+    const dipakai = [...bpjs.seps.values()].find(
+      (x) => x.status === 'terbit' && x.tSep.skdp.noSurat === noSurat,
+    );
+    if (dipakai) return { fail: vclaimFail('BPJS_SURAT_SUDAH_DIPAKAI', dipakai.noSep) };
+    return { surat: s };
+  }
+
+  function ubahSurat(
+    s: SuratRecord,
+    r: { kodeDokter: string; poliKontrol: string; tglRencanaKontrol: string },
+  ) {
+    s.kodeDokter = r.kodeDokter;
+    s.poliKontrol = r.poliKontrol;
+    s.tglRencanaKontrol = r.tglRencanaKontrol;
+    s.diubah = now();
+  }
+
+  app.put(VCLAIM_ENDPOINTS.rencanaKontrolUpdate.path, async (req) => {
+    const parsed = vclaimRencanaKontrolUpdateRequestSchema.safeParse(req.body);
+    if (!parsed.success) return vclaimFail('BPJS_VALIDASI', zodDetail(parsed.error));
+    const r = parsed.data.request;
+    const found = suratBisaDiubah(r.noSuratKontrol, 'kontrol');
+    if ('fail' in found) return found.fail;
+    const sep = bpjs.seps.get(r.noSEP);
+    if (!sep || sep.status !== 'terbit' || found.surat.noSepAsal !== sep.noSep) {
+      return vclaimFail('BPJS_SEP_TIDAK_DITEMUKAN', r.noSEP);
+    }
+    const invalid = checkSurat(r.poliKontrol, r.kodeDokter, r.tglRencanaKontrol);
+    if (invalid) return invalid;
+    ubahSurat(found.surat, r);
+    const body: VclaimRencanaKontrolResponse = {
+      noSuratKontrol: found.surat.noSurat,
+      ...suratPeserta(found.surat, sep.peserta),
+    };
+    return ctx.vclaimOk(req, body);
+  });
+
+  app.put(VCLAIM_ENDPOINTS.spriUpdate.path, async (req) => {
+    const parsed = vclaimSpriUpdateRequestSchema.safeParse(req.body);
+    if (!parsed.success) return vclaimFail('BPJS_VALIDASI', zodDetail(parsed.error));
+    const r = parsed.data.request;
+    const found = suratBisaDiubah(r.noSPRI, 'spri');
+    if ('fail' in found) return found.fail;
+    const invalid = checkSurat(r.poliKontrol, r.kodeDokter, r.tglRencanaKontrol);
+    if (invalid) return invalid;
+    const today = ctx.today();
+    const peserta = pesertaByKartu(bpjs, found.surat.noKartu, today, today);
+    if (!peserta) return vclaimFail('BPJS_PESERTA_TIDAK_DITEMUKAN');
+    ubahSurat(found.surat, r);
+    const body: VclaimSpriResponse = { noSPRI: found.surat.noSurat, ...suratPeserta(found.surat, peserta) };
+    return ctx.vclaimOk(req, body);
+  });
+
+  app.delete(VCLAIM_ENDPOINTS.rencanaKontrolDelete.path, async (req) => {
+    const parsed = vclaimRencanaKontrolDeleteRequestSchema.safeParse(req.body);
+    if (!parsed.success) return vclaimFail('BPJS_VALIDASI', zodDetail(parsed.error));
+    const { noSuratKontrol } = parsed.data.request.t_suratkontrol;
+    const jenis = bpjs.surat.get(noSuratKontrol)?.jenis ?? 'kontrol';
+    const found = suratBisaDiubah(noSuratKontrol, jenis);
+    if ('fail' in found) return found.fail;
+    found.surat.status = 'dihapus';
+    found.surat.diubah = now();
+    return ctx.vclaimOk(req, found.surat.noSurat);
+  });
+
   app.get<{ Params: { noSuratKontrol: string } }>(VCLAIM_ENDPOINTS.suratKontrolByNomor.path, async (req) => {
     const s = bpjs.surat.get(req.params.noSuratKontrol);
-    if (!s) return vclaimFail('BPJS_SURAT_TIDAK_DITEMUKAN', req.params.noSuratKontrol);
+    if (!s || s.status !== 'aktif')
+      return vclaimFail('BPJS_SURAT_TIDAK_DITEMUKAN', req.params.noSuratKontrol);
     const today = ctx.today();
     const peserta = pesertaByKartu(bpjs, s.noKartu, today, today);
     const poli = poliByKode(s.poliKontrol);
@@ -427,6 +549,30 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     }));
     return poli.length ? ctx.vclaimOk(req, { poli }) : vclaimFail('BPJS_DATA_TIDAK_DITEMUKAN');
   });
+
+  app.get<{ Params: { param: string } }>(VCLAIM_ENDPOINTS.refDiagnosa.path, async (req) => {
+    const q = req.params.param.trim().toUpperCase();
+    const diagnosa = Object.entries(MOCK_DIAGNOSA)
+      .filter(([kode, nama]) => kode.startsWith(q) || nama.toUpperCase().includes(q))
+      .map(([kode, nama]) => ({ kode, nama }));
+    return diagnosa.length ? ctx.vclaimOk(req, { diagnosa }) : vclaimFail('BPJS_DATA_TIDAK_DITEMUKAN');
+  });
+
+  app.get<{ Params: { param: string; jenisFaskes: string } }>(
+    VCLAIM_ENDPOINTS.refFaskes.path,
+    async (req) => {
+      const { jenisFaskes } = req.params;
+      if (jenisFaskes !== VCLAIM_JENIS_FASKES.fktp && jenisFaskes !== VCLAIM_JENIS_FASKES.rs) {
+        return vclaimFail('BPJS_VALIDASI', 'jenisFaskes harus 1 (FKTP) atau 2 (RS)');
+      }
+      const q = req.params.param.trim().toUpperCase();
+      const daftar = jenisFaskes === VCLAIM_JENIS_FASKES.fktp ? MOCK_FASKES.fktp : MOCK_FASKES.rs;
+      const faskes = daftar
+        .filter((f) => f.kode === q || f.nama.includes(q))
+        .map((f) => ({ kode: f.kode, nama: f.nama }));
+      return faskes.length ? ctx.vclaimOk(req, { faskes }) : vclaimFail('BPJS_DATA_TIDAK_DITEMUKAN');
+    },
+  );
 
   app.get<{ Params: { jnsPelayanan: string; tglPelayanan: string; kodeSpesialis: string } }>(
     VCLAIM_ENDPOINTS.refDokter.path,
@@ -470,7 +616,7 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
         .map((s) => ({
           noSep: s.noSep,
           tglSep: s.tSep.tglSep,
-          tglPlgSep: '',
+          tglPlgSep: s.pulang?.tglPulang ?? '',
           jnsPelayanan: s.tSep.jnsPelayanan,
           kelasRawat: s.tSep.klsRawat.klsRawatHak,
           diagnosa: diagnosaLabel(s.tSep.diagAwal),

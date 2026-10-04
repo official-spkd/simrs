@@ -44,6 +44,7 @@ export const FRONT_OFFICE_ERRORS = {
   SEP_STATE_INVALID: { status: 409, message: 'Status SEP tidak mengizinkan tindakan ini' },
   REFERRAL_EXPIRED: { status: 422, message: 'Rujukan sudah tidak berlaku' },
   REFERRAL_STATE_INVALID: { status: 409, message: 'Status rujukan tidak mengizinkan tindakan ini' },
+  /** Tidak terjangkau/timeout, termasuk lookup sinkron BPJS (VClaim/Antrean) yang lewat 5 detik (ADR-0025). */
   BPJS_UNAVAILABLE: { status: 503, message: 'Layanan BPJS tidak dapat dihubungi. Coba lagi sebentar.' },
   BPJS_REJECTED: { status: 422, message: 'Permintaan ditolak BPJS' },
   // F05 · Perangkat dan anjungan
@@ -105,6 +106,7 @@ export const ERROR_CODES = [
   'WEBHOOK_TIMESTAMP_EXPIRED',
   'INTEGRATION_UNAVAILABLE',
   'INTERNAL_ERROR',
+  // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,
 ] as const;
 

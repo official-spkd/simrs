@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { enqueueOutbox } from '@simrs/db';
 import {
@@ -12,7 +13,14 @@ import {
 } from '@simrs/shared';
 import { newVerifyCode, sha256Hex } from '@simrs/shared/node';
 import { API_ENV, type ApiEnv } from '../../config/env';
-import { documentStorageKey, OBJECT_STORAGE, type ObjectStorage } from '../../infra/object-storage';
+import {
+  documentStorageKey,
+  OBJECT_STORAGE,
+  type ObjectStorage,
+  StorageIntegrityError,
+  type StoredObject,
+  verifiedContent,
+} from '../../infra/object-storage';
 import { TenantDb } from '../../infra/tenant-db';
 import { PatientAccessService } from '../authz/patient-access.service';
 import { type DocumentRow, DocumentsRepository } from './documents.repository';
@@ -89,9 +97,10 @@ export class DocumentsService {
     }
     const id = newId();
     const storageKey = documentStorageKey(this.db.tenantId(), id);
+    const sha256 = sha256Hex(bytes);
     // Berkas ditulis lebih dulu: bila transaksi batal, yang tersisa hanya berkas yatim tanpa metadata (aman,
-    // dibersihkan job terjadwal), tidak pernah metadata tanpa berkas.
-    await this.storage.put(storageKey, bytes);
+    // dibersihkan job terjadwal), tidak pernah metadata tanpa berkas. Driver s3 memverifikasi hash di server.
+    await this.storage.put(storageKey, bytes, sha256);
     const row = await this.repo.create({
       id,
       patientId,
@@ -100,7 +109,7 @@ export class DocumentsService {
       fileName: sanitizeFileName(meta.fileName, mime),
       mimeType: mime,
       sizeBytes: bytes.length,
-      sha256: sha256Hex(bytes),
+      sha256,
       storageKey,
     });
     return (await this.presentWithNames([row]))[0] as DocumentView;
@@ -117,18 +126,25 @@ export class DocumentsService {
     return (await this.presentWithNames([row]))[0] as DocumentView;
   }
 
-  /** Isi berkas; hash dicocokkan ulang (berkas yang berubah di penyimpanan tidak pernah diserahkan). */
-  async content(id: string): Promise<{ doc: DocumentRow; bytes: Buffer }> {
+  /**
+   * Isi berkas sebagai stream; hash dan ukuran dicocokkan dengan DB (berkas yang berubah di penyimpanan tidak
+   * pernah diserahkan, lihat `verifiedContent`).
+   */
+  async content(id: string): Promise<{ doc: DocumentRow; body: Readable }> {
     const doc = await this.load(id);
     await this.assertAccess(doc.patientId);
-    let bytes: Buffer;
+    let stored: StoredObject;
     try {
-      bytes = await this.storage.get(doc.storageKey);
+      stored = await this.storage.open(doc.storageKey);
     } catch {
       this.log.error({ documentId: doc.id }, 'Berkas dokumen tidak ada di penyimpanan');
       throw new AppError('DOCUMENT_INTEGRITY', 'Berkas dokumen tidak ditemukan di penyimpanan', 500);
     }
-    if (sha256Hex(bytes) !== doc.sha256) {
+    let body: Readable;
+    try {
+      body = await verifiedContent(stored, { sha256: doc.sha256, size: doc.sizeBytes });
+    } catch (err) {
+      if (!(err instanceof StorageIntegrityError)) throw err;
       this.log.error({ documentId: doc.id }, 'Hash berkas dokumen tidak cocok');
       throw new AppError(
         'DOCUMENT_INTEGRITY',
@@ -143,7 +159,7 @@ export class DocumentsService {
       patientId: doc.patientId,
       details: { content: true, kind: doc.kind },
     });
-    return { doc, bytes };
+    return { doc, body };
   }
 
   async void(id: string, reason: string): Promise<DocumentView> {

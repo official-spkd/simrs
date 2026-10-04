@@ -21,3 +21,21 @@ Katalog P08 meminta penyimpanan dokumen dan lampiran (foto, hasil scan), TTE ter
 − Driver S3/MinIO, pemindai virus (produksi), job pembersih berkas yatim, generator PDF + cetak QR (P12), dan layar dokumen di rekam medis klinis (fase 3) belum ada.
 − Verifikasi kriptografis tanda tangan ke penyelenggara (rantai sertifikat) belum ada; halaman verifikasi menegaskan catatan tanda tangan dan kecocokan hash.
 − Kegagalan permanen TTE (pesan DLQ) belum mengubah status tanda tangan; terlihat di outbox sampai Integration Hub (fase 7).
+
+## Pembaruan 5 Okt 2026 · driver S3/MinIO
+
+MinIO kini berjalan di Docker (`pgsty/minio`, bucket `simrs-documents` dan `simrs-backups`). Driver `s3` tersedia di balik antarmuka `ObjectStorage` yang sama; butir 1 di atas diperbarui sebagai berikut.
+
+1. **Klien S3 minimal tanpa SDK.** `apps/api/src/infra/sigv4.ts` (AWS Signature V4, fungsi murni, diuji dengan vektor resmi AWS) dan `s3-client.ts` (`node:http`/`node:https`, gaya path `/<bucket>/<kunci>` yang cocok untuk MinIO dan S3-compatible lain). Hanya PutObject, GetObject, HeadBucket yang dipakai aplikasi, jadi `@aws-sdk/client-s3` tidak perlu dan tidak ada dependensi baru.
+2. **Driver per lingkungan.** `STORAGE_DRIVER=s3` boleh di local, staging, dan produksi; `disk` hanya bila `APP_ENV=local` (mesin pengembang dan tes). Staging dan produksi wajib `s3`; driver tidak disetel berarti `disk`, sehingga API menolak start (gagal aman). Server edge RS memakai MinIO lokal, bukan disk.
+3. **Tulis tanpa timpa, hash diverifikasi server.** PutObject memakai `If-None-Match: *` (kunci yang sudah ada ditolak server, tanpa jeda periksa-lalu-tulis), `x-amz-content-sha256` dan `x-amz-checksum-sha256` berisi SHA-256 yang juga dicatat di DB. Server menolak isi yang tidak cocok dan menyimpan checksum itu bersama objek. Antarmuka tidak punya operasi hapus.
+4. **Unduhan di-stream, tetap terverifikasi.** GetObject meminta checksum objek (`x-amz-checksum-mode: ENABLED`). Ukuran dan checksum dibandingkan dengan DB sebelum byte pertama dikirim. Isi di-hash ulang selama stream dan potongan terakhir ditahan sampai hash cocok; bila tidak cocok, koneksi diputus (`Content-Length` tidak terpenuhi), jadi berkas rusak tidak pernah diterima utuh. Objek tanpa checksum (mis. disalin di luar aplikasi) dan driver disk dibaca utuh (≤ 10 MB) lalu di-hash sebelum dikirim. Klien yang memutus unduhan langsung melepas koneksi ke penyimpanan.
+5. **Kunci dan log tanpa PHI.** Kunci tetap `<tenant>/<tahun>/<bulan>/<uuid>` dan divalidasi driver sebelum ke jaringan. Galat S3 hanya membawa status dan kode (`NoSuchKey`, `PreconditionFailed`), tanpa kunci, bucket, atau kredensial; log dokumen hanya memuat ID dokumen.
+6. **Kesiapan lewat HeadBucket.** `/ready` memeriksa bucket dokumen dengan HeadBucket (berlaku untuk S3 mana pun), bukan endpoint kesehatan khusus MinIO.
+7. **Transaksi.** PutObject terjadi di dalam transaksi permintaan (butir 4: berkas sebelum metadata), dibatasi 10 MB dan batas diam soket 15 detik; satu koneksi DB tertahan selama unggah ke penyimpanan. GetObject membuka stream di dalam transaksi, isinya dikirim setelah commit.
+
+Konsekuensi:
++ Berkas dokumen di staging/produksi tidak lagi bergantung pada disk server API; checksum tersimpan di penyimpanan dan di DB.
++ Tes integrasi memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes; suite API dokumen dijalankan untuk kedua driver. `pnpm --filter @simrs/api test` kini butuh MinIO (`docker compose up -d`), seperti Redis.
+− Produksi perlu kredensial khusus aplikasi (bukan root MinIO) dengan izin `s3:PutObject`, `s3:GetObject`, dan `s3:ListBucket` (untuk HeadBucket) saja, tanpa `s3:DeleteObject`; object lock/versioning (WORM) di bucket dokumen dan endpoint TLS dianjurkan. Belum ditegakkan kode.
+− Hanya gaya path; virtual-hosted style dan unggah multipart (berkas > 10 MB) belum ada. Alat pindah berkas dari disk lokal ke S3 belum ada (data lokal fiktif, cukup di-seed ulang).
