@@ -2,8 +2,16 @@
 
 import { CONNECTION_MODES, REFUND_REASONS, REFUND_STAGES } from '@simrs/shared';
 import { z } from 'zod';
-import { REFUND_NOTE_MIN, RESOLUTION_NOTE_MIN } from '@/lib/btn';
-import { btnActionSession } from '@/lib/server/data/btn';
+import {
+  canSimulatePay,
+  REFUND_NOTE_MIN,
+  refundApproveError,
+  refundSubmitError,
+  RESOLUTION_NOTE_MIN,
+  resolutionError,
+} from '@/lib/btn';
+import { btnActionSession, getPaymentOverview } from '@/lib/server/data/btn';
+import type { SessionView } from '@/lib/session-view';
 
 /**
  * I05/U09 · Server Action layar pembayaran digital (mode presentasi, ADR-0023): validasi pelunasan simulasi,
@@ -65,6 +73,36 @@ export async function recordPaymentEventAction(input: PaymentEventInput): Promis
   if ('error' in access) return { error: access.error };
   const parsed = eventSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Isian tidak sah.' };
+  const error = await serverCheck(access.session, parsed.data);
+  if (error) return { error };
   // Mode presentasi: divalidasi lalu dibuang (simulasi, tidak disimpan).
   return { ok: true };
+}
+
+/**
+ * Aturan yang tidak boleh dipercayakan ke layar: baris/refund/tagihan dicari lewat pintu data yang sama dengan
+ * halaman, lalu diperiksa dengan fungsi murni yang sama (nominal ≤ batas, refund masih draf, tindakan milik baris).
+ */
+async function serverCheck(session: SessionView, e: PaymentEventInput): Promise<string | null> {
+  const load = async () => (await getPaymentOverview(session)).data;
+  switch (e.kind) {
+    case 'bayar-simulasi': {
+      const tx = (await load()).transactions.find((t) => t.id === e.transactionId);
+      return tx && canSimulatePay(tx) ? null : 'Tagihan ini tidak bisa dilunasi lewat simulasi.';
+    }
+    case 'pengecualian': {
+      const row = (await load()).recon.rows.find((r) => r.id === e.rowId);
+      return row ? resolutionError(row, e.actionId, e.note) : 'Baris rekonsiliasi tidak ditemukan.';
+    }
+    case 'refund-ajukan': {
+      const refund = (await load()).refunds.find((r) => r.id === e.refundId);
+      return refundSubmitError(refund, BigInt(e.amount), e.reason, e.note);
+    }
+    case 'refund-setujui': {
+      const refund = (await load()).refunds.find((r) => r.id === e.refundId);
+      return refundApproveError(refund, e.stage);
+    }
+    default:
+      return null;
+  }
 }

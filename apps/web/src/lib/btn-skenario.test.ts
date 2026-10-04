@@ -1,6 +1,11 @@
-import { financingOverviewSchema, orScheduleSchema, paymentOverviewSchema } from '@simrs/shared';
+import {
+  financingOverviewSchema,
+  isoDateJakarta,
+  orScheduleSchema,
+  paymentOverviewSchema,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { creditedAmount } from './btn';
+import { creditedAmount, dayPaidExtra, paymentKpis, reconTotals } from './btn';
 import {
   demoFinancingOverview,
   demoOrSchedule,
@@ -11,7 +16,8 @@ import {
   scenarioReconRows,
   taskDone,
 } from './btn-skenario';
-import { FASILITAS } from './demo/fixtures/btn';
+import { FASILITAS, HARIAN, REKONSILIASI } from './demo/fixtures/btn';
+import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { applyAction, defaultValue, firstOpenTask, runScenario } from './demo/engine/run';
 import type { RunResult, ScenarioEvent } from './demo/engine/types';
 import { ELEKTIF_BTN } from './demo/skenario/elektif-btn';
@@ -42,6 +48,8 @@ function play(until: (R: RunResult) => boolean, choices: Record<string, string> 
 }
 
 const at = (step: string, task: string) => (R: RunResult) => taskDone(R, step, task);
+const reached = (step: string) => (R: RunResult) =>
+  R.step >= ELEKTIF_BTN.steps.findIndex((s) => s.id === step);
 const fresh = () => runScenario(ELEKTIF_BTN, []);
 const finished = () => play(() => false);
 
@@ -104,6 +112,11 @@ describe('rekonsiliasi pasien skenario', () => {
       ['cocok', '6400000', '6400000'],
     ]);
     expect(matched[0]?.tpdi.amount).toBe('3000000');
+    // Garis waktu skenario berbeda dari hari layar: sumber diberi tanggal transaksinya.
+    expect(matched.map((r) => r.source)).toEqual([
+      'VA BTN · INV-DP-2610-0412 · 12 Okt',
+      'Pencairan cicilan BTN · PB-2610-0088 · 14 Okt',
+    ]);
   });
 
   it('jalur QRIS: pelunasan sisa juga tercatat di laporan TPDI', () => {
@@ -152,14 +165,53 @@ describe('kasus kamar operasi Ny. Ratna', () => {
     demoOrSchedule(R)
       .rooms.flatMap((r) => r.cases)
       .find((c) => c.scenario);
-  it('dasar: time out berjalan; tilik → semua fase lengkap; op → selesai; pulih → kembali ke kamar', () => {
-    const base = ratna(fresh());
-    expect(base?.checklist.map((p) => !!p.confirmedAt)).toEqual([true, false, false]);
-    expect(base?.icd9cm).toBe('51.23');
+  it('sebelum langkah operasi: terjadwal tanpa fase terkonfirmasi (bukan sedang dioperasi)', () => {
+    for (const R of [fresh(), play(at('deposit', 'webhook'))]) {
+      const c = ratna(R);
+      expect(c?.status).toBe('terjadwal');
+      expect(c?.checklist.every((p) => !p.confirmedAt && p.items.every((i) => !i.checked))).toBe(true);
+      expect([c?.incisionAt, c?.scenarioDate]).toEqual([null, null]);
+      expect(c?.counts.every((x) => x.final === null)).toBe(true);
+    }
+    expect(ratna(fresh())?.icd9cm).toBe('51.23');
+  });
+
+  it('langkah operasi: time out berjalan pada jam skenario; tilik → lengkap; op → selesai; pulih → kamar', () => {
+    const start = ratna(play(reached('operasi')));
+    expect(start?.status).toBe('berjalan');
+    expect(start?.scenarioDate).toBe('2026-10-13');
+    expect(start?.checklist.map((p) => !!p.confirmedAt)).toEqual([true, false, false]);
+    expect(isoDateJakarta(start?.checklist[0]?.confirmedAt ?? '')).toBe('2026-10-13');
     const tilik = ratna(play(at('operasi', 'tilik')));
     expect(tilik?.checklist.every((p) => p.confirmedAt && p.items.every((i) => i.checked))).toBe(true);
-    expect(tilik?.status).toBe('berjalan');
+    expect([tilik?.status, tilik?.scenarioDate]).toEqual(['berjalan', '2026-10-13']);
     expect(ratna(play(at('operasi', 'op')))?.status).toBe('selesai');
     expect(ratna(play(at('operasi', 'pulih')))?.statusNote).toContain('kembali ke kamar');
+  });
+});
+
+describe('angka "hari ini" hanya memuat hari layar', () => {
+  const base = BigInt(HARIAN.recorded);
+  const edc = BigInt(HARIAN.edcUnsettled);
+  it('deposit skenario yang lunas 12 Okt tidak menambah penerimaan dan KPI 5 Okt', () => {
+    const txs = demoPaymentOverview(play(at('deposit', 'webhook'))).transactions;
+    const deposit = txs.find((t) => t.scenario);
+    expect(isoDateJakarta(deposit?.paidAt ?? '')).toBe('2026-10-12');
+    expect(dayPaidExtra(txs, new Set(), DEMO_TODAY)).toBe(0n);
+    expect(dayPaidExtra(txs, new Set(), '2026-10-12')).toBe(3_000_000n);
+    const totals = reconTotals(base, REKONSILIASI, edc, dayPaidExtra(txs, new Set(), DEMO_TODAY));
+    expect(totals.recorded).toBe(48_620_000n);
+    expect(paymentKpis(HARIAN, txs, new Set(), totals, DEMO_TODAY)).toMatchObject({
+      success: 187,
+      pending: 12,
+    });
+    expect(paymentKpis(HARIAN, txs, new Set(), totals, '2026-10-12').success).toBe(188);
+  });
+
+  it('tagihan deposit skenario yang menunggu (12 Okt) tidak dihitung menunggu bayar 5 Okt', () => {
+    const txs = demoPaymentOverview(play(at('deposit', 'buat'))).transactions;
+    const totals = reconTotals(base, REKONSILIASI, edc);
+    expect(paymentKpis(HARIAN, txs, new Set(), totals, DEMO_TODAY).pending).toBe(12);
+    expect(paymentKpis(HARIAN, txs, new Set(), totals, '2026-10-12').pending).toBe(13);
   });
 });

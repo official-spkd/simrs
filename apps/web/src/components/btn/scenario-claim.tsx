@@ -97,20 +97,22 @@ export function ScenarioClaimCard({
         </Button>
       )}
       {r && (
-        <dl role="status" className="m-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-small">
-          <dt>BPJS membayar ke penampungan {facility.claimAccount}</dt>
-          <dd className="m-0 text-right font-mono font-semibold">{formatRupiah(BigInt(r.bpjsPaid))}</dd>
-          {claim.decision === 'ya' && (
-            <>
-              <dt>Auto-debit pokok + margin {r.days} hari</dt>
-              <dd className="m-0 text-right font-mono">
-                − {formatRupiah(BigInt(r.principal) + BigInt(r.margin))}
-              </dd>
-            </>
-          )}
-          <dt className="font-bold">Diteruskan ke operasional {facility.operationalAccount}</dt>
-          <dd className="m-0 text-right font-mono font-bold">{formatRupiah(BigInt(r.forwarded))}</dd>
-        </dl>
+        <div role="status">
+          <dl className="m-0 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 text-small">
+            <dt>BPJS membayar ke penampungan {facility.claimAccount}</dt>
+            <dd className="m-0 text-right font-mono font-semibold">{formatRupiah(BigInt(r.bpjsPaid))}</dd>
+            {claim.decision === 'ya' && (
+              <>
+                <dt>Auto-debit pokok + margin {r.days} hari</dt>
+                <dd className="m-0 text-right font-mono">
+                  − {formatRupiah(BigInt(r.principal) + BigInt(r.margin))}
+                </dd>
+              </>
+            )}
+            <dt className="font-bold">Diteruskan ke operasional {facility.operationalAccount}</dt>
+            <dd className="m-0 text-right font-mono font-bold">{formatRupiah(BigInt(r.forwarded))}</dd>
+          </dl>
+        </div>
       )}
       {scenario.error && (
         <span className="text-caption font-semibold text-danger">{scenario.error.message}</span>

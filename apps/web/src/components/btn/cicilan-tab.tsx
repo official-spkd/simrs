@@ -4,6 +4,7 @@ import type { FinancingOverview } from '@simrs/shared';
 import { Chip, cx, KpiCard } from '@simrs/ui';
 import { useState } from 'react';
 import type { FinancingState } from '@/app/(staf)/keuangan/pembiayaan/use-financing-state';
+import { scenarioTag } from '@/lib/btn';
 import { formatRingkas, INSTALMENT_LABEL, INSTALMENT_TONE } from '@/lib/btn-pembiayaan';
 import { CicilanDetail } from './cicilan-detail';
 
@@ -87,7 +88,12 @@ export function CicilanTab({ data, s }: { data: FinancingOverview; s: FinancingS
               <span className="flex w-full justify-between gap-2">
                 <span className="font-semibold">
                   {a.patient.name}
-                  {a.scenario && <span className="font-normal text-brand-700"> · skenario</span>}
+                  {a.scenario && (
+                    <span className="font-normal text-brand-700">
+                      {' '}
+                      · {scenarioTag(a.history[0]?.at ?? null)}
+                    </span>
+                  )}
                 </span>
                 <span className="font-mono">{formatRingkas(BigInt(a.amount))}</span>
               </span>

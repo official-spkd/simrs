@@ -1,9 +1,15 @@
-import { instalmentApplicationSchema, receivableBatchSchema } from '@simrs/shared';
+import {
+  drawdownSchema,
+  financingFacilitySchema,
+  instalmentApplicationSchema,
+  receivableBatchSchema,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import {
   advanceAmount,
   canReject,
   daysBetween,
+  drawdownRequestError,
   eligibleBatches,
   facilityPosition,
   formatRingkas,
@@ -54,6 +60,34 @@ describe('aritmetika pembiayaan piutang BPJS (bigint)', () => {
     const all = quoteDrawdown(free, 90, 7_530_000_000n);
     expect(all.cappedByLimit).toBe(true);
     expect(all.disburse).toBe(7_530_000_000n);
+  });
+});
+
+describe('pemeriksaan server pengajuan pencairan', () => {
+  const data = { facility: FASILITAS, pool: POOL_KLAIM, drawdowns };
+  it('batch harus layak dan belum dijaminkan; pokok ≤ advance terhitung (dibatasi sisa plafon)', () => {
+    const ok = (ids: string[], principal: bigint) => drawdownRequestError(data, ids, principal, DEMO_TODAY);
+    expect(ok(['p3', 'p4'], 3_690_000_000n)).toBeNull();
+    expect(ok(['p3', 'p4'], 1_000_000n)).toBeNull();
+    expect(ok(['p3', 'p4'], 3_690_000_001n)).toMatch(/melebihi advance 90% .*Rp 3\.690\.000\.000/);
+    expect(ok(['p3', 'p4', 'p5', 'p6'], 7_530_000_001n)).toMatch(/Rp 7\.530\.000\.000/);
+    const used = drawdowns[0]?.batchIds[0] ?? '';
+    expect(ok([used], 1n)).toMatch(/Hanya batch layak bayar/);
+    expect(ok(['p3', 'p3'], 1n)).toMatch(/lebih dari sekali/);
+    expect(ok(['tidak-ada'], 1n)).toMatch(/Hanya batch layak bayar/);
+    expect(ok(['p3'], 0n)).toBe('Nilai pencairan tidak sah.');
+    expect(ok([], 1n)).toMatch(/minimal satu batch/);
+  });
+
+  it('kontrak menolak nominal negatif (pokok, plafon, nilai batch)', () => {
+    const d = drawdowns[0];
+    const b = POOL_KLAIM[0];
+    if (!d || !b) throw new Error('fixture');
+    expect(drawdownSchema.safeParse({ ...d, principal: '-1' }).success).toBe(false);
+    expect(drawdownSchema.safeParse({ ...d, marginPaid: '-100' }).success).toBe(false);
+    expect(financingFacilitySchema.safeParse({ ...FASILITAS, limit: '-15000000000' }).success).toBe(false);
+    expect(receivableBatchSchema.safeParse({ ...b, amount: '-1' }).success).toBe(false);
+    expect(drawdownSchema.safeParse(d).success).toBe(true);
   });
 });
 

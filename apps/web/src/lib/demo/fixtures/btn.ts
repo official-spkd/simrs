@@ -962,6 +962,7 @@ function orCase(s: CaseSeed): OrCase {
     counts: counts(s.setLabel, done),
     incisionAt: started ? wib(hm(s.startMin + 8)) : null,
     scenario: false,
+    scenarioDate: null,
   };
 }
 
@@ -969,9 +970,10 @@ const BEDAH = doctorName('dr-yohanes');
 const OBSGIN = doctorName('dr-hana');
 
 /**
- * Kasus pasien skenario (Ny. Ratna Sari, laparoskopi kolesistektomi 51.23) dalam keadaan dasar: sign in sudah
- * dikonfirmasi, time out sedang berjalan (3 dari 5 butir). Proyeksi skenario (`lib/btn-skenario.ts`) menyesuaikan
- * status ini dengan kemajuan langkah `operasi`.
+ * Kasus pasien skenario (Ny. Ratna Sari, laparoskopi kolesistektomi 51.23) saat langkah `operasi` Simulasi dimulai:
+ * sign in sudah dikonfirmasi, time out sedang berjalan (3 dari 5 butir). Proyeksi skenario (`lib/btn-skenario.ts`)
+ * menyesuaikannya dengan kemajuan skenario: sebelum langkah `operasi` kasus masih terjadwal tanpa fase terkonfirmasi,
+ * dan jam konfirmasi mengikuti garis waktu Simulasi.
  */
 export const KASUS_SKENARIO_OK: OrCase = {
   ...orCase({
@@ -996,7 +998,7 @@ export const KASUS_SKENARIO_OK: OrCase = {
     ]),
     phase('time-out', [true, true, true, false, false], null, NURSE[0], [
       ...CHECKLIST_LABELS['time-out'].slice(0, 2),
-      'Antibiotik profilaksis ≤ 60 mnt: sefazolin 10.18',
+      'Antibiotik profilaksis ≤ 60 mnt: sefazolin',
       ...CHECKLIST_LABELS['time-out'].slice(3),
     ]),
     phase('sign-out', NONE, null, NURSE[0]),

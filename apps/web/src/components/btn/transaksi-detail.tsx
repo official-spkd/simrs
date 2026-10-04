@@ -4,7 +4,15 @@ import { formatRupiah, type PaymentTransaction, type TrailState } from '@simrs/s
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { CHANNEL_LABEL, creditedAmount, formatWhen, STATUS_LABEL, STATUS_TONE, TRAIL_MARK } from '@/lib/btn';
+import {
+  CHANNEL_LABEL,
+  canSimulatePay,
+  creditedAmount,
+  formatWhen,
+  STATUS_LABEL,
+  STATUS_TONE,
+  TRAIL_MARK,
+} from '@/lib/btn';
 
 const DOT: Record<TrailState, string> = {
   selesai: 'border-brand-600 bg-brand-600 text-white',
@@ -149,7 +157,7 @@ export function TransaksiDetail({
         </pre>
       </div>
       {scenarioControls}
-      {!tx.scenario && tx.status === 'menunggu' && tx.channel !== 'EDC' && !tx.paidAt && (
+      {canSimulatePay(tx) && (
         <Button variant="primary" disabled={busy} onClick={onSimulatePay}>
           Simulasikan pembayaran (webhook TPDI)
         </Button>

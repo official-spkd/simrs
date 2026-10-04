@@ -2,7 +2,7 @@
 
 import { type ConnectionMode, formatJam, type PaymentConfig } from '@simrs/shared';
 import { Button, Chip, cx, Segmented } from '@simrs/ui';
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { PaymentEventInput } from '@/app/(staf)/keuangan/pembayaran/actions';
 import { formatTanggalPendek } from '@/lib/btn';
 
@@ -40,8 +40,10 @@ export function KonfigurasiTab({
   const [cfg, setCfg] = useState(() => initial(config));
   const [saved, setSaved] = useState(() => initial(config));
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [rotatedAt, setRotatedAt] = useState<string | null>(null);
+  // Dialog modal asli: fokus masuk ke dialog saat dibuka dan kembali ke tombol pemicu saat ditutup.
+  const dialog = useRef<HTMLDialogElement>(null);
+  const id = useId();
   const dirty = !same(cfg, saved);
   const anyOn = Object.values(cfg.on).some(Boolean);
   const canSave = dirty && anyOn;
@@ -70,9 +72,9 @@ export function KonfigurasiTab({
     onSavedMode(cfg.mode);
   };
   const rotate = async () => {
-    if (!(await record({ kind: 'rotasi-secret' }, 'Secret webhook dirotasi'))) return;
-    setConfirming(false);
-    setRotatedAt(now());
+    const ok = await record({ kind: 'rotasi-secret' }, 'Secret webhook dirotasi');
+    dialog.current?.close();
+    if (ok) setRotatedAt(now());
   };
   const w = config.webhook;
   const rows: Array<[string, string]> = [
@@ -137,7 +139,9 @@ export function KonfigurasiTab({
                 <span className="text-caption text-ink-700">{k.fee}</span>
                 {k.expiry && (
                   <label className="flex items-center gap-1.5 text-small">
-                    Berlaku
+                    <span>
+                      Masa berlaku<span className="sr-only"> {k.name}</span>
+                    </span>
                     <select
                       value={k.id === 'va' ? cfg.va : cfg.qris}
                       onChange={(e) =>
@@ -205,37 +209,38 @@ export function KonfigurasiTab({
               · hanya 4 karakter terakhir yang ditampilkan
             </dd>
           </dl>
-          {!confirming ? (
-            <Button
-              className="self-start"
-              disabled={busy}
-              aria-expanded={false}
-              onClick={() => setConfirming(true)}
-            >
-              Rotasi secret
-            </Button>
-          ) : (
-            <div
-              role="alertdialog"
-              aria-labelledby="judul-rotasi"
-              className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3"
-            >
-              <span id="judul-rotasi" className="font-semibold text-warning">
+          <Button
+            className="self-start"
+            disabled={busy}
+            aria-haspopup="dialog"
+            onClick={() => dialog.current?.showModal()}
+          >
+            Rotasi secret
+          </Button>
+          <dialog
+            ref={dialog}
+            role="alertdialog"
+            aria-labelledby={`${id}-judul`}
+            aria-describedby={`${id}-isi`}
+            className="m-auto w-[min(520px,calc(100vw-32px))] rounded-card border border-warning-border p-0 text-ink-900 backdrop:bg-[rgba(20,33,43,0.45)]"
+          >
+            <div className="flex flex-col gap-3 bg-warning-bg p-5">
+              <h2 id={`${id}-judul`} className="m-0 text-h2 font-semibold text-warning">
                 Rotasi secret webhook sekarang?
-              </span>
-              <span className="text-small text-ink-700">
+              </h2>
+              <p id={`${id}-isi`} className="m-0 text-small text-ink-700">
                 Secret baru dibuat di TPDI dan SIM RS bersamaan. Secret lama tetap diterima 24 jam agar
                 webhook yang sedang retry tidak gagal verifikasi. Tindakan tercatat di jejak audit.
-              </span>
+              </p>
               <span className="flex flex-wrap gap-2">
-                <Button onClick={() => setConfirming(false)}>Batal</Button>
+                <Button onClick={() => dialog.current?.close()}>Batal</Button>
                 <Button variant="primary" disabled={busy} onClick={rotate}>
                   Ya, rotasi sekarang
                 </Button>
               </span>
             </div>
-          )}
-          {rotatedAt && !confirming && (
+          </dialog>
+          {rotatedAt && (
             <span role="status" className="text-small text-success">
               Secret dirotasi {formatJam(rotatedAt)}. Secret lama masih diterima sampai besok{' '}
               {formatJam(rotatedAt)}, lalu otomatis dicabut.

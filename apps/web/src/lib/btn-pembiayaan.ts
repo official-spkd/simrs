@@ -1,9 +1,10 @@
-import type {
-  Drawdown,
-  FinancingFacility,
-  InstalmentApplication,
-  InstalmentStage,
-  ReceivableBatch,
+import {
+  type Drawdown,
+  type FinancingFacility,
+  formatRupiah,
+  type InstalmentApplication,
+  type InstalmentStage,
+  type ReceivableBatch,
 } from '@simrs/shared';
 import type { ChipTone } from '@simrs/ui';
 
@@ -120,6 +121,36 @@ export function quoteDrawdown(
     disburse: capped ? available : advance,
     cappedByLimit: capped && selected.length > 0,
   };
+}
+
+/**
+ * Pemeriksaan server untuk pengajuan pencairan (data server, bukan isian layar): setiap batch harus layak dijaminkan
+ * dan tidak ganda, dan pokok tidak melebihi advance yang dihitung (dibatasi sisa plafon). null = sah.
+ */
+export function drawdownRequestError(
+  data: {
+    facility: FinancingFacility;
+    pool: readonly ReceivableBatch[];
+    drawdowns: readonly Drawdown[];
+  },
+  batchIds: readonly string[],
+  principal: bigint,
+  asOf: string,
+): string | null {
+  if (batchIds.length === 0) return 'Pilih minimal satu batch layak bayar.';
+  if (new Set(batchIds).size !== batchIds.length) return 'Batch klaim dipilih lebih dari sekali.';
+  const free = eligibleBatches(data.pool, data.drawdowns);
+  const selected = free.filter((b) => batchIds.includes(b.id));
+  if (selected.length !== batchIds.length) {
+    return 'Hanya batch layak bayar yang belum dijaminkan yang bisa diajukan.';
+  }
+  const available = facilityPosition(data.facility, data.drawdowns, asOf).available;
+  const quote = quoteDrawdown(selected, data.facility.advanceRatePercent, available);
+  if (principal <= 0n) return 'Nilai pencairan tidak sah.';
+  if (principal > quote.disburse) {
+    return `Nilai pencairan melebihi advance ${data.facility.advanceRatePercent}% yang tersedia (${formatRupiah(quote.disburse)}).`;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- cicilan pasien

@@ -1,17 +1,19 @@
-import type {
-  FinancingFacility,
-  FinancingOverview,
-  InstalmentApplication,
-  OrCase,
-  OrSchedule,
-  PaymentChannel,
-  PaymentOverview,
-  PaymentTrailStep,
-  PaymentTransaction,
-  ReconRow,
-  ScenarioClaim,
-  WebhookEvent,
+import {
+  type FinancingFacility,
+  type FinancingOverview,
+  type InstalmentApplication,
+  isoDateJakarta,
+  type OrCase,
+  type OrSchedule,
+  type PaymentChannel,
+  type PaymentOverview,
+  type PaymentTrailStep,
+  type PaymentTransaction,
+  type ReconRow,
+  type ScenarioClaim,
+  type WebhookEvent,
 } from '@simrs/shared';
+import { formatTanggalPendek } from './btn';
 import { advanceAmount, marginFor, repaymentSplit } from './btn-pembiayaan';
 import {
   CICILAN,
@@ -235,16 +237,24 @@ export function scenarioReconRows(R: RunResult): ReconRow[] {
     exception: null,
     scenario: true,
   });
+  // Garis waktu skenario (12–14 Okt) berbeda dari hari layar: sumber diberi tanggal transaksinya.
+  const dated = (source: string, stepId: string, taskId: string) => {
+    const at = taskAt(R, stepId, taskId);
+    return at ? `${source} · ${formatTanggalPendek(isoDateJakarta(at))}` : source;
+  };
   if (taskDone(R, 'deposit', 'webhook')) {
     const ch = depositChannel(R) === 'VA' ? 'VA BTN' : 'QRIS';
     const dupe = taskDone(R, 'deposit', 'dupe') ? '2 callback' : '';
-    rows.push(row('skenario-deposit', `${ch} · ${DEPOSIT_INVOICE}`, DEPOSIT_AMOUNT, false, dupe));
+    const source = dated(`${ch} · ${DEPOSIT_INVOICE}`, 'deposit', 'webhook');
+    rows.push(row('skenario-deposit', source, DEPOSIT_AMOUNT, false, dupe));
   }
   if (taskDone(R, 'kasir', 'cair')) {
-    rows.push(row('skenario-cicilan', `Pencairan cicilan BTN · ${CICILAN_REF}`, CICILAN_AMOUNT, true));
+    const source = dated(`Pencairan cicilan BTN · ${CICILAN_REF}`, 'kasir', 'cair');
+    rows.push(row('skenario-cicilan', source, CICILAN_AMOUNT, true));
   }
   if (taskDone(R, 'kasir', 'qrisbayar')) {
-    rows.push(row('skenario-qris', `QRIS · ${SELISIH_INVOICE}`, CICILAN_AMOUNT, false));
+    const source = dated(`QRIS · ${SELISIH_INVOICE}`, 'kasir', 'qrisbayar');
+    rows.push(row('skenario-qris', source, CICILAN_AMOUNT, false));
   }
   return rows;
 }
@@ -332,17 +342,52 @@ export function scenarioInstalment(R: RunResult): InstalmentApplication | null {
   };
 }
 
+/** Langkah `stepId` sudah dimulai (aktif atau sudah lewat)? */
+function stepReached(R: RunResult, stepId: string): boolean {
+  return R.finished || R.step >= stepIdx(R, stepId);
+}
+
+/** Kasus terjadwal tanpa fase terkonfirmasi (pasien skenario belum sampai langkah `operasi`). */
+function scheduledOrCase(base: OrCase): OrCase {
+  return {
+    ...base,
+    status: 'terjadwal',
+    statusNote: 'menunggu langkah operasi Simulasi',
+    checklist: base.checklist.map((p) => ({
+      ...p,
+      items: p.items.map((i) => ({ ...i, checked: false })),
+      confirmedAt: null,
+      confirmedBy: null,
+    })),
+    counts: base.counts.map((c) => ({ ...c, final: null })),
+    incisionAt: null,
+    scenarioDate: null,
+  };
+}
+
 /**
- * Kasus OK Ny. Ratna mengikuti langkah `operasi`: dasar = time out berjalan; `tilik` = ketiga fase lengkap;
- * `op` = operasi selesai; `pulih` = kembali ke kamar.
+ * Kasus OK Ny. Ratna mengikuti langkah `operasi`: sebelum langkah dimulai = terjadwal tanpa fase terkonfirmasi;
+ * langkah aktif = dasar (sign in dikonfirmasi saat langkah mulai, time out berjalan); `tilik` = ketiga fase lengkap;
+ * `op` = operasi selesai; `pulih` = kembali ke kamar. Jam mengikuti garis waktu Simulasi (`scenarioDate`).
  */
 export function scenarioOrCase(R: RunResult, base: OrCase): OrCase {
+  if (!stepReached(R, 'operasi')) return scheduledOrCase(base);
+  const startMin = R.stepStart[stepIdx(R, 'operasi')] ?? R.clock;
+  const started = simInstant(R.def, startMin).toISOString();
+  const scenarioDate = isoDateJakarta(started);
   const tilik = taskAt(R, 'operasi', 'tilik');
-  if (!tilik) return base;
+  if (!tilik) {
+    return {
+      ...base,
+      scenarioDate,
+      checklist: base.checklist.map((p) => (p.confirmedAt ? { ...p, confirmedAt: started } : p)),
+    };
+  }
   const op = taskAt(R, 'operasi', 'op');
   const pulih = taskDone(R, 'operasi', 'pulih');
   return {
     ...base,
+    scenarioDate,
     status: op ? 'selesai' : 'berjalan',
     statusNote: op
       ? pulih

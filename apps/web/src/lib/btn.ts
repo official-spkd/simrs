@@ -77,6 +77,14 @@ export function formatWhen(iso: string, today: string = DEMO_TODAY): string {
 
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
+/**
+ * Tanda pasien skenario beserta tanggalnya: skenario Simulasi berjalan di garis waktunya sendiri (12–14 Okt),
+ * berbeda dari hari layar, jadi tanggal ditampilkan. "skenario 12 Okt"; tanpa waktu → "skenario".
+ */
+export function scenarioTag(iso: string | null): string {
+  return iso ? `skenario ${formatTanggalPendek(isoDateJakarta(iso))}` : 'skenario';
+}
+
 /** `2026-10-02` → "2 Okt"; dengan tahun → "2 Okt 2026". */
 export function formatTanggalPendek(isoDate: string, withYear = false): string {
   const [y = '', m = '1', d = '1'] = isoDate.split('-');
@@ -104,6 +112,13 @@ export type WebhookOutcome = 'diproses' | 'diabaikan-duplikat' | 'ditolak-signat
 export function webhookOutcome(processed: readonly WebhookEvent[], incoming: WebhookEvent): WebhookOutcome {
   if (!incoming.signatureValid) return 'ditolak-signature';
   return processed.some((e) => e.id === incoming.id && !e.duplicate) ? 'diabaikan-duplikat' : 'diproses';
+}
+
+/** Tagihan yang boleh dilunasi lewat simulasi webhook: VA/QRIS menunggu, bukan pasien skenario (ikut mesin). */
+export function canSimulatePay(
+  tx: Pick<PaymentTransaction, 'scenario' | 'status' | 'channel' | 'paidAt'>,
+): boolean {
+  return !tx.scenario && tx.status === 'menunggu' && tx.channel !== 'EDC' && !tx.paidAt;
 }
 
 /** Pelunasan simulasi tagihan VA/QRIS yang masih menunggu (tombol "Simulasikan pembayaran"). */
@@ -264,6 +279,30 @@ export function settleByResolution(tx: PaymentTransaction, row: ReconRow): Payme
   };
 }
 
+/** Waktu ISO jatuh pada tanggal kalender WIB `day` (`YYYY-MM-DD`)? */
+export function onDay(iso: string | null, day: string): boolean {
+  return !!iso && isoDateJakarta(iso) === day;
+}
+
+/**
+ * Tambahan penerimaan hari `day` di atas angka harian fixture: pelunasan simulasi di layar ini dan transaksi pasien
+ * skenario yang lunas pada hari itu. Skenario berjalan di garis waktu Simulasi (12–14 Okt), jadi deposit yang lunas
+ * di hari lain tidak ikut "hari ini".
+ */
+export function dayPaidExtra(
+  txs: readonly PaymentTransaction[],
+  localPaid: ReadonlySet<string>,
+  day: string,
+): bigint {
+  let extra = 0n;
+  for (const t of txs) {
+    if ((localPaid.has(t.id) || t.scenario) && t.status === 'lunas' && onDay(t.paidAt, day)) {
+      extra += BigInt(t.amount);
+    }
+  }
+  return extra;
+}
+
 export interface PaymentKpis {
   recorded: bigint;
   success: number;
@@ -274,24 +313,25 @@ export interface PaymentKpis {
 }
 
 /**
- * KPI harian: angka seluruh hari (fixture) + perubahan di layar ini (pelunasan simulasi `localPaid`, transaksi
- * pasien skenario). Pengecualian dan selisih dari `reconTotals`.
+ * KPI harian tanggal `date`: angka seluruh hari (fixture) + perubahan di layar ini (pelunasan simulasi `localPaid`,
+ * transaksi pasien skenario yang terjadi pada tanggal itu). Pengecualian dan selisih dari `reconTotals`.
  */
 export function paymentKpis(
   day: PaymentOverview['day'],
   txs: readonly PaymentTransaction[],
   localPaid: ReadonlySet<string>,
   totals: ReconTotals,
+  date: string = DEMO_TODAY,
 ): PaymentKpis {
   let va = day.successful.va;
   let qris = day.successful.qris;
   let pending = day.pending;
   for (const t of txs) {
-    const fresh = localPaid.has(t.id) || (t.scenario && t.status === 'lunas');
+    const fresh = localPaid.has(t.id) || (t.scenario && t.status === 'lunas' && onDay(t.paidAt, date));
     if (fresh && t.channel === 'VA') va++;
     if (fresh && t.channel === 'QRIS') qris++;
     if (localPaid.has(t.id)) pending--;
-    if (t.scenario && t.status === 'menunggu') pending++;
+    if (t.scenario && t.status === 'menunggu' && onDay(t.createdAt, date)) pending++;
   }
   return {
     recorded: totals.recorded,
@@ -345,17 +385,23 @@ export interface RefundDraftErrors {
   note?: string;
 }
 
-/** Validasi pengajuan refund: nominal 1..maksimum (kelebihan deposit), alasan dipilih, keterangan ≥ 15 karakter. */
+/**
+ * Validasi pengajuan refund: nominal 1..maksimum (kelebihan deposit; tanpa batas parsial = nominal transaksi asal),
+ * alasan dipilih, keterangan ≥ 15 karakter.
+ */
 export function refundDraftErrors(
-  refund: Pick<Refund, 'maxAmount'>,
+  refund: Pick<Refund, 'maxAmount' | 'amount'>,
   amount: bigint,
   reason: string,
   note: string,
 ): RefundDraftErrors {
   const e: RefundDraftErrors = {};
+  const cap = BigInt(refund.maxAmount ?? refund.amount);
   if (amount <= 0n) e.amount = 'Isi nominal refund.';
-  else if (refund.maxAmount && amount > BigInt(refund.maxAmount)) {
-    e.amount = `Melebihi kelebihan deposit ${formatRupiah(BigInt(refund.maxAmount))}.`;
+  else if (amount > cap) {
+    e.amount = refund.maxAmount
+      ? `Melebihi kelebihan deposit ${formatRupiah(cap)}.`
+      : `Melebihi nominal transaksi asal ${formatRupiah(cap)}.`;
   }
   if (!Object.hasOwn(REFUND_REASON_LABEL, reason)) e.reason = 'Pilih alasan refund.';
   const n = note.trim().length;
@@ -366,4 +412,49 @@ export function refundDraftErrors(
 export function nextRefundStage(stage: RefundStage): RefundStage | null {
   const i = REFUND_FLOW.indexOf(stage);
   return i < 0 || i >= REFUND_FLOW.length - 1 ? null : (REFUND_FLOW[i + 1] ?? null);
+}
+
+/** Isian pengajuan refund yang sudah diterima server (mode presentasi: disimpan di layar). */
+export interface RefundSubmission {
+  amount: string;
+  reason: RefundReason;
+  note: string;
+}
+
+/**
+ * Refund efektif di layar: tahap lokal dan isian pengajuan (nominal, alasan, keterangan) menggantikan nilai fixture,
+ * sehingga semua tahap berikutnya dan daftar memakai nominal yang benar-benar diajukan.
+ */
+export function refundView(r: Refund, stage?: RefundStage, sub?: RefundSubmission): Refund {
+  return {
+    ...r,
+    stage: stage ?? r.stage,
+    amount: sub?.amount ?? r.amount,
+    reason: sub?.reason ?? r.reason,
+    reasonNote: sub?.note ?? r.reasonNote,
+  };
+}
+
+/** Pemeriksaan server untuk pengajuan refund: refund ada, masih draf, dan isian sah. null = sah. */
+export function refundSubmitError(
+  refund: Refund | undefined,
+  amount: bigint,
+  reason: string,
+  note: string,
+): string | null {
+  if (!refund) return 'Refund tidak ditemukan.';
+  if (refund.stage !== 'draf') return 'Refund ini sudah diajukan.';
+  const e = refundDraftErrors(refund, amount, reason, note);
+  return e.amount ?? e.reason ?? e.note ?? null;
+}
+
+/** Tahap yang bisa disetujui (tingkat 1, tingkat 2, konfirmasi dana BTN). */
+const APPROVABLE: readonly RefundStage[] = ['menunggu-supervisor', 'menunggu-manajer', 'diproses-btn'];
+
+/** Pemeriksaan server untuk persetujuan refund: tahap bisa disetujui dan tidak mundur dari tahap di server. */
+export function refundApproveError(refund: Refund | undefined, stage: RefundStage): string | null {
+  if (!refund) return 'Refund tidak ditemukan.';
+  if (!APPROVABLE.includes(stage)) return 'Tahap refund ini tidak menunggu persetujuan.';
+  if (REFUND_FLOW.indexOf(stage) < REFUND_FLOW.indexOf(refund.stage)) return 'Tahap refund ini sudah lewat.';
+  return null;
 }

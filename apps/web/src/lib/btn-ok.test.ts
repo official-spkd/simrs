@@ -8,8 +8,10 @@ import {
   currentPhase,
   EMPTY_LOCAL,
   ganttBox,
+  incisionEvidenceError,
   incisionGate,
   itemChecked,
+  scenarioCaseNote,
   timeOutComplete,
   withLocal,
 } from './btn-ok';
@@ -86,6 +88,32 @@ describe('gerbang time out (surgical safety checklist)', () => {
     expect(canConfirmPhase(c, 2)).toBe(false);
   });
 
+  it('sign out hanya bisa dikonfirmasi setelah insisi dicatat', () => {
+    let c = confirm(check(KASUS_SKENARIO_OK, 1, ['time-out-4', 'time-out-5']), 1);
+    c = check(c, 2, ['sign-out-1', 'sign-out-3', 'sign-out-4', 'sign-out-5']);
+    c = { ...c, counts: c.counts.map((x) => ({ ...x, final: x.initial })) };
+    expect(currentPhase(c.checklist)).toBe(2);
+    expect(canConfirmPhase(c, 2)).toBe(false);
+    expect(canConfirmPhase({ ...c, incisionAt: '2026-10-05T10:52:00+07:00' }, 2)).toBe(true);
+  });
+
+  it('server menolak insisi tanpa bukti time out yang lengkap dan dikonfirmasi', () => {
+    const server = KASUS_SKENARIO_OK;
+    const ready = confirm(check(server, 1, ['time-out-4', 'time-out-5']), 1);
+    expect(incisionEvidenceError(server, ready.checklist)).toBeNull();
+    expect(incisionEvidenceError(server, server.checklist)).toMatch(/sign in dan time out harus lengkap/);
+    // Time out "dikonfirmasi" tetapi butirnya belum lengkap: bukan bukti.
+    expect(incisionEvidenceError(server, confirm(server, 1).checklist)).toMatch(/harus lengkap/);
+    // Sign in yang sudah dikonfirmasi di server tidak boleh dibatalkan; butir harus milik kasus ini.
+    const undone = ready.checklist.map((p, i) => (i === 0 ? { ...p, confirmedAt: null } : p));
+    expect(incisionEvidenceError(server, undone)).toBe('Daftar tilik tidak cocok dengan kasus ini.');
+    const forged = ready.checklist.map((p) => ({ ...p, items: p.items.map((i) => ({ ...i, id: 'x' })) }));
+    expect(incisionEvidenceError(server, forged)).toBe('Daftar tilik tidak cocok dengan kasus ini.');
+    expect(incisionEvidenceError(server, ready.checklist.slice(0, 2))).toMatch(/tidak cocok/);
+    const incised = { ...server, incisionAt: '2026-10-05T10:52:00+07:00' };
+    expect(incisionEvidenceError(incised, ready.checklist)).toBe('Insisi kasus ini sudah tercatat.');
+  });
+
   it('hitung akhir harus lengkap dan sama dengan hitung awal; butir hitung sign out mengikuti hasilnya', () => {
     const base = KASUS_SKENARIO_OK;
     expect(checkCounts(base.counts)).toMatchObject({ filled: 0, ok: false });
@@ -121,5 +149,23 @@ describe('gerbang time out (surgical safety checklist)', () => {
     expect(started.status).toBe('berjalan');
     const done = withLocal(planned, { ...EMPTY_LOCAL, finishedAt: '2026-10-05T11:50:00+07:00' }, by);
     expect([done.status, done.statusNote]).toEqual(['selesai', 'selesai 11.50']);
+  });
+
+  it('jam insisi yang dicatat di layar tidak ditimpa jam proyeksi server (tugas tilik skenario)', () => {
+    const by = STAF_LAIN.perawat[0];
+    const server = { ...KASUS_SKENARIO_OK, incisionAt: '2026-10-13T06:53:00+07:00' };
+    const local = { ...EMPTY_LOCAL, incisionAt: '2026-10-05T10:52:00+07:00' };
+    expect(withLocal(server, local, by).incisionAt).toBe('2026-10-05T10:52:00+07:00');
+    expect(withLocal(server, EMPTY_LOCAL, by).incisionAt).toBe('2026-10-13T06:53:00+07:00');
+  });
+
+  it('pasien skenario diberi label tanggal garis waktu Simulasi', () => {
+    expect(scenarioCaseNote({ scenario: false, scenarioDate: null })).toBeNull();
+    expect(scenarioCaseNote({ scenario: true, scenarioDate: null })).toBe(
+      'Pasien skenario Simulasi · menunggu langkah operasi',
+    );
+    expect(scenarioCaseNote({ scenario: true, scenarioDate: '2026-10-13' })).toBe(
+      'Pasien skenario Simulasi · Sel, 13 Okt 2026',
+    );
   });
 });

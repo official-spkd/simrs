@@ -74,17 +74,20 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                 chk && 'bg-[#F3FAF8]',
               )}
             >
-              <span className="flex size-11 items-center justify-center">
-                {can && (
+              {can ? (
+                // Seluruh sel 44 × 44 px menjadi target sentuh kotak centang.
+                <label className="flex size-11 cursor-pointer items-center justify-center">
                   <input
                     type="checkbox"
-                    className="size-5 accent-brand-600"
+                    className="size-5 cursor-pointer accent-brand-600"
                     checked={chk}
                     onChange={() => s.toggle(b.id)}
                     aria-label={`Pilih klaim ${b.period} ${b.kind} untuk dijaminkan`}
                   />
-                )}
-              </span>
+                </label>
+              ) : (
+                <span aria-hidden="true" className="size-11" />
+              )}
               <span className="flex min-w-0 flex-col">
                 <span className="font-semibold">
                   {b.period} · {b.kind}

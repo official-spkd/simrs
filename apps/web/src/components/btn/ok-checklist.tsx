@@ -38,6 +38,12 @@ function footText(c: OrCase, cur: number): { text: string; tone: 'muted' | 'dang
           tone: 'muted',
         };
   }
+  if (!c.incisionAt) {
+    return {
+      text: 'Sign out terkunci sampai insisi dicatat (Mulai insisi, atau override darurat beralasan).',
+      tone: 'muted',
+    };
+  }
   const counts = checkCounts(c.counts);
   if (counts.mismatches.length)
     return { text: 'Hitung akhir tidak cocok. Hitung ulang sebelum sign out.', tone: 'danger' };

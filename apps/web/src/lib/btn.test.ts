@@ -1,16 +1,29 @@
-import { formatRupiah, paymentTransactionSchema, reconRowSchema, refundSchema } from '@simrs/shared';
+import {
+  formatRupiah,
+  paymentTransactionSchema,
+  reconRowSchema,
+  refundSchema,
+  webhookEventSchema,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  canSimulatePay,
   creditedAmount,
+  dayPaidExtra,
   formatJuta,
   formatWhen,
   markPaid,
   nextRefundStage,
+  onDay,
   paymentKpis,
   reconTotals,
+  refundApproveError,
   refundDraftErrors,
+  refundSubmitError,
+  refundView,
   resolutionError,
   resolveRow,
+  scenarioTag,
   settleByResolution,
   settleEdc,
   webhookOutcome,
@@ -47,6 +60,20 @@ describe('fixture pembayaran digital', () => {
     expect(new Set(TRANSAKSI.map((t) => t.status))).toEqual(
       new Set(['menunggu', 'lunas', 'kedaluwarsa', 'gagal', 'dikembalikan', 'selisih']),
     );
+  });
+
+  it('nominal tak bertanda; hanya penyesuaian rekonsiliasi yang boleh negatif', () => {
+    const t1 = tx('t1');
+    const hook = tx('t2').webhooks[0];
+    const rf = REFUND[0];
+    if (!hook || !rf) throw new Error('fixture');
+    expect(paymentTransactionSchema.safeParse({ ...t1, amount: '-250400' }).success).toBe(false);
+    expect(webhookEventSchema.safeParse({ ...hook, amount: '-5000000' }).success).toBe(false);
+    expect(refundSchema.safeParse({ ...rf, amount: '-1' }).success).toBe(false);
+    expect(refundSchema.safeParse({ ...rf, maxAmount: '-1' }).success).toBe(false);
+    expect(row('x2').exception?.adjustment).toBe('-14000');
+    expect(reconRowSchema.safeParse(row('x2')).success).toBe(true);
+    expect(reconRowSchema.safeParse({ ...row('r1'), kasir: { amount: '-1', note: '' } }).success).toBe(false);
   });
 });
 
@@ -125,6 +152,8 @@ describe('format', () => {
     expect(formatWhen('2026-10-05T09:12:00+07:00')).toBe('09.12');
     expect(formatWhen('2026-10-01T16:02:00+07:00')).toBe('1 Okt 16.02');
     expect(formatWhen('2026-10-12T00:52:00.000Z')).toBe('12 Okt 07.52');
+    expect(scenarioTag('2026-10-12T00:52:00.000Z')).toBe('skenario 12 Okt');
+    expect(scenarioTag(null)).toBe('skenario');
   });
 });
 
@@ -167,5 +196,80 @@ describe('refund berjenjang', () => {
     expect(nextRefundStage('draf')).toBe('menunggu-supervisor');
     expect(nextRefundStage('diproses-btn')).toBe('dana-kembali');
     expect(nextRefundStage('dana-kembali')).toBeNull();
+  });
+});
+
+describe('refund: nominal yang diajukan dipakai di semua tahap; server memeriksa ulang', () => {
+  const draft = REFUND.find((r) => r.stage === 'draf');
+  const rf13 = REFUND.find((r) => r.id === 'rf13');
+  const rf11 = REFUND.find((r) => r.id === 'rf11');
+  if (!draft || !rf13 || !rf11) throw new Error('fixture refund');
+  const sub = {
+    amount: '1000000',
+    reason: 'deposit-berlebih' as const,
+    note: 'Kelebihan deposit naik kelas VIP',
+  };
+
+  it('Rp 1.000.000 dari batas Rp 1.150.000 tetap Rp 1.000.000 sampai dana kembali', () => {
+    expect(refundView(draft).amount).toBe('1150000');
+    for (const stage of [
+      'menunggu-supervisor',
+      'menunggu-manajer',
+      'diproses-btn',
+      'dana-kembali',
+    ] as const) {
+      expect(refundView(draft, stage, sub)).toMatchObject({
+        stage,
+        amount: '1000000',
+        reason: 'deposit-berlebih',
+        reasonNote: 'Kelebihan deposit naik kelas VIP',
+      });
+    }
+    expect(refundView(rf13, 'diproses-btn').amount).toBe('96000');
+  });
+
+  it('tanpa batas parsial, nominal tidak boleh melebihi transaksi asal', () => {
+    expect(refundDraftErrors(rf13, 96_001n, 'layanan-dibatalkan', 'x'.repeat(15)).amount).toBe(
+      'Melebihi nominal transaksi asal Rp 96.000.',
+    );
+    expect(refundDraftErrors(rf13, 96_000n, 'layanan-dibatalkan', 'x'.repeat(15))).toEqual({});
+  });
+
+  it('pengajuan: refund harus ada, masih draf, nominal ≤ batas', () => {
+    const note = 'Kelebihan deposit naik kelas';
+    expect(refundSubmitError(undefined, 1n, 'deposit-berlebih', note)).toBe('Refund tidak ditemukan.');
+    expect(refundSubmitError(rf13, 1n, 'layanan-dibatalkan', note)).toBe('Refund ini sudah diajukan.');
+    expect(refundSubmitError(draft, 1_150_001n, 'deposit-berlebih', note)).toBe(
+      'Melebihi kelebihan deposit Rp 1.150.000.',
+    );
+    expect(refundSubmitError(draft, 1_000_000n, 'bukan-alasan', note)).toBe('Pilih alasan refund.');
+    expect(refundSubmitError(draft, 1_000_000n, 'deposit-berlebih', note)).toBeNull();
+  });
+
+  it('persetujuan: hanya tahap menunggu, dan tidak mundur dari tahap di server', () => {
+    expect(refundApproveError(draft, 'menunggu-supervisor')).toBeNull();
+    expect(refundApproveError(draft, 'draf')).toBe('Tahap refund ini tidak menunggu persetujuan.');
+    expect(refundApproveError(rf13, 'menunggu-manajer')).toBeNull();
+    expect(refundApproveError(rf13, 'menunggu-supervisor')).toBe('Tahap refund ini sudah lewat.');
+    expect(refundApproveError(rf11, 'diproses-btn')).toBe('Tahap refund ini sudah lewat.');
+    expect(refundApproveError(undefined, 'diproses-btn')).toBe('Refund tidak ditemukan.');
+  });
+});
+
+describe('pelunasan simulasi dan angka hari layar', () => {
+  it('hanya VA/QRIS menunggu non-skenario yang bisa disimulasikan lunas', () => {
+    expect(canSimulatePay(tx('t1'))).toBe(true);
+    expect(canSimulatePay({ ...tx('t1'), scenario: true })).toBe(false);
+    expect(canSimulatePay({ ...tx('t1'), channel: 'EDC' })).toBe(false);
+    expect(canSimulatePay(tx('t2'))).toBe(false);
+  });
+
+  it('pelunasan simulasi hari layar menambah penerimaan; kejadian hari lain tidak', () => {
+    const paid = markPaid(tx('t1'), '2026-10-05T10:46:00+07:00', 'e');
+    expect(onDay(paid.paidAt, '2026-10-05')).toBe(true);
+    expect(onDay(null, '2026-10-05')).toBe(false);
+    expect(dayPaidExtra([paid], new Set(['t1']), '2026-10-05')).toBe(250_400n);
+    expect(dayPaidExtra([paid], new Set(['t1']), '2026-10-12')).toBe(0n);
+    expect(dayPaidExtra([paid], new Set(), '2026-10-05')).toBe(0n);
   });
 });

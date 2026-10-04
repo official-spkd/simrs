@@ -9,7 +9,14 @@ import { OkCount } from '@/components/btn/ok-count';
 import { OkGantt } from '@/components/btn/ok-gantt';
 import { OkIncision } from '@/components/btn/ok-incision';
 import { useDemoClock, useScenarioTask } from '@/components/btn/use-scenario-task';
-import { CASE_STATUS_LABEL, EMPTY_LOCAL, type OkLocal, PHASE_LABEL, withLocal } from '@/lib/btn-ok';
+import {
+  CASE_STATUS_LABEL,
+  EMPTY_LOCAL,
+  type OkLocal,
+  PHASE_LABEL,
+  scenarioCaseNote,
+  withLocal,
+} from '@/lib/btn-ok';
 import type { ScenarioHook } from '@/lib/btn-skenario';
 import { type OkEventInput, recordOkEventAction } from './actions';
 
@@ -60,11 +67,14 @@ export function OkClient({
       }
       const at = clock();
       apply(at);
-      const moved = task && c.scenario ? scenario.fire('operasi', task) : false;
-      setMsg({
-        text: `${label} · ${formatJam(at)}${moved ? ' · simulasi skenario maju' : ''} (simulasi, tidak disimpan)`,
-        ok: true,
-      });
+      const done = `${label} · ${formatJam(at)}`;
+      setMsg({ text: `${done} (simulasi, tidak disimpan)`, ok: true });
+      // Skenario baru dinyatakan maju setelah server menerima perintahnya (bukan saat perintah dikirim).
+      if (task && c.scenario) {
+        scenario.fire('operasi', task, true, (ok) => {
+          if (ok) setMsg({ text: `${done} · simulasi skenario maju (simulasi, tidak disimpan)`, ok: true });
+        });
+      }
     });
 
   const select = (id: string) => {
@@ -139,7 +149,7 @@ export function OkClient({
                 ICD-10 {c.diagnosis.icd10} · {c.diagnosis.label}
               </Chip>
             )}
-            {c.scenario && <Chip tone="brand">Pasien skenario Simulasi</Chip>}
+            {c.scenario && <Chip tone="brand">{scenarioCaseNote(c)}</Chip>}
           </div>
           {msg && (
             <Alert level={msg.ok ? 'success' : 'critical'}>
@@ -167,7 +177,7 @@ export function OkClient({
             busy={busy}
             onFocusTimeOut={focusTimeOut}
             onIncise={() =>
-              record({ kind: 'insisi', caseId: c.id }, 'Insisi dicatat', (at) =>
+              record({ kind: 'insisi', caseId: c.id, checklist: c.checklist }, 'Insisi dicatat', (at) =>
                 patch((l) => ({ ...l, incisionAt: at })),
               )
             }

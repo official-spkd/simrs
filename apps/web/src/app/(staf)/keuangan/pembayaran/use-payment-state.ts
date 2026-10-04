@@ -1,9 +1,10 @@
 'use client';
 
-import { formatJam, type PaymentOverview, type RefundStage } from '@simrs/shared';
+import { formatJam, isoDateJakarta, type PaymentOverview, type RefundStage } from '@simrs/shared';
 import { useState, useTransition } from 'react';
 import { useDemoClock } from '@/components/btn/use-scenario-task';
 import {
+  dayPaidExtra,
   markPaid,
   paymentKpis,
   type Resolution,
@@ -40,10 +41,12 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
     for (const r of rows) tx = settleByResolution(tx, r);
     return tx;
   });
-  let extra = 0n;
-  for (const t of txs) if (paid[t.id] || (t.scenario && t.status === 'lunas')) extra += BigInt(t.amount);
+  // Angka "hari ini" hanya memuat kejadian pada hari layar (pasien skenario berjalan di 12–14 Okt).
+  const today = isoDateJakarta(data.asOf);
+  const localPaid = new Set(Object.keys(paid));
+  const extra = dayPaidExtra(txs, localPaid, today);
   const totals = reconTotals(BigInt(data.day.recorded), rows, BigInt(data.day.edcUnsettled), extra);
-  const kpis = paymentKpis(data.day, txs, new Set(Object.keys(paid)), totals);
+  const kpis = paymentKpis(data.day, txs, localPaid, totals, today);
 
   /** Kirim ke Server Action (validasi saja); umpan balik "(simulasi, tidak disimpan)". */
   const record = (input: PaymentEventInput, label: string): Promise<boolean> =>

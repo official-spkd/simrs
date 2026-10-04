@@ -2,7 +2,8 @@
 
 import type { OrCase, OrCaseStatus, OrRoom } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { CASE_STATUS_LABEL, ganttBox, minutesLabel } from '@/lib/btn-ok';
+import { formatTanggalPendek } from '@/lib/btn';
+import { CASE_STATUS_LABEL, ganttBox, minutesLabel, scenarioCaseNote } from '@/lib/btn-ok';
 
 const BLOCK: Record<OrCaseStatus, string> = {
   berjalan: 'border-brand-800 bg-brand-600 text-white',
@@ -19,7 +20,10 @@ const SWATCH: Record<OrCaseStatus, string> = {
 };
 
 function blockSub(c: OrCase): string {
-  return c.status === 'terjadwal' ? `terjadwal ${minutesLabel(c.startMin)} · ${c.statusNote}` : c.statusNote;
+  const sub =
+    c.status === 'terjadwal' ? `terjadwal ${minutesLabel(c.startMin)} · ${c.statusNote}` : c.statusNote;
+  // Pasien skenario berjalan di garis waktu Simulasi: tanggalnya ditampilkan agar jam konfirmasi tidak membingungkan.
+  return c.scenarioDate ? `skenario ${formatTanggalPendek(c.scenarioDate)} · ${sub}` : sub;
 }
 
 /** S06 · Gantt 4 kamar × jam (mockup OK): blok kasus bisa dipilih, garis merah = jam demo sekarang. */
@@ -99,6 +103,7 @@ export function OkGantt({
                       <span className="sr-only">
                         , {CASE_STATUS_LABEL[c.status]}, {c.patient.name}, {minutesLabel(c.startMin)}–
                         {minutesLabel(c.startMin + c.durationMin)}
+                        {c.scenario ? `, ${scenarioCaseNote(c)}` : ''}
                       </span>
                     </button>
                   );

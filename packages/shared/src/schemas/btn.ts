@@ -7,8 +7,10 @@ import { z } from 'zod';
  * Dana pasien tidak transit di TPDI (ADR-0005): rekening tujuan selalu rekening RS di BTN.
  */
 
-/** Rupiah bulat sebagai string (bigint tidak didukung JSON); boleh bertanda untuk penyesuaian. */
-const rupiahString = z.string().regex(/^-?\d{1,18}$/);
+/** Rupiah bulat tak bertanda sebagai string (bigint tidak didukung JSON): nominal, pokok, plafon, total. */
+const rupiahString = z.string().regex(/^\d{1,18}$/);
+/** Rupiah bertanda: hanya untuk penyesuaian (mis. selisih rekonsiliasi yang mengurangi saldo tercatat). */
+const signedRupiahString = z.string().regex(/^-?\d{1,18}$/);
 const isoDateTime = z.iso.datetime({ offset: true });
 const isoDate = z.iso.date();
 /** Nomor rekening selalu tersamar: `••••4417`. */
@@ -119,7 +121,7 @@ export const reconSourceSchema = z.strictObject({ amount: rupiahString.nullable(
 export const reconExceptionSchema = z.strictObject({
   kind: z.enum(RECON_EXCEPTION_KINDS),
   /** Perubahan saldo tercatat SIM RS bila pengecualian diselesaikan (bertanda). */
-  adjustment: rupiahString,
+  adjustment: signedRupiahString,
   explanation: z.string().min(1),
   actions: z.array(z.strictObject({ id: z.string().min(1), label: z.string().min(1) })).min(2),
   /** Penyelesaian wajib bercatatan (tercatat di jejak audit). */
@@ -444,6 +446,11 @@ export const orCaseSchema = z.strictObject({
   counts: z.array(instrumentCountSchema).min(1),
   incisionAt: isoDateTime.nullable(),
   scenario: z.boolean(),
+  /**
+   * Tanggal kasus pasien skenario pada garis waktu Simulasi (bisa berbeda dari hari jadwal); null = bukan pasien
+   * skenario atau langkah operasi skenario belum dimulai.
+   */
+  scenarioDate: isoDate.nullable(),
 });
 export type OrCase = z.infer<typeof orCaseSchema>;
 

@@ -30,8 +30,18 @@ test.describe('kamar operasi', () => {
     ).toBeVisible();
     await expect(page.getByText('ICD-9-CM 51.23 · Kolesistektomi laparoskopik')).toBeVisible();
 
+    // Akun baru: skenario belum sampai langkah operasi, jadi kasus Ny. Ratna masih terjadwal tanpa fase terkonfirmasi.
+    const tilik = page.getByRole('region', { name: 'Daftar tilik keselamatan' });
+    await expect(tilik.getByText('Pasien skenario Simulasi · menunggu langkah operasi')).toBeVisible();
     const insisi = page.getByRole('button', { name: 'Mulai insisi', exact: true });
     await expect(insisi).toBeDisabled();
+    await expect(page.getByText('Sign in belum dikonfirmasi; induksi dan insisi terkunci.')).toBeVisible();
+
+    // Sign in dulu (lima butir + konfirmasi); baru setelah itu gerbang time out berlaku.
+    const signIn = tilik.getByRole('group', { name: 'Sign in', exact: true });
+    for (const box of await signIn.getByRole('checkbox').all()) await box.check();
+    await tilik.getByRole('button', { name: 'Konfirmasi sign in' }).click();
+    await expect(tilik.getByText(/Sign in dikonfirmasi oleh .* \(simulasi, tidak disimpan\)/)).toBeVisible();
     await expect(page.getByText('Insisi terkunci: time out belum lengkap')).toBeVisible();
 
     // Override darurat menuntut alasan klinis minimal 15 karakter.
@@ -40,11 +50,8 @@ test.describe('kamar operasi', () => {
     await expect(page.getByRole('button', { name: 'Simpan alasan dan lanjut' })).toBeDisabled();
     await page.getByRole('button', { name: 'Batal' }).click();
 
-    const tilik = page.getByRole('region', { name: 'Daftar tilik keselamatan' });
-    await tilik
-      .getByRole('checkbox', { name: 'Antisipasi kejadian kritis (bedah, anestesi, perawat)' })
-      .check();
-    await tilik.getByRole('checkbox', { name: 'Pencitraan penting ditampilkan' }).check();
+    const timeOut = tilik.getByRole('group', { name: 'Time out', exact: true });
+    for (const box of await timeOut.getByRole('checkbox').all()) await box.check();
     await expect(insisi).toBeDisabled();
     await tilik.getByRole('button', { name: 'Konfirmasi time out' }).click();
     await expect(tilik.getByText(/Time out dikonfirmasi oleh .* \(simulasi, tidak disimpan\)/)).toBeVisible();

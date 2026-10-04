@@ -12,6 +12,8 @@ import {
   REFUND_STAGE_LABEL,
   REFUND_STAGE_TONE,
   refundDraftErrors,
+  type RefundSubmission,
+  refundView,
 } from '@/lib/btn';
 import { type RefundDraft, RefundForm } from './refund-form';
 
@@ -54,12 +56,16 @@ export function RefundTab({
 }) {
   const [sel, setSel] = useState(refunds[0]?.id ?? '');
   const [logs, setLogs] = useState<Record<string, Log[]>>({});
+  // Isian pengajuan yang diterima server: dipakai di semua tahap berikutnya dan di daftar (bukan nilai fixture).
+  const [submitted, setSubmitted] = useState<Record<string, RefundSubmission>>({});
   const first = refunds.find((r) => r.stage === 'draf');
   const [draft, setDraft] = useState<RefundDraft>({ amount: first?.amount ?? '', reason: '', note: '' });
   const [tried, setTried] = useState(false);
-  const f = refunds.find((r) => r.id === sel) ?? refunds[0];
-  if (!f) return null;
-  const stage = stages[f.id] ?? f.stage;
+  const view = (r: Refund) => refundView(r, stages[r.id], submitted[r.id]);
+  const picked = refunds.find((r) => r.id === sel) ?? refunds[0];
+  if (!picked) return null;
+  const f = view(picked);
+  const stage = f.stage;
   const idx = REFUND_FLOW.indexOf(stage);
   const isDraft = stage === 'draf';
   const amount = isDraft ? (draft.amount ? BigInt(draft.amount) : 0n) : BigInt(f.amount);
@@ -77,16 +83,16 @@ export function RefundTab({
     if (!next) return;
     let input: PaymentEventInput;
     let text: string;
+    let submission: RefundSubmission | null = null;
     if (isDraft) {
       setTried(true);
       if (errors.amount || errors.reason || errors.note) return;
-      input = {
-        kind: 'refund-ajukan',
-        refundId: f.id,
+      submission = {
         amount: draft.amount,
         reason: draft.reason as NonNullable<Refund['reason']>,
         note: draft.note.trim(),
       };
+      input = { kind: 'refund-ajukan', refundId: f.id, ...submission };
       text = `Diajukan · ${formatRupiah(amount)} · alasan: ${reasonLabel}`;
     } else {
       input = { kind: 'refund-setujui', refundId: f.id, stage };
@@ -98,6 +104,10 @@ export function RefundTab({
             : 'Dana diterima rekening pasien · webhook refund.completed dari TPDI';
     }
     if (!(await record(input, `${f.number}: ${text}`))) return;
+    if (submission) {
+      const sub = submission;
+      setSubmitted((cur) => ({ ...cur, [f.id]: sub }));
+    }
     setLogs((cur) => ({ ...cur, [f.id]: [...(cur[f.id] ?? []), { at: now(), text }] }));
     onStage(f.id, next);
   };
@@ -114,8 +124,9 @@ export function RefundTab({
             Persetujuan 2 tingkat: supervisor kasir lalu manajer keuangan
           </span>
         </span>
-        {refunds.map((r) => {
-          const st = stages[r.id] ?? r.stage;
+        {refunds.map((raw) => {
+          const r = view(raw);
+          const st = r.stage;
           return (
             <button
               key={r.id}
@@ -199,7 +210,7 @@ export function RefundTab({
         ) : (
           <div className="flex flex-col gap-0.5 rounded-control bg-[#F8FAFB] p-3 text-small">
             <span className="font-semibold">Alasan: {reasonLabel}</span>
-            <span className="text-ink-700">{f.reasonNote || draft.note}</span>
+            <span className="text-ink-700">{f.reasonNote}</span>
           </div>
         )}
         {act && (

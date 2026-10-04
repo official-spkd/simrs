@@ -3,7 +3,7 @@
 import { PAYMENT_STATUSES, type PaymentChannel, type PaymentTransaction } from '@simrs/shared';
 import { Chip, cx, FilterChip } from '@simrs/ui';
 import { type ReactNode, useState } from 'react';
-import { CHANNEL_LABEL, digits, formatWhen, STATUS_LABEL, STATUS_TONE } from '@/lib/btn';
+import { CHANNEL_LABEL, digits, formatWhen, STATUS_LABEL, STATUS_TONE, scenarioTag } from '@/lib/btn';
 
 const CHANNEL_FILTERS: ReadonlyArray<{ id: 'semua' | PaymentChannel; label: string }> = [
   { id: 'semua', label: 'Semua kanal' },
@@ -105,7 +105,12 @@ export function TransaksiTab({
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-semibold">
                       {t.patient.name}
-                      {t.scenario && <span className="font-normal text-brand-700"> · skenario</span>}
+                      {t.scenario && (
+                        <span className="font-normal text-brand-700">
+                          {' '}
+                          · {scenarioTag(t.paidAt ?? t.createdAt)}
+                        </span>
+                      )}
                     </span>
                     <span className="truncate font-mono text-caption text-ink-500">
                       {t.invoiceNo}
