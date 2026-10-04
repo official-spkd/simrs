@@ -70,6 +70,7 @@ export function InpatientWorkspace({
           <CpptPanel
             encounterId={enc}
             entries={entries}
+            user={user}
             canCosign={canCosign}
             sbar={sbar}
             onAdd={(e) => setAdded((cur) => [...cur, e])}

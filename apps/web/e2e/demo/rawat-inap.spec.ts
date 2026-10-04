@@ -164,6 +164,54 @@ test.describe('rawat inap', () => {
     await expectNoHorizontalScroll(page);
   });
 
+  test('CPPT: koreksi = versi baru beralasan, hanya oleh penulisnya; versi lama tetap tampil', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/klinis/rawat-inap/kj-endang');
+    const cppt = page.getByRole('region', { name: 'CPPT terintegrasi' });
+    const notes = cppt.getByRole('list', { name: 'Catatan CPPT' }).getByRole('listitem');
+
+    // Catatan PPA lain tidak bisa dikoreksi pengguna ini: hanya addendum (catatan asli tidak berubah).
+    const other = notes.filter({ hasText: 'Edukasi pencegahan jatuh diulang ke keluarga' });
+    await expect(other.getByRole('button', { name: /^Koreksi/ })).toHaveCount(0);
+    await other.getByRole('button', { name: /^Addendum atas CPPT/ }).click();
+    const add = cppt.getByRole('form', { name: 'Addendum CPPT' });
+    await add.getByLabel(/S · Subjektif/).fill('Keluarga memahami edukasi');
+    await add.getByLabel(/A · Asesmen/).fill('Risiko jatuh terkendali');
+    await add.getByRole('button', { name: 'Simpan addendum' }).click();
+    await expect(cppt.getByRole('status')).toContainText('Addendum tersimpan');
+    await expect(notes.filter({ hasText: 'Keluarga memahami edukasi' })).toContainText(
+      'Addendum atas catatan',
+    );
+    await expect(other).toContainText('Edukasi pencegahan jatuh diulang ke keluarga');
+
+    // Catatan sendiri: koreksi wajib alasan, disimpan sebagai versi 2.
+    await cppt.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
+    const form = cppt.getByRole('form', { name: 'Tulis CPPT baru' });
+    await form.getByLabel(/S · Subjektif/).fill('Pusing ringan setelah bangun');
+    await form.getByLabel(/O · Objektif/).fill('TD 150/90 · nadi 84');
+    await form.getByLabel(/A · Asesmen/).fill('Risiko jatuh');
+    await form.getByRole('button', { name: 'Simpan dan tanda tangani' }).click();
+    await expect(cppt.getByRole('status')).toContainText('CPPT baru tersimpan');
+    const mine = notes.filter({ hasText: 'TD 150/90 · nadi 84' });
+    await mine.getByRole('button', { name: /^Koreksi CPPT/ }).click();
+    const fix = cppt.getByRole('form', { name: 'Koreksi CPPT' });
+    await fix.getByLabel(/O · Objektif/).fill('TD 130/90 · nadi 84');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(fix.getByText(/^Alasan koreksi wajib/)).toBeVisible();
+    await fix.getByLabel(/Alasan koreksi/).fill('Salah ketik tekanan darah sistolik');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(cppt.getByRole('status')).toContainText(/Koreksi tersimpan .* sebagai versi 2/);
+
+    await expect(notes.filter({ hasText: 'TD 130/90 · nadi 84' })).toContainText(
+      'Versi 2 · koreksi: Salah ketik tekanan darah sistolik',
+    );
+    const old = notes.filter({ hasText: 'TD 150/90 · nadi 84' });
+    await expect(old).toContainText('Versi lama · digantikan koreksi (tetap tersimpan)');
+    await expect(old.getByRole('button', { name: /^Koreksi/ })).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+
   test('pasien skenario: pindai gelang membuka grid, lalu lima dosis 08.00 dicatat satu per satu', async ({
     page,
   }) => {

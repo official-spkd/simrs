@@ -3,6 +3,7 @@ import {
   type BedStatus,
   type ConsentDocument,
   type CpptEntry,
+  type CpptNoteInput,
   type CpptRole,
   type DischargeSummary,
   type EmarAdministrationInput,
@@ -416,6 +417,29 @@ export function newCpptEntry(a: {
 /** Koreksi hanya oleh penulis entri; PPA lain menambah addendum (entri lama tidak pernah diubah). */
 export function canCorrectCppt(e: Pick<CpptEntry, 'author'>, user: string): boolean {
   return e.author === user;
+}
+
+/** Mode formulir CPPT: catatan baru, koreksi versi baru (penulis, beralasan), atau addendum PPA lain. */
+export type CpptMode =
+  | { kind: 'baru' }
+  | { kind: 'koreksi'; targetId: string; reason: string }
+  | { kind: 'addendum'; targetId: string };
+
+/**
+ * Payload `saveCpptAction` dari formulir. Dibangun di satu tempat bertipe kontrak bersama agar layar dan skema server
+ * tidak menyimpang (tes unit mem-parse hasilnya dengan `cpptNoteInputSchema`).
+ */
+export function cpptNotePayload(encounterId: string, soap: SoapText, mode: CpptMode): CpptNoteInput {
+  return {
+    encounterId,
+    s: soap.s,
+    o: soap.o,
+    a: soap.a,
+    p: soap.p,
+    supersedesId: mode.kind === 'koreksi' ? mode.targetId : null,
+    correctionReason: mode.kind === 'koreksi' ? mode.reason : null,
+    addendumOf: mode.kind === 'addendum' ? mode.targetId : null,
+  };
 }
 
 /** Kunci penulis (FNV-1a 32 bit, base36) yang ikut di id CPPT lokal: server mengenali penulisnya tanpa basis data. */

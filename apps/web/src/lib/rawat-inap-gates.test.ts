@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  cpptNoteInputSchema,
   type EmarMedication,
   emarAdministrationInputSchema,
   emarWristbandScanInputSchema,
@@ -13,6 +14,10 @@ import { demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
 import {
   allDueGiven,
+  canCorrectCppt,
+  cpptAddendumBlocker,
+  cpptCorrectionBlocker,
+  cpptNotePayload,
   dueProgress,
   dueSlots,
   emarDosePayload,
@@ -23,6 +28,7 @@ import {
   emarRecordBlocker,
   emarScanPayload,
   emarTurnBlocker,
+  localCpptId,
   SCENARIO_EMAR_WAIT,
   wristbandBlocker,
 } from './rawat-inap';
@@ -254,10 +260,66 @@ describe('kontrak payload layar ↔ skema bersama (tidak boleh menyimpang lagi)'
     );
   });
 
-  it('layar memanggil Server Action eMAR hanya lewat pembangun payload bertipe kontrak', () => {
+  it('payload CPPT baru, koreksi, dan addendum lolos skema ketat server', () => {
+    const soap = { s: 'Nyeri berkurang', o: '', a: 'Nyeri akut', p: '' };
+    expect(cpptNoteInputSchema.parse(cpptNotePayload('kj-endang', soap, { kind: 'baru' }))).toMatchObject({
+      supersedesId: null,
+      addendumOf: null,
+    });
+    expect(
+      cpptNoteInputSchema.parse(
+        cpptNotePayload('kj-endang', soap, {
+          kind: 'koreksi',
+          targetId: 'cppt-endang-4',
+          reason: 'Salah ketik skala nyeri',
+        }),
+      ),
+    ).toMatchObject({ supersedesId: 'cppt-endang-4', addendumOf: null });
+    expect(
+      cpptNoteInputSchema.parse(
+        cpptNotePayload('kj-endang', soap, { kind: 'addendum', targetId: 'cppt-endang-2' }),
+      ),
+    ).toMatchObject({ supersedesId: null, addendumOf: 'cppt-endang-2', correctionReason: null });
+    expect(
+      cpptNoteInputSchema.safeParse(
+        cpptNotePayload('kj-endang', soap, { kind: 'koreksi', targetId: 'cppt-endang-4', reason: 'typo' }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('layar memanggil Server Action eMAR dan CPPT hanya lewat pembangun payload bertipe kontrak', () => {
     const dir = resolve(__dirname, '../app/(staf)/klinis/rawat-inap/[encounterId]');
     const emar = readFileSync(resolve(dir, 'emar-panel.tsx'), 'utf8');
+    const cppt = readFileSync(resolve(dir, 'cppt-panel.tsx'), 'utf8');
     expect(emar).toMatch(/recordAdministrationAction\(\s*emarDosePayload\(/);
     expect(emar).toMatch(/scanWristbandAction\(emarScanPayload\(/);
+    expect(cppt).toMatch(/saveCpptAction\(\s*cpptNotePayload\(/);
+  });
+});
+
+describe('K07 · CPPT: koreksi hanya penulis, PPA lain addendum', () => {
+  const entries = endang.cppt;
+  const nurse = entries.find((e) => e.id === 'cppt-endang-4');
+  if (!nurse) throw new Error('fixture cppt-endang-4 hilang');
+  const author = { id: 'u-penulis', name: nurse.author };
+  const other = { id: 'u-lain', name: 'Pengguna E2E Fiktif' };
+
+  it('koreksi oleh penulis lolos; PPA lain ditolak dan diarahkan ke addendum', () => {
+    expect(canCorrectCppt(nurse, nurse.author)).toBe(true);
+    expect(cpptCorrectionBlocker(entries, nurse.id, author)).toBeNull();
+    expect(cpptCorrectionBlocker(entries, nurse.id, other)).toMatch(/hanya oleh penulis/);
+    expect(cpptAddendumBlocker(entries, nurse.id)).toBeNull();
+  });
+
+  it('versi lama tidak bisa dikoreksi/addendum lagi; entri lokal hanya oleh pembuatnya', () => {
+    // cppt-endang-5 sudah digantikan koreksi cppt-endang-6 (versi 2).
+    expect(cpptCorrectionBlocker(entries, 'cppt-endang-5', { id: 'x', name: 'siapa pun' })).toMatch(
+      /sudah dikoreksi/,
+    );
+    expect(cpptAddendumBlocker(entries, 'cppt-endang-5')).toMatch(/versi terbaru/);
+    expect(cpptAddendumBlocker(entries, 'tidak-ada')).toMatch(/tidak ditemukan/);
+    const own = localCpptId(other.id, 1_700_000_000_000);
+    expect(cpptCorrectionBlocker(entries, own, other)).toBeNull();
+    expect(cpptCorrectionBlocker(entries, own, author)).toMatch(/tidak ditemukan/);
   });
 });
