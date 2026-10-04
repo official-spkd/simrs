@@ -87,8 +87,9 @@ export class IamService {
 
   /**
    * Tolak perubahan yang membuat admin aktif habis. Hanya berlaku bila perubahan itu benar-benar mengurangi
-   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Dikunci per tenant
-   * agar dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos.
+   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Admin aktif = bisa masuk
+   * (punya kata sandi); admin yang belum diaktifkan tidak menyelamatkan RS. Dikunci per tenant agar dua admin yang
+   * saling menonaktifkan bersamaan tidak sama-sama lolos.
    */
   private async assertKeepsAnAdmin(exclude: { assignmentId?: string; userId?: string }) {
     await this.repo.lockAdminChanges();
@@ -106,12 +107,15 @@ export class IamService {
       lockedUntil: Date | null;
       createdAt: Date;
       mfaFactors: unknown[];
+      credential: unknown;
     },
     at: number,
   ) {
     const dormantBefore = at - DORMANT_DAYS * 86_400_000;
     const active = u.status === 'active';
     return {
+      /** Sudah punya kata sandi. Belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */
+      activated: u.credential !== null,
       mfaEnrolled: u.mfaFactors.length > 0,
       locked: active && !!u.lockedUntil && u.lockedUntil.getTime() > at,
       /** Belum pernah login sejak dibuat (akun baru / undangan). */
@@ -134,9 +138,9 @@ export class IamService {
     const at = Date.now();
     return {
       ...page,
-      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, ...u }) => ({
+      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, credential, ...u }) => ({
         ...u,
-        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
+        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt, credential }, at),
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
         assignments: u.assignments.map((a) => ({
           id: a.id,
@@ -155,7 +159,7 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, devices, ...rest } = u;
+    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, credential: _c, devices, ...rest } = u;
     return {
       ...rest,
       phone: this.maskedPhone(phoneEnc),

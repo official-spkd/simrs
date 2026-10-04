@@ -152,17 +152,37 @@ export function glucoseFlag(mgdl: number): PoliVital['flag'] {
   return 'normal';
 }
 
-export const VITAL_FLAG_LABEL: Record<PoliVital['flag'], string> = {
-  normal: 'Normal',
+/** Penanda nilai di luar batas di layar (tanda vital, hasil lab): selalu teks + ikon, tidak hanya warna. */
+export type ValueFlag = 'tinggi' | 'rendah' | 'abnormal' | 'kritis';
+
+export const VALUE_FLAG_LABEL: Record<ValueFlag, string> = {
   tinggi: 'Tinggi',
   rendah: 'Rendah',
-  belum: 'Belum diukur',
+  abnormal: 'Abnormal',
+  kritis: 'Kritis',
 };
 
-export const LAB_FLAG_LABEL: Record<EncounterLab['flag'], string> = {
-  '': 'Normal',
-  H: 'Tinggi',
-  L: 'Rendah',
-  A: 'Abnormal',
-  K: 'Kritis',
+/** Tanda vital poli → penanda; normal dan belum diukur tanpa penanda (null). */
+export function vitalValueFlag(flag: PoliVital['flag']): ValueFlag | null {
+  return flag === 'tinggi' || flag === 'rendah' ? flag : null;
+}
+
+const LAB_VALUE_FLAG: Record<EncounterLab['flag'], ValueFlag | null> = {
+  '': null,
+  H: 'tinggi',
+  L: 'rendah',
+  A: 'abnormal',
+  K: 'kritis',
 };
+
+/** Bendera hasil lab (H tinggi, L rendah, A abnormal, K kritis) → penanda; dalam rentang = null. */
+export function labValueFlag(flag: EncounterLab['flag']): ValueFlag | null {
+  return LAB_VALUE_FLAG[flag];
+}
+
+/** eGFR di bawah batas ini (mL/menit/1,73 m², PGK stadium 3b ke atas) ditandai "rendah" di kepala CPOE. */
+export const EGFR_LOW_THRESHOLD = 45;
+
+export function egfrLow(egfr: number | null): boolean {
+  return egfr !== null && egfr < EGFR_LOW_THRESHOLD;
+}

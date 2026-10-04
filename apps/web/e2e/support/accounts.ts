@@ -62,6 +62,8 @@ export async function createAccount(
     mfa?: boolean;
     mustChangePassword?: boolean;
     displayName?: string;
+    /** false = akun tanpa kata sandi (belum diaktifkan, seperti staf seed); `password` tidak berlaku. */
+    credential?: boolean;
     /** Penugasan terikat unit baru bernama ini (mis. untuk PIN masuk cepat); tanpa ini "Semua unit". */
     unitName?: string;
   } = {},
@@ -88,7 +90,9 @@ export async function createAccount(
         mustChangePassword: opts.mustChangePassword ?? false,
       },
     });
-    await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    if (opts.credential !== false) {
+      await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    }
     let unitId: string | null = null;
     if (opts.unitName) {
       const facilityId = newId();

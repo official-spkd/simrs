@@ -76,6 +76,34 @@ test.describe('layar Akses (/sistem/akses)', () => {
     await expect(page.getByRole('button', { name: 'Aktifkan kembali' })).toBeVisible();
   });
 
+  test('admin: akun tanpa sandi tampil "Belum diaktifkan" (filter + petunjuk); reset sandi mengaktifkannya', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    const staff = await createAccount({
+      roles: ['perawat'],
+      displayName: 'Ns. Dewi Seed, S.Kep',
+      mfa: false,
+      mustChangePassword: true,
+      credential: false,
+    });
+    await loginAs(page, admin, '/sistem/akses');
+    await page.getByLabel('Cari pengguna').fill(staff.username);
+    await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Belum diaktifkan' });
+    await page.getByRole('button', { name: 'Terapkan' }).click();
+    const row = page.getByRole('row', { name: new RegExp(staff.username) });
+    await expect(row.getByText('Belum diaktifkan')).toBeVisible();
+    await row.getByRole('link', { name: new RegExp(staff.username) }).click();
+    await expect(page.getByText(/belum punya kata sandi, jadi belum bisa masuk/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Reset kata sandi' }).click();
+    await expect(page.getByText(/Aktifkan akun Ns\. Dewi Seed, S\.Kep dengan sandi sementara/)).toBeVisible();
+    await page.getByRole('button', { name: 'Ya, lanjutkan' }).click();
+    await expect(page.getByTestId('sandi-sementara')).toHaveText(/^.{16}$/);
+    await page.reload();
+    await expect(page.getByText(/belum punya kata sandi, jadi belum bisa masuk/)).toHaveCount(0);
+  });
+
   test('admin: akun sendiri tanpa tombol aksi; izin kelola akses admin terkunci di matriks', async ({
     page,
   }) => {

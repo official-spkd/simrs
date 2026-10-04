@@ -12,26 +12,34 @@ const FIELDS: Array<{ k: keyof SoapText; label: string; ph: string; required: bo
   { k: 'p', label: 'P · Rencana', ph: 'Intervensi dan tindak lanjut', required: false },
 ];
 
+const FORM_LABEL = { baru: 'Tulis CPPT baru', koreksi: 'Koreksi CPPT', addendum: 'Addendum CPPT' } as const;
+const SUBMIT_LABEL = {
+  baru: 'Simpan dan tanda tangani',
+  koreksi: 'Simpan koreksi (versi baru)',
+  addendum: 'Simpan addendum',
+} as const;
+
 /**
- * Formulir CPPT (SOAP). Mode koreksi: isi lama sebagai awal + alasan koreksi wajib; disimpan sebagai versi baru,
- * entri lama tidak berubah (CLAUDE.md §4.2).
+ * Formulir CPPT (SOAP). Koreksi (hanya penulis): isi lama sebagai awal + alasan koreksi wajib; disimpan sebagai
+ * versi baru, entri lama tidak berubah (CLAUDE.md §4.2). Addendum (PPA lain): catatan baru yang menunjuk entri itu.
  */
 export function CpptForm({
   title,
   initial,
-  correction,
+  mode,
   busy,
   onSubmit,
   onCancel,
 }: {
   title: string;
   initial?: SoapText;
-  correction: boolean;
+  mode: 'baru' | 'koreksi' | 'addendum';
   busy: boolean;
   onSubmit: (soap: SoapText, reason: string | null) => void;
   onCancel: () => void;
 }) {
   const id = useId();
+  const correction = mode === 'koreksi';
   const [f, setF] = useState<SoapText>(initial ?? { s: '', o: '', a: '', p: '' });
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
@@ -43,7 +51,7 @@ export function CpptForm({
       : '';
   return (
     <form
-      aria-label={correction ? 'Koreksi CPPT' : 'Tulis CPPT baru'}
+      aria-label={FORM_LABEL[mode]}
       className="flex flex-col gap-2.5 border-b border-line bg-[#F8FBFA] px-4 py-3.5"
       onSubmit={(e) => {
         e.preventDefault();
@@ -93,13 +101,17 @@ export function CpptForm({
             value={reason}
             maxLength={500}
             aria-invalid={!!reasonErr}
+            aria-describedby={`${id}-alasan-info`}
             onChange={(e) => setReason(e.target.value)}
             className={cx(
               'rounded-control border bg-white px-3 py-2 font-[inherit]',
               reasonErr ? 'border-danger' : 'border-line-strong',
             )}
           />
-          <span className={cx('text-caption', reasonErr ? 'text-danger' : 'text-ink-500')}>
+          <span
+            id={`${id}-alasan-info`}
+            className={cx('text-caption', reasonErr ? 'text-danger' : 'text-ink-500')}
+          >
             {reasonErr ||
               'Entri lama tidak diubah; koreksi disimpan sebagai versi baru dan tercatat di jejak audit.'}
           </span>
@@ -107,7 +119,7 @@ export function CpptForm({
       )}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="primary" disabled={busy}>
-          {correction ? 'Simpan koreksi (versi baru)' : 'Simpan dan tanda tangani'}
+          {SUBMIT_LABEL[mode]}
         </Button>
         <Button onClick={onCancel}>Batal</Button>
       </div>

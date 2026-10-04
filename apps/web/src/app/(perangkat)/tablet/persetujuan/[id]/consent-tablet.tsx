@@ -2,29 +2,41 @@
 
 import { type ConsentDocument, formatJam, SAFETY_REASON_MIN } from '@simrs/shared';
 import { cx } from '@simrs/ui';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { type SignatureValue, SignaturePad } from '@/components/rawat-inap/signature-pad';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
+import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { finalizeConsentAction, refuseConsentAction } from './actions';
 import { ConsentInfo, ConsentParties, RefusalForm } from './consent-body';
 
 const STEPS = ['Informasi', 'Tanda tangan pasien', 'Saksi', 'TTE dokter'];
 
-/** K11 · Tablet persetujuan tindakan (mockup Consent, kanvas 834×1194). */
+const FAILED = 'Server tidak dapat dihubungi; coba lagi.';
+
+/**
+ * K11 · Tablet persetujuan tindakan (mockup Consent, kanvas 834×1194). Terkunci menurut status dokumen dari server
+ * (final/ditolak = hanya baca) dan, untuk dokumen milik skenario, menunggu giliran tugasnya (`wait`). Galat server
+ * dan galat skenario tampil sebagai `role="alert"`.
+ */
 export function ConsentTablet({
   doc,
   patient,
   canSign,
   scenario,
+  wait,
 }: {
   doc: ConsentDocument;
   patient: string;
   canSign: boolean;
   scenario: ScenarioStepState | null;
+  /** Alasan menunggu giliran Simulasi (dokumen milik skenario), null = boleh diproses. */
+  wait: string | null;
 }) {
-  const { runTask, pending } = useScenarioTask(scenario?.rev ?? 0);
+  const { runTask, pending, error: runError } = useScenarioTask(scenario?.rev ?? 0);
   const wasFinal = doc.status === 'final';
+  const wasRefused = doc.status === 'ditolak';
   const [fs, setFs] = useState(17);
   const [step, setStep] = useState(wasFinal ? 3 : 0);
   const [ack, setAck] = useState<Record<string, boolean>>(() =>
@@ -39,14 +51,17 @@ export function ConsentTablet({
   const [refused, setRefused] = useState<{ at: string; reason: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
-  const locked = !!finalAt || !!refused;
+  const locked = !!finalAt || !!refused || wasRefused || !!wait;
+  const closed = !!finalAt || !!refused || wasRefused;
+  const status: ConsentDocument['status'] = finalAt ? 'final' : refused || wasRefused ? 'ditolak' : 'draf';
   const allAck = doc.items.every((i) => ack[i.id]);
 
   let canNext = false;
   let nextLabel = 'Lanjut';
   let hint = '';
-  if (refused) hint = 'Alur dihentikan karena pasien menolak.';
+  if (refused || wasRefused) hint = 'Alur dihentikan karena pasien menolak.';
   else if (finalAt) nextLabel = 'Dokumen final';
+  else if (wait) hint = wait;
   else if (step === 0) {
     canNext = allAck;
     nextLabel = 'Lanjut ke tanda tangan';
@@ -67,20 +82,27 @@ export function ConsentTablet({
   }
 
   const next = () => {
-    if (!canNext || busy || pending) return;
+    if (!canNext || locked || busy || pending) return;
     if (step < 3) return setStep(step + 1);
     start(async () => {
-      const r = await finalizeConsentAction({
-        consentId: doc.id,
-        acknowledged: doc.items.map((i) => i.id),
-        patient: { method: pSig?.method ?? 'goresan', name: pSig?.name ?? doc.signerName },
-        witness: { method: wSig?.method ?? 'goresan', name: wSig?.name ?? doc.witness.name },
-        staffWitnessPresent: staff,
-      });
-      if (!r.ok) return setError(r.error ?? 'Dokumen belum final.');
-      setError(null);
-      setFinalAt(r.ok.at);
-      if (scenario && taskEnabled(scenario, 'consent')) runTask(scenario, 'consent', true);
+      try {
+        const r = await finalizeConsentAction({
+          consentId: doc.id,
+          acknowledged: doc.items.map((i) => i.id),
+          patient: { method: pSig?.method ?? 'goresan', name: pSig?.name ?? doc.signerName },
+          witness: { method: wSig?.method ?? 'goresan', name: wSig?.name ?? doc.witness.name },
+          staffWitnessPresent: staff,
+        });
+        if (!r.ok) return setError(r.error ?? 'Dokumen belum final.');
+        const at = r.ok.at;
+        setError(null);
+        // Dokumen milik skenario baru final setelah tugasnya tercatat; galatnya tampil dari `runError`.
+        if (scenario && taskEnabled(scenario, 'consent')) {
+          runTask(scenario, 'consent', true, (ok) => ok && setFinalAt(at));
+        } else setFinalAt(at);
+      } catch {
+        setError(FAILED);
+      }
     });
   };
 
@@ -90,11 +112,15 @@ export function ConsentTablet({
       return;
     }
     start(async () => {
-      const r = await refuseConsentAction({ consentId: doc.id, reason: reason.trim() });
-      if (!r.ok) return setError(r.error ?? 'Penolakan belum tercatat.');
-      setError(null);
-      setRefusing(false);
-      setRefused({ at: r.ok.at, reason: reason.trim() });
+      try {
+        const r = await refuseConsentAction({ consentId: doc.id, reason: reason.trim() });
+        if (!r.ok) return setError(r.error ?? 'Penolakan belum tercatat.');
+        setError(null);
+        setRefusing(false);
+        setRefused({ at: r.ok.at, reason: reason.trim() });
+      } catch {
+        setError(FAILED);
+      }
     });
   };
 
@@ -107,6 +133,18 @@ export function ConsentTablet({
         <div className="flex flex-col">
           <span className="text-[13px] text-ink-500">Persetujuan tindakan kedokteran · K11</span>
           <h1 className="m-0 text-[20px] font-semibold">{doc.procedure}</h1>
+          <span
+            className={cx(
+              'mt-1 self-start rounded-full px-3 py-0.5 text-[13px] font-semibold',
+              status === 'final'
+                ? 'bg-success-bg text-success'
+                : status === 'ditolak'
+                  ? 'bg-danger-bg text-danger'
+                  : 'bg-warning-bg text-warning',
+            )}
+          >
+            Status: {CONSENT_STATUS_LABEL[status]}
+          </span>
         </div>
         <div role="group" aria-label="Ukuran teks" className="flex gap-1.5">
           <button
@@ -132,7 +170,7 @@ export function ConsentTablet({
       <nav aria-label="Langkah" className="grid grid-cols-4 gap-2 bg-white px-7 pt-3 pb-4">
         {STEPS.map((label, i) => {
           const isDone = !!finalAt || i < step;
-          const cur = !finalAt && !refused && i === step;
+          const cur = !locked && i === step;
           return (
             <span
               key={label}
@@ -157,6 +195,28 @@ export function ConsentTablet({
         })}
       </nav>
       <main className="flex flex-1 flex-col gap-4 overflow-y-auto px-7 py-5" style={{ fontSize: fs }}>
+        {wait && !closed && (
+          <div
+            role="status"
+            className="flex flex-col gap-1 rounded-card border border-warning-border bg-warning-bg px-4 py-3"
+          >
+            <span className="font-semibold text-warning-strong">{wait}</span>
+            <span className="text-ink-700">
+              Dokumen hanya bisa dibaca sampai gilirannya; tanda tangan, TTE, dan penolakan dinonaktifkan.{' '}
+              <Link href="/simulasi" className="font-semibold">
+                Buka Simulasi
+              </Link>
+            </span>
+          </div>
+        )}
+        {wasRefused && (
+          <div
+            role="status"
+            className="rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3 font-semibold text-danger-strong"
+          >
+            Pasien menolak tindakan · penolakan tercatat di rekam medis; dokumen terkunci.
+          </div>
+        )}
         <ConsentParties doc={doc} patient={patient} />
         <ConsentInfo
           doc={doc}
@@ -183,7 +243,7 @@ export function ConsentTablet({
             onChange={setWSig}
           />
         </section>
-        {step >= 2 && !refused && (
+        {step >= 2 && !refused && !wasRefused && (
           <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-card border border-line bg-white px-4">
             <input
               type="checkbox"
@@ -195,7 +255,7 @@ export function ConsentTablet({
             Saksi kedua (petugas): {doc.staffWitness} hadir dan menyaksikan penandatanganan
           </label>
         )}
-        {!finalAt && !refused && step < 3 && (
+        {!closed && !wait && step < 3 && (
           <p className="m-0 flex gap-2.5 rounded-card border border-warning-border bg-warning-bg px-4 py-3 text-ink-700">
             <span aria-hidden="true" className="font-bold text-warning">
               !
@@ -204,7 +264,7 @@ export function ConsentTablet({
             atau menarik persetujuan kapan saja.
           </p>
         )}
-        {!finalAt && !refused && step === 3 && (
+        {!closed && !wait && step === 3 && (
           <p className="m-0 flex flex-col rounded-card border border-brand-200 bg-selected px-4 py-3">
             <span className="font-semibold">TTE dokter pelaksana</span>
             <span className="text-ink-700">
@@ -256,6 +316,11 @@ export function ConsentTablet({
         {error && !refusing && (
           <span role="alert" className="font-semibold text-danger">
             {error}
+          </span>
+        )}
+        {runError && (
+          <span role="alert" className="font-semibold text-danger">
+            {runError.message}
           </span>
         )}
       </main>
