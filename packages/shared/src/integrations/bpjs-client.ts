@@ -1,23 +1,35 @@
+import { z } from 'zod';
 import { resolveAppEnv } from '../env';
-import { type BpjsCredentials, bpjsDecryptResponse, bpjsSignature, bpjsTimestamp } from './bpjs-crypto';
-import { type BpjsFailureCode, type BpjsRejectionCode, classifyBpjsMetaData } from './bpjs-errors';
+import { type BpjsCredentials, bpjsSignature, bpjsTimestamp } from './bpjs-crypto';
+import {
+  BPJS_SERVICE_PREFIX,
+  type BpjsFailureCode,
+  type BpjsRejectionCode,
+  type BpjsService,
+  classifyBpjsFailure,
+} from './bpjs/common';
+import {
+  type BpjsDecoded,
+  decodeAntreanResponse,
+  decodeAplicareResponse,
+  decodeVclaimResponse,
+} from './bpjs/decode';
 
 /**
- * Klien HTTP BPJS (VClaim, Antrean RS, Aplicare) khusus Node: header bertanda tangan, dekripsi respons, dan
- * klasifikasi jawaban. Dipakai worker (outbox, ADR-0003/0017) dan API (lookup sinkron baca-saja, ADR-0025).
+ * Klien HTTP BPJS (VClaim, Antrean RS + HFIS, Aplicare) khusus Node: header bertanda tangan, lalu dekode respons
+ * lewat dekoder kontrak bersama (`decodeVclaimResponse`/`decodeAntreanResponse`: amplop, dekripsi AES + LZ-string,
+ * validasi skema zod). Dipakai worker (outbox, ADR-0003/0017) dan API (lookup sinkron baca-saja, ADR-0025).
  * Klien ini tidak mencoba ulang: retry, penundaan, dan DLQ milik pemanggil.
  *
- * Kontrak dirangkum di docs/06-integrasi.md §2; cocokkan dengan katalog resmi BPJS sebelum integrasi nyata
- * (mis. VClaim POST resmi memakai Content-Type `Application/x-www-form-urlencoded` dengan isi JSON, dan tiap
- * layanan punya base URL serta `user_key` sendiri; fase 2 memakai satu set env mock, keputusan fase 2 #11).
+ * Cocokkan dengan katalog resmi BPJS sebelum integrasi nyata (docs/06-integrasi.md §2): VClaim POST resmi memakai
+ * Content-Type `Application/x-www-form-urlencoded` dengan isi JSON, nama layanan di produksi berbeda
+ * (`vclaim-rest`, `antreanrs`, `aplicaresws`), dan tiap layanan punya `user_key` sendiri; fase 2 memakai satu set
+ * env mock (keputusan fase 2 #11).
  */
-
-export const BPJS_SERVICES = ['vclaim', 'antrean', 'aplicare'] as const;
-export type BpjsService = (typeof BPJS_SERVICES)[number];
 
 export interface BpjsClientConfig extends BpjsCredentials {
   userKey: string;
-  /** Base URL; layanan ada di `<baseUrl>/<service>/…` (lokal: `http://localhost:4100/bpjs`). */
+  /** Base URL; layanan ada di `<baseUrl><BPJS_SERVICE_PREFIX[service]>/…` (lokal: `http://localhost:4100/bpjs`). */
   baseUrl: string;
   timeoutMs: number;
   /** Titik injeksi untuk tes. */
@@ -28,7 +40,7 @@ export interface BpjsClientConfig extends BpjsCredentials {
 export interface BpjsRequest {
   service: BpjsService;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  /** Path relatif terhadap layanan, diawali `/` (mis. `/Peserta/nik/<nik>/tglSEP/<tgl>`). */
+  /** Path relatif terhadap layanan, diawali `/` (bangun dengan `bpjsPath(VCLAIM_ENDPOINTS.x.path, params)`). */
   path: string;
   body?: unknown;
   /** Header tambahan (mis. `Idempotency-Key`); header tanda tangan tidak bisa ditimpa. */
@@ -42,12 +54,12 @@ interface Timing {
 }
 
 /**
- * - `ok`: `metaData.code` sukses; `response` sudah didekripsi (atau apa adanya bila tidak terenkripsi).
- * - `rejected`: galat bisnis (BPJS menjawab HTTP 200 + kode ≠ 200). Jawaban pasti: catat sebagai hasil domain.
+ * - `ok`: kode sukses; `response` sudah didekripsi dan lolos skema (`undefined` untuk operasi tulis Antrean).
+ * - `rejected`: galat bisnis (BPJS menjawab HTTP 200 + kode ≠ sukses). Jawaban pasti: catat sebagai hasil domain.
  * - `failure`: gangguan; `retryable` menentukan coba ulang. `detail` tanpa data pasien.
  */
 export type BpjsResult<T = unknown> =
-  | ({ kind: 'ok'; bpjsCode: string; message: string; response: T } & Timing)
+  | ({ kind: 'ok'; response: T } & Timing)
   | ({ kind: 'rejected'; code: BpjsRejectionCode; bpjsCode: string; message: string } & Timing)
   | ({
       kind: 'failure';
@@ -62,41 +74,24 @@ const MAX_RESPONSE_CHARS = 1024 * 1024;
 const RETRYABLE_HTTP = new Set([408, 425, 429]);
 const SIGNED_HEADERS = new Set(['x-cons-id', 'x-timestamp', 'x-signature', 'user_key']);
 
-interface Envelope {
-  code: string;
-  message: string;
-  response: unknown;
-}
-
-/** `metaData` (VClaim) atau `metadata` (Antrean, Aplicare); kode string atau angka. */
-export function readBpjsEnvelope(json: unknown): Envelope | undefined {
-  if (!json || typeof json !== 'object') return undefined;
-  const o = json as Record<string, unknown>;
-  const meta = o.metaData ?? o.metadata;
-  if (!meta || typeof meta !== 'object') return undefined;
-  const { code, message } = meta as Record<string, unknown>;
-  if (typeof code !== 'string' && typeof code !== 'number') return undefined;
-  return {
-    code: String(code),
-    message: typeof message === 'string' ? message : '',
-    response: o.response ?? null,
-  };
-}
-
 export class BpjsClient {
   constructor(private readonly config: BpjsClientConfig) {}
 
   /** URL tujuan; `undefined` bila path keluar dari layanan (pesan tidak boleh mengarahkan ke host/path lain). */
   resolveUrl(req: Pick<BpjsRequest, 'service' | 'path'>): URL | undefined {
-    if (!(BPJS_SERVICES as readonly string[]).includes(req.service)) return undefined;
+    if (!Object.hasOwn(BPJS_SERVICE_PREFIX, req.service)) return undefined;
     if (!req.path.startsWith('/') || req.path.startsWith('//')) return undefined;
-    const base = new URL(`${this.config.baseUrl.replace(/\/+$/, '')}/${req.service}/`);
+    const base = new URL(`${this.config.baseUrl.replace(/\/+$/, '')}${BPJS_SERVICE_PREFIX[req.service]}/`);
     const url = new URL(req.path.slice(1), base);
     if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return undefined;
     return url;
   }
 
-  async request<T = unknown>(req: BpjsRequest): Promise<BpjsResult<T>> {
+  /**
+   * Kirim satu permintaan. `schema` = skema kontrak isi `response` (mis. `vclaimPesertaResponseSchema`); `null` =
+   * tidak ada isi yang dibaca (operasi tulis Antrean/Aplicare; VClaim tetap diterima apa adanya).
+   */
+  async request<T = unknown>(req: BpjsRequest, schema: z.ZodType<T> | null = null): Promise<BpjsResult<T>> {
     const url = this.resolveUrl(req);
     if (!url) {
       return failure('BPJS_PROTOCOL', false, 'path keluar dari layanan BPJS', { durationMs: 0 });
@@ -151,29 +146,45 @@ export class BpjsClient {
       // Gerbang BPJS kadang menjawab 200 dengan halaman HTML saat pemeliharaan: anggap gangguan sementara.
       return failure('BPJS_UNAVAILABLE', true, 'respons bukan JSON', timing);
     }
-    const env = readBpjsEnvelope(json);
-    if (!env) return failure('BPJS_PROTOCOL', false, 'respons tanpa metaData', timing);
 
-    const cls = classifyBpjsMetaData(env.code, env.message);
-    if (cls.kind === 'failure') {
+    const decoded = this.decode(req.service, json, schema, timestamp);
+    if (decoded.ok) return { kind: 'ok', response: decoded.data, ...timing };
+    if (decoded.kind === 'invalid') return failure('BPJS_PROTOCOL', false, decoded.message, timing);
+    const fail = classifyBpjsFailure(decoded.code, decoded.message);
+    if (fail) {
       return {
-        ...failure(cls.code, cls.retryable, `metaData ${env.code}: ${env.message.slice(0, 120)}`, timing),
-        bpjsCode: env.code,
+        ...failure(
+          fail.code,
+          fail.retryable,
+          `kode ${decoded.code}: ${decoded.message.slice(0, 120)}`,
+          timing,
+        ),
+        bpjsCode: decoded.code,
       };
     }
-    if (cls.kind === 'rejected') {
-      return { kind: 'rejected', code: cls.code, bpjsCode: env.code, message: env.message, ...timing };
-    }
+    return {
+      kind: 'rejected',
+      code: decoded.rejection,
+      bpjsCode: decoded.code,
+      message: decoded.message,
+      ...timing,
+    };
+  }
 
-    let response: unknown = env.response;
-    if (typeof response === 'string' && response.length > 0) {
-      try {
-        response = bpjsDecryptResponse(response, this.config, timestamp);
-      } catch {
-        return failure('BPJS_PROTOCOL', false, 'respons tidak bisa didekripsi', timing);
-      }
+  private decode<T>(
+    service: BpjsService,
+    json: unknown,
+    schema: z.ZodType<T> | null,
+    timestamp: string,
+  ): BpjsDecoded<T> {
+    switch (service) {
+      case 'vclaim':
+        return decodeVclaimResponse(json, schema ?? (z.unknown() as z.ZodType<T>), this.config, timestamp);
+      case 'antrean':
+        return decodeAntreanResponse(json, schema, this.config, timestamp);
+      case 'aplicare':
+        return decodeAplicareResponse(json) as BpjsDecoded<T>;
     }
-    return { kind: 'ok', bpjsCode: env.code, message: env.message, response: response as T, ...timing };
   }
 }
 

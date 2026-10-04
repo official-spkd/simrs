@@ -27,6 +27,7 @@ export const OUTBOX_LEASE_MS = 60_000;
 
 /**
  * Ambil pesan siap kirim milik tenant aktif dan tandai `processing` (FOR UPDATE SKIP LOCKED: aman untuk beberapa worker).
+ * Urutan klaim pasti: `created_at`, lalu `id` (UUID v7, naik menurut waktu) untuk pesan di milidetik yang sama.
  * Klaim berlaku selama lease; pesan `processing` yang lease-nya habis diambil ulang.
  * Harus dipanggil di dalam `withTenant`. Pengiriman HTTP dilakukan SETELAH transaksi ini commit.
  */
@@ -39,7 +40,7 @@ export async function claimDueOutbox(
   const ids = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM outbox_messages
     WHERE status IN ('pending', 'failed', 'processing') AND next_attempt_at <= ${now}
-    ORDER BY created_at
+    ORDER BY created_at, id
     LIMIT ${limit}
     FOR UPDATE SKIP LOCKED`;
   if (ids.length === 0) return [];
@@ -48,7 +49,10 @@ export async function claimDueOutbox(
     where: { id: { in: idList } },
     data: { status: 'processing', nextAttemptAt: new Date(now.getTime() + leaseMs) },
   });
-  return tx.outboxMessage.findMany({ where: { id: { in: idList } }, orderBy: { createdAt: 'asc' } });
+  return tx.outboxMessage.findMany({
+    where: { id: { in: idList } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
 }
 
 export interface AttemptResult {

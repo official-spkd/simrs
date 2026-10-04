@@ -1,5 +1,6 @@
 import type { OutboxMessage, TenantTx } from '@simrs/db';
 import type { BpjsRequest, PatientCrypto } from '@simrs/shared/node';
+import type { ZodType } from 'zod';
 
 /** Tipe bersama operasi outbox (dipisah dari peta operasi agar tidak ada impor melingkar). */
 
@@ -15,6 +16,8 @@ export interface HttpRequestSpec {
 /** Permintaan ke BPJS lewat `BpjsConnector` (tanda tangan + dekripsi). Bangun lewat `defineBpjsOperation`. */
 export interface BpjsRequestSpec {
   bpjs: BpjsRequest;
+  /** Skema kontrak isi `response` (zod dari `@simrs/shared` `integrations/bpjs`); `null` = tidak dibaca. */
+  schema?: ZodType | null;
 }
 
 /** Konteks saat menyiapkan permintaan: baca data tenant (transaksi pendek tersendiri) dan kripto identitasnya. */

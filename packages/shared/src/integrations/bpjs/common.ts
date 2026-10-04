@@ -129,10 +129,87 @@ const REJECTION_PREFIXES = (Object.entries(BPJS_REJECTIONS) as Array<[BpjsReject
   .map(([code, text]) => [code, text.toLowerCase()] as const)
   .sort((a, b) => b[1].length - a[1].length);
 
-/** Pesan penolakan BPJS → kode internal stabil (awal pesan terpanjang yang cocok, tanpa beda huruf besar). */
+/**
+ * Pola cadangan untuk pesan dengan susunan kata lain (variasi yang lazim di VClaim/Antrean asli), dipakai bila tidak
+ * ada awal baku yang cocok. Urutan penting: yang spesifik di atas yang umum.
+ */
+const REJECTION_PATTERNS: ReadonlyArray<readonly [RegExp, BpjsRejectionKnownCode]> = [
+  [
+    /\bsep\b.*(sudah|telah)\s+(terbit|ada|dibuat)|sudah\s+terbit\s+sep|sep\s+ganda|duplikasi\s+sep|(sudah|telah)\s+mendapat(kan)?\s+pelayanan/i,
+    'BPJS_SEP_GANDA',
+  ],
+  [
+    /rujukan.*(ked?aluw?arsa|kad?aluw?arsa|expired|melewati\s+batas|lebih\s+dari\s+90|habis)/i,
+    'BPJS_RUJUKAN_KEDALUWARSA',
+  ],
+  [/tidak\s+aktif|non-?\s?aktif/i, 'BPJS_PESERTA_TIDAK_AKTIF'],
+  [
+    /peserta.*tidak\s+(ditemukan|terdaftar)|(nik|no\.?\s*kartu|nomor\s+kartu).*tidak\s+(ditemukan|terdaftar)/i,
+    'BPJS_PESERTA_TIDAK_DITEMUKAN',
+  ],
+  [/(kurang|lebih\s+kecil|mundur)\s+dari.*sebelum/i, 'BPJS_TASK_WAKTU_MUNDUR'],
+  [/task\s*(id)?.*(sebelum|urutan)|urutan\s+task/i, 'BPJS_TASK_TIDAK_BERURUTAN'],
+  [/task\s*(id)?\s*=?\s*\d*\s+sudah\s+ada/i, 'BPJS_TASK_GANDA'],
+  [/(kode\s*booking.*(sudah|duplika))|duplikasi\s+kode\s*booking/i, 'BPJS_ANTREAN_GANDA'],
+  [/tidak\s+ditemukan|tidak\s+ada\s+data|data\s+tidak\s+ada/i, 'BPJS_DATA_TIDAK_DITEMUKAN'],
+];
+
+/**
+ * Pesan penolakan BPJS → kode internal stabil: awal pesan baku terpanjang yang cocok (tanpa beda huruf besar), lalu
+ * pola cadangan, selain itu `BPJS_TIDAK_DIKENAL`.
+ */
 export function classifyBpjsRejection(message: string): BpjsRejectionCode {
   const m = message.trim().toLowerCase();
-  return REJECTION_PREFIXES.find(([, prefix]) => m.startsWith(prefix))?.[0] ?? 'BPJS_TIDAK_DIKENAL';
+  const byPrefix = REJECTION_PREFIXES.find(([, prefix]) => m.startsWith(prefix))?.[0];
+  if (byPrefix) return byPrefix;
+  return REJECTION_PATTERNS.find(([pattern]) => pattern.test(m))?.[1] ?? 'BPJS_TIDAK_DIKENAL';
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Gangguan (bukan jawaban bisnis)
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Kegagalan yang bukan jawaban bisnis: `BPJS_UNAVAILABLE` (jaringan, timeout, 5xx, pemeliharaan) layak dicoba ulang;
+ * `BPJS_AUTH` (tanda tangan/kredensial) dan `BPJS_PROTOCOL` (respons tidak bisa dibaca/tidak sesuai kontrak) tidak.
+ * Dipakai `BpjsClient` (`@simrs/shared/node`) untuk worker dan lookup sinkron API.
+ */
+export const BPJS_FAILURES = {
+  BPJS_UNAVAILABLE: 'Layanan BPJS tidak tersedia',
+  BPJS_AUTH: 'Kredensial BPJS ditolak',
+  BPJS_PROTOCOL: 'Respons BPJS tidak dikenali',
+} as const;
+export type BpjsFailureCode = keyof typeof BPJS_FAILURES;
+export type BpjsErrorCode = BpjsRejectionCode | BpjsFailureCode;
+
+/** Label layar untuk kode BPJS mana pun (penolakan atau gangguan). */
+export function bpjsErrorLabel(code: BpjsErrorCode): string {
+  if (code === 'BPJS_TIDAK_DIKENAL') return 'Ditolak BPJS';
+  return code in BPJS_FAILURES
+    ? BPJS_FAILURES[code as BpjsFailureCode]
+    : BPJS_REJECTIONS[code as BpjsRejectionKnownCode];
+}
+
+const UNAVAILABLE_PATTERN =
+  /maintenance|pemeliharaan|gangguan|time\s?out|coba\s+(lagi|kembali|beberapa\s+saat)/i;
+const AUTH_PATTERN =
+  /unauthori[sz]ed|signature\s+tidak\s+valid|invalid\s+signature|x-timestamp\s+kedaluwarsa|user[_\s-]?key\s+tidak\s+valid/i;
+
+/**
+ * Amplop dengan kode ≠ sukses yang sebenarnya gangguan, bukan penolakan bisnis: kode 401/403 atau pesan kredensial →
+ * `BPJS_AUTH`; kode 5xx atau pesan pemeliharaan → `BPJS_UNAVAILABLE` (dicoba ulang). `undefined` = penolakan bisnis
+ * (klasifikasikan dengan `classifyBpjsRejection`).
+ */
+export function classifyBpjsFailure(
+  code: string | number,
+  message: string,
+): { code: BpjsFailureCode; retryable: boolean } | undefined {
+  const n = Number(code);
+  if (n === 401 || n === 403 || AUTH_PATTERN.test(message)) return { code: 'BPJS_AUTH', retryable: false };
+  if ((n >= 500 && n < 600) || UNAVAILABLE_PATTERN.test(message)) {
+    return { code: 'BPJS_UNAVAILABLE', retryable: true };
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

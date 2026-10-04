@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { BPJS_REJECTION_CODES } from '@simrs/shared';
+import { BPJS_REJECTIONS, type BpjsRejectionCode } from '@simrs/shared';
 import { BpjsClient, bpjsClientConfig, type BpjsRequest } from '@simrs/shared/node';
 import { z } from 'zod';
 import { WORKER_ENV, type WorkerEnv } from '../config/env';
@@ -11,15 +11,13 @@ import type { OutboxMessageLike } from './operation-types';
  * disimpan: `response` sudah didekripsi dan bisa memuat data peserta.
  */
 export const bpjsDeliverySchema = z.discriminatedUnion('outcome', [
-  z.object({
-    outcome: z.literal('accepted'),
-    bpjsCode: z.string(),
-    message: z.string(),
-    response: z.unknown(),
-  }),
+  z.object({ outcome: z.literal('accepted'), response: z.unknown() }),
   z.object({
     outcome: z.literal('rejected'),
-    code: z.enum(BPJS_REJECTION_CODES),
+    code: z.enum([
+      ...(Object.keys(BPJS_REJECTIONS) as Array<keyof typeof BPJS_REJECTIONS>),
+      'BPJS_TIDAK_DIKENAL',
+    ] satisfies BpjsRejectionCode[]),
     bpjsCode: z.string(),
     message: z.string(),
   }),
@@ -44,10 +42,11 @@ export class BpjsConnector {
     this.client = config ? new BpjsClient(config) : undefined;
   }
 
+  /** `schema` = skema kontrak isi `response` (zod dari `@simrs/shared`); tidak cocok = `BPJS_PROTOCOL` (DLQ). */
   async send(
     msg: OutboxMessageLike,
     req: BpjsRequest,
-    opts: { sensitive?: boolean } = {},
+    opts: { sensitive?: boolean; schema?: z.ZodType | null } = {},
   ): Promise<SendResult> {
     if (!this.client) {
       return {
@@ -57,27 +56,17 @@ export class BpjsConnector {
         error: 'BPJS_AUTH: kredensial BPJS belum dikonfigurasi',
       };
     }
-    const res = await this.client.request({
-      ...req,
-      headers: { ...req.headers, 'Idempotency-Key': msg.idempotencyKey },
-    });
+    const res = await this.client.request(
+      { ...req, headers: { ...req.headers, 'Idempotency-Key': msg.idempotencyKey } },
+      opts.schema ?? null,
+    );
     const timing = { statusCode: res.httpStatus, durationMs: res.durationMs };
     // Pesan BPJS bisa menyebut data peserta: untuk operasi sensitif hanya kodenya yang masuk jejak pengiriman.
     const note = (message: string) => (opts.sensitive || !message ? '' : `: ${message}`);
     switch (res.kind) {
       case 'ok': {
-        const body: BpjsDelivery = {
-          outcome: 'accepted',
-          bpjsCode: res.bpjsCode,
-          message: res.message,
-          response: res.response,
-        };
-        return {
-          ...timing,
-          ok: true,
-          responseExcerpt: `BPJS ${res.bpjsCode}${note(res.message)}`,
-          responseBody: JSON.stringify(body),
-        };
+        const body: BpjsDelivery = { outcome: 'accepted', response: res.response };
+        return { ...timing, ok: true, responseExcerpt: 'BPJS OK', responseBody: JSON.stringify(body) };
       }
       case 'rejected': {
         const body: BpjsDelivery = {

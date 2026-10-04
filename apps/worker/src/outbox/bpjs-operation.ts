@@ -27,7 +27,11 @@ export type BpjsPrepared = BpjsRequest | { skip: string } | { defer: OutboxDefer
 export interface BpjsOperationDefinition<R> {
   /** Payload pesan hanya ID; data dibaca lewat `ctx.read` (ADR-0017). Path relatif terhadap layanan. */
   prepare(msg: OutboxMessageLike, ctx: OperationContext): BpjsPrepared | Promise<BpjsPrepared>;
-  /** Skema `response` terdekripsi saat sukses; tidak cocok = galat permanen (DLQ). Tanpa skema = `unknown`. */
+  /**
+   * Skema kontrak isi `response` dari `@simrs/shared` (mis. `vclaimSepInsertResponseSchema`,
+   * `antreanListTaskResponseSchema`), divalidasi `BpjsClient` setelah dekripsi; tidak cocok = `BPJS_PROTOCOL` (DLQ).
+   * Tanpa skema: VClaim diterima apa adanya (`unknown`), Antrean/Aplicare tanpa isi (`undefined`).
+   */
   response?: z.ZodType<R>;
   /** Sukses, di transaksi yang sama dengan pencatatan terkirim. */
   onAccepted?(tx: TenantTx, msg: OutboxMessage, response: R): Promise<void>;
@@ -54,7 +58,7 @@ export function defineBpjsOperation<R = unknown>(def: BpjsOperationDefinition<R>
     onDead: def.onDead,
     async prepare(msg, ctx) {
       const p = await def.prepare(msg, ctx);
-      return 'skip' in p || 'defer' in p ? p : { bpjs: p };
+      return 'skip' in p || 'defer' in p ? p : { bpjs: p, schema: def.response ?? null };
     },
     async onSuccess(tx, msg, responseBody) {
       let json: unknown;
@@ -71,12 +75,8 @@ export function defineBpjsOperation<R = unknown>(def: BpjsOperationDefinition<R>
         await def.onRejected(tx, msg, { code: d.code, bpjsCode: d.bpjsCode, message: d.message });
         return;
       }
-      let response = d.response as R;
-      if (def.response) {
-        const parsed = def.response.safeParse(d.response);
-        if (!parsed.success) throw new PermanentOperationError('Respons BPJS tidak sesuai kontrak');
-        response = parsed.data;
-      }
+      // Sudah divalidasi dengan `def.response` di klien sebelum dicatat terkirim.
+      const response = d.response as R;
       await def.onAccepted?.(tx, msg, response);
     },
   };

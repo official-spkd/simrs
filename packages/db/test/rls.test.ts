@@ -194,6 +194,31 @@ describe('outbox · batas waktu dan penundaan', () => {
     expect(updated.nextAttemptAt.getTime() - now.getTime()).toBe(7_000);
   });
 
+  it('urutan klaim pasti untuk pesan di milidetik yang sama: created_at lalu id', async () => {
+    const at = new Date(Date.now() - 60_000);
+    const ids = await withTenant(app, A.id, async (tx) => {
+      const made = [];
+      for (let i = 0; i < 3; i++) {
+        made.push(
+          await enqueueOutbox(tx, A.id, {
+            target: 'bpjs',
+            operation: 'ping',
+            idempotencyKey: `order-${newId()}`,
+            payload: {},
+          }),
+        );
+      }
+      await tx.outboxMessage.updateMany({
+        where: { id: { in: made.map((m) => m.id) } },
+        data: { createdAt: at, nextAttemptAt: at },
+      });
+      return made.map((m) => m.id);
+    });
+    const claimed = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 500, new Date()));
+    const order = claimed.map((m) => m.id).filter((id) => ids.includes(id));
+    expect(order).toEqual([...ids].sort());
+  });
+
   it('penundaan tidak menambah percobaan dan tidak mencatat delivery_attempts', async () => {
     const now = new Date(Date.now() + 1000);
     const row = await claimed(`defer-${newId()}`, now);

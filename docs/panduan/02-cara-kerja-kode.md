@@ -423,7 +423,7 @@ if (prev && prev.status !== 'sent') return { defer: { afterMessageId: prev.id } 
 
 ### Konektor BPJS
 
-Klien HTTP ada **satu** di `@simrs/shared/node` (`BpjsClient`, juga dipakai API untuk lookup sinkron, ADR-0025): header `X-cons-id`/`X-timestamp`/`X-signature`/`user_key`, dekripsi `response` (AES-256-CBC + LZ-string, kunci dari timestamp permintaan), pemetaan `metaData.code` + pesan ke kode stabil (`classifyBpjsMetaData`, `BPJS_ERROR_LABEL` untuk layar). Kredensial dari env (`BPJS_BASE_URL`, `BPJS_CONS_ID`, `BPJS_SECRET_KEY`, `BPJS_USER_KEY`); kosong di luar produksi = nilai mock (`<MOCK_BASE_URL>/bpjs`), di produksi wajib diisi.
+Klien HTTP ada **satu** di `@simrs/shared/node` (`BpjsClient`, juga dipakai API untuk lookup sinkron, ADR-0025): header `X-cons-id`/`X-timestamp`/`X-signature`/`user_key`, lalu dekode lewat dekoder kontrak bersama (`decodeVclaimResponse`/`decodeAntreanResponse`: amplop, dekripsi AES-256-CBC + LZ-string dengan timestamp permintaan, validasi skema zod). Kode stabil hanya satu sumber, `@simrs/shared` `integrations/bpjs/common.ts`: penolakan `BPJS_REJECTIONS` + `classifyBpjsRejection` (awal pesan baku mock, lalu pola cadangan, selain itu `BPJS_TIDAK_DIKENAL`), gangguan `BPJS_FAILURES` + `classifyBpjsFailure`, label layar `bpjsErrorLabel`. Kredensial dari env (`BPJS_BASE_URL`, `BPJS_CONS_ID`, `BPJS_SECRET_KEY`, `BPJS_USER_KEY`); kosong di luar produksi = nilai mock (`<MOCK_BASE_URL>/bpjs`), di produksi wajib diisi.
 
 | Jawaban BPJS                                                | Hasil outbox                             | Diteruskan ke                      |
 | ----------------------------------------------------------- | ---------------------------------------- | ---------------------------------- |
@@ -432,7 +432,7 @@ Klien HTTP ada **satu** di `@simrs/shared/node` (`BpjsClient`, juga dipakai API 
 | Timeout, jaringan, 5xx, 429, pemeliharaan                   | gagal, dicoba ulang (`BPJS_UNAVAILABLE`) | –                                  |
 | 401/403, respons tak terbaca                                | DLQ (`BPJS_AUTH`, `BPJS_PROTOCOL`)       | `onDead`                           |
 
-Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccepted?, onRejected?, onDead?, retry?, sensitive? })`. `prepare` mengembalikan `{ service: 'vclaim' | 'antrean' | 'aplicare', method, path, body? }` (path relatif terhadap layanan), `skip`, atau `defer`. Bawaan: `retry = SERVICE_DAY_RETRY`, `sensitive = true` (jejak pengiriman hanya menyimpan kode, bukan pesan/isi respons). Penolakan tanpa `onRejected` dianggap galat permanen (DLQ) agar tidak hilang diam-diam. Skema `response` (zod) yang tidak cocok = DLQ.
+Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccepted?, onRejected?, onDead?, retry?, sensitive? })`. `prepare` mengembalikan `{ service: 'vclaim' | 'antrean' | 'aplicare', method, path, body? }` (bangun dari tabel kontrak, mis. `{ service: 'vclaim', ...VCLAIM_ENDPOINTS.sepInsert }` atau `bpjsPath(VCLAIM_ENDPOINTS.pesertaByNik.path, params)`), `skip`, atau `defer`; `response` = skema kontrak dari `@simrs/shared` (mis. `vclaimSepInsertResponseSchema`). Bawaan: `retry = SERVICE_DAY_RETRY`, `sensitive = true` (jejak pengiriman hanya menyimpan kode, bukan pesan/isi respons). Penolakan tanpa `onRejected` dianggap galat permanen (DLQ) agar tidak hilang diam-diam. Respons yang tidak cocok dengan skema `response` = `BPJS_PROTOCOL` (DLQ).
 
 ### Job berkala (P11)
 
@@ -547,7 +547,7 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 | `ids.ts`                         | `newId()` UUID v7                                                                                 |
 | `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                        |
 | `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                |
-| `integrations/bpjs-errors.ts`    | Kode stabil jawaban BPJS (`BPJS_ERROR_CODES`, label), `classifyBpjsMetaData()`                    |
+| `integrations/bpjs/`             | Kontrak kabel BPJS (endpoint, skema zod), kode penolakan/gangguan + pengklasifikasinya            |
 | `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `BpjsClient`, HMAC TPDI                         |
 
 ## Strategi tes

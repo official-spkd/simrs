@@ -1,7 +1,8 @@
 /**
  * Konektor BPJS outbox (potongan 1a) terhadap mock BPJS SUNGGUHAN (`apps/mock`, port acak): header bertanda tangan
- * diterima mock, respons terenkripsi didekripsi, galat bisnis di HTTP 200 menjadi hasil domain "ditolak" (pesan
- * terkirim, bukan retry/DLQ), gangguan dicoba ulang, kredensial salah langsung DLQ. Data mock fiktif.
+ * dan `user_key` diterima mock, respons terenkripsi didekripsi dan divalidasi dengan skema kontrak bersama
+ * (`@simrs/shared` integrations/bpjs), galat bisnis di HTTP 200 menjadi hasil domain "ditolak" (pesan terkirim,
+ * bukan retry/DLQ), gangguan dan timeout dicoba ulang, kredensial salah langsung DLQ. Data mock fiktif.
  */
 import 'reflect-metadata';
 import type { AddressInfo } from 'node:net';
@@ -13,7 +14,15 @@ import {
   type PrismaClient,
   type TenantTx,
 } from '@simrs/db';
-import { newId } from '@simrs/shared';
+import {
+  ANTREAN_ENDPOINTS,
+  antreanRefPoliResponseSchema,
+  bpjsPath,
+  newId,
+  VCLAIM_ENDPOINTS,
+  VCLAIM_PESERTA_AKTIF,
+  vclaimPesertaResponseSchema,
+} from '@simrs/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { loadConfig } from '../../mock/src/config';
@@ -25,7 +34,7 @@ import { defineBpjsOperation, type OutboxOperation } from '../src/outbox/operati
 import { OutboxDispatcher } from '../src/outbox/outbox.dispatcher';
 import { freshTenant, loadTestEnvFile, tenantDb, testEnv, testModule } from './helpers';
 
-const NIK = '9999010101900001'; // fiktif (pola mock)
+const NIK = '9999010101900001'; // fiktif (pola mock 9999…)
 const NIK_TIDAK_AKTIF = '9999010101900000'; // berakhiran 0000: peserta tidak aktif di mock
 
 let mock: ReturnType<typeof buildServer>;
@@ -50,27 +59,44 @@ async function mark(tx: TenantTx, msg: OutboxMessage, details: Record<string, un
   });
 }
 
-const pesertaSchema = z.object({
-  peserta: z.object({ noKartu: z.string(), statusPeserta: z.object({ keterangan: z.string() }) }),
-});
-
 const updatewaktu = (msg: { payload: unknown }) => ({
   service: 'antrean' as const,
-  method: 'POST' as const,
-  path: '/antrean/updatewaktu',
-  body: { kodebooking: 'BK-UJI-1', taskid: (msg.payload as { taskid: number }).taskid, waktu: 1791158400000 },
+  ...ANTREAN_ENDPOINTS.updateWaktu,
+  body: {
+    kodebooking: (msg.payload as { kodebooking: string }).kodebooking,
+    taskid: 3,
+    waktu: Date.now() - 60_000,
+  },
 });
 
 const OPS: Record<string, OutboxOperation> = {
   'test.bpjs.peserta': defineBpjsOperation({
     prepare: (msg) => ({
       service: 'vclaim',
-      method: 'GET',
-      path: `/Peserta/nik/${(msg.payload as { nik: string }).nik}/tglSEP/2026-10-05`,
+      method: VCLAIM_ENDPOINTS.pesertaByNik.method,
+      path: bpjsPath(VCLAIM_ENDPOINTS.pesertaByNik.path, {
+        nik: (msg.payload as { nik: string }).nik,
+        tglSEP: '2026-10-05',
+      }),
     }),
-    response: pesertaSchema,
+    response: vclaimPesertaResponseSchema,
     async onAccepted(tx, msg, res) {
-      await mark(tx, msg, { outcome: 'accepted', status: res.peserta.statusPeserta.keterangan });
+      await mark(tx, msg, {
+        outcome: 'accepted',
+        aktif: res.peserta.statusPeserta.kode === VCLAIM_PESERTA_AKTIF,
+      });
+    },
+  }),
+  /** Skema yang sengaja tidak cocok dengan isi respons: pelanggaran kontrak = DLQ. */
+  'test.bpjs.kontrak-salah': defineBpjsOperation({
+    prepare: () => ({ service: 'antrean', ...ANTREAN_ENDPOINTS.refPoli }),
+    response: z.array(z.object({ kodeTidakAda: z.string() })),
+  }),
+  'test.bpjs.ref-poli': defineBpjsOperation({
+    prepare: () => ({ service: 'antrean', ...ANTREAN_ENDPOINTS.refPoli }),
+    response: antreanRefPoliResponseSchema,
+    async onAccepted(tx, msg, poli) {
+      await mark(tx, msg, { outcome: 'accepted', poli: poli.length > 0 });
     },
   }),
   'test.bpjs.task': defineBpjsOperation({
@@ -102,6 +128,7 @@ beforeAll(async () => {
     BPJS_CONS_ID: '10000',
     BPJS_SECRET_KEY: 'mock-secret',
     BPJS_USER_KEY: 'mock-user-key',
+    OUTBOX_HTTP_TIMEOUT_MS: '1000',
   });
   ref = await testModule(env, { operations: OPS });
   dispatcher = ref.get(OutboxDispatcher);
@@ -117,8 +144,10 @@ afterAll(async () => {
 
 beforeEach(() => mockState.reset());
 
+const scenario = (mode: 'normal' | 'gagal' | 'timeout') =>
+  mockState.scenarios.set('bpjs', { ...mockState.scenario('bpjs'), mode, failStatus: 503, timeoutMs: 3000 });
 const run = <R>(fn: (tx: TenantTx) => Promise<R>) => tenantDb(db, T)(fn);
-const enqueue = (operation: string, payload: Record<string, unknown>) =>
+const enqueue = (operation: string, payload: Record<string, unknown> = {}) =>
   run((tx) =>
     enqueueOutbox(tx, T, { target: 'bpjs', operation, idempotencyKey: `bpjs-${newId()}`, payload }),
   );
@@ -127,85 +156,106 @@ const lastAttempt = (id: string) =>
   run((tx) =>
     tx.deliveryAttempt.findFirstOrThrow({ where: { outboxMessageId: id }, orderBy: { attemptNo: 'desc' } }),
   );
-const marks = (id: string) =>
-  run((tx) => tx.auditEvent.findMany({ where: { resourceType: 'bpjs_uji', resourceId: id } }));
-const dispatch = () => dispatcher.dispatchOnce({ tenantIds: [T], now: new Date(Date.now() + 1000) });
+const marks = async (id: string) =>
+  (await run((tx) => tx.auditEvent.findMany({ where: { resourceType: 'bpjs_uji', resourceId: id } }))).map(
+    (m) => m.details,
+  );
+const dispatch = (now = new Date(Date.now() + 1000)) => dispatcher.dispatchOnce({ tenantIds: [T], now });
 
 describe('konektor BPJS ↔ mock', () => {
-  it('VClaim: tanda tangan diterima, respons terenkripsi didekripsi dan divalidasi, potongan respons tidak disimpan', async () => {
+  it('VClaim: tanda tangan + user_key diterima, respons terenkripsi didekripsi dan lolos skema kontrak', async () => {
     expect(mockState.bpjsEncryption).toBe(true);
     const aktif = await enqueue('test.bpjs.peserta', { nik: NIK });
     const tidakAktif = await enqueue('test.bpjs.peserta', { nik: NIK_TIDAK_AKTIF });
     const s = await dispatch();
     expect(s.sent).toBe(2);
-    expect((await marks(aktif.id)).map((m) => m.details)).toEqual([{ outcome: 'accepted', status: 'AKTIF' }]);
-    expect((await marks(tidakAktif.id)).map((m) => m.details)).toEqual([
-      { outcome: 'accepted', status: 'TIDAK AKTIF' },
-    ]);
-    const attempt = await lastAttempt(aktif.id);
-    expect(attempt).toMatchObject({ outcome: 'sent', statusCode: 200, responseExcerpt: 'BPJS 200' });
-    expect(mockState.log.some((l) => l.system === 'bpjs' && l.status === 401)).toBe(false);
+    expect(await marks(aktif.id)).toEqual([{ outcome: 'accepted', aktif: true }]);
+    expect(await marks(tidakAktif.id)).toEqual([{ outcome: 'accepted', aktif: false }]);
+    expect(await lastAttempt(aktif.id)).toMatchObject({
+      outcome: 'sent',
+      statusCode: 200,
+      responseExcerpt: 'BPJS OK',
+    });
   });
 
-  it('respons tanpa enkripsi (flag mock dimatikan) tetap terbaca', async () => {
+  it('Antrean: respons berisi data (terenkripsi) tervalidasi; tanpa enkripsi (flag mock) tetap terbaca', async () => {
+    const enc = await enqueue('test.bpjs.ref-poli');
+    await dispatch();
+    expect(await marks(enc.id)).toEqual([{ outcome: 'accepted', poli: true }]);
     mockState.bpjsEncryption = false;
-    const msg = await enqueue('test.bpjs.peserta', { nik: NIK });
+    const plain = await enqueue('test.bpjs.ref-poli');
     await dispatch();
-    expect((await message(msg.id)).status).toBe('sent');
-    expect((await marks(msg.id)).map((m) => m.details)).toEqual([{ outcome: 'accepted', status: 'AKTIF' }]);
+    expect(await marks(plain.id)).toEqual([{ outcome: 'accepted', poli: true }]);
   });
 
-  it('Antrean: sukses (metadata angka 200) → onAccepted', async () => {
-    const msg = await enqueue('test.bpjs.task', { taskid: 3 });
-    await dispatch();
-    expect(await message(msg.id)).toMatchObject({ status: 'sent', attempts: 1 });
-    expect((await marks(msg.id)).map((m) => m.details)).toEqual([{ outcome: 'accepted' }]);
-  });
-
-  it('galat bisnis di HTTP 200 → TERKIRIM sebagai hasil domain "ditolak" (bukan retry/DLQ)', async () => {
-    const msg = await enqueue('test.bpjs.task', { taskid: 8 });
-    const s = await dispatch();
-    expect(s).toMatchObject({ sent: 1, failed: 0, dead: 0 });
-    expect(await message(msg.id)).toMatchObject({ status: 'sent', attempts: 1, lastError: null });
-    expect((await marks(msg.id)).map((m) => m.details)).toEqual([
-      { outcome: 'rejected', code: 'BPJS_VALIDATION', bpjsCode: '201' },
-    ]);
-    // Operasi BPJS sensitif secara bawaan: pesan asli BPJS tidak masuk jejak pengiriman, hanya kodenya.
-    expect((await lastAttempt(msg.id)).responseExcerpt).toBe('ditolak BPJS 201 → BPJS_VALIDATION');
-  });
-
-  it('penolakan tanpa onRejected → DLQ (tidak hilang diam-diam) + onDead', async () => {
-    const msg = await enqueue('test.bpjs.task-tanpa-tolak', { taskid: 8 });
+  it('respons yang tidak sesuai skema kontrak → BPJS_PROTOCOL, langsung DLQ', async () => {
+    const msg = await enqueue('test.bpjs.kontrak-salah');
     await dispatch();
     expect(await message(msg.id)).toMatchObject({
       status: 'dead',
-      lastError: 'Ditolak BPJS 201: BPJS_VALIDATION',
+      attempts: 1,
+      lastError: 'BPJS_PROTOCOL: Isi respons BPJS tidak sesuai kontrak',
     });
-    expect((await marks(msg.id)).map((m) => m.details)).toEqual([
-      { outcome: 'dead', lastError: 'Ditolak BPJS 201: BPJS_VALIDATION' },
-    ]);
   });
 
-  it('BPJS gangguan (mock gagal 503) → BPJS_UNAVAILABLE, dicoba ulang (kebijakan hari layanan), bukan DLQ', async () => {
-    mockState.scenarios.set('bpjs', { mode: 'gagal', latencyMs: 0, failStatus: 503 });
-    const msg = await enqueue('test.bpjs.task', { taskid: 3 });
+  it('galat bisnis di HTTP 200 → TERKIRIM sebagai hasil domain "ditolak" (bukan retry/DLQ)', async () => {
+    const msg = await enqueue('test.bpjs.task', { kodebooking: 'BK-TIDAK-ADA' });
+    const s = await dispatch();
+    expect(s).toMatchObject({ sent: 1, failed: 0, dead: 0 });
+    expect(await message(msg.id)).toMatchObject({ status: 'sent', attempts: 1, lastError: null });
+    expect(await marks(msg.id)).toEqual([
+      { outcome: 'rejected', code: 'BPJS_ANTREAN_TIDAK_DITEMUKAN', bpjsCode: '201' },
+    ]);
+    // Operasi BPJS sensitif secara bawaan: pesan asli BPJS tidak masuk jejak pengiriman, hanya kodenya.
+    expect((await lastAttempt(msg.id)).responseExcerpt).toBe(
+      'ditolak BPJS 201 → BPJS_ANTREAN_TIDAK_DITEMUKAN',
+    );
+  });
+
+  it('penolakan tanpa onRejected → DLQ (tidak hilang diam-diam) + onDead', async () => {
+    const msg = await enqueue('test.bpjs.task-tanpa-tolak', { kodebooking: 'BK-TIDAK-ADA' });
+    await dispatch();
+    const error = 'Ditolak BPJS 201: BPJS_ANTREAN_TIDAK_DITEMUKAN';
+    expect(await message(msg.id)).toMatchObject({ status: 'dead', lastError: error });
+    expect(await marks(msg.id)).toEqual([{ outcome: 'dead', lastError: error }]);
+  });
+
+  it('BPJS gangguan (mock gagal 503) → BPJS_UNAVAILABLE, dicoba ulang (kebijakan hari layanan), lalu pulih', async () => {
+    scenario('gagal');
+    const msg = await enqueue('test.bpjs.ref-poli');
     await dispatch();
     const m = await message(msg.id);
     expect(m).toMatchObject({ status: 'failed', attempts: 1, lastError: 'BPJS_UNAVAILABLE: HTTP 503' });
     expect(await marks(msg.id)).toEqual([]);
 
-    mockState.scenarios.set('bpjs', { mode: 'normal', latencyMs: 0, failStatus: 503 });
-    await dispatcher.dispatchOnce({ tenantIds: [T], now: new Date(m.nextAttemptAt.getTime() + 1) });
+    scenario('normal');
+    await dispatch(new Date(m.nextAttemptAt.getTime() + 1));
     expect(await message(msg.id)).toMatchObject({ status: 'sent', attempts: 2 });
   });
 
-  it('kredensial salah → mock 401 → BPJS_AUTH, galat permanen', async () => {
-    const wrong = new BpjsConnector({ ...env, BPJS_SECRET_KEY: 'bukan-rahasia-mock' });
-    const res = await wrong.send(
-      { target: 'bpjs', operation: 'x', idempotencyKey: 'k', payload: {} },
-      { service: 'vclaim', method: 'GET', path: `/Peserta/nik/${NIK}/tglSEP/2026-10-05` },
-    );
-    expect(res).toMatchObject({ ok: false, permanent: true, statusCode: 401, error: 'BPJS_AUTH: HTTP 401' });
+  it('mock menahan respons (mode timeout) → batas waktu klien → BPJS_UNAVAILABLE, dicoba ulang', async () => {
+    scenario('timeout');
+    const msg = await enqueue('test.bpjs.ref-poli');
+    await dispatch();
+    expect(await message(msg.id)).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      lastError: 'BPJS_UNAVAILABLE: timeout',
+    });
+  });
+
+  it('kredensial salah → mock 401 → BPJS_AUTH, galat permanen (rahasia maupun user_key)', async () => {
+    const req = { service: 'antrean' as const, ...ANTREAN_ENDPOINTS.refPoli };
+    const msg = { target: 'bpjs', operation: 'x', idempotencyKey: 'k', payload: {} };
+    for (const wrong of [{ BPJS_SECRET_KEY: 'bukan-rahasia-mock' }, { BPJS_USER_KEY: 'bukan-user-key' }]) {
+      const res = await new BpjsConnector({ ...env, ...wrong }).send(msg, req);
+      expect(res).toMatchObject({
+        ok: false,
+        permanent: true,
+        statusCode: 401,
+        error: 'BPJS_AUTH: HTTP 401',
+      });
+    }
   });
 
   it('produksi tanpa kredensial BPJS → galat permanen yang jelas (tidak jatuh ke nilai mock)', async () => {

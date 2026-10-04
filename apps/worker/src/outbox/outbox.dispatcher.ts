@@ -136,7 +136,9 @@ export class OutboxDispatcher implements OnModuleDestroy {
     }
     if ('defer' in prepared) return this.resolveDefer(msg, tenantId, prepared.defer, now);
     if ('bpjs' in prepared) {
-      return { send: await this.bpjs.send(msg, prepared.bpjs, { sensitive: op.sensitive }) };
+      return {
+        send: await this.bpjs.send(msg, prepared.bpjs, { sensitive: op.sensitive, schema: prepared.schema }),
+      };
     }
     return { send: await this.connector.send(msg, prepared, { sensitive: op.sensitive }) };
   }

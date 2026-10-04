@@ -476,12 +476,12 @@ Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --fil
 [
   'antrean.updatewaktu',
   defineBpjsOperation({
-    prepare: (msg) => ({ service: 'antrean', method: 'POST', path: '/antrean/updatewaktu', body: msg.payload }),
+    prepare: (msg) => ({ service: 'antrean', ...ANTREAN_ENDPOINTS.updateWaktu, body: msg.payload }),
     async onAccepted(tx, msg) {
       /* tandai task terkirim */
     },
     async onRejected(tx, msg, rejection) {
-      /* tandai task ditolak + rejection.code, mis. BPJS_TASK_URUTAN */
+      /* tandai task ditolak + rejection.code, mis. BPJS_TASK_TIDAK_BERURUTAN */
     },
   }),
 ],

@@ -86,3 +86,23 @@ export function decodeAntreanResponse<T = undefined>(
   if (!schema) return { ok: true, data: undefined as T };
   return decodeData(env.data.response, schema, creds, timestamp);
 }
+
+/** Kode sukses Aplicare (`metadata.code`, angka). */
+export const APLICARE_OK = 1;
+
+/** Aplicare: `{ metadata: { code: 1 } }`; operasi tulis tanpa isi respons. */
+export function decodeAplicareResponse(body: unknown): BpjsDecoded<undefined> {
+  const env = antreanEnvelopeSchema.safeParse(body);
+  if (!env.success) return { ok: false, kind: 'invalid', message: 'Amplop Aplicare tidak dikenali' };
+  const { code, message } = env.data.metadata;
+  if (code !== APLICARE_OK) {
+    return {
+      ok: false,
+      kind: 'rejected',
+      code: String(code),
+      message,
+      rejection: classifyBpjsRejection(message),
+    };
+  }
+  return { ok: true, data: undefined };
+}
