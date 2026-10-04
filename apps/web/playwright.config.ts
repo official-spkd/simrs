@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 import { DEMO_ACCOUNTS_FILE } from './e2e/demo-accounts-file';
@@ -31,10 +30,12 @@ if (existsSync('../../.env')) {
 }
 
 const channel = process.env.PW_CHANNEL ?? (process.platform === 'win32' ? 'msedge' : 'chromium');
-const API_PORT = 4010;
-const WEB_PORT = 3010;
+// Port dan folder sementara bisa diganti lewat env (E2E_API_PORT, E2E_WEB_PORT, E2E_DEMO_PORT, E2E_TMP_NAME) agar
+// beberapa salinan repo (mis. git worktree) bisa menjalankan E2E bersamaan dengan database tes masing-masing.
+const API_PORT = Number(process.env.E2E_API_PORT ?? 4010);
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 3010);
 const WEB_URL = `http://localhost:${WEB_PORT}`;
-const DEMO_PORT = 3011;
+const DEMO_PORT = Number(process.env.E2E_DEMO_PORT ?? 3011);
 const DEMO_URL = `http://localhost:${DEMO_PORT}`;
 const TEST_APP_DB =
   process.env.TEST_APP_DATABASE_URL ??
@@ -132,7 +133,7 @@ export default defineConfig({
         LOGIN_TENANT_CODE: 'RSCM',
         DATA_SOURCE: 'demo',
         // Keadaan simulasi akun uji di folder sementara, bukan `.local/demo-state` milik pengembang.
-        DEMO_STATE_DIR: join(tmpdir(), 'simrs-demo-e2e'),
+        DEMO_STATE_DIR: dirname(DEMO_ACCOUNTS_FILE),
         // Akun presentasi uji (dibuat global setup), bukan `.local/demo-accounts.json` milik pengembang.
         DEMO_ACCOUNTS_FILE,
       },
