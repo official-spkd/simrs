@@ -28,7 +28,7 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
           </span>
         </span>
         <span className="flex items-center gap-2">
-          <Link href="/simulasi" className="text-small font-semibold">
+          <Link href="/simulasi" className="inline-flex min-h-11 items-center text-small font-semibold">
             Buka Simulasi
           </Link>
           <button

@@ -27,6 +27,8 @@ Isi `.env` yang perlu diperhatikan:
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
 | `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
+| `STORAGE_DRIVER`                         | `disk` atau `s3`                             | Berkas dokumen: `disk` = folder `STORAGE_DISK_ROOT` (hanya lokal), `s3` = MinIO Docker. Staging/produksi wajib `s3`    |
+| `S3_*`                                   | lihat `.env.example`                         | MinIO lokal (`S3_BUCKET_DOCUMENTS=simrs-documents`). Produksi: kredensial khusus aplikasi, bukan root                  |
 
 ### Mesin baru (macOS)
 
@@ -100,7 +102,7 @@ pnpm db:deploy       # terapkan semua migrasi ke database simrs
 pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (operator)
 ```
 
-Per RS, seed mengisi struktur (12 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
+Per RS, seed mengisi struktur (15 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
 **33 staf fiktif** lintas 16 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
 lab, radiografer, pendaftaran, kasir, koder, rekam medis, akuntan, manajemen, mutu, privasi, admin SIM RS) beserta
 penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`). Nama pengguna staf = NIP fiktif
@@ -112,6 +114,13 @@ Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa
 sandi**: sandi sementara tampil sekali, dan saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti
 sandi (sama dengan undangan biasa). Admin seed yang belum diaktifkan tidak dihitung sebagai admin aktif, jadi admin
 terakhir yang bisa masuk tetap tidak bisa dinonaktifkan atau dicabut perannya.
+
+Front office (fase 2) ikut di-seed per RS, selaras dengan layar mode presentasi: layanan antrean poli **PD**, **JT**,
+**SR**, **PR** (dengan kode poli BPJS INT/JAN/SAR/PAR), loket pendaftaran **A**, farmasi **F**; 16 dokter fiktif (11
+tertaut akun staf seed; enam dokter poli punya kode dokter HFIS fiktif 99001–99006, sama dengan mock BPJS); templat jadwal mingguan Senin–Sabtu dengan kuota JKN/non-JKN; penjamin BPJS, Umum, dan satu
+asuransi fiktif; papan antrean **Rawat Jalan Lantai 2**. Sesi per tanggal belum di-seed (dibangkitkan job jadwal).
+Seed juga menjalankan sinkron izin (seperti `pnpm db:sync-permissions`), jadi izin baru di katalog sampai ke peran RS
+yang sudah ada cukup dengan `pnpm db:seed`.
 
 ### Buat akun untuk masuk
 
@@ -480,18 +489,24 @@ Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --fil
 
 **Mock.** Tambahkan rute di `apps/mock/src/systems/<sistem>.ts`, mengikuti kontrak di `docs/06-integrasi.md`. Skenario normal/lambat/gagal otomatis berlaku untuk semua rute berprefiks `/<sistem>`. Tambahkan tes di `apps/mock/src/mock.test.ts` dengan `app.inject(...)`.
 
-**Operasi outbox.** Tambahkan entri di `apps/worker/src/outbox/operations.ts`:
+**Operasi outbox.** Tambahkan entri di `apps/worker/src/outbox/operations.ts`. Operasi ke BPJS dibangun dengan `defineBpjsOperation` (tanda tangan, dekripsi, dan pemetaan `metaData` sudah ditangani konektor):
 
 ```ts
 [
   'antrean.updatewaktu',
-  {
-    prepare: (msg) => ({ method: 'POST', path: '/bpjs/antrean/antrean/updatewaktu', body: msg.payload }),
-  },
+  defineBpjsOperation({
+    prepare: (msg) => ({ service: 'antrean', ...ANTREAN_ENDPOINTS.updateWaktu, body: msg.payload }),
+    async onAccepted(tx, msg) {
+      /* tandai task terkirim */
+    },
+    async onRejected(tx, msg, rejection) {
+      /* tandai task ditolak + rejection.code, mis. BPJS_TASK_TIDAK_BERURUTAN */
+    },
+  }),
 ],
 ```
 
-Operasi yang butuh data pribadi (mis. NIK) **tidak** menaruhnya di payload: payload cukup berisi ID, lalu `prepare(msg, ctx)` membaca dan mendekripsi lewat `ctx.read(...)`/`ctx.crypto`. Kembalikan `{ skip: 'alasan' }` bila pesan sudah tidak relevan. Bila respons perlu disimpan, isi `onSuccess(tx, msg, body)`: ia berjalan di transaksi yang sama dengan pencatatan "terkirim", dan melempar `PermanentOperationError` membuat pesan masuk DLQ. Respons berisi data pribadi ditandai `sensitive: true`. Contoh lengkap: `apps/worker/src/outbox/dukcapil.ts` (ADR-0017).
+Operasi yang butuh data pribadi (mis. NIK) **tidak** menaruhnya di payload: payload cukup berisi ID, lalu `prepare(msg, ctx)` membaca dan mendekripsi lewat `ctx.read(...)`/`ctx.crypto`. Kembalikan `{ skip: 'alasan' }` bila pesan sudah tidak relevan, atau `{ defer: { afterMessageId } }` bila harus menunggu pesan lain (urutan task ID). Bila respons perlu disimpan, isi `onSuccess(tx, msg, body)` (operasi BPJS: `onAccepted`/`onRejected`): ia berjalan di transaksi yang sama dengan pencatatan "terkirim", dan melempar `PermanentOperationError` membuat pesan masuk DLQ. Status domain "gagal" diisi di `onDead(tx, msg)`, atomik dengan perpindahan ke DLQ. Batas coba ulang per operasi lewat `retry` (operasi BPJS bawaannya sampai akhir hari layanan WIB). Respons berisi data pribadi ditandai `sensitive: true`. Contoh lengkap: `apps/worker/src/outbox/dukcapil.ts` (ADR-0017) dan bagian Worker di [Cara kode bekerja](./02-cara-kerja-kode.md#worker).
 
 Lalu dari service domain, di **dalam transaksi yang sama** dengan perubahan datanya:
 
@@ -504,7 +519,7 @@ await enqueueOutbox(tx, tenantId, {
 });
 ```
 
-Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan aksi tidak menghasilkan kiriman ganda. Konektor nyata yang menambahkan tanda tangan BPJS (`bpjsHeaders` dari `@simrs/shared/node`) dibangun di fase 2.
+Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan aksi tidak menghasilkan kiriman ganda.
 
 ## 7. Menjalankan tes dan sebelum commit
 
@@ -520,7 +535,7 @@ Sebelum commit:
 1. Ketiga perintah pertama hijau. Tes yang gagal diperbaiki penyebabnya, bukan dilemahkan.
 2. Periksa [daftar periksa keamanan](./02-cara-kerja-kode.md#daftar-periksa-keamanan-per-perubahan).
 3. Commit dengan Conventional Commits dan sebut kode komponen, misalnya `feat(units): master unit layanan` dengan badan `Komponen: P01`.
-4. Perbarui `docs/PROGRESS.md`. Keputusan arsitektur baru dicatat sebagai ADR di `docs/adr/`.
+4. Perbarui `docs/PROGRESS.md`. Keputusan arsitektur baru dicatat sebagai ADR di `docs/adr/`; nomornya mengikuti blok per fase di `docs/adr/README.md` (agar agen paralel tidak memakai nomor yang sama).
 
 ### Beberapa salinan repo sekaligus (git worktree)
 
@@ -550,12 +565,13 @@ Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) de
      pnpm --filter @simrs/web test:e2e
    ```
 
-   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
+   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Port yang diblokir `fetch`/browser (mis. 4190, 5060, 6000, 6665–6669, 10080) ditolak saat konfigurasi dimuat (`e2e/support/slot.ts`); API :4090 karena itu butuh `E2E_MOCK_PORT` eksplisit (bawaannya 4190). Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
 
 Aturan:
 
 - Migrasi dari cabang yang belum digabung **hanya** diterapkan ke database salinan itu sendiri, tidak ke `simrs` atau database salinan lain. Setelah digabung ke `master`, checkout utama menerapkannya dengan `pnpm db:deploy`.
 - Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
+- Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
 ## 8. Pemecahan masalah
@@ -570,6 +586,7 @@ Aturan:
 | Tes: "prisma migrate deploy gagal untuk simrs_test…"         | Postgres mati, database tes belum dibuat, atau migrasi lama diubah. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (hanya database tes di `TEST_DATABASE_URL`).              |
 | Tes: "Persiapan tes menolak database …"                      | `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL` harus menunjuk `simrs_test` atau `simrs_test_<nama>` ([salinan paralel](#beberapa-salinan-repo-sekaligus-git-worktree)).                  |
 | `node -v` bukan v24, atau `corepack` tidak dikenal           | Alat lain menaruh `node`-nya lebih dulu di `PATH`. Lihat [Mesin baru (macOS)](#mesin-baru-macos).                                                                                     |
+| Migrasi: "FK … belum divalidasi: N baris merujuk pasien…"    | Relasi/akses darurat lama ke pasien yang tidak ada. Tidak ada yang dihapus; FK tetap memeriksa baris baru. Tes: `pnpm db:test:recreate -- --yes`; lainnya: ADR-0015 (5 Okt 2026).     |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
 | Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |

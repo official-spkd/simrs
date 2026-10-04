@@ -7,14 +7,15 @@ import {
   Button,
   Field,
   FilterChip,
+  RadioSegmented,
   SafetyGate,
-  Segmented,
   Sidebar,
   TabList,
   type TabListItem,
   TabPanel,
   Tabs,
   type TabsVariant,
+  radioKeyTarget,
   tabIds,
   tabKeyTarget,
 } from './index';
@@ -105,6 +106,9 @@ describe('TabList + TabPanel · pola tab ARIA', () => {
     expect(tabKeyTarget('End', 0, 5)).toBe(4);
     expect(tabKeyTarget('Tab', 0, 5)).toBeNull();
     expect(tabKeyTarget('ArrowRight', 0, 0)).toBeNull();
+    expect(radioKeyTarget('ArrowDown', 2, 3)).toBe(0);
+    expect(radioKeyTarget('ArrowUp', 0, 3)).toBe(2);
+    expect(radioKeyTarget('Home', 1, 3)).toBeNull();
   });
 });
 
@@ -205,8 +209,8 @@ describe('target sentuh ≥ 44 px', () => {
       </FilterChip>,
     ],
     [
-      'Segmented',
-      <Segmented
+      'RadioSegmented',
+      <RadioSegmented
         key="s"
         label="Rentang"
         value="a"
@@ -215,6 +219,17 @@ describe('target sentuh ≥ 44 px', () => {
           { id: 'a', label: 'Hari ini' },
           { id: 'b', label: 'YTD' },
         ]}
+      />,
+    ],
+    [
+      'TabList segmen',
+      <TabList
+        key="sg"
+        label="Skenario"
+        variant="segmen"
+        items={ITEMS}
+        value="cppt"
+        onChange={() => undefined}
       />,
     ],
     ['TabList pil', <TabList key="p" label="P" items={ITEMS} value="cppt" onChange={() => undefined} />],

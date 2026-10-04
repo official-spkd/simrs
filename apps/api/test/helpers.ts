@@ -1,6 +1,7 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import 'reflect-metadata';
+import type { ModuleMetadata } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
@@ -12,7 +13,7 @@ import {
   withTenant,
 } from '@simrs/db';
 import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
-import { newId } from '@simrs/shared';
+import { newId, resolveAppEnv } from '@simrs/shared';
 import {
   base32Decode,
   encryptField,
@@ -46,8 +47,17 @@ export const TEST_STORAGE_ROOT = join(tmpdir(), 'simrs-api-test-storage');
  */
 export const TEST_RATE_LIMIT_PREFIX = process.env.SIMRS_TEST_RATE_LIMIT_PREFIX ?? 'simrs:rl:test:';
 
-/** Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app). */
-export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
+/**
+ * Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app).
+ * Penyimpanan berkas: disk untuk APP_ENV=local; staging/produksi wajib s3 (bucket `.env`, tidak disentuh tes itu).
+ * Tes yang menyimpan berkas di S3 memakai bucket uji sendiri (`s3-test-bucket.ts`).
+ * `options.imports`: modul khusus tes (mis. controller uji infrastruktur) yang dipasang di samping `AppModule`.
+ */
+export async function createTestApp(
+  overrides: Record<string, string> = {},
+  options: { imports?: NonNullable<ModuleMetadata['imports']> } = {},
+): Promise<NestExpressApplication> {
+  const local = resolveAppEnv(overrides.APP_ENV ?? 'local') === 'local';
   const env = loadApiEnv({
     ...process.env,
     NODE_ENV: 'test',
@@ -62,11 +72,13 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     RATE_LIMIT_REDIS_PREFIX: `${TEST_RATE_LIMIT_PREFIX}${newId()}:`,
     // Supertest datang dari loopback; X-Forwarded-For hanya dipercaya dari sana (seperti web BFF lokal).
     TRUST_PROXY: 'loopback',
-    STORAGE_DRIVER: 'disk',
+    STORAGE_DRIVER: local ? 'disk' : 's3',
     STORAGE_DISK_ROOT: TEST_STORAGE_ROOT,
     ...overrides,
   });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule.forRoot(env), ...(options.imports ?? [])],
+  }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true, rawBody: true });
   configureApp(app, env);
   await app.init();

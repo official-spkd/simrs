@@ -1,6 +1,6 @@
 # ADR-0011 · Sesi buram berotasi, MFA wajib, argon2id bawaan Node 24
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 P02 menuntut akun per orang, MFA, sesi pendek dengan refresh berotasi, kebijakan kata sandi, dan kunci akun (docs/05 §1). `.env.example` awal menyiapkan rahasia JWT. Login terjadi sebelum ada konteks tenant, padahal semua tabel identitas tunduk RLS.
@@ -23,6 +23,10 @@ P02 menuntut akun per orang, MFA, sesi pendek dengan refresh berotasi, kebijakan
 − Satu kueri sesi per permintaan (diindeks PK, `last_seen_at` ditulis paling sering sekali per menit).
 − Pengembang wajib Node 24.7+.
 − PIN login cepat per perangkat (docs/05) dan OTP cadangan via email/WhatsApp belum dibangun (dicatat di PROGRESS).
+
+## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
+
+PIN login cepat per perangkat terdaftar dibangun di fase 1 potongan 10c-2 (ADR-0024): sesi PIN pendek (2 jam, idle 5 menit), terkunci ke satu posisi layanan, dan dihitung terverifikasi dua faktor (token perangkat + PIN). Kode cadangan WhatsApp/email sudah ada sejak ADR-0022.
 
 ## Pembaruan 5 Okt 2026 · daftar kata sandi bocor offline
 Daftar statis kecil di `password-policy.ts` kini hanya lapis dasar. Daftar besar disimpan di `ref.breached_passwords` (global, read-only bagi aplikasi, migrasi `20261005140000_breached_passwords`): hanya SHA-1 format Have I Been Pwned, N teratas (bawaan 100 ribu, maks. 2 juta), diisi operator lewat `pnpm db:import-breached` dari berkas resmi `SHA1:hitungan` (dibaca baris demi baris, dipilih hitungan terbesar) atau daftar teks, mengganti isi lama dalam satu transaksi dan gagal tertutup. Repo hanya membawa contoh kecil (`packages/db/data/breached-passwords-sample.txt`); dataset resmi tidak diunduh SIM RS. Saat ganti sandi, API mencari per rentang awalan 20 bit (gaya k-anonymity API rentang HIBP; kueri tidak pernah memuat hash utuh) lalu mencocokkan di aplikasi; hasilnya pelanggaran `common` yang sama. Dipilih tabel database, bukan berkas biner per server, agar semua instans API memakai daftar yang sama tanpa langkah penyebaran tambahan. − Tanpa impor resmi, perlindungan produksi hanya sebesar daftar contoh; langkah impor masuk panduan operator (`docs/panduan/03-tutorial.md`).

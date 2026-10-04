@@ -18,7 +18,7 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  /** Readiness: DB, Redis, MinIO. 503 bila salah satu gagal. */
+  /** Readiness: DB, Redis, penyimpanan berkas (S3/MinIO atau disk lokal). 503 bila salah satu gagal. */
   @Get('ready')
   @ApiOkResponse({ description: 'Semua dependensi siap' })
   @ApiServiceUnavailableResponse({ description: 'Minimal satu dependensi gagal' })

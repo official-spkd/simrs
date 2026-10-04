@@ -61,7 +61,7 @@ export function DoctorApp({
       <main
         tabIndex={0}
         aria-label="Isi aplikasi"
-        className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-4 py-4 outline-none"
+        className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4 py-4 outline-none *:shrink-0"
       >
         {tab !== 'pasien' ? (
           <AppPageView page={pages[tab]} />

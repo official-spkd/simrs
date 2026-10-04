@@ -2,13 +2,15 @@
 
 import { type KeyboardEvent, type ReactNode, useId, useRef } from 'react';
 import { cx } from './cx';
+import { SEGMENT_GROUP, SEGMENT_ITEM, SEGMENT_OFF, SEGMENT_ON } from './segment-style';
 import { tabIds, tabKeyTarget } from './tabs-model';
 
 /**
  * Gaya daftar tab:
  * - `pil`: pil abu-abu, tab aktif putih (mockup Ranap, BedManagement, PembayaranBTN); tombol 44 px.
- * - `segmen`: sama dengan pil tetapi ringkas untuk baris kontrol (Simulasi, Dasbor): tampak 36 px, area sentuh
- *   diperluas ke padding wadah sehingga tetap 44 px.
+ * - `segmen`: sama dengan pil tetapi ringkas untuk baris kontrol yang berpindah panel (skenario Simulasi): tampak
+ *   36 px, area sentuh diperluas ke padding wadah sehingga tetap 44 px. Memilih nilai/mode tanpa panel →
+ *   `RadioSegmented`.
  * - `garis`: garis bawah teal di tab aktif (rekam medis, worklist); tombol 44 px.
  */
 export type TabsVariant = 'pil' | 'segmen' | 'garis';
@@ -23,7 +25,7 @@ export interface TabListItem {
 
 const LIST: Record<TabsVariant, string> = {
   pil: 'flex flex-wrap gap-1 self-start rounded-[12px] bg-line-soft p-1',
-  segmen: 'flex flex-wrap gap-1 rounded-[12px] bg-line-soft p-1',
+  segmen: SEGMENT_GROUP,
   garis: 'flex flex-wrap border-b border-line',
 };
 
@@ -33,12 +35,7 @@ const TAB: Record<TabsVariant, { base: string; on: string; off: string }> = {
     on: 'bg-white font-semibold text-brand-700 shadow-tab',
     off: 'bg-transparent text-ink-700',
   },
-  segmen: {
-    // Tampak 36 px; ::before memperluas area sentuh 4 px ke atas/bawah (padding wadah) → 44 px.
-    base: "relative inline-flex h-9 items-center gap-2 rounded-[9px] border-0 px-3.5 before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
-    on: 'bg-white font-semibold text-ink-900 shadow-tab',
-    off: 'bg-transparent text-ink-700',
-  },
+  segmen: { base: SEGMENT_ITEM, on: SEGMENT_ON, off: SEGMENT_OFF },
   garis: {
     base: 'inline-flex -mb-px min-h-touch items-center gap-2 border-0 border-b-2 bg-transparent px-3.5',
     on: 'border-brand-600 font-semibold text-brand-700',

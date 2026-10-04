@@ -17,3 +17,7 @@ ADR-0003 menetapkan pola outbox: transaksi domain menulis pesan, worker mengirim
 + Pola yang sama dipakai konektor berikutnya (SATUSEHAT, BPJS) yang perlu menyimpan ID dari respons (mis. ID resource).
 − Worker memegang kunci enkripsi kolom; perlakukan worker setara API dalam pengelolaan rahasia.
 − Konektor Dukcapil sungguhan (kredensial, tanda tangan, kontrak resmi) menyusul saat sandbox tersedia.
+
+## Pembaruan 5 Okt 2026
+
+[ADR-0025](./0025-lookup-sinkron-di-luar-transaksi.md) mengubah aturan "handler tidak boleh memanggil sistem eksternal" (keputusan 4 Okt), **khusus untuk lookup baca-saja** yang ditunggu pengguna: VClaim peserta/rujukan dan Dukcapil demografi untuk isian pendaftaran (§4 di atas). Lookup ini berjalan sinkron dari handler `@NoRequestTransaction()` lewat `LookupGateway`, di luar transaksi, dengan batas 5 detik dan audit sebelum serta sesudah panggilan. Verifikasi NIK (`dukcapil.nik.verify`) dan semua penulisan ke sistem luar tetap lewat outbox sesuai ADR ini.

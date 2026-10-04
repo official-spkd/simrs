@@ -15,3 +15,14 @@ export function tabKeyTarget(key: string, active: number, count: number): number
   if (key === 'End') return count - 1;
   return null;
 }
+
+/**
+ * Indeks pilihan tujuan untuk tombol keyboard pola radio ARIA: panah kanan/bawah ke berikutnya, kiri/atas ke
+ * sebelumnya, berputar di ujung. Null = bukan tombol navigasi radio.
+ */
+export function radioKeyTarget(key: string, active: number, count: number): number | null {
+  if (count === 0) return null;
+  if (key === 'ArrowRight' || key === 'ArrowDown') return (active + 1) % count;
+  if (key === 'ArrowLeft' || key === 'ArrowUp') return (active - 1 + count) % count;
+  return null;
+}
