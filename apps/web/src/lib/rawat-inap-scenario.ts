@@ -28,7 +28,7 @@ import {
   wib,
 } from './demo/fixtures/rawat-inap';
 import { PERSONA, STAF, STAF_LAIN } from './demo/fixtures/staf';
-import { isTriageLevel, SCENARIO_CONSENT_WAIT } from './rawat-inap';
+import { BOARDING_TARGET_MINUTES, isTriageLevel, SCENARIO_CONSENT_WAIT } from './rawat-inap';
 
 /**
  * Proyeksi pasien skenario Simulasi (Tn. Hartono · igd-ranap, Ny. Ratna · elektif-btn) ke layar IGD, tempat
@@ -140,7 +140,7 @@ export function hartonoBedRequest(R: RunResult): BedRequest | null {
     need: d?.need ?? '',
     kelas: d?.kelas ?? 'ICU',
     waitMinutes: wait,
-    late: wait >= 240,
+    late: wait >= BOARDING_TARGET_MINUTES,
     candidates: choiceOptions(R, 'admisi', 'alok').map((o) => ({
       bedCode: scenarioBedCode(o.id),
       label: o.label,

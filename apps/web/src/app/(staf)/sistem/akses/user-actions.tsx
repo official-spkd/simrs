@@ -7,9 +7,14 @@ import { Done, ErrorText, TemporaryPassword } from './parts';
 
 type Pending = 'password' | 'mfa' | 'status' | null;
 
-const QUESTIONS: Record<Exclude<Pending, null>, (name: string, active: boolean) => string> = {
-  password: (n) =>
-    `Reset kata sandi ${n}? Semua sesi aktifnya dicabut dan ia wajib mengganti sandi saat login berikutnya.`,
+const QUESTIONS: Record<
+  Exclude<Pending, null>,
+  (name: string, active: boolean, activated: boolean) => string
+> = {
+  password: (n, _active, activated) =>
+    activated
+      ? `Reset kata sandi ${n}? Semua sesi aktifnya dicabut dan ia wajib mengganti sandi saat login berikutnya.`
+      : `Aktifkan akun ${n} dengan sandi sementara? Saat login pertama ia wajib mendaftarkan MFA dan mengganti sandi.`,
   mfa: (n) =>
     `Reset verifikasi dua langkah ${n}? Pakai bila ponselnya hilang/ganti. Ia wajib mendaftarkan aplikasi autentikator lagi.`,
   status: (n, active) =>
@@ -24,11 +29,14 @@ export function UserActions({
   username,
   displayName,
   active,
+  activated,
 }: {
   userId: string;
   username: string;
   displayName: string;
   active: boolean;
+  /** Sudah punya kata sandi; belum = "Reset kata sandi" sekaligus mengaktifkan akun. */
+  activated: boolean;
 }) {
   const [asking, setAsking] = useState<Pending>(null);
   const [busy, start] = useTransition();
@@ -71,7 +79,7 @@ export function UserActions({
           aria-label="Konfirmasi"
           className="flex flex-col gap-2 rounded-control border border-line bg-subtle px-3 py-2.5"
         >
-          <span className="text-small text-ink-900">{QUESTIONS[asking](displayName, active)}</span>
+          <span className="text-small text-ink-900">{QUESTIONS[asking](displayName, active, activated)}</span>
           <div className="flex gap-2">
             <Button
               size="sm"

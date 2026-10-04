@@ -101,6 +101,8 @@ describe('layar Akses: data', () => {
       locked: 1,
       mfaMissing: 1,
       dormant: 1,
+      // Semua akun uji punya kata sandi; akun tanpa sandi diuji di seed-staff.test.ts.
+      notActivated: 0,
       breakGlass7d: 1,
       breakGlassPending: 2,
       dormantDays: 60,

@@ -35,7 +35,7 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            className="flex min-h-9 cursor-pointer items-center gap-1 rounded-[9px] border border-line-strong bg-white px-2.5 font-[inherit] text-small"
+            className="flex min-h-11 cursor-pointer items-center gap-1 rounded-[9px] border border-line-strong bg-white px-2.5 font-[inherit] text-small"
           >
             <Icon name={open ? 'chevronUp' : 'chevronDown'} size={14} />
             {open ? 'Ciutkan' : 'Tampilkan tugas'}
@@ -54,8 +54,8 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
               scenario={here.scenario}
             />
           ))}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-small text-ink-700">{step.footNote}</span>
+          {/* Tombol lanjut di kiri: pojok kanan bawah layar dipakai tombol panduan melayang (`DemoGuide`). */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <button
               type="button"
               disabled={!step.canNext || pending}
@@ -69,6 +69,7 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
             >
               {step.nextLabel}
             </button>
+            <span className="text-small text-ink-700">{step.footNote}</span>
           </div>
           {error && (
             <span role="alert" className="text-caption text-danger">

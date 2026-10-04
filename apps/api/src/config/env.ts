@@ -36,11 +36,8 @@ export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.api.shape)
   .extend(envSchemas.integration.shape)
   .extend(envSchemas.fieldCrypto.shape)
+  .extend(envSchemas.rateLimit.shape)
   .extend({
-    /** Batas permintaan per IP per menit (semua endpoint kecuali health/ready). */
-    RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(600),
-    /** Batas endpoint kredensial (login, MFA, ganti sandi, refresh) per IP per menit. */
-    AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(10),
     /** Umur token akses (menit) dan umur maksimum sesi/refresh (jam). */
     ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
@@ -83,6 +80,11 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
   if (env.APP_ENV === 'production' && env.TRUST_PROXY === undefined) {
     throw new Error(
       'Konfigurasi env tidak valid → TRUST_PROXY wajib di produksi (alamat web/reverse proxy di depan API)',
+    );
+  }
+  if (env.APP_ENV === 'production' && env.RATE_LIMIT_STORE === 'memory') {
+    throw new Error(
+      'Konfigurasi env tidak valid → RATE_LIMIT_STORE=memory tidak boleh di produksi (penghitung harus sama di semua instans)',
     );
   }
   if (env.STORAGE_DRIVER === 's3') {

@@ -34,7 +34,8 @@ const schemas = {
     cursor: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
     search: z.string().trim().min(2).max(60).optional(),
-    status: z.enum(['active', 'disabled']).optional(),
+    /** `not_activated` = aktif tetapi belum punya kata sandi (belum bisa masuk). */
+    status: z.enum(['active', 'disabled', 'not_activated']).optional(),
     role: z
       .string()
       .regex(/^[a-z][a-z0-9_]{2,40}$/)
