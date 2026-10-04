@@ -48,6 +48,18 @@ export const userDetailSchema = z.object({
   createdAt: z.string(),
   ...accountFlags,
   assignments: z.array(assignment.extend({ validFrom: z.string(), pending: z.boolean() })),
+  /** PIN masuk cepat yang masih berlaku (ADR-0024). */
+  pinDevices: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      roleName: z.string(),
+      unitName: z.string().nullable(),
+      createdAt: z.string(),
+      lastUsedAt: z.string().nullable(),
+      expiresAt: z.string(),
+    }),
+  ),
 });
 export type UserDetail = z.infer<typeof userDetailSchema>;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, cx } from '@simrs/ui';
-import { type ClipboardEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type ClipboardEvent, type KeyboardEvent, useId, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
 /** Tombol kirim yang nonaktif dan memberi tahu selama action berjalan (mencegah kirim ganda). */
@@ -35,11 +35,26 @@ export function FormError({ message }: { message?: string }) {
 
 /**
  * Enam kotak kode verifikasi (mockup Login): ketik maju otomatis, Backspace mundur, tempel 6 digit sekaligus.
- * Nilai gabungan dikirim lewat input tersembunyi `code`.
+ * Nilai gabungan dikirim lewat input tersembunyi `name` (bawaan `code`). `masked` untuk PIN: angka disamarkan dan
+ * tidak ditawarkan isi otomatis.
  */
-export function OtpInput({ error, label = 'Kode verifikasi' }: { error?: string; label?: string }) {
+export function OtpInput({
+  error,
+  label = 'Kode verifikasi',
+  name = 'code',
+  masked = false,
+  digitLabel = 'Digit',
+}: {
+  error?: string;
+  label?: string;
+  name?: string;
+  masked?: boolean;
+  /** Awalan label tiap kotak (`Digit 1`, `Digit PIN 1`). */
+  digitLabel?: string;
+}) {
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const refs = useRef<Array<HTMLInputElement | null>>([]);
+  const labelId = useId();
   const firstEmpty = digits.indexOf('');
 
   const fill = (from: number, text: string) => {
@@ -68,20 +83,21 @@ export function OtpInput({ error, label = 'Kode verifikasi' }: { error?: string;
 
   return (
     <div className="flex flex-col gap-2">
-      <span id="otp-label" className="text-small font-semibold">
+      <span id={labelId} className="text-small font-semibold">
         {label}
       </span>
-      <div role="group" aria-labelledby="otp-label" className="grid grid-cols-6 gap-2">
+      <div role="group" aria-labelledby={labelId} className="grid grid-cols-6 gap-2">
         {digits.map((d, i) => (
           <input
             key={i}
             ref={(el) => {
               refs.current[i] = el;
             }}
-            aria-label={`Digit ${i + 1}`}
+            aria-label={`${digitLabel} ${i + 1}`}
             aria-invalid={Boolean(error)}
+            type={masked ? 'password' : 'text'}
             inputMode="numeric"
-            autoComplete={i === 0 ? 'one-time-code' : 'off'}
+            autoComplete={masked ? 'off' : i === 0 ? 'one-time-code' : 'off'}
             maxLength={6}
             value={d}
             autoFocus={i === 0}
@@ -106,7 +122,7 @@ export function OtpInput({ error, label = 'Kode verifikasi' }: { error?: string;
           />
         ))}
       </div>
-      <input type="hidden" name="code" value={digits.join('')} />
+      <input type="hidden" name={name} value={digits.join('')} />
       {error && (
         <span role="alert" className="text-caption font-semibold text-danger">
           {error}

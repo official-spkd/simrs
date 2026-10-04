@@ -20,6 +20,7 @@ import { requireSession } from '@/lib/server/session';
 import { can, initials, type SessionView } from '@/lib/session-view';
 import { AddAssignment, EndAssignment } from './assignment-forms';
 import { InviteUser } from './invite-user';
+import { RevokePinDevice } from './pin-devices';
 import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
@@ -437,6 +438,32 @@ function UserPanel({
           <AddAssignment userId={user.id} roles={roles} units={units} />
         )}
       </div>
+
+      {user.pinDevices.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+          <h3 className="m-0 text-small font-semibold">PIN masuk cepat</h3>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {user.pinDevices.map((d) => {
+              const label = `${d.name} (${d.roleName}${d.unitName ? ` · ${d.unitName}` : ''})`;
+              return (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line-soft px-3 py-2"
+                >
+                  <span className="flex flex-col">
+                    <span className="text-small font-semibold">{label}</span>
+                    <span className="text-caption text-ink-500">
+                      Terakhir dipakai {formatLastLogin(d.lastUsedAt)} · berlaku sampai{' '}
+                      {formatTanggal(d.expiresAt)}
+                    </span>
+                  </span>
+                  {canWrite && !self && <RevokePinDevice deviceId={d.id} label={label} />}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {canWrite && (
         <div className="flex flex-col gap-2 border-t border-line-soft pt-3">

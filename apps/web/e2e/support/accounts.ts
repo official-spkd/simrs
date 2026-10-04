@@ -62,6 +62,8 @@ export async function createAccount(
     mfa?: boolean;
     mustChangePassword?: boolean;
     displayName?: string;
+    /** Penugasan terikat unit baru bernama ini (mis. untuk PIN masuk cepat); tanpa ini "Semua unit". */
+    unitName?: string;
   } = {},
 ): Promise<Account> {
   const tenantCode = opts.tenant ?? 'RSFA';
@@ -87,9 +89,21 @@ export async function createAccount(
       },
     });
     await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    let unitId: string | null = null;
+    if (opts.unitName) {
+      const facilityId = newId();
+      const code = `E2E${id.slice(-8).toUpperCase()}`;
+      await tx.facility.create({ data: { id: facilityId, tenantId, code, name: 'Gedung E2E fiktif' } });
+      unitId = newId();
+      await tx.unit.create({
+        data: { id: unitId, tenantId, facilityId, code, name: opts.unitName, kind: 'rawat_inap' },
+      });
+    }
     for (const code of opts.roles ?? []) {
       const role = await tx.role.findFirstOrThrow({ where: { code } });
-      await tx.staffAssignment.create({ data: { id: newId(), tenantId, userId: id, roleId: role.id } });
+      await tx.staffAssignment.create({
+        data: { id: newId(), tenantId, userId: id, roleId: role.id, unitId },
+      });
     }
     if (account.totpSecret) {
       await tx.mfaFactor.create({
