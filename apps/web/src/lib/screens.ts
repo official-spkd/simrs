@@ -90,7 +90,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'DisplayAntrean',
     components: ['F04'],
     phase: 2,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'queue.display',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'perangkat',
