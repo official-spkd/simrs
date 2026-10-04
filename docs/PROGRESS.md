@@ -81,7 +81,7 @@ Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); R
 
 - Setelah Docker hidup: `pnpm infra:up` → `pnpm test` (tes BullMQ harus hijau) → `/ready` hijau → centang dua kriteria sisa → fase 0 ✅.
 - Fase 1 potongan 10c: kode cadangan MFA lewat WhatsApp/email (mockup Login), PIN cepat per perangkat terdaftar (P02). Lalu 10d (seed ±30 staf tanpa sandi bawaan).
-- Tanpa Docker, nyalakan lingkungan lokal dengan `pnpm dev:lokal` (Postgres portabel + API + web; Ctrl+C berhenti).
+- Tanpa Docker, nyalakan lingkungan lokal dengan `pnpm dev:lokal` (Postgres portabel + API + web + worker + mock; Ctrl+C berhenti). Worker memakai timer bila Redis tidak ada.
 - Pengembang lokal: setelah menarik perubahan ini jalankan `pnpm db:deploy`, `pnpm db:seed` (memasang formulir Morse v1 per RS), lalu `pnpm db:create-admin` (lihat tutorial §1) untuk bisa masuk di web. Menu Formulir klinis tampil untuk peran petugas rekam medis.
 
 ## Asumsi yang dipakai (belum dikonfirmasi pemilik produk)
@@ -162,6 +162,7 @@ Disetujui 4 Okt 2026: lanjut meski fase 0 kurang 2 kriteria (menunggu Docker); R
 - 4 Okt 2026 · Unggahan = body biner yang dibaca middleware sebelum transaksi dibuka (multer di interceptor menahan koneksi pool selama klien mengunggah); 413 dijawab setelah klien selesai mengirim (jawaban lebih awal membuat klien menerima reset koneksi) · ADR-0020
 - 4 Okt 2026 · TTE: yang dikirim ke penyelenggara hanya hash + ID penanda tangan; verifikasi QR publik tanpa PHI (`/verifikasi/<kode>`), kode `sv1.<tenant>.<acak 256 bit>` · ADR-0020
 - 4 Okt 2026 · Notifikasi: in-app selalu, salinan email (bawaan) dan WhatsApp (mendesak, mis. akses darurat) lewat outbox dengan payload ID; isi tanpa PHI, tautan wajib path internal; no. HP staf terenkripsi (`staff_phone`) dan tampil tersamar · ADR-0021
+- 4 Okt 2026 · Worker outbox tanpa Redis di luar produksi: `OUTBOX_SCHEDULER=auto` memakai BullMQ bila Redis terjangkau, selain itu timer tanpa tumpang tindih (satu worker); `interval` ditolak di produksi. Agar TTE, email, WhatsApp, dan kode cadangan bisa dicoba lokal tanpa Docker
 
 ## Utang teknis
 

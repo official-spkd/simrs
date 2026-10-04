@@ -13,12 +13,22 @@ export const workerEnvSchema = envSchemas.base
     OUTBOX_HTTP_TIMEOUT_MS: z.coerce.number().int().min(100).default(10_000),
     /** Alamat web untuk tautan di email/WhatsApp notifikasi (P09). */
     WEB_BASE_URL: z.url().default('http://localhost:3000'),
+    /**
+     * Penjadwal putaran outbox: `bullmq` (Redis, wajib di produksi), `interval` (timer di proses ini; satu worker,
+     * hanya untuk pengembangan tanpa Docker), atau `auto` = BullMQ bila Redis terjangkau, selain itu interval
+     * (di luar produksi).
+     */
+    OUTBOX_SCHEDULER: z.enum(['auto', 'bullmq', 'interval']).default('auto'),
   });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 
 export function loadWorkerEnv(source: Record<string, string | undefined> = process.env): WorkerEnv {
-  return parseEnv(workerEnvSchema, source);
+  const env = parseEnv(workerEnvSchema, source);
+  if (env.APP_ENV === 'production' && env.OUTBOX_SCHEDULER === 'interval') {
+    throw new Error('Konfigurasi env tidak valid → OUTBOX_SCHEDULER=interval tidak boleh di produksi');
+  }
+  return env;
 }
 
 export const WORKER_ENV = Symbol('WORKER_ENV');

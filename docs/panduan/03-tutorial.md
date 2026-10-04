@@ -85,7 +85,7 @@ Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000
 
 ```powershell
 pnpm dev             # api + worker + web + mock sekaligus (Turborepo; butuh Docker untuk Redis)
-pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web dalam satu terminal (Ctrl+C berhenti)
+pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web + worker + mock (Ctrl+C berhenti)
 ```
 
 | Alamat                                   | Yang terlihat                                                        |
