@@ -2,6 +2,9 @@ import type {
   Bed,
   BedRequest,
   ClinicalResult,
+  CodedDiagnosis,
+  DischargeSummary,
+  ResumeSection,
   EdStatus,
   EdTrackingItem,
   InpatientDetail,
@@ -13,6 +16,7 @@ import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
 import { encounterIdOf, patientByScenario } from './demo/fixtures/pasien';
 import {
   buildInpatient,
+  resumeChecklist,
   type DxSeed,
   type InpatientSeed,
   minutesBefore,
@@ -618,4 +622,257 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
         ],
   };
   return buildInpatient(seed, { scenario: true, day: scenarioDay(R, 'admisi', 'sep') });
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Resume medis pasien skenario: bagian terisi seiring milestone, TTE lewat tugas `resume.tte`
+// ---------------------------------------------------------------------------------------------------------
+
+function coded(entries: readonly string[], primaryFirst: boolean): CodedDiagnosis[] {
+  return parseCoded(entries, primaryFirst).map(([system, code, label, primary]) => ({
+    system,
+    code,
+    label,
+    primary: !!primary,
+  }));
+}
+
+function medsFrom(obat: readonly string[], stopped: string | null): DischargeSummary['medications'] {
+  const list: DischargeSummary['medications'] = obat.map((o) => {
+    const [name = o, ...sig] = o.split(/ (?=\d+×|SC|IV|PO)/);
+    const change = /^(Amlodipin|Omeprazol)/.test(name) ? ('lanjut' as const) : ('baru' as const);
+    return { name: name.trim(), sig: sig.join(' ').trim() || 'sesuai resep', change };
+  });
+  if (stopped)
+    list.push({ name: stopped, sig: 'dihentikan (TD terkontrol dengan bisoprolol)', change: 'dihentikan' });
+  return list;
+}
+
+/** Resume Tn. Hartono: tiap bagian terisi saat sumbernya ada (triase, hasil, eMAR, himpun, rekonsiliasi, TTE). */
+export function hartonoResume(R: RunResult): DischargeSummary {
+  const p = patientByScenario('igd-ranap');
+  const done = (step: string, task: string) => isDone(R, step, task);
+  const himpun = done('resume', 'resume');
+  const rekon = valueOf(R, 'resume', 'rekon');
+  const akhir = done('rawat-inap', 'akhir');
+  const [td, hr, rr, spo2] = parseTtv(R.rec.ttv);
+  const fisik = R.rec.ttv
+    ? `Masuk: TD ${td}, nadi ${hr}, napas ${rr}, SpO2 ${spo2}.${akhir ? ' Pulang: TD 124/78, nadi 68, SpO2 98%.' : ''}`
+    : '';
+  const base = R.def.startDate;
+  const sections: ResumeSection[] = [
+    {
+      id: 'anamnesis',
+      title: 'Alasan masuk dan anamnesis singkat',
+      body: done('triase', 'level')
+        ? `Nyeri dada kiri menjalar ke lengan 40 menit. ${R.rec.riwayat}. Triase ${R.rec.triase.toLowerCase()}.`
+        : '',
+      source: 'asesmen-igd',
+    },
+    { id: 'fisik', title: 'Pemeriksaan fisik penting', body: fisik, source: 'observasi' },
+    {
+      id: 'penunjang',
+      title: 'Pemeriksaan penunjang',
+      body: R.rec.hasil.length ? `${R.rec.hasil.join('. ')}.` : '',
+      source: 'hasil',
+    },
+    {
+      id: 'terapi',
+      title: 'Terapi selama dirawat',
+      body: done('rawat-inap', 'emar')
+        ? 'Koreksi hiperkalemia (kalsium glukonat IV ± insulin–dekstrosa), antiplatelet ganda, enoksaparin, bisoprolol, atorvastatin; dicatat lewat pindai gelang eMAR.'
+        : '',
+      source: 'emar',
+    },
+    {
+      id: 'obat-pulang',
+      title: 'Obat pulang (hasil rekonsiliasi)',
+      body: himpun ? 'Lihat daftar rekonsiliasi.' : '',
+      source: 'rekonsiliasi',
+    },
+    {
+      id: 'instruksi',
+      title: 'Instruksi dan edukasi',
+      body: himpun
+        ? 'Minum antiplatelet ganda tanpa putus; diet rendah garam dan kalium; kembali ke IGD bila nyeri dada > 15 menit atau sesak.'
+        : '',
+      source: 'dpjp',
+    },
+    {
+      id: 'tindak-lanjut',
+      title: 'Tindak lanjut',
+      body: R.rec.kontrol
+        ? `Kontrol ${R.rec.kontrol} · ${STAF.dpjpJantung}. Angiografi koroner elektif dijadwalkan dari poli.`
+        : himpun
+          ? 'Kontrol Poli Jantung; surat kontrol terbit saat resume ditandatangani.'
+          : '',
+      source: 'surat-kontrol',
+    },
+  ];
+  // Draf obat pulang sebelum rekonsiliasi = usulan "lanjutkan amlodipin"; keputusan DPJP lewat tugas `rekon`.
+  const draft = [
+    'Aspirin 80 mg 1×1',
+    'Klopidogrel 75 mg 1×1',
+    'Atorvastatin 40 mg 1×1 malam',
+    'Bisoprolol 2,5 mg 1×1',
+    R.rec.ppi ?? 'Pantoprazol 40 mg 1×1',
+    'Amlodipin 10 mg 1×1',
+  ];
+  const meds = himpun
+    ? medsFrom(rekon ? R.rec.obat : draft, rekon === 'stop' ? 'Amlodipin 10 mg' : null)
+    : [];
+  const codes = [...coded(R.rec.dx, true), ...coded(R.rec.tindakan, false)];
+  const filled = (id: string) => !!sections.find((s) => s.id === id)?.body;
+  const signed = done('resume', 'tte');
+  return {
+    encounterId: p ? encounterIdOf(p.id) : 'kj-hartono',
+    patientId: p?.id ?? 'ps-hartono',
+    admittedAt: wib(simInstant(R.def, R.def.startMin)),
+    dischargeAt: akhir ? taskInstant(R, 'rawat-inap', 'akhir', 1440) : `${shiftDays(base, 5)}T10:00:00+07:00`,
+    admissionVia: 'IGD',
+    dischargeMethod: 'Atas persetujuan dokter',
+    condition: akhir ? 'Membaik' : 'Masih dirawat',
+    location: isDone(R, 'rawat-inap', 'pindah') ? 'Anggrek A-12' : 'Ruang intensif',
+    dpjp: STAF.dpjpJantung,
+    sections,
+    medications: meds,
+    reconciliationConfirmedAt: rekon ? taskInstant(R, 'resume', 'rekon') : null,
+    codes,
+    checklist: resumeChecklist({
+      ident: true,
+      anamnesis: filled('anamnesis'),
+      fisik: filled('fisik'),
+      penunjang: filled('penunjang'),
+      diagnosis: himpun && codes.some((c) => c.system === 'ICD-10'),
+      prosedur: codes.some((c) => c.system === 'ICD-9-CM'),
+      terapi: filled('terapi'),
+      rekonsiliasi: !!rekon,
+      edukasi: akhir,
+      instruksi: filled('instruksi'),
+      kontrol: himpun,
+      kondisi: akhir,
+    }),
+    signedAt: signed ? taskInstant(R, 'resume', 'tte') : null,
+    signedBy: signed ? STAF.dpjpJantung : null,
+  };
+}
+
+function shiftDays(iso: string, days: number): string {
+  const [y = 2026, m = 1, d = 1] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Resume Ny. Ratna: dihimpun dari asesmen pra-operasi, laporan operasi, CPPT, dan eMAR (tugas `resume.resume`). */
+export function ratnaResume(R: RunResult): DischargeSummary {
+  const p = patientByScenario('elektif-btn');
+  const done = (step: string, task: string) => isDone(R, step, task);
+  const admitted = done('admisi', 'sep');
+  const op = done('operasi', 'op');
+  const h2 = done('pasca-operasi', 'h2');
+  const himpun = done('resume', 'resume');
+  const signed = done('resume', 'tte');
+  const sections: ResumeSection[] = [
+    {
+      id: 'anamnesis',
+      title: 'Alasan masuk dan anamnesis singkat',
+      body: admitted ? `${R.rec.riwayat}. Kolik bilier berulang 6 bulan, masuk untuk operasi elektif.` : '',
+      source: 'cppt',
+    },
+    {
+      id: 'fisik',
+      title: 'Pemeriksaan fisik penting',
+      body: admitted
+        ? `Masuk: TD 118/76, nadi 78, SpO2 99%, nyeri tekan kuadran kanan atas ringan.${h2 ? ' Pulang: luka operasi kering, nyeri minimal.' : ''}`
+        : '',
+      source: 'observasi',
+    },
+    {
+      id: 'penunjang',
+      title: 'Pemeriksaan penunjang',
+      body: admitted
+        ? 'USG: batu kandung empedu multipel tanpa penebalan dinding. Hb 12,8 g/dL, leukosit 7.600 /µL.'
+        : '',
+      source: 'hasil',
+    },
+    {
+      id: 'operasi',
+      title: 'Tindakan operasi',
+      body: op
+        ? `Kolesistektomi laparoskopik oleh ${STAF.dpjpBedah}; tanpa penyulit, perdarahan minimal.`
+        : '',
+      source: 'laporan-operasi',
+    },
+    {
+      id: 'terapi',
+      title: 'Terapi selama dirawat',
+      body: done('pasca-operasi', 'emar')
+        ? 'Analgesik IV terjadwal, omeprazol, profilaksis antibiotik di kamar operasi; dicatat lewat pindai gelang eMAR.'
+        : '',
+      source: 'emar',
+    },
+    {
+      id: 'obat-pulang',
+      title: 'Obat pulang (hasil rekonsiliasi)',
+      body: himpun ? 'Lihat daftar rekonsiliasi.' : '',
+      source: 'rekonsiliasi',
+    },
+    {
+      id: 'instruksi',
+      title: 'Instruksi dan edukasi',
+      body: himpun
+        ? 'Jaga luka tetap kering 5 hari; diet rendah lemak bertahap; kembali bila demam, kuning, atau nyeri hebat.'
+        : '',
+      source: 'dpjp',
+    },
+    {
+      id: 'tindak-lanjut',
+      title: 'Tindak lanjut',
+      body: R.rec.kontrol
+        ? `Kontrol ${R.rec.kontrol} · ${STAF.dpjpBedah}.`
+        : himpun
+          ? 'Kontrol Poli Bedah; surat kontrol terbit saat resume ditandatangani.'
+          : '',
+      source: 'surat-kontrol',
+    },
+  ];
+  const codes = [
+    ...(R.rec.dx.length
+      ? coded(R.rec.dx, true)
+      : coded(['K80.2 · Batu kandung empedu tanpa kolesistitis'], true)),
+    ...coded(R.rec.tindakan, false),
+  ];
+  const filled = (id: string) => !!sections.find((s) => s.id === id)?.body;
+  return {
+    encounterId: p ? encounterIdOf(p.id) : 'kj-ratna',
+    patientId: p?.id ?? 'ps-ratna',
+    admittedAt: admitted ? taskInstant(R, 'admisi', 'sep') : wib(simInstant(R.def, R.def.startMin)),
+    dischargeAt: h2
+      ? taskInstant(R, 'pasca-operasi', 'h2', 900)
+      : `${shiftDays(R.def.startDate, 2)}T09:00:00+07:00`,
+    admissionVia: 'Admisi elektif',
+    dischargeMethod: 'Atas persetujuan dokter',
+    condition: h2 ? 'Membaik' : 'Masih dirawat',
+    location: ratnaBedCode(R) === 'VIP 3' ? 'Paviliun VIP 3' : 'Melati M-210',
+    dpjp: STAF.dpjpBedah,
+    sections,
+    medications: himpun ? medsFrom(R.rec.obat, null) : [],
+    reconciliationConfirmedAt: himpun ? taskInstant(R, 'resume', 'resume') : null,
+    codes,
+    checklist: resumeChecklist({
+      ident: true,
+      anamnesis: filled('anamnesis'),
+      fisik: filled('fisik'),
+      penunjang: filled('penunjang'),
+      diagnosis: himpun,
+      prosedur: codes.some((c) => c.system === 'ICD-9-CM'),
+      terapi: filled('terapi'),
+      rekonsiliasi: himpun,
+      edukasi: h2,
+      instruksi: filled('instruksi'),
+      kontrol: himpun,
+      kondisi: h2,
+    }),
+    signedAt: signed ? taskInstant(R, 'resume', 'tte') : null,
+    signedBy: signed ? STAF.dpjpBedah : null,
+  };
 }

@@ -2,6 +2,8 @@ import 'server-only';
 import {
   type BedBoard,
   bedBoardSchema,
+  type DischargeSummary,
+  dischargeSummarySchema,
   type EdBoard,
   edBoardSchema,
   type InpatientDetail,
@@ -15,6 +17,7 @@ import {
   demoBedRequests,
   demoBeds,
   demoEdBoardBase,
+  demoEndangResume,
   demoInpatients,
   demoWards,
 } from '../../demo/fixtures/rawat-inap';
@@ -24,8 +27,10 @@ import {
   hartonoBedRequest,
   hartonoEdItem,
   hartonoInpatient,
+  hartonoResume,
   ratnaBedRequest,
   ratnaInpatient,
+  ratnaResume,
   type ScenarioStepState,
   stepState,
 } from '../../rawat-inap-scenario';
@@ -130,4 +135,35 @@ export async function getInpatient(session: SessionView, encounterId: string): P
     return null;
   }
   return notImplemented('rawat inap');
+}
+
+export type DischargeLookup =
+  | { kind: 'resume'; summary: DischargeSummary; scenario: boolean }
+  /** Pasien rawat inap yang belum direncanakan pulang. */
+  | { kind: 'belum-disiapkan'; patientId: string }
+  | null;
+
+/** K13 · Resume medis pulang; null = kunjungan tidak dikenal (halaman → 404). */
+export async function getDischargeSummary(
+  session: SessionView,
+  encounterId: string,
+): Promise<DischargeLookup> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const runs = await scenarioRuns(session);
+    if (encounterId === 'kj-endang') {
+      return { kind: 'resume', summary: dischargeSummarySchema.parse(demoEndangResume()), scenario: false };
+    }
+    if (encounterId === 'kj-hartono') {
+      const summary = dischargeSummarySchema.parse(hartonoResume(runs.results['igd-ranap']));
+      return { kind: 'resume', summary, scenario: true };
+    }
+    if (encounterId === 'kj-ratna') {
+      const summary = dischargeSummarySchema.parse(ratnaResume(runs.results['elektif-btn']));
+      return { kind: 'resume', summary, scenario: true };
+    }
+    const inpatient = demoInpatients().find((d) => d.summary.encounterId === encounterId);
+    return inpatient ? { kind: 'belum-disiapkan', patientId: inpatient.summary.patientId } : null;
+  }
+  return notImplemented('resume medis');
 }

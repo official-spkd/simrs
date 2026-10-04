@@ -5,6 +5,7 @@ import {
   type ClinicalResult,
   type CodedDiagnosis,
   type CpptRole,
+  type DischargeSummary,
   type EdBoard,
   type EdTrackingItem,
   EMAR_TIMES,
@@ -13,10 +14,12 @@ import {
   type EwsObservation,
   type InpatientDetail,
   type InpatientFlag,
+  RESUME_CHECK_IDS,
+  type ResumeCheckId,
   type TriageLevel,
   type Ward,
 } from '@simrs/shared';
-import { ewsScore } from '../../rawat-inap';
+import { ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -1261,3 +1264,100 @@ export const INPATIENT_FLAG_LABEL: Record<InpatientFlag, string> = {
   'risiko-jatuh': 'Risiko jatuh',
   isolasi: 'Isolasi',
 };
+
+// ---------------------------------------------------------------------------------------------------------
+// K13 · Resume medis pulang (Ny. Endang; pasien skenario diproyeksikan di lib/rawat-inap-scenario.ts)
+// ---------------------------------------------------------------------------------------------------------
+
+export function resumeChecklist(
+  done: Partial<Record<ResumeCheckId, boolean>>,
+): DischargeSummary['checklist'] {
+  return RESUME_CHECK_IDS.map((id) => ({ id, label: RESUME_CHECK_LABEL[id], done: !!done[id] }));
+}
+
+/** Resume Ny. Endang (mockup Resume): semua butir lengkap kecuali rekonsiliasi obat pulang. */
+export function demoEndangResume(): DischargeSummary {
+  const dpjp = STAF.dpjpPenyakitDalam;
+  return {
+    encounterId: 'kj-endang',
+    patientId: 'ps-endang',
+    admittedAt: T('09.30', -4),
+    dischargeAt: T('10.00', 1),
+    admissionVia: 'IGD',
+    dischargeMethod: 'Atas persetujuan dokter',
+    condition: 'Membaik',
+    location: 'Bangsal Melati M-203',
+    dpjp,
+    sections: [
+      {
+        id: 'anamnesis',
+        title: 'Alasan masuk dan anamnesis singkat',
+        body: 'Demam 4 hari, batuk berdahak, sesak. Riwayat DM tipe 2 sejak 2019. Alergi amoksisilin (ruam).',
+        source: 'asesmen-igd',
+      },
+      {
+        id: 'fisik',
+        title: 'Pemeriksaan fisik penting',
+        body: 'Masuk: T 38,9 °C, RR 28, SpO2 91%, ronki basah paru kanan. Pulang: T 36,8 °C, RR 18, SpO2 97%.',
+        source: 'observasi',
+      },
+      {
+        id: 'penunjang',
+        title: 'Pemeriksaan penunjang',
+        body: 'Foto toraks: infiltrat lobus kanan bawah. Leukosit 16.200 → 8.900 /µL. GDS 254 → 168 mg/dL. Kultur sputum: Streptococcus pneumoniae, sensitif seftriakson.',
+        source: 'hasil',
+      },
+      {
+        id: 'terapi',
+        title: 'Terapi selama dirawat',
+        body: 'Seftriakson 2 g IV 1×24 jam (H1–H6), insulin basal-bolus, N-asetilsistein, O2 nasal 2 lpm (H1–H3); kateter vena sentral dipasang H2.',
+        source: 'emar',
+      },
+      {
+        id: 'obat-pulang',
+        title: 'Obat pulang (hasil rekonsiliasi)',
+        body: 'Lihat daftar rekonsiliasi.',
+        source: 'rekonsiliasi',
+      },
+      {
+        id: 'instruksi',
+        title: 'Instruksi dan edukasi',
+        body: 'Cek gula darah mandiri 2×/hari dan catat di aplikasi pasien. Kembali ke IGD bila demam ≥ 38,5 °C atau sesak.',
+        source: 'dpjp',
+      },
+      {
+        id: 'tindak-lanjut',
+        title: 'Tindak lanjut',
+        body: `Kontrol Poli Penyakit Dalam Rab, 14 Okt 2026 · ${dpjp}. Foto toraks ulang 6 minggu.`,
+        source: 'surat-kontrol',
+      },
+    ],
+    medications: [
+      { name: 'Sefiksim 200 mg', sig: '2×1 PO · 4 hari', change: 'baru' },
+      { name: 'Metformin 500 mg', sig: '2×1 PO sesudah makan', change: 'lanjut' },
+      { name: 'Insulin glargine 16 unit', sig: 'SC malam', change: 'baru' },
+      { name: 'Amlodipin 5 mg', sig: 'dihentikan sementara (TD terkontrol)', change: 'dihentikan' },
+    ],
+    reconciliationConfirmedAt: null,
+    codes: [
+      { system: 'ICD-10', code: 'J13', label: 'Pneumonia akibat S. pneumoniae', primary: true },
+      { system: 'ICD-10', code: 'E11.9', label: 'DM tipe 2 tanpa komplikasi', primary: false },
+      { system: 'ICD-9-CM', code: '38.93', label: 'Pemasangan kateter vena sentral', primary: false },
+    ],
+    checklist: resumeChecklist({
+      ident: true,
+      anamnesis: true,
+      fisik: true,
+      penunjang: true,
+      diagnosis: true,
+      prosedur: true,
+      terapi: true,
+      edukasi: true,
+      instruksi: true,
+      kontrol: true,
+      kondisi: true,
+    }),
+    signedAt: null,
+    signedBy: null,
+  };
+}

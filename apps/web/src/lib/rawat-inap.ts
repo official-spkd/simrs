@@ -12,6 +12,9 @@ import {
   type EdZone,
   OCCUPIED_BED_STATUSES,
   SAFETY_REASON_MIN,
+  RESUME_CHECK_IDS,
+  type ResumeCheckId,
+  type ResumeSection,
   type TriageLevel,
   type Ward,
   type WardClass,
@@ -466,4 +469,66 @@ export function formatTglJam(iso: string): string {
 /** Slot yang bisa dicatat pemberiannya (setelah gelang cocok). */
 export function emarActionable(state: EmarSlotState): boolean {
   return state === 'jadwal' || state === 'terlambat';
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Resume medis: 12 butir kelengkapan; TTE hanya bila lengkap, lalu terkunci (perubahan lewat addendum)
+// ---------------------------------------------------------------------------------------------------------
+
+export const RESUME_CHECK_LABEL: Record<ResumeCheckId, string> = {
+  ident: 'Identitas pasien dan data kunjungan',
+  anamnesis: 'Alasan masuk dan anamnesis',
+  fisik: 'Pemeriksaan fisik masuk dan pulang',
+  penunjang: 'Hasil penunjang penting',
+  diagnosis: 'Diagnosis utama dan sekunder berkode',
+  prosedur: 'Prosedur berkode ICD-9-CM',
+  terapi: 'Ringkasan terapi dari eMAR',
+  rekonsiliasi: 'Rekonsiliasi obat pulang dikonfirmasi DPJP',
+  edukasi: 'Edukasi pasien terdokumentasi',
+  instruksi: 'Instruksi pulang dan tanda bahaya',
+  kontrol: 'Jadwal kontrol dan surat kontrol',
+  kondisi: 'Kondisi dan cara pulang',
+};
+
+export const RESUME_SOURCE_LABEL: Record<ResumeSection['source'], string> = {
+  'asesmen-igd': 'dari asesmen awal IGD',
+  cppt: 'dari CPPT',
+  observasi: 'dari observasi + CPPT',
+  hasil: 'dari hasil lab dan radiologi',
+  emar: 'dari eMAR',
+  'laporan-operasi': 'dari laporan operasi',
+  rekonsiliasi: 'rekonsiliasi obat pulang',
+  dpjp: 'ditulis DPJP',
+  'surat-kontrol': 'surat kontrol otomatis',
+};
+
+export interface ResumeCompleteness {
+  done: number;
+  total: number;
+  missing: string[];
+  complete: boolean;
+}
+
+/** Kelengkapan resume: 12 butir wajib, urutan tetap; TTE hanya bila semua terpenuhi. */
+export function resumeCompleteness(
+  checklist: ReadonlyArray<{ id: ResumeCheckId; done: boolean }>,
+): ResumeCompleteness {
+  const byId = new Map(checklist.map((c) => [c.id, c.done]));
+  const missing = RESUME_CHECK_IDS.filter((id) => !byId.get(id)).map((id) =>
+    RESUME_CHECK_LABEL[id].toLowerCase(),
+  );
+  return {
+    done: RESUME_CHECK_IDS.length - missing.length,
+    total: RESUME_CHECK_IDS.length,
+    missing,
+    complete: missing.length === 0,
+  };
+}
+
+/** Alasan tombol TTE nonaktif, atau null bila boleh ditandatangani. */
+export function resumeSignBlocker(c: ResumeCompleteness, canSign: boolean, signed: boolean): string | null {
+  if (signed) return 'Resume sudah final; perubahan hanya lewat addendum berversi.';
+  if (!c.complete) return `TTE terkunci: lengkapi ${c.total - c.done} butir lagi (${c.missing.join(', ')}).`;
+  if (!canSign) return 'Resume disiapkan; TTE hanya oleh DPJP (posisi dokter).';
+  return null;
 }

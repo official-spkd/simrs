@@ -1,12 +1,33 @@
 import { SEED_REF_SAMPLES } from '@simrs/db';
-import { cpptEntrySchema, cpptNoteInputSchema, inpatientDetailSchema } from '@simrs/shared';
+import {
+  cpptEntrySchema,
+  cpptNoteInputSchema,
+  type DischargeSummary,
+  dischargeSummarySchema,
+  inpatientDetailSchema,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
-import { demoInpatients } from './demo/fixtures/rawat-inap';
+import { demoEndangResume, demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
-import { correctCpptEntry, cpptMatches, ewsLevel, ewsScore, newCpptEntry, supersededIds } from './rawat-inap';
-import { hartonoInpatient, ratnaInpatient, stepIndexOf } from './rawat-inap-scenario';
+import {
+  correctCpptEntry,
+  cpptMatches,
+  ewsLevel,
+  ewsScore,
+  newCpptEntry,
+  resumeCompleteness,
+  resumeSignBlocker,
+  supersededIds,
+} from './rawat-inap';
+import {
+  hartonoInpatient,
+  hartonoResume,
+  ratnaInpatient,
+  ratnaResume,
+  stepIndexOf,
+} from './rawat-inap-scenario';
 
 const icd10 = new Set(SEED_REF_SAMPLES.icd10.map((c) => c.code));
 const icd9 = new Set(SEED_REF_SAMPLES.icd9cm.map((c) => c.code));
@@ -161,5 +182,69 @@ describe('K04/K07/K12 · rawat inap', () => {
     expect(() => inpatientDetailSchema.parse(d)).not.toThrow();
     expect(d?.summary.diagnoses.map((x) => x.code)).toEqual(['K80.2', '51.23']);
     expect(d?.summary.bed).toBe('VIP 3');
+  });
+});
+
+describe('K13 · resume medis', () => {
+  const codesOk = (s: DischargeSummary) =>
+    s.codes.every((c) => (c.system === 'ICD-10' ? icd10.has(c.code) : icd9.has(c.code)));
+
+  it('aturan kelengkapan: 12 butir; TTE terkunci dengan alasan sampai lengkap, lalu final', () => {
+    const s = dischargeSummarySchema.parse(demoEndangResume());
+    expect(codesOk(s)).toBe(true);
+    const c = resumeCompleteness(s.checklist);
+    expect(c).toMatchObject({ done: 11, total: 12, complete: false });
+    expect(c.missing).toEqual(['rekonsiliasi obat pulang dikonfirmasi dpjp']);
+    expect(resumeSignBlocker(c, true, false)).toMatch(/^TTE terkunci: lengkapi 1 butir lagi/);
+    const full = resumeCompleteness(s.checklist.map((x) => ({ ...x, done: true })));
+    expect(resumeSignBlocker(full, true, false)).toBeNull();
+    expect(resumeSignBlocker(full, false, false)).toMatch(/DPJP/);
+    expect(resumeSignBlocker(full, true, true)).toMatch(/addendum/);
+  });
+
+  it('resume Tn. Hartono terisi seiring milestone; TTE baru terbuka setelah himpun + rekonsiliasi', () => {
+    const def = SCENARIOS['igd-ranap'];
+    const early = hartonoResume(runScenario(def, []));
+    expect(() => dischargeSummarySchema.parse(early)).not.toThrow();
+    expect(early.sections.every((x) => x.body === '')).toBe(true);
+    expect(resumeCompleteness(early.checklist).done).toBe(1);
+
+    const atResume = jump('igd-ranap', 'resume');
+    const mid = hartonoResume(runScenario(def, atResume));
+    const filled = mid.sections.filter((x) => x.body).map((x) => x.id);
+    expect(filled).toEqual(expect.arrayContaining(['anamnesis', 'fisik', 'penunjang', 'terapi']));
+    expect(filled).not.toContain('obat-pulang');
+    expect(resumeCompleteness(mid.checklist).complete).toBe(false);
+
+    const himpun = play('igd-ranap', [['resume', true]], atResume);
+    const h = hartonoResume(runScenario(def, himpun));
+    expect(h.codes.map((x) => x.code)).toEqual(['I21.4', 'E87.5', 'N18.3', 'I10', '89.52', '88.72']);
+    expect(codesOk(h)).toBe(true);
+    expect(resumeCompleteness(h.checklist).missing).toEqual(['rekonsiliasi obat pulang dikonfirmasi dpjp']);
+
+    const signed = play(
+      'igd-ranap',
+      [
+        ['rekon', 'stop'],
+        ['tte', true],
+      ],
+      himpun,
+    );
+    const f = hartonoResume(runScenario(def, signed));
+    expect(resumeCompleteness(f.checklist).complete).toBe(true);
+    expect(f.medications.find((m) => m.name.startsWith('Amlodipin'))?.change).toBe('dihentikan');
+    expect(f.signedBy).not.toBeNull();
+    expect(f.sections.find((x) => x.id === 'tindak-lanjut')?.body).toMatch(/Poli Jantung/);
+  });
+
+  it('resume Ny. Ratna memuat laporan operasi; kode ⊂ seed', () => {
+    const def = SCENARIOS['elektif-btn'];
+    const seq = play('elektif-btn', [['resume', true]], jump('elektif-btn', 'resume'));
+    const r = ratnaResume(runScenario(def, seq));
+    expect(() => dischargeSummarySchema.parse(r)).not.toThrow();
+    expect(r.sections.find((x) => x.id === 'operasi')?.body).toMatch(/laparoskopik/);
+    expect(r.codes.map((x) => x.code)).toEqual(['K80.2', '51.23']);
+    expect(codesOk(r)).toBe(true);
+    expect(resumeCompleteness(r.checklist).complete).toBe(true);
   });
 });
