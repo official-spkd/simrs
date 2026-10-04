@@ -295,7 +295,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Integrasi',
     components: ['I01', 'I02', 'I03', 'I04', 'I05', 'I06'],
     phase: 7,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'integration.read',
     demoRoles: ['admin_tenant'],
     layout: 'staf',
