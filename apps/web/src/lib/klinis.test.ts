@@ -24,12 +24,17 @@ import {
   canWriteDoctorNote,
   canWriteOrders,
   cpptNeedsCosign,
+  EGFR_LOW_THRESHOLD,
+  egfrLow,
   filterQueue,
   ICD10_OPTIONS,
+  labValueFlag,
   minutesToJam,
   nextWaiting,
   queueCounts,
   stageSteps,
+  VALUE_FLAG_LABEL,
+  vitalValueFlag,
 } from './klinis';
 
 const seed = (system: keyof typeof SEED_REF_SAMPLES) => new Set(SEED_REF_SAMPLES[system].map((s) => s.code));
@@ -125,6 +130,24 @@ describe('antrean poli dan tampilan', () => {
       'belum',
     ]);
     expect(minutesToJam(7 * 60 + 5)).toBe('07.05');
+  });
+
+  it('nilai di luar batas bertulisan: arah tanda vital, bendera lab, eGFR rendah', () => {
+    expect(vitalValueFlag('tinggi')).toBe('tinggi');
+    expect(vitalValueFlag('rendah')).toBe('rendah');
+    expect(vitalValueFlag('normal')).toBeNull();
+    expect(vitalValueFlag('belum')).toBeNull();
+    expect((['', 'H', 'L', 'A', 'K'] as const).map(labValueFlag)).toEqual([
+      null,
+      'tinggi',
+      'rendah',
+      'abnormal',
+      'kritis',
+    ]);
+    expect(Object.values(VALUE_FLAG_LABEL)).toEqual(['Tinggi', 'Rendah', 'Abnormal', 'Kritis']);
+    expect(egfrLow(EGFR_LOW_THRESHOLD - 1)).toBe(true);
+    expect(egfrLow(EGFR_LOW_THRESHOLD)).toBe(false);
+    expect(egfrLow(null)).toBe(false);
   });
 });
 
