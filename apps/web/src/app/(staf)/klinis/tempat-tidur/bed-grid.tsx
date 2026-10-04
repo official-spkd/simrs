@@ -2,7 +2,8 @@
 
 import type { Bed, Ward } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
-import { BED_STATUS_META, percent, wardSummary } from '@/lib/rawat-inap';
+import { StatusFlag } from '@/components/klinis/status-flag';
+import { BED_STATUS_META, wardSummary } from '@/lib/rawat-inap';
 
 /** Peta bed satu ruang: ubin berwarna + teks status (tidak hanya warna). */
 export function WardGrid({
@@ -74,20 +75,22 @@ export function WardOverview({
   return (
     <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 p-0">
       {wards.map((w) => {
-        const { counts } = wardSummary(w, beds);
-        const pct = percent(counts.occupied, counts.total);
+        const { counts, percent: pct, nearlyFull } = wardSummary(w, beds);
         return (
           <li key={w.code} className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3">
             <span className="flex items-baseline justify-between gap-2">
               <span className="font-bold">{w.name}</span>
               <span className="text-caption text-ink-500">{w.kelas}</span>
             </span>
-            <span className="text-small text-ink-700">
-              {counts.occupied}/{counts.total} terisi ({pct}%) · {w.service}
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-ink-700">
+              <span>
+                {counts.occupied}/{counts.total} terisi ({pct}%) · {w.service}
+              </span>
+              {nearlyFull && <StatusFlag icon="alert">Hampir penuh</StatusFlag>}
             </span>
             <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
               <span
-                className={cx('block h-2', pct >= 90 ? 'bg-danger' : 'bg-brand-600')}
+                className={cx('block h-2', nearlyFull ? 'bg-danger' : 'bg-brand-600')}
                 style={{ width: `${pct}%` }}
               />
             </span>

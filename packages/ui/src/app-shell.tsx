@@ -1,23 +1,37 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+import { cx } from './cx';
 import { Icon } from './icons';
+
+/** Tinggi header lengket (`stickyHeader`); elemen `sticky` di halaman memakai `var(--app-sticky-top)`. */
+const STICKY_HEADER_HEIGHT = '4rem';
 
 /**
  * Kerangka halaman staf: sidebar 240 px + header + konten.
  * Di bawah 768 px sidebar runtuh menjadi menu atas yang bisa dibuka (details/summary, tanpa JS).
+ * `stickyHeader`: mulai 768 px header tetap di atas saat halaman digulir (kontrol di header, mis. panduan presentasi,
+ * selalu terjangkau tanpa melayang di atas isi); `--app-sticky-top` = tingginya, 0 bila tidak lengket. Di layar
+ * ponsel header boleh membungkus dua baris, jadi ikut tergulir agar tidak memakan layar.
  */
 export function AppShell({
   sidebar,
   header,
   children,
   tenantName,
+  stickyHeader = false,
 }: {
   sidebar: ReactNode;
   header?: ReactNode;
   children: ReactNode;
   tenantName: string;
+  stickyHeader?: boolean;
 }) {
+  const sticky = stickyHeader && Boolean(header);
   return (
-    <div className="min-h-screen md:flex">
+    <div
+      className="min-h-screen md:flex"
+      data-sticky-header={sticky ? '' : undefined}
+      style={{ '--app-sticky-top': sticky ? STICKY_HEADER_HEIGHT : '0px' } as CSSProperties}
+    >
       <aside className="sticky top-0 hidden h-screen shrink-0 overflow-y-auto md:block">{sidebar}</aside>
 
       <details className="group border-b border-line bg-white md:hidden">
@@ -34,7 +48,12 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {header && (
-          <header className="flex min-h-16 items-center gap-4 border-b border-line bg-white/80 px-6 backdrop-blur">
+          <header
+            className={cx(
+              'flex min-h-16 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-6 py-2 backdrop-blur',
+              sticky ? 'bg-white/95 md:sticky md:top-0 md:z-30' : 'bg-white/80',
+            )}
+          >
             {header}
           </header>
         )}

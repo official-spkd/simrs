@@ -3,7 +3,7 @@
 import { type ClinicalResult, type EwsObservation, formatJam } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
-import { ewsLevel, formatTglJam } from '@/lib/rawat-inap';
+import { formatTglJam, observationEwsLevel } from '@/lib/rawat-inap';
 
 const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   normal: { label: 'Normal', cls: 'text-success' },
@@ -15,7 +15,7 @@ const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
 /** Observasi tanda vital + skor EWS dewasa (mockup Ranap). */
 export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
   const last = observations.at(-1);
-  const lv = last ? ewsLevel(last.score) : null;
+  const lv = last ? observationEwsLevel(last) : null;
   return (
     <section
       aria-label="Observasi dan EWS"
@@ -23,7 +23,9 @@ export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0 text-body font-semibold">Observasi tanda vital</h2>
-        <span className="text-caption text-ink-500">EWS dewasa · rendah 0–4 · sedang 5–6 · tinggi ≥ 7</span>
+        <span className="text-caption text-ink-500">
+          EWS dewasa · rendah 0–4 · sedang 5–6 atau satu parameter 3 · tinggi ≥ 7
+        </span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[620px] border-collapse text-small">
@@ -39,7 +41,7 @@ export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
           </thead>
           <tbody>
             {observations.map((o) => {
-              const l = ewsLevel(o.score);
+              const l = observationEwsLevel(o);
               return (
                 <tr key={o.at} className="border-t border-line-soft">
                   <th scope="row" className="px-2.5 py-2 text-left font-mono font-semibold">

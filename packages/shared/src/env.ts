@@ -59,6 +59,37 @@ export const envSchemas = {
     STORAGE_DISK_ROOT: z.string().trim().min(1).default('../../.local/storage'),
   }),
   api: z.object({ API_PORT: port.default(4000), WEB_BASE_URL: z.url().default('http://localhost:3000') }),
+  /**
+   * Batas laju API (P02). Hitungan per menit per endpoint: per IP klien (`TRUST_PROXY` menentukan IP asli),
+   * khusus endpoint kredensial per IP, dan per pengguna untuk permintaan yang sudah login (staf RS sering berbagi
+   * satu IP lewat NAT). Penghitung disimpan di Redis agar sama di semua instans API.
+   */
+  rateLimit: z.object({
+    /** Per IP per endpoint (semua endpoint kecuali health/ready). */
+    RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(600),
+    /** Endpoint kredensial (`@AuthRateLimited`: login, MFA, ganti sandi, refresh) per IP per endpoint. */
+    AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(10),
+    /** Per pengguna login per endpoint, apa pun IP-nya. */
+    USER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(300),
+    /**
+     * Penyimpanan penghitung. `auto` = Redis bila terjangkau saat start, selain itu memori dengan peringatan; di
+     * produksi `auto` sama dengan `redis`. `redis` = Redis wajib: bila gagal, endpoint kredensial ditolak 503 (gagal
+     * tertutup) dan batas lain sementara per instans. `memory` = per proses, ditolak di produksi.
+     */
+    RATE_LIMIT_STORE: z.enum(['auto', 'redis', 'memory']).default('auto'),
+    /**
+     * Awalan kunci Redis. Bawaan `simrs:rl:<nama database>:` sehingga semua instans satu deployment berbagi
+     * penghitung, sedangkan server pengembangan, E2E, dan worktree lain yang memakai Redis yang sama tidak.
+     */
+    RATE_LIMIT_REDIS_PREFIX: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z0-9:_.-]{1,100}$/, 'Huruf, angka, : _ . - (maks. 100)')
+        .optional(),
+    ),
+  }),
   mock: z.object({
     MOCK_PORT: port.default(4100),
     TPDI_WEBHOOK_SECRET: z.string().min(1),

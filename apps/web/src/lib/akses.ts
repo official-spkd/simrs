@@ -1,5 +1,5 @@
 import { formatJam, formatTanggal, jakartaParts, type PermissionScope } from '@simrs/shared';
-import type { ChipTone } from '@simrs/ui';
+import type { ChipTone, IconName } from '@simrs/ui';
 
 /** Logika murni layar Akses (/sistem/akses), terpisah dari komponen agar bisa diuji. */
 
@@ -22,18 +22,48 @@ export function formatLastLogin(iso: string | null, now: Date = new Date()): str
 
 export interface AccountFlags {
   status: string;
+  /** Sudah punya kata sandi; belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */
+  activated: boolean;
   locked: boolean;
   dormant: boolean;
   neverLoggedIn: boolean;
 }
 
-/** Status akun untuk reviu akses; selalu berupa teks (tidak hanya warna). */
-export function accountStatus(u: AccountFlags): { label: string; tone: ChipTone } {
-  if (u.status !== 'active') return { label: 'Nonaktif', tone: 'neutral' };
-  if (u.locked) return { label: 'Dikunci', tone: 'danger' };
-  if (u.dormant) return { label: 'Dormant', tone: 'warning' };
-  if (u.neverLoggedIn) return { label: 'Belum login', tone: 'info' };
-  return { label: 'Aktif', tone: 'success' };
+export interface AccountStatus {
+  label: string;
+  tone: ChipTone;
+  icon: IconName;
+}
+
+/**
+ * Status akun untuk reviu akses; selalu teks + ikon (tidak hanya warna). "Belum diaktifkan" mendahului dormant dan
+ * belum login karena butuh tindakan admin (Reset kata sandi), bukan sekadar menunggu pemilik akun.
+ */
+export function accountStatus(u: AccountFlags): AccountStatus {
+  if (u.status !== 'active') return { label: 'Nonaktif', tone: 'neutral', icon: 'x' };
+  if (!u.activated) return { label: 'Belum diaktifkan', tone: 'warning', icon: 'clock' };
+  if (u.locked) return { label: 'Dikunci', tone: 'danger', icon: 'alert' };
+  if (u.dormant) return { label: 'Dormant', tone: 'warning', icon: 'history' };
+  if (u.neverLoggedIn) return { label: 'Belum login', tone: 'info', icon: 'info' };
+  return { label: 'Aktif', tone: 'success', icon: 'check' };
+}
+
+/** Petunjuk untuk akun yang belum diaktifkan (panel detail layar Akses). */
+export const NOT_ACTIVATED_HINT =
+  'Akun ini belum punya kata sandi, jadi belum bisa masuk. Pilih "Reset kata sandi" untuk membuat sandi sementara (tampil sekali); saat login pertama pemiliknya wajib mendaftarkan MFA dan mengganti sandi.';
+
+/** Pilihan filter status di layar Akses: nilai URL (Indonesia) → nilai `status` API `/iam/users`. */
+export const STATUS_FILTERS = [
+  { value: 'aktif', label: 'Aktif', api: 'active' },
+  { value: 'belum-diaktifkan', label: 'Belum diaktifkan', api: 'not_activated' },
+  { value: 'nonaktif', label: 'Nonaktif', api: 'disabled' },
+] as const;
+
+export type StatusFilter = (typeof STATUS_FILTERS)[number]['value'];
+
+/** Nilai `status` untuk API dari filter URL, atau undefined bila tidak dikenal/kosong. */
+export function statusFilterParam(value: string | undefined): string | undefined {
+  return STATUS_FILTERS.find((f) => f.value === value)?.api;
 }
 
 export const ACTION_LABEL: Record<string, string> = {
