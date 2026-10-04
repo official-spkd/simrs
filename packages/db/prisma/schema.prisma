@@ -61,6 +61,7 @@ model Tenant {
   documents             Document[]
   signatures            DocumentSignature[]
   trustedDevices        TrustedDevice[]
+  devices               RegisteredDevice[]
   // Fase 2 · front office
   practitioners         Practitioner[]
   externalIds           ExternalId[]
@@ -352,6 +353,8 @@ model User {
   notifications       Notification[]
   signatures          DocumentSignature[]
   trustedDevices      TrustedDevice[]
+  devices             RegisteredDevice[]   @relation("RegisteredDeviceUser")
+  devicesRevoked      RegisteredDevice[]   @relation("RegisteredDeviceRevoker")
   practitioners       Practitioner[]
 
   @@unique([tenantId, id])
@@ -410,6 +413,9 @@ model AuthSession {
   unitId              String?   @map("unit_id") @db.Uuid
   /// P03 · Penugasan aktif yang dipilih (menentukan peran dan unit sesi).
   assignmentId        String?   @map("assignment_id") @db.Uuid
+  /// P02 · Perangkat terdaftar yang membuka sesi ini dengan PIN (ADR-0024): posisi terkunci ke posisi pendaftaran
+  /// PIN, sesi pendek, dan sesi ikut berakhir saat PIN perangkat itu dicabut.
+  deviceId            String?   @map("device_id") @db.Uuid
   /// active | revoked
   status              String    @default("active")
   revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
@@ -418,11 +424,13 @@ model AuthSession {
   userAgent           String?   @map("user_agent")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id])
-  user       User             @relation(fields: [tenantId, userId], references: [tenantId, id])
-  assignment StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  user       User              @relation(fields: [tenantId, userId], references: [tenantId, id])
+  assignment StaffAssignment?  @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  device     RegisteredDevice? @relation(fields: [tenantId, deviceId], references: [tenantId, id])
 
   @@index([tenantId, userId, status])
+  @@index([tenantId, deviceId])
   @@map("auth_sessions")
 }
 
@@ -503,11 +511,12 @@ model StaffAssignment {
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy  String?   @map("updated_by") @db.Uuid
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id])
-  user     User          @relation(fields: [tenantId, userId], references: [tenantId, id])
-  role     Role          @relation(fields: [tenantId, roleId], references: [tenantId, id])
-  unit     Unit?         @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  tenant   Tenant             @relation(fields: [tenantId], references: [id])
+  user     User               @relation(fields: [tenantId, userId], references: [tenantId, id])
+  role     Role               @relation(fields: [tenantId, roleId], references: [tenantId, id])
+  unit     Unit?              @relation(fields: [tenantId, unitId], references: [tenantId, id])
   sessions AuthSession[]
+  devices  RegisteredDevice[]
 
   @@unique([tenantId, id])
   @@index([tenantId, userId])
@@ -925,6 +934,51 @@ model TrustedDevice {
   @@unique([tenantId, id])
   @@index([tenantId, userId])
   @@map("trusted_devices")
+}
+
+/// P02 · Perangkat terdaftar (docs/05 §1, ADR-0024). Jenis `staff_pin` = PIN masuk cepat: satu baris = satu akun ×
+/// satu perangkat (peramban) × satu posisi berunit, didaftarkan dari login penuh di perangkat itu sendiri. Token buram
+/// `sd1` di cookie httpOnly peramban; di sini hanya hash-nya. PIN disimpan argon2id dari HMAC berlada
+/// (FIELD_HASH_KEY) yang terikat tenant + akun + perangkat. Fase 2 memakai ulang tabel ini untuk anjungan/TV (jenis
+/// baru, kolom khusus PIN kosong). Tidak dihapus: pencabutan = kolom `revoked_*`, final (dijaga trigger).
+model RegisteredDevice {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  /// staff_pin (CHECK database; jenis lain menyusul fase 2)
+  kind           String    @default("staff_pin")
+  /// staff_pin: pemilik PIN (wajib untuk jenis ini, CHECK `registered_devices_staff_pin`).
+  userId         String?   @map("user_id") @db.Uuid
+  /// staff_pin: posisi (penugasan) yang dibuka sesi PIN; unitnya = unit tempat perangkat terdaftar.
+  assignmentId   String?   @map("assignment_id") @db.Uuid
+  /// Nama perangkat dari pengguna (mis. "Komputer nurse station Melati").
+  name           String
+  tokenHash      String    @unique @map("token_hash")
+  /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
+  pinHash        String?   @map("pin_hash")
+  /// Percobaan salah berturut-turut, dicadangkan sebelum PIN diperiksa (aman dari tebakan paralel); maks. 5.
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
+  userAgent      String?   @map("user_agent")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// staff_pin: maks. 30 hari setelah didaftarkan (CHECK database).
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// user_removed | admin_revoked | too_many_attempts | password_changed | password_reset | mfa_reset |
+  /// user_disabled | assignment_ended
+  revokedReason  String?   @map("revoked_reason")
+  /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
+  revokedBy      String?   @map("revoked_by") @db.Uuid
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  user       User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
+  assignment StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  revoker    User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
+  sessions   AuthSession[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@map("registered_devices")
 }
 
 // =====================================================================================================================
