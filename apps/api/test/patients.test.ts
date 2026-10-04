@@ -252,18 +252,9 @@ describe('detail, identitas utuh, dan ABAC', () => {
     const hidden = await as('perawat').get('/api/v1/patients?q=Dewi%20Kartika').expect(200);
     expect(hidden.body.items).toEqual([]);
 
-    // valid_from eksplisit 1 menit lalu: bawaan `now()` Prisma diisi jam proses tes, sedangkan pencarian
-    // membandingkan dengan jam Postgres; jam kontainer DB bisa tertinggal beberapa puluh ms dari host.
     await withTenant(testDb(), T.id, (tx) =>
       tx.accessRelationship.create({
-        data: {
-          id: newId(),
-          tenantId: T.id,
-          userId: u.perawat?.id as string,
-          patientId: p.id,
-          kind: 'dpjp',
-          validFrom: new Date(Date.now() - 60_000),
-        },
+        data: { id: newId(), tenantId: T.id, userId: u.perawat?.id as string, patientId: p.id, kind: 'dpjp' },
       }),
     );
     await as('perawat').get(`/api/v1/patients/${p.id}`).expect(200);
