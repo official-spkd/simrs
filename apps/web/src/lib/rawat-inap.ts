@@ -1,7 +1,13 @@
 import {
   type Bed,
   type BedStatus,
+  type CpptEntry,
+  type CpptRole,
+  type EmarSlotState,
+  type EwsObservation,
   type EdStatus,
+  formatJam,
+  formatTanggal,
   type EdTrackingItem,
   type EdZone,
   OCCUPIED_BED_STATUSES,
@@ -271,4 +277,193 @@ export function formatWait(minutes: number | null): string {
   if (minutes === null) return 'terjadwal';
   const h = Math.floor(minutes / 60);
   return h ? `${h} j ${minutes % 60} m` : `${minutes} m`;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Rawat inap: CPPT (immutable, koreksi = versi baru), EWS, eMAR
+// ---------------------------------------------------------------------------------------------------------
+
+export const CPPT_ROLE_META: Record<CpptRole, { tag: string; label: string; tone: string }> = {
+  dpjp: { tag: 'DR', label: 'DPJP', tone: 'bg-brand-50 text-brand-700' },
+  residen: { tag: 'RS', label: 'Residen', tone: 'bg-info-bg text-info' },
+  perawat: { tag: 'NS', label: 'Perawat', tone: 'bg-muted text-ink-700' },
+  bidan: { tag: 'BD', label: 'Bidan', tone: 'bg-[#FCEFF6] text-[#8E2A5E]' },
+  farmasi: { tag: 'FA', label: 'Farmasi klinis', tone: 'bg-warning-bg text-warning' },
+  gizi: { tag: 'GZ', label: 'Dietisien', tone: 'bg-success-bg text-success' },
+};
+
+export type CpptFilter = 'semua' | 'dokter' | 'perawat' | 'lainnya';
+
+export function cpptMatches(e: Pick<CpptEntry, 'role'>, f: CpptFilter): boolean {
+  if (f === 'dokter') return e.role === 'dpjp' || e.role === 'residen';
+  if (f === 'perawat') return e.role === 'perawat' || e.role === 'bidan';
+  if (f === 'lainnya') return e.role === 'farmasi' || e.role === 'gizi';
+  return true;
+}
+
+/** Peran sesi → profesi penulis CPPT. */
+export function cpptRoleOf(roleCode: string | null | undefined): CpptRole {
+  if (roleCode === 'dokter') return 'dpjp';
+  if (roleCode === 'dokter_residen') return 'residen';
+  if (roleCode === 'bidan') return 'bidan';
+  if (roleCode === 'apoteker') return 'farmasi';
+  return 'perawat';
+}
+
+/** Entri yang sudah digantikan versi lebih baru (tetap tampil sebagai riwayat, tidak bisa dikoreksi lagi). */
+export function supersededIds(entries: readonly CpptEntry[]): Set<string> {
+  return new Set(entries.map((e) => e.supersedesId).filter((x): x is string => x !== null));
+}
+
+export interface SoapText {
+  s: string;
+  o: string;
+  a: string;
+  p: string;
+}
+
+/** CPPT baru (versi 1). Catatan residen wajib co-sign DPJP. */
+export function newCpptEntry(a: {
+  id: string;
+  encounterId: string;
+  role: CpptRole;
+  author: string;
+  at: string;
+  soap: SoapText;
+}): CpptEntry {
+  return {
+    id: a.id,
+    encounterId: a.encounterId,
+    role: a.role,
+    author: a.author,
+    writtenAt: a.at,
+    ...a.soap,
+    version: 1,
+    supersedesId: null,
+    correctionReason: null,
+    cosignRequired: a.role === 'residen',
+    cosignedBy: null,
+    cosignedAt: null,
+  };
+}
+
+/**
+ * Koreksi CPPT = entri baru `version + 1` yang menunjuk entri lama (CLAUDE.md §4.2). Entri lama tidak diubah.
+ * Galat bila entri tidak ada, sudah digantikan, atau alasan kurang dari 10 karakter.
+ */
+export function correctCpptEntry(
+  entries: readonly CpptEntry[],
+  targetId: string,
+  a: { id: string; author: string; role: CpptRole; at: string; soap: SoapText; reason: string },
+): CpptEntry {
+  const old = entries.find((e) => e.id === targetId);
+  if (!old) throw new Error('Entri CPPT tidak ditemukan.');
+  if (supersededIds(entries).has(targetId))
+    throw new Error('Entri ini sudah dikoreksi; koreksi versi terbaru.');
+  if (a.reason.trim().length < SAFETY_REASON_MIN) throw new Error('Alasan koreksi minimal 10 karakter.');
+  return {
+    ...newCpptEntry({
+      id: a.id,
+      encounterId: old.encounterId,
+      role: a.role,
+      author: a.author,
+      at: a.at,
+      soap: a.soap,
+    }),
+    version: old.version + 1,
+    supersedesId: old.id,
+    correctionReason: a.reason.trim(),
+  };
+}
+
+/** Skor EWS dewasa (pola NEWS2): napas, SpO2, oksigen, TD sistolik, nadi, kesadaran, suhu. */
+export function ewsScore(o: Omit<EwsObservation, 'at' | 'score' | 'dbp'>): number {
+  const band = (v: number, rules: Array<[number, number]>) => rules.find(([max]) => v <= max)?.[1] ?? 0;
+  return (
+    band(o.rr, [
+      [8, 3],
+      [11, 1],
+      [20, 0],
+      [24, 2],
+      [Infinity, 3],
+    ]) +
+    band(o.spo2, [
+      [91, 3],
+      [93, 2],
+      [95, 1],
+      [Infinity, 0],
+    ]) +
+    (o.onOxygen ? 2 : 0) +
+    band(o.sbp, [
+      [90, 3],
+      [100, 2],
+      [110, 1],
+      [219, 0],
+      [Infinity, 3],
+    ]) +
+    band(o.hr, [
+      [40, 3],
+      [50, 1],
+      [90, 0],
+      [110, 1],
+      [130, 2],
+      [Infinity, 3],
+    ]) +
+    (o.consciousness === 'A' ? 0 : 3) +
+    band(o.temp, [
+      [35, 3],
+      [36, 1],
+      [38, 0],
+      [39, 1],
+      [Infinity, 2],
+    ])
+  );
+}
+
+export interface EwsLevel {
+  level: 'rendah' | 'sedang' | 'tinggi';
+  /** Tindak lanjut sesuai tingkat. */
+  action: string;
+  tone: string;
+}
+
+export function ewsLevel(score: number): EwsLevel {
+  if (score >= 7)
+    return {
+      level: 'tinggi',
+      action: 'Pantau kontinu, aktifkan tim reaksi cepat.',
+      tone: 'bg-danger-bg text-danger',
+    };
+  if (score >= 5)
+    return {
+      level: 'sedang',
+      action: 'Observasi tiap 1 jam, lapor DPJP.',
+      tone: 'bg-warning-bg text-warning',
+    };
+  return { level: 'rendah', action: 'Lanjutkan observasi tiap 4 jam.', tone: 'bg-success-bg text-success' };
+}
+
+export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string }> = {
+  diberikan: { label: 'Diberikan', cls: 'border-success-border bg-success-bg text-success' },
+  jadwal: {
+    label: 'Jadwal',
+    cls: 'border-brand-600 bg-[linear-gradient(180deg,#E6F4F1,#FFFFFF)] text-brand-700',
+  },
+  terlambat: { label: 'Terlambat', cls: 'border-danger-border bg-[#FEF3F2] text-danger' },
+  ditunda: { label: 'Ditunda', cls: 'border-warning-border bg-warning-bg text-warning' },
+  rencana: { label: 'Rencana', cls: 'border-line-soft bg-subtle text-ink-500' },
+  kosong: { label: 'Tidak dijadwalkan', cls: 'border-line-strong bg-white text-transparent' },
+};
+
+/** "5 Okt · 07.40" (WIB) untuk daftar padat. */
+export function formatTglJam(iso: string): string {
+  const tgl = formatTanggal(iso)
+    .replace(/^\w+, /, '')
+    .replace(/ \d{4}$/, '');
+  return `${tgl} · ${formatJam(iso)}`;
+}
+
+/** Slot yang bisa dicatat pemberiannya (setelah gelang cocok). */
+export function emarActionable(state: EmarSlotState): boolean {
+  return state === 'jadwal' || state === 'terlambat';
 }

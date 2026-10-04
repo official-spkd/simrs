@@ -1,13 +1,31 @@
 import 'server-only';
-import { type BedBoard, bedBoardSchema, type EdBoard, edBoardSchema } from '@simrs/shared';
+import {
+  type BedBoard,
+  bedBoardSchema,
+  type EdBoard,
+  edBoardSchema,
+  type InpatientDetail,
+  inpatientDetailSchema,
+  type InpatientSummary,
+  inpatientSummarySchema,
+} from '@simrs/shared';
 import { redirect } from 'next/navigation';
-import { demoBedRequests, demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
+import { patientByEncounterId } from '../../demo/fixtures/pasien';
+import {
+  demoBedRequests,
+  demoBeds,
+  demoEdBoardBase,
+  demoInpatients,
+  demoWards,
+} from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import {
   applyScenarioBeds,
   hartonoBedRequest,
   hartonoEdItem,
+  hartonoInpatient,
   ratnaBedRequest,
+  ratnaInpatient,
   type ScenarioStepState,
   stepState,
 } from '../../rawat-inap-scenario';
@@ -75,4 +93,41 @@ export async function getBedBoard(session: SessionView): Promise<BedBoard> {
     });
   }
   return notImplemented('tempat tidur');
+}
+
+async function allInpatients(session: SessionView): Promise<InpatientDetail[]> {
+  const runs = await scenarioRuns(session);
+  const scenario = [hartonoInpatient(runs.results['igd-ranap']), ratnaInpatient(runs.results['elektif-btn'])];
+  return [...scenario.filter((x): x is InpatientDetail => x !== null), ...demoInpatients()];
+}
+
+/** K04 · Daftar pasien rawat inap (pasien skenario masuk daftar setelah serah terima / SEP rawat inap). */
+export async function getInpatientList(session: SessionView): Promise<InpatientSummary[]> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const list = (await allInpatients(session)).map((d) => d.summary);
+    return inpatientSummarySchema.array().parse(list);
+  }
+  return notImplemented('rawat inap');
+}
+
+export type InpatientLookup =
+  | { kind: 'dirawat'; detail: InpatientDetail }
+  /** Pasien skenario yang belum masuk ruang rawat (masih di IGD / admisi). */
+  | { kind: 'belum-dirawat'; patientId: string }
+  | null;
+
+/** K04/K07/K12 · Rekam rawat inap satu kunjungan; null = kunjungan tidak dikenal (halaman → 404). */
+export async function getInpatient(session: SessionView, encounterId: string): Promise<InpatientLookup> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const found = (await allInpatients(session)).find((d) => d.summary.encounterId === encounterId);
+    if (found) return { kind: 'dirawat', detail: inpatientDetailSchema.parse(found) };
+    const p = patientByEncounterId(encounterId);
+    if (p?.scenario === 'igd-ranap' || p?.scenario === 'elektif-btn') {
+      return { kind: 'belum-dirawat', patientId: p.id };
+    }
+    return null;
+  }
+  return notImplemented('rawat inap');
 }

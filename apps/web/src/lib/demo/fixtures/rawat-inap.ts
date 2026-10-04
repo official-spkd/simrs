@@ -1,8 +1,26 @@
-import type { Bed, BedRequest, BedStatus, EdBoard, EdTrackingItem, TriageLevel, Ward } from '@simrs/shared';
+import {
+  type Bed,
+  type BedRequest,
+  type BedStatus,
+  type ClinicalResult,
+  type CodedDiagnosis,
+  type CpptRole,
+  type EdBoard,
+  type EdTrackingItem,
+  EMAR_TIMES,
+  type EmarSlot,
+  type EmarTime,
+  type EwsObservation,
+  type InpatientDetail,
+  type InpatientFlag,
+  type TriageLevel,
+  type Ward,
+} from '@simrs/shared';
+import { ewsScore } from '../../rawat-inap';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
-import { DOKTER, STAF } from './staf';
-import { DEMO_NOW } from './waktu';
+import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
+import { DEMO_NOW, DEMO_TODAY, shiftDate } from './waktu';
 
 /**
  * Data dummy IGD, tempat tidur, rawat inap, resume, dan persetujuan tindakan (mockup IGD, BedManagement, Ranap,
@@ -509,3 +527,737 @@ export function demoBedRequests(beds: readonly Bed[]): BedRequest[] {
     ),
   ];
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// K04/K07/K12 · Pasien rawat inap: CPPT, eMAR, observasi + EWS, hasil, asuhan keperawatan
+// ---------------------------------------------------------------------------------------------------------
+
+export type DxSeed = [system: CodedDiagnosis['system'], code: string, label: string, primary?: boolean];
+/** Slot eMAR ringkas: '' kosong · 'r' rencana · 'j' jadwal · 'g:08.05' diberikan · 't:…' terlambat · 'd:…' ditunda. */
+export type MedSeed = [name: string, sig: string, kfa: string | null, highAlert: boolean, slots: string[]];
+export interface NoteSeed {
+  id: string;
+  role: CpptRole;
+  author: string;
+  /** Instan ISO WIB. */
+  at: string;
+  s?: string;
+  o?: string;
+  a: string;
+  p?: string;
+  /** Co-sign DPJP: [nama, instan]. */
+  cosign?: [string, string];
+  /** Koreksi: [id entri lama, versi baru, alasan]. */
+  corrects?: [string, number, string];
+}
+export type ObsSeed = [
+  at: string,
+  temp: number,
+  hr: number,
+  rr: number,
+  sbp: number,
+  dbp: number,
+  spo2: number,
+  onOxygen: boolean,
+  avpu: EwsObservation['consciousness'],
+];
+export type ResultSeed = [at: string, name: string, value: string, flag: ClinicalResult['flag']];
+export type NursingSeed = [diagnosis: string, items: Array<[label: string, done: boolean]>];
+
+export interface InpatientSeed {
+  patientId: string;
+  wardCode: string;
+  bed: string;
+  dpjp: string;
+  admittedOn: string;
+  flags: InpatientFlag[];
+  risk: string;
+  plan: string;
+  dx: DxSeed[];
+  emarNow: EmarTime;
+  emarNote: string;
+  meds: MedSeed[];
+  notes: NoteSeed[];
+  obs: ObsSeed[];
+  results: ResultSeed[];
+  nursing: NursingSeed[];
+}
+
+function slot(time: EmarTime, code: string): EmarSlot {
+  if (!code) return { time, state: 'kosong', label: '' };
+  if (code === 'r') return { time, state: 'rencana', label: 'Rencana' };
+  if (code === 'j') return { time, state: 'jadwal', label: 'Sekarang' };
+  const [k, label = ''] = [code.slice(0, 1), code.slice(2)];
+  const state: EmarSlot['state'] = k === 'g' ? 'diberikan' : k === 't' ? 'terlambat' : 'ditunda';
+  return { time, state, label };
+}
+
+/** Hari rawat ke-n per hari demo (hari masuk = 1). */
+export function hospitalDay(admittedOn: string, today: string = DEMO_TODAY): number {
+  return Math.round((Date.parse(today) - Date.parse(admittedOn)) / 86_400_000) + 1;
+}
+
+export function buildInpatient(
+  seed: InpatientSeed,
+  extra?: { scenario?: boolean; day?: number },
+): InpatientDetail {
+  const enc = encounterIdOf(seed.patientId);
+  const observations = seed.obs.map(([atIso, temp, hr, rr, sbp, dbp, spo2, onOxygen, consciousness]) => {
+    const o = { temp, hr, rr, sbp, dbp, spo2, onOxygen, consciousness };
+    return { at: atIso, ...o, score: ewsScore(o) };
+  });
+  return {
+    summary: {
+      encounterId: enc,
+      patientId: seed.patientId,
+      wardCode: seed.wardCode,
+      bed: seed.bed,
+      dpjp: seed.dpjp,
+      diagnoses: seed.dx.map(([system, code, label, primary]) => ({
+        system,
+        code,
+        label,
+        primary: !!primary,
+      })),
+      admittedOn: seed.admittedOn,
+      day: extra?.day ?? hospitalDay(seed.admittedOn),
+      lastEws: observations.at(-1)?.score ?? 0,
+      flags: seed.flags,
+      risk: seed.risk,
+      scenario: !!extra?.scenario,
+    },
+    plan: seed.plan,
+    cppt: seed.notes.map((n) => ({
+      id: n.id,
+      encounterId: enc,
+      role: n.role,
+      author: n.author,
+      writtenAt: n.at,
+      s: n.s ?? '',
+      o: n.o ?? '',
+      a: n.a,
+      p: n.p ?? '',
+      version: n.corrects?.[1] ?? 1,
+      supersedesId: n.corrects?.[0] ?? null,
+      correctionReason: n.corrects?.[2] ?? null,
+      cosignRequired: n.role === 'residen',
+      cosignedBy: n.cosign?.[0] ?? null,
+      cosignedAt: n.cosign?.[1] ?? null,
+    })),
+    medications: seed.meds.map(([name, sig, kfa, highAlert, slots], i) => ({
+      id: `${enc}-obat-${i + 1}`,
+      name,
+      sig,
+      kfa,
+      highAlert,
+      slots: EMAR_TIMES.map((t, k) => slot(t, slots[k] ?? '')),
+    })),
+    emarNow: seed.emarNow,
+    emarNote: seed.emarNote,
+    observations,
+    results: seed.results.map(([atIso, name, value, flag]) => ({ at: atIso, name, value, flag })),
+    nursing: seed.nursing.map(([diagnosis, items], i) => ({
+      diagnosis,
+      interventions: items.map(([label, done], k) => ({ id: `ask-${i}-${k}`, label, done })),
+    })),
+  };
+}
+
+const T = (hm: string, dayOffset = 0) => at(shiftDate(DEMO_TODAY, dayOffset), hm);
+const DIETISIEN = 'Nurul Aini, S.Gz';
+
+/** Ny. Endang Wijaya · Melati M-203 (mockup Ranap): pneumonia + DM, hari ke-5, rencana pulang besok. */
+const ENDANG: InpatientSeed = {
+  patientId: 'ps-endang',
+  wardCode: 'MELATI',
+  bed: 'M-203',
+  dpjp: STAF.dpjpPenyakitDalam,
+  admittedOn: shiftDate(DEMO_TODAY, -4),
+  flags: ['cosign', 'emar-terlambat', 'risiko-jatuh', 'rencana-pulang'],
+  risk: 'Risiko jatuh sedang · Morse 35',
+  plan: 'Seftriakson H5/7, evaluasi de-eskalasi oral H6; glargine 16 unit malam; rencana pulang besok bila klinis stabil.',
+  dx: [
+    ['ICD-10', 'J18.9', 'Pneumonia, tidak spesifik', true],
+    ['ICD-10', 'E11.9', 'DM tipe 2 tanpa komplikasi'],
+  ],
+  emarNow: '12.00',
+  emarNote:
+    'Pindai gelang pasien, lalu label obat. GDS 10.30: 236 mg/dL → skala 6 unit SC sebelum makan siang.',
+  meds: [
+    ['Seftriakson 2 g', 'IV · 1×24 jam · H5/7', null, false, ['', 'g:08.05', '', '', '']],
+    [
+      'Insulin aspart sesuai skala',
+      'SC · sebelum makan · cek GDS',
+      null,
+      true,
+      ['g:06.10 · 4 unit', '', 'j', 'r', ''],
+    ],
+    ['Insulin glargine 16 unit', 'SC · 1×/hari 22.00 · dosis baru', null, true, ['', '', '', '', 'r']],
+    ['Metformin 500 mg', 'PO · 2×1 · sesudah makan', null, false, ['', 'd:Ditunda · mual', '', 'r', '']],
+    ['N-asetilsistein 200 mg', 'PO · 3×1 (06, 14, 22)', null, false, ['g:06.00', '', '', '', 'r']],
+    ['Parasetamol 1 g', 'IV · bila suhu ≥ 38,5 °C', null, false, ['', '', '', '', '']],
+    ['Omeprazol 40 mg injeksi', 'IV · 1×24 jam pagi', '93001152', false, ['', 't:Terlambat', '', '', '']],
+  ],
+  notes: [
+    {
+      id: 'cppt-endang-1',
+      role: 'residen',
+      author: PERSONA.dokterResiden,
+      at: T('07.40'),
+      s: 'Batuk berkurang, sesak tidak ada.',
+      o: 'T 37,4 · RR 20 · SpO2 96% udara bebas. Ronki basah kanan berkurang.',
+      a: 'Pneumonia komunitas perbaikan; DM hiperglikemia.',
+      p: 'Lanjut seftriakson H5, naikkan glargine 14 → 16 unit.',
+    },
+    {
+      id: 'cppt-endang-2',
+      role: 'farmasi',
+      author: STAF_LAIN.apoteker[0],
+      at: T('08.15'),
+      o: 'Riwayat alergi amoksisilin (ruam ringan); seftriakson ditoleransi sejak H1 tanpa reaksi.',
+      a: 'Rencana antibiotik H5 sesuai pedoman; tidak ada interaksi bermakna.',
+      p: 'Usul evaluasi de-eskalasi ke oral H6.',
+    },
+    {
+      id: 'cppt-endang-3',
+      role: 'gizi',
+      author: DIETISIEN,
+      at: T('09.00'),
+      s: 'Asupan sekitar 70% kebutuhan.',
+      o: 'BB 64 kg, GDS pagi 188 mg/dL.',
+      a: 'Asupan kurang dari kebutuhan; risiko hiperglikemia.',
+      p: 'Diet DM 1.700 kkal dibagi 3 makan + 2 selingan.',
+    },
+    {
+      id: 'cppt-endang-4',
+      role: 'perawat',
+      author: PERSONA.perawat,
+      at: T('06.00'),
+      s: 'Malam tidur cukup.',
+      o: 'Infus lancar, tidak ada tanda flebitis.',
+      a: 'Risiko jatuh sedang (Morse 35).',
+      p: 'Edukasi pencegahan jatuh diulang ke keluarga.',
+    },
+    {
+      id: 'cppt-endang-5',
+      role: 'perawat',
+      author: STAF_LAIN.perawat[0],
+      at: T('22.10', -1),
+      o: 'SpO2 69% udara bebas, RR 20.',
+      a: 'Bersihan jalan napas tidak efektif.',
+      p: 'Posisi semi-Fowler, pantau SpO2 tiap 4 jam.',
+    },
+    {
+      id: 'cppt-endang-6',
+      role: 'perawat',
+      author: STAF_LAIN.perawat[0],
+      at: T('22.25', -1),
+      o: 'SpO2 96% udara bebas, RR 20.',
+      a: 'Bersihan jalan napas tidak efektif.',
+      p: 'Posisi semi-Fowler, pantau SpO2 tiap 4 jam.',
+      corrects: ['cppt-endang-5', 2, 'Salah ketik nilai SpO2 (seharusnya 96%, bukan 69%)'],
+    },
+    {
+      id: 'cppt-endang-0',
+      role: 'residen',
+      author: PERSONA.dokterResiden,
+      at: T('07.30', -1),
+      s: 'Demam turun, batuk berdahak.',
+      o: 'T 37,8 · SpO2 95% udara bebas.',
+      a: 'Pneumonia komunitas, perbaikan klinis.',
+      p: 'Lanjut terapi, cek GDS 4×/hari.',
+      cosign: [STAF.dpjpPenyakitDalam, T('09.20', -1)],
+    },
+  ],
+  obs: [
+    [T('06.00'), 37.6, 92, 22, 128, 80, 95, false, 'A'],
+    [T('07.40'), 37.4, 88, 20, 126, 78, 96, false, 'A'],
+    [T('10.40'), 37.3, 86, 20, 124, 78, 96, false, 'A'],
+  ],
+  results: [
+    [T('10.30'), 'Gula darah sewaktu', '236 mg/dL', 'tinggi'],
+    [T('06.00'), 'Gula darah sewaktu', '188 mg/dL', 'tinggi'],
+    [T('06.00'), 'Leukosit', '8.900 /µL (masuk 16.200)', 'normal'],
+    [T('06.00'), 'CRP', '24 mg/L', 'tinggi'],
+    [T('06.00', -1), 'Gula darah sewaktu', '254 mg/dL', 'tinggi'],
+  ],
+  nursing: [
+    [
+      'Risiko jatuh (Morse 35)',
+      [
+        ['Gelang kuning risiko jatuh terpasang', true],
+        ['Pagar tempat tidur terpasang, roda terkunci', true],
+        ['Bel pasien dalam jangkauan', false],
+        ['Edukasi pencegahan jatuh ke keluarga', true],
+      ],
+    ],
+    [
+      'Ketidakstabilan kadar glukosa darah',
+      [
+        ['Cek GDS sebelum makan', true],
+        ['Edukasi tanda hipoglikemia', false],
+        ['Koordinasi diet DM 1.700 kkal dengan gizi', true],
+      ],
+    ],
+    [
+      'Bersihan jalan napas tidak efektif',
+      [
+        ['Latih batuk efektif', false],
+        ['Posisi semi-Fowler', true],
+        ['Pantau SpO2 tiap 4 jam', true],
+      ],
+    ],
+  ],
+};
+
+const ICU_SEEDS: InpatientSeed[] = [
+  {
+    patientId: 'ps-hendro',
+    wardCode: 'ICU',
+    bed: 'ICU 2',
+    dpjp: doctorName('dr-kartika'),
+    admittedOn: shiftDate(DEMO_TODAY, -2),
+    flags: ['cosign'],
+    risk: 'Risiko dekubitus tinggi · Braden 12',
+    plan: 'Ventilator mode PSIMV, rencana uji napas spontan besok; antibiotik empiris H3; ubah posisi tiap 2 jam.',
+    dx: [
+      ['ICD-10', 'J96.0', 'Gagal napas akut', true],
+      ['ICD-10', 'J18.9', 'Pneumonia, tidak spesifik'],
+      ['ICD-9-CM', '96.71', 'Ventilasi mekanik < 96 jam'],
+    ],
+    emarNow: '12.00',
+    emarNote: 'Pindai gelang pasien sebelum setiap pemberian; titrasi sedasi sesuai target RASS −2.',
+    meds: [
+      ['Meropenem 1 g', 'IV · 3×1 (06, 14, 22) · H3', null, false, ['g:06.05', '', '', '', 'r']],
+      [
+        'Midazolam 2 mg/jam',
+        'IV kontinu · titrasi RASS −2',
+        null,
+        true,
+        ['g:06.00', 'g:08.00', 'j', 'r', 'r'],
+      ],
+      ['Omeprazol 40 mg injeksi', 'IV · 1×24 jam pagi', '93001152', false, ['', 'g:08.10', '', '', '']],
+      ['Enoksaparin 60 mg/0,6 mL', 'SC · 1×24 jam sore', '93002210', true, ['', '', '', 'r', '']],
+      ['Parasetamol 1 g', 'IV · bila suhu ≥ 38,5 °C', null, false, ['', '', '', '', '']],
+    ],
+    notes: [
+      {
+        id: 'cppt-hendro-1',
+        role: 'residen',
+        author: PERSONA.dokterResiden,
+        at: T('07.10'),
+        s: 'Tersedasi, RASS −2.',
+        o: 'FiO2 40%, PEEP 6, SpO2 95%. AGD pH 7,38 · PaO2 88 mmHg.',
+        a: 'Gagal napas akut perbaikan.',
+        p: 'Turunkan FiO2 ke 35%, uji napas spontan besok pagi.',
+      },
+      {
+        id: 'cppt-hendro-2',
+        role: 'perawat',
+        author: STAF_LAIN.perawat[1],
+        at: T('06.00'),
+        o: 'Sekret kental kekuningan, suction 3× malam ini.',
+        a: 'Pola napas tidak efektif.',
+        p: 'Lanjut suction sesuai kebutuhan, oral hygiene tiap 6 jam.',
+      },
+      {
+        id: 'cppt-hendro-0',
+        role: 'dpjp',
+        author: doctorName('dr-kartika'),
+        at: T('08.30', -1),
+        s: 'Keluarga menanyakan rencana lepas ventilator.',
+        o: 'Foto toraks: infiltrat bilateral berkurang.',
+        a: 'Pneumonia berat dengan gagal napas, membaik.',
+        p: 'Lanjut meropenem, edukasi keluarga tentang rencana weaning.',
+      },
+    ],
+    obs: [
+      [T('06.00'), 37.9, 104, 18, 112, 68, 95, true, 'V'],
+      [T('10.00'), 37.6, 98, 16, 118, 70, 96, true, 'V'],
+    ],
+    results: [
+      [T('06.30'), 'Analisis gas darah', 'pH 7,38 · PaO2 88 · PaCO2 42', 'normal'],
+      [T('06.00'), 'Leukosit', '15.800 /µL', 'tinggi'],
+    ],
+    nursing: [
+      [
+        'Pola napas tidak efektif',
+        [
+          ['Suction sesuai kebutuhan', true],
+          ['Posisi kepala 30–45°', true],
+          ['Oral hygiene klorheksidin', false],
+        ],
+      ],
+    ],
+  },
+  {
+    patientId: 'ps-aminah',
+    wardCode: 'ICU',
+    bed: 'ICU 7',
+    dpjp: doctorName('dr-rahmat'),
+    admittedOn: shiftDate(DEMO_TODAY, -1),
+    flags: [],
+    risk: 'Alergi kotrimoksazol · risiko dekubitus sedang',
+    plan: 'Norepinefrin titrasi MAP ≥ 65 mmHg, antibiotik sesuai kultur, balans cairan ketat, laktat ulang 6 jam.',
+    dx: [
+      ['ICD-10', 'A41.9', 'Sepsis, tidak spesifik', true],
+      ['ICD-10', 'R57.2', 'Syok septik'],
+      ['ICD-9-CM', '00.17', 'Infus agen vasopresor'],
+      ['ICD-9-CM', '38.93', 'Pemasangan kateter vena sentral'],
+    ],
+    emarNow: '12.00',
+    emarNote: 'Obat vasoaktif lewat kateter vena sentral; konfirmasi kecepatan pompa setiap pergantian.',
+    meds: [
+      [
+        'Norepinefrin 0,1 µg/kg/menit',
+        'IV kontinu · titrasi MAP ≥ 65',
+        null,
+        true,
+        ['g:06.00', 'g:08.00', 'j', 'r', 'r'],
+      ],
+      ['Meropenem 1 g', 'IV · 3×1 (06, 14, 22)', null, false, ['g:06.00', '', '', '', 'r']],
+      [
+        'Vankomisin 1 g',
+        'IV · 2×1 · kadar lembah sebelum dosis 4',
+        null,
+        false,
+        ['', 'g:08.00', '', 'r', ''],
+      ],
+      ['Omeprazol 40 mg injeksi', 'IV · 1×24 jam pagi', '93001152', false, ['', 'g:08.15', '', '', '']],
+    ],
+    notes: [
+      {
+        id: 'cppt-aminah-1',
+        role: 'dpjp',
+        author: doctorName('dr-rahmat'),
+        at: T('08.00'),
+        s: 'Pasien mengeluh lemas, tidak sesak.',
+        o: 'MAP 72 dengan norepinefrin 0,1 µg/kg/menit. Laktat 3,8 → ulang siang.',
+        a: 'Syok septik sumber infeksi saluran kemih, respons awal baik.',
+        p: 'Pertahankan MAP ≥ 65, tunggu kultur urin dan darah, hindari golongan sulfa (alergi).',
+      },
+      {
+        id: 'cppt-aminah-2',
+        role: 'perawat',
+        author: STAF_LAIN.perawat[2],
+        at: T('06.00'),
+        o: 'Urin 0,6 mL/kg/jam, balans +900 mL.',
+        a: 'Risiko syok.',
+        p: 'Catat urin per jam, lapor bila < 0,5 mL/kg/jam.',
+      },
+    ],
+    obs: [
+      [T('06.00'), 38.4, 112, 24, 96, 58, 93, true, 'A'],
+      [T('10.00'), 38.0, 104, 22, 104, 62, 94, true, 'A'],
+    ],
+    results: [
+      [T('06.00'), 'Laktat', '3,8 mmol/L', 'tinggi'],
+      [T('06.00'), 'Kreatinin', '1,9 mg/dL', 'tinggi'],
+    ],
+    nursing: [
+      [
+        'Risiko syok',
+        [
+          ['Pantau MAP tiap 15 menit saat titrasi', true],
+          ['Catat urin per jam', true],
+          ['Cek kultur darah 2 set sebelum antibiotik', true],
+        ],
+      ],
+    ],
+  },
+];
+
+const WARD_SEEDS: InpatientSeed[] = [
+  {
+    patientId: 'ps-yusuf',
+    wardCode: 'ANGGREK',
+    bed: 'A-15',
+    dpjp: doctorName('dr-sinta'),
+    admittedOn: shiftDate(DEMO_TODAY, -2),
+    flags: [],
+    risk: 'AV shunt lengan kiri: jangan ukur TD atau infus di lengan kiri',
+    plan: 'Hemodialisis rutin Rabu; batasi cairan 600 mL/hari; koreksi anemia dengan eritropoietin.',
+    dx: [
+      ['ICD-10', 'N18.5', 'Penyakit ginjal kronik stadium 5', true],
+      ['ICD-10', 'Z99.2', 'Ketergantungan dialisis'],
+      ['ICD-9-CM', '39.95', 'Hemodialisis'],
+    ],
+    emarNow: '12.00',
+    emarNote: 'Dosis obat disesuaikan fungsi ginjal (CDS dosis ginjal aktif).',
+    meds: [
+      ['Asam folat 1 mg', 'PO · 1×1 pagi', null, false, ['', 'g:08.00', '', '', '']],
+      ['Kalsium karbonat 500 mg', 'PO · 3×1 bersama makan', null, false, ['', 'g:08.00', 'j', 'r', '']],
+      ['Amlodipin 10 mg', 'PO · 1×1 pagi', null, false, ['', 'g:08.00', '', '', '']],
+      ['Eritropoietin 3.000 IU', 'SC · 2×/minggu (Sen, Kam)', null, false, ['', '', '', 'r', '']],
+    ],
+    notes: [
+      {
+        id: 'cppt-yusuf-1',
+        role: 'dpjp',
+        author: doctorName('dr-sinta'),
+        at: T('08.30'),
+        s: 'Sesak berkurang setelah HD kemarin.',
+        o: 'BB turun 2,1 kg pasca HD. Ureum 168 · K 5,4 · Hb 8,9.',
+        a: 'CKD stadium 5 on HD, kelebihan cairan teratasi sebagian.',
+        p: 'HD berikutnya Rabu, restriksi cairan, mulai eritropoietin.',
+      },
+      {
+        id: 'cppt-yusuf-2',
+        role: 'perawat',
+        author: STAF_LAIN.perawat[3],
+        at: T('06.00'),
+        o: 'Balans cairan −350 mL, edema tungkai berkurang.',
+        a: 'Kelebihan volume cairan.',
+        p: 'Timbang BB pagi, catat balans ketat.',
+      },
+    ],
+    obs: [
+      [T('06.00'), 36.7, 82, 18, 152, 90, 97, false, 'A'],
+      [T('10.00'), 36.8, 80, 18, 148, 88, 97, false, 'A'],
+    ],
+    results: [
+      [T('06.00'), 'Ureum', '168 mg/dL', 'tinggi'],
+      [T('06.00'), 'Kalium', '5,4 mmol/L', 'tinggi'],
+      [T('06.00'), 'Hemoglobin', '8,9 g/dL', 'rendah'],
+    ],
+    nursing: [
+      [
+        'Kelebihan volume cairan',
+        [
+          ['Timbang BB harian', true],
+          ['Catat balans cairan', true],
+          ['Edukasi batas cairan 600 mL/hari', false],
+        ],
+      ],
+    ],
+  },
+  {
+    patientId: 'ps-rizky',
+    wardCode: 'KENANGA',
+    bed: 'K-412',
+    dpjp: doctorName('dr-yohanes'),
+    admittedOn: shiftDate(DEMO_TODAY, -3),
+    flags: ['risiko-jatuh'],
+    risk: 'Risiko jatuh tinggi · Morse 55',
+    plan: 'Mobilisasi dengan kruk tanpa tumpuan; analgesik terjadwal; rawat luka dan kontrol H5.',
+    dx: [
+      ['ICD-10', 'S72.3', 'Fraktur batang femur', true],
+      ['ICD-9-CM', '79.35', 'Reduksi terbuka dengan fiksasi internal femur'],
+    ],
+    emarNow: '12.00',
+    emarNote: 'Nilai skala nyeri sebelum dan 30 menit setelah analgesik.',
+    meds: [
+      ['Ketorolak 30 mg', 'IV · 3×1', null, false, ['g:06.00', '', 'j', 'r', '']],
+      ['Seftriakson 1 g', 'IV · 2×1', null, false, ['g:06.00', '', '', 'r', '']],
+      ['Enoksaparin 60 mg/0,6 mL', 'SC · 1×24 jam sore', '93002210', true, ['', '', '', 'r', '']],
+      ['Parasetamol 1 g', 'IV · 4×1', null, false, ['g:06.00', '', 'j', 'r', 'r']],
+    ],
+    notes: [
+      {
+        id: 'cppt-rizky-1',
+        role: 'residen',
+        author: PERSONA.dokterResiden,
+        at: T('07.30', -1),
+        s: 'Nyeri paha kanan skala 4.',
+        o: 'Luka operasi kering, tidak ada rembesan. Distal hangat, pulsasi baik.',
+        a: 'Pasca ORIF femur kanan H2, baik.',
+        p: 'Latih mobilisasi kruk tanpa tumpuan.',
+        cosign: [doctorName('dr-yohanes'), T('10.05', -1)],
+      },
+      {
+        id: 'cppt-rizky-2',
+        role: 'perawat',
+        author: PERSONA.perawat,
+        at: T('06.00'),
+        s: 'Nyeri skala 3 saat bergerak.',
+        o: 'Mampu duduk di tepi tempat tidur dengan bantuan.',
+        a: 'Risiko jatuh tinggi.',
+        p: 'Dampingi saat mobilisasi, bel dalam jangkauan.',
+      },
+    ],
+    obs: [
+      [T('06.00'), 37.2, 84, 18, 122, 76, 98, false, 'A'],
+      [T('10.00'), 37.0, 80, 18, 120, 74, 98, false, 'A'],
+    ],
+    results: [
+      [T('06.00', -1), 'Hemoglobin', '11,2 g/dL', 'rendah'],
+      [T('06.00', -1), 'Leukosit', '9.800 /µL', 'normal'],
+    ],
+    nursing: [
+      [
+        'Nyeri akut',
+        [
+          ['Kaji skala nyeri tiap shift', true],
+          ['Kompres dingin area operasi', false],
+        ],
+      ],
+      [
+        'Risiko jatuh',
+        [
+          ['Gelang kuning terpasang', true],
+          ['Kruk dan alas kaki anti-slip tersedia', true],
+        ],
+      ],
+    ],
+  },
+  {
+    patientId: 'ps-raka',
+    wardCode: 'MAWAR',
+    bed: 'W-308',
+    dpjp: doctorName('dr-nadia'),
+    admittedOn: shiftDate(DEMO_TODAY, -1),
+    flags: [],
+    risk: 'Fase kritis DBD hari ke-4–5 · pantau tanda syok',
+    plan: 'Cairan sesuai protokol DBD, hematokrit tiap 6 jam, pantau tanda bahaya dan diuresis.',
+    dx: [['ICD-10', 'A91', 'Demam berdarah dengue', true]],
+    emarNow: '12.00',
+    emarNote: 'Dosis anak per kg BB (22 kg); hindari obat antiinflamasi nonsteroid.',
+    meds: [
+      [
+        'Ringer laktat 7 mL/kg/jam',
+        'IV kontinu · evaluasi tiap 6 jam',
+        null,
+        false,
+        ['g:06.00', 'g:08.00', 'j', 'r', 'r'],
+      ],
+      ['Parasetamol 250 mg', 'PO · bila suhu ≥ 38 °C', null, false, ['', 'g:08.20', '', '', '']],
+    ],
+    notes: [
+      {
+        id: 'cppt-raka-1',
+        role: 'dpjp',
+        author: doctorName('dr-nadia'),
+        at: T('08.00'),
+        s: 'Demam hari ke-4, nafsu makan menurun, tidak ada perdarahan.',
+        o: 'Hematokrit 44% (naik dari 40%), trombosit 62.000. Akral hangat, CRT < 2 detik.',
+        a: 'DBD derajat II, fase kritis.',
+        p: 'Naikkan cairan 7 mL/kg/jam, hematokrit ulang 6 jam.',
+      },
+      {
+        id: 'cppt-raka-2',
+        role: 'perawat',
+        author: STAF_LAIN.perawat[1],
+        at: T('06.00'),
+        o: 'Diuresis 1,2 mL/kg/jam. Suhu 38,2 °C.',
+        a: 'Hipertermia; risiko syok hipovolemik.',
+        p: 'Kompres hangat, pantau tanda vital tiap 2 jam.',
+      },
+    ],
+    obs: [
+      [T('06.00'), 38.2, 108, 22, 98, 64, 98, false, 'A'],
+      [T('10.00'), 37.6, 100, 20, 102, 66, 98, false, 'A'],
+    ],
+    results: [
+      [T('06.00'), 'Hematokrit', '44% (sebelumnya 40%)', 'tinggi'],
+      [T('06.00'), 'Trombosit', '62.000 /µL', 'rendah'],
+    ],
+    nursing: [
+      [
+        'Risiko syok hipovolemik',
+        [
+          ['Pantau tanda vital tiap 2 jam', true],
+          ['Catat asupan dan diuresis', true],
+          ['Edukasi orang tua tanda bahaya', false],
+        ],
+      ],
+    ],
+  },
+  {
+    patientId: 'ps-wulan',
+    wardCode: 'MAWAR',
+    bed: 'W-322',
+    dpjp: doctorName('dr-hana'),
+    admittedOn: DEMO_TODAY,
+    flags: [],
+    risk: 'Pasca seksio sesarea hari 0 · IMD berhasil',
+    plan: 'Mobilisasi bertahap, ASI sesuai keinginan bayi, analgesik terjadwal, lepas kateter 12 jam pasca operasi.',
+    dx: [
+      ['ICD-10', 'O82.0', 'Persalinan dengan seksio sesarea elektif', true],
+      ['ICD-10', 'Z37.0', 'Lahir hidup tunggal'],
+      ['ICD-9-CM', '74.1', 'Seksio sesarea segmen bawah'],
+    ],
+    emarNow: '12.00',
+    emarNote: 'Oksitosin obat kewaspadaan tinggi: cek ganda sebelum mengganti cairan.',
+    meds: [
+      [
+        'Sefazolin 2 g',
+        'IV · dosis tunggal profilaksis pra-operasi',
+        null,
+        false,
+        ['g:06.50', '', '', '', ''],
+      ],
+      [
+        'Oksitosin 20 IU dalam RL 500 mL',
+        'IV · 8 jam pasca operasi',
+        null,
+        true,
+        ['', 'g:08.30', '', '', ''],
+      ],
+      ['Ketorolak 30 mg', 'IV · 3×1', null, false, ['', '', 'j', 'r', 'r']],
+      ['Parasetamol 1 g', 'IV · 3×1', null, false, ['', 'g:08.30', '', 'r', '']],
+    ],
+    notes: [
+      {
+        id: 'cppt-wulan-1',
+        role: 'bidan',
+        author: PERSONA.bidan,
+        at: T('10.00'),
+        s: 'Nyeri luka operasi skala 4, sudah menyusui.',
+        o: 'Kontraksi uterus baik, TFU 2 jari bawah pusat, perdarahan ± 50 mL.',
+        a: 'Pasca SC hari 0, kondisi stabil.',
+        p: 'Pantau perdarahan dan kontraksi tiap 1 jam, dampingi menyusui.',
+      },
+      {
+        id: 'cppt-wulan-2',
+        role: 'dpjp',
+        author: doctorName('dr-hana'),
+        at: T('08.45'),
+        s: 'Seksio sesarea elektif atas indikasi bekas SC.',
+        o: 'Bayi lahir 07.52, perempuan 3.100 g, APGAR 8/9. Perdarahan operasi 450 mL.',
+        a: 'G2P2A0 pasca SC elektif.',
+        p: 'Oksitosin 8 jam, mobilisasi 6 jam pasca operasi.',
+      },
+    ],
+    obs: [
+      [T('08.45'), 36.8, 88, 18, 118, 74, 99, false, 'A'],
+      [T('10.15'), 36.9, 84, 18, 120, 76, 99, false, 'A'],
+    ],
+    results: [[T('10.00'), 'Hemoglobin pasca operasi', '10,9 g/dL', 'rendah']],
+    nursing: [
+      [
+        'Nyeri akut pasca operasi',
+        [
+          ['Kaji skala nyeri tiap 4 jam', true],
+          ['Ajarkan teknik relaksasi napas', false],
+        ],
+      ],
+      [
+        'Risiko menyusui tidak efektif',
+        [
+          ['Bantu posisi dan pelekatan menyusui', true],
+          ['Edukasi ASI eksklusif', false],
+        ],
+      ],
+    ],
+  },
+];
+
+/** Pasien rawat inap hari demo (tanpa pasien skenario). */
+export const INPATIENT_SEEDS: readonly InpatientSeed[] = [ENDANG, ...ICU_SEEDS, ...WARD_SEEDS];
+
+export function demoInpatients(): InpatientDetail[] {
+  return INPATIENT_SEEDS.map((s) => buildInpatient(s));
+}
+
+/** Kunjungan yang punya draf resume pulang di mode presentasi (Ny. Endang + dua pasien skenario). */
+export const RESUME_ENCOUNTERS: readonly string[] = ['kj-endang', 'kj-hartono', 'kj-ratna'];
+/** Dokumen persetujuan tindakan di tablet (`/tablet/persetujuan/<id>`). */
+export const CONSENT_IDS: readonly string[] = ['pk-endang', 'pk-hartono', 'pk-ratna'];
+
+export const INPATIENT_FLAG_LABEL: Record<InpatientFlag, string> = {
+  cosign: 'Menunggu co-sign DPJP',
+  'emar-terlambat': 'Obat terlambat',
+  'rencana-pulang': 'Rencana pulang',
+  'risiko-jatuh': 'Risiko jatuh',
+  isolasi: 'Isolasi',
+};
