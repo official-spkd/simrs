@@ -1,0 +1,53 @@
+import type { Metadata } from 'next';
+import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { LabWorkspace } from '@/components/penunjang/lab-workspace';
+import { ScenarioBanner } from '@/components/scenario-banner';
+import { getLabWorklist, penunjangScenario } from '@/lib/server/data/penunjang';
+import { requireDemoScreen } from '@/lib/server/demo-guard';
+
+export const metadata: Metadata = { title: 'Laboratorium' };
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+/**
+ * S01/S09 · Laboratorium: worklist, hasil dengan LOINC, flag dan delta check, nilai kritis dengan timer dan
+ * read-back, validasi teknis lalu klinis (mockup `Lab.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023).
+ */
+export default async function LabPage({ searchParams }: { searchParams: SearchParams }) {
+  const { session, screen, allowed } = await requireDemoScreen('lab');
+  if (!allowed) return <DemoAccessDenied screen={screen} />;
+  const sp = await searchParams;
+  const { results, hook } = await penunjangScenario(session, 'lab');
+  const data = await getLabWorklist(results);
+  const pilih = typeof sp.pilih === 'string' ? sp.pilih : null;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-caption text-ink-500">
+            Penunjang / Laboratorium / Worklist · {session.tenant.name}
+          </span>
+          <h1 className="m-0 text-h1 font-semibold">Laboratorium · validasi hasil</h1>
+        </div>
+        <ul aria-label="Koneksi analyzer" className="m-0 flex list-none flex-wrap gap-2 p-0">
+          {data.analyzers.map((a) => (
+            <li
+              key={a.name}
+              className={
+                a.online
+                  ? 'rounded-full bg-success-bg px-2.5 py-1.5 text-small font-medium text-success'
+                  : 'rounded-full bg-danger-bg px-2.5 py-1.5 text-small font-medium text-danger'
+              }
+            >
+              <span aria-hidden="true">● </span>
+              {a.name} {a.online ? 'terhubung' : 'terputus'} ({a.link})
+            </li>
+          ))}
+        </ul>
+      </header>
+      <ScenarioBanner session={session} screen="lab" />
+      <LabWorkspace data={data} hook={hook} initialSelected={pilih} userName={session.user.displayName} />
+    </div>
+  );
+}
