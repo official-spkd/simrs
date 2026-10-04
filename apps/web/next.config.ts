@@ -22,27 +22,11 @@ if (existsSync(rootEnvPath)) {
   }
 }
 
-const isDev = process.env.NODE_ENV === 'development';
-
 /**
- * CSP: hanya sumber dari asal sendiri. `unsafe-inline` untuk skrip dibutuhkan hidrasi Next tanpa nonce
- * (utang teknis: pindah ke CSP ber-nonce saat hardening fase 10). `unsafe-eval` dan websocket hanya di dev (HMR).
+ * Header keamanan statis. Content-Security-Policy TIDAK di sini: nonce-nya berbeda per permintaan, jadi dipasang
+ * `src/proxy.ts` (`src/lib/csp.ts`, ADR-0073).
  */
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  `connect-src 'self'${isDev ? ' ws: wss:' : ''}`,
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-].join('; ');
-
 const securityHeaders = [
-  { key: 'Content-Security-Policy', value: csp },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
