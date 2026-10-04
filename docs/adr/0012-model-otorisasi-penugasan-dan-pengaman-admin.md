@@ -1,6 +1,6 @@
 # ADR-0012 · Model otorisasi: matriks per RS, satu penugasan per sesi, pengaman admin
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 docs/05 §1–2 menetapkan izin = peran × unit × relasi pasien × jenis formulir, ditegakkan di guard API dan di query, dengan 16 peran bawaan dan break-the-glass (alasan wajib, 60 menit, notifikasi petugas privasi). Dokumen tidak mengatur: di mana matriks disimpan, bagaimana sesi memilih peran bila staf punya beberapa penugasan, dan bagaimana mencegah RS terkunci atau eskalasi hak lewat menu admin.
@@ -25,7 +25,7 @@ docs/05 §1–2 menetapkan izin = peran × unit × relasi pasien × jenis formul
 − Izin baru di katalog tidak otomatis masuk ke peran RS yang sudah berjalan; perlu migrasi data atau penyesuaian lewat layar Akses.
 − Kunci admin menyerialkan perubahan akun admin dalam satu tenant (jarang, dapat diterima).
 
-## Pembaruan 5 Okt 2026
+## Pembaruan 5 Okt 2026 · admin aktif = bisa masuk
 
 Staf seed (fase 1 potongan 10d) dibuat tanpa kata sandi, termasuk satu `admin_tenant` per RS. Agar admin seperti itu tidak "menyelamatkan" RS yang sebenarnya sudah kehilangan admin terakhir yang bisa masuk, aturan **minimal satu admin aktif** (`countActiveAdmins`) kini hanya menghitung admin yang **bisa masuk**: status `active` **dan** sudah punya kata sandi (baris `user_credentials`). MFA tidak disyaratkan: admin yang baru direset sedang menjalani login pertama (daftar MFA lalu ganti sandi) dan sah memulihkan RS. Kunci per tenant (`lockTenantScope`) tetap; kata sandi tidak pernah dihapus aplikasi, jadi syarat baru ini tidak membuka write skew baru.
 
