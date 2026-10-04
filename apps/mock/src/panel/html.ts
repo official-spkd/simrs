@@ -51,6 +51,19 @@ export const PANEL_HTML = /* html */ `<!doctype html>
     <div class="row" style="margin-top:12px">
       <label><input type="checkbox" id="enc" style="height:auto"> Enkripsi respons BPJS (AES-256-CBC + LZ-string)</label>
     </div>
+    <p class="muted">Timeout: permintaan tetap diproses (mis. SEP terbit), jawabannya ditahan lalu dijawab 504 — meniru jawaban BPJS yang hilang di jalan.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-antrean">
+    <h2 id="h-antrean">BPJS · Antrean dan task ID</h2>
+    <table><thead><tr><th>Kode booking</th><th>Pasien</th><th>Poli · dokter</th><th>Jadwal</th><th>No. antrean</th><th>Task ID tercatat</th><th>Status</th></tr></thead>
+    <tbody id="antrean"><tr><td colspan="7" class="muted">Belum ada antrean.</td></tr></tbody></table>
+  </section>
+
+  <section class="card" aria-labelledby="h-sep">
+    <h2 id="h-sep">BPJS · SEP</h2>
+    <table><thead><tr><th>No. SEP</th><th>Tanggal</th><th>No. kartu</th><th>Pelayanan</th><th>Poli · DPJP</th><th>Rujukan / surat</th><th>Versi</th><th>Status</th></tr></thead>
+    <tbody id="seps"><tr><td colspan="8" class="muted">Belum ada SEP.</td></tr></tbody></table>
   </section>
 
   <section class="card" aria-labelledby="h-tpdi">
@@ -79,7 +92,7 @@ export const PANEL_HTML = /* html */ `<!doctype html>
   </section>
 </main>
 <script>
-const MODES = [['normal','Normal'],['lambat','Lambat'],['gagal','Gagal'],['acak','Acak']];
+const MODES = [['normal','Normal'],['lambat','Lambat'],['gagal','Gagal'],['acak','Acak'],['timeout','Timeout']];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const jam = (iso) => iso ? new Date(iso).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour12: false }) : '—';
 const rp = (n) => 'Rp ' + String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.');
@@ -100,6 +113,7 @@ function renderSystems(systems) {
     '<span class="chip ' + (s.scenario.mode === 'normal' ? 'ok' : s.scenario.mode === 'gagal' ? 'bad' : 'warn') + '">' + esc(s.scenario.mode) + '</span></div>' +
     '<div class="row"><label for="l-' + s.id + '">Latensi ms</label><input type="number" id="l-' + s.id + '" value="' + s.scenario.latencyMs + '">' +
     '<label for="f-' + s.id + '">Kode gagal</label><input type="number" id="f-' + s.id + '" value="' + s.scenario.failStatus + '"></div>' +
+    '<div class="row"><label for="t-' + s.id + '">Tahan ms (timeout)</label><input type="number" id="t-' + s.id + '" value="' + s.scenario.timeoutMs + '"></div>' +
     '<button data-apply="' + s.id + '">Terapkan</button></div>').join(''));
 }
 document.getElementById('systems').addEventListener('focusin', () => { editing = true; });
@@ -108,10 +122,11 @@ document.getElementById('systems').addEventListener('click', (e) => {
   const id = e.target.getAttribute && e.target.getAttribute('data-apply'); if (!id) return;
   editing = false;
   post('/_panel/api/scenario', { system: id, mode: document.getElementById('m-' + id).value,
-    latencyMs: Number(document.getElementById('l-' + id).value), failStatus: Number(document.getElementById('f-' + id).value) });
+    latencyMs: Number(document.getElementById('l-' + id).value), failStatus: Number(document.getElementById('f-' + id).value),
+    timeoutMs: Number(document.getElementById('t-' + id).value) });
 });
 document.getElementById('enc').addEventListener('change', (e) => post('/_panel/api/bpjs-encryption', { enabled: e.target.checked }));
-document.getElementById('reset').addEventListener('click', () => { if (confirm('Hapus semua data mock (tagihan, log, skenario)?')) post('/_panel/api/reset'); });
+document.getElementById('reset').addEventListener('click', () => { if (confirm('Hapus semua data mock (tagihan, antrean dan SEP BPJS, log, skenario)?')) post('/_panel/api/reset'); });
 document.getElementById('invoices').addEventListener('click', (e) => {
   const a = e.target.getAttribute && e.target.getAttribute('data-act'); if (!a) return;
   const [id, act] = a.split('|'); post('/_panel/api/tpdi/invoices/' + encodeURIComponent(id) + '/' + act);
@@ -136,6 +151,18 @@ async function refresh() {
     '<tr><td>' + jam(m.at) + '</td><td>' + (m.channel === 'email' ? 'Email' : 'WhatsApp') + '</td><td class="mono">' + esc(m.to) +
     '</td><td>' + (m.subject ? '<strong>' + esc(m.subject) + '</strong><br>' : '') + '<span style="white-space: pre-wrap">' + esc(m.text) + '</span></td></tr>').join('')
     : '<tr><td colspan="4" class="muted">Belum ada pesan.</td></tr>');
+  setHtml('antrean', s.bpjs.antrean.length ? s.bpjs.antrean.map((a) =>
+    '<tr><td class="mono">' + esc(a.kodebooking) + '</td><td>' + esc(a.jenispasien) + (a.nomorkartu ? ' <span class="mono">' + esc(a.nomorkartu) + '</span>' : '') +
+    '</td><td>' + esc(a.kodepoli) + ' · ' + esc(a.namadokter) + '</td><td>' + esc(a.tanggalperiksa) + ' ' + esc(a.jampraktek) +
+    '</td><td class="mono">' + esc(a.nomorantrean) + '</td><td>' + (a.tasks.length ? a.tasks.map((t) =>
+      '<span class="chip ' + (t.taskid === 99 ? 'bad' : 'ok') + '" title="' + esc(t.taskname) + ' · ' + jam(t.waktuIso) + '">' + t.taskid + '</span>').join(' ') : '<span class="muted">belum ada</span>') +
+    '</td><td><span class="chip ' + (a.status === 'aktif' ? 'neutral' : 'bad') + '">' + esc(a.status) + '</span></td></tr>').join('')
+    : '<tr><td colspan="7" class="muted">Belum ada antrean.</td></tr>');
+  setHtml('seps', s.bpjs.seps.length ? s.bpjs.seps.map((x) =>
+    '<tr><td class="mono">' + esc(x.noSep) + '</td><td>' + esc(x.tglSep) + '</td><td class="mono">' + esc(x.noKartu) + '</td><td>' + esc(x.jnsPelayanan) +
+    '</td><td>' + esc(x.poli || '—') + (x.dpjpLayan ? ' · ' + esc(x.dpjpLayan) : '') + '</td><td class="mono">' + esc(x.noRujukan || x.noSurat || '—') +
+    '</td><td>' + x.versi + '</td><td><span class="chip ' + (x.status === 'terbit' ? 'ok' : 'bad') + '">' + esc(x.status) + '</span></td></tr>').join('')
+    : '<tr><td colspan="8" class="muted">Belum ada SEP.</td></tr>');
   setHtml('log', s.log.map((l) =>
     '<tr><td>' + jam(l.at) + '</td><td>' + esc(l.system) + '</td><td>' + esc(l.method) + '</td><td class="mono">' + esc(l.path) + '</td><td>' + statusChip(l.status) + '</td><td>' + l.durationMs + ' ms</td></tr>').join(''));
   document.getElementById('updated').textContent = 'Diperbarui ' + jam(new Date().toISOString());

@@ -546,12 +546,13 @@ Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) de
      pnpm --filter @simrs/web test:e2e
    ```
 
-   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
+   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Port yang diblokir `fetch`/browser (mis. 4190, 5060, 6000, 6665–6669, 10080) ditolak saat konfigurasi dimuat (`e2e/support/slot.ts`); API :4090 karena itu butuh `E2E_MOCK_PORT` eksplisit (bawaannya 4190). Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
 
 Aturan:
 
 - Migrasi dari cabang yang belum digabung **hanya** diterapkan ke database salinan itu sendiri, tidak ke `simrs` atau database salinan lain. Setelah digabung ke `master`, checkout utama menerapkannya dengan `pnpm db:deploy`.
 - Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
+- Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
 ## 8. Pemecahan masalah
