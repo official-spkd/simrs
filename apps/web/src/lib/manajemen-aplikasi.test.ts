@@ -46,7 +46,7 @@ describe('aplikasi pasien mengikuti skenario rawat jalan (Tn. Suryo)', () => {
   it('tiket admisi A-031, lalu antrean poli PD-027 setelah SEP', () => {
     expect(home(until(RJ, 'kedatangan', 'tiket')).queue).toMatchObject({ stage: 'admisi', number: 'A-031' });
     const h = home(until(RJ, 'pendaftaran', 'sep'));
-    expect(h.queue).toMatchObject({ stage: 'poli', number: 'PD-027', ahead: 6 });
+    expect(h.queue).toMatchObject({ stage: 'poli', number: 'PD-027', serving: 'PD-025', ahead: 1 });
     expect(h.feed[0]?.id).toBe('sep');
   });
 
