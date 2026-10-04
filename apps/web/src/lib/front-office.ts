@@ -211,13 +211,17 @@ export const SLOT_STATUS: Record<SlotCellKind, string> = {
   none: 'Tidak praktik',
 };
 
+/** Status slot yang kuotanya habis (100% terisi); warna dan ikonnya sama dengan `full`. */
+export const SLOT_STATUS_PENUH = 'Kuota penuh';
+
 /** Tampilan sel grid jadwal; `quota` menimpa kuota fixture bila petugas sudah mengubahnya. */
 export function slotCell(slot: ScheduleSlot, quota: SlotQuota | null, hfisSynced: boolean): SlotCellView {
   const time = slot.start && slot.end ? slotTimeShort(slot.start, slot.end) : '—';
   if (slot.kind === 'praktik' && quota) {
     const u = slotUsage(quota);
     const kind = u.level === 'tersedia' ? 'ok' : 'full';
-    return { kind, time, note: `${u.used}/${u.total}`, status: SLOT_STATUS[kind] };
+    const status = u.level === 'penuh' ? SLOT_STATUS_PENUH : SLOT_STATUS[kind];
+    return { kind, time, note: `${u.used}/${u.total}`, status };
   }
   if (slot.kind === 'cuti') {
     return {

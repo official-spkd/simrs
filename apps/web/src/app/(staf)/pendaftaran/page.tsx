@@ -3,7 +3,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
-import { taskDoneAt } from '@/lib/front-office';
+import { simClock, taskDoneAt } from '@/lib/front-office';
 import { getRegistrationDesk, getScenarioRegistrationPatient } from '@/lib/server/data/front-office';
 import {
   activeStepId,
@@ -40,6 +40,7 @@ export default async function PendaftaranPage() {
     checked: milestone(rj, 'pendaftaran', 'cek'),
     sepIssued: milestone(rj, 'pendaftaran', 'sep'),
     sepAt: taskDoneAt(rj, 'pendaftaran', 'sep'),
+    clock: simClock(rj.clock),
     enabled: { panggil: enabled('panggil'), cek: enabled('cek'), sep: enabled('sep') },
   };
   return (

@@ -13,6 +13,7 @@ import { HfisPanel, LeaveImpact } from '@/components/front-office/hfis-panel';
 import { LeaveForm } from '@/components/front-office/leave-form';
 import { ScheduleGrid, type ScheduleGridRow, ScheduleLegend } from '@/components/front-office/schedule-grid';
 import { SlotDetail, type SlotDetailView } from '@/components/front-office/slot-detail';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { adjustQuota, dayLong, dayShort, type QuotaPool, slotCell } from '@/lib/front-office';
 import { approveLeaveTransferAction, recordLeaveAction, sendScheduleToHfisAction } from './actions';
 
@@ -147,7 +148,8 @@ export function JadwalClient({
       setLeaves((cur) =>
         Object.fromEntries(Object.entries(cur).map(([id, l]) => [id, { ...l, synced: true }])),
       );
-      if (r.at) setSyncAt(r.at);
+      // Jam sinkron terakhir adalah catatan jadwal: ikut jam hari demo (setelah 07.30 HFIS pagi ini).
+      setSyncAt(formatJam(demoNow()));
     });
 
   const leave = base.doctors.flatMap((doctor) =>

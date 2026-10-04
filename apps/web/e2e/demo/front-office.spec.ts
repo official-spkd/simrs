@@ -126,6 +126,18 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   await expect(grid.getByRole('button', { name: /Rabu 7 Okt, Cuti/ })).toContainText('HFIS diperbarui');
   await expect(detail.getByText('Perubahan kuota belum dikirim ke HFIS.')).toHaveCount(0);
 
+  // ≥ 80% "hampir penuh"; kuota diturunkan sampai habis (100%) → "Kuota penuh" di chip dan label sel.
+  await grid
+    .getByRole('button', { name: /^dr\. Bagus Santoso, Sp\.JP, Senin 5 Okt, 09–12, 18\/20,/ })
+    .click();
+  await expect(detail.getByText('Kuota hampir penuh', { exact: true })).toBeVisible();
+  await detail.getByRole('button', { name: 'Kurangi kuota non-JKN' }).click();
+  await detail.getByRole('button', { name: 'Kurangi kuota non-JKN' }).click();
+  await expect(detail.getByText('Kuota penuh', { exact: true })).toBeVisible();
+  await expect(
+    grid.getByRole('button', { name: 'dr. Bagus Santoso, Sp.JP, Senin 5 Okt, 09–12, 18/18, Kuota penuh' }),
+  ).toBeVisible();
+
   await page.getByLabel('Poli').selectOption('Saraf');
   await expect(grid.getByRole('button', { name: /dr\. Andini/ })).toHaveCount(0);
   await expect(grid.getByRole('button', { name: /^dr\. Yudha Pratama/ }).first()).toBeVisible();
@@ -152,7 +164,7 @@ test('anjungan: keypad kode booking → biometrik → konfirmasi → tiket (loka
     await kiosk.getByRole('button', { name: 'Lanjut', exact: true }).click();
   };
 
-  // Lokal: kode lain → Siti Rahmawati, tiket A-016.
+  // Lokal: kode lain → Siti Rahmawati, tiket A-032 (setelah antrean loket A-028–A-030 dan A-031 Tn. Suryo).
   await kiosk.getByRole('button', { name: 'Huruf lebih besar' }).click();
   await expect(kiosk.getByRole('button', { name: 'Huruf lebih besar' })).toHaveAttribute(
     'aria-pressed',
@@ -174,7 +186,7 @@ test('anjungan: keypad kode booking → biometrik → konfirmasi → tiket (loka
   await expect(kiosk.getByRole('heading', { name: 'Apakah ini data Anda?' })).toBeVisible();
   await expect(kiosk.getByText('Siti Rahmawati')).toBeVisible();
   await kiosk.getByRole('button', { name: 'Ya, data saya benar · cetak tiket' }).click();
-  await expect(kiosk.getByRole('region', { name: 'Tiket antrean' })).toContainText('A-016');
+  await expect(kiosk.getByRole('region', { name: 'Tiket antrean' })).toContainText('A-032');
   await kiosk.getByRole('button', { name: 'Selesai' }).click();
 
   // Skenario: kode booking Tn. Suryo menjalankan tugas scan → bio → tiket (A-031).

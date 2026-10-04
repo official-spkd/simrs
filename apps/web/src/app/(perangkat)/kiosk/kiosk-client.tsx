@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useDemoRunner } from '@/components/demo-sync';
 import { KioskConfirm, KioskTicket, type KioskTicketView } from '@/components/front-office/kiosk-confirm';
 import { KioskFooter, KioskHeader } from '@/components/front-office/kiosk-frame';
-import type { KioskScenarioView } from '@/components/front-office/kiosk-hint';
+import type { KioskScenarioTask, KioskScenarioView } from '@/components/front-office/kiosk-hint';
 import { KioskKeypad, type KioskMethod } from '@/components/front-office/kiosk-keypad';
 import {
   type BiometricChoice,
@@ -95,6 +95,18 @@ export function KioskClient({
       if (ok) then();
     });
   };
+  /**
+   * Tugas skenario ada tetapi belum gilirannya (mis. simulasi diulang atau dimajukan dari perangkat lain): jangan
+   * kirim perintah yang pasti ditolak server; kembali ke isian kode booking yang melanjutkan tugas sesuai urutan.
+   */
+  const notYourTurn = (t: KioskScenarioTask) => {
+    setMethod('booking');
+    setDigits('');
+    go('input');
+    setNotice(
+      `${t.label} belum gilirannya di simulasi (keadaan berubah dari perangkat lain). Masukkan ulang kode booking ${bookingCode} untuk melanjutkan check-in ${scenario.patientName}.`,
+    );
+  };
 
   const back = () => {
     const prev: Record<Screen, Screen> = {
@@ -129,9 +141,13 @@ export function KioskClient({
           return;
         }
       } else {
+        const scan = task('scan');
+        if (scan && !scan.done && !scan.enabled) {
+          notYourTurn(scan);
+          return;
+        }
         setForScenario(true);
         const afterScan = () => go(task('bio')?.done ? 'konfirmasi' : 'bio');
-        const scan = task('scan');
         if (scan && !scan.done) runTask('scan', true, afterScan);
         else afterScan();
         return;
@@ -144,6 +160,10 @@ export function KioskClient({
   const pickBio = (c: BiometricChoice) => {
     const t = forScenario ? task('bio') : undefined;
     if (t && !t.done) {
+      if (!t.enabled) {
+        notYourTurn(t);
+        return;
+      }
       runTask('bio', c, () => {
         setBio(c);
         go('konfirmasi');
@@ -162,8 +182,10 @@ export function KioskClient({
       go('tiket');
     };
     const t = forScenario ? task('tiket') : undefined;
-    if (t && !t.done) runTask('tiket', true, done);
-    else done();
+    if (t && !t.done) {
+      if (t.enabled) runTask('tiket', true, done);
+      else notYourTurn(t);
+    } else done();
   };
 
   const pt = forScenario ? scenarioPatient : local;

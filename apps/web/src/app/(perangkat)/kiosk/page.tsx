@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { KioskPresenterHint, type KioskScenarioView } from '@/components/front-office/kiosk-hint';
 import { ScaleToFit } from '@/components/scale-to-fit';
-import { KIOSK_TICKETS, LOCAL_SEP, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
+import { kioskTickets, LOCAL_SEP, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
-import { dateFull } from '@/lib/front-office';
+import { dateFull, frontOfficeProgress } from '@/lib/front-office';
 import {
   getKioskDefaultPatient,
   getRegistrationDesk,
@@ -66,7 +66,7 @@ export default async function KioskPage() {
             time: andini ? `${andini.start}–${andini.end}` : '',
           }}
           localSep={LOCAL_SEP}
-          tickets={KIOSK_TICKETS}
+          tickets={kioskTickets(frontOfficeProgress(rj))}
           bookingCode={SCENARIO_RJ.bookingCode}
           scenario={scenario}
         />

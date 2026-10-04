@@ -1,6 +1,6 @@
 'use client';
 
-import { formatJam, type Payer, type RegistrationDesk, type RegistrationPatient } from '@simrs/shared';
+import type { Payer, RegistrationDesk, RegistrationPatient } from '@simrs/shared';
 import { useState } from 'react';
 import { diagnosisProblem, matchPatient, SEARCH_TOO_SHORT } from '@/lib/front-office';
 
@@ -18,6 +18,8 @@ export interface RegScenarioView {
   checked: boolean;
   sepIssued: boolean;
   sepAt: string | null;
+  /** Jam naskah skenario saat ini (`HH.MM`): cap waktu catatan Tn. Suryo, selaras jam SEP-nya. */
+  clock: string;
   enabled: { panggil: boolean; cek: boolean; sep: boolean };
 }
 
@@ -153,6 +155,7 @@ export function useRegistration(
     setScheduleLocked,
     setConsent,
     setDone,
-    print: () => setPrintedAt(formatJam(new Date())),
+    /** Cetak tiket/SEP/gelang pada jam `at` (`HH.MM`, dari jam hari demo atau jam naskah skenario). */
+    print: (at: string) => setPrintedAt(at),
   };
 }

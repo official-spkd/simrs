@@ -10,6 +10,7 @@ import type {
   ScheduleSlot,
   WeeklySchedule,
 } from '@simrs/shared';
+import { nextQueueNo } from '../../front-office';
 import { type DemoPatient, patientById } from './pasien';
 import { poliByCode, queueNo } from './rs';
 import { doctorById } from './staf';
@@ -284,7 +285,7 @@ export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard
 const ICD = {
   I10: 'Hipertensi esensial (primer)',
   'E11.9': 'Diabetes melitus tipe 2 tanpa komplikasi',
-  'J18.9': 'Pneumonia, tidak spesifik',
+  'C18.9': 'Neoplasma ganas kolon',
   K30: 'Dispepsia',
 } as const;
 const dx = (code: keyof typeof ICD) => ({ code, label: ICD[code] });
@@ -414,22 +415,25 @@ export function registrationPatients(): RegistrationPatient[] {
         }),
       ],
     }),
-    lookupOf('ps-endang', {
-      guardian: 'Budi (suami)',
-      lastVisit: '21 Sep 2026 · Poli Paru',
+    // Ny. Maria Ulfa: pasien rawat jalan kemoterapi (klaim siklus 3, 24 Sep). Hari ini kontrol Poli PD dr. Rahmat
+    // (sesi 13.00) sebelum siklus berikutnya; permintaan bed kemoterapinya di Admisi berasal dari poli ini. Belum
+    // dirawat inap di layar mana pun (dijaga tes).
+    lookupOf('ps-maria', {
+      guardian: 'Rina (anak)',
+      lastVisit: '24 Sep 2026 · Poli Penyakit Dalam',
       fktp: 'Klinik Pratama Harapan Sehat',
       referrals: [
         referral({
-          id: 'rj-endang-kontrol',
+          id: 'rj-maria-kontrol',
           kind: 'surat-kontrol',
-          number: '0301R0011025K000502',
-          title: 'Surat kontrol · Poli Paru',
-          origin: 'Poli Paru',
-          diagnosis: dx('J18.9'),
-          issuedAt: '2026-09-21',
-          validUntil: '2026-10-19',
-          poliCode: 'PR',
-          doctorId: 'dr-kartika',
+          number: '0301R0011025K000489',
+          title: 'Surat kontrol · Poli Penyakit Dalam',
+          origin: 'Poli Penyakit Dalam',
+          diagnosis: dx('C18.9'),
+          issuedAt: '2026-09-24',
+          validUntil: '2026-10-22',
+          poliCode: 'PD',
+          doctorId: 'dr-rahmat',
         }),
       ],
     }),
@@ -486,12 +490,18 @@ export function demoRegistrationDesk(p: FrontOfficeProgress = NO_PROGRESS): Regi
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Tiket anjungan per tujuan (mockup Anjungan): booking/BPJS A-016, umum A-017, farmasi F-021; Tn. Suryo (skenario)
- * A-031 ke loket pendaftaran. `waitMin` = perkiraan menit sampai dipanggil, dihitung dari jam anjungan.
+ * Tiket anjungan per tujuan (mockup Anjungan). Booking/BPJS dan umum mendapat nomor loket A bebas berikutnya setelah
+ * tiket loket yang sudah ada dan tiket Tn. Suryo (A-031 tidak pernah dipakai ulang), sehingga nomor tidak mundur dari
+ * antrean loket; farmasi F-021 (antrean F hanya di anjungan); Tn. Suryo (skenario) A-031 ke loket pendaftaran.
+ * `waitMin` = perkiraan menit sampai dipanggil, dihitung dari jam anjungan.
  */
-export const KIOSK_TICKETS = {
-  bpjs: { no: 'A-016', waitMin: 14 },
-  umum: { no: 'A-017', waitMin: 26 },
-  farmasi: { no: 'F-021', waitMin: 9 },
-  skenario: { no: SCENARIO_RJ.ticket, waitMin: 12 },
-} as const;
+export function kioskTickets(p: FrontOfficeProgress = NO_PROGRESS) {
+  const taken = [...counterTickets(p).map((t) => t.ticket), SCENARIO_RJ.ticket];
+  const bpjs = nextQueueNo('A', taken);
+  return {
+    bpjs: { no: bpjs, waitMin: 14 },
+    umum: { no: nextQueueNo('A', [...taken, bpjs]), waitMin: 26 },
+    farmasi: { no: 'F-021', waitMin: 9 },
+    skenario: { no: SCENARIO_RJ.ticket, waitMin: 12 },
+  };
+}

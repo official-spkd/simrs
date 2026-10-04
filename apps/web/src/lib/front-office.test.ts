@@ -14,11 +14,13 @@ import {
   demoRegistrationDesk,
   demoWeeklySchedule,
   type FrontOfficeProgress,
+  kioskTickets,
   NO_PROGRESS,
   registrationPatients,
   SCENARIO_RJ,
   scenarioRegistrationPatient,
 } from './demo/fixtures/front-office';
+import { demoBeds } from './demo/fixtures/rawat-inap';
 import { POLI, queueNo } from './demo/fixtures/rs';
 import { DOKTER } from './demo/fixtures/staf';
 import { RAWAT_JALAN } from './demo/skenario/rawat-jalan';
@@ -42,8 +44,10 @@ import {
   registrationPrimary,
   registrationProgress,
   type RegistrationFlow,
+  simClock,
   slotCell,
   slotTimeShort,
+  taskDoneAt,
 } from './front-office';
 
 const ALL: FrontOfficeProgress = { ticket: true, called: true, sep: true, doctorCalled: true };
@@ -113,6 +117,15 @@ describe('kontrak data dummy front office', () => {
     }
     expect(list.some((p) => p.id === SCENARIO_RJ.patientId)).toBe(false);
   });
+
+  it('pasien dengan surat kontrol hari ini bukan pasien rawat inap di layar lain', () => {
+    const inpatients = new Set(demoBeds().flatMap((b) => (b.patientLabel ? [b.patientLabel] : [])));
+    for (const p of registrationPatients()) expect(inpatients.has(p.name), p.name).toBe(false);
+    const maria = registrationPatients().find((p) => p.id === 'ps-maria');
+    expect(maria?.referrals).toEqual([
+      expect.objectContaining({ kind: 'surat-kontrol', poliCode: 'PD', doctorId: 'dr-rahmat' }),
+    ]);
+  });
 });
 
 describe('aturan kuota', () => {
@@ -131,7 +144,7 @@ describe('aturan kuota', () => {
     expect(adjustQuota(q, 'nonJkn', 2)).toEqual({ ...q, nonJkn: 8 });
   });
 
-  it('sel jadwal: kuota, ≥ 80%, cuti, pengganti, tidak praktik', () => {
+  it('sel jadwal: kuota, ≥ 80% hampir penuh, 100% penuh, cuti, pengganti, tidak praktik', () => {
     const w = demoWeeklySchedule();
     const cell = (doc: string, day: number) => {
       const s = w.doctors.find((d) => d.id === doc)?.slots[day];
@@ -139,7 +152,17 @@ describe('aturan kuota', () => {
       return slotCell(s, s.quota, s.hfisSynced);
     };
     expect(cell('dr-andini', 0)).toMatchObject({ kind: 'ok', time: '08–12', note: '22/30' });
-    expect(cell('dr-andini', 1)).toMatchObject({ kind: 'full', note: '26/30' });
+    expect(cell('dr-andini', 1)).toMatchObject({ kind: 'full', note: '26/30', status: 'Kuota hampir penuh' });
+    const bagus = w.doctors.find((d) => d.id === 'dr-bagus')?.slots[0];
+    if (!bagus?.quota) throw new Error('slot');
+    expect(slotCell(bagus, bagus.quota, true)).toMatchObject({ note: '18/20', status: 'Kuota hampir penuh' });
+    // Kuota non-JKN diturunkan sampai batas booking → 100% terisi: "penuh", bukan "hampir penuh".
+    const habis = { ...bagus.quota, nonJkn: bagus.quota.bookedNonJkn };
+    expect(slotCell(bagus, habis, true)).toMatchObject({
+      kind: 'full',
+      note: '18/18',
+      status: 'Kuota penuh',
+    });
     expect(cell('dr-bagus', 2)).toMatchObject({ kind: 'off', time: 'Cuti', note: 'HFIS belum diubah' });
     expect(cell('dr-melati', 2)).toMatchObject({ kind: 'sub', note: 'pengganti' });
     expect(cell('dr-andini', 4)).toMatchObject({ kind: 'none', note: 'tidak praktik' });
@@ -181,6 +204,22 @@ describe('nomor antrean', () => {
     const waiting = counterTickets({ ...NO_PROGRESS, ticket: true });
     expect(waiting[0]).toEqual({ ticket: SCENARIO_RJ.ticket, patientId: SCENARIO_RJ.patientId });
     expect(counterTickets(AFTER_SEP).map((t) => t.ticket)).toEqual(['A-032', 'A-033', 'A-034']);
+  });
+
+  it('tiket lokal anjungan: nomor A bebas setelah antrean loket dan A-031, tidak pernah mundur', () => {
+    expect(kioskTickets(NO_PROGRESS)).toMatchObject({
+      bpjs: { no: 'A-032' },
+      umum: { no: 'A-033' },
+      skenario: { no: SCENARIO_RJ.ticket },
+    });
+    expect(kioskTickets(AFTER_SEP)).toMatchObject({ bpjs: { no: 'A-035' }, umum: { no: 'A-036' } });
+    for (const p of [NO_PROGRESS, { ...NO_PROGRESS, ticket: true }, AFTER_SEP, ALL]) {
+      const k = kioskTickets(p);
+      const taken = [...counterTickets(p).map((t) => t.ticket), SCENARIO_RJ.ticket];
+      const top = Math.max(...taken.map((t) => parseQueueNo(t)?.n ?? 0));
+      expect(parseQueueNo(k.bpjs.no)).toEqual({ code: 'A', n: top + 1 });
+      expect(parseQueueNo(k.umum.no)).toEqual({ code: 'A', n: top + 2 });
+    }
   });
 
   it('nomor poli di papan dan meja pendaftaran tidak bertabrakan', () => {
@@ -306,7 +345,7 @@ describe('pendaftaran: pencarian pasien', () => {
     expect(matchPatient('00124578', list)?.name).toBe('Siti Rahmawati');
     expect(matchPatient('9999••••••••4521', list)?.name).toBe('Siti Rahmawati');
     expect(matchPatient('0000123000890', list)?.name).toBe('Siti Rahmawati');
-    expect(matchPatient('endang', list)?.rm).toBe('00-07-61-33');
+    expect(matchPatient('maria', list)?.rm).toBe('00-41-27-88');
     expect(matchPatient('Siti 14-03-1972', list)?.id).toBe('ps-siti');
     expect(matchPatient('Siti 15-03-1972', list)).toBeNull();
     expect(matchPatient('zz', list)).toBeNull();
@@ -350,6 +389,10 @@ describe('proyeksi Tn. Suryo (skenario rawat jalan) per milestone', () => {
     const mon = demoWeeklySchedule(p).doctors[0]?.slots[0];
     expect(mon?.quota?.bookedJkn).toBe(18);
     expect(demoRegistrationDesk(p).counter.tickets[0]?.ticket).toBe('A-032');
+    // Cap waktu catatan Tn. Suryo di loket (Terdaftar, Tercetak) = jam naskah saat ini = jam SEP terbit.
+    const R = runScenario(RAWAT_JALAN, seqUntil('pendaftaran', 'sep'));
+    expect(simClock(R.clock)).toMatch(/^\d{2}\.\d{2}$/);
+    expect(simClock(R.clock)).toBe(taskDoneAt(R, 'pendaftaran', 'sep'));
   });
 
   it('pemeriksaan-dokter.panggil: PD-027 SEDANG DIPANGGIL', () => {

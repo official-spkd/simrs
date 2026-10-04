@@ -10,6 +10,7 @@ import { RegPayer } from '@/components/front-office/reg-payer';
 import { RegQueuePreview, RegQuota } from '@/components/front-office/reg-quota';
 import { RegSep } from '@/components/front-office/reg-sep';
 import { RegStepper, type RegStepView } from '@/components/front-office/reg-stepper';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   nextQueueNo,
   REGISTRATION_STEPS,
@@ -76,6 +77,8 @@ export function PendaftaranClient({
   const prog = registrationProgress(flow);
   const prim = registrationPrimary(flow);
   const working = busy || running;
+  /** Cap waktu catatan (dipanggil di penangan aksi): Tn. Suryo mengikuti jam naskah, pasien lain jam hari demo. */
+  const stamp = () => (isScenario ? scenario.clock : formatJam(demoNow()));
 
   // Antrean loket: A-031 (Tn. Suryo) didahulukan saat tiketnya tercetak; walk-in melewati nomor itu.
   const nextWalkIn =
@@ -111,7 +114,7 @@ export function PendaftaranClient({
     setWaiting((w) => Math.max(0, w - 1));
     setNotice({
       ok: true,
-      text: `${nextWalkIn} dipanggil ke ${desk.counter.name} · ${formatJam(new Date())}`,
+      text: `${nextWalkIn} dipanggil ke ${desk.counter.name} · ${formatJam(demoNow())}`,
     });
   };
 
@@ -143,13 +146,14 @@ export function PendaftaranClient({
       startTransition(async () => {
         const r = await issueSepAction({ patientId: p.id, referralId: f.referralId, diagnosis: f.diagnosis });
         setNotice({ ok: r.ok, text: r.message });
-        if (r.ok && r.sepNo && r.at) f.setSepLocal({ no: r.sepNo, at: r.at });
+        // Cap waktu catatan SEP mengikuti jam hari demo (bukan jam server di pesan umpan balik).
+        if (r.ok && r.sepNo) f.setSepLocal({ no: r.sepNo, at: stamp() });
       });
     } else if (prim.kind === 'tujuan') {
       f.setScheduleLocked(true);
     } else if (prim.kind === 'selesai' && quota) {
       if (isScenario) {
-        f.setDone({ at: formatJam(new Date()), queueNo: fixed.queueNo });
+        f.setDone({ at: stamp(), queueNo: fixed.queueNo });
         return;
       }
       startTransition(async () => {
@@ -160,7 +164,7 @@ export function PendaftaranClient({
           consent: f.consent,
         });
         setNotice({ ok: r.ok, text: r.message });
-        if (r.ok && r.queueNo && r.at) f.setDone({ at: r.at, queueNo: r.queueNo });
+        if (r.ok && r.queueNo) f.setDone({ at: stamp(), queueNo: r.queueNo });
       });
     }
   };
@@ -348,7 +352,7 @@ export function PendaftaranClient({
               </Link>
             </div>
           )}
-          <Button disabled={!f.done} onClick={f.print}>
+          <Button disabled={!f.done} onClick={() => f.print(stamp())}>
             <Icon name="printer" size={16} />
             {f.printedAt
               ? `Tercetak ${f.printedAt} · cetak ulang`

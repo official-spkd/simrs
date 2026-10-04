@@ -95,7 +95,7 @@ export function ScheduleGrid({
 export function ScheduleLegend() {
   const items: Array<{ kind: SlotCellKind; label: string }> = [
     { kind: 'ok', label: 'Praktik · kuota tersedia' },
-    { kind: 'full', label: 'Kuota hampir penuh (≥ 80%)' },
+    { kind: 'full', label: 'Kuota hampir penuh (≥ 80%) atau penuh' },
     { kind: 'off', label: 'Cuti · pasien perlu dijadwal ulang' },
     { kind: 'sub', label: 'Dokter pengganti' },
   ];
