@@ -11,9 +11,13 @@ const variants: Record<ButtonVariant, string> = {
   ghost: 'border-0 bg-transparent text-brand-600 font-medium',
 };
 
+/**
+ * Semua ukuran memenuhi target sentuh ≥ 44 px (h-11; anjungan 64 px); `sm` hanya lebih ringkas ke samping. Tetap
+ * kelas angka (bukan `h-touch`) agar `className` pemanggil seperti `h-12`/`h-auto` tetap menang urutan CSS-nya.
+ */
 const sizes: Record<ButtonSize, string> = {
   md: 'h-11 px-[18px]',
-  sm: 'h-10 px-3.5',
+  sm: 'h-11 px-3.5',
   kiosk: 'h-16 px-6 text-kiosk',
 };
 

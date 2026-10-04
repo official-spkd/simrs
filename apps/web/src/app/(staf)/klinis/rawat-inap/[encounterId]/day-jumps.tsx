@@ -81,7 +81,6 @@ export function DayJumps({
               {!done && (
                 <Button
                   size="sm"
-                  className="h-11"
                   variant={taskEnabled(state, k) ? 'primary' : 'secondary'}
                   disabled={!taskEnabled(state, k) || pending}
                   onClick={() => runTask(state, k, true)}

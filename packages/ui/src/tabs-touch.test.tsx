@@ -1,11 +1,28 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { TabList, type TabListItem, TabPanel, Tabs, type TabsVariant, tabIds, tabKeyTarget } from './index';
+import {
+  AppShell,
+  Button,
+  Field,
+  FilterChip,
+  SafetyGate,
+  Segmented,
+  Sidebar,
+  TabList,
+  type TabListItem,
+  TabPanel,
+  Tabs,
+  type TabsVariant,
+  tabIds,
+  tabKeyTarget,
+} from './index';
 
 /**
- * Primitif tab bersama: pola tab ARIA, keyboard, dan panel tetap terpasang (`keepMounted`).
+ * Primitif tab bersama (pola tab ARIA, keyboard, panel tetap terpasang) dan target sentuh ≥ 44 px semua kontrol
+ * interaktif `packages/ui` (CLAUDE.md §6, token `touchMin`). jsdom tanpa tata letak: ukuran diperiksa dari kelas
+ * tinggi; ukuran nyata di peramban diuji E2E `/dev/ui`.
  */
 
 afterEach(cleanup);
@@ -142,5 +159,116 @@ describe('Tabs · panel tetap terpasang (keepMounted)', () => {
   it('daftar tab membungkus di layar sempit (tanpa scroll horizontal)', () => {
     render(<Harness keepMounted />);
     expect(screen.getByRole('tablist').className).toContain('flex-wrap');
+  });
+});
+
+/** Kelas tinggi yang menjamin ≥ 44 px (spasi 11 = 44 px, token `touch` = 44 px). */
+const TALL = /(^|\s)(min-)?h-(11|12|14|16|touch|kiosk-touch)(\s|$)/;
+
+/** Elemen memenuhi target sentuh: tinggi ≥ 44 px, atau area sentuh diperluas, atau 44 px di layar sentuh. */
+function touchOk(el: Element): boolean {
+  const c = el.className;
+  if (TALL.test(c)) return true;
+  // Segmen ringkas: tampak 36 px + ::before 4 px atas/bawah menutup padding wadah (p-1) → 44 px.
+  if (
+    /\bh-9\b/.test(c) &&
+    c.includes('before:-inset-y-1') &&
+    /\bp-1\b/.test(el.parentElement?.className ?? '')
+  ) {
+    return true;
+  }
+  // Tautan sidebar: padat di desktop (mockup), 44 px di layar sentuh dan menu sempit.
+  if (c.includes('pointer-coarse:min-h-touch') && c.includes('max-md:min-h-touch')) return true;
+  // Area teks berbaris ganda selalu lebih tinggi dari 44 px.
+  return el.tagName === 'TEXTAREA' && Number(el.getAttribute('rows') ?? 2) >= 2;
+}
+
+function interactive(): Element[] {
+  return [...document.querySelectorAll('button, a[href], input, textarea, select, summary')];
+}
+
+describe('target sentuh ≥ 44 px', () => {
+  const cases: Array<[string, ReactElement]> = [
+    [
+      'Button md/sm/kiosk',
+      <>
+        <Button>Simpan</Button>
+        <Button size="sm">Koreksi</Button>
+        <Button size="kiosk">Ambil antrean</Button>
+      </>,
+    ],
+    ['Field', <Field key="f" label="NIK" />],
+    [
+      'FilterChip',
+      <FilterChip key="c" selected>
+        Menunggu
+      </FilterChip>,
+    ],
+    [
+      'Segmented',
+      <Segmented
+        key="s"
+        label="Rentang"
+        value="a"
+        onChange={() => undefined}
+        items={[
+          { id: 'a', label: 'Hari ini' },
+          { id: 'b', label: 'YTD' },
+        ]}
+      />,
+    ],
+    ['TabList pil', <TabList key="p" label="P" items={ITEMS} value="cppt" onChange={() => undefined} />],
+    [
+      'Tabs garis',
+      <Tabs
+        key="g"
+        label="G"
+        value="cppt"
+        onChange={() => undefined}
+        items={ITEMS.map((t) => ({ ...t, content: t.label }))}
+      />,
+    ],
+    [
+      'Sidebar + AppShell',
+      <AppShell key="a" tenantName="RS Fiktif" sidebar={null}>
+        <Sidebar
+          tenantName="RS Fiktif"
+          unitName="SIM RS"
+          user={{ name: 'Admin', role: 'Admin', initials: 'AD' }}
+          activeId="beranda"
+          integrations={[{ label: 'BPJS', state: 'normal', text: 'Normal' }]}
+          groups={[
+            {
+              title: 'UMUM',
+              items: [{ id: 'beranda', label: 'Beranda', href: '/', icon: 'home', available: true }],
+            },
+          ]}
+        />
+      </AppShell>,
+    ],
+  ];
+
+  for (const [name, ui] of cases) {
+    it(name, () => {
+      render(ui);
+      const els = interactive();
+      expect(els.length).toBeGreaterThan(0);
+      for (const el of els) expect(touchOk(el), `${el.outerHTML.slice(0, 160)}`).toBe(true);
+    });
+  }
+
+  it('SafetyGate (termasuk formulir alasan override)', () => {
+    render(
+      <SafetyGate
+        title="CDS"
+        recommendation="Ikuti saran"
+        onFollow={() => undefined}
+        onOverride={() => undefined}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Tetap lanjut dengan alasan klinis' }));
+    const els = interactive();
+    expect(els.length).toBeGreaterThanOrEqual(4);
+    for (const el of els) expect(touchOk(el), `${el.outerHTML.slice(0, 160)}`).toBe(true);
   });
 });

@@ -13,7 +13,7 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   id?: string;
 }
 
-/** Label selalu terlihat di atas field; galat tepat di bawah field. */
+/** Label selalu terlihat di atas field; galat tepat di bawah field. Tinggi input 44 px (target sentuh). */
 export function Field({
   label,
   required,
@@ -45,7 +45,7 @@ export function Field({
         aria-invalid={invalid}
         aria-describedby={hint || error ? msgId : undefined}
         className={cx(
-          'h-10 rounded-control border px-3 font-[inherit] text-ink-900',
+          'h-11 rounded-control border px-3 font-[inherit] text-ink-900',
           invalid ? 'border-danger bg-[#FFFBFA]' : 'border-line-strong bg-white',
         )}
         {...input}
