@@ -122,7 +122,7 @@ export function BedList({
     <div className="overflow-hidden rounded-card border border-line bg-white">
       <div
         aria-hidden="true"
-        className="hidden grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr] bg-subtle text-caption font-semibold text-ink-700 md:grid"
+        className="hidden grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr] bg-subtle text-caption font-semibold text-ink-700 lg:grid"
       >
         {['Bed', 'Bangsal', 'Status', 'Pasien', 'Catatan'].map((h) => (
           <span key={h} className="px-3.5 py-2.5">
@@ -140,7 +140,7 @@ export function BedList({
                 aria-pressed={b.code === selected}
                 onClick={() => onSelect(b.code)}
                 className={cx(
-                  'grid min-h-11 w-full cursor-pointer grid-cols-[84px_1fr_auto] items-center border-0 p-0 text-left font-[inherit] text-ink-900 md:grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr]',
+                  'grid min-h-11 w-full cursor-pointer grid-cols-[84px_1fr_auto] items-center border-0 p-0 text-left font-[inherit] text-ink-900 lg:grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr]',
                   b.code === selected ? 'bg-selected' : 'bg-white',
                 )}
               >
@@ -157,10 +157,10 @@ export function BedList({
                     {m.label}
                   </span>
                 </span>
-                <span className="hidden px-3.5 py-2 text-small font-semibold md:block">
+                <span className="hidden px-3.5 py-2 text-small font-semibold lg:block">
                   {b.patientLabel ?? '—'}
                 </span>
-                <span className="hidden px-3.5 py-2 text-[12.5px] text-ink-500 md:block">{b.note}</span>
+                <span className="hidden px-3.5 py-2 text-[12.5px] text-ink-500 lg:block">{b.note}</span>
               </button>
             </li>
           );

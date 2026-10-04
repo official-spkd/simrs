@@ -4,7 +4,7 @@ import { formatJam, triageAssessmentSchema } from '@simrs/shared';
 import { demoActionSession } from '@/lib/server/data/rawat-inap';
 
 export interface TriageActionResult {
-  ok?: { message: string; at: string };
+  ok?: { at: string; orders: number; override: boolean };
   error?: string;
 }
 
@@ -19,12 +19,11 @@ export async function saveTriageAction(input: unknown): Promise<TriageActionResu
     return { error: parsed.error.issues[0]?.message ?? 'Data triase tidak valid.' };
   }
   const t = parsed.data;
-  const at = formatJam(new Date());
-  const override = t.chosenLevel > t.suggestedLevel ? ' · override beralasan tercatat di jejak audit' : '';
   return {
     ok: {
-      at,
-      message: `Triase ${t.chosenLevel} tersimpan ${at} · ${t.orders.length} order dikirim${override} (simulasi, tidak disimpan)`,
+      at: formatJam(new Date()),
+      orders: t.orders.length,
+      override: t.chosenLevel > t.suggestedLevel,
     },
   };
 }

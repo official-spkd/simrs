@@ -92,7 +92,11 @@ export function TriagePanel({
         orders: item.orders.filter((_, i) => orders[i]).map((o) => o.label),
       });
       if (r.ok) {
-        onSaved(item.encounterId, { level: chosen, message: `${r.ok.message} · bed ${item.bed ?? '—'}` });
+        const audit = r.ok.override ? ' · override beralasan tercatat di jejak audit' : '';
+        onSaved(item.encounterId, {
+          level: chosen,
+          message: `Triase ${chosen} tersimpan ${r.ok.at} · bed ${item.bed ?? 'area triase'} · ${r.ok.orders} order dikirim${audit} (simulasi, tidak disimpan)`,
+        });
         setMessage(null);
       } else setMessage({ ok: false, text: r.error ?? 'Triase belum tersimpan.' });
     });

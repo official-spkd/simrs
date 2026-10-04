@@ -1,8 +1,8 @@
 'use client';
 
 import { type CpptEntry, formatJam, type InpatientDetail } from '@simrs/shared';
-import { Tabs } from '@simrs/ui';
 import { useState } from 'react';
+import { PillTabs } from '@/components/rawat-inap/pill-tabs';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { CpptPanel } from './cppt-panel';
@@ -118,6 +118,9 @@ export function InpatientWorkspace({
     { id: 'hasil', label: 'Hasil', content: <ResultsPanel results={detail.results} /> },
   ];
 
+  const current = items.find((t) => t.id === tab) ?? items[1] ?? items[0];
+  if (!current) return null;
+
   return (
     <div className="flex flex-col gap-4">
       {scenario && <DayJumps state={scenario} pending={pending} runTask={(s, t, v) => runTask(s, t, v)} />}
@@ -126,7 +129,18 @@ export function InpatientWorkspace({
           {error.message}
         </span>
       )}
-      <Tabs label="Bagian rekam rawat inap" value={tab} onChange={setTab} items={items} />
+      <div className="flex flex-col gap-3">
+        {/* Pil tab (mockup Ranap) membungkus di layar sempit; panel diatur di sini. */}
+        <PillTabs
+          label="Bagian rekam rawat inap"
+          value={current.id}
+          onChange={setTab}
+          items={items.map(({ id, label }) => ({ id, label }))}
+        />
+        <div role="tabpanel" aria-label={current.label}>
+          {current.content}
+        </div>
+      </div>
     </div>
   );
 }

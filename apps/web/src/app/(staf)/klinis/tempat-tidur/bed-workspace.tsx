@@ -1,9 +1,9 @@
 'use client';
 
 import type { BedBoard, BedRequest } from '@simrs/shared';
-import { Segmented } from '@simrs/ui';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
+import { PillTabs } from '@/components/rawat-inap/pill-tabs';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
@@ -118,7 +118,7 @@ export function BedWorkspace({
       <div className="flex flex-wrap items-start gap-4">
         <section aria-label="Peta tempat tidur" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Segmented
+            <PillTabs
               label="Tampilan"
               value={view}
               onChange={setView}
