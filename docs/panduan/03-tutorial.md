@@ -49,6 +49,9 @@ pnpm dev:demo                     # mode presentasi; atau pnpm dev
 pnpm --filter @simrs/web exec playwright install chromium   # E2E di macOS memakai Chromium
 ```
 
+Bila port 5432 sudah dipegang PostgreSQL lain (mis. Homebrew), set `POSTGRES_PORT=5433` di `.env` dan ganti port di
+keempat URL database; `pnpm infra:up`, `pnpm with-pg`, `pnpm doctor`, dan `pnpm demo:cek` mengikuti `POSTGRES_PORT`.
+
 Dengan Docker di Mac, tes BullMQ (Redis) dan `/ready` bisa hijau, sehingga dua kriteria sisa fase 0 dapat ditutup.
 Draf PIN masuk cepat (10c-2) ada di cabang `wip/pin-masuk-cepat-10c-2` (belum diterapkan ke database mana pun).
 
