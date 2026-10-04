@@ -226,7 +226,12 @@ export function scenarioInvoice(id: ScenarioId, R: RunResult): Invoice | null {
         : has(R, 'kasir', 'pulang') || has(R, 'kasir', 'cair') || has(R, 'kasir', 'qrisbayar');
   const atKasir = reached(R, 'kasir');
   const kind = id === 'igd-ranap' && !has(R, 'admisi', 'transfer') ? 'igd' : conf.kind;
-  const startDay = formatSimClock({ ...R.def, showDay: true }, R.def.startMin).split(' · ')[0] ?? '';
+  const day = (m: number) => formatSimClock({ ...R.def, showDay: true }, m).split(' · ')[0] ?? '';
+  const startDay = day(R.def.startMin);
+  const period =
+    id === 'rawat-jalan'
+      ? startDay
+      : `${startDay} – ${R.rec.pulangAt === null ? 'sekarang' : day(R.rec.pulangAt)}`;
   return buildInvoice({
     id: `inv-${SCENARIO_PATIENT[id].replace('ps-', '')}`,
     seq: conf.seq,
@@ -237,7 +242,7 @@ export function scenarioInvoice(id: ScenarioId, R: RunResult): Invoice | null {
       kind,
       label: conf.label,
       location: R.rec.lokasi || 'Admisi',
-      period: R.rec.pulangAt === null ? `${startDay} – sekarang` : `${startDay} – pulang`,
+      period,
       sep: R.rec.sep || null,
       dpjp: DPJP[id],
       discharged: atKasir,
