@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Cek prasyarat lokal SIM RS, lintas platform (Windows/WSL/Linux/macOS). Padanan Node dari scripts/doctor.sh.
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
+import { parseEnv } from 'node:util';
 
 let ok = 0;
 let warn = 0;
@@ -44,9 +45,18 @@ dockerVer
 run('docker compose version') ? pass('docker compose tersedia') : bad('docker compose tidak tersedia');
 existsSync('.env') ? pass('.env ada') : wrn('.env belum ada (salin dari .env.example)');
 
-const services = { 5432: 'Postgres', 6379: 'Redis', 9000: 'MinIO', 8025: 'Mailpit' };
-for (const [port, name] of Object.entries(services)) {
-  (await portOpen(Number(port)))
+// Port Postgres seperti with-pg: env proses dulu, lalu .env, bawaan 5432 (di Mac bisa 5433 bila 5432 dipegang
+// Postgres Homebrew).
+const dotenv = existsSync('.env') ? parseEnv(readFileSync('.env', 'utf8')) : {};
+const pgPort = Number(process.env.POSTGRES_PORT ?? dotenv.POSTGRES_PORT ?? 5432);
+const services = [
+  [pgPort, 'Postgres'],
+  [6379, 'Redis'],
+  [8025, 'Mailpit'],
+  [9000, 'MinIO'],
+];
+for (const [port, name] of services) {
+  (await portOpen(port))
     ? pass(`${name} mendengar di :${port}`)
     : wrn(`${name} belum berjalan di :${port} (docker compose up -d)`);
 }

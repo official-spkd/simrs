@@ -32,19 +32,19 @@ async function get(url) {
 
 console.log('SIM RS · cek kesiapan presentasi\n');
 
-let appEnv;
+let env = {};
 try {
-  const env = Object.fromEntries(
+  env = Object.fromEntries(
     readFileSync('.env', 'utf8')
       .split(/\r?\n/)
       .map((l) => l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/))
       .filter(Boolean)
       .map((m) => [m[1], m[2].replace(/^["']|["']$/g, '')]),
   );
-  appEnv = env.APP_ENV;
 } catch {
-  appEnv = undefined;
+  // .env belum ada: dilaporkan lewat APP_ENV di bawah
 }
+const appEnv = env.APP_ENV;
 appEnv === 'local'
   ? ok('APP_ENV=local di .env (mode presentasi diizinkan)')
   : bad(
@@ -66,8 +66,11 @@ if (existsSync(accountsFile)) {
   bad('Akun presentasi belum dibuat', 'pnpm with-pg pnpm db:akun-presentasi');
 }
 
-(await portOpen(5432))
-  ? ok('PostgreSQL berjalan di 5432')
+// Port sama dengan with-pg (dipakai pnpm demo): env proses dulu, lalu .env, bawaan 5432. Di Mac bisa 5433
+// bila 5432 dipegang Postgres Homebrew.
+const pgPort = Number(process.env.POSTGRES_PORT ?? env.POSTGRES_PORT ?? 5432);
+(await portOpen(pgPort))
+  ? ok(`PostgreSQL berjalan di ${pgPort}`)
   : wrn('PostgreSQL belum berjalan (akan dinyalakan otomatis oleh pnpm demo / pnpm dev:demo)');
 
 const api = await get('http://127.0.0.1:4000/health');
