@@ -5,14 +5,15 @@ import { redirect } from 'next/navigation';
 import { groupPersonas } from '@/lib/demo/personas';
 import { safeNextPath } from '@/lib/safe-path';
 import { api } from '@/lib/server/api';
-import { cookieNames } from '@/lib/server/cookies';
+import { cookieNames, parsePinTokens } from '@/lib/server/cookies';
 import { loadPresentationAccounts, publicPersonas } from '@/lib/server/demo/accounts';
-import { assignmentsSchema } from '@/lib/server/schemas';
+import { assignmentsSchema, type PinAccount, pinAccountsSchema } from '@/lib/server/schemas';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { nextLoginStep } from '@/lib/session-view';
 import { DemoPersonas, DemoPersonasMissing } from './demo-personas';
 import { LoginShell, StepCard } from './login-shell';
+import { PinLogin } from './pin-login';
 import { AkunStep, DaftarMfaStep, GantiSandiStep, RestartButton, UnitStep, VerifikasiStep } from './steps';
 
 export const metadata: Metadata = { title: 'Masuk' };
@@ -22,6 +23,25 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /** Panjang minimum sandi bawaan kebijakan (P12 `password.min_length`); API tetap yang menegakkan. */
 const PASSWORD_MIN_HINT = 12;
+
+/**
+ * Akun ber-PIN yang diingat peramban ini (ADR-0024): token dari cookie httpOnly dikirim server ke API, browser hanya
+ * menerima nama + posisi. API tidak terjangkau → pilihan PIN tidak ditampilkan (masuk dengan sandi tetap bisa).
+ */
+async function loadPinAccounts(cookie: string | undefined): Promise<PinAccount[]> {
+  const deviceTokens = parsePinTokens(cookie);
+  if (deviceTokens.length === 0) return [];
+  try {
+    return await api('/api/v1/auth/pin/accounts', {
+      method: 'POST',
+      auth: false,
+      body: { deviceTokens },
+      schema: pinAccountsSchema,
+    });
+  } catch {
+    return [];
+  }
+}
 
 /**
  * /masuk (P02): langkah ditentukan dari keadaan di server (cookie tantangan MFA, sesi dari API), sehingga
@@ -39,14 +59,22 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
 
   const akun = session?.user.username ?? store.get(names.challengeUser)?.value ?? '';
   const ended = sp.alasan === 'sesi-berakhir' && step === 'akun';
+  const pinOff = sp.alasan === 'pin-nonaktif' && step === 'akun';
 
   if (step === 'akun' || step === 'verifikasi') {
     // Mode presentasi: akun per posisi bisa dipilih sekali klik (ADR-0023). Tidak pernah di staging/produksi.
     const presentation =
       step === 'akun' && env.dataSource === 'demo' ? await loadPresentationAccounts() : undefined;
+    const pinAccounts = step === 'akun' ? await loadPinAccounts(store.get(names.pinDevices)?.value) : [];
     return (
       <LoginShell step={step === 'akun' ? 1 : 2}>
         {ended && <Alert level="info">Sesi Anda berakhir. Silakan masuk kembali.</Alert>}
+        {pinOff && (
+          <Alert level="warning">
+            PIN di perangkat ini tidak berlaku lagi (salah 5 kali, dihapus, atau kedaluwarsa). Masuk dengan
+            kata sandi dan kode verifikasi, lalu daftarkan PIN lagi bila perlu.
+          </Alert>
+        )}
         {presentation && (
           <DemoPersonas
             tenantName={presentation.tenantCode}
@@ -54,6 +82,7 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
           />
         )}
         {presentation === null && <DemoPersonasMissing />}
+        {pinAccounts.length > 0 && <PinLogin lanjut={lanjut} accounts={pinAccounts} />}
         {step === 'akun' ? (
           <AkunStep
             lanjut={lanjut}
