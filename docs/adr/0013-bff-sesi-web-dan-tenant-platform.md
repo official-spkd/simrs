@@ -1,6 +1,6 @@
 # ADR-0013 · Web sebagai BFF dengan cookie httpOnly, proxy pembaru sesi, dan tenant PLATFORM
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan deteksi pemakaian ulang. Web harus memakainya tanpa membuka token ke JavaScript browser (XSS), tetap aman dari CSRF, dan tidak membuat sesi tercabut gara-gara permintaan paralel. Area superadmin (ADR-0010) harus berpindah dari gerbang `APP_ENV` ke peran `superadmin_platform`. Batas laju login per IP di API tidak boleh berubah menjadi batas untuk seluruh RS saat semua permintaan datang dari server web.
@@ -23,3 +23,7 @@ Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan d
 − Peta refresh di memori hanya berlaku untuk satu instans web. Banyak instans butuh sticky session atau penyimpanan bersama (Redis) untuk peta itu, dan `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama.
 − Pengembang lokal perlu `pnpm db:create-admin` + aplikasi autentikator untuk masuk (tidak ada jalan pintas tanpa login di web).
 − PIN perangkat dan OTP cadangan (WhatsApp/email) di mockup belum dibangun (P11, potongan 10).
+
+## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
+
+PIN perangkat dibangun di potongan 10c-2 (ADR-0024): web menyimpan token perangkat `sd1` di cookie httpOnly `simrs_pin` (`__Host-` + Secure di luar lokal), milik perangkat dan tidak dihapus saat keluar; browser hanya menerima nama + posisi akun. OTP cadangan WhatsApp/email sudah ada (ADR-0022).

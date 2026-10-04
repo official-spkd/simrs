@@ -1,6 +1,6 @@
 # ADR-0011 · Sesi buram berotasi, MFA wajib, argon2id bawaan Node 24
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 P02 menuntut akun per orang, MFA, sesi pendek dengan refresh berotasi, kebijakan kata sandi, dan kunci akun (docs/05 §1). `.env.example` awal menyiapkan rahasia JWT. Login terjadi sebelum ada konteks tenant, padahal semua tabel identitas tunduk RLS.
@@ -23,3 +23,7 @@ P02 menuntut akun per orang, MFA, sesi pendek dengan refresh berotasi, kebijakan
 − Satu kueri sesi per permintaan (diindeks PK, `last_seen_at` ditulis paling sering sekali per menit).
 − Pengembang wajib Node 24.7+.
 − PIN login cepat per perangkat (docs/05) dan OTP cadangan via email/WhatsApp belum dibangun (dicatat di PROGRESS).
+
+## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
+
+PIN login cepat per perangkat terdaftar dibangun di fase 1 potongan 10c-2 (ADR-0024): sesi PIN pendek (2 jam, idle 5 menit), terkunci ke satu posisi layanan, dan dihitung terverifikasi dua faktor (token perangkat + PIN). Kode cadangan WhatsApp/email sudah ada sejak ADR-0022.

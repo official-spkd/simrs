@@ -1,6 +1,6 @@
 # ADR-0022 · Login: kode cadangan lewat WhatsApp/email dan "percayai perangkat ini 12 jam"
 
-Status: diterima · 4 Okt 2026 · Komponen: P02
+Status: diterima · 4 Okt 2026 · Komponen: P02 · diperbarui 5 Okt 2026
 
 ## Konteks
 Mockup Login menawarkan "Tidak punya akses aplikasi? Kirim kode lewat WhatsApp" dan "Percayai perangkat ini selama 12 jam (hanya komputer milik RS)". docs/05 mewajibkan MFA untuk semua staf (ADR-0011). Kode yang dikirim lewat pihak ketiga lebih lemah daripada TOTP, dan perangkat tepercaya melemahkan MFA bila tokennya bocor, jadi keduanya perlu dibatasi ketat.
@@ -15,3 +15,7 @@ Mockup Login menawarkan "Tidak punya akses aplikasi? Kirim kode lewat WhatsApp" 
 + Staf yang ponselnya tertinggal tetap bisa masuk tanpa menurunkan tingkat ke "sandi saja"; komputer bersama di unit tidak perlu memasukkan kode setiap kali dalam satu shift.
 − Kode cadangan bergantung pada keamanan WhatsApp/email staf; peran sensitif bisa dibatasi agar hanya TOTP (pengaturan per RS, belum ada).
 − Label "hanya komputer milik RS" belum ditegakkan teknis (butuh registrasi perangkat, lihat PIN perangkat terdaftar).
+
+## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
+
+Registrasi perangkat kini ada sebagai `registered_devices` (ADR-0024), baru untuk PIN masuk cepat jenis `staff_pin` yang didaftarkan pemilik akun. Penegakan "hanya komputer milik RS" untuk perangkat tepercaya tetap menunggu pendaftaran perangkat oleh admin bersama prinsipal perangkat (ADR-0027).
