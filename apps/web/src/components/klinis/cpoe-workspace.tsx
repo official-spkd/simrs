@@ -7,14 +7,16 @@ import {
   type CdsFix,
   cdsFixes,
   costEstimate,
+  cpoeSendView,
   evaluateOrders,
   preSendChecks,
+  SCENARIO_ORDER_NOTE,
   sendGate,
 } from '@/lib/klinis-cds';
 import { CpoeCatalog } from './cpoe-catalog';
 import { CpoeOrderRow } from './cpoe-order-row';
 import { CpoeResults } from './cpoe-results';
-import { CpoeScenarioPanel } from './cpoe-scenario-panel';
+import { CpoeScenarioPanel, type ScenarioHandoff } from './cpoe-scenario-panel';
 import { CpoeSummary, type SentInfo } from './cpoe-summary';
 import { useCpoeOrders } from './use-cpoe-orders';
 import { type ScenarioBinding, useScenarioTasks } from './use-scenario-tasks';
@@ -39,27 +41,35 @@ const GROUPS: ReadonlyArray<{ kind: CpoeOrderKind; title: string; dest: (igd: bo
   { kind: 'kontrol', title: 'TINDAK LANJUT', dest: () => 'Otomatis' },
 ];
 
-/** Tiga kolom CPOE (mockup CPOE): katalog + order set | order per jenis dengan CDS | ringkasan + kirim (TTE). */
+/**
+ * Tiga kolom CPOE (mockup CPOE): katalog + order set | order per jenis dengan CDS | ringkasan + kirim (TTE).
+ * Kunjungan pasien skenario (`scenarioOwned`) mengikuti langkah Simulasi: semua baris draf terkunci, katalog dan
+ * order set nonaktif, dan pengiriman hanya lewat tugas skenario yang sedang giliran (gerbang CDS selesai lebih
+ * dulu), sehingga yang ditandatangani persis daftar order di layar.
+ */
 export function CpoeWorkspace({
   ctx,
   signer,
   binding,
+  scenarioOwned,
   scenarioGate,
   sendTask,
+  handoff,
   links,
 }: {
   ctx: CpoeContext;
   signer: string;
   binding: ScenarioBinding | null;
+  scenarioOwned: boolean;
   scenarioGate: ScenarioGate | null;
   sendTask: string | null;
+  handoff: ScenarioHandoff | null;
   links: ReadonlyArray<{ href: string; label: string }>;
 }) {
   const tasks = useScenarioTasks(binding);
   const gateTask = scenarioGate ? tasks.task(scenarioGate.task) : undefined;
   const gateOpen = Boolean(scenarioGate && gateTask && gateTask.status !== 'selesai');
-  const locked = new Set(gateOpen && scenarioGate ? [scenarioGate.catalogId] : []);
-  const orders = useCpoeOrders(ctx, signer, locked);
+  const orders = useCpoeOrders(ctx, signer, scenarioOwned);
   const payer = ctx.patient.payer;
   const patient = { allergies: ctx.patient.allergies, activeMeds: ctx.activeMeds, flags: ctx.flags, payer };
   const evaluated = evaluateOrders(orders.lines, patient, signer);
@@ -75,17 +85,21 @@ export function CpoeWorkspace({
     send?.status === 'selesai'
       ? { title: `Resep terkirim · ${send.statusText.replace(/^Selesai · /, '')}`, message: send.doneText }
       : null;
-  const sendReason = send
-    ? (gate.reason ??
-      (send.status === 'selesai' || send.enabled
-        ? null
-        : 'Belum bisa dikirim: selesaikan rencana terapi, gerbang CDS, dan PRB lebih dulu.'))
-    : gate.reason;
-  const canSend = send ? tasks.enabled(send.id) && gate.reason === null : gate.reason === null && !sent;
+  const view = cpoeSendView({
+    scenarioOwned,
+    sendTask: send ? { done: send.status === 'selesai', enabled: send.enabled } : null,
+    stepActive: tasks.active,
+    gate,
+    sent: sent !== null,
+  });
 
   const onSend = () => {
     setError(null);
-    if (send) return tasks.run(send.id, true);
+    if (scenarioOwned) {
+      // Pasien skenario: hanya tugas kirim skenario yang sedang giliran; tidak pernah lewat sendOrdersAction.
+      if (send && view.canSend) tasks.run(send.id, true);
+      return;
+    }
     const drafts = evaluated.filter((l) => l.status === 'draf');
     startTransition(async () => {
       const r = await sendOrdersAction({
@@ -114,11 +128,16 @@ export function CpoeWorkspace({
         catalog={ctx.catalog}
         orderSets={ctx.orderSets}
         disabled={pending}
+        lockedNote={scenarioOwned ? `${SCENARIO_ORDER_NOTE}.` : null}
         onAdd={orders.add}
         onApplySet={orders.applySet}
       />
       <section aria-label="Daftar order" className="flex min-w-0 flex-col gap-3.5">
-        <CpoeScenarioPanel tasks={tasks} skip={[scenarioGate?.task ?? '', sendTask ?? ''].filter(Boolean)} />
+        <CpoeScenarioPanel
+          tasks={tasks}
+          skip={[scenarioGate?.task ?? '', sendTask ?? ''].filter(Boolean)}
+          handoff={handoff}
+        />
         {orders.note && (
           <div
             role="status"
@@ -136,7 +155,9 @@ export function CpoeWorkspace({
         )}
         {evaluated.length === 0 && (
           <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
-            Belum ada order. Cari item katalog atau terapkan order set di kiri.
+            {scenarioOwned
+              ? 'Belum ada order. Order pasien simulasi muncul saat tugas langkah skenario dijalankan.'
+              : 'Belum ada order. Cari item katalog atau terapkan order set di kiri.'}
           </p>
         )}
         {GROUPS.map((g) => {
@@ -154,21 +175,31 @@ export function CpoeWorkspace({
               </div>
               <ul className="m-0 list-none p-0">
                 {rows.map((l) => {
-                  const isLocked = locked.has(l.item.id) && l.status === 'draf' && scenarioGate !== null;
+                  const isLocked =
+                    gateOpen &&
+                    scenarioGate !== null &&
+                    l.item.id === scenarioGate.catalogId &&
+                    l.status === 'draf';
                   const followLabel =
                     gateTask?.options.find((o) => o.id === scenarioGate?.follow)?.label ??
                     'Ikuti rekomendasi';
                   const fixes: CdsFix[] = isLocked
                     ? [{ kind: 'remove', lineId: l.lineId, label: followLabel }]
-                    : cdsFixes(l, evaluated, ctx.catalog);
+                    : scenarioOwned
+                      ? []
+                      : cdsFixes(l, evaluated, ctx.catalog);
                   return (
                     <CpoeOrderRow
                       key={l.lineId}
                       line={l}
                       fixes={fixes}
                       payer={payer}
-                      removable={!isLocked}
-                      disabled={isLocked ? !tasks.enabled(scenarioGate.task) : pending || sent !== null}
+                      removable={!scenarioOwned}
+                      disabled={
+                        isLocked
+                          ? !tasks.enabled(scenarioGate.task)
+                          : scenarioOwned || pending || sent !== null
+                      }
                       onFix={(f) =>
                         isLocked ? tasks.run(scenarioGate.task, scenarioGate.follow) : orders.fix(f)
                       }
@@ -203,9 +234,9 @@ export function CpoeWorkspace({
           checks={preSendChecks(evaluated, signer, payer)}
           cost={cost.total}
           costNote={costNote}
-          sendLabel={send ? 'Kirim resep (TTE)' : sent ? 'Order terkirim' : `Kirim ${gate.count} order (TTE)`}
-          sendReason={sendReason}
-          canSend={canSend}
+          sendLabel={view.label}
+          sendReason={view.reason}
+          canSend={view.canSend}
           pending={pending || tasks.pending}
           onSend={onSend}
           sent={scenarioSent ?? sent}

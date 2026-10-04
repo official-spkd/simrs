@@ -1,20 +1,32 @@
 'use client';
 
-import { TaskAct, TaskChoice } from './scenario-task-controls';
+import { TaskAct, TaskChoice, TaskHandoff } from './scenario-task-controls';
 import type { ScenarioTasks } from './use-scenario-tasks';
+
+/** Tugas skenario yang hanya bisa diselesaikan di layar lain (persetujuan tindakan di tablet). */
+export interface ScenarioHandoff {
+  task: string;
+  /** Tautan ke layar penyelesai; null bila layar itu belum tersedia. */
+  href: string | null;
+  linkLabel: string;
+  note: string;
+}
 
 /**
  * Rencana tata laksana pasien skenario di CPOE: tugas langkah Simulasi yang dibawakan layar ini tampil sebagai
- * kontrol asli (pilihan terapi, order set, disposisi, persetujuan). Gerbang CDS dirender di baris order yang
- * diblokir dan tugas kirim (TTE) di tombol kirim, jadi keduanya tidak diulang di sini.
+ * kontrol asli (pilihan terapi, order set, disposisi). Gerbang CDS dirender di baris order yang diblokir dan tugas
+ * kirim (TTE) di tombol kirim, jadi keduanya tidak diulang di sini. Persetujuan tindakan TIDAK bisa diselesaikan dari
+ * CPOE: hanya status + tautan ke tablet persetujuan (tanda tangan pasien, saksi, lalu TTE dokter).
  */
 export function CpoeScenarioPanel({
   tasks,
   skip,
+  handoff,
 }: {
   tasks: ScenarioTasks;
   /** Id tugas yang dirender di tempat lain (gerbang CDS, kirim TTE). */
   skip: readonly string[];
+  handoff: ScenarioHandoff | null;
 }) {
   const step = tasks.step;
   if (!step) return null;
@@ -33,7 +45,15 @@ export function CpoeScenarioPanel({
         <span className="text-small text-ink-700">{step.desc}</span>
       </span>
       {shown.map((t) =>
-        t.kind === 'choice' ? (
+        handoff && t.id === handoff.task ? (
+          <TaskHandoff
+            key={t.id}
+            t={t}
+            href={handoff.href}
+            linkLabel={handoff.linkLabel}
+            note={handoff.note}
+          />
+        ) : t.kind === 'choice' ? (
           <TaskChoice key={t.id} tasks={tasks} t={t} />
         ) : t.kind === 'act' ? (
           <TaskAct key={t.id} tasks={tasks} t={t} />

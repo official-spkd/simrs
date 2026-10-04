@@ -11,16 +11,20 @@ import { Button, Icon } from '@simrs/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
-import { nextWaiting } from '@/lib/klinis';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
+import {
+  canRecordVitals,
+  canWriteDoctorNote,
+  canWriteOrders,
+  cpptNeedsCosign,
+  nextWaiting,
+} from '@/lib/klinis';
 import { KlinisPatientHeader } from './patient-header';
 import { PoliQueue } from './poli-queue';
 import { SoapForm } from './soap-form';
 import { type ScenarioBinding, useScenarioTasks } from './use-scenario-tasks';
 import { VisitStepper } from './visit-panels';
 import { VitalsCard } from './vitals-card';
-
-const DOCTOR_ROLES = ['dokter', 'dokter_residen'];
-const NURSE_ROLES = ['perawat', 'bidan'];
 
 /**
  * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien (`aside`, dirender
@@ -49,15 +53,16 @@ export function PoliWorkspace({
   const [called, setCalled] = useState<string | null>(null);
   const statusOf = (i: PoliQueueItem) => (i.scenario ? i.status : (local[i.patientId]?.status ?? i.status));
   const waitOf = (i: PoliQueueItem) => (i.scenario ? i.waitNote : (local[i.patientId]?.wait ?? i.waitNote));
-  const isDoctor = DOCTOR_ROLES.includes(role ?? '');
-  const isNurse = NURSE_ROLES.includes(role ?? '');
+  const isDoctor = canWriteDoctorNote(role);
+  const canOrder = canWriteOrders(role);
+  const isNurse = canRecordVitals(role);
   const current = worklist.items.find((i) => i.encounterId === encounter.encounterId);
   const scenarioPatient = Boolean(current?.scenario);
   const next = nextWaiting(worklist.items, statusOf);
 
   const callNext = () => {
     if (!next) return;
-    const t = formatJam(new Date());
+    const t = formatJam(demoNow());
     if (next.scenario) {
       setCalled(`${next.queueNo} · ${next.name} adalah pasien skenario: buka lalu tekan "Panggil pasien".`);
     } else {
@@ -96,7 +101,7 @@ export function PoliWorkspace({
         <Icon name="history" size={16} />
         Riwayat
       </a>
-      {isDoctor && (
+      {canOrder && (
         <Link
           href={cpoeHref}
           className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-brand-800 bg-white px-3 text-small font-semibold text-brand-700 no-underline"
@@ -143,6 +148,8 @@ export function PoliWorkspace({
           key={`${encounter.encounterId}-${encounter.diagnoses.map((d) => d.code).join()}-${encounter.soap.savedAt ?? ''}-${encounter.soap.signedAt ?? ''}`}
           encounter={encounter}
           canWrite={isDoctor}
+          canOrder={canOrder}
+          resident={cpptNeedsCosign(role)}
           scenarioPatient={scenarioPatient}
           tasks={tasks}
           cpoeHref={cpoeHref}

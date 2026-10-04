@@ -28,6 +28,34 @@ export function icd10Display(code: string): string | undefined {
   return ICD10_OPTIONS.find((o) => o.code === code)?.display;
 }
 
+/** Posisi yang menulis CPPT dokter (SOAP + diagnosis) dan order/resep CPOE. */
+const DOCTOR_ROLES: readonly string[] = ['dokter', 'dokter_residen'];
+/** Posisi yang mengisi asesmen awal keperawatan dan tanda vital poli. */
+const NURSE_ROLES: readonly string[] = ['perawat', 'bidan'];
+
+/** CPPT dokter (SOAP + diagnosis ICD-10): dokter dan dokter residen. Dipakai layar dan Server Action. */
+export function canWriteDoctorNote(role: string | null | undefined): boolean {
+  return DOCTOR_ROLES.includes(role ?? '');
+}
+
+/** Order penunjang dan resep (CPOE, termasuk order cepat skenario): dokter dan dokter residen. */
+export function canWriteOrders(role: string | null | undefined): boolean {
+  return DOCTOR_ROLES.includes(role ?? '');
+}
+
+/** Asesmen awal keperawatan dan tanda vital poli: perawat dan bidan. */
+export function canRecordVitals(role: string | null | undefined): boolean {
+  return NURSE_ROLES.includes(role ?? '');
+}
+
+/**
+ * CPPT dokter residen belum final sampai di-co-sign DPJP (selaras CPPT rawat inap `cosignRequired` untuk residen):
+ * tanda tangan residen menyimpan catatan berstatus "menunggu co-sign DPJP", bukan menyelesaikan kunjungan.
+ */
+export function cpptNeedsCosign(role: string | null | undefined): boolean {
+  return role === 'dokter_residen';
+}
+
 export const QUEUE_STATUS_LABEL: Record<PoliQueueStatus, string> = {
   menunggu: 'Menunggu',
   diperiksa: 'Diperiksa',

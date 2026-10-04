@@ -2,12 +2,15 @@ import { SEED_REF_SAMPLES } from '@simrs/db';
 import { cpoeContextSchema, poliEncounterSchema, poliWorklistSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
-import type { ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
+import type { RunResult, ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
 import {
   CPOE_CATALOG,
   CPOE_ORDER_SETS,
+  demoCpoeAvailable,
   demoCpoeContext,
   demoCpoeEncounters,
+  doneValue,
+  hartonoCpoeOpen,
   demoPoliEncounter,
   demoPoliWorklist,
   SURYO_QUEUE,
@@ -16,7 +19,18 @@ import {
 } from './demo/fixtures/klinis';
 import { IGD_RANAP } from './demo/skenario/igd-ranap';
 import { RAWAT_JALAN } from './demo/skenario/rawat-jalan';
-import { filterQueue, ICD10_OPTIONS, minutesToJam, nextWaiting, queueCounts, stageSteps } from './klinis';
+import {
+  canRecordVitals,
+  canWriteDoctorNote,
+  canWriteOrders,
+  cpptNeedsCosign,
+  filterQueue,
+  ICD10_OPTIONS,
+  minutesToJam,
+  nextWaiting,
+  queueCounts,
+  stageSteps,
+} from './klinis';
 
 const seed = (system: keyof typeof SEED_REF_SAMPLES) => new Set(SEED_REF_SAMPLES[system].map((s) => s.code));
 
@@ -39,6 +53,8 @@ function act(def: ScenarioDef, seq: ScenarioEvent[], task: string, value: TaskVa
 
 const rj0 = runScenario(RAWAT_JALAN, []);
 const igd0 = runScenario(IGD_RANAP, []);
+/** Tn. Hartono di langkah asesmen dokter IGD (CPOE IGD terbuka). */
+const igdAsesmen = runScenario(IGD_RANAP, advance(IGD_RANAP, 'asesmen-dokter'));
 
 describe('data dummy pemeriksaan poli dan CPOE', () => {
   it('antrean, ringkasan kunjungan, dan konteks CPOE lolos kontrak ketat', () => {
@@ -47,8 +63,10 @@ describe('data dummy pemeriksaan poli dan CPOE', () => {
       const w = poliWorklistSchema.parse(demoPoliWorklist(rj));
       for (const q of w.items)
         expect(() => poliEncounterSchema.parse(demoPoliEncounter(q.patientId, rj))).not.toThrow();
-      for (const e of demoCpoeEncounters(rj)) {
-        expect(() => cpoeContextSchema.parse(demoCpoeContext(e.encounterId, rj, igd0))).not.toThrow();
+      for (const igd of [igd0, igdAsesmen]) {
+        for (const e of demoCpoeEncounters(rj, igd)) {
+          expect(() => cpoeContextSchema.parse(demoCpoeContext(e.encounterId, rj, igd))).not.toThrow();
+        }
       }
     }
     expect(demoCpoeContext('kj-tidak-ada', rj0, igd0)).toBeNull();
@@ -190,5 +208,78 @@ describe('proyeksi pasien skenario', () => {
     });
     expect(done?.orders.some((o) => o.catalogId === 'pantoprazol-40')).toBe(true);
     expect(done?.results.find((r) => r.name === 'Kalium')?.flag).toBe('K');
+  });
+});
+
+describe('ketersediaan CPOE kunjungan', () => {
+  const listed = (igd: RunResult) => demoCpoeEncounters(rj0, igd).map((e) => e.encounterId);
+
+  it('Tn. Hartono: CPOE IGD hanya dari asesmen dokter sampai serah terima admisi; di luar itu 404', () => {
+    const triase = runScenario(IGD_RANAP, advance(IGD_RANAP, 'triase'));
+    for (const igd of [igd0, triase]) {
+      expect(hartonoCpoeOpen(igd)).toBe(false);
+      expect(demoCpoeContext('kj-hartono', rj0, igd)).toBeNull();
+      expect(listed(igd)).not.toContain('kj-hartono');
+    }
+    for (const step of ['asesmen-dokter', 'nilai-kritis', 'tata-laksana']) {
+      const igd = runScenario(IGD_RANAP, advance(IGD_RANAP, step));
+      expect(demoCpoeContext('kj-hartono', rj0, igd)?.setting, step).toBe('igd');
+      expect(listed(igd), step).toContain('kj-hartono');
+    }
+    // Langkah admisi: tetap terbuka sampai tugas `transfer` selesai, lalu tertutup (order lanjut di rawat inap).
+    let seq = advance(IGD_RANAP, 'admisi');
+    for (let guard = 0; guard < 10; guard++) {
+      const R = runScenario(IGD_RANAP, seq);
+      if (doneValue(R, 'admisi', 'transfer') !== undefined) break;
+      expect(hartonoCpoeOpen(R)).toBe(true);
+      const r = applyAction(IGD_RANAP, seq, { type: 'auto' });
+      if (!r.ok) throw new Error(r.error);
+      seq = r.seq;
+    }
+    const transferred = runScenario(IGD_RANAP, seq);
+    expect(doneValue(transferred, 'admisi', 'transfer')).toBe(true);
+    expect(demoCpoeContext('kj-hartono', rj0, transferred)).toBeNull();
+    expect(listed(transferred)).not.toContain('kj-hartono');
+    const ranap = runScenario(IGD_RANAP, advance(IGD_RANAP, 'rawat-inap'));
+    expect(demoCpoeContext('kj-hartono', rj0, ranap)).toBeNull();
+  });
+
+  it('demoCpoeAvailable selaras demoCpoeContext (dasar tautan "Order" di layar lain)', () => {
+    const ranap = runScenario(IGD_RANAP, advance(IGD_RANAP, 'rawat-inap'));
+    const ids = ['kj-suryo', 'kj-hartono', 'kj-endang', 'kj-darmawan', 'kj-ratna', 'kj-tidak-ada'];
+    for (const igd of [igd0, igdAsesmen, ranap]) {
+      for (const id of ids) {
+        expect(demoCpoeAvailable(id, igd), id).toBe(demoCpoeContext(id, rj0, igd) !== null);
+      }
+    }
+    expect(demoCpoeAvailable('kj-endang', igd0)).toBe(true);
+    expect(demoCpoeAvailable('kj-tidak-ada', igdAsesmen)).toBe(false);
+  });
+});
+
+describe('posisi dan co-sign CPPT poli', () => {
+  it('CPPT dokter dan order: dokter/residen; tanda vital: perawat/bidan; posisi lain tidak keduanya', () => {
+    for (const role of ['dokter', 'dokter_residen']) {
+      expect(canWriteDoctorNote(role), role).toBe(true);
+      expect(canWriteOrders(role), role).toBe(true);
+      expect(canRecordVitals(role), role).toBe(false);
+    }
+    for (const role of ['perawat', 'bidan']) {
+      expect(canWriteDoctorNote(role), role).toBe(false);
+      expect(canWriteOrders(role), role).toBe(false);
+      expect(canRecordVitals(role), role).toBe(true);
+    }
+    for (const role of [null, undefined, '', 'apoteker', 'kasir']) {
+      expect(canWriteDoctorNote(role)).toBe(false);
+      expect(canWriteOrders(role)).toBe(false);
+      expect(canRecordVitals(role)).toBe(false);
+    }
+  });
+
+  it('CPPT dokter residen perlu co-sign DPJP sebelum final (selaras CPPT rawat inap)', () => {
+    expect(cpptNeedsCosign('dokter_residen')).toBe(true);
+    expect(cpptNeedsCosign('dokter')).toBe(false);
+    expect(cpptNeedsCosign('perawat')).toBe(false);
+    expect(cpptNeedsCosign(null)).toBe(false);
   });
 });

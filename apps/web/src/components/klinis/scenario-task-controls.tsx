@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, cx } from '@simrs/ui';
+import Link from 'next/link';
 import type { SimTaskView } from '@/lib/demo/simulasi-view';
 import type { ScenarioTasks } from './use-scenario-tasks';
 
@@ -86,6 +87,45 @@ export function TaskAct({ tasks, t }: { tasks: ScenarioTasks; t: SimTaskView }) 
       {error && (
         <span role="alert" className="text-caption text-danger">
           {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Tugas skenario yang diselesaikan di layar lain (mis. persetujuan tindakan di tablet dengan tanda tangan pasien +
+ * saksi + TTE dokter): hanya status dan tautan ke layar itu, tanpa tombol yang menyelesaikannya dari sini.
+ */
+export function TaskHandoff({
+  t,
+  href,
+  linkLabel,
+  note,
+}: {
+  t: SimTaskView;
+  href: string | null;
+  linkLabel: string;
+  note: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-small font-semibold text-ink-900">{t.label}</span>
+        <TaskStatus t={t} />
+      </span>
+      {t.hint && <span className="text-caption text-ink-500">{t.hint}</span>}
+      {t.status !== 'selesai' && (
+        <span className="flex flex-wrap items-center gap-2.5">
+          {href && t.enabled && (
+            <Link
+              href={href}
+              className="inline-flex min-h-11 items-center rounded-control border border-brand-800 bg-white px-3.5 text-small font-semibold text-brand-700 no-underline"
+            >
+              {linkLabel}
+            </Link>
+          )}
+          <span className="text-caption text-ink-700">{note}</span>
         </span>
       )}
     </div>

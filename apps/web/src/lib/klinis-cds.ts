@@ -304,6 +304,58 @@ export function sendGate(lines: readonly EvaluatedLine[]): { count: number; reas
   return { count: drafts.length, reason: null };
 }
 
+/** Catatan CPOE pasien simulasi: katalog/order set nonaktif, order hanya lewat tugas langkah skenario. */
+export const SCENARIO_ORDER_NOTE = 'Pasien simulasi: order mengikuti langkah skenario';
+
+export interface CpoeSendView {
+  label: string;
+  canSend: boolean;
+  /** Alasan tertulis bila tombol kirim nonaktif. */
+  reason: string | null;
+}
+
+/**
+ * Tombol kirim CPOE. Kunjungan milik skenario Simulasi hanya bisa dikirim lewat tugas kirim (TTE) langkah aktif
+ * setelah gerbang CDS selesai, sehingga yang ditandatangani persis daftar order di layar; tanpa tugas kirim tombol
+ * nonaktif dengan alasan (order skenario terkirim lewat tugas lain). Kunjungan biasa: kirim draf tanpa blok CDS.
+ */
+export function cpoeSendView(o: {
+  scenarioOwned: boolean;
+  /** Tugas kirim (TTE) di langkah skenario aktif; null bila langkah aktif tidak punya tugas kirim. */
+  sendTask: { done: boolean; enabled: boolean } | null;
+  /** Langkah skenario pasien ini sedang dibawakan di layar CPOE. */
+  stepActive: boolean;
+  gate: { count: number; reason: string | null };
+  sent: boolean;
+}): CpoeSendView {
+  if (!o.scenarioOwned) {
+    return {
+      label: o.sent ? 'Order terkirim' : `Kirim ${o.gate.count} order (TTE)`,
+      canSend: o.gate.reason === null && !o.sent,
+      reason: o.gate.reason,
+    };
+  }
+  if (o.sendTask) {
+    const t = o.sendTask;
+    return {
+      label: 'Kirim resep (TTE)',
+      canSend: t.enabled && !t.done && o.gate.reason === null,
+      reason:
+        o.gate.reason ??
+        (t.done || t.enabled
+          ? null
+          : 'Belum bisa dikirim: selesaikan rencana terapi, gerbang CDS, dan PRB lebih dulu.'),
+    };
+  }
+  return {
+    label: 'Kirim order (TTE)',
+    canSend: false,
+    reason: o.stepActive
+      ? `${SCENARIO_ORDER_NOTE}. Order terkirim saat tugas langkah aktif dijalankan di layar ini.`
+      : `${SCENARIO_ORDER_NOTE}. Tidak ada langkah order yang aktif untuk pasien ini.`,
+  };
+}
+
 /** Alternatif aman per golongan yang diblokir (formularium contoh). */
 const ALTERNATIVES: Readonly<Record<string, readonly string[]>> = {
   penisilin: ['klindamisin-300', 'azitromisin-500'],

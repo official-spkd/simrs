@@ -10,6 +10,8 @@ import {
   preSendChecks,
   sendGate,
   cdsFixes,
+  cpoeSendView,
+  SCENARIO_ORDER_NOTE,
   shortDrugName,
 } from './klinis-cds';
 
@@ -176,5 +178,61 @@ describe('tindak lanjut gerbang CDS', () => {
       label: 'Ganti omeprazol ke pantoprazol 40 mg',
     });
     expect(shortDrugName('Asetosal 160 mg tablet kunyah')).toBe('asetosal 160 mg');
+  });
+});
+
+describe('tombol kirim CPOE pasien skenario', () => {
+  const open = { count: 2, reason: null };
+  const blocked = { count: 2, reason: 'Belum bisa dikirim: 1 order diblokir CDS (glimepirid).' };
+
+  it('kunjungan biasa: kirim draf bila tidak ada blok; setelah terkirim tombol mati', () => {
+    const base = { scenarioOwned: false, sendTask: null, stepActive: false, sent: false };
+    expect(cpoeSendView({ ...base, gate: open })).toEqual({
+      label: 'Kirim 2 order (TTE)',
+      canSend: true,
+      reason: null,
+    });
+    expect(cpoeSendView({ ...base, gate: blocked })).toMatchObject({
+      canSend: false,
+      reason: blocked.reason,
+    });
+    expect(cpoeSendView({ ...base, gate: open, sent: true })).toMatchObject({
+      label: 'Order terkirim',
+      canSend: false,
+    });
+  });
+
+  it('pasien skenario dengan tugas kirim: hanya lewat tugas yang giliran DAN gerbang CDS sudah selesai', () => {
+    const base = { scenarioOwned: true, stepActive: true, sent: false };
+    const ready = { done: false, enabled: true };
+    expect(cpoeSendView({ ...base, sendTask: ready, gate: open })).toEqual({
+      label: 'Kirim resep (TTE)',
+      canSend: true,
+      reason: null,
+    });
+    // Gerbang CDS belum ditindaklanjuti: tidak bisa dikirim walau tugas sudah giliran.
+    expect(cpoeSendView({ ...base, sendTask: ready, gate: blocked })).toMatchObject({
+      canSend: false,
+      reason: blocked.reason,
+    });
+    // Tugas belum giliran (rencana terapi/PRB belum selesai).
+    expect(cpoeSendView({ ...base, sendTask: { done: false, enabled: false }, gate: open })).toMatchObject({
+      canSend: false,
+      reason: 'Belum bisa dikirim: selesaikan rencana terapi, gerbang CDS, dan PRB lebih dulu.',
+    });
+    expect(cpoeSendView({ ...base, sendTask: { done: true, enabled: false }, gate: open }).canSend).toBe(
+      false,
+    );
+  });
+
+  it('pasien skenario tanpa tugas kirim (order lewat tugas lain): tombol kirim asli mati dengan alasan', () => {
+    const base = { scenarioOwned: true, sendTask: null, sent: false, gate: open };
+    const active = cpoeSendView({ ...base, stepActive: true });
+    expect(active).toMatchObject({ label: 'Kirim order (TTE)', canSend: false });
+    expect(active.reason).toContain(SCENARIO_ORDER_NOTE);
+    expect(active.reason).toContain('tugas langkah aktif');
+    const idle = cpoeSendView({ ...base, stepActive: false });
+    expect(idle.canSend).toBe(false);
+    expect(idle.reason).toContain('Tidak ada langkah order yang aktif');
   });
 });

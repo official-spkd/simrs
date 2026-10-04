@@ -5,23 +5,32 @@ import { cx } from '@simrs/ui';
 import { useId, useState } from 'react';
 import { ICD10_OPTIONS } from '@/lib/klinis';
 
-/** A · Asesmen: chip diagnosis ICD-10 (pertama = utama) + pemilih kode dari rujukan seed. */
+/**
+ * A · Asesmen: chip diagnosis ICD-10 (pertama = utama) + pemilih kode dari rujukan seed. `allowed` membatasi pilihan
+ * (pasien skenario: hanya diagnosis yang disimpan tugas skenario) dengan catatan `note`.
+ */
 export function SoapDiagnoses({
   diagnoses,
   editable,
   onAdd,
   onRemove,
   showMissing,
+  allowed = null,
+  note = null,
 }: {
   diagnoses: readonly EncounterDiagnosis[];
   editable: boolean;
   onAdd: (code: string) => void;
   onRemove: (code: string) => void;
   showMissing: boolean;
+  allowed?: readonly string[] | null;
+  note?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const pickId = useId();
-  const available = ICD10_OPTIONS.filter((o) => !diagnoses.some((d) => d.code === o.code));
+  const available = ICD10_OPTIONS.filter(
+    (o) => (allowed === null || allowed.includes(o.code)) && !diagnoses.some((d) => d.code === o.code),
+  );
   return (
     <div className="flex flex-col gap-2">
       <span id={`${pickId}-head`} className="text-small font-semibold">
@@ -53,7 +62,7 @@ export function SoapDiagnoses({
             )}
           </li>
         ))}
-        {editable && (
+        {editable && available.length > 0 && (
           <li>
             <button
               type="button"
@@ -90,6 +99,7 @@ export function SoapDiagnoses({
           </select>
         </div>
       )}
+      {note && <span className="text-caption text-ink-500">{note}</span>}
       {showMissing && (
         <span className="text-caption text-danger">
           Belum ada diagnosis. Minimal satu diagnosis wajib diisi sebelum kunjungan diselesaikan.

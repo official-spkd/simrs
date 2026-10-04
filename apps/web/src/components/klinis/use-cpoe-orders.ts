@@ -19,14 +19,16 @@ const newLineId = (catalogId: string) => `baru-${catalogId}-${++seq}`;
 
 /**
  * State daftar order CPOE di peramban (draf sebelum dikirim): tambah dari katalog/order set dengan pencegahan
- * duplikasi, hapus, ganti alternatif, dan override CDS beralasan. `locked` = baris yang dikendalikan skenario.
+ * duplikasi, hapus, ganti alternatif, dan override CDS beralasan. `readOnly` = kunjungan pasien skenario: daftar
+ * order mengikuti langkah skenario (tidak bisa ditambah/dihapus/diubah lokal; gerbang CDS lewat tugas skenario).
  */
-export function useCpoeOrders(ctx: CpoeContext, signer: string, locked: ReadonlySet<string>) {
+export function useCpoeOrders(ctx: CpoeContext, signer: string, readOnly: boolean) {
   const [lines, setLines] = useState<OrderLine[]>(() => initialLines(ctx));
   const [note, setNote] = useState<string | null>(null);
   const name = (catalogId: string) => ctx.catalog.find((c) => c.id === catalogId)?.name ?? catalogId;
 
   const add = (ids: readonly string[], label: string | null) => {
+    if (readOnly) return;
     const have = new Set(lines.map((l) => l.item.id));
     const fresh = ids.filter((id) => !have.has(id));
     const items = fresh.flatMap((id) => ctx.catalog.filter((c) => c.id === id));
@@ -52,14 +54,14 @@ export function useCpoeOrders(ctx: CpoeContext, signer: string, locked: Readonly
 
   const remove = (lineId: string) => {
     const line = lines.find((l) => l.lineId === lineId);
-    if (!line || line.status !== 'draf' || locked.has(line.item.id)) return;
+    if (readOnly || !line || line.status !== 'draf') return;
     setLines((cur) => cur.filter((l) => l.lineId !== lineId));
     setNote(`Dihapus: ${line.item.name}.`);
   };
 
   const fix = (f: CdsFix) => {
     const line = lines.find((l) => l.lineId === f.lineId);
-    if (!line || line.status !== 'draf') return;
+    if (readOnly || !line || line.status !== 'draf') return;
     if (f.kind === 'remove') return remove(f.lineId);
     const to = ctx.catalog.find((c) => c.id === f.toId);
     if (!to) return;
@@ -72,6 +74,7 @@ export function useCpoeOrders(ctx: CpoeContext, signer: string, locked: Readonly
   };
 
   const override = (lineId: string, reason: string) => {
+    if (readOnly) return;
     setLines((cur) => cur.map((l) => (l.lineId === lineId ? { ...l, override: reason } : l)));
     setNote(`Override tercatat atas nama ${signer} (simulasi, tidak disimpan).`);
   };

@@ -292,7 +292,8 @@ export type CpoeEncounterRef = z.infer<typeof cpoeEncounterRefSchema>;
 // Masukan aksi (Server Action mode presentasi; kelak body API)
 // ---------------------------------------------------------------------------------------------------------------
 
-const encounterId = z.string().regex(/^kj-[a-z0-9-]{1,40}$/);
+/** Id kunjungan: format bebas tapi berbatas (UUID v7 kelak, `kj-suryo` di mode presentasi); id asing ditolak lookup. */
+const encounterId = z.string().min(1).max(60);
 const icd10Code = z.string().regex(/^[A-Z]\d{2}(\.\d{1,2})?$/);
 
 export const cpptDraftInputSchema = z.strictObject({

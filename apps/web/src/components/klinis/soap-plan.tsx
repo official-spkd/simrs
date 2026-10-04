@@ -42,38 +42,45 @@ function ScenarioOrderChoice({ tasks }: { tasks: ScenarioTasks }) {
   );
 }
 
-/** P · Rencana: baris LAB/OBAT/KONTROL + tautan ke CPOE kunjungan. */
+/**
+ * P · Rencana: baris LAB/OBAT/KONTROL + tautan ke CPOE kunjungan. Tautan CPOE dan order cepat skenario hanya untuk
+ * posisi yang boleh menulis order (`canOrder`: dokter/dokter residen); perawat/bidan hanya melihat rencana.
+ */
 export function SoapPlan({
   plan,
   cpoeHref,
   tasks,
+  canOrder,
 }: {
   plan: readonly SoapPlanRow[];
   cpoeHref: string;
   tasks: ScenarioTasks;
+  canOrder: boolean;
 }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <span className="text-small font-semibold">P · Rencana</span>
-        <span className="flex flex-wrap gap-2">
-          <Link
-            href={cpoeHref}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
-          >
-            <Icon name="flask" size={15} />
-            Order penunjang
-          </Link>
-          <Link
-            href={cpoeHref}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
-          >
-            <Icon name="pill" size={15} />
-            Tulis resep (CPOE)
-          </Link>
-        </span>
+        {canOrder && (
+          <span className="flex flex-wrap gap-2">
+            <Link
+              href={cpoeHref}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+            >
+              <Icon name="flask" size={15} />
+              Order penunjang
+            </Link>
+            <Link
+              href={cpoeHref}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+            >
+              <Icon name="pill" size={15} />
+              Tulis resep (CPOE)
+            </Link>
+          </span>
+        )}
       </div>
-      {tasks.active && <ScenarioOrderChoice tasks={tasks} />}
+      {canOrder && tasks.active && <ScenarioOrderChoice tasks={tasks} />}
       <ul className="m-0 flex list-none flex-col overflow-hidden rounded-control border border-line p-0">
         {plan.map((r) => (
           <li
@@ -97,7 +104,9 @@ export function SoapPlan({
         ))}
         {plan.length === 0 && (
           <li className="px-3 py-2.5 text-small text-ink-500">
-            Belum ada rencana. Tambahkan order penunjang atau resep lewat CPOE.
+            {canOrder
+              ? 'Belum ada rencana. Tambahkan order penunjang atau resep lewat CPOE.'
+              : 'Belum ada rencana. Order penunjang dan resep ditulis dokter lewat CPOE.'}
           </li>
         )}
       </ul>

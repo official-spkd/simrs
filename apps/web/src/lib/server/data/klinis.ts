@@ -11,6 +11,7 @@ import {
 } from '@simrs/shared';
 import { z } from 'zod';
 import {
+  demoCpoeAvailable,
   demoCpoeContext,
   demoCpoeEncounters,
   demoPoliEncounter,
@@ -66,7 +67,23 @@ export async function getCpoeEncounters(session: SessionView): Promise<CpoeEncou
   if (webEnv().dataSource === 'demo') {
     assertDemo();
     const runs = await scenarioRuns(session);
-    return z.array(cpoeEncounterRefSchema).parse(demoCpoeEncounters(runs.results['rawat-jalan']));
+    return z
+      .array(cpoeEncounterRefSchema)
+      .parse(demoCpoeEncounters(runs.results['rawat-jalan'], runs.results['igd-ranap']));
+  }
+  return notImplemented('CPOE');
+}
+
+/**
+ * Ada konteks CPOE untuk kunjungan ini saat ini? (sama dengan `getCpoeContext(…) !== null`, tanpa membangun
+ * konteksnya). Layar lain (IGD, rawat inap, resume) memakainya agar tautan "Order" hanya tampil bila halaman
+ * CPOE kunjungan itu bisa dibuka, bukan berujung 404.
+ */
+export async function hasCpoeContext(session: SessionView, encounterId: string): Promise<boolean> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const runs = await scenarioRuns(session);
+    return demoCpoeAvailable(encounterId, runs.results['igd-ranap']);
   }
   return notImplemented('CPOE');
 }

@@ -11,15 +11,23 @@ import { SoapPlan } from './soap-plan';
 import type { ScenarioTasks } from './use-scenario-tasks';
 
 const SCENARIO_DX = 'E11.9';
+/** Diagnosis yang disimpan tugas skenario `pemeriksaan-dokter.dx` (pemilih pasien skenario dibatasi ke sini). */
+const SCENARIO_DX_CODES: readonly string[] = [SCENARIO_DX];
 
 function withPrimary(list: readonly Omit<EncounterDiagnosis, 'primary'>[]): EncounterDiagnosis[] {
   return list.map((d, i) => ({ ...d, primary: i === 0 }));
 }
 
-/** CPPT · SOAP dokter (mockup Main): S/O, diagnosis ICD-10, rencana, simpan draf, tanda tangan. */
+/**
+ * CPPT · SOAP dokter (mockup Main): S/O, diagnosis ICD-10, rencana, simpan draf, tanda tangan. Catatan dokter residen
+ * tidak final: tanda tangannya menyimpan catatan "menunggu co-sign DPJP" (kunjungan belum selesai). Pasien skenario:
+ * S/O dari naskah skenario (hanya baca) dan diagnosis dibatasi ke yang disimpan tugas skenario.
+ */
 export function SoapForm({
   encounter,
   canWrite,
+  canOrder,
+  resident,
   scenarioPatient,
   tasks,
   cpoeHref,
@@ -29,6 +37,10 @@ export function SoapForm({
   encounter: PoliEncounter;
   /** Posisi dokter (perawat/bidan hanya melihat). */
   canWrite: boolean;
+  /** Posisi yang boleh menulis order/resep (tautan CPOE, order cepat skenario). */
+  canOrder: boolean;
+  /** Dokter residen: CPPT perlu co-sign DPJP sebelum final. */
+  resident: boolean;
   /** Pasien skenario Simulasi: penyimpanan lewat tugas skenario, tanda tangan akhir di CPOE. */
   scenarioPatient: boolean;
   tasks: ScenarioTasks;
@@ -44,12 +56,17 @@ export function SoapForm({
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState(e.soap.savedAt);
   const [signedAt, setSignedAt] = useState(e.soap.signedAt);
+  /** Jam simpan CPPT residen yang menunggu co-sign DPJP (belum final). */
+  const [cosignAt, setCosignAt] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const signed = Boolean(signedAt);
-  const editable = canWrite && !signed;
+  const editable = canWrite && !signed && !cosignAt;
   const dxTask = scenarioPatient ? tasks.task('dx') : undefined;
+  // Pasien skenario: S/O mengikuti naskah; diagnosis hanya selama tugas `dx` terbuka dan hanya kode skenario.
+  const soEditable = editable && !scenarioPatient;
+  const dxEditable = scenarioPatient ? editable && Boolean(dxTask && dxTask.status !== 'selesai') : editable;
   const hasScenarioDx = dx.some((d) => d.code === SCENARIO_DX);
   const input = () => ({
     encounterId: e.encounterId,
@@ -84,8 +101,12 @@ export function SoapForm({
         r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Gagal menandatangani.' },
       );
       if (r.ok && r.at) {
-        setSignedAt(r.at);
         setDirty(false);
+        if (r.cosignRequired) {
+          setCosignAt(r.at);
+          return;
+        }
+        setSignedAt(r.at);
         onSigned(r.at);
       }
     });
@@ -93,6 +114,7 @@ export function SoapForm({
   let draftLabel = 'Belum ada draf';
   let draftTone = 'bg-line-strong';
   if (signed) [draftLabel, draftTone] = [`Final · ditandatangani ${signedAt}`, 'bg-success'];
+  else if (cosignAt) [draftLabel, draftTone] = [`Menunggu co-sign DPJP · disimpan ${cosignAt}`, 'bg-warning'];
   else if (dirty) [draftLabel, draftTone] = ['Perubahan belum disimpan', 'bg-warning'];
   else if (savedAt) [draftLabel, draftTone] = [`Draf tersimpan ${savedAt}`, 'bg-success'];
 
@@ -140,7 +162,7 @@ export function SoapForm({
             id={`${ids}-s`}
             rows={3}
             value={s}
-            readOnly={!editable}
+            readOnly={!soEditable}
             onChange={(ev) => {
               setS(ev.target.value);
               touch();
@@ -157,7 +179,7 @@ export function SoapForm({
             id={`${ids}-o`}
             rows={3}
             value={o}
-            readOnly={!editable}
+            readOnly={!soEditable}
             onChange={(ev) => {
               setO(ev.target.value);
               touch();
@@ -166,15 +188,26 @@ export function SoapForm({
             className={textArea}
           />
         </div>
+        {scenarioPatient && canWrite && (
+          <span className="text-caption text-ink-500 md:col-span-2">
+            Pasien simulasi: anamnesis dan pemeriksaan fisik mengikuti naskah skenario (hanya baca).
+          </span>
+        )}
       </div>
       <SoapDiagnoses
         diagnoses={dx}
-        editable={editable}
+        editable={dxEditable}
         onAdd={addDx}
         onRemove={removeDx}
         showMissing={dx.length === 0 && !signed}
+        allowed={scenarioPatient ? SCENARIO_DX_CODES : null}
+        note={
+          scenarioPatient && dxEditable
+            ? `Pasien simulasi: diagnosis kerja mengikuti skenario (${SCENARIO_DX_CODES.join(', ')}).`
+            : null
+        }
       />
-      <SoapPlan plan={e.plan} cpoeHref={cpoeHref} tasks={tasks} />
+      <SoapPlan plan={e.plan} cpoeHref={cpoeHref} tasks={tasks} canOrder={canOrder} />
       {signed && (
         <div
           role="status"
@@ -217,21 +250,33 @@ export function SoapForm({
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line-soft pt-2">
         <span className="text-caption text-ink-500">
           Penulis: {e.soap.author} · dibuat {e.soap.createdAt ?? '—'} ·{' '}
-          {signed ? 'versi 2 (final)' : 'versi 1 (draf)'} · setiap perubahan tercatat
+          {signed ? 'versi 2 (final)' : cosignAt ? 'versi 1 (menunggu co-sign DPJP)' : 'versi 1 (draf)'} ·
+          setiap perubahan tercatat
         </span>
         {canWrite && !scenarioPatient && (
           <span className="flex flex-wrap gap-2.5">
-            <Button type="button" variant="secondary" disabled={signed || pending} onClick={saveDraft}>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={signed || Boolean(cosignAt) || pending}
+              onClick={saveDraft}
+            >
               Simpan draf
             </Button>
             <Button
               variant="primary"
               type="button"
-              disabled={signed || pending || dx.length === 0}
+              disabled={signed || Boolean(cosignAt) || pending || dx.length === 0}
               aria-describedby={finishWhy ? `${ids}-why` : undefined}
               onClick={sign}
             >
-              {signed ? 'Kunjungan selesai' : 'Tanda tangani dan selesai'}
+              {signed
+                ? 'Kunjungan selesai'
+                : cosignAt
+                  ? 'Menunggu co-sign DPJP'
+                  : resident
+                    ? 'Simpan dan minta co-sign DPJP'
+                    : 'Tanda tangani dan selesai'}
             </Button>
           </span>
         )}
@@ -246,13 +291,20 @@ export function SoapForm({
             {dxTask.btn}
           </Button>
         )}
-        {scenarioPatient && !signed && (!dxTask || dxTask.status === 'selesai') && (
+        {canOrder && scenarioPatient && !signed && (!dxTask || dxTask.status === 'selesai') && (
           <span className="flex flex-wrap items-center gap-2 text-caption text-ink-700">
             {e.diagnoses.length > 0 ? 'SOAP dan diagnosis tersimpan. ' : ''}Resume ditandatangani di CPOE
             setelah hasil lab ditinjau.
             <Link href={cpoeHref} className="inline-flex min-h-11 items-center font-semibold">
               Buka CPOE
             </Link>
+          </span>
+        )}
+        {resident && canWrite && !scenarioPatient && !signed && (
+          <span className="flex-[1_1_100%] text-right text-caption text-ink-700">
+            {cosignAt
+              ? `Kunjungan selesai setelah DPJP ${e.doctor} menyetujui (co-sign) catatan ini.`
+              : `Catatan dokter residen final setelah co-sign DPJP ${e.doctor}.`}
           </span>
         )}
         {(finishWhy && canWrite && !scenarioPatient) || dxWhy ? (

@@ -13,26 +13,41 @@ export function searchCatalog(catalog: readonly CpoeCatalogItem[], query: string
     .slice(0, 6);
 }
 
-/** Kolom kiri CPOE (mockup): pencarian katalog dan order set institusi. */
+/**
+ * Kolom kiri CPOE (mockup): pencarian katalog dan order set institusi. `lockedNote` = katalog dan order set
+ * nonaktif (pasien skenario: order mengikuti langkah skenario) dengan catatan tertulis.
+ */
 export function CpoeCatalog({
   catalog,
   orderSets,
   disabled,
+  lockedNote = null,
   onAdd,
   onApplySet,
 }: {
   catalog: readonly CpoeCatalogItem[];
   orderSets: readonly CpoeOrderSet[];
   disabled: boolean;
+  lockedNote?: string | null;
   onAdd: (ids: readonly string[], label: string | null) => void;
   onApplySet: (set: CpoeOrderSet) => void;
 }) {
   const id = useId();
   const [q, setQ] = useState('');
   const [applied, setApplied] = useState<string | null>(null);
-  const results = searchCatalog(catalog, q);
+  const locked = lockedNote !== null;
+  const off = disabled || locked;
+  const results = locked ? [] : searchCatalog(catalog, q);
   return (
     <aside aria-label="Katalog dan order set" className="flex min-w-0 flex-col gap-4">
+      {locked && (
+        <p
+          role="note"
+          className="m-0 rounded-card border border-brand-100 bg-selected px-3.5 py-3 text-small font-semibold text-brand-700"
+        >
+          {lockedNote}
+        </p>
+      )}
       <div className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-3.5 shadow-card">
         <label htmlFor={id} className="text-small font-semibold">
           Cari pemeriksaan, obat, tindakan
@@ -41,11 +56,12 @@ export function CpoeCatalog({
           id={id}
           type="search"
           value={q}
+          disabled={locked}
           autoComplete="off"
           onChange={(e) => setQ(e.target.value)}
           placeholder="mis. hba1c, lipid, klindamisin"
           aria-describedby={`${id}-hint`}
-          className="h-11 rounded-control border border-brand-600 bg-white px-3 font-[inherit]"
+          className="h-11 rounded-control border border-brand-600 bg-white px-3 font-[inherit] disabled:cursor-not-allowed disabled:border-line-strong disabled:bg-subtle"
         />
         {results.length > 0 && (
           <ul
@@ -56,7 +72,7 @@ export function CpoeCatalog({
               <li key={r.id} className="border-b border-line-soft last:border-b-0">
                 <button
                   type="button"
-                  disabled={disabled}
+                  disabled={off}
                   onClick={() => onAdd([r.id], null)}
                   className={cx(
                     'flex min-h-11 w-full cursor-pointer flex-col items-start border-0 px-2.5 py-2 text-left font-[inherit] disabled:cursor-not-allowed',
@@ -71,9 +87,11 @@ export function CpoeCatalog({
           </ul>
         )}
         <span id={`${id}-hint`} className="text-caption text-ink-500">
-          {q.trim() && results.length === 0
-            ? 'Tidak ada item katalog yang cocok. Coba kata lain, mis. "lipid", "EKG", "klindamisin".'
-            : 'Item ditambahkan sebagai draf; CDS memeriksa setiap item terhadap alergi, obat rutin, dan riwayat.'}
+          {locked
+            ? 'Katalog tidak dipakai untuk pasien ini; daftar order di tengah berasal dari langkah skenario.'
+            : q.trim() && results.length === 0
+              ? 'Tidak ada item katalog yang cocok. Coba kata lain, mis. "lipid", "EKG", "klindamisin".'
+              : 'Item ditambahkan sebagai draf; CDS memeriksa setiap item terhadap alergi, obat rutin, dan riwayat.'}
         </span>
       </div>
       <section
@@ -88,13 +106,13 @@ export function CpoeCatalog({
             key={s.id}
             type="button"
             aria-pressed={applied === s.id}
-            disabled={disabled}
+            disabled={off}
             onClick={() => {
               setApplied(s.id);
               onApplySet(s);
             }}
             className={cx(
-              'flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-control px-3 py-2.5 text-left font-[inherit] disabled:cursor-not-allowed',
+              'flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-control px-3 py-2.5 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60',
               applied === s.id ? 'border-2 border-brand-600 bg-selected' : 'border border-line bg-white',
             )}
           >

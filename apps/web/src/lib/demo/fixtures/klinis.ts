@@ -1479,10 +1479,23 @@ const HARTONO_DRUG_IDS: ReadonlyArray<Row<[prefix: string, ids: readonly string[
   ['Omeprazol', ['omeprazol-20']],
 ];
 
+/** Langkah `stepId` skenario sudah dimulai (aktif atau lewat)? */
+function stepStarted(R: RunResult, stepId: string): boolean {
+  const i = R.def.steps.findIndex((s) => s.id === stepId);
+  return R.finished || (i >= 0 && R.step >= i);
+}
+
 /** Langkah `tata-laksana` sudah dimulai (aktif atau lewat)? */
 function tataLaksanaReached(igd: RunResult): boolean {
-  const i = igd.def.steps.findIndex((s) => s.id === 'tata-laksana');
-  return igd.finished || (i >= 0 && igd.step >= i);
+  return stepStarted(igd, 'tata-laksana');
+}
+
+/**
+ * Kunjungan IGD Tn. Hartono terbuka di CPOE sejak langkah `asesmen-dokter` dimulai sampai serah terima
+ * `admisi.transfer`; setelah itu order ditulis di rawat inap, sebelum itu pasien belum diperiksa dokter IGD.
+ */
+export function hartonoCpoeOpen(igd: RunResult): boolean {
+  return stepStarted(igd, 'asesmen-dokter') && doneValue(igd, 'admisi', 'transfer') === undefined;
 }
 
 function hartonoCpoe(igd: RunResult): CpoeContext {
@@ -1534,17 +1547,33 @@ function hartonoCpoe(igd: RunResult): CpoeContext {
   return { ...base, orders: toOrders(lines, base) };
 }
 
-/** Konteks CPOE kunjungan `encounterId`; null bila kunjungan tidak dikenal. */
-export function demoCpoeContext(encounterId: string, rj: RunResult, igd: RunResult): CpoeContext | null {
-  if (encounterId === encounterIdOf(SURYO)) return suryoCpoe(rj);
-  if (encounterId === encounterIdOf(HARTONO)) return hartonoCpoe(igd);
+function poliCpoeFixture(encounterId: string): { f: PoliFixture; c: CpoeFixture } | null {
   const f = POLI_FIXTURES.find((x) => encounterIdOf(x.patientId) === encounterId);
   const c = f ? CPOE_FIXTURES[f.patientId] : undefined;
-  return f && c ? fixtureCpoe(f, c) : null;
+  return f && c ? { f, c } : null;
 }
 
-/** Kunjungan hari ini untuk daftar CPOE (`/klinis/order`). */
-export function demoCpoeEncounters(rj: RunResult): CpoeEncounterRef[] {
+/**
+ * Ada konteks CPOE untuk kunjungan ini saat ini? Padanan murah `demoCpoeContext(…) !== null` (dijaga tes) untuk
+ * layar lain yang menampilkan tautan "Order" hanya bila CPOE kunjungan itu bisa dibuka.
+ */
+export function demoCpoeAvailable(encounterId: string, igd: RunResult): boolean {
+  if (encounterId === encounterIdOf(SURYO)) return true;
+  if (encounterId === encounterIdOf(HARTONO)) return hartonoCpoeOpen(igd);
+  return poliCpoeFixture(encounterId) !== null;
+}
+
+/** Konteks CPOE kunjungan `encounterId`; null bila kunjungan tidak dikenal atau tidak terbuka saat ini. */
+export function demoCpoeContext(encounterId: string, rj: RunResult, igd: RunResult): CpoeContext | null {
+  if (!demoCpoeAvailable(encounterId, igd)) return null;
+  if (encounterId === encounterIdOf(SURYO)) return suryoCpoe(rj);
+  if (encounterId === encounterIdOf(HARTONO)) return hartonoCpoe(igd);
+  const x = poliCpoeFixture(encounterId);
+  return x ? fixtureCpoe(x.f, x.c) : null;
+}
+
+/** Kunjungan hari ini untuk daftar CPOE (`/klinis/order`); Tn. Hartono hanya selama CPOE IGD-nya terbuka. */
+export function demoCpoeEncounters(rj: RunResult, igd: RunResult): CpoeEncounterRef[] {
   const poli: CpoeEncounterRef[] = demoPoliWorklist(rj).items.map((q) => ({
     encounterId: q.encounterId,
     name: q.name,
@@ -1553,6 +1582,7 @@ export function demoCpoeEncounters(rj: RunResult): CpoeEncounterRef[] {
     note: q.waitNote,
     allergies: [...mustPatient(q.patientId).alergi],
   }));
+  if (!hartonoCpoeOpen(igd)) return poli;
   const h = mustPatient(HARTONO);
   return [
     ...poli,

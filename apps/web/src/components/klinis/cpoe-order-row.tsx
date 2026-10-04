@@ -33,7 +33,7 @@ export function CpoeOrderRow({
   fixes: readonly CdsFix[];
   payer: 'BPJS' | 'Umum' | 'Asuransi';
   disabled: boolean;
-  /** Baris yang dikendalikan skenario tidak bisa dihapus lokal. */
+  /** Baris yang dikendalikan skenario tidak bisa dihapus lokal (draf skenario, menunggu tugas skenario). */
   removable?: boolean;
   onFix: (fix: CdsFix) => void;
   onOverride: (reason: string) => void;
@@ -78,7 +78,7 @@ export function CpoeOrderRow({
               Hapus
             </button>
           ) : draft ? (
-            <Chip tone="warning">Menunggu CDS</Chip>
+            <Chip tone={gate ? 'warning' : 'neutral'}>{gate ? 'Menunggu CDS' : 'Draf skenario'}</Chip>
           ) : (
             <Chip tone="info">Terkirim</Chip>
           )}
@@ -87,7 +87,7 @@ export function CpoeOrderRow({
       <span className="text-small text-ink-700">
         {item.detail} <span className="font-mono text-caption text-ink-500">· {codeText(line)}</span>
       </span>
-      {!gate && (
+      {(!gate || !primary) && (
         <span className={cx('text-[12.5px] font-semibold', CDS_TONE[cds.level])}>
           <span aria-hidden="true">{CDS_MARK[cds.level]} </span>
           <span className="sr-only">{CDS_SR[cds.level]}</span>
