@@ -4,7 +4,7 @@ Disusun 5 Okt 2026 oleh agen Q (hanya baca, tidak ada berkas yang diubah). Pemil
 
 **Nomor ADR:**
 
-- Blok 0046–0050 untuk fase 6 (dinomori ulang penggabung; 0033–0045 untuk fase 4–5).
+- Blok 0046–0050 untuk fase 6 (dinomori ulang penggabung; 0034–0045 untuk fase 4–5; 0033 = batas laju Redis).
 - Blok 0051–0057 untuk fase 7.
 - 0028–0032 dipakai fase 3; 0060 ke atas dipakai fase 8–10.
 - **(keputusan diambil, disetujui otomatis 5 Okt 2026)**
