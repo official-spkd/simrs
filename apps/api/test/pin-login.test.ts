@@ -437,6 +437,25 @@ describe('isolasi tenant dan subdomain produksi', () => {
     const U = await createTestTenant();
     const swapped = token.replace(T.id, U.id);
     expect((await pinLogin(swapped, PIN).expect(401)).body.details).toEqual({ pin: 'unknown' });
+    // RS yang tidak ada di token palsu: tetap 401 seragam (bukan galat referensi yang membocorkan ada/tidaknya RS).
+    expect((await pinLogin(token.replace(T.id, newId()), PIN).expect(401)).body.details).toEqual({
+      pin: 'unknown',
+    });
+    const forgedChallenge = `sc1.${newId()}.${newId()}.${'A'.repeat(43)}`;
+    await http()
+      .post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken: forgedChallenge, code: '123456' })
+      .expect(401);
+    // Token palsu untuk PIN yang ada: ditolak dan tercatat tanpa pelaku.
+    await pinLogin(`${token.slice(0, -4)}AAAA`, PIN).expect(401);
+    const forged = await withTenant(testDb(), T.id, (tx) =>
+      tx.auditEvent.findFirst({
+        where: { action: 'login_failed', details: { path: ['deviceId'], equals: id } },
+        orderBy: { seq: 'desc' },
+      }),
+    );
+    expect(forged).toMatchObject({ actorUserId: null, details: { reason: 'bad_device_token' } });
+    expect((await pinRow(id)).failedAttempts).toBe(0);
     expect(
       (
         await http()

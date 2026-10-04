@@ -73,15 +73,15 @@ export class PinService {
     return { actorUserId, actorRole, ip: m.ip, userAgent: m.userAgent, requestId: m.requestId };
   }
 
-  /** Token `sd1` yang formatnya sah; di produksi hanya untuk RS pada subdomain permintaan ini. */
-  private async parseDeviceToken(token: string, host: string | null): Promise<ParsedToken | null> {
-    const parsed = parseToken(token, 'sd1');
-    if (!parsed) return null;
-    if (this.env.APP_ENV === 'production') {
-      const hostTenant = host ? await resolveTenantByHost(this.prisma.client, host) : null;
-      if (hostTenant !== parsed.tenantId) return null;
-    }
-    return parsed;
+  /**
+   * Token `sd1` yang formatnya sah; di produksi hanya untuk RS pada subdomain permintaan ini (RS dari host dicari
+   * sekali per permintaan).
+   */
+  private async parseDeviceTokens(tokens: string[], host: string | null): Promise<ParsedToken[]> {
+    const parsed = tokens.map((t) => parseToken(t, 'sd1')).filter((p): p is ParsedToken => p !== null);
+    if (this.env.APP_ENV !== 'production' || parsed.length === 0) return parsed;
+    const hostTenant = host ? await resolveTenantByHost(this.prisma.client, host) : null;
+    return parsed.filter((p) => p.tenantId === hostTenant);
   }
 
   // ------------------------------------------------------------------------------------------------------
@@ -96,9 +96,7 @@ export class PinService {
     tokens: string[],
     m: RequestMeta,
   ): Promise<Array<{ id: string; displayName: string; roleName: string; unitName: string | null }>> {
-    const parsed = (await Promise.all(tokens.map((t) => this.parseDeviceToken(t, m.host)))).filter(
-      (p): p is ParsedToken => p !== null,
-    );
+    const parsed = await this.parseDeviceTokens(tokens, m.host);
     const byTenant = new Map<string, ParsedToken[]>();
     for (const p of parsed) byTenant.set(p.tenantId, [...(byTenant.get(p.tenantId) ?? []), p]);
     const found = new Map<string, PinDeviceRow>();
@@ -133,28 +131,37 @@ export class PinService {
     input: PinLoginInput,
     m: RequestMeta,
   ): Promise<{ status: 'authenticated'; mustChangePassword: false } & SessionTokens> {
-    const token = await this.parseDeviceToken(input.deviceToken, m.host);
+    const [token] = await this.parseDeviceTokens([input.deviceToken], m.host);
     if (!token) {
       // Samakan waktu respons dengan jalur PIN salah.
       await verifyPassword(input.pin, await dummyPasswordHash());
       throw pinFailed('unknown');
     }
     const tenantId = token.tenantId;
-    const fail = (tx: TenantTx, d: PinDeviceRow | null, reason: string, extra: object = {}) =>
-      writeAudit(tx, tenantId, this.meta(m, d?.userId ?? null), [
+    const fail = (
+      tx: TenantTx,
+      d: PinDeviceRow,
+      reason: string,
+      extra: object = {},
+      actor: string | null = d.userId,
+    ) =>
+      writeAudit(tx, tenantId, this.meta(m, actor), [
         {
           action: 'login_failed',
           resourceType: 'session',
           outcome: 'denied',
-          details: { method: 'pin', reason, ...(d ? { deviceId: d.id } : {}), ...extra },
+          details: { method: 'pin', reason, deviceId: d.id, ...extra },
         },
       ]);
 
     // 1. Token + kelayakan, lalu cadangkan satu percobaan. Di-commit sebelum PIN diperiksa (juga audit gagal).
     const pre = await this.prisma.forTenant(tenantId, async (tx) => {
       const [d] = await this.repo.findPinDevices(tx, [token.id]);
-      if (!d || !secretMatches(token.secret, d.tokenHash)) {
-        await fail(tx, null, 'unknown_device');
+      // Tidak ditemukan: tidak dicatat (tenant di token palsu bisa saja tidak ada, FK audit gagal).
+      if (!d) return { kind: 'unknown' as const };
+      if (!secretMatches(token.secret, d.tokenHash)) {
+        // Token palsu untuk PIN yang ada: tercatat tanpa pelaku (pemegangnya bukan pemilik PIN).
+        await fail(tx, d, 'bad_device_token', {}, null);
         return { kind: 'unknown' as const };
       }
       const now = new Date();
