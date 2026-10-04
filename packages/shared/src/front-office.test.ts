@@ -45,7 +45,7 @@ import {
   printableSepSchema,
   publicBookingStatusQuerySchema,
   queueDisplayEventSchema,
-  queueNotifyPayloadSchema,
+  QUEUE_NOTIFY_CHANNEL,
   recordIncomingReferralSchema,
   registrationDeskSchema,
   reviseSepSchema,
@@ -180,19 +180,14 @@ describe('operasi outbox front office', () => {
 });
 
 describe('event domain', () => {
-  const tenantId = uuid();
   const appointmentId = uuid();
-  const ticket = {
-    tenantId,
-    at: AT,
-    ticketId: uuid(),
-    serviceId: uuid(),
-    appointmentId,
-    encounterId: null,
-  };
-  const ev = (e: DomainEvent) => bpjsTaskForEvent(e)?.taskId ?? null;
+  const patientId = uuid();
+  const ticket = { ticketId: uuid(), queueServiceId: uuid(), appointmentId, encounterId: null };
+  /** Amplop minimal: waktu kejadian dari publisher API (Date), muatan dari skema shared. */
+  const ev = (e: Omit<DomainEvent, 'occurredAt'>) =>
+    bpjsTaskForEvent({ ...e, occurredAt: new Date(AT) } as DomainEvent)?.taskId ?? null;
 
-  it('daftar nama event sesuai rencana fase 2', () => {
+  it('daftar nama event sesuai rencana fase 2 (+ booking.cancelled untuk task 99)', () => {
     expect([...DOMAIN_EVENT_NAMES].sort()).toEqual(
       [
         'booking.cancelled',
@@ -209,10 +204,11 @@ describe('event domain', () => {
     expect(isDomainEventName('toString')).toBe(false);
   });
 
-  it('muatan ketat tanpa PHI', () => {
-    const ok = { tenantId, at: AT, appointmentId };
+  it('muatan ketat tanpa PHI; tenant dan waktu milik amplop, bukan muatan', () => {
+    const ok = { appointmentId, patientId };
     expect(parseDomainEvent('booking.checked_in', ok)).toEqual(ok);
     expect(() => parseDomainEvent('booking.checked_in', { ...ok, patientName: 'Fiktif' })).toThrow();
+    expect(() => parseDomainEvent('booking.checked_in', { ...ok, tenantId: uuid() })).toThrow();
     expect(() =>
       parseDomainEvent('queue.ticket_called', {
         ...ticket,
@@ -225,7 +221,7 @@ describe('event domain', () => {
   });
 
   it('task ID dari event: check-in 1, panggil loket 2, terdaftar 3, poli mulai/selesai 4/5, batal 99', () => {
-    expect(ev({ name: 'booking.checked_in', payload: { tenantId, at: AT, appointmentId } })).toBe(1);
+    expect(ev({ name: 'booking.checked_in', payload: { appointmentId, patientId } })).toBe(1);
     const called = { ...ticket, callId: uuid(), recall: false };
     expect(ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'admisi' } })).toBe(2);
     expect(
@@ -233,10 +229,8 @@ describe('event domain', () => {
     ).toBeNull();
     expect(ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'poli' } })).toBeNull();
     const registered = {
-      tenantId,
-      at: AT,
       encounterId: uuid(),
-      patientId: uuid(),
+      patientId,
       unitId: uuid(),
       appointmentId,
       payer: 'bpjs' as const,
@@ -248,24 +242,23 @@ describe('event domain', () => {
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'farmasi' } })).toBe(6);
     expect(ev({ name: 'queue.ticket_finished', payload: { ...ticket, serviceKind: 'farmasi' } })).toBe(7);
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'kasir' } })).toBeNull();
-    expect(ev({ name: 'booking.cancelled', payload: { tenantId, at: AT, appointmentId } })).toBe(99);
+    expect(ev({ name: 'booking.cancelled', payload: { appointmentId, patientId } })).toBe(99);
     expect(
-      ev({ name: 'encounter.cancelled', payload: { tenantId, at: AT, encounterId: uuid(), appointmentId } }),
+      ev({ name: 'encounter.cancelled', payload: { encounterId: uuid(), patientId, appointmentId } }),
     ).toBe(99);
     // Tanpa booking (walk-in non-JKN, tiket tanpa appointment) tidak ada task.
     expect(
       ev({ name: 'queue.ticket_started', payload: { ...ticket, appointmentId: null, serviceKind: 'poli' } }),
     ).toBeNull();
+    expect(ev({ name: 'sep.issued', payload: { sepId: uuid(), encounterId: uuid() } })).toBeNull();
+    // Waktu task = waktu kejadian amplop, ISO 8601 (Date atau string).
     expect(
-      ev({ name: 'sep.issued', payload: { tenantId, at: AT, sepId: uuid(), encounterId: uuid() } }),
-    ).toBeNull();
-    expect(
-      bpjsTaskForEvent({ name: 'booking.checked_in', payload: { tenantId, at: AT, appointmentId } }),
-    ).toEqual({
-      appointmentId,
-      taskId: 1,
-      at: AT,
-    });
+      bpjsTaskForEvent({
+        name: 'booking.checked_in',
+        payload: { appointmentId, patientId },
+        occurredAt: AT,
+      }),
+    ).toEqual({ appointmentId, taskId: 1, at: new Date(AT).toISOString() });
   });
 });
 
@@ -411,7 +404,7 @@ describe('kontrak API booking (F02)', () => {
 });
 
 describe('kontrak API antrean (F04)', () => {
-  it('panggil butuh loket/ruang; event SSE call/board; notify hanya tenant + id', () => {
+  it('panggil butuh loket/ruang; event SSE call/board tanpa PHI; kanal notify sesuai ADR-0026', () => {
     expect(callTicketSchema.safeParse({ counter: 'Loket 3' }).success).toBe(true);
     expect(callTicketSchema.safeParse({}).success).toBe(false);
     const call = {
@@ -425,10 +418,9 @@ describe('kontrak API antrean (F04)', () => {
     };
     expect(queueDisplayEventSchema.safeParse(call).success).toBe(true);
     expect(queueDisplayEventSchema.safeParse({ ...call, patientName: 'Fiktif' }).success).toBe(false);
-    expect(queueNotifyPayloadSchema.safeParse({ tenantId: uuid(), callId: uuid() }).success).toBe(true);
-    expect(
-      queueNotifyPayloadSchema.safeParse({ tenantId: uuid(), callId: uuid(), queueNo: 'PD-027' }).success,
-    ).toBe(false);
+    // ADR-0026: kanal = nama tabel (huruf kecil/angka/garis bawah, maks 63), muatan { tenant_id, id }.
+    expect(QUEUE_NOTIFY_CHANNEL).toBe('queue_calls');
+    expect(QUEUE_NOTIFY_CHANNEL).toMatch(/^[a-z][a-z0-9_]{0,62}$/);
   });
 });
 

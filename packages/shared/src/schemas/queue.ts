@@ -167,7 +167,10 @@ export const queueDisplaySchema = z.strictObject({
 });
 export type QueueDisplay = z.infer<typeof queueDisplaySchema>;
 
-/** Nama event SSE (`event:`) di `/api/v1/queue/displays/:id/events`. Heartbeat = baris komentar SSE, bukan event. */
+/**
+ * Nama event SSE (`event:`) di `/api/v1/queue/displays/:id/events`. Heartbeat = baris komentar SSE, bukan event;
+ * `reset` (replay tidak tersedia, ADR-0026) dikirim `SseService` → klien memuat ulang papan.
+ */
 export const QUEUE_SSE_EVENTS = { call: 'queue.call', board: 'queue.board' } as const;
 
 /**
@@ -189,10 +192,11 @@ export const queueDisplayEventSchema = z.discriminatedUnion('type', [
 ]);
 export type QueueDisplayEvent = z.infer<typeof queueDisplayEventSchema>;
 
-/** Kanal `pg_notify` panggilan antrean. Muatan hanya tenant + ID panggilan (tanpa PHI, < 8000 byte). */
-export const QUEUE_NOTIFY_CHANNEL = 'simrs_queue_call';
-export const queueNotifyPayloadSchema = z.strictObject({ tenantId: z.uuid(), callId: z.uuid() });
-export type QueueNotifyPayload = z.infer<typeof queueNotifyPayloadSchema>;
+/**
+ * Kanal `pg_notify` panggilan antrean = nama tabel (ADR-0026: trigger `app_notify_row('queue_calls')`, muatan
+ * `{ tenant_id, id }` tanpa PHI). Dipakai trigger migrasi potongan 0b dan kanal SSE potongan 4a.
+ */
+export const QUEUE_NOTIFY_CHANNEL = 'queue_calls';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Task ID Antrean BPJS (docs/06 §2)

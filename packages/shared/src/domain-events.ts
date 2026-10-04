@@ -4,20 +4,16 @@ import type { AntreanTaskId } from './integrations/bpjs/antrean';
 import { QUEUE_SERVICE_KINDS } from './schemas/queue';
 
 /**
- * Event domain internal (CLAUDE.md §5: `EventEmitter` di API; efek ke luar lewat outbox). Diterbitkan SETELAH
- * transaksi asal commit oleh publisher API (rencana fase 2 potongan 1b). Muatan hanya ID, waktu, dan kode yang
- * dibutuhkan pendengar: tanpa PHI (nama, NIK, diagnosis), sehingga aman dicatat dan diteruskan.
- * Pendengar utama fase 2: mesin task ID Antrean BPJS (potongan 4a) dan SSE display (ADR-0026).
+ * Event domain internal (CLAUDE.md §5) fase 2: nama + skema MUATAN. Amplop (`id`, `tenantId`, `occurredAt`, `actor`)
+ * milik publisher API (`apps/api/src/infra/events`, potongan 1b) yang menjalankan penangan secara sinkron di transaksi
+ * penerbit. Muatan hanya ID dan kode yang dibutuhkan pendengar, tanpa PHI (nama, NIK, diagnosis).
+ * Pendengar utama fase 2: mesin task ID Antrean BPJS (potongan 4a, `bpjsTaskForEvent`).
  */
-
-const isoDateTime = z.iso.datetime({ offset: true });
-const base = { tenantId: z.uuid(), at: isoDateTime };
 
 /** Tiket antrean pada transisi panggil/mulai/selesai. `serviceKind` menentukan task BPJS yang terbentuk. */
 const ticketEvent = z.strictObject({
-  ...base,
   ticketId: z.uuid(),
-  serviceId: z.uuid(),
+  queueServiceId: z.uuid(),
   serviceKind: z.enum(QUEUE_SERVICE_KINDS),
   appointmentId: z.uuid().nullable(),
   encounterId: z.uuid().nullable(),
@@ -25,9 +21,9 @@ const ticketEvent = z.strictObject({
 
 export const DOMAIN_EVENT_SCHEMAS = {
   /** F02 · Booking di-check-in (anjungan/loket) → task 1. */
-  'booking.checked_in': z.strictObject({ ...base, appointmentId: z.uuid() }),
+  'booking.checked_in': z.strictObject({ appointmentId: z.uuid(), patientId: z.uuid() }),
   /** F02 · Booking dibatalkan → task 99 (dan `bpjs.antrean.batal` oleh modul booking). */
-  'booking.cancelled': z.strictObject({ ...base, appointmentId: z.uuid() }),
+  'booking.cancelled': z.strictObject({ appointmentId: z.uuid(), patientId: z.uuid() }),
   /** F04 · Tiket dipanggil (termasuk ulang: `recall`). Loket pendaftaran → task 2. */
   'queue.ticket_called': ticketEvent.extend({ callId: z.uuid(), recall: z.boolean() }),
   /** F04 · Layanan dimulai. Poli → task 4; farmasi → task 6 (fase 4). */
@@ -36,7 +32,6 @@ export const DOMAIN_EVENT_SCHEMAS = {
   'queue.ticket_finished': ticketEvent,
   /** F03 · Kunjungan terdaftar → task 3 (rawat jalan dari booking). */
   'encounter.registered': z.strictObject({
-    ...base,
     encounterId: z.uuid(),
     patientId: z.uuid(),
     class: z.enum(ENCOUNTER_CLASSES),
@@ -45,11 +40,11 @@ export const DOMAIN_EVENT_SCHEMAS = {
     payer: z.enum(PAYER_KINDS).nullable(),
   }),
   /** F06 · SEP terbit (nomor dari BPJS). */
-  'sep.issued': z.strictObject({ ...base, sepId: z.uuid(), encounterId: z.uuid() }),
+  'sep.issued': z.strictObject({ sepId: z.uuid(), encounterId: z.uuid() }),
   /** F03 · Kunjungan dibatalkan → task 99 bila dari booking. */
   'encounter.cancelled': z.strictObject({
-    ...base,
     encounterId: z.uuid(),
+    patientId: z.uuid(),
     appointmentId: z.uuid().nullable(),
   }),
 } as const;
@@ -60,8 +55,9 @@ export const DOMAIN_EVENT_NAMES = Object.keys(DOMAIN_EVENT_SCHEMAS) as [
   ...DomainEventName[],
 ];
 export type DomainEventPayload<N extends DomainEventName> = z.infer<(typeof DOMAIN_EVENT_SCHEMAS)[N]>;
+/** Bagian amplop yang dibutuhkan pemetaan task ID (cocok dengan amplop publisher API). */
 export type DomainEvent = {
-  [N in DomainEventName]: { name: N; payload: DomainEventPayload<N> };
+  [N in DomainEventName]: { name: N; payload: DomainEventPayload<N>; occurredAt: Date | string };
 }[DomainEventName];
 
 export function isDomainEventName(name: string): name is DomainEventName {
@@ -84,8 +80,9 @@ export function parseDomainEvent<N extends DomainEventName>(
 export function bpjsTaskForEvent(
   event: DomainEvent,
 ): { appointmentId: string; taskId: AntreanTaskId; at: string } | null {
+  const at = new Date(event.occurredAt).toISOString();
   const task = (appointmentId: string | null, taskId: AntreanTaskId | null) =>
-    appointmentId && taskId ? { appointmentId, taskId, at: event.payload.at } : null;
+    appointmentId && taskId ? { appointmentId, taskId, at } : null;
   switch (event.name) {
     case 'booking.checked_in':
       return task(event.payload.appointmentId, 1);
