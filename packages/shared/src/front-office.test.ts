@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   admissionSchema,
+  ANTREAN_JENIS_KUNJUNGAN,
+  ANTREAN_TASK_IDS,
   AppError,
   bookingSchema,
+  BPJS_VISIT_KINDS,
   bpjsParticipantLookupSchema,
+  bpjsRejectedDetailsSchema,
+  bpjsTaskIdSchema,
   bpjsTaskForEvent,
   callTicketSchema,
+  classifyBpjsRejection,
   createBookingSchema,
   createControlLetterSchema,
   createOutgoingReferralSchema,
@@ -76,6 +82,27 @@ describe('galat front office', () => {
     ]) {
       expect(ERROR_CODES).toContain(code);
     }
+  });
+
+  it('selaras kontrak kawat BPJS: jenis kunjungan, task ID, alasan penolakan', () => {
+    expect(Object.values(BPJS_VISIT_KINDS).map((v) => v.code)).toEqual(
+      Object.values(ANTREAN_JENIS_KUNJUNGAN),
+    );
+    for (const id of ANTREAN_TASK_IDS) expect(bpjsTaskIdSchema.safeParse(id).success, String(id)).toBe(true);
+    expect(bpjsTaskIdSchema.safeParse(8).success).toBe(false);
+    const reason = classifyBpjsRejection('Status peserta tidak aktif');
+    expect(reason).toBe('BPJS_PESERTA_TIDAK_AKTIF');
+    expect(
+      bpjsRejectedDetailsSchema.safeParse({ reason, bpjsMessage: 'Status peserta tidak aktif' }).success,
+    ).toBe(true);
+    expect(
+      bpjsRejectedDetailsSchema.safeParse({ reason: classifyBpjsRejection('pesan baru'), bpjsMessage: 'x' })
+        .success,
+    ).toBe(true);
+    expect(bpjsRejectedDetailsSchema.safeParse({ reason: 'BPJS_KARANGAN', bpjsMessage: 'x' }).success).toBe(
+      false,
+    );
+    expect(frontOfficeError('BPJS_REJECTED').status).toBe(422);
   });
 
   it('frontOfficeError: status bawaan, pesan bisa dipertajam', () => {

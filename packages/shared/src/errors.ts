@@ -3,8 +3,9 @@ import { z } from 'zod';
 /**
  * F01–F08 · Kode galat front office (fase 2) beserta status HTTP dan pesan bawaannya. Dipisah agar modul domain
  * cukup memanggil `frontOfficeError(kode)`; pesan boleh dipertajam di pemanggil, kode dan status tetap.
- * Galat BPJS: `BPJS_UNAVAILABLE` = tidak terjangkau/timeout (coba lagi, pendaftaran jalan terus);
- * `BPJS_REJECTED` = BPJS menjawab dengan galat bisnis (`metaData.code` ≠ 200 walau HTTP 200).
+ * Galat BPJS di API: `BPJS_UNAVAILABLE` = tidak terjangkau/timeout (coba lagi, pendaftaran jalan terus);
+ * `BPJS_REJECTED` = BPJS menjawab galat bisnis (kode ≠ 200 walau HTTP 200), alasannya di `details.reason` berupa kode
+ * penolakan kontrak kawat (`BPJS_REJECTIONS`, mis. `BPJS_PESERTA_TIDAK_AKTIF`; skema `bpjsRejectedDetailsSchema`).
  */
 export const FRONT_OFFICE_ERRORS = {
   // F01 · Jadwal dan kuota
@@ -45,8 +46,6 @@ export const FRONT_OFFICE_ERRORS = {
   REFERRAL_STATE_INVALID: { status: 409, message: 'Status rujukan tidak mengizinkan tindakan ini' },
   BPJS_UNAVAILABLE: { status: 503, message: 'Layanan BPJS tidak dapat dihubungi. Coba lagi sebentar.' },
   BPJS_REJECTED: { status: 422, message: 'Permintaan ditolak BPJS' },
-  BPJS_PARTICIPANT_NOT_FOUND: { status: 404, message: 'Peserta BPJS tidak ditemukan' },
-  BPJS_PARTICIPANT_INACTIVE: { status: 422, message: 'Kepesertaan BPJS tidak aktif' },
   // F05 · Perangkat dan anjungan
   DEVICE_NOT_ALLOWED: { status: 403, message: 'Perangkat atau akun ini tidak berhak memakai layanan ini' },
   KIOSK_LOOKUP_EXPIRED: { status: 410, message: 'Sesi anjungan berakhir. Ulangi dari awal.' },
@@ -79,8 +78,6 @@ export const FRONT_OFFICE_ERROR_CODES = [
   'REFERRAL_STATE_INVALID',
   'BPJS_UNAVAILABLE',
   'BPJS_REJECTED',
-  'BPJS_PARTICIPANT_NOT_FOUND',
-  'BPJS_PARTICIPANT_INACTIVE',
   'DEVICE_NOT_ALLOWED',
   'KIOSK_LOOKUP_EXPIRED',
   'KIOSK_NEEDS_COUNTER',

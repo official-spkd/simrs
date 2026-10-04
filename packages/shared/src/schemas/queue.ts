@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ANTREAN_TASK_IDS } from '../integrations/bpjs/antrean';
 import { QUEUE_PREFIX_PATTERN } from '../numbering';
 import { bpjsSyncSchema, queueBoardSchema, queueNoSchema, serviceDateSchema } from './front-office';
 
@@ -197,19 +198,8 @@ export type QueueNotifyPayload = z.infer<typeof queueNotifyPayloadSchema>;
 // Task ID Antrean BPJS (docs/06 §2)
 // ---------------------------------------------------------------------------------------------------------------
 
-export const BPJS_TASK_LABEL = {
-  1: 'Mulai tunggu admisi',
-  2: 'Mulai layan admisi',
-  3: 'Mulai tunggu poli',
-  4: 'Mulai layan poli',
-  5: 'Mulai tunggu farmasi',
-  6: 'Mulai layan farmasi',
-  7: 'Obat selesai',
-  99: 'Batal / tidak hadir',
-} as const;
-export const BPJS_TASK_IDS = [1, 2, 3, 4, 5, 6, 7, 99] as const;
-export type BpjsTaskId = (typeof BPJS_TASK_IDS)[number];
-export const bpjsTaskIdSchema = z.literal(BPJS_TASK_IDS);
+/** Task ID Antrean BPJS: sumber tunggal kontrak kawat (`ANTREAN_TASK_IDS`, arti di `ANTREAN_TASK_LABEL`). */
+export const bpjsTaskIdSchema = z.literal(ANTREAN_TASK_IDS);
 
 /** `bpjs_queue_tasks`: satu baris per (booking, task); waktu tidak bisa diubah. Chip task 1–3 di layar Pendaftaran. */
 export const bpjsQueueTaskSchema = z.strictObject({

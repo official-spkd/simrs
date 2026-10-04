@@ -401,7 +401,10 @@ export const bpjsParticipantLookupSchema = z.discriminatedUnion('by', [
 ]);
 export type BpjsParticipantLookupInput = z.infer<typeof bpjsParticipantLookupSchema>;
 
-/** Hasil cek kepesertaan untuk layar (tersamar). Tidak ditemukan → 404 `BPJS_PARTICIPANT_NOT_FOUND`. */
+/**
+ * Hasil cek kepesertaan untuk layar (tersamar); peserta tidak aktif tetap hasil (status `tidak-aktif`), bukan galat.
+ * Tidak ditemukan → 422 `BPJS_REJECTED` dengan `details.reason = 'BPJS_PESERTA_TIDAK_DITEMUKAN'`.
+ */
 export const eligibilityResultSchema = z.strictObject({
   eligibility: bpjsEligibilitySchema,
   checkedAt: isoDateTime,

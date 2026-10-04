@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PAYER_KINDS, ENCOUNTER_CLASSES } from './schemas/registration';
-import { type BpjsTaskId, QUEUE_SERVICE_KINDS } from './schemas/queue';
+import type { AntreanTaskId } from './integrations/bpjs/antrean';
+import { QUEUE_SERVICE_KINDS } from './schemas/queue';
 
 /**
  * Event domain internal (CLAUDE.md §5: `EventEmitter` di API; efek ke luar lewat outbox). Diterbitkan SETELAH
@@ -82,8 +83,8 @@ export function parseDomainEvent<N extends DomainEventName>(
  */
 export function bpjsTaskForEvent(
   event: DomainEvent,
-): { appointmentId: string; taskId: BpjsTaskId; at: string } | null {
-  const task = (appointmentId: string | null, taskId: BpjsTaskId | null) =>
+): { appointmentId: string; taskId: AntreanTaskId; at: string } | null {
+  const task = (appointmentId: string | null, taskId: AntreanTaskId | null) =>
     appointmentId && taskId ? { appointmentId, taskId, at: event.payload.at } : null;
   switch (event.name) {
     case 'booking.checked_in':

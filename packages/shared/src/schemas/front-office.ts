@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { nameBasedId } from '../ids';
+import { ANTREAN_JENIS_KUNJUNGAN } from '../integrations/bpjs/antrean';
+import { BPJS_REJECTIONS, type BpjsRejectionCode } from '../integrations/bpjs/common';
 
 /**
  * F01–F08 · Front office: jadwal dokter, kuota, antrean, anjungan, pendaftaran + SEP.
@@ -55,10 +57,25 @@ export const bpjsSyncSchema = z.strictObject({
   status: z.enum(BPJS_SYNC_STATUSES),
   /** Waktu terakhir diterima BPJS. */
   sentAt: isoDateTime.nullable(),
-  /** Galat terakhir (kode internal stabil + pesan untuk petugas), null bila tidak ada. */
+  /**
+   * Galat terakhir, null bila tidak ada: kode internal stabil (penolakan `BPJS_REJECTIONS`/`BPJS_TIDAK_DIKENAL`, atau
+   * kode transport mis. `BPJS_UNAVAILABLE`) + pesan untuk petugas.
+   */
   error: z.strictObject({ code: z.string().min(1).max(60), message: z.string().max(500) }).nullable(),
 });
 export type BpjsSync = z.infer<typeof bpjsSyncSchema>;
+
+/** Kode penolakan BPJS (kontrak kawat) yang dibawa galat API `BPJS_REJECTED` dan status kirim `rejected`. */
+export const BPJS_REJECTION_CODES: readonly [BpjsRejectionCode, ...BpjsRejectionCode[]] = [
+  'BPJS_TIDAK_DIKENAL',
+  ...(Object.keys(BPJS_REJECTIONS) as BpjsRejectionCode[]),
+];
+/** `details` galat `BPJS_REJECTED`: alasan baku + pesan BPJS apa adanya (untuk petugas, tanpa PHI tambahan). */
+export const bpjsRejectedDetailsSchema = z.strictObject({
+  reason: z.enum(BPJS_REJECTION_CODES),
+  bpjsMessage: z.string().max(500),
+});
+export type BpjsRejectedDetails = z.infer<typeof bpjsRejectedDetailsSchema>;
 
 /** Header idempotensi untuk tindakan yang tidak boleh terjadi dua kali (registrasi, SEP, check-in anjungan). */
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
@@ -78,10 +95,10 @@ export function cursorPageSchema<T extends z.ZodType>(item: T) {
  * 1 rujukan FKTP, 2 rujukan internal, 3 kontrol (surat kontrol), 4 rujukan antar-RS.
  */
 export const BPJS_VISIT_KINDS = {
-  rujukan_fktp: { code: 1, label: 'Rujukan FKTP' },
-  rujukan_internal: { code: 2, label: 'Rujukan internal' },
-  kontrol: { code: 3, label: 'Kontrol (surat kontrol)' },
-  rujukan_antar_rs: { code: 4, label: 'Rujukan antar-RS' },
+  rujukan_fktp: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanFktp, label: 'Rujukan FKTP' },
+  rujukan_internal: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanInternal, label: 'Rujukan internal' },
+  kontrol: { code: ANTREAN_JENIS_KUNJUNGAN.kontrol, label: 'Kontrol (surat kontrol)' },
+  rujukan_antar_rs: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanAntarRs, label: 'Rujukan antar-RS' },
 } as const;
 export type BpjsVisitKind = keyof typeof BPJS_VISIT_KINDS;
 export const BPJS_VISIT_KIND_CODES = Object.keys(BPJS_VISIT_KINDS) as [BpjsVisitKind, ...BpjsVisitKind[]];
