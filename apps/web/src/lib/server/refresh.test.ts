@@ -5,6 +5,8 @@ import {
   createRefreshCoordinator,
   type RefreshCoordinator,
   redisRefreshStore,
+  refreshSession,
+  resetRefreshCache,
   type SharedRefreshStore,
 } from './refresh';
 import { webEnv } from './web-env';
@@ -202,6 +204,7 @@ const probe = await connect();
 
 afterAll(() => {
   for (const c of clients) c.disconnect();
+  resetRefreshCache();
 });
 
 describe.runIf(probe !== null)('peta refresh bersama (Redis sungguhan)', () => {
@@ -229,5 +232,27 @@ describe.runIf(probe !== null)('peta refresh bersama (Redis sungguhan)', () => {
     expect(ttl).toBeGreaterThan(0);
     expect(ttl).toBeLessThanOrEqual(30_000);
     expect(await probe.get(keys[0] ?? '')).not.toContain(FRESH.refreshToken);
+  });
+
+  it('proses web memakai Redis dari REDIS_URL: permintaan paralel pertama berbagi satu sambungan', async () => {
+    resetRefreshCache();
+    vi.stubEnv('APP_ENV', 'local');
+    vi.stubEnv('REDIS_URL', REDIS_URL);
+    vi.stubEnv('REFRESH_STORE', 'auto');
+    vi.stubEnv('REFRESH_REDIS_PREFIX', prefix);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const api = stubApi(200, 30);
+    // Lima token berbeda sekaligus saat belum tersambung: tidak boleh saling memutus lalu jatuh ke memori.
+    const tokens = ['a', 'b', 'c', 'd', 'e'].map((f) =>
+      token('sr1', '0199a000-0000-7000-8000-0000000000bb', f),
+    );
+    const results = await Promise.all(tokens.map((t) => refreshSession('http://api.test', t, null)));
+    expect(results.every((r) => r.ok)).toBe(true);
+    expect(api).toHaveBeenCalledTimes(5);
+    expect(await probe?.keys(`${prefix}*`)).toHaveLength(5);
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+    resetRefreshCache();
   });
 });

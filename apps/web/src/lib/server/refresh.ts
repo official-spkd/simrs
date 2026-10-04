@@ -236,6 +236,8 @@ export function createRefreshCoordinator(opts: {
 
 let redis: Redis | null = null;
 let store: SharedRefreshStore | null = null;
+/** Sambungan yang sedang dibuka: permintaan paralel menunggu yang sama, tidak saling memutus. */
+let connecting: Promise<SharedRefreshStore | null> | null = null;
 let downUntil = 0;
 let outage = false;
 let memoryNoticeShown = false;
@@ -273,10 +275,18 @@ async function sharedFromEnv(): Promise<SharedRefreshStore | null> {
     return null;
   }
   if (store && redis?.status === 'ready') return store;
+  if (connecting) return connecting;
   if (Date.now() < downUntil) return null;
+  connecting = connectShared(env.redisUrl, env.refreshRedisPrefix).finally(() => {
+    connecting = null;
+  });
+  return connecting;
+}
+
+async function connectShared(url: string, prefix: string): Promise<SharedRefreshStore | null> {
   try {
     redis?.disconnect();
-    const client = new Redis(env.redisUrl, {
+    const client = new Redis(url, {
       lazyConnect: true,
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
@@ -289,7 +299,7 @@ async function sharedFromEnv(): Promise<SharedRefreshStore | null> {
     });
     redis = client;
     await withTimeout(client.connect(), 1_500);
-    store = redisRefreshStore(client, env.refreshRedisPrefix);
+    store = redisRefreshStore(client, prefix);
     if (outage) {
       outage = false;
       console.warn('Peta refresh sesi: Redis pulih, peta kembali dibagi antar-instans web.');
@@ -316,7 +326,13 @@ export function refreshSession(
   return processCoordinator.refresh(baseUrl, refreshToken, client, now);
 }
 
-/** Untuk tes. */
+/** Untuk tes: kosongkan peta memori dan tutup koneksi Redis proses ini. */
 export function resetRefreshCache(): void {
   processCoordinator.reset();
+  redis?.disconnect();
+  redis = null;
+  store = null;
+  connecting = null;
+  downUntil = 0;
+  outage = false;
 }
