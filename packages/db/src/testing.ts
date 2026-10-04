@@ -51,7 +51,7 @@ export function assertTestDatabase(url: string): void {
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Terapkan migrasi tertunda + seed tenant fiktif ke simrs_test. Idempoten dan tidak menghapus data. */
+/** Terapkan migrasi tertunda + seed tenant fiktif ke database tes. Idempoten dan tidak menghapus data. */
 export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Promise<void> {
   assertTestDatabase(urls.migrator);
   assertTestDatabase(urls.app);
@@ -66,7 +66,9 @@ export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Prom
   } catch (err) {
     const out = err as { stdout?: Buffer; stderr?: Buffer };
     throw new Error(
-      `prisma migrate deploy gagal untuk simrs_test. Apakah Postgres berjalan (docker compose up -d atau pnpm pg:portable)?\n${out.stderr?.toString() ?? ''}${out.stdout?.toString() ?? ''}`,
+      `prisma migrate deploy gagal untuk ${new URL(urls.migrator).pathname.slice(1)}. Apakah Postgres berjalan ` +
+        `(docker compose up -d atau pnpm pg:portable) dan database itu sudah dibuat?\n` +
+        `${out.stderr?.toString() ?? ''}${out.stdout?.toString() ?? ''}`,
       { cause: err },
     );
   }
