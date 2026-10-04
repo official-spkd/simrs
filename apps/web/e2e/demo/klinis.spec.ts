@@ -132,9 +132,9 @@ test.describe('klinis rawat jalan', () => {
       await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toHaveCount(0);
     }
-    const ok = await page.goto('/klinis/poli?pasien=ps-endang');
+    const ok = await page.goto('/klinis/poli?pasien=ps-rohana');
     expect(ok?.status()).toBe(200);
-    await expect(banner(page).getByText('Ny. Endang Wijaya')).toBeVisible();
+    await expect(banner(page).getByText('Ny. Rohana Siregar')).toBeVisible();
   });
 
   test('perawat: asesmen tanda vital tervalidasi; CPOE hanya untuk dokter', async ({ page }) => {
@@ -331,7 +331,7 @@ test.describe('panduan presentasi tidak menutupi isi layar', () => {
 
   const SCREENS: ReadonlyArray<{ role: string; path: string; igdStage?: string }> = [
     { role: 'dokter', path: '/klinis/order/kj-hartono', igdStage: 'Asesmen dokter' },
-    { role: 'dokter', path: '/klinis/order/kj-endang' },
+    { role: 'dokter', path: '/klinis/order/kj-rohana' },
     { role: 'perawat', path: '/klinis/igd' },
     { role: 'petugas_pendaftaran', path: '/pendaftaran' },
     { role: 'kasir', path: '/keuangan/kasir' },
