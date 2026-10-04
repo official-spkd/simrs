@@ -16,10 +16,12 @@ export {
 } from './client';
 export {
   claimDueOutbox,
+  deferOutboxMessage,
   enqueueOutbox,
   OUTBOX_LEASE_MS,
   recordOutboxAttempt,
   type AttemptResult,
+  type RecordAttemptOptions,
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
