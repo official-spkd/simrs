@@ -2,8 +2,8 @@
 
 import type { BedBoard, BedRequest } from '@simrs/shared';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
-import { PillTabs } from '@/components/rawat-inap/pill-tabs';
+import { useId, useState, useTransition } from 'react';
+import { TabList, TabPanel } from '@simrs/ui';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
@@ -33,6 +33,7 @@ export function BedWorkspace({
 }) {
   const { runTask, pending } = useScenarioTask(rev);
   const [view, setView] = useState('peta');
+  const viewTabsId = useId();
   const [filter, setFilter] = useState<BedFilter>({ ward: initialWard, kelas: 'semua', status: 'semua' });
   const [selected, setSelected] = useState('');
   const [patches, setPatches] = useState<Record<string, BedPatch>>({});
@@ -118,8 +119,9 @@ export function BedWorkspace({
       <div className="flex flex-wrap items-start gap-4">
         <section aria-label="Peta tempat tidur" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <PillTabs
+            <TabList
               label="Tampilan"
+              idBase={viewTabsId}
               value={view}
               onChange={setView}
               items={[
@@ -138,26 +140,34 @@ export function BedWorkspace({
                 : `${beds.length} bed ditampilkan`
             }
           />
-          {shown.length === 0 ? (
-            <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
-              Tidak ada bed yang cocok dengan filter bangsal, kelas, dan status ini.
-            </p>
-          ) : view === 'daftar' ? (
-            <BedList
-              beds={shown}
-              wardName={(c) => wardOf(c)?.name ?? c}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          ) : ward ? (
-            <WardGrid ward={ward} beds={wardBeds} allBeds={beds} selected={selected} onSelect={setSelected} />
-          ) : (
-            <WardOverview
-              wards={visibleWards}
-              beds={beds}
-              onOpen={(code) => setFilter((f) => ({ ...f, ward: code }))}
-            />
-          )}
+          <TabPanel idBase={viewTabsId} value={view}>
+            {shown.length === 0 ? (
+              <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
+                Tidak ada bed yang cocok dengan filter bangsal, kelas, dan status ini.
+              </p>
+            ) : view === 'daftar' ? (
+              <BedList
+                beds={shown}
+                wardName={(c) => wardOf(c)?.name ?? c}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ) : ward ? (
+              <WardGrid
+                ward={ward}
+                beds={wardBeds}
+                allBeds={beds}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ) : (
+              <WardOverview
+                wards={visibleWards}
+                beds={beds}
+                onOpen={(code) => setFilter((f) => ({ ...f, ward: code }))}
+              />
+            )}
+          </TabPanel>
         </section>
         <aside aria-label="Alokasi bed" className="flex flex-[1_1_300px] flex-col gap-4 lg:max-w-[380px]">
           {selBed && (

@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan SIM RS dari sudut pandang sistem: apa yang dibangun, bagaimana bagian-bagiannya saling bicara, dan pengaman apa yang menjaga data pasien. Detail kode ada di [Cara kode bekerja](./02-cara-kerja-kode.md); langkah praktis ada di [Tutorial](./03-tutorial.md).
 
-> Status saat panduan ini ditulis: **fase 0 (fondasi)**. Belum ada fitur bisnis (pendaftaran, rekam medis, kasir). Yang sudah berjalan adalah kerangka yang akan dipakai semua fitur: isolasi tenant, outbox integrasi, API, worker, mock, dan sistem desain.
+> Status (5 Okt 2026): fondasi (fase 0) selesai dan platform inti (fase 1) hampir selesai: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi. Layar fase 2–10 sudah ada dalam mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase).
 
 ## Apa yang dibangun
 
@@ -75,8 +75,8 @@ Browser tidak pernah memanggil API langsung. Web (Next.js) menjadi perantara: to
 
 1. **Header keamanan** dipasang di respons (CSP, anti-framing, `no-store` agar data tidak tersimpan di cache).
 2. **Request id** dibuat atau diteruskan (`X-Request-Id`). Id ini muncul di log dan di setiap pesan galat, sehingga keluhan pengguna bisa ditelusuri tanpa mencatat data pasien.
-3. **Rate limit** memeriksa jumlah permintaan per IP.
-4. **Konteks tenant dan pengguna** ditetapkan dari token login: RS, pengguna, dan peran dari penugasan yang dipilih. Header `X-Tenant-Id` tanpa login hanya ada di mode pengembang lokal.
+3. **Rate limit** memeriksa jumlah permintaan per IP (lebih ketat untuk login dan kode MFA). Hitungan disimpan di Redis, jadi sama di semua server API.
+4. **Konteks tenant dan pengguna** ditetapkan dari token login: RS, pengguna, dan peran dari penugasan yang dipilih. Header `X-Tenant-Id` tanpa login hanya ada di mode pengembang lokal. Setelah pengguna diketahui, batas laju **per pengguna** juga diperiksa (staf satu RS sering berbagi satu IP).
 5. **Izin** diperiksa: peran harus memegang izin untuk aksi itu. Bila tidak, penolakan dicatat di audit lalu klien menerima `403`.
 6. **Validasi input** dengan skema zod. Field tak dikenal ditolak.
 7. **Aturan bisnis** di _service_, **akses data** di _repository_, semuanya di **satu transaksi bertenant** (PostgreSQL menerapkan RLS) bersama jejak auditnya.
@@ -162,7 +162,7 @@ Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifik
 | Database       | RLS per tenant, galat bila konteks kosong, role tanpa `BYPASSRLS`, audit append-only                          | ✅ fase 0 |
 | API            | Validasi zod (field tak dikenal ditolak), format galat tanpa detail internal, log tanpa PHI                   | ✅ fase 0 |
 | API            | Header keamanan (CSP, nosniff, anti-framing, `no-store`, HSTS di produksi), CORS hanya origin web             | ✅ fase 0 |
-| API            | Rate limit per IP, batas body 1 MB, batas waktu koneksi (anti-slowloris)                                      | ✅ fase 0 |
+| API            | Rate limit per IP + per pengguna (Redis, bersama antar-server), batas body 1 MB, batas waktu koneksi          | ✅ fase 0 |
 | Konfigurasi    | `APP_ENV` gagal aman: tidak disetel = produksi, fitur pengembangan mati                                       | ✅ fase 0 |
 | Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0 |
 | Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform             | ✅ fase 1 |
@@ -197,19 +197,19 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 
 ## Peta fase
 
-| Fase | Isi                                                                                        | Status                                        |
-| ---- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | 🟨 hampir selesai (tes BullMQ menunggu Redis) |
-| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa PIN + seed staf       |
-| 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | ⬜                                            |
-| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                                            |
-| 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                                            |
-| 5    | Keuangan: tarif, kasir, klaim, akuntansi                                                   | ⬜                                            |
-| 6    | Pembayaran TPDI × BTN dan pembiayaan                                                       | ⬜                                            |
-| 7    | Integration hub + SATUSEHAT                                                                | ⬜                                            |
-| 8    | Back office                                                                                | ⬜                                            |
-| 9    | Dasbor + aplikasi mobile                                                                   | ⬜                                            |
-| 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                            |
+| Fase | Isi                                                                                        | Status                                          |
+| ---- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | ✅ selesai                                      |
+| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa PIN perangkat + penutup |
+| 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | ⬜                                              |
+| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                                              |
+| 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                                              |
+| 5    | Keuangan: tarif, kasir, klaim, akuntansi                                                   | ⬜                                              |
+| 6    | Pembayaran TPDI × BTN dan pembiayaan                                                       | ⬜                                              |
+| 7    | Integration hub + SATUSEHAT                                                                | ⬜                                              |
+| 8    | Back office                                                                                | ⬜                                              |
+| 9    | Dasbor + aplikasi mobile                                                                   | ⬜                                              |
+| 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                              |
 
 Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
 

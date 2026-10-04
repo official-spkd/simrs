@@ -104,8 +104,9 @@ export function Sidebar({
                   )}
                 </>
               );
+              // Padat di desktop (mockup Sidebar); 44 px di layar sentuh dan menu sempit (target sentuh).
               const cls = cx(
-                'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] no-underline',
+                'flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] no-underline max-md:min-h-touch pointer-coarse:min-h-touch',
                 on ? 'bg-nav-active font-semibold text-brand-700' : 'text-ink-700',
               );
               return n.available ? (
@@ -136,7 +137,7 @@ export function Sidebar({
         {integrations.length > 0 && (
           <LinkComponent
             href={integrationHref}
-            className="flex flex-col gap-[5px] rounded-control border border-brand-100 bg-[linear-gradient(180deg,#F2FAF8,#FFFFFF)] px-3 py-2.5 no-underline"
+            className="flex min-h-touch flex-col gap-[5px] rounded-control border border-brand-100 bg-[linear-gradient(180deg,#F2FAF8,#FFFFFF)] px-3 py-2.5 no-underline"
           >
             <span className="text-caption font-semibold text-brand-700">Status integrasi</span>
             {integrations.map((i) => (
