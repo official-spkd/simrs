@@ -5,11 +5,11 @@ import { ScaleToFit } from '@/components/scale-to-fit';
 import { kioskTickets, LOCAL_SEP, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { dateFull, frontOfficeProgress } from '@/lib/front-office';
+import { getKioskDefaultPatient } from '@/lib/server/data/front-office/kiosk';
 import {
-  getKioskDefaultPatient,
   getRegistrationDesk,
   getScenarioRegistrationPatient,
-} from '@/lib/server/data/front-office';
+} from '@/lib/server/data/front-office/pendaftaran';
 import { milestone, milestoneValue, scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { KioskClient } from './kiosk-client';

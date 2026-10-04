@@ -3,7 +3,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScaleToFit } from '@/components/scale-to-fit';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { dateFull } from '@/lib/front-office';
-import { getQueueBoard } from '@/lib/server/data/front-office';
+import { getQueueBoard } from '@/lib/server/data/front-office/antrean';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { AntreanClient } from './antrean-client';
 

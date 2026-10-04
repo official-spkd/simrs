@@ -4,7 +4,10 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { simClock, taskDoneAt } from '@/lib/front-office';
-import { getRegistrationDesk, getScenarioRegistrationPatient } from '@/lib/server/data/front-office';
+import {
+  getRegistrationDesk,
+  getScenarioRegistrationPatient,
+} from '@/lib/server/data/front-office/pendaftaran';
 import {
   activeStepId,
   milestone,

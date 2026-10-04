@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { getWeeklySchedule } from '@/lib/server/data/front-office';
+import { getWeeklySchedule } from '@/lib/server/data/front-office/jadwal';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { JadwalClient } from './jadwal-client';
 
