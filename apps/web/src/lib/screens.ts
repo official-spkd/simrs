@@ -128,7 +128,8 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'belum',
     plannedPermission: 'clinical.write',
-    demoRoles: ['dokter', 'dokter_residen', 'perawat'],
+    // Admisi IGD (petugas pendaftaran) membuka kunjungan gawat darurat dari papan IGD.
+    demoRoles: ['dokter', 'dokter_residen', 'perawat', 'petugas_pendaftaran'],
     layout: 'staf',
   },
   {
