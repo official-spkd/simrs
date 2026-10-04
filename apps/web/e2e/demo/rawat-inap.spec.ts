@@ -304,6 +304,79 @@ test.describe('persetujuan tindakan (tablet)', () => {
       .fill('Ingin berdiskusi dengan keluarga besar dulu');
     await form.getByRole('button', { name: 'Catat penolakan' }).click();
     await expect(tablet.getByRole('status').filter({ hasText: 'Pasien menolak tindakan' })).toBeVisible();
+    await expect(tablet.getByText('Status: Ditolak pasien')).toBeVisible();
     await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+  });
+
+  test('persetujuan Tn. Hartono menunggu giliran; pada gilirannya TTE dokter memajukan simulasi', async ({
+    page,
+  }) => {
+    const account = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, account, '/simulasi');
+    await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Tata laksana');
+
+    // Langkah tata laksana dimulai tetapi tugas persetujuan belum gilirannya: tablet hanya bisa dibaca.
+    await page.goto('/tablet/persetujuan/pk-hartono');
+    const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
+    await expect(
+      tablet.getByRole('status').filter({ hasText: 'Menunggu giliran persetujuan di Simulasi.' }),
+    ).toBeVisible();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Lanjut', exact: true })).toBeDisabled();
+
+    // Tugas sebelumnya di langkah itu selesai → giliran persetujuan; pintu tablet langsung membuka dokumennya.
+    await page.goto('/simulasi');
+    await page.getByRole('button', { name: /^Kalsium glukonat IV \+ insulin/ }).click();
+    await page.getByRole('button', { name: /^Ganti omeprazol ke pantoprazol/ }).click();
+    await page.getByRole('button', { name: /^ICU\/ICCU/ }).click();
+    await expect(page.getByRole('button', { name: 'Tanda tangani', exact: true })).toBeEnabled();
+    await page.goto('/tablet/persetujuan');
+    await expect(page).toHaveURL(/\/tablet\/persetujuan\/pk-hartono$/);
+    await expect(tablet.getByText('Status: Menunggu tanda tangan')).toBeVisible();
+    for (const box of await tablet.getByRole('checkbox', { name: /^Saya memahami/ }).all()) await box.check();
+    await tablet.getByRole('button', { name: 'Lanjut ke tanda tangan' }).click();
+    const typed = tablet.getByLabel('Atau ketik nama lengkap sebagai tanda tangan');
+    await typed.first().fill('Hartono Wibisono');
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).first().click();
+    await tablet.getByRole('button', { name: 'Lanjut ke saksi' }).click();
+    await typed.last().fill('Wening Wibisono');
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).last().click();
+    await tablet.getByRole('checkbox', { name: /^Saksi kedua \(petugas\)/ }).check();
+    await tablet.getByRole('button', { name: 'Lanjut ke TTE dokter' }).click();
+    await tablet.getByRole('button', { name: 'Tanda tangani (TTE)' }).click();
+    await expect(tablet.getByRole('status').filter({ hasText: 'Dokumen final · TTE' })).toBeVisible();
+
+    // Keadaan dari server (tugas skenario tercatat): setelah dimuat ulang tetap final dan terkunci.
+    await page.reload();
+    await expect(tablet.getByText('Status: Final · TTE')).toBeVisible();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Dokumen final' })).toBeDisabled();
+  });
+
+  test('persetujuan operasi Ny. Ratna menunggu SEP admisi, lalu final dan hanya bisa dibaca', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/tablet/persetujuan/pk-ratna');
+    const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
+    await expect(
+      tablet
+        .getByRole('status')
+        .filter({ hasText: 'final bersama SEP rawat inap pada langkah Admisi elektif' }),
+    ).toBeVisible();
+    await expect(tablet.getByText('Status: Menunggu tanda tangan')).toBeVisible();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+
+    await scenarioAt(page, 'Elektif · TPDI × BTN', 'Ny. Ratna Sari', 'Deposit via TPDI');
+    await page.goto('/tablet/persetujuan/pk-ratna');
+    await expect(tablet.getByText('Status: Final · TTE')).toBeVisible();
+    await expect(tablet.getByRole('status').filter({ hasText: 'Menunggu' })).toHaveCount(0);
+    const first = tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first();
+    await expect(first).toBeChecked();
+    await expect(first).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Dokumen final' })).toBeDisabled();
   });
 });

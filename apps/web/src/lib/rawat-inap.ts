@@ -915,6 +915,20 @@ export function sameIdSet(a: readonly string[], b: readonly string[]): boolean {
 /** TTE persetujuan pasien skenario sebelum gilirannya (tugas `tata-laksana.consent`). */
 export const SCENARIO_CONSENT_WAIT = 'Menunggu giliran persetujuan di Simulasi.';
 
+/** Label status dokumen persetujuan (daftar tablet dan kepala dokumen; status tidak hanya lewat warna). */
+export const CONSENT_STATUS_LABEL: Record<ConsentDocument['status'], string> = {
+  draf: 'Menunggu tanda tangan',
+  final: 'Final · TTE',
+  ditolak: 'Ditolak pasien',
+};
+
+/** Gerbang penolakan sisi server: hanya atas dokumen draf (final dan ditolak sudah terkunci). Null = boleh. */
+export function consentRefusalBlocker(doc: Pick<ConsentDocument, 'status'>): string | null {
+  if (doc.status === 'final') return 'Dokumen sudah final; penolakan tidak bisa dicatat.';
+  if (doc.status === 'ditolak') return 'Penolakan tindakan sudah tercatat; dokumen terkunci.';
+  return null;
+}
+
 /** Gerbang TTE persetujuan sisi server (dokumen dibaca server). Null = boleh. */
 export function consentFinalizeBlocker(
   doc: Pick<ConsentDocument, 'status' | 'items' | 'signerName' | 'witness'>,

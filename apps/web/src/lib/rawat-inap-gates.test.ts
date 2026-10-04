@@ -11,11 +11,13 @@ import { pillTabIds, pillTabTarget } from '../components/rawat-inap/pill-tabs-mo
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
 import { patientById } from './demo/fixtures/pasien';
-import { demoInpatients } from './demo/fixtures/rawat-inap';
+import { demoHendroConsent, demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
 import {
   allDueGiven,
   canCorrectCppt,
+  consentFinalizeBlocker,
+  consentRefusalBlocker,
   cpptAddendumBlocker,
   cpptCorrectionBlocker,
   cpptNotePayload,
@@ -30,10 +32,20 @@ import {
   emarScanPayload,
   emarTurnBlocker,
   localCpptId,
+  SCENARIO_CONSENT_WAIT,
   SCENARIO_EMAR_WAIT,
   wristbandBlocker,
 } from './rawat-inap';
-import { hartonoInpatient, isDone, stepIndexOf, stepState } from './rawat-inap-scenario';
+import {
+  consentScenarioWait,
+  hartonoConsent,
+  hartonoInpatient,
+  isDone,
+  RATNA_CONSENT_WAIT,
+  ratnaConsent,
+  stepIndexOf,
+  stepState,
+} from './rawat-inap-scenario';
 
 /**
  * Gerbang sisi server rawat inap dan tablet persetujuan (K04/K07/K11/K12), kontrak payload layar ↔ skema bersama,
@@ -322,6 +334,62 @@ describe('K07 · CPPT: koreksi hanya penulis, PPA lain addendum', () => {
     const own = localCpptId(other.id, 1_700_000_000_000);
     expect(cpptCorrectionBlocker(entries, own, other)).toBeNull();
     expect(cpptCorrectionBlocker(entries, own, author)).toMatch(/tidak ditemukan/);
+  });
+});
+
+describe('K11 · tablet persetujuan: giliran skenario dan kunci per status', () => {
+  const def = SCENARIOS['igd-ranap'];
+
+  it('Tn. Hartono menunggu giliran tugas consent; setelah final dikunci statusnya', () => {
+    const atTl = jump('igd-ranap', 'tata-laksana');
+    const R0 = runScenario(def, atTl);
+    const doc0 = hartonoConsent(R0);
+    expect(consentScenarioWait(doc0, stepState(R0, 'tata-laksana', 0).tasks.consent)).toBe(
+      SCENARIO_CONSENT_WAIT,
+    );
+    const turn = play(
+      'igd-ranap',
+      [
+        ['k', 'lengkap'],
+        ['cds', 'ganti'],
+        ['dispo', 'icu'],
+      ],
+      atTl,
+    );
+    const R1 = runScenario(def, turn);
+    expect(
+      consentScenarioWait(hartonoConsent(R1), stepState(R1, 'tata-laksana', 0).tasks.consent),
+    ).toBeNull();
+    const R2 = runScenario(def, play('igd-ranap', [['consent', true]], turn));
+    const final = hartonoConsent(R2);
+    expect(final.status).toBe('final');
+    expect(consentScenarioWait(final, stepState(R2, 'tata-laksana', 0).tasks.consent)).toBeNull();
+    expect(consentRefusalBlocker(final)).toMatch(/sudah final/);
+  });
+
+  it('persetujuan operasi Ny. Ratna tidak diproses di tablet; final bersama SEP', () => {
+    const elektif = SCENARIOS['elektif-btn'];
+    const draft = ratnaConsent(runScenario(elektif, []));
+    expect(consentScenarioWait(draft, undefined)).toBe(RATNA_CONSENT_WAIT);
+    const final = ratnaConsent(runScenario(elektif, jump('elektif-btn', 'deposit')));
+    expect(final.status).toBe('final');
+    expect(consentScenarioWait(final, undefined)).toBeNull();
+  });
+
+  it('dokumen bukan skenario selalu boleh selama draf; ditolak/final terkunci', () => {
+    const hendro = demoHendroConsent();
+    expect(consentScenarioWait(hendro, undefined)).toBeNull();
+    expect(consentRefusalBlocker(hendro)).toBeNull();
+    const refused = { ...hendro, status: 'ditolak' as const };
+    expect(consentRefusalBlocker(refused)).toMatch(/sudah tercatat/);
+    const input = {
+      acknowledged: hendro.items.map((i) => i.id),
+      patient: { name: hendro.signerName },
+      witness: { name: hendro.witness.name },
+    };
+    expect(consentFinalizeBlocker(hendro, input)).toBeNull();
+    expect(consentFinalizeBlocker(refused, input)).toMatch(/menolak/);
+    expect(consentFinalizeBlocker({ ...hendro, status: 'final' }, input)).toMatch(/sudah final/);
   });
 });
 

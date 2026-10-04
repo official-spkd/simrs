@@ -30,6 +30,7 @@ import { DEMO_NOW, demoNow } from '../../demo/fixtures/waktu';
 import { walkInFromId } from '../../rawat-inap';
 import {
   applyScenarioBeds,
+  consentScenarioWait,
   hartonoBedRequest,
   hartonoConsent,
   hartonoEdItem,
@@ -90,6 +91,18 @@ export async function inpatientScenarioStep(
     scenario === 'igd-ranap' ? ['igd-ranap', 'rawat-inap'] : ['elektif-btn', 'pasca-operasi'],
   ]);
   return step ?? null;
+}
+
+/**
+ * K11 · Giliran tablet persetujuan: dokumen milik skenario hanya diproses pada giliran tugasnya (`wait` = alasan
+ * menunggu, null = boleh); `step` dipakai tombol TTE untuk memajukan skenario.
+ */
+export async function consentTurn(
+  session: SessionView,
+  doc: Pick<ConsentDocument, 'id' | 'status'>,
+): Promise<{ step: ScenarioStepState | null; wait: string | null }> {
+  const [step] = doc.id === 'pk-hartono' ? await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]) : [];
+  return { step: step ?? null, wait: consentScenarioWait(doc, step?.tasks.consent) };
 }
 
 /**
