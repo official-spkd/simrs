@@ -130,20 +130,22 @@ export class MpiRepository {
 
   /**
    * Nama mirip (pg_trgm): kemiripan keseluruhan (`%`), kemiripan kata (`<%`, mis. sebagian nama), atau memuat
-   * teks. `onlyFor` = ID pengguna bila lingkupnya bukan seluruh pasien (filter di SQL, sebelum LIMIT).
+   * teks. Kandidat + skor dari `app_search_patient_names` (indeks trigram, tenant dari konteks transaksi;
+   * ADR-0015 pembaruan 5 Okt 2026), lalu pasiennya dibaca lewat `patients` dengan RLS seperti biasa.
+   * `onlyFor` = ID pengguna bila lingkupnya bukan seluruh pasien (filter di SQL, sebelum LIMIT).
    */
   async idsByName(
     q: string,
     opts: { birthDate?: Date; limit: number; onlyFor: string | null },
   ): Promise<string[]> {
-    const like = `%${q}%`;
     const rows = await this.db.tx().$queryRaw<Array<{ id: string }>>`
       SELECT p.id::text AS id
-      FROM patients p
-      WHERE (p.name_search % ${q} OR ${q} <% p.name_search OR p.name_search LIKE ${like})
+      FROM app_search_patient_names(${q}) m
+      JOIN patients p ON p.id = m.patient_id
+      WHERE TRUE
         ${opts.birthDate ? Prisma.sql`AND p.birth_date = ${opts.birthDate}::date` : Prisma.empty}
         ${opts.onlyFor ? Prisma.sql`AND ${accessibleBy(opts.onlyFor)}` : Prisma.empty}
-      ORDER BY greatest(similarity(p.name_search, ${q}), word_similarity(${q}, p.name_search)) DESC, p.mrn
+      ORDER BY m.score DESC, p.mrn
       LIMIT ${opts.limit}`;
     return rows.map((r) => r.id);
   }

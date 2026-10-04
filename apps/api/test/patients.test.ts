@@ -355,11 +355,15 @@ describe('izin dan isolasi tenant', () => {
     await as('kasir')
       .post('/api/v1/patients', { name: 'Kasir Daftar', sex: 'male', birthDate: '1990-01-01' })
       .expect(403);
-    await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
+    const own = await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
+    expect(own.body.items.map((i: { id: string }) => i.id)).toContain(p.id);
 
     await as('rsB').get(`/api/v1/patients/${p.id}`).expect(404);
     const search = await as('rsB').get(`/api/v1/patients?q=${p.mrn}`).expect(200);
     expect(search.body.items).toEqual([]);
+    // Pencarian nama lewat indeks (app_search_patient_names) juga hanya tenant sesi.
+    const byName = await as('rsB').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
+    expect(byName.body.items.map((i: { id: string }) => i.id)).not.toContain(p.id);
   });
 
   it('rantai hash audit tenant tetap utuh setelah semua aktivitas pasien', async () => {
