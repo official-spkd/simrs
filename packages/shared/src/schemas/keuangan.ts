@@ -292,7 +292,8 @@ export const journalEntrySchema = z
     /** Dokumen sumber, mis. "Kasir · INV-2610-02217". */
     reference: z.string().min(1),
     description: z.string().min(1),
-    status: z.enum(['terposting', 'menunggu-rekonsiliasi', 'perlu-pemetaan']),
+    /** Terposting; menunggu rekonsiliasi bank; menunggu penyetuju kedua (pembuat ≠ penyetuju); akun belum dipetakan. */
+    status: z.enum(['terposting', 'menunggu-rekonsiliasi', 'menunggu-persetujuan', 'perlu-pemetaan']),
     scenario: scenarioRef,
     lines: z.array(journalLineSchema).min(2),
   })
