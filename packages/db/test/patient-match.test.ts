@@ -93,6 +93,38 @@ describe('deteksi kemungkinan rekam medis ganda (P05)', () => {
     expect(after.map((r) => r.status)).toEqual(['distinct']);
   });
 
+  it('nama umum: duplikat dengan HP + tanggal lahir sama tetap terdeteksi walau ≥ 50 pasien bernama persis sama', async () => {
+    const T = await freshTenant();
+    // Rekam medis lama: ejaan sedikit beda, tetapi no. HP dan tanggal lahir sama dengan pendaftaran baru.
+    const a = await add(T, {
+      name: 'Siti Rahmawati',
+      sex: 'female',
+      birthDate: '1972-03-14',
+      phone: '6281200007777',
+    });
+    // 55 pasien lain bernama PERSIS sama dengan pendaftaran baru, tanpa kesamaan lain (nama umum di RS besar).
+    for (let i = 0; i < 55; i += 1) {
+      const month = String((i % 12) + 1).padStart(2, '0');
+      const day = String((i % 27) + 1).padStart(2, '0');
+      await add(T, {
+        name: 'Siti Rachmawati',
+        sex: 'female',
+        birthDate: `19${40 + (i % 9)}-${month}-${day}`,
+      });
+    }
+    const b = await add(T, {
+      name: 'Siti Rachmawati',
+      sex: 'female',
+      birthDate: '1972-03-14',
+      phone: '6281200007777',
+    });
+    await withTenant(app, T.id, (tx) => detectDuplicates(tx, T.crypto, b.id));
+    const pair = await withTenant(app, T.id, (tx) =>
+      tx.patientMatchCandidate.findFirst({ where: { patientAId: a.id, patientBId: b.id } }),
+    );
+    expect(pair?.reasons).toEqual(expect.arrayContaining(['tgl_lahir_sama', 'hp_sama']));
+  });
+
   it('kandidat terbuka ditutup (superseded) bila data dikoreksi dan tidak lagi cocok', async () => {
     const T = await freshTenant();
     await add(T, { name: 'Rina Wulandari', sex: 'female', birthDate: '1990-05-05', motherName: 'Sari Dewi' });

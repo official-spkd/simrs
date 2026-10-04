@@ -96,26 +96,33 @@ export async function loadMatchProfiles(
 /**
  * Pra-saring murah di SQL: pasien aktif lain yang berbagi identifier, no. HP, tanggal lahir (bukan perkiraan),
  * atau namanya sangat mirip. Skor lengkap dihitung di aplikasi (`scorePatientMatch`).
+ *
+ * Urutan sebelum `LIMIT` mengikuti kekuatan bukti: identifier sama, lalu jumlah kesamaan HP/tanggal lahir, baru
+ * kemiripan nama. Dulu hanya kemiripan nama: di RS dengan ≥ 50 pasien bernama persis sama (nama umum), duplikat
+ * sungguhan yang ejaannya sedikit beda tetapi HP dan tanggal lahirnya sama terpotong dan tidak pernah diskor.
  */
 async function preselect(tx: TenantTx, patientId: string): Promise<string[]> {
   const rows = await tx.$queryRaw<Array<{ id: string }>>`
     WITH me AS (
       SELECT id, name_search, birth_date, birth_date_estimated, phone_hash FROM patients WHERE id = ${patientId}::uuid
-    )
-    SELECT p.id::text AS id
-    FROM patients p, me
-    WHERE p.id <> me.id AND p.status = 'active'
-      AND (
+    ),
+    c AS (
+      SELECT p.id,
         EXISTS (
           SELECT 1 FROM patient_identifiers a
           JOIN patient_identifiers b ON b.system = a.system AND b.value_hash = a.value_hash
-          WHERE a.patient_id = me.id AND a.active AND b.patient_id = p.id AND b.active)
-        OR (me.phone_hash IS NOT NULL AND p.phone_hash = me.phone_hash)
-        OR (me.birth_date IS NOT NULL AND NOT me.birth_date_estimated AND NOT p.birth_date_estimated
-            AND p.birth_date = me.birth_date)
-        OR similarity(p.name_search, me.name_search) >= 0.6
-      )
-    ORDER BY similarity(p.name_search, me.name_search) DESC
+          WHERE a.patient_id = me.id AND a.active AND b.patient_id = p.id AND b.active) AS same_identifier,
+        -- COALESCE: kolom kosong (NULL) harus jadi false, bukan NULL — ORDER BY ... DESC menaruh NULL di atas.
+        COALESCE(p.phone_hash = me.phone_hash, false) AS same_phone,
+        COALESCE(NOT me.birth_date_estimated AND NOT p.birth_date_estimated AND p.birth_date = me.birth_date, false)
+          AS same_birth,
+        COALESCE(similarity(p.name_search, me.name_search), 0) AS name_similarity
+      FROM patients p, me
+      WHERE p.id <> me.id AND p.status = 'active'
+    )
+    SELECT id::text AS id FROM c
+    WHERE same_identifier OR same_phone OR same_birth OR name_similarity >= 0.6
+    ORDER BY same_identifier DESC, (same_phone::int + same_birth::int) DESC, name_similarity DESC NULLS LAST, id
     LIMIT ${MAX_CANDIDATES}`;
   return rows.map((r) => r.id);
 }
