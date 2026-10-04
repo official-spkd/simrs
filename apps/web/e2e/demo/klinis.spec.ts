@@ -194,38 +194,6 @@ test.describe('klinis rawat jalan', () => {
     await expect(banner(page).getByText('Tn. Suryo Adi Nugroho')).toBeVisible();
   });
 
-  test('CPOE Tn. Hartono (asesmen dokter): tombol lanjut simulasi tidak tertutup tombol panduan', async ({
-    page,
-  }, testInfo) => {
-    const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/simulasi');
-    await page.goto('/simulasi');
-    await page.getByRole('tab', { name: 'IGD → rawat inap' }).click();
-    await page.getByText('Lompat ke tahap', { exact: true }).click();
-    await page.getByRole('button', { name: /^\d+\. Asesmen dokter$/ }).click();
-    await expect(page.getByText(/Langkah \d+ dari \d+ · Asesmen dokter/)).toBeVisible();
-    // Laptop presentasi (temuan QA visual 1366×768); proyek tablet memakai 768×1024.
-    if (testInfo.project.name === 'demo-desktop') await page.setViewportSize({ width: 1366, height: 768 });
-    await page.goto('/klinis/order/kj-hartono');
-
-    const next = page
-      .getByRole('region', { name: 'Simulasi IGD → rawat inap' })
-      .getByRole('button', { name: /^Lanjut: / });
-    const guide = page
-      .getByRole('complementary', { name: 'Panduan simulasi' })
-      .getByRole('button', { name: /^Simulasi · / });
-    await expect(next).toBeVisible();
-    await expect(guide).toBeVisible();
-    for (const y of [0, 200, 400]) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      const [a, b] = [await next.boundingBox(), await guide.boundingBox()];
-      if (!a || !b) throw new Error('kotak tombol tidak terbaca');
-      const overlap =
-        a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-      expect(overlap, `tumpang tindih pada scroll ${y}`).toBe(false);
-    }
-  });
-
   test('CPOE pasien skenario (Tn. Suryo, langkah resep): katalog terkunci, kirim hanya lewat tugas skenario', async ({
     page,
   }) => {
@@ -322,4 +290,98 @@ test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
     );
     await noHorizontalOverflowAtTablet(page);
   });
+});
+
+/**
+ * Pemicu panduan presentasi ("Simulasi · n dari m · tahap") ada di header lengket, bukan melayang di atas isi:
+ * di laptop presentasi (1366×768) dan tablet, tombol/tautan halaman tidak pernah berada di bawahnya, termasuk
+ * banner skenario, bilah kirim CPOE, stepper pendaftaran, dan kasir. Isi yang digulir lewat di bawah header
+ * (tertutup header), bukan di bawah tombol yang melayang.
+ */
+test.describe('panduan presentasi tidak menutupi isi layar', () => {
+  /** Tombol/tautan/isian di `main` yang tampak dan terkena kotak pemicu (dan memang bisa diklik di sana). */
+  async function coveredControls(page: Page): Promise<string[]> {
+    return page.evaluate(() => {
+      const trigger = document.querySelector('[aria-label="Panduan simulasi"] > button');
+      if (!trigger) return ['(pemicu panduan tidak ada)'];
+      const t = trigger.getBoundingClientRect();
+      const hits: string[] = [];
+      const controls = document.querySelectorAll<HTMLElement>(
+        'main a[href], main button, main input, main select, main textarea, main [role="button"], main [tabindex]',
+      );
+      for (const el of controls) {
+        const r = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        if (!r.width || !r.height || style.visibility === 'hidden') continue;
+        const x0 = Math.max(r.left, t.left);
+        const x1 = Math.min(r.right, t.right);
+        const y0 = Math.max(r.top, t.top);
+        const y1 = Math.min(r.bottom, t.bottom);
+        if (x0 >= x1 || y0 >= y1) continue;
+        // Tumpang tindih hanya boleh bila kontrol itu tertutup header (digulir ke bawah header lengket).
+        const top = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
+        if (top && el.contains(top))
+          hits.push(el.getAttribute('aria-label') ?? el.textContent?.trim() ?? el.tagName);
+        else if (window.scrollY === 0)
+          hits.push(`(di bawah header saat atas halaman) ${el.textContent?.trim()}`);
+      }
+      return hits;
+    });
+  }
+
+  const SCREENS: ReadonlyArray<{ role: string; path: string; igdStage?: string }> = [
+    { role: 'dokter', path: '/klinis/order/kj-hartono', igdStage: 'Asesmen dokter' },
+    { role: 'dokter', path: '/klinis/order/kj-endang' },
+    { role: 'perawat', path: '/klinis/igd' },
+    { role: 'petugas_pendaftaran', path: '/pendaftaran' },
+    { role: 'kasir', path: '/keuangan/kasir' },
+  ];
+
+  for (const { role, path, igdStage } of SCREENS) {
+    test(`${path} (${role}${igdStage ? ` · ${igdStage}` : ''})`, async ({ page }, testInfo) => {
+      const account = await createAccount({ roles: [role] });
+      await loginAs(page, account, '/simulasi');
+      if (igdStage) {
+        await page.goto('/simulasi');
+        await page.getByRole('tab', { name: 'IGD → rawat inap' }).click();
+        await page.getByText('Lompat ke tahap', { exact: true }).click();
+        await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${igdStage}$`) }).click();
+        await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${igdStage}`))).toBeVisible();
+      }
+      // Laptop presentasi (temuan QA visual 1366×768); proyek tablet memakai 768×1024.
+      if (testInfo.project.name === 'demo-desktop') await page.setViewportSize({ width: 1366, height: 768 });
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+
+      const header = page.getByRole('banner');
+      const trigger = page
+        .getByRole('complementary', { name: 'Panduan simulasi' })
+        .getByRole('button', { name: /^Simulasi · \d+ dari \d+ · / });
+      await expect(trigger).toBeVisible();
+      const box = await trigger.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      const maxY = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+      for (const y of [0, Math.round(maxY / 2), maxY]) {
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        // Header (berisi pemicu) tetap di atas layar saat digulir.
+        const [h, t] = [await header.boundingBox(), await trigger.boundingBox()];
+        if (!h || !t) throw new Error('kotak header/pemicu tidak terbaca');
+        expect(Math.round(h.y), `header di atas layar pada scroll ${y}`).toBe(0);
+        expect(t.y >= h.y && t.y + t.height <= h.y + h.height, 'pemicu di dalam header').toBe(true);
+        expect(await coveredControls(page), `kontrol tertutup pemicu pada scroll ${y}`).toEqual([]);
+      }
+
+      // Bisa dijangkau keyboard; panel tertutup lagi dengan Escape dan fokus kembali ke pemicu.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await trigger.focus();
+      await page.keyboard.press('Enter');
+      const panel = page.locator('#panduan-simulasi');
+      await expect(panel).toBeVisible();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    });
+  }
 });
