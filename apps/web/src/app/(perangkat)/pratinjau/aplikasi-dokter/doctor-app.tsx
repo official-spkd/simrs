@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { DOCTOR_APP_PATIENT_ID } from '../../../../lib/demo/fixtures/ids';
 import { CosignCard } from './cosign-card';
 import { CriticalCard } from './critical-card';
 import { buildDoctorPages, criticalDetailRow, type DoctorTab } from './doctor-pages';
@@ -90,7 +91,9 @@ export function DoctorApp({
             </div>
             <dl className="m-0 flex flex-col overflow-hidden rounded-[16px] border border-line bg-white">
               {[
-                ...(detail.id === 'pt-hartono' ? [criticalDetailRow(c, accepted, labOrdered)] : []),
+                ...(detail.id === DOCTOR_APP_PATIENT_ID.hartono
+                  ? [criticalDetailRow(c, accepted, labOrdered)]
+                  : []),
                 ...detail.details.map((r) => ({ ...r, danger: false })),
               ].map((r) => (
                 <div
@@ -118,7 +121,7 @@ export function DoctorApp({
               labOrdered={labOrdered}
               acceptedLocally={localAccepted}
               onAcceptLocal={() => setLocalAccepted(formatJam(demoNow()))}
-              onOpenPatient={() => setPt('pt-hartono')}
+              onOpenPatient={() => setPt(DOCTOR_APP_PATIENT_ID.hartono)}
             />
             <section aria-label="Tugas" className="grid grid-cols-3 gap-2">
               {[
@@ -141,7 +144,7 @@ export function DoctorApp({
             >
               {inbox.patients.map((p) => {
                 const note =
-                  p.id === 'pt-hartono' && accepted
+                  p.id === DOCTOR_APP_PATIENT_ID.hartono && accepted
                     ? `Suspek SKA, K ${c.value} · read-back ${accepted}`
                     : p.note;
                 return (

@@ -16,6 +16,7 @@ import { taskKey } from '../engine/run';
 import type { RunResult, TaskValue } from '../engine/types';
 import { evaluateOrders, type OrderLine } from '../../klinis-cds';
 import { bloodPressureFlag, glucoseFlag, icd10Display, minutesToJam, parseBloodPressure } from '../../klinis';
+import { PATIENT_ID } from './ids';
 import { ANTREAN_POLI_PD, type AntreanPoli, encounterIdOf, type DemoPatient, patientById } from './pasien';
 import { poliByCode, queueNo } from './rs';
 import { STAF } from './staf';
@@ -698,7 +699,7 @@ interface PoliFixture {
 
 const POLI_FIXTURES: readonly PoliFixture[] = [
   {
-    patientId: 'ps-lukman',
+    patientId: PATIENT_ID.lukman,
     waitNote: 'selesai 08.50',
     sep: '0301R0011026V005096',
     fallRisk: 'Risiko jatuh rendah',
@@ -734,7 +735,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-fransiska',
+    patientId: PATIENT_ID.fransiska,
     waitNote: 'selesai 09.02',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
@@ -767,7 +768,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     history: [['20 Agu 2026 · Poli PD', 'M10.9 · edukasi diet']],
   },
   {
-    patientId: 'ps-ayu',
+    patientId: PATIENT_ID.ayu,
     waitNote: 'selesai 09.14',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
@@ -800,7 +801,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-wahyuni',
+    patientId: PATIENT_ID.wahyuni,
     waitNote: 'selesai 09.40',
     sep: '0301R0011026V005087',
     fallRisk: 'Risiko jatuh rendah',
@@ -843,7 +844,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-rohana',
+    patientId: PATIENT_ID.rohana,
     waitNote: 'mulai 10.31',
     sep: '0301R0011026V005091',
     fallRisk: 'Risiko jatuh sedang',
@@ -880,7 +881,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-darmawan',
+    patientId: PATIENT_ID.darmawan,
     waitNote: 'tunggu 27 mnt',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
@@ -914,7 +915,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-dewi',
+    patientId: PATIENT_ID.dewi,
     waitNote: 'hasil lab dan USG',
     sep: '0301R0011026V005095',
     fallRisk: 'Risiko jatuh rendah',
@@ -1147,7 +1148,7 @@ export function scenarioLabs(hasil: readonly string[]): EncounterLab[] {
 
 /** Nomor antrean poli Tn. Suryo (naskah Simulasi: SEP terbit → `PD-027`). */
 export const SURYO_QUEUE = queueNo(POLI_KODE, 27);
-const SURYO = 'ps-suryo';
+const SURYO = PATIENT_ID.suryo;
 
 const FALL_RISK: Record<string, string> = {
   tidak: 'Tidak berisiko jatuh',
@@ -1365,7 +1366,7 @@ interface CpoeFixture {
 }
 
 const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
-  'ps-lukman': {
+  [PATIENT_ID.lukman]: {
     weightKg: 76,
     egfr: 84,
     activeMeds: [med('Metformin 500 mg · 2×1', 'metformin', 'metformin-500')],
@@ -1375,7 +1376,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['surat-kontrol', 'terkirim'],
     ],
   },
-  'ps-fransiska': {
+  [PATIENT_ID.fransiska]: {
     weightKg: 88,
     egfr: 90,
     activeMeds: [],
@@ -1385,7 +1386,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['allopurinol-100', 'terkirim'],
     ],
   },
-  'ps-ayu': {
+  [PATIENT_ID.ayu]: {
     weightKg: 61,
     egfr: null,
     activeMeds: [],
@@ -1395,7 +1396,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['parasetamol-500', 'terkirim'],
     ],
   },
-  'ps-wahyuni': {
+  [PATIENT_ID.wahyuni]: {
     weightKg: 72,
     egfr: 82,
     activeMeds: [
@@ -1410,7 +1411,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['surat-kontrol', 'terkirim'],
     ],
   },
-  'ps-rohana': {
+  [PATIENT_ID.rohana]: {
     weightKg: 64,
     egfr: 71,
     activeMeds: [med('Metformin 500 mg · 2×1', 'metformin', 'metformin-500')],
@@ -1421,7 +1422,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['metformin-500', 'draf'],
     ],
   },
-  'ps-darmawan': {
+  [PATIENT_ID.darmawan]: {
     weightKg: 81,
     egfr: 88,
     activeMeds: [med('Allopurinol 100 mg · 1×1', 'allopurinol', 'allopurinol-100')],
@@ -1433,7 +1434,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['asam-mefenamat-500', 'draf'],
     ],
   },
-  'ps-dewi': {
+  [PATIENT_ID.dewi]: {
     weightKg: 58,
     egfr: 95,
     activeMeds: [],
@@ -1574,7 +1575,7 @@ function suryoCpoe(rj: RunResult): CpoeContext {
   return { ...base, orders: toOrders(lines, base) };
 }
 
-const HARTONO = 'ps-hartono';
+const HARTONO = PATIENT_ID.hartono;
 const HARTONO_LAB_IDS: Readonly<Record<string, readonly string[]>> = {
   'Troponin I': ['troponin'],
   Elektrolit: ['elektrolit'],

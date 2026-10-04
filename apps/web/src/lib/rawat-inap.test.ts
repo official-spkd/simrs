@@ -2,6 +2,7 @@ import { type Bed, bedBoardSchema, edBoardSchema, triageAssessmentSchema } from 
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
+import { ENCOUNTER_ID } from './demo/fixtures/ids';
 import {
   demoBedRequests,
   demoBeds,
@@ -134,7 +135,7 @@ describe('K05 · tempat tidur', () => {
     const booked = applyScenarioBeds(demoBeds(), runScenario(def, alloc), elektif).find(
       (b) => b.code === 'ICU 3',
     );
-    expect(booked).toMatchObject({ status: 'dipesan', encounterId: 'kj-hartono' });
+    expect(booked).toMatchObject({ status: 'dipesan', encounterId: ENCOUNTER_ID.hartono });
     const moved = play(
       'igd-ranap',
       [

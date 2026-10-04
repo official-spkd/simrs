@@ -14,6 +14,7 @@ import type {
 import { simInstant } from './demo/engine/format';
 import { firstOpenTask, taskKey, taskOptions, visibleTasks } from './demo/engine/run';
 import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
+import { BED_REQUEST_ID, CONSENT_ID, cpptNoteId, ENCOUNTER_ID, PATIENT_ID } from './demo/fixtures/ids';
 import { encounterIdOf, patientByScenario } from './demo/fixtures/pasien';
 import {
   buildInpatient,
@@ -131,7 +132,7 @@ export function hartonoBedRequest(R: RunResult): BedRequest | null {
   const since = R.doneAt.get(taskKey(stepIndexOf(R, 'tata-laksana'), 'dispo')) ?? R.clock;
   const wait = Math.max(0, R.clock - since);
   return {
-    id: 'rq-hartono',
+    id: BED_REQUEST_ID.hartono,
     patientName: p.nama,
     sex: p.jk,
     ageYears: p.umur,
@@ -156,7 +157,7 @@ export function ratnaBedRequest(R: RunResult): BedRequest | null {
   const p = patientByScenario('elektif-btn');
   if (!p) return null;
   return {
-    id: 'rq-ratna',
+    id: BED_REQUEST_ID.ratna,
     patientName: p.nama,
     sex: p.jk,
     ageYears: p.umur,
@@ -402,7 +403,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
   if (akhir) obs.push([at('rawat-inap', 'akhir'), 36.6, 68, 16, 124, 78, 98, false, 'A']);
   const notes: NoteSeed[] = [
     {
-      id: 'cppt-hartono-1',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 1),
       role: 'perawat',
       author: STAF_LAIN.perawat[2],
       at: at('admisi', 'transfer'),
@@ -411,7 +412,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
       p: 'Monitor EKG kontinu, tanda vital tiap 1 jam.',
     },
     {
-      id: 'cppt-hartono-2',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 2),
       role: 'residen',
       author: PERSONA.dokterResiden,
       at: at('admisi', 'transfer', 30),
@@ -424,7 +425,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
   ];
   if (h1)
     notes.push({
-      id: 'cppt-hartono-3',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 3),
       role: 'dpjp',
       author: STAF.dpjpJantung,
       at: at('rawat-inap', 'h1'),
@@ -435,7 +436,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
     });
   if (done('rawat-inap', 'echo'))
     notes.push({
-      id: 'cppt-hartono-4',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 4),
       role: 'dpjp',
       author: STAF.dpjpJantung,
       at: at('rawat-inap', 'echo'),
@@ -445,7 +446,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
     });
   if (moved)
     notes.push({
-      id: 'cppt-hartono-5',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 5),
       role: 'perawat',
       author: PERSONA.perawat,
       at: at('rawat-inap', 'pindah'),
@@ -455,7 +456,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
     });
   if (akhir)
     notes.push({
-      id: 'cppt-hartono-6',
+      id: cpptNoteId(ENCOUNTER_ID.hartono, 6),
       role: 'dpjp',
       author: STAF.dpjpJantung,
       at: at('rawat-inap', 'akhir'),
@@ -526,7 +527,7 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
   const pm = emar ? 'g:18.10' : 'j';
   const notes: NoteSeed[] = [
     {
-      id: 'cppt-ratna-1',
+      id: cpptNoteId(ENCOUNTER_ID.ratna, 1),
       role: 'perawat',
       author: PERSONA.perawat,
       at: at('admisi', 'sep', 20),
@@ -536,7 +537,7 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
       p: 'Edukasi puasa mulai 24.00, persiapan operasi besok 07.30.',
     },
     {
-      id: 'cppt-ratna-2',
+      id: cpptNoteId(ENCOUNTER_ID.ratna, 2),
       role: 'dpjp',
       author: STAF.dpjpBedah,
       at: at('admisi', 'sep', 90),
@@ -548,7 +549,7 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
   ];
   if (op)
     notes.push({
-      id: 'cppt-ratna-3',
+      id: cpptNoteId(ENCOUNTER_ID.ratna, 3),
       role: 'dpjp',
       author: STAF.dpjpBedah,
       at: at('operasi', 'op'),
@@ -558,7 +559,7 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
     });
   if (pulih)
     notes.push({
-      id: 'cppt-ratna-4',
+      id: cpptNoteId(ENCOUNTER_ID.ratna, 4),
       role: 'perawat',
       author: STAF_LAIN.perawat[0],
       at: at('operasi', 'pulih'),
@@ -569,7 +570,7 @@ export function ratnaInpatient(R: RunResult): InpatientDetail | null {
     });
   if (h2)
     notes.push({
-      id: 'cppt-ratna-5',
+      id: cpptNoteId(ENCOUNTER_ID.ratna, 5),
       role: 'dpjp',
       author: STAF.dpjpBedah,
       at: at('pasca-operasi', 'h2'),
@@ -778,8 +779,8 @@ export function hartonoResume(R: RunResult): DischargeSummary {
   const filled = (id: string) => !!sections.find((s) => s.id === id)?.body;
   const signed = done('resume', 'tte');
   return {
-    encounterId: p ? encounterIdOf(p.id) : 'kj-hartono',
-    patientId: p?.id ?? 'ps-hartono',
+    encounterId: p ? encounterIdOf(p.id) : ENCOUNTER_ID.hartono,
+    patientId: p?.id ?? PATIENT_ID.hartono,
     admittedAt: wib(simInstant(R.def, R.def.startMin)),
     dischargeAt: akhir ? taskInstant(R, 'rawat-inap', 'akhir', 1440) : `${shiftDays(base, 5)}T10:00:00+07:00`,
     admissionVia: 'IGD',
@@ -896,8 +897,8 @@ export function ratnaResume(R: RunResult): DischargeSummary {
   ];
   const filled = (id: string) => !!sections.find((s) => s.id === id)?.body;
   return {
-    encounterId: p ? encounterIdOf(p.id) : 'kj-ratna',
-    patientId: p?.id ?? 'ps-ratna',
+    encounterId: p ? encounterIdOf(p.id) : ENCOUNTER_ID.ratna,
+    patientId: p?.id ?? PATIENT_ID.ratna,
     admittedAt: admitted ? taskInstant(R, 'admisi', 'sep') : wib(simInstant(R.def, R.def.startMin)),
     dischargeAt: h2
       ? taskInstant(R, 'pasca-operasi', 'h2', 900)
@@ -964,7 +965,7 @@ export function consentScenarioWait(
   consentTask: { enabled: boolean } | undefined,
 ): string | null {
   if (doc.status !== 'draf') return null;
-  if (doc.id === 'pk-ratna') return RATNA_CONSENT_WAIT;
-  if (doc.id === 'pk-hartono' && !consentTask?.enabled) return SCENARIO_CONSENT_WAIT;
+  if (doc.id === CONSENT_ID.ratna) return RATNA_CONSENT_WAIT;
+  if (doc.id === CONSENT_ID.hartono && !consentTask?.enabled) return SCENARIO_CONSENT_WAIT;
   return null;
 }

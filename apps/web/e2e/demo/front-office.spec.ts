@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { DOCTOR_ID } from '../../src/lib/demo/fixtures/ids';
 import { createAccount, loginAs } from '../support/accounts';
 
 /**
@@ -104,7 +105,7 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   const detail = page.getByRole('region', { name: 'Detail slot jadwal' });
   await expect(detail.getByText('Praktik · kuota tersedia')).toBeVisible();
   await expect(detail.getByText('22 pasien booking dari 30 kuota · 73% terisi')).toBeVisible();
-  await expect(page).toHaveURL(/pilih=dr-andini\.2026-10-05/);
+  await expect(page).toHaveURL(new RegExp(`pilih=${DOCTOR_ID.andini}\\.2026-10-05`));
 
   await detail.getByRole('button', { name: 'Tambah kuota JKN' }).click();
   await expect(detail.getByText('22 pasien booking dari 31 kuota · 71% terisi')).toBeVisible();

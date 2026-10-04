@@ -7,6 +7,7 @@ import {
 import { formatSimClock } from './demo/engine/format';
 import { firstOpenTask, taskKey } from './demo/engine/run';
 import type { RunResult, TaskValue } from './demo/engine/types';
+import { DOCTOR_APP_PATIENT_ID } from './demo/fixtures/ids';
 import {
   COSIGN_NOTES,
   DOCTOR_PATIENTS,
@@ -424,7 +425,7 @@ export function doctorAppInbox(R: RunResult): DoctorAppInbox {
   const hartono: DoctorAppInbox['patients'] = hartonoListed(R)
     ? [
         {
-          id: 'pt-hartono',
+          id: DOCTOR_APP_PATIENT_ID.hartono,
           name: p.nama,
           age: p.umur,
           rm: p.rm,

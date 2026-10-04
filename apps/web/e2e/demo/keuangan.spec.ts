@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
+import { CLAIM_ID, INVOICE_ID } from '../../src/lib/demo/fixtures/ids';
 
 /** Keuangan (mode presentasi, ADR-0023; mockup Kasir, Klaim, Akuntansi). */
 
@@ -14,7 +15,7 @@ test.describe('kasir', () => {
   test('total tagihan = jumlah baris yang tampil; bayar QRIS sampai kuitansi', async ({ page }) => {
     const kasir = await createAccount({ roles: ['kasir'] });
     await loginAs(page, kasir, '/keuangan/kasir');
-    await page.goto('/keuangan/kasir?pilih=inv-endang');
+    await page.goto(`/keuangan/kasir?pilih=${INVOICE_ID.endang}`);
     await expect(page.getByRole('heading', { name: 'Kasir · tagihan pasien', level: 1 })).toBeVisible();
     await expect(page.getByText('Ny. Endang Wijaya').first()).toBeVisible();
     await expect(page.getByText('INV-2610-02217')).toBeVisible();
@@ -48,7 +49,7 @@ test.describe('kasir', () => {
   test('item manual diblokir tanpa alasan tertulis', async ({ page }) => {
     const kasir = await createAccount({ roles: ['kasir'] });
     await loginAs(page, kasir, '/keuangan/kasir');
-    await page.goto('/keuangan/kasir?pilih=inv-ayu');
+    await page.goto(`/keuangan/kasir?pilih=${INVOICE_ID.ayu}`);
     const bill = page.getByRole('region', { name: 'Rincian tagihan' });
     await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 463.500');
 
@@ -87,7 +88,7 @@ test.describe('klaim', () => {
   test('koder membuka berkas: tabel ICD-10/ICD-9-CM, grouper, saran J13 lalu kirim', async ({ page }) => {
     const koder = await createAccount({ roles: ['koder'] });
     await loginAs(page, koder, '/keuangan/klaim');
-    await page.goto('/keuangan/klaim?status=draft&pilih=kl-endang');
+    await page.goto(`/keuangan/klaim?status=draft&pilih=${CLAIM_ID.endang}`);
     await expect(
       page.getByRole('heading', { name: 'Klaim JKN · koding dan grouping', level: 1 }),
     ).toBeVisible();

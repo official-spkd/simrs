@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { SCREENS } from '../src/lib/screens';
 import { createAccount, loginAs } from './support/accounts';
+import { CONSENT_ID, ENCOUNTER_ID } from '../src/lib/demo/fixtures/ids';
 
 test.describe('smoke', () => {
   test('/masuk tampil tanpa login, berbahasa Indonesia, dengan header keamanan', async ({ page }) => {
@@ -38,10 +39,10 @@ test.describe('smoke', () => {
     await loginAs(page, account);
     const paths = [
       ...SCREENS.filter((s) => s.status === 'demo').map((s) => s.route),
-      '/klinis/order/kj-suryo',
-      '/klinis/rawat-inap/kj-hartono',
-      '/klinis/resume/kj-hartono',
-      '/tablet/persetujuan/pk-hartono',
+      `/klinis/order/${ENCOUNTER_ID.suryo}`,
+      `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`,
+      `/klinis/resume/${ENCOUNTER_ID.hartono}`,
+      `/tablet/persetujuan/${CONSENT_ID.hartono}`,
     ];
     for (const path of paths) {
       const res = await page.goto(path);

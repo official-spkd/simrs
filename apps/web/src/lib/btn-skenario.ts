@@ -31,6 +31,7 @@ import {
   REKONSILIASI,
   TRANSAKSI,
 } from './demo/fixtures/btn';
+import { PATIENT_ID } from './demo/fixtures/ids';
 import { REKENING } from './demo/fixtures/rs';
 import { DEMO_NOW, DEMO_TODAY } from './demo/fixtures/waktu';
 import { simInstant } from './demo/engine/format';
@@ -86,7 +87,7 @@ function minutesOf(R: RunResult, stepId: string, taskId: string): number | null 
   return R.doneAt.get(taskKey(stepIdx(R, stepId), taskId)) ?? null;
 }
 
-const ratna = () => patientRef('ps-ratna');
+const ratna = () => patientRef(PATIENT_ID.ratna);
 
 function depositChannel(R: RunResult): PaymentChannel {
   return taskValue(R, 'deposit', 'kanal') === 'qris' ? 'QRIS' : 'VA';

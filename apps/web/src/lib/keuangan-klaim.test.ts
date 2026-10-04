@@ -1,6 +1,7 @@
 import { claimBoardSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { runScenario } from './demo/engine/run';
+import { CLAIM_ID } from './demo/fixtures/ids';
 import { CLAIM_TOTALS, CLAIM_KPIS, STATIC_CLAIMS } from './demo/fixtures/keuangan';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import { claimRatio, codingView, docCount, missingDocs, submitLabel } from './keuangan-klaim';
@@ -28,7 +29,7 @@ describe('data dummy Klaim', () => {
   });
 
   it('Ny. Endang: terima J13 + bukti N17.9 → J-4-15-III Rp 9.104.300 (naik Rp 2.491.500)', () => {
-    const c = claim('kl-endang');
+    const c = claim(CLAIM_ID.endang);
     const before = codingView(c, { accepted: false, docs: c.documents });
     expect(before.grouper?.cbg).toBe('J-4-15-II');
     expect(before.diagnoses.map((d) => d.code)).toEqual(['J18.9', 'E11.9', 'N17.9']);
@@ -44,8 +45,8 @@ describe('data dummy Klaim', () => {
   });
 
   it('grouping ditahan bila resume belum final atau pasien masih dirawat', () => {
-    expect(codingView(claim('kl-bonifasius-ri'), { accepted: false, docs: [] }).held).toMatch(/resume/);
-    expect(codingView(claim('kl-raka'), { accepted: false, docs: [] }).held).toMatch(/masih dirawat/);
+    expect(codingView(claim(CLAIM_ID.bonifasiusRi), { accepted: false, docs: [] }).held).toMatch(/resume/);
+    expect(codingView(claim(CLAIM_ID.raka), { accepted: false, docs: [] }).held).toMatch(/masih dirawat/);
   });
 
   it('tarif RS vs INA-CBG (bigint) dan gerbang kirim', () => {
@@ -54,7 +55,7 @@ describe('data dummy Klaim', () => {
     expect(claimRatio(null, '1')).toBeNull();
     expect(submitLabel('draft')).toBe('Final dan kirim E-Klaim');
     expect(submitLabel('payable')).toBeNull();
-    const docs = claim('kl-aminah').documents;
+    const docs = claim(CLAIM_ID.aminah).documents;
     expect(missingDocs(docs)).toHaveLength(3);
     expect(docCount(docs)).toBe('1/4 lengkap');
   });
