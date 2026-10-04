@@ -88,7 +88,7 @@ export function BedRequests({
                       type="button"
                       onClick={() => onPickBed(c.bedCode)}
                       aria-label={`Tampilkan bed ${c.bedCode} di peta (${c.note})`}
-                      className="min-h-9 cursor-pointer rounded-full border border-brand-200 bg-white px-2.5 font-[inherit] text-caption font-semibold text-brand-700"
+                      className="min-h-11 min-w-11 cursor-pointer rounded-full border border-brand-200 bg-white px-3 font-[inherit] text-caption font-semibold text-brand-700"
                     >
                       {c.bedCode}
                     </button>
