@@ -8,6 +8,7 @@ import { INPATIENT_FLAG_LABEL } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
 import { ewsLevel } from '@/lib/rawat-inap';
 import { getInpatientList } from '@/lib/server/data/rawat-inap';
+import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Rawat inap' };
@@ -26,6 +27,12 @@ export default async function RawatInapPage({ searchParams }: { searchParams: Se
   const list = all.filter((x) => ward === 'SEMUA' || x.wardCode === ward);
   const wards = BANGSAL.filter((w) => all.some((x) => x.wardCode === w.code));
   const count = (f: (typeof all)[number]['flags'][number]) => all.filter((x) => x.flags.includes(f)).length;
+  // Pasien skenario yang langkah rawat inapnya sedang dibawakan di layar ini: tautan langsung ke rekamnya.
+  const here = scenariosHere(await scenarioRuns(session), 'ranap').map((h) => h.scenario);
+  const active = all.filter((x) => {
+    const p = patientById(x.patientId);
+    return x.scenario && !!p?.scenario && here.includes(p.scenario);
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,6 +41,15 @@ export default async function RawatInapPage({ searchParams }: { searchParams: Se
         <h1 className="m-0 text-h1 font-semibold">Pasien rawat inap</h1>
       </header>
       <ScenarioBanner session={session} screen="ranap" />
+      {active.map((x) => (
+        <Link
+          key={x.encounterId}
+          href={`/klinis/rawat-inap/${x.encounterId}`}
+          className="inline-flex min-h-11 items-center self-start rounded-control border border-brand-800 bg-white px-3.5 text-small font-semibold text-brand-700 no-underline"
+        >
+          Buka rekam rawat inap {patientById(x.patientId)?.nama} (langkah simulasi aktif)
+        </Link>
+      ))}
       <div role="region" aria-label="Ringkasan rawat inap" className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Pasien di daftar ini" value={all.length} detail="pasien dengan rekam rawat aktif" />
         <KpiCard
