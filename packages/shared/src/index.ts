@@ -7,6 +7,7 @@ export * from './env';
 export * from './errors';
 export * from './forms';
 export * from './ids';
+export * from './integrations/bpjs-errors';
 export * from './integrations/dukcapil';
 export * from './money';
 export * from './notifications';

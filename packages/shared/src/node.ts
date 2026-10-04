@@ -1,4 +1,5 @@
 // Utilitas khusus Node (crypto). Jangan diimpor dari kode browser.
+export * from './integrations/bpjs-client';
 export * from './integrations/bpjs-crypto';
 export * from './integrations/tpdi-signature';
 export * from './security/document-crypto';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const port = z.coerce.number().int().min(1).max(65535);
+const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
 /**
  * Kunci 32 byte dalam base64 (`openssl rand -base64 32` → 44 karakter berakhiran `=`). Padding dan alfabet
@@ -68,6 +69,16 @@ export const envSchemas = {
   integration: z.object({
     INTEGRATION_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     MOCK_BASE_URL: z.url().default('http://localhost:4100'),
+  }),
+  /**
+   * Klien BPJS (worker dan API): satu set kredensial (keputusan fase 2 #11). Kosong di luar produksi = nilai mock
+   * (`bpjsClientConfig` di `@simrs/shared/node`); di produksi wajib diisi.
+   */
+  bpjs: z.object({
+    BPJS_BASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
+    BPJS_CONS_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    BPJS_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    BPJS_USER_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   }),
 } as const;
 
