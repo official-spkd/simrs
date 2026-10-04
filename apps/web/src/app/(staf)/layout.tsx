@@ -5,6 +5,7 @@ import { DemoGuide } from '@/components/demo-guide';
 import { DemoSync } from '@/components/demo-sync';
 import { LogoutButton } from '@/components/logout-button';
 import { NotificationBell } from '@/components/notification-bell';
+import { PinLink } from '@/components/pin-link';
 import { SwitchPositionLink } from '@/components/switch-position-link';
 import { StaffSidebar } from '@/components/staff-sidebar';
 import { runScenario } from '@/lib/demo/engine/run';
@@ -17,7 +18,7 @@ import { unreadNotifications } from '@/lib/server/notifications';
 import { assignmentsSchema } from '@/lib/server/schemas';
 import { requireSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
-import { isSuperadmin } from '@/lib/session-view';
+import { canRegisterPin, isSuperadmin } from '@/lib/session-view';
 
 /**
  * Kerangka halaman staf. Sesi diperiksa di sini untuk identitas dan menu, DAN di setiap halaman
@@ -34,13 +35,26 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       () => 0,
     ),
   ]);
+  // PIN masuk cepat: posisi yang boleh mendaftarkannya, atau sesi yang dibuka dengan PIN (untuk menghapusnya).
+  const pin = canRegisterPin(s) || Boolean(s.quickLogin);
   return (
     <AppShell
       tenantName={s.tenant.name}
+      // Mode presentasi: header lengket berisi pemicu panduan (tidak melayang di atas isi halaman).
+      stickyHeader={Boolean(demo)}
       header={
         <>
           {dataSource === 'demo' && <DemoBadge />}
           <NotificationBell unread={unread} />
+          {demo && (
+            <DemoGuide
+              rev={demo.rev}
+              guide={guideView(
+                runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
+                s.role?.code ?? null,
+              )}
+            />
+          )}
         </>
       }
       sidebar={
@@ -56,9 +70,10 @@ export default async function StaffLayout({ children }: { children: ReactNode })
             role: s.role?.code ?? null,
           })}
           userActions={
-            positions > 1 ? (
+            positions > 1 || pin ? (
               <div className="flex flex-col gap-2">
-                <SwitchPositionLink />
+                {positions > 1 && <SwitchPositionLink />}
+                {pin && <PinLink />}
                 <LogoutButton />
               </div>
             ) : (
@@ -68,20 +83,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         />
       }
     >
-      {/* Mode presentasi: ruang di bawah agar pil panduan tidak menutupi isi terakhir halaman. */}
-      {demo ? <div className="pb-16">{children}</div> : children}
-      {demo && (
-        <>
-          <DemoGuide
-            rev={demo.rev}
-            guide={guideView(
-              runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
-              s.role?.code ?? null,
-            )}
-          />
-          <DemoSync />
-        </>
-      )}
+      {children}
+      {demo && <DemoSync />}
     </AppShell>
   );
 }

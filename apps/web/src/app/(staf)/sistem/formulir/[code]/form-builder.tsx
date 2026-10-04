@@ -366,7 +366,7 @@ export function FormBuilder({
         {!preview && (
           <aside
             aria-label="Jenis field"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-card p-3.5 xl:sticky xl:top-4"
+            className="flex flex-col gap-1.5 rounded-card border border-line bg-card p-3.5 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)]"
           >
             <span className="pb-1 text-caption font-semibold tracking-[0.08em] text-ink-500">
               JENIS FIELD
@@ -499,7 +499,7 @@ export function FormBuilder({
         {!preview && (
           <aside
             aria-label="Properti dan versi"
-            className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto"
+            className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)] xl:max-h-[calc(100vh_-_var(--app-sticky-top,0px)_-_2rem)] xl:overflow-y-auto"
           >
             {!inline && propsPanel}
             <VersionSettings
