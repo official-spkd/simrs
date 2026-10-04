@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import {
   createPrismaClient,
+  detectDuplicates,
   insertPatient,
   type NewPatientRecord,
   type PrismaClient,
@@ -143,19 +144,64 @@ export async function loginAs(page: Page, account: Account, path = '/'): Promise
   await expect(page).not.toHaveURL(/\/masuk/);
 }
 
+function patientCrypto(tenantId: string): PatientCrypto {
+  return new PatientCrypto(
+    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
+    tenantId,
+  );
+}
+
 /** Pasien fiktif langsung di DB dengan kunci enkripsi yang sama dengan API. */
 export function createPatient(
   tenantCode: TenantCode,
   rec: Partial<NewPatientRecord> = {},
 ): Promise<{ id: string; mrn: string }> {
   const tenantId = TENANTS[tenantCode];
-  const crypto = new PatientCrypto(
-    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
-    tenantId,
-  );
   return withTenant(prisma(), tenantId, (tx) =>
-    insertPatient(tx, crypto, { name: 'Pasien Uji Fiktif', sex: 'female', birthDate: '1980-01-01', ...rec }),
+    insertPatient(tx, patientCrypto(tenantId), {
+      name: 'Pasien Uji Fiktif',
+      sex: 'female',
+      birthDate: '1980-01-01',
+      ...rec,
+    }),
   );
+}
+
+const digits = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+
+/**
+ * Pasangan kemungkinan rekam medis ganda: A lebih dulu (dengan NIK), B kemudian (ejaan beda, dengan BPJS),
+ * lalu deteksi dijalankan seperti pendaftaran lewat API. Tanggal lahir dan no. HP acak per pasangan.
+ */
+export async function createDuplicatePair(tenantCode: TenantCode = 'RSFA') {
+  const tenantId = TENANTS[tenantCode];
+  const common = {
+    sex: 'female' as const,
+    birthDate: `19${30 + Math.floor(Math.random() * 70)}-0${1 + Math.floor(Math.random() * 9)}-1${Math.floor(Math.random() * 9)}`,
+    motherName: 'Aminah',
+    phone: `62812${digits(8)}`,
+  };
+  const a = await createPatient(tenantCode, {
+    ...common,
+    name: 'Siti Rahmawati',
+    address: 'Jl. Kenanga No. 12, Jakarta Timur',
+    identifiers: { nik: `9999${digits(12)}` },
+  });
+  const b = await createPatient(tenantCode, {
+    ...common,
+    name: 'Siti Rachmawati',
+    address: 'Kenanga No.12, Jaktim',
+    identifiers: { bpjs: `0000${digits(9)}` },
+  });
+  const candidateId = await withTenant(prisma(), tenantId, async (tx) => {
+    await detectDuplicates(tx, patientCrypto(tenantId), b.id);
+    const c = await tx.patientMatchCandidate.findFirstOrThrow({
+      where: { patientAId: a.id, patientBId: b.id },
+      select: { id: true },
+    });
+    return c.id;
+  });
+  return { a, b, candidateId };
 }
 
 /** Izin akses darurat langsung di DB (layar klinis peminta akses darurat dibangun di fase 2–3). */

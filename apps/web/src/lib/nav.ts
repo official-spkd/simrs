@@ -71,7 +71,14 @@ export const NAV_GROUPS: WebNavGroup[] = [
     title: 'MANAJEMEN',
     items: [
       { id: 'dasbor', label: 'Dasbor eksekutif', href: '/manajemen/dasbor', icon: 'chart', available: false },
-      { id: 'rm', label: 'Rekam medis', href: '/rekam-medis/mpi', icon: 'folder', available: false },
+      {
+        id: 'rm',
+        label: 'Rekam medis',
+        href: '/rekam-medis/mpi',
+        icon: 'folder',
+        available: true,
+        requires: 'patient.merge',
+      },
       { id: 'logistik', label: 'Logistik', href: '/manajemen/logistik', icon: 'box', available: false },
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],

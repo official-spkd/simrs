@@ -77,7 +77,14 @@ describe('enkripsi kolom', () => {
   it('gagal bila diubah, dipindah ke tenant/tujuan lain, atau kunci salah', () => {
     const enc = encryptField('9999010101900001', { ...ctx, purpose: 'patient_identifier' });
     const parts = enc.split('.');
-    const tampered = [parts[0], parts[1], `A${parts[2]?.slice(1)}`, parts[3]].join('.');
+    // Ganti karakter pertama ciphertext dengan karakter yang PASTI berbeda (bukan selalu 'A': bisa sama → tes rapuh).
+    const body = parts[2] ?? '';
+    const tampered = [
+      parts[0],
+      parts[1],
+      `${body.startsWith('A') ? 'B' : 'A'}${body.slice(1)}`,
+      parts[3],
+    ].join('.');
     expect(() => decryptField(tampered, { ...ctx, purpose: 'patient_identifier' })).toThrow();
     expect(() =>
       decryptField(enc, {

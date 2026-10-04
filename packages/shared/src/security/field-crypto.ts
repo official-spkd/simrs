@@ -6,7 +6,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, ran
  * satu tenant tidak memudahkan dekripsi tenant lain, dan konteks (tenant + tujuan) diikat sebagai AAD.
  * Format tersimpan: `v1.<iv>.<ciphertext>.<tag>` (base64url).
  */
-export type FieldPurpose = 'mfa_secret' | 'patient_identifier' | 'contact';
+export type FieldPurpose = 'mfa_secret' | 'patient_identifier' | 'contact' | 'patient_snapshot';
 
 function masterKey(keyB64: string): Buffer {
   const key = Buffer.from(keyB64, 'base64');

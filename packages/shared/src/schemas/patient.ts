@@ -3,6 +3,7 @@ import { isoDateJakarta } from '../datetime';
 import {
   IDENTIFIER_SYSTEM_CODES,
   IDENTIFIER_SYSTEMS,
+  MERGE_ATTRIBUTES,
   type IdentifierSystem,
   isValidIdentifier,
   normalizeIdentifier,
@@ -99,7 +100,29 @@ export const patientSearchSchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/** Keputusan MPI wajib beralasan (dasar verifikasi: KTP, wawancara, konfirmasi keluarga). */
+const DECISION_REASON = z
+  .string()
+  .trim()
+  .min(10, 'Alasan minimal 10 karakter: sebutkan dasar verifikasi (mis. KTP, wawancara)')
+  .max(500);
+
+export const mergeCandidateSchema = z.strictObject({
+  reason: DECISION_REASON,
+  /** Atribut yang diambil dari rekam medis B; selebihnya tetap milik A. */
+  takeFromB: z.array(z.enum(MERGE_ATTRIBUTES)).max(MERGE_ATTRIBUTES.length).default([]),
+});
+export const mpiDecisionSchema = z.strictObject({ reason: DECISION_REASON });
+/** `all` = terbuka + diputuskan 30 hari terakhir (masih bisa dibatalkan). */
+export const matchListSchema = z.strictObject({
+  status: z.enum(['open', 'decided', 'all']).default('all'),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
 export type CreatePatientInput = z.infer<typeof createPatientSchema>;
+export type MergeCandidateInput = z.infer<typeof mergeCandidateSchema>;
+export type MpiDecisionInput = z.infer<typeof mpiDecisionSchema>;
+export type MatchListQuery = z.infer<typeof matchListSchema>;
 export type UpdatePatientInput = z.infer<typeof updatePatientSchema>;
 export type SetIdentifierInput = z.infer<typeof setIdentifierSchema>;
 export type PatientSearchQuery = z.infer<typeof patientSearchSchema>;

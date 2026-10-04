@@ -23,10 +23,14 @@ export class PatientAccessService {
     const userId = this.db.actorUserId();
     if (!userId) return null;
     const tx = this.db.tx();
+    // Rekam medis yang digabung = satu orang: relasi/akses darurat ke salah satunya berlaku untuk semuanya.
+    const group = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT app_patient_group(${patientId}::uuid)::text AS id`;
+    const patientIds = group.length > 0 ? group.map((g) => g.id) : [patientId];
     const rel = await tx.accessRelationship.findFirst({
       where: {
         userId,
-        patientId,
+        patientId: { in: patientIds },
         validFrom: { lte: at },
         OR: [{ validUntil: null }, { validUntil: { gt: at } }],
       },
@@ -34,7 +38,7 @@ export class PatientAccessService {
     });
     if (rel) return 'relationship';
     const bg = await tx.breakGlassGrant.findFirst({
-      where: { userId, patientId, grantedAt: { lte: at }, expiresAt: { gt: at } },
+      where: { userId, patientId: { in: patientIds }, grantedAt: { lte: at }, expiresAt: { gt: at } },
       select: { id: true },
     });
     return bg ? 'break_glass' : null;

@@ -20,7 +20,7 @@ export class PatientCrypto {
     readonly tenantId: string,
   ) {}
 
-  private ctx(purpose: 'patient_identifier' | 'contact') {
+  private ctx(purpose: 'patient_identifier' | 'contact' | 'patient_snapshot') {
     return { keyB64: this.keys.encKeyB64, tenantId: this.tenantId, purpose };
   }
 
@@ -57,5 +57,14 @@ export class PatientCrypto {
 
   decryptContact(valueEnc: string): string {
     return decryptField(valueEnc, this.ctx('contact'));
+  }
+
+  /** Nilai rekam medis A sebelum ditimpa saat penggabungan (JSON), untuk pemulihan bila dibatalkan. */
+  encryptSnapshot(value: unknown): string {
+    return encryptField(JSON.stringify(value), this.ctx('patient_snapshot'));
+  }
+
+  decryptSnapshot<T>(valueEnc: string): T {
+    return JSON.parse(decryptField(valueEnc, this.ctx('patient_snapshot'))) as T;
   }
 }

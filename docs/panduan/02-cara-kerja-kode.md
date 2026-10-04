@@ -167,6 +167,22 @@ Aturan yang perlu dijaga saat menambah fitur pasien:
 - Lingkup selain `all` (perawat, dokter) hanya melihat pasien berelasi atau dengan akses darurat aktif, baik di detail (`PatientAccessService.assert`) maupun di query daftar (filter SQL sebelum `LIMIT`). Penolakan ABAC memakai `AuditedDenial` sehingga tetap tercatat.
 - Tes membuat pasien fiktif dengan `createTestPatient()` (`apps/api/test/helpers.ts`) atau `createPatient()` (E2E).
 
+#### Rekam medis ganda (layar MPI)
+
+`mpi-match.controller.ts` (rute `/api/v1/mpi`, izin `patient.merge`, lingkup harus `all`):
+
+| Endpoint                                        | Isi                                                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `GET /mpi/candidates?status=open\|decided\|all` | Antrean (terbuka urut skor + keputusan 30 hari terakhir). Setiap pasangan yang tampil diaudit untuk A dan B. |
+| `GET /mpi/candidates/:id`                       | Banding per atribut (tersamar), dampak, keputusan, jejak gabung.                                             |
+| `POST /mpi/candidates/:id/merge`                | `{ reason, takeFromB }`: B ditandai `merged`, atribut pilihan B menimpa A, snapshot A terenkripsi.           |
+| `POST /mpi/candidates/:id/distinct`, `/reopen`  | "Bukan orang yang sama" dan pembatalannya.                                                                   |
+| `POST /mpi/links/:id/undo`                      | Batal gabung ≤ 30 hari; mengembalikan `{ restored, kept }`.                                                  |
+
+- Deteksi: `detectDuplicates` (`@simrs/db`) dipanggil lewat `DuplicateDetector` setelah daftar, ubah identitas, ganti identifier, gabung, dan batal. Logika skor murni ada di `@simrs/shared` (`scorePatientMatch`, `MATCH_THRESHOLD`).
+- **Kunci MPI**: alur yang menulis antrean wajib memanggil `lockMpi(tx)` sebelum mengunci/mengubah baris pasien. Tanpa kunci ini dua penggabungan serentak bisa deadlock (ADR-0016).
+- Satu orang = kelompok `app_patient_group(id)`; ABAC relasi dan pencarian sudah memakainya. Modul klinis berikutnya juga harus membaca riwayat lewat kelompok ini.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -242,6 +258,8 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `activeAssignments(tx, userId)`               | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
 | `lockTenantScope(tx, scope)`                  | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
 | `insertPatient(tx, crypto, record)`           | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
+| `detectDuplicates(tx, crypto, patientId)`     | P05 · Hitung ulang kandidat rekam medis ganda satu pasien (ambil `lockMpi` sendiri).                     |
+| `lockMpi(tx)`                                 | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
 | `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
 | `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
@@ -274,20 +292,21 @@ Fase 0 hanya mengenal operasi `ping` (ke `/<sistem>/_echo` di mock). Konektor ny
 
 `apps/web/src/`:
 
-| Path                       | Isi                                                                                                                     |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`           | Root: font IBM Plex, `lang="id"`, CSS global                                                                            |
-| `proxy.ts`                 | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)          |
-| `app/masuk/`               | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)            |
-| `app/(staf)/layout.tsx`    | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                           |
-| `app/(staf)/page.tsx`      | Beranda; status `/ready` hanya untuk operator platform                                                                  |
-| `app/(staf)/sistem/akses/` | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien                |
-| `app/(staf)/sistem/audit/` | Layar Audit (P04): jejak + filter lewat URL, panel detail/temuan/akses darurat, `ekspor/route.ts` (unduh CSV lewat BFF) |
-| `app/(staf)/superadmin/…`  | Area superadmin (peran `superadmin_platform`): panduan ini                                                              |
-| `app/(staf)/dev/ui/`       | Galeri token dan komponen (Fondasi), juga khusus operator platform                                                      |
-| `lib/server/`              | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`                |
-| `lib/nav.ts`               | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                                       |
-| `lib/guide.ts`             | Daftar halaman panduan, pembaca berkas, daftar isi                                                                      |
+| Path                          | Isi                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`              | Root: font IBM Plex, `lang="id"`, CSS global                                                                            |
+| `proxy.ts`                    | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)          |
+| `app/masuk/`                  | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)            |
+| `app/(staf)/layout.tsx`       | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                           |
+| `app/(staf)/page.tsx`         | Beranda; status `/ready` hanya untuk operator platform                                                                  |
+| `app/(staf)/sistem/akses/`    | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien                |
+| `app/(staf)/sistem/audit/`    | Layar Audit (P04): jejak + filter lewat URL, panel detail/temuan/akses darurat, `ekspor/route.ts` (unduh CSV lewat BFF) |
+| `app/(staf)/rekam-medis/mpi/` | Layar MPI (P05): antrean, `compare-panel.tsx` (pilih sumber per atribut, keputusan, batal), `actions.ts`                |
+| `app/(staf)/superadmin/…`     | Area superadmin (peran `superadmin_platform`): panduan ini                                                              |
+| `app/(staf)/dev/ui/`          | Galeri token dan komponen (Fondasi), juga khusus operator platform                                                      |
+| `lib/server/`                 | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`                |
+| `lib/nav.ts`                  | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                                       |
+| `lib/guide.ts`                | Daftar halaman panduan, pembaca berkas, daftar isi                                                                      |
 
 Aturan web:
 

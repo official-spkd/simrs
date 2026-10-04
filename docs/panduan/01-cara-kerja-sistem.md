@@ -131,6 +131,8 @@ Setiap pasien punya satu **nomor rekam medis** (contoh `00-41-27-88`) yang dibua
 
 Petugas mencari pasien dengan satu kotak: nomor RM, NIK, no. BPJS, IHS, atau nama (ejaan berbeda tetap ketemu). Sistem menolak pendaftaran baru dengan NIK yang sudah dipakai pasien lain dan menunjukkan nomor RM pemiliknya, sehingga rekam medis ganda tidak bertambah. Setiap pasien yang tampil di hasil pencarian atau dibuka tercatat di jejak audit. Perawat dan dokter hanya melihat pasien yang mereka rawat, kecuali lewat akses darurat.
 
+**Rekam medis ganda.** Saat pendaftaran, sistem membandingkan pasien baru dengan rekam medis lama (NIK, BPJS, tanggal lahir, nama mirip, ibu kandung, no. HP, alamat) dan memasukkan pasangan yang mirip ke antrean **Rekam medis → MPI**. Petugas rekam medis membandingkan atribut berdampingan, memilih nilai yang benar, lalu memutuskan "gabungkan" atau "bukan orang yang sama" dengan alasan wajib. Penggabungan tidak menghapus atau memindah data: rekam medis B hanya diberi tanda "digabung ke A", semua datanya tetap utuh dan ikut terbaca sebagai riwayat A. Keputusan bisa dibatalkan dalam 30 hari, dan setiap langkah tercatat di jejak audit kedua pasien.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |

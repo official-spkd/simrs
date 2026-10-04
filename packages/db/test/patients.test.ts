@@ -6,21 +6,24 @@ import { newId } from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, insertPatient, type PrismaClient, withTenant } from '../src/index';
-import { SEED_TENANTS } from '../src/seed-data';
 import { testDbUrls } from '../src/testing';
 
-const [A, B] = SEED_TENANTS;
-// Kunci uji khusus tes ini (bukan .env): yang diuji lapisan database, bukan konfigurasi.
+// Kunci uji khusus tes ini (bukan .env): yang diuji lapisan database, bukan konfigurasi. Karena kuncinya beda
+// dari API/E2E, pasien uji hanya dibuat di tenant baru, tidak pernah di tenant seed bersama (RSFA/RSFB).
 const keys = {
   encKeyB64: Buffer.alloc(32, 11).toString('base64'),
   hashKeyB64: Buffer.alloc(32, 13).toString('base64'),
 };
 let app: PrismaClient;
 let owner: PrismaClient;
+const A = { id: '' };
+const B = { id: '' };
 
-beforeAll(() => {
+beforeAll(async () => {
   app = createPrismaClient({ connectionString: testDbUrls().app, max: 5 });
   owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 2 });
+  A.id = await freshTenant();
+  B.id = await freshTenant();
 });
 
 afterAll(async () => {

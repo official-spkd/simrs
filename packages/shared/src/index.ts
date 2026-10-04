@@ -9,6 +9,7 @@ export * from './money';
 export * from './numbering';
 export * from './outbox';
 export * from './patient';
+export * from './patient-match';
 export * from './schemas/auth';
 export * from './schemas/facility';
 export * from './schemas/iam';

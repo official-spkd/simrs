@@ -33,6 +33,43 @@ export const IDENTIFIER_SYSTEM_CODES = Object.keys(IDENTIFIER_SYSTEMS) as [
   ...IdentifierSystem[],
 ];
 
+/**
+ * Atribut yang bisa diambil dari rekam medis B saat penggabungan (layar MPI). Rekam medis A (dipertahankan)
+ * menyimpan nilai lamanya di jejak penggabungan agar bisa dipulihkan bila dibatalkan (≤ 30 hari).
+ */
+export const MERGE_ATTRIBUTES = [
+  'name',
+  'sex',
+  'birthDate',
+  'motherName',
+  'address',
+  'phone',
+  'nik',
+  'bpjs',
+  'ihs',
+  'paspor',
+] as const;
+export type MergeAttribute = (typeof MERGE_ATTRIBUTES)[number];
+export const MERGE_ATTRIBUTE_LABEL: Record<MergeAttribute, string> = {
+  name: 'Nama',
+  sex: 'Jenis kelamin',
+  birthDate: 'Tanggal lahir',
+  motherName: 'Nama ibu kandung',
+  address: 'Alamat',
+  phone: 'No. HP',
+  nik: 'NIK',
+  bpjs: 'No. peserta BPJS',
+  ihs: 'IHS SATUSEHAT',
+  paspor: 'Paspor',
+};
+
+/** Batas pembatalan penggabungan rekam medis. */
+export const MERGE_UNDO_DAYS = 30;
+
+/** open: menunggu tinjauan · merged/distinct: diputuskan petugas · superseded: salah satu sudah digabung ke lain. */
+export const MATCH_STATUSES = ['open', 'merged', 'distinct', 'superseded'] as const;
+export type MatchStatus = (typeof MATCH_STATUSES)[number];
+
 /** Status verifikasi identifier ke sumber resmi (NIK → Dukcapil). */
 export const IDENTIFIER_VERIFICATION = [
   'unverified',

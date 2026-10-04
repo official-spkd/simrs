@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { insertPatient, lockTenantScope, type Prisma, toDbDate } from '@simrs/db';
+import { insertPatient, lockMpi, lockTenantScope, type Prisma, toDbDate } from '@simrs/db';
 import {
   AppError,
   type CreatePatientInput,
@@ -24,6 +24,7 @@ import {
 import { PatientCrypto } from '@simrs/shared/node';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { TenantDb } from '../../infra/tenant-db';
+import { DuplicateDetector } from './duplicate-detector';
 import { PatientAccessService } from '../authz/patient-access.service';
 import { MpiRepository, type PatientRow } from './mpi.repository';
 
@@ -72,6 +73,7 @@ export class MpiService {
     private readonly db: TenantDb,
     private readonly repo: MpiRepository,
     private readonly access: PatientAccessService,
+    private readonly detector: DuplicateDetector,
   ) {}
 
   private crypto(): PatientCrypto {
@@ -133,7 +135,10 @@ export class MpiService {
             );
       if (onlyFor) ids = await this.repo.accessibleAmong(ids, onlyFor);
     }
-    const rows = await this.repo.listByIds(ids, parsed.kind === 'name' ? undefined : birthDate);
+    const listed = await this.repo.listByIds(ids, parsed.kind === 'name' ? undefined : birthDate);
+    // Rekam medis yang sudah digabung tidak ditampilkan bila rekam medis tujuannya ikut tampil.
+    const shown = new Set(listed.map((r) => r.id));
+    const rows = listed.filter((r) => !(r.mergedInto && shown.has(r.mergedInto.id)));
     for (const r of rows) {
       // Teks pencarian tidak dicatat (bisa berisi NIK/nama); cukup jenisnya.
       this.db.audit({
@@ -153,14 +158,18 @@ export class MpiService {
   }
 
   async create(input: CreatePatientInput): Promise<PatientDetail> {
+    // Kunci MPI dulu (urutan kunci sama di semua alur yang menulis antrean duplikat → tanpa deadlock).
+    await lockMpi(this.db.tx());
     const crypto = this.crypto();
     await this.assertIdentifiersFree(crypto, input.identifiers);
     const { id } = await insertPatient(this.db.tx(), crypto, { ...input, createdBy: this.db.actorUserId() });
+    await this.detector.run(crypto, id);
     return this.detail(await this.load(id), crypto);
   }
 
   async update(id: string, input: UpdatePatientInput): Promise<PatientDetail> {
     await this.assertAccess(id);
+    await lockMpi(this.db.tx());
     const row = await this.load(id);
     this.assertActive(row);
     const unidentified = input.unidentified ?? row.unidentified;
@@ -189,7 +198,9 @@ export class MpiService {
       data.phoneHash = input.phone ? crypto.phoneHash(input.phone) : null;
     }
     if (input.unidentified !== undefined) data.unidentified = input.unidentified;
-    return this.detail(await this.repo.update(id, data), crypto);
+    const updated = await this.repo.update(id, data);
+    await this.detector.run(crypto, id);
+    return this.detail(updated, crypto);
   }
 
   /** Isi atau ganti satu identifier. Nilai lama tidak dihapus: dinonaktifkan dengan alasan. */
@@ -203,6 +214,7 @@ export class MpiService {
       throw new AppError('VALIDATION_FAILED', IDENTIFIER_SYSTEMS[system].hint, 400);
     }
     await this.assertAccess(id);
+    await lockMpi(this.db.tx());
     const row = await this.load(id);
     this.assertActive(row);
     const crypto = this.crypto();
@@ -226,6 +238,7 @@ export class MpiService {
       reason: input.reason ?? null,
       details: { system, replaced: Boolean(current) },
     });
+    await this.detector.run(crypto, id);
     return this.detail(await this.load(id), crypto);
   }
 
@@ -268,9 +281,9 @@ export class MpiService {
       if (owner) {
         throw new AppError(
           'CONFLICT',
-          `${IDENTIFIER_SYSTEMS[system].label} sudah terdaftar pada rekam medis ${owner.patient.mrn}`,
+          `${IDENTIFIER_SYSTEMS[system].label} sudah terdaftar pada rekam medis ${owner.mrn}`,
           409,
-          { system, patientId: owner.patient.id, mrn: owner.patient.mrn },
+          { system, patientId: owner.id, mrn: owner.mrn },
         );
       }
     }

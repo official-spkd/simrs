@@ -35,13 +35,16 @@ export const PATIENT_SELECT = {
 
 export type PatientRow = Prisma.PatientGetPayload<{ select: typeof PATIENT_SELECT }>;
 
-/** Relasi aktif atau akses darurat yang masih berlaku untuk pelaku (ABAC lingkup `relationship`/`unit`). */
+/**
+ * Relasi aktif atau akses darurat yang masih berlaku untuk pelaku (ABAC lingkup `relationship`/`unit`), ke
+ * pasien ini atau rekam medis lain milik orang yang sama (kelompok gabungan, `app_patient_group`).
+ */
 const accessibleBy = (userId: string) => Prisma.sql`(
   EXISTS (SELECT 1 FROM access_relationships r
-          WHERE r.patient_id = p.id AND r.user_id = ${userId}::uuid
+          WHERE r.patient_id IN (SELECT app_patient_group(p.id)) AND r.user_id = ${userId}::uuid
             AND r.valid_from <= now() AND (r.valid_until IS NULL OR r.valid_until > now()))
   OR EXISTS (SELECT 1 FROM break_glass_grants g
-             WHERE g.patient_id = p.id AND g.user_id = ${userId}::uuid
+             WHERE g.patient_id IN (SELECT app_patient_group(p.id)) AND g.user_id = ${userId}::uuid
                AND g.granted_at <= now() AND g.expires_at > now()))`;
 
 /** P05 · Akses data MPI (selalu transaksi permintaan, RLS aktif). */
@@ -82,17 +85,33 @@ export class MpiRepository {
     return [...new Set(rows.map((r) => r.patientId))];
   }
 
-  /** Pemilik aktif lain dari nilai identifier ini (cek NIK/BPJS ganda saat daftar atau ganti identifier). */
-  findIdentifierOwner(system: IdentifierSystem, valueHash: string, exceptPatientId?: string) {
-    return this.db.tx().patientIdentifier.findFirst({
+  /**
+   * Rekam medis lain yang memegang nilai identifier ini (cek NIK/BPJS ganda saat daftar atau ganti identifier).
+   * Rekam medis yang sudah digabung diarahkan ke rekam medis yang dipertahankan.
+   */
+  async findIdentifierOwner(
+    system: IdentifierSystem,
+    valueHash: string,
+    exceptPatientId?: string,
+  ): Promise<{ id: string; mrn: string } | null> {
+    const row = await this.db.tx().patientIdentifier.findFirst({
       where: {
         system,
         valueHash,
         active: true,
         ...(exceptPatientId ? { patientId: { not: exceptPatientId } } : {}),
       },
-      select: { patient: { select: { id: true, mrn: true } } },
+      orderBy: { patient: { status: 'asc' } },
+      select: {
+        patient: {
+          select: { id: true, mrn: true, status: true, mergedInto: { select: { id: true, mrn: true } } },
+        },
+      },
     });
+    if (!row) return null;
+    const owner =
+      row.patient.status === 'merged' && row.patient.mergedInto ? row.patient.mergedInto : row.patient;
+    return owner.id === exceptPatientId ? null : { id: owner.id, mrn: owner.mrn };
   }
 
   /**
