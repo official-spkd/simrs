@@ -61,12 +61,27 @@ export interface AttemptResult {
   permanent?: boolean;
 }
 
+/** Batas coba ulang satu pesan (kebijakan per operasi ditentukan worker; bawaan = ADR-0003). */
+export interface RecordAttemptOptions {
+  now?: Date;
+  /** Percobaan maksimum sebelum DLQ (bawaan `OUTBOX_MAX_ATTEMPTS`); `Infinity` = hanya dibatasi `deadline`. */
+  maxAttempts?: number;
+  /** Batas atas jeda backoff (bawaan 5 menit). */
+  capMs?: number;
+  /**
+   * Tidak ada percobaan pada/sesudah waktu ini: bila jadwal ulang jatuh di atau setelahnya, pesan langsung DLQ
+   * (mis. akhir hari layanan WIB untuk SEP/task ID BPJS, keputusan fase 2 #13).
+   */
+  deadline?: Date;
+  random?: () => number;
+}
+
 /** Catat hasil satu percobaan; hitung jadwal retry atau pindahkan ke DLQ (status `dead`). */
 export async function recordOutboxAttempt(
   tx: TenantTx,
   message: { id: string; tenantId: string; attempts: number },
   result: AttemptResult,
-  opts: { now?: Date; maxAttempts?: number; random?: () => number } = {},
+  opts: RecordAttemptOptions = {},
 ) {
   const now = opts.now ?? new Date();
   const attemptNo = message.attempts + 1;
@@ -92,17 +107,43 @@ export async function recordOutboxAttempt(
       data: { status: 'sent', attempts: attemptNo, sentAt: now, lastError: null },
     });
   }
-  const dead = result.permanent || attemptNo >= maxAttempts;
+  const retryAt = new Date(
+    now.getTime() + backoffDelayMs(attemptNo, 1000, opts.capMs ?? 5 * 60_000, opts.random),
+  );
+  const pastDeadline = opts.deadline !== undefined && retryAt.getTime() >= opts.deadline.getTime();
+  const dead = result.permanent || attemptNo >= maxAttempts || pastDeadline;
+  const error = result.error ?? `HTTP ${result.statusCode ?? '?'}`;
   return tx.outboxMessage.update({
     where: { id: message.id },
     data: {
       status: dead ? 'dead' : 'failed',
       attempts: attemptNo,
-      lastError: result.error?.slice(0, 500) ?? `HTTP ${result.statusCode ?? '?'}`,
+      lastError: (pastDeadline && !result.permanent
+        ? `${error} · batas waktu coba ulang terlewati`
+        : error
+      ).slice(0, 500),
       deadAt: dead ? now : null,
-      nextAttemptAt: dead
-        ? now
-        : new Date(now.getTime() + backoffDelayMs(attemptNo, 1000, 5 * 60_000, opts.random)),
+      nextAttemptAt: dead ? now : retryAt,
+    },
+  });
+}
+
+/**
+ * Tunda pesan yang sudah diklaim tanpa menghabiskan percobaan (mis. task ID BPJS menunggu task sebelumnya):
+ * kembali `pending` dan jatuh tempo pada `until`. Tidak ada baris `delivery_attempts` karena tidak ada yang dikirim;
+ * alasannya terlihat di `last_error` (`ditunda: …`) sampai pesan terkirim.
+ */
+export async function deferOutboxMessage(
+  tx: TenantTx,
+  message: { id: string },
+  opts: { until: Date; reason: string },
+) {
+  return tx.outboxMessage.update({
+    where: { id: message.id },
+    data: {
+      status: 'pending',
+      nextAttemptAt: opts.until,
+      lastError: `ditunda: ${opts.reason}`.slice(0, 500),
     },
   });
 }

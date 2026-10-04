@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   claimDueOutbox,
   createPrismaClient,
+  deferOutboxMessage,
   enqueueOutbox,
   isTenantRequiredError,
   listActiveTenantIds,
@@ -137,6 +138,77 @@ describe('outbox', () => {
       tx.deliveryAttempt.count({ where: { outboxMessageId: first.id } }),
     );
     expect(attempts).toBe(3);
+  });
+});
+
+describe('outbox · batas waktu dan penundaan', () => {
+  async function claimed(key: string, now: Date) {
+    const msg = await withTenant(app, A.id, (tx) =>
+      enqueueOutbox(tx, A.id, { target: 'bpjs', operation: 'ping', idempotencyKey: key, payload: {} }),
+    );
+    const rows = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 50, now));
+    const row = rows.find((m) => m.id === msg.id);
+    expect(row).toBeDefined();
+    return row!;
+  }
+
+  it('deadline: jadwal ulang yang jatuh pada/sesudah batas → DLQ; sebelum batas → tetap dicoba ulang', async () => {
+    const now = new Date(Date.now() + 1000);
+    const fail = { ok: false, statusCode: 503, error: 'HTTP 503', durationMs: 1 };
+    const early = await claimed(`dl-${newId()}`, now);
+    const kept = await withTenant(app, A.id, (tx) =>
+      recordOutboxAttempt(tx, early, fail, {
+        now,
+        maxAttempts: Infinity,
+        deadline: new Date(now.getTime() + 1001),
+        random: () => 1,
+      }),
+    );
+    expect(kept).toMatchObject({ status: 'failed', attempts: 1, lastError: 'HTTP 503' });
+    expect(kept.nextAttemptAt.getTime() - now.getTime()).toBe(1000);
+
+    const late = await claimed(`dl-${newId()}`, now);
+    const dead = await withTenant(app, A.id, (tx) =>
+      recordOutboxAttempt(tx, late, fail, {
+        now,
+        maxAttempts: Infinity,
+        deadline: new Date(now.getTime() + 1000),
+        random: () => 1,
+      }),
+    );
+    expect(dead).toMatchObject({ status: 'dead', lastError: 'HTTP 503 · batas waktu coba ulang terlewati' });
+  });
+
+  it('capMs membatasi jeda; maxAttempts Infinity tidak pernah DLQ karena hitungan', async () => {
+    const now = new Date(Date.now() + 1000);
+    const row = await claimed(`cap-${newId()}`, now);
+    const updated = await withTenant(app, A.id, (tx) =>
+      recordOutboxAttempt(
+        tx,
+        { ...row, attempts: 40 },
+        { ok: false, statusCode: 503, durationMs: 1 },
+        { now, maxAttempts: Infinity, capMs: 7_000, random: () => 1 },
+      ),
+    );
+    expect(updated.status).toBe('failed');
+    expect(updated.nextAttemptAt.getTime() - now.getTime()).toBe(7_000);
+  });
+
+  it('penundaan tidak menambah percobaan dan tidak mencatat delivery_attempts', async () => {
+    const now = new Date(Date.now() + 1000);
+    const row = await claimed(`defer-${newId()}`, now);
+    const until = new Date(now.getTime() + 30_000);
+    const deferred = await withTenant(app, A.id, (tx) =>
+      deferOutboxMessage(tx, row, { until, reason: 'menunggu task 1' }),
+    );
+    expect(deferred).toMatchObject({ status: 'pending', attempts: 0, lastError: 'ditunda: menunggu task 1' });
+    expect(deferred.nextAttemptAt.toISOString()).toBe(until.toISOString());
+    const count = await withTenant(app, A.id, (tx) =>
+      tx.deliveryAttempt.count({ where: { outboxMessageId: row.id } }),
+    );
+    expect(count).toBe(0);
+    const before = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 50, new Date(until.getTime() - 1)));
+    expect(before.map((m) => m.id)).not.toContain(row.id);
   });
 });
 
