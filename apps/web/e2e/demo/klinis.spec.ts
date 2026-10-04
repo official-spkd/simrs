@@ -116,6 +116,23 @@ test.describe('klinis rawat jalan', () => {
     await expect(send).toBeEnabled();
   });
 
+  test('CSP ber-nonce (ADR-0073): layar poli terhidrasi tanpa pelanggaran CSP', async ({ page }) => {
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error' && /Content Security Policy/i.test(m.text())) violations.push(m.text());
+    });
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/klinis/poli');
+    const res = await page.goto('/klinis/poli');
+    const csp = res?.headers()['content-security-policy'] ?? '';
+    expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'(;|$)/);
+    // Pencarian antrean berjalan di klien: hanya bekerja bila halaman terhidrasi.
+    const queue = page.getByRole('region', { name: 'Antrean poli' });
+    await queue.getByLabel('Cari pasien').fill('00124578');
+    await expect(queue.getByRole('link')).toHaveCount(1);
+    expect(violations).toEqual([]);
+  });
+
   test('kunjungan tak dikenal → 404 di pemeriksaan poli dan CPOE (bukan membuka pasien lain)', async ({
     page,
   }) => {
