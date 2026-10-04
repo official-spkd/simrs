@@ -231,6 +231,20 @@ describe('temuan anomali', () => {
     await as('privasi')
       .post('/api/v1/audit/anomalies/review', { key: 'bukan:kunci', outcome: 'sah' })
       .expect(400);
+    // Kunci yang mustahil menjadi temuan tidak meninggalkan entri tinjauan permanen.
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', {
+        key: `login_failed:${u.kasir?.id}:${todayWib(2)}`,
+        outcome: 'sah',
+      })
+      .expect(400);
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', { key: `night:${newId()}:${todayWib()}`, outcome: 'sah' })
+      .expect(404);
+    // Gagal masuk dengan nama pengguna tak dikenal (`-`) tetap bisa ditinjau.
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', { key: `login_failed:-:${todayWib()}`, outcome: 'sah' })
+      .expect(200);
   });
 
   it('jendela temuan mulai 00.00 WIB sehingga hari pertama dihitung utuh', async () => {
@@ -353,18 +367,17 @@ describe('riwayat tinjauan temuan', () => {
     const seen = await http().get(historyUrl(key)).set(bearer(tokLain)).expect(200);
     expect(seen.body.items).toEqual([]);
 
-    // Tinjauan dari RS lain hanya masuk jejak RS itu; riwayat RS ini tidak berubah.
+    // Akun subjek tidak ada di RS lain: tinjauan ditolak, riwayat RS ini tidak berubah.
     await http()
       .post('/api/v1/audit/anomalies/review')
       .set(bearer(tokLain))
       .send({ key, outcome: 'perlu_klarifikasi', note: 'Tinjauan RS lain' })
-      .expect(200);
+      .expect(404);
     const mine = await asExtra('auditor')(historyUrl(key)).expect(200);
     expect(mine.body.items).toHaveLength(2);
     expect(mine.body.items[0]).toMatchObject({ outcome: 'sah', effective: true });
     const theirs = await http().get(historyUrl(key)).set(bearer(tokLain)).expect(200);
-    expect(theirs.body.items).toHaveLength(1);
-    expect(theirs.body.items[0]).toMatchObject({ reviewer: { id: privasiLain.id }, effective: true });
+    expect(theirs.body.items).toEqual([]);
   });
 });
 

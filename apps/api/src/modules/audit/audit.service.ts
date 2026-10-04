@@ -336,11 +336,18 @@ export class AuditService {
    * Keputusan tinjauan anomali = entri audit `review` (append-only). Pelaku tidak boleh meninjau temuan tentang
    * dirinya sendiri. Tinjauan ulang menambah entri baru; yang terbaru berlaku.
    */
-  reviewAnomaly(input: AuditAnomalyReviewInput) {
-    const m = AUDIT_ANOMALY_KEY.exec(input.key);
-    const subject = m?.[2];
+  async reviewAnomaly(input: AuditAnomalyReviewInput) {
+    const [, , subject, day] = AUDIT_ANOMALY_KEY.exec(input.key) ?? [];
     if (subject && subject === this.db.actorUserId()) {
       throw new AppError('CONFLICT', 'Tidak bisa meninjau temuan tentang akun sendiri', 409);
+    }
+    // Entri tinjauan tidak bisa dihapus: tolak kunci yang mustahil menjadi temuan RS ini (tanggal mendatang, atau
+    // akun di luar RS ini; RLS menyembunyikan pengguna tenant lain).
+    if (!day || day > isoDateJakarta()) {
+      throw new AppError('VALIDATION_FAILED', 'Tanggal temuan tidak valid', 400);
+    }
+    if (subject && subject !== '-' && (await this.repo.users([subject])).length === 0) {
+      throw new AppError('NOT_FOUND', 'Temuan tidak ditemukan', 404);
     }
     this.db.audit({
       action: 'review',
