@@ -87,8 +87,9 @@ export class IamService {
 
   /**
    * Tolak perubahan yang membuat admin aktif habis. Hanya berlaku bila perubahan itu benar-benar mengurangi
-   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Dikunci per tenant
-   * agar dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos.
+   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Admin aktif = bisa masuk
+   * (punya kata sandi); admin yang belum diaktifkan tidak menyelamatkan RS. Dikunci per tenant agar dua admin yang
+   * saling menonaktifkan bersamaan tidak sama-sama lolos.
    */
   private async assertKeepsAnAdmin(exclude: { assignmentId?: string; userId?: string }) {
     await this.repo.lockAdminChanges();

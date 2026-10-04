@@ -311,13 +311,19 @@ export class IamRepository {
     });
   }
 
-  /** Jumlah pengguna AKTIF dengan penugasan admin yang masih berlaku, opsional mengecualikan satu penugasan/pengguna. */
+  /**
+   * Jumlah penugasan admin yang masih berlaku milik pengguna yang BISA MASUK: status aktif dan sudah punya kata
+   * sandi (baris `user_credentials`). Admin yang belum diaktifkan (mis. staf seed tanpa sandi) tidak dihitung,
+   * karena tidak bisa memulihkan RS bila admin terakhir yang nyata dicabut. MFA tidak disyaratkan: admin yang baru
+   * direset sedang menjalani login pertama (ADR-0012, pembaruan 5 Okt 2026). Opsional mengecualikan satu
+   * penugasan/pengguna.
+   */
   countActiveAdmins(exclude: { assignmentId?: string; userId?: string } = {}) {
     return this.db.tx().staffAssignment.count({
       where: {
         ...activeAt(now()),
         role: { code: { in: [...PROTECTED_ROLES] }, active: true },
-        user: { status: 'active' },
+        user: { status: 'active', credential: { isNot: null } },
         ...(exclude.assignmentId ? { id: { not: exclude.assignmentId } } : {}),
         ...(exclude.userId ? { userId: { not: exclude.userId } } : {}),
       },
