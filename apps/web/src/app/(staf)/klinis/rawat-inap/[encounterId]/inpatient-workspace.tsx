@@ -1,8 +1,8 @@
 'use client';
 
 import type { CpptEntry, InpatientDetail } from '@simrs/shared';
-import { useState } from 'react';
-import { PillTabs } from '@/components/rawat-inap/pill-tabs';
+import { useId, useState } from 'react';
+import { PillTabPanel, PillTabs } from '@/components/rawat-inap/pill-tabs';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { emarTurnBlocker } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
@@ -35,6 +35,7 @@ export function InpatientWorkspace({
   sbar: { s: string; b: string; a: string; r: string };
 }) {
   const { runTask, pending, error } = useScenarioTask(scenario?.rev ?? 0);
+  const tabsId = useId();
   const [tab, setTab] = useState<string>(initialTab);
   const [added, setAdded] = useState<CpptEntry[]>([]);
   const [cosigned, setCosigned] = useState<Record<string, { by: string; at: string }>>({});
@@ -129,13 +130,14 @@ export function InpatientWorkspace({
         {/* Pil tab (mockup Ranap) membungkus di layar sempit; panel diatur di sini. */}
         <PillTabs
           label="Bagian rekam rawat inap"
+          idBase={tabsId}
           value={current.id}
           onChange={setTab}
           items={items.map(({ id, label }) => ({ id, label }))}
         />
-        <div role="tabpanel" aria-label={current.label}>
+        <PillTabPanel idBase={tabsId} value={current.id}>
           {current.content}
-        </div>
+        </PillTabPanel>
       </div>
     </div>
   );

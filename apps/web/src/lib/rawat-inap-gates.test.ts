@@ -7,6 +7,7 @@ import {
   emarWristbandScanInputSchema,
 } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
+import { pillTabIds, pillTabTarget } from '../components/rawat-inap/pill-tabs-model';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
 import { patientById } from './demo/fixtures/pasien';
@@ -321,5 +322,18 @@ describe('K07 · CPPT: koreksi hanya penulis, PPA lain addendum', () => {
     const own = localCpptId(other.id, 1_700_000_000_000);
     expect(cpptCorrectionBlocker(entries, own, other)).toBeNull();
     expect(cpptCorrectionBlocker(entries, own, author)).toMatch(/tidak ditemukan/);
+  });
+});
+
+describe('komponen rawat inap: tab ARIA', () => {
+  it('panah kiri/kanan berputar, Home/End ke ujung; tab ↔ panel berpasangan', () => {
+    expect(pillTabTarget('ArrowRight', 4, 5)).toBe(0);
+    expect(pillTabTarget('ArrowLeft', 0, 5)).toBe(4);
+    expect(pillTabTarget('ArrowRight', 1, 5)).toBe(2);
+    expect(pillTabTarget('Home', 3, 5)).toBe(0);
+    expect(pillTabTarget('End', 0, 5)).toBe(4);
+    expect(pillTabTarget('Enter', 0, 5)).toBeNull();
+    expect(pillTabTarget('ArrowRight', 0, 0)).toBeNull();
+    expect(pillTabIds(':r1:', 'cppt')).toEqual({ tab: ':r1:-tab-cppt', panel: ':r1:-panel-cppt' });
   });
 });
