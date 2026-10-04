@@ -62,6 +62,8 @@ export async function createAccount(
     mfa?: boolean;
     mustChangePassword?: boolean;
     displayName?: string;
+    /** false = akun tanpa kata sandi (belum diaktifkan, seperti staf seed); `password` tidak berlaku. */
+    credential?: boolean;
   } = {},
 ): Promise<Account> {
   const tenantCode = opts.tenant ?? 'RSFA';
@@ -86,7 +88,9 @@ export async function createAccount(
         mustChangePassword: opts.mustChangePassword ?? false,
       },
     });
-    await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    if (opts.credential !== false) {
+      await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    }
     for (const code of opts.roles ?? []) {
       const role = await tx.role.findFirstOrThrow({ where: { code } });
       await tx.staffAssignment.create({ data: { id: newId(), tenantId, userId: id, roleId: role.id } });

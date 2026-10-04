@@ -133,9 +133,10 @@ export default defineConfig({
         // Web (BFF) di loopback: IP klien dari X-Forwarded-For kiriman web.
         TRUST_PROXY: 'loopback',
         ALLOW_DEV_TENANT_HEADER: 'false',
-        // Semua tes datang dari satu IP (loopback); batas laju diuji di tes API.
+        // Semua tes datang dari satu IP (loopback) dan akun presentasi dipakai paralel; batas laju diuji di tes API.
         AUTH_RATE_LIMIT_PER_MIN: '10000',
         RATE_LIMIT_PER_MIN: '100000',
+        USER_RATE_LIMIT_PER_MIN: '100000',
         LOG_LEVEL: 'warn',
         ...MOCK_ENV,
       },
@@ -167,8 +168,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 300_000,
       env: {
-        // Build produksi selalu NODE_ENV=production, walau pemanggil (mis. with-pg yang memuat .env) mewariskan
-        // NODE_ENV=development; campuran keduanya merusak prerender Next.
+        // Build produksi selalu NODE_ENV=production, walau pemanggil mewariskan NODE_ENV lain (mis. diekspor di shell);
+        // campuran keduanya merusak prerender Next. with-pg tidak lagi meneruskan NODE_ENV dari .env.
         NODE_ENV: 'production',
         APP_ENV: 'local',
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,

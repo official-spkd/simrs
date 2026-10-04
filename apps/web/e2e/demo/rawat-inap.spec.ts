@@ -12,6 +12,21 @@ async function openAs(page: Page, roles: string[], path: string) {
   await page.goto(path);
 }
 
+/** Lompat skenario aktif di layar Simulasi ke tahap `stage` (tugas sebelumnya dikerjakan dengan nilai bawaan). */
+async function jumpTo(page: Page, stage: string) {
+  await page.getByText('Lompat ke tahap', { exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${stage}$`) }).click();
+  await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${stage}`))).toBeVisible();
+}
+
+/** Pilih tab skenario di layar Simulasi lalu lompat ke tahapnya. */
+async function scenarioAt(page: Page, tab: string, patient: string, stage: string) {
+  await page.goto('/simulasi');
+  await page.getByRole('tab', { name: tab }).click();
+  await expect(page.getByText(patient).first()).toBeVisible();
+  await jumpTo(page, stage);
+}
+
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -26,8 +41,11 @@ test.describe('IGD', () => {
     const board = page.getByRole('region', { name: 'Papan pasien IGD' });
     await expect(board.getByText('1 · Resusitasi')).toBeVisible();
     await expect(board.getByText('5 · Tidak urgen')).toBeVisible();
-    // Pasien skenario IGD → rawat inap ada di area triase sejak skenario dimulai.
-    await expect(board.getByRole('button', { name: /Tn\. Hartono Wibisono/ })).toContainText('Belum triase');
+    // Pasien skenario IGD → rawat inap ada di area triase sejak skenario dimulai, anonim sampai dicocokkan di MPI.
+    await expect(
+      board.getByRole('button', { name: /Pasien laki-laki ±60 th · identitas belum dicocokkan/ }),
+    ).toContainText('Belum triase');
+    await expect(board.getByText('Tn. Hartono Wibisono')).toHaveCount(0);
 
     await board.getByRole('button', { name: 'Level 4 · Semi-urgen' }).click();
     const rows = board.getByRole('list', { name: 'Pasien di IGD' }).getByRole('listitem');
@@ -110,14 +128,30 @@ test.describe('rawat inap', () => {
     await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
     await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
     await expect(dose).toBeEnabled();
-    await dose.click();
-    await expect(emar.getByText('Pemberian tercatat shift ini')).toBeVisible();
 
-    // Dosis terlambat wajib alasan.
+    // Satu dosis: pilih slot → pindai label obat → (kewaspadaan tinggi: cek ganda perawat kedua) → catat.
+    await dose.click();
+    const insulin = emar.getByRole('region', { name: /^Insulin aspart sesuai skala · jadwal 12\.00/ });
+    const record = insulin.getByRole('button', { name: 'Catat pemberian' });
+    await expect(record).toBeDisabled();
+    await expect(insulin.getByText('Pindai label obat dulu.')).toBeVisible();
+    await insulin.getByRole('button', { name: 'Pindai label obat' }).click();
+    await expect(insulin.getByText(/Obat benar · label terpindai/)).toBeVisible();
+    await expect(record).toBeDisabled();
+    await expect(insulin.getByText('Isi nama perawat kedua yang melakukan cek ganda.')).toBeVisible();
+    await insulin.getByLabel(/Cek ganda: nama perawat kedua/).fill('Ns. Pemeriksa Kedua');
+    await record.click();
+    await expect(emar.getByText('Pemberian tercatat shift ini')).toBeVisible();
+    await expect(dose).toContainText('cek ganda');
+    await expect(insulin).toHaveCount(0);
+
+    // Dosis terlambat (status dari rekam server) wajib alasan.
     await emar.getByRole('button', { name: /^Omeprazol 40 mg injeksi jam 08\.00/ }).click();
-    const late = emar.getByRole('button', { name: 'Catat pemberian terlambat' });
+    const lateDose = emar.getByRole('region', { name: /^Omeprazol 40 mg injeksi · jadwal 08\.00 terlambat/ });
+    await lateDose.getByRole('button', { name: 'Pindai label obat' }).click();
+    const late = lateDose.getByRole('button', { name: 'Catat pemberian terlambat' });
     await expect(late).toBeDisabled();
-    await emar.getByLabel(/Alasan keterlambatan/).fill('Pasien sedang foto toraks di radiologi');
+    await lateDose.getByLabel(/Alasan keterlambatan/).fill('Pasien sedang foto toraks di radiologi');
     await late.click();
     await expect(emar.getByText(/terlambat · Pasien sedang foto toraks/)).toBeVisible();
 
@@ -127,6 +161,100 @@ test.describe('rawat inap', () => {
     await cppt.getByRole('button', { name: 'Simpan dan tanda tangani' }).click();
     await expect(cppt.getByText('S wajib diisi.')).toBeVisible();
     await expect(cppt.getByText('Versi 2 · koreksi: Salah ketik nilai SpO2')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('CPPT: koreksi = versi baru beralasan, hanya oleh penulisnya; versi lama tetap tampil', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/klinis/rawat-inap/kj-endang');
+    const cppt = page.getByRole('region', { name: 'CPPT terintegrasi' });
+    const notes = cppt.getByRole('list', { name: 'Catatan CPPT' }).getByRole('listitem');
+
+    // Catatan PPA lain tidak bisa dikoreksi pengguna ini: hanya addendum (catatan asli tidak berubah).
+    const other = notes.filter({ hasText: 'Edukasi pencegahan jatuh diulang ke keluarga' });
+    await expect(other.getByRole('button', { name: /^Koreksi/ })).toHaveCount(0);
+    await other.getByRole('button', { name: /^Addendum atas CPPT/ }).click();
+    const add = cppt.getByRole('form', { name: 'Addendum CPPT' });
+    await add.getByLabel(/S · Subjektif/).fill('Keluarga memahami edukasi');
+    await add.getByLabel(/A · Asesmen/).fill('Risiko jatuh terkendali');
+    await add.getByRole('button', { name: 'Simpan addendum' }).click();
+    await expect(cppt.getByRole('status')).toContainText('Addendum tersimpan');
+    await expect(notes.filter({ hasText: 'Keluarga memahami edukasi' })).toContainText(
+      'Addendum atas catatan',
+    );
+    await expect(other).toContainText('Edukasi pencegahan jatuh diulang ke keluarga');
+
+    // Catatan sendiri: koreksi wajib alasan, disimpan sebagai versi 2.
+    await cppt.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
+    const form = cppt.getByRole('form', { name: 'Tulis CPPT baru' });
+    await form.getByLabel(/S · Subjektif/).fill('Pusing ringan setelah bangun');
+    await form.getByLabel(/O · Objektif/).fill('TD 150/90 · nadi 84');
+    await form.getByLabel(/A · Asesmen/).fill('Risiko jatuh');
+    await form.getByRole('button', { name: 'Simpan dan tanda tangani' }).click();
+    await expect(cppt.getByRole('status')).toContainText('CPPT baru tersimpan');
+    const mine = notes.filter({ hasText: 'TD 150/90 · nadi 84' });
+    await mine.getByRole('button', { name: /^Koreksi CPPT/ }).click();
+    const fix = cppt.getByRole('form', { name: 'Koreksi CPPT' });
+    await fix.getByLabel(/O · Objektif/).fill('TD 130/90 · nadi 84');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(fix.getByText(/^Alasan koreksi wajib/)).toBeVisible();
+    await fix.getByLabel(/Alasan koreksi/).fill('Salah ketik tekanan darah sistolik');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(cppt.getByRole('status')).toContainText(/Koreksi tersimpan .* sebagai versi 2/);
+
+    await expect(notes.filter({ hasText: 'TD 130/90 · nadi 84' })).toContainText(
+      'Versi 2 · koreksi: Salah ketik tekanan darah sistolik',
+    );
+    const old = notes.filter({ hasText: 'TD 150/90 · nadi 84' });
+    await expect(old).toContainText('Versi lama · digantikan koreksi (tetap tersimpan)');
+    await expect(old.getByRole('button', { name: /^Koreksi/ })).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('pasien skenario: pindai gelang membuka grid, lalu lima dosis 08.00 dicatat satu per satu', async ({
+    page,
+  }) => {
+    const account = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, account, '/simulasi');
+    await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Rawat inap');
+    await page.goto('/klinis/rawat-inap/kj-hartono');
+    const journey = page.getByRole('region', { name: 'Perjalanan rawat (simulasi)' });
+    const day1 = journey.getByRole('button', { name: 'Lompat ke hari 1 pagi' });
+    await expect(day1).toBeDisabled();
+
+    const emar = page.getByRole('region', { name: 'eMAR' });
+    const due = emar.getByRole('button', { name: / jam 08\.00 · Jadwal/ });
+    await expect(due).toHaveCount(5);
+    await expect(due.first()).toBeDisabled();
+    await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
+    await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
+    await expect(emar.getByText(/Dosis jam 08\.00: 0 dari 5 tercatat/)).toBeVisible();
+
+    for (let i = 0; i < 5; i += 1) {
+      const name = (await due.first().getAttribute('aria-label')) ?? '';
+      await due.first().click();
+      const panel = emar.getByRole('region', { name: /· jadwal 08\.00/ });
+      const record = panel.getByRole('button', { name: 'Catat pemberian' });
+      await expect(record).toBeDisabled();
+      await panel.getByRole('button', { name: 'Pindai label obat' }).click();
+      if (name.startsWith('Enoksaparin')) {
+        // Obat kewaspadaan tinggi: belum bisa dicatat tanpa cek ganda perawat kedua.
+        await expect(record).toBeDisabled();
+        await panel.getByLabel(/Cek ganda: nama perawat kedua/).fill('Ns. Pemeriksa Kedua');
+      }
+      await record.click();
+      await expect(due).toHaveCount(4 - i);
+      if (i < 4) {
+        // Dosis lain belum diberikan: tugas Simulasi belum selesai, lompat hari masih terkunci.
+        await expect(emar.getByText(new RegExp(`Dosis jam 08\\.00: ${i + 1} dari 5 tercatat`))).toBeVisible();
+        await expect(day1).toBeDisabled();
+      }
+    }
+    // Dosis terakhir tercatat → tugas `emar` Simulasi selesai, hari berikutnya terbuka.
+    await expect(journey).toContainText('Obat jadwal pertama tercatat per dosis');
+    await expect(day1).toBeEnabled();
+    await expect(emar.getByRole('listitem')).toHaveCount(5);
     await expectNoHorizontalScroll(page);
   });
 });
@@ -176,6 +304,79 @@ test.describe('persetujuan tindakan (tablet)', () => {
       .fill('Ingin berdiskusi dengan keluarga besar dulu');
     await form.getByRole('button', { name: 'Catat penolakan' }).click();
     await expect(tablet.getByRole('status').filter({ hasText: 'Pasien menolak tindakan' })).toBeVisible();
+    await expect(tablet.getByText('Status: Ditolak pasien')).toBeVisible();
     await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+  });
+
+  test('persetujuan Tn. Hartono menunggu giliran; pada gilirannya TTE dokter memajukan simulasi', async ({
+    page,
+  }) => {
+    const account = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, account, '/simulasi');
+    await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Tata laksana');
+
+    // Langkah tata laksana dimulai tetapi tugas persetujuan belum gilirannya: tablet hanya bisa dibaca.
+    await page.goto('/tablet/persetujuan/pk-hartono');
+    const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
+    await expect(
+      tablet.getByRole('status').filter({ hasText: 'Menunggu giliran persetujuan di Simulasi.' }),
+    ).toBeVisible();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Lanjut', exact: true })).toBeDisabled();
+
+    // Tugas sebelumnya di langkah itu selesai → giliran persetujuan; pintu tablet langsung membuka dokumennya.
+    await page.goto('/simulasi');
+    await page.getByRole('button', { name: /^Kalsium glukonat IV \+ insulin/ }).click();
+    await page.getByRole('button', { name: /^Ganti omeprazol ke pantoprazol/ }).click();
+    await page.getByRole('button', { name: /^ICU\/ICCU/ }).click();
+    await expect(page.getByRole('button', { name: 'Tanda tangani', exact: true })).toBeEnabled();
+    await page.goto('/tablet/persetujuan');
+    await expect(page).toHaveURL(/\/tablet\/persetujuan\/pk-hartono$/);
+    await expect(tablet.getByText('Status: Menunggu tanda tangan')).toBeVisible();
+    for (const box of await tablet.getByRole('checkbox', { name: /^Saya memahami/ }).all()) await box.check();
+    await tablet.getByRole('button', { name: 'Lanjut ke tanda tangan' }).click();
+    const typed = tablet.getByLabel('Atau ketik nama lengkap sebagai tanda tangan');
+    await typed.first().fill('Hartono Wibisono');
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).first().click();
+    await tablet.getByRole('button', { name: 'Lanjut ke saksi' }).click();
+    await typed.last().fill('Wening Wibisono');
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).last().click();
+    await tablet.getByRole('checkbox', { name: /^Saksi kedua \(petugas\)/ }).check();
+    await tablet.getByRole('button', { name: 'Lanjut ke TTE dokter' }).click();
+    await tablet.getByRole('button', { name: 'Tanda tangani (TTE)' }).click();
+    await expect(tablet.getByRole('status').filter({ hasText: 'Dokumen final · TTE' })).toBeVisible();
+
+    // Keadaan dari server (tugas skenario tercatat): setelah dimuat ulang tetap final dan terkunci.
+    await page.reload();
+    await expect(tablet.getByText('Status: Final · TTE')).toBeVisible();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Dokumen final' })).toBeDisabled();
+  });
+
+  test('persetujuan operasi Ny. Ratna menunggu SEP admisi, lalu final dan hanya bisa dibaca', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/tablet/persetujuan/pk-ratna');
+    const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
+    await expect(
+      tablet
+        .getByRole('status')
+        .filter({ hasText: 'final bersama SEP rawat inap pada langkah Admisi elektif' }),
+    ).toBeVisible();
+    await expect(tablet.getByText('Status: Menunggu tanda tangan')).toBeVisible();
+    await expect(tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first()).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+
+    await scenarioAt(page, 'Elektif · TPDI × BTN', 'Ny. Ratna Sari', 'Deposit via TPDI');
+    await page.goto('/tablet/persetujuan/pk-ratna');
+    await expect(tablet.getByText('Status: Final · TTE')).toBeVisible();
+    await expect(tablet.getByRole('status').filter({ hasText: 'Menunggu' })).toHaveCount(0);
+    const first = tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first();
+    await expect(first).toBeChecked();
+    await expect(first).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
+    await expect(tablet.getByRole('button', { name: 'Dokumen final' })).toBeDisabled();
   });
 });

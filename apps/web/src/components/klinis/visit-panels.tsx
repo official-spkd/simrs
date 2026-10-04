@@ -1,6 +1,7 @@
 import type { PoliVital } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { stageSteps, VITAL_FLAG_LABEL } from '@/lib/klinis';
+import { stageSteps, vitalValueFlag } from '@/lib/klinis';
+import { ValueFlagBadge } from './status-flag';
 
 /** Tahapan kunjungan rawat jalan (mockup Main: Registrasi → Kasir). */
 export function VisitStepper({ stage }: { stage: number }) {
@@ -41,31 +42,27 @@ export function VisitStepper({ stage }: { stage: number }) {
   );
 }
 
-/** Ubin tanda vital; nilai di luar batas ditandai warna DAN teks ("Tinggi"). */
+/** Ubin tanda vital; nilai di luar batas ditandai warna DAN teks + ikon arah ("↑ Tinggi", "↓ Rendah"). */
 export function VitalTiles({ vitals }: { vitals: readonly PoliVital[] }) {
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
       {vitals.map((v) => {
-        const abnormal = v.flag === 'tinggi' || v.flag === 'rendah';
+        const flag = vitalValueFlag(v.flag);
         return (
           <div
             key={v.id}
             className={cx(
               'flex min-w-0 flex-col gap-0.5 rounded-control border px-3 py-2.5',
-              abnormal
+              flag
                 ? 'border-danger-border bg-[linear-gradient(180deg,#FEF3F2,#FFFFFF)]'
                 : 'border-line-soft bg-subtle',
             )}
           >
-            <span className="flex items-center justify-between gap-1 text-caption text-ink-500">
+            <span className="flex flex-wrap items-center justify-between gap-1 text-caption text-ink-500">
               {v.label}
-              {abnormal && (
-                <span className="rounded-full bg-danger-bg px-1.5 text-[11px] font-bold text-danger">
-                  {VITAL_FLAG_LABEL[v.flag]}
-                </span>
-              )}
+              {flag && <ValueFlagBadge flag={flag} />}
             </span>
-            <span className={cx('text-[19px] font-bold', abnormal ? 'text-danger' : 'text-ink-900')}>
+            <span className={cx('text-[19px] font-bold', flag ? 'text-danger' : 'text-ink-900')}>
               {v.value} <span className="text-caption font-normal text-ink-500">{v.unit}</span>
             </span>
             <span className="truncate text-caption text-ink-500">{v.note}</span>

@@ -1,4 +1,4 @@
-import { bedBoardSchema, edBoardSchema, triageAssessmentSchema } from '@simrs/shared';
+import { type Bed, bedBoardSchema, edBoardSchema, triageAssessmentSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
@@ -13,8 +13,12 @@ import { BANGSAL } from './demo/fixtures/rs';
 import { DEMO_NOW } from './demo/fixtures/waktu';
 import { SCENARIOS } from './demo/skenario';
 import {
+  BOARDING_LATE_LABEL,
+  BOARDING_TARGET_MINUTES,
   bedCounts,
   edKpis,
+  edLosAlert,
+  edVitalFlag,
   filterBeds,
   filterEdItems,
   formatLos,
@@ -25,6 +29,7 @@ import {
   triageBlocker,
   triageNeedsReason,
   triageSaveAllowed,
+  wardSummary,
 } from './rawat-inap';
 import {
   applyScenarioBeds,
@@ -80,6 +85,28 @@ describe('K05 · tempat tidur', () => {
     }
     const f = filterBeds(beds, demoWards(), { ward: 'semua', kelas: 'ICU', status: 'siap' });
     expect(f.map((b) => b.code)).toEqual(['ICU 3']);
+  });
+
+  it('ruang hampir penuh mulai 90% (selaras Dasbor); permintaan terlambat = menunggu ≥ 4 jam', () => {
+    const ward = { code: 'UJI', name: 'Ruang uji', kelas: 'Kelas 1', service: 'Umum', beds: 10 } as const;
+    const beds = (occupied: number): Bed[] =>
+      Array.from({ length: 10 }, (_, i) => ({
+        code: `UJI-${i + 1}`,
+        wardCode: 'UJI',
+        status: i < occupied ? 'terisi' : 'siap',
+        patientLabel: null,
+        encounterId: null,
+        note: '',
+      }));
+    expect(wardSummary(ward, beds(9))).toMatchObject({ percent: 90, nearlyFull: true });
+    expect(wardSummary(ward, beds(8))).toMatchObject({ percent: 80, nearlyFull: false });
+
+    // Penanda "Lewat 4 jam" di layar membaca `late`; data dummy harus selaras dengan target boarding.
+    const requests = demoBedRequests(demoBeds());
+    expect(requests.some((r) => r.late)).toBe(true);
+    for (const r of requests) {
+      expect([r.id, r.late]).toEqual([r.id, (r.waitMinutes ?? -1) >= BOARDING_TARGET_MINUTES]);
+    }
   });
 
   it('permintaan bed Tn. Hartono baru muncul setelah keputusan rawat; alokasi → dipesan → terisi', () => {
@@ -200,6 +227,42 @@ describe('K03 · IGD', () => {
     expect(
       edBoardSchema.shape.items.element.safeParse(newWalkIn('baru', 2, '2026-10-05T10:50:00+07:00')).success,
     ).toBe(true);
+  });
+
+  it('lama tinggal lewat batas bertulisan: ≥ 4 jam, atau triase 1–2 menunggu dokter > 10 menit', () => {
+    expect(edLosAlert({ triageLevel: 3, status: 'tunggu-bed' }, BOARDING_TARGET_MINUTES - 1)).toBeNull();
+    expect(edLosAlert({ triageLevel: 3, status: 'tunggu-bed' }, BOARDING_TARGET_MINUTES)).toBe(
+      BOARDING_LATE_LABEL,
+    );
+    expect(edLosAlert({ triageLevel: null, status: 'triase' }, 300)).toBe('Lewat 4 jam');
+    expect(edLosAlert({ triageLevel: 2, status: 'tunggu-dokter' }, 10)).toBeNull();
+    expect(edLosAlert({ triageLevel: 1, status: 'tunggu-dokter' }, 11)).toBe('Dokter lewat 10 menit');
+    expect(edLosAlert({ triageLevel: 3, status: 'tunggu-dokter' }, 30)).toBeNull();
+    expect(edLosAlert({ triageLevel: 2, status: 'pemeriksaan' }, 30)).toBeNull();
+    expect(losOverdue({ triageLevel: 4, status: 'observasi' }, 239)).toBe(false);
+    // Papan hari demo: hanya Tn. Fajar (B5, boarding 4 j 40 m) yang lewat batas saat dibuka.
+    const late = demoEdBoardBase(DEMO_NOW).items.filter((p) => edLosAlert(p, p.losMinutes) !== null);
+    expect(late.map((p) => p.bed)).toEqual(['B5']);
+  });
+
+  it('tanda vital IGD abnormal menyebut arahnya (tinggi/rendah); normal tanpa penanda', () => {
+    expect(edVitalFlag({ label: 'TD', value: '186/104', abnormal: true })).toBe('tinggi');
+    expect(edVitalFlag({ label: 'TD', value: '90/60', abnormal: true })).toBe('rendah');
+    expect(edVitalFlag({ label: 'TD', value: '90/60', abnormal: false })).toBeNull();
+    expect(edVitalFlag({ label: 'Nadi', value: '124', abnormal: true })).toBe('tinggi');
+    expect(edVitalFlag({ label: 'Napas', value: '8', abnormal: true })).toBe('rendah');
+    expect(edVitalFlag({ label: 'Suhu', value: '38,9', abnormal: true })).toBe('tinggi');
+    expect(edVitalFlag({ label: 'Suhu', value: '35,4', abnormal: true })).toBe('rendah');
+    expect(edVitalFlag({ label: 'SpO2', value: '91%', abnormal: true })).toBe('rendah');
+    expect(edVitalFlag({ label: 'GCS', value: '8', abnormal: true })).toBe('rendah');
+    // Tanpa arah yang bisa dipastikan: tetap bertulisan "abnormal".
+    expect(edVitalFlag({ label: 'CRT', value: '3 dtk', abnormal: true })).toBe('abnormal');
+    expect(edVitalFlag({ label: 'Nadi', value: '—', abnormal: true })).toBe('abnormal');
+    const flags = demoEdBoardBase(DEMO_NOW).items.flatMap((p) =>
+      p.vitals.filter((v) => v.abnormal).map(edVitalFlag),
+    );
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags.every((f) => f === 'tinggi' || f === 'rendah')).toBe(true);
   });
 
   it('Tn. Hartono tampil sejak skenario dimulai; triase 3 menahan penempatan sampai alasan ditulis', () => {
