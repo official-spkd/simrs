@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { scheduleCellId } from '@simrs/shared';
 import { createAccount, loginAs } from '../support/accounts';
 
 /**
@@ -104,7 +105,8 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   const detail = page.getByRole('region', { name: 'Detail slot jadwal' });
   await expect(detail.getByText('Praktik · kuota tersedia')).toBeVisible();
   await expect(detail.getByText('22 pasien booking dari 30 kuota · 73% terisi')).toBeVisible();
-  await expect(page).toHaveURL(/pilih=dr-andini\.2026-10-05/);
+  // ID sel jadwal = UUID deterministik dokter × tanggal (kontrak `scheduleSlotSchema`).
+  await expect(page).toHaveURL(new RegExp(`pilih=${scheduleCellId('dr-andini', '2026-10-05')}`));
 
   await detail.getByRole('button', { name: 'Tambah kuota JKN' }).click();
   await expect(detail.getByText('22 pasien booking dari 31 kuota · 71% terisi')).toBeVisible();

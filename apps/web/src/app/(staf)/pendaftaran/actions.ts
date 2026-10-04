@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { LOCAL_SEP } from '@/lib/demo/fixtures/front-office';
 import { deskQuota, referralExpired } from '@/lib/front-office';
-import { frontOfficeActionSession, getRegistrationDesk } from '@/lib/server/data/front-office';
+import {
+  frontOfficeActionSession,
+  getDemoDeskPatients,
+  getRegistrationDesk,
+} from '@/lib/server/data/front-office';
 
 /**
  * Server Action meja pendaftaran (F03/F06, mode presentasi ADR-0023) untuk pasien di luar skenario: gerbang demo +
@@ -27,9 +31,12 @@ const DENIED: RegistrationActionResult = {
 };
 const id = z.string().min(1).max(60);
 
+/** Meja pendaftaran + pasien dummy yang bisa dicari (mode presentasi), atau null bila posisi tidak berhak. */
 async function deskFor(screen: string) {
   const s = await frontOfficeActionSession(screen);
-  return s ? getRegistrationDesk(s) : null;
+  if (!s) return null;
+  const [desk, patients] = await Promise.all([getRegistrationDesk(s), getDemoDeskPatients()]);
+  return { ...desk, patients };
 }
 
 export async function checkEligibilityAction(patientId: unknown): Promise<RegistrationActionResult> {

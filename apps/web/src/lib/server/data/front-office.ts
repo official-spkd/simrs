@@ -9,6 +9,7 @@ import {
   type WeeklySchedule,
   weeklyScheduleSchema,
 } from '@simrs/shared';
+import { z } from 'zod';
 import {
   DEFAULT_PATIENT_ID,
   demoQueueBoard,
@@ -70,6 +71,18 @@ export async function getQueueBoard(session: SessionView): Promise<QueueBoard> {
 export async function getRegistrationDesk(session: SessionView): Promise<RegistrationDesk> {
   if (webEnv().dataSource === 'demo') {
     return registrationDeskSchema.parse(demoRegistrationDesk(await demoProgress(session)));
+  }
+  return notImplemented('pendaftaran');
+}
+
+/**
+ * Mode presentasi: pasien dummy yang bisa dicari di meja pendaftaran (di luar skenario). Bukan bagian kontrak meja:
+ * mode api mencari pasien satu per satu lewat MPI (berizin, diaudit), tidak memuat daftar di depan.
+ */
+export async function getDemoDeskPatients(): Promise<RegistrationPatient[]> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    return z.array(registrationPatientSchema).parse(registrationPatients());
   }
   return notImplemented('pendaftaran');
 }
