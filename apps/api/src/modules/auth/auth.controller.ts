@@ -21,7 +21,7 @@ import { AllowIncompleteSession } from '../../infra/auth/allow-incomplete-sessio
 import { AccountService } from './account.service';
 import { AuthService, type RequestMeta } from './auth.service';
 
-function meta(req: Request & { id?: unknown }): RequestMeta {
+export function meta(req: Request & { id?: unknown }): RequestMeta {
   return {
     ip: req.ip ?? null,
     userAgent: req.headers['user-agent'] ?? null,

@@ -15,7 +15,8 @@ export interface MockConfig {
   port: number;
   /** Alamat bind; default loopback agar mock (tanpa autentikasi) tidak terbuka ke jaringan. */
   host: string;
-  bpjs: { consId: string; secretKey: string };
+  /** Kredensial BPJS yang diterima mock + kode PPK untuk nomor SPRI (permintaannya tidak membawa PPK). */
+  bpjs: { consId: string; secretKey: string; userKey: string; ppkCode: string };
   tpdi: { apiKey: string; merchantId: string; webhookSecret: string; webhookTarget: string };
   /** Dapat diganti di tes. */
   sendWebhook: WebhookSender;
@@ -35,6 +36,11 @@ export const fetchWebhookSender: WebhookSender = async (url, headers, body) => {
 const schema = envSchemas.mock.extend(envSchemas.host.shape).extend({
   TPDI_API_KEY: z.string().min(1).default('mock-tpdi-key'),
   TPDI_MERCHANT_ID: z.string().min(1).default('TPDI-RS-00127'),
+  BPJS_USER_KEY: z.string().min(1).default('mock-user-key'),
+  BPJS_PPK_CODE: z
+    .string()
+    .regex(/^[0-9A-Z]{8}$/)
+    .default('0301R001'),
 });
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): MockConfig {
@@ -49,7 +55,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   return {
     port: e.MOCK_PORT,
     host: e.HOST,
-    bpjs: { consId: e.BPJS_CONS_ID, secretKey: e.BPJS_SECRET_KEY },
+    bpjs: {
+      consId: e.BPJS_CONS_ID,
+      secretKey: e.BPJS_SECRET_KEY,
+      userKey: e.BPJS_USER_KEY,
+      ppkCode: e.BPJS_PPK_CODE,
+    },
     tpdi: {
       apiKey: e.TPDI_API_KEY,
       merchantId: e.TPDI_MERCHANT_ID,

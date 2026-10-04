@@ -100,3 +100,12 @@ export interface MockPanelState {
 export function mockState(): Promise<MockPanelState> {
   return panel<MockPanelState>('GET', 'state');
 }
+
+/**
+ * Berapa kali mock E2E menerima pesan `ping` berkunci idempotensi ini (0 = belum). Membuktikan worker mengirim ke
+ * mock slot ini, bukan ke mock pengembangan (:4100), yang tidak terlihat dari status pesan saja.
+ */
+export async function mockEchoCount(idempotencyKey: string): Promise<number> {
+  const { echoes } = await mockState();
+  return echoes.find((e) => e.idempotencyKey === idempotencyKey)?.count ?? 0;
+}

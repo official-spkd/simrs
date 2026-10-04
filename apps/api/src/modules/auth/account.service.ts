@@ -17,6 +17,7 @@ import {
 } from '@simrs/shared/node';
 import { requestContext } from '../../common/request-context';
 import { API_ENV, type ApiEnv } from '../../config/env';
+import { revokePinDevices } from '../../infra/auth/pin-devices';
 import { SessionStore } from '../../infra/auth/session-store';
 import { TenantDb } from '../../infra/tenant-db';
 import { AuthRepository } from './auth.repository';
@@ -39,7 +40,7 @@ export class AccountService {
     if (!actor?.userId || !actor.sessionId) {
       throw new AppError('UNAUTHENTICATED', 'Endpoint ini membutuhkan login', 401);
     }
-    return { userId: actor.userId, sessionId: actor.sessionId };
+    return { userId: actor.userId, sessionId: actor.sessionId, deviceId: actor.deviceId ?? null };
   }
 
   /**
@@ -92,19 +93,26 @@ export class AccountService {
         accessExpiresAt: session.accessExpiresAt.toISOString(),
         refreshExpiresAt: session.refreshExpiresAt.toISOString(),
         unitId: session.unitId,
+        /** Sesi masuk cepat dengan PIN (ADR-0024): pendek, posisi terkunci. */
+        quickLogin: actor?.deviceId != null,
       },
     };
   }
 
-  /** Penugasan aktif pengguna (untuk layar "Pilih unit kerja"). */
+  /**
+   * Penugasan aktif pengguna (untuk layar "Pilih unit kerja"). Sesi PIN hanya memuat posisi pendaftaran PIN-nya,
+   * sehingga posisi lain (mis. peran sensitif) tetap wajib login penuh.
+   */
   async listAssignments() {
-    const { userId, sessionId } = this.current();
+    const { userId, sessionId, deviceId } = this.current();
     const tx = this.db.tx();
-    const rows = await activeAssignments(tx, userId);
     const session = await tx.authSession.findUnique({
       where: { id: sessionId },
       select: { assignmentId: true },
     });
+    const rows = (await activeAssignments(tx, userId)).filter(
+      (a) => !deviceId || a.id === session?.assignmentId,
+    );
     return rows.map((a) => ({
       id: a.id,
       roleCode: a.role.code,
@@ -116,10 +124,20 @@ export class AccountService {
     }));
   }
 
-  /** Pilih penugasan untuk sesi ini; harus milik pengguna dan masih berlaku. */
+  /** Pilih penugasan untuk sesi ini; harus milik pengguna dan masih berlaku. Sesi PIN tidak bisa pindah posisi. */
   async selectAssignment(assignmentId: string) {
-    const { userId, sessionId } = this.current();
+    const { userId, sessionId, deviceId } = this.current();
     const tx = this.db.tx();
+    if (deviceId) {
+      const s = await tx.authSession.findUnique({ where: { id: sessionId }, select: { assignmentId: true } });
+      if (s?.assignmentId !== assignmentId) {
+        throw new AppError(
+          'FORBIDDEN',
+          'Sesi PIN terikat ke posisi yang didaftarkan di perangkat ini. Masuk dengan kata sandi untuk ganti posisi.',
+          403,
+        );
+      }
+    }
     const a = (await activeAssignments(tx, userId)).find((x) => x.id === assignmentId);
     if (!a) throw new AppError('NOT_FOUND', 'Penugasan tidak ditemukan atau sudah tidak berlaku', 404);
     await this.sessions.selectAssignment(tx, sessionId, a.id, a.unitId);
@@ -164,13 +182,15 @@ export class AccountService {
     await this.repo.updatePasswordHash(tx, userId, await hashPassword(input.newPassword));
     await this.repo.markPasswordChanged(tx, userId);
     const revoked = await this.sessions.revokeAllForUser(tx, userId, 'password_changed', sessionId);
-    // Perangkat tepercaya ikut dicabut: login berikutnya di perangkat mana pun kembali wajib MFA.
+    // Perangkat tepercaya ikut dicabut: login berikutnya di perangkat mana pun kembali wajib MFA. PIN perangkat
+    // dicabut: bila sandi lama bocor, PIN yang mungkin dipasang penyusup tidak bisa dipakai lagi.
     await this.repo.revokeTrustedDevices(tx, userId);
+    const pinDevicesRevoked = await revokePinDevices(tx, { userId }, 'password_changed', userId);
     this.db.audit({
       action: 'password_change',
       resourceType: 'user',
       resourceId: userId,
-      details: { otherSessionsRevoked: revoked },
+      details: { otherSessionsRevoked: revoked, pinDevicesRevoked },
     });
     return { changed: true };
   }

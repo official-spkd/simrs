@@ -85,7 +85,7 @@ describe('data dummy Akuntansi', () => {
     );
     expect(periodCloseCheck(board, { ...none, mappedJournalIds: [DISPUTE_JOURNAL_ID] }).ready).toBe(false);
     expect(
-      periodCloseCheck(board, { ...none, mappedJournalIds: ['ju-siti'], matchedAccountIds: ['btn-ops'] }),
+      periodCloseCheck(board, { ...none, mappedJournalIds: ['ju-wahyuni'], matchedAccountIds: ['btn-ops'] }),
     ).toMatchObject({ ready: false });
     expect(
       periodCloseCheck(board, { mappedJournalIds: [DISPUTE_JOURNAL_ID], matchedAccountIds: ['btn-klaim'] }),
