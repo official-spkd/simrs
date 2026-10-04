@@ -121,6 +121,16 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
 
+Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan di `packages/shared/src/authz.ts`), bawa izin itu ke peran RS yang sudah berjalan:
+
+```powershell
+pnpm db:sync-permissions --dry-run            # tampilkan rencana per RS, tanpa menyimpan
+pnpm db:sync-permissions                      # semua tenant aktif
+pnpm db:sync-permissions --tenant RSCM        # satu tenant saja
+```
+
+Hanya menambah izin yang baru di katalog ke peran yang memilikinya di matriks bawaan; tidak pernah mencabut, tidak mengubah lingkup yang disesuaikan RS, dan tidak memberi lagi izin yang pernah dicabut admin (dibaca dari jejak audit). Satu transaksi per tenant, setiap perubahan diaudit, aman dijalankan berulang. API yang sedang berjalan memakai izin baru paling lambat setelah `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik).
+
 Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSCM`, `RSFA`, atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
 ## 2. Menjalankan dan memeriksa

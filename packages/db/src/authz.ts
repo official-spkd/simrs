@@ -11,7 +11,8 @@ import type { TenantTx } from './client';
 /**
  * P03 · Pastikan peran bawaan ada untuk tenant ini: 16 peran RS, atau peran platform untuk tenant PLATFORM.
  * Matriks bawaan hanya diisi saat peran BARU dibuat, sehingga matriks yang sudah disesuaikan tidak pernah
- * ditimpa. Idempoten.
+ * ditimpa. Idempoten. Izin yang kemudian ditambahkan ke katalog sampai ke peran yang sudah ada lewat
+ * `syncRolePermissions` (`pnpm db:sync-permissions`).
  */
 export async function ensureSystemRoles(
   tx: TenantTx,
@@ -72,6 +73,13 @@ export async function roleGrants(tx: TenantTx, roleCode: string): Promise<Map<st
   }
   return grants;
 }
+
+/**
+ * Lingkup kunci (`lockTenantScope`) untuk semua penulis matriks izin satu tenant: editor matriks (API) dan
+ * sinkron izin katalog (CLI). Tanpa kunci, sinkron bisa membaca matriks lama lalu menyisipkan izin yang
+ * barusan dicabut admin di transaksi lain.
+ */
+export const ROLE_MATRIX_LOCK = 'iam.role_permissions';
 
 /** Penugasan aktif pengguna pada saat `at` (peran aktif). */
 export function activeAssignments(tx: TenantTx, userId: string, at: Date = new Date()) {

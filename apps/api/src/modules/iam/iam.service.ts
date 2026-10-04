@@ -4,6 +4,7 @@ import {
   type AssignmentInput,
   AppError,
   type CreateUserInput,
+  grantDiffEntry,
   isPermission,
   PERMISSION_CATALOG,
   isProtectedRole,
@@ -308,10 +309,9 @@ export class IamService {
     const before = await this.repo.replaceRolePermissions(role.id, input.grants);
     const tenantId = this.db.tenantId();
     this.db.afterCommit(() => this.matrix.invalidateTenant(tenantId));
-    const fmt = (g: { resource: string; action: string; scope: string }) =>
-      `${g.resource}.${g.action}:${g.scope}`;
-    const beforeSet = new Set(before.map(fmt));
-    const afterSet = new Set(input.grants.map(fmt));
+    // Format selisih juga dibaca sinkron izin katalog untuk mengenali izin yang dicabut admin.
+    const beforeSet = new Set(before.map(grantDiffEntry));
+    const afterSet = new Set(input.grants.map(grantDiffEntry));
     const diff = {
       added: [...afterSet].filter((x) => !beforeSet.has(x)).sort(),
       removed: [...beforeSet].filter((x) => !afterSet.has(x)).sort(),
