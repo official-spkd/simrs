@@ -139,6 +139,8 @@ export const reconRowSchema = z.strictObject({
   label: z.string().min(1),
   /** Kanal dan nomor tagihan, mis. "VA BTN · INV-2610-02231". */
   source: z.string().min(1),
+  /** Transaksi pembayaran yang dicocokkan (null = tidak teridentifikasi atau bukan kanal TPDI). */
+  transactionId: z.string().min(1).nullable(),
   kasir: reconSourceSchema,
   tpdi: reconSourceSchema,
   bank: reconSourceSchema,

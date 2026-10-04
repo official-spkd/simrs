@@ -1,0 +1,179 @@
+'use client';
+
+import { formatRupiah, type ReconRow } from '@simrs/shared';
+import { Button, Chip, type ChipTone, cx, FilterChip } from '@simrs/ui';
+import Link from 'next/link';
+import { type ReactNode, useState } from 'react';
+import { digits, formatWhen, RECON_STATUS_LABEL, type ReconTotals } from '@/lib/btn';
+import { RekonException } from './rekon-exception';
+
+const TONE: Record<ReconRow['status'], ChipTone> = {
+  cocok: 'success',
+  'menunggu-settlement': 'info',
+  'menunggu-data': 'neutral',
+  'belum-dicocokkan': 'warning',
+  pengecualian: 'danger',
+};
+
+function Cell({ label, src }: { label: string; src: ReconRow['kasir'] }) {
+  const missing = src.amount === null;
+  return (
+    <span className="flex min-w-0 flex-col md:items-end">
+      <span className="text-caption text-ink-500 md:hidden">{label}</span>
+      <span className={cx('font-mono', missing ? 'text-ink-500' : 'text-ink-900')}>
+        {missing ? '—' : digits(BigInt(src.amount ?? '0'))}
+      </span>
+      {src.note && <span className="text-caption text-ink-500">{src.note}</span>}
+    </span>
+  );
+}
+
+/** Tab Rekonsiliasi 3 arah: kasir SIM RS ↔ laporan TPDI ↔ mutasi BTN; pengecualian wajib dijelaskan. */
+export function RekonTab({
+  rows,
+  totals,
+  account,
+  runNote,
+  flash,
+  busy,
+  onRun,
+  onResolve,
+  journalHref,
+  scenarioControls,
+}: {
+  rows: readonly ReconRow[];
+  totals: ReconTotals;
+  account: string;
+  runNote: string;
+  flash: string | null;
+  busy: boolean;
+  onRun: () => void;
+  onResolve: (row: ReconRow, actionId: string, note: string) => void;
+  journalHref: string | null;
+  scenarioControls: ReactNode;
+}) {
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const visible = rows.filter(
+    (r) => !onlyOpen || r.status === 'menunggu-settlement' || (r.exception && !r.exception.resolution),
+  );
+  const summary: Array<[string, bigint, boolean]> = [
+    ['Dana masuk (mutasi BTN)', totals.bankIn, false],
+    ['Tercatat SIM RS', totals.recorded, false],
+    ['Selisih belum dijelaskan', totals.unexplained, true],
+  ];
+  return (
+    <section
+      aria-label="Rekonsiliasi tiga arah"
+      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <span className="flex min-w-0 flex-[1_1_280px] flex-col">
+          <span className="font-semibold">Rekonsiliasi 3 arah · hari ini</span>
+          <span className="text-small text-ink-700">
+            Kasir SIM RS ↔ laporan TPDI ↔ mutasi BTN {account} (API H2H). {runNote}
+          </span>
+        </span>
+        <dl className="m-0 flex flex-wrap gap-x-5 gap-y-1">
+          {summary.map(([k, v, diff]) => (
+            <div key={k} className="flex flex-col">
+              <dt className="text-caption text-ink-500">{k}</dt>
+              <dd
+                className={cx(
+                  'm-0 font-mono font-semibold',
+                  diff && (v === 0n ? 'text-success' : 'text-danger'),
+                )}
+              >
+                {formatRupiah(v)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <Button variant="primary" disabled={busy} onClick={onRun}>
+          Jalankan rekonsiliasi
+        </Button>
+      </div>
+      {flash && (
+        <div
+          role="status"
+          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+        >
+          {flash}
+        </div>
+      )}
+      {scenarioControls}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span role="group" aria-label="Filter baris" className="flex flex-wrap gap-1.5">
+          <FilterChip selected={!onlyOpen} onClick={() => setOnlyOpen(false)}>
+            Semua baris
+          </FilterChip>
+          <FilterChip selected={onlyOpen} onClick={() => setOnlyOpen(true)}>
+            Perlu tindakan
+          </FilterChip>
+        </span>
+        {journalHref && (
+          <Link href={journalHref} className="text-small font-semibold">
+            Lihat jurnal di Akuntansi
+          </Link>
+        )}
+      </div>
+      <div
+        aria-hidden="true"
+        className="hidden grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)] gap-3 border-b border-line pb-1.5 text-caption font-semibold text-ink-500 md:grid"
+      >
+        <span>Transaksi</span>
+        <span className="text-right">Kasir SIM RS (Rp)</span>
+        <span className="text-right">Laporan TPDI (Rp)</span>
+        <span className="text-right">Mutasi BTN (Rp)</span>
+        <span className="text-right">Status</span>
+      </div>
+      <ul aria-label="Baris rekonsiliasi" className="m-0 flex list-none flex-col gap-2 p-0">
+        {visible.map((r) => {
+          const ex = r.exception;
+          const open = !!ex && !ex.resolution;
+          const status =
+            open && ex ? `Selisih ${formatRupiah(BigInt(ex.adjustment))}` : RECON_STATUS_LABEL[r.status];
+          const done = ex?.resolution;
+          return (
+            <li
+              key={r.id}
+              className={cx('flex flex-col gap-2 border-b border-line pb-2', open && 'bg-[#FFFBFA]')}
+            >
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)]">
+                <span className="col-span-2 flex min-w-0 flex-col md:col-span-1">
+                  <span className="font-semibold">
+                    {r.label}
+                    {r.scenario && <span className="font-normal text-brand-700"> · skenario</span>}
+                  </span>
+                  <span className="text-caption text-ink-500">{r.source}</span>
+                </span>
+                <Cell label="Kasir SIM RS" src={r.kasir} />
+                <Cell label="Laporan TPDI" src={r.tpdi} />
+                <Cell label="Mutasi BTN" src={r.bank} />
+                <span className="flex flex-col items-start gap-0.5 md:items-end">
+                  <Chip tone={open ? 'danger' : done ? 'success' : TONE[r.status]}>
+                    {done ? 'Ditangani' : status}
+                  </Chip>
+                  <span className="text-caption text-ink-500">{open ? 'perlu tindakan' : r.note}</span>
+                </span>
+              </div>
+              {open && <RekonException row={r} busy={busy} onApply={(a, n) => onResolve(r, a, n)} />}
+              {done && ex && (
+                <span className="text-caption text-success">
+                  ✓ {ex.actions.find((a) => a.id === done.actionId)?.label} · {formatWhen(done.at)} · oleh{' '}
+                  {done.by} · catatan: “{done.note}” · tercatat di jejak audit
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {visible.length === 0 && (
+        <p className="m-0 text-center text-small text-ink-500">Tidak ada selisih yang perlu ditangani.</p>
+      )}
+      <span className="text-caption text-ink-500">
+        Pencocokan otomatis berdasarkan no. tagihan, idempotency key TPDI, dan referensi mutasi BTN. Setiap
+        tindakan atas selisih tercatat di jejak audit dan membentuk jurnal di Akuntansi.
+      </span>
+    </section>
+  );
+}

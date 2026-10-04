@@ -5,9 +5,13 @@ import {
   formatJuta,
   formatWhen,
   markPaid,
+  nextRefundStage,
+  paymentKpis,
   reconTotals,
+  refundDraftErrors,
   resolutionError,
   resolveRow,
+  settleByResolution,
   settleEdc,
   webhookOutcome,
 } from './btn';
@@ -121,5 +125,47 @@ describe('format', () => {
     expect(formatWhen('2026-10-05T09:12:00+07:00')).toBe('09.12');
     expect(formatWhen('2026-10-01T16:02:00+07:00')).toBe('1 Okt 16.02');
     expect(formatWhen('2026-10-12T00:52:00.000Z')).toBe('12 Okt 07.52');
+  });
+});
+
+describe('dampak penyelesaian ke transaksi dan KPI', () => {
+  it('webhook gagal / selisih nominal → lunas di kasir hanya setelah pengecualian ditangani', () => {
+    expect(settleByResolution(tx('t4'), row('x1'))).toBe(tx('t4'));
+    const t4 = settleByResolution(tx('t4'), resolveRow(row('x1'), res('lunas')));
+    expect(t4.status).toBe('lunas');
+    expect(t4.trail.find((s) => s.label === 'Kasir lunas')?.state).toBe('selesai');
+    const t10 = settleByResolution(tx('t10'), resolveRow(row('x2'), res('mdr')));
+    expect(t10.status).toBe('lunas');
+    expect(() => paymentTransactionSchema.parse(t10)).not.toThrow();
+  });
+
+  it('KPI: pelunasan simulasi memindahkan satu tagihan dari menunggu ke berhasil', () => {
+    const totals = reconTotals(base, REKONSILIASI, edc, 250_400n);
+    const paid = TRANSAKSI.map((t) => (t.id === 't1' ? markPaid(t, '2026-10-05T10:46:00+07:00', 'e') : t));
+    const k = paymentKpis(HARIAN, paid, new Set(['t1']), totals);
+    expect(k).toMatchObject({ success: 188, pending: 11, exceptionsLeft: 3 });
+    expect(k.successDetail).toBe('VA 64 · QRIS 99 · EDC 25');
+    expect(paymentKpis(HARIAN, TRANSAKSI, new Set(), reconTotals(base, REKONSILIASI, edc)).success).toBe(187);
+  });
+});
+
+describe('refund berjenjang', () => {
+  it('pengajuan wajib nominal ≤ kelebihan deposit, alasan, dan keterangan ≥ 15 karakter', () => {
+    const draft = REFUND.find((r) => r.stage === 'draf');
+    if (!draft) throw new Error('draf');
+    expect(refundDraftErrors(draft, 0n, '', '')).toEqual({
+      amount: 'Isi nominal refund.',
+      reason: 'Pilih alasan refund.',
+      note: 'Keterangan wajib, minimal 15 karakter (sekarang 0).',
+    });
+    expect(refundDraftErrors(draft, 1_150_001n, 'deposit-berlebih', 'x'.repeat(15)).amount).toBe(
+      'Melebihi kelebihan deposit Rp 1.150.000.',
+    );
+    expect(refundDraftErrors(draft, 1_150_000n, 'deposit-berlebih', 'Kelebihan deposit naik kelas')).toEqual(
+      {},
+    );
+    expect(nextRefundStage('draf')).toBe('menunggu-supervisor');
+    expect(nextRefundStage('diproses-btn')).toBe('dana-kembali');
+    expect(nextRefundStage('dana-kembali')).toBeNull();
   });
 });

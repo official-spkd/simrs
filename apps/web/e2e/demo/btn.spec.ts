@@ -60,3 +60,52 @@ test.describe('kamar operasi', () => {
     await expectNoHorizontalOverflow(page);
   });
 });
+
+test.describe('pembayaran digital TPDI × BTN', () => {
+  test('transaksi, pelunasan simulasi, dan pengecualian rekonsiliasi wajib bercatatan', async ({ page }) => {
+    const kasir = await createAccount({ roles: ['kasir'] });
+    await loginAs(page, kasir, '/keuangan/pembayaran');
+    await expect(
+      page.getByRole('heading', { name: 'Pembayaran digital · TPDI × BTN', level: 1 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Alur dana' }).getByText('tidak menampung dana'),
+    ).toBeVisible();
+    const kpi = page.getByRole('region', { name: 'Indikator pembayaran' });
+    await expect(kpi.getByText('Rp 48,62 jt')).toBeVisible();
+
+    const daftar = page.getByRole('region', { name: 'Daftar transaksi' });
+    await expect(daftar.getByText('Menampilkan 10 dari 10 transaksi contoh', { exact: false })).toBeVisible();
+    await daftar.getByRole('button', { name: /Ny\. Endang Wijaya/ }).click();
+    const detail = page.getByRole('complementary', { name: 'Detail transaksi' });
+    await expect(detail.getByText('INV-2610-02217', { exact: false })).toBeVisible();
+    await detail.getByRole('button', { name: 'Simulasikan pembayaran (webhook TPDI)' }).click();
+    await expect(
+      page.getByText(/Webhook TPDI diterima, tagihan lunas · \d{2}\.\d{2} \(simulasi, tidak disimpan\)/),
+    ).toBeVisible();
+    await expect(detail.getByText('✓ HMAC valid').first()).toBeVisible();
+
+    // Callback ganda: tercatat tetapi diabaikan (idempoten).
+    await daftar.getByRole('button', { name: /Tn\. Sutan Batubara/ }).click();
+    await expect(detail.getByText('duplikat · diabaikan')).toBeVisible();
+    await expect(detail.getByText('Dikreditkan sekali per event id: Rp 5.000.000')).toBeVisible();
+
+    await page.getByRole('tab', { name: /Rekonsiliasi · 3 selisih/ }).click();
+    const rekon = page.getByRole('region', { name: 'Rekonsiliasi tiga arah' });
+    const baris = rekon.getByRole('listitem').filter({ hasText: 'Tn. Darmawan Putra' });
+    await baris
+      .getByRole('combobox', { name: 'Tindakan untuk selisih Tn. Darmawan Putra' })
+      .selectOption('lunas');
+    const catatan = baris.getByLabel('Catatan penyelesaian (wajib)');
+    const terapkan = baris.getByRole('button', { name: 'Terapkan' });
+    await catatan.fill('singkat');
+    await expect(terapkan).toBeDisabled();
+    await catatan.fill('Dana cocok di laporan TPDI dan mutasi BTN; webhook gagal');
+    await expect(terapkan).toBeEnabled();
+    await terapkan.click();
+    await expect(baris.getByText('Ditangani')).toBeVisible();
+    await expect(baris.getByText(/tercatat di jejak audit/)).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Rekonsiliasi · 2 selisih/ })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+});

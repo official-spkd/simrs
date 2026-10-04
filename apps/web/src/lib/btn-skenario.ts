@@ -222,6 +222,7 @@ export function scenarioReconRows(R: RunResult): ReconRow[] {
     id,
     label: ratna().name,
     source,
+    transactionId: id === 'skenario-deposit' ? 'skenario-deposit' : null,
     kasir: { amount: amount.toString(), note: '' },
     tpdi: tpdiDirect
       ? { amount: null, note: 'langsung BTN, bukan kanal TPDI' }

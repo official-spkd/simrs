@@ -3,9 +3,13 @@ import {
   formatRupiah,
   isoDateJakarta,
   type PaymentChannel,
+  type PaymentOverview,
   type PaymentStatus,
   type PaymentTransaction,
   type ReconRow,
+  type Refund,
+  type RefundReason,
+  type RefundStage,
   type TrailState,
   type WebhookEvent,
 } from '@simrs/shared';
@@ -241,4 +245,125 @@ export function reconTotals(
   const recorded = base + extraPaid + resolved;
   const bankIn = base + extraPaid + all - edcPending;
   return { bankIn, recorded, unexplained: bankIn - recorded, exceptionsLeft: left };
+}
+
+/** Transaksi yang pengecualiannya ditangani di rekonsiliasi menjadi lunas di kasir (jejak status diperbarui). */
+export function settleByResolution(tx: PaymentTransaction, row: ReconRow): PaymentTransaction {
+  const res = row.exception?.resolution;
+  if (!res || row.transactionId !== tx.id || tx.status === 'lunas') return tx;
+  const label = row.exception?.actions.find((a) => a.id === res.actionId)?.label ?? 'ditangani';
+  return {
+    ...tx,
+    status: 'lunas',
+    paidAt: tx.paidAt ?? res.at,
+    trail: tx.trail.map((s) =>
+      s.label === 'Kasir lunas'
+        ? { ...s, at: res.at, state: 'selesai', note: `diselesaikan lewat rekonsiliasi: ${label}` }
+        : s,
+    ),
+  };
+}
+
+export interface PaymentKpis {
+  recorded: bigint;
+  success: number;
+  successDetail: string;
+  pending: number;
+  exceptionsLeft: number;
+  unexplained: bigint;
+}
+
+/**
+ * KPI harian: angka seluruh hari (fixture) + perubahan di layar ini (pelunasan simulasi `localPaid`, transaksi
+ * pasien skenario). Pengecualian dan selisih dari `reconTotals`.
+ */
+export function paymentKpis(
+  day: PaymentOverview['day'],
+  txs: readonly PaymentTransaction[],
+  localPaid: ReadonlySet<string>,
+  totals: ReconTotals,
+): PaymentKpis {
+  let va = day.successful.va;
+  let qris = day.successful.qris;
+  let pending = day.pending;
+  for (const t of txs) {
+    const fresh = localPaid.has(t.id) || (t.scenario && t.status === 'lunas');
+    if (fresh && t.channel === 'VA') va++;
+    if (fresh && t.channel === 'QRIS') qris++;
+    if (localPaid.has(t.id)) pending--;
+    if (t.scenario && t.status === 'menunggu') pending++;
+  }
+  return {
+    recorded: totals.recorded,
+    success: va + qris + day.successful.edc,
+    successDetail: `VA ${va} · QRIS ${qris} · EDC ${day.successful.edc}`,
+    pending: Math.max(0, pending),
+    exceptionsLeft: totals.exceptionsLeft,
+    unexplained: totals.unexplained,
+  };
+}
+
+// ---------------------------------------------------------------- refund
+
+export const REFUND_FLOW: readonly RefundStage[] = [
+  'draf',
+  'menunggu-supervisor',
+  'menunggu-manajer',
+  'diproses-btn',
+  'dana-kembali',
+];
+
+export const REFUND_STAGE_LABEL: Record<RefundStage, string> = {
+  draf: 'Draf',
+  'menunggu-supervisor': 'Menunggu supervisor',
+  'menunggu-manajer': 'Menunggu manajer keuangan',
+  'diproses-btn': 'Diproses BTN',
+  'dana-kembali': 'Dana kembali',
+};
+
+export const REFUND_STAGE_TONE: Record<RefundStage, ChipTone> = {
+  draf: 'neutral',
+  'menunggu-supervisor': 'warning',
+  'menunggu-manajer': 'warning',
+  'diproses-btn': 'info',
+  'dana-kembali': 'success',
+};
+
+export const REFUND_REASON_LABEL: Record<RefundReason, string> = {
+  'deposit-berlebih': 'Deposit berlebih',
+  'layanan-dibatalkan': 'Layanan dibatalkan',
+  'pembayaran-ganda': 'Pembayaran ganda',
+  'batal-rawat-inap': 'Batal rawat inap',
+  lainnya: 'Lainnya',
+};
+
+export const REFUND_NOTE_MIN = 15;
+
+export interface RefundDraftErrors {
+  amount?: string;
+  reason?: string;
+  note?: string;
+}
+
+/** Validasi pengajuan refund: nominal 1..maksimum (kelebihan deposit), alasan dipilih, keterangan ≥ 15 karakter. */
+export function refundDraftErrors(
+  refund: Pick<Refund, 'maxAmount'>,
+  amount: bigint,
+  reason: string,
+  note: string,
+): RefundDraftErrors {
+  const e: RefundDraftErrors = {};
+  if (amount <= 0n) e.amount = 'Isi nominal refund.';
+  else if (refund.maxAmount && amount > BigInt(refund.maxAmount)) {
+    e.amount = `Melebihi kelebihan deposit ${formatRupiah(BigInt(refund.maxAmount))}.`;
+  }
+  if (!Object.hasOwn(REFUND_REASON_LABEL, reason)) e.reason = 'Pilih alasan refund.';
+  const n = note.trim().length;
+  if (n < REFUND_NOTE_MIN) e.note = `Keterangan wajib, minimal ${REFUND_NOTE_MIN} karakter (sekarang ${n}).`;
+  return e;
+}
+
+export function nextRefundStage(stage: RefundStage): RefundStage | null {
+  const i = REFUND_FLOW.indexOf(stage);
+  return i < 0 || i >= REFUND_FLOW.length - 1 ? null : (REFUND_FLOW[i + 1] ?? null);
 }
