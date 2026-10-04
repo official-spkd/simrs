@@ -126,7 +126,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'IGD',
     components: ['K03'],
     phase: 3,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'clinical.write',
     // Admisi IGD (petugas pendaftaran) membuka kunjungan gawat darurat dari papan IGD.
     demoRoles: ['dokter', 'dokter_residen', 'perawat', 'petugas_pendaftaran'],
