@@ -212,3 +212,5 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 | 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                              |
 
 Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
+
+Rencana rinci fase yang sedang berjalan ada di `docs/rencana/`. Fase 2 (potongan kerja, urutan, dan keputusan yang disetujui 5 Okt 2026): `docs/rencana/fase-2-front-office.md`.

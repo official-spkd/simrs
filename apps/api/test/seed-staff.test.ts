@@ -1,7 +1,8 @@
 /**
  * Fase 1 potongan 10d · Staf seed tanpa sandi bawaan: tidak bisa masuk dengan sandi apa pun sampai admin SIM RS
- * mereset sandinya, lalu login pertama berjalan seperti undangan biasa (daftar MFA → ganti sandi → posisi).
- * Isi seed (peran, penugasan, idempoten, isolasi) diuji di packages/db (`seed-staff.test.ts`).
+ * mereset sandinya, lalu login pertama berjalan seperti undangan biasa (daftar MFA → ganti sandi → posisi). Layar
+ * Akses menandainya "belum diaktifkan", dan admin seed yang belum diaktifkan tidak dihitung sebagai admin aktif
+ * (aturan "minimal satu admin", ADR-0012). Isi seed (peran, penugasan, idempoten, isolasi) diuji di packages/db.
  */
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
@@ -33,17 +34,22 @@ let admin: Tokens;
 
 const kasir = SEED_STAFF.find((s) => s.positions.length === 1 && s.positions[0]?.[0] === 'kasir');
 
-beforeAll(async () => {
-  app = await createTestApp();
-  // RS baru (16 peran) + struktur + staf seed, persis seperti `pnpm db:seed`, dengan kunci .env yang dipakai API.
-  tenant = await createTestTenant();
+/** RS baru (16 peran) + struktur + staf seed, persis seperti `pnpm db:seed`, dengan kunci .env yang dipakai API. */
+async function seededTenant(): Promise<{ id: string; code: string }> {
+  const t = await createTestTenant();
   const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 2 });
   try {
-    await withTenant(owner, tenant.id, (tx) => seedHospitalStructure(tx, tenant.id));
-    await seedStaff(owner, tenant.id, { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '' });
+    await withTenant(owner, t.id, (tx) => seedHospitalStructure(tx, t.id));
+    await seedStaff(owner, t.id, { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '' });
   } finally {
     await owner.$disconnect();
   }
+  return t;
+}
+
+beforeAll(async () => {
+  app = await createTestApp();
+  tenant = await seededTenant();
   const adminUser = await createTestUser(tenant.id, {
     roles: [{ code: 'admin_tenant' }],
     tenantCode: tenant.code,
@@ -58,8 +64,19 @@ afterAll(async () => {
 const loginAs = (username: string, password: string) =>
   http().post('/api/v1/auth/login').send({ tenantCode: tenant.code, username, password });
 
-async function seededUser(nip: string) {
-  return withTenant(testDb(), tenant.id, (tx) =>
+/** NIP akun yang masih "belum diaktifkan" menurut filter daftar pengguna (tanpa kata sandi). */
+async function notActivated(): Promise<string[]> {
+  const r = await http()
+    .get('/api/v1/iam/users?status=not_activated&limit=200')
+    .set(bearer(admin))
+    .expect(200);
+  const items = r.body.items as Array<{ username: string; activated: boolean }>;
+  expect(items.every((u) => !u.activated)).toBe(true);
+  return items.map((u) => u.username).sort();
+}
+
+async function seededUser(nip: string, tenantId = tenant.id) {
+  return withTenant(testDb(), tenantId, (tx) =>
     tx.user.findFirstOrThrow({
       where: { username: nip },
       select: {
@@ -100,10 +117,17 @@ describe('staf seed tanpa sandi bawaan (10d)', () => {
       neverLoggedIn: true,
       mfaEnrolled: false,
       mustChangePassword: true,
+      activated: false,
     });
     expect(list.body.items[0].assignments).toMatchObject([{ roleCode: 'kasir', unitName: 'Kasir' }]);
     const detail = await http().get(`/api/v1/iam/users/${u.id}`).set(bearer(admin)).expect(200);
     expect(detail.body.phone).toBe(`0813•••${seedStaffPhone(kasir).slice(-4)}`);
+    expect(detail.body.activated).toBe(false);
+
+    // Filter "belum diaktifkan" = semua staf seed, bukan admin uji yang sudah punya sandi; ringkasan ikut menghitung.
+    expect(await notActivated()).toEqual([...SEED_STAFF.map((s) => s.nip)].sort());
+    const summary = await http().get('/api/v1/iam/summary').set(bearer(admin)).expect(200);
+    expect(summary.body.notActivated).toBe(SEED_STAFF.length);
   });
 
   it('setelah admin mereset sandi: daftar MFA, ganti sandi, lalu masuk biasa (sandi baru + TOTP)', async () => {
@@ -116,6 +140,11 @@ describe('staf seed tanpa sandi bawaan (10d)', () => {
     const temporary: string = reset.body.temporaryPassword;
     expect(temporary).toHaveLength(16);
     expect((await seededUser(kasir.nip)).credential).not.toBeNull();
+    const detail = await http().get(`/api/v1/iam/users/${u.id}`).set(bearer(admin)).expect(200);
+    expect(detail.body).toMatchObject({ activated: true, neverLoggedIn: true, mustChangePassword: true });
+    expect(await notActivated()).not.toContain(kasir.nip);
+    const summary = await http().get('/api/v1/iam/summary').set(bearer(admin)).expect(200);
+    expect(summary.body.notActivated).toBe(SEED_STAFF.length - 1);
 
     // Login pertama: sesi terbatas sampai MFA didaftarkan dan sandi diganti.
     const first = await loginAs(kasir.nip, temporary).expect(200);
@@ -156,4 +185,40 @@ describe('staf seed tanpa sandi bawaan (10d)', () => {
       .expect(200);
     await http().get('/api/v1/tenancy/current').set(bearer(verified.body)).expect(200);
   });
+});
+
+describe('aturan "minimal satu admin" hanya menghitung admin yang bisa masuk', () => {
+  const seededAdmin = SEED_STAFF.find((s) => s.positions.some(([role]) => role === 'admin_tenant'));
+
+  for (const change of ['dinonaktifkan', 'dicabut peran adminnya'] as const) {
+    it(`admin seed belum diaktifkan: admin nyata terakhir tidak bisa ${change}; bisa setelah admin seed diaktifkan`, async () => {
+      if (!seededAdmin) throw new Error('SEED_STAFF tanpa admin_tenant');
+      const T = await seededTenant();
+      const real = await createTestUser(T.id, { roles: [{ code: 'admin_tenant' }], tenantCode: T.code });
+      const tok = await login(app, real);
+      const assignments = await http().get('/api/v1/auth/assignments').set(bearer(tok)).expect(200);
+      const own = (assignments.body as Array<{ id: string }>)[0];
+      const asOperator = (userId: string, status: 'active' | 'disabled') =>
+        http().patch(`/api/v1/iam/users/${userId}`).set('X-Tenant-Id', T.id).send({ status });
+      const apply = () =>
+        change === 'dinonaktifkan'
+          ? asOperator(real.id, 'disabled')
+          : http()
+              .post(`/api/v1/iam/assignments/${own?.id}/end`)
+              .set(bearer(tok))
+              .send({ reason: 'Serah terima admin SIM RS' });
+
+      // Admin seed ada (penugasan admin_tenant berlaku) tetapi tanpa sandi: tidak bisa memulihkan RS.
+      const blocked = await apply().expect(409);
+      expect(blocked.body.message).toMatch(/minimal satu admin/);
+
+      // Diaktifkan lewat reset sandi (belum MFA, belum ganti sandi): kini dihitung, perubahan boleh.
+      const seeded = await seededUser(seededAdmin.nip, T.id);
+      await http().post(`/api/v1/iam/users/${seeded.id}/reset-password`).set(bearer(tok)).expect(200);
+      await apply().expect(200);
+      // Admin seed yang sudah diaktifkan kini admin terakhir: dijaga dengan aturan yang sama.
+      const last = await asOperator(seeded.id, 'disabled').expect(409);
+      expect(last.body.message).toMatch(/minimal satu admin/);
+    });
+  }
 });

@@ -6,6 +6,9 @@ import {
   formatLastLogin,
   fromGrantMap,
   nextScope,
+  NOT_ACTIVATED_HINT,
+  STATUS_FILTERS,
+  statusFilterParam,
   toGrantMap,
 } from './akses';
 
@@ -22,16 +25,51 @@ describe('formatLastLogin (zona Asia/Jakarta)', () => {
 });
 
 describe('accountStatus', () => {
-  const base = { status: 'active', locked: false, dormant: false, neverLoggedIn: false };
-  it('urutan prioritas: nonaktif > dikunci > dormant > belum login > aktif', () => {
-    expect(accountStatus({ ...base, status: 'disabled', locked: true }).label).toBe('Nonaktif');
+  const base = { status: 'active', activated: true, locked: false, dormant: false, neverLoggedIn: false };
+  it('urutan prioritas: nonaktif > belum diaktifkan > dikunci > dormant > belum login > aktif', () => {
+    expect(accountStatus({ ...base, status: 'disabled', activated: false }).label).toBe('Nonaktif');
+    expect(accountStatus({ ...base, activated: false, dormant: true, neverLoggedIn: true })).toEqual({
+      label: 'Belum diaktifkan',
+      tone: 'warning',
+      icon: 'clock',
+    });
     expect(accountStatus({ ...base, locked: true, dormant: true })).toEqual({
       label: 'Dikunci',
       tone: 'danger',
+      icon: 'alert',
     });
     expect(accountStatus({ ...base, dormant: true, neverLoggedIn: true }).label).toBe('Dormant');
     expect(accountStatus({ ...base, neverLoggedIn: true }).label).toBe('Belum login');
-    expect(accountStatus(base)).toEqual({ label: 'Aktif', tone: 'success' });
+    expect(accountStatus(base)).toEqual({ label: 'Aktif', tone: 'success', icon: 'check' });
+  });
+
+  it('setiap status punya ikon berbeda (tidak hanya warna)', () => {
+    const all = [
+      { ...base, status: 'disabled' },
+      { ...base, activated: false },
+      { ...base, locked: true },
+      { ...base, dormant: true },
+      { ...base, neverLoggedIn: true },
+      base,
+    ].map(accountStatus);
+    expect(new Set(all.map((s) => s.label)).size).toBe(6);
+    expect(new Set(all.map((s) => s.icon)).size).toBe(6);
+  });
+
+  it('petunjuk akun belum diaktifkan menyebut tombol Reset kata sandi', () => {
+    expect(NOT_ACTIVATED_HINT).toContain('"Reset kata sandi"');
+    expect(NOT_ACTIVATED_HINT).toContain('belum bisa masuk');
+  });
+});
+
+describe('filter status', () => {
+  it('nilai URL dipetakan ke status API, termasuk belum diaktifkan; nilai lain diabaikan', () => {
+    expect(STATUS_FILTERS.map((f) => f.label)).toEqual(['Aktif', 'Belum diaktifkan', 'Nonaktif']);
+    expect(statusFilterParam('aktif')).toBe('active');
+    expect(statusFilterParam('belum-diaktifkan')).toBe('not_activated');
+    expect(statusFilterParam('nonaktif')).toBe('disabled');
+    expect(statusFilterParam('active')).toBeUndefined();
+    expect(statusFilterParam(undefined)).toBeUndefined();
   });
 });
 
