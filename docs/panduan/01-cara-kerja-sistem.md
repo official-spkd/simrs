@@ -123,7 +123,7 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 
 - **Tidak ada hapus atau timpa untuk data klinis.** Koreksi membuat versi baru dengan alasan (`version`, `supersedes_id`, `correction_reason`). Data yang sudah ditandatangani elektronik hanya bisa ditambah addendum. Aturan ini berlaku mulai fase 3 (ADR-0004).
 - **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa.
-- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
+- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar) beserta riwayat tinjauannya (keputusan terbaru berlaku, yang lama tetap tercatat); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
 
 ## Data pasien (MPI)
 
@@ -212,3 +212,5 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 | 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                            |
 
 Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
+
+Rencana rinci fase yang sedang berjalan ada di `docs/rencana/`. Fase 2 (potongan kerja, urutan, dan keputusan yang disetujui 5 Okt 2026): `docs/rencana/fase-2-front-office.md`.

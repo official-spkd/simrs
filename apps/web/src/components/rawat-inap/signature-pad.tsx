@@ -3,6 +3,7 @@
 import { formatJam } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { type PointerEvent, useId, useRef, useState } from 'react';
+import { StrokeTracker } from './signature-stroke';
 
 export interface SignatureValue {
   /** `goresan` = digambar di bantalan; `nama` = alternatif ketik nama (papan ketik / pembaca layar). */
@@ -13,8 +14,6 @@ export interface SignatureValue {
 
 const W = 600;
 const H = 150;
-/** Panjang goresan minimal (piksel kanvas) agar dianggap tanda tangan, bukan sentuhan tak sengaja. */
-const MIN_STROKE = 60;
 
 /**
  * Bantalan tanda tangan aksesibel: kanvas dengan pointer events (jari, stylus, mouse) + tombol "Hapus" + alternatif
@@ -35,9 +34,7 @@ export function SignaturePad({
 }) {
   const id = useId();
   const canvas = useRef<HTMLCanvasElement | null>(null);
-  const drawing = useRef(false);
-  const last = useRef<{ x: number; y: number } | null>(null);
-  const length = useRef(0);
+  const stroke = useRef(new StrokeTracker());
   const [typed, setTyped] = useState('');
 
   const point = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -45,10 +42,21 @@ export function SignaturePad({
     const r = c.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * c.width, y: ((e.clientY - r.top) / r.height) * c.height };
   };
+  /**
+   * Akhiri goresan dengan bersih: `pointerup`, `pointercancel` (mis. sistem mengambil alih sentuhan), atau capture
+   * hilang. Capture selalu dilepas; goresan yang cukup panjang menjadi tanda tangan.
+   */
+  const end = (e: PointerEvent<HTMLCanvasElement>) => {
+    const c = e.currentTarget;
+    if (c.hasPointerCapture(e.pointerId)) c.releasePointerCapture(e.pointerId);
+    if (stroke.current.end(e.pointerId) && !value) {
+      onChange({ method: 'goresan', name: signerName, at: formatJam(new Date()) });
+    }
+  };
   const clear = () => {
     const ctx = canvas.current?.getContext('2d');
     ctx?.clearRect(0, 0, W, H);
-    length.current = 0;
+    stroke.current.reset();
     setTyped('');
     onChange(null);
   };
@@ -89,34 +97,23 @@ export function SignaturePad({
           )}
           onPointerDown={(e) => {
             if (disabled || value?.method === 'nama') return;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            drawing.current = true;
-            last.current = point(e);
+            if (stroke.current.down(e.pointerId, point(e))) e.currentTarget.setPointerCapture(e.pointerId);
           }}
           onPointerMove={(e) => {
-            if (!drawing.current || !last.current) return;
-            const ctx = e.currentTarget.getContext('2d');
-            const p = point(e);
-            if (ctx) {
-              ctx.strokeStyle = '#14212B';
-              ctx.lineWidth = 3;
-              ctx.lineCap = 'round';
-              ctx.beginPath();
-              ctx.moveTo(last.current.x, last.current.y);
-              ctx.lineTo(p.x, p.y);
-              ctx.stroke();
-            }
-            length.current += Math.hypot(p.x - last.current.x, p.y - last.current.y);
-            last.current = p;
+            const seg = stroke.current.move(e.pointerId, point(e));
+            const ctx = seg ? e.currentTarget.getContext('2d') : null;
+            if (!seg || !ctx) return;
+            ctx.strokeStyle = '#14212B';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(seg.from.x, seg.from.y);
+            ctx.lineTo(seg.to.x, seg.to.y);
+            ctx.stroke();
           }}
-          onPointerUp={() => {
-            if (!drawing.current) return;
-            drawing.current = false;
-            last.current = null;
-            if (length.current >= MIN_STROKE && !value) {
-              onChange({ method: 'goresan', name: signerName, at: formatJam(new Date()) });
-            }
-          }}
+          onPointerUp={end}
+          onPointerCancel={end}
+          onLostPointerCapture={end}
         />
         {!value && (
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-ink-400">

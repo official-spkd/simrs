@@ -4,10 +4,11 @@ import {
   AUDIT_ACTION_GROUPS,
   AUDIT_OUTCOMES,
   auditAnomalyReviewSchema,
+  auditAnomalyReviewsQuerySchema,
   type AuditAnomalyReviewInput,
 } from '@simrs/shared';
 import { z } from 'zod';
-import { Audited, param, queryPatientId } from '../../common/audited.decorator';
+import { Audited, type AuditSource, param, queryPatientId } from '../../common/audited.decorator';
 import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
@@ -51,6 +52,10 @@ const exportQuerySchema = z.strictObject({
 });
 
 const anomalyQuerySchema = z.strictObject({ days: z.coerce.number().int().min(1).max(90).default(30) });
+
+/** Kunci temuan dari query (`?key=`), sudah lolos validasi pipe. */
+const queryKey = ({ query }: AuditSource): string | undefined =>
+  typeof query.key === 'string' ? query.key : undefined;
 
 /**
  * P04 · Jejak audit (layar /sistem/audit). Membaca audit juga diaudit (siapa melihat jejak siapa).
@@ -97,6 +102,25 @@ export class AuditController {
   })
   anomalies(@Query(new ZodValidationPipe(anomalyQuerySchema)) q: z.infer<typeof anomalyQuerySchema>) {
     return this.audit.anomalies(q.days);
+  }
+
+  /**
+   * Riwayat tinjauan satu temuan (peninjau, waktu, keputusan, catatan), terbaru dulu. Izinnya sama dengan membaca
+   * temuan; pembukaannya dicatat dengan kunci temuan sebagai `resource_id`.
+   */
+  @RequirePermission('audit', 'read')
+  @Get('anomalies/reviews')
+  @Audited({
+    action: 'read',
+    resource: 'audit_anomaly',
+    resourceId: queryKey,
+    details: ({ result }) => ({ count: (result as { items: unknown[] }).items.length }),
+  })
+  anomalyReviews(
+    @Query(new ZodValidationPipe(auditAnomalyReviewsQuerySchema))
+    q: z.infer<typeof auditAnomalyReviewsQuerySchema>,
+  ) {
+    return this.audit.anomalyReviewHistory(q.key);
   }
 
   /** Keputusan tinjauan temuan (bukan akses darurat; itu lewat /authz/break-glass/:id/review). */
