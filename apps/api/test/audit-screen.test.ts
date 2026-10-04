@@ -210,6 +210,7 @@ describe('temuan anomali', () => {
       outcome: 'perlu_klarifikasi',
       note: 'Konfirmasi ke kasir',
       reviewerId: u.privasi?.id,
+      reviewer: { id: u.privasi?.id, displayName: 'Pengguna Uji Fiktif' },
     });
     // Temuan yang sudah ditinjau diurutkan setelah yang belum.
     const firstReviewed = res.body.findings.findIndex((x: { review: unknown }) => x.review !== null);
@@ -230,6 +231,153 @@ describe('temuan anomali', () => {
     await as('privasi')
       .post('/api/v1/audit/anomalies/review', { key: 'bukan:kunci', outcome: 'sah' })
       .expect(400);
+    // Kunci yang mustahil menjadi temuan tidak meninggalkan entri tinjauan permanen.
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', {
+        key: `login_failed:${u.kasir?.id}:${todayWib(2)}`,
+        outcome: 'sah',
+      })
+      .expect(400);
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', { key: `night:${newId()}:${todayWib()}`, outcome: 'sah' })
+      .expect(404);
+    // Gagal masuk dengan nama pengguna tak dikenal (`-`) tetap bisa ditinjau.
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', { key: `login_failed:-:${todayWib()}`, outcome: 'sah' })
+      .expect(200);
+  });
+
+  it('jendela temuan mulai 00.00 WIB sehingga hari pertama dihitung utuh', async () => {
+    const midnight = new Date(`${todayWib()}T00:00:00+07:00`).getTime();
+    const one = await as('privasi').get('/api/v1/audit/anomalies?days=1').expect(200);
+    expect(one.body.since).toBe(new Date(midnight).toISOString());
+    const week = await as('privasi').get('/api/v1/audit/anomalies?days=7').expect(200);
+    expect(week.body.since).toBe(new Date(midnight - 6 * 86_400_000).toISOString());
+  });
+});
+
+describe('riwayat tinjauan temuan', () => {
+  let key: string;
+  const extra: Record<string, TestUser> = {};
+  const extraTok: Record<string, Tokens> = {};
+  const asExtra = (who: string) => (url: string) =>
+    http()
+      .get(url)
+      .set(bearer(extraTok[who] as Tokens));
+  const historyUrl = (k: string) => `/api/v1/audit/anomalies/reviews?key=${encodeURIComponent(k)}`;
+
+  beforeAll(async () => {
+    for (const [name, code] of [
+      ['privasi2', 'petugas_privasi'],
+      ['auditor', 'auditor_mutu'],
+      ['subjek', 'akuntan'],
+    ] as const) {
+      extra[name] = await createTestUser(T.id, { roles: [{ code }], tenantCode: T.code });
+      extraTok[name] = await login(app, extra[name] as TestUser);
+    }
+    // Temuan "gagal masuk berulang" milik akun subjek (ambang uji = 2).
+    await insertEvents([
+      { actor: extra.subjek as TestUser, role: 'akuntan', action: 'login_failed' },
+      { actor: extra.subjek as TestUser, role: 'akuntan', action: 'login_failed' },
+    ]);
+    key = `login_failed:${extra.subjek?.id}:${todayWib()}`;
+  });
+
+  it('terbaru dulu, keputusan terbaru berlaku (sama dengan temuan), tanpa PHI; pembukaan diaudit', async () => {
+    const empty = await asExtra('auditor')(historyUrl(key)).expect(200);
+    expect(empty.body).toEqual({ key, items: [] });
+
+    await as('privasi')
+      .post('/api/v1/audit/anomalies/review', { key, outcome: 'perlu_klarifikasi', note: 'Tanya akuntan' })
+      .expect(200);
+    await http()
+      .post('/api/v1/audit/anomalies/review')
+      .set(bearer(extraTok.privasi2 as Tokens))
+      .send({ key, outcome: 'sah', note: 'Sudah dikonfirmasi: lupa sandi' })
+      .expect(200);
+
+    const res = await asExtra('auditor')(historyUrl(key)).expect(200);
+    expect(res.body.key).toBe(key);
+    const items = res.body.items as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      outcome: 'sah',
+      note: 'Sudah dikonfirmasi: lupa sandi',
+      reviewer: { id: extra.privasi2?.id, displayName: 'Pengguna Uji Fiktif' },
+      reviewerRole: 'petugas_privasi',
+      effective: true,
+    });
+    expect(items[1]).toMatchObject({
+      outcome: 'perlu_klarifikasi',
+      note: 'Tanya akuntan',
+      reviewer: { id: u.privasi?.id },
+      effective: false,
+    });
+    expect(BigInt(items[0]?.seq as string)).toBeGreaterThan(BigInt(items[1]?.seq as string));
+    expect((items[0]?.reviewedAt as string) >= (items[1]?.reviewedAt as string)).toBe(true);
+    // Hanya peninjau, waktu, keputusan, dan catatan; tidak ada id pasien, IP, atau rincian lain.
+    expect(Object.keys(items[0] as object).sort()).toEqual(
+      ['effective', 'note', 'outcome', 'reviewedAt', 'reviewer', 'reviewerRole', 'seq'].sort(),
+    );
+
+    const anomalies = await asExtra('auditor')('/api/v1/audit/anomalies?days=1').expect(200);
+    const finding = anomalies.body.findings.find((f: { key: string }) => f.key === key);
+    expect(finding.review).toMatchObject({ outcome: 'sah', reviewer: { id: extra.privasi2?.id } });
+
+    const reads = await withTenant(testDb(), T.id, (tx) =>
+      tx.auditEvent.findMany({
+        where: {
+          action: 'read',
+          resourceType: 'audit_anomaly',
+          resourceId: key,
+          actorUserId: extra.auditor?.id,
+        },
+        orderBy: { seq: 'asc' },
+      }),
+    );
+    expect(reads.map((r) => r.details)).toEqual([{ count: 0 }, { count: 2 }]);
+    expect(reads.every((r) => r.patientId === null && r.actorRole === 'auditor_mutu')).toBe(true);
+    // Membaca riwayat tidak menambah entri tinjauan.
+    const again = await asExtra('auditor')(historyUrl(key)).expect(200);
+    expect(again.body.items).toHaveLength(2);
+  });
+
+  it('butuh izin baca audit; kunci divalidasi', async () => {
+    await as('perawat').get(historyUrl(key)).expect(403);
+    await as('kasir').get(historyUrl(key)).expect(403);
+    await as('admin').get(historyUrl(key)).expect(200);
+    await as('privasi').get('/api/v1/audit/anomalies/reviews').expect(400);
+    await as('privasi').get(historyUrl('bukan:kunci')).expect(400);
+    // Akses darurat punya tinjauan sendiri (final) di /authz/break-glass/:id.
+    await as('privasi')
+      .get(historyUrl(`break_glass:${newId()}`))
+      .expect(400);
+    await as('privasi')
+      .get(`${historyUrl(key)}&extra=1`)
+      .expect(400);
+  });
+
+  it('isolasi tenant: RS lain tidak melihat riwayat RS ini, dan tinjauannya tidak ikut', async () => {
+    const other = await createTestTenant();
+    const privasiLain = await createTestUser(other.id, {
+      roles: [{ code: 'petugas_privasi' }],
+      tenantCode: other.code,
+    });
+    const tokLain = await login(app, privasiLain);
+    const seen = await http().get(historyUrl(key)).set(bearer(tokLain)).expect(200);
+    expect(seen.body.items).toEqual([]);
+
+    // Akun subjek tidak ada di RS lain: tinjauan ditolak, riwayat RS ini tidak berubah.
+    await http()
+      .post('/api/v1/audit/anomalies/review')
+      .set(bearer(tokLain))
+      .send({ key, outcome: 'perlu_klarifikasi', note: 'Tinjauan RS lain' })
+      .expect(404);
+    const mine = await asExtra('auditor')(historyUrl(key)).expect(200);
+    expect(mine.body.items).toHaveLength(2);
+    expect(mine.body.items[0]).toMatchObject({ outcome: 'sah', effective: true });
+    const theirs = await http().get(historyUrl(key)).set(bearer(tokLain)).expect(200);
+    expect(theirs.body.items).toEqual([]);
   });
 });
 

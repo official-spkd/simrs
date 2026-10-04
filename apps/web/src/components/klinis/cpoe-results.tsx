@@ -1,8 +1,9 @@
 import type { EncounterLab } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { LAB_FLAG_LABEL } from '@/lib/klinis';
+import { labValueFlag } from '@/lib/klinis';
+import { ValueFlagBadge } from './status-flag';
 
-/** Hasil penunjang terbaru di samping order (nilai kritis/abnormal ditandai teks, bukan hanya warna). */
+/** Hasil penunjang terbaru di samping order (nilai di luar rentang ditandai teks + ikon, bukan hanya warna). */
 export function CpoeResults({ results }: { results: readonly EncounterLab[] }) {
   if (results.length === 0) return null;
   return (
@@ -12,32 +13,29 @@ export function CpoeResults({ results }: { results: readonly EncounterLab[] }) {
     >
       <h2 className="m-0 text-body font-semibold">Hasil penunjang terbaru</h2>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {results.map((r) => (
-          <li key={`${r.name}-${r.value}`} className="flex flex-col gap-0.5 text-small">
-            <span className="flex items-baseline justify-between gap-2">
-              <span>{r.name}</span>
-              <span
-                className={cx(
-                  'text-right font-bold',
-                  r.flag === 'K' || r.flag === 'H' || r.flag === 'A' ? 'text-danger' : 'text-ink-900',
-                )}
-              >
-                {r.value}
-                {r.flag && (
-                  <span
-                    className={cx('ml-1 text-caption', r.flag === 'K' && 'rounded bg-danger px-1 text-white')}
-                  >
-                    {LAB_FLAG_LABEL[r.flag]}
-                  </span>
-                )}
+        {results.map((r) => {
+          const flag = labValueFlag(r.flag);
+          return (
+            <li key={`${r.name}-${r.value}`} className="flex flex-col gap-0.5 text-small">
+              <span className="flex items-baseline justify-between gap-2">
+                <span>{r.name}</span>
+                <span
+                  className={cx(
+                    'inline-flex flex-wrap items-center justify-end gap-1 text-right font-bold',
+                    flag ? 'text-danger' : 'text-ink-900',
+                  )}
+                >
+                  {r.value}
+                  {flag && <ValueFlagBadge flag={flag} />}
+                </span>
               </span>
-            </span>
-            <span className="text-caption text-ink-500">
-              {r.reference ? `Rujukan ${r.reference}` : '—'}
-              {r.loinc && <span className="font-mono"> · LOINC {r.loinc}</span>}
-            </span>
-          </li>
-        ))}
+              <span className="text-caption text-ink-500">
+                {r.reference ? `Rujukan ${r.reference}` : '—'}
+                {r.loinc && <span className="font-mono"> · LOINC {r.loinc}</span>}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

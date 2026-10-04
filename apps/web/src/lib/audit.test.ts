@@ -7,6 +7,8 @@ import {
   formatWaktuSingkat,
   objectLabel,
   rangeStart,
+  type ReviewHistoryItem,
+  reviewHistoryRows,
   roleLabel,
   tanggalWib,
 } from './audit';
@@ -71,5 +73,43 @@ describe('label baris audit', () => {
       '/sistem/audit?rentang=7-hari&jenis=baca&kejadian=42',
     );
     expect(auditHref({ kursor: '9' }, { kursor: undefined })).toBe('/sistem/audit');
+  });
+});
+
+describe('riwayat tinjauan temuan', () => {
+  const lestari = { id: '0199a1b2-1111-7000-8000-0000000000a1', displayName: 'Lestari Ayu' };
+  const item = (over: Partial<ReviewHistoryItem>): ReviewHistoryItem => ({
+    seq: '1',
+    outcome: 'sah',
+    note: null,
+    reviewedAt: '2026-10-05T03:42:07.000Z',
+    reviewer: lestari,
+    reviewerRole: 'petugas_privasi',
+    effective: false,
+    ...over,
+  });
+
+  it('terbaru dulu menurut seq (angka, bukan teks); penanda berlaku dari API', () => {
+    const rows = reviewHistoryRows([
+      item({ seq: '9', outcome: 'perlu_klarifikasi', note: 'Tanya kasir' }),
+      item({ seq: '10', outcome: 'sah', effective: true, reviewedAt: '2026-10-05T04:10:00.000Z' }),
+      item({ seq: '1000000000000000001', outcome: 'sah', reviewer: null, reviewerRole: null }),
+    ]);
+    expect(rows.map((r) => r.seq)).toEqual(['1000000000000000001', '10', '9']);
+    expect(rows.map((r) => r.status)).toEqual(['Digantikan', 'Berlaku', 'Digantikan']);
+    expect(rows[1]).toMatchObject({
+      effective: true,
+      decision: 'Akses sah',
+      when: 'Sen, 5 Okt 2026 · 11.10.00',
+      who: 'Lestari Ayu · Petugas privasi',
+      note: null,
+    });
+    expect(rows[2]).toMatchObject({ decision: 'Perlu klarifikasi', note: 'Tanya kasir' });
+    expect(rows[0]?.who).toBe('Pengguna tidak dikenal · —');
+  });
+
+  it('keputusan tak dikenal tampil apa adanya; daftar kosong tetap kosong', () => {
+    expect(reviewHistoryRows([item({ outcome: 'lainnya' })])[0]?.decision).toBe('Lainnya');
+    expect(reviewHistoryRows([])).toEqual([]);
   });
 });

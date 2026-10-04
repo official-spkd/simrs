@@ -96,8 +96,18 @@ export function SoapPlan({
               {r.kind}
             </span>
             <span className="min-w-[180px] flex-1">{r.text}</span>
-            <span className={cx('text-caption font-medium', r.attention ? 'text-warning' : 'text-ink-500')}>
-              {r.attention && <span className="sr-only">Perlu perhatian: </span>}
+            <span
+              className={cx(
+                'inline-flex items-center gap-1 text-caption font-medium',
+                r.attention ? 'text-warning' : 'text-ink-500',
+              )}
+            >
+              {r.attention && (
+                <>
+                  <Icon name="alert" size={13} strokeWidth={2.2} className="flex-none" />
+                  <span className="sr-only">Perlu perhatian: </span>
+                </>
+              )}
               {r.note}
             </span>
           </li>
