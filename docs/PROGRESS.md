@@ -6,7 +6,7 @@ Diperbarui oleh Claude Code di akhir setiap potongan kerja. Format: centang krit
 
 | Fase | Nama                               | Status                                                                                                |
 | ---- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 0    | Fondasi repo dan infrastruktur     | 🟨 hampir selesai: tinggal tes BullMQ + `/ready` hijau (butuh Redis/MinIO via Docker)                 |
+| 0    | Fondasi repo dan infrastruktur     | ✅ selesai 5 Okt 2026 (macOS + Docker/OrbStack: BullMQ hijau, `/ready` hijau)                         |
 | 1    | Platform inti                      | 🟨 berjalan: 6/6 kriteria selesai lolos; sisa potongan 10 (dokumen, TTE, notifikasi) dan 11 (penutup) |
 | 2    | Front office                       | ⬜                                                                                                    |
 | 3    | Klinis RME                         | ⬜                                                                                                    |
@@ -30,22 +30,22 @@ Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 | 4   | `apps/mock` 7 sistem + panel kendali (bind 127.0.0.1)                                                                 | ✅     | 12 tes                                                                             |
 | 5   | `packages/db` Prisma + RLS + `withTenant` + outbox + persiapan tes non-destruktif                                     | ✅     | 8 tes integrasi di Postgres 16 (portabel)                                          |
 | 6   | `apps/api` health/ready/Swagger/galat/request-id/tenancy + hardening                                                  | ✅     | 27 tes (termasuk mode produksi, rate limit, header keamanan, 413)                  |
-| 7   | `apps/worker` outbox → mock, retry, DLQ (BullMQ)                                                                      | 🟨     | 11/12 tes; tes BullMQ menunggu Redis (gagal cepat, sengaja tidak dilewati)         |
+| 7   | `apps/worker` outbox → mock, retry, DLQ (BullMQ)                                                                      | ✅     | worker 23/23 dengan Redis (5 Okt 2026, macOS)                                      |
 | 8   | Skrip root, Playwright smoke, README per aplikasi                                                                     | ✅     | Playwright 20 tes (Edge, desktop + tablet)                                         |
 | +   | Panduan superadmin (`/superadmin/panduan`) + README pengembang (`docs/panduan/`)                                      | ✅     | 12 tes unit web + 10 tes Playwright; gerbang produksi diverifikasi di `next start` |
 
 ### Definisi selesai fase 0
 
-- [ ] `docker compose up -d` + `pnpm dev` menjalankan semua aplikasi tanpa galat. API (via `main.ts`), web, dan mock sudah diverifikasi jalan; worker butuh Redis.
-- [ ] `GET /ready` hijau (DB, Redis, MinIO). Saat ini DB hijau; Redis dan MinIO butuh Docker.
+- [x] `docker compose up -d` + `pnpm dev` menjalankan semua aplikasi tanpa galat (5 Okt 2026, macOS + OrbStack, via `pnpm dev:demo`: API, web, mock, worker; worker memakai BullMQ, job `bull:outbox:repeat:*` tercatat di Redis; login akun presentasi diverifikasi di browser)
+- [x] `GET /ready` hijau (DB, Redis, MinIO): `{"status":"ok"}` dengan ketiga pemeriksaan `ok: true` (5 Okt 2026). `pnpm test` penuh: 700/700 lolos di 9 paket (ui 10, shared 78, db 57, mock 15, worker 23, web 348, api 169)
 - [x] Tes membuktikan RLS: query tanpa `app.tenant_id` gagal (`TENANT_REQUIRED`); tenant A tidak melihat/menulis/mengubah baris tenant B
-- [x] Pesan outbox contoh terkirim ke target; target gagal → retry eksponensial → DLQ; galat permanen langsung DLQ; target pulih → terkirim (dispatcher, diuji dengan Postgres). Penjadwalan BullMQ menunggu Redis.
+- [x] Pesan outbox contoh terkirim ke target; target gagal → retry eksponensial → DLQ; galat permanen langsung DLQ; target pulih → terkirim (dispatcher, diuji dengan Postgres); penjadwalan BullMQ diuji dengan Redis (5 Okt 2026).
 - [x] `/dev/ui` menampilkan token dan komponen dasar sesuai Fondasi
 - [x] README per aplikasi singkat; `PROGRESS.md` diperbarui
 
 ### Penghambat
 
-- **Docker belum jalan**: firmware virtualisasi aktif, tetapi hypervisor Windows belum menyala. Perlu `wsl --install --no-distribution` (PowerShell Admin) lalu restart. Sementara itu Postgres dijalankan dengan `pnpm pg:portable` (ADR-0009).
+- ~~Docker belum jalan di Windows~~ · selesai: repo pindah ke macOS (5 Okt 2026), Docker lewat OrbStack. `pnpm pg:portable` (ADR-0009) tetap tersedia untuk mesin tanpa Docker.
 
 ## Fase 1 · potongan
 
@@ -103,7 +103,7 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - **Pindah ke MacBook** (repo GitHub privat): ikuti `docs/panduan/03-tutorial.md` bagian "Mesin baru (macOS)". `.env` dan `.local/` (DB lokal, akun presentasi, keadaan simulasi) tidak ikut git: buat ulang di Mac. Draf PIN 10c-2 ada di cabang `wip/pin-masuk-cepat-10c-2`.
 - Mode presentasi, sisa sebelum tampil: (1) jalankan E2E penuh setelah putaran perbaikan tinjauan; (2) sisa temuan tinjauan klinis/rawat inap yang terhenti karena batas pemakaian: eMAR pindai gelang lalu beri dosis satu per satu (sekarang pindai skenario mencatat semua dosis 08.00), tablet persetujuan menunggu giliran skenario + menampilkan galat + kunci per status dokumen, ikon/teks status (TTV abnormal, LOS lewat, permintaan bed terlambat), chip bed 44 px, `PillTabs` aria-controls, signature pad `pointercancel`, E2E CPOE skenario terkunci + koreksi CPPT + 404; (3) putaran konsistensi pasien antar-layar (lihat Utang teknis); (4) QA visual ulang.
 
-- Setelah Docker hidup: `pnpm infra:up` → `pnpm test` (tes BullMQ harus hijau) → `/ready` hijau → centang dua kriteria sisa → fase 0 ✅.
+- ~~Setelah Docker hidup: tutup fase 0~~ · selesai 5 Okt 2026 (lihat Fase 0).
 - Setelah jalur presentasi: fase 1 potongan 10c-2 PIN cepat per perangkat terdaftar (P02; draf skema + API sebagian di `git stash`, belum diterapkan ke DB mana pun), lalu 10d (seed ±30 staf tanpa sandi bawaan) dan 11 (penutupan fase 1). Fokus lokal tetap RSCM.
 - Tanpa Docker, nyalakan lingkungan lokal dengan `pnpm dev:lokal` (Postgres portabel + API + web + worker + mock; Ctrl+C berhenti). Worker memakai timer bila Redis tidak ada.
 - Pengembang lokal: setelah menarik perubahan ini jalankan `pnpm db:deploy`, `pnpm db:seed` (menambah RSCM + 200 pasien fiktif; memasang formulir Morse v1 per RS), lalu `pnpm db:create-demo --tenant RSCM --username demo.rscm --name "Akun Demo RSCM"` (satu akun, 16 posisi) atau `pnpm db:create-admin` (lihat tutorial §1) untuk bisa masuk di web.
@@ -195,6 +195,7 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - 4 Okt 2026 · Akun presentasi pilih-klik (permintaan pengguna): 16 akun fiktif per posisi, kredensial di `.local/demo-accounts.json`; web menjalankan login biasa (tanpa jalan pintas di API), hanya di mode presentasi · ADR-0023 §9
 - 4 Okt 2026 · 25 layar sisa dibangun paralel oleh 7 agen ber-worktree lalu digabung (cherry-pick); ditinjau 3 agen peninjau dan diperbaiki per domain. Aturan hasil tinjauan: setiap Server Action demo mencari rekamannya sendiri di server (tidak memercayai nilai, jumlah uang, atau saran dari klien), gerbang keselamatan ditegakkan juga di server, cap waktu catatan memakai jam demo `demoNow()`, modul server tidak mengimpor nilai dari modul `'use client'` (tes `rsc-boundary`) · ADR-0023
 - 5 Okt 2026 · Repo dipindah ke GitHub (privat) agar bisa kolaborasi dan dikerjakan di macOS; draf PIN dari `git stash` disimpan sebagai cabang `wip/pin-masuk-cepat-10c-2`
+- 5 Okt 2026 · Pengembangan kini di macOS (Apple Silicon) + OrbStack. Image `minio/minio` dan `minio/mc` tidak lagi bisa ditarik (Docker Hub maupun quay.io), diganti build komunitas `pgsty/minio` + `pgsty/mc` (drop-in, healthcheck `mc ready` tetap); `allowBuilds` menambah `@embedded-postgres/darwin-arm64`; web mengizinkan `allowedDevOrigins: ['127.0.0.1']`. Bila port 5432/3000/4000 di `localhost` dipakai aplikasi lain, ubah `POSTGRES_PORT` + URL database di `.env` dan buka web lewat `http://127.0.0.1:3000` (`API_BASE_URL` ke `127.0.0.1`); `WEB_BASE_URL` biarkan `http://localhost:3000` karena dipatok tes CORS API
 - 4 Okt 2026 · `withTenant` menerima `maxWaitMs` (API tetap memakai bawaan Prisma 2 detik: gagal cepat saat pool penuh). Data uji E2E menunggu sampai 20 detik: saat suite paralel, membuka koneksi Postgres baru di Windows (satu proses per koneksi) bisa > 2 detik dan dua E2E gagal sporadis "Unable to start a transaction"; tes db membuktikan koneksi yang datang terlambat tidak bocor
 
 ## Utang teknis
