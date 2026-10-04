@@ -303,7 +303,10 @@ describe('seed front office', () => {
       bpjsPoli: (
         await tx.externalId.findMany({ where: { system: 'bpjs:poli' }, orderBy: { value: 'asc' } })
       ).map((e) => e.value),
-      hfis: await tx.externalId.count({ where: { system: 'bpjs:hfis-dokter' } }),
+      hfis: await tx.externalId.findMany({
+        where: { system: 'bpjs:hfis-dokter' },
+        orderBy: { value: 'asc' },
+      }),
       board: await tx.queueDisplay.findFirstOrThrow({
         where: { code: 'RJ-LT2' },
         include: { services: { orderBy: { position: 'asc' }, include: { service: true } } },
@@ -315,7 +318,23 @@ describe('seed front office', () => {
     expect(counts.schedules).toBe(SEED_SCHEDULE_TEMPLATES.reduce((n, t) => n + t[2].length, 0));
     expect(counts.payers).toEqual(SEED_PAYERS.map((p) => p.code).sort());
     expect(counts.bpjsPoli).toEqual(['INT', 'JAN', 'PAR', 'SAR']);
-    expect(counts.hfis).toBe(SEED_PRACTITIONERS.length);
+    // Kode dokter HFIS fiktif sama dengan mock BPJS (99001–99006).
+    const names = await inA(async (tx) =>
+      Promise.all(
+        counts.hfis.map(async (e) => [
+          e.value,
+          (await tx.practitioner.findUniqueOrThrow({ where: { id: e.entityId } })).name,
+        ]),
+      ),
+    );
+    expect(names).toEqual([
+      ['99001', 'dr. Andini Prameswari, Sp.PD'],
+      ['99002', 'dr. Rahmat Hidayat, Sp.PD'],
+      ['99003', 'dr. Bagus Santoso, Sp.JP'],
+      ['99004', 'dr. Melati Kusumawardani, Sp.JP'],
+      ['99005', 'dr. Yudha Pratama, Sp.N'],
+      ['99006', 'dr. Kartika Sari, Sp.P'],
+    ]);
     expect(counts.board.name).toBe('Rawat Jalan Lantai 2');
     expect(counts.board.services.map((s) => s.service.code)).toEqual(['PD', 'JT', 'SR', 'PR']);
 

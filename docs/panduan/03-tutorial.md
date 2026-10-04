@@ -115,7 +115,7 @@ terakhir yang bisa masuk tetap tidak bisa dinonaktifkan atau dicabut perannya.
 
 Front office (fase 2) ikut di-seed per RS, selaras dengan layar mode presentasi: layanan antrean poli **PD**, **JT**,
 **SR**, **PR** (dengan kode poli BPJS INT/JAN/SAR/PAR), loket pendaftaran **A**, farmasi **F**; 16 dokter fiktif (11
-tertaut akun staf seed); templat jadwal mingguan Senin–Sabtu dengan kuota JKN/non-JKN; penjamin BPJS, Umum, dan satu
+tertaut akun staf seed; enam dokter poli punya kode dokter HFIS fiktif 99001–99006, sama dengan mock BPJS); templat jadwal mingguan Senin–Sabtu dengan kuota JKN/non-JKN; penjamin BPJS, Umum, dan satu
 asuransi fiktif; papan antrean **Rawat Jalan Lantai 2**. Sesi per tanggal belum di-seed (dibangkitkan job jadwal).
 Seed juga menjalankan sinkron izin (seperti `pnpm db:sync-permissions`), jadi izin baru di katalog sampai ke peran RS
 yang sudah ada cukup dengan `pnpm db:seed`.

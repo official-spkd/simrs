@@ -85,6 +85,11 @@ export interface SeedPractitioner {
   /** Nama untuk praktisi tanpa akun seed. */
   name?: string;
   specialty: string;
+  /**
+   * Kode dokter HFIS fiktif (sistem `bpjs:hfis-dokter`), sama dengan mock BPJS (`apps/mock/src/systems/bpjs/master.ts`,
+   * 99001–99006). Hanya dokter yang praktik di poli rawat jalan BPJS.
+   */
+  hfisCode?: string;
 }
 
 /**
@@ -93,7 +98,7 @@ export interface SeedPractitioner {
  * Urutan menentukan nomor fiktif (IHS = kunci alami seed): tambahkan di akhir, jangan disisipkan atau diurutkan ulang.
  */
 export const SEED_PRACTITIONERS: readonly SeedPractitioner[] = [
-  { key: 'rahmat', nip: '999905172008031001', specialty: 'Penyakit dalam' },
+  { key: 'rahmat', nip: '999905172008031001', specialty: 'Penyakit dalam', hfisCode: '99002' },
   { key: 'sinta', nip: '999911022010012002', specialty: 'Penyakit dalam (ginjal hipertensi)' },
   { key: 'nadia', nip: '999908242012032003', specialty: 'Anak' },
   { key: 'yohanes', nip: '999903092006041004', specialty: 'Bedah' },
@@ -104,11 +109,23 @@ export const SEED_PRACTITIONERS: readonly SeedPractitioner[] = [
   { key: 'damar', nip: '999909112019031009', specialty: 'Dokter umum (IGD)' },
   { key: 'reza', nip: '999902282022011010', specialty: 'Residen emergensi' },
   { key: 'laila', nip: '999906132022012011', specialty: 'Residen penyakit dalam' },
-  { key: 'andini', nip: null, name: 'dr. Andini Prameswari, Sp.PD', specialty: 'Penyakit dalam' },
-  { key: 'bagus', nip: null, name: 'dr. Bagus Santoso, Sp.JP', specialty: 'Jantung' },
-  { key: 'melati', nip: null, name: 'dr. Melati Kusumawardani, Sp.JP', specialty: 'Jantung' },
-  { key: 'yudha', nip: null, name: 'dr. Yudha Pratama, Sp.N', specialty: 'Saraf' },
-  { key: 'kartika', nip: null, name: 'dr. Kartika Sari, Sp.P', specialty: 'Paru' },
+  {
+    key: 'andini',
+    nip: null,
+    name: 'dr. Andini Prameswari, Sp.PD',
+    specialty: 'Penyakit dalam',
+    hfisCode: '99001',
+  },
+  { key: 'bagus', nip: null, name: 'dr. Bagus Santoso, Sp.JP', specialty: 'Jantung', hfisCode: '99003' },
+  {
+    key: 'melati',
+    nip: null,
+    name: 'dr. Melati Kusumawardani, Sp.JP',
+    specialty: 'Jantung',
+    hfisCode: '99004',
+  },
+  { key: 'yudha', nip: null, name: 'dr. Yudha Pratama, Sp.N', specialty: 'Saraf', hfisCode: '99005' },
+  { key: 'kartika', nip: null, name: 'dr. Kartika Sari, Sp.P', specialty: 'Paru', hfisCode: '99006' },
 ];
 
 /**
@@ -150,10 +167,10 @@ export const SEED_PAYERS: ReadonlyArray<{ code: string; name: string; kind: 'bpj
 export const SEED_QUEUE_DISPLAYS: ReadonlyArray<{ code: string; name: string; services: readonly string[] }> =
   [{ code: 'RJ-LT2', name: 'Rawat Jalan Lantai 2', services: ['PD', 'JT', 'SR', 'PR'] }];
 
-/** Nomor fiktif praktisi ke-n (1-based): IHS `9999xxxxxx`, SIP `9999/SIP/2026/nnn`, kode dokter HFIS `99nnnn`. */
+/** Nomor fiktif praktisi ke-n (1-based): IHS `9999xxxxxx`, SIP `9999/SIP/2026/nnn`. */
 export function seedPractitionerNumbers(n: number) {
   const pad = (v: number, w: number) => String(v).padStart(w, '0');
-  return { ihsId: `9999${pad(n, 6)}`, sipNumber: `9999/SIP/2026/${pad(n, 3)}`, hfisCode: `99${pad(n, 4)}` };
+  return { ihsId: `9999${pad(n, 6)}`, sipNumber: `9999/SIP/2026/${pad(n, 3)}` };
 }
 
 /** Jam dinding `HH:MM` sebagai nilai kolom `time` (sesi DB UTC, ADR-0014). */
@@ -271,7 +288,8 @@ export async function seedFrontOffice(
           result.practitioners++;
         }
         practitioners.set(p.key, id);
-        await ensureExternalId(tx, tenantId, 'practitioner', id, 'bpjs:hfis-dokter', nums.hfisCode);
+        if (p.hfisCode)
+          await ensureExternalId(tx, tenantId, 'practitioner', id, 'bpjs:hfis-dokter', p.hfisCode);
       }
 
       const validFrom = new Date(`${SEED_SCHEDULE_VALID_FROM}T00:00:00.000Z`);
