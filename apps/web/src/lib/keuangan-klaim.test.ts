@@ -44,7 +44,7 @@ describe('data dummy Klaim', () => {
   });
 
   it('grouping ditahan bila resume belum final atau pasien masih dirawat', () => {
-    expect(codingView(claim('kl-sutan'), { accepted: false, docs: [] }).held).toMatch(/resume/);
+    expect(codingView(claim('kl-bonifasius-ri'), { accepted: false, docs: [] }).held).toMatch(/resume/);
     expect(codingView(claim('kl-raka'), { accepted: false, docs: [] }).held).toMatch(/masih dirawat/);
   });
 
