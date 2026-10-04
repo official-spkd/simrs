@@ -23,7 +23,20 @@ export {
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
-export { activeAssignments, ensureSystemRoles, lockTenantScope, roleGrantScope } from './authz';
+export {
+  activeAssignments,
+  ensureSystemRoles,
+  lockTenantScope,
+  ROLE_MATRIX_LOCK,
+  roleGrants,
+  roleGrantScope,
+} from './authz';
+export {
+  CODE_PERMISSION_CATALOG,
+  type PermissionSyncCatalog,
+  type PermissionSyncReport,
+  syncRolePermissions,
+} from './permission-sync';
 export { insertPatient, toDbDate, type NewPatientRecord } from './patients';
 export { detectDuplicates, loadMatchProfiles, lockMpi, type DetectResult } from './patient-match';
 export { csvRecords, parseCsv, type CsvRecord } from './csv';

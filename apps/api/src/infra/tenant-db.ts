@@ -45,4 +45,9 @@ export class TenantDb {
   audit(entry: PendingAudit): void {
     this.context().audit.push(entry);
   }
+
+  /** Jalankan `fn` setelah transaksi permintaan ini commit (lihat `TenantRequestContext.afterCommit`). */
+  afterCommit(fn: () => Promise<void> | void): void {
+    this.context().afterCommit.push(fn);
+  }
 }

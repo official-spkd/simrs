@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACCESS_ADMIN_GRANTS,
+  catalogPermissionKeys,
   DEFAULT_ROLE_GRANTS,
   defaultRolesFor,
+  grantDiffEntry,
   isPermission,
   isProtectedRole,
+  parseGrantDiffEntry,
   PERMISSION_CATALOG,
+  PERMISSION_CATALOG_BASELINE,
+  PERMISSION_CATALOG_RECORD_KEY,
+  permissionAllowedFor,
   PLATFORM_ROLE_GRANTS,
   PROTECTED_ROLES,
   SYSTEM_ROLES,
 } from './authz';
+import { isTenantSettingKey } from './settings';
 
 const allDefaults = { ...DEFAULT_ROLE_GRANTS, ...PLATFORM_ROLE_GRANTS };
 
@@ -68,5 +75,42 @@ describe('katalog izin dan matriks bawaan', () => {
     ).toEqual([]);
     expect(isPermission('constructor', 'read')).toBe(false);
     expect(Object.keys(PERMISSION_CATALOG).length).toBeGreaterThan(10);
+  });
+});
+
+describe('sinkron izin katalog', () => {
+  it('baseline = subset katalog (izin tidak pernah dihapus dari katalog tanpa disadari)', () => {
+    const keys = catalogPermissionKeys();
+    expect(PERMISSION_CATALOG_BASELINE.filter((k) => !keys.includes(k))).toEqual([]);
+    expect(new Set(PERMISSION_CATALOG_BASELINE).size).toBe(PERMISSION_CATALOG_BASELINE.length);
+    expect(keys).toContain('iam.users.write');
+    expect(keys).toEqual([...keys].sort());
+  });
+
+  it('matriks bawaan RS tidak pernah memuat izin platform', () => {
+    for (const role of defaultRolesFor('hospital')) {
+      for (const [resource] of role.grants) {
+        expect(permissionAllowedFor('hospital', resource), `${role.code}: ${resource}`).toBe(true);
+      }
+    }
+    expect(permissionAllowedFor('hospital', 'platform.guide')).toBe(false);
+    expect(permissionAllowedFor('platform', 'platform.guide')).toBe(true);
+  });
+
+  it('catatan katalog bukan pengaturan RS (tidak bisa diubah lewat API pengaturan)', () => {
+    expect(isTenantSettingKey(PERMISSION_CATALOG_RECORD_KEY)).toBe(false);
+  });
+
+  it('entri selisih audit bolak-balik, termasuk sumber bertitik', () => {
+    const entry = grantDiffEntry({ resource: 'iam.users', action: 'write', scope: 'all' });
+    expect(entry).toBe('iam.users.write:all');
+    expect(parseGrantDiffEntry(entry)).toEqual({ permission: 'iam.users.write', scope: 'all' });
+    expect(parseGrantDiffEntry('patient.read:relationship')).toEqual({
+      permission: 'patient.read',
+      scope: 'relationship',
+    });
+    for (const bad of ['', 'tanpa-lingkup', ':all', 'audit.read:', 'tanpatitik:all']) {
+      expect(parseGrantDiffEntry(bad), bad).toBeNull();
+    }
   });
 });
