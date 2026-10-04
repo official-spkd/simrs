@@ -106,9 +106,11 @@ penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`
 berawalan `9999` (mis. `999901292022022025`), no. HP fiktif `0813-0000-1xxx` (tersimpan terenkripsi). Seed aman diulang:
 akun yang sudah ada tidak diubah.
 
-Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk. Untuk memakai salah satunya,
-admin SIM RS membuka **Pengguna & akses**, memilih staf itu, lalu **Reset kata sandi**: sandi sementara tampil sekali, dan
-saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti sandi (sama dengan undangan biasa).
+Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk; di **Pengguna & akses** statusnya
+**Belum diaktifkan** (ada di filter status). Untuk memakai salah satunya, admin SIM RS memilih staf itu lalu **Reset kata
+sandi**: sandi sementara tampil sekali, dan saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti
+sandi (sama dengan undangan biasa). Admin seed yang belum diaktifkan tidak dihitung sebagai admin aktif, jadi admin
+terakhir yang bisa masuk tetap tidak bisa dinonaktifkan atau dicabut perannya.
 
 ### Buat akun untuk masuk
 
