@@ -54,7 +54,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Registrasi',
     components: ['F03', 'F06'],
     phase: 2,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'encounter.write',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'staf',

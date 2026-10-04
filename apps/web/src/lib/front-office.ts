@@ -288,6 +288,50 @@ export function diagnosisProblem(text: string): string {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Pencarian pasien di meja pendaftaran
+// ---------------------------------------------------------------------------------------------------------------
+
+export const SEARCH_TOO_SHORT = 'Masukkan minimal 3 karakter: NIK, No. RM, No. BPJS, atau nama + tgl lahir.';
+
+interface Searchable {
+  rm: string;
+  name: string;
+  birthDate: string;
+  nikMasked: string;
+  bpjsMasked: string | null;
+}
+
+/**
+ * Cocokkan isian petugas dengan pasien: No. RM (dengan/tanpa tanda hubung), NIK 16 digit atau 4 digit terakhir,
+ * No. BPJS 13 digit (3 digit terakhir), atau nama (≥ 3 huruf) + tanggal lahir opsional `dd-mm-yyyy`.
+ */
+export function matchPatient<T extends Searchable>(query: string, list: readonly T[]): T | null {
+  const v = query.trim().toLowerCase();
+  if (v.length < 3) return null;
+  const digits = v.replace(/\D/g, '');
+  const name = v
+    .replace(/[\d\-/.•]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const dob = /(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/.exec(v);
+  const dobIso = dob ? `${dob[3]}-${dob[2]?.padStart(2, '0')}-${dob[1]?.padStart(2, '0')}` : null;
+  return (
+    list.find((p) => {
+      // Hasil baca e-KTP / pindai kartu berupa nomor tersamar yang sama persis.
+      if (v === p.nikMasked.toLowerCase() || v === p.bpjsMasked?.toLowerCase()) return true;
+      const rm = p.rm.replace(/-/g, '');
+      if (digits.length === 8 && digits === rm) return true;
+      const nik = p.nikMasked.replace(/\D/g, '').slice(-4);
+      if ((digits.length === 16 || digits.length === 4) && digits.slice(-4) === nik && !name) return true;
+      const bpjs = (p.bpjsMasked ?? '').replace(/\D/g, '').slice(-3);
+      if (digits.length === 13 && bpjs && digits.slice(-3) === bpjs) return true;
+      if (name.length >= 3 && p.name.toLowerCase().includes(name)) return !dobIso || dobIso === p.birthDate;
+      return false;
+    }) ?? null
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Langkah pendaftaran (mockup Registrasi): Pasien → Penjamin → Tujuan → Konfirmasi
 // ---------------------------------------------------------------------------------------------------------------
 

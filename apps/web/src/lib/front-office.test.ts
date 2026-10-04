@@ -33,6 +33,7 @@ import {
   frontOfficeProgress,
   keypadDisplay,
   keypadHint,
+  matchPatient,
   nextQueueNo,
   parseQueueNo,
   quotaUsage,
@@ -295,6 +296,21 @@ describe('pendaftaran: langkah dan alasan tombol utama', () => {
     expect(referralMeta(kontrol, '2026-10-05')).toBe('dari kunjungan 12 Sep 2026 · berlaku s.d. 12 Okt 2026');
     expect(referralMeta(fktp, '2026-10-05')).toBe('I10 · berlaku s.d. 28 Des 2026 · kunjungan ke-3');
     expect(referralMeta(lama, '2026-10-05')).toBe('K30 · berakhir 1 Sep 2026 · kunjungan ke-2');
+  });
+});
+
+describe('pendaftaran: pencarian pasien', () => {
+  const list = registrationPatients();
+  it('No. RM, NIK, No. BPJS, nama + tanggal lahir', () => {
+    expect(matchPatient('00-12-45-78', list)?.name).toBe('Siti Rahmawati');
+    expect(matchPatient('00124578', list)?.name).toBe('Siti Rahmawati');
+    expect(matchPatient('9999••••••••4521', list)?.name).toBe('Siti Rahmawati');
+    expect(matchPatient('0000123000890', list)?.name).toBe('Siti Rahmawati');
+    expect(matchPatient('endang', list)?.rm).toBe('00-07-61-33');
+    expect(matchPatient('Siti 14-03-1972', list)?.id).toBe('ps-siti');
+    expect(matchPatient('Siti 15-03-1972', list)).toBeNull();
+    expect(matchPatient('zz', list)).toBeNull();
+    expect(matchPatient('Tidak Ada', list)).toBeNull();
   });
 });
 
