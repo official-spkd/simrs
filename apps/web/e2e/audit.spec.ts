@@ -69,7 +69,8 @@ test.describe('layar Audit (/sistem/audit)', () => {
   test('auditor mutu: unduh paket bukti CSV; admin RS tanpa izin ekspor', async ({ page, browser }) => {
     test.setTimeout(60_000); // dua sesi login dalam satu tes
     const auditor = await createAccount({ roles: ['auditor_mutu'] });
-    await loginAs(page, auditor, '/sistem/audit?rentang=hari-ini');
+    // Disaring ke pengguna ini: jejak bersama RSFA di simrs_test bisa melewati batas ekspor 10.000 entri per hari.
+    await loginAs(page, auditor, `/sistem/audit?rentang=hari-ini&pengguna=${auditor.id}`);
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('link', { name: 'Unduh paket bukti akreditasi' }).click(),
