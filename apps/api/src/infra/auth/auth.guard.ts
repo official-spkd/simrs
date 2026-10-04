@@ -63,6 +63,7 @@ export class AuthGuard implements CanActivate {
         role: session.roleCode,
         sessionId: session.sessionId,
         unitId: session.unitId,
+        pinDeviceId: session.pinDeviceId,
       };
       return true;
     }

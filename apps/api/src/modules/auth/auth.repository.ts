@@ -203,6 +203,106 @@ export class AuthRepository {
     });
   }
 
+  // ------------------------------------------------------------------------------------------------------
+  // PIN masuk cepat per perangkat (ADR-0024)
+  // ------------------------------------------------------------------------------------------------------
+
+  /** PIN perangkat beserta keadaan akun + posisi yang menentukan kelayakannya (`pinBlock`). */
+  findPinDevices(tx: TenantTx, ids: string[]) {
+    return tx.pinDevice.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        userId: true,
+        assignmentId: true,
+        tokenHash: true,
+        pinHash: true,
+        failedAttempts: true,
+        expiresAt: true,
+        revokedAt: true,
+        tenant: { select: { kind: true } },
+        user: {
+          select: {
+            displayName: true,
+            status: true,
+            lockedUntil: true,
+            mustChangePassword: true,
+            mfaFactors: {
+              where: { disabledAt: null, confirmedAt: { not: null } },
+              select: { id: true },
+              take: 1,
+            },
+          },
+        },
+        assignment: {
+          select: {
+            validFrom: true,
+            validUntil: true,
+            unitId: true,
+            role: { select: { code: true, name: true, active: true } },
+            unit: { select: { name: true, active: true } },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Cadangkan satu percobaan SEBELUM PIN diperiksa (atomik, di-commit lebih dulu): tebakan paralel tidak bisa
+   * melewati batas. Null bila PIN sudah dicabut, kedaluwarsa, atau percobaannya habis.
+   */
+  async reservePinAttempt(tx: TenantTx, id: string, maxAttempts: number): Promise<number | null> {
+    const rows = await tx.$queryRaw<Array<{ failed_attempts: number }>>`
+      UPDATE pin_devices SET failed_attempts = failed_attempts + 1
+      WHERE id = ${id}::uuid AND revoked_at IS NULL AND expires_at > now() AND failed_attempts < ${maxAttempts}
+      RETURNING failed_attempts`;
+    return rows[0]?.failed_attempts ?? null;
+  }
+
+  /** PIN benar: hitungan salah kembali 0 + penanda pakai. False bila PIN dicabut di antara pemeriksaan. */
+  async markPinUsed(tx: TenantTx, id: string): Promise<boolean> {
+    const r = await tx.pinDevice.updateMany({
+      where: { id, revokedAt: null },
+      data: { failedAttempts: 0, lastUsedAt: new Date() },
+    });
+    return r.count === 1;
+  }
+
+  createPinDevice(
+    tx: TenantTx,
+    data: {
+      id: string;
+      tenantId: string;
+      userId: string;
+      assignmentId: string;
+      name: string;
+      tokenHash: string;
+      pinHash: string;
+      userAgent: string | null;
+      createdAt: Date;
+      expiresAt: Date;
+    },
+  ) {
+    return tx.pinDevice.create({ data, select: { id: true } });
+  }
+
+  /** PIN perangkat aktif (belum dicabut, belum kedaluwarsa) milik akun, terbaru dulu. */
+  listActivePinDevices(tx: TenantTx, userId: string, now = new Date()) {
+    return tx.pinDevice.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        userAgent: true,
+        createdAt: true,
+        lastUsedAt: true,
+        expiresAt: true,
+        assignment: { select: { role: { select: { name: true } }, unit: { select: { name: true } } } },
+      },
+    });
+  }
+
   markPasswordChanged(tx: TenantTx, userId: string) {
     return tx.user.update({
       where: { id: userId },

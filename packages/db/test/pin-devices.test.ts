@@ -16,7 +16,8 @@ const T = newId();
 const U = newId();
 const people: Record<string, { userId: string; assignmentId: string }> = {};
 
-const ARGON = '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
+const ARGON =
+  '$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g';
 
 async function person(tenantId: string) {
   const userId = newId();
@@ -52,7 +53,9 @@ beforeAll(async () => {
   owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 2 });
   for (const id of [T, U]) {
     await withTenant(owner, id, async (tx) => {
-      await tx.tenant.create({ data: { id, code: `PN${id.slice(-8).toUpperCase()}`, name: 'RS Fiktif Uji PIN' } });
+      await tx.tenant.create({
+        data: { id, code: `PN${id.slice(-8).toUpperCase()}`, name: 'RS Fiktif Uji PIN' },
+      });
       await ensureSystemRoles(tx, id);
     });
   }
@@ -77,7 +80,9 @@ describe('pin_devices (P02, ADR-0024)', () => {
     await expect(
       withTenant(app, U, (tx) => tx.pinDevice.create({ data: device(T, people.t!) })),
     ).rejects.toThrow(/row-level security/i);
-    expect((await withTenant(app, T, (tx) => tx.pinDevice.findUnique({ where: { id: d.id } })))?.id).toBe(d.id);
+    expect((await withTenant(app, T, (tx) => tx.pinDevice.findUnique({ where: { id: d.id } })))?.id).toBe(
+      d.id,
+    );
   });
 
   it('FK komposit: akun, posisi, dan pencabut harus milik tenant yang sama; sesi hanya ke PIN tenant sendiri', async () => {
@@ -191,7 +196,8 @@ describe('pin_devices (P02, ADR-0024)', () => {
       withTenant(
         owner,
         T,
-        (tx) => tx.$executeRaw`UPDATE pin_devices SET pin_hash = ${ARGON} || 'x' WHERE id = ${fresh.id}::uuid`,
+        (tx) =>
+          tx.$executeRaw`UPDATE pin_devices SET pin_hash = ${ARGON} || 'x' WHERE id = ${fresh.id}::uuid`,
       ),
     ).rejects.toThrow(/PIN_DEVICE_IMMUTABLE/);
   });

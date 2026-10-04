@@ -138,7 +138,14 @@ describe('penjaga skema', () => {
 
   it('PIN perangkat: hash PIN/token, akun, dan masa berlaku tidak bisa diubah role aplikasi', async () => {
     const [p] = await owner.$queryRaw<
-      Array<{ pin: boolean; token: boolean; user: boolean; expires: boolean; failed: boolean; revoked: boolean }>
+      Array<{
+        pin: boolean;
+        token: boolean;
+        user: boolean;
+        expires: boolean;
+        failed: boolean;
+        revoked: boolean;
+      }>
     >`
       SELECT has_column_privilege('simrs_app', 'public.pin_devices', 'pin_hash', 'UPDATE') AS pin,
              has_column_privilege('simrs_app', 'public.pin_devices', 'token_hash', 'UPDATE') AS token,

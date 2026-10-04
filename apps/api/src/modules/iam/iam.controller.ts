@@ -114,6 +114,20 @@ export class IamController {
     return this.iam.resetMfa(id);
   }
 
+  /** Cabut PIN masuk cepat satu perangkat (perangkat hilang, staf pindah unit). ADR-0024. */
+  @Post('pin-devices/:id/revoke')
+  @HttpCode(200)
+  @RequirePermission('iam.users', 'write')
+  @Audited({
+    action: 'deactivate',
+    resource: 'pin_device',
+    resourceId: paramId,
+    details: () => ({ reason: 'admin_revoked' }),
+  })
+  revokePinDevice(@Param('id', uuid) id: string) {
+    return this.iam.revokePinDevice(id);
+  }
+
   @Post('users/:id/assignments')
   @RequirePermission('iam.users', 'write')
   @Audited({ action: 'create', resource: 'staff_assignment', resourceId: resultId, details: changedFields })
