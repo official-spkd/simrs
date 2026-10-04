@@ -2,9 +2,15 @@
 
 import { CHARGE_CATEGORIES, type ChargeCategory, type ChargeItem } from '@simrs/shared';
 import { Button, Field } from '@simrs/ui';
-import { useId, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
-import { CATEGORY_LABEL, digitsToRupiah, MANUAL_REASON_MIN, manualLineProblems } from '@/lib/keuangan';
+import {
+  CATEGORY_LABEL,
+  digitsToRupiah,
+  MANUAL_REASON_MIN,
+  manualLineProblems,
+  parseQty,
+} from '@/lib/keuangan';
 
 /**
  * Item manual kasir (U03): pengecualian charge capture, jadi wajib alasan tertulis dan tercatat di audit. Tombol
@@ -29,12 +35,29 @@ export function ManualLineForm({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  /** Ke mana fokus dipindah setelah tombol pemicu diganti form (atau sebaliknya). */
+  const focusNext = useRef<'form' | 'trigger' | null>(null);
+  useEffect(() => {
+    const target = focusNext.current;
+    focusNext.current = null;
+    if (target === 'form') formRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    if (target === 'trigger') triggerRef.current?.focus();
+  }, [open]);
+  const toggle = (next: boolean) => {
+    focusNext.current = next ? 'form' : 'trigger';
+    setOpen(next);
+  };
   const unitPrice = digitsToRupiah(price);
-  const qtyNum = Number.parseInt(qty, 10);
-  const problems = manualLineProblems({ name, qty: qtyNum, unitPrice, reason });
+  // Hanya bilangan bulat: "2.5" ditolak dengan pesan, tidak diam-diam dipotong menjadi 2.
+  const qtyNum = parseQty(qty);
+  const qtyError = qtyNum === null ? 'Isi bilangan bulat 1–99 tanpa desimal.' : null;
+  const problems = manualLineProblems({ name, qty: qtyNum ?? Number.NaN, unitPrice, reason });
 
   const submit = () =>
     startTransition(async () => {
+      if (qtyNum === null) return;
       const r = await kasirAction({
         type: 'manual',
         invoiceId,
@@ -63,7 +86,7 @@ export function ManualLineForm({
         },
         r.message,
       );
-      setOpen(false);
+      toggle(false);
       setName('');
       setPrice('');
       setReason('');
@@ -75,10 +98,11 @@ export function ManualLineForm({
     return (
       <div className="flex flex-wrap items-center gap-2">
         <Button
+          ref={triggerRef}
           disabled={!!disabledReason}
           aria-describedby={disabledReason ? `${id}-alasan` : undefined}
           aria-expanded={false}
-          onClick={() => setOpen(true)}
+          onClick={() => toggle(true)}
         >
           Tambah item manual
         </Button>
@@ -93,6 +117,7 @@ export function ManualLineForm({
 
   return (
     <form
+      ref={formRef}
       aria-label="Tambah item manual"
       className="flex flex-col gap-3 rounded-card border border-warning-border bg-[#FFFAF2] p-4"
       onSubmit={(e) => {
@@ -134,7 +159,9 @@ export function ManualLineForm({
           type="number"
           min={1}
           max={99}
+          step={1}
           value={qty}
+          error={qtyError}
           onChange={(e) => setQty(e.target.value)}
         />
         <Field
@@ -168,7 +195,7 @@ export function ManualLineForm({
         >
           Ajukan item manual
         </Button>
-        <Button variant="ghost" onClick={() => setOpen(false)}>
+        <Button variant="ghost" onClick={() => toggle(false)}>
           Batal
         </Button>
         <span id={`${id}-gerbang`} role="status" className="text-caption font-medium text-warning">

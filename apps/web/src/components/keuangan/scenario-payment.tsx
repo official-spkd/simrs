@@ -1,9 +1,9 @@
 'use client';
 
 import { PAYMENT_METHODS, type PaymentMethod } from '@simrs/shared';
-import { cx } from '@simrs/ui';
 import { type FlowTask, flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
 import { PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
+import { ChoiceCards } from './choice-cards';
 import { CicilanBox } from './cicilan-box';
 import { QrisBox } from './payment-methods';
 
@@ -46,32 +46,26 @@ export function ScenarioPayment({
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="radiogroup" aria-label="Metode pembayaran" className="grid grid-cols-2 gap-2">
-        {PAYMENT_METHODS.map((m) => {
+      <ChoiceCards
+        legend="Metode pembayaran"
+        className="grid grid-cols-2 gap-2"
+        value={PAYMENT_METHODS.find((m) => !!chosen && SCENARIO_METHOD[m] === chosen) ?? null}
+        onChange={(m) => {
+          const value = SCENARIO_METHOD[m];
+          if (value && cara?.enabled && !pending) onTask('cara', value);
+        }}
+        options={PAYMENT_METHODS.map((m) => {
           const value = SCENARIO_METHOD[m];
           const on = !!value && chosen === value;
-          const can = !!value && !!cara?.enabled && !pending;
-          return (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={!can && !on}
-              onClick={() => value && can && onTask('cara', value)}
-              className={cx(
-                'flex min-h-11 flex-col gap-0.5 rounded-control border-[1.5px] px-3 py-2 text-left font-[inherit] text-ink-900 disabled:cursor-not-allowed disabled:opacity-55',
-                m === 'cicilan' && 'col-span-2',
-                on ? 'border-brand-600 bg-[#F2FAF8]' : 'border-line bg-white',
-                can && 'cursor-pointer',
-              )}
-            >
-              <span className="font-semibold">{PAYMENT_METHOD_LABEL[m].name}</span>
-              <span className="text-[11.5px] text-ink-500">{PAYMENT_METHOD_LABEL[m].sub}</span>
-            </button>
-          );
+          return {
+            id: m,
+            label: PAYMENT_METHOD_LABEL[m].name,
+            sub: PAYMENT_METHOD_LABEL[m].sub,
+            disabled: !on && !(value && cara?.enabled && !pending),
+            className: m === 'cicilan' ? 'col-span-2' : undefined,
+          };
         })}
-      </div>
+      />
       <span className="text-caption text-ink-500">
         Skenario elektif: pasien memilih Cicilan BTN atau QRIS untuk sisa selisih naik kelas.
         {caraReason ? ` ${caraReason}` : ''}

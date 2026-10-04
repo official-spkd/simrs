@@ -3,11 +3,14 @@ import {
   type Claim,
   type ClaimBoard,
   type Invoice,
+  isoDateJakarta,
   type JournalEntry,
   type KasirBoard,
   type Payment,
   periodYYMM,
 } from '@simrs/shared';
+import { scenarioClaim as financedClaim } from './btn-skenario';
+import { FASILITAS } from './demo/fixtures/btn';
 import { firstOpenTask, taskKey, taskOptions, visibleTasks } from './demo/engine/run';
 import { formatSimClock, simInstant } from './demo/engine/format';
 import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
@@ -121,14 +124,32 @@ function stageClock(R: RunResult, stage: string): string {
   return start === null ? '' : formatSimClock(R.def, start);
 }
 
+/** Hari simulasi skenario untuk label, mis. "Sen 12 Okt" (lini masa skenario bisa berbeda dari hari demo). */
+export function simDay(R: RunResult, minutes: number): string {
+  return formatSimClock({ ...R.def, showDay: true }, minutes).split(' · ')[0] ?? '';
+}
+
+/** Label pulang klaim pasien skenario dengan tanggal simulasinya, mis. "pulang Sel 13 Okt". */
+function dischargeLabel(R: RunResult): string {
+  return R.rec.pulangAt === null ? 'pulang' : `pulang ${simDay(R, R.rec.pulangAt)}`;
+}
+
 const SCENARIO_PATIENT: Record<ScenarioId, string> = {
   'rawat-jalan': 'ps-suryo',
   'igd-ranap': 'ps-hartono',
   'elektif-btn': 'ps-ratna',
 };
 
-/** Selisih naik kelas VIP skenario elektif (persetujuan admisi; master aturan selisih JKN, simulasi). */
-export const ELEKTIF_SELISIH = 9_400_000n;
+/**
+ * Estimasi selisih naik kelas VIP pada persetujuan admisi skenario elektif (master aturan selisih JKN, simulasi).
+ * Hanya dipakai sebelum tagihan final; tes memastikan sama dengan selisih yang dihitung `kasir.final`.
+ */
+export const ELEKTIF_SELISIH_ESTIMASI = 9_400_000n;
+
+/** Selisih naik kelas: dari rekam skenario (`r.selisih`, dihitung saat tagihan difinalkan), sebelumnya estimasi. */
+export function classUpgradeAmount(R: RunResult): bigint {
+  return has(R, 'kasir', 'final') ? R.rec.selisih : ELEKTIF_SELISIH_ESTIMASI;
+}
 
 function splitOf(id: ScenarioId, R: RunResult): SplitInput {
   const dx = R.rec.dx.length > 0;
@@ -154,8 +175,10 @@ function splitOf(id: ScenarioId, R: RunResult): SplitInput {
     upgrade: R.rec.vip
       ? {
           label: 'Naik kelas VIP (atas permintaan)',
-          amount: ELEKTIF_SELISIH,
-          rule: 'Master aturan selisih biaya JKN · persetujuan ditandatangani saat admisi',
+          amount: classUpgradeAmount(R),
+          rule: has(R, 'kasir', 'final')
+            ? 'Master aturan selisih biaya JKN · persetujuan ditandatangani saat admisi'
+            : 'Estimasi persetujuan admisi · dihitung ulang saat tagihan difinalkan',
         }
       : null,
   };
@@ -226,7 +249,7 @@ export function scenarioInvoice(id: ScenarioId, R: RunResult): Invoice | null {
         : has(R, 'kasir', 'pulang') || has(R, 'kasir', 'cair') || has(R, 'kasir', 'qrisbayar');
   const atKasir = reached(R, 'kasir');
   const kind = id === 'igd-ranap' && !has(R, 'admisi', 'transfer') ? 'igd' : conf.kind;
-  const day = (m: number) => formatSimClock({ ...R.def, showDay: true }, m).split(' · ')[0] ?? '';
+  const day = (m: number) => simDay(R, m);
   const startDay = day(R.def.startMin);
   const period =
     id === 'rawat-jalan'
@@ -294,7 +317,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
       },
       status: 'draft',
       tag: { label: 'Siap grouping', level: 'ok' },
-      ageLabel: 'pulang H-0',
+      ageLabel: dischargeLabel(R),
       diagnoses: codes.map((c, i) => dx(c, i === 0 ? 'utama' : 'sekunder')),
       procedures: [px('89.03')],
       grouper: grouperOf(CBG.rjKronis, false),
@@ -335,7 +358,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
           : sekunder
             ? { label: 'Siap kirim', level: 'ok' }
             : { label: 'Perlu validasi', level: 'warn' },
-      ageLabel: 'pulang H-1',
+      ageLabel: dischargeLabel(R),
       diagnoses: [
         dx(mismatch ? 'I20.0' : 'I21.4', 'utama'),
         dx('E87.5', 'sekunder'),
@@ -393,7 +416,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
         : sent
           ? { label: 'Terkirim', level: 'info' }
           : { label: has(R, 'klaim', 'kode') ? 'Siap kirim' : 'Siap', level: 'ok' },
-    ageLabel: 'pulang H-0',
+    ageLabel: dischargeLabel(R),
     diagnoses: [dx('K80.2', 'utama')],
     procedures: [px('51.23'), px('88.76')],
     grouper: grouperOf(CBG.empeduK2, sent),
@@ -422,10 +445,6 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
     submittedAt: doneAt(R, 'klaim', 'kirim'),
   });
 }
-
-/** Pembiayaan piutang skenario elektif: 90% klaim, pelunasan pokok + margin 21 hari saat BPJS membayar. */
-const ANJAK = 6_426_000n;
-const ANJAK_LUNAS = 6_455_600n;
 
 /**
  * Jurnal otomatis dari tonggak skenario (selalu seimbang): pengakuan pendapatan saat kunjungan ditutup, deposit
@@ -498,21 +517,29 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
       lines: recognitionLines(inv, true, AKUN.uangMuka),
     });
   }
+  // Pembiayaan piutang: angka dari proyeksi layar Pembiayaan (advance rate, margin harian, pelunasan otomatis),
+  // jadi jurnal selalu sama dengan yang tampil di sana.
+  const financed = financedClaim(R, FASILITAS);
   const cair = doneAt(R, 'pembiayaan', 'cair');
-  if (cair) {
+  if (cair && financed) {
+    const advance = BigInt(financed.advance);
     add({
       id: 'ju-ratna-anjak',
       seq: 1042,
       date: cair,
       source: 'tpdi-btn',
       reference: 'BTN · fasilitas pembiayaan piutang',
-      description: 'Pencairan 90% klaim layak bayar sebelum BPJS membayar',
-      lines: [debit(AKUN.bankOps, ANJAK), credit(AKUN.utangPembiayaan, ANJAK)],
+      description: `Pencairan ${FASILITAS.advanceRatePercent}% klaim layak bayar sebelum BPJS membayar`,
+      lines: [debit(AKUN.bankOps, advance), credit(AKUN.utangPembiayaan, advance)],
     });
   }
   const bpjs = doneAt(R, 'pembiayaan', 'bpjs');
-  if (bpjs) {
-    const tariff = CBG.empeduK2.tariff;
+  const rep = financed?.repayment;
+  if (bpjs && rep) {
+    const paid = BigInt(rep.bpjsPaid);
+    const principal = BigInt(rep.principal);
+    const margin = BigInt(rep.margin);
+    const forwarded = BigInt(rep.forwarded);
     add({
       id: 'ju-ratna-bpjs',
       seq: 215,
@@ -520,26 +547,28 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
       source: 'klaim',
       reference: 'BPJS · pembayaran klaim',
       description: `BPJS membayar klaim ke rekening penampungan ${REKENING.penampungan}`,
-      lines: [debit(AKUN.bankKlaim, tariff), credit(AKUN.piutangBpjsRi, tariff)],
+      lines: [debit(AKUN.bankKlaim, paid), credit(AKUN.piutangBpjsRi, paid)],
     });
     add({
       id: 'ju-ratna-teruskan',
       seq: 216,
       date: bpjs,
       source: 'tpdi-btn',
-      reference: r.ajukan ? 'BTN · auto-debit pelunasan' : 'BTN · pemindahan dana',
-      description: r.ajukan
-        ? 'Pelunasan pokok + margin pembiayaan; sisa diteruskan ke rekening operasional'
-        : 'Dana klaim diteruskan penuh ke rekening operasional',
-      lines: r.ajukan
-        ? [
-            debit(AKUN.utangPembiayaan, ANJAK),
-            debit(AKUN.bebanMargin, ANJAK_LUNAS - ANJAK),
-            credit(AKUN.bankKlaim, ANJAK_LUNAS),
-            debit(AKUN.bankOps, tariff - ANJAK_LUNAS),
-            credit(AKUN.bankKlaim, tariff - ANJAK_LUNAS),
-          ]
-        : [debit(AKUN.bankOps, tariff), credit(AKUN.bankKlaim, tariff)],
+      reference: principal > 0n ? 'BTN · auto-debit pelunasan' : 'BTN · pemindahan dana',
+      description:
+        principal > 0n
+          ? `Pelunasan pokok + margin ${rep.days} hari; sisa diteruskan ke rekening operasional`
+          : 'Dana klaim diteruskan penuh ke rekening operasional',
+      lines:
+        principal > 0n
+          ? [
+              debit(AKUN.utangPembiayaan, principal),
+              debit(AKUN.bebanMargin, margin),
+              credit(AKUN.bankKlaim, principal + margin),
+              debit(AKUN.bankOps, forwarded),
+              credit(AKUN.bankKlaim, forwarded),
+            ]
+          : [debit(AKUN.bankOps, paid), credit(AKUN.bankKlaim, paid)],
     });
   }
   return out;
@@ -550,6 +579,26 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
 // ---------------------------------------------------------------------------------------------------------------
 
 export type ScenarioResults = Record<ScenarioId, RunResult>;
+
+/**
+ * Pilihan bawaan daftar Kasir/Klaim tanpa `?pilih`: baris pasien skenario yang langkah aktifnya dibawakan di layar
+ * ini (`here`; skenario aktif di Simulasi didahulukan), selain itu `fallback`. `pin` = pilihan boleh dikunci ke URL
+ * agar tidak berpindah pasien saat status berubah; false selama skenario di layar ini belum punya baris (mis. klaim
+ * RJ sebelum berkas dikirim) supaya barisnya langsung terpilih begitu muncul.
+ */
+export function defaultSelection<T extends { scenario: ScenarioId | null }>(
+  items: readonly T[],
+  here: readonly ScenarioId[],
+  active: ScenarioId,
+  fallback: T | undefined,
+): { item: T | undefined; pin: boolean } {
+  const order = [...here].sort((a, b) => Number(b === active) - Number(a === active));
+  for (const id of order) {
+    const item = items.find((i) => i.scenario === id);
+    if (item) return { item, pin: true };
+  }
+  return { item: fallback, pin: here.length === 0 };
+}
 
 const STATUS_RANK: Record<Invoice['status'], number> = { final: 0, berjalan: 1, lunas: 2 };
 
@@ -585,13 +634,24 @@ export function demoClaimBoard(results: ScenarioResults): ClaimBoard {
   };
 }
 
+/** Jurnal termasuk periode papan menurut tanggal jurnal (WIB), mis. periode `2026-10`. */
+export function inPeriod(j: Pick<JournalEntry, 'date'>, periodId: string): boolean {
+  return isoDateJakarta(j.date).slice(0, 7) === periodId;
+}
+
+/**
+ * Papan Akuntansi periode berjalan: jurnal skenario hanya yang bertanggal di periode itu (lini masa skenario elektif
+ * berlanjut ke November; jurnalnya masuk periode berikut, tidak ikut dihitung atau dikunci tutup periode Oktober).
+ */
 export function demoAccountingBoard(results: ScenarioResults): AccountingBoard {
-  const scenario = SCENARIO_ORDER.flatMap((id) => scenarioJournals(id, results[id]));
+  const scenario = SCENARIO_ORDER.flatMap((id) => scenarioJournals(id, results[id])).filter((j) =>
+    inPeriod(j, PERIODS.period.id),
+  );
   const journals = [...STATIC_JOURNALS, ...scenario].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.number.localeCompare(b.number),
+    (a, b) => Date.parse(a.date) - Date.parse(b.date) || a.number.localeCompare(b.number),
   );
   const btn = results['elektif-btn'];
-  const matched = has(btn, 'rekonsiliasi', 'cocok');
+  const cocok = btn.doneAt.get(taskKey(stepIndex(btn, 'rekonsiliasi'), 'cocok'));
   return {
     asOf: DEMO_NOW,
     ...PERIODS,
@@ -601,8 +661,11 @@ export function demoAccountingBoard(results: ScenarioResults): AccountingBoard {
     mappingOptions: MAPPING_OPTIONS,
     aging: AGING,
     bankRecon: BANK_RECON.map((b) =>
-      b.id === 'btn-ops' && matched
-        ? { ...b, note: `${b.note} · transaksi Ny. Ratna Sari cocok di tiga sumber, 0 selisih` }
+      b.id === 'btn-ops' && cocok !== undefined
+        ? {
+            ...b,
+            note: `${b.note} · transaksi Ny. Ratna Sari (simulasi, ${formatSimClock({ ...btn.def, showDay: true }, cocok)}) cocok di tiga sumber, 0 selisih`,
+          }
         : b,
     ),
   };

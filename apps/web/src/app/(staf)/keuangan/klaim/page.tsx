@@ -1,15 +1,16 @@
-import { CLAIM_STATUSES } from '@simrs/shared';
+import { type Claim, CLAIM_STATUSES, type ClaimStatus } from '@simrs/shared';
 import { Chip, KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ClaimDetail } from '@/components/keuangan/claim-detail';
 import { ClaimList } from '@/components/keuangan/claim-list';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { formatRupiahRingkas } from '@/lib/keuangan';
-import { scenarioFlow } from '@/lib/keuangan-skenario';
+import { defaultSelection, scenarioFlow } from '@/lib/keuangan-skenario';
 import { getClaimBoard } from '@/lib/server/data/keuangan';
-import { scenarioRuns } from '@/lib/server/demo/scenario-context';
+import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Klaim & koding' };
@@ -24,13 +25,21 @@ export default async function KlaimPage({ searchParams }: { searchParams: Search
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
   const [board, runs] = await Promise.all([getClaimBoard(session), scenarioRuns(session)]);
-  const picked = board.claims.find((c) => c.id === sp.pilih);
-  const filter = z
-    .enum(CLAIM_STATUSES)
-    .catch(picked?.status ?? 'draft')
-    .parse(sp.status);
-  const selected =
-    picked && picked.status === filter ? picked : (board.claims.find((c) => c.status === filter) ?? null);
+  const status = z.enum(CLAIM_STATUSES).optional().catch(undefined).parse(sp.status);
+  // Klaim yang dipilih tetap tampil apa pun filternya: filter mengikuti statusnya (mis. terkirim → layak bayar).
+  let selected: Claim | null = board.claims.find((c) => c.id === sp.pilih) ?? null;
+  if (!selected) {
+    // Tanpa pilihan: klaim pasien skenario yang langkahnya aktif di layar ini, dikunci ke URL agar tetap terpilih.
+    const here = scenariosHere(runs, 'klaim').map((h) => h.scenario);
+    const pool = status ? board.claims.filter((c) => c.status === status) : board.claims;
+    const fallback = status ? pool[0] : pool.find((c) => c.status === 'draft');
+    const def = defaultSelection(pool, here, runs.active, fallback);
+    if (def.item && (def.pin || status)) {
+      redirect(`/keuangan/klaim?status=${def.item.status}&pilih=${def.item.id}`);
+    }
+    selected = def.item ?? null;
+  }
+  const filter: ClaimStatus = selected?.status ?? status ?? 'draft';
   const flow = selected?.scenario
     ? scenarioFlow(runs.results[selected.scenario], selected.scenario === 'rawat-jalan' ? 'pasca' : 'klaim')
     : null;

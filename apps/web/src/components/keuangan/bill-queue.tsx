@@ -44,7 +44,9 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
                     {i.queueNo ?? 'Loket RI'} · {KIND[i.encounter.kind]} · {i.split.payerLabel}
                   </span>
                   {i.scenario && (
-                    <span className="text-caption font-semibold text-info">Pasien simulasi</span>
+                    <span className="text-caption font-semibold text-info">
+                      Pasien simulasi · {i.encounter.period}
+                    </span>
                   )}
                 </span>
                 <span className="flex flex-col items-end gap-1">

@@ -4,6 +4,7 @@ import { formatRupiah } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useId } from 'react';
 import { REKENING } from '@/lib/demo/fixtures/rs';
+import { ChoiceCards } from './choice-cards';
 
 export const CICIL_STEPS = [
   'Diajukan ke BTN',
@@ -55,29 +56,14 @@ export function CicilanBox({
         <span className="font-semibold text-ink-900">Cicilan BTN · {formatRupiah(due)}</span>
         <span>Pembiayaan kesehatan BTN (simulasi) · keputusan kredit oleh BTN</span>
       </span>
-      <div role="radiogroup" aria-label="Tenor cicilan" className="grid grid-cols-3 gap-1.5">
-        {tenors.map((t) => {
-          const on = tenor === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={!onTenor}
-              onClick={() => onTenor?.(t.id)}
-              className={cx(
-                'flex min-h-11 flex-col gap-0.5 rounded-[9px] border-[1.5px] px-2 py-1.5 text-left font-[inherit] text-ink-900',
-                on ? 'border-brand-600 bg-[#F2FAF8]' : 'border-line bg-white',
-                onTenor ? 'cursor-pointer' : 'cursor-default',
-              )}
-            >
-              <span className="font-semibold">{t.label}</span>
-              <span className="text-[11.5px] text-ink-500">{t.sub}</span>
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceCards
+        legend="Tenor cicilan"
+        compact
+        className="grid grid-cols-3 gap-1.5"
+        value={tenor}
+        onChange={(t) => onTenor?.(t)}
+        options={tenors.map((t) => ({ ...t, disabled: !onTenor }))}
+      />
       <span className="text-caption text-ink-500">
         Estimasi angsuran/bulan · <span className="font-semibold text-warning">simulasi</span>. Angka final
         ditetapkan BTN setelah verifikasi.

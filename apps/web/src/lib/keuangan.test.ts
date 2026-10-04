@@ -1,7 +1,9 @@
 import { SEED_REF_SAMPLES } from '@simrs/db';
 import { formatRupiah, type Invoice, kasirBoardSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { runScenario } from './demo/engine/run';
+import { monthlyInstalment } from './btn-pembiayaan';
+import { demoFinancingOverview } from './btn-skenario';
+import { runScenario, taskOptions } from './demo/engine/run';
 import { ICD10_NAME, ICD9_NAME, STATIC_CLAIMS, STATIC_INVOICES } from './demo/fixtures/keuangan';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import {
@@ -10,11 +12,17 @@ import {
   digitsToRupiah,
   formatRupiahRingkas,
   groupLines,
-  installmentEstimate,
+  INSTALMENT_MARGIN_PERCENT,
+  instalmentOptions,
+  invoiceSettlement,
   invoiceTotal,
+  localActionProblem,
   manualLineProblems,
+  parseQty,
   patientDue,
   recomputeSplit,
+  settledCount,
+  settledOn,
 } from './keuangan';
 import { demoKasirBoard, type ScenarioResults } from './keuangan-skenario';
 
@@ -107,12 +115,104 @@ describe('fungsi tampilan Kasir', () => {
   it('uang tunai, angsuran, nominal ringkas', () => {
     expect(cashChange(250_400n, 300_000n)).toEqual({ enough: true, change: 49_600n, short: 0n });
     expect(cashChange(250_400n, 200_000n)).toMatchObject({ enough: false, short: 50_400n });
-    expect(installmentEstimate(6_400_000n, 6)).toBe(1_125_000n);
     expect(digitsToRupiah('Rp 1.250.400')).toBe(1_250_400n);
     expect(formatRupiahRingkas(7_820_000_000n)).toBe('Rp 7,82 M');
     expect(formatRupiahRingkas(21_412_000_000n)).toBe('Rp 21,4 M');
     expect(formatRupiahRingkas(184_000_000n)).toBe('Rp 184 jt');
     expect(formatRupiahRingkas(6_900_000_000n)).toBe('Rp 6,9 M');
+  });
+});
+
+describe('cicilan BTN di Kasir = rumus layar Pembiayaan', () => {
+  it('estimasi angsuran 3, 6, 12 bulan untuk sisa Rp 6.400.000 (margin flat 11% p.a.)', () => {
+    expect(instalmentOptions(6_400_000n)).toEqual([
+      { id: '3', label: '3 bulan', sub: '±Rp 2.192.000/bln' },
+      { id: '6', label: '6 bulan', sub: '±Rp 1.125.000/bln' },
+      { id: '12', label: '12 bulan', sub: '±Rp 592.000/bln' },
+    ]);
+    expect(instalmentOptions(250_400n).map((o) => o.sub)).toEqual([
+      '±Rp 86.000/bln',
+      '±Rp 44.000/bln',
+      '±Rp 23.000/bln',
+    ]);
+  });
+
+  it('margin dan angka sama dengan layar Pembiayaan dan pilihan tenor skenario elektif', () => {
+    const R = runScenario(SCENARIOS['elektif-btn'], []);
+    expect(demoFinancingOverview(R).instalmentMarginPercent).toBe(INSTALMENT_MARGIN_PERCENT);
+    const tenor = R.def.steps.find((s) => s.id === 'kasir')?.tasks.find((t) => t.id === 'tenor');
+    if (tenor?.kind !== 'choice') throw new Error('tugas tenor');
+    const opts = taskOptions(tenor, R.rec);
+    expect(opts.map((o) => o.id)).toEqual(['3', '6', '12']);
+    for (const o of opts) {
+      const monthly = monthlyInstalment(6_400_000n, Number(o.id), INSTALMENT_MARGIN_PERCENT);
+      expect(o.sub).toContain(formatRupiah(monthly));
+    }
+  });
+});
+
+describe('gerbang Server Action kasir (tagihan versi server)', () => {
+  const byId = (id: string) => STATIC_INVOICES.find((i) => i.id === id);
+
+  it('menolak tagihan tak dikenal, pasien skenario, dan yang sudah lunas', () => {
+    expect(localActionProblem(undefined, 'bayar')).toMatch(/tidak ditemukan/);
+    expect(localActionProblem(byId('inv-siti'), 'tutup')).toMatch(/sudah lunas/);
+    const endang = byId('inv-endang');
+    if (!endang) throw new Error('fixture');
+    expect(localActionProblem({ ...endang, scenario: 'rawat-jalan' }, 'bayar')).toMatch(/skenario/);
+  });
+
+  it('final dan item manual hanya untuk tagihan berjalan; final/bayar menunggu pasien pulang', () => {
+    expect(localActionProblem(byId('inv-endang'), 'final')).toMatch(/sudah final/);
+    expect(localActionProblem(byId('inv-endang'), 'manual')).toMatch(/sudah final/);
+    expect(localActionProblem(byId('inv-endang'), 'bayar')).toBeNull();
+    expect(localActionProblem(byId('inv-ayu'), 'final')).toBeNull();
+    expect(localActionProblem(byId('inv-raka'), 'manual')).toBeNull();
+    expect(localActionProblem(byId('inv-raka'), 'final')).toMatch(/masih dirawat/);
+    expect(localActionProblem(byId('inv-raka'), 'tutup')).toMatch(/masih dirawat/);
+  });
+
+  it('sisa tagihan dihitung ulang dari baris + item manual (umum naik, BPJS tetap)', () => {
+    const ayu = byId('inv-ayu');
+    const endang = byId('inv-endang');
+    if (!ayu || !endang) throw new Error('fixture');
+    expect(invoiceSettlement(ayu).due).toBe(BigInt(ayu.patientDue));
+    expect(invoiceSettlement(ayu, [{ amount: '35000' }])).toMatchObject({ total: 498_500n, due: 498_500n });
+    expect(invoiceSettlement(endang, [{ amount: '100000' }]).due).toBe(250_400n);
+  });
+});
+
+const PAY = {
+  id: 'pay-x',
+  kind: 'pelunasan' as const,
+  method: 'qris' as const,
+  amount: '1000',
+  at: '2026-10-05T08:00:00+07:00',
+  reference: 'QR-X',
+};
+
+describe('hari shift dan isian kuantitas', () => {
+  it('tagihan lunas dihitung per hari pelunasan (lini masa skenario lain tidak masuk shift hari ini)', () => {
+    expect(settledCount(STATIC_INVOICES, '2026-10-05')).toBe(3);
+    const siti = STATIC_INVOICES.find((i) => i.id === 'inv-siti');
+    if (!siti) throw new Error('fixture');
+    const later = {
+      ...siti,
+      payments: [{ ...PAY, at: '2026-10-13T08:00:00+07:00' }],
+    };
+    expect(settledOn(later)).toBe('2026-10-13');
+    expect(settledCount([...STATIC_INVOICES, later], '2026-10-05')).toBe(3);
+  });
+
+  it('kuantitas hanya bilangan bulat 1–99: "2.5" ditolak, bukan dipotong', () => {
+    expect(parseQty('2')).toBe(2);
+    expect(parseQty(' 12 ')).toBe(12);
+    expect(parseQty('2.5')).toBeNull();
+    expect(parseQty('2,5')).toBeNull();
+    expect(parseQty('0')).toBeNull();
+    expect(parseQty('100')).toBeNull();
+    expect(parseQty('')).toBeNull();
+    expect(parseQty('1e1')).toBeNull();
   });
 });
 

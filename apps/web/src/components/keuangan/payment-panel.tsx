@@ -3,9 +3,10 @@
 import { formatJam, formatRupiah, type PaymentMethod, PAYMENT_METHODS } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useId, useState, useTransition } from 'react';
-import { kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
+import { kasirAction, type ManualLineInput } from '@/app/(staf)/keuangan/kasir/actions';
 import { REKENING } from '@/lib/demo/fixtures/rs';
-import { cashChange, digitsToRupiah, installmentEstimate, PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
+import { cashChange, digitsToRupiah, instalmentOptions, PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
+import { ChoiceCards } from './choice-cards';
 import { CicilanBox } from './cicilan-box';
 import { CashBox, DebitBox, QrisBox, TransferBox, VaBox } from './payment-methods';
 
@@ -29,12 +30,16 @@ export function PaymentPanel({
   invoiceId,
   receiptNo,
   due,
+  manual,
   final,
   onPaid,
 }: {
   invoiceId: string;
+  /** Nomor kuitansi untuk tampilan (VA); server menurunkannya sendiri dari tagihan. */
   receiptNo: string;
   due: bigint;
+  /** Item manual di layar: server menghitung ulang sisa tagihan dan menolak nominal yang tidak cocok. */
+  manual: readonly ManualLineInput[];
   /** Tagihan sudah difinalkan (terkunci). */
   final: boolean;
   onPaid: (p: PaidInfo) => void;
@@ -92,7 +97,13 @@ export function PaymentPanel({
 
   const finish = () =>
     startTransition(async () => {
-      const r = await kasirAction({ type: 'bayar', invoiceId, method, amount: due.toString(), receiptNo });
+      const r = await kasirAction({
+        type: 'bayar',
+        invoiceId,
+        method,
+        amount: due.toString(),
+        manual: [...manual],
+      });
       if (!r.ok) return setError(r.message);
       onPaid({ method, at: r.at ?? now(), note: note[method], message: r.message });
     });
@@ -100,29 +111,19 @@ export function PaymentPanel({
   const locked = cicil.length > 0;
   return (
     <div className="flex flex-col gap-3">
-      <div role="radiogroup" aria-label="Metode pembayaran" className="grid grid-cols-2 gap-2">
-        {PAYMENT_METHODS.map((m) => {
-          const on = method === m;
-          return (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              disabled={locked && !on}
-              onClick={() => setMethod(m)}
-              className={cx(
-                'flex min-h-11 flex-col gap-0.5 rounded-control border-[1.5px] px-3 py-2 text-left font-[inherit] text-ink-900 disabled:cursor-not-allowed disabled:opacity-60',
-                m === 'cicilan' && 'col-span-2',
-                on ? 'border-brand-600 bg-[#F2FAF8]' : 'cursor-pointer border-line bg-white',
-              )}
-            >
-              <span className="font-semibold">{PAYMENT_METHOD_LABEL[m].name}</span>
-              <span className="text-[11.5px] text-ink-500">{PAYMENT_METHOD_LABEL[m].sub}</span>
-            </button>
-          );
-        })}
-      </div>
+      <ChoiceCards
+        legend="Metode pembayaran"
+        className="grid grid-cols-2 gap-2"
+        value={method}
+        onChange={setMethod}
+        options={PAYMENT_METHODS.map((m) => ({
+          id: m,
+          label: PAYMENT_METHOD_LABEL[m].name,
+          sub: PAYMENT_METHOD_LABEL[m].sub,
+          disabled: locked && method !== m,
+          className: m === 'cicilan' ? 'col-span-2' : undefined,
+        }))}
+      />
       {method === 'qris' && <QrisBox due={due} paidAt={qrisAt} onSimulate={() => setQrisAt(now())} />}
       {method === 'va' && (
         <VaBox
@@ -145,11 +146,7 @@ export function PaymentPanel({
       {method === 'cicilan' && (
         <CicilanBox
           due={due}
-          tenors={['3', '6', '12'].map((n) => ({
-            id: n,
-            label: `${n} bulan`,
-            sub: `±${fmt(installmentEstimate(due, Number(n)))}/bln`,
-          }))}
+          tenors={instalmentOptions(due)}
           tenor={tenor}
           onTenor={locked ? undefined : setTenor}
           submit={

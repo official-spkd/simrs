@@ -3,15 +3,13 @@
 import { type ChargeItem, formatJam, formatRupiah, formatTanggalLahir, type Invoice } from '@simrs/shared';
 import { Alert, Chip, PatientBanner } from '@simrs/ui';
 import { useState, useTransition } from 'react';
-import { type KasirActionInput, kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
-import { useDemoRunner } from '@/components/demo-sync';
 import {
-  invoiceStatusView,
-  invoiceTotal,
-  PAYMENT_METHOD_LABEL,
-  patientDue,
-  recomputeSplit,
-} from '@/lib/keuangan';
+  type KasirActionInput,
+  kasirAction,
+  type ManualLineInput,
+} from '@/app/(staf)/keuangan/kasir/actions';
+import { useDemoRunner } from '@/components/demo-sync';
+import { invoiceSettlement, invoiceStatusView, PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
 import { flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
 import { BillLines } from './bill-lines';
 import { KasirSettlement } from './kasir-settlement';
@@ -45,12 +43,15 @@ export function KasirWorkspace({
   const scen = invoice.scenario ? flow : null;
 
   const lines = manual.length ? [...invoice.lines, ...manual] : invoice.lines;
-  const total = invoiceTotal(lines);
-  const split = manual.length ? recomputeSplit(invoice.split, total) : invoice.split;
-  const due = patientDue(
-    split,
-    invoice.payments.map((p) => BigInt(p.amount)),
-  );
+  const { total, split, due } = invoiceSettlement(invoice, manual);
+  // Item manual ikut dikirim saat bayar/tutup agar server menghitung ulang sisa tagihan sendiri.
+  const manualInput: ManualLineInput[] = manual.map((l) => ({
+    name: l.name,
+    category: l.category,
+    qty: l.qty,
+    unitPrice: l.unitPrice ?? l.amount,
+    reason: l.reason ?? '',
+  }));
   const lunas = invoice.status === 'lunas' || !!paid || !!closedAt;
   const final = lunas || invoice.status === 'final' || !!finalAt;
   const pending = busy || runner.pending;
@@ -172,6 +173,7 @@ export function KasirWorkspace({
           flow={scen}
           busy={pending}
           receipt={receipt}
+          manual={manualInput}
           finalize={{
             label: 'Finalkan tagihan',
             ...finalize,
@@ -182,7 +184,9 @@ export function KasirWorkspace({
             label: scen?.tasks[closeTask]?.btn || 'Tutup kunjungan (pasien bayar Rp 0)',
             ...close,
             onClick: () =>
-              scen ? task(closeTask) : local({ type: 'tutup', invoiceId: invoice.id }, setClosedAt),
+              scen
+                ? task(closeTask)
+                : local({ type: 'tutup', invoiceId: invoice.id, manual: manualInput }, setClosedAt),
           }}
           discharge={discharge}
           onTask={task}

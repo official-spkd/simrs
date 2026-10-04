@@ -1,13 +1,15 @@
-import { formatRupiah } from '@simrs/shared';
+import { formatRupiah, isoDateJakarta } from '@simrs/shared';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { BillQueue } from '@/components/keuangan/bill-queue';
 import { KasirWorkspace } from '@/components/keuangan/kasir-workspace';
 import { ShiftClose } from '@/components/keuangan/shift-close';
 import { ScenarioBanner } from '@/components/scenario-banner';
-import { scenarioFlow } from '@/lib/keuangan-skenario';
+import { settledCount } from '@/lib/keuangan';
+import { defaultSelection, scenarioFlow } from '@/lib/keuangan-skenario';
 import { getKasirBoard } from '@/lib/server/data/keuangan';
-import { scenarioRuns } from '@/lib/server/demo/scenario-context';
+import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Kasir' };
@@ -21,11 +23,20 @@ export default async function KasirPage({ searchParams }: { searchParams: Search
   const sp = await searchParams;
   const [board, runs] = await Promise.all([getKasirBoard(session), scenarioRuns(session)]);
   const pick = typeof sp.pilih === 'string' ? sp.pilih : undefined;
-  const selected = board.invoices.find((i) => i.id === pick) ?? board.invoices[0];
+  let selected = board.invoices.find((i) => i.id === pick);
+  if (!selected) {
+    // Tanpa pilihan: pasien skenario yang langkah Kasir-nya aktif, dikunci ke URL agar tetap terpilih sampai
+    // semua tugas kasir selesai (antrean menurunkan tagihan lunas, jadi urutan bisa berubah).
+    const here = scenariosHere(runs, 'kasir').map((h) => h.scenario);
+    const def = defaultSelection(board.invoices, here, runs.active, board.invoices[0]);
+    if (def.item && def.pin) redirect(`/keuangan/kasir?pilih=${def.item.id}`);
+    selected = def.item;
+  }
   if (!selected) return null;
   const flow = selected.scenario ? scenarioFlow(runs.results[selected.scenario], 'kasir') : null;
-  const next = board.invoices.find((i) => i.id !== selected.id && i.status !== 'lunas');
-  const done = board.invoices.filter((i) => i.status === 'lunas').length;
+  const selectedId = selected.id;
+  const next = board.invoices.find((i) => i.id !== selectedId && i.status !== 'lunas');
+  const done = settledCount(board.invoices, isoDateJakarta(board.asOf));
 
   return (
     <div className="flex flex-col gap-4">

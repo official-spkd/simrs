@@ -21,6 +21,8 @@ test.describe('kasir', () => {
 
     const bill = page.getByRole('region', { name: 'Rincian tagihan' });
     await bill.getByRole('button', { name: 'Buka semua kategori' }).click();
+    // Tunggu render terbuka (auto-wait) sebelum membaca baris sekaligus.
+    await expect(bill.getByRole('button', { name: 'Tutup semua kategori' })).toBeVisible();
     const sum = await bill
       .locator('[data-line-amount]')
       .evaluateAll((els) =>
@@ -52,6 +54,11 @@ test.describe('kasir', () => {
 
     await page.getByRole('button', { name: 'Tambah item manual' }).click();
     const form = page.getByRole('form', { name: 'Tambah item manual' });
+    await expect(form.getByLabel('Nama item')).toBeFocused();
+    await form.getByLabel('Kuantitas').fill('2.5');
+    await expect(form.getByText('Isi bilangan bulat 1–99 tanpa desimal.')).toBeVisible();
+    await form.getByLabel('Kuantitas').fill('1');
+    await expect(form.getByText('Isi bilangan bulat 1–99 tanpa desimal.')).toHaveCount(0);
     await form.getByLabel('Nama item').fill('Nebulisasi tambahan');
     await form.getByLabel('Harga satuan (Rp)').fill('35000');
     const submit = form.getByRole('button', { name: 'Ajukan item manual' });

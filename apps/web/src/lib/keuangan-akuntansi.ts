@@ -1,4 +1,5 @@
 import {
+  type AccountingBoard,
   type AgingRow,
   AGING_BUCKETS,
   type JournalEntry,
@@ -71,4 +72,30 @@ export function closeReadiness(state: { unmapped: string[]; unmatchedAccounts: s
   return parts.length
     ? { ready: false, reason: `Belum bisa ditutup: ${parts.join(' dan ')}.` }
     : { ready: true, reason: '' };
+}
+
+/** Jurnal belum bisa diposting: ada baris tanpa akun lawan (perlu pemetaan). */
+export function needsMapping(j: Pick<JournalEntry, 'status' | 'lines'>): boolean {
+  return j.status === 'perlu-pemetaan' || j.lines.some((l) => !l.account);
+}
+
+/** Label rekening untuk syarat tutup periode, mis. "BTN ••••9021". */
+export const reconLabel = (b: Pick<AccountingBoard['bankRecon'][number], 'account'>) => `BTN ${b.account}`;
+
+/**
+ * Syarat tutup periode diperiksa terhadap papan versi server (bukan hitungan klien): setiap jurnal yang perlu
+ * pemetaan harus ada di `mappedJournalIds`, setiap rekening dengan mutasi belum padan di `matchedAccountIds`.
+ */
+export function periodCloseCheck(
+  board: Pick<AccountingBoard, 'journals' | 'bankRecon'>,
+  done: { mappedJournalIds: readonly string[]; matchedAccountIds: readonly string[] },
+): { ready: boolean; reason: string } {
+  const mapped = new Set(done.mappedJournalIds);
+  const matched = new Set(done.matchedAccountIds);
+  return closeReadiness({
+    unmapped: board.journals.filter((j) => needsMapping(j) && !mapped.has(j.id)).map((j) => j.number),
+    unmatchedAccounts: board.bankRecon
+      .filter((b) => b.unmatched.length > 0 && !matched.has(b.id))
+      .map(reconLabel),
+  });
 }

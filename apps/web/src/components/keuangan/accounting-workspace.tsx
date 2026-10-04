@@ -4,7 +4,7 @@ import { type AccountingBoard, formatJam, formatTanggal, type JournalEntry } fro
 import { Button } from '@simrs/ui';
 import { type ReactNode, useId, useState, useTransition } from 'react';
 import { type AkuntansiActionInput, akuntansiAction } from '@/app/(staf)/keuangan/akuntansi/actions';
-import { closeReadiness } from '@/lib/keuangan-akuntansi';
+import { periodCloseCheck, reconLabel } from '@/lib/keuangan-akuntansi';
 import { AgingCard } from './aging-card';
 import { BankReconCard } from './bank-recon-card';
 import { JournalTable } from './journal-table';
@@ -25,7 +25,9 @@ export function AccountingWorkspace({
   kpis: ReactNode;
 }) {
   const id = useId();
-  const [mapped, setMapped] = useState<{ code: string; name: string; at: string } | null>(null);
+  const [mapped, setMapped] = useState<{ journalId: string; code: string; name: string; at: string } | null>(
+    null,
+  );
   const [matchedAt, setMatchedAt] = useState<Record<string, string>>({});
   const [closedAt, setClosedAt] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -53,10 +55,12 @@ export function AccountingWorkspace({
   const toMap = journals.find((j) => j.lines.some((l) => !l.account));
   const mappingJournal = board.journals.find((j) => j.status === 'perlu-pemetaan');
   const unmatched = board.bankRecon.filter((b) => b.unmatched.length > 0 && !matchedAt[b.id]);
-  const ready = closeReadiness({
-    unmapped: toMap ? [toMap.number] : [],
-    unmatchedAccounts: unmatched.map((b) => `BTN ${b.account}`),
-  });
+  // Yang dikirim ke server hanya id yang sudah dipetakan/dipadankan; server memeriksa ulang syaratnya.
+  const closeInput = {
+    mappedJournalIds: mapped ? [mapped.journalId] : [],
+    matchedAccountIds: Object.keys(matchedAt),
+  };
+  const ready = periodCloseCheck(board, closeInput);
   const locked = !!closedAt;
   const prev = board.previousPeriod;
 
@@ -96,7 +100,7 @@ export function AccountingWorkspace({
                 {
                   ok: unmatched.length === 0,
                   text: unmatched.length
-                    ? `Rekonsiliasi ${unmatched.map((b) => `BTN ${b.account}`).join(', ')} masih ada selisih`
+                    ? `Rekonsiliasi ${unmatched.map(reconLabel).join(', ')} masih ada selisih`
                     : 'Rekonsiliasi bank cocok di semua rekening',
                 },
               ]}
@@ -104,15 +108,7 @@ export function AccountingWorkspace({
               reason={ready.reason}
               pending={pending}
               onConfirm={() =>
-                act(
-                  {
-                    type: 'tutup-periode',
-                    periodId: board.period.id,
-                    unmapped: toMap ? 1 : 0,
-                    unmatched: unmatched.length,
-                  },
-                  setClosedAt,
-                )
+                act({ type: 'tutup-periode', periodId: board.period.id, ...closeInput }, setClosedAt)
               }
             />
           )}
@@ -172,7 +168,7 @@ export function AccountingWorkspace({
                     const opt = board.mappingOptions.find((o) => o.code === e.target.value);
                     if (opt) {
                       act({ type: 'petakan', journalId: mappingJournal.id, accountCode: opt.code }, (at) =>
-                        setMapped({ ...opt, at }),
+                        setMapped({ journalId: mappingJournal.id, ...opt, at }),
                       );
                     }
                   }}

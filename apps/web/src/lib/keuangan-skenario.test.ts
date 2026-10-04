@@ -6,15 +6,21 @@ import {
   kasirBoardSchema,
 } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
+import { KLAIM_AMOUNT, scenarioClaim as financedClaim } from './btn-skenario';
+import { FASILITAS } from './demo/fixtures/btn';
+import { CBG } from './demo/fixtures/keuangan';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import { billSummary } from './demo/engine/summary';
 import type { ScenarioEvent, ScenarioId, TaskValue } from './demo/engine/types';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import { invoiceTotal } from './keuangan';
 import {
+  classUpgradeAmount,
   demoAccountingBoard,
   demoClaimBoard,
+  defaultSelection,
   demoKasirBoard,
+  ELEKTIF_SELISIH_ESTIMASI,
   scenarioClaim,
   scenarioFlow,
   scenarioInvoice,
@@ -201,5 +207,105 @@ describe('proyeksi skenario ke layar keuangan', () => {
     expect(sumAccount(js, '1-1320')).toBe(0n);
     expect(sumAccount(js, '2-1310')).toBe(0n);
     expect(js.some((j) => j.number.startsWith('JU-2611'))).toBe(true);
+  });
+
+  it('pilihan bawaan: pasien skenario di layar ini (skenario aktif didahulukan), dikunci ke URL', () => {
+    const items = [
+      { id: 'umum', scenario: null },
+      { id: 'rj', scenario: 'rawat-jalan' as const },
+      { id: 'ig', scenario: 'igd-ranap' as const },
+    ];
+    const [umum, rj, ig] = items;
+    expect(defaultSelection(items, ['rawat-jalan', 'igd-ranap'], 'igd-ranap', umum)).toEqual({
+      item: ig,
+      pin: true,
+    });
+    expect(defaultSelection(items, ['rawat-jalan'], 'igd-ranap', umum)).toEqual({ item: rj, pin: true });
+    expect(defaultSelection(items, [], 'rawat-jalan', umum)).toEqual({ item: umum, pin: true });
+    // Skenario di layar ini belum punya baris: tidak dikunci, agar barisnya terpilih begitu muncul.
+    expect(defaultSelection(items, ['elektif-btn'], 'elektif-btn', umum)).toEqual({ item: umum, pin: false });
+  });
+
+  it('elektif tetap pilihan bawaan Kasir setelah lunas (urutan antrean turun) sampai pasien dipulangkan', () => {
+    let seq = reach('elektif-btn', 'kasir');
+    for (const [t, v] of [
+      ['final', true],
+      ['cara', 'cicil'],
+      ['tenor', '6'],
+      ['ajukan', true],
+      ['setuju', true],
+      ['cair', true],
+    ] as const) {
+      seq = act('elektif-btn', seq, 'kasir', t, v);
+    }
+    const R = run('elektif-btn', seq);
+    expect(R.def.steps[R.step]?.screen).toBe('kasir');
+    const board = demoKasirBoard({ ...base(), 'elektif-btn': R });
+    expect(board.invoices[0]?.id).not.toBe('inv-ratna');
+    const def = defaultSelection(board.invoices, ['elektif-btn'], 'elektif-btn', board.invoices[0]);
+    expect(def).toMatchObject({ item: { id: 'inv-ratna', status: 'lunas' }, pin: true });
+    expect(scenarioFlow(R, 'kasir').tasks.pulang?.enabled).toBe(true);
+  });
+
+  it('klaim elektif terkirim tetap pilihan bawaan (tugas layak bayar), berlabel tanggal pulang simulasi', () => {
+    let seq = reach('elektif-btn', 'klaim');
+    seq = act('elektif-btn', seq, 'klaim', 'kode');
+    seq = act('elektif-btn', seq, 'klaim', 'kirim');
+    const R = run('elektif-btn', seq);
+    const board = demoClaimBoard({ ...base(), 'elektif-btn': R });
+    const fallback = board.claims.find((c) => c.status === 'draft');
+    const def = defaultSelection(board.claims, ['elektif-btn'], 'elektif-btn', fallback);
+    expect(def).toMatchObject({ item: { id: 'kl-ratna', status: 'sent' }, pin: true });
+    expect(scenarioFlow(R, 'klaim').tasks.layak?.enabled).toBe(true);
+    expect(def.item?.ageLabel).toMatch(/^pulang \w{3} \d{1,2} Okt$/);
+  });
+
+  it('jurnal pembiayaan = angka layar Pembiayaan: cair 90% Rp 6.426.000, lunas Rp 6.455.600, sisa Rp 684.400', () => {
+    const R = run('elektif-btn', autoplaySeqs('elektif-btn').at(-1) ?? []);
+    const fin = financedClaim(R, FASILITAS);
+    expect(KLAIM_AMOUNT).toBe(CBG.empeduK2.tariff);
+    expect(fin).toMatchObject({ advance: '6426000', repayment: { margin: '29600', forwarded: '684400' } });
+    const js = scenarioJournals('elektif-btn', R);
+    const lines = (id: string) =>
+      js.find((j) => j.id === id)?.lines.map((l) => [l.account?.code, BigInt(l.debit), BigInt(l.credit)]);
+    expect(lines('ju-ratna-anjak')).toEqual([
+      ['1-1120', 6_426_000n, 0n],
+      ['2-1310', 0n, 6_426_000n],
+    ]);
+    expect(lines('ju-ratna-teruskan')).toEqual([
+      ['2-1310', 6_426_000n, 0n],
+      ['6-2100', 29_600n, 0n],
+      ['1-1130', 0n, 6_455_600n],
+      ['1-1120', 684_400n, 0n],
+      ['1-1130', 0n, 684_400n],
+    ]);
+    expect(sumAccount(js, '1-1130')).toBe(0n);
+  });
+
+  it('jurnal tanpa pencairan awal: dana BPJS diteruskan penuh, tanpa utang pembiayaan', () => {
+    let seq = reach('elektif-btn', 'pembiayaan');
+    seq = act('elektif-btn', seq, 'pembiayaan', 'pool');
+    seq = act('elektif-btn', seq, 'pembiayaan', 'ajukan', 'tidak');
+    seq = act('elektif-btn', seq, 'pembiayaan', 'bpjs');
+    const js = scenarioJournals('elektif-btn', run('elektif-btn', seq));
+    expect(js.some((j) => j.id === 'ju-ratna-anjak')).toBe(false);
+    expect(js.find((j) => j.id === 'ju-ratna-teruskan')?.lines).toHaveLength(2);
+    expect(sumAccount(js, '2-1310')).toBe(0n);
+    expect(sumAccount(js, '1-1120')).toBeGreaterThanOrEqual(7_140_000n);
+  });
+
+  it('selisih naik kelas dari rekam skenario: estimasi admisi = hasil final Rp 9.400.000 − deposit = Rp 6.400.000', () => {
+    const atKasir = reach('elektif-btn', 'kasir');
+    const before = run('elektif-btn', atKasir);
+    expect(before.rec.selisih).toBe(0n);
+    expect(classUpgradeAmount(before)).toBe(ELEKTIF_SELISIH_ESTIMASI);
+    const after = run('elektif-btn', act('elektif-btn', atKasir, 'kasir', 'final'));
+    expect(after.rec.selisih).toBe(ELEKTIF_SELISIH_ESTIMASI);
+    const inv = scenarioInvoice('elektif-btn', after);
+    expect(inv?.split.classUpgrade?.amount).toBe(after.rec.selisih.toString());
+    expect(after.rec.selisih).toBe(9_400_000n);
+    expect(after.rec.deposit).toBe(3_000_000n);
+    expect(BigInt(inv?.patientDue ?? '0')).toBe(after.rec.selisih - after.rec.deposit);
+    expect(inv?.patientDue).toBe('6400000');
   });
 });

@@ -4,6 +4,7 @@ import { formatRupiah, type Invoice } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId } from 'react';
+import type { ManualLineInput } from '@/app/(staf)/keuangan/kasir/actions';
 import { REKENING } from '@/lib/demo/fixtures/rs';
 import type { ScenarioFlow } from '@/lib/keuangan-flow';
 import { type PaidInfo, PaymentPanel } from './payment-panel';
@@ -51,6 +52,7 @@ export function KasirSettlement({
   flow,
   busy,
   receipt,
+  manual,
   finalize,
   close,
   discharge,
@@ -66,6 +68,8 @@ export function KasirSettlement({
   flow: ScenarioFlow | null;
   busy: boolean;
   receipt: { no: string; at: string; note: string } | null;
+  /** Item manual di layar (dihitung ulang server saat bayar). */
+  manual: readonly ManualLineInput[];
   finalize: GateAction;
   close: GateAction;
   /** Tugas skenario setelah lunas (pulangkan pasien), null bila tidak ada. */
@@ -100,6 +104,7 @@ export function KasirSettlement({
           invoiceId={invoice.id}
           receiptNo={invoice.receiptNo ?? invoice.number.replace('INV', 'KW')}
           due={due}
+          manual={manual}
           final={final}
           onPaid={onPaid}
         />

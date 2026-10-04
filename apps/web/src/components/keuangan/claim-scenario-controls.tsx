@@ -1,7 +1,8 @@
 'use client';
 
-import { cx, SafetyGate } from '@simrs/ui';
+import { SafetyGate } from '@simrs/ui';
 import { flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
+import { ChoiceCards } from './choice-cards';
 import { FlowTaskButton } from './flow-task-button';
 
 /**
@@ -26,35 +27,24 @@ export function ClaimScenarioControls({
     <div className="flex flex-col gap-2.5 rounded-control border border-[#9FCFC8] bg-[#F7FBFA] p-3">
       <span className="text-caption font-semibold text-brand-700">Validasi koding · pasien simulasi</span>
       {utama && (
-        <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-          <legend className="mb-1 text-small font-semibold">{utama.label}</legend>
-          <div role="radiogroup" aria-label={utama.label} className="flex flex-col gap-1.5">
-            {utama.options.map((o) => {
-              const on = utama.value === o.id;
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  disabled={!utama.enabled || pending}
-                  onClick={() => onTask('utama', o.id)}
-                  className={cx(
-                    'flex min-h-11 flex-col rounded-control border-[1.5px] px-3 py-1.5 text-left font-[inherit] text-ink-900 disabled:cursor-not-allowed',
-                    on ? 'border-brand-600 bg-[#F2FAF8]' : 'border-line bg-white',
-                    utama.enabled && !pending && 'cursor-pointer',
-                  )}
-                >
-                  <span className="font-semibold">{o.label}</span>
-                  <span className="text-caption text-ink-500">{o.sub}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <ChoiceCards
+            legend={utama.label}
+            showLegend
+            className="flex flex-col gap-1.5"
+            value={utama.value}
+            onChange={(id) => {
+              if (utama.enabled && !pending) onTask('utama', id);
+            }}
+            options={utama.options.map((o) => ({
+              ...o,
+              disabled: !utama.enabled || pending,
+            }))}
+          />
           {!utama.done && flowReason(flow, 'utama') && (
             <span className="text-caption font-medium text-warning">{flowReason(flow, 'utama')}</span>
           )}
-        </fieldset>
+        </div>
       )}
       {bukti?.visible && (
         <SafetyGate
