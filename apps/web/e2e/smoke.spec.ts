@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { SCREENS } from '../src/lib/screens';
 import { createAccount, loginAs } from './support/accounts';
 
 test.describe('smoke', () => {
@@ -35,8 +36,17 @@ test.describe('smoke', () => {
   test('layar mode presentasi tidak ada di luar mode demo (404)', async ({ page }) => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account);
-    const res = await page.goto('/simulasi');
-    expect(res?.status()).toBe(404);
+    const paths = [
+      ...SCREENS.filter((s) => s.status === 'demo').map((s) => s.route),
+      '/klinis/order/kj-suryo',
+      '/klinis/rawat-inap/kj-hartono',
+      '/klinis/resume/kj-hartono',
+      '/tablet/persetujuan/pk-hartono',
+    ];
+    for (const path of paths) {
+      const res = await page.goto(path);
+      expect(res?.status(), path).toBe(404);
+    }
   });
 
   test.describe('/dev/ui (operator platform)', () => {

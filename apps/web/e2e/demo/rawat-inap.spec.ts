@@ -107,7 +107,7 @@ test.describe('rawat inap', () => {
     const dose = emar.getByRole('button', { name: /^Insulin aspart sesuai skala jam 12\.00/ });
     await expect(dose).toBeDisabled();
     await expect(emar.getByRole('alert')).toContainText('Pemberian obat terkunci sampai gelang pasien cocok');
-    await emar.getByRole('button', { name: 'Pindai gelang' }).click();
+    await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
     await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
     await expect(dose).toBeEnabled();
     await dose.click();
