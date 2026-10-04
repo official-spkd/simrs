@@ -1,10 +1,17 @@
-import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor } from '@nestjs/common';
+import {
+  type CallHandler,
+  type ExecutionContext,
+  Injectable,
+  Logger,
+  type NestInterceptor,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { isModuleEnabled, roleGrantScope } from '@simrs/db';
+import { isModuleEnabled } from '@simrs/db';
 import { AppError, type ComponentCode, type PermissionScope } from '@simrs/shared';
 import type { Request } from 'express';
 import { from, lastValueFrom, type Observable } from 'rxjs';
 import { type AuditMeta, writeAudit } from '../infra/audit-writer';
+import { PermissionMatrix } from '../infra/permission-matrix';
 import { PrismaService } from '../infra/prisma.service';
 import { AuditedDenial } from './audited-denial';
 import { AUDITED_KEY, type AuditedOptions, type AuditSource } from './audited.decorator';
@@ -25,10 +32,12 @@ const MAX_USER_AGENT = 300;
 
 /**
  * Dua tahap per permintaan bertenant:
- * 1. Otorisasi (P03) di transaksi singkat terpisah: peran tanpa izin → audit `access_denied` DI-COMMIT, lalu 403.
+ * 1. Otorisasi (P03) sebelum transaksi permintaan: matriks dari cache (`PermissionMatrix`, meleset → satu
+ *    kueri). Peran tanpa izin → audit `access_denied` DI-COMMIT di transaksi singkat tersendiri, lalu 403.
  * 2. Unit of work: satu transaksi ber-RLS membungkus pemeriksaan modul (P10), handler, dan penulisan audit
  *    sebelum commit. Galat di mana pun → seluruh perubahan dan audit batal, kecuali penolakan `AuditedDenial`
- *    (ABAC akses pasien) yang dicatat ulang sebagai `access_denied` di transaksi terpisah.
+ *    (ABAC akses pasien) yang dicatat ulang sebagai `access_denied` di transaksi terpisah. Setelah commit,
+ *    kait `TenantDb.afterCommit` dijalankan (mis. invalidasi cache matriks).
  * Konsekuensi: handler tidak boleh memanggil sistem eksternal (pakai outbox, CLAUDE.md §4.5).
  *
  * Pengecualian `@NoRequestTransaction()` (ADR-0025 lookup sinkron, ADR-0026 SSE): otorisasi dan cek modul tetap,
@@ -37,9 +46,12 @@ const MAX_USER_AGENT = 300;
  */
 @Injectable()
 export class TenantTransactionInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(TenantTransactionInterceptor.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    private readonly matrix: PermissionMatrix,
   ) {}
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -69,7 +81,6 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       userAgent: req.headers['user-agent']?.slice(0, MAX_USER_AGENT) ?? null,
       requestId: typeof req.id === 'string' ? req.id : null,
     };
-
     const auditedEntry = (result: unknown): PendingAudit | null => {
       if (!audited) return null;
       const src: AuditSource = { params: req.params, query: req.query, body: req.body as unknown, result };
@@ -82,19 +93,19 @@ export class TenantTransactionInterceptor implements NestInterceptor {
         reason: audited.reason?.(src) ?? null,
       };
     };
+    const handle = () => lastValueFrom(next.handle(), { defaultValue: undefined });
 
     if (noTransaction) {
       return from(
-        this.runWithoutTransaction(tenantId, actor, auditMeta, requiredPermission, requiredModule, () =>
-          lastValueFrom(next.handle(), { defaultValue: undefined }),
-        ).then(async ({ result, audit }) => {
-          const entry = auditedEntry(result);
-          const entries = entry ? [entry, ...audit] : audit;
-          if (entries.length > 0) {
-            await this.prisma.forTenant(tenantId, (tx) => writeAudit(tx, tenantId, auditMeta, entries));
-          }
-          return result;
-        }),
+        this.runWithoutTransaction(
+          tenantId,
+          actor,
+          auditMeta,
+          requiredPermission,
+          requiredModule,
+          auditedEntry,
+          handle,
+        ),
       );
     }
 
@@ -102,8 +113,9 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       const permissionScope = requiredPermission
         ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
         : null;
+      const afterCommit: TenantRequestContext['afterCommit'] = [];
 
-      return this.prisma
+      const result = await this.prisma
         .forTenant(tenantId, (tx) => {
           const store: TenantRequestContext = {
             tenantId,
@@ -114,12 +126,13 @@ export class TenantTransactionInterceptor implements NestInterceptor {
             userAgent: auditMeta.userAgent,
             permissionScope,
             audit: [],
+            afterCommit,
           };
           return requestContext.run(store, async () => {
             if (requiredModule && !(await isModuleEnabled(tx, requiredModule))) {
               throw new AppError('MODULE_DISABLED', `Modul ${requiredModule} tidak aktif untuk RS ini`, 403);
             }
-            const result = await lastValueFrom(next.handle(), { defaultValue: undefined });
+            const result = await handle();
             const entry = auditedEntry(result);
             if (entry) store.audit.unshift(entry);
             await writeAudit(tx, tenantId, auditMeta, store.audit);
@@ -127,14 +140,17 @@ export class TenantTransactionInterceptor implements NestInterceptor {
           });
         })
         .catch((err: unknown) => this.recordDenial(err, tenantId, auditMeta));
+      await this.runAfterCommit(afterCommit);
+      return result;
     };
     return from(run());
   }
 
   /**
-   * Jalur `@NoRequestTransaction()`: otorisasi (transaksi pendek, penolakan di-commit) → cek modul (transaksi
-   * pendek) → handler tanpa transaksi. Handler membuka transaksi pendek sendiri lewat `TenantDb.transaction()`;
-   * entri `TenantDb.audit()` di luar transaksi pendek dikembalikan untuk ditulis pemanggil setelah handler.
+   * Jalur `@NoRequestTransaction()`: otorisasi (penolakan di-commit) → cek modul (transaksi pendek) → handler tanpa
+   * transaksi. Handler membuka transaksi pendek sendiri lewat `TenantDb.transaction()`. `@Audited` dan entri
+   * `TenantDb.audit()` di luar transaksi pendek ditulis setelah handler; kait `afterCommit` di luar transaksi pendek
+   * dijalankan sesudahnya.
    */
   private async runWithoutTransaction(
     tenantId: string,
@@ -142,8 +158,9 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     auditMeta: AuditMeta,
     requiredPermission: RequiredPermission | undefined,
     requiredModule: ComponentCode | undefined,
+    auditedEntry: (result: unknown) => PendingAudit | null,
     handle: () => Promise<unknown>,
-  ): Promise<{ result: unknown; audit: PendingAudit[] }> {
+  ): Promise<unknown> {
     const permissionScope = requiredPermission
       ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
       : null;
@@ -162,13 +179,21 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       userAgent: auditMeta.userAgent,
       permissionScope,
       audit: [],
+      afterCommit: [],
     };
+    let result: unknown;
     try {
-      const result = await requestContext.run(store, handle);
-      return { result, audit: store.audit };
+      result = await requestContext.run(store, handle);
     } catch (err) {
       return this.recordDenial(err, tenantId, auditMeta);
     }
+    const entry = auditedEntry(result);
+    const entries = entry ? [entry, ...store.audit] : store.audit;
+    if (entries.length > 0) {
+      await this.prisma.forTenant(tenantId, (tx) => writeAudit(tx, tenantId, auditMeta, entries));
+    }
+    await this.runAfterCommit(store.afterCommit);
+    return result;
   }
 
   /** Transaksi permintaan sudah batal; penolakan ABAC tetap dicatat di transaksi tersendiri, lalu galat diteruskan. */
@@ -181,6 +206,17 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     throw err;
   }
 
+  private async runAfterCommit(hooks: TenantRequestContext['afterCommit']): Promise<void> {
+    for (const fn of hooks) {
+      try {
+        await fn();
+      } catch (err) {
+        // Transaksi sudah commit: respons tetap sukses. Tanpa PHI di log (hanya jenis galat).
+        this.logger.error(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
+      }
+    }
+  }
+
   /** Lingkup izin peran aktif, atau 403 (dengan audit penolakan yang pasti tersimpan). */
   private async authorize(
     tenantId: string,
@@ -189,23 +225,20 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     auditMeta: AuditMeta,
   ): Promise<PermissionScope> {
     if (actor.role === DEV_ROLE) return 'all';
-    const scope = await this.prisma.forTenant(tenantId, async (tx) => {
-      const granted = actor.role
-        ? await roleGrantScope(tx, actor.role, required.resource, required.action)
-        : null;
-      if (!granted) {
-        await writeAudit(tx, tenantId, auditMeta, [
+    const scope = actor.role
+      ? await this.matrix.scope(tenantId, actor.role, required.resource, required.action)
+      : null;
+    if (!scope) {
+      await this.prisma.forTenant(tenantId, (tx) =>
+        writeAudit(tx, tenantId, auditMeta, [
           {
             action: 'access_denied',
             resourceType: required.resource,
             outcome: 'denied',
             details: { action: required.action, role: actor.role },
           },
-        ]);
-      }
-      return granted;
-    });
-    if (!scope) {
+        ]),
+      );
       throw new AppError(
         'FORBIDDEN',
         actor.role ? 'Peran Anda tidak berizin untuk aksi ini' : 'Pilih unit kerja dan peran terlebih dahulu',

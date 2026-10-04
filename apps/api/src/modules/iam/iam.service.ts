@@ -4,6 +4,7 @@ import {
   type AssignmentInput,
   AppError,
   type CreateUserInput,
+  grantDiffEntry,
   isPermission,
   PERMISSION_CATALOG,
   isProtectedRole,
@@ -16,6 +17,7 @@ import { decryptField, encryptField, generateTemporaryPassword, hashPassword } f
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { toPage } from '../../common/pagination';
 import { DEV_ROLE } from '../../common/request-context';
+import { PermissionMatrix } from '../../infra/permission-matrix';
 import { TenantDb } from '../../infra/tenant-db';
 import { IamRepository } from './iam.repository';
 
@@ -38,6 +40,7 @@ export class IamService {
   constructor(
     private readonly repo: IamRepository,
     private readonly db: TenantDb,
+    private readonly matrix: PermissionMatrix,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -286,7 +289,10 @@ export class IamService {
     };
   }
 
-  /** Ganti matriks izin satu peran. Mengembalikan selisih (untuk audit). */
+  /**
+   * Ganti matriks izin satu peran. Mengembalikan selisih (untuk audit). Cache matriks semua instans API
+   * dibuang setelah commit, sehingga perubahan berlaku di permintaan berikutnya.
+   */
   async replaceRolePermissions(code: string, input: RolePermissionsInput) {
     const role = await this.repo.findRoleByCode(code);
     if (!role) throw new AppError('NOT_FOUND', 'Peran tidak ditemukan', 404);
@@ -305,10 +311,11 @@ export class IamService {
         throw conflict('Izin kelola pengguna dan peran tidak boleh dicabut dari admin SIM RS');
     }
     const before = await this.repo.replaceRolePermissions(role.id, input.grants);
-    const fmt = (g: { resource: string; action: string; scope: string }) =>
-      `${g.resource}.${g.action}:${g.scope}`;
-    const beforeSet = new Set(before.map(fmt));
-    const afterSet = new Set(input.grants.map(fmt));
+    const tenantId = this.db.tenantId();
+    this.db.afterCommit(() => this.matrix.invalidateTenant(tenantId));
+    // Format selisih juga dibaca sinkron izin katalog untuk mengenali izin yang dicabut admin.
+    const beforeSet = new Set(before.map(grantDiffEntry));
+    const afterSet = new Set(input.grants.map(grantDiffEntry));
     const diff = {
       added: [...afterSet].filter((x) => !beforeSet.has(x)).sort(),
       removed: [...beforeSet].filter((x) => !afterSet.has(x)).sort(),

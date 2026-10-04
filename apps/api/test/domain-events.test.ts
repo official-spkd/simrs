@@ -26,6 +26,7 @@ function fakeContext(tx: object | null = {}): TenantRequestContext {
     userAgent: null,
     permissionScope: null,
     audit: [],
+    afterCommit: [],
   };
 }
 

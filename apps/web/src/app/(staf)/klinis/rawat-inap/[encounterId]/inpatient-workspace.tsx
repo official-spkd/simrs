@@ -1,8 +1,8 @@
 'use client';
 
 import type { CpptEntry, InpatientDetail } from '@simrs/shared';
+import { TabList, TabPanel } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { PillTabPanel, PillTabs } from '@/components/rawat-inap/pill-tabs';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { emarTurnBlocker } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
@@ -128,16 +128,16 @@ export function InpatientWorkspace({
       )}
       <div className="flex flex-col gap-3">
         {/* Pil tab (mockup Ranap) membungkus di layar sempit; panel diatur di sini. */}
-        <PillTabs
+        <TabList
           label="Bagian rekam rawat inap"
           idBase={tabsId}
           value={current.id}
           onChange={setTab}
           items={items.map(({ id, label }) => ({ id, label }))}
         />
-        <PillTabPanel idBase={tabsId} value={current.id}>
+        <TabPanel key={current.id} idBase={tabsId} value={current.id}>
           {current.content}
-        </PillTabPanel>
+        </TabPanel>
       </div>
     </div>
   );

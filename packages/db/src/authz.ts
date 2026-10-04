@@ -1,10 +1,18 @@
-import { defaultRolesFor, newId, type PermissionScope, SCOPE_RANK, type TenantKind } from '@simrs/shared';
+import {
+  defaultRolesFor,
+  newId,
+  permissionKey,
+  type PermissionScope,
+  SCOPE_RANK,
+  type TenantKind,
+} from '@simrs/shared';
 import type { TenantTx } from './client';
 
 /**
  * P03 · Pastikan peran bawaan ada untuk tenant ini: 16 peran RS, atau peran platform untuk tenant PLATFORM.
  * Matriks bawaan hanya diisi saat peran BARU dibuat, sehingga matriks yang sudah disesuaikan tidak pernah
- * ditimpa. Idempoten.
+ * ditimpa. Idempoten. Izin yang kemudian ditambahkan ke katalog sampai ke peran yang sudah ada lewat
+ * `syncRolePermissions` (`pnpm db:sync-permissions`).
  */
 export async function ensureSystemRoles(
   tx: TenantTx,
@@ -32,6 +40,9 @@ export async function ensureSystemRoles(
   return existing;
 }
 
+const validScope = (scope: string | undefined): PermissionScope | null =>
+  scope && scope in SCOPE_RANK ? (scope as PermissionScope) : null;
+
 /** Lingkup izin peran untuk sumber × aksi, atau null bila tidak berizin / peran nonaktif. */
 export async function roleGrantScope(
   tx: TenantTx,
@@ -43,9 +54,32 @@ export async function roleGrantScope(
     where: { resource, action, role: { code: roleCode, active: true } },
     select: { scope: true },
   });
-  const scope = row?.scope as PermissionScope | undefined;
-  return scope && scope in SCOPE_RANK ? scope : null;
+  return validScope(row?.scope);
 }
+
+/**
+ * Seluruh izin satu peran (`sumber.aksi` → lingkup) dalam satu kueri; kosong bila peran tidak ada atau
+ * nonaktif. Dipakai cache matriks API (satu baris cache per tenant × peran).
+ */
+export async function roleGrants(tx: TenantTx, roleCode: string): Promise<Map<string, PermissionScope>> {
+  const rows = await tx.rolePermission.findMany({
+    where: { role: { code: roleCode, active: true } },
+    select: { resource: true, action: true, scope: true },
+  });
+  const grants = new Map<string, PermissionScope>();
+  for (const r of rows) {
+    const scope = validScope(r.scope);
+    if (scope) grants.set(permissionKey(r.resource, r.action), scope);
+  }
+  return grants;
+}
+
+/**
+ * Lingkup kunci (`lockTenantScope`) untuk semua penulis matriks izin satu tenant: editor matriks (API) dan
+ * sinkron izin katalog (CLI). Tanpa kunci, sinkron bisa membaca matriks lama lalu menyisipkan izin yang
+ * barusan dicabut admin di transaksi lain.
+ */
+export const ROLE_MATRIX_LOCK = 'iam.role_permissions';
 
 /** Penugasan aktif pengguna pada saat `at` (peran aktif). */
 export function activeAssignments(tx: TenantTx, userId: string, at: Date = new Date()) {

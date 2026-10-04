@@ -56,6 +56,8 @@ async function openTransactions(): Promise<number> {
   return row?.n ?? 0;
 }
 
+const afterHandler: string[] = [];
+
 @TenantScoped()
 @Controller('test-infra/lookup')
 class LookupTestController {
@@ -119,6 +121,26 @@ class LookupTestController {
   @HttpCode(200)
   moduleOff(@Body() body: { cardNo: string }) {
     return this.gateway.lookup(peserta, { cardNo: body.cardNo });
+  }
+
+  /** Kait `afterCommit`: setelah transaksi pendek commit (tidak bila batal), atau setelah handler bila di luarnya. */
+  @NoRequestTransaction()
+  @Get('after-commit-probe')
+  async afterCommitProbe() {
+    const order: string[] = [];
+    await this.db.transaction(async () => {
+      this.db.afterCommit(() => void order.push('short-committed'));
+      order.push('in-short');
+    });
+    await this.db
+      .transaction(async () => {
+        this.db.afterCommit(() => void order.push('must-not-run'));
+        throw new Error('batal');
+      })
+      .catch(() => order.push('rolled-back'));
+    this.db.afterCommit(() => void afterHandler.push('handler-done'));
+    order.push('end');
+    return order;
   }
 
   /** `TenantDb.tx()` di luar transaksi pendek = galat program; `TenantDb.transaction()` membuka transaksi pendek. */
@@ -347,6 +369,16 @@ describe('LookupGateway (ADR-0025)', () => {
       tenant: TENANT_A,
       nested: 'refused',
     });
+  });
+
+  it('afterCommit di handler tanpa transaksi: setelah transaksi pendek commit, tidak bila batal, lalu setelah handler', async () => {
+    afterHandler.length = 0;
+    const res = await http()
+      .get('/api/v1/test-infra/lookup/after-commit-probe')
+      .set('X-Tenant-Id', TENANT_A)
+      .expect(200);
+    expect(res.body).toEqual(['in-short', 'short-committed', 'rolled-back', 'end']);
+    expect(afterHandler).toEqual(['handler-done']);
   });
 
   it('banyak lookup lambat serentak tidak menghabiskan pool koneksi', async () => {

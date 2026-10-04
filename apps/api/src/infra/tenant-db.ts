@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { TenantTx } from '@simrs/db';
 import { type PendingAudit, requestContext, type TenantRequestContext } from '../common/request-context';
 import { writeAudit } from './audit-writer';
@@ -10,6 +10,8 @@ import { PrismaService } from './prisma.service';
  */
 @Injectable()
 export class TenantDb {
+  private readonly logger = new Logger(TenantDb.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private context(): TenantRequestContext {
@@ -68,10 +70,18 @@ export class TenantDb {
   }
 
   /**
+   * Jalankan `fn` setelah transaksi ini commit (lihat `TenantRequestContext.afterCommit`): transaksi permintaan, atau
+   * transaksi pendek `TenantDb.transaction()` pada handler `@NoRequestTransaction()`.
+   */
+  afterCommit(fn: () => Promise<void> | void): void {
+    this.context().afterCommit.push(fn);
+  }
+
+  /**
    * ADR-0025/0026 · Transaksi pendek bertenant untuk handler `@NoRequestTransaction()`. Di dalam `fn`, repository
-   * (`TenantDb.tx()`), `TenantDb.audit()`, dan event domain bekerja seperti biasa; audit ditulis sebelum commit dan
-   * batal bersama datanya. Jangan memanggil sistem luar di dalam `fn` (koneksi pool sedang dipegang).
-   * Di dalam transaksi permintaan atau transaksi pendek lain → galat program (tidak ada transaksi bersarang).
+   * (`TenantDb.tx()`), `TenantDb.audit()`, `TenantDb.afterCommit()`, dan event domain bekerja seperti biasa; audit
+   * ditulis sebelum commit dan batal bersama datanya. Jangan memanggil sistem luar di dalam `fn` (koneksi pool
+   * sedang dipegang). Di dalam transaksi permintaan atau transaksi pendek lain → galat program (tidak bersarang).
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
     const outer = this.context();
@@ -80,10 +90,11 @@ export class TenantDb {
         'TenantDb.transaction() hanya untuk handler @NoRequestTransaction() di luar transaksi lain.',
       );
     }
-    return this.prisma.forTenant(outer.tenantId, (tx) => {
-      const inner: TenantRequestContext = { ...outer, tx, audit: [] };
+    const afterCommit: TenantRequestContext['afterCommit'] = [];
+    const result = await this.prisma.forTenant(outer.tenantId, (tx) => {
+      const inner: TenantRequestContext = { ...outer, tx, audit: [], afterCommit };
       return requestContext.run(inner, async () => {
-        const result = await fn();
+        const value = await fn();
         await writeAudit(
           tx,
           outer.tenantId,
@@ -96,8 +107,17 @@ export class TenantDb {
           },
           inner.audit,
         );
-        return result;
+        return value;
       });
     });
+    // Sudah commit: kait dijalankan di konteks luar, galatnya tidak membatalkan apa pun (sama seperti interceptor).
+    for (const hook of afterCommit) {
+      try {
+        await hook();
+      } catch (err) {
+        this.logger.error(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
+      }
+    }
+    return result;
   }
 }

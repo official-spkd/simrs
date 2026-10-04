@@ -42,6 +42,12 @@ export const TENANT_CODES: Record<string, string> = {
 export const TEST_STORAGE_ROOT = join(tmpdir(), 'simrs-api-test-storage');
 
 /**
+ * Awalan kunci Redis batas laju untuk satu run tes (diset `global-setup.ts`, yang juga menghapus kuncinya di akhir).
+ * Kunci lain di Redis bersama (server pengembangan, salinan repo lain) tidak pernah disentuh.
+ */
+export const TEST_RATE_LIMIT_PREFIX = process.env.SIMRS_TEST_RATE_LIMIT_PREFIX ?? 'simrs:rl:test:';
+
+/**
  * Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app).
  * `options.imports`: modul khusus tes (mis. controller uji infrastruktur) yang dipasang di samping `AppModule`.
  */
@@ -57,6 +63,10 @@ export async function createTestApp(
     // Tes modul memakai mode header pengembang; tes auth memakai token sungguhan.
     ALLOW_DEV_TENANT_HEADER: 'true',
     AUTH_RATE_LIMIT_PER_MIN: '1000',
+    USER_RATE_LIMIT_PER_MIN: '1000',
+    // Penghitung batas laju sendiri per aplikasi uji (Redis bila terjangkau): hitungan tes lain tidak terbawa.
+    // Tes yang menguji penghitung bersama antar-instans memberi awalan yang sama ke dua aplikasi.
+    RATE_LIMIT_REDIS_PREFIX: `${TEST_RATE_LIMIT_PREFIX}${newId()}:`,
     // Supertest datang dari loopback; X-Forwarded-For hanya dipercaya dari sana (seperti web BFF lokal).
     TRUST_PROXY: 'loopback',
     STORAGE_DRIVER: 'disk',

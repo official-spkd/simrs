@@ -335,10 +335,18 @@ describe('SseService (HTTP)', () => {
     expect(c.res.headers.get('x-accel-buffering')).toBe('no');
     await c.waitFor(() => c.frames.filter((f) => f.comment === 'ping').length >= 2);
     expect(c.frames[0]).toEqual({ retry: 3000 });
-    const audit = await withTenant(testDb(), TENANT_A, (tx) =>
-      tx.auditEvent.findMany({ where: { requestId }, select: { action: true, resourceType: true } }),
-    );
+    // @Audited ditulis di transaksi pendek tepat setelah aliran dibuka (bukan saat aliran berakhir).
+    const readAudit = () =>
+      withTenant(testDb(), TENANT_A, (tx) =>
+        tx.auditEvent.findMany({ where: { requestId }, select: { action: true, resourceType: true } }),
+      );
+    let audit = await readAudit();
+    for (let i = 0; i < 100 && audit.length === 0; i++) {
+      await settle(20);
+      audit = await readAudit();
+    }
     expect(audit).toEqual([{ action: 'read', resourceType: 'sse_test_stream' }]);
+    expect(c.ended).toBe(false);
   });
 
   it('pelanggan tenant A tidak pernah menerima event tenant B (termasuk payload palsu)', async () => {

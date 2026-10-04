@@ -26,7 +26,7 @@ import {
 
 /** Akun uji fiktif dibuat langsung di simrs_test (role aplikasi, RLS aktif). Nama pengguna unik per tes. */
 
-const TENANTS = {
+export const TENANTS = {
   RSFA: '0199a000-0000-7000-8000-000000000001',
   PLATFORM: SEED_PLATFORM_TENANT.id,
 } as const;
@@ -51,7 +51,7 @@ function prisma(): PrismaClient {
  * Transaksi ber-tenant untuk penyiapan data uji. Saat seluruh suite jalan paralel (build web + API + banyak browser),
  * membuka koneksi Postgres baru (di Windows: satu proses per koneksi) bisa melebihi batas tunggu bawaan Prisma 2 dtk.
  */
-function inTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+export function inTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
   return withTenant(prisma(), tenantId, fn, { maxWaitMs: 20_000 });
 }
 

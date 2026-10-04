@@ -1,8 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
-import { isAuthRateLimited } from './common/auth-rate-limited.decorator';
 import { AppErrorFilter } from './common/error.filter';
 import { genRequestId } from './common/request-id';
 import type { ApiEnv } from './config/env';
@@ -10,6 +9,8 @@ import { HealthModule } from './health/health.module';
 import { DomainEventsModule } from './infra/events/domain-events.module';
 import { InfraModule } from './infra/infra.module';
 import { LookupModule } from './infra/lookup/lookup.module';
+import { IpThrottlerGuard, rateLimitThrottlers } from './infra/rate-limit';
+import { RateLimitStorage } from './infra/rate-limit.storage';
 import { RealtimeModule } from './infra/realtime/realtime.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -65,17 +66,12 @@ export class AppModule {
           },
         }),
         InfraModule.forRoot(env),
-        // Per IP per menit. Di RS banyak staf berbagi satu IP (NAT); batas per pengguna menyusul di P02.
-        ThrottlerModule.forRoot([
-          { name: 'default', ttl: 60_000, limit: env.RATE_LIMIT_PER_MIN },
-          // Batas ketat khusus endpoint kredensial (@AuthRateLimited), per IP per menit.
-          {
-            name: 'auth',
-            ttl: 60_000,
-            limit: env.AUTH_RATE_LIMIT_PER_MIN,
-            skipIf: (ctx) => !isAuthRateLimited(ctx),
-          },
-        ]),
+        // Batas laju per IP, per endpoint kredensial, dan per pengguna (infra/rate-limit.ts); penghitung di Redis
+        // (RateLimitStorage) agar sama di semua instans API.
+        ThrottlerModule.forRootAsync({
+          inject: [RateLimitStorage],
+          useFactory: (storage: RateLimitStorage) => ({ storage, throttlers: rateLimitThrottlers(env) }),
+        }),
         HealthModule,
         AuthModule,
         IamModule,
@@ -108,7 +104,7 @@ export class AppModule {
       ],
       providers: [
         { provide: APP_FILTER, useClass: AppErrorFilter },
-        { provide: APP_GUARD, useClass: ThrottlerGuard },
+        { provide: APP_GUARD, useClass: IpThrottlerGuard },
       ],
     };
   }
