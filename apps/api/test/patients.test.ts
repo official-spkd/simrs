@@ -358,10 +358,8 @@ describe('izin dan isolasi tenant', () => {
     await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
 
     await as('rsB').get(`/api/v1/patients/${p.id}`).expect(404);
-    // RM dinomori per RS: RS B boleh punya pasiennya sendiri dengan RM yang sama (mis. DB tes yang pernah di-seed),
-    // jadi yang diuji adalah pasien RS ini tidak ikut tampil, bukan hasil yang kosong.
     const search = await as('rsB').get(`/api/v1/patients?q=${p.mrn}`).expect(200);
-    expect(search.body.items.map((i: { id: string }) => i.id)).not.toContain(p.id);
+    expect(search.body.items).toEqual([]);
   });
 
   it('rantai hash audit tenant tetap utuh setelah semua aktivitas pasien', async () => {
