@@ -3,7 +3,7 @@
 import type { BedBoard, BedRequest } from '@simrs/shared';
 import Link from 'next/link';
 import { useId, useState, useTransition } from 'react';
-import { PillTabPanel, PillTabs } from '@/components/rawat-inap/pill-tabs';
+import { TabList, TabPanel } from '@simrs/ui';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
@@ -119,7 +119,7 @@ export function BedWorkspace({
       <div className="flex flex-wrap items-start gap-4">
         <section aria-label="Peta tempat tidur" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <PillTabs
+            <TabList
               label="Tampilan"
               idBase={viewTabsId}
               value={view}
@@ -140,7 +140,7 @@ export function BedWorkspace({
                 : `${beds.length} bed ditampilkan`
             }
           />
-          <PillTabPanel idBase={viewTabsId} value={view}>
+          <TabPanel idBase={viewTabsId} value={view}>
             {shown.length === 0 ? (
               <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
                 Tidak ada bed yang cocok dengan filter bangsal, kelas, dan status ini.
@@ -167,7 +167,7 @@ export function BedWorkspace({
                 onOpen={(code) => setFilter((f) => ({ ...f, ward: code }))}
               />
             )}
-          </PillTabPanel>
+          </TabPanel>
         </section>
         <aside aria-label="Alokasi bed" className="flex flex-[1_1_300px] flex-col gap-4 lg:max-w-[380px]">
           {selBed && (
