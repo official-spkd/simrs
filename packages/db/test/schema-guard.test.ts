@@ -55,6 +55,29 @@ describe('penjaga skema', () => {
     expect(bad, 'tabel tanpa isolasi tenant lengkap').toEqual([]);
   });
 
+  it('tabel ber-tenant_id di luar public (indeks pencarian): RLS + kebijakan, tanpa hak apa pun bagi role aplikasi', async () => {
+    // Pola ADR-0008/0015: dibaca pemilik lewat fungsi SECURITY DEFINER sempit, jadi tanpa FORCE, tetapi role
+    // aplikasi sama sekali tidak boleh membacanya langsung.
+    const rows = await owner.$queryRaw<
+      Array<{ table: string; rls: boolean; policies: bigint; app_access: boolean }>
+    >`
+      SELECT n.nspname || '.' || c.relname AS table, c.relrowsecurity AS rls,
+             (SELECT count(*) FROM pg_policies p
+              WHERE p.schemaname = n.nspname AND p.tablename = c.relname AND p.policyname = 'tenant_isolation') AS policies,
+             has_table_privilege('simrs_app', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE') AS app_access
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE c.relkind = 'r' AND n.nspname NOT IN ('public', 'pg_catalog', 'information_schema', 'pg_toast')
+        AND EXISTS (SELECT 1 FROM pg_attribute a
+                    WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+      ORDER BY 1`;
+    expect(rows.map((r) => r.table)).toContain('search.patient_names');
+    const bad = rows
+      .filter((r) => !r.rls || Number(r.policies) !== 1 || r.app_access)
+      .map((r) => `${r.table} (rls=${r.rls}, policy=${r.policies}, app=${r.app_access})`);
+    expect(bad, 'tabel indeks tanpa isolasi').toEqual([]);
+  });
+
   it('role aplikasi tidak punya BYPASSRLS dan bukan superuser', async () => {
     const [role] = await owner.$queryRaw<Array<{ bypass: boolean; superuser: boolean }>>`
       SELECT rolbypassrls AS bypass, rolsuper AS superuser FROM pg_roles WHERE rolname = 'simrs_app'`;
