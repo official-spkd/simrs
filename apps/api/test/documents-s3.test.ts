@@ -43,7 +43,7 @@ describe('khusus driver s3', () => {
       doc.sha256,
     );
     const ready = await http().get('/ready');
-    expect(ready.body.checks.storage).toMatchObject({ ok: true });
+    expect(ready.body.checks.storage).toMatchObject({ ok: true, driver: 's3' });
   });
 
   it('unduhan besar di-stream utuh dengan Content-Length', async () => {

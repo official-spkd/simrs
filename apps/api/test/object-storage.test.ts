@@ -181,17 +181,21 @@ describe('driver s3 (MinIO lokal, bucket uji)', () => {
     expect(String((err as Error).message)).not.toContain(bucket);
   });
 
-  it('/ready memakai HeadBucket: bucket hilang → storage tidak siap (503)', async () => {
+  it('/ready memakai HeadBucket dan melaporkan driver: bucket hilang → storage tidak siap (503)', async () => {
     const ok = await createTestApp({ STORAGE_DRIVER: 's3', S3_BUCKET_DOCUMENTS: bucket });
     const bad = await createTestApp({ STORAGE_DRIVER: 's3', S3_BUCKET_DOCUMENTS: `${bucket}-tidak-ada` });
+    const disk = await createTestApp();
     try {
       const good = await request(ok.getHttpServer()).get('/ready');
-      expect(good.body.checks.storage).toMatchObject({ ok: true });
+      expect(good.body.checks.storage).toMatchObject({ ok: true, driver: 's3' });
       const res = await request(bad.getHttpServer()).get('/ready').expect(503);
-      expect(res.body.checks.storage).toMatchObject({ ok: false, error: 'S3Error' });
+      expect(res.body.checks.storage).toMatchObject({ ok: false, error: 'S3Error', driver: 's3' });
+      const local = await request(disk.getHttpServer()).get('/ready');
+      expect(local.body.checks.storage).toMatchObject({ ok: true, driver: 'disk' });
     } finally {
       await ok.close();
       await bad.close();
+      await disk.close();
     }
   });
 });

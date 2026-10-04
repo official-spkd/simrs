@@ -11,7 +11,10 @@ export interface CheckResult {
 
 export interface Readiness {
   status: 'ok' | 'degraded';
-  checks: Record<'database' | 'redis' | 'storage', CheckResult>;
+  checks: Record<'database' | 'redis', CheckResult> & {
+    /** `driver` = penyimpanan berkas yang dikonfigurasi (`disk` lokal atau `s3`), untuk label di layar status. */
+    storage: CheckResult & { driver: ObjectStorage['driver'] };
+  };
 }
 
 const TIMEOUT_MS = 2000;
@@ -46,7 +49,7 @@ export class HealthService {
       // Penyimpanan berkas dokumen sesuai driver: disk = folder bisa ditulis; s3 = HeadBucket (S3 apa pun, ADR-0020).
       timed(() => this.storage.check()),
     ]);
-    const checks = { database, redis, storage };
+    const checks = { database, redis, storage: { ...storage, driver: this.storage.driver } };
     return { status: Object.values(checks).every((c) => c.ok) ? 'ok' : 'degraded', checks };
   }
 }
