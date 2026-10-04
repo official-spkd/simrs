@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { type ConsoleMessage, expect, type Page, test } from '@playwright/test';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 import { createAccount, loginAs } from '../support/accounts';
@@ -42,7 +42,16 @@ for (const screen of demoScreens) {
 }
 
 const QA_VISUAL = process.env.QA_VISUAL === '1';
-const QA_DIR = resolve(__dirname, '..', '..', '..', '..', '.local', 'qa-visual');
+/** `.local/qa-visual/` di akar repo, dihitung dari letak playwright.config.ts (apps/web). */
+function qaDir(configFile: string | undefined): string {
+  return resolve(
+    dirname(configFile ?? join(process.cwd(), 'playwright.config.ts')),
+    '..',
+    '..',
+    '.local',
+    'qa-visual',
+  );
+}
 
 async function checkScreen(page: Page, screen: ScreenDef, path: string): Promise<void> {
   const errors: string[] = [];
@@ -75,8 +84,8 @@ async function checkScreen(page: Page, screen: ScreenDef, path: string): Promise
   }
 }
 
-async function capture(page: Page, project: string, name: string): Promise<void> {
-  const dir = join(QA_DIR, project);
+async function capture(page: Page, root: string, project: string, name: string): Promise<void> {
+  const dir = join(root, project);
   mkdirSync(dir, { recursive: true });
   await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
 }
@@ -105,12 +114,12 @@ test.describe('mode presentasi · semua layar', () => {
                 await page.setViewportSize({ width: w, height: h });
                 await page.goto(path);
                 await page.waitForLoadState('networkidle');
-                await capture(page, `${w}x${h}`, slug);
+                await capture(page, qaDir(testInfo.config.configFile), `${w}x${h}`, slug);
               }
               await page.setViewportSize({ width: 1280, height: 720 });
             } else {
               await page.waitForLoadState('networkidle');
-              await capture(page, testInfo.project.name, slug);
+              await capture(page, qaDir(testInfo.config.configFile), testInfo.project.name, slug);
             }
           });
         }

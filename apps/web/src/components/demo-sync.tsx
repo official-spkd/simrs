@@ -7,14 +7,26 @@ import { type DemoCommandInput, demoCommandAction } from '@/app/(staf)/simulasi/
 /** Kanal antar-tab di browser yang sama: tab lain memuat ulang tampilannya saat simulasi berubah. */
 const DEMO_CHANNEL = 'simrs-demo';
 
+/**
+ * Penanda tab ini. Pesan kanal juga sampai ke pendengar lain di tab yang sama; tab pengirim sudah diperbarui oleh
+ * `revalidatePath` dari action, jadi `router.refresh()` tambahan untuk pesannya sendiri hanya memicu muat ulang ganda
+ * (state lokal formulir bisa ter-reset).
+ */
+const TAB_ID = Math.random().toString(36).slice(2);
+
 export function announceDemoChange(): void {
   try {
     const ch = new BroadcastChannel(DEMO_CHANNEL);
-    ch.postMessage('berubah');
+    ch.postMessage({ type: 'berubah', from: TAB_ID });
     ch.close();
   } catch {
     // BroadcastChannel tidak tersedia: tab lain tersinkron saat dimuat ulang.
   }
+}
+
+/** Pesan dari tab lain (bukan gema pesan tab ini sendiri). */
+export function fromOtherTab(data: unknown, tabId: string = TAB_ID): boolean {
+  return !(typeof data === 'object' && data !== null && (data as { from?: unknown }).from === tabId);
 }
 
 /**
@@ -32,7 +44,9 @@ export function DemoSync() {
     let ch: BroadcastChannel | undefined;
     try {
       ch = new BroadcastChannel(DEMO_CHANNEL);
-      ch.onmessage = refresh;
+      ch.onmessage = (e: MessageEvent) => {
+        if (fromOtherTab(e.data)) refresh();
+      };
     } catch {
       ch = undefined;
     }
