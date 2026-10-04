@@ -19,21 +19,28 @@ test.describe('infrastruktur E2E · outbox → worker → mock', () => {
     expect(await mockEchoCount(ping.idempotencyKey)).toBe(1);
   });
 
-  for (const [mode, error] of [
-    ['gagal', 'HTTP 503'],
-    ['timeout', 'timeout'],
-  ] as const) {
-    test(`mock ${mode}: pesan dijadwalkan ulang, lalu terkirim setelah mock normal`, async () => {
-      await setMockScenario('eklaim', mode);
-      const ping = await enqueueTestPing('eklaim');
-      await expect
-        .poll(() => outboxView(ping.id), { timeout: 20_000 })
-        .toMatchObject({ status: 'failed', lastError: error });
-      await setMockScenario('eklaim', 'normal');
-      await expect.poll(() => outboxView(ping.id), { timeout: 20_000 }).toMatchObject({ status: 'sent' });
-      // Minimal sekali (permintaan yang tertahan skenario timeout bisa tetap sampai belakangan: itulah gunanya kunci
-      // idempotensi).
-      expect(await mockEchoCount(ping.idempotencyKey)).toBeGreaterThanOrEqual(1);
-    });
-  }
+  test('mock gagal: pesan dijadwalkan ulang, lalu terkirim sekali setelah mock normal', async () => {
+    await setMockScenario('eklaim', 'gagal');
+    const ping = await enqueueTestPing('eklaim');
+    await expect
+      .poll(() => outboxView(ping.id), { timeout: 20_000 })
+      .toMatchObject({ status: 'failed', lastError: 'HTTP 503' });
+    await setMockScenario('eklaim', 'normal');
+    await expect.poll(() => outboxView(ping.id), { timeout: 20_000 }).toMatchObject({ status: 'sent' });
+    // Mode gagal menolak sebelum diproses: target hanya menerima kiriman yang berhasil.
+    expect(await mockEchoCount(ping.idempotencyKey)).toBe(1);
+  });
+
+  test('mock timeout: target sudah memproses, kiriman ulang tiba dengan kunci idempotensi yang sama', async () => {
+    await setMockScenario('eklaim', 'timeout');
+    const ping = await enqueueTestPing('eklaim');
+    await expect
+      .poll(() => outboxView(ping.id), { timeout: 20_000 })
+      .toMatchObject({ status: 'failed', lastError: 'timeout' });
+    await setMockScenario('eklaim', 'normal');
+    await expect.poll(() => outboxView(ping.id), { timeout: 20_000 }).toMatchObject({ status: 'sent' });
+    // Percobaan yang "timeout" sudah diproses mock, jadi kiriman ulang adalah duplikat: inilah alasan setiap
+    // operasi outbox wajib idempoten di sisi target (mis. SEP: cek histori sebelum menerbitkan ulang).
+    expect(await mockEchoCount(ping.idempotencyKey)).toBeGreaterThanOrEqual(2);
+  });
 });

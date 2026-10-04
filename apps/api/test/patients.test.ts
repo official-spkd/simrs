@@ -362,7 +362,8 @@ describe('izin dan isolasi tenant', () => {
     await as('kasir')
       .post('/api/v1/patients', { name: 'Kasir Daftar', sex: 'male', birthDate: '1990-01-01' })
       .expect(403);
-    await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
+    const own = await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
+    expect(own.body.items.map((i: { id: string }) => i.id)).toContain(p.id);
 
     // Kontrol positif di RS pemilik: penanda yang sama memang menemukan pasien ini.
     const ids = (r: request.Response) => (r.body.items as Array<{ id: string }>).map((i) => i.id);
@@ -373,7 +374,8 @@ describe('izin dan isolasi tenant', () => {
     // (RS lain boleh punya pasien sendiri dengan RM yang sama).
     await as('rsB').get(`/api/v1/patients/${p.id}`).expect(404);
     expect((await as('rsB').get(`/api/v1/patients?q=${markerNik}`).expect(200)).body.items).toEqual([]);
-    for (const q of [p.mrn, encodeURIComponent(name)]) {
+    // Pencarian nama lewat indeks (app_search_patient_names) juga hanya tenant sesi: nama umum maupun nama penanda.
+    for (const q of [p.mrn, encodeURIComponent(name), 'Fitri%20Handayani']) {
       const r = await as('rsB').get(`/api/v1/patients?q=${q}`).expect(200);
       expect(ids(r)).not.toContain(p.id);
       expect(jsonText(r.body)).not.toContain(marker);

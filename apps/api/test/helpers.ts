@@ -1,6 +1,7 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import 'reflect-metadata';
+import type { ModuleMetadata } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
@@ -50,8 +51,12 @@ export const TEST_RATE_LIMIT_PREFIX = process.env.SIMRS_TEST_RATE_LIMIT_PREFIX ?
  * Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app).
  * Penyimpanan berkas: disk untuk APP_ENV=local; staging/produksi wajib s3 (bucket `.env`, tidak disentuh tes itu).
  * Tes yang menyimpan berkas di S3 memakai bucket uji sendiri (`s3-test-bucket.ts`).
+ * `options.imports`: modul khusus tes (mis. controller uji infrastruktur) yang dipasang di samping `AppModule`.
  */
-export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
+export async function createTestApp(
+  overrides: Record<string, string> = {},
+  options: { imports?: NonNullable<ModuleMetadata['imports']> } = {},
+): Promise<NestExpressApplication> {
   const local = resolveAppEnv(overrides.APP_ENV ?? 'local') === 'local';
   const env = loadApiEnv({
     ...process.env,
@@ -71,7 +76,9 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     STORAGE_DISK_ROOT: TEST_STORAGE_ROOT,
     ...overrides,
   });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule.forRoot(env), ...(options.imports ?? [])],
+  }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true, rawBody: true });
   configureApp(app, env);
   await app.init();

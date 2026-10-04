@@ -21,6 +21,8 @@ export const ERROR_CODES = [
   'WEBHOOK_SIGNATURE_INVALID',
   'WEBHOOK_TIMESTAMP_EXPIRED',
   'INTEGRATION_UNAVAILABLE',
+  /** Lookup sinkron BPJS (VClaim/Antrean) gagal atau melewati batas waktu 5 detik (ADR-0025). HTTP 503. */
+  'BPJS_UNAVAILABLE',
   'INTERNAL_ERROR',
 ] as const;
 

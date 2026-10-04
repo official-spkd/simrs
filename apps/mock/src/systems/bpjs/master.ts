@@ -67,17 +67,60 @@ export const MOCK_FKTP = [
   { kode: '9999P002', nama: 'KLINIK PRATAMA FIKTIF' },
 ] as const;
 
-/** RS perujuk fiktif untuk rujukan antar-RS (kode PPK RS seed kedua). */
-export const MOCK_RS_PERUJUK = { kode: '0301R002', nama: 'RS FIKTIF PERUJUK' } as const;
+/** RS sesuai tenant seed (`SEED_TENANTS` + `SEED_LOCAL_TENANTS`, kode PPK fiktif). */
+export const MOCK_RS = [
+  { kode: '0301R001', nama: 'RS FIKTIF ANDALAS' },
+  { kode: '0301R002', nama: 'RS FIKTIF BAHARI' },
+  { kode: '0301R003', nama: 'RSUPN DR. CIPTO MANGUNKUSUMO' },
+] as const;
 
-/** Nama diagnosa untuk kode ICD-10 yang sudah ada di seed `ref` (contoh-mockup). Kode lain tampil tanpa nama. */
+/** RS perujuk untuk rujukan antar-RS (RS seed kedua). */
+export const MOCK_RS_PERUJUK = MOCK_RS[1];
+
+/** Referensi faskes: FKTP (jenis 1) dan RS (jenis 2), hanya kode yang ada di seed/fixture. */
+export const MOCK_FASKES = { fktp: MOCK_FKTP, rs: MOCK_RS } as const;
+
+export function faskesByKode(kode: string): { kode: string; nama: string; jenis: 'fktp' | 'rs' } | undefined {
+  const fktp = MOCK_FKTP.find((f) => f.kode === kode);
+  if (fktp) return { ...fktp, jenis: 'fktp' };
+  const rs = MOCK_RS.find((f) => f.kode === kode);
+  return rs ? { ...rs, jenis: 'rs' } : undefined;
+}
+
+/**
+ * Referensi diagnosa = salinan persis contoh ICD-10 seed `ref` (`SEED_REF_SAMPLES.icd10` di
+ * `packages/db/src/seed-ref.ts`, dijaga tes). Tidak ada kode lain: mock tidak mengarang kode ICD.
+ */
 export const MOCK_DIAGNOSA: Readonly<Record<string, string>> = {
-  I10: 'Hipertensi esensial (primer)',
+  'A41.9': 'Sepsis, tidak spesifik',
+  A91: 'Demam berdarah dengue',
+  'C18.9': 'Neoplasma ganas kolon',
   'E11.9': 'Diabetes melitus tipe 2 tanpa komplikasi',
+  'E78.5': 'Hiperlipidemia, tidak spesifik',
+  'E87.2': 'Asidosis',
+  'E87.5': 'Hiperkalemia',
+  I10: 'Hipertensi esensial (primer)',
   'I20.0': 'Angina tidak stabil',
+  'I21.4': 'Infark miokard akut non-ST elevasi',
   'I63.9': 'Infark serebral',
+  'J06.9': 'Infeksi saluran napas atas akut',
+  J13: 'Pneumonia akibat S. pneumoniae',
   'J18.9': 'Pneumonia, tidak spesifik',
+  'J96.0': 'Gagal napas akut',
   K30: 'Dispepsia',
+  'K80.2': 'Batu kandung empedu tanpa kolesistitis',
+  'M10.9': 'Gout, tidak spesifik',
+  'N17.9': 'Gagal ginjal akut',
+  'N18.3': 'Penyakit ginjal kronik stadium 3',
+  'N18.5': 'Penyakit ginjal kronik stadium 5',
+  'O82.0': 'Persalinan dengan seksio sesarea elektif',
+  'R50.9': 'Demam, tidak spesifik',
+  'R57.2': 'Syok septik',
+  'R57.9': 'Syok, tidak spesifik',
+  'S72.3': 'Fraktur batang femur',
+  'Z37.0': 'Lahir hidup tunggal',
+  'Z51.1': 'Sesi kemoterapi',
+  'Z99.2': 'Ketergantungan dialisis',
 };
 
 export function poliByKode(kode: string): MockPoli | undefined {

@@ -4,8 +4,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MockConfig } from '../../config';
 import type { MockState } from '../../state';
 import { registerAntrean } from './antrean';
+import { registerAplicare } from './aplicare';
 import type { BpjsContext } from './context';
 import { registerHfis } from './hfis';
+import { registerRujukanKeluar } from './rujukan-keluar';
 import { registerVclaim } from './vclaim';
 
 /**
@@ -70,6 +72,7 @@ export function registerBpjs(app: FastifyInstance, config: MockConfig, state: Mo
     async (scope) => {
       scope.addHook('onRequest', authHook(config, 'vclaim'));
       registerVclaim(scope, ctx);
+      registerRujukanKeluar(scope, ctx);
     },
     { prefix: `/bpjs${BPJS_SERVICE_PREFIX.vclaim}` },
   );
@@ -86,8 +89,7 @@ export function registerBpjs(app: FastifyInstance, config: MockConfig, state: Mo
   void app.register(
     async (scope) => {
       scope.addHook('onRequest', authHook(config, 'aplicare'));
-      // Aplicare (K05, fase 3): baru kerangka, ketersediaan bed per kelas diterima tanpa validasi isi.
-      scope.post('/rest/bed/update/:ppk', async () => ({ metadata: { code: 1, message: 'Sukses (mock)' } }));
+      registerAplicare(scope, ctx);
     },
     { prefix: `/bpjs${BPJS_SERVICE_PREFIX.aplicare}` },
   );
