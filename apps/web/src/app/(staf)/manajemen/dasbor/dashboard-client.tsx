@@ -1,7 +1,7 @@
 'use client';
 
 import { formatJam } from '@simrs/shared';
-import { cx, Segmented } from '@simrs/ui';
+import { cx, RadioSegmented } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
@@ -12,7 +12,7 @@ export function PeriodSwitch({ value }: { value: string }) {
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   return (
-    <Segmented
+    <RadioSegmented
       label="Rentang"
       value={value}
       disabled={pending}

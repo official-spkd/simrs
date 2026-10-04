@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon, Segmented } from '@simrs/ui';
+import { Icon, TabList } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useDemoRunner } from '@/components/demo-sync';
 import type { ScenarioId } from '@/lib/demo/engine/types';
@@ -16,6 +16,7 @@ export function SimulasiControls({
   finished,
   activeStep,
   stages,
+  idBase,
 }: {
   rev: number;
   scenario: ScenarioId;
@@ -23,6 +24,8 @@ export function SimulasiControls({
   finished: boolean;
   activeStep: number;
   stages: string[];
+  /** Pasangan `aria-controls` ↔ panel skenario di halaman (`TabPanel` dengan idBase sama). */
+  idBase: string;
 }) {
   const { run, pending, error } = useDemoRunner(rev);
   const [auto, setAuto] = useState(false);
@@ -51,7 +54,9 @@ export function SimulasiControls({
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex flex-wrap items-center gap-2.5">
-        <Segmented
+        <TabList
+          variant="segmen"
+          idBase={idBase}
           label="Skenario"
           value={scenario}
           items={tabs}

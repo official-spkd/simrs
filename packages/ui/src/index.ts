@@ -17,7 +17,7 @@ export {
   type SidebarProps,
 } from './sidebar';
 export { SafetyGate, type SafetyGateResolution } from './safety-gate';
-export { Segmented, type SegmentedItem } from './segmented';
+export { RadioSegmented, type SegmentedItem } from './segmented';
 export { TabList, TabPanel, Tabs, type TabItem, type TabListItem, type TabsVariant } from './tabs';
-export { tabIds, tabKeyTarget } from './tabs-model';
+export { radioKeyTarget, tabIds, tabKeyTarget } from './tabs-model';
 export { palettes, spaceScale, triageLevels } from './tokens';
