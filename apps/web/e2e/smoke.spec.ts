@@ -32,6 +32,13 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Semua unit', { exact: true })).toBeVisible();
   });
 
+  test('layar mode presentasi tidak ada di luar mode demo (404)', async ({ page }) => {
+    const account = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, account);
+    const res = await page.goto('/simulasi');
+    expect(res?.status()).toBe(404);
+  });
+
   test.describe('/dev/ui (operator platform)', () => {
     test.beforeEach(async ({ page }) => {
       const operator = await createAccount({ tenant: 'PLATFORM', roles: ['superadmin_platform'] });

@@ -15,5 +15,6 @@ export {
   type NavItem,
   type SidebarProps,
 } from './sidebar';
+export { Segmented, type SegmentedItem } from './segmented';
 export { Tabs, type TabItem } from './tabs';
 export { palettes, spaceScale, triageLevels } from './tokens';

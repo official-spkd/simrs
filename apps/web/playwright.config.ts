@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 
@@ -123,6 +125,8 @@ export default defineConfig({
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
         LOGIN_TENANT_CODE: 'RSCM',
         DATA_SOURCE: 'demo',
+        // Keadaan simulasi akun uji di folder sementara, bukan `.local/demo-state` milik pengembang.
+        DEMO_STATE_DIR: join(tmpdir(), 'simrs-demo-e2e'),
       },
     },
   ],

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Alert, Button, Field, PatientBanner, Sidebar, Tabs } from './index';
+import { Alert, Button, Field, PatientBanner, Segmented, Sidebar, Tabs } from './index';
 
 afterEach(cleanup);
 
@@ -95,5 +95,35 @@ describe('PatientBanner', () => {
       />,
     );
     expect(screen.getByLabelText('Identitas pasien').textContent).toContain('Alergi: Amoksisilin');
+  });
+});
+
+describe('Segmented', () => {
+  function Harness() {
+    const [v, setV] = useState('rj');
+    return (
+      <>
+        <Segmented
+          label="Skenario"
+          value={v}
+          onChange={setV}
+          items={[
+            { id: 'rj', label: 'Rawat jalan' },
+            { id: 'igd', label: 'IGD' },
+          ]}
+        />
+        <output>{v}</output>
+      </>
+    );
+  }
+
+  it('pilihan aktif ditandai aria-selected; panah kanan berpindah dan memindahkan fokus', () => {
+    render(<Harness />);
+    const rj = screen.getByRole('tab', { name: 'Rawat jalan' });
+    expect(rj.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(screen.getByRole('tablist', { name: 'Skenario' }), { key: 'ArrowRight' });
+    expect(screen.getByRole('tab', { name: 'IGD' }).getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement?.textContent).toBe('IGD');
+    expect(screen.getByRole('status').textContent).toBe('igd');
   });
 });

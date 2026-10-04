@@ -1,12 +1,18 @@
 import { AppShell } from '@simrs/ui';
 import type { ReactNode } from 'react';
 import { DemoBadge } from '@/components/demo-badge';
+import { DemoGuide } from '@/components/demo-guide';
+import { DemoSync } from '@/components/demo-sync';
 import { LogoutButton } from '@/components/logout-button';
 import { NotificationBell } from '@/components/notification-bell';
 import { SwitchPositionLink } from '@/components/switch-position-link';
 import { StaffSidebar } from '@/components/staff-sidebar';
+import { runScenario } from '@/lib/demo/engine/run';
+import { guideView } from '@/lib/demo/guide-view';
+import { SCENARIOS } from '@/lib/demo/skenario';
 import { navGroups } from '@/lib/nav';
 import { api } from '@/lib/server/api';
+import { loadDemoRuns } from '@/lib/server/demo/scenario';
 import { unreadNotifications } from '@/lib/server/notifications';
 import { assignmentsSchema } from '@/lib/server/schemas';
 import { requireSession } from '@/lib/server/session';
@@ -20,6 +26,7 @@ import { isSuperadmin } from '@/lib/session-view';
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const s = await requireSession();
   const { dataSource } = webEnv();
+  const demo = dataSource === 'demo' ? await loadDemoRuns(s) : null;
   const [unread, positions] = await Promise.all([
     unreadNotifications(),
     api('/api/v1/auth/assignments', { schema: assignmentsSchema }).then(
@@ -62,6 +69,18 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       }
     >
       {children}
+      {demo && (
+        <>
+          <DemoGuide
+            rev={demo.rev}
+            guide={guideView(
+              runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
+              s.role?.code ?? null,
+            )}
+          />
+          <DemoSync />
+        </>
+      )}
     </AppShell>
   );
 }

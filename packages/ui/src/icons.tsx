@@ -26,6 +26,7 @@ export const iconPaths = {
   card: 'M3 6h18v12H3zM3 10h18M7 15h3',
   bank: 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
   play: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM10 8l6 4-6 4z',
+  pause: 'M8 5v14M16 5v14',
   plus: 'M12 5v14M5 12h14',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   check: 'M20 6 9 17l-5-5',

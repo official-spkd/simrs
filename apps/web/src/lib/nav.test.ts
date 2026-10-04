@@ -53,6 +53,13 @@ describe('navGroups', () => {
     }
   });
 
+  it('layar data dummy: redup di mode api, terbuka di mode presentasi untuk posisi pemakainya', () => {
+    const find = (groups: ReturnType<typeof navGroups>) =>
+      groups.flatMap((g) => g.items).find((i) => i.id === 'simulasi');
+    expect(find(navGroups({ ...base, permissions: [] }))?.available).toBe(false);
+    expect(find(navGroups({ ...base, dataSource: 'demo', permissions: [] }))?.available).toBe(true);
+  });
+
   it('setiap menu layar fase 2–10 terdaftar di registri SCREENS dengan rute yang sama', () => {
     const screenIds = new Set(SCREENS.map((s) => s.id));
     for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => screenIds.has(i.id))) {

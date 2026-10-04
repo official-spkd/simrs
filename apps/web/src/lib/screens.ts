@@ -42,7 +42,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Simulasi',
     components: [],
     phase: 10,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'simulation.use',
     demoRoles: 'semua',
     layout: 'staf',
