@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
+import { DEMO_ACCOUNTS_FILE } from './e2e/demo-accounts-file';
 
 /**
  * E2E web dengan stack penuh: Postgres (simrs_test) + API (port 4010) + web build produksi (port 3010), plus build
@@ -69,6 +70,8 @@ export default defineConfig({
     {
       name: 'demo-tablet',
       testMatch: 'demo/**/*.spec.ts',
+      // Akun presentasi uji berbagi satu keadaan simulasi: jalankan di satu proyek saja.
+      testIgnore: 'demo/akun-presentasi.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
         channel,
@@ -130,6 +133,8 @@ export default defineConfig({
         DATA_SOURCE: 'demo',
         // Keadaan simulasi akun uji di folder sementara, bukan `.local/demo-state` milik pengembang.
         DEMO_STATE_DIR: join(tmpdir(), 'simrs-demo-e2e'),
+        // Akun presentasi uji (dibuat global setup), bukan `.local/demo-accounts.json` milik pengembang.
+        DEMO_ACCOUNTS_FILE,
       },
     },
   ],

@@ -61,6 +61,43 @@ export const DEMO_POSITIONS: ReadonlyArray<readonly [role: string, unitCode: str
 ];
 
 /**
+ * Akun presentasi (mode presentasi ADR-0023, permintaan pengguna 4 Okt 2026): satu akun per posisi dengan nama
+ * fiktif, dipilih sekali klik di layar masuk saat `pnpm dev:demo`. Dibuat lewat `pnpm db:akun-presentasi` (hanya
+ * APP_ENV=local); kredensialnya hanya di `.local/demo-accounts.json`. Nama tidak merujuk staf RS mana pun.
+ */
+export const PRESENTATION_PERSONAS: ReadonlyArray<{
+  slug: string;
+  role: string;
+  unitCode: string | null;
+  displayName: string;
+}> = [
+  { slug: 'pendaftaran', role: 'petugas_pendaftaran', unitCode: null, displayName: 'Bambang Kurniawan' },
+  { slug: 'perawat', role: 'perawat', unitCode: 'MELATI', displayName: 'Ns. Maya Sari, S.Kep' },
+  { slug: 'bidan', role: 'bidan', unitCode: 'MAWAR', displayName: 'Bd. Ratih Puspitasari, S.Tr.Keb' },
+  { slug: 'dokter', role: 'dokter', unitCode: 'POLI-DALAM', displayName: 'dr. Andini Prameswari, Sp.PD' },
+  { slug: 'dokter-residen', role: 'dokter_residen', unitCode: 'IGD', displayName: 'dr. Rina Kusuma' },
+  { slug: 'apoteker', role: 'apoteker', unitCode: 'FARMASI', displayName: 'apt. Dewi Anggraini, S.Farm.' },
+  { slug: 'analis-lab', role: 'analis_lab', unitCode: 'LAB', displayName: 'Fitri Handayani, A.Md.AK' },
+  { slug: 'radiografer', role: 'radiografer', unitCode: 'RAD', displayName: 'Bayu Saputra, A.Md.Rad' },
+  { slug: 'kasir', role: 'kasir', unitCode: 'KASIR', displayName: 'Hendra Wijaya' },
+  { slug: 'koder', role: 'koder', unitCode: 'REKAM-MEDIS', displayName: 'Arif Nugroho, A.Md.RMIK' },
+  { slug: 'akuntan', role: 'akuntan', unitCode: null, displayName: 'Yulia Permatasari, S.E., Ak.' },
+  {
+    slug: 'rekam-medis',
+    role: 'petugas_rm',
+    unitCode: 'REKAM-MEDIS',
+    displayName: 'Dian Lestari, A.Md.RMIK',
+  },
+  { slug: 'direksi', role: 'manajemen', unitCode: null, displayName: 'dr. Satria Wibisana, MARS' },
+  { slug: 'mutu', role: 'auditor_mutu', unitCode: null, displayName: 'Ns. Lina Marlina, M.Kep' },
+  { slug: 'privasi', role: 'petugas_privasi', unitCode: null, displayName: 'Teguh Prasetyo, S.H.' },
+  { slug: 'admin', role: 'admin_tenant', unitCode: null, displayName: 'Admin SIM RS (presentasi)' },
+];
+
+/** Awalan nama pengguna akun presentasi (web memakainya untuk berbagi keadaan simulasi antar-persona). */
+export const PRESENTATION_USERNAME_PREFIX = 'presentasi.';
+
+/**
  * Tenant khusus operator platform (superadmin_platform, ADR-0013). Bukan RS: tanpa struktur, tanpa pasien.
  * Akun superadmin dibuat lewat `pnpm db:create-admin --tenant PLATFORM …`, tidak pernah di-seed.
  */

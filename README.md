@@ -44,6 +44,7 @@ pnpm dev                        # api + worker + web + mock → http://localhost
 | --------------------------------------------------------- | ------------------------------------------------------------------- |
 | `pnpm dev`                                                | Semua aplikasi dalam mode watch                                     |
 | `pnpm dev:demo`                                           | Tanpa Docker, mode presentasi: layar fase 2–10 dengan data dummy    |
+| `pnpm db:akun-presentasi`                                 | Lokal: 16 akun presentasi per posisi, dipilih sekali klik di /masuk |
 | `pnpm lint` · `pnpm typecheck` · `pnpm test`              | Wajib hijau sebelum commit                                          |
 | `pnpm --filter @simrs/web test:e2e`                       | Playwright stack penuh (API + web dijalankan otomatis)              |
 | `pnpm db:migrate`                                         | Buat/terapkan migrasi (pengembangan)                                |

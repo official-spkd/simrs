@@ -44,6 +44,7 @@
     "studio": "prisma studio",
     "create-admin": "tsx --env-file-if-exists=../../.env scripts/create-admin.ts",
     "create-demo": "tsx --env-file-if-exists=../../.env scripts/create-demo.ts",
+    "akun-presentasi": "tsx --env-file-if-exists=../../.env scripts/create-presentation-accounts.ts",
     "import-ref": "tsx --env-file-if-exists=../../.env scripts/import-ref.ts"
   },
   "dependencies": {

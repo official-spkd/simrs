@@ -11,6 +11,8 @@ import { screenById } from '@/lib/screens';
 import { api } from '@/lib/server/api';
 import { ApiError } from '@/lib/server/api-core';
 import { assertDemo } from '@/lib/server/demo-guard';
+import { loadPresentationAccounts } from '@/lib/server/demo/accounts';
+import { presentationLogin } from '@/lib/server/demo/login';
 import { type DemoCommand, runDemoCommand } from '@/lib/server/demo/scenario';
 import { assignmentsSchema, okSchema } from '@/lib/server/schemas';
 import { getSession } from '@/lib/server/session';
@@ -93,9 +95,16 @@ export async function openScreenAsAction(screenId: string, role: string | null):
       return { error: err instanceof ApiError ? err.message : 'Gagal mengganti posisi. Coba lagi.' };
     }
     if (!assignmentId) {
-      return {
-        error: `Akun ini tidak punya posisi ${SYSTEM_ROLES[role as SystemRoleCode]}. Pakai akun demo yang memegang semua posisi.`,
-      };
+      // Akun presentasi hanya memegang satu posisi: pindah ke akun presentasi untuk posisi itu (login biasa).
+      const accounts = await loadPresentationAccounts();
+      const persona = accounts?.accounts.find((a) => a.role === role);
+      if (!accounts || !persona) {
+        return {
+          error: `Akun ini tidak punya posisi ${SYSTEM_ROLES[role as SystemRoleCode]}. Buat akun presentasi dengan \`pnpm db:akun-presentasi\`.`,
+        };
+      }
+      const r = await presentationLogin(accounts.tenantCode, persona);
+      if (r.error) return r;
     }
     revalidatePath('/', 'layout');
   }

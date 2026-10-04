@@ -2,13 +2,16 @@ import { Alert } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { groupPersonas } from '@/lib/demo/personas';
 import { safeNextPath } from '@/lib/safe-path';
 import { api } from '@/lib/server/api';
 import { cookieNames } from '@/lib/server/cookies';
+import { loadPresentationAccounts, publicPersonas } from '@/lib/server/demo/accounts';
 import { assignmentsSchema } from '@/lib/server/schemas';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { nextLoginStep } from '@/lib/session-view';
+import { DemoPersonas, DemoPersonasMissing } from './demo-personas';
 import { LoginShell, StepCard } from './login-shell';
 import { AkunStep, DaftarMfaStep, GantiSandiStep, RestartButton, UnitStep, VerifikasiStep } from './steps';
 
@@ -38,9 +41,19 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
   const ended = sp.alasan === 'sesi-berakhir' && step === 'akun';
 
   if (step === 'akun' || step === 'verifikasi') {
+    // Mode presentasi: akun per posisi bisa dipilih sekali klik (ADR-0023). Tidak pernah di staging/produksi.
+    const presentation =
+      step === 'akun' && env.dataSource === 'demo' ? await loadPresentationAccounts() : undefined;
     return (
       <LoginShell step={step === 'akun' ? 1 : 2}>
         {ended && <Alert level="info">Sesi Anda berakhir. Silakan masuk kembali.</Alert>}
+        {presentation && (
+          <DemoPersonas
+            tenantName={presentation.tenantCode}
+            groups={groupPersonas(publicPersonas(presentation))}
+          />
+        )}
+        {presentation === null && <DemoPersonasMissing />}
         {step === 'akun' ? (
           <AkunStep
             lanjut={lanjut}

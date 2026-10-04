@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { advanceTo, applyAction, sanitizeSeq } from '../../demo/engine/run';
 import type { ScenarioAction, ScenarioId } from '../../demo/engine/types';
+import { PRESENTATION_USERNAME_PREFIX } from '../../demo/personas';
 import { SCENARIO_DEF_VERSION, SCENARIOS } from '../../demo/skenario';
 import type { SessionView } from '../../session-view';
 import { assertDemo } from '../demo-guard';
@@ -25,7 +26,12 @@ function sanitized(runs: DemoRuns): DemoRuns {
   };
 }
 
-const keyOf = (s: SessionView) => demoKey(s.tenant.code, s.user.id);
+/**
+ * Pemilik keadaan simulasi: akun presentasi (satu per posisi) berbagi satu keadaan per RS, sehingga presenter bisa
+ * berganti akun tanpa kehilangan kemajuan skenario; akun lain (mis. akun uji) punya keadaan sendiri.
+ */
+const keyOf = (s: SessionView) =>
+  demoKey(s.tenant.code, s.user.username.startsWith(PRESENTATION_USERNAME_PREFIX) ? 'presentasi' : s.user.id);
 
 /** Keadaan simulasi akun demo ini (di-cache per render). */
 export const loadDemoRuns = cache(async (session: SessionView): Promise<DemoRuns> => {

@@ -42,3 +42,9 @@ export {
 } from './ref';
 export { seedRefSamples, SEED_REF_SAMPLES, SEED_REF_VERSION } from './seed-ref';
 export { ensurePublishedForm } from './forms';
+export {
+  PRESENTATION_PERSONAS,
+  PRESENTATION_USERNAME_PREFIX,
+  type PresentationCredential,
+  upsertPresentationAccounts,
+} from './presentation';

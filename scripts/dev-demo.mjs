@@ -7,7 +7,13 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 
-const env = { ...process.env, DATA_SOURCE: 'demo' };
+// Presenter berganti akun presentasi berkali-kali (tiap login = 2 permintaan kredensial): batas laju login lokal
+// dilonggarkan khusus mode ini. Akun dan batas di staging/produksi tidak terpengaruh.
+const env = {
+  ...process.env,
+  DATA_SOURCE: 'demo',
+  AUTH_RATE_LIMIT_PER_MIN: process.env.AUTH_RATE_LIMIT_PER_MIN ?? '60',
+};
 const args = [
   resolve('scripts/with-pg.mjs'),
   'pnpm',

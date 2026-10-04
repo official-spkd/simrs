@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["NODE_ENV", "TZ"],
-  "globalPassThroughEnv": ["DATA_SOURCE"],
+  "globalPassThroughEnv": ["DATA_SOURCE", "AUTH_RATE_LIMIT_PER_MIN"],
   "globalDependencies": [".env"],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },

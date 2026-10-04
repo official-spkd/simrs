@@ -23,6 +23,9 @@ import {
   mfaVerifyResultSchema,
   okSchema,
 } from '@/lib/server/schemas';
+import { loadPresentationAccounts } from '@/lib/server/demo/accounts';
+import { presentationLogin } from '@/lib/server/demo/login';
+import { assertDemo } from '@/lib/server/demo-guard';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 
@@ -249,6 +252,24 @@ export async function selectUnitAction(_prev: FormState, formData: FormData): Pr
     return { error: friendly(err) };
   }
   redirect(safeNextPath(String(formData.get('lanjut') ?? '')));
+}
+
+/**
+ * Mode presentasi (ADR-0023): masuk sekali klik sebagai akun presentasi yang dipilih. Hanya lokal + DATA_SOURCE=demo;
+ * kredensial dibaca di server dari berkas lokal dan dipakai menjalankan login biasa (sandi + kode verifikasi).
+ */
+export async function demoLoginAction(username: string): Promise<{ error?: string }> {
+  assertDemo();
+  const accounts = await loadPresentationAccounts();
+  const account = accounts?.accounts.find((a) => a.username === username);
+  if (!accounts || !account) {
+    return {
+      error: 'Akun presentasi tidak ditemukan. Jalankan `pnpm db:akun-presentasi` lalu muat ulang halaman.',
+    };
+  }
+  const r = await presentationLogin(accounts.tenantCode, account);
+  if (r.error) return r;
+  redirect('/');
 }
 
 /** Keluar: cabut sesi di API (bila masih ada), hapus semua cookie sesi. */

@@ -75,6 +75,15 @@ Pengembangan lokal difokuskan ke **RSCM** (data tetap fiktif; kode Kemenkes/BPJS
 pnpm db:create-demo --tenant RSCM --username demo.rscm --name "Akun Demo RSCM"
 ```
 
+Untuk presentasi tanpa mengetik sandi dan kode, buat akun presentasi (16 akun fiktif, satu per posisi; hanya lokal):
+
+```powershell
+pnpm db:akun-presentasi      # kredensial disimpan di .local/demo-accounts.json (jangan dibagikan)
+pnpm dev:demo                # mode presentasi
+```
+
+Di http://localhost:3000/masuk muncul bagian **Masuk cepat · mode presentasi**: klik posisi yang ingin ditunjukkan (mis. Perawat, Dokter, Kasir, Manajemen). Web menjalankan login biasa (sandi + kode verifikasi) di server atas nama Anda. Panel panduan simulasi berpindah akun otomatis saat membuka layar posisi lain.
+
 Saat masuk, kolom Kode RS sudah terisi `RSCM` (atur lewat `LOGIN_TENANT_CODE`). Setelah kode TOTP, pilih posisi di langkah **Pilih posisi dan unit kerja**; menu dan hak akses mengikuti posisi itu. Pindah posisi tanpa keluar lewat tautan **Ganti posisi** di kanan atas (tercatat di jejak audit). Perintah ini menolak berjalan di luar `APP_ENV=local`, karena satu akun dengan semua peran meniadakan pemisahan tugas.
 
 Seed hanya mengisi **contoh** data rujukan (72 kode yang sudah dipakai mockup, versi `contoh-mockup`). Dataset resmi diimpor dari CSV (kolom `code,display`; wilayah `code,name`), sekali per versi:

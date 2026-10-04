@@ -3,6 +3,7 @@ import { Alert, Card, Chip } from '@simrs/ui';
 import Link from 'next/link';
 import { loadReadiness } from '@/lib/server/readiness';
 import { requireSession } from '@/lib/server/session';
+import { webEnv } from '@/lib/server/web-env';
 import { isSuperadmin } from '@/lib/session-view';
 
 const CHECK_LABEL: Record<string, string> = { database: 'PostgreSQL', redis: 'Redis', storage: 'MinIO (S3)' };
@@ -34,9 +35,16 @@ export default async function BerandaPage() {
         </span>
       </Card>
 
-      <Alert level="info">
-        Fase 1: menu yang redup akan aktif setelah layarnya dibangun pada fase terkait.
-      </Alert>
+      {webEnv().dataSource === 'demo' ? (
+        <Alert level="info" title="Mode presentasi">
+          Semua data di layar ini fiktif. Mulai dari <Link href="/simulasi">Simulasi pasien</Link> untuk
+          membawakan cerita langkah demi langkah; menu yang redup adalah layar yang sedang disiapkan.
+        </Alert>
+      ) : (
+        <Alert level="info">
+          Fase 1: menu yang redup akan aktif setelah layarnya dibangun pada fase terkait.
+        </Alert>
+      )}
 
       {operator && (
         <Card className="flex flex-col gap-3 p-5">
