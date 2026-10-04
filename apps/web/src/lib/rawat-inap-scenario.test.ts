@@ -1,5 +1,8 @@
 import { SEED_REF_SAMPLES } from '@simrs/db';
 import {
+  consentDocumentSchema,
+  consentFinalizeInputSchema,
+  consentRefusalInputSchema,
   cpptEntrySchema,
   cpptNoteInputSchema,
   type DischargeSummary,
@@ -9,7 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
-import { demoEndangResume, demoInpatients } from './demo/fixtures/rawat-inap';
+import { demoEndangResume, demoHendroConsent, demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
 import {
   correctCpptEntry,
@@ -22,8 +25,10 @@ import {
   supersededIds,
 } from './rawat-inap';
 import {
+  hartonoConsent,
   hartonoInpatient,
   hartonoResume,
+  ratnaConsent,
   ratnaInpatient,
   ratnaResume,
   stepIndexOf,
@@ -246,5 +251,54 @@ describe('K13 · resume medis', () => {
     expect(r.codes.map((x) => x.code)).toEqual(['K80.2', '51.23']);
     expect(codesOk(r)).toBe(true);
     expect(resumeCompleteness(r.checklist).complete).toBe(true);
+  });
+});
+
+describe('K11 · persetujuan tindakan', () => {
+  it('dokumen lolos kontrak (7 butir informasi); persetujuan Tn. Hartono final setelah tugas consent', () => {
+    expect(() => consentDocumentSchema.parse(demoHendroConsent())).not.toThrow();
+    const def = SCENARIOS['igd-ranap'];
+    const atTl = jump('igd-ranap', 'tata-laksana');
+    const before = hartonoConsent(runScenario(def, atTl));
+    expect(consentDocumentSchema.parse(before)).toMatchObject({ status: 'draf', finalAt: null });
+    const signed = play(
+      'igd-ranap',
+      [
+        ['k', 'lengkap'],
+        ['cds', 'ganti'],
+        ['dispo', 'icu'],
+        ['consent', true],
+      ],
+      atTl,
+    );
+    const after = hartonoConsent(runScenario(def, signed));
+    expect(after.status).toBe('final');
+    expect(after.finalAt).not.toBeNull();
+    expect(ratnaConsent(runScenario(SCENARIOS['elektif-btn'], [])).status).toBe('draf');
+  });
+
+  it('penolakan wajib alasan; TTE wajib 7 butir dipahami, dua tanda tangan, dan saksi petugas', () => {
+    expect(consentRefusalInputSchema.safeParse({ consentId: 'pk-hendro', reason: '' }).success).toBe(false);
+    expect(consentRefusalInputSchema.safeParse({ consentId: 'pk-hendro', reason: 'Takut' }).success).toBe(
+      false,
+    );
+    expect(
+      consentRefusalInputSchema.safeParse({
+        consentId: 'pk-hendro',
+        reason: 'Ingin berdiskusi dengan keluarga dulu',
+      }).success,
+    ).toBe(true);
+    const ok = {
+      consentId: 'pk-hendro',
+      acknowledged: demoHendroConsent().items.map((i) => i.id),
+      patient: { method: 'goresan', name: 'Sekar Gunawan' },
+      witness: { method: 'nama', name: 'Dimas Gunawan' },
+      staffWitnessPresent: true,
+    };
+    expect(consentFinalizeInputSchema.safeParse(ok).success).toBe(true);
+    expect(consentFinalizeInputSchema.safeParse({ ...ok, staffWitnessPresent: false }).success).toBe(false);
+    expect(
+      consentFinalizeInputSchema.safeParse({ ...ok, acknowledged: ok.acknowledged.slice(1) }).success,
+    ).toBe(false);
   });
 });

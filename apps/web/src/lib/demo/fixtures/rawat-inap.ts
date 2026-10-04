@@ -4,6 +4,7 @@ import {
   type BedStatus,
   type ClinicalResult,
   type CodedDiagnosis,
+  type ConsentDocument,
   type CpptRole,
   type DischargeSummary,
   type EdBoard,
@@ -1255,7 +1256,7 @@ export function demoInpatients(): InpatientDetail[] {
 /** Kunjungan yang punya draf resume pulang di mode presentasi (Ny. Endang + dua pasien skenario). */
 export const RESUME_ENCOUNTERS: readonly string[] = ['kj-endang', 'kj-hartono', 'kj-ratna'];
 /** Dokumen persetujuan tindakan di tablet (`/tablet/persetujuan/<id>`). */
-export const CONSENT_IDS: readonly string[] = ['pk-endang', 'pk-hartono', 'pk-ratna'];
+export const CONSENT_IDS: readonly string[] = ['pk-hartono', 'pk-hendro', 'pk-ratna'];
 
 export const INPATIENT_FLAG_LABEL: Record<InpatientFlag, string> = {
   cosign: 'Menunggu co-sign DPJP',
@@ -1359,5 +1360,113 @@ export function demoEndangResume(): DischargeSummary {
     }),
     signedAt: null,
     signedBy: null,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// K11 · Persetujuan tindakan di tablet. Status pasien skenario mengikuti mesin skenario.
+// ---------------------------------------------------------------------------------------------------------
+
+type ConsentItems = ConsentDocument['items'];
+const items = (texts: [string, string, string, string, string, string, string]): ConsentItems => {
+  const titles = [
+    'Diagnosis',
+    'Tindakan dan tujuannya',
+    'Cara pelaksanaan',
+    'Risiko',
+    'Komplikasi dan penanganannya',
+    'Alternatif',
+    'Prognosis',
+  ];
+  return texts.map((body, i) => ({ id: `info-${i + 1}`, title: titles[i] ?? '', body }));
+};
+
+/** Tn. Hendro (ICU, tersedasi): pemasangan kateter vena sentral; istri memberi persetujuan (mockup Consent). */
+export function demoHendroConsent(): ConsentDocument {
+  return {
+    id: 'pk-hendro',
+    encounterId: 'kj-hendro',
+    patientId: 'ps-hendro',
+    procedure: 'Pemasangan kateter vena sentral',
+    consentGiver: 'Istri (pasien tersedasi, belum kompeten)',
+    doctor: doctorName('dr-ferry'),
+    informer: doctorName('dr-kartika'),
+    explainedAt: T('09.50'),
+    explanationMinutes: 9,
+    location: 'ICU',
+    items: items([
+      'Pneumonia berat dengan gagal napas; membutuhkan akses vena jangka menengah untuk obat dan cairan.',
+      'Memasang selang kecil di pembuluh vena leher untuk obat, cairan, dan pemantauan tekanan vena.',
+      'Bius lokal, dipandu USG, sekitar 30 menit, di tempat tidur ICU.',
+      'Nyeri, perdarahan, infeksi, kolaps paru (jarang, < 1%).',
+      'Posisi kateter dipastikan dengan foto toraks; komplikasi ditangani segera oleh tim ICU.',
+      'Infus perifer berulang, atau kateter PICC lewat lengan.',
+      'Baik bila tindakan dan terapi berjalan sesuai rencana.',
+    ]),
+    signerName: 'Sekar Gunawan',
+    witness: { name: 'Dimas Gunawan', relation: 'anak' },
+    staffWitness: STAF_LAIN.perawat[1],
+    status: 'draf',
+    finalAt: null,
+  };
+}
+
+/** Tn. Hartono (IGD, kompeten): rawat intensif + terapi antitrombotik; istri menjadi saksi (naskah Simulasi). */
+export function hartonoConsentBase(explainedAt: string): ConsentDocument {
+  return {
+    id: 'pk-hartono',
+    encounterId: 'kj-hartono',
+    patientId: 'ps-hartono',
+    procedure: 'Rawat intensif dan terapi antitrombotik',
+    consentGiver: 'Pasien sendiri (kompeten)',
+    doctor: STAF.dpjpJantung,
+    informer: STAF.dokterJagaIgd,
+    explainedAt,
+    explanationMinutes: 8,
+    location: 'IGD',
+    items: items([
+      'Serangan jantung tanpa elevasi ST (NSTEMI) disertai kadar kalium darah tinggi.',
+      'Rawat di ruang intensif dengan pemantauan EKG terus-menerus; obat pengencer darah untuk mencegah serangan berulang.',
+      'Obat diminum dan disuntik di bawah kulit dua kali sehari; infus dan pemeriksaan darah berkala.',
+      'Perdarahan (gusi, saluran cerna, bekas suntikan) dan memar; reaksi alergi obat (jarang).',
+      'Perdarahan dipantau dengan pemeriksaan darah; obat dihentikan atau dinetralkan bila perlu.',
+      'Terapi tanpa antikoagulan (risiko serangan berulang lebih tinggi) atau rujukan untuk kateterisasi segera.',
+      'Baik bila terapi teratur dan faktor risiko (tekanan darah, ginjal) dikendalikan.',
+    ]),
+    signerName: 'Hartono Wibisono',
+    witness: { name: 'Wening Wibisono', relation: 'istri' },
+    staffWitness: PERSONA.perawat,
+    status: 'draf',
+    finalAt: null,
+  };
+}
+
+/** Ny. Ratna (elektif): kolesistektomi laparoskopik; suami menjadi saksi. */
+export function ratnaConsentBase(explainedAt: string): ConsentDocument {
+  return {
+    id: 'pk-ratna',
+    encounterId: 'kj-ratna',
+    patientId: 'ps-ratna',
+    procedure: 'Kolesistektomi laparoskopik',
+    consentGiver: 'Pasien sendiri (kompeten)',
+    doctor: STAF.dpjpBedah,
+    informer: STAF.dpjpBedah,
+    explainedAt,
+    explanationMinutes: 12,
+    location: 'Admisi rawat inap',
+    items: items([
+      'Batu kandung empedu yang menimbulkan nyeri berulang (kolelitiasis simptomatik).',
+      'Mengangkat kandung empedu melalui 3–4 sayatan kecil dengan bantuan kamera (laparoskopi).',
+      'Bius umum, sekitar 60–90 menit, di kamar operasi.',
+      'Nyeri, perdarahan, infeksi luka, cedera saluran empedu (jarang, < 0,5%).',
+      'Bila sulit, operasi diubah menjadi bedah terbuka; pemulihan dipantau di ruang pulih.',
+      'Obat pereda nyeri dan diet rendah lemak (keluhan bisa berulang), atau operasi terbuka.',
+      'Baik; sebagian besar pasien pulang 1–2 hari setelah operasi.',
+    ]),
+    signerName: 'Ratna Sari',
+    witness: { name: 'Bima Pratomo', relation: 'suami' },
+    staffWitness: STAF_LAIN.perawat[0],
+    status: 'draf',
+    finalAt: null,
   };
 }

@@ -3,6 +3,7 @@ import type {
   BedRequest,
   ClinicalResult,
   CodedDiagnosis,
+  ConsentDocument,
   DischargeSummary,
   ResumeSection,
   EdStatus,
@@ -16,6 +17,8 @@ import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
 import { encounterIdOf, patientByScenario } from './demo/fixtures/pasien';
 import {
   buildInpatient,
+  hartonoConsentBase,
+  ratnaConsentBase,
   resumeChecklist,
   type DxSeed,
   type InpatientSeed,
@@ -875,4 +878,24 @@ export function ratnaResume(R: RunResult): DischargeSummary {
     signedAt: signed ? taskInstant(R, 'resume', 'tte') : null,
     signedBy: signed ? STAF.dpjpBedah : null,
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Persetujuan tindakan pasien skenario
+// ---------------------------------------------------------------------------------------------------------
+
+/** Persetujuan Tn. Hartono: final setelah tugas `tata-laksana.consent` (tanda tangan + saksi + TTE di tablet). */
+export function hartonoConsent(R: RunResult): ConsentDocument {
+  const doc = hartonoConsentBase(taskInstant(R, 'tata-laksana', 'dispo'));
+  return isDone(R, 'tata-laksana', 'consent')
+    ? { ...doc, status: 'final', finalAt: taskInstant(R, 'tata-laksana', 'consent') }
+    : doc;
+}
+
+/** Persetujuan operasi Ny. Ratna: ditandatangani saat admisi, final bersama SEP rawat inap. */
+export function ratnaConsent(R: RunResult): ConsentDocument {
+  const doc = ratnaConsentBase(wib(simInstant(R.def, R.def.startMin + 20)));
+  return isDone(R, 'admisi', 'sep')
+    ? { ...doc, status: 'final', finalAt: taskInstant(R, 'admisi', 'sep', -5) }
+    : doc;
 }

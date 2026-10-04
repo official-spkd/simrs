@@ -175,7 +175,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Consent',
     components: ['K11'],
     phase: 3,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'consent.write',
     demoRoles: ['dokter', 'perawat'],
     layout: 'perangkat',

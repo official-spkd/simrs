@@ -2,6 +2,8 @@ import 'server-only';
 import {
   type BedBoard,
   bedBoardSchema,
+  type ConsentDocument,
+  consentDocumentSchema,
   type DischargeSummary,
   dischargeSummarySchema,
   type EdBoard,
@@ -18,6 +20,7 @@ import {
   demoBeds,
   demoEdBoardBase,
   demoEndangResume,
+  demoHendroConsent,
   demoInpatients,
   demoWards,
 } from '../../demo/fixtures/rawat-inap';
@@ -25,10 +28,12 @@ import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import {
   applyScenarioBeds,
   hartonoBedRequest,
+  hartonoConsent,
   hartonoEdItem,
   hartonoInpatient,
   hartonoResume,
   ratnaBedRequest,
+  ratnaConsent,
   ratnaInpatient,
   ratnaResume,
   type ScenarioStepState,
@@ -166,4 +171,22 @@ export async function getDischargeSummary(
     return inpatient ? { kind: 'belum-disiapkan', patientId: inpatient.summary.patientId } : null;
   }
   return notImplemented('resume medis');
+}
+
+/** K11 · Dokumen persetujuan tindakan di tablet; null = dokumen tidak dikenal (halaman → 404). */
+export async function getConsentDocument(session: SessionView, id: string): Promise<ConsentDocument | null> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const runs = await scenarioRuns(session);
+    const doc =
+      id === 'pk-hartono'
+        ? hartonoConsent(runs.results['igd-ranap'])
+        : id === 'pk-ratna'
+          ? ratnaConsent(runs.results['elektif-btn'])
+          : id === 'pk-hendro'
+            ? demoHendroConsent()
+            : null;
+    return doc ? consentDocumentSchema.parse(doc) : null;
+  }
+  return notImplemented('persetujuan tindakan');
 }
