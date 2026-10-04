@@ -13,12 +13,20 @@ const ROOT_ENV_ALLOWLIST = [
   'WEB_BASE_URL',
   'LOGIN_TENANT_CODE',
   'DATA_SOURCE',
+  'REDIS_URL',
+  'REFRESH_STORE',
+  'REFRESH_REDIS_PREFIX',
+  // Kunci Server Action bersama antar-instans web (ADR-0073); hanya disalin bila diisi.
+  'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY',
 ] as const;
 const rootEnvPath = resolve(process.cwd(), '../../.env');
 if (existsSync(rootEnvPath)) {
   const parsed = parseEnv(readFileSync(rootEnvPath, 'utf8'));
   for (const key of ROOT_ENV_ALLOWLIST) {
-    if (process.env[key] === undefined && parsed[key] !== undefined) process.env[key] = parsed[key];
+    const value = parsed[key];
+    if (process.env[key] !== undefined || value === undefined) continue;
+    if (key === 'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY' && !value.trim()) continue;
+    process.env[key] = value;
   }
 }
 
@@ -39,6 +47,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@simrs/ui'],
+  // Klien Redis peta refresh sesi (proxy, ADR-0073): dimuat dari node_modules, tidak dibundel.
+  serverExternalPackages: ['ioredis'],
   poweredByHeader: false,
   typedRoutes: false,
   // Hanya `next dev`: izinkan membuka lewat 127.0.0.1 (mis. bila localhost:3000 di IPv6 dipakai aplikasi lain).
