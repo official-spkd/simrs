@@ -9,9 +9,7 @@ import { CpptPanel } from './cppt-panel';
 import { DayJumps } from './day-jumps';
 import { type EmarLocal, EmarPanel } from './emar-panel';
 import { EwsPanel, NursingPanel, ResultsPanel, SummaryPanel } from './inpatient-panels';
-
-export const INPATIENT_TABS = ['ringkasan', 'cppt', 'obs', 'askep', 'hasil'] as const;
-export type InpatientTab = (typeof INPATIENT_TABS)[number];
+import type { InpatientTab } from './tabs';
 
 /** K04/K07/K12 · Lima tab rekam rawat inap; state lokal (CPPT baru, eMAR, centang askep) bertahan antar-tab. */
 export function InpatientWorkspace({

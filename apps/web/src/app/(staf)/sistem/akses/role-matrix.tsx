@@ -13,7 +13,8 @@ import {
   toGrantMap,
 } from '@/lib/akses';
 import { type RoleSaveResult, saveRolePermissionsAction } from './actions';
-import { Done, ErrorText, selectClass } from './parts';
+import { Done, ErrorText } from './parts';
+import { selectClass } from './styles';
 
 export interface MatrixRole {
   code: string;

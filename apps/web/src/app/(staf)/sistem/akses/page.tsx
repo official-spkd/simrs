@@ -20,7 +20,7 @@ import { requireSession } from '@/lib/server/session';
 import { can, initials, type SessionView } from '@/lib/session-view';
 import { AddAssignment, EndAssignment } from './assignment-forms';
 import { InviteUser } from './invite-user';
-import { inputClass, selectClass } from './parts';
+import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
 import { ContactForm } from './contact-form';

@@ -11,7 +11,8 @@ import { ewsLevel } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
 import { getInpatient, scenarioSteps } from '@/lib/server/data/rawat-inap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { INPATIENT_TABS, type InpatientTab, InpatientWorkspace } from './inpatient-workspace';
+import { InpatientWorkspace } from './inpatient-workspace';
+import { INPATIENT_TABS, type InpatientTab } from './tabs';
 import { NotAdmitted } from './not-admitted';
 
 export const metadata: Metadata = { title: 'Rawat inap' };

@@ -4,7 +4,8 @@ import { Button, Field } from '@simrs/ui';
 import { useActionState, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { type InviteResult, inviteUserAction } from './actions';
-import { ErrorText, selectClass, TemporaryPassword } from './parts';
+import { ErrorText, TemporaryPassword } from './parts';
+import { selectClass } from './styles';
 
 interface Option {
   value: string;

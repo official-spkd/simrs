@@ -4,7 +4,8 @@ import { Button } from '@simrs/ui';
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { type ActionResult, addAssignmentAction, endAssignmentAction } from './actions';
-import { Done, ErrorText, inputClass, selectClass } from './parts';
+import { Done, ErrorText } from './parts';
+import { inputClass, selectClass } from './styles';
 
 interface Option {
   value: string;
