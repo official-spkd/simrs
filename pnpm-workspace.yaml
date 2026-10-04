@@ -7,6 +7,7 @@ allowBuilds:
   "@prisma/engines": true
   '@scarf/scarf': false
   '@swc/core': false
+  '@embedded-postgres/darwin-arm64': true
   '@embedded-postgres/windows-x64': true
   msgpackr-extract: false
 minimumReleaseAgeExclude:

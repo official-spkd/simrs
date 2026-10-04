@@ -36,10 +36,11 @@ services:
       timeout: 3s
       retries: 20
 
-  # Catatan: bila image MinIO tidak bisa ditarik, ganti dengan S3-compatible lain
+  # Image resmi minio/minio dan quay.io/minio tidak lagi bisa ditarik (MinIO berhenti merilis image
+  # komunitas); pgsty/minio + pgsty/mc = build komunitas Pigsty, drop-in. Bila gagal juga, ganti dengan S3-compatible lain
   # (mis. SeaweedFS: image chrislusf/seaweedfs, command "server -s3") dan sesuaikan S3_ENDPOINT.
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -57,7 +58,7 @@ services:
       retries: 20
 
   minio-init:
-    image: minio/mc:latest
+    image: pgsty/mc:latest
     depends_on:
       minio:
         condition: service_healthy
