@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { MockConfig } from './config';
 import { registerPanel } from './panel/panel';
 import { SYSTEMS, type MockState, type MockSystem } from './state';
@@ -18,10 +18,27 @@ function systemOf(url: string): MockSystem | undefined {
   return SYSTEMS.find((s) => s === seg);
 }
 
+/** Tunggu `ms` atau sampai koneksi klien tertutup; true bila klien sudah pergi. */
+function holdUntilTimeoutOrClose(reply: FastifyReply, ms: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (reply.raw.destroyed) return resolve(true);
+    const done = (closed: boolean) => {
+      clearTimeout(timer);
+      reply.raw.off('close', onClose);
+      resolve(closed);
+    };
+    const onClose = () => done(true);
+    const timer = setTimeout(() => done(false), ms);
+    reply.raw.once('close', onClose);
+  });
+}
+
 export function buildServer(config: MockConfig, state: MockState): FastifyInstance {
   const app = Fastify({ logger: false });
+  /** Permintaan yang responsnya ditahan (mode `timeout`) beserta lama tahanannya. */
+  const held = new WeakMap<FastifyRequest, number>();
 
-  // Skenario per sistem: normal, lambat, gagal, acak (docs/06 §7).
+  // Skenario per sistem: normal, lambat, gagal, acak, timeout (docs/06 §7).
   app.addHook('onRequest', async (req, reply) => {
     const system = systemOf(req.url);
     if (!system) return;
@@ -34,6 +51,21 @@ export function buildServer(config: MockConfig, state: MockState): FastifyInstan
       if (config.random() < 0.3) return fail();
       await sleep(Math.round(config.random() * sc.latencyMs));
     }
+    if (sc.mode === 'timeout') held.set(req, sc.timeoutMs);
+  });
+
+  // Mode timeout: permintaan sudah diproses (efeknya tersimpan), jawabannya ditahan lalu diganti 504.
+  app.addHook('onSend', async (req, reply, payload) => {
+    const ms = held.get(req);
+    if (ms === undefined) return payload;
+    held.delete(req);
+    const closed = await holdUntilTimeoutOrClose(reply, ms);
+    if (closed) return payload;
+    void reply.code(504).header('content-type', 'application/json; charset=utf-8');
+    return JSON.stringify({
+      code: 'MOCK_TIMEOUT',
+      message: `Respons ditahan ${ms} ms (skenario timeout mock)`,
+    });
   });
 
   app.addHook('onResponse', async (req, reply) => {
