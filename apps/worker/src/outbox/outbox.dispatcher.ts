@@ -61,6 +61,8 @@ export class OutboxDispatcher implements OnModuleDestroy {
       ),
       decryptStaffPhone: (stored) =>
         decryptField(stored, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'staff_phone' }),
+      decryptLoginOtp: (stored) =>
+        decryptField(stored, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' }),
       webBaseUrl: this.env.WEB_BASE_URL,
     };
   }

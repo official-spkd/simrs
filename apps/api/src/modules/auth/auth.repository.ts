@@ -67,7 +67,75 @@ export class AuthRepository {
   findChallenge(tx: TenantTx, id: string) {
     return tx.loginChallenge.findUnique({
       where: { id },
-      select: { id: true, userId: true, secretHash: true, expiresAt: true, attempts: true, consumedAt: true },
+      select: {
+        id: true,
+        userId: true,
+        secretHash: true,
+        expiresAt: true,
+        attempts: true,
+        consumedAt: true,
+        otpEnc: true,
+        otpChannel: true,
+        otpSends: true,
+      },
+    });
+  }
+
+  /**
+   * Simpan kode cadangan baru (menggantikan yang lama) bila tantangan masih terbuka, kiriman belum mencapai batas,
+   * dan kiriman terakhir sudah lewat `minGapMs`. Atomik terhadap permintaan bersamaan.
+   */
+  async setChallengeOtp(
+    tx: TenantTx,
+    id: string,
+    otp: { otpEnc: string; channel: string; maxSends: number; minGapMs: number },
+  ): Promise<number | null> {
+    const rows = await tx.$queryRaw<Array<{ otp_sends: number }>>`
+      UPDATE login_challenges
+      SET otp_enc = ${otp.otpEnc}, otp_channel = ${otp.channel}, otp_sent_at = now(), otp_sends = otp_sends + 1
+      WHERE id = ${id}::uuid AND consumed_at IS NULL AND expires_at > now()
+        AND otp_sends < ${otp.maxSends}
+        AND (otp_sent_at IS NULL OR otp_sent_at < now() - make_interval(secs => ${otp.minGapMs / 1000}))
+      RETURNING otp_sends`;
+    return rows[0]?.otp_sends ?? null;
+  }
+
+  findUserContact(tx: TenantTx, userId: string) {
+    return tx.user.findUnique({
+      where: { id: userId },
+      select: { email: true, phoneEnc: true, status: true },
+    });
+  }
+
+  createTrustedDevice(
+    tx: TenantTx,
+    data: {
+      id: string;
+      tenantId: string;
+      userId: string;
+      tokenHash: string;
+      userAgent: string | null;
+      expiresAt: Date;
+    },
+  ) {
+    return tx.trustedDevice.create({ data, select: { id: true } });
+  }
+
+  findTrustedDevice(tx: TenantTx, id: string) {
+    return tx.trustedDevice.findUnique({
+      where: { id },
+      select: { id: true, userId: true, tokenHash: true, expiresAt: true, revokedAt: true },
+    });
+  }
+
+  touchTrustedDevice(tx: TenantTx, id: string) {
+    return tx.trustedDevice.update({ where: { id }, data: { lastUsedAt: new Date() }, select: { id: true } });
+  }
+
+  revokeTrustedDevices(tx: TenantTx, userId: string) {
+    return tx.trustedDevice.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
   }
 

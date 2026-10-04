@@ -8,7 +8,12 @@ import type { AddressInfo } from 'node:net';
 import { Test } from '@nestjs/testing';
 import { createPrismaClient, enqueueOutbox, type PrismaClient, withTenant } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { newId, NOTIFY_EMAIL_OPERATION, NOTIFY_WHATSAPP_OPERATION } from '@simrs/shared';
+import {
+  AUTH_BACKUP_CODE_OPERATION,
+  newId,
+  NOTIFY_EMAIL_OPERATION,
+  NOTIFY_WHATSAPP_OPERATION,
+} from '@simrs/shared';
 import { encryptField } from '@simrs/shared/node';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadWorkerEnv, WORKER_ENV, type WorkerEnv } from '../src/config/env';
@@ -151,5 +156,60 @@ describe('notifikasi email dan WhatsApp (operasi outbox)', () => {
     await notification({});
     await dispatcher.dispatchOnce({ tenantIds: [T] });
     expect(received).toEqual([]);
+  });
+});
+
+describe('kode cadangan login (operasi outbox)', () => {
+  it('kode dikirim ke WhatsApp akun saat tantangan masih terbuka; tantangan terpakai dilewati', async () => {
+    const send = async (consumed: boolean) =>
+      read(async (tx) => {
+        const userId = newId();
+        await tx.user.create({
+          data: {
+            id: userId,
+            tenantId: T,
+            username: `k.${userId.slice(-8)}`,
+            displayName: 'Perawat Fiktif',
+            phoneEnc: encryptField('6281200004444', {
+              keyB64: env.FIELD_ENCRYPTION_KEY,
+              tenantId: T,
+              purpose: 'staff_phone',
+            }),
+          },
+        });
+        const id = newId();
+        await tx.loginChallenge.create({
+          data: {
+            id,
+            tenantId: T,
+            userId,
+            secretHash: 'a'.repeat(64),
+            expiresAt: new Date(Date.now() + 5 * 60_000),
+            consumedAt: consumed ? new Date() : null,
+            otpEnc: encryptField('482913', {
+              keyB64: env.FIELD_ENCRYPTION_KEY,
+              tenantId: T,
+              purpose: 'login_otp',
+            }),
+            otpChannel: 'whatsapp',
+            otpSentAt: new Date(),
+            otpSends: 1,
+          },
+        });
+        await enqueueOutbox(tx, T, {
+          target: 'whatsapp',
+          operation: AUTH_BACKUP_CODE_OPERATION,
+          idempotencyKey: `login-otp:${id}:1`,
+          payload: { challengeId: id },
+        });
+      });
+    await send(false);
+    await send(true);
+    await dispatcher.dispatchOnce({ tenantIds: [T] });
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({ url: '/whatsapp/send', body: { to: '6281200004444' } });
+    expect(String(received[0]?.body.text)).toMatch(
+      /^Kode masuk SIM RS: 482913\. Berlaku sampai pukul \d{2}\.\d{2} WIB/,
+    );
   });
 });

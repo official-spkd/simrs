@@ -15,6 +15,11 @@ export interface CookieNames {
   /** Token tantangan MFA (langkah 2 login) dan nama akun yang sedang login, maks 5 menit. */
   challenge: string;
   challengeUser: string;
+  /**
+   * "Percayai perangkat ini" (12 jam): milik perangkat, bukan sesi, jadi TIDAK ikut dihapus saat keluar. Token
+   * hanya berlaku untuk akun yang mencentangnya; API mengabaikannya untuk akun lain.
+   */
+  trustedDevice: string;
 }
 
 export function cookieNames(secure: boolean): CookieNames {
@@ -24,6 +29,7 @@ export function cookieNames(secure: boolean): CookieNames {
     refresh: `${p}simrs_rt`,
     challenge: `${p}simrs_mfa`,
     challengeUser: `${p}simrs_mfa_user`,
+    trustedDevice: `${p}simrs_td`,
   };
 }
 
@@ -64,6 +70,14 @@ export function writeChallengeCookies(
   const expires = new Date(challenge.expiresAt);
   w.set(names.challenge, challenge.token, cookieOptions(secure, expires));
   w.set(names.challengeUser, challenge.username, cookieOptions(secure, expires));
+}
+
+export function writeTrustedDeviceCookie(
+  w: CookieWriter,
+  device: { token: string; expiresAt: string },
+  secure: boolean,
+): void {
+  w.set(cookieNames(secure).trustedDevice, device.token, cookieOptions(secure, new Date(device.expiresAt)));
 }
 
 /** Hapus cookie dengan menimpanya (atribut sama, kedaluwarsa di masa lalu). */

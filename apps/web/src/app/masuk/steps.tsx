@@ -12,6 +12,8 @@ import {
   selectUnitAction,
   startEnrollmentAction,
   verifyMfaAction,
+  type BackupCodeState,
+  sendBackupCodeAction,
 } from './actions';
 import { FormError, OtpInput, SubmitButton } from './form-parts';
 import { StepCard } from './login-shell';
@@ -92,6 +94,12 @@ export function AkunStep({ lanjut, tenantCodeField }: { lanjut: string; tenantCo
 
 export function VerifikasiStep({ lanjut, akun }: { lanjut: string; akun: string }) {
   const [state, action] = useActionState(verifyMfaAction, initial);
+  const [backup, setBackup] = useState<BackupCodeState>({});
+  const [sending, startSending] = useTransition();
+  const send = (channel: 'whatsapp' | 'email') =>
+    startSending(async () => setBackup(await sendBackupCodeAction(channel)));
+  const linkClass =
+    'cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-brand-600 underline disabled:cursor-wait disabled:text-ink-400';
   return (
     <StepCard
       title="Verifikasi dua langkah"
@@ -105,7 +113,31 @@ export function VerifikasiStep({ lanjut, akun }: { lanjut: string; akun: string 
       <form action={action} className="flex flex-col gap-[18px]">
         <Lanjut value={lanjut} />
         <OtpInput error={state.fields?.code} />
-        <span className="text-caption text-ink-500">Kode berganti setiap 30 detik.</span>
+        <span className="text-caption text-ink-500">
+          Kode berlaku 30 detik. Tidak punya akses aplikasi?{' '}
+          <button type="button" className={linkClass} disabled={sending} onClick={() => send('whatsapp')}>
+            Kirim kode lewat WhatsApp
+          </button>{' '}
+          atau{' '}
+          <button type="button" className={linkClass} disabled={sending} onClick={() => send('email')}>
+            email
+          </button>
+          .
+        </span>
+        {backup.message && (
+          <span role="status" className="text-caption text-success">
+            {backup.message} Kode berlaku sampai langkah ini berakhir (5 menit).
+          </span>
+        )}
+        {backup.error && (
+          <span role="alert" className="text-caption font-semibold text-danger">
+            {backup.error}
+          </span>
+        )}
+        <label className="flex min-h-11 items-center gap-2.5 text-small text-ink-700">
+          <input type="checkbox" name="trust" className="size-[18px] accent-brand-600" />
+          Percayai perangkat ini selama 12 jam (hanya komputer milik RS)
+        </label>
         <SubmitButton pending="Memverifikasi…">Verifikasi dan lanjut</SubmitButton>
       </form>
       <RestartButton lanjut={lanjut} />

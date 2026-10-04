@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const UUID_PART = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 /** Token buram API: `<jenis>.<tenantId>.<id>.<rahasia 256 bit>` (ADR-0011). */
-export const TOKEN_PATTERN = (kind: 'sa1' | 'sr1' | 'sc1') =>
+export const TOKEN_PATTERN = (kind: 'sa1' | 'sr1' | 'sc1' | 'st1') =>
   new RegExp(`^${kind}\\.${UUID_PART}\\.${UUID_PART}\\.[A-Za-z0-9_-]{43}$`);
 
 export const sessionTokensSchema = z.object({
@@ -25,9 +25,25 @@ export const loginResultSchema = z.discriminatedUnion('status', [
     status: z.literal('mfa_enrollment_required'),
     mustChangePassword: z.boolean(),
   }),
+  // Perangkat tepercaya yang masih berlaku: langkah MFA dilewati.
+  sessionTokensSchema.extend({
+    status: z.literal('authenticated'),
+    mustChangePassword: z.boolean(),
+  }),
 ]);
 
-export const mfaVerifyResultSchema = sessionTokensSchema.extend({ mustChangePassword: z.boolean() });
+export const mfaVerifyResultSchema = sessionTokensSchema.extend({
+  mustChangePassword: z.boolean(),
+  trustedDevice: z
+    .object({ token: z.string().regex(TOKEN_PATTERN('st1')), expiresAt: z.iso.datetime() })
+    .nullable(),
+});
+
+export const backupCodeResultSchema = z.object({
+  channel: z.enum(['whatsapp', 'email']),
+  sentTo: z.string(),
+  sentAt: z.iso.datetime(),
+});
 
 export const meSchema = z.object({
   user: z.object({

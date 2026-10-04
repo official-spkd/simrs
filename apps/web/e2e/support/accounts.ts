@@ -12,6 +12,7 @@ import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
 import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
 import {
   base32Decode,
+  decryptField,
   encryptField,
   newVerifyCode,
   sha256Hex,
@@ -397,4 +398,38 @@ export async function createNotification(
     }),
   );
   return id;
+}
+
+/** No. HP staf (terenkripsi seperti yang ditulis API) untuk WhatsApp. */
+export async function setStaffPhone(account: Account, phone: string): Promise<void> {
+  const tenantId = TENANTS[account.tenantCode];
+  await withTenant(prisma(), tenantId, (tx) =>
+    tx.user.update({
+      where: { id: account.id },
+      data: {
+        phoneEnc: encryptField(phone, {
+          keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+          tenantId,
+          purpose: 'staff_phone',
+        }),
+      },
+    }),
+  );
+}
+
+/** Kode cadangan terbaru untuk akun ini, seolah dibaca dari WhatsApp/email (worker tidak berjalan di E2E). */
+export async function latestBackupCode(account: Account): Promise<string> {
+  const tenantId = TENANTS[account.tenantCode];
+  const ch = await withTenant(prisma(), tenantId, (tx) =>
+    tx.loginChallenge.findFirstOrThrow({
+      where: { userId: account.id, otpEnc: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { otpEnc: true },
+    }),
+  );
+  return decryptField(ch.otpEnc as string, {
+    keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+    tenantId,
+    purpose: 'login_otp',
+  });
 }

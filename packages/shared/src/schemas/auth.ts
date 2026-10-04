@@ -19,11 +19,30 @@ export const loginSchema = z.strictObject({
   username: USERNAME,
   // Batas panjang mencegah DoS lewat hashing input raksasa.
   password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+  /** Token "percayai perangkat ini" (cookie httpOnly di web): bila sah untuk akun ini, langkah MFA dilewati. */
+  trustedDeviceToken: z.string().min(20).max(300).optional(),
 });
 
 export const mfaVerifySchema = z.strictObject({
   challengeToken: z.string().min(20).max(300),
   code: z.string().regex(/^\d{6}$/, 'Kode 6 digit'),
+  /** Percayai perangkat ini selama `TRUSTED_DEVICE_HOURS` jam (hanya komputer milik RS). */
+  trustDevice: z.boolean().optional(),
+});
+
+/** Lama "percayai perangkat ini" (mockup Login). */
+export const TRUSTED_DEVICE_HOURS = 12;
+
+/** Kanal kode cadangan saat tidak punya akses aplikasi autentikator (mockup Login: WhatsApp). */
+export const BACKUP_CODE_CHANNELS = ['whatsapp', 'email'] as const;
+export type BackupCodeChannel = (typeof BACKUP_CODE_CHANNELS)[number];
+/** Maks. kiriman kode cadangan per tantangan login. */
+export const BACKUP_CODE_MAX_SENDS = 3;
+export const AUTH_BACKUP_CODE_OPERATION = 'auth.backup_code';
+
+export const mfaBackupCodeSchema = z.strictObject({
+  challengeToken: z.string().min(20).max(300),
+  channel: z.enum(BACKUP_CODE_CHANNELS),
 });
 
 export const refreshSchema = z.strictObject({ refreshToken: z.string().min(20).max(300) });

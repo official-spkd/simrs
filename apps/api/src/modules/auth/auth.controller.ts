@@ -5,6 +5,7 @@ import {
   type ChangePasswordInput,
   loginSchema,
   type LoginInput,
+  mfaBackupCodeSchema,
   mfaConfirmSchema,
   mfaVerifySchema,
   type MfaVerifyInput,
@@ -46,6 +47,16 @@ export class AuthController {
   @HttpCode(200)
   verifyMfa(@Body(new ZodValidationPipe(mfaVerifySchema)) body: MfaVerifyInput, @Req() req: Request) {
     return this.auth.verifyMfa(body, meta(req));
+  }
+
+  /** Kode cadangan lewat WhatsApp/email saat tidak punya akses aplikasi autentikator. */
+  @Post('mfa/backup-code')
+  @HttpCode(200)
+  sendBackupCode(
+    @Body(new ZodValidationPipe(mfaBackupCodeSchema)) body: z.infer<typeof mfaBackupCodeSchema>,
+    @Req() req: Request,
+  ) {
+    return this.auth.sendBackupCode(body, meta(req));
   }
 
   @Post('refresh')

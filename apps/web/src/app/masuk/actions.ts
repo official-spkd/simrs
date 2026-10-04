@@ -1,6 +1,6 @@
 'use server';
 
-import { loginSchema } from '@simrs/shared';
+import { formatJam, loginSchema } from '@simrs/shared';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { renderSVG } from 'uqr';
@@ -14,8 +14,15 @@ import {
   cookieNames,
   writeChallengeCookies,
   writeSessionCookies,
+  writeTrustedDeviceCookie,
 } from '@/lib/server/cookies';
-import { enrollStartSchema, loginResultSchema, mfaVerifyResultSchema, okSchema } from '@/lib/server/schemas';
+import {
+  backupCodeResultSchema,
+  enrollStartSchema,
+  loginResultSchema,
+  mfaVerifyResultSchema,
+  okSchema,
+} from '@/lib/server/schemas';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 
@@ -71,7 +78,14 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   if (!password) fields.password = 'Kata sandi wajib diisi.';
   if (Object.keys(fields).length > 0) return { fields, values };
 
-  const parsed = loginSchema.safeParse({ username, password, tenantCode: tenantCode || undefined });
+  const store = await cookies();
+  const trustedDeviceToken = store.get(cookieNames(env.secureCookies).trustedDevice)?.value;
+  const parsed = loginSchema.safeParse({
+    username,
+    password,
+    tenantCode: tenantCode || undefined,
+    ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
+  });
   if (!parsed.success) {
     return { error: 'NIP/email atau kata sandi salah, atau akun terkunci sementara.', values };
   }
@@ -87,7 +101,6 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     return { error: friendly(err), values };
   }
 
-  const store = await cookies();
   clearCookies(store, env.secureCookies, ALL_SESSION_COOKIES);
   if (result.status === 'mfa_required') {
     writeChallengeCookies(
@@ -97,6 +110,7 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     );
   } else {
     // Belum punya MFA: sesi terbatas, hanya boleh mendaftarkan MFA dan mengganti sandi (ADR-0011).
+    // `authenticated`: perangkat tepercaya, sesi penuh tanpa langkah MFA.
     writeSessionCookies(store, result, env.secureCookies);
   }
   redirect(stepUrl(formData));
@@ -117,7 +131,7 @@ export async function verifyMfaAction(_prev: FormState, formData: FormData): Pro
     tokens = await api('/api/v1/auth/mfa/verify', {
       method: 'POST',
       auth: false,
-      body: { challengeToken, code },
+      body: { challengeToken, code, trustDevice: formData.get('trust') === 'on' },
       schema: mfaVerifyResultSchema,
     });
   } catch (err) {
@@ -125,7 +139,33 @@ export async function verifyMfaAction(_prev: FormState, formData: FormData): Pro
   }
   clearCookies(store, env.secureCookies, ['challenge', 'challengeUser']);
   writeSessionCookies(store, tokens, env.secureCookies);
+  if (tokens.trustedDevice) writeTrustedDeviceCookie(store, tokens.trustedDevice, env.secureCookies);
   redirect(stepUrl(formData));
+}
+
+export interface BackupCodeState {
+  error?: string;
+  message?: string;
+}
+
+/** Kirim kode cadangan ke WhatsApp/email akun (mockup Login: "Tidak punya akses aplikasi?"). */
+export async function sendBackupCodeAction(channel: 'whatsapp' | 'email'): Promise<BackupCodeState> {
+  const env = webEnv();
+  const challengeToken = (await cookies()).get(cookieNames(env.secureCookies).challenge)?.value;
+  if (!challengeToken) return { error: 'Sesi masuk sudah berakhir. Ulangi dari awal.' };
+  if (channel !== 'whatsapp' && channel !== 'email') return { error: 'Kanal tidak dikenal.' };
+  try {
+    const r = await api('/api/v1/auth/mfa/backup-code', {
+      method: 'POST',
+      auth: false,
+      body: { challengeToken, channel },
+      schema: backupCodeResultSchema,
+    });
+    const where = r.channel === 'whatsapp' ? `nomor WhatsApp ${r.sentTo}` : `email ${r.sentTo}`;
+    return { message: `Kode dikirim ke ${where} pukul ${formatJam(r.sentAt)}.` };
+  } catch (err) {
+    return { error: friendly(err) };
+  }
 }
 
 export interface EnrollmentState {

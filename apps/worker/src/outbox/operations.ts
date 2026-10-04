@@ -1,9 +1,11 @@
 import {
+  AUTH_BACKUP_CODE_OPERATION,
   DUKCAPIL_VERIFY_OPERATION,
   NOTIFY_EMAIL_OPERATION,
   NOTIFY_WHATSAPP_OPERATION,
   TTE_SIGN_OPERATION,
 } from '@simrs/shared';
+import { sendBackupCode } from './backup-code';
 import { dukcapilVerifyNik } from './dukcapil';
 import { notifyEmail, notifyWhatsapp } from './notify';
 import type { OutboxOperation } from './operation-types';
@@ -38,4 +40,5 @@ export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<s
   [TTE_SIGN_OPERATION, tteSignDocument],
   [NOTIFY_EMAIL_OPERATION, notifyEmail],
   [NOTIFY_WHATSAPP_OPERATION, notifyWhatsapp],
+  [AUTH_BACKUP_CODE_OPERATION, sendBackupCode],
 ]);

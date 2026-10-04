@@ -60,6 +60,7 @@ model Tenant {
   formResponses    FormResponse[]
   documents        Document[]
   signatures       DocumentSignature[]
+  trustedDevices   TrustedDevice[]
 
   @@map("tenants")
 }
@@ -328,6 +329,7 @@ model User {
   breakGlassReviews   BreakGlassGrant[]    @relation("BreakGlassReviewer")
   notifications       Notification[]
   signatures          DocumentSignature[]
+  trustedDevices      TrustedDevice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, username])
@@ -411,6 +413,13 @@ model LoginChallenge {
   attempts   Int       @default(0)
   consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Kode cadangan 6 digit (WhatsApp/email) terenkripsi `login_otp`; berlaku selama tantangan, berbagi batas
+  /// percobaan dengan TOTP.
+  otpEnc     String?   @map("otp_enc")
+  /// whatsapp | email
+  otpChannel String?   @map("otp_channel")
+  otpSentAt  DateTime? @map("otp_sent_at") @db.Timestamptz(3)
+  otpSends   Int       @default(0) @map("otp_sends")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
@@ -856,4 +865,27 @@ model DocumentSignature {
   @@unique([tenantId, id])
   @@unique([tenantId, documentId, signerUserId])
   @@map("document_signatures")
+}
+
+/// P02 · "Percayai perangkat ini" (mockup Login): selama berlaku, login dengan sandi di perangkat ini melewati
+/// langkah MFA. Token buram di cookie httpOnly; di sini hanya hash-nya. Dicabut saat sandi/MFA direset atau akun
+/// dinonaktifkan.
+model TrustedDevice {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@map("trusted_devices")
 }

@@ -214,7 +214,12 @@ export class IamRepository {
       .mfaFactor.updateMany({ where: { userId: id, disabledAt: null }, data: { disabledAt: now() } });
   }
 
-  revokeSessions(userId: string, reason: string) {
+  /** Cabut semua sesi aktif + perangkat tepercaya (reset sandi/MFA, nonaktif): login berikutnya wajib MFA lagi. */
+  async revokeSessions(userId: string, reason: string) {
+    await this.db.tx().trustedDevice.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: now() },
+    });
     return this.db.tx().authSession.updateMany({
       where: { userId, status: 'active' },
       data: { status: 'revoked', revokedAt: now(), revokedReason: reason },

@@ -83,18 +83,20 @@ Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12),
 Alur login (endpoint publik, `modules/auth/auth.controller.ts`):
 
 ```
-POST /api/v1/auth/login       { tenantCode?, username, password }
+POST /api/v1/auth/login       { tenantCode?, username, password, trustedDeviceToken? }
   → RS dari subdomain (produksi) atau tenantCode (lokal/staging)
   → kata sandi argon2id benar?  ya → { status: 'mfa_required', challengeToken }   (tantangan 5 menit, maks 5 percobaan)
+                                 ya, perangkat tepercaya sah → { status: 'authenticated', accessToken, … }  (langkah kode dilewati)
                                  ya, belum punya MFA → { status: 'mfa_enrollment_required', accessToken, … }  (sesi terbatas)
                                  tidak → hitungan gagal + audit di-commit, lalu 401 (pesan seragam)
-POST /api/v1/auth/mfa/verify  { challengeToken, code } → { accessToken, refreshToken, … }
+POST /api/v1/auth/mfa/backup-code { challengeToken, channel: whatsapp|email } → kode 6 digit lewat outbox (maks 3, jeda 30 dtk)
+POST /api/v1/auth/mfa/verify  { challengeToken, code, trustDevice? } → { accessToken, refreshToken, …, trustedDevice }
 POST /api/v1/auth/refresh     { refreshToken } → token baru (rotasi; token lama dipakai lagi → sesi dicabut)
 ```
 
 | Bagian             | Berkas                                  | Catatan                                                                                                                          |
 | ------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash                                                         |
+| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` = perangkat tepercaya 12 jam, ADR-0022)    |
 | Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                 |
 | Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                 |
 | Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |

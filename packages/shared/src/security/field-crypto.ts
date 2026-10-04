@@ -12,7 +12,9 @@ export type FieldPurpose =
   | 'contact'
   | 'patient_snapshot'
   /** No. HP staf (WhatsApp notifikasi, kode cadangan login). */
-  | 'staff_phone';
+  | 'staff_phone'
+  /** Kode cadangan login sekali pakai (WhatsApp/email), berlaku selama tantangan MFA. */
+  | 'login_otp';
 
 function masterKey(keyB64: string): Buffer {
   const key = Buffer.from(keyB64, 'base64');

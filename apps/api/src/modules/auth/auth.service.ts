@@ -1,9 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { readTenantSetting, resolveTenantByCode, resolveTenantByHost, type TenantTx } from '@simrs/db';
-import { AppError, type LoginInput, type MfaVerifyInput, newId, type SessionTokens } from '@simrs/shared';
+import { randomInt, timingSafeEqual } from 'node:crypto';
+import { enqueueOutbox } from '@simrs/db';
+import {
+  AppError,
+  AUTH_BACKUP_CODE_OPERATION,
+  BACKUP_CODE_MAX_SENDS,
+  type BackupCodeChannel,
+  type LoginInput,
+  maskPhone,
+  type MfaVerifyInput,
+  newId,
+  type SessionTokens,
+  TRUSTED_DEVICE_HOURS,
+} from '@simrs/shared';
 import {
   decryptField,
   dummyPasswordHash,
+  encryptField,
   hashPassword,
   needsRehash,
   verifyPassword,
@@ -25,10 +39,29 @@ export interface RequestMeta {
 
 export type LoginResult =
   | { status: 'mfa_required'; challengeToken: string; challengeExpiresAt: string }
-  | ({ status: 'mfa_enrollment_required'; mustChangePassword: boolean } & SessionTokens);
+  | ({ status: 'mfa_enrollment_required'; mustChangePassword: boolean } & SessionTokens)
+  /** Perangkat tepercaya yang masih berlaku: langkah MFA dilewati. */
+  | ({ status: 'authenticated'; mustChangePassword: boolean } & SessionTokens);
+
+export interface TrustedDeviceGrant {
+  token: string;
+  expiresAt: string;
+}
 
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const CHALLENGE_MAX_ATTEMPTS = 5;
+/** Jeda minimum antar-kiriman kode cadangan untuk satu tantangan. */
+const BACKUP_CODE_GAP_MS = 30_000;
+
+/** `rina@rs.go.id` → `r•••@rs.go.id`. */
+const maskEmail = (email: string) => {
+  const [local = '', domain = ''] = email.split('@');
+  return `${local.slice(0, 1)}•••@${domain}`;
+};
+
+/** Bandingkan kode 6 digit secara waktu-konstan. */
+const codeMatches = (a: string, b: string) =>
+  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
 /** Pesan seragam untuk semua kegagalan login: tidak membedakan pengguna tak dikenal, sandi salah, atau terkunci. */
 const loginFailed = () =>
@@ -116,6 +149,21 @@ export class AuthService {
         await this.repo.updatePasswordHash(tx, user.id, await hashPassword(input.password));
 
       if (user.mfaFactors.length > 0) {
+        const trusted = await this.trustedDevice(tx, tenantId, user.id, input.trustedDeviceToken);
+        if (trusted) {
+          await this.repo.touchTrustedDevice(tx, trusted);
+          const tokens = await this.createSession(tx, tenantId, user.id, true, m);
+          await writeAudit(tx, tenantId, this.meta(m, user.id), [
+            {
+              action: 'login',
+              resourceType: 'session',
+              resourceId: tokens.sessionId,
+              details: { mfa: 'trusted_device', trustedDeviceId: trusted },
+            },
+          ]);
+          const { sessionId: _s, ...rest } = tokens;
+          return { status: 'authenticated', mustChangePassword: user.mustChangePassword, ...rest };
+        }
         const id = newId();
         const challenge = issueToken('sc1', tenantId, id);
         const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
@@ -151,7 +199,7 @@ export class AuthService {
   async verifyMfa(
     input: MfaVerifyInput,
     m: RequestMeta,
-  ): Promise<SessionTokens & { mustChangePassword: boolean }> {
+  ): Promise<SessionTokens & { mustChangePassword: boolean; trustedDevice: TrustedDeviceGrant | null }> {
     const parsed = parseToken(input.challengeToken, 'sc1');
     if (!parsed) throw challengeFailed();
     const tenantId = parsed.tenantId;
@@ -166,7 +214,12 @@ export class AuthService {
       ) {
         return { ok: false as const, userId: ch?.userId ?? null, reason: 'invalid_challenge' };
       }
-      const factor = await this.repo.findActiveFactor(tx, ch.userId, true);
+      // Kode cadangan (WhatsApp/email) bila pernah dikirim untuk tantangan ini; selain itu TOTP aplikasi.
+      const otp = ch.otpEnc
+        ? decryptField(ch.otpEnc, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' })
+        : null;
+      const viaBackup = otp !== null && codeMatches(otp, input.code);
+      const factor = viaBackup ? null : await this.repo.findActiveFactor(tx, ch.userId, true);
       const secret = factor
         ? decryptField(factor.secretEnc, {
             keyB64: this.env.FIELD_ENCRYPTION_KEY,
@@ -178,10 +231,8 @@ export class AuthService {
         ? verifyTotp(secret, input.code, { lastUsedStep: factor?.lastUsedStep })
         : { ok: false };
       if (
-        !factor ||
-        !v.ok ||
-        v.step === undefined ||
-        !(await this.repo.markFactorUsed(tx, factor.id, v.step))
+        !viaBackup &&
+        (!factor || !v.ok || v.step === undefined || !(await this.repo.markFactorUsed(tx, factor.id, v.step)))
       ) {
         await this.repo.failChallenge(tx, ch.id, CHALLENGE_MAX_ATTEMPTS);
         return { ok: false as const, userId: ch.userId, reason: 'bad_totp' };
@@ -191,13 +242,28 @@ export class AuthService {
       }
       const profile = await this.repo.findUserProfile(tx, ch.userId);
       const tokens = await this.createSession(tx, tenantId, ch.userId, true, m);
+      const trustedDevice = input.trustDevice ? await this.trustDevice(tx, tenantId, ch.userId, m) : null;
       await writeAudit(tx, tenantId, this.meta(m, ch.userId), [
-        { action: 'login', resourceType: 'session', resourceId: tokens.sessionId, details: { mfa: 'totp' } },
+        {
+          action: 'login',
+          resourceType: 'session',
+          resourceId: tokens.sessionId,
+          details: {
+            mfa: viaBackup ? `backup_${ch.otpChannel}` : 'totp',
+            ...(trustedDevice ? { trustedDeviceId: trustedDevice.id } : {}),
+          },
+        },
       ]);
       const { sessionId: _s, ...rest } = tokens;
       return {
         ok: true as const,
-        tokens: { ...rest, mustChangePassword: profile?.mustChangePassword ?? false },
+        tokens: {
+          ...rest,
+          mustChangePassword: profile?.mustChangePassword ?? false,
+          trustedDevice: trustedDevice
+            ? { token: trustedDevice.token, expiresAt: trustedDevice.expiresAt }
+            : null,
+        },
       };
     });
 
@@ -239,6 +305,111 @@ export class AuthService {
     });
     if (!r.ok) throw new AppError('UNAUTHENTICATED', 'Sesi tidak valid atau sudah berakhir', 401);
     return r.tokens;
+  }
+
+  /**
+   * Kirim kode cadangan 6 digit ke WhatsApp/email akun (mockup Login: "Tidak punya akses aplikasi?"). Kode baru
+   * menggantikan yang lama, disimpan terenkripsi di tantangan, dikirim worker lewat outbox (payload ID saja), dan
+   * berbagi batas 5 percobaan dengan TOTP. Maks. 3 kiriman per tantangan, jeda 30 detik.
+   */
+  async sendBackupCode(
+    input: { challengeToken: string; channel: BackupCodeChannel },
+    m: RequestMeta,
+  ): Promise<{ channel: BackupCodeChannel; sentTo: string; sentAt: string }> {
+    const parsed = parseToken(input.challengeToken, 'sc1');
+    if (!parsed) throw challengeFailed();
+    const tenantId = parsed.tenantId;
+    return this.prisma.forTenant(tenantId, async (tx) => {
+      const ch = await this.repo.findChallenge(tx, parsed.id);
+      if (
+        !ch ||
+        ch.consumedAt ||
+        ch.expiresAt <= new Date() ||
+        !secretMatches(parsed.secret, ch.secretHash)
+      ) {
+        throw challengeFailed();
+      }
+      const contact = await this.repo.findUserContact(tx, ch.userId);
+      let sentTo: string | null = null;
+      if (input.channel === 'whatsapp' && contact?.phoneEnc) {
+        sentTo = maskPhone(
+          decryptField(contact.phoneEnc, {
+            keyB64: this.env.FIELD_ENCRYPTION_KEY,
+            tenantId,
+            purpose: 'staff_phone',
+          }),
+        );
+      } else if (input.channel === 'email' && contact?.email) {
+        sentTo = maskEmail(contact.email);
+      }
+      if (!sentTo) {
+        throw new AppError(
+          'VALIDATION_FAILED',
+          input.channel === 'whatsapp'
+            ? 'Nomor WhatsApp belum terdaftar di akun ini. Hubungi admin SIM RS.'
+            : 'Email belum terdaftar di akun ini. Hubungi admin SIM RS.',
+          400,
+        );
+      }
+      const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      const sends = await this.repo.setChallengeOtp(tx, ch.id, {
+        otpEnc: encryptField(code, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' }),
+        channel: input.channel,
+        maxSends: BACKUP_CODE_MAX_SENDS,
+        minGapMs: BACKUP_CODE_GAP_MS,
+      });
+      if (sends === null) {
+        throw new AppError(
+          'RATE_LIMITED',
+          `Tunggu 30 detik sebelum meminta kode lagi (maks. ${BACKUP_CODE_MAX_SENDS} kali per login).`,
+          429,
+        );
+      }
+      await enqueueOutbox(tx, tenantId, {
+        target: input.channel,
+        operation: AUTH_BACKUP_CODE_OPERATION,
+        idempotencyKey: `login-otp:${ch.id}:${sends}`,
+        payload: { challengeId: ch.id },
+      });
+      await writeAudit(tx, tenantId, this.meta(m, ch.userId), [
+        {
+          action: 'update',
+          resourceType: 'login_challenge',
+          resourceId: ch.id,
+          details: { backupCode: input.channel, sends },
+        },
+      ]);
+      return { channel: input.channel, sentTo, sentAt: new Date().toISOString() };
+    });
+  }
+
+  /** ID perangkat tepercaya bila token sah untuk akun ini (selain itu null; tidak pernah melempar). */
+  private async trustedDevice(
+    tx: TenantTx,
+    tenantId: string,
+    userId: string,
+    token: string | undefined,
+  ): Promise<string | null> {
+    const parsed = token ? parseToken(token, 'st1') : null;
+    if (!parsed || parsed.tenantId !== tenantId) return null;
+    const td = await this.repo.findTrustedDevice(tx, parsed.id);
+    if (!td || td.userId !== userId || td.revokedAt || td.expiresAt <= new Date()) return null;
+    return secretMatches(parsed.secret, td.tokenHash) ? td.id : null;
+  }
+
+  private async trustDevice(tx: TenantTx, tenantId: string, userId: string, m: RequestMeta) {
+    const id = newId();
+    const t = issueToken('st1', tenantId, id);
+    const expiresAt = new Date(Date.now() + TRUSTED_DEVICE_HOURS * 3_600_000);
+    await this.repo.createTrustedDevice(tx, {
+      id,
+      tenantId,
+      userId,
+      tokenHash: t.hash,
+      userAgent: m.userAgent?.slice(0, 200) ?? null,
+      expiresAt,
+    });
+    return { id, token: t.token, expiresAt: expiresAt.toISOString() };
   }
 
   private async createSession(

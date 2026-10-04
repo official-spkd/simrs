@@ -164,6 +164,8 @@ export class AccountService {
     await this.repo.updatePasswordHash(tx, userId, await hashPassword(input.newPassword));
     await this.repo.markPasswordChanged(tx, userId);
     const revoked = await this.sessions.revokeAllForUser(tx, userId, 'password_changed', sessionId);
+    // Perangkat tepercaya ikut dicabut: login berikutnya di perangkat mana pun kembali wajib MFA.
+    await this.repo.revokeTrustedDevices(tx, userId);
     this.db.audit({
       action: 'password_change',
       resourceType: 'user',

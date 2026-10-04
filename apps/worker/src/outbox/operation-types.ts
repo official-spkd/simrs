@@ -19,6 +19,8 @@ export interface OperationContext {
   crypto: PatientCrypto;
   /** No. HP staf (`users.phone_enc`) → bentuk baku `62…`. */
   decryptStaffPhone(stored: string): string;
+  /** Kode cadangan login (`login_challenges.otp_enc`) → 6 digit. */
+  decryptLoginOtp(stored: string): string;
   /** Alamat web untuk tautan di pesan (email/WhatsApp). */
   webBaseUrl: string;
 }
