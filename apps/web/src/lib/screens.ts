@@ -66,7 +66,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Jadwal',
     components: ['F01'],
     phase: 2,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'schedule.read',
     demoRoles: ['petugas_pendaftaran', 'dokter', 'manajemen'],
     layout: 'staf',

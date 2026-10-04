@@ -18,10 +18,13 @@ import {
   registrationPatients,
   scenarioRegistrationPatient,
 } from '../../demo/fixtures/front-office';
+import { redirect } from 'next/navigation';
 import { frontOfficeProgress } from '../../front-office';
-import type { SessionView } from '../../session-view';
+import { screenById, screenOpen } from '../../screens';
+import { nextLoginStep, type SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
 import { assertDemo } from '../demo-guard';
+import { getSession } from '../session';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
 
@@ -30,6 +33,19 @@ import { notImplemented } from './not-implemented';
  * presentasi memakai data dummy (divalidasi kontrak yang sama dengan API kelak) yang memproyeksikan kemajuan
  * Tn. Suryo (skenario rawat jalan); mode api menunggu backend fase 2.
  */
+
+/**
+ * Gerbang Server Action front office (endpoint POST publik): mode presentasi, sesi lengkap (pola
+ * `simulasi/actions.ts`), dan posisi yang memakai layar `screenId`. Tidak menyimpan apa pun.
+ */
+export async function frontOfficeActionSession(screenId: string): Promise<SessionView | null> {
+  assertDemo();
+  const s = await getSession();
+  if (!s || nextLoginStep(s, false) !== 'selesai') redirect('/masuk');
+  const screen = screenById(screenId);
+  if (!screen || !screenOpen(screen, { dataSource: 'demo', role: s.role?.code ?? null })) return null;
+  return s;
+}
 
 async function demoProgress(session: SessionView): Promise<FrontOfficeProgress> {
   assertDemo();
