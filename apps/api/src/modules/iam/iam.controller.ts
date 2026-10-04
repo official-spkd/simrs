@@ -34,7 +34,8 @@ const schemas = {
     cursor: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
     search: z.string().trim().min(2).max(60).optional(),
-    status: z.enum(['active', 'disabled']).optional(),
+    /** `not_activated` = aktif tetapi belum punya kata sandi (belum bisa masuk). */
+    status: z.enum(['active', 'disabled', 'not_activated']).optional(),
     role: z
       .string()
       .regex(/^[a-z][a-z0-9_]{2,40}$/)
@@ -112,6 +113,20 @@ export class IamController {
   })
   resetMfa(@Param('id', uuid) id: string) {
     return this.iam.resetMfa(id);
+  }
+
+  /** Cabut PIN masuk cepat satu perangkat (perangkat hilang, staf pindah unit). ADR-0024. */
+  @Post('pin-devices/:id/revoke')
+  @HttpCode(200)
+  @RequirePermission('iam.users', 'write')
+  @Audited({
+    action: 'deactivate',
+    resource: 'registered_device',
+    resourceId: paramId,
+    details: () => ({ reason: 'admin_revoked' }),
+  })
+  revokePinDevice(@Param('id', uuid) id: string) {
+    return this.iam.revokePinDevice(id);
   }
 
   @Post('users/:id/assignments')

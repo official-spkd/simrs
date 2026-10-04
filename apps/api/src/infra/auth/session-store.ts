@@ -12,6 +12,8 @@ export interface ValidatedSession {
   /** Peran dari penugasan terpilih yang MASIH berlaku; null bila belum dipilih atau sudah berakhir. */
   roleCode: string | null;
   unitId: string | null;
+  /** Sesi dibuka dengan PIN (ADR-0024): posisi terkunci ke posisi pendaftaran PIN. */
+  deviceId: string | null;
 }
 
 /** Jangan menulis `last_seen_at` lebih sering dari ini (mengurangi tulis per permintaan). */
@@ -38,17 +40,23 @@ export class SessionStore {
       idleMinutes: number;
       ip: string | null;
       userAgent: string | null;
+      /** Sesi PIN: umur maksimum (jam), dibatasi SESSION_TTL_HOURS. */
+      ttlHours?: number;
+      /** Sesi PIN: perangkat dan posisi sudah ditentukan pendaftaran PIN (tanpa langkah pilih posisi). */
+      pin?: { deviceId: string; assignment: { id: string; unitId: string | null } };
     },
   ): Promise<SessionTokens & { sessionId: string }> {
     const id = newId();
     const now = Date.now();
     const access = issueToken('sa1', input.tenantId, id);
     const refresh = issueToken('sr1', input.tenantId, id);
-    const accessExpiresAt = new Date(now + this.accessTtlMs());
-    const refreshExpiresAt = new Date(now + this.env.SESSION_TTL_HOURS * 3_600_000);
+    const ttlHours = Math.min(input.ttlHours ?? this.env.SESSION_TTL_HOURS, this.env.SESSION_TTL_HOURS);
+    const refreshExpiresAt = new Date(now + ttlHours * 3_600_000);
+    const accessExpiresAt = new Date(Math.min(now + this.accessTtlMs(), refreshExpiresAt.getTime()));
     // Satu penugasan aktif → langsung dipakai; lebih dari satu → pengguna memilih (POST /auth/assignment).
-    const assignments = await activeAssignments(tx, input.userId);
-    const only = assignments.length === 1 ? assignments[0] : undefined;
+    const only = input.pin
+      ? input.pin.assignment
+      : await activeAssignments(tx, input.userId).then((a) => (a.length === 1 ? a[0] : undefined));
     await tx.authSession.create({
       data: {
         id,
@@ -63,6 +71,7 @@ export class SessionStore {
         mfaVerified: input.mfaVerified,
         assignmentId: only?.id ?? null,
         unitId: only?.unitId ?? null,
+        deviceId: input.pin?.deviceId ?? null,
         ip: input.ip,
         userAgent: input.userAgent?.slice(0, 300) ?? null,
       },
@@ -91,6 +100,8 @@ export class SessionStore {
         idleTimeoutMinutes: true,
         mfaVerified: true,
         unitId: true,
+        deviceId: true,
+        device: { select: { revokedAt: true } },
         user: { select: { status: true, mustChangePassword: true } },
         assignment: {
           select: { validFrom: true, validUntil: true, role: { select: { code: true, active: true } } },
@@ -101,6 +112,11 @@ export class SessionStore {
     if (s.accessExpiresAt <= now || s.refreshExpiresAt <= now) return null;
     if (s.user.status !== 'active') {
       await this.revoke(tx, s.id, 'user_disabled');
+      return null;
+    }
+    // PIN perangkat dicabut (dihapus pemilik/admin, salah 5×, sandi/MFA direset): sesi PIN-nya ikut berakhir.
+    if (s.device?.revokedAt) {
+      await this.revoke(tx, s.id, 'pin_revoked');
       return null;
     }
     if (s.lastSeenAt.getTime() + s.idleTimeoutMinutes * 60_000 <= now.getTime()) {
@@ -120,6 +136,7 @@ export class SessionStore {
       mustChangePassword: s.user.mustChangePassword,
       roleCode: assignmentValid ? a.role.code : null,
       unitId: assignmentValid ? s.unitId : null,
+      deviceId: s.deviceId,
     };
   }
 
@@ -147,6 +164,7 @@ export class SessionStore {
         lastSeenAt: true,
         idleTimeoutMinutes: true,
         user: { select: { status: true } },
+        device: { select: { revokedAt: true } },
       },
     });
     if (!s || s.status !== 'active') return { ok: false, reason: 'invalid' };
@@ -156,8 +174,9 @@ export class SessionStore {
     }
     if (!secretMatches(t.secret, s.refreshHash)) return { ok: false, reason: 'invalid' };
     const idle = s.lastSeenAt.getTime() + s.idleTimeoutMinutes * 60_000 <= now.getTime();
-    if (s.refreshExpiresAt <= now || idle || s.user.status !== 'active') {
-      await this.revoke(tx, s.id, idle ? 'idle_timeout' : 'expired');
+    const pinRevoked = !!s.device?.revokedAt;
+    if (s.refreshExpiresAt <= now || idle || s.user.status !== 'active' || pinRevoked) {
+      await this.revoke(tx, s.id, idle ? 'idle_timeout' : pinRevoked ? 'pin_revoked' : 'expired');
       return { ok: false, reason: 'expired' };
     }
     const access = issueToken('sa1', t.tenantId, s.id);

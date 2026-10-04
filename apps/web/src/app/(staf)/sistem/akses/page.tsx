@@ -1,9 +1,18 @@
 import { ACCESS_ADMIN_GRANTS, formatTanggal, PROTECTED_ROLES } from '@simrs/shared';
-import { Alert, Button, Card, Chip, cx, KpiCard } from '@simrs/ui';
+import { Alert, Button, Card, Chip, cx, Icon, KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { z } from 'zod';
-import { accountStatus, type AksesParams, aksesHref, formatLastLogin } from '@/lib/akses';
+import {
+  type AccountStatus,
+  accountStatus,
+  type AksesParams,
+  aksesHref,
+  formatLastLogin,
+  NOT_ACTIVATED_HINT,
+  STATUS_FILTERS,
+  statusFilterParam,
+} from '@/lib/akses';
 import { api } from '@/lib/server/api';
 import { ApiError } from '@/lib/server/api-core';
 import {
@@ -20,6 +29,7 @@ import { requireSession } from '@/lib/server/session';
 import { can, initials, type SessionView } from '@/lib/session-view';
 import { AddAssignment, EndAssignment } from './assignment-forms';
 import { InviteUser } from './invite-user';
+import { RevokePinDevice } from './pin-devices';
 import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
@@ -36,7 +46,10 @@ const paramsSchema = z.object({
     .regex(/^[a-z][a-z0-9_]{2,40}$/)
     .optional()
     .catch(undefined),
-  status: z.enum(['aktif', 'nonaktif']).optional().catch(undefined),
+  status: z
+    .enum(STATUS_FILTERS.map((f) => f.value) as [string, ...string[]])
+    .optional()
+    .catch(undefined),
   kursor: z.uuid().optional().catch(undefined),
   pengguna: z.uuid().optional().catch(undefined),
 });
@@ -70,7 +83,8 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
   const list = new URLSearchParams({ limit: '50' });
   if (params.q) list.set('search', params.q);
   if (params.peran) list.set('role', params.peran);
-  if (params.status) list.set('status', params.status === 'aktif' ? 'active' : 'disabled');
+  const status = statusFilterParam(params.status);
+  if (status) list.set('status', status);
   if (params.kursor) list.set('cursor', params.kursor);
 
   const [summary, page, rolesData, units, detail] = await Promise.all([
@@ -162,8 +176,11 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
               className={selectClass}
             >
               <option value="">Semua status</option>
-              <option value="aktif">Aktif</option>
-              <option value="nonaktif">Nonaktif</option>
+              {STATUS_FILTERS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
             </select>
             <Button type="submit" size="sm">
               Terapkan
@@ -228,6 +245,15 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
               {summary.dormantDays} hari. Tinjau sebelum reviu akses bulanan (MRMIK 2.1c).
             </Alert>
           )}
+          {summary.notActivated > 0 && (
+            <Alert level="info">
+              {summary.notActivated} akun belum diaktifkan (belum punya kata sandi). Pilih akunnya lalu{' '}
+              &ldquo;Reset kata sandi&rdquo; untuk mengaktifkan.{' '}
+              <Link href={aksesHref(current, { status: 'belum-diaktifkan', kursor: undefined })}>
+                Tampilkan daftarnya
+              </Link>
+            </Alert>
+          )}
         </aside>
       </div>
     </div>
@@ -258,6 +284,15 @@ function Kpis({ summary }: { summary: AccessSummary }) {
         tone={summary.locked > 0 ? 'danger' : 'neutral'}
       />
     </div>
+  );
+}
+
+/** Status akun: teks + ikon (tidak hanya warna). */
+function StatusChip({ status }: { status: AccountStatus }) {
+  return (
+    <Chip tone={status.tone} icon={<Icon name={status.icon} size={13} strokeWidth={2} />}>
+      {status.label}
+    </Chip>
   );
 }
 
@@ -347,7 +382,7 @@ function UserTable({
                   {formatLastLogin(u.lastLoginAt, now)}
                 </td>
                 <td className="px-4 py-2.5 whitespace-nowrap">
-                  <Chip tone={st.tone}>{st.label}</Chip>
+                  <StatusChip status={st} />
                 </td>
               </tr>
             );
@@ -391,7 +426,7 @@ function UserPanel({
           <h2 className="m-0 text-h2 font-semibold">{user.displayName}</h2>
           <span className="font-mono text-caption text-ink-500">{user.username}</span>
           <span className="flex flex-wrap gap-1.5">
-            <Chip tone={st.tone}>{st.label}</Chip>
+            <StatusChip status={st} />
             <Chip tone={user.mfaEnrolled ? 'success' : 'danger'}>
               MFA {user.mfaEnrolled ? 'aktif' : 'belum'}
             </Chip>
@@ -404,6 +439,14 @@ function UserPanel({
           </span>
         </div>
       </div>
+
+      {user.status === 'active' && !user.activated && (
+        <Alert level="info" title="Belum diaktifkan">
+          {canWrite && !self
+            ? NOT_ACTIVATED_HINT
+            : 'Akun ini belum punya kata sandi, jadi belum bisa masuk. Admin SIM RS mengaktifkannya lewat "Reset kata sandi".'}
+        </Alert>
+      )}
 
       <div className="flex flex-col gap-2">
         <h3 className="m-0 text-small font-semibold">Penugasan</h3>
@@ -438,6 +481,32 @@ function UserPanel({
         )}
       </div>
 
+      {user.pinDevices.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+          <h3 className="m-0 text-small font-semibold">PIN masuk cepat</h3>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {user.pinDevices.map((d) => {
+              const label = `${d.name} (${d.roleName}${d.unitName ? ` · ${d.unitName}` : ''})`;
+              return (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line-soft px-3 py-2"
+                >
+                  <span className="flex flex-col">
+                    <span className="text-small font-semibold">{label}</span>
+                    <span className="text-caption text-ink-500">
+                      Terakhir dipakai {formatLastLogin(d.lastUsedAt)} · berlaku sampai{' '}
+                      {formatTanggal(d.expiresAt)}
+                    </span>
+                  </span>
+                  {canWrite && !self && <RevokePinDevice deviceId={d.id} label={label} />}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {canWrite && (
         <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
           <h3 className="m-0 text-small font-semibold">Kontak notifikasi</h3>
@@ -453,6 +522,7 @@ function UserPanel({
             username={user.username}
             displayName={user.displayName}
             active={user.status === 'active'}
+            activated={user.activated}
           />
         </div>
       )}

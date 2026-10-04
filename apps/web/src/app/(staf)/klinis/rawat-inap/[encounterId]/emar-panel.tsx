@@ -233,7 +233,7 @@ export function EmarPanel({
             <span className="text-ink-700">
               Semua dosis jam {now} tercatat; tugas Simulasi belum tercatat.
             </span>
-            <Button size="sm" className="h-11" disabled={locked} onClick={onAllDue}>
+            <Button size="sm" disabled={locked} onClick={onAllDue}>
               Catat tugas eMAR di Simulasi
             </Button>
           </div>

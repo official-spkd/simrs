@@ -29,5 +29,6 @@ export * from './schemas/iam';
 export * from './schemas/patient';
 export * from './schemas/ref';
 export * from './security/password-policy';
+export * from './security/pin-policy';
 export * from './settings';
 export * from './terminology';
