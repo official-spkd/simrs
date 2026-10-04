@@ -14,7 +14,9 @@ export type FieldPurpose =
   /** No. HP staf (WhatsApp notifikasi, kode cadangan login). */
   | 'staff_phone'
   /** Kode cadangan login sekali pakai (WhatsApp/email), berlaku selama tantangan MFA. */
-  | 'login_otp';
+  | 'login_otp'
+  /** Lada (HMAC) PIN masuk cepat sebelum argon2id: hash PIN yang bocor tidak bisa ditebak tanpa kunci. */
+  | 'login_pin';
 
 function masterKey(keyB64: string): Buffer {
   const key = Buffer.from(keyB64, 'base64');
