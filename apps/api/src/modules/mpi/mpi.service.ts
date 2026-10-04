@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { insertPatient, lockMpi, lockTenantScope, type Prisma, toDbDate } from '@simrs/db';
+import { enqueueOutbox, insertPatient, lockMpi, lockTenantScope, type Prisma, toDbDate } from '@simrs/db';
 import {
   AppError,
+  DUKCAPIL_VERIFY_OPERATION,
   type CreatePatientInput,
   IDENTIFIER_SYSTEM_CODES,
   IDENTIFIER_SYSTEMS,
@@ -59,6 +60,9 @@ export interface PatientDetail extends PatientSummary {
 }
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Jeda minimum sebelum NIK yang masih menunggu hasil boleh diverifikasi ulang. */
+const VERIFY_RETRY_MS = 5 * 60_000;
 
 /**
  * P05 · Master Patient Index: cari, baca, daftar, ubah identitas pasien.
@@ -164,6 +168,8 @@ export class MpiService {
     await this.assertIdentifiersFree(crypto, input.identifiers);
     const { id } = await insertPatient(this.db.tx(), crypto, { ...input, createdBy: this.db.actorUserId() });
     await this.detector.run(crypto, id);
+    const nik = input.identifiers.nik ? await this.repo.activeNik(id) : null;
+    if (nik) await this.requestNikVerification(id, nik.id);
     return this.detail(await this.load(id), crypto);
   }
 
@@ -238,8 +244,49 @@ export class MpiService {
       reason: input.reason ?? null,
       details: { system, replaced: Boolean(current) },
     });
+    if (system === 'nik') await this.requestNikVerification(id, created.id);
     await this.detector.run(crypto, id);
     return this.detail(await this.load(id), crypto);
+  }
+
+  /**
+   * Verifikasi ulang NIK ke Dukcapil (mis. setelah koreksi data atau target sempat gangguan). Permintaan yang
+   * masih menunggu kurang dari 5 menit ditolak agar antrean tidak terisi ganda.
+   */
+  async verifyNik(id: string): Promise<PatientDetail> {
+    await this.assertAccess(id);
+    const row = await this.load(id);
+    this.assertActive(row);
+    const nik = await this.repo.activeNik(id);
+    if (!nik) throw new AppError('NOT_FOUND', 'NIK pasien ini belum tercatat', 404);
+    const details = (nik.verificationDetails ?? {}) as { requestedAt?: unknown };
+    const requestedAt = typeof details.requestedAt === 'string' ? Date.parse(details.requestedAt) : NaN;
+    if (nik.verificationStatus === 'pending' && Date.now() - requestedAt < VERIFY_RETRY_MS) {
+      throw new AppError('CONFLICT', 'Verifikasi NIK sedang diproses; coba lagi beberapa menit lagi', 409);
+    }
+    await this.requestNikVerification(id, nik.id);
+    this.db.audit({
+      action: 'verify',
+      resourceType: 'patient_identifier',
+      resourceId: nik.id,
+      patientId: id,
+      details: { system: 'nik', requested: true },
+    });
+    return this.detail(await this.load(id), this.crypto());
+  }
+
+  /**
+   * Antrekan verifikasi NIK ke Dukcapil lewat outbox (dalam transaksi permintaan; dikirim worker setelah commit).
+   * Payload hanya berisi ID: NIK dibaca dan didekripsi worker saat mengirim.
+   */
+  private async requestNikVerification(patientId: string, identifierId: string): Promise<void> {
+    const requestNo = await this.repo.markVerificationRequested(identifierId, new Date());
+    await enqueueOutbox(this.db.tx(), this.db.tenantId(), {
+      target: 'dukcapil',
+      operation: DUKCAPIL_VERIFY_OPERATION,
+      idempotencyKey: `nik-verify:${identifierId}:${requestNo}`,
+      payload: { patientId, identifierId },
+    });
   }
 
   /** Nilai utuh satu identitas (izin `patient.identity`); setiap pembukaan diaudit. */

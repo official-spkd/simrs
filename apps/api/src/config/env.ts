@@ -2,10 +2,6 @@ import { isIP } from 'node:net';
 import { devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
 import { z } from 'zod';
 
-const base64Key32 = z
-  .string()
-  .refine((v) => Buffer.from(v, 'base64').length === 32, 'Harus 32 byte base64 (openssl rand -base64 32)');
-
 const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
 
 /**
@@ -38,14 +34,12 @@ export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.s3.shape)
   .extend(envSchemas.api.shape)
   .extend(envSchemas.integration.shape)
+  .extend(envSchemas.fieldCrypto.shape)
   .extend({
     /** Batas permintaan per IP per menit (semua endpoint kecuali health/ready). */
     RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(600),
     /** Batas endpoint kredensial (login, MFA, ganti sandi, refresh) per IP per menit. */
     AUTH_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(10),
-    /** Kunci enkripsi kolom (rahasia MFA, NIK, …) dan kunci blind index. */
-    FIELD_ENCRYPTION_KEY: base64Key32,
-    FIELD_HASH_KEY: base64Key32,
     /** Umur token akses (menit) dan umur maksimum sesi/refresh (jam). */
     ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),

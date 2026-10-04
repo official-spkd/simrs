@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkerEnv } from '../src/config/env';
 import { classifyStatus, HttpConnector } from '../src/outbox/http-connector';
-import { OUTBOX_OPERATIONS } from '../src/outbox/operations';
+import { type OperationContext, OUTBOX_OPERATIONS } from '../src/outbox/operations';
 
 describe('classifyStatus', () => {
   it('2xx terkirim', () => {
@@ -29,13 +29,11 @@ describe('OUTBOX_OPERATIONS', () => {
     }
   });
 
-  it('ping diarahkan ke /<target>/_echo', () => {
-    const spec = OUTBOX_OPERATIONS.get('ping')?.({
-      target: 'bpjs',
-      operation: 'ping',
-      idempotencyKey: 'k',
-      payload: {},
-    });
+  it('ping diarahkan ke /<target>/_echo', async () => {
+    const spec = await OUTBOX_OPERATIONS.get('ping')?.prepare(
+      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {} },
+      {} as OperationContext,
+    );
     expect(spec).toMatchObject({ method: 'POST', path: '/bpjs/_echo' });
   });
 });
@@ -46,12 +44,10 @@ describe('HttpConnector', () => {
       MOCK_BASE_URL: 'http://127.0.0.1:4100',
       OUTBOX_HTTP_TIMEOUT_MS: 500,
     } as WorkerEnv);
-    const res = await connector.send({
-      target: '/jahat.example',
-      operation: 'ping',
-      idempotencyKey: 'k',
-      payload: {},
-    });
+    const res = await connector.send(
+      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {} },
+      { method: 'POST', path: '//jahat.example/_echo' },
+    );
     expect(res).toMatchObject({ ok: false, permanent: true, error: 'Path operasi keluar dari host tujuan' });
   });
 });

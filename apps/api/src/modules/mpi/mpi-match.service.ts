@@ -43,6 +43,14 @@ import {
 const DAY = 86_400_000;
 const isoDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
+/** Status verifikasi NIK di kolom banding: bahan keputusan petugas rekam medis. */
+const NIK_VERIFICATION_NOTE: Record<string, string> = {
+  pending: 'menunggu Dukcapil',
+  verified: 'terverifikasi Dukcapil',
+  mismatch: 'tidak sesuai Dukcapil',
+  not_found: 'tidak ditemukan di Dukcapil',
+};
+
 export type AttributeMatch = 'sama' | 'mirip' | 'beda' | 'kosong';
 
 export interface CompareRow {
@@ -561,7 +569,10 @@ export class MpiMatchService {
         return row.phoneEnc ? maskPhone(crypto.decryptContact(row.phoneEnc)) : null;
       default: {
         const id = this.identifier(row, attr);
-        return id ? maskIdentifier(attr, crypto.decryptIdentifier(id.valueEnc)) : null;
+        if (!id) return null;
+        const masked = maskIdentifier(attr, crypto.decryptIdentifier(id.valueEnc));
+        const note = attr === 'nik' ? NIK_VERIFICATION_NOTE[id.verificationStatus] : undefined;
+        return note ? `${masked} · ${note}` : masked;
       }
     }
   }

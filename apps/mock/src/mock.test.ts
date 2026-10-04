@@ -56,6 +56,29 @@ describe('skenario', () => {
   });
 });
 
+describe('Dukcapil verifikasi data (P05)', () => {
+  // 9999 01 54 03 72 4521: perempuan, lahir 14-03-(19)72.
+  const nik = '9999015403724521';
+  const verify = (payload: object) => app.inject({ method: 'POST', url: '/dukcapil/verify-data', payload });
+
+  it('cocok per elemen dari struktur NIK, tanpa mengembalikan data pribadi', async () => {
+    const ok = await verify({ nik, nama: 'Siti Rahmawati', tanggalLahir: '1972-03-14', jenisKelamin: 'P' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ found: true, match: { nama: true, tanggalLahir: true, jenisKelamin: true } });
+    expect(ok.body).not.toContain('Siti');
+
+    const wrong = await verify({ nik, tanggalLahir: '1972-04-14', jenisKelamin: 'L' });
+    expect(wrong.json().match).toEqual({ nama: null, tanggalLahir: false, jenisKelamin: false });
+  });
+
+  it('NIK berakhiran 9999 tidak ditemukan, 8888 nama tidak sesuai; permintaan tak sah ditolak', async () => {
+    expect((await verify({ nik: '9999015403729999' })).json()).toEqual({ found: false });
+    expect((await verify({ nik: '9999015403728888', nama: 'Siti' })).json().match.nama).toBe(false);
+    expect((await verify({ nik: '123' })).statusCode).toBe(400);
+    expect((await verify({ nik, umur: 54 })).statusCode).toBe(400);
+  });
+});
+
 describe('BPJS', () => {
   it('menolak tanda tangan salah', async () => {
     const res = await app.inject({

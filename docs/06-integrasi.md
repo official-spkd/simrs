@@ -62,7 +62,7 @@ Mock SATUSEHAT: token endpoint, lookup IHS by NIK (data fiktif), POST/PUT resour
 
 ## 5. Dukcapil, TTE, WhatsApp
 
-- **Dukcapil** (P05): verifikasi NIK → data demografi fiktif di mock.
+- **Dukcapil** (P05): verifikasi NIK. `POST /dukcapil/verify-data` (dipakai MPI lewat outbox): kirim NIK + nama + tanggal lahir + jenis kelamin, jawaban cocok/tidak per elemen tanpa data pribadi. `POST /dukcapil/verify`: data demografi fiktif per NIK (isian otomatis pendaftaran, F03). Aturan mock: NIK berakhiran 9999 tidak ditemukan, 8888 nama tidak sesuai, tanggal lahir/jenis kelamin dicocokkan dengan struktur NIK (ADR-0017).
 - **TTE** (P10): kirim hash dokumen + identitas penanda tangan → tanda tangan + sertifikat tiruan; verifikasi.
 - **WhatsApp/SMS**: lokal hanya ditulis ke tabel notifikasi + Mailpit; konektor nyata ditentukan kemudian.
 

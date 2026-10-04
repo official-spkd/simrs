@@ -35,6 +35,20 @@ export const PATIENT_SELECT = {
 
 export type PatientRow = Prisma.PatientGetPayload<{ select: typeof PATIENT_SELECT }>;
 
+export const CONSENT_SELECT = {
+  id: true,
+  patientId: true,
+  kind: true,
+  recipient: true,
+  note: true,
+  givenAt: true,
+  givenBy: true,
+  revokedAt: true,
+  revokedBy: true,
+  revokeReason: true,
+} as const;
+export type ConsentRow = Prisma.PrivacyConsentGetPayload<{ select: typeof CONSENT_SELECT }>;
+
 /**
  * Relasi aktif atau akses darurat yang masih berlaku untuk pelaku (ABAC lingkup `relationship`/`unit`), ke
  * pasien ini atau rekam medis lain milik orang yang sama (kelompok gabungan, `app_patient_group`).
@@ -163,6 +177,86 @@ export class MpiRepository {
       },
       select: { id: true },
     });
+  }
+
+  /** NIK aktif pasien beserta status verifikasinya. */
+  activeNik(patientId: string) {
+    return this.db.tx().patientIdentifier.findFirst({
+      where: { patientId, system: 'nik', active: true },
+      select: { id: true, verificationStatus: true, verificationDetails: true },
+    });
+  }
+
+  /**
+   * Tandai NIK menunggu hasil Dukcapil dan kembalikan nomor permintaannya (dasar idempotency key outbox yang
+   * deterministik: permintaan ke-n untuk identifier yang sama selalu satu pesan).
+   */
+  async markVerificationRequested(identifierId: string, at: Date): Promise<number> {
+    const tx = this.db.tx();
+    const current = await tx.patientIdentifier.findUniqueOrThrow({
+      where: { id: identifierId },
+      select: { verificationDetails: true },
+    });
+    const previous = (current.verificationDetails ?? {}) as Prisma.JsonObject;
+    const requests = (typeof previous.requests === 'number' ? previous.requests : 0) + 1;
+    await tx.patientIdentifier.update({
+      where: { id: identifierId },
+      data: {
+        verificationStatus: 'pending',
+        verificationDetails: { ...previous, requests, requestedAt: at.toISOString() },
+      },
+    });
+    return requests;
+  }
+
+  // ---------- persetujuan privasi ----------
+  listConsents(patientId: string) {
+    return this.db.tx().privacyConsent.findMany({
+      where: { patientId },
+      orderBy: { givenAt: 'desc' },
+      select: CONSENT_SELECT,
+    });
+  }
+
+  findActiveConsent(patientId: string, kind: string, recipient: string | null) {
+    return this.db.tx().privacyConsent.findFirst({
+      where: {
+        patientId,
+        kind,
+        revokedAt: null,
+        recipient: recipient === null ? null : { equals: recipient, mode: 'insensitive' },
+      },
+      select: { id: true },
+    });
+  }
+
+  createConsent(data: { patientId: string; kind: string; recipient: string | null; note: string | null }) {
+    return this.db.tx().privacyConsent.create({
+      data: { id: newId(), tenantId: this.db.tenantId(), ...data, givenBy: this.db.actorUserId() },
+      select: CONSENT_SELECT,
+    });
+  }
+
+  findConsent(id: string) {
+    return this.db.tx().privacyConsent.findUnique({ where: { id }, select: CONSENT_SELECT });
+  }
+
+  revokeConsent(id: string, reason: string) {
+    return this.db.tx().privacyConsent.update({
+      where: { id },
+      data: { revokedAt: new Date(), revokedBy: this.db.actorUserId(), revokeReason: reason },
+      select: CONSENT_SELECT,
+    });
+  }
+
+  async userNames(ids: Array<string | null>): Promise<Map<string, string>> {
+    const wanted = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+    if (wanted.length === 0) return new Map();
+    const users = await this.db.tx().user.findMany({
+      where: { id: { in: wanted } },
+      select: { id: true, displayName: true },
+    });
+    return new Map(users.map((u) => [u.id, u.displayName]));
   }
 
   insertIdentifier(

@@ -25,6 +25,7 @@ const MANUAL_INDEXES = [
   'patients_name_search_trgm',
   'patient_match_candidates_pair',
   'patient_links_one_active_per_merged',
+  'privacy_consents_one_active',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -75,6 +76,7 @@ describe('penjaga skema', () => {
       'patient_identifiers',
       'patient_match_candidates',
       'patient_links',
+      'privacy_consents',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

@@ -86,7 +86,7 @@ describe('dispatcher', () => {
   it('mengirim pesan semua tenant ke target dengan Idempotency-Key', async () => {
     const a = await enqueue(A);
     const b = await enqueue(B, 'bpjs');
-    const summary = await dispatcher.dispatchOnce();
+    const summary = await dispatcher.dispatchOnce({ tenantIds: [A, B] });
     expect(summary.sent).toBeGreaterThanOrEqual(2);
     expect((await status(A, a.id)).status).toBe('sent');
     expect((await status(B, b.id)).status).toBe('sent');
@@ -103,7 +103,7 @@ describe('dispatcher', () => {
     const msg = await enqueue(A);
     let now = new Date(Date.now() + 1000);
     for (let i = 1; i <= 3; i++) {
-      await dispatcher.dispatchOnce({ now, maxAttempts: 3 });
+      await dispatcher.dispatchOnce({ tenantIds: [A, B], now, maxAttempts: 3 });
       const s = await status(A, msg.id);
       expect(s.attempts).toBe(i);
       if (i < 3) {
@@ -120,7 +120,7 @@ describe('dispatcher', () => {
   it('galat permanen (400) langsung DLQ tanpa retry', async () => {
     stubStatus = 400;
     const msg = await enqueue(A);
-    await dispatcher.dispatchOnce();
+    await dispatcher.dispatchOnce({ tenantIds: [A, B] });
     const s = await status(A, msg.id);
     expect(s.status).toBe('dead');
     expect(s.attempts).toBe(1);
@@ -129,7 +129,7 @@ describe('dispatcher', () => {
   it('operasi yang belum didukung (termasuk nama properti bawaan) langsung DLQ tanpa memanggil target', async () => {
     const proto = await enqueue(A, 'satusehat', 'constructor');
     const msg = await enqueue(A, 'satusehat', 'Encounter.create');
-    await dispatcher.dispatchOnce();
+    await dispatcher.dispatchOnce({ tenantIds: [A, B] });
     expect((await status(A, msg.id)).status).toBe('dead');
     expect(received.find((r) => r.key === msg.idempotencyKey)).toBeUndefined();
     expect((await status(A, proto.id)).status).toBe('dead');
@@ -139,11 +139,11 @@ describe('dispatcher', () => {
     stubStatus = 503;
     const msg = await enqueue(A);
     const t1 = new Date(Date.now() + 1000);
-    await dispatcher.dispatchOnce({ now: t1 });
+    await dispatcher.dispatchOnce({ tenantIds: [A, B], now: t1 });
     const failed = await status(A, msg.id);
     expect(failed.status).toBe('failed');
     stubStatus = 200;
-    await dispatcher.dispatchOnce({ now: new Date(failed.nextAttemptAt.getTime() + 1) });
+    await dispatcher.dispatchOnce({ tenantIds: [A, B], now: new Date(failed.nextAttemptAt.getTime() + 1) });
     const s = await status(A, msg.id);
     expect(s.status).toBe('sent');
     expect(s.attempts).toBe(2);

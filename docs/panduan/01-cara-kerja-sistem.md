@@ -133,6 +133,8 @@ Petugas mencari pasien dengan satu kotak: nomor RM, NIK, no. BPJS, IHS, atau nam
 
 **Rekam medis ganda.** Saat pendaftaran, sistem membandingkan pasien baru dengan rekam medis lama (NIK, BPJS, tanggal lahir, nama mirip, ibu kandung, no. HP, alamat) dan memasukkan pasangan yang mirip ke antrean **Rekam medis → MPI**. Petugas rekam medis membandingkan atribut berdampingan, memilih nilai yang benar, lalu memutuskan "gabungkan" atau "bukan orang yang sama" dengan alasan wajib. Penggabungan tidak menghapus atau memindah data: rekam medis B hanya diberi tanda "digabung ke A", semua datanya tetap utuh dan ikut terbaca sebagai riwayat A. Keputusan bisa dibatalkan dalam 30 hari, dan setiap langkah tercatat di jejak audit kedua pasien.
 
+**Verifikasi NIK dan persetujuan privasi.** NIK yang dicatat otomatis dicocokkan ke Dukcapil di latar belakang (lewat antrean integrasi, sehingga gangguan Dukcapil tidak menghentikan pendaftaran). Hasilnya (terverifikasi, tidak sesuai, atau tidak ditemukan) tampil bersama NIK, termasuk saat meninjau rekam medis ganda. Persetujuan umum dan persetujuan pembukaan data ke pihak ketiga (mis. asuransi) dicatat atas nama petugas, bisa dicabut dengan alasan, dan riwayatnya tidak pernah dihapus.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |

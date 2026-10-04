@@ -1,6 +1,19 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  createConsentSchema,
+  type CreateConsentInput,
   createPatientSchema,
   type CreatePatientInput,
   identifierSystemParam,
@@ -8,17 +21,28 @@ import {
   patientSearchSchema,
   type PatientSearchQuery,
   revealQuerySchema,
+  revokeConsentSchema,
+  type RevokeConsentInput,
   setIdentifierSchema,
   type SetIdentifierInput,
   updatePatientSchema,
   type UpdatePatientInput,
 } from '@simrs/shared';
 import type { z } from 'zod';
-import { Audited, type AuditSource, changedFields, paramId, resultId } from '../../common/audited.decorator';
+import {
+  Audited,
+  type AuditSource,
+  bodyReason,
+  changedFields,
+  param,
+  paramId,
+  resultId,
+} from '../../common/audited.decorator';
 import { RequireModule } from '../../common/require-module.decorator';
 import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
+import { ConsentService } from './consent.service';
 import { MpiService } from './mpi.service';
 
 const uuid = new ParseUUIDPipe();
@@ -32,6 +56,12 @@ const createdFields = ({ body }: AuditSource) => {
   };
 };
 
+/** Jenis persetujuan (tanpa nama penerima, yang bisa mengidentifikasi hubungan pasien). */
+const consentDetails = ({ body }: AuditSource) => {
+  const b = (body ?? {}) as { kind?: unknown };
+  return typeof b.kind === 'string' ? { kind: b.kind } : undefined;
+};
+
 /**
  * P05 · Master Patient Index. Pencarian, detail, pendaftaran, dan perubahan identitas pasien.
  * Hasil pencarian dan setiap pembukaan identitas utuh diaudit per pasien di service.
@@ -41,7 +71,10 @@ const createdFields = ({ body }: AuditSource) => {
 @RequireModule('P05')
 @Controller('patients')
 export class MpiController {
-  constructor(private readonly mpi: MpiService) {}
+  constructor(
+    private readonly mpi: MpiService,
+    private readonly consents: ConsentService,
+  ) {}
 
   @RequirePermission('patient', 'read')
   @Get()
@@ -93,6 +126,55 @@ export class MpiController {
     @Body(new ZodValidationPipe(setIdentifierSchema)) body: SetIdentifierInput,
   ) {
     return this.mpi.setIdentifier(id, system, body);
+  }
+
+  /** Verifikasi ulang NIK ke Dukcapil (lewat outbox); hasil diisi worker. */
+  @RequirePermission('patient', 'write')
+  @Post(':id/identifiers/nik/verify')
+  @HttpCode(202)
+  verifyNik(@Param('id', uuid) id: string) {
+    return this.mpi.verifyNik(id);
+  }
+
+  @RequirePermission('patient', 'read')
+  @Get(':id/consents')
+  @Audited({ action: 'read', resource: 'privacy_consent', resourceId: paramId, patientId: paramId })
+  listConsents(@Param('id', uuid) id: string) {
+    return this.consents.list(id);
+  }
+
+  @RequirePermission('patient', 'write')
+  @Post(':id/consents')
+  @Audited({
+    action: 'create',
+    resource: 'privacy_consent',
+    resourceId: resultId,
+    patientId: paramId,
+    details: consentDetails,
+  })
+  createConsent(
+    @Param('id', uuid) id: string,
+    @Body(new ZodValidationPipe(createConsentSchema)) body: CreateConsentInput,
+  ) {
+    return this.consents.create(id, body);
+  }
+
+  @RequirePermission('patient', 'write')
+  @Post(':id/consents/:consentId/revoke')
+  @HttpCode(200)
+  @Audited({
+    action: 'deactivate',
+    resource: 'privacy_consent',
+    resourceId: param('consentId'),
+    patientId: paramId,
+    reason: bodyReason,
+  })
+  revokeConsent(
+    @Param('id', uuid) id: string,
+    @Param('consentId', uuid) consentId: string,
+    @Body(new ZodValidationPipe(revokeConsentSchema)) body: RevokeConsentInput,
+  ) {
+    return this.consents.revoke(id, consentId, body);
   }
 
   @RequirePermission('patient.identity', 'read')

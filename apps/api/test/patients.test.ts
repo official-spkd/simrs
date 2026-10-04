@@ -14,6 +14,7 @@ import {
   createTestPatient,
   createTestTenant,
   createTestUser,
+  jsonText,
   login,
   TENANT_B,
   type TestUser,
@@ -38,10 +39,6 @@ const as = (who: string) => {
 
 /** NIK fiktif unik per tes (awalan 9999, struktur tanggal lahir perempuan 14-03-72). */
 const nik = () => `99990154037${String(Math.floor(Math.random() * 100_000)).padStart(5, '0')}`;
-
-/** JSON baris audit (seq = BigInt) untuk memastikan tidak ada PHI di dalamnya. */
-const asText = (v: unknown) =>
-  JSON.stringify(v, (_k, x: unknown) => (typeof x === 'bigint' ? x.toString() : x));
 
 const audits = (where: Record<string, unknown>) =>
   withTenant(testDb(), T.id, (tx) => tx.auditEvent.findMany({ where, orderBy: { seq: 'asc' } }));
@@ -88,7 +85,8 @@ describe('pendaftaran pasien', () => {
       {
         system: 'nik',
         masked: `${n.slice(0, 4)}••••••••${n.slice(-4)}`,
-        verification: 'unverified',
+        // NIK baru langsung diantrekan untuk verifikasi Dukcapil (outbox).
+        verification: 'pending',
         verifiedAt: null,
       },
     ]);
@@ -113,7 +111,7 @@ describe('pendaftaran pasien', () => {
       fields: ['address', 'birthDate', 'identifiers', 'motherName', 'name', 'phone', 'sex'],
       identifiers: ['bpjs', 'nik'],
     });
-    expect(asText(created)).not.toMatch(/Rahmawati|Kenanga|4567/);
+    expect(jsonText(created)).not.toMatch(/Rahmawati|Kenanga|4567/);
   });
 
   it('NIK yang sudah terdaftar → 409 berisi RM pemiliknya; dua pendaftaran serentak hanya satu lolos', async () => {
@@ -203,7 +201,7 @@ describe('pencarian', () => {
     expect(after.length).toBe(before + 1);
     expect(after.at(-1)).toMatchObject({ actorUserId: u.kasir?.id, details: { by: 'nik' } });
     const all = await audits({ action: 'search' });
-    expect(asText(all)).not.toMatch(new RegExp(`${sitiNik}|nurhal`, 'i'));
+    expect(jsonText(all)).not.toMatch(new RegExp(`${sitiNik}|nurhal`, 'i'));
   });
 });
 
@@ -300,7 +298,7 @@ describe('perubahan identitas', () => {
     expect(res.body).toMatchObject({ name: 'Hendra Wijaya Kusuma', phoneMasked: '0812•••1111' });
     const [upd] = await audits({ action: 'update', resourceType: 'patient', patientId: p.id });
     expect(upd?.details).toEqual({ fields: ['name', 'phone'] });
-    expect(asText(upd)).not.toMatch(/Kusuma|1111/);
+    expect(jsonText(upd)).not.toMatch(/Kusuma|1111/);
   });
 
   it('ganti NIK wajib alasan; nilai lama disimpan nonaktif; NIK milik pasien lain ditolak', async () => {

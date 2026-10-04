@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthzModule } from '../authz/authz.module';
+import { ConsentService } from './consent.service';
 import { DuplicateDetector } from './duplicate-detector';
 import { MpiMatchController } from './mpi-match.controller';
 import { MpiMatchRepository } from './mpi-match.repository';
@@ -15,7 +16,14 @@ import { MpiService } from './mpi.service';
 @Module({
   imports: [AuthzModule],
   controllers: [MpiController, MpiMatchController],
-  providers: [MpiService, MpiRepository, MpiMatchService, MpiMatchRepository, DuplicateDetector],
+  providers: [
+    MpiService,
+    MpiRepository,
+    MpiMatchService,
+    MpiMatchRepository,
+    DuplicateDetector,
+    ConsentService,
+  ],
   exports: [MpiService],
 })
 export class MpiModule {}

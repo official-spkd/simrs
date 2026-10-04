@@ -5,6 +5,7 @@ export * from './datetime';
 export * from './env';
 export * from './errors';
 export * from './ids';
+export * from './integrations/dukcapil';
 export * from './money';
 export * from './numbering';
 export * from './outbox';

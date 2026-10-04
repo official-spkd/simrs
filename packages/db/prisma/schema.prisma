@@ -55,6 +55,7 @@ model Tenant {
   identifiers      PatientIdentifier[]
   matchCandidates  PatientMatchCandidate[]
   patientLinks     PatientLink[]
+  privacyConsents  PrivacyConsent[]
 
   @@map("tenants")
 }
@@ -585,6 +586,7 @@ model Patient {
   matchesAsB      PatientMatchCandidate[] @relation("MatchB")
   linksAsSurvivor PatientLink[]           @relation("LinkSurvivor")
   linksAsMerged   PatientLink[]           @relation("LinkMerged")
+  consents        PrivacyConsent[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])
@@ -690,4 +692,29 @@ model PatientLink {
   @@index([tenantId, survivorId])
   @@index([tenantId, candidateId])
   @@map("patient_links")
+}
+
+/// P05 · Persetujuan privasi pasien (docs/05 §1, UU PDP): persetujuan umum dan pembukaan data ke pihak ketiga.
+/// Dicatat atas nama petugas; pencabutan mengisi kolom `revoked_*` (hak kolom), baris tidak pernah dihapus.
+model PrivacyConsent {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  patientId    String    @map("patient_id") @db.Uuid
+  /// umum | pembukaan_data
+  kind         String
+  /// Penerima data (wajib untuk pembukaan data), mis. nama asuransi.
+  recipient    String?
+  note         String?
+  givenAt      DateTime  @default(now()) @map("given_at") @db.Timestamptz(3)
+  givenBy      String?   @map("given_by") @db.Uuid
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy    String?   @map("revoked_by") @db.Uuid
+  revokeReason String?   @map("revoke_reason")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, patientId])
+  @@map("privacy_consents")
 }

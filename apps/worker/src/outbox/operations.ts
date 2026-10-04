@@ -1,26 +1,31 @@
-import type { OutboxMessage } from '@simrs/db';
+import { DUKCAPIL_VERIFY_OPERATION } from '@simrs/shared';
+import { dukcapilVerifyNik } from './dukcapil';
+import type { OutboxOperation } from './operation-types';
 
-export type OutboxMessageLike = Pick<OutboxMessage, 'target' | 'operation' | 'idempotencyKey' | 'payload'>;
-
-export interface HttpRequestSpec {
-  method: 'POST' | 'PUT' | 'GET';
-  /** Path relatif terhadap base URL sistem tujuan (lokal: MOCK_BASE_URL). */
-  path: string;
-  body?: unknown;
-}
+export type {
+  HttpRequestSpec,
+  OperationContext,
+  OutboxMessageLike,
+  OutboxOperation,
+  PreparedRequest,
+} from './operation-types';
+export { PermanentOperationError } from './operation-types';
 
 /**
- * Peta operasi outbox → permintaan HTTP. Tambahkan operasi baru di sini (lihat Tutorial §6).
+ * Peta operasi outbox. Tambahkan operasi baru di sini (lihat Tutorial §6).
  * Memakai Map, bukan objek biasa: nama operasi seperti `constructor`/`__proto__` tidak boleh
  * tak sengaja cocok dengan properti bawaan objek.
  */
-export const OUTBOX_OPERATIONS: ReadonlyMap<string, (msg: OutboxMessageLike) => HttpRequestSpec> = new Map([
+export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<string, OutboxOperation>([
   [
     'ping',
-    (msg: OutboxMessageLike): HttpRequestSpec => ({
-      method: 'POST',
-      path: `/${msg.target}/_echo`,
-      body: { operation: msg.operation, payload: msg.payload },
-    }),
+    {
+      prepare: (msg) => ({
+        method: 'POST',
+        path: `/${msg.target}/_echo`,
+        body: { operation: msg.operation, payload: msg.payload },
+      }),
+    },
   ],
+  [DUKCAPIL_VERIFY_OPERATION, dukcapilVerifyNik],
 ]);

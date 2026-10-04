@@ -382,9 +382,13 @@ Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --fil
 ```ts
 [
   'antrean.updatewaktu',
-  (msg) => ({ method: 'POST', path: '/bpjs/antrean/antrean/updatewaktu', body: msg.payload }),
+  {
+    prepare: (msg) => ({ method: 'POST', path: '/bpjs/antrean/antrean/updatewaktu', body: msg.payload }),
+  },
 ],
 ```
+
+Operasi yang butuh data pribadi (mis. NIK) **tidak** menaruhnya di payload: payload cukup berisi ID, lalu `prepare(msg, ctx)` membaca dan mendekripsi lewat `ctx.read(...)`/`ctx.crypto`. Kembalikan `{ skip: 'alasan' }` bila pesan sudah tidak relevan. Bila respons perlu disimpan, isi `onSuccess(tx, msg, body)`: ia berjalan di transaksi yang sama dengan pencatatan "terkirim", dan melempar `PermanentOperationError` membuat pesan masuk DLQ. Respons berisi data pribadi ditandai `sensitive: true`. Contoh lengkap: `apps/worker/src/outbox/dukcapil.ts` (ADR-0017).
 
 Lalu dari service domain, di **dalam transaksi yang sama** dengan perubahan datanya:
 

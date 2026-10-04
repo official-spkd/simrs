@@ -5,6 +5,8 @@ export const workerEnvSchema = envSchemas.base
   .extend(envSchemas.database.shape)
   .extend(envSchemas.redis.shape)
   .extend(envSchemas.integration.shape)
+  // Operasi outbox yang membaca identitas pasien (verifikasi NIK ke Dukcapil) mendekripsi di worker.
+  .extend(envSchemas.fieldCrypto.shape)
   .extend({
     OUTBOX_POLL_MS: z.coerce.number().int().min(250).default(2000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),

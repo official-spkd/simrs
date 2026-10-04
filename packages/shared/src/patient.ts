@@ -70,6 +70,17 @@ export const MERGE_UNDO_DAYS = 30;
 export const MATCH_STATUSES = ['open', 'merged', 'distinct', 'superseded'] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
+/**
+ * Persetujuan privasi pasien (docs/05 §1, UU PDP): persetujuan umum dan pembukaan data ke pihak ketiga
+ * (mis. asuransi). Dicatat atas nama petugas, bisa dicabut dengan alasan; tidak pernah dihapus.
+ */
+export const PRIVACY_CONSENT_KINDS = ['umum', 'pembukaan_data'] as const;
+export type PrivacyConsentKind = (typeof PRIVACY_CONSENT_KINDS)[number];
+export const PRIVACY_CONSENT_LABEL: Record<PrivacyConsentKind, string> = {
+  umum: 'Persetujuan umum',
+  pembukaan_data: 'Pembukaan data ke pihak ketiga',
+};
+
 /** Status verifikasi identifier ke sumber resmi (NIK → Dukcapil). */
 export const IDENTIFIER_VERIFICATION = [
   'unverified',

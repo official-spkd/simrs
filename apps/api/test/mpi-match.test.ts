@@ -118,7 +118,8 @@ describe('antrean dan banding', () => {
     expect(row('birthDate')).toMatchObject({ match: 'sama' });
     expect(row('address')).toMatchObject({ match: 'sama' });
     expect(row('nik')).toMatchObject({ b: null, match: 'kosong' });
-    expect(row('nik').a).toMatch(/^9999••••••••\d{4}$/);
+    // NIK A didaftarkan lewat API → verifikasi Dukcapil diantrekan otomatis.
+    expect(row('nik').a).toMatch(/^9999••••••••\d{4} · menunggu Dukcapil$/);
     expect(row('bpjs')).toMatchObject({ a: null, match: 'kosong' });
     expect(cmp.body.impact.map((i: { n: number }) => i.n)).toEqual([0, 2, 0]);
     expect(

@@ -167,6 +167,10 @@ export function testDb(): PrismaClient {
   return db();
 }
 
+/** JSON untuk memeriksa isi baris (mis. audit tanpa PHI); kolom `seq` BigInt diubah ke teks. */
+export const jsonText = (v: unknown): string =>
+  JSON.stringify(v, (_k, x: unknown) => (typeof x === 'bigint' ? x.toString() : x));
+
 /** Enkripsi identitas pasien dengan kunci .env (sama dengan API yang diuji). */
 export function testPatientCrypto(tenantId: string): PatientCrypto {
   return new PatientCrypto(

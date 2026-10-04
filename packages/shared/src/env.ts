@@ -2,6 +2,14 @@ import { z } from 'zod';
 
 const port = z.coerce.number().int().min(1).max(65535);
 
+/**
+ * Kunci 32 byte dalam base64 (`openssl rand -base64 32` → 44 karakter berakhiran `=`). Padding dan alfabet
+ * url-safe diterima, sama dengan dekoder base64 Node yang memakainya.
+ */
+const base64Key32 = z
+  .string()
+  .regex(/^[A-Za-z0-9+/_-]{43}=?$/, 'Harus 32 byte base64 (openssl rand -base64 32)');
+
 export const APP_ENVS = ['local', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 
@@ -47,6 +55,8 @@ export const envSchemas = {
     BPJS_CONS_ID: z.string().min(1),
     BPJS_SECRET_KEY: z.string().min(1),
   }),
+  /** Enkripsi kolom (rahasia MFA, identitas pasien) dan kunci blind index; API dan worker memakai kunci sama. */
+  fieldCrypto: z.object({ FIELD_ENCRYPTION_KEY: base64Key32, FIELD_HASH_KEY: base64Key32 }),
   integration: z.object({
     INTEGRATION_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     MOCK_BASE_URL: z.url().default('http://localhost:4100'),

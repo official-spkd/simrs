@@ -4,6 +4,7 @@ import {
   IDENTIFIER_SYSTEM_CODES,
   IDENTIFIER_SYSTEMS,
   MERGE_ATTRIBUTES,
+  PRIVACY_CONSENT_KINDS,
   type IdentifierSystem,
   isValidIdentifier,
   normalizeIdentifier,
@@ -119,7 +120,24 @@ export const matchListSchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
+/** Persetujuan privasi; pembukaan data wajib menyebut penerimanya. */
+export const createConsentSchema = z
+  .strictObject({
+    kind: z.enum(PRIVACY_CONSENT_KINDS),
+    recipient: z.string().trim().min(2).max(120).optional(),
+    note: z.string().trim().max(300).optional(),
+  })
+  .refine((v) => v.kind !== 'pembukaan_data' || v.recipient !== undefined, {
+    message: 'Sebutkan penerima data (mis. nama asuransi)',
+    path: ['recipient'],
+  });
+export const revokeConsentSchema = z.strictObject({
+  reason: z.string().trim().min(10, 'Alasan minimal 10 karakter').max(300),
+});
+
 export type CreatePatientInput = z.infer<typeof createPatientSchema>;
+export type CreateConsentInput = z.infer<typeof createConsentSchema>;
+export type RevokeConsentInput = z.infer<typeof revokeConsentSchema>;
 export type MergeCandidateInput = z.infer<typeof mergeCandidateSchema>;
 export type MpiDecisionInput = z.infer<typeof mpiDecisionSchema>;
 export type MatchListQuery = z.infer<typeof matchListSchema>;
