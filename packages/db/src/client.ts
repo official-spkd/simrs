@@ -27,12 +27,14 @@ export function createPrismaClient({ connectionString, max = 10 }: CreateClientO
 /**
  * Jalankan `fn` dalam satu transaksi dengan `app.tenant_id` disetel (SET LOCAL).
  * Semua query di dalamnya tunduk RLS; di luar `withTenant` query ke tabel domain gagal dengan TENANT_REQUIRED.
+ * `maxWaitMs`: batas tunggu koneksi untuk memulai transaksi (bawaan Prisma 2 dtk, cocok untuk API: gagal cepat saat
+ * pool penuh); alat uji di mesin sibuk boleh menunggu lebih lama.
  */
 export async function withTenant<T>(
   prisma: PrismaClient,
   tenantId: string,
   fn: (tx: TenantTx) => Promise<T>,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; maxWaitMs?: number },
 ): Promise<T> {
   if (!isUuid(tenantId)) {
     throw new AppError('TENANT_REQUIRED', 'Konteks tenant tidak valid', 400);
@@ -42,7 +44,10 @@ export async function withTenant<T>(
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
       return fn(tx);
     },
-    { timeout: options?.timeoutMs ?? 15_000 },
+    {
+      timeout: options?.timeoutMs ?? 15_000,
+      ...(options?.maxWaitMs === undefined ? {} : { maxWait: options.maxWaitMs }),
+    },
   );
 }
 

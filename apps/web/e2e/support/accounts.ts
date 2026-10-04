@@ -6,6 +6,7 @@ import {
   insertPatient,
   type NewPatientRecord,
   type PrismaClient,
+  type TenantTx,
   withTenant,
 } from '@simrs/db';
 import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
@@ -46,6 +47,14 @@ function prisma(): PrismaClient {
   return db;
 }
 
+/**
+ * Transaksi ber-tenant untuk penyiapan data uji. Saat seluruh suite jalan paralel (build web + API + banyak browser),
+ * membuka koneksi Postgres baru (di Windows: satu proses per koneksi) bisa melebihi batas tunggu bawaan Prisma 2 dtk.
+ */
+function inTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+  return withTenant(prisma(), tenantId, fn, { maxWaitMs: 20_000 });
+}
+
 export async function createAccount(
   opts: {
     tenant?: TenantCode;
@@ -67,7 +76,7 @@ export async function createAccount(
     totpSecret: opts.mfa === false ? null : generateTotpSecret(),
   };
   const passwordHash = await hashPassword(account.password);
-  await withTenant(prisma(), tenantId, async (tx) => {
+  await inTenant(tenantId, async (tx) => {
     await tx.user.create({
       data: {
         id,
@@ -103,7 +112,7 @@ export async function createAccount(
 
 /** Cabut semua sesi akun (mis. dinonaktifkan admin di tempat lain). */
 export async function revokeSessions(account: Account): Promise<void> {
-  await withTenant(prisma(), TENANTS[account.tenantCode], (tx) =>
+  await inTenant(TENANTS[account.tenantCode], (tx) =>
     tx.authSession.updateMany({
       where: { userId: account.id, status: 'active' },
       data: { status: 'revoked', revokedAt: new Date(), revokedReason: 'e2e' },
@@ -161,7 +170,7 @@ export function createPatient(
   rec: Partial<NewPatientRecord> = {},
 ): Promise<{ id: string; mrn: string }> {
   const tenantId = TENANTS[tenantCode];
-  return withTenant(prisma(), tenantId, (tx) =>
+  return inTenant(tenantId, (tx) =>
     insertPatient(tx, patientCrypto(tenantId), {
       name: 'Pasien Uji Fiktif',
       sex: 'female',
@@ -197,7 +206,7 @@ export async function createDuplicatePair(tenantCode: TenantCode = 'RSFA') {
     address: 'Kenanga No.12, Jaktim',
     identifiers: { bpjs: `0000${digits(9)}` },
   });
-  const candidateId = await withTenant(prisma(), tenantId, async (tx) => {
+  const candidateId = await inTenant(tenantId, async (tx) => {
     await detectDuplicates(tx, patientCrypto(tenantId), b.id);
     const c = await tx.patientMatchCandidate.findFirstOrThrow({
       where: { patientAId: a.id, patientBId: b.id },
@@ -214,7 +223,7 @@ export async function createBreakGlassGrant(account: Account, reason: string): P
   const tenantId = TENANTS[account.tenantCode];
   const patient = await createPatient(account.tenantCode);
   const grantedAt = new Date();
-  await withTenant(prisma(), tenantId, (tx) =>
+  await inTenant(tenantId, (tx) =>
     tx.breakGlassGrant.create({
       data: {
         id,
@@ -238,7 +247,7 @@ export async function insertAuditEvents(
   count: number,
 ): Promise<void> {
   const tenantId = TENANTS[account.tenantCode];
-  await withTenant(prisma(), tenantId, async (tx) => {
+  await inTenant(tenantId, async (tx) => {
     for (let i = 0; i < count; i++) {
       await tx.auditEvent.create({
         data: {
@@ -275,7 +284,7 @@ export async function createFormCorrection(
     q_gaya_jalan: 'normal',
     q_mental: 'sadar',
   };
-  return withTenant(prisma(), tenantId, async (tx) => {
+  return inTenant(tenantId, async (tx) => {
     const def = await ensurePublishedForm(tx, tenantId, MORSE_FALL_SCALE);
     const rootId = newId();
     const v2Id = newId();
@@ -344,7 +353,7 @@ export async function createSignedDocument(
   const docId = newId();
   const sha256 = sha256Hex(docId);
   const code = newVerifyCode(tenantId);
-  await withTenant(prisma(), tenantId, async (tx) => {
+  await inTenant(tenantId, async (tx) => {
     await tx.document.create({
       data: {
         id: docId,
@@ -392,7 +401,7 @@ export async function createNotification(
 ): Promise<string> {
   const tenantId = TENANTS[account.tenantCode];
   const id = newId();
-  await withTenant(prisma(), tenantId, (tx) =>
+  await inTenant(tenantId, (tx) =>
     tx.notification.create({
       data: { id, tenantId, recipientUserId: account.id, kind: 'break_glass', ...n },
     }),
@@ -403,7 +412,7 @@ export async function createNotification(
 /** No. HP staf (terenkripsi seperti yang ditulis API) untuk WhatsApp. */
 export async function setStaffPhone(account: Account, phone: string): Promise<void> {
   const tenantId = TENANTS[account.tenantCode];
-  await withTenant(prisma(), tenantId, (tx) =>
+  await inTenant(tenantId, (tx) =>
     tx.user.update({
       where: { id: account.id },
       data: {
@@ -420,7 +429,7 @@ export async function setStaffPhone(account: Account, phone: string): Promise<vo
 /** Kode cadangan terbaru untuk akun ini, seolah dibaca dari WhatsApp/email (worker tidak berjalan di E2E). */
 export async function latestBackupCode(account: Account): Promise<string> {
   const tenantId = TENANTS[account.tenantCode];
-  const ch = await withTenant(prisma(), tenantId, (tx) =>
+  const ch = await inTenant(tenantId, (tx) =>
     tx.loginChallenge.findFirstOrThrow({
       where: { userId: account.id, otpEnc: { not: null } },
       orderBy: { createdAt: 'desc' },
