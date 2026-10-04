@@ -2,7 +2,7 @@ import { PRESENTATION_PERSONAS } from '@simrs/db';
 import { describe, expect, it } from 'vitest';
 import { SCENARIOS } from '../skenario';
 import { demoExecutiveDashboard } from './dasbor';
-import { PASIEN, patientByScenario } from './pasien';
+import { consentIdOf, encounterIdOf, PASIEN, patientByEncounterId, patientByScenario } from './pasien';
 import { BANGSAL, POLI, queueNo, UNIT } from './rs';
 import { DOKTER, PERSONA } from './staf';
 
@@ -53,5 +53,11 @@ describe('fixture bersama mode presentasi', () => {
       expect(p).toMatchObject({ nama: def.base.nama, rm: def.base.rm, umur: def.base.umur, jk: def.base.jk });
       expect(p?.riwayat).toBe(def.base.riwayat);
     }
+  });
+
+  it('id kunjungan dan persetujuan baku per pasien, bisa dipetakan balik', () => {
+    expect(encounterIdOf('ps-suryo')).toBe('kj-suryo');
+    expect(consentIdOf('ps-hartono')).toBe('pk-hartono');
+    for (const p of PASIEN) expect(patientByEncounterId(encounterIdOf(p.id))?.id).toBe(p.id);
   });
 });

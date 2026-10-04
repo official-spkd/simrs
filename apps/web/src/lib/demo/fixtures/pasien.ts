@@ -362,3 +362,20 @@ export function patientById(id: string): DemoPatient | undefined {
 export function patientByScenario(id: ScenarioId): DemoPatient | undefined {
   return PASIEN.find((p) => p.scenario === id);
 }
+
+/**
+ * Id kunjungan aktif pasien di hari demo, dipakai di rute berparameter agar tautan antar-layar konsisten:
+ * `/klinis/order/kj-suryo`, `/klinis/rawat-inap/kj-hartono`, `/klinis/resume/kj-ratna`.
+ */
+export function encounterIdOf(patientId: string): string {
+  return patientId.replace(/^ps-/, 'kj-');
+}
+
+export function patientByEncounterId(encounterId: string): DemoPatient | undefined {
+  return PASIEN.find((p) => encounterIdOf(p.id) === encounterId);
+}
+
+/** Id dokumen persetujuan tindakan di tablet: `/tablet/persetujuan/pk-hartono`. */
+export function consentIdOf(patientId: string): string {
+  return patientId.replace(/^ps-/, 'pk-');
+}
