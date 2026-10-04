@@ -38,6 +38,7 @@ import {
   auditDetailSchema,
   auditPageSchema,
   type Finding,
+  type FormChange,
   type Grant,
   grantListSchema,
   grantSchema,
@@ -486,7 +487,87 @@ function PanelHead({ sub, title }: { sub: string; title: string }) {
   );
 }
 
+function HashInfo({ event }: { event: AuditEventDetail }) {
+  return (
+    <div className="flex flex-col gap-1 text-caption text-ink-500">
+      <span>
+        Hash: <span className="font-mono break-all">{event.hash}</span>
+      </span>
+      <span>
+        Hash sebelumnya: <span className="font-mono break-all">{event.prevHash ?? '—'}</span>
+      </span>
+      <span>Waktu, nomor urut, dan hash diisi server; entri tidak bisa diubah atau dihapus.</span>
+    </div>
+  );
+}
+
+/**
+ * Koreksi isian formulir (mockup Audit "Detail koreksi · Versi 1 → versi 2"): alasan wajib, nilai lama/baru per
+ * field, penulis asli, dan pengoreksi. Diff dihitung server dari dua versi isian yang tersimpan (append-only).
+ */
+function CorrectionPanel({ event, change: c }: { event: AuditEventDetail; change: FormChange }) {
+  const voided = c.status === 'entered_in_error';
+  return (
+    <Card className="overflow-hidden">
+      <PanelHead
+        sub={`Detail koreksi · ${c.formTitle}${c.originalAt ? ` ${formatWaktuSingkat(c.originalAt)}` : ''}`}
+        title={`Versi ${c.fromVersion} → versi ${c.toVersion}`}
+      />
+      <div className="flex flex-col gap-3.5 px-4 py-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-caption font-semibold text-ink-500">
+            {voided ? 'ALASAN SALAH ENTRI (WAJIB)' : 'ALASAN KOREKSI (WAJIB)'}
+          </span>
+          <span>{c.reason ?? '—'}</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-caption font-semibold text-ink-500">PERUBAHAN</span>
+          {voided ? (
+            <p className="m-0 rounded-[10px] border border-warning-border bg-warning-bg px-3 py-2.5 text-small">
+              Isian ditandai <span className="font-bold">salah entri</span>. Nilai versi {c.fromVersion} tetap
+              tersimpan, tetapi tidak dipakai lagi untuk perawatan pasien.
+            </p>
+          ) : c.rows.length === 0 ? (
+            <p className="m-0 text-small text-ink-700">Tidak ada nilai yang berubah.</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {c.rows.map((r) => (
+                <li key={r.key} className="flex flex-col gap-1.5 text-small">
+                  <span className="rounded-[10px] border border-danger-border bg-[#FFFBFA] px-3 py-2.5">
+                    <span className="font-bold text-danger">− v{c.fromVersion}</span> {r.label}:{' '}
+                    <s>{r.before}</s>
+                  </span>
+                  <span className="rounded-[10px] border border-success-border bg-[#F6FCF7] px-3 py-2.5">
+                    <span className="font-bold text-success">+ v{c.toVersion}</span> {r.label}:{' '}
+                    <span className="font-bold">{r.after}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2.5 text-small">
+          <Field label="Penulis asli">{c.originalAuthor ?? '—'}</Field>
+          <Field label="Dikoreksi oleh">{c.correctedBy ?? '—'}</Field>
+          <Field label="Waktu catat server" mono>
+            {formatWaktuSingkat(event.occurredAt)}.{event.occurredAt.slice(17, 19)}
+          </Field>
+          <Field label="Versi formulir">
+            {c.formCode} · v{c.formVersion}
+          </Field>
+        </div>
+        <span className="text-caption text-ink-500">
+          Versi {c.fromVersion} tetap tersimpan dan dapat dibuka. Entri final tidak pernah dihapus atau
+          ditimpa (MRMIK 8c).
+        </span>
+        <HashInfo event={event} />
+      </div>
+    </Card>
+  );
+}
+
 function EventPanel({ event }: { event: AuditEventDetail }) {
+  if (event.change) return <CorrectionPanel event={event} change={event.change} />;
   const details =
     event.details && typeof event.details === 'object' ? JSON.stringify(event.details, null, 2) : null;
   return (
@@ -524,15 +605,7 @@ function EventPanel({ event }: { event: AuditEventDetail }) {
             </pre>
           </div>
         )}
-        <div className="flex flex-col gap-1 text-caption text-ink-500">
-          <span>
-            Hash: <span className="font-mono break-all">{event.hash}</span>
-          </span>
-          <span>
-            Hash sebelumnya: <span className="font-mono break-all">{event.prevHash ?? '—'}</span>
-          </span>
-          <span>Waktu, nomor urut, dan hash diisi server; entri tidak bisa diubah atau dihapus.</span>
-        </div>
+        <HashInfo event={event} />
       </div>
     </Card>
   );

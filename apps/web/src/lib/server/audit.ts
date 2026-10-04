@@ -1,4 +1,5 @@
 import 'server-only';
+import { FORM_RESPONSE_STATUSES } from '@simrs/shared';
 import { z } from 'zod';
 
 /** Bentuk respons API layar Audit (P04) dan akses darurat (P03). Respons di luar bentuk ini ditolak. */
@@ -30,7 +31,27 @@ export const auditPageSchema = z.object({
   nextCursor: z.string().nullable(),
 });
 
-export const auditDetailSchema = auditEventSchema.extend({ prevHash: z.string().nullable() });
+/** Koreksi isian formulir (P07): versi lama → baru, alasan, penulis asli, pengoreksi, nilai yang berubah. */
+export const formChangeSchema = z.object({
+  formCode: z.string(),
+  formTitle: z.string(),
+  formVersion: z.number().int(),
+  fromVersion: z.number().int(),
+  toVersion: z.number().int(),
+  status: z.enum(FORM_RESPONSE_STATUSES),
+  reason: z.string().nullable(),
+  originalAuthor: z.string().nullable(),
+  originalAt: z.string().nullable(),
+  correctedBy: z.string().nullable(),
+  correctedAt: z.string(),
+  rows: z.array(z.object({ key: z.string(), label: z.string(), before: z.string(), after: z.string() })),
+});
+export type FormChange = z.infer<typeof formChangeSchema>;
+
+export const auditDetailSchema = auditEventSchema.extend({
+  prevHash: z.string().nullable(),
+  change: formChangeSchema.nullable().optional(),
+});
 export type AuditEventDetail = z.infer<typeof auditDetailSchema>;
 
 export const findingSchema = z.object({

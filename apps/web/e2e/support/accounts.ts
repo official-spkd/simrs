@@ -2,13 +2,14 @@ import { expect, type Page } from '@playwright/test';
 import {
   createPrismaClient,
   detectDuplicates,
+  ensurePublishedForm,
   insertPatient,
   type NewPatientRecord,
   type PrismaClient,
   withTenant,
 } from '@simrs/db';
 import { SEED_PLATFORM_TENANT, testDbUrls } from '@simrs/db/testing';
-import { newId } from '@simrs/shared';
+import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
 import {
   base32Decode,
   encryptField,
@@ -248,5 +249,80 @@ export async function insertAuditEvents(
         },
       });
     }
+  });
+}
+
+/**
+ * Isian Morse versi 1 (penulis) + koreksi versi 2 beralasan (pengoreksi) langsung di DB, beserta entri audit
+ * `correct` berbentuk sama dengan tulisan API (layar isian klinis dibangun di fase 2–3; jalur API diuji di
+ * apps/api/test/forms.test.ts). Detail Audit menghitung diff dari dua versi tersimpan ini.
+ */
+export async function createFormCorrection(
+  author: Account,
+  corrector: Account,
+  reason: string,
+): Promise<{ seq: string; patientId: string }> {
+  const tenantId = TENANTS[author.tenantCode];
+  const patient = await createPatient(author.tenantCode);
+  const v1 = {
+    q_riwayat_jatuh: 'ya',
+    q_diag_sekunder: 'ya',
+    q_alat_bantu: 'furnitur',
+    q_infus: 'tidak',
+    q_gaya_jalan: 'normal',
+    q_mental: 'sadar',
+  };
+  return withTenant(prisma(), tenantId, async (tx) => {
+    const def = await ensurePublishedForm(tx, tenantId, MORSE_FALL_SCALE);
+    const rootId = newId();
+    const v2Id = newId();
+    const common = {
+      tenantId,
+      patientId: patient.id,
+      definitionId: def.id,
+      formCode: 'morse_dewasa',
+      rootId,
+    };
+    await tx.formResponse.create({
+      data: {
+        ...common,
+        id: rootId,
+        version: 1,
+        answers: v1,
+        score: 70,
+        scoreBand: 'Risiko tinggi',
+        createdBy: author.id,
+      },
+    });
+    await tx.formResponse.create({
+      data: {
+        ...common,
+        id: v2Id,
+        version: 2,
+        supersedesId: rootId,
+        answers: { ...v1, q_alat_bantu: 'kruk' },
+        score: 55,
+        scoreBand: 'Risiko tinggi',
+        correctionReason: reason,
+        createdBy: corrector.id,
+      },
+    });
+    const event = await tx.auditEvent.create({
+      data: {
+        id: newId(),
+        tenantId,
+        actorUserId: corrector.id,
+        actorRole: 'perawat',
+        patientId: patient.id,
+        resourceType: 'form_response',
+        resourceId: v2Id,
+        action: 'correct',
+        outcome: 'success',
+        reason,
+        details: { form: 'morse_dewasa', from: 1, to: 2, status: 'final', fields: ['q_alat_bantu'] },
+      },
+      select: { seq: true },
+    });
+    return { seq: event.seq.toString(), patientId: patient.id };
   });
 }

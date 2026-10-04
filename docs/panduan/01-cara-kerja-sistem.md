@@ -139,6 +139,12 @@ Petugas mencari pasien dengan satu kotak: nomor RM, NIK, no. BPJS, IHS, atau nam
 
 Kode baku dipakai bersama semua RS: ICD-10 (diagnosis), ICD-9-CM (prosedur), LOINC (pemeriksaan lab), KFA (obat dan alat kesehatan), dan wilayah administratif. Aplikasi hanya membacanya. Operator platform memasukkan dataset resmi lewat perintah impor; berkas yang memuat satu baris salah ditolak seluruhnya agar tidak ada data setengah jadi. Versi baru tidak menghapus kode lama, hanya menonaktifkannya, sehingga diagnosis lama tetap terbaca. Data contoh di lingkungan lokal hanya kode yang sudah dipakai di desain layar, bukan dataset lengkap.
 
+## Formulir klinis
+
+Formulir asesmen (mis. risiko jatuh Morse) adalah **data**, bukan kode: komite rekam medis mengubahnya di **Sistem → Formulir klinis** tanpa menunggu rilis aplikasi. Setiap perubahan dibuat sebagai draf, diajukan ke komite, lalu diterbitkan sebagai versi baru; versi lama diarsipkan, dan isinya tidak bisa diubah lagi. Isian pasien selalu ditampilkan dengan versi formulir saat diisi.
+
+Isian yang sudah disimpan tidak pernah ditimpa. Koreksi membuat versi baru dengan alasan wajib; nilai lama tetap tersimpan. Hanya profesi yang tercantum di formulir (mis. perawat dan bidan untuk Morse) yang boleh mengisi, dan hanya untuk pasien yang mereka rawat. Skor dan kategori risiko dihitung sistem. Di layar Audit, petugas privasi melihat koreksi sebagai "Versi 1 → versi 2": alasan, nilai sebelum dan sesudah, penulis asli, dan pengoreksi.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |

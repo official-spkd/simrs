@@ -203,6 +203,21 @@ Skema `ref` global (tanpa tenant, tanpa RLS, `simrs_app` hanya SELECT) ditulis m
 
 Pencarian memakai trigram `<%` dengan ambang yang disetel per transaksi, jadi panggil `searchConcepts`/`listRegions` di dalam transaksi (di API otomatis). Modul lain yang menyimpan kode baku (diagnosis, hasil lab, obat) memvalidasi kodenya ke `ref.concepts` dan menyimpan `system` + `code` + `display` (docs/04 §1).
 
+### Form engine (P07)
+
+Formulir klinis adalah data berversi; isian pasien append-only (ADR-0019).
+
+| Bagian                    | Isi                                                                                                                                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@simrs/shared` → `forms` | `formSchemaSchema` (bagian, field, opsi berskor, logika tampil, kategori skor), `formReadyProblems`, `validateAnswers`, `scoreForm`, `diffAnswers`, skema API, contoh `MORSE_FALL_SCALE`                            |
+| `form_definitions`        | Satu baris per versi (`code` + `version`). Siklus `draft → submitted → published → archived`; trigger membekukan isi versi terbit; indeks unik: satu berlaku + satu draf terbuka per kode                           |
+| `form_responses`          | Append-only (trigger + hanya SELECT/INSERT). Koreksi = baris baru (`root_id`, `supersedes_id` unik, `correction_reason` wajib); `entered_in_error` = salah entri; view `form_responses_current` untuk versi terkini |
+| API `modules/forms/`      | `GET/POST /forms`, `GET /forms/:code`, `PUT /forms/:code/draft`, `POST /forms/:code/{drafts,submit,withdraw,publish}` (izin `forms.definition.*`, token `baseUpdatedAt`)                                            |
+|                           | `POST /patients/:id/forms/:code/responses`, `GET /patients/:id/form-responses`, `GET /form-responses/:id`, `POST /form-responses/:id/{corrections,void}` (izin `forms.response.*` + `write_roles` + relasi pasien)  |
+| Audit                     | Koreksi = `correct` + alasan + kunci field yang berubah (tanpa nilai). `GET /audit/events/:seq` menghitung `change` (diff, penulis asli, pengoreksi) dari dua versi isian dan mencatat pembukaannya                 |
+
+Aturan saat menambah formulir atau layar isian: validasi isian selalu terhadap versi definisi milik isian itu (bukan versi berlaku), ambil versi terkini lewat `supersededBy: { none: {} }` atau view `form_responses_current`, baca riwayat per kelompok rekam medis (`FormsRepository.patientGroup`), dan jangan pernah menulis nilai isian ke `details` audit.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -320,21 +335,23 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 
 `apps/web/src/`:
 
-| Path                          | Isi                                                                                                                     |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`              | Root: font IBM Plex, `lang="id"`, CSS global                                                                            |
-| `proxy.ts`                    | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)          |
-| `app/masuk/`                  | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)            |
-| `app/(staf)/layout.tsx`       | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                           |
-| `app/(staf)/page.tsx`         | Beranda; status `/ready` hanya untuk operator platform                                                                  |
-| `app/(staf)/sistem/akses/`    | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien                |
-| `app/(staf)/sistem/audit/`    | Layar Audit (P04): jejak + filter lewat URL, panel detail/temuan/akses darurat, `ekspor/route.ts` (unduh CSV lewat BFF) |
-| `app/(staf)/rekam-medis/mpi/` | Layar MPI (P05): antrean, `compare-panel.tsx` (pilih sumber per atribut, keputusan, batal), `actions.ts`                |
-| `app/(staf)/superadmin/…`     | Area superadmin (peran `superadmin_platform`): panduan ini                                                              |
-| `app/(staf)/dev/ui/`          | Galeri token dan komponen (Fondasi), juga khusus operator platform                                                      |
-| `lib/server/`                 | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`                |
-| `lib/nav.ts`                  | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                                       |
-| `lib/guide.ts`                | Daftar halaman panduan, pembaca berkas, daftar isi                                                                      |
+| Path                          | Isi                                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `app/layout.tsx`              | Root: font IBM Plex, `lang="id"`, CSS global                                                                                  |
+| `proxy.ts`                    | Proxy Next 16: belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali (aman untuk paralel)                |
+| `app/masuk/`                  | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)                  |
+| `app/(staf)/layout.tsx`       | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                                 |
+| `app/(staf)/page.tsx`         | Beranda; status `/ready` hanya untuk operator platform                                                                        |
+| `app/(staf)/sistem/akses/`    | Layar Pengguna & akses (P03): `page.tsx` (data dari API, filter lewat URL), `actions.ts`, formulir klien                      |
+| `app/(staf)/sistem/audit/`    | Layar Audit (P04): jejak + filter lewat URL, panel detail/temuan/akses darurat, `ekspor/route.ts` (unduh CSV lewat BFF)       |
+| `app/(staf)/rekam-medis/mpi/` | Layar MPI (P05): antrean, `compare-panel.tsx` (pilih sumber per atribut, keputusan, batal), `actions.ts`                      |
+| `app/(staf)/sistem/formulir/` | Pustaka formulir + pembuat formulir (P07): `[code]/form-builder.tsx` (palet, kanvas + pratinjau skor, properti), `actions.ts` |
+| `app/(staf)/superadmin/…`     | Area superadmin (peran `superadmin_platform`): panduan ini                                                                    |
+| `app/(staf)/dev/ui/`          | Galeri token dan komponen (Fondasi), juga khusus operator platform                                                            |
+| `lib/server/`                 | Lapisan akses data (DAL): `api.ts`, `session.ts`, `cookies.ts`, `refresh.ts`, `schemas.ts`, `web-env.ts`                      |
+| `lib/nav.ts`                  | Menu dan rute; `requires` = izin yang dibutuhkan agar menu tampil                                                             |
+| `lib/guide.ts`                | Daftar halaman panduan, pembaca berkas, daftar isi                                                                            |
+| `lib/forms.ts`                | Operasi skema formulir untuk pembuat formulir (tambah/geser/hapus field, opsi, logika tampil, ringkasan kategori skor)        |
 
 Aturan web:
 
