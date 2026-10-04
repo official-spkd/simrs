@@ -19,6 +19,8 @@ test.describe('smoke', () => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account);
     await expect(page.getByRole('heading', { name: 'Beranda', level: 1 })).toBeVisible();
+    // Di luar mode presentasi tidak ada lencana data fiktif (ADR-0023).
+    await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     if ((viewport?.width ?? 1280) < 768) return;
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
     const igd = nav.getByTitle('IGD · layar belum tersedia').first();

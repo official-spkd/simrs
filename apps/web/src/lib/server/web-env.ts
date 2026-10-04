@@ -1,5 +1,11 @@
 import { type AppEnv, resolveAppEnv } from '@simrs/shared';
 
+/**
+ * Sumber data layar yang backend-nya belum ada (ADR-0023): `demo` = data dummy fiktif untuk presentasi,
+ * `api` = backend sungguhan. Layar fase 1 (Akses, Audit, Formulir, MPI) selalu memakai API.
+ */
+export type DataSource = 'api' | 'demo';
+
 export interface WebEnv {
   appEnv: AppEnv;
   apiBaseUrl: string;
@@ -9,6 +15,8 @@ export interface WebEnv {
   loginTenantCode: string;
   /** Cookie Secure + `__Host-` di luar lokal (lokal memakai http://localhost). */
   secureCookies: boolean;
+  /** Mode presentasi hanya bila `APP_ENV=local` DAN `DATA_SOURCE=demo`; staging/produksi selalu `api`. */
+  dataSource: DataSource;
 }
 
 /** Kode RS awal di layar masuk: dari env bila sah, selain itu RSCM di lokal; kosong di luar lokal. */
@@ -27,5 +35,6 @@ export function webEnv(source: Record<string, string | undefined> = process.env)
     tenantCodeField: appEnv !== 'production',
     loginTenantCode: tenantCodeDefault(source.LOGIN_TENANT_CODE, appEnv),
     secureCookies: appEnv !== 'local',
+    dataSource: appEnv === 'local' && source.DATA_SOURCE?.trim().toLowerCase() === 'demo' ? 'demo' : 'api',
   };
 }

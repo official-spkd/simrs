@@ -1,5 +1,7 @@
 import type { TenantKind } from '@simrs/shared';
 import type { NavGroup, NavItem } from '@simrs/ui';
+import { screenById, screenOpen } from './screens';
+import type { DataSource } from './server/web-env';
 
 /** Menu web: `requires` = izin (`sumber.aksi`) yang harus dimiliki peran aktif agar menu tampil. */
 export type WebNavItem = NavItem & { requires?: string };
@@ -8,7 +10,8 @@ export interface WebNavGroup extends NavGroup {
 }
 
 /**
- * Peta menu → rute (docs/08-desain-ui.md §4). `available` dinyalakan saat layar fase terkait selesai.
+ * Peta menu → rute (docs/08-desain-ui.md §4). Untuk layar fase 2–10, `available` dihitung dari registri `SCREENS`
+ * (`lib/screens.ts`, ADR-0023): `belum` redup, `demo` hanya di mode presentasi, `api` selalu.
  * Menyembunyikan menu hanya kenyamanan; setiap halaman dan endpoint API tetap memeriksa izinnya sendiri.
  */
 export const NAV_GROUPS: WebNavGroup[] = [
@@ -129,20 +132,28 @@ const PLATFORM_ITEM_IDS = new Set(['beranda', 'akses', 'audit']);
 
 /**
  * Grup menu untuk sesi saat ini: menu ber-`requires` hanya tampil bila peran memegang izinnya; tenant PLATFORM
- * hanya melihat menu sistem; grup superadmin hanya untuk superadmin platform.
+ * hanya melihat menu sistem; grup superadmin hanya untuk superadmin platform. Layar ber-data dummy di mode
+ * presentasi hanya tampil untuk posisi yang memakainya (layar lain disembunyikan, bukan diredupkan).
  */
 export function navGroups(opts: {
   kind: TenantKind;
   superadmin: boolean;
   permissions: readonly string[];
+  dataSource: DataSource;
+  /** Kode peran posisi aktif (null bila belum memilih). */
+  role: string | null;
 }): WebNavGroup[] {
   const groups = NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter(
-      (item) =>
-        (!item.requires || opts.permissions.includes(item.requires)) &&
-        (opts.kind !== 'platform' || PLATFORM_ITEM_IDS.has(item.id)),
-    ),
+    items: g.items.flatMap((item): WebNavItem[] => {
+      if (item.requires && !opts.permissions.includes(item.requires)) return [];
+      if (opts.kind === 'platform' && !PLATFORM_ITEM_IDS.has(item.id)) return [];
+      const screen = screenById(item.id);
+      if (!screen) return [item];
+      const open = screenOpen(screen, opts);
+      if (!open && screen.status === 'demo' && opts.dataSource === 'demo') return [];
+      return [{ ...item, available: open }];
+    }),
   })).filter((g) => g.items.length > 0);
   return opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups;
 }

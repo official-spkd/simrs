@@ -1,5 +1,6 @@
 import { AppShell } from '@simrs/ui';
 import type { ReactNode } from 'react';
+import { DemoBadge } from '@/components/demo-badge';
 import { LogoutButton } from '@/components/logout-button';
 import { NotificationBell } from '@/components/notification-bell';
 import { SwitchPositionLink } from '@/components/switch-position-link';
@@ -9,6 +10,7 @@ import { api } from '@/lib/server/api';
 import { unreadNotifications } from '@/lib/server/notifications';
 import { assignmentsSchema } from '@/lib/server/schemas';
 import { requireSession } from '@/lib/server/session';
+import { webEnv } from '@/lib/server/web-env';
 import { isSuperadmin } from '@/lib/session-view';
 
 /**
@@ -17,6 +19,7 @@ import { isSuperadmin } from '@/lib/session-view';
  */
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const s = await requireSession();
+  const { dataSource } = webEnv();
   const [unread, positions] = await Promise.all([
     unreadNotifications(),
     api('/api/v1/auth/assignments', { schema: assignmentsSchema }).then(
@@ -27,13 +30,24 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       tenantName={s.tenant.name}
-      header={<NotificationBell unread={unread} />}
+      header={
+        <>
+          {dataSource === 'demo' && <DemoBadge />}
+          <NotificationBell unread={unread} />
+        </>
+      }
       sidebar={
         <StaffSidebar
           tenantName={s.tenant.name}
           unitName={s.unit?.name ?? 'Semua unit'}
           user={{ name: s.user.displayName, role: s.role?.name ?? '—', initials: s.user.initials }}
-          groups={navGroups({ kind: s.tenant.kind, superadmin: isSuperadmin(s), permissions: s.permissions })}
+          groups={navGroups({
+            kind: s.tenant.kind,
+            superadmin: isSuperadmin(s),
+            permissions: s.permissions,
+            dataSource,
+            role: s.role?.code ?? null,
+          })}
           userActions={
             positions > 1 ? (
               <div className="flex flex-col gap-2">

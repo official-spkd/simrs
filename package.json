@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo run dev --parallel",
     "dev:lokal": "node scripts/with-pg.mjs pnpm exec turbo run dev --parallel --filter=@simrs/api --filter=@simrs/web --filter=@simrs/worker --filter=@simrs/mock",
+    "dev:demo": "node scripts/dev-demo.mjs",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

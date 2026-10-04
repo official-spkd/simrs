@@ -7,7 +7,13 @@ import type { NextConfig } from 'next';
  * Next.js hanya membaca .env di folder apps/web. Dari .env root kita ambil daftar putih variabel server saja
  * (bukan NODE_ENV, yang diatur Next sendiri), dan tidak menimpa nilai yang sudah disetel lingkungan.
  */
-const ROOT_ENV_ALLOWLIST = ['APP_ENV', 'API_BASE_URL', 'WEB_BASE_URL', 'LOGIN_TENANT_CODE'] as const;
+const ROOT_ENV_ALLOWLIST = [
+  'APP_ENV',
+  'API_BASE_URL',
+  'WEB_BASE_URL',
+  'LOGIN_TENANT_CODE',
+  'DATA_SOURCE',
+] as const;
 const rootEnvPath = resolve(process.cwd(), '../../.env');
 if (existsSync(rootEnvPath)) {
   const parsed = parseEnv(readFileSync(rootEnvPath, 'utf8'));

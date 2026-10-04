@@ -103,6 +103,16 @@ describe('webEnv (gagal aman)', () => {
     expect(webEnv({ APP_ENV: 'staging' }).loginTenantCode).toBe('');
     expect(webEnv({ APP_ENV: 'production', LOGIN_TENANT_CODE: 'RSCM' }).loginTenantCode).toBe('RSCM');
   });
+
+  it('mode presentasi (data dummy) hanya lokal + DATA_SOURCE=demo; staging/produksi selalu api', () => {
+    expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: 'demo' }).dataSource).toBe('demo');
+    expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: ' DEMO ' }).dataSource).toBe('demo');
+    expect(webEnv({ APP_ENV: 'local' }).dataSource).toBe('api');
+    expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: 'demo-ish' }).dataSource).toBe('api');
+    expect(webEnv({ APP_ENV: 'staging', DATA_SOURCE: 'demo' }).dataSource).toBe('api');
+    expect(webEnv({ APP_ENV: 'production', DATA_SOURCE: 'demo' }).dataSource).toBe('api');
+    expect(webEnv({ DATA_SOURCE: 'demo' }).dataSource).toBe('api');
+  });
 });
 
 describe('langkah login dan peran', () => {

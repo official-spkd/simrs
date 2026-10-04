@@ -94,6 +94,7 @@ Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000
 ```powershell
 pnpm dev             # api + worker + web + mock sekaligus (Turborepo; butuh Docker untuk Redis)
 pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web + worker + mock (Ctrl+C berhenti)
+pnpm dev:demo        # sama, dalam mode presentasi: layar fase 2–10 memakai data dummy fiktif (ADR-0023)
 ```
 
 | Alamat                                   | Yang terlihat                                                        |
@@ -386,12 +387,12 @@ Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --fil
 ## 5. Membuat layar web dari mockup
 
 1. Baca `docs/08-desain-ui.md` §4 untuk rute dan komponen, lalu buka `design/mockups/<Layar>.dc.html`. Markup di dalam `<x-dc>` memberi tata letak; blok `<script type="text/x-dc">` memberi state, data contoh, dan aturan gerbang.
-2. Buat halaman di `apps/web/src/app/(staf)/<rute>/page.tsx` sebagai **komponen server**. Ambil data dari API di server.
+2. Buat halaman di `apps/web/src/app/(staf)/<rute>/page.tsx` sebagai **komponen server**. Ambil data dari API di server. Bila backend layar itu belum ada (mode presentasi, ADR-0023): awali dengan `await requireDemoScreen('<id>')`, ambil data lewat `lib/server/data/<domain>.ts` (fixture fiktif di `lib/demo/`, divalidasi skema di `packages/shared/src/schemas/`), dan panggil `assertDemo()` di setiap Server Action.
 3. Pisahkan bagian interaktif ke komponen `'use client'` kecil. Jangan meneruskan rahasia atau env ke komponen klien.
 4. Pakai komponen `@simrs/ui` dan kelas token (`bg-brand-600`, `text-ink-700`, `rounded-card`). Jangan menulis warna heksadesimal baru.
 5. Layar klinis wajib menampilkan `PatientBanner`. Tombol yang belum boleh dipakai tetap terlihat, nonaktif, dan alasannya tertulis.
-6. Nyalakan menunya: ubah `available: true` di `apps/web/src/lib/nav.ts`.
-7. Tambahkan tes Playwright di `apps/web/e2e/` untuk alur utama, termasuk gerbang keselamatan.
+6. Nyalakan menunya: untuk layar fase 2–10 ubah status layar di `apps/web/src/lib/screens.ts` (`belum` → `demo`, atau `api` bila sudah tersambung); menu lain memakai `available: true` di `apps/web/src/lib/nav.ts`.
+7. Tambahkan tes Playwright di `apps/web/e2e/` untuk alur utama, termasuk gerbang keselamatan (layar mode presentasi: di `apps/web/e2e/demo/`).
 
 ## 6. Menambah endpoint mock dan operasi outbox
 

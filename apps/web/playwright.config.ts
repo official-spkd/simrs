@@ -3,7 +3,8 @@ import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * E2E web dengan stack penuh: Postgres (simrs_test) + API (port 4010) + web build produksi (port 3010).
+ * E2E web dengan stack penuh: Postgres (simrs_test) + API (port 4010) + web build produksi (port 3010), plus build
+ * yang sama dalam mode presentasi/data dummy (port 3011, ADR-0023) untuk spesifikasi di `e2e/demo/`.
  * Jalankan: `pnpm with-pg pnpm --filter @simrs/web test:e2e` (tanpa Docker) atau setelah `docker compose up -d`.
  * Port berbeda dari `pnpm dev` (3000/4000) agar server pengembangan yang sedang jalan tidak terpakai.
  *
@@ -30,6 +31,8 @@ const channel = process.env.PW_CHANNEL ?? (process.platform === 'win32' ? 'msedg
 const API_PORT = 4010;
 const WEB_PORT = 3010;
 const WEB_URL = `http://localhost:${WEB_PORT}`;
+const DEMO_PORT = 3011;
+const DEMO_URL = `http://localhost:${DEMO_PORT}`;
 const TEST_APP_DB =
   process.env.TEST_APP_DATABASE_URL ??
   'postgresql://simrs_app:app_local@localhost:5432/simrs_test?schema=public';
@@ -47,10 +50,26 @@ export default defineConfig({
     timezoneId: 'Asia/Jakarta',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], channel } },
+    { name: 'desktop', testIgnore: 'demo/**', use: { ...devices['Desktop Chrome'], channel } },
     {
       name: 'tablet',
+      testIgnore: 'demo/**',
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: 'demo-desktop',
+      testMatch: 'demo/**/*.spec.ts',
+      use: { ...devices['Desktop Chrome'], channel, baseURL: DEMO_URL },
+    },
+    {
+      name: 'demo-tablet',
+      testMatch: 'demo/**/*.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel,
+        baseURL: DEMO_URL,
+        viewport: { width: 768, height: 1024 },
+      },
     },
   ],
   webServer: [
@@ -88,6 +107,22 @@ export default defineConfig({
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
         // Isi awal "Kode RS" pasti sama dengan yang diuji, apa pun isi .env pengembang.
         LOGIN_TENANT_CODE: 'RSCM',
+        // Suite utama selalu memakai API, walau .env pengembang berisi DATA_SOURCE=demo.
+        DATA_SOURCE: 'api',
+      },
+    },
+    {
+      // Build yang sama (sudah dibuat server sebelumnya; server dijalankan berurutan) dalam mode presentasi.
+      command: `pnpm exec next start --port ${DEMO_PORT}`,
+      url: DEMO_URL + '/masuk',
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        NODE_ENV: 'production',
+        APP_ENV: 'local',
+        API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
+        LOGIN_TENANT_CODE: 'RSCM',
+        DATA_SOURCE: 'demo',
       },
     },
   ],

@@ -185,18 +185,20 @@ Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilai yang tid
 | Area superadmin web (panduan ini, Fondasi UI) | terbuka tanpa login | tertutup (404)                      |
 | HSTS                                          | mati                | aktif                               |
 
+**Mode presentasi (ADR-0023).** Layar fase 2–10 yang backend-nya belum ada dibangun lebih dulu dengan data dummy fiktif untuk presentasi ke klien dan direksi. Mode ini hanya hidup bila `APP_ENV=local` **dan** `DATA_SOURCE=demo` (jalankan `pnpm dev:demo`); di staging dan produksi layar itu tidak ada (404) dan menunya redup. Selama mode ini aktif, header selalu menampilkan lencana "Mode presentasi · data fiktif". Status tiap layar (`belum`, `demo`, `api`) ada di `apps/web/src/lib/screens.ts`.
+
 ## Mock dan data fiktif
 
 Selama pengembangan, semua sistem luar ditiru oleh `apps/mock` di `http://localhost:4100` (ADR-0006). Mock meniru kontrak aslinya, termasuk tanda tangan BPJS dan enkripsi respons, dan punya panel kendali untuk memicu skenario: lambat, gagal, webhook ganda, tagihan dibayar, kedaluwarsa.
 
-Semua data lokal **fiktif**. NIK uji berawalan `9999`, nama tenant "RS Fiktif …", kode CBG berawalan `SIM-`. Jangan pernah memasukkan data pasien asli ke lingkungan pengembangan.
+Semua data lokal **fiktif**. NIK uji berawalan `9999`, kode CBG berawalan `SIM-`. Tenant RSFA/RSFB bernama "RS Fiktif …"; tenant RSCM memakai nama RS sebenarnya (fokus pengembangan lokal), tetapi kode Kemenkes/BPJS/SATUSEHAT, pasien, dan stafnya fiktif. Jangan pernah memasukkan data pasien asli ke lingkungan pengembangan.
 
 ## Peta fase
 
 | Fase | Isi                                                                                        | Status                                        |
 | ---- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
 | 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | 🟨 hampir selesai (tes BullMQ menunggu Redis) |
-| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | ⬜                                            |
+| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa PIN + seed staf       |
 | 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | ⬜                                            |
 | 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                                            |
 | 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                                            |
@@ -207,4 +209,4 @@ Semua data lokal **fiktif**. NIK uji berawalan `9999`, nama tenant "RS Fiktif �
 | 9    | Dasbor + aplikasi mobile                                                                   | ⬜                                            |
 | 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                            |
 
-Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
+Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.

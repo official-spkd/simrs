@@ -1,0 +1,22 @@
+# ADR-0023 · Mode presentasi: layar fase 2–10 dibangun lebih dulu dengan data dummy
+
+Status: diterima · 4 Okt 2026 · Komponen: lintas (F, K, S, U, B, I)
+
+## Konteks
+Pengguna perlu mempresentasikan seluruh layar SIM RS ke klien (RSCM) dan direksi sebelum backend fase 2–10 dibangun, dan ingin memantapkan UI/UX lebih dulu. docs/09 mensyaratkan fase berikut dimulai setelah DoD fase sebelumnya (backend + tes), dan docs/08 §1 meminta data contoh mockup menjadi fixture/seed, bukan hard-code. Pengguna memilih (4 Okt 2026): seluruh layar, **layar asli di rute finalnya + lapisan data dummy** yang kelak ditukar ke API, dan presentasi berupa panduan langkah + navigasi bebas memakai tiga skenario `design/mockups/Simulasi.dc.html`.
+
+## Keputusan
+1. **Pengecualian urutan fase.** Layar fase 2–10 boleh dibangun sebagai UI dengan data dummy sebelum DoD fase sebelumnya terpenuhi. Backend tiap fase tetap mengikuti DoD docs/09 saat disambungkan; layar tidak dianggap "selesai" untuk fase itu sebelum tersambung ke API.
+2. **Gerbang gagal aman.** Data dummy hanya aktif bila `APP_ENV=local` **dan** `DATA_SOURCE=demo` (`webEnv().dataSource`); staging dan produksi selalu `api`. Setiap halaman ber-data dummy memanggil `requireDemoScreen()` (render dinamis, 404 di luar demo) dan setiap Server Action ber-data dummy memanggil `assertDemo()`, karena action ikut ter-build sebagai endpoint POST. Lencana "Mode presentasi · data fiktif" selalu tampil di header.
+3. **Registri layar** `apps/web/src/lib/screens.ts`: status `belum` (menu redup), `demo` (hanya mode presentasi, per posisi), `api` (tersambung). Pembatasan per posisi di mode demo hanya di UI; izin sungguhan (`plannedPermission`) dibuat bersama backend.
+4. **Kontrak dulu.** Skema respons zod per domain ditulis di `packages/shared/src/schemas/<domain>.ts` mengikuti entitas docs/04; data dummy divalidasi skema yang sama. Halaman dan action hanya mengambil data lewat `apps/web/src/lib/server/data/<domain>.ts`; jalur `api` berstatus belum diimplementasi sampai endpoint ada (tanpa menebak bentuk endpoint).
+5. **Data dummy fiktif dan bisa ditelusuri.** Fixture di `apps/web/src/lib/demo/`: identitas jelas fiktif (NIK `9999…`, BPJS `0000…`), staf bernama fiktif, tanpa merek nyata, kode klinis hanya dari `SEED_REF_SAMPLES` (obat tanpa KFA di seed = "belum dipetakan"), uang `bigint` rupiah yang dihitung, bukan diketik. Web tidak boleh mengimpor `@simrs/db` di kode runtime (aturan ESLint); silang-cek kode hanya di tes.
+6. **Gerbang keselamatan tetap memblokir** di mode demo (CDS, nilai kritis, gelang eMAR, time-out OK, triase turun): override wajib alasan, seperti produksi.
+7. **Keadaan skenario presentasi** disimpan di server per akun demo (bukan cookie: batas 4 KB dan tidak bisa dibagi antar-perangkat), dihitung ulang secara deterministik dari definisi skenario + urutan aksi.
+8. **Aplikasi pasien/dokter** ditampilkan sebagai pratinjau web dalam bingkai ponsel (`/pratinjau/…`, khusus demo); aplikasi aslinya tetap Expo (`apps/mobile`, fase 9).
+
+## Konsekuensi
++ Klien dan direksi melihat seluruh alur lebih awal; umpan balik UI/UX masuk sebelum backend dibangun, sehingga perubahan lebih murah.
++ Tidak ada layar yang dibuang: saat backend sebuah domain jadi, status di registri diubah ke `api`, fixture dipindah ke seed, dan skema bersama menjadi kontrak uji API.
+− Risiko salah kira data dummy sebagai fitur jadi: dicegah lencana tetap, gerbang env, dan status "belum tersambung" di PROGRESS.
+− Kontrak dummy bisa menyimpang dari kebutuhan backend nyata: dimitigasi skema bersama di `packages/shared` yang dipakai API nanti.
