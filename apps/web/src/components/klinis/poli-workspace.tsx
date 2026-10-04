@@ -79,7 +79,12 @@ export function PoliWorkspace({
   const actions = (
     <>
       {isDoctor && panggil && panggil.status !== 'selesai' && (
-        <Button type="button" disabled={!tasks.enabled('panggil')} onClick={() => tasks.run('panggil', true)}>
+        <Button
+          type="button"
+          variant="primary"
+          disabled={!tasks.enabled('panggil')}
+          onClick={() => tasks.run('panggil', true)}
+        >
           <Icon name="bell" size={16} />
           {panggil.btn} · {encounter.queueNo}
         </Button>

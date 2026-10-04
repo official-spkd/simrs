@@ -1371,6 +1371,7 @@ function toOrders(
     tariff: l.item.tariff,
     cds: l.cds,
     status: l.status,
+    override: l.override,
   }));
 }
 

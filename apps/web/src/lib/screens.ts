@@ -114,7 +114,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'CPOE',
     components: ['K09'],
     phase: 3,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'order.write',
     demoRoles: ['dokter', 'dokter_residen'],
     layout: 'staf',

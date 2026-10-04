@@ -134,6 +134,7 @@ export function PoliQueue({
       )}
       <div className="flex flex-col gap-1.5 px-4 py-3">
         <Button
+          variant="primary"
           type="button"
           onClick={onCallNext}
           disabled={!canCall || !next}

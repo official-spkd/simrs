@@ -303,3 +303,65 @@ export function sendGate(lines: readonly EvaluatedLine[]): { count: number; reas
   if (drafts.length === 0) return { count: 0, reason: 'Belum ada order baru untuk dikirim.' };
   return { count: drafts.length, reason: null };
 }
+
+/** Alternatif aman per golongan yang diblokir (formularium contoh). */
+const ALTERNATIVES: Readonly<Record<string, readonly string[]>> = {
+  penisilin: ['klindamisin-300', 'azitromisin-500'],
+  'sefalosporin-1': ['klindamisin-300', 'azitromisin-500'],
+  'sefalosporin-3': ['azitromisin-500', 'klindamisin-300'],
+  ains: ['parasetamol-500'],
+  ppi: ['pantoprazol-40'],
+};
+
+export type CdsFix =
+  | { kind: 'swap'; lineId: string; toId: string; label: string }
+  | { kind: 'remove'; lineId: string; label: string };
+
+/** "Klindamisin 300 mg kapsul" → "klindamisin 300 mg" (label tombol). */
+export function shortDrugName(name: string): string {
+  return name
+    .replace(/\s+(kapsul|tablet kunyah|tablet|injeksi|sublingual|suspensi)$/i, '')
+    .replace(/^./, (c) => c.toLowerCase());
+}
+
+/**
+ * Tindak lanjut yang disarankan untuk baris yang diblokir CDS (pertama = rekomendasi utama SafetyGate): ganti ke
+ * alternatif aman, ganti obat pasangan interaksi (PPI → pantoprazol), atau hapus item.
+ */
+export function cdsFixes(
+  line: EvaluatedLine,
+  lines: readonly EvaluatedLine[],
+  catalog: readonly CpoeCatalogItem[],
+): CdsFix[] {
+  const fixes: CdsFix[] = [];
+  const swap = (lineId: string, toId: string, from?: string) => {
+    const to = catalog.find((c) => c.id === toId);
+    if (!to || lines.some((l) => l.item.id === toId)) return;
+    fixes.push({
+      kind: 'swap',
+      lineId,
+      toId,
+      label: from ? `Ganti ${from} ke ${shortDrugName(to.name)}` : `Ganti ${shortDrugName(to.name)}`,
+    });
+  };
+  if (line.cds.rule === 'interaksi') {
+    if (line.item.classes.includes('ppi'))
+      swap(line.lineId, 'pantoprazol-40', line.item.substance ?? undefined);
+    const partner = lines.find(
+      (l) =>
+        l.lineId !== line.lineId &&
+        l.status === 'draf' &&
+        l.item.classes.includes('ppi') &&
+        l.item.substance !== 'pantoprazol',
+    );
+    if (partner) swap(partner.lineId, 'pantoprazol-40', partner.item.substance ?? undefined);
+  } else if (line.cds.rule === 'alergi' || line.cds.rule === 'alergi-silang') {
+    for (const c of line.item.classes) for (const id of ALTERNATIVES[c] ?? []) swap(line.lineId, id);
+  }
+  fixes.push({
+    kind: 'remove',
+    lineId: line.lineId,
+    label: `Hapus ${line.item.substance ?? shortDrugName(line.item.name)}`,
+  });
+  return fixes;
+}

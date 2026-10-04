@@ -225,6 +225,7 @@ export function SoapForm({
               Simpan draf
             </Button>
             <Button
+              variant="primary"
               type="button"
               disabled={signed || pending || dx.length === 0}
               aria-describedby={finishWhy ? `${ids}-why` : undefined}
@@ -236,6 +237,7 @@ export function SoapForm({
         )}
         {canWrite && dxTask && dxTask.status !== 'selesai' && (
           <Button
+            variant="primary"
             type="button"
             disabled={!tasks.enabled('dx') || !hasScenarioDx}
             aria-describedby={dxWhy ? `${ids}-why` : undefined}

@@ -234,6 +234,8 @@ export const cpoeOrderSchema = z.strictObject({
   cds: cpoeCdsFindingSchema,
   /** `terkirim` = sudah di worklist unit penerima (tidak bisa dihapus, hanya dibatalkan lewat addendum). */
   status: z.enum(['draf', 'terkirim']),
+  /** Alasan override CDS yang tercatat (wajib bila temuan CDS memblokir). */
+  override: z.string().nullable(),
 });
 export type CpoeOrder = z.infer<typeof cpoeOrderSchema>;
 

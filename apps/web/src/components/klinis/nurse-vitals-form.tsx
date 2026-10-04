@@ -103,7 +103,7 @@ export function NurseVitalsForm({
         />
       </div>
       <span className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant="secondary" disabled={pending}>
+        <Button type="submit" variant="primary" disabled={pending}>
           {pending ? 'Menyimpan…' : 'Simpan tanda vital'}
         </Button>
         {result?.ok && (

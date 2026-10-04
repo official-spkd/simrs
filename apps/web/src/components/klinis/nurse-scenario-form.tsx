@@ -42,7 +42,7 @@ function TaskInput({ tasks, id, unit }: { tasks: ScenarioTasks; id: string; unit
             )}
           />
           <span className="text-small text-ink-500">{unit}</span>
-          <Button type="submit" disabled={!tasks.enabled(id)}>
+          <Button type="submit" variant="primary" disabled={!tasks.enabled(id)}>
             Simpan
           </Button>
         </span>

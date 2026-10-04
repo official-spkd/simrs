@@ -29,6 +29,8 @@ export function useScenarioTasks(binding: ScenarioBinding | null) {
   const errorFor = (id: string) => (runner.error?.task === id ? runner.error.message : null);
   return {
     active: binding !== null,
+    /** Langkah aktif (judul, deskripsi, semua tugas) atau null. */
+    step: binding?.here.step ?? null,
     task,
     enabled,
     run,

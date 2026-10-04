@@ -1,6 +1,6 @@
 import { formatRupiah } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { catalogItem } from './demo/fixtures/klinis';
+import { catalogItem, CPOE_CATALOG } from './demo/fixtures/klinis';
 import {
   type CdsPatient,
   costEstimate,
@@ -9,6 +9,8 @@ import {
   type OrderLine,
   preSendChecks,
   sendGate,
+  cdsFixes,
+  shortDrugName,
 } from './klinis-cds';
 
 const endang: CdsPatient = {
@@ -148,5 +150,31 @@ describe('override, biaya, dan gerbang kirim', () => {
     expect(formatRupiah(umum.total)).toBe('Rp 580.000');
     expect(costEstimate(lines, 'BPJS')).toEqual({ total: 385_000n, items: 1 });
     expect(evaluateCds(catalogItem('vitamin-d'), endang)).toMatchObject({ level: 'warn', rule: 'biaya' });
+  });
+});
+
+describe('tindak lanjut gerbang CDS', () => {
+  it('alergi amoksisilin: ganti klindamisin/azitromisin atau hapus; interaksi PPI: ganti pantoprazol', () => {
+    const lines = evaluateOrders([lineOf('amoksisilin-500'), lineOf('darah-lengkap')], endang, 'dr. X');
+    const blocked = lines[0];
+    if (!blocked) throw new Error('baris tidak ada');
+    expect(cdsFixes(blocked, lines, CPOE_CATALOG).map((f) => f.label)).toEqual([
+      'Ganti klindamisin 300 mg',
+      'Ganti azitromisin 500 mg',
+      'Hapus amoksisilin',
+    ]);
+    const ppi = evaluateOrders(
+      [lineOf('klopidogrel-75'), lineOf('omeprazol-20')],
+      { ...hartono, activeMeds: [] },
+      'dr. X',
+    );
+    const clop = ppi[0];
+    if (!clop) throw new Error('baris tidak ada');
+    expect(cdsFixes(clop, ppi, CPOE_CATALOG)[0]).toMatchObject({
+      kind: 'swap',
+      toId: 'pantoprazol-40',
+      label: 'Ganti omeprazol ke pantoprazol 40 mg',
+    });
+    expect(shortDrugName('Asetosal 160 mg tablet kunyah')).toBe('asetosal 160 mg');
   });
 });
