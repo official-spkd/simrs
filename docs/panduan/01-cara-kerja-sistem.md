@@ -94,6 +94,8 @@ Semua ini dikelola admin RS di layar **Pengguna & akses** (`/sistem/akses`): und
 
 Pengaman tambahan: RS tidak bisa kehilangan admin terakhirnya, admin tidak bisa mengubah akses akunnya sendiri lewat menu admin, dan izin kelola pengguna yang didelegasikan tidak bisa dipakai untuk mengambil alih akun admin.
 
+**PIN masuk cepat.** Di komputer unit yang dipakai bergantian (mis. nurse station), petugas layanan (dokter, perawat, bidan, apoteker, analis, radiografer, pendaftaran) bisa mendaftarkan PIN 6 digit untuk peramban itu lewat menu **PIN masuk cepat** (`/akun/pin`), setelah masuk penuh dengan sandi + kode dan mengetik ulang sandinya. Lain kali layar masuk menampilkan namanya: pilih nama, ketik PIN, langsung masuk ke posisi yang didaftarkan. PIN hanya berlaku di peramban dan posisi itu, selama 30 hari; sesinya paling lama 2 jam dan berakhir setelah 5 menit tanpa aktivitas. Salah 5 kali, PIN di perangkat itu dinonaktifkan dan pemiliknya harus masuk dengan sandi + kode lagi. PIN ikut dicabut saat sandi diganti/direset, MFA direset, akun dinonaktifkan, atau penugasannya berakhir; pemilik bisa menghapusnya dari daftar perangkat, dan admin bisa mencabutnya di **Pengguna & akses**. Peran sensitif (admin, keuangan, rekam medis, audit, privasi, manajemen) tidak bisa memakai PIN (ADR-0024).
+
 ## Integrasi lewat outbox
 
 Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) memakai pola _transactional outbox_.
@@ -167,7 +169,7 @@ Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifik
 | Jaringan lokal | API dan mock hanya mendengar di `127.0.0.1`                                                                   | ✅ fase 0 |
 | Web            | CSP, anti-framing; token hanya di cookie httpOnly (BFF); area superadmin khusus operator platform             | ✅ fase 1 |
 | Integrasi      | Outbox + idempotensi + DLQ; tanda tangan BPJS; HMAC webhook TPDI dengan batas umur 5 menit                    | ✅ fase 0 |
-| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, RBAC + ABAC, break-the-glass (API)                                | ✅ fase 1 |
+| Identitas      | Login, MFA TOTP wajib, sesi buram berotasi, PIN per perangkat terdaftar, RBAC + ABAC, break-the-glass (API)   | ✅ fase 1 |
 | Audit          | Hash berantai, layar Audit (temuan anomali, laporan akses darurat, ekspor) ✅; audit baca pasien menyusul P05 | 🟨 fase 1 |
 | Data           | Enkripsi kolom identitas (NIK, no. BPJS, IHS, alamat, no. HP) + hash untuk pencarian; tampil tersamar         | ✅ fase 1 |
 
@@ -200,7 +202,7 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 | Fase | Isi                                                                                        | Status                                        |
 | ---- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
 | 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | 🟨 hampir selesai (tes BullMQ menunggu Redis) |
-| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa PIN + seed staf       |
+| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa penutupan fase        |
 | 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | ⬜                                            |
 | 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                                            |
 | 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                                            |
