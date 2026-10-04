@@ -135,6 +135,10 @@ Petugas mencari pasien dengan satu kotak: nomor RM, NIK, no. BPJS, IHS, atau nam
 
 **Verifikasi NIK dan persetujuan privasi.** NIK yang dicatat otomatis dicocokkan ke Dukcapil di latar belakang (lewat antrean integrasi, sehingga gangguan Dukcapil tidak menghentikan pendaftaran). Hasilnya (terverifikasi, tidak sesuai, atau tidak ditemukan) tampil bersama NIK, termasuk saat meninjau rekam medis ganda. Persetujuan umum dan persetujuan pembukaan data ke pihak ketiga (mis. asuransi) dicatat atas nama petugas, bisa dicabut dengan alasan, dan riwayatnya tidak pernah dihapus.
 
+## Data rujukan
+
+Kode baku dipakai bersama semua RS: ICD-10 (diagnosis), ICD-9-CM (prosedur), LOINC (pemeriksaan lab), KFA (obat dan alat kesehatan), dan wilayah administratif. Aplikasi hanya membacanya. Operator platform memasukkan dataset resmi lewat perintah impor; berkas yang memuat satu baris salah ditolak seluruhnya agar tidak ada data setengah jadi. Versi baru tidak menghapus kode lama, hanya menonaktifkannya, sehingga diagnosis lama tetap terbaca. Data contoh di lingkungan lokal hanya kode yang sudah dipakai di desain layar, bukan dataset lengkap.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |

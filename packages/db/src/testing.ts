@@ -11,6 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSystemRoles } from './authz';
 import { createPrismaClient, withTenant } from './client';
+import { seedRefSamples } from './seed-ref';
 import { SEED_PLATFORM_TENANT, SEED_TENANTS } from './seed-data';
 
 export { SEED_PLATFORM_TENANT, SEED_TENANTS };
@@ -63,6 +64,8 @@ export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Prom
   }
   const prisma = createPrismaClient({ connectionString: urls.migrator, max: 2 });
   try {
+    // Contoh data rujukan global (P06) agar tes API/E2E punya kode ICD/LOINC/KFA; idempoten.
+    await seedRefSamples(prisma);
     for (const t of SEED_TENANTS) {
       await withTenant(prisma, t.id, async (tx) => {
         await tx.tenant.upsert({ where: { id: t.id }, update: {}, create: { ...t } });

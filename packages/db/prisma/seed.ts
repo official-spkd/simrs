@@ -1,5 +1,5 @@
 /**
- * Seed data fiktif lokal: tenant + struktur RS (P01) + pasien fiktif (P05). Idempoten (upsert per kode, ID
+ * Seed data fiktif lokal: data rujukan contoh (P06) + tenant + struktur RS (P01) + pasien fiktif (P05). Idempoten (upsert per kode, ID
  * pasien tetap) sehingga aman diulang. Dijalankan sebagai simrs_migrator; karena FORCE RLS, tetap lewat withTenant.
  * Staf fiktif ditambahkan di potongan berikutnya fase 1.
  */
@@ -11,6 +11,7 @@ import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
 import { SEED_PLATFORM_TENANT, SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 import { seedPatients } from '../src/seed-patients';
+import { seedRefSamples } from '../src/seed-ref';
 
 const url = process.env.MIGRATOR_DATABASE_URL;
 if (!url) throw new Error('MIGRATOR_DATABASE_URL belum disetel');
@@ -102,6 +103,9 @@ async function seedStructure(tx: TenantTx, tenantId: string) {
 
 const prisma = createPrismaClient({ connectionString: url, max: 2 });
 try {
+  // P06: contoh data rujukan (global, tanpa tenant) bila sistem kodenya masih kosong.
+  const refAdded = await seedRefSamples(prisma);
+  console.warn(`Data rujukan contoh (dari mockup) ditambahkan: ${refAdded} konsep`);
   for (const [index, t] of SEED_TENANTS.entries()) {
     await withTenant(prisma, t.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });

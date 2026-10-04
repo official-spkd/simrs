@@ -16,6 +16,7 @@ import { MpiModule } from './modules/mpi/mpi.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
+import { RefModule } from './modules/ref/ref.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
 
@@ -68,6 +69,7 @@ export class AppModule {
         TenancyModule,
         AuditModule,
         MpiModule,
+        RefModule,
         SettingsModule,
         NumberingModule,
         FacilityModule,

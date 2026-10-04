@@ -16,6 +16,7 @@
     "db:deploy": "pnpm --filter @simrs/db deploy:migrations",
     "db:seed": "pnpm --filter @simrs/db seed",
     "db:create-admin": "pnpm --filter @simrs/db create-admin",
+    "db:import-ref": "pnpm --filter @simrs/db import-ref",
     "db:studio": "pnpm --filter @simrs/db studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

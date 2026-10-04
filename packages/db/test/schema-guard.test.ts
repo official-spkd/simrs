@@ -113,6 +113,20 @@ describe('penjaga skema', () => {
     expect(p).toEqual({ mrn: false, name: true, value: false, active: true });
   });
 
+  it('skema ref (data rujukan global) hanya bisa dibaca role aplikasi', async () => {
+    const rows = await owner.$queryRaw<
+      Array<{ table: string; sel: boolean; ins: boolean; upd: boolean; del: boolean }>
+    >`
+      SELECT t AS table,
+             has_table_privilege('simrs_app', 'ref.' || t, 'SELECT') AS sel,
+             has_table_privilege('simrs_app', 'ref.' || t, 'INSERT') AS ins,
+             has_table_privilege('simrs_app', 'ref.' || t, 'UPDATE') AS upd,
+             has_table_privilege('simrs_app', 'ref.' || t, 'DELETE') AS del
+      FROM unnest(ARRAY['code_systems', 'concepts', 'regions']) AS t`;
+    expect(rows.every((r) => r.sel && !r.ins && !r.upd && !r.del)).toBe(true);
+    expect(rows).toHaveLength(3);
+  });
+
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {
     const [p] = await owner.$queryRaw<Array<{ reason: boolean; review: boolean }>>`
       SELECT has_column_privilege('simrs_app', 'public.break_glass_grants', 'reason', 'UPDATE') AS reason,

@@ -188,6 +188,21 @@ Aturan yang perlu dijaga saat menambah fitur pasien:
 - NIK yang dicatat (daftar atau ganti) langsung berstatus `pending` dan diantrekan ke outbox (`dukcapil.nik.verify`, kunci `nik-verify:<identifier>:<n>`). `POST /patients/:id/identifiers/nik/verify` (izin `patient.write`) meminta verifikasi ulang; ditolak `409` bila permintaan sebelumnya masih menunggu < 5 menit. Hasilnya diisi worker dan tampil di respons pasien dan tabel banding MPI.
 - Persetujuan privasi (`privacy_consents`): `GET/POST /patients/:id/consents`, `POST /patients/:id/consents/:consentId/revoke` (alasan wajib). Satu persetujuan aktif per jenis (dan per penerima untuk pembukaan data); pencabutan hanya mengisi kolom `revoked_*`. Semua diaudit (`read`/`create`/`deactivate`) tanpa nama penerima di detail audit.
 
+### Data rujukan (P06)
+
+Skema `ref` global (tanpa tenant, tanpa RLS, `simrs_app` hanya SELECT) ditulis manual di migrasi `20261004100000` dan **tidak** dimodelkan Prisma; aksesnya lewat fungsi SQL berparameter di `packages/db/src/ref.ts` (ADR-0018).
+
+| Bagian                          | Isi                                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ref.code_systems`              | `icd10`, `icd9cm`, `loinc`, `kfa` + URI FHIR, versi dan asal dataset terakhir, jumlah kode aktif                           |
+| `ref.concepts`                  | `system` + `code` + `display` + `active` + `extra` (atribut tambahan, mis. KFA `fornas`/`high_alert`)                      |
+| `ref.regions`                   | Kode Kemendagri; tingkat dan induk diturunkan dari kode                                                                    |
+| `@simrs/shared` → `terminology` | Format kode per sistem, check digit LOINC, tingkat wilayah                                                                 |
+| API `modules/ref/`              | `GET /ref/systems`, `/ref/concepts?system=&q=`, `/ref/concepts/:system/:code`, `/ref/regions?parent=&q=` (izin `ref.read`) |
+| CLI                             | `pnpm db:import-ref` (role migrator), impor satu berkas dalam satu transaksi, gagal tertutup                               |
+
+Pencarian memakai trigram `<%` dengan ambang yang disetel per transaksi, jadi panggil `searchConcepts`/`listRegions` di dalam transaksi (di API otomatis). Modul lain yang menyimpan kode baku (diagnosis, hasil lab, obat) memvalidasi kodenya ke `ref.concepts` dan menyimpan `system` + `code` + `display` (docs/04 §1).
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -251,24 +266,26 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Helper di `@simrs/db`
 
-| Ekspor                                        | Guna                                                                                                     |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `createPrismaClient({ connectionString })`    | Klien Prisma 7 dengan driver adapter `pg`; sesi database selalu ber-zona UTC (ADR-0014).                 |
-| `withTenant(prisma, tenantId, fn)`            | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.             |
-| `allocateNumber(tx, tenantId, kind)`          | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
-| `isModuleEnabled(tx, code)`                   | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
-| `verifyAuditChain(tx)`                        | P04 · Periksa hash berantai audit tenant aktif.                                                          |
-| `ensureSystemRoles(tx, tenantId)`             | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).    |
-| `roleGrantScope(tx, role, resource, action)`  | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
-| `activeAssignments(tx, userId)`               | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
-| `lockTenantScope(tx, scope)`                  | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
-| `insertPatient(tx, crypto, record)`           | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
-| `detectDuplicates(tx, crypto, patientId)`     | P05 · Hitung ulang kandidat rekam medis ganda satu pasien (ambil `lockMpi` sendiri).                     |
-| `lockMpi(tx)`                                 | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
-| `enqueueOutbox(tx, tenantId, envelope)`       | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
-| `claimDueOutbox(tx, limit, now)`              | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
-| `recordOutboxAttempt(tx, msg, result)`        | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
-| `@simrs/db/testing` → `prepareTestDatabase()` | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`.             |
+| Ekspor                                            | Guna                                                                                                     |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `createPrismaClient({ connectionString })`        | Klien Prisma 7 dengan driver adapter `pg`; sesi database selalu ber-zona UTC (ADR-0014).                 |
+| `withTenant(prisma, tenantId, fn)`                | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.             |
+| `allocateNumber(tx, tenantId, kind)`              | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
+| `isModuleEnabled(tx, code)`                       | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
+| `verifyAuditChain(tx)`                            | P04 · Periksa hash berantai audit tenant aktif.                                                          |
+| `ensureSystemRoles(tx, tenantId)`                 | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).    |
+| `roleGrantScope(tx, role, resource, action)`      | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
+| `activeAssignments(tx, userId)`                   | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
+| `lockTenantScope(tx, scope)`                      | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
+| `insertPatient(tx, crypto, record)`               | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
+| `detectDuplicates(tx, crypto, patientId)`         | P05 · Hitung ulang kandidat rekam medis ganda satu pasien (ambil `lockMpi` sendiri).                     |
+| `lockMpi(tx)`                                     | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
+| `searchConcepts` · `getConcept` · `listRegions`   | P06 · Baca data rujukan global (skema `ref`).                                                            |
+| `importConcepts` · `importRegions` · `csvRecords` | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                              |
+| `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
+| `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
+| `recordOutboxAttempt(tx, msg, result)`            | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
+| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`.             |
 
 ## Worker
 

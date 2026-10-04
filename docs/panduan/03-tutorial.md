@@ -69,6 +69,16 @@ pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif
 pnpm db:create-admin --tenant PLATFORM --username superadmin --name "Operator Platform"
 ```
 
+Seed hanya mengisi **contoh** data rujukan (72 kode yang sudah dipakai mockup, versi `contoh-mockup`). Dataset resmi diimpor dari CSV (kolom `code,display`; wilayah `code,name`), sekali per versi:
+
+```powershell
+pnpm db:import-ref --system icd10 --file .\icd10.csv --version 2019 --source WHO --dry-run   # validasi dulu
+pnpm db:import-ref --system icd10 --file .\icd10.csv --version 2019 --source WHO --replace
+pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source Kemendagri
+```
+
+Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
+
 Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSFA` atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
 ## 2. Menjalankan dan memeriksa

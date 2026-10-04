@@ -42,7 +42,8 @@
     "deploy:migrations": "prisma migrate deploy",
     "seed": "tsx --env-file-if-exists=../../.env prisma/seed.ts",
     "studio": "prisma studio",
-    "create-admin": "tsx --env-file-if-exists=../../.env scripts/create-admin.ts"
+    "create-admin": "tsx --env-file-if-exists=../../.env scripts/create-admin.ts",
+    "import-ref": "tsx --env-file-if-exists=../../.env scripts/import-ref.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
