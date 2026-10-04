@@ -107,7 +107,7 @@ export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
                   {a.link && (
                     <Link
                       href={a.link.href}
-                      className="inline-flex min-h-9 items-center rounded-[9px] border border-brand-800 bg-white px-2.5 text-[12.5px] font-semibold text-brand-700 no-underline"
+                      className="inline-flex min-h-11 items-center rounded-[9px] border border-brand-800 bg-white px-2.5 text-[12.5px] font-semibold text-brand-700 no-underline"
                     >
                       {a.link.label}
                     </Link>
@@ -117,7 +117,7 @@ export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
                     aria-pressed={!!at}
                     onClick={() => toggle(a.id)}
                     className={cx(
-                      'min-h-9 cursor-pointer rounded-[9px] border border-line-strong px-2.5 font-[inherit] text-[12.5px] font-medium text-ink-900',
+                      'min-h-11 cursor-pointer rounded-[9px] border border-line-strong px-2.5 font-[inherit] text-[12.5px] font-medium text-ink-900',
                       at ? 'bg-muted' : 'bg-white',
                     )}
                   >

@@ -68,7 +68,7 @@ export function KioskPresenterHint({
           type="button"
           aria-expanded
           onClick={() => setOpen(false)}
-          className="min-h-9 cursor-pointer rounded-[9px] border border-line-strong bg-white px-2 font-[inherit] text-caption"
+          className="min-h-11 cursor-pointer rounded-[9px] border border-line-strong bg-white px-2 font-[inherit] text-caption"
         >
           Ciutkan
         </button>
