@@ -67,6 +67,25 @@ export {
 export { seedStaff, type SeedStaffResult } from './seed-staff';
 export { seedHospitalStructure } from './seed-structure';
 export {
+  allocateQueueNumber,
+  type AllocatedQueueNumber,
+  QUEUE_NUMBER_MAX,
+  type QuotaBucket,
+  type QuotaState,
+  releaseQuota,
+  reserveQuota,
+} from './front-office';
+export {
+  SEED_PAYERS,
+  SEED_PRACTITIONERS,
+  SEED_QUEUE_DISPLAYS,
+  SEED_QUEUE_SERVICES,
+  SEED_SCHEDULE_TEMPLATES,
+  seedFrontOffice,
+  type SeedFrontOfficeResult,
+  seedPractitionerNumbers,
+} from './seed-front-office';
+export {
   PRESENTATION_PERSONAS,
   PRESENTATION_USERNAME_PREFIX,
   type PresentationCredential,

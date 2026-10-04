@@ -102,7 +102,7 @@ pnpm db:deploy       # terapkan semua migrasi ke database simrs
 pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (operator)
 ```
 
-Per RS, seed mengisi struktur (12 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
+Per RS, seed mengisi struktur (15 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
 **33 staf fiktif** lintas 16 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
 lab, radiografer, pendaftaran, kasir, koder, rekam medis, akuntan, manajemen, mutu, privasi, admin SIM RS) beserta
 penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`). Nama pengguna staf = NIP fiktif
@@ -114,6 +114,13 @@ Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa
 sandi**: sandi sementara tampil sekali, dan saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti
 sandi (sama dengan undangan biasa). Admin seed yang belum diaktifkan tidak dihitung sebagai admin aktif, jadi admin
 terakhir yang bisa masuk tetap tidak bisa dinonaktifkan atau dicabut perannya.
+
+Front office (fase 2) ikut di-seed per RS, selaras dengan layar mode presentasi: layanan antrean poli **PD**, **JT**,
+**SR**, **PR** (dengan kode poli BPJS INT/JAN/SAR/PAR), loket pendaftaran **A**, farmasi **F**; 16 dokter fiktif (11
+tertaut akun staf seed; enam dokter poli punya kode dokter HFIS fiktif 99001–99006, sama dengan mock BPJS); templat jadwal mingguan Senin–Sabtu dengan kuota JKN/non-JKN; penjamin BPJS, Umum, dan satu
+asuransi fiktif; papan antrean **Rawat Jalan Lantai 2**. Sesi per tanggal belum di-seed (dibangkitkan job jadwal).
+Seed juga menjalankan sinkron izin (seperti `pnpm db:sync-permissions`), jadi izin baru di katalog sampai ke peran RS
+yang sudah ada cukup dengan `pnpm db:seed`.
 
 ### Buat akun untuk masuk
 

@@ -349,7 +349,14 @@ describe('perubahan identitas', () => {
 
 describe('izin dan isolasi tenant', () => {
   it('auditor mutu tanpa izin pasien; kasir hanya baca; RS lain tidak melihat pasien RS ini', async () => {
-    const p = await createTestPatient(T.id, { name: 'Fitri Handayani' });
+    // Penanda unik tes ini: NIK berwilayah 97 (tidak dipakai seed) + 4 digit acak, dan nama berakhiran huruf acak.
+    // No. RM TIDAK unik antar-RS (penomoran per tenant), jadi bukan penanda isolasi.
+    const markerNik = `999997540372${String(Math.floor(Math.random() * 10_000)).padStart(4, '0')}`;
+    const marker = newId()
+      .slice(-8)
+      .replace(/\d/g, (d) => 'ghijklmnop'[Number(d)] ?? 'x');
+    const name = `Fitri Handayani ${marker}`;
+    const p = await createTestPatient(T.id, { name, identifiers: { nik: markerNik } });
     await as('auditor').get('/api/v1/patients?q=Fitri').expect(403);
     await as('auditor').get(`/api/v1/patients/${p.id}`).expect(403);
     await as('kasir')
@@ -358,12 +365,21 @@ describe('izin dan isolasi tenant', () => {
     const own = await as('kasir').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
     expect(own.body.items.map((i: { id: string }) => i.id)).toContain(p.id);
 
+    // Kontrol positif di RS pemilik: penanda yang sama memang menemukan pasien ini.
+    const ids = (r: request.Response) => (r.body.items as Array<{ id: string }>).map((i) => i.id);
+    expect(ids(await as('daftar').get(`/api/v1/patients?q=${markerNik}`).expect(200))).toEqual([p.id]);
+    expect(ids(await as('daftar').get(`/api/v1/patients?q=${p.mrn}`).expect(200))).toEqual([p.id]);
+
+    // RS lain: detail 404; cari NIK penanda → kosong; cari RM/nama yang sama → tidak pernah memuat pasien RS ini
+    // (RS lain boleh punya pasien sendiri dengan RM yang sama).
     await as('rsB').get(`/api/v1/patients/${p.id}`).expect(404);
-    const search = await as('rsB').get(`/api/v1/patients?q=${p.mrn}`).expect(200);
-    expect(search.body.items).toEqual([]);
-    // Pencarian nama lewat indeks (app_search_patient_names) juga hanya tenant sesi.
-    const byName = await as('rsB').get('/api/v1/patients?q=Fitri%20Handayani').expect(200);
-    expect(byName.body.items.map((i: { id: string }) => i.id)).not.toContain(p.id);
+    expect((await as('rsB').get(`/api/v1/patients?q=${markerNik}`).expect(200)).body.items).toEqual([]);
+    // Pencarian nama lewat indeks (app_search_patient_names) juga hanya tenant sesi: nama umum maupun nama penanda.
+    for (const q of [p.mrn, encodeURIComponent(name), 'Fitri%20Handayani']) {
+      const r = await as('rsB').get(`/api/v1/patients?q=${q}`).expect(200);
+      expect(ids(r)).not.toContain(p.id);
+      expect(jsonText(r.body)).not.toContain(marker);
+    }
   });
 
   it('rantai hash audit tenant tetap utuh setelah semua aktivitas pasien', async () => {
