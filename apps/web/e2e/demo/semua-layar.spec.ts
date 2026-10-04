@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { type ConsoleMessage, expect, type Page, test } from '@playwright/test';
+import { type ConsoleMessage, expect, type Page, test, type TestInfo } from '@playwright/test';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 import { createAccount, loginAs } from '../support/accounts';
 
@@ -111,12 +111,34 @@ async function capture(page: Page, root: string, project: string, name: string):
   await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
 }
 
+/** QA_VISUAL: tangkapan `path` di 1366×768 dan 1920×1080 (demo-desktop) atau ukuran proyek (demo-tablet). */
+async function captureQa(page: Page, testInfo: TestInfo, path: string, slug: string): Promise<void> {
+  const root = qaDir(testInfo.config.configFile);
+  if (testInfo.project.name === 'demo-desktop') {
+    for (const [w, h] of [
+      [1366, 768],
+      [1920, 1080],
+    ] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      await capture(page, root, `${w}x${h}`, slug);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+  } else {
+    await page.waitForLoadState('networkidle');
+    await capture(page, root, testInfo.project.name, slug);
+  }
+}
+
 test.describe('mode presentasi · semua layar', () => {
   test('registri punya layar demo untuk diuji', () => {
     expect(demoScreens.length).toBeGreaterThan(0);
   });
 
-  test('posisi dokter: layar Tn. Hartono pada tahap skenario IGD-nya', async ({ page }) => {
+  test('posisi dokter: layar Tn. Hartono pada tahap skenario IGD-nya', async ({ page }, testInfo) => {
+    const checks = IGD_SCENARIO_PATHS.reduce((n, s) => n + s.paths.length, 0);
+    test.setTimeout(60_000 + checks * (QA_VISUAL ? 45_000 : 15_000));
     const account = await createAccount({ roles: ['dokter'] });
     await loginAs(page, account);
     for (const { stage, paths } of IGD_SCENARIO_PATHS) {
@@ -128,7 +150,13 @@ test.describe('mode presentasi · semua layar', () => {
       for (const [id, path] of paths) {
         const screen = demoScreens.find((s) => s.id === id);
         if (!screen) continue;
-        await test.step(`${stage}: ${id} ${path}`, () => checkScreen(page, screen, path));
+        await test.step(`${stage}: ${id} ${path}`, async () => {
+          await checkScreen(page, screen, path);
+          // Tahap ikut di nama berkas: rute yang sama bisa tampil berbeda per tahap.
+          const stageSlug = stage.toLowerCase().replaceAll(' ', '-');
+          if (QA_VISUAL)
+            await captureQa(page, testInfo, path, `${id}${path.replaceAll('/', '_')}__${stageSlug}`);
+        });
       }
     }
   });
@@ -142,23 +170,7 @@ test.describe('mode presentasi · semua layar', () => {
         for (const path of pathsOf(screen)) {
           await test.step(`${screen.id} ${path}`, async () => {
             await checkScreen(page, screen, path);
-            if (!QA_VISUAL) return;
-            const slug = `${screen.id}${path.replaceAll('/', '_')}`;
-            if (testInfo.project.name === 'demo-desktop') {
-              for (const [w, h] of [
-                [1366, 768],
-                [1920, 1080],
-              ] as const) {
-                await page.setViewportSize({ width: w, height: h });
-                await page.goto(path);
-                await page.waitForLoadState('networkidle');
-                await capture(page, qaDir(testInfo.config.configFile), `${w}x${h}`, slug);
-              }
-              await page.setViewportSize({ width: 1280, height: 720 });
-            } else {
-              await page.waitForLoadState('networkidle');
-              await capture(page, qaDir(testInfo.config.configFile), testInfo.project.name, slug);
-            }
+            if (QA_VISUAL) await captureQa(page, testInfo, path, `${screen.id}${path.replaceAll('/', '_')}`);
           });
         }
       }
