@@ -77,7 +77,7 @@ export default async function RawatInapDetailPage({
     .map((x) => `${x.code} ${x.label}`)
     .join(' · ');
   const lastNote = [...d.cppt].sort((a, b) => b.writtenAt.localeCompare(a.writtenAt))[0];
-  const lv = ewsLevel(s.lastEws);
+  const lv = ewsLevel(s.lastEws, s.lastEwsMaxParam);
   const resume = routeOf('resume');
   const consent = routeOf('consent');
   const order = routeOf('order');
