@@ -2,18 +2,31 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { MockConfig } from '../config';
-import { SYSTEM_LABEL, SYSTEMS, type MockState } from '../state';
+import { SCENARIO_MODES, SYSTEM_LABEL, SYSTEMS, type MockState } from '../state';
+import { bpjsPanelSummary, registerBpjsPanel } from '../systems/bpjs/panel';
 import { deliverTpdiWebhook } from '../systems/tpdi';
 import { PANEL_HTML } from './html';
 
 const scenarioSchema = z.object({
   system: z.enum(SYSTEMS),
-  mode: z.enum(['normal', 'lambat', 'gagal', 'acak']),
+  mode: z.enum(SCENARIO_MODES),
   latencyMs: z.number().int().min(0).max(60_000).optional(),
   failStatus: z.number().int().min(400).max(599).optional(),
+  timeoutMs: z.number().int().min(0).max(120_000).optional(),
 });
 
-/** Panel kendali mock (docs/06 §7) + API-nya di `/_panel/api/*`. */
+const resetSchema = z.object({ system: z.enum(SYSTEMS).optional() }).optional();
+
+/**
+ * Panel kendali mock (docs/06 §7) + API-nya di `/_panel/api/*` (dipakai juga helper E2E):
+ *
+ * - `GET  /_panel/api/state`    → skenario per sistem, enkripsi BPJS, tagihan TPDI, _echo, log, pesan, ringkasan BPJS
+ * - `POST /_panel/api/scenario` → `{ system, mode: normal|lambat|gagal|acak|timeout, latencyMs?, failStatus?,
+ *                                  timeoutMs? }` → skenario baru; nilai yang tidak dikirim tetap
+ * - `POST /_panel/api/reset`    → body kosong = reset semua; `{ system }` = reset satu sistem (skenario + data)
+ * - `POST /_panel/api/bpjs-encryption` → `{ enabled }`
+ * - BPJS: lihat `systems/bpjs/panel.ts`; TPDI: `POST /_panel/api/tpdi/invoices/:id/(pay|resend|expire)`
+ */
 export function registerPanel(app: FastifyInstance, config: MockConfig, state: MockState): void {
   app.get('/', async (_req, reply) => reply.type('text/html; charset=utf-8').send(PANEL_HTML));
 
@@ -25,6 +38,7 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
     echoes: [...state.echoes.values()].reverse().slice(0, 20),
     log: state.log,
     messages: state.messages.slice(0, 30),
+    bpjs: bpjsPanelSummary(state.bpjs, 20),
   }));
 
   app.post('/_panel/api/scenario', async (req, reply) => {
@@ -36,6 +50,7 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
       mode: parsed.data.mode,
       latencyMs: parsed.data.latencyMs ?? cur.latencyMs,
       failStatus: parsed.data.failStatus ?? cur.failStatus,
+      timeoutMs: parsed.data.timeoutMs ?? cur.timeoutMs,
     });
     return state.scenario(parsed.data.system);
   });
@@ -45,10 +60,17 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
     return { bpjsEncryption: state.bpjsEncryption };
   });
 
-  app.post('/_panel/api/reset', async () => {
-    state.reset();
-    return { ok: true };
+  app.post('/_panel/api/reset', async (req, reply) => {
+    const parsed = resetSchema.safeParse(req.body ?? undefined);
+    if (!parsed.success)
+      return reply.code(400).send({ code: 'VALIDATION_FAILED', message: 'Sistem tidak dikenal' });
+    const system = parsed.data?.system;
+    if (system) state.resetSystem(system);
+    else state.reset();
+    return { ok: true, system: system ?? 'semua' };
   });
+
+  registerBpjsPanel(app, config, state);
 
   app.post<{ Params: { id: string; action: string }; Body: { amountOverride?: number } | undefined }>(
     '/_panel/api/tpdi/invoices/:id/:action',

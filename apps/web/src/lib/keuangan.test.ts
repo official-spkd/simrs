@@ -70,9 +70,9 @@ describe('data dummy Kasir', () => {
   it('umum menanggung semua; asuransi menanggung ekses di atas plafon; BPJS tanpa naik kelas Rp 0', () => {
     const byId = (id: string) => STATIC_INVOICES.find((i) => i.id === id);
     expect(byId('inv-ayu')?.split.patientShare).toBe(byId('inv-ayu')?.split.hospitalTotal);
-    expect(byId('inv-darmawan')?.split).toMatchObject({ payerPays: '500000', patientShare: '112000' });
-    expect(byId('inv-dewi')?.split.patientShare).toBe('0');
-    expect(BigInt(byId('inv-dewi')?.split.hospitalAbsorbs ?? '0')).toBeLessThan(0n);
+    expect(byId('inv-fransiska')?.split).toMatchObject({ payerPays: '500000', patientShare: '112000' });
+    expect(byId('inv-lukman')?.split.patientShare).toBe('0');
+    expect(BigInt(byId('inv-lukman')?.split.hospitalAbsorbs ?? '0')).toBeLessThan(0n);
   });
 
   it('item manual menambah total; BPJS: tanggungan pasien tetap, umum: ikut naik', () => {
@@ -156,7 +156,7 @@ describe('gerbang Server Action kasir (tagihan versi server)', () => {
 
   it('menolak tagihan tak dikenal, pasien skenario, dan yang sudah lunas', () => {
     expect(localActionProblem(undefined, 'bayar')).toMatch(/tidak ditemukan/);
-    expect(localActionProblem(byId('inv-siti'), 'tutup')).toMatch(/sudah lunas/);
+    expect(localActionProblem(byId('inv-wahyuni'), 'tutup')).toMatch(/sudah lunas/);
     const endang = byId('inv-endang');
     if (!endang) throw new Error('fixture');
     expect(localActionProblem({ ...endang, scenario: 'rawat-jalan' }, 'bayar')).toMatch(/skenario/);
@@ -194,10 +194,10 @@ const PAY = {
 describe('hari shift dan isian kuantitas', () => {
   it('tagihan lunas dihitung per hari pelunasan (lini masa skenario lain tidak masuk shift hari ini)', () => {
     expect(settledCount(STATIC_INVOICES, '2026-10-05')).toBe(3);
-    const siti = STATIC_INVOICES.find((i) => i.id === 'inv-siti');
-    if (!siti) throw new Error('fixture');
+    const wahyuni = STATIC_INVOICES.find((i) => i.id === 'inv-wahyuni');
+    if (!wahyuni) throw new Error('fixture');
     const later = {
-      ...siti,
+      ...wahyuni,
       payments: [{ ...PAY, at: '2026-10-13T08:00:00+07:00' }],
     };
     expect(settledOn(later)).toBe('2026-10-13');

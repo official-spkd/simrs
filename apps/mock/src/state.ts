@@ -1,4 +1,5 @@
 import { INTEGRATION_TARGETS, type IntegrationTarget } from '@simrs/shared';
+import { BpjsState } from './systems/bpjs/state';
 
 export const SYSTEMS = INTEGRATION_TARGETS;
 export type MockSystem = IntegrationTarget;
@@ -15,7 +16,15 @@ export const SYSTEM_LABEL: Record<MockSystem, string> = {
   whatsapp: 'WhatsApp (kotak masuk mock)',
 };
 
-export type ScenarioMode = 'normal' | 'lambat' | 'gagal' | 'acak';
+/**
+ * - `lambat`: tunda `latencyMs` sebelum diproses.
+ * - `gagal`: tolak dengan `failStatus` tanpa diproses.
+ * - `acak`: 30% gagal, sisanya tertunda acak s.d. `latencyMs`.
+ * - `timeout`: permintaan TETAP diproses (mis. SEP terbit), tetapi respons ditahan `timeoutMs` atau sampai klien
+ *   memutus; bila klien masih menunggu dijawab 504 `MOCK_TIMEOUT`. Meniru "BPJS memproses, jawabannya hilang".
+ */
+export const SCENARIO_MODES = ['normal', 'lambat', 'gagal', 'acak', 'timeout'] as const;
+export type ScenarioMode = (typeof SCENARIO_MODES)[number];
 
 export interface Scenario {
   mode: ScenarioMode;
@@ -23,6 +32,8 @@ export interface Scenario {
   latencyMs: number;
   /** Kode HTTP untuk mode `gagal` dan `acak`. */
   failStatus: number;
+  /** Lama respons ditahan (ms) untuk mode `timeout`. */
+  timeoutMs: number;
 }
 
 export interface RequestLogEntry {
@@ -71,7 +82,12 @@ export interface EchoRecord {
   count: number;
 }
 
-const defaultScenario = (): Scenario => ({ mode: 'normal', latencyMs: 3000, failStatus: 503 });
+const defaultScenario = (): Scenario => ({
+  mode: 'normal',
+  latencyMs: 3000,
+  failStatus: 503,
+  timeoutMs: 30_000,
+});
 
 export class MockState {
   scenarios = new Map<MockSystem, Scenario>();
@@ -81,6 +97,7 @@ export class MockState {
   invoiceByIdempotency = new Map<string, string>();
   echoes = new Map<string, EchoRecord>();
   messages: OutgoingMessage[] = [];
+  bpjs = new BpjsState();
   private seq = 0;
 
   constructor() {
@@ -95,7 +112,31 @@ export class MockState {
     this.invoiceByIdempotency.clear();
     this.echoes.clear();
     this.messages = [];
+    this.bpjs.reset();
     this.seq = 0;
+  }
+
+  /** Reset satu sistem saja: skenario, data, pesan outbox contoh, dan baris log-nya. */
+  resetSystem(system: MockSystem): void {
+    this.scenarios.set(system, defaultScenario());
+    this.log = this.log.filter((l) => l.system !== system);
+    for (const [key] of this.echoes) if (key.startsWith(`${system}:`)) this.echoes.delete(key);
+    switch (system) {
+      case 'bpjs':
+        this.bpjsEncryption = true;
+        this.bpjs.reset();
+        break;
+      case 'tpdi':
+        this.invoices.clear();
+        this.invoiceByIdempotency.clear();
+        break;
+      case 'email':
+      case 'whatsapp':
+        this.messages = this.messages.filter((m) => m.channel !== system);
+        break;
+      default:
+        break;
+    }
   }
 
   nextSeq(): number {
