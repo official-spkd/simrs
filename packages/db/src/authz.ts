@@ -1,4 +1,11 @@
-import { defaultRolesFor, newId, type PermissionScope, SCOPE_RANK, type TenantKind } from '@simrs/shared';
+import {
+  defaultRolesFor,
+  newId,
+  permissionKey,
+  type PermissionScope,
+  SCOPE_RANK,
+  type TenantKind,
+} from '@simrs/shared';
 import type { TenantTx } from './client';
 
 /**
@@ -32,6 +39,9 @@ export async function ensureSystemRoles(
   return existing;
 }
 
+const validScope = (scope: string | undefined): PermissionScope | null =>
+  scope && scope in SCOPE_RANK ? (scope as PermissionScope) : null;
+
 /** Lingkup izin peran untuk sumber × aksi, atau null bila tidak berizin / peran nonaktif. */
 export async function roleGrantScope(
   tx: TenantTx,
@@ -43,8 +53,24 @@ export async function roleGrantScope(
     where: { resource, action, role: { code: roleCode, active: true } },
     select: { scope: true },
   });
-  const scope = row?.scope as PermissionScope | undefined;
-  return scope && scope in SCOPE_RANK ? scope : null;
+  return validScope(row?.scope);
+}
+
+/**
+ * Seluruh izin satu peran (`sumber.aksi` → lingkup) dalam satu kueri; kosong bila peran tidak ada atau
+ * nonaktif. Dipakai cache matriks API (satu baris cache per tenant × peran).
+ */
+export async function roleGrants(tx: TenantTx, roleCode: string): Promise<Map<string, PermissionScope>> {
+  const rows = await tx.rolePermission.findMany({
+    where: { role: { code: roleCode, active: true } },
+    select: { resource: true, action: true, scope: true },
+  });
+  const grants = new Map<string, PermissionScope>();
+  for (const r of rows) {
+    const scope = validScope(r.scope);
+    if (scope) grants.set(permissionKey(r.resource, r.action), scope);
+  }
+  return grants;
 }
 
 /** Penugasan aktif pengguna pada saat `at` (peran aktif). */

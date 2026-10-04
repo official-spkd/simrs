@@ -24,3 +24,7 @@ docs/05 §1–2 menetapkan izin = peran × unit × relasi pasien × jenis formul
 − Satu kueri matriks per permintaan berizin (cache per tenant bila beban naik).
 − Izin baru di katalog tidak otomatis masuk ke peran RS yang sudah berjalan; perlu migrasi data atau penyesuaian lewat layar Akses.
 − Kunci admin menyerialkan perubahan akun admin dalam satu tenant (jarang, dapat diterima).
+
+## Pembaruan 5 Okt 2026 · cache matriks
+- **Cache matriks** (`apps/api/src/infra/permission-matrix.ts`) menggantikan satu kueri per permintaan berizin: izin per tenant × peran di memori proses. Perubahan lewat layar Akses membuang cache setelah commit dan disiarkan ke instans lain lewat Redis pub/sub; TTL `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik) membatasi keusangan bila siaran terlewat. Selama langganan Redis putus cache tidak dipakai (baca database), dan saat tersambung lagi seluruh cache dibuang, sehingga tidak pernah ada izin usang tanpa batas. "Berlaku seketika" kini: seketika di instans yang menyimpan, milidetik di instans lain, paling lambat TTL bila Redis bermasalah saat siaran.
+- Konsekuensi "−" tentang satu kueri matriks per permintaan tertutup.

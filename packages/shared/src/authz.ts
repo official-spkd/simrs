@@ -39,6 +39,9 @@ export function isPermission(resource: string, action: string): resource is Perm
   );
 }
 
+/** Kunci satu izin: `sumber.aksi` (mis. `iam.users.write`). Aksi tidak pernah bertitik. */
+export const permissionKey = (resource: string, action: string): string => `${resource}.${action}`;
+
 /** Peran bawaan (docs/05 §2). `superadmin_platform` hanya ada di tenant khusus PLATFORM (ADR-0010). */
 export const SYSTEM_ROLES = {
   admin_tenant: 'Admin SIM RS',
