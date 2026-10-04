@@ -11,7 +11,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadApiEnv } from '../src/config/env';
 import { RateLimitStorage } from '../src/infra/rate-limit.storage';
-import type { RedisService } from '../src/infra/redis.service';
+import { RedisService } from '../src/infra/redis.service';
 import { bearer, createTestApp, createTestUser, login, TENANT_A, TEST_RATE_LIMIT_PREFIX } from './helpers';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
@@ -248,6 +248,64 @@ describe('Redis tidak terjangkau', () => {
       expect((await plain()).status).toBe(429);
     },
   );
+});
+
+describe('skrip Redis: jendela geser dan blokir (sama dengan penyimpanan memori)', () => {
+  async function realStorage() {
+    const env = loadApiEnv({
+      ...process.env,
+      NODE_ENV: 'test',
+      APP_ENV: 'local',
+      TRUST_PROXY: 'loopback',
+      STORAGE_DRIVER: 'disk',
+      RATE_LIMIT_STORE: 'redis',
+      RATE_LIMIT_REDIS_PREFIX: uniquePrefix(),
+    });
+    const service = new RedisService(env);
+    const storage = new RateLimitStorage(env, service);
+    await storage.onModuleInit();
+    expect(storage.store).toBe('redis');
+    // Galat skrip/Redis akan jatuh ke cadangan memori dan dicatat: pastikan semua hit benar-benar dari Redis.
+    const failure = vi.spyOn(Logger.prototype, 'error');
+    const close = async () => {
+      expect(failure).not.toHaveBeenCalled();
+      await service.onModuleDestroy();
+    };
+    return { storage, close };
+  }
+
+  it('lewat batas → blokir; selama blokir tidak dihitung; sesudah blokir mulai dari nol', async () => {
+    const { storage, close } = await realStorage();
+    try {
+      const hit = () => storage.increment('k-blokir', 60_000, 1, 300, 'default');
+      expect(await hit()).toMatchObject({ totalHits: 1, isBlocked: false, timeToBlockExpire: 0 });
+      expect(await hit()).toMatchObject({ totalHits: 2, isBlocked: true, timeToBlockExpire: 1 });
+      expect((await hit()).isBlocked).toBe(true);
+      await new Promise((r) => setTimeout(r, 350));
+      expect(await hit()).toMatchObject({ totalHits: 1, isBlocked: false });
+    } finally {
+      await close();
+    }
+  });
+
+  it('tanpa durasi blokir: hit di atas batas ditolak tanpa dicatat, jendela bergeser', async () => {
+    const { storage, close } = await realStorage();
+    try {
+      const hit = (limit: number) => storage.increment('k-geser', 400, limit, 0, 'default');
+      expect((await hit(2)).isBlocked).toBe(false);
+      expect((await hit(2)).isBlocked).toBe(false);
+      expect(await hit(2)).toMatchObject({ totalHits: 3, isBlocked: true, timeToBlockExpire: 1 });
+      await new Promise((r) => setTimeout(r, 450));
+      expect(await hit(2)).toMatchObject({ totalHits: 1, isBlocked: false });
+      // Batas 0 pada jendela kosong: langsung ditolak (tanpa galat skrip).
+      expect(await storage.increment('k-nol', 400, 0, 0, 'default')).toMatchObject({
+        isBlocked: true,
+        timeToBlockExpire: 1,
+      });
+    } finally {
+      await close();
+    }
+  });
 });
 
 describe('Redis gagal setelah start (penyimpanan dengan Redis tiruan)', () => {

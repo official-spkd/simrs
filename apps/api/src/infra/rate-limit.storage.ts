@@ -22,6 +22,11 @@ local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
 local ttl = tonumber(ARGV[1])
 local limit = tonumber(ARGV[2])
 local block = tonumber(ARGV[3])
+local function windowLeft()
+  local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  if first[2] then return tonumber(first[2]) + ttl - now end
+  return ttl
+end
 local blockLeft = redis.call('PTTL', KEYS[2])
 if blockLeft > 0 then
   return {limit + 1, blockLeft, 1, blockLeft}
@@ -29,15 +34,13 @@ end
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - ttl)
 local hits = redis.call('ZCARD', KEYS[1])
 if block <= 0 and hits >= limit then
-  local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
-  local left = tonumber(first[2]) + ttl - now
+  local left = windowLeft()
   return {hits + 1, left, 1, left}
 end
 redis.call('ZADD', KEYS[1], now, ARGV[4])
 redis.call('PEXPIRE', KEYS[1], ttl)
 hits = hits + 1
-local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
-local left = tonumber(first[2]) + ttl - now
+local left = windowLeft()
 if block > 0 and hits > limit then
   redis.call('DEL', KEYS[1])
   redis.call('SET', KEYS[2], '1', 'PX', block)
