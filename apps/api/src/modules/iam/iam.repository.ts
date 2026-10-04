@@ -212,9 +212,17 @@ export class IamRepository {
     });
   }
 
+  /**
+   * Sandi sementara baru. Akun tanpa kredensial (staf seed yang belum diaktifkan, `seedStaff`) mendapat kredensial
+   * pertamanya di sini: reset oleh admin = cara mengaktifkan akun itu.
+   */
   async resetPassword(id: string, passwordHash: string) {
     const tx = this.db.tx();
-    await tx.userCredential.update({ where: { userId: id }, data: { passwordHash } });
+    await tx.userCredential.upsert({
+      where: { userId: id },
+      update: { passwordHash },
+      create: { userId: id, tenantId: this.db.tenantId(), passwordHash },
+    });
     await tx.user.update({
       where: { id },
       data: {

@@ -119,6 +119,7 @@ test.describe('masuk (P02/P03 lewat web)', () => {
     await submitPassword(page, account, account.password);
     await typeCode(page, totpFor(account.totpSecret as string));
     await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
-    await expect(page).toHaveURL(new RegExp(`localhost:${process.env.E2E_WEB_PORT ?? 3010}/$`));
+    // Path relatif dicocokkan utuh terhadap baseURL (port mengikuti E2E_WEB_PORT di playwright.config.ts).
+    await expect(page).toHaveURL('/');
   });
 });
