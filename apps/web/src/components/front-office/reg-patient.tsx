@@ -121,7 +121,10 @@ export function RegPatient({
               NIK cocok dengan Dukcapil dan SATUSEHAT
             </span>
           )}
-          <Link href="/rekam-medis/mpi" className="text-small font-semibold">
+          <Link
+            href="/rekam-medis/mpi"
+            className="inline-flex min-h-11 items-center self-start text-small font-semibold"
+          >
             Perbarui data pasien
           </Link>
         </div>

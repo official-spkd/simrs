@@ -109,7 +109,7 @@ export function ScenarioTaskCard({
             disabled={disabled}
             onClick={() => send(true)}
             className={cx(
-              'min-h-[42px] rounded-control border px-4 font-[inherit] font-semibold',
+              'min-h-11 rounded-control border px-4 font-[inherit] font-semibold',
               task.enabled
                 ? task.tone === 'danger'
                   ? 'cursor-pointer border-danger-strong bg-danger text-white'
@@ -168,7 +168,7 @@ export function ScenarioTaskCard({
             onChange={(e) => setDraft(e.target.value)}
             aria-invalid={errorText ? true : undefined}
             className={cx(
-              'h-[42px] min-w-0 flex-[1_1_260px] rounded-control border bg-white px-3 font-[inherit]',
+              'h-11 min-w-0 flex-[1_1_260px] rounded-control border bg-white px-3 font-[inherit]',
               errorText ? 'border-danger' : 'border-line-strong',
             )}
           />
@@ -176,7 +176,7 @@ export function ScenarioTaskCard({
             type="submit"
             disabled={disabled}
             className={cx(
-              'h-[42px] rounded-control border px-4 font-[inherit] font-semibold',
+              'h-11 rounded-control border px-4 font-[inherit] font-semibold',
               task.enabled
                 ? 'cursor-pointer border-brand-800 bg-brand-600 text-white'
                 : 'cursor-not-allowed border-line-strong bg-[#E9EDF1] text-ink-500',

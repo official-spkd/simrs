@@ -101,7 +101,7 @@ function Editor({
                 const isLocked = locked.has(key);
                 const text = `${ACTION_LABEL[action] ?? action}: ${scope ? SCOPE_LABEL[scope] : '—'}`;
                 const style = cx(
-                  'inline-flex min-h-8 items-center rounded-full border px-2.5 text-caption font-semibold',
+                  'inline-flex min-h-11 items-center rounded-full border px-2.5 text-caption font-semibold',
                   SCOPE_STYLE[scope ?? 'none'],
                   changed ? 'border-[#F5B450] ring-2 ring-[#F5B450]/40' : 'border-line',
                 );
