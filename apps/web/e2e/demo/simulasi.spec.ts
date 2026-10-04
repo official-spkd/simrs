@@ -77,7 +77,11 @@ test.describe('simulasi pasien', () => {
     await expect(panel.getByText('Tugas berikutnya: Pindai kode booking dari aplikasi pasien')).toBeVisible();
     await panel.getByRole('button', { name: 'Kerjakan 1 tugas (nilai bawaan)' }).click();
     await expect(panel.getByText('Tugas berikutnya: Verifikasi biometrik peserta JKN')).toBeVisible();
-    // Layar terkait belum dibangun: keterangan, bukan tombol mati tanpa alasan.
-    await expect(panel.getByText('Layar Anjungan mandiri belum tersedia.')).toBeVisible();
+    // Layar langkah ini sudah dibangun: presenter bisa membukanya sebagai posisi pembawanya.
+    await expect(
+      panel.getByRole('button', {
+        name: 'Buka layar Anjungan mandiri sebagai Petugas pendaftaran →',
+      }),
+    ).toBeVisible();
   });
 });

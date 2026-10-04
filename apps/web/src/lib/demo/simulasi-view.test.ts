@@ -40,7 +40,7 @@ describe('model tampilan Simulasi', () => {
     const now = simulationView(R, null);
     expect(now.step?.index).toBe(1);
     expect(now.logs[0]?.text).toBe('Tiket A-031 tercetak, notifikasi dikirim ke aplikasi pasien');
-    expect(now.step?.screen).toMatchObject({ id: 'daftar', ready: false });
+    expect(now.step?.screen).toMatchObject({ id: 'daftar', ready: true });
     expect(now.step?.roleName).toBe('Petugas pendaftaran');
   });
 

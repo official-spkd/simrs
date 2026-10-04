@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import { type DemoCommandInput, demoCommandAction } from '@/app/(staf)/simulasi/actions';
 
 /** Kanal antar-tab di browser yang sama: tab lain memuat ulang tampilannya saat simulasi berubah. */
@@ -61,7 +61,9 @@ export interface DemoRunnerError {
 export function useDemoRunner(rev: number) {
   const router = useRouter();
   const revRef = useRef(rev);
-  useEffect(() => {
+  // Layout effect: rev baru sudah terpasang sebelum efek biasa di komponen anak berjalan, sehingga tugas berantai
+  // (mis. `lapor` lalu `readback`) yang dipicu dari efek anak tidak memakai rev lama dan ditolak sebagai basi.
+  useLayoutEffect(() => {
     revRef.current = rev;
   }, [rev]);
   const busy = useRef(false);
