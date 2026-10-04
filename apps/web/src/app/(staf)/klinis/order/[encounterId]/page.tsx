@@ -10,7 +10,7 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientByEncounterId } from '@/lib/demo/fixtures/pasien';
 import { egfrLow } from '@/lib/klinis';
 import { screenById } from '@/lib/screens';
-import { getCpoeContext } from '@/lib/server/data/klinis';
+import { getCpoeContext, getPoliWorklist } from '@/lib/server/data/klinis';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
@@ -54,6 +54,14 @@ export default async function CpoePage({ params }: { params: Promise<{ encounter
     return s && s.status !== 'belum' ? [{ href: s.route, label: `Lihat di ${s.label}` }] : [];
   });
   const poli = screenById('poli');
+  // "Kembali ke pemeriksaan" hanya bila kunjungan poli pasien ini ada di antrean hari ini (bukan berujung 404).
+  const poliHref =
+    ctx.setting === 'rawat-jalan' &&
+    poli &&
+    poli.status !== 'belum' &&
+    (await getPoliWorklist(session)).items.some((i) => i.patientId === ctx.patient.id)
+      ? `${poli.route}?pasien=${ctx.patient.id}`
+      : null;
   const lowEgfr = egfrLow(ctx.egfr);
   const signature = ctx.orders.map((o) => `${o.id}:${o.status}:${o.override ?? ''}`).join('|');
 
@@ -78,9 +86,9 @@ export default async function CpoePage({ params }: { params: Promise<{ encounter
               eGFR {ctx.egfr ?? 'belum ada'}
               {lowEgfr ? ' · rendah' : ''}
             </Chip>
-            {ctx.setting === 'rawat-jalan' && poli && poli.status !== 'belum' && (
+            {poliHref && (
               <Link
-                href={`${poli.route}?pasien=${ctx.patient.id}`}
+                href={poliHref}
                 className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
               >
                 Kembali ke pemeriksaan
