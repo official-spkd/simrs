@@ -25,6 +25,7 @@ Isi `.env` yang perlu diperhatikan:
 | `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya                                     |
 | `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi |
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
+| `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
 ### Mesin baru (macOS)
@@ -463,7 +464,7 @@ Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan 
 ```powershell
 pnpm lint
 pnpm typecheck
-pnpm test                          # unit + integrasi (butuh Postgres; worker juga butuh Redis)
+pnpm test                          # unit + integrasi (butuh Postgres; worker dan tes batas laju API juga butuh Redis)
 pnpm --filter @simrs/web test:e2e  # Playwright; web harus jalan di :3000
 ```
 
@@ -486,5 +487,5 @@ Sebelum commit:
 | Tes: "prisma migrate deploy gagal untuk simrs_test"          | Postgres mati, atau migrasi lama diubah. Jalankan Postgres. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (menghapus simrs_test saja).                                      |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
-| Tes worker: "Redis tidak terjangkau"                         | Redis butuh Docker (`pnpm infra:up`). Tes ini sengaja tidak dilewati.                                                                                                                 |
+| Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |
 | `pnpm install`: "Ignored build scripts"                      | pnpm memblokir skrip instalasi yang belum disetujui. Periksa paketnya, lalu `pnpm approve-builds <paket>` atau tolak dengan `!<paket>`. Keputusan tersimpan di `pnpm-workspace.yaml`. |

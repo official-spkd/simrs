@@ -97,9 +97,10 @@ export default defineConfig({
         // Web (BFF) di loopback: IP klien dari X-Forwarded-For kiriman web.
         TRUST_PROXY: 'loopback',
         ALLOW_DEV_TENANT_HEADER: 'false',
-        // Semua tes datang dari satu IP (loopback); batas laju diuji di tes API.
+        // Semua tes datang dari satu IP (loopback) dan akun presentasi dipakai paralel; batas laju diuji di tes API.
         AUTH_RATE_LIMIT_PER_MIN: '10000',
         RATE_LIMIT_PER_MIN: '100000',
+        USER_RATE_LIMIT_PER_MIN: '100000',
         LOG_LEVEL: 'warn',
       },
     },
