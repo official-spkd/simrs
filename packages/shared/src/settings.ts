@@ -14,6 +14,13 @@ function def<T>(label: string, schema: z.ZodType<T>, defaultValue: T): SettingDe
 }
 
 /**
+ * Batas bawah ambang temuan anomali (P04). Ringkasan harian audit membuang hitungan di bawahnya karena tidak pernah
+ * bisa menjadi temuan, apa pun pengaturan RS (ADR-0072). Naikkan/turunkan hanya bersama versi ringkasan.
+ */
+export const AUDIT_VOLUME_THRESHOLD_MIN = 2;
+export const AUDIT_BURST_THRESHOLD_MIN = 2;
+
+/**
  * P12 · Registri pengaturan per RS. Hanya kunci di sini yang boleh disimpan; nilainya divalidasi skemanya.
  * Menambah pengaturan = menambah entri di sini (bukan kolom baru di database).
  */
@@ -42,12 +49,12 @@ export const TENANT_SETTINGS = {
   ),
   'audit.volume_threshold': def(
     'Batas pasien berbeda per pengguna per hari sebelum ditandai anomali',
-    z.number().int().min(2).max(1000),
+    z.number().int().min(AUDIT_VOLUME_THRESHOLD_MIN).max(1000),
     50,
   ),
   'audit.burst_threshold': def(
     'Batas gagal login atau akses ditolak per pengguna per hari sebelum ditandai anomali',
-    z.number().int().min(2).max(100),
+    z.number().int().min(AUDIT_BURST_THRESHOLD_MIN).max(100),
     5,
   ),
 } as const;

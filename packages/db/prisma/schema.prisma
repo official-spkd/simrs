@@ -33,6 +33,9 @@ model Tenant {
   deliveryAttempts DeliveryAttempt[]
   inboundEvents    InboundEvent[]
   auditEvents      AuditEvent[]
+  auditAnchors     AuditAnchor[]
+  auditSummaries   AuditDailySummary[]
+  auditSummaryItems AuditDailySummaryItem[]
   facilities       Facility[]
   units            Unit[]
   locations        Location[]
@@ -160,6 +163,76 @@ model AuditEvent {
   @@index([tenantId, patientId, occurredAt])
   @@index([tenantId, actorUserId, occurredAt])
   @@map("audit_events")
+}
+
+/// P04 · Jangkar hash audit (ADR-0072): kepala rantai per tenant + HMAC kunci terpisah, salinan dari bucket WORM.
+/// Append-only. Ditulis job worker setiap jam; dibaca `/audit/verify` sebagai titik periksa.
+model AuditAnchor {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// seq entri audit yang dijangkar.
+  seq        BigInt
+  /// hash entri itu (hex SHA-256).
+  hash       String
+  /// Waktu jangkar (jam database), bagian dari pesan yang ditandatangani.
+  anchoredAt DateTime @map("anchored_at") @db.Timestamptz(3)
+  /// Sidik kunci HMAC (16 hex), membedakan rotasi kunci dari perusakan.
+  keyId      String   @map("key_id")
+  hmac       String
+  /// Kunci objek di bucket WORM; null bila bucket tidak dipasang (lokal).
+  objectKey  String?  @map("object_key")
+  /// job = ditulis job jangkar · worm = dipulihkan dari bucket WORM (baris di database hilang).
+  source     String   @default("job")
+  /// Waktu baris dicatat (diisi trigger dari jam database).
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, seq])
+  @@map("audit_anchors")
+}
+
+/// P04 · Ringkasan harian temuan anomali per tenant per tanggal WIB (ADR-0072). Satu baris per (hari, parameter):
+/// parameter = jam malam, peran jaga, daftar aksi; berubah → ringkasan baru dihitung. Append-only, tanpa PHI.
+model AuditDailySummary {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  day        DateTime @db.Date
+  /// SHA-256 dari `params` kanonik.
+  paramsKey  String   @map("params_key")
+  params     Json
+  /// Jumlah entri audit tenant pada hari itu saat dihitung (kontrol).
+  eventCount Int      @map("event_count")
+  itemCount  Int      @map("item_count")
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id])
+  items  AuditDailySummaryItem[]
+
+  @@unique([tenantId, day, paramsKey])
+  @@unique([tenantId, id])
+  @@map("audit_daily_summaries")
+}
+
+/// Hitungan per pengguna × jenis temuan dalam satu ringkasan harian. Hitungan di bawah ambang minimum dibuang.
+model AuditDailySummaryItem {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  summaryId   String   @map("summary_id") @db.Uuid
+  /// login_failed | access_denied | night | volume
+  kind        String
+  /// null = gagal masuk dengan nama pengguna tak dikenal.
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorRole   String?  @map("actor_role")
+  /// Jumlah entri (gagal masuk/akses ditolak) atau pasien berbeda (malam/volume).
+  n           Int
+  lastAt      DateTime @map("last_at") @db.Timestamptz(3)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id])
+  summary AuditDailySummary @relation(fields: [tenantId, summaryId], references: [tenantId, id])
+
+  @@index([tenantId, summaryId, kind])
+  @@map("audit_daily_summary_items")
 }
 
 /// P01 · Faskes/cabang milik tenant (RS). Master: tidak dihapus, dinonaktifkan (active = false).

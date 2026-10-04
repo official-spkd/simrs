@@ -100,7 +100,48 @@ export const envSchemas = {
     INTEGRATION_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     MOCK_BASE_URL: z.url().default('http://localhost:4100'),
   }),
+  /**
+   * Kunci HMAC jangkar hash audit (P04, ADR-0072): terpisah dari kunci kolom, dipakai worker (menandatangani) dan API
+   * (memeriksa). Wajib di produksi; kosong di lokal = jangkar tidak ditulis dan `/audit/verify` memeriksa penuh.
+   */
+  auditAnchorKey: z.object({
+    AUDIT_ANCHOR_KEY: z.preprocess((v) => (v === '' ? undefined : v), base64Key32.optional()),
+  }),
+  /**
+   * Bucket WORM jangkar audit (S3 Object Lock, mode COMPLIANCE) + masa kunci objek. Bucket harus dibuat dengan
+   * object lock aktif (`mc mb --with-lock`). Kosong di lokal = jangkar hanya di database.
+   */
+  auditAnchorStore: z.object({
+    AUDIT_ANCHOR_BUCKET: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, 'Nama bucket S3 tidak valid')
+        .optional(),
+    ),
+    AUDIT_ANCHOR_RETENTION_DAYS: z.coerce.number().int().min(1).max(36_500).default(3650),
+  }),
 } as const;
+
+/**
+ * Kunci jangkar audit wajib di produksi dan tidak boleh sama dengan kunci kolom (kunci terpisah = bocornya satu
+ * kunci tidak sekaligus memungkinkan memalsukan jangkar). Dipanggil `loadApiEnv`/`loadWorkerEnv` setelah parse.
+ */
+export function auditAnchorKeyProblem(env: {
+  APP_ENV: AppEnv;
+  AUDIT_ANCHOR_KEY?: string;
+  FIELD_ENCRYPTION_KEY: string;
+  FIELD_HASH_KEY: string;
+}): string | null {
+  if (!env.AUDIT_ANCHOR_KEY) {
+    return env.APP_ENV === 'production' ? 'AUDIT_ANCHOR_KEY wajib di produksi' : null;
+  }
+  // Bandingkan bentuk base64 baku (tanpa padding, alfabet standar); modul ini juga dimuat di browser (tanpa Buffer).
+  const norm = (b64: string) => b64.replace(/=+$/, '').replaceAll('-', '+').replaceAll('_', '/');
+  const key = norm(env.AUDIT_ANCHOR_KEY);
+  const same = [env.FIELD_ENCRYPTION_KEY, env.FIELD_HASH_KEY].some((other) => norm(other) === key);
+  return same ? 'AUDIT_ANCHOR_KEY harus berbeda dari FIELD_ENCRYPTION_KEY dan FIELD_HASH_KEY' : null;
+}
 
 /** Validasi env sekali saat start; gagal cepat dengan daftar variabel yang salah (tanpa mencetak nilainya). */
 export function parseEnv<T extends z.ZodType>(
