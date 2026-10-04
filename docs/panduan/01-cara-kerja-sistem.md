@@ -185,6 +185,8 @@ Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilai yang tid
 | Area superadmin web (panduan ini, Fondasi UI) | terbuka tanpa login | tertutup (404)                      |
 | HSTS                                          | mati                | aktif                               |
 
+**Penyimpanan berkas dokumen.** `STORAGE_DRIVER=disk` (folder lokal) hanya diterima bila `APP_ENV=local`; staging dan produksi wajib `s3` (MinIO/S3), dan API menolak start bila tidak (ADR-0020).
+
 **Mode presentasi (ADR-0023).** Layar fase 2–10 yang backend-nya belum ada dibangun lebih dulu dengan data dummy fiktif untuk presentasi ke klien dan direksi. Mode ini hanya hidup bila `APP_ENV=local` **dan** `DATA_SOURCE=demo` (jalankan `pnpm dev:demo`); di staging dan produksi layar itu tidak ada (404) dan menunya redup. Selama mode ini aktif, header selalu menampilkan lencana "Mode presentasi · data fiktif". Status tiap layar (`belum`, `demo`, `api`) ada di `apps/web/src/lib/screens.ts`.
 
 ## Mock dan data fiktif
