@@ -21,6 +21,7 @@ import {
   type Ward,
 } from '@simrs/shared';
 import { BOARDING_TARGET_MINUTES, ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
+import { BED_REQUEST_ID, CONSENT_ID, cpptNoteId, DOCTOR_ID, ENCOUNTER_ID, PATIENT_ID } from './ids';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -110,10 +111,10 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B3',
-    patientId: 'ps-lestiani',
+    patientId: PATIENT_ID.lestiani,
     level: 2,
     complaint: 'Lemah anggota gerak kanan dan bicara pelo sejak 1 jam',
-    doctor: doctorName('dr-yudha'),
+    doctor: doctorName(DOCTOR_ID.yudha),
     los: 35,
     status: 'pemeriksaan',
     mode: 'diantar keluarga',
@@ -135,10 +136,10 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B4',
-    patientId: 'ps-nadia',
+    patientId: PATIENT_ID.nadia,
     level: 3,
     complaint: 'Demam 3 hari, muntah, minum sedikit',
-    doctor: doctorName('dr-nadia'),
+    doctor: doctorName(DOCTOR_ID.nadia),
     los: 55,
     status: 'observasi',
     mode: 'diantar orang tua',
@@ -160,10 +161,10 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B5',
-    patientId: 'ps-sumarni',
+    patientId: PATIENT_ID.sumarni,
     level: 3,
     complaint: 'Nyeri perut kanan atas hilang timbul, muntah',
-    doctor: doctorName('dr-yohanes'),
+    doctor: doctorName(DOCTOR_ID.yohanes),
     los: 280,
     status: 'tunggu-bed',
     mode: 'datang sendiri',
@@ -185,7 +186,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B6',
-    patientId: 'ps-joko',
+    patientId: PATIENT_ID.joko,
     level: 4,
     complaint: 'Nyeri dan bengkak lutut kanan setelah terjatuh di rumah',
     doctor: STAF.dokterJagaIgd,
@@ -210,7 +211,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B7',
-    patientId: 'ps-fauzi',
+    patientId: PATIENT_ID.fauzi,
     level: 4,
     complaint: 'Nyeri ulu hati dan mual sejak pagi',
     doctor: null,
@@ -235,7 +236,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B8',
-    patientId: 'ps-robert',
+    patientId: PATIENT_ID.robert,
     level: 3,
     complaint: 'Sesak saat aktivitas, kaki bengkak 3 hari',
     doctor: STAF.dokterJagaIgd,
@@ -260,7 +261,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'K1',
-    patientId: 'ps-gilang',
+    patientId: PATIENT_ID.gilang,
     level: 5,
     complaint: 'Batuk pilek 5 hari, demam ringan',
     doctor: STAF.dokterJagaIgd,
@@ -367,21 +368,25 @@ type NamedBed = Pick<Bed, 'status' | 'note'> & { patientId?: string };
 
 /** Bed bernama: pasien rawat inap fixture dan bed naskah skenario. Sisanya dibangkitkan deterministik. */
 const NAMED_BEDS: Record<string, NamedBed> = {
-  'VIP 2': { status: 'terisi', note: 'H2 · naik kelas VIP · angiografi 13.00', patientId: 'ps-sutan' },
+  'VIP 2': { status: 'terisi', note: 'H2 · naik kelas VIP · angiografi 13.00', patientId: PATIENT_ID.sutan },
   'VIP 3': { status: 'siap', note: 'siap · disiapkan untuk pasien elektif' },
   'A-07': { status: 'siap', note: 'siap · telemetri tersedia' },
   'A-09': { status: 'dibersihkan', note: 'sedang dibersihkan, siap ±30 menit' },
   'A-12': { status: 'siap', note: 'siap · telemetri tersedia' },
-  'A-15': { status: 'terisi', note: 'H3 · kateter HD 13.00 (OK 1)', patientId: 'ps-yusuf' },
-  'M-203': { status: 'pulang', note: 'H5 · pulang hari ini · resume draf', patientId: 'ps-endang' },
+  'A-15': { status: 'terisi', note: 'H3 · kateter HD 13.00 (OK 1)', patientId: PATIENT_ID.yusuf },
+  'M-203': { status: 'pulang', note: 'H5 · pulang hari ini · resume draf', patientId: PATIENT_ID.endang },
   'M-210': { status: 'siap', note: 'siap · kelas 2' },
-  'W-308': { status: 'terisi', note: 'H2 · pantau hematokrit', patientId: 'ps-raka' },
-  'W-322': { status: 'terisi', note: 'H1 · pasca SC', patientId: 'ps-wulan' },
-  'K-412': { status: 'terisi', note: 'H4 · ORIF hari ini · di ruang pulih OK 4', patientId: 'ps-rizky' },
-  'ICU 2': { status: 'terisi', note: 'H3 · ventilator', patientId: 'ps-hendro' },
+  'W-308': { status: 'terisi', note: 'H2 · pantau hematokrit', patientId: PATIENT_ID.raka },
+  'W-322': { status: 'terisi', note: 'H1 · pasca SC', patientId: PATIENT_ID.wulan },
+  'K-412': {
+    status: 'terisi',
+    note: 'H4 · ORIF hari ini · di ruang pulih OK 4',
+    patientId: PATIENT_ID.rizky,
+  },
+  'ICU 2': { status: 'terisi', note: 'H3 · ventilator', patientId: PATIENT_ID.hendro },
   'ICU 3': { status: 'siap', note: 'siap sekarang' },
   'ICU 5': { status: 'pulang', note: 'pindah ke HCU, siap ±30 menit setelah dibersihkan' },
-  'ICU 7': { status: 'terisi', note: 'H2 · vasopresor', patientId: 'ps-aminah' },
+  'ICU 7': { status: 'terisi', note: 'H2 · vasopresor', patientId: PATIENT_ID.aminah },
   'HCU 2': { status: 'siap', note: 'siap sekarang' },
   'HCU 4': { status: 'dibersihkan', note: 'sedang dibersihkan, siap ±30 menit' },
   'I-01': { status: 'terisi', note: 'TB paru · H6' },
@@ -519,20 +524,34 @@ export function demoBedRequests(beds: readonly Bed[]): BedRequest[] {
     };
   };
   return [
-    req('rq-sumarni', 'ps-sumarni', 'IGD B5', 'Bedah · kelas 1 · Umum', 'Kelas 1', 280),
-    req('rq-robert', 'ps-robert', 'IGD B8', 'Jantung · kelas 1 · BPJS · telemetri', 'Kelas 1', 135),
-    req('rq-lestiani', 'ps-lestiani', 'IGD B3', 'Saraf · kelas 3 · BPJS · pantau stroke', 'Kelas 3', 35),
+    req(BED_REQUEST_ID.sumarni, PATIENT_ID.sumarni, 'IGD B5', 'Bedah · kelas 1 · Umum', 'Kelas 1', 280),
     req(
-      'rq-fajar',
-      'ps-fajar',
+      BED_REQUEST_ID.robert,
+      PATIENT_ID.robert,
+      'IGD B8',
+      'Jantung · kelas 1 · BPJS · telemetri',
+      'Kelas 1',
+      135,
+    ),
+    req(
+      BED_REQUEST_ID.lestiani,
+      PATIENT_ID.lestiani,
+      'IGD B3',
+      'Saraf · kelas 3 · BPJS · pantau stroke',
+      'Kelas 3',
+      35,
+    ),
+    req(
+      BED_REQUEST_ID.fajar,
+      PATIENT_ID.fajar,
       'Ruang pulih OK 2',
       'Bedah · kelas 1 · Asuransi · pasca operasi',
       'Kelas 1',
       80,
     ),
     req(
-      'rq-maria',
-      'ps-maria',
+      BED_REQUEST_ID.maria,
+      PATIENT_ID.maria,
       'Poli PD · kemoterapi 13.00',
       'Penyakit dalam · kelas 2 · BPJS',
       'Kelas 2',
@@ -684,7 +703,7 @@ const DIETISIEN = 'Nurul Aini, S.Gz';
 
 /** Ny. Endang Wijaya · Melati M-203 (mockup Ranap): pneumonia + DM, hari ke-5, pulang hari ini (roster hari demo). */
 const ENDANG: InpatientSeed = {
-  patientId: 'ps-endang',
+  patientId: PATIENT_ID.endang,
   wardCode: 'MELATI',
   bed: 'M-203',
   dpjp: STAF.dpjpPenyakitDalam,
@@ -716,7 +735,7 @@ const ENDANG: InpatientSeed = {
   ],
   notes: [
     {
-      id: 'cppt-endang-1',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 1),
       role: 'residen',
       author: PERSONA.dokterResiden,
       at: T('07.40'),
@@ -726,7 +745,7 @@ const ENDANG: InpatientSeed = {
       p: 'Lanjut seftriakson H5, naikkan glargine 14 → 16 unit.',
     },
     {
-      id: 'cppt-endang-2',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 2),
       role: 'farmasi',
       author: STAF_LAIN.apoteker[0],
       at: T('08.15'),
@@ -735,7 +754,7 @@ const ENDANG: InpatientSeed = {
       p: 'Usul evaluasi de-eskalasi ke oral H6.',
     },
     {
-      id: 'cppt-endang-3',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 3),
       role: 'gizi',
       author: DIETISIEN,
       at: T('09.00'),
@@ -745,7 +764,7 @@ const ENDANG: InpatientSeed = {
       p: 'Diet DM 1.700 kkal dibagi 3 makan + 2 selingan.',
     },
     {
-      id: 'cppt-endang-4',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 4),
       role: 'perawat',
       author: PERSONA.perawat,
       at: T('06.00'),
@@ -755,7 +774,7 @@ const ENDANG: InpatientSeed = {
       p: 'Edukasi pencegahan jatuh diulang ke keluarga.',
     },
     {
-      id: 'cppt-endang-5',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 5),
       role: 'perawat',
       author: STAF_LAIN.perawat[0],
       at: T('22.10', -1),
@@ -764,17 +783,17 @@ const ENDANG: InpatientSeed = {
       p: 'Posisi semi-Fowler, pantau SpO2 tiap 4 jam.',
     },
     {
-      id: 'cppt-endang-6',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 6),
       role: 'perawat',
       author: STAF_LAIN.perawat[0],
       at: T('22.25', -1),
       o: 'SpO2 96% udara bebas, RR 20.',
       a: 'Bersihan jalan napas tidak efektif.',
       p: 'Posisi semi-Fowler, pantau SpO2 tiap 4 jam.',
-      corrects: ['cppt-endang-5', 2, 'Salah ketik nilai SpO2 (seharusnya 96%, bukan 69%)'],
+      corrects: [cpptNoteId(ENCOUNTER_ID.endang, 5), 2, 'Salah ketik nilai SpO2 (seharusnya 96%, bukan 69%)'],
     },
     {
-      id: 'cppt-endang-0',
+      id: cpptNoteId(ENCOUNTER_ID.endang, 0),
       role: 'residen',
       author: PERSONA.dokterResiden,
       at: T('07.30', -1),
@@ -828,10 +847,10 @@ const ENDANG: InpatientSeed = {
 
 const ICU_SEEDS: InpatientSeed[] = [
   {
-    patientId: 'ps-hendro',
+    patientId: PATIENT_ID.hendro,
     wardCode: 'ICU',
     bed: 'ICU 2',
-    dpjp: doctorName('dr-kartika'),
+    dpjp: doctorName(DOCTOR_ID.kartika),
     admittedOn: shiftDate(DEMO_TODAY, -2),
     flags: ['cosign'],
     risk: 'Risiko dekubitus tinggi · Braden 12',
@@ -858,7 +877,7 @@ const ICU_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-hendro-1',
+        id: cpptNoteId(ENCOUNTER_ID.hendro, 1),
         role: 'residen',
         author: PERSONA.dokterResiden,
         at: T('07.10'),
@@ -868,7 +887,7 @@ const ICU_SEEDS: InpatientSeed[] = [
         p: 'Turunkan FiO2 ke 35%, uji napas spontan besok pagi.',
       },
       {
-        id: 'cppt-hendro-2',
+        id: cpptNoteId(ENCOUNTER_ID.hendro, 2),
         role: 'perawat',
         author: STAF_LAIN.perawat[1],
         at: T('06.00'),
@@ -877,9 +896,9 @@ const ICU_SEEDS: InpatientSeed[] = [
         p: 'Lanjut suction sesuai kebutuhan, oral hygiene tiap 6 jam.',
       },
       {
-        id: 'cppt-hendro-0',
+        id: cpptNoteId(ENCOUNTER_ID.hendro, 0),
         role: 'dpjp',
-        author: doctorName('dr-kartika'),
+        author: doctorName(DOCTOR_ID.kartika),
         at: T('08.30', -1),
         s: 'Keluarga menanyakan rencana lepas ventilator.',
         o: 'Foto toraks: infiltrat bilateral berkurang.',
@@ -907,10 +926,10 @@ const ICU_SEEDS: InpatientSeed[] = [
     ],
   },
   {
-    patientId: 'ps-aminah',
+    patientId: PATIENT_ID.aminah,
     wardCode: 'ICU',
     bed: 'ICU 7',
-    dpjp: doctorName('dr-rahmat'),
+    dpjp: doctorName(DOCTOR_ID.rahmat),
     admittedOn: shiftDate(DEMO_TODAY, -1),
     flags: [],
     risk: 'Alergi kotrimoksazol · risiko dekubitus sedang',
@@ -943,9 +962,9 @@ const ICU_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-aminah-1',
+        id: cpptNoteId(ENCOUNTER_ID.aminah, 1),
         role: 'dpjp',
-        author: doctorName('dr-rahmat'),
+        author: doctorName(DOCTOR_ID.rahmat),
         at: T('08.00'),
         s: 'Pasien mengeluh lemas, tidak sesak.',
         o: 'MAP 72 dengan norepinefrin 0,1 µg/kg/menit. Laktat 3,8 → ulang siang.',
@@ -953,7 +972,7 @@ const ICU_SEEDS: InpatientSeed[] = [
         p: 'Pertahankan MAP ≥ 65, tunggu kultur urin dan darah, hindari golongan sulfa (alergi).',
       },
       {
-        id: 'cppt-aminah-2',
+        id: cpptNoteId(ENCOUNTER_ID.aminah, 2),
         role: 'perawat',
         author: STAF_LAIN.perawat[2],
         at: T('06.00'),
@@ -985,10 +1004,10 @@ const ICU_SEEDS: InpatientSeed[] = [
 
 const WARD_SEEDS: InpatientSeed[] = [
   {
-    patientId: 'ps-yusuf',
+    patientId: PATIENT_ID.yusuf,
     wardCode: 'ANGGREK',
     bed: 'A-15',
-    dpjp: doctorName('dr-sinta'),
+    dpjp: doctorName(DOCTOR_ID.sinta),
     admittedOn: shiftDate(DEMO_TODAY, -2),
     flags: [],
     risk: 'AV shunt lengan kiri: jangan ukur TD atau infus di lengan kiri',
@@ -1008,9 +1027,9 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-yusuf-1',
+        id: cpptNoteId(ENCOUNTER_ID.yusuf, 1),
         role: 'dpjp',
-        author: doctorName('dr-sinta'),
+        author: doctorName(DOCTOR_ID.sinta),
         at: T('08.30'),
         s: 'Sesak berkurang setelah HD kemarin.',
         o: 'BB turun 2,1 kg pasca HD. Ureum 168 · K 5,4 · Hb 8,9. Thrill AV shunt lengan kiri melemah.',
@@ -1018,7 +1037,7 @@ const WARD_SEEDS: InpatientSeed[] = [
         p: 'Kateter HD sementara di OK 1 pukul 13.00 (konsul bedah), restriksi cairan, mulai eritropoietin.',
       },
       {
-        id: 'cppt-yusuf-2',
+        id: cpptNoteId(ENCOUNTER_ID.yusuf, 2),
         role: 'perawat',
         author: STAF_LAIN.perawat[3],
         at: T('06.00'),
@@ -1048,10 +1067,10 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
   },
   {
-    patientId: 'ps-rizky',
+    patientId: PATIENT_ID.rizky,
     wardCode: 'KENANGA',
     bed: 'K-412',
-    dpjp: doctorName('dr-yohanes'),
+    dpjp: doctorName(DOCTOR_ID.yohanes),
     admittedOn: shiftDate(DEMO_TODAY, -3),
     flags: ['risiko-jatuh'],
     risk: 'Risiko jatuh tinggi · Morse 55',
@@ -1070,7 +1089,7 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-rizky-1',
+        id: cpptNoteId(ENCOUNTER_ID.rizky, 1),
         role: 'residen',
         author: PERSONA.dokterResiden,
         at: T('07.30', -1),
@@ -1078,10 +1097,10 @@ const WARD_SEEDS: InpatientSeed[] = [
         o: 'Traksi kulit terpasang. Distal hangat, pulsasi baik, tidak ada tanda sindrom kompartemen.',
         a: 'Fraktur batang femur kanan tertutup H3, siap ORIF.',
         p: 'ORIF besok 08.00 di OK 4; puasa mulai 24.00; persetujuan tindakan sudah ditandatangani.',
-        cosign: [doctorName('dr-yohanes'), T('10.05', -1)],
+        cosign: [doctorName(DOCTOR_ID.yohanes), T('10.05', -1)],
       },
       {
-        id: 'cppt-rizky-2',
+        id: cpptNoteId(ENCOUNTER_ID.rizky, 2),
         role: 'perawat',
         author: PERSONA.perawat,
         at: T('06.00'),
@@ -1091,9 +1110,9 @@ const WARD_SEEDS: InpatientSeed[] = [
         p: 'Antar ke OK 4 pukul 07.30, serah terima dengan perawat kamar operasi.',
       },
       {
-        id: 'cppt-rizky-3',
+        id: cpptNoteId(ENCOUNTER_ID.rizky, 3),
         role: 'dpjp',
-        author: doctorName('dr-yohanes'),
+        author: doctorName(DOCTOR_ID.yohanes),
         at: T('10.35'),
         o: 'ORIF femur kanan selesai 10.28; perdarahan ± 350 mL; distal hangat, pulsasi baik.',
         a: 'Pasca ORIF femur kanan hari 0, stabil.',
@@ -1126,10 +1145,10 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
   },
   {
-    patientId: 'ps-raka',
+    patientId: PATIENT_ID.raka,
     wardCode: 'MAWAR',
     bed: 'W-308',
-    dpjp: doctorName('dr-nadia'),
+    dpjp: doctorName(DOCTOR_ID.nadia),
     admittedOn: shiftDate(DEMO_TODAY, -1),
     flags: [],
     risk: 'Fase kritis DBD hari ke-4–5 · pantau tanda syok',
@@ -1149,9 +1168,9 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-raka-1',
+        id: cpptNoteId(ENCOUNTER_ID.raka, 1),
         role: 'dpjp',
-        author: doctorName('dr-nadia'),
+        author: doctorName(DOCTOR_ID.nadia),
         at: T('08.00'),
         s: 'Demam hari ke-4, nafsu makan menurun, tidak ada perdarahan.',
         o: 'Hematokrit 44% (naik dari 40%), trombosit 62.000. Akral hangat, CRT < 2 detik.',
@@ -1159,7 +1178,7 @@ const WARD_SEEDS: InpatientSeed[] = [
         p: 'Naikkan cairan 7 mL/kg/jam, hematokrit ulang 6 jam.',
       },
       {
-        id: 'cppt-raka-2',
+        id: cpptNoteId(ENCOUNTER_ID.raka, 2),
         role: 'perawat',
         author: STAF_LAIN.perawat[1],
         at: T('06.00'),
@@ -1188,10 +1207,10 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
   },
   {
-    patientId: 'ps-wulan',
+    patientId: PATIENT_ID.wulan,
     wardCode: 'MAWAR',
     bed: 'W-322',
-    dpjp: doctorName('dr-hana'),
+    dpjp: doctorName(DOCTOR_ID.hana),
     admittedOn: DEMO_TODAY,
     flags: [],
     risk: 'Pasca seksio sesarea hari 0 · IMD berhasil',
@@ -1223,7 +1242,7 @@ const WARD_SEEDS: InpatientSeed[] = [
     ],
     notes: [
       {
-        id: 'cppt-wulan-1',
+        id: cpptNoteId(ENCOUNTER_ID.wulan, 1),
         role: 'bidan',
         author: PERSONA.bidan,
         at: T('10.00'),
@@ -1233,9 +1252,9 @@ const WARD_SEEDS: InpatientSeed[] = [
         p: 'Pantau perdarahan dan kontraksi tiap 1 jam, dampingi menyusui.',
       },
       {
-        id: 'cppt-wulan-2',
+        id: cpptNoteId(ENCOUNTER_ID.wulan, 2),
         role: 'dpjp',
-        author: doctorName('dr-hana'),
+        author: doctorName(DOCTOR_ID.hana),
         at: T('08.45'),
         s: 'Seksio sesarea elektif atas indikasi bekas SC.',
         o: 'Bayi lahir 07.52, perempuan 3.100 g, APGAR 8/9. Perdarahan operasi 450 mL.',
@@ -1275,9 +1294,13 @@ export function demoInpatients(): InpatientDetail[] {
 }
 
 /** Kunjungan yang punya draf resume pulang di mode presentasi (Ny. Endang + dua pasien skenario). */
-export const RESUME_ENCOUNTERS: readonly string[] = ['kj-endang', 'kj-hartono', 'kj-ratna'];
+export const RESUME_ENCOUNTERS: readonly string[] = [
+  ENCOUNTER_ID.endang,
+  ENCOUNTER_ID.hartono,
+  ENCOUNTER_ID.ratna,
+];
 /** Dokumen persetujuan tindakan di tablet (`/tablet/persetujuan/<id>`). */
-export const CONSENT_IDS: readonly string[] = ['pk-hartono', 'pk-hendro', 'pk-ratna'];
+export const CONSENT_IDS: readonly string[] = [CONSENT_ID.hartono, CONSENT_ID.hendro, CONSENT_ID.ratna];
 
 export const INPATIENT_FLAG_LABEL: Record<InpatientFlag, string> = {
   cosign: 'Menunggu co-sign DPJP',
@@ -1301,8 +1324,8 @@ export function resumeChecklist(
 export function demoEndangResume(): DischargeSummary {
   const dpjp = STAF.dpjpPenyakitDalam;
   return {
-    encounterId: 'kj-endang',
-    patientId: 'ps-endang',
+    encounterId: ENCOUNTER_ID.endang,
+    patientId: PATIENT_ID.endang,
     admittedAt: T('09.30', -4),
     dischargeAt: T('13.00'),
     admissionVia: 'IGD',
@@ -1405,13 +1428,13 @@ const items = (texts: [string, string, string, string, string, string, string]):
 /** Tn. Hendro (ICU, tersedasi): pemasangan kateter vena sentral; istri memberi persetujuan (mockup Consent). */
 export function demoHendroConsent(): ConsentDocument {
   return {
-    id: 'pk-hendro',
-    encounterId: 'kj-hendro',
-    patientId: 'ps-hendro',
+    id: CONSENT_ID.hendro,
+    encounterId: ENCOUNTER_ID.hendro,
+    patientId: PATIENT_ID.hendro,
     procedure: 'Pemasangan kateter vena sentral',
     consentGiver: 'Istri (pasien tersedasi, belum kompeten)',
-    doctor: doctorName('dr-ferry'),
-    informer: doctorName('dr-kartika'),
+    doctor: doctorName(DOCTOR_ID.ferry),
+    informer: doctorName(DOCTOR_ID.kartika),
     explainedAt: T('09.50'),
     explanationMinutes: 9,
     location: 'ICU',
@@ -1435,9 +1458,9 @@ export function demoHendroConsent(): ConsentDocument {
 /** Tn. Hartono (IGD, kompeten): rawat intensif + terapi antitrombotik; istri menjadi saksi (naskah Simulasi). */
 export function hartonoConsentBase(explainedAt: string): ConsentDocument {
   return {
-    id: 'pk-hartono',
-    encounterId: 'kj-hartono',
-    patientId: 'ps-hartono',
+    id: CONSENT_ID.hartono,
+    encounterId: ENCOUNTER_ID.hartono,
+    patientId: PATIENT_ID.hartono,
     procedure: 'Rawat intensif dan terapi antitrombotik',
     consentGiver: 'Pasien sendiri (kompeten)',
     doctor: STAF.dpjpJantung,
@@ -1465,9 +1488,9 @@ export function hartonoConsentBase(explainedAt: string): ConsentDocument {
 /** Ny. Ratna (elektif): kolesistektomi laparoskopik; suami menjadi saksi. */
 export function ratnaConsentBase(explainedAt: string): ConsentDocument {
   return {
-    id: 'pk-ratna',
-    encounterId: 'kj-ratna',
-    patientId: 'ps-ratna',
+    id: CONSENT_ID.ratna,
+    encounterId: ENCOUNTER_ID.ratna,
+    patientId: PATIENT_ID.ratna,
     procedure: 'Kolesistektomi laparoskopik',
     consentGiver: 'Pasien sendiri (kompeten)',
     doctor: STAF.dpjpBedah,

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { MIN_STROKE, StrokeTracker } from '../components/rawat-inap/signature-stroke';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
+import { cpptNoteId, ENCOUNTER_ID } from './demo/fixtures/ids';
 import { patientById } from './demo/fixtures/pasien';
 import { demoHendroConsent, demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
@@ -86,8 +87,8 @@ function autoUntil(id: Id, seq: ScenarioEvent[], stop: (seq: ScenarioEvent[]) =>
   return cur;
 }
 
-const endang = demoInpatients().find((d) => d.summary.encounterId === 'kj-endang');
-if (!endang) throw new Error('fixture kj-endang hilang');
+const endang = demoInpatients().find((d) => d.summary.encounterId === ENCOUNTER_ID.endang);
+if (!endang) throw new Error('fixture rawat inap Ny. Endang hilang');
 const ENDANG_RM = patientById(endang.summary.patientId)?.rm ?? '';
 const med = (name: string): EmarMedication => {
   const m = endang.medications.find((x) => x.name.startsWith(name));
@@ -237,7 +238,12 @@ describe('K12 · eMAR: satu dosis per aksi, diperiksa server', () => {
 });
 
 describe('kontrak payload layar ↔ skema bersama (tidak boleh menyimpang lagi)', () => {
-  const base = { encounterId: 'kj-endang', medicationId: insulin.id, time: '12.00' as const, rm: ENDANG_RM };
+  const base = {
+    encounterId: ENCOUNTER_ID.endang,
+    medicationId: insulin.id,
+    time: '12.00' as const,
+    rm: ENDANG_RM,
+  };
   const doseInput = { labelCode: emarLabelCode(insulin), lateReason: null, doubleCheckedBy: 'Ns. Kedua' };
 
   it('payload pemberian dosis dan pindai gelang lolos skema ketat server', () => {
@@ -258,44 +264,59 @@ describe('kontrak payload layar ↔ skema bersama (tidak boleh menyimpang lagi)'
         .success,
     ).toBe(false);
 
-    expect(emarWristbandScanInputSchema.parse(emarScanPayload('kj-endang', ENDANG_RM, null))).toEqual({
-      encounterId: 'kj-endang',
-      wristbandCode: ENDANG_RM,
-      scanOverrideReason: null,
-    });
+    expect(emarWristbandScanInputSchema.parse(emarScanPayload(ENCOUNTER_ID.endang, ENDANG_RM, null))).toEqual(
+      {
+        encounterId: ENCOUNTER_ID.endang,
+        wristbandCode: ENDANG_RM,
+        scanOverrideReason: null,
+      },
+    );
     expect(
       emarWristbandScanInputSchema.safeParse(
-        emarScanPayload('kj-endang', null, 'Gelang rusak terkena cairan'),
+        emarScanPayload(ENCOUNTER_ID.endang, null, 'Gelang rusak terkena cairan'),
       ).success,
     ).toBe(true);
-    expect(emarWristbandScanInputSchema.safeParse(emarScanPayload('kj-endang', null, 'pendek')).success).toBe(
-      false,
-    );
+    expect(
+      emarWristbandScanInputSchema.safeParse(emarScanPayload(ENCOUNTER_ID.endang, null, 'pendek')).success,
+    ).toBe(false);
   });
 
   it('payload CPPT baru, koreksi, dan addendum lolos skema ketat server', () => {
     const soap = { s: 'Nyeri berkurang', o: '', a: 'Nyeri akut', p: '' };
-    expect(cpptNoteInputSchema.parse(cpptNotePayload('kj-endang', soap, { kind: 'baru' }))).toMatchObject({
+    expect(
+      cpptNoteInputSchema.parse(cpptNotePayload(ENCOUNTER_ID.endang, soap, { kind: 'baru' })),
+    ).toMatchObject({
       supersedesId: null,
       addendumOf: null,
     });
     expect(
       cpptNoteInputSchema.parse(
-        cpptNotePayload('kj-endang', soap, {
+        cpptNotePayload(ENCOUNTER_ID.endang, soap, {
           kind: 'koreksi',
-          targetId: 'cppt-endang-4',
+          targetId: cpptNoteId(ENCOUNTER_ID.endang, 4),
           reason: 'Salah ketik skala nyeri',
         }),
       ),
-    ).toMatchObject({ supersedesId: 'cppt-endang-4', addendumOf: null });
+    ).toMatchObject({ supersedesId: cpptNoteId(ENCOUNTER_ID.endang, 4), addendumOf: null });
     expect(
       cpptNoteInputSchema.parse(
-        cpptNotePayload('kj-endang', soap, { kind: 'addendum', targetId: 'cppt-endang-2' }),
+        cpptNotePayload(ENCOUNTER_ID.endang, soap, {
+          kind: 'addendum',
+          targetId: cpptNoteId(ENCOUNTER_ID.endang, 2),
+        }),
       ),
-    ).toMatchObject({ supersedesId: null, addendumOf: 'cppt-endang-2', correctionReason: null });
+    ).toMatchObject({
+      supersedesId: null,
+      addendumOf: cpptNoteId(ENCOUNTER_ID.endang, 2),
+      correctionReason: null,
+    });
     expect(
       cpptNoteInputSchema.safeParse(
-        cpptNotePayload('kj-endang', soap, { kind: 'koreksi', targetId: 'cppt-endang-4', reason: 'typo' }),
+        cpptNotePayload(ENCOUNTER_ID.endang, soap, {
+          kind: 'koreksi',
+          targetId: cpptNoteId(ENCOUNTER_ID.endang, 4),
+          reason: 'typo',
+        }),
       ).success,
     ).toBe(false);
   });
@@ -312,8 +333,8 @@ describe('kontrak payload layar ↔ skema bersama (tidak boleh menyimpang lagi)'
 
 describe('K07 · CPPT: koreksi hanya penulis, PPA lain addendum', () => {
   const entries = endang.cppt;
-  const nurse = entries.find((e) => e.id === 'cppt-endang-4');
-  if (!nurse) throw new Error('fixture cppt-endang-4 hilang');
+  const nurse = entries.find((e) => e.id === cpptNoteId(ENCOUNTER_ID.endang, 4));
+  if (!nurse) throw new Error('fixture CPPT ke-4 Ny. Endang hilang');
   const author = { id: 'u-penulis', name: nurse.author };
   const other = { id: 'u-lain', name: 'Pengguna E2E Fiktif' };
 
@@ -325,11 +346,11 @@ describe('K07 · CPPT: koreksi hanya penulis, PPA lain addendum', () => {
   });
 
   it('versi lama tidak bisa dikoreksi/addendum lagi; entri lokal hanya oleh pembuatnya', () => {
-    // cppt-endang-5 sudah digantikan koreksi cppt-endang-6 (versi 2).
-    expect(cpptCorrectionBlocker(entries, 'cppt-endang-5', { id: 'x', name: 'siapa pun' })).toMatch(
-      /sudah dikoreksi/,
-    );
-    expect(cpptAddendumBlocker(entries, 'cppt-endang-5')).toMatch(/versi terbaru/);
+    // CPPT ke-5 Ny. Endang sudah digantikan koreksinya, CPPT ke-6 (versi 2).
+    expect(
+      cpptCorrectionBlocker(entries, cpptNoteId(ENCOUNTER_ID.endang, 5), { id: 'x', name: 'siapa pun' }),
+    ).toMatch(/sudah dikoreksi/);
+    expect(cpptAddendumBlocker(entries, cpptNoteId(ENCOUNTER_ID.endang, 5))).toMatch(/versi terbaru/);
     expect(cpptAddendumBlocker(entries, 'tidak-ada')).toMatch(/tidak ditemukan/);
     const own = localCpptId(other.id, 1_700_000_000_000);
     expect(cpptCorrectionBlocker(entries, own, other)).toBeNull();

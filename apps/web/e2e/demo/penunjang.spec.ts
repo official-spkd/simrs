@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
+import { LAB_SAMPLE_ID, RAD_EXAM_ID } from '../../src/lib/demo/fixtures/ids';
 
 /** Layar penunjang mode presentasi (ADR-0023): laboratorium, farmasi, radiologi. */
 
@@ -31,7 +32,7 @@ test.describe('penunjang · laboratorium', () => {
     await expect(worklist.getByText('L2610050142')).toBeVisible();
 
     await worklist.getByRole('button', { name: /Ny\. Endang Wijaya/ }).click();
-    await expect(page).toHaveURL(/pilih=lab-endang/);
+    await expect(page).toHaveURL(new RegExp(`pilih=${LAB_SAMPLE_ID.endang}`));
     const hasil = page.getByRole('region', { name: 'Hasil pemeriksaan' });
     await expect(hasil.getByText('LOINC 2160-0')).toBeVisible();
     await expect(hasil.getByRole('row', { name: /Kreatinin/ })).toContainText('H Δ');
@@ -94,7 +95,7 @@ test.describe('penunjang · laboratorium', () => {
   test('tablet 768 px tanpa scroll horizontal', async ({ page }) => {
     const analis = await createAccount({ roles: ['analis_lab'] });
     await page.setViewportSize({ width: 768, height: 1024 });
-    await loginAs(page, analis, '/penunjang/lab?pilih=lab-endang');
+    await loginAs(page, analis, `/penunjang/lab?pilih=${LAB_SAMPLE_ID.endang}`);
     await expect(page.getByRole('region', { name: 'Hasil pemeriksaan' })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
@@ -291,7 +292,7 @@ test.describe('penunjang · radiologi', () => {
   test('tablet 768 px tanpa scroll horizontal', async ({ page }) => {
     const radiografer = await createAccount({ roles: ['radiografer'] });
     await page.setViewportSize({ width: 768, height: 1024 });
-    await loginAs(page, radiografer, '/penunjang/radiologi?pilih=rad-dewi');
+    await loginAs(page, radiografer, `/penunjang/radiologi?pilih=${RAD_EXAM_ID.dewi}`);
     await expect(page.getByRole('region', { name: 'Ekspertise' })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });

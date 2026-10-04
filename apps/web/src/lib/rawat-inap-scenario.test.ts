@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
+import { CONSENT_ID, ENCOUNTER_ID } from './demo/fixtures/ids';
 import { demoEndangResume, demoHendroConsent, demoInpatients } from './demo/fixtures/rawat-inap';
 import { SCENARIOS } from './demo/skenario';
 import {
@@ -74,7 +75,7 @@ describe('K04/K07/K12 · rawat inap', () => {
         expect(c.system === 'ICD-10' ? icd10.has(c.code) : icd9.has(c.code)).toBe(true);
       }
     }
-    const endang = demoInpatients().find((d) => d.summary.encounterId === 'kj-endang');
+    const endang = demoInpatients().find((d) => d.summary.encounterId === ENCOUNTER_ID.endang);
     expect(endang?.medications).toHaveLength(7);
     expect(endang?.summary.day).toBe(5);
   });
@@ -83,7 +84,7 @@ describe('K04/K07/K12 · rawat inap', () => {
     const at = '2026-10-05T11:00:00+07:00';
     const v1 = newCpptEntry({
       id: 'c1',
-      encounterId: 'kj-endang',
+      encounterId: ENCOUNTER_ID.endang,
       role: 'perawat',
       author: 'Ns. Uji',
       at,
@@ -123,7 +124,7 @@ describe('K04/K07/K12 · rawat inap', () => {
       }),
     ).toThrow();
     const bad = {
-      encounterId: 'kj-endang',
+      encounterId: ENCOUNTER_ID.endang,
       s: 'a',
       o: '',
       a: 'b',
@@ -315,18 +316,20 @@ describe('K11 · persetujuan tindakan', () => {
   });
 
   it('penolakan wajib alasan; TTE wajib 7 butir dipahami, dua tanda tangan, dan saksi petugas', () => {
-    expect(consentRefusalInputSchema.safeParse({ consentId: 'pk-hendro', reason: '' }).success).toBe(false);
-    expect(consentRefusalInputSchema.safeParse({ consentId: 'pk-hendro', reason: 'Takut' }).success).toBe(
+    expect(consentRefusalInputSchema.safeParse({ consentId: CONSENT_ID.hendro, reason: '' }).success).toBe(
       false,
     );
     expect(
+      consentRefusalInputSchema.safeParse({ consentId: CONSENT_ID.hendro, reason: 'Takut' }).success,
+    ).toBe(false);
+    expect(
       consentRefusalInputSchema.safeParse({
-        consentId: 'pk-hendro',
+        consentId: CONSENT_ID.hendro,
         reason: 'Ingin berdiskusi dengan keluarga dulu',
       }).success,
     ).toBe(true);
     const ok = {
-      consentId: 'pk-hendro',
+      consentId: CONSENT_ID.hendro,
       acknowledged: demoHendroConsent().items.map((i) => i.id),
       patient: { method: 'goresan', name: 'Sekar Gunawan' },
       witness: { method: 'nama', name: 'Dimas Gunawan' },

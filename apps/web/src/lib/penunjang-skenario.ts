@@ -1,6 +1,7 @@
 import type { LabResult, LabSample } from '@simrs/shared';
 import { taskKey } from './demo/engine/run';
 import type { RunResult, ScenarioDef, ScenarioId, TaskValue } from './demo/engine/types';
+import { LAB_SAMPLE_ID } from './demo/fixtures/ids';
 import { numeric, pendingResult, supportPatient } from './demo/fixtures/penunjang';
 import { patientByScenario } from './demo/fixtures/pasien';
 import { PERSONA, STAF } from './demo/fixtures/staf';
@@ -99,7 +100,7 @@ export function suryoLabSample(R: RunResult): LabSample | null {
   }
   const end = validAt ?? R.clock;
   return {
-    id: 'lab-suryo',
+    id: LAB_SAMPLE_ID.suryo,
     labNo: SURYO_LAB_NO,
     patient: supportPatient(scenarioPatientId('rawat-jalan')),
     location: 'Poli Penyakit Dalam',
@@ -168,7 +169,7 @@ export function hartonoLabSample(R: RunResult): LabSample | null {
   const recipient = taskValue(R, 'nilai-kritis', 'lapor');
   const end = readAt ?? R.clock;
   return {
-    id: 'lab-hartono',
+    id: LAB_SAMPLE_ID.hartono,
     labNo: HARTONO_LAB_NO,
     patient: supportPatient(scenarioPatientId('igd-ranap')),
     location: 'IGD · bed resusitasi 2',

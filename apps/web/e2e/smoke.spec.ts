@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { SCREENS } from '../src/lib/screens';
 import { createAccount, loginAs } from './support/accounts';
+import { CONSENT_ID, ENCOUNTER_ID } from '../src/lib/demo/fixtures/ids';
 
 test.describe('smoke', () => {
   test('/masuk tampil tanpa login, berbahasa Indonesia, dengan header keamanan', async ({ page }) => {
@@ -33,15 +34,35 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Semua unit', { exact: true })).toBeVisible();
   });
 
+  test('layar hibrida front office di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak)', async ({
+    page,
+  }) => {
+    const account = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, account);
+    const hybrid = SCREENS.filter((s) => s.permission);
+    expect(hybrid.map((s) => s.id).sort()).toEqual(['antrean', 'daftar', 'jadwal', 'kiosk']);
+    for (const s of hybrid) {
+      const res = await page.goto(s.route);
+      expect(res?.status(), s.route).toBe(200);
+      await expect(page.getByRole('heading', { name: s.label, level: 1 })).toBeVisible();
+      await expect(page.getByText('Akses ditolak')).toBeVisible();
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+    }
+    // Menu mengikuti izin sungguhan: perawat tidak memegang izin front office, jadi menunya tidak tampil.
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+    await expect(nav.getByText('Pendaftaran', { exact: true })).toHaveCount(0);
+  });
+
   test('layar mode presentasi tidak ada di luar mode demo (404)', async ({ page }) => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account);
     const paths = [
-      ...SCREENS.filter((s) => s.status === 'demo').map((s) => s.route),
-      '/klinis/order/kj-suryo',
-      '/klinis/rawat-inap/kj-hartono',
-      '/klinis/resume/kj-hartono',
-      '/tablet/persetujuan/pk-hartono',
+      ...SCREENS.filter((s) => s.status === 'demo' && !s.permission).map((s) => s.route),
+      `/klinis/order/${ENCOUNTER_ID.suryo}`,
+      `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`,
+      `/klinis/resume/${ENCOUNTER_ID.hartono}`,
+      `/tablet/persetujuan/${CONSENT_ID.hartono}`,
     ];
     for (const path of paths) {
       const res = await page.goto(path);
