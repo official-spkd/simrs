@@ -290,6 +290,10 @@ dijamin database, bukan hanya kode:
 Nilai status/jenis (mis. `booked`, `checked_in`; `AMB`/`EMER`/`IMP`; `pending`/`issued`) dibatasi CHECK di migrasi dan
 mengikuti kontrak bersama `packages/shared` (potongan 0a).
 
+Migrasi `20261005102000_worker_failure_states` (untuk worker potongan 1a) menambah keadaan gagal permanen yang terlihat di
+domain: tanda tangan TTE `failed` (pending → failed → pending untuk kirim ulang; `signed` tetap final), status verifikasi
+identifier `error`, dan `outbox_messages.requeued_at` (kirim ulang manual memulai jendela retry baru).
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.

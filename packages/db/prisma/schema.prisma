@@ -101,6 +101,8 @@ model OutboxMessage {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
   deadAt         DateTime? @map("dead_at") @db.Timestamptz(3)
+  /// Dikirim ulang manual (dari DLQ): batas retry hari layanan dihitung dari `coalesce(requeued_at, created_at)`.
+  requeuedAt     DateTime? @map("requeued_at") @db.Timestamptz(3)
 
   tenant     Tenant            @relation(fields: [tenantId], references: [id])
   deliveries DeliveryAttempt[]
@@ -667,7 +669,8 @@ model PatientIdentifier {
   /// HMAC `sistem:nilai` (`blindIndex`) untuk pencarian sama-persis tanpa menyimpan nilai.
   valueHash           String    @map("value_hash")
   active              Boolean   @default(true)
-  /// unverified | pending | verified | mismatch | not_found (verifikasi Dukcapil, potongan 7c)
+  /// unverified | pending | verified | mismatch | not_found | error (verifikasi Dukcapil, potongan 7c; error =
+  /// pesan outbox gagal permanen)
   verificationStatus  String    @default("unverified") @map("verification_status")
   verifiedAt          DateTime? @map("verified_at") @db.Timestamptz(3)
   /// Hasil verifikasi tanpa PHI (mis. field yang tidak cocok).
@@ -895,7 +898,7 @@ model DocumentSignature {
   documentId          String    @map("document_id") @db.Uuid
   signerUserId        String    @map("signer_user_id") @db.Uuid
   documentSha256      String    @map("document_sha256")
-  /// pending | signed
+  /// pending | signed | failed (gagal permanen di penyelenggara TTE; bisa dikirim ulang → pending)
   status              String    @default("pending")
   verifyCode          String    @unique @map("verify_code")
   requestedAt         DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
