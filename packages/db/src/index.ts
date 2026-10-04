@@ -53,6 +53,19 @@ export {
   type RefRegion,
   type RefSystemInfo,
 } from './ref';
+export {
+  BREACHED_TOP_DEFAULT,
+  BREACHED_TOP_MAX,
+  type BreachedCollectResult,
+  type BreachedEntry,
+  type BreachedListStatus,
+  breachedListStatus,
+  collectBreachedPasswords,
+  isBreachedPassword,
+  passwordSha1,
+  replaceBreachedPasswords,
+  sha1PrefixRange,
+} from './breached-passwords';
 export { seedRefSamples, SEED_REF_SAMPLES, SEED_REF_VERSION } from './seed-ref';
 export { ensurePublishedForm } from './forms';
 export {

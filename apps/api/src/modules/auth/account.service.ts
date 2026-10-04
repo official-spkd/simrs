@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { activeAssignments, readTenantSetting } from '@simrs/db';
+import { activeAssignments, isBreachedPassword, readTenantSetting } from '@simrs/db';
 import {
   AppError,
   type ChangePasswordInput,
@@ -181,9 +181,13 @@ export class AccountService {
       tenantCode: p.tenant.code,
     });
     if (await verifyPassword(input.newPassword, hash)) violations.push('common');
+    // Daftar kata sandi bocor yang diimpor operator (ref.breached_passwords, dicari per rentang awalan SHA-1).
+    if (!violations.includes('common') && (await isBreachedPassword(tx, input.newPassword))) {
+      violations.push('common');
+    }
     if (violations.length > 0) {
       throw new AppError('PASSWORD_POLICY', 'Kata sandi baru tidak memenuhi kebijakan', 400, {
-        violations,
+        violations: [...new Set(violations)],
         messages: [...new Set(violations)].map((v) => PASSWORD_VIOLATION_MESSAGES[v]),
         minLength,
       });
