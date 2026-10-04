@@ -37,11 +37,11 @@ export function RiskRegister({ risks }: { risks: RiskEntry[] }) {
         </span>
       </span>
       <div className="flex flex-wrap items-start gap-4">
-        <table className="w-full max-w-[380px] flex-[1_1_300px] border-separate border-spacing-1 text-center text-caption">
+        <table className="w-full max-w-[380px] flex-[1_1_300px] table-fixed border-separate border-spacing-1 text-center text-caption">
           <caption className="sr-only">Matriks risiko: baris kemungkinan, kolom dampak</caption>
           <thead>
             <tr>
-              <th scope="col" className="w-20 text-left font-semibold text-ink-500">
+              <th scope="col" className="w-12 text-left font-semibold text-ink-500">
                 K \ D
               </th>
               {[1, 2, 3, 4, 5].map((i) => (
