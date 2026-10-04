@@ -1,9 +1,16 @@
 import 'server-only';
-import { type EdBoard, edBoardSchema } from '@simrs/shared';
+import { type BedBoard, bedBoardSchema, type EdBoard, edBoardSchema } from '@simrs/shared';
 import { redirect } from 'next/navigation';
+import { demoBedRequests, demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
-import { demoEdBoardBase } from '../../demo/fixtures/rawat-inap';
-import { hartonoEdItem, type ScenarioStepState, stepState } from '../../rawat-inap-scenario';
+import {
+  applyScenarioBeds,
+  hartonoBedRequest,
+  hartonoEdItem,
+  ratnaBedRequest,
+  type ScenarioStepState,
+  stepState,
+} from '../../rawat-inap-scenario';
 import type { SessionView } from '../../session-view';
 import { nextLoginStep } from '../../session-view';
 import { assertDemo } from '../demo-guard';
@@ -47,4 +54,25 @@ export async function getEdBoard(session: SessionView): Promise<EdBoard> {
     return edBoardSchema.parse(board);
   }
   return notImplemented('IGD');
+}
+
+/** K05 · Papan tempat tidur: ruang dari `BANGSAL`, bed + permintaan, ditumpangi bed/permintaan pasien skenario. */
+export async function getBedBoard(session: SessionView): Promise<BedBoard> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    const runs = await scenarioRuns(session);
+    const igd = runs.results['igd-ranap'];
+    const elektif = runs.results['elektif-btn'];
+    const beds = applyScenarioBeds(demoBeds(), igd, elektif);
+    const requests = [hartonoBedRequest(igd), ratnaBedRequest(elektif)].filter(
+      (r): r is NonNullable<typeof r> => r !== null,
+    );
+    return bedBoardSchema.parse({
+      asOf: DEMO_NOW,
+      wards: demoWards(),
+      beds,
+      requests: [...requests, ...demoBedRequests(beds)],
+    });
+  }
+  return notImplemented('tempat tidur');
 }

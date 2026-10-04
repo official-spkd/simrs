@@ -1,5 +1,6 @@
-import type { EdBoard, EdTrackingItem, TriageLevel } from '@simrs/shared';
+import type { Bed, BedRequest, BedStatus, EdBoard, EdTrackingItem, TriageLevel, Ward } from '@simrs/shared';
 import { encounterIdOf, patientById } from './pasien';
+import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, STAF } from './staf';
 import { DEMO_NOW } from './waktu';
 
@@ -308,4 +309,203 @@ export function demoEdBoardBase(asOf: string = DEMO_NOW): EdBoard {
     leftWithoutBeingSeen24h: 0,
     items: ED_SEED.map((s) => edItem(s, asOf)),
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// K05 · Tempat tidur. Jumlah bed dan bed terisi per ruang sama persis dengan `BANGSAL` (selaras Dasbor).
+// ---------------------------------------------------------------------------------------------------------
+
+/** Kode bed per ruang: `VIP 3`, `A-07`, `M-210`, `W-308`, `K-412`, `ICU 3`, `HCU 2`, `I-03`. */
+const BED_CODE: Record<string, (n: number) => string> = {
+  VIP: (n) => `VIP ${n}`,
+  ANGGREK: (n) => `A-${String(n).padStart(2, '0')}`,
+  MELATI: (n) => `M-${200 + n}`,
+  MAWAR: (n) => `W-${300 + n}`,
+  KENANGA: (n) => `K-${400 + n}`,
+  ICU: (n) => `ICU ${n}`,
+  HCU: (n) => `HCU ${n}`,
+  ISOLASI: (n) => `I-${String(n).padStart(2, '0')}`,
+};
+
+export const WARD_SERVICE: Record<string, string> = {
+  VIP: 'Campuran',
+  ANGGREK: 'Bedah dan jantung',
+  MELATI: 'Penyakit dalam',
+  MAWAR: 'Anak dan kebidanan',
+  KENANGA: 'Umum',
+  ICU: 'Perawatan intensif',
+  HCU: 'Perawatan intermediet',
+  ISOLASI: 'Infeksi airborne',
+};
+
+/** Bed yang dipakai naskah skenario; tidak pernah ditawarkan ke permintaan lain. */
+export const SCENARIO_BEDS = ['ICU 3', 'ICU 5', 'HCU 2', 'HCU 4', 'A-07', 'A-09', 'A-12', 'VIP 3', 'M-210'];
+
+type NamedBed = Pick<Bed, 'status' | 'note'> & { patientId?: string };
+
+/** Bed bernama: pasien rawat inap fixture dan bed naskah skenario. Sisanya dibangkitkan deterministik. */
+const NAMED_BEDS: Record<string, NamedBed> = {
+  'VIP 3': { status: 'siap', note: 'siap · disiapkan untuk pasien elektif' },
+  'A-07': { status: 'siap', note: 'siap · telemetri tersedia' },
+  'A-09': { status: 'dibersihkan', note: 'sedang dibersihkan, siap ±30 menit' },
+  'A-12': { status: 'siap', note: 'siap · telemetri tersedia' },
+  'A-15': { status: 'terisi', note: 'H3 · hemodialisis Rabu', patientId: 'ps-yusuf' },
+  'M-203': { status: 'terisi', note: 'H5 · rencana pulang besok', patientId: 'ps-endang' },
+  'M-210': { status: 'siap', note: 'siap · kelas 2' },
+  'W-308': { status: 'terisi', note: 'H2 · pantau hematokrit', patientId: 'ps-raka' },
+  'W-322': { status: 'terisi', note: 'H1 · pasca SC', patientId: 'ps-wulan' },
+  'K-412': { status: 'terisi', note: 'H4 · pasca ORIF', patientId: 'ps-rizky' },
+  'ICU 2': { status: 'terisi', note: 'H3 · ventilator', patientId: 'ps-hendro' },
+  'ICU 3': { status: 'siap', note: 'siap sekarang' },
+  'ICU 5': { status: 'pulang', note: 'pindah ke HCU, siap ±30 menit setelah dibersihkan' },
+  'ICU 7': { status: 'terisi', note: 'H2 · vasopresor', patientId: 'ps-aminah' },
+  'HCU 2': { status: 'siap', note: 'siap sekarang' },
+  'HCU 4': { status: 'dibersihkan', note: 'sedang dibersihkan, siap ±30 menit' },
+  'I-01': { status: 'terisi', note: 'TB paru · H6' },
+  'I-03': { status: 'siap', note: 'siap · tekanan negatif' },
+  'I-04': { status: 'dibersihkan', note: 'dekontaminasi' },
+  'I-06': { status: 'rusak', note: 'perbaikan sistem tekanan negatif' },
+};
+
+const INITIALS = 'ABDEFHIJKLMNRSTWY';
+function maskedLabel(ward: string, i: number): string {
+  const prefix = ward === 'MAWAR' && i % 3 === 0 ? 'An.' : i % 2 ? 'Ny.' : 'Tn.';
+  const a = INITIALS[(i * 7) % INITIALS.length] ?? 'A';
+  const b = INITIALS[(i * 11 + 3) % INITIALS.length] ?? 'S';
+  return `${prefix} ${a}. ${b}.`;
+}
+
+const FREE_CYCLE: readonly BedStatus[] = ['siap', 'dibersihkan', 'kotor', 'siap', 'dipesan', 'siap', 'rusak'];
+const FREE_NOTE: Record<BedStatus, (i: number) => string> = {
+  siap: () => 'siap',
+  dibersihkan: (i) => `estimasi siap 11.${String(10 + (i % 40)).padStart(2, '0')}`,
+  kotor: () => 'menunggu dibersihkan',
+  dipesan: () => 'dipesan · admisi elektif besok',
+  rusak: () => 'perbaikan bed elektrik',
+  terisi: (i) => `H${1 + (i % 6)}`,
+  pulang: (i) => (i % 2 ? 'resume final' : 'resume draf'),
+};
+
+/** Bed satu ruang: bed bernama dulu, lalu sisa terisi/kosong disebar merata agar total = `BANGSAL`. */
+function wardBeds(w: DemoWard): Bed[] {
+  const codes = Array.from({ length: w.beds }, (_, k) => BED_CODE[w.code]?.(k + 1) ?? `${w.code}-${k + 1}`);
+  const named = codes.filter((c) => NAMED_BEDS[c]);
+  const namedOcc = named.filter((c) => isOccupiedStatus(NAMED_BEDS[c]?.status)).length;
+  const unnamed = codes.filter((c) => !NAMED_BEDS[c]);
+  const free = unnamed.length - (w.occupied - namedOcc);
+  const freeAt = new Set(
+    Array.from({ length: Math.max(0, free) }, (_, j) => Math.floor(((j + 0.5) * unnamed.length) / free)),
+  );
+  let f = 0;
+  return codes.map((code) => {
+    const n = NAMED_BEDS[code];
+    if (n) {
+      const p = n.patientId ? patient(n.patientId) : null;
+      const occ = isOccupiedStatus(n.status);
+      return {
+        code,
+        wardCode: w.code,
+        status: n.status,
+        patientLabel: p ? p.nama : occ ? maskedLabel(w.code, codes.indexOf(code)) : null,
+        encounterId: p ? encounterIdOf(p.id) : null,
+        note: n.note,
+      };
+    }
+    const u = unnamed.indexOf(code);
+    if (freeAt.has(u)) {
+      const status = FREE_CYCLE[f++ % FREE_CYCLE.length] ?? 'siap';
+      return {
+        code,
+        wardCode: w.code,
+        status,
+        patientLabel: null,
+        encounterId: null,
+        note: FREE_NOTE[status](u),
+      };
+    }
+    const status: BedStatus = u % 7 === 3 ? 'pulang' : 'terisi';
+    return {
+      code,
+      wardCode: w.code,
+      status,
+      patientLabel: maskedLabel(w.code, u),
+      encounterId: null,
+      note: FREE_NOTE[status](u),
+    };
+  });
+}
+
+function isOccupiedStatus(s: BedStatus | undefined): boolean {
+  return s === 'terisi' || s === 'pulang';
+}
+
+export function demoWards(): Ward[] {
+  return BANGSAL.map((w) => ({
+    code: w.code,
+    name: w.name,
+    kelas: w.kelas,
+    service: WARD_SERVICE[w.code] ?? 'Umum',
+    beds: w.beds,
+  }));
+}
+
+export function demoBeds(): Bed[] {
+  return BANGSAL.flatMap(wardBeds);
+}
+
+/** Bed siap yang cocok kelasnya (bed naskah skenario tidak ditawarkan ke permintaan lain). */
+export function matchingBeds(beds: readonly Bed[], kelas: Ward['kelas'], max = 2): BedRequest['candidates'] {
+  const wardOf = new Map(BANGSAL.map((w) => [w.code, w]));
+  return beds
+    .filter(
+      (b) =>
+        b.status === 'siap' && wardOf.get(b.wardCode)?.kelas === kelas && !SCENARIO_BEDS.includes(b.code),
+    )
+    .slice(0, max)
+    .map((b) => ({
+      bedCode: b.code,
+      label: `${wardOf.get(b.wardCode)?.name ?? b.wardCode} ${b.code}`,
+      note: b.note,
+    }));
+}
+
+/** Permintaan bed hari demo (selain pasien skenario). */
+export function demoBedRequests(beds: readonly Bed[]): BedRequest[] {
+  const req = (
+    id: string,
+    patientId: string,
+    from: string,
+    need: string,
+    kelas: Ward['kelas'],
+    waitMinutes: number | null,
+  ): BedRequest => {
+    const p = patient(patientId);
+    return {
+      id,
+      patientName: p.nama,
+      sex: p.jk,
+      ageYears: p.umur,
+      rm: p.rm,
+      from,
+      need,
+      kelas,
+      waitMinutes,
+      late: waitMinutes !== null && waitMinutes >= 240,
+      candidates: matchingBeds(beds, kelas),
+      scenario: null,
+    };
+  };
+  return [
+    req('rq-fajar', 'ps-fajar', 'IGD B5', 'Bedah · kelas 1 · Asuransi', 'Kelas 1', 280),
+    req('rq-bonifasius', 'ps-bonifasius', 'IGD B8', 'Jantung · kelas 1 · BPJS · telemetri', 'Kelas 1', 135),
+    req('rq-lestiani', 'ps-lestiani', 'IGD B3', 'Saraf · kelas 3 · BPJS · pantau stroke', 'Kelas 3', 35),
+    req(
+      'rq-maria',
+      'ps-maria',
+      'Poli PD · kemoterapi 13.00',
+      'Penyakit dalam · kelas 2 · BPJS',
+      'Kelas 2',
+      null,
+    ),
+  ];
 }

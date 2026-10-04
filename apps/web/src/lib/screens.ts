@@ -139,7 +139,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'BedManagement',
     components: ['K05'],
     phase: 3,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'bed.write',
     demoRoles: ['perawat', 'petugas_pendaftaran', 'manajemen'],
     layout: 'staf',

@@ -1,12 +1,21 @@
-import { edBoardSchema, triageAssessmentSchema } from '@simrs/shared';
+import { bedBoardSchema, edBoardSchema, triageAssessmentSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { applyAction, runScenario } from './demo/engine/run';
+import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
-import { demoEdBoardBase } from './demo/fixtures/rawat-inap';
+import {
+  demoBedRequests,
+  demoBeds,
+  demoEdBoardBase,
+  demoWards,
+  SCENARIO_BEDS,
+} from './demo/fixtures/rawat-inap';
+import { BANGSAL } from './demo/fixtures/rs';
 import { DEMO_NOW } from './demo/fixtures/waktu';
 import { SCENARIOS } from './demo/skenario';
 import {
+  bedCounts,
   edKpis,
+  filterBeds,
   filterEdItems,
   formatLos,
   formatTimer,
@@ -15,7 +24,15 @@ import {
   triageNeedsReason,
   triageSaveAllowed,
 } from './rawat-inap';
-import { hartonoEdItem, stepState } from './rawat-inap-scenario';
+import {
+  applyScenarioBeds,
+  hartonoBedRequest,
+  hartonoEdItem,
+  ratnaBedCode,
+  ratnaBedRequest,
+  stepIndexOf,
+  stepState,
+} from './rawat-inap-scenario';
 
 /** Jalankan tugas berurutan di langkah aktif skenario (gagal keras bila mesin menolak). */
 function play(
@@ -36,6 +53,99 @@ function play(
   }
   return cur;
 }
+
+describe('K05 · tempat tidur', () => {
+  it('jumlah bed dan bed terisi per ruang sama dengan BANGSAL (selaras Dasbor), kode bed unik', () => {
+    const beds = demoBeds();
+    for (const w of BANGSAL) {
+      const c = bedCounts(beds.filter((b) => b.wardCode === w.code));
+      expect([w.code, c.total, c.occupied]).toEqual([w.code, w.beds, w.occupied]);
+    }
+    const kelas = BANGSAL.filter((w) => w.kelas.startsWith('Kelas') || w.kelas === 'VIP');
+    expect(kelas.reduce((s, w) => s + w.beds, 0)).toBe(260);
+    expect(new Set(beds.map((b) => b.code)).size).toBe(beds.length);
+    for (const code of SCENARIO_BEDS) expect(beds.some((b) => b.code === code)).toBe(true);
+    expect(beds.find((b) => b.code === 'ICU 3')?.status).toBe('siap');
+  });
+
+  it('papan bed lolos kontrak ketat; permintaan biasa tidak ditawari bed skenario', () => {
+    const beds = demoBeds();
+    const requests = demoBedRequests(beds);
+    expect(() => bedBoardSchema.parse({ asOf: DEMO_NOW, wards: demoWards(), beds, requests })).not.toThrow();
+    for (const r of requests) {
+      expect(r.candidates.length).toBeGreaterThan(0);
+      for (const c of r.candidates) expect(SCENARIO_BEDS).not.toContain(c.bedCode);
+    }
+    const f = filterBeds(beds, demoWards(), { ward: 'semua', kelas: 'ICU', status: 'siap' });
+    expect(f.map((b) => b.code)).toEqual(['ICU 3']);
+  });
+
+  it('permintaan bed Tn. Hartono baru muncul setelah keputusan rawat; alokasi → dipesan → terisi', () => {
+    const def = SCENARIOS['igd-ranap'];
+    const elektif = runScenario(SCENARIOS['elektif-btn'], []);
+    const beforeDispo = advanceTo(def, [], stepIndexOf(runScenario(def, []), 'tata-laksana'));
+    if (!beforeDispo.ok) throw new Error(beforeDispo.error);
+    expect(hartonoBedRequest(runScenario(def, beforeDispo.seq))).toBeNull();
+
+    const admisi = advanceTo(def, [], stepIndexOf(runScenario(def, []), 'admisi'));
+    if (!admisi.ok) throw new Error(admisi.error);
+    const R = runScenario(def, admisi.seq);
+    const req = hartonoBedRequest(R);
+    expect(req).toMatchObject({ from: 'IGD R2', kelas: 'ICU', scenario: 'igd-ranap' });
+    expect(req?.candidates.map((c) => c.bedCode)).toEqual(['ICU 3', 'ICU 5']);
+
+    const alloc = play(
+      'igd-ranap',
+      [
+        ['bpjs', true],
+        ['alok', 'ICU 3'],
+      ],
+      admisi.seq,
+    );
+    const booked = applyScenarioBeds(demoBeds(), runScenario(def, alloc), elektif).find(
+      (b) => b.code === 'ICU 3',
+    );
+    expect(booked).toMatchObject({ status: 'dipesan', encounterId: 'kj-hartono' });
+    const moved = play(
+      'igd-ranap',
+      [
+        ['sep', true],
+        ['transfer', true],
+      ],
+      alloc,
+    );
+    const Rm = runScenario(def, moved);
+    expect(hartonoBedRequest(Rm)).toBeNull();
+    expect(applyScenarioBeds(demoBeds(), Rm, elektif).find((b) => b.code === 'ICU 3')?.status).toBe('terisi');
+    expect(hartonoEdItem(Rm, DEMO_NOW)).toBeNull();
+  });
+
+  it('Ny. Ratna: pilihan kelas menentukan bed (VIP 3 / M-210); permintaan selesai saat SEP terbit', () => {
+    const def = SCENARIOS['elektif-btn'];
+    const igd = runScenario(SCENARIOS['igd-ranap'], []);
+    expect(ratnaBedRequest(runScenario(def, []))?.candidates.map((c) => c.bedCode)).toEqual([
+      'VIP 3',
+      'M-210',
+    ]);
+    const hak = play('elektif-btn', [
+      ['cek', true],
+      ['kelas', 'hak'],
+    ]);
+    expect(ratnaBedCode(runScenario(def, hak))).toBe('M-210');
+    const vip = play('elektif-btn', [
+      ['cek', true],
+      ['kelas', 'vip'],
+      ['setuju', true],
+      ['sep', true],
+    ]);
+    const R = runScenario(def, vip);
+    expect(ratnaBedRequest(R)).toBeNull();
+    expect(applyScenarioBeds(demoBeds(), igd, R).find((b) => b.code === 'VIP 3')).toMatchObject({
+      status: 'terisi',
+      patientLabel: 'Ny. Ratna Sari',
+    });
+  });
+});
 
 describe('K03 · IGD', () => {
   it('papan IGD lolos kontrak ketat, dengan dan tanpa pasien skenario', () => {

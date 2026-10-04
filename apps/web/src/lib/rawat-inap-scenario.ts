@@ -1,4 +1,4 @@
-import type { EdStatus, EdTrackingItem, TriageLevel } from '@simrs/shared';
+import type { Bed, BedRequest, EdStatus, EdTrackingItem, TriageLevel } from '@simrs/shared';
 import { firstOpenTask, taskKey, taskOptions, visibleTasks } from './demo/engine/run';
 import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
 import { encounterIdOf, patientByScenario } from './demo/fixtures/pasien';
@@ -73,6 +73,138 @@ export function stepState(R: RunResult, stepId: string, rev: number): ScenarioSt
     };
   }
   return { scenario: R.def.id, stepId, step: i, active, rev, tasks };
+}
+
+function choiceOptions(R: RunResult, stepId: string, taskId: string) {
+  const t = R.def.steps[stepIndexOf(R, stepId)]?.tasks.find((x) => x.id === taskId);
+  return t?.kind === 'choice' ? taskOptions(t, R.rec) : [];
+}
+
+/** Id opsi bed skenario → kode bed papan: "Anggrek A-07" → "A-07", "Paviliun VIP 3" → "VIP 3". */
+export function scenarioBedCode(optionId: string): string {
+  return optionId
+    .replace(/ ·.*$/, '')
+    .replace(/^(Anggrek|Paviliun|Melati) /, '')
+    .trim();
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Tempat tidur · permintaan bed dan bed pasien skenario
+// ---------------------------------------------------------------------------------------------------------
+
+const DISPO_NEED: Record<string, { kelas: BedRequest['kelas']; need: string }> = {
+  icu: { kelas: 'ICU', need: 'ICU/ICCU · NSTEMI + hiperkalemia · BPJS kelas 1' },
+  hcu: { kelas: 'HCU', need: 'HCU · NSTEMI + hiperkalemia · BPJS kelas 1' },
+  bangsal: { kelas: 'Kelas 1', need: 'Bangsal telemetri · kelas 1 · NSTEMI' },
+};
+
+/** Permintaan bed Tn. Hartono: muncul setelah keputusan rawat (`tata-laksana.dispo`) sampai serah terima. */
+export function hartonoBedRequest(R: RunResult): BedRequest | null {
+  if (!isDone(R, 'tata-laksana', 'dispo') || isDone(R, 'admisi', 'transfer')) return null;
+  const p = patientByScenario('igd-ranap');
+  if (!p) return null;
+  const d = DISPO_NEED[R.rec.dispo ?? 'icu'] ?? DISPO_NEED.icu;
+  const since = R.doneAt.get(taskKey(stepIndexOf(R, 'tata-laksana'), 'dispo')) ?? R.clock;
+  const wait = Math.max(0, R.clock - since);
+  return {
+    id: 'rq-hartono',
+    patientName: p.nama,
+    sex: p.jk,
+    ageYears: p.umur,
+    rm: p.rm,
+    from: 'IGD R2',
+    need: d?.need ?? '',
+    kelas: d?.kelas ?? 'ICU',
+    waitMinutes: wait,
+    late: wait >= 240,
+    candidates: choiceOptions(R, 'admisi', 'alok').map((o) => ({
+      bedCode: scenarioBedCode(o.id),
+      label: o.label,
+      note: o.sub ?? '',
+    })),
+    scenario: 'igd-ranap',
+  };
+}
+
+/** Permintaan bed Ny. Ratna (admisi elektif) sampai SEP rawat inap terbit. */
+export function ratnaBedRequest(R: RunResult): BedRequest | null {
+  if (isDone(R, 'admisi', 'sep')) return null;
+  const p = patientByScenario('elektif-btn');
+  if (!p) return null;
+  return {
+    id: 'rq-ratna',
+    patientName: p.nama,
+    sex: p.jk,
+    ageYears: p.umur,
+    rm: p.rm,
+    from: 'Admisi elektif · operasi Sel 13 Okt',
+    need: 'Bedah · hak kelas 2 · BPJS · laparoskopi elektif',
+    kelas: valueOf(R, 'admisi', 'kelas') === 'vip' ? 'VIP' : 'Kelas 2',
+    waitMinutes: null,
+    late: false,
+    candidates: [
+      { bedCode: 'VIP 3', label: 'Paviliun VIP 3 · naik kelas', note: 'selisih biaya dibayar pasien' },
+      { bedCode: 'M-210', label: 'Melati M-210 · kelas 2', note: 'sesuai hak kelas, ditanggung BPJS' },
+    ],
+    scenario: 'elektif-btn',
+  };
+}
+
+/** Kode bed Ny. Ratna sesuai pilihan kelas (`admisi.kelas`): VIP → "VIP 3", hak kelas → "M-210". */
+export function ratnaBedCode(R: RunResult): string | null {
+  const v = valueOf(R, 'admisi', 'kelas');
+  return v === undefined ? null : v === 'vip' ? 'VIP 3' : 'M-210';
+}
+
+/** Tumpangkan bed pasien skenario ke papan bed (dipesan → terisi → pindah/pulang). Murni, tidak mengubah input. */
+export function applyScenarioBeds(beds: readonly Bed[], igd: RunResult, elektif: RunResult): Bed[] {
+  const patch = new Map<string, Partial<Bed>>();
+  const hartono = patientByScenario('igd-ranap');
+  const alok = valueOf(igd, 'admisi', 'alok');
+  if (hartono && typeof alok === 'string') {
+    const code = scenarioBedCode(alok);
+    const who = { patientLabel: hartono.nama, encounterId: encounterIdOf(hartono.id) };
+    const moved = isDone(igd, 'rawat-inap', 'pindah');
+    const home = isDone(igd, 'kasir', 'pulang');
+    if (!isDone(igd, 'admisi', 'transfer'))
+      patch.set(code, { ...who, status: 'dipesan', note: 'dari IGD R2' });
+    else if (!moved)
+      patch.set(
+        code,
+        home ? kosong('pasien pulang') : { ...who, status: 'terisi', note: 'NSTEMI · monitor EKG' },
+      );
+    else {
+      patch.set(code, kosong('pasien pindah ke Anggrek A-12'));
+      patch.set(
+        'A-12',
+        home ? kosong('pasien pulang') : { ...who, status: 'terisi', note: 'step-down · telemetri' },
+      );
+    }
+  }
+  const ratna = patientByScenario('elektif-btn');
+  const rCode = ratnaBedCode(elektif);
+  if (ratna && rCode) {
+    const who = { patientLabel: ratna.nama, encounterId: encounterIdOf(ratna.id) };
+    if (isDone(elektif, 'kasir', 'pulang')) patch.set(rCode, kosong('pasien pulang'));
+    else if (!isDone(elektif, 'admisi', 'sep'))
+      patch.set(rCode, { ...who, status: 'dipesan', note: 'admisi elektif' });
+    else
+      patch.set(rCode, {
+        ...who,
+        status: isDone(elektif, 'pasca-operasi', 'h2') ? 'pulang' : 'terisi',
+        note: isDone(elektif, 'operasi', 'op')
+          ? 'pasca laparoskopi kolesistektomi'
+          : 'pra-operasi, puasa mulai 24.00',
+      });
+  }
+  return beds.map((b) => {
+    const p = patch.get(b.code);
+    return p ? { ...b, ...p } : b;
+  });
+}
+
+function kosong(note: string): Partial<Bed> {
+  return { status: 'kotor', patientLabel: null, encounterId: null, note };
 }
 
 // ---------------------------------------------------------------------------------------------------------
