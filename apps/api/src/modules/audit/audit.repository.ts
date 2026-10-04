@@ -105,6 +105,34 @@ export class AuditRepository {
     });
   }
 
+  /** Versi isian hasil koreksi + versi yang digantikannya (diff di detail audit, P07). */
+  formCorrection(id: string) {
+    return this.db.tx().formResponse.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        rootId: true,
+        patientId: true,
+        formCode: true,
+        version: true,
+        status: true,
+        answers: true,
+        correctionReason: true,
+        createdBy: true,
+        createdAt: true,
+        definition: { select: { title: true, version: true, schema: true } },
+        supersedes: { select: { version: true, answers: true } },
+      },
+    });
+  }
+
+  formRoot(id: string) {
+    return this.db.tx().formResponse.findUnique({
+      where: { id },
+      select: { createdBy: true, createdAt: true },
+    });
+  }
+
   users(ids: string[]) {
     if (ids.length === 0) return Promise.resolve([]);
     return this.db.tx().user.findMany({

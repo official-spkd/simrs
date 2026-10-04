@@ -23,6 +23,8 @@ export const AUDIT_ACTIONS = [
   'correct',
   'sign',
   'review',
+  'submit',
+  'publish',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -53,6 +55,8 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   correct: 'Koreksi',
   sign: 'Tanda tangan',
   review: 'Tinjau',
+  submit: 'Ajukan',
+  publish: 'Terbitkan',
 };
 
 /** Kelompok aksi untuk filter layar Audit (design/mockups/Audit.dc.html). */
@@ -60,7 +64,7 @@ export const AUDIT_ACTION_GROUPS = {
   baca: { label: 'Baca', actions: ['read', 'search'] },
   ubah: {
     label: 'Ubah dan koreksi',
-    actions: ['create', 'update', 'deactivate', 'correct', 'merge', 'unmerge', 'sign'],
+    actions: ['create', 'update', 'deactivate', 'correct', 'merge', 'unmerge', 'sign', 'submit', 'publish'],
   },
   cetak: { label: 'Cetak dan ekspor', actions: ['print', 'export'] },
   akun: {

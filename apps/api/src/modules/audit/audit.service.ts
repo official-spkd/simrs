@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { readTenantSetting } from '@simrs/db';
 import {
+  diffAnswers,
+  type FormAnswers,
+  formSchemaSchema,
   AUDIT_ACTION_GROUPS,
   AUDIT_ANOMALY_KEY,
   type AuditActionGroup,
@@ -119,11 +122,50 @@ export class AuditService {
     const r = await this.repo.findBySeq(BigInt(seq));
     if (!r) throw new AppError('NOT_FOUND', 'Entri audit tidak ditemukan', 404);
     const actors = await this.actorMap([r.actorUserId]);
+    const change =
+      r.resourceType === 'form_response' && r.action === 'correct' && r.resourceId
+        ? await this.formChange(r.resourceId)
+        : null;
     return {
       ...r,
       seq: r.seq.toString(),
       occurredAt: r.occurredAt.toISOString(),
       actor: r.actorUserId ? (actors.get(r.actorUserId) ?? null) : null,
+      change,
+    };
+  }
+
+  /**
+   * Detail koreksi isian formulir (P07, mockup Audit "Versi 1 → versi 2"): alasan, penulis asli, pengoreksi, dan
+   * nilai yang berubah. Isinya data klinis, jadi pembukaannya dicatat dengan patientId.
+   */
+  private async formChange(responseId: string) {
+    const fr = await this.repo.formCorrection(responseId);
+    if (!fr?.supersedes) return null;
+    const root = await this.repo.formRoot(fr.rootId);
+    const people = await this.actorMap([root?.createdBy ?? null, fr.createdBy]);
+    const name = (id: string | null | undefined) => (id ? (people.get(id)?.displayName ?? null) : null);
+    const schema = formSchemaSchema.parse(fr.definition.schema);
+    this.db.audit({
+      action: 'read',
+      resourceType: 'form_response',
+      resourceId: fr.id,
+      patientId: fr.patientId,
+      details: { via: 'audit' },
+    });
+    return {
+      formCode: fr.formCode,
+      formTitle: fr.definition.title,
+      formVersion: fr.definition.version,
+      fromVersion: fr.supersedes.version,
+      toVersion: fr.version,
+      status: fr.status,
+      reason: fr.correctionReason,
+      originalAuthor: name(root?.createdBy),
+      originalAt: root?.createdAt.toISOString() ?? null,
+      correctedBy: name(fr.createdBy),
+      correctedAt: fr.createdAt.toISOString(),
+      rows: diffAnswers(schema, fr.supersedes.answers as FormAnswers, fr.answers as FormAnswers),
     };
   }
 

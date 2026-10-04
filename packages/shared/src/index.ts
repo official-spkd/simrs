@@ -4,6 +4,7 @@ export * from './components';
 export * from './datetime';
 export * from './env';
 export * from './errors';
+export * from './forms';
 export * from './ids';
 export * from './integrations/dukcapil';
 export * from './money';

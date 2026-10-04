@@ -3,10 +3,11 @@
  * pasien tetap) sehingga aman diulang. Dijalankan sebagai simrs_migrator; karena FORCE RLS, tetap lewat withTenant.
  * Staf fiktif ditambahkan di potongan berikutnya fase 1.
  */
-import { newId } from '@simrs/shared';
+import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
 import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type PrismaClient, type TenantTx, withTenant } from '../src/client';
+import { ensurePublishedForm } from '../src/forms';
 import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
 import { SEED_PLATFORM_TENANT, SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
@@ -107,14 +108,16 @@ try {
   const refAdded = await seedRefSamples(prisma);
   console.warn(`Data rujukan contoh (dari mockup) ditambahkan: ${refAdded} konsep`);
   for (const [index, t] of SEED_TENANTS.entries()) {
-    await withTenant(prisma, t.id, async (tx) => {
+    const form = await withTenant(prisma, t.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });
       await seedStructure(tx, t.id);
       await ensureSystemRoles(tx, t.id);
+      // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku.
+      return ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE);
     });
     const patients = await seedPatientsFor(prisma, t.id, index);
     console.warn(
-      `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates})`,
+      `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates})`,
     );
   }
   const p = SEED_PLATFORM_TENANT;

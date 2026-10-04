@@ -56,6 +56,8 @@ model Tenant {
   matchCandidates  PatientMatchCandidate[]
   patientLinks     PatientLink[]
   privacyConsents  PrivacyConsent[]
+  formDefinitions  FormDefinition[]
+  formResponses    FormResponse[]
 
   @@map("tenants")
 }
@@ -587,6 +589,7 @@ model Patient {
   linksAsSurvivor PatientLink[]           @relation("LinkSurvivor")
   linksAsMerged   PatientLink[]           @relation("LinkMerged")
   consents        PrivacyConsent[]
+  formResponses   FormResponse[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])
@@ -717,4 +720,74 @@ model PrivacyConsent {
   @@unique([tenantId, id])
   @@index([tenantId, patientId])
   @@map("privacy_consents")
+}
+
+/// P07 · Definisi formulir klinis berversi (formulir = data, MRMIK 6c). Satu versi berlaku (`published`) dan
+/// paling banyak satu draf terbuka per kode (indeks unik parsial). Isi versi terbit/arsip tidak bisa diubah
+/// (trigger `app_form_definition_guard`): isian lama selalu terbaca dengan versi saat diisi.
+model FormDefinition {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  code        String
+  version     Int
+  title       String
+  /// keperawatan | medis | kebidanan | umum
+  category    String
+  /// draft | submitted | published | archived
+  status      String    @default("draft")
+  /// Bagian, field, opsi, skor, logika tampil (`formSchemaSchema` di @simrs/shared).
+  schema      Json
+  /// Kode peran yang boleh mengisi (hak tulis per profesi, MRMIK 10a).
+  writeRoles  String[]  @map("write_roles")
+  changeNote  String    @map("change_note")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  submittedBy String?   @map("submitted_by") @db.Uuid
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  publishedBy String?   @map("published_by") @db.Uuid
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  responses FormResponse[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code, version])
+  @@map("form_definitions")
+}
+
+/// P07 · Isian formulir untuk pasien. Append-only (ADR-0004): koreksi = baris baru (`version` + 1,
+/// `supersedes_id`, `correction_reason`); tidak ada UPDATE/DELETE (hak + trigger). Kelompok versi = `root_id`.
+model FormResponse {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  /// Versi definisi yang dipakai saat diisi (bukan selalu versi terbaru).
+  definitionId     String   @map("definition_id") @db.Uuid
+  formCode         String   @map("form_code")
+  version          Int      @default(1)
+  /// ID versi 1 (kelompok semua versi isian ini).
+  rootId           String   @map("root_id") @db.Uuid
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  /// final | entered_in_error
+  status           String   @default("final")
+  answers          Json
+  score            Int?
+  scoreBand        String?  @map("score_band")
+  correctionReason String?  @map("correction_reason")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String?  @map("created_by") @db.Uuid
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  patient      Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  definition   FormDefinition @relation(fields: [tenantId, definitionId], references: [tenantId, id])
+  supersedes   FormResponse?  @relation("FormResponseVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy FormResponse[] @relation("FormResponseVersion")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, patientId, formCode])
+  @@map("form_responses")
 }

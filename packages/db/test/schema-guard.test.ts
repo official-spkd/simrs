@@ -26,6 +26,9 @@ const MANUAL_INDEXES = [
   'patient_match_candidates_pair',
   'patient_links_one_active_per_merged',
   'privacy_consents_one_active',
+  'form_definitions_one_published',
+  'form_definitions_one_open_draft',
+  'form_responses_supersedes_once',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -77,6 +80,8 @@ describe('penjaga skema', () => {
       'patient_match_candidates',
       'patient_links',
       'privacy_consents',
+      'form_definitions',
+      'form_responses',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
