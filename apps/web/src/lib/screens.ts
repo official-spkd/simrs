@@ -22,8 +22,9 @@ export interface ScreenDef {
   phase: number;
   status: ScreenStatus;
   /**
-   * Izin yang direncanakan untuk backend (belum ada di PERMISSION_CATALOG). Di mode demo layar dibatasi per peran
-   * (`demoRoles`) hanya di sisi UI; penegakan sungguhan lewat izin ini saat backend dibangun.
+   * Izin yang direncanakan untuk backend (`sumber.aksi`; layar fase 2 sudah ada di PERMISSION_CATALOG, fase berikutnya
+   * belum). Di mode demo layar dibatasi per peran (`demoRoles`) hanya di sisi UI; penegakan sungguhan lewat izin ini
+   * saat backend dibangun.
    */
   plannedPermission: string;
   /** Posisi (peran) yang melihat layar ini di mode presentasi. */
@@ -91,7 +92,7 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['F04'],
     phase: 2,
     status: 'demo',
-    plannedPermission: 'queue.display',
+    plannedPermission: 'queue.display.read',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'perangkat',
   },

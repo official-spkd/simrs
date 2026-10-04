@@ -1,4 +1,4 @@
-import { ACCESS_ADMIN_GRANTS, formatTanggal, PROTECTED_ROLES } from '@simrs/shared';
+import { ACCESS_ADMIN_GRANTS, formatTanggal, permissionAllowedFor, PROTECTED_ROLES } from '@simrs/shared';
 import { Alert, Button, Card, Chip, cx, KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -92,9 +92,8 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
     .filter((r) => r.active)
     .map((r) => ({ value: r.code, label: r.name }));
   const unitOptions = (units?.items ?? []).map((u) => ({ value: u.id, label: u.name }));
-  const catalog = (rolesData?.catalog ?? []).filter(
-    (c) => s.tenant.kind === 'platform' || !c.resource.startsWith('platform.'),
-  );
+  // Izin platform hanya di tenant PLATFORM; izin khusus perangkat (anjungan, display) tidak pernah untuk peran.
+  const catalog = (rolesData?.catalog ?? []).filter((c) => permissionAllowedFor(s.tenant.kind, c.resource));
   const lockedKeys = ACCESS_ADMIN_GRANTS.map(([r, a]) => `${r}|${a}`);
   const lockedByRole = Object.fromEntries(PROTECTED_ROLES.map((code) => [code, lockedKeys]));
   const matrixInitial = detail?.assignments[0]?.roleCode ?? params.peran ?? rolesData?.roles[0]?.code ?? '';

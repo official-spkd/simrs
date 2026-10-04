@@ -3,13 +3,20 @@ import {
   ACCESS_ADMIN_GRANTS,
   DEFAULT_ROLE_GRANTS,
   defaultRolesFor,
+  DEVICE_GRANTS,
+  DEVICE_KINDS,
+  DEVICE_ONLY_RESOURCES,
+  isDeviceOnlyResource,
   isPermission,
   isProtectedRole,
   PERMISSION_CATALOG,
+  permissionAllowedFor,
   PLATFORM_ROLE_GRANTS,
   PROTECTED_ROLES,
+  type RoleGrant,
   SYSTEM_ROLES,
 } from './authz';
+import { rolePermissionsSchema } from './schemas/iam';
 
 const allDefaults = { ...DEFAULT_ROLE_GRANTS, ...PLATFORM_ROLE_GRANTS };
 
@@ -68,5 +75,137 @@ describe('katalog izin dan matriks bawaan', () => {
     ).toEqual([]);
     expect(isPermission('constructor', 'read')).toBe(false);
     expect(Object.keys(PERMISSION_CATALOG).length).toBeGreaterThan(10);
+  });
+});
+
+const FRONT_OFFICE_RESOURCES = ['schedule', 'booking', 'encounter', 'coverage', 'queue', 'referral'] as const;
+const grantOf = (grants: readonly RoleGrant[], resource: string, action: string) =>
+  grants.find(([r, a]) => r === resource && a === action)?.[2] ?? null;
+
+describe('izin front office (fase 2)', () => {
+  it('katalog memuat sumber × aksi rencana fase 2 §0a', () => {
+    expect(PERMISSION_CATALOG.schedule.actions).toEqual(['read', 'write', 'sync']);
+    expect(PERMISSION_CATALOG.booking.actions).toEqual(['read', 'write', 'cancel']);
+    expect(PERMISSION_CATALOG.encounter.actions).toEqual(['read', 'write', 'cancel']);
+    expect(PERMISSION_CATALOG.coverage.actions).toEqual(['read', 'write']);
+    expect(PERMISSION_CATALOG.queue.actions).toEqual(['read', 'call', 'manage']);
+    expect(PERMISSION_CATALOG.referral.actions).toEqual(['read', 'write']);
+    expect(isPermission('kiosk', 'use')).toBe(true);
+    expect(isPermission('queue.display', 'read')).toBe(true);
+    expect(isPermission('queue.display', 'write')).toBe(false);
+  });
+
+  it('petugas pendaftaran memegang semua izin front office berlingkup all', () => {
+    const g = DEFAULT_ROLE_GRANTS.petugas_pendaftaran;
+    for (const resource of FRONT_OFFICE_RESOURCES) {
+      for (const action of PERMISSION_CATALOG[resource].actions) {
+        expect(grantOf(g, resource, action), `${resource}.${action}`).toBe('all');
+      }
+    }
+  });
+
+  it('klinisi: panggil antrean lingkup unit, jadwal, kunjungan berelasi; tanpa hak ubah registrasi', () => {
+    for (const role of ['dokter', 'perawat', 'bidan'] as const) {
+      const g = DEFAULT_ROLE_GRANTS[role];
+      expect(grantOf(g, 'queue', 'call'), role).toBe('unit');
+      expect(grantOf(g, 'queue', 'read'), role).toBe('unit');
+      expect(grantOf(g, 'schedule', 'read'), role).toBe('all');
+      expect(grantOf(g, 'encounter', 'read'), role).toBe('relationship');
+      for (const [resource, action] of [
+        ['encounter', 'write'],
+        ['coverage', 'write'],
+        ['booking', 'write'],
+        ['queue', 'manage'],
+        ['schedule', 'write'],
+      ] as const) {
+        expect(grantOf(g, resource, action), `${role}: ${resource}.${action}`).toBeNull();
+      }
+    }
+  });
+
+  it('kasir, koder, RM membaca kunjungan + penjaminan; admin mengelola jadwal dan antrean', () => {
+    for (const role of ['kasir', 'koder', 'petugas_rm'] as const) {
+      const g = DEFAULT_ROLE_GRANTS[role];
+      expect(grantOf(g, 'encounter', 'read'), role).toBe('all');
+      expect(grantOf(g, 'coverage', 'read'), role).toBe('all');
+      expect(grantOf(g, 'encounter', 'write'), role).toBeNull();
+    }
+    const admin = DEFAULT_ROLE_GRANTS.admin_tenant;
+    for (const [resource, action] of [
+      ['schedule', 'write'],
+      ['schedule', 'sync'],
+      ['queue', 'manage'],
+    ] as const) {
+      expect(grantOf(admin, resource, action), `${resource}.${action}`).toBe('all');
+    }
+    // Admin bukan petugas pendaftaran: tidak mendaftarkan pasien, tidak menerbitkan SEP.
+    expect(grantOf(admin, 'encounter', 'write')).toBeNull();
+    expect(grantOf(admin, 'coverage', 'write')).toBeNull();
+  });
+
+  it('hak ubah/panggil/kelola front office selalu disertai hak baca (lingkup tidak lebih sempit)', () => {
+    const rank = { relationship: 1, unit: 2, all: 3 } as const;
+    for (const [role, grants] of Object.entries(DEFAULT_ROLE_GRANTS)) {
+      for (const resource of FRONT_OFFICE_RESOURCES) {
+        for (const [r, a, scope] of grants) {
+          if (r !== resource || a === 'read') continue;
+          const read = grantOf(grants, resource, 'read');
+          expect(read, `${role}: ${resource}.${a} tanpa ${resource}.read`).not.toBeNull();
+          if (read)
+            expect(rank[read], `${role}: ${resource}.read lebih sempit`).toBeGreaterThanOrEqual(rank[scope]);
+        }
+      }
+    }
+  });
+
+  it('izin perangkat tidak pernah ada di matriks peran dan tidak bisa diberikan ke peran', () => {
+    expect([...DEVICE_ONLY_RESOURCES].sort()).toEqual(['kiosk', 'queue.display']);
+    for (const [role, grants] of Object.entries(allDefaults)) {
+      expect(
+        grants.filter(([r]) => isDeviceOnlyResource(r)),
+        role,
+      ).toEqual([]);
+    }
+    for (const resource of DEVICE_ONLY_RESOURCES) {
+      expect(permissionAllowedFor('hospital', resource)).toBe(false);
+      expect(permissionAllowedFor('platform', resource)).toBe(false);
+    }
+    const attempt = rolePermissionsSchema.safeParse({
+      grants: [{ resource: 'kiosk', action: 'use', scope: 'unit' }],
+    });
+    expect(attempt.success).toBe(false);
+    expect(
+      rolePermissionsSchema.safeParse({ grants: [{ resource: 'queue', action: 'call', scope: 'unit' }] })
+        .success,
+    ).toBe(true);
+  });
+
+  it('perangkat: izin tetap per jenis, hanya izin perangkat, ada di katalog', () => {
+    expect(Object.keys(DEVICE_GRANTS).sort()).toEqual(Object.keys(DEVICE_KINDS).sort());
+    for (const [kind, grants] of Object.entries(DEVICE_GRANTS)) {
+      expect(grants.length, kind).toBeGreaterThan(0);
+      for (const [resource, action, scope] of grants) {
+        expect(isPermission(resource, action), `${kind}: ${resource}.${action}`).toBe(true);
+        expect(isDeviceOnlyResource(resource), kind).toBe(true);
+        expect(scope).toBe('unit');
+      }
+    }
+    expect(DEVICE_GRANTS.kiosk.map(([r, a]) => `${r}.${a}`)).toEqual(['kiosk.use']);
+    expect(DEVICE_GRANTS.queue_display.map(([r, a]) => `${r}.${a}`)).toEqual(['queue.display.read']);
+  });
+
+  it('aturan platform.* tidak berubah; superadmin platform tanpa izin front office', () => {
+    expect(permissionAllowedFor('hospital', 'platform.guide')).toBe(false);
+    expect(permissionAllowedFor('platform', 'platform.guide')).toBe(true);
+    expect(permissionAllowedFor('hospital', 'queue')).toBe(true);
+    const platform = PLATFORM_ROLE_GRANTS.superadmin_platform.map(([r, a]) => `${r}.${a}`);
+    expect(platform).toEqual([
+      'platform.guide.read',
+      'iam.users.read',
+      'iam.users.write',
+      'iam.roles.read',
+      'iam.roles.write',
+      'audit.read',
+    ]);
   });
 });

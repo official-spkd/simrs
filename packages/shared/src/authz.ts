@@ -19,6 +19,19 @@ export const PERMISSION_CATALOG = {
   ref: { label: 'Master rujukan (ICD, LOINC, wilayah)', actions: ['read', 'write'] },
   documents: { label: 'Dokumen & cetak', actions: ['read', 'write', 'print'] },
   break_glass: { label: 'Akses darurat', actions: ['use', 'review'] },
+  // F01–F08 · Front office (fase 2)
+  schedule: { label: 'Jadwal praktik & kuota (sinkron HFIS)', actions: ['read', 'write', 'sync'] },
+  booking: { label: 'Booking & janji temu', actions: ['read', 'write', 'cancel'] },
+  encounter: {
+    label: 'Kunjungan (registrasi rawat jalan, IGD, rawat inap)',
+    actions: ['read', 'write', 'cancel'],
+  },
+  coverage: { label: 'Penjaminan & SEP (SPRI, rencana kontrol)', actions: ['read', 'write'] },
+  queue: { label: 'Antrean (panggil, kelola layanan & display)', actions: ['read', 'call', 'manage'] },
+  referral: { label: 'Rujukan masuk, keluar, internal', actions: ['read', 'write'] },
+  // Khusus perangkat terdaftar (lihat DEVICE_ONLY_RESOURCES): tidak pernah bisa diberikan ke peran.
+  kiosk: { label: 'Anjungan mandiri (khusus perangkat)', actions: ['use'] },
+  'queue.display': { label: 'Display antrean (khusus perangkat)', actions: ['read'] },
   'dev.tools': { label: 'Alat pengembang (non-produksi)', actions: ['use'] },
   'platform.guide': { label: 'Panduan sistem (operator platform)', actions: ['read'] },
 } as const;
@@ -73,6 +86,43 @@ const CLINICAL_READ: Grant[] = [
   ['break_glass', 'use', 'all'],
 ];
 
+/** F01–F08 · Seluruh izin front office berlingkup `all` (petugas pendaftaran; rencana fase 2 §0a). */
+const FRONT_OFFICE_ALL: Grant[] = [
+  ['schedule', 'read', 'all'],
+  ['schedule', 'write', 'all'],
+  ['schedule', 'sync', 'all'],
+  ['booking', 'read', 'all'],
+  ['booking', 'write', 'all'],
+  ['booking', 'cancel', 'all'],
+  ['encounter', 'read', 'all'],
+  ['encounter', 'write', 'all'],
+  ['encounter', 'cancel', 'all'],
+  ['coverage', 'read', 'all'],
+  ['coverage', 'write', 'all'],
+  ['queue', 'read', 'all'],
+  ['queue', 'call', 'all'],
+  ['queue', 'manage', 'all'],
+  ['referral', 'read', 'all'],
+  ['referral', 'write', 'all'],
+];
+
+/**
+ * Klinisi poli (dokter, perawat, bidan): memanggil antrean unit penugasannya, melihat jadwal, dan membaca kunjungan
+ * pasien berelasi. `queue.read` (unit) menyertai `queue.call`: memanggil butuh melihat daftar tunggu.
+ */
+const CLINICAL_FRONT_OFFICE: Grant[] = [
+  ['schedule', 'read', 'all'],
+  ['encounter', 'read', 'relationship'],
+  ['queue', 'read', 'unit'],
+  ['queue', 'call', 'unit'],
+];
+
+/** Kasir, koder, rekam medis: kunjungan dan penjaminannya (baca saja). */
+const ENCOUNTER_COVERAGE_READ: Grant[] = [
+  ['encounter', 'read', 'all'],
+  ['coverage', 'read', 'all'],
+];
+
 /**
  * Matriks bawaan. Prinsip hak minimum: klinisi hanya pasien berelasi (+ akses darurat berjejak);
  * administrasi tanpa isi klinis; audit/privasi tanpa hak ubah data pasien.
@@ -92,6 +142,12 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['ref', 'read', 'all'],
     ['ref', 'write', 'all'],
     ['dev.tools', 'use', 'all'],
+    // Jadwal/kuota dan layanan antrean; hak baca menyertai hak ubah.
+    ['schedule', 'read', 'all'],
+    ['schedule', 'write', 'all'],
+    ['schedule', 'sync', 'all'],
+    ['queue', 'read', 'all'],
+    ['queue', 'manage', 'all'],
   ],
   petugas_pendaftaran: [
     ['patient', 'read', 'all'],
@@ -100,22 +156,26 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['facility', 'read', 'all'],
     ['ref', 'read', 'all'],
     ['documents', 'print', 'all'],
+    ...FRONT_OFFICE_ALL,
   ],
   perawat: [
     ...CLINICAL_READ,
     ['forms.response', 'write', 'relationship'],
     ['forms.response', 'correct', 'relationship'],
+    ...CLINICAL_FRONT_OFFICE,
   ],
   bidan: [
     ...CLINICAL_READ,
     ['forms.response', 'write', 'relationship'],
     ['forms.response', 'correct', 'relationship'],
+    ...CLINICAL_FRONT_OFFICE,
   ],
   dokter: [
     ...CLINICAL_READ,
     ['forms.response', 'write', 'relationship'],
     ['forms.response', 'correct', 'relationship'],
     ['documents', 'write', 'relationship'],
+    ...CLINICAL_FRONT_OFFICE,
   ],
   dokter_residen: [...CLINICAL_READ, ['forms.response', 'write', 'relationship']],
   apoteker: [...CLINICAL_READ],
@@ -133,12 +193,14 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['patient', 'read', 'all'],
     ['facility', 'read', 'all'],
     ['documents', 'print', 'all'],
+    ...ENCOUNTER_COVERAGE_READ,
   ],
   koder: [
     ['patient', 'read', 'all'],
     ['forms.response', 'read', 'all'],
     ['ref', 'read', 'all'],
     ['documents', 'read', 'all'],
+    ...ENCOUNTER_COVERAGE_READ,
   ],
   akuntan: [['facility', 'read', 'all']],
   petugas_rm: [
@@ -155,11 +217,14 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['documents', 'print', 'all'],
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
+    ...ENCOUNTER_COVERAGE_READ,
   ],
   manajemen: [
     ['facility', 'read', 'all'],
     ['audit', 'read', 'all'],
     ['tenant.settings', 'read', 'all'],
+    // Layar Jadwal dokter (registri layar web: manajemen ikut memantau kuota).
+    ['schedule', 'read', 'all'],
   ],
   auditor_mutu: [
     ['audit', 'read', 'all'],
@@ -222,8 +287,39 @@ export function isProtectedRole(code: string | null | undefined): boolean {
   return (PROTECTED_ROLES as readonly (string | null | undefined)[]).includes(code);
 }
 
-/** Sumber `platform.*` hanya bermakna di tenant PLATFORM; tidak boleh diberikan ke peran RS. */
+/**
+ * Izin khusus perangkat terdaftar (ADR-0027: anjungan, TV display antrean). Hanya dipegang prinsipal perangkat lewat
+ * `DEVICE_GRANTS`; tidak pernah bisa diberikan ke peran manusia (RS maupun platform), sehingga akun staf tidak
+ * bisa menyamar sebagai anjungan/TV dan sebaliknya.
+ */
+export const DEVICE_ONLY_RESOURCES = [
+  'kiosk',
+  'queue.display',
+] as const satisfies readonly PermissionResource[];
+
+export function isDeviceOnlyResource(resource: string): boolean {
+  return (DEVICE_ONLY_RESOURCES as readonly string[]).includes(resource);
+}
+
+/** Jenis perangkat terdaftar per unit (keputusan fase 2 no. 2). */
+export const DEVICE_KINDS = {
+  kiosk: 'Anjungan mandiri',
+  queue_display: 'Display antrean (TV)',
+} as const;
+export type DeviceKind = keyof typeof DEVICE_KINDS;
+
+/** Izin tetap per jenis perangkat (tidak bisa diubah per RS). Lingkup `unit` = unit tempat perangkat didaftarkan. */
+export const DEVICE_GRANTS: Record<DeviceKind, readonly Grant[]> = {
+  kiosk: [['kiosk', 'use', 'unit']],
+  queue_display: [['queue.display', 'read', 'unit']],
+};
+
+/**
+ * Izin yang boleh diberikan ke PERAN (manusia) di jenis tenant ini: sumber `platform.*` hanya bermakna di tenant
+ * PLATFORM; izin khusus perangkat tidak pernah.
+ */
 export function permissionAllowedFor(kind: TenantKind, resource: string): boolean {
+  if (isDeviceOnlyResource(resource)) return false;
   return kind === 'platform' || !resource.startsWith('platform.');
 }
 
