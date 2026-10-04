@@ -3,6 +3,9 @@
  */
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
+import type { AuditAnchorJob } from '../src/audit/audit-anchor.job';
+import { AUDIT_JOB_SCHEDULES, AuditJobsScheduler } from '../src/audit/audit-jobs.scheduler';
+import type { AuditSummaryJob } from '../src/audit/audit-summary.job';
 import { loadWorkerEnv, type WorkerEnv } from '../src/config/env';
 import type { OutboxDispatcher } from '../src/outbox/outbox.dispatcher';
 import { OutboxScheduler } from '../src/outbox/outbox.scheduler';
@@ -46,5 +49,29 @@ describe('penjadwal outbox', () => {
     expect(after).toBeGreaterThanOrEqual(2);
     expect(maxConcurrent).toBe(1);
     expect(calls).toBeLessThanOrEqual(after + 1);
+  });
+
+  it('job audit (ADR-0072) tanpa Redis: jangkar lalu ringkasan per putaran, berhenti saat modul ditutup', async () => {
+    const env: WorkerEnv = loadWorkerEnv({ ...base, APP_ENV: 'local', OUTBOX_SCHEDULER: 'interval' });
+    const calls: string[] = [];
+    const anchors = {
+      enabled: true,
+      runOnce: async () => {
+        calls.push('anchor');
+        return { tenants: 0, anchored: 0, failed: 0, results: [] };
+      },
+    } as unknown as AuditAnchorJob;
+    const summaries = {
+      runOnce: async () => {
+        calls.push('summarize');
+        return { tenants: 0, created: 0, failed: 0 };
+      },
+    } as unknown as AuditSummaryJob;
+    const scheduler = new AuditJobsScheduler(env, null, anchors, summaries);
+    await scheduler.start({ firstRunDelayMs: 0 });
+    await new Promise((r) => setTimeout(r, 200));
+    await scheduler.onModuleDestroy();
+    expect(calls).toEqual(['anchor', 'summarize']);
+    expect(Object.values(AUDIT_JOB_SCHEDULES).map((s) => s.pattern)).toEqual(['0 * * * *', '20 * * * *']);
   });
 });
