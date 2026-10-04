@@ -131,6 +131,12 @@ test.describe('domain manajemen', () => {
     await expect(phone).toHaveAttribute('data-scale', /\d/);
     await expect(phone.getByRole('region', { name: 'Antrean aktif' })).toContainText('2610050117');
     await expect(phone.getByText('Pak Suryo')).toBeVisible();
+    const glucose = phone.getByRole('region', { name: 'Gula darah' });
+    await glucose.getByRole('button', { name: 'Catat hasil hari ini' }).click();
+    await glucose.getByLabel('Hasil gula darah (mg/dL)').fill('65');
+    await glucose.getByRole('button', { name: 'Simpan' }).click();
+    await expect(glucose).toContainText('di bawah sasaran');
+    await expect(glucose.getByRole('alert')).toContainText('Gula darah rendah');
     await phone.getByRole('button', { name: /Hasil lab/ }).click();
     await expect(phone.getByRole('heading', { name: 'Hasil lab' })).toBeVisible();
     await expect(phone.getByText('Belum ada hasil yang dirilis untuk Anda.')).toBeVisible();

@@ -7,6 +7,7 @@ import { ExpiryPanel } from '@/components/manajemen/expiry-panel';
 import { PoDraftPanel } from '@/components/manajemen/po-draft-panel';
 import { ProcurementList, type ProcurementRow } from '@/components/manajemen/procurement-list';
 import { ReorderRow } from '@/components/manajemen/reorder-row';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { buildPoDraft, formatDays } from '@/lib/manajemen';
 import { submitPoAction } from './actions';
 
@@ -105,7 +106,7 @@ export function LogisticsBoard({
   const approve = (id: string) =>
     setApproved((cur) => ({
       ...cur,
-      [id]: `Disetujui direktur ${formatJam(new Date())} · siap diproses PO / e-katalog (simulasi, tidak disimpan)`,
+      [id]: `Disetujui direktur ${formatJam(demoNow())} · siap diproses PO / e-katalog (simulasi, tidak disimpan)`,
     }));
 
   const orders: ProcurementRow[] = [...newPos, ...data.purchaseOrders].map((p) => ({
@@ -134,11 +135,10 @@ export function LogisticsBoard({
         </span>
         <span className="flex flex-col items-end gap-1">
           <span className="flex flex-wrap justify-end gap-2">
-            <Button size="sm" aria-expanded={opname} onClick={() => setOpname((o) => !o)}>
+            <Button aria-expanded={opname} onClick={() => setOpname((o) => !o)}>
               Stok opname
             </Button>
             <Button
-              size="sm"
               variant="primary"
               disabled={reason !== null}
               aria-describedby={reason ? 'po-alasan' : undefined}
@@ -201,16 +201,16 @@ export function LogisticsBoard({
             </span>
           </div>
           <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line bg-[#F8FAFB] pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
-            <span className="flex h-11 items-center justify-center">
+            <label className="flex h-11 w-11 cursor-pointer items-center justify-center has-[:disabled]:cursor-not-allowed">
               <input
                 type="checkbox"
                 checked={allOn}
                 onChange={toggleAll}
                 disabled={pickable.length === 0}
-                aria-label="Pilih semua item yang tampil untuk usulan PO"
                 className="h-4 w-4 accent-brand-600"
               />
-            </span>
+              <span className="sr-only">Pilih semua item yang tampil untuk usulan PO</span>
+            </label>
             <span>Item</span>
             <span className="hidden xl:block">Kelas</span>
             <span className="hidden xl:block">Stok</span>

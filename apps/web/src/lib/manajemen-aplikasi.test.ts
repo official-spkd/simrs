@@ -1,9 +1,16 @@
-import { doctorAppInboxSchema, patientAppHomeSchema } from '@simrs/shared';
+import { type DoctorAppInbox, doctorAppInboxSchema, patientAppHomeSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioDef, ScenarioEvent } from './demo/engine/types';
 import { SCENARIOS } from './demo/skenario';
-import { doctorAppInbox, labRow, medicineRow, patientAppHome, taskDone } from './manajemen-aplikasi';
+import {
+  doctorAppInbox,
+  hartonoLabOrdered,
+  labRow,
+  medicineRow,
+  patientAppHome,
+  taskDone,
+} from './manajemen-aplikasi';
 
 /** Putar otomatis (nilai bawaan) sampai tugas `stepId.taskId` selesai. */
 function until(def: ScenarioDef, stepId: string, taskId: string): ScenarioEvent[] {
@@ -113,5 +120,83 @@ describe('aplikasi dokter mengikuti nilai kritis Tn. Hartono (skenario IGD)', ()
     expect(d.patients[0]).toMatchObject({ name: 'Tn. Hartono Wibisono', rm: '00-61-30-05', level: 'tinggi' });
     expect(d.patients.length).toBeGreaterThanOrEqual(5);
     expect(d.cosign).toHaveLength(3);
+  });
+});
+
+describe('aplikasi dokter tidak mendahului cerita IGD (milestone per milestone)', () => {
+  const stepAt = (id: string) => IGD.steps.findIndex((s) => s.id === id);
+  const hartono = (d: DoctorAppInbox) => d.patients.find((p) => p.id === 'pt-hartono');
+  const detail = (d: DoctorAppInbox, label: string) =>
+    hartono(d)?.details.find((r) => r.label === label)?.value;
+  const ordered = (seq: ScenarioEvent[]) => hartonoLabOrdered(runScenario(IGD, seq));
+
+  it('kedatangan: belum ada Tn. Hartono, order lab, EKG, nilai, maupun hiperkalemia', () => {
+    const seq = until(IGD, 'kedatangan', 'id');
+    const d = inbox(seq);
+    expect(hartono(d)).toBeUndefined();
+    expect(d.critical).toMatchObject({
+      state: 'menunggu-hasil',
+      mode: 'skenario',
+      ecg: 'Belum direkam',
+      value: '—',
+      resultAt: null,
+    });
+    expect(ordered(seq)).toBe(false);
+    const text = JSON.stringify(d);
+    for (const spoiler of ['iperkalemia', 'runcing', '158/94', '6,8']) expect(text).not.toContain(spoiler);
+  });
+
+  it('asesmen dokter dimulai: Tn. Hartono masuk daftar dengan TTV dari rekam medis, tanpa EKG/hiperkalemia', () => {
+    const atTriase = advanceTo(IGD, [], stepAt('triase'));
+    if (!atTriase.ok) throw new Error(atTriase.error);
+    const ttv = applyAction(IGD, atTriase.seq, {
+      type: 'task',
+      step: stepAt('triase'),
+      task: 'ttv',
+      value: '150/90 · 104 · 22 · 95%',
+    });
+    if (!ttv.ok) throw new Error(ttv.error);
+    const atDoctor = advanceTo(IGD, ttv.seq, stepAt('asesmen-dokter'));
+    if (!atDoctor.ok) throw new Error(atDoctor.error);
+    const d = inbox(atDoctor.seq);
+    expect(hartono(d)).toMatchObject({
+      location: 'IGD · bed resusitasi 2',
+      note: 'Suspek SKA · belum ada order lab',
+    });
+    expect(detail(d, 'Tanda vital (TD · N · RR · SpO2)')).toBe('150/90 · 104 · 22 · 95%');
+    expect(detail(d, 'EKG')).toBe('Belum direkam');
+    expect(detail(d, 'Diagnosis kerja')).toBe('Suspek sindrom koroner akut');
+    expect(ordered(atDoctor.seq)).toBe(false);
+  });
+
+  it('EKG dari rekam medis setelah asesmen-dokter.ekg; order set → "menunggu hasil lab"', () => {
+    expect(detail(inbox(until(IGD, 'asesmen-dokter', 'ekg')), 'EKG')).toBe(
+      'Depresi ST V4–V6, T tinggi runcing',
+    );
+    const seq = until(IGD, 'asesmen-dokter', 'orderset');
+    const d = inbox(seq);
+    expect(ordered(seq)).toBe(true);
+    expect(d.critical).toMatchObject({ state: 'menunggu-hasil', value: '—' });
+    expect(hartono(d)?.note).toBe('Suspek SKA · menunggu hasil lab');
+    expect(detail(d, 'Diagnosis kerja')).not.toMatch(/hiperkalemia/i);
+  });
+
+  it('nilai-kritis.hasil: nilai 6,8 dan hiperkalemia baru muncul', () => {
+    const d = inbox(until(IGD, 'nilai-kritis', 'hasil'));
+    expect(d.critical).toMatchObject({ state: 'menunggu-laporan', value: '6,8' });
+    expect(detail(d, 'Diagnosis kerja')).toBe('Suspek sindrom koroner akut · hiperkalemia');
+    expect(hartono(d)?.note).toBe('Suspek SKA, K 6,8 · nilai kritis belum diterima');
+  });
+
+  it('pratinjau lokal (skenario belum disentuh) memakai isi mockup', () => {
+    const d = inbox([]);
+    expect(ordered([])).toBe(true);
+    expect(detail(d, 'EKG')).toBe('Irama sinus, gelombang T tinggi runcing');
+    expect(detail(d, 'Tanda vital (TD · N · RR · SpO2)')).toBe('158/94 · 112 · 24 · 94%');
+    expect(detail(d, 'Diagnosis kerja')).toMatch(/hiperkalemia/);
+  });
+
+  it('id tugas salah ketik → galat, bukan diam-diam "belum"', () => {
+    expect(() => taskDone(runScenario(IGD, []), 'asesmen-dokter', 'ekgg')).toThrow(/tidak ada/);
   });
 });

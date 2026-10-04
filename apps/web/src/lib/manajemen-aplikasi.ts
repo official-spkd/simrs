@@ -32,17 +32,26 @@ function stepIndex(R: RunResult, stepId: string): number {
   return i;
 }
 
+/** Kunci tugas `stepId.taskId`; langkah/tugas yang salah ketik → galat (bukan diam-diam "belum"). */
+function keyOf(R: RunResult, stepId: string, taskId: string): string {
+  const i = stepIndex(R, stepId);
+  if (!R.def.steps[i]?.tasks.some((t) => t.id === taskId)) {
+    throw new Error(`Tugas ${stepId}.${taskId} tidak ada di skenario ${R.def.id}`);
+  }
+  return taskKey(i, taskId);
+}
+
 export function taskDone(R: RunResult, stepId: string, taskId: string): boolean {
-  return R.done.has(taskKey(stepIndex(R, stepId), taskId));
+  return R.done.has(keyOf(R, stepId, taskId));
 }
 
 export function taskValue(R: RunResult, stepId: string, taskId: string): TaskValue | undefined {
-  return R.done.get(taskKey(stepIndex(R, stepId), taskId));
+  return R.done.get(keyOf(R, stepId, taskId));
 }
 
 /** Jam selesai tugas ("07.13" atau "Sab 3 Okt · 22.27"), atau null bila belum. */
 export function taskTime(R: RunResult, stepId: string, taskId: string): string | null {
-  const m = R.doneAt.get(taskKey(stepIndex(R, stepId), taskId));
+  const m = R.doneAt.get(keyOf(R, stepId, taskId));
   return m === undefined ? null : formatSimClock(R.def, m);
 }
 
@@ -302,8 +311,37 @@ const stepReached = (R: RunResult, stepId: string) => R.finished || R.step >= st
 
 /** Lokasi Tn. Hartono saat nilai kritis keluar (langkah asesmen dokter IGD). */
 const CRITICAL_LOCATION = 'IGD · bed resusitasi 2';
-/** Jam hasil di mode lokal (pratinjau tanpa skenario berjalan; mockup AppDokter). */
+/** Isi pratinjau lokal (skenario belum disentuh; mockup AppDokter). Skenario berjalan memakai rekam medisnya. */
 const LOCAL_RESULT_AT = '10.39';
+const LOCAL_ECG = 'Irama sinus, gelombang T tinggi runcing';
+const LOCAL_TTV = '158/94 · 112 · 24 · 94%';
+
+/**
+ * Tn. Hartono masuk daftar konsulen saat asesmen dokter IGD dimulai (atau di pratinjau lokal); sebelum itu
+ * aplikasi tidak boleh mendahului cerita IGD.
+ */
+export function hartonoListed(R: RunResult): boolean {
+  return scenarioUntouched(R) || stepReached(R, 'asesmen-dokter');
+}
+
+/** Order lab Tn. Hartono sudah dikirim (`asesmen-dokter.orderset`)? Pratinjau lokal: hasil sudah keluar. */
+export function hartonoLabOrdered(R: RunResult): boolean {
+  return scenarioUntouched(R) || taskDone(R, 'asesmen-dokter', 'orderset');
+}
+
+/** Hasil lab (kalium kritis) sudah keluar (`nilai-kritis.hasil`)? */
+const resultOut = (R: RunResult) => scenarioUntouched(R) || taskDone(R, 'nilai-kritis', 'hasil');
+
+/** Temuan EKG: baru ada setelah `asesmen-dokter.ekg` (teks dari rekam medis skenario). */
+export function hartonoEcg(R: RunResult): string {
+  if (scenarioUntouched(R)) return LOCAL_ECG;
+  if (!taskDone(R, 'asesmen-dokter', 'ekg')) return 'Belum direkam';
+  const text = R.rec.hasil
+    .find((h) => h.startsWith('EKG:'))
+    ?.slice('EKG:'.length)
+    .trim();
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : 'Tersimpan di RME';
+}
 
 /**
  * Status nilai kritis kalium Tn. Hartono (skenario IGD → rawat inap, langkah `nilai-kritis`):
@@ -333,48 +371,70 @@ export function criticalValue(R: RunResult): DoctorAppInbox['critical'] {
     location: CRITICAL_LOCATION,
     analyte: 'Kalium',
     loinc: '2823-3',
-    value: '6,8',
+    // Nilai baru ada setelah hasil keluar; sebelumnya tidak dikirim ke aplikasi sama sekali.
+    value: hasil || untouched ? '6,8' : '—',
     unit: 'mmol/L',
     reportedBy: PERSONA.analisLab,
     reportedTo: typeof lapor === 'string' ? lapor : null,
     resultAt: hasil ? taskTime(R, 'nilai-kritis', 'hasil') : untouched ? LOCAL_RESULT_AT : null,
     acceptedAt: readback ? taskTime(R, 'nilai-kritis', 'readback') : null,
-    ecg: 'Irama sinus, gelombang T tinggi runcing',
+    ecg: hartonoEcg(R),
   };
 }
 
-/** I08 · Kotak masuk aplikasi dokter konsulen penyakit dalam. */
+/** Catatan baris Tn. Hartono di daftar pasien, mengikuti kemajuan order → hasil → read-back. */
+function hartonoNote(R: RunResult, critical: DoctorAppInbox['critical']): string {
+  if (!hartonoLabOrdered(R)) return 'Suspek SKA · belum ada order lab';
+  switch (critical.state) {
+    case 'menunggu-hasil':
+      return 'Suspek SKA · menunggu hasil lab';
+    case 'diterima':
+      return `Suspek SKA, K ${critical.value} · read-back ${critical.acceptedAt ?? ''}`.trim();
+    default:
+      return `Suspek SKA, K ${critical.value} · nilai kritis belum diterima`;
+  }
+}
+
+/**
+ * I08 · Kotak masuk aplikasi dokter konsulen penyakit dalam. Tn. Hartono, EKG, diagnosis, dan tanda vital
+ * mengikuti milestone skenario IGD (tidak mendahului cerita); pratinjau lokal memakai isi mockup.
+ */
 export function doctorAppInbox(R: RunResult): DoctorAppInbox {
   const p = patientByScenario('igd-ranap');
   if (!p) throw new Error('Pasien skenario IGD tidak ada di fixture');
   const rec = R.rec;
   const critical = criticalValue(R);
   const untouched = scenarioUntouched(R);
-  const hartono: DoctorAppInbox['patients'][number] = {
-    id: 'pt-hartono',
-    name: p.nama,
-    age: p.umur,
-    rm: p.rm,
-    location: untouched ? CRITICAL_LOCATION : rec.lokasi,
-    note:
-      critical.state === 'menunggu-hasil'
-        ? 'Suspek SKA · menunggu hasil lab'
-        : critical.state === 'diterima'
-          ? `Suspek SKA, K 6,8 · read-back ${critical.acceptedAt ?? ''}`.trim()
-          : 'Suspek SKA, K 6,8 · nilai kritis belum diterima',
-    ews: 6,
-    level: 'tinggi',
-    hospitalDay: stepReached(R, 'rawat-inap') ? 'H1' : 'H0',
-    details: [
-      {
-        label: 'Diagnosis kerja',
-        value: rec.dx.length > 0 ? rec.dx.join(' · ') : 'Suspek sindrom koroner akut · hiperkalemia',
-      },
-      { label: 'EKG', value: critical.ecg },
-      { label: 'Tanda vital (TD · N · RR · SpO2)', value: rec.ttv || '158/94 · 112 · 24 · 94%' },
-      { label: 'Riwayat', value: p.riwayat },
-    ],
-  };
+  const diagnosis =
+    rec.dx.length > 0
+      ? rec.dx.join(' · ')
+      : resultOut(R)
+        ? 'Suspek sindrom koroner akut · hiperkalemia'
+        : 'Suspek sindrom koroner akut';
+  const hartono: DoctorAppInbox['patients'] = hartonoListed(R)
+    ? [
+        {
+          id: 'pt-hartono',
+          name: p.nama,
+          age: p.umur,
+          rm: p.rm,
+          location: untouched ? CRITICAL_LOCATION : rec.lokasi,
+          note: hartonoNote(R, critical),
+          ews: 6,
+          level: 'tinggi',
+          hospitalDay: stepReached(R, 'rawat-inap') ? 'H1' : 'H0',
+          details: [
+            { label: 'Diagnosis kerja', value: diagnosis },
+            { label: 'EKG', value: critical.ecg },
+            {
+              label: 'Tanda vital (TD · N · RR · SpO2)',
+              value: rec.ttv || (untouched ? LOCAL_TTV : 'Belum diukur'),
+            },
+            { label: 'Riwayat', value: p.riwayat },
+          ],
+        },
+      ]
+    : [];
   const others = DOCTOR_PATIENTS.map(({ patientId, ...row }) => {
     const pt = patientById(patientId);
     if (!pt) throw new Error(`Pasien ${patientId} tidak ada di fixture`);
@@ -386,7 +446,7 @@ export function doctorAppInbox(R: RunResult): DoctorAppInbox {
     critical,
     orderVerifyCount: 2,
     coderQueryCount: 1,
-    patients: [hartono, ...others],
+    patients: [...hartono, ...others],
     cosign: COSIGN_NOTES.map((c) => ({ ...c })),
     schedule: DOCTOR_SCHEDULE.map((s) => ({ ...s })),
   };

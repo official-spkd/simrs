@@ -3,25 +3,54 @@ import type { AppPage, AppRow } from '@/components/manajemen/app-page-view';
 
 export type DoctorTab = 'pasien' | 'tugas' | 'jadwal' | 'profil';
 
+type Critical = DoctorAppInbox['critical'];
+
+/** Nilai kritis masih menunggu hasil lab: analit dan nilainya belum boleh tampil. */
+const waitingResult = (c: Critical, accepted: string | null) => !accepted && c.state === 'menunggu-hasil';
+
 /** Status nilai kritis untuk baris tugas dan detail pasien. */
-export function criticalStatus(c: DoctorAppInbox['critical'], accepted: string | null): AppRow['tone'] {
+export function criticalStatus(c: Critical, accepted: string | null): AppRow['tone'] {
   return accepted ? 'ok' : c.state === 'menunggu-hasil' ? 'muted' : 'bad';
 }
 
-export function criticalText(c: DoctorAppInbox['critical'], accepted: string | null): string {
-  if (accepted) return `${c.value} ${c.unit} · kritis, diterima ${accepted} (read-back tercatat)`;
-  if (c.state === 'menunggu-hasil') return 'Menunggu hasil lab';
-  return `${c.value} ${c.unit} · kritis, belum diterima dokter`;
+/** Isi kartu nilai kritis selama menunggu hasil: "belum ada order lab" ≠ "hasil sedang diproses". */
+export function criticalPendingText(c: Critical, labOrdered: boolean): string {
+  return labOrdered
+    ? `Hasil lab ${c.patientName} (troponin I, elektrolit) sedang diproses.`
+    : 'Belum ada order lab yang menunggu hasil.';
+}
+
+/** Baris nilai kritis di detail pasien skenario; `danger` = kritis dan belum diterima dokter. */
+export function criticalDetailRow(
+  c: Critical,
+  accepted: string | null,
+  labOrdered: boolean,
+): { label: string; value: string; danger: boolean } {
+  if (accepted) {
+    return {
+      label: c.analyte,
+      value: `${c.value} ${c.unit} · kritis, diterima ${accepted} (read-back tercatat)`,
+      danger: false,
+    };
+  }
+  if (waitingResult(c, accepted)) {
+    return {
+      label: 'Hasil lab',
+      value: labOrdered ? 'Order terkirim · hasil sedang diproses' : 'Belum ada order lab',
+      danger: false,
+    };
+  }
+  return { label: c.analyte, value: `${c.value} ${c.unit} · kritis, belum diterima dokter`, danger: true };
 }
 
 /** Halaman tab Tugas, Jadwal, dan Profil aplikasi dokter (mockup AppDokter). */
 export function buildDoctorPages(
   d: DoctorAppInbox,
-  accepted: string | null,
-  cosignLeft: number,
-  nextCosign: string | null,
+  opts: { accepted: string | null; labOrdered: boolean; cosignLeft: number; nextCosign: string | null },
 ): Record<Exclude<DoctorTab, 'pasien'>, AppPage> {
   const c = d.critical;
+  const { accepted, labOrdered, cosignLeft, nextCosign } = opts;
+  const waiting = waitingResult(c, accepted);
   return {
     tugas: {
       title: 'Tugas',
@@ -30,12 +59,18 @@ export function buildDoctorPages(
         {
           id: 'kritis',
           title: 'Nilai kritis',
-          detail: `${c.analyte} ${c.value} · ${c.patientName}`,
+          detail: !waiting
+            ? `${c.analyte} ${c.value} · ${c.patientName}`
+            : labOrdered
+              ? `Hasil lab ${c.patientName} sedang diproses`
+              : 'Belum ada order lab yang menunggu hasil',
           status: accepted
             ? `Diterima ${accepted}`
-            : c.state === 'menunggu-hasil'
-              ? 'Belum ada'
-              : 'Belum diterima',
+            : !waiting
+              ? 'Belum diterima'
+              : labOrdered
+                ? 'Diproses'
+                : 'Belum ada',
           tone: criticalStatus(c, accepted),
         },
         {

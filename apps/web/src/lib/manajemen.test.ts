@@ -11,6 +11,7 @@ import { demoExecutiveDashboard } from './demo/fixtures/dasbor';
 import {
   DEAD_LETTERS,
   demoIntegrationOverview,
+  GLUCOSE_TARGET,
   demoLogisticsOverview,
   demoQualityOverview,
   INVENTORY,
@@ -27,6 +28,8 @@ import {
   dlqPayloadText,
   formatLatency,
   formatRupiahShort,
+  GLUCOSE_BAND_LABEL,
+  glucoseBand,
   hourLabel,
   indicatorOnTarget,
   interfaceOfLog,
@@ -194,5 +197,26 @@ describe('mutu', () => {
   it('laporan IKP hanya memuat nomor RM, tanpa nama pasien', () => {
     const text = JSON.stringify(demoQualityOverview().incidents);
     for (const p of PASIEN) expect(text).not.toContain(p.nama);
+  });
+});
+
+describe('aplikasi pasien: pita gula darah', () => {
+  it('di bawah / dalam / di atas sasaran, batas inklusif', () => {
+    const t = { min: 80, max: 130 };
+    expect([62, 79, 80, 105, 130, 131, 182].map((v) => glucoseBand(v, t))).toEqual([
+      'bawah',
+      'bawah',
+      'dalam',
+      'dalam',
+      'dalam',
+      'atas',
+      'atas',
+    ]);
+  });
+
+  it('nilai rendah tidak pernah berlabel "di atas sasaran" (riwayat hipoglikemia berat)', () => {
+    expect(GLUCOSE_BAND_LABEL[glucoseBand(65, GLUCOSE_TARGET)]).toBe('di bawah sasaran');
+    expect(GLUCOSE_BAND_LABEL[glucoseBand(146, GLUCOSE_TARGET)]).toBe('di atas sasaran');
+    expect(GLUCOSE_BAND_LABEL[glucoseBand(GLUCOSE_TARGET.min, GLUCOSE_TARGET)]).toBe('dalam sasaran');
   });
 });

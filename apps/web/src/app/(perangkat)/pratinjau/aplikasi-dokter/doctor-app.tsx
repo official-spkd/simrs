@@ -5,9 +5,10 @@ import { Chip, type ChipTone, cx, Icon, type IconName } from '@simrs/ui';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { CosignCard } from './cosign-card';
 import { CriticalCard } from './critical-card';
-import { buildDoctorPages, criticalText, type DoctorTab } from './doctor-pages';
+import { buildDoctorPages, criticalDetailRow, type DoctorTab } from './doctor-pages';
 
 const TABS: Array<{ key: DoctorTab; label: string; icon: IconName }> = [
   { key: 'pasien', label: 'Pasien', icon: 'users' },
@@ -25,7 +26,16 @@ const LEVEL: Record<
 };
 
 /** I08 · Pratinjau aplikasi dokter (mockup AppDokter): nilai kritis + read-back, daftar pasien EWS, co-sign. */
-export function DoctorApp({ inbox, rev }: { inbox: DoctorAppInbox; rev: number }) {
+export function DoctorApp({
+  inbox,
+  rev,
+  labOrdered,
+}: {
+  inbox: DoctorAppInbox;
+  rev: number;
+  /** Order lab Tn. Hartono sudah dikirim di skenario IGD (lihat `getDoctorAppInbox`). */
+  labOrdered: boolean;
+}) {
   const [tab, setTab] = useState<DoctorTab>('pasien');
   const [pt, setPt] = useState<string | null>(null);
   const [csIdx, setCsIdx] = useState(0);
@@ -33,7 +43,12 @@ export function DoctorApp({ inbox, rev }: { inbox: DoctorAppInbox; rev: number }
   const c = inbox.critical;
   const accepted = c.state === 'diterima' ? c.acceptedAt : localAccepted;
   const left = inbox.cosign.length - csIdx;
-  const pages = buildDoctorPages(inbox, accepted, left, inbox.cosign[csIdx]?.patientName ?? null);
+  const pages = buildDoctorPages(inbox, {
+    accepted,
+    labOrdered,
+    cosignLeft: left,
+    nextCosign: inbox.cosign[csIdx]?.patientName ?? null,
+  });
   const detail = inbox.patients.find((p) => p.id === pt) ?? null;
   const title = tab === 'pasien' ? `Pasien saya · ${inbox.patients.length}` : pages[tab].title;
 
@@ -75,10 +90,8 @@ export function DoctorApp({ inbox, rev }: { inbox: DoctorAppInbox; rev: number }
             </div>
             <dl className="m-0 flex flex-col overflow-hidden rounded-[16px] border border-line bg-white">
               {[
-                ...(detail.id === 'pt-hartono'
-                  ? [{ label: 'Kalium', value: criticalText(c, accepted) }]
-                  : []),
-                ...detail.details,
+                ...(detail.id === 'pt-hartono' ? [criticalDetailRow(c, accepted, labOrdered)] : []),
+                ...detail.details.map((r) => ({ ...r, danger: false })),
               ].map((r) => (
                 <div
                   key={r.label}
@@ -88,7 +101,7 @@ export function DoctorApp({ inbox, rev }: { inbox: DoctorAppInbox; rev: number }
                   <dd
                     className={cx(
                       'm-0 text-[13.5px]',
-                      r.label === 'Kalium' && !accepted ? 'font-semibold text-danger' : 'text-ink-900',
+                      r.danger ? 'font-semibold text-danger' : 'text-ink-900',
                     )}
                   >
                     {r.value}
@@ -102,8 +115,9 @@ export function DoctorApp({ inbox, rev }: { inbox: DoctorAppInbox; rev: number }
             <CriticalCard
               critical={c}
               rev={rev}
+              labOrdered={labOrdered}
               acceptedLocally={localAccepted}
-              onAcceptLocal={() => setLocalAccepted(formatJam(new Date()))}
+              onAcceptLocal={() => setLocalAccepted(formatJam(demoNow()))}
               onOpenPatient={() => setPt('pt-hartono')}
             />
             <section aria-label="Tugas" className="grid grid-cols-3 gap-2">

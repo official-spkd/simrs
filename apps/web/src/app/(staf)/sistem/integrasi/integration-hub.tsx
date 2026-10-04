@@ -4,6 +4,7 @@ import { formatJam, type IntegrationOverview, type InterfaceId } from '@simrs/sh
 import { Button, Icon } from '@simrs/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { InterfaceCard } from '@/components/manajemen/interface-card';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { formatNumber } from '@/lib/manajemen';
 import { DeadLetterQueue } from './dead-letter-queue';
 
@@ -52,7 +53,7 @@ export function IntegrationHub({ data, aside }: { data: IntegrationOverview; asi
   const start = () => {
     setRestored(null);
     setQueued({});
-    setDown({ at: formatJam(new Date()) });
+    setDown({ at: formatJam(demoNow()) });
   };
   const restore = () => {
     const n = sum(queued);
@@ -65,7 +66,7 @@ export function IntegrationHub({ data, aside }: { data: IntegrationOverview; asi
     setQueued({});
     setDown(null);
     setRestored(
-      `Koneksi pulih pukul ${formatJam(new Date())} · ${formatNumber(n)} transaksi lokal disinkronkan ulang berurutan tanpa duplikasi. Server edge kembali online.`,
+      `Koneksi pulih pukul ${formatJam(demoNow())} · ${formatNumber(n)} transaksi lokal disinkronkan ulang berurutan tanpa duplikasi. Server edge kembali online.`,
     );
   };
 
@@ -95,36 +96,32 @@ export function IntegrationHub({ data, aside }: { data: IntegrationOverview; asi
             </>
           )}
         </span>
-        {!holding && (
-          <Button size="sm" onClick={start}>
-            Uji mode downtime
-          </Button>
-        )}
+        {!holding && <Button onClick={start}>Uji mode downtime</Button>}
       </div>
 
       {holding && down && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3.5 rounded-card border border-[#F1D3A8] bg-[linear-gradient(120deg,#FFF3E0,#FFFFFF_75%)] px-4 py-3"
-        >
+        <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-[#F1D3A8] bg-[linear-gradient(120deg,#FFF3E0,#FFFFFF_75%)] px-4 py-3">
           <span className="text-warning" aria-hidden="true">
             <Icon name="alert" size={22} />
           </span>
           <span className="flex flex-[1_1_380px] flex-col gap-0.5 text-small text-ink-700">
-            <span className="font-semibold text-warning">
-              Mode downtime aktif sejak {down.at} · uji terkendali
-            </span>
-            <span>
-              Layanan klinis dan kasir tetap berjalan. Setiap transaksi disimpan lokal di server edge dengan
-              penanda waktu dan kunci idempotensi, lalu disinkronkan ulang ke cloud, SATUSEHAT, dan BPJS
-              sesuai urutan kejadian saat koneksi pulih.
+            {/* Hanya perubahan keadaan yang diumumkan; penghitung yang berdetak tiap 2 dtk di luar live region. */}
+            <span role="status" className="flex flex-col gap-0.5">
+              <span className="font-semibold text-warning">
+                Mode downtime aktif sejak {down.at} · uji terkendali
+              </span>
+              <span>
+                Layanan klinis dan kasir tetap berjalan. Setiap transaksi disimpan lokal di server edge dengan
+                penanda waktu dan kunci idempotensi, lalu disinkronkan ulang ke cloud, SATUSEHAT, dan BPJS
+                sesuai urutan kejadian saat koneksi pulih.
+              </span>
             </span>
             <span>
               Transaksi tersimpan lokal selama uji:{' '}
               <span className="font-mono font-semibold text-ink-900">{formatNumber(sum(queued))}</span>
             </span>
           </span>
-          <Button variant="primary" size="sm" onClick={restore}>
+          <Button variant="primary" onClick={restore}>
             Pulihkan
           </Button>
         </div>

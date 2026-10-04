@@ -16,7 +16,7 @@ import {
   demoLogisticsOverview,
   demoQualityOverview,
 } from '../../demo/fixtures/manajemen';
-import { doctorAppInbox, patientAppHome } from '../../manajemen-aplikasi';
+import { doctorAppInbox, hartonoLabOrdered, patientAppHome } from '../../manajemen-aplikasi';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
 import { assertDemo } from '../demo-guard';
@@ -59,11 +59,20 @@ export async function getPatientAppHome(session: SessionView): Promise<PatientAp
   return patientAppHomeSchema.parse(patientAppHome(runs.results['rawat-jalan']));
 }
 
-/** I08 · kotak masuk aplikasi dokter; `rev` dipakai tombol read-back yang memajukan skenario IGD. */
+/**
+ * I08 · kotak masuk aplikasi dokter; `rev` dipakai tombol read-back yang memajukan skenario IGD. `labOrdered`
+ * membedakan "belum ada order lab" dari "hasil sedang diproses" selama nilai kritis menunggu hasil (belum ada di
+ * kontrak `doctorAppInboxSchema`).
+ */
 export async function getDoctorAppInbox(
   session: SessionView,
-): Promise<{ inbox: DoctorAppInbox; rev: number }> {
+): Promise<{ inbox: DoctorAppInbox; rev: number; labOrdered: boolean }> {
   if (!isDemo()) return notImplemented('aplikasi dokter');
   const runs = await scenarioRuns(session);
-  return { inbox: doctorAppInboxSchema.parse(doctorAppInbox(runs.results['igd-ranap'])), rev: runs.rev };
+  const R = runs.results['igd-ranap'];
+  return {
+    inbox: doctorAppInboxSchema.parse(doctorAppInbox(R)),
+    rev: runs.rev,
+    labOrdered: hartonoLabOrdered(R),
+  };
 }

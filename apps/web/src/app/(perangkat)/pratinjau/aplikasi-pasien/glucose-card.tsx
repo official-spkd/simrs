@@ -3,6 +3,8 @@
 import { formatJam, type PatientAppHome } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { type FormEvent, useState } from 'react';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { GLUCOSE_BAND_LABEL, type GlucoseBand, glucoseBand } from '@/lib/manajemen';
 
 const W = 320;
 const H = 80;
@@ -11,10 +13,13 @@ const HI = 200;
 const y = (v: number) =>
   Math.round((H - 6 - ((Math.min(Math.max(v, LO), HI) - LO) / (HI - LO)) * (H - 12)) * 10) / 10;
 const x = (i: number, n: number) => 10 + (i * (W - 20)) / Math.max(n - 1, 1);
+/** Titik terakhir per pita: brand = dalam sasaran, oranye = di atas, merah = di bawah (status juga dalam teks). */
+const DOT: Record<GlucoseBand, string> = { dalam: '#0F766E', atas: '#C27A1A', bawah: '#B42318' };
 
 /**
  * Gula darah mandiri 7 hari (mockup AppPasien): garis dengan pita sasaran dokter, catat hasil hari ini dengan
- * validasi jangkauan alat. Catatan hanya di ponsel ini (simulasi, tidak disimpan).
+ * validasi jangkauan alat. Nilai di bawah sasaran ditandai bahaya (riwayat hipoglikemia berat) dalam teks, bukan
+ * warna saja. Catatan hanya di ponsel ini (simulasi, tidak disimpan).
  */
 export function GlucoseCard({
   glucose,
@@ -29,7 +34,7 @@ export function GlucoseCard({
   const [text, setText] = useState('');
   const [err, setErr] = useState('');
   const last = values.at(-1) ?? 0;
-  const inBand = last >= target.min && last <= target.max;
+  const band = glucoseBand(last, target);
   const d = values.map((v, i) => `${i ? 'L' : 'M'}${x(i, values.length)} ${y(v)}`).join(' ');
 
   const save = (e: FormEvent) => {
@@ -39,7 +44,7 @@ export function GlucoseCard({
     if (!raw || Number.isNaN(v)) return setErr('Isi angka hasil pemeriksaan.');
     if (v < 20 || v > 600) return setErr('Angka di luar jangkauan alat (20–600 mg/dL). Periksa lagi.');
     setValues((cur) => [...cur.slice(1), v]);
-    setWhen(`dicatat ${formatJam(new Date())} (simulasi, tidak disimpan)`);
+    setWhen(`dicatat ${formatJam(demoNow())} (simulasi, tidak disimpan)`);
     setOpen(false);
     setText('');
     setErr('');
@@ -59,21 +64,28 @@ export function GlucoseCard({
         width="100%"
         height={H}
         role="img"
-        aria-label={`Gula darah 7 hari dari ${values[0]} ke ${last} mg/dL; sasaran dokter ${target.min}–${target.max} mg/dL`}
+        aria-label={`Gula darah 7 hari dari ${values[0]} ke ${last} mg/dL, ${GLUCOSE_BAND_LABEL[band]}; sasaran dokter ${target.min}–${target.max} mg/dL`}
       >
         <rect x={0} y={y(target.max)} width={W} height={y(target.min) - y(target.max)} fill="#EAF5EC" />
         <path d={d} fill="none" stroke="#0F766E" strokeWidth={2.2} strokeLinejoin="round" />
-        <circle
-          cx={x(values.length - 1, values.length)}
-          cy={y(last)}
-          r={4.5}
-          fill={inBand ? '#0F766E' : '#C27A1A'}
-        />
+        <circle cx={x(values.length - 1, values.length)} cy={y(last)} r={4.5} fill={DOT[band]} />
       </svg>
       <span className="text-[12.5px] text-ink-700">
         Terakhir <span className="font-mono font-semibold text-ink-900">{last} mg/dL</span> {when} ·{' '}
-        {inBand ? 'dalam sasaran' : 'di atas sasaran'} (pita hijau = {target.min}–{target.max})
+        <span className={cx(band === 'bawah' && 'font-semibold text-danger')}>
+          {GLUCOSE_BAND_LABEL[band]}
+        </span>{' '}
+        (pita hijau = {target.min}–{target.max})
       </span>
+      {band === 'bawah' && (
+        <span
+          role="alert"
+          className="rounded-[12px] border border-danger-border bg-danger-bg px-3 py-2 text-[12.5px] text-danger"
+        >
+          <span className="font-semibold">Gula darah rendah.</span> Segera makan atau minum yang manis,
+          periksa ulang 15 menit lagi, dan hubungi rumah sakit bila tetap rendah atau badan terasa lemas.
+        </span>
+      )}
       {!open ? (
         <button
           type="button"

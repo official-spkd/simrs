@@ -62,9 +62,7 @@ export function ProcurementList({
                 </span>
                 {stage === 1 &&
                   (canApprove ? (
-                    <Button size="sm" onClick={() => onApprove(p.id)}>
-                      Setujui
-                    </Button>
+                    <Button onClick={() => onApprove(p.id)}>Setujui</Button>
                   ) : (
                     <span className="text-caption text-ink-500">Menunggu persetujuan posisi Manajemen</span>
                   ))}

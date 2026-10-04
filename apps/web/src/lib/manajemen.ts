@@ -246,3 +246,21 @@ export function daysUntil(iso: string, today: string): number {
   };
   return Math.round((t(iso) - t(today)) / 86_400_000);
 }
+
+// ─── Aplikasi pasien (I07) ─────────────────────────────────────────────────────────────────────────────────
+
+export type GlucoseBand = 'bawah' | 'dalam' | 'atas';
+
+/** Posisi gula darah terhadap sasaran dokter (inklusif: `min` ≤ nilai ≤ `max` = dalam sasaran). */
+export function glucoseBand(value: number, target: { min: number; max: number }): GlucoseBand {
+  if (value < target.min) return 'bawah';
+  if (value > target.max) return 'atas';
+  return 'dalam';
+}
+
+/** Status pita dalam teks (status tidak hanya lewat warna titik grafik). */
+export const GLUCOSE_BAND_LABEL: Record<GlucoseBand, string> = {
+  bawah: 'di bawah sasaran',
+  dalam: 'dalam sasaran',
+  atas: 'di atas sasaran',
+};

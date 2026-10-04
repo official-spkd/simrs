@@ -54,10 +54,10 @@ export function PoDraftPanel({
           </span>
         </span>
         <span className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={onCancel} disabled={pending}>
+          <Button onClick={onCancel} disabled={pending}>
             Batal
           </Button>
-          <Button size="sm" variant="primary" onClick={onSubmit} disabled={pending}>
+          <Button variant="primary" onClick={onSubmit} disabled={pending}>
             {pending ? 'Mengajukan…' : 'Ajukan ke direktur'}
           </Button>
         </span>

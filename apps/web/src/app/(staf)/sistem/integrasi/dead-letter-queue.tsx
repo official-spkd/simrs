@@ -13,7 +13,8 @@ interface Flash {
 
 /**
  * Dead-letter queue (I01): centang pesan → "Kirim ulang terpilih" → konfirmasi → Server Action simulasi.
- * Payload galat hanya berisi pengenal teknis. Kirim ulang ditahan selama uji downtime.
+ * Payload galat hanya berisi pengenal teknis. Kirim ulang ditahan selama uji downtime: konfirmasi yang terbuka
+ * ditutup dan "Ya, kirim ulang" nonaktif sampai koneksi pulih.
  */
 export function DeadLetterQueue({
   messages,
@@ -51,6 +52,11 @@ export function DeadLetterQueue({
     if (confirm) confirmRef.current?.focus();
   }, [confirm]);
 
+  // Uji downtime dimulai saat konfirmasi terbuka: tutup, jangan biarkan kirim ulang lolos dari penahanan.
+  useEffect(() => {
+    if (holding) setConfirm(false);
+  }, [holding]);
+
   const toggle = (id: string) =>
     setPicked((cur) => {
       const next = new Set(cur);
@@ -69,6 +75,7 @@ export function DeadLetterQueue({
     });
 
   const send = () => {
+    if (holding) return;
     const ids = chosen.map((m) => m.id);
     startTransition(async () => {
       const r = await resendDeadLettersAction({ ids });
@@ -112,7 +119,6 @@ export function DeadLetterQueue({
         <div className="flex max-w-[300px] flex-col items-end gap-1">
           <Button
             variant="primary"
-            size="sm"
             disabled={reason !== null || pending}
             aria-describedby={reason ? 'dlq-alasan' : undefined}
             onClick={() => {
@@ -130,7 +136,7 @@ export function DeadLetterQueue({
         </div>
       </div>
 
-      {confirm && chosen.length > 0 && (
+      {confirm && !holding && chosen.length > 0 && (
         <div
           ref={confirmRef}
           tabIndex={-1}
@@ -147,10 +153,10 @@ export function DeadLetterQueue({
             Tindakan ini tercatat di log audit.
           </span>
           <span className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => setConfirm(false)} disabled={pending}>
+            <Button onClick={() => setConfirm(false)} disabled={pending}>
               Batal
             </Button>
-            <Button size="sm" variant="primary" onClick={send} disabled={pending}>
+            <Button variant="primary" onClick={send} disabled={pending || holding}>
               {pending ? 'Mengirim ulang…' : 'Ya, kirim ulang'}
             </Button>
           </span>

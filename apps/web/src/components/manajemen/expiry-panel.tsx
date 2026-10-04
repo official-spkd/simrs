@@ -3,6 +3,7 @@
 import { type ExpiryAlert, formatJam, formatRupiah, sumRupiah } from '@simrs/shared';
 import { Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { daysUntil, formatRupiahShort } from '@/lib/manajemen';
 
 /**
@@ -13,7 +14,7 @@ export function ExpiryPanel({ items, today }: { items: ExpiryAlert[]; today: str
   const [done, setDone] = useState<Record<string, string>>({});
   const total = sumRupiah(items.map((e) => BigInt(e.value)));
   const act = (id: string, text: string) =>
-    setDone((cur) => ({ ...cur, [id]: `${text} · ${formatJam(new Date())} (simulasi, tidak disimpan)` }));
+    setDone((cur) => ({ ...cur, [id]: `${text} · ${formatJam(demoNow())} (simulasi, tidak disimpan)` }));
   return (
     <section
       aria-labelledby="ed-judul"
@@ -52,14 +53,10 @@ export function ExpiryPanel({ items, today }: { items: ExpiryAlert[]; today: str
               </span>
               {!status && (
                 <span className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => act(e.id, `Dipindahkan ke ${e.moveTo} · stok depo diperbarui`)}
-                  >
+                  <Button onClick={() => act(e.id, `Dipindahkan ke ${e.moveTo} · stok depo diperbarui`)}>
                     Pindahkan ke {e.moveTo}
                   </Button>
                   <Button
-                    size="sm"
                     variant="ghost"
                     onClick={() => act(e.id, 'Diretur ke distributor · menunggu nota kredit')}
                   >

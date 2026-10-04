@@ -4,6 +4,7 @@ import type { DoctorAppInbox } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useState } from 'react';
 import { useDemoRunner } from '@/components/demo-sync';
+import { criticalPendingText } from './doctor-pages';
 
 type Critical = DoctorAppInbox['critical'];
 
@@ -13,16 +14,20 @@ const norm = (v: string) => v.trim().replace(',', '.');
  * Nilai kritis kalium Tn. Hartono (I08, skenario IGD langkah `nilai-kritis`). Gerbang read-back: tombol
  * "Read-back benar" aktif hanya bila nilai yang dibacakan ulang sama dengan laporan lab. Bila tugas skenario
  * `readback` sedang giliran, tombol menjalankan tugas itu; tanpa skenario berjalan, penerimaan hanya di layar ini.
+ * Selama hasil belum keluar kartu hanya menyebut status order (belum ada order / sedang diproses), tanpa nilai.
  */
 export function CriticalCard({
   critical,
   rev,
+  labOrdered,
   acceptedLocally,
   onAcceptLocal,
   onOpenPatient,
 }: {
   critical: Critical;
   rev: number;
+  /** Order lab skenario sudah dikirim (membedakan "belum ada order" dari "sedang diproses"). */
+  labOrdered: boolean;
   acceptedLocally: string | null;
   onAcceptLocal: () => void;
   onOpenPatient: () => void;
@@ -43,8 +48,7 @@ export function CriticalCard({
       >
         <span className="font-semibold">Belum ada nilai kritis</span>
         <span className="block text-ink-700">
-          Hasil lab {c.patientName} (kalium, troponin) sedang diproses. Notifikasi masuk saat analis
-          melaporkan nilai kritis.
+          {criticalPendingText(c, labOrdered)} Notifikasi masuk saat analis melaporkan nilai kritis.
         </span>
       </section>
     );
