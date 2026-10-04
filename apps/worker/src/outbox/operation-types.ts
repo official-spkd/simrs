@@ -17,6 +17,10 @@ export interface OperationContext {
   tenantId: string;
   read<T>(fn: (tx: TenantTx) => Promise<T>): Promise<T>;
   crypto: PatientCrypto;
+  /** No. HP staf (`users.phone_enc`) → bentuk baku `62…`. */
+  decryptStaffPhone(stored: string): string;
+  /** Alamat web untuk tautan di pesan (email/WhatsApp). */
+  webBaseUrl: string;
 }
 
 /** `skip`: pesan tidak perlu dikirim lagi (mis. NIK sudah diganti); dicatat terkirim tanpa memanggil target. */

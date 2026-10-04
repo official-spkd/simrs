@@ -17,6 +17,7 @@ import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { FormsModule } from './modules/forms/forms.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { NumberingModule } from './modules/numbering/numbering.module';
 import { RefModule } from './modules/ref/ref.module';
 import { SettingsModule } from './modules/settings/settings.module';
@@ -74,6 +75,7 @@ export class AppModule {
         RefModule,
         FormsModule,
         DocumentsModule,
+        NotificationsModule,
         SettingsModule,
         NumberingModule,
         FacilityModule,

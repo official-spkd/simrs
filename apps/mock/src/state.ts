@@ -11,6 +11,8 @@ export const SYSTEM_LABEL: Record<MockSystem, string> = {
   tte: 'Penyelenggara TTE',
   tpdi: 'TPDI (agregator teknologi)',
   btn: 'BTN (VA, QRIS, rekening, pembiayaan)',
+  email: 'Email (kotak masuk mock)',
+  whatsapp: 'WhatsApp (kotak masuk mock)',
 };
 
 export type ScenarioMode = 'normal' | 'lambat' | 'gagal' | 'acak';
@@ -52,6 +54,16 @@ export interface TpdiInvoice {
   webhookDeliveries: Array<{ at: string; event: string; status: number | 'error'; eventId: string }>;
 }
 
+/** Pesan email/WhatsApp yang "terkirim" ke mock (P09), terbaru di depan, maks. 100. */
+export interface OutgoingMessage {
+  id: string;
+  channel: 'email' | 'whatsapp';
+  to: string;
+  subject?: string;
+  text: string;
+  at: string;
+}
+
 export interface EchoRecord {
   idempotencyKey: string;
   operation: string;
@@ -68,6 +80,7 @@ export class MockState {
   invoices = new Map<string, TpdiInvoice>();
   invoiceByIdempotency = new Map<string, string>();
   echoes = new Map<string, EchoRecord>();
+  messages: OutgoingMessage[] = [];
   private seq = 0;
 
   constructor() {
@@ -81,6 +94,7 @@ export class MockState {
     this.invoices.clear();
     this.invoiceByIdempotency.clear();
     this.echoes.clear();
+    this.messages = [];
     this.seq = 0;
   }
 
@@ -91,6 +105,11 @@ export class MockState {
 
   scenario(system: MockSystem): Scenario {
     return this.scenarios.get(system) ?? defaultScenario();
+  }
+
+  deliver(m: OutgoingMessage): void {
+    this.messages.unshift(m);
+    if (this.messages.length > 100) this.messages.length = 100;
   }
 
   record(entry: RequestLogEntry): void {

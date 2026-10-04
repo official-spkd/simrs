@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { readTenantSetting } from '@simrs/db';
 import { AppError, type BreakGlassInput, type BreakGlassReviewInput, newId } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const GRANT_SELECT = {
   id: true,
@@ -51,7 +52,10 @@ function present({ user, reviewer, ...r }: GrantRow) {
  */
 @Injectable()
 export class BreakGlassService {
-  constructor(private readonly db: TenantDb) {}
+  constructor(
+    private readonly db: TenantDb,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async grant(input: BreakGlassInput) {
     const userId = this.db.actorUserId();
@@ -78,29 +82,27 @@ export class BreakGlassService {
       select: { userId: true },
       distinct: ['userId'],
     });
-    if (officers.length > 0) {
-      // Tanpa PHI di notifikasi: identitas pasien dan alasan hanya bisa dilihat di layar tinjauan yang berizin.
-      await tx.notification.createMany({
-        data: officers.map((o) => ({
-          id: newId(),
-          tenantId,
-          recipientUserId: o.userId,
-          kind: 'break_glass',
-          title: 'Akses darurat digunakan',
-          body: 'Seorang staf membuka rekam medis lewat akses darurat. Tinjau alasannya.',
-          link: `/sistem/audit?tinjau=${id}`,
-        })),
-      });
-    }
+    // Tanpa PHI di notifikasi: identitas pasien dan alasan hanya bisa dilihat di layar tinjauan yang berizin.
+    // Mendesak: selain in-app, salinan dikirim ke email dan WhatsApp petugas privasi (lewat outbox).
+    const notified = await this.notifications.notify(
+      officers.map((o) => o.userId),
+      {
+        kind: 'break_glass',
+        title: 'Akses darurat digunakan',
+        body: 'Seorang staf membuka rekam medis lewat akses darurat. Tinjau alasannya.',
+        link: `/sistem/audit?tinjau=${id}`,
+      },
+      ['in_app', 'email', 'whatsapp'],
+    );
     this.db.audit({
       action: 'break_glass',
       resourceType: 'patient',
       resourceId: id,
       patientId: input.patientId,
       reason: input.reason,
-      details: { expiresAt: expiresAt.toISOString(), notified: officers.length },
+      details: { expiresAt: expiresAt.toISOString(), notified },
     });
-    return { id, patientId: input.patientId, expiresAt: expiresAt.toISOString(), notified: officers.length };
+    return { id, patientId: input.patientId, expiresAt: expiresAt.toISOString(), notified };
   }
 
   /** Daftar untuk tinjauan dan laporan harian (`date` = tanggal WIB YYYY-MM-DD). */

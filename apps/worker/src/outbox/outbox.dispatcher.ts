@@ -8,7 +8,7 @@ import {
   recordOutboxAttempt,
   withTenant,
 } from '@simrs/db';
-import { PatientCrypto } from '@simrs/shared/node';
+import { decryptField, PatientCrypto } from '@simrs/shared/node';
 import { WORKER_ENV, type WorkerEnv } from '../config/env';
 import { HttpConnector, type SendResult } from './http-connector';
 import { type OperationContext, OUTBOX_OPERATIONS, PermanentOperationError } from './operations';
@@ -59,6 +59,9 @@ export class OutboxDispatcher implements OnModuleDestroy {
         { encKeyB64: this.env.FIELD_ENCRYPTION_KEY, hashKeyB64: this.env.FIELD_HASH_KEY },
         tenantId,
       ),
+      decryptStaffPhone: (stored) =>
+        decryptField(stored, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'staff_phone' }),
+      webBaseUrl: this.env.WEB_BASE_URL,
     };
   }
 

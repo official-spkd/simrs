@@ -303,6 +303,8 @@ model User {
   username           String
   displayName        String    @map("display_name")
   email              String?
+  /// No. HP staf terenkripsi (`staff_phone`, bentuk baku 62…): WhatsApp notifikasi + kode cadangan login.
+  phoneEnc           String?   @map("phone_enc")
   /// active | disabled
   status             String    @default("active")
   mustChangePassword Boolean   @default(true) @map("must_change_password")

@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-export const INTEGRATION_TARGETS = ['bpjs', 'eklaim', 'satusehat', 'dukcapil', 'tte', 'tpdi', 'btn'] as const;
+export const INTEGRATION_TARGETS = [
+  'bpjs',
+  'eklaim',
+  'satusehat',
+  'dukcapil',
+  'tte',
+  'tpdi',
+  'btn',
+  'email',
+  'whatsapp',
+] as const;
 export type IntegrationTarget = (typeof INTEGRATION_TARGETS)[number];
 
 export const OUTBOX_STATUSES = ['pending', 'processing', 'sent', 'failed', 'dead'] as const;

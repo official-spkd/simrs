@@ -11,6 +11,8 @@ export const workerEnvSchema = envSchemas.base
     OUTBOX_POLL_MS: z.coerce.number().int().min(250).default(2000),
     OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(50),
     OUTBOX_HTTP_TIMEOUT_MS: z.coerce.number().int().min(100).default(10_000),
+    /** Alamat web untuk tautan di email/WhatsApp notifikasi (P09). */
+    WEB_BASE_URL: z.url().default('http://localhost:3000'),
   });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

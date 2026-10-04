@@ -383,3 +383,18 @@ export async function createSignedDocument(
   });
   return { code, sha256, patientName };
 }
+
+/** Notifikasi in-app untuk akun (seperti yang dibuat API, mis. saat akses darurat dipakai). */
+export async function createNotification(
+  account: Account,
+  n: { title: string; body: string; link: string | null },
+): Promise<string> {
+  const tenantId = TENANTS[account.tenantCode];
+  const id = newId();
+  await withTenant(prisma(), tenantId, (tx) =>
+    tx.notification.create({
+      data: { id, tenantId, recipientUserId: account.id, kind: 'break_glass', ...n },
+    }),
+  );
+  return id;
+}

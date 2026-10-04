@@ -98,6 +98,7 @@ export class IamRepository {
         username: true,
         displayName: true,
         email: true,
+        phoneEnc: true,
         status: true,
         lastLoginAt: true,
         lockedUntil: true,
@@ -157,7 +158,13 @@ export class IamRepository {
     return lockTenantScope(this.db.tx(), 'iam.admins');
   }
 
-  async createUser(input: { username: string; displayName: string; email?: string; passwordHash: string }) {
+  async createUser(input: {
+    username: string;
+    displayName: string;
+    email?: string;
+    phoneEnc: string | null;
+    passwordHash: string;
+  }) {
     const tx = this.db.tx();
     const tenantId = this.db.tenantId();
     const actor = this.db.actorUserId();
@@ -169,6 +176,7 @@ export class IamRepository {
         username: input.username,
         displayName: input.displayName,
         email: input.email ?? null,
+        phoneEnc: input.phoneEnc,
         mustChangePassword: true,
         createdBy: actor,
         updatedBy: actor,

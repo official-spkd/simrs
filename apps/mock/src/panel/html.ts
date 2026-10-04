@@ -66,6 +66,12 @@ export const PANEL_HTML = /* html */ `<!doctype html>
     <tbody id="echoes"><tr><td colspan="4" class="muted">Belum ada pesan.</td></tr></tbody></table>
   </section>
 
+  <section class="card" aria-labelledby="h-inbox">
+    <h2 id="h-inbox">Kotak masuk email &amp; WhatsApp (mock)</h2>
+    <table><thead><tr><th>Waktu</th><th>Kanal</th><th>Tujuan</th><th>Isi</th></tr></thead>
+    <tbody id="inbox"><tr><td colspan="4" class="muted">Belum ada pesan.</td></tr></tbody></table>
+  </section>
+
   <section class="card" aria-labelledby="h-log">
     <h2 id="h-log">50 request terakhir</h2>
     <table><thead><tr><th>Waktu</th><th>Sistem</th><th>Metode</th><th>Path</th><th>Status</th><th>Durasi</th></tr></thead>
@@ -125,6 +131,10 @@ async function refresh() {
   }).join('') : '<tr><td colspan="7" class="muted">Belum ada tagihan.</td></tr>');
   setHtml('echoes', s.echoes.length ? s.echoes.map((x) =>
     '<tr><td class="mono">' + esc(x.idempotencyKey) + '</td><td>' + esc(x.operation) + '</td><td>' + jam(x.receivedAt) + '</td><td>' + x.count + (x.count > 1 ? ' <span class="chip warn">duplikat ditolak</span>' : '') + '</td></tr>').join('')
+    : '<tr><td colspan="4" class="muted">Belum ada pesan.</td></tr>');
+  setHtml('inbox', s.messages.length ? s.messages.map((m) =>
+    '<tr><td>' + jam(m.at) + '</td><td>' + (m.channel === 'email' ? 'Email' : 'WhatsApp') + '</td><td class="mono">' + esc(m.to) +
+    '</td><td>' + (m.subject ? '<strong>' + esc(m.subject) + '</strong><br>' : '') + '<span style="white-space: pre-wrap">' + esc(m.text) + '</span></td></tr>').join('')
     : '<tr><td colspan="4" class="muted">Belum ada pesan.</td></tr>');
   setHtml('log', s.log.map((l) =>
     '<tr><td>' + jam(l.at) + '</td><td>' + esc(l.system) + '</td><td>' + esc(l.method) + '</td><td class="mono">' + esc(l.path) + '</td><td>' + statusChip(l.status) + '</td><td>' + l.durationMs + ' ms</td></tr>').join(''));

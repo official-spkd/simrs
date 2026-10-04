@@ -234,6 +234,16 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 
 Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan header `X-Document-Kind`, `X-Document-Title`, `X-Document-Filename` (UTF-8 di-percent-encode). Header dan query tidak masuk log API; judul dokumen bisa memuat PHI, jadi jangan pernah taruh di path URL.
 
+### Notifikasi (P09)
+
+`NotificationsService.notify(penerima, { kind, title, body, link }, kanal)` dipanggil di dalam transaksi modul lain (contoh: akses darurat). Ia menulis `notifications` (in-app) lalu mengantrekan `notify.email` / `notify.whatsapp` ke outbox dengan payload ID saja (ADR-0021).
+
+- Isi tanpa PHI; `link` wajib path internal (`notificationLinkSchema`).
+- API: `GET /notifications?unread=&limit=`, `GET /notifications/unread-count`, `POST /notifications/:id/read`, `POST /notifications/read-all` (hanya milik sendiri).
+- Worker `outbox/notify.ts`: alamat dibaca saat kirim, no. HP didekripsi (`staff_phone`), akun nonaktif/tanpa alamat dilewati, respons tidak disimpan.
+- Mock: `POST /email/send`, `POST /whatsapp/send`, kotak masuk `GET /messages` dan panel.
+- Web: lonceng di header (`components/notification-bell.tsx`, jumlah dari layout), halaman `app/(staf)/notifikasi/`.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.

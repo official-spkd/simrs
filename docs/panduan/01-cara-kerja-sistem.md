@@ -151,6 +151,10 @@ Hasil scan, foto, dan dokumen pasien disimpan sebagai berkas dengan nama acak; s
 
 Tanda tangan elektronik dimintakan ke penyelenggara TTE lewat antrean integrasi; yang dikirim hanya sidik digital dokumen, bukan isinya. Setiap tanda tangan punya kode QR. Siapa pun yang memindai QR melihat halaman verifikasi: rumah sakit, jenis dokumen, penanda tangan, waktu, dan sidik digital, tanpa judul dokumen atau identitas pasien.
 
+## Notifikasi
+
+Ikon lonceng di kanan atas menunjukkan jumlah notifikasi baru; halaman **Notifikasi** menampilkan daftarnya. Notifikasi tidak pernah memuat data pasien, hanya jenis kejadian dan tautan ke layar yang berizin (mis. "Akses darurat digunakan" untuk petugas privasi). Kejadian penting juga dikirim ke email, dan yang mendesak ke WhatsApp, bila akun punya alamatnya. Admin mengisi no. HP staf di **Pengguna & akses**; nomor disimpan terenkripsi dan tampil tersamar. Di lingkungan lokal email dan WhatsApp tidak benar-benar dikirim: pesannya masuk kotak masuk di panel mock.
+
 ## Keamanan berlapis
 
 | Lapisan        | Kontrol                                                                                                       | Status    |

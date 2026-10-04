@@ -23,6 +23,7 @@ import { InviteUser } from './invite-user';
 import { inputClass, selectClass } from './parts';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
+import { ContactForm } from './contact-form';
 
 export const metadata: Metadata = { title: 'Pengguna dan akses' };
 
@@ -399,6 +400,7 @@ function UserPanel({
           <span className="text-caption text-ink-500">
             Login terakhir: {formatLastLogin(user.lastLoginAt)}
             {user.email ? ` · ${user.email}` : ''}
+            {user.phone ? ` · HP ${user.phone}` : ''}
           </span>
         </div>
       </div>
@@ -435,6 +437,13 @@ function UserPanel({
           <AddAssignment userId={user.id} roles={roles} units={units} />
         )}
       </div>
+
+      {canWrite && (
+        <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
+          <h3 className="m-0 text-small font-semibold">Kontak notifikasi</h3>
+          <ContactForm key={user.id} userId={user.id} email={user.email} maskedPhone={user.phone} />
+        </div>
+      )}
 
       {canWrite && !self && (
         <div className="flex flex-col gap-2 border-t border-line-soft pt-3">

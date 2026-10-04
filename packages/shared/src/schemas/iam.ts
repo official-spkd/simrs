@@ -1,8 +1,22 @@
 import { z } from 'zod';
 import { isPermission, PERMISSION_SCOPES } from '../authz';
+import { normalizePhone } from '../patient';
 import { USERNAME } from './auth';
 
 /** P03 · Skema manajemen pengguna, peran, penugasan, dan akses darurat. */
+
+/** No. HP staf (WhatsApp notifikasi dan kode cadangan login), disimpan baku `62…` dan terenkripsi. */
+const STAFF_PHONE = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    const n = normalizePhone(v);
+    if (!n) {
+      ctx.addIssue({ code: 'custom', message: 'No. HP tidak valid (contoh 0812-3456-7890)' });
+      return z.NEVER;
+    }
+    return n;
+  });
 const ROLE_CODE = z.string().regex(/^[a-z][a-z0-9_]{2,40}$/, 'Kode peran tidak valid');
 
 export const assignmentInputSchema = z.strictObject({
@@ -16,6 +30,7 @@ export const createUserSchema = z.strictObject({
   username: USERNAME,
   displayName: z.string().trim().min(2).max(120),
   email: z.email().trim().toLowerCase().optional(),
+  phone: STAFF_PHONE.optional(),
   assignments: z.array(assignmentInputSchema).max(10).default([]),
 });
 
@@ -23,6 +38,7 @@ export const updateUserSchema = z
   .strictObject({
     displayName: z.string().trim().min(2).max(120).optional(),
     email: z.email().trim().toLowerCase().nullable().optional(),
+    phone: STAFF_PHONE.nullable().optional(),
     status: z.enum(['active', 'disabled']).optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), 'Minimal satu field diubah');

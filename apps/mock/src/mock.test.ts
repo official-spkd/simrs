@@ -236,3 +236,32 @@ describe('panel', () => {
     expect(() => new Function(script)).not.toThrow();
   });
 });
+
+describe('email dan WhatsApp (P09)', () => {
+  it('pesan masuk kotak masuk mock (terbaru di depan), bisa disaring per tujuan; permintaan tak sah ditolak', async () => {
+    const mail = await app.inject({
+      method: 'POST',
+      url: '/email/send',
+      payload: { to: 'privasi@rs-fiktif.test', subject: 'Akses darurat', text: 'Tinjau alasannya.' },
+    });
+    expect(mail.statusCode).toBe(200);
+    expect(mail.json().messageId).toBeTruthy();
+    const wa = await app.inject({
+      method: 'POST',
+      url: '/whatsapp/send',
+      payload: { to: '6281200001111', text: 'Kode masuk SIM RS: 123456' },
+    });
+    expect(wa.statusCode).toBe(200);
+    const inbox = (await app.inject({ method: 'GET', url: '/messages' })).json().items;
+    expect(inbox.map((m: { channel: string }) => m.channel)).toEqual(['whatsapp', 'email']);
+    const filtered = (await app.inject({ method: 'GET', url: '/messages?to=6281200001111' })).json().items;
+    expect(filtered).toHaveLength(1);
+    expect(
+      (await app.inject({ method: 'POST', url: '/email/send', payload: { to: 'bukan-email' } })).statusCode,
+    ).toBe(400);
+    expect(
+      (await app.inject({ method: 'POST', url: '/whatsapp/send', payload: { to: '0812', text: 'x' } }))
+        .statusCode,
+    ).toBe(400);
+  });
+});

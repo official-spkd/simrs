@@ -1,8 +1,10 @@
 import { AppShell } from '@simrs/ui';
 import type { ReactNode } from 'react';
 import { LogoutButton } from '@/components/logout-button';
+import { NotificationBell } from '@/components/notification-bell';
 import { StaffSidebar } from '@/components/staff-sidebar';
 import { navGroups } from '@/lib/nav';
+import { unreadNotifications } from '@/lib/server/notifications';
 import { requireSession } from '@/lib/server/session';
 import { isSuperadmin } from '@/lib/session-view';
 
@@ -12,9 +14,11 @@ import { isSuperadmin } from '@/lib/session-view';
  */
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const s = await requireSession();
+  const unread = await unreadNotifications();
   return (
     <AppShell
       tenantName={s.tenant.name}
+      header={<NotificationBell unread={unread} />}
       sidebar={
         <StaffSidebar
           tenantName={s.tenant.name}

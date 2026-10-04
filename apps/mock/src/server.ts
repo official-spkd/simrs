@@ -6,6 +6,7 @@ import { registerBpjs } from './systems/bpjs';
 import { registerBtn } from './systems/btn';
 import { registerDukcapil } from './systems/dukcapil';
 import { registerEklaim } from './systems/eklaim';
+import { registerMessaging } from './systems/messaging';
 import { registerSatusehat } from './systems/satusehat';
 import { registerTpdi } from './systems/tpdi';
 import { registerTte } from './systems/tte';
@@ -80,6 +81,7 @@ export function buildServer(config: MockConfig, state: MockState): FastifyInstan
   registerTte(app, config);
   registerTpdi(app, config, state);
   registerBtn(app, config, state);
+  registerMessaging(app, config, state);
   registerPanel(app, config, state);
 
   return app;

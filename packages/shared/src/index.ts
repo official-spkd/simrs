@@ -9,6 +9,7 @@ export * from './forms';
 export * from './ids';
 export * from './integrations/dukcapil';
 export * from './money';
+export * from './notifications';
 export * from './numbering';
 export * from './outbox';
 export * from './patient';

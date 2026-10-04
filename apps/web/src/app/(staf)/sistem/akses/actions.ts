@@ -6,6 +6,7 @@ import {
   endAssignmentSchema,
   formatJam,
   rolePermissionsSchema,
+  updateUserSchema,
 } from '@simrs/shared';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -73,6 +74,7 @@ export async function inviteUserAction(_prev: InviteResult, formData: FormData):
     username: text(formData.get('username')),
     displayName: text(formData.get('displayName')),
     email: text(formData.get('email')),
+    phone: text(formData.get('phone')),
     roleCode: text(formData.get('roleCode')),
     unitId: text(formData.get('unitId')),
   };
@@ -80,6 +82,7 @@ export async function inviteUserAction(_prev: InviteResult, formData: FormData):
     username: values.username,
     displayName: values.displayName,
     email: values.email || undefined,
+    phone: values.phone || undefined,
     assignments: values.roleCode ? [{ roleCode: values.roleCode, unitId: values.unitId || undefined }] : [],
   });
   if (!parsed.success) return { fields: fieldErrors(parsed.error), values };
@@ -127,6 +130,29 @@ export async function resetMfaAction(userId: string): Promise<ActionResult> {
     await api(`/api/v1/iam/users/${userId}/reset-mfa`, { method: 'POST', schema: okSchema });
     revalidatePath(PATH);
     return { ok: true, message: `Verifikasi dua langkah direset pukul ${formatJam(new Date())}.` };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+/** Kontak notifikasi akun (email + no. HP/WhatsApp); kosong = dihapus. */
+export async function updateContactAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const denied = await authorize('iam.users', 'write');
+  if (denied) return { error: denied };
+  const userId = text(formData.get('userId'));
+  if (!z.uuid().safeParse(userId).success) return { error: 'Pengguna tidak valid.' };
+  const email = text(formData.get('email'));
+  const phone = text(formData.get('phone'));
+  const parsed = updateUserSchema.safeParse({
+    email: email || null,
+    // No. HP tersimpan hanya ditampilkan tersamar: kolom kosong = tidak diubah, kecuali "hapus no. HP" dicentang.
+    ...(phone ? { phone } : formData.get('removePhone') === 'on' ? { phone: null } : {}),
+  });
+  if (!parsed.success) return { fields: fieldErrors(parsed.error) };
+  try {
+    await api(`/api/v1/iam/users/${userId}`, { method: 'PATCH', body: parsed.data, schema: okSchema });
+    revalidatePath(PATH);
+    return { ok: true, message: `Kontak disimpan pukul ${formatJam(new Date())}.` };
   } catch (err) {
     return failure(err);
   }

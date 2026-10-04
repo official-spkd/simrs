@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   ACCESS_ADMIN_GRANTS,
   type AssignmentInput,
@@ -7,11 +7,13 @@ import {
   isPermission,
   PERMISSION_CATALOG,
   isProtectedRole,
+  maskPhone,
   permissionAllowedFor,
   type RolePermissionsInput,
   type UpdateUserInput,
 } from '@simrs/shared';
-import { generateTemporaryPassword, hashPassword } from '@simrs/shared/node';
+import { decryptField, encryptField, generateTemporaryPassword, hashPassword } from '@simrs/shared/node';
+import { API_ENV, type ApiEnv } from '../../config/env';
 import { toPage } from '../../common/pagination';
 import { DEV_ROLE } from '../../common/request-context';
 import { TenantDb } from '../../infra/tenant-db';
@@ -36,7 +38,32 @@ export class IamService {
   constructor(
     private readonly repo: IamRepository,
     private readonly db: TenantDb,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
+
+  /** No. HP staf terenkripsi per tenant (`staff_phone`); layar hanya menerima bentuk tersamar. */
+  private encryptPhone(phone: string): string {
+    return encryptField(phone, {
+      keyB64: this.env.FIELD_ENCRYPTION_KEY,
+      tenantId: this.db.tenantId(),
+      purpose: 'staff_phone',
+    });
+  }
+
+  private maskedPhone(phoneEnc: string | null): string | null {
+    if (!phoneEnc) return null;
+    try {
+      return maskPhone(
+        decryptField(phoneEnc, {
+          keyB64: this.env.FIELD_ENCRYPTION_KEY,
+          tenantId: this.db.tenantId(),
+          purpose: 'staff_phone',
+        }),
+      );
+    } catch {
+      return 'tidak terbaca';
+    }
+  }
 
   private assertNotSelf(userId: string, what: string) {
     if (userId === this.db.actorUserId()) throw conflict(`Tidak bisa ${what} akun sendiri lewat menu admin`);
@@ -128,9 +155,10 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, ...rest } = u;
+    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, ...rest } = u;
     return {
       ...rest,
+      phone: this.maskedPhone(phoneEnc),
       ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
       lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
       createdAt: createdAt.toISOString(),
@@ -162,6 +190,7 @@ export class IamService {
       username: input.username,
       displayName: input.displayName,
       email: input.email,
+      phoneEnc: input.phone ? this.encryptPhone(input.phone) : null,
       passwordHash: await hashPassword(temporaryPassword),
     });
     for (const a of input.assignments) await this.addAssignment(id, a);
@@ -177,7 +206,11 @@ export class IamService {
       this.assertNotSelf(id, 'menonaktifkan');
       await this.assertKeepsAnAdmin({ userId: id });
     }
-    const updated = await this.repo.updateUser(id, input);
+    const { phone, ...fields } = input;
+    const updated = await this.repo.updateUser(id, {
+      ...fields,
+      ...(phone !== undefined ? { phoneEnc: phone === null ? null : this.encryptPhone(phone) } : {}),
+    });
     if (input.status === 'disabled') await this.repo.revokeSessions(id, 'user_disabled');
     return updated;
   }

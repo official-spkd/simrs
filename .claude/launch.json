@@ -2,15 +2,31 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "lokal",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev:lokal"
+      ],
+      "port": 3000
+    },
+    {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@simrs/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@simrs/web",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "mock",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@simrs/mock", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@simrs/mock",
+        "dev"
+      ],
       "port": 4100
     }
   ]

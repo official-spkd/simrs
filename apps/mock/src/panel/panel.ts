@@ -24,6 +24,7 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
     invoices: [...state.invoices.values()].reverse().slice(0, 20),
     echoes: [...state.echoes.values()].reverse().slice(0, 20),
     log: state.log,
+    messages: state.messages.slice(0, 30),
   }));
 
   app.post('/_panel/api/scenario', async (req, reply) => {

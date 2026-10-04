@@ -40,6 +40,8 @@ export const userDetailSchema = z.object({
   username: z.string(),
   displayName: z.string(),
   email: z.string().nullable(),
+  /** Tersamar (`0812•••7890`); nilai utuh tidak pernah dikirim ke web. */
+  phone: z.string().nullable(),
   status: z.string(),
   lastLoginAt: z.string().nullable(),
   mustChangePassword: z.boolean(),

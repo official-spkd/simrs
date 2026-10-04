@@ -97,7 +97,7 @@ pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web dalam satu te
 | http://127.0.0.1:4000/docs               | Swagger API                                                          |
 | http://127.0.0.1:4000/ready              | Kesehatan DB, Redis, penyimpanan berkas (JSON)                       |
 | http://localhost:3000/verifikasi/{kode}  | Verifikasi QR dokumen bertanda tangan (publik, tanpa data pasien)    |
-| http://127.0.0.1:4100                    | Panel kendali mock                                                   |
+| http://127.0.0.1:4100                    | Panel kendali mock (termasuk kotak masuk email & WhatsApp)           |
 | http://localhost:8025                    | Mailpit (email lokal)                                                |
 
 Pemeriksaan cepat:

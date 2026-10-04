@@ -73,6 +73,17 @@ function InviteForm({ roles, units, onClose }: { roles: Option[]; units: Option[
         defaultValue={state.values?.email}
         error={state.fields?.email}
       />
+      <Field
+        label="No. HP / WhatsApp (opsional)"
+        name="phone"
+        type="tel"
+        inputMode="tel"
+        autoComplete="off"
+        defaultValue={state.values?.phone}
+        error={state.fields?.phone}
+        hint="Untuk notifikasi mendesak dan kode masuk cadangan. Disimpan terenkripsi."
+        hintTone="muted"
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-small font-semibold text-ink-700">
           Peran
