@@ -114,11 +114,12 @@ export class FacilityRepository {
       select: UNIT_SELECT,
     });
   }
-  countActiveChildren(unitId: string) {
-    return Promise.all([
-      this.db.tx().unit.count({ where: { parentId: unitId, active: true } }),
-      this.db.tx().location.count({ where: { unitId, active: true } }),
-    ]).then(([units, locations]) => units + locations);
+  async countActiveChildren(unitId: string) {
+    // Berurutan, bukan Promise.all: kedua query memakai satu koneksi transaksi permintaan. Paralel tidak lebih cepat
+    // (Prisma mengantrekannya) dan query bersamaan di satu koneksi pg sudah usang (dihapus di pg@9).
+    const units = await this.db.tx().unit.count({ where: { parentId: unitId, active: true } });
+    const locations = await this.db.tx().location.count({ where: { unitId, active: true } });
+    return units + locations;
   }
 
   // ---------- lokasi ----------
