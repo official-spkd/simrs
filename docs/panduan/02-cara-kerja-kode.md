@@ -272,6 +272,24 @@ Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan head
 - Mock: `POST /email/send`, `POST /whatsapp/send`, kotak masuk `GET /messages` dan panel.
 - Web: lonceng di header (`components/notification-bell.tsx`, jumlah dari layout), halaman `app/(staf)/notifikasi/`.
 
+### Front office (fase 2, skema potongan 0b)
+
+Tabel F01–F07 ada di migrasi `20261005101000_front_office` (rencana: `docs/rencana/fase-2-front-office.md`). Aturan yang
+dijamin database, bukan hanya kode:
+
+| Aturan                      | Penjaga                                                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Kuota tidak terlampaui      | CHECK `schedule_sessions_quota` (`booked_* <= quota_*`); reservasi lewat `reserveQuota` (20 serentak untuk 1 sisa → 1 lolos) |
+| Nomor tidak berubah         | Hak kolom + trigger `app_immutable_columns`: kode booking, nomor tiket, nomor kunjungan, task ID BPJS dan waktunya           |
+| Jejak append-only           | `app_reject_mutation`: `queue_calls`, `encounter_status_history`, `hfis_schedule_snapshots`, `patient_contacts`              |
+| SEP                         | `app_sep_guard`: `issued` beku kecuali batal, `cancelled` beku; koreksi = versi baru (sekali); satu rantai SEP per kunjungan |
+| Penjaminan                  | Terkunci (`locked_at`) begitu SEP-nya terbit; `app_coverage_guard` menolak perubahan sesudahnya                              |
+| Papan antrean real-time     | `queue_calls` memicu `pg_notify('queue_calls', {tenant_id, id})`: tanpa nomor, nama, atau isi lain                           |
+| Persetujuan umum rawat inap | `privacy_consents.encounter_id`: satu aktif per jenis × penerima × kunjungan (rawat jalan: tanpa kunjungan)                  |
+
+Nilai status/jenis (mis. `booked`, `checked_in`; `AMB`/`EMER`/`IMP`; `pending`/`issued`) dibatasi CHECK di migrasi dan
+mengikuti kontrak bersama `packages/shared` (potongan 0a).
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
@@ -375,7 +393,10 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `lockMpi(tx)`                                     | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
 | `searchConcepts` · `getConcept` · `listRegions`   | P06 · Baca data rujukan global (skema `ref`).                                                            |
 | `importConcepts` · `importRegions` · `csvRecords` | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                              |
-| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 12 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
+| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 15 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
+| `reserveQuota` · `releaseQuota`                   | F01/F02 · Pesan/kembalikan satu tempat kuota sesi (UPDATE bersyarat atomik); null = penuh.               |
+| `allocateQueueNumber(tx, tenantId, layanan, tgl)` | F04 · Nomor antrean `PD-027` berikutnya per layanan per hari WIB (urutan P08, maks. 999).                |
+| `seedFrontOffice(prisma, tenantId)`               | Seed · Layanan antrean, praktisi, templat jadwal, penjamin, papan antrean; idempoten.                    |
 | `seedStaff(prisma, tenantId, { encKeyB64 })`      | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.     |
 | `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |

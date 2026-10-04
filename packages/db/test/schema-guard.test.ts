@@ -29,6 +29,9 @@ const MANUAL_INDEXES = [
   'form_definitions_one_published',
   'form_definitions_one_open_draft',
   'form_responses_supersedes_once',
+  'seps_supersedes_once',
+  'seps_one_chain_per_encounter',
+  'patient_contacts_supersedes_once',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -86,6 +89,26 @@ describe('penjaga skema', () => {
       'document_signatures',
       'trusted_devices',
       'registered_devices',
+      // Fase 2 · front office (potongan 0b): master dinonaktifkan, transaksi tidak dihapus.
+      'practitioners',
+      'external_ids',
+      'payers',
+      'queue_services',
+      'queue_displays',
+      'queue_display_services',
+      'practitioner_schedules',
+      'schedule_sessions',
+      'hfis_schedule_snapshots',
+      'appointments',
+      'queue_tickets',
+      'queue_calls',
+      'bpjs_queue_tasks',
+      'encounters',
+      'encounter_status_history',
+      'coverages',
+      'referrals',
+      'seps',
+      'patient_contacts',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
