@@ -85,6 +85,7 @@ describe('penjaga skema', () => {
       'documents',
       'document_signatures',
       'trusted_devices',
+      'pin_devices',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
@@ -133,6 +134,19 @@ describe('penjaga skema', () => {
       FROM unnest(ARRAY['code_systems', 'concepts', 'regions']) AS t`;
     expect(rows.every((r) => r.sel && !r.ins && !r.upd && !r.del)).toBe(true);
     expect(rows).toHaveLength(3);
+  });
+
+  it('PIN perangkat: hash PIN/token, akun, dan masa berlaku tidak bisa diubah role aplikasi', async () => {
+    const [p] = await owner.$queryRaw<
+      Array<{ pin: boolean; token: boolean; user: boolean; expires: boolean; failed: boolean; revoked: boolean }>
+    >`
+      SELECT has_column_privilege('simrs_app', 'public.pin_devices', 'pin_hash', 'UPDATE') AS pin,
+             has_column_privilege('simrs_app', 'public.pin_devices', 'token_hash', 'UPDATE') AS token,
+             has_column_privilege('simrs_app', 'public.pin_devices', 'user_id', 'UPDATE') AS user,
+             has_column_privilege('simrs_app', 'public.pin_devices', 'expires_at', 'UPDATE') AS expires,
+             has_column_privilege('simrs_app', 'public.pin_devices', 'failed_attempts', 'UPDATE') AS failed,
+             has_column_privilege('simrs_app', 'public.pin_devices', 'revoked_at', 'UPDATE') AS revoked`;
+    expect(p).toEqual({ pin: false, token: false, user: false, expires: false, failed: true, revoked: true });
   });
 
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {
