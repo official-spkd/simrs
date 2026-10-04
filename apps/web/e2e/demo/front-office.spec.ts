@@ -99,7 +99,7 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   await expect(page.getByText(/Sinkron HFIS 07\.30 · 1 perbedaan/)).toBeVisible();
 
   await grid
-    .getByRole('button', { name: /^dr\. Andini Prameswari, Sp\.PD, Senin 5 Okt, 08–12, 22\/30/ })
+    .getByRole('button', { name: /^dr\. Andini Prameswari, Sp\.PD, Senin 5 Okt, 07\.30–12, 22\/30/ })
     .click();
   const detail = page.getByRole('region', { name: 'Detail slot jadwal' });
   await expect(detail.getByText('Praktik · kuota tersedia')).toBeVisible();

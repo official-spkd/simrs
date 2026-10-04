@@ -808,7 +808,7 @@ export const INCIDENTS: readonly IncidentReport[] = [
     type: 'KTC',
     grade: 'biru',
     unit: 'Laboratorium',
-    patientRm: '00-63-40-77',
+    patientRm: '00-33-18-62',
     summary: 'Label tabung sampel tertukar; terdeteksi delta check, sampel diambil ulang tanpa cedera.',
     investigation: 'investigasi-sederhana',
     dueDate: shiftDate('2026-10-04', 7),
