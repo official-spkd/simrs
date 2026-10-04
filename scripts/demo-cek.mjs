@@ -5,6 +5,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
+import { parseEnv } from 'node:util';
 
 let fail = 0;
 let warn = 0;
@@ -32,18 +33,8 @@ async function get(url) {
 
 console.log('SIM RS · cek kesiapan presentasi\n');
 
-let env = {};
-try {
-  env = Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split(/\r?\n/)
-      .map((l) => l.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/))
-      .filter(Boolean)
-      .map((m) => [m[1], m[2].replace(/^["']|["']$/g, '')]),
-  );
-} catch {
-  // .env belum ada: dilaporkan lewat APP_ENV di bawah
-}
+// .env belum ada: dilaporkan lewat APP_ENV di bawah.
+const env = existsSync('.env') ? parseEnv(readFileSync('.env', 'utf8')) : {};
 const appEnv = env.APP_ENV;
 appEnv === 'local'
   ? ok('APP_ENV=local di .env (mode presentasi diizinkan)')

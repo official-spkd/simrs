@@ -328,7 +328,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
 | `recordOutboxAttempt(tx, msg, result)`            | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
-| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`.             |
+| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.    |
 
 ## Worker
 
@@ -401,7 +401,7 @@ Layar fase 2–10 dibangun di rute finalnya sebelum backend ada, dengan data dum
 - Halaman ber-data dummy diawali `const { session, allowed } = await requireDemoScreen('<id>')`: render dinamis, 404 di luar mode demo, dan `allowed=false` bila posisi aktif bukan pemakai layar (tampilkan ajakan "Ganti posisi"). Setiap Server Action ber-data dummy memanggil `assertDemo()`.
 - Status layar di `lib/screens.ts`: `belum` → `demo` saat layar dibangun → `api` saat backend tersambung. Menu mengikuti status ini; posisi yang bukan pemakai tidak melihat menunya di mode demo.
 - Skema respons per domain ditulis di `packages/shared/src/schemas/<domain>.ts` (kontrak yang nanti dipenuhi API); halaman mengambil data lewat `lib/server/data/<domain>.ts`, yang memilih fixture (`lib/demo/`) atau API.
-- Server E2E ketiga (`next start` port 3011, `DATA_SOURCE=demo`) menjalankan spesifikasi di `apps/web/e2e/demo/`; suite lain tetap di mode `api`.
+- Server E2E ketiga (`next start` port 3011 atau `E2E_DEMO_PORT`, `DATA_SOURCE=demo`) menjalankan spesifikasi di `apps/web/e2e/demo/`; suite lain tetap di mode `api`.
 
 ### Panduan superadmin (halaman ini)
 
@@ -452,18 +452,19 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Strategi tes
 
-| Jenis            | Lokasi                                                                                                                                   | Butuh            | Perintah                            |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
-| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts` | –                | `pnpm test`                         |
-| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                            | Postgres         | `pnpm --filter @simrs/db test`      |
-| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                    | Postgres         | `pnpm --filter @simrs/api test`     |
-| Integrasi worker | `apps/worker/test`                                                                                                                       | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
-| Mock             | `apps/mock/src/mock.test.ts`                                                                                                             | –                | `pnpm --filter @simrs/mock test`    |
-| E2E              | `apps/web/e2e` (Playwright, Edge di Windows): API :4010 + web build :3010 di DB `simrs_test`, akun uji dibuat langsung di DB             | Postgres         | `pnpm --filter @simrs/web test:e2e` |
+| Jenis            | Lokasi                                                                                                                                      | Butuh            | Perintah                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
+| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`    | –                | `pnpm test`                         |
+| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                               | Postgres         | `pnpm --filter @simrs/db test`      |
+| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                       | Postgres         | `pnpm --filter @simrs/api test`     |
+| Integrasi worker | `apps/worker/test`                                                                                                                          | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
+| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                | –                | `pnpm --filter @simrs/mock test`    |
+| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): API :4010 + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
 
 Aturan:
 
-- Tes integrasi memakai database **`simrs_test`** (bukan `simrs`). Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
+- Tes integrasi memakai database **`simrs_test`** (bukan `simrs`), atau `simrs_test_<nama>` per salinan repo paralel; nama lain ditolak `assertTestDatabase`. Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
+- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
 - Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** dengan token sungguhan (peran tak berhak → 403; lihat `apps/api/test/authz.test.ts`).
 - Tes yang butuh infrastruktur gagal dengan pesan jelas bila infrastruktur mati. Tes tidak boleh dilewati diam-diam atau dilemahkan agar hijau.
 
