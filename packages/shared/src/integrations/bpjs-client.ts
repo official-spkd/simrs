@@ -8,17 +8,13 @@ import {
   type BpjsService,
   classifyBpjsFailure,
 } from './bpjs/common';
-import {
-  type BpjsDecoded,
-  decodeAntreanResponse,
-  decodeAplicareResponse,
-  decodeVclaimResponse,
-} from './bpjs/decode';
+import { decodeAplicareResponse } from './bpjs/aplicare';
+import { type BpjsDecoded, decodeAntreanResponse, decodeVclaimResponse } from './bpjs/decode';
 
 /**
  * Klien HTTP BPJS (VClaim, Antrean RS + HFIS, Aplicare) khusus Node: header bertanda tangan, lalu dekode respons
  * lewat dekoder kontrak bersama (`decodeVclaimResponse`/`decodeAntreanResponse`: amplop, dekripsi AES + LZ-string,
- * validasi skema zod). Dipakai worker (outbox, ADR-0003/0017) dan API (lookup sinkron baca-saja, ADR-0025).
+ * validasi skema zod; Aplicare polos: `decodeAplicareResponse`). Dipakai worker (outbox, ADR-0003/0017) dan API (lookup sinkron baca-saja, ADR-0025).
  * Klien ini tidak mencoba ulang: retry, penundaan, dan DLQ milik pemanggil.
  *
  * Cocokkan dengan katalog resmi BPJS sebelum integrasi nyata (docs/06-integrasi.md §2): VClaim POST resmi memakai
@@ -182,8 +178,11 @@ export class BpjsClient {
         return decodeVclaimResponse(json, schema ?? (z.unknown() as z.ZodType<T>), this.config, timestamp);
       case 'antrean':
         return decodeAntreanResponse(json, schema, this.config, timestamp);
-      case 'aplicare':
-        return decodeAplicareResponse(json) as BpjsDecoded<T>;
+      case 'aplicare': {
+        // Aplicare polos (tanpa kripto); `totalitems` tidak diteruskan (belum ada pemakai).
+        const d = decodeAplicareResponse(json, schema);
+        return d.ok ? { ok: true, data: d.data } : d;
+      }
     }
   }
 }

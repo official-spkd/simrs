@@ -175,10 +175,13 @@ describe('BpjsClient · respons (dekoder kontrak bersama)', () => {
     }
   });
 
-  it('Aplicare: kode 1 = sukses', async () => {
+  it('Aplicare (polos, dekoder kontrak N): kode 1 = sukses; kode lain = ditolak', async () => {
     expect(await call('aplicare', reply(200, { metadata: { code: 1, message: 'Sukses' } }))).toMatchObject({
       kind: 'ok',
     });
+    expect(
+      await call('aplicare', reply(200, { metadata: { code: 0, message: 'Ruang sudah terdaftar: R-01' } })),
+    ).toMatchObject({ kind: 'rejected', code: 'BPJS_RUANG_GANDA', bpjsCode: '0' });
   });
 
   it('gangguan: timeout, jaringan, 5xx, 429, HTML, kode 5xx/pemeliharaan di amplop → BPJS_UNAVAILABLE', async () => {
@@ -244,6 +247,17 @@ describe('klasifikasi penolakan dan gangguan (satu sumber: integrations/bpjs/com
       ['Antrean Tidak Ditemukan', 'BPJS_ANTREAN_TIDAK_DITEMUKAN'],
       ['Data histori tidak ditemukan', 'BPJS_DATA_TIDAK_DITEMUKAN'],
       ['Server sedang sibuk', 'BPJS_TIDAK_DIKENAL'],
+      // Variasi kata untuk kode per entitas tidak jatuh ke kode umum.
+      ['No. SEP 0301R0011025V000001 bukan SEP rawat inap', 'BPJS_SEP_BUKAN_RAWAT_INAP'],
+      ['Nomor surat kontrol sudah digunakan untuk SEP lain', 'BPJS_SURAT_SUDAH_DIPAKAI'],
+      ['Kode faskes 9999P001 tidak terdaftar', 'BPJS_FASKES_TIDAK_DITEMUKAN'],
+      ['Kode kelas VVIP tidak ditemukan', 'BPJS_KELAS_TIDAK_DITEMUKAN'],
+      ['Kode ruang R-99 tidak ditemukan', 'BPJS_RUANG_TIDAK_DITEMUKAN'],
+      ['Kode ruangan R-01 sudah terdaftar', 'BPJS_RUANG_GANDA'],
+      ['Rujukan untuk no kartu 0000123456781 tidak ditemukan', 'BPJS_RUJUKAN_TIDAK_DITEMUKAN'],
+      ['Data SEP tidak ditemukan', 'BPJS_SEP_TIDAK_DITEMUKAN'],
+      ['Jadwal praktek dokter tidak ditemukan', 'BPJS_JADWAL_TIDAK_DITEMUKAN'],
+      ['Kode poli XYZ tidak ditemukan', 'BPJS_POLI_TIDAK_DITEMUKAN'],
     ];
     for (const [message, code] of map) expect(classifyBpjsRejection(message)).toBe(code);
   });

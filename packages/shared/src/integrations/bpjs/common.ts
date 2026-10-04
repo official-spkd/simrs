@@ -136,10 +136,20 @@ const REJECTION_PREFIXES = (Object.entries(BPJS_REJECTIONS) as Array<[BpjsReject
   .sort((a, b) => b[1].length - a[1].length);
 
 /**
- * Pola cadangan untuk pesan dengan susunan kata lain (variasi yang lazim di VClaim/Antrean asli), dipakai bila tidak
- * ada awal baku yang cocok. Urutan penting: yang spesifik di atas yang umum.
+ * Pola cadangan untuk pesan dengan susunan kata lain (variasi yang lazim di VClaim/Antrean/Aplicare asli), dipakai
+ * hanya bila tidak ada awal baku yang cocok, sehingga pesan baku tiap kode selalu menang. Urutan penting: yang
+ * spesifik (per entitas) di atas yang umum (`BPJS_DATA_TIDAK_DITEMUKAN`). Kode baru di `BPJS_REJECTIONS` yang punya
+ * variasi kata sebaiknya juga diberi pola di sini, di atas pola umum.
  */
+const NOT_FOUND = String.raw`.*tidak\s+(ditemukan|terdaftar|ada)`;
+const notFound = (entity: string) => new RegExp(`(${entity})${NOT_FOUND}`, 'i');
 const REJECTION_PATTERNS: ReadonlyArray<readonly [RegExp, BpjsRejectionKnownCode]> = [
+  [/\bsep\b.*bukan\s+(sep\s+)?(rawat\s+inap|ranap)/i, 'BPJS_SEP_BUKAN_RAWAT_INAP'],
+  [
+    /(surat\s+kontrol|spri|rencana\s+kontrol).*(sudah|telah)\s+(dipakai|digunakan|terpakai)/i,
+    'BPJS_SURAT_SUDAH_DIPAKAI',
+  ],
+  [/ruang(an)?.*(sudah|telah)\s+(ada|terdaftar)|duplikasi\s+ruang/i, 'BPJS_RUANG_GANDA'],
   [
     /\bsep\b.*(sudah|telah)\s+(terbit|ada|dibuat)|sudah\s+terbit\s+sep|sep\s+ganda|duplikasi\s+sep|(sudah|telah)\s+mendapat(kan)?\s+pelayanan/i,
     'BPJS_SEP_GANDA',
@@ -149,6 +159,16 @@ const REJECTION_PATTERNS: ReadonlyArray<readonly [RegExp, BpjsRejectionKnownCode
     'BPJS_RUJUKAN_KEDALUWARSA',
   ],
   [/tidak\s+aktif|non-?\s?aktif/i, 'BPJS_PESERTA_TIDAK_AKTIF'],
+  [notFound(String.raw`\brujukan`), 'BPJS_RUJUKAN_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`\bsep\b`), 'BPJS_SEP_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`surat\s+kontrol|\bspri\b|rencana\s+kontrol`), 'BPJS_SURAT_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`faskes|\bppk\b|provider`), 'BPJS_FASKES_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`\bkelas`), 'BPJS_KELAS_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`\bruang`), 'BPJS_RUANG_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`\bpoli`), 'BPJS_POLI_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`jadwal`), 'BPJS_JADWAL_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`dokter`), 'BPJS_DOKTER_TIDAK_DITEMUKAN'],
+  [notFound(String.raw`antrean|antrian|kode\s*booking`), 'BPJS_ANTREAN_TIDAK_DITEMUKAN'],
   [
     /peserta.*tidak\s+(ditemukan|terdaftar)|(nik|no\.?\s*kartu|nomor\s+kartu).*tidak\s+(ditemukan|terdaftar)/i,
     'BPJS_PESERTA_TIDAK_DITEMUKAN',
