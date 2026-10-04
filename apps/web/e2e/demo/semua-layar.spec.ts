@@ -14,16 +14,37 @@ import { createAccount, loginAs } from '../support/accounts';
  * visual sebelum presentasi.
  */
 
-/** Rute contoh untuk layar berparameter: kunjungan/persetujuan pasien skenario (`lib/demo/fixtures/pasien.ts`). */
+/**
+ * Rute contoh untuk layar berparameter: kunjungan/persetujuan pasien skenario dan pasien biasa
+ * (`lib/demo/fixtures/pasien.ts`) yang terbuka untuk akun baru (semua skenario di langkah awal).
+ */
 const EXTRA_PATHS: Record<string, readonly string[]> = {
-  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-hartono'],
+  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-endang'],
   // Pasien skenario (bisa belum dirawat → halaman penjelasan) dan pasien rawat inap biasa (rekam lengkap).
   ranap: ['/klinis/rawat-inap/kj-hartono', '/klinis/rawat-inap/kj-ratna', '/klinis/rawat-inap/kj-endang'],
   resume: ['/klinis/resume/kj-hartono', '/klinis/resume/kj-ratna'],
-  consent: ['/tablet/persetujuan/pk-hartono'],
+  consent: ['/tablet/persetujuan/pk-ratna', '/tablet/persetujuan/pk-hendro'],
 };
 /** Layar yang hanya punya rute berparameter (tanpa halaman indeks). */
 const NO_INDEX = new Set(['resume', 'consent']);
+
+/**
+ * Rute Tn. Hartono yang baru ada setelah skenario IGD → rawat inap sampai tahapnya: CPOE selama di IGD sejak
+ * asesmen dokter, persetujuan tindakan sejak tata laksana (sebelumnya 404).
+ */
+const IGD_SCENARIO_PATHS: ReadonlyArray<{
+  stage: string;
+  paths: ReadonlyArray<[screen: string, path: string]>;
+}> = [
+  { stage: 'Asesmen dokter', paths: [['order', '/klinis/order/kj-hartono']] },
+  {
+    stage: 'Tata laksana',
+    paths: [
+      ['order', '/klinis/order/kj-hartono'],
+      ['consent', '/tablet/persetujuan/pk-hartono'],
+    ],
+  },
+];
 
 function pathsOf(screen: ScreenDef): string[] {
   return [...(NO_INDEX.has(screen.id) ? [] : [screen.route]), ...(EXTRA_PATHS[screen.id] ?? [])];
@@ -93,6 +114,23 @@ async function capture(page: Page, root: string, project: string, name: string):
 test.describe('mode presentasi · semua layar', () => {
   test('registri punya layar demo untuk diuji', () => {
     expect(demoScreens.length).toBeGreaterThan(0);
+  });
+
+  test('posisi dokter: layar Tn. Hartono pada tahap skenario IGD-nya', async ({ page }) => {
+    const account = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, account);
+    for (const { stage, paths } of IGD_SCENARIO_PATHS) {
+      await page.goto('/simulasi');
+      await page.getByRole('tab', { name: 'IGD → rawat inap' }).click();
+      await page.getByText('Lompat ke tahap', { exact: true }).click();
+      await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${stage}$`) }).click();
+      await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${stage}`))).toBeVisible();
+      for (const [id, path] of paths) {
+        const screen = demoScreens.find((s) => s.id === id);
+        if (!screen) continue;
+        await test.step(`${stage}: ${id} ${path}`, () => checkScreen(page, screen, path));
+      }
+    }
   });
 
   for (const [role, screens] of byRole) {
