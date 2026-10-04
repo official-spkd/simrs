@@ -710,7 +710,7 @@ export const ROSTER: readonly RosterEntry[] = [
     patientId: 'ps-ayu',
     lokasi: { di: 'kasir', antrean: 'K-011' },
     poliHariIni: ['PD'],
-    cerita: 'Umum, ISPA: Poli PD PD-022 selesai 07.40, tagihan berjalan menunggu dibayar di kasir K-011.',
+    cerita: 'Umum, ISPA: Poli PD PD-022 selesai 09.14, tagihan berjalan menunggu dibayar di kasir K-011.',
   },
   {
     patientId: 'ps-hendro',
@@ -781,7 +781,7 @@ export const ROSTER: readonly RosterEntry[] = [
     lokasi: { di: 'farmasi' },
     poliHariIni: ['PD'],
     cerita:
-      'Kontrol hipertensi Poli PD PD-024 selesai 07.59, tagihan lunas 08.52, menunggu obat PRB di farmasi.',
+      'Kontrol hipertensi Poli PD PD-024 selesai 09.40, tagihan lunas 09.55, menunggu obat PRB di farmasi.',
   },
   {
     patientId: 'ps-rohana',
@@ -802,7 +802,7 @@ export const ROSTER: readonly RosterEntry[] = [
     lokasi: { di: 'kasir', antrean: 'K-009' },
     poliHariIni: ['PD'],
     cerita:
-      'Asuransi, kontrol hiperurisemia di Poli PD pagi; tagihan final (ekses plafon) menunggu dibayar di kasir K-009.',
+      'Asuransi, kontrol hiperurisemia di Poli PD (PD-021); tagihan final (ekses plafon) menunggu dibayar di kasir K-009.',
   },
   {
     patientId: 'ps-anisa',
@@ -814,7 +814,8 @@ export const ROSTER: readonly RosterEntry[] = [
     patientId: 'ps-lukman',
     lokasi: { di: 'kasir', antrean: 'K-010' },
     poliHariIni: ['PD'],
-    cerita: 'Kontrol DM di Poli PD pagi; tagihan BPJS final menunggu ditutup di kasir K-010, klaim RJ siap.',
+    cerita:
+      'Kontrol DM di Poli PD (PD-020); tagihan BPJS final menunggu ditutup di kasir K-010, klaim RJ siap.',
   },
 ];
 
@@ -836,10 +837,12 @@ export interface AntreanPoli {
  * dan papan antrean TV. PD-027 milik Tn. Suryo (skenario; masuk lewat proyeksi setelah SEP terbit).
  */
 export const ANTREAN_POLI_PD: readonly AntreanPoli[] = [
-  { no: 'PD-022', patientId: 'ps-ayu', status: 'selesai', dipanggil: '07.30' },
-  { no: 'PD-023', patientId: 'ps-dewi', status: 'menunggu-hasil', dipanggil: '07.41' },
-  { no: 'PD-024', patientId: 'ps-wahyuni', status: 'selesai', dipanggil: '07.50' },
-  { no: 'PD-025', patientId: 'ps-rohana', status: 'diperiksa', dipanggil: '08.01' },
+  { no: 'PD-020', patientId: 'ps-lukman', status: 'selesai', dipanggil: '08.40' },
+  { no: 'PD-021', patientId: 'ps-fransiska', status: 'selesai', dipanggil: '08.52' },
+  { no: 'PD-022', patientId: 'ps-ayu', status: 'selesai', dipanggil: '09.04' },
+  { no: 'PD-023', patientId: 'ps-dewi', status: 'menunggu-hasil', dipanggil: '09.16' },
+  { no: 'PD-024', patientId: 'ps-wahyuni', status: 'selesai', dipanggil: '09.26' },
+  { no: 'PD-025', patientId: 'ps-rohana', status: 'diperiksa', dipanggil: '10.31' },
   { no: 'PD-026', patientId: 'ps-darmawan', status: 'menunggu', dipanggil: null },
 ];
 

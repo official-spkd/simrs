@@ -112,7 +112,7 @@ describe('antrean poli dan tampilan', () => {
   const items = demoPoliWorklist(rj0).items;
 
   it('filter chip, pencarian No. RM tanpa tanda hubung, pasien menunggu berikutnya', () => {
-    expect(queueCounts(items)).toEqual({ semua: 5, menunggu: 1, hasil: 1 });
+    expect(queueCounts(items)).toEqual({ semua: 7, menunggu: 1, hasil: 1 });
     expect(filterQueue(items, 'semua', '00315746').map((i) => i.name)).toEqual(['Ny. Sri Wahyuni']);
     expect(filterQueue(items, 'hasil', '').map((i) => i.queueNo)).toEqual(['PD-023']);
     expect(nextWaiting(items)?.queueNo).toBe('PD-026');

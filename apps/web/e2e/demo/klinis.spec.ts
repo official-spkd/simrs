@@ -31,7 +31,7 @@ test.describe('klinis rawat jalan', () => {
     await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
 
     const queue = page.getByRole('region', { name: 'Antrean poli' });
-    await expect(queue.getByRole('link')).toHaveCount(5);
+    await expect(queue.getByRole('link')).toHaveCount(7);
     await expect(queue.getByRole('button', { name: 'Panggil berikutnya · PD-026' })).toBeEnabled();
     await queue.getByLabel('Cari pasien').fill('00315746');
     await expect(queue.getByRole('link')).toHaveCount(1);
@@ -40,7 +40,7 @@ test.describe('klinis rawat jalan', () => {
     await queue.getByRole('button', { name: 'Hasil 1' }).click();
     await expect(queue.getByRole('link')).toHaveCount(1);
     await expect(queue.getByRole('link', { name: /Ny\. Dewi Kurniasih/ })).toContainText('Menunggu hasil');
-    await queue.getByRole('button', { name: 'Semua 5' }).click();
+    await queue.getByRole('button', { name: 'Semua 7' }).click();
     await queue.getByRole('link', { name: /Ny\. Rohana Siregar/ }).click();
     await expect(page).toHaveURL(/pasien=ps-rohana/);
 

@@ -698,12 +698,81 @@ interface PoliFixture {
 
 const POLI_FIXTURES: readonly PoliFixture[] = [
   {
-    patientId: 'ps-ayu',
-    waitNote: 'selesai 07.40',
+    patientId: 'ps-lukman',
+    waitNote: 'selesai 08.50',
+    sep: '0301R0011026V005096',
+    fallRisk: 'Risiko jatuh rendah',
+    stage: 5,
+    vitalsAt: '08.25',
+    vitals: [
+      vital('td', '134/84', 'sebelumnya 136/86'),
+      vital('nadi', '78', 'sebelumnya 80'),
+      vital('suhu', '36,6', 'sebelumnya 36,5'),
+      vital('napas', '18', 'sebelumnya 18'),
+      vital('spo2', '98', 'sebelumnya 98'),
+      vital('berat', '76', 'IMT 26,3'),
+      vital('gds', '168', 'sebelumnya 182', 'tinggi'),
+    ],
+    cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
+    s: 'Kontrol DM bulanan. Tidak ada keluhan; gula darah di rumah 140–170 mg/dL.',
+    o: 'Kompos mentis. Kaki: sensasi monofilamen baik, tidak ada luka.',
+    times: ['08.40', '08.46', '08.50'],
+    dx: ['E11.9'],
+    plan: [
+      ['OBAT', 'Metformin 500 mg · 2×1 sesudah makan · 7 hari', 'Diserahkan farmasi'],
+      ['KONTROL', 'Kontrol 1 minggu dengan hasil HbA1c', 'Surat kontrol dibuat'],
+    ],
+    labDate: '7 Sep 2026',
+    labs: [
+      ['HbA1c', '7,6 %', 'H', '< 7', '4548-4'],
+      ['Kreatinin', '1,0 mg/dL', '', '0,7–1,3', '2160-0'],
+    ],
+    meds: [['Metformin 500 mg · 2×1', 'sejak 2023']],
+    history: [
+      ['7 Sep 2026 · Poli PD', 'E11.9 · kontrol DM'],
+      ['3 Agu 2026 · Poli PD', 'E11.9'],
+    ],
+  },
+  {
+    patientId: 'ps-fransiska',
+    waitNote: 'selesai 09.02',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
     stage: 5,
-    vitalsAt: '07.12',
+    vitalsAt: '08.30',
+    vitals: [
+      vital('td', '132/86', 'sebelumnya 130/84'),
+      vital('nadi', '84', 'sebelumnya 82'),
+      vital('suhu', '36,7', 'sebelumnya 36,6'),
+      vital('napas', '18', 'sebelumnya 18'),
+      vital('spo2', '98', 'sebelumnya 99'),
+      vital('berat', '88', 'IMT 32,2'),
+    ],
+    cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
+    s: 'Nyeri sendi jari kaki hilang timbul; kontrol asam urat.',
+    o: 'Tidak ada tanda radang sendi akut. Obesitas sentral.',
+    times: ['08.52', '08.58', '09.02'],
+    dx: ['M10.9'],
+    plan: [
+      ['LAB', 'Asam urat, kreatinin, darah lengkap', 'Sampel diambil 09.05'],
+      ['OBAT', 'Allopurinol 100 mg · 1×1 · 14 hari', 'Diserahkan farmasi'],
+      ['KONTROL', 'Kontrol 2 minggu dengan hasil lab', 'Edukasi diet rendah purin'],
+    ],
+    labDate: '20 Agu 2026',
+    labs: [
+      ['Kreatinin', '0,8 mg/dL', '', '0,6–1,1', '2160-0'],
+      ['Kolesterol total', '226 mg/dL', 'H', '< 200', '2093-3'],
+    ],
+    meds: [],
+    history: [['20 Agu 2026 · Poli PD', 'M10.9 · edukasi diet']],
+  },
+  {
+    patientId: 'ps-ayu',
+    waitNote: 'selesai 09.14',
+    sep: null,
+    fallRisk: 'Risiko jatuh rendah',
+    stage: 5,
+    vitalsAt: '08.45',
     vitals: [
       vital('td', '118/76', 'sebelumnya 115/75'),
       vital('nadi', '88', 'sebelumnya 80'),
@@ -715,9 +784,10 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
     s: 'Batuk pilek 4 hari, tanpa demam tinggi.',
     o: 'Faring hiperemis ringan. Paru bersih.',
-    times: ['07.30', '07.36', '07.40'],
+    times: ['09.04', '09.10', '09.14'],
     dx: ['J06.9'],
     plan: [
+      ['LAB', 'Darah lengkap, CRP', 'Hasil dalam batas normal'],
       ['OBAT', 'Parasetamol 500 mg · 3×1 bila perlu · 10 tablet', 'Diserahkan farmasi'],
       ['KONTROL', 'Kontrol bila keluhan menetap lebih dari 7 hari', 'Edukasi diberikan'],
     ],
@@ -725,17 +795,17 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     labs: [],
     meds: [],
     history: [
-      ['Hari ini · Poli PD', 'J06.9 · selesai 07.40'],
+      ['Hari ini · Poli PD', 'J06.9 · selesai 09.14'],
       ['5 Jan 2026 · Poli Umum', 'J06.9'],
     ],
   },
   {
     patientId: 'ps-wahyuni',
-    waitNote: 'selesai 07.59',
+    waitNote: 'selesai 09.40',
     sep: '0301R0011026V005087',
     fallRisk: 'Risiko jatuh rendah',
     stage: 5,
-    vitalsAt: '07.40',
+    vitalsAt: '09.00',
     vitals: [
       vital('td', '150/95', '↑ dari 142/90', 'tinggi'),
       vital('nadi', '88', 'sebelumnya 84'),
@@ -748,10 +818,10 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       'Kunjungan sudah ditandatangani. Dosis amlodipin dinaikkan dari 5 mg ke 10 mg; tidak ditemukan interaksi dengan obat aktif.',
     s: 'Pusing dan tengkuk terasa berat sejak 3 hari. Kontrol rutin hipertensi.',
     o: 'Kompos mentis. TD 150/95 mmHg. Pemeriksaan fisik lain dalam batas normal.',
-    times: ['07.50', '07.55', '07.59'],
+    times: ['09.26', '09.34', '09.40'],
     dx: ['I10', 'E78.5'],
     plan: [
-      ['LAB', 'Profil lipid, kreatinin', 'Sampel diambil 08.02'],
+      ['LAB', 'Profil lipid, kreatinin', 'Sampel diambil 09.45'],
       ['OBAT', 'Amlodipin 10 mg · 1×1 pagi · 30 tablet', 'Dosis naik dari 5 mg · resep PRB di farmasi', true],
       ['OBAT', 'Atorvastatin 20 mg · 1×1 malam · 30 tablet', 'Lanjutkan · resep PRB di farmasi'],
       ['KONTROL', 'Kontrol 4 minggu · surat kontrol BPJS', 'Dibuat otomatis'],
@@ -774,7 +844,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
   },
   {
     patientId: 'ps-rohana',
-    waitNote: 'mulai 08.01',
+    waitNote: 'mulai 10.31',
     sep: '0301R0011026V005091',
     fallRisk: 'Risiko jatuh sedang',
     stage: 2,
@@ -791,7 +861,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       'Alergi amoksisilin tercatat: golongan penisilin dan sefalosporin generasi 1 diblokir CDS. Makrolid atau linkosamid aman.',
     s: 'Kontrol pasca rawat inap pneumonia. Batuk berkurang, tidak demam. Gula darah di rumah 150–180 mg/dL.',
     o: '',
-    times: ['08.01', null, null],
+    times: ['10.31', null, null],
     dx: [],
     plan: [],
     labDate: '20 Sep 2026',
@@ -811,11 +881,11 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
   },
   {
     patientId: 'ps-darmawan',
-    waitNote: 'tunggu 9 mnt',
+    waitNote: 'tunggu 27 mnt',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
     stage: 2,
-    vitalsAt: '07.47',
+    vitalsAt: '10.18',
     vitals: [
       vital('td', '128/82', 'sebelumnya 126/80'),
       vital('nadi', '80', 'sebelumnya 78'),
@@ -845,11 +915,11 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
   },
   {
     patientId: 'ps-dewi',
-    waitNote: 'lab 25 mnt',
+    waitNote: 'hasil lab dan USG',
     sep: '0301R0011026V005095',
     fallRisk: 'Risiko jatuh rendah',
     stage: 3,
-    vitalsAt: '07.22',
+    vitalsAt: '08.50',
     vitals: [
       vital('td', '124/78', 'sebelumnya 120/80'),
       vital('nadi', '76', 'sebelumnya 74'),
@@ -862,7 +932,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       'Menunggu hasil darah lengkap dan ekspertise USG sebelum asesmen akhir. Tidak ada peringatan klinis terbuka.',
     s: 'Nyeri ulu hati, kembung, dan mual sejak 2 minggu; memburuk setelah makan pedas.',
     o: 'Nyeri tekan epigastrium ringan. Tanda bahaya (alarm) tidak ada.',
-    times: ['07.41', '07.48', null],
+    times: ['09.16', '09.24', null],
     dx: ['K30'],
     plan: [
       ['LAB', 'Darah lengkap', 'Menunggu hasil'],
@@ -1295,7 +1365,36 @@ interface CpoeFixture {
 }
 
 const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
-  'ps-ayu': { weightKg: 61, egfr: null, activeMeds: [], orders: [['parasetamol-500', 'terkirim']] },
+  'ps-lukman': {
+    weightKg: 76,
+    egfr: 84,
+    activeMeds: [med('Metformin 500 mg · 2×1', 'metformin', 'metformin-500')],
+    orders: [
+      ['hba1c', 'terkirim'],
+      ['metformin-500', 'terkirim'],
+      ['surat-kontrol', 'terkirim'],
+    ],
+  },
+  'ps-fransiska': {
+    weightKg: 88,
+    egfr: 90,
+    activeMeds: [],
+    orders: [
+      ['kreatinin', 'terkirim'],
+      ['darah-lengkap', 'terkirim'],
+      ['allopurinol-100', 'terkirim'],
+    ],
+  },
+  'ps-ayu': {
+    weightKg: 61,
+    egfr: null,
+    activeMeds: [],
+    orders: [
+      ['darah-lengkap', 'terkirim'],
+      ['crp', 'terkirim'],
+      ['parasetamol-500', 'terkirim'],
+    ],
+  },
   'ps-wahyuni': {
     weightKg: 72,
     egfr: 82,
