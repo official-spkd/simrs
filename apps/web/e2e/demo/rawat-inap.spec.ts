@@ -12,6 +12,21 @@ async function openAs(page: Page, roles: string[], path: string) {
   await page.goto(path);
 }
 
+/** Lompat skenario aktif di layar Simulasi ke tahap `stage` (tugas sebelumnya dikerjakan dengan nilai bawaan). */
+async function jumpTo(page: Page, stage: string) {
+  await page.getByText('Lompat ke tahap', { exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${stage}$`) }).click();
+  await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${stage}`))).toBeVisible();
+}
+
+/** Pilih tab skenario di layar Simulasi lalu lompat ke tahapnya. */
+async function scenarioAt(page: Page, tab: string, patient: string, stage: string) {
+  await page.goto('/simulasi');
+  await page.getByRole('tab', { name: tab }).click();
+  await expect(page.getByText(patient).first()).toBeVisible();
+  await jumpTo(page, stage);
+}
+
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -113,14 +128,30 @@ test.describe('rawat inap', () => {
     await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
     await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
     await expect(dose).toBeEnabled();
-    await dose.click();
-    await expect(emar.getByText('Pemberian tercatat shift ini')).toBeVisible();
 
-    // Dosis terlambat wajib alasan.
+    // Satu dosis: pilih slot → pindai label obat → (kewaspadaan tinggi: cek ganda perawat kedua) → catat.
+    await dose.click();
+    const insulin = emar.getByRole('region', { name: /^Insulin aspart sesuai skala · jadwal 12\.00/ });
+    const record = insulin.getByRole('button', { name: 'Catat pemberian' });
+    await expect(record).toBeDisabled();
+    await expect(insulin.getByText('Pindai label obat dulu.')).toBeVisible();
+    await insulin.getByRole('button', { name: 'Pindai label obat' }).click();
+    await expect(insulin.getByText(/Obat benar · label terpindai/)).toBeVisible();
+    await expect(record).toBeDisabled();
+    await expect(insulin.getByText('Isi nama perawat kedua yang melakukan cek ganda.')).toBeVisible();
+    await insulin.getByLabel(/Cek ganda: nama perawat kedua/).fill('Ns. Pemeriksa Kedua');
+    await record.click();
+    await expect(emar.getByText('Pemberian tercatat shift ini')).toBeVisible();
+    await expect(dose).toContainText('cek ganda');
+    await expect(insulin).toHaveCount(0);
+
+    // Dosis terlambat (status dari rekam server) wajib alasan.
     await emar.getByRole('button', { name: /^Omeprazol 40 mg injeksi jam 08\.00/ }).click();
-    const late = emar.getByRole('button', { name: 'Catat pemberian terlambat' });
+    const lateDose = emar.getByRole('region', { name: /^Omeprazol 40 mg injeksi · jadwal 08\.00 terlambat/ });
+    await lateDose.getByRole('button', { name: 'Pindai label obat' }).click();
+    const late = lateDose.getByRole('button', { name: 'Catat pemberian terlambat' });
     await expect(late).toBeDisabled();
-    await emar.getByLabel(/Alasan keterlambatan/).fill('Pasien sedang foto toraks di radiologi');
+    await lateDose.getByLabel(/Alasan keterlambatan/).fill('Pasien sedang foto toraks di radiologi');
     await late.click();
     await expect(emar.getByText(/terlambat · Pasien sedang foto toraks/)).toBeVisible();
 
@@ -130,6 +161,52 @@ test.describe('rawat inap', () => {
     await cppt.getByRole('button', { name: 'Simpan dan tanda tangani' }).click();
     await expect(cppt.getByText('S wajib diisi.')).toBeVisible();
     await expect(cppt.getByText('Versi 2 · koreksi: Salah ketik nilai SpO2')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('pasien skenario: pindai gelang membuka grid, lalu lima dosis 08.00 dicatat satu per satu', async ({
+    page,
+  }) => {
+    const account = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, account, '/simulasi');
+    await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Rawat inap');
+    await page.goto('/klinis/rawat-inap/kj-hartono');
+    const journey = page.getByRole('region', { name: 'Perjalanan rawat (simulasi)' });
+    const day1 = journey.getByRole('button', { name: 'Lompat ke hari 1 pagi' });
+    await expect(day1).toBeDisabled();
+
+    const emar = page.getByRole('region', { name: 'eMAR' });
+    const due = emar.getByRole('button', { name: / jam 08\.00 · Jadwal/ });
+    await expect(due).toHaveCount(5);
+    await expect(due.first()).toBeDisabled();
+    await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
+    await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
+    await expect(emar.getByText(/Dosis jam 08\.00: 0 dari 5 tercatat/)).toBeVisible();
+
+    for (let i = 0; i < 5; i += 1) {
+      const name = (await due.first().getAttribute('aria-label')) ?? '';
+      await due.first().click();
+      const panel = emar.getByRole('region', { name: /· jadwal 08\.00/ });
+      const record = panel.getByRole('button', { name: 'Catat pemberian' });
+      await expect(record).toBeDisabled();
+      await panel.getByRole('button', { name: 'Pindai label obat' }).click();
+      if (name.startsWith('Enoksaparin')) {
+        // Obat kewaspadaan tinggi: belum bisa dicatat tanpa cek ganda perawat kedua.
+        await expect(record).toBeDisabled();
+        await panel.getByLabel(/Cek ganda: nama perawat kedua/).fill('Ns. Pemeriksa Kedua');
+      }
+      await record.click();
+      await expect(due).toHaveCount(4 - i);
+      if (i < 4) {
+        // Dosis lain belum diberikan: tugas Simulasi belum selesai, lompat hari masih terkunci.
+        await expect(emar.getByText(new RegExp(`Dosis jam 08\\.00: ${i + 1} dari 5 tercatat`))).toBeVisible();
+        await expect(day1).toBeDisabled();
+      }
+    }
+    // Dosis terakhir tercatat → tugas `emar` Simulasi selesai, hari berikutnya terbuka.
+    await expect(journey).toContainText('Obat jadwal pertama tercatat per dosis');
+    await expect(day1).toBeEnabled();
+    await expect(emar.getByRole('listitem')).toHaveCount(5);
     await expectNoHorizontalScroll(page);
   });
 });

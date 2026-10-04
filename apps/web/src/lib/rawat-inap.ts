@@ -9,6 +9,7 @@ import {
   type EmarMedication,
   type EmarSlotState,
   type EmarTime,
+  type EmarWristbandScanInput,
   type EwsObservation,
   type EdStatus,
   formatJam,
@@ -622,14 +623,18 @@ export function wristbandMatches(code: string, rm: string): boolean {
 /** Kunci slot eMAR `<obat>|<jam>`. */
 export const emarKey = (medicationId: string, time: EmarTime) => `${medicationId}|${time}`;
 
+/** Obat yang punya dosis wajib (jadwal/terlambat) pada jam "kini". */
+function dueMeds(meds: readonly EmarMedication[], now: EmarTime): EmarMedication[] {
+  return meds.filter((m) => m.slots.some((s) => s.time === now && emarActionable(s.state)));
+}
+
 /** Slot yang wajib diberikan pada jam "kini" (jadwal/terlambat) dan belum dicatat di layar. */
 export function dueSlots(
   meds: readonly EmarMedication[],
   now: EmarTime,
   given: Readonly<Record<string, string>>,
 ): string[] {
-  return meds
-    .filter((m) => m.slots.some((s) => s.time === now && emarActionable(s.state)))
+  return dueMeds(meds, now)
     .map((m) => emarKey(m.id, now))
     .filter((k) => !given[k]);
 }
@@ -640,14 +645,55 @@ export function allDueGiven(
   now: EmarTime,
   given: Readonly<Record<string, string>>,
 ): boolean {
-  const any = meds.some((m) => m.slots.some((s) => s.time === now && emarActionable(s.state)));
-  return any && dueSlots(meds, now, given).length === 0;
+  return dueMeds(meds, now).length > 0 && dueSlots(meds, now, given).length === 0;
+}
+
+/** Kemajuan dosis jam "kini": berapa yang sudah dicatat di layar dari total dosis wajib. */
+export function dueProgress(
+  meds: readonly EmarMedication[],
+  now: EmarTime,
+  given: Readonly<Record<string, string>>,
+): { given: number; total: number } {
+  const total = dueMeds(meds, now).length;
+  return { given: total - dueSlots(meds, now, given).length, total };
 }
 
 /**
- * Gerbang pencatatan dosis sisi server (CLAUDE.md §4.9): obat dan slot dibaca dari eMAR pasien; slot harus bisa
- * dicatat; terlambat wajib alasan; gelang terpindai harus cocok dengan RM; obat kewaspadaan tinggi wajib cek ganda
- * oleh orang lain. Null = boleh.
+ * Kode pada label obat dari farmasi (simulasi: id baris obat eMAR). Pindai label menghasilkan kode ini; server
+ * mencocokkannya dengan obat slot yang dicatat (benar obat).
+ */
+export function emarLabelCode(med: Pick<EmarMedication, 'id'>): string {
+  return med.id;
+}
+
+/** Kode label terpindai cocok dengan obat jadwal (pemisah dan huruf besar diabaikan). */
+export function labelMatches(code: string, med: Pick<EmarMedication, 'id'>): boolean {
+  return alnum(code).length > 0 && alnum(code) === alnum(emarLabelCode(med));
+}
+
+/** Gerbang identitas sisi server: kode gelang cocok dengan RM pasien, atau override (alasannya diperiksa skema). */
+export function wristbandBlocker(wristbandCode: string | null, rm: string): string | null {
+  if (wristbandCode !== null && !wristbandMatches(wristbandCode, rm)) {
+    return 'Gelang tidak cocok dengan pasien kunjungan ini; pindai ulang gelang yang benar.';
+  }
+  return null;
+}
+
+/** Pemberian obat pasien skenario sebelum gilirannya (tugas `emar` langkah rawat inap / pasca operasi). */
+export const SCENARIO_EMAR_WAIT = 'Menunggu giliran pemberian obat di Simulasi.';
+
+/**
+ * Giliran eMAR pasien skenario: dosis jadwal pertama hanya dicatat saat tugas `emar` gilirannya. Setelah tugas
+ * selesai slot itu sudah "diberikan" di rekam, jadi gerbang slot yang menolak. Null = boleh lanjut.
+ */
+export function emarTurnBlocker(task: { enabled: boolean; done: boolean } | undefined): string | null {
+  return task && (task.enabled || task.done) ? null : SCENARIO_EMAR_WAIT;
+}
+
+/**
+ * Gerbang pencatatan satu dosis sisi server (CLAUDE.md §4.9): obat dan slot dibaca dari eMAR pasien; slot harus
+ * bisa dicatat; gelang cocok dengan RM (atau override); label obat cocok dengan obat slot; terlambat wajib alasan;
+ * obat kewaspadaan tinggi wajib cek ganda oleh orang lain. Null = boleh.
  */
 export function emarRecordBlocker(a: {
   meds: readonly EmarMedication[];
@@ -655,7 +701,7 @@ export function emarRecordBlocker(a: {
   nurse: string;
   input: Pick<
     EmarAdministrationInput,
-    'medicationId' | 'time' | 'wristbandCode' | 'lateReason' | 'doubleCheckedBy'
+    'medicationId' | 'time' | 'wristbandCode' | 'labelCode' | 'lateReason' | 'doubleCheckedBy'
   >;
 }): string | null {
   const med = a.meds.find((m) => m.id === a.input.medicationId);
@@ -664,11 +710,13 @@ export function emarRecordBlocker(a: {
   if (!slot || !emarActionable(slot.state)) {
     return `${med.name} jam ${a.input.time} tidak bisa dicatat (${EMAR_STATE_META[slot?.state ?? 'kosong'].label.toLowerCase()}).`;
   }
+  const identity = wristbandBlocker(a.input.wristbandCode, a.rm);
+  if (identity) return identity;
+  if (!labelMatches(a.input.labelCode, med)) {
+    return `Label obat tidak cocok dengan ${med.name}; pindai label obat yang dijadwalkan.`;
+  }
   if (slot.state === 'terlambat' && !a.input.lateReason) {
     return `Dosis terlambat wajib alasan (minimal ${SAFETY_REASON_MIN} karakter).`;
-  }
-  if (a.input.wristbandCode !== null && !wristbandMatches(a.input.wristbandCode, a.rm)) {
-    return 'Gelang tidak cocok dengan pasien kunjungan ini; pindai ulang gelang yang benar.';
   }
   if (med.highAlert) {
     const second = (a.input.doubleCheckedBy ?? '').trim();
@@ -676,6 +724,68 @@ export function emarRecordBlocker(a: {
     if (signerNameMatches(second, a.nurse)) return 'Cek ganda harus oleh petugas lain, bukan pemberi obat.';
   }
   return null;
+}
+
+/** Identitas yang sudah diverifikasi di layar: gelang cocok (kode = RM terpindai) atau override beralasan. */
+export interface EmarIdentity {
+  status: 'terkunci' | 'cocok' | 'override';
+  reason: string | null;
+}
+
+/** Payload `scanWristbandAction`: kode gelang terpindai, atau null + alasan override verifikasi manual. */
+export function emarScanPayload(
+  encounterId: string,
+  wristbandCode: string | null,
+  overrideReason: string | null,
+): EmarWristbandScanInput {
+  return {
+    encounterId,
+    wristbandCode,
+    scanOverrideReason: wristbandCode === null ? overrideReason : null,
+  };
+}
+
+/**
+ * Payload `recordAdministrationAction` untuk satu dosis. Satu tempat bertipe kontrak bersama agar layar dan skema
+ * server tidak menyimpang (tes unit mem-parse hasilnya dengan `emarAdministrationInputSchema`).
+ */
+export function emarDosePayload(a: {
+  encounterId: string;
+  medicationId: string;
+  time: EmarTime;
+  /** Kode gelang terpindai (simulasi: RM pasien). */
+  rm: string;
+  identity: EmarIdentity;
+  dose: Pick<EmarAdministrationInput, 'labelCode' | 'lateReason' | 'doubleCheckedBy'>;
+}): EmarAdministrationInput {
+  const override = a.identity.status === 'override';
+  return {
+    encounterId: a.encounterId,
+    medicationId: a.medicationId,
+    time: a.time,
+    wristbandCode: override ? null : a.rm,
+    scanOverrideReason: override ? a.identity.reason : null,
+    labelCode: a.dose.labelCode,
+    lateReason: a.dose.lateReason,
+    doubleCheckedBy: a.dose.doubleCheckedBy,
+  };
+}
+
+/** Fakta dosis tercatat menurut rekam server (terlambat, cek ganda), bukan menurut klien. */
+export function emarGivenFacts(
+  med: Pick<EmarMedication, 'highAlert' | 'slots'>,
+  time: EmarTime,
+  doubleCheckedBy: string | null,
+): { late: boolean; doubleCheckedBy: string | null } {
+  return {
+    late: med.slots.find((s) => s.time === time)?.state === 'terlambat',
+    doubleCheckedBy: med.highAlert ? (doubleCheckedBy?.trim() ?? null) : null,
+  };
+}
+
+/** Teks slot setelah dicatat: "✓ 08.14", "✓ 08.20 · telat", "✓ 08.22 · cek ganda". */
+export function emarGivenLabel(at: string, f: { late: boolean; doubleCheckedBy: string | null }): string {
+  return `✓ ${at}${f.late ? ' · telat' : ''}${f.doubleCheckedBy ? ' · cek ganda' : ''}`;
 }
 
 // ---------------------------------------------------------------------------------------------------------

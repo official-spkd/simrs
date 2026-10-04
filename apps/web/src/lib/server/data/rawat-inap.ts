@@ -15,6 +15,7 @@ import {
   inpatientSummarySchema,
 } from '@simrs/shared';
 import { redirect } from 'next/navigation';
+import type { ScenarioId } from '../../demo/engine/types';
 import { patientByEncounterId } from '../../demo/fixtures/pasien';
 import {
   demoBedRequests,
@@ -74,6 +75,21 @@ export async function scenarioSteps(
   if (webEnv().dataSource !== 'demo') return [];
   const runs = await scenarioRuns(session);
   return wanted.map(([scenario, stepId]) => stepState(runs.results[scenario], stepId, runs.rev));
+}
+
+/**
+ * Langkah skenario yang membawakan pasien rawat inap ini (Tn. Hartono: rawat inap; Ny. Ratna: pasca operasi), untuk
+ * giliran tugas `emar` dan lompatan hari. Null = bukan pasien skenario rawat inap.
+ */
+export async function inpatientScenarioStep(
+  session: SessionView,
+  scenario: ScenarioId | undefined,
+): Promise<ScenarioStepState | null> {
+  if (scenario !== 'igd-ranap' && scenario !== 'elektif-btn') return null;
+  const [step] = await scenarioSteps(session, [
+    scenario === 'igd-ranap' ? ['igd-ranap', 'rawat-inap'] : ['elektif-btn', 'pasca-operasi'],
+  ]);
+  return step ?? null;
 }
 
 /**
