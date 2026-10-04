@@ -66,6 +66,57 @@ test.describe('layar Audit (/sistem/audit)', () => {
     await expect(detail.getByText('Catatan: Konfirmasi ke kasir: lupa sandi')).toBeVisible();
   });
 
+  test('temuan ditinjau ulang: riwayat menampilkan kedua keputusan, yang terbaru berlaku', async ({
+    page,
+    browser,
+  }) => {
+    test.setTimeout(90_000); // dua sesi login + dua keputusan dalam satu tes
+    const akuntan = await createAccount({ roles: ['akuntan'], displayName: 'Bayu Pratama' });
+    await insertAuditEvents(akuntan, 'akuntan', 'login_failed', 5);
+    const privasi = await createAccount({ roles: ['petugas_privasi'], displayName: 'Sari Wulandari' });
+    const path = `/sistem/audit?temuan=${encodeURIComponent(`login_failed:${akuntan.id}:${todayWib()}`)}`;
+    await loginAs(page, privasi, path);
+
+    const detail = page.getByRole('complementary', { name: 'Detail' });
+    await expect(detail.getByRole('heading', { name: '5× gagal masuk dalam sehari' })).toBeVisible();
+    await expect(detail.getByRole('region', { name: 'Riwayat tinjauan' })).toHaveCount(0);
+    await detail.getByLabel('Catatan (opsional)').fill('Tanya dulu ke akuntan');
+    await detail.getByRole('button', { name: 'Ditinjau: perlu klarifikasi' }).click();
+    await expect(detail.getByText(/Ditinjau pukul .* oleh Sari Wulandari · perlu klarifikasi/)).toBeVisible();
+
+    await detail.getByRole('button', { name: 'Buka kembali tinjauan' }).click();
+    await expect(detail.getByText(/Keputusan baru menggantikan keputusan di atas/)).toBeVisible();
+    await detail.getByLabel('Catatan (opsional)').fill('Dikonfirmasi: lupa sandi setelah cuti');
+    await detail.getByRole('button', { name: 'Ditinjau: akses sah' }).click();
+    await expect(detail.getByText(/Ditinjau pukul .* oleh Sari Wulandari · akses sah/)).toBeVisible();
+
+    const entries = detail.getByRole('region', { name: 'Riwayat tinjauan' }).getByRole('listitem');
+    await expect(entries).toHaveCount(2);
+    await expect(entries.nth(0)).toContainText('Berlaku');
+    await expect(entries.nth(0)).toContainText('Akses sah');
+    await expect(entries.nth(0)).toContainText('Sari Wulandari · Petugas privasi');
+    await expect(entries.nth(0)).toContainText('Dikonfirmasi: lupa sandi setelah cuti');
+    await expect(entries.nth(1)).toContainText('Digantikan');
+    await expect(entries.nth(1)).toContainText('Perlu klarifikasi');
+    await expect(entries.nth(1)).toContainText('Tanya dulu ke akuntan');
+    // Formulir tertutup lagi setelah keputusan baru; bisa dibuka kembali.
+    await expect(detail.getByRole('button', { name: 'Buka kembali tinjauan' })).toBeVisible();
+
+    // Auditor mutu (baca saja): melihat riwayat yang sama tanpa kontrol tinjauan.
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    await loginAs(other, await createAccount({ roles: ['auditor_mutu'] }), path);
+    const auditorView = other.getByRole('complementary', { name: 'Detail' });
+    const auditorEntries = auditorView
+      .getByRole('region', { name: 'Riwayat tinjauan' })
+      .getByRole('listitem');
+    await expect(auditorEntries).toHaveCount(2);
+    await expect(auditorEntries.nth(0)).toContainText('Berlaku');
+    await expect(auditorView.getByRole('button', { name: 'Buka kembali tinjauan' })).toHaveCount(0);
+    await expect(auditorView.getByRole('button', { name: 'Ditinjau: akses sah' })).toHaveCount(0);
+    await ctx.close();
+  });
+
   test('auditor mutu: unduh paket bukti CSV; admin RS tanpa izin ekspor', async ({ page, browser }) => {
     test.setTimeout(60_000); // dua sesi login dalam satu tes
     const auditor = await createAccount({ roles: ['auditor_mutu'] });

@@ -26,6 +26,8 @@ import {
   rangeDays,
   rangeStart,
   REVIEW_LABEL,
+  type ReviewHistoryItem,
+  reviewHistoryRows,
   roleLabel,
   tanggalWib,
 } from '@/lib/audit';
@@ -42,11 +44,13 @@ import {
   type Grant,
   grantListSchema,
   grantSchema,
+  type ReviewHistory,
+  reviewHistorySchema,
   verifySchema,
 } from '@/lib/server/audit';
 import { requireSession } from '@/lib/server/session';
 import { can, type SessionView } from '@/lib/session-view';
-import { ReviewForm } from './review-form';
+import { ReopenReview, ReviewForm } from './review-form';
 
 export const metadata: Metadata = { title: 'Jejak audit' };
 
@@ -116,10 +120,22 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   if (p.pengguna) list.set('actorUserId', p.pengguna);
   if (p.kursor) list.set('cursor', p.kursor);
   const reportDate = p.laporan ?? tanggalWib();
+  const isFinding = (f: Finding) => f.key === p.temuan && f.grantId === null;
 
-  const [page, anomalies, detail, grant, report, chain] = await Promise.all([
+  const anomaliesReq = api(`/api/v1/audit/anomalies?days=${rangeDays(p.rentang)}`, {
+    schema: anomaliesSchema,
+  });
+  // Riwayat tinjauan hanya untuk temuan yang benar-benar tampil; pembukaannya diaudit per temuan oleh API.
+  const historyReq = anomaliesReq.then((a) =>
+    p.temuan && a.findings.some(isFinding)
+      ? api(`/api/v1/audit/anomalies/reviews?key=${encodeURIComponent(p.temuan)}`, {
+          schema: reviewHistorySchema,
+        })
+      : null,
+  );
+  const [page, anomalies, detail, grant, report, chain, history] = await Promise.all([
     api(`/api/v1/audit/events?${list.toString()}`, { schema: auditPageSchema }),
-    api(`/api/v1/audit/anomalies?days=${rangeDays(p.rentang)}`, { schema: anomaliesSchema }),
+    anomaliesReq,
     p.kejadian
       ? api(`/api/v1/audit/events/${p.kejadian}`, { schema: auditDetailSchema }).catch(notFoundAsNull)
       : Promise.resolve(null),
@@ -132,8 +148,10 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
         })
       : Promise.resolve(null),
     p.verifikasi ? api('/api/v1/audit/verify', { schema: verifySchema }) : Promise.resolve(null),
+    historyReq,
   ]);
-  const finding = p.temuan ? (anomalies.findings.find((f) => f.key === p.temuan) ?? null) : null;
+  // Akses darurat ditinjau lewat `tinjau` (panel izin), bukan sebagai temuan biasa.
+  const finding = anomalies.findings.find(isFinding) ?? null;
   const roleOptions = Object.entries(s.tenant.kind === 'platform' ? PLATFORM_ROLES : SYSTEM_ROLES);
   const pending = anomalies.findings.filter((f) => f.review === null);
 
@@ -210,7 +228,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           {grant ? (
             <GrantPanel grant={grant} session={s} />
           ) : finding ? (
-            <FindingPanel finding={finding} session={s} current={current} />
+            <FindingPanel finding={finding} history={history} session={s} current={current} />
           ) : detail ? (
             <EventPanel event={detail} />
           ) : (
@@ -663,14 +681,17 @@ function GrantPanel({ grant, session }: { grant: Grant; session: SessionView }) 
 
 function FindingPanel({
   finding,
+  history,
   session,
   current,
 }: {
   finding: Finding;
+  history: ReviewHistory | null;
   session: SessionView;
   current: AuditParams;
 }) {
   const own = finding.actor?.id === session.user.id;
+  const canReview = can(session, 'audit', 'review') && !own;
   return (
     <Card className="overflow-hidden">
       <PanelHead sub={`Temuan · ${FINDING_KIND_LABEL[finding.kind] ?? finding.kind}`} title={finding.title} />
@@ -697,9 +718,14 @@ function FindingPanel({
                   outcome: finding.review.outcome,
                   note: finding.review.note,
                   at: finding.review.reviewedAt,
-                  by: null,
+                  by: finding.review.reviewer?.displayName ?? null,
                 }
               : null
+          }
+          reopen={
+            finding.review && canReview ? (
+              <ReopenReview key={finding.review.reviewedAt} id={finding.key} />
+            ) : null
           }
         >
           {!can(session, 'audit', 'review') ? (
@@ -712,16 +738,54 @@ function FindingPanel({
             <ReviewForm target="finding" id={finding.key} />
           )}
         </ReviewBox>
+        {history && history.items.length > 0 && <ReviewHistoryList items={history.items} />}
       </div>
     </Card>
   );
 }
 
+/** Riwayat tinjauan temuan (terbaru dulu): keputusan yang berlaku ditandai; yang digantikan tetap tampil. */
+function ReviewHistoryList({ items }: { items: ReviewHistoryItem[] }) {
+  const rows = reviewHistoryRows(items);
+  return (
+    <section aria-label="Riwayat tinjauan" className="flex flex-col gap-2">
+      <span className="text-caption font-semibold text-ink-500">RIWAYAT TINJAUAN ({rows.length})</span>
+      <ol className="m-0 flex list-none flex-col gap-2 p-0">
+        {rows.map((r) => (
+          <li
+            key={r.seq}
+            className={cx(
+              'flex flex-col gap-1 rounded-control border px-3 py-2.5 text-small',
+              r.effective ? 'border-success-border bg-[#F6FCF7]' : 'border-line bg-white',
+            )}
+          >
+            <span className="flex flex-wrap items-center gap-2">
+              <Chip tone={r.effective ? 'success' : 'neutral'}>{r.status}</Chip>
+              <span className="font-semibold">{r.decision}</span>
+            </span>
+            <span className="text-caption text-ink-500">
+              <span className="font-mono">{r.when}</span> · {r.who}
+            </span>
+            {r.note && <span className="text-ink-700">“{r.note}”</span>}
+          </li>
+        ))}
+      </ol>
+      <span className="text-caption text-ink-500">
+        Keputusan terbaru yang berlaku. Keputusan sebelumnya tetap tersimpan di jejak audit dan tidak dapat
+        dihapus.
+      </span>
+    </section>
+  );
+}
+
 function ReviewBox({
   reviewed,
+  reopen,
   children,
 }: {
   reviewed: { outcome: string; note: string | null; at: string | null; by: string | null } | null;
+  /** Untuk yang sudah ditinjau: kontrol "Buka kembali tinjauan" (hanya temuan; akses darurat final). */
+  reopen?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -739,6 +803,7 @@ function ReviewBox({
             {reviewed.by ? ` oleh ${reviewed.by}` : ''} · {REVIEW_LABEL[reviewed.outcome] ?? reviewed.outcome}
           </span>
           {reviewed.note && <span className="text-small text-ink-700">Catatan: {reviewed.note}</span>}
+          {reopen}
         </>
       ) : (
         <>
