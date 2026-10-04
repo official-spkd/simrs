@@ -20,7 +20,7 @@ import {
   type TriageLevel,
   type Ward,
 } from '@simrs/shared';
-import { ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
+import { BOARDING_TARGET_MINUTES, ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -513,7 +513,7 @@ export function demoBedRequests(beds: readonly Bed[]): BedRequest[] {
       need,
       kelas,
       waitMinutes,
-      late: waitMinutes !== null && waitMinutes >= 240,
+      late: waitMinutes !== null && waitMinutes >= BOARDING_TARGET_MINUTES,
       candidates: matchingBeds(beds, kelas),
       scenario: null,
     };
