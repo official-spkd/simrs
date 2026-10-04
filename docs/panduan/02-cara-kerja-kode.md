@@ -402,14 +402,17 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 
 `apps/mock/src/`:
 
-| Berkas                            | Isi                                                                                                         |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak); log 50 request; penerima `_echo` |
-| `systems/*.ts`                    | Satu berkas per sistem: `bpjs`, `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`                     |
-| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                  |
-| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                            |
-| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                          |
-| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                              |
+| Berkas                            | Isi                                                                                                                                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                          |
+| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                  |
+| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0, Antrean RS + urutan task ID, HFIS; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
+| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                    |
+| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                              |
+| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                            |
+| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                |
+
+Mode `timeout` **memproses** permintaan lalu menahan jawabannya (meniru jawaban BPJS yang hilang: SEP sudah terbit, RS tidak tahu), berbeda dengan `gagal` yang menolak tanpa memproses. Aturan kartu/NIK/rujukan fiktif dan daftar API panel ada di `apps/mock/README.md`.
 
 ## Web
 
@@ -498,16 +501,17 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Paket shared
 
-| Modul                            | Isi utama                                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                 |
-| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran |
-| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                             |
-| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                       |
-| `ids.ts`                         | `newId()` UUID v7                                                                                 |
-| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                        |
-| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                |
-| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, HMAC TPDI                                       |
+| Modul                            | Isi utama                                                                                                                                                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                                                                                                                                                            |
+| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran                                                                                                                                            |
+| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                                                                                                                                                                        |
+| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                                                                                                                                                                  |
+| `ids.ts`                         | `newId()` UUID v7                                                                                                                                                                                                                            |
+| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                                                                                                                                                                   |
+| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                                                                                                                                                           |
+| `integrations/bpjs/`             | Kontrak kabel BPJS (I03) dipakai mock, worker, API: tabel endpoint + `bpjsPath()`, skema zod VClaim/Antrean/HFIS, `BPJS_REJECTIONS` + `classifyBpjsRejection()` (galat bisnis HTTP 200 → kode stabil), `checkAntreanTask()` (urutan task ID) |
+| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `decodeVclaimResponse`/`decodeAntreanResponse` (amplop → `ok`/`rejected`/`invalid`), HMAC TPDI                                                                                             |
 
 ## Strategi tes
 
