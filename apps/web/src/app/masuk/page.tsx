@@ -1,3 +1,4 @@
+import type { BackupCodeChannel } from '@simrs/shared';
 import { Alert } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
@@ -7,7 +8,12 @@ import { safeNextPath } from '@/lib/safe-path';
 import { api } from '@/lib/server/api';
 import { cookieNames, parsePinTokens } from '@/lib/server/cookies';
 import { loadPresentationAccounts, publicPersonas } from '@/lib/server/demo/accounts';
-import { assignmentsSchema, type PinAccount, pinAccountsSchema } from '@/lib/server/schemas';
+import {
+  assignmentsSchema,
+  backupOptionsSchema,
+  type PinAccount,
+  pinAccountsSchema,
+} from '@/lib/server/schemas';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { nextLoginStep } from '@/lib/session-view';
@@ -23,6 +29,25 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /** Panjang minimum sandi bawaan kebijakan (P12 `password.min_length`); API tetap yang menegakkan. */
 const PASSWORD_MIN_HINT = 12;
+
+/**
+ * Kanal kode cadangan yang diizinkan RS untuk akun tantangan ini (ADR-0022, pengaturan P12). Gagal → tanpa tautan
+ * (API tetap menegakkan saat kode diminta).
+ */
+async function loadBackupChannels(challengeToken: string | undefined): Promise<BackupCodeChannel[]> {
+  if (!challengeToken) return [];
+  try {
+    const r = await api('/api/v1/auth/mfa/backup-options', {
+      method: 'POST',
+      auth: false,
+      body: { challengeToken },
+      schema: backupOptionsSchema,
+    });
+    return r.channels;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Akun ber-PIN yang diingat peramban ini (ADR-0024): token dari cookie httpOnly dikirim server ke API, browser hanya
@@ -66,6 +91,8 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
     const presentation =
       step === 'akun' && env.dataSource === 'demo' ? await loadPresentationAccounts() : undefined;
     const pinAccounts = step === 'akun' ? await loadPinAccounts(store.get(names.pinDevices)?.value) : [];
+    const backupChannels =
+      step === 'verifikasi' ? await loadBackupChannels(store.get(names.challenge)?.value) : [];
     return (
       <LoginShell step={step === 'akun' ? 1 : 2}>
         {ended && <Alert level="info">Sesi Anda berakhir. Silakan masuk kembali.</Alert>}
@@ -90,7 +117,7 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
             defaultTenantCode={env.loginTenantCode}
           />
         ) : (
-          <VerifikasiStep lanjut={lanjut} akun={akun} />
+          <VerifikasiStep lanjut={lanjut} akun={akun} backupChannels={backupChannels} />
         )}
       </LoginShell>
     );
