@@ -33,11 +33,19 @@ export function testDbUrls(env: Record<string, string | undefined> = process.env
   };
 }
 
-/** Pengaman: hanya database bernama simrs_test yang boleh disentuh oleh persiapan tes. */
+/**
+ * Nama database tes: `simrs_test`, atau `simrs_test_<nama>` untuk salinan repo paralel (git worktree) yang
+ * masing-masing punya database tes sendiri. Disalin di `scripts/recreate-test-db.mjs`.
+ */
+export const TEST_DATABASE_NAME = /^simrs_test(?:_[a-z0-9_]+)?$/;
+
+/** Pengaman: hanya database tes (lihat `TEST_DATABASE_NAME`) yang boleh disentuh oleh persiapan tes. */
 export function assertTestDatabase(url: string): void {
   const name = new URL(url).pathname.replace(/^\//, '');
-  if (name !== 'simrs_test') {
-    throw new Error(`Persiapan tes menolak database "${name}"; hanya simrs_test yang diizinkan.`);
+  if (!TEST_DATABASE_NAME.test(name)) {
+    throw new Error(
+      `Persiapan tes menolak database "${name}"; hanya simrs_test atau simrs_test_<nama> yang diizinkan.`,
+    );
   }
 }
 
