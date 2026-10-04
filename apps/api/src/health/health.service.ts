@@ -43,7 +43,7 @@ export class HealthService {
     const [database, redis, storage] = await Promise.all([
       timed(() => this.prisma.client.$queryRaw`SELECT 1`),
       timed(() => this.redis.ping()),
-      // Penyimpanan berkas dokumen sesuai driver (disk: folder bisa ditulis). Driver S3/MinIO menyusul (ADR-0020).
+      // Penyimpanan berkas dokumen sesuai driver: disk = folder bisa ditulis; s3 = HeadBucket (S3 apa pun, ADR-0020).
       timed(() => this.storage.check()),
     ]);
     const checks = { database, redis, storage };
