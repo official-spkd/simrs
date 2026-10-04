@@ -1,6 +1,7 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import 'reflect-metadata';
+import type { ModuleMetadata } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
@@ -40,8 +41,14 @@ export const TENANT_CODES: Record<string, string> = {
 /** Folder penyimpanan berkas dokumen saat tes (bukan `.local/storage` milik pengembangan). */
 export const TEST_STORAGE_ROOT = join(tmpdir(), 'simrs-api-test-storage');
 
-/** Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app). */
-export async function createTestApp(overrides: Record<string, string> = {}): Promise<NestExpressApplication> {
+/**
+ * Bangun aplikasi persis seperti main.ts, dengan env yang bisa ditimpa per tes. DB = simrs_test (simrs_app).
+ * `options.imports`: modul khusus tes (mis. controller uji infrastruktur) yang dipasang di samping `AppModule`.
+ */
+export async function createTestApp(
+  overrides: Record<string, string> = {},
+  options: { imports?: NonNullable<ModuleMetadata['imports']> } = {},
+): Promise<NestExpressApplication> {
   const env = loadApiEnv({
     ...process.env,
     NODE_ENV: 'test',
@@ -56,7 +63,9 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     STORAGE_DISK_ROOT: TEST_STORAGE_ROOT,
     ...overrides,
   });
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule.forRoot(env)] }).compile();
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule.forRoot(env), ...(options.imports ?? [])],
+  }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true, rawBody: true });
   configureApp(app, env);
   await app.init();

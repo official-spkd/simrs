@@ -7,7 +7,10 @@ import { AppErrorFilter } from './common/error.filter';
 import { genRequestId } from './common/request-id';
 import type { ApiEnv } from './config/env';
 import { HealthModule } from './health/health.module';
+import { DomainEventsModule } from './infra/events/domain-events.module';
 import { InfraModule } from './infra/infra.module';
+import { LookupModule } from './infra/lookup/lookup.module';
+import { RealtimeModule } from './infra/realtime/realtime.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AuthzModule } from './modules/authz/authz.module';
@@ -22,6 +25,14 @@ import { NumberingModule } from './modules/numbering/numbering.module';
 import { RefModule } from './modules/ref/ref.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { TenancyModule } from './modules/tenancy/tenancy.module';
+import { BookingModule } from './modules/booking/booking.module';
+import { KioskModule } from './modules/kiosk/kiosk.module';
+import { PatientPortalGatewayModule } from './modules/patient-portal-gateway/patient-portal-gateway.module';
+import { QueueModule } from './modules/queue/queue.module';
+import { ReferralModule } from './modules/referral/referral.module';
+import { RegistrationModule } from './modules/registration/registration.module';
+import { SchedulingModule } from './modules/scheduling/scheduling.module';
+import { SepModule } from './modules/sep/sep.module';
 
 /**
  * Akar aplikasi. Env diteruskan eksplisit (bukan dibaca saat impor) agar tes dan runtime memakai
@@ -79,6 +90,19 @@ export class AppModule {
         SettingsModule,
         NumberingModule,
         FacilityModule,
+        // Fase 2 · infrastruktur front office: event domain (sinkron), lookup sinkron (ADR-0025), SSE (ADR-0026).
+        DomainEventsModule,
+        LookupModule,
+        RealtimeModule,
+        // Fase 2 · modul front office F01–F08 (kerangka dulu; isi per potongan, tanpa mengubah daftar ini lagi).
+        SchedulingModule,
+        BookingModule,
+        RegistrationModule,
+        QueueModule,
+        KioskModule,
+        SepModule,
+        ReferralModule,
+        PatientPortalGatewayModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],

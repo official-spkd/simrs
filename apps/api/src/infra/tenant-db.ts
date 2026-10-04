@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { TenantTx } from '@simrs/db';
 import { type PendingAudit, requestContext, type TenantRequestContext } from '../common/request-context';
+import { writeAudit } from './audit-writer';
+import { PrismaService } from './prisma.service';
 
 /**
  * Akses database untuk repository: SELALU transaksi bertenant milik permintaan saat ini.
@@ -8,6 +10,8 @@ import { type PendingAudit, requestContext, type TenantRequestContext } from '..
  */
 @Injectable()
 export class TenantDb {
+  constructor(private readonly prisma: PrismaService) {}
+
   private context(): TenantRequestContext {
     const ctx = requestContext.getStore();
     if (!ctx) {
@@ -18,7 +22,18 @@ export class TenantDb {
 
   /** Transaksi aktif (RLS dengan app.tenant_id permintaan ini). */
   tx(): TenantTx {
-    return this.context().tx;
+    const { tx } = this.context();
+    if (!tx) {
+      throw new Error(
+        'Handler @NoRequestTransaction() tidak punya transaksi permintaan. Bungkus akses data dengan TenantDb.transaction().',
+      );
+    }
+    return tx;
+  }
+
+  /** Apakah transaksi (permintaan atau pendek) sedang terbuka di konteks ini. */
+  inTransaction(): boolean {
+    return this.context().tx !== null;
   }
 
   tenantId(): string {
@@ -33,6 +48,11 @@ export class TenantDb {
     return this.context().actor;
   }
 
+  /** Request id permintaan ini (untuk log tanpa PHI). */
+  requestId(): string | null {
+    return this.context().requestId;
+  }
+
   /** Lingkup izin endpoint ini (all | unit | relationship) untuk penyaringan data di service. */
   permissionScope() {
     return this.context().permissionScope;
@@ -41,8 +61,43 @@ export class TenantDb {
   /**
    * Tambah entri audit dari service (mis. satu entri per pasien yang tampil di hasil pencarian).
    * Ditulis di transaksi yang sama sebelum commit; bila gagal, seluruh permintaan dibatalkan.
+   * Di handler `@NoRequestTransaction()` di luar transaksi pendek: ditulis setelah handler selesai.
    */
   audit(entry: PendingAudit): void {
     this.context().audit.push(entry);
+  }
+
+  /**
+   * ADR-0025/0026 · Transaksi pendek bertenant untuk handler `@NoRequestTransaction()`. Di dalam `fn`, repository
+   * (`TenantDb.tx()`), `TenantDb.audit()`, dan event domain bekerja seperti biasa; audit ditulis sebelum commit dan
+   * batal bersama datanya. Jangan memanggil sistem luar di dalam `fn` (koneksi pool sedang dipegang).
+   * Di dalam transaksi permintaan atau transaksi pendek lain → galat program (tidak ada transaksi bersarang).
+   */
+  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    const outer = this.context();
+    if (outer.tx) {
+      throw new Error(
+        'TenantDb.transaction() hanya untuk handler @NoRequestTransaction() di luar transaksi lain.',
+      );
+    }
+    return this.prisma.forTenant(outer.tenantId, (tx) => {
+      const inner: TenantRequestContext = { ...outer, tx, audit: [] };
+      return requestContext.run(inner, async () => {
+        const result = await fn();
+        await writeAudit(
+          tx,
+          outer.tenantId,
+          {
+            actorUserId: outer.actor.userId,
+            actorRole: outer.actor.role,
+            ip: outer.ip,
+            userAgent: outer.userAgent,
+            requestId: outer.requestId,
+          },
+          inner.audit,
+        );
+        return result;
+      });
+    });
   }
 }
