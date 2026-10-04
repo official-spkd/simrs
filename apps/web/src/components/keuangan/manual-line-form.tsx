@@ -120,7 +120,7 @@ export function ManualLineForm({
             id={`${id}-kategori`}
             value={category}
             onChange={(e) => setCategory(e.target.value as ChargeCategory)}
-            className="h-10 rounded-control border border-line-strong bg-white px-2 font-[inherit]"
+            className="h-11 rounded-control border border-line-strong bg-white px-2 font-[inherit]"
           >
             {CHARGE_CATEGORIES.map((c) => (
               <option key={c} value={c}>

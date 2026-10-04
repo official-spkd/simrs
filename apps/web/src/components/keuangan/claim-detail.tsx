@@ -193,7 +193,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
           diagnosisExtra={
             <>
               {noteBox}
-              {scen && !atVerifier && (
+              {scen && !atVerifier && (scen.tasks.utama || scen.tasks.kode) && (
                 <ClaimScenarioControls
                   flow={scen}
                   pending={pending}
