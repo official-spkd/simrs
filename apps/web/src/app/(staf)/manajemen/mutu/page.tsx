@@ -1,0 +1,96 @@
+import { formatJam } from '@simrs/shared';
+import { KpiCard } from '@simrs/ui';
+import type { Metadata } from 'next';
+import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { IncidentList } from '@/components/manajemen/incident-list';
+import { RiskRegister } from '@/components/manajemen/risk-register';
+import { ScenarioBanner } from '@/components/scenario-banner';
+import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
+import { formatPercent, indicatorOnTarget, riskLevel, riskScore } from '@/lib/manajemen';
+import { getQualityOverview } from '@/lib/server/data/manajemen';
+import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { IndicatorList } from './indicator-list';
+
+export const metadata: Metadata = { title: 'Mutu & keselamatan' };
+
+/**
+ * B06 · Mutu dan keselamatan pasien (tanpa mockup; gaya Dasbor direksi). Indikator yang juga tampil di Dasbor
+ * memakai nilai yang sama. Mode presentasi: data dummy fiktif (ADR-0023).
+ */
+export default async function MutuPage() {
+  const { session, screen, allowed } = await requireDemoScreen('mutu');
+  if (!allowed) return <DemoAccessDenied screen={screen} />;
+  const d = await getQualityOverview();
+
+  const onTarget = d.indicators.filter(indicatorOnTarget).length;
+  const month = DEMO_TODAY.slice(0, 7);
+  const thisMonth = d.incidents.filter((i) => i.reportedAt.startsWith(month));
+  const harm = thisMonth.filter((i) => i.type === 'KTD' || i.type === 'Sentinel').length;
+  const open = d.incidents.filter((i) => i.investigation !== 'selesai');
+  const rca = open.filter((i) => i.investigation === 'rca').length;
+  const overdue = open.filter((i) => i.dueDate < DEMO_TODAY).length;
+  const high = d.risks.filter((r) => ['tinggi', 'ekstrem'].includes(riskLevel(riskScore(r))));
+  const extreme = high.filter((r) => riskLevel(riskScore(r)) === 'ekstrem').length;
+  const reporting = d.indicators.find((q) => q.id === 'lapor-ikp');
+
+  return (
+    <div className="flex flex-col gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-caption text-ink-500">
+            Manajemen / Mutu dan keselamatan pasien · B06 · data per {formatJam(d.asOf)}
+          </span>
+          <h1 className="m-0 text-h1 font-semibold">Mutu dan keselamatan pasien · Oktober 2026</h1>
+        </div>
+      </header>
+
+      <div role="region" aria-label="Ringkasan mutu" className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+        <KpiCard
+          label="Indikator memenuhi sasaran"
+          value={`${onTarget}/${d.indicators.length}`}
+          hint={`${d.indicators.length - onTarget} di bawah sasaran`}
+          detail="INM dan IMP-RS bulan berjalan"
+          tone={onTarget === d.indicators.length ? 'success' : 'warning'}
+          tinted
+        />
+        <KpiCard
+          label="IKP bulan ini"
+          value={String(thisMonth.length)}
+          hint={`${harm} KTD · ${thisMonth.length - harm} tanpa cedera/nyaris`}
+          detail={
+            reporting ? `pelaporan ≤ 2×24 jam ${formatPercent(reporting.value)}` : 'IKP tercatat bulan ini'
+          }
+          tone={harm > 0 ? 'warning' : 'success'}
+          tinted
+        />
+        <KpiCard
+          label="Investigasi terbuka"
+          value={String(open.length)}
+          hint={overdue > 0 ? `${overdue} lewat batas waktu` : 'semua dalam batas waktu'}
+          detail={`${rca} RCA berjalan`}
+          tone={overdue > 0 ? 'danger' : 'neutral'}
+          tinted={overdue > 0}
+        />
+        <KpiCard
+          label="Risiko tinggi/ekstrem"
+          value={String(high.length)}
+          hint={`${extreme} ekstrem`}
+          detail={`dari ${d.risks.length} risiko di register`}
+          tone={extreme > 0 ? 'danger' : 'warning'}
+          tinted
+        />
+      </div>
+
+      <ScenarioBanner session={session} screen="mutu" />
+      <IndicatorList indicators={d.indicators} months={d.months} />
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="min-w-0 flex-[1_1_420px]">
+          <IncidentList incidents={d.incidents} today={DEMO_TODAY} />
+        </div>
+        <div className="min-w-0 flex-[1_1_420px]">
+          <RiskRegister risks={d.risks} />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -319,7 +319,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: null,
     components: ['B06'],
     phase: 8,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'quality.read',
     demoRoles: ['auditor_mutu', 'manajemen'],
     layout: 'staf',
