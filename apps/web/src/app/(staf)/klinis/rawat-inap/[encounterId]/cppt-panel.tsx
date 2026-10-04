@@ -304,7 +304,6 @@ function CpptItem({
             <Button
               size="sm"
               variant="primary"
-              className="h-11"
               disabled={!canCosign || busy}
               aria-describedby={canCosign ? undefined : `cosign-${e.id}`}
               onClick={onCosign}
@@ -322,7 +321,6 @@ function CpptItem({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-11"
                 aria-label={`Koreksi CPPT ${formatTglJam(e.writtenAt)}`}
                 onClick={onCorrect}
               >
@@ -332,7 +330,6 @@ function CpptItem({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-11"
                 aria-label={`Addendum atas CPPT ${e.author} ${formatTglJam(e.writtenAt)}`}
                 onClick={onAddendum}
               >

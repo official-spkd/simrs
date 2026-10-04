@@ -77,6 +77,44 @@ test.describe('smoke', () => {
       await expect(page.getByText('Format benar · siap dicek ke Dukcapil')).toBeVisible();
     });
 
+    test('setiap kontrol interaktif galeri setinggi ≥ 44 px (target sentuh)', async ({ page }, testInfo) => {
+      await expect(page.getByRole('heading', { name: 'Klinis Bersih' })).toBeVisible();
+      // Tampilkan juga field dan tombol ringkas (sm) di formulir alasan pembatalan.
+      await page.getByRole('button', { name: 'Batalkan tindakan' }).click();
+      await expect(page.getByLabel('Alasan pembatalan')).toBeVisible();
+      const { checked, extended, small } = await page.locator('main').evaluate((main) => {
+        const out: string[] = [];
+        let n = 0;
+        let ext = 0;
+        const sel = 'button, a[href], input, select, textarea, summary';
+        for (const el of main.querySelectorAll<HTMLElement>(sel)) {
+          if (el.offsetParent === null) continue;
+          n += 1;
+          el.scrollIntoView({ block: 'center' });
+          const r = el.getBoundingClientRect();
+          let h = r.height;
+          if (h < 44) {
+            // Segmen ringkas: area sentuh diperluas ::before; 3 px di atas/bawah tombol tetap mengenai tombol itu.
+            const x = r.left + r.width / 2;
+            const up = document.elementFromPoint(x, r.top - 3);
+            const down = document.elementFromPoint(x, r.bottom + 3);
+            if (up === el && down === el) {
+              h = r.height + 8;
+              ext += 1;
+            }
+          }
+          if (h < 44)
+            out.push(`${el.tagName} "${(el.textContent ?? '').trim().slice(0, 30)}" ${Math.round(h)} px`);
+        }
+        return { checked: n, extended: ext, small: out };
+      });
+      expect(small).toEqual([]);
+      expect(checked).toBeGreaterThan(20);
+      // Tiga pilihan Segmen memakai area sentuh yang diperluas (tampak 36 px).
+      expect(extended).toBe(3);
+      await page.screenshot({ path: testInfo.outputPath('dev-ui-kontrol.png'), fullPage: true });
+    });
+
     test('tidak ada scroll horizontal', async ({ page }) => {
       for (const path of ['/', '/dev/ui', '/superadmin/panduan']) {
         await page.goto(path);
