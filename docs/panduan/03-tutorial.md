@@ -57,7 +57,7 @@ Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/ini
 ```powershell
 pnpm build           # bangun paket bersama (shared, db)
 pnpm db:deploy       # terapkan semua migrasi ke database simrs
-pnpm db:seed         # 2 tenant RS fiktif + tenant PLATFORM (operator)
+pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (operator)
 ```
 
 ### Buat akun untuk masuk
@@ -69,6 +69,14 @@ pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif
 pnpm db:create-admin --tenant PLATFORM --username superadmin --name "Operator Platform"
 ```
 
+Pengembangan lokal difokuskan ke **RSCM** (data tetap fiktif; kode Kemenkes/BPJS/SATUSEHAT-nya juga fiktif). Untuk mencoba semua layar dengan satu akun, buat akun demo yang memegang 16 posisi (dokter, perawat, kasir, petugas rekam medis, admin, dan seterusnya):
+
+```powershell
+pnpm db:create-demo --tenant RSCM --username demo.rscm --name "Akun Demo RSCM"
+```
+
+Saat masuk, kolom Kode RS sudah terisi `RSCM` (atur lewat `LOGIN_TENANT_CODE`). Setelah kode TOTP, pilih posisi di langkah **Pilih posisi dan unit kerja**; menu dan hak akses mengikuti posisi itu. Pindah posisi tanpa keluar lewat tautan **Ganti posisi** di kanan atas (tercatat di jejak audit). Perintah ini menolak berjalan di luar `APP_ENV=local`, karena satu akun dengan semua peran meniadakan pemisahan tugas.
+
 Seed hanya mengisi **contoh** data rujukan (72 kode yang sudah dipakai mockup, versi `contoh-mockup`). Dataset resmi diimpor dari CSV (kolom `code,display`; wilayah `code,name`), sekali per versi:
 
 ```powershell
@@ -79,7 +87,7 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
 
-Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSFA` atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
+Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSCM`, `RSFA`, atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
 ## 2. Menjalankan dan memeriksa
 
@@ -90,7 +98,7 @@ pnpm dev:lokal       # tanpa Docker: Postgres portabel + API + web + worker + mo
 
 | Alamat                                   | Yang terlihat                                                        |
 | ---------------------------------------- | -------------------------------------------------------------------- |
-| http://localhost:3000/masuk              | Layar masuk (kode RS → sandi → kode TOTP → unit)                     |
+| http://localhost:3000/masuk              | Layar masuk (kode RS → sandi → kode TOTP → posisi dan unit)          |
 | http://localhost:3000                    | Web staf. Operator platform melihat kartu "Status sistem" (`/ready`) |
 | http://localhost:3000/superadmin/panduan | Panduan ini (akun `superadmin_platform`)                             |
 | http://localhost:3000/dev/ui             | Galeri token dan komponen (akun `superadmin_platform`)               |

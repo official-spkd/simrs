@@ -237,7 +237,7 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
 /** Langkah 3: pilih penugasan (peran × unit) untuk sesi ini. */
 export async function selectUnitAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const assignmentId = z.uuid().safeParse(formData.get('assignmentId'));
-  if (!assignmentId.success) return { error: 'Pilih salah satu unit untuk melanjutkan.' };
+  if (!assignmentId.success) return { error: 'Pilih salah satu posisi untuk melanjutkan.' };
   try {
     await api('/api/v1/auth/assignment', {
       method: 'POST',

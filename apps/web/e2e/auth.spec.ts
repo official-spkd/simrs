@@ -68,10 +68,10 @@ test.describe('masuk (P02/P03 lewat web)', () => {
     await submitPassword(page, account, account.password);
     await typeCode(page, totpFor(account.totpSecret as string));
     await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
-    await expect(page.getByRole('heading', { name: 'Pilih unit kerja' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
     await expect(page.locator('[aria-current="step"]')).toHaveText('3 Unit kerja');
     await page.getByText('Kasir', { exact: true }).click();
-    await page.getByRole('button', { name: /^Masuk ke / }).click();
+    await page.getByRole('button', { name: 'Masuk sebagai Kasir' }).click();
     await expect(page).toHaveURL(/\/\?dari=uji$/);
     await expect(page.getByText('Anda masuk sebagai Kasir')).toBeVisible();
   });

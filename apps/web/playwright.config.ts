@@ -86,6 +86,8 @@ export default defineConfig({
         NODE_ENV: 'production',
         APP_ENV: 'local',
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
+        // Isi awal "Kode RS" pasti sama dengan yang diuji, apa pun isi .env pengembang.
+        LOGIN_TENANT_CODE: 'RSCM',
       },
     },
   ],

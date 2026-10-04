@@ -22,8 +22,9 @@ pnpm infra:up                   # Postgres, Redis, MinIO, Mailpit (Docker)
 #   atau tanpa Docker:  pnpm pg:portable   (jendela terpisah; Postgres saja)
 
 pnpm build                      # paket bersama
-pnpm db:deploy && pnpm db:seed  # migrasi + 2 tenant RS fiktif + tenant PLATFORM
+pnpm db:deploy && pnpm db:seed  # migrasi + 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM
 pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif"   # akun pertama
+pnpm db:create-demo --tenant RSCM --username demo.rscm --name "Akun Demo RSCM"     # lokal: 1 akun, 16 posisi
 pnpm dev                        # api + worker + web + mock → http://localhost:3000/masuk
 #   tes tanpa Docker:  pnpm with-pg pnpm test
 ```
@@ -39,18 +40,19 @@ pnpm dev                        # api + worker + web + mock → http://localhost
 
 ## Perintah harian
 
-| Perintah                                                | Fungsi                                                              |
-| ------------------------------------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`                                              | Semua aplikasi dalam mode watch                                     |
-| `pnpm lint` · `pnpm typecheck` · `pnpm test`            | Wajib hijau sebelum commit                                          |
-| `pnpm --filter @simrs/web test:e2e`                     | Playwright stack penuh (API + web dijalankan otomatis)              |
-| `pnpm db:migrate`                                       | Buat/terapkan migrasi (pengembangan)                                |
-| `pnpm db:deploy` · `pnpm db:seed`                       | Terapkan migrasi · isi data fiktif                                  |
-| `pnpm db:create-admin --tenant … --username … --name …` | Akun admin pertama (sandi sementara sekali tampil)                  |
-| `pnpm db:import-ref --system … --file … --version …`    | Impor dataset rujukan resmi (ICD-10, ICD-9-CM, LOINC, KFA, wilayah) |
-| `pnpm db:test:recreate -- --yes`                        | Buat ulang database **tes** (destruktif, hanya `simrs_test`)        |
-| `pnpm doctor`                                           | Periksa prasyarat                                                   |
-| `pnpm audit --prod`                                     | Periksa kerentanan dependensi                                       |
+| Perintah                                                  | Fungsi                                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------- |
+| `pnpm dev`                                                | Semua aplikasi dalam mode watch                                     |
+| `pnpm lint` · `pnpm typecheck` · `pnpm test`              | Wajib hijau sebelum commit                                          |
+| `pnpm --filter @simrs/web test:e2e`                       | Playwright stack penuh (API + web dijalankan otomatis)              |
+| `pnpm db:migrate`                                         | Buat/terapkan migrasi (pengembangan)                                |
+| `pnpm db:deploy` · `pnpm db:seed`                         | Terapkan migrasi · isi data fiktif                                  |
+| `pnpm db:create-admin --tenant … --username … --name …`   | Akun admin pertama (sandi sementara sekali tampil)                  |
+| `pnpm db:create-demo --tenant RSCM --username … --name …` | Lokal saja: akun demo dengan semua posisi (pilih/ganti posisi)      |
+| `pnpm db:import-ref --system … --file … --version …`      | Impor dataset rujukan resmi (ICD-10, ICD-9-CM, LOINC, KFA, wilayah) |
+| `pnpm db:test:recreate -- --yes`                          | Buat ulang database **tes** (destruktif, hanya `simrs_test`)        |
+| `pnpm doctor`                                             | Periksa prasyarat                                                   |
+| `pnpm audit --prod`                                       | Periksa kerentanan dependensi                                       |
 
 ## Isi repo
 

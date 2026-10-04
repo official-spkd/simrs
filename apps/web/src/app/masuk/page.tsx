@@ -42,7 +42,11 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
       <LoginShell step={step === 'akun' ? 1 : 2}>
         {ended && <Alert level="info">Sesi Anda berakhir. Silakan masuk kembali.</Alert>}
         {step === 'akun' ? (
-          <AkunStep lanjut={lanjut} tenantCodeField={env.tenantCodeField} />
+          <AkunStep
+            lanjut={lanjut}
+            tenantCodeField={env.tenantCodeField}
+            defaultTenantCode={env.loginTenantCode}
+          />
         ) : (
           <VerifikasiStep lanjut={lanjut} akun={akun} />
         )}

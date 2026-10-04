@@ -45,7 +45,15 @@ export function RestartButton({
   );
 }
 
-export function AkunStep({ lanjut, tenantCodeField }: { lanjut: string; tenantCodeField: boolean }) {
+export function AkunStep({
+  lanjut,
+  tenantCodeField,
+  defaultTenantCode = '',
+}: {
+  lanjut: string;
+  tenantCodeField: boolean;
+  defaultTenantCode?: string;
+}) {
   const [state, action] = useActionState(loginAction, initial);
   return (
     <StepCard
@@ -61,7 +69,7 @@ export function AkunStep({ lanjut, tenantCodeField }: { lanjut: string; tenantCo
             name="tenantCode"
             autoComplete="organization"
             autoCapitalize="characters"
-            defaultValue={state.values?.tenantCode ?? ''}
+            defaultValue={state.values?.tenantCode ?? defaultTenantCode}
             error={state.fields?.tenantCode}
             hint="Lingkungan lokal/staging. Di produksi RS dikenali dari alamat situs."
             hintTone="muted"
@@ -255,11 +263,11 @@ export function UnitStep({ lanjut, akun, options }: { lanjut: string; akun: stri
   const chosen = options.find((o) => o.id === picked);
   return (
     <StepCard
-      title="Pilih unit kerja"
+      title="Pilih posisi dan unit kerja"
       description={
         <>
-          Akun <span className="font-semibold">{akun}</span> terverifikasi. Hak akses mengikuti peran dan unit
-          yang dipilih.
+          Akun <span className="font-semibold">{akun}</span> terverifikasi. Hak akses mengikuti posisi (peran)
+          dan unit yang dipilih; posisi bisa diganti nanti lewat menu Ganti posisi.
         </>
       }
     >
@@ -287,17 +295,17 @@ export function UnitStep({ lanjut, akun, options }: { lanjut: string; akun: stri
                   className="sr-only"
                 />
                 <span className={cx('font-semibold', on ? 'text-brand-700' : 'text-ink-900')}>
-                  {o.unitName ?? 'Semua unit'}
+                  {o.roleName}
                 </span>
-                <span className="text-caption text-ink-500">{o.roleName}</span>
+                <span className="text-caption text-ink-500">{o.unitName ?? 'Semua unit'}</span>
               </label>
             );
           })}
         </fieldset>
         {chosen ? (
-          <SubmitButton pending="Membuka…">{`Masuk ke ${chosen.unitName ?? chosen.roleName}`}</SubmitButton>
+          <SubmitButton pending="Membuka…">{`Masuk sebagai ${chosen.roleName}`}</SubmitButton>
         ) : (
-          <span className="text-caption text-ink-500">Pilih salah satu unit untuk melanjutkan.</span>
+          <span className="text-caption text-ink-500">Pilih salah satu posisi untuk melanjutkan.</span>
         )}
       </form>
       <RestartButton lanjut={lanjut} label="Keluar" />

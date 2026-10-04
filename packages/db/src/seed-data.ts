@@ -21,6 +21,46 @@ export const SEED_TENANTS = [
 ] as const;
 
 /**
+ * RS yang dipakai dan didemokan di lingkungan pengembangan (keputusan pengguna 4 Okt 2026: fokus RSCM). Identitas
+ * RS asli, tetapi kode resmi (Kemenkes, BPJS, SATUSEHAT) dan SEMUA data pasien/staf tetap fiktif. Hanya di-seed ke
+ * DB pengembangan; tes otomatis tetap memakai RSFA/RSFB.
+ */
+export const SEED_LOCAL_TENANTS = [
+  {
+    id: '0199a000-0000-7000-8000-000000000003',
+    code: 'RSCM',
+    name: 'RSUPN Dr. Cipto Mangunkusumo',
+    kemenkesCode: '9999003',
+    bpjsPpkCode: '0301R003',
+    satusehatOrgId: 'mock-org-003',
+    hospitalClass: 'A',
+  },
+] as const;
+
+/**
+ * Posisi akun demo lokal (`pnpm db:create-demo`): semua 16 peran bawaan, dengan unit kerja seed yang paling
+ * sesuai (null = semua unit). Akun demo hanya untuk mencoba layar per posisi; tidak pernah ada di produksi.
+ */
+export const DEMO_POSITIONS: ReadonlyArray<readonly [role: string, unitCode: string | null]> = [
+  ['dokter', 'POLI-DALAM'],
+  ['dokter_residen', 'IGD'],
+  ['perawat', 'MELATI'],
+  ['bidan', 'MAWAR'],
+  ['apoteker', 'FARMASI'],
+  ['analis_lab', 'LAB'],
+  ['radiografer', 'RAD'],
+  ['petugas_pendaftaran', null],
+  ['kasir', 'KASIR'],
+  ['koder', 'REKAM-MEDIS'],
+  ['akuntan', null],
+  ['petugas_rm', 'REKAM-MEDIS'],
+  ['manajemen', null],
+  ['auditor_mutu', null],
+  ['petugas_privasi', null],
+  ['admin_tenant', null],
+];
+
+/**
  * Tenant khusus operator platform (superadmin_platform, ADR-0013). Bukan RS: tanpa struktur, tanpa pasien.
  * Akun superadmin dibuat lewat `pnpm db:create-admin --tenant PLATFORM …`, tidak pernah di-seed.
  */

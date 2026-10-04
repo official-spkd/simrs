@@ -95,6 +95,14 @@ describe('webEnv (gagal aman)', () => {
     expect(webEnv({ APP_ENV: 'local' })).toMatchObject({ tenantCodeField: true, secureCookies: false });
     expect(webEnv({ APP_ENV: 'staging' })).toMatchObject({ tenantCodeField: true, secureCookies: true });
   });
+
+  it('kode RS awal: env bila sah, RSCM di lokal, kosong di luar lokal', () => {
+    expect(webEnv({ APP_ENV: 'local' }).loginTenantCode).toBe('RSCM');
+    expect(webEnv({ APP_ENV: 'local', LOGIN_TENANT_CODE: ' rsfa ' }).loginTenantCode).toBe('RSFA');
+    expect(webEnv({ APP_ENV: 'local', LOGIN_TENANT_CODE: '<script>' }).loginTenantCode).toBe('RSCM');
+    expect(webEnv({ APP_ENV: 'staging' }).loginTenantCode).toBe('');
+    expect(webEnv({ APP_ENV: 'production', LOGIN_TENANT_CODE: 'RSCM' }).loginTenantCode).toBe('RSCM');
+  });
 });
 
 describe('langkah login dan peran', () => {

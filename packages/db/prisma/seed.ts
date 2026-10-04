@@ -1,7 +1,8 @@
 /**
  * Seed data fiktif lokal: data rujukan contoh (P06) + tenant + struktur RS (P01) + pasien fiktif (P05). Idempoten (upsert per kode, ID
  * pasien tetap) sehingga aman diulang. Dijalankan sebagai simrs_migrator; karena FORCE RLS, tetap lewat withTenant.
- * Staf fiktif ditambahkan di potongan berikutnya fase 1.
+ * RS: RSFA/RSFB (fiktif, juga dipakai tes) + RSCM (RS utama lokal; identitas asli, semua data fiktif).
+ * Akun tidak pernah di-seed: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
  */
 import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
@@ -10,7 +11,13 @@ import { createPrismaClient, type PrismaClient, type TenantTx, withTenant } from
 import { ensurePublishedForm } from '../src/forms';
 import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
-import { SEED_PLATFORM_TENANT, SEED_ROOMS, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
+import {
+  SEED_LOCAL_TENANTS,
+  SEED_PLATFORM_TENANT,
+  SEED_ROOMS,
+  SEED_TENANTS,
+  SEED_UNITS,
+} from '../src/seed-data';
 import { seedPatients } from '../src/seed-patients';
 import { seedRefSamples } from '../src/seed-ref';
 
@@ -24,8 +31,15 @@ function requiredEnv(name: string): string {
 }
 const keys = { encKeyB64: requiredEnv('FIELD_ENCRYPTION_KEY'), hashKeyB64: requiredEnv('FIELD_HASH_KEY') };
 
-/** Jumlah pasien fiktif per RS seed (RS pertama memuat pasangan duplikat untuk layar MPI). */
-const PATIENTS_PER_TENANT = [200, 30] as const;
+/**
+ * RS yang di-seed ke DB pengembangan + jumlah pasien fiktifnya. `index` menentukan rentang ID pasien tetap
+ * (`0199a1<index>0-…`); RS dengan `duplicates` memuat pasangan kemungkinan duplikat untuk layar MPI.
+ */
+const TENANT_PLAN = [
+  { tenant: SEED_TENANTS[0], index: 1, patients: 200, duplicates: true },
+  { tenant: SEED_TENANTS[1], index: 2, patients: 30, duplicates: false },
+  { tenant: SEED_LOCAL_TENANTS[0], index: 3, patients: 200, duplicates: true },
+] as const;
 
 /**
  * Satu transaksi per pasien: seed besar tidak menabrak batas waktu transaksi, dan tetap idempoten. Pasien
@@ -34,11 +48,11 @@ const PATIENTS_PER_TENANT = [200, 30] as const;
 async function seedPatientsFor(
   prisma: PrismaClient,
   tenantId: string,
-  index: number,
+  plan: { index: number; patients: number; duplicates: boolean },
 ): Promise<{ created: number; candidates: number }> {
   const crypto = new PatientCrypto(keys, tenantId);
   const createdIds: string[] = [];
-  const records = seedPatients(index + 1, PATIENTS_PER_TENANT[index] ?? 0, index === 0);
+  const records = seedPatients(plan.index, plan.patients, plan.duplicates);
   for (const rec of records) {
     const created = await withTenant(prisma, tenantId, async (tx) => {
       const exists = await tx.patient.findUnique({ where: { id: rec.id }, select: { id: true } });
@@ -107,7 +121,8 @@ try {
   // P06: contoh data rujukan (global, tanpa tenant) bila sistem kodenya masih kosong.
   const refAdded = await seedRefSamples(prisma);
   console.warn(`Data rujukan contoh (dari mockup) ditambahkan: ${refAdded} konsep`);
-  for (const [index, t] of SEED_TENANTS.entries()) {
+  for (const plan of TENANT_PLAN) {
+    const t = plan.tenant;
     const form = await withTenant(prisma, t.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });
       await seedStructure(tx, t.id);
@@ -115,7 +130,7 @@ try {
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku.
       return ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE);
     });
-    const patients = await seedPatientsFor(prisma, t.id, index);
+    const patients = await seedPatientsFor(prisma, t.id, plan);
     console.warn(
       `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates})`,
     );
