@@ -4,6 +4,7 @@ import {
   type AssignmentInput,
   AppError,
   type CreateUserInput,
+  grantDiffEntry,
   isPermission,
   PERMISSION_CATALOG,
   isProtectedRole,
@@ -16,6 +17,7 @@ import { decryptField, encryptField, generateTemporaryPassword, hashPassword } f
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { toPage } from '../../common/pagination';
 import { DEV_ROLE } from '../../common/request-context';
+import { PermissionMatrix } from '../../infra/permission-matrix';
 import { TenantDb } from '../../infra/tenant-db';
 import { IamRepository } from './iam.repository';
 
@@ -38,6 +40,7 @@ export class IamService {
   constructor(
     private readonly repo: IamRepository,
     private readonly db: TenantDb,
+    private readonly matrix: PermissionMatrix,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -87,8 +90,9 @@ export class IamService {
 
   /**
    * Tolak perubahan yang membuat admin aktif habis. Hanya berlaku bila perubahan itu benar-benar mengurangi
-   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Dikunci per tenant
-   * agar dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos.
+   * admin aktif (pengguna/penugasan non-admin atau yang belum mulai tidak terpengaruh). Admin aktif = bisa masuk
+   * (punya kata sandi); admin yang belum diaktifkan tidak menyelamatkan RS. Dikunci per tenant agar dua admin yang
+   * saling menonaktifkan bersamaan tidak sama-sama lolos.
    */
   private async assertKeepsAnAdmin(exclude: { assignmentId?: string; userId?: string }) {
     await this.repo.lockAdminChanges();
@@ -106,12 +110,15 @@ export class IamService {
       lockedUntil: Date | null;
       createdAt: Date;
       mfaFactors: unknown[];
+      credential: unknown;
     },
     at: number,
   ) {
     const dormantBefore = at - DORMANT_DAYS * 86_400_000;
     const active = u.status === 'active';
     return {
+      /** Sudah punya kata sandi. Belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */
+      activated: u.credential !== null,
       mfaEnrolled: u.mfaFactors.length > 0,
       locked: active && !!u.lockedUntil && u.lockedUntil.getTime() > at,
       /** Belum pernah login sejak dibuat (akun baru / undangan). */
@@ -134,9 +141,9 @@ export class IamService {
     const at = Date.now();
     return {
       ...page,
-      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, ...u }) => ({
+      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, credential, ...u }) => ({
         ...u,
-        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
+        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt, credential }, at),
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
         assignments: u.assignments.map((a) => ({
           id: a.id,
@@ -155,7 +162,7 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, ...rest } = u;
+    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, credential: _c, ...rest } = u;
     return {
       ...rest,
       phone: this.maskedPhone(phoneEnc),
@@ -282,7 +289,10 @@ export class IamService {
     };
   }
 
-  /** Ganti matriks izin satu peran. Mengembalikan selisih (untuk audit). */
+  /**
+   * Ganti matriks izin satu peran. Mengembalikan selisih (untuk audit). Cache matriks semua instans API
+   * dibuang setelah commit, sehingga perubahan berlaku di permintaan berikutnya.
+   */
   async replaceRolePermissions(code: string, input: RolePermissionsInput) {
     const role = await this.repo.findRoleByCode(code);
     if (!role) throw new AppError('NOT_FOUND', 'Peran tidak ditemukan', 404);
@@ -301,10 +311,11 @@ export class IamService {
         throw conflict('Izin kelola pengguna dan peran tidak boleh dicabut dari admin SIM RS');
     }
     const before = await this.repo.replaceRolePermissions(role.id, input.grants);
-    const fmt = (g: { resource: string; action: string; scope: string }) =>
-      `${g.resource}.${g.action}:${g.scope}`;
-    const beforeSet = new Set(before.map(fmt));
-    const afterSet = new Set(input.grants.map(fmt));
+    const tenantId = this.db.tenantId();
+    this.db.afterCommit(() => this.matrix.invalidateTenant(tenantId));
+    // Format selisih juga dibaca sinkron izin katalog untuk mengenali izin yang dicabut admin.
+    const beforeSet = new Set(before.map(grantDiffEntry));
+    const afterSet = new Set(input.grants.map(grantDiffEntry));
     const diff = {
       added: [...afterSet].filter((x) => !beforeSet.has(x)).sort(),
       removed: [...beforeSet].filter((x) => !afterSet.has(x)).sort(),

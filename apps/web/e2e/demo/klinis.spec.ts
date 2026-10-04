@@ -104,9 +104,7 @@ test.describe('klinis rawat jalan', () => {
     await noHorizontalOverflowAtTablet(page);
   });
 
-  test('CPOE: alternatif aman membuka blok (Tn. Darmawan, alergi ibuprofen); kunjungan tak dikenal 404', async ({
-    page,
-  }) => {
+  test('CPOE: alternatif aman membuka blok (Tn. Darmawan, alergi ibuprofen)', async ({ page }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
     await loginAs(page, dokter, '/klinis/order/kj-darmawan');
     await page.goto('/klinis/order/kj-darmawan');
@@ -116,9 +114,27 @@ test.describe('klinis rawat jalan', () => {
     await gate.getByRole('button', { name: 'Ganti parasetamol 500 mg' }).click();
     await expect(page.getByText(/asam mefenamat 500 mg diganti parasetamol 500 mg/)).toBeVisible();
     await expect(send).toBeEnabled();
+  });
 
-    const res = await page.goto('/klinis/order/kj-tidak-ada');
-    expect(res?.status()).toBe(404);
+  test('kunjungan tak dikenal → 404 di pemeriksaan poli dan CPOE (bukan membuka pasien lain)', async ({
+    page,
+  }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/klinis/poli');
+    for (const path of [
+      '/klinis/poli?pasien=ps-tidak-ada',
+      // Pasien dikenal, tetapi kunjungan polinya belum ada hari ini (Tn. Suryo sebelum SEP terbit).
+      '/klinis/poli?pasien=ps-suryo',
+      '/klinis/order/kj-tidak-ada',
+    ]) {
+      const res = await page.goto(path);
+      expect(res?.status(), path).toBe(404);
+      await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toHaveCount(0);
+    }
+    const ok = await page.goto('/klinis/poli?pasien=ps-endang');
+    expect(ok?.status()).toBe(200);
+    await expect(banner(page).getByText('Ny. Endang Wijaya')).toBeVisible();
   });
 
   test('perawat: asesmen tanda vital tervalidasi; CPOE hanya untuk dokter', async ({ page }) => {
@@ -145,6 +161,37 @@ test.describe('klinis rawat jalan', () => {
 
     await page.goto('/klinis/order/kj-darmawan');
     await expect(page.getByText('Layar ini untuk posisi lain')).toBeVisible();
+  });
+
+  test('CPOE pasien skenario di luar langkah resep: terkunci, tidak bisa dikirim, alasannya tertulis', async ({
+    page,
+  }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/klinis/order/kj-suryo');
+    const locked = 'Pasien simulasi: order mengikuti langkah skenario.';
+    const why = `${locked} Tidak ada langkah order yang aktif untuk pasien ini.`;
+
+    // Akun baru = skenario di langkah awal (kedatangan), lalu tepat sebelum langkah resep (laboratorium).
+    for (const stage of [null, 'Laboratorium']) {
+      if (stage) await jumpTo(page, stage);
+      await page.goto('/klinis/order/kj-suryo');
+      await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
+      const catalog = page.getByRole('complementary', { name: 'Katalog dan order set' });
+      await expect(catalog.getByText(locked)).toBeVisible();
+      await expect(catalog.getByLabel('Cari pemeriksaan, obat, tindakan')).toBeDisabled();
+      const send = page.getByRole('button', { name: 'Kirim order (TTE)' });
+      await expect(send).toBeDisabled();
+      await expect(send).toHaveAccessibleDescription(why);
+      await expect(page.getByText(why)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Kirim resep (TTE)' })).toHaveCount(0);
+      await expect(page.getByRole('region', { name: 'Rencana tata laksana' })).toHaveCount(0);
+      // Tautan kembali ke pemeriksaan hanya bila kunjungan polinya ada (setelah SEP terbit), bukan berujung 404.
+      await expect(page.getByRole('link', { name: 'Kembali ke pemeriksaan' })).toHaveCount(stage ? 1 : 0);
+    }
+
+    await page.getByRole('link', { name: 'Kembali ke pemeriksaan' }).click();
+    await expect(page).toHaveURL(/\/klinis\/poli\?pasien=ps-suryo$/);
+    await expect(banner(page).getByText('Tn. Suryo Adi Nugroho')).toBeVisible();
   });
 
   test('CPOE pasien skenario (Tn. Suryo, langkah resep): katalog terkunci, kirim hanya lewat tugas skenario', async ({
@@ -182,4 +229,159 @@ test.describe('klinis rawat jalan', () => {
     await send.click();
     await expect(page.getByText(/^Resep terkirim · \d{2}\.\d{2}$/)).toBeVisible();
   });
+});
+
+/** CLAUDE.md §6: status tidak hanya lewat warna (teks + ikon) dan target sentuh ≥ 44 px (K03, K05). */
+test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
+  test('IGD: lama tinggal lewat batas dan arah tanda vital abnormal tertulis', async ({ page }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/klinis/igd');
+    await page.goto('/klinis/igd');
+    const board = page.getByRole('region', { name: 'Papan pasien IGD' });
+    const fajar = board.getByRole('button', { name: /Tn\. Fajar Nugraha/ });
+    await expect(fajar).toContainText(/04\.4\d j/);
+    await expect(fajar).toContainText('Lewat 4 jam');
+    await expect(board.getByRole('button', { name: /Ny\. Lestiani Hapsari/ })).not.toContainText('Lewat');
+
+    await fajar.click();
+    const panel = page.getByRole('complementary', { name: 'Triase pasien' });
+    await expect(panel.getByRole('heading', { name: /Tn\. Fajar Nugraha/ })).toBeVisible();
+    await expect(panel.getByText('Lewat 4 jam')).toBeVisible();
+
+    await board.getByRole('button', { name: /Tn\. X \(tanpa identitas\)/ }).click();
+    const vitals = panel.getByRole('list', { name: 'Tanda vital' });
+    const tile = (label: string) => vitals.getByRole('listitem').filter({ hasText: label });
+    await expect(tile('TD')).toContainText('90/60');
+    await expect(tile('TD')).toContainText('Rendah');
+    await expect(tile('Nadi')).toContainText('Tinggi');
+    await expect(tile('SpO2')).toContainText('Rendah');
+    await expect(tile('Suhu')).not.toContainText(/Tinggi|Rendah|Abnormal/);
+  });
+
+  test('tempat tidur: permintaan terlambat bertulisan, chip bed ≥ 44 px, ruang hampir penuh', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/klinis/tempat-tidur');
+    await page.goto('/klinis/tempat-tidur');
+    const requests = page.getByRole('region', { name: 'Permintaan bed' });
+    const request = (name: string) => requests.getByRole('listitem').filter({ hasText: name });
+    await expect(request('Tn. Fajar Nugraha')).toContainText('4 j 40 m');
+    await expect(request('Tn. Fajar Nugraha')).toContainText('Lewat 4 jam');
+    await expect(request('Ny. Maria')).toContainText('terjadwal');
+    await expect(request('Ny. Maria')).not.toContainText('Lewat');
+
+    const chips = requests.getByRole('button', { name: /^Tampilkan bed .+ di peta/ });
+    expect(await chips.count()).toBeGreaterThan(0);
+    for (const chip of await chips.all()) {
+      const box = await chip.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+    }
+    const code = (await chips.first().textContent())?.trim() ?? '';
+    await chips.first().click();
+    await expect(page.getByRole('region', { name: 'Bed terpilih' })).toContainText(code);
+
+    await page.goto('/klinis/tempat-tidur?bangsal=semua');
+    const map = page.getByRole('region', { name: 'Peta tempat tidur' });
+    await expect(map.getByRole('listitem').filter({ hasText: 'ICU/ICCU' })).toContainText('Hampir penuh');
+    await expect(map.getByRole('listitem').filter({ hasText: 'Bangsal Melati' })).not.toContainText(
+      'Hampir penuh',
+    );
+    await noHorizontalOverflowAtTablet(page);
+  });
+});
+
+/**
+ * Pemicu panduan presentasi ("Simulasi · n dari m · tahap") ada di header lengket, bukan melayang di atas isi:
+ * di laptop presentasi (1366×768) dan tablet, tombol/tautan halaman tidak pernah berada di bawahnya, termasuk
+ * banner skenario, bilah kirim CPOE, stepper pendaftaran, dan kasir. Isi yang digulir lewat di bawah header
+ * (tertutup header), bukan di bawah tombol yang melayang.
+ */
+test.describe('panduan presentasi tidak menutupi isi layar', () => {
+  /** Tombol/tautan/isian di `main` yang tampak dan terkena kotak pemicu (dan memang bisa diklik di sana). */
+  async function coveredControls(page: Page): Promise<string[]> {
+    return page.evaluate(() => {
+      const trigger = document.querySelector('[aria-label="Panduan simulasi"] > button');
+      if (!trigger) return ['(pemicu panduan tidak ada)'];
+      const t = trigger.getBoundingClientRect();
+      const hits: string[] = [];
+      const controls = document.querySelectorAll<HTMLElement>(
+        'main a[href], main button, main input, main select, main textarea, main [role="button"], main [tabindex]',
+      );
+      for (const el of controls) {
+        const r = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        if (!r.width || !r.height || style.visibility === 'hidden') continue;
+        const x0 = Math.max(r.left, t.left);
+        const x1 = Math.min(r.right, t.right);
+        const y0 = Math.max(r.top, t.top);
+        const y1 = Math.min(r.bottom, t.bottom);
+        if (x0 >= x1 || y0 >= y1) continue;
+        // Tumpang tindih hanya boleh bila kontrol itu tertutup header (digulir ke bawah header lengket).
+        const top = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
+        if (top && el.contains(top))
+          hits.push(el.getAttribute('aria-label') ?? el.textContent?.trim() ?? el.tagName);
+        else if (window.scrollY === 0)
+          hits.push(`(di bawah header saat atas halaman) ${el.textContent?.trim()}`);
+      }
+      return hits;
+    });
+  }
+
+  const SCREENS: ReadonlyArray<{ role: string; path: string; igdStage?: string }> = [
+    { role: 'dokter', path: '/klinis/order/kj-hartono', igdStage: 'Asesmen dokter' },
+    { role: 'dokter', path: '/klinis/order/kj-endang' },
+    { role: 'perawat', path: '/klinis/igd' },
+    { role: 'petugas_pendaftaran', path: '/pendaftaran' },
+    { role: 'kasir', path: '/keuangan/kasir' },
+  ];
+
+  for (const { role, path, igdStage } of SCREENS) {
+    test(`${path} (${role}${igdStage ? ` · ${igdStage}` : ''})`, async ({ page }, testInfo) => {
+      const account = await createAccount({ roles: [role] });
+      await loginAs(page, account, '/simulasi');
+      if (igdStage) {
+        await page.goto('/simulasi');
+        await page.getByRole('tab', { name: 'IGD → rawat inap' }).click();
+        await page.getByText('Lompat ke tahap', { exact: true }).click();
+        await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${igdStage}$`) }).click();
+        await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${igdStage}`))).toBeVisible();
+      }
+      // Laptop presentasi (temuan QA visual 1366×768); proyek tablet memakai 768×1024.
+      if (testInfo.project.name === 'demo-desktop') await page.setViewportSize({ width: 1366, height: 768 });
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+
+      const header = page.getByRole('banner');
+      const trigger = page
+        .getByRole('complementary', { name: 'Panduan simulasi' })
+        .getByRole('button', { name: /^Simulasi · \d+ dari \d+ · / });
+      await expect(trigger).toBeVisible();
+      const box = await trigger.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      const maxY = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+      for (const y of [0, Math.round(maxY / 2), maxY]) {
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        // Header (berisi pemicu) tetap di atas layar saat digulir.
+        const [h, t] = [await header.boundingBox(), await trigger.boundingBox()];
+        if (!h || !t) throw new Error('kotak header/pemicu tidak terbaca');
+        expect(Math.round(h.y), `header di atas layar pada scroll ${y}`).toBe(0);
+        expect(t.y >= h.y && t.y + t.height <= h.y + h.height, 'pemicu di dalam header').toBe(true);
+        expect(await coveredControls(page), `kontrol tertutup pemicu pada scroll ${y}`).toEqual([]);
+      }
+
+      // Bisa dijangkau keyboard; panel tertutup lagi dengan Escape dan fokus kembali ke pemicu.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await trigger.focus();
+      await page.keyboard.press('Enter');
+      const panel = page.locator('#panduan-simulasi');
+      await expect(panel).toBeVisible();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    });
+  }
 });

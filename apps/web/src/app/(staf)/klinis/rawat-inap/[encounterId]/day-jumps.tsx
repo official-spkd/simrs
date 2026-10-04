@@ -54,8 +54,8 @@ export function DayJumps({
         <span className="font-semibold text-brand-700">Perjalanan rawat · pasien simulasi</span>
         <span className="text-caption text-ink-700">
           {emarDone
-            ? 'Obat jadwal pertama tercatat lewat pindai gelang.'
-            : 'Mulai dengan pindai gelang di eMAR (tab CPPT & eMAR).'}
+            ? 'Obat jadwal pertama tercatat per dosis lewat pindai gelang dan label obat.'
+            : 'Mulai di eMAR (tab CPPT & eMAR): pindai gelang, lalu beri tiap dosis jadwal pertama satu per satu.'}
         </span>
       </span>
       <ol className="m-0 grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
@@ -81,7 +81,6 @@ export function DayJumps({
               {!done && (
                 <Button
                   size="sm"
-                  className="h-11"
                   variant={taskEnabled(state, k) ? 'primary' : 'secondary'}
                   disabled={!taskEnabled(state, k) || pending}
                   onClick={() => runTask(state, k, true)}

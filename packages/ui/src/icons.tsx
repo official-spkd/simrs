@@ -40,6 +40,9 @@ export const iconPaths = {
   qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 20h2M20 14v2',
   idCard: 'M3 5h18v14H3zM7 10a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM5.5 16a3.5 3.5 0 0 1 7 0M14 9h5M14 13h5',
   arrowRight: 'M5 12h14M13 6l6 6-6 6',
+  // Arah nilai di luar batas (tinggi/rendah), selalu disertai teks.
+  arrowUp: 'M12 19V5M6 11l6-6 6 6',
+  arrowDown: 'M12 5v14M6 13l6 6 6-6',
   plus: 'M12 5v14M5 12h14',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
   check: 'M20 6 9 17l-5-5',

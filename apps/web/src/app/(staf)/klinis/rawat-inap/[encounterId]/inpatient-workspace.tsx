@@ -1,9 +1,10 @@
 'use client';
 
-import { type CpptEntry, formatJam, type InpatientDetail } from '@simrs/shared';
-import { useState } from 'react';
-import { PillTabs } from '@/components/rawat-inap/pill-tabs';
+import type { CpptEntry, InpatientDetail } from '@simrs/shared';
+import { TabList, TabPanel } from '@simrs/ui';
+import { useId, useState } from 'react';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
+import { emarTurnBlocker } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { CpptPanel } from './cppt-panel';
 import { DayJumps } from './day-jumps';
@@ -34,6 +35,7 @@ export function InpatientWorkspace({
   sbar: { s: string; b: string; a: string; r: string };
 }) {
   const { runTask, pending, error } = useScenarioTask(scenario?.rev ?? 0);
+  const tabsId = useId();
   const [tab, setTab] = useState<string>(initialTab);
   const [added, setAdded] = useState<CpptEntry[]>([]);
   const [cosigned, setCosigned] = useState<Record<string, { by: string; at: string }>>({});
@@ -54,12 +56,6 @@ export function InpatientWorkspace({
     scenario && taskDone(scenario, 'emar') && emar.scan.status === 'terkunci'
       ? { status: 'cocok' as const, at: null, reason: null }
       : emar.scan;
-  const onScan = () => {
-    const at = formatJam(new Date());
-    const unlock = () => setEmar((cur) => ({ ...cur, scan: { status: 'cocok', at, reason: null } }));
-    if (scenario && taskEnabled(scenario, 'emar')) runTask(scenario, 'emar', true, (ok) => ok && unlock());
-    else unlock();
-  };
   const nursing = detail.nursing.map((p) => ({
     diagnosis: p.diagnosis,
     interventions: p.interventions.map((i) => ({ ...i, done: askep[i.id] ?? i.done })),
@@ -75,6 +71,7 @@ export function InpatientWorkspace({
           <CpptPanel
             encounterId={enc}
             entries={entries}
+            user={user}
             canCosign={canCosign}
             sbar={sbar}
             onAdd={(e) => setAdded((cur) => [...cur, e])}
@@ -89,9 +86,11 @@ export function InpatientWorkspace({
             name={patient.name}
             nurse={user}
             state={{ ...emar, scan }}
+            wait={scenario ? emarTurnBlocker(scenario.tasks.emar) : null}
+            scenarioTask={taskEnabled(scenario ?? undefined, 'emar')}
             scenarioBusy={pending}
-            onScan={onScan}
             onChange={setEmar}
+            onAllDue={() => runTask(scenario ?? undefined, 'emar', true)}
           />
         </div>
       ),
@@ -129,15 +128,16 @@ export function InpatientWorkspace({
       )}
       <div className="flex flex-col gap-3">
         {/* Pil tab (mockup Ranap) membungkus di layar sempit; panel diatur di sini. */}
-        <PillTabs
+        <TabList
           label="Bagian rekam rawat inap"
+          idBase={tabsId}
           value={current.id}
           onChange={setTab}
           items={items.map(({ id, label }) => ({ id, label }))}
         />
-        <div role="tabpanel" aria-label={current.label}>
+        <TabPanel key={current.id} idBase={tabsId} value={current.id}>
           {current.content}
-        </div>
+        </TabPanel>
       </div>
     </div>
   );

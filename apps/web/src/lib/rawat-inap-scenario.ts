@@ -28,7 +28,7 @@ import {
   wib,
 } from './demo/fixtures/rawat-inap';
 import { PERSONA, STAF, STAF_LAIN } from './demo/fixtures/staf';
-import { isTriageLevel } from './rawat-inap';
+import { BOARDING_TARGET_MINUTES, isTriageLevel, SCENARIO_CONSENT_WAIT } from './rawat-inap';
 
 /**
  * Proyeksi pasien skenario Simulasi (Tn. Hartono · igd-ranap, Ny. Ratna · elektif-btn) ke layar IGD, tempat
@@ -140,7 +140,7 @@ export function hartonoBedRequest(R: RunResult): BedRequest | null {
     need: d?.need ?? '',
     kelas: d?.kelas ?? 'ICU',
     waitMinutes: wait,
-    late: wait >= 240,
+    late: wait >= BOARDING_TARGET_MINUTES,
     candidates: choiceOptions(R, 'admisi', 'alok').map((o) => ({
       bedCode: scenarioBedCode(o.id),
       label: o.label,
@@ -948,4 +948,23 @@ export function ratnaConsent(R: RunResult): ConsentDocument {
   return isDone(R, 'admisi', 'sep')
     ? { ...doc, status: 'final', finalAt: taskInstant(R, 'admisi', 'sep', -5) }
     : doc;
+}
+
+/** Persetujuan operasi Ny. Ratna tidak diproses di tablet: final bersama SEP rawat inap di langkah admisi elektif. */
+export const RATNA_CONSENT_WAIT =
+  'Persetujuan operasi ini final bersama SEP rawat inap pada langkah Admisi elektif di Simulasi.';
+
+/**
+ * Alasan dokumen persetujuan milik skenario belum boleh diproses (tanda tangan, TTE, penolakan) di tablet: Tn.
+ * Hartono hanya saat tugas `tata-laksana.consent` gilirannya; Ny. Ratna difinalkan langkah admisi elektif. Dokumen
+ * final/ditolak sudah terkunci oleh statusnya. Null = boleh diproses.
+ */
+export function consentScenarioWait(
+  doc: Pick<ConsentDocument, 'id' | 'status'>,
+  consentTask: { enabled: boolean } | undefined,
+): string | null {
+  if (doc.status !== 'draf') return null;
+  if (doc.id === 'pk-ratna') return RATNA_CONSENT_WAIT;
+  if (doc.id === 'pk-hartono' && !consentTask?.enabled) return SCENARIO_CONSENT_WAIT;
+  return null;
 }
