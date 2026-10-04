@@ -14,6 +14,8 @@ const assignment = z.object({
 });
 
 const accountFlags = {
+  /** Sudah punya kata sandi; belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */
+  activated: z.boolean(),
   mfaEnrolled: z.boolean(),
   locked: z.boolean(),
   dormant: z.boolean(),
@@ -57,6 +59,8 @@ export const summarySchema = z.object({
   locked: z.number(),
   mfaMissing: z.number(),
   dormant: z.number(),
+  /** Akun aktif tanpa kata sandi (belum diaktifkan). */
+  notActivated: z.number(),
   breakGlass7d: z.number(),
   breakGlassPending: z.number(),
   dormantDays: z.number(),

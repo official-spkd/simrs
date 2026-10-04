@@ -10,6 +10,14 @@ const activeAt = (at: Date) => ({
 });
 /** Baris izin yang membuat sebuah peran setara admin. */
 const accessAdminGrant = { OR: ACCESS_ADMIN_GRANTS.map(([resource, action]) => ({ resource, action })) };
+/**
+ * Filter status daftar pengguna: `active`/`disabled` = kolom status; `not_activated` = akun aktif yang belum punya
+ * kata sandi (belum bisa masuk sampai admin mereset sandinya, mis. staf seed).
+ */
+const byStatus = (status?: string) => {
+  if (status === 'not_activated') return { status: 'active', credential: { is: null } };
+  return status ? { status } : {};
+};
 
 /** P03 · Data pengguna, penugasan, dan matriks peran (transaksi permintaan, RLS aktif). */
 @Injectable()
@@ -40,7 +48,7 @@ export class IamRepository {
     return this.db.tx().user.findMany({
       where: {
         ...(q.cursor ? { id: { gt: q.cursor } } : {}),
-        ...(q.status ? { status: q.status } : {}),
+        ...byStatus(q.status),
         ...(q.search
           ? {
               OR: [
@@ -64,6 +72,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -104,6 +113,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -139,6 +149,7 @@ export class IamRepository {
         where: { status: 'active', mfaFactors: { none: { disabledAt: null, confirmedAt: { not: null } } } },
       }),
       dormant: await tx.user.count({ where: { status: 'active', ...neverOrStale } }),
+      notActivated: await tx.user.count({ where: byStatus('not_activated') }),
       breakGlass7d: await tx.breakGlassGrant.count({
         where: { grantedAt: { gte: new Date(at.getTime() - 7 * 86_400_000) } },
       }),

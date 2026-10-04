@@ -28,3 +28,5 @@ docs/05 §1–2 menetapkan izin = peran × unit × relasi pasien × jenis formul
 ## Pembaruan 5 Okt 2026
 
 Staf seed (fase 1 potongan 10d) dibuat tanpa kata sandi, termasuk satu `admin_tenant` per RS. Agar admin seperti itu tidak "menyelamatkan" RS yang sebenarnya sudah kehilangan admin terakhir yang bisa masuk, aturan **minimal satu admin aktif** (`countActiveAdmins`) kini hanya menghitung admin yang **bisa masuk**: status `active` **dan** sudah punya kata sandi (baris `user_credentials`). MFA tidak disyaratkan: admin yang baru direset sedang menjalani login pertama (daftar MFA lalu ganti sandi) dan sah memulihkan RS. Kunci per tenant (`lockTenantScope`) tetap; kata sandi tidak pernah dihapus aplikasi, jadi syarat baru ini tidak membuka write skew baru.
+
+Akun tanpa kata sandi tampil **"Belum diaktifkan"** di layar Akses (teks + ikon, ada di filter status `/iam/users?status=not_activated` dan ringkasan `notActivated`). "Reset kata sandi" mengaktifkannya: kredensial pertamanya dibuat saat itu, sandi sementara tampil sekali.

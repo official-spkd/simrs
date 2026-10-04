@@ -107,12 +107,15 @@ export class IamService {
       lockedUntil: Date | null;
       createdAt: Date;
       mfaFactors: unknown[];
+      credential: unknown;
     },
     at: number,
   ) {
     const dormantBefore = at - DORMANT_DAYS * 86_400_000;
     const active = u.status === 'active';
     return {
+      /** Sudah punya kata sandi. Belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */
+      activated: u.credential !== null,
       mfaEnrolled: u.mfaFactors.length > 0,
       locked: active && !!u.lockedUntil && u.lockedUntil.getTime() > at,
       /** Belum pernah login sejak dibuat (akun baru / undangan). */
@@ -135,9 +138,9 @@ export class IamService {
     const at = Date.now();
     return {
       ...page,
-      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, ...u }) => ({
+      items: page.items.map(({ mfaFactors, lockedUntil, createdAt, credential, ...u }) => ({
         ...u,
-        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt }, at),
+        ...this.accountFlags({ ...u, mfaFactors, lockedUntil, createdAt, credential }, at),
         lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
         assignments: u.assignments.map((a) => ({
           id: a.id,
@@ -156,7 +159,7 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, ...rest } = u;
+    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, credential: _c, ...rest } = u;
     return {
       ...rest,
       phone: this.maskedPhone(phoneEnc),
