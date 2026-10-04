@@ -17,6 +17,7 @@ import {
   SURYO_BOOKING,
   SURYO_GLUCOSE,
 } from './demo/fixtures/manajemen';
+import { demoQueueBoard, NO_PROGRESS, SCENARIO_RJ } from './demo/fixtures/front-office';
 import { patientById, patientByScenario } from './demo/fixtures/pasien';
 import { poliByCode } from './demo/fixtures/rs';
 import { PERSONA, STAF } from './demo/fixtures/staf';
@@ -170,8 +171,17 @@ export function patientFeed(R: RunResult): FeedItem[] {
   return items.reverse();
 }
 
-/** Nomor yang sedang dilayani saat Tn. Suryo menunggu (mockup AppPasien: PD-021, 6 pasien di depan). */
-const SERVING = { admisi: 'A-028', admisiAhead: 3, poli: 'PD-021', poliAhead: 6 } as const;
+/** Nomor loket yang sedang dilayani saat Tn. Suryo menunggu (tiket A-028–A-030 di depannya). */
+const SERVING = { admisi: 'A-028', admisiAhead: 3 } as const;
+
+/** Poli PD saat Tn. Suryo menunggu: nomor dilayani dan pasien di depannya, dari papan antrean (roster hari demo). */
+function poliServing(): { serving: string | null; ahead: number } {
+  const pd = demoQueueBoard({ ...NO_PROGRESS, sep: true }).clinics.find((c) => c.poliCode === 'PD');
+  return {
+    serving: pd?.current ?? null,
+    ahead: Math.max(0, pd?.waiting.indexOf(SCENARIO_RJ.poliQueue) ?? 0),
+  };
+}
 
 function poliMessage(R: RunResult): string {
   switch (activeStep(R)) {
@@ -245,8 +255,8 @@ export function patientAppHome(R: RunResult): PatientAppHome {
       title: `${poliName} · ${day}`,
       numberLabel: 'Nomor antrean Anda',
       number: code,
-      serving: called ? code : SERVING.poli,
-      ahead: called ? 0 : SERVING.poliAhead,
+      serving: called ? code : poliServing().serving,
+      ahead: called ? 0 : poliServing().ahead,
       location: room,
       message: poliMessage(R),
     };

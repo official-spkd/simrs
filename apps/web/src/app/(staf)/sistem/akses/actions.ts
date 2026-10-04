@@ -135,6 +135,21 @@ export async function resetMfaAction(userId: string): Promise<ActionResult> {
   }
 }
 
+/** Cabut PIN masuk cepat di satu perangkat milik pengguna (perangkat hilang, pindah unit). ADR-0024. */
+export async function revokePinDeviceAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const denied = await authorize('iam.users', 'write');
+  if (denied) return { error: denied };
+  const deviceId = text(formData.get('deviceId'));
+  if (!z.uuid().safeParse(deviceId).success) return { error: 'Perangkat tidak valid.' };
+  try {
+    await api(`/api/v1/iam/pin-devices/${deviceId}/revoke`, { method: 'POST', schema: okSchema });
+    revalidatePath(PATH);
+    return { ok: true, message: `PIN dicabut pukul ${formatJam(new Date())}.` };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
 /** Kontak notifikasi akun (email + no. HP/WhatsApp); kosong = dihapus. */
 export async function updateContactAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const denied = await authorize('iam.users', 'write');

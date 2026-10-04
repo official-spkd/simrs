@@ -85,6 +85,7 @@ describe('penjaga skema', () => {
       'documents',
       'document_signatures',
       'trusted_devices',
+      'registered_devices',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
@@ -133,6 +134,22 @@ describe('penjaga skema', () => {
       FROM unnest(ARRAY['code_systems', 'concepts', 'regions']) AS t`;
     expect(rows.every((r) => r.sel && !r.ins && !r.upd && !r.del)).toBe(true);
     expect(rows).toHaveLength(3);
+  });
+
+  it('perangkat terdaftar: jenis, hash PIN/token, akun, dan masa berlaku tidak bisa diubah role aplikasi', async () => {
+    const columns = [
+      'kind',
+      'pin_hash',
+      'token_hash',
+      'user_id',
+      'expires_at',
+      'failed_attempts',
+      'revoked_at',
+    ];
+    const rows = await owner.$queryRaw<Array<{ column: string; can_update: boolean }>>`
+      SELECT c AS column, has_column_privilege('simrs_app', 'public.registered_devices', c, 'UPDATE') AS can_update
+      FROM unnest(${columns}::text[]) AS c`;
+    expect(rows.filter((r) => r.can_update).map((r) => r.column)).toEqual(['failed_attempts', 'revoked_at']);
   });
 
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {

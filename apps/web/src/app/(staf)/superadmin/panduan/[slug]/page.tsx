@@ -39,7 +39,10 @@ export default async function GuidePageView({ params }: { params: Params }) {
         </article>
 
         <aside className="order-first lg:order-none">
-          <nav aria-label="Daftar isi" className="flex flex-col gap-1 lg:sticky lg:top-6">
+          <nav
+            aria-label="Daftar isi"
+            className="flex flex-col gap-1 lg:sticky lg:top-[calc(var(--app-sticky-top,0px)_+_1.5rem)]"
+          >
             <span className="text-caption font-semibold tracking-[0.08em] text-ink-500">DAFTAR ISI</span>
             <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-small">
               {toc.map((item) => (

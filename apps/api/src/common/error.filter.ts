@@ -84,8 +84,13 @@ export class AppErrorFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request & { id?: string }>();
     const requestId = typeof req.id === 'string' ? req.id : undefined;
     const [status, body] = this.toBody(exception);
-    if (status >= 500) {
+    if (status >= 500 || res.headersSent) {
       this.logger.error({ err: sanitizeForLog(exception), requestId }, 'Galat tidak tertangani');
+    }
+    if (res.headersSent) {
+      // Respons sudah mulai dikirim (mis. aliran SSE, ADR-0026): status tidak bisa diubah lagi, cukup tutup.
+      if (!res.writableEnded) res.end();
+      return;
     }
     res.status(status).json({ ...body, requestId });
   }

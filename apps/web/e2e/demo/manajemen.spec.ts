@@ -110,8 +110,8 @@ test.describe('domain manajemen', () => {
 
     const incidents = page.getByRole('region', { name: 'Laporan insiden keselamatan pasien' });
     await expect(incidents.getByText('IKP-2610-014')).toBeVisible();
-    await expect(incidents).toContainText('RM 00-58-02-41');
-    await expect(incidents).not.toContainText('Lestiani');
+    await expect(incidents).toContainText('RM 00-07-61-33');
+    await expect(incidents).not.toContainText('Endang');
     await expect(page.getByRole('table', { name: /Matriks risiko/ })).toBeVisible();
 
     await expectNoHorizontalOverflow(page);

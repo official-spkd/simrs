@@ -1,4 +1,4 @@
-import type { TenantKind } from '@simrs/shared';
+import { pinAllowedForRole, type TenantKind } from '@simrs/shared';
 
 /** DTO sesi untuk render: hanya yang dibutuhkan UI (tanpa token, tanpa email, tanpa ID sesi). */
 export interface SessionView {
@@ -11,6 +11,8 @@ export interface SessionView {
   mfaEnrolled: boolean;
   mfaVerified: boolean;
   mustChangePassword: boolean;
+  /** Sesi dibuka dengan PIN perangkat (ADR-0024): pendek, posisi terkunci, tidak bisa mendaftarkan PIN. */
+  quickLogin?: boolean;
 }
 
 interface MeLike {
@@ -20,6 +22,7 @@ interface MeLike {
   role: { code: string; name: string } | null;
   unit: { id: string; name: string } | null;
   permissions: ReadonlyArray<{ resource: string; action: string }>;
+  session?: { quickLogin: boolean };
 }
 
 export function toSessionView(me: MeLike): SessionView {
@@ -37,7 +40,16 @@ export function toSessionView(me: MeLike): SessionView {
     mfaEnrolled: me.mfa.enrolled,
     mfaVerified: me.mfa.sessionVerified,
     mustChangePassword: me.user.mustChangePassword,
+    quickLogin: me.session?.quickLogin ?? false,
   };
+}
+
+/**
+ * Posisi sesi ini boleh mendaftarkan PIN masuk cepat (sama dengan aturan API): sesi penuh (bukan sesi PIN) di RS,
+ * peran layanan (bukan peran sensitif), dan posisi yang terikat unit kerja.
+ */
+export function canRegisterPin(s: Pick<SessionView, 'tenant' | 'role' | 'unit' | 'quickLogin'>): boolean {
+  return !s.quickLogin && s.tenant.kind === 'hospital' && pinAllowedForRole(s.role?.code) && s.unit !== null;
 }
 
 export function can(s: Pick<SessionView, 'permissions'>, resource: string, action: string): boolean {
