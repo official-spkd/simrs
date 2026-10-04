@@ -208,6 +208,11 @@ class SseConnection {
     req.socket.setNoDelay(true);
     req.socket.setKeepAlive(true);
     res.on('close', () => this.close());
+    if (req.socket.destroyed) {
+      // Klien sudah pergi sebelum pendengar terpasang.
+      this.close();
+      return;
+    }
     this.write(`retry: ${SSE_RETRY_MS}\n\n`);
 
     this.heartbeat = setInterval(() => this.write(': ping\n\n'), this.deps.heartbeatMs);
