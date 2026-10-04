@@ -9,6 +9,12 @@ export interface OutboxView {
   lastError: string | null;
 }
 
+/** Pesan `ping` uji: ID baris outbox + kunci idempotensi yang dicatat mock saat menerimanya (`mockEchoCount`). */
+export interface TestPing {
+  id: string;
+  idempotencyKey: string;
+}
+
 /**
  * Pesan `ping` (operasi contoh: dikirim ke `/<target>/_echo` di mock) langsung di DB tes, seperti yang ditulis API di
  * transaksi domainnya. Untuk menguji jalur outbox → worker → mock tanpa modul domain.
@@ -16,17 +22,13 @@ export interface OutboxView {
 export async function enqueueTestPing(
   target: IntegrationTarget,
   tenant: TenantCode = 'RSFA',
-): Promise<string> {
+): Promise<TestPing> {
   const tenantId = TENANTS[tenant];
+  const idempotencyKey = `e2e-${newId()}`;
   const msg = await inTenant(tenantId, (tx) =>
-    enqueueOutbox(tx, tenantId, {
-      target,
-      operation: 'ping',
-      idempotencyKey: `e2e-${newId()}`,
-      payload: { from: 'e2e' },
-    }),
+    enqueueOutbox(tx, tenantId, { target, operation: 'ping', idempotencyKey, payload: { from: 'e2e' } }),
   );
-  return msg.id;
+  return { id: msg.id, idempotencyKey };
 }
 
 /** Keadaan pesan outbox saat ini (untuk `expect.poll`). */

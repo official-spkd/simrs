@@ -6,7 +6,13 @@ export const readinessSchema = z.object({
   status: z.enum(['ok', 'degraded']),
   checks: z.record(
     z.string(),
-    z.object({ ok: z.boolean(), latencyMs: z.number().optional(), error: z.string().optional() }),
+    z.object({
+      ok: z.boolean(),
+      latencyMs: z.number().optional(),
+      error: z.string().optional(),
+      /** Hanya pemeriksaan `storage`: driver penyimpanan berkas yang dikonfigurasi API. */
+      driver: z.string().optional(),
+    }),
   ),
 });
 export type Readiness = z.infer<typeof readinessSchema>;
