@@ -525,7 +525,7 @@ Sebelum commit:
 1. Ketiga perintah pertama hijau. Tes yang gagal diperbaiki penyebabnya, bukan dilemahkan.
 2. Periksa [daftar periksa keamanan](./02-cara-kerja-kode.md#daftar-periksa-keamanan-per-perubahan).
 3. Commit dengan Conventional Commits dan sebut kode komponen, misalnya `feat(units): master unit layanan` dengan badan `Komponen: P01`.
-4. Perbarui `docs/PROGRESS.md`. Keputusan arsitektur baru dicatat sebagai ADR di `docs/adr/`.
+4. Perbarui `docs/PROGRESS.md`. Keputusan arsitektur baru dicatat sebagai ADR di `docs/adr/`; nomornya mengikuti blok per fase di `docs/adr/README.md` (agar agen paralel tidak memakai nomor yang sama).
 
 ### Beberapa salinan repo sekaligus (git worktree)
 
