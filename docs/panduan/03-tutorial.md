@@ -25,6 +25,7 @@ Isi `.env` yang perlu diperhatikan:
 | `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya                                     |
 | `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi |
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
+| `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
 ### Mesin baru (macOS)
@@ -89,7 +90,7 @@ Atau nyalakan Postgres hanya selama satu perintah, lalu otomatis dimatikan:
 pnpm with-pg pnpm test
 ```
 
-Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker.
+Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker. Dari `.env`, `with-pg` hanya meneruskan koneksi Postgres (`POSTGRES_PORT`, `DATABASE_URL`, `MIGRATOR_DATABASE_URL`, `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`) dan `TZ`; variabel lain (mis. `NODE_ENV`, kunci enkripsi) dibaca sendiri oleh setiap aplikasi dari `.env`, jadi perintah berperilaku sama seperti tanpa `with-pg`. Daftar dan alasannya ada di kepala `scripts/with-pg.mjs`.
 
 ### Siapkan database pengembangan
 
@@ -490,7 +491,7 @@ Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan 
 ```powershell
 pnpm lint
 pnpm typecheck
-pnpm test                          # unit + integrasi (butuh Postgres; worker juga butuh Redis)
+pnpm test                          # unit + integrasi (butuh Postgres; worker dan tes batas laju API juga butuh Redis)
 pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri API :4010 + build web :3010 dan :3011 (presentasi)
 ```
 
@@ -503,7 +504,7 @@ Sebelum commit:
 
 ### Beberapa salinan repo sekaligus (git worktree)
 
-Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) dengan `git worktree`. Postgres (satu server), Redis, MinIO, Mailpit, dan port `pnpm dev` (3000/4000/4100) dipakai bersama, jadi `pnpm dev` hanya di satu salinan. Yang dipisah per salinan: `.env`, database, dan slot E2E.
+Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) dengan `git worktree`. Postgres (satu server), Redis, MinIO, Mailpit, dan port `pnpm dev` (3000/4000/4100) dipakai bersama, jadi `pnpm dev` hanya di satu salinan. Yang dipisah per salinan: `.env`, database, dan slot E2E. Penghitung batas laju API di Redis otomatis terpisah per database (awalan kunci `simrs:rl:<nama database>:`).
 
 1. Buat salinan dan `.env`-nya (`.env` tidak ikut git; kunci enkripsinya boleh sama):
 
@@ -551,5 +552,5 @@ Aturan:
 | `node -v` bukan v24, atau `corepack` tidak dikenal           | Alat lain menaruh `node`-nya lebih dulu di `PATH`. Lihat [Mesin baru (macOS)](#mesin-baru-macos).                                                                                     |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
-| Tes worker: "Redis tidak terjangkau"                         | Redis butuh Docker (`pnpm infra:up`). Tes ini sengaja tidak dilewati.                                                                                                                 |
+| Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |
 | `pnpm install`: "Ignored build scripts"                      | pnpm memblokir skrip instalasi yang belum disetujui. Periksa paketnya, lalu `pnpm approve-builds <paket>` atau tolak dengan `!<paket>`. Keputusan tersimpan di `pnpm-workspace.yaml`. |
