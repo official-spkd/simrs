@@ -76,7 +76,7 @@ Atau nyalakan Postgres hanya selama satu perintah, lalu otomatis dimatikan:
 pnpm with-pg pnpm test
 ```
 
-Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker.
+Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker. Dari `.env`, `with-pg` hanya meneruskan koneksi Postgres (`POSTGRES_PORT`, `DATABASE_URL`, `MIGRATOR_DATABASE_URL`, `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`) dan `TZ`; variabel lain (mis. `NODE_ENV`, kunci enkripsi) dibaca sendiri oleh setiap aplikasi dari `.env`, jadi perintah berperilaku sama seperti tanpa `with-pg`. Daftar dan alasannya ada di kepala `scripts/with-pg.mjs`.
 
 ### Siapkan database pengembangan
 

@@ -110,8 +110,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 300_000,
       env: {
-        // Build produksi selalu NODE_ENV=production, walau pemanggil (mis. with-pg yang memuat .env) mewariskan
-        // NODE_ENV=development; campuran keduanya merusak prerender Next.
+        // Build produksi selalu NODE_ENV=production, walau pemanggil mewariskan NODE_ENV lain (mis. diekspor di shell);
+        // campuran keduanya merusak prerender Next. with-pg tidak lagi meneruskan NODE_ENV dari .env.
         NODE_ENV: 'production',
         APP_ENV: 'local',
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
