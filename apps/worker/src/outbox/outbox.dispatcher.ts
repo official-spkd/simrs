@@ -192,16 +192,13 @@ export class OutboxDispatcher implements OnModuleDestroy {
       summary.claimed += claimed.length;
       for (const msg of claimed) {
         const op = this.operations.get(msg.operation);
-        const record: RecordAttemptOptions = {
-          now: opts.now,
-          ...retryLimits(op?.retry, msg, opts.maxAttempts),
-        };
+        const { deferDeadline, ...limits } = retryLimits(op?.retry, msg, opts.maxAttempts);
+        const record: RecordAttemptOptions = { now: opts.now, ...limits };
         const step = await this.attempt(msg, tenantId, op, opts.now ?? new Date());
 
         let result: SendResult;
         if ('defer' in step) {
-          const { deadline } = record;
-          if (!deadline || step.defer.until.getTime() < deadline.getTime()) {
+          if (step.defer.until.getTime() < deferDeadline.getTime()) {
             await withTenant(this.prisma, tenantId, (tx) => deferOutboxMessage(tx, msg, step.defer));
             summary.deferred += 1;
             continue;

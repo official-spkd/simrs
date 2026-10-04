@@ -73,6 +73,11 @@ export interface RetryPolicy {
   /** Batas atas jeda backoff eksponensial (ms). */
   capMs?: number;
   untilEndOfServiceDay?: boolean;
+  /**
+   * Umur maksimum pesan yang terus ditunda (`defer`), dihitung dari saat dibuat; lewat dari itu = DLQ. Bawaan
+   * 24 jam; batas hari layanan, bila ada, berlaku lebih dulu.
+   */
+  maxDeferMs?: number;
 }
 
 export interface OutboxOperation {

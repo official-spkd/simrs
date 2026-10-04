@@ -5,6 +5,7 @@
 import { OUTBOX_MAX_ATTEMPTS } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_MAX_DEFER_MS,
   DEFAULT_RETRY_CAP_MS,
   endOfServiceDay,
   retryLimits,
@@ -43,15 +44,17 @@ describe('retryLimits', () => {
       maxAttempts: OUTBOX_MAX_ATTEMPTS,
       capMs: DEFAULT_RETRY_CAP_MS,
       deadline: undefined,
+      deferDeadline: new Date(createdAt.getTime() + DEFAULT_MAX_DEFER_MS),
     });
     expect(retryLimits(undefined, { createdAt }, 3).maxAttempts).toBe(3);
   });
 
   it('kebijakan operasi mengalahkan opsi dispatch', () => {
-    expect(retryLimits({ maxAttempts: 20, capMs: 60_000 }, { createdAt }, 3)).toEqual({
+    expect(retryLimits({ maxAttempts: 20, capMs: 60_000, maxDeferMs: 60_000 }, { createdAt }, 3)).toEqual({
       maxAttempts: 20,
       capMs: 60_000,
       deadline: undefined,
+      deferDeadline: new Date(createdAt.getTime() + 60_000),
     });
   });
 
@@ -60,6 +63,8 @@ describe('retryLimits', () => {
       maxAttempts: Infinity,
       capMs: 10 * 60_000,
       deadline: new Date('2026-10-05T17:00:00Z'),
+      // Penundaan juga berhenti di akhir hari layanan (lebih dulu dari batas umur 24 jam).
+      deferDeadline: new Date('2026-10-05T17:00:00Z'),
     });
     expect(retryLimits({ ...SERVICE_DAY_RETRY, maxAttempts: 50 }, { createdAt }).maxAttempts).toBe(50);
   });

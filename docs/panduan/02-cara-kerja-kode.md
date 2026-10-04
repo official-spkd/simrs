@@ -403,11 +403,11 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 
 ### Kebijakan retry per operasi
 
-`retry: { maxAttempts?, capMs?, untilEndOfServiceDay? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
+`retry: { maxAttempts?, capMs?, untilEndOfServiceDay?, maxDeferMs? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
 
 ### Tunda (`defer`)
 
-`prepare` boleh mengembalikan `{ defer: { untilMs } }` (epoch ms) atau `{ defer: { afterMessageId } }` (+ `reason` opsional tanpa PHI). Pesan kembali `pending` **tanpa menambah percobaan** dan tanpa baris `delivery_attempts`; alasannya tampil di `last_error` sebagai `ditunda: …`. Untuk `afterMessageId` worker menjadwalkan ulang setelah percobaan berikutnya pesan prasyarat; prasyarat yang DLQ atau tidak ada membuat pesan ini ikut DLQ (urutan tidak mungkin dipenuhi). Penundaan yang melewati batas hari layanan juga DLQ. Cari pesan prasyarat dengan `ctx.findMessage({ target, idempotencyKey })`. Pola task ID BPJS:
+`prepare` boleh mengembalikan `{ defer: { untilMs } }` (epoch ms) atau `{ defer: { afterMessageId } }` (+ `reason` opsional tanpa PHI). Pesan kembali `pending` **tanpa menambah percobaan** dan tanpa baris `delivery_attempts`; alasannya tampil di `last_error` sebagai `ditunda: …`. Untuk `afterMessageId` worker menjadwalkan ulang setelah percobaan berikutnya pesan prasyarat; prasyarat yang DLQ atau tidak ada membuat pesan ini ikut DLQ (urutan tidak mungkin dipenuhi). Penundaan tidak tanpa ujung: yang melewati umur `maxDeferMs` (bawaan 24 jam dari saat pesan dibuat) atau batas hari layanan menjadi DLQ. Cari pesan prasyarat dengan `ctx.findMessage({ target, idempotencyKey })`. Pola task ID BPJS:
 
 ```ts
 const prev = await ctx.findMessage({

@@ -220,6 +220,22 @@ describe('defer: tunda tanpa menghabiskan percobaan', () => {
     expect(await t.marks(second.id)).toHaveLength(1);
   });
 
+  it('penundaan tidak tanpa ujung: lewat umur maksimum (bawaan 24 jam dari saat dibuat) → DLQ', async () => {
+    const t = await setup();
+    const msg = await t.enqueue('test.defer');
+    const now = new Date(Date.now() + 1000);
+    deferUntil = msg.createdAt.getTime() + 24 * 60 * 60_000 - 1;
+    await t.dispatch(now);
+    expect((await t.get(msg.id)).status).toBe('pending');
+    deferUntil = msg.createdAt.getTime() + 24 * 60 * 60_000;
+    await t.dispatch(new Date(deferUntil - 1));
+    expect(await t.get(msg.id)).toMatchObject({
+      status: 'dead',
+      attempts: 1,
+      lastError: 'ditunda melewati batas waktu coba ulang: menunggu jam kirim',
+    });
+  });
+
   it('penundaan yang melewati batas hari layanan → DLQ', async () => {
     const t = await setup();
     const msg = await t.enqueue('test.defer-service-day');
