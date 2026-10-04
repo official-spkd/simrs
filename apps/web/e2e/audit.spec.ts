@@ -117,6 +117,33 @@ test.describe('layar Audit (/sistem/audit)', () => {
     await ctx.close();
   });
 
+  test('temuan di luar lima kartu pertama tetap bisa dibuka lewat "Tampilkan semua"', async ({ page }) => {
+    // Enam temuan baru: yang pertama dibuat berada setelah lima yang lebih baru (urut terakhir terjadi).
+    const tag = Date.now().toString(36).slice(-5);
+    const names: string[] = [];
+    for (let i = 1; i <= 6; i++) {
+      const name = `Kasir Uji ${tag}-${i}`;
+      await insertAuditEvents(
+        await createAccount({ roles: ['kasir'], displayName: name }),
+        'kasir',
+        'login_failed',
+        5,
+      );
+      names.push(name);
+    }
+    await loginAs(page, await createAccount({ roles: ['petugas_privasi'] }), '/sistem/audit');
+    const findings = page.getByRole('region', { name: 'Temuan anomali' });
+    // Lima temuan yang lebih baru (dan temuan lain dari tes paralel) mendahuluinya.
+    const oldest = findings.getByText(new RegExp(`^${names[0]}, `));
+    await expect(findings.getByText(/^\d+ temuan · \d+ belum ditinjau$/)).toBeVisible();
+    await expect(oldest).toHaveCount(0);
+
+    await findings.getByRole('link', { name: /^Tampilkan semua \d+ temuan$/ }).click();
+    await expect(page).toHaveURL(/semua=1/);
+    await expect(oldest).toBeVisible();
+    await expect(findings.getByRole('link', { name: 'Ringkas daftar temuan' })).toBeVisible();
+  });
+
   test('auditor mutu: unduh paket bukti CSV; admin RS tanpa izin ekspor', async ({ page, browser }) => {
     test.setTimeout(60_000); // dua sesi login dalam satu tes
     const auditor = await createAccount({ roles: ['auditor_mutu'] });

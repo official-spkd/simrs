@@ -206,7 +206,8 @@ export type AuditParams = Partial<
     | 'tinjau'
     | 'temuan'
     | 'laporan'
-    | 'verifikasi',
+    | 'verifikasi'
+    | 'semua',
     string
   >
 >;

@@ -81,7 +81,11 @@ const paramsSchema = z.object({
   temuan: z.string().max(120).optional().catch(undefined),
   laporan: z.iso.date().optional().catch(undefined),
   verifikasi: z.literal('1').optional().catch(undefined),
+  semua: z.literal('1').optional().catch(undefined),
 });
+
+/** Kartu temuan yang tampil sebelum "Tampilkan semua". */
+const FINDINGS_SHOWN = 5;
 
 const notFoundAsNull = (err: unknown) => {
   if (err instanceof ApiError && (err.status === 404 || err.status === 400)) return null;
@@ -200,6 +204,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           pendingCount={pending.length}
           current={current}
           days={anomalies.days}
+          showAll={p.semua === '1'}
         />
       ) : (
         <p className="m-0 text-small text-ink-500">
@@ -348,13 +353,15 @@ function Findings({
   pendingCount,
   current,
   days,
+  showAll,
 }: {
   findings: Finding[];
   pendingCount: number;
   current: AuditParams;
   days: number;
+  showAll: boolean;
 }) {
-  const shown = findings.slice(0, 5);
+  const shown = showAll ? findings : findings.slice(0, FINDINGS_SHOWN);
   return (
     <section aria-label="Temuan anomali" className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
       {shown.map((f) => {
@@ -400,6 +407,14 @@ function Findings({
           Temuan dihitung dari jejak audit: akses darurat, gagal masuk berulang, akses ditolak berulang, akses
           data pasien di luar jam dinas, dan volume tak wajar.
         </span>
+        {findings.length > FINDINGS_SHOWN && (
+          <Link
+            href={auditHref(current, { semua: showAll ? undefined : '1' })}
+            className="mt-1 self-start text-small font-semibold"
+          >
+            {showAll ? 'Ringkas daftar temuan' : `Tampilkan semua ${findings.length} temuan`}
+          </Link>
+        )}
       </div>
     </section>
   );
