@@ -1,9 +1,10 @@
 'use client';
 
 import { formatRupiah, type PaymentOverview } from '@simrs/shared';
-import { Alert, Button, KpiCard, Tabs } from '@simrs/ui';
+import { Alert, Button, KpiCard } from '@simrs/ui';
 import { useState } from 'react';
 import { DepositControls } from '@/components/btn/deposit-controls';
+import { KeepTabs } from '@/components/btn/keep-tabs';
 import { KonfigurasiTab } from '@/components/btn/konfigurasi-tab';
 import { RefundTab } from '@/components/btn/refund-tab';
 import { RekonTab } from '@/components/btn/rekon-tab';
@@ -114,14 +115,15 @@ export function PembayaranClient({
         />
       </div>
       {s.msg && <Alert level={s.msg.ok ? 'success' : 'critical'}>{s.msg.text}</Alert>}
-      <Tabs
+      <KeepTabs
         label="Bagian pembayaran digital"
         value={tab}
         onChange={setTab}
         items={[
           {
             id: 'transaksi',
-            label: `Transaksi · ${s.kpis.pending} menunggu`,
+            label: 'Transaksi',
+            badge: `${s.kpis.pending} menunggu`,
             content: tx ? (
               <TransaksiTab
                 txs={s.txs}
@@ -141,7 +143,9 @@ export function PembayaranClient({
           },
           {
             id: 'rekonsiliasi',
-            label: s.kpis.exceptionsLeft ? `Rekonsiliasi · ${s.kpis.exceptionsLeft} selisih` : 'Rekonsiliasi',
+            label: 'Rekonsiliasi',
+            badge: s.kpis.exceptionsLeft ? `${s.kpis.exceptionsLeft} selisih` : undefined,
+            warn: true,
             content: (
               <RekonTab
                 rows={s.rows}
@@ -179,7 +183,8 @@ export function PembayaranClient({
           },
           {
             id: 'refund',
-            label: refundsOpen ? `Refund · ${refundsOpen} proses` : 'Refund',
+            label: 'Refund',
+            badge: refundsOpen ? `${refundsOpen} proses` : undefined,
             content: (
               <RefundTab
                 refunds={data.refunds}

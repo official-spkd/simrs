@@ -283,7 +283,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'PembiayaanBTN',
     components: ['U04'],
     phase: 6,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'financing.write',
     demoRoles: ['akuntan', 'manajemen'],
     layout: 'staf',

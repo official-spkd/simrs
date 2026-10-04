@@ -160,3 +160,58 @@ export function nextInstalmentStage(stage: InstalmentStage): InstalmentStage | n
 export function canReject(app: Pick<InstalmentApplication, 'stage'>): boolean {
   return app.stage === 'diajukan' || app.stage === 'verifikasi';
 }
+
+export const REJECT_REASON_MIN = 10;
+
+const THOUSANDS = /\B(?=(\d{3})+(?!\d))/g;
+
+/** Rupiah ringkas untuk KPI: "Rp 15,00 M", "Rp 6,4 jt", di bawah sejuta tetap penuh. Pembulatan bigint. */
+export function formatRingkas(amount: bigint): string {
+  const neg = amount < 0n;
+  const abs = neg ? -amount : amount;
+  const sign = neg ? '−' : '';
+  if (abs >= 1_000_000_000n) {
+    const h = (abs + 5_000_000n) / 10_000_000n;
+    return `${sign}Rp ${(h / 100n).toString().replace(THOUSANDS, '.')},${String(h % 100n).padStart(2, '0')} M`;
+  }
+  if (abs >= 1_000_000n) {
+    const t = (abs + 50_000n) / 100_000n;
+    return `${sign}Rp ${(t / 10n).toString()},${t % 10n} jt`;
+  }
+  return `${sign}Rp ${abs.toString().replace(THOUSANDS, '.')}`;
+}
+
+/** Tanggal ISO + n hari (kalender). */
+export function addDays(iso: string, days: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+export interface BpjsPayment {
+  drawdownId: string;
+  claims: bigint;
+  principal: bigint;
+  margin: bigint;
+  days: number;
+  /** Hari diasumsikan rata-rata bila pencairan baru hari ini. */
+  assumed: boolean;
+  forwarded: bigint;
+}
+
+/** Simulasi BPJS membayar batch dasar pencairan: auto-debit pokok + margin, sisa ke operasional. */
+export function simulateBpjsPayment(
+  facility: FinancingFacility,
+  drawdown: Drawdown,
+  pool: readonly ReceivableBatch[],
+  today: string,
+): BpjsPayment {
+  const claims = pool
+    .filter((b) => drawdown.batchIds.includes(b.id))
+    .reduce((s, b) => s + BigInt(b.amount), 0n);
+  const principal = BigInt(drawdown.principal);
+  const elapsed = drawdown.disbursedOn ? daysBetween(drawdown.disbursedOn, today) : 0;
+  const assumed = elapsed <= 0;
+  const days = assumed ? facility.avgBpjsPayDays : elapsed;
+  const margin = marginFor(principal, facility.marginBps, days);
+  const { forwarded } = repaymentSplit(claims, principal, margin);
+  return { drawdownId: drawdown.id, claims, principal, margin, days, assumed, forwarded };
+}

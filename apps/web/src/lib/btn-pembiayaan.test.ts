@@ -6,11 +6,13 @@ import {
   daysBetween,
   eligibleBatches,
   facilityPosition,
+  formatRingkas,
   marginFor,
   monthlyInstalment,
   nextInstalmentStage,
   quoteDrawdown,
   repaymentSplit,
+  simulateBpjsPayment,
 } from './btn-pembiayaan';
 import { CICILAN, FASILITAS, PENCAIRAN, POOL_KLAIM } from './demo/fixtures/btn';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
@@ -73,5 +75,30 @@ describe('cicilan biaya pasien', () => {
     expect(nextInstalmentStage('ditolak')).toBeNull();
     expect(canReject({ stage: 'verifikasi' })).toBe(true);
     expect(canReject({ stage: 'disetujui' })).toBe(false);
+  });
+});
+
+describe('simulasi pembayaran BPJS dan format ringkas', () => {
+  it('BPJS membayar batch dasar: pokok + margin didebit, sisa ke operasional (jumlah = nilai klaim)', () => {
+    const first = drawdowns[0];
+    if (!first) throw new Error('pencairan');
+    const p = simulateBpjsPayment(FASILITAS, first, POOL_KLAIM, DEMO_TODAY);
+    expect(p).toMatchObject({ claims: 4_800_000_000n, principal: 4_320_000_000n, days: 31, assumed: false });
+    expect(p.margin).toBe(marginFor(4_320_000_000n, 800, 31));
+    expect(p.principal + p.margin + p.forwarded).toBe(p.claims);
+    const fresh = simulateBpjsPayment(
+      FASILITAS,
+      { ...first, disbursedOn: DEMO_TODAY },
+      POOL_KLAIM,
+      DEMO_TODAY,
+    );
+    expect(fresh).toMatchObject({ days: 34, assumed: true });
+  });
+
+  it('format ringkas', () => {
+    expect(formatRingkas(15_000_000_000n)).toBe('Rp 15,00 M');
+    expect(formatRingkas(7_470_000_000n)).toBe('Rp 7,47 M');
+    expect(formatRingkas(6_426_000n)).toBe('Rp 6,4 jt');
+    expect(formatRingkas(684_400n)).toBe('Rp 684.400');
   });
 });

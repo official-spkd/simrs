@@ -153,7 +153,9 @@ export function RekonTab({
                   <Chip tone={open ? 'danger' : done ? 'success' : TONE[r.status]}>
                     {done ? 'Ditangani' : status}
                   </Chip>
-                  <span className="text-caption text-ink-500">{open ? 'perlu tindakan' : r.note}</span>
+                  <span className="text-caption text-ink-500">
+                    {open ? 'perlu tindakan' : done ? formatWhen(done.at) : r.note}
+                  </span>
                 </span>
               </div>
               {open && <RekonException row={r} busy={busy} onApply={(a, n) => onResolve(r, a, n)} />}

@@ -69,7 +69,7 @@ test.describe('pembayaran digital TPDI × BTN', () => {
       page.getByRole('heading', { name: 'Pembayaran digital · TPDI × BTN', level: 1 }),
     ).toBeVisible();
     await expect(
-      page.getByRole('region', { name: 'Alur dana' }).getByText('tidak menampung dana'),
+      page.getByRole('region', { name: 'Alur dana' }).getByText('tidak menampung dana', { exact: true }),
     ).toBeVisible();
     const kpi = page.getByRole('region', { name: 'Indikator pembayaran' });
     await expect(kpi.getByText('Rp 48,62 jt')).toBeVisible();
@@ -78,7 +78,7 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await expect(daftar.getByText('Menampilkan 10 dari 10 transaksi contoh', { exact: false })).toBeVisible();
     await daftar.getByRole('button', { name: /Ny\. Endang Wijaya/ }).click();
     const detail = page.getByRole('complementary', { name: 'Detail transaksi' });
-    await expect(detail.getByText('INV-2610-02217', { exact: false })).toBeVisible();
+    await expect(detail.getByText('INV-2610-02217 · Rp 250.400', { exact: true })).toBeVisible();
     await detail.getByRole('button', { name: 'Simulasikan pembayaran (webhook TPDI)' }).click();
     await expect(
       page.getByText(/Webhook TPDI diterima, tagihan lunas · \d{2}\.\d{2} \(simulasi, tidak disimpan\)/),
@@ -90,7 +90,7 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await expect(detail.getByText('duplikat · diabaikan')).toBeVisible();
     await expect(detail.getByText('Dikreditkan sekali per event id: Rp 5.000.000')).toBeVisible();
 
-    await page.getByRole('tab', { name: /Rekonsiliasi · 3 selisih/ }).click();
+    await page.getByRole('tab', { name: /^Rekonsiliasi\s*3 selisih$/ }).click();
     const rekon = page.getByRole('region', { name: 'Rekonsiliasi tiga arah' });
     const baris = rekon.getByRole('listitem').filter({ hasText: 'Tn. Darmawan Putra' });
     await baris
@@ -103,9 +103,65 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await catatan.fill('Dana cocok di laporan TPDI dan mutasi BTN; webhook gagal');
     await expect(terapkan).toBeEnabled();
     await terapkan.click();
-    await expect(baris.getByText('Ditangani')).toBeVisible();
+    await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
     await expect(baris.getByText(/tercatat di jejak audit/)).toBeVisible();
-    await expect(page.getByRole('tab', { name: /Rekonsiliasi · 2 selisih/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^Rekonsiliasi\s*2 selisih$/ })).toBeVisible();
+    // Pindah tab tidak menghapus penyelesaian yang sudah dicatat di layar ini.
+    await page.getByRole('tab', { name: /^Transaksi/ }).click();
+    await page.getByRole('tab', { name: /^Rekonsiliasi/ }).click();
+    await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+});
+
+test.describe('pembiayaan BTN', () => {
+  test('pencairan piutang BPJS dan tahap cicilan pasien sampai dicairkan', async ({ page }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/keuangan/pembiayaan');
+    await expect(
+      page.getByRole('heading', { name: 'Pembiayaan BTN · fasilitas kesehatan (simulasi)', level: 1 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Indikator fasilitas' }).getByText('Rp 15,00 M'),
+    ).toBeVisible();
+
+    // Tab A: dua batch layak bayar terpilih → ajukan → disetujui → cair.
+    const pool = page.getByRole('region', { name: 'Pool klaim BPJS' });
+    await pool.getByRole('button', { name: 'Ajukan pencairan' }).click();
+    await expect(pool.getByText(/Pengajuan PCR-2610-01/)).toBeVisible();
+    await pool.getByRole('button', { name: 'Simulasi: BTN menyetujui' }).click();
+    await pool.getByRole('button', { name: 'Simulasi: BTN mencairkan dana' }).click();
+    await expect(pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional/)).toBeVisible();
+
+    // Tab B: Diajukan → Verifikasi BTN → Disetujui → Akad TTE → Dicairkan.
+    await page.getByRole('tab', { name: /^B · Cicilan biaya pasien/ }).click();
+    const daftar = page.getByRole('region', { name: 'Daftar pengajuan cicilan' });
+    const detail = page.getByRole('region', { name: 'Detail pengajuan' });
+    await daftar.getByRole('button', { name: /Ny\. Wulan Sari Dewi/ }).click();
+    await expect(detail.getByText('Diajukan', { exact: true })).toBeVisible();
+    const steps: Array<[string, string]> = [
+      ['Simulasi: teruskan ke verifikasi BTN', 'Verifikasi BTN'],
+      ['Simulasi: BTN menyetujui', 'Disetujui'],
+      ['Simulasi: pasien tanda tangan akad (TTE)', 'Akad TTE'],
+      ['Simulasi: BTN mencairkan dana', 'Dicairkan'],
+    ];
+    for (const [button, chip] of steps) {
+      await detail.getByRole('button', { name: button }).click();
+      await expect(detail.getByText(chip, { exact: true })).toBeVisible();
+    }
+    await expect(detail.getByText(/✓ BTN mencairkan Rp 14\.200\.000/)).toBeVisible();
+
+    // Penolakan wajib beralasan (≥ 10 karakter).
+    await daftar.getByRole('button', { name: /Tn\. Fajar Nugraha/ }).click();
+    await detail.getByRole('button', { name: 'Tolak' }).click();
+    const tolak = detail.getByRole('button', { name: 'Konfirmasi tolak' });
+    await detail.getByLabel('Alasan penolakan dari BTN (wajib)').fill('kurang');
+    await expect(tolak).toBeDisabled();
+    await detail
+      .getByLabel('Alasan penolakan dari BTN (wajib)')
+      .fill('Slip gaji tidak dapat diverifikasi BTN');
+    await tolak.click();
+    await expect(detail.getByText(/✕ Ditolak BTN: Slip gaji tidak dapat diverifikasi BTN/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 });
