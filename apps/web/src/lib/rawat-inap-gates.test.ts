@@ -8,6 +8,7 @@ import {
 } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { pillTabIds, pillTabTarget } from '../components/rawat-inap/pill-tabs-model';
+import { MIN_STROKE, StrokeTracker } from '../components/rawat-inap/signature-stroke';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
 import { patientById } from './demo/fixtures/pasien';
@@ -393,7 +394,7 @@ describe('K11 · tablet persetujuan: giliran skenario dan kunci per status', () 
   });
 });
 
-describe('komponen rawat inap: tab ARIA', () => {
+describe('komponen rawat inap: tab ARIA dan goresan tanda tangan', () => {
   it('panah kiri/kanan berputar, Home/End ke ujung; tab ↔ panel berpasangan', () => {
     expect(pillTabTarget('ArrowRight', 4, 5)).toBe(0);
     expect(pillTabTarget('ArrowLeft', 0, 5)).toBe(4);
@@ -403,5 +404,24 @@ describe('komponen rawat inap: tab ARIA', () => {
     expect(pillTabTarget('Enter', 0, 5)).toBeNull();
     expect(pillTabTarget('ArrowRight', 0, 0)).toBeNull();
     expect(pillTabIds(':r1:', 'cppt')).toEqual({ tab: ':r1:-tab-cppt', panel: ':r1:-panel-cppt' });
+  });
+
+  it('pointercancel mengakhiri goresan seperti pointerup; pointer kedua diabaikan', () => {
+    const t = new StrokeTracker();
+    expect(t.down(1, { x: 0, y: 0 })).toBe(true);
+    expect(t.down(2, { x: 5, y: 5 })).toBe(false);
+    expect(t.move(2, { x: 50, y: 50 })).toBeNull();
+    expect(t.move(1, { x: 30, y: 40 })).toEqual({ from: { x: 0, y: 0 }, to: { x: 30, y: 40 } });
+    // Goresan pendek (50 px) dibatalkan sistem: berakhir bersih, belum menjadi tanda tangan.
+    expect(t.end(1)).toBe(false);
+    expect(t.active).toBe(false);
+    expect(t.move(1, { x: 60, y: 60 })).toBeNull();
+    // Goresan berikutnya menambah panjang sampai cukup; akhir ganda (up lalu lostpointercapture) tidak berefek.
+    expect(t.down(3, { x: 0, y: 0 })).toBe(true);
+    t.move(3, { x: MIN_STROKE, y: 0 });
+    expect(t.end(3)).toBe(true);
+    expect(t.end(3)).toBe(false);
+    t.reset();
+    expect(t.length).toBe(0);
   });
 });
