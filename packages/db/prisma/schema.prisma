@@ -62,6 +62,8 @@ model Tenant {
   signatures       DocumentSignature[]
   trustedDevices   TrustedDevice[]
   devices          RegisteredDevice[]
+  backupRuns       BackupRun[]
+  restoreTests     RestoreTest[]
 
   @@map("tenants")
 }
@@ -942,4 +944,62 @@ model RegisteredDevice {
   @@unique([tenantId, id])
   @@index([tenantId, userId])
   @@map("registered_devices")
+}
+
+/// Fase 10 · Backup terenkripsi tiga lokasi (ADR-0071). Baris milik tenant PLATFORM (bukan data RS), append-only, dan
+/// hanya ditulis lewat `app_record_backup_run()` oleh peran ops `simrs_backup`. RS membaca ringkasan lewat
+/// `app_backup_status()` (tanpa lokasi, kunci, atau ukuran).
+model BackupRun {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  /// `<UTC yyyymmddThhmmssZ>-<kind>`, sama dengan nama folder backup di ketiga lokasi.
+  backupKey      String   @map("backup_key")
+  /// hourly | daily | manual
+  kind           String
+  /// success (ketiga lokasi) | partial (dump ada, minimal satu lokasi gagal) | failed
+  status         String
+  startedAt      DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime @map("finished_at") @db.Timestamptz(3)
+  /// Lokasi yang berhasil: local | cloud | offsite
+  locationsOk    String[] @map("locations_ok")
+  dbBytes        BigInt?  @map("db_bytes")
+  documentsBytes BigInt?  @map("documents_bytes")
+  documentFiles  Int?     @map("document_files")
+  tableCount     Int?     @map("table_count")
+  rowTotal       BigInt?  @map("row_total")
+  manifestSha256 String?  @map("manifest_sha256")
+  /// Ringkas (maks. 500 karakter), tanpa rahasia koneksi.
+  error          String?
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, backupKey])
+  @@index([tenantId, finishedAt])
+  @@map("backup_runs")
+}
+
+/// Fase 10 · Hasil uji restore di kontainer bersih (ADR-0071): RTO terukur + hasil tiap langkah. Tenant PLATFORM,
+/// append-only, ditulis lewat `app_record_restore_test()`.
+model RestoreTest {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// Kosong bila tidak ada backup lengkap yang bisa dipulihkan (uji tetap dicatat sebagai gagal).
+  backupKey  String?  @map("backup_key")
+  /// Lokasi asal backup yang dipulihkan: local | cloud | offsite
+  source     String
+  /// success | failed
+  status     String
+  startedAt  DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime @map("finished_at") @db.Timestamptz(3)
+  rtoSeconds Int      @map("rto_seconds")
+  /// Hasil per langkah `{ <langkah>: { ok, ms, detail? } }`, tanpa data pasien.
+  checks     Json
+  error      String?
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, finishedAt])
+  @@map("restore_tests")
 }

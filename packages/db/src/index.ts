@@ -23,6 +23,7 @@ export {
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
+export { readBackupStatus } from './backup';
 export {
   activeAssignments,
   ensureSystemRoles,
