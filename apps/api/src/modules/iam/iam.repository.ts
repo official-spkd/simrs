@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { activeAssignments, lockTenantScope, type Prisma } from '@simrs/db';
+import { activeAssignments, lockTenantScope, type Prisma, ROLE_MATRIX_LOCK } from '@simrs/db';
 import { ACCESS_ADMIN_GRANTS, newId, PROTECTED_ROLES, type TenantKind } from '@simrs/shared';
+import { revokePinDevices } from '../../infra/auth/pin-devices';
 import { TenantDb } from '../../infra/tenant-db';
 
 const now = () => new Date();
@@ -10,6 +11,14 @@ const activeAt = (at: Date) => ({
 });
 /** Baris izin yang membuat sebuah peran setara admin. */
 const accessAdminGrant = { OR: ACCESS_ADMIN_GRANTS.map(([resource, action]) => ({ resource, action })) };
+/**
+ * Filter status daftar pengguna: `active`/`disabled` = kolom status; `not_activated` = akun aktif yang belum punya
+ * kata sandi (belum bisa masuk sampai admin mereset sandinya, mis. staf seed).
+ */
+const byStatus = (status?: string) => {
+  if (status === 'not_activated') return { status: 'active', credential: { is: null } };
+  return status ? { status } : {};
+};
 
 /** P03 · Data pengguna, penugasan, dan matriks peran (transaksi permintaan, RLS aktif). */
 @Injectable()
@@ -40,7 +49,7 @@ export class IamRepository {
     return this.db.tx().user.findMany({
       where: {
         ...(q.cursor ? { id: { gt: q.cursor } } : {}),
-        ...(q.status ? { status: q.status } : {}),
+        ...byStatus(q.status),
         ...(q.search
           ? {
               OR: [
@@ -64,6 +73,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -104,6 +114,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -121,7 +132,28 @@ export class IamRepository {
             unit: { select: { name: true } },
           },
         },
+        // PIN masuk cepat yang masih berlaku (ADR-0024), untuk ditinjau/dicabut admin.
+        devices: {
+          where: { kind: 'staff_pin', revokedAt: null, expiresAt: { gt: now() } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            lastUsedAt: true,
+            expiresAt: true,
+            assignment: { select: { role: { select: { name: true } }, unit: { select: { name: true } } } },
+          },
+        },
       },
+    });
+  }
+
+  /** PIN perangkat (jenis `staff_pin`) untuk dicabut admin. */
+  findPinDevice(id: string) {
+    return this.db.tx().registeredDevice.findFirst({
+      where: { id, kind: 'staff_pin' },
+      select: { userId: true, revokedAt: true },
     });
   }
 
@@ -139,6 +171,7 @@ export class IamRepository {
         where: { status: 'active', mfaFactors: { none: { disabledAt: null, confirmedAt: { not: null } } } },
       }),
       dormant: await tx.user.count({ where: { status: 'active', ...neverOrStale } }),
+      notActivated: await tx.user.count({ where: byStatus('not_activated') }),
       breakGlass7d: await tx.breakGlassGrant.count({
         where: { grantedAt: { gte: new Date(at.getTime() - 7 * 86_400_000) } },
       }),
@@ -222,12 +255,16 @@ export class IamRepository {
       .mfaFactor.updateMany({ where: { userId: id, disabledAt: null }, data: { disabledAt: now() } });
   }
 
-  /** Cabut semua sesi aktif + perangkat tepercaya (reset sandi/MFA, nonaktif): login berikutnya wajib MFA lagi. */
-  async revokeSessions(userId: string, reason: string) {
+  /**
+   * Cabut semua sesi aktif, perangkat tepercaya, dan PIN perangkat (reset sandi/MFA, nonaktif): login berikutnya
+   * wajib sandi + MFA lagi, dan PIN harus didaftarkan ulang dari login penuh.
+   */
+  async revokeSessions(userId: string, reason: 'user_disabled' | 'password_reset' | 'mfa_reset') {
     await this.db.tx().trustedDevice.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: now() },
     });
+    await revokePinDevices(this.db.tx(), { userId }, reason, this.db.actorUserId());
     return this.db.tx().authSession.updateMany({
       where: { userId, status: 'active' },
       data: { status: 'revoked', revokedAt: now(), revokedReason: reason },
@@ -303,21 +340,35 @@ export class IamRepository {
     return n > 0;
   }
 
-  endAssignment(id: string, at: Date, reason: string) {
-    return this.db.tx().staffAssignment.update({
+  /** Akhiri penugasan; PIN perangkat untuk posisi itu ikut dicabut (sesi PIN-nya berakhir). */
+  async endAssignment(id: string, at: Date, reason: string) {
+    const r = await this.db.tx().staffAssignment.update({
       where: { id },
       data: { validUntil: at, endReason: reason, updatedBy: this.db.actorUserId() },
       select: { id: true, validUntil: true },
     });
+    await revokePinDevices(this.db.tx(), { assignmentId: id }, 'assignment_ended', this.db.actorUserId());
+    return r;
   }
 
-  /** Jumlah pengguna AKTIF dengan penugasan admin yang masih berlaku, opsional mengecualikan satu penugasan/pengguna. */
+  /** Cabut satu PIN perangkat (admin), mis. perangkat hilang atau staf pindah unit. */
+  revokePinDevice(id: string) {
+    return revokePinDevices(this.db.tx(), { id }, 'admin_revoked', this.db.actorUserId());
+  }
+
+  /**
+   * Jumlah penugasan admin yang masih berlaku milik pengguna yang BISA MASUK: status aktif dan sudah punya kata
+   * sandi (baris `user_credentials`). Admin yang belum diaktifkan (mis. staf seed tanpa sandi) tidak dihitung,
+   * karena tidak bisa memulihkan RS bila admin terakhir yang nyata dicabut. MFA tidak disyaratkan: admin yang baru
+   * direset sedang menjalani login pertama (ADR-0012, pembaruan 5 Okt 2026). Opsional mengecualikan satu
+   * penugasan/pengguna.
+   */
   countActiveAdmins(exclude: { assignmentId?: string; userId?: string } = {}) {
     return this.db.tx().staffAssignment.count({
       where: {
         ...activeAt(now()),
         role: { code: { in: [...PROTECTED_ROLES] }, active: true },
-        user: { status: 'active' },
+        user: { status: 'active', credential: { isNot: null } },
         ...(exclude.assignmentId ? { id: { not: exclude.assignmentId } } : {}),
         ...(exclude.userId ? { userId: { not: exclude.userId } } : {}),
       },
@@ -351,6 +402,8 @@ export class IamRepository {
   ) {
     const tx = this.db.tx();
     const tenantId = this.db.tenantId();
+    // Serial dengan sinkron izin katalog (CLI) agar tidak saling menimpa pembacaan matriks.
+    await lockTenantScope(tx, ROLE_MATRIX_LOCK);
     const before = await tx.rolePermission.findMany({
       where: { roleId },
       select: { resource: true, action: true, scope: true },

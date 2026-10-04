@@ -18,8 +18,10 @@ import {
   correctCpptEntry,
   cpptMatches,
   ewsLevel,
+  ewsMaxParam,
   ewsScore,
   newCpptEntry,
+  observationEwsLevel,
   resumeCompleteness,
   resumeSignBlocker,
   supersededIds,
@@ -145,6 +147,41 @@ describe('K04/K07/K12 · rawat inap', () => {
     expect(ewsLevel(4).level).toBe('rendah');
     expect(ewsLevel(5).level).toBe('sedang');
     expect(ewsLevel(7).level).toBe('tinggi');
+  });
+
+  it('EWS: satu parameter bernilai 3 menaikkan ke minimal sedang (NEWS2), juga di rekam rawat inap', () => {
+    const o = {
+      at: '2026-10-05T08:00:00+07:00',
+      temp: 37,
+      hr: 80,
+      rr: 26,
+      sbp: 122,
+      dbp: 78,
+      spo2: 97,
+      onOxygen: false,
+      consciousness: 'A' as const,
+    };
+    const obs = { ...o, score: ewsScore(o) };
+    expect([obs.score, ewsMaxParam(obs)]).toEqual([3, 3]);
+    expect(ewsLevel(obs.score).level).toBe('rendah');
+    expect(observationEwsLevel(obs).level).toBe('sedang');
+    expect(observationEwsLevel(obs).action).toMatch(/Satu parameter bernilai 3/);
+    expect(observationEwsLevel({ ...obs, rr: 18, score: 0 }).level).toBe('rendah');
+
+    // Ringkasan daftar/banner (lastEws + lastEwsMaxParam) = tingkat observasi terakhir di tabel observasi.
+    const all = [
+      ...demoInpatients(),
+      hartonoInpatient(runScenario(SCENARIOS['igd-ranap'], jump('igd-ranap', 'rawat-inap'))),
+    ];
+    for (const d of all) {
+      const last = d?.observations.at(-1);
+      if (!d || !last) continue;
+      const s = d.summary;
+      expect([s.encounterId, ewsLevel(s.lastEws, s.lastEwsMaxParam).level]).toEqual([
+        s.encounterId,
+        observationEwsLevel(last).level,
+      ]);
+    }
   });
 
   it('Tn. Hartono masuk rawat inap setelah serah terima; CPPT bertambah mengikuti lompatan hari', () => {

@@ -23,6 +23,8 @@ export interface RequestActor {
   sessionId: string | null;
   /** Unit kerja yang dipilih saat login (diisi P03/layar Login). */
   unitId: string | null;
+  /** Sesi masuk cepat dengan PIN (ADR-0024): perangkat ber-PIN yang dipakai; posisi terkunci. */
+  deviceId?: string | null;
 }
 
 /**
@@ -39,6 +41,11 @@ export interface TenantRequestContext {
   /** Lingkup izin yang diberikan untuk endpoint ini (P03), null bila endpoint tanpa @RequirePermission. */
   permissionScope: PermissionScope | null;
   audit: PendingAudit[];
+  /**
+   * Dijalankan interceptor setelah transaksi permintaan COMMIT (tidak dijalankan bila batal), mis. invalidasi
+   * cache matriks izin. Tidak boleh mengubah data atau memanggil sistem eksternal (pakai outbox).
+   */
+  afterCommit: Array<() => Promise<void> | void>;
 }
 
 export const requestContext = new AsyncLocalStorage<TenantRequestContext>();

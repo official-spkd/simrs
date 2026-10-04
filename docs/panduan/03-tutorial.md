@@ -25,6 +25,7 @@ Isi `.env` yang perlu diperhatikan:
 | `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya                                     |
 | `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi |
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
+| `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
 ### Mesin baru (macOS)
@@ -89,7 +90,7 @@ Atau nyalakan Postgres hanya selama satu perintah, lalu otomatis dimatikan:
 pnpm with-pg pnpm test
 ```
 
-Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker.
+Skrip ini menyimpan data di `.local/pg-data` dan menjalankan `infra/postgres/init.sql` sekali, sehingga role dan database sama dengan versi Docker. Dari `.env`, `with-pg` hanya meneruskan koneksi Postgres (`POSTGRES_PORT`, `DATABASE_URL`, `MIGRATOR_DATABASE_URL`, `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`) dan `TZ`; variabel lain (mis. `NODE_ENV`, kunci enkripsi) dibaca sendiri oleh setiap aplikasi dari `.env`, jadi perintah berperilaku sama seperti tanpa `with-pg`. Daftar dan alasannya ada di kepala `scripts/with-pg.mjs`.
 
 ### Siapkan database pengembangan
 
@@ -106,9 +107,11 @@ penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`
 berawalan `9999` (mis. `999901292022022025`), no. HP fiktif `0813-0000-1xxx` (tersimpan terenkripsi). Seed aman diulang:
 akun yang sudah ada tidak diubah.
 
-Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk. Untuk memakai salah satunya,
-admin SIM RS membuka **Pengguna & akses**, memilih staf itu, lalu **Reset kata sandi**: sandi sementara tampil sekali, dan
-saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti sandi (sama dengan undangan biasa).
+Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk; di **Pengguna & akses** statusnya
+**Belum diaktifkan** (ada di filter status). Untuk memakai salah satunya, admin SIM RS memilih staf itu lalu **Reset kata
+sandi**: sandi sementara tampil sekali, dan saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti
+sandi (sama dengan undangan biasa). Admin seed yang belum diaktifkan tidak dihitung sebagai admin aktif, jadi admin
+terakhir yang bisa masuk tetap tidak bisa dinonaktifkan atau dicabut perannya.
 
 ### Buat akun untuk masuk
 
@@ -145,6 +148,16 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 ```
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
+
+Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan di `packages/shared/src/authz.ts`), bawa izin itu ke peran RS yang sudah berjalan:
+
+```powershell
+pnpm db:sync-permissions --dry-run            # tampilkan rencana per RS, tanpa menyimpan
+pnpm db:sync-permissions                      # semua tenant aktif
+pnpm db:sync-permissions --tenant RSCM        # satu tenant saja
+```
+
+Hanya menambah izin yang baru di katalog ke peran yang memilikinya di matriks bawaan; tidak pernah mencabut, tidak mengubah lingkup yang disesuaikan RS, dan tidak memberi lagi izin yang pernah dicabut admin (dibaca dari jejak audit). Satu transaksi per tenant, setiap perubahan diaudit, aman dijalankan berulang. API yang sedang berjalan memakai izin baru paling lambat setelah `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik).
 
 Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSCM`, `RSFA`, atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
@@ -488,8 +501,8 @@ Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan 
 ```powershell
 pnpm lint
 pnpm typecheck
-pnpm test                          # unit + integrasi (butuh Postgres; worker juga butuh Redis)
-pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri API :4010 + build web :3010 dan :3011 (presentasi)
+pnpm test                          # unit + integrasi (butuh Postgres; worker dan tes batas laju API juga butuh Redis)
+pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri mock :4110, API :4010, worker, build web :3010 dan :3011 (presentasi)
 ```
 
 Sebelum commit:
@@ -501,7 +514,7 @@ Sebelum commit:
 
 ### Beberapa salinan repo sekaligus (git worktree)
 
-Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) dengan `git worktree`. Postgres (satu server), Redis, MinIO, Mailpit, dan port `pnpm dev` (3000/4000/4100) dipakai bersama, jadi `pnpm dev` hanya di satu salinan. Yang dipisah per salinan: `.env`, database, dan slot E2E.
+Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) dengan `git worktree`. Postgres (satu server), Redis, MinIO, Mailpit, dan port `pnpm dev` (3000/4000/4100) dipakai bersama, jadi `pnpm dev` hanya di satu salinan. Yang dipisah per salinan: `.env`, database, dan slot E2E. Penghitung batas laju API di Redis otomatis terpisah per database (awalan kunci `simrs:rl:<nama database>:`).
 
 1. Buat salinan dan `.env`-nya (`.env` tidak ikut git; kunci enkripsinya boleh sama):
 
@@ -520,19 +533,20 @@ Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) de
 
    Nama wajib `simrs_test_<nama>` (huruf kecil, angka, garis bawah): persiapan tes (`assertTestDatabase` di `@simrs/db/testing`) menolak nama lain agar tes tidak pernah memigrasi atau mengisi database pengembangan. Database kosong cukup; `pnpm test` atau E2E pertama menerapkan migrasi dan seed tenant fiktif sendiri (migrasi memuat `CREATE EXTENSION` dan `GRANT`, ADR-0008).
 
-3. Jalankan E2E di slot sendiri. Bawaannya API :4010, web :3010, web presentasi :3011, dan folder sementara `simrs-demo-e2e` (kredensial akun presentasi uji + keadaan simulasi); dua salinan dengan nilai yang sama saling bertabrakan:
+3. Jalankan E2E di slot sendiri. Bawaannya API :4010, web :3010, web presentasi :3011, mock :4110 (`E2E_MOCK_PORT`, bawaan = port API + 100), dan folder sementara `simrs-demo-e2e` (kredensial akun presentasi uji + keadaan simulasi); dua salinan dengan nilai yang sama saling bertabrakan. Worker outbox E2E tidak memakai port (penjadwal `interval`, bukan BullMQ, karena Redis dipakai bersama):
 
    ```bash
-   E2E_API_PORT=4020 E2E_WEB_PORT=3020 E2E_DEMO_PORT=3021 E2E_TMP_NAME=simrs-demo-e2e-pin \
+   E2E_API_PORT=4020 E2E_WEB_PORT=3020 E2E_DEMO_PORT=3021 E2E_MOCK_PORT=4120 E2E_TMP_NAME=simrs-demo-e2e-pin \
      pnpm --filter @simrs/web test:e2e
    ```
 
-   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
+   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Port yang diblokir `fetch`/browser (mis. 4190, 5060, 6000, 6665–6669, 10080) ditolak saat konfigurasi dimuat (`e2e/support/slot.ts`); API :4090 karena itu butuh `E2E_MOCK_PORT` eksplisit (bawaannya 4190). Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
 
 Aturan:
 
 - Migrasi dari cabang yang belum digabung **hanya** diterapkan ke database salinan itu sendiri, tidak ke `simrs` atau database salinan lain. Setelah digabung ke `master`, checkout utama menerapkannya dengan `pnpm db:deploy`.
 - Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
+- Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
 ## 8. Pemecahan masalah
@@ -549,5 +563,5 @@ Aturan:
 | `node -v` bukan v24, atau `corepack` tidak dikenal           | Alat lain menaruh `node`-nya lebih dulu di `PATH`. Lihat [Mesin baru (macOS)](#mesin-baru-macos).                                                                                     |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
-| Tes worker: "Redis tidak terjangkau"                         | Redis butuh Docker (`pnpm infra:up`). Tes ini sengaja tidak dilewati.                                                                                                                 |
+| Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |
 | `pnpm install`: "Ignored build scripts"                      | pnpm memblokir skrip instalasi yang belum disetujui. Periksa paketnya, lalu `pnpm approve-builds <paket>` atau tolak dengan `!<paket>`. Keputusan tersimpan di `pnpm-workspace.yaml`. |

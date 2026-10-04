@@ -26,7 +26,7 @@ import {
 
 /** Akun uji fiktif dibuat langsung di simrs_test (role aplikasi, RLS aktif). Nama pengguna unik per tes. */
 
-const TENANTS = {
+export const TENANTS = {
   RSFA: '0199a000-0000-7000-8000-000000000001',
   PLATFORM: SEED_PLATFORM_TENANT.id,
 } as const;
@@ -51,7 +51,7 @@ function prisma(): PrismaClient {
  * Transaksi ber-tenant untuk penyiapan data uji. Saat seluruh suite jalan paralel (build web + API + banyak browser),
  * membuka koneksi Postgres baru (di Windows: satu proses per koneksi) bisa melebihi batas tunggu bawaan Prisma 2 dtk.
  */
-function inTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+export function inTenant<T>(tenantId: string, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
   return withTenant(prisma(), tenantId, fn, { maxWaitMs: 20_000 });
 }
 
@@ -62,6 +62,10 @@ export async function createAccount(
     mfa?: boolean;
     mustChangePassword?: boolean;
     displayName?: string;
+    /** false = akun tanpa kata sandi (belum diaktifkan, seperti staf seed); `password` tidak berlaku. */
+    credential?: boolean;
+    /** Penugasan terikat unit baru bernama ini (mis. untuk PIN masuk cepat); tanpa ini "Semua unit". */
+    unitName?: string;
   } = {},
 ): Promise<Account> {
   const tenantCode = opts.tenant ?? 'RSFA';
@@ -86,10 +90,24 @@ export async function createAccount(
         mustChangePassword: opts.mustChangePassword ?? false,
       },
     });
-    await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    if (opts.credential !== false) {
+      await tx.userCredential.create({ data: { userId: id, tenantId, passwordHash } });
+    }
+    let unitId: string | null = null;
+    if (opts.unitName) {
+      const facilityId = newId();
+      const code = `E2E${id.slice(-8).toUpperCase()}`;
+      await tx.facility.create({ data: { id: facilityId, tenantId, code, name: 'Gedung E2E fiktif' } });
+      unitId = newId();
+      await tx.unit.create({
+        data: { id: unitId, tenantId, facilityId, code, name: opts.unitName, kind: 'rawat_inap' },
+      });
+    }
     for (const code of opts.roles ?? []) {
       const role = await tx.role.findFirstOrThrow({ where: { code } });
-      await tx.staffAssignment.create({ data: { id: newId(), tenantId, userId: id, roleId: role.id } });
+      await tx.staffAssignment.create({
+        data: { id: newId(), tenantId, userId: id, roleId: role.id, unitId },
+      });
     }
     if (account.totpSecret) {
       await tx.mfaFactor.create({

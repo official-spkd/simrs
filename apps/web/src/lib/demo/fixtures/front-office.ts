@@ -12,7 +12,7 @@ import {
   type WeeklySchedule,
 } from '@simrs/shared';
 import { nextQueueNo } from '../../front-office';
-import { type DemoPatient, patientById } from './pasien';
+import { ANTREAN_POLI_PD, type DemoPatient, NEXT_POLI_PD, patientById } from './pasien';
 import { poliByCode, queueNo } from './rs';
 import { doctorById } from './staf';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from './waktu';
@@ -79,7 +79,7 @@ const WEEK: ReadonlyArray<readonly [doctorId: string, cells: readonly Cell[]]> =
   [
     'dr-andini',
     [
-      ['08.00', '12.00', 24, 6, 17, 5],
+      ['07.30', '12.00', 24, 6, 17, 5],
       ['08.00', '12.00', 24, 6, 21, 5],
       ['08.00', '12.00', 24, 6, 10, 2],
       ['08.00', '12.00', 24, 6, 7, 2],
@@ -251,20 +251,43 @@ function boardClinic(
   };
 }
 
+/** Nomor Poli PD yang sudah dipanggil, urut jam panggil (roster `ANTREAN_POLI_PD`). */
+function pdCalled(): string[] {
+  return ANTREAN_POLI_PD.filter((a) => a.dipanggil !== null)
+    .sort((a, b) => (a.dipanggil ?? '').localeCompare(b.dipanggil ?? ''))
+    .map((a) => a.no);
+}
+
 /**
- * F04 · Papan antrean. PD-027 (Tn. Suryo, booking aplikasi) dicadangkan: muncul sebagai "berikutnya" setelah SEP
- * terbit dan baru dipanggil ketika DPJP memanggilnya (`pemeriksaan-dokter.panggil`), tidak oleh panggilan otomatis.
+ * Kartu Poli PD diturunkan dari roster antrean yang sama dengan layar Pemeriksaan: dilayani = pasien yang sedang
+ * diperiksa, berikutnya = yang menunggu (urut nomor). PD-027 (Tn. Suryo, booking aplikasi) dicadangkan: masuk
+ * "berikutnya" setelah SEP terbit dan baru dipanggil ketika DPJP memanggilnya (`pemeriksaan-dokter.panggil`).
+ */
+function pdClinic(p: FrontOfficeProgress): { clinic: QueueBoardClinic; previous: string | null } {
+  const note = 'Estimasi 12 menit per pasien';
+  const called = pdCalled();
+  const waiting = ANTREAN_POLI_PD.filter((a) => a.status === 'menunggu').map((a) => a.no);
+  if (p.doctorCalled) {
+    return {
+      clinic: boardClinic('dr-andini', SCENARIO_RJ.poliQueue, waiting, note),
+      previous: called.at(-1) ?? null,
+    };
+  }
+  const current = ANTREAN_POLI_PD.find((a) => a.status === 'diperiksa')?.no ?? called.at(-1);
+  if (!current) throw new Error('Roster Poli PD belum punya pasien yang dipanggil');
+  const next = p.sep ? [...waiting, SCENARIO_RJ.poliQueue].sort() : waiting;
+  return {
+    clinic: boardClinic('dr-andini', current, next, note, { reserved: [SCENARIO_RJ.poliQueue] }),
+    previous: called.filter((no) => no !== current).at(-1) ?? null,
+  };
+}
+
+/**
+ * F04 · Papan antrean. Poli PD mengikuti roster antrean (`pdClinic`); poli lain lantai 2 belum punya layar
+ * pemeriksaan, nomornya anonim.
  */
 export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard {
-  const pd = p.doctorCalled
-    ? boardClinic('dr-andini', SCENARIO_RJ.poliQueue, range('PD', 28, 31), 'Estimasi 12 menit per pasien')
-    : boardClinic(
-        'dr-andini',
-        'PD-025',
-        p.sep ? range('PD', 26, 31) : ['PD-026', ...range('PD', 28, 31)],
-        'Estimasi 12 menit per pasien',
-        { reserved: [SCENARIO_RJ.poliQueue] },
-      );
+  const { clinic: pd, previous } = pdClinic(p);
   const clinics = [
     pd,
     boardClinic('dr-bagus', 'JT-009', range('JT', 10, 13), 'Estimasi 15 menit per pasien'),
@@ -281,8 +304,8 @@ export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard
   return {
     area: 'Rawat Jalan Lantai 2',
     asOf: DEMO_NOW,
-    calling: { queueNo: pd.current ?? 'PD-025', poliCode: 'PD' },
-    history: [...earlier, { queueNo: p.doctorCalled ? 'PD-026' : 'PD-024', poliCode: 'PD' }],
+    calling: { queueNo: pd.current ?? SCENARIO_RJ.poliQueue, poliCode: 'PD' },
+    history: previous ? [...earlier, { queueNo: previous, poliCode: 'PD' }] : earlier,
     clinics,
     info: 'Tidak mendengar panggilan? Cek nomor Anda di aplikasi atau Mobile JKN. Nomor yang terlewat dipanggil ulang setelah 3 pasien berikutnya.',
   };
@@ -303,7 +326,7 @@ const dx = (code: keyof typeof ICD) => ({ code, label: ICD[code] });
 
 /** Nomor antrean poli berikutnya dan perkiraan panggil per dokter yang praktik hari ini. */
 const TODAY_QUEUE: Record<string, { next: number; eta: string }> = {
-  'dr-andini': { next: 32, eta: '11.20' },
+  'dr-andini': { next: NEXT_POLI_PD, eta: '11.10' },
   'dr-rahmat': { next: 110, eta: '13.40' },
   'dr-bagus': { next: 14, eta: '11.30' },
   'dr-yudha': { next: 8, eta: '11.15' },
@@ -449,8 +472,16 @@ export function registrationPatients(): RegistrationPatient[] {
         }),
       ],
     }),
-    lookupOf('ps-ayu', { guardian: 'Dimas (suami)', lastVisit: '2 Agu 2026 · IGD', referrals: [] }),
-    lookupOf('ps-fajar', { guardian: 'Laras (istri)', lastVisit: '3 Jul 2026 · Poli Bedah', referrals: [] }),
+    lookupOf('ps-ayu', {
+      guardian: 'Dimas (suami)',
+      lastVisit: '5 Okt 2026 · Poli Penyakit Dalam (pagi ini)',
+      referrals: [],
+    }),
+    lookupOf('ps-fajar', {
+      guardian: 'Laras (istri)',
+      lastVisit: '28 Sep 2026 · Poli Bedah (pra-operasi)',
+      referrals: [],
+    }),
   ];
 }
 

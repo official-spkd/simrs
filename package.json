@@ -23,6 +23,7 @@
     "db:create-demo": "pnpm --filter @simrs/db create-demo",
     "db:akun-presentasi": "pnpm --filter @simrs/db akun-presentasi",
     "db:import-ref": "pnpm --filter @simrs/db import-ref",
+    "db:sync-permissions": "pnpm --filter @simrs/db sync-permissions",
     "db:studio": "pnpm --filter @simrs/db studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

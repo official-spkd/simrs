@@ -52,6 +52,75 @@ export function isPermission(resource: string, action: string): resource is Perm
   );
 }
 
+/** Kunci satu izin: `sumber.aksi` (mis. `iam.users.write`). Aksi tidak pernah bertitik. */
+export const permissionKey = (resource: string, action: string): string => `${resource}.${action}`;
+
+/** Semua kunci izin di katalog saat ini, urut. */
+export function catalogPermissionKeys(): string[] {
+  return Object.entries(PERMISSION_CATALOG)
+    .flatMap(([resource, def]) => def.actions.map((action) => permissionKey(resource, action)))
+    .sort();
+}
+
+/**
+ * Katalog saat sinkron izin (`pnpm db:sync-permissions`) diperkenalkan, 5 Okt 2026. RS yang belum punya
+ * catatan katalog (`PERMISSION_CATALOG_RECORD_KEY`) dianggap sudah mengenal semua izin ini, sehingga hanya
+ * izin yang ditambahkan ke katalog SESUDAHNYA yang dianggap baru. Jangan diubah: menambah izin cukup di
+ * `PERMISSION_CATALOG` + matriks bawaan, lalu jalankan sinkron di setiap lingkungan.
+ */
+export const PERMISSION_CATALOG_BASELINE: readonly string[] = [
+  'audit.export',
+  'audit.read',
+  'audit.review',
+  'break_glass.review',
+  'break_glass.use',
+  'dev.tools.use',
+  'documents.print',
+  'documents.read',
+  'documents.write',
+  'facility.read',
+  'facility.write',
+  'forms.definition.publish',
+  'forms.definition.read',
+  'forms.definition.write',
+  'forms.response.correct',
+  'forms.response.read',
+  'forms.response.write',
+  'iam.roles.read',
+  'iam.roles.write',
+  'iam.users.read',
+  'iam.users.write',
+  'patient.export',
+  'patient.identity.read',
+  'patient.merge',
+  'patient.read',
+  'patient.write',
+  'platform.guide.read',
+  'ref.read',
+  'ref.write',
+  'tenant.settings.read',
+  'tenant.settings.write',
+];
+
+/**
+ * Kunci `tenant_settings` (internal, bukan pengaturan di `TENANT_SETTINGS`, jadi tidak tampil dan tidak bisa
+ * diubah lewat API pengaturan) berisi izin katalog yang sudah dikenal RS: `{ v: 1, permissions: string[] }`.
+ * Ditulis hanya oleh sinkron izin; setiap perubahannya diaudit.
+ */
+export const PERMISSION_CATALOG_RECORD_KEY = 'authz.permission_catalog';
+
+/** Entri selisih matriks di audit (`details.added` / `details.removed`): `sumber.aksi:lingkup`. */
+export const grantDiffEntry = (g: { resource: string; action: string; scope: string }): string =>
+  `${permissionKey(g.resource, g.action)}:${g.scope}`;
+
+/** Kebalikan `grantDiffEntry`: kunci izin + lingkup, atau null bila formatnya bukan entri selisih. */
+export function parseGrantDiffEntry(entry: string): { permission: string; scope: string } | null {
+  const at = entry.lastIndexOf(':');
+  if (at <= 0 || at === entry.length - 1) return null;
+  const permission = entry.slice(0, at);
+  return permission.includes('.') ? { permission, scope: entry.slice(at + 1) } : null;
+}
+
 /** Peran bawaan (docs/05 §2). `superadmin_platform` hanya ada di tenant khusus PLATFORM (ADR-0010). */
 export const SYSTEM_ROLES = {
   admin_tenant: 'Admin SIM RS',

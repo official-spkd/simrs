@@ -96,6 +96,12 @@
     outline: 2px solid var(--color-brand-600);
     outline-offset: 2px;
   }
+  /* Header lengket (AppShell `stickyHeader`): elemen yang difokus/digulir ke tampilan tidak tertutup header. */
+  @media (min-width: 48rem) {
+    html:has([data-sticky-header]) {
+      scroll-padding-top: calc(4rem + 0.75rem);
+    }
+  }
 }
 
 @utility bg-btn-primary {

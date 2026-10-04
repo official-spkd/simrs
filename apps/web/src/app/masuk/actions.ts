@@ -12,7 +12,11 @@ import {
   ALL_SESSION_COOKIES,
   clearCookies,
   cookieNames,
+  parsePinTokens,
+  pinTokenId,
+  removePinTokens,
   writeChallengeCookies,
+  writePinTokens,
   writeSessionCookies,
   writeTrustedDeviceCookie,
 } from '@/lib/server/cookies';
@@ -22,6 +26,7 @@ import {
   loginResultSchema,
   mfaVerifyResultSchema,
   okSchema,
+  pinLoginResultSchema,
 } from '@/lib/server/schemas';
 import { loadPresentationAccounts } from '@/lib/server/demo/accounts';
 import { presentationLogin } from '@/lib/server/demo/login';
@@ -117,6 +122,61 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     writeSessionCookies(store, result, env.secureCookies);
   }
   redirect(stepUrl(formData));
+}
+
+/**
+ * Masuk cepat dengan PIN (ADR-0024): akun dipilih dari daftar yang diingat peramban ini, token perangkatnya diambil
+ * dari cookie httpOnly di server (browser hanya mengirim ID pendaftaran). PIN benar → sesi pendek di posisi
+ * pendaftaran PIN, langsung ke tujuan. PIN dicabut/tidak dikenal → token dilupakan dari cookie.
+ */
+export async function pinLoginAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const env = webEnv();
+  const store = await cookies();
+  const deviceId = z.uuid().safeParse(formData.get('deviceId'));
+  if (!deviceId.success) return { error: 'Pilih akun Anda lebih dulu.' };
+  const pin = String(formData.get('pin') ?? '').replace(/\D/g, '');
+  if (pin.length !== 6) {
+    return {
+      fields: {
+        pin:
+          pin.length === 0
+            ? 'PIN wajib diisi (6 digit).'
+            : `PIN harus 6 digit. Baru terisi ${pin.length} digit.`,
+      },
+      values: { deviceId: deviceId.data },
+    };
+  }
+  const tokens = parsePinTokens(store.get(cookieNames(env.secureCookies).pinDevices)?.value);
+  const deviceToken = tokens.find((t) => pinTokenId(t) === deviceId.data);
+  if (!deviceToken) {
+    return { error: 'Perangkat ini tidak lagi mengingat akun tersebut. Masuk dengan kata sandi.' };
+  }
+  let result: z.infer<typeof pinLoginResultSchema>;
+  try {
+    result = await api('/api/v1/auth/pin/login', {
+      method: 'POST',
+      auth: false,
+      body: { deviceToken, pin },
+      schema: pinLoginResultSchema,
+    });
+  } catch (err) {
+    const kind = err instanceof ApiError ? z.object({ pin: z.string() }).safeParse(err.details) : null;
+    if (kind?.success && (kind.data.pin === 'revoked' || kind.data.pin === 'unknown')) {
+      // PIN tidak berlaku lagi (salah 5×, dihapus, kedaluwarsa): lupakan dari peramban, jelaskan di layar masuk.
+      writePinTokens(store, removePinTokens(tokens, [deviceId.data]), env.secureCookies);
+      const next = safeNextPath(String(formData.get('lanjut') ?? ''));
+      const q = new URLSearchParams({ alasan: 'pin-nonaktif' });
+      if (next !== '/') q.set('lanjut', next);
+      redirect(`/masuk?${q.toString()}`);
+    }
+    if (kind?.success && kind.data.pin === 'wrong') {
+      return { fields: { pin: friendly(err) }, values: { deviceId: deviceId.data } };
+    }
+    return { error: friendly(err), values: { deviceId: deviceId.data } };
+  }
+  clearCookies(store, env.secureCookies, ALL_SESSION_COOKIES);
+  writeSessionCookies(store, result, env.secureCookies);
+  redirect(safeNextPath(String(formData.get('lanjut') ?? '')));
 }
 
 /** Langkah 2: kode TOTP 6 digit untuk tantangan MFA. */

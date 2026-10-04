@@ -2,12 +2,17 @@
 
 import type { EdTrackingItem, EdZone, TriageLevel } from '@simrs/shared';
 import { cx } from '@simrs/ui';
+import { StatusFlag } from '@/components/klinis/status-flag';
 import { TriageBadge } from '@/components/rawat-inap/triage-badge';
-import { ED_STATUS_META, ED_ZONE_LABEL, formatLos, losOverdue, TRIAGE_META } from '@/lib/rawat-inap';
+import { ED_STATUS_META, ED_ZONE_LABEL, edLosAlert, formatLos, TRIAGE_META } from '@/lib/rawat-inap';
 
 const ZONES: Array<EdZone | 'semua'> = ['semua', 'T', 'R', 'B', 'K'];
 const LEVELS: Array<TriageLevel | 0> = [0, 1, 2, 3, 4, 5];
-const COLS = 'lg:grid-cols-[56px_1.7fr_1.05fr_1.6fr_1.1fr_0.8fr_1.25fr]';
+/**
+ * Tabel tujuh kolom hanya bila papan selebar ≥ 56rem (container query: di 1280–1440 px papan berbagi lebar dengan
+ * panel triase, kolom terlalu sempit dan chip status terbelah); lebih sempit = kartu per pasien.
+ */
+const COLS = '@4xl:grid-cols-[56px_1.7fr_1.05fr_1.6fr_1.1fr_0.8fr_1.25fr]';
 
 /** Papan pelacakan IGD: tab zona, filter level triase, baris pasien dengan lama tinggal berjalan. */
 export function EdBoardTable({
@@ -35,7 +40,7 @@ export function EdBoardTable({
   return (
     <section
       aria-label="Papan pasien IGD"
-      className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-white"
+      className="@container min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-white"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-3 py-2.5">
         <div
@@ -90,7 +95,7 @@ export function EdBoardTable({
       </div>
       <div
         aria-hidden="true"
-        className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 lg:grid', COLS)}
+        className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 @4xl:grid', COLS)}
       >
         {['Bed', 'Pasien', 'Triase', 'Keluhan utama', 'Dokter', 'Lama', 'Status'].map((h) => (
           <span key={h} className="px-3 py-2.5">
@@ -101,7 +106,7 @@ export function EdBoardTable({
       <ul className="m-0 list-none p-0" aria-label="Pasien di IGD">
         {shown.map((p) => {
           const mins = p.losMinutes + addMinutes(p.encounterId);
-          const late = losOverdue(p, mins);
+          const late = edLosAlert(p, mins);
           const on = p.encounterId === selected;
           const st = ED_STATUS_META[p.status];
           return (
@@ -127,23 +132,38 @@ export function EdBoardTable({
                 <span className="px-3 py-2.5">
                   <TriageBadge level={p.triageLevel} />
                 </span>
-                <span className="col-span-2 px-3 pb-2 text-small lg:col-span-1 lg:py-2.5">
+                <span className="col-span-2 px-3 pb-2 text-small @4xl:col-span-1 @4xl:py-2.5">
                   {p.chiefComplaint}
                 </span>
-                <span className="hidden px-3 py-2.5 text-small text-ink-700 lg:block">{p.doctor ?? '—'}</span>
-                <span
-                  className={cx(
-                    'px-3 pb-2 font-mono font-semibold lg:py-2.5',
-                    late ? 'text-danger' : 'text-ink-900',
-                  )}
-                >
-                  {formatLos(mins)}
-                  {late && <span className="sr-only"> (melewati batas)</span>}
+                <span className="hidden px-3 py-2.5 text-small text-ink-700 @4xl:block">
+                  {p.doctor ?? '—'}
                 </span>
-                <span className="col-span-3 px-3 pb-2.5 lg:col-span-1 lg:py-2.5">
-                  <span className={cx('rounded-full px-2.5 py-[3px] text-caption font-semibold', st.tone)}>
+                <span className="flex flex-col items-start gap-1 px-3 pb-2 @4xl:py-2.5">
+                  <span
+                    className={cx(
+                      'font-mono font-semibold whitespace-nowrap',
+                      late ? 'text-danger' : 'text-ink-900',
+                    )}
+                  >
+                    {formatLos(mins)}
+                  </span>
+                  {late && (
+                    <StatusFlag icon="clock" inline>
+                      {late}
+                    </StatusFlag>
+                  )}
+                </span>
+                <span className="col-span-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2.5 @4xl:col-span-1 @4xl:py-2.5">
+                  <span
+                    className={cx(
+                      'rounded-full px-2.5 py-[3px] text-caption font-semibold whitespace-nowrap',
+                      st.tone,
+                    )}
+                  >
                     {st.label}
                   </span>
+                  {/* Kartu (papan sempit): kolom Dokter tidak tampil, jadi dokternya ikut di baris status. */}
+                  <span className="text-caption text-ink-500 @4xl:hidden">Dokter: {p.doctor ?? '—'}</span>
                 </span>
               </button>
             </li>

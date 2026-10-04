@@ -24,12 +24,17 @@ import {
   canWriteDoctorNote,
   canWriteOrders,
   cpptNeedsCosign,
+  EGFR_LOW_THRESHOLD,
+  egfrLow,
   filterQueue,
   ICD10_OPTIONS,
+  labValueFlag,
   minutesToJam,
   nextWaiting,
   queueCounts,
   stageSteps,
+  VALUE_FLAG_LABEL,
+  vitalValueFlag,
 } from './klinis';
 
 const seed = (system: keyof typeof SEED_REF_SAMPLES) => new Set(SEED_REF_SAMPLES[system].map((s) => s.code));
@@ -99,10 +104,10 @@ describe('data dummy pemeriksaan poli dan CPOE', () => {
     for (const c of CPOE_CATALOG) expect(c.tariff).toMatch(/^\d+$/);
   });
 
-  it('CPOE Ny. Endang tanpa blok di awal; Tn. Darmawan: asam mefenamat diblokir (alergi ibuprofen)', () => {
-    const endang = demoCpoeContext('kj-endang', rj0, igd0);
-    expect(endang?.patient.allergies).toEqual(['Amoksisilin']);
-    expect(endang?.orders.every((o) => o.cds.level !== 'block')).toBe(true);
+  it('CPOE Ny. Rohana tanpa blok di awal; Tn. Darmawan: asam mefenamat diblokir (alergi ibuprofen)', () => {
+    const rohana = demoCpoeContext('kj-rohana', rj0, igd0);
+    expect(rohana?.patient.allergies).toEqual(['Amoksisilin']);
+    expect(rohana?.orders.every((o) => o.cds.level !== 'block')).toBe(true);
     const darmawan = demoCpoeContext('kj-darmawan', rj0, igd0);
     expect(darmawan?.orders.find((o) => o.catalogId === 'asam-mefenamat-500')?.cds.level).toBe('block');
   });
@@ -112,10 +117,10 @@ describe('antrean poli dan tampilan', () => {
   const items = demoPoliWorklist(rj0).items;
 
   it('filter chip, pencarian No. RM tanpa tanda hubung, pasien menunggu berikutnya', () => {
-    expect(queueCounts(items)).toEqual({ semua: 5, menunggu: 2, hasil: 1 });
-    expect(filterQueue(items, 'semua', '00124578').map((i) => i.name)).toEqual(['Siti Rahmawati']);
-    expect(filterQueue(items, 'hasil', '').map((i) => i.queueNo)).toEqual(['PD-026']);
-    expect(nextWaiting(items)?.queueNo).toBe('PD-024');
+    expect(queueCounts(items)).toEqual({ semua: 7, menunggu: 1, hasil: 1 });
+    expect(filterQueue(items, 'semua', '00315746').map((i) => i.name)).toEqual(['Ny. Sri Wahyuni']);
+    expect(filterQueue(items, 'hasil', '').map((i) => i.queueNo)).toEqual(['PD-023']);
+    expect(nextWaiting(items)?.queueNo).toBe('PD-026');
     expect(stageSteps(2).map((s) => s.state)).toEqual([
       'selesai',
       'selesai',
@@ -125,6 +130,24 @@ describe('antrean poli dan tampilan', () => {
       'belum',
     ]);
     expect(minutesToJam(7 * 60 + 5)).toBe('07.05');
+  });
+
+  it('nilai di luar batas bertulisan: arah tanda vital, bendera lab, eGFR rendah', () => {
+    expect(vitalValueFlag('tinggi')).toBe('tinggi');
+    expect(vitalValueFlag('rendah')).toBe('rendah');
+    expect(vitalValueFlag('normal')).toBeNull();
+    expect(vitalValueFlag('belum')).toBeNull();
+    expect((['', 'H', 'L', 'A', 'K'] as const).map(labValueFlag)).toEqual([
+      null,
+      'tinggi',
+      'rendah',
+      'abnormal',
+      'kritis',
+    ]);
+    expect(Object.values(VALUE_FLAG_LABEL)).toEqual(['Tinggi', 'Rendah', 'Abnormal', 'Kritis']);
+    expect(egfrLow(EGFR_LOW_THRESHOLD - 1)).toBe(true);
+    expect(egfrLow(EGFR_LOW_THRESHOLD)).toBe(false);
+    expect(egfrLow(null)).toBe(false);
   });
 });
 
@@ -246,13 +269,15 @@ describe('ketersediaan CPOE kunjungan', () => {
 
   it('demoCpoeAvailable selaras demoCpoeContext (dasar tautan "Order" di layar lain)', () => {
     const ranap = runScenario(IGD_RANAP, advance(IGD_RANAP, 'rawat-inap'));
-    const ids = ['kj-suryo', 'kj-hartono', 'kj-endang', 'kj-darmawan', 'kj-ratna', 'kj-tidak-ada'];
+    const ids = ['kj-suryo', 'kj-hartono', 'kj-rohana', 'kj-darmawan', 'kj-ratna', 'kj-tidak-ada'];
     for (const igd of [igd0, igdAsesmen, ranap]) {
       for (const id of ids) {
         expect(demoCpoeAvailable(id, igd), id).toBe(demoCpoeContext(id, rj0, igd) !== null);
       }
     }
-    expect(demoCpoeAvailable('kj-endang', igd0)).toBe(true);
+    expect(demoCpoeAvailable('kj-rohana', igd0)).toBe(true);
+    // Ny. Endang dirawat inap (Melati M-203), bukan pasien poli: tidak punya CPOE rawat jalan.
+    expect(demoCpoeAvailable('kj-endang', igd0)).toBe(false);
     expect(demoCpoeAvailable('kj-tidak-ada', igdAsesmen)).toBe(false);
   });
 });

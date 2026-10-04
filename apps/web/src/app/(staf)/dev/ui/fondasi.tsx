@@ -13,6 +13,7 @@ import {
   KpiCard,
   palettes,
   PatientBanner,
+  Segmented,
   spaceScale,
   StatusChip,
   Tabs,
@@ -74,6 +75,9 @@ export function Fondasi() {
   const [satusehat, setSatusehat] = useState(true);
   const [dense, setDense] = useState(false);
   const [tab, setTab] = useState('cppt');
+  const [pilTab, setPilTab] = useState('transaksi');
+  const [range, setRange] = useState('hari-ini');
+  const [draft, setDraft] = useState('');
 
   const nikV = validateNik(nik);
   const tglV = validateTanggal(tgl);
@@ -179,7 +183,7 @@ export function Fondasi() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Demo
             title="Tombol"
-            note="Satu tombol utama per area. Aksi destruktif selalu meminta konfirmasi dan alasan."
+            note="Satu tombol utama per area. Aksi destruktif selalu meminta konfirmasi dan alasan. Semua ukuran setinggi 44 px (target sentuh); sm hanya lebih ringkas ke samping, anjungan 64 px."
           >
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" onClick={() => say('Aksi utama dijalankan')}>
@@ -194,6 +198,9 @@ export function Fondasi() {
               </Button>
               <Button variant="primary" disabled>
                 Nonaktif
+              </Button>
+              <Button size="sm" onClick={() => say('Tombol ringkas diklik')}>
+                Ringkas (sm)
               </Button>
             </div>
             {cancelOpen && (
@@ -261,7 +268,7 @@ export function Fondasi() {
                 </label>
                 <select
                   id="penjamin"
-                  className="h-10 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
+                  className="h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
                 >
                   <option>BPJS Kesehatan</option>
                   <option>Umum</option>
@@ -371,7 +378,10 @@ export function Fondasi() {
             ))}
           </Demo>
 
-          <Demo title="Tab">
+          <Demo
+            title="Tab garis"
+            note="Rekam medis dan worklist. Membungkus di layar sempit; panah, Home, End."
+          >
             <Tabs
               label="Contoh tab rekam medis"
               value={tab}
@@ -396,6 +406,68 @@ export function Fondasi() {
                 },
               ]}
             />
+          </Demo>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Demo
+            title="Tab pil · panel tetap terpasang"
+            note="Isian yang belum disimpan tidak hilang saat berpindah tab (keepMounted). Lencana selalu bertulisan."
+          >
+            <Tabs
+              label="Contoh tab pil"
+              variant="pil"
+              keepMounted
+              value={pilTab}
+              onChange={setPilTab}
+              items={[
+                {
+                  id: 'transaksi',
+                  label: 'Transaksi',
+                  badge: '3 menunggu',
+                  content: (
+                    <label className="flex flex-col gap-1.5 text-small font-semibold text-ink-700">
+                      Catatan transaksi (belum disimpan)
+                      <textarea
+                        rows={2}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        className="rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit] font-normal text-ink-900"
+                      />
+                    </label>
+                  ),
+                },
+                {
+                  id: 'rekon',
+                  label: 'Rekonsiliasi',
+                  badge: '1 selisih',
+                  badgeTone: 'danger',
+                  content:
+                    'Mutasi BTN dicocokkan dengan transaksi TPDI dan jurnal: 1 selisih menunggu catatan.',
+                },
+              ]}
+            />
+          </Demo>
+          <Demo
+            title="Segmen"
+            note="Baris kontrol ringkas (rentang dasbor, skenario simulasi): tampak 36 px, area sentuh 44 px."
+          >
+            <div className="flex">
+              <Segmented
+                label="Rentang"
+                value={range}
+                onChange={setRange}
+                items={[
+                  { id: 'hari-ini', label: 'Hari ini' },
+                  { id: 'bulan', label: 'Bulan berjalan' },
+                  { id: 'ytd', label: 'YTD' },
+                ]}
+              />
+            </div>
+            <span role="status" className="text-small text-ink-700">
+              Rentang dipilih:{' '}
+              {range === 'hari-ini' ? 'Hari ini' : range === 'bulan' ? 'Bulan berjalan' : 'YTD'}
+            </span>
           </Demo>
         </div>
 
