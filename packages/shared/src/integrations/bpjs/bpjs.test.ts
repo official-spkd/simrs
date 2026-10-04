@@ -10,6 +10,12 @@ import {
   formatAntreanWaktu,
 } from './antrean';
 import {
+  APLICARE_ENDPOINTS,
+  aplicareBedListResponseSchema,
+  aplicareBedRequestSchema,
+  decodeAplicareResponse,
+} from './aplicare';
+import {
   BPJS_REJECTIONS,
   bpjsAddDays,
   bpjsDiffDays,
@@ -30,7 +36,9 @@ import {
   vclaimRujukanBerlakuSampai,
   vclaimRujukanKedaluwarsa,
   VCLAIM_ENDPOINTS,
+  vclaimRujukanKeluarInsertRequestSchema,
   vclaimSepInsertRequestSchema,
+  vclaimSepPulangRequestSchema,
 } from './vclaim';
 
 const creds = { consId: '10000', secretKey: 'mock-secret' };
@@ -51,6 +59,7 @@ describe('path endpoint', () => {
       ...Object.values(VCLAIM_ENDPOINTS),
       ...Object.values(ANTREAN_ENDPOINTS),
       ...Object.values(HFIS_ENDPOINTS),
+      ...Object.values(APLICARE_ENDPOINTS),
     ]) {
       expect(ep.path.startsWith('/')).toBe(true);
       const names = [...ep.path.matchAll(/:([A-Za-z]+)/g)].map((m) => m[1]);
@@ -307,5 +316,94 @@ describe('dekode respons', () => {
         TS,
       ),
     ).toMatchObject({ ok: false, code: '201', rejection: 'BPJS_TASK_TIDAK_BERURUTAN' });
+  });
+});
+
+describe('kontrak lanjutan VClaim', () => {
+  it('SEP pulang: meninggal wajib nomor surat dan tanggal meninggal', () => {
+    const t = {
+      noSep: '0301R0011026V000001',
+      statusPulang: '1',
+      noSuratMeninggal: '',
+      tglMeninggal: '',
+      tglPulang: '2026-10-07',
+      noLPManual: '',
+      user: 'Petugas',
+    };
+    const parse = (x: object) => vclaimSepPulangRequestSchema.safeParse({ request: { t_sep: x } }).success;
+    expect(parse(t)).toBe(true);
+    expect(parse({ ...t, statusPulang: '4' })).toBe(false);
+    expect(parse({ ...t, statusPulang: '4', noSuratMeninggal: 'SKM-1', tglMeninggal: '2026-10-07' })).toBe(
+      true,
+    );
+    expect(parse({ ...t, statusPulang: '2' })).toBe(false);
+  });
+
+  it('rujukan keluar: PPK tujuan 8 karakter, ICD-10, tipe 0–2', () => {
+    const t = {
+      noSep: '0301R0011026V000001',
+      tglRujukan: '2026-10-05',
+      tglRencanaKunjungan: '2026-10-08',
+      ppkDirujuk: '0301R003',
+      jnsPelayanan: '2',
+      catatan: '',
+      diagRujukan: 'I20.0',
+      tipeRujukan: '0',
+      poliRujukan: 'JAN',
+      user: 'Petugas',
+    };
+    const parse = (x: object) =>
+      vclaimRujukanKeluarInsertRequestSchema.safeParse({ request: { t_rujukan: x } }).success;
+    expect(parse(t)).toBe(true);
+    expect(parse({ ...t, ppkDirujuk: 'RS3' })).toBe(false);
+    expect(parse({ ...t, diagRujukan: 'angina' })).toBe(false);
+    expect(parse({ ...t, tipeRujukan: '3' })).toBe(false);
+  });
+});
+
+describe('Aplicare', () => {
+  const bed = {
+    kodekelas: 'KL1',
+    koderuang: 'ANGGREK',
+    namaruang: 'Bangsal Anggrek',
+    kapasitas: '40',
+    tersedia: 7,
+    tersediapria: '3',
+    tersediawanita: 4,
+    tersediapriawanita: 0,
+  };
+
+  it('angka bed boleh string angka; tersedia ≤ kapasitas; rincian ≤ tersedia', () => {
+    const r = aplicareBedRequestSchema.safeParse(bed);
+    expect(r.success && r.data).toMatchObject({ kapasitas: 40, tersediapria: 3 });
+    expect(aplicareBedRequestSchema.safeParse({ ...bed, tersedia: 41 }).success).toBe(false);
+    expect(aplicareBedRequestSchema.safeParse({ ...bed, tersediapriawanita: 1 }).success).toBe(false);
+    expect(aplicareBedRequestSchema.safeParse({ ...bed, kapasitas: 'empat' }).success).toBe(false);
+  });
+
+  it('dekode: sukses kode 1 (+ totalitems), penolakan terklasifikasi, amplop asing', () => {
+    expect(decodeAplicareResponse({ metadata: { code: 1, message: 'OK' } }, null)).toEqual({
+      ok: true,
+      data: undefined,
+    });
+    expect(
+      decodeAplicareResponse(
+        { metadata: { code: 1, message: 'OK', totalitems: 0 }, response: { list: [] } },
+        aplicareBedListResponseSchema,
+      ),
+    ).toEqual({ ok: true, data: { list: [] }, totalitems: 0 });
+    expect(
+      decodeAplicareResponse(
+        { metadata: { code: 0, message: bpjsRejectionMessage('BPJS_RUANG_GANDA', 'KL1/A') } },
+        null,
+      ),
+    ).toMatchObject({ ok: false, code: '0', rejection: 'BPJS_RUANG_GANDA' });
+    expect(decodeAplicareResponse({ metaData: { code: '200' } }, null)).toMatchObject({ kind: 'invalid' });
+    expect(
+      decodeAplicareResponse(
+        { metadata: { code: 1, message: 'OK' }, response: { x: 1 } },
+        aplicareBedListResponseSchema,
+      ),
+    ).toMatchObject({ kind: 'invalid' });
   });
 });

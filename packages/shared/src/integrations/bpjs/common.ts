@@ -115,6 +115,12 @@ export const BPJS_REJECTIONS = {
   BPJS_TASK_TIDAK_BERURUTAN: 'TaskId tidak berurutan',
   BPJS_TASK_WAKTU_MUNDUR: 'Waktu TaskId lebih kecil dari TaskId sebelumnya',
   BPJS_DATA_TIDAK_DITEMUKAN: 'Data tidak ditemukan',
+  BPJS_SEP_BUKAN_RAWAT_INAP: 'SEP bukan rawat inap',
+  BPJS_SURAT_SUDAH_DIPAKAI: 'Surat kontrol/SPRI sudah dipakai SEP',
+  BPJS_FASKES_TIDAK_DITEMUKAN: 'Faskes tidak ditemukan',
+  BPJS_KELAS_TIDAK_DITEMUKAN: 'Kelas rawat tidak ditemukan',
+  BPJS_RUANG_TIDAK_DITEMUKAN: 'Ruang tidak ditemukan',
+  BPJS_RUANG_GANDA: 'Ruang sudah terdaftar',
 } as const;
 export type BpjsRejectionKnownCode = keyof typeof BPJS_REJECTIONS;
 /** `BPJS_TIDAK_DIKENAL`: pesan yang belum dipetakan (perlakukan sebagai penolakan bisnis umum). */
