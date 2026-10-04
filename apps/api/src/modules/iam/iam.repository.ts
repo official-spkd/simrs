@@ -10,6 +10,14 @@ const activeAt = (at: Date) => ({
 });
 /** Baris izin yang membuat sebuah peran setara admin. */
 const accessAdminGrant = { OR: ACCESS_ADMIN_GRANTS.map(([resource, action]) => ({ resource, action })) };
+/**
+ * Filter status daftar pengguna: `active`/`disabled` = kolom status; `not_activated` = akun aktif yang belum punya
+ * kata sandi (belum bisa masuk sampai admin mereset sandinya, mis. staf seed).
+ */
+const byStatus = (status?: string) => {
+  if (status === 'not_activated') return { status: 'active', credential: { is: null } };
+  return status ? { status } : {};
+};
 
 /** P03 · Data pengguna, penugasan, dan matriks peran (transaksi permintaan, RLS aktif). */
 @Injectable()
@@ -40,7 +48,7 @@ export class IamRepository {
     return this.db.tx().user.findMany({
       where: {
         ...(q.cursor ? { id: { gt: q.cursor } } : {}),
-        ...(q.status ? { status: q.status } : {}),
+        ...byStatus(q.status),
         ...(q.search
           ? {
               OR: [
@@ -64,6 +72,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -104,6 +113,7 @@ export class IamRepository {
         lockedUntil: true,
         mustChangePassword: true,
         createdAt: true,
+        credential: { select: { userId: true } },
         mfaFactors: {
           where: { disabledAt: null, confirmedAt: { not: null } },
           select: { id: true },
@@ -139,6 +149,7 @@ export class IamRepository {
         where: { status: 'active', mfaFactors: { none: { disabledAt: null, confirmedAt: { not: null } } } },
       }),
       dormant: await tx.user.count({ where: { status: 'active', ...neverOrStale } }),
+      notActivated: await tx.user.count({ where: byStatus('not_activated') }),
       breakGlass7d: await tx.breakGlassGrant.count({
         where: { grantedAt: { gte: new Date(at.getTime() - 7 * 86_400_000) } },
       }),
@@ -194,9 +205,17 @@ export class IamRepository {
     });
   }
 
+  /**
+   * Sandi sementara baru. Akun tanpa kredensial (staf seed yang belum diaktifkan, `seedStaff`) mendapat kredensial
+   * pertamanya di sini: reset oleh admin = cara mengaktifkan akun itu.
+   */
   async resetPassword(id: string, passwordHash: string) {
     const tx = this.db.tx();
-    await tx.userCredential.update({ where: { userId: id }, data: { passwordHash } });
+    await tx.userCredential.upsert({
+      where: { userId: id },
+      update: { passwordHash },
+      create: { userId: id, tenantId: this.db.tenantId(), passwordHash },
+    });
     await tx.user.update({
       where: { id },
       data: {
@@ -303,13 +322,19 @@ export class IamRepository {
     });
   }
 
-  /** Jumlah pengguna AKTIF dengan penugasan admin yang masih berlaku, opsional mengecualikan satu penugasan/pengguna. */
+  /**
+   * Jumlah penugasan admin yang masih berlaku milik pengguna yang BISA MASUK: status aktif dan sudah punya kata
+   * sandi (baris `user_credentials`). Admin yang belum diaktifkan (mis. staf seed tanpa sandi) tidak dihitung,
+   * karena tidak bisa memulihkan RS bila admin terakhir yang nyata dicabut. MFA tidak disyaratkan: admin yang baru
+   * direset sedang menjalani login pertama (ADR-0012, pembaruan 5 Okt 2026). Opsional mengecualikan satu
+   * penugasan/pengguna.
+   */
   countActiveAdmins(exclude: { assignmentId?: string; userId?: string } = {}) {
     return this.db.tx().staffAssignment.count({
       where: {
         ...activeAt(now()),
         role: { code: { in: [...PROTECTED_ROLES] }, active: true },
-        user: { status: 'active' },
+        user: { status: 'active', credential: { isNot: null } },
         ...(exclude.assignmentId ? { id: { not: exclude.assignmentId } } : {}),
         ...(exclude.userId ? { userId: { not: exclude.userId } } : {}),
       },

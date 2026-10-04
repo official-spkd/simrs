@@ -1,6 +1,6 @@
 # ADR-0009 · Postgres portabel untuk mesin tanpa Docker; persiapan tes non-destruktif
 
-Status: diterima · 3 Okt 2026
+Status: diterima · 3 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 
@@ -20,3 +20,7 @@ Status: diterima · 3 Okt 2026
 + Tidak ada operasi destruktif otomatis di jalur tes.
 − Database tes bertambah besar seiring waktu; buat ulang sesekali dengan perintah di atas.
 − Postgres portabel tidak menggantikan Docker untuk Redis/MinIO; tes BullMQ tetap gagal (dengan pesan jelas) sampai Docker hidup.
+
+## Pembaruan 5 Okt 2026
+
+Beberapa salinan repo (git worktree) kini dikerjakan dan dites bersamaan, masing-masing dengan database tes sendiri. `assertTestDatabase` menerima `simrs_test` atau `simrs_test_<nama>` (huruf kecil, angka, garis bawah; `TEST_DATABASE_NAME`), dan `pnpm db:test:recreate` membuat ulang database di `TEST_DATABASE_URL` dengan aturan nama yang sama. Database pengembangan `simrs` tetap tidak pernah disentuh persiapan tes. Cara menyiapkan salinan paralel: `docs/panduan/03-tutorial.md` §7.

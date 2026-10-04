@@ -123,10 +123,10 @@ Izin = **sumber × aksi × lingkup**. Katalog sumber dan aksi ada di `packages/s
 Aturan pengaman di `IamService`:
 
 - Admin tidak bisa menonaktifkan, mereset sandi/MFA, atau menambah peran **akunnya sendiri** lewat menu admin.
-- Selalu tersisa **minimal satu admin aktif**. Pemeriksaannya dikunci per tenant (`lockTenantScope`), sehingga dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos. Tanpa kunci, keduanya lolos di READ COMMITTED (sudah dibuktikan tes).
+- Selalu tersisa **minimal satu admin aktif**, yaitu admin yang bisa masuk (status aktif dan sudah punya kata sandi; MFA belum wajib). Admin yang belum diaktifkan, mis. admin seed, tidak dihitung. Pemeriksaannya dikunci per tenant (`lockTenantScope`), sehingga dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos. Tanpa kunci, keduanya lolos di READ COMMITTED (sudah dibuktikan tes).
 - Izin `iam.users.write` dan `iam.roles.write` (`ACCESS_ADMIN_GRANTS`) tidak bisa dicabut dari `admin_tenant`.
 - Bila izin kelola pengguna didelegasikan ke peran lain, pemegangnya **tidak bisa menyentuh akun atau peran setara admin** (mereset, menonaktifkan, memberi atau mencabut peran admin). Ini menutup eskalasi hak lewat delegasi.
-- Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya.
+- Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya. Reset sandi juga cara mengaktifkan staf seed yang belum punya kredensial (`seedStaff`): baris `user_credentials` pertamanya dibuat saat itu. Sebelumnya akun itu tampil **Belum diaktifkan** (`activated: false` di `/iam/users`, filter `status=not_activated`).
 - Penugasan yang belum mulai bisa dibatalkan: disimpan sebagai rentang kosong (akhir = awal), tidak dihapus. Alasannya tercatat di kolom `reason` audit.
 - Perubahan matriks diaudit sebagai selisih (`added`/`removed`, format `grantDiffEntry`) dan berlaku di permintaan berikutnya, di semua instans API (cache dibuang setelah commit + siaran Redis). Penulisan matriks dikunci per tenant (`ROLE_MATRIX_LOCK`) bersama sinkron izin katalog.
 
@@ -149,11 +149,14 @@ Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoi
 | `GET /audit/verify`                       | `audit.read`   | Periksa seluruh rantai hash tenant. Mahal, jadi web hanya menjalankannya bila diminta (`?verifikasi=1`, tidak terbawa ke tautan lain).                     |
 | `GET /audit/anomalies?days=`              | `audit.read`   | Temuan dihitung dari jejak: gagal masuk/akses ditolak berulang, akses pasien di luar jam dinas, volume tak wajar, akses darurat belum ditinjau.            |
 | `POST /audit/anomalies/review`            | `audit.review` | Tinjauan temuan. Disimpan sebagai entri audit (`action=review`, `resource_type=audit_anomaly`, `resource_id`=kunci temuan), bukan tabel baru.              |
+| `GET /audit/anomalies/reviews?key=`       | `audit.read`   | Riwayat tinjauan satu temuan, terbaru dulu: peninjau, waktu, keputusan, catatan; `effective` = yang berlaku. Pembukaannya diaudit dengan kunci temuan.     |
 | `GET /audit/export`                       | `audit.export` | CSV bukti akreditasi: BOM UTF-8, maks. 92 hari / 10.000 baris, sel berawalan `= + - @` diberi `'` (anti formula injection). Ekspor ikut diaudit.           |
 
 - **Kunci temuan** berbentuk `jenis:pengguna:tanggal WIB` (`AUDIT_ANOMALY_KEY` di `@simrs/shared`). Kunci yang sama di hari yang sama = temuan yang sama, sehingga tinjauan tetap melekat walau jumlah kejadian bertambah.
 - **Ambang** diatur per RS lewat pengaturan: `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`. Peran jaga malam (`NIGHT_SHIFT_ROLES`) tidak dihitung sebagai akses di luar jam dinas.
 - Peninjau tidak boleh meninjau temuan atau akses darurat **miliknya sendiri** (`409`), dan akses darurat yang sudah ditinjau tidak bisa ditinjau ulang.
+- Temuan **boleh ditinjau ulang** (layar: "Buka kembali tinjauan"): entri `review` baru ditambahkan dan yang terbaru berlaku; riwayatnya tampil di detail temuan. Kunci bertanggal mendatang (`400`) atau berisi akun di luar RS ini (`404`) ditolak, karena entri tinjauan tidak bisa dihapus.
+- Jendela `days` dimulai **00.00 WIB** (`days - 1` hari sebelum hari ini), sehingga hari pertama dihitung utuh dan jumlah per kunci temuan sama di rentang mana pun.
 - Query SQL temuan mengelompokkan per hari dengan `AT TIME ZONE 'Asia/Jakarta'` secara eksplisit, tidak bergantung pada zona sesi database.
 
 ### Master Patient Index (P05)
@@ -335,10 +338,12 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `lockMpi(tx)`                                     | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
 | `searchConcepts` · `getConcept` · `listRegions`   | P06 · Baca data rujukan global (skema `ref`).                                                            |
 | `importConcepts` · `importRegions` · `csvRecords` | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                              |
+| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 12 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
+| `seedStaff(prisma, tenantId, { encKeyB64 })`      | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.     |
 | `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
 | `recordOutboxAttempt(tx, msg, result)`            | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
-| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test`.             |
+| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.    |
 
 ## Worker
 
@@ -411,7 +416,7 @@ Layar fase 2–10 dibangun di rute finalnya sebelum backend ada, dengan data dum
 - Halaman ber-data dummy diawali `const { session, allowed } = await requireDemoScreen('<id>')`: render dinamis, 404 di luar mode demo, dan `allowed=false` bila posisi aktif bukan pemakai layar (tampilkan ajakan "Ganti posisi"). Setiap Server Action ber-data dummy memanggil `assertDemo()`.
 - Status layar di `lib/screens.ts`: `belum` → `demo` saat layar dibangun → `api` saat backend tersambung. Menu mengikuti status ini; posisi yang bukan pemakai tidak melihat menunya di mode demo.
 - Skema respons per domain ditulis di `packages/shared/src/schemas/<domain>.ts` (kontrak yang nanti dipenuhi API); halaman mengambil data lewat `lib/server/data/<domain>.ts`, yang memilih fixture (`lib/demo/`) atau API.
-- Server E2E ketiga (`next start` port 3011, `DATA_SOURCE=demo`) menjalankan spesifikasi di `apps/web/e2e/demo/`; suite lain tetap di mode `api`.
+- Server E2E ketiga (`next start` port 3011 atau `E2E_DEMO_PORT`, `DATA_SOURCE=demo`) menjalankan spesifikasi di `apps/web/e2e/demo/`; suite lain tetap di mode `api`.
 
 ### Panduan superadmin (halaman ini)
 
@@ -462,18 +467,19 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Strategi tes
 
-| Jenis            | Lokasi                                                                                                                                   | Butuh            | Perintah                            |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
-| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts` | –                | `pnpm test`                         |
-| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                            | Postgres         | `pnpm --filter @simrs/db test`      |
-| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                    | Postgres         | `pnpm --filter @simrs/api test`     |
-| Integrasi worker | `apps/worker/test`                                                                                                                       | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
-| Mock             | `apps/mock/src/mock.test.ts`                                                                                                             | –                | `pnpm --filter @simrs/mock test`    |
-| E2E              | `apps/web/e2e` (Playwright, Edge di Windows): API :4010 + web build :3010 di DB `simrs_test`, akun uji dibuat langsung di DB             | Postgres         | `pnpm --filter @simrs/web test:e2e` |
+| Jenis            | Lokasi                                                                                                                                      | Butuh            | Perintah                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
+| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`    | –                | `pnpm test`                         |
+| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                               | Postgres         | `pnpm --filter @simrs/db test`      |
+| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                       | Postgres         | `pnpm --filter @simrs/api test`     |
+| Integrasi worker | `apps/worker/test`                                                                                                                          | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
+| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                | –                | `pnpm --filter @simrs/mock test`    |
+| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): API :4010 + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
 
 Aturan:
 
-- Tes integrasi memakai database **`simrs_test`** (bukan `simrs`). Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
+- Tes integrasi memakai database **`simrs_test`** (bukan `simrs`), atau `simrs_test_<nama>` per salinan repo paralel; nama lain ditolak `assertTestDatabase`. Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
+- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
 - Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** dengan token sungguhan (peran tak berhak → 403; lihat `apps/api/test/authz.test.ts`).
 - Tes yang butuh infrastruktur gagal dengan pesan jelas bila infrastruktur mati. Tes tidak boleh dilewati diam-diam atau dilemahkan agar hijau.
 

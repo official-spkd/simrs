@@ -2,6 +2,7 @@ import { Chip, cx, KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { StatusFlag } from '@/components/klinis/status-flag';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { patientById } from '@/lib/demo/fixtures/pasien';
 import { INPATIENT_FLAG_LABEL } from '@/lib/demo/fixtures/rawat-inap';
@@ -111,7 +112,7 @@ export default async function RawatInapPage({ searchParams }: { searchParams: Se
           {list.map((x) => {
             const p = patientById(x.patientId);
             const dx = x.diagnoses.find((d) => d.primary) ?? x.diagnoses[0];
-            const lv = ewsLevel(x.lastEws);
+            const lv = ewsLevel(x.lastEws, x.lastEwsMaxParam);
             const w = BANGSAL.find((b) => b.code === x.wardCode);
             return (
               <li key={x.encounterId} className="border-t border-line-soft">
@@ -146,20 +147,22 @@ export default async function RawatInapPage({ searchParams }: { searchParams: Se
                   <span className="px-3 py-1.5 text-small lg:py-2.5">H{x.day}</span>
                   <span className="px-3 py-1.5 lg:py-2.5">
                     <span className={cx('rounded-full px-2 py-[3px] text-caption font-bold', lv.tone)}>
+                      <span className="sr-only">EWS </span>
                       {x.lastEws} · {lv.level}
                     </span>
                   </span>
                   <span className="col-span-2 flex flex-wrap gap-1 px-3 pb-2 lg:col-span-1 lg:py-2.5">
-                    {x.flags.map((f) => (
-                      <Chip
-                        key={f}
-                        tone={
-                          f === 'emar-terlambat' ? 'danger' : f === 'rencana-pulang' ? 'success' : 'warning'
-                        }
-                      >
-                        {INPATIENT_FLAG_LABEL[f]}
-                      </Chip>
-                    ))}
+                    {x.flags.map((f) =>
+                      f === 'emar-terlambat' ? (
+                        <StatusFlag key={f} icon="clock">
+                          {INPATIENT_FLAG_LABEL[f]}
+                        </StatusFlag>
+                      ) : (
+                        <Chip key={f} tone={f === 'rencana-pulang' ? 'success' : 'warning'}>
+                          {INPATIENT_FLAG_LABEL[f]}
+                        </Chip>
+                      ),
+                    )}
                   </span>
                 </Link>
               </li>

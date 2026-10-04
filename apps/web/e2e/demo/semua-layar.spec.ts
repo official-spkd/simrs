@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { type ConsoleMessage, expect, type Page, test } from '@playwright/test';
+import { type ConsoleMessage, expect, type Page, test, type TestInfo } from '@playwright/test';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 import { createAccount, loginAs } from '../support/accounts';
 
@@ -14,16 +14,37 @@ import { createAccount, loginAs } from '../support/accounts';
  * visual sebelum presentasi.
  */
 
-/** Rute contoh untuk layar berparameter: kunjungan/persetujuan pasien skenario (`lib/demo/fixtures/pasien.ts`). */
+/**
+ * Rute contoh untuk layar berparameter: kunjungan/persetujuan pasien skenario dan pasien biasa
+ * (`lib/demo/fixtures/pasien.ts`) yang terbuka untuk akun baru (semua skenario di langkah awal).
+ */
 const EXTRA_PATHS: Record<string, readonly string[]> = {
-  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-hartono'],
+  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-endang'],
   // Pasien skenario (bisa belum dirawat → halaman penjelasan) dan pasien rawat inap biasa (rekam lengkap).
   ranap: ['/klinis/rawat-inap/kj-hartono', '/klinis/rawat-inap/kj-ratna', '/klinis/rawat-inap/kj-endang'],
   resume: ['/klinis/resume/kj-hartono', '/klinis/resume/kj-ratna'],
-  consent: ['/tablet/persetujuan/pk-hartono'],
+  consent: ['/tablet/persetujuan/pk-ratna', '/tablet/persetujuan/pk-hendro'],
 };
 /** Layar yang hanya punya rute berparameter (tanpa halaman indeks). */
 const NO_INDEX = new Set(['resume', 'consent']);
+
+/**
+ * Rute Tn. Hartono yang baru ada setelah skenario IGD → rawat inap sampai tahapnya: CPOE selama di IGD sejak
+ * asesmen dokter, persetujuan tindakan sejak tata laksana (sebelumnya 404).
+ */
+const IGD_SCENARIO_PATHS: ReadonlyArray<{
+  stage: string;
+  paths: ReadonlyArray<[screen: string, path: string]>;
+}> = [
+  { stage: 'Asesmen dokter', paths: [['order', '/klinis/order/kj-hartono']] },
+  {
+    stage: 'Tata laksana',
+    paths: [
+      ['order', '/klinis/order/kj-hartono'],
+      ['consent', '/tablet/persetujuan/pk-hartono'],
+    ],
+  },
+];
 
 function pathsOf(screen: ScreenDef): string[] {
   return [...(NO_INDEX.has(screen.id) ? [] : [screen.route]), ...(EXTRA_PATHS[screen.id] ?? [])];
@@ -90,9 +111,57 @@ async function capture(page: Page, root: string, project: string, name: string):
   await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
 }
 
+/** `QA_VISUAL=1`: tangkapan `path` di 1366×768 + 1920×1080 (proyek desktop) atau ukuran proyek tablet. */
+async function captureVisual(page: Page, testInfo: TestInfo, path: string, slug: string): Promise<void> {
+  if (!QA_VISUAL) return;
+  const root = qaDir(testInfo.config.configFile);
+  if (testInfo.project.name === 'demo-desktop') {
+    for (const [w, h] of [
+      [1366, 768],
+      [1920, 1080],
+    ] as const) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      await capture(page, root, `${w}x${h}`, slug);
+    }
+    await page.setViewportSize({ width: 1280, height: 720 });
+  } else {
+    await page.waitForLoadState('networkidle');
+    await capture(page, root, testInfo.project.name, slug);
+  }
+}
+
+const slugOf = (screenId: string, path: string) => `${screenId}${path.replaceAll('/', '_')}`;
+
 test.describe('mode presentasi · semua layar', () => {
   test('registri punya layar demo untuk diuji', () => {
     expect(demoScreens.length).toBeGreaterThan(0);
+  });
+
+  test('posisi dokter: layar Tn. Hartono pada tahap skenario IGD-nya', async ({ page }, testInfo) => {
+    const checks = IGD_SCENARIO_PATHS.reduce((n, s) => n + s.paths.length, 0);
+    test.setTimeout(60_000 + checks * (QA_VISUAL ? 45_000 : 15_000));
+    const account = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, account);
+    for (const { stage, paths } of IGD_SCENARIO_PATHS) {
+      await page.goto('/simulasi');
+      await page.getByRole('tab', { name: 'IGD → rawat inap' }).click();
+      await page.getByText('Lompat ke tahap', { exact: true }).click();
+      await page.getByRole('button', { name: new RegExp(`^\\d+\\. ${stage}$`) }).click();
+      await expect(page.getByText(new RegExp(`Langkah \\d+ dari \\d+ · ${stage}`))).toBeVisible();
+      for (const [id, path] of paths) {
+        const screen = demoScreens.find((s) => s.id === id);
+        expect(screen, `layar ${id} berstatus demo`).toBeDefined();
+        if (!screen) continue;
+        await test.step(`${stage}: ${id} ${path}`, async () => {
+          await checkScreen(page, screen, path);
+          // Tahap ikut di nama berkas: rute yang sama bisa tampil berbeda per tahap.
+          const stageSlug = stage.toLowerCase().replaceAll(' ', '-');
+          await captureVisual(page, testInfo, path, `${slugOf(id, path)}__${stageSlug}`);
+        });
+      }
+    }
   });
 
   for (const [role, screens] of byRole) {
@@ -104,23 +173,7 @@ test.describe('mode presentasi · semua layar', () => {
         for (const path of pathsOf(screen)) {
           await test.step(`${screen.id} ${path}`, async () => {
             await checkScreen(page, screen, path);
-            if (!QA_VISUAL) return;
-            const slug = `${screen.id}${path.replaceAll('/', '_')}`;
-            if (testInfo.project.name === 'demo-desktop') {
-              for (const [w, h] of [
-                [1366, 768],
-                [1920, 1080],
-              ] as const) {
-                await page.setViewportSize({ width: w, height: h });
-                await page.goto(path);
-                await page.waitForLoadState('networkidle');
-                await capture(page, qaDir(testInfo.config.configFile), `${w}x${h}`, slug);
-              }
-              await page.setViewportSize({ width: 1280, height: 720 });
-            } else {
-              await page.waitForLoadState('networkidle');
-              await capture(page, qaDir(testInfo.config.configFile), testInfo.project.name, slug);
-            }
+            await captureVisual(page, testInfo, path, slugOf(screen.id, path));
           });
         }
       }

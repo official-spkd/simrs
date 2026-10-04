@@ -94,13 +94,33 @@ export const AUDIT_ANOMALY_KEY =
   /^(login_failed|access_denied|night|volume):([0-9a-f-]{36}|-):(\d{4}-\d{2}-\d{2})$/;
 
 export const AUDIT_REVIEW_OUTCOMES = ['sah', 'perlu_klarifikasi'] as const;
+export type AuditReviewOutcome = (typeof AUDIT_REVIEW_OUTCOMES)[number];
+
+const anomalyKey = z.string().regex(AUDIT_ANOMALY_KEY, 'Kunci temuan tidak valid');
 
 export const auditAnomalyReviewSchema = z.strictObject({
-  key: z.string().regex(AUDIT_ANOMALY_KEY, 'Kunci temuan tidak valid'),
+  key: anomalyKey,
   outcome: z.enum(AUDIT_REVIEW_OUTCOMES),
   note: z.string().trim().max(500).optional(),
 });
 export type AuditAnomalyReviewInput = z.infer<typeof auditAnomalyReviewSchema>;
+
+/** Riwayat tinjauan satu temuan: `GET /audit/anomalies/reviews?key=`. */
+export const auditAnomalyReviewsQuerySchema = z.strictObject({ key: anomalyKey });
+
+/**
+ * Satu keputusan di riwayat tinjauan temuan (terbaru dulu). `effective` = keputusan yang berlaku (entri `review`
+ * terbaru); yang lain tetap tersimpan sebagai jejak. Tanpa PHI: hanya peninjau, waktu, keputusan, dan catatan.
+ */
+export interface AuditAnomalyReviewEntry {
+  seq: string;
+  outcome: AuditReviewOutcome;
+  note: string | null;
+  reviewedAt: string;
+  reviewer: { id: string; displayName: string } | null;
+  reviewerRole: string | null;
+  effective: boolean;
+}
 
 /**
  * Peran yang wajar bekerja malam (jaga 24 jam). Akses data pasien di jam malam oleh peran lain ditandai

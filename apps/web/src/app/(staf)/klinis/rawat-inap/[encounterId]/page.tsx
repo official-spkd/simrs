@@ -9,7 +9,7 @@ import { CONSENT_IDS, RESUME_ENCOUNTERS } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
 import { ewsLevel } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
-import { getInpatient, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/rawat-inap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { InpatientWorkspace } from './inpatient-workspace';
 import { INPATIENT_TABS, type InpatientTab } from './tabs';
@@ -68,11 +68,7 @@ export default async function RawatInapDetailPage({
   if (!p) notFound();
   const ward = BANGSAL.find((w) => w.code === s.wardCode);
   const wardName = ward?.name ?? s.wardCode;
-  const [step] = p.scenario
-    ? await scenarioSteps(session, [
-        p.scenario === 'igd-ranap' ? ['igd-ranap', 'rawat-inap'] : ['elektif-btn', 'pasca-operasi'],
-      ])
-    : [];
+  const step = await inpatientScenarioStep(session, p.scenario);
   const tab = INPATIENT_TABS.find((t) => t === sp.tab) ?? 'cppt';
   const guarantor = `${p.penjamin}${p.kelas ? ` ${p.kelas}` : ''}`;
   const primary = s.diagnoses.find((x) => x.primary) ?? s.diagnoses[0];
@@ -81,7 +77,7 @@ export default async function RawatInapDetailPage({
     .map((x) => `${x.code} ${x.label}`)
     .join(' · ');
   const lastNote = [...d.cppt].sort((a, b) => b.writtenAt.localeCompare(a.writtenAt))[0];
-  const lv = ewsLevel(s.lastEws);
+  const lv = ewsLevel(s.lastEws, s.lastEwsMaxParam);
   const resume = routeOf('resume');
   const consent = routeOf('consent');
   const order = routeOf('order');
@@ -130,7 +126,7 @@ export default async function RawatInapDetailPage({
         user={session.user.displayName}
         canCosign={session.role?.code === 'dokter'}
         initialTab={tab as InpatientTab}
-        scenario={step ?? null}
+        scenario={step}
         links={links}
         summaryRows={[
           { label: 'Diagnosis', value: s.diagnoses.map((x) => `${x.code} ${x.label}`).join(' · ') },

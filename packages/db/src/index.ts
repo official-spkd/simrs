@@ -56,6 +56,15 @@ export {
 export { seedRefSamples, SEED_REF_SAMPLES, SEED_REF_VERSION } from './seed-ref';
 export { ensurePublishedForm } from './forms';
 export {
+  SEED_STAFF,
+  SEED_STAFF_VALID_FROM,
+  SEED_UNITS,
+  type SeedStaffMember,
+  seedStaffPhone,
+} from './seed-data';
+export { seedStaff, type SeedStaffResult } from './seed-staff';
+export { seedHospitalStructure } from './seed-structure';
+export {
   PRESENTATION_PERSONAS,
   PRESENTATION_USERNAME_PREFIX,
   type PresentationCredential,
