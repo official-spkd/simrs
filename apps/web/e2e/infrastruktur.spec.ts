@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mockState, setMockScenario } from './support/mock';
+import { mockEchoCount, setMockScenario } from './support/mock';
 import { enqueueTestPing, outboxView } from './support/outbox';
 
 /**
@@ -12,12 +12,11 @@ test.describe('infrastruktur E2E · outbox → worker → mock', () => {
   test.afterEach(() => setMockScenario('eklaim', 'normal'));
 
   test('worker mengirim pesan outbox ke mock E2E', async () => {
-    const id = await enqueueTestPing('eklaim');
+    const ping = await enqueueTestPing('eklaim');
     await expect
-      .poll(() => outboxView(id), { timeout: 20_000 })
+      .poll(() => outboxView(ping.id), { timeout: 20_000 })
       .toMatchObject({ status: 'sent', attempts: 1 });
-    const state = await mockState();
-    expect(state.systems.find((s) => s.id === 'eklaim')?.scenario.mode).toBe('normal');
+    expect(await mockEchoCount(ping.idempotencyKey)).toBe(1);
   });
 
   for (const [mode, error] of [
@@ -26,12 +25,15 @@ test.describe('infrastruktur E2E · outbox → worker → mock', () => {
   ] as const) {
     test(`mock ${mode}: pesan dijadwalkan ulang, lalu terkirim setelah mock normal`, async () => {
       await setMockScenario('eklaim', mode);
-      const id = await enqueueTestPing('eklaim');
+      const ping = await enqueueTestPing('eklaim');
       await expect
-        .poll(() => outboxView(id), { timeout: 20_000 })
+        .poll(() => outboxView(ping.id), { timeout: 20_000 })
         .toMatchObject({ status: 'failed', lastError: error });
       await setMockScenario('eklaim', 'normal');
-      await expect.poll(() => outboxView(id), { timeout: 20_000 }).toMatchObject({ status: 'sent' });
+      await expect.poll(() => outboxView(ping.id), { timeout: 20_000 }).toMatchObject({ status: 'sent' });
+      // Minimal sekali (permintaan yang tertahan skenario timeout bisa tetap sampai belakangan: itulah gunanya kunci
+      // idempotensi).
+      expect(await mockEchoCount(ping.idempotencyKey)).toBeGreaterThanOrEqual(1);
     });
   }
 });
