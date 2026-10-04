@@ -86,16 +86,25 @@ export async function upsertPresentationAccounts(
             confirmedAt: now,
           },
         });
-        const assigned = await tx.staffAssignment.findFirst({
-          where: {
-            userId,
-            roleId,
-            unitId: unit?.id ?? null,
-            OR: [{ validUntil: null }, { validUntil: { gt: now } }],
-          },
-          select: { id: true },
+        // Tepat satu penugasan aktif sesuai persona. Penugasan lain diakhiri, mis. yang tanpa unit karena struktur
+        // RS baru di-seed setelah akun dibuat: dua posisi membuat masuk cepat berhenti di langkah "Pilih posisi".
+        const active = await tx.staffAssignment.findMany({
+          where: { userId, OR: [{ validUntil: null }, { validUntil: { gt: now } }] },
+          select: { id: true, roleId: true, unitId: true, validFrom: true },
         });
-        if (!assigned) {
+        const isPersona = (a: (typeof active)[number]) =>
+          a.roleId === roleId && a.unitId === (unit?.id ?? null);
+        for (const a of active.filter((x) => !isPersona(x))) {
+          await tx.staffAssignment.update({
+            where: { id: a.id },
+            // Belum mulai → rentang kosong (CHECK valid_until >= valid_from).
+            data: {
+              validUntil: a.validFrom > now ? a.validFrom : now,
+              endReason: 'Akun presentasi: diganti penugasan sesuai persona',
+            },
+          });
+        }
+        if (!active.some(isPersona)) {
           await tx.staffAssignment.create({
             data: { id: newId(), tenantId, userId, roleId, unitId: unit?.id ?? null },
           });
