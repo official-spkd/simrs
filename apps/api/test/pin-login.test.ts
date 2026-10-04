@@ -73,7 +73,7 @@ async function enrolled(user: TestUser): Promise<{ tok: Tokens; token: string; i
 }
 
 const pinRow = (id: string, tenantId = T.id) =>
-  withTenant(testDb(), tenantId, (tx) => tx.pinDevice.findUniqueOrThrow({ where: { id } }));
+  withTenant(testDb(), tenantId, (tx) => tx.registeredDevice.findUniqueOrThrow({ where: { id } }));
 
 const auditOf = (userId: string, action: string) =>
   withTenant(testDb(), T.id, (tx) =>
@@ -130,7 +130,7 @@ describe('daftar PIN dan masuk dengan PIN', () => {
     expect(me.body.session.quickLogin).toBe(true);
     expect(me.body.mfa.sessionVerified).toBe(true);
     const session = await withTenant(testDb(), T.id, (tx) =>
-      tx.authSession.findFirstOrThrow({ where: { userId: user.id, pinDeviceId: reg.body.id } }),
+      tx.authSession.findFirstOrThrow({ where: { userId: user.id, deviceId: reg.body.id } }),
     );
     expect(session.idleTimeoutMinutes).toBeLessThanOrEqual(5);
     // Halaman staf langsung bisa dibuka (sesi lengkap, posisi sudah dipilih).
@@ -139,12 +139,12 @@ describe('daftar PIN dan masuk dengan PIN', () => {
     expect(mine.body[0].current).toBe(true);
 
     const created = await auditOf(user.id, 'create');
-    expect(created.find((a) => a.resourceType === 'pin_device')).toMatchObject({
+    expect(created.find((a) => a.resourceType === 'registered_device')).toMatchObject({
       resourceId: reg.body.id,
       details: { method: 'pin', role: 'perawat', unitId },
     });
     const logins = await auditOf(user.id, 'login');
-    expect(logins.at(-1)?.details).toMatchObject({ method: 'pin', pinDeviceId: reg.body.id });
+    expect(logins.at(-1)?.details).toMatchObject({ method: 'pin', deviceId: reg.body.id });
     const trail = jsonText([...created, ...logins]);
     expect(trail).not.toContain(PIN);
     expect(trail).not.toContain(reg.body.token.split('.')[3]);
@@ -297,7 +297,7 @@ describe('batas percobaan PIN', () => {
     const t = issueToken('sd1', T.id, id);
     const createdAt = new Date(Date.now() - 30 * DAY - 3_600_000);
     await withTenant(testDb(), T.id, async (tx) =>
-      tx.pinDevice.create({
+      tx.registeredDevice.create({
         data: {
           id,
           tenantId: T.id,
@@ -346,7 +346,7 @@ describe('pencabutan PIN', () => {
     expect(await pinRow(id)).toMatchObject({ revokedReason: 'user_removed', revokedBy: user.id });
     const audit = await auditOf(user.id, 'deactivate');
     expect(audit.at(-1)).toMatchObject({
-      resourceType: 'pin_device',
+      resourceType: 'registered_device',
       resourceId: id,
       details: { reason: 'user_removed' },
     });
@@ -416,7 +416,7 @@ describe('pencabutan PIN', () => {
     }
     const adminAudit = await auditOf(admin.id, 'deactivate');
     expect(adminAudit.at(-1)).toMatchObject({
-      resourceType: 'pin_device',
+      resourceType: 'registered_device',
       resourceId: l.id,
       details: { reason: 'admin_revoked' },
     });

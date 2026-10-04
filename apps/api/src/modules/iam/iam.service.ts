@@ -155,15 +155,16 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, pinDevices, ...rest } = u;
+    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, devices, ...rest } = u;
     return {
       ...rest,
       phone: this.maskedPhone(phoneEnc),
-      pinDevices: pinDevices.map((d) => ({
+      /** PIN masuk cepat yang masih berlaku (ADR-0024). */
+      pinDevices: devices.map((d) => ({
         id: d.id,
         name: d.name,
-        roleName: d.assignment.role.name,
-        unitName: d.assignment.unit?.name ?? null,
+        roleName: d.assignment?.role.name ?? '',
+        unitName: d.assignment?.unit?.name ?? null,
         createdAt: d.createdAt.toISOString(),
         lastUsedAt: d.lastUsedAt?.toISOString() ?? null,
         expiresAt: d.expiresAt.toISOString(),
@@ -246,7 +247,7 @@ export class IamService {
   /** Cabut PIN masuk cepat di satu perangkat milik pengguna lain (ADR-0024); sesi PIN-nya ikut berakhir. */
   async revokePinDevice(id: string) {
     const d = await this.repo.findPinDevice(id);
-    if (!d || d.revokedAt) throw new AppError('NOT_FOUND', 'Perangkat ber-PIN tidak ditemukan', 404);
+    if (!d?.userId || d.revokedAt) throw new AppError('NOT_FOUND', 'Perangkat ber-PIN tidak ditemukan', 404);
     this.assertNotSelf(d.userId, 'mencabut PIN');
     await this.assertMayManage({ userId: d.userId });
     await this.repo.revokePinDevice(id);

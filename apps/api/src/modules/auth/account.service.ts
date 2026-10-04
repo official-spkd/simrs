@@ -40,7 +40,7 @@ export class AccountService {
     if (!actor?.userId || !actor.sessionId) {
       throw new AppError('UNAUTHENTICATED', 'Endpoint ini membutuhkan login', 401);
     }
-    return { userId: actor.userId, sessionId: actor.sessionId, pinDeviceId: actor.pinDeviceId ?? null };
+    return { userId: actor.userId, sessionId: actor.sessionId, deviceId: actor.deviceId ?? null };
   }
 
   /**
@@ -94,7 +94,7 @@ export class AccountService {
         refreshExpiresAt: session.refreshExpiresAt.toISOString(),
         unitId: session.unitId,
         /** Sesi masuk cepat dengan PIN (ADR-0024): pendek, posisi terkunci. */
-        quickLogin: actor?.pinDeviceId != null,
+        quickLogin: actor?.deviceId != null,
       },
     };
   }
@@ -104,14 +104,14 @@ export class AccountService {
    * sehingga posisi lain (mis. peran sensitif) tetap wajib login penuh.
    */
   async listAssignments() {
-    const { userId, sessionId, pinDeviceId } = this.current();
+    const { userId, sessionId, deviceId } = this.current();
     const tx = this.db.tx();
     const session = await tx.authSession.findUnique({
       where: { id: sessionId },
       select: { assignmentId: true },
     });
     const rows = (await activeAssignments(tx, userId)).filter(
-      (a) => !pinDeviceId || a.id === session?.assignmentId,
+      (a) => !deviceId || a.id === session?.assignmentId,
     );
     return rows.map((a) => ({
       id: a.id,
@@ -126,9 +126,9 @@ export class AccountService {
 
   /** Pilih penugasan untuk sesi ini; harus milik pengguna dan masih berlaku. Sesi PIN tidak bisa pindah posisi. */
   async selectAssignment(assignmentId: string) {
-    const { userId, sessionId, pinDeviceId } = this.current();
+    const { userId, sessionId, deviceId } = this.current();
     const tx = this.db.tx();
-    if (pinDeviceId) {
+    if (deviceId) {
       const s = await tx.authSession.findUnique({ where: { id: sessionId }, select: { assignmentId: true } });
       if (s?.assignmentId !== assignmentId) {
         throw new AppError(

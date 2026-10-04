@@ -146,7 +146,7 @@ export class PinService {
           action: 'login_failed',
           resourceType: 'session',
           outcome: 'denied',
-          details: { method: 'pin', reason, ...(d ? { pinDeviceId: d.id } : {}), ...extra },
+          details: { method: 'pin', reason, ...(d ? { deviceId: d.id } : {}), ...extra },
         },
       ]);
 
@@ -223,7 +223,7 @@ export class PinService {
           action: 'login',
           resourceType: 'session',
           resourceId: tokens.sessionId,
-          details: { method: 'pin', pinDeviceId: d.id },
+          details: { method: 'pin', deviceId: d.id },
         },
       ]);
       const { sessionId: _s, ...rest } = tokens;
@@ -245,23 +245,23 @@ export class PinService {
     if (!actor?.userId || !actor.sessionId) {
       throw new AppError('UNAUTHENTICATED', 'Endpoint ini membutuhkan login', 401);
     }
-    return { userId: actor.userId, sessionId: actor.sessionId, pinDeviceId: actor.pinDeviceId ?? null };
+    return { userId: actor.userId, sessionId: actor.sessionId, deviceId: actor.deviceId ?? null };
   }
 
   async list() {
-    const { userId, pinDeviceId } = this.current();
+    const { userId, deviceId } = this.current();
     const rows = await this.repo.listActivePinDevices(this.db.tx(), userId);
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
-      roleName: r.assignment.role.name,
-      unitName: r.assignment.unit?.name ?? null,
+      roleName: r.assignment?.role.name ?? '',
+      unitName: r.assignment?.unit?.name ?? null,
       userAgent: r.userAgent,
       createdAt: r.createdAt.toISOString(),
       lastUsedAt: r.lastUsedAt?.toISOString() ?? null,
       expiresAt: r.expiresAt.toISOString(),
       /** Sesi ini dibuka dengan PIN perangkat ini. */
-      current: r.id === pinDeviceId,
+      current: r.id === deviceId,
     }));
   }
 
@@ -270,8 +270,8 @@ export class PinService {
    * (web menyimpannya di cookie httpOnly peramban); yang disimpan hanya hash token dan hash PIN berlada.
    */
   async register(input: PinRegisterInput) {
-    const { userId, sessionId, pinDeviceId } = this.current();
-    if (pinDeviceId) {
+    const { userId, sessionId, deviceId } = this.current();
+    if (deviceId) {
       throw new AppError(
         'FORBIDDEN',
         'PIN hanya bisa didaftarkan setelah masuk dengan kata sandi dan kode verifikasi.',
@@ -322,7 +322,7 @@ export class PinService {
       throw new AppError('VALIDATION_FAILED', 'Kata sandi saat ini salah.', 400, { field: 'password' });
     }
     // Kunci per akun: dua pendaftaran serentak tidak bisa sama-sama lolos batas jumlah perangkat.
-    await lockTenantScope(tx, `pin_devices:${userId}`);
+    await lockTenantScope(tx, `registered_devices:${userId}`);
     if ((await this.repo.listActivePinDevices(tx, userId, now)).length >= PIN_MAX_DEVICES_PER_USER) {
       throw new AppError(
         'CONFLICT',
@@ -364,7 +364,10 @@ export class PinService {
   async revoke(id: string) {
     const { userId } = this.current();
     const tx = this.db.tx();
-    const d = await tx.pinDevice.findUnique({ where: { id }, select: { userId: true, revokedAt: true } });
+    const d = await tx.registeredDevice.findFirst({
+      where: { id, kind: 'staff_pin' },
+      select: { userId: true, revokedAt: true },
+    });
     if (!d || d.userId !== userId || d.revokedAt) {
       throw new AppError('NOT_FOUND', 'Perangkat ber-PIN tidak ditemukan', 404);
     }

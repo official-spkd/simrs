@@ -207,10 +207,10 @@ export class AuthRepository {
   // PIN masuk cepat per perangkat (ADR-0024)
   // ------------------------------------------------------------------------------------------------------
 
-  /** PIN perangkat beserta keadaan akun + posisi yang menentukan kelayakannya (`pinBlock`). */
-  findPinDevices(tx: TenantTx, ids: string[]) {
-    return tx.pinDevice.findMany({
-      where: { id: { in: ids } },
+  /** PIN perangkat (jenis `staff_pin`) beserta keadaan akun + posisi yang menentukan kelayakannya (`pinBlock`). */
+  async findPinDevices(tx: TenantTx, ids: string[]) {
+    const rows = await tx.registeredDevice.findMany({
+      where: { id: { in: ids }, kind: 'staff_pin' },
       select: {
         id: true,
         userId: true,
@@ -245,6 +245,12 @@ export class AuthRepository {
         },
       },
     });
+    // CHECK `registered_devices_staff_pin` menjamin kolom PIN terisi; di sini hanya dipersempit untuk tipe.
+    return rows.flatMap(({ userId, assignmentId, pinHash, user, assignment, ...r }) =>
+      userId && assignmentId && pinHash && user && assignment
+        ? [{ ...r, userId, assignmentId, pinHash, user, assignment }]
+        : [],
+    );
   }
 
   /**
@@ -253,15 +259,16 @@ export class AuthRepository {
    */
   async reservePinAttempt(tx: TenantTx, id: string, maxAttempts: number): Promise<number | null> {
     const rows = await tx.$queryRaw<Array<{ failed_attempts: number }>>`
-      UPDATE pin_devices SET failed_attempts = failed_attempts + 1
-      WHERE id = ${id}::uuid AND revoked_at IS NULL AND expires_at > now() AND failed_attempts < ${maxAttempts}
+      UPDATE registered_devices SET failed_attempts = failed_attempts + 1
+      WHERE id = ${id}::uuid AND kind = 'staff_pin' AND revoked_at IS NULL AND expires_at > now()
+        AND failed_attempts < ${maxAttempts}
       RETURNING failed_attempts`;
     return rows[0]?.failed_attempts ?? null;
   }
 
   /** PIN benar: hitungan salah kembali 0 + penanda pakai. False bila PIN dicabut di antara pemeriksaan. */
   async markPinUsed(tx: TenantTx, id: string): Promise<boolean> {
-    const r = await tx.pinDevice.updateMany({
+    const r = await tx.registeredDevice.updateMany({
       where: { id, revokedAt: null },
       data: { failedAttempts: 0, lastUsedAt: new Date() },
     });
@@ -283,13 +290,13 @@ export class AuthRepository {
       expiresAt: Date;
     },
   ) {
-    return tx.pinDevice.create({ data, select: { id: true } });
+    return tx.registeredDevice.create({ data: { ...data, kind: 'staff_pin' }, select: { id: true } });
   }
 
   /** PIN perangkat aktif (belum dicabut, belum kedaluwarsa) milik akun, terbaru dulu. */
   listActivePinDevices(tx: TenantTx, userId: string, now = new Date()) {
-    return tx.pinDevice.findMany({
-      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+    return tx.registeredDevice.findMany({
+      where: { userId, kind: 'staff_pin', revokedAt: null, expiresAt: { gt: now } },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

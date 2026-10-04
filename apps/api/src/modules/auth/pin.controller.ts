@@ -58,7 +58,7 @@ export class PinDeviceController {
   @AuthRateLimited()
   @Audited({
     action: 'create',
-    resource: 'pin_device',
+    resource: 'registered_device',
     resourceId: resultId,
     details: ({ result }) => {
       const r = result as { roleCode: string; unitId: string; expiresAt: string };
@@ -73,7 +73,7 @@ export class PinDeviceController {
   @HttpCode(200)
   @Audited({
     action: 'deactivate',
-    resource: 'pin_device',
+    resource: 'registered_device',
     resourceId: paramId,
     details: () => ({ reason: 'user_removed' }),
   })

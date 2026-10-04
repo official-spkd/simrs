@@ -24,7 +24,7 @@ export interface RequestActor {
   /** Unit kerja yang dipilih saat login (diisi P03/layar Login). */
   unitId: string | null;
   /** Sesi masuk cepat dengan PIN (ADR-0024): perangkat ber-PIN yang dipakai; posisi terkunci. */
-  pinDeviceId?: string | null;
+  deviceId?: string | null;
 }
 
 /**

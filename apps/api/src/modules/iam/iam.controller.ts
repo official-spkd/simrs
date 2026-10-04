@@ -120,7 +120,7 @@ export class IamController {
   @RequirePermission('iam.users', 'write')
   @Audited({
     action: 'deactivate',
-    resource: 'pin_device',
+    resource: 'registered_device',
     resourceId: paramId,
     details: () => ({ reason: 'admin_revoked' }),
   })

@@ -13,7 +13,7 @@ export interface ValidatedSession {
   roleCode: string | null;
   unitId: string | null;
   /** Sesi dibuka dengan PIN (ADR-0024): posisi terkunci ke posisi pendaftaran PIN. */
-  pinDeviceId: string | null;
+  deviceId: string | null;
 }
 
 /** Jangan menulis `last_seen_at` lebih sering dari ini (mengurangi tulis per permintaan). */
@@ -71,7 +71,7 @@ export class SessionStore {
         mfaVerified: input.mfaVerified,
         assignmentId: only?.id ?? null,
         unitId: only?.unitId ?? null,
-        pinDeviceId: input.pin?.deviceId ?? null,
+        deviceId: input.pin?.deviceId ?? null,
         ip: input.ip,
         userAgent: input.userAgent?.slice(0, 300) ?? null,
       },
@@ -100,8 +100,8 @@ export class SessionStore {
         idleTimeoutMinutes: true,
         mfaVerified: true,
         unitId: true,
-        pinDeviceId: true,
-        pinDevice: { select: { revokedAt: true } },
+        deviceId: true,
+        device: { select: { revokedAt: true } },
         user: { select: { status: true, mustChangePassword: true } },
         assignment: {
           select: { validFrom: true, validUntil: true, role: { select: { code: true, active: true } } },
@@ -115,7 +115,7 @@ export class SessionStore {
       return null;
     }
     // PIN perangkat dicabut (dihapus pemilik/admin, salah 5×, sandi/MFA direset): sesi PIN-nya ikut berakhir.
-    if (s.pinDevice?.revokedAt) {
+    if (s.device?.revokedAt) {
       await this.revoke(tx, s.id, 'pin_revoked');
       return null;
     }
@@ -136,7 +136,7 @@ export class SessionStore {
       mustChangePassword: s.user.mustChangePassword,
       roleCode: assignmentValid ? a.role.code : null,
       unitId: assignmentValid ? s.unitId : null,
-      pinDeviceId: s.pinDeviceId,
+      deviceId: s.deviceId,
     };
   }
 
@@ -164,7 +164,7 @@ export class SessionStore {
         lastSeenAt: true,
         idleTimeoutMinutes: true,
         user: { select: { status: true } },
-        pinDevice: { select: { revokedAt: true } },
+        device: { select: { revokedAt: true } },
       },
     });
     if (!s || s.status !== 'active') return { ok: false, reason: 'invalid' };
@@ -174,7 +174,7 @@ export class SessionStore {
     }
     if (!secretMatches(t.secret, s.refreshHash)) return { ok: false, reason: 'invalid' };
     const idle = s.lastSeenAt.getTime() + s.idleTimeoutMinutes * 60_000 <= now.getTime();
-    const pinRevoked = !!s.pinDevice?.revokedAt;
+    const pinRevoked = !!s.device?.revokedAt;
     if (s.refreshExpiresAt <= now || idle || s.user.status !== 'active' || pinRevoked) {
       await this.revoke(tx, s.id, idle ? 'idle_timeout' : pinRevoked ? 'pin_revoked' : 'expired');
       return { ok: false, reason: 'expired' };

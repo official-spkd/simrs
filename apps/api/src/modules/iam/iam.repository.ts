@@ -123,8 +123,8 @@ export class IamRepository {
           },
         },
         // PIN masuk cepat yang masih berlaku (ADR-0024), untuk ditinjau/dicabut admin.
-        pinDevices: {
-          where: { revokedAt: null, expiresAt: { gt: now() } },
+        devices: {
+          where: { kind: 'staff_pin', revokedAt: null, expiresAt: { gt: now() } },
           orderBy: { createdAt: 'desc' },
           select: {
             id: true,
@@ -139,8 +139,12 @@ export class IamRepository {
     });
   }
 
+  /** PIN perangkat (jenis `staff_pin`) untuk dicabut admin. */
   findPinDevice(id: string) {
-    return this.db.tx().pinDevice.findUnique({ where: { id }, select: { userId: true, revokedAt: true } });
+    return this.db.tx().registeredDevice.findFirst({
+      where: { id, kind: 'staff_pin' },
+      select: { userId: true, revokedAt: true },
+    });
   }
 
   /** Angka ringkas layar Akses (MRMIK 2.1c: reviu akses berkala). */
