@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
 
 /** Layar penunjang mode presentasi (ADR-0023): laboratorium, farmasi, radiologi. */
@@ -97,5 +97,113 @@ test.describe('penunjang · laboratorium', () => {
     await loginAs(page, analis, '/penunjang/lab?pilih=lab-endang');
     await expect(page.getByRole('region', { name: 'Hasil pemeriksaan' })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+  });
+});
+
+async function checkAll(region: Locator) {
+  const boxes = region.getByRole('list').first().getByRole('checkbox');
+  const n = await boxes.count();
+  for (let i = 0; i < n; i++) await boxes.nth(i).check();
+}
+
+test.describe('penunjang · farmasi', () => {
+  test('tab antrean; CDS menahan telaah; obat high alert wajib cek ganda apoteker kedua; stok depo berkurang', async ({
+    page,
+  }) => {
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await loginAs(page, apoteker, '/penunjang/farmasi');
+    await expect(
+      page.getByRole('heading', { name: 'Farmasi · verifikasi dan penyiapan', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^Telaah · \d+$/ })).toHaveAttribute('aria-selected', 'true');
+    await page
+      .getByRole('region', { name: 'Antrean telaah' })
+      .getByRole('button', { name: /Tn\. Sutan Batubara/ })
+      .click();
+    const items = page.getByRole('region', { name: 'Item resep' });
+    await expect(items.getByText('KFA 93000387 · Fornas')).toBeVisible();
+    const approve = page.getByRole('button', { name: 'Setujui dan siapkan' });
+    await expect(approve).toBeDisabled();
+    await expect(page.getByText(/Tindak lanjuti 2 peringatan CDS/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Usulkan ke dokter: ganti pantoprazol' }).click();
+    await page.getByRole('button', { name: 'Simulasi: dokter setuju' }).click();
+    await expect(items.getByText('Pantoprazol 40 mg inj')).toBeVisible();
+    await page.getByRole('button', { name: 'Tetap lanjut dengan alasan klinis' }).click();
+    await expect(page.getByRole('button', { name: 'Simpan alasan dan lanjut' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Batal', exact: true }).click();
+    await page.getByRole('button', { name: 'Dosis sudah sesuai eGFR' }).click();
+    await expect(approve).toBeEnabled();
+    await approve.click();
+    await expect(page.getByRole('status').filter({ hasText: 'masuk antrean penyiapan' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Buka Penyiapan' }).click();
+    await page
+      .getByRole('region', { name: 'Antrean penyiapan' })
+      .getByRole('button', { name: /Tn\. Sutan Batubara/ })
+      .click();
+    const kerja = page.getByRole('region', { name: 'Penyiapan obat' });
+    await checkAll(kerja);
+    const selesai = kerja.getByRole('button', { name: 'Selesai disiapkan' });
+    await expect(selesai).toBeDisabled();
+    await expect(
+      kerja.getByText('Cek ganda obat high alert oleh apoteker kedua belum dilakukan.'),
+    ).toBeVisible();
+    await kerja.getByRole('button', { name: 'Konfirmasi cek ganda' }).click();
+    await expect(kerja.getByText('Pilih apoteker kedua.')).toBeVisible();
+    await kerja.getByRole('combobox', { name: 'Apoteker kedua' }).selectOption('apt. Rudi Hermawan, S.Farm.');
+    await kerja.getByRole('checkbox', { name: /dihitung ulang/ }).check();
+    await kerja.getByRole('button', { name: 'Konfirmasi cek ganda' }).click();
+    await expect(kerja.getByText(/Cek ganda high alert oleh apt\. Rudi Hermawan/)).toBeVisible();
+    await expect(selesai).toBeEnabled();
+    await selesai.click();
+    await expect(page.getByRole('status').filter({ hasText: 'masuk antrean serah terima' })).toBeVisible();
+
+    await page.getByRole('tab', { name: /^Serah terima · \d+$/ }).click();
+    await page
+      .getByRole('region', { name: 'Antrean serah terima' })
+      .getByRole('button', { name: /Tn\. Bonifasius/ })
+      .click();
+    await expect(items).toContainText('700 → 670');
+    const serah = page.getByRole('region', { name: 'Serah terima obat' });
+    await checkAll(serah);
+    await serah.getByRole('radio', { name: 'Pasien sendiri' }).check();
+    await serah.getByRole('button', { name: 'Serahkan obat' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Stok depo berkurang' })).toContainText(
+      'Asetosal 80 mg tab 700 → 670 tab',
+    );
+  });
+
+  test('skenario rawat jalan: resep Tn. Suryo ditelaah, disiapkan, dan diserahkan dari layar Farmasi', async ({
+    page,
+  }) => {
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await loginAs(page, apoteker, '/simulasi');
+    await jumpTo(page, null, 'Farmasi');
+    await page.goto('/penunjang/farmasi');
+    await page
+      .getByRole('region', { name: 'Antrean telaah' })
+      .getByRole('button', { name: /Tn\. Suryo/ })
+      .click();
+    await page.getByRole('button', { name: 'Setujui dan siapkan' }).click();
+    await page.getByRole('button', { name: 'Buka Penyiapan' }).click();
+    await page
+      .getByRole('region', { name: 'Antrean penyiapan' })
+      .getByRole('button', { name: /Tn\. Suryo/ })
+      .click();
+    const kerja = page.getByRole('region', { name: 'Penyiapan obat' });
+    await checkAll(kerja);
+    await kerja.getByRole('button', { name: 'Selesai disiapkan' }).click();
+    await page.getByRole('button', { name: 'Buka Serah terima' }).click();
+    await page
+      .getByRole('region', { name: 'Antrean serah terima' })
+      .getByRole('button', { name: /Tn\. Suryo/ })
+      .click();
+    const serah = page.getByRole('region', { name: 'Serah terima obat' });
+    await checkAll(serah);
+    await expect(serah.getByRole('radio', { name: 'Perawat ruangan' })).toHaveCount(0);
+    await serah.getByRole('radio', { name: 'Keluarga' }).check();
+    await serah.getByRole('button', { name: 'Serahkan obat' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'diserahkan ke keluarga pasien' })).toBeVisible();
   });
 });

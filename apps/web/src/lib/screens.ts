@@ -211,7 +211,7 @@ export const SCREENS: readonly ScreenDef[] = [
     mockup: 'Farmasi',
     components: ['S04', 'S05'],
     phase: 4,
-    status: 'belum',
+    status: 'demo',
     plannedPermission: 'pharmacy.write',
     demoRoles: ['apoteker'],
     layout: 'staf',

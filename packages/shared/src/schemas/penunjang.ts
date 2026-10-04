@@ -149,7 +149,14 @@ export type LabWorklist = z.infer<typeof labWorklistSchema>;
 /** Tingkat peringatan CDS: mayor memblokir sampai ditindaklanjuti; sedang perlu konfirmasi; info tidak memblokir. */
 export const PHARMACY_CDS_LEVELS = ['mayor', 'sedang', 'info'] as const;
 export type PharmacyCdsLevel = (typeof PHARMACY_CDS_LEVELS)[number];
-export const PHARMACY_CDS_KINDS = ['interaksi', 'dosis-ginjal', 'alergi', 'high-alert'] as const;
+export const PHARMACY_CDS_KINDS = [
+  'interaksi',
+  'dosis-ginjal',
+  'alergi',
+  'kontraindikasi',
+  'high-alert',
+] as const;
+export type PharmacyCdsKind = (typeof PHARMACY_CDS_KINDS)[number];
 
 export const pharmacyCdsAlertSchema = z.strictObject({
   id: z.string().min(1),
@@ -159,7 +166,8 @@ export const pharmacyCdsAlertSchema = z.strictObject({
   detail: z.string().min(1),
   /** Tindakan yang disarankan, mis. "Ganti omeprazol dengan pantoprazol 40 mg". */
   recommendation: z.string().nullable(),
-  itemIds: z.array(z.string().min(1)).min(1),
+  /** Item resep yang terlibat (kosong bila item sudah dihapus di CPOE). */
+  itemIds: z.array(z.string().min(1)),
   /** terbuka = perlu tindakan apoteker; teratasi = sudah ditindaklanjuti; override = dilanjutkan dengan alasan. */
   status: z.enum(['terbuka', 'teratasi', 'override']),
   /** Ringkasan tindak lanjut/alasan override (wajib bila bukan terbuka). */

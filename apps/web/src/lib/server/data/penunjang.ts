@@ -1,6 +1,7 @@
 import 'server-only';
-import { type LabWorklist, labWorklistSchema } from '@simrs/shared';
-import { demoLabWorklist } from '../../demo/fixtures/penunjang';
+import { type LabWorklist, labWorklistSchema, type PharmacyQueue, pharmacyQueueSchema } from '@simrs/shared';
+import { demoLabWorklist, demoPharmacyQueue } from '../../demo/fixtures/penunjang';
+import { scenarioPrescriptions } from '../../penunjang-skenario-farmasi';
 import {
   type ScenarioResults,
   type ScenarioTaskHook,
@@ -42,4 +43,13 @@ export async function getLabWorklist(scenario: ScenarioResults): Promise<LabWork
     return labWorklistSchema.parse(demoLabWorklist(scenarioLabSamples(scenario)));
   }
   return notImplemented('laboratorium');
+}
+
+/** Antrean resep farmasi (telaah, penyiapan, serah terima) termasuk resep pasien skenario. */
+export async function getPharmacyQueue(scenario: ScenarioResults): Promise<PharmacyQueue> {
+  if (webEnv().dataSource === 'demo') {
+    assertDemo();
+    return pharmacyQueueSchema.parse(demoPharmacyQueue(scenarioPrescriptions(scenario)));
+  }
+  return notImplemented('farmasi');
 }

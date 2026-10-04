@@ -54,7 +54,7 @@ export function simIso(def: ScenarioDef, minutes: number): string {
   return `${shiftDate(def.startDate, day)}T${hh}:${mm}:00+07:00`;
 }
 
-function scenarioPatientId(id: ScenarioId): string {
+export function scenarioPatientId(id: ScenarioId): string {
   const p = patientByScenario(id);
   if (!p) throw new Error(`Pasien skenario ${id} tidak ada`);
   return p.id;

@@ -1,4 +1,14 @@
-import type { LabRange, LabResult, LabSample, LabWorklist, SupportPatient } from '@simrs/shared';
+import type {
+  LabRange,
+  LabResult,
+  LabSample,
+  LabWorklist,
+  PharmacyCdsAlert,
+  PharmacyItem,
+  PharmacyPrescription,
+  PharmacyQueue,
+  SupportPatient,
+} from '@simrs/shared';
 import { deltaCheck, labFlag } from '../../penunjang';
 import { type DemoPatient, PASIEN } from './pasien';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -531,5 +541,492 @@ export function demoLabWorklist(extra: readonly LabSample[] = []): LabWorklist {
       { name: 'Analyzer kimia klinik', link: 'HL7 ORU', online: true },
     ],
     samples: [...extra, ...demoLabSamples()],
+  };
+}
+
+// ───────────────────────────── Farmasi (S04, S05) ─────────────────────────────
+
+/** Apoteker bertugas hari demo (persona akun presentasi + apoteker kedua untuk cek ganda). */
+export const APOTEKER_JAGA: readonly string[] = [PERSONA.apoteker, ...STAF_LAIN.apoteker];
+
+/** Satu item resep. Bawaan: Fornas, bukan high alert, stok minimum 20. KFA hanya dari contoh seed. */
+export function obat(
+  id: string,
+  name: string,
+  kfa: string | null,
+  dose: string,
+  route: string,
+  frequency: string,
+  quantity: number,
+  unit: string,
+  stock: number,
+  opts: { fornas?: boolean; highAlert?: boolean; stockMin?: number; note?: string } = {},
+): PharmacyItem {
+  return {
+    id,
+    name,
+    kfa,
+    fornas: opts.fornas ?? true,
+    dose,
+    route,
+    frequency,
+    quantity,
+    unit,
+    highAlert: opts.highAlert ?? false,
+    stock,
+    stockMin: opts.stockMin ?? 20,
+    note: opts.note ?? null,
+  };
+}
+
+type RxSeed = Omit<PharmacyPrescription, 'patient' | 'dispensedTo' | 'dispensedAt' | 'alerts' | 'prb'> & {
+  patientId: string;
+  alerts?: PharmacyCdsAlert[];
+  prb?: boolean;
+};
+
+function rx(s: RxSeed): PharmacyPrescription {
+  const { patientId, alerts, prb, ...rest } = s;
+  return {
+    ...rest,
+    patient: supportPatient(patientId),
+    prb: prb ?? false,
+    alerts: alerts ?? [],
+    dispensedTo: null,
+    dispensedAt: null,
+  };
+}
+
+/** Resep dengan peringatan CDS terbuka (pola mockup Farmasi): interaksi klopidogrel–omeprazol + dosis ginjal. */
+function rxSutan(): PharmacyPrescription {
+  return rx({
+    id: 'rx-sutan',
+    no: 'R-2610-0884',
+    patientId: 'ps-sutan',
+    location: 'Bangsal Anggrek · A-14',
+    setting: 'rawat-inap',
+    depot: 'Depo rawat inap',
+    prescriber: doctorName('dr-melati'),
+    writtenAt: at('08.14'),
+    stage: 'telaah',
+    cito: false,
+    tag: 'Rawat inap',
+    days: 3,
+    weightKg: 60,
+    egfr: 42,
+    items: [
+      obat(
+        'sutan-klopidogrel',
+        'Klopidogrel 75 mg tab',
+        '93000387',
+        '75 mg',
+        'PO',
+        '1×1 pagi',
+        3,
+        'tab',
+        240,
+      ),
+      obat('sutan-omeprazol', 'Omeprazol 40 mg inj', '93001152', '40 mg', 'IV', '1×1', 3, 'vial', 86),
+      obat(
+        'sutan-enoksaparin',
+        'Enoksaparin 60 mg/0,6 mL',
+        '93002210',
+        '60 mg',
+        'SC',
+        '2×1',
+        6,
+        'syringe',
+        12,
+        {
+          highAlert: true,
+          stockMin: 10,
+        },
+      ),
+      obat(
+        'sutan-atorvastatin',
+        'Atorvastatin 40 mg tab',
+        '93000914',
+        '40 mg',
+        'PO',
+        '1×1 malam',
+        3,
+        'tab',
+        410,
+      ),
+      obat(
+        'sutan-bisoprolol',
+        'Bisoprolol 2,5 mg tab',
+        '93000655',
+        '2,5 mg',
+        'PO',
+        '1×1 pagi',
+        3,
+        'tab',
+        320,
+      ),
+    ],
+    alerts: [
+      {
+        id: 'sutan-interaksi',
+        level: 'mayor',
+        kind: 'interaksi',
+        title: 'Interaksi mayor: Klopidogrel + Omeprazol',
+        detail:
+          'Omeprazol menghambat CYP2C19 sehingga efek antiplatelet klopidogrel turun. Saran: ganti dengan pantoprazol 40 mg 1×1 IV/PO.',
+        recommendation: 'Usulkan ke dokter: ganti pantoprazol',
+        itemIds: ['sutan-klopidogrel', 'sutan-omeprazol'],
+        status: 'terbuka',
+        resolution: null,
+      },
+      {
+        id: 'sutan-ginjal',
+        level: 'sedang',
+        kind: 'dosis-ginjal',
+        title: 'Penyesuaian dosis ginjal: Enoksaparin',
+        detail:
+          'eGFR 42: dosis terapeutik 1 mg/kg tetap 2×/hari, pantau anti-Xa. Bila eGFR < 30, turunkan ke 1×/hari.',
+        recommendation: 'Dosis sudah sesuai eGFR',
+        itemIds: ['sutan-enoksaparin'],
+        status: 'terbuka',
+        resolution: null,
+      },
+    ],
+  });
+}
+
+/** Resep hari demo di luar pasien skenario: 6 telaah, 3 penyiapan, 2 serah terima. */
+export function demoPrescriptions(): PharmacyPrescription[] {
+  const ri = {
+    setting: 'rawat-inap',
+    depot: 'Depo rawat inap',
+    cito: false,
+    weightKg: null,
+    egfr: null,
+  } as const;
+  const rj = {
+    setting: 'rawat-jalan',
+    depot: 'Depo rawat jalan',
+    cito: false,
+    weightKg: null,
+    egfr: null,
+  } as const;
+  return [
+    rxSutan(),
+    rx({
+      ...ri,
+      id: 'rx-endang',
+      no: 'R-2610-0871',
+      patientId: 'ps-endang',
+      location: 'Bangsal Melati · M-203',
+      prescriber: doctorName('dr-kartika'),
+      writtenAt: at('08.02'),
+      stage: 'telaah',
+      tag: 'Pulang',
+      days: 7,
+      items: [
+        obat('endang-sefiksim', 'Sefiksim 200 mg kaps', null, '200 mg', 'PO', '2×1 · 4 hari', 8, 'kaps', 150),
+        obat('endang-metformin', 'Metformin 500 mg tab', null, '500 mg', 'PO', '2×1', 14, 'tab', 900),
+        obat(
+          'endang-glargin',
+          'Insulin glargine 100 U/mL pen',
+          null,
+          '16 unit',
+          'SC',
+          '1× malam',
+          1,
+          'pen',
+          22,
+          {
+            highAlert: true,
+            stockMin: 10,
+            note: 'edukasi cara penyuntikan saat serah terima',
+          },
+        ),
+      ],
+      alerts: [
+        {
+          id: 'endang-alergi',
+          level: 'info',
+          kind: 'alergi',
+          title: 'Riwayat alergi amoksisilin',
+          detail: 'Sefiksim (sefalosporin generasi 3): reaktivitas silang dengan penisilin rendah.',
+          recommendation: null,
+          itemIds: ['endang-sefiksim'],
+          status: 'teratasi',
+          resolution: 'Dikaji DPJP saat CPOE: sefiksim dilanjutkan, edukasi tanda reaksi alergi.',
+        },
+      ],
+    }),
+    rx({
+      ...ri,
+      id: 'rx-raka',
+      no: 'R-2610-0876',
+      patientId: 'ps-raka',
+      location: 'Bangsal Mawar · MW-112',
+      prescriber: doctorName('dr-nadia'),
+      writtenAt: at('08.09'),
+      stage: 'telaah',
+      tag: 'Racikan',
+      days: null,
+      weightKg: 22,
+      items: [
+        obat(
+          'raka-parasetamol',
+          'Parasetamol 250 mg puyer (racikan)',
+          null,
+          '250 mg',
+          'PO',
+          '3×1 bila demam',
+          9,
+          'bks',
+          120,
+          {
+            note: 'racikan: 10–15 mg/kg/kali',
+          },
+        ),
+        obat('raka-oralit', 'Oralit 200 mL sachet', null, '200 mL', 'PO', 'tiap 4 jam', 6, 'sachet', 300),
+      ],
+    }),
+    rx({
+      ...ri,
+      id: 'rx-wulan',
+      no: 'R-2610-0879',
+      patientId: 'ps-wulan',
+      location: 'Kamar bersalin (VK)',
+      prescriber: doctorName('dr-hana'),
+      writtenAt: at('08.11'),
+      stage: 'telaah',
+      tag: 'Pra-operasi',
+      days: null,
+      items: [
+        obat('wulan-sefazolin', 'Sefazolin 2 g inj', null, '2 g', 'IV', '1× pra-insisi', 1, 'vial', 48),
+        obat(
+          'wulan-oksitosin',
+          'Oksitosin 10 IU/mL inj',
+          null,
+          '10 IU',
+          'IV',
+          'setelah bayi lahir',
+          2,
+          'ampul',
+          40,
+          {
+            highAlert: true,
+          },
+        ),
+      ],
+    }),
+    rx({
+      ...ri,
+      id: 'rx-aminah',
+      no: 'R-2610-0858',
+      patientId: 'ps-aminah',
+      location: 'ICU/ICCU · ICU 9',
+      prescriber: doctorName('dr-rahmat'),
+      writtenAt: at('07.58'),
+      stage: 'telaah',
+      cito: true,
+      tag: 'High alert',
+      days: null,
+      weightKg: 54,
+      items: [
+        obat(
+          'aminah-norepinefrin',
+          'Norepinefrin 4 mg/4 mL inj',
+          null,
+          '0,1 mcg/kg/menit',
+          'IV',
+          'infus kontinu',
+          4,
+          'ampul',
+          30,
+          {
+            highAlert: true,
+            stockMin: 10,
+            note: 'syringe pump; cek ganda kecepatan dan konsentrasi',
+          },
+        ),
+        obat('aminah-meropenem', 'Meropenem 1 g inj', null, '1 g', 'IV', '3×1', 3, 'vial', 64),
+      ],
+    }),
+    rx({
+      ...rj,
+      id: 'rx-lestiani',
+      no: 'R-2610-0881',
+      patientId: 'ps-lestiani',
+      location: 'Poli Saraf',
+      prescriber: doctorName('dr-yudha'),
+      writtenAt: at('08.17'),
+      stage: 'telaah',
+      tag: 'PRB',
+      prb: true,
+      days: 30,
+      items: [
+        obat(
+          'lestiani-klopidogrel',
+          'Klopidogrel 75 mg tab',
+          '93000387',
+          '75 mg',
+          'PO',
+          '1×1 pagi',
+          30,
+          'tab',
+          520,
+        ),
+        obat(
+          'lestiani-atorvastatin',
+          'Atorvastatin 40 mg tab',
+          '93000914',
+          '40 mg',
+          'PO',
+          '1×1 malam',
+          30,
+          'tab',
+          410,
+        ),
+        obat('lestiani-amlodipin', 'Amlodipin 10 mg tab', null, '10 mg', 'PO', '1×1', 30, 'tab', 480),
+        obat('lestiani-sitikolin', 'Sitikolin 500 mg tab', null, '500 mg', 'PO', '2×1', 60, 'tab', 240, {
+          fornas: false,
+        }),
+      ],
+    }),
+    rx({
+      ...ri,
+      id: 'rx-fajar',
+      no: 'R-2610-0866',
+      patientId: 'ps-fajar',
+      location: 'Kamar operasi · OK 2',
+      prescriber: doctorName('dr-yohanes'),
+      writtenAt: at('08.05'),
+      stage: 'siap',
+      tag: 'Pra-operasi',
+      days: null,
+      items: [
+        obat('fajar-sefazolin', 'Sefazolin 2 g inj', null, '2 g', 'IV', '1× pra-insisi', 1, 'vial', 48),
+        obat('fajar-ondansetron', 'Ondansetron 4 mg inj', null, '4 mg', 'IV', 'bila mual', 2, 'ampul', 130),
+        obat('fajar-ketorolak', 'Ketorolak 30 mg inj', null, '30 mg', 'IV', '3×1', 3, 'ampul', 76),
+      ],
+    }),
+    rx({
+      ...ri,
+      id: 'rx-rizky',
+      no: 'R-2610-0852',
+      patientId: 'ps-rizky',
+      location: 'Bangsal Kenanga · K-07',
+      prescriber: doctorName('dr-yohanes'),
+      writtenAt: at('07.52'),
+      stage: 'siap',
+      tag: 'Rawat inap',
+      days: 3,
+      items: [
+        obat('rizky-seftriakson', 'Seftriakson 2 g inj', null, '2 g', 'IV', '1×1', 3, 'vial', 140),
+        obat('rizky-parasetamol', 'Parasetamol 1 g infus', null, '1 g', 'IV', '3×1', 9, 'botol', 95),
+        obat('rizky-lansoprazol', 'Lansoprazol 30 mg kaps', null, '30 mg', 'PO', '1×1', 3, 'kaps', 300),
+      ],
+    }),
+    rx({
+      ...rj,
+      id: 'rx-siti',
+      no: 'R-2610-0847',
+      patientId: 'ps-siti',
+      location: 'Poli Penyakit Dalam',
+      prescriber: doctorName('dr-rahmat'),
+      writtenAt: at('07.40'),
+      stage: 'siap',
+      tag: 'PRB',
+      prb: true,
+      days: 30,
+      items: [
+        obat('siti-amlodipin', 'Amlodipin 5 mg tab', null, '5 mg', 'PO', '1×1', 30, 'tab', 640),
+        obat('siti-kandesartan', 'Kandesartan 8 mg tab', null, '8 mg', 'PO', '1×1', 30, 'tab', 210),
+        obat('siti-simvastatin', 'Simvastatin 20 mg tab', null, '20 mg', 'PO', '1×1 malam', 30, 'tab', 520),
+      ],
+    }),
+    rx({
+      ...rj,
+      id: 'rx-bonifasius',
+      no: 'R-2610-0831',
+      patientId: 'ps-bonifasius',
+      location: 'Poli Jantung',
+      prescriber: doctorName('dr-bagus'),
+      writtenAt: at('07.31'),
+      stage: 'serah',
+      tag: 'PRB',
+      prb: true,
+      days: 30,
+      items: [
+        obat('boni-asetosal', 'Asetosal 80 mg tab', null, '80 mg', 'PO', '1×1', 30, 'tab', 700),
+        obat(
+          'boni-klopidogrel',
+          'Klopidogrel 75 mg tab',
+          '93000387',
+          '75 mg',
+          'PO',
+          '1×1 pagi',
+          30,
+          'tab',
+          490,
+        ),
+        obat(
+          'boni-atorvastatin',
+          'Atorvastatin 40 mg tab',
+          '93000914',
+          '40 mg',
+          'PO',
+          '1×1 malam',
+          30,
+          'tab',
+          380,
+        ),
+        obat(
+          'boni-bisoprolol',
+          'Bisoprolol 2,5 mg tab',
+          '93000655',
+          '2,5 mg',
+          'PO',
+          '1×1 pagi',
+          30,
+          'tab',
+          290,
+        ),
+        obat('boni-kandesartan', 'Kandesartan 8 mg tab', null, '8 mg', 'PO', '1×1', 30, 'tab', 180),
+      ],
+    }),
+    rx({
+      ...rj,
+      id: 'rx-nadia',
+      no: 'R-2610-0836',
+      patientId: 'ps-nadia',
+      location: 'Poli Anak',
+      prescriber: doctorName('dr-nadia'),
+      writtenAt: at('07.36'),
+      stage: 'serah',
+      tag: 'Rawat jalan',
+      days: 3,
+      weightKg: 16,
+      items: [
+        obat(
+          'nadia-parasetamol',
+          'Parasetamol sirup 120 mg/5 mL',
+          null,
+          '7,5 mL',
+          'PO',
+          'bila demam ≥ 38,5 °C',
+          1,
+          'botol',
+          61,
+        ),
+        obat('nadia-oralit', 'Oralit 200 mL sachet', null, '200 mL', 'PO', 'tiap BAB cair', 3, 'sachet', 294),
+      ],
+    }),
+  ];
+}
+
+/** Antrean farmasi hari demo; `extra` = resep pasien skenario (sudah diproyeksikan). */
+export function demoPharmacyQueue(extra: readonly PharmacyPrescription[] = []): PharmacyQueue {
+  return {
+    asOf: DEMO_NOW,
+    pharmacists: [...APOTEKER_JAGA],
+    prescriptions: [...extra, ...demoPrescriptions()],
   };
 }
