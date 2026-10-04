@@ -379,6 +379,7 @@ await this.events.publish('booking.checked_in', { appointmentId, patientId });
 - Penangan berjalan berurutan dengan transaksi yang sama. Penangan gagal → seluruh permintaan batal, termasuk tulisan penerbit.
 - `publish` di luar transaksi → galat program. Rantai lebih dari 8 tingkat dianggap siklus.
 - Efek ke sistem luar dari penangan tetap lewat outbox.
+- Event belum disimpan di tabel: hanya penangan yang terdaftar saat publikasi yang menerimanya. Reaksi yang harus bertahan (outbox, task ID, staging biaya) ditulis penangan di transaksi yang sama. Tabel `domain_events` append-only untuk konsumen yang datang belakangan (charge capture fase 5, SATUSEHAT fase 7) masih keputusan terbuka (lihat utang teknis PROGRESS).
 
 ### Anatomi modul
 
@@ -558,15 +559,15 @@ Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccept
 
 `apps/mock/src/`:
 
-| Berkas                            | Isi                                                                                                                                                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                          |
-| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                  |
-| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0, Antrean RS + urutan task ID, HFIS; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
-| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                    |
-| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                              |
-| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                            |
-| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                |
+| Berkas                            | Isi                                                                                                                                                                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                                                                                     |
+| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                                                                             |
+| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0 (+ pulang SEP, ubah/hapus surat, rujukan keluar), Antrean RS + urutan task ID, HFIS, Aplicare; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
+| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                                                                               |
+| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                                                                                         |
+| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                                                                                       |
+| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                                                                           |
 
 Mode `timeout` **memproses** permintaan lalu menahan jawabannya (meniru jawaban BPJS yang hilang: SEP sudah terbit, RS tidak tahu), berbeda dengan `gagal` yang menolak tanpa memproses. Aturan kartu/NIK/rujukan fiktif dan daftar API panel ada di `apps/mock/README.md`.
 
