@@ -54,6 +54,8 @@ const PATIENT_READ_ACTIONS = ['read', 'search', 'print', 'export'];
  */
 const PATIENT_VOLUME_ACTIONS = ['read', 'print', 'export'];
 const MAX_FINDINGS_PER_KIND = 50;
+/** Batas pengaman riwayat tinjauan per temuan (dalam praktik hanya beberapa keputusan). */
+const MAX_REVIEW_HISTORY = 100;
 
 @Injectable()
 export class AuditRepository {
@@ -210,6 +212,23 @@ export class AuditRepository {
       where: { action: 'review', resourceType: 'audit_anomaly', resourceId: { in: keys } },
       orderBy: { seq: 'desc' },
       select: { resourceId: true, details: true, reason: true, actorUserId: true, occurredAt: true },
+    });
+  }
+
+  /** Riwayat tinjauan satu temuan (entri audit `review`), terbaru dulu. */
+  anomalyReviewHistory(key: string) {
+    return this.db.tx().auditEvent.findMany({
+      where: { action: 'review', resourceType: 'audit_anomaly', resourceId: key },
+      orderBy: { seq: 'desc' },
+      take: MAX_REVIEW_HISTORY,
+      select: {
+        seq: true,
+        details: true,
+        reason: true,
+        actorUserId: true,
+        actorRole: true,
+        occurredAt: true,
+      },
     });
   }
 

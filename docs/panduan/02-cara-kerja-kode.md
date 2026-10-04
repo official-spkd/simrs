@@ -141,11 +141,14 @@ Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoi
 | `GET /audit/verify`                       | `audit.read`   | Periksa seluruh rantai hash tenant. Mahal, jadi web hanya menjalankannya bila diminta (`?verifikasi=1`, tidak terbawa ke tautan lain).                     |
 | `GET /audit/anomalies?days=`              | `audit.read`   | Temuan dihitung dari jejak: gagal masuk/akses ditolak berulang, akses pasien di luar jam dinas, volume tak wajar, akses darurat belum ditinjau.            |
 | `POST /audit/anomalies/review`            | `audit.review` | Tinjauan temuan. Disimpan sebagai entri audit (`action=review`, `resource_type=audit_anomaly`, `resource_id`=kunci temuan), bukan tabel baru.              |
+| `GET /audit/anomalies/reviews?key=`       | `audit.read`   | Riwayat tinjauan satu temuan, terbaru dulu: peninjau, waktu, keputusan, catatan; `effective` = yang berlaku. Pembukaannya diaudit dengan kunci temuan.     |
 | `GET /audit/export`                       | `audit.export` | CSV bukti akreditasi: BOM UTF-8, maks. 92 hari / 10.000 baris, sel berawalan `= + - @` diberi `'` (anti formula injection). Ekspor ikut diaudit.           |
 
 - **Kunci temuan** berbentuk `jenis:pengguna:tanggal WIB` (`AUDIT_ANOMALY_KEY` di `@simrs/shared`). Kunci yang sama di hari yang sama = temuan yang sama, sehingga tinjauan tetap melekat walau jumlah kejadian bertambah.
 - **Ambang** diatur per RS lewat pengaturan: `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`. Peran jaga malam (`NIGHT_SHIFT_ROLES`) tidak dihitung sebagai akses di luar jam dinas.
 - Peninjau tidak boleh meninjau temuan atau akses darurat **miliknya sendiri** (`409`), dan akses darurat yang sudah ditinjau tidak bisa ditinjau ulang.
+- Temuan **boleh ditinjau ulang** (layar: "Buka kembali tinjauan"): entri `review` baru ditambahkan dan yang terbaru berlaku; riwayatnya tampil di detail temuan. Kunci bertanggal mendatang (`400`) atau berisi akun di luar RS ini (`404`) ditolak, karena entri tinjauan tidak bisa dihapus.
+- Jendela `days` dimulai **00.00 WIB** (`days - 1` hari sebelum hari ini), sehingga hari pertama dihitung utuh dan jumlah per kunci temuan sama di rentang mana pun.
 - Query SQL temuan mengelompokkan per hari dengan `AT TIME ZONE 'Asia/Jakarta'` secara eksplisit, tidak bergantung pada zona sesi database.
 
 ### Master Patient Index (P05)
