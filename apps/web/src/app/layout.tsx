@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
+import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 
@@ -21,7 +22,11 @@ export const metadata: Metadata = {
   description: 'Sistem Informasi Manajemen Rumah Sakit (lingkungan lokal, data fiktif)',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // CSP ber-nonce (proxy, ADR-0073): setiap halaman dirender per permintaan agar skrip Next membawa nonce
+  // permintaan itu (halaman prarender memuat skrip tanpa nonce dan akan diblokir). Next mengambil nonce dari
+  // header CSP permintaan; komponen yang memasang `<Script>` sendiri membaca header `NONCE_HEADER`.
+  await connection();
   return (
     <html lang="id" className={`${sans.variable} ${mono.variable}`}>
       <body>{children}</body>
