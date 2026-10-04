@@ -1,9 +1,14 @@
 import {
   type Bed,
   type BedStatus,
+  type ConsentDocument,
   type CpptEntry,
   type CpptRole,
+  type DischargeSummary,
+  type EmarAdministrationInput,
+  type EmarMedication,
   type EmarSlotState,
+  type EmarTime,
   type EwsObservation,
   type EdStatus,
   formatJam,
@@ -102,6 +107,32 @@ export function triageSaveAllowed(suggested: TriageLevel, chosen: TriageLevel, r
   return !triageNeedsReason(suggested, chosen) || reason.trim().length >= SAFETY_REASON_MIN;
 }
 
+/** Posisi yang boleh menetapkan triase. Petugas pendaftaran tetap mengerjakan admisi dan identifikasi. */
+export const TRIAGE_ROLES: readonly string[] = ['perawat', 'dokter', 'dokter_residen'];
+export const TRIAGE_ROLE_REASON = 'Triase oleh perawat/dokter';
+
+export function canTriage(roleCode: string | null | undefined): boolean {
+  return !!roleCode && TRIAGE_ROLES.includes(roleCode);
+}
+
+/**
+ * Gerbang triase sisi server: level di atas batas protokol ditolak (mis. nyeri dada minimal urgen), level di bawah
+ * saran sistem wajib alasan ≥ 10 karakter. Saran dan batas berasal dari data IGD server, bukan dari klien.
+ */
+export function triageBlocker(
+  item: Pick<EdTrackingItem, 'suggestedLevel' | 'maxLevel'>,
+  chosen: TriageLevel,
+  reason: string,
+): string | null {
+  if (chosen > item.maxLevel) {
+    return `Level ${chosen} tidak diizinkan protokol pasien ini (paling rendah level ${item.maxLevel}).`;
+  }
+  if (!triageSaveAllowed(item.suggestedLevel, chosen, reason)) {
+    return `Level di bawah saran sistem wajib disertai alasan klinis (minimal ${SAFETY_REASON_MIN} karakter).`;
+  }
+  return null;
+}
+
 export const ED_ZONE_LABEL: Record<EdZone, string> = {
   T: 'Area triase',
   R: 'Resusitasi',
@@ -165,14 +196,22 @@ export function edKpis(items: readonly EdTrackingItem[]): EdKpis {
   };
 }
 
+export type WalkInKind = 'tanpa-identitas' | 'baru';
+
+/** Id kunjungan sementara pasien datang sendiri: jenisnya ikut di id agar server memakai bawaan yang sama. */
+export function walkInEncounterId(kind: WalkInKind, seq: number): string {
+  return `kj-igd-${kind === 'tanpa-identitas' ? 'anon' : 'baru'}-${seq}`;
+}
+
 /**
  * Pasien IGD baru di area triase (tombol "Pasien tanpa identitas" / "+ Triase pasien baru"); identitas dan
- * tanda vital menyusul. Hanya di layar (simulasi).
+ * tanda vital menyusul. Hanya di layar (simulasi). Pasien tanpa identitas yang ditemukan tidak sadar disarankan
+ * triase 1 sampai jalan napas dan tanda vital aman.
  */
-export function newWalkIn(kind: 'tanpa-identitas' | 'baru', seq: number, arrivedAt: string): EdTrackingItem {
+export function newWalkIn(kind: WalkInKind, seq: number, arrivedAt: string): EdTrackingItem {
   const anon = kind === 'tanpa-identitas';
   return {
-    encounterId: `kj-igd-baru-${seq}`,
+    encounterId: walkInEncounterId(kind, seq),
     bed: null,
     zone: 'T',
     patientId: null,
@@ -182,7 +221,7 @@ export function newWalkIn(kind: 'tanpa-identitas' | 'baru', seq: number, arrived
     ageLabel: anon ? '±30 th' : 'umur menyusul',
     guarantor: anon ? 'Belum diketahui' : 'Penjamin menyusul',
     triageLevel: null,
-    suggestedLevel: 3,
+    suggestedLevel: anon ? 1 : 3,
     maxLevel: 5,
     chiefComplaint: anon ? 'Ditemukan tidak sadar di jalan' : 'Keluhan dicatat saat triase',
     doctor: null,
@@ -195,16 +234,24 @@ export function newWalkIn(kind: 'tanpa-identitas' | 'baru', seq: number, arrived
       value: '—',
       abnormal: false,
     })),
-    recommendation:
-      'Saran awal level 3 sampai tanda vital tercatat; sistem menghitung ulang setelah tanda vital masuk.',
+    recommendation: anon
+      ? 'Tidak sadar tanpa identitas: triase 1, amankan jalan napas, pasang monitor, cek gula darah segera.'
+      : 'Saran awal level 3 sampai tanda vital tercatat; sistem menghitung ulang setelah tanda vital masuk.',
     orderTitle: 'Order awal (alur umum)',
     orders: [
       { id: 'dl', label: 'Darah lengkap', defaultOn: true },
-      { id: 'gds', label: 'Gula darah sewaktu', defaultOn: false },
+      { id: 'gds', label: 'Gula darah sewaktu', defaultOn: anon },
       { id: 'konsul', label: 'Konsul DPJP jaga', defaultOn: false },
     ],
     scenario: false,
   };
+}
+
+/** Bawaan server untuk pasien datang sendiri dari id sementaranya (`kj-igd-anon-3`), atau null bila bukan. */
+export function walkInFromId(encounterId: string, arrivedAt: string): EdTrackingItem | null {
+  const m = /^kj-igd-(anon|baru)-([1-9]\d{0,3})$/.exec(encounterId);
+  if (!m) return null;
+  return newWalkIn(m[1] === 'anon' ? 'tanpa-identitas' : 'baru', Number(m[2]), arrivedAt);
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -304,6 +351,19 @@ export function cpptMatches(e: Pick<CpptEntry, 'role'>, f: CpptFilter): boolean 
   return true;
 }
 
+/** Posisi PPA yang menulis CPPT (dokter, residen, perawat, bidan, apoteker). */
+export const CPPT_WRITER_ROLES: readonly string[] = [
+  'dokter',
+  'dokter_residen',
+  'perawat',
+  'bidan',
+  'apoteker',
+];
+
+export function canWriteCppt(roleCode: string | null | undefined): boolean {
+  return !!roleCode && CPPT_WRITER_ROLES.includes(roleCode);
+}
+
 /** Peran sesi → profesi penulis CPPT. */
 export function cpptRoleOf(roleCode: string | null | undefined): CpptRole {
   if (roleCode === 'dokter') return 'dpjp';
@@ -325,7 +385,7 @@ export interface SoapText {
   p: string;
 }
 
-/** CPPT baru (versi 1). Catatan residen wajib co-sign DPJP. */
+/** CPPT baru (versi 1), atau addendum atas entri final PPA lain. Catatan residen wajib co-sign DPJP. */
 export function newCpptEntry(a: {
   id: string;
   encounterId: string;
@@ -333,6 +393,7 @@ export function newCpptEntry(a: {
   author: string;
   at: string;
   soap: SoapText;
+  addendumOf?: string | null;
 }): CpptEntry {
   return {
     id: a.id,
@@ -344,10 +405,61 @@ export function newCpptEntry(a: {
     version: 1,
     supersedesId: null,
     correctionReason: null,
+    addendumOf: a.addendumOf ?? null,
     cosignRequired: a.role === 'residen',
     cosignedBy: null,
     cosignedAt: null,
   };
+}
+
+/** Koreksi hanya oleh penulis entri; PPA lain menambah addendum (entri lama tidak pernah diubah). */
+export function canCorrectCppt(e: Pick<CpptEntry, 'author'>, user: string): boolean {
+  return e.author === user;
+}
+
+/** Kunci penulis (FNV-1a 32 bit, base36) yang ikut di id CPPT lokal: server mengenali penulisnya tanpa basis data. */
+export function cpptAuthorKey(userId: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < userId.length; i += 1) {
+    h ^= userId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
+
+/** Id CPPT yang dibuat di sesi ini (belum tersimpan): `cppt-<kunci penulis>-<urutan>`. */
+export function localCpptId(userId: string, seq: number): string {
+  return `cppt-${cpptAuthorKey(userId)}-${seq.toString(36)}`;
+}
+
+function isOwnLocalCpptId(id: string, userId: string): boolean {
+  return id.startsWith(`cppt-${cpptAuthorKey(userId)}-`);
+}
+
+/**
+ * Gerbang koreksi sisi server: entri harus ada (di rekam medis, atau entri lokal milik pengguna ini), belum
+ * digantikan, dan ditulis pengguna ini. Null = boleh.
+ */
+export function cpptCorrectionBlocker(
+  entries: readonly CpptEntry[],
+  targetId: string,
+  user: { id: string; name: string },
+): string | null {
+  const target = entries.find((e) => e.id === targetId);
+  if (!target) return isOwnLocalCpptId(targetId, user.id) ? null : 'Entri CPPT tidak ditemukan.';
+  if (supersededIds(entries).has(targetId)) return 'Entri ini sudah dikoreksi; koreksi versi terbaru.';
+  if (!canCorrectCppt(target, user.name)) {
+    return 'Koreksi hanya oleh penulis catatan; PPA lain menambahkan addendum.';
+  }
+  return null;
+}
+
+/** Gerbang addendum: menunjuk entri rekam medis yang masih berlaku (bukan versi lama). */
+export function cpptAddendumBlocker(entries: readonly CpptEntry[], targetId: string): string | null {
+  if (!entries.some((e) => e.id === targetId)) return 'Entri CPPT tidak ditemukan.';
+  if (supersededIds(entries).has(targetId))
+    return 'Entri ini sudah dikoreksi; tambahkan addendum pada versi terbaru.';
+  return null;
 }
 
 /**
@@ -379,31 +491,33 @@ export function correctCpptEntry(
   };
 }
 
-/** Skor EWS dewasa (pola NEWS2): napas, SpO2, oksigen, TD sistolik, nadi, kesadaran, suhu. */
-export function ewsScore(o: Omit<EwsObservation, 'at' | 'score' | 'dbp'>): number {
+type EwsInput = Omit<EwsObservation, 'at' | 'score' | 'dbp'>;
+
+/** Skor per parameter EWS dewasa (pola NEWS2): napas, SpO2, oksigen, TD sistolik, nadi, kesadaran, suhu. */
+export function ewsParamScores(o: EwsInput): number[] {
   const band = (v: number, rules: Array<[number, number]>) => rules.find(([max]) => v <= max)?.[1] ?? 0;
-  return (
+  return [
     band(o.rr, [
       [8, 3],
       [11, 1],
       [20, 0],
       [24, 2],
       [Infinity, 3],
-    ]) +
+    ]),
     band(o.spo2, [
       [91, 3],
       [93, 2],
       [95, 1],
       [Infinity, 0],
-    ]) +
-    (o.onOxygen ? 2 : 0) +
+    ]),
+    o.onOxygen ? 2 : 0,
     band(o.sbp, [
       [90, 3],
       [100, 2],
       [110, 1],
       [219, 0],
       [Infinity, 3],
-    ]) +
+    ]),
     band(o.hr, [
       [40, 3],
       [50, 1],
@@ -411,16 +525,26 @@ export function ewsScore(o: Omit<EwsObservation, 'at' | 'score' | 'dbp'>): numbe
       [110, 1],
       [130, 2],
       [Infinity, 3],
-    ]) +
-    (o.consciousness === 'A' ? 0 : 3) +
+    ]),
+    o.consciousness === 'A' ? 0 : 3,
     band(o.temp, [
       [35, 3],
       [36, 1],
       [38, 0],
       [39, 1],
       [Infinity, 2],
-    ])
-  );
+    ]),
+  ];
+}
+
+/** Skor EWS dewasa = jumlah skor parameter. */
+export function ewsScore(o: EwsInput): number {
+  return ewsParamScores(o).reduce((a, b) => a + b, 0);
+}
+
+/** Skor parameter tunggal tertinggi (NEWS2: satu parameter bernilai 3 memicu respons urgen). */
+export function ewsMaxParam(o: EwsInput): number {
+  return Math.max(...ewsParamScores(o));
 }
 
 export interface EwsLevel {
@@ -430,7 +554,11 @@ export interface EwsLevel {
   tone: string;
 }
 
-export function ewsLevel(score: number): EwsLevel {
+/**
+ * Tingkat EWS: ≥ 7 tinggi, 5–6 sedang, 0–4 rendah, kecuali satu parameter bernilai 3 (aturan NEWS2) yang menaikkan
+ * ke minimal sedang: observasi tiap 1 jam dan lapor DPJP.
+ */
+export function ewsLevel(score: number, maxParam = 0): EwsLevel {
   if (score >= 7)
     return {
       level: 'tinggi',
@@ -441,6 +569,12 @@ export function ewsLevel(score: number): EwsLevel {
     return {
       level: 'sedang',
       action: 'Observasi tiap 1 jam, lapor DPJP.',
+      tone: 'bg-warning-bg text-warning',
+    };
+  if (maxParam >= 3)
+    return {
+      level: 'sedang',
+      action: 'Satu parameter bernilai 3: observasi tiap 1 jam, lapor DPJP.',
       tone: 'bg-warning-bg text-warning',
     };
   return { level: 'rendah', action: 'Lanjutkan observasi tiap 4 jam.', tone: 'bg-success-bg text-success' };
@@ -469,6 +603,79 @@ export function formatTglJam(iso: string): string {
 /** Slot yang bisa dicatat pemberiannya (setelah gelang cocok). */
 export function emarActionable(state: EmarSlotState): boolean {
   return state === 'jadwal' || state === 'terlambat';
+}
+
+/** Posisi yang mencatat pemberian obat di eMAR (perawat, bidan, dokter). */
+export const EMAR_ROLES: readonly string[] = ['perawat', 'bidan', 'dokter', 'dokter_residen'];
+
+export function canAdministerMeds(roleCode: string | null | undefined): boolean {
+  return !!roleCode && EMAR_ROLES.includes(roleCode);
+}
+
+const alnum = (s: string) => s.replace(/[^0-9a-z]/gi, '').toLowerCase();
+
+/** Kode gelang hasil pindai cocok dengan RM pasien kunjungan (pemisah dan huruf besar diabaikan). */
+export function wristbandMatches(code: string, rm: string): boolean {
+  return alnum(code).length > 0 && alnum(code) === alnum(rm);
+}
+
+/** Kunci slot eMAR `<obat>|<jam>`. */
+export const emarKey = (medicationId: string, time: EmarTime) => `${medicationId}|${time}`;
+
+/** Slot yang wajib diberikan pada jam "kini" (jadwal/terlambat) dan belum dicatat di layar. */
+export function dueSlots(
+  meds: readonly EmarMedication[],
+  now: EmarTime,
+  given: Readonly<Record<string, string>>,
+): string[] {
+  return meds
+    .filter((m) => m.slots.some((s) => s.time === now && emarActionable(s.state)))
+    .map((m) => emarKey(m.id, now))
+    .filter((k) => !given[k]);
+}
+
+/** Semua dosis jam "kini" sudah dicatat (dan memang ada dosis jam itu). */
+export function allDueGiven(
+  meds: readonly EmarMedication[],
+  now: EmarTime,
+  given: Readonly<Record<string, string>>,
+): boolean {
+  const any = meds.some((m) => m.slots.some((s) => s.time === now && emarActionable(s.state)));
+  return any && dueSlots(meds, now, given).length === 0;
+}
+
+/**
+ * Gerbang pencatatan dosis sisi server (CLAUDE.md §4.9): obat dan slot dibaca dari eMAR pasien; slot harus bisa
+ * dicatat; terlambat wajib alasan; gelang terpindai harus cocok dengan RM; obat kewaspadaan tinggi wajib cek ganda
+ * oleh orang lain. Null = boleh.
+ */
+export function emarRecordBlocker(a: {
+  meds: readonly EmarMedication[];
+  rm: string;
+  nurse: string;
+  input: Pick<
+    EmarAdministrationInput,
+    'medicationId' | 'time' | 'wristbandCode' | 'lateReason' | 'doubleCheckedBy'
+  >;
+}): string | null {
+  const med = a.meds.find((m) => m.id === a.input.medicationId);
+  if (!med) return 'Obat tidak ada di eMAR pasien ini.';
+  const slot = med.slots.find((s) => s.time === a.input.time);
+  if (!slot || !emarActionable(slot.state)) {
+    return `${med.name} jam ${a.input.time} tidak bisa dicatat (${EMAR_STATE_META[slot?.state ?? 'kosong'].label.toLowerCase()}).`;
+  }
+  if (slot.state === 'terlambat' && !a.input.lateReason) {
+    return `Dosis terlambat wajib alasan (minimal ${SAFETY_REASON_MIN} karakter).`;
+  }
+  if (a.input.wristbandCode !== null && !wristbandMatches(a.input.wristbandCode, a.rm)) {
+    return 'Gelang tidak cocok dengan pasien kunjungan ini; pindai ulang gelang yang benar.';
+  }
+  if (med.highAlert) {
+    const second = (a.input.doubleCheckedBy ?? '').trim();
+    if (second.length < 3) return `${med.name} obat kewaspadaan tinggi: wajib cek ganda perawat kedua.`;
+    if (signerNameMatches(second, a.nurse)) return 'Cek ganda harus oleh petugas lain, bukan pemberi obat.';
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -530,5 +737,70 @@ export function resumeSignBlocker(c: ResumeCompleteness, canSign: boolean, signe
   if (signed) return 'Resume sudah final; perubahan hanya lewat addendum berversi.';
   if (!c.complete) return `TTE terkunci: lengkapi ${c.total - c.done} butir lagi (${c.missing.join(', ')}).`;
   if (!canSign) return 'Resume disiapkan; TTE hanya oleh DPJP (posisi dokter).';
+  return null;
+}
+
+/**
+ * Gerbang TTE resume sisi server: hanya resume yang dikenal dan sudah disiapkan, bukan milik pasien skenario (TTE
+ * lewat tugas skenario), dan belum final. Null = boleh.
+ */
+export function resumeSignTargetBlocker(
+  found:
+    | { kind: 'resume'; summary: Pick<DischargeSummary, 'signedAt'>; scenario: boolean }
+    | { kind: 'belum-disiapkan' }
+    | null,
+): string | null {
+  if (found?.kind !== 'resume') return 'Resume tidak dikenal atau belum disiapkan.';
+  if (found.scenario) return 'Resume pasien simulasi ditandatangani lewat langkah skenario.';
+  if (found.summary.signedAt) return 'Resume sudah final; perubahan hanya lewat addendum berversi.';
+  return null;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Persetujuan tindakan: TTE hanya atas dokumen draf, tujuh butir persis, nama penanda tangan cocok
+// ---------------------------------------------------------------------------------------------------------
+
+const HONORIFIC = /^(tn|ny|nn|sdr|sdri|an|bp|bpk|ibu)\.?\s+/i;
+
+function personName(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').replace(HONORIFIC, '').toLowerCase();
+}
+
+/** Nama yang diketik/ditandatangani sama dengan nama penanda tangan (spasi, huruf besar, sapaan diabaikan). */
+export function signerNameMatches(typed: string, expected: string): boolean {
+  const t = personName(typed);
+  return t.length > 0 && t === personName(expected);
+}
+
+/** Dua daftar id berisi himpunan yang sama persis (tanpa duplikat, tanpa tambahan). */
+export function sameIdSet(a: readonly string[], b: readonly string[]): boolean {
+  const sa = new Set(a);
+  return sa.size === a.length && a.length === b.length && b.every((x) => sa.has(x));
+}
+
+/** TTE persetujuan pasien skenario sebelum gilirannya (tugas `tata-laksana.consent`). */
+export const SCENARIO_CONSENT_WAIT = 'Menunggu giliran persetujuan di Simulasi.';
+
+/** Gerbang TTE persetujuan sisi server (dokumen dibaca server). Null = boleh. */
+export function consentFinalizeBlocker(
+  doc: Pick<ConsentDocument, 'status' | 'items' | 'signerName' | 'witness'>,
+  input: { acknowledged: readonly string[]; patient: { name: string }; witness: { name: string } },
+): string | null {
+  if (doc.status === 'final') return 'Dokumen sudah final; perubahan hanya lewat addendum.';
+  if (doc.status !== 'draf') return 'Pasien menolak tindakan; dokumen tidak bisa ditandatangani.';
+  if (
+    !sameIdSet(
+      input.acknowledged,
+      doc.items.map((i) => i.id),
+    )
+  ) {
+    return 'Ketujuh butir informasi wajib dipahami sebelum TTE.';
+  }
+  if (!signerNameMatches(input.patient.name, doc.signerName)) {
+    return `Tanda tangan pasien/keluarga harus atas nama ${doc.signerName}.`;
+  }
+  if (!signerNameMatches(input.witness.name, doc.witness.name)) {
+    return `Tanda tangan saksi harus atas nama ${doc.witness.name}.`;
+  }
   return null;
 }

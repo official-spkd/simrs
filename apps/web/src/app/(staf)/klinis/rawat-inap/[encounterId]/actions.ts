@@ -2,13 +2,23 @@
 
 import { type CpptRole, cpptNoteInputSchema, emarAdministrationInputSchema, formatJam } from '@simrs/shared';
 import { z } from 'zod';
+import { patientById } from '@/lib/demo/fixtures/pasien';
 import { wib } from '@/lib/demo/fixtures/rawat-inap';
-import { cpptRoleOf } from '@/lib/rawat-inap';
-import { demoActionSession } from '@/lib/server/data/rawat-inap';
+import {
+  canAdministerMeds,
+  canWriteCppt,
+  cpptAddendumBlocker,
+  cpptCorrectionBlocker,
+  cpptRoleOf,
+  emarRecordBlocker,
+  localCpptId,
+} from '@/lib/rawat-inap';
+import { demoActionSession, encounterClock, getInpatient, scenarioSteps } from '@/lib/server/data/rawat-inap';
 
 /**
- * K04/K07 · Server Action rawat inap (mode presentasi, ADR-0023): gerbang demo + sesi lengkap + kontrak zod.
- * Tidak menyimpan apa pun; layar menambah entri secara lokal dengan penanda "(simulasi, tidak disimpan)".
+ * K04/K07 · Server Action rawat inap (mode presentasi, ADR-0023): gerbang demo + sesi lengkap + posisi + kontrak
+ * zod, lalu aturan dibaca dari rekam rawat inap server (bukan klaim klien). Tidak menyimpan apa pun; layar menambah
+ * entri secara lokal dengan penanda "(simulasi, tidak disimpan)". Cap waktu = jam kunjungan (skenario: jam simulasi).
  */
 
 export interface CpptActionResult {
@@ -16,15 +26,32 @@ export interface CpptActionResult {
   error?: string;
 }
 
-/** CPPT baru atau koreksi (versi baru dengan alasan). Penulis = pengguna yang masuk. */
+const UNKNOWN = 'Kunjungan rawat inap tidak dikenal.';
+
+/** CPPT baru, koreksi (versi baru, hanya penulisnya, dengan alasan), atau addendum PPA lain. Penulis = pengguna. */
 export async function saveCpptAction(input: unknown): Promise<CpptActionResult> {
   const s = await demoActionSession();
+  if (!canWriteCppt(s.role?.code)) {
+    return { error: 'CPPT ditulis PPA (dokter, residen, perawat, bidan, apoteker).' };
+  }
   const parsed = cpptNoteInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'CPPT tidak valid.' };
+  const v = parsed.data;
+  const found = await getInpatient(s, v.encounterId);
+  if (found?.kind !== 'dirawat') return { error: UNKNOWN };
+  const user = { id: s.user.id, name: s.user.displayName };
+  const blocked =
+    v.supersedesId !== null
+      ? cpptCorrectionBlocker(found.detail.cppt, v.supersedesId, user)
+      : v.addendumOf !== null
+        ? cpptAddendumBlocker(found.detail.cppt, v.addendumOf)
+        : null;
+  if (blocked) return { error: blocked };
+  const at = await encounterClock(s, v.encounterId);
   return {
     ok: {
-      id: `cppt-${Date.now().toString(36)}`,
-      at: wib(new Date()),
+      id: localCpptId(s.user.id, Date.now()),
+      at: wib(at),
       author: s.user.displayName,
       role: cpptRoleOf(s.role?.code),
     },
@@ -36,22 +63,57 @@ const cosignSchema = z.strictObject({
   entryId: z.string().min(1).max(60),
 });
 
-/** Co-sign DPJP atas catatan residen: hanya posisi dokter (DPJP). */
+/** Co-sign DPJP atas catatan residen: hanya posisi dokter (DPJP), atas entri residen yang menunggu co-sign. */
 export async function cosignCpptAction(
   input: unknown,
 ): Promise<{ ok?: { by: string; at: string }; error?: string }> {
   const s = await demoActionSession();
-  if (!cosignSchema.safeParse(input).success) return { error: 'Permintaan co-sign tidak valid.' };
+  const parsed = cosignSchema.safeParse(input);
+  if (!parsed.success) return { error: 'Permintaan co-sign tidak valid.' };
   if (s.role?.code !== 'dokter') return { error: 'Co-sign hanya oleh DPJP (posisi dokter).' };
-  return { ok: { by: s.user.displayName, at: wib(new Date()) } };
+  const found = await getInpatient(s, parsed.data.encounterId);
+  if (found?.kind !== 'dirawat') return { error: UNKNOWN };
+  const entry = found.detail.cppt.find((e) => e.id === parsed.data.entryId);
+  // Entri residen yang ditulis di sesi ini belum tersimpan di server: hanya entri rekam medis yang diperiksa.
+  if (entry && (!entry.cosignRequired || entry.cosignedBy)) {
+    return { error: 'Entri ini tidak menunggu co-sign DPJP.' };
+  }
+  const at = await encounterClock(s, parsed.data.encounterId);
+  return { ok: { by: s.user.displayName, at: wib(at) } };
 }
 
-/** Catat pemberian satu dosis eMAR (gelang cocok, atau override beralasan). */
+/**
+ * Catat pemberian satu dosis eMAR. Obat, slot, status terlambat, dan sifat kewaspadaan tinggi dibaca dari eMAR
+ * pasien di server; kode gelang terpindai dicocokkan dengan RM pasien (atau override verifikasi manual beralasan).
+ */
 export async function recordAdministrationAction(
   input: unknown,
 ): Promise<{ ok?: { at: string }; error?: string }> {
-  await demoActionSession();
+  const s = await demoActionSession();
+  if (!canAdministerMeds(s.role?.code)) {
+    return { error: 'Pemberian obat dicatat perawat, bidan, atau dokter.' };
+  }
   const parsed = emarAdministrationInputSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Pemberian obat tidak valid.' };
-  return { ok: { at: formatJam(new Date()) } };
+  const v = parsed.data;
+  const found = await getInpatient(s, v.encounterId);
+  if (found?.kind !== 'dirawat') return { error: UNKNOWN };
+  const p = patientById(found.detail.summary.patientId);
+  if (!p) return { error: UNKNOWN };
+  const blocked = emarRecordBlocker({
+    meds: found.detail.medications,
+    rm: p.rm,
+    nurse: s.user.displayName,
+    input: v,
+  });
+  if (blocked) return { error: blocked };
+  if (p.scenario === 'igd-ranap' || p.scenario === 'elektif-btn') {
+    // Dosis pertama pasien skenario dicatat pada gilirannya (tugas `emar` di langkah rawat inap / pasca operasi).
+    const [st] = await scenarioSteps(s, [
+      p.scenario === 'igd-ranap' ? ['igd-ranap', 'rawat-inap'] : ['elektif-btn', 'pasca-operasi'],
+    ]);
+    if (!st?.tasks.emar?.enabled) return { error: 'Menunggu giliran pemberian obat di Simulasi.' };
+  }
+  const at = await encounterClock(s, v.encounterId);
+  return { ok: { at: formatJam(at) } };
 }

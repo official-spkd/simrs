@@ -8,6 +8,7 @@ import {
   dischargeSummarySchema,
   type EdBoard,
   edBoardSchema,
+  type EdTrackingItem,
   type InpatientDetail,
   inpatientDetailSchema,
   type InpatientSummary,
@@ -24,7 +25,8 @@ import {
   demoInpatients,
   demoWards,
 } from '../../demo/fixtures/rawat-inap';
-import { DEMO_NOW } from '../../demo/fixtures/waktu';
+import { DEMO_NOW, demoNow } from '../../demo/fixtures/waktu';
+import { walkInFromId } from '../../rawat-inap';
 import {
   applyScenarioBeds,
   hartonoBedRequest,
@@ -32,10 +34,13 @@ import {
   hartonoEdItem,
   hartonoInpatient,
   hartonoResume,
+  isDone,
   ratnaBedRequest,
   ratnaConsent,
   ratnaInpatient,
   ratnaResume,
+  reached,
+  scenarioNow,
   type ScenarioStepState,
   stepState,
 } from '../../rawat-inap-scenario';
@@ -71,6 +76,19 @@ export async function scenarioSteps(
   return wanted.map(([scenario, stepId]) => stepState(runs.results[scenario], stepId, runs.rev));
 }
 
+/**
+ * Jam pencatatan untuk kunjungan ini (cap waktu CPPT, eMAR, TTE): pasien skenario memakai jam simulasi skenarionya
+ * agar catatan baru urut di lini masa skenario; pasien lain memakai jam demo berjalan (hari presentasi).
+ */
+export async function encounterClock(session: SessionView, encounterId: string): Promise<Date> {
+  const scenario = patientByEncounterId(encounterId)?.scenario;
+  if (webEnv().dataSource === 'demo' && (scenario === 'igd-ranap' || scenario === 'elektif-btn')) {
+    const R = (await scenarioRuns(session)).results[scenario];
+    return new Date(scenarioNow(R));
+  }
+  return demoNow();
+}
+
 /** K03 · Papan pelacakan IGD (Tn. Hartono muncul sejak skenario IGD dimulai sampai serah terima ke ruang). */
 export async function getEdBoard(session: SessionView): Promise<EdBoard> {
   if (webEnv().dataSource === 'demo') {
@@ -82,6 +100,15 @@ export async function getEdBoard(session: SessionView): Promise<EdBoard> {
     return edBoardSchema.parse(board);
   }
   return notImplemented('IGD');
+}
+
+/**
+ * Satu pasien IGD untuk gerbang triase sisi server: dari papan (data server), atau bawaan pasien datang sendiri
+ * dari id sementaranya. Null = tidak dikenal.
+ */
+export async function getEdItem(session: SessionView, encounterId: string): Promise<EdTrackingItem | null> {
+  const board = await getEdBoard(session);
+  return board.items.find((p) => p.encounterId === encounterId) ?? walkInFromId(encounterId, board.asOf);
 }
 
 /** K05 · Papan tempat tidur: ruang dari `BANGSAL`, bed + permintaan, ditumpangi bed/permintaan pasien skenario. */
@@ -148,7 +175,10 @@ export type DischargeLookup =
   | { kind: 'belum-disiapkan'; patientId: string }
   | null;
 
-/** K13 · Resume medis pulang; null = kunjungan tidak dikenal (halaman → 404). */
+/**
+ * K13 · Resume medis pulang; null = kunjungan tidak dikenal (halaman → 404). Pasien skenario baru punya draf resume
+ * setelah dirawat (Tn. Hartono: serah terima `admisi.transfer`; Ny. Ratna: SEP rawat inap `admisi.sep`).
+ */
 export async function getDischargeSummary(
   session: SessionView,
   encounterId: string,
@@ -159,13 +189,22 @@ export async function getDischargeSummary(
     if (encounterId === 'kj-endang') {
       return { kind: 'resume', summary: dischargeSummarySchema.parse(demoEndangResume()), scenario: false };
     }
-    if (encounterId === 'kj-hartono') {
-      const summary = dischargeSummarySchema.parse(hartonoResume(runs.results['igd-ranap']));
-      return { kind: 'resume', summary, scenario: true };
-    }
-    if (encounterId === 'kj-ratna') {
-      const summary = dischargeSummarySchema.parse(ratnaResume(runs.results['elektif-btn']));
-      return { kind: 'resume', summary, scenario: true };
+    const scenarioResume = [
+      {
+        enc: 'kj-hartono',
+        R: runs.results['igd-ranap'],
+        admitted: ['admisi', 'transfer'],
+        build: hartonoResume,
+      },
+      { enc: 'kj-ratna', R: runs.results['elektif-btn'], admitted: ['admisi', 'sep'], build: ratnaResume },
+    ] as const;
+    const sr = scenarioResume.find((x) => x.enc === encounterId);
+    if (sr) {
+      if (!isDone(sr.R, sr.admitted[0], sr.admitted[1])) {
+        const patientId = patientByEncounterId(encounterId)?.id;
+        return patientId ? { kind: 'belum-disiapkan', patientId } : null;
+      }
+      return { kind: 'resume', summary: dischargeSummarySchema.parse(sr.build(sr.R)), scenario: true };
     }
     const inpatient = demoInpatients().find((d) => d.summary.encounterId === encounterId);
     return inpatient ? { kind: 'belum-disiapkan', patientId: inpatient.summary.patientId } : null;
@@ -173,14 +212,20 @@ export async function getDischargeSummary(
   return notImplemented('resume medis');
 }
 
-/** K11 · Dokumen persetujuan tindakan di tablet; null = dokumen tidak dikenal (halaman → 404). */
+/**
+ * K11 · Dokumen persetujuan tindakan di tablet; null = dokumen tidak dikenal (halaman → 404). Persetujuan Tn.
+ * Hartono baru ada setelah langkah tata laksana dimulai (sebelum itu belum ada tindakan yang disetujui).
+ */
 export async function getConsentDocument(session: SessionView, id: string): Promise<ConsentDocument | null> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
     const runs = await scenarioRuns(session);
+    const igd = runs.results['igd-ranap'];
     const doc =
       id === 'pk-hartono'
-        ? hartonoConsent(runs.results['igd-ranap'])
+        ? reached(igd, 'tata-laksana')
+          ? hartonoConsent(igd)
+          : null
         : id === 'pk-ratna'
           ? ratnaConsent(runs.results['elektif-btn'])
           : id === 'pk-hendro'

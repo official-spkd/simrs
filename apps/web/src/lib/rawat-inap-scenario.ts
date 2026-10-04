@@ -257,11 +257,18 @@ function vitalsFrom(ttv: string): EdTrackingItem['vitals'] {
   ];
 }
 
-/** Tn. Hartono di papan IGD sejak skenario dimulai sampai serah terima ke ruang rawat. */
+/** Label pasien IGD skenario sebelum identitasnya dicocokkan di MPI (tugas `kedatangan.id`). */
+export const HARTONO_ANON_LABEL = 'Pasien laki-laki ±60 th · identitas belum dicocokkan';
+
+/**
+ * Tn. Hartono di papan IGD sejak skenario dimulai sampai serah terima ke ruang rawat. Sebelum identitas cocok di
+ * MPI (`kedatangan.id`), tampil anonim tanpa RM dan penjamin.
+ */
 export function hartonoEdItem(R: RunResult, asOf: string): EdTrackingItem | null {
   if (isDone(R, 'admisi', 'transfer')) return null;
   const p = patientByScenario('igd-ranap');
   if (!p) return null;
+  const known = isDone(R, 'kedatangan', 'id');
   const placed = isDone(R, 'triase', 'bed');
   let status: EdStatus = 'pemeriksaan';
   if (!isDone(R, 'kedatangan', 'gelang')) status = 'registrasi';
@@ -276,12 +283,16 @@ export function hartonoEdItem(R: RunResult, asOf: string): EdTrackingItem | null
     encounterId: encounterIdOf(p.id),
     bed: placed ? 'R2' : null,
     zone: placed ? 'R' : 'T',
-    patientId: p.id,
-    patientName: p.nama,
-    rm: p.rm,
+    patientId: known ? p.id : null,
+    patientName: known ? p.nama : HARTONO_ANON_LABEL,
+    rm: known ? p.rm : null,
     sex: p.jk,
-    ageLabel: `${p.umur} th`,
-    guarantor: isDone(R, 'admisi', 'bpjs') ? 'BPJS Kelas 1 · aktif' : 'BPJS · cek menyusul',
+    ageLabel: known ? `${p.umur} th` : '±60 th',
+    guarantor: !known
+      ? 'Penjamin menyusul'
+      : isDone(R, 'admisi', 'bpjs')
+        ? 'BPJS Kelas 1 · aktif'
+        : 'BPJS · cek menyusul',
     triageLevel: level,
     suggestedLevel: 2,
     maxLevel: 3,
@@ -312,6 +323,11 @@ export function hartonoEdItem(R: RunResult, asOf: string): EdTrackingItem | null
 export function taskInstant(R: RunResult, stepId: string, taskId: string, plusMinutes = 0): string {
   const m = R.doneAt.get(taskKey(stepIndexOf(R, stepId), taskId)) ?? R.clock;
   return wib(simInstant(R.def, m + plusMinutes));
+}
+
+/** Jam simulasi kini (WIB): cap waktu catatan baru pasien skenario agar urut di lini masa skenarionya. */
+export function scenarioNow(R: RunResult): string {
+  return wib(simInstant(R.def, R.clock));
 }
 
 /** Hari rawat kalender (hari masuk = 1) menurut jam simulasi. */
@@ -377,8 +393,10 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
   const emar = done('rawat-inap', 'emar');
   const h1 = done('rawat-inap', 'h1');
   const akhir = done('rawat-inap', 'akhir');
-  // Obat jadwal pertama (08.00) tercatat begitu gelang terpindai (tugas `rawat-inap.emar`).
+  // Obat jadwal pertama (08.00) tercatat setelah perawat memberikan tiap dosis lewat pindai gelang, enoksaparin
+  // dengan cek ganda (tugas `rawat-inap.emar` berjalan saat semua dosis jam itu tercatat).
   const am = emar ? 'g:08.10' : 'j';
+  const enox = emar ? 'g:08.12 · cek ganda' : 'j';
   const obs: InpatientSeed['obs'] = [[at('admisi', 'transfer', 15), 36.8, 96, 20, 140, 88, 96, false, 'A']];
   if (h1) obs.push([at('rawat-inap', 'h1'), 36.7, 78, 18, 128, 80, 97, false, 'A']);
   if (akhir) obs.push([at('rawat-inap', 'akhir'), 36.6, 68, 16, 124, 78, 98, false, 'A']);
@@ -465,7 +483,7 @@ export function hartonoInpatient(R: RunResult): InpatientDetail | null {
       ['Klopidogrel 75 mg', 'PO · 1×1 pagi', '93000387', false, ['', am, '', '', '']],
       ['Bisoprolol 2,5 mg', 'PO · 1×1 pagi', '93000655', false, ['', am, '', '', '']],
       [R.rec.ppi ?? 'Pantoprazol 40 mg 1×1', 'PO · sebelum makan pagi', null, false, ['', am, '', '', '']],
-      ['Enoksaparin 60 mg/0,6 mL', 'SC · 2×1 (08, 22)', '93002210', true, ['', am, '', '', 'r']],
+      ['Enoksaparin 60 mg/0,6 mL', 'SC · 2×1 (08, 22)', '93002210', true, ['', enox, '', '', 'r']],
       ['Atorvastatin 40 mg', 'PO · 1×1 malam', '93000914', false, ['', '', '', '', 'r']],
       ['Amlodipin 10 mg', 'PO · 1×1 pagi', null, false, ['', 'd:Ditunda · TD 110/70', '', '', '']],
     ],
@@ -640,14 +658,48 @@ function coded(entries: readonly string[], primaryFirst: boolean): CodedDiagnosi
   }));
 }
 
-function medsFrom(obat: readonly string[], stopped: string | null): DischargeSummary['medications'] {
-  const list: DischargeSummary['medications'] = obat.map((o) => {
-    const [name = o, ...sig] = o.split(/ (?=\d+×|SC|IV|PO)/);
-    const change = /^(Amlodipin|Omeprazol)/.test(name) ? ('lanjut' as const) : ('baru' as const);
-    return { name: name.trim(), sig: sig.join(' ').trim() || 'sesuai resep', change };
+type DischargeMed = DischargeSummary['medications'][number];
+
+/** "Bisoprolol 2,5 mg 1×1" → nama + aturan pakai; semua obat baru kecuali `classify` menyatakan lain. */
+function medsFrom(
+  obat: readonly string[],
+  classify: (name: string, sig: string) => Pick<DischargeMed, 'sig' | 'change'> | null = () => null,
+): DischargeMed[] {
+  return obat.map((o) => {
+    const [name = o, ...rest] = o.split(/ (?=\d+×|SC|IV|PO)/);
+    const sig = rest.join(' ').trim() || 'sesuai resep';
+    return { name: name.trim(), ...(classify(name.trim(), sig) ?? { sig, change: 'baru' as const }) };
   });
-  if (stopped)
-    list.push({ name: stopped, sig: 'dihentikan (TD terkontrol dengan bisoprolol)', change: 'dihentikan' });
+}
+
+/** Obat rutin Tn. Hartono sebelum masuk (sama dengan daftar obat aktif di CPOE IGD). */
+const HARTONO_HOME = { amlodipin: 'Amlodipin 5 mg', ppi: 'Omeprazol 20 mg' } as const;
+
+/**
+ * Rekonsiliasi obat pulang Tn. Hartono terhadap obat rutin: amlodipin 5 mg → 10 mg (ubah dosis) atau dihentikan
+ * (pilihan DPJP), omeprazol dihentikan bila diganti pantoprazol karena interaksi klopidogrel (CDS `cds = ganti`).
+ */
+export function hartonoDischargeMeds(
+  obat: readonly string[],
+  ppi: string | undefined,
+  rekon: TaskValue | undefined,
+): DischargeMed[] {
+  const list = medsFrom(obat, (name, sig) => {
+    if (name.startsWith('Amlodipin'))
+      return { sig: `${sig} · naik dari 5 mg (obat rutin)`, change: 'ubah-dosis' };
+    if (name.startsWith('Omeprazol')) return { sig, change: 'lanjut' };
+    return null;
+  });
+  if (ppi?.startsWith('Pantoprazol')) {
+    list.push({
+      name: HARTONO_HOME.ppi,
+      sig: 'diganti pantoprazol (interaksi klopidogrel)',
+      change: 'dihentikan',
+    });
+  }
+  if (rekon === 'stop') {
+    list.push({ name: HARTONO_HOME.amlodipin, sig: 'TD terkontrol dengan bisoprolol', change: 'dihentikan' });
+  }
   return list;
 }
 
@@ -721,9 +773,7 @@ export function hartonoResume(R: RunResult): DischargeSummary {
     R.rec.ppi ?? 'Pantoprazol 40 mg 1×1',
     'Amlodipin 10 mg 1×1',
   ];
-  const meds = himpun
-    ? medsFrom(rekon ? R.rec.obat : draft, rekon === 'stop' ? 'Amlodipin 10 mg' : null)
-    : [];
+  const meds = himpun ? hartonoDischargeMeds(rekon ? R.rec.obat : draft, R.rec.ppi, rekon) : [];
   const codes = [...coded(R.rec.dx, true), ...coded(R.rec.tindakan, false)];
   const filled = (id: string) => !!sections.find((s) => s.id === id)?.body;
   const signed = done('resume', 'tte');
@@ -858,7 +908,7 @@ export function ratnaResume(R: RunResult): DischargeSummary {
     location: ratnaBedCode(R) === 'VIP 3' ? 'Paviliun VIP 3' : 'Melati M-210',
     dpjp: STAF.dpjpBedah,
     sections,
-    medications: himpun ? medsFrom(R.rec.obat, null) : [],
+    medications: himpun ? medsFrom(R.rec.obat) : [],
     reconciliationConfirmedAt: himpun ? taskInstant(R, 'resume', 'resume') : null,
     codes,
     checklist: resumeChecklist({

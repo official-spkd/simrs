@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { patientByScenario } from '@/lib/demo/fixtures/pasien';
+import { canTriage } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
 import { getEdBoard, scenarioSteps } from '@/lib/server/data/rawat-inap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
@@ -61,6 +62,7 @@ export default async function IgdPage({ searchParams }: { searchParams: SearchPa
         rev={kd?.rev ?? 0}
         history={patientByScenario('igd-ranap')?.riwayat ?? ''}
         links={{ bed: routeOf('bed'), ranap: routeOf('ranap') }}
+        canTriage={canTriage(session.role?.code)}
       />
     </div>
   );

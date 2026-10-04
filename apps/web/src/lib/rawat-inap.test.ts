@@ -20,7 +20,9 @@ import {
   formatLos,
   formatTimer,
   losOverdue,
+  canTriage,
   newWalkIn,
+  triageBlocker,
   triageNeedsReason,
   triageSaveAllowed,
 } from './rawat-inap';
@@ -157,28 +159,30 @@ describe('K03 · IGD', () => {
     expect(new Set(board.items.map((p) => p.encounterId)).size).toBe(board.items.length);
   });
 
-  it('turun dari saran sistem wajib alasan ≥ 10 karakter; naik atau sama tidak', () => {
-    const base = { encounterId: 'kj-x', suggestedLevel: 2 as const, orders: [] };
-    expect(triageAssessmentSchema.safeParse({ ...base, chosenLevel: 3, overrideReason: null }).success).toBe(
-      false,
-    );
-    expect(
-      triageAssessmentSchema.safeParse({ ...base, chosenLevel: 3, overrideReason: 'singkat' }).success,
-    ).toBe(false);
-    expect(
-      triageAssessmentSchema.safeParse({
-        ...base,
-        chosenLevel: 3,
-        overrideReason: 'EKG awal normal, nyeri atipikal',
-      }).success,
-    ).toBe(true);
-    expect(triageAssessmentSchema.safeParse({ ...base, chosenLevel: 1, overrideReason: null }).success).toBe(
-      true,
-    );
+  it('gerbang triase di server: turun dari saran wajib alasan ≥ 10 karakter, batas protokol ditolak', () => {
+    // Saran dan batas berasal dari data IGD server; kontrak masukan tidak menerima saran dari klien.
+    const item = { suggestedLevel: 2 as const, maxLevel: 3 as const };
+    expect(triageBlocker(item, 3, '')).toMatch(/wajib disertai alasan klinis/);
+    expect(triageBlocker(item, 3, 'singkat')).toMatch(/wajib disertai alasan klinis/);
+    expect(triageBlocker(item, 3, 'EKG awal normal, nyeri atipikal')).toBeNull();
+    expect(triageBlocker(item, 1, '')).toBeNull();
+    expect(triageBlocker(item, 2, '')).toBeNull();
+    expect(triageBlocker(item, 4, 'EKG awal normal, nyeri atipikal')).toMatch(/tidak diizinkan protokol/);
+    const input = { encounterId: 'kj-x', chosenLevel: 3, overrideReason: null, orders: [] };
+    expect(triageAssessmentSchema.safeParse(input).success).toBe(true);
+    expect(triageAssessmentSchema.safeParse({ ...input, suggestedLevel: 5 }).success).toBe(false);
     expect(triageNeedsReason(2, 3)).toBe(true);
     expect(triageNeedsReason(2, 2)).toBe(false);
     expect(triageSaveAllowed(2, 4, '   ')).toBe(false);
     expect(triageSaveAllowed(2, 4, 'Nyeri atipikal, EKG normal')).toBe(true);
+  });
+
+  it('triase hanya oleh perawat/dokter; petugas pendaftaran tidak', () => {
+    expect(canTriage('perawat')).toBe(true);
+    expect(canTriage('dokter')).toBe(true);
+    expect(canTriage('dokter_residen')).toBe(true);
+    expect(canTriage('petugas_pendaftaran')).toBe(false);
+    expect(canTriage(null)).toBe(false);
   });
 
   it('KPI, filter zona/level, dan format lama tinggal', () => {

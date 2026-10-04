@@ -6,7 +6,13 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { TriageLevelPicker } from '@/components/rawat-inap/triage-level-picker';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
-import { formatTimer, TRIAGE_GENERIC, triageNeedsReason, triageSaveAllowed } from '@/lib/rawat-inap';
+import {
+  formatTimer,
+  TRIAGE_GENERIC,
+  TRIAGE_ROLE_REASON,
+  triageNeedsReason,
+  triageSaveAllowed,
+} from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { saveTriageAction } from './actions';
 import { IdentifyBlock, VitalsEntry } from './scenario-intake';
@@ -27,6 +33,7 @@ export function TriagePanel({
   rev,
   history,
   links,
+  canTriage,
 }: {
   item: EdTrackingItem;
   addSeconds: number;
@@ -37,6 +44,8 @@ export function TriagePanel({
   rev: number;
   history: string;
   links: { bed: string | null; ranap: string | null };
+  /** Posisi perawat/dokter; posisi lain melihat triase tanpa bisa menetapkannya. */
+  canTriage: boolean;
 }) {
   const { runTask, pending, error } = useScenarioTask(rev);
   const [chosen, setChosenState] = useState<TriageLevel>(
@@ -54,9 +63,9 @@ export function TriagePanel({
   const ttvDone = !scn || taskDone(tr, 'ttv');
   const levelDone = scn ? taskDone(tr, 'level') : false;
   const alasanVisible = scn && !!tr?.tasks.alasan?.visible;
-  const alasanOpen = scn && taskEnabled(tr, 'alasan');
+  const alasanOpen = scn && canTriage && taskEnabled(tr, 'alasan');
   const bedDone = scn && taskDone(tr, 'bed');
-  const canPick = scn ? taskEnabled(tr, 'level') : true;
+  const canPick = canTriage && (scn ? taskEnabled(tr, 'level') : true);
   const under = triageNeedsReason(item.suggestedLevel, chosen);
   const allowed = triageSaveAllowed(item.suggestedLevel, chosen, reason ?? '');
   const working = pending || busy;
@@ -77,7 +86,7 @@ export function TriagePanel({
   };
 
   const save = () => {
-    if (!allowed) return;
+    if (!allowed || !canTriage) return;
     if (scn) {
       pendingReason.current = under ? reason : null;
       runTask(tr, 'level', String(chosen));
@@ -86,7 +95,6 @@ export function TriagePanel({
     startTransition(async () => {
       const r = await saveTriageAction({
         encounterId: item.encounterId,
-        suggestedLevel: item.suggestedLevel,
         chosenLevel: chosen,
         overrideReason: under ? reason : null,
         orders: item.orders.filter((_, i) => orders[i]).map((o) => o.label),
@@ -103,15 +111,17 @@ export function TriagePanel({
   };
 
   const secs = item.losMinutes * 60 + addSeconds;
-  const blocker = !identified
-    ? 'Identifikasi pasien dan pasang gelang identitas dulu.'
-    : !ttvDone
-      ? 'Catat tanda vital dulu; saran sistem dihitung dari tanda vital.'
-      : under && !reason
-        ? `Level ${chosen} di bawah saran sistem: isi alasan klinis di gerbang keselamatan.`
-        : scn && !canPick && !levelDone
-          ? 'Menunggu giliran langkah triase di simulasi.'
-          : null;
+  const blocker = !canTriage
+    ? `${TRIAGE_ROLE_REASON}; posisi ini mengerjakan identifikasi dan admisi.`
+    : !identified
+      ? 'Identifikasi pasien dan pasang gelang identitas dulu.'
+      : !ttvDone
+        ? 'Catat tanda vital dulu; saran sistem dihitung dari tanda vital.'
+        : under && !reason
+          ? `Level ${chosen} di bawah saran sistem: isi alasan klinis di gerbang keselamatan.`
+          : scn && !canPick && !levelDone
+            ? 'Menunggu giliran langkah triase di simulasi.'
+            : null;
   const savedText = scn
     ? levelDone
       ? `Triase ${item.triageLevel ?? chosen} tersimpan${bedDone ? ' · bed R2 · monitor EKG, SpO2, dan TD terpasang' : ''}`

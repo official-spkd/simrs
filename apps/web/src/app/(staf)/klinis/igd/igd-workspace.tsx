@@ -4,13 +4,13 @@ import type { EdBoard, EdTrackingItem, EdZone, TriageLevel } from '@simrs/shared
 import { Button, KpiCard } from '@simrs/ui';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { edKpis, filterEdItems, newWalkIn } from '@/lib/rawat-inap';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { edKpis, filterEdItems, newWalkIn, type WalkInKind } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { EdBoardTable } from './ed-board-table';
 import { type SavedTriage, TriagePanel } from './triage-panel';
 
 const WALK_IN_EVENT = 'simrs:igd-pasien-baru';
-type WalkInKind = 'tanpa-identitas' | 'baru';
 
 /** Tombol header IGD: tambah pasien ke area triase (simulasi, di layar ini saja). */
 export function WalkInButtons() {
@@ -47,6 +47,7 @@ export function IgdWorkspace({
   rev,
   history,
   links,
+  canTriage,
 }: {
   board: EdBoard;
   initialSelected: string;
@@ -55,6 +56,8 @@ export function IgdWorkspace({
   rev: number;
   history: string;
   links: { bed: string | null; ranap: string | null };
+  /** Posisi perawat/dokter: boleh menetapkan triase (petugas pendaftaran: identifikasi dan admisi saja). */
+  canTriage: boolean;
 }) {
   const pathname = usePathname();
   const sec = useElapsedSeconds();
@@ -77,7 +80,7 @@ export function IgdWorkspace({
     const onNew = (e: Event) => {
       const kind = (e as CustomEvent<WalkInKind>).detail;
       seq.current += 1;
-      const item = newWalkIn(kind, seq.current, new Date().toISOString());
+      const item = newWalkIn(kind, seq.current, demoNow().toISOString());
       const at = secRef.current;
       setBorn((b) => ({ ...b, [item.encounterId]: at }));
       setExtra((cur) => [...cur, item]);
@@ -160,6 +163,7 @@ export function IgdWorkspace({
             rev={rev}
             history={history}
             links={links}
+            canTriage={canTriage}
           />
         )}
       </div>

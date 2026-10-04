@@ -20,7 +20,7 @@ import {
   type TriageLevel,
   type Ward,
 } from '@simrs/shared';
-import { ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
+import { ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -610,6 +610,7 @@ export function buildInpatient(
     const o = { temp, hr, rr, sbp, dbp, spo2, onOxygen, consciousness };
     return { at: atIso, ...o, score: ewsScore(o) };
   });
+  const lastObs = observations.at(-1);
   return {
     summary: {
       encounterId: enc,
@@ -625,7 +626,8 @@ export function buildInpatient(
       })),
       admittedOn: seed.admittedOn,
       day: extra?.day ?? hospitalDay(seed.admittedOn),
-      lastEws: observations.at(-1)?.score ?? 0,
+      lastEws: lastObs?.score ?? 0,
+      lastEwsMaxParam: lastObs ? ewsMaxParam(lastObs) : 0,
       flags: seed.flags,
       risk: seed.risk,
       scenario: !!extra?.scenario,
@@ -644,6 +646,7 @@ export function buildInpatient(
       version: n.corrects?.[1] ?? 1,
       supersedesId: n.corrects?.[0] ?? null,
       correctionReason: n.corrects?.[2] ?? null,
+      addendumOf: null,
       cosignRequired: n.role === 'residen',
       cosignedBy: n.cosign?.[0] ?? null,
       cosignedAt: n.cosign?.[1] ?? null,

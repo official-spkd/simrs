@@ -110,26 +110,16 @@ export const edBoardSchema = z.strictObject({
 export type EdBoard = z.infer<typeof edBoardSchema>;
 
 /**
- * Asesmen triase yang disimpan. Memilih level lebih rendah (angka lebih besar) dari saran sistem adalah override
- * gerbang keselamatan: alasan klinis wajib dan tercatat (CLAUDE.md §4.9).
+ * Asesmen triase yang disimpan. Saran sistem dan batas protokol (`suggestedLevel`, `maxLevel`) bukan masukan klien:
+ * server mencari pasien IGD-nya sendiri, lalu menegakkan gerbang (level di bawah saran = override yang wajib
+ * beralasan, level di atas batas protokol ditolak; CLAUDE.md §4.9).
  */
-export const triageAssessmentSchema = z
-  .strictObject({
-    encounterId: id,
-    suggestedLevel: triageLevelSchema,
-    chosenLevel: triageLevelSchema,
-    overrideReason: z.string().trim().max(500).nullable(),
-    orders: z.array(z.string().min(1).max(60)).max(6),
-  })
-  .superRefine((v, ctx) => {
-    if (v.chosenLevel > v.suggestedLevel && (v.overrideReason ?? '').length < SAFETY_REASON_MIN) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['overrideReason'],
-        message: `Level di bawah saran sistem wajib disertai alasan klinis (minimal ${SAFETY_REASON_MIN} karakter).`,
-      });
-    }
-  });
+export const triageAssessmentSchema = z.strictObject({
+  encounterId: id,
+  chosenLevel: triageLevelSchema,
+  overrideReason: z.string().trim().max(500).nullable(),
+  orders: z.array(z.string().min(1).max(60)).max(6),
+});
 export type TriageAssessment = z.infer<typeof triageAssessmentSchema>;
 
 // ---------------------------------------------------------------------------------------------------------
@@ -234,6 +224,8 @@ export const cpptEntrySchema = z
     version: z.int().min(1),
     supersedesId: id.nullable(),
     correctionReason: z.string().max(500).nullable(),
+    /** Addendum PPA lain atas entri final: entri baru yang menunjuk entri itu tanpa menggantikannya. */
+    addendumOf: id.nullable(),
     /** Catatan residen wajib co-sign DPJP. */
     cosignRequired: z.boolean(),
     cosignedBy: z.string().min(1).max(80).nullable(),
@@ -248,13 +240,23 @@ export const cpptEntrySchema = z
         message: 'Koreksi (versi > 1) wajib menunjuk entri lama dan menyertakan alasan koreksi.',
       });
     }
+    if (v.addendumOf !== null && v.supersedesId !== null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['addendumOf'],
+        message: 'Entri CPPT adalah koreksi atau addendum, tidak keduanya.',
+      });
+    }
     if ((v.cosignedBy === null) !== (v.cosignedAt === null)) {
       ctx.addIssue({ code: 'custom', path: ['cosignedAt'], message: 'Co-sign wajib bernama dan berwaktu.' });
     }
   });
 export type CpptEntry = z.infer<typeof cpptEntrySchema>;
 
-/** Input CPPT baru atau koreksi (versi baru). S dan A wajib; koreksi wajib alasan. */
+/**
+ * Input CPPT baru, koreksi (versi baru, hanya oleh penulisnya, wajib alasan), atau addendum PPA lain. S dan A wajib.
+ * Penulis, waktu, dan izin koreksi ditentukan server, bukan klien.
+ */
 export const cpptNoteInputSchema = z
   .strictObject({
     encounterId: id,
@@ -264,6 +266,7 @@ export const cpptNoteInputSchema = z
     p: z.string().trim().max(1000),
     supersedesId: id.nullable(),
     correctionReason: z.string().trim().max(500).nullable(),
+    addendumOf: id.nullable(),
   })
   .superRefine((v, ctx) => {
     if (v.supersedesId !== null && (v.correctionReason ?? '').length < SAFETY_REASON_MIN) {
@@ -271,6 +274,13 @@ export const cpptNoteInputSchema = z
         code: 'custom',
         path: ['correctionReason'],
         message: `Alasan koreksi wajib (minimal ${SAFETY_REASON_MIN} karakter).`,
+      });
+    }
+    if (v.supersedesId !== null && v.addendumOf !== null) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['addendumOf'],
+        message: 'Pilih koreksi atau addendum, tidak keduanya.',
       });
     }
   });
@@ -305,18 +315,25 @@ export const emarMedicationSchema = z.strictObject({
 });
 export type EmarMedication = z.infer<typeof emarMedicationSchema>;
 
-/** Pencatatan pemberian satu dosis: hanya setelah gelang cocok (atau override beralasan). */
+/**
+ * Pencatatan pemberian satu dosis. Identitas: kode gelang hasil pindai (dicocokkan server dengan RM pasien
+ * kunjungan), atau override verifikasi manual dua identitas dengan alasan (`wristbandCode` null). Slot, status
+ * terlambat, dan sifat kewaspadaan tinggi dibaca server dari eMAR pasien, bukan dari klien.
+ */
 export const emarAdministrationInputSchema = z
   .strictObject({
     encounterId: id,
     medicationId: id,
     time: z.enum(EMAR_TIMES),
-    wristband: z.enum(['cocok', 'override']),
+    wristbandCode: z.string().trim().min(1).max(40).nullable(),
     scanOverrideReason: z.string().trim().max(500).nullable(),
-    lateReason: z.string().trim().max(500).nullable(),
+    /** Wajib untuk slot terlambat (diperiksa server); bila diisi minimal 10 karakter. */
+    lateReason: z.string().trim().min(SAFETY_REASON_MIN).max(500).nullable(),
+    /** Obat kewaspadaan tinggi: nama perawat kedua yang melakukan cek ganda (wajib, diperiksa server). */
+    doubleCheckedBy: z.string().trim().max(80).nullable(),
   })
   .superRefine((v, ctx) => {
-    if (v.wristband === 'override' && (v.scanOverrideReason ?? '').length < SAFETY_REASON_MIN) {
+    if (v.wristbandCode === null && (v.scanOverrideReason ?? '').length < SAFETY_REASON_MIN) {
       ctx.addIssue({
         code: 'custom',
         path: ['scanOverrideReason'],
@@ -324,6 +341,7 @@ export const emarAdministrationInputSchema = z
       });
     }
   });
+export type EmarAdministrationInput = z.infer<typeof emarAdministrationInputSchema>;
 
 /** Tingkat kesadaran AVPU (C = bingung baru). */
 export const CONSCIOUSNESS = ['A', 'C', 'V', 'P', 'U'] as const;
@@ -384,6 +402,8 @@ export const inpatientSummarySchema = z.strictObject({
   /** Hari rawat ke-n (hari masuk = 1). */
   day: z.int().min(1),
   lastEws: z.int().min(0).max(20),
+  /** Skor parameter tunggal tertinggi pada observasi terakhir (NEWS2: nilai 3 → minimal respons urgen). */
+  lastEwsMaxParam: z.int().min(0).max(3),
   flags: z.array(z.enum(INPATIENT_FLAGS)),
   /** Ringkasan risiko untuk banner, mis. "Risiko jatuh sedang · Morse 35". */
   risk: z.string().max(80),
