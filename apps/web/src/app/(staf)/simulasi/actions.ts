@@ -38,9 +38,11 @@ const commandSchema = z.discriminatedUnion('type', [
     step: z.number().int().min(0).max(50),
     task: z.string().regex(/^[a-z0-9]{1,30}$/i),
     value: z.union([z.literal(true), z.string().max(MAX_INPUT_LENGTH * 2)]),
+    /** Skenario tujuan (bawaan: skenario aktif); dipakai banner skenario di layar selain Simulasi. */
+    scenario: scenarioId.optional(),
   }),
-  z.strictObject({ type: z.literal('next') }),
-  z.strictObject({ type: z.literal('auto') }),
+  z.strictObject({ type: z.literal('next'), scenario: scenarioId.optional() }),
+  z.strictObject({ type: z.literal('auto'), scenario: scenarioId.optional() }),
   z.strictObject({ type: z.literal('select'), scenario: scenarioId }),
   z.strictObject({ type: z.literal('reset'), scenario: scenarioId }),
   z.strictObject({ type: z.literal('jump'), scenario: scenarioId, step: z.number().int().min(0).max(50) }),
@@ -60,10 +62,15 @@ export async function demoCommandAction(rev: number, input: DemoCommandInput): P
   const c = commandSchema.safeParse(input);
   if (!r.success || !c.success) return { error: 'Perintah tidak dikenal.' };
   const cmd = c.data;
-  const mapped: DemoCommand =
-    cmd.type === 'select' || cmd.type === 'reset' || cmd.type === 'jump'
-      ? cmd
-      : { type: 'scenario', action: cmd };
+  let mapped: DemoCommand;
+  if (cmd.type === 'select' || cmd.type === 'reset' || cmd.type === 'jump') {
+    mapped = cmd;
+  } else if (cmd.type === 'task') {
+    const { scenario, ...action } = cmd;
+    mapped = { type: 'scenario', scenario, action };
+  } else {
+    mapped = { type: 'scenario', scenario: cmd.scenario, action: { type: cmd.type } };
+  }
   const out = await runDemoCommand(s, r.data, mapped);
   revalidatePath('/', 'layout');
   return out.ok ? {} : { error: out.error, task: out.task, stale: out.stale };

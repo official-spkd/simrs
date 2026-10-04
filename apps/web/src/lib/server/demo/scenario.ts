@@ -40,7 +40,8 @@ export const loadDemoRuns = cache(async (session: SessionView): Promise<DemoRuns
 });
 
 export type DemoCommand =
-  | { type: 'scenario'; action: ScenarioAction }
+  /** Aksi pada skenario `scenario` (bawaan: skenario aktif); skenario itu sekaligus menjadi aktif. */
+  | { type: 'scenario'; scenario?: ScenarioId; action: ScenarioAction }
   | { type: 'select'; scenario: ScenarioId }
   | { type: 'reset'; scenario: ScenarioId }
   | { type: 'jump'; scenario: ScenarioId; step: number };
@@ -80,7 +81,7 @@ export async function runDemoCommand(
     } else if (cmd.type === 'reset') {
       result = bump({ active: cmd.scenario, runs: { ...current.runs, [cmd.scenario]: [] } });
     } else {
-      const id = cmd.type === 'jump' ? cmd.scenario : current.active;
+      const id = cmd.type === 'jump' ? cmd.scenario : (cmd.scenario ?? current.active);
       const def = SCENARIOS[id];
       const seq = current.runs[id];
       const r =

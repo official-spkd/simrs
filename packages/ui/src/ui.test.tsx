@@ -2,7 +2,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Alert, Button, Field, LineChart, PatientBanner, Segmented, Sidebar, Tabs } from './index';
+import {
+  Alert,
+  Button,
+  Field,
+  LineChart,
+  PatientBanner,
+  SafetyGate,
+  Segmented,
+  Sidebar,
+  Tabs,
+} from './index';
 
 afterEach(cleanup);
 
@@ -148,5 +158,46 @@ describe('LineChart', () => {
     expect(table.querySelectorAll('tbody tr')).toHaveLength(3);
     expect(table.textContent).toContain('250');
     expect(document.querySelectorAll('path')).toHaveLength(3);
+  });
+});
+
+describe('SafetyGate', () => {
+  it('menahan sampai ditindaklanjuti; override wajib alasan cukup panjang', () => {
+    const calls: string[] = [];
+    render(
+      <SafetyGate
+        title="CDS: sulfonilurea pada riwayat hipoglikemia berat"
+        recommendation="Hapus glimepirid"
+        onFollow={() => calls.push('ikuti')}
+        onOverride={(r) => calls.push(`override:${r}`)}
+      />,
+    );
+    expect(screen.getByRole('alert').textContent).toContain('Gerbang keselamatan');
+    fireEvent.click(screen.getByRole('button', { name: 'Tetap lanjut dengan alasan klinis' }));
+    const submit = screen.getByRole('button', { name: 'Simpan alasan dan lanjut' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Alasan klinis/), { target: { value: 'pendek' } });
+    expect(submit.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Alasan klinis/), {
+      target: { value: 'edukasi hipoglikemia, cek gula mandiri' },
+    });
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus glimepirid' }));
+    expect(calls).toEqual(['override:edukasi hipoglikemia, cek gula mandiri', 'ikuti']);
+  });
+
+  it('setelah diputuskan menampilkan ringkasan, bukan tombol', () => {
+    render(
+      <SafetyGate
+        title="Nilai kritis kalium"
+        recommendation="Read-back benar"
+        onFollow={() => undefined}
+        onOverride={() => undefined}
+        resolved={{ kind: 'ikuti', text: 'Dilaporkan ke dr. Rina · 22.21' }}
+      />,
+    );
+    expect(screen.getByRole('status').textContent).toContain('Dilaporkan ke dr. Rina');
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });
