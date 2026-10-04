@@ -162,8 +162,15 @@ describe('refreshSession (sekali per refresh token)', () => {
     refreshExpiresAt: '2026-10-04T18:00:00.000Z',
   };
 
-  beforeEach(() => resetRefreshCache());
-  afterEach(() => vi.unstubAllGlobals());
+  beforeEach(() => {
+    resetRefreshCache();
+    // Peta per proses saja: tes ini tidak bergantung pada Redis (peta bersama diuji di server/refresh.test.ts).
+    vi.stubEnv('REFRESH_STORE', 'memory');
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
 
   it('permintaan paralel dengan token yang sama hanya memanggil API sekali', async () => {
     const fetchMock = vi.fn(async () => Response.json(fresh));

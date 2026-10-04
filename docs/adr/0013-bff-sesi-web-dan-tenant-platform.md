@@ -2,6 +2,8 @@
 
 Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
+Status: diterima · 4 Okt 2026 · peta refresh antar-instans dan CSP ber-nonce: lihat ADR-0073 (5 Okt 2026)
+
 ## Konteks
 Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan deteksi pemakaian ulang. Web harus memakainya tanpa membuka token ke JavaScript browser (XSS), tetap aman dari CSRF, dan tidak membuat sesi tercabut gara-gara permintaan paralel. Area superadmin (ADR-0010) harus berpindah dari gerbang `APP_ENV` ke peran `superadmin_platform`. Batas laju login per IP di API tidak boleh berubah menjadi batas untuk seluruh RS saat semua permintaan datang dari server web.
 
@@ -27,3 +29,7 @@ Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan d
 ## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
 
 PIN perangkat dibangun di potongan 10c-2 (ADR-0024): web menyimpan token perangkat `sd1` di cookie httpOnly `simrs_pin` (`__Host-` + Secure di luar lokal), milik perangkat dan tidak dihapus saat keluar; browser hanya menerima nama + posisi akun. OTP cadangan WhatsApp/email sudah ada (ADR-0022).
+
+## Pembaruan 5 Okt 2026 · stack E2E fase 2
+
+Butir 9 diperluas (fase 2, potongan 1d): Playwright juga menyalakan mock integrasi (`E2E_MOCK_PORT`, bawaan port API + 100, hanya 127.0.0.1) dan worker outbox di database tes, dengan penjadwal `interval` (bukan BullMQ, karena Redis dipakai bersama semua salinan repo). Semua URL `.env` yang menunjuk mock pengembangan dialihkan ke mock E2E untuk API dan worker, sehingga efek outbox dan gangguan integrasi teruji ujung ke ujung. Port slot dan aturan skenario mock bersama: `docs/panduan/02-cara-kerja-kode.md` (Strategi tes) dan Tutorial §7.

@@ -100,7 +100,7 @@ test.describe('PIN masuk cepat (P02)', () => {
     await page.goto('/akun/pin');
     await expect(page.getByText(/Posisi Kasir tidak bisa memakai PIN masuk cepat/)).toBeVisible();
     await page.getByRole('button', { name: 'Keluar' }).first().click();
-    // Tunggu keluar selesai: navigasi berikutnya bisa membatalkan Server Action keluar (sesi kasir tetap hidup).
+    // Tunggu keluar selesai: tanpa ini login berikutnya bisa membuka `/` dengan sesi kasir yang belum terhapus.
     await expect(page).toHaveURL(/\/masuk$/);
 
     const nurse = await createAccount({ roles: ['perawat'], unitName: 'Melati E2E' });

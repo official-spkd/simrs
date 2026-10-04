@@ -160,7 +160,7 @@ describe('IP dan host klien di balik web BFF (TRUST_PROXY)', () => {
     for (const bad of ['true', '*', '0', '9', '10.0.0.0/33', 'proxy.lokal', '10.0.0.1/8/2']) {
       expect(parseTrustProxy(bad), bad).toBeNull();
     }
-    const base = { ...process.env, APP_ENV: 'production', TRUST_PROXY: '' };
+    const base = { ...process.env, APP_ENV: 'production', TRUST_PROXY: '', STORAGE_DRIVER: 's3' };
     expect(() => loadApiEnv(base)).toThrow(/TRUST_PROXY wajib/);
     expect(() => loadApiEnv({ ...base, TRUST_PROXY: 'true' })).toThrow(/TRUST_PROXY/);
     expect(loadApiEnv({ ...base, TRUST_PROXY: 'loopback' }).TRUST_PROXY).toEqual(['loopback']);
