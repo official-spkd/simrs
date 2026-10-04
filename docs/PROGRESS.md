@@ -262,7 +262,6 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - `apps/web` · menu sidebar memakai data statis; hitungan (antrean, IGD) dan status integrasi akan diisi dari API (fase 2 & 7).
 - `apps/mock` · state di memori (hilang saat restart); cukup untuk lokal.
 - `apps/api` · `HealthService` memakai endpoint kesehatan khusus MinIO; ganti dengan HeadBucket bila memakai S3 lain.
-- `apps/web` · CSP masih `'unsafe-inline'` untuk skrip (hidrasi Next tanpa nonce); pindah ke CSP ber-nonce di hardening fase 10.
 - `apps/api` · `503` saat Redis batas laju mati memakai kode `INTERNAL_ERROR`; tambahkan kode stabil khusus (mis. `SERVICE_UNAVAILABLE`) bila klien perlu membedakannya (ADR-0033).
 - `apps/web` (Akses) · KPI "MFA aktif"/`mfaMissing` masih menghitung akun yang belum diaktifkan (staf seed tanpa sandi); perlu diputuskan apakah dikecualikan.
 - `apps/web` (mode presentasi) · Arah TTV IGD ("Tinggi"/"Rendah") diturunkan di UI dari titik tengah rentang normal karena kontrak hanya memuat `abnormal`; kontrak API fase 3 perlu membawa bendera `tinggi|rendah`.
@@ -274,7 +273,7 @@ Disetujui 4 Okt 2026: seluruh layar fase 2–10 dibangun lebih dulu di rute fina
 - `P02` · Daftar kata sandi bocor masih statis kecil; produksi perlu daftar besar (mis. k-anonymity HIBP offline).
 - `P03` · Lingkup `unit` belum memakai lokasi pasien (menunggu ADT fase 2–3).
 - `P03` · Notifikasi baru tersimpan in-app; pengiriman email/WhatsApp menyusul P11 (potongan 10).
-- `apps/web` · Peta refresh sesi di memori satu proses: web multi-instans butuh sticky session atau penyimpanan bersama (Redis) + `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama (ADR-0013).
+- `apps/web` · Deployment web multi-instans wajib menyetel `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama di semua instans (build + runtime) dan Redis bersama untuk peta refresh sesi (ADR-0073); belum ada pemeriksaan otomatis saat start.
 - `apps/web` · Login: PIN perangkat terdaftar, OTP cadangan WhatsApp/email, dan "percayai perangkat 12 jam" dari mockup belum dibangun (P02/P11, potongan 10).
 - `apps/web` · Pergantian unit kerja di tengah sesi belum ada (sekarang: keluar lalu masuk lagi).
 - `apps/web` · Layar Akses: "Sinkron dari data SDM" (B03) dan "Aturan kontekstual" (pasien VIP, shift) dari mockup belum ada; daftar pengguna berpaginasi maju saja (kursor).
