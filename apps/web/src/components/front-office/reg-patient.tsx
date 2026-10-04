@@ -48,7 +48,7 @@ export function RegPatient({
           Cari pasien (NIK, No. RM, No. BPJS, nama + tgl lahir)
         </label>
         <form
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             onSearch();
@@ -62,7 +62,7 @@ export function RegPatient({
             aria-invalid={!!error}
             aria-describedby={error ? msg : undefined}
             placeholder="mis. 00-12-45-78 atau Siti 14-03-1972"
-            className={`h-11 min-w-0 flex-1 rounded-control border px-3 font-[inherit] text-ink-900 disabled:bg-muted ${
+            className={`h-11 min-w-[200px] flex-[1_1_200px] rounded-control border px-3 font-[inherit] text-ink-900 disabled:bg-muted ${
               error
                 ? 'border-danger bg-[#FFFBFA]'
                 : patient

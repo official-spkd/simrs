@@ -42,10 +42,15 @@ export function Alert({
   return (
     <div
       role={level === 'critical' ? 'alert' : 'status'}
-      className={cx('flex gap-2.5 rounded-control border px-3.5 py-2.5', l.box, className)}
+      className={cx(
+        'flex flex-wrap gap-x-2.5 gap-y-1 rounded-control border px-3.5 py-2.5',
+        l.box,
+        className,
+      )}
     >
-      <span className={cx('font-bold', l.title)}>{title ?? l.label}</span>
-      <span className="text-ink-700">{children}</span>
+      {/* Judul tidak dipersempit kata per kata: isi di sampingnya bila lebarnya cukup (≥ 12rem), selain itu di bawah. */}
+      <span className={cx('max-w-full font-bold', l.title)}>{title ?? l.label}</span>
+      <span className="min-w-48 flex-1 text-ink-700">{children}</span>
     </div>
   );
 }
