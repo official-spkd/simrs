@@ -99,9 +99,20 @@ pnpm db:deploy       # terapkan semua migrasi ke database simrs
 pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (operator)
 ```
 
+Per RS, seed mengisi struktur (12 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
+**33 staf fiktif** lintas 16 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
+lab, radiografer, pendaftaran, kasir, koder, rekam medis, akuntan, manajemen, mutu, privasi, admin SIM RS) beserta
+penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`). Nama pengguna staf = NIP fiktif
+berawalan `9999` (mis. `999901292022022025`), no. HP fiktif `0813-0000-1xxx` (tersimpan terenkripsi). Seed aman diulang:
+akun yang sudah ada tidak diubah.
+
+Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk. Untuk memakai salah satunya,
+admin SIM RS membuka **Pengguna & akses**, memilih staf itu, lalu **Reset kata sandi**: sandi sementara tampil sekali, dan
+saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti sandi (sama dengan undangan biasa).
+
 ### Buat akun untuk masuk
 
-Tidak ada akun bawaan. Buat admin RS dan operator platform (untuk membuka panduan ini) lewat CLI:
+Tidak ada akun yang bisa langsung dipakai. Buat admin RS dan operator platform (untuk membuka panduan ini) lewat CLI:
 
 ```powershell
 pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif"
