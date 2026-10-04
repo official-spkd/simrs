@@ -165,6 +165,41 @@ export function criticalOpen(s: Pick<LabSample, 'critical'>): boolean {
   return s.critical !== null && criticalStage(s.critical) !== 'selesai';
 }
 
+/** Penolakan gerbang Server Action penunjang: pesan + isian yang galat (bila ada). */
+export interface GateDenial {
+  message: string;
+  field?: string;
+}
+
+export const LAB_SAMPLE_UNKNOWN = 'Sampel tidak ditemukan di worklist laboratorium.';
+
+/**
+ * Gerbang Server Action lab: sampel dicari server di worklist sesi (klien hanya mengirim id), jadi id yang tidak
+ * ada di worklist ditolak. Kemajuan lokal (validasi, sampel ulang) tidak tersimpan sehingga tidak diperiksa.
+ */
+export function labSampleGate(s: Pick<LabSample, 'critical'> | undefined): GateDenial | null {
+  return s ? null : { message: LAB_SAMPLE_UNKNOWN };
+}
+
+/**
+ * Pelaporan nilai kritis (S09) di server: sampel ada di worklist dan nilai kritisnya masih terbuka, nama penerima
+ * wajib (≥ 5 karakter), dan read-back wajib dikonfirmasi; laporan tanpa read-back tidak sah sehingga ditolak.
+ */
+export function criticalReportGate(
+  s: Pick<LabSample, 'critical'> | undefined,
+  recipient: string,
+  readBack: boolean,
+): GateDenial | null {
+  if (!s) return { message: LAB_SAMPLE_UNKNOWN };
+  if (!criticalOpen(s))
+    return { message: 'Sampel ini tidak memiliki nilai kritis terbuka untuk dilaporkan.' };
+  if (recipient.trim().length < 5) {
+    return { message: 'Nama penerima wajib diisi (minimal 5 karakter).', field: 'recipient' };
+  }
+  if (!readBack) return { message: 'Read-back wajib dikonfirmasi sebelum disimpan.', field: 'readBack' };
+  return null;
+}
+
 export type StatusTone = 'danger' | 'warning' | 'success' | 'brand' | 'neutral';
 
 /** Status worklist (teks, bukan hanya warna). `resample` = permintaan sampel ulang di layar. */

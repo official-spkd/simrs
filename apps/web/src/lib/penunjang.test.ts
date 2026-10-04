@@ -5,6 +5,7 @@ import { demoLabSamples, demoLabWorklist } from './demo/fixtures/penunjang';
 import {
   applyLabLocal,
   criticalOpen,
+  criticalReportGate,
   criticalStage,
   criticalTimer,
   deltaCheck,
@@ -12,7 +13,9 @@ import {
   formatLabNumber,
   formatRange,
   formatTat,
+  LAB_SAMPLE_UNKNOWN,
   labFlag,
+  labSampleGate,
   minutesBetween,
   sampleStatusView,
   sortWorklist,
@@ -156,5 +159,44 @@ describe('nilai kritis: timer, read-back, waktu lapor', () => {
     expect(order.slice(-2).sort()).toEqual(['lab-aminah', 'lab-hendro']);
     expect(formatTat(byId('lab-endang'))).toBe('00:52');
     expect(formatTat(byId('lab-aminah'))).toBe('H+1');
+  });
+});
+
+describe('gerbang Server Action laboratorium (rekaman dicari server, bukan dari klien)', () => {
+  it('id sampel yang tidak ada di worklist ditolak', () => {
+    expect(labSampleGate(undefined)).toEqual({ message: LAB_SAMPLE_UNKNOWN });
+    expect(labSampleGate(byId('lab-endang'))).toBeNull();
+    expect(criticalReportGate(undefined, 'dr. Sinta Maharani', true)).toEqual({
+      message: LAB_SAMPLE_UNKNOWN,
+    });
+  });
+
+  it('pelaporan nilai kritis hanya untuk sampel yang nilai kritisnya masih terbuka', () => {
+    const yusuf = byId('lab-yusuf');
+    expect(criticalReportGate(yusuf, 'dr. Sinta Maharani', true)).toBeNull();
+    // Sampel tanpa nilai kritis, dan nilai kritis yang sudah sah (read-back), tidak bisa dilaporkan.
+    expect(criticalReportGate(byId('lab-endang'), 'dr. Sinta Maharani', true)?.message).toMatch(
+      /tidak memiliki nilai kritis terbuka/,
+    );
+    const at = '2026-10-05T10:48:00+07:00';
+    const done = applyLabLocal(yusuf, {
+      critical: { recipient: 'dr. Sinta Maharani', reportedAt: at, readBackAt: at, tookSeconds: 300 },
+    });
+    expect(criticalReportGate(done, 'dr. Sinta Maharani', true)?.message).toMatch(/tidak memiliki/);
+    // Menunggu read-back masih terbuka: boleh dilaporkan ulang dengan read-back.
+    const reported: LabSample = { ...yusuf, critical: { ...yusuf.critical!, reportedAt: at } };
+    expect(criticalReportGate(reported, 'dr. Sinta Maharani', true)).toBeNull();
+  });
+
+  it('nama penerima ≥ 5 karakter dan read-back wajib', () => {
+    const yusuf = byId('lab-yusuf');
+    expect(criticalReportGate(yusuf, '  dr. ', true)).toEqual({
+      message: 'Nama penerima wajib diisi (minimal 5 karakter).',
+      field: 'recipient',
+    });
+    expect(criticalReportGate(yusuf, 'dr. Sinta Maharani', false)).toEqual({
+      message: 'Read-back wajib dikonfirmasi sebelum disimpan.',
+      field: 'readBack',
+    });
   });
 });

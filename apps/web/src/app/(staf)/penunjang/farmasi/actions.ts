@@ -9,11 +9,13 @@ import {
   penunjangSession,
   simulated,
 } from '@/lib/penunjang-aksi';
-import { secondPharmacistError } from '@/lib/penunjang-farmasi';
+import { cdsFollowUpGate, doubleCheckGate, rxGate } from '@/lib/penunjang-farmasi';
+import { findPrescription } from '@/lib/server/data/penunjang';
 
 /**
- * S04/S05 · Server Action layar Farmasi (mode presentasi, ADR-0023). Tidak menyimpan apa pun; gerbang keselamatan
- * (override CDS wajib alasan, cek ganda high alert oleh apoteker kedua) tetap ditegakkan di sini.
+ * S04/S05 · Server Action layar Farmasi (mode presentasi, ADR-0023). Tidak menyimpan apa pun; resep dicari server
+ * di antrean sesi (klien hanya mengirim id) dan gerbang keselamatan (override CDS wajib alasan atas peringatan
+ * milik resep itu, cek ganda high alert oleh apoteker kedua) tetap ditegakkan di sini.
  */
 
 const rxId = z.string().regex(/^rx-[a-z]{2,20}$/);
@@ -29,11 +31,14 @@ export async function reviewRxAction(input: {
   rxId: string;
   decision: keyof typeof REVIEW_TEXT;
 }): Promise<PenunjangActionResult> {
-  if (!(await penunjangSession('farmasi'))) return DENIED;
+  const s = await penunjangSession('farmasi');
+  if (!s) return DENIED;
   const p = z
     .strictObject({ rxId, decision: z.enum(['setujui', 'tahan', 'lepas', 'sebagian']) })
     .safeParse(input);
   if (!p.success) return invalid('Keputusan telaah tidak dikenal.');
+  const gate = rxGate(await findPrescription(s, p.data.rxId));
+  if (gate) return invalid(gate.message, gate.field);
   return simulated(REVIEW_TEXT[p.data.decision]);
 }
 
@@ -44,14 +49,15 @@ const FOLLOW_UP_TEXT = {
   override: 'Override apoteker tercatat dengan alasan klinis',
 } as const;
 
-/** Tindak lanjut peringatan CDS: override hanya dengan alasan klinis tertulis (≥ 10 karakter). */
+/** Tindak lanjut peringatan CDS milik resep itu: override hanya dengan alasan klinis tertulis (≥ 10 karakter). */
 export async function cdsFollowUpAction(input: {
   rxId: string;
   alertId: string;
   action: keyof typeof FOLLOW_UP_TEXT;
   reason?: string;
 }): Promise<PenunjangActionResult> {
-  if (!(await penunjangSession('farmasi'))) return DENIED;
+  const s = await penunjangSession('farmasi');
+  if (!s) return DENIED;
   const p = z
     .strictObject({
       rxId,
@@ -61,13 +67,13 @@ export async function cdsFollowUpAction(input: {
     })
     .safeParse(input);
   if (!p.success) return invalid('Tindak lanjut CDS tidak dikenal.');
-  if (p.data.action === 'override' && (p.data.reason ?? '').trim().length < 10) {
-    return invalid('Alasan klinis wajib diisi, minimal 10 karakter.', 'reason');
-  }
+  const rx = await findPrescription(s, p.data.rxId);
+  const gate = cdsFollowUpGate(rx, p.data.alertId, p.data.action, p.data.reason);
+  if (gate) return invalid(gate.message, gate.field);
   return simulated(FOLLOW_UP_TEXT[p.data.action]);
 }
 
-/** Cek ganda obat high alert: apoteker kedua yang bertugas dan bukan apoteker penyiap. */
+/** Cek ganda obat high alert: resep memuat obat high alert; apoteker kedua yang bertugas dan bukan penyiap. */
 export async function doubleCheckAction(input: {
   rxId: string;
   second: string;
@@ -76,14 +82,19 @@ export async function doubleCheckAction(input: {
   if (!s) return DENIED;
   const p = z.strictObject({ rxId, second: z.string().max(120) }).safeParse(input);
   if (!p.success) return invalid('Cek ganda tidak dikenal.');
-  const error = secondPharmacistError(p.data.second, s.user.displayName, APOTEKER_JAGA);
-  if (error) return invalid(error, 'second');
+  const rx = await findPrescription(s, p.data.rxId);
+  const gate = doubleCheckGate(rx, p.data.second, s.user.displayName, APOTEKER_JAGA);
+  if (gate) return invalid(gate.message, gate.field);
   return simulated(`Cek ganda high alert oleh ${p.data.second}`);
 }
 
 export async function prepareRxAction(input: { rxId: string }): Promise<PenunjangActionResult> {
-  if (!(await penunjangSession('farmasi'))) return DENIED;
-  if (!z.strictObject({ rxId }).safeParse(input).success) return invalid('Resep tidak dikenal.');
+  const s = await penunjangSession('farmasi');
+  if (!s) return DENIED;
+  const p = z.strictObject({ rxId }).safeParse(input);
+  if (!p.success) return invalid('Resep tidak dikenal.');
+  const gate = rxGate(await findPrescription(s, p.data.rxId));
+  if (gate) return invalid(gate.message, gate.field);
   return simulated('Obat selesai disiapkan, etiket aturan pakai tercetak');
 }
 
@@ -93,9 +104,12 @@ export async function dispenseRxAction(input: {
   rxId: string;
   receiver: keyof typeof RECEIVER;
 }): Promise<PenunjangActionResult> {
-  if (!(await penunjangSession('farmasi'))) return DENIED;
+  const s = await penunjangSession('farmasi');
+  if (!s) return DENIED;
   const p = z.strictObject({ rxId, receiver: z.enum(['pasien', 'keluarga', 'perawat']) }).safeParse(input);
   if (!p.success) return invalid('Penerima obat tidak dikenal.');
+  const gate = rxGate(await findPrescription(s, p.data.rxId));
+  if (gate) return invalid(gate.message, gate.field);
   return simulated(
     `Obat diserahkan ke ${RECEIVER[p.data.receiver]}; stok depo berkurang, tercatat di eMAR dan billing`,
   );

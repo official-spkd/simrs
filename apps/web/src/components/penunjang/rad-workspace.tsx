@@ -9,6 +9,7 @@ import {
   startExamAction,
 } from '@/app/(staf)/penunjang/radiologi/actions';
 import { RADIOLOG } from '@/lib/demo/fixtures/penunjang';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import type { PenunjangActionResult } from '@/lib/penunjang-aksi';
 import { applyRadLocal, type RadLocal, sortExams } from '@/lib/penunjang-radiologi';
 import { RadBoard } from './rad-board';
@@ -63,27 +64,24 @@ export function RadWorkspace({
     startTransition(async () => {
       const r = await action();
       setMsg((m) => ({ ...m, [e.id]: { ok: r.ok, text: r.message } }));
-      if (r.ok) setLocal((cur) => ({ ...cur, [e.id]: { ...cur[e.id], ...onOk() } }));
+      if (!r.ok) return;
+      const next = onOk(); // cap waktu dibuat di penangan, bukan di dalam updater state
+      setLocal((cur) => ({ ...cur, [e.id]: { ...cur[e.id], ...next } }));
     });
+  // Cap waktu catatan lokal memakai jam demo (hari presentasi), bukan jam dinding.
   const handlers = (e: RadiologyExam): RadHandlers => ({
     onStart: (identity, contrast) =>
       call(
         e,
-        () =>
-          startExamAction({
-            examId: e.id,
-            contrast: e.contrast,
-            identityChecked: identity,
-            contrastChecked: contrast,
-          }),
-        () => ({ startedAt: new Date().toISOString() }),
+        () => startExamAction({ examId: e.id, identityChecked: identity, contrastChecked: contrast }),
+        () => ({ startedAt: demoNow().toISOString() }),
       ),
     onFinish: (ctdiVol, dlp) =>
       call(
         e,
-        () => finishExamAction({ examId: e.id, modality: e.modality, ctdiVol, dlp }),
+        () => finishExamAction({ examId: e.id, ctdiVol, dlp }),
         () => ({
-          finishedAt: new Date().toISOString(),
+          finishedAt: demoNow().toISOString(),
           dose: ctdiVol !== null && dlp !== null && e.modality === 'CT' ? { ctdiVol, dlp } : null,
         }),
       ),
@@ -92,7 +90,7 @@ export function RadWorkspace({
         e,
         () => signReportAction({ examId: e.id, findings, impression }),
         () => ({
-          report: { findings, impression, radiologist: RADIOLOG, signedAt: new Date().toISOString() },
+          report: { findings, impression, radiologist: RADIOLOG, signedAt: demoNow().toISOString() },
         }),
       ),
   });

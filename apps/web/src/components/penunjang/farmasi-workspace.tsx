@@ -1,6 +1,6 @@
 'use client';
 
-import type { DispenseStage, PharmacyPrescription, PharmacyQueue } from '@simrs/shared';
+import { type DispenseStage, formatJam, type PharmacyPrescription, type PharmacyQueue } from '@simrs/shared';
 import { Tabs } from '@simrs/ui';
 import { useMemo, useState, useTransition } from 'react';
 import {
@@ -10,12 +10,14 @@ import {
   prepareRxAction,
   reviewRxAction,
 } from '@/app/(staf)/penunjang/farmasi/actions';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import type { PenunjangActionResult } from '@/lib/penunjang-aksi';
-import { type AlertAction, applyRxLocal, dispenseLines, rxTag, type RxLocal } from '@/lib/penunjang-farmasi';
+import { type AlertAction, applyRxLocal, dispenseLines, rxTag } from '@/lib/penunjang-farmasi';
 import type { ScenarioTaskHook } from '@/lib/penunjang-skenario';
 import type { FarmasiHandlers } from './farmasi-detail';
 import { FarmasiDetailFor, FlashBar } from './farmasi-parts';
 import { FarmasiQueue } from './farmasi-queue';
+import { useRxLocal } from './use-rx-local';
 import { useScenarioTasks } from './use-scenario-tasks';
 
 export type FarmasiTab = 'telaah' | 'siap' | 'serah';
@@ -36,8 +38,9 @@ interface Flash {
 
 /**
  * S04/S05 · Ruang kerja Farmasi (mockup Farmasi): tab Telaah / Penyiapan / Serah terima atas antrean resep.
- * Tindakan disimulasikan (Server Action, tidak disimpan) dan diingat selama halaman terbuka; resep Tn. Suryo
- * memajukan tugas simulasi `farmasi.telaah → siap → serah` bila sedang giliran.
+ * Tindakan disimulasikan (Server Action, tidak disimpan); kemajuan lokal per resep diingat di tab ini selama tahap
+ * server resep itu tidak berubah (`useRxLocal`), termasuk saat halaman dibuat ulang setelah simulasi maju. Resep
+ * Tn. Suryo memajukan tugas simulasi `farmasi.telaah → siap → serah` bila sedang giliran.
  */
 export function FarmasiWorkspace({
   data,
@@ -57,7 +60,7 @@ export function FarmasiWorkspace({
   const [sel, setSel] = useState<Partial<Record<FarmasiTab, string>>>(
     initialSelected ? { [initialTab]: initialSelected } : {},
   );
-  const [local, setLocal] = useState<Record<string, RxLocal>>({});
+  const [local, patch] = useRxLocal(data.prescriptions, userName);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
@@ -91,8 +94,6 @@ export function FarmasiWorkspace({
     syncUrl(tab, id);
   };
 
-  const patch = (id: string, fn: (cur: RxLocal) => RxLocal) =>
-    setLocal((cur) => ({ ...cur, [id]: fn(cur[id] ?? {}) }));
   const call = (
     id: string,
     action: () => Promise<PenunjangActionResult>,
@@ -112,19 +113,19 @@ export function FarmasiWorkspace({
         call(
           p.id,
           () => cdsFollowUpAction({ rxId: p.id, alertId: alert.id, action, reason }),
-          (r) => {
+          () => {
+            // Catatan tindak lanjut memakai jam demo (hari presentasi), bukan jam dinding.
+            const at = demoNow().toISOString();
+            const jam = formatJam(at);
             const text =
               action === 'setuju'
-                ? `Dokter menyetujui (${r.at}): omeprazol diganti pantoprazol 40 mg IV 1×1. Interaksi teratasi.`
+                ? `Dokter menyetujui (${jam}): omeprazol diganti pantoprazol 40 mg IV 1×1. Interaksi teratasi.`
                 : action === 'konfirmasi'
-                  ? `${alert.recommendation ?? 'Ditinjau apoteker'} · dikonfirmasi ${r.at}${alert.kind === 'dosis-ginjal' ? ', pantau anti-Xa' : ''}.`
-                  : `${reason ?? ''} · ${r.at}`;
+                  ? `${alert.recommendation ?? 'Ditinjau apoteker'} · dikonfirmasi ${jam}${alert.kind === 'dosis-ginjal' ? ', pantau anti-Xa' : ''}.`
+                  : `${reason ?? ''} · ${jam}`;
             patch(p.id, (c) => ({
               ...c,
-              alerts: {
-                ...c.alerts,
-                [alert.id]: { state: STATE[action], at: new Date().toISOString(), text },
-              },
+              alerts: { ...c.alerts, [alert.id]: { state: STATE[action], at, text } },
             }));
           },
         ),
@@ -148,21 +149,22 @@ export function FarmasiWorkspace({
         call(
           p.id,
           () => reviewRxAction({ rxId: p.id, decision: release ? 'lepas' : 'tahan' }),
-          () => patch(p.id, (c) => ({ ...c, hold: release ? undefined : new Date().toISOString() })),
+          () => patch(p.id, (c) => ({ ...c, hold: release ? undefined : demoNow().toISOString() })),
         );
       },
       onPartial: () =>
         call(
           p.id,
           () => reviewRxAction({ rxId: p.id, decision: 'sebagian' }),
-          () => patch(p.id, (c) => ({ ...c, partial: new Date().toISOString() })),
+          () => patch(p.id, (c) => ({ ...c, partial: demoNow().toISOString() })),
         ),
-      onToggle: (kind, i) => patch(p.id, (c) => ({ ...c, [kind]: { ...c[kind], [i]: !c[kind]?.[i] } })),
+      onToggle: (kind, i, checked) => patch(p.id, (c) => ({ ...c, [kind]: { ...c[kind], [i]: checked } })),
+      onReceiver: (receiver) => patch(p.id, (c) => ({ ...c, receiver })),
       onDoubleCheck: (second) =>
         call(
           p.id,
           () => doubleCheckAction({ rxId: p.id, second }),
-          () => patch(p.id, (c) => ({ ...c, doubleCheck: { by: second, at: new Date().toISOString() } })),
+          () => patch(p.id, (c) => ({ ...c, doubleCheck: { by: second, at: demoNow().toISOString() } })),
         ),
       onDone: (receiver) => {
         if (tab === 'siap') {

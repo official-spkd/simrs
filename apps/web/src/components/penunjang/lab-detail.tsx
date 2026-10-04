@@ -102,7 +102,7 @@ export function LabDetail({
         className="overflow-hidden rounded-card border border-line bg-white"
       >
         <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,rgba(15,118,110,0.06),#FFFFFF_60%)] px-4 py-3">
-          <span className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-col">
             <h2 className="m-0 text-[16px] font-semibold">{s.tests}</h2>
             <span className="text-[12.5px] text-ink-500">
               {s.location} · no. lab <span className="font-mono">{s.labNo}</span> ·{' '}
@@ -110,7 +110,7 @@ export function LabDetail({
                 ? `sampel diterima ${formatWhen(s.receivedAt, DEMO_TODAY)}`
                 : `order ${formatWhen(s.orderedAt, DEMO_TODAY)}, belum sampling`}
             </span>
-          </span>
+          </div>
           <span className="text-[12.5px] text-ink-700">
             Pengirim: {s.sender} · cito: {s.priority === 'cito' ? 'ya' : 'tidak'}
           </span>

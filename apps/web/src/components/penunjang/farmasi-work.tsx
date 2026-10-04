@@ -2,21 +2,23 @@
 
 import type { PharmacyPrescription } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
-import { useState } from 'react';
 import {
   HANDOVER_CHECKS,
   prepChecklist,
   requiresDoubleCheck,
   type RxLocal,
+  type RxReceiver,
   workBlock,
 } from '@/lib/penunjang-farmasi';
 import { DoubleCheck } from './farmasi-double-check';
 
-export type Receiver = 'pasien' | 'keluarga' | 'perawat';
+export type Receiver = RxReceiver;
 
 /**
  * Penyiapan dan serah terima (mockup Farmasi): centang tiap obat/langkah; obat high alert wajib cek ganda apoteker
  * kedua; serah terima memilih penerima. Tombol selesai nonaktif dengan alasan tertulis sampai syarat lengkap.
+ * Centang dan penerima disimpan di kemajuan lokal resep (`RxLocal`), bukan state komponen, agar tidak hilang saat
+ * data halaman diperbarui.
  */
 export function FarmasiWork({
   tab,
@@ -29,6 +31,7 @@ export function FarmasiWork({
   scenarioReason,
   scenarioReceivers,
   onToggle,
+  onReceiver,
   onDoubleCheck,
   onDone,
 }: {
@@ -43,11 +46,11 @@ export function FarmasiWork({
   scenarioReason: string | null;
   /** Resep pasien skenario: hanya pilihan penerima naskah simulasi. */
   scenarioReceivers: boolean;
-  onToggle: (kind: 'prep' | 'handover', index: number) => void;
+  onToggle: (kind: 'prep' | 'handover', index: number, checked: boolean) => void;
+  onReceiver: (receiver: Receiver) => void;
   onDoubleCheck: (second: string) => void;
   onDone: (receiver: Receiver | null) => void;
 }) {
-  const [receiver, setReceiver] = useState<Receiver | null>(null);
   const prep = tab === 'siap';
   const list = prep ? prepChecklist(rx) : [...HANDOVER_CHECKS];
   const checks = (prep ? local?.prep : local?.handover) ?? {};
@@ -60,6 +63,7 @@ export function FarmasiWork({
       ? [{ id: 'perawat' as const, label: 'Perawat ruangan' }]
       : []),
   ];
+  const receiver = receivers.find((r) => r.id === local?.receiver)?.id ?? null;
   const reason =
     workBlock({
       total: list.length,
@@ -88,7 +92,7 @@ export function FarmasiWork({
               <input
                 type="checkbox"
                 checked={!!checks[i]}
-                onChange={() => onToggle(prep ? 'prep' : 'handover', i)}
+                onChange={(e) => onToggle(prep ? 'prep' : 'handover', i, e.target.checked)}
                 className="size-[18px] flex-none accent-brand-600"
               />
               <span className={cx(checks[i] ? 'text-ink-500' : 'text-ink-900')}>{t}</span>
@@ -126,7 +130,7 @@ export function FarmasiWork({
                 type="radio"
                 name={`penerima-${rx.id}`}
                 checked={receiver === r.id}
-                onChange={() => setReceiver(r.id)}
+                onChange={() => onReceiver(r.id)}
                 className="size-4 accent-brand-600"
               />
               {r.label}

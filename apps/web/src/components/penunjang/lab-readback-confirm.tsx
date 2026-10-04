@@ -28,7 +28,7 @@ export function ReadBackConfirm({
   const [tried, setTried] = useState(false);
   const err = tried && !checked ? 'Read-back wajib dikonfirmasi sebelum disimpan.' : '';
   return (
-    <span className="mt-1.5 flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3">
+    <div className="mt-1.5 flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3">
       <span className="text-small text-ink-700">
         Dilaporkan ke <strong>{recipient}</strong>
         {reportedAt ? ` pukul ${formatJam(reportedAt)}` : ''}. Laporan belum sah sampai penerima membacakan
@@ -49,7 +49,7 @@ export function ReadBackConfirm({
           {err}
         </span>
       )}
-      <span className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {disabledReason && <span className="text-caption font-semibold text-warning">{disabledReason}</span>}
         <Button
           variant="danger"
@@ -61,7 +61,7 @@ export function ReadBackConfirm({
         >
           {busy ? 'Menyimpan…' : 'Konfirmasi read-back'}
         </Button>
-      </span>
-    </span>
+      </div>
+    </div>
   );
 }

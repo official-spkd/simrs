@@ -45,7 +45,7 @@ export function RadDetail({
         className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,rgba(15,118,110,0.06),rgba(255,255,255,0)_60%)] px-4 py-3"
       >
         <div className="flex flex-wrap justify-between gap-2.5">
-          <span className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-col">
             <h2 className="m-0 text-[16px] font-semibold">{e.procedure}</h2>
             <span className="text-[12.5px] text-ink-500">
               {MODALITY_LABEL[e.modality]} · {e.room} · <span className="font-mono">{e.accession}</span> ·
@@ -54,7 +54,7 @@ export function RadDetail({
             <span className="text-[12.5px] text-ink-700">
               {e.location} · pengirim {e.sender}
             </span>
-          </span>
+          </div>
           <span className="flex flex-wrap items-start gap-1.5">
             <Chip tone={e.procedureCode ? 'brand' : 'neutral'} mono>
               {procedureCodeText(e.procedureCode)}
@@ -113,7 +113,9 @@ export function RadDetail({
           {feedback}
         </p>
       )}
-      {e.status === 'terjadwal' && <RadStart key={e.id} exam={e} busy={busy} onStart={h.onStart} />}
+      {e.status === 'terjadwal' && (
+        <RadStart key={e.id} exam={e} busy={busy} serverError={error} onStart={h.onStart} />
+      )}
       {e.status === 'berlangsung' && (
         <RadFinish key={e.id} exam={e} busy={busy} serverError={error} onFinish={h.onFinish} />
       )}

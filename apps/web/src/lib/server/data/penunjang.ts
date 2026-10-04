@@ -1,9 +1,12 @@
 import 'server-only';
 import {
+  type LabSample,
   type LabWorklist,
   labWorklistSchema,
+  type PharmacyPrescription,
   type PharmacyQueue,
   pharmacyQueueSchema,
+  type RadiologyExam,
   type RadiologyWorklist,
   radiologyWorklistSchema,
 } from '@simrs/shared';
@@ -69,4 +72,31 @@ export async function getRadiologyWorklist(scenario: ScenarioResults): Promise<R
     return radiologyWorklistSchema.parse(demoRadiologyWorklist(scenarioRadiologyExams(scenario)));
   }
   return notImplemented('radiologi');
+}
+
+/*
+ * Rekaman untuk Server Action: dicari server lewat jalur data yang sama dengan halaman (fixture + proyeksi pasien
+ * skenario sesi ini), sehingga action tidak memercayai atribut keselamatan kiriman klien (kontras, modalitas,
+ * nilai kritis, peringatan CDS, obat high alert). Klien hanya mengirim id; id yang tidak dikenal → undefined.
+ */
+
+export async function findLabSample(session: SessionView, id: string): Promise<LabSample | undefined> {
+  const { results } = await scenarioRuns(session);
+  return (await getLabWorklist(results)).samples.find((s) => s.id === id);
+}
+
+export async function findPrescription(
+  session: SessionView,
+  id: string,
+): Promise<PharmacyPrescription | undefined> {
+  const { results } = await scenarioRuns(session);
+  return (await getPharmacyQueue(results)).prescriptions.find((rx) => rx.id === id);
+}
+
+export async function findRadiologyExam(
+  session: SessionView,
+  id: string,
+): Promise<RadiologyExam | undefined> {
+  const { results } = await scenarioRuns(session);
+  return (await getRadiologyWorklist(results)).exams.find((e) => e.id === id);
 }

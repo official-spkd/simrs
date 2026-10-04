@@ -1,5 +1,5 @@
 import type { RadModality, RadStatus, RadiologyExam, RadiologyModality } from '@simrs/shared';
-import type { StatusTone } from './penunjang';
+import type { GateDenial, StatusTone } from './penunjang';
 
 /**
  * S03 · Fungsi murni tampilan radiologi (mode presentasi, ADR-0023): status worklist, kode ICD-9-CM, templat
@@ -128,6 +128,47 @@ export function reportError(findings: string, impression: string): string | null
   if (findings.includes('__') || impression.includes('__'))
     return 'Lengkapi isian templat yang masih kosong (__).';
   return null;
+}
+
+export const RAD_EXAM_UNKNOWN = 'Pemeriksaan tidak ditemukan di worklist radiologi.';
+
+/*
+ * Gerbang Server Action radiologi atas rekaman yang dicari server di worklist sesi (klien hanya mengirim id):
+ * kebutuhan skrining kontras dan dosis CT dibaca dari order, bukan dari input klien. Status kemajuan tidak
+ * diperiksa karena langkah lokal (mulai, akuisisi) tidak tersimpan.
+ */
+
+/** Mulai pemeriksaan: identitas 2 penanda; skrining kontras bila order-nya berkontras. */
+export function radStartGate(
+  exam: Pick<RadiologyExam, 'contrast'> | undefined,
+  identityChecked: boolean,
+  contrastChecked: boolean,
+): GateDenial | null {
+  if (!exam) return { message: RAD_EXAM_UNKNOWN };
+  const err = startError(exam, identityChecked, contrastChecked);
+  return err ? { message: err } : null;
+}
+
+/** Selesai akuisisi: dosis CT wajib bila modalitas order-nya CT. */
+export function radFinishGate(
+  exam: Pick<RadiologyExam, 'modality'> | undefined,
+  ctdiVol: number | null,
+  dlp: number | null,
+): GateDenial | null {
+  if (!exam) return { message: RAD_EXAM_UNKNOWN };
+  const err = doseError(exam.modality, ctdiVol, dlp);
+  return err ? { message: err, field: 'dose' } : null;
+}
+
+/** TTE radiolog: pemeriksaan ada di worklist dan ekspertise lengkap. */
+export function radSignGate(
+  exam: Pick<RadiologyExam, 'id'> | undefined,
+  findings: string,
+  impression: string,
+): GateDenial | null {
+  if (!exam) return { message: RAD_EXAM_UNKNOWN };
+  const err = reportError(findings, impression);
+  return err ? { message: err, field: 'report' } : null;
 }
 
 /** Tindakan di layar (simulasi, tidak disimpan) atas satu pemeriksaan. */

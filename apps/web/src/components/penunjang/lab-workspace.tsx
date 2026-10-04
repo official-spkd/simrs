@@ -5,6 +5,7 @@ import { KpiCard } from '@simrs/ui';
 import { useMemo, useState, useTransition } from 'react';
 import { resampleLabAction, validateLabAction } from '@/app/(staf)/penunjang/lab/actions';
 import { STAF } from '@/lib/demo/fixtures/staf';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   applyLabLocal,
   criticalOpen,
@@ -67,7 +68,7 @@ export function LabWorkspace({
       const r = await validateLabAction({ sampleId: s.id, level });
       say(s.id, r.message);
       if (!r.ok) return;
-      const at = new Date().toISOString();
+      const at = demoNow().toISOString();
       patch(s.id, (cur) =>
         level === 'teknis'
           ? { ...cur, technical: { by: userName, at } }
@@ -81,10 +82,9 @@ export function LabWorkspace({
       const r = await resampleLabAction({ sampleId: s.id, cancel });
       say(s.id, r.message);
       if (!r.ok) return;
+      const at = demoNow().toISOString();
       patch(s.id, (cur) =>
-        cancel
-          ? { critical: cur.critical }
-          : { critical: cur.critical, resampleAt: new Date().toISOString() },
+        cancel ? { critical: cur.critical } : { critical: cur.critical, resampleAt: at },
       );
     });
   };

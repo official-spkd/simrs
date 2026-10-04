@@ -7,6 +7,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { reportCriticalAction } from '@/app/(staf)/penunjang/lab/actions';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { criticalStage, criticalTimer, formatLabNumber, formatMmSs, type LabLocal } from '@/lib/penunjang';
 import { CriticalReportForm } from './lab-critical-form';
 import { NOT_YOUR_TURN, type ScenarioTasks } from './use-scenario-tasks';
@@ -62,7 +63,7 @@ export function CriticalBanner({
     startTransition(async () => {
       const r = await reportCriticalAction({ sampleId: sample.id, recipient, readBack: true });
       if (!r.ok) return setError(r.message);
-      const now = new Date().toISOString();
+      const now = demoNow().toISOString();
       setFeedback(r.message);
       setFormOpen(false);
       onLocalReport(sample.id, { recipient, reportedAt: now, readBackAt: now, tookSeconds: elapsed });
@@ -107,7 +108,7 @@ export function CriticalBanner({
       >
         !
       </span>
-      <span className="flex min-w-0 flex-[1_1_260px] flex-col gap-1">
+      <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1">
         <span role="alert" className="font-semibold text-danger-strong">
           Nilai kritis: {valueText} · {where}
         </span>
@@ -145,7 +146,7 @@ export function CriticalBanner({
             onSubmit={submit}
           />
         )}
-      </span>
+      </div>
       {stage === 'terbuka' && !formOpen && (
         <Button variant="danger" className="self-center" onClick={() => setFormOpen(true)}>
           Catat pelaporan

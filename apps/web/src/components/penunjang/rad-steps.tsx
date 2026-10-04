@@ -33,10 +33,12 @@ function Check({
 export function RadStart({
   exam,
   busy,
+  serverError,
   onStart,
 }: {
   exam: RadiologyExam;
   busy: boolean;
+  serverError: string | null;
   onStart: (identity: boolean, contrast: boolean) => void;
 }) {
   const [identity, setIdentity] = useState(false);
@@ -52,6 +54,11 @@ export function RadStart({
         <Check checked={contrast} onChange={setContrast}>
           Skrining kontras: eGFR, riwayat alergi kontras, dan puasa sudah diperiksa
         </Check>
+      )}
+      {serverError && (
+        <span role="alert" className="text-caption font-semibold text-danger">
+          {serverError}
+        </span>
       )}
       <div className="flex flex-wrap items-center justify-end gap-2.5">
         {reason && <span className="text-[12.5px] font-semibold text-warning">{reason}</span>}

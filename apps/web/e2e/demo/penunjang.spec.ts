@@ -186,21 +186,29 @@ test.describe('penunjang · farmasi', () => {
       .getByRole('button', { name: /Tn\. Suryo/ })
       .click();
     await page.getByRole('button', { name: 'Setujui dan siapkan' }).click();
-    await page.getByRole('button', { name: 'Buka Penyiapan' }).click();
-    await page
+    // Tunggu tugas `telaah` selesai di server, lalu pindah lewat tab (umpan balik kilat bisa hilang saat halaman
+    // diperbarui) dan pastikan resep sudah di antrean penyiapan.
+    await expect(page.getByRole('status').filter({ hasText: 'masuk antrean penyiapan' })).toBeVisible();
+    await page.getByRole('tab', { name: /^Penyiapan · \d+$/ }).click();
+    const siapRow = page
       .getByRole('region', { name: 'Antrean penyiapan' })
-      .getByRole('button', { name: /Tn\. Suryo/ })
-      .click();
+      .getByRole('button', { name: /Tn\. Suryo/ });
+    await expect(siapRow).toBeVisible();
+    await siapRow.click();
     const kerja = page.getByRole('region', { name: 'Penyiapan obat' });
     await checkAll(kerja);
     await kerja.getByRole('button', { name: 'Selesai disiapkan' }).click();
-    await page.getByRole('button', { name: 'Buka Serah terima' }).click();
-    await page
+    // Tunggu keadaan sesudah tugas `siap` (data server) sebelum mencentang serah terima.
+    await expect(page.getByRole('status').filter({ hasText: 'masuk antrean serah terima' })).toBeVisible();
+    await page.getByRole('tab', { name: /^Serah terima · \d+$/ }).click();
+    const serahRow = page
       .getByRole('region', { name: 'Antrean serah terima' })
-      .getByRole('button', { name: /Tn\. Suryo/ })
-      .click();
+      .getByRole('button', { name: /Tn\. Suryo/ });
+    await expect(serahRow).toContainText('Siap diserahkan');
+    await serahRow.click();
     const serah = page.getByRole('region', { name: 'Serah terima obat' });
     await checkAll(serah);
+    await expect(serah.getByText(/Lengkapi \d+ centang lagi/)).toHaveCount(0);
     await expect(serah.getByRole('radio', { name: 'Perawat ruangan' })).toHaveCount(0);
     await serah.getByRole('radio', { name: 'Keluarga' }).check();
     await serah.getByRole('button', { name: 'Serahkan obat' }).click();

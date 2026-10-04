@@ -10,6 +10,10 @@ import {
   doseError,
   parseDecimal,
   procedureCodeText,
+  RAD_EXAM_UNKNOWN,
+  radFinishGate,
+  radSignGate,
+  radStartGate,
   reportError,
   slotView,
   sortExams,
@@ -157,5 +161,47 @@ describe('Tn. Hartono: foto toraks dari order set IGD', () => {
     expect(
       radiologyWorklistSchema.parse(demoRadiologyWorklist(scenarioRadiologyExams(results))).exams,
     ).toHaveLength(10);
+  });
+});
+
+describe('gerbang Server Action radiologi (order dicari server, bukan dari klien)', () => {
+  it('id pemeriksaan yang tidak ada di worklist ditolak di setiap langkah', () => {
+    const unknown = { message: RAD_EXAM_UNKNOWN };
+    expect(radStartGate(undefined, true, true)).toEqual(unknown);
+    expect(radFinishGate(undefined, 14.2, 720)).toEqual(unknown);
+    expect(radSignGate(undefined, 'Temuan lengkap tanpa kelainan bermakna.', 'Dalam batas normal.')).toEqual(
+      unknown,
+    );
+  });
+
+  it('skrining kontras dibaca dari order: angiografi berkontras tetap wajib skrining', () => {
+    const sutan = byId('rad-sutan');
+    expect(sutan.contrast).toBe(true);
+    expect(radStartGate(sutan, true, false)?.message).toMatch(/Skrining kontras/);
+    expect(radStartGate(sutan, true, true)).toBeNull();
+    expect(radStartGate(byId('rad-rizky'), false, false)?.message).toMatch(/identitas/);
+    expect(radStartGate(byId('rad-rizky'), true, false)).toBeNull();
+  });
+
+  it('dosis dibaca dari modalitas order: CT wajib dosis, DR tidak', () => {
+    const maria = byId('rad-maria');
+    expect(maria.modality).toBe('CT');
+    expect(radFinishGate(maria, null, null)).toEqual({
+      message: expect.stringMatching(/CTDIvol/),
+      field: 'dose',
+    });
+    expect(radFinishGate(maria, 14.2, 720)).toBeNull();
+    expect(radFinishGate(byId('rad-hendro'), null, null)).toBeNull();
+  });
+
+  it('TTE radiolog: ekspertise lengkap', () => {
+    const dewi = byId('rad-dewi');
+    expect(radSignGate(dewi, 'pendek', 'pendek')).toEqual({
+      message: 'Temuan wajib diisi (minimal 20 karakter).',
+      field: 'report',
+    });
+    expect(
+      radSignGate(dewi, 'Hepar dan kandung empedu dalam batas normal.', 'USG abdomen normal.'),
+    ).toBeNull();
   });
 });

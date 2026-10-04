@@ -18,7 +18,8 @@ export interface FarmasiHandlers {
   onApprove: () => void;
   onHoldToggle: () => void;
   onPartial: () => void;
-  onToggle: (kind: 'prep' | 'handover', index: number) => void;
+  onToggle: (kind: 'prep' | 'handover', index: number, checked: boolean) => void;
+  onReceiver: (receiver: Receiver) => void;
   onDoubleCheck: (second: string) => void;
   onDone: (receiver: Receiver | null) => void;
 }
@@ -65,14 +66,14 @@ export function FarmasiDetail({
         guarantor={rx.patient.guarantor}
       />
       <div className="flex flex-wrap justify-between gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,rgba(15,118,110,0.06),rgba(255,255,255,0)_60%)] px-4 py-3">
-        <span className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-col">
           <h2 className="m-0 text-[16px] font-semibold">
             Resep <span className="font-mono">{rx.no}</span>
           </h2>
           <span className="text-[12.5px] text-ink-500">
             {rx.location} · {rx.prescriber} · ditulis {formatJam(rx.writtenAt)} · {rx.depot}
           </span>
-        </span>
+        </div>
         <span className="flex flex-wrap items-center gap-1.5">
           <Chip tone={rx.cito ? 'danger' : 'neutral'}>{rx.cito ? 'Cito' : SETTING[rx.setting]}</Chip>
           {rx.prb && <Chip tone="info">PRB {rx.days} hari</Chip>}
@@ -120,6 +121,7 @@ export function FarmasiDetail({
           scenarioReason={workScenarioReason}
           scenarioReceivers={scenarioReceivers}
           onToggle={h.onToggle}
+          onReceiver={h.onReceiver}
           onDoubleCheck={h.onDoubleCheck}
           onDone={h.onDone}
         />

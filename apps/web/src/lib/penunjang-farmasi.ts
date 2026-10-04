@@ -1,5 +1,12 @@
-import type { DispenseStage, PharmacyCdsAlert, PharmacyItem, PharmacyPrescription } from '@simrs/shared';
-import type { StatusTone } from './penunjang';
+import {
+  DISPENSE_STAGES,
+  type DispenseStage,
+  type PharmacyCdsAlert,
+  type PharmacyItem,
+  type PharmacyPrescription,
+} from '@simrs/shared';
+import { z } from 'zod';
+import type { GateDenial, StatusTone } from './penunjang';
 
 /**
  * S04/S05 · Fungsi murni tampilan farmasi (mode presentasi, ADR-0023): KFA, gerbang CDS telaah, daftar telaah,
@@ -24,6 +31,8 @@ export function formatQty(n: number): string {
 
 /** Tindak lanjut apoteker di layar (simulasi): usulan ke dokter, persetujuan dokter, konfirmasi dosis, override. */
 export type AlertAction = 'diusulkan' | 'disetujui' | 'dikonfirmasi' | 'override';
+/** Penerima obat saat serah terima. */
+export type RxReceiver = 'pasien' | 'keluarga' | 'perawat';
 export interface RxLocal {
   stage?: DispenseStage;
   hold?: string;
@@ -32,6 +41,7 @@ export interface RxLocal {
   prep?: Record<number, boolean>;
   handover?: Record<number, boolean>;
   doubleCheck?: { by: string; at: string };
+  receiver?: RxReceiver;
 }
 
 /**
@@ -203,4 +213,120 @@ export function dispenseLines(rx: Pick<PharmacyPrescription, 'items'>): string[]
     const low = stockLow(i, after) ? ' (di bawah stok minimum)' : '';
     return `${i.name} ${formatQty(i.stock)} → ${formatQty(after)} ${i.unit}${low}`;
   });
+}
+
+/*
+ * Gerbang Server Action farmasi atas resep yang dicari server di antrean sesi (klien hanya mengirim id). Kemajuan
+ * lokal (tahap, usulan, centang) tidak tersimpan sehingga tidak diperiksa.
+ */
+
+export const RX_UNKNOWN = 'Resep tidak ditemukan di antrean farmasi.';
+
+export function rxGate(rx: Pick<PharmacyPrescription, 'id'> | undefined): GateDenial | null {
+  return rx ? null : { message: RX_UNKNOWN };
+}
+
+/**
+ * Tindak lanjut peringatan CDS: peringatan harus milik resep itu dan memang menahan telaah; override hanya dengan
+ * alasan klinis tertulis (≥ 10 karakter).
+ */
+export function cdsFollowUpGate(
+  rx: Pick<PharmacyPrescription, 'alerts'> | undefined,
+  alertId: string,
+  action: 'usul' | 'setuju' | 'konfirmasi' | 'override',
+  reason: string | undefined,
+): GateDenial | null {
+  if (!rx) return { message: RX_UNKNOWN };
+  const alert = rx.alerts.find((a) => a.id === alertId);
+  if (!alert) return { message: 'Peringatan CDS tidak ditemukan pada resep ini.' };
+  if (!alertBlocks(alert)) return { message: 'Peringatan CDS ini tidak memerlukan tindak lanjut.' };
+  if (action === 'override' && (reason ?? '').trim().length < 10) {
+    return { message: 'Alasan klinis wajib diisi, minimal 10 karakter.', field: 'reason' };
+  }
+  return null;
+}
+
+/** Cek ganda hanya untuk resep yang memuat obat high alert, oleh apoteker kedua yang bertugas (bukan penyiap). */
+export function doubleCheckGate(
+  rx: Pick<PharmacyPrescription, 'items'> | undefined,
+  second: string,
+  current: string,
+  pharmacists: readonly string[],
+): GateDenial | null {
+  if (!rx) return { message: RX_UNKNOWN };
+  if (!requiresDoubleCheck(rx)) {
+    return { message: 'Resep ini tidak memuat obat high alert, cek ganda tidak diperlukan.' };
+  }
+  const err = secondPharmacistError(second, current, pharmacists);
+  return err ? { message: err, field: 'second' } : null;
+}
+
+/*
+ * Kemajuan lokal per resep disimpan di sessionStorage (kenyamanan) bersama tahap server resep saat dicatat, agar
+ * bertahan bila halaman dimuat ulang atau di-mount ulang oleh router (mis. setelah simulasi maju), dan dibuang bila
+ * resep hilang dari antrean atau tahap server-nya berubah (mis. simulasi diulang).
+ */
+
+export type StoredRxLocal = Record<string, { stage: DispenseStage; local: RxLocal }>;
+
+const isoSchema = z.iso.datetime();
+const flagsSchema = z.record(z.string().regex(/^\d{1,2}$/), z.boolean());
+const rxLocalSchema = z.strictObject({
+  stage: z.enum(DISPENSE_STAGES).optional(),
+  hold: isoSchema.optional(),
+  partial: isoSchema.optional(),
+  alerts: z
+    .record(
+      z.string().max(60),
+      z.strictObject({
+        state: z.enum(['diusulkan', 'disetujui', 'dikonfirmasi', 'override']),
+        at: isoSchema,
+        text: z.string().max(600),
+      }),
+    )
+    .optional(),
+  prep: flagsSchema.optional(),
+  handover: flagsSchema.optional(),
+  doubleCheck: z.strictObject({ by: z.string().max(120), at: isoSchema }).optional(),
+  receiver: z.enum(['pasien', 'keluarga', 'perawat']).optional(),
+});
+const storedSchema = z.record(
+  z.string().max(60),
+  z.strictObject({ stage: z.enum(DISPENSE_STAGES), local: rxLocalSchema }),
+);
+
+/** Isi sessionStorage → kemajuan tersimpan; isi rusak atau asing diabaikan (penyimpanan hanya kenyamanan). */
+export function parseStoredRxLocal(raw: string | null): StoredRxLocal {
+  if (!raw) return {};
+  try {
+    const p = storedSchema.safeParse(JSON.parse(raw));
+    return p.success ? p.data : {};
+  } catch {
+    return {};
+  }
+}
+
+type RxStage = Pick<PharmacyPrescription, 'id' | 'stage'>;
+
+/** Kemajuan yang masih berlaku: resepnya masih di antrean dengan tahap server yang sama seperti saat dicatat. */
+export function liveRxLocal(stored: StoredRxLocal, rxs: readonly RxStage[]): StoredRxLocal {
+  const out: StoredRxLocal = {};
+  for (const rx of rxs) {
+    const e = stored[rx.id];
+    if (e && e.stage === rx.stage) out[rx.id] = e;
+  }
+  return out;
+}
+
+/** Catat perubahan satu resep, berangkat dari kemajuannya yang masih berlaku; entri basi ikut dibuang. */
+export function patchStoredRxLocal(
+  stored: StoredRxLocal,
+  rxs: readonly RxStage[],
+  id: string,
+  fn: (cur: RxLocal) => RxLocal,
+): StoredRxLocal {
+  const live = liveRxLocal(stored, rxs);
+  const rx = rxs.find((r) => r.id === id);
+  if (!rx) return live;
+  return { ...live, [id]: { stage: rx.stage, local: fn(live[id]?.local ?? {}) } };
 }
