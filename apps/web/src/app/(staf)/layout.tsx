@@ -40,10 +40,21 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   return (
     <AppShell
       tenantName={s.tenant.name}
+      // Mode presentasi: header lengket berisi pemicu panduan (tidak melayang di atas isi halaman).
+      stickyHeader={Boolean(demo)}
       header={
         <>
           {dataSource === 'demo' && <DemoBadge />}
           <NotificationBell unread={unread} />
+          {demo && (
+            <DemoGuide
+              rev={demo.rev}
+              guide={guideView(
+                runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
+                s.role?.code ?? null,
+              )}
+            />
+          )}
         </>
       }
       sidebar={
@@ -72,20 +83,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         />
       }
     >
-      {/* Mode presentasi: ruang di bawah agar pil panduan tidak menutupi isi terakhir halaman. */}
-      {demo ? <div className="pb-16">{children}</div> : children}
-      {demo && (
-        <>
-          <DemoGuide
-            rev={demo.rev}
-            guide={guideView(
-              runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
-              s.role?.code ?? null,
-            )}
-          />
-          <DemoSync />
-        </>
-      )}
+      {children}
+      {demo && <DemoSync />}
     </AppShell>
   );
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { activeAssignments, lockTenantScope, type Prisma } from '@simrs/db';
+import { activeAssignments, lockTenantScope, type Prisma, ROLE_MATRIX_LOCK } from '@simrs/db';
 import { ACCESS_ADMIN_GRANTS, newId, PROTECTED_ROLES, type TenantKind } from '@simrs/shared';
 import { revokePinDevices } from '../../infra/auth/pin-devices';
 import { TenantDb } from '../../infra/tenant-db';
@@ -402,6 +402,8 @@ export class IamRepository {
   ) {
     const tx = this.db.tx();
     const tenantId = this.db.tenantId();
+    // Serial dengan sinkron izin katalog (CLI) agar tidak saling menimpa pembacaan matriks.
+    await lockTenantScope(tx, ROLE_MATRIX_LOCK);
     const before = await tx.rolePermission.findMany({
       where: { roleId },
       select: { resource: true, action: true, scope: true },

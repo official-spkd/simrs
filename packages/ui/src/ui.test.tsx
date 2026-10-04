@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   Alert,
+  AppShell,
   Button,
   Field,
   LineChart,
@@ -199,5 +200,28 @@ describe('SafetyGate', () => {
     );
     expect(screen.getByRole('status').textContent).toContain('Dilaporkan ke dr. Rina');
     expect(screen.queryByRole('button')).toBeNull();
+  });
+});
+
+describe('AppShell', () => {
+  it('header lengket hanya bila diminta; tingginya tersedia sebagai --app-sticky-top', () => {
+    const { container, rerender } = render(
+      <AppShell tenantName="RS Fiktif" sidebar={<nav />} header={<span>Header</span>}>
+        isi
+      </AppShell>,
+    );
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.hasAttribute('data-sticky-header')).toBe(false);
+    expect(root.style.getPropertyValue('--app-sticky-top')).toBe('0px');
+    expect(screen.getByRole('banner').className).not.toContain('sticky');
+
+    rerender(
+      <AppShell tenantName="RS Fiktif" sidebar={<nav />} header={<span>Header</span>} stickyHeader>
+        isi
+      </AppShell>,
+    );
+    expect(root.hasAttribute('data-sticky-header')).toBe(true);
+    expect(root.style.getPropertyValue('--app-sticky-top')).toBe('4rem');
+    expect(screen.getByRole('banner').className).toContain('md:sticky');
   });
 });

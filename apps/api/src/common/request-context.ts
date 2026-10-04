@@ -41,6 +41,11 @@ export interface TenantRequestContext {
   /** Lingkup izin yang diberikan untuk endpoint ini (P03), null bila endpoint tanpa @RequirePermission. */
   permissionScope: PermissionScope | null;
   audit: PendingAudit[];
+  /**
+   * Dijalankan interceptor setelah transaksi permintaan COMMIT (tidak dijalankan bila batal), mis. invalidasi
+   * cache matriks izin. Tidak boleh mengubah data atau memanggil sistem eksternal (pakai outbox).
+   */
+  afterCommit: Array<() => Promise<void> | void>;
 }
 
 export const requestContext = new AsyncLocalStorage<TenantRequestContext>();

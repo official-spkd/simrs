@@ -42,6 +42,11 @@ export const apiEnvSchema = envSchemas.base
     ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
     /**
+     * Umur cache matriks izin per tenant × peran (detik). Perubahan lewat layar Akses berlaku seketika
+     * (invalidasi + siaran Redis); TTL membatasi keusangan bila siaran terlewat. 0 = cache mati.
+     */
+    AUTHZ_CACHE_TTL_SECONDS: z.coerce.number().int().min(0).max(300).default(30),
+    /**
      * Mode pengembangan tanpa login: tenant dari header X-Tenant-Id. Hanya berlaku bila APP_ENV=local
      * (bukan staging/production) DAN flag ini true. Dipakai tes lama dan alat pengembang.
      */

@@ -149,6 +149,16 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
 
+Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan di `packages/shared/src/authz.ts`), bawa izin itu ke peran RS yang sudah berjalan:
+
+```powershell
+pnpm db:sync-permissions --dry-run            # tampilkan rencana per RS, tanpa menyimpan
+pnpm db:sync-permissions                      # semua tenant aktif
+pnpm db:sync-permissions --tenant RSCM        # satu tenant saja
+```
+
+Hanya menambah izin yang baru di katalog ke peran yang memilikinya di matriks bawaan; tidak pernah mencabut, tidak mengubah lingkup yang disesuaikan RS, dan tidak memberi lagi izin yang pernah dicabut admin (dibaca dari jejak audit). Satu transaksi per tenant, setiap perubahan diaudit, aman dijalankan berulang. API yang sedang berjalan memakai izin baru paling lambat setelah `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik).
+
 Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSCM`, `RSFA`, atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
 ## 2. Menjalankan dan memeriksa
@@ -492,7 +502,7 @@ Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan 
 pnpm lint
 pnpm typecheck
 pnpm test                          # unit + integrasi (butuh Postgres; worker dan tes batas laju API juga butuh Redis)
-pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri API :4010 + build web :3010 dan :3011 (presentasi)
+pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri mock :4110, API :4010, worker, build web :3010 dan :3011 (presentasi)
 ```
 
 Sebelum commit:
@@ -523,10 +533,10 @@ Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) de
 
    Nama wajib `simrs_test_<nama>` (huruf kecil, angka, garis bawah): persiapan tes (`assertTestDatabase` di `@simrs/db/testing`) menolak nama lain agar tes tidak pernah memigrasi atau mengisi database pengembangan. Database kosong cukup; `pnpm test` atau E2E pertama menerapkan migrasi dan seed tenant fiktif sendiri (migrasi memuat `CREATE EXTENSION` dan `GRANT`, ADR-0008).
 
-3. Jalankan E2E di slot sendiri. Bawaannya API :4010, web :3010, web presentasi :3011, dan folder sementara `simrs-demo-e2e` (kredensial akun presentasi uji + keadaan simulasi); dua salinan dengan nilai yang sama saling bertabrakan:
+3. Jalankan E2E di slot sendiri. Bawaannya API :4010, web :3010, web presentasi :3011, mock :4110 (`E2E_MOCK_PORT`, bawaan = port API + 100), dan folder sementara `simrs-demo-e2e` (kredensial akun presentasi uji + keadaan simulasi); dua salinan dengan nilai yang sama saling bertabrakan. Worker outbox E2E tidak memakai port (penjadwal `interval`, bukan BullMQ, karena Redis dipakai bersama):
 
    ```bash
-   E2E_API_PORT=4020 E2E_WEB_PORT=3020 E2E_DEMO_PORT=3021 E2E_TMP_NAME=simrs-demo-e2e-pin \
+   E2E_API_PORT=4020 E2E_WEB_PORT=3020 E2E_DEMO_PORT=3021 E2E_MOCK_PORT=4120 E2E_TMP_NAME=simrs-demo-e2e-pin \
      pnpm --filter @simrs/web test:e2e
    ```
 

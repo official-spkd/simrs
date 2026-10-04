@@ -3,52 +3,76 @@
 import { Icon } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GuideView } from '@/lib/demo/guide-view';
 import { useDemoRunner } from './demo-sync';
 import { OpenScreenButton } from './open-screen-button';
 
-const OPEN_KEY = 'simrs-panduan-terbuka';
-
 /**
  * Panel panduan presenter (mode presentasi, ADR-0023): langkah skenario aktif, posisi pembawanya, tombol membuka
- * layar terkait sebagai posisi itu, dan "kerjakan 1 tugas" dengan nilai bawaan. Tertutup secara bawaan agar tidak
- * menutupi layar yang sedang dipresentasikan; disembunyikan di layar Simulasi (isinya sudah lengkap di sana).
+ * layar terkait sebagai posisi itu, dan "kerjakan 1 tugas" dengan nilai bawaan. Pemicunya ada di header lengket
+ * (bukan melayang di atas isi, sehingga tidak pernah menutupi tombol layar); panelnya terbuka ke bawah dan tertutup
+ * lagi saat pindah layar, Escape, atau klik di luar. Disembunyikan di layar Simulasi (isinya sudah lengkap di sana).
  */
 export function DemoGuide({ guide, rev }: { guide: GuideView; rev: number }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // Panel terbuka hanya di layar tempat dibuka: pindah layar = tertutup, layar baru tidak tertutup panel.
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === pathname;
   const { run, pending, error } = useDemoRunner(rev);
+  const rootRef = useRef<HTMLElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    try {
-      setOpen(sessionStorage.getItem(OPEN_KEY) === '1');
-    } catch {
-      // penyimpanan sesi tidak tersedia: tetap tertutup
-    }
-  }, []);
-  const toggle = () => {
-    setOpen((o) => {
-      try {
-        sessionStorage.setItem(OPEN_KEY, o ? '0' : '1');
-      } catch {
-        // abaikan
-      }
-      return !o;
-    });
-  };
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpenOn(null);
+      triggerRef.current?.focus();
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (e.target instanceof Node && !rootRef.current?.contains(e.target)) setOpenOn(null);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  }, [open]);
 
   if (pathname === '/simulasi') return null;
 
+  const label = guide.finished ? 'Simulasi selesai' : `Simulasi · ${guide.stepNo} · ${guide.stage}`;
+
   return (
-    <aside
-      aria-label="Panduan simulasi"
-      className="fixed right-4 bottom-4 z-40 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2"
-    >
+    // Di ponsel header membungkus: pemicu rata kanan agar panelnya (rata kanan) tetap di dalam layar.
+    <aside ref={rootRef} aria-label="Panduan simulasi" className="relative max-sm:ml-auto">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpenOn(open ? null : pathname)}
+        aria-expanded={open}
+        aria-controls={open ? 'panduan-simulasi' : undefined}
+        // Label lengkap untuk pembaca layar dan tooltip; teks terlihat diringkas di layar sempit (awalannya sama).
+        aria-label={label}
+        title={label}
+        className="flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-brand-800 bg-brand-600 px-3.5 font-[inherit] text-small font-semibold whitespace-nowrap text-white"
+      >
+        <Icon name="play" size={16} className="flex-none" />
+        {guide.finished ? (
+          'Simulasi selesai'
+        ) : (
+          <span>
+            Simulasi · {guide.stepNo}
+            <span className="hidden lg:inline"> · {guide.stage}</span>
+          </span>
+        )}
+      </button>
       {open && (
         <div
           id="panduan-simulasi"
-          className="flex w-[360px] max-w-full flex-col gap-2.5 rounded-card border border-line bg-white p-4 shadow-[0_12px_32px_rgba(16,24,40,0.18)]"
+          className="absolute top-full right-0 z-40 mt-2 flex w-[360px] max-w-[calc(100vw-3rem)] flex-col gap-2.5 rounded-card border border-line bg-white p-4 shadow-[0_12px_32px_rgba(16,24,40,0.18)]"
         >
           <span className="text-caption text-ink-500">
             {guide.scenarioLabel} · {guide.patientName}
@@ -92,21 +116,11 @@ export function DemoGuide({ guide, rev }: { guide: GuideView; rev: number }) {
               {error.message}
             </span>
           )}
-          <Link href="/simulasi" className="text-small font-semibold">
+          <Link href="/simulasi" className="inline-flex min-h-11 items-center text-small font-semibold">
             Buka layar Simulasi →
           </Link>
         </div>
       )}
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        aria-controls="panduan-simulasi"
-        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-brand-800 bg-brand-600 px-4 font-[inherit] text-small font-semibold text-white shadow-[0_6px_18px_rgba(15,118,110,0.35)]"
-      >
-        <Icon name="play" size={16} />
-        {guide.finished ? 'Simulasi selesai' : `Simulasi · ${guide.stepNo} · ${guide.stage}`}
-      </button>
     </aside>
   );
 }
