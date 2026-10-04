@@ -338,6 +338,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `app_verify_audit_chain()`       | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                                        |
 | `app_search_patient_names(teks)` | P05 · `SECURITY DEFINER`: kandidat nama mirip (`patient_id`, `score`) dari `search.patient_names` milik tenant `app_current_tenant()`; indeks trigram terpakai. |
 | `app_sync_patient_name()`        | Trigger `patients` → `search.patient_names` (INSERT, UPDATE `name_search`).                                                                                     |
+| `app_validate_patient_fks()`     | Operator/migrator: hitung baris yatim lalu `VALIDATE` FK relasi/akses darurat → pasien; ada yatim → peringatan, FK tetap `NOT VALID`, tanpa hapus.              |
 
 ### Helper di `@simrs/db`
 

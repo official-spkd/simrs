@@ -35,3 +35,12 @@ Tes (`packages/db/test/patient-name-search.test.ts`): bentuk fungsi yang sempit,
 
 Konsekuensi: + pencarian nama siap untuk RS besar tanpa melonggarkan RLS. − Satu tabel turunan dan satu trigger per pendaftaran/ubah nama. − Indeks `patients_name_search_trgm` di `patients` tidak lagi dipakai pencarian; dibiarkan karena dimodelkan di schema.prisma (hapus bersama perubahan schema.prisma). − Pra-saring deteksi duplikat (`patient-match.ts`) masih menghitung kemiripan di `patients` di bawah RLS.
 
+### FK relasi dan akses darurat → pasien divalidasi
+§7 ditutup oleh migrasi `20261005091000` lewat fungsi `app_validate_patient_fks()` (hanya pemilik tabel/superuser): menghitung baris `access_relationships`/`break_glass_grants` yang merujuk pasien yang tidak ada, lalu `VALIDATE CONSTRAINT` bila nol. Ada baris yatim → `WARNING`, FK tetap `NOT VALID` (baris baru tetap diperiksa penuh), **tidak ada data yang dihapus**, dan migrasi tidak gagal. Database baru, pengembangan, dan produksi (belum punya baris) langsung tervalidasi.
+
+Fungsi melepas FORCE RLS ketiga tabel sementara di dalam transaksinya. Alasannya: di bawah FORCE, `VALIDATE` tanpa `app.tenant_id` gagal `TENANT_REQUIRED`, dan dengan `app.tenant_id` terset pemeriksaan awal FK ikut tersaring kebijakan, sehingga constraint ditandai valid padahal baris yatim tenant lain tidak pernah diperiksa (dibuktikan 5 Okt 2026). Jangan menjalankan `VALIDATE CONSTRAINT` manual pada tabel ber-FORCE RLS; pakai fungsi ini.
+
+Yang dilakukan operator bila migrasi melaporkan FK belum divalidasi:
+1. Cek: `SELECT conname, convalidated FROM pg_constraint WHERE conname LIKE '%_tenant_id_patient_id_fkey';`
+2. Database tes lama (`simrs_test` atau `simrs_test_<nama>`): `pnpm db:test:recreate -- --yes` (hanya database di `TEST_DATABASE_URL`), atau biarkan; FK tetap memeriksa baris baru.
+3. Database lain: baris relasi dan akses darurat adalah jejak akses, jadi jangan dihapus diam-diam. Tinjau bersama petugas privasi, bereskan, lalu jalankan sebagai migrator atau superuser: `SELECT * FROM app_validate_patient_fks();` (hasil per FK: jumlah baris yatim dan status validasi).
