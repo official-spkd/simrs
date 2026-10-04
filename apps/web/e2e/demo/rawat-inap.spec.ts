@@ -26,8 +26,11 @@ test.describe('IGD', () => {
     const board = page.getByRole('region', { name: 'Papan pasien IGD' });
     await expect(board.getByText('1 · Resusitasi')).toBeVisible();
     await expect(board.getByText('5 · Tidak urgen')).toBeVisible();
-    // Pasien skenario IGD → rawat inap ada di area triase sejak skenario dimulai.
-    await expect(board.getByRole('button', { name: /Tn\. Hartono Wibisono/ })).toContainText('Belum triase');
+    // Pasien skenario IGD → rawat inap ada di area triase sejak skenario dimulai, anonim sampai dicocokkan di MPI.
+    await expect(
+      board.getByRole('button', { name: /Pasien laki-laki ±60 th · identitas belum dicocokkan/ }),
+    ).toContainText('Belum triase');
+    await expect(board.getByText('Tn. Hartono Wibisono')).toHaveCount(0);
 
     await board.getByRole('button', { name: 'Level 4 · Semi-urgen' }).click();
     const rows = board.getByRole('list', { name: 'Pasien di IGD' }).getByRole('listitem');
