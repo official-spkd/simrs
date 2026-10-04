@@ -22,7 +22,6 @@ const MANUAL_INDEXES = [
   'mfa_factors_one_active_per_user',
   'tenants_single_platform',
   'patient_identifiers_one_active_per_system',
-  'patients_name_search_trgm',
   'patient_match_candidates_pair',
   'patient_links_one_active_per_merged',
   'privacy_consents_one_active',

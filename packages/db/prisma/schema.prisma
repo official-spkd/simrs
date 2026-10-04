@@ -650,8 +650,8 @@ model Patient {
   @@index([tenantId, birthDate])
   @@index([tenantId, phoneHash])
   @@index([tenantId, mergedIntoId])
-  /// Pencarian nama mirip (pg_trgm; btree_gin untuk tenant_id).
-  @@index([tenantId(ops: raw("uuid_ops")), nameSearch(ops: raw("gin_trgm_ops"))], map: "patients_name_search_trgm", type: Gin)
+  /// Pencarian nama mirip: indeks trigram di `search.patient_names` (`app_search_patient_names`, ADR-0015); indeks
+  /// GIN lama di tabel ini dibuang (migrasi `20261005103000`) karena tidak terpakai di bawah RLS.
   @@map("patients")
 }
 
