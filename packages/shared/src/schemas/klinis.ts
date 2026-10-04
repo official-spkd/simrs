@@ -306,6 +306,26 @@ export const cpptSignInputSchema = cpptDraftInputSchema.extend({
   diagnosisCodes: z.array(icd10Code).min(1).max(10),
 });
 
+/** Asesmen awal keperawatan: tanda vital yang diukur ulang perawat. */
+export const poliVitalsInputSchema = z.strictObject({
+  encounterId,
+  td: z.string().regex(/^\d{2,3}\/\d{2,3}$/, 'Isi dengan format sistolik/diastolik, mis. 120/80.'),
+  nadi: z.coerce
+    .number({ error: 'Nadi 20–250 x/mnt.' })
+    .int()
+    .min(20, 'Nadi 20–250 x/mnt.')
+    .max(250, 'Nadi 20–250 x/mnt.'),
+  suhu: z
+    .string()
+    .regex(/^\d{2}([.,]\d)?$/, 'Suhu dalam °C, mis. 36,8.')
+    .refine((v) => {
+      const n = Number(v.replace(',', '.'));
+      return n >= 30 && n <= 43;
+    }, 'Suhu 30–43 °C.'),
+  spo2: z.coerce.number({ error: 'SpO2 50–100%.' }).int().min(50, 'SpO2 50–100%.').max(100, 'SpO2 50–100%.'),
+});
+export type PoliVitalsInput = z.infer<typeof poliVitalsInputSchema>;
+
 export const CPOE_OVERRIDE_MIN_REASON = 10;
 
 export const cpoeSendInputSchema = z.strictObject({
