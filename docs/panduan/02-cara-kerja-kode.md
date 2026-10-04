@@ -41,7 +41,7 @@ packages/db ──▶ packages/shared
 
 1. `load-env.ts` membaca `.env` root.
 2. `loadApiEnv()` (`src/config/env.ts`) memvalidasi env dengan zod. Bila ada yang salah, proses berhenti dengan daftar nama variabel (nilainya tidak dicetak). Di sini juga dihitung `devTools` dari `APP_ENV`.
-3. `AppModule.forRoot(env)` menyusun modul: Logger (pino), Infra (env, Prisma, Redis), Throttler, Health, Tenancy, dan DevTools (hanya bila `devTools`).
+3. `AppModule.forRoot(env)` menyusun modul: Logger (pino), Infra (env, Prisma, Redis, penghitung batas laju), Throttler, Health, Tenancy, dan DevTools (hanya bila `devTools`).
 4. `configureApp(app, env)` (`src/bootstrap.ts`), urutannya penting:
    header keamanan → matikan `X-Powered-By` → body JSON maks 1 MB → logger → prefix `/api/v1` (kecuali `/health`, `/ready`) → CORS (hanya `WEB_BASE_URL`) → Swagger (hanya `devTools`).
 5. Batas waktu koneksi HTTP disetel, lalu server mendengar di `HOST:API_PORT` (default `127.0.0.1:4000`).
@@ -52,7 +52,9 @@ Tes memakai `configureApp` yang sama lewat `test/helpers.ts`, sehingga perilaku 
 
 ```
 Express:  securityHeaders → CORS → body parser (1 MB) → pino-http (X-Request-Id)
-Nest:     ThrottlerGuard (global) → AuthGuard (@TenantScoped: token → tenant, pengguna, peran) → pipe validasi (zod / ParseUUID)
+Nest:     IpThrottlerGuard (global: per IP + endpoint kredensial)
+          → AuthGuard (@TenantScoped: token → tenant, pengguna, peran) → UserThrottlerGuard (@TenantScoped: per pengguna)
+          → pipe validasi (zod / ParseUUID)
           → TenantTransactionInterceptor:
               cek @RequirePermission (ditolak → audit access_denied di-commit lebih dulu, lalu 403)
               → BEGIN · set_config(app.tenant_id) · cek @RequireModule
@@ -67,7 +69,7 @@ Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditn
 
 | Berkas                                     | Isi                                                                                                         |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `AuthGuard` + `TenantTransactionInterceptor` (+ dokumentasi bearer Swagger)             |
+| `common/tenant-scoped.decorator.ts`        | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)  |
 | `common/require-permission.decorator.ts`   | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`       |
 | `common/tenant-transaction.interceptor.ts` | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
 | `common/request-context.ts`                | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit      |
@@ -75,6 +77,8 @@ Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditn
 | `common/audited.decorator.ts`              | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason` |
 | `common/require-module.decorator.ts`       | `@RequireModule(code)` untuk feature flag per RS                                                            |
 | `common/pagination.ts`                     | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
+| `infra/rate-limit.ts`                      | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard` |
+| `infra/rate-limit.storage.ts`              | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup            |
 
 Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12), dan `modules/iam/` (P03).
 
@@ -122,10 +126,10 @@ Izin = **sumber × aksi × lingkup**. Katalog sumber dan aksi ada di `packages/s
 Aturan pengaman di `IamService`:
 
 - Admin tidak bisa menonaktifkan, mereset sandi/MFA, atau menambah peran **akunnya sendiri** lewat menu admin.
-- Selalu tersisa **minimal satu admin aktif**. Pemeriksaannya dikunci per tenant (`lockTenantScope`), sehingga dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos. Tanpa kunci, keduanya lolos di READ COMMITTED (sudah dibuktikan tes).
+- Selalu tersisa **minimal satu admin aktif**, yaitu admin yang bisa masuk (status aktif dan sudah punya kata sandi; MFA belum wajib). Admin yang belum diaktifkan, mis. admin seed, tidak dihitung. Pemeriksaannya dikunci per tenant (`lockTenantScope`), sehingga dua admin yang saling menonaktifkan bersamaan tidak sama-sama lolos. Tanpa kunci, keduanya lolos di READ COMMITTED (sudah dibuktikan tes).
 - Izin `iam.users.write` dan `iam.roles.write` (`ACCESS_ADMIN_GRANTS`) tidak bisa dicabut dari `admin_tenant`.
 - Bila izin kelola pengguna didelegasikan ke peran lain, pemegangnya **tidak bisa menyentuh akun atau peran setara admin** (mereset, menonaktifkan, memberi atau mencabut peran admin). Ini menutup eskalasi hak lewat delegasi.
-- Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya. Reset sandi juga cara mengaktifkan staf seed yang belum punya kredensial (`seedStaff`): baris `user_credentials` pertamanya dibuat saat itu.
+- Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya. Reset sandi juga cara mengaktifkan staf seed yang belum punya kredensial (`seedStaff`): baris `user_credentials` pertamanya dibuat saat itu. Sebelumnya akun itu tampil **Belum diaktifkan** (`activated: false` di `/iam/users`, filter `status=not_activated`).
 - Penugasan yang belum mulai bisa dibatalkan: disimpan sebagai rentang kosong (akhir = awal), tidak dihapus. Alasannya tercatat di kolom `reason` audit.
 - Perubahan matriks diaudit sebagai selisih (`added`/`removed`) dan berlaku di permintaan berikutnya.
 
@@ -263,6 +267,28 @@ Contoh nyata: `apps/api/src/modules/tenancy/`.
 Modul lain hanya boleh memakai yang diekspor di `*.module.ts`, bukan mengimpor repository modul lain.
 
 `modules/dev-tools/` berisi endpoint bantu pengembangan (`POST /api/v1/dev/outbox-ping`, `GET /api/v1/dev/outbox/:id`). Modul ini **tidak didaftarkan** di produksi, jadi rutenya tidak ada sama sekali.
+
+### Batas laju
+
+`@nestjs/throttler` dengan tiga batas per menit, masing-masing **per endpoint** (`infra/rate-limit.ts`):
+
+| Throttler | Pelacak                                                    | Env (bawaan)                    | Dipasang                                                                       | Header                         |
+| --------- | ---------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------ | ------------------------------ |
+| `default` | IP klien (`req.ip`, mengikuti `TRUST_PROXY`), tanpa tenant | `RATE_LIMIT_PER_MIN` (600)      | `IpThrottlerGuard` global, sebelum login dicek                                 | `X-RateLimit-*`, `Retry-After` |
+| `auth`    | IP klien, hanya endpoint `@AuthRateLimited()`              | `AUTH_RATE_LIMIT_PER_MIN` (10)  | `IpThrottlerGuard` global                                                      | akhiran `-auth`                |
+| `user`    | tenant + ID pengguna dari sesi (lintas IP)                 | `USER_RATE_LIMIT_PER_MIN` (300) | `UserThrottlerGuard` di `@TenantScoped()` sesudah AuthGuard, sebelum transaksi | akhiran `-user`                |
+
+Lewat batas → `429 RATE_LIMITED` dan endpoint itu diblokir untuk pelacak tersebut selama satu menit. `/health` dan `/ready` tidak dibatasi; mode header pengembang (tanpa pengguna) hanya kena batas IP.
+
+Penghitung disimpan di Redis oleh `RateLimitStorage` (`infra/rate-limit.storage.ts`) lewat `RedisService`, sehingga semua instans API berbagi hitungan. Satu skrip Lua atomik per hit (jendela geser + penanda blokir, waktu dari jam Redis). Kunci `simrs:rl:<nama database>:{<throttler>:<sha256>}`: hash dari endpoint + pelacak, jadi IP dan ID pengguna tidak tersimpan apa adanya; awalan per database memisahkan pengembangan, E2E, dan worktree lain yang memakai Redis yang sama (ganti dengan `RATE_LIMIT_REDIS_PREFIX`).
+
+| `RATE_LIMIT_STORE`              | Redis terjangkau | Redis tidak terjangkau / gagal                                                                                                                                           |
+| ------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auto` (bawaan), non-produksi   | Redis            | Saat start: memori proses + peringatan (diputuskan sekali, seperti `OUTBOX_SCHEDULER=auto`). Gagal di tengah jalan: memori sementara + peringatan                        |
+| `redis`, atau produksi (`auto`) | Redis            | Endpoint kredensial (`auth`) **gagal tertutup**: `503`, dicatat sekali per gangguan. Batas lain sementara di memori instans. Dicoba lagi tiap 5 detik; pemulihan dicatat |
+| `memory`                        | –                | Memori proses. Ditolak di produksi                                                                                                                                       |
+
+Setiap hit Redis dibatasi 500 ms (Redis macet tidak menahan permintaan). Gagal tertutup berarti login, MFA, ganti sandi, dan refresh sesi tidak bisa selama Redis mati di produksi; sesi yang masih berlaku tetap bisa dipakai sampai token aksesnya habis.
 
 ### Galat dan kode stabil
 
@@ -457,19 +483,24 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Strategi tes
 
-| Jenis            | Lokasi                                                                                                                                      | Butuh            | Perintah                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
-| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`    | –                | `pnpm test`                         |
-| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                               | Postgres         | `pnpm --filter @simrs/db test`      |
-| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB)                                                                                                       | Postgres         | `pnpm --filter @simrs/api test`     |
-| Integrasi worker | `apps/worker/test`                                                                                                                          | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
-| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                | –                | `pnpm --filter @simrs/mock test`    |
-| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): API :4010 + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
+| Jenis            | Lokasi                                                                                                                                                            | Butuh            | Perintah                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
+| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`                          | –                | `pnpm test`                         |
+| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                                                     | Postgres         | `pnpm --filter @simrs/db test`      |
+| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB; batas laju di Redis dengan awalan kunci per run)                                                                            | Postgres + Redis | `pnpm --filter @simrs/api test`     |
+| Integrasi worker | `apps/worker/test`                                                                                                                                                | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
+| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                                      | –                | `pnpm --filter @simrs/mock test`    |
+| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): mock :4110 + API :4010 + worker + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
 
 Aturan:
 
 - Tes integrasi memakai database **`simrs_test`** (bukan `simrs`), atau `simrs_test_<nama>` per salinan repo paralel; nama lain ditolak `assertTestDatabase`. Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
-- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
+- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_MOCK_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
+- Stack E2E (`apps/web/playwright.config.ts`, urutan nyala: mock → API → worker → web → web presentasi → global setup):
+  - Mock E2E di `E2E_MOCK_PORT` (bawaan port API + 100). Semua URL `.env` yang menunjuk mock pengembangan (`MOCK_BASE_URL`, `BPJS_BASE_URL`, …) dialihkan ke mock ini untuk API dan worker; `TPDI_WEBHOOK_TARGET` mock menunjuk API E2E.
+  - Worker outbox di DB tes dengan `OUTBOX_SCHEDULER=interval` (poll 500 ms, batas HTTP 2 dtk), bukan BullMQ: Redis dipakai bersama semua salinan repo dan `pnpm dev`. Worker tidak punya port HTTP; Playwright menunggu baris log tetap `Worker outbox siap` (`webServer.wait.stdout`, dicetak `apps/worker/src/main.ts` setelah bootstrap).
+  - Helper: `e2e/support/mock.ts` (`setMockScenario(sistem, 'normal' | 'lambat' | 'gagal' | 'timeout')`, `resetMockState()`, `mockState()`), `e2e/support/outbox.ts` (pesan `ping` uji + keadaan pesan untuk `expect.poll`), `e2e/support/slot.ts` (port slot). Keadaan mock dipakai bersama semua tes yang berjalan: spesifikasi yang mengubah skenario berurutan, hanya di proyek desktop, dan mengembalikan skenario ke `normal`.
+  - Global setup mereset mock dan memanggil `registerTestDevices()` (`e2e/support/devices.ts`), titik perluasan perangkat uji anjungan/TV yang masih kosong sampai prinsipal perangkat (ADR-0027) ada.
 - Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** dengan token sungguhan (peran tak berhak → 403; lihat `apps/api/test/authz.test.ts`).
 - Tes yang butuh infrastruktur gagal dengan pesan jelas bila infrastruktur mati. Tes tidak boleh dilewati diam-diam atau dilemahkan agar hijau.
 
