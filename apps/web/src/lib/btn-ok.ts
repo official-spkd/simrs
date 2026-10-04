@@ -1,4 +1,11 @@
-import type { ChecklistPhase, ChecklistPhaseId, InstrumentCount, OrCase, OrCaseStatus } from '@simrs/shared';
+import {
+  type ChecklistPhase,
+  type ChecklistPhaseId,
+  formatJam,
+  type InstrumentCount,
+  type OrCase,
+  type OrCaseStatus,
+} from '@simrs/shared';
 
 /**
  * S06 · Logika murni kamar operasi: posisi blok Gantt, fase daftar tilik keselamatan WHO, hitung kasa, dan gerbang
@@ -121,4 +128,60 @@ export function incisionGate(c: Pick<OrCase, 'checklist' | 'counts'>): IncisionG
       : 'Time out lengkap tetapi belum dikonfirmasi. Konfirmasi time out untuk membuka insisi.',
     remaining,
   };
+}
+
+/** Override gerbang time out: alasan klinis wajib, minimal sekian karakter (tercatat dan dapat ditinjau). */
+export const OVERRIDE_REASON_MIN = 15;
+
+/** Catatan lokal layar (mode presentasi: tidak disimpan) di atas data server satu kasus. */
+export interface OkLocal {
+  checked: Readonly<Record<string, boolean>>;
+  confirmed: Readonly<Partial<Record<ChecklistPhaseId, string>>>;
+  finals: Readonly<Record<string, number | null>>;
+  incisionAt: string | null;
+  overrideReason: string | null;
+  finishedAt: string | null;
+  movedAt: string | null;
+}
+
+export const EMPTY_LOCAL: OkLocal = {
+  checked: {},
+  confirmed: {},
+  finals: {},
+  incisionAt: null,
+  overrideReason: null,
+  finishedAt: null,
+  movedAt: null,
+};
+
+/**
+ * Kasus efektif = data server + catatan lokal. Fase yang sudah dikonfirmasi di server (mis. oleh skenario) menang;
+ * butir dan hitung akhir hanya bisa berubah di fase yang belum dikonfirmasi.
+ */
+export function withLocal(c: OrCase, l: OkLocal, by: string): OrCase {
+  const signOutDone = !!c.checklist.find((p) => p.phase === 'sign-out')?.confirmedAt;
+  const checklist = c.checklist.map((p) => {
+    if (p.confirmedAt) return p;
+    const at = l.confirmed[p.phase] ?? null;
+    return {
+      ...p,
+      items: p.items.map((i) => ({ ...i, checked: l.checked[i.id] ?? i.checked })),
+      confirmedAt: at,
+      confirmedBy: at ? by : null,
+    };
+  });
+  const counts = c.counts.map((x) =>
+    signOutDone || !Object.hasOwn(l.finals, x.id) ? x : { ...x, final: l.finals[x.id] ?? null },
+  );
+  const started = !!checklist[0]?.confirmedAt;
+  let status = c.status;
+  let statusNote = c.statusNote;
+  if (l.finishedAt && c.status !== 'selesai') {
+    status = 'selesai';
+    statusNote = `selesai ${formatJam(l.finishedAt)}`;
+  } else if (started && (c.status === 'terjadwal' || c.status === 'cito')) {
+    status = 'berjalan';
+    statusNote = 'sign in dikonfirmasi';
+  }
+  return { ...c, checklist, counts, status, statusNote, incisionAt: c.incisionAt ?? l.incisionAt };
 }

@@ -13,11 +13,31 @@ import {
   demoPaymentOverview,
   type ScenarioHook,
 } from '../../btn-skenario';
-import type { SessionView } from '../../session-view';
+import { redirect } from 'next/navigation';
+import { screenById, screenOpen } from '../../screens';
+import { nextLoginStep, type SessionView } from '../../session-view';
 import { type ScenarioRuns, scenarioRuns, scenariosHere } from '../demo/scenario-context';
 import { assertDemo } from '../demo-guard';
+import { getSession } from '../session';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
+
+/**
+ * Untuk Server Action layar domain ini (endpoint POST publik): gerbang demo, sesi lengkap, dan posisi aktif yang
+ * memakai layar itu. Action tidak menyimpan apa pun (mode presentasi).
+ */
+export async function btnActionSession(
+  screenId: string,
+): Promise<{ session: SessionView } | { error: string }> {
+  assertDemo();
+  const session = await getSession();
+  if (!session || nextLoginStep(session, false) !== 'selesai') redirect('/masuk');
+  const screen = screenById(screenId);
+  if (!screen || !screenOpen(screen, { dataSource: 'demo', role: session.role?.code ?? null })) {
+    return { error: 'Posisi aktif tidak memakai layar ini. Ganti posisi lebih dulu.' };
+  }
+  return { session };
+}
 
 /**
  * I05/U09/U04/S06 · Satu-satunya pintu data layar pembayaran digital, pembiayaan BTN, dan kamar operasi. Mode

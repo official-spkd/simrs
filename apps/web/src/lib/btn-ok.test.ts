@@ -6,10 +6,12 @@ import {
   checkCounts,
   COUNT_ITEM,
   currentPhase,
+  EMPTY_LOCAL,
   ganttBox,
   incisionGate,
   itemChecked,
   timeOutComplete,
+  withLocal,
 } from './btn-ok';
 import { KAMAR_OK, KASUS_SKENARIO_OK } from './demo/fixtures/btn';
 import { DOKTER, STAF_LAIN } from './demo/fixtures/staf';
@@ -95,5 +97,29 @@ describe('gerbang time out (surgical safety checklist)', () => {
     if (!signOut) throw new Error('sign out');
     expect(itemChecked(signOut, COUNT_ITEM, wrong)).toBe(false);
     expect(itemChecked(signOut, COUNT_ITEM, right)).toBe(true);
+  });
+
+  it('catatan lokal layar: centang + konfirmasi time out membuka insisi; fase server tidak bisa ditimpa', () => {
+    const by = STAF_LAIN.perawat[0];
+    const local = {
+      ...EMPTY_LOCAL,
+      checked: { 'time-out-4': true, 'time-out-5': true, 'sign-in-1': false },
+      confirmed: { 'time-out': '2026-10-05T10:47:00+07:00' },
+    };
+    const eff = withLocal(KASUS_SKENARIO_OK, local, by);
+    expect(eff.checklist[0]?.items[0]?.checked).toBe(true);
+    expect(eff.checklist[1]?.confirmedBy).toBe(by);
+    expect(incisionGate(eff).allowed).toBe(true);
+    expect(incisionGate(withLocal(KASUS_SKENARIO_OK, EMPTY_LOCAL, by)).allowed).toBe(false);
+    const planned = cases.find((x) => x.status === 'terjadwal');
+    if (!planned) throw new Error('terjadwal');
+    const started = withLocal(
+      planned,
+      { ...EMPTY_LOCAL, confirmed: { 'sign-in': '2026-10-05T10:50:00+07:00' } },
+      by,
+    );
+    expect(started.status).toBe('berjalan');
+    const done = withLocal(planned, { ...EMPTY_LOCAL, finishedAt: '2026-10-05T11:50:00+07:00' }, by);
+    expect([done.status, done.statusNote]).toEqual(['selesai', 'selesai 11.50']);
   });
 });
