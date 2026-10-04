@@ -42,6 +42,11 @@ export const apiEnvSchema = envSchemas.base
     ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().min(5).max(60).default(15),
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
     /**
+     * Umur cache matriks izin per tenant × peran (detik). Perubahan lewat layar Akses berlaku seketika
+     * (invalidasi + siaran Redis); TTL membatasi keusangan bila siaran terlewat. 0 = cache mati.
+     */
+    AUTHZ_CACHE_TTL_SECONDS: z.coerce.number().int().min(0).max(300).default(30),
+    /**
      * Mode pengembangan tanpa login: tenant dari header X-Tenant-Id. Hanya berlaku bila APP_ENV=local
      * (bukan staging/production) DAN flag ini true. Dipakai tes lama dan alat pengembang.
      */
@@ -87,8 +92,11 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
       'Konfigurasi env tidak valid → RATE_LIMIT_STORE=memory tidak boleh di produksi (penghitung harus sama di semua instans)',
     );
   }
-  if (env.STORAGE_DRIVER === 's3') {
-    throw new Error('Konfigurasi env tidak valid → STORAGE_DRIVER=s3 belum tersedia (ADR-0020); pakai disk');
+  // Disk hanya untuk mesin pengembang dan tes; staging dan produksi menyimpan berkas di S3/MinIO (ADR-0020).
+  if (env.STORAGE_DRIVER === 'disk' && env.APP_ENV !== 'local') {
+    throw new Error(
+      'Konfigurasi env tidak valid → STORAGE_DRIVER=disk hanya untuk APP_ENV=local; staging dan produksi memakai s3',
+    );
   }
   const devTools = devToolsAllowed(env);
   return {

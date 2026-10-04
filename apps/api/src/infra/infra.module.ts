@@ -1,6 +1,7 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { API_ENV, type ApiEnv } from '../config/env';
-import { DiskObjectStorage, OBJECT_STORAGE } from './object-storage';
+import { createObjectStorage, OBJECT_STORAGE } from './object-storage';
+import { PermissionMatrix } from './permission-matrix';
 import { PrismaService } from './prisma.service';
 import { RateLimitStorage } from './rate-limit.storage';
 import { RedisService } from './redis.service';
@@ -9,8 +10,8 @@ import { SessionStore } from './auth/session-store';
 import { TenantDb } from './tenant-db';
 
 /**
- * Konfigurasi tervalidasi + koneksi DB/Redis + penyimpanan berkas + penghitung batas laju, tersedia global untuk
- * semua modul.
+ * Konfigurasi tervalidasi + koneksi DB/Redis + penyimpanan berkas + penghitung batas laju + cache matriks izin,
+ * tersedia global untuk semua modul.
  */
 @Global()
 @Module({})
@@ -26,7 +27,8 @@ export class InfraModule {
         TenantDb,
         SessionStore,
         AuthGuard,
-        { provide: OBJECT_STORAGE, useValue: new DiskObjectStorage(env.STORAGE_DISK_ROOT) },
+        PermissionMatrix,
+        { provide: OBJECT_STORAGE, useValue: createObjectStorage(env) },
       ],
       exports: [
         API_ENV,
@@ -36,6 +38,7 @@ export class InfraModule {
         TenantDb,
         SessionStore,
         AuthGuard,
+        PermissionMatrix,
         OBJECT_STORAGE,
       ],
     };

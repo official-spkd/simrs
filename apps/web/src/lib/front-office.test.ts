@@ -151,7 +151,7 @@ describe('aturan kuota', () => {
       if (!s) throw new Error('slot');
       return slotCell(s, s.quota, s.hfisSynced);
     };
-    expect(cell('dr-andini', 0)).toMatchObject({ kind: 'ok', time: '08–12', note: '22/30' });
+    expect(cell('dr-andini', 0)).toMatchObject({ kind: 'ok', time: '07.30–12', note: '22/30' });
     expect(cell('dr-andini', 1)).toMatchObject({ kind: 'full', note: '26/30', status: 'Kuota hampir penuh' });
     const bagus = w.doctors.find((d) => d.id === 'dr-bagus')?.slots[0];
     if (!bagus?.quota) throw new Error('slot');

@@ -60,7 +60,7 @@ test.describe('kamar operasi', () => {
     await expect(page.getByText(/✓ Insisi dicatat \d{2}\.\d{2}/)).toBeVisible();
 
     // Kasus lain lewat Gantt: blok terjadwal belum punya daftar tilik yang terisi.
-    await jadwal.getByRole('button', { name: /Ny\. Wulan Sari Dewi/ }).click();
+    await jadwal.getByRole('button', { name: /Ny\. Anisa Rahmadani/ }).click();
     await expect(page).toHaveURL(/pilih=ok3-1/);
     await expect(page.getByRole('heading', { name: 'OK 3 · Seksio sesarea cito', level: 2 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Mulai insisi', exact: true })).toBeDisabled();
@@ -99,9 +99,9 @@ test.describe('pembayaran digital TPDI × BTN', () => {
 
     await page.getByRole('tab', { name: /^Rekonsiliasi\s*3 selisih$/ }).click();
     const rekon = page.getByRole('region', { name: 'Rekonsiliasi tiga arah' });
-    const baris = rekon.getByRole('listitem').filter({ hasText: 'Tn. Darmawan Putra' });
+    const baris = rekon.getByRole('listitem').filter({ hasText: 'Tn. Fajar Nugraha' });
     await baris
-      .getByRole('combobox', { name: 'Tindakan untuk selisih Tn. Darmawan Putra' })
+      .getByRole('combobox', { name: 'Tindakan untuk selisih Tn. Fajar Nugraha' })
       .selectOption('lunas');
     const catatan = baris.getByLabel('Catatan penyelesaian (wajib)');
     const terapkan = baris.getByRole('button', { name: 'Terapkan' });

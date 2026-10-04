@@ -1,4 +1,4 @@
-import type { SessionTokens } from '@simrs/shared';
+import { PIN_DEVICE_DAYS, PIN_MAX_ACCOUNTS_PER_BROWSER, type SessionTokens } from '@simrs/shared';
 
 /**
  * Cookie sesi BFF (ADR-0013). Token API tidak pernah sampai ke JavaScript browser: semua cookie httpOnly,
@@ -20,6 +20,11 @@ export interface CookieNames {
    * hanya berlaku untuk akun yang mencentangnya; API mengabaikannya untuk akun lain.
    */
   trustedDevice: string;
+  /**
+   * PIN masuk cepat (ADR-0024): token perangkat `sd1` tiap akun yang mendaftarkan PIN di peramban ini (komputer
+   * bersama di unit), terbaru dulu. Seperti perangkat tepercaya, milik perangkat: tidak dihapus saat keluar.
+   */
+  pinDevices: string;
 }
 
 export function cookieNames(secure: boolean): CookieNames {
@@ -30,6 +35,7 @@ export function cookieNames(secure: boolean): CookieNames {
     challenge: `${p}simrs_mfa`,
     challengeUser: `${p}simrs_mfa_user`,
     trustedDevice: `${p}simrs_td`,
+    pinDevices: `${p}simrs_pin`,
   };
 }
 
@@ -78,6 +84,52 @@ export function writeTrustedDeviceCookie(
   secure: boolean,
 ): void {
   w.set(cookieNames(secure).trustedDevice, device.token, cookieOptions(secure, new Date(device.expiresAt)));
+}
+
+const PIN_TOKEN =
+  /^sd1\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.[A-Za-z0-9_-]{43}$/;
+const PIN_SEPARATOR = '~';
+
+/** ID pendaftaran PIN di dalam token `sd1` (bagian ketiga); null bila bukan token PIN. */
+export function pinTokenId(token: string): string | null {
+  return PIN_TOKEN.exec(token)?.[1] ?? null;
+}
+
+/** Token PIN dari isi cookie: hanya yang berformat sah, tanpa duplikat, maks. sesuai batas peramban. */
+export function parsePinTokens(value: string | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of (value ?? '').split(PIN_SEPARATOR)) {
+    const id = pinTokenId(t);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(t);
+  }
+  return out.slice(0, PIN_MAX_ACCOUNTS_PER_BROWSER);
+}
+
+/** Tambah token PIN baru di depan; token terlama dilupakan bila melewati batas peramban. */
+export function addPinToken(tokens: string[], token: string): string[] {
+  const id = pinTokenId(token);
+  return [token, ...tokens.filter((t) => pinTokenId(t) !== id)].slice(0, PIN_MAX_ACCOUNTS_PER_BROWSER);
+}
+
+export function removePinTokens(tokens: string[], ids: readonly string[]): string[] {
+  return tokens.filter((t) => !ids.includes(pinTokenId(t) ?? ''));
+}
+
+/** Simpan daftar token PIN (habis bersama umur maksimum PIN); daftar kosong = cookie dihapus. */
+export function writePinTokens(w: CookieWriter, tokens: string[], secure: boolean, now = Date.now()): void {
+  const name = cookieNames(secure).pinDevices;
+  if (tokens.length === 0) {
+    w.set(name, '', cookieOptions(secure, new Date(0)));
+    return;
+  }
+  w.set(
+    name,
+    tokens.join(PIN_SEPARATOR),
+    cookieOptions(secure, new Date(now + PIN_DEVICE_DAYS * 86_400_000)),
+  );
 }
 
 /** Hapus cookie dengan menimpanya (atribut sama, kedaluwarsa di masa lalu). */

@@ -52,14 +52,17 @@ export type ConsentRow = Prisma.PrivacyConsentGetPayload<{ select: typeof CONSEN
 /**
  * Relasi aktif atau akses darurat yang masih berlaku untuk pelaku (ABAC lingkup `relationship`/`unit`), ke
  * pasien ini atau rekam medis lain milik orang yang sama (kelompok gabungan, `app_patient_group`).
+ * `at` = jam aplikasi, sama dengan `PatientAccessService` dan dengan `valid_from` bawaan Prisma (diisi aplikasi):
+ * `now()` Postgres bisa tertinggal beberapa milidetik, sehingga relasi yang baru dibuat sempat tidak tampil di
+ * pencarian padahal detail pasiennya sudah boleh dibuka.
  */
-const accessibleBy = (userId: string) => Prisma.sql`(
+const accessibleBy = (userId: string, at: Date) => Prisma.sql`(
   EXISTS (SELECT 1 FROM access_relationships r
           WHERE r.patient_id IN (SELECT app_patient_group(p.id)) AND r.user_id = ${userId}::uuid
-            AND r.valid_from <= now() AND (r.valid_until IS NULL OR r.valid_until > now()))
+            AND r.valid_from <= ${at} AND (r.valid_until IS NULL OR r.valid_until > ${at}))
   OR EXISTS (SELECT 1 FROM break_glass_grants g
              WHERE g.patient_id IN (SELECT app_patient_group(p.id)) AND g.user_id = ${userId}::uuid
-               AND g.granted_at <= now() AND g.expires_at > now()))`;
+               AND g.granted_at <= ${at} AND g.expires_at > ${at}))`;
 
 /** P05 · Akses data MPI (selalu transaksi permintaan, RLS aktif). */
 @Injectable()
@@ -144,7 +147,7 @@ export class MpiRepository {
       JOIN patients p ON p.id = m.patient_id
       WHERE TRUE
         ${opts.birthDate ? Prisma.sql`AND p.birth_date = ${opts.birthDate}::date` : Prisma.empty}
-        ${opts.onlyFor ? Prisma.sql`AND ${accessibleBy(opts.onlyFor)}` : Prisma.empty}
+        ${opts.onlyFor ? Prisma.sql`AND ${accessibleBy(opts.onlyFor, new Date())}` : Prisma.empty}
       ORDER BY m.score DESC, p.mrn
       LIMIT ${opts.limit}`;
     return rows.map((r) => r.id);
@@ -155,7 +158,7 @@ export class MpiRepository {
     if (ids.length === 0) return [];
     const rows = await this.db.tx().$queryRaw<Array<{ id: string }>>`
       SELECT p.id::text AS id FROM patients p
-      WHERE p.id = ANY(${ids}::uuid[]) AND ${accessibleBy(userId)}`;
+      WHERE p.id = ANY(${ids}::uuid[]) AND ${accessibleBy(userId, new Date())}`;
     const ok = new Set(rows.map((r) => r.id));
     return ids.filter((id) => ok.has(id));
   }

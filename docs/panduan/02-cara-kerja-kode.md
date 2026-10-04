@@ -96,11 +96,22 @@ POST /api/v1/auth/login       { tenantCode?, username, password, trustedDeviceTo
 POST /api/v1/auth/mfa/backup-code { challengeToken, channel: whatsapp|email } → kode 6 digit lewat outbox (maks 3, jeda 30 dtk)
 POST /api/v1/auth/mfa/verify  { challengeToken, code, trustDevice? } → { accessToken, refreshToken, …, trustedDevice }
 POST /api/v1/auth/refresh     { refreshToken } → token baru (rotasi; token lama dipakai lagi → sesi dicabut)
+
+PIN masuk cepat (ADR-0024, modules/auth/pin.controller.ts + pin.service.ts):
+POST /api/v1/auth/pin/devices   (sesi penuh, bukan sesi PIN) { name, pin, password } → { id, token: 'sd1…', expiresAt }
+  → hanya posisi layanan berunit (PIN_LOGIN_ROLES), bukan tenant PLATFORM, maks 5 per akun, PIN tidak lemah
+GET  /api/v1/auth/pin/devices   → PIN aktif milik akun · POST /api/v1/auth/pin/devices/:id/revoke → hapus
+POST /api/v1/auth/pin/accounts  { deviceTokens[] } → nama + posisi akun ber-PIN di peramban ini (layar masuk)
+POST /api/v1/auth/pin/login     { deviceToken, pin } → { status: 'authenticated', accessToken, … }
+  → percobaan dicadangkan + di-commit SEBELUM PIN diperiksa; salah ke-5 → PIN dicabut (details.pin = 'revoked')
+  → sesi 2 jam, idle 5 menit, posisi terkunci ke posisi pendaftaran (auth_sessions.device_id)
+POST /api/v1/iam/pin-devices/:id/revoke (iam.users.write) → admin mencabut PIN perangkat pengguna lain
 ```
 
 | Bagian             | Berkas                                  | Catatan                                                                                                                          |
 | ------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` = perangkat tepercaya 12 jam, ADR-0022)    |
+| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`/`sd1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` perangkat tepercaya, `sd1` PIN)      |
+| PIN perangkat      | `infra/auth/pin-devices.ts`             | tabel `registered_devices` (jenis `staff_pin`); PIN = argon2id dari HMAC `FIELD_HASH_KEY`; pencabutan bersama (ADR-0024)         |
 | Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                 |
 | Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                 |
 | Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |
@@ -119,6 +130,7 @@ Izin = **sumber × aksi × lingkup**. Katalog sumber dan aksi ada di `packages/s
 | Peran dan matriks bawaan    | `@simrs/shared` → `SYSTEM_ROLES`, `DEFAULT_ROLE_GRANTS` | 16 peran sistem, dibuat per RS oleh `ensureSystemRoles` (seed, persiapan tes). Matriks bawaan hanya diisi saat peran dibuat, jadi penyesuaian RS tidak pernah ditimpa. Bawaan mengikuti hak minimum.                                                                                                           |
 | Penugasan                   | tabel `staff_assignments`                               | Pengguna × peran × unit × masa berlaku. Sesi memakai **satu** penugasan: otomatis bila hanya satu, selain itu dipilih pengguna (`GET /auth/assignments`, `POST /auth/assignment`). Penugasan berakhir → izin sesi hilang di permintaan berikutnya.                                                             |
 | Pemeriksaan                 | `@RequirePermission(resource, action)`                  | Dicek interceptor sebelum transaksi permintaan. Ditolak → audit `access_denied` di-commit lebih dulu, lalu `403`. Lingkup yang lolos dibaca service lewat `TenantDb.permissionScope()`.                                                                                                                        |
+| Cache matriks               | `infra/permission-matrix.ts`                            | Izin per tenant × peran di memori proses. Perubahan di layar Akses membuang cache setelah commit (`TenantDb.afterCommit`) lalu disiarkan ke instans lain (Redis pub/sub); TTL `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30) = jaring pengaman. Redis putus → baca database. Penolakan tetap diaudit.                   |
 | Akses pasien (ABAC)         | `modules/authz/patient-access.service.ts`               | `assert(patientId)`: lingkup `all` → boleh. Selain itu wajib relasi aktif (`access_relationships`: DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit) atau akses darurat yang masih berlaku. Lingkup `unit` diperlakukan sama sampai data kunjungan (ADT) ada.                            |
 | Akses darurat               | `modules/authz/break-glass.service.ts`                  | Alasan klinis 20–500 karakter, berlaku `break_glass.duration_minutes` (bawaan 60), notifikasi ke semua petugas privasi aktif (tanpa PHI), audit `break_glass` berisi pasien dan alasan. Ditinjau petugas privasi, tidak boleh meninjau milik sendiri. Alasan dan waktu tidak bisa diubah (hak kolom database). |
 | Kelola pengguna dan matriks | `modules/iam/`                                          | Lihat aturan pengaman di bawah.                                                                                                                                                                                                                                                                                |
@@ -131,7 +143,14 @@ Aturan pengaman di `IamService`:
 - Bila izin kelola pengguna didelegasikan ke peran lain, pemegangnya **tidak bisa menyentuh akun atau peran setara admin** (mereset, menonaktifkan, memberi atau mencabut peran admin). Ini menutup eskalasi hak lewat delegasi.
 - Kata sandi sementara hanya dikembalikan sekali di respons, tidak masuk log maupun audit, dan wajib diganti saat login pertama. Menonaktifkan atau mereset akun mencabut seluruh sesinya. Reset sandi juga cara mengaktifkan staf seed yang belum punya kredensial (`seedStaff`): baris `user_credentials` pertamanya dibuat saat itu. Sebelumnya akun itu tampil **Belum diaktifkan** (`activated: false` di `/iam/users`, filter `status=not_activated`).
 - Penugasan yang belum mulai bisa dibatalkan: disimpan sebagai rentang kosong (akhir = awal), tidak dihapus. Alasannya tercatat di kolom `reason` audit.
-- Perubahan matriks diaudit sebagai selisih (`added`/`removed`) dan berlaku di permintaan berikutnya.
+- Perubahan matriks diaudit sebagai selisih (`added`/`removed`, format `grantDiffEntry`) dan berlaku di permintaan berikutnya, di semua instans API (cache dibuang setelah commit + siaran Redis). Penulisan matriks dikunci per tenant (`ROLE_MATRIX_LOCK`) bersama sinkron izin katalog.
+
+**Izin baru di katalog.** Matriks bawaan hanya diisi saat peran dibuat, jadi izin yang ditambahkan ke `PERMISSION_CATALOG` belakangan tidak otomatis sampai ke RS yang sudah berjalan. Setelah menambah izin + bawaannya, jalankan `pnpm db:sync-permissions` (lihat Tutorial). Sinkron (`syncRolePermissions` di `packages/db/src/permission-sync.ts`) hanya **menambah** izin yang baru di katalog ke peran yang memilikinya di matriks bawaan, dengan lingkup bawaannya:
+
+- "Baru" = belum ada di catatan katalog RS (`tenant_settings` kunci `authz.permission_catalog`, internal, tidak tampil di API pengaturan). RS yang belum pernah disinkron memakai `PERMISSION_CATALOG_BASELINE` (katalog 5 Okt 2026; jangan diubah). Setelah sinkron, catatan = catatan lama ∪ katalog saat ini, jadi izin yang kemudian dicabut admin tidak pernah dianggap baru lagi.
+- Peran yang sudah punya baris untuk sumber × aksi itu (lingkup apa pun) tidak disentuh; izin yang pernah dicabut admin dari peran itu menurut jejak audit (`details.removed`) tidak diberikan lagi, juga bila pencabutan terjadi sebelum sinkron pertama. Tidak ada yang dicabut.
+- `platform.*` tidak pernah diberikan ke peran RS. Peran bawaan yang belum ada hanya dilaporkan (dibuat oleh `ensureSystemRoles`).
+- Setiap penambahan diaudit per peran (`role_permissions`, `via: cli`, pelaku `system`), begitu pula perubahan catatan (`tenant_setting`). Jalan ulang tanpa perubahan katalog tidak menulis apa pun.
 
 Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **jangan dipakai untuk menguji izin**. Tes izin memakai token sungguhan: `createTestUser(TENANT_A, { roles: [{ code: 'perawat' }] })` lalu `login(app, user)`. Contoh lengkapnya di `apps/api/test/authz.test.ts`.
 
@@ -235,12 +254,15 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 | Bagian                              | Isi                                                                                                                                                                           |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                     |
-| `infra/object-storage.ts`           | `ObjectStorage` + `DiskObjectStorage` (`STORAGE_DRIVER=disk`, `STORAGE_DISK_ROOT`); kunci `<tenant>/<tahun>/<bulan>/<uuid>` selalu buatan server                              |
+| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)        |
+| `infra/s3-client.ts`, `sigv4.ts`    | Klien S3 minimal tanpa SDK: SigV4 (diuji vektor AWS), gaya path, `If-None-Match: *`, checksum SHA-256 sisi server; `/ready` = HeadBucket                                      |
 | `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
 | `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
 | API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
 | Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`                                                                                |
 | Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
+
+Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
 
 Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan header `X-Document-Kind`, `X-Document-Title`, `X-Document-Filename` (UTF-8 di-percent-encode). Header dan query tidak masuk log API; judul dokumen bisa memuat PHI, jadi jangan pernah taruh di path URL.
 
@@ -351,6 +373,8 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `verifyAuditChain(tx)`                            | P04 · Periksa hash berantai audit tenant aktif.                                                          |
 | `ensureSystemRoles(tx, tenantId)`                 | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).    |
 | `roleGrantScope(tx, role, resource, action)`      | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
+| `roleGrants(tx, role)`                            | P03 · Seluruh izin satu peran (`sumber.aksi` → lingkup) dalam satu kueri; dipakai cache matriks API.     |
+| `syncRolePermissions(tx, tenantId, kind, opts)`   | P03 · Tambah izin yang baru di katalog ke peran RS yang sudah ada (CLI `db:sync-permissions`; `dryRun`). |
 | `activeAssignments(tx, userId)`                   | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
 | `lockTenantScope(tx, scope)`                      | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
 | `insertPatient(tx, crypto, record)`               | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
@@ -436,6 +460,7 @@ Layar fase 2–10 dibangun di rute finalnya sebelum backend ada, dengan data dum
 - Halaman ber-data dummy diawali `const { session, allowed } = await requireDemoScreen('<id>')`: render dinamis, 404 di luar mode demo, dan `allowed=false` bila posisi aktif bukan pemakai layar (tampilkan ajakan "Ganti posisi"). Setiap Server Action ber-data dummy memanggil `assertDemo()`.
 - Status layar di `lib/screens.ts`: `belum` → `demo` saat layar dibangun → `api` saat backend tersambung. Menu mengikuti status ini; posisi yang bukan pemakai tidak melihat menunya di mode demo.
 - Skema respons per domain ditulis di `packages/shared/src/schemas/<domain>.ts` (kontrak yang nanti dipenuhi API); halaman mengambil data lewat `lib/server/data/<domain>.ts`, yang memilih fixture (`lib/demo/`) atau API.
+- Pasien fiktif dan tempatnya pada jam demo (Sen, 5 Okt 2026 · 10.45) hanya diatur di `lib/demo/fixtures/pasien.ts`: `PASIEN` (identitas), `ROSTER` (satu tempat per pasien; tempat kedua hanya bila sah dan beralasan) dan `ANTREAN_POLI_PD` (nomor antrean untuk layar Pemeriksaan dan papan TV). Saat menambah pasien atau baris fixture layar mana pun, perbarui roster; `fixtures.test.ts` menolak pasien yang muncul di dua tempat atau di tempat yang tidak tercatat.
 - Server E2E ketiga (`next start` port 3011 atau `E2E_DEMO_PORT`, `DATA_SOURCE=demo`) menjalankan spesifikasi di `apps/web/e2e/demo/`; suite lain tetap di mode `api`.
 
 ### Panduan superadmin (halaman ini)
@@ -453,6 +478,9 @@ Layar fase 2–10 dibangun di rute finalnya sebelum backend ada, dengan data dum
                    (akun baru) startEnrollmentAction → QR (uqr, data URI) → confirmEnrollmentAction
                    (sandi sementara) changePasswordAction ──► POST /auth/password
         langkah 3  selectUnitAction ──► POST /auth/assignment ──► redirect ke ?lanjut (divalidasi safeNextPath)
+        PIN        (cookie simrs_pin ada) POST /auth/pin/accounts → kartu "Masuk dengan PIN"
+                   pinLoginAction ──► POST /auth/pin/login ──► cookie sesi ──► ?lanjut (langkah 2–3 dilewati)
+/akun/pin          registerPinAction ──► POST /auth/pin/devices ──► token sd1 ke cookie simrs_pin (tidak ke browser)
 halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() sekali per token → cookie baru
                    requireSession() → GET /auth/me (sekali per render) → identitas, peran, unit, izin
 ```
@@ -460,6 +488,7 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 | Hal                  | Aturan                                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Cookie               | `simrs_at` (akses), `simrs_rt` (refresh), `simrs_mfa*` (tantangan). httpOnly, SameSite=Lax, path /; di luar lokal Secure + `__Host-`.             |
+| Cookie perangkat     | `simrs_td` (perangkat tepercaya) dan `simrs_pin` (token PIN, maks 8 akun, 30 hari) milik perangkat: tidak dihapus saat keluar.                    |
 | Umur cookie akses    | 60 detik lebih pendek dari token akses, agar proxy sempat memperbarui sebelum API menolak.                                                        |
 | Refresh paralel      | `refreshSession()` menyimpan janji per hash refresh token selama 30 detik: banyak permintaan, satu panggilan API. Hanya berlaku satu instans web. |
 | Tujuan setelah login | `?lanjut=` hanya path internal (`safeNextPath`: tanpa `//`, skema, backslash, karakter kendali).                                                  |
@@ -469,7 +498,9 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 ## UI dan sistem desain
 
 - Token ada di `packages/ui/src/theme.css` sebagai tema Tailwind v4, misalnya `bg-brand-600`, `text-ink-700`, `rounded-card`. Sumbernya `design/tokens.json`.
-- Komponen dasar: `AppShell`, `Sidebar`, `Button`, `Field`, `Chip`/`StatusChip`/`FilterChip`, `Alert`, `Card`/`KpiCard`, `Tabs`, `PatientBanner`, `Icon`.
+- Komponen dasar: `AppShell`, `Sidebar`, `Button`, `Field`, `Chip`/`StatusChip`/`FilterChip`, `Alert`, `Card`/`KpiCard`, `Tabs`/`TabList`/`TabPanel`, `Segmented`, `SafetyGate`, `PatientBanner`, `Icon`.
+- Tab memakai satu primitif ARIA dari `@simrs/ui` (gaya `pil`, `segmen`, `garis`; `keepMounted` untuk menjaga isian tab lain). Jangan membuat tab lokal di layar.
+- Setiap kontrol interaktif ≥ 44 px (token `touch`); komponen `@simrs/ui` sudah memenuhinya, jadi kelas `h-11` tambahan pada `Button size="sm"` tidak diperlukan lagi.
 - Layar dibangun dengan membaca mockup `design/mockups/<Layar>.dc.html` (markup + blok `<script type="text/x-dc">`), lalu ditulis ulang sebagai React. Jangan menyalin runtime mockup.
 
 ## Paket shared
@@ -487,19 +518,26 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 
 ## Strategi tes
 
-| Jenis            | Lokasi                                                                                                                                      | Butuh            | Perintah                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
-| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`    | –                | `pnpm test`                         |
-| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                               | Postgres         | `pnpm --filter @simrs/db test`      |
-| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB; batas laju di Redis dengan awalan kunci per run)                                                      | Postgres + Redis | `pnpm --filter @simrs/api test`     |
-| Integrasi worker | `apps/worker/test`                                                                                                                          | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
-| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                | –                | `pnpm --filter @simrs/mock test`    |
-| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): API :4010 + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
+| Jenis            | Lokasi                                                                                                                                                            | Butuh            | Perintah                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
+| Unit             | `packages/shared`, `packages/ui`, `apps/web/src/**/*.test.ts`, `apps/api/test/error-filter.test.ts`, `apps/worker/test/classify.test.ts`                          | –                | `pnpm test`                         |
+| Integrasi DB     | `packages/db/test` (RLS, append-only, outbox)                                                                                                                     | Postgres         | `pnpm --filter @simrs/db test`      |
+| Integrasi API    | `apps/api/test` (HTTP sungguhan + DB; batas laju di Redis dengan awalan kunci per run)                                                                            | Postgres + Redis | `pnpm --filter @simrs/api test`     |
+| Integrasi worker | `apps/worker/test`                                                                                                                                                | Postgres + Redis | `pnpm --filter @simrs/worker test`  |
+| Mock             | `apps/mock/src/mock.test.ts`                                                                                                                                      | –                | `pnpm --filter @simrs/mock test`    |
+| E2E              | `apps/web/e2e` (Playwright; Edge di Windows, Chromium di macOS/Linux): mock :4110 + API :4010 + worker + web build :3010/:3011 di DB tes, akun uji langsung di DB | Postgres         | `pnpm --filter @simrs/web test:e2e` |
 
 Aturan:
 
 - Tes integrasi memakai database **`simrs_test`** (bukan `simrs`), atau `simrs_test_<nama>` per salinan repo paralel; nama lain ditolak `assertTestDatabase`. Persiapannya tidak menghapus data; setiap tes memakai ID/kunci unik.
-- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
+- Salinan repo paralel (git worktree) memakai `.env`, database tes, dan slot E2E sendiri (`E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_MOCK_PORT`, `E2E_TMP_NAME`); lihat [Tutorial §7](./03-tutorial.md#beberapa-salinan-repo-sekaligus-git-worktree).
+- Stack E2E (`apps/web/playwright.config.ts`, urutan nyala: mock → API → worker → web → web presentasi → global setup):
+  - Mock E2E di `E2E_MOCK_PORT` (bawaan port API + 100). Semua URL `.env` yang menunjuk mock pengembangan (`MOCK_BASE_URL`, `BPJS_BASE_URL`, …) dialihkan ke mock ini untuk API dan worker; `TPDI_WEBHOOK_TARGET` mock menunjuk API E2E.
+  - Worker outbox di DB tes dengan `OUTBOX_SCHEDULER=interval` (poll 500 ms, batas HTTP 2 dtk), bukan BullMQ: Redis dipakai bersama semua salinan repo dan `pnpm dev`. Worker tidak punya port HTTP; Playwright menunggu baris log tetap `Worker outbox siap` (`webServer.wait.stdout`, dicetak `apps/worker/src/main.ts` setelah bootstrap).
+  - Worker E2E memproses **semua** pesan outbox di database tes (semua tenant, termasuk sisa tes integrasi). Jangan menjalankan `pnpm test` dan E2E bersamaan pada database tes yang sama: pesan yang diharapkan tes API/worker tetap menunggu akan ikut terkirim.
+  - Helper: `e2e/support/mock.ts` (`setMockScenario(sistem, 'normal' | 'lambat' | 'gagal' | 'timeout')`, `resetMockState()`, `mockState()`, `mockEchoCount()`), `e2e/support/outbox.ts` (pesan `ping` uji + keadaan pesan untuk `expect.poll`), `e2e/support/slot.ts` (port slot).
+  - Skenario mock berlaku global untuk semua tes yang sedang berjalan. Spesifikasi yang mengubahnya: `test.describe.configure({ mode: 'serial' })`, hanya di proyek desktop (tambahkan berkasnya ke `testIgnore` proyek tablet), memakai sistem yang tidak dipakai spesifikasi lain, dan mengembalikan skenario ke `normal` di `afterEach`. Contoh: `e2e/infrastruktur.spec.ts` (sistem `eklaim`). Jangan menjalankannya dengan `--repeat-each`: salinan grup serial berjalan paralel di worker Playwright lain dan saling mengembalikan skenario.
+  - Global setup mereset mock dan memanggil `registerTestDevices()` (`e2e/support/devices.ts`), titik perluasan perangkat uji anjungan/TV yang masih kosong sampai prinsipal perangkat (ADR-0027) ada.
 - Setiap modul baru wajib punya tes **isolasi tenant** (tenant B tidak melihat data tenant A) dan tes **izin** dengan token sungguhan (peran tak berhak → 403; lihat `apps/api/test/authz.test.ts`).
 - Tes yang butuh infrastruktur gagal dengan pesan jelas bila infrastruktur mati. Tes tidak boleh dilewati diam-diam atau dilemahkan agar hijau.
 

@@ -240,7 +240,7 @@ describe('K03 · IGD', () => {
     expect(edLosAlert({ triageLevel: 3, status: 'tunggu-dokter' }, 30)).toBeNull();
     expect(edLosAlert({ triageLevel: 2, status: 'pemeriksaan' }, 30)).toBeNull();
     expect(losOverdue({ triageLevel: 4, status: 'observasi' }, 239)).toBe(false);
-    // Papan hari demo: hanya Tn. Fajar (B5, boarding 4 j 40 m) yang lewat batas saat dibuka.
+    // Papan hari demo: hanya Ny. Sumarni (B5, boarding 4 j 40 m) yang lewat batas saat dibuka.
     const late = demoEdBoardBase(DEMO_NOW).items.filter((p) => edLosAlert(p, p.losMinutes) !== null);
     expect(late.map((p) => p.bed)).toEqual(['B5']);
   });
