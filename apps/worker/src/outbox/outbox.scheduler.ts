@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { WORKER_ENV, type WorkerEnv } from '../config/env';
-import { OutboxDispatcher } from './outbox.dispatcher';
+import { bullConnection, resolveSchedulerMode } from '../infra/scheduler-mode';
+import { type DispatchSummary, OutboxDispatcher } from './outbox.dispatcher';
 
 export const OUTBOX_QUEUE = 'outbox';
 const DISPATCH_SCHEDULER_ID = 'outbox-dispatch';
@@ -19,6 +20,7 @@ export class OutboxScheduler implements OnApplicationBootstrap, OnModuleDestroy 
   private queue?: Queue;
   private worker?: Worker;
   private timer?: NodeJS.Timeout;
+  private stopped = false;
 
   constructor(
     @Inject(WORKER_ENV) private readonly env: WorkerEnv,
@@ -31,16 +33,13 @@ export class OutboxScheduler implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   async start(): Promise<void> {
-    const mode = this.env.OUTBOX_SCHEDULER;
-    if (
-      mode === 'interval' ||
-      (mode === 'auto' && this.env.APP_ENV !== 'production' && !(await this.redisReachable()))
-    ) {
+    if ((await resolveSchedulerMode(this.env)) === 'interval') {
       this.startInterval();
       return;
     }
-    this.connection = new Redis(this.env.REDIS_URL, { maxRetriesPerRequest: null });
-    this.queue = new Queue(OUTBOX_QUEUE, { connection: this.connection });
+    this.connection = bullConnection(this.env);
+    const prefix = this.env.BULLMQ_PREFIX;
+    this.queue = new Queue(OUTBOX_QUEUE, { connection: this.connection, prefix });
     await this.queue.upsertJobScheduler(
       DISPATCH_SCHEDULER_ID,
       { every: this.env.OUTBOX_POLL_MS },
@@ -51,34 +50,20 @@ export class OutboxScheduler implements OnApplicationBootstrap, OnModuleDestroy 
       async (job) => {
         if (job.name !== 'dispatch') return null;
         const summary = await this.dispatcher.dispatchOnce();
-        if (summary.claimed > 0) {
-          this.logger.log(
-            `outbox: diklaim ${summary.claimed}, terkirim ${summary.sent}, gagal ${summary.failed}, DLQ ${summary.dead}`,
-          );
-        }
+        this.logSummary(summary);
         return summary;
       },
-      { connection: this.connection, concurrency: 1 },
+      { connection: this.connection, prefix, concurrency: 1 },
     );
     this.worker.on('failed', (job, err) => this.logger.error(`job ${job?.id ?? '?'} gagal: ${err.name}`));
     this.logger.log(`Worker outbox aktif · interval ${this.env.OUTBOX_POLL_MS} ms`);
   }
 
-  private async redisReachable(): Promise<boolean> {
-    const probe = new Redis(this.env.REDIS_URL, {
-      lazyConnect: true,
-      connectTimeout: 1000,
-      maxRetriesPerRequest: 0,
-      retryStrategy: () => null,
-    });
-    try {
-      await probe.connect();
-      await probe.ping();
-      return true;
-    } catch {
-      return false;
-    } finally {
-      probe.disconnect();
+  private logSummary(summary: DispatchSummary): void {
+    if (summary.claimed > 0) {
+      this.logger.log(
+        `outbox: diklaim ${summary.claimed}, terkirim ${summary.sent}, gagal ${summary.failed}, DLQ ${summary.dead}, ditunda ${summary.deferred}`,
+      );
     }
   }
 
@@ -86,16 +71,12 @@ export class OutboxScheduler implements OnApplicationBootstrap, OnModuleDestroy 
   private startInterval(): void {
     const tick = async () => {
       try {
-        const summary = await this.dispatcher.dispatchOnce();
-        if (summary.claimed > 0) {
-          this.logger.log(
-            `outbox: diklaim ${summary.claimed}, terkirim ${summary.sent}, gagal ${summary.failed}, DLQ ${summary.dead}`,
-          );
-        }
+        this.logSummary(await this.dispatcher.dispatchOnce());
       } catch (err) {
         this.logger.error(`putaran outbox gagal: ${err instanceof Error ? err.name : 'error'}`);
       } finally {
-        this.timer = setTimeout(tick, this.env.OUTBOX_POLL_MS);
+        // Putaran yang selesai setelah modul ditutup tidak menjadwalkan putaran baru.
+        if (!this.stopped) this.timer = setTimeout(tick, this.env.OUTBOX_POLL_MS);
       }
     };
     this.timer = setTimeout(tick, 0);
@@ -105,6 +86,7 @@ export class OutboxScheduler implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
     await this.worker?.close();
     await this.queue?.close();
