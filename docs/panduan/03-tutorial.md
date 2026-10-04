@@ -27,6 +27,31 @@ Isi `.env` yang perlu diperhatikan:
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
 
+### Mesin baru (macOS)
+
+Repo ada di GitHub (privat): `https://github.com/faris315mfaf-ai/simrs`. `.env` dan `.local/` (database lokal, akun
+presentasi, keadaan simulasi, tangkapan QA) **tidak** ikut git: di mesin baru dibuat ulang. Semua data lokal fiktif,
+jadi cukup di-seed ulang (kunci `.env` baru membuat data terenkripsi dari mesin lama tidak terbaca, dan itu tidak
+masalah).
+
+```bash
+brew install node@24 git          # atau nvm/fnm; Node ≥ 24.7
+corepack enable pnpm
+git clone https://github.com/faris315mfaf-ai/simrs.git && cd simrs
+pnpm install
+pnpm env:init                     # .env baru dengan kunci acak
+pnpm doctor
+# Docker Desktop for Mac (Apple Silicon/Intel), lalu:
+pnpm infra:up && pnpm infra:ps    # Postgres, Redis, MinIO, Mailpit
+pnpm build && pnpm db:deploy && pnpm db:seed
+pnpm db:akun-presentasi           # 16 akun presentasi (kredensial di .local/)
+pnpm dev:demo                     # mode presentasi; atau pnpm dev
+pnpm --filter @simrs/web exec playwright install chromium   # E2E di macOS memakai Chromium
+```
+
+Dengan Docker di Mac, tes BullMQ (Redis) dan `/ready` bisa hijau, sehingga dua kriteria sisa fase 0 dapat ditutup.
+Draf PIN masuk cepat (10c-2) ada di cabang `wip/pin-masuk-cepat-10c-2` (belum diterapkan ke database mana pun).
+
 ### Pilihan A: Docker (jalur utama)
 
 Butuh virtualisasi aktif. Di Windows: aktifkan VT-x/AMD-V di BIOS, jalankan `wsl --install --no-distribution` di PowerShell **Administrator**, restart, lalu buka Docker Desktop.
