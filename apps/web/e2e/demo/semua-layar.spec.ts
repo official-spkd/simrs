@@ -140,7 +140,8 @@ test.describe('mode presentasi · semua layar', () => {
   });
 
   test('posisi dokter: layar Tn. Hartono pada tahap skenario IGD-nya', async ({ page }, testInfo) => {
-    test.setTimeout(60_000 + 3 * (QA_VISUAL ? 45_000 : 15_000));
+    const checks = IGD_SCENARIO_PATHS.reduce((n, s) => n + s.paths.length, 0);
+    test.setTimeout(60_000 + checks * (QA_VISUAL ? 45_000 : 15_000));
     const account = await createAccount({ roles: ['dokter'] });
     await loginAs(page, account);
     for (const { stage, paths } of IGD_SCENARIO_PATHS) {
@@ -155,12 +156,9 @@ test.describe('mode presentasi · semua layar', () => {
         if (!screen) continue;
         await test.step(`${stage}: ${id} ${path}`, async () => {
           await checkScreen(page, screen, path);
-          await captureVisual(
-            page,
-            testInfo,
-            path,
-            `${slugOf(id, path)}_${stage.toLowerCase().replaceAll(' ', '-')}`,
-          );
+          // Tahap ikut di nama berkas: rute yang sama bisa tampil berbeda per tahap.
+          const stageSlug = stage.toLowerCase().replaceAll(' ', '-');
+          await captureVisual(page, testInfo, path, `${slugOf(id, path)}__${stageSlug}`);
         });
       }
     }
