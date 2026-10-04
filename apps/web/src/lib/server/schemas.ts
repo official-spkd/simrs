@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const UUID_PART = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 /** Token buram API: `<jenis>.<tenantId>.<id>.<rahasia 256 bit>` (ADR-0011). */
-export const TOKEN_PATTERN = (kind: 'sa1' | 'sr1' | 'sc1' | 'st1') =>
+export const TOKEN_PATTERN = (kind: 'sa1' | 'sr1' | 'sc1' | 'st1' | 'sd1') =>
   new RegExp(`^${kind}\\.${UUID_PART}\\.${UUID_PART}\\.[A-Za-z0-9_-]{43}$`);
 
 export const sessionTokensSchema = z.object({
@@ -61,8 +61,48 @@ export const meSchema = z.object({
   permissions: z.array(
     z.object({ resource: z.string(), action: z.string(), scope: z.enum(PERMISSION_SCOPES) }),
   ),
+  /** `quickLogin`: sesi dibuka dengan PIN perangkat (ADR-0024). */
+  session: z.object({ quickLogin: z.boolean() }),
 });
 export type MeResponse = z.infer<typeof meSchema>;
+
+// PIN masuk cepat (ADR-0024). Token `sd1` hanya berpindah antara API dan cookie httpOnly, tidak ke browser.
+
+export const pinLoginResultSchema = sessionTokensSchema.extend({
+  status: z.literal('authenticated'),
+  mustChangePassword: z.literal(false),
+});
+
+export const pinAccountsSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    displayName: z.string(),
+    roleName: z.string(),
+    unitName: z.string().nullable(),
+  }),
+);
+export type PinAccount = z.infer<typeof pinAccountsSchema>[number];
+
+export const pinRegisterResultSchema = z.object({
+  id: z.uuid(),
+  token: z.string().regex(TOKEN_PATTERN('sd1')),
+  expiresAt: z.iso.datetime(),
+});
+
+export const pinDevicesSchema = z.array(
+  z.object({
+    id: z.uuid(),
+    name: z.string(),
+    roleName: z.string(),
+    unitName: z.string().nullable(),
+    userAgent: z.string().nullable(),
+    createdAt: z.iso.datetime(),
+    lastUsedAt: z.iso.datetime().nullable(),
+    expiresAt: z.iso.datetime(),
+    current: z.boolean(),
+  }),
+);
+export type PinDeviceItem = z.infer<typeof pinDevicesSchema>[number];
 
 export const assignmentsSchema = z.array(
   z.object({

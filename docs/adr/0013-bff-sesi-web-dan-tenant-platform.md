@@ -23,3 +23,7 @@ Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan d
 − Peta refresh di memori hanya berlaku untuk satu instans web. Banyak instans butuh sticky session atau penyimpanan bersama (Redis) untuk peta itu, dan `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` yang sama.
 − Pengembang lokal perlu `pnpm db:create-admin` + aplikasi autentikator untuk masuk (tidak ada jalan pintas tanpa login di web).
 − PIN perangkat dan OTP cadangan (WhatsApp/email) di mockup belum dibangun (P11, potongan 10).
+
+## Pembaruan 5 Okt 2026 · stack E2E fase 2
+
+Butir 9 diperluas (fase 2, potongan 1d): Playwright juga menyalakan mock integrasi (`E2E_MOCK_PORT`, bawaan port API + 100, hanya 127.0.0.1) dan worker outbox di database tes, dengan penjadwal `interval` (bukan BullMQ, karena Redis dipakai bersama semua salinan repo). Semua URL `.env` yang menunjuk mock pengembangan dialihkan ke mock E2E untuk API dan worker, sehingga efek outbox dan gangguan integrasi teruji ujung ke ujung. Port slot dan aturan skenario mock bersama: `docs/panduan/02-cara-kerja-kode.md` (Strategi tes) dan Tutorial §7.

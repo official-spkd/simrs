@@ -19,7 +19,7 @@ import { createAccount, loginAs } from '../support/accounts';
  * (`lib/demo/fixtures/pasien.ts`) yang terbuka untuk akun baru (semua skenario di langkah awal).
  */
 const EXTRA_PATHS: Record<string, readonly string[]> = {
-  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-endang'],
+  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-rohana'],
   // Pasien skenario (bisa belum dirawat → halaman penjelasan) dan pasien rawat inap biasa (rekam lengkap).
   ranap: ['/klinis/rawat-inap/kj-hartono', '/klinis/rawat-inap/kj-ratna', '/klinis/rawat-inap/kj-endang'],
   resume: ['/klinis/resume/kj-hartono', '/klinis/resume/kj-ratna'],

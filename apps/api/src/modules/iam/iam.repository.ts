@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { activeAssignments, lockTenantScope, type Prisma, ROLE_MATRIX_LOCK } from '@simrs/db';
 import { ACCESS_ADMIN_GRANTS, newId, PROTECTED_ROLES, type TenantKind } from '@simrs/shared';
+import { revokePinDevices } from '../../infra/auth/pin-devices';
 import { TenantDb } from '../../infra/tenant-db';
 
 const now = () => new Date();
@@ -131,7 +132,28 @@ export class IamRepository {
             unit: { select: { name: true } },
           },
         },
+        // PIN masuk cepat yang masih berlaku (ADR-0024), untuk ditinjau/dicabut admin.
+        devices: {
+          where: { kind: 'staff_pin', revokedAt: null, expiresAt: { gt: now() } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            lastUsedAt: true,
+            expiresAt: true,
+            assignment: { select: { role: { select: { name: true } }, unit: { select: { name: true } } } },
+          },
+        },
       },
+    });
+  }
+
+  /** PIN perangkat (jenis `staff_pin`) untuk dicabut admin. */
+  findPinDevice(id: string) {
+    return this.db.tx().registeredDevice.findFirst({
+      where: { id, kind: 'staff_pin' },
+      select: { userId: true, revokedAt: true },
     });
   }
 
@@ -233,12 +255,16 @@ export class IamRepository {
       .mfaFactor.updateMany({ where: { userId: id, disabledAt: null }, data: { disabledAt: now() } });
   }
 
-  /** Cabut semua sesi aktif + perangkat tepercaya (reset sandi/MFA, nonaktif): login berikutnya wajib MFA lagi. */
-  async revokeSessions(userId: string, reason: string) {
+  /**
+   * Cabut semua sesi aktif, perangkat tepercaya, dan PIN perangkat (reset sandi/MFA, nonaktif): login berikutnya
+   * wajib sandi + MFA lagi, dan PIN harus didaftarkan ulang dari login penuh.
+   */
+  async revokeSessions(userId: string, reason: 'user_disabled' | 'password_reset' | 'mfa_reset') {
     await this.db.tx().trustedDevice.updateMany({
       where: { userId, revokedAt: null },
       data: { revokedAt: now() },
     });
+    await revokePinDevices(this.db.tx(), { userId }, reason, this.db.actorUserId());
     return this.db.tx().authSession.updateMany({
       where: { userId, status: 'active' },
       data: { status: 'revoked', revokedAt: now(), revokedReason: reason },
@@ -314,12 +340,20 @@ export class IamRepository {
     return n > 0;
   }
 
-  endAssignment(id: string, at: Date, reason: string) {
-    return this.db.tx().staffAssignment.update({
+  /** Akhiri penugasan; PIN perangkat untuk posisi itu ikut dicabut (sesi PIN-nya berakhir). */
+  async endAssignment(id: string, at: Date, reason: string) {
+    const r = await this.db.tx().staffAssignment.update({
       where: { id },
       data: { validUntil: at, endReason: reason, updatedBy: this.db.actorUserId() },
       select: { id: true, validUntil: true },
     });
+    await revokePinDevices(this.db.tx(), { assignmentId: id }, 'assignment_ended', this.db.actorUserId());
+    return r;
+  }
+
+  /** Cabut satu PIN perangkat (admin), mis. perangkat hilang atau staf pindah unit. */
+  revokePinDevice(id: string) {
+    return revokePinDevices(this.db.tx(), { id }, 'admin_revoked', this.db.actorUserId());
   }
 
   /**

@@ -20,7 +20,7 @@ import {
   type TriageLevel,
   type Ward,
 } from '@simrs/shared';
-import { ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
+import { BOARDING_TARGET_MINUTES, ewsMaxParam, ewsScore, RESUME_CHECK_LABEL } from '../../rawat-inap';
 import { encounterIdOf, patientById } from './pasien';
 import { BANGSAL, type DemoWard } from './rs';
 import { DOKTER, PERSONA, STAF, STAF_LAIN } from './staf';
@@ -160,7 +160,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B5',
-    patientId: 'ps-fajar',
+    patientId: 'ps-sumarni',
     level: 3,
     complaint: 'Nyeri perut kanan atas hilang timbul, muntah',
     doctor: doctorName('dr-yohanes'),
@@ -175,7 +175,7 @@ const ED_SEED: EdSeed[] = [
       ['Suhu', '37,9'],
       ['GCS', '15'],
     ],
-    rec: 'Nyeri perut dengan tanda vital stabil: triase 3, analgesik, USG abdomen, konsul bedah.',
+    rec: 'Nyeri perut dengan tanda vital stabil: triase 3, analgesik, USG abdomen, konsul bedah. USG 07.36: kolelitiasis, kolesistektomi dijadwalkan 14.00.',
     orderTitle: 'Order awal (alur nyeri perut)',
     orders: [
       ['USG abdomen', true],
@@ -185,9 +185,9 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B6',
-    patientId: 'ps-darmawan',
+    patientId: 'ps-joko',
     level: 4,
-    complaint: 'Nyeri dan bengkak sendi lutut kanan sejak semalam',
+    complaint: 'Nyeri dan bengkak lutut kanan setelah terjatuh di rumah',
     doctor: STAF.dokterJagaIgd,
     los: 40,
     status: 'pemeriksaan',
@@ -197,20 +197,20 @@ const ED_SEED: EdSeed[] = [
       ['Nadi', '88'],
       ['Napas', '18'],
       ['SpO2', '99%'],
-      ['Suhu', '37,6'],
+      ['Suhu', '36,9'],
       ['GCS', '15'],
     ],
-    rec: 'Nyeri sendi tanpa tanda bahaya: triase 4. Alergi ibuprofen tercatat: hindari OAINS.',
-    orderTitle: 'Order awal (alur nyeri sendi)',
+    rec: 'Nyeri lutut pasca jatuh tanpa tanda bahaya: triase 4. Riwayat ORIF femur kanan Sep 2026: foto lutut dan femur.',
+    orderTitle: 'Order awal (alur trauma ekstremitas)',
     orders: [
-      ['Asam urat, darah lengkap', true],
-      ['Analgesik non-OAINS', true],
-      ['Foto lutut kanan', false],
+      ['Foto lutut dan femur kanan', true],
+      ['Analgesik oral', true],
+      ['Konsul ortopedi', false],
     ],
   },
   {
     bed: 'B7',
-    patientId: 'ps-dewi',
+    patientId: 'ps-fauzi',
     level: 4,
     complaint: 'Nyeri ulu hati dan mual sejak pagi',
     doctor: null,
@@ -235,7 +235,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'B8',
-    patientId: 'ps-bonifasius',
+    patientId: 'ps-robert',
     level: 3,
     complaint: 'Sesak saat aktivitas, kaki bengkak 3 hari',
     doctor: STAF.dokterJagaIgd,
@@ -250,7 +250,7 @@ const ED_SEED: EdSeed[] = [
       ['Suhu', '36,9'],
       ['GCS', '15'],
     ],
-    rec: 'Sesak dengan riwayat infark miokard: triase 3, foto toraks dan troponin; naikkan ke level 2 bila memburuk.',
+    rec: 'Sesak dengan riwayat infark miokard dan gagal jantung (pulang rawat 3 Okt): triase 3, foto toraks dan troponin; naikkan ke level 2 bila memburuk.',
     orderTitle: 'Order awal otomatis (alur sesak napas)',
     orders: [
       ['Foto toraks', true],
@@ -260,7 +260,7 @@ const ED_SEED: EdSeed[] = [
   },
   {
     bed: 'K1',
-    patientId: 'ps-ayu',
+    patientId: 'ps-gilang',
     level: 5,
     complaint: 'Batuk pilek 5 hari, demam ringan',
     doctor: STAF.dokterJagaIgd,
@@ -367,16 +367,17 @@ type NamedBed = Pick<Bed, 'status' | 'note'> & { patientId?: string };
 
 /** Bed bernama: pasien rawat inap fixture dan bed naskah skenario. Sisanya dibangkitkan deterministik. */
 const NAMED_BEDS: Record<string, NamedBed> = {
+  'VIP 2': { status: 'terisi', note: 'H2 · naik kelas VIP · angiografi 13.00', patientId: 'ps-sutan' },
   'VIP 3': { status: 'siap', note: 'siap · disiapkan untuk pasien elektif' },
   'A-07': { status: 'siap', note: 'siap · telemetri tersedia' },
   'A-09': { status: 'dibersihkan', note: 'sedang dibersihkan, siap ±30 menit' },
   'A-12': { status: 'siap', note: 'siap · telemetri tersedia' },
-  'A-15': { status: 'terisi', note: 'H3 · hemodialisis Rabu', patientId: 'ps-yusuf' },
-  'M-203': { status: 'terisi', note: 'H5 · rencana pulang besok', patientId: 'ps-endang' },
+  'A-15': { status: 'terisi', note: 'H3 · kateter HD 13.00 (OK 1)', patientId: 'ps-yusuf' },
+  'M-203': { status: 'pulang', note: 'H5 · pulang hari ini · resume draf', patientId: 'ps-endang' },
   'M-210': { status: 'siap', note: 'siap · kelas 2' },
   'W-308': { status: 'terisi', note: 'H2 · pantau hematokrit', patientId: 'ps-raka' },
   'W-322': { status: 'terisi', note: 'H1 · pasca SC', patientId: 'ps-wulan' },
-  'K-412': { status: 'terisi', note: 'H4 · pasca ORIF', patientId: 'ps-rizky' },
+  'K-412': { status: 'terisi', note: 'H4 · ORIF hari ini · di ruang pulih OK 4', patientId: 'ps-rizky' },
   'ICU 2': { status: 'terisi', note: 'H3 · ventilator', patientId: 'ps-hendro' },
   'ICU 3': { status: 'siap', note: 'siap sekarang' },
   'ICU 5': { status: 'pulang', note: 'pindah ke HCU, siap ±30 menit setelah dibersihkan' },
@@ -512,15 +513,23 @@ export function demoBedRequests(beds: readonly Bed[]): BedRequest[] {
       need,
       kelas,
       waitMinutes,
-      late: waitMinutes !== null && waitMinutes >= 240,
+      late: waitMinutes !== null && waitMinutes >= BOARDING_TARGET_MINUTES,
       candidates: matchingBeds(beds, kelas),
       scenario: null,
     };
   };
   return [
-    req('rq-fajar', 'ps-fajar', 'IGD B5', 'Bedah · kelas 1 · Asuransi', 'Kelas 1', 280),
-    req('rq-bonifasius', 'ps-bonifasius', 'IGD B8', 'Jantung · kelas 1 · BPJS · telemetri', 'Kelas 1', 135),
+    req('rq-sumarni', 'ps-sumarni', 'IGD B5', 'Bedah · kelas 1 · Umum', 'Kelas 1', 280),
+    req('rq-robert', 'ps-robert', 'IGD B8', 'Jantung · kelas 1 · BPJS · telemetri', 'Kelas 1', 135),
     req('rq-lestiani', 'ps-lestiani', 'IGD B3', 'Saraf · kelas 3 · BPJS · pantau stroke', 'Kelas 3', 35),
+    req(
+      'rq-fajar',
+      'ps-fajar',
+      'Ruang pulih OK 2',
+      'Bedah · kelas 1 · Asuransi · pasca operasi',
+      'Kelas 1',
+      80,
+    ),
     req(
       'rq-maria',
       'ps-maria',
@@ -673,7 +682,7 @@ export function buildInpatient(
 const T = (hm: string, dayOffset = 0) => at(shiftDate(DEMO_TODAY, dayOffset), hm);
 const DIETISIEN = 'Nurul Aini, S.Gz';
 
-/** Ny. Endang Wijaya · Melati M-203 (mockup Ranap): pneumonia + DM, hari ke-5, rencana pulang besok. */
+/** Ny. Endang Wijaya · Melati M-203 (mockup Ranap): pneumonia + DM, hari ke-5, pulang hari ini (roster hari demo). */
 const ENDANG: InpatientSeed = {
   patientId: 'ps-endang',
   wardCode: 'MELATI',
@@ -682,7 +691,7 @@ const ENDANG: InpatientSeed = {
   admittedOn: shiftDate(DEMO_TODAY, -4),
   flags: ['cosign', 'emar-terlambat', 'risiko-jatuh', 'rencana-pulang'],
   risk: 'Risiko jatuh sedang · Morse 35',
-  plan: 'Seftriakson H5/7, evaluasi de-eskalasi oral H6; glargine 16 unit malam; rencana pulang besok bila klinis stabil.',
+  plan: 'Seftriakson H5 dosis terakhir pagi ini, lanjut sefiksim oral di rumah; glargine 16 unit malam; pulang hari ini setelah resume ditandatangani DPJP.',
   dx: [
     ['ICD-10', 'J18.9', 'Pneumonia, tidak spesifik', true],
     ['ICD-10', 'E11.9', 'DM tipe 2 tanpa komplikasi'],
@@ -691,7 +700,7 @@ const ENDANG: InpatientSeed = {
   emarNote:
     'Pindai gelang pasien, lalu label obat. GDS 10.30: 236 mg/dL → skala 6 unit SC sebelum makan siang.',
   meds: [
-    ['Seftriakson 2 g', 'IV · 1×24 jam · H5/7', null, false, ['', 'g:08.05', '', '', '']],
+    ['Seftriakson 2 g', 'IV · 1×24 jam · H5 (terakhir)', null, false, ['', 'g:08.05', '', '', '']],
     [
       'Insulin aspart sesuai skala',
       'SC · sebelum makan · cek GDS',
@@ -983,7 +992,7 @@ const WARD_SEEDS: InpatientSeed[] = [
     admittedOn: shiftDate(DEMO_TODAY, -2),
     flags: [],
     risk: 'AV shunt lengan kiri: jangan ukur TD atau infus di lengan kiri',
-    plan: 'Hemodialisis rutin Rabu; batasi cairan 600 mL/hari; koreksi anemia dengan eritropoietin.',
+    plan: 'Thrill AV shunt melemah: kateter HD sementara di OK 1 pukul 13.00, HD berikutnya lewat kateter; batasi cairan 600 mL/hari; koreksi anemia dengan eritropoietin.',
     dx: [
       ['ICD-10', 'N18.5', 'Penyakit ginjal kronik stadium 5', true],
       ['ICD-10', 'Z99.2', 'Ketergantungan dialisis'],
@@ -1004,9 +1013,9 @@ const WARD_SEEDS: InpatientSeed[] = [
         author: doctorName('dr-sinta'),
         at: T('08.30'),
         s: 'Sesak berkurang setelah HD kemarin.',
-        o: 'BB turun 2,1 kg pasca HD. Ureum 168 · K 5,4 · Hb 8,9.',
-        a: 'CKD stadium 5 on HD, kelebihan cairan teratasi sebagian.',
-        p: 'HD berikutnya Rabu, restriksi cairan, mulai eritropoietin.',
+        o: 'BB turun 2,1 kg pasca HD. Ureum 168 · K 5,4 · Hb 8,9. Thrill AV shunt lengan kiri melemah.',
+        a: 'CKD stadium 5 on HD, kelebihan cairan teratasi sebagian; curiga trombosis AV shunt.',
+        p: 'Kateter HD sementara di OK 1 pukul 13.00 (konsul bedah), restriksi cairan, mulai eritropoietin.',
       },
       {
         id: 'cppt-yusuf-2',
@@ -1046,15 +1055,15 @@ const WARD_SEEDS: InpatientSeed[] = [
     admittedOn: shiftDate(DEMO_TODAY, -3),
     flags: ['risiko-jatuh'],
     risk: 'Risiko jatuh tinggi · Morse 55',
-    plan: 'Mobilisasi dengan kruk tanpa tumpuan; analgesik terjadwal; rawat luka dan kontrol H5.',
+    plan: 'Pasca ORIF femur kanan hari ini (OK 4, selesai 10.28): pantau neurovaskular distal, analgesik terjadwal, foto kontrol 11.00; mobilisasi kruk tanpa tumpuan mulai besok.',
     dx: [
       ['ICD-10', 'S72.3', 'Fraktur batang femur', true],
       ['ICD-9-CM', '79.35', 'Reduksi terbuka dengan fiksasi internal femur'],
     ],
     emarNow: '12.00',
-    emarNote: 'Nilai skala nyeri sebelum dan 30 menit setelah analgesik.',
+    emarNote: 'Pasien di ruang pulih OK 4. Nilai skala nyeri sebelum dan 30 menit setelah analgesik.',
     meds: [
-      ['Ketorolak 30 mg', 'IV · 3×1', null, false, ['g:06.00', '', 'j', 'r', '']],
+      ['Ketorolak 30 mg', 'IV · 3×1 · mulai pasca operasi', null, false, ['', '', 'j', 'r', 'r']],
       ['Seftriakson 1 g', 'IV · 2×1', null, false, ['g:06.00', '', '', 'r', '']],
       ['Enoksaparin 60 mg/0,6 mL', 'SC · 1×24 jam sore', '93002210', true, ['', '', '', 'r', '']],
       ['Parasetamol 1 g', 'IV · 4×1', null, false, ['g:06.00', '', 'j', 'r', 'r']],
@@ -1066,9 +1075,9 @@ const WARD_SEEDS: InpatientSeed[] = [
         author: PERSONA.dokterResiden,
         at: T('07.30', -1),
         s: 'Nyeri paha kanan skala 4.',
-        o: 'Luka operasi kering, tidak ada rembesan. Distal hangat, pulsasi baik.',
-        a: 'Pasca ORIF femur kanan H2, baik.',
-        p: 'Latih mobilisasi kruk tanpa tumpuan.',
+        o: 'Traksi kulit terpasang. Distal hangat, pulsasi baik, tidak ada tanda sindrom kompartemen.',
+        a: 'Fraktur batang femur kanan tertutup H3, siap ORIF.',
+        p: 'ORIF besok 08.00 di OK 4; puasa mulai 24.00; persetujuan tindakan sudah ditandatangani.',
         cosign: [doctorName('dr-yohanes'), T('10.05', -1)],
       },
       {
@@ -1076,15 +1085,24 @@ const WARD_SEEDS: InpatientSeed[] = [
         role: 'perawat',
         author: PERSONA.perawat,
         at: T('06.00'),
-        s: 'Nyeri skala 3 saat bergerak.',
-        o: 'Mampu duduk di tepi tempat tidur dengan bantuan.',
-        a: 'Risiko jatuh tinggi.',
-        p: 'Dampingi saat mobilisasi, bel dalam jangkauan.',
+        s: 'Puasa sejak 24.00, nyeri skala 3.',
+        o: 'Persiapan operasi lengkap: gelang identitas, penandaan lokasi operasi, tanda vital stabil.',
+        a: 'Risiko jatuh tinggi; ansietas pra-operasi.',
+        p: 'Antar ke OK 4 pukul 07.30, serah terima dengan perawat kamar operasi.',
+      },
+      {
+        id: 'cppt-rizky-3',
+        role: 'dpjp',
+        author: doctorName('dr-yohanes'),
+        at: T('10.35'),
+        o: 'ORIF femur kanan selesai 10.28; perdarahan ± 350 mL; distal hangat, pulsasi baik.',
+        a: 'Pasca ORIF femur kanan hari 0, stabil.',
+        p: 'Observasi di ruang pulih, foto kontrol 11.00, analgesik terjadwal, kembali ke Kenanga K-412.',
       },
     ],
     obs: [
       [T('06.00'), 37.2, 84, 18, 122, 76, 98, false, 'A'],
-      [T('10.00'), 37.0, 80, 18, 120, 74, 98, false, 'A'],
+      [T('10.40'), 36.6, 88, 18, 118, 72, 98, false, 'A'],
     ],
     results: [
       [T('06.00', -1), 'Hemoglobin', '11,2 g/dL', 'rendah'],
@@ -1286,7 +1304,7 @@ export function demoEndangResume(): DischargeSummary {
     encounterId: 'kj-endang',
     patientId: 'ps-endang',
     admittedAt: T('09.30', -4),
-    dischargeAt: T('10.00', 1),
+    dischargeAt: T('13.00'),
     admissionVia: 'IGD',
     dischargeMethod: 'Atas persetujuan dokter',
     condition: 'Membaik',
@@ -1314,7 +1332,7 @@ export function demoEndangResume(): DischargeSummary {
       {
         id: 'terapi',
         title: 'Terapi selama dirawat',
-        body: 'Seftriakson 2 g IV 1×24 jam (H1–H6), insulin basal-bolus, N-asetilsistein, O2 nasal 2 lpm (H1–H3); kateter vena sentral dipasang H2.',
+        body: 'Seftriakson 2 g IV 1×24 jam (H1–H5), insulin basal-bolus, N-asetilsistein, O2 nasal 2 lpm (H1–H3); kateter vena sentral dipasang H2.',
         source: 'emar',
       },
       {
