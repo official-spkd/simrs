@@ -1,3 +1,4 @@
+import type { PoliQueueItem } from '@simrs/shared';
 import type { ScenarioId } from '../engine/types';
 
 /**
@@ -353,6 +354,184 @@ export const PASIEN: readonly DemoPatient[] = [
     alamat: 'Jl. Akasia 8, Jakarta Barat',
     riwayat: 'Infark miokard akut non-ST elevasi (2025)',
   },
+  // Pasien tambahan roster hari demo: papan IGD, Poli PD, kasir, farmasi, dan kamar bersalin tidak lagi meminjam
+  // pasien dari layar lain.
+  {
+    id: 'ps-sumarni',
+    rm: '00-66-21-04',
+    nama: 'Ny. Sumarni Pakpahan',
+    jk: 'P',
+    tanggalLahir: '1974-08-11',
+    umur: 52,
+    nikMasked: '9999••••••••0811',
+    bpjsMasked: null,
+    penjamin: 'Umum',
+    kelas: null,
+    alergi: [],
+    telepon: '0812-0000-6621',
+    alamat: 'Jl. Nangka 15, Jakarta Timur',
+    riwayat: 'Kolelitiasis · nyeri perut kanan atas berulang',
+  },
+  {
+    id: 'ps-joko',
+    rm: '00-47-90-12',
+    nama: 'Tn. Joko Susilo',
+    jk: 'L',
+    tanggalLahir: '1980-05-19',
+    umur: 46,
+    nikMasked: '9999••••••••0519',
+    bpjsMasked: '0000479•••012',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 1',
+    alergi: [],
+    telepon: '0812-0000-4790',
+    alamat: 'Jl. Duku 6, Depok',
+    riwayat: 'Fraktur batang femur kanan · ORIF Sep 2026',
+  },
+  {
+    id: 'ps-fauzi',
+    rm: '00-53-18-27',
+    nama: 'Tn. Ahmad Fauzi',
+    jk: 'L',
+    tanggalLahir: '1977-02-03',
+    umur: 49,
+    nikMasked: '9999••••••••0203',
+    bpjsMasked: '0000531•••827',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 2',
+    alergi: [],
+    telepon: '0812-0000-5318',
+    alamat: 'Jl. Kemuning 21, Jakarta Utara',
+    riwayat: 'Dispepsia · perokok aktif',
+  },
+  {
+    id: 'ps-robert',
+    rm: '00-24-66-81',
+    nama: 'Tn. Robert Manurung',
+    jk: 'L',
+    tanggalLahir: '1962-11-27',
+    umur: 63,
+    nikMasked: '9999••••••••1127',
+    bpjsMasked: '0000246•••681',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 1',
+    alergi: [],
+    telepon: '0812-0000-2466',
+    alamat: 'Jl. Bambu Kuning 2, Jakarta Timur',
+    riwayat: 'Gagal jantung · infark miokard lama · rawat ICU 28 Sep – 3 Okt 2026',
+  },
+  {
+    id: 'ps-gilang',
+    rm: '00-69-05-33',
+    nama: 'Tn. Gilang Mahendra',
+    jk: 'L',
+    tanggalLahir: '1996-03-08',
+    umur: 30,
+    nikMasked: '9999••••••••0308',
+    bpjsMasked: null,
+    penjamin: 'Umum',
+    kelas: null,
+    alergi: [],
+    telepon: '0812-0000-6905',
+    alamat: 'Jl. Kenari Raya 30, Jakarta Pusat',
+    riwayat: 'Infeksi saluran napas atas',
+  },
+  {
+    id: 'ps-wahyuni',
+    rm: '00-31-57-46',
+    nama: 'Ny. Sri Wahyuni',
+    jk: 'P',
+    tanggalLahir: '1969-07-22',
+    umur: 57,
+    nikMasked: '9999••••••••0722',
+    bpjsMasked: '0000315•••746',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 2',
+    alergi: [],
+    telepon: '0812-0000-3157',
+    alamat: 'Jl. Delima 8, Jakarta Timur',
+    riwayat: 'Hipertensi esensial · dislipidemia · peserta PRB',
+  },
+  {
+    id: 'ps-rohana',
+    rm: '00-14-82-59',
+    nama: 'Ny. Rohana Siregar',
+    jk: 'P',
+    tanggalLahir: '1966-01-15',
+    umur: 60,
+    nikMasked: '9999••••••••0115',
+    bpjsMasked: '0000148•••259',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 2',
+    alergi: ['Amoksisilin'],
+    telepon: '0812-0000-1482',
+    alamat: 'Jl. Matraman Dalam 4, Jakarta Timur',
+    riwayat: 'Pneumonia komunitas (rawat inap Sep 2026) · DM tipe 2',
+  },
+  {
+    id: 'ps-sugeng',
+    rm: '00-59-34-70',
+    nama: 'Tn. Sugeng Riyadi',
+    jk: 'L',
+    tanggalLahir: '1964-04-05',
+    umur: 62,
+    nikMasked: '9999••••••••0405',
+    bpjsMasked: '0000593•••470',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 3',
+    alergi: [],
+    telepon: '0812-0000-5934',
+    alamat: 'Jl. Pala 12, Bekasi',
+    riwayat: 'Infark serebral lama · hipertensi · nyeri pinggang (curiga HNP)',
+  },
+  {
+    id: 'ps-fransiska',
+    rm: '00-72-13-95',
+    nama: 'Ny. Fransiska Lumbantobing',
+    jk: 'P',
+    tanggalLahir: '1978-09-30',
+    umur: 48,
+    nikMasked: '9999••••••••0930',
+    bpjsMasked: null,
+    penjamin: 'Asuransi',
+    kelas: 'Kelas 1',
+    alergi: [],
+    telepon: '0812-0000-7213',
+    alamat: 'Jl. Cikini Raya 40, Jakarta Pusat',
+    riwayat: 'Hiperurisemia · obesitas',
+  },
+  {
+    id: 'ps-anisa',
+    rm: '00-80-42-16',
+    nama: 'Ny. Anisa Rahmadani',
+    jk: 'P',
+    tanggalLahir: '1999-06-12',
+    umur: 27,
+    nikMasked: '9999••••••••0612',
+    bpjsMasked: '0000804•••216',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 3',
+    alergi: [],
+    telepon: '0812-0000-8042',
+    alamat: 'Jl. Sukun 9, Tangerang',
+    riwayat: 'G1P0A0 hamil 38 minggu · gawat janin',
+  },
+  {
+    id: 'ps-lukman',
+    rm: '00-35-61-88',
+    nama: 'Tn. Lukman Hakim',
+    jk: 'L',
+    tanggalLahir: '1975-12-02',
+    umur: 50,
+    nikMasked: '9999••••••••1202',
+    bpjsMasked: '0000356•••188',
+    penjamin: 'BPJS',
+    kelas: 'Kelas 2',
+    alergi: [],
+    telepon: '0812-0000-3561',
+    alamat: 'Jl. Salak 3, Jakarta Selatan',
+    riwayat: 'DM tipe 2 · kontrol rutin Poli PD',
+  },
 ];
 
 export function patientById(id: string): DemoPatient | undefined {
@@ -379,3 +558,293 @@ export function patientByEncounterId(encounterId: string): DemoPatient | undefin
 export function consentIdOf(patientId: string): string {
   return patientId.replace(/^ps-/, 'pk-');
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Roster hari demo: Sen, 5 Okt 2026 · 10.45 (`DEMO_NOW`)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Tempat fisik pasien pada jam demo. */
+export type Lokasi =
+  | { di: 'skenario' }
+  | { di: 'pendaftaran' }
+  | { di: 'poli'; poli: string }
+  | { di: 'igd'; bed: string }
+  | { di: 'ranap'; bed: string }
+  | { di: 'kamar-bersalin' }
+  | { di: 'kamar-operasi'; kamar: string }
+  | { di: 'radiologi'; ruang: string }
+  | { di: 'kasir'; antrean: string }
+  | { di: 'farmasi' };
+
+/** Kunci banding lokasi: `igd:B5`, `ranap:M-203`, `farmasi`. */
+export function lokasiKey(l: Lokasi): string {
+  switch (l.di) {
+    case 'poli':
+      return `poli:${l.poli}`;
+    case 'igd':
+    case 'ranap':
+      return `${l.di}:${l.bed}`;
+    case 'kamar-operasi':
+      return `kamar-operasi:${l.kamar}`;
+    case 'radiologi':
+      return `radiologi:${l.ruang}`;
+    case 'kasir':
+      return `kasir:${l.antrean}`;
+    default:
+      return l.di;
+  }
+}
+
+export interface RosterEntry {
+  patientId: string;
+  /**
+   * Tempat pasien pukul 10.45. `skenario` = pasien Simulasi; tempatnya mengikuti mesin skenario (proyeksi), bukan
+   * fixture statis.
+   */
+  lokasi: Lokasi;
+  /** Tempat kedua yang sah secara klinis (mis. bed tetap dipegang selama di ruang pulih), wajib beralasan. */
+  juga?: ReadonlyArray<{ lokasi: Lokasi; alasan: string }>;
+  /** Poli yang dikunjungi atau didaftar hari ini (kode `POLI`): order penunjang dari poli harus cocok. */
+  poliHariIni?: readonly string[];
+  /** Cerita ringkas hari demo (untuk pembawa presentasi dan peninjau). */
+  cerita: string;
+}
+
+/**
+ * Roster baku hari demo: setiap pasien `PASIEN` punya tepat satu tempat pukul 10.45, kecuali tempat kedua yang sah
+ * secara klinis (`juga`). Fixture per layar (IGD, poli, papan TV, bed, rawat inap, OK, kasir, lab, farmasi,
+ * radiologi) harus cocok dengan daftar ini; dijaga `fixtures.test.ts`.
+ */
+export const ROSTER: readonly RosterEntry[] = [
+  {
+    patientId: 'ps-suryo',
+    lokasi: { di: 'skenario' },
+    cerita: 'Skenario rawat jalan: anjungan A-031 → loket 3 → Poli PD PD-027 → lab → farmasi → kasir K-015.',
+  },
+  {
+    patientId: 'ps-hartono',
+    lokasi: { di: 'skenario' },
+    cerita: 'Skenario IGD → rawat inap: IGD R2 → ICU 3 / HCU 2 → Anggrek A-12.',
+  },
+  {
+    patientId: 'ps-ratna',
+    lokasi: { di: 'skenario' },
+    cerita: 'Skenario elektif TPDI × BTN: admisi → VIP 3 atau Melati M-210 → OK 2 pukul 10.30.',
+  },
+  {
+    patientId: 'ps-siti',
+    lokasi: { di: 'pendaftaran' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Baru datang kontrol hipertensi dengan surat kontrol Poli PD: di anjungan/loket 3, belum terdaftar (tiket A-032, antrean PD-028).',
+  },
+  {
+    patientId: 'ps-endang',
+    lokasi: { di: 'ranap', bed: 'M-203' },
+    juga: [
+      {
+        lokasi: { di: 'kasir', antrean: 'K-007' },
+        alasan: 'Keluarga melunasi selisih naik kelas di kasir sebelum pasien pulang',
+      },
+    ],
+    cerita:
+      'Pneumonia + DM, Melati M-203 hari ke-5, pulang hari ini: resume menunggu TTE, resep pulang di farmasi, tagihan final (sisa Rp 250.400 lewat QRIS setelah EDC ditolak).',
+  },
+  {
+    patientId: 'ps-darmawan',
+    lokasi: { di: 'poli', poli: 'PD' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Gout + dispepsia, menunggu dipanggil di Poli PD (PD-026); CPOE dengan blok CDS alergi ibuprofen.',
+  },
+  {
+    patientId: 'ps-lestiani',
+    lokasi: { di: 'igd', bed: 'B3' },
+    cerita:
+      'Kode stroke di IGD B3 sejak 10.10: CT kepala sudah diekspertise, lab tambahan menunggu sampel, minta bed kelas 3.',
+  },
+  {
+    patientId: 'ps-yusuf',
+    lokasi: { di: 'ranap', bed: 'A-15' },
+    cerita:
+      'CKD st. 5, Anggrek A-15 hari ke-3: kalium kritis 6,4 (10.39) belum dilaporkan; pasang kateter HD di OK 1 pukul 13.00.',
+  },
+  {
+    patientId: 'ps-rizky',
+    lokasi: { di: 'kamar-operasi', kamar: 'OK 4' },
+    juga: [
+      {
+        lokasi: { di: 'ranap', bed: 'K-412' },
+        alasan: 'Bed Kenanga tetap milik pasien selama di ruang pulih; kembali ke bed setelah pulih',
+      },
+    ],
+    cerita:
+      'Fraktur femur (KLL) masuk 2 Okt; ORIF di OK 4 selesai 10.28, kini di ruang pulih; foto kontrol 11.00.',
+  },
+  {
+    patientId: 'ps-maria',
+    lokasi: { di: 'radiologi', ruang: 'CT 1' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Kemoterapi: lab pra-kemo, kateter vena sentral di OK 1 selesai 09.52, kini CT restaging; kontrol dr. Rahmat 13.00 lalu rawat inap (minta bed kelas 2).',
+  },
+  {
+    patientId: 'ps-wulan',
+    lokasi: { di: 'ranap', bed: 'W-322' },
+    cerita:
+      'SC elektif pagi ini di OK 3 (bayi lahir 07.52), kini di Mawar W-322; cicilan naik kelas VIP baru diajukan.',
+  },
+  {
+    patientId: 'ps-raka',
+    lokasi: { di: 'ranap', bed: 'W-308' },
+    cerita:
+      'DBD hari sakit ke-4, Mawar W-308 hari rawat ke-2: lab serial cito, tagihan berjalan, deposit naik kelas lewat VA setelah kartu kredit ditolak.',
+  },
+  {
+    patientId: 'ps-sutan',
+    lokasi: { di: 'ranap', bed: 'VIP 2' },
+    cerita:
+      'Angina tidak stabil, pindah ke Paviliun VIP 2 setelah deposit naik kelas lunas 09.12; resep ditahan CDS, angiografi 13.00, konsul PD (eGFR 42).',
+  },
+  {
+    patientId: 'ps-ayu',
+    lokasi: { di: 'kasir', antrean: 'K-011' },
+    poliHariIni: ['PD'],
+    cerita: 'Umum, ISPA: Poli PD PD-022 selesai 09.14, tagihan berjalan menunggu dibayar di kasir K-011.',
+  },
+  {
+    patientId: 'ps-hendro',
+    lokasi: { di: 'ranap', bed: 'ICU 2' },
+    cerita:
+      'Pneumonia + gagal napas, ICU 2 hari ke-3 (ventilator): foto toraks portabel berlangsung, persetujuan CVC di tablet.',
+  },
+  {
+    patientId: 'ps-aminah',
+    lokasi: { di: 'ranap', bed: 'ICU 7' },
+    cerita: 'Syok septik, ICU 7 hari ke-2: resep cito meropenem, kultur darah dalam inkubasi.',
+  },
+  {
+    patientId: 'ps-nadia',
+    lokasi: { di: 'igd', bed: 'B4' },
+    cerita:
+      'Demam anak, observasi di IGD B4; obat dari depo IGD siap diserahkan. Deposit rawat inap 1 Okt sudah dikembalikan (batal rawat).',
+  },
+  {
+    patientId: 'ps-fajar',
+    lokasi: { di: 'kamar-operasi', kamar: 'OK 2' },
+    cerita:
+      'Kolesistektomi laparoskopik elektif di OK 2 selesai 09.24, di ruang pulih menunggu bed kelas 1; uang muka VA (webhook gagal), cicilan selisih plafon asuransi.',
+  },
+  {
+    patientId: 'ps-dewi',
+    lokasi: { di: 'poli', poli: 'PD' },
+    poliHariIni: ['PD'],
+    cerita: 'Dispepsia, Poli PD PD-023: menunggu hasil darah lengkap dan ekspertise USG abdomen.',
+  },
+  {
+    patientId: 'ps-bonifasius',
+    lokasi: { di: 'farmasi' },
+    poliHariIni: ['JT'],
+    cerita:
+      'Pulang rawat angina 3 Okt, kontrol Poli Jantung pagi ini; tagihan lunas, menunggu serah terima obat PRB; refund lab APS diproses.',
+  },
+  {
+    patientId: 'ps-sumarni',
+    lokasi: { di: 'igd', bed: 'B5' },
+    cerita:
+      'Umum, kolik bilier: di IGD B5 sejak 06.05 menunggu bed kelas 1 (terlambat); USG sudah diekspertise, deposit QRIS (selisih MDR), kolesistektomi 14.00.',
+  },
+  {
+    patientId: 'ps-joko',
+    lokasi: { di: 'igd', bed: 'B6' },
+    cerita:
+      'Nyeri lutut kanan setelah jatuh, IGD B6. Riwayat ORIF femur Sep 2026 (klaim dispute tarif, cicilan naik kelas VIP).',
+  },
+  {
+    patientId: 'ps-fauzi',
+    lokasi: { di: 'igd', bed: 'B7' },
+    cerita: 'Nyeri ulu hati sejak pagi, IGD B7 menunggu dokter (EKG).',
+  },
+  {
+    patientId: 'ps-robert',
+    lokasi: { di: 'igd', bed: 'B8' },
+    cerita:
+      'Sesak + kaki bengkak, IGD B8 menunggu lab, minta bed jantung kelas 1 telemetri; pulang rawat ICU 3 Okt (dua laporan IKP).',
+  },
+  {
+    patientId: 'ps-gilang',
+    lokasi: { di: 'igd', bed: 'K1' },
+    cerita: 'Umum, ISPA fast track di IGD K1: sudah bayar EDC 10.38, siap pulang.',
+  },
+  {
+    patientId: 'ps-wahyuni',
+    lokasi: { di: 'farmasi' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Kontrol hipertensi Poli PD PD-024 selesai 09.40, tagihan lunas 09.55, menunggu obat PRB di farmasi.',
+  },
+  {
+    patientId: 'ps-rohana',
+    lokasi: { di: 'poli', poli: 'PD' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Kontrol pasca rawat pneumonia + DM, sedang diperiksa dr. Andini (PD-025); alergi amoksisilin (blok CDS di CPOE).',
+  },
+  {
+    patientId: 'ps-sugeng',
+    lokasi: { di: 'farmasi' },
+    poliHariIni: ['SR'],
+    cerita:
+      'Kontrol Poli Saraf, tagihan lunas; resep PRB ditelaah, QRIS sitikolin (non-Fornas) kedaluwarsa; MRI lumbosakral 14.00.',
+  },
+  {
+    patientId: 'ps-fransiska',
+    lokasi: { di: 'kasir', antrean: 'K-009' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Asuransi, kontrol hiperurisemia di Poli PD (PD-021); tagihan final (ekses plafon) menunggu dibayar di kasir K-009.',
+  },
+  {
+    patientId: 'ps-anisa',
+    lokasi: { di: 'kamar-bersalin' },
+    cerita:
+      'Hamil 38 minggu, gawat janin: lab dan resep pra-operasi dari kamar bersalin, SC cito di OK 3 pukul 11.00.',
+  },
+  {
+    patientId: 'ps-lukman',
+    lokasi: { di: 'kasir', antrean: 'K-010' },
+    poliHariIni: ['PD'],
+    cerita:
+      'Kontrol DM di Poli PD (PD-020); tagihan BPJS final menunggu ditutup di kasir K-010, klaim RJ siap.',
+  },
+];
+
+export function rosterOf(patientId: string): RosterEntry | undefined {
+  return ROSTER.find((r) => r.patientId === patientId);
+}
+
+/** Satu baris antrean poli. */
+export interface AntreanPoli {
+  no: string;
+  patientId: string;
+  status: PoliQueueItem['status'];
+  /** Jam dipanggil ke ruang periksa (`07.58`), null bila belum. Urutan panggilan = riwayat papan TV. */
+  dipanggil: string | null;
+}
+
+/**
+ * Antrean Poli Penyakit Dalam dr. Andini (Ruang 2) hari ini: satu sumber nomor dan status untuk layar Pemeriksaan
+ * dan papan antrean TV. PD-027 milik Tn. Suryo (skenario; masuk lewat proyeksi setelah SEP terbit).
+ */
+export const ANTREAN_POLI_PD: readonly AntreanPoli[] = [
+  { no: 'PD-020', patientId: 'ps-lukman', status: 'selesai', dipanggil: '08.40' },
+  { no: 'PD-021', patientId: 'ps-fransiska', status: 'selesai', dipanggil: '08.52' },
+  { no: 'PD-022', patientId: 'ps-ayu', status: 'selesai', dipanggil: '09.04' },
+  { no: 'PD-023', patientId: 'ps-dewi', status: 'menunggu-hasil', dipanggil: '09.16' },
+  { no: 'PD-024', patientId: 'ps-wahyuni', status: 'selesai', dipanggil: '09.26' },
+  { no: 'PD-025', patientId: 'ps-rohana', status: 'diperiksa', dipanggil: '10.31' },
+  { no: 'PD-026', patientId: 'ps-darmawan', status: 'menunggu', dipanggil: null },
+];
+
+/** Nomor antrean Poli PD berikutnya untuk pendaftaran baru (sesudah PD-027 milik Tn. Suryo). */
+export const NEXT_POLI_PD = 28;

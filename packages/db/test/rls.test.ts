@@ -34,7 +34,8 @@ afterAll(async () => {
 /**
  * RS fiktif baru khusus tes outbox. `claimDueOutbox` mengambil pesan jatuh tempo TERTUA lebih dulu (LIMIT); di
  * tenant seed bersama, pesan sisa tes API (tidak ada worker di database tes) menumpuk sampai pesan tes ini tidak
- * lagi masuk batch, sehingga tes gagal sesekali tergantung isi database.
+ * lagi masuk batch, sehingga tes gagal sesekali tergantung isi database. Tenant sendiri membuat batch hanya berisi
+ * pesan tes ini (lebih kuat daripada menaikkan batas ambil, yang tetap bergantung pada jumlah pesan sisa).
  */
 async function outboxTenant(): Promise<string> {
   const id = newId();

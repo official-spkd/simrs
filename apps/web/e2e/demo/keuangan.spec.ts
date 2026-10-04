@@ -30,7 +30,7 @@ test.describe('kasir', () => {
       );
     const total = await bill.locator('[data-total-amount]').getAttribute('data-total-amount');
     expect(sum).toBe(total);
-    await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 18.297.500');
+    await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 17.217.500');
     await expect(page.getByRole('region', { name: 'Pembagian penjamin' })).toContainText('Rp 1.250.400');
 
     const pay = page.getByRole('region', { name: 'Pembayaran' });
