@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScaleToFit } from '@/components/scale-to-fit';
 import { patientById } from '@/lib/demo/fixtures/pasien';
-import { getConsentDocument, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { consentTurn, getConsentDocument } from '@/lib/server/data/rawat-inap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { ConsentTablet } from './consent-tablet';
 
@@ -13,7 +13,8 @@ type Params = Promise<{ id: string }>;
 
 /**
  * K11 · Tablet persetujuan tindakan (mockup `Consent.dc.html`, kanvas 834×1194). Untuk Tn. Hartono, TTE dokter
- * setelah tanda tangan pasien + saksi menjalankan tugas `tata-laksana.consent` skenario IGD → rawat inap.
+ * setelah tanda tangan pasien + saksi menjalankan tugas `tata-laksana.consent` skenario IGD → rawat inap; di luar
+ * gilirannya (dan persetujuan operasi Ny. Ratna, yang final bersama SEP) tablet menampilkan keadaan menunggu.
  */
 export default async function PersetujuanPage({ params }: { params: Params }) {
   const { session, screen, allowed } = await requireDemoScreen('consent');
@@ -29,7 +30,7 @@ export default async function PersetujuanPage({ params }: { params: Params }) {
   if (!doc) notFound();
   const p = patientById(doc.patientId);
   if (!p) notFound();
-  const [tl] = id === 'pk-hartono' ? await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]) : [];
+  const turn = await consentTurn(session, doc);
 
   return (
     <ScaleToFit
@@ -42,7 +43,8 @@ export default async function PersetujuanPage({ params }: { params: Params }) {
         doc={doc}
         patient={`${p.nama} · RM ${p.rm}`}
         canSign={session.role?.code === 'dokter'}
-        scenario={tl ?? null}
+        scenario={turn.step}
+        wait={turn.wait}
       />
     </ScaleToFit>
   );

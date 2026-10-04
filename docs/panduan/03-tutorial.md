@@ -4,7 +4,7 @@ Langkah praktis untuk pengembang baru. Konsepnya dijelaskan di [Cara sistem beke
 
 ## 1. Menyiapkan mesin
 
-Prasyarat: Node 24.7 atau lebih baru (argon2id bawaan, ADR-0011), Git, dan salah satu dari Docker Desktop (disarankan) atau Postgres portabel.
+Prasyarat: Node 24.7 atau lebih baru (argon2id bawaan, ADR-0011), Git, dan salah satu dari Docker (disarankan; Docker Desktop, atau OrbStack di macOS) atau Postgres portabel.
 
 ```powershell
 # pnpm lewat corepack, dipasang ke folder pengguna (tanpa hak admin)
@@ -36,26 +36,40 @@ jadi cukup di-seed ulang (kunci `.env` baru membuat data terenkripsi dari mesin 
 masalah).
 
 ```bash
-brew install node@24 git          # atau nvm/fnm; Node ≥ 24.7
-corepack enable pnpm
 git clone https://github.com/faris315mfaf-ai/simrs.git && cd simrs
+nvm install && nvm use            # Node 24 dari .nvmrc (atau Homebrew node@24); Node ≥ 24.7
+corepack enable                   # pnpm, versinya dari "packageManager" di package.json
 pnpm install
 pnpm env:init                     # .env baru dengan kunci acak
 pnpm doctor
-# Docker Desktop for Mac (Apple Silicon/Intel), lalu:
+open -a OrbStack                  # Docker lewat OrbStack (atau Docker Desktop for Mac)
 pnpm infra:up && pnpm infra:ps    # Postgres, Redis, MinIO, Mailpit
 pnpm build && pnpm db:deploy && pnpm db:seed
 pnpm db:akun-presentasi           # 16 akun presentasi (kredensial di .local/)
 pnpm dev:demo                     # mode presentasi; atau pnpm dev
-pnpm --filter @simrs/web exec playwright install chromium   # E2E di macOS memakai Chromium
+pnpm --filter @simrs/web exec playwright install chromium   # E2E di macOS memakai Chromium, bukan Edge
 ```
 
-Dengan Docker di Mac, tes BullMQ (Redis) dan `/ready` bisa hijau, sehingga dua kriteria sisa fase 0 dapat ditutup.
-Draf PIN masuk cepat (10c-2) ada di cabang `wip/pin-masuk-cepat-10c-2` (belum diterapkan ke database mana pun).
+Yang perlu diketahui di Mac (dicoba 5 Okt 2026, Apple Silicon):
+
+- **`node` harus v24.** Bila `node -v` menunjukkan versi lain karena alat lain menaruh `node`-nya lebih dulu di
+  `PATH` (contoh: Hermes Agent memasang Node 26 di `~/.local/bin`), awali setiap terminal dengan
+  `export PATH="$HOME/.nvm/versions/node/v24.21.0/bin:$PATH"` (sesuaikan versinya: `ls ~/.nvm/versions/node`).
+  Node 25 ke atas juga tidak lagi membawa corepack.
+- `pnpm install` menjalankan skrip pasang `@embedded-postgres/darwin-arm64` (diizinkan di `allowBuilds`,
+  `pnpm-workspace.yaml`), jadi `pnpm pg:portable` juga jalan di Apple Silicon.
+- Image `minio/minio` dan `minio/mc` tidak bisa ditarik lagi; `docker-compose.yml` memakai build komunitas
+  `pgsty/minio` dan `pgsty/mc` (drop-in).
+- **Port bentrok** dengan aplikasi lain di Mac diatasi lewat `.env`:
+
+| Gejala                                                   | Ubah                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `localhost:5432` sudah dipakai (mis. Postgres Homebrew)  | Sebelum `pnpm infra:up`: `POSTGRES_PORT=5433` dan port yang sama di keempat URL database (`DATABASE_URL`, `MIGRATOR_DATABASE_URL`, `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`). `pnpm infra:up`, `pnpm with-pg`, `pnpm doctor`, dan `pnpm demo:cek` mengikuti `POSTGRES_PORT`                                                                                      |
+| `localhost:3000`/`4000` dijawab aplikasi lain lewat IPv6 | Buka web di `http://127.0.0.1:3000` (diizinkan `allowedDevOrigins` di `next.config.ts`). `API_BASE_URL` dan `TPDI_WEBHOOK_TARGET` memakai `127.0.0.1:4000` (bawaan `.env.example`). `WEB_BASE_URL` tetap `http://localhost:3000`: tes CORS API mematok nilai itu. `pnpm doctor` memeriksa tiap port di `127.0.0.1` dan `::1` dan menandai yang dijawab aplikasi lain |
 
 ### Pilihan A: Docker (jalur utama)
 
-Butuh virtualisasi aktif. Di Windows: aktifkan VT-x/AMD-V di BIOS, jalankan `wsl --install --no-distribution` di PowerShell **Administrator**, restart, lalu buka Docker Desktop.
+Butuh virtualisasi aktif. Di Windows: aktifkan VT-x/AMD-V di BIOS, jalankan `wsl --install --no-distribution` di PowerShell **Administrator**, restart, lalu buka Docker Desktop. Di macOS: OrbStack (`open -a OrbStack`) atau Docker Desktop.
 
 ```powershell
 pnpm infra:up        # Postgres, Redis, MinIO, Mailpit
@@ -86,9 +100,20 @@ pnpm db:deploy       # terapkan semua migrasi ke database simrs
 pnpm db:seed         # 3 tenant RS fiktif (RSCM, RSFA, RSFB) + tenant PLATFORM (operator)
 ```
 
+Per RS, seed mengisi struktur (12 unit, kamar, bed), formulir Morse, pasien fiktif (RSCM dan RSFA 200, RSFB 30), dan
+**33 staf fiktif** lintas 16 peran (dokter per poli/bangsal/OK/IGD/penunjang, residen, perawat, bidan, apoteker, analis
+lab, radiografer, pendaftaran, kasir, koder, rekam medis, akuntan, manajemen, mutu, privasi, admin SIM RS) beserta
+penugasan unitnya. Daftarnya ada di `SEED_STAFF` (`packages/db/src/seed-data.ts`). Nama pengguna staf = NIP fiktif
+berawalan `9999` (mis. `999901292022022025`), no. HP fiktif `0813-0000-1xxx` (tersimpan terenkripsi). Seed aman diulang:
+akun yang sudah ada tidak diubah.
+
+Staf seed **tidak punya kata sandi** dan belum mendaftarkan MFA, jadi tidak bisa masuk. Untuk memakai salah satunya,
+admin SIM RS membuka **Pengguna & akses**, memilih staf itu, lalu **Reset kata sandi**: sandi sementara tampil sekali, dan
+saat login pertama staf wajib mendaftarkan aplikasi autentikator lalu mengganti sandi (sama dengan undangan biasa).
+
 ### Buat akun untuk masuk
 
-Tidak ada akun bawaan. Buat admin RS dan operator platform (untuk membuka panduan ini) lewat CLI:
+Tidak ada akun yang bisa langsung dipakai. Buat admin RS dan operator platform (untuk membuka panduan ini) lewat CLI:
 
 ```powershell
 pnpm db:create-admin --tenant RSFA --username admin.rsfa --name "Admin RS Fiktif"
@@ -465,7 +490,7 @@ Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan 
 pnpm lint
 pnpm typecheck
 pnpm test                          # unit + integrasi (butuh Postgres; worker dan tes batas laju API juga butuh Redis)
-pnpm --filter @simrs/web test:e2e  # Playwright; web harus jalan di :3000
+pnpm --filter @simrs/web test:e2e  # Playwright; menyalakan sendiri API :4010 + build web :3010 dan :3011 (presentasi)
 ```
 
 Sebelum commit:
@@ -474,6 +499,42 @@ Sebelum commit:
 2. Periksa [daftar periksa keamanan](./02-cara-kerja-kode.md#daftar-periksa-keamanan-per-perubahan).
 3. Commit dengan Conventional Commits dan sebut kode komponen, misalnya `feat(units): master unit layanan` dengan badan `Komponen: P01`.
 4. Perbarui `docs/PROGRESS.md`. Keputusan arsitektur baru dicatat sebagai ADR di `docs/adr/`.
+
+### Beberapa salinan repo sekaligus (git worktree)
+
+Beberapa cabang bisa dikerjakan dan dites bersamaan (mis. oleh beberapa agen) dengan `git worktree`. Postgres (satu server), Redis, MinIO, Mailpit, dan port `pnpm dev` (3000/4000/4100) dipakai bersama, jadi `pnpm dev` hanya di satu salinan. Yang dipisah per salinan: `.env`, database, dan slot E2E. Penghitung batas laju API di Redis otomatis terpisah per database (awalan kunci `simrs:rl:<nama database>:`).
+
+1. Buat salinan dan `.env`-nya (`.env` tidak ikut git; kunci enkripsinya boleh sama):
+
+   ```bash
+   git worktree add ../simrs-pin -b feat/pin     # dari checkout utama
+   cd ../simrs-pin
+   cp ../simrs/.env .env
+   pnpm install && pnpm build
+   ```
+
+2. Buat database sendiri sebagai superuser `postgres`, lalu arahkan **keempat** URL database di `.env` salinan itu ke sana (`DATABASE_URL`, `MIGRATOR_DATABASE_URL`, `TEST_DATABASE_URL`, `TEST_APP_DATABASE_URL`):
+
+   ```bash
+   docker compose exec postgres psql -U postgres -c "CREATE DATABASE simrs_test_pin OWNER simrs_migrator"
+   ```
+
+   Nama wajib `simrs_test_<nama>` (huruf kecil, angka, garis bawah): persiapan tes (`assertTestDatabase` di `@simrs/db/testing`) menolak nama lain agar tes tidak pernah memigrasi atau mengisi database pengembangan. Database kosong cukup; `pnpm test` atau E2E pertama menerapkan migrasi dan seed tenant fiktif sendiri (migrasi memuat `CREATE EXTENSION` dan `GRANT`, ADR-0008).
+
+3. Jalankan E2E di slot sendiri. Bawaannya API :4010, web :3010, web presentasi :3011, dan folder sementara `simrs-demo-e2e` (kredensial akun presentasi uji + keadaan simulasi); dua salinan dengan nilai yang sama saling bertabrakan:
+
+   ```bash
+   E2E_API_PORT=4020 E2E_WEB_PORT=3020 E2E_DEMO_PORT=3021 E2E_TMP_NAME=simrs-demo-e2e-pin \
+     pnpm --filter @simrs/web test:e2e
+   ```
+
+   Port yang sudah terpakai membuat Playwright berhenti dengan pesan "… is already used". Tangkapan `QA_VISUAL=1` masuk ke `.local/qa-visual/` milik salinan itu.
+
+Aturan:
+
+- Migrasi dari cabang yang belum digabung **hanya** diterapkan ke database salinan itu sendiri, tidak ke `simrs` atau database salinan lain. Setelah digabung ke `master`, checkout utama menerapkannya dengan `pnpm db:deploy`.
+- Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
+- Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
 ## 8. Pemecahan masalah
 
@@ -484,7 +545,9 @@ Sebelum commit:
 | Port 9001 sudah dipakai                                      | Program lain (mis. Laravel Herd). Setel `MINIO_CONSOLE_PORT=9011` di `.env`.                                                                                                          |
 | `TENANT_REQUIRED` atau "Akses data di luar transaksi tenant" | Controller lupa `@TenantScoped()`, atau kode di luar permintaan (seed, worker) tidak memakai `withTenant`.                                                                            |
 | `new row violates row-level security policy`                 | Menulis baris dengan `tenant_id` berbeda dari konteks. Ambil `tenantId` dari `@CurrentTenant()`, jangan dari body.                                                                    |
-| Tes: "prisma migrate deploy gagal untuk simrs_test"          | Postgres mati, atau migrasi lama diubah. Jalankan Postgres. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (menghapus simrs_test saja).                                      |
+| Tes: "prisma migrate deploy gagal untuk simrs_test…"         | Postgres mati, database tes belum dibuat, atau migrasi lama diubah. Bila checksum ditolak: `pnpm db:test:recreate -- --yes` (hanya database tes di `TEST_DATABASE_URL`).              |
+| Tes: "Persiapan tes menolak database …"                      | `TEST_DATABASE_URL`/`TEST_APP_DATABASE_URL` harus menunjuk `simrs_test` atau `simrs_test_<nama>` ([salinan paralel](#beberapa-salinan-repo-sekaligus-git-worktree)).                  |
+| `node -v` bukan v24, atau `corepack` tidak dikenal           | Alat lain menaruh `node`-nya lebih dulu di `PATH`. Lihat [Mesin baru (macOS)](#mesin-baru-macos).                                                                                     |
 | Prisma menolak `migrate reset` dari agen AI                  | Pengaman Prisma. Reset database hanya oleh manusia secara sadar. Tes tidak pernah membutuhkannya.                                                                                     |
 | `/docs` atau `/superadmin` 404                               | `APP_ENV` tidak `local`/`staging`. Periksa `.env`, lalu restart.                                                                                                                      |
 | Tes worker/API: "Redis tidak terjangkau"                     | Redis butuh Docker (`pnpm infra:up`). Tes BullMQ dan tes batas laju bersama sengaja tidak dilewati.                                                                                   |

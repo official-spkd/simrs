@@ -2,8 +2,9 @@
 
 import type { EdTrackingItem, EdZone, TriageLevel } from '@simrs/shared';
 import { cx } from '@simrs/ui';
+import { StatusFlag } from '@/components/klinis/status-flag';
 import { TriageBadge } from '@/components/rawat-inap/triage-badge';
-import { ED_STATUS_META, ED_ZONE_LABEL, formatLos, losOverdue, TRIAGE_META } from '@/lib/rawat-inap';
+import { ED_STATUS_META, ED_ZONE_LABEL, edLosAlert, formatLos, TRIAGE_META } from '@/lib/rawat-inap';
 
 const ZONES: Array<EdZone | 'semua'> = ['semua', 'T', 'R', 'B', 'K'];
 const LEVELS: Array<TriageLevel | 0> = [0, 1, 2, 3, 4, 5];
@@ -101,7 +102,7 @@ export function EdBoardTable({
       <ul className="m-0 list-none p-0" aria-label="Pasien di IGD">
         {shown.map((p) => {
           const mins = p.losMinutes + addMinutes(p.encounterId);
-          const late = losOverdue(p, mins);
+          const late = edLosAlert(p, mins);
           const on = p.encounterId === selected;
           const st = ED_STATUS_META[p.status];
           return (
@@ -131,14 +132,20 @@ export function EdBoardTable({
                   {p.chiefComplaint}
                 </span>
                 <span className="hidden px-3 py-2.5 text-small text-ink-700 lg:block">{p.doctor ?? '—'}</span>
-                <span
-                  className={cx(
-                    'px-3 pb-2 font-mono font-semibold lg:py-2.5',
-                    late ? 'text-danger' : 'text-ink-900',
+                <span className="flex flex-col items-start gap-1 px-3 pb-2 lg:py-2.5">
+                  <span
+                    className={cx(
+                      'font-mono font-semibold whitespace-nowrap',
+                      late ? 'text-danger' : 'text-ink-900',
+                    )}
+                  >
+                    {formatLos(mins)}
+                  </span>
+                  {late && (
+                    <StatusFlag icon="clock" inline>
+                      {late}
+                    </StatusFlag>
                   )}
-                >
-                  {formatLos(mins)}
-                  {late && <span className="sr-only"> (melewati batas)</span>}
                 </span>
                 <span className="col-span-3 px-3 pb-2.5 lg:col-span-1 lg:py-2.5">
                   <span className={cx('rounded-full px-2.5 py-[3px] text-caption font-semibold', st.tone)}>

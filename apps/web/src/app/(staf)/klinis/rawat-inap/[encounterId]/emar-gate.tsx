@@ -11,14 +11,17 @@ export interface EmarScan {
 }
 
 /**
- * Gerbang pindai gelang eMAR (CLAUDE.md §4.9): pemberian obat terkunci sampai gelang cocok. Gelang tak terbaca
- * → gerbang keselamatan: pindai ulang, atau lanjut dengan verifikasi manual dua identitas + alasan tertulis.
+ * Gerbang pindai gelang eMAR (CLAUDE.md §4.9): pemberian obat terkunci sampai gelang cocok (diperiksa server).
+ * Gelang tak terbaca → gerbang keselamatan: pindai ulang, atau lanjut dengan verifikasi manual dua identitas + alasan
+ * tertulis. Pasien skenario di luar gilirannya: tombol tetap terlihat, nonaktif, dengan alasannya.
  */
 export function EmarGate({
   scan,
   rm,
   name,
   note,
+  wait,
+  progress,
   busy,
   onScan,
   onOverride,
@@ -27,6 +30,10 @@ export function EmarGate({
   rm: string;
   name: string;
   note: string;
+  /** Alasan menunggu giliran Simulasi (pasien skenario), null = boleh pindai. */
+  wait: string | null;
+  /** Kemajuan dosis jam "kini" yang tampil setelah gelang cocok. */
+  progress: string | null;
   busy: boolean;
   onScan: () => void;
   onOverride: (reason: string) => void;
@@ -45,12 +52,13 @@ export function EmarGate({
       >
         <span className="font-semibold">
           {scan.status === 'cocok'
-            ? `✓ Pasien benar · gelang terpindai ${scan.at ?? ''} · RM ${rm}`
+            ? `✓ Pasien benar · gelang terpindai${scan.at ? ` ${scan.at}` : ''} · RM ${rm}`
             : `Override tercatat ${scan.at ?? ''} · verifikasi manual dua identitas`}
         </span>
         {scan.reason && <span className="text-ink-700">Alasan: {scan.reason}</span>}
         <span className="text-ink-700">
-          Pilih slot jadwal untuk memindai label obat dan mencatat pemberian.
+          Pilih satu slot jadwal, pindai label obatnya, lalu catat pemberian dosis itu.
+          {progress ? ` ${progress}` : ''}
         </span>
       </div>
     );
@@ -66,19 +74,29 @@ export function EmarGate({
             Pemberian obat terkunci sampai gelang pasien cocok
           </span>
           <span className="text-small text-ink-700">{note}</span>
+          {wait && (
+            <span id="emar-tunggu" className="text-small font-semibold text-ink-700">
+              {wait} Gelang dipindai pada langkah perawatan pasien ini.
+            </span>
+          )}
         </span>
         <span className="flex flex-wrap gap-2">
-          <Button variant="primary" disabled={busy} onClick={onScan}>
+          <Button
+            variant="primary"
+            disabled={busy || !!wait}
+            aria-describedby={wait ? 'emar-tunggu' : undefined}
+            onClick={onScan}
+          >
             Pindai gelang
           </Button>
           {!unreadable && (
-            <Button disabled={busy} onClick={() => setUnreadable(true)}>
+            <Button disabled={busy || !!wait} onClick={() => setUnreadable(true)}>
               Gelang tidak terbaca
             </Button>
           )}
         </span>
       </div>
-      {unreadable && (
+      {unreadable && !wait && (
         <SafetyGate
           title="Gelang tidak terbaca: identitas belum terverifikasi"
           recommendation="Pindai ulang gelang"

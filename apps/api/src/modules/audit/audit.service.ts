@@ -6,11 +6,15 @@ import {
   formSchemaSchema,
   AUDIT_ACTION_GROUPS,
   AUDIT_ANOMALY_KEY,
+  AUDIT_REVIEW_OUTCOMES,
   type AuditActionGroup,
+  type AuditAnomalyReviewEntry,
   type AuditAnomalyReviewInput,
+  type AuditReviewOutcome,
   AppError,
   formatTanggal,
   formatTanggalWaktu,
+  isoDateJakarta,
   NIGHT_SHIFT_ROLES,
 } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
@@ -46,7 +50,14 @@ export interface AnomalyFinding {
   lastAt: string;
   /** Akses darurat: id izin (ditinjau lewat /authz/break-glass/:id/review). */
   grantId: string | null;
-  review: { outcome: string; note: string | null; reviewedAt: string; reviewerId: string | null } | null;
+  /** Keputusan yang berlaku (tinjauan terbaru); riwayat lengkap lewat `anomalyReviewHistory`. */
+  review: {
+    outcome: AuditReviewOutcome;
+    note: string | null;
+    reviewedAt: string;
+    reviewerId: string | null;
+    reviewer: { id: string; displayName: string } | null;
+  } | null;
 }
 
 function toFilter(q: AuditQuery): AuditFilter {
@@ -66,6 +77,21 @@ const minutes = (hhmm: string) => {
   return Number(h) * 60 + Number(m);
 };
 const dayLabel = (day: string) => formatTanggal(`${day}T12:00:00+07:00`);
+
+/**
+ * Awal jendela temuan: 00.00 WIB, `days - 1` hari sebelum hari ini. Temuan dikelompokkan per tanggal WIB, jadi hari
+ * pertama ikut dihitung utuh; jendela bergulir (sekarang − n×24 jam) memotong hari pertama sehingga jumlah dan
+ * ambang temuan dengan kunci yang sama berubah-ubah menurut rentang yang dipilih. WIB tanpa DST.
+ */
+export function anomalyWindowStart(days: number, now: Date = new Date()): Date {
+  return new Date(new Date(`${isoDateJakarta(now)}T00:00:00+07:00`).getTime() - (days - 1) * DAY);
+}
+
+/** Keputusan dari entri audit `review` (`details.outcome`); entri tanpa keputusan yang dikenal diabaikan. */
+function reviewOutcome(details: unknown): AuditReviewOutcome | null {
+  const outcome = (details as { outcome?: unknown } | null)?.outcome;
+  return AUDIT_REVIEW_OUTCOMES.find((o) => o === outcome) ?? null;
+}
 
 /** Sel CSV aman: diapit kutip, dan nilai yang bisa dieksekusi spreadsheet (=, +, -, @) diberi awalan '. */
 export function csvCell(value: unknown): string {
@@ -175,7 +201,7 @@ export class AuditService {
    */
   async anomalies(days: number) {
     const tx = this.db.tx();
-    const since = new Date(Date.now() - days * DAY);
+    const since = anomalyWindowStart(days);
     const night = await readTenantSetting(tx, 'audit.night_hours');
     const volumeThreshold = await readTenantSetting(tx, 'audit.volume_threshold');
     const burstThreshold = await readTenantSetting(tx, 'audit.burst_threshold');
@@ -195,12 +221,24 @@ export class AuditService {
       ).map((b) => ({ kind: 'night' as const, b })),
       ...(await this.repo.patientVolume(since, volumeThreshold)).map((b) => ({ kind: 'volume' as const, b })),
     ];
-    const actors = await this.actorMap(buckets.map((x) => x.b.userId));
     const keys = buckets.map(({ kind, b }) => `${kind}:${b.userId ?? '-'}:${b.day}`);
-    const reviews = new Map<string, Awaited<ReturnType<AuditRepository['anomalyReviews']>>[number]>();
+    // Tinjauan terbaru per kunci yang berlaku (aturan yang sama dengan riwayat tinjauan).
+    const reviews = new Map<
+      string,
+      { outcome: AuditReviewOutcome; reason: string | null; actorUserId: string | null; occurredAt: Date }
+    >();
     for (const r of await this.repo.anomalyReviews(keys)) {
-      if (r.resourceId && !reviews.has(r.resourceId)) reviews.set(r.resourceId, r);
+      const outcome = reviewOutcome(r.details);
+      if (r.resourceId && outcome && !reviews.has(r.resourceId)) reviews.set(r.resourceId, { ...r, outcome });
     }
+    const actors = await this.actorMap([
+      ...buckets.map((x) => x.b.userId),
+      ...[...reviews.values()].map((r) => r.actorUserId),
+    ]);
+    const person = (id: string | null) => {
+      const a = id ? actors.get(id) : undefined;
+      return a ? { id: a.id, displayName: a.displayName } : null;
+    };
 
     const findings: AnomalyFinding[] = grants.map((g) => ({
       key: `break_glass:${g.id}`,
@@ -216,7 +254,7 @@ export class AuditService {
     }));
     buckets.forEach(({ kind, b }, i) => {
       const key = keys[i] as string;
-      const actor = b.userId ? (actors.get(b.userId) ?? null) : null;
+      const actor = person(b.userId);
       const who = actor?.displayName ?? 'Akun tidak dikenal';
       const when = dayLabel(b.day);
       const text: Record<typeof kind, { title: string; description: string; severity: Severity }> = {
@@ -242,19 +280,23 @@ export class AuditService {
         },
       };
       const r = reviews.get(key);
-      const outcome = (r?.details as { outcome?: string } | null)?.outcome;
       findings.push({
         key,
         kind,
         ...text[kind],
-        actor: actor ? { id: actor.id, displayName: actor.displayName } : null,
+        actor,
         count: b.n,
         lastAt: b.last.toISOString(),
         grantId: null,
-        review:
-          r && outcome
-            ? { outcome, note: r.reason, reviewedAt: r.occurredAt.toISOString(), reviewerId: r.actorUserId }
-            : null,
+        review: r
+          ? {
+              outcome: r.outcome,
+              note: r.reason,
+              reviewedAt: r.occurredAt.toISOString(),
+              reviewerId: r.actorUserId,
+              reviewer: person(r.actorUserId),
+            }
+          : null,
       });
     });
     findings.sort(
@@ -264,14 +306,48 @@ export class AuditService {
   }
 
   /**
-   * Keputusan tinjauan anomali = entri audit `review` (append-only). Pelaku tidak boleh meninjau temuan tentang
-   * dirinya sendiri.
+   * Riwayat tinjauan satu temuan, terbaru dulu (MRMIK: keputusan lama tidak hilang). Keputusan terbaru berlaku,
+   * sama dengan `anomalies`. Tanpa PHI: kunci temuan hanya berisi jenis, id pengguna, dan tanggal.
    */
-  reviewAnomaly(input: AuditAnomalyReviewInput) {
-    const m = AUDIT_ANOMALY_KEY.exec(input.key);
-    const subject = m?.[2];
+  async anomalyReviewHistory(key: string): Promise<{ key: string; items: AuditAnomalyReviewEntry[] }> {
+    const rows = (await this.repo.anomalyReviewHistory(key)).flatMap((r) => {
+      const outcome = reviewOutcome(r.details);
+      return outcome ? [{ ...r, outcome }] : [];
+    });
+    const people = await this.actorMap(rows.map((r) => r.actorUserId));
+    return {
+      key,
+      items: rows.map((r, i) => {
+        const who = r.actorUserId ? people.get(r.actorUserId) : undefined;
+        return {
+          seq: r.seq.toString(),
+          outcome: r.outcome,
+          note: r.reason,
+          reviewedAt: r.occurredAt.toISOString(),
+          reviewer: who ? { id: who.id, displayName: who.displayName } : null,
+          reviewerRole: r.actorRole,
+          effective: i === 0,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Keputusan tinjauan anomali = entri audit `review` (append-only). Pelaku tidak boleh meninjau temuan tentang
+   * dirinya sendiri. Tinjauan ulang menambah entri baru; yang terbaru berlaku.
+   */
+  async reviewAnomaly(input: AuditAnomalyReviewInput) {
+    const [, , subject, day] = AUDIT_ANOMALY_KEY.exec(input.key) ?? [];
     if (subject && subject === this.db.actorUserId()) {
       throw new AppError('CONFLICT', 'Tidak bisa meninjau temuan tentang akun sendiri', 409);
+    }
+    // Entri tinjauan tidak bisa dihapus: tolak kunci yang mustahil menjadi temuan RS ini (tanggal mendatang, atau
+    // akun di luar RS ini; RLS menyembunyikan pengguna tenant lain).
+    if (!day || day > isoDateJakarta()) {
+      throw new AppError('VALIDATION_FAILED', 'Tanggal temuan tidak valid', 400);
+    }
+    if (subject && subject !== '-' && (await this.repo.users([subject])).length === 0) {
+      throw new AppError('NOT_FOUND', 'Temuan tidak ditemukan', 404);
     }
     this.db.audit({
       action: 'review',

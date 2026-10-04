@@ -10,8 +10,8 @@ import { DEMO_ACCOUNTS_FILE } from './e2e/demo-accounts-file';
  * Jalankan: `pnpm with-pg pnpm --filter @simrs/web test:e2e` (tanpa Docker) atau setelah `docker compose up -d`.
  * Port berbeda dari `pnpm dev` (3000/4000) agar server pengembangan yang sedang jalan tidak terpakai.
  *
- * Lokal memakai Microsoft Edge bawaan Windows (tanpa unduhan browser Playwright); set PW_CHANNEL=chromium
- * setelah `pnpm exec playwright install chromium` bila perlu (mis. CI Linux).
+ * Browser: di Windows Microsoft Edge bawaan (tanpa unduhan browser Playwright); di macOS/Linux Chromium Playwright
+ * (`pnpm exec playwright install chromium` sekali). PW_CHANNEL menimpa pilihan ini.
  */
 // Dari .env root hanya daftar putih ini (seperti next.config.ts): kunci enkripsi/hash kolom yang sama dengan API
 // (akun uji ber-MFA dan pasien fiktif dibuat langsung di simrs_test) dan URL DB tes. Memuat seluruh .env akan ikut mewariskan

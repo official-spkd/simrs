@@ -12,7 +12,8 @@ import { can, nextLoginStep } from '@/lib/session-view';
 
 /**
  * Keputusan tinjauan dari layar Audit. Sesi dan izin diperiksa di sini (pesan jelas) dan ditegakkan API
- * (izin, larangan meninjau diri sendiri, tinjauan tidak bisa ditimpa). Keputusan tercatat di jejak audit.
+ * (izin, larangan meninjau diri sendiri, akses darurat hanya sekali ditinjau; temuan boleh ditinjau ulang dan
+ * keputusan terbaru berlaku). Keputusan tercatat di jejak audit.
  */
 
 const PATH = '/sistem/audit';

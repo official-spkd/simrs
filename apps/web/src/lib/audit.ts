@@ -152,6 +152,48 @@ export const REVIEW_LABEL: Record<string, string> = {
   perlu_klarifikasi: 'perlu klarifikasi',
 };
 
+export interface ReviewHistoryItem {
+  seq: string;
+  outcome: string;
+  note: string | null;
+  reviewedAt: string;
+  reviewer: { id: string; displayName: string } | null;
+  reviewerRole: string | null;
+  effective: boolean;
+}
+
+export interface ReviewHistoryRow {
+  seq: string;
+  effective: boolean;
+  /** Status dalam teks (tidak hanya warna): `Berlaku` atau `Digantikan`. */
+  status: string;
+  decision: string;
+  when: string;
+  who: string;
+  note: string | null;
+}
+
+/**
+ * Baris riwayat tinjauan temuan, terbaru dulu (urut `seq`, bukan jam tampilan). Penanda "berlaku" dari API
+ * (tinjauan terbaru), tidak dihitung ulang di web.
+ */
+export function reviewHistoryRows(items: readonly ReviewHistoryItem[]): ReviewHistoryRow[] {
+  return [...items]
+    .sort((a, b) => (BigInt(b.seq) > BigInt(a.seq) ? 1 : BigInt(b.seq) < BigInt(a.seq) ? -1 : 0))
+    .map((r) => {
+      const label = REVIEW_LABEL[r.outcome] ?? r.outcome;
+      return {
+        seq: r.seq,
+        effective: r.effective,
+        status: r.effective ? 'Berlaku' : 'Digantikan',
+        decision: label.charAt(0).toUpperCase() + label.slice(1),
+        when: formatWaktuServer(r.reviewedAt),
+        who: `${r.reviewer?.displayName ?? 'Pengguna tidak dikenal'} · ${roleLabel(r.reviewerRole)}`,
+        note: r.note,
+      };
+    });
+}
+
 export type AuditParams = Partial<
   Record<
     | 'rentang'
@@ -164,7 +206,8 @@ export type AuditParams = Partial<
     | 'tinjau'
     | 'temuan'
     | 'laporan'
-    | 'verifikasi',
+    | 'verifikasi'
+    | 'semua',
     string
   >
 >;

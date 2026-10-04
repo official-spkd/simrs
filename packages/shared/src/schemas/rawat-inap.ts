@@ -316,31 +316,52 @@ export const emarMedicationSchema = z.strictObject({
 export type EmarMedication = z.infer<typeof emarMedicationSchema>;
 
 /**
- * Pencatatan pemberian satu dosis. Identitas: kode gelang hasil pindai (dicocokkan server dengan RM pasien
- * kunjungan), atau override verifikasi manual dua identitas dengan alasan (`wristbandCode` null). Slot, status
- * terlambat, dan sifat kewaspadaan tinggi dibaca server dari eMAR pasien, bukan dari klien.
+ * Identitas pasien di eMAR: kode gelang hasil pindai (dicocokkan server dengan RM pasien kunjungan), atau override
+ * verifikasi manual dua identitas dengan alasan (`wristbandCode` null).
+ */
+const wristbandFields = {
+  wristbandCode: z.string().trim().min(1).max(40).nullable(),
+  scanOverrideReason: z.string().trim().max(500).nullable(),
+};
+
+function requireOverrideReason(
+  v: { wristbandCode: string | null; scanOverrideReason: string | null },
+  ctx: z.RefinementCtx,
+): void {
+  if (v.wristbandCode === null && (v.scanOverrideReason ?? '').length < SAFETY_REASON_MIN) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['scanOverrideReason'],
+      message: `Pemberian tanpa pindai gelang wajib beralasan (minimal ${SAFETY_REASON_MIN} karakter).`,
+    });
+  }
+}
+
+/** Pindai gelang sebelum pemberian obat: membuka grid eMAR bila cocok (atau override beralasan). */
+export const emarWristbandScanInputSchema = z
+  .strictObject({ encounterId: id, ...wristbandFields })
+  .superRefine(requireOverrideReason);
+export type EmarWristbandScanInput = z.infer<typeof emarWristbandScanInputSchema>;
+
+/**
+ * Pencatatan pemberian satu dosis (satu obat, satu slot jadwal): identitas pasien seperti pindai gelang + kode label
+ * obat hasil pindai (dicocokkan server dengan obat jadwal). Slot, status terlambat, dan sifat kewaspadaan tinggi
+ * dibaca server dari eMAR pasien, bukan dari klien.
  */
 export const emarAdministrationInputSchema = z
   .strictObject({
     encounterId: id,
     medicationId: id,
     time: z.enum(EMAR_TIMES),
-    wristbandCode: z.string().trim().min(1).max(40).nullable(),
-    scanOverrideReason: z.string().trim().max(500).nullable(),
+    ...wristbandFields,
+    /** Kode label obat dari farmasi (hasil pindai). */
+    labelCode: z.string().trim().min(1).max(60),
     /** Wajib untuk slot terlambat (diperiksa server); bila diisi minimal 10 karakter. */
     lateReason: z.string().trim().min(SAFETY_REASON_MIN).max(500).nullable(),
     /** Obat kewaspadaan tinggi: nama perawat kedua yang melakukan cek ganda (wajib, diperiksa server). */
     doubleCheckedBy: z.string().trim().max(80).nullable(),
   })
-  .superRefine((v, ctx) => {
-    if (v.wristbandCode === null && (v.scanOverrideReason ?? '').length < SAFETY_REASON_MIN) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['scanOverrideReason'],
-        message: `Pemberian tanpa pindai gelang wajib beralasan (minimal ${SAFETY_REASON_MIN} karakter).`,
-      });
-    }
-  });
+  .superRefine(requireOverrideReason);
 export type EmarAdministrationInput = z.infer<typeof emarAdministrationInputSchema>;
 
 /** Tingkat kesadaran AVPU (C = bingung baru). */

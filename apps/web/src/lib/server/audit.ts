@@ -5,6 +5,7 @@ import { z } from 'zod';
 /** Bentuk respons API layar Audit (P04) dan akses darurat (P03). Respons di luar bentuk ini ditolak. */
 
 const actorSchema = z.object({ id: z.uuid(), displayName: z.string(), username: z.string() }).nullable();
+const personSchema = z.object({ id: z.uuid(), displayName: z.string() }).nullable();
 
 export const auditEventSchema = z.object({
   seq: z.string(),
@@ -70,10 +71,28 @@ export const findingSchema = z.object({
       note: z.string().nullable(),
       reviewedAt: z.string(),
       reviewerId: z.uuid().nullable(),
+      reviewer: personSchema,
     })
     .nullable(),
 });
 export type Finding = z.infer<typeof findingSchema>;
+
+/** Riwayat tinjauan satu temuan (terbaru dulu; `effective` = keputusan yang berlaku). */
+export const reviewHistorySchema = z.object({
+  key: z.string(),
+  items: z.array(
+    z.object({
+      seq: z.string(),
+      outcome: z.string(),
+      note: z.string().nullable(),
+      reviewedAt: z.string(),
+      reviewer: personSchema,
+      reviewerRole: z.string().nullable(),
+      effective: z.boolean(),
+    }),
+  ),
+});
+export type ReviewHistory = z.infer<typeof reviewHistorySchema>;
 
 export const anomaliesSchema = z.object({
   since: z.string(),

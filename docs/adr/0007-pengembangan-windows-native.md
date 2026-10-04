@@ -1,6 +1,6 @@
 # ADR-0007 · Pengembangan lokal langsung di Windows (tanpa WSL untuk kode)
 
-Status: diterima · 3 Okt 2026
+Status: diterima · 3 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 
@@ -19,3 +19,7 @@ Status: diterima · 3 Okt 2026
 + Mulai tanpa restart mesin dan tanpa memindahkan repo.
 − File watcher dan I/O node_modules di NTFS sedikit lebih lambat dibanding filesystem Linux.
 − Bila nanti pindah ke WSL, cukup clone ulang repo; tidak ada kode yang bergantung pada Windows.
+
+## Pembaruan 5 Okt 2026
+
+Pengembangan utama pindah ke macOS (Apple Silicon, Docker lewat OrbStack); repo di GitHub. Keputusan di atas tetap berlaku untuk mesin Windows. Penyesuaian macOS (Node 24 di `PATH`, `@embedded-postgres/darwin-arm64`, image `pgsty/minio`, port bentrok, Chromium untuk E2E) ada di `docs/panduan/03-tutorial.md` bagian "Mesin baru (macOS)".

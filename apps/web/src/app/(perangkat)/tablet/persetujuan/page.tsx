@@ -5,7 +5,8 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScaleToFit } from '@/components/scale-to-fit';
 import { patientById } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS } from '@/lib/demo/fixtures/rawat-inap';
-import { getConsentDocument, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
+import { consentTurn, getConsentDocument, scenarioSteps } from '@/lib/server/data/rawat-inap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Persetujuan tindakan' };
@@ -25,8 +26,10 @@ export default async function PersetujuanIndexPage() {
   }
   const [tl] = await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]);
   if (tl?.tasks.consent?.enabled) redirect('/tablet/persetujuan/pk-hartono');
-  const docs = (await Promise.all(CONSENT_IDS.map((id) => getConsentDocument(session, id)))).filter(
-    (d) => d !== null,
+  const docs = await Promise.all(
+    (await Promise.all(CONSENT_IDS.map((id) => getConsentDocument(session, id))))
+      .filter((d) => d !== null)
+      .map(async (d) => ({ ...d, wait: (await consentTurn(session, d)).wait })),
   );
 
   return (
@@ -62,10 +65,12 @@ export default async function PersetujuanIndexPage() {
                     className={
                       d.status === 'final'
                         ? 'rounded-full bg-success-bg px-3 py-1 text-[13px] font-semibold text-success'
-                        : 'rounded-full bg-warning-bg px-3 py-1 text-[13px] font-semibold text-warning'
+                        : d.status === 'ditolak'
+                          ? 'rounded-full bg-danger-bg px-3 py-1 text-[13px] font-semibold text-danger'
+                          : 'rounded-full bg-warning-bg px-3 py-1 text-[13px] font-semibold text-warning'
                     }
                   >
-                    {d.status === 'final' ? 'Final · TTE' : 'Menunggu tanda tangan'}
+                    {d.wait ? 'Menunggu giliran simulasi' : CONSENT_STATUS_LABEL[d.status]}
                   </span>
                 </Link>
               </li>

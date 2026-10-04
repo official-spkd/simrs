@@ -1,32 +1,30 @@
 /**
- * Seed data fiktif lokal: data rujukan contoh (P06) + tenant + struktur RS (P01) + pasien fiktif (P05). Idempoten (upsert per kode, ID
- * pasien tetap) sehingga aman diulang. Dijalankan sebagai simrs_migrator; karena FORCE RLS, tetap lewat withTenant.
+ * Seed data fiktif lokal: data rujukan contoh (P06) + tenant + struktur RS (P01) + pasien fiktif (P05) + staf fiktif
+ * (P02/P03, fase 1 potongan 10d). Idempoten (upsert per kode, ID pasien tetap, staf per NIP) sehingga aman diulang.
+ * Dijalankan sebagai simrs_migrator; karena FORCE RLS, tetap lewat withTenant.
  * RS: RSFA/RSFB (fiktif, juga dipakai tes) + RSCM (RS utama lokal; identitas asli, semua data fiktif).
- * Akun tidak pernah di-seed: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
+ * Staf seed TIDAK punya kata sandi: tidak bisa masuk sampai admin SIM RS mereset sandinya di layar Akses. Akun yang
+ * bisa langsung dipakai hanya lewat CLI: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
  */
-import { MORSE_FALL_SCALE, newId } from '@simrs/shared';
+import { MORSE_FALL_SCALE } from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
 import { ensureSystemRoles } from '../src/authz';
-import { createPrismaClient, type PrismaClient, type TenantTx, withTenant } from '../src/client';
+import { createPrismaClient, type PrismaClient, withTenant } from '../src/client';
 import { ensurePublishedForm } from '../src/forms';
 import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
-import {
-  SEED_LOCAL_TENANTS,
-  SEED_PLATFORM_TENANT,
-  SEED_ROOMS,
-  SEED_TENANTS,
-  SEED_UNITS,
-} from '../src/seed-data';
+import { SEED_LOCAL_TENANTS, SEED_PLATFORM_TENANT, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 import { seedPatients } from '../src/seed-patients';
 import { seedRefSamples } from '../src/seed-ref';
+import { seedStaff } from '../src/seed-staff';
+import { seedHospitalStructure } from '../src/seed-structure';
 
 const url = process.env.MIGRATOR_DATABASE_URL;
 if (!url) throw new Error('MIGRATOR_DATABASE_URL belum disetel');
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
-  if (!value) throw new Error(`${name} belum disetel di .env (identitas pasien dienkripsi)`);
+  if (!value) throw new Error(`${name} belum disetel di .env (identitas pasien dan no. HP staf dienkripsi)`);
   return value;
 }
 const keys = { encKeyB64: requiredEnv('FIELD_ENCRYPTION_KEY'), hashKeyB64: requiredEnv('FIELD_HASH_KEY') };
@@ -73,49 +71,6 @@ async function seedPatientsFor(
   return { created: createdIds.length, candidates };
 }
 
-async function seedStructure(tx: TenantTx, tenantId: string) {
-  const facility = await tx.facility.upsert({
-    where: { tenantId_code: { tenantId, code: 'UTAMA' } },
-    update: {},
-    create: { id: newId(), tenantId, code: 'UTAMA', name: 'Gedung Utama' },
-  });
-  const units = new Map<string, string>();
-  for (const u of SEED_UNITS) {
-    const row = await tx.unit.upsert({
-      where: { tenantId_code: { tenantId, code: u.code } },
-      update: {},
-      create: { id: newId(), tenantId, facilityId: facility.id, ...u },
-    });
-    units.set(u.code, row.id);
-  }
-  for (const [unitCode, code, name, careClass, beds] of SEED_ROOMS) {
-    const unitId = units.get(unitCode);
-    if (!unitId) throw new Error(`Unit seed ${unitCode} tidak ada`);
-    const room = await tx.location.upsert({
-      where: { tenantId_code: { tenantId, code } },
-      update: {},
-      create: { id: newId(), tenantId, unitId, kind: 'kamar', code, name, careClass },
-    });
-    for (let i = 0; i < beds; i++) {
-      const letter = String.fromCharCode(65 + i);
-      await tx.location.upsert({
-        where: { tenantId_code: { tenantId, code: `${code}-${letter}` } },
-        update: {},
-        create: {
-          id: newId(),
-          tenantId,
-          unitId,
-          parentId: room.id,
-          kind: 'bed',
-          code: `${code}-${letter}`,
-          name: `Bed ${letter}`,
-          careClass,
-        },
-      });
-    }
-  }
-}
-
 const prisma = createPrismaClient({ connectionString: url, max: 2 });
 try {
   // P06: contoh data rujukan (global, tanpa tenant) bila sistem kodenya masih kosong.
@@ -125,14 +80,16 @@ try {
     const t = plan.tenant;
     const form = await withTenant(prisma, t.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });
-      await seedStructure(tx, t.id);
+      await seedHospitalStructure(tx, t.id);
       await ensureSystemRoles(tx, t.id);
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku.
       return ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE);
     });
     const patients = await seedPatientsFor(prisma, t.id, plan);
+    // P02/P03: staf fiktif lintas peran, tanpa kata sandi (aktif setelah admin mereset sandinya).
+    const staff = await seedStaff(prisma, t.id, { encKeyB64: keys.encKeyB64 });
     console.warn(
-      `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates})`,
+      `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates}, staf fiktif baru: ${staff.created}, sudah ada: ${staff.existing})`,
     );
   }
   const p = SEED_PLATFORM_TENANT;
@@ -142,6 +99,9 @@ try {
   });
   console.warn(
     `Tenant siap: ${p.code} · ${p.name} (buat superadmin: pnpm db:create-admin --tenant ${p.code} …)`,
+  );
+  console.warn(
+    'Staf fiktif belum bisa masuk (tanpa sandi). Aktifkan per orang lewat Pengguna & akses → Reset kata sandi (nama pengguna = NIP); akun admin pertama: pnpm db:create-admin.',
   );
 } finally {
   await prisma.$disconnect();
