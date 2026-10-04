@@ -7,7 +7,6 @@ import {
   emarWristbandScanInputSchema,
 } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { pillTabIds, pillTabTarget } from '../components/rawat-inap/pill-tabs-model';
 import { MIN_STROKE, StrokeTracker } from '../components/rawat-inap/signature-stroke';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
@@ -50,7 +49,7 @@ import {
 
 /**
  * Gerbang sisi server rawat inap dan tablet persetujuan (K04/K07/K11/K12), kontrak payload layar ↔ skema bersama,
- * dan model murni komponen (tab ARIA, goresan tanda tangan). Mode presentasi, ADR-0023.
+ * dan model murni goresan tanda tangan (tab ARIA diuji di `packages/ui`). Mode presentasi, ADR-0023.
  */
 
 type Id = keyof typeof SCENARIOS;
@@ -394,18 +393,7 @@ describe('K11 · tablet persetujuan: giliran skenario dan kunci per status', () 
   });
 });
 
-describe('komponen rawat inap: tab ARIA dan goresan tanda tangan', () => {
-  it('panah kiri/kanan berputar, Home/End ke ujung; tab ↔ panel berpasangan', () => {
-    expect(pillTabTarget('ArrowRight', 4, 5)).toBe(0);
-    expect(pillTabTarget('ArrowLeft', 0, 5)).toBe(4);
-    expect(pillTabTarget('ArrowRight', 1, 5)).toBe(2);
-    expect(pillTabTarget('Home', 3, 5)).toBe(0);
-    expect(pillTabTarget('End', 0, 5)).toBe(4);
-    expect(pillTabTarget('Enter', 0, 5)).toBeNull();
-    expect(pillTabTarget('ArrowRight', 0, 0)).toBeNull();
-    expect(pillTabIds(':r1:', 'cppt')).toEqual({ tab: ':r1:-tab-cppt', panel: ':r1:-panel-cppt' });
-  });
-
+describe('komponen rawat inap: goresan tanda tangan', () => {
   it('pointercancel mengakhiri goresan seperti pointerup; pointer kedua diabaikan', () => {
     const t = new StrokeTracker();
     expect(t.down(1, { x: 0, y: 0 })).toBe(true);
