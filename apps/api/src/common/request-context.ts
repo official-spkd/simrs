@@ -55,3 +55,20 @@ export interface TenantRequestContext {
 }
 
 export const requestContext = new AsyncLocalStorage<TenantRequestContext>();
+
+/**
+ * Jalankan kait `afterCommit` berurutan setelah transaksinya commit. Galat hanya dicatat (jenisnya saja, tanpa PHI):
+ * data sudah tersimpan, jadi respons tetap sukses. Dipakai interceptor permintaan dan `TenantDb.transaction()`.
+ */
+export async function runAfterCommitHooks(
+  hooks: TenantRequestContext['afterCommit'],
+  logError: (message: string) => void,
+): Promise<void> {
+  for (const fn of hooks) {
+    try {
+      await fn();
+    } catch (err) {
+      logError(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
+    }
+  }
+}

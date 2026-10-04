@@ -45,7 +45,7 @@ export function ContactForm({
         />
       </div>
       {maskedPhone && (
-        <label className="flex min-h-8 items-center gap-2.5 text-small">
+        <label className="flex min-h-11 items-center gap-2.5 text-small">
           <input type="checkbox" name="removePhone" className="size-[18px] accent-brand-600" />
           Hapus no. HP
         </label>

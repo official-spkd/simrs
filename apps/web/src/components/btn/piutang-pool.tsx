@@ -39,7 +39,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
   return (
     <section
       aria-label="Pool klaim BPJS"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="@container flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">
@@ -70,7 +70,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
             <li
               key={b.id}
               className={cx(
-                'grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-b border-line py-1.5 md:grid-cols-[44px_minmax(0,1.5fr)_64px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]',
+                'grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-b border-line py-1.5 @3xl:grid-cols-[44px_minmax(0,1.5fr)_64px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]',
                 chk && 'bg-[#F3FAF8]',
               )}
             >
@@ -94,15 +94,20 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                 </span>
                 <span className="text-caption text-ink-500">{b.note}</span>
               </span>
-              <span className="text-right font-mono text-small text-ink-700 max-md:hidden">
+              <span className="text-right font-mono text-small text-ink-700 @max-3xl:hidden">
                 {b.files.toLocaleString('id-ID')}
               </span>
-              <span className="text-right font-mono">{formatRingkas(BigInt(b.amount))}</span>
-              <span className="col-start-2 md:col-start-auto">
+              <span className="text-right font-mono whitespace-nowrap">
+                {formatRingkas(BigInt(b.amount))}
+              </span>
+              <span className="col-start-2 @3xl:col-start-auto">
                 <Chip tone={chip[1]}>{chip[0]}</Chip>
               </span>
               <span
-                className={cx('text-right font-mono text-small', chk ? 'text-brand-700' : 'text-ink-500')}
+                className={cx(
+                  'text-right font-mono text-small whitespace-nowrap',
+                  chk ? 'text-brand-700' : 'text-ink-500',
+                )}
               >
                 {can ? `adv. ${formatRingkas(advanceAmount(BigInt(b.amount), rate))}` : '—'}
               </span>

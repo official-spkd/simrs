@@ -24,7 +24,8 @@ test.describe('dasbor direksi', () => {
     await expect(kpi.getByText('1.148', { exact: true })).toBeVisible();
     await expect(page.getByRole('img', { name: /Grafik pendapatan harian/ })).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Hari ini' }).click();
+    await page.getByRole('radio', { name: 'Hari ini' }).click();
+    await expect(page.getByRole('radio', { name: 'Hari ini' })).toHaveAttribute('aria-checked', 'true');
     await expect(
       page.getByRole('heading', { name: 'Kinerja rumah sakit · hari ini', level: 1 }),
     ).toBeVisible();

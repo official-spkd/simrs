@@ -13,7 +13,7 @@ import {
   KpiCard,
   palettes,
   PatientBanner,
-  Segmented,
+  RadioSegmented,
   spaceScale,
   StatusChip,
   Tabs,
@@ -449,11 +449,11 @@ export function Fondasi() {
             />
           </Demo>
           <Demo
-            title="Segmen"
-            note="Baris kontrol ringkas (rentang dasbor, skenario simulasi): tampak 36 px, area sentuh 44 px."
+            title="Segmen pilihan (radio)"
+            note="Memilih satu nilai/mode (rentang dasbor, mode koneksi, kanal bayar): radiogroup, panah memindah pilihan. Tampak 36 px, area sentuh 44 px. Untuk berpindah panel pakai TabList gaya segmen."
           >
             <div className="flex">
-              <Segmented
+              <RadioSegmented
                 label="Rentang"
                 value={range}
                 onChange={setRange}

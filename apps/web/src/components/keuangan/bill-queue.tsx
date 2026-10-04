@@ -39,7 +39,7 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
               >
                 <span aria-hidden="true" className={sel ? 'bg-brand-600' : ''} />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate font-semibold">{i.patient.name}</span>
+                  <span className="font-semibold">{i.patient.name}</span>
                   <span className="text-caption text-ink-500">
                     {i.queueNo ?? 'Loket RI'} · {KIND[i.encounter.kind]} · {i.split.payerLabel}
                   </span>
@@ -51,7 +51,7 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
                 </span>
                 <span className="flex flex-col items-end gap-1">
                   <Chip tone={st.tone}>{st.label}</Chip>
-                  <span className="font-mono text-caption text-ink-700">
+                  <span className="font-mono text-caption whitespace-nowrap text-ink-700">
                     Pasien {formatRupiah(BigInt(i.patientDue))}
                   </span>
                 </span>

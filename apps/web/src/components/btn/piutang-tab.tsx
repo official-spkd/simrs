@@ -26,11 +26,11 @@ export function PiutangTab({
   const eligible = s.free.reduce((sum, b) => sum + BigInt(b.amount), 0n);
   const availablePct = limit > 0n ? Number((pos.available * 100n) / limit) : 0;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <div
         role="region"
         aria-label="Indikator fasilitas"
-        className="grid grid-cols-2 gap-3.5 md:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3.5 @xl:grid-cols-3 @6xl:grid-cols-6"
       >
         <KpiCard label="Plafon fasilitas" value={formatRingkas(limit)} detail="simulasi · revolving" tinted />
         <KpiCard

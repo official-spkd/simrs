@@ -8,6 +8,8 @@
     "dev": { "dependsOn": ["^build"], "cache": false, "persistent": true },
     "lint": { "dependsOn": ["^build"] },
     "typecheck": { "dependsOn": ["^build"] },
+    "@simrs/db#build": { "dependsOn": ["^build"], "outputs": ["dist/**", "src/generated/**"] },
+    "@simrs/db#typecheck": { "dependsOn": ["^build", "@simrs/db#build"], "outputs": ["src/generated/**"] },
     "test": { "dependsOn": ["^build"], "outputs": [] },
     "test:e2e": { "dependsOn": ["build"], "cache": false }
   }

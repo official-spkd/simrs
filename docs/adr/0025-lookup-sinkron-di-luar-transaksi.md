@@ -37,7 +37,7 @@ Lewat outbox + polling, setiap lookup bertambah ±2 detik dan butuh layar menung
    - Batas waktu/jaringan/5xx → audit `failed` lalu **503 `BPJS_UNAVAILABLE`** (BPJS) atau **503 `INTEGRATION_UNAVAILABLE`** (Dukcapil), dengan `details: { lookup, reason }`.
    - Penolakan bisnis yang dipetakan konektor ke `AppError` berkode diteruskan apa adanya (audit `failed`, alasan `rejected`).
    - Klien memperlakukan 503 sebagai "lanjutkan tanpa data BPJS". Registrasi tetap jalan, SEP `pending` lewat outbox.
-5. **Konektor = antarmuka `LookupConnector<I, O>`** (`name`, `target`, `call(input, signal)`, `summarize?`) yang disuntikkan modul domain. Klien BPJS bersama (`@simrs/shared/node`, agen M) dibungkus menjadi konektor di potongan 5a. Tes memakai konektor palsu. Kredensial BPJS di fase 2 = env tunggal mock (keputusan §4 #11), sehingga API kini ikut memegang kredensial itu, setara worker.
+5. **Konektor = antarmuka `LookupConnector<I, O>`** (`name`, `target`, `call(input, signal)`, `summarize?`) yang disuntikkan modul domain. Klien BPJS bersama (`@simrs/shared/node`, potongan 1a) dibungkus menjadi konektor di potongan 5a. Tes memakai konektor palsu. Kredensial BPJS di fase 2 = env tunggal mock (keputusan §4 #11), sehingga API kini ikut memegang kredensial itu, setara worker.
 6. **Tanpa PHI di log dan audit.** Masukan (NIK, no. kartu) dan keluaran tidak pernah dicatat. Audit berisi nama lookup, fase, alasan, durasi, dan ringkasan fakta (mis. `{ found, active }`). Log hanya nama lookup, alasan, durasi, nama galat, dan request id.
 
 ## Konsekuensi

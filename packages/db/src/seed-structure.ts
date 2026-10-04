@@ -3,7 +3,7 @@ import type { TenantTx } from './client';
 import { SEED_ROOMS, SEED_UNITS } from './seed-data';
 
 /**
- * P01 · Struktur RS fiktif seed: gedung utama, 12 unit (`SEED_UNITS`), kamar dan bed (`SEED_ROOMS`). Upsert per kode,
+ * P01 · Struktur RS fiktif seed: gedung utama, unit (`SEED_UNITS`), kamar dan bed (`SEED_ROOMS`). Upsert per kode,
  * jadi aman diulang dan tidak menimpa perubahan nama dari layar. Dipanggil di dalam `withTenant` (seed, tes).
  */
 export async function seedHospitalStructure(tx: TenantTx, tenantId: string): Promise<Map<string, string>> {

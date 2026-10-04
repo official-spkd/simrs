@@ -5,6 +5,8 @@ export const workerEnvSchema = envSchemas.base
   .extend(envSchemas.database.shape)
   .extend(envSchemas.redis.shape)
   .extend(envSchemas.integration.shape)
+  // Konektor BPJS (tanda tangan + dekripsi); kosong di luar produksi = nilai mock.
+  .extend(envSchemas.bpjs.shape)
   // Operasi outbox yang membaca identitas pasien (verifikasi NIK ke Dukcapil) mendekripsi di worker.
   .extend(envSchemas.fieldCrypto.shape)
   .extend({
@@ -14,11 +16,19 @@ export const workerEnvSchema = envSchemas.base
     /** Alamat web untuk tautan di email/WhatsApp notifikasi (P09). */
     WEB_BASE_URL: z.url().default('http://localhost:3000'),
     /**
-     * Penjadwal putaran outbox: `bullmq` (Redis, wajib di produksi), `interval` (timer di proses ini; satu worker,
-     * hanya untuk pengembangan tanpa Docker), atau `auto` = BullMQ bila Redis terjangkau, selain itu interval
-     * (di luar produksi).
+     * Penjadwal putaran outbox dan job berkala P11: `bullmq` (Redis, wajib di produksi), `interval` (timer di
+     * proses ini; satu worker, hanya untuk pengembangan tanpa Docker), atau `auto` = BullMQ bila Redis
+     * terjangkau, selain itu interval (di luar produksi).
      */
     OUTBOX_SCHEDULER: z.enum(['auto', 'bullmq', 'interval']).default('auto'),
+    /**
+     * Prefiks kunci Redis antrean BullMQ (`outbox`, `periodic`). Tes memakai prefiks unik agar tidak menyentuh
+     * antrean worker pengembangan yang berbagi Redis yang sama.
+     */
+    BULLMQ_PREFIX: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,64}$/)
+      .default('bull'),
   });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

@@ -13,9 +13,11 @@ import { createPrismaClient, type PrismaClient, withTenant } from '../src/client
 import { ensurePublishedForm } from '../src/forms';
 import { detectDuplicates } from '../src/patient-match';
 import { insertPatient } from '../src/patients';
+import { syncRolePermissions } from '../src/permission-sync';
 import { SEED_LOCAL_TENANTS, SEED_PLATFORM_TENANT, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 import { seedPatients } from '../src/seed-patients';
 import { seedRefSamples } from '../src/seed-ref';
+import { seedFrontOffice } from '../src/seed-front-office';
 import { seedStaff } from '../src/seed-staff';
 import { seedHospitalStructure } from '../src/seed-structure';
 
@@ -82,20 +84,32 @@ try {
       await tx.tenant.upsert({ where: { id: t.id }, update: { name: t.name }, create: { ...t } });
       await seedHospitalStructure(tx, t.id);
       await ensureSystemRoles(tx, t.id);
+      // P03: izin yang baru di katalog (mis. izin fase 2) sampai ke peran RS yang sudah ada, seperti
+      // `pnpm db:sync-permissions` (tidak mengembalikan izin yang dicabut admin).
+      const sync = await syncRolePermissions(tx, t.id, 'hospital', { via: 'seed' });
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku.
-      return ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE);
+      return {
+        ...(await ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE)),
+        permissionsAdded: sync.added.length,
+      };
     });
     const patients = await seedPatientsFor(prisma, t.id, plan);
     // P02/P03: staf fiktif lintas peran, tanpa kata sandi (aktif setelah admin mereset sandinya).
     const staff = await seedStaff(prisma, t.id, { encKeyB64: keys.encKeyB64 });
+    // F01–F04: layanan antrean, praktisi (tertaut staf seed), templat jadwal, penjamin, papan antrean.
+    const fo = await seedFrontOffice(prisma, t.id);
     console.warn(
       `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates}, staf fiktif baru: ${staff.created}, sudah ada: ${staff.existing})`,
+    );
+    console.warn(
+      `  front office baru: ${fo.services} layanan antrean, ${fo.practitioners} praktisi, ${fo.schedules} templat jadwal, ${fo.payers} penjamin, ${fo.displays} papan antrean; izin katalog baru ke peran: ${form.permissionsAdded}`,
     );
   }
   const p = SEED_PLATFORM_TENANT;
   await withTenant(prisma, p.id, async (tx) => {
     await tx.tenant.upsert({ where: { id: p.id }, update: { name: p.name }, create: { ...p } });
     await ensureSystemRoles(tx, p.id, 'platform');
+    await syncRolePermissions(tx, p.id, 'platform', { via: 'seed' });
   });
   console.warn(
     `Tenant siap: ${p.code} · ${p.name} (buat superadmin: pnpm db:create-admin --tenant ${p.code} …)`,

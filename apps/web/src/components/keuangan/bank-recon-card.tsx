@@ -53,7 +53,7 @@ export function BankReconCard({
                     {a.unmatched.map((u) => (
                       <li key={u.id} className="flex justify-between gap-2">
                         <span>{u.description}</span>
-                        <span className="font-mono">{formatRupiah(BigInt(u.amount))}</span>
+                        <span className="font-mono whitespace-nowrap">{formatRupiah(BigInt(u.amount))}</span>
                       </li>
                     ))}
                   </ul>

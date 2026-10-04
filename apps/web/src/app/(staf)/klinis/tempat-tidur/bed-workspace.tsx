@@ -211,7 +211,7 @@ export function BedWorkspace({
               terpenuhi tanpa boarding.
             </span>
             {ranapRoute && (
-              <Link href={ranapRoute} className="text-small font-semibold">
+              <Link href={ranapRoute} className="inline-flex min-h-11 items-center text-small font-semibold">
                 Lihat pasien rawat inap
               </Link>
             )}

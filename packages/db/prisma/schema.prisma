@@ -29,39 +29,59 @@ model Tenant {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outboxMessages   OutboxMessage[]
-  deliveryAttempts DeliveryAttempt[]
-  inboundEvents    InboundEvent[]
-  auditEvents      AuditEvent[]
-  facilities       Facility[]
-  units            Unit[]
-  locations        Location[]
-  modules          TenantModule[]
-  settings         TenantSetting[]
-  numberSequences  NumberSequence[]
-  domains          TenantDomain[]
-  users            User[]
-  credentials      UserCredential[]
-  mfaFactors       MfaFactor[]
-  sessions         AuthSession[]
-  loginChallenges  LoginChallenge[]
-  roles            Role[]
-  rolePermissions  RolePermission[]
-  assignments      StaffAssignment[]
-  relationships    AccessRelationship[]
-  breakGlassGrants BreakGlassGrant[]
-  notifications    Notification[]
-  patients         Patient[]
-  identifiers      PatientIdentifier[]
-  matchCandidates  PatientMatchCandidate[]
-  patientLinks     PatientLink[]
-  privacyConsents  PrivacyConsent[]
-  formDefinitions  FormDefinition[]
-  formResponses    FormResponse[]
-  documents        Document[]
-  signatures       DocumentSignature[]
-  trustedDevices   TrustedDevice[]
-  devices          RegisteredDevice[]
+  outboxMessages        OutboxMessage[]
+  deliveryAttempts      DeliveryAttempt[]
+  inboundEvents         InboundEvent[]
+  auditEvents           AuditEvent[]
+  facilities            Facility[]
+  units                 Unit[]
+  locations             Location[]
+  modules               TenantModule[]
+  settings              TenantSetting[]
+  numberSequences       NumberSequence[]
+  domains               TenantDomain[]
+  users                 User[]
+  credentials           UserCredential[]
+  mfaFactors            MfaFactor[]
+  sessions              AuthSession[]
+  loginChallenges       LoginChallenge[]
+  roles                 Role[]
+  rolePermissions       RolePermission[]
+  assignments           StaffAssignment[]
+  relationships         AccessRelationship[]
+  breakGlassGrants      BreakGlassGrant[]
+  notifications         Notification[]
+  patients              Patient[]
+  identifiers           PatientIdentifier[]
+  matchCandidates       PatientMatchCandidate[]
+  patientLinks          PatientLink[]
+  privacyConsents       PrivacyConsent[]
+  formDefinitions       FormDefinition[]
+  formResponses         FormResponse[]
+  documents             Document[]
+  signatures            DocumentSignature[]
+  trustedDevices        TrustedDevice[]
+  devices               RegisteredDevice[]
+  // Fase 2 · front office
+  practitioners         Practitioner[]
+  externalIds           ExternalId[]
+  payers                Payer[]
+  queueServices         QueueService[]
+  queueDisplays         QueueDisplay[]
+  queueDisplayServices  QueueDisplayService[]
+  practitionerSchedules PractitionerSchedule[]
+  scheduleSessions      ScheduleSession[]
+  hfisScheduleSnapshots HfisScheduleSnapshot[]
+  appointments          Appointment[]
+  queueTickets          QueueTicket[]
+  queueCalls            QueueCall[]
+  bpjsQueueTasks        BpjsQueueTask[]
+  encounters            Encounter[]
+  encounterStatuses     EncounterStatusHistory[]
+  coverages             Coverage[]
+  referrals             Referral[]
+  seps                  Sep[]
+  patientContacts       PatientContact[]
 
   @@map("tenants")
 }
@@ -81,6 +101,8 @@ model OutboxMessage {
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
   deadAt         DateTime? @map("dead_at") @db.Timestamptz(3)
+  /// Dikirim ulang manual (dari DLQ): batas retry hari layanan dihitung dari `coalesce(requeued_at, created_at)`.
+  requeuedAt     DateTime? @map("requeued_at") @db.Timestamptz(3)
 
   tenant     Tenant            @relation(fields: [tenantId], references: [id])
   deliveries DeliveryAttempt[]
@@ -200,13 +222,15 @@ model Unit {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy  String?  @map("updated_by") @db.Uuid
 
-  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
   /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
-  facility    Facility          @relation(fields: [tenantId, facilityId], references: [tenantId, id])
-  parent      Unit?             @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
-  children    Unit[]            @relation("UnitTree")
-  locations   Location[]
-  assignments StaffAssignment[]
+  facility      Facility          @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent        Unit?             @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children      Unit[]            @relation("UnitTree")
+  locations     Location[]
+  assignments   StaffAssignment[]
+  queueServices QueueService[]
+  encounters    Encounter[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -333,6 +357,7 @@ model User {
   trustedDevices      TrustedDevice[]
   devices             RegisteredDevice[]   @relation("RegisteredDeviceUser")
   devicesRevoked      RegisteredDevice[]   @relation("RegisteredDeviceRevoker")
+  practitioners       Practitioner[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, username])
@@ -614,14 +639,19 @@ model Patient {
   consents        PrivacyConsent[]
   formResponses   FormResponse[]
   documents       Document[]
+  appointments    Appointment[]
+  queueTickets    QueueTicket[]
+  encounters      Encounter[]
+  referrals       Referral[]
+  contacts        PatientContact[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])
   @@index([tenantId, birthDate])
   @@index([tenantId, phoneHash])
   @@index([tenantId, mergedIntoId])
-  /// Pencarian nama mirip (pg_trgm; btree_gin untuk tenant_id).
-  @@index([tenantId(ops: raw("uuid_ops")), nameSearch(ops: raw("gin_trgm_ops"))], map: "patients_name_search_trgm", type: Gin)
+  /// Pencarian nama mirip: indeks trigram di `search.patient_names` (`app_search_patient_names`, ADR-0015); indeks
+  /// GIN lama di tabel ini dibuang (migrasi `20261005103000`) karena tidak terpakai di bawah RLS.
   @@map("patients")
 }
 
@@ -639,7 +669,8 @@ model PatientIdentifier {
   /// HMAC `sistem:nilai` (`blindIndex`) untuk pencarian sama-persis tanpa menyimpan nilai.
   valueHash           String    @map("value_hash")
   active              Boolean   @default(true)
-  /// unverified | pending | verified | mismatch | not_found (verifikasi Dukcapil, potongan 7c)
+  /// unverified | pending | verified | mismatch | not_found | error (verifikasi Dukcapil, potongan 7c; error =
+  /// pesan outbox gagal permanen)
   verificationStatus  String    @default("unverified") @map("verification_status")
   verifiedAt          DateTime? @map("verified_at") @db.Timestamptz(3)
   /// Hasil verifikasi tanpa PHI (mis. field yang tidak cocok).
@@ -650,8 +681,9 @@ model PatientIdentifier {
   deactivatedBy       String?   @map("deactivated_by") @db.Uuid
   deactivationReason  String?   @map("deactivation_reason")
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  patient   Patient    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  coverages Coverage[]
 
   @@unique([tenantId, id])
   @@index([tenantId, system, valueHash])
@@ -724,22 +756,28 @@ model PatientLink {
 /// P05 · Persetujuan privasi pasien (docs/05 §1, UU PDP): persetujuan umum dan pembukaan data ke pihak ketiga.
 /// Dicatat atas nama petugas; pencabutan mengisi kolom `revoked_*` (hak kolom), baris tidak pernah dihapus.
 model PrivacyConsent {
-  id           String    @id @db.Uuid
-  tenantId     String    @map("tenant_id") @db.Uuid
-  patientId    String    @map("patient_id") @db.Uuid
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  patientId          String    @map("patient_id") @db.Uuid
   /// umum | pembukaan_data
-  kind         String
+  kind               String
   /// Penerima data (wajib untuk pembukaan data), mis. nama asuransi.
-  recipient    String?
-  note         String?
-  givenAt      DateTime  @default(now()) @map("given_at") @db.Timestamptz(3)
-  givenBy      String?   @map("given_by") @db.Uuid
-  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
-  revokedBy    String?   @map("revoked_by") @db.Uuid
-  revokeReason String?   @map("revoke_reason")
+  recipient          String?
+  note               String?
+  givenAt            DateTime  @default(now()) @map("given_at") @db.Timestamptz(3)
+  givenBy            String?   @map("given_by") @db.Uuid
+  revokedAt          DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedBy          String?   @map("revoked_by") @db.Uuid
+  revokeReason       String?   @map("revoke_reason")
+  /// Fase 2 · persetujuan umum rawat inap berlaku per admisi (encounter); rawat jalan null = sampai dicabut.
+  encounterId        String?   @map("encounter_id") @db.Uuid
+  /// Bukti tertulis/scan opsional (dokumen P08).
+  evidenceDocumentId String?   @map("evidence_document_id") @db.Uuid
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  tenant           Tenant     @relation(fields: [tenantId], references: [id])
+  patient          Patient    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter        Encounter? @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  evidenceDocument Document?  @relation(fields: [tenantId, evidenceDocumentId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@index([tenantId, patientId])
@@ -843,6 +881,8 @@ model Document {
   tenant     Tenant              @relation(fields: [tenantId], references: [id])
   patient    Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
   signatures DocumentSignature[]
+  /// Bukti persetujuan (scan) yang dirujuk persetujuan privasi.
+  consents   PrivacyConsent[]
 
   @@unique([tenantId, id])
   @@index([tenantId, patientId, createdAt])
@@ -858,7 +898,7 @@ model DocumentSignature {
   documentId          String    @map("document_id") @db.Uuid
   signerUserId        String    @map("signer_user_id") @db.Uuid
   documentSha256      String    @map("document_sha256")
-  /// pending | signed
+  /// pending | signed | failed (gagal permanen di penyelenggara TTE; bisa dikirim ulang → pending)
   status              String    @default("pending")
   verifyCode          String    @unique @map("verify_code")
   requestedAt         DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
@@ -942,4 +982,609 @@ model RegisteredDevice {
   @@unique([tenantId, id])
   @@index([tenantId, userId])
   @@map("registered_devices")
+}
+
+// =====================================================================================================================
+// Fase 2 · Front office (F01–F07): master praktik + antrean, jadwal dan kuota, booking, antrean + task ID BPJS,
+// kunjungan, penjaminan, rujukan, SEP, kontak pasien. Rencana: docs/rencana/fase-2-front-office.md §2 (potongan 0b).
+// Semua tabel: tenant_id + RLS FORCE, FK komposit (tenant_id, id), tanpa DELETE. Status/jenis dibatasi CHECK di
+// migrasi `20261005101000_front_office` (nilai mengikuti kontrak bersama potongan 0a).
+// =====================================================================================================================
+
+/// F01 · Tenaga medis yang berpraktik (DPJP di jadwal, booking, kunjungan, SEP). Bisa tanpa akun SIM RS
+/// (`user_id` null), mis. dokter tamu yang belum punya akun.
+model Practitioner {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  /// Akun SIM RS bila ada (paling banyak satu praktisi per akun).
+  userId        String?   @map("user_id") @db.Uuid
+  /// Nama + gelar seperti di jadwal dan SEP.
+  name          String
+  /// dokter | dokter_gigi | bidan | perawat
+  profession    String    @default("dokter")
+  /// Spesialisasi untuk tampilan, mis. "Penyakit dalam".
+  specialty     String?
+  strNumber     String?   @map("str_number")
+  sipNumber     String?   @map("sip_number")
+  sipValidUntil DateTime? @map("sip_valid_until") @db.Date
+  /// IHS Practitioner ID (SATUSEHAT).
+  ihsId         String?   @map("ihs_id")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String?   @map("created_by") @db.Uuid
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String?   @map("updated_by") @db.Uuid
+
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id])
+  user               User?                  @relation(fields: [tenantId, userId], references: [tenantId, id])
+  schedules          PractitionerSchedule[]
+  sessions           ScheduleSession[]      @relation("SessionPractitioner")
+  substituteSessions ScheduleSession[]      @relation("SessionSubstitute")
+  hfisSnapshots      HfisScheduleSnapshot[]
+  appointments       Appointment[]
+  encounters         Encounter[]
+  referrals          Referral[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, userId])
+  @@unique([tenantId, ihsId])
+  @@map("practitioners")
+}
+
+/// ID di sistem luar (docs/04 §1): kode poli BPJS, kode dokter HFIS, ID resource SATUSEHAT, dst. Satu nilai per
+/// entitas × sistem; nilai bisa dikoreksi, tidak dihapus (nonaktif).
+model ExternalId {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  /// practitioner | queue_service | unit | location | patient | encounter | sep
+  entity    String
+  entityId  String   @map("entity_id") @db.Uuid
+  /// Sistem penerbit, mis. `bpjs:poli`, `bpjs:hfis-dokter`, `satusehat:location`.
+  system    String
+  value     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, entity, entityId, system])
+  @@index([tenantId, system, value])
+  @@map("external_ids")
+}
+
+/// F06 · Penjamin: BPJS, umum (pribadi), asuransi, perusahaan.
+model Payer {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  /// bpjs | umum | asuransi | perusahaan
+  kind      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  coverages Coverage[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("payers")
+}
+
+/// F04 · Layanan antrean: poli (PD, JT, …), loket pendaftaran (A), farmasi (F), kasir (K). `code` = awalan nomor.
+model QueueService {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  /// Awalan nomor antrean, 1–2 huruf kapital (`PD-027`, `A-031`).
+  code      String
+  name      String
+  /// poli | loket | farmasi | kasir | penunjang
+  kind      String
+  unitId    String?  @map("unit_id") @db.Uuid
+  room      String?
+  floor     Int?     @db.SmallInt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id])
+  unit         Unit?                  @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  displays     QueueDisplayService[]
+  schedules    PractitionerSchedule[]
+  sessions     ScheduleSession[]
+  appointments Appointment[]
+  tickets      QueueTicket[]
+  encounters   Encounter[]
+  referrals    Referral[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("queue_services")
+}
+
+/// F04 · Papan antrean (TV ruang tunggu), mis. "Rawat Jalan Lantai 2". Perangkat TV menyusul (ADR-0027).
+model QueueDisplay {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant                @relation(fields: [tenantId], references: [id])
+  services QueueDisplayService[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("queue_displays")
+}
+
+/// Layanan yang tampil di satu papan, berurutan. Dilepas dengan `active = false` (tanpa DELETE).
+model QueueDisplayService {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  displayId String   @map("display_id") @db.Uuid
+  serviceId String   @map("service_id") @db.Uuid
+  position  Int      @db.SmallInt
+  active    Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id])
+  display QueueDisplay @relation(fields: [tenantId, displayId], references: [tenantId, id])
+  service QueueService @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+
+  @@id([displayId, serviceId])
+  @@index([tenantId, displayId])
+  @@map("queue_display_services")
+}
+
+/// F01 · Templat praktik mingguan (hari ISO, jam, kuota JKN/non-JKN). Sesi per tanggal dibangkitkan darinya.
+model PractitionerSchedule {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  practitionerId String    @map("practitioner_id") @db.Uuid
+  serviceId      String    @map("service_id") @db.Uuid
+  /// 1 = Senin … 7 = Minggu (ISO).
+  weekday        Int       @db.SmallInt
+  /// Jam dinding WIB.
+  startTime      DateTime  @map("start_time") @db.Time(0)
+  endTime        DateTime  @map("end_time") @db.Time(0)
+  quotaJkn       Int       @map("quota_jkn")
+  quotaNonJkn    Int       @map("quota_non_jkn")
+  validFrom      DateTime  @map("valid_from") @db.Date
+  validUntil     DateTime? @map("valid_until") @db.Date
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  practitioner Practitioner      @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
+  service      QueueService      @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  sessions     ScheduleSession[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, practitionerId])
+  @@index([tenantId, serviceId, weekday])
+  @@map("practitioner_schedules")
+}
+
+/// F01 · Sesi praktik satu tanggal dengan kuota. `booked_* <= quota_*` dijamin CHECK; reservasi lewat
+/// `reserveQuota` (UPDATE bersyarat atomik). `cuti` + pengganti: pengganti melayani dengan kuota sesi ini.
+model ScheduleSession {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  /// Templat asal (null = sesi tambahan).
+  scheduleId     String?   @map("schedule_id") @db.Uuid
+  practitionerId String    @map("practitioner_id") @db.Uuid
+  serviceId      String    @map("service_id") @db.Uuid
+  /// Tanggal layanan (kalender WIB).
+  sessionDate    DateTime  @map("session_date") @db.Date
+  startTime      DateTime  @map("start_time") @db.Time(0)
+  endTime        DateTime  @map("end_time") @db.Time(0)
+  /// praktik | cuti
+  kind           String    @default("praktik")
+  /// Dokter pengganti saat cuti.
+  substituteId   String?   @map("substitute_practitioner_id") @db.Uuid
+  quotaJkn       Int       @map("quota_jkn")
+  quotaNonJkn    Int       @map("quota_non_jkn")
+  bookedJkn      Int       @default(0) @map("booked_jkn")
+  bookedNonJkn   Int       @default(0) @map("booked_non_jkn")
+  note           String?
+  /// Terakhir sama dengan HFIS.
+  hfisSyncedAt   DateTime? @map("hfis_synced_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id])
+  schedule     PractitionerSchedule? @relation(fields: [tenantId, scheduleId], references: [tenantId, id])
+  practitioner Practitioner          @relation("SessionPractitioner", fields: [tenantId, practitionerId], references: [tenantId, id])
+  substitute   Practitioner?         @relation("SessionSubstitute", fields: [tenantId, substituteId], references: [tenantId, id])
+  service      QueueService          @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  appointments Appointment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, practitionerId, sessionDate, startTime])
+  @@index([tenantId, serviceId, sessionDate])
+  @@map("schedule_sessions")
+}
+
+/// F01 · Salinan jadwal dari/ke HFIS untuk perbandingan RS vs HFIS. Append-only, tanpa PHI.
+model HfisScheduleSnapshot {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  practitionerId String?  @map("practitioner_id") @db.Uuid
+  /// pull | push
+  direction      String
+  periodStart    DateTime @map("period_start") @db.Date
+  periodEnd      DateTime @map("period_end") @db.Date
+  payload        Json
+  fetchedAt      DateTime @default(now()) @map("fetched_at") @db.Timestamptz(3)
+  createdBy      String?  @map("created_by") @db.Uuid
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  practitioner Practitioner? @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, fetchedAt])
+  @@map("hfis_schedule_snapshots")
+}
+
+/// F02 · Booking (Mobile JKN, aplikasi RS, anjungan, loket). `booking_code` unik dan tidak bisa diubah.
+model Appointment {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  /// Kode booking 10 digit (dikirim ke BPJS Antrean).
+  bookingCode     String    @map("booking_code")
+  patientId       String    @map("patient_id") @db.Uuid
+  sessionId       String    @map("session_id") @db.Uuid
+  practitionerId  String    @map("practitioner_id") @db.Uuid
+  serviceId       String    @map("service_id") @db.Uuid
+  appointmentDate DateTime  @map("appointment_date") @db.Date
+  /// jkn | non_jkn (keranjang kuota sesi)
+  quotaBucket     String    @map("quota_bucket")
+  /// mobile_jkn | aplikasi | anjungan | loket
+  channel         String
+  /// booked | checked_in | cancelled | no_show | completed
+  status          String    @default("booked")
+  estimatedAt     DateTime? @map("estimated_at") @db.Timestamptz(3)
+  checkedInAt     DateTime? @map("checked_in_at") @db.Timestamptz(3)
+  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy     String?   @map("cancelled_by") @db.Uuid
+  cancelReason    String?   @map("cancel_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String?   @map("updated_by") @db.Uuid
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id])
+  patient      Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  session      ScheduleSession @relation(fields: [tenantId, sessionId], references: [tenantId, id])
+  practitioner Practitioner    @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
+  service      QueueService    @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  tickets      QueueTicket[]
+  bpjsTasks    BpjsQueueTask[]
+  encounters   Encounter[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bookingCode])
+  @@index([tenantId, patientId])
+  @@index([tenantId, sessionId])
+  @@map("appointments")
+}
+
+/// F04 · Tiket antrean per layanan per hari (`allocateQueueNumber`). Nomor tidak bisa diubah.
+model QueueTicket {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  serviceId     String   @map("service_id") @db.Uuid
+  /// Tanggal layanan (kalender WIB).
+  serviceDate   DateTime @map("service_date") @db.Date
+  seq           Int
+  /// `<kode layanan>-<3 digit>`, mis. `PD-027`.
+  ticketNo      String   @map("ticket_no")
+  appointmentId String?  @map("appointment_id") @db.Uuid
+  patientId     String?  @map("patient_id") @db.Uuid
+  /// anjungan | loket | booking | mobile_jkn
+  source        String
+  /// waiting | called | serving | done | skipped | cancelled
+  status        String   @default("waiting")
+  /// Dicadangkan untuk booking: hanya dipanggil petugas, bukan panggilan otomatis.
+  reserved      Boolean  @default(false)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String?  @map("created_by") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String?  @map("updated_by") @db.Uuid
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  service     QueueService @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  appointment Appointment? @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
+  patient     Patient?     @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  calls       QueueCall[]
+  encounters  Encounter[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, serviceId, serviceDate, seq])
+  @@index([tenantId, serviceId, serviceDate, status])
+  @@map("queue_tickets")
+}
+
+/// F04 · Panggilan antrean (panggil, ulang, lewati, mulai, selesai). Append-only; setiap baris memicu
+/// `pg_notify('queue_calls', {tenant_id, id})` untuk SSE papan (ADR-0026), tanpa isi lain.
+model QueueCall {
+  id       String   @id @db.Uuid
+  tenantId String   @map("tenant_id") @db.Uuid
+  ticketId String   @map("ticket_id") @db.Uuid
+  /// call | recall | skip | start | finish
+  action   String
+  /// Loket/ruang pemanggil, mis. "Loket 3".
+  counter  String?
+  calledAt DateTime @default(now()) @map("called_at") @db.Timestamptz(3)
+  calledBy String?  @map("called_by") @db.Uuid
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  ticket QueueTicket @relation(fields: [tenantId, ticketId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, ticketId, calledAt])
+  @@map("queue_calls")
+}
+
+/// F04 · Task ID antrean BPJS per booking (1–7, 99 batal), dikirim lewat outbox. Satu baris per (booking, task);
+/// task dan waktunya tidak bisa diubah, hanya status kirim.
+model BpjsQueueTask {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  appointmentId   String    @map("appointment_id") @db.Uuid
+  taskId          Int       @map("task_id") @db.SmallInt
+  occurredAt      DateTime  @map("occurred_at") @db.Timestamptz(3)
+  /// pending | sent | rejected | dead
+  status          String    @default("pending")
+  outboxMessageId String?   @map("outbox_message_id") @db.Uuid
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(3)
+  /// Kode galat BPJS terakhir (tanpa PHI).
+  lastErrorCode   String?   @map("last_error_code")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  appointment Appointment @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, appointmentId, taskId])
+  @@map("bpjs_queue_tasks")
+}
+
+/// F03 · Kunjungan (FHIR Encounter): rawat jalan AMB, IGD EMER, rawat inap IMP. Nomor dari P08, tidak bisa diubah;
+/// setiap perubahan status dicatat di `encounter_status_history`.
+model Encounter {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  /// `RJ-2610-000123`, `IGD-…`, `RI-…`.
+  number         String
+  patientId      String    @map("patient_id") @db.Uuid
+  /// AMB | EMER | IMP
+  encounterClass String    @map("class")
+  /// planned | arrived | in_progress | finished | cancelled
+  status         String
+  unitId         String    @map("unit_id") @db.Uuid
+  serviceId      String?   @map("service_id") @db.Uuid
+  /// DPJP.
+  practitionerId String?   @map("practitioner_id") @db.Uuid
+  appointmentId  String?   @map("appointment_id") @db.Uuid
+  queueTicketId  String?   @map("queue_ticket_id") @db.Uuid
+  arrivedAt      DateTime? @map("arrived_at") @db.Timestamptz(3)
+  startedAt      DateTime? @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz(3)
+  cancelReason   String?   @map("cancel_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id])
+  patient         Patient                  @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  unit            Unit                     @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  service         QueueService?            @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  practitioner    Practitioner?            @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
+  appointment     Appointment?             @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
+  queueTicket     QueueTicket?             @relation(fields: [tenantId, queueTicketId], references: [tenantId, id])
+  statusHistory   EncounterStatusHistory[]
+  coverages       Coverage[]
+  referrals       Referral[]
+  seps            Sep[]
+  privacyConsents PrivacyConsent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@index([tenantId, patientId])
+  @@index([tenantId, unitId, status])
+  @@map("encounters")
+}
+
+/// F03 · Riwayat status kunjungan. Append-only.
+model EncounterStatusHistory {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  fromStatus  String?  @map("from_status")
+  toStatus    String   @map("to_status")
+  reason      String?
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  changedBy   String?  @map("changed_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId, changedAt])
+  @@map("encounter_status_history")
+}
+
+/// F06 · Penjaminan per kunjungan. Terkunci (`locked_at`, trigger) begitu SEP untuknya terbit.
+model Coverage {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  encounterId         String    @map("encounter_id") @db.Uuid
+  payerId             String    @map("payer_id") @db.Uuid
+  /// Identifier peserta (mis. no. BPJS) di MPI; null untuk umum.
+  patientIdentifierId String?   @map("patient_identifier_id") @db.Uuid
+  /// 1 = utama, 2–3 = pendamping (koordinasi manfaat).
+  priority            Int       @default(1) @db.SmallInt
+  /// Hak kelas peserta: kelas_1 | kelas_2 | kelas_3
+  classEntitlement    String?   @map("class_entitlement")
+  /// Kelas rawat yang dipakai (bisa naik kelas).
+  careClass           String?   @map("care_class")
+  /// active | cancelled
+  status              String    @default("active")
+  lockedAt            DateTime? @map("locked_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?   @map("created_by") @db.Uuid
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?   @map("updated_by") @db.Uuid
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  encounter         Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  payer             Payer              @relation(fields: [tenantId, payerId], references: [tenantId, id])
+  patientIdentifier PatientIdentifier? @relation(fields: [tenantId, patientIdentifierId], references: [tenantId, id])
+  seps              Sep[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@map("coverages")
+}
+
+/// F07 · Rujukan masuk (FKTP/RS lain), surat kontrol, dan rujukan keluar/internal.
+model Referral {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  patientId        String    @map("patient_id") @db.Uuid
+  /// rujukan-fktp | rujukan-rs | surat-kontrol | rujukan-keluar | rujukan-internal
+  kind             String
+  number           String
+  /// Kode PPK BPJS perujuk (masuk) atau tujuan (keluar).
+  ppkCode          String?   @map("ppk_code")
+  /// Nama faskes perujuk/tujuan atau poli asal surat kontrol.
+  facilityName     String    @map("facility_name")
+  /// Poli tujuan di RS ini.
+  targetServiceId  String?   @map("target_service_id") @db.Uuid
+  /// DPJP pengusul (surat kontrol) atau yang dituju.
+  practitionerId   String?   @map("practitioner_id") @db.Uuid
+  /// Kunjungan asal (keluar/kontrol) atau yang memakai rujukan ini.
+  encounterId      String?   @map("encounter_id") @db.Uuid
+  /// ICD-10 (kode baku dari data rujukan P06).
+  diagnosisCode    String?   @map("diagnosis_code")
+  diagnosisDisplay String?   @map("diagnosis_display")
+  issuedOn         DateTime  @map("issued_on") @db.Date
+  validUntil       DateTime? @map("valid_until") @db.Date
+  /// Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan).
+  visitNo          Int?      @map("visit_no") @db.SmallInt
+  /// active | used | expired | cancelled
+  status           String    @default("active")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String?   @map("updated_by") @db.Uuid
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  patient       Patient       @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  targetService QueueService? @relation(fields: [tenantId, targetServiceId], references: [tenantId, id])
+  practitioner  Practitioner? @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
+  encounter     Encounter?    @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  seps          Sep[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, kind, number])
+  @@index([tenantId, patientId])
+  @@map("referrals")
+}
+
+/// F06 · SEP (VClaim). Berversi: koreksi = baris baru (`supersedes_id`); baris `issued` beku kecuali dibatalkan,
+/// baris `cancelled` beku seluruhnya (trigger). Satu rantai SEP per kunjungan (indeks unik versi 1).
+model Sep {
+  id               String    @id @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  encounterId      String    @map("encounter_id") @db.Uuid
+  coverageId       String    @map("coverage_id") @db.Uuid
+  referralId       String?   @map("referral_id") @db.Uuid
+  version          Int       @default(1)
+  supersedesId     String?   @map("supersedes_id") @db.Uuid
+  correctionReason String?   @map("correction_reason")
+  /// No. SEP dari VClaim (ada sejak terbit).
+  sepNo            String?   @map("sep_no")
+  /// pending | issued | failed | cancelled
+  status           String    @default("pending")
+  /// rawat_jalan | rawat_inap
+  serviceType      String    @map("service_type")
+  /// kelas_1 | kelas_2 | kelas_3
+  careClass        String?   @map("care_class")
+  /// Kode poli BPJS tujuan (rawat jalan).
+  poliCode         String?   @map("poli_code")
+  /// Diagnosa awal ICD-10.
+  diagnosisCode    String?   @map("diagnosis_code")
+  lastErrorCode    String?   @map("last_error_code")
+  issuedAt         DateTime? @map("issued_at") @db.Timestamptz(3)
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy      String?   @map("cancelled_by") @db.Uuid
+  cancelReason     String?   @map("cancel_reason")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy        String?   @map("updated_by") @db.Uuid
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  encounter    Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  coverage     Coverage  @relation(fields: [tenantId, coverageId], references: [tenantId, id])
+  referral     Referral? @relation(fields: [tenantId, referralId], references: [tenantId, id])
+  supersedes   Sep?      @relation("SepVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy Sep[]     @relation("SepVersion")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, sepNo])
+  @@map("seps")
+}
+
+/// F03 · Keluarga/penanggung jawab pasien. Nama, no. HP, alamat terenkripsi (`encryptField`, tujuan `contact`).
+/// Append-only: mengganti = baris baru dengan `supersedes_id`; menghapus = baris baru berstatus `removed`.
+model PatientContact {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  /// suami | istri | anak | orang_tua | saudara | wali | lainnya
+  relation     String
+  nameEnc      String   @map("name_enc")
+  phoneEnc     String?  @map("phone_enc")
+  addressEnc   String?  @map("address_enc")
+  /// Penanggung jawab administratif pasien.
+  isGuarantor  Boolean  @default(false) @map("is_guarantor")
+  /// active | removed
+  status       String   @default("active")
+  supersedesId String?  @map("supersedes_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by") @db.Uuid
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  patient      Patient          @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  supersedes   PatientContact?  @relation("ContactVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy PatientContact[] @relation("ContactVersion")
+
+  @@unique([tenantId, id])
+  @@index([tenantId, patientId])
+  @@map("patient_contacts")
 }

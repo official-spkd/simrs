@@ -9,7 +9,8 @@ import { isFictionalKartu, pesertaByKartu } from './peserta';
 import type { AntreanRecord, BpjsState, RujukanKeluarRecord, SepRecord, SuratRecord } from './state';
 
 /**
- * API panel BPJS untuk panel HTML dan helper E2E (agen A, potongan 1d). Bukan bagian kontrak BPJS: hanya di mock.
+ * API panel BPJS untuk panel HTML dan helper E2E (`apps/web/e2e/support/mock.ts`). Bukan bagian kontrak BPJS: hanya di
+ * mock.
  *
  * - `GET  /_panel/api/bpjs`                       → ringkasan: antrean + task, SEP, surat, sidik jari, HFIS
  * - `GET  /_panel/api/bpjs/antrean/:kodebooking`  → satu antrean + task (404 bila tidak ada)
