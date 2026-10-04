@@ -73,7 +73,7 @@ export function CpoeWorkspace({
   const send = sendTask ? tasks.task(sendTask) : undefined;
   const scenarioSent: SentInfo | null =
     send?.status === 'selesai'
-      ? { title: `Resep terkirim · ${send.statusText}`, message: send.doneText }
+      ? { title: `Resep terkirim · ${send.statusText.replace(/^Selesai · /, '')}`, message: send.doneText }
       : null;
   const sendReason = send
     ? (gate.reason ??

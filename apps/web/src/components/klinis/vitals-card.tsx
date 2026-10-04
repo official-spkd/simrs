@@ -26,7 +26,7 @@ export function VitalsCard({
   tasks: ScenarioTasks;
   cdsNote: string;
 }) {
-  const [local, setLocal] = useState<{ vitals: PoliVital[]; at: string } | null>(null);
+  const [local, setLocal] = useState<{ vitals: PoliVital[]; at: string; message: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const shown = local?.vitals ?? vitals;
   const at = local?.at ?? vitalsAt;
@@ -55,11 +55,16 @@ export function VitalsCard({
           <NurseVitalsForm
             encounterId={encounterId}
             vitals={shown}
-            onSaved={(v, savedAt) => {
-              setLocal({ vitals: v, at: savedAt });
+            onSaved={(v, savedAt, message) => {
+              setLocal({ vitals: v, at: savedAt, message });
               setEditing(false);
             }}
           />
+        )}
+        {local && !editing && (
+          <p role="status" className="m-0 text-small font-semibold text-success">
+            {local.message}
+          </p>
         )}
         {!isNurse && pendingNurse && (
           <p className="m-0 text-small text-ink-700">

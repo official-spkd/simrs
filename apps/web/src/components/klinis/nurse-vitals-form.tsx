@@ -43,7 +43,7 @@ export function NurseVitalsForm({
 }: {
   encounterId: string;
   vitals: readonly PoliVital[];
-  onSaved: (vitals: PoliVital[], at: string) => void;
+  onSaved: (vitals: PoliVital[], at: string, message: string) => void;
 }) {
   const [form, setForm] = useState(() => initial(vitals));
   const [result, setResult] = useState<{ ok: boolean; text: string; field?: string } | null>(null);
@@ -60,7 +60,11 @@ export function NurseVitalsForm({
         startTransition(async () => {
           const r = await recordVitalsAction({ encounterId, ...form });
           if (r.ok && r.at) {
-            onSaved(updated(vitals, form, r.at), r.at);
+            onSaved(
+              updated(vitals, form, r.at),
+              r.at,
+              r.message ?? `Tanda vital tersimpan ${r.at} (simulasi, tidak disimpan)`,
+            );
             setResult({ ok: true, text: r.message ?? 'Tersimpan (simulasi, tidak disimpan)' });
           } else {
             setResult({ ok: false, text: r.error ?? 'Gagal menyimpan.', field: r.field });
