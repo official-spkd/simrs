@@ -457,18 +457,24 @@ Jalankan `pnpm --filter @simrs/api test` (tanpa Docker: `pnpm with-pg pnpm --fil
 
 **Mock.** Tambahkan rute di `apps/mock/src/systems/<sistem>.ts`, mengikuti kontrak di `docs/06-integrasi.md`. Skenario normal/lambat/gagal otomatis berlaku untuk semua rute berprefiks `/<sistem>`. Tambahkan tes di `apps/mock/src/mock.test.ts` dengan `app.inject(...)`.
 
-**Operasi outbox.** Tambahkan entri di `apps/worker/src/outbox/operations.ts`:
+**Operasi outbox.** Tambahkan entri di `apps/worker/src/outbox/operations.ts`. Operasi ke BPJS dibangun dengan `defineBpjsOperation` (tanda tangan, dekripsi, dan pemetaan `metaData` sudah ditangani konektor):
 
 ```ts
 [
   'antrean.updatewaktu',
-  {
-    prepare: (msg) => ({ method: 'POST', path: '/bpjs/antrean/antrean/updatewaktu', body: msg.payload }),
-  },
+  defineBpjsOperation({
+    prepare: (msg) => ({ service: 'antrean', method: 'POST', path: '/antrean/updatewaktu', body: msg.payload }),
+    async onAccepted(tx, msg) {
+      /* tandai task terkirim */
+    },
+    async onRejected(tx, msg, rejection) {
+      /* tandai task ditolak + rejection.code, mis. BPJS_TASK_URUTAN */
+    },
+  }),
 ],
 ```
 
-Operasi yang butuh data pribadi (mis. NIK) **tidak** menaruhnya di payload: payload cukup berisi ID, lalu `prepare(msg, ctx)` membaca dan mendekripsi lewat `ctx.read(...)`/`ctx.crypto`. Kembalikan `{ skip: 'alasan' }` bila pesan sudah tidak relevan. Bila respons perlu disimpan, isi `onSuccess(tx, msg, body)`: ia berjalan di transaksi yang sama dengan pencatatan "terkirim", dan melempar `PermanentOperationError` membuat pesan masuk DLQ. Respons berisi data pribadi ditandai `sensitive: true`. Contoh lengkap: `apps/worker/src/outbox/dukcapil.ts` (ADR-0017).
+Operasi yang butuh data pribadi (mis. NIK) **tidak** menaruhnya di payload: payload cukup berisi ID, lalu `prepare(msg, ctx)` membaca dan mendekripsi lewat `ctx.read(...)`/`ctx.crypto`. Kembalikan `{ skip: 'alasan' }` bila pesan sudah tidak relevan, atau `{ defer: { afterMessageId } }` bila harus menunggu pesan lain (urutan task ID). Bila respons perlu disimpan, isi `onSuccess(tx, msg, body)` (operasi BPJS: `onAccepted`/`onRejected`): ia berjalan di transaksi yang sama dengan pencatatan "terkirim", dan melempar `PermanentOperationError` membuat pesan masuk DLQ. Status domain "gagal" diisi di `onDead(tx, msg)`, atomik dengan perpindahan ke DLQ. Batas coba ulang per operasi lewat `retry` (operasi BPJS bawaannya sampai akhir hari layanan WIB). Respons berisi data pribadi ditandai `sensitive: true`. Contoh lengkap: `apps/worker/src/outbox/dukcapil.ts` (ADR-0017) dan bagian Worker di [Cara kode bekerja](./02-cara-kerja-kode.md#worker).
 
 Lalu dari service domain, di **dalam transaksi yang sama** dengan perubahan datanya:
 
@@ -481,7 +487,7 @@ await enqueueOutbox(tx, tenantId, {
 });
 ```
 
-Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan aksi tidak menghasilkan kiriman ganda. Konektor nyata yang menambahkan tanda tangan BPJS (`bpjsHeaders` dari `@simrs/shared/node`) dibangun di fase 2.
+Idempotency key harus deterministik dari datanya (bukan acak), agar pengulangan aksi tidak menghasilkan kiriman ganda.
 
 ## 7. Menjalankan tes dan sebelum commit
 

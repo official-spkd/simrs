@@ -234,7 +234,7 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 | `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
 | `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
 | API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
-| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`                                                                                |
+| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → audit `sign` berstatus `failed` (`onDead`)                              |
 | Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
 
 Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan header `X-Document-Kind`, `X-Document-Title`, `X-Document-Filename` (UTF-8 di-percent-encode). Header dan query tidak masuk log API; judul dokumen bisa memuat PHI, jadi jangan pernah taruh di path URL.
@@ -332,24 +332,64 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `seedStaff(prisma, tenantId, { encKeyB64 })`      | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.     |
 | `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
-| `recordOutboxAttempt(tx, msg, result)`            | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
+| `recordOutboxAttempt(tx, msg, result, opts)`      | Catat percobaan: `sent` / `failed` + jadwal ulang / `dead`; opsi `maxAttempts`, `capMs`, `deadline`.     |
+| `deferOutboxMessage(tx, msg, { until, reason })`  | Kembalikan pesan ke `pending` tanpa menambah percobaan (dipakai `defer`).                                |
 | `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.    |
 
 ## Worker
 
-Berkas di `apps/worker/src/outbox/`:
+Berkas di `apps/worker/src/`:
 
-1. `outbox.scheduler.ts` mendaftarkan _job scheduler_ BullMQ `outbox-dispatch` (tiap `OUTBOX_POLL_MS`, default 2000 ms) dengan concurrency 1.
-2. `outbox.dispatcher.ts` → `dispatchOnce()`: ambil daftar tenant → per tenant klaim pesan dalam transaksi singkat → siapkan permintaan (`prepare`, boleh membaca DB tenant) → kirim **di luar** transaksi → catat hasil di transaksi baru, bersama pemrosesan respons (`onSuccess`) secara atomik.
-3. `http-connector.ts` mengirim HTTP dengan header `Idempotency-Key` dan batas waktu, lalu mengklasifikasikan hasil (`classifyStatus`): 2xx terkirim; 5xx/408/425/429/jaringan dicoba ulang; 4xx lain permanen.
-4. `operations.ts` memetakan nama operasi → `{ prepare, onSuccess?, sensitive? }` (tipe di `operation-types.ts`).
+1. `outbox/outbox.scheduler.ts` mendaftarkan _job scheduler_ BullMQ `outbox-dispatch` (tiap `OUTBOX_POLL_MS`, default 2000 ms) dengan concurrency 1. Tanpa Redis di luar produksi memakai timer (`OUTBOX_SCHEDULER=auto`, logikanya di `infra/scheduler-mode.ts`). Kunci Redis memakai prefiks `BULLMQ_PREFIX` (bawaan `bull`); tes memakai prefiks unik karena Redis dipakai bersama.
+2. `outbox/outbox.dispatcher.ts` → `dispatchOnce()`: ambil daftar tenant → per tenant klaim pesan dalam transaksi singkat → siapkan permintaan (`prepare`, boleh membaca DB tenant) → kirim **di luar** transaksi, atau tunda (`defer`) → catat hasil di transaksi baru, bersama `onSuccess` (sebelum "terkirim") atau `onDead` (sesudah pindah ke DLQ) secara atomik.
+3. `outbox/http-connector.ts` mengirim HTTP dengan header `Idempotency-Key` dan batas waktu, lalu mengklasifikasikan hasil (`classifyStatus`): 2xx terkirim; 5xx/408/425/429/jaringan dicoba ulang; 4xx lain permanen.
+4. `outbox/bpjs-connector.ts` + `outbox/bpjs-operation.ts`: konektor BPJS (lihat di bawah).
+5. `outbox/operations.ts` memetakan nama operasi → `{ prepare, onSuccess?, onDead?, retry?, sensitive? }` (tipe di `operation-types.ts`). Peta disuntikkan lewat token `OUTBOX_OPERATION_REGISTRY` agar tes bisa menambah operasi uji.
+6. `jobs/`: job berkala per tenant (P11, lihat di bawah).
 
 | Operasi               | Isi                                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ping`                | Uji saluran ke `/<sistem>/_echo` di mock.                                                                                                                                      |
 | `dukcapil.nik.verify` | P05 · Payload `{ patientId, identifierId }`; NIK dibaca + didekripsi saat dikirim ke `/dukcapil/verify-data`; hasil `verified`/`mismatch`/`not_found` + audit pelaku `system`. |
 
-Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama dengan API (ADR-0017). Konektor nyata per sistem ditambahkan di fase 2–7 dengan pola yang dijelaskan di `docs/06-integrasi.md`.
+Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama dengan API (ADR-0017).
+
+### Kebijakan retry per operasi
+
+`retry: { maxAttempts?, capMs?, untilEndOfServiceDay? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
+
+### Tunda (`defer`)
+
+`prepare` boleh mengembalikan `{ defer: { untilMs } }` (epoch ms) atau `{ defer: { afterMessageId } }` (+ `reason` opsional tanpa PHI). Pesan kembali `pending` **tanpa menambah percobaan** dan tanpa baris `delivery_attempts`; alasannya tampil di `last_error` sebagai `ditunda: …`. Untuk `afterMessageId` worker menjadwalkan ulang setelah percobaan berikutnya pesan prasyarat; prasyarat yang DLQ atau tidak ada membuat pesan ini ikut DLQ (urutan tidak mungkin dipenuhi). Penundaan yang melewati batas hari layanan juga DLQ. Cari pesan prasyarat dengan `ctx.findMessage({ target, idempotencyKey })`. Pola task ID BPJS:
+
+```ts
+const prev = await ctx.findMessage({
+  target: 'bpjs',
+  idempotencyKey: `antrean-task:${kodeBooking}:${taskId - 1}`,
+});
+if (prev && prev.status !== 'sent') return { defer: { afterMessageId: prev.id } };
+```
+
+### `onDead`
+
+`onDead(tx, msg)` berjalan di transaksi yang sama dengan perpindahan ke DLQ (juga setelah `onSuccess` melempar), dengan `msg.status = 'dead'` dan `msg.lastError` terisi: tandai status domain "gagal" agar terlihat di layar. Bila `onDead` melempar, perubahannya dibatalkan, pesan tetap DLQ, dan `last_error` diberi catatan `onDead gagal`. Contoh: `tte.sign` mencatat audit `sign` berstatus `failed`.
+
+### Konektor BPJS
+
+Klien HTTP ada **satu** di `@simrs/shared/node` (`BpjsClient`, juga dipakai API untuk lookup sinkron, ADR-0025): header `X-cons-id`/`X-timestamp`/`X-signature`/`user_key`, dekripsi `response` (AES-256-CBC + LZ-string, kunci dari timestamp permintaan), pemetaan `metaData.code` + pesan ke kode stabil (`classifyBpjsMetaData`, `BPJS_ERROR_LABEL` untuk layar). Kredensial dari env (`BPJS_BASE_URL`, `BPJS_CONS_ID`, `BPJS_SECRET_KEY`, `BPJS_USER_KEY`); kosong di luar produksi = nilai mock (`<MOCK_BASE_URL>/bpjs`), di produksi wajib diisi.
+
+| Jawaban BPJS                                                | Hasil outbox                             | Diteruskan ke                      |
+| ----------------------------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| `metaData.code` 200 (Aplicare: 1)                           | terkirim                                 | `onAccepted(tx, msg, response)`    |
+| HTTP 200 + kode ≠ 200 (galat bisnis, mis. `BPJS_SEP_GANDA`) | **terkirim** (jawaban sudah pasti)       | `onRejected(tx, msg, { code, … })` |
+| Timeout, jaringan, 5xx, 429, pemeliharaan                   | gagal, dicoba ulang (`BPJS_UNAVAILABLE`) | –                                  |
+| 401/403, respons tak terbaca                                | DLQ (`BPJS_AUTH`, `BPJS_PROTOCOL`)       | `onDead`                           |
+
+Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccepted?, onRejected?, onDead?, retry?, sensitive? })`. `prepare` mengembalikan `{ service: 'vclaim' | 'antrean' | 'aplicare', method, path, body? }` (path relatif terhadap layanan), `skip`, atau `defer`. Bawaan: `retry = SERVICE_DAY_RETRY`, `sensitive = true` (jejak pengiriman hanya menyimpan kode, bukan pesan/isi respons). Penolakan tanpa `onRejected` dianggap galat permanen (DLQ) agar tidak hilang diam-diam. Skema `response` (zod) yang tidak cocok = DLQ.
+
+### Job berkala (P11)
+
+`jobs/periodic-jobs.ts` berisi peta `PERIODIC_JOBS` (nama `<konteks>.<job>` → `{ schedule, module?, run }`). Jadwal `{ everyMs }` (10 detik–24 jam) atau `{ dailyAt: 'HH:MM' }` (WIB). `PeriodicScheduler` menjalankan `run({ tenantId, now, tx })` sekali per tenant aktif; tenant yang modulnya (`module`) nonaktif dilewati; galat satu tenant dicatat tanpa menghentikan tenant lain. Dengan Redis: satu job scheduler BullMQ per job di antrean `periodic` (concurrency 1; cron harian ber-`tz` Asia/Jakarta; jadwal yang sudah dihapus dari peta ikut dihapus saat start). Tanpa Redis di luar produksi: timer berurutan. Job **wajib idempoten** (jadwal bisa terlewat atau terulang) dan efek ke sistem luar lewat outbox. Potongan berikutnya menambah satu baris per job, mis. `scheduling.generate-sessions`, `scheduling.hfis-pull`, `booking.no-show`, `booking.reminder`.
 
 ## Mock
 
@@ -453,7 +493,8 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 | `ids.ts`                         | `newId()` UUID v7                                                                                 |
 | `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                        |
 | `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                |
-| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, HMAC TPDI                                       |
+| `integrations/bpjs-errors.ts`    | Kode stabil jawaban BPJS (`BPJS_ERROR_CODES`, label), `classifyBpjsMetaData()`                    |
+| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `BpjsClient`, HMAC TPDI                         |
 
 ## Strategi tes
 
