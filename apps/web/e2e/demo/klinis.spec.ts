@@ -238,14 +238,14 @@ test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
     await loginAs(page, perawat, '/klinis/igd');
     await page.goto('/klinis/igd');
     const board = page.getByRole('region', { name: 'Papan pasien IGD' });
-    const fajar = board.getByRole('button', { name: /Tn\. Fajar Nugraha/ });
-    await expect(fajar).toContainText(/04\.4\d j/);
-    await expect(fajar).toContainText('Lewat 4 jam');
+    const sumarni = board.getByRole('button', { name: /Ny\. Sumarni Pakpahan/ });
+    await expect(sumarni).toContainText(/04\.4\d j/);
+    await expect(sumarni).toContainText('Lewat 4 jam');
     await expect(board.getByRole('button', { name: /Ny\. Lestiani Hapsari/ })).not.toContainText('Lewat');
 
-    await fajar.click();
+    await sumarni.click();
     const panel = page.getByRole('complementary', { name: 'Triase pasien' });
-    await expect(panel.getByRole('heading', { name: /Tn\. Fajar Nugraha/ })).toBeVisible();
+    await expect(panel.getByRole('heading', { name: /Ny\. Sumarni Pakpahan/ })).toBeVisible();
     await expect(panel.getByText('Lewat 4 jam')).toBeVisible();
 
     await board.getByRole('button', { name: /Tn\. X \(tanpa identitas\)/ }).click();
@@ -266,8 +266,8 @@ test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
     await page.goto('/klinis/tempat-tidur');
     const requests = page.getByRole('region', { name: 'Permintaan bed' });
     const request = (name: string) => requests.getByRole('listitem').filter({ hasText: name });
-    await expect(request('Tn. Fajar Nugraha')).toContainText('4 j 40 m');
-    await expect(request('Tn. Fajar Nugraha')).toContainText('Lewat 4 jam');
+    await expect(request('Ny. Sumarni Pakpahan')).toContainText('4 j 40 m');
+    await expect(request('Ny. Sumarni Pakpahan')).toContainText('Lewat 4 jam');
     await expect(request('Ny. Maria')).toContainText('terjadwal');
     await expect(request('Ny. Maria')).not.toContainText('Lewat');
 
