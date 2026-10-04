@@ -27,6 +27,8 @@ Isi `.env` yang perlu diperhatikan:
 | `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                    |
 | `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                 |
 | `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                |
+| `STORAGE_DRIVER`                         | `disk` atau `s3`                             | Berkas dokumen: `disk` = folder `STORAGE_DISK_ROOT` (hanya lokal), `s3` = MinIO Docker. Staging/produksi wajib `s3`    |
+| `S3_*`                                   | lihat `.env.example`                         | MinIO lokal (`S3_BUCKET_DOCUMENTS=simrs-documents`). Produksi: kredensial khusus aplikasi, bukan root                  |
 
 ### Mesin baru (macOS)
 

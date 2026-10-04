@@ -5,7 +5,7 @@
 ## 1. Pola umum konektor
 
 ```
-packages/shared/src/integrations/<sistem>/contract.ts   ← tipe request/response (zod)
+packages/shared/src/integrations/<sistem>/             ← tipe request/response (zod); BPJS: {common,vclaim,antrean,hfis}.ts
 apps/api/src/modules/integration-hub/connectors/<sistem>/
   <sistem>.connector.ts        ← interface (dipakai modul domain)
   <sistem>.http.ts             ← implementasi HTTP (mock/sandbox/production sama)
@@ -42,6 +42,10 @@ Header per request: `X-cons-id`, `X-timestamp` (detik UTC), `X-signature` = Base
 
 Task id dikirim otomatis dari event domain (lihat simulasi rawat jalan). Waktu dikirim dalam milidetik epoch.
 
+Kontrak kabel yang dipakai mock, worker, dan API: `packages/shared/src/integrations/bpjs/` (endpoint, skema, penolakan bisnis HTTP 200 → kode stabil, urutan task ID `checkAntreanTask`). Aturan data fiktif mock (kartu berakhiran `0000` tidak aktif, `9999` tidak ditemukan, `1111` wajib sidik jari; rujukan berakhiran `99` kedaluwarsa; poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006): `apps/mock/README.md`.
+
+HFIS (5 Okt 2026): web service `updatejadwaldokter` hanya mengganti templat mingguan; libur/cuti per tanggal dan kapasitas dicatat petugas di aplikasi HFIS. Layar Jadwal (F01) mengarahkan petugas mencatat cuti di HFIS.
+
 ### Aplicare
 Ketersediaan tempat tidur per kelas, diperbarui dari papan bed (K05) saat status berubah.
 
@@ -74,6 +78,6 @@ Lihat `07-pembayaran-btn-tpdi.md`.
 
 Halaman sederhana untuk pengembang dan demo:
 - Status tiap mock + log 50 request terakhir.
-- Pengatur skenario per sistem: normal, lambat (latensi N detik), gagal (kode N), acak.
+- Pengatur skenario per sistem: normal, lambat (latensi N detik), gagal (kode N, tanpa diproses), acak, timeout (diproses, jawaban ditahan lalu 504).
 - Pemicu manual: bayar tagihan VA/QRIS, kirim ulang webhook (callback ganda), kedaluwarsakan tagihan, setujui/tolak pembiayaan, cairkan pembiayaan, BPJS bayar klaim, verifikator ubah status klaim (layak bayar/pending/dispute), unggah mutasi BTN.
 - Reset data mock.

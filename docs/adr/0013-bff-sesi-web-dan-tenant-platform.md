@@ -1,6 +1,6 @@
 # ADR-0013 · Web sebagai BFF dengan cookie httpOnly, proxy pembaru sesi, dan tenant PLATFORM
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · peta refresh antar-instans dan CSP ber-nonce: lihat ADR-0073 (5 Okt 2026)
 
 ## Konteks
 Login API (ADR-0011) mengembalikan token buram akses + refresh berotasi dengan deteksi pemakaian ulang. Web harus memakainya tanpa membuka token ke JavaScript browser (XSS), tetap aman dari CSRF, dan tidak membuat sesi tercabut gara-gara permintaan paralel. Area superadmin (ADR-0010) harus berpindah dari gerbang `APP_ENV` ke peran `superadmin_platform`. Batas laju login per IP di API tidak boleh berubah menjadi batas untuk seluruh RS saat semua permintaan datang dari server web.

@@ -46,11 +46,14 @@ export const envSchemas = {
     S3_REGION: z.string().default('ap-southeast-3'),
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_KEY: z.string().min(1),
-    S3_BUCKET_DOCUMENTS: z.string().default('simrs-documents'),
+    S3_BUCKET_DOCUMENTS: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, 'Nama bucket S3 tidak valid')
+      .default('simrs-documents'),
   }),
   /**
-   * Penyimpanan berkas dokumen (P08, ADR-0020): `disk` = folder lokal (pengembangan tanpa Docker / server edge),
-   * `s3` = MinIO/S3 (belum tersedia). Path relatif dihitung dari folder kerja aplikasi (`apps/<app>`).
+   * Penyimpanan berkas dokumen (P08, ADR-0020): `s3` = MinIO/S3 (`S3_*`, wajib di staging dan produksi), `disk` =
+   * folder lokal (hanya APP_ENV=local). Path relatif dihitung dari folder kerja aplikasi (`apps/<app>`).
    */
   storage: z.object({
     STORAGE_DRIVER: z.enum(['disk', 's3']).default('disk'),
