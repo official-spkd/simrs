@@ -44,7 +44,7 @@ export default async function MutuPage() {
         </div>
       </header>
 
-      <div role="region" aria-label="Ringkasan mutu" className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
+      <div role="region" aria-label="Ringkasan mutu" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
         <KpiCard
           label="Indikator memenuhi sasaran"
           value={`${onTarget}/${d.indicators.length}`}
