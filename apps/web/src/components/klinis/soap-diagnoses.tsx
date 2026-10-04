@@ -46,7 +46,7 @@ export function SoapDiagnoses({
                 type="button"
                 onClick={() => onRemove(d.code)}
                 aria-label={`Hapus diagnosis ${d.code}`}
-                className="-my-1 ml-0.5 flex size-8 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-ink-500 hover:bg-muted"
+                className="-my-2.5 -mr-1.5 ml-0.5 flex size-11 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-ink-500 hover:bg-muted"
               >
                 ✕
               </button>

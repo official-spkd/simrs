@@ -128,7 +128,7 @@ export function CpoeWorkspace({
             <button
               type="button"
               onClick={orders.clearNote}
-              className="min-h-9 cursor-pointer rounded-lg border border-brand-100 bg-white px-2.5 font-[inherit] text-caption text-brand-700"
+              className="min-h-11 cursor-pointer rounded-lg border border-brand-100 bg-white px-2.5 font-[inherit] text-caption text-brand-700"
             >
               Tutup
             </button>

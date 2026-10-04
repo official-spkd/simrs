@@ -73,7 +73,7 @@ export function CpoeOrderRow({
               onClick={onRemove}
               disabled={disabled}
               aria-label={`Hapus ${item.name}`}
-              className="min-h-9 cursor-pointer rounded-full border border-line bg-white px-3 font-[inherit] text-caption font-semibold text-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 cursor-pointer rounded-full border border-line bg-white px-3 font-[inherit] text-caption font-semibold text-ink-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Hapus
             </button>
