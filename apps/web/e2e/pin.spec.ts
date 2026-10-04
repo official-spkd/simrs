@@ -100,6 +100,8 @@ test.describe('PIN masuk cepat (P02)', () => {
     await page.goto('/akun/pin');
     await expect(page.getByText(/Posisi Kasir tidak bisa memakai PIN masuk cepat/)).toBeVisible();
     await page.getByRole('button', { name: 'Keluar' }).first().click();
+    // Tunggu sesi benar-benar dicabut sebelum masuk sebagai akun lain (seperti langkah Keluar lain di berkas ini).
+    await expect(page).toHaveURL(/\/masuk$/);
 
     const nurse = await createAccount({ roles: ['perawat'], unitName: 'Melati E2E' });
     await loginAs(page, nurse);
