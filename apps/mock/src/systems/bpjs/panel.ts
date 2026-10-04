@@ -3,9 +3,10 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { MockConfig } from '../../config';
 import type { MockState } from '../../state';
+import { aplicareList } from './aplicare';
 import { dokterByKode, MOCK_DOKTER } from './master';
 import { isFictionalKartu, pesertaByKartu } from './peserta';
-import type { AntreanRecord, BpjsState, SepRecord, SuratRecord } from './state';
+import type { AntreanRecord, BpjsState, RujukanKeluarRecord, SepRecord, SuratRecord } from './state';
 
 /**
  * API panel BPJS untuk panel HTML dan helper E2E (agen A, potongan 1d). Bukan bagian kontrak BPJS: hanya di mock.
@@ -13,6 +14,7 @@ import type { AntreanRecord, BpjsState, SepRecord, SuratRecord } from './state';
  * - `GET  /_panel/api/bpjs`                       → ringkasan: antrean + task, SEP, surat, sidik jari, HFIS
  * - `GET  /_panel/api/bpjs/antrean/:kodebooking`  → satu antrean + task (404 bila tidak ada)
  * - `GET  /_panel/api/bpjs/sep/:noSep`            → satu SEP (termasuk yang dihapus; 404 bila tidak ada)
+ * - `GET  /_panel/api/bpjs/aplicare/:kodeppk`     → ruang Aplicare terdaftar milik PPK (kosong bila belum ada)
  * - `POST /_panel/api/bpjs/fingerprint`           → `{ noKartu, tanggal? }` peserta rekam sidik jari (bawaan hari ini)
  * - `POST /_panel/api/bpjs/hfis`                  → `{ kodedokter, tanggal, libur?, kapasitaspasien? }` seperti
  *                                                  petugas mengubah aplikasi HFIS (libur/cuti, kapasitas per tanggal)
@@ -53,6 +55,8 @@ export interface SepView {
   dibuat: string;
   diubah: string | null;
   dihapus: string | null;
+  /** Rawat inap: tanggal pulang (`updtglplg`), null bila belum. */
+  tglPulang: string | null;
 }
 
 export function antreanView(a: AntreanRecord): AntreanView {
@@ -96,6 +100,25 @@ export function sepPanelView(s: SepRecord): SepView {
     dibuat: s.dibuat,
     diubah: s.diubah,
     dihapus: s.dihapus,
+    tglPulang: s.pulang?.tglPulang ?? null,
+  };
+}
+
+function rujukanKeluarView(r: RujukanKeluarRecord) {
+  return {
+    noRujukan: r.noRujukan,
+    status: r.status,
+    noSep: r.tRujukan.noSep,
+    noKartu: r.peserta.noKartu,
+    tglRujukan: r.tRujukan.tglRujukan,
+    tglRencanaKunjungan: r.tRujukan.tglRencanaKunjungan,
+    ppkDirujuk: r.tRujukan.ppkDirujuk,
+    tipeRujukan: r.tRujukan.tipeRujukan,
+    poliRujukan: r.tRujukan.poliRujukan,
+    diagRujukan: r.tRujukan.diagRujukan,
+    dibuat: r.dibuat,
+    diubah: r.diubah,
+    dihapus: r.dihapus,
   };
 }
 
@@ -111,6 +134,8 @@ export function bpjsPanelSummary(bpjs: BpjsState, limit = 100) {
     antrean: newestFirst(bpjs.antrean, limit).map(antreanView),
     seps: newestFirst(bpjs.seps, limit).map(sepPanelView),
     surat: newestFirst(bpjs.surat, limit).map(suratView),
+    rujukanKeluar: newestFirst(bpjs.rujukanKeluar, limit).map(rujukanKeluarView),
+    aplicare: [...bpjs.aplicare.keys()].map((kodeppk) => ({ kodeppk, ruang: aplicareList(bpjs, kodeppk) })),
     fingerprints: [...bpjs.fingerprints].map((k) => {
       const [noKartu = '', tanggal = ''] = k.split('|');
       return { noKartu, tanggal };
@@ -167,6 +192,11 @@ export function registerBpjsPanel(app: FastifyInstance, config: MockConfig, stat
     if (!s) return reply.code(404).send({ code: 'NOT_FOUND', message: 'SEP tidak ada di mock' });
     return sepPanelView(s);
   });
+
+  app.get<{ Params: { kodeppk: string } }>('/_panel/api/bpjs/aplicare/:kodeppk', async (req) => ({
+    kodeppk: req.params.kodeppk,
+    ruang: aplicareList(state.bpjs, req.params.kodeppk),
+  }));
 
   app.post('/_panel/api/bpjs/fingerprint', async (req, reply) => {
     const parsed = fingerprintSchema.safeParse(req.body);
