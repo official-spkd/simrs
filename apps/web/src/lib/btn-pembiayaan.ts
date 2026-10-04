@@ -1,0 +1,162 @@
+import type {
+  Drawdown,
+  FinancingFacility,
+  InstalmentApplication,
+  InstalmentStage,
+  ReceivableBatch,
+} from '@simrs/shared';
+import type { ChipTone } from '@simrs/ui';
+
+/**
+ * U04 · Aritmetika pembiayaan BTN (murni, bigint): advance rate piutang BPJS, margin harian, pelunasan otomatis
+ * dari rekening penampungan, dan estimasi angsuran cicilan pasien. Semua parameter simulasi (docs/07 §4–5).
+ */
+
+/** Advance = nilai klaim × advance rate (dibulatkan ke bawah, rupiah utuh). */
+export function advanceAmount(claim: bigint, ratePercent: number): bigint {
+  if (!Number.isInteger(ratePercent) || ratePercent < 0 || ratePercent > 100) {
+    throw new RangeError(`Advance rate tidak sah: ${ratePercent}`);
+  }
+  return (claim * BigInt(ratePercent)) / 100n;
+}
+
+/** Margin harian sejak cair: pokok × bps/10.000 × hari/365, dibulatkan ke Rp 100 terdekat. */
+export function marginFor(principal: bigint, marginBps: number, days: number): bigint {
+  if (days <= 0 || principal <= 0n) return 0n;
+  const num = principal * BigInt(marginBps) * BigInt(days);
+  const den = 10_000n * 365n;
+  return ((num + den * 50n) / (den * 100n)) * 100n;
+}
+
+export interface Repayment {
+  /** Pokok + margin yang didebit otomatis dari rekening penampungan. */
+  debit: bigint;
+  /** Sisa yang diteruskan ke rekening operasional RS. */
+  forwarded: bigint;
+}
+
+/** Pembayaran BPJS ke penampungan: auto-debit pokok + margin, sisanya ke operasional. */
+export function repaymentSplit(bpjsPaid: bigint, principal: bigint, margin: bigint): Repayment {
+  const debit = principal + margin;
+  if (debit > bpjsPaid) throw new RangeError('Pembayaran BPJS lebih kecil dari pokok + margin');
+  return { debit, forwarded: bpjsPaid - debit };
+}
+
+/** Hari kalender antara dua tanggal ISO `YYYY-MM-DD` (b − a). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Estimasi angsuran bulanan cicilan pasien: margin flat per tahun, dibulatkan ke Rp 1.000 terdekat. */
+export function monthlyInstalment(amount: bigint, tenorMonths: number, marginPercentPa: number): bigint {
+  if (!Number.isInteger(tenorMonths) || tenorMonths < 1) throw new RangeError('Tenor tidak sah');
+  if (!Number.isInteger(marginPercentPa)) throw new RangeError('Margin harus persen bulat');
+  const num = amount * BigInt(1200 + marginPercentPa * tenorMonths);
+  const den = 1200n * BigInt(tenorMonths);
+  return ((num + den * 500n) / (den * 1000n)) * 1000n;
+}
+
+export interface FacilityPosition {
+  outstanding: bigint;
+  /** Pokok pengajuan yang sedang diproses (mengurangi sisa plafon). */
+  reserved: bigint;
+  available: bigint;
+  /** Margin berjalan seluruh pencairan aktif per tanggal `asOf`. */
+  marginRunning: bigint;
+  activeCount: number;
+}
+
+export function facilityPosition(
+  facility: FinancingFacility,
+  drawdowns: readonly Drawdown[],
+  asOf: string,
+): FacilityPosition {
+  let outstanding = 0n;
+  let reserved = 0n;
+  let marginRunning = 0n;
+  let activeCount = 0;
+  for (const d of drawdowns) {
+    const p = BigInt(d.principal);
+    if (d.stage === 'cair') {
+      outstanding += p;
+      activeCount++;
+      if (d.disbursedOn) marginRunning += marginFor(p, facility.marginBps, daysBetween(d.disbursedOn, asOf));
+    } else if (d.stage === 'diajukan' || d.stage === 'disetujui') {
+      reserved += p;
+    }
+  }
+  const left = BigInt(facility.limit) - outstanding - reserved;
+  return { outstanding, reserved, available: left > 0n ? left : 0n, marginRunning, activeCount };
+}
+
+/** Batch yang bisa dijaminkan: layak bayar dan belum dipakai pencairan mana pun. */
+export function eligibleBatches(
+  pool: readonly ReceivableBatch[],
+  drawdowns: readonly Drawdown[],
+): ReceivableBatch[] {
+  const used = new Set(drawdowns.flatMap((d) => d.batchIds));
+  return pool.filter((b) => b.status === 'layak' && !b.drawdownId && !used.has(b.id));
+}
+
+export interface DrawdownQuote {
+  claims: bigint;
+  advance: bigint;
+  /** Nilai cair = advance, dibatasi sisa plafon. */
+  disburse: bigint;
+  cappedByLimit: boolean;
+}
+
+export function quoteDrawdown(
+  selected: readonly ReceivableBatch[],
+  ratePercent: number,
+  available: bigint,
+): DrawdownQuote {
+  const claims = selected.reduce((s, b) => s + BigInt(b.amount), 0n);
+  const advance = advanceAmount(claims, ratePercent);
+  const capped = advance > available;
+  return {
+    claims,
+    advance,
+    disburse: capped ? available : advance,
+    cappedByLimit: capped && selected.length > 0,
+  };
+}
+
+// ---------------------------------------------------------------- cicilan pasien
+
+export const INSTALMENT_FLOW: readonly InstalmentStage[] = [
+  'diajukan',
+  'verifikasi',
+  'disetujui',
+  'akad',
+  'dicairkan',
+];
+
+export const INSTALMENT_LABEL: Record<InstalmentStage, string> = {
+  diajukan: 'Diajukan',
+  verifikasi: 'Verifikasi BTN',
+  disetujui: 'Disetujui',
+  akad: 'Akad TTE',
+  dicairkan: 'Dicairkan',
+  ditolak: 'Ditolak',
+};
+
+export const INSTALMENT_TONE: Record<InstalmentStage, ChipTone> = {
+  diajukan: 'neutral',
+  verifikasi: 'info',
+  disetujui: 'brand',
+  akad: 'brand',
+  dicairkan: 'success',
+  ditolak: 'danger',
+};
+
+/** Tahap berikutnya dalam alur (null bila sudah dicairkan atau ditolak). */
+export function nextInstalmentStage(stage: InstalmentStage): InstalmentStage | null {
+  const i = INSTALMENT_FLOW.indexOf(stage);
+  return i < 0 || i >= INSTALMENT_FLOW.length - 1 ? null : (INSTALMENT_FLOW[i + 1] ?? null);
+}
+
+/** Penolakan hanya mungkin sebelum BTN memutuskan (diajukan/verifikasi). */
+export function canReject(app: Pick<InstalmentApplication, 'stage'>): boolean {
+  return app.stage === 'diajukan' || app.stage === 'verifikasi';
+}
