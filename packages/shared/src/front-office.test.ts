@@ -148,6 +148,7 @@ describe('operasi outbox front office', () => {
         'bpjs.antrean.add',
         'bpjs.antrean.batal',
         'bpjs.antrean.updatewaktu',
+        'bpjs.hfis.pull',
         'bpjs.hfis.update',
         'bpjs.vclaim.rencanakontrol.insert',
         'bpjs.vclaim.rujukan.insert',
@@ -163,7 +164,8 @@ describe('operasi outbox front office', () => {
       expect(def.target, op).toBe(op.startsWith('bpjs.') ? 'bpjs' : 'whatsapp');
       const keys = Object.keys(def.payload.shape);
       expect(
-        keys.every((k) => /Id$|^revision$/.test(k)),
+        // Selain ID: revisi, tanggal layanan, dan penanda tarikan HFIS (bukan PHI).
+        keys.every((k) => /Id$|^revision$|^date$|^run$/.test(k)),
         `${op}: ${keys.join(',')}`,
       ).toBe(true);
     }

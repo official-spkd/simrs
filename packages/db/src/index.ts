@@ -59,6 +59,17 @@ export {
   wibDayRange,
 } from './audit-anomaly';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
+export {
+  addIsoDays,
+  dbDateFromIso,
+  dbTimeFromHhmm,
+  enqueueHfisPull,
+  generateScheduleSessions,
+  type GenerateSessionsResult,
+  hhmmFromDbTime,
+  isoFromDbDate,
+  isoWeekday,
+} from './scheduling';
 export { readBackupStatus } from './backup';
 export {
   activeAssignments,
