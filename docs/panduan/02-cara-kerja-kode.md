@@ -402,12 +402,11 @@ foldernya tanpa mengubah daftar modul.
 | `SatusehatRecorder`                 | Staging `satusehat.<resource>.upsert` berstatus `held`, payload `{ sourceId, revision }` (ADR-0032)                                                                                                                                                               |
 | `BillableRecorder`                  | `billable_events` tanpa harga, unik per sumber × jenis (ADR-0032)                                                                                                                                                                                                 |
 | `CareTeamService`                   | `encounter_participants` ↔ `access_relationships` (relasi ABAC); akhir keanggotaan = relasi sampai akhir hari berikutnya                                                                                                                                          |
-| `GET /clinical/streams/ed-board`    | SSE papan IGD (`clinical.read`), event `ed.status`; kanal `ed_board`                                                                                                                                                                                              |
-| `GET /clinical/streams/bed-board`   | SSE papan bed (`bed.read`), event `bed.status`; kanal `bed_board`                                                                                                                                                                                                 |
 | `GET /clinical/streams/ews`         | SSE eskalasi EWS (`clinical.read`), event `ews.escalation` bila skor ≥ `ews.escalation_score` atau satu parameter 3; kanal `clinical_vitals`                                                                                                                      |
 | `/api/v1/drafts/:encounterId/:kind` | Draf penulis (PUT/GET/DELETE), izin `clinical.write` + ABAC; job worker `clinical.drafts-cleanup`                                                                                                                                                                 |
 
-Aliran SSE disaring per lingkup izin: `all` → semua; `unit` → unit penugasan (unit bed/kunjungan pasien); di luar
+Aliran SSE papan IGD dan papan bed milik modulnya (potongan 3.3): `GET /triage/board/events` dan
+`GET /adt/beds/events`. Aliran SSE disaring per lingkup izin: `all` → semua; `unit` → unit penugasan (unit bed/kunjungan pasien); di luar
 itu → kunjungan aktif pasien yang berelasi. Lingkup `unit` ABAC kini membaca `app_patient_location` (tingkat bed,
 ADR-0031 pembaruan). Akses ke pasien `confidential` menjadi temuan audit `confidential`.
 
@@ -420,6 +419,42 @@ await this.records.insert(() =>
 );
 await this.satusehat.record('Condition', f.id, f.version);
 ```
+
+### ADT, papan bed, triase IGD, gelang, Aplicare (K03/K04/K05, fase 3 potongan 3.3)
+
+Modul `triage` (K03), `adt` (K04/K05), dan `encounter` (bagian SEP IGD). Rute per kunjungan memakai bentuk kanonik
+fase 3 `/api/v1/encounters/:id/<sumber>`; sisanya berprefiks `adt/…` dan `triage/…`.
+
+| Rute                                                         | Guna                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /triage/assessments`                                   | Triase ATS (`triage.write`): saran dihitung server (`suggestTriage`); turun dari saran tanpa alasan ≥ 10 → 422 `TRIAGE_REASON_REQUIRED`; di bawah batas protokol → 422 `TRIAGE_LEVEL_NOT_ALLOWED`. Triase pertama: `in_progress`, `encounter.started`, biaya `igd`, SATUSEHAT Encounter `held` |
+| `GET /triage/board` (+ `/triage/board/events`)               | Papan IGD unit penugasan (`clinical.read`): LOS, status alur, zona, bed IGD, triase terkini, permintaan bed + boarding. SSE: potret `ed.board` lalu `ed.status`                                                                                                                                |
+| `POST /encounters/:id/ed-status`                             | Status alur + zona + penempatan bed IGD (bed lama → kotor), `triage.write`                                                                                                                                                                                                                     |
+| `GET /adt/beds` (+ `/adt/beds/events`)                       | Papan bed per unit (`bed.read`, lingkup unit): status + versi, inisial pasien saja, permintaan bed (`boarding` bila asal IGD menunggu ≥ `bed.boarding_alert_hours`). SSE: potret `bed.board` lalu `bed.status`                                                                                 |
+| `PATCH /adt/beds/:id/status`                                 | Status manual dengan `baseVersion` (beda → 409 `BED_VERSION_CONFLICT`); transisi sah di `MANUAL_BED_TRANSITIONS`                                                                                                                                                                               |
+| `POST /adt/bed-requests` · `/:id/allocate` · `/:id/cancel`   | Permintaan bed (satu terbuka per kunjungan); alokasi → bed `dipesan` (bed tidak siap → 409 `BED_NOT_AVAILABLE`); batal mengembalikan bed ke `siap`                                                                                                                                             |
+| `POST /adt/admissions`                                       | Admisi `planned` → bed (`siap` atau dipesan untuk admisi/IGD asalnya): `bed_assignments` (EXCLUDE → 409 hunian ganda), gelang terbit, DPJP masuk tim, IGD asal `finished` + disposisi `rawat_inap`, SEP rawat inap BPJS                                                                        |
+| `POST /adt/transfers` · `POST /adt/discharges`               | Transfer (lingkup unit ABAC ikut bed baru, bed lama `kotor`, biaya `transfer`); pulang lewat `DISCHARGE_GATE` (dasar di 3.3, aturan lengkap 3.6): bed `kotor`, gelang batal, tim berakhir, `adt.discharged`                                                                                    |
+| `GET /encounters/:id/wristband` · `POST …/wristband/reprint` | Data cetak gelang (audit `print`); cetak ulang wajib alasan, kode lama batal. Kode gelang acak `GL` + 10 karakter, bukan No. RM                                                                                                                                                                |
+| `POST /encounters/:id/emergency-sep`                         | SEP IGD menyusul diagnosa dokter jaga (`coverage.write`); registrasi IGD BPJS dengan `initialDiagnosis` langsung membuat SEP IGD `pending`                                                                                                                                                     |
+
+**SEP IGD dan rawat inap (utang fase 2).** Pola SEP 5a (`SepService.createPending` + outbox `bpjs.vclaim.sep.insert`).
+IGD = rawat jalan (`jnsPelayanan` 2) poli `VCLAIM_POLI_IGD` (`IGD`), tanpa rujukan, DPJP boleh kosong. Kode poli IGD
+tidak tercantum di docs/06: **ASUMSI**, cocokkan dengan katalog VClaim resmi sebelum integrasi nyata. Rawat inap
+(`jnsPelayanan` 1) dibuat saat admisi nyata (`POST /adt/admissions`, BPJS tanpa SEP wajib `initialDiagnosis`): dasar
+SPRI (`skdp.noSurat`), atau tanpa SPRI memakai SEP IGD asal yang sudah terbit sebagai rujukan (asal RS, PPK sendiri).
+Bila SEP IGD asal masih `pending`, worker menunda (`defer` 60 detik), tidak menggagalkan.
+
+**Aplicare.** Setiap perubahan status bed rawat inap ber-kelas (`BedOpsService.setStatus`) memanggil
+`AplicareSyncService.touch`: baris ruang `aplicare_rooms` (bangsal × kelas, kode ruang `MELATI-K2`) dibuat bila belum
+ada, `revision` naik (row lock), outbox `bpjs.aplicare.update` `{ roomId, revision }`. Worker (`outbox/aplicare.ts`)
+menghitung kapasitas (bed aktif tidak rusak) dan tersedia (`siap`) SAAT mengirim; pesan revisi lama dilewati. Tahap:
+kode kelas resmi dari `refKelas` (dicocokkan nama kelas) → `bed/create` → `bed/update`; "ruang tidak ditemukan" →
+daftar ulang, "sudah terdaftar" → lanjut update, paling banyak 4 langkah per revisi. Hasil: `class_code`,
+`registered_at`, `sent_revision`, `last_error_code`.
+
+**Lingkup unit tingkat kamar/bed (ADR-0031)** sudah dari 3.1 (`app_patient_location`); transfer otomatis memindah
+akses perawat unit.
 
 ### Booking (F02, fase 2 potongan 3)
 
