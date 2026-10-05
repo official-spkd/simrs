@@ -1,5 +1,12 @@
-import { AppError } from '@simrs/shared';
+import {
+  AppError,
+  BPJS_ANTREAN_UPDATEWAKTU_OPERATION,
+  FRONT_OFFICE_OPERATIONS,
+  newId,
+  outboxKey,
+} from '@simrs/shared';
 import { Prisma, type TenantTx } from './client';
+import { enqueueOutbox } from './outbox';
 
 /** Keranjang kuota sesi: JKN (Mobile JKN + loket BPJS) atau non-JKN (umum/asuransi). */
 export type QuotaBucket = 'jkn' | 'non_jkn';
@@ -91,4 +98,34 @@ export async function allocateQueueNumber(
     });
   }
   return { seq: value, ticketNo: `${service.code}-${String(value).padStart(3, '0')}` };
+}
+
+/**
+ * F04 · Catat satu task ID Antrean BPJS bila belum ada (unik per booking + task; waktunya tidak pernah ditimpa) dan
+ * antrekan pengirimannya (`bpjs.antrean.updatewaktu`, payload ID baris saja). Dipakai mesin task ID API (event domain)
+ * dan job worker (no-show → 99). Penyaringan (booking JKN, urutan, tidak ada task setelah 99) milik pemanggil.
+ * Kembalikan `true` bila baris baru dicatat.
+ */
+export async function insertBpjsQueueTask(
+  tx: TenantTx,
+  tenantId: string,
+  appointmentId: string,
+  taskId: number,
+  occurredAt: Date,
+): Promise<boolean> {
+  const id = newId();
+  const { count } = await tx.bpjsQueueTask.createMany({
+    data: [{ id, tenantId, appointmentId, taskId, occurredAt }],
+    skipDuplicates: true,
+  });
+  if (count === 0) return false;
+  const op = BPJS_ANTREAN_UPDATEWAKTU_OPERATION;
+  const msg = await enqueueOutbox(tx, tenantId, {
+    target: FRONT_OFFICE_OPERATIONS[op].target,
+    operation: op,
+    idempotencyKey: outboxKey(op, id),
+    payload: { queueTaskId: id },
+  });
+  await tx.bpjsQueueTask.update({ where: { id }, data: { outboxMessageId: msg.id } });
+  return true;
 }

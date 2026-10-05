@@ -1,15 +1,11 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
-import { enqueueOutbox, type TenantTx } from '@simrs/db';
+import { insertBpjsQueueTask, type TenantTx } from '@simrs/db';
 import {
   ANTREAN_TASK_BATAL,
   type AntreanTaskId,
-  BPJS_ANTREAN_UPDATEWAKTU_OPERATION,
   bpjsTaskForEvent,
   type DomainEvent as SharedDomainEvent,
   type DomainEventName,
-  FRONT_OFFICE_OPERATIONS,
-  newId,
-  outboxKey,
 } from '@simrs/shared';
 import type { DomainEvent, DomainEventContext } from '../../infra/events/domain-events';
 import { DomainEvents } from '../../infra/events/domain-events';
@@ -84,7 +80,7 @@ export class BpjsTaskEngine implements OnModuleInit {
     const created: AntreanTaskId[] = [];
     const insert = async (id: AntreanTaskId, when: Date) => {
       if (existing.has(id)) return;
-      if (await this.insertTask(tx, tenantId, appointmentId, id, when)) {
+      if (await insertBpjsQueueTask(tx, tenantId, appointmentId, id, when)) {
         existing.add(id);
         created.push(id);
       }
@@ -112,30 +108,5 @@ export class BpjsTaskEngine implements OnModuleInit {
     }
     await insert(taskId, at);
     return created;
-  }
-
-  /** Sisip baris task bila belum ada (unik per booking + task) lalu antrekan pengirimannya. */
-  private async insertTask(
-    tx: TenantTx,
-    tenantId: string,
-    appointmentId: string,
-    taskId: AntreanTaskId,
-    at: Date,
-  ): Promise<boolean> {
-    const id = newId();
-    const { count } = await tx.bpjsQueueTask.createMany({
-      data: [{ id, tenantId, appointmentId, taskId, occurredAt: at }],
-      skipDuplicates: true,
-    });
-    if (count === 0) return false;
-    const op = BPJS_ANTREAN_UPDATEWAKTU_OPERATION;
-    const msg = await enqueueOutbox(tx, tenantId, {
-      target: FRONT_OFFICE_OPERATIONS[op].target,
-      operation: op,
-      idempotencyKey: outboxKey(op, id),
-      payload: { queueTaskId: id },
-    });
-    await tx.bpjsQueueTask.update({ where: { id }, data: { outboxMessageId: msg.id } });
-    return true;
   }
 }
