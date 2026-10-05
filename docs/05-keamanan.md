@@ -16,6 +16,8 @@ Rujukan: KMK 1596/2024 (MRMIK), Permenkes 24/2022 tentang Rekam Medis, UU 27/202
 | Koreksi berversi | P04, K* | 1–3 | Tidak ada UPDATE pada entri final; koreksi = versi baru + alasan; tampilan diff v1→v2 |
 | TTE | P10 | 3 | Dokumen final (resume, consent, hasil, resep) ditandatangani; hash disimpan; verifikasi tanda tangan saat dibuka |
 | Isolasi tenant | P01, db | 0–1 | RLS + tes otomatis |
+| Perangkat publik (anjungan, TV) | P02, F04, F05 | 2 | Prinsipal perangkat terdaftar per unit dengan izin tetap (ADR-0027), bukan akun staf; anjungan tanpa ID pasien/RM/NIK di jawaban, token pencarian sekali pakai, batas pencarian dan tiket per perangkat, audit atas nama perangkat; TV hanya papan yang terikat (SSE tanpa PHI) |
+| Endpoint publik tanpa login | F08 | 2 | Tanpa PHI (skema jawaban ketat), kode booking + tanggal lahir di body, perbandingan waktu-konstan, batas laju per IP, audit setiap percobaan |
 | Enkripsi | db, infra | 1 | TLS di semua koneksi (produksi); kolom identitas dienkripsi; backup terenkripsi |
 | Persetujuan privasi | P05 | 1 | Persetujuan umum dan pembukaan data (mis. ke asuransi) dicatat dan bisa dicabut |
 | Hak subjek data (UU PDP) | B09 | 8 | Permintaan salinan RM, koreksi data identitas, log siapa mengakses RM pasien |

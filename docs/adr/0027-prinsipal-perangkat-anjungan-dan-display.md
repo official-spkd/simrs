@@ -57,3 +57,28 @@ PIN masuk cepat (ADR-0024 §10) sudah menyiapkan tabel umum `registered_devices`
 − Siapa pun yang memegang profil peramban perangkat bisa memakai layar itu sampai dicabut. Mitigasinya: izin tetap yang sempit, layar tanpa data pasien utuh (keputusan §4 #3), dan audit per perangkat.
 − Satu kueri `registered_devices` per permintaan perangkat; penanda `last_used_at` ditulis paling sering 5 menit sekali.
 − Izin kelola perangkat memakai `iam.users`; izin tersendiri (mis. `iam.devices`) bisa dipisah bila RS membutuhkannya.
+
+## Pembaruan 5 Okt 2026 · anjungan (potongan 6) dan review keamanan (potongan 9)
+
+Modul anjungan (`modules/kiosk`) memakai prinsipal ini apa adanya. Keputusan tambahan:
+
+1. **Token pencarian, bukan ID pasien.** Identifikasi (NIK, kartu BPJS, kode booking hari ini) menjawab nama tersamar +
+   tanggal lahir tanpa tahun (keputusan fase 2 §4 #3) dan token `kl1.<256 bit>` berumur 180 detik. Token sekali pakai,
+   hanya di perangkat yang sama, hanya hash-nya disimpan (`kiosk_lookups`); check-in, tiket, dan registrasi menukarnya.
+   Token perangkat lain → 410 yang sama, tercatat. Header `Idempotency-Key` yang sama → tiket yang sama.
+2. **Anti-enumerasi.** Jawaban identifikasi selalu 200 dengan baris jejak yang sama (ditemukan atau tidak, tanpa nilai
+   yang diketik); `kiosk.lookup_rate_per_min` per perangkat dihitung dari jejak itu di bawah kunci advisori perangkat;
+   pelanggaran 429 tetap tercatat (`AuditedDenial` dengan kode/status sendiri). NIK ganda → tidak ditemukan.
+3. **Sumber daya bersama dibatasi per perangkat** (review keamanan potongan 9): tiket loket tanpa identitas 6 per menit
+   (nomor harian per layanan terbatas 999), "panggil petugas" sekali per 60 detik (sentuhan ulang tidak membuat
+   notifikasi baru), cetak tiket hanya untuk tiket yang tercatat bagi perangkat itu hari ini (`kiosk_tickets`).
+4. **Registrasi anjungan memakai alur loket** (`RegistrationService`, potongan 5a) atas nama perangkat; hal yang butuh
+   petugas (persetujuan umum belum ada, rujukan belum tercatat, kuota penuh) → 422 `KIOSK_NEEDS_COUNTER` dan tawaran
+   nomor loket.
+
+Risiko terbuka (perlu keputusan pemilik produk, belum diubah): identifikasi tidak meminta tanggal lahir diketik, jadi
+siapa pun di depan anjungan bisa mengetahui bahwa pemilik NIK/kartu/kode booking adalah pasien RS ini (nama tersamar +
+hari/bulan lahir) dalam batas laju per perangkat. Kode booking (`YYMMDD` + 4 digit) bisa ditebak berurutan. Pilihan:
+wajibkan tanggal lahir di keypad (seperti gateway publik F08) dan/atau batas pencarian per RS; lihat laporan review
+keamanan potongan 9.
+

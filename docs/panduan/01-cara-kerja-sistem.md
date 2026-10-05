@@ -123,6 +123,22 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 
 **Webhook masuk** (TPDI, BTN, fase 6) memakai pola kebalikannya: verifikasi tanda tangan HMAC, simpan mentah di `inbound_events` (unik per id event), jawab 2xx secepatnya, lalu proses di worker. Tanda tangan BPJS dan HMAC TPDI sudah tersedia di `@simrs/shared/node` dan sudah diuji.
 
+## Front office: perjalanan pasien rawat jalan (fase 2)
+
+1. **Booking** (Mobile JKN, aplikasi, atau loket) mengurangi kuota sesi dokter (tidak bisa melebihi batas) dan
+   mengirim antrean ke BPJS lewat outbox.
+2. **Anjungan** (perangkat terdaftar, bukan akun staf): pasien mengetik kode booking, NIK, atau no. kartu, membenarkan
+   nama tersamar + tanggal lahir tanpa tahun, lalu check-in. Anjungan mencetak nomor loket (task ID 1 ke BPJS).
+   Pasien umum bisa memilih dokter dan langsung terdaftar; pasien BPJS dengan rujukan/surat kontrol tercatat langsung
+   mendapat nomor poli. Hal yang butuh petugas diarahkan ke loket dengan nomor antrean.
+3. **Loket**: petugas memanggil nomor dari "Kendali antrean" (task 2), lalu mendaftarkan di layar Pendaftaran:
+   kunjungan, penjamin, persetujuan umum, dan SEP. SEP dikirim ke BPJS lewat outbox (task 3 saat terdaftar).
+4. **Poli**: nomor poli dipanggil; TV ruang tunggu (perangkat display) menampilkan dan mengumumkannya langsung (SSE).
+
+**Saat BPJS terganggu** pendaftaran tetap jalan: kunjungan tercatat, SEP berstatus "menunggu BPJS" di layar Pendaftaran,
+pasien tetap boleh ke poli, dan worker mencoba ulang sampai SEP terbit (atau ditolak dengan alasan + tombol kirim
+ulang). Kedua alur ini diuji E2E dengan mock (`dod-anjungan.spec.ts`, `downtime-bpjs.spec.ts`).
+
 ## Rekam medis dan jejak audit
 
 - **Tidak ada hapus atau timpa untuk data klinis.** Koreksi membuat versi baru dengan alasan (`version`, `supersedes_id`, `correction_reason`). Data yang sudah ditandatangani elektronik hanya bisa ditambah addendum. Aturan ini berlaku mulai fase 3 (ADR-0004).
