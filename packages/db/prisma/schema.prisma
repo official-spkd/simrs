@@ -89,6 +89,7 @@ model Tenant {
   domainEvents          DomainEvent[]
   backupRuns            BackupRun[]
   restoreTests          RestoreTest[]
+  idempotencyKeys       IdempotencyKey[]
 
   @@map("tenants")
 }
@@ -1595,6 +1596,10 @@ model Coverage {
   /// active | cancelled
   status              String    @default("active")
   lockedAt            DateTime? @map("locked_at") @db.Timestamptz(3)
+  /// No. anggota asuransi / no. karyawan (terenkripsi `encryptField`); BPJS lewat `patient_identifier_id`.
+  memberNoEnc         String?   @map("member_no_enc")
+  /// No. surat jaminan asuransi.
+  guaranteeLetterNo   String?   @map("guarantee_letter_no")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy           String?   @map("created_by") @db.Uuid
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1683,6 +1688,17 @@ model Sep {
   lastErrorCode    String?   @map("last_error_code")
   /// Alasan penolakan dari BPJS (pesan `metaData`, tanpa PHI); hanya untuk status `failed`.
   rejectionReason  String?   @map("rejection_reason")
+  /// Status kirim BPJS terakhir (insert/update/delete): pending | sent | rejected | dead.
+  syncStatus       String    @default("pending") @map("sync_status")
+  syncedAt         DateTime? @map("synced_at") @db.Timestamptz(3)
+  /// Kode galat kirim terakhir (penolakan BPJS atau `BPJS_DLQ`), tanpa PHI.
+  syncErrorCode    String?   @map("sync_error_code")
+  /// Urut pesan outbox untuk baris ini (kunci `<operasi>:<sep>:<urut>`), naik tiap kirim ulang/tahap.
+  syncSeq          Int       @default(1) @map("sync_seq")
+  /// Catatan SEP (`catatan` VClaim).
+  note             String?
+  /// Teks diagnosa awal (dari data rujukan/referensi).
+  diagnosisDisplay String?   @map("diagnosis_display")
   issuedAt         DateTime? @map("issued_at") @db.Timestamptz(3)
   cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
   cancelledBy      String?   @map("cancelled_by") @db.Uuid
@@ -1813,4 +1829,26 @@ model DomainEvent {
   @@unique([tenantId, id])
   @@index([tenantId, name, occurredAt])
   @@map("domain_events")
+}
+
+/// F03 · Header `Idempotency-Key` (registrasi, kelak check-in anjungan): permintaan ulang dengan kunci sama
+/// mengembalikan hasil yang sama; isi berbeda → 409. Append-only.
+model IdempotencyKey {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  /// Tindakan, mis. `registration.outpatient`.
+  scope        String
+  key          String   @db.Uuid
+  /// SHA-256 isi permintaan (kanonis) + pelaku.
+  requestHash  String   @map("request_hash")
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, scope, key])
+  @@map("idempotency_keys")
 }
