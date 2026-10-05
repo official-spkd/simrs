@@ -4,7 +4,8 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { SCENARIO_BEDS } from '@/lib/demo/fixtures/rawat-inap';
 import { screenById } from '@/lib/screens';
-import { getBedBoard, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { getBedBoard } from '@/lib/server/data/klinis/bed';
+import { scenarioSteps } from '@/lib/server/data/klinis/shared';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { BedWorkspace } from './bed-workspace';
 

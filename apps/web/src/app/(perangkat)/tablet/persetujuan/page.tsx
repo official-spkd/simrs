@@ -7,7 +7,8 @@ import { CONSENT_ID } from '@/lib/demo/fixtures/ids';
 import { patientById } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS } from '@/lib/demo/fixtures/rawat-inap';
 import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
-import { consentTurn, getConsentDocument, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { consentTurn, getConsentDocument } from '@/lib/server/data/klinis/consent';
+import { scenarioSteps } from '@/lib/server/data/klinis/shared';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Persetujuan tindakan' };

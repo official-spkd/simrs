@@ -2,12 +2,8 @@
 
 import { consentFinalizeInputSchema, consentRefusalInputSchema, formatJam } from '@simrs/shared';
 import { consentFinalizeBlocker, consentRefusalBlocker } from '@/lib/rawat-inap';
-import {
-  consentTurn,
-  demoActionSession,
-  encounterClock,
-  getConsentDocument,
-} from '@/lib/server/data/rawat-inap';
+import { consentTurn, getConsentDocument } from '@/lib/server/data/klinis/consent';
+import { demoActionSession, encounterClock } from '@/lib/server/data/klinis/shared';
 
 /**
  * K11 · Server Action tablet persetujuan tindakan (mode presentasi, ADR-0023): gerbang demo + sesi lengkap +

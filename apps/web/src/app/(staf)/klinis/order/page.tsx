@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { patientByEncounterId } from '@/lib/demo/fixtures/pasien';
-import { getCpoeEncounters } from '@/lib/server/data/klinis';
+import { getCpoeEncounters } from '@/lib/server/data/klinis/cpoe';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 

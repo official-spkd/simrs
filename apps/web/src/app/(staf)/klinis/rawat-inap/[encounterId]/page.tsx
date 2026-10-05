@@ -9,7 +9,7 @@ import { CONSENT_IDS, RESUME_ENCOUNTERS } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
 import { ewsLevel } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
-import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/rawat-inap';
+import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/klinis/ranap';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { InpatientWorkspace } from './inpatient-workspace';
 import { INPATIENT_TABS, type InpatientTab } from './tabs';

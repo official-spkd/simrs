@@ -7,7 +7,7 @@ import { PoliContext } from '@/components/klinis/poli-context';
 import { PoliWorkspace } from '@/components/klinis/poli-workspace';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { screenById } from '@/lib/screens';
-import { getPoliEncounter, getPoliWorklist } from '@/lib/server/data/klinis';
+import { getPoliEncounter, getPoliWorklist } from '@/lib/server/data/klinis/poli';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 

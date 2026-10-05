@@ -8,7 +8,7 @@ import { patientById } from '@/lib/demo/fixtures/pasien';
 import { INPATIENT_FLAG_LABEL } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
 import { ewsLevel } from '@/lib/rawat-inap';
-import { getInpatientList } from '@/lib/server/data/rawat-inap';
+import { getInpatientList } from '@/lib/server/data/klinis/ranap';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 

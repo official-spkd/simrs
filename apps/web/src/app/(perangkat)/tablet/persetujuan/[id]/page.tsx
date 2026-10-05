@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScaleToFit } from '@/components/scale-to-fit';
 import { patientById } from '@/lib/demo/fixtures/pasien';
-import { consentTurn, getConsentDocument } from '@/lib/server/data/rawat-inap';
+import { consentTurn, getConsentDocument } from '@/lib/server/data/klinis/consent';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { ConsentTablet } from './consent-tablet';
 

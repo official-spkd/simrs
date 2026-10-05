@@ -10,7 +10,7 @@ import {
 import { redirect } from 'next/navigation';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { canRecordVitals, canWriteDoctorNote, cpptNeedsCosign, ICD10_OPTIONS } from '@/lib/klinis';
-import { getPoliWorklist } from '@/lib/server/data/klinis';
+import { getPoliWorklist } from '@/lib/server/data/klinis/poli';
 import { assertDemo } from '@/lib/server/demo-guard';
 import { getSession } from '@/lib/server/session';
 import { nextLoginStep, type SessionView } from '@/lib/session-view';

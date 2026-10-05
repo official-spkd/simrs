@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { wib } from '@/lib/demo/fixtures/rawat-inap';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { resumeSignTargetBlocker } from '@/lib/rawat-inap';
-import { demoActionSession, getDischargeSummary } from '@/lib/server/data/rawat-inap';
+import { getDischargeSummary } from '@/lib/server/data/klinis/resume';
+import { demoActionSession } from '@/lib/server/data/klinis/shared';
 
 const signSchema = z.strictObject({
   encounterId: z.string().min(1).max(60),

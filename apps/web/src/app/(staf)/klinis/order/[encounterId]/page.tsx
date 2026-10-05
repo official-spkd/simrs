@@ -10,7 +10,8 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientByEncounterId } from '@/lib/demo/fixtures/pasien';
 import { egfrLow } from '@/lib/klinis';
 import { screenById } from '@/lib/screens';
-import { getCpoeContext, getPoliWorklist } from '@/lib/server/data/klinis';
+import { getCpoeContext } from '@/lib/server/data/klinis/cpoe';
+import { getPoliWorklist } from '@/lib/server/data/klinis/poli';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 

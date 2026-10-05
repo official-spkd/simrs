@@ -4,7 +4,8 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { patientByScenario } from '@/lib/demo/fixtures/pasien';
 import { canTriage } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
-import { getEdBoard, scenarioSteps } from '@/lib/server/data/rawat-inap';
+import { getEdBoard } from '@/lib/server/data/klinis/igd';
+import { scenarioSteps } from '@/lib/server/data/klinis/shared';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { IgdWorkspace, WalkInButtons } from './igd-workspace';
 

@@ -8,7 +8,7 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { encounterIdOf, patientById, patientByScenario } from '@/lib/demo/fixtures/pasien';
 import { RESUME_ENCOUNTERS } from '@/lib/demo/fixtures/rawat-inap';
 import { resumeCompleteness } from '@/lib/rawat-inap';
-import { getDischargeSummary } from '@/lib/server/data/rawat-inap';
+import { getDischargeSummary } from '@/lib/server/data/klinis/resume';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
