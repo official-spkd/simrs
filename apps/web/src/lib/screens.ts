@@ -16,11 +16,12 @@ export const FRONT_OFFICE_PERMISSIONS = [
 ] as const satisfies readonly PermissionKey[];
 
 /**
- * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), kunci katalog bersama `PERMISSION_CATALOG`
- * (potongan 3.0a), dipilih agar cocok dengan posisi pemakai layar (`demoRoles`) menurut matriks bawaan: Pemeriksaan
- * poli, Rawat inap, dan Resume `clinical.write` (TTE resume tetap `clinical.sign` di API), IGD `clinical.read` (petugas
- * pendaftaran membuka papan; triase `triage.write` dan aksi klinis lain diperiksa API), CPOE `order.write`, Tempat
- * tidur `bed.read` (manajemen hanya membaca), Persetujuan tindakan `consent.write` (dokter, perawat/bidan lingkup unit).
+ * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), dipilih agar cocok dengan posisi pemakai layar
+ * (`demoRoles`) menurut matriks bawaan potongan 3.0a: Pemeriksaan poli, Rawat inap, dan Resume `clinical.write` (TTE
+ * resume tetap `clinical.sign` di API), IGD `clinical.read` (petugas pendaftaran membuka papan; triase `triage.write`
+ * dan aksi klinis lain diperiksa API), CPOE `order.write`, Tempat tidur `bed.read` (manajemen hanya membaca),
+ * Persetujuan tindakan `consent.write` (perawat/bidan dan dokter; TTE tetap `consent.sign`). Kunci katalog bersama
+ * (potongan 3.0a), sehingga salah ketik tertangkap typecheck.
  */
 export const CLINICAL_PERMISSIONS = [
   'clinical.read',
