@@ -25,6 +25,7 @@
     "db:import-breached": "pnpm --filter @simrs/db import-breached",
     "db:import-ref": "pnpm --filter @simrs/db import-ref",
     "db:sync-permissions": "pnpm --filter @simrs/db sync-permissions",
+    "db:rotate-keys": "pnpm --filter @simrs/db rotate-keys",
     "db:studio": "pnpm --filter @simrs/db studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

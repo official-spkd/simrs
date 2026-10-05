@@ -226,7 +226,7 @@ export class AccountService {
       tx,
       tenantId,
       userId,
-      encryptField(secret, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'mfa_secret' }),
+      encryptField(secret, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'mfa_secret' }),
     );
     // Rahasia hanya dikembalikan sekali, saat pendaftaran; setelah itu tersimpan terenkripsi.
     return { secret, otpauthUri: totpUri(secret, `${p.username}@${p.tenant.code}`, MFA_ISSUER) };
@@ -240,7 +240,7 @@ export class AccountService {
     if (!pending)
       throw new AppError('NOT_FOUND', 'Mulai pendaftaran verifikasi dua langkah terlebih dahulu', 404);
     const secret = decryptField(pending.secretEnc, {
-      keyB64: this.env.FIELD_ENCRYPTION_KEY,
+      ring: this.env.fieldKeys.enc,
       tenantId,
       purpose: 'mfa_secret',
     });

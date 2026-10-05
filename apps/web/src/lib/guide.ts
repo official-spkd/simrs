@@ -38,6 +38,12 @@ export const GUIDE_PAGES = [
     summary:
       'Backup terenkripsi tiga lokasi, jadwal, retensi, uji restore di kontainer bersih, dan pemulihan bencana.',
   },
+  {
+    slug: 'rotasi-kunci',
+    file: '05-rotasi-kunci.md',
+    title: 'Rotasi kunci enkripsi kolom',
+    summary: 'Runbook operator: cincin kunci v2, job enkripsi ulang bertahap, verifikasi, PIN, dan rollback.',
+  },
 ] as const satisfies readonly GuidePage[];
 
 export type GuideSlug = (typeof GUIDE_PAGES)[number]['slug'];

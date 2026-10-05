@@ -120,17 +120,17 @@ Pengaturan RS (P12): pin.enabled, pin.allowed_roles, login.backup_code_channels,
   /auth/me → pin: { available, reason } (aturan + pengaturan RS, dihitung API; web hanya menampilkan)
 ```
 
-| Bagian             | Berkas                                  | Catatan                                                                                                                          |
-| ------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`/`sd1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` perangkat tepercaya, `sd1` PIN)      |
-| PIN perangkat      | `infra/auth/pin-devices.ts`             | tabel `registered_devices` (jenis `staff_pin`); PIN = argon2id dari HMAC `FIELD_HASH_KEY`; pencabutan bersama (ADR-0024)         |
-| Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                 |
-| Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                 |
-| Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |
-| Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)        |
-| Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                  |
-| Sandi bocor        | `@simrs/db` → `isBreachedPassword`      | `ref.breached_passwords` (SHA-1, diisi `pnpm db:import-breached`), kueri hanya rentang awalan 20 bit                             |
-| Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                             |
+| Bagian             | Berkas                                  | Catatan                                                                                                                                           |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`/`sd1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` perangkat tepercaya, `sd1` PIN)                       |
+| PIN perangkat      | `infra/auth/pin-devices.ts`             | tabel `registered_devices` (jenis `staff_pin`); PIN = argon2id dari HMAC kunci hash (`pin_key_id` = kunci ladanya); pencabutan bersama (ADR-0024) |
+| Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                                  |
+| Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                                  |
+| Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED`                  |
+| Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)                         |
+| Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                                   |
+| Sandi bocor        | `@simrs/db` → `isBreachedPassword`      | `ref.breached_passwords` (SHA-1, diisi `pnpm db:import-breached`), kueri hanya rentang awalan 20 bit                                              |
+| Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                                              |
 
 Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=local` dan `ALLOW_DEV_TENANT_HEADER=true`; tes modul memakainya, tes auth memakai token sungguhan (`apps/api/test/helpers.ts` → `createTestUser`, `login`). Alasan desain: ADR-0011.
 
@@ -318,6 +318,8 @@ dijamin database, bukan hanya kode:
 | Penjaminan                  | Terkunci (`locked_at`) begitu SEP-nya terbit; `app_coverage_guard` menolak perubahan sesudahnya                              |
 | Papan antrean real-time     | `queue_calls` memicu `pg_notify('queue_calls', {tenant_id, id})`: tanpa nomor, nama, atau isi lain                           |
 | Persetujuan umum rawat inap | `privacy_consents.encounter_id`: satu aktif per jenis × penerima × kunjungan (rawat jalan: tanpa kunjungan)                  |
+| Booking JKN                 | CHECK `appointments_jkn_reference`: `jkn_visit_kind` 1–4 + `reference_number` wajib untuk keranjang `jkn`                    |
+| Rujukan/SPRI draf           | `number` boleh kosong hanya selama `pending`; jenis, pasien, dan nomor yang sudah terisi tetap (`app_referral_guard`)        |
 
 Nilai status/jenis (mis. `booked`, `checked_in`; `AMB`/`EMER`/`IMP`; `pending`/`issued`) dibatasi CHECK di migrasi dan
 mengikuti kontrak bersama `packages/shared` (potongan 0a).
@@ -356,7 +358,7 @@ check(@Param('patientId') patientId: string, @Body() body: EligibilityInput) {
 - Konektor = `LookupConnector<I, O>` (`infra/lookup/lookup-connector.ts`): `name` (mis. `bpjs.vclaim.peserta`, jadi `resource_type` audit), `target`, `call(input, signal)`, `summarize?` (fakta tanpa PHI untuk audit). Disuntikkan modul domain lewat token DI-nya sendiri. Klien BPJS bersama ada di `@simrs/shared/node`. Tes memakai `apps/api/test/fakes/fake-lookup-connector.ts`.
 - Masukan/keluaran tidak pernah masuk log atau audit.
 
-**SSE (ADR-0026).** Event berasal dari `pg_notify` yang dipicu trigger `AFTER INSERT` (fungsi `app_notify_row('<kanal>')`, payload hanya `{ tenant_id, id }`). `PgNotificationHub` memegang satu koneksi `LISTEN` per instans (dibuka saat pelanggan pertama, sambung ulang otomatis) dan meneruskan notifikasi ke pelanggan kanal + tenant yang sama.
+**SSE (ADR-0026).** Event berasal dari `pg_notify` yang dipicu trigger `AFTER INSERT` (fungsi `app_notify_row('<kanal>')`, payload hanya `{ tenant_id, id }`). Fungsi ini dipasang migrasi `20261005161000_notify_row` dan dipakai `queue_calls`. `PgNotificationHub` memegang satu koneksi `LISTEN` per instans (dibuka saat pelanggan pertama, sambung ulang otomatis) dan meneruskan notifikasi ke pelanggan kanal + tenant yang sama.
 
 ```ts
 const queueCalls: SseChannel<QueueCallView> = {
@@ -390,7 +392,9 @@ onModuleInit() {
 await this.events.publish('booking.checked_in', { appointmentId, patientId });
 ```
 
-- Penangan berjalan berurutan dengan transaksi yang sama. Penangan gagal → seluruh permintaan batal, termasuk tulisan penerbit.
+- `publish` lebih dulu menyimpan event ke tabel `domain_events` (append-only, RLS; nama, payload, waktu, request ID, pengguna/perangkat pelaku) di transaksi yang sama, baru menjalankan penangan. `id` event = id barisnya; event ikut commit/batal bersama perubahan asalnya.
+- Payload dijaga "tanpa PHI" (`assertDomainEventPayload`): kunci `…Id` berisi UUID/null, `…Ids` larik UUID, kunci lain hanya null/boolean/angka/token enum huruf kecil. Database menambah CHECK objek datar (tanpa objek bersarang).
+- Penangan berjalan berurutan dengan transaksi yang sama. Penangan gagal → seluruh permintaan batal, termasuk tulisan penerbit dan baris event.
 - `publish` di luar transaksi → galat program. Rantai lebih dari 8 tingkat dianggap siklus.
 - Efek ke sistem luar dari penangan tetap lewat outbox.
 - Event belum disimpan di tabel: hanya penangan yang terdaftar saat publikasi yang menerimanya. Reaksi yang harus bertahan (outbox, task ID, staging biaya) ditulis penangan di transaksi yang sama. Tabel `domain_events` append-only untuk konsumen yang datang belakangan (charge capture fase 5, SATUSEHAT fase 7) masih keputusan terbuka (lihat utang teknis PROGRESS).
