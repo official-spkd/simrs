@@ -273,14 +273,18 @@ export class SchedulingService {
       }
       targetSessionId = target.id;
     }
-    await this.repo.markTransferred(id, input.target.kind);
+    // Penanda: pengalihan pertama, atau pengalihan ulang yang benar-benar memindahkan pasien (booking baru).
+    if (moved.length > 0 || !s.transferredAt) await this.repo.markTransferred(id, input.target.kind);
     let notified = 0;
     if (input.notifyPatients) {
       for (const appointmentId of moved) {
         await this.repo.enqueue({
           target: 'whatsapp',
           operation: PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION,
-          idempotencyKey: outboxKey(PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, `${appointmentId}:${targetSessionId}`),
+          idempotencyKey: outboxKey(
+            PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION,
+            `${appointmentId}:${targetSessionId}`,
+          ),
           payload: { appointmentId },
         });
         notified++;
