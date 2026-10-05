@@ -25,7 +25,7 @@ export default async function LogistikPage() {
   const k = d.kpi;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">
@@ -38,7 +38,7 @@ export default async function LogistikPage() {
       <div
         role="region"
         aria-label="Indikator logistik"
-        className="grid grid-cols-2 gap-3.5 md:grid-cols-3 2xl:grid-cols-5"
+        className="grid grid-cols-2 gap-3.5 @xl:grid-cols-3 @7xl:grid-cols-5"
       >
         <KpiCard
           label="Nilai persediaan"

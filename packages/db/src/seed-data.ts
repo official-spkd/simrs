@@ -268,6 +268,10 @@ export const SEED_UNITS = [
   { code: 'POLI-DALAM', name: 'Poli Penyakit Dalam', kind: 'poli' },
   { code: 'POLI-ANAK', name: 'Poli Anak', kind: 'poli' },
   { code: 'POLI-BEDAH', name: 'Poli Bedah', kind: 'poli' },
+  // Fase 2: poli rawat jalan yang tampil di jadwal dan papan antrean (kode layanan JT/SR/PR).
+  { code: 'POLI-JANTUNG', name: 'Poli Jantung', kind: 'poli' },
+  { code: 'POLI-SARAF', name: 'Poli Saraf', kind: 'poli' },
+  { code: 'POLI-PARU', name: 'Poli Paru', kind: 'poli' },
   { code: 'MELATI', name: 'Bangsal Melati', kind: 'rawat_inap' },
   { code: 'MAWAR', name: 'Bangsal Mawar', kind: 'rawat_inap' },
   { code: 'LAB', name: 'Laboratorium Patologi Klinik', kind: 'penunjang' },

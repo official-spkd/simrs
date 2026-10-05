@@ -137,7 +137,23 @@ describe('registered_devices jenis kiosk/display (ADR-0027)', () => {
       /registered_devices_enrol_code_format/,
     );
     await expect(create({ queueDisplayId: newId() })).rejects.toThrow(/registered_devices_queue_display/);
-    await create({ kind: 'display', queueDisplayId: newId() });
+    // Papan antrean (potongan 0b) harus milik tenant yang sama.
+    const board = newId();
+    await withTenant(app, U, (tx) =>
+      tx.queueDisplay.create({
+        data: { id: board, tenantId: U, code: `TV${board.slice(-6).toUpperCase()}`, name: 'TV uji' },
+      }),
+    );
+    await expect(create({ kind: 'display', queueDisplayId: board })).rejects.toThrow(
+      /Foreign key|foreign key/,
+    );
+    const own = newId();
+    await withTenant(app, T, (tx) =>
+      tx.queueDisplay.create({
+        data: { id: own, tenantId: T, code: `TV${own.slice(-6).toUpperCase()}`, name: 'TV uji' },
+      }),
+    );
+    await create({ kind: 'display', queueDisplayId: own });
     // Kode yang sama tidak boleh dipakai dua perangkat aktif di satu RS.
     const code = hex();
     await create({ enrolCodeHash: code });

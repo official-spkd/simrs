@@ -14,6 +14,7 @@ const viewSelect = {
   lastUsedAt: true,
   revokedAt: true,
   unit: { select: { id: true, name: true } },
+  queueDisplay: { select: { id: true, name: true } },
 } as const;
 
 export interface DeviceRow {
@@ -27,6 +28,7 @@ export interface DeviceRow {
   lastUsedAt: Date | null;
   revokedAt: Date | null;
   unit: { id: string; name: string } | null;
+  queueDisplay: { id: string; name: string } | null;
 }
 
 /** ADR-0027 · Data perangkat prinsipal (anjungan/TV) di `registered_devices`. Jenis `staff_pin` tidak disentuh. */
@@ -53,6 +55,10 @@ export class DevicesRepository {
     });
   }
 
+  activeQueueDisplay(id: string) {
+    return this.db.tx().queueDisplay.findFirst({ where: { id, active: true }, select: { id: true } });
+  }
+
   activeUnit(unitId: string) {
     return this.db.tx().unit.findFirst({ where: { id: unitId, active: true }, select: { id: true } });
   }
@@ -62,6 +68,7 @@ export class DevicesRepository {
     kind: DevicePrincipalKind;
     name: string;
     unitId: string;
+    queueDisplayId: string | null;
     enrolCodeHash: string;
     enrolExpiresAt: Date;
     createdAt: Date;
@@ -116,6 +123,7 @@ export class DevicesRepository {
         name: true,
         expiresAt: true,
         unit: { select: { id: true, name: true } },
+        queueDisplay: { select: { id: true, name: true } },
         tenant: { select: { name: true } },
       },
     });

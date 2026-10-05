@@ -6,6 +6,7 @@
 ALTER TABLE "registered_devices" NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE "units" NO FORCE ROW LEVEL SECURITY;
 ALTER TABLE "users" NO FORCE ROW LEVEL SECURITY;
+ALTER TABLE "queue_displays" NO FORCE ROW LEVEL SECURITY;
 
 -- AlterTable
 ALTER TABLE "registered_devices" ALTER COLUMN "token_hash" DROP NOT NULL,
@@ -21,6 +22,12 @@ CREATE INDEX "registered_devices_tenant_id_kind_unit_id_idx" ON "registered_devi
 
 -- AddForeignKey
 ALTER TABLE "registered_devices" ADD CONSTRAINT "registered_devices_tenant_id_unit_id_fkey" FOREIGN KEY ("tenant_id", "unit_id") REFERENCES "units"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE INDEX "registered_devices_tenant_id_queue_display_id_idx" ON "registered_devices"("tenant_id", "queue_display_id");
+
+-- AddForeignKey: display → papan antrean (tabel `queue_displays` dari potongan 0b).
+ALTER TABLE "registered_devices" ADD CONSTRAINT "registered_devices_tenant_id_queue_display_id_fkey" FOREIGN KEY ("tenant_id", "queue_display_id") REFERENCES "queue_displays"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "registered_devices" ADD CONSTRAINT "registered_devices_tenant_id_created_by_fkey" FOREIGN KEY ("tenant_id", "created_by") REFERENCES "users"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -91,3 +98,4 @@ END $do$;
 ALTER TABLE "registered_devices" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "units" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "users" FORCE ROW LEVEL SECURITY;
+ALTER TABLE "queue_displays" FORCE ROW LEVEL SECURITY;

@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { type ConsoleMessage, expect, type Page, test, type TestInfo } from '@playwright/test';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 import { createAccount, loginAs } from '../support/accounts';
+import { CONSENT_ID, ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
 
 /**
  * Jaring pengaman mode presentasi (ADR-0023): SETIAP layar berstatus `demo` di registri terbuka untuk posisi
@@ -19,11 +20,15 @@ import { createAccount, loginAs } from '../support/accounts';
  * (`lib/demo/fixtures/pasien.ts`) yang terbuka untuk akun baru (semua skenario di langkah awal).
  */
 const EXTRA_PATHS: Record<string, readonly string[]> = {
-  order: ['/klinis/order/kj-suryo', '/klinis/order/kj-rohana'],
+  order: [`/klinis/order/${ENCOUNTER_ID.suryo}`, `/klinis/order/${ENCOUNTER_ID.rohana}`],
   // Pasien skenario (bisa belum dirawat → halaman penjelasan) dan pasien rawat inap biasa (rekam lengkap).
-  ranap: ['/klinis/rawat-inap/kj-hartono', '/klinis/rawat-inap/kj-ratna', '/klinis/rawat-inap/kj-endang'],
-  resume: ['/klinis/resume/kj-hartono', '/klinis/resume/kj-ratna'],
-  consent: ['/tablet/persetujuan/pk-ratna', '/tablet/persetujuan/pk-hendro'],
+  ranap: [
+    `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`,
+    `/klinis/rawat-inap/${ENCOUNTER_ID.ratna}`,
+    `/klinis/rawat-inap/${ENCOUNTER_ID.endang}`,
+  ],
+  resume: [`/klinis/resume/${ENCOUNTER_ID.hartono}`, `/klinis/resume/${ENCOUNTER_ID.ratna}`],
+  consent: [`/tablet/persetujuan/${CONSENT_ID.ratna}`, `/tablet/persetujuan/${CONSENT_ID.hendro}`],
 };
 /** Layar yang hanya punya rute berparameter (tanpa halaman indeks). */
 const NO_INDEX = new Set(['resume', 'consent']);
@@ -36,12 +41,12 @@ const IGD_SCENARIO_PATHS: ReadonlyArray<{
   stage: string;
   paths: ReadonlyArray<[screen: string, path: string]>;
 }> = [
-  { stage: 'Asesmen dokter', paths: [['order', '/klinis/order/kj-hartono']] },
+  { stage: 'Asesmen dokter', paths: [['order', `/klinis/order/${ENCOUNTER_ID.hartono}`]] },
   {
     stage: 'Tata laksana',
     paths: [
-      ['order', '/klinis/order/kj-hartono'],
-      ['consent', '/tablet/persetujuan/pk-hartono'],
+      ['order', `/klinis/order/${ENCOUNTER_ID.hartono}`],
+      ['consent', `/tablet/persetujuan/${CONSENT_ID.hartono}`],
     ],
   },
 ];

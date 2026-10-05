@@ -27,8 +27,12 @@ const listQuerySchema = z.object({
 
 /** Jenis + unit perangkat (bukan PHI) untuk audit pendaftaran; kode pendaftaran tidak pernah masuk jejak. */
 const createdDetails = ({ body }: AuditSource) => {
-  const b = (body ?? {}) as { kind?: unknown; unitId?: unknown };
-  return { kind: b.kind, unitId: b.unitId };
+  const b = (body ?? {}) as { kind?: unknown; unitId?: unknown; queueDisplayId?: unknown };
+  return {
+    kind: b.kind,
+    unitId: b.unitId,
+    ...(b.queueDisplayId ? { queueDisplayId: b.queueDisplayId } : {}),
+  };
 };
 
 function meta(req: Request & { id?: unknown }): EnrolMeta {

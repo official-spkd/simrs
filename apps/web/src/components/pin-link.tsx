@@ -5,7 +5,7 @@ export function PinLink() {
   return (
     <Link
       href="/akun/pin"
-      className="flex min-h-9 w-full items-center justify-center rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-700 no-underline hover:bg-subtle"
+      className="flex min-h-11 w-full items-center justify-center rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-700 no-underline hover:bg-subtle"
     >
       PIN masuk cepat
     </Link>

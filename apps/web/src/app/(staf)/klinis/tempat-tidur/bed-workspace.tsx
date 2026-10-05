@@ -7,6 +7,7 @@ import { TabList, TabPanel } from '@simrs/ui';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
+import { ENCOUNTER_ID } from '../../../../lib/demo/fixtures/ids';
 import { allocateBedAction } from './actions';
 import { BedDetail, type BedPatch } from './bed-detail';
 import { BedFilters, BedStatusTiles } from './bed-filters';
@@ -179,7 +180,9 @@ export function BedWorkspace({
                   ? `${ranapRoute}/${selBed.encounterId}`
                   : null
               }
-              scenarioOwned={selBed.encounterId === 'kj-hartono' || selBed.encounterId === 'kj-ratna'}
+              scenarioOwned={
+                selBed.encounterId === ENCOUNTER_ID.hartono || selBed.encounterId === ENCOUNTER_ID.ratna
+              }
               scenarioAlloc={scenarioAlloc}
               onChange={(code, patch, msg) => {
                 setPatches((p) => ({ ...p, [code]: patch }));
@@ -208,7 +211,7 @@ export function BedWorkspace({
               terpenuhi tanpa boarding.
             </span>
             {ranapRoute && (
-              <Link href={ranapRoute} className="text-small font-semibold">
+              <Link href={ranapRoute} className="inline-flex min-h-11 items-center text-small font-semibold">
                 Lihat pasien rawat inap
               </Link>
             )}

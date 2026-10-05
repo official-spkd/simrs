@@ -157,6 +157,35 @@ describe('pendaftaran perangkat oleh admin', () => {
   });
 });
 
+describe('display terikat papan antrean (potongan 0b)', () => {
+  it('papan milik RS sendiri boleh; papan RS lain atau untuk anjungan ditolak 400', async () => {
+    const own = newId();
+    const foreign = newId();
+    for (const [tenantId, id] of [
+      [TENANT_A, own],
+      [TENANT_B, foreign],
+    ] as const) {
+      await withTenant(testDb(), tenantId, (tx) =>
+        tx.queueDisplay.create({
+          data: { id, tenantId, code: `TV${id.slice(-6).toUpperCase()}`, name: 'TV poli' },
+        }),
+      );
+    }
+    const send = (body: object) =>
+      http()
+        .post('/api/v1/iam/devices')
+        .set(bearer(t.adminA as Tokens))
+        .send({ name: 'TV ruang tunggu', unitId: units.a, ...body });
+    const ok = await send({ kind: 'display', queueDisplayId: own }).expect(201);
+    expect(ok.body.device.queueDisplay).toEqual({ id: own, name: 'TV poli' });
+    await send({ kind: 'display', queueDisplayId: foreign }).expect(400);
+    await send({ kind: 'kiosk', queueDisplayId: own }).expect(400);
+    const enrolled = await enrol(ok.body.enrolmentCode).expect(200);
+    const me = await http().get('/api/v1/devices/me').set(asDevice(enrolled.body.token)).expect(200);
+    expect(me.body.queueDisplay).toEqual({ id: own, name: 'TV poli' });
+  });
+});
+
 describe('penukaran kode oleh perangkat', () => {
   it('kode benar (ketikan longgar) → token dv1 sekali; kode dipakai ulang atau salah → 401 + audit', async () => {
     const created = await registerDevice(t.adminA as Tokens, 'kiosk', units.a as string);

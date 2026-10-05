@@ -22,7 +22,6 @@ const MANUAL_INDEXES = [
   'mfa_factors_one_active_per_user',
   'tenants_single_platform',
   'patient_identifiers_one_active_per_system',
-  'patients_name_search_trgm',
   'patient_match_candidates_pair',
   'patient_links_one_active_per_merged',
   'privacy_consents_one_active',
@@ -30,6 +29,9 @@ const MANUAL_INDEXES = [
   'form_definitions_one_open_draft',
   'form_responses_supersedes_once',
   'registered_devices_enrol_code',
+  'seps_supersedes_once',
+  'seps_one_chain_per_encounter',
+  'patient_contacts_supersedes_once',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -54,6 +56,29 @@ describe('penjaga skema', () => {
       .filter((r) => !r.rls || !r.forced || Number(r.policies) !== 1)
       .map((r) => `${r.table} (rls=${r.rls}, force=${r.forced}, policy=${r.policies})`);
     expect(bad, 'tabel tanpa isolasi tenant lengkap').toEqual([]);
+  });
+
+  it('tabel ber-tenant_id di luar public (indeks pencarian): RLS + kebijakan, tanpa hak apa pun bagi role aplikasi', async () => {
+    // Pola ADR-0008/0015: dibaca pemilik lewat fungsi SECURITY DEFINER sempit, jadi tanpa FORCE, tetapi role
+    // aplikasi sama sekali tidak boleh membacanya langsung.
+    const rows = await owner.$queryRaw<
+      Array<{ table: string; rls: boolean; policies: bigint; app_access: boolean }>
+    >`
+      SELECT n.nspname || '.' || c.relname AS table, c.relrowsecurity AS rls,
+             (SELECT count(*) FROM pg_policies p
+              WHERE p.schemaname = n.nspname AND p.tablename = c.relname AND p.policyname = 'tenant_isolation') AS policies,
+             has_table_privilege('simrs_app', c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE') AS app_access
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE c.relkind = 'r' AND n.nspname NOT IN ('public', 'pg_catalog', 'information_schema', 'pg_toast')
+        AND EXISTS (SELECT 1 FROM pg_attribute a
+                    WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped)
+      ORDER BY 1`;
+    expect(rows.map((r) => r.table)).toContain('search.patient_names');
+    const bad = rows
+      .filter((r) => !r.rls || Number(r.policies) !== 1 || r.app_access)
+      .map((r) => `${r.table} (rls=${r.rls}, policy=${r.policies}, app=${r.app_access})`);
+    expect(bad, 'tabel indeks tanpa isolasi').toEqual([]);
   });
 
   it('role aplikasi tidak punya BYPASSRLS dan bukan superuser', async () => {
@@ -87,6 +112,26 @@ describe('penjaga skema', () => {
       'document_signatures',
       'trusted_devices',
       'registered_devices',
+      // Fase 2 · front office (potongan 0b): master dinonaktifkan, transaksi tidak dihapus.
+      'practitioners',
+      'external_ids',
+      'payers',
+      'queue_services',
+      'queue_displays',
+      'queue_display_services',
+      'practitioner_schedules',
+      'schedule_sessions',
+      'hfis_schedule_snapshots',
+      'appointments',
+      'queue_tickets',
+      'queue_calls',
+      'bpjs_queue_tasks',
+      'encounters',
+      'encounter_status_history',
+      'coverages',
+      'referrals',
+      'seps',
+      'patient_contacts',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

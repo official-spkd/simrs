@@ -3,6 +3,7 @@ import { type PharmacyPrescription, pharmacyQueueSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
+import { CDS_ALERT_ID, PRESCRIPTION_ID } from './demo/fixtures/ids';
 import { APOTEKER_JAGA, demoPharmacyQueue, demoPrescriptions } from './demo/fixtures/penunjang';
 import { SCENARIOS } from './demo/skenario';
 import {
@@ -74,18 +75,20 @@ describe('data dummy farmasi', () => {
 
 describe('telaah: gerbang CDS', () => {
   it('interaksi mayor + dosis ginjal menahan resep sampai ditindaklanjuti; usulan saja belum cukup', () => {
-    const rx = rxById('rx-sutan');
+    const rx = rxById(PRESCRIPTION_ID.sutan);
     expect(blockingAlerts(rx, undefined)).toHaveLength(2);
     expect(telaahBlock(blockingAlerts(rx, undefined), false)).toMatch(/Tindak lanjuti 2 peringatan/);
     expect(rxTag(rx, undefined)).toEqual({ label: '2 peringatan', tone: 'warning' });
     const t = '2026-10-05T10:50:00+07:00';
-    const usul = { alerts: { 'sutan-interaksi': { state: 'diusulkan' as const, at: t, text: '' } } };
+    const usul = {
+      alerts: { [CDS_ALERT_ID.sutanInteraction]: { state: 'diusulkan' as const, at: t, text: '' } },
+    };
     expect(blockingAlerts(rx, usul)).toHaveLength(2);
     expect(rxTag(rx, usul).label).toBe('Menunggu dokter');
     const done = {
       alerts: {
-        'sutan-interaksi': { state: 'disetujui' as const, at: t, text: '' },
-        'sutan-ginjal': { state: 'dikonfirmasi' as const, at: t, text: '' },
+        [CDS_ALERT_ID.sutanInteraction]: { state: 'disetujui' as const, at: t, text: '' },
+        [CDS_ALERT_ID.sutanRenalDose]: { state: 'dikonfirmasi' as const, at: t, text: '' },
       },
     };
     expect(blockingAlerts(rx, done)).toHaveLength(0);
@@ -97,24 +100,24 @@ describe('telaah: gerbang CDS', () => {
   });
 
   it('override wajib ditinjau; info (alergi yang sudah dikaji) tidak menahan', () => {
-    const rx = rxById('rx-sutan');
+    const rx = rxById(PRESCRIPTION_ID.sutan);
     const t = '2026-10-05T10:50:00+07:00';
     const local = {
       alerts: {
-        'sutan-interaksi': { state: 'override' as const, at: t, text: 'alasan' },
-        'sutan-ginjal': { state: 'dikonfirmasi' as const, at: t, text: '' },
+        [CDS_ALERT_ID.sutanInteraction]: { state: 'override' as const, at: t, text: 'alasan' },
+        [CDS_ALERT_ID.sutanRenalDose]: { state: 'dikonfirmasi' as const, at: t, text: '' },
       },
     };
     expect(blockingAlerts(rx, local)).toHaveLength(0);
-    expect(blockingAlerts(rxById('rx-endang'), undefined)).toHaveLength(0);
-    expect(rxTag(rxById('rx-aminah'), undefined)).toEqual({ label: 'Cito', tone: 'danger' });
+    expect(blockingAlerts(rxById(PRESCRIPTION_ID.endang), undefined)).toHaveLength(0);
+    expect(rxTag(rxById(PRESCRIPTION_ID.aminah), undefined)).toEqual({ label: 'Cito', tone: 'danger' });
   });
 });
 
 describe('penyiapan: cek ganda high alert', () => {
   it('obat high alert wajib cek ganda oleh apoteker kedua yang bertugas, bukan penyiap', () => {
-    expect(requiresDoubleCheck(rxById('rx-sutan'))).toBe(true);
-    expect(requiresDoubleCheck(rxById('rx-fajar'))).toBe(false);
+    expect(requiresDoubleCheck(rxById(PRESCRIPTION_ID.sutan))).toBe(true);
+    expect(requiresDoubleCheck(rxById(PRESCRIPTION_ID.fajar))).toBe(false);
     const base = { total: 3, checked: 3, doubleCheckRequired: true };
     expect(workBlock({ ...base, doubleCheckDone: false })).toMatch(/Cek ganda/);
     expect(workBlock({ ...base, doubleCheckDone: true })).toBeNull();
@@ -127,11 +130,11 @@ describe('penyiapan: cek ganda high alert', () => {
   });
 
   it('serah terima mengurangi stok depo sebesar jumlah yang diserahkan', () => {
-    const rx = rxById('rx-bonifasius');
+    const rx = rxById(PRESCRIPTION_ID.bonifasius);
     expect(stockAfter({ stock: 290, quantity: 30 })).toBe(260);
     expect(stockAfter({ stock: 5, quantity: 30 })).toBe(0);
     expect(dispenseLines(rx)[0]).toBe('Asetosal 80 mg tab 700 → 670 tab');
-    expect(dispenseLines(rxById('rx-sutan')).find((l) => l.startsWith('Enoksaparin'))).toBe(
+    expect(dispenseLines(rxById(PRESCRIPTION_ID.sutan)).find((l) => l.startsWith('Enoksaparin'))).toBe(
       'Enoksaparin 60 mg/0,6 mL 12 → 6 syringe (di bawah stok minimum)',
     );
   });
@@ -195,39 +198,43 @@ describe('gerbang Server Action farmasi (resep dicari server, bukan dari klien)'
 
   it('id resep yang tidak ada di antrean ditolak', () => {
     expect(rxGate(undefined)).toEqual({ message: RX_UNKNOWN });
-    expect(rxGate(rxById('rx-fajar'))).toBeNull();
-    expect(cdsFollowUpGate(undefined, 'sutan-ginjal', 'konfirmasi', undefined)).toEqual({
+    expect(rxGate(rxById(PRESCRIPTION_ID.fajar))).toBeNull();
+    expect(cdsFollowUpGate(undefined, CDS_ALERT_ID.sutanRenalDose, 'konfirmasi', undefined)).toEqual({
       message: RX_UNKNOWN,
     });
     expect(doubleCheckGate(undefined, b ?? '', a ?? '', APOTEKER_JAGA)).toEqual({ message: RX_UNKNOWN });
   });
 
   it('tindak lanjut CDS hanya atas peringatan milik resep itu yang memang menahan telaah', () => {
-    const sutan = rxById('rx-sutan');
-    expect(cdsFollowUpGate(sutan, 'sutan-ginjal', 'konfirmasi', undefined)).toBeNull();
-    expect(cdsFollowUpGate(sutan, 'sutan-interaksi', 'usul', undefined)).toBeNull();
+    const sutan = rxById(PRESCRIPTION_ID.sutan);
+    expect(cdsFollowUpGate(sutan, CDS_ALERT_ID.sutanRenalDose, 'konfirmasi', undefined)).toBeNull();
+    expect(cdsFollowUpGate(sutan, CDS_ALERT_ID.sutanInteraction, 'usul', undefined)).toBeNull();
     // Peringatan resep lain, dan peringatan yang tidak menahan (alergi yang sudah dikaji), ditolak.
-    expect(cdsFollowUpGate(sutan, 'endang-alergi', 'konfirmasi', undefined)?.message).toMatch(
+    expect(cdsFollowUpGate(sutan, CDS_ALERT_ID.endangAllergy, 'konfirmasi', undefined)?.message).toMatch(
       /tidak ditemukan pada resep ini/,
     );
     expect(
-      cdsFollowUpGate(rxById('rx-endang'), 'endang-alergi', 'override', 'Alasan klinis yang cukup panjang')
-        ?.message,
+      cdsFollowUpGate(
+        rxById(PRESCRIPTION_ID.endang),
+        CDS_ALERT_ID.endangAllergy,
+        'override',
+        'Alasan klinis yang cukup panjang',
+      )?.message,
     ).toMatch(/tidak memerlukan tindak lanjut/);
-    expect(cdsFollowUpGate(sutan, 'sutan-ginjal', 'override', 'singkat')).toEqual({
+    expect(cdsFollowUpGate(sutan, CDS_ALERT_ID.sutanRenalDose, 'override', 'singkat')).toEqual({
       message: 'Alasan klinis wajib diisi, minimal 10 karakter.',
       field: 'reason',
     });
     expect(
-      cdsFollowUpGate(sutan, 'sutan-ginjal', 'override', 'Dosis disesuaikan, pantau anti-Xa'),
+      cdsFollowUpGate(sutan, CDS_ALERT_ID.sutanRenalDose, 'override', 'Dosis disesuaikan, pantau anti-Xa'),
     ).toBeNull();
   });
 
   it('cek ganda hanya untuk resep dengan obat high alert, oleh apoteker kedua', () => {
-    expect(doubleCheckGate(rxById('rx-fajar'), b ?? '', a ?? '', APOTEKER_JAGA)?.message).toMatch(
+    expect(doubleCheckGate(rxById(PRESCRIPTION_ID.fajar), b ?? '', a ?? '', APOTEKER_JAGA)?.message).toMatch(
       /tidak memuat obat high alert/,
     );
-    const sutan = rxById('rx-sutan');
+    const sutan = rxById(PRESCRIPTION_ID.sutan);
     expect(doubleCheckGate(sutan, a ?? '', a ?? '', APOTEKER_JAGA)).toEqual({
       message: expect.stringMatching(/apoteker lain/),
       field: 'second',
@@ -238,34 +245,46 @@ describe('gerbang Server Action farmasi (resep dicari server, bukan dari klien)'
 
 describe('kemajuan lokal farmasi (sessionStorage)', () => {
   const rxs = [
-    { id: 'rx-suryo', stage: 'serah' as const },
-    { id: 'rx-sutan', stage: 'telaah' as const },
+    { id: PRESCRIPTION_ID.suryo, stage: 'serah' as const },
+    { id: PRESCRIPTION_ID.sutan, stage: 'telaah' as const },
   ];
   const roundTrip = (s: StoredRxLocal) => parseStoredRxLocal(JSON.stringify(s));
 
   it('tersimpan per resep bersama tahap server dan bertahan selama tahap server sama', () => {
-    let stored = patchStoredRxLocal({}, rxs, 'rx-suryo', (c) => ({
+    let stored = patchStoredRxLocal({}, rxs, PRESCRIPTION_ID.suryo, (c) => ({
       ...c,
       handover: { ...c.handover, 0: true },
     }));
-    stored = patchStoredRxLocal(roundTrip(stored), rxs, 'rx-suryo', (c) => ({ ...c, receiver: 'keluarga' }));
-    stored = patchStoredRxLocal(roundTrip(stored), rxs, 'rx-sutan', (c) => ({ ...c, stage: 'siap' }));
+    stored = patchStoredRxLocal(roundTrip(stored), rxs, PRESCRIPTION_ID.suryo, (c) => ({
+      ...c,
+      receiver: 'keluarga',
+    }));
+    stored = patchStoredRxLocal(roundTrip(stored), rxs, PRESCRIPTION_ID.sutan, (c) => ({
+      ...c,
+      stage: 'siap',
+    }));
     expect(liveRxLocal(roundTrip(stored), rxs)).toEqual({
-      'rx-suryo': { stage: 'serah', local: { handover: { 0: true }, receiver: 'keluarga' } },
-      'rx-sutan': { stage: 'telaah', local: { stage: 'siap' } },
+      [PRESCRIPTION_ID.suryo]: { stage: 'serah', local: { handover: { 0: true }, receiver: 'keluarga' } },
+      [PRESCRIPTION_ID.sutan]: { stage: 'telaah', local: { stage: 'siap' } },
     });
   });
 
   it('dibuang bila tahap server resep berubah atau resepnya hilang (mis. simulasi diulang)', () => {
-    const stored = patchStoredRxLocal({}, rxs, 'rx-suryo', (c) => ({ ...c, handover: { 0: true } }));
-    expect(liveRxLocal(stored, [{ id: 'rx-suryo', stage: 'telaah' }])).toEqual({});
+    const stored = patchStoredRxLocal({}, rxs, PRESCRIPTION_ID.suryo, (c) => ({
+      ...c,
+      handover: { 0: true },
+    }));
+    expect(liveRxLocal(stored, [{ id: PRESCRIPTION_ID.suryo, stage: 'telaah' }])).toEqual({});
     expect(liveRxLocal(stored, [])).toEqual({});
     // Perubahan berikutnya berangkat dari kosong untuk tahap yang baru; id yang tidak di antrean tidak dicatat.
-    const siap = [{ id: 'rx-suryo', stage: 'siap' as const }];
+    const siap = [{ id: PRESCRIPTION_ID.suryo, stage: 'siap' as const }];
     expect(
-      patchStoredRxLocal(stored, siap, 'rx-suryo', (c) => ({ ...c, prep: { ...c.prep, 1: true } })),
+      patchStoredRxLocal(stored, siap, PRESCRIPTION_ID.suryo, (c) => ({
+        ...c,
+        prep: { ...c.prep, 1: true },
+      })),
     ).toEqual({
-      'rx-suryo': { stage: 'siap', local: { prep: { 1: true } } },
+      [PRESCRIPTION_ID.suryo]: { stage: 'siap', local: { prep: { 1: true } } },
     });
     expect(
       patchStoredRxLocal({}, rxs, 'rx-lain', (c) => ({ ...c, hold: '2026-10-05T03:50:00.000Z' })),
@@ -276,8 +295,12 @@ describe('kemajuan lokal farmasi (sessionStorage)', () => {
     expect(parseStoredRxLocal(null)).toEqual({});
     expect(parseStoredRxLocal('{bukan json')).toEqual({});
     expect(
-      parseStoredRxLocal(JSON.stringify({ 'rx-suryo': { stage: 'serah', local: { hold: 'kemarin' } } })),
+      parseStoredRxLocal(
+        JSON.stringify({ [PRESCRIPTION_ID.suryo]: { stage: 'serah', local: { hold: 'kemarin' } } }),
+      ),
     ).toEqual({});
-    expect(parseStoredRxLocal(JSON.stringify({ 'rx-suryo': { stage: 'hilang', local: {} } }))).toEqual({});
+    expect(
+      parseStoredRxLocal(JSON.stringify({ [PRESCRIPTION_ID.suryo]: { stage: 'hilang', local: {} } })),
+    ).toEqual({});
   });
 });

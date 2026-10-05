@@ -49,7 +49,7 @@ export function ClaimCodes({
               <tr key={`${d.code}-${d.role}`}>
                 <td className={`${TD} pr-2 font-mono font-semibold text-brand-700`}>{d.code}</td>
                 <td className={`${TD} pr-2`}>{d.name}</td>
-                <td className={`${TD} text-right`}>
+                <td className={`${TD} text-right whitespace-nowrap`}>
                   <Chip tone={ROLE[d.role].tone}>{ROLE[d.role].label}</Chip>
                 </td>
               </tr>

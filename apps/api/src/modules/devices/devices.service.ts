@@ -53,6 +53,7 @@ export function toDeviceView(row: DeviceRow, now = new Date()): DeviceView {
     kind: row.kind as DevicePrincipalKind,
     name: row.name,
     unit: row.unit ?? { id: '00000000-0000-0000-0000-000000000000', name: '-' },
+    queueDisplay: row.queueDisplay,
     status: status(row, now),
     createdAt: row.createdAt.toISOString(),
     expiresAt: row.expiresAt.toISOString(),
@@ -102,6 +103,11 @@ export class DevicesService {
         fields: ['unitId'],
       });
     }
+    if (input.queueDisplayId && !(await this.repo.activeQueueDisplay(input.queueDisplayId))) {
+      throw new AppError('VALIDATION_FAILED', 'Papan antrean tidak ditemukan atau tidak aktif', 400, {
+        fields: ['queueDisplayId'],
+      });
+    }
     const code = generateEnrolmentCode();
     const createdAt = new Date();
     const enrolExpiresAt = new Date(createdAt.getTime() + DEVICE_ENROLMENT_MINUTES * 60_000);
@@ -110,6 +116,7 @@ export class DevicesService {
       kind: input.kind,
       name: input.name,
       unitId: input.unitId,
+      queueDisplayId: input.queueDisplayId ?? null,
       enrolCodeHash: this.codeHash(this.db.tenantId(), code),
       enrolExpiresAt,
       createdAt,
@@ -143,6 +150,7 @@ export class DevicesService {
       name: row.name,
       tenant: { name: row.tenant.name },
       unit: row.unit,
+      queueDisplay: row.queueDisplay,
       permissions: [...principal.permissions],
       expiresAt: row.expiresAt.toISOString(),
     };

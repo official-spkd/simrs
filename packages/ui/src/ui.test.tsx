@@ -9,8 +9,8 @@ import {
   Field,
   LineChart,
   PatientBanner,
+  RadioSegmented,
   SafetyGate,
-  Segmented,
   Sidebar,
   Tabs,
 } from './index';
@@ -109,18 +109,20 @@ describe('PatientBanner', () => {
   });
 });
 
-describe('Segmented', () => {
-  function Harness() {
+describe('RadioSegmented', () => {
+  function Harness({ disabled = false }: { disabled?: boolean }) {
     const [v, setV] = useState('rj');
     return (
       <>
-        <Segmented
-          label="Skenario"
+        <RadioSegmented
+          label="Kanal"
           value={v}
           onChange={setV}
+          disabled={disabled}
           items={[
-            { id: 'rj', label: 'Rawat jalan' },
-            { id: 'igd', label: 'IGD' },
+            { id: 'rj', label: 'VA BTN' },
+            { id: 'igd', label: 'QRIS' },
+            { id: 'edc', label: 'EDC' },
           ]}
         />
         <output>{v}</output>
@@ -128,14 +130,34 @@ describe('Segmented', () => {
     );
   }
 
-  it('pilihan aktif ditandai aria-selected; panah kanan berpindah dan memindahkan fokus', () => {
+  it('pola radio: aria-checked, satu pilihan dalam urutan Tab, panah memindah + memilih dan berputar', () => {
     render(<Harness />);
-    const rj = screen.getByRole('tab', { name: 'Rawat jalan' });
-    expect(rj.getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(screen.getByRole('tablist', { name: 'Skenario' }), { key: 'ArrowRight' });
-    expect(screen.getByRole('tab', { name: 'IGD' }).getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement?.textContent).toBe('IGD');
+    const group = screen.getByRole('radiogroup', { name: 'Kanal' });
+    const va = screen.getByRole('radio', { name: 'VA BTN' });
+    expect(va.getAttribute('aria-checked')).toBe('true');
+    expect(va.tabIndex).toBe(0);
+    expect(screen.getByRole('radio', { name: 'QRIS' }).tabIndex).toBe(-1);
+    expect(screen.queryByRole('tab')).toBeNull();
+    fireEvent.keyDown(group, { key: 'ArrowDown' });
+    expect(screen.getByRole('radio', { name: 'QRIS' }).getAttribute('aria-checked')).toBe('true');
+    expect(document.activeElement?.textContent).toBe('QRIS');
     expect(screen.getByRole('status').textContent).toBe('igd');
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+    fireEvent.keyDown(group, { key: 'ArrowUp' });
+    expect(screen.getByRole('radio', { name: 'EDC' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(screen.getByRole('status').textContent).toBe('rj');
+    fireEvent.click(screen.getByRole('radio', { name: 'EDC' }));
+    expect(screen.getByRole('status').textContent).toBe('edc');
+  });
+
+  it('nonaktif: tombol dinonaktifkan dan keyboard diabaikan', () => {
+    render(<Harness disabled />);
+    const group = screen.getByRole('radiogroup', { name: 'Kanal' });
+    expect(group.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(screen.getByRole('status').textContent).toBe('rj');
+    expect((screen.getByRole('radio', { name: 'QRIS' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

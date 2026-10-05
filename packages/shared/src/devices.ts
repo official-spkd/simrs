@@ -57,15 +57,22 @@ export function formatEnrolmentCode(code: string): string {
 export const devicePrincipalKindSchema = z.enum(DEVICE_PRINCIPAL_KINDS);
 
 /** Admin mendaftarkan perangkat baru (layar Akses → Perangkat). */
-export const createDeviceSchema = z.object({
-  kind: devicePrincipalKindSchema,
-  name: z
-    .string()
-    .trim()
-    .min(3, 'Nama perangkat minimal 3 karakter')
-    .max(60, 'Nama perangkat maksimal 60 karakter'),
-  unitId: z.uuid('Pilih unit'),
-});
+export const createDeviceSchema = z
+  .object({
+    kind: devicePrincipalKindSchema,
+    name: z
+      .string()
+      .trim()
+      .min(3, 'Nama perangkat minimal 3 karakter')
+      .max(60, 'Nama perangkat maksimal 60 karakter'),
+    unitId: z.uuid('Pilih unit'),
+    /** Display: papan antrean yang ditampilkan (opsional; bisa menyusul saat papan dibuat). */
+    queueDisplayId: z.uuid('Papan antrean tidak valid').optional(),
+  })
+  .refine((v) => v.kind === 'display' || v.queueDisplayId === undefined, {
+    message: 'Papan antrean hanya untuk display',
+    path: ['queueDisplayId'],
+  });
 export type CreateDeviceInput = z.infer<typeof createDeviceSchema>;
 
 /** Perangkat menukar kode pendaftaran dengan kredensial (tanpa login staf). */
@@ -97,6 +104,7 @@ export const deviceViewSchema = z.object({
   kind: devicePrincipalKindSchema,
   name: z.string(),
   unit: z.object({ id: z.uuid(), name: z.string() }),
+  queueDisplay: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   status: z.enum(DEVICE_STATUSES),
   createdAt: z.string(),
   expiresAt: z.string(),
@@ -121,6 +129,7 @@ export const deviceSelfSchema = z.object({
   name: z.string(),
   tenant: z.object({ name: z.string() }),
   unit: z.object({ id: z.uuid(), name: z.string() }),
+  queueDisplay: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   permissions: z.array(z.string()),
   expiresAt: z.string(),
 });

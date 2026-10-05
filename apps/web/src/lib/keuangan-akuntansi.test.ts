@@ -2,6 +2,7 @@ import { accountingBoardSchema, journalBalanced } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent } from './demo/engine/types';
+import { JOURNAL_ID } from './demo/fixtures/ids';
 import {
   ACCOUNTING_KPIS,
   AGING,
@@ -85,7 +86,11 @@ describe('data dummy Akuntansi', () => {
     );
     expect(periodCloseCheck(board, { ...none, mappedJournalIds: [DISPUTE_JOURNAL_ID] }).ready).toBe(false);
     expect(
-      periodCloseCheck(board, { ...none, mappedJournalIds: ['ju-wahyuni'], matchedAccountIds: ['btn-ops'] }),
+      periodCloseCheck(board, {
+        ...none,
+        mappedJournalIds: [JOURNAL_ID.wahyuni],
+        matchedAccountIds: ['btn-ops'],
+      }),
     ).toMatchObject({ ready: false });
     expect(
       periodCloseCheck(board, { mappedJournalIds: [DISPUTE_JOURNAL_ID], matchedAccountIds: ['btn-klaim'] }),
@@ -103,7 +108,7 @@ describe('data dummy Akuntansi', () => {
     const results = { ...fresh(), 'elektif-btn': runScenario(def, seq) };
     const all = scenarioJournals('elektif-btn', results['elektif-btn']);
     const november = all.filter((j) => !inPeriod(j, '2026-10'));
-    expect(november.map((j) => j.id).sort()).toEqual(['ju-ratna-bpjs', 'ju-ratna-teruskan']);
+    expect(november.map((j) => j.id).sort()).toEqual([JOURNAL_ID.ratnaBpjs, JOURNAL_ID.ratnaForward]);
     expect(november.every((j) => j.number.startsWith('JU-2611'))).toBe(true);
     const board = accountingBoardSchema.parse(demoAccountingBoard(results));
     expect(board.journals.some((j) => j.number.startsWith('JU-2611'))).toBe(false);

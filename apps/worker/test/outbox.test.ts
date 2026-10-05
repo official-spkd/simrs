@@ -6,13 +6,14 @@ import 'reflect-metadata';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Test } from '@nestjs/testing';
+import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { createPrismaClient, enqueueOutbox, type PrismaClient, withTenant } from '@simrs/db';
 import { newId } from '@simrs/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadWorkerEnv, WORKER_ENV, type WorkerEnv } from '../src/config/env';
 import { OutboxDispatcher } from '../src/outbox/outbox.dispatcher';
-import { OutboxScheduler } from '../src/outbox/outbox.scheduler';
+import { OUTBOX_QUEUE, OutboxScheduler } from '../src/outbox/outbox.scheduler';
 import { WorkerModule } from '../src/worker.module';
 
 const A = '0199a000-0000-7000-8000-000000000001';
@@ -49,6 +50,8 @@ beforeAll(async () => {
     MOCK_BASE_URL: `http://127.0.0.1:${port}`,
     OUTBOX_POLL_MS: '300',
     OUTBOX_HTTP_TIMEOUT_MS: '2000',
+    // Redis dipakai bersama worker pengembangan dan salinan repo lain: antrean tes memakai prefiks sendiri.
+    BULLMQ_PREFIX: `bull-test-${newId()}`,
   });
   const ref = await Test.createTestingModule({ imports: [WorkerModule] })
     .overrideProvider(WORKER_ENV)
@@ -62,6 +65,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await scheduler?.onModuleDestroy();
+  await obliterateTestQueue();
   await dispatcher?.onModuleDestroy();
   await db?.$disconnect();
   await new Promise<void>((r) => stub.close(() => r()));
@@ -149,6 +153,26 @@ describe('dispatcher', () => {
     expect(s.attempts).toBe(2);
   });
 });
+
+/** Hapus kunci antrean tes (hanya prefiks unik tes ini; tidak pernah FLUSHALL). */
+async function obliterateTestQueue(): Promise<void> {
+  if (!env || !(await redisUp(env.REDIS_URL))) return;
+  const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+  const queue = new Queue(OUTBOX_QUEUE, { connection, prefix: env.BULLMQ_PREFIX });
+  try {
+    await queue.obliterate({ force: true });
+  } finally {
+    await queue.close();
+    connection.disconnect();
+  }
+}
+
+async function redisUp(url: string): Promise<boolean> {
+  return assertRedisReachable(url).then(
+    () => true,
+    () => false,
+  );
+}
 
 async function assertRedisReachable(url: string): Promise<void> {
   const probe = new Redis(url, {
