@@ -6,6 +6,7 @@ import {
   loginSchema,
   type LoginInput,
   mfaBackupCodeSchema,
+  mfaChallengeSchema,
   mfaConfirmSchema,
   mfaVerifySchema,
   type MfaVerifyInput,
@@ -57,6 +58,15 @@ export class AuthController {
     @Req() req: Request,
   ) {
     return this.auth.sendBackupCode(body, meta(req));
+  }
+
+  /** Kanal kode cadangan yang boleh dipakai akun ini menurut pengaturan RS (kosong = hanya aplikasi). */
+  @Post('mfa/backup-options')
+  @HttpCode(200)
+  backupCodeOptions(
+    @Body(new ZodValidationPipe(mfaChallengeSchema)) body: z.infer<typeof mfaChallengeSchema>,
+  ) {
+    return this.auth.backupCodeOptions(body.challengeToken);
   }
 
   @Post('refresh')

@@ -52,4 +52,18 @@ test.describe('masuk: kode cadangan dan perangkat tepercaya (mockup Login)', () 
     await submitPassword(page, other, other.password);
     await expect(page.getByRole('heading', { name: 'Verifikasi dua langkah' })).toBeVisible();
   });
+
+  test('peran sensitif (bawaan pengaturan RS): tanpa tautan kode cadangan, tetap bisa masuk dengan aplikasi', async ({
+    page,
+  }) => {
+    const kasir = await createAccount({ roles: ['kasir'] });
+    await page.goto('/masuk');
+    await submitPassword(page, kasir, kasir.password);
+    await expect(page.getByRole('heading', { name: 'Verifikasi dua langkah' })).toBeVisible();
+    await expect(page.getByText('Akun ini wajib memakai aplikasi autentikator')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Kirim kode lewat/ })).toHaveCount(0);
+    await typeCode(page, totpFor(kasir.totpSecret as string));
+    await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+    await expect(page).not.toHaveURL(/\/masuk/);
+  });
 });

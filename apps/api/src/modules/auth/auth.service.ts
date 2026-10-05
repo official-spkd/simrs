@@ -1,5 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { readTenantSetting, resolveTenantByCode, resolveTenantByHost, type TenantTx } from '@simrs/db';
+import {
+  activeAssignments,
+  readTenantSetting,
+  resolveTenantByCode,
+  resolveTenantByHost,
+  type TenantTx,
+} from '@simrs/db';
 import { randomInt, timingSafeEqual } from 'node:crypto';
 import { enqueueOutbox } from '@simrs/db';
 import {
@@ -26,7 +32,7 @@ import {
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { type AuditMeta, writeAudit } from '../../infra/audit-writer';
 import { SessionStore } from '../../infra/auth/session-store';
-import { issueToken, parseToken, secretMatches } from '../../infra/auth/session-tokens';
+import { issueToken, type ParsedToken, parseToken, secretMatches } from '../../infra/auth/session-tokens';
 import { PrismaService } from '../../infra/prisma.service';
 import { AuthRepository } from './auth.repository';
 
@@ -219,6 +225,14 @@ export class AuthService {
         ? decryptField(ch.otpEnc, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' })
         : null;
       const viaBackup = otp !== null && codeMatches(otp, input.code);
+      // Kode cadangan yang terkirim sebelum RS memperketat kebijakan tidak berlaku lagi.
+      if (
+        viaBackup &&
+        !(await this.backupCodePolicy(tx, ch.userId)).channels.includes(ch.otpChannel as BackupCodeChannel)
+      ) {
+        await this.repo.failChallenge(tx, ch.id, CHALLENGE_MAX_ATTEMPTS);
+        return { ok: false as const, userId: ch.userId, reason: 'backup_not_allowed' };
+      }
       const factor = viaBackup ? null : await this.repo.findActiveFactor(tx, ch.userId, true);
       const secret = factor
         ? decryptField(factor.secretEnc, {
@@ -322,15 +336,26 @@ export class AuthService {
     const parsed = parseToken(input.challengeToken, 'sc1');
     if (!parsed) throw challengeFailed();
     const tenantId = parsed.tenantId;
-    return this.prisma.forTenant(tenantId, async (tx) => {
-      const ch = await this.repo.findChallenge(tx, parsed.id);
-      if (
-        !ch ||
-        ch.consumedAt ||
-        ch.expiresAt <= new Date() ||
-        !secretMatches(parsed.secret, ch.secretHash)
-      ) {
-        throw challengeFailed();
+    const r = await this.prisma.forTenant(tenantId, async (tx) => {
+      const ch = await this.openChallenge(tx, parsed);
+      if (!ch) throw challengeFailed();
+      // Kebijakan RS (pengaturan P12): kanal yang aktif dan peran yang wajib TOTP. Penolakan tercatat di audit.
+      const policy = await this.backupCodePolicy(tx, ch.userId);
+      if (!policy.channels.includes(input.channel)) {
+        await writeAudit(tx, tenantId, this.meta(m, ch.userId), [
+          {
+            action: 'access_denied',
+            resourceType: 'login_challenge',
+            resourceId: ch.id,
+            outcome: 'denied',
+            details: { backupCode: input.channel, reason: policy.totpOnlyRole ? 'totp_only' : 'channel_off' },
+          },
+        ]);
+        return {
+          denied: policy.totpOnlyRole
+            ? `Akun dengan posisi ${policy.totpOnlyRole} wajib memakai kode dari aplikasi autentikator; kode cadangan tidak tersedia. Bila ponsel hilang, minta admin SIM RS mereset verifikasi dua langkah.`
+            : `Kode cadangan lewat ${input.channel === 'whatsapp' ? 'WhatsApp' : 'email'} tidak diaktifkan RS ini. Gunakan aplikasi autentikator atau hubungi admin SIM RS.`,
+        };
       }
       const contact = await this.repo.findUserContact(tx, ch.userId);
       let sentTo: string | null = null;
@@ -382,8 +407,49 @@ export class AuthService {
           details: { backupCode: input.channel, sends },
         },
       ]);
-      return { channel: input.channel, sentTo, sentAt: new Date().toISOString() };
+      return {
+        denied: undefined,
+        sent: { channel: input.channel, sentTo, sentAt: new Date().toISOString() },
+      };
     });
+    if (r.denied !== undefined) throw new AppError('FORBIDDEN', r.denied, 403);
+    return r.sent;
+  }
+
+  /** Kanal kode cadangan yang boleh dipakai pemegang tantangan ini (untuk tautan di langkah verifikasi). */
+  async backupCodeOptions(challengeToken: string): Promise<{ channels: BackupCodeChannel[] }> {
+    const parsed = parseToken(challengeToken, 'sc1');
+    if (!parsed) throw challengeFailed();
+    const channels = await this.prisma.forTenant(parsed.tenantId, async (tx) => {
+      const ch = await this.openChallenge(tx, parsed);
+      return ch ? (await this.backupCodePolicy(tx, ch.userId)).channels : null;
+    });
+    if (!channels) throw challengeFailed();
+    return { channels };
+  }
+
+  /** Tantangan MFA yang masih terbuka dan cocok dengan rahasianya; selain itu null. */
+  private async openChallenge(tx: TenantTx, parsed: ParsedToken) {
+    const ch = await this.repo.findChallenge(tx, parsed.id);
+    if (!ch || ch.consumedAt || ch.expiresAt <= new Date() || !secretMatches(parsed.secret, ch.secretHash)) {
+      return null;
+    }
+    return ch;
+  }
+
+  /**
+   * Kebijakan kode cadangan RS (ADR-0022, pengaturan `login.backup_code_channels` dan `login.totp_only_roles`):
+   * akun yang memegang peran wajib-TOTP di posisi mana pun tidak mendapat kanal apa pun, karena setelah masuk ia
+   * bisa berpindah ke posisi itu.
+   */
+  private async backupCodePolicy(
+    tx: TenantTx,
+    userId: string,
+  ): Promise<{ channels: BackupCodeChannel[]; totpOnlyRole: string | null }> {
+    const channels = await readTenantSetting(tx, 'login.backup_code_channels');
+    const totpOnly = await readTenantSetting(tx, 'login.totp_only_roles');
+    const held = (await activeAssignments(tx, userId)).find((a) => totpOnly.includes(a.role.code));
+    return held ? { channels: [], totpOnlyRole: held.role.name } : { channels, totpOnlyRole: null };
   }
 
   /** ID perangkat tepercaya bila token sah untuk akun ini (selain itu null; tidak pernah melempar). */

@@ -36,6 +36,41 @@ export function pinAllowedForRole(roleCode: string | null | undefined): boolean 
   return !!roleCode && (PIN_LOGIN_ROLES as readonly string[]).includes(roleCode);
 }
 
+/** Kebijakan PIN per RS (pengaturan P12 `pin.enabled`, `pin.allowed_roles` ⊆ `PIN_LOGIN_ROLES`). */
+export interface PinPolicy {
+  enabled: boolean;
+  allowedRoles: readonly string[];
+}
+
+/** Peran boleh memakai PIN menurut katalog DAN pengaturan RS. */
+export function pinRoleAllowed(roleCode: string | null | undefined, policy: PinPolicy): boolean {
+  return pinAllowedForRole(roleCode) && policy.allowedRoles.includes(roleCode as string);
+}
+
+/** Mengapa sesi ini tidak bisa mendaftarkan PIN; dihitung API (`/auth/me`), ditampilkan web. */
+export const PIN_UNAVAILABLE_REASONS = [
+  'quick_session',
+  'platform',
+  'disabled',
+  'no_position',
+  'role',
+  'no_unit',
+] as const;
+export type PinUnavailableReason = (typeof PIN_UNAVAILABLE_REASONS)[number];
+
+export function pinUnavailableReason(
+  s: { quickLogin: boolean; tenantKind: string; roleCode: string | null; unitId: string | null },
+  policy: PinPolicy,
+): PinUnavailableReason | null {
+  if (s.quickLogin) return 'quick_session';
+  if (s.tenantKind !== 'hospital') return 'platform';
+  if (!policy.enabled) return 'disabled';
+  if (!s.roleCode) return 'no_position';
+  if (!pinRoleAllowed(s.roleCode, policy)) return 'role';
+  if (!s.unitId) return 'no_unit';
+  return null;
+}
+
 /** PIN populer yang tidak tertangkap aturan pola (cermin, pola papan angka, deret loncat). */
 const COMMON_PINS = new Set([
   '123321',
