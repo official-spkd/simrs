@@ -274,6 +274,9 @@ export const SEED_UNITS = [
   { code: 'POLI-PARU', name: 'Poli Paru', kind: 'poli' },
   { code: 'MELATI', name: 'Bangsal Melati', kind: 'rawat_inap' },
   { code: 'MAWAR', name: 'Bangsal Mawar', kind: 'rawat_inap' },
+  // Fase 3 · 3.0c: bangsal Anggrek (kelas 1) dan ruang isolasi (rencana fase 3 §3.0c).
+  { code: 'ANGGREK', name: 'Bangsal Anggrek', kind: 'rawat_inap' },
+  { code: 'ISOLASI', name: 'Ruang Isolasi', kind: 'rawat_inap' },
   { code: 'LAB', name: 'Laboratorium Patologi Klinik', kind: 'penunjang' },
   { code: 'RAD', name: 'Radiologi', kind: 'penunjang' },
   { code: 'FARMASI', name: 'Instalasi Farmasi', kind: 'farmasi' },
@@ -282,11 +285,30 @@ export const SEED_UNITS = [
   { code: 'KASIR', name: 'Kasir', kind: 'administrasi' },
 ] as const;
 
-/** Kamar dan bed: [kode unit, kode kamar, nama, kelas, jumlah bed]. */
-export const SEED_ROOMS = [
+/**
+ * Kamar dan bed: [kode unit, kode kamar, nama, kelas, jumlah bed]. Kelas null = bed tanpa kelas rawat (IGD).
+ * Fase 3 (3.0c): Melati 12 bed kelas 2 (MLT-201..206), Anggrek 8 bed kelas 1, Isolasi 4 bed, IGD zona R/B/K.
+ */
+export const SEED_ROOMS: ReadonlyArray<readonly [string, string, string, string | null, number]> = [
   ['MELATI', 'MLT-101', 'Melati 101 (VIP)', 'vip', 1],
   ['MELATI', 'MLT-201', 'Melati 201', 'kelas_2', 2],
+  ['MELATI', 'MLT-202', 'Melati 202', 'kelas_2', 2],
+  ['MELATI', 'MLT-203', 'Melati 203', 'kelas_2', 2],
+  ['MELATI', 'MLT-204', 'Melati 204', 'kelas_2', 2],
+  ['MELATI', 'MLT-205', 'Melati 205', 'kelas_2', 2],
+  ['MELATI', 'MLT-206', 'Melati 206', 'kelas_2', 2],
   ['MELATI', 'MLT-301', 'Melati 301', 'kelas_3', 4],
   ['MAWAR', 'MWR-101', 'Mawar 101', 'kelas_1', 2],
   ['MAWAR', 'MWR-ISO', 'Mawar Isolasi', 'isolasi', 1],
-] as const;
+  ['ANGGREK', 'AGR-101', 'Anggrek 101', 'kelas_1', 2],
+  ['ANGGREK', 'AGR-102', 'Anggrek 102', 'kelas_1', 2],
+  ['ANGGREK', 'AGR-103', 'Anggrek 103', 'kelas_1', 2],
+  ['ANGGREK', 'AGR-104', 'Anggrek 104', 'kelas_1', 2],
+  ['ISOLASI', 'ISO-101', 'Isolasi 101', 'isolasi', 1],
+  ['ISOLASI', 'ISO-102', 'Isolasi 102', 'isolasi', 1],
+  ['ISOLASI', 'ISO-103', 'Isolasi 103', 'isolasi', 1],
+  ['ISOLASI', 'ISO-104', 'Isolasi 104', 'isolasi', 1],
+  ['IGD', 'IGD-R', 'IGD zona resusitasi', null, 2],
+  ['IGD', 'IGD-B', 'IGD zona akut', null, 8],
+  ['IGD', 'IGD-K', 'IGD zona fast track', null, 4],
+];

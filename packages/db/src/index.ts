@@ -126,6 +126,17 @@ export {
 export { seedStaff, type SeedStaffResult } from './seed-staff';
 export { seedHospitalStructure } from './seed-structure';
 export {
+  SEED_DRUGS,
+  SEED_FORM_PACKAGES,
+  SEED_NURSING_DIAGNOSES,
+  SEED_ORDER_SETS,
+  SEED_ORDERABLES,
+  SEED_SUBSTANCES,
+  seedClinicalHistory,
+  seedClinicalMasters,
+  type SeedClinicalResult,
+} from './seed-clinical';
+export {
   allocateQueueNumber,
   insertBpjsQueueTask,
   type AllocatedQueueNumber,
