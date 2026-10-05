@@ -1,3 +1,4 @@
+import { DOCTOR_ID } from './ids';
 /**
  * Staf fiktif untuk mode presentasi (ADR-0023). Nama dibuat-buat dan tidak merujuk staf RS mana pun; placeholder
  * mockup ("dr. [Nama DPJP]") diganti nama-nama ini agar presentasi terbaca wajar. Nama persona akun presentasi
@@ -40,20 +41,30 @@ export interface DemoDoctor {
 
 /** Dokter fiktif. Jadwal, kuota, DPJP, dan tim operasi di semua layar memakai daftar ini. */
 export const DOKTER: readonly DemoDoctor[] = [
-  { id: 'dr-andini', nama: STAF.dpjpPenyakitDalam, poli: 'PD', spesialisasi: 'Penyakit dalam' },
-  { id: 'dr-rahmat', nama: 'dr. Rahmat Hidayat, Sp.PD', poli: 'PD', spesialisasi: 'Penyakit dalam' },
-  { id: 'dr-sinta', nama: 'dr. Sinta Maharani, Sp.PD-KGH', poli: 'PD', spesialisasi: 'Ginjal hipertensi' },
-  { id: 'dr-bagus', nama: STAF.dpjpJantung, poli: 'JT', spesialisasi: 'Jantung' },
-  { id: 'dr-melati', nama: 'dr. Melati Kusumawardani, Sp.JP', poli: 'JT', spesialisasi: 'Jantung' },
-  { id: 'dr-yudha', nama: 'dr. Yudha Pratama, Sp.N', poli: 'SR', spesialisasi: 'Saraf' },
-  { id: 'dr-kartika', nama: 'dr. Kartika Sari, Sp.P', poli: 'PR', spesialisasi: 'Paru' },
-  { id: 'dr-nadia', nama: 'dr. Nadia Rahmawati, Sp.A', poli: 'AN', spesialisasi: 'Anak' },
-  { id: 'dr-yohanes', nama: STAF.dpjpBedah, poli: 'BD', spesialisasi: 'Bedah' },
-  { id: 'dr-hana', nama: 'dr. Hana Wijayanti, Sp.OG', poli: 'OG', spesialisasi: 'Kebidanan dan kandungan' },
-  { id: 'dr-rina', nama: STAF.dokterJagaIgd, poli: null, spesialisasi: 'Dokter jaga IGD' },
-  { id: 'dr-maya', nama: STAF.dokterPatologiKlinik, poli: null, spesialisasi: 'Patologi klinik' },
-  { id: 'dr-ferry', nama: 'dr. Ferry Setiawan, Sp.An', poli: null, spesialisasi: 'Anestesi' },
-  { id: 'dr-arman', nama: 'dr. Arman Siregar, Sp.Rad', poli: null, spesialisasi: 'Radiologi' },
+  { id: DOCTOR_ID.andini, nama: STAF.dpjpPenyakitDalam, poli: 'PD', spesialisasi: 'Penyakit dalam' },
+  { id: DOCTOR_ID.rahmat, nama: 'dr. Rahmat Hidayat, Sp.PD', poli: 'PD', spesialisasi: 'Penyakit dalam' },
+  {
+    id: DOCTOR_ID.sinta,
+    nama: 'dr. Sinta Maharani, Sp.PD-KGH',
+    poli: 'PD',
+    spesialisasi: 'Ginjal hipertensi',
+  },
+  { id: DOCTOR_ID.bagus, nama: STAF.dpjpJantung, poli: 'JT', spesialisasi: 'Jantung' },
+  { id: DOCTOR_ID.melati, nama: 'dr. Melati Kusumawardani, Sp.JP', poli: 'JT', spesialisasi: 'Jantung' },
+  { id: DOCTOR_ID.yudha, nama: 'dr. Yudha Pratama, Sp.N', poli: 'SR', spesialisasi: 'Saraf' },
+  { id: DOCTOR_ID.kartika, nama: 'dr. Kartika Sari, Sp.P', poli: 'PR', spesialisasi: 'Paru' },
+  { id: DOCTOR_ID.nadia, nama: 'dr. Nadia Rahmawati, Sp.A', poli: 'AN', spesialisasi: 'Anak' },
+  { id: DOCTOR_ID.yohanes, nama: STAF.dpjpBedah, poli: 'BD', spesialisasi: 'Bedah' },
+  {
+    id: DOCTOR_ID.hana,
+    nama: 'dr. Hana Wijayanti, Sp.OG',
+    poli: 'OG',
+    spesialisasi: 'Kebidanan dan kandungan',
+  },
+  { id: DOCTOR_ID.rina, nama: STAF.dokterJagaIgd, poli: null, spesialisasi: 'Dokter jaga IGD' },
+  { id: DOCTOR_ID.maya, nama: STAF.dokterPatologiKlinik, poli: null, spesialisasi: 'Patologi klinik' },
+  { id: DOCTOR_ID.ferry, nama: 'dr. Ferry Setiawan, Sp.An', poli: null, spesialisasi: 'Anestesi' },
+  { id: DOCTOR_ID.arman, nama: 'dr. Arman Siregar, Sp.Rad', poli: null, spesialisasi: 'Radiologi' },
 ];
 
 /** Perawat/bidan/apoteker fiktif tambahan (selain persona) untuk daftar jaga, CPPT, serah terima. */

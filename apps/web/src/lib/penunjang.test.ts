@@ -1,6 +1,7 @@
 import { SEED_REF_SAMPLES } from '@simrs/db';
 import { type LabSample, labWorklistSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
+import { LAB_SAMPLE_ID } from './demo/fixtures/ids';
 import { demoLabSamples, demoLabWorklist } from './demo/fixtures/penunjang';
 import {
   applyLabLocal,
@@ -51,10 +52,16 @@ describe('data dummy laboratorium', () => {
         expect(r.delta, `${s.id} ${r.name}`).toBe(deltaCheck(r.value, r.previous, r.deltaLimit));
       }
     }
-    expect(result(byId('lab-yusuf'), '2823-3')?.flag).toBe('KRITIS');
-    expect(flagView(result(byId('lab-endang'), '2160-0')!)).toMatchObject({ label: 'H Δ', tone: 'warning' });
-    expect(flagView(result(byId('lab-raka'), '777-3')!)).toMatchObject({ label: 'L Δ' });
-    expect(flagView(result(byId('lab-endang'), '6690-2')!)).toMatchObject({ label: 'N', tone: 'neutral' });
+    expect(result(byId(LAB_SAMPLE_ID.yusuf), '2823-3')?.flag).toBe('KRITIS');
+    expect(flagView(result(byId(LAB_SAMPLE_ID.endang), '2160-0')!)).toMatchObject({
+      label: 'H Δ',
+      tone: 'warning',
+    });
+    expect(flagView(result(byId(LAB_SAMPLE_ID.raka), '777-3')!)).toMatchObject({ label: 'L Δ' });
+    expect(flagView(result(byId(LAB_SAMPLE_ID.endang), '6690-2')!)).toMatchObject({
+      label: 'N',
+      tone: 'neutral',
+    });
   });
 
   it('nilai kritis hanya bila ada flag KRITIS; satu nilai kritis terbuka di data hari demo', () => {
@@ -65,7 +72,7 @@ describe('data dummy laboratorium', () => {
       demoLabSamples()
         .filter(criticalOpen)
         .map((s) => s.id),
-    ).toEqual(['lab-yusuf']);
+    ).toEqual([LAB_SAMPLE_ID.yusuf]);
   });
 });
 
@@ -109,13 +116,13 @@ describe('nilai kritis: timer, read-back, waktu lapor', () => {
   });
 
   it('data hari demo: timer mulai dari selisih hasil keluar dan jam data', () => {
-    const c = byId('lab-yusuf').critical;
+    const c = byId(LAB_SAMPLE_ID.yusuf).critical;
     expect(c?.elapsedSeconds).toBe(360);
     expect(c && minutesBetween(c.resultAt, '2026-10-05T11:04:00+07:00')).toBe(25);
   });
 
   it('laporan tanpa read-back belum sah: nilai kritis tetap terbuka dan validasi tetap diblokir', () => {
-    const s = byId('lab-yusuf');
+    const s = byId(LAB_SAMPLE_ID.yusuf);
     expect(criticalStage(s.critical!)).toBe('terbuka');
     expect(validationBlock(s)).toMatch(/Laporkan nilai kritis/);
     const reported: LabSample = {
@@ -129,7 +136,7 @@ describe('nilai kritis: timer, read-back, waktu lapor', () => {
   });
 
   it('laporan lokal dengan read-back menutup nilai kritis dan membuka validasi berurutan', () => {
-    const s = byId('lab-yusuf');
+    const s = byId(LAB_SAMPLE_ID.yusuf);
     const at = '2026-10-05T10:48:00+07:00';
     const done = applyLabLocal(s, {
       critical: { recipient: 'dr. Sinta Maharani', reportedAt: at, readBackAt: at, tookSeconds: 545 },
@@ -143,7 +150,7 @@ describe('nilai kritis: timer, read-back, waktu lapor', () => {
     expect(klinisDulu.status).toBe('hasil');
     const teknisTanpaLapor = applyLabLocal(s, { technical: { by: 'Fitri', at } });
     expect(teknisTanpaLapor.status).toBe('hasil');
-    const rilis = applyLabLocal(byId('lab-endang'), {
+    const rilis = applyLabLocal(byId(LAB_SAMPLE_ID.endang), {
       technical: { by: 'Fitri', at },
       clinical: { by: 'dr. Maya', at },
     });
@@ -152,30 +159,30 @@ describe('nilai kritis: timer, read-back, waktu lapor', () => {
   });
 
   it('sampel ulang menunda validasi; worklist: kritis terbuka → cito → rutin → selesai', () => {
-    expect(validationBlock(byId('lab-endang'), true)).toMatch(/sampel ulang/);
-    expect(validationBlock(byId('lab-lestiani'))).toBe('Belum ada hasil untuk divalidasi.');
+    expect(validationBlock(byId(LAB_SAMPLE_ID.endang), true)).toMatch(/sampel ulang/);
+    expect(validationBlock(byId(LAB_SAMPLE_ID.lestiani))).toBe('Belum ada hasil untuk divalidasi.');
     const order = sortWorklist(demoLabSamples()).map((s) => s.id);
-    expect(order[0]).toBe('lab-yusuf');
-    expect(order.slice(-2).sort()).toEqual(['lab-aminah', 'lab-hendro']);
-    expect(formatTat(byId('lab-endang'))).toBe('00:52');
-    expect(formatTat(byId('lab-aminah'))).toBe('H+1');
+    expect(order[0]).toBe(LAB_SAMPLE_ID.yusuf);
+    expect(order.slice(-2).sort()).toEqual([LAB_SAMPLE_ID.aminah, LAB_SAMPLE_ID.hendro].sort());
+    expect(formatTat(byId(LAB_SAMPLE_ID.endang))).toBe('00:52');
+    expect(formatTat(byId(LAB_SAMPLE_ID.aminah))).toBe('H+1');
   });
 });
 
 describe('gerbang Server Action laboratorium (rekaman dicari server, bukan dari klien)', () => {
   it('id sampel yang tidak ada di worklist ditolak', () => {
     expect(labSampleGate(undefined)).toEqual({ message: LAB_SAMPLE_UNKNOWN });
-    expect(labSampleGate(byId('lab-endang'))).toBeNull();
+    expect(labSampleGate(byId(LAB_SAMPLE_ID.endang))).toBeNull();
     expect(criticalReportGate(undefined, 'dr. Sinta Maharani', true)).toEqual({
       message: LAB_SAMPLE_UNKNOWN,
     });
   });
 
   it('pelaporan nilai kritis hanya untuk sampel yang nilai kritisnya masih terbuka', () => {
-    const yusuf = byId('lab-yusuf');
+    const yusuf = byId(LAB_SAMPLE_ID.yusuf);
     expect(criticalReportGate(yusuf, 'dr. Sinta Maharani', true)).toBeNull();
     // Sampel tanpa nilai kritis, dan nilai kritis yang sudah sah (read-back), tidak bisa dilaporkan.
-    expect(criticalReportGate(byId('lab-endang'), 'dr. Sinta Maharani', true)?.message).toMatch(
+    expect(criticalReportGate(byId(LAB_SAMPLE_ID.endang), 'dr. Sinta Maharani', true)?.message).toMatch(
       /tidak memiliki nilai kritis terbuka/,
     );
     const at = '2026-10-05T10:48:00+07:00';
@@ -189,7 +196,7 @@ describe('gerbang Server Action laboratorium (rekaman dicari server, bukan dari 
   });
 
   it('nama penerima ≥ 5 karakter dan read-back wajib', () => {
-    const yusuf = byId('lab-yusuf');
+    const yusuf = byId(LAB_SAMPLE_ID.yusuf);
     expect(criticalReportGate(yusuf, '  dr. ', true)).toEqual({
       message: 'Nama penerima wajib diisi (minimal 5 karakter).',
       field: 'recipient',

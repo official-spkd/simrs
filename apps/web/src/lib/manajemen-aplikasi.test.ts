@@ -2,6 +2,7 @@ import { type DoctorAppInbox, doctorAppInboxSchema, patientAppHomeSchema } from 
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioDef, ScenarioEvent } from './demo/engine/types';
+import { DOCTOR_APP_PATIENT_ID } from './demo/fixtures/ids';
 import { SCENARIOS } from './demo/skenario';
 import {
   doctorAppInbox,
@@ -125,7 +126,7 @@ describe('aplikasi dokter mengikuti nilai kritis Tn. Hartono (skenario IGD)', ()
 
 describe('aplikasi dokter tidak mendahului cerita IGD (milestone per milestone)', () => {
   const stepAt = (id: string) => IGD.steps.findIndex((s) => s.id === id);
-  const hartono = (d: DoctorAppInbox) => d.patients.find((p) => p.id === 'pt-hartono');
+  const hartono = (d: DoctorAppInbox) => d.patients.find((p) => p.id === DOCTOR_APP_PATIENT_ID.hartono);
   const detail = (d: DoctorAppInbox, label: string) =>
     hartono(d)?.details.find((r) => r.label === label)?.value;
   const ordered = (seq: ScenarioEvent[]) => hartonoLabOrdered(runScenario(IGD, seq));

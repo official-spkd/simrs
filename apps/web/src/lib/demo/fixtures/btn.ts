@@ -11,6 +11,7 @@ import type {
   TrailState,
   WebhookEvent,
 } from '@simrs/shared';
+import { DOCTOR_ID, PATIENT_ID } from './ids';
 import { patientById } from './pasien';
 import { REKENING } from './rs';
 import { DOKTER, PERSONA, STAF_LAIN } from './staf';
@@ -64,7 +65,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't1',
     invoiceNo: 'INV-2610-02217',
-    patient: patientRef('ps-endang'),
+    patient: patientRef(PATIENT_ID.endang),
     channel: 'QRIS',
     amount: '250400',
     status: 'menunggu',
@@ -91,7 +92,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't2',
     invoiceNo: 'INV-2610-02231',
-    patient: patientRef('ps-sutan'),
+    patient: patientRef(PATIENT_ID.sutan),
     channel: 'VA',
     amount: '5000000',
     status: 'lunas',
@@ -123,7 +124,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't3',
     invoiceNo: 'INV-2610-02209',
-    patient: patientRef('ps-gilang'),
+    patient: patientRef(PATIENT_ID.gilang),
     channel: 'EDC',
     amount: '785000',
     status: 'lunas',
@@ -152,7 +153,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't4',
     invoiceNo: 'INV-2610-02198',
-    patient: patientRef('ps-fajar'),
+    patient: patientRef(PATIENT_ID.fajar),
     channel: 'VA',
     amount: '640000',
     status: 'menunggu',
@@ -186,7 +187,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't5',
     invoiceNo: 'INV-2610-02225',
-    patient: patientRef('ps-sugeng'),
+    patient: patientRef(PATIENT_ID.sugeng),
     channel: 'QRIS',
     amount: '142500',
     status: 'kedaluwarsa',
@@ -213,7 +214,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't6',
     invoiceNo: 'INV-2610-02236',
-    patient: patientRef('ps-raka'),
+    patient: patientRef(PATIENT_ID.raka),
     channel: 'VA',
     amount: '1320000',
     status: 'menunggu',
@@ -240,7 +241,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't7',
     invoiceNo: 'INV-2610-02212',
-    patient: patientRef('ps-bonifasius'),
+    patient: patientRef(PATIENT_ID.bonifasius),
     channel: 'QRIS',
     amount: '96000',
     status: 'lunas',
@@ -266,7 +267,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't8',
     invoiceNo: 'INV-2610-02236',
-    patient: patientRef('ps-raka'),
+    patient: patientRef(PATIENT_ID.raka),
     channel: 'EDC',
     amount: '1320000',
     status: 'gagal',
@@ -300,7 +301,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't9',
     invoiceNo: 'INV-2610-02150',
-    patient: patientRef('ps-nadia'),
+    patient: patientRef(PATIENT_ID.nadia),
     channel: 'VA',
     amount: '3000000',
     status: 'dikembalikan',
@@ -339,7 +340,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't10',
     invoiceNo: 'INV-2610-02228',
-    patient: patientRef('ps-sumarni'),
+    patient: patientRef(PATIENT_ID.sumarni),
     channel: 'QRIS',
     amount: '2000000',
     status: 'selisih',
@@ -379,7 +380,7 @@ const src = (amount: string | null, note = '') => ({ amount, note });
 export const REKONSILIASI: readonly ReconRow[] = [
   {
     id: 'r1',
-    label: patientRef('ps-sutan').name,
+    label: patientRef(PATIENT_ID.sutan).name,
     source: 'VA BTN · INV-2610-02231',
     transactionId: 't2',
     kasir: src('5000000'),
@@ -392,7 +393,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'r2',
-    label: patientRef('ps-bonifasius').name,
+    label: patientRef(PATIENT_ID.bonifasius).name,
     source: 'QRIS · INV-2610-02212',
     transactionId: 't7',
     kasir: src('96000'),
@@ -405,7 +406,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'r3',
-    label: patientRef('ps-gilang').name,
+    label: patientRef(PATIENT_ID.gilang).name,
     source: 'EDC BTN · INV-2610-02209',
     transactionId: 't3',
     kasir: src('785000'),
@@ -418,7 +419,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'x1',
-    label: patientRef('ps-fajar').name,
+    label: patientRef(PATIENT_ID.fajar).name,
     source: 'VA BTN · INV-2610-02198',
     transactionId: 't4',
     kasir: src(null, 'belum lunas'),
@@ -441,7 +442,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'x2',
-    label: patientRef('ps-sumarni').name,
+    label: patientRef(PATIENT_ID.sumarni).name,
     source: 'QRIS · INV-2610-02228',
     transactionId: 't10',
     kasir: src('2000000', 'ditahan'),
@@ -495,7 +496,7 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf14',
     number: 'RF-2610-0014',
-    patient: patientRef('ps-sutan'),
+    patient: patientRef(PATIENT_ID.sutan),
     channel: 'VA',
     transactionRef: 'TPDI-TX-2610-004402 · INV-2610-02231',
     amount: '1150000',
@@ -511,7 +512,7 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf13',
     number: 'RF-2610-0013',
-    patient: patientRef('ps-bonifasius'),
+    patient: patientRef(PATIENT_ID.bonifasius),
     channel: 'QRIS',
     transactionRef: 'TPDI-TX-2610-004396 · INV-2610-02212',
     amount: '96000',
@@ -529,7 +530,7 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf11',
     number: 'RF-2610-0011',
-    patient: patientRef('ps-nadia'),
+    patient: patientRef(PATIENT_ID.nadia),
     channel: 'VA',
     transactionRef: 'TPDI-TX-2610-004201 · INV-2610-02150',
     amount: '3000000',
@@ -716,7 +717,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a1',
     reference: 'PB-2610-0084',
-    patientId: 'ps-fajar',
+    patientId: PATIENT_ID.fajar,
     service: 'Selisih plafon asuransi · laparoskopi kolesistektomi',
     invoiceNo: 'INV-2610-02244',
     amount: '8600000',
@@ -730,7 +731,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a2',
     reference: 'PB-2610-0087',
-    patientId: 'ps-wulan',
+    patientId: PATIENT_ID.wulan,
     service: 'Selisih naik kelas VIP · persalinan sesar',
     invoiceNo: 'INV-2610-02251',
     amount: '14200000',
@@ -744,7 +745,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a3',
     reference: 'PB-2610-0079',
-    patientId: 'ps-joko',
+    patientId: PATIENT_ID.joko,
     service: 'Selisih naik kelas VIP · ORIF femur (rawat 8–14 Sep)',
     invoiceNo: 'INV-2609-01962',
     amount: '22300000',
@@ -763,7 +764,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a4',
     reference: 'PB-2609-0071',
-    patientId: 'ps-maria',
+    patientId: PATIENT_ID.maria,
     service: 'Selisih naik kelas VIP · rawat inap kemoterapi siklus 2 (Agu)',
     invoiceNo: 'INV-2608-01790',
     amount: '11900000',
@@ -781,7 +782,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a5',
     reference: 'PB-2610-0075',
-    patientId: 'ps-yusuf',
+    patientId: PATIENT_ID.yusuf,
     service: 'Selisih naik kelas VIP · rawat inap Sep',
     invoiceNo: 'INV-2609-01942',
     amount: '6750000',
@@ -801,7 +802,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a6',
     reference: 'PB-2609-0068',
-    patientId: 'ps-lestiani',
+    patientId: PATIENT_ID.lestiani,
     service: 'Selisih naik kelas VIP · rawat inap stroke (Sep)',
     invoiceNo: 'INV-2609-01988',
     amount: '11900000',
@@ -821,7 +822,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a7',
     reference: 'PB-2610-0077',
-    patientId: 'ps-ayu',
+    patientId: PATIENT_ID.ayu,
     service: 'Tindakan rawat jalan · pasien umum',
     invoiceNo: 'INV-2610-02133',
     amount: '4800000',
@@ -956,7 +957,7 @@ function orCase(s: CaseSeed): OrCase {
     icd9cm: s.icd9cm,
     diagnosis: s.diagnosis,
     operator: s.operator,
-    anesthetist: doctorName('dr-ferry'),
+    anesthetist: doctorName(DOCTOR_ID.ferry),
     anesthesia: s.anesthesia,
     nurses: { scrub: s.scrub, circulating },
     checklist: [
@@ -971,8 +972,8 @@ function orCase(s: CaseSeed): OrCase {
   };
 }
 
-const BEDAH = doctorName('dr-yohanes');
-const OBSGIN = doctorName('dr-hana');
+const BEDAH = doctorName(DOCTOR_ID.yohanes);
+const OBSGIN = doctorName(DOCTOR_ID.hana);
 
 /**
  * Kasus pasien skenario (Ny. Ratna Sari, laparoskopi kolesistektomi 51.23) saat langkah `operasi` Simulasi dimulai:
@@ -983,7 +984,7 @@ const OBSGIN = doctorName('dr-hana');
 export const KASUS_SKENARIO_OK: OrCase = {
   ...orCase({
     id: 'ok2-2',
-    patientId: 'ps-ratna',
+    patientId: PATIENT_ID.ratna,
     startMin: 10 * 60 + 30,
     durationMin: 120,
     status: 'berjalan',
@@ -1024,7 +1025,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok1-2',
-        patientId: 'ps-maria',
+        patientId: PATIENT_ID.maria,
         startMin: 9 * 60,
         durationMin: 60,
         status: 'selesai',
@@ -1039,7 +1040,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
       }),
       orCase({
         id: 'ok1-3',
-        patientId: 'ps-yusuf',
+        patientId: PATIENT_ID.yusuf,
         startMin: 13 * 60,
         durationMin: 60,
         status: 'terjadwal',
@@ -1061,7 +1062,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok2-1',
-        patientId: 'ps-fajar',
+        patientId: PATIENT_ID.fajar,
         startMin: 7 * 60 + 30,
         durationMin: 120,
         status: 'selesai',
@@ -1077,7 +1078,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
       KASUS_SKENARIO_OK,
       orCase({
         id: 'ok2-3',
-        patientId: 'ps-sumarni',
+        patientId: PATIENT_ID.sumarni,
         startMin: 14 * 60,
         durationMin: 90,
         status: 'terjadwal',
@@ -1099,7 +1100,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok3-0',
-        patientId: 'ps-wulan',
+        patientId: PATIENT_ID.wulan,
         startMin: 7 * 60 + 10,
         durationMin: 70,
         status: 'selesai',
@@ -1114,7 +1115,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
       }),
       orCase({
         id: 'ok3-1',
-        patientId: 'ps-anisa',
+        patientId: PATIENT_ID.anisa,
         startMin: 11 * 60,
         durationMin: 80,
         status: 'cito',
@@ -1136,7 +1137,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok4-1',
-        patientId: 'ps-rizky',
+        patientId: PATIENT_ID.rizky,
         startMin: 8 * 60,
         durationMin: 150,
         status: 'selesai',

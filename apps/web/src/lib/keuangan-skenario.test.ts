@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { KLAIM_AMOUNT, scenarioClaim as financedClaim } from './btn-skenario';
 import { FASILITAS } from './demo/fixtures/btn';
+import { CLAIM_ID, INVOICE_ID, JOURNAL_ID } from './demo/fixtures/ids';
 import { CBG } from './demo/fixtures/keuangan';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import { billSummary } from './demo/engine/summary';
@@ -199,10 +200,14 @@ describe('proyeksi skenario ke layar keuangan', () => {
       seq = act('elektif-btn', seq, 'deposit', t, v);
     }
     const [dp] = scenarioJournals('elektif-btn', run('elektif-btn', seq));
-    expect(dp).toMatchObject({ id: 'ju-ratna-dp', status: 'menunggu-rekonsiliasi', source: 'tpdi-btn' });
+    expect(dp).toMatchObject({
+      id: JOURNAL_ID.ratnaDeposit,
+      status: 'menunggu-rekonsiliasi',
+      source: 'tpdi-btn',
+    });
     const end = autoplaySeqs('elektif-btn').at(-1) ?? [];
     const js = scenarioJournals('elektif-btn', run('elektif-btn', end));
-    expect(js.find((j) => j.id === 'ju-ratna-dp')?.status).toBe('terposting');
+    expect(js.find((j) => j.id === JOURNAL_ID.ratnaDeposit)?.status).toBe('terposting');
     expect(sumAccount(js, '2-1210')).toBe(0n);
     expect(sumAccount(js, '1-1320')).toBe(0n);
     expect(sumAccount(js, '2-1310')).toBe(0n);
@@ -241,9 +246,9 @@ describe('proyeksi skenario ke layar keuangan', () => {
     const R = run('elektif-btn', seq);
     expect(R.def.steps[R.step]?.screen).toBe('kasir');
     const board = demoKasirBoard({ ...base(), 'elektif-btn': R });
-    expect(board.invoices[0]?.id).not.toBe('inv-ratna');
+    expect(board.invoices[0]?.id).not.toBe(INVOICE_ID.ratna);
     const def = defaultSelection(board.invoices, ['elektif-btn'], 'elektif-btn', board.invoices[0]);
-    expect(def).toMatchObject({ item: { id: 'inv-ratna', status: 'lunas' }, pin: true });
+    expect(def).toMatchObject({ item: { id: INVOICE_ID.ratna, status: 'lunas' }, pin: true });
     expect(scenarioFlow(R, 'kasir').tasks.pulang?.enabled).toBe(true);
   });
 
@@ -255,7 +260,7 @@ describe('proyeksi skenario ke layar keuangan', () => {
     const board = demoClaimBoard({ ...base(), 'elektif-btn': R });
     const fallback = board.claims.find((c) => c.status === 'draft');
     const def = defaultSelection(board.claims, ['elektif-btn'], 'elektif-btn', fallback);
-    expect(def).toMatchObject({ item: { id: 'kl-ratna', status: 'sent' }, pin: true });
+    expect(def).toMatchObject({ item: { id: CLAIM_ID.ratna, status: 'sent' }, pin: true });
     expect(scenarioFlow(R, 'klaim').tasks.layak?.enabled).toBe(true);
     expect(def.item?.ageLabel).toMatch(/^pulang \w{3} \d{1,2} Okt$/);
   });
@@ -268,11 +273,11 @@ describe('proyeksi skenario ke layar keuangan', () => {
     const js = scenarioJournals('elektif-btn', R);
     const lines = (id: string) =>
       js.find((j) => j.id === id)?.lines.map((l) => [l.account?.code, BigInt(l.debit), BigInt(l.credit)]);
-    expect(lines('ju-ratna-anjak')).toEqual([
+    expect(lines(JOURNAL_ID.ratnaAdvance)).toEqual([
       ['1-1120', 6_426_000n, 0n],
       ['2-1310', 0n, 6_426_000n],
     ]);
-    expect(lines('ju-ratna-teruskan')).toEqual([
+    expect(lines(JOURNAL_ID.ratnaForward)).toEqual([
       ['2-1310', 6_426_000n, 0n],
       ['6-2100', 29_600n, 0n],
       ['1-1130', 0n, 6_455_600n],
@@ -288,8 +293,8 @@ describe('proyeksi skenario ke layar keuangan', () => {
     seq = act('elektif-btn', seq, 'pembiayaan', 'ajukan', 'tidak');
     seq = act('elektif-btn', seq, 'pembiayaan', 'bpjs');
     const js = scenarioJournals('elektif-btn', run('elektif-btn', seq));
-    expect(js.some((j) => j.id === 'ju-ratna-anjak')).toBe(false);
-    expect(js.find((j) => j.id === 'ju-ratna-teruskan')?.lines).toHaveLength(2);
+    expect(js.some((j) => j.id === JOURNAL_ID.ratnaAdvance)).toBe(false);
+    expect(js.find((j) => j.id === JOURNAL_ID.ratnaForward)?.lines).toHaveLength(2);
     expect(sumAccount(js, '2-1310')).toBe(0n);
     expect(sumAccount(js, '1-1120')).toBeGreaterThanOrEqual(7_140_000n);
   });

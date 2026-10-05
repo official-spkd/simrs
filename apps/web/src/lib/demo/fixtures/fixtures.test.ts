@@ -12,6 +12,7 @@ import {
   registrationPatients,
   SCENARIO_RJ,
 } from './front-office';
+import { CONSENT_ID, ENCOUNTER_ID, INVOICE_ID, PATIENT_ID, PRESCRIPTION_ID } from './ids';
 import { STATIC_CLAIMS, STATIC_INVOICES } from './keuangan';
 import { demoCpoeEncounters, demoPoliWorklist } from './klinis';
 import { COSIGN_NOTES, DOCTOR_PATIENTS, INCIDENTS } from './manajemen';
@@ -97,8 +98,8 @@ describe('fixture bersama mode presentasi', () => {
   });
 
   it('id kunjungan dan persetujuan baku per pasien, bisa dipetakan balik', () => {
-    expect(encounterIdOf('ps-suryo')).toBe('kj-suryo');
-    expect(consentIdOf('ps-hartono')).toBe('pk-hartono');
+    expect(encounterIdOf(PATIENT_ID.suryo)).toBe(ENCOUNTER_ID.suryo);
+    expect(consentIdOf(PATIENT_ID.hartono)).toBe(CONSENT_ID.hartono);
     for (const p of PASIEN) expect(patientByEncounterId(encounterIdOf(p.id))?.id).toBe(p.id);
   });
 });
@@ -309,7 +310,7 @@ describe('roster hari demo (Sen, 5 Okt 2026 · 10.45)', () => {
       ...DOCTOR_PATIENTS.map((d) => d.patientId),
       ...KAMAR_OK.flatMap((r) => r.cases.map((c) => c.patient.id)),
       ...RESUME_ENCOUNTERS.map((e) => patientByEncounterId(e)?.id ?? e),
-      ...CONSENT_IDS.map((c) => c.replace(/^pk-/, 'ps-')),
+      ...CONSENT_IDS.map((c) => PASIEN.find((p) => consentIdOf(p.id) === c)?.id ?? c),
     ]);
     for (const id of ids) expect(rosterOf(id), id).toBeDefined();
     const names = new Set(PASIEN.map((p) => p.nama));
@@ -329,17 +330,17 @@ describe('roster hari demo (Sen, 5 Okt 2026 · 10.45)', () => {
   });
 
   it('Ny. Endang: rawat inap Melati M-203 dan pulang hari ini, bukan pasien Poli PD', () => {
-    expect(rosterOf('ps-endang')?.lokasi).toEqual({ di: 'ranap', bed: 'M-203' });
-    expect(ANTREAN_POLI_PD.some((a) => a.patientId === 'ps-endang')).toBe(false);
+    expect(rosterOf(PATIENT_ID.endang)?.lokasi).toEqual({ di: 'ranap', bed: 'M-203' });
+    expect(ANTREAN_POLI_PD.some((a) => a.patientId === PATIENT_ID.endang)).toBe(false);
     expect(demoBeds().find((b) => b.code === 'M-203')).toMatchObject({
       status: 'pulang',
-      encounterId: 'kj-endang',
+      encounterId: ENCOUNTER_ID.endang,
     });
     expect(demoEndangResume().dischargeAt.slice(0, 10)).toBe(DEMO_TODAY);
-    expect(STATIC_INVOICES.find((i) => i.id === 'inv-endang')).toMatchObject({
+    expect(STATIC_INVOICES.find((i) => i.id === INVOICE_ID.endang)).toMatchObject({
       status: 'final',
       encounter: { kind: 'rawat-inap', discharged: true },
     });
-    expect(demoPrescriptions().find((r) => r.id === 'rx-endang')?.tag).toBe('Pulang');
+    expect(demoPrescriptions().find((r) => r.id === PRESCRIPTION_ID.endang)?.tag).toBe('Pulang');
   });
 });

@@ -19,7 +19,7 @@ import { findRadiologyExam } from '@/lib/server/data/penunjang';
  * kontras dan modalitas dibaca dari order di server, bukan dari klien.
  */
 
-const examId = z.string().regex(/^rad-[a-z]{2,20}$/);
+const examId = z.uuid();
 
 export async function startExamAction(input: {
   examId: string;

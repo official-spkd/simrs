@@ -15,7 +15,7 @@ import { ScheduleGrid, type ScheduleGridRow, ScheduleLegend } from '@/components
 import { SlotDetail, type SlotDetailView } from '@/components/front-office/slot-detail';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { adjustQuota, dayLong, dayShort, type QuotaPool, slotCell } from '@/lib/front-office';
-import { approveLeaveTransferAction, recordLeaveAction, sendScheduleToHfisAction } from './actions';
+import { approveLeaveTransferAction, recordLeaveAction, sendScheduleToHfisAction } from './actions-demo';
 
 interface SlotRef {
   slot: ScheduleSlot;

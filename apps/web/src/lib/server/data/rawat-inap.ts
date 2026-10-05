@@ -16,6 +16,7 @@ import {
 } from '@simrs/shared';
 import { redirect } from 'next/navigation';
 import type { ScenarioId } from '../../demo/engine/types';
+import { CONSENT_ID, ENCOUNTER_ID } from '../../demo/fixtures/ids';
 import { patientByEncounterId } from '../../demo/fixtures/pasien';
 import {
   demoBedRequests,
@@ -101,7 +102,8 @@ export async function consentTurn(
   session: SessionView,
   doc: Pick<ConsentDocument, 'id' | 'status'>,
 ): Promise<{ step: ScenarioStepState | null; wait: string | null }> {
-  const [step] = doc.id === 'pk-hartono' ? await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]) : [];
+  const [step] =
+    doc.id === CONSENT_ID.hartono ? await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]) : [];
   return { step: step ?? null, wait: consentScenarioWait(doc, step?.tasks.consent) };
 }
 
@@ -215,17 +217,22 @@ export async function getDischargeSummary(
   if (webEnv().dataSource === 'demo') {
     assertDemo();
     const runs = await scenarioRuns(session);
-    if (encounterId === 'kj-endang') {
+    if (encounterId === ENCOUNTER_ID.endang) {
       return { kind: 'resume', summary: dischargeSummarySchema.parse(demoEndangResume()), scenario: false };
     }
     const scenarioResume = [
       {
-        enc: 'kj-hartono',
+        enc: ENCOUNTER_ID.hartono,
         R: runs.results['igd-ranap'],
         admitted: ['admisi', 'transfer'],
         build: hartonoResume,
       },
-      { enc: 'kj-ratna', R: runs.results['elektif-btn'], admitted: ['admisi', 'sep'], build: ratnaResume },
+      {
+        enc: ENCOUNTER_ID.ratna,
+        R: runs.results['elektif-btn'],
+        admitted: ['admisi', 'sep'],
+        build: ratnaResume,
+      },
     ] as const;
     const sr = scenarioResume.find((x) => x.enc === encounterId);
     if (sr) {
@@ -251,13 +258,13 @@ export async function getConsentDocument(session: SessionView, id: string): Prom
     const runs = await scenarioRuns(session);
     const igd = runs.results['igd-ranap'];
     const doc =
-      id === 'pk-hartono'
+      id === CONSENT_ID.hartono
         ? reached(igd, 'tata-laksana')
           ? hartonoConsent(igd)
           : null
-        : id === 'pk-ratna'
+        : id === CONSENT_ID.ratna
           ? ratnaConsent(runs.results['elektif-btn'])
-          : id === 'pk-hendro'
+          : id === CONSENT_ID.hendro
             ? demoHendroConsent()
             : null;
     return doc ? consentDocumentSchema.parse(doc) : null;
