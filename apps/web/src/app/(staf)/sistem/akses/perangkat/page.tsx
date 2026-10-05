@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { z } from 'zod';
 import { api } from '@/lib/server/api';
-import { unitsSchema } from '@/lib/server/iam';
+import { listActiveUnits } from '@/lib/server/iam';
 import { requireSession } from '@/lib/server/session';
 import { can } from '@/lib/session-view';
 import { CreateDevice, RevokeDevice } from './device-forms';
@@ -43,15 +43,10 @@ export default async function PerangkatPage() {
     );
   }
   const canWrite = can(s, 'iam.users', 'write');
-  const [devices, units] = await Promise.all([
+  const [devices, unitOptions] = await Promise.all([
     api('/api/v1/iam/devices?limit=200', { schema: devicePageSchema }),
-    canWrite && can(s, 'facility', 'read')
-      ? api('/api/v1/facility/units?limit=200', { schema: unitsSchema })
-      : Promise.resolve(null),
+    canWrite && can(s, 'facility', 'read') ? listActiveUnits() : Promise.resolve([]),
   ]);
-  const unitOptions = (units?.items ?? [])
-    .filter((u) => u.active)
-    .map((u) => ({ value: u.id, label: u.name }));
   const rows = [...devices.items].reverse();
 
   return (

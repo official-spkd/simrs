@@ -30,7 +30,7 @@ import {
   userDetailSchema,
   userPageSchema,
   type UserRow,
-  unitsSchema,
+  listActiveUnits,
 } from '@/lib/server/iam';
 import { requireSession } from '@/lib/server/session';
 import { can, initials, type SessionView } from '@/lib/session-view';
@@ -94,13 +94,11 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
   if (status) list.set('status', status);
   if (params.kursor) list.set('cursor', params.kursor);
 
-  const [summary, page, rolesData, units, detail] = await Promise.all([
+  const [summary, page, rolesData, unitOptions, detail] = await Promise.all([
     api('/api/v1/iam/summary', { schema: summarySchema }),
     api(`/api/v1/iam/users?${list.toString()}`, { schema: userPageSchema }),
     canReadRoles ? api('/api/v1/iam/roles', { schema: rolesSchema }) : Promise.resolve(null),
-    canWriteUsers && can(s, 'facility', 'read')
-      ? api('/api/v1/facility/units?limit=200', { schema: unitsSchema })
-      : Promise.resolve(null),
+    canWriteUsers && can(s, 'facility', 'read') ? listActiveUnits() : Promise.resolve([]),
     params.pengguna
       ? api(`/api/v1/iam/users/${params.pengguna}`, { schema: userDetailSchema }).catch((err: unknown) => {
           if (err instanceof ApiError && err.status === 404) return null;
@@ -112,7 +110,6 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
   const roleOptions = (rolesData?.roles ?? [])
     .filter((r) => r.active)
     .map((r) => ({ value: r.code, label: r.name }));
-  const unitOptions = (units?.items ?? []).map((u) => ({ value: u.id, label: u.name }));
   // Izin platform hanya di tenant PLATFORM; izin khusus perangkat (anjungan, display) tidak pernah untuk peran.
   const catalog = (rolesData?.catalog ?? []).filter((c) => permissionAllowedFor(s.tenant.kind, c.resource));
   const lockedKeys = ACCESS_ADMIN_GRANTS.map(([r, a]) => `${r}|${a}`);
