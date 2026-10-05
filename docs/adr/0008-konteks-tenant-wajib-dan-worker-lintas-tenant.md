@@ -35,7 +35,7 @@ Aturan di atas ("setiap fungsi `SECURITY DEFINER` baru ditinjau dan dicatat di A
 | `app_sync_patient_name()` (trigger), `app_search_patient_names(text)` | `20261005090000_patient_name_search_index` | 0015 | trigger; `simrs_app` | indeks nama tenant aktif; ID pasien |
 | `app_record_backup_run(…)`, `app_record_restore_test(…)` | `20261005110000_backup_runs` | 0071 | hanya `simrs_backup` | satu baris catatan di tenant PLATFORM |
 | `app_backup_status()` | `20261005110000_backup_runs` | 0071 | `simrs_app` | waktu + status per lokasi, jumlah gagal 24 jam, uji restore (tanpa lokasi, kunci, ukuran, galat) |
-| `app_rekey_patient_identifier(…)`, `app_rekey_patient_link(…)`, `app_rekey_patient_contact(…)` | `20261005130000`, `20261005131000` | 0015 | `simrs_app` (job rotasi) | tulis ulang satu baris tenant aktif (RLS), compare-and-swap, versi kunci wajib berganti |
+| `app_rekey_patient_identifier(…)`, `app_rekey_patient_link(…)`, `app_rekey_patient_contact(…)`, `app_rekey_coverage_member(…)` | `20261005130000`, `20261005131000`, `20261005210000` | 0015 | `simrs_app` (job rotasi) | tulis ulang satu baris tenant aktif (RLS), compare-and-swap, versi kunci wajib berganti |
 | `app_key_rotation_tenant_ids()` | `20261005130000_field_key_rotation` | 0015 | `simrs_app` (job rotasi) | ID semua tenant, juga yang nonaktif |
 
 `app_verify_audit_chain_from` (ADR-0072) sengaja **bukan** `SECURITY DEFINER`: verifikasi rantai berjalan di bawah RLS tenant pemanggil. Fungsi pencatat cadangan menyetel `app.tenant_id` lokal-transaksi ke tenant PLATFORM lalu mengembalikan konteks pemanggil; `simrs_backup` (BYPASSRLS) hanya dipakai alat cadangan di luar runtime aplikasi.
