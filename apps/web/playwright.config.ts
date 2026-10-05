@@ -84,8 +84,9 @@ export default defineConfig({
     { name: 'desktop', testIgnore: 'demo/**', use: { ...devices['Desktop Chrome'], channel } },
     {
       name: 'tablet',
-      // Spesifikasi yang mengubah skenario mock (keadaan bersama) cukup di proyek desktop.
-      testIgnore: ['demo/**', 'infrastruktur.spec.ts'],
+      // Spesifikasi yang mengubah skenario mock (keadaan bersama) cukup di proyek desktop. Di-skip di dalam tes saja
+      // tidak cukup: `afterEach` proyek ini tetap jalan dan mengembalikan skenario saat tes desktop sedang memakainya.
+      testIgnore: ['demo/**', 'infrastruktur.spec.ts', 'pendaftaran.spec.ts'],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
     },
     {
