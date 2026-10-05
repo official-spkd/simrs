@@ -7,7 +7,7 @@ import { useState, useTransition } from 'react';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { resumeCompleteness, resumeSignBlocker } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
-import { signResumeAction } from './actions';
+import { signResumeAction } from './actions-demo';
 import { ResumeSections } from './resume-sections';
 
 /**

@@ -9,5 +9,7 @@ export default defineConfig({
       'server-only': fileURLToPath(new URL('./src/test/server-only.ts', import.meta.url)),
     },
   },
+  // tsconfig Next memakai `jsx: preserve` (Next yang mengompilasi); tes unit merender komponen sendiri.
+  oxc: { jsx: { runtime: 'automatic' } },
   test: { include: ['src/**/*.test.{ts,tsx}'] },
 });

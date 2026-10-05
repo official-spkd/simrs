@@ -13,7 +13,7 @@ import {
   emarKey,
   emarScanPayload,
 } from '@/lib/rawat-inap';
-import { recordAdministrationAction, scanWristbandAction } from './actions';
+import { recordAdministrationAction, scanWristbandAction } from './actions-demo';
 import { type DoseInput, EmarDosePanel } from './emar-dose';
 import { EmarGate, type EmarScan } from './emar-gate';
 

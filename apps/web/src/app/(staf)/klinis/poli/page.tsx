@@ -1,73 +1,23 @@
-import { formatTanggal } from '@simrs/shared';
-import { Alert, Chip } from '@simrs/ui';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { PoliContext } from '@/components/klinis/poli-context';
-import { PoliWorkspace } from '@/components/klinis/poli-workspace';
-import { ScenarioBanner } from '@/components/scenario-banner';
-import { screenById } from '@/lib/screens';
-import { getPoliEncounter, getPoliWorklist } from '@/lib/server/data/klinis';
-import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { DemoPoli } from './demo-poli';
 
 export const metadata: Metadata = { title: 'Pemeriksaan poli' };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
- * K01/K02 · Pemeriksaan poli + CPPT/SOAP (mockup `Main.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023);
- * Tn. Suryo (skenario rawat jalan) masuk antrean setelah SEP terbit dan langkah asesmen perawat / pemeriksaan dokter
- * dibawakan lewat tombol asli layar ini. Kunjungan yang diminta (`?pasien=`) tetapi tidak ada di antrean hari ini →
- * 404, bukan diam-diam membuka rekam pasien lain (cegah salah pasien).
+ * K01/K02 · Pemeriksaan poli + CPPT/SOAP (mockup `Main.dc.html`). Layar hibrida (`requireScreen`): mode presentasi
+ * memakai data dummy (`demo-poli.tsx`, dibekukan); mode api untuk peran ber-izin `clinical.write`, jalur API diisi
+ * layar W1 (sampai itu "Belum tersambung"). `?pasien=<id>` = kunjungan yang dibuka.
  */
 export default async function PoliPage({ searchParams }: { searchParams: SearchParams }) {
-  const { session, screen, allowed } = await requireDemoScreen('poli');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const sp = await searchParams;
-  const requested = typeof sp.pasien === 'string' && sp.pasien ? sp.pasien : undefined;
-  const [worklist, runs] = await Promise.all([getPoliWorklist(session), scenarioRuns(session)]);
-  const here = scenariosHere(runs, 'poli');
-  const scenarioItem = worklist.items.find((i) => i.scenario && here.some((h) => h.scenario === i.scenario));
-  const fallback = scenarioItem ?? worklist.items.find((i) => i.status === 'diperiksa') ?? worklist.items[0];
-  const selected = requested ? worklist.items.find((i) => i.patientId === requested) : fallback;
-  const encounter = selected ? await getPoliEncounter(session, selected.patientId) : null;
-  if (requested && !encounter) notFound();
-  const h = selected?.scenario ? here.find((x) => x.scenario === selected.scenario) : undefined;
-  const kasir = screenById('kasir');
-
-  return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-caption text-ink-500">
-            Rawat jalan / {worklist.poli.name} / Pemeriksaan · {session.tenant.name}
-          </span>
-          <h1 className="m-0 text-h1 font-semibold">Pemeriksaan pasien</h1>
-        </div>
-        <span className="flex flex-wrap gap-2">
-          <Chip tone="neutral">{formatTanggal(worklist.date)}</Chip>
-          <Chip tone="brand">
-            {worklist.poli.room} · {worklist.doctor}
-          </Chip>
-        </span>
-      </header>
-      <ScenarioBanner session={session} screen="poli" />
-      {selected && encounter ? (
-        <PoliWorkspace
-          worklist={worklist}
-          encounter={encounter}
-          role={session.role?.code ?? null}
-          binding={h ? { here: h, rev: runs.rev } : null}
-          cpoeHref={`/klinis/order/${encounter.encounterId}`}
-          kasirHref={kasir && kasir.status !== 'belum' ? kasir.route : null}
-          aside={<PoliContext encounter={encounter} />}
-        />
-      ) : (
-        <Alert level="info" title="Antrean kosong">
-          Belum ada pasien di antrean {worklist.poli.name} hari ini.
-        </Alert>
-      )}
-    </div>
-  );
+  const access = await requireScreen('poli');
+  if (access.mode === 'demo') {
+    const sp = await searchParams;
+    return <DemoPoli access={access} pasien={typeof sp.pasien === 'string' ? sp.pasien : null} />;
+  }
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
 }

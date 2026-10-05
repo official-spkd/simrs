@@ -27,7 +27,7 @@ describe('navGroups', () => {
   it('menu berizin hanya tampil bila peran memegang izinnya', () => {
     const perawat = navGroups({ ...base, permissions: ['patient.read'] });
     expect(ids(perawat)).not.toContain('akses');
-    expect(ids(perawat)).toContain('igd');
+    expect(ids(perawat)).toContain('lab');
     const admin = navGroups({ ...base, role: 'admin_tenant', permissions: ['iam.users.read'] });
     expect(ids(admin)).toContain('akses');
   });
@@ -77,6 +77,18 @@ describe('navGroups', () => {
     expect(item(navGroups({ ...base, dataSource: 'demo', permissions: ['encounter.write'] }), 'daftar')).toBe(
       undefined,
     );
+  });
+
+  it('layar hibrida klinis di mode api mengikuti izin sungguhan (fase 3 potongan 3.0d)', () => {
+    const item = (groups: ReturnType<typeof navGroups>, id: string) =>
+      groups.flatMap((g) => g.items).find((i) => i.id === id);
+    const none = navGroups({ ...base, permissions: [] });
+    for (const id of ['poli', 'igd', 'ranap', 'bed']) expect(item(none, id), id).toBeUndefined();
+    const perawat = navGroups({ ...base, permissions: ['clinical.write', 'bed.read'] });
+    for (const id of ['poli', 'igd', 'ranap', 'bed']) expect(item(perawat, id)?.available, id).toBe(true);
+    const manajemen = navGroups({ ...base, role: 'manajemen', permissions: ['bed.read'] });
+    expect(item(manajemen, 'bed')?.available).toBe(true);
+    expect(item(manajemen, 'ranap')).toBeUndefined();
   });
 
   it('menu antrean staf = Kendali antrean (`queue.read`, mode api); display TV hanya di mode presentasi', () => {

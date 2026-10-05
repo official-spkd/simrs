@@ -135,7 +135,7 @@ const PLATFORM_ITEM_IDS = new Set(['beranda', 'akses', 'audit']);
  * Grup menu untuk sesi saat ini: menu ber-`requires` hanya tampil bila peran memegang izinnya; tenant PLATFORM
  * hanya melihat menu sistem; grup superadmin hanya untuk superadmin platform. Layar ber-data dummy di mode
  * presentasi hanya tampil untuk posisi yang memakainya (layar lain disembunyikan, bukan diredupkan). Layar hibrida
- * front office (`permission` di registri) di mode api tampil hanya bagi peran yang memegang izinnya.
+ * front office dan klinis (`permission` di registri) di mode api tampil hanya bagi peran yang memegang izinnya.
  */
 export function navGroups(opts: {
   kind: TenantKind;

@@ -22,12 +22,8 @@ import {
   localCpptId,
   wristbandBlocker,
 } from '@/lib/rawat-inap';
-import {
-  demoActionSession,
-  encounterClock,
-  getInpatient,
-  inpatientScenarioStep,
-} from '@/lib/server/data/rawat-inap';
+import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/klinis/ranap';
+import { demoActionSession, encounterClock } from '@/lib/server/data/klinis/shared';
 import type { SessionView } from '@/lib/session-view';
 
 /**
