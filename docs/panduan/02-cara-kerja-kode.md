@@ -353,7 +353,7 @@ memakai satu pola berversi:
 | Waktu catat tidak bisa diubah  | `recorded_at` diisi trigger dari jam server; CHECK waktu kejadian ≤ waktu catat + 5 menit                                                         |
 | Kode baku tidak dikarang       | `app_clinical_code_guard`: ICD-10 (`conditions`), ICD-9-CM (`procedures`), LOINC (`observations`, `diagnostic_reports`) harus ada di `ref`        |
 | Co-sign sekali                 | `clinical_attestations` append-only, indeks `clinical_attestations_one_cosign`, target wajib ada (trigger)                                        |
-| Satu DPJP utama aktif          | `encounter_participants_one_primary`; periode diakhiri sekali (`app_encounter_participant_guard`)                                                 |
+| Satu DPJP utama aktif          | `encounter_participants_one_primary` (API: 409 `PRIMARY_DPJP_EXISTS`); periode diakhiri sekali (`app_encounter_participant_guard`)                |
 
 - Tabel berversi: `observations`, `diagnostic_reports`, `conditions`, `procedures`, `allergy_intolerances`,
   `cppt_entries`, `handovers`, `consult_requests`, `consult_responses`, `consents`, `discharge_summaries`. Baca versi
@@ -429,24 +429,28 @@ await this.satusehat.record('Condition', f.id, f.version);
 
 ### Data klinis terkode, tanda vital, hasil, ringkasan (fase 3 potongan 3.2a)
 
-Kontrak input di `schemas/klinis.ts` (3.0a), kontrak jawaban di `schemas/clinical-records.ts`. Bantuan bersama modul
+Kontrak input di `schemas/klinis.ts` (3.0a), kontrak jawaban di `schemas/clinical-records.ts`. Rute per kunjungan
+selalu berbentuk kanonik `/api/v1/encounters/:id/<sumber>` (jamak; keputusan orkestrator fase 3), walau isinya milik
+modul lain (observasi = `nursing`, banner = `summary`, diagnosis = `diagnosis`, CPPT = `cppt`, asesmen = `assessment`).
+Aturan "satu" yang ditegakkan API memakai kode galat stabil `CLINICAL_ERRORS` (`PRIMARY_DIAGNOSIS_EXISTS`,
+`PRIMARY_DPJP_EXISTS`), bukan `CONFLICT` generik. Bantuan bersama modul
 klinis ada di `infra/clinical/clinical-context.ts`: `clinicalEncounter()` (kunjungan ada + ABAC + tidak batal untuk
 tulis), `patientGroupIds()` (kelompok rekam medis), `assertRevisionAllowed()` (revisi `koreksi` butuh `clinical.correct`
 di samping izin endpoint), `lockClinicalKey()` (kunci advisory untuk aturan yang tidak bisa jadi indeks unik).
 
-| Endpoint `/api/v1/…`                                                    | Izin                               | Isi                                                                                                                                |
-| ----------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `POST/GET encounter/:id/observations`                                   | `clinical.write` / `clinical.read` | Modul `nursing` (K12). Tanda vital dewasa; NEWS2 dihitung server (`ewsScore`/`ewsMaxParam`), skor dari klien ditolak (skema ketat) |
-| `POST encounter/:id/observations/:obsId/entered-in-error`               | `clinical.correct`                 | Salah entri tanda vital (penulis asli)                                                                                             |
-| `GET encounter/:id/context`                                             | `clinical.read`                    | Modul `summary`. Banner: pasien, umur, RM, bed, DPJP, penjamin, alergi (teks), diagnosis utama, EWS terakhir                       |
-| `POST diagnosis/conditions`, `GET …?encounterId=`                       | `clinical.write` / `clinical.read` | ICD-10 dari `ref` (nama dari data rujukan); satu diagnosis utama final per kunjungan (kunci advisory `primary:<kunjungan>`) → 409  |
-| `GET diagnosis/problem-list?patientId=`                                 | `clinical.read`                    | Problem list final kelompok rekam medis                                                                                            |
-| `POST diagnosis/procedures`, `GET …?encounterId=`                       | `clinical.write` / `clinical.read` | ICD-9-CM; `billable_events` `tindakan` sekali per rantai (koreksi tidak menagih ulang)                                             |
-| `POST diagnosis/allergies`, `GET …?patientId=`                          | `clinical.write` / `clinical.read` | Alergi zat terkode/teks atau NKDA eksplisit; status `ada`/`nkda`/`belum_dikaji`; NKDA eksklusif dan satu entri per zat → 409       |
-| `POST diagnosis/{conditions,procedures,allergies}/:id/entered-in-error` | `clinical.correct`                 | Salah entri (penulis asli, alasan ≥ 10)                                                                                            |
-| `POST results/observations`, `POST results/reports`                     | `result.write`                     | Modul `results`. Hasil lab/imaging/survei (LOINC dari `ref` atau nama bila belum terkode); laporan + hasilnya sekaligus            |
-| `GET results?patientId=&encounterId=`                                   | `result.read`                      | Laporan (dengan hasil terkini rantai laporan) + hasil tanpa laporan, kelompok rekam medis                                          |
-| `GET summary/patients/:id`                                              | `clinical.read`                    | K14: alergi, masalah aktif, 10 kunjungan terakhir + diagnosis utama, TTV terakhir, hasil, tindakan, obat order aktif               |
+| Endpoint `/api/v1/…`                                                    | Izin                               | Isi                                                                                                                                                          |
+| ----------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST/GET encounters/:id/observations`                                  | `clinical.write` / `clinical.read` | Modul `nursing` (K12). Tanda vital dewasa; NEWS2 dihitung server (`ewsScore`/`ewsMaxParam`), skor dari klien ditolak (skema ketat)                           |
+| `POST encounters/:id/observations/:obsId/entered-in-error`              | `clinical.correct`                 | Salah entri tanda vital (penulis asli)                                                                                                                       |
+| `GET encounters/:id/context`                                            | `clinical.read`                    | Modul `summary`. Banner: pasien, umur, RM, bed, DPJP, penjamin, alergi (teks), diagnosis utama, EWS terakhir                                                 |
+| `POST diagnosis/conditions`, `GET encounters/:id/conditions`            | `clinical.write` / `clinical.read` | ICD-10 dari `ref` (nama dari data rujukan); satu diagnosis utama final per kunjungan (kunci advisory `primary:<kunjungan>`) → 409 `PRIMARY_DIAGNOSIS_EXISTS` |
+| `GET diagnosis/problem-list?patientId=`                                 | `clinical.read`                    | Problem list final kelompok rekam medis                                                                                                                      |
+| `POST diagnosis/procedures`, `GET encounters/:id/procedures`            | `clinical.write` / `clinical.read` | ICD-9-CM; `billable_events` `tindakan` sekali per rantai (koreksi tidak menagih ulang)                                                                       |
+| `POST diagnosis/allergies`, `GET …?patientId=`                          | `clinical.write` / `clinical.read` | Alergi zat terkode/teks atau NKDA eksplisit; status `ada`/`nkda`/`belum_dikaji`; NKDA eksklusif dan satu entri per zat → 409                                 |
+| `POST diagnosis/{conditions,procedures,allergies}/:id/entered-in-error` | `clinical.correct`                 | Salah entri (penulis asli, alasan ≥ 10)                                                                                                                      |
+| `POST results/observations`, `POST results/reports`                     | `result.write`                     | Modul `results`. Hasil lab/imaging/survei (LOINC dari `ref` atau nama bila belum terkode); laporan + hasilnya sekaligus                                      |
+| `GET results?patientId=&encounterId=`                                   | `result.read`                      | Laporan (dengan hasil terkini rantai laporan) + hasil tanpa laporan, kelompok rekam medis                                                                    |
+| `GET summary/patients/:id`                                              | `clinical.read`                    | K14: alergi, masalah aktif, 10 kunjungan terakhir + diagnosis utama, TTV terakhir, hasil, tindakan, obat order aktif                                         |
 
 Aturan bersama:
 
@@ -456,6 +460,33 @@ Aturan bersama:
   P09 `ews_escalation` tanpa PHI ke tim perawatan aktif + DPJP kunjungan (in-app + WhatsApp).
 - Setiap baca diaudit `read` dengan `patientId`; tulis `create`/`correct` tanpa kode diagnosis di `details`.
 - Staging SATUSEHAT `held` per versi: Observation, DiagnosticReport, Condition, Procedure, AllergyIntolerance.
+
+### CPPT, co-sign, verifikasi DPJP, serah terima, asesmen, worklist (fase 3 potongan 3.2b)
+
+Kontrak di `schemas/rawat-inap.ts` (input/rekaman CPPT dan input serah terima, 3.0a) dan `schemas/clinical-notes.ts`.
+
+| Endpoint `/api/v1/…`                                  | Izin                               | Isi                                                                                                                                                               |
+| ----------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST cppt/entries`, `GET encounters/:id/cppt`        | `clinical.write` / `clinical.read` | PPA dari peran sesi (`PPA_OF_ROLE`: dokter → `dpjp`, residen → `residen`, perawat, bidan, apoteker → `farmasi`); residen → `menunggu_cosign`                      |
+| `POST cppt/entries/:id/entered-in-error`              | `clinical.correct`                 | Salah entri (penulis asli)                                                                                                                                        |
+| `POST cppt/entries/:id/cosign`                        | `clinical.cosign`                  | DPJP utama/rawat bersama (tim perawatan) atau DPJP kunjungan; bukan catatan sendiri (`COSIGN_NOT_ALLOWED`); satu per entri → 409                                  |
+| `POST cppt/entries/:id/verify`                        | `clinical.cosign`                  | Verifikasi DPJP atas CPPT PPA lain (bukan residen/DPJP); tidak memblokir                                                                                          |
+| `POST cppt/handovers`, `GET encounters/:id/handovers` | `clinical.write` / `clinical.read` | SBAR berversi; penerima mendapat notifikasi `handover` tanpa PHI                                                                                                  |
+| `POST patients/:id/forms/:code/responses`             | `forms.response.write`             | Asesmen K06 = isian P07 dengan `encounterId` (kunjungan pasien yang sama, tidak batal; tetap di seluruh rantai koreksi)                                           |
+| `GET encounters/:id/assessments`                      | `clinical.read`                    | Asesmen terkini satu kunjungan                                                                                                                                    |
+| `GET worklist?view=dpjp\|unit\|shift\|tugas`          | `clinical.read`                    | Pasien per tampilan + tugas pribadi: co-sign, verifikasi lewat `cppt.verify_hours`, tinjau order residen, TTE gagal, EWS tinggi, resume lewat batas, serah terima |
+
+Aturan penting:
+
+- Status tampilan `menunggu_cosign` = `cosign_required` tanpa atestasi `cosign` (ADR-0028 butir 6); koreksi residen
+  menunggu co-sign lagi (atestasi menempel pada versi). Co-sign/verifikasi memakai kunci versi yang sama dengan
+  koreksi, jadi versi yang sudah digantikan → `RECORD_SUPERSEDED`.
+- Batas verifikasi dihitung dari waktu kejadian (`occurred_at`), sehingga catatan susulan tidak memperpanjang batas.
+- Singkatan terlarang daftar RS (`abbreviations`) → `abbreviationWarnings` di jawaban; tidak memblokir (EP 9a).
+- CPPT DPJP versi 1 = `billable_events` `visite`; setiap CPPT memicu event `cppt.finalized`.
+- Worklist menyaring setiap pasien dengan ABAC (`PatientAccessService.basis`) dan mengaudit `read` per pasien
+  (`resource_type = worklist`). Tinjau order residen membaca `order_groups.needs_review` tanpa atestasi `review_order`
+  (target `order_groups`); endpoint tinjau dibangun potongan 3.4.
 
 ### ADT, papan bed, triase IGD, gelang, Aplicare (K03/K04/K05, fase 3 potongan 3.3)
 

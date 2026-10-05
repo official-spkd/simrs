@@ -5,6 +5,7 @@ import {
   type AllergyRecord,
   AppError,
   type ClinicalEntryMeta,
+  clinicalError,
   type ConditionInput,
   type ConditionRecord,
   type PatientAllergies,
@@ -121,12 +122,7 @@ export class DiagnosisService {
         select: { id: true },
       });
       if (other) {
-        throw new AppError(
-          'CONFLICT',
-          'Kunjungan ini sudah punya diagnosis utama; koreksi diagnosis utama yang ada atau pilih peran sekunder',
-          409,
-          { rule: 'one_primary_diagnosis', existingId: other.id },
-        );
+        throw clinicalError('PRIMARY_DIAGNOSIS_EXISTS', { existingId: other.id });
       }
     }
     await this.records.insert(() =>

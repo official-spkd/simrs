@@ -100,6 +100,17 @@ export const CLINICAL_ERRORS = {
     status: 403,
     message: 'Co-sign hanya oleh DPJP/rawat bersama, bukan atas catatan sendiri',
   },
+  // K08 · Satu diagnosis utama final per kunjungan (ditegakkan API di bawah kunci per kunjungan, ADR-0028)
+  PRIMARY_DIAGNOSIS_EXISTS: {
+    status: 409,
+    message:
+      'Kunjungan ini sudah punya diagnosis utama; koreksi diagnosis utama yang ada atau pilih peran sekunder',
+  },
+  // K10 · Satu DPJP utama aktif per kunjungan (indeks unik `encounter_participants_one_primary`)
+  PRIMARY_DPJP_EXISTS: {
+    status: 409,
+    message: 'Kunjungan ini sudah punya DPJP utama aktif; akhiri keanggotaannya lebih dulu (alih rawat)',
+  },
   // K03 · Triase
   TRIAGE_REASON_REQUIRED: {
     status: 422,
@@ -136,6 +147,8 @@ export const CLINICAL_ERROR_CODES = [
   'RECORD_NOT_AUTHOR',
   'RECORD_NOT_FINAL',
   'COSIGN_NOT_ALLOWED',
+  'PRIMARY_DIAGNOSIS_EXISTS',
+  'PRIMARY_DPJP_EXISTS',
   'TRIAGE_REASON_REQUIRED',
   'TRIAGE_LEVEL_NOT_ALLOWED',
   'BED_NOT_AVAILABLE',

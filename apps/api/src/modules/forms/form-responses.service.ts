@@ -75,7 +75,7 @@ export class FormResponsesService {
     return scoreForm(schema, answers);
   }
 
-  async create(patientId: string, code: string, answers: FormAnswers) {
+  async create(patientId: string, code: string, answers: FormAnswers, encounterId: string | null = null) {
     await this.assertAccess(patientId);
     const patient = await this.repo.findPatient(patientId);
     if (!patient) throw new AppError('NOT_FOUND', 'Pasien tidak ditemukan', 404);
@@ -86,6 +86,7 @@ export class FormResponsesService {
         409,
       );
     }
+    if (encounterId) await this.assertEncounter(encounterId, patientId);
     const def = await this.repo.published(code);
     if (!def) throw new AppError('NOT_FOUND', 'Formulir belum punya versi berlaku', 404);
     this.assertWriteRole(def.writeRoles, patientId, code);
@@ -102,6 +103,7 @@ export class FormResponsesService {
       answers: answers as Prisma.InputJsonValue,
       score: score.scored > 0 ? score.total : null,
       scoreBand: score.band?.label ?? null,
+      encounterId,
     });
     return this.present([row], await this.names([row]));
   }
@@ -177,6 +179,7 @@ export class FormResponsesService {
         score: score.scored > 0 ? score.total : null,
         scoreBand: score.band?.label ?? null,
         correctionReason: reason,
+        encounterId: prev.encounterId,
       });
     } catch (err) {
       // Dua koreksi serentak atas versi yang sama: indeks unik `supersedes_once` menolak yang kedua.
@@ -201,6 +204,22 @@ export class FormResponsesService {
     });
     const chain = await this.repo.chain(prev.rootId);
     return this.present(chain, await this.names(chain));
+  }
+
+  /** K06 · Asesmen kunjungan: kunjungan milik pasien yang sama dan tidak batal. */
+  private async assertEncounter(encounterId: string, patientId: string): Promise<void> {
+    const enc = await this.db.tx().encounter.findUnique({
+      where: { id: encounterId },
+      select: { patientId: true, status: true },
+    });
+    if (!enc || enc.patientId !== patientId) {
+      throw new AppError('VALIDATION_FAILED', 'Kunjungan bukan milik pasien ini', 422, {
+        fields: ['encounterId'],
+      });
+    }
+    if (enc.status === 'cancelled') {
+      throw new AppError('CONFLICT', 'Kunjungan sudah dibatalkan; asesmen tidak bisa ditambahkan', 409);
+    }
   }
 
   private async load(id: string): Promise<ResponseRow> {
@@ -234,6 +253,7 @@ export class FormResponsesService {
       id: latest.id,
       rootId: first.id,
       patientId: latest.patientId,
+      encounterId: latest.encounterId,
       formCode: latest.formCode,
       formTitle: latest.definition.title,
       formVersion: latest.definition.version,
