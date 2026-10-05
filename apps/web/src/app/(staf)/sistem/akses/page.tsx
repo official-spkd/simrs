@@ -1,4 +1,4 @@
-import { ACCESS_ADMIN_GRANTS, formatTanggal, PROTECTED_ROLES } from '@simrs/shared';
+import { ACCESS_ADMIN_GRANTS, formatTanggal, formatTanggalWaktu, PROTECTED_ROLES } from '@simrs/shared';
 import { Alert, Button, Card, Chip, cx, Icon, KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -8,6 +8,7 @@ import {
   accountStatus,
   type AksesParams,
   aksesHref,
+  deviceLabel,
   formatLastLogin,
   NOT_ACTIVATED_HINT,
   STATUS_FILTERS,
@@ -29,7 +30,7 @@ import { requireSession } from '@/lib/server/session';
 import { can, initials, type SessionView } from '@/lib/session-view';
 import { AddAssignment, EndAssignment } from './assignment-forms';
 import { InviteUser } from './invite-user';
-import { RevokePinDevice } from './pin-devices';
+import { RevokeDevice } from './device-revoke';
 import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
@@ -481,10 +482,10 @@ function UserPanel({
         )}
       </div>
 
-      {user.pinDevices.length > 0 && (
+      {(user.pinDevices.length > 0 || user.trustedDevices.length > 0) && (
         <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
-          <h3 className="m-0 text-small font-semibold">PIN masuk cepat</h3>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          <h3 className="m-0 text-small font-semibold">Perangkat</h3>
+          <ul aria-label="Perangkat akun" className="m-0 flex list-none flex-col gap-2 p-0">
             {user.pinDevices.map((d) => {
               const label = `${d.name} (${d.roleName}${d.unitName ? ` · ${d.unitName}` : ''})`;
               return (
@@ -493,13 +494,31 @@ function UserPanel({
                   className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line-soft px-3 py-2"
                 >
                   <span className="flex flex-col">
-                    <span className="text-small font-semibold">{label}</span>
+                    <span className="text-small font-semibold">PIN masuk cepat · {label}</span>
                     <span className="text-caption text-ink-500">
                       Terakhir dipakai {formatLastLogin(d.lastUsedAt)} · berlaku sampai{' '}
                       {formatTanggal(d.expiresAt)}
                     </span>
                   </span>
-                  {canWrite && !self && <RevokePinDevice deviceId={d.id} label={label} />}
+                  {canWrite && !self && <RevokeDevice kind="pin" deviceId={d.id} label={label} />}
+                </li>
+              );
+            })}
+            {user.trustedDevices.map((d) => {
+              const label = deviceLabel(d.userAgent);
+              return (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line-soft px-3 py-2"
+                >
+                  <span className="flex flex-col">
+                    <span className="text-small font-semibold">Perangkat tepercaya · {label}</span>
+                    <span className="text-caption text-ink-500">
+                      Terakhir dipakai {formatLastLogin(d.lastUsedAt ?? d.createdAt)} · berlaku sampai{' '}
+                      {formatTanggalWaktu(d.expiresAt)}
+                    </span>
+                  </span>
+                  {canWrite && !self && <RevokeDevice kind="trusted" deviceId={d.id} label={label} />}
                 </li>
               );
             })}

@@ -1,10 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { activeAssignments, readTenantSetting } from '@simrs/db';
+import { activeAssignments, isBreachedPassword, readTenantSetting } from '@simrs/db';
 import {
   AppError,
   type ChangePasswordInput,
   checkPasswordPolicy,
   PASSWORD_VIOLATION_MESSAGES,
+  pinUnavailableReason,
 } from '@simrs/shared';
 import {
   decryptField,
@@ -21,6 +22,7 @@ import { revokePinDevices } from '../../infra/auth/pin-devices';
 import { SessionStore } from '../../infra/auth/session-store';
 import { TenantDb } from '../../infra/tenant-db';
 import { AuthRepository } from './auth.repository';
+import { readPinPolicy } from './pin';
 
 const MFA_ISSUER = 'SIM RS';
 
@@ -75,6 +77,12 @@ export class AccountService {
       role && actor?.unitId
         ? await tx.unit.findUnique({ where: { id: actor.unitId }, select: { id: true, name: true } })
         : null;
+    const quickLogin = actor?.deviceId != null;
+    // PIN masuk cepat untuk posisi ini (aturan sama dengan pendaftaran; web hanya menampilkan).
+    const pinReason = pinUnavailableReason(
+      { quickLogin, tenantKind: p.tenant.kind, roleCode: role?.code ?? null, unitId: unit?.id ?? null },
+      await readPinPolicy(tx),
+    );
     return {
       role: role ? { code: role.code, name: role.name } : null,
       unit,
@@ -94,8 +102,9 @@ export class AccountService {
         refreshExpiresAt: session.refreshExpiresAt.toISOString(),
         unitId: session.unitId,
         /** Sesi masuk cepat dengan PIN (ADR-0024): pendek, posisi terkunci. */
-        quickLogin: actor?.deviceId != null,
+        quickLogin,
       },
+      pin: { available: pinReason === null, reason: pinReason },
     };
   }
 
@@ -172,9 +181,13 @@ export class AccountService {
       tenantCode: p.tenant.code,
     });
     if (await verifyPassword(input.newPassword, hash)) violations.push('common');
+    // Daftar kata sandi bocor yang diimpor operator (ref.breached_passwords, dicari per rentang awalan SHA-1).
+    if (!violations.includes('common') && (await isBreachedPassword(tx, input.newPassword))) {
+      violations.push('common');
+    }
     if (violations.length > 0) {
       throw new AppError('PASSWORD_POLICY', 'Kata sandi baru tidak memenuhi kebijakan', 400, {
-        violations,
+        violations: [...new Set(violations)],
         messages: [...new Set(violations)].map((v) => PASSWORD_VIOLATION_MESSAGES[v]),
         minLength,
       });
