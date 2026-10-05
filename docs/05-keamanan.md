@@ -17,7 +17,7 @@ Rujukan: KMK 1596/2024 (MRMIK), Permenkes 24/2022 tentang Rekam Medis, UU 27/202
 | TTE | P10 | 3 | Dokumen final (resume, consent, hasil, resep) ditandatangani; hash disimpan; verifikasi tanda tangan saat dibuka |
 | Isolasi tenant | P01, db | 0–1 | RLS + tes otomatis |
 | Perangkat publik (anjungan, TV) | P02, F04, F05 | 2 | Prinsipal perangkat terdaftar per unit dengan izin tetap (ADR-0027), bukan akun staf; anjungan tanpa ID pasien/RM/NIK di jawaban, token pencarian sekali pakai, batas pencarian dan tiket per perangkat, audit atas nama perangkat; TV hanya papan yang terikat (SSE tanpa PHI) |
-| Endpoint publik tanpa login | F08 | 2 | Tanpa PHI (skema jawaban ketat), kode booking + tanggal lahir di body, perbandingan waktu-konstan, batas laju per IP, audit setiap percobaan |
+| Endpoint publik tanpa login | F08 | 2 | Tanpa PHI (skema jawaban ketat), kode booking + tanggal lahir di body, perbandingan waktu-konstan, batas laju per IP **dan** batas tanggal lahir salah per kode booking (404 seragam, diaudit), audit setiap percobaan; RS tak dikenal = RS dengan F08 mati (jawaban dan kerja database sama). Sisa risiko: lihat §6 |
 | Enkripsi | db, infra | 1 | TLS di semua koneksi (produksi); kolom identitas dienkripsi; backup terenkripsi |
 | Persetujuan privasi | P05 | 1 | Persetujuan umum dan pembukaan data (mis. ke asuransi) dicatat dan bisa dicabut |
 | Hak subjek data (UU PDP) | B09 | 8 | Permintaan salinan RM, koreksi data identitas, log siapa mengakses RM pasien |
@@ -59,3 +59,17 @@ izin = { sumber: "cppt", aksi: "write", lingkup: { unit: "melati", relasi: "pera
 - [ ] Panggilan eksternal lewat outbox; webhook diverifikasi + idempotent
 - [ ] Uang `bigint`; jurnal seimbang
 - [ ] Tidak ada rahasia di kode atau di commit
+
+## 6. Sisa risiko yang diterima
+
+- **Keberadaan RS lewat endpoint publik (F08).** RS tak dikenal, RS nonaktif, dan RS dengan F08 mati dijawab 404
+  `NOT_FOUND` yang sama dan menjalankan kerja database yang setara (resolver + satu transaksi bertenant + baca modul).
+  Yang tersisa: (1) variasi waktu jaringan/cache Postgres masih bisa membedakan secara statistik bila penyerang
+  mengulang banyak permintaan, ditekan batas laju per IP; (2) RS dengan F08 aktif memang terbuka (jadwalnya publik);
+  (3) jalur lain yang menerima kode RS (pendaftaran perangkat `/devices/enrol`; masuk staf hanya di luar produksi,
+  produksi memakai host) punya penanganan sendiri dan belum diseragamkan dengan ini. Bila daftar RS dianggap rahasia,
+  pakai host per RS (bukan kode di path) dan samakan jalur-jalur itu.
+- **Batas tanggal lahir salah per kode booking** bisa dipakai orang lain untuk mengunci status booking seorang pasien
+  (kode booking `YYMMDD` + 4 digit bisa ditebak). Dampaknya hanya layanan informasi publik selama jendela batas;
+  booking, check-in, dan antrean tidak terpengaruh. Penghitung berada di Redis bersama; bila Redis gagal, hitungan
+  sementara per instans API (endpoint ini juga memakai batas endpoint kredensial yang gagal tertutup di produksi).

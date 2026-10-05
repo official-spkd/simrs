@@ -18,6 +18,8 @@ import {
   type VclaimSpriResponse,
   vclaimSpriRequestSchema,
   type VclaimSuratKontrol,
+  type VclaimSuratKontrolListItem,
+  VCLAIM_FILTER_SURAT,
   VCLAIM_JENIS_FASKES,
   vclaimRencanaKontrolDeleteRequestSchema,
   vclaimRencanaKontrolUpdateRequestSchema,
@@ -538,6 +540,57 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
     };
     return ctx.vclaimOk(req, body);
   });
+
+  // Daftar surat per kartu per bulan (dipakai worker sebelum mengirim ulang surat). Surat yang dihapus tidak ikut.
+  app.get<{ Params: { bulan: string; tahun: string; noKartu: string; filter: string } }>(
+    VCLAIM_ENDPOINTS.rencanaKontrolListByKartu.path,
+    async (req) => {
+      const { bulan, tahun, noKartu, filter } = req.params;
+      if (!isKartu(noKartu)) return vclaimFail('BPJS_VALIDASI', 'No. kartu harus 13 digit');
+      if (!/^(0[1-9]|1[0-2])$/.test(bulan) || !/^\d{4}$/.test(tahun)) {
+        return vclaimFail('BPJS_VALIDASI', 'bulan harus 01–12 dan tahun 4 digit');
+      }
+      if (filter !== VCLAIM_FILTER_SURAT.tglEntri && filter !== VCLAIM_FILTER_SURAT.tglRencana) {
+        return vclaimFail('BPJS_VALIDASI', 'filter harus 1 (tanggal entri) atau 2 (tanggal rencana kontrol)');
+      }
+      const prefix = `${tahun}-${bulan}`;
+      const list: VclaimSuratKontrolListItem[] = [...bpjs.surat.values()]
+        .filter(
+          (s) =>
+            s.status === 'aktif' &&
+            s.noKartu === noKartu &&
+            (filter === VCLAIM_FILTER_SURAT.tglEntri ? s.tglTerbit : s.tglRencanaKontrol).startsWith(prefix),
+        )
+        .map((s) => {
+          const asal = s.noSepAsal ? bpjs.seps.get(s.noSepAsal) : undefined;
+          const peserta = pesertaByKartu(bpjs, s.noKartu, s.tglTerbit, ctx.today());
+          const dipakai = [...bpjs.seps.values()].some(
+            (x) => x.status === 'terbit' && x.tSep.skdp.noSurat === s.noSurat,
+          );
+          return {
+            noSuratKontrol: s.noSurat,
+            jnsPelayanan: s.jenis === 'spri' ? 'Rawat Inap' : 'Rawat Jalan',
+            jnsKontrol: s.jenis === 'spri' ? VCLAIM_JENIS_SURAT.spri : VCLAIM_JENIS_SURAT.kontrol,
+            namaJnsKontrol: s.jenis === 'spri' ? 'SPRI' : 'Surat Kontrol',
+            tglRencanaKontrol: s.tglRencanaKontrol,
+            tglTerbitKontrol: s.tglTerbit,
+            noSepAsalKontrol: s.noSepAsal,
+            poliAsal: asal?.tSep.poli.tujuan ?? null,
+            namaPoliAsal: asal ? (poliByKode(asal.tSep.poli.tujuan)?.nama ?? null) : null,
+            poliTujuan: s.poliKontrol,
+            namaPoliTujuan: poliByKode(s.poliKontrol)?.nama ?? '',
+            tglSEP: asal?.tSep.tglSep ?? null,
+            kodeDokter: s.kodeDokter,
+            namaDokter: dokterByKode(s.kodeDokter)?.nama ?? '',
+            noKartu: s.noKartu,
+            nama: peserta?.nama ?? '',
+            terbitSEP: dipakai ? 'Sudah' : 'Belum',
+          };
+        })
+        .sort((a, b) => a.noSuratKontrol.localeCompare(b.noSuratKontrol));
+      return list.length ? ctx.vclaimOk(req, { list }) : vclaimFail('BPJS_DATA_TIDAK_DITEMUKAN');
+    },
+  );
 
   // --- Referensi + histori -------------------------------------------------------------------------------------
 

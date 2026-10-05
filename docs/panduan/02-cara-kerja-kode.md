@@ -400,6 +400,7 @@ stream(@Req() req: Request, @Res() res: Response, @Query('services') services: s
 - Setiap event dibaca di transaksi pendek `withTenant` tenant pelanggan (RLS). Hasil `load` dibagi ke semua koneksi selama 2 dtk.
 - `id:` event = id baris (UUID v7). `Last-Event-ID` (atau query `lastEventId` dari BFF) memanggil `replay`; replay juga dijalankan setelah koneksi LISTEN tersambung ulang. Lebih dari 200 event atau kanal tanpa `replay` → `event: reset` (klien memuat ulang snapshot).
 - Heartbeat `: ping` 15 dtk; umur koneksi maks 5 menit lalu klien menyambung ulang (sesi dan izin diperiksa ulang); klien lambat diputus; langganan dilepas saat klien putus.
+- Batas aliran bersamaan per prinsipal per instans API: perangkat 2 (`SSE_MAX_STREAMS_PER_DEVICE`), pengguna 5 (`SSE_MAX_STREAMS_PER_USER`); opsi `maxPerPrincipal` untuk kanal tertentu. Aliran baru menutup yang **paling lama** dengan `event: superseded` + `retry: 60000`, jadi dua tab yang berebut tidak saling menendang tiap 3 detik. Tanpa prinsipal (mode header pengembang) tidak dibatasi. Batasnya per instans (bukan gabungan antar-instans).
 - Header `X-Accel-Buffering: no` dan `Cache-Control: no-store, no-transform` agar proxy tidak menahan aliran.
 
 **Event domain.** `DomainEvents` (`infra/events/domain-events.ts`) sinkron di dalam transaksi penerbit. Nama dan payload (ID saja, tanpa PHI) ada di `domain-event-map.ts`; daftar namanya sementara disalin dari rencana potongan 0a dan diganti impor dari `@simrs/shared` setelah 0a tergabung.
@@ -554,6 +555,14 @@ Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data di
 - **update** (versi ≥ 2) → `issued`; **delete** (SEP `cancelled`) → status kirim saja (`BPJS_SEP_TIDAK_DITEMUKAN` = sudah
   hilang → `sent`). Ditolak → `failed` + `last_error_code` + `rejection_reason`; DLQ → `failed` + `BPJS_DLQ`
   (`sync_status` `dead`). Status kirim terakhir di `seps.sync_status|synced_at|sync_error_code`.
+- **Teks asli BPJS tidak pernah ke layar atau log.** `rejection_reason` menyimpan teks asli untuk ditinjau di database;
+  API mengirim `rejectionReason` = pesan baku dari `last_error_code` (`sepFailureMessage` → `bpjsStaffMessage` di
+  `@simrs/shared`). Lookup yang ditolak (422 `BPJS_REJECTED`) hanya membawa `details.reason`; web menampilkan
+  `bpjsStaffMessage(reason)`. Kode yang tidak dikenal → "Ditolak BPJS; periksa di VClaim".
+- **No. telepon ke BPJS** (`bpjsContactPhone` di `outbox/booking.ts`): no. HP pasien; bila kosong/tidak sah, no.
+  telepon RS dari pengaturan `bpjs.contact_phone` (`PUT /settings/bpjs.contact_phone`, format `0…`). Tambah antrean
+  (`nohp` wajib) tanpa keduanya → DLQ dengan alasan yang menyebut pengaturan itu; SEP (`noTelp`) tanpa keduanya tetap
+  `0000000000`.
 
 Task ID untuk kunjungan ini (mesin `BpjsTaskEngine`, worker `bpjs-antrean.ts`): walk-in tanpa panggilan tiket loket
 mendapat task 1 (check-in) lalu task 2 dan 3 pada saat didaftarkan, karena Antrean BPJS menolak lompatan 1 → 3. Selama
@@ -600,6 +609,19 @@ didekripsi dari penjaminan, poli DPJP dari templat jadwal), `bpjs.vclaim.rujukan
 `rejected` + kode (tanpa nomor); DLQ → `dead` + `BPJS_DLQ`; hapus yang sudah tidak ada di BPJS → `sent`. Kunci
 `<operasi>:<rujukan>:<urut>` (`referrals.sync_seq`); pesan urut lama dilewati.
 
+**Surat kontrol/SPRI tidak idempoten di VClaim** (kiriman yang timeout setelah BPJS memprosesnya bisa menerbitkan surat
+kedua). Pola histori SEP: bila kiriman sebelumnya mungkin sudah diproses, worker lebih dulu `GET` daftar surat milik
+kartu pada bulan tanggal rencana (`VCLAIM_ENDPOINTS.rencanaKontrolListByKartu`, filter tanggal rencana):
+
+- "mungkin sudah diproses" = pesan ini pernah dicoba (`attempts > 0`), atau kirim ulang petugas setelah DLQ (pesan urut
+  sebelumnya `dead`). Kirim ulang setelah **ditolak** (jawaban pasti) langsung insert;
+- surat yang cocok (jenis, SEP asal untuk surat kontrol, tanggal rencana, poli, DPJP) dan belum dipakai baris lain →
+  nomornya dipakai; tidak ada / "data tidak ditemukan" → pesan urut berikutnya yang langsung insert;
+- pencarian ditolak dengan alasan lain → DLQ, agar kirim ulang berikutnya tetap mencari dulu.
+
+Sisa celah: worker mati di antara jawaban BPJS dan pencatatan percobaan (pesan diklaim ulang setelah lease dengan
+`attempts` yang sama). Rujukan keluar (`bpjs.vclaim.rujukan.insert`) belum memakai pola ini.
+
 ### Gateway informasi publik (F08)
 
 `modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.
@@ -610,9 +632,10 @@ GET  /api/v1/public/:tenantCode/queues[/:serviceCode]        nomor dipanggil, ju
 POST /api/v1/public/:tenantCode/bookings/status              { bookingCode, birthDate } di BODY → status booking
 ```
 
-- **RS** dari kode di path (`app_resolve_tenant_by_code`, hanya RS aktif). RS tak dikenal atau modul F08 mati → 404 `NOT_FOUND` yang sama. Semua bacaan di transaksi tenant (RLS) yang dibuka service, karena tidak ada sesi.
+- **RS** dari kode di path (`app_resolve_tenant_by_code`, hanya RS aktif). RS tak dikenal atau modul F08 mati → 404 `NOT_FOUND` yang persis sama, dan jalur RS tak dikenal tetap membuka satu transaksi bertenant + membaca modul (tenant UUID nol) agar waktu jawabnya setara RS yang F08-nya mati. Semua bacaan di transaksi tenant (RLS) yang dibuka service, karena tidak ada sesi. Sisa risiko: docs/05 §6.
 - **Tanpa PHI**: setiap jawaban di-`parse` skema ketat `@simrs/shared` public-info, jadi kolom di luar kontrak tidak bisa terkirim. Tes menegaskan kunci jawaban dan tidak adanya nama, tanggal lahir, no. RM, atau id pasien.
-- **Status booking tahan enumerasi**: tanggal lahir dibandingkan waktu-konstan; kode tidak ada, tanggal lahir salah, atau kode milik RS lain → 404 `BOOKING_NOT_FOUND` yang identik. Setiap percobaan diaudit tanpa kode/tanggal lahir: berhasil = `read appointment` + id pasien; gagal = `denied` + alasan internal (`not_found`/`birth_date_mismatch`).
+- **Status booking tahan enumerasi**: tanggal lahir dibandingkan waktu-konstan; kode tidak ada, tanggal lahir salah, atau kode milik RS lain → 404 `BOOKING_NOT_FOUND` yang identik. Setiap percobaan diaudit tanpa kode/tanggal lahir: berhasil = `read appointment` + id pasien; gagal = `denied` + alasan internal (`not_found`/`birth_date_mismatch`/`too_many_failures`).
+- **Batas per kode booking** (apa pun IP-nya): tanggal lahir salah untuk booking yang ada dihitung di `RateLimitStorage.addFailure` (kunci = hash kode RS + kode booking, Redis bersama, cadangan memori). Setelah `BOOKING_STATUS_MAX_FAILURES` (bawaan 10) dalam `BOOKING_STATUS_FAILURE_WINDOW_MINUTES` (bawaan 1440) sejak salah pertama, kode itu dijawab 404 seragam, juga untuk tanggal lahir yang benar, dan diaudit `too_many_failures`. Pasien yang terkunci bertanya ke loket/WhatsApp RS.
 - **Batas laju**: batas umum per IP + throttler `public` (`@PublicRateLimited()`, `PUBLIC_RATE_LIMIT_PER_MIN`) untuk jadwal/antrean; status booking memakai batas endpoint kredensial (`@AuthRateLimited()`).
 - **Sementara** membaca tabel 0b langsung (`public-info.repository.ts`). Ganti ke service publik modul `scheduling`/`queue`/`booking` setelah tersedia; kontraknya tetap.
 

@@ -3,6 +3,7 @@
 import {
   bpjsParticipantLookupSchema,
   bpjsRejectedDetailsSchema,
+  bpjsStaffMessage,
   callResultSchema,
   counterLabelSchema,
   createPatientSchema,
@@ -72,7 +73,7 @@ function failure(err: unknown): { ok: false; message: string; code?: string } {
       return {
         ok: false,
         code: err.code,
-        message: d.success ? `Ditolak BPJS: ${d.data.bpjsMessage}` : err.message,
+        message: d.success ? `Ditolak BPJS: ${bpjsStaffMessage(d.data.reason)}` : err.message,
       };
     }
     return { ok: false, code: err.code, message: err.message };

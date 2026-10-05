@@ -78,3 +78,8 @@ Fungsi ini bukan `SECURITY DEFINER` dan tidak membaca data, jadi tidak butuh pen
 
 - `app_notify_row()` terpasang di migrasi `20261005161000_notify_row`; trigger `queue_calls_notify` memakainya (sebelumnya fungsi khusus `app_notify_queue_call()` dengan kanal dan payload yang sama).
 - Event domain dalam proses (`DomainEvents`, potongan 1b) kini juga disimpan: `publish()` menyisipkan baris `domain_events` (append-only, RLS FORCE, payload hanya ID/enum) di transaksi penerbit sebelum penangan berjalan (temuan tinjauan fase 2 dan perencanaan fase 4–5, disetujui 5 Okt 2026). Ini jejak dan sumber kejadian untuk penelusuran, bukan kanal SSE: tabel itu tidak diberi trigger NOTIFY.
+- Batas aliran bersamaan per prinsipal (review keamanan fase 2): `SseService` menghitung aliran terbuka per tenant +
+  perangkat (ADR-0027) atau tenant + pengguna di instans itu. Lebih dari batas (perangkat 2, pengguna 5; bisa diubah
+  per kanal dengan `maxPerPrincipal`) → aliran paling lama ditutup dengan `event: superseded` dan `retry: 60000`.
+  Dua untuk perangkat memberi ruang tumpang tindih sesaat saat BFF menyambung ulang. Batas tidak digabung antar-instans
+  API (tanpa status bersama); dengan N instans, satu perangkat paling banyak 2 × N aliran.

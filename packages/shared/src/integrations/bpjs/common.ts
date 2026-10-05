@@ -216,6 +216,27 @@ export function bpjsErrorLabel(code: BpjsErrorCode): string {
     : BPJS_REJECTIONS[code as BpjsRejectionKnownCode];
 }
 
+/** Kode status kirim internal (bukan jawaban BPJS) yang tampil ke petugas. */
+export const BPJS_SYNC_ERRORS = {
+  BPJS_DLQ: 'Gagal dikirim ke BPJS sampai batas waktu; kirim ulang',
+} as const;
+
+/**
+ * Pesan baku Indonesia untuk petugas dari kode galat BPJS (penolakan, gangguan, atau status kirim internal). Teks asli
+ * BPJS TIDAK PERNAH ditampilkan atau dicatat di log: isinya tak terkendali dan bisa menyebut data peserta (review
+ * keamanan fase 2). Kode yang tidak dikenal → pesan umum (kodenya pun tidak diulang ke layar).
+ */
+export function bpjsStaffMessage(code: string | null | undefined): string {
+  if (code === 'BPJS_TIDAK_DIKENAL') return 'Ditolak BPJS (alasan belum dipetakan); periksa di VClaim';
+  if (code && Object.hasOwn(BPJS_SYNC_ERRORS, code)) {
+    return BPJS_SYNC_ERRORS[code as keyof typeof BPJS_SYNC_ERRORS];
+  }
+  if (code && (Object.hasOwn(BPJS_REJECTIONS, code) || Object.hasOwn(BPJS_FAILURES, code))) {
+    return bpjsErrorLabel(code as BpjsErrorCode);
+  }
+  return 'Ditolak BPJS; periksa di VClaim';
+}
+
 const UNAVAILABLE_PATTERN =
   /maintenance|pemeliharaan|gangguan|time\s?out|coba\s+(lagi|kembali|beberapa\s+saat)/i;
 const AUTH_PATTERN =

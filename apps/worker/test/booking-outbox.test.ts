@@ -107,7 +107,7 @@ const outboxMsg = (operation: string, id: string) =>
 
 let n = 0;
 /** Booking JKN seperti yang dibuat API (baris + nomor poli cadangan + pesan `bpjs.antrean.add`). */
-async function bookJkn(opts: { cardSuffix?: string; date?: string } = {}) {
+async function bookJkn(opts: { cardSuffix?: string; date?: string; phone?: string | null } = {}) {
   n += 1;
   const date = opts.date ?? nextPracticeDay();
   const crypto = new PatientCrypto(
@@ -120,7 +120,7 @@ async function bookJkn(opts: { cardSuffix?: string; date?: string } = {}) {
       name: 'Pasien Antrean Fiktif',
       sex: 'female',
       birthDate: '1980-02-03',
-      phone: `6281200${tag}`,
+      phone: opts.phone === undefined ? `6281200${tag}` : opts.phone,
       identifiers: { nik: `9999010101${tag}`, bpjs: `0000123${opts.cardSuffix ?? tag}` },
     });
     const service = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
@@ -283,6 +283,42 @@ describe('Antrean BPJS untuk booking', () => {
       bpjsCancelStatus: 'not_required',
     });
     expect((await outboxMsg(BPJS_ANTREAN_BATAL_OPERATION, id)).status).toBe('sent');
+  });
+});
+
+describe('pasien JKN tanpa no. HP (keputusan utang fase 2)', () => {
+  /** Pengaturan RS seperti lewat API pengaturan; '' = belum diatur. */
+  const setContactPhone = (value: string) =>
+    run((tx) =>
+      tx.tenantSetting.upsert({
+        where: { tenantId_key: { tenantId: T, key: 'bpjs.contact_phone' } },
+        create: { tenantId: T, key: 'bpjs.contact_phone', value },
+        update: { value },
+      }),
+    );
+
+  it('no. telepon RS belum diatur → DLQ dengan alasan jelas; sudah diatur → nohp = no. telepon RS', async () => {
+    await setContactPhone('');
+    const dead = await bookJkn({ phone: null });
+    await dispatch();
+    expect(await appointment(dead)).toMatchObject({ bpjsSyncStatus: 'dead', bpjsErrorCode: 'BPJS_DLQ' });
+    expect((await outboxMsg(BPJS_ANTREAN_ADD_OPERATION, dead)).lastError).toMatch(/bpjs\.contact_phone/);
+
+    await setContactPhone('0215550123');
+    try {
+      const id = await bookJkn({ phone: null });
+      await dispatch();
+      expect(await appointment(id)).toMatchObject({ bpjsSyncStatus: 'sent', bpjsErrorCode: null });
+      const added = mockState.bpjs.antrean.get((await appointment(id)).bookingCode);
+      expect(added?.request.nohp).toBe('62215550123');
+      // Pasien yang punya no. HP tetap memakai miliknya.
+      const own = await bookJkn();
+      await dispatch();
+      const ownAdded = mockState.bpjs.antrean.get((await appointment(own)).bookingCode);
+      expect(ownAdded?.request.nohp).toMatch(/^6281200\d{6}$/);
+    } finally {
+      await setContactPhone('');
+    }
   });
 });
 

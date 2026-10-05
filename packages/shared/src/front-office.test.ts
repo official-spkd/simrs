@@ -10,6 +10,7 @@ import {
   BPJS_VISIT_KINDS,
   bpjsParticipantLookupSchema,
   bpjsRejectedDetailsSchema,
+  bpjsStaffMessage,
   bpjsTaskIdSchema,
   REFERRAL_DOC_KINDS,
   QUEUE_SERVICE_KINDS,
@@ -106,17 +107,34 @@ describe('galat front office', () => {
     expect(bpjsTaskIdSchema.safeParse(8).success).toBe(false);
     const reason = classifyBpjsRejection('Status peserta tidak aktif');
     expect(reason).toBe('BPJS_PESERTA_TIDAK_AKTIF');
+    expect(bpjsRejectedDetailsSchema.safeParse({ reason }).success).toBe(true);
+    expect(bpjsRejectedDetailsSchema.safeParse({ reason: classifyBpjsRejection('pesan baru') }).success).toBe(
+      true,
+    );
+    expect(bpjsRejectedDetailsSchema.safeParse({ reason: 'BPJS_KARANGAN' }).success).toBe(false);
+    // Teks asli BPJS tidak boleh ikut ke klien.
     expect(
       bpjsRejectedDetailsSchema.safeParse({ reason, bpjsMessage: 'Status peserta tidak aktif' }).success,
-    ).toBe(true);
-    expect(
-      bpjsRejectedDetailsSchema.safeParse({ reason: classifyBpjsRejection('pesan baru'), bpjsMessage: 'x' })
-        .success,
-    ).toBe(true);
-    expect(bpjsRejectedDetailsSchema.safeParse({ reason: 'BPJS_KARANGAN', bpjsMessage: 'x' }).success).toBe(
-      false,
-    );
+    ).toBe(false);
     expect(frontOfficeError('BPJS_REJECTED').status).toBe(422);
+  });
+
+  it('pesan petugas dari kode saja: baku untuk kode dikenal, umum untuk yang tidak', () => {
+    expect(bpjsStaffMessage('BPJS_RUJUKAN_TIDAK_DITEMUKAN')).toBe('Rujukan tidak ditemukan');
+    expect(bpjsStaffMessage('BPJS_UNAVAILABLE')).toBe('Layanan BPJS tidak tersedia');
+    expect(bpjsStaffMessage('BPJS_DLQ')).toMatch(/kirim ulang/);
+    expect(bpjsStaffMessage('BPJS_TIDAK_DIKENAL')).toMatch(/belum dipetakan/);
+    for (const odd of [
+      '201',
+      'Peserta a.n. BUDI tidak aktif',
+      '',
+      null,
+      undefined,
+      'toString',
+      '__proto__',
+    ]) {
+      expect(bpjsStaffMessage(odd)).toBe('Ditolak BPJS; periksa di VClaim');
+    }
   });
 
   it('nilai enum = CHECK migrasi 0b (20261005101000_front_office; spri/pending menyusul migrasi susulan)', () => {

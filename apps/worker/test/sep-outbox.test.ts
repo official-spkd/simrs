@@ -118,7 +118,9 @@ let n = 0;
  * Kunjungan BPJS seperti hasil registrasi API: pasien + kunjungan RJ (poli PD, dr. Andini = DPJP 99001) +
  * penjaminan BPJS + rujukan FKTP aktif milik kartu (nomor mock) + SEP v1 `pending` + pesan insert urut 1.
  */
-async function registered(opts: { card?: string; referenceNumber?: string; classEntitlement?: string } = {}) {
+async function registered(
+  opts: { card?: string; referenceNumber?: string; classEntitlement?: string; phone?: string | null } = {},
+) {
   n += 1;
   const tag = `${Date.now() % 1e5}${n}`.padStart(6, '0').slice(-6);
   const card = opts.card ?? `0000123${tag}`;
@@ -135,7 +137,7 @@ async function registered(opts: { card?: string; referenceNumber?: string; class
       name: 'Pasien SEP Fiktif',
       sex: 'male',
       birthDate: '1975-05-06',
-      phone: `6281300${tag}`,
+      phone: opts.phone === undefined ? `6281300${tag}` : opts.phone,
       identifiers: { nik: `9999010101${tag}`, bpjs: card },
     });
     const ident = await tx.patientIdentifier.findFirstOrThrow({
@@ -283,6 +285,35 @@ describe('terbitkan SEP', () => {
     expect(s.status).toBe('issued');
     expect(s.sepNo).toBe(mockSeps(r.card)[0]?.noSep);
     expect(mockSeps(r.card)).toHaveLength(1);
+  });
+});
+
+describe('pasien tanpa no. HP (keputusan utang fase 2)', () => {
+  const setContactPhone = (value: string) =>
+    run((tx) =>
+      tx.tenantSetting.upsert({
+        where: { tenantId_key: { tenantId: T, key: 'bpjs.contact_phone' } },
+        create: { tenantId: T, key: 'bpjs.contact_phone', value },
+        update: { value },
+      }),
+    );
+
+  it('noTelp SEP = no. telepon RS bila diatur, selain itu 0000000000', async () => {
+    try {
+      await setContactPhone('');
+      const a = await registered({ classEntitlement: 'kelas_1', phone: null });
+      await drain();
+      expect(mockSeps(a.card)[0]?.tSep.noTelp).toBe('0000000000');
+      await setContactPhone('0215550123');
+      const b = await registered({ classEntitlement: 'kelas_1', phone: null });
+      await drain();
+      expect(mockSeps(b.card)[0]?.tSep.noTelp).toBe('0215550123');
+      const c = await registered({ classEntitlement: 'kelas_1' });
+      await drain();
+      expect(mockSeps(c.card)[0]?.tSep.noTelp).toMatch(/^081300\d{6}$/);
+    } finally {
+      await setContactPhone('');
+    }
   });
 });
 

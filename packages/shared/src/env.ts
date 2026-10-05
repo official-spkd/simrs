@@ -92,6 +92,13 @@ export const envSchemas = {
      */
     PUBLIC_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(60),
     /**
+     * Status booking publik (F08): batas tanggal lahir salah per kode booking (apa pun IP-nya) dalam jendela
+     * `BOOKING_STATUS_FAILURE_WINDOW_MINUTES` sejak salah pertama. Setelahnya kode itu dijawab 404 seragam (juga untuk
+     * tanggal lahir yang benar) sampai jendela habis, dan tetap diaudit.
+     */
+    BOOKING_STATUS_MAX_FAILURES: z.coerce.number().int().min(1).max(100).default(10),
+    BOOKING_STATUS_FAILURE_WINDOW_MINUTES: z.coerce.number().int().min(1).max(10_080).default(1440),
+    /**
      * Penyimpanan penghitung. `auto` = Redis bila terjangkau saat start, selain itu memori dengan peringatan; di
      * produksi `auto` sama dengan `redis`. `redis` = Redis wajib: bila gagal, endpoint kredensial ditolak 503 (gagal
      * tertutup) dan batas lain sementara per instans. `memory` = per proses, ditolak di produksi.

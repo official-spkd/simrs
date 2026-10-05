@@ -55,6 +55,16 @@ export const VCLAIM_ENDPOINTS = {
   rencanaKontrolDelete: { method: 'DELETE', path: '/RencanaKontrol/Delete' },
   /** Detail surat kontrol/SPRI → `vclaimSuratKontrolSchema`. */
   suratKontrolByNomor: { method: 'GET', path: '/RencanaKontrol/noSuratKontrol/:noSuratKontrol' },
+  /**
+   * Surat kontrol + SPRI milik satu kartu dalam satu bulan (`bulan` 2 digit, `tahun` 4 digit); `filter` lihat
+   * `VCLAIM_FILTER_SURAT` → `vclaimSuratKontrolListResponseSchema`. Dipakai worker sebelum mengirim ulang surat
+   * (cari surat yang sudah terbit, jangan terbitkan ganda). ASUMSI: path dan bentuk respons mengikuti katalog
+   * VClaim 2.0 "Data Surat Kontrol Berdasarkan No Kartu" yang beredar publik; cocokkan sebelum integrasi nyata.
+   */
+  rencanaKontrolListByKartu: {
+    method: 'GET',
+    path: '/RencanaKontrol/ListRencanaKontrol/Bulan/:bulan/Tahun/:tahun/Nokartu/:noKartu/filter/:filter',
+  },
   /** F07 · Rujukan keluar dari SEP RS ini → `vclaimRujukanKeluarResponseSchema`. */
   rujukanKeluarInsert: { method: 'POST', path: '/Rujukan/2.0/insert' },
   /** Ubah rujukan keluar → `vclaimNoRujukanResponseSchema`. */
@@ -381,6 +391,40 @@ export const vclaimSuratKontrolSchema = z.object({
   noSepAsal: z.string().nullable(),
 });
 export type VclaimSuratKontrol = z.infer<typeof vclaimSuratKontrolSchema>;
+
+/** `filter` daftar surat per kartu: 1 = menurut tanggal entri (terbit), 2 = menurut tanggal rencana kontrol. */
+export const VCLAIM_FILTER_SURAT = { tglEntri: '1', tglRencana: '2' } as const;
+
+/**
+ * Satu baris daftar surat per kartu. ASUMSI (katalog publik, belum dicocokkan dengan BPJS): isian asal (SEP/poli)
+ * kosong/null untuk SPRI; `terbitSEP` "Sudah"/"Belum". Surat yang sudah dihapus tidak ikut terdaftar.
+ */
+export const vclaimSuratKontrolListItemSchema = z.object({
+  noSuratKontrol: z.string().min(1),
+  /** `Rawat Jalan` | `Rawat Inap`. */
+  jnsPelayanan: z.string(),
+  jnsKontrol: z.enum(['1', '2']),
+  namaJnsKontrol: z.string(),
+  tglRencanaKontrol: bpjsDateSchema,
+  tglTerbitKontrol: bpjsDateSchema,
+  /** SEP asal surat kontrol; kosong/null untuk SPRI. */
+  noSepAsalKontrol: z.string().nullable(),
+  poliAsal: z.string().nullable(),
+  namaPoliAsal: z.string().nullable(),
+  poliTujuan: z.string(),
+  namaPoliTujuan: z.string(),
+  tglSEP: z.string().nullable(),
+  kodeDokter: z.string(),
+  namaDokter: z.string(),
+  noKartu: bpjsNoKartuSchema,
+  nama: z.string(),
+  terbitSEP: z.string(),
+});
+export type VclaimSuratKontrolListItem = z.infer<typeof vclaimSuratKontrolListItemSchema>;
+export const vclaimSuratKontrolListResponseSchema = z.object({
+  list: z.array(vclaimSuratKontrolListItemSchema),
+});
+export type VclaimSuratKontrolListResponse = z.infer<typeof vclaimSuratKontrolListResponseSchema>;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Referensi + histori

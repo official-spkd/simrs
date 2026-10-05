@@ -308,6 +308,58 @@ describe('skrip Redis: jendela geser dan blokir (sama dengan penyimpanan memori)
   });
 });
 
+describe('penghitung kegagalan per subjek (status booking publik)', () => {
+  it('Redis: dibaca tanpa menambah, jendela tetap sejak kegagalan pertama, per nama + subjek', async () => {
+    const env = loadApiEnv({
+      ...process.env,
+      NODE_ENV: 'test',
+      APP_ENV: 'local',
+      TRUST_PROXY: 'loopback',
+      STORAGE_DRIVER: 'disk',
+      RATE_LIMIT_STORE: 'redis',
+      RATE_LIMIT_REDIS_PREFIX: uniquePrefix(),
+    });
+    const service = new RedisService(env);
+    const storage = new RateLimitStorage(env, service);
+    await storage.onModuleInit();
+    const failure = vi.spyOn(Logger.prototype, 'error');
+    try {
+      expect(await storage.failures('uji', 'a')).toBe(0);
+      expect(await storage.addFailure('uji', 'a', 400)).toBe(1);
+      expect(await storage.addFailure('uji', 'a', 400)).toBe(2);
+      expect(await storage.failures('uji', 'a')).toBe(2);
+      expect(await storage.failures('uji', 'b')).toBe(0);
+      expect(await storage.failures('lain', 'a')).toBe(0);
+      const keys = await service.client.keys(`${storage.keyPrefix}*`);
+      expect(keys).toEqual([`${storage.keyPrefix}{fail:uji:a}`]);
+      await new Promise((r) => setTimeout(r, 450));
+      expect(await storage.failures('uji', 'a')).toBe(0);
+      expect(failure).not.toHaveBeenCalled();
+    } finally {
+      await service.onModuleDestroy();
+    }
+  });
+
+  it('memori: perilaku sama tanpa Redis', async () => {
+    const env = loadApiEnv({
+      ...process.env,
+      NODE_ENV: 'test',
+      APP_ENV: 'local',
+      TRUST_PROXY: 'loopback',
+      STORAGE_DRIVER: 'disk',
+      RATE_LIMIT_STORE: 'memory',
+    });
+    const storage = new RateLimitStorage(env, new RedisService(env));
+    await storage.onModuleInit();
+    expect(await storage.addFailure('uji', 'a', 200)).toBe(1);
+    expect(await storage.addFailure('uji', 'a', 200)).toBe(2);
+    expect(await storage.failures('uji', 'a')).toBe(2);
+    await new Promise((r) => setTimeout(r, 250));
+    expect(await storage.failures('uji', 'a')).toBe(0);
+    expect(await storage.addFailure('uji', 'a', 200)).toBe(1);
+  });
+});
+
 describe('Redis gagal setelah start (penyimpanan dengan Redis tiruan)', () => {
   const MIN = 60_000;
 
