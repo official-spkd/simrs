@@ -28,6 +28,7 @@ import {
   type WeeklySchedule,
 } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
+import { BookingService } from '../booking/booking.service';
 import { SchedulingRepository } from './scheduling.repository';
 import { buildWeek, compareWithHfis, latestPulls, type RsSession } from './scheduling.view';
 
@@ -58,6 +59,7 @@ export class SchedulingService {
   constructor(
     private readonly repo: SchedulingRepository,
     private readonly db: TenantDb,
+    private readonly booking: BookingService,
   ) {}
 
   private today(): string {
@@ -85,6 +87,7 @@ export class SchedulingService {
       quota: { jkn: s.quotaJkn, nonJkn: s.quotaNonJkn, bookedJkn: s.bookedJkn, bookedNonJkn: s.bookedNonJkn },
       hfisSynced: synced,
       updatedAt: s.updatedAt.toISOString(),
+      transferredAt: s.transferredAt?.toISOString() ?? null,
     };
   }
 
@@ -232,17 +235,26 @@ export class SchedulingService {
     return { session: await this.session(id), affectedBookings: await this.repo.countActiveBookings(id) };
   }
 
+  /**
+   * Alihkan pasien sesi cuti; penanda `transferred_at` disimpan agar layar menampilkan "sudah dialihkan".
+   * - `substitute`: pasien tetap di sesi ini atas nama dokter pengganti. Kode booking dan nomor antrean tetap; Antrean
+   *   BPJS tidak punya operasi ubah dokter, jadi tidak ada outbox antrean (pengganti dicatat di aplikasi HFIS).
+   * - `session`: tiap booking dijadwal ulang lewat modul booking (booking lama batal + booking baru berkode baru),
+   *   sehingga JKN mendapat `bpjs.antrean.batal` + `bpjs.antrean.add` dan tiket antrean baru. Satu gagal (mis. kuota
+   *   tujuan habis → 409 `QUOTA_FULL`) = seluruh pengalihan batal.
+   * WhatsApp: satu pesan per booking × sesi tujuan (kunci outbox idempoten), hanya untuk booking yang baru dialihkan.
+   */
   async transfer(id: string, input: TransferBookingsInput) {
     const s = await this.repo.session(id);
     if (!s) throw notFound('Sesi praktik');
     if (s.kind !== 'cuti')
       throw frontOfficeError('SESSION_CLOSED', undefined, 'Pengalihan hanya untuk sesi cuti');
     let moved: string[];
+    let targetSessionId: string;
     if (input.target.kind === 'substitute') {
       if (!s.substituteId) throw invalid('Sesi cuti ini belum punya dokter pengganti');
-      const appointments = await this.repo.bookedAppointments(id);
-      await this.repo.assignSubstitute(id, s.substituteId);
-      moved = appointments.map((a) => a.id);
+      moved = await this.repo.assignSubstitute(id, s.substituteId);
+      targetSessionId = s.id;
     } else {
       const target = await this.repo.session(input.target.sessionId);
       if (!target) throw notFound('Sesi tujuan');
@@ -253,30 +265,22 @@ export class SchedulingService {
       if (target.kind !== 'praktik' && !target.substituteId) {
         throw frontOfficeError('SESSION_CLOSED', undefined, 'Sesi tujuan tidak menerima pasien');
       }
-      const appointments = await this.repo.bookedAppointments(id);
-      for (const a of appointments) {
-        const bucket = a.quotaBucket === 'jkn' ? 'jkn' : 'non_jkn';
-        // Satu gagal = seluruh transaksi batal: tidak ada pasien yang dipindah sebagian.
-        if (!(await this.repo.reserve(target.id, bucket))) {
-          throw frontOfficeError(
-            'QUOTA_FULL',
-            { needed: appointments.length },
-            'Kuota sesi tujuan tidak cukup untuk semua pasien',
-          );
-        }
-        await this.repo.release(id, bucket);
-        await this.repo.moveAppointment(a.id, target);
+      const reason = `Dialihkan karena dokter cuti ${s.date}`;
+      moved = [];
+      for (const a of await this.repo.bookedAppointments(id)) {
+        const r = await this.booking.reschedule(a.id, { sessionId: target.id, reason });
+        moved.push(r.booking.id);
       }
-      moved = appointments.map((a) => a.id);
+      targetSessionId = target.id;
     }
+    await this.repo.markTransferred(id, input.target.kind);
     let notified = 0;
     if (input.notifyPatients) {
-      const run = Math.floor(Date.now() / 1000);
       for (const appointmentId of moved) {
         await this.repo.enqueue({
           target: 'whatsapp',
           operation: PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION,
-          idempotencyKey: outboxKey(PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, appointmentId, run),
+          idempotencyKey: outboxKey(PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, `${appointmentId}:${targetSessionId}`),
           payload: { appointmentId },
         });
         notified++;

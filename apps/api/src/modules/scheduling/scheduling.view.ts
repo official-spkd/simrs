@@ -42,6 +42,8 @@ export interface RsSession {
   bookedJkn: number;
   bookedNonJkn: number;
   updatedAt: Date;
+  /** Sesi cuti: pasien sudah dialihkan. */
+  transferredAt: Date | null;
 }
 
 export interface HfisPull {
