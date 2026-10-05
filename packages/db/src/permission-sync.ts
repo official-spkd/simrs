@@ -219,3 +219,166 @@ export async function syncRolePermissions(
   }
   return report;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Rekonsiliasi matriks bawaan (`pnpm db:sync-permissions --reconcile`)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Selisih satu peran terhadap matriks bawaan, entri `sumber.aksi:lingkup` seperti audit editor matriks. */
+export interface RoleGrantDiff {
+  role: string;
+  /** Izin bawaan yang belum dipegang peran (dengan lingkup bawaan). */
+  added: string[];
+  /** Izin yang dipegang peran tetapi tidak ada di matriks bawaan. */
+  removed: string[];
+  /** Izin yang dipegang dengan lingkup berbeda dari bawaan. */
+  rescoped: Array<{ permission: string; from: PermissionScope; to: PermissionScope }>;
+}
+
+export interface PermissionReconcileReport {
+  tenantKind: TenantKind;
+  /** Peran sistem yang belum pernah diubah RS: disesuaikan ke matriks bawaan (pada uji coba: akan disesuaikan). */
+  applied: RoleGrantDiff[];
+  /** Peran sistem yang pernah diubah RS: selisihnya hanya dilaporkan untuk ditinjau admin, tidak disentuh. */
+  review: RoleGrantDiff[];
+  /** Peran bawaan yang belum ada di RS ini (tidak dibuat; lihat `ensureSystemRoles`). */
+  missingRoles: string[];
+  dryRun: boolean;
+}
+
+/**
+ * Peran yang matriksnya pernah diubah RS: ada jejak audit `role_permissions` peran itu yang BUKAN tulisan sistem
+ * (sinkron dan rekonsiliasi menulis `actor_role = 'system'`) dan benar-benar mengubah isi (selisih tidak kosong).
+ * Jejak audit append-only, jadi peran yang pernah diubah tidak bisa kembali dianggap "belum diubah".
+ */
+async function customizedRoles(tx: TenantTx): Promise<Set<string>> {
+  const events = await tx.auditEvent.findMany({
+    where: { resourceType: 'role_permissions', resourceId: { not: null } },
+    select: { resourceId: true, actorRole: true, details: true },
+  });
+  const out = new Set<string>();
+  for (const e of events) {
+    if (!e.resourceId || e.actorRole === 'system') continue;
+    const d = (e.details ?? {}) as { added?: unknown; removed?: unknown };
+    const changed =
+      (Array.isArray(d.added) && d.added.length > 0) || (Array.isArray(d.removed) && d.removed.length > 0);
+    if (changed) out.add(e.resourceId);
+  }
+  return out;
+}
+
+const isEmptyDiff = (d: RoleGrantDiff) => d.added.length + d.removed.length + d.rescoped.length === 0;
+
+/**
+ * P03 · Bawa PERUBAHAN matriks bawaan (izin baru, izin yang dicabut, lingkup yang berubah) ke peran sistem RS yang
+ * sudah berjalan, tetapi HANYA peran yang belum pernah diubah RS (ADR-0012: matriks per RS milik RS):
+ * - peran yang pernah diubah admin (`customizedRoles`) tidak disentuh; selisihnya dilaporkan per peran (`review`)
+ *   untuk ditinjau di layar Akses;
+ * - peran buatan RS (`is_system = false`) dan izin `platform.*` di tenant RS tidak pernah disentuh;
+ * - setiap peran yang disesuaikan diaudit `system` dengan format selisih editor matriks (perubahan lingkup = lingkup
+ *   lama keluar + lingkup baru masuk), sehingga peran itu tetap dianggap "belum diubah RS" pada rekonsiliasi
+ *   berikutnya; jalan ulang tanpa perubahan bawaan = tanpa perubahan (idempoten);
+ * - uji coba hanya menghitung, tidak menulis apa pun.
+ * Dipanggil dalam `withTenant`; dikunci per tenant bersama editor matriks dan sinkron katalog.
+ */
+export async function reconcileRolePermissions(
+  tx: TenantTx,
+  tenantId: string,
+  kind: TenantKind,
+  opts: { dryRun?: boolean; catalog?: PermissionSyncCatalog; via?: string } = {},
+): Promise<PermissionReconcileReport> {
+  const catalog = opts.catalog ?? CODE_PERMISSION_CATALOG;
+  const dryRun = opts.dryRun ?? false;
+  const via = opts.via ?? 'matrix_reconcile';
+  if (!dryRun) await lockTenantScope(tx, ROLE_MATRIX_LOCK);
+
+  const roles = await tx.role.findMany({
+    where: { isSystem: true },
+    select: {
+      id: true,
+      code: true,
+      permissions: { select: { resource: true, action: true, scope: true } },
+    },
+  });
+  const byCode = new Map(roles.map((r) => [r.code, r] as const));
+  const customized = await customizedRoles(tx);
+  const report: PermissionReconcileReport = {
+    tenantKind: kind,
+    applied: [],
+    review: [],
+    missingRoles: [],
+    dryRun,
+  };
+
+  for (const def of catalog.rolesFor(kind)) {
+    const role = byCode.get(def.code);
+    if (!role) {
+      report.missingRoles.push(def.code);
+      continue;
+    }
+    const wanted = new Map(
+      def.grants
+        .filter(([resource]) => permissionAllowedFor(kind, resource))
+        .map(([resource, action, scope]) => [permissionKey(resource, action), { resource, action, scope }]),
+    );
+    const held = new Map(role.permissions.map((p) => [permissionKey(p.resource, p.action), p] as const));
+    const diff: RoleGrantDiff = { role: role.code, added: [], removed: [], rescoped: [] };
+    for (const [key, g] of wanted) {
+      const h = held.get(key);
+      if (!h) diff.added.push(grantDiffEntry(g));
+      else if (h.scope !== g.scope) {
+        diff.rescoped.push({ permission: key, from: h.scope as PermissionScope, to: g.scope });
+      }
+    }
+    for (const [key, h] of held) {
+      if (!wanted.has(key) && permissionAllowedFor(kind, h.resource)) diff.removed.push(grantDiffEntry(h));
+    }
+    diff.added.sort();
+    diff.removed.sort();
+    diff.rescoped.sort((a, b) => a.permission.localeCompare(b.permission));
+    if (isEmptyDiff(diff)) continue;
+    if (customized.has(role.code)) {
+      report.review.push(diff);
+      continue;
+    }
+    report.applied.push(diff);
+    if (dryRun) continue;
+
+    for (const p of role.permissions.filter((g) => diff.removed.includes(grantDiffEntry(g)))) {
+      await tx.rolePermission.delete({
+        where: { roleId_resource_action: { roleId: role.id, resource: p.resource, action: p.action } },
+      });
+    }
+    for (const r of diff.rescoped) {
+      const h = held.get(r.permission);
+      if (!h) continue;
+      await tx.rolePermission.update({
+        where: { roleId_resource_action: { roleId: role.id, resource: h.resource, action: h.action } },
+        data: { scope: r.to, updatedBy: null },
+      });
+    }
+    const addRows = diff.added.map((entry) => {
+      const parsed = parseGrantDiffEntry(entry);
+      const g = parsed ? wanted.get(parsed.permission) : undefined;
+      if (!g) throw new Error(`Entri izin bawaan tidak dikenali: ${entry}`);
+      return { tenantId, roleId: role.id, resource: g.resource, action: g.action, scope: g.scope };
+    });
+    if (addRows.length > 0) await tx.rolePermission.createMany({ data: addRows });
+    await tx.auditEvent.create({
+      data: {
+        id: newId(),
+        tenantId,
+        actorRole: 'system',
+        resourceType: 'role_permissions',
+        resourceId: role.code,
+        action: 'update',
+        details: {
+          added: [...diff.added, ...diff.rescoped.map((r) => `${r.permission}:${r.to}`)].sort(),
+          removed: [...diff.removed, ...diff.rescoped.map((r) => `${r.permission}:${r.from}`)].sort(),
+          via,
+        },
+      },
+    });
+  }
+  return report;
+}

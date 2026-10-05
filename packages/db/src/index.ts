@@ -84,8 +84,11 @@ export {
 } from './authz';
 export {
   CODE_PERMISSION_CATALOG,
+  type PermissionReconcileReport,
   type PermissionSyncCatalog,
   type PermissionSyncReport,
+  reconcileRolePermissions,
+  type RoleGrantDiff,
   syncRolePermissions,
 } from './permission-sync';
 export { insertPatient, toDbDate, type NewPatientRecord } from './patients';

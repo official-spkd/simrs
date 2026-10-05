@@ -15,6 +15,7 @@ import {
   ensureSystemRoles,
   type PermissionSyncCatalog,
   type PrismaClient,
+  reconcileRolePermissions,
   syncRolePermissions,
   type TenantTx,
   withTenant,
@@ -338,6 +339,114 @@ describe('sinkron izin katalog', () => {
   });
 });
 
+/**
+ * Katalog dengan matriks bawaan yang BERUBAH untuk izin yang sudah ada (tanpa izin baru): perawat kehilangan
+ * `ref.read`, `facility.read` perawat pindah lingkup ke `unit`, dan kasir mendapat `schedule.read`. Meniru perubahan
+ * keputusan matriks bawaan yang tidak bisa dibawa sinkron katalog biasa.
+ */
+function changedDefaults(): PermissionSyncCatalog {
+  return {
+    ...CODE_PERMISSION_CATALOG,
+    rolesFor: (kind) =>
+      CODE_PERMISSION_CATALOG.rolesFor(kind).map((r) => {
+        if (r.code === 'perawat') {
+          return {
+            ...r,
+            grants: r.grants
+              .filter(([res, act]) => !(res === 'ref' && act === 'read'))
+              .map((g) => (g[0] === 'facility' && g[1] === 'read' ? ([g[0], g[1], 'unit'] as const) : g)),
+          };
+        }
+        if (r.code === 'kasir') return { ...r, grants: [...r.grants, ['schedule', 'read', 'all'] as const] };
+        return r;
+      }),
+  };
+}
+
+const reconcile = (id: string, opts: Parameters<typeof reconcileRolePermissions>[3] = {}) =>
+  inTenant(id, (tx) => reconcileRolePermissions(tx, id, 'hospital', opts));
+
+describe('rekonsiliasi matriks bawaan (--reconcile)', () => {
+  it('matriks sama dengan bawaan → tidak ada perubahan, tanpa audit', async () => {
+    const T = await newTenant();
+    const audits = await auditCount(T.id);
+    const r = await reconcile(T.id);
+    expect(r).toMatchObject({ applied: [], review: [], missingRoles: [] });
+    expect(await auditCount(T.id)).toBe(audits);
+  });
+
+  it('peran yang belum diubah RS disamakan dengan bawaan (tambah, cabut, ubah lingkup), diaudit system; idempoten', async () => {
+    const T = await newTenant();
+    const r = await reconcile(T.id, { catalog: changedDefaults() });
+    expect(r.review).toEqual([]);
+    const perawat = r.applied.find((d) => d.role === 'perawat');
+    expect(perawat).toMatchObject({
+      removed: ['ref.read:all'],
+      rescoped: [{ permission: 'facility.read', from: 'all', to: 'unit' }],
+    });
+    expect(r.applied.find((d) => d.role === 'kasir')).toMatchObject({ added: ['schedule.read:all'] });
+    const nurse = await grantsOf(T.id, 'perawat');
+    expect(nurse).toContain('facility.read:unit');
+    expect(nurse).not.toContain('ref.read:all');
+    expect(await grantsOf(T.id, 'kasir')).toContain('schedule.read:all');
+    const audit = await inTenant(T.id, (tx) =>
+      tx.auditEvent.findFirst({
+        where: { resourceType: 'role_permissions', resourceId: 'perawat' },
+        orderBy: { seq: 'desc' },
+      }),
+    );
+    expect(audit).toMatchObject({ actorRole: 'system', actorUserId: null });
+    expect(audit?.details).toMatchObject({
+      added: ['facility.read:unit'],
+      removed: ['facility.read:all', 'ref.read:all'],
+      via: 'matrix_reconcile',
+    });
+    // Penyesuaian sistem tidak membuat peran dianggap "diubah RS": jalan ulang tanpa perubahan bawaan = kosong.
+    expect(await reconcile(T.id, { catalog: changedDefaults() })).toMatchObject({ applied: [], review: [] });
+  });
+
+  it('peran yang pernah diubah RS tidak disentuh; selisihnya dilaporkan untuk ditinjau admin', async () => {
+    const T = await newTenant();
+    await adminEdit(T.id, 'perawat', { add: [['documents', 'print', 'all']] });
+    const before = await grantsOf(T.id, 'perawat');
+    const r = await reconcile(T.id, { catalog: changedDefaults() });
+    const review = r.review.find((d) => d.role === 'perawat');
+    expect(review).toMatchObject({
+      removed: ['documents.print:all', 'ref.read:all'],
+      rescoped: [{ permission: 'facility.read', from: 'all', to: 'unit' }],
+    });
+    expect(r.applied.map((d) => d.role)).toEqual(['kasir']);
+    expect(await grantsOf(T.id, 'perawat')).toEqual(before);
+  });
+
+  it('peran buatan RS tidak pernah disentuh', async () => {
+    const T = await newTenant();
+    await inTenant(T.id, async (tx) => {
+      const id = newId();
+      await tx.role.create({
+        data: { id, tenantId: T.id, code: 'koordinator_uji', name: 'Koordinator uji', isSystem: false },
+      });
+      await tx.rolePermission.create({
+        data: { tenantId: T.id, roleId: id, resource: 'patient', action: 'read', scope: 'all' },
+      });
+    });
+    const r = await reconcile(T.id, { catalog: changedDefaults() });
+    expect([...r.applied, ...r.review].map((d) => d.role)).not.toContain('koordinator_uji');
+    expect(await grantsOf(T.id, 'koordinator_uji')).toEqual(['patient.read:all']);
+  });
+
+  it('uji coba tidak menulis apa pun', async () => {
+    const T = await newTenant();
+    const nurse = await grantsOf(T.id, 'perawat');
+    const audits = await auditCount(T.id);
+    const r = await reconcile(T.id, { catalog: changedDefaults(), dryRun: true });
+    expect(r.dryRun).toBe(true);
+    expect(r.applied.map((d) => d.role).sort()).toEqual(['kasir', 'perawat']);
+    expect(await grantsOf(T.id, 'perawat')).toEqual(nurse);
+    expect(await auditCount(T.id)).toBe(audits);
+  });
+});
+
 describe('persiapan database tes', () => {
   it('tenant seed ikut disinkron (izin baru di katalog sampai ke RSFA/RSFB lama tanpa membuat ulang DB)', async () => {
     for (const t of [...SEED_TENANTS, SEED_PLATFORM_TENANT]) {
@@ -374,5 +483,32 @@ describe('CLI pnpm db:sync-permissions', () => {
 
     await expect(run(['--tenant', 'TIDAK-ADA-RS'])).rejects.toMatchObject({ code: 1 });
     await expect(run(['--hapus-semua'])).rejects.toMatchObject({ code: 1 });
+  });
+
+  it('--reconcile --dry-run mencetak rencana tanpa menyimpan; --reconcile menerapkannya ke peran yang belum diubah RS', async () => {
+    const T = await newTenant();
+    // Peran sistem dengan matriks yang berbeda dari bawaan saat ini (mis. RS dibuat sebelum matriks bawaan berubah),
+    // tanpa jejak perubahan oleh admin.
+    await inTenant(T.id, async (tx) => {
+      const r = await tx.role.findFirstOrThrow({ where: { code: 'kasir' } });
+      await tx.rolePermission.deleteMany({ where: { roleId: r.id, resource: 'facility', action: 'read' } });
+    });
+    const audits = await auditCount(T.id);
+    const dry = await run(['--tenant', T.code, '--reconcile', '--dry-run']);
+    expect(dry.stdout).toContain('peran akan disesuaikan');
+    expect(dry.stdout).toContain('✓ kasir: + facility.read:all');
+    expect(dry.stdout).toContain('Uji coba: tidak ada yang disimpan.');
+    expect(await grantsOf(T.id, 'kasir')).not.toContain('facility.read:all');
+    expect(await recordOf(T.id)).toBeNull();
+    expect(await auditCount(T.id)).toBe(audits);
+
+    const real = await run(['--tenant', T.code, '--reconcile']);
+    expect(real.stdout).toContain('✓ kasir: + facility.read:all');
+    expect(await grantsOf(T.id, 'kasir')).toContain('facility.read:all');
+    const audit = await inTenant(T.id, (tx) =>
+      tx.auditEvent.findFirst({ where: { resourceType: 'role_permissions', resourceId: 'kasir' } }),
+    );
+    expect(audit).toMatchObject({ actorRole: 'system' });
+    expect(audit?.details).toMatchObject({ added: ['facility.read:all'], via: 'cli_reconcile' });
   });
 });
