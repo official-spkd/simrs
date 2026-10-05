@@ -36,13 +36,17 @@ export interface DeviceRow {
 export class DevicesRepository {
   constructor(private readonly db: TenantDb) {}
 
+  /**
+   * Terbaru dulu (id UUID v7 turun): perangkat yang baru dibuat admin, beserta kodenya yang masih menunggu, selalu di
+   * halaman pertama walau RS sudah punya banyak perangkat. Kursor = id terakhir halaman sebelumnya.
+   */
   list(opts: { kind?: DevicePrincipalKind; cursor?: string; limit: number }): Promise<DeviceRow[]> {
     return this.db.tx().registeredDevice.findMany({
       where: {
         kind: opts.kind ?? { in: [...DEVICE_PRINCIPAL_KINDS] },
-        ...(opts.cursor ? { id: { gt: opts.cursor } } : {}),
+        ...(opts.cursor ? { id: { lt: opts.cursor } } : {}),
       },
-      orderBy: { id: 'asc' },
+      orderBy: { id: 'desc' },
       take: opts.limit + 1,
       select: viewSelect,
     });
