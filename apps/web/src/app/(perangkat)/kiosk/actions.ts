@@ -78,7 +78,7 @@ export async function identifyAction(input: unknown): Promise<KioskResult<{ resu
   const denied = await asKiosk();
   if (denied) return denied;
   const p = kioskIdentifySchema.safeParse(input);
-  if (!p.success) return invalid('Jumlah angka belum sesuai. Periksa kembali.');
+  if (!p.success) return invalid('Nomor atau tanggal lahir belum sesuai. Periksa kembali.');
   try {
     return { ok: true, result: await kioskIdentify(p.data) };
   } catch (err) {

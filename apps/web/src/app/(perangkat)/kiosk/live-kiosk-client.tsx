@@ -1,6 +1,11 @@
 'use client';
 
-import type { KioskPurpose, KioskSessionOption, PrintableTicket } from '@simrs/shared';
+import {
+  KIOSK_BIRTH_DDMM_PATTERN,
+  type KioskPurpose,
+  type KioskSessionOption,
+  type PrintableTicket,
+} from '@simrs/shared';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { KioskTicket } from '@/components/front-office/kiosk-confirm';
@@ -31,13 +36,21 @@ import {
   ticketHtmlAction,
 } from './actions';
 
-type Screen = 'home' | 'metode' | 'input' | 'konfirmasi' | 'dokter' | 'loket' | 'tiket';
+type Screen = 'home' | 'metode' | 'input' | 'lahir' | 'konfirmasi' | 'dokter' | 'loket' | 'tiket';
+
+/** Faktor kedua identifikasi: tanggal + bulan lahir (keputusan fase 2 no. 3, revisi 5 Okt 2026). */
+const BIRTH_KEYPAD = {
+  title: 'tanggal dan bulan lahir',
+  desc: '4 angka: tanggal lalu bulan, mis. 1403 untuk 14 Maret',
+  len: 4,
+};
 
 /** Layar non-awal tanpa sentuhan selama ini → kembali ke awal (nama tersamar tidak tertinggal di layar umum). */
 const IDLE_MS = 90_000;
 
 /**
  * F05 · Anjungan mode api (fase 2 potongan 6) di PERANGKAT anjungan terdaftar: tujuan → cara identifikasi → keypad →
+ * tanggal + bulan lahir (DDMM) →
  * konfirmasi nama tersamar + tanggal lahir tanpa tahun → check-in / daftar ke poli (BPJS, alur 5a + SEP) / pilih
  * dokter (umum) / nomor loket / farmasi-kasir → tiket (dicetak lewat HTML 80 mm dari API). Komponen layar sama dengan
  * mode presentasi (target sentuh ≥ 64 px); jalur demo tetap di `kiosk-client.tsx`.
@@ -60,6 +73,7 @@ export function LiveKioskClient({
   const [purposeIndex, setPurposeIndex] = useState(0);
   const [method, setMethod] = useState<KioskMethod['id']>('booking');
   const [digits, setDigits] = useState('');
+  const [birth, setBirth] = useState('');
   const [found, setFound] = useState<KioskFound | null>(null);
   /** Kunci idempotensi tindakan dengan token ini (sentuhan ganda/ulang kirim → tiket yang sama). */
   const [actionKey, setActionKey] = useState('');
@@ -80,14 +94,15 @@ export function LiveKioskClient({
   const pur = PURPOSES[purposeIndex] ?? PURPOSES[0];
   const order: Screen[] =
     purpose === 'umum'
-      ? ['metode', 'input', 'konfirmasi', 'dokter', 'tiket']
-      : ['metode', 'input', 'konfirmasi', 'tiket'];
+      ? ['metode', 'input', 'lahir', 'konfirmasi', 'dokter', 'tiket']
+      : ['metode', 'input', 'lahir', 'konfirmasi', 'tiket'];
   const stepLabel = `Langkah ${Math.max(order.indexOf(screen), 0) + 1} dari ${order.length}`;
 
   const reset = (message: string | null = null) => {
     setPurposeIndex(0);
     setPurpose('booking');
     setDigits('');
+    setBirth('');
     setFound(null);
     setActionKey('');
     setTicket(null);
@@ -132,8 +147,12 @@ export function LiveKioskClient({
 
   const identify = () => {
     setNotice(null);
+    if (!KIOSK_BIRTH_DDMM_PATTERN.test(birth)) {
+      setNotice('Tanggal dan bulan lahir belum benar. Contoh: 1403 untuk 14 Maret.');
+      return;
+    }
     startTransition(async () => {
-      const res = await identifyAction({ purpose, method, value: digits });
+      const res = await identifyAction({ purpose, method, value: digits, birthDdmm: birth });
       if (!res.ok) return fail(res);
       if (!res.result.found) {
         setCounterMessage(
@@ -207,7 +226,8 @@ export function LiveKioskClient({
       home: 'home',
       metode: 'home',
       input: 'metode',
-      konfirmasi: 'input',
+      lahir: 'input',
+      konfirmasi: 'lahir',
       dokter: 'konfirmasi',
       loket: 'home',
       tiket: 'home',
@@ -233,7 +253,7 @@ export function LiveKioskClient({
     >
       <KioskHeader tenantName={tenantName} time={time} date={dateLabel} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-4">
-        {notice && screen !== 'input' && (
+        {notice && screen !== 'input' && screen !== 'lahir' && (
           <div className="px-16 pt-8">
             <KioskNotice tone="warning">{notice}</KioskNotice>
           </div>
@@ -258,6 +278,7 @@ export function LiveKioskClient({
             onPick={(id) => {
               setMethod(id);
               setDigits('');
+              setBirth('');
               setScreen('input');
             }}
           />
@@ -272,6 +293,25 @@ export function LiveKioskClient({
             onDigits={(d) => {
               setNotice(null);
               setDigits(d);
+            }}
+            onBack={back}
+            onNext={() => {
+              setNotice(null);
+              setBirth('');
+              setScreen('lahir');
+            }}
+          />
+        )}
+        {screen === 'lahir' && (
+          <KioskKeypad
+            method={BIRTH_KEYPAD}
+            digits={birth}
+            step={stepLabel}
+            busy={pending}
+            notice={notice ? <KioskNotice tone="warning">{notice}</KioskNotice> : null}
+            onDigits={(d) => {
+              setNotice(null);
+              setBirth(d);
             }}
             onBack={back}
             onNext={identify}

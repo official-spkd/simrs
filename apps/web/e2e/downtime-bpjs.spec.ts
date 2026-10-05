@@ -107,6 +107,10 @@ test('BPJS mati: daftar mandiri di anjungan tetap jalan, SEP menunggu terlihat, 
   const keypad = kiosk.getByRole('group', { name: 'Keypad angka' });
   for (const d of card) await keypad.getByRole('button', { name: `Angka ${d}` }).click();
   await kiosk.getByRole('button', { name: 'Lanjut' }).click();
+  // Faktor kedua: tanggal + bulan lahir (DDMM) sebelum nama tersamar tampil.
+  await expect(kiosk.getByRole('heading', { name: 'Masukkan tanggal dan bulan lahir' })).toBeVisible();
+  for (const d of '0904') await keypad.getByRole('button', { name: `Angka ${d}` }).click();
+  await kiosk.getByRole('button', { name: 'Lanjut' }).click();
   await kiosk.getByRole('button', { name: 'Ya, data saya benar · daftar ke poli' }).click();
   const slip = kiosk.getByRole('region', { name: 'Tiket antrean' });
   await expect(slip).toContainText(/PD-\d{3}/);
