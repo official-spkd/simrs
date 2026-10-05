@@ -32,6 +32,7 @@ import {
   type PrismaClient,
   revokePinsOnRetiredKeys,
   rotateTenantKeys,
+  seedHospitalStructure,
   type SurvivorSnapshot,
   withTenant,
 } from '../src/index';
@@ -101,6 +102,8 @@ const STATIC = {
   linkId: '',
   contactId: newId(),
   contactName: 'Anak Pasien Fiktif',
+  coverageId: newId(),
+  memberNo: 'ASR-ROT-000123',
   phone: '62812555000111',
   otp: '482913',
 };
@@ -126,6 +129,7 @@ const v1Rows = (tenantId: string) =>
         + (SELECT count(*) FROM patient_links WHERE survivor_snapshot_enc LIKE 'v1.%')
         + (SELECT count(*) FROM patient_contacts
            WHERE name_enc LIKE 'v1.%' OR phone_enc LIKE 'v1.%' OR address_enc LIKE 'v1.%')
+        + (SELECT count(*) FROM coverages WHERE member_no_enc LIKE 'v1.%')
       )::int AS n`,
   );
 
@@ -144,6 +148,7 @@ const findByIdentifier = (tenantId: string, keys: FieldKeys, system: IdentifierS
 /** Data tenant A ditulis dengan kunci v1 (seperti produksi sebelum rotasi). */
 async function seedTenantA(): Promise<void> {
   A.id = await freshTenant();
+  await withTenant(owner, A.id, (tx) => seedHospitalStructure(tx, A.id));
   const crypto = new PatientCrypto(before, A.id);
   for (const rec of people(7)) {
     const { id } = await withTenant(app, A.id, (tx) => insertPatient(tx, crypto, rec));
@@ -211,6 +216,41 @@ async function seedTenantA(): Promise<void> {
         isGuarantor: true,
       },
     });
+    // Penjaminan asuransi (F03) dengan no. anggota v1, TERKUNCI (SEP sudah terbit).
+    const unit = await tx.unit.findFirstOrThrow();
+    const payerId = newId();
+    await tx.payer.create({
+      data: {
+        id: payerId,
+        tenantId: A.id,
+        code: 'ASR-ROT',
+        name: 'Asuransi Fiktif Rotasi',
+        kind: 'asuransi',
+      },
+    });
+    const encounterId = newId();
+    await tx.encounter.create({
+      data: {
+        id: encounterId,
+        tenantId: A.id,
+        number: `RJ-2610-${digits(6)}`,
+        patientId: p0.id,
+        encounterClass: 'AMB',
+        status: 'arrived',
+        unitId: unit.id,
+      },
+    });
+    await tx.coverage.create({
+      data: {
+        id: STATIC.coverageId,
+        tenantId: A.id,
+        encounterId,
+        payerId,
+        memberNoEnc: crypto.encryptContact(STATIC.memberNo),
+        guaranteeLetterNo: 'SJ-ROT-1',
+      },
+    });
+    await tx.coverage.update({ where: { id: STATIC.coverageId }, data: { lockedAt: new Date() } });
     // Snapshot penggabungan (B → A) berisi ciphertext + hash v1 bersarang.
     const p0row = await tx.patient.findUniqueOrThrow({
       where: { id: p0.id },
@@ -262,6 +302,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
       patient_identifiers: 14,
       patient_links: 1,
       patient_contacts: 1,
+      coverages: 1,
     });
     const ids = plan.targets.find((t) => t.target === 'patient_identifiers');
     expect(ids?.columns).toEqual([
@@ -354,10 +395,12 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(by.patient_identifiers).toMatchObject({ rewritten: 14, failed: 0, remaining: 0 });
     expect(by.patient_links).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
     expect(by.patient_contacts).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
+    // Penjaminan terkunci tetap ikut diputar (pengecualian sempit penjaga kunci penjaminan).
+    expect(by.coverages).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
     expect(await v1Rows(A.id)).toBe(0);
 
     const statuses = await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.findMany());
-    expect(statuses).toHaveLength(7);
+    expect(statuses).toHaveLength(8);
     expect(statuses.every((s) => s.finishedAt !== null && s.remaining === 0 && s.failed === 0)).toBe(true);
 
     const audits = await withTenant(app, A.id, (tx) =>
@@ -405,6 +448,11 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
       expect(crypto.decryptContact(contact.phoneEnc as string)).toBe(STATIC.phone);
       expect(contact).toMatchObject({ relation: 'anak', isGuarantor: true, status: 'active' });
 
+      const coverage = await tx.coverage.findUniqueOrThrow({ where: { id: STATIC.coverageId } });
+      expect(crypto.decryptContact(coverage.memberNoEnc as string)).toBe(STATIC.memberNo);
+      expect(coverage.lockedAt).not.toBeNull();
+      expect(coverage.guaranteeLetterNo).toBe('SJ-ROT-1');
+
       const link = await tx.patientLink.findUniqueOrThrow({ where: { id: STATIC.linkId } });
       const snap = crypto.decryptSnapshot<SurvivorSnapshot>(link.survivorSnapshotEnc as string);
       const p0 = A.records[0] as NewPatientRecord & { id: string };
@@ -443,7 +491,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(row?.valueEnc.startsWith('v1.')).toBe(true);
     expect(row?.valueHash).toMatch(/^[0-9a-f]{64}$/);
     expect(await withTenant(app, B, (tx) => tx.fieldKeyRotation.count())).toBe(0);
-    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(7);
+    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(8);
   });
 
   it('gagal tertutup: kunci lama hilang atau salah → masalah dilaporkan, job tidak menulis apa pun', async () => {
@@ -544,6 +592,50 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
           ${crypto.encryptContact('Nama lain')}, ${c.phoneEnc}, ${c.addressEnc})`,
       ),
     ).rejects.toThrow(/REKEY_SAME_KEY/);
+  });
+
+  it('penjaminan terkunci: hanya fungsi rotasi yang boleh mengganti versi kunci no. anggota, isi lain tetap terkunci', async () => {
+    const crypto = new PatientCrypto(during, A.id);
+    const c = await withTenant(app, A.id, (tx) =>
+      tx.coverage.findUniqueOrThrow({ where: { id: STATIC.coverageId } }),
+    );
+    expect(c.lockedAt).not.toBeNull();
+    const other = crypto.encryptContact('ASR-LAIN-999');
+    // Aplikasi: ubah langsung ditolak, juga bila menyalakan penanda rotasi sendiri (bukan pemilik tabel).
+    await expect(
+      withTenant(app, A.id, (tx) =>
+        tx.coverage.update({ where: { id: c.id }, data: { memberNoEnc: other } }),
+      ),
+    ).rejects.toThrow(/COVERAGE_LOCKED/);
+    await expect(
+      withTenant(app, A.id, async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.rekey', 'on', true)`;
+        await tx.$executeRaw`UPDATE coverages SET member_no_enc = ${other} WHERE id = ${c.id}::uuid`;
+      }),
+    ).rejects.toThrow(/COVERAGE_LOCKED/);
+    // Pemilik tabel dengan penanda rotasi pun tidak boleh mengubah kolom lain.
+    await expect(
+      withTenant(owner, A.id, async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.rekey', 'on', true)`;
+        await tx.$executeRaw`UPDATE coverages SET care_class = 'vip' WHERE id = ${c.id}::uuid`;
+      }),
+    ).rejects.toThrow(/COVERAGE_LOCKED/);
+    const rekey = (tenantId: string, oldEnc: string, newEnc: string) =>
+      withTenant(app, tenantId, async (tx) => {
+        const [r] = await tx.$queryRaw<Array<{ ok: boolean }>>`
+          SELECT app_rekey_coverage_member(${c.id}::uuid, ${oldEnc}, ${newEnc}) AS ok`;
+        return r?.ok;
+      });
+    // Versi kunci sama (v2 → v2) = mengganti isi, ditolak; format bukan ciphertext ditolak.
+    await expect(rekey(A.id, c.memberNoEnc as string, other)).rejects.toThrow(/REKEY_SAME_KEY/);
+    await expect(rekey(A.id, c.memberNoEnc as string, 'ASR-POLOS')).rejects.toThrow(/REKEY_FORMAT/);
+    // Tenant lain tidak melihat barisnya (RLS berlaku bagi fungsi SECURITY DEFINER).
+    const v1 = new PatientCrypto(before, A.id).encryptContact(STATIC.memberNo);
+    expect(await rekey(B, c.memberNoEnc as string, v1)).toBe(false);
+    expect(
+      (await withTenant(app, A.id, (tx) => tx.coverage.findUniqueOrThrow({ where: { id: c.id } })))
+        .memberNoEnc,
+    ).toBe(c.memberNoEnc);
   });
 
   it('daftar tenant rotasi memuat tenant nonaktif (datanya tetap harus terbaca); daftar tenant aktif tidak', async () => {
