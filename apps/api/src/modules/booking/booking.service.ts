@@ -109,6 +109,33 @@ export class BookingService {
     return this.get(id);
   }
 
+  /**
+   * F03 · Registrasi rawat jalan walk-in: booking kanal loket untuk sesi hari ini (kuota, nomor poli cadangan,
+   * Antrean BPJS untuk JKN) di transaksi registrasi. Mengembalikan id booking.
+   */
+  createForVisit(input: CreateBookingInput): Promise<string> {
+    return this.book({ ...input, channel: 'loket' });
+  }
+
+  /**
+   * F03 · Pasien booking hadir di loket dan didaftarkan: `booked` → `checked_in` (hari layanan saja; booking yang
+   * sudah check-in dibiarkan). `publishEvent` = terbitkan `booking.checked_in` (task 1 saat ini); false bila pasien
+   * datang lewat tiket loket yang ditautkan ke booking (task 1–2 diisi mesin task ID dari tiket itu).
+   */
+  async markArrived(id: string, opts: { publishEvent: boolean }): Promise<void> {
+    await this.repo.lock(id);
+    const a = await this.load(id);
+    if (a.status === 'checked_in') return;
+    if (a.status !== 'booked') throw invalidState(`Booking berstatus ${a.status} tidak bisa didaftarkan`);
+    if (isoFromDbDate(a.appointmentDate) !== isoDateJakarta(new Date())) {
+      throw invalidState('Registrasi hanya pada hari layanan booking');
+    }
+    await this.repo.updateAppointment(id, { status: 'checked_in', checkedInAt: new Date() });
+    if (opts.publishEvent) {
+      await this.events.publish('booking.checked_in', { appointmentId: id, patientId: a.patientId });
+    }
+  }
+
   /** Inti buat booking (juga dipakai jadwal ulang). Mengembalikan id booking baru. */
   private async book(input: CreateBookingInput & { channel: 'loket' }): Promise<string> {
     const patient = await this.repo.findPatient(input.patientId);

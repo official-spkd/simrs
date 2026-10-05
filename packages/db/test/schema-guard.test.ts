@@ -34,6 +34,7 @@ const MANUAL_INDEXES = [
   'patient_contacts_supersedes_once',
   'appointments_one_active_per_day',
   'external_ids_one_owner_per_value',
+  'encounters_one_per_appointment',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */

@@ -380,6 +380,16 @@ export class QueueService {
     });
   }
 
+  /** Satu tiket dalam bentuk kontrak (dipakai registrasi 5a untuk respons tiket poli kunjungan). */
+  getTicket(id: string): Promise<QueueTicket> {
+    return this.loadTicket(id);
+  }
+
+  /** Tiket loket menunggu hari ini (meja pendaftaran 5a), urut nomor. */
+  async waitingTickets(serviceId: string): Promise<QueueTicket[]> {
+    return this.present(await this.repo.tickets(serviceId, today(), 'waiting'));
+  }
+
   private async loadTicket(id: string): Promise<QueueTicket> {
     const row = await this.repo.ticket(id);
     if (!row) throw new AppError('NOT_FOUND', 'Tiket tidak ditemukan', 404);

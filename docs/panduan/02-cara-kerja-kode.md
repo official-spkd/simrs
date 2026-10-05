@@ -476,6 +476,53 @@ task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih t
 task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
 `sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan). Job no-show booking (worker, F02) mencatat task 99 lewat helper yang sama, `insertBpjsQueueTask` (`@simrs/db`).
 
+### Registrasi rawat jalan dan SEP (F03/F06, fase 2 potongan 5a)
+
+Modul `modules/registration/` (F03) dan `modules/sep/` (F06), kontrak `@simrs/shared` `schemas/registration.ts`.
+
+| Endpoint `/api/v1/…`                               | Izin              | Isi                                                                                                                  |
+| -------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `POST registration/outpatient` + `Idempotency-Key` | `encounter.write` | Registrasi rawat jalan (rincian di bawah); 201 `registrationResultSchema`                                            |
+| `GET registration/encounters/:id`                  | `encounter.read`  | Kunjungan + penjaminan + SEP terbaru + tiket poli + booking; lingkup relasi butuh relasi aktif (`app_patient_group`) |
+| `GET registration/desk`                            | `encounter.write` | Antrean loket admisi menunggu + kuota dokter hari ini (`SchedulingService.todayQuotas`), tanpa daftar pasien         |
+| `POST registration/dukcapil-lookup {nik}`          | `patient.write`   | Lookup sinkron demografi (mock `/dukcapil/verify`); tidak disimpan                                                   |
+| `POST sep/eligibility-checks?patientId=`           | `coverage.read`   | Lookup sinkron VClaim peserta (no. kartu/NIK di body); tidak aktif = hasil, tidak ditemukan = 422 `BPJS_REJECTED`    |
+| `GET sep/referrals?patientId=`                     | `coverage.read`   | Rujukan FKTP VClaim per no. kartu pasien (dibaca server) + surat kontrol RS; hasil VClaim disimpan di `referrals`    |
+| `GET sep/:id`, `PATCH sep/:id`                     | `coverage.*`      | Baca; revisi SEP terbit = versi baru `pending` (alasan wajib) + outbox `bpjs.vclaim.sep.update`                      |
+| `POST sep/:id/retry`, `POST sep/:id/cancel`        | `coverage.write`  | Kirim ulang setelah ditolak/DLQ (urut outbox baru); batal SEP terbit + outbox `bpjs.vclaim.sep.delete`               |
+| `GET/POST patients/:id/contacts`                   | `patient.*`       | Kontak/penanggung jawab (terenkripsi, append-only, no. HP tersamar)                                                  |
+
+Registrasi rawat jalan (satu transaksi permintaan):
+
+1. `IdempotencyService.claim` (`src/common/idempotency.ts`): header wajib UUID (`IDEMPOTENCY_KEY_REQUIRED`), advisory
+   lock per tenant × lingkup × kunci (permintaan serentak berurutan), sidik SHA-256 isi + pelaku; sudah ada + sama →
+   respons dibangun ulang (audit `read`), beda → 409 `IDEMPOTENCY_KEY_REUSED`. Hasil dicatat di `idempotency_keys`.
+2. Pasien aktif (BPJS: kartu + NIK), sesi poli HARI INI, persetujuan umum rawat jalan aktif atau isian petugas
+   (`GENERAL_CONSENT_REQUIRED`; keputusan #9: rawat jalan sampai dicabut, `encounter_id` null).
+3. Booking: `appointmentId` yang dibawa, booking aktif hari ini di poli itu, atau walk-in baru lewat
+   `BookingService.createForVisit` (kanal loket, kuota, JKN → `bpjs.antrean.add`). `BookingService.markArrived` →
+   `checked_in`; tiket loket yang dibawa (`counterTicketId`) ditautkan (`QueueService.attachAppointment`, task 1–2 diisi
+   dari tiket itu), tanpa tiket → event `booking.checked_in` (task 1).
+4. Kunjungan `RJ-YYMM-NNNNNN` (`arrived`) + riwayat status; satu kunjungan aktif per booking (indeks unik
+   `encounters_one_per_appointment` → `ENCOUNTER_DUPLICATE`); nomor poli cadangan dilepas ke antrean berurutan.
+5. Penanggung jawab, penjaminan (asuransi/perusahaan: no. anggota terenkripsi), relasi akses DPJP
+   (`access_relationships` `dpjp`, sumber kunjungan, berlaku s.d. akhir hari berikutnya; dokter tanpa akun dilewati).
+6. BPJS: rujukan/surat kontrol dicari di `referrals` (milik pasien lain → 422, kedaluwarsa → `REFERRAL_EXPIRED`) atau
+   dicatat baru; SEP v1 `pending` + outbox `bpjs.vclaim.sep.insert:<sep>:1`. BPJS tidak dihubungi di sini.
+7. Event `encounter.registered` → task 3.
+
+Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data dibaca + didekripsi saat kirim):
+
+- **insert bertahap**, satu panggilan BPJS per pesan, tahap dari keadaan baris: `peserta` (kelas hak belum ada → cek
+  kepesertaan; tidak aktif → `failed`) → `insert` → `issued` (penjaminan terkunci trigger, event `sep.issued` di
+  `domain_events`). Jawaban `BPJS_SEP_GANDA` → tahap `histori` (histori pelayanan per kartu + tanggal): nomor yang
+  cocok dipakai (kiriman sebelumnya timeout padahal sudah diproses), tidak cocok/dipakai kunjungan lain → `failed`.
+  SEP tidak pernah diterbitkan dua kali.
+- Kunci pesan `<operasi>:<sep>:<urut>` (`seps.sync_seq`); pesan yang urutnya bukan urut terbaru dilewati.
+- **update** (versi ≥ 2) → `issued`; **delete** (SEP `cancelled`) → status kirim saja (`BPJS_SEP_TIDAK_DITEMUKAN` = sudah
+  hilang → `sent`). Ditolak → `failed` + `last_error_code` + `rejection_reason`; DLQ → `failed` + `BPJS_DLQ`
+  (`sync_status` `dead`). Status kirim terakhir di `seps.sync_status|synced_at|sync_error_code`.
+
 ### Gateway informasi publik (F08)
 
 `modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.
