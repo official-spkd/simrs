@@ -23,7 +23,6 @@ import {
   clinicalEnteredInErrorInputSchema,
   newId,
 } from '@simrs/shared';
-import { newVerifyCode, sha256Hex } from '@simrs/shared/node';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RequirePermission } from '../src/common/require-permission.decorator';
@@ -31,6 +30,7 @@ import { TenantScoped } from '../src/common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../src/common/zod-validation.pipe';
 import { type CareTeamRole, CareTeamService } from '../src/infra/clinical/care-team.service';
 import { ClinicalRecordService } from '../src/infra/clinical/clinical-record.service';
+import { ClinicalSigningService } from '../src/infra/clinical/clinical-signing.service';
 import { BillableRecorder, SatusehatRecorder } from '../src/infra/clinical/staging';
 import { TenantDb } from '../src/infra/tenant-db';
 import { AuthzModule } from '../src/modules/authz/authz.module';
@@ -57,6 +57,7 @@ class ClinicalTestController {
     private readonly satusehat: SatusehatRecorder,
     private readonly billable: BillableRecorder,
     private readonly careTeam: CareTeamService,
+    private readonly signing: ClinicalSigningService,
     private readonly access: PatientAccessService,
     private readonly db: TenantDb,
   ) {}
@@ -106,10 +107,21 @@ class ClinicalTestController {
     return this.records.enteredInError('cppt_entries', id, body.reason);
   }
 
-  @RequirePermission('clinical', 'sign')
+  /** TTE lewat `ClinicalSigningService` (PDF ADR-0029) di bawah kunci versi; izin uji `clinical.write` (lingkup unit). */
+  @RequirePermission('clinical', 'write')
   @Post('cppt/:id/sign')
-  sign(@Param('id', uuid) id: string) {
-    return this.records.lockForSigning('cppt_entries', id, () => Promise.resolve({ ok: true }));
+  async sign(@Param('id', uuid) id: string) {
+    const row = await this.db.tx().cpptEntry.findUniqueOrThrow({ where: { id } });
+    const issued = await this.signing.issueSigned('cppt_entries', id, {
+      patientId: row.patientId,
+      kind: 'lainnya',
+      title: 'Catatan perkembangan pasien terintegrasi',
+      fileName: 'cppt',
+      issuedAt: row.recordedAt,
+      sections: [{ title: 'Asesmen', blocks: [{ kind: 'paragraph', text: 'Pneumonia membaik.' }] }],
+      tte: { role: 'Dokter penanggung jawab pelayanan (DPJP)', caption: null },
+    });
+    return { documentId: issued.document.id, signatureId: issued.signatureId };
   }
 
   @RequirePermission('clinical', 'write')
@@ -376,35 +388,15 @@ describe('ClinicalRecordService · pola entri berversi', () => {
   it('versi ber-TTE terkunci: koreksi → 409 RECORD_LOCKED, addendum boleh; versi tergantikan tidak bisa di-TTE', async () => {
     const e = await inpatient(A.id);
     const v1 = await as('dokter').post('/test-clinical/cppt', cpptBody(e.encounterId)).expect(201);
-    await as('dokter').post(`/test-clinical/cppt/${v1.body.id}/sign`).expect(201);
-    const docId = newId();
-    await run(A.id, async (tx) => {
-      await tx.document.create({
-        data: {
-          id: docId,
-          tenantId: A.id,
-          patientId: e.patientId,
-          kind: 'lainnya',
-          title: 'Catatan bertanda tangan',
-          fileName: 'catatan.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 1024,
-          sha256: sha256Hex(docId),
-          storageKey: `${A.id}/2026/10/${newId()}`,
-          sourceType: 'cppt_entries',
-          sourceId: v1.body.id,
-        },
-      });
-      await tx.documentSignature.create({
-        data: {
-          id: newId(),
-          tenantId: A.id,
-          documentId: docId,
-          signerUserId: users.dokter as string,
-          documentSha256: sha256Hex(docId),
-          verifyCode: newVerifyCode(A.id),
-        },
-      });
+    const signed = await as('dokter').post(`/test-clinical/cppt/${v1.body.id}/sign`).expect(201);
+    expect(signed.body.signatureId).toEqual(expect.any(String));
+    const doc = await run(A.id, (tx) =>
+      tx.document.findUniqueOrThrow({ where: { id: signed.body.documentId } }),
+    );
+    expect(doc).toMatchObject({
+      sourceType: 'cppt_entries',
+      sourceId: v1.body.id,
+      mimeType: 'application/pdf',
     });
     const locked = await as('dokter').post(
       '/test-clinical/cppt',

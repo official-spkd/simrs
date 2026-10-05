@@ -85,9 +85,10 @@ dengan celah berbeda.
 - **Kunci advisory per versi** (`pg_advisory_xact_lock`, kunci `clinical:<tabel>:<id versi>`) dipakai koreksi, salah
   entri, dan `lockForSigning()`. Celah antara pemeriksaan kunci TTE dan permintaan TTE yang bersamaan (Konsekuensi
   butir 3) tertutup. Koreksi serentak menghasilkan [201, 409] (tes API).
-- **TTE** lewat port `CLINICAL_SIGNING_PORT` (`clinical-signing.port.ts`). Bawaannya menolak dengan 503
-  `INTEGRATION_UNAVAILABLE`; implementasi ADR-0029 (PDF + `documents.source_*` + `tte.sign`) menggantikan provider
-  ini dan selalu dipanggil di dalam `lockForSigning`.
+- **TTE** lewat `ClinicalSigningService.issueSigned(tabel, idVersi, isi)`. Layanan ini menjalankan
+  `ClinicalPdfService.issue` (ADR-0029: PDF deterministik → `documents` dengan `source_type`/`source_id` = versi itu →
+  `document_signatures` pending → outbox `tte.sign`) di dalam `lockForSigning`. Modul klinis tidak memanggil
+  `ClinicalPdfService` langsung untuk dokumen bertanda tangan.
 - **Draf** lewat `PUT/GET/DELETE /api/v1/drafts/:encounterId/:kind`. Izin `clinical.write` + ABAC pasien; baris
   selalu milik pengguna sesi; isi draf tidak masuk audit. Job worker `clinical.drafts-cleanup` (tiap jam) menghapus
   draf kunjungan yang selesai/batal lebih dari 48 jam.
