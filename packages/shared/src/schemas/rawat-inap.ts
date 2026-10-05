@@ -1,4 +1,18 @@
 import { z } from 'zod';
+import {
+  EMAR_SLOT_STATES,
+  MEDICATION_ADMINISTRATION_STATUSES,
+  MEDICATION_FREQUENCY_CODES,
+} from '../clinical/emar';
+import { NEWS2_CONSCIOUSNESS } from '../clinical/ews';
+import { TRIAGE_DISCRIMINATOR_CODES, triageVitalsSchema } from '../clinical/triage';
+import {
+  clinicalAttestationSchema,
+  clinicalAuthorSchema,
+  clinicalEntryMetaSchema,
+  clinicalRevisionSchema,
+  SAFETY_REASON_MIN,
+} from './klinis';
 
 /**
  * K03–K13 · IGD, tempat tidur, rawat inap (CPPT, eMAR, EWS), resume, persetujuan tindakan.
@@ -12,8 +26,7 @@ const isoDate = z.iso.date();
 const id = z.string().min(1).max(60);
 const text = (max: number) => z.string().max(max);
 
-/** Alasan wajib untuk override gerbang keselamatan (triase turun, gelang eMAR, koreksi, penolakan). */
-export const SAFETY_REASON_MIN = 10;
+/** Alasan wajib (`SAFETY_REASON_MIN`) untuk override gerbang keselamatan (triase turun, gelang eMAR, koreksi, penolakan). */
 const reason = z.string().trim().min(SAFETY_REASON_MIN).max(500);
 
 // ---------------------------------------------------------------------------------------------------------
@@ -286,14 +299,16 @@ export const cpptNoteInputSchema = z
   });
 export type CpptNoteInput = z.infer<typeof cpptNoteInputSchema>;
 
-/** Jam pemberian obat di grid eMAR. */
+/**
+ * Jam grid eMAR mode presentasi (dibekukan). Jalur api: jam dinamis dari frekuensi order (`emarScheduleTimes`), jadi
+ * `EmarTime` = jam WIB `HH.MM` apa pun.
+ */
 export const EMAR_TIMES = ['06.00', '08.00', '12.00', '18.00', '22.00'] as const;
-export type EmarTime = (typeof EMAR_TIMES)[number];
-export const EMAR_SLOT_STATES = ['diberikan', 'jadwal', 'terlambat', 'ditunda', 'rencana', 'kosong'] as const;
-export type EmarSlotState = (typeof EMAR_SLOT_STATES)[number];
+export type EmarTime = string;
+const emarTime = z.string().regex(/^([01]\d|2[0-3])\.[0-5]\d$/, 'Jam HH.MM');
 
 export const emarSlotSchema = z.strictObject({
-  time: z.enum(EMAR_TIMES),
+  time: emarTime,
   state: z.enum(EMAR_SLOT_STATES),
   /** Teks slot, mis. "08.05" (jam diberikan), "Ditunda · mual"; kosong untuk slot tanpa jadwal. */
   label: text(40),
@@ -311,7 +326,7 @@ export const emarMedicationSchema = z.strictObject({
     .regex(/^\d{8}$/)
     .nullable(),
   highAlert: z.boolean(),
-  slots: z.array(emarSlotSchema).length(EMAR_TIMES.length),
+  slots: z.array(emarSlotSchema).min(1).max(24),
 });
 export type EmarMedication = z.infer<typeof emarMedicationSchema>;
 
@@ -352,7 +367,7 @@ export const emarAdministrationInputSchema = z
   .strictObject({
     encounterId: id,
     medicationId: id,
-    time: z.enum(EMAR_TIMES),
+    time: emarTime,
     ...wristbandFields,
     /** Kode label obat dari farmasi (hasil pindai). */
     labelCode: z.string().trim().min(1).max(60),
@@ -364,8 +379,8 @@ export const emarAdministrationInputSchema = z
   .superRefine(requireOverrideReason);
 export type EmarAdministrationInput = z.infer<typeof emarAdministrationInputSchema>;
 
-/** Tingkat kesadaran AVPU (C = bingung baru). */
-export const CONSCIOUSNESS = ['A', 'C', 'V', 'P', 'U'] as const;
+/** Tingkat kesadaran ACVPU (C = bingung baru); sama dengan masukan NEWS2. */
+export const CONSCIOUSNESS = NEWS2_CONSCIOUSNESS;
 
 export const ewsObservationSchema = z.strictObject({
   at: isoDateTime,
@@ -439,7 +454,7 @@ export const inpatientDetailSchema = z.strictObject({
   cppt: z.array(cpptEntrySchema),
   medications: z.array(emarMedicationSchema),
   /** Jam "sekarang" pada grid eMAR (slot `jadwal` = bisa diberikan). */
-  emarNow: z.enum(EMAR_TIMES),
+  emarNow: emarTime,
   /** Keterangan pemberian berikutnya, mis. "GDS 12.00: 236 mg/dL → skala 6 unit SC". */
   emarNote: z.string().max(160),
   observations: z.array(ewsObservationSchema),
@@ -568,3 +583,184 @@ export const consentRefusalInputSchema = z.strictObject({
   consentId: id,
   reason,
 });
+
+// ===============================================================================================================
+// Kontrak API fase 3 (rencana §3.0a): CPPT, triase, eMAR jalur api. ID UUID; penulis + waktu catat dari server.
+// ===============================================================================================================
+
+const uuid = z.uuid();
+const instant = z.iso.datetime({ offset: true });
+const longText = (max: number) => z.string().trim().max(max);
+
+/**
+ * Status tampilan CPPT: catatan residen `menunggu_cosign` sampai DPJP co-sign (keputusan fase 3 no. 4); di database
+ * status tetap `final`/`entered_in_error`, menunggu co-sign = `cosign_required` tanpa atestasi co-sign.
+ */
+export const CPPT_STATUSES = ['menunggu_cosign', 'final', 'entered_in_error'] as const;
+export type CpptStatus = (typeof CPPT_STATUSES)[number];
+
+/** Isi CPPT: SOAP (medis/keperawatan/farmasi) atau ADIME (gizi). */
+export const cpptContentSchema = z.discriminatedUnion('format', [
+  z.strictObject({
+    format: z.literal('soap'),
+    s: longText(2000).min(1, 'S wajib diisi.'),
+    o: longText(2000),
+    a: longText(2000).min(1, 'A wajib diisi.'),
+    p: longText(2000),
+  }),
+  z.strictObject({
+    format: z.literal('adime'),
+    assessment: longText(2000).min(1, 'Asesmen wajib diisi.'),
+    diagnosis: longText(1000),
+    intervention: longText(2000),
+    monitoring: longText(1000),
+    evaluation: longText(1000),
+  }),
+]);
+export type CpptContent = z.infer<typeof cpptContentSchema>;
+
+/** `POST /api/v1/cppt/entries`. PPA, penulis, waktu catat, dan kebutuhan co-sign ditentukan server dari sesi. */
+export const cpptCreateInputSchema = z.strictObject({
+  encounterId: uuid,
+  occurredAt: instant,
+  content: cpptContentSchema,
+  /** Instruksi PPA (mis. instruksi DPJP ke perawat). */
+  instruction: longText(2000).nullable(),
+  revision: clinicalRevisionSchema,
+});
+export type CpptCreateInput = z.infer<typeof cpptCreateInputSchema>;
+
+export const cpptRecordSchema = clinicalEntryMetaSchema.extend({
+  encounterId: uuid,
+  patientId: uuid,
+  ppa: z.enum(CPPT_ROLES),
+  content: cpptContentSchema,
+  instruction: z.string().nullable(),
+  status: z.enum(CPPT_STATUSES),
+  cosignRequired: z.boolean(),
+  cosign: clinicalAttestationSchema.nullable(),
+  /** Verifikasi DPJP atas CPPT PPA lain (keputusan fase 3 no. 5). */
+  verification: clinicalAttestationSchema.nullable(),
+  /** Singkatan terlarang di isi (peringatan EP 9a, tidak memblokir). */
+  abbreviationWarnings: z.array(z.string()),
+});
+export type CpptRecord = z.infer<typeof cpptRecordSchema>;
+
+/** Serah terima SBAR antarshift/antarunit. */
+export const handoverInputSchema = z.strictObject({
+  encounterId: uuid,
+  occurredAt: instant,
+  situation: longText(1000).min(1),
+  background: longText(1000),
+  assessment: longText(1000).min(1),
+  recommendation: longText(1000).min(1),
+  /** Penerima serah terima (pengguna), null bila ke unit/shift berikutnya secara umum. */
+  toUserId: uuid.nullable(),
+});
+export type HandoverInput = z.infer<typeof handoverInputSchema>;
+
+/** Arah tanda vital IGD (utang fase 2: kontrak membawa bendera, bukan diturunkan UI). */
+export const VITAL_DIRECTIONS = ['tinggi', 'rendah'] as const;
+
+/**
+ * `POST /api/v1/triage/assessments`. Saran (`suggestTriage`) dan batas protokol dihitung server dari tanda vital +
+ * diskriminator; turun dari saran tanpa alasan → 422 `TRIAGE_REASON_REQUIRED`, di bawah batas protokol → 422
+ * `TRIAGE_LEVEL_NOT_ALLOWED`. Berversi (koreksi lewat `revision`).
+ */
+export const triageAssessmentInputSchema = z.strictObject({
+  encounterId: uuid,
+  occurredAt: instant,
+  vitals: triageVitalsSchema,
+  discriminators: z.array(z.enum(TRIAGE_DISCRIMINATOR_CODES)).max(6),
+  chosenLevel: triageLevelSchema,
+  overrideReason: z.string().trim().max(500).nullable(),
+  revision: clinicalRevisionSchema,
+});
+export type TriageAssessmentInput = z.infer<typeof triageAssessmentInputSchema>;
+
+export const triageAssessmentRecordSchema = clinicalEntryMetaSchema.extend({
+  encounterId: uuid,
+  vitals: triageVitalsSchema,
+  discriminators: z.array(z.enum(TRIAGE_DISCRIMINATOR_CODES)),
+  suggestedLevel: triageLevelSchema,
+  maxLevel: triageLevelSchema,
+  chosenLevel: triageLevelSchema,
+  overrideReason: z.string().nullable(),
+  /** Alasan saran sistem (teks untuk petugas). */
+  reasons: z.array(z.string()),
+});
+export type TriageAssessmentRecord = z.infer<typeof triageAssessmentRecordSchema>;
+
+/**
+ * `POST /api/v1/nursing/wristband-scans`: kode gelang hasil pindai. Tidak ada jalur melewati pindai (keputusan fase 3
+ * no. 8); tidak cocok → tercatat + 422 `WRISTBAND_MISMATCH`.
+ */
+export const wristbandScanInputSchema = z.strictObject({
+  encounterId: uuid,
+  code: z.string().trim().min(1).max(64),
+});
+export type WristbandScanInput = z.infer<typeof wristbandScanInputSchema>;
+
+/**
+ * `POST /api/v1/nursing/administrations`. Wajib `scanId` pindaian cocok ≤ `emar.scan_valid_minutes` oleh perawat yang
+ * sama (dijaga juga trigger database). Ditunda/ditolak/terlambat wajib alasan; obat kewaspadaan tinggi wajib cek ganda
+ * perawat kedua.
+ */
+export const medicationAdministrationInputSchema = z
+  .strictObject({
+    medicationRequestId: uuid,
+    /** Jadwal dosis; null untuk PRN/stat. */
+    scheduleId: uuid.nullable(),
+    scanId: uuid,
+    /** Kode label obat dari farmasi (hasil pindai), dicocokkan server dengan obat order. */
+    labelCode: z.string().trim().min(1).max(64),
+    status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+    occurredAt: instant,
+    reason: z.string().trim().max(500).nullable(),
+    doubleCheckUserId: uuid.nullable(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.status !== 'given' && (v.reason ?? '').length < SAFETY_REASON_MIN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reason'],
+        message: `Dosis ditunda/ditolak wajib beralasan (minimal ${SAFETY_REASON_MIN} karakter).`,
+      });
+    }
+  });
+export type MedicationAdministrationInput = z.infer<typeof medicationAdministrationInputSchema>;
+
+/** Satu slot jadwal eMAR jalur api (jam dinamis dari frekuensi order). */
+export const emarScheduleSlotSchema = z.strictObject({
+  scheduleId: uuid,
+  scheduledAt: instant,
+  time: emarTime,
+  state: z.enum(EMAR_SLOT_STATES),
+  administration: z
+    .strictObject({
+      id: uuid,
+      status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+      at: instant,
+      by: clinicalAuthorSchema,
+      late: z.boolean(),
+      reason: z.string().nullable(),
+      doubleCheckedBy: clinicalAuthorSchema.nullable(),
+    })
+    .nullable(),
+});
+export type EmarScheduleSlot = z.infer<typeof emarScheduleSlotSchema>;
+
+export const emarOrderSchema = z.strictObject({
+  medicationRequestId: uuid,
+  name: z.string().min(1).max(120),
+  /** Aturan pakai tampilan: dosis · rute · frekuensi. */
+  sig: z.string().min(1).max(160),
+  frequency: z.enum(MEDICATION_FREQUENCY_CODES),
+  kfa: z
+    .string()
+    .regex(/^\d{8}$/)
+    .nullable(),
+  highAlert: z.boolean(),
+  slots: z.array(emarScheduleSlotSchema),
+});
+export type EmarOrder = z.infer<typeof emarOrderSchema>;

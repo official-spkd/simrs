@@ -22,6 +22,8 @@ export const AUDIT_ACTIONS = [
   'unmerge',
   'correct',
   'sign',
+  /** K07 · Co-sign DPJP atas CPPT residen (dan verifikasi/tinjau order, rencana fase 3 §3.0a). */
+  'cosign',
   'review',
   'submit',
   'publish',
@@ -54,6 +56,7 @@ export const AUDIT_ACTION_LABEL: Record<AuditAction, string> = {
   unmerge: 'Pisah',
   correct: 'Koreksi',
   sign: 'Tanda tangan',
+  cosign: 'Co-sign',
   review: 'Tinjau',
   submit: 'Ajukan',
   publish: 'Terbitkan',
@@ -64,7 +67,18 @@ export const AUDIT_ACTION_GROUPS = {
   baca: { label: 'Baca', actions: ['read', 'search'] },
   ubah: {
     label: 'Ubah dan koreksi',
-    actions: ['create', 'update', 'deactivate', 'correct', 'merge', 'unmerge', 'sign', 'submit', 'publish'],
+    actions: [
+      'create',
+      'update',
+      'deactivate',
+      'correct',
+      'merge',
+      'unmerge',
+      'sign',
+      'cosign',
+      'submit',
+      'publish',
+    ],
   },
   cetak: { label: 'Cetak dan ekspor', actions: ['print', 'export'] },
   akun: {

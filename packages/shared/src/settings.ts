@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SENSITIVE_ROLES } from './authz';
+import { TRIAGE_SCALES } from './clinical/triage';
 import { COMPONENTS, type ComponentCode } from './components';
 import { BACKUP_CODE_CHANNELS } from './schemas/auth';
 import { PIN_LOGIN_ROLES } from './security/pin-policy';
@@ -117,6 +118,43 @@ export const TENANT_SETTINGS = {
     'No. telepon RS untuk BPJS bila pasien JKN tidak punya no. HP (kosong = belum diatur)',
     z.union([z.literal(''), z.string().regex(/^0\d{8,13}$/, 'No. telepon diawali 0, 9–14 digit')]),
     '',
+  ),
+  // K01–K15 · Klinis RME (fase 3, rencana §3.0a)
+  'clinical.late_entry_hours': def(
+    'Selisih waktu kejadian dan waktu catat sebelum entri klinis ditandai "entri terlambat" (jam, MRMIK 8b)',
+    z.number().int().min(1).max(168),
+    24,
+  ),
+  'cppt.verify_hours': def(
+    'Batas verifikasi DPJP atas CPPT PPA lain (jam); lewat batas masuk worklist dan temuan, tidak memblokir',
+    z.number().int().min(1).max(168),
+    24,
+  ),
+  'triage.scale': def('Skala triase IGD', z.enum(TRIAGE_SCALES), 'ATS'),
+  'emar.scan_valid_minutes': def(
+    'Masa berlaku pindaian gelang untuk pemberian obat oleh perawat yang sama (menit)',
+    z.number().int().min(1).max(30),
+    10,
+  ),
+  'emar.late_minutes': def(
+    'Dosis dianggap terlambat setelah melewati jam jadwal lebih dari (menit); wajib alasan',
+    z.number().int().min(15).max(240),
+    60,
+  ),
+  'emar.require_pharmacy_review': def(
+    'Pemberian obat menunggu telaah farmasi (dinyalakan fase 4)',
+    z.boolean(),
+    false,
+  ),
+  'ews.escalation_score': def(
+    'Skor NEWS2 yang memicu eskalasi ke DPJP/tim reaksi cepat (satu parameter bernilai 3 selalu memicu)',
+    z.number().int().min(3).max(10),
+    5,
+  ),
+  'bed.boarding_alert_hours': def(
+    'Peringatan pasien IGD menunggu bed rawat inap (boarding) setelah (jam)',
+    z.number().int().min(1).max(24),
+    4,
   ),
 } as const;
 

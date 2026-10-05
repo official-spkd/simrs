@@ -165,7 +165,7 @@ describe('DomainEvents (unit)', () => {
     expect(depth).toBe(MAX_DOMAIN_EVENT_DEPTH);
   });
 
-  it('daftar nama dari kontrak bersama 0a (+ booking.cancelled untuk task 99)', () => {
+  it('daftar nama dari kontrak bersama 0a (+ booking.cancelled untuk task 99) dan fase 3 §3.0a', () => {
     expect([...DOMAIN_EVENT_NAMES].sort()).toEqual(
       [
         'booking.cancelled',
@@ -176,6 +176,18 @@ describe('DomainEvents (unit)', () => {
         'queue.ticket_finished',
         'queue.ticket_started',
         'sep.issued',
+        'encounter.started',
+        'encounter.finished',
+        'cppt.finalized',
+        'order.activated',
+        'order.cancelled',
+        'medication.administered',
+        'adt.admitted',
+        'adt.transferred',
+        'adt.discharged',
+        'bed.status_changed',
+        'discharge.signed',
+        'consent.signed',
       ].sort(),
     );
   });
