@@ -55,31 +55,36 @@ export const PPK_CODE_PATTERN = /^[0-9A-Z]{8}$/;
 /** Kode poli BPJS (3 huruf, mis. `INT`, `JAN`), dipetakan dari poli RS lewat `external_ids`. */
 export const BPJS_POLI_CODE_PATTERN = /^[A-Z]{3}$/;
 
-export const referralRecordSchema = z.strictObject({
-  id: z.uuid(),
-  kind: z.enum(REFERRAL_DOC_KINDS),
-  status: z.enum(REFERRAL_STATUSES),
-  /** Nomor BPJS/RS; null selama `pending`. */
-  number: z.string().min(3).max(40).nullable(),
-  patientId: z.uuid(),
-  /** Kunjungan asal (keluar, internal, kontrol, SPRI) atau yang memakai rujukan masuk ini. */
-  encounterId: z.uuid().nullable(),
-  /** Kode PPK perujuk (masuk) atau tujuan (keluar). */
-  ppkCode: z.string().max(20).nullable(),
-  /** Faskes perujuk/tujuan atau poli asal surat kontrol. */
-  facilityName: z.string().min(1).max(160),
-  /** Poli tujuan di RS ini. */
-  targetServiceId: z.uuid().nullable(),
-  practitionerId: z.uuid().nullable(),
-  diagnosis: icd10CodingSchema.nullable(),
-  issuedOn: serviceDateSchema,
-  validUntil: serviceDateSchema.nullable(),
-  /** Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan). */
-  visitNo: z.number().int().min(1).nullable(),
-  /** Status kirim ke BPJS (surat kontrol, SPRI, rujukan keluar); `not_required` untuk rujukan masuk/internal. */
-  sync: bpjsSyncSchema,
-  createdAt: isoDateTime,
-});
+export const referralRecordSchema = z
+  .strictObject({
+    id: z.uuid(),
+    kind: z.enum(REFERRAL_DOC_KINDS),
+    status: z.enum(REFERRAL_STATUSES),
+    /** Nomor BPJS/RS; null hanya selama `pending`, tidak berubah setelah diisi. */
+    number: z.string().min(3).max(40).nullable(),
+    patientId: z.uuid(),
+    /** Kunjungan asal (keluar, internal, kontrol, SPRI) atau yang memakai rujukan masuk ini. */
+    encounterId: z.uuid().nullable(),
+    /** Kode PPK perujuk (masuk) atau tujuan (keluar). */
+    ppkCode: z.string().max(20).nullable(),
+    /** Faskes perujuk/tujuan atau poli asal surat kontrol. */
+    facilityName: z.string().min(1).max(160),
+    /** Poli tujuan di RS ini. */
+    targetServiceId: z.uuid().nullable(),
+    practitionerId: z.uuid().nullable(),
+    diagnosis: icd10CodingSchema.nullable(),
+    issuedOn: serviceDateSchema,
+    validUntil: serviceDateSchema.nullable(),
+    /** Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan). */
+    visitNo: z.number().int().min(1).nullable(),
+    /** Status kirim ke BPJS (surat kontrol, SPRI, rujukan keluar); `not_required` untuk rujukan masuk/internal. */
+    sync: bpjsSyncSchema,
+    createdAt: isoDateTime,
+  })
+  .refine((v) => (v.number === null) === (v.status === 'pending'), {
+    message: 'Nomor kosong hanya selama menunggu BPJS (pending)',
+    path: ['number'],
+  });
 export type ReferralRecord = z.infer<typeof referralRecordSchema>;
 
 export const referralListQuerySchema = z.strictObject({

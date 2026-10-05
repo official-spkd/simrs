@@ -167,8 +167,8 @@ export type Coverage = z.infer<typeof coverageSchema>;
 
 /**
  * `pending` antre/dicoba ulang (sampai akhir hari layanan); `issued` nomor SEP terbit; `failed` ditolak BPJS atau gagal
- * permanen (DLQ): bedanya di `sync.status` (`rejected`/`dead`) dan kodenya di `lastErrorCode` (kode penolakan
- * `BPJS_REJECTIONS` atau kode transport), lalu koreksi/kirim ulang; `cancelled` dihapus di BPJS. Poli tidak diblokir SEP
+ * permanen (DLQ): bedanya di `sync.status` (`rejected`/`dead`), kodenya di `lastErrorCode` (kode penolakan
+ * `BPJS_REJECTIONS` atau kode transport) dan pesan untuk petugas di `rejectionReason`, lalu koreksi/kirim ulang; `cancelled` dihapus di BPJS. Poli tidak diblokir SEP
  * yang belum terbit; klaim (fase 5) mewajibkan SEP `issued`.
  */
 export const SEP_STATUSES = ['pending', 'issued', 'failed', 'cancelled'] as const;
@@ -182,35 +182,42 @@ export const SEP_STATUS_LABEL: Record<SepStatus, string> = {
 /** Nomor SEP VClaim 19 karakter, mis. `0301R0011026V005102`. */
 export const SEP_NO_PATTERN = /^[0-9A-Z]{19}$/;
 
-export const sepSchema = z.strictObject({
-  id: z.uuid(),
-  encounterId: z.uuid(),
-  coverageId: z.uuid(),
-  /** Rujukan/surat kontrol dasar SEP (`referrals`: jenis + nomor). */
-  referralId: z.uuid().nullable(),
-  version: z.number().int().min(1),
-  supersedesId: z.uuid().nullable(),
-  correctionReason: z.string().max(500).nullable(),
-  status: z.enum(SEP_STATUSES),
-  sepNo: z.string().regex(SEP_NO_PATTERN).nullable(),
-  serviceType: z.enum(['rawat_jalan', 'rawat_inap']),
-  /** Kelas rawat SEP. */
-  careClass: z.enum(JKN_CLASS_RIGHTS).nullable(),
-  /** Kode poli BPJS tujuan (rawat jalan, `external_ids` `bpjs:poli`). */
-  bpjsPoliCode: z
-    .string()
-    .regex(/^[A-Z]{3}$/)
-    .nullable(),
-  /** Diagnosa awal (kode tersimpan; teks dari data rujukan P06). */
-  initialDiagnosis: icd10CodingSchema.nullable(),
-  /** Kode galat/penolakan terakhir (tanpa PHI), mis. `BPJS_PESERTA_TIDAK_AKTIF`. */
-  lastErrorCode: z.string().max(60).nullable(),
-  issuedAt: isoDateTime.nullable(),
-  cancelledAt: isoDateTime.nullable(),
-  cancelReason: z.string().max(300).nullable(),
-  /** Pengiriman terakhir (insert/update/delete). */
-  sync: bpjsSyncSchema,
-});
+export const sepSchema = z
+  .strictObject({
+    id: z.uuid(),
+    encounterId: z.uuid(),
+    coverageId: z.uuid(),
+    /** Rujukan/surat kontrol dasar SEP (`referrals`: jenis + nomor). */
+    referralId: z.uuid().nullable(),
+    version: z.number().int().min(1),
+    supersedesId: z.uuid().nullable(),
+    correctionReason: z.string().max(500).nullable(),
+    status: z.enum(SEP_STATUSES),
+    sepNo: z.string().regex(SEP_NO_PATTERN).nullable(),
+    serviceType: z.enum(['rawat_jalan', 'rawat_inap']),
+    /** Kelas rawat SEP. */
+    careClass: z.enum(JKN_CLASS_RIGHTS).nullable(),
+    /** Kode poli BPJS tujuan (rawat jalan, `external_ids` `bpjs:poli`). */
+    bpjsPoliCode: z
+      .string()
+      .regex(/^[A-Z]{3}$/)
+      .nullable(),
+    /** Diagnosa awal (kode tersimpan; teks dari data rujukan P06). */
+    initialDiagnosis: icd10CodingSchema.nullable(),
+    /** Kode galat/penolakan terakhir (tanpa PHI), mis. `BPJS_PESERTA_TIDAK_AKTIF`. */
+    lastErrorCode: z.string().max(60).nullable(),
+    /** Alasan penolakan/kegagalan untuk petugas (`seps.rejection_reason`, hanya saat `failed`). */
+    rejectionReason: z.string().max(300).nullable(),
+    issuedAt: isoDateTime.nullable(),
+    cancelledAt: isoDateTime.nullable(),
+    cancelReason: z.string().max(300).nullable(),
+    /** Pengiriman terakhir (insert/update/delete). */
+    sync: bpjsSyncSchema,
+  })
+  .refine((v) => v.rejectionReason === null || v.status === 'failed', {
+    message: 'Alasan penolakan hanya untuk SEP gagal',
+    path: ['rejectionReason'],
+  });
 export type Sep = z.infer<typeof sepSchema>;
 
 /** Revisi SEP terbit (versi baru). Minimal satu perubahan; alasan wajib. */

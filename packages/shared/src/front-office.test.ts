@@ -23,6 +23,9 @@ import {
   createOutgoingReferralSchema,
   defaultQuotaSplit,
   DOMAIN_EVENT_NAMES,
+  DOMAIN_EVENT_SCHEMAS,
+  encounterClassFromToken,
+  encounterClassToken,
   type DomainEvent,
   emergencyRegistrationSchema,
   ERROR_CODES,
@@ -53,6 +56,7 @@ import {
   queueDisplayEventSchema,
   QUEUE_NOTIFY_CHANNEL,
   recordIncomingReferralSchema,
+  referralRecordSchema,
   registrationDeskSchema,
   reviseSepSchema,
   scheduleCellId,
@@ -225,6 +229,31 @@ describe('event domain', () => {
     expect(isDomainEventName('toString')).toBe(false);
   });
 
+  it('muatan datar untuk domain_events: …Id = UUID, lainnya null/boolean/angka/token enum huruf kecil', () => {
+    const typeOf = (f: unknown): string => {
+      const def = (f as { _zod: { def: { type: string; innerType?: unknown; entries?: object } } })._zod.def;
+      return def.type === 'nullable' || def.type === 'optional' ? typeOf(def.innerType) : def.type;
+    };
+    const valuesOf = (f: unknown): string[] => {
+      const def = (f as { _zod: { def: { type: string; innerType?: unknown; entries?: object } } })._zod.def;
+      return def.innerType ? valuesOf(def.innerType) : Object.values(def.entries ?? {});
+    };
+    for (const [name, schema] of Object.entries(DOMAIN_EVENT_SCHEMAS)) {
+      for (const [key, field] of Object.entries(schema.shape)) {
+        const t = typeOf(field);
+        if (key.endsWith('Id')) expect(t, `${name}.${key}`).toBe('string');
+        else if (key.endsWith('Ids')) expect(t, `${name}.${key}`).toBe('array');
+        else {
+          expect(['boolean', 'number', 'enum'], `${name}.${key}`).toContain(t);
+          if (t === 'enum')
+            for (const v of valuesOf(field)) expect(v, `${name}.${key}`).toMatch(/^[a-z][a-z0-9_]*$/);
+        }
+      }
+    }
+    expect(encounterClassToken('AMB')).toBe('amb');
+    expect(encounterClassFromToken('imp')).toBe('IMP');
+  });
+
   it('muatan ketat tanpa PHI; tenant dan waktu milik amplop, bukan muatan', () => {
     const ok = { appointmentId, patientId };
     expect(parseDomainEvent('booking.checked_in', ok)).toEqual(ok);
@@ -256,8 +285,10 @@ describe('event domain', () => {
       appointmentId,
       payer: 'bpjs' as const,
     };
-    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'AMB' } })).toBe(3);
-    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'EMER' } })).toBeNull();
+    expect(ev({ name: 'encounter.registered', payload: { ...registered, encounterClass: 'amb' } })).toBe(3);
+    expect(
+      ev({ name: 'encounter.registered', payload: { ...registered, encounterClass: 'emer' } }),
+    ).toBeNull();
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'poli' } })).toBe(4);
     expect(ev({ name: 'queue.ticket_finished', payload: { ...ticket, serviceKind: 'poli' } })).toBe(5);
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'farmasi' } })).toBe(6);
@@ -599,6 +630,34 @@ describe('kontrak API rujukan (F07) dan surat (F06)', () => {
         unitId: uuid(),
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('rekaman rujukan', () => {
+  it('nomor kosong hanya selama pending (menunggu nomor BPJS)', () => {
+    const r = {
+      id: uuid(),
+      kind: 'surat-kontrol',
+      status: 'pending',
+      number: null,
+      patientId: uuid(),
+      encounterId: uuid(),
+      ppkCode: null,
+      facilityName: 'Poli Penyakit Dalam',
+      targetServiceId: uuid(),
+      practitionerId: uuid(),
+      diagnosis: null,
+      issuedOn: '2026-10-05',
+      validUntil: null,
+      visitNo: null,
+      sync: { status: 'pending', sentAt: null, error: null },
+      createdAt: AT,
+    };
+    expect(referralRecordSchema.safeParse(r).success).toBe(true);
+    expect(referralRecordSchema.safeParse({ ...r, status: 'active' }).success).toBe(false);
+    expect(
+      referralRecordSchema.safeParse({ ...r, status: 'active', number: '0301R0011025K000117' }).success,
+    ).toBe(true);
   });
 });
 

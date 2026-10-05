@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PAYER_KINDS, ENCOUNTER_CLASSES } from './schemas/registration';
+import { ENCOUNTER_CLASSES, type EncounterClass, PAYER_KINDS } from './schemas/registration';
 import type { AntreanTaskId } from './integrations/bpjs/antrean';
 import { QUEUE_SERVICE_KINDS } from './schemas/queue';
 
@@ -19,6 +19,20 @@ const ticketEvent = z.strictObject({
   encounterId: z.uuid().nullable(),
 });
 
+/**
+ * Muatan event datar karena tersimpan di `domain_events` (migrasi 0b susulan): kunci `…Id` = UUID, `…Ids` = larik
+ * UUID, selain itu hanya null, boolean, angka, atau token enum huruf kecil (tanpa teks bebas/PHI).
+ */
+export const ENCOUNTER_CLASS_TOKENS = ['amb', 'emer', 'imp'] as const;
+export type EncounterClassToken = (typeof ENCOUNTER_CLASS_TOKENS)[number];
+export function encounterClassToken(c: EncounterClass): EncounterClassToken {
+  return c.toLowerCase() as EncounterClassToken;
+}
+/** Kebalikan `encounterClassToken`. */
+export function encounterClassFromToken(t: EncounterClassToken): EncounterClass {
+  return ENCOUNTER_CLASSES[ENCOUNTER_CLASS_TOKENS.indexOf(t)] as EncounterClass;
+}
+
 export const DOMAIN_EVENT_SCHEMAS = {
   /** F02 · Booking di-check-in (anjungan/loket) → task 1. */
   'booking.checked_in': z.strictObject({ appointmentId: z.uuid(), patientId: z.uuid() }),
@@ -34,7 +48,8 @@ export const DOMAIN_EVENT_SCHEMAS = {
   'encounter.registered': z.strictObject({
     encounterId: z.uuid(),
     patientId: z.uuid(),
-    class: z.enum(ENCOUNTER_CLASSES),
+    /** Kelas kunjungan sebagai token huruf kecil (`amb` | `emer` | `imp`; `encounters.class` huruf besar). */
+    encounterClass: z.enum(ENCOUNTER_CLASS_TOKENS),
     unitId: z.uuid(),
     appointmentId: z.uuid().nullable(),
     payer: z.enum(PAYER_KINDS).nullable(),
@@ -93,7 +108,7 @@ export function bpjsTaskForEvent(
         ? null
         : task(event.payload.appointmentId, event.payload.serviceKind === 'loket' ? 2 : null);
     case 'encounter.registered':
-      return task(event.payload.appointmentId, event.payload.class === 'AMB' ? 3 : null);
+      return task(event.payload.appointmentId, event.payload.encounterClass === 'amb' ? 3 : null);
     case 'queue.ticket_started':
       return task(
         event.payload.appointmentId,

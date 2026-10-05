@@ -124,8 +124,11 @@ export const bpjsReferenceNumberSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[0-9A-Z]{8,30}$/, 'Nomor rujukan/surat kontrol tidak valid');
-/** Dasar kunjungan JKN: jenis kunjungan + nomor rujukan/surat kontrol. */
+  .regex(/^[0-9A-Z]{8,40}$/, 'Nomor rujukan/surat kontrol tidak valid');
+/**
+ * Dasar kunjungan JKN: jenis kunjungan + nomor rujukan/surat kontrol. Disimpan di `appointments.jkn_visit_kind`
+ * (= `BPJS_VISIT_KINDS[visitKind].code`, 1–4) dan `appointments.reference_number` (wajib untuk keranjang `jkn`).
+ */
 export const jknReferenceSchema = z.strictObject({
   visitKind: z.enum(BPJS_VISIT_KIND_CODES),
   referenceNumber: bpjsReferenceNumberSchema,
