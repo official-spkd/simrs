@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { TenantTx } from '@simrs/db';
-import type { AuditAction, AuditOutcome, PermissionScope } from '@simrs/shared';
+import type { AuditAction, AuditOutcome, DevicePrincipalKind, PermissionScope } from '@simrs/shared';
 
 /** Satu entri audit yang akan ditulis di akhir transaksi permintaan. Tanpa PHI di `details`. */
 export interface PendingAudit {
@@ -25,6 +25,19 @@ export interface RequestActor {
   unitId: string | null;
   /** Sesi masuk cepat dengan PIN (ADR-0024): perangkat ber-PIN yang dipakai; posisi terkunci. */
   deviceId?: string | null;
+  /**
+   * Prinsipal perangkat (ADR-0027): anjungan/TV yang memanggil endpoint `@DeviceScoped()`. Tanpa pengguna dan peran;
+   * hanya izin tetap jenisnya. `null`/kosong untuk pelaku manusia.
+   */
+  devicePrincipal?: DevicePrincipal | null;
+}
+
+/** Perangkat terdaftar yang sedang memanggil API (ADR-0027). */
+export interface DevicePrincipal {
+  id: string;
+  kind: DevicePrincipalKind;
+  /** Izin tetap jenis perangkat (`DEVICE_GRANTS` katalog izin), bukan matriks peran. */
+  permissions: readonly string[];
 }
 
 /**

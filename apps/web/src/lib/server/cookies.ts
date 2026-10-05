@@ -25,6 +25,11 @@ export interface CookieNames {
    * bersama di unit), terbaru dulu. Seperti perangkat tepercaya, milik perangkat: tidak dihapus saat keluar.
    */
   pinDevices: string;
+  /**
+   * Prinsipal perangkat anjungan/TV (ADR-0027): token `dv1` hasil penukaran kode pendaftaran dari admin. Milik
+   * perangkat: tidak dihapus saat staf keluar; berlaku sampai kredensial perangkat kedaluwarsa atau dicabut admin.
+   */
+  device: string;
 }
 
 export function cookieNames(secure: boolean): CookieNames {
@@ -36,6 +41,7 @@ export function cookieNames(secure: boolean): CookieNames {
     challengeUser: `${p}simrs_mfa_user`,
     trustedDevice: `${p}simrs_td`,
     pinDevices: `${p}simrs_pin`,
+    device: `${p}simrs_device`,
   };
 }
 
@@ -130,6 +136,28 @@ export function writePinTokens(w: CookieWriter, tokens: string[], secure: boolea
     tokens.join(PIN_SEPARATOR),
     cookieOptions(secure, new Date(now + PIN_DEVICE_DAYS * 86_400_000)),
   );
+}
+
+const DEVICE_TOKEN =
+  /^dv1\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/;
+
+/** Token prinsipal perangkat dari isi cookie, atau null bila bukan token `dv1` yang berformat sah. */
+export function parseDeviceToken(value: string | undefined): string | null {
+  return value && DEVICE_TOKEN.test(value) ? value : null;
+}
+
+/** Simpan kredensial perangkat (ADR-0027) sampai kedaluwarsa; `null` = cookie dihapus. */
+export function writeDeviceCookie(
+  w: CookieWriter,
+  device: { token: string; expiresAt: string } | null,
+  secure: boolean,
+): void {
+  const name = cookieNames(secure).device;
+  if (!device) {
+    w.set(name, '', cookieOptions(secure, new Date(0)));
+    return;
+  }
+  w.set(name, device.token, cookieOptions(secure, new Date(device.expiresAt)));
 }
 
 /** Hapus cookie dengan menimpanya (atribut sama, kedaluwarsa di masa lalu). */

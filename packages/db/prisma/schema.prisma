@@ -299,15 +299,16 @@ model Unit {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy  String?  @map("updated_by") @db.Uuid
 
-  tenant        Tenant            @relation(fields: [tenantId], references: [id])
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
   /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
-  facility      Facility          @relation(fields: [tenantId, facilityId], references: [tenantId, id])
-  parent        Unit?             @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
-  children      Unit[]            @relation("UnitTree")
+  facility      Facility           @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent        Unit?              @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children      Unit[]             @relation("UnitTree")
   locations     Location[]
   assignments   StaffAssignment[]
   queueServices QueueService[]
   encounters    Encounter[]
+  devices       RegisteredDevice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -434,6 +435,7 @@ model User {
   trustedDevices      TrustedDevice[]
   devices             RegisteredDevice[]   @relation("RegisteredDeviceUser")
   devicesRevoked      RegisteredDevice[]   @relation("RegisteredDeviceRevoker")
+  devicesCreated      RegisteredDevice[]   @relation("RegisteredDeviceCreator")
   practitioners       Practitioner[]
 
   @@unique([tenantId, id])
@@ -1024,7 +1026,7 @@ model TrustedDevice {
 model RegisteredDevice {
   id             String    @id @db.Uuid
   tenantId       String    @map("tenant_id") @db.Uuid
-  /// staff_pin (CHECK database; jenis lain menyusul fase 2)
+  /// staff_pin (ADR-0024) | kiosk | display (prinsipal perangkat, ADR-0027); CHECK database
   kind           String    @default("staff_pin")
   /// staff_pin: pemilik PIN (wajib untuk jenis ini, CHECK `registered_devices_staff_pin`).
   userId         String?   @map("user_id") @db.Uuid
@@ -1032,7 +1034,8 @@ model RegisteredDevice {
   assignmentId   String?   @map("assignment_id") @db.Uuid
   /// Nama perangkat dari pengguna (mis. "Komputer nurse station Melati").
   name           String
-  tokenHash      String    @unique @map("token_hash")
+  /// SHA-256 rahasia token perangkat. kiosk/display: kosong sampai perangkat mendaftar dengan kode sekali pakai.
+  tokenHash      String?   @unique @map("token_hash")
   /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
   pinHash        String?   @map("pin_hash")
   /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
@@ -1052,15 +1055,30 @@ model RegisteredDevice {
   revokedReason  String?   @map("revoked_reason")
   /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
   revokedBy      String?   @map("revoked_by") @db.Uuid
+  /// kiosk/display: unit tempat perangkat dipasang (wajib, CHECK `registered_devices_principal`).
+  unitId         String?   @map("unit_id") @db.Uuid
+  /// display: papan antrean yang ditampilkan (opsional; CHECK `registered_devices_queue_display`).
+  queueDisplayId String?   @map("queue_display_id") @db.Uuid
+  /// kiosk/display: HMAC kode pendaftaran sekali pakai (dibuang saat perangkat mendaftar).
+  enrolCodeHash  String?   @map("enrol_code_hash")
+  enrolExpiresAt DateTime? @map("enrol_expires_at") @db.Timestamptz(3)
+  enrolledAt     DateTime? @map("enrolled_at") @db.Timestamptz(3)
+  /// Admin yang mendaftarkan perangkat (kiosk/display).
+  createdBy      String?   @map("created_by") @db.Uuid
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id])
-  user       User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
-  assignment StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
-  revoker    User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
-  sessions   AuthSession[]
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  unit         Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  creator      User?            @relation("RegisteredDeviceCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  queueDisplay QueueDisplay?    @relation(fields: [tenantId, queueDisplayId], references: [tenantId, id])
+  user         User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
+  assignment   StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  revoker      User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
+  sessions     AuthSession[]
 
   @@unique([tenantId, id])
   @@index([tenantId, userId])
+  @@index([tenantId, kind, unitId])
+  @@index([tenantId, queueDisplayId])
   @@map("registered_devices")
 }
 
@@ -1235,6 +1253,7 @@ model QueueDisplay {
 
   tenant   Tenant                @relation(fields: [tenantId], references: [id])
   services QueueDisplayService[]
+  devices  RegisteredDevice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1357,35 +1376,43 @@ model HfisScheduleSnapshot {
 
 /// F02 · Booking (Mobile JKN, aplikasi RS, anjungan, loket). `booking_code` unik dan tidak bisa diubah.
 model Appointment {
-  id              String    @id @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
   /// Kode booking 10 digit (dikirim ke BPJS Antrean).
-  bookingCode     String    @map("booking_code")
-  patientId       String    @map("patient_id") @db.Uuid
-  sessionId       String    @map("session_id") @db.Uuid
-  practitionerId  String    @map("practitioner_id") @db.Uuid
-  serviceId       String    @map("service_id") @db.Uuid
-  appointmentDate DateTime  @map("appointment_date") @db.Date
+  bookingCode         String    @map("booking_code")
+  patientId           String    @map("patient_id") @db.Uuid
+  sessionId           String    @map("session_id") @db.Uuid
+  practitionerId      String    @map("practitioner_id") @db.Uuid
+  serviceId           String    @map("service_id") @db.Uuid
+  appointmentDate     DateTime  @map("appointment_date") @db.Date
   /// jkn | non_jkn (keranjang kuota sesi)
-  quotaBucket     String    @map("quota_bucket")
+  quotaBucket         String    @map("quota_bucket")
   /// mobile_jkn | aplikasi | anjungan | loket
-  channel         String
+  channel             String
   /// JKN: jenis kunjungan Antrean BPJS (`ANTREAN_JENIS_KUNJUNGAN`): 1 rujukan FKTP, 2 rujukan internal, 3 kontrol,
   /// 4 rujukan antar-RS. Wajib bila `quota_bucket = jkn`, kosong untuk non-JKN.
-  jknVisitKind    Int?      @map("jkn_visit_kind") @db.SmallInt
+  jknVisitKind        Int?      @map("jkn_visit_kind") @db.SmallInt
   /// JKN: nomor referensi (no. rujukan/surat kontrol) untuk `nomorreferensi` Antrean; wajib bila JKN.
-  referenceNumber String?   @map("reference_number")
+  referenceNumber     String?   @map("reference_number")
   /// booked | checked_in | cancelled | no_show | completed
-  status          String    @default("booked")
-  estimatedAt     DateTime? @map("estimated_at") @db.Timestamptz(3)
-  checkedInAt     DateTime? @map("checked_in_at") @db.Timestamptz(3)
-  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(3)
-  cancelledBy     String?   @map("cancelled_by") @db.Uuid
-  cancelReason    String?   @map("cancel_reason")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy       String?   @map("created_by") @db.Uuid
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy       String?   @map("updated_by") @db.Uuid
+  status              String    @default("booked")
+  /// Status `bpjs.antrean.add`: not_required (non-JKN) | pending | sent | rejected | dead
+  bpjsSyncStatus      String    @default("not_required") @map("bpjs_sync_status")
+  bpjsSyncedAt        DateTime? @map("bpjs_synced_at") @db.Timestamptz(3)
+  /// Kode penolakan/galat terakhir (`BPJS_REJECTIONS`, `BPJS_TIDAK_DIKENAL`, `BPJS_DLQ`); pesan dari kode, tanpa PHI.
+  bpjsErrorCode       String?   @map("bpjs_error_code")
+  /// Status `bpjs.antrean.batal` (sama dengan di atas); not_required bila tidak pernah dikirim ke BPJS.
+  bpjsCancelStatus    String    @default("not_required") @map("bpjs_cancel_status")
+  bpjsCancelErrorCode String?   @map("bpjs_cancel_error_code")
+  estimatedAt         DateTime? @map("estimated_at") @db.Timestamptz(3)
+  checkedInAt         DateTime? @map("checked_in_at") @db.Timestamptz(3)
+  cancelledAt         DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy         String?   @map("cancelled_by") @db.Uuid
+  cancelReason        String?   @map("cancel_reason")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?   @map("created_by") @db.Uuid
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?   @map("updated_by") @db.Uuid
 
   tenant       Tenant          @relation(fields: [tenantId], references: [id])
   patient      Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])

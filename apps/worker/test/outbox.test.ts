@@ -15,9 +15,14 @@ import { loadWorkerEnv, WORKER_ENV, type WorkerEnv } from '../src/config/env';
 import { OutboxDispatcher } from '../src/outbox/outbox.dispatcher';
 import { OUTBOX_QUEUE, OutboxScheduler } from '../src/outbox/outbox.scheduler';
 import { WorkerModule } from '../src/worker.module';
+import { freshTenant } from './helpers';
 
-const A = '0199a000-0000-7000-8000-000000000001';
-const B = '0199a000-0000-7000-8000-000000000002';
+/**
+ * Tenant fiktif baru per run, bukan tenant seed: di tenant seed, pesan sisa tes API (database tes tanpa worker)
+ * menumpuk dan bisa mendorong pesan tes ini keluar batch klaim (`OUTBOX_BATCH_SIZE`), sehingga tes gagal sesekali.
+ */
+let A = '';
+let B = '';
 
 let stub: Server;
 let stubStatus = 200;
@@ -33,6 +38,8 @@ beforeAll(async () => {
   } catch {
     // opsional
   }
+  A = await freshTenant('Outbox A');
+  B = await freshTenant('Outbox B');
   stub = createServer((req: IncomingMessage, res) => {
     received.push({ path: req.url ?? '', key: req.headers['idempotency-key'] as string | undefined });
     req.resume();

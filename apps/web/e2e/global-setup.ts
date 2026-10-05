@@ -10,7 +10,7 @@ import { resetMockState } from './support/mock';
 /**
  * Berjalan setelah semua webServer menyala (mock, API, worker, web). Migrasi tertunda + tenant fiktif (termasuk
  * PLATFORM) ke simrs_test, lalu akun presentasi (ADR-0023) di RSFA uji dengan berkas kredensialnya untuk server web
- * mode presentasi, perangkat uji (belum ada, ADR-0027), dan mock dalam keadaan bersih. Tidak destruktif (kredensial
+ * mode presentasi, perangkat uji anjungan/display (ADR-0027, `support/devices.ts`), dan mock dalam keadaan bersih. Tidak destruktif (kredensial
  * akun presentasi uji diganti setiap kali).
  */
 export default async function globalSetup(): Promise<void> {

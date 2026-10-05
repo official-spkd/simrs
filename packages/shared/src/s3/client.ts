@@ -35,6 +35,22 @@ export interface S3Response {
   body: Readable;
 }
 
+/** Satu versi objek (atau penanda hapus) dari ListObjectVersions. */
+export interface S3ObjectVersion {
+  key: string;
+  versionId: string;
+  isLatest: boolean;
+  deleteMarker: boolean;
+}
+
+/**
+ * Header `Content-MD5` (base64 MD5 isi). S3 mewajibkannya (atau checksum lain) untuk PutObject dengan retensi Object
+ * Lock; MinIO tidak, tetapi mengirimnya membuat perilaku sama di kedua penyedia.
+ */
+export function contentMd5(body: Buffer): string {
+  return createHash('md5').update(body).digest('base64');
+}
+
 /** Galat dari S3: status HTTP + kode S3 (mis. `NoSuchKey`, `PreconditionFailed`). Tanpa kunci objek. */
 export class S3Error extends Error {
   constructor(
@@ -49,7 +65,8 @@ export class S3Error extends Error {
 const MAX_ERROR_BODY = 16 * 1024;
 
 const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
-const decodeXml = (s: string) => s.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => XML_ENTITIES[e] ?? '');
+const decodeXml = (s: string) =>
+  s.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => XML_ENTITIES[e] ?? '');
 
 /** Baca isi respons sampai `limit` byte; lebih dari itu → stream dihentikan dan `null`. */
 async function readLimited(body: Readable, limit: number): Promise<Buffer | null> {
@@ -160,6 +177,52 @@ export class S3Client {
       token = /<NextContinuationToken>([^<]*)<\/NextContinuationToken>/.exec(xml)?.[1];
       if (!truncated || !token) return out;
       token = decodeXml(token);
+    }
+  }
+
+  /**
+   * ListObjectVersions seluruh halaman di bawah `prefix`, sesudah kunci `keyMarker` (eksklusif): setiap versi objek
+   * dan penanda hapus, urut kunci lalu terbaru dulu (urutan S3). Berbeda dengan `listObjects`, objek yang
+   * disembunyikan penanda hapus tetap terlihat; dipakai bucket WORM jangkar audit (ADR-0072) untuk membaca versi
+   * PERTAMA objek, yang tidak bisa diubah pemegang kredensial bucket.
+   */
+  async listObjectVersions(
+    bucket: string,
+    prefix = '',
+    opts: { keyMarker?: string } = {},
+  ): Promise<S3ObjectVersion[]> {
+    const out: S3ObjectVersion[] = [];
+    let marker: { key: string; versionId?: string } | undefined = opts.keyMarker
+      ? { key: opts.keyMarker }
+      : undefined;
+    for (;;) {
+      const query: Record<string, string> = { versions: '', prefix };
+      if (marker) {
+        query['key-marker'] = marker.key;
+        if (marker.versionId) query['version-id-marker'] = marker.versionId;
+      }
+      const res = await this.send({ method: 'GET', bucket, query }, 8 * 1024 * 1024);
+      const xml = res.body.toString('utf8');
+      for (const m of xml.matchAll(/<(Version|DeleteMarker)>([\s\S]*?)<\/\1>/g)) {
+        const inner = m[2] ?? '';
+        const key = /<Key>([^<]*)<\/Key>/.exec(inner)?.[1];
+        const versionId = /<VersionId>([^<]*)<\/VersionId>/.exec(inner)?.[1];
+        if (key === undefined || versionId === undefined) continue;
+        out.push({
+          key: decodeXml(key),
+          versionId: decodeXml(versionId),
+          isLatest: /<IsLatest>true<\/IsLatest>/.test(inner),
+          deleteMarker: m[1] === 'DeleteMarker',
+        });
+      }
+      const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+      const nextKey = /<NextKeyMarker>([^<]*)<\/NextKeyMarker>/.exec(xml)?.[1];
+      const nextVersion = /<NextVersionIdMarker>([^<]*)<\/NextVersionIdMarker>/.exec(xml)?.[1];
+      if (!truncated || nextKey === undefined) return out;
+      marker = {
+        key: decodeXml(nextKey),
+        versionId: nextVersion === undefined ? undefined : decodeXml(nextVersion),
+      };
     }
   }
 

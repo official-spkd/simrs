@@ -28,9 +28,12 @@ const MANUAL_INDEXES = [
   'form_definitions_one_published',
   'form_definitions_one_open_draft',
   'form_responses_supersedes_once',
+  'registered_devices_enrol_code',
   'seps_supersedes_once',
   'seps_one_chain_per_encounter',
   'patient_contacts_supersedes_once',
+  'appointments_one_active_per_day',
+  'external_ids_one_owner_per_value',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -159,6 +162,34 @@ describe('penjaga skema', () => {
     expect(rows.filter((r) => r.can_delete).map((r) => r.table)).toEqual([]);
   });
 
+  it('master front office dan sesi jadwal: aplikasi hanya mengubah kolom bisnis, bukan id/tenant/kode/jejak buat', async () => {
+    const tables = [
+      'practitioners',
+      'external_ids',
+      'payers',
+      'queue_services',
+      'queue_displays',
+      'queue_display_services',
+      'practitioner_schedules',
+      'schedule_sessions',
+    ];
+    const rows = await owner.$queryRaw<Array<{ table: string; table_update: boolean; frozen: string[] }>>`
+      SELECT t AS table,
+             has_table_privilege('simrs_app', 'public.' || t, 'UPDATE') AS table_update,
+             COALESCE(array_agg(c.column_name::text ORDER BY c.column_name::text)
+                        FILTER (WHERE has_column_privilege('simrs_app', 'public.' || t, c.column_name, 'UPDATE')),
+                      '{}') AS frozen
+      FROM unnest(${tables}::text[]) AS t
+      JOIN information_schema.columns c ON c.table_schema = 'public' AND c.table_name = t
+        AND c.column_name IN ('id', 'tenant_id', 'code', 'created_at', 'created_by', 'session_date',
+                              'practitioner_id', 'service_id', 'display_id', 'weekday', 'valid_from')
+      GROUP BY t ORDER BY t`;
+    expect(rows.filter((r) => r.table_update).map((r) => r.table)).toEqual([]);
+    expect(rows.filter((r) => r.frozen.length > 0).map((r) => `${r.table}: ${r.frozen.join(', ')}`)).toEqual(
+      [],
+    );
+  });
+
   it('indeks unik parsial manual (tidak dimodelkan Prisma) tetap ada', async () => {
     const rows = await owner.$queryRaw<Array<{ name: string }>>`
       SELECT indexname AS name FROM pg_indexes
@@ -224,7 +255,13 @@ describe('penjaga skema', () => {
     const rows = await owner.$queryRaw<Array<{ column: string; can_update: boolean }>>`
       SELECT c AS column, has_column_privilege('simrs_app', 'public.registered_devices', c, 'UPDATE') AS can_update
       FROM unnest(${columns}::text[]) AS c`;
-    expect(rows.filter((r) => r.can_update).map((r) => r.column)).toEqual(['failed_attempts', 'revoked_at']);
+    // token_hash: hanya untuk pendaftaran sekali perangkat anjungan/TV (ADR-0027); penjaga database menolak
+    // perubahan lain, termasuk pada PIN (lihat test/device-principals.test.ts).
+    expect(rows.filter((r) => r.can_update).map((r) => r.column)).toEqual([
+      'token_hash',
+      'failed_attempts',
+      'revoked_at',
+    ]);
   });
 
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {
