@@ -1,4 +1,6 @@
 import {
+  ATS_LABEL,
+  ATS_TARGET_MINUTES,
   type Bed,
   type BedStatus,
   type ConsentDocument,
@@ -27,6 +29,8 @@ import {
   resumeCompleteness,
   type ResumeCompleteness,
   SAFETY_REASON_MIN,
+  TENANT_SETTINGS,
+  triageBlockReason,
   type ResumeSection,
   triageNeedsReason,
   type TriageLevel,
@@ -56,38 +60,39 @@ export interface TriageMeta {
   selected: string;
 }
 
+/** Nama level dan target waktu dokter dari skala ATS bersama (`@simrs/shared`, keputusan fase 3 no. 6). */
+function atsText(level: TriageLevel): Pick<TriageMeta, 'label' | 'target'> {
+  const minutes = ATS_TARGET_MINUTES[level];
+  return { label: ATS_LABEL[level], target: minutes === 0 ? 'segera' : `≤ ${minutes} menit` };
+}
+
 export const TRIAGE_META: Record<TriageLevel, TriageMeta> = {
   1: {
-    label: 'Resusitasi',
-    target: 'segera',
+    ...atsText(1),
     badge: 'border-[#9A1E14] bg-triage-1 text-white',
     rail: 'shadow-[inset_4px_0_0_#B42318]',
     selected: 'border-2 border-[#9A1E14] bg-triage-1 text-white ring-3 ring-[rgba(180,35,24,0.18)]',
   },
   2: {
-    label: 'Emergensi',
-    target: '≤ 10 menit',
+    ...atsText(2),
     badge: 'border-[#A42A08] bg-triage-2 text-white',
     rail: 'shadow-[inset_4px_0_0_#C4320A]',
     selected: 'border-2 border-[#A42A08] bg-triage-2 text-white ring-3 ring-[rgba(196,50,10,0.18)]',
   },
   3: {
-    label: 'Urgen',
-    target: '≤ 30 menit',
+    ...atsText(3),
     badge: 'border-[#F5D9A8] bg-triage-3 text-[#7A4300]',
     rail: 'shadow-[inset_4px_0_0_#E9B949]',
     selected: 'border-2 border-[#F5D9A8] bg-triage-3 text-[#7A4300] ring-3 ring-[rgba(181,71,8,0.18)]',
   },
   4: {
-    label: 'Semi-urgen',
-    target: '≤ 60 menit',
+    ...atsText(4),
     badge: 'border-[#BFE3C6] bg-triage-4 text-[#1E6B34]',
     rail: 'shadow-[inset_4px_0_0_#7CC08B]',
     selected: 'border-2 border-[#BFE3C6] bg-triage-4 text-[#1E6B34] ring-3 ring-[rgba(30,107,52,0.18)]',
   },
   5: {
-    label: 'Tidak urgen',
-    target: '≤ 120 menit',
+    ...atsText(5),
     badge: 'border-[#C7D7FE] bg-triage-5 text-[#1E3A8A]',
     rail: 'shadow-[inset_4px_0_0_#8DA8F0]',
     selected: 'border-2 border-[#C7D7FE] bg-triage-5 text-[#1E3A8A] ring-3 ring-[rgba(30,58,138,0.18)]',
@@ -110,9 +115,9 @@ export function isTriageLevel(n: number): n is TriageLevel {
 /** Memilih level lebih rendah (angka lebih besar) dari saran sistem = override yang wajib beralasan (`@simrs/shared`). */
 export { triageNeedsReason };
 
-/** Simpan triase boleh bila tidak turun dari saran, atau turun dengan alasan ≥ 10 karakter. */
+/** Simpan triase boleh bila tidak turun dari saran, atau turun dengan alasan ≥ 10 karakter (`triageBlockReason`). */
 export function triageSaveAllowed(suggested: TriageLevel, chosen: TriageLevel, reason: string): boolean {
-  return !triageNeedsReason(suggested, chosen) || reason.trim().length >= SAFETY_REASON_MIN;
+  return triageBlockReason({ level: suggested, maxLevel: 5 }, chosen, reason, SAFETY_REASON_MIN) === null;
 }
 
 /** Posisi yang boleh menetapkan triase. Petugas pendaftaran tetap mengerjakan admisi dan identifikasi. */
@@ -132,10 +137,16 @@ export function triageBlocker(
   chosen: TriageLevel,
   reason: string,
 ): string | null {
-  if (chosen > item.maxLevel) {
+  const code = triageBlockReason(
+    { level: item.suggestedLevel, maxLevel: item.maxLevel },
+    chosen,
+    reason,
+    SAFETY_REASON_MIN,
+  );
+  if (code === 'TRIAGE_LEVEL_NOT_ALLOWED') {
     return `Level ${chosen} tidak diizinkan protokol pasien ini (paling rendah level ${item.maxLevel}).`;
   }
-  if (!triageSaveAllowed(item.suggestedLevel, chosen, reason)) {
+  if (code === 'TRIAGE_REASON_REQUIRED') {
     return `Level di bawah saran sistem wajib disertai alasan klinis (minimal ${SAFETY_REASON_MIN} karakter).`;
   }
   return null;
@@ -172,12 +183,16 @@ export function formatTimer(seconds: number): string {
   return `${two(Math.floor(seconds / 3600))}:${two(Math.floor(seconds / 60) % 60)}:${two(seconds % 60)}`;
 }
 
-/** Target boarding: pasien di IGD (atau permintaan bed dari IGD) menunggu ≥ 4 jam = lewat batas. */
-export const BOARDING_TARGET_MINUTES = 240;
+/**
+ * Target boarding: pasien di IGD (atau permintaan bed dari IGD) menunggu ≥ `bed.boarding_alert_hours` (bawaan 4 jam)
+ * = lewat batas. Mode presentasi memakai nilai bawaan pengaturan.
+ */
+const BOARDING_HOURS = TENANT_SETTINGS['bed.boarding_alert_hours'].default;
+export const BOARDING_TARGET_MINUTES = BOARDING_HOURS * 60;
 /** Teks penanda boarding lewat batas (papan IGD, panel triase, permintaan bed). */
-export const BOARDING_LATE_LABEL = 'Lewat 4 jam';
+export const BOARDING_LATE_LABEL = `Lewat ${BOARDING_HOURS} jam`;
 /** Target ditemui dokter untuk triase 1–2 (menit). */
-const HIGH_TRIAGE_DOCTOR_MINUTES = 10;
+const HIGH_TRIAGE_DOCTOR_MINUTES = ATS_TARGET_MINUTES[2];
 
 /**
  * Teks penanda lama tinggal yang melewati batas (status tidak hanya lewat warna): ≥ 4 jam di IGD, atau triase 1–2

@@ -57,6 +57,7 @@ export async function sendOrdersAction(input: CpoeSendInput): Promise<CpoeSendRe
     allergies: ctx.patient.allergies,
     activeMeds: ctx.activeMeds,
     flags: ctx.flags,
+    egfr: ctx.egfr,
     payer: ctx.patient.payer,
   };
   const blocked = evaluateOrders(lines, patient, ctx.doctor).filter((l) => l.status === 'draf' && l.blocked);
