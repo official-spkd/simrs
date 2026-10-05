@@ -33,6 +33,7 @@ export const KEY_ROTATION_TARGETS = [
   'patient_identifiers',
   'patient_links',
   'patient_contacts',
+  'coverages',
 ] as const;
 export type KeyRotationTarget = (typeof KEY_ROTATION_TARGETS)[number];
 
@@ -363,6 +364,44 @@ const contactsTarget: TargetSpec<ContactRow> = {
   },
 };
 
+interface CoverageRow extends Row {
+  member_no_enc: string;
+}
+
+/**
+ * No. anggota penjamin non-BPJS (F03, `coverages.member_no_enc`, tujuan `contact`). Penjaminan terkunci sejak SEP
+ * terbit, jadi ditulis ulang lewat fungsi sempit `app_rekey_coverage_member` (penjaga hanya mengizinkan ganti versi
+ * kunci kolom ini dari fungsi itu), tanpa menyentuh `updated_at`.
+ */
+const coveragesTarget: TargetSpec<CoverageRow> = {
+  target: 'coverages',
+  select: (tx, ctx, cursor, limit) => tx.$queryRaw`
+    SELECT id::text AS id, member_no_enc FROM coverages
+    WHERE member_no_enc IS NOT NULL AND app_field_key_id(member_no_enc) IS DISTINCT FROM ${ctx.enc}
+      ${cursorFilter(cursor)}
+    ORDER BY id LIMIT ${limit}`,
+  async rewrite(tx, ctx, r) {
+    const { crypto } = ctx;
+    if (crypto.isCurrentCipher(r.member_no_enc)) return 'unchanged';
+    const next = crypto.encryptContact(crypto.decryptContact(r.member_no_enc));
+    const [res] = await tx.$queryRaw<Array<{ ok: boolean }>>`
+      SELECT app_rekey_coverage_member(${r.id}::uuid, ${r.member_no_enc}, ${next}) AS ok`;
+    return res?.ok ? 'rewritten' : 'conflict';
+  },
+  async pending(tx, ctx) {
+    const [r] = await tx.$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM coverages
+      WHERE member_no_enc IS NOT NULL AND app_field_key_id(member_no_enc) IS DISTINCT FROM ${ctx.enc}`;
+    return r?.n ?? 0;
+  },
+  usage: async (tx) => [await columnUsage(tx, 'coverages', 'member_no_enc', 'enc')],
+  async inspect(tx, ctx, id) {
+    const [r] = await tx.$queryRaw<Array<{ value: string | null }>>`
+      SELECT member_no_enc AS value FROM coverages WHERE id = ${id}::uuid`;
+    if (r?.value) ctx.crypto.decryptContact(r.value);
+  },
+};
+
 const SPECS: Record<KeyRotationTarget, TargetSpec<Row>> = {
   users: simpleTarget('users', 'phone_enc', 'staff_phone') as unknown as TargetSpec<Row>,
   mfa_factors: simpleTarget('mfa_factors', 'secret_enc', 'mfa_secret') as unknown as TargetSpec<Row>,
@@ -371,6 +410,7 @@ const SPECS: Record<KeyRotationTarget, TargetSpec<Row>> = {
   patient_identifiers: identifiersTarget as unknown as TargetSpec<Row>,
   patient_links: linksTarget as unknown as TargetSpec<Row>,
   patient_contacts: contactsTarget as unknown as TargetSpec<Row>,
+  coverages: coveragesTarget as unknown as TargetSpec<Row>,
 };
 
 const context = (tenantId: string, keys: FieldKeys): Ctx => ({

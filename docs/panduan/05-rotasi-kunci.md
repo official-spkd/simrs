@@ -9,6 +9,7 @@ Runbook operator untuk mengganti kunci enkripsi kolom (`FIELD_ENCRYPTION_KEY`) d
 | `patients`            | `address_enc`, `phone_enc` · `phone_hash`            | enkripsi · hash                          |
 | `patient_identifiers` | `value_enc` (NIK, BPJS, IHS, paspor) · `value_hash`  | enkripsi · hash                          |
 | `patient_contacts`    | `name_enc`, `phone_enc`, `address_enc`               | enkripsi                                 |
+| `coverages`           | `member_no_enc` (no. anggota asuransi/perusahaan)    | enkripsi                                 |
 | `patient_links`       | `survivor_snapshot_enc` (berisi ciphertext dan hash) | enkripsi + isi bersarang (enkripsi/hash) |
 | `users`               | `phone_enc` (no. HP staf)                            | enkripsi                                 |
 | `mfa_factors`         | `secret_enc` (rahasia TOTP)                          | enkripsi                                 |
@@ -132,6 +133,6 @@ Pesan galat, log, status, dan audit hanya memuat kode, nama tabel/kolom, ID kunc
 
 ## 6. Catatan teknis
 
-- Nilai yang tidak boleh diubah aplikasi (identifier pasien, snapshot penggabungan, kontak pasien append-only) ditulis ulang lewat fungsi database sempit (`app_rekey_patient_identifier`, `app_rekey_patient_link`, `app_rekey_patient_contact`): hanya bila versi kuncinya berganti, compare-and-swap, dan tetap tunduk RLS. Hak kolom role aplikasi tidak bertambah.
+- Nilai yang tidak boleh diubah aplikasi (identifier pasien, snapshot penggabungan, kontak pasien append-only) ditulis ulang lewat fungsi database sempit (`app_rekey_patient_identifier`, `app_rekey_patient_link`, `app_rekey_patient_contact`, `app_rekey_coverage_member` untuk penjaminan yang terkunci sejak SEP terbit): hanya bila versi kuncinya berganti, compare-and-swap, dan tetap tunduk RLS. Hak kolom role aplikasi tidak bertambah.
 - Daftar tenant job = `app_key_rotation_tenant_ids()` (semua tenant, juga yang nonaktif, karena retensi rekam medis): hanya ID, pola ADR-0008.
 - Kode: `packages/shared/src/security/field-keys.ts` (cincin), `field-crypto.ts` (format), `packages/db/src/key-rotation.ts` (job), `packages/db/scripts/rotate-keys.ts` (CLI), `apps/worker/src/key-rotation/` (job worker).

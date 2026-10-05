@@ -25,6 +25,7 @@ import {
   jakartaWallTime,
   outboxKey,
   type QueueTicket,
+  type QueueTicketSource,
   type RescheduleBookingInput,
   newId,
 } from '@simrs/shared';
@@ -299,8 +300,17 @@ export class BookingService {
     return { cancelled: await this.get(id), booking: await this.get(newId_) };
   }
 
-  /** Check-in hari layanan: status `checked_in`, tiket loket pendaftaran (JKN), event `booking.checked_in`. */
-  async checkIn(id: string): Promise<CheckInResult> {
+  /**
+   * Check-in hari layanan: status `checked_in`, tiket loket pendaftaran (JKN; anjungan: semua penjamin karena
+   * pendaftaran di loket menyusul), event `booking.checked_in`. `source` = asal tiket loket (`loket` staf, `anjungan`).
+   */
+  async checkIn(
+    id: string,
+    opts: {
+      source?: Extract<QueueTicketSource, 'loket' | 'anjungan'>;
+      counterTicket?: 'jkn' | 'always';
+    } = {},
+  ): Promise<CheckInResult> {
     await this.repo.lock(id);
     const a = await this.load(id);
     if (a.status !== 'booked') throw invalidState(`Booking berstatus ${a.status} tidak bisa check-in`);
@@ -310,7 +320,7 @@ export class BookingService {
     }
     await this.repo.updateAppointment(id, { status: 'checked_in', checkedInAt: new Date() });
     let counterTicketId: string | null = null;
-    if (a.quotaBucket === 'jkn') {
+    if (a.quotaBucket === 'jkn' || opts.counterTicket === 'always') {
       const counter = await this.repo.findCounterService();
       if (counter) {
         const n = await this.repo.allocateTicketNumber(counter.id, serviceDate);
@@ -323,7 +333,7 @@ export class BookingService {
             ticketNo: n.ticketNo,
             appointmentId: id,
             patientId: a.patientId,
-            source: 'loket',
+            source: opts.source ?? 'loket',
           })
         ).id;
       }

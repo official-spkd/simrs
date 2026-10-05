@@ -20,6 +20,8 @@ export interface ApiCall<S extends z.ZodType> {
   body?: unknown;
   accessToken?: string | null;
   client?: ClientInfo | null;
+  /** Header `Idempotency-Key` (mis. check-in anjungan: sentuhan ganda → hasil yang sama). */
+  idempotencyKey?: string;
   /** Bentuk respons yang diharapkan; respons di luar skema dianggap galat (tidak diteruskan ke UI). */
   schema: S;
   timeoutMs?: number;
@@ -43,6 +45,7 @@ export async function callApi<S extends z.ZodType>(
   headers.set('accept', 'application/json');
   if (call.body !== undefined) headers.set('content-type', 'application/json');
   if (call.accessToken) headers.set('authorization', `Bearer ${call.accessToken}`);
+  if (call.idempotencyKey) headers.set('idempotency-key', call.idempotencyKey);
   if (call.client?.ip) headers.set('x-forwarded-for', call.client.ip);
   if (call.client?.host) headers.set('x-forwarded-host', call.client.host);
   if (call.client?.userAgent) headers.set('user-agent', call.client.userAgent);
