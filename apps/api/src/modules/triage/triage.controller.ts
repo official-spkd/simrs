@@ -19,7 +19,6 @@ import { SseService } from '../../infra/realtime/sse.service';
 import { TenantDb } from '../../infra/tenant-db';
 import { TriageService } from './triage.service';
 
-const uuid = new ParseUUIDPipe();
 const boardQuery = z.strictObject({ unitId: z.uuid().optional() });
 
 /**
@@ -78,7 +77,7 @@ export class TriageEncounterController {
   @RequirePermission('triage', 'write')
   @Post(':id/ed-status')
   status(
-    @Param('id', uuid) encounterId: string,
+    @Param('id', ParseUUIDPipe) encounterId: string,
     @Body(new ZodValidationPipe(edStatusInputSchema)) body: EdStatusInput,
   ) {
     return this.triage.setStatus(encounterId, body);

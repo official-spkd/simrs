@@ -7,7 +7,6 @@ import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { EmergencySepService } from './emergency-sep.service';
 
-const uuid = new ParseUUIDPipe();
 
 /**
  * Kunjungan klinis · bagian ADT/IGD (potongan 3.3): SEP IGD menyusul diagnosa dokter jaga
@@ -23,7 +22,7 @@ export class EncounterController {
   @RequirePermission('coverage', 'write')
   @Post(':id/emergency-sep')
   sep(
-    @Param('id', uuid) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(emergencySepInputSchema)) body: EmergencySepInput,
   ) {
     return this.emergencySep.request(id, body);
