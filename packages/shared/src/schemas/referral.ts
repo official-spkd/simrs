@@ -4,6 +4,7 @@ import {
   bpjsSyncSchema,
   changeReasonSchema,
   cursorPageQuerySchema,
+  cursorPageSchema,
   icd10CodingSchema,
   serviceDateSchema,
 } from './front-office';
@@ -50,6 +51,15 @@ export const REFERRAL_DOC_KIND_LABEL: Record<ReferralDocKind, string> = {
 export const REFERRAL_STATUSES = ['pending', 'active', 'used', 'expired', 'cancelled'] as const;
 export type ReferralStatus = (typeof REFERRAL_STATUSES)[number];
 
+/** Jenis rujukan keluar (`tipeRujukan` VClaim): penuh/partial ke RS, rujuk balik ke FKTP. */
+export const OUTGOING_REFERRAL_TYPES = ['penuh', 'partial', 'rujuk_balik'] as const;
+export type OutgoingReferralType = (typeof OUTGOING_REFERRAL_TYPES)[number];
+export const OUTGOING_REFERRAL_TYPE_LABEL: Record<OutgoingReferralType, string> = {
+  penuh: 'Rujukan penuh',
+  partial: 'Rujukan partial',
+  rujuk_balik: 'Rujuk balik ke FKTP',
+};
+
 /** Kode PPK/faskes BPJS 8 karakter (mis. `0301R001`). */
 export const PPK_CODE_PATTERN = /^[0-9A-Z]{8}$/;
 /** Kode poli BPJS (3 huruf, mis. `INT`, `JAN`), dipetakan dari poli RS lewat `external_ids`. */
@@ -77,16 +87,32 @@ export const referralRecordSchema = z
     validUntil: serviceDateSchema.nullable(),
     /** Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan). */
     visitNo: z.number().int().min(1).nullable(),
+    /** Tanggal rencana kontrol/rawat inap/kunjungan ke faskes tujuan. */
+    plannedDate: serviceDateSchema.nullable(),
+    /** SPRI: unit rawat inap tujuan. */
+    targetUnitId: z.uuid().nullable(),
+    /** Rujukan keluar: jenis pelayanan, jenis rujukan, dan kode poli BPJS di faskes tujuan. */
+    serviceType: z.enum(['rawat_jalan', 'rawat_inap']).nullable(),
+    referralType: z.enum(OUTGOING_REFERRAL_TYPES).nullable(),
+    bpjsPoliCode: z.string().regex(BPJS_POLI_CODE_PATTERN).nullable(),
+    /** Catatan rujukan keluar / alasan rujukan internal. */
+    note: z.string().max(500).nullable(),
+    cancelledAt: isoDateTime.nullable(),
+    cancelReason: z.string().max(300).nullable(),
     /** Status kirim ke BPJS (surat kontrol, SPRI, rujukan keluar); `not_required` untuk rujukan masuk/internal. */
     sync: bpjsSyncSchema,
     createdAt: isoDateTime,
   })
-  .refine((v) => v.number !== null || v.status === 'pending', {
-    message: 'Nomor kosong hanya selama menunggu BPJS (pending)',
+  .refine((v) => v.number !== null || v.status === 'pending' || v.status === 'cancelled', {
+    message: 'Nomor kosong hanya selama menunggu BPJS (pending) atau bila dibatalkan sebelum bernomor',
     path: ['number'],
   });
 export type ReferralRecord = z.infer<typeof referralRecordSchema>;
 
+export const referralListSchema = cursorPageSchema(referralRecordSchema);
+export type ReferralList = z.infer<typeof referralListSchema>;
+
+/** Daftar rujukan. Lingkup selain `all` wajib menyebut `patientId` atau `encounterId` (ABAC per pasien). */
 export const referralListQuerySchema = z.strictObject({
   ...cursorPageQuerySchema.shape,
   patientId: z.uuid().optional(),
@@ -115,22 +141,29 @@ export const recordIncomingReferralSchema = z
   });
 export type RecordIncomingReferralInput = z.infer<typeof recordIncomingReferralSchema>;
 
-/** Rujukan keluar ke faskes lain (`rujukan-keluar`). Rawat jalan wajib poli tujuan (kode poli BPJS). */
+/**
+ * Rujukan keluar ke faskes lain (`rujukan-keluar`). Rawat jalan wajib poli tujuan (kode poli BPJS) kecuali rujuk
+ * balik. Kunjungan BPJS: nomor dari VClaim lewat outbox (butuh SEP terbit); selain BPJS: nomor RS `RK-…`.
+ */
 export const createOutgoingReferralSchema = z
   .strictObject({
     encounterId: z.uuid(),
     destination: z.strictObject({ ppkCode: z.string().regex(PPK_CODE_PATTERN), name: NAME }),
     serviceType: z.enum(['rawat_jalan', 'rawat_inap']),
+    referralType: z.enum(OUTGOING_REFERRAL_TYPES).default('penuh'),
     bpjsPoliCode: z.string().regex(BPJS_POLI_CODE_PATTERN).optional(),
     diagnosis: icd10CodingSchema,
     plannedDate: serviceDateSchema,
-    /** Catatan untuk BPJS (tidak disimpan di baris rujukan). */
+    /** Catatan rujukan (`catatan` VClaim). */
     note: z.string().trim().max(200).optional(),
   })
-  .refine((v) => v.serviceType === 'rawat_inap' || v.bpjsPoliCode !== undefined, {
-    message: 'Rujukan rawat jalan wajib menyebut poli tujuan',
-    path: ['bpjsPoliCode'],
-  });
+  .refine(
+    (v) => v.serviceType === 'rawat_inap' || v.referralType === 'rujuk_balik' || v.bpjsPoliCode !== undefined,
+    {
+      message: 'Rujukan rawat jalan wajib menyebut poli tujuan',
+      path: ['bpjsPoliCode'],
+    },
+  );
 export type CreateOutgoingReferralInput = z.infer<typeof createOutgoingReferralSchema>;
 
 /** Rujukan internal antarpoli (`rujukan-internal`, konsul ke poli lain di RS yang sama). */
@@ -170,5 +203,9 @@ export const createControlLetterSchema = z.discriminatedUnion('kind', [
 ]);
 export type CreateControlLetterInput = z.infer<typeof createControlLetterSchema>;
 
+/**
+ * Batal: surat/rujukan BPJS yang sudah bernomor dihapus di BPJS lewat outbox (`bpjs.vclaim.rencanakontrol.delete`,
+ * `bpjs.vclaim.rujukan.delete`); yang belum bernomor (ditolak/DLQ) dan rujukan RS sendiri batal lokal.
+ */
 export const cancelReferralSchema = z.strictObject({ reason: changeReasonSchema });
 export type CancelReferralInput = z.infer<typeof cancelReferralSchema>;

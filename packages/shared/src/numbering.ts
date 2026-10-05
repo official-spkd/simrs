@@ -53,6 +53,20 @@ export const NUMBER_KINDS = {
     max: 999_999n,
     format: (v, p) => `RI-${p}-${pad(v, 6)}`,
   },
+  /** F07 · Rujukan internal antarpoli (konsul), nomor RS sendiri (bukan BPJS). */
+  referral_internal: {
+    label: 'Rujukan internal',
+    period: 'month',
+    max: 999_999n,
+    format: (v, p) => `RIN-${p}-${pad(v, 6)}`,
+  },
+  /** F07 · Rujukan keluar pasien non-BPJS (surat RS); rujukan keluar BPJS bernomor dari VClaim. */
+  referral_out: {
+    label: 'Rujukan keluar (non-BPJS)',
+    period: 'month',
+    max: 999_999n,
+    format: (v, p) => `RK-${p}-${pad(v, 6)}`,
+  },
   invoice: { label: 'Invoice', period: 'month', max: 99_999n, format: (v, p) => `INV-${p}-${pad(v, 5)}` },
   journal: { label: 'Jurnal umum', period: 'month', max: 9_999n, format: (v, p) => `JU-${p}${pad(v, 4)}` },
   payment_bill: {
