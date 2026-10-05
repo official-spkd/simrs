@@ -5,6 +5,9 @@ import {
   type KioskIdentifyResult,
   kioskCheckInSchema,
   kioskIdentifySchema,
+  type KioskRegisterInput,
+  kioskRegisterSchema,
+  type KioskSessionOption,
   type KioskTicketRequest,
   kioskTicketRequestSchema,
   type PrintableTicket,
@@ -66,6 +69,25 @@ export class KioskController {
     @Headers('idempotency-key') key: string | undefined,
   ): Promise<PrintableTicket> {
     return this.kiosk.issueTicket(body, key);
+  }
+
+  /** Sesi dokter hari ini untuk pasien umum (tanpa data pasien). */
+  @Get('sessions')
+  sessions(): Promise<KioskSessionOption[]> {
+    return this.kiosk.sessions();
+  }
+
+  /**
+   * Registrasi mandiri rawat jalan (alur 5a: kunjungan + penjaminan + SEP `pending` lewat outbox) → tiket poli.
+   * Header `Idempotency-Key` (UUID) wajib. Audit kunjungan ditulis `RegistrationService` (pelaku = perangkat).
+   */
+  @Post('register')
+  @HttpCode(201)
+  register(
+    @Body(new ZodValidationPipe(kioskRegisterSchema)) body: KioskRegisterInput,
+    @Headers('idempotency-key') key: string | undefined,
+  ): Promise<PrintableTicket> {
+    return this.kiosk.register(body, key);
   }
 
   /** Tiket siap cetak 80 mm (HTML mandiri tanpa skrip). */

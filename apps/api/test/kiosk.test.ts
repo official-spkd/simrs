@@ -6,6 +6,7 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  allocateQueueNumber,
   createPrismaClient,
   type PrismaClient,
   seedFrontOffice,
@@ -14,7 +15,13 @@ import {
   withTenant,
 } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { isoDateJakarta, kioskIdentifyResultSchema, newId, printableTicketSchema } from '@simrs/shared';
+import {
+  isoDateJakarta,
+  kioskIdentifyResultSchema,
+  kioskSessionOptionSchema,
+  newId,
+  printableTicketSchema,
+} from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -87,11 +94,13 @@ async function patient(opts: { booking?: 'jkn' | 'non_jkn'; name?: string; birth
   });
   let appointmentId: string | null = null;
   const code = bookingCode();
+  /** No. surat kontrol fiktif unik (`referrals` unik per jenis + nomor). */
+  const controlNo = `9999R0011025K${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`;
   if (opts.booking) {
     appointmentId = newId();
     const bucket = opts.booking;
-    await run((tx) =>
-      tx.appointment.create({
+    await run(async (tx) => {
+      await tx.appointment.create({
         data: {
           id: appointmentId as string,
           tenantId: T.id,
@@ -103,12 +112,28 @@ async function patient(opts: { booking?: 'jkn' | 'non_jkn'; name?: string; birth
           appointmentDate: toDbDate(today),
           quotaBucket: bucket,
           channel: 'mobile_jkn',
-          ...(bucket === 'jkn' ? { jknVisitKind: 3, referenceNumber: '9999R0011025K000001' } : {}),
+          ...(bucket === 'jkn' ? { jknVisitKind: 3, referenceNumber: controlNo } : {}),
         },
-      }),
-    );
+      });
+      // Nomor poli cadangan booking, seperti `BookingService` (dilepas ke antrean saat registrasi).
+      const n = await allocateQueueNumber(tx, T.id, svc.PD as string, today);
+      await tx.queueTicket.create({
+        data: {
+          id: newId(),
+          tenantId: T.id,
+          serviceId: svc.PD as string,
+          serviceDate: toDbDate(today),
+          seq: n.seq,
+          ticketNo: n.ticketNo,
+          appointmentId,
+          patientId: p.id,
+          source: 'booking',
+          reserved: true,
+        },
+      });
+    });
   }
-  return { ...p, ...ids, bookingCode: code, appointmentId };
+  return { ...p, ...ids, bookingCode: code, appointmentId, controlNo };
 }
 
 const identify = (token: string, body: Record<string, unknown>) =>
@@ -540,5 +565,134 @@ describe('panggil petugas', () => {
     expect(notes[0]?.body).toContain('Anjungan lobi uji');
     const rows = await audits({ resourceType: 'kiosk_assist' });
     expect(rows.at(-1)?.details).toMatchObject({ notified: 1, deviceId: dev.kiosk.id });
+  });
+});
+
+describe('registrasi mandiri (alur 5a)', () => {
+  /** Diagnosa awal fiktif dari fixture registrasi 5a (`registration.test.ts`), tidak dikarang. */
+  const DIAG = { code: 'I10', display: 'Hipertensi esensial (primer)' };
+
+  /** Persetujuan umum rawat jalan aktif + surat kontrol tercatat (hasil lookup VClaim sebelumnya). */
+  async function readyForBpjs(p: Awaited<ReturnType<typeof patient>>, opts: { consent?: boolean } = {}) {
+    await run(async (tx) => {
+      if (opts.consent !== false) {
+        await tx.privacyConsent.create({
+          data: { id: newId(), tenantId: T.id, patientId: p.id, kind: 'umum', note: 'Persetujuan umum uji' },
+        });
+      }
+      await tx.referral.create({
+        data: {
+          id: newId(),
+          tenantId: T.id,
+          patientId: p.id,
+          kind: 'surat-kontrol',
+          number: p.controlNo,
+          facilityName: 'Poli Penyakit Dalam',
+          targetServiceId: svc.PD,
+          diagnosisCode: DIAG.code,
+          diagnosisDisplay: DIAG.display,
+          issuedOn: toDbDate(today),
+          status: 'active',
+        },
+      });
+    });
+  }
+
+  const register = (lookup: string, body: Record<string, unknown>, idem?: string) => {
+    const req = http().post('/api/v1/kiosk/register').set(asDevice(dev.kiosk.token));
+    if (idem) req.set('Idempotency-Key', idem);
+    return req.send({ lookupToken: lookup, ...body });
+  };
+
+  it('BPJS kontrol: kunjungan + SEP pending (outbox) lewat RegistrationService, tiket poli; ulangan = tiket sama', async () => {
+    const p = await patient({ booking: 'jkn' });
+    await readyForBpjs(p);
+    const token = await lookupToken(dev.kiosk.token, p.bpjs, 'bpjs', 'bpjs');
+    await register(token, { payer: 'bpjs' }).expect(400);
+    await register(token, { payer: 'bpjs' }, 'bukan-uuid').expect(400);
+    const idem = newId();
+    const res = await register(token, { payer: 'bpjs' }, idem).expect(201);
+    const ticket = printableTicketSchema.parse(res.body);
+    expect(ticket.queueNo).toMatch(/^PD-\d{3}$/);
+    expect(ticket).toMatchObject({ destination: 'Penyakit Dalam', sepNo: null, bookingCode: p.bookingCode });
+    expect(JSON.stringify(res.body)).not.toContain(p.id);
+
+    const again = await register(token, { payer: 'bpjs' }, idem).expect(201);
+    expect(again.body.ticketId).toBe(ticket.ticketId);
+
+    const [encounters, seps, outbox, appt] = await run((tx) =>
+      Promise.all([
+        tx.encounter.findMany({ where: { patientId: p.id } }),
+        tx.sep.findMany({ where: { encounter: { patientId: p.id } } }),
+        tx.outboxMessage.findMany({
+          where: { operation: 'bpjs.vclaim.sep.insert' },
+          select: { payload: true },
+        }),
+        tx.appointment.findUniqueOrThrow({ where: { id: p.appointmentId as string } }),
+      ]),
+    );
+    expect(encounters).toHaveLength(1);
+    expect(encounters[0]).toMatchObject({ appointmentId: p.appointmentId, queueTicketId: ticket.ticketId });
+    expect(seps).toHaveLength(1);
+    expect(seps[0]).toMatchObject({ status: 'pending', diagnosisCode: 'I10' });
+    expect(jsonText(outbox)).toContain(seps[0]?.id);
+    expect(appt.status).toBe('checked_in');
+
+    const rows = await audits({ resourceType: 'encounter', patientId: p.id });
+    expect(rows[0]).toMatchObject({ action: 'create', actorUserId: null });
+    expect(rows[0]?.details).toMatchObject({ deviceId: dev.kiosk.id, deviceKind: 'kiosk' });
+  });
+
+  it('tanpa persetujuan umum → 422 KIOSK_NEEDS_COUNTER, tidak ada yang tersimpan', async () => {
+    const p = await patient({ booking: 'jkn' });
+    await readyForBpjs(p, { consent: false });
+    const token = await lookupToken(dev.kiosk.token, p.nik, 'nik', 'bpjs');
+    const res = await register(token, { payer: 'bpjs' }, newId()).expect(422);
+    expect(res.body).toMatchObject({
+      code: 'KIOSK_NEEDS_COUNTER',
+      details: { reason: 'data_belum_lengkap' },
+    });
+    const [encounters, appt, lookup] = await run((tx) =>
+      Promise.all([
+        tx.encounter.count({ where: { patientId: p.id } }),
+        tx.appointment.findUniqueOrThrow({ where: { id: p.appointmentId as string } }),
+        tx.kioskLookup.findFirstOrThrow({ where: { patientId: p.id }, orderBy: { createdAt: 'desc' } }),
+      ]),
+    );
+    expect(encounters).toBe(0);
+    expect(appt.status).toBe('booked');
+    expect(lookup.usedAt).toBeNull();
+  });
+
+  it('BPJS tanpa surat kontrol tercatat → 422 rujukan_tidak_berlaku', async () => {
+    const p = await patient({ booking: 'jkn' });
+    const token = await lookupToken(dev.kiosk.token, p.nik, 'nik', 'bpjs');
+    const res = await register(token, { payer: 'bpjs' }, newId()).expect(422);
+    expect(res.body.details).toMatchObject({ reason: 'rujukan_tidak_berlaku' });
+  });
+
+  it('umum: sesi hari ini dari GET sessions → kunjungan umum + tiket poli, tanpa SEP', async () => {
+    const list = await http().get('/api/v1/kiosk/sessions').set(asDevice(dev.kiosk.token)).expect(200);
+    const options = kioskSessionOptionSchema.array().parse(list.body);
+    expect(options.map((o) => o.sessionId)).toContain(sessionId);
+    await http().get('/api/v1/kiosk/sessions').set(bearer(registrar)).expect(403);
+
+    const p = await patient({ name: 'Dewi Lestari Uji', birthDate: '1992-07-21' });
+    await run((tx) =>
+      tx.privacyConsent.create({
+        data: { id: newId(), tenantId: T.id, patientId: p.id, kind: 'umum', note: 'Persetujuan umum uji' },
+      }),
+    );
+    const token = await lookupToken(dev.kiosk.token, p.nik, 'nik', 'umum');
+    const res = await register(token, { payer: 'umum', sessionId }, newId()).expect(201);
+    expect(res.body.queueNo).toMatch(/^PD-\d{3}$/);
+    const [enc, seps] = await run((tx) =>
+      Promise.all([
+        tx.encounter.findFirstOrThrow({ where: { patientId: p.id } }),
+        tx.sep.count({ where: { encounter: { patientId: p.id } } }),
+      ]),
+    );
+    expect(enc.queueTicketId).toBe(res.body.ticketId);
+    expect(seps).toBe(0);
   });
 });

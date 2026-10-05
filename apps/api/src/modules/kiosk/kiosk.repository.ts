@@ -179,6 +179,39 @@ export class KioskRepository {
     return n > 0;
   }
 
+  /** No. SEP terbit terbaru kunjungan (ikut tercetak di tiket poli); null selama SEP masih `pending`. */
+  async issuedSepNo(encounterId: string): Promise<string | null> {
+    const row = await this.db.tx().sep.findFirst({
+      where: { encounterId, status: 'issued', sepNo: { not: null } },
+      orderBy: { version: 'desc' },
+      select: { sepNo: true },
+    });
+    return row?.sepNo ?? null;
+  }
+
+  /** Rujukan/surat kontrol tercatat (hasil lookup VClaim sebelumnya) dasar SEP booking JKN: diagnosa awal. */
+  referral(kind: string, number: string) {
+    return this.db.tx().referral.findFirst({
+      where: { kind, number },
+      select: { patientId: true, status: true, diagnosisCode: true, diagnosisDisplay: true },
+    });
+  }
+
+  /** Booking untuk registrasi anjungan: sesi, keranjang kuota, dan dasar JKN. */
+  appointmentForRegistration(id: string) {
+    return this.db.tx().appointment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        patientId: true,
+        sessionId: true,
+        quotaBucket: true,
+        jknVisitKind: true,
+        referenceNumber: true,
+      },
+    });
+  }
+
   async tenantName(): Promise<string> {
     const t = await this.db
       .tx()

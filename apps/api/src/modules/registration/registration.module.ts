@@ -32,5 +32,7 @@ import { RegistrationService } from './registration.service';
     IdempotencyService,
     dukcapilLookupProvider,
   ],
+  /** `RegistrationService` dipakai ulang anjungan (F05, registrasi mandiri atas nama perangkat). */
+  exports: [RegistrationService],
 })
 export class RegistrationModule {}

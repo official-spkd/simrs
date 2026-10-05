@@ -3,13 +3,19 @@ import { Inject, Injectable } from '@nestjs/common';
 import { isoFromDbDate } from '@simrs/db';
 import {
   AppError,
+  BPJS_VISIT_KINDS,
+  type BpjsVisitKind,
+  type CoverageInput,
   frontOfficeError,
+  idempotencyKeySchema,
   isoDateJakarta,
   KIOSK_LOOKUP_TTL_SECONDS,
   type KioskCounterReason,
   type KioskIdentifyInput,
   type KioskIdentifyResult,
   kioskBirthDayMonth,
+  type KioskRegisterInput,
+  type KioskSessionOption,
   type KioskTicketRequest,
   maskNameForKiosk,
   normalizeIdentifier,
@@ -23,6 +29,8 @@ import { TenantDb } from '../../infra/tenant-db';
 import { BookingService } from '../booking/booking.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { QueueService } from '../queue/queue.service';
+import { RegistrationService } from '../registration/registration.service';
+import { SchedulingService } from '../scheduling/scheduling.service';
 import { type KioskPatient, KioskRepository, type LookupRow } from './kiosk.repository';
 
 const MINUTE_MS = 60_000;
@@ -51,9 +59,10 @@ const lookupExpired = () => frontOfficeError('KIOSK_LOOKUP_EXPIRED');
  * - `print`: hanya tiket yang tercatat untuk perangkat ini hari ini (`kiosk_tickets`).
  * Anjungan tidak pernah menerima ID pasien, RM, atau NIK.
  *
- * TITIK PERLUASAN (setelah potongan 5a): registrasi dari anjungan (`kioskRegisterSchema`: BPJS kontrol/rujukan →
- * encounter + SEP + antrean poli; umum → pilih sesi dokter) menukar token yang sama lewat `claim()` lalu memanggil
- * layanan registrasi; tolakan BPJS → `KIOSK_NEEDS_COUNTER` dengan alasan `KIOSK_COUNTER_REASONS`.
+ * - `register`: registrasi mandiri rawat jalan memakai ulang `RegistrationService.registerOutpatient` (potongan 5a:
+ *   Idempotency-Key, kunjungan, penjaminan, SEP `pending` lewat outbox, event `encounter.registered` → task 3) atas
+ *   nama perangkat; yang butuh petugas (persetujuan umum belum ada, rujukan belum tercatat, kuota penuh) → 422
+ *   `KIOSK_NEEDS_COUNTER` dengan alasan `KIOSK_COUNTER_REASONS`.
  */
 @Injectable()
 export class KioskService {
@@ -64,6 +73,8 @@ export class KioskService {
     private readonly booking: BookingService,
     private readonly queue: QueueService,
     private readonly notifications: NotificationsService,
+    private readonly registration: RegistrationService,
+    private readonly scheduling: SchedulingService,
   ) {}
 
   // ------------------------------------------------------------------------------------------------------------
@@ -228,6 +239,80 @@ export class KioskService {
   }
 
   // ------------------------------------------------------------------------------------------------------------
+  // Registrasi mandiri (alur potongan 5a)
+  // ------------------------------------------------------------------------------------------------------------
+
+  /** Sesi dokter hari ini untuk pasien umum (informasi publik; `available` = sisa kuota non-JKN). */
+  async sessions(): Promise<KioskSessionOption[]> {
+    const quotas = await this.scheduling.todayQuotas({});
+    return quotas.map((q) => ({
+      sessionId: q.sessionId,
+      poliName: q.poliName,
+      practitionerName: q.doctorName,
+      start: q.start.replace('.', ':'),
+      end: q.end.replace('.', ':'),
+      available: q.nonJkn.booked < q.nonJkn.total,
+    }));
+  }
+
+  /**
+   * Registrasi rawat jalan dari anjungan → tiket poli (+ no. SEP bila sudah terbit). BPJS: booking JKN hari ini
+   * dengan rujukan/surat kontrol yang sudah tercatat (diagnosa awal dari rujukan itu); umum: sesi pilihan pasien.
+   * Persetujuan umum harus sudah ada (penandatanganan disaksikan petugas, tidak di anjungan). Header
+   * `Idempotency-Key` (UUID) dipakai untuk token anjungan dan untuk registrasi 5a sekaligus.
+   */
+  async register(input: KioskRegisterInput, idempotencyKey: string | undefined): Promise<PrintableTicket> {
+    const parsedKey = idempotencyKeySchema.safeParse(idempotencyKey?.trim().toLowerCase());
+    if (!parsedKey.success) throw frontOfficeError('IDEMPOTENCY_KEY_REQUIRED');
+    const key = parsedKey.data;
+    const claim = await this.claim(input.lookupToken, key);
+    if (claim.lookup === null) return this.printable(claim.replayTicketId);
+    const lookup = claim.lookup;
+    const patientId = lookup.patientId as string;
+
+    let registration: { sessionId: string; appointmentId?: string; coverage: CoverageInput };
+    if (input.payer === 'bpjs') {
+      const appt = lookup.appointmentId
+        ? await this.repo.appointmentForRegistration(lookup.appointmentId)
+        : null;
+      if (!appt || appt.patientId !== patientId) throw needsCounter('bukan_hari_layanan');
+      const visitKind = (Object.keys(BPJS_VISIT_KINDS) as BpjsVisitKind[]).find(
+        (k) => BPJS_VISIT_KINDS[k].code === appt.jknVisitKind,
+      );
+      if (appt.quotaBucket !== 'jkn' || !visitKind || !appt.referenceNumber) {
+        throw needsCounter('data_belum_lengkap');
+      }
+      const ref = await this.repo.referral(BPJS_VISIT_KINDS[visitKind].referralKind, appt.referenceNumber);
+      if (!ref || ref.patientId !== patientId || !ref.diagnosisCode || !ref.diagnosisDisplay) {
+        throw needsCounter('rujukan_tidak_berlaku');
+      }
+      registration = {
+        sessionId: appt.sessionId,
+        appointmentId: appt.id,
+        coverage: {
+          payer: 'bpjs',
+          visitKind,
+          referenceNumber: appt.referenceNumber,
+          initialDiagnosis: { code: ref.diagnosisCode, display: ref.diagnosisDisplay },
+        },
+      };
+    } else {
+      registration = { sessionId: input.sessionId, coverage: { payer: 'umum' } };
+    }
+
+    let ticketId: string | null;
+    try {
+      const result = await this.registration.registerOutpatient({ patientId, ...registration }, key);
+      ticketId = result.queueTicket?.id ?? null;
+    } catch (err) {
+      throw asCounterError(err);
+    }
+    if (!ticketId) throw needsCounter('data_belum_lengkap');
+    await this.complete(lookup, key, ticketId);
+    return this.printable(ticketId);
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
   // Bantuan
   // ------------------------------------------------------------------------------------------------------------
 
@@ -312,7 +397,10 @@ export class KioskService {
       this.repo.tenantName(),
       this.repo.avgServiceMinutes(),
     ]);
-    const appt = ticket.appointmentId ? await this.repo.appointment(ticket.appointmentId) : null;
+    const [appt, sepNo] = await Promise.all([
+      ticket.appointmentId ? this.repo.appointment(ticket.appointmentId) : null,
+      ticket.encounterId ? this.repo.issuedSepNo(ticket.encounterId) : null,
+    ]);
     const location = [service.floor !== null ? `Lantai ${service.floor}` : null, service.room]
       .filter((x): x is string => !!x)
       .join(' · ');
@@ -324,11 +412,38 @@ export class KioskService {
       location: (location || service.name).slice(0, 120),
       issuedAt: ticket.issuedAt,
       estimatedWaitMinutes: ticket.status === 'waiting' ? ahead * avg : null,
-      sepNo: null,
+      sepNo,
       bookingCode: appt?.bookingCode ?? null,
     });
     return { ticket: printable, patientId: ticket.patientId };
   }
+}
+
+/**
+ * Galat registrasi 5a yang berarti "petugas perlu membantu" → 422 `KIOSK_NEEDS_COUNTER` (alasan tetap, tanpa rincian
+ * internal). Galat lain (mis. idempotensi, perangkat) diteruskan apa adanya.
+ */
+const COUNTER_ERRORS: Partial<Record<string, KioskCounterReason>> = {
+  GENERAL_CONSENT_REQUIRED: 'data_belum_lengkap',
+  VALIDATION_FAILED: 'data_belum_lengkap',
+  NOT_FOUND: 'data_belum_lengkap',
+  CONFLICT: 'data_belum_lengkap',
+  ENCOUNTER_DUPLICATE: 'data_belum_lengkap',
+  BOOKING_NOT_FOUND: 'bukan_hari_layanan',
+  BOOKING_STATE_INVALID: 'bukan_hari_layanan',
+  BOOKING_DUPLICATE: 'bukan_hari_layanan',
+  SESSION_CLOSED: 'bukan_hari_layanan',
+  QUOTA_FULL: 'kuota_penuh',
+  REFERRAL_EXPIRED: 'rujukan_tidak_berlaku',
+  REFERRAL_STATE_INVALID: 'rujukan_tidak_berlaku',
+};
+
+function asCounterError(err: unknown): unknown {
+  if (err instanceof AppError) {
+    const reason = COUNTER_ERRORS[err.code];
+    if (reason) return needsCounter(reason);
+  }
+  return err;
 }
 
 /** Rekam medis yang bisa dikonfirmasi pemiliknya di anjungan. */
