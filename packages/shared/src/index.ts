@@ -29,6 +29,7 @@ export * from './schemas/kiosk';
 export * from './schemas/klinis';
 export * from './schemas/clinical-records';
 export * from './schemas/clinical-notes';
+export * from './schemas/orders';
 export * from './schemas/penunjang';
 export * from './schemas/keuangan';
 export * from './schemas/rawat-inap';
