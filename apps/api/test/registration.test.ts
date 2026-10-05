@@ -228,6 +228,10 @@ describe('registrasi rawat jalan', () => {
     // Walk-in tanpa tiket loket: check-in (1), layanan admisi = saat didaftarkan (2), tunggu poli (3); BPJS menolak 1 → 3.
     expect(tasks.map((t) => t.taskId)).toEqual([1, 2, 3]);
     expect(tasks[1]?.occurredAt.getTime()).toBe(tasks[2]?.occurredAt.getTime());
+    // Waktu task tidak pernah mundur (BPJS menolak `BPJS_TASK_WAKTU_MUNDUR`): 2 tidak lebih awal dari 1.
+    expect(tasks[1]?.occurredAt.getTime()).toBeGreaterThanOrEqual(
+      tasks[0]?.occurredAt.getTime() ?? Number.POSITIVE_INFINITY,
+    );
     const events = await run(A.id, (tx) =>
       tx.domainEvent.findMany({
         where: { name: 'encounter.registered', payload: { path: ['encounterId'], equals: r.encounter.id } },
