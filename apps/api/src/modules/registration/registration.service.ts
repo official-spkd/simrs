@@ -4,7 +4,9 @@ import {
   AppError,
   BPJS_VISIT_KINDS,
   type Coverage,
+  type CoverageCareClass,
   type CoverageInput,
+  type CoveragePayerInput,
   type Encounter,
   encounterClassToken,
   frontOfficeError,
@@ -80,6 +82,26 @@ export class RegistrationService {
     return this.result(encounterId, { replay: false });
   }
 
+  // ------------------------------------------------------------------------------------------------------------
+  // Bagian bersama rawat jalan, IGD, dan admisi (dipakai `AdmissionService`, transaksi permintaan yang sama)
+  // ------------------------------------------------------------------------------------------------------------
+
+  /**
+   * Penjamin BPJS butuh no. kartu BPJS dan NIK aktif di MPI; hasilnya identifier kartu untuk penjaminan (null bila
+   * bukan BPJS).
+   */
+  bpjsIdentifierFor(
+    patient: { identifiers: Array<{ id: string; system: string }> },
+    coverage: CoveragePayerInput,
+  ): { id: string } | null {
+    if (coverage.payer !== 'bpjs') return null;
+    const card = patient.identifiers.find((i) => i.system === 'bpjs');
+    if (!card || !patient.identifiers.some((i) => i.system === 'nik')) {
+      throw invalid('Penjamin BPJS butuh no. kartu BPJS dan NIK pasien yang aktif');
+    }
+    return card;
+  }
+
   private async createOutpatient(
     input: OutpatientRegistrationInput,
     claim: IdempotencyClaim,
@@ -93,13 +115,7 @@ export class RegistrationService {
       });
     }
     const coverage = input.coverage;
-    const bpjsIdentifier = patient.identifiers.find((i) => i.system === 'bpjs');
-    if (coverage.payer === 'bpjs') {
-      const systems = new Set(patient.identifiers.map((i) => i.system));
-      if (!bpjsIdentifier || !systems.has('nik')) {
-        throw invalid('Penjamin BPJS butuh no. kartu BPJS dan NIK pasien yang aktif');
-      }
-    }
+    const bpjsIdentifier = this.bpjsIdentifierFor(patient, coverage);
 
     // Sesi DPJP hari ini.
     const session = await this.repo.findSession(input.sessionId);
@@ -150,7 +166,7 @@ export class RegistrationService {
     });
     await this.repo.addStatusHistory(encounterId, null, 'arrived');
 
-    if (!consent && input.generalConsent) await this.createConsent(patient.id, input.generalConsent);
+    if (!consent && input.generalConsent) await this.createConsent(patient.id, input.generalConsent, null);
     if (input.guarantor) await this.contacts.resolveGuarantor(patient.id, input.guarantor);
 
     const coverageId = await this.createCoverage(encounterId, coverage, bpjsIdentifier?.id ?? null);
@@ -235,26 +251,38 @@ export class RegistrationService {
     return a.id;
   }
 
-  private async createConsent(patientId: string, consent: GeneralConsentInput): Promise<void> {
+  /**
+   * Persetujuan umum (keputusan fase 2 #9): rawat jalan tanpa kunjungan (berlaku sampai dicabut), rawat inap per
+   * admisi (`encounterId`).
+   */
+  async createConsent(
+    patientId: string,
+    consent: GeneralConsentInput,
+    encounterId: string | null,
+  ): Promise<void> {
     if (consent.evidenceDocumentId) {
       const doc = await this.repo.documentPatient(consent.evidenceDocumentId);
       if (!doc || doc.patientId !== patientId) throw invalid('Dokumen bukti persetujuan tidak ditemukan');
     }
+    const label = encounterId ? 'rawat inap' : 'rawat jalan';
     await this.repo.createConsent({
       patientId,
+      encounterId,
       // Penanda tangan wali dicatat di catatan persetujuan (bukan di audit).
       note:
         consent.signer === 'wali'
-          ? `Persetujuan umum rawat jalan, ditandatangani wali: ${consent.signerName}`
-          : 'Persetujuan umum rawat jalan, ditandatangani pasien',
+          ? `Persetujuan umum ${label}, ditandatangani wali: ${consent.signerName}`
+          : `Persetujuan umum ${label}, ditandatangani pasien`,
       evidenceDocumentId: consent.evidenceDocumentId ?? null,
     });
   }
 
-  private async createCoverage(
+  /** Penjaminan utama kunjungan; `careClass` = kelas rawat yang dipakai (admisi). */
+  async createCoverage(
     encounterId: string,
-    coverage: CoverageInput,
+    coverage: CoveragePayerInput,
     bpjsIdentifierId: string | null,
+    careClass: CoverageCareClass | null = null,
   ): Promise<string> {
     let payerId: string;
     let memberNoEnc: string | null = null;
@@ -280,6 +308,7 @@ export class RegistrationService {
       patientIdentifierId: coverage.payer === 'bpjs' ? bpjsIdentifierId : null,
       priority: 1,
       status: 'active',
+      careClass,
       memberNoEnc,
       guaranteeLetterNo,
     });
@@ -287,22 +316,25 @@ export class RegistrationService {
   }
 
   /**
-   * Relasi akses DPJP (ABAC P03): dokter yang punya akun boleh membuka pasien ini sampai akhir hari berikutnya
-   * (dokumentasi kunjungan); relasi diperpanjang/diakhiri modul klinis (fase 3).
+   * Relasi akses dokter (ABAC P03): dokter yang punya akun boleh membuka pasien ini sampai akhir hari berikutnya
+   * setelah `date` (dokumentasi kunjungan; admisi: tanggal rencana masuk); relasi diperpanjang/diakhiri modul klinis
+   * (fase 3). `kind` = `dpjp` (DPJP kunjungan) atau `konsultan` (rujukan internal).
    */
-  private async grantDpjpAccess(
+  async grantDpjpAccess(
     practitionerId: string,
     patientId: string,
     encounterId: string,
-    today: string,
+    date: string,
+    kind: 'dpjp' | 'konsultan' = 'dpjp',
   ) {
     const p = await this.repo.practitionerUser(practitionerId);
     if (!p?.userId) return;
-    const [y, m, d] = today.split('-').map(Number) as [number, number, number];
+    const [y, m, d] = date.split('-').map(Number) as [number, number, number];
     await this.repo.createAccessRelationship({
       userId: p.userId,
       patientId,
       encounterId,
+      kind,
       validUntil: jakartaWallTime(y, m, d + 2),
     });
   }
@@ -354,7 +386,8 @@ export class RegistrationService {
     return this.present(row);
   }
 
-  private async result(encounterId: string, opts: { replay: boolean }): Promise<RegistrationResult> {
+  /** Hasil registrasi (juga ulangan Idempotency-Key, diaudit `read`); audit `create` per pasien. */
+  async result(encounterId: string, opts: { replay: boolean }): Promise<RegistrationResult> {
     const row = await this.repo.findEncounter(encounterId);
     if (!row) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
     this.db.audit({
@@ -362,12 +395,12 @@ export class RegistrationService {
       resourceType: 'encounter',
       resourceId: row.id,
       patientId: row.patientId,
-      details: opts.replay ? { idempotentReplay: true } : { class: 'AMB' },
+      details: opts.replay ? { idempotentReplay: true } : { class: row.encounterClass },
     });
     return this.present(row);
   }
 
-  private async present(row: EncounterRow): Promise<RegistrationResult> {
+  async present(row: EncounterRow): Promise<RegistrationResult> {
     const coverage = await this.repo.primaryCoverage(row.id);
     return {
       encounter: toEncounter(row),
@@ -423,7 +456,7 @@ export class RegistrationService {
   }
 }
 
-function toEncounter(row: EncounterRow): Encounter {
+export function toEncounter(row: EncounterRow): Encounter {
   return {
     id: row.id,
     number: row.number,
@@ -440,6 +473,11 @@ function toEncounter(row: EncounterRow): Encounter {
     startedAt: row.startedAt?.toISOString() ?? null,
     endedAt: row.endedAt?.toISOString() ?? null,
     cancelReason: row.cancelReason,
+    arrivalMode: row.arrivalMode as Encounter['arrivalMode'],
+    plannedAt: row.plannedAt?.toISOString() ?? null,
+    sourceEncounterId: row.sourceEncounterId,
+    referralId: row.referralId,
+    identificationNote: row.identificationNote,
     createdAt: row.createdAt.toISOString(),
   };
 }
