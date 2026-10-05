@@ -24,6 +24,10 @@ test.describe('layar Audit (/sistem/audit)', () => {
 
     await page.getByRole('link', { name: 'Periksa keutuhan rantai' }).click();
     await expect(page.getByText(/entri diperiksa pukul|Ketidakcocokan hash/)).toBeVisible();
+    // Pemeriksaan penuh (ADR-0072): hitung ulang seluruh rantai, bukan sejak jangkar terakhir.
+    await page.getByRole('link', { name: 'Periksa penuh (hitung ulang seluruh rantai)' }).click();
+    await expect(page).toHaveURL(/verifikasi=penuh/);
+    await expect(page.getByText(/pemeriksaan penuh/)).toBeVisible();
   });
 
   test('akses darurat: buka dari tautan notifikasi, baca alasan, beri keputusan; tampil di laporan harian', async ({

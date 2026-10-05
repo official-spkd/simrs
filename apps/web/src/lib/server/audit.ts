@@ -100,10 +100,18 @@ export const anomaliesSchema = z.object({
   findings: z.array(findingSchema),
 });
 
+/** `GET /audit/verify` (ADR-0072): pemeriksaan dari titik periksa jangkar atau penuh, plus temuan jangkar. */
 export const verifySchema = z.object({
   intact: z.boolean(),
+  mode: z.enum(['checkpoint', 'full']),
   checked: z.number(),
   firstBrokenSeq: z.string().nullable(),
+  checkpoint: z.object({ seq: z.string(), anchoredAt: z.string() }).nullable(),
+  anchors: z.object({ total: z.number(), verified: z.number(), keyConfigured: z.boolean() }),
+  issues: z.array(
+    z.object({ code: z.string(), seq: z.string().nullable(), anchoredAt: z.string().nullable() }),
+  ),
+  issueCount: z.number(),
   verifiedAt: z.string(),
 });
 
