@@ -127,6 +127,54 @@ export class QueueService {
   }
 
   /**
+   * F05 · Tiket dari anjungan (sumber `anjungan`, prinsipal perangkat): layanan aktif pertama sejenis di RS ini,
+   * karena anjungan melayani seluruh front office, bukan hanya unit tempat perangkat dipasang (lingkup unit perangkat
+   * tidak dipakai di sini). Pasien yang masih punya tiket menunggu di layanan itu hari ini mendapat tiket yang sama
+   * (ambil ulang tidak menambah nomor). Tanpa layanan sejenis → 409.
+   */
+  async issueKioskTicket(
+    kind: 'loket' | 'farmasi' | 'kasir',
+    link: { appointmentId: string | null; patientId: string | null },
+  ): Promise<{ ticket: QueueTicket; service: ServiceRow; reused: boolean }> {
+    const service = await this.repo.firstActiveService(kind);
+    if (!service) throw new AppError('CONFLICT', 'Layanan antrean ini belum tersedia di anjungan', 409);
+    const date = today();
+    if (link.patientId) {
+      const existing = await this.repo.waitingTicketOf(service.id, date, link.patientId);
+      if (existing) return { ticket: await this.loadTicket(existing.id), service, reused: true };
+    }
+    const id = await this.repo.createTicket({
+      serviceId: service.id,
+      serviceDate: date,
+      source: 'anjungan',
+      appointmentId: link.appointmentId,
+      patientId: link.patientId,
+    });
+    if (link.patientId) {
+      this.db.audit({
+        action: 'create',
+        resourceType: 'queue_ticket',
+        resourceId: id,
+        patientId: link.patientId,
+        details: { serviceCode: service.code, source: 'anjungan' },
+      });
+    }
+    return { ticket: await this.loadTicket(id), service, reused: false };
+  }
+
+  /** Tiket + layanannya + jumlah antrean menunggu di depannya (cetak tiket, F05). 404 bila tidak ada. */
+  async ticketForPrint(id: string): Promise<{ ticket: QueueTicket; service: ServiceRow; ahead: number }> {
+    const row = await this.repo.ticket(id);
+    if (!row) throw new AppError('NOT_FOUND', 'Tiket tidak ditemukan', 404);
+    const [ticket] = await this.present([row]);
+    return {
+      ticket: ticket as QueueTicket,
+      service: row.service,
+      ahead: row.status === 'waiting' && !row.reserved ? await this.repo.waitingAhead(id) : 0,
+    };
+  }
+
+  /**
    * Tautkan tiket walk-in (mis. tiket loket dari anjungan) ke booking setelah pasien terdaftar. Untuk alur
    * registrasi (potongan 5a): task 1–2 tiket ini diisi mesin task ID saat event berikutnya (mis. terdaftar → 3).
    */

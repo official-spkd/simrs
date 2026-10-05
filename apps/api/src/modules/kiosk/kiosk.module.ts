@@ -1,16 +1,26 @@
 import { Module } from '@nestjs/common';
+import { BookingModule } from '../booking/booking.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { QueueModule } from '../queue/queue.module';
+import { KioskController } from './kiosk.controller';
+import { KioskRepository } from './kiosk.repository';
+import { KioskService } from './kiosk.service';
 
 /**
- * F05 · Anjungan mandiri. KERANGKA (fase 2 potongan 1b): sudah terdaftar di `AppModule`, potongan 6 cukup menambah
- * controller/service/repository di folder ini.
+ * F05 · Anjungan mandiri (fase 2 potongan 6): `/api/v1/kiosk`.
  *
- * PRINSIPAL PERANGKAT (ADR-0027): endpoint anjungan TIDAK memakai sesi staf. Pasang `@DeviceScoped('kiosk.use')`
- * (`common/device-scoped.decorator.ts`); pelaku perangkat ada di `TenantDb.actor().devicePrincipal`, unitnya di
- * `actor().unitId`. `TenantTransactionInterceptor`, `LookupGateway`, dan `SseService` dipakai apa adanya.
+ * PRINSIPAL PERANGKAT (ADR-0027): endpoint anjungan TIDAK memakai sesi staf (`@DeviceScoped('kiosk.use')`); pelaku
+ * perangkat ada di `TenantDb.actor().devicePrincipal`, unitnya di `actor().unitId`.
  *
- * Isi nanti (potongan 6):
- * - identify (nama tersamar + tanggal lahir tanpa tahun + rate limit per perangkat, keputusan §4 #3), check-in booking,
- *   registrasi mandiri, tiket, bantuan, cetak.
+ * - identify (nama tersamar + tanggal lahir tanpa tahun + batas laju per perangkat, keputusan §4 #3; token `kl1`
+ *   sekali pakai di `kiosk_lookups`), check-in booking (`BookingService.checkIn`, event `booking.checked_in` → task 1),
+ *   tiket loket/farmasi/kasir (`QueueService.issueKioskTicket`, sumber `anjungan`), bantuan (P09 tanpa PHI), cetak
+ *   HTML 80 mm (hanya tiket perangkat ini, `kiosk_tickets`).
+ * - Menyusul setelah potongan 5a: registrasi mandiri (`kioskRegisterSchema`), lihat `KioskService` (titik perluasan).
  */
-@Module({})
+@Module({
+  imports: [BookingModule, QueueModule, NotificationsModule],
+  controllers: [KioskController],
+  providers: [KioskService, KioskRepository],
+})
 export class KioskModule {}
