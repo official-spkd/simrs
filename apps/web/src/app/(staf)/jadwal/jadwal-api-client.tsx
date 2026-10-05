@@ -9,7 +9,13 @@ import { LeaveForm } from '@/components/front-office/leave-form';
 import { ScheduleGrid, type ScheduleGridRow, ScheduleLegend } from '@/components/front-office/schedule-grid';
 import { SlotDetail, type SlotDetailView } from '@/components/front-office/slot-detail';
 import { adjustQuota, dayLong, dayShort, type QuotaPool, slotCell } from '@/lib/front-office';
-import { addDaysIso, hfisSummary, leavesWithPatients, quotaEquals } from '@/lib/jadwal-api';
+import {
+  addDaysIso,
+  hfisSummary,
+  leaveTransferNote,
+  leavesWithPatients,
+  quotaEquals,
+} from '@/lib/jadwal-api';
 import {
   type JadwalApiResult,
   pullHfisAction,
@@ -171,7 +177,8 @@ export function JadwalApiClient({
     const sessionId = slots.get(slotId)?.slot.sessionId;
     if (!sessionId) return;
     run(
-      () => recordLeaveApiAction({ sessionId, substituteId, reason }),
+      // Baris "(sesi 2)" dokter yang sama ber-ID `<praktisi>~2`: API butuh ID praktisi.
+      () => recordLeaveApiAction({ sessionId, substituteId: substituteId?.split('~')[0] ?? null, reason }),
       () => {
         setFormOpen(false);
         select(slotId);
@@ -179,10 +186,14 @@ export function JadwalApiClient({
     );
   };
 
+  // Cuti yang belum dialihkan didahulukan; yang sudah dialihkan tetap tampil sebagai "sudah dialihkan".
   const leave = leavesWithPatients(schedule).find((l) => l.substitute && l.slot.sessionId);
   const cover = leave
-    ? leave.substitute?.slots.find((s) => s.kind === 'pengganti' && s.sessionId === leave.slot.sessionId)
+    ? schedule.doctors
+        .flatMap((d) => d.slots)
+        .find((s) => s.kind === 'pengganti' && s.sessionId === leave.slot.sessionId)
     : undefined;
+  const transferred = leave?.substitute ? leaveTransferNote(leave.slot, leave.substitute.name) : null;
   const leaveDay = leave ? (dayLong(leave.slot.date).split(' ')[0] ?? '') : '';
 
   const first = schedule.days[0] ?? '';
@@ -326,7 +337,7 @@ export function JadwalApiClient({
                 substituteName={leave.substitute.name}
                 time={cover?.start && cover.end ? `${cover.start}–${cover.end}` : ''}
                 patients={leave.slot.affectedPatients ?? 0}
-                approved={approved}
+                approved={approved ?? transferred}
                 busy={busy}
                 onApprove={() =>
                   run(

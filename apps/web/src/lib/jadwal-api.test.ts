@@ -1,6 +1,13 @@
 import type { WeeklySchedule } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { hfisSummary, leavesWithPatients, mondayOf, quotaEquals, requestedWeek } from './jadwal-api';
+import {
+  hfisSummary,
+  leaveTransferNote,
+  leavesWithPatients,
+  mondayOf,
+  quotaEquals,
+  requestedWeek,
+} from './jadwal-api';
 
 const base: WeeklySchedule = {
   weekStart: '2026-10-05',
@@ -94,6 +101,18 @@ describe('cuti berpasien', () => {
     };
     const leaves = leavesWithPatients(sched);
     expect(leaves.map((l) => [l.doctor.id, l.substitute?.id])).toEqual([['bagus', 'melati']]);
+
+    // Sudah dialihkan: tetap disertakan (kartu "sudah dialihkan") tetapi di belakang yang belum.
+    const done = { ...cuti, transferredAt: '2026-10-05T02:15:00.000Z' };
+    const mixed: WeeklySchedule = {
+      ...sched,
+      doctors: [doc('bagus', [done]), doc('yudha', [cuti]), doc('melati', sched.doctors[1]?.slots ?? [])],
+    };
+    expect(leavesWithPatients(mixed).map((l) => l.doctor.id)).toEqual(['yudha', 'bagus']);
+    expect(leaveTransferNote(done, 'dr. Melati')).toBe(
+      'Pasien sudah dialihkan ke dr. Melati · 09.15. Notifikasi WhatsApp tidak dikirim ulang.',
+    );
+    expect(leaveTransferNote(cuti, 'dr. Melati')).toBeNull();
   });
 
   it('kuota sama hanya bila JKN dan non-JKN sama', () => {

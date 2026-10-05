@@ -3,7 +3,6 @@ import { createPrismaClient } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
 import { createAccount, loginAs, TENANTS } from './support/accounts';
 import { registerBoundTestDisplay, useDeviceToken } from './support/devices';
-import { ensureRsfaSchedule } from './support/schedule';
 
 /**
  * F04 · Kendali antrean + display TV mode api (fase 2 potongan 4b): petugas memanggil dari "Kendali antrean", TV
@@ -14,7 +13,6 @@ import { ensureRsfaSchedule } from './support/schedule';
 let tvToken = '';
 
 test.beforeAll(async () => {
-  await ensureRsfaSchedule();
   const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
   try {
     tvToken = await registerBoundTestDisplay(owner, TENANTS.RSFA, 'RJ-LT2');

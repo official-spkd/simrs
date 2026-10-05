@@ -79,9 +79,12 @@ export interface PendingLeave {
   substitute: ScheduleDoctor | null;
 }
 
-/** Sesi cuti berpengganti dengan pasien booking di minggu ini (perlu dialihkan + diberi tahu). */
+/**
+ * Sesi cuti dengan pasien booking di minggu ini. Yang belum dialihkan (`transferredAt` kosong) di depan; yang sudah
+ * dialihkan tetap disertakan agar kartu menampilkan "sudah dialihkan" (penanda tersimpan di server).
+ */
 export function leavesWithPatients(schedule: WeeklySchedule): PendingLeave[] {
-  return schedule.doctors.flatMap((doctor) =>
+  const all = schedule.doctors.flatMap((doctor) =>
     doctor.slots
       .filter((s) => s.kind === 'cuti' && (s.affectedPatients ?? 0) > 0)
       .map((slot) => ({
@@ -90,6 +93,14 @@ export function leavesWithPatients(schedule: WeeklySchedule): PendingLeave[] {
         substitute: schedule.doctors.find((d) => d.id === slot.relatedDoctorId) ?? null,
       })),
   );
+  return [...all.filter((l) => !l.slot.transferredAt), ...all.filter((l) => l.slot.transferredAt)];
+}
+
+/** Teks kartu dampak cuti bila pasien sudah dialihkan (null = belum). */
+export function leaveTransferNote(slot: ScheduleSlot, substituteName: string): string | null {
+  return slot.transferredAt
+    ? `Pasien sudah dialihkan ke ${substituteName} · ${formatJam(slot.transferredAt)}. Notifikasi WhatsApp tidak dikirim ulang.`
+    : null;
 }
 
 export const quotaEquals = (a: SlotQuota | null, b: SlotQuota | null) =>
