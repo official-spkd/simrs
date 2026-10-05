@@ -18,8 +18,8 @@ const TONE: Record<ReconRow['status'], ChipTone> = {
 function Cell({ label, src }: { label: string; src: ReconRow['kasir'] }) {
   const missing = src.amount === null;
   return (
-    <span className="flex min-w-0 flex-col md:items-end">
-      <span className="text-caption text-ink-500 md:hidden">{label}</span>
+    <span className="flex min-w-0 flex-col @2xl:items-end">
+      <span className="text-caption text-ink-500 @2xl:hidden">{label}</span>
       <span className={cx('font-mono', missing ? 'text-ink-500' : 'text-ink-900')}>
         {missing ? '—' : digits(BigInt(src.amount ?? '0'))}
       </span>
@@ -64,7 +64,7 @@ export function RekonTab({
   return (
     <section
       aria-label="Rekonsiliasi tiga arah"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="@container flex flex-col gap-3 rounded-card border border-line bg-white p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <span className="flex min-w-0 flex-[1_1_280px] flex-col">
@@ -118,7 +118,7 @@ export function RekonTab({
       </div>
       <div
         aria-hidden="true"
-        className="hidden grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)] gap-3 border-b border-line pb-1.5 text-caption font-semibold text-ink-500 md:grid"
+        className="hidden grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)] gap-3 border-b border-line pb-1.5 text-caption font-semibold text-ink-500 @2xl:grid"
       >
         <span>Transaksi</span>
         <span className="text-right">Kasir SIM RS (Rp)</span>
@@ -138,8 +138,8 @@ export function RekonTab({
               key={r.id}
               className={cx('flex flex-col gap-2 border-b border-line pb-2', open && 'bg-[#FFFBFA]')}
             >
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)]">
-                <span className="col-span-2 flex min-w-0 flex-col md:col-span-1">
+              <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)]">
+                <span className="col-span-2 flex min-w-0 flex-col @2xl:col-span-1">
                   <span className="font-semibold">
                     {r.label}
                     {r.scenario && <span className="font-normal text-brand-700"> · skenario</span>}
@@ -149,7 +149,7 @@ export function RekonTab({
                 <Cell label="Kasir SIM RS" src={r.kasir} />
                 <Cell label="Laporan TPDI" src={r.tpdi} />
                 <Cell label="Mutasi BTN" src={r.bank} />
-                <span className="flex flex-col items-start gap-0.5 md:items-end">
+                <span className="flex flex-col items-start gap-0.5 @2xl:items-end">
                   <Chip tone={open ? 'danger' : done ? 'success' : TONE[r.status]}>
                     {done ? 'Ditangani' : status}
                   </Chip>

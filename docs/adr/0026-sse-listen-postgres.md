@@ -43,7 +43,7 @@ Aturan satu transaksi per permintaan (4 Okt) tidak cocok untuk aliran berjam-jam
    - Umur koneksi maksimal 5 menit, dipendekkan acak hingga 20% agar tidak serempak. Setelahnya EventSource menyambung ulang dengan `Last-Event-ID`, sehingga sesi dan izin diperiksa ulang berkala. Sesi TV berjam-jam tetap tunduk pada pencabutan.
    - Klien terlalu lambat (lebih dari 500 tugas antre atau buffer > 1 MB) diputus.
    - Klien putus atau aplikasi berhenti → langganan dilepas.
-7. **Tidak bergantung pada jenis prinsipal.** Helper hanya membaca tenant + pelaku dari konteks permintaan. Prinsipal perangkat TV/anjungan (ADR-0027, menunggu tabel `registered_devices`) cukup ditambahkan di guard.
+7. **Tidak bergantung pada jenis prinsipal.** Helper hanya membaca tenant + pelaku dari konteks permintaan. Prinsipal perangkat TV/anjungan (ADR-0027, memakai tabel `registered_devices` dari ADR-0024 dengan jenis baru) cukup ditambahkan di guard.
 8. **Data minimal.** Aliran display tanpa PHI (nomor antrean, poli, loket). Aliran yang memuat PHI hanya untuk staf berizin dan diberi `@Audited` saat berlangganan.
 
 ### SQL untuk potongan 0b

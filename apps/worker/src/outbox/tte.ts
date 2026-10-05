@@ -68,4 +68,33 @@ export const tteSignDocument: OutboxOperation = {
       },
     });
   },
+
+  /**
+   * Gagal permanen (DLQ): dicatat di jejak audit dokumen sebagai `sign` berstatus `failed`, atomik dengan
+   * perpindahan ke DLQ. Status baris tanda tangan tetap `pending` karena CHECK `document_signatures_status_valid`
+   * belum mengenal `failed` (butuh migrasi; lihat utang P08 di PROGRESS).
+   */
+  async onDead(tx, msg) {
+    const payload = payloadSchema.safeParse(msg.payload);
+    if (!payload.success) return;
+    const { signatureId } = payload.data;
+    const sig = await tx.documentSignature.findFirst({
+      where: { id: signatureId, status: 'pending' },
+      select: { documentId: true, document: { select: { patientId: true } } },
+    });
+    if (!sig) return;
+    await tx.auditEvent.create({
+      data: {
+        id: newId(),
+        tenantId: msg.tenantId,
+        actorUserId: null,
+        actorRole: 'system',
+        patientId: sig.document.patientId,
+        resourceType: 'document',
+        resourceId: sig.documentId,
+        action: 'sign',
+        details: { status: 'failed', signatureId, outboxMessageId: msg.id, error: msg.lastError },
+      },
+    });
+  },
 };

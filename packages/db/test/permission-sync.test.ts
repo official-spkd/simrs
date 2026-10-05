@@ -19,7 +19,7 @@ import {
   type TenantTx,
   withTenant,
 } from '../src/index';
-import { SEED_PLATFORM_TENANT } from '../src/seed-data';
+import { SEED_PLATFORM_TENANT, SEED_TENANTS } from '../src/seed-data';
 import { testDbUrls } from '../src/testing';
 
 let owner: PrismaClient;
@@ -334,6 +334,14 @@ describe('sinkron izin katalog', () => {
       await inTenant(T.id, (tx) =>
         tx.tenantSetting.deleteMany({ where: { key: PERMISSION_CATALOG_RECORD_KEY } }),
       );
+    }
+  });
+});
+
+describe('persiapan database tes', () => {
+  it('tenant seed ikut disinkron (izin baru di katalog sampai ke RSFA/RSFB lama tanpa membuat ulang DB)', async () => {
+    for (const t of [...SEED_TENANTS, SEED_PLATFORM_TENANT]) {
+      expect(await recordOf(t.id), t.code).toEqual(expect.arrayContaining([...CODE_PERMISSION_CATALOG.keys]));
     }
   });
 });

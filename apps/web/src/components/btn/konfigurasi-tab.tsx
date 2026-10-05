@@ -1,7 +1,7 @@
 'use client';
 
 import { type ConnectionMode, formatJam, type PaymentConfig } from '@simrs/shared';
-import { Button, Chip, cx, Segmented } from '@simrs/ui';
+import { Button, Chip, cx, RadioSegmented } from '@simrs/ui';
 import { useId, useRef, useState } from 'react';
 import type { PaymentEventInput } from '@/app/(staf)/keuangan/pembayaran/actions';
 import { formatTanggalPendek } from '@/lib/btn';
@@ -173,7 +173,7 @@ export function KonfigurasiTab({
           className="flex min-w-0 flex-col gap-2.5 rounded-card border border-line bg-white p-4"
         >
           <span className="font-semibold">Mode koneksi</span>
-          <Segmented
+          <RadioSegmented
             label="Mode koneksi TPDI"
             value={cfg.mode}
             items={[

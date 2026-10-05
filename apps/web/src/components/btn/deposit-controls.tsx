@@ -1,7 +1,7 @@
 'use client';
 
 import type { PaymentTransaction } from '@simrs/shared';
-import { Alert, Button, Segmented } from '@simrs/ui';
+import { Alert, Button, RadioSegmented } from '@simrs/ui';
 import { useState } from 'react';
 import type { useScenarioTask } from './use-scenario-task';
 
@@ -54,7 +54,7 @@ export function DepositControls({ tx, scenario }: { tx: PaymentTransaction; scen
       </span>
       {choosing ? (
         <>
-          <Segmented
+          <RadioSegmented
             label="Kanal pembayaran deposit"
             value={kanal}
             disabled={scenario.pending}

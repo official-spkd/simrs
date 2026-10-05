@@ -255,12 +255,13 @@ export class AuthRepository {
 
   /**
    * Cadangkan satu percobaan SEBELUM PIN diperiksa (atomik, di-commit lebih dulu): tebakan paralel tidak bisa
-   * melewati batas. Null bila PIN sudah dicabut, kedaluwarsa, atau percobaannya habis.
+   * melewati batas. Null bila PIN sudah dicabut, kedaluwarsa, atau percobaannya habis. `now` = jam aplikasi, sama
+   * dengan pemeriksaan kelayakan sebelumnya (jam Postgres bisa berselisih beberapa milidetik).
    */
-  async reservePinAttempt(tx: TenantTx, id: string, maxAttempts: number): Promise<number | null> {
+  async reservePinAttempt(tx: TenantTx, id: string, maxAttempts: number, now: Date): Promise<number | null> {
     const rows = await tx.$queryRaw<Array<{ failed_attempts: number }>>`
       UPDATE registered_devices SET failed_attempts = failed_attempts + 1
-      WHERE id = ${id}::uuid AND kind = 'staff_pin' AND revoked_at IS NULL AND expires_at > now()
+      WHERE id = ${id}::uuid AND kind = 'staff_pin' AND revoked_at IS NULL AND expires_at > ${now}
         AND failed_attempts < ${maxAttempts}
       RETURNING failed_attempts`;
     return rows[0]?.failed_attempts ?? null;

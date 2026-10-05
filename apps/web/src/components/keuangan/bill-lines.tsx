@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { groupLines } from '@/lib/keuangan';
 
 const GRID =
-  'grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.7fr)_minmax(0,1.1fr)_minmax(0,1fr)] items-center gap-2';
+  'grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.7fr)_minmax(max-content,1.1fr)_minmax(0,1fr)] items-center gap-2';
 
 /**
  * Rincian tagihan per kategori (mockup Kasir): tiap kategori bisa dibuka, setiap baris menampilkan sumber charge
@@ -63,7 +63,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
                 <span className="font-medium">{g.label}</span>
               </span>
               <span className="text-ink-700">{g.count}</span>
-              <span className="text-right font-mono">{formatRupiah(g.amount)}</span>
+              <span className="text-right font-mono whitespace-nowrap">{formatRupiah(g.amount)}</span>
               <span className="truncate text-right text-caption text-ink-500">{g.sources.join(', ')}</span>
             </button>
             {isOpen && (
@@ -95,7 +95,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-right font-mono text-ink-700">
+                    <span className="text-right font-mono whitespace-nowrap text-ink-700">
                       {formatRupiah(BigInt(l.amount))}
                     </span>
                     <span className="text-right text-caption text-ink-500">

@@ -1,12 +1,13 @@
 'use client';
 
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { fitScale } from '@/lib/fit-scale';
 
 /**
- * Menampilkan kanvas berukuran tetap (anjungan, TV antrean, tablet, ponsel) utuh di jendela mana pun saat
- * presentasi: diperkecil/diperbesar dengan `transform: scale`, di tengah layar. Ukuran asli tetap dipakai untuk
- * tata letak sehingga tampilannya sama dengan perangkat sesungguhnya.
+ * Menampilkan kanvas berukuran tetap (anjungan, TV antrean, tablet, ponsel) utuh di ruang yang tersedia saat
+ * presentasi: diperkecil/diperbesar dengan `transform: scale`, di tengah. Ukuran ruang diukur dari wadahnya (bukan
+ * jendela), sehingga baris presenter di atas atau panel petunjuk di samping tidak menutupi kanvas. Ukuran asli tetap
+ * dipakai untuk tata letak sehingga tampilannya sama dengan perangkat sesungguhnya.
  */
 export function ScaleToFit({
   width,
@@ -22,15 +23,19 @@ export function ScaleToFit({
   children: ReactNode;
   className?: string;
 }) {
+  const frame = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
   useEffect(() => {
-    const update = () => setScale(fitScale(window.innerWidth, window.innerHeight, width, height));
+    const el = frame.current;
+    if (!el) return;
+    const update = () => setScale(fitScale(el.clientWidth, el.clientHeight, width, height));
     update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [width, height]);
   return (
-    <div className="flex h-screen w-full items-center justify-center overflow-hidden">
+    <div ref={frame} className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
       <div
         role="region"
         aria-label={label}

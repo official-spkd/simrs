@@ -13,6 +13,7 @@ apps/api/src/modules/integration-hub/connectors/<sistem>/
 apps/worker/src/processors/<sistem>.processor.ts   ← kirim dari outbox, retry, DLQ
 apps/mock/src/<sistem>/        ← server tiruan + skenario
 ```
+- **Pembaruan fase 2:** konektor keluar (kirim lewat outbox) ada di worker (`apps/worker/src/outbox/<sistem>-*.ts`), klien HTTP-nya bersama di `@simrs/shared/node` (mis. `BpjsClient`, juga dipakai API untuk lookup sinkron baca-saja, ADR-0025); lihat `docs/rencana/fase-2-front-office.md` §2 (1a, 1b) dan ADR-0003 (pembaruan 5 Okt 2026).
 - Base URL dan kredensial per tenant di `tenant_settings` (terenkripsi). Lokal: semua mengarah ke `http://localhost:4100/<sistem>`.
 - Setiap panggilan keluar dicatat di `delivery_attempts` (request/response tersamar, durasi, kode).
 - Kode galat eksternal dipetakan ke kode internal stabil (`BPJS_PESERTA_TIDAK_AKTIF`, `SATUSEHAT_PATIENT_NOT_FOUND`, dst.).

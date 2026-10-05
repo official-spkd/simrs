@@ -28,6 +28,13 @@ export interface KioskScenarioView {
 }
 
 /**
+ * Layar lebar: melayang di kanan atas, di samping kanvas anjungan. Di bawah 1280 px kanvas memenuhi lebar layar,
+ * jadi petunjuk ikut alur di atas kanvas (kanvas mengecil) agar tidak menutupi judul dan jam anjungan.
+ */
+const DOCK =
+  'relative z-10 order-first mx-3 shrink-0 mt-2 self-end xl:fixed xl:top-3 xl:right-3 xl:z-50 xl:m-0';
+
+/**
  * Petunjuk presenter di luar kanvas anjungan (mode presentasi): kode booking Tn. Suryo, kemajuan tugas
  * langkah kedatangan, dan tombol lanjut ke langkah Pendaftaran setelah tiket tercetak. Bisa diciutkan.
  */
@@ -48,7 +55,10 @@ export function KioskPresenterHint({
         type="button"
         aria-expanded={false}
         onClick={() => setOpen(true)}
-        className="fixed top-3 right-3 z-50 inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[#9FCFC8] bg-white/95 px-3 font-[inherit] text-caption font-semibold text-brand-700 shadow-sm"
+        className={cx(
+          DOCK,
+          'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[#9FCFC8] bg-white/95 px-3 font-[inherit] text-caption font-semibold text-brand-700 shadow-sm',
+        )}
       >
         <Icon name="play" size={13} />
         Petunjuk presenter
@@ -58,7 +68,10 @@ export function KioskPresenterHint({
   return (
     <aside
       aria-label="Petunjuk presenter"
-      className="fixed top-3 right-3 z-50 flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-[#9FCFC8] bg-white/95 p-3 shadow-[0_4px_16px_rgba(15,118,110,0.18)]"
+      className={cx(
+        DOCK,
+        'flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-[#9FCFC8] bg-white/95 p-3 shadow-[0_4px_16px_rgba(15,118,110,0.18)]',
+      )}
     >
       <span className="flex items-start justify-between gap-2">
         <span className="text-caption font-semibold text-brand-700">
@@ -68,7 +81,7 @@ export function KioskPresenterHint({
           type="button"
           aria-expanded
           onClick={() => setOpen(false)}
-          className="min-h-9 cursor-pointer rounded-[9px] border border-line-strong bg-white px-2 font-[inherit] text-caption"
+          className="min-h-11 cursor-pointer rounded-[9px] border border-line-strong bg-white px-2 font-[inherit] text-caption"
         >
           Ciutkan
         </button>

@@ -170,14 +170,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           <span className="text-caption text-ink-500">Log bersifat append-only dan tidak dapat diubah</span>
           <Link
             href={auditHref(current, { verifikasi: '1' })}
-            className="inline-flex h-10 items-center rounded-control border border-line-strong bg-white px-3.5 font-medium text-ink-900 no-underline"
+            className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-3.5 font-medium text-ink-900 no-underline"
           >
             Periksa keutuhan rantai
           </Link>
           {can(s, 'audit', 'export') && (
             <a
               href={exportHref(p)}
-              className="inline-flex h-10 items-center rounded-control border border-line-strong bg-white px-3.5 font-semibold text-ink-900 no-underline"
+              className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-3.5 font-semibold text-ink-900 no-underline"
             >
               Unduh paket bukti akreditasi
             </a>
@@ -259,7 +259,7 @@ function exportHref(p: z.infer<typeof paramsSchema>): string {
 }
 
 const controlClass =
-  'h-10 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-ink-900';
+  'h-11 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-ink-900';
 
 function Filters({
   p,
@@ -308,7 +308,7 @@ function Filters({
         </select>
         <button
           type="submit"
-          className="h-10 cursor-pointer rounded-control border border-line-strong bg-white px-3.5 font-medium"
+          className="h-11 cursor-pointer rounded-control border border-line-strong bg-white px-3.5 font-medium"
         >
           Terapkan
         </button>
@@ -325,7 +325,7 @@ function Filters({
               href={auditHref(current, { jenis: key || undefined, kursor: undefined, kejadian: undefined })}
               aria-current={on ? 'true' : undefined}
               className={cx(
-                'inline-flex h-9 items-center rounded-full border px-3 text-small no-underline',
+                'inline-flex h-11 items-center rounded-full border px-3 text-small no-underline',
                 on
                   ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
                   : 'border-line bg-white text-ink-900',
@@ -338,7 +338,7 @@ function Filters({
         {p.pengguna && (
           <Link
             href={auditHref(current, { pengguna: undefined, kursor: undefined })}
-            className="inline-flex h-9 items-center rounded-full border border-brand-600 bg-brand-50 px-3 text-small font-semibold text-brand-700 no-underline"
+            className="inline-flex h-11 items-center rounded-full border border-brand-600 bg-brand-50 px-3 text-small font-semibold text-brand-700 no-underline"
           >
             Satu pengguna × hapus
           </Link>
@@ -866,7 +866,7 @@ function BreakGlassReport({
           />
           <button
             type="submit"
-            className="h-10 cursor-pointer rounded-control border border-line-strong bg-white px-3.5"
+            className="h-11 cursor-pointer rounded-control border border-line-strong bg-white px-3.5"
           >
             Tampilkan
           </button>

@@ -64,7 +64,7 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
       <main
         tabIndex={0}
         aria-label="Isi aplikasi"
-        className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 outline-none"
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 outline-none *:shrink-0"
       >
         {page ? (
           <AppPageView

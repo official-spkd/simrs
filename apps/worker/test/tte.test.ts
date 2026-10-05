@@ -172,6 +172,20 @@ describe('TTE dokumen (operasi outbox)', () => {
     expect(m1).toMatchObject({ status: 'dead', lastError: 'Respons TTE tidak dikenali' });
     const s1 = await read((tx) => tx.documentSignature.findUniqueOrThrow({ where: { id: bad.sigId } }));
     expect(s1.status).toBe('pending');
+    // onDead: kegagalan permanen terlihat di jejak audit dokumen, atomik dengan perpindahan ke DLQ.
+    const failed = await read((tx) =>
+      tx.auditEvent.findFirstOrThrow({ where: { action: 'sign', resourceId: bad.docId } }),
+    );
+    expect(failed).toMatchObject({
+      actorRole: 'system',
+      patientId,
+      details: {
+        status: 'failed',
+        signatureId: bad.sigId,
+        outboxMessageId: bad.messageId,
+        error: 'Respons TTE tidak dikenali',
+      },
+    });
 
     reply = { status: 200, body: SIGNED };
     const done = await pendingSignature();

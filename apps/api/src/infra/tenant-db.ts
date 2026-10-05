@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { TenantTx } from '@simrs/db';
-import { type PendingAudit, requestContext, type TenantRequestContext } from '../common/request-context';
+import {
+  type PendingAudit,
+  requestContext,
+  runAfterCommitHooks,
+  type TenantRequestContext,
+} from '../common/request-context';
 import { writeAudit } from './audit-writer';
 import { PrismaService } from './prisma.service';
 
@@ -111,13 +116,7 @@ export class TenantDb {
       });
     });
     // Sudah commit: kait dijalankan di konteks luar, galatnya tidak membatalkan apa pun (sama seperti interceptor).
-    for (const hook of afterCommit) {
-      try {
-        await hook();
-      } catch (err) {
-        this.logger.error(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
-      }
-    }
+    await runAfterCommitHooks(afterCommit, (m) => this.logger.error(m));
     return result;
   }
 }

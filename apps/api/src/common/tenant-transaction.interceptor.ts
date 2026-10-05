@@ -21,6 +21,7 @@ import {
   type PendingAudit,
   type RequestActor,
   requestContext,
+  runAfterCommitHooks,
   type TenantRequestContext,
 } from './request-context';
 import { REQUIRED_MODULE_KEY } from './require-module.decorator';
@@ -206,15 +207,8 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     throw err;
   }
 
-  private async runAfterCommit(hooks: TenantRequestContext['afterCommit']): Promise<void> {
-    for (const fn of hooks) {
-      try {
-        await fn();
-      } catch (err) {
-        // Transaksi sudah commit: respons tetap sukses. Tanpa PHI di log (hanya jenis galat).
-        this.logger.error(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
-      }
-    }
+  private runAfterCommit(hooks: TenantRequestContext['afterCommit']): Promise<void> {
+    return runAfterCommitHooks(hooks, (m) => this.logger.error(m));
   }
 
   /** Lingkup izin peran aktif, atau 403 (dengan audit penolakan yang pasti tersimpan). */

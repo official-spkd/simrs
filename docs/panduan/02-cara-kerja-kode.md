@@ -158,6 +158,14 @@ Aturan pengaman di `IamService`:
 - `platform.*` tidak pernah diberikan ke peran RS. Peran bawaan yang belum ada hanya dilaporkan (dibuat oleh `ensureSystemRoles`).
 - Setiap penambahan diaudit per peran (`role_permissions`, `via: cli`, pelaku `system`), begitu pula perubahan catatan (`tenant_setting`). Jalan ulang tanpa perubahan katalog tidak menulis apa pun.
 
+**Langkah menambah izin baru** (mis. izin layar fase 2):
+
+1. Tambahkan sumber/aksi di `PERMISSION_CATALOG` dan pemegangnya di `DEFAULT_ROLE_GRANTS` (`packages/shared/src/authz.ts`), dengan hak minimum. Izin `platform.*` hanya di `PLATFORM_ROLE_GRANTS`. Jangan ubah `PERMISSION_CATALOG_BASELINE`.
+2. Pasang `@RequirePermission(sumber, aksi)` di endpoint, dengan tes `403` untuk peran yang tidak berhak (token sungguhan, bukan mode header).
+3. Database tes tidak perlu dibuat ulang: `prepareTestDatabase` menjalankan sinkron yang sama untuk tenant seed (RSFA, RSFB, PLATFORM), dan tenant uji baru (`createTestTenant`) langsung memakai matriks bawaan terbaru.
+4. Database pengembangan, lalu setiap lingkungan setelah deploy: `pnpm db:sync-permissions --dry-run`, periksa rencana per RS, lalu `pnpm db:sync-permissions`. API yang sedang berjalan memakai izin baru paling lambat `AUTHZ_CACHE_TTL_SECONDS`.
+5. Sinkron hanya membawa izin yang **baru di katalog**. Menambah izin lama ke bawaan peran lain tidak ikut disinkron; RS mengaturnya lewat layar Akses.
+
 Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **jangan dipakai untuk menguji izin**. Tes izin memakai token sungguhan: `createTestUser(TENANT_A, { roles: [{ code: 'perawat' }] })` lalu `login(app, user)`. Contoh lengkapnya di `apps/api/test/authz.test.ts`.
 
 ### Layar Audit (P04)
@@ -265,7 +273,7 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 | `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
 | `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
 | API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
-| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`                                                                                |
+| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → audit `sign` berstatus `failed` (`onDead`)                              |
 | Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
 
 Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
@@ -281,6 +289,28 @@ Unggah dari web: kirim isi berkas sebagai `application/octet-stream` dengan head
 - Worker `outbox/notify.ts`: alamat dibaca saat kirim, no. HP didekripsi (`staff_phone`), akun nonaktif/tanpa alamat dilewati, respons tidak disimpan.
 - Mock: `POST /email/send`, `POST /whatsapp/send`, kotak masuk `GET /messages` dan panel.
 - Web: lonceng di header (`components/notification-bell.tsx`, jumlah dari layout), halaman `app/(staf)/notifikasi/`.
+
+### Front office (fase 2, skema potongan 0b)
+
+Tabel F01–F07 ada di migrasi `20261005101000_front_office` (rencana: `docs/rencana/fase-2-front-office.md`). Aturan yang
+dijamin database, bukan hanya kode:
+
+| Aturan                      | Penjaga                                                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Kuota tidak terlampaui      | CHECK `schedule_sessions_quota` (`booked_* <= quota_*`); reservasi lewat `reserveQuota` (20 serentak untuk 1 sisa → 1 lolos) |
+| Nomor tidak berubah         | Hak kolom + trigger `app_immutable_columns`: kode booking, nomor tiket, nomor kunjungan, task ID BPJS dan waktunya           |
+| Jejak append-only           | `app_reject_mutation`: `queue_calls`, `encounter_status_history`, `hfis_schedule_snapshots`, `patient_contacts`              |
+| SEP                         | `app_sep_guard`: `issued` beku kecuali batal, `cancelled` beku; koreksi = versi baru (sekali); satu rantai SEP per kunjungan |
+| Penjaminan                  | Terkunci (`locked_at`) begitu SEP-nya terbit; `app_coverage_guard` menolak perubahan sesudahnya                              |
+| Papan antrean real-time     | `queue_calls` memicu `pg_notify('queue_calls', {tenant_id, id})`: tanpa nomor, nama, atau isi lain                           |
+| Persetujuan umum rawat inap | `privacy_consents.encounter_id`: satu aktif per jenis × penerima × kunjungan (rawat jalan: tanpa kunjungan)                  |
+
+Nilai status/jenis (mis. `booked`, `checked_in`; `AMB`/`EMER`/`IMP`; `pending`/`issued`) dibatasi CHECK di migrasi dan
+mengikuti kontrak bersama `packages/shared` (potongan 0a).
+
+Migrasi `20261005102000_worker_failure_states` (untuk worker potongan 1a) menambah keadaan gagal permanen yang terlihat di
+domain: tanda tangan TTE `failed` (pending → failed → pending untuk kirim ulang; `signed` tetap final), status verifikasi
+identifier `error`, dan `outbox_messages.requeued_at` (kirim ulang manual memulai jendela retry baru).
 
 ### Lookup sinkron, SSE, dan event domain (fase 2)
 
@@ -349,6 +379,7 @@ await this.events.publish('booking.checked_in', { appointmentId, patientId });
 - Penangan berjalan berurutan dengan transaksi yang sama. Penangan gagal → seluruh permintaan batal, termasuk tulisan penerbit.
 - `publish` di luar transaksi → galat program. Rantai lebih dari 8 tingkat dianggap siklus.
 - Efek ke sistem luar dari penangan tetap lewat outbox.
+- Event belum disimpan di tabel: hanya penangan yang terdaftar saat publikasi yang menerimanya. Reaksi yang harus bertahan (outbox, task ID, staging biaya) ditulis penangan di transaksi yang sama. Tabel `domain_events` append-only untuk konsumen yang datang belakangan (charge capture fase 5, SATUSEHAT fase 7) masih keputusan terbuka (lihat utang teknis PROGRESS).
 
 ### Anatomi modul
 
@@ -458,42 +489,85 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `lockMpi(tx)`                                     | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
 | `searchConcepts` · `getConcept` · `listRegions`   | P06 · Baca data rujukan global (skema `ref`).                                                            |
 | `importConcepts` · `importRegions` · `csvRecords` | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                              |
-| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 12 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
+| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 15 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
+| `reserveQuota` · `releaseQuota`                   | F01/F02 · Pesan/kembalikan satu tempat kuota sesi (UPDATE bersyarat atomik); null = penuh.               |
+| `allocateQueueNumber(tx, tenantId, layanan, tgl)` | F04 · Nomor antrean `PD-027` berikutnya per layanan per hari WIB (urutan P08, maks. 999).                |
+| `seedFrontOffice(prisma, tenantId)`               | Seed · Layanan antrean, praktisi, templat jadwal, penjamin, papan antrean; idempoten.                    |
 | `seedStaff(prisma, tenantId, { encKeyB64 })`      | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.     |
 | `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
 | `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
-| `recordOutboxAttempt(tx, msg, result)`            | Catat percobaan; tentukan `sent` / `failed` + jadwal ulang / `dead`.                                     |
+| `recordOutboxAttempt(tx, msg, result, opts)`      | Catat percobaan: `sent` / `failed` + jadwal ulang / `dead`; opsi `maxAttempts`, `capMs`, `deadline`.     |
+| `deferOutboxMessage(tx, msg, { until, reason })`  | Kembalikan pesan ke `pending` tanpa menambah percobaan (dipakai `defer`).                                |
 | `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.    |
 
 ## Worker
 
-Berkas di `apps/worker/src/outbox/`:
+Berkas di `apps/worker/src/`:
 
-1. `outbox.scheduler.ts` mendaftarkan _job scheduler_ BullMQ `outbox-dispatch` (tiap `OUTBOX_POLL_MS`, default 2000 ms) dengan concurrency 1.
-2. `outbox.dispatcher.ts` → `dispatchOnce()`: ambil daftar tenant → per tenant klaim pesan dalam transaksi singkat → siapkan permintaan (`prepare`, boleh membaca DB tenant) → kirim **di luar** transaksi → catat hasil di transaksi baru, bersama pemrosesan respons (`onSuccess`) secara atomik.
-3. `http-connector.ts` mengirim HTTP dengan header `Idempotency-Key` dan batas waktu, lalu mengklasifikasikan hasil (`classifyStatus`): 2xx terkirim; 5xx/408/425/429/jaringan dicoba ulang; 4xx lain permanen.
-4. `operations.ts` memetakan nama operasi → `{ prepare, onSuccess?, sensitive? }` (tipe di `operation-types.ts`).
+1. `outbox/outbox.scheduler.ts` mendaftarkan _job scheduler_ BullMQ `outbox-dispatch` (tiap `OUTBOX_POLL_MS`, default 2000 ms) dengan concurrency 1. Tanpa Redis di luar produksi memakai timer (`OUTBOX_SCHEDULER=auto`, logikanya di `infra/scheduler-mode.ts`). Kunci Redis memakai prefiks `BULLMQ_PREFIX` (bawaan `bull`); tes memakai prefiks unik karena Redis dipakai bersama.
+2. `outbox/outbox.dispatcher.ts` → `dispatchOnce()`: ambil daftar tenant → per tenant klaim pesan dalam transaksi singkat → siapkan permintaan (`prepare`, boleh membaca DB tenant) → kirim **di luar** transaksi, atau tunda (`defer`) → catat hasil di transaksi baru, bersama `onSuccess` (sebelum "terkirim") atau `onDead` (sesudah pindah ke DLQ) secara atomik.
+3. `outbox/http-connector.ts` mengirim HTTP dengan header `Idempotency-Key` dan batas waktu, lalu mengklasifikasikan hasil (`classifyStatus`): 2xx terkirim; 5xx/408/425/429/jaringan dicoba ulang; 4xx lain permanen.
+4. `outbox/bpjs-connector.ts` + `outbox/bpjs-operation.ts`: konektor BPJS (lihat di bawah).
+5. `outbox/operations.ts` memetakan nama operasi → `{ prepare, onSuccess?, onDead?, retry?, sensitive? }` (tipe di `operation-types.ts`). Peta disuntikkan lewat token `OUTBOX_OPERATION_REGISTRY` agar tes bisa menambah operasi uji.
+6. `jobs/`: job berkala per tenant (P11, lihat di bawah).
 
 | Operasi               | Isi                                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ping`                | Uji saluran ke `/<sistem>/_echo` di mock.                                                                                                                                      |
 | `dukcapil.nik.verify` | P05 · Payload `{ patientId, identifierId }`; NIK dibaca + didekripsi saat dikirim ke `/dukcapil/verify-data`; hasil `verified`/`mismatch`/`not_found` + audit pelaku `system`. |
 
-Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama dengan API (ADR-0017). Konektor nyata per sistem ditambahkan di fase 2–7 dengan pola yang dijelaskan di `docs/06-integrasi.md`.
+Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama dengan API (ADR-0017).
+
+### Kebijakan retry per operasi
+
+`retry: { maxAttempts?, capMs?, untilEndOfServiceDay?, maxDeferMs? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
+
+### Tunda (`defer`)
+
+`prepare` boleh mengembalikan `{ defer: { untilMs } }` (epoch ms) atau `{ defer: { afterMessageId } }` (+ `reason` opsional tanpa PHI). Pesan kembali `pending` **tanpa menambah percobaan** dan tanpa baris `delivery_attempts`; alasannya tampil di `last_error` sebagai `ditunda: …`. Untuk `afterMessageId` worker menjadwalkan ulang setelah percobaan berikutnya pesan prasyarat; prasyarat yang DLQ atau tidak ada membuat pesan ini ikut DLQ (urutan tidak mungkin dipenuhi). Penundaan tidak tanpa ujung: yang melewati umur `maxDeferMs` (bawaan 24 jam dari saat pesan dibuat) atau batas hari layanan menjadi DLQ. Cari pesan prasyarat dengan `ctx.findMessage({ target, idempotencyKey })`. Pola task ID BPJS:
+
+```ts
+const prev = await ctx.findMessage({
+  target: 'bpjs',
+  idempotencyKey: `antrean-task:${kodeBooking}:${taskId - 1}`,
+});
+if (prev && prev.status !== 'sent') return { defer: { afterMessageId: prev.id } };
+```
+
+### `onDead`
+
+`onDead(tx, msg)` berjalan di transaksi yang sama dengan perpindahan ke DLQ (juga setelah `onSuccess` melempar), dengan `msg.status = 'dead'` dan `msg.lastError` terisi: tandai status domain "gagal" agar terlihat di layar. Bila `onDead` melempar, perubahannya dibatalkan, pesan tetap DLQ, dan `last_error` diberi catatan `onDead gagal`. Contoh: `tte.sign` mencatat audit `sign` berstatus `failed`.
+
+### Konektor BPJS
+
+Klien HTTP ada **satu** di `@simrs/shared/node` (`BpjsClient`, juga dipakai API untuk lookup sinkron, ADR-0025): header `X-cons-id`/`X-timestamp`/`X-signature`/`user_key`, lalu dekode lewat dekoder kontrak bersama (`decodeVclaimResponse`/`decodeAntreanResponse`: amplop, dekripsi AES-256-CBC + LZ-string dengan timestamp permintaan, validasi skema zod). Kode stabil hanya satu sumber, `@simrs/shared` `integrations/bpjs/common.ts`: penolakan `BPJS_REJECTIONS` + `classifyBpjsRejection` (awal pesan baku mock, lalu pola cadangan, selain itu `BPJS_TIDAK_DIKENAL`), gangguan `BPJS_FAILURES` + `classifyBpjsFailure`, label layar `bpjsErrorLabel`. Kredensial dari env (`BPJS_BASE_URL`, `BPJS_CONS_ID`, `BPJS_SECRET_KEY`, `BPJS_USER_KEY`); kosong di luar produksi = nilai mock (`<MOCK_BASE_URL>/bpjs`), di produksi wajib diisi.
+
+| Jawaban BPJS                                                | Hasil outbox                             | Diteruskan ke                      |
+| ----------------------------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| `metaData.code` 200 (Aplicare: 1)                           | terkirim                                 | `onAccepted(tx, msg, response)`    |
+| HTTP 200 + kode ≠ 200 (galat bisnis, mis. `BPJS_SEP_GANDA`) | **terkirim** (jawaban sudah pasti)       | `onRejected(tx, msg, { code, … })` |
+| Timeout, jaringan, 5xx, 429, pemeliharaan                   | gagal, dicoba ulang (`BPJS_UNAVAILABLE`) | –                                  |
+| 401/403, respons tak terbaca                                | DLQ (`BPJS_AUTH`, `BPJS_PROTOCOL`)       | `onDead`                           |
+
+Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccepted?, onRejected?, onDead?, retry?, sensitive? })`. `prepare` mengembalikan `{ service: 'vclaim' | 'antrean' | 'aplicare', method, path, body? }` (bangun dari tabel kontrak, mis. `{ service: 'vclaim', ...VCLAIM_ENDPOINTS.sepInsert }` atau `bpjsPath(VCLAIM_ENDPOINTS.pesertaByNik.path, params)`), `skip`, atau `defer`; `response` = skema kontrak dari `@simrs/shared` (mis. `vclaimSepInsertResponseSchema`). Bawaan: `retry = SERVICE_DAY_RETRY`, `sensitive = true` (jejak pengiriman hanya menyimpan kode, bukan pesan/isi respons). Penolakan tanpa `onRejected` dianggap galat permanen (DLQ) agar tidak hilang diam-diam. Respons yang tidak cocok dengan skema `response` = `BPJS_PROTOCOL` (DLQ).
+
+### Job berkala (P11)
+
+`jobs/periodic-jobs.ts` berisi peta `PERIODIC_JOBS` (nama `<konteks>.<job>` → `{ schedule, module?, run }`). Jadwal `{ everyMs }` (10 detik–24 jam) atau `{ dailyAt: 'HH:MM' }` (WIB). `PeriodicScheduler` menjalankan `run({ tenantId, now, tx })` sekali per tenant aktif; tenant yang modulnya (`module`) nonaktif dilewati; galat satu tenant dicatat tanpa menghentikan tenant lain. Dengan Redis: satu job scheduler BullMQ per job di antrean `periodic` (concurrency 1; cron harian ber-`tz` Asia/Jakarta; jadwal yang sudah dihapus dari peta ikut dihapus saat start). Tanpa Redis di luar produksi: timer berurutan. Job **wajib idempoten** (jadwal bisa terlewat atau terulang) dan efek ke sistem luar lewat outbox. Potongan berikutnya menambah satu baris per job, mis. `scheduling.generate-sessions`, `scheduling.hfis-pull`, `booking.no-show`, `booking.reminder`.
 
 ## Mock
 
 `apps/mock/src/`:
 
-| Berkas                            | Isi                                                                                                                                                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                          |
-| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                  |
-| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0, Antrean RS + urutan task ID, HFIS; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
-| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                    |
-| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                              |
-| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                            |
-| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                |
+| Berkas                            | Isi                                                                                                                                                                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server.ts`                       | Membangun Fastify; hook skenario per sistem (normal, lambat, gagal, acak, timeout); log 50 request; penerima `_echo`                                                                                                                                                     |
+| `systems/*.ts`                    | Satu berkas per sistem: `eklaim`, `satusehat`, `dukcapil`, `tte`, `tpdi`, `btn`, `messaging`                                                                                                                                                                             |
+| `systems/bpjs/`                   | BPJS (I03): VClaim 2.0 (+ pulang SEP, ubah/hapus surat, rujukan keluar), Antrean RS + urutan task ID, HFIS, Aplicare; aturan data fiktif di `peserta.ts`, `rujukan.ts`, `master.ts` (poli INT/JAN/SAR/PAR, dokter HFIS 99001–99006); `panel.ts` = API inspeksi untuk E2E |
+| `panel/panel.ts`, `panel/html.ts` | API dan HTML panel kendali                                                                                                                                                                                                                                               |
+| `state.ts`                        | State di memori (hilang saat restart, disengaja)                                                                                                                                                                                                                         |
+| `fixtures.ts`                     | Data fiktif deterministik dari NIK                                                                                                                                                                                                                                       |
+| `config.ts`                       | Env + titik injeksi untuk tes (`sendWebhook`, `now`, `random`)                                                                                                                                                                                                           |
 
 Mode `timeout` **memproses** permintaan lalu menahan jawabannya (meniru jawaban BPJS yang hilang: SEP sudah terbit, RS tidak tahu), berbeda dengan `gagal` yang menolak tanpa memproses. Aturan kartu/NIK/rujukan fiktif dan daftar API panel ada di `apps/mock/README.md`.
 
@@ -577,24 +651,24 @@ halaman staf       proxy: cookie akses habis + refresh ada → refreshSession() 
 ## UI dan sistem desain
 
 - Token ada di `packages/ui/src/theme.css` sebagai tema Tailwind v4, misalnya `bg-brand-600`, `text-ink-700`, `rounded-card`. Sumbernya `design/tokens.json`.
-- Komponen dasar: `AppShell`, `Sidebar`, `Button`, `Field`, `Chip`/`StatusChip`/`FilterChip`, `Alert`, `Card`/`KpiCard`, `Tabs`/`TabList`/`TabPanel`, `Segmented`, `SafetyGate`, `PatientBanner`, `Icon`.
-- Tab memakai satu primitif ARIA dari `@simrs/ui` (gaya `pil`, `segmen`, `garis`; `keepMounted` untuk menjaga isian tab lain). Jangan membuat tab lokal di layar.
+- Komponen dasar: `AppShell`, `Sidebar`, `Button`, `Field`, `Chip`/`StatusChip`/`FilterChip`, `Alert`, `Card`/`KpiCard`, `Tabs`/`TabList`/`TabPanel`, `RadioSegmented`, `SafetyGate`, `PatientBanner`, `Icon`.
+- Tab memakai satu primitif ARIA dari `@simrs/ui` (gaya `pil`, `segmen`, `garis`; `keepMounted` untuk menjaga isian tab lain). Jangan membuat tab lokal di layar. Pilihan nilai/mode tanpa panel (rentang, mode, kanal) memakai `RadioSegmented` (pola radio), bukan tab.
 - Setiap kontrol interaktif ≥ 44 px (token `touch`); komponen `@simrs/ui` sudah memenuhinya, jadi kelas `h-11` tambahan pada `Button size="sm"` tidak diperlukan lagi.
 - Layar dibangun dengan membaca mockup `design/mockups/<Layar>.dc.html` (markup + blok `<script type="text/x-dc">`), lalu ditulis ulang sebagai React. Jangan menyalin runtime mockup.
 
 ## Paket shared
 
-| Modul                            | Isi utama                                                                                                                                                                                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                                                                                                                                                            |
-| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran                                                                                                                                            |
-| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                                                                                                                                                                        |
-| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                                                                                                                                                                  |
-| `ids.ts`                         | `newId()` UUID v7                                                                                                                                                                                                                            |
-| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                                                                                                                                                                   |
-| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                                                                                                                                                           |
-| `integrations/bpjs/`             | Kontrak kabel BPJS (I03) dipakai mock, worker, API: tabel endpoint + `bpjsPath()`, skema zod VClaim/Antrean/HFIS, `BPJS_REJECTIONS` + `classifyBpjsRejection()` (galat bisnis HTTP 200 → kode stabil), `checkAntreanTask()` (urutan task ID) |
-| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `decodeVclaimResponse`/`decodeAntreanResponse` (amplop → `ok`/`rejected`/`invalid`), HMAC TPDI                                                                                             |
+| Modul                            | Isi utama                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `money.ts`                       | Uang = `bigint` rupiah. `formatRupiah(1250400n)` → `Rp 1.250.400`. Float ditolak.                                                                                                                                                                                                                                                                  |
+| `datetime.ts`                    | `formatTanggalWaktu()` → `Sen, 5 Okt 2026 · 07.10` (Asia/Jakarta), `periodYYMM()` untuk penomoran                                                                                                                                                                                                                                                  |
+| `env.ts`                         | Potongan skema env, `parseEnv()`, `devToolsAllowed()`                                                                                                                                                                                                                                                                                              |
+| `errors.ts`                      | `ERROR_CODES`, `AppError`, skema body galat                                                                                                                                                                                                                                                                                                        |
+| `ids.ts`                         | `newId()` UUID v7                                                                                                                                                                                                                                                                                                                                  |
+| `outbox.ts`                      | Target integrasi, status, `backoffDelayMs()`, skema amplop                                                                                                                                                                                                                                                                                         |
+| `components.ts`                  | 81 kode komponen (dibangkitkan dari `docs/02-katalog-komponen.md`)                                                                                                                                                                                                                                                                                 |
+| `integrations/bpjs/`             | Kontrak kabel BPJS (I03) dipakai mock, worker, API: tabel endpoint + `bpjsPath()`, skema zod VClaim/Antrean/HFIS, `BPJS_REJECTIONS` + `classifyBpjsRejection()` (galat bisnis HTTP 200 → kode stabil), `BPJS_FAILURES` + `classifyBpjsFailure()` (gangguan), `bpjsErrorLabel()`, `checkAntreanTask()` (urutan task ID), `decodeAplicareResponse()` |
+| `node.ts` (`@simrs/shared/node`) | Kripto khusus Node: tanda tangan + enkripsi BPJS, `decodeVclaimResponse`/`decodeAntreanResponse` (amplop → `ok`/`rejected`/`invalid`), `BpjsClient` (klien bertanda tangan di atas dekoder itu), HMAC TPDI                                                                                                                                         |
 
 ## Strategi tes
 
