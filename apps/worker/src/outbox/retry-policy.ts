@@ -27,18 +27,20 @@ export interface RetryLimits extends Pick<RecordAttemptOptions, 'maxAttempts' | 
 
 /**
  * Batas coba ulang untuk satu pesan. `fallbackMaxAttempts` (opsi dispatch, dipakai tes) hanya berlaku untuk operasi
- * tanpa kebijakan sendiri. Hari layanan dan umur penundaan dihitung dari `createdAt` pesan (saat kejadian domain
- * dicatat).
+ * tanpa kebijakan sendiri. Hari layanan dan umur penundaan dihitung dari `coalesce(requeuedAt, createdAt)`: saat
+ * kejadian domain dicatat, atau saat dikirim ulang manual dari DLQ.
  */
 export function retryLimits(
   policy: RetryPolicy | undefined,
-  msg: { createdAt: Date },
+  msg: { createdAt: Date; requeuedAt?: Date | null },
   fallbackMaxAttempts?: number,
 ): RetryLimits {
-  const deadline = policy?.untilEndOfServiceDay ? endOfServiceDay(msg.createdAt) : undefined;
+  // Kirim ulang manual dari DLQ (`requeued_at`) membuka jendela hari layanan baru dari saat itu.
+  const start = msg.requeuedAt ?? msg.createdAt;
+  const deadline = policy?.untilEndOfServiceDay ? endOfServiceDay(start) : undefined;
   const maxAttempts =
     policy?.maxAttempts ?? (deadline ? Infinity : (fallbackMaxAttempts ?? OUTBOX_MAX_ATTEMPTS));
-  const deferAge = msg.createdAt.getTime() + (policy?.maxDeferMs ?? DEFAULT_MAX_DEFER_MS);
+  const deferAge = start.getTime() + (policy?.maxDeferMs ?? DEFAULT_MAX_DEFER_MS);
   const deferDeadline = new Date(deadline ? Math.min(deadline.getTime(), deferAge) : deferAge);
   return { maxAttempts, capMs: policy?.capMs ?? DEFAULT_RETRY_CAP_MS, deadline, deferDeadline };
 }
