@@ -1,0 +1,29 @@
+{
+  "name": "@simrs/backup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:pemulihan": "vitest run --config vitest.e2e.config.ts",
+    "jalankan": "tsx --env-file-if-exists=../../.env src/cli/jalankan.ts",
+    "uji-restore": "tsx --env-file-if-exists=../../.env src/cli/uji-restore.ts",
+    "kunci-baru": "tsx src/cli/kunci-baru.ts",
+    "dekripsi": "tsx --env-file-if-exists=../../.env src/cli/dekripsi.ts"
+  },
+  "dependencies": {
+    "@simrs/shared": "workspace:*",
+    "pg": "^8.23.1",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@simrs/config": "workspace:*",
+    "@simrs/db": "workspace:*",
+    "@types/pg": "^8",
+    "eslint": "^10",
+    "tsx": "^4",
+    "vitest": "^5"
+  }
+}

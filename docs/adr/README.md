@@ -21,6 +21,6 @@ Nomor 0024–0075 sudah dipesan oleh rencana fase di `docs/rencana/` (5 Okt 2026
 | 0058–0059 | Cadangan fase 3–7                                                  | –                                       |
 | 0060–0064 | Fase 8 · back office                                               | –                                       |
 | 0065–0069 | Fase 9 · dasbor + aplikasi mobile                                  | –                                       |
-| 0070–0075 | Fase 10 · ketahanan dan pilot (0071 backup, 0072 jangkar audit)    | 0073 (CSP ber-nonce + peta refresh web) |
+| 0070–0075 | Fase 10 · ketahanan dan pilot (0071 backup, 0072 jangkar audit)    | 0071 (backup 3 lokasi + uji restore), 0072 (jangkar audit), 0073 (CSP ber-nonce + peta refresh web) |
 
 Rincian tiap nomor yang dipesan ada di rencana fasenya (`docs/rencana/fase-<n>-*.md`). Bila sebuah nomor ternyata tidak dibutuhkan, biarkan kosong; jangan dipakai ulang untuk topik lain.

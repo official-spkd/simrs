@@ -20,6 +20,36 @@ export function formatLastLogin(iso: string | null, now: Date = new Date()): str
   return formatTanggal(iso);
 }
 
+/**
+ * Ringkasan user agent untuk daftar perangkat tepercaya: peramban + sistem operasi (`Chrome di Windows`), tanpa
+ * versi. Tidak dikenali → `Peramban tidak dikenal`.
+ */
+export function deviceLabel(userAgent: string | null): string {
+  const ua = userAgent ?? '';
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /Firefox\//.test(ua)
+      ? 'Firefox'
+      : /Chrome\//.test(ua)
+        ? 'Chrome'
+        : /Safari\//.test(ua)
+          ? 'Safari'
+          : null;
+  const os = /Windows/.test(ua)
+    ? 'Windows'
+    : /Android/.test(ua)
+      ? 'Android'
+      : /iPhone|iPad/.test(ua)
+        ? 'iOS'
+        : /Mac OS X|Macintosh/.test(ua)
+          ? 'macOS'
+          : /Linux/.test(ua)
+            ? 'Linux'
+            : null;
+  if (!browser) return os ? `Peramban di ${os}` : 'Peramban tidak dikenal';
+  return os ? `${browser} di ${os}` : browser;
+}
+
 export interface AccountFlags {
   status: string;
   /** Sudah punya kata sandi; belum = tidak bisa masuk sampai admin mereset sandinya (mis. staf seed). */

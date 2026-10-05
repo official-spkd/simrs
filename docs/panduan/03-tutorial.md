@@ -18,17 +18,19 @@ pnpm doctor                 # memeriksa Node, pnpm, Docker, port
 
 Isi `.env` yang perlu diperhatikan:
 
-| Variabel                                 | Nilai lokal                                  | Catatan                                                                                                                               |
-| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_ENV`                                | `local`                                      | Wajib untuk Swagger, endpoint `/dev`, dan area superadmin. Tidak disetel = produksi.                                                  |
-| `HOST`                                   | `127.0.0.1`                                  | API dan mock tidak terbuka ke jaringan                                                                                                |
-| `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY` | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya. Ganti kunci: [Rotasi kunci](./04-rotasi-kunci.md) |
-| `ALLOW_DEV_TENANT_HEADER`                | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi                |
-| `TRUST_PROXY`                            | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                                   |
-| `RATE_LIMIT_STORE`                       | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                                |
-| `MINIO_CONSOLE_PORT`                     | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                               |
-| `STORAGE_DRIVER`                         | `disk` atau `s3`                             | Berkas dokumen: `disk` = folder `STORAGE_DISK_ROOT` (hanya lokal), `s3` = MinIO Docker. Staging/produksi wajib `s3`                   |
-| `S3_*`                                   | lihat `.env.example`                         | MinIO lokal (`S3_BUCKET_DOCUMENTS=simrs-documents`). Produksi: kredensial khusus aplikasi, bukan root                                 |
+| Variabel                                  | Nilai lokal                                  | Catatan                                                                                                                               |
+| ----------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                 | `local`                                      | Wajib untuk Swagger, endpoint `/dev`, dan area superadmin. Tidak disetel = produksi.                                                  |
+| `HOST`                                    | `127.0.0.1`                                  | API dan mock tidak terbuka ke jaringan                                                                                                |
+| `FIELD_ENCRYPTION_KEY`, `FIELD_HASH_KEY`  | acak 32 byte base64 (dibuat `pnpm env:init`) | Wajib. Hilang = rahasia MFA dan data terenkripsi tidak terbaca; simpan cadangannya. Ganti kunci: [Rotasi kunci](./05-rotasi-kunci.md) |
+| `AUDIT_ANCHOR_KEY`                        | acak 32 byte base64 (dibuat `pnpm env:init`) | Kunci HMAC jangkar audit (ADR-0072), beda dari kunci kolom. Wajib di produksi; kosong = jangkar tidak ditulis                         |
+| `AUDIT_ANCHOR_BUCKET`, `…_RETENTION_DAYS` | kosong · `1`                                 | Bucket WORM (`simrs-audit-anchors`, object lock) + masa kunci objek. Wajib di produksi; kosong = jangkar hanya di DB                  |
+| `ALLOW_DEV_TENANT_HEADER`                 | `true`                                       | Lokal saja: boleh memanggil API dengan header `X-Tenant-Id` tanpa login (Swagger, curl). Diabaikan di staging/produksi                |
+| `TRUST_PROXY`                             | `loopback`                                   | Alamat web/reverse proxy di depan API (IP klien asli untuk audit dan batas laju). Wajib di produksi                                   |
+| `RATE_LIMIT_STORE`                        | `auto`                                       | Penghitung batas laju di Redis; tanpa Redis (lokal) jatuh ke memori + peringatan. Produksi wajib Redis                                |
+| `MINIO_CONSOLE_PORT`                      | `9001`                                       | ubah bila port bentrok (mis. Laravel Herd memakai 9001)                                                                               |
+| `STORAGE_DRIVER`                          | `disk` atau `s3`                             | Berkas dokumen: `disk` = folder `STORAGE_DISK_ROOT` (hanya lokal), `s3` = MinIO Docker. Staging/produksi wajib `s3`                   |
+| `S3_*`                                    | lihat `.env.example`                         | MinIO lokal (`S3_BUCKET_DOCUMENTS=simrs-documents`). Produksi: kredensial khusus aplikasi, bukan root                                 |
 
 ### Mesin baru (macOS)
 
@@ -157,6 +159,16 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 ```
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
+
+Daftar kata sandi bocor (kata sandi baru yang ada di daftar ditolak) juga diisi operator. Lokal cukup contoh kecil yang ikut di repo; produksi wajib memakai daftar resmi, mis. berkas Pwned Passwords (Have I Been Pwned, baris `SHA1:hitungan`) yang diunduh operator di luar SIM RS. Perintah ini mengambil N hitungan terbesar dan menyimpan hanya SHA-1-nya:
+
+```powershell
+pnpm db:import-breached --file packages\db\data\breached-passwords-sample.txt --source contoh --version 1
+pnpm db:import-breached --file .\pwned-passwords-sha1.txt --source "HIBP Pwned Passwords" --version v8 --top 100000 --dry-run
+pnpm db:import-breached --file .\pwned-passwords-sha1.txt --source "HIBP Pwned Passwords" --version v8 --top 100000
+```
+
+Berkas teks (satu kata sandi per baris, urut paling umum) juga diterima. Isi daftar lama diganti dalam satu transaksi; baris rusak membatalkan seluruh impor. Daftar statis kecil di kode tetap berlaku walau tabel kosong.
 
 Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan di `packages/shared/src/authz.ts`), bawa izin itu ke peran RS yang sudah berjalan:
 
@@ -563,6 +575,14 @@ Aturan:
 - Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
 - Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
+
+### Backup dan uji restore
+
+Backup terenkripsi tiga lokasi (`pnpm backup:jalankan`), uji restore di kontainer bersih (`pnpm backup:uji-restore`),
+dan pemulihan bencana (`pnpm backup:dekripsi`) dijelaskan di [Backup dan restore](./04-backup-restore.md). Untuk
+mencobanya di salinan repo: peran `simrs_backup` (§2 halaman itu), `BACKUP_DATABASE_URL` ke database tes salinan
+itu, kunci uji dari `pnpm backup:kunci-baru --keluar <folder di luar repo>`, dan `BACKUP_PREFIX` + bucket offsite
+sendiri agar tidak bercampur dengan salinan lain.
 
 ## 8. Pemecahan masalah
 

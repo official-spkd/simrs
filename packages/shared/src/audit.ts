@@ -135,3 +135,63 @@ export const NIGHT_SHIFT_ROLES = [
   'analis_lab',
   'radiografer',
 ] as const;
+
+/**
+ * Pemeriksaan keutuhan jejak audit (`GET /audit/verify`, ADR-0072). `checkpoint` (bawaan) menghitung ulang hash
+ * hanya sejak jangkar sah terakhir dan mencocokkan SEMUA jangkar dengan rantai; `full` menghitung ulang seluruh rantai.
+ */
+export const AUDIT_VERIFY_MODES = ['checkpoint', 'full'] as const;
+export type AuditVerifyMode = (typeof AUDIT_VERIFY_MODES)[number];
+export const auditVerifyQuerySchema = z.strictObject({
+  mode: z.enum(AUDIT_VERIFY_MODES).default('checkpoint'),
+});
+
+/**
+ * Temuan pemeriksaan keutuhan:
+ * - `CHAIN_BROKEN`: hash/urutan entri tidak cocok (baris diubah, disisipkan, atau dihapus di tengah).
+ * - `TRUNCATION_DETECTED`: entri yang sudah dijangkar tidak ada lagi (kepala rantai di bawah jangkar).
+ * - `ANCHOR_MISMATCH`: entri di seq jangkar ada tetapi hash-nya lain (dipotong lalu ditambah, atau ditulis ulang).
+ * - `ANCHOR_TAMPERED`: tanda tangan jangkar tidak sah (baris jangkar diubah atau dipalsukan).
+ * - `ANCHOR_KEY_UNKNOWN`: jangkar ditandatangani kunci lain (rotasi tanpa kunci lama, atau dipalsukan).
+ */
+export const AUDIT_VERIFY_ISSUES = [
+  'CHAIN_BROKEN',
+  'TRUNCATION_DETECTED',
+  'ANCHOR_MISMATCH',
+  'ANCHOR_TAMPERED',
+  'ANCHOR_KEY_UNKNOWN',
+] as const;
+export type AuditVerifyIssueCode = (typeof AUDIT_VERIFY_ISSUES)[number];
+
+export interface AuditVerifyIssue {
+  code: AuditVerifyIssueCode;
+  /** seq entri/jangkar yang terlibat (desimal), bila ada. */
+  seq: string | null;
+  /** Waktu jangkar yang terlibat, bila ada. */
+  anchoredAt: string | null;
+}
+
+export interface AuditVerifyResult {
+  /** Rantai utuh DAN tidak ada temuan jangkar. */
+  intact: boolean;
+  mode: AuditVerifyMode;
+  /** Jumlah entri yang hash-nya dihitung ulang. */
+  checked: number;
+  firstBrokenSeq: string | null;
+  headSeq: string | null;
+  /** Jangkar sah tempat pemeriksaan `checkpoint` dimulai (null = dari entri pertama). */
+  checkpoint: { seq: string; anchoredAt: string } | null;
+  anchors: {
+    total: number;
+    verified: number;
+    /** false = kunci jangkar tidak dipasang (hanya di luar produksi); jangkar tidak diperiksa, mode jatuh ke `full`. */
+    keyConfigured: boolean;
+    latestSeq: string | null;
+  };
+  /** Paling banyak `AUDIT_VERIFY_MAX_ISSUES` temuan (yang paling awal); `issueCount` = jumlah seluruhnya. */
+  issues: AuditVerifyIssue[];
+  issueCount: number;
+  verifiedAt: string;
+}
+
+export const AUDIT_VERIFY_MAX_ISSUES = 20;

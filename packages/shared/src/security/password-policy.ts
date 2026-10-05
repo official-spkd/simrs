@@ -3,7 +3,9 @@
  * tidak memuat nama pengguna atau kode RS, bukan pola berulang/berurutan. Tanpa aturan "wajib simbol"
  * (NIST SP 800-63B: panjang lebih penting daripada komposisi).
  *
- * Daftar statis di bawah adalah contoh lokal; produksi sebaiknya memakai daftar bocor yang lebih besar (utang teknis).
+ * Daftar statis di bawah hanya lapis dasar yang selalu berlaku (juga tanpa database). Daftar besar (N teratas kata
+ * sandi bocor, mis. Pwned Passwords) diimpor operator ke `ref.breached_passwords` lewat `pnpm db:import-breached` dan
+ * diperiksa API saat kata sandi diganti (`isBreachedPassword` di @simrs/db).
  */
 const COMMON_PASSWORDS = new Set([
   'password1234',

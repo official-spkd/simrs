@@ -32,8 +32,15 @@ export const GUIDE_PAGES = [
     summary: 'Menyiapkan mesin, menjalankan layanan, membuat modul API, layar web, endpoint mock, dan tes.',
   },
   {
+    slug: 'backup-restore',
+    file: '04-backup-restore.md',
+    title: 'Backup dan restore',
+    summary:
+      'Backup terenkripsi tiga lokasi, jadwal, retensi, uji restore di kontainer bersih, dan pemulihan bencana.',
+  },
+  {
     slug: 'rotasi-kunci',
-    file: '04-rotasi-kunci.md',
+    file: '05-rotasi-kunci.md',
     title: 'Rotasi kunci enkripsi kolom',
     summary: 'Runbook operator: cincin kunci v2, job enkripsi ulang bertahap, verifikasi, PIN, dan rollback.',
   },

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Buat `.env` dari `.env.example` dengan kunci acak baru (FIELD_ENCRYPTION_KEY, FIELD_HASH_KEY).
+ * Buat `.env` dari `.env.example` dengan kunci acak baru (FIELD_ENCRYPTION_KEY, FIELD_HASH_KEY, AUDIT_ANCHOR_KEY).
  * Tidak pernah menimpa `.env` yang sudah ada (kunci lama dibutuhkan untuk membaca data terenkripsi).
  * Pemakaian: pnpm env:init
  */
@@ -17,7 +17,8 @@ if (existsSync('.env')) {
 const key = () => randomBytes(32).toString('base64');
 const out = readFileSync('.env.example', 'utf8')
   .replace(/^FIELD_ENCRYPTION_KEY=.*$/m, `FIELD_ENCRYPTION_KEY=${key()}`)
-  .replace(/^FIELD_HASH_KEY=.*$/m, `FIELD_HASH_KEY=${key()}`);
+  .replace(/^FIELD_HASH_KEY=.*$/m, `FIELD_HASH_KEY=${key()}`)
+  .replace(/^AUDIT_ANCHOR_KEY=.*$/m, `AUDIT_ANCHOR_KEY=${key()}`);
 writeFileSync('.env', out, { mode: 0o600 });
 console.warn(
   '.env dibuat dengan kunci acak. Jangan di-commit; simpan cadangannya bila ada data terenkripsi.',

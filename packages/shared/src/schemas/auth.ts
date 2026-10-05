@@ -41,6 +41,9 @@ export type BackupCodeChannel = (typeof BACKUP_CODE_CHANNELS)[number];
 export const BACKUP_CODE_MAX_SENDS = 3;
 export const AUTH_BACKUP_CODE_OPERATION = 'auth.backup_code';
 
+/** Hanya token tantangan MFA (mis. kanal kode cadangan yang tersedia untuk langkah verifikasi). */
+export const mfaChallengeSchema = z.strictObject({ challengeToken: z.string().min(20).max(300) });
+
 export const mfaBackupCodeSchema = z.strictObject({
   challengeToken: z.string().min(20).max(300),
   channel: z.enum(BACKUP_CODE_CHANNELS),

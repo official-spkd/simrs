@@ -50,6 +50,16 @@ export const userDetailSchema = z.object({
   createdAt: z.string(),
   ...accountFlags,
   assignments: z.array(assignment.extend({ validFrom: z.string(), pending: z.boolean() })),
+  /** "Percayai perangkat ini" yang masih berlaku (ADR-0022). */
+  trustedDevices: z.array(
+    z.object({
+      id: z.uuid(),
+      userAgent: z.string().nullable(),
+      createdAt: z.string(),
+      lastUsedAt: z.string().nullable(),
+      expiresAt: z.string(),
+    }),
+  ),
   /** PIN masuk cepat yang masih berlaku (ADR-0024). */
   pinDevices: z.array(
     z.object({

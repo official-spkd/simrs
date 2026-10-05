@@ -1,24 +1,28 @@
-import { Injectable } from '@nestjs/common';
-import { readTenantSetting } from '@simrs/db';
+import { Inject, Injectable } from '@nestjs/common';
+import type { AuditDayBucket } from '@simrs/db';
 import {
   diffAnswers,
   type FormAnswers,
   formSchemaSchema,
   AUDIT_ACTION_GROUPS,
   AUDIT_ANOMALY_KEY,
+  AUDIT_ANOMALY_KINDS,
   AUDIT_REVIEW_OUTCOMES,
   type AuditActionGroup,
+  type AuditAnomalyKind,
   type AuditAnomalyReviewEntry,
   type AuditAnomalyReviewInput,
   type AuditReviewOutcome,
+  type AuditVerifyMode,
+  type AuditVerifyResult,
   AppError,
   formatTanggal,
   formatTanggalWaktu,
   isoDateJakarta,
-  NIGHT_SHIFT_ROLES,
 } from '@simrs/shared';
+import { API_ENV, type ApiEnv } from '../../config/env';
 import { TenantDb } from '../../infra/tenant-db';
-import { type AuditFilter, AuditRepository, type DayBucket } from './audit.repository';
+import { type AuditFilter, AuditRepository } from './audit.repository';
 
 export const auditListSchemaLimits = { defaultLimit: 50, maxLimit: 200 } as const;
 
@@ -72,10 +76,6 @@ function toFilter(q: AuditQuery): AuditFilter {
   };
 }
 
-const minutes = (hhmm: string) => {
-  const [h = '0', m = '0'] = hhmm.split(':');
-  return Number(h) * 60 + Number(m);
-};
 const dayLabel = (day: string) => formatTanggal(`${day}T12:00:00+07:00`);
 
 /**
@@ -106,14 +106,37 @@ export class AuditService {
   constructor(
     private readonly repo: AuditRepository,
     private readonly db: TenantDb,
+    @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
-  async verifyChain() {
-    const r = await this.repo.verifyChain();
+  /**
+   * Keutuhan jejak audit (ADR-0072): `checkpoint` menghitung ulang hash sejak jangkar sah terakhir dan mencocokkan
+   * semua jangkar dengan rantai (mendeteksi ekor dipotong dan rantai ditulis ulang); `full` menghitung ulang semua.
+   */
+  async verifyChain(mode: AuditVerifyMode): Promise<AuditVerifyResult> {
+    const r = await this.repo.verifyTrail(mode, this.env.AUDIT_ANCHOR_KEY);
+    const seq = (v: bigint | null | undefined) => (v === null || v === undefined ? null : v.toString());
     return {
-      intact: r.firstBrokenSeq === null,
+      intact: r.intact,
+      mode: r.mode,
       checked: r.checked,
-      firstBrokenSeq: r.firstBrokenSeq === null ? null : r.firstBrokenSeq.toString(),
+      firstBrokenSeq: seq(r.firstBrokenSeq),
+      headSeq: seq(r.head?.seq),
+      checkpoint: r.checkpoint
+        ? { seq: r.checkpoint.seq.toString(), anchoredAt: r.checkpoint.anchoredAt.toISOString() }
+        : null,
+      anchors: {
+        total: r.anchors.total,
+        verified: r.anchors.verified,
+        keyConfigured: r.anchors.keyConfigured,
+        latestSeq: seq(r.anchors.latestSeq),
+      },
+      issues: r.issues.map((i) => ({
+        code: i.code,
+        seq: seq(i.seq),
+        anchoredAt: i.anchoredAt?.toISOString() ?? null,
+      })),
+      issueCount: r.issueCount,
       verifiedAt: new Date().toISOString(),
     };
   }
@@ -197,30 +220,19 @@ export class AuditService {
 
   /**
    * Temuan anomali dalam `days` hari terakhir, dihitung dari jejak audit + izin akses darurat. Ambang mengikuti
-   * pengaturan RS (P12): `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`.
+   * pengaturan RS (P12): `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`. Hari yang sudah
+   * lewat dibaca dari ringkasan harian bila tersedia (ADR-0072); hasilnya sama dengan agregasi langsung.
    */
   async anomalies(days: number) {
-    const tx = this.db.tx();
     const since = anomalyWindowStart(days);
-    const night = await readTenantSetting(tx, 'audit.night_hours');
-    const volumeThreshold = await readTenantSetting(tx, 'audit.volume_threshold');
-    const burstThreshold = await readTenantSetting(tx, 'audit.burst_threshold');
+    const settings = await this.repo.anomalySettings();
+    const { night, volumeThreshold, burstThreshold } = settings;
 
     const grants = await this.repo.pendingBreakGlass(since);
-    const buckets: Array<{ kind: Exclude<AnomalyFinding['kind'], 'break_glass'>; b: DayBucket }> = [
-      ...(await this.repo.bursts('login_failed', since, burstThreshold)).map((b) => ({
-        kind: 'login_failed' as const,
-        b,
-      })),
-      ...(await this.repo.bursts('access_denied', since, burstThreshold)).map((b) => ({
-        kind: 'access_denied' as const,
-        b,
-      })),
-      ...(
-        await this.repo.nightAccess(since, minutes(night.start), minutes(night.end), NIGHT_SHIFT_ROLES)
-      ).map((b) => ({ kind: 'night' as const, b })),
-      ...(await this.repo.patientVolume(since, volumeThreshold)).map((b) => ({ kind: 'volume' as const, b })),
-    ];
+    const { buckets: byKind, summarizedDays } = await this.repo.anomalyBuckets(since, settings);
+    const buckets: Array<{ kind: AuditAnomalyKind; b: AuditDayBucket }> = AUDIT_ANOMALY_KINDS.flatMap(
+      (kind) => byKind[kind].map((b) => ({ kind, b })),
+    );
     const keys = buckets.map(({ kind, b }) => `${kind}:${b.userId ?? '-'}:${b.day}`);
     // Tinjauan terbaru per kunci yang berlaku (aturan yang sama dengan riwayat tinjauan).
     const reviews = new Map<
@@ -302,7 +314,7 @@ export class AuditService {
     findings.sort(
       (a, b) => Number(a.review !== null) - Number(b.review !== null) || b.lastAt.localeCompare(a.lastAt),
     );
-    return { since: since.toISOString(), days, findings };
+    return { since: since.toISOString(), days, summarizedDays, findings };
   }
 
   /**

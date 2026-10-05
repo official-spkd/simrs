@@ -19,10 +19,13 @@ import {
   sha256Hex,
   generateTotpSecret,
   hashPassword,
+  hashToken,
   PatientCrypto,
+  randomToken,
   totpCode,
   totpStep,
 } from '@simrs/shared/node';
+import { e2eFieldKeys } from './field-keys';
 
 /** Akun uji fiktif dibuat langsung di simrs_test (role aplikasi, RLS aktif). Nama pengguna unik per tes. */
 
@@ -116,7 +119,7 @@ export async function createAccount(
           tenantId,
           userId: id,
           secretEnc: encryptField(account.totpSecret, {
-            keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+            ring: e2eFieldKeys().enc,
             tenantId,
             purpose: 'mfa_secret',
           }),
@@ -126,6 +129,65 @@ export async function createAccount(
     }
   });
   return account;
+}
+
+/**
+ * PIN perangkat (ADR-0024) + perangkat tepercaya (ADR-0022) milik akun, langsung di DB seperti yang ditulis API,
+ * untuk menguji layar admin. Mengembalikan token mentah (untuk cookie peramban uji) dan ID-nya.
+ */
+export async function createAccountDevices(account: Account) {
+  const tenantId = TENANTS[account.tenantCode];
+  const pinId = newId();
+  const trustedId = newId();
+  const pinSecret = randomToken();
+  const trustedSecret = randomToken();
+  const now = Date.now();
+  await inTenant(tenantId, async (tx) => {
+    const assignment = await tx.staffAssignment.findFirstOrThrow({ where: { userId: account.id } });
+    await tx.registeredDevice.create({
+      data: {
+        id: pinId,
+        tenantId,
+        kind: 'staff_pin',
+        userId: account.id,
+        assignmentId: assignment.id,
+        name: 'Komputer nurse station E2E',
+        tokenHash: hashToken(pinSecret),
+        pinHash: await hashPassword(randomToken()),
+        createdAt: new Date(now),
+        expiresAt: new Date(now + 30 * 86_400_000),
+      },
+    });
+    await tx.trustedDevice.create({
+      data: {
+        id: trustedId,
+        tenantId,
+        userId: account.id,
+        tokenHash: hashToken(trustedSecret),
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/141.0.0.0 Safari/537.36',
+        expiresAt: new Date(now + 12 * 3_600_000),
+      },
+    });
+  });
+  return {
+    pin: { id: pinId, token: `sd1.${tenantId}.${pinId}.${pinSecret}` },
+    trusted: { id: trustedId, token: `st1.${tenantId}.${trustedId}.${trustedSecret}` },
+  };
+}
+
+/** Keadaan pencabutan perangkat di DB (untuk memastikan aksi admin benar-benar berlaku). */
+export async function deviceRevocation(account: Account, ids: { pin: string; trusted: string }) {
+  return inTenant(TENANTS[account.tenantCode], async (tx) => ({
+    pin: await tx.registeredDevice.findUniqueOrThrow({
+      where: { id: ids.pin },
+      select: { revokedAt: true, revokedReason: true },
+    }),
+    trusted: await tx.trustedDevice.findUniqueOrThrow({
+      where: { id: ids.trusted },
+      select: { revokedAt: true },
+    }),
+  }));
 }
 
 /** Cabut semua sesi akun (mis. dinonaktifkan admin di tempat lain). */
@@ -176,10 +238,7 @@ export async function loginAs(page: Page, account: Account, path = '/'): Promise
 }
 
 function patientCrypto(tenantId: string): PatientCrypto {
-  return new PatientCrypto(
-    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
-    tenantId,
-  );
+  return new PatientCrypto(e2eFieldKeys(), tenantId);
 }
 
 /** Pasien fiktif langsung di DB dengan kunci enkripsi yang sama dengan API. */
@@ -435,7 +494,7 @@ export async function setStaffPhone(account: Account, phone: string): Promise<vo
       where: { id: account.id },
       data: {
         phoneEnc: encryptField(phone, {
-          keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+          ring: e2eFieldKeys().enc,
           tenantId,
           purpose: 'staff_phone',
         }),
@@ -455,7 +514,7 @@ export async function latestBackupCode(account: Account): Promise<string> {
     }),
   );
   return decryptField(ch.otpEnc as string, {
-    keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+    ring: e2eFieldKeys().enc,
     tenantId,
     purpose: 'login_otp',
   });

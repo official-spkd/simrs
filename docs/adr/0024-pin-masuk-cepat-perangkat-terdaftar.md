@@ -28,3 +28,8 @@ docs/05 §1 meminta "login cepat (PIN 6 digit) hanya di perangkat terdaftar dala
 
 Butir 3 ("rotasi `FIELD_HASH_KEY` membatalkan semua PIN") diganti: setiap PIN mencatat ID kunci hash ladanya (`pin_key_id`) dan diperiksa dengan kunci itu selama masih ada di cincin `FIELD_HASH_KEYS`. PIN yang kuncinya dipensiunkan dicabut dengan alasan `key_rotated` (saat dipakai, atau serentak lewat `pnpm db:rotate-keys --run --revoke-old-pins`), tercatat di audit. Rincian: ADR-0015, pembaruan 5 Okt 2026 butir 7.
 
+
+## Pembaruan 5 Okt 2026 · pengaturan per RS dan layar Akses
+- **Pengaturan P12** `pin.enabled` (bawaan aktif) dan `pin.allowed_roles` (bawaan semua `PIN_LOGIN_ROLES`; skema hanya menerima subset, jadi peran sensitif tidak pernah bisa dibuka lewat pengaturan). Dimatikan/dipersempit → daftar PIN 403, masuk dengan PIN `not_allowed`, layar masuk tidak menawarkan akun itu; PIN yang ada **tidak dicabut** dan berlaku lagi bila RS menyalakannya kembali (sesi PIN yang sedang berjalan habis dengan sendirinya, maks. 2 jam).
+- `/auth/me` memuat `pin: { available, reason }` (`quick_session`, `platform`, `disabled`, `no_position`, `role`, `no_unit`) dari `pinUnavailableReason` bersama; web tidak lagi menghitung kelayakan sendiri.
+- Detail pengguna di layar Akses menampilkan PIN perangkat dan perangkat tepercaya sekaligus, masing-masing dengan "Cabut" (E2E `pin.spec.ts`).

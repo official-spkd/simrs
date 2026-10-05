@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { envSchemas, parseEnv } from '../env';
+import { auditAnchorKeyProblem, envSchemas, parseEnv } from '../env';
 import {
   blindIndex,
   blindIndexes,
@@ -93,6 +93,21 @@ describe('cincin kunci kolom: konfigurasi', () => {
     expect(() => loadFieldKeys({ FIELD_HASH_KEY: v1Hash })).toThrow(
       /^Konfigurasi env tidak valid → FIELD_ENCRYPTION_KEYS atau FIELD_ENCRYPTION_KEY wajib/,
     );
+  });
+
+  it('kunci jangkar audit (ADR-0072) tidak boleh sama dengan kunci mana pun di cincin kolom', () => {
+    const base = { APP_ENV: 'production' as const, FIELD_ENCRYPTION_KEY: v1Enc, FIELD_HASH_KEY: v1Hash };
+    const rings = { FIELD_ENCRYPTION_KEYS: `v2:${v2Enc},v1:${v1Enc}`, FIELD_HASH_KEYS: `v2:${v2Hash}` };
+    expect(auditAnchorKeyProblem({ ...base, ...rings, AUDIT_ANCHOR_KEY: key() })).toBeNull();
+    for (const reused of [v1Enc, v1Hash, v2Enc, v2Hash]) {
+      const problem = auditAnchorKeyProblem({ ...base, ...rings, AUDIT_ANCHOR_KEY: reused });
+      expect(problem).toMatch(/AUDIT_ANCHOR_KEY harus berbeda/);
+      expect(problem).not.toContain(reused);
+    }
+    // Hanya cincin (format lama kosong) tetap diperiksa.
+    expect(
+      auditAnchorKeyProblem({ APP_ENV: 'production', ...rings, AUDIT_ANCHOR_KEY: v2Hash.replace(/=+$/, '') }),
+    ).toMatch(/harus berbeda/);
   });
 
   it('skema env menerima cincin dan format lama; kosong = tidak disetel; format salah ditolak', () => {

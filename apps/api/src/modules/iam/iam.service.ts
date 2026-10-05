@@ -162,7 +162,17 @@ export class IamService {
     const u = await this.repo.findUserDetail(id);
     if (!u) throw new AppError('NOT_FOUND', 'Pengguna tidak ditemukan', 404);
     const at = Date.now();
-    const { mfaFactors, lockedUntil, createdAt, assignments, phoneEnc, credential: _c, devices, ...rest } = u;
+    const {
+      mfaFactors,
+      lockedUntil,
+      createdAt,
+      assignments,
+      phoneEnc,
+      credential: _c,
+      devices,
+      trustedDevices,
+      ...rest
+    } = u;
     return {
       ...rest,
       phone: this.maskedPhone(phoneEnc),
@@ -172,6 +182,14 @@ export class IamService {
         name: d.name,
         roleName: d.assignment?.role.name ?? '',
         unitName: d.assignment?.unit?.name ?? null,
+        createdAt: d.createdAt.toISOString(),
+        lastUsedAt: d.lastUsedAt?.toISOString() ?? null,
+        expiresAt: d.expiresAt.toISOString(),
+      })),
+      /** "Percayai perangkat ini" yang masih berlaku (ADR-0022). */
+      trustedDevices: trustedDevices.map((d) => ({
+        id: d.id,
+        userAgent: d.userAgent,
         createdAt: d.createdAt.toISOString(),
         lastUsedAt: d.lastUsedAt?.toISOString() ?? null,
         expiresAt: d.expiresAt.toISOString(),
@@ -249,6 +267,16 @@ export class IamService {
     const r = await this.repo.resetMfa(id);
     await this.repo.revokeSessions(id, 'mfa_reset');
     return { id, factorsDisabled: r.count };
+  }
+
+  /** Cabut "percayai perangkat ini" milik pengguna lain (ADR-0022), mis. komputer dipindah atau dicuri. */
+  async revokeTrustedDevice(id: string) {
+    const d = await this.repo.findTrustedDevice(id);
+    if (!d || d.revokedAt) throw new AppError('NOT_FOUND', 'Perangkat tepercaya tidak ditemukan', 404);
+    this.assertNotSelf(d.userId, 'mencabut perangkat tepercaya');
+    await this.assertMayManage({ userId: d.userId });
+    await this.repo.revokeTrustedDevice(id);
+    return { id, revoked: true };
   }
 
   /** Cabut PIN masuk cepat di satu perangkat milik pengguna lain (ADR-0024); sesi PIN-nya ikut berakhir. */

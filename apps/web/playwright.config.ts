@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { parseEnv } from 'node:util';
@@ -22,6 +23,9 @@ import { E2E_API_PORT, E2E_DEMO_PORT, E2E_MOCK_PORT, E2E_MOCK_URL, E2E_WEB_PORT 
 const ENV_ALLOWLIST = [
   'FIELD_ENCRYPTION_KEY',
   'FIELD_HASH_KEY',
+  // Cincin kunci (rotasi, ADR-0015): kunci pertama aktif; format lama di atas = v1.
+  'FIELD_ENCRYPTION_KEYS',
+  'FIELD_HASH_KEYS',
   'TEST_DATABASE_URL',
   'TEST_APP_DATABASE_URL',
 ] as const;
@@ -138,6 +142,9 @@ export default defineConfig({
         RATE_LIMIT_PER_MIN: '100000',
         USER_RATE_LIMIT_PER_MIN: '100000',
         LOG_LEVEL: 'warn',
+        // Kunci jangkar audit per run (ADR-0072): `/audit/verify` berjalan dalam mode titik periksa seperti produksi.
+        // Worker E2E sengaja tanpa kunci (tidak menjangkar semua tenant DB tes saat start).
+        AUDIT_ANCHOR_KEY: process.env.AUDIT_ANCHOR_KEY || randomBytes(32).toString('base64'),
         ...MOCK_ENV,
       },
     },
@@ -155,6 +162,9 @@ export default defineConfig({
         APP_ENV: 'local',
         DATABASE_URL: TEST_APP_DB,
         OUTBOX_SCHEDULER: 'interval',
+        // Tanpa jangkar audit (ADR-0072) walau .env pengembang berisi kuncinya: job `audit.anchor` tidak memeriksa
+        // rantai semua tenant DB tes saat worker baru menyala.
+        AUDIT_ANCHOR_KEY: '',
         OUTBOX_POLL_MS: '500',
         // Skenario `timeout` mock cepat terlihat; mock normal menjawab dalam milidetik.
         OUTBOX_HTTP_TIMEOUT_MS: '2000',

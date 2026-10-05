@@ -62,7 +62,7 @@ Yang dilakukan operator bila migrasi melaporkan FK belum divalidasi:
 
 **Konsekuensi.**
 
-+ Rotasi tanpa henti layanan; data lama terbaca dan tercari di setiap tahap; job bisa dihentikan dan dilanjutkan; kunci salah/hilang terdeteksi sebelum ada yang ditulis. Runbook: `docs/panduan/04-rotasi-kunci.md`.
++ Rotasi tanpa henti layanan; data lama terbaca dan tercari di setiap tahap; job bisa dihentikan dan dilanjutkan; kunci salah/hilang terdeteksi sebelum ada yang ditulis. Runbook: `docs/panduan/05-rotasi-kunci.md`.
 − Selama cincin memuat N kunci, setiap pencarian sama-persis menghitung N hash dan mencocokkan N nilai (N kecil, indeks tetap terpakai).
 − Instans yang belum menerima kunci baru tidak bisa membaca data baru: rilis wajib dua tahap (kunci baca dulu, baru aktif).
 − Fungsi tulis ulang tidak bisa memastikan plaintext tidak berubah (database tidak memegang kunci); yang dijamin hanya: versi kunci berganti, nilai lama persis sama (CAS), dan RLS. Aplikasi yang disusupi tetap bisa menulis identifier baru lewat jalur biasa, jadi permukaan serangan tidak bertambah berarti.

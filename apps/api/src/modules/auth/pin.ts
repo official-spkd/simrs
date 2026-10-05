@@ -1,4 +1,5 @@
-import { pinAllowedForRole } from '@simrs/shared';
+import { readTenantSetting, type TenantTx } from '@simrs/db';
+import { type PinPolicy, pinRoleAllowed } from '@simrs/shared';
 import { blindIndex, type KeyRing } from '@simrs/shared/node';
 
 /**
@@ -40,12 +41,21 @@ export interface PinEligibility {
   };
 }
 
+/** Kebijakan PIN RS ini (pengaturan P12), dibaca di transaksi bertenant. */
+export async function readPinPolicy(tx: TenantTx): Promise<PinPolicy> {
+  return {
+    enabled: await readTenantSetting(tx, 'pin.enabled'),
+    allowedRoles: await readTenantSetting(tx, 'pin.allowed_roles'),
+  };
+}
+
 /**
  * Alasan PIN tidak bisa dipakai sekarang (null = boleh). `assignment_ended` mencabut PIN-nya; selain itu hanya
- * menolak (mis. akun terkunci sementara karena sandi salah berulang).
+ * menolak (mis. akun terkunci sementara, atau RS mematikan PIN / mempersempit perannya lewat pengaturan).
  */
 export type PinBlock =
   | 'platform'
+  | 'pin_disabled'
   | 'user_inactive'
   | 'locked'
   | 'account_incomplete'
@@ -53,16 +63,17 @@ export type PinBlock =
   | 'role_not_allowed'
   | 'unit_inactive';
 
-export function pinBlock(d: PinEligibility, now: Date): PinBlock | null {
+export function pinBlock(d: PinEligibility, now: Date, policy: PinPolicy): PinBlock | null {
   const a = d.assignment;
   if (d.tenant.kind !== 'hospital') return 'platform';
+  if (!policy.enabled) return 'pin_disabled';
   if (d.user.status !== 'active') return 'user_inactive';
   if (d.user.lockedUntil && d.user.lockedUntil > now) return 'locked';
   if (d.user.mfaFactors.length === 0 || d.user.mustChangePassword) return 'account_incomplete';
   if (!a.role.active || a.validFrom > now || (a.validUntil !== null && a.validUntil <= now)) {
     return 'assignment_ended';
   }
-  if (!pinAllowedForRole(a.role.code) || !a.unitId) return 'role_not_allowed';
+  if (!pinRoleAllowed(a.role.code, policy) || !a.unitId) return 'role_not_allowed';
   if (!a.unit?.active) return 'unit_inactive';
   return null;
 }

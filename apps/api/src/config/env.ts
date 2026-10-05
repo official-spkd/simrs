@@ -1,5 +1,5 @@
 import { isIP } from 'node:net';
-import { devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
+import { auditAnchorKeyProblem, devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
 import { type FieldKeys, loadFieldKeys } from '@simrs/shared/node';
 import { z } from 'zod';
 
@@ -37,6 +37,8 @@ export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.api.shape)
   .extend(envSchemas.integration.shape)
   .extend(envSchemas.fieldCrypto.shape)
+  // Kunci jangkar audit: API hanya memeriksa tanda tangan jangkar (`/audit/verify`); worker yang menulisnya.
+  .extend(envSchemas.auditAnchorKey.shape)
   .extend(envSchemas.rateLimit.shape)
   .extend({
     /** Umur token akses (menit) dan umur maksimum sesi/refresh (jam). */
@@ -98,6 +100,8 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
       'Konfigurasi env tidak valid → RATE_LIMIT_STORE=memory tidak boleh di produksi (penghitung harus sama di semua instans)',
     );
   }
+  const anchorKeyProblem = auditAnchorKeyProblem(env);
+  if (anchorKeyProblem) throw new Error(`Konfigurasi env tidak valid → ${anchorKeyProblem}`);
   // Disk hanya untuk mesin pengembang dan tes; staging dan produksi menyimpan berkas di S3/MinIO (ADR-0020).
   if (env.STORAGE_DRIVER === 'disk' && env.APP_ENV !== 'local') {
     throw new Error(

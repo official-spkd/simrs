@@ -232,3 +232,65 @@ export function roleLabel(code: string | null): string {
 export function actionLabelOf(labels: Record<AuditAction, string>, action: string): string {
   return (labels as Record<string, string>)[action] ?? action;
 }
+
+/** Hasil `GET /audit/verify` yang dipakai layar (ADR-0072). */
+export interface ChainCheck {
+  intact: boolean;
+  mode: 'checkpoint' | 'full';
+  checked: number;
+  firstBrokenSeq: string | null;
+  checkpoint: { seq: string; anchoredAt: string } | null;
+  anchors: { total: number; verified: number; keyConfigured: boolean };
+  issues: Array<{ code: string; seq: string | null; anchoredAt: string | null }>;
+  issueCount: number;
+  verifiedAt: string;
+}
+
+const ISSUE_TEXT: Record<string, (seq: string, at: string) => string> = {
+  CHAIN_BROKEN: (seq) => `Ketidakcocokan hash mulai entri #${seq}: entri diubah, disisipkan, atau dihapus.`,
+  TRUNCATION_DETECTED: (seq, at) => `Entri #${seq} yang sudah dijangkar${at} hilang: ujung jejak dipotong.`,
+  ANCHOR_MISMATCH: (seq, at) =>
+    `Entri #${seq} berbeda dari jangkarnya${at}: jejak dipotong lalu ditambah, atau ditulis ulang.`,
+  ANCHOR_TAMPERED: (seq) => `Jangkar #${seq} tidak sah (tanda tangan tidak cocok): catatan jangkar diubah.`,
+  ANCHOR_KEY_UNKNOWN: (seq) =>
+    `Jangkar #${seq} ditandatangani kunci lain (rotasi kunci tanpa kunci lama, atau palsu).`,
+};
+
+/**
+ * Ringkasan pemeriksaan keutuhan untuk banner layar Audit: judul, kalimat utama, dan satu baris per temuan
+ * (urut seq; paling banyak yang dikirim API, sisanya disebut jumlahnya).
+ */
+export function chainCheckSummary(
+  c: ChainCheck,
+  jam: (iso: string) => string,
+): { level: 'success' | 'critical'; title: string; text: string; lines: string[] } {
+  const scope =
+    c.mode === 'checkpoint' && c.checkpoint
+      ? ` sejak titik periksa #${c.checkpoint.seq} (jangkar ${formatTanggalWaktu(c.checkpoint.anchoredAt)})`
+      : ' (pemeriksaan penuh)';
+  const anchors = !c.anchors.keyConfigured
+    ? ' Kunci jangkar belum dipasang: pemotongan entri terakhir tidak bisa dideteksi.'
+    : c.anchors.total > 0
+      ? ` ${c.anchors.verified.toLocaleString('id-ID')} jangkar cocok.`
+      : '';
+  if (c.intact) {
+    return {
+      level: 'success',
+      title: 'Rantai utuh',
+      text: `${c.checked.toLocaleString('id-ID')} entri diperiksa pukul ${jam(c.verifiedAt)}${scope}; tidak ada yang diubah atau dihapus.${anchors}`,
+      lines: [],
+    };
+  }
+  const lines = c.issues.map((i) => {
+    const at = i.anchoredAt ? ` (${formatTanggalWaktu(i.anchoredAt)})` : '';
+    const text = ISSUE_TEXT[i.code] ?? ((seq: string) => `${i.code} di #${seq}.`);
+    return text(i.seq ?? '?', at);
+  });
+  if (c.issueCount > c.issues.length) lines.push(`… dan ${c.issueCount - c.issues.length} temuan lain.`);
+  return {
+    level: 'critical',
+    title: 'Rantai rusak',
+    text: `Diperiksa pukul ${jam(c.verifiedAt)}${scope}. Laporkan ke tim keamanan; jangan ubah data.`,
+    lines,
+  };
+}

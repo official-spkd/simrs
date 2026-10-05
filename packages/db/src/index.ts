@@ -24,7 +24,42 @@ export {
   type RecordAttemptOptions,
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
+export {
+  auditChainHead,
+  type AuditAnchorRow,
+  type AuditChainSegment,
+  type AuditTrailIssue,
+  type AuditTrailVerification,
+  databaseNow,
+  latestValidAuditAnchor,
+  listAuditAnchors,
+  prepareAuditAnchor,
+  type PreparedAuditAnchor,
+  recordAuditAnchor,
+  verifyAuditChainFrom,
+  verifyAuditTrail,
+} from './audit-anchor';
+export {
+  AUDIT_MAX_FINDINGS_PER_KIND,
+  AUDIT_PATIENT_READ_ACTIONS,
+  AUDIT_PATIENT_VOLUME_ACTIONS,
+  AUDIT_SUMMARY_VERSION,
+  auditAnomalyBuckets,
+  type AuditAnomalyBuckets,
+  type AuditAnomalySettings,
+  auditBurstBuckets,
+  type AuditDayBucket,
+  auditNightBuckets,
+  auditSummaryParams,
+  auditVolumeBuckets,
+  type NightWindow,
+  pendingAuditSummaryDays,
+  readAuditAnomalySettings,
+  summarizeAuditDay,
+  wibDayRange,
+} from './audit-anomaly';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
+export { readBackupStatus } from './backup';
 export {
   activeAssignments,
   ensureSystemRoles,
@@ -55,6 +90,19 @@ export {
   type RefRegion,
   type RefSystemInfo,
 } from './ref';
+export {
+  BREACHED_TOP_DEFAULT,
+  BREACHED_TOP_MAX,
+  type BreachedCollectResult,
+  type BreachedEntry,
+  type BreachedListStatus,
+  breachedListStatus,
+  collectBreachedPasswords,
+  isBreachedPassword,
+  passwordSha1,
+  replaceBreachedPasswords,
+  sha1PrefixRange,
+} from './breached-passwords';
 export { seedRefSamples, SEED_REF_SAMPLES, SEED_REF_VERSION } from './seed-ref';
 export { ensurePublishedForm } from './forms';
 export {
