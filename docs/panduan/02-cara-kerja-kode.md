@@ -139,15 +139,15 @@ Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=loc
 
 Izin = **sumber × aksi × lingkup**. Katalog sumber dan aksi ada di `packages/shared/src/authz.ts` (`PERMISSION_CATALOG`). Lingkupnya `all` (seluruh data RS), `unit` (unit kerja), atau `relationship` (hanya pasien yang punya relasi dengan pengguna).
 
-| Bagian                      | Berkas                                                  | Catatan                                                                                                                                                                                                                                                                                                        |
-| --------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Peran dan matriks bawaan    | `@simrs/shared` → `SYSTEM_ROLES`, `DEFAULT_ROLE_GRANTS` | 16 peran sistem, dibuat per RS oleh `ensureSystemRoles` (seed, persiapan tes). Matriks bawaan hanya diisi saat peran dibuat, jadi penyesuaian RS tidak pernah ditimpa. Bawaan mengikuti hak minimum.                                                                                                           |
-| Penugasan                   | tabel `staff_assignments`                               | Pengguna × peran × unit × masa berlaku. Sesi memakai **satu** penugasan: otomatis bila hanya satu, selain itu dipilih pengguna (`GET /auth/assignments`, `POST /auth/assignment`). Penugasan berakhir → izin sesi hilang di permintaan berikutnya.                                                             |
-| Pemeriksaan                 | `@RequirePermission(resource, action)`                  | Dicek interceptor sebelum transaksi permintaan. Ditolak → audit `access_denied` di-commit lebih dulu, lalu `403`. Lingkup yang lolos dibaca service lewat `TenantDb.permissionScope()`.                                                                                                                        |
-| Cache matriks               | `infra/permission-matrix.ts`                            | Izin per tenant × peran di memori proses. Perubahan di layar Akses membuang cache setelah commit (`TenantDb.afterCommit`) lalu disiarkan ke instans lain (Redis pub/sub); TTL `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30) = jaring pengaman. Redis putus → baca database. Penolakan tetap diaudit.                   |
-| Akses pasien (ABAC)         | `modules/authz/patient-access.service.ts`               | `assert(patientId)`: lingkup `all` → boleh. Selain itu wajib relasi aktif (`access_relationships`: DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit) atau akses darurat yang masih berlaku. Lingkup `unit` diperlakukan sama sampai data kunjungan (ADT) ada.                            |
-| Akses darurat               | `modules/authz/break-glass.service.ts`                  | Alasan klinis 20–500 karakter, berlaku `break_glass.duration_minutes` (bawaan 60), notifikasi ke semua petugas privasi aktif (tanpa PHI), audit `break_glass` berisi pasien dan alasan. Ditinjau petugas privasi, tidak boleh meninjau milik sendiri. Alasan dan waktu tidak bisa diubah (hak kolom database). |
-| Kelola pengguna dan matriks | `modules/iam/`                                          | Lihat aturan pengaman di bawah.                                                                                                                                                                                                                                                                                |
+| Bagian                      | Berkas                                                  | Catatan                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Peran dan matriks bawaan    | `@simrs/shared` → `SYSTEM_ROLES`, `DEFAULT_ROLE_GRANTS` | 16 peran sistem, dibuat per RS oleh `ensureSystemRoles` (seed, persiapan tes). Matriks bawaan hanya diisi saat peran dibuat, jadi penyesuaian RS tidak pernah ditimpa. Bawaan mengikuti hak minimum.                                                                                                                                                                          |
+| Penugasan                   | tabel `staff_assignments`                               | Pengguna × peran × unit × masa berlaku. Sesi memakai **satu** penugasan: otomatis bila hanya satu, selain itu dipilih pengguna (`GET /auth/assignments`, `POST /auth/assignment`). Penugasan berakhir → izin sesi hilang di permintaan berikutnya.                                                                                                                            |
+| Pemeriksaan                 | `@RequirePermission(resource, action)`                  | Dicek interceptor sebelum transaksi permintaan. Ditolak → audit `access_denied` di-commit lebih dulu, lalu `403`. Lingkup yang lolos dibaca service lewat `TenantDb.permissionScope()`.                                                                                                                                                                                       |
+| Cache matriks               | `infra/permission-matrix.ts`                            | Izin per tenant × peran di memori proses. Perubahan di layar Akses membuang cache setelah commit (`TenantDb.afterCommit`) lalu disiarkan ke instans lain (Redis pub/sub); TTL `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30) = jaring pengaman. Redis putus → baca database. Penolakan tetap diaudit.                                                                                  |
+| Akses pasien (ABAC)         | `modules/authz/patient-access.service.ts`               | `assert(patientId)`: lingkup `all` → boleh. `relationship` → relasi aktif (`access_relationships`: DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit) atau akses darurat yang masih berlaku. `unit` → itu semua ditambah kunjungan aktif pasien di unit penugasan sesi (ADR-0031). Daftar/pencarian memakai predikat SQL yang sama (`patientAccessSql`). |
+| Akses darurat               | `modules/authz/break-glass.service.ts`                  | Alasan klinis 20–500 karakter, berlaku `break_glass.duration_minutes` (bawaan 60), notifikasi ke semua petugas privasi aktif (tanpa PHI), audit `break_glass` berisi pasien dan alasan. Ditinjau petugas privasi, tidak boleh meninjau milik sendiri. Alasan dan waktu tidak bisa diubah (hak kolom database).                                                                |
+| Kelola pengguna dan matriks | `modules/iam/`                                          | Lihat aturan pengaman di bawah.                                                                                                                                                                                                                                                                                                                                               |
 
 Aturan pengaman di `IamService`:
 
@@ -550,6 +550,46 @@ Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data di
 - **update** (versi ≥ 2) → `issued`; **delete** (SEP `cancelled`) → status kirim saja (`BPJS_SEP_TIDAK_DITEMUKAN` = sudah
   hilang → `sent`). Ditolak → `failed` + `last_error_code` + `rejection_reason`; DLQ → `failed` + `BPJS_DLQ`
   (`sync_status` `dead`). Status kirim terakhir di `seps.sync_status|synced_at|sync_error_code`.
+
+### IGD, admisi rawat inap, SPRI, surat kontrol, rujukan (F03/F06/F07, fase 2 potongan 7)
+
+Modul `modules/registration/` (`AdmissionService`, memakai bagian bersama `RegistrationService`: penjaminan,
+persetujuan umum, relasi dokter, hasil) dan `modules/referral/`; kontrak `schemas/registration.ts` dan
+`schemas/referral.ts`. Migrasi `20261005220000_igd_admission_referrals`.
+
+| Endpoint `/api/v1/…`                                    | Izin               | Isi                                                                                                                                        |
+| ------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST registration/emergency` + `Idempotency-Key`       | `encounter.write`  | IGD `EMER` `arrived`: pasien MPI atau tanpa identitas (rekam medis baru "Tn. X"/"Ny. X" `unidentified`); penjamin opsional; SEP menyusul   |
+| `POST registration/admissions` + `Idempotency-Key`      | `encounter.write`  | Admisi `IMP` `planned`: unit rawat inap + DPJP + rencana masuk, kunjungan asal dan/atau SPRI, persetujuan umum per admisi                  |
+| `GET registration/encounters?class&status&unitId…`      | `encounter.read`   | Daftar kunjungan + pasien (nama, RM, `unidentified`); ABAC: unit dipaksa ke unit penugasan, relasi = pasien berelasi; audit per pasien     |
+| `POST registration/encounters/:id/cancel`               | `encounter.cancel` | Batal IGD `arrived` atau admisi `planned` (rawat jalan lewat booking); riwayat status + event `encounter.cancelled`                        |
+| `POST referrals/control-letters`                        | `referral.write`   | Modul F06. Surat kontrol (butuh SEP asal terbit) atau SPRI (penjamin BPJS); baris `pending` tanpa nomor + outbox VClaim                    |
+| `POST referrals/outgoing`, `POST referrals/internal`    | `referral.write`   | Rujukan keluar (BPJS → outbox, butuh SEP terbit; selain itu nomor `RK-…`); rujukan internal antarpoli `RIN-…` + relasi `konsultan`         |
+| `GET referrals[?patientId/encounterId]`, `GET :id`      | `referral.read`    | Lingkup selain `all` wajib menyebut pasien/kunjungan (ABAC)                                                                                |
+| `POST referrals/:id/cancel`, `POST referrals/:id/retry` | `referral.write`   | Batal: bernomor BPJS → `cancelled` + outbox hapus; belum bernomor + ditolak/DLQ → batal lokal; sedang dikirim → 409. Kirim ulang urut baru |
+
+Aturan penting:
+
+- **Satu IGD aktif dan satu admisi aktif per pasien** (`encounters_one_active_emergency|admission`), satu admisi per SPRI
+  (`encounters_one_per_referral`). Kolom `arrival_mode`, `source_encounter_id`, `referral_id` tetap setelah disisipkan
+  (trigger `encounters_immutable`). CHECK `encounters_class_fields`: IGD wajib cara datang, admisi wajib rencana masuk.
+- **Pasien tanpa identitas** tidak dideteksi duplikatnya saat dibuat (belum ada atribut). Setelah dikenali, petugas RM
+  mengisi identitas lewat `PATCH /patients/:id` (`unidentified: false`); deteksi duplikat MPI memasukkan pasangan ke
+  antrean, lalu digabung lewat alur MPI biasa (ADR-0016).
+- **SEP IGD dan SEP rawat inap belum diterbitkan otomatis**: kode poli BPJS IGD belum ditetapkan (docs/06), SEP rawat inap
+  terbit saat pasien benar-benar masuk (ADT fase 3). Penjaminan BPJS IGD dicatat tanpa isian rujukan
+  (`emergencyCoverageInputSchema`).
+- **Rujukan berjenis** di satu tabel `referrals`: `planned_date`, `target_unit_id` (SPRI), `service_type`/`referral_type`/
+  `bpjs_poli_code`/`note` (rujukan keluar; `note` juga alasan rujukan internal), status kirim `sync_*` (pola SEP), dan
+  pembatalan berjejak. Rujukan batal beku kecuali status kirim (`app_referral_guard`); nomor boleh kosong bila dibatalkan
+  sebelum BPJS memberi nomor.
+
+Worker `apps/worker/src/outbox/referral.ts` (`defineBpjsOperation`, payload `{ referralId }`, data dibaca saat kirim):
+`bpjs.vclaim.rencanakontrol.insert` (no. SEP asal, kode DPJP HFIS, kode poli tujuan), `bpjs.vclaim.spri.insert` (no. kartu
+didekripsi dari penjaminan, poli DPJP dari templat jadwal), `bpjs.vclaim.rujukan.insert` (masa berlaku dari BPJS), dan
+`bpjs.vclaim.rencanakontrol.delete` / `bpjs.vclaim.rujukan.delete`. Terbit → nomor + `active` + `sent`; ditolak →
+`rejected` + kode (tanpa nomor); DLQ → `dead` + `BPJS_DLQ`; hapus yang sudah tidak ada di BPJS → `sent`. Kunci
+`<operasi>:<rujukan>:<urut>` (`referrals.sync_seq`); pesan urut lama dilewati.
 
 ### Gateway informasi publik (F08)
 
