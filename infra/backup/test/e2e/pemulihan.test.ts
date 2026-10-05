@@ -1,25 +1,35 @@
 /**
  * Uji pemulihan sungguhan (ADR-0071, DoD fase 10 "restore berhasil di mesin bersih"):
  * database tes → pg_dump peran simrs_backup → enkripsi kunci publik → disk lokal + bucket utama + offsite (mc mirror)
- * → kontainer Postgres bersih dari offsite → pg_restore → prisma migrate status → jumlah baris → API /ready →
- * /audit/verify per tenant → restore_tests. Ditambah mode gagal: kunci salah, manifest rusak, berkas rusak.
+ * → kontainer Postgres bersih → pg_restore → prisma migrate status → jumlah baris → dokumen → API /ready →
+ * /audit/verify per tenant → jangkar audit → restore_tests. Mode gagal: kunci salah, manifest rusak, berkas rusak,
+ * jangkar WORM tidak cocok. Dua driver dokumen: disk (folder) dan s3 (bucket uji, dipulihkan ke MinIO sementara);
+ * jangkar dari tabel `audit_anchors` dan dari bucket WORM uji.
  *
  * Butuh: Docker, `docker compose up` (Postgres + MinIO), peran simrs_backup (init.sql), dan `pnpm build` (API).
  * Jalankan: `pnpm --filter @simrs/backup test:pemulihan`. Hanya memakai database tes (simrs_test*), awalan objek
- * `uji-e2e-<acak>/` (dihapus di akhir), dan kontainer berawalan BACKUP_E2E_CONTAINER_PREFIX (dihapus otomatis).
+ * `uji-e2e-<acak>/` dan bucket `simrs-*-uji-<acak>` (dihapus di akhir), dan kontainer berawalan
+ * BACKUP_E2E_CONTAINER_PREFIX (dihapus otomatis).
  */
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createPrismaClient, insertPatient, withTenant } from '@simrs/db';
 import { assertTestDatabase, prepareTestDatabase, SEED_TENANTS, testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
+import {
+  type AuditAnchorDocument,
+  auditAnchorObjectKey,
+  createAuditAnchorDocument,
+  PatientCrypto,
+} from '@simrs/shared/node';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runBackup } from '../../src/backup';
-import { type BackupConfig, findRepoRoot, loadConfig } from '../../src/config';
+import { type BackupConfig, findRepoRoot, loadConfig, primaryS3 } from '../../src/config';
 import { generateBackupKeyPair } from '../../src/crypto';
-import { DB_FILE, MANIFEST_FILE } from '../../src/manifest';
+import { DB_FILE, MANIFEST_FILE, parseManifest } from '../../src/manifest';
 import { Mc } from '../../src/mc';
 import { runRestoreTest } from '../../src/restore';
 import { dockerAvailable, run } from '../../src/tools';
@@ -36,6 +46,11 @@ const PREFIX = `uji-e2e-${RUN}/`;
 const CONTAINER_PREFIX = process.env.BACKUP_E2E_CONTAINER_PREFIX ?? 'simrs-uji-e2e';
 const OFFSITE_BUCKET = process.env.BACKUP_E2E_OFFSITE_BUCKET ?? 'simrs-backups-offsite-uji';
 const [A] = SEED_TENANTS;
+/** Kunci jangkar audit uji (ADR-0072); jangkar tenant lain di DB tes (kunci lain) ditolak, bukan dipercaya. */
+const ANCHOR_KEY = randomBytes(32).toString('base64');
+const DOC_BUCKET = `simrs-dok-uji-${RUN}`;
+const ANCHOR_BUCKET = `simrs-jangkar-uji-${RUN}`;
+const BAD_ANCHOR_BUCKET = `simrs-jangkar-palsu-${RUN}`;
 
 let tmp: string;
 let cfg: BackupConfig;
@@ -63,6 +78,8 @@ function config(over: Record<string, string> = {}): BackupConfig {
       BACKUP_RESTORE_CONTAINER_PREFIX: CONTAINER_PREFIX,
       STORAGE_DRIVER: 'disk',
       STORAGE_DISK_ROOT: join(tmp, 'storage'),
+      AUDIT_ANCHOR_KEY: ANCHOR_KEY,
+      AUDIT_ANCHOR_BUCKET: '',
       BACKUP_PUBLIC_KEY_FILE: join(tmp, 'kunci', 'simrs-backup.pub'),
       BACKUP_PRIVATE_KEY_FILE: join(tmp, 'kunci', 'simrs-backup.key'),
       ...over,
@@ -82,6 +99,34 @@ async function containersLeft(): Promise<string[]> {
   ]);
   return r.stdout.split('\n').filter(Boolean);
 }
+
+/** Kepala rantai audit tenant A (klien sudah di transaksi berkonteks A). */
+async function auditHead(c: pg.Client): Promise<{ seq: string; hash: string }> {
+  const r = await c.query<{ seq: string; hash: string }>(
+    'SELECT e.seq::text AS seq, e.hash FROM audit_events e WHERE e.tenant_id = $1 ORDER BY e.seq DESC LIMIT 1',
+    [A.id],
+  );
+  const row = r.rows[0];
+  if (!row) throw new Error('rantai audit A kosong');
+  return row;
+}
+
+async function inTenantA<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
+  const c = new pg.Client({ connectionString: testDbUrls().app });
+  await c.connect();
+  try {
+    await c.query('BEGIN');
+    await c.query("SELECT set_config('app.tenant_id', $1, true)", [A.id]);
+    const v = await fn(c);
+    await c.query('COMMIT');
+    return v;
+  } finally {
+    await c.end();
+  }
+}
+
+const signAnchor = (seq: string, hash: string, at: Date): AuditAnchorDocument =>
+  createAuditAnchorDocument({ tenantId: A.id, seq, hash, anchoredAt: at.toISOString() }, ANCHOR_KEY);
 
 async function exists(path: string): Promise<boolean> {
   return stat(path).then(
@@ -104,27 +149,27 @@ beforeAll(async () => {
   const other = generateBackupKeyPair();
   await writeFile(join(tmp, 'kunci', 'lain.key'), other.privateKeyPem, { mode: 0o600 });
 
-  // Data: dua berkas dokumen (kunci penyimpanan valid) + dua entri audit agar kepala rantai berubah.
+  // Data: dua berkas dokumen (kunci penyimpanan valid) + dua entri audit + jangkar bertanda tangan di tabel untuk
+  // kepala rantai A (sumber jangkar bila tanpa bucket WORM).
   for (const size of [1500, 70_000]) {
     const dir = join(tmp, 'storage', A.id, '2026', '10');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, randomUUID()), randomBytes(size));
   }
-  const app = new pg.Client({ connectionString: testDbUrls().app });
-  await app.connect();
-  try {
-    await app.query('BEGIN');
-    await app.query("SELECT set_config('app.tenant_id', $1, true)", [A.id]);
+  await inTenantA(async (c) => {
     for (const action of ['read', 'export']) {
-      await app.query(
+      await c.query(
         "INSERT INTO audit_events (id, tenant_id, resource_type, action, details) VALUES ($1, $2, 'backup_e2e', $3, $4)",
         [newId(), A.id, action, JSON.stringify({ run: RUN })],
       );
     }
-    await app.query('COMMIT');
-  } finally {
-    await app.end();
-  }
+    const head = await auditHead(c);
+    const doc = signAnchor(head.seq, head.hash, new Date(Date.now() - 60_000));
+    await c.query(
+      "INSERT INTO audit_anchors (id, tenant_id, seq, hash, anchored_at, key_id, hmac, source) VALUES ($1, $2, $3, $4, $5, $6, $7, 'job')",
+      [newId(), A.id, doc.seq, doc.hash, doc.anchoredAt, doc.keyId, doc.hmac],
+    );
+  });
 
   cfg = config();
   mc = new Mc('docker', [cfg.primary, cfg.offsite], cfg.mcImage);
@@ -155,11 +200,15 @@ describe('backup terenkripsi tiga lokasi + uji restore (ADR-0071)', () => {
     const enc = await readFile(join(cfg.localDir, backupKey, DB_FILE));
     expect(enc.subarray(0, 8).toString()).toBe('SIMRSBK1');
     expect(enc.includes(Buffer.from('PGDMP'))).toBe(false);
+    // Kepala rantai = seq TERBESAR secara numerik (regresi: urutan teks membuat "9" > "52").
+    const m = parseManifest(await readFile(join(cfg.localDir, backupKey, MANIFEST_FILE), 'utf8'), backupKey);
+    const head = await inTenantA(auditHead);
+    expect(m.database.auditHeads.find((h) => h.tenantId === A.id)).toMatchObject(head);
     expect(await mc.listRuns(cfg.primary, PREFIX)).toContainEqual({ key: backupKey, complete: true });
     expect(await mc.listRuns(cfg.offsite, PREFIX)).toContainEqual({ key: backupKey, complete: true });
   });
 
-  it('restore dari offsite di kontainer bersih: migrasi, jumlah baris, dokumen, API /ready, rantai audit', async () => {
+  it('restore dari offsite di kontainer bersih: migrasi, jumlah baris, dokumen, API /ready, rantai + jangkar audit', async () => {
     const report = await runRestoreTest(cfg, {
       source: 'offsite',
       backupKey,
@@ -185,9 +234,13 @@ describe('backup terenkripsi tiga lokasi + uji restore (ADR-0071)', () => {
       'documents_db',
       'api_ready',
       'audit_verify',
+      'audit_anchors',
     ]);
     expect(report.checks.documents?.detail).toBe('2 berkas, 71500 B');
     expect(report.checks.api_ready?.detail).toBe('database ok, redis ok, storage ok');
+    expect(report.checks.audit_anchors?.detail).toMatch(
+      /^1 tenant cocok dengan jangkar \(tabel audit_anchors\)/,
+    );
     expect(report.rtoSeconds).toBeGreaterThan(0);
     expect(report.recorded).toBe(true);
     // Kontainer dan folder kerja (plaintext) dibersihkan; laporan disimpan.
@@ -270,5 +323,136 @@ describe('backup terenkripsi tiga lokasi + uji restore (ADR-0071)', () => {
     expect(report.failedStep).toBe('checksum');
     expect(report.error).toMatch(/CHECKSUM_MISMATCH/);
     expect(report.containers).toEqual([]);
+  });
+});
+
+describe('driver dokumen s3 + jangkar audit WORM (ADR-0071 × ADR-0020 × ADR-0072)', () => {
+  let s3cfg: BackupConfig;
+  let s3Key: string;
+  let missingKey: string;
+  const overrides = (): Record<string, string> => ({
+    STORAGE_DRIVER: 's3',
+    S3_BUCKET_DOCUMENTS: DOC_BUCKET,
+    AUDIT_ANCHOR_BUCKET: ANCHOR_BUCKET,
+    BACKUP_LOCAL_DIR: join(tmp, 'lokal-s3'),
+  });
+
+  beforeAll(async () => {
+    const s3 = primaryS3(cfg);
+    for (const bucket of [DOC_BUCKET, ANCHOR_BUCKET, BAD_ANCHOR_BUCKET])
+      await s3.send({ method: 'PUT', bucket });
+
+    // Pasien + tiga baris dokumen di tenant A: dua objeknya ada di bucket (checksum diverifikasi server), satu hilang.
+    const app = createPrismaClient({ connectionString: testDbUrls().app, max: 1 });
+    try {
+      const crypto = new PatientCrypto(
+        {
+          encKeyB64: Buffer.alloc(32, 7).toString('base64'),
+          hashKeyB64: Buffer.alloc(32, 9).toString('base64'),
+        },
+        A.id,
+      );
+      const patient = await withTenant(app, A.id, (tx) =>
+        insertPatient(tx, crypto, { name: 'Pasien Uji Backup', sex: 'female', birthDate: '1980-01-01' }),
+      );
+      for (const size of [900, 40_000, 77]) {
+        const key = `${A.id}/2026/10/${newId()}`;
+        const body = randomBytes(size);
+        const hex = createHash('sha256').update(body).digest('hex');
+        if (size === 77) {
+          missingKey = key;
+        } else {
+          await s3.send({
+            method: 'PUT',
+            bucket: DOC_BUCKET,
+            key,
+            body,
+            payloadHash: hex,
+            headers: { 'x-amz-checksum-sha256': Buffer.from(hex, 'hex').toString('base64') },
+          });
+        }
+        await withTenant(app, A.id, (tx) =>
+          tx.document.create({
+            data: {
+              id: newId(),
+              tenantId: A.id,
+              patientId: patient.id,
+              kind: 'lampiran',
+              title: 'Lampiran uji backup',
+              fileName: 'uji.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: size,
+              sha256: hex,
+              storageKey: key,
+            },
+          }),
+        );
+      }
+    } finally {
+      await app.$disconnect();
+    }
+
+    // Jangkar WORM untuk kepala rantai A: sah (dipakai), sesudah backup (diabaikan), palsu (ditolak). Bucket palsu:
+    // jangkar BERTANDA TANGAN SAH di seq kepala tetapi hash lain (seolah rantai ditulis ulang setelah dijangkar).
+    const head = await inTenantA(auditHead);
+    const put = (bucket: string, d: AuditAnchorDocument) =>
+      s3.send({
+        method: 'PUT',
+        bucket,
+        key: auditAnchorObjectKey(A.id, d.seq),
+        body: Buffer.from(JSON.stringify(d)),
+      });
+    await put(ANCHOR_BUCKET, signAnchor(head.seq, head.hash, new Date(Date.now() - 30_000)));
+    await put(
+      ANCHOR_BUCKET,
+      signAnchor(String(BigInt(head.seq) + 1000n), 'a'.repeat(64), new Date(Date.now() + 3_600_000)),
+    );
+    await put(ANCHOR_BUCKET, {
+      ...signAnchor(String(BigInt(head.seq) + 500n), 'b'.repeat(64), new Date(Date.now() - 10_000)),
+      hmac: 'c'.repeat(64),
+    });
+    await put(BAD_ANCHOR_BUCKET, signAnchor(head.seq, 'd'.repeat(64), new Date(Date.now() - 30_000)));
+
+    s3cfg = config(overrides());
+  });
+
+  afterAll(async () => {
+    for (const bucket of [DOC_BUCKET, ANCHOR_BUCKET, BAD_ANCHOR_BUCKET]) {
+      await mc.removeBucket({ ...cfg.primary, bucket }).catch(() => undefined);
+    }
+  });
+
+  it('backup s3: objek per baris dokumen di-stream ke arsip terenkripsi, objek hilang tercatat', async () => {
+    const result = await runBackup(s3cfg, { kind: 'manual' });
+    expect(result.errors).toEqual([]);
+    expect(result.status).toBe('success');
+    s3Key = result.backupKey;
+    const m = parseManifest(await readFile(join(s3cfg.localDir, s3Key, MANIFEST_FILE), 'utf8'), s3Key);
+    expect(m.documents.source).toBe('s3');
+    expect(m.documents.fileCount).toBeGreaterThanOrEqual(2);
+    expect(m.documents.integrityErrors).toContainEqual({ key: missingKey, reason: 'missing' });
+  });
+
+  it('restore dari cloud: objek ke bucket MinIO sementara dengan hash cocok, jangkar WORM cocok', async () => {
+    const report = await runRestoreTest(s3cfg, { source: 'cloud', backupKey: s3Key, record: false });
+    expect(report.error).toBeNull();
+    expect(Object.keys(report.checks)).toContain('documents_bucket');
+    expect(report.checks.container?.detail).toMatch(/minio 127\.0\.0\.1:\d+/);
+    expect(report.checks.documents_db?.detail).toMatch(/sudah bermasalah di sumber/);
+    expect(report.checks.api_ready?.detail).toBe('database ok, redis ok, storage ok');
+    expect(report.checks.audit_anchors?.detail).toMatch(/^1 tenant cocok dengan jangkar \(WORM\)/);
+    expect(report.checks.audit_anchors?.detail).toMatch(/1 jangkar ditolak/);
+    expect(await containersLeft()).toEqual([]);
+  });
+
+  it('jangkar WORM sah yang tidak cocok dengan rantai hasil restore → gagal di audit_anchors', async () => {
+    const report = await runRestoreTest(config({ ...overrides(), AUDIT_ANCHOR_BUCKET: BAD_ANCHOR_BUCKET }), {
+      source: 'local',
+      backupKey: s3Key,
+      record: false,
+    });
+    expect(report.failedStep).toBe('audit_anchors');
+    expect(report.error).toMatch(/ANCHOR_MISMATCH/);
+    expect(await containersLeft()).toEqual([]);
   });
 });

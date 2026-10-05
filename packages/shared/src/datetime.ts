@@ -85,6 +85,17 @@ export function isoDateJakarta(input: Date | string = new Date()): string {
   return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
 }
 
+/** Selisih WIB terhadap UTC dalam jam (Indonesia tidak memakai musim panas). */
+export const JAKARTA_UTC_OFFSET_HOURS = 7;
+
+/**
+ * Instan untuk jam dinding WIB pada tanggal kalender. Hari/jam boleh melimpah seperti `Date.UTC`, jadi pasangan
+ * `jakartaParts` cukup untuk "00.00 WIB besok": `jakartaWallTime(p.year, p.month, p.day + 1)`.
+ */
+export function jakartaWallTime(year: number, month: number, day: number, hour = 0, minute = 0): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour - JAKARTA_UTC_OFFSET_HOURS, minute));
+}
+
 /** Tanggal saja dari `YYYY-MM-DD` (tanpa zona): `14 Mar 1972`. Untuk tanggal lahir. */
 export function formatTanggalLahir(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number) as [number, number, number];

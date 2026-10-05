@@ -1,7 +1,7 @@
 /**
  * Uji restore di kontainer Postgres BERSIH (ADR-0071), urut dari yang tidak membuat apa pun ke yang membuat sesuatu:
  *  pilih → unduh → manifest → checksum → kunci → dekripsi → dokumen (prepare.ts) → kontainer → pg_restore → migrasi
- *  → jumlah baris → API /ready → /audit/verify per tenant. RTO = waktu dari mulai sampai API siap dan rantai audit terverifikasi.
+ *  → jumlah baris → dokumen (disk/bucket s3 sementara) → API /ready → /audit/verify per tenant → jangkar audit. RTO = waktu dari mulai sampai API siap dan rantai audit terverifikasi.
  * Manifest rusak dan kunci salah gagal SEBELUM ada kontainer atau berkas plaintext. Plaintext hanya di folder kerja
  * baru (0700) dan selalu dihapus di akhir; kontainer dan proses API selalu dihentikan (kecuali --simpan-kontainer).
  */
@@ -18,7 +18,16 @@ import { type BackupConfig } from './config';
 import * as db from './db';
 import { type Location, type Logger, shortError } from './backup';
 import { parseBackupKey } from './manifest';
+import { pickAnchor, tableAnchors, wormAnchors } from './anchors';
+import { primaryS3 } from './config';
 import { prepareBackup } from './prepare';
+import {
+  checkDocumentRows,
+  SCRATCH_DOCUMENTS_BUCKET,
+  type ScratchMinio,
+  startScratchMinio,
+  uploadDocuments,
+} from './restore-docs';
 import { dockerAvailable, run, runChecked, waitForExit } from './tools';
 
 export { pickBackup } from './prepare';
@@ -189,7 +198,9 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
     const { manifest, dumpPath, storageDir } = prepared;
     const extracted = prepared.documents;
 
-    // 8. Kontainer bersih: Postgres (init.sql = peran yang sama dengan produksi) + Redis.
+    // 8. Kontainer bersih: Postgres (init.sql = peran yang sama dengan produksi) + Redis (+ MinIO bila dokumen s3).
+    const s3Docs = manifest.documents.source === 's3';
+    let minio: ScratchMinio | null = null;
     if (!(await dockerAvailable())) throw new StepFailure('container', 'Docker tidak tersedia');
     const superPassword = randomBytes(18).toString('base64url');
     const ports = await step(
@@ -218,11 +229,32 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
         );
         containers.push(redisName);
         const redisPort = await startContainer(redisName, 6379, ['-p', '127.0.0.1::6379', cfg.redisImage]);
+        if (s3Docs) {
+          const minioName = `${cfg.containerPrefix}-minio-${short}`;
+          containers.push(minioName);
+          minio = await startScratchMinio(
+            minioName,
+            cfg.minioImage,
+            `uji${randomBytes(6).toString('hex')}`,
+            randomBytes(24).toString('base64url'),
+          );
+        }
         await waitForPostgres(`postgresql://postgres:${superPassword}@127.0.0.1:${pgPort}/simrs`, 120_000);
-        return { pgPort, redisPort };
+        return { pgPort, redisPort, minio: minio?.endpoint ?? null };
       },
-      (p) => `postgres 127.0.0.1:${p.pgPort}, redis 127.0.0.1:${p.redisPort}`,
+      (p) =>
+        `postgres 127.0.0.1:${p.pgPort}, redis 127.0.0.1:${p.redisPort}` +
+        (p.minio ? `, minio ${p.minio.replace('http://', '')}` : ''),
     );
+    if (minio) {
+      const scratch: ScratchMinio = minio;
+      // 8b. Dokumen s3 kembali ke bucket BARU di MinIO sementara; server memverifikasi SHA-256 setiap objek.
+      await step(
+        'documents_bucket',
+        () => uploadDocuments(scratch, storageDir, extracted.keys),
+        (n) => `${n} objek ke bucket ${SCRATCH_DOCUMENTS_BUCKET} sementara`,
+      );
+    }
     const superUrl = (dbName: string) =>
       `postgresql://postgres:${superPassword}@127.0.0.1:${ports.pgPort}/${dbName}`;
 
@@ -315,26 +347,29 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
       (n) => `${Object.keys(manifest.database.tables).length} tabel, ${n} baris`,
     );
 
-    // 12. Baris dokumen ↔ berkas di arsip.
+    // 12. Setiap baris `documents` ↔ berkas hasil ekstrak (ukuran + SHA-256) dan, untuk s3, objek di bucket sementara.
+    // s3: semua baris di-backup per objek, jadi selisih = gagal (kecuali temuan sumber di manifest). disk: peringatan,
+    // gagal hanya dengan --dokumen-ketat (folder pengembangan sering tidak lengkap).
     await step(
       'documents_db',
       async () => {
         const c = await db.connect(superUrl(RESTORE_DB), 'simrs-uji-restore');
         try {
-          const exists = await c.query("SELECT to_regclass('public.documents') AS t");
-          if (!exists.rows[0]?.t) return { rows: 0, missing: 0 };
-          const r = await c.query<{ k: string }>('SELECT storage_key AS k FROM public.documents');
-          const have = new Set(extracted.keys);
-          const missing = r.rows.filter((x) => !have.has(x.k)).length;
-          if (missing && opts.strictDocuments) {
-            throw new Error(`DOCUMENTS_MISSING: ${missing} dari ${r.rows.length} baris dokumen tanpa berkas`);
+          const r = await checkDocumentRows(c, storageDir, manifest, minio);
+          if (r.bad.length && (s3Docs || opts.strictDocuments)) {
+            throw new Error(
+              `DOCUMENTS_MISMATCH: ${r.bad.length} dari ${r.rows} baris dokumen tanpa isi yang cocok (${r.bad.slice(0, 3).join(', ')})`,
+            );
           }
-          return { rows: r.rows.length, missing };
+          return r;
         } finally {
           await c.end();
         }
       },
-      (x) => `${x.rows} baris dokumen, ${x.missing} tanpa berkas${x.missing ? ' (peringatan)' : ''}`,
+      (x) =>
+        `${x.rows} baris dokumen, ${x.ok} cocok` +
+        (x.bad.length ? `, ${x.bad.length} tanpa berkas (peringatan)` : '') +
+        (x.knownAtSource ? `, ${x.knownAtSource} sudah bermasalah di sumber (peringatan)` : ''),
     );
 
     // 13. API menyala di atas DB hasil restore (loopback, port acak, hanya selama uji).
@@ -366,11 +401,22 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
             API_PORT: String(apiPort),
             DATABASE_URL: `postgresql://simrs_app:${LOCAL_ROLE_PASSWORDS.app}@127.0.0.1:${ports.pgPort}/${RESTORE_DB}?schema=public`,
             REDIS_URL: `redis://127.0.0.1:${ports.redisPort}`,
-            S3_ENDPOINT: 'http://127.0.0.1:9',
-            S3_ACCESS_KEY: 'tidak-dipakai',
-            S3_SECRET_KEY: 'tidak-dipakai',
-            STORAGE_DRIVER: 'disk',
-            STORAGE_DISK_ROOT: storageDir,
+            ...(minio
+              ? {
+                  STORAGE_DRIVER: 's3',
+                  S3_ENDPOINT: (minio as ScratchMinio).endpoint,
+                  S3_REGION: 'us-east-1',
+                  S3_ACCESS_KEY: (minio as ScratchMinio).accessKey,
+                  S3_SECRET_KEY: (minio as ScratchMinio).secretKey,
+                  S3_BUCKET_DOCUMENTS: SCRATCH_DOCUMENTS_BUCKET,
+                }
+              : {
+                  STORAGE_DRIVER: 'disk',
+                  STORAGE_DISK_ROOT: storageDir,
+                  S3_ENDPOINT: 'http://127.0.0.1:9',
+                  S3_ACCESS_KEY: 'tidak-dipakai',
+                  S3_SECRET_KEY: 'tidak-dipakai',
+                }),
             FIELD_ENCRYPTION_KEY: fieldKey,
             FIELD_HASH_KEY: hashKey,
             RATE_LIMIT_STORE: 'redis',
@@ -460,6 +506,71 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
       (x) =>
         `${x.viaApi} tenant lewat API, ${x.heads} kepala rantai cocok` +
         (x.brokenAtSource ? `, ${x.brokenAtSource} rantai sudah rusak di sumber (peringatan)` : ''),
+    );
+
+    // 15. Jangkar audit (ADR-0072): jangkar sah terbaru ≤ waktu backup per tenant harus cocok dengan rantai hasil restore
+    // (baris di seq jangkar ada dengan hash yang sama, kepala tidak di bawahnya, dan rantai bersambung dari jangkar).
+    await step(
+      'audit_anchors',
+      async () => {
+        const backupTime = new Date(manifest.startedAt);
+        const s3 = cfg.anchorBucket ? primaryS3(cfg) : null;
+        const c = await db.connect(superUrl(RESTORE_DB), 'simrs-uji-restore');
+        let matched = 0;
+        let without = 0;
+        let rejected = 0;
+        try {
+          const fromCheckpoint = await c.query(
+            "SELECT to_regprocedure('public.app_verify_audit_chain_from(bigint, text)') AS f",
+          );
+          for (const h of manifest.database.auditHeads) {
+            const picked = await pickAnchor(
+              s3 && cfg.anchorBucket
+                ? wormAnchors(s3, cfg.anchorBucket, h.tenantId)
+                : await tableAnchors(c, h.tenantId),
+              backupTime,
+              cfg.anchorKey,
+            );
+            rejected += picked.rejected;
+            const a = picked.anchor;
+            if (!a) {
+              without += 1;
+              continue;
+            }
+            if (BigInt(h.seq) < BigInt(a.seq)) {
+              throw new Error(`TRUNCATION_DETECTED: tenant ${h.tenantId} kepala ${h.seq} < jangkar ${a.seq}`);
+            }
+            const row = await c.query<{ hash: string }>(
+              'SELECT hash FROM public.audit_events WHERE tenant_id = $1 AND seq = $2',
+              [h.tenantId, a.seq],
+            );
+            if (!row.rows[0])
+              throw new Error(`TRUNCATION_DETECTED: tenant ${h.tenantId} seq jangkar ${a.seq} hilang`);
+            if (row.rows[0].hash !== a.hash) {
+              throw new Error(`ANCHOR_MISMATCH: tenant ${h.tenantId} seq ${a.seq} berbeda dari jangkar`);
+            }
+            if (fromCheckpoint.rows[0]?.f && h.firstBrokenSeq === null) {
+              await c.query('BEGIN');
+              await c.query("SELECT set_config('app.tenant_id', $1, true)", [h.tenantId]);
+              const v = await c.query<{ b: string | null }>(
+                'SELECT first_broken_seq::text AS b FROM app_verify_audit_chain_from($1::bigint, $2)',
+                [a.seq, a.hash],
+              );
+              await c.query('COMMIT');
+              if (v.rows[0]?.b)
+                throw new Error(`CHAIN_BROKEN: tenant ${h.tenantId} sesudah jangkar, di seq ${v.rows[0].b}`);
+            }
+            matched += 1;
+          }
+        } finally {
+          await c.end();
+        }
+        return { matched, without, rejected, source: cfg.anchorBucket ? 'WORM' : 'tabel audit_anchors' };
+      },
+      (x) =>
+        `${x.matched} tenant cocok dengan jangkar (${x.source}${cfg.anchorKey ? '' : ', tanpa kunci: HMAC tidak diperiksa'})` +
+        (x.without ? `, ${x.without} tanpa jangkar ≤ waktu backup` : '') +
+        (x.rejected ? `, ${x.rejected} jangkar ditolak (palsu/kunci lain)` : ''),
     );
     rtoSeconds = Math.round((Date.now() - t0) / 1000);
   } catch (err) {
