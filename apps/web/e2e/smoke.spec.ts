@@ -57,7 +57,6 @@ test.describe('smoke', () => {
     ]);
     // Rute detail layar klinis ikut gerbang layarnya (bukan 404 seperti layar presentasi).
     const details = [
-      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
       { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
       { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
@@ -100,7 +99,6 @@ test.describe('smoke', () => {
     ]);
     const routes = [
       ...clinical.map((s) => ({ route: s.route, label: s.label })),
-      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
       { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
       { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
@@ -113,6 +111,10 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
+    // CPOE kunjungan sudah tersambung (W2): id fixture presentasi bukan kunjungan sungguhan → kunjungan tidak ditemukan.
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.suryo}`);
+    await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
+    await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
 
     // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
     await page.context().clearCookies();

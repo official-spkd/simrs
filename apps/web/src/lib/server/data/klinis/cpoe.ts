@@ -4,10 +4,17 @@ import {
   cpoeContextSchema,
   type CpoeEncounterRef,
   cpoeEncounterRefSchema,
+  type EncounterContext,
+  encounterContextSchema,
+  type OrderGroup,
+  orderGroupSchema,
+  type OrderSetView,
+  orderSetViewSchema,
 } from '@simrs/shared';
 import { z } from 'zod';
 import { demoCpoeAvailable, demoCpoeContext, demoCpoeEncounters } from '../../../demo/fixtures/klinis';
 import type { SessionView } from '../../../session-view';
+import { api } from '../../api';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
@@ -15,8 +22,8 @@ import { notImplemented } from '../not-implemented';
 
 /**
  * K09 · Data layar Order & resep (CPOE). Mode presentasi: katalog dummy + proyeksi pasien skenario (Tn. Suryo, Tn.
- * Hartono) dari mesin Simulasi, divalidasi kontrak yang sama dengan API kelak; mode api menunggu backend fase 3
- * (potongan 3.4, layar W2; halaman menampilkan "Belum tersambung").
+ * Hartono) dari mesin Simulasi, divalidasi kontrak yang sama dengan API kelak. Mode api (layar W2): banner kunjungan
+ * (`/encounter/:id/context`), order set, dan kiriman order kunjungan dari API (izin + ABAC ditegakkan API).
  */
 
 /** Konteks CPOE kunjungan; null bila kunjungan tidak dikenal (halaman → 404). */
@@ -53,4 +60,19 @@ export async function hasCpoeContext(session: SessionView, encounterId: string):
     return demoCpoeAvailable(encounterId, runs.results['igd-ranap']);
   }
   return notImplemented('CPOE');
+}
+
+/** Mode api: banner pasien + kunjungan (`id` sudah divalidasi UUID oleh pemanggil). */
+export function getEncounterContextApi(encounterId: string): Promise<EncounterContext> {
+  return api(`/api/v1/encounter/${encounterId}/context`, { schema: encounterContextSchema });
+}
+
+/** Mode api: order set institusi aktif. */
+export function getOrderSetsApi(): Promise<OrderSetView[]> {
+  return api('/api/v1/orders/order-sets', { schema: z.array(orderSetViewSchema) });
+}
+
+/** Mode api: semua kiriman order kunjungan (terbaru dulu) dengan status, temuan CDS, dan resep. */
+export function getEncounterOrdersApi(encounterId: string): Promise<OrderGroup[]> {
+  return api(`/api/v1/encounters/${encounterId}/orders`, { schema: z.array(orderGroupSchema) });
 }
