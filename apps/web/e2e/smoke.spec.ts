@@ -25,27 +25,47 @@ test.describe('smoke', () => {
     await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     if ((viewport?.width ?? 1280) < 768) return;
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
-    const igd = nav.getByTitle('IGD · layar belum tersedia').first();
-    await expect(igd).toHaveAttribute('aria-disabled', 'true');
-    await expect(nav.getByRole('link', { name: 'IGD' })).toHaveCount(0);
+    const lab = nav.getByTitle('Laboratorium · layar belum tersedia').first();
+    await expect(lab).toHaveAttribute('aria-disabled', 'true');
+    await expect(nav.getByRole('link', { name: 'Laboratorium' })).toHaveCount(0);
     // Perawat tidak memegang izin kelola pengguna: menunya tidak tampil.
     await expect(nav.getByText('Pengguna & akses')).toHaveCount(0);
     await expect(nav.getByText('Perawat', { exact: true })).toHaveCount(1);
     await expect(nav.getByText('Semua unit', { exact: true })).toBeVisible();
   });
 
-  test('layar hibrida front office di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak; anjungan/TV → pendaftaran perangkat)', async ({
+  test('layar hibrida di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak; anjungan/TV → pendaftaran perangkat)', async ({
     page,
   }) => {
-    // Kasir tidak memegang izin layar front office mana pun (perawat kini memegang `schedule.read`, potongan 0a).
+    // Kasir tidak memegang izin layar front office maupun klinis mana pun (perawat kini memegang `schedule.read`).
     const account = await createAccount({ roles: ['kasir'] });
     await loginAs(page, account);
     const hybrid = SCREENS.filter((s) => s.permission);
-    expect(hybrid.map((s) => s.id).sort()).toEqual(['antrean', 'daftar', 'jadwal', 'kendali', 'kiosk']);
-    for (const s of hybrid) {
+    expect(hybrid.map((s) => s.id).sort()).toEqual([
+      'antrean',
+      'bed',
+      'consent',
+      'daftar',
+      'igd',
+      'jadwal',
+      'kendali',
+      'kiosk',
+      'order',
+      'poli',
+      'ranap',
+      'resume',
+    ]);
+    // Rute detail layar klinis ikut gerbang layarnya (bukan 404 seperti layar presentasi).
+    const details = [
+      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
+      { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
+      { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
+      { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
+    ];
+    for (const s of [...hybrid, ...details.map((d) => ({ ...d, id: d.route }))]) {
       const res = await page.goto(s.route);
       expect(res?.status(), s.route).toBe(200);
-      if (s.layout === 'perangkat') {
+      if (s.id === 'kiosk' || s.id === 'antrean') {
         // Anjungan/TV dibuka perangkat terdaftar, bukan sesi staf (ADR-0027): tanpa cookie perangkat → pendaftaran.
         await expect(page).toHaveURL(/\/perangkat\/daftar/);
         await expect(page.getByRole('heading', { name: 'Daftarkan perangkat', level: 1 })).toBeVisible();
@@ -55,22 +75,17 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toBeVisible();
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
-    // Menu mengikuti izin sungguhan: tanpa izin front office, menunya tidak tampil.
+    // Menu mengikuti izin sungguhan: tanpa izin front office/klinis, menunya tidak tampil.
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
     await expect(nav.getByText('Pendaftaran', { exact: true })).toHaveCount(0);
+    await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
   test('layar mode presentasi tidak ada di luar mode demo (404)', async ({ page }) => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account);
-    const paths = [
-      ...SCREENS.filter((s) => s.status === 'demo' && !s.permission).map((s) => s.route),
-      `/klinis/order/${ENCOUNTER_ID.suryo}`,
-      `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`,
-      `/klinis/resume/${ENCOUNTER_ID.hartono}`,
-      `/tablet/persetujuan/${CONSENT_ID.hartono}`,
-    ];
+    const paths = SCREENS.filter((s) => s.status === 'demo' && !s.permission).map((s) => s.route);
     for (const path of paths) {
       const res = await page.goto(path);
       expect(res?.status(), path).toBe(404);

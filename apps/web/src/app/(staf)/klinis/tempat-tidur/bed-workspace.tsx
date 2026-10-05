@@ -8,7 +8,7 @@ import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenar
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { ENCOUNTER_ID } from '../../../../lib/demo/fixtures/ids';
-import { allocateBedAction } from './actions';
+import { allocateBedAction } from './actions-demo';
 import { BedDetail, type BedPatch } from './bed-detail';
 import { BedFilters, BedStatusTiles } from './bed-filters';
 import { BedList, WardGrid, WardOverview } from './bed-grid';

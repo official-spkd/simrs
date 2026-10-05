@@ -1,5 +1,10 @@
 import 'server-only';
-import { type PoliEncounter, poliEncounterSchema, type PoliWorklist, poliWorklistSchema } from '@simrs/shared';
+import {
+  type PoliEncounter,
+  poliEncounterSchema,
+  type PoliWorklist,
+  poliWorklistSchema,
+} from '@simrs/shared';
 import { demoPoliEncounter, demoPoliWorklist } from '../../../demo/fixtures/klinis';
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
