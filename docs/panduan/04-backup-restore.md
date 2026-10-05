@@ -6,10 +6,10 @@ Perintah dijalankan di **host ops** (server edge atau mesin operator), bukan ole
 
 ## 1. Gambaran
 
-| Lokasi      | Tempat                                                    | Isi                                                     |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------------- |
-| 1 · edge    | `BACKUP_LOCAL_DIR` (bawaan `.local/backup/<kunci>`)      | `db.dump.enc`, `documents.tar.enc`, `manifest.json`     |
-| 2 · cloud   | bucket `S3_BUCKET_BACKUPS` (`simrs-backups/<awalan><kunci>`) | sama, diunggah dari lokasi 1 (manifest paling akhir)   |
+| Lokasi      | Tempat                                                          | Isi                                                   |
+| ----------- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| 1 · edge    | `BACKUP_LOCAL_DIR` (bawaan `.local/backup/<kunci>`)             | `db.dump.enc`, `documents.tar.enc`, `manifest.json`   |
+| 2 · cloud   | bucket `S3_BUCKET_BACKUPS` (`simrs-backups/<awalan><kunci>`)    | sama, diunggah dari lokasi 1 (manifest paling akhir)  |
 | 3 · offsite | bucket `BACKUP_OFFSITE_BUCKET` (produksi: penyedia/region lain) | `mc mirror` seluruh awalan dari lokasi 2, tanpa hapus |
 
 - **Kunci backup** = waktu mulai UTC + jenis, mis. `20261005T000846Z-daily`. Folder yang punya `manifest.json`
@@ -21,7 +21,7 @@ Perintah dijalankan di **host ops** (server edge atau mesin operator), bukan ole
   - jumlah baris per tabel;
   - migrasi yang sudah diterapkan;
   - kepala rantai audit per tenant beserta hasil verifikasinya.
-  Semua diambil dari snapshot yang sama dengan dump. Ada pula `digest` atas seluruh isi manifest.
+    Semua diambil dari snapshot yang sama dengan dump. Ada pula `digest` atas seluruh isi manifest.
 - **Peran DB `simrs_backup`**: baca semua data + BYPASSRLS, tanpa hak tulis, transaksi baca-saja bawaan. Peran ini
   hanya untuk skrip ini, tidak pernah untuk aplikasi.
 - Hasil setiap run tercatat di `backup_runs`, dan hasil setiap uji di `restore_tests` (tenant PLATFORM). RS melihat
@@ -53,15 +53,15 @@ Perintah dijalankan di **host ops** (server edge atau mesin operator), bukan ole
 
 3. **`.env` host backup** (contoh lengkap di `.env.example`, blok "Backup"):
 
-   | Variabel                                                             | Isi                                                                                             |
-   | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-   | `BACKUP_DATABASE_URL`                                                | `postgresql://simrs_backup:…@host:port/simrs`. Port mengikuti `POSTGRES_PORT`, sama dengan URL database lain |
-   | `BACKUP_PUBLIC_KEY` / `BACKUP_PUBLIC_KEY_FILE`                       | `simrsbk1:…`                                                                                    |
-   | `BACKUP_PREFIX`                                                      | awalan objek per sumber, mis. `edge-rscm/`                                                      |
-   | `BACKUP_OFFSITE_BUCKET`, `BACKUP_OFFSITE_S3_ENDPOINT/_ACCESS_KEY/_SECRET_KEY` | lokasi 3. Bawaannya endpoint lokasi 2 (hanya pantas di lokal)                          |
-   | `BACKUP_ENSURE_BUCKETS`                                              | `true` hanya di lokal. Kredensial produksi tidak boleh punya hak membuat bucket                  |
-   | `BACKUP_KEEP_*`                                                      | retensi (§5)                                                                                    |
-   | `BACKUP_TOOLS`                                                       | `auto` (bawaan): `pg_dump`/`mc` lokal bila versinya cocok, selain itu Docker                     |
+   | Variabel                                                                      | Isi                                                                                                          |
+   | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | `BACKUP_DATABASE_URL`                                                         | `postgresql://simrs_backup:…@host:port/simrs`. Port mengikuti `POSTGRES_PORT`, sama dengan URL database lain |
+   | `BACKUP_PUBLIC_KEY` / `BACKUP_PUBLIC_KEY_FILE`                                | `simrsbk1:…`                                                                                                 |
+   | `BACKUP_PREFIX`                                                               | awalan objek per sumber, mis. `edge-rscm/`                                                                   |
+   | `BACKUP_OFFSITE_BUCKET`, `BACKUP_OFFSITE_S3_ENDPOINT/_ACCESS_KEY/_SECRET_KEY` | lokasi 3. Bawaannya endpoint lokasi 2 (hanya pantas di lokal)                                                |
+   | `BACKUP_ENSURE_BUCKETS`                                                       | `true` hanya di lokal. Kredensial produksi tidak boleh punya hak membuat bucket                              |
+   | `BACKUP_KEEP_*`                                                               | retensi (§5)                                                                                                 |
+   | `BACKUP_TOOLS`                                                                | `auto` (bawaan): `pg_dump`/`mc` lokal bila versinya cocok, selain itu Docker                                 |
 
    Kunci privat **tidak** dipasang di host backup. `BACKUP_PRIVATE_KEY_FILE` hanya diisi di mesin uji restore.
 
@@ -74,11 +74,11 @@ pnpm backup:jalankan --jenis manual --tanpa-retensi
 
 Kode keluar:
 
-| Kode | Arti                                                                                       |
-| ---- | ------------------------------------------------------------------------------------------ |
-| `0`  | Ketiga lokasi berhasil dan tercatat                                                        |
+| Kode | Arti                                                                                           |
+| ---- | ---------------------------------------------------------------------------------------------- |
+| `0`  | Ketiga lokasi berhasil dan tercatat                                                            |
 | `2`  | Sebagian: backup ada di disk lokal, tetapi lokasi jauh gagal atau pencatatan gagal (lihat log) |
-| `1`  | Gagal                                                                                      |
+| `1`  | Gagal                                                                                          |
 
 Dua backup tidak pernah berjalan bersamaan: kunci advisory di database membuat run kedua langsung gagal dengan
 `BACKUP_RUNNING`, dan kegagalan itu ikut tercatat. Log `PERINGATAN: rantai audit rusak di sumber` berarti rantai audit
@@ -121,22 +121,22 @@ pnpm backup:uji-restore --backup 20261005T000846Z-daily --kunci-privat /media/us
 
 Langkah, berhenti di galat pertama:
 
-| Langkah        | Isi                                                                                        | Gagal bila                                            |
-| -------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `select`       | backup lengkap terbaru (atau `--backup`) di lokasi sumber                                  | tidak ada backup lengkap                              |
-| `fetch`        | unduh ke folder kerja baru 0700 (lokal: dibaca di tempat)                                  | unduhan gagal                                         |
-| `manifest`     | skema + digest + kunci backup                                                              | **manifest rusak/diubah: gagal keras**                |
-| `checksum`     | SHA-256 berkas terenkripsi = manifest                                                      | berkas rusak/terpotong                                |
-| `key`          | id kunci privat = manifest = header berkas                                                 | **kunci salah: berhenti sebelum ada plaintext/kontainer** |
-| `decrypt`      | dump didekripsi, hash plaintext = manifest                                                 | autentikasi potongan gagal                            |
-| `documents`    | arsip dokumen didekripsi + diekstrak, jumlah/ukuran = manifest                             | selisih                                               |
-| `container`    | `postgres:16-alpine` bersih + `init.sql` dan Redis, port acak di 127.0.0.1                 | Docker tidak ada                                      |
-| `restore`      | `pg_restore --single-transaction --exit-on-error`                                          | galat restore apa pun                                 |
-| `migrations`   | `prisma migrate status` (kode saat ini) + daftar migrasi = manifest                        | ada yang tertunda/beda                                |
-| `row_counts`   | jumlah baris setiap tabel = manifest                                                       | selisih satu baris pun                                |
-| `documents_db` | baris `documents` punya berkas di arsip                                                    | hanya dengan `--dokumen-ketat` (bawaan: peringatan)   |
-| `api_ready`    | API menyala di atas DB hasil restore (mode uji, loopback): `/ready` = DB, Redis, penyimpanan ok | `/ready` tidak 200                               |
-| `audit_verify` | `/audit/verify` per tenant aktif + `app_verify_audit_chain()` semua tenant = hasil di sumber, kepala rantai = manifest | rantai berbeda dari sumber (terpotong/diubah) |
+| Langkah        | Isi                                                                                                                    | Gagal bila                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `select`       | backup lengkap terbaru (atau `--backup`) di lokasi sumber                                                              | tidak ada backup lengkap                                  |
+| `fetch`        | unduh ke folder kerja baru 0700 (lokal: dibaca di tempat)                                                              | unduhan gagal                                             |
+| `manifest`     | skema + digest + kunci backup                                                                                          | **manifest rusak/diubah: gagal keras**                    |
+| `checksum`     | SHA-256 berkas terenkripsi = manifest                                                                                  | berkas rusak/terpotong                                    |
+| `key`          | id kunci privat = manifest = header berkas                                                                             | **kunci salah: berhenti sebelum ada plaintext/kontainer** |
+| `decrypt`      | dump didekripsi, hash plaintext = manifest                                                                             | autentikasi potongan gagal                                |
+| `documents`    | arsip dokumen didekripsi + diekstrak, jumlah/ukuran = manifest                                                         | selisih                                                   |
+| `container`    | `postgres:16-alpine` bersih + `init.sql` dan Redis, port acak di 127.0.0.1                                             | Docker tidak ada                                          |
+| `restore`      | `pg_restore --single-transaction --exit-on-error`                                                                      | galat restore apa pun                                     |
+| `migrations`   | `prisma migrate status` (kode saat ini) + daftar migrasi = manifest                                                    | ada yang tertunda/beda                                    |
+| `row_counts`   | jumlah baris setiap tabel = manifest                                                                                   | selisih satu baris pun                                    |
+| `documents_db` | baris `documents` punya berkas di arsip                                                                                | hanya dengan `--dokumen-ketat` (bawaan: peringatan)       |
+| `api_ready`    | API menyala di atas DB hasil restore (mode uji, loopback): `/ready` = DB, Redis, penyimpanan ok                        | `/ready` tidak 200                                        |
+| `audit_verify` | `/audit/verify` per tenant aktif + `app_verify_audit_chain()` semua tenant = hasil di sumber, kepala rantai = manifest | rantai berbeda dari sumber (terpotong/diubah)             |
 
 **RTO terukur** dihitung dari mulai sampai `audit_verify` lolos. Hasil per langkah dicatat ke `restore_tests`
 (database sumber, lewat `BACKUP_DATABASE_URL`; `--tanpa-catat` untuk melewati). Laporan JSON disimpan di
@@ -188,15 +188,15 @@ tes, awalan objek `uji-e2e-<acak>/`, serta bucket `simrs-backups-offsite-uji`. A
 
 **Bukti uji restore** (mesin pengembang macOS, Docker OrbStack, 5 Okt 2026, database uji `simrs_test_backup`):
 
-| Waktu (UTC)      | Backup                    | Sumber  | Isi                                               | Hasil                      | RTO   |
-| ---------------- | ------------------------- | ------- | ------------------------------------------------- | -------------------------- | ----- |
-| 2026-10-04 21:25 | `20261004T212510Z-hourly` | offsite | 40 tabel, 2.196 baris, 3 rantai audit             | berhasil, 14/14 langkah    | 18 dtk |
-| 2026-10-05 00:08 | `20261005T000846Z-daily`  | offsite | 60 tabel, 4.645 baris, 20 rantai audit (1 sudah rusak di sumber: tenant uji pengrusakan) | berhasil, 14/14 langkah | 9 dtk |
+| Waktu (UTC)      | Backup                    | Sumber  | Isi                                                                                      | Hasil                   | RTO    |
+| ---------------- | ------------------------- | ------- | ---------------------------------------------------------------------------------------- | ----------------------- | ------ |
+| 2026-10-04 21:25 | `20261004T212510Z-hourly` | offsite | 40 tabel, 2.196 baris, 3 rantai audit                                                    | berhasil, 14/14 langkah | 18 dtk |
+| 2026-10-05 00:08 | `20261005T000846Z-daily`  | offsite | 60 tabel, 4.645 baris, 20 rantai audit (1 sudah rusak di sumber: tenant uji pengrusakan) | berhasil, 14/14 langkah | 9 dtk  |
 
 Rincian run 5 Okt 00.08 (ms):
 
-| `container` | `restore` | `migrations` | `api_ready` | `audit_verify` | lainnya |
-| ----------- | --------- | ------------ | ----------- | -------------- | ------- |
+| `container` | `restore` | `migrations` | `api_ready` | `audit_verify` | lainnya           |
+| ----------- | --------- | ------------ | ----------- | -------------- | ----------------- |
 | 3.632       | 2.639     | 721          | 1.077       | 391            | < 400 per langkah |
 
 Mode gagal terbukti di `test:pemulihan`: kunci privat lain berhenti di `key` (`KEY_MISMATCH`, tanpa kontainer), manifest
@@ -206,12 +206,12 @@ nyata di tabel ini (sasaran ≤ 4 jam).
 
 ## 10. Pemecahan masalah
 
-| Gejala                                                         | Penyebab / tindakan                                                                           |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `pg_dump: server version mismatch`                             | `BACKUP_TOOLS=local` dengan pg_dump lama. Pakai `auto`/`docker`, atau pasang klien Postgres ≥ server |
-| `PLATFORM_TENANT_REQUIRED` saat mencatat                       | tenant platform belum dibuat (`pnpm db:seed` atau `db:create-admin --tenant PLATFORM`)        |
-| `permission denied for function app_record_backup_run`         | migrasi diterapkan sebelum peran ada: jalankan ulang `simrs-backup-role.sql` (§2)             |
-| `cannot execute … in a read-only transaction`                  | wajar untuk peran backup di luar pencatatan (baca-saja bawaan)                                |
-| `XMinioInvalidObjectName` / bucket tidak ada                   | `BACKUP_PREFIX` harus diakhiri `/`. Di lokal `BACKUP_ENSURE_BUCKETS=true`, atau `docker compose up minio-init` |
-| Kontainer Docker tidak menjangkau Postgres/MinIO di Linux      | layanan harus mendengar di antarmuka yang terlihat dari `host.docker.internal` (host-gateway)  |
-| `documents_db … tanpa berkas`                                  | baris dokumen yang berkasnya tidak ada di `STORAGE_DISK_ROOT` sumber. Periksa sebelum memakai `--dokumen-ketat` |
+| Gejala                                                    | Penyebab / tindakan                                                                                             |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `pg_dump: server version mismatch`                        | `BACKUP_TOOLS=local` dengan pg_dump lama. Pakai `auto`/`docker`, atau pasang klien Postgres ≥ server            |
+| `PLATFORM_TENANT_REQUIRED` saat mencatat                  | tenant platform belum dibuat (`pnpm db:seed` atau `db:create-admin --tenant PLATFORM`)                          |
+| `permission denied for function app_record_backup_run`    | migrasi diterapkan sebelum peran ada: jalankan ulang `simrs-backup-role.sql` (§2)                               |
+| `cannot execute … in a read-only transaction`             | wajar untuk peran backup di luar pencatatan (baca-saja bawaan)                                                  |
+| `XMinioInvalidObjectName` / bucket tidak ada              | `BACKUP_PREFIX` harus diakhiri `/`. Di lokal `BACKUP_ENSURE_BUCKETS=true`, atau `docker compose up minio-init`  |
+| Kontainer Docker tidak menjangkau Postgres/MinIO di Linux | layanan harus mendengar di antarmuka yang terlihat dari `host.docker.internal` (host-gateway)                   |
+| `documents_db … tanpa berkas`                             | baris dokumen yang berkasnya tidak ada di `STORAGE_DISK_ROOT` sumber. Periksa sebelum memakai `--dokumen-ketat` |
