@@ -67,7 +67,7 @@ Galat:    di mana pun → ROLLBACK (data + audit batal) → AppErrorFilter → {
 
 Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditnya selalu konsisten, nomor dokumen yang dialokasikan ikut batal bila permintaan gagal, dan **handler tidak boleh memanggil sistem eksternal** (transaksi masih terbuka) — kirim lewat outbox.
 
-Pengecualian hanya untuk dua pola fase 2: lookup baca-saja ke BPJS/Dukcapil (ADR-0025) dan aliran SSE (ADR-0026). Keduanya memakai `@NoRequestTransaction()`, lihat [Lookup sinkron, SSE, dan event domain](#lookup-sinkron-sse-dan-event-domain-fase-2).
+Pengecualian hanya untuk tiga pola: lookup baca-saja ke BPJS/Dukcapil (ADR-0025), aliran SSE (ADR-0026), dan penolakan yang wajib tetap tercatat (kirim order yang diblokir CDS, ADR-0030). Ketiganya memakai `@NoRequestTransaction()`, lihat [Lookup sinkron, SSE, dan event domain](#lookup-sinkron-sse-dan-event-domain-fase-2).
 
 ### Fondasi di `src/common` dan `src/infra`
 
@@ -83,7 +83,7 @@ Pengecualian hanya untuk dua pola fase 2: lookup baca-saja ke BPJS/Dukcapil (ADR
 | `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                            |
 | `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard`         |
 | `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup                    |
-| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (hanya lookup ADR-0025 dan SSE ADR-0026)              |
+| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (lookup ADR-0025, SSE ADR-0026, penolakan tercatat ADR-0030) |
 | `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)                  |
 | `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                                   |
 | `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`             |
@@ -1152,7 +1152,7 @@ Aturan:
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
 - [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
 - [ ] Endpoint anjungan/TV memakai `@DeviceScoped(izin)`, bukan `@TenantScoped()`; perangkat tidak pernah memegang izin manusia (ADR-0027).
-- [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025) dan aliran `SseService` (ADR-0026); akses data di dalamnya lewat `TenantDb.transaction()`.
+- [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025), aliran `SseService` (ADR-0026), dan penolakan yang wajib tetap tercatat (ADR-0030: satu `TenantDb.transaction()` mengembalikan hasil "ditolak" tanpa menulis data bisnis, galat dilempar setelah commit); akses data di dalamnya lewat `TenantDb.transaction()`.
 - [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.
 - [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).
 - [ ] FK antar-tabel tenant memakai pasangan `(tenant_id, id)`.
