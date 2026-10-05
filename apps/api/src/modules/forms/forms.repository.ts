@@ -38,6 +38,7 @@ export const RESPONSE_SELECT = {
   correctionReason: true,
   createdAt: true,
   createdBy: true,
+  encounterId: true,
   definition: { select: { version: true, title: true, schema: true, writeRoles: true } },
 } as const;
 export type ResponseRow = Prisma.FormResponseGetPayload<{ select: typeof RESPONSE_SELECT }>;

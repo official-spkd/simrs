@@ -291,7 +291,14 @@ export const newFormDraftSchema = z.strictObject({ changeNote: z.string().trim()
 /** Ajukan, tarik, terbitkan: berlaku atas versi draf yang sedang dilihat. */
 export const formTransitionSchema = z.strictObject({ baseUpdatedAt: BASE }).default({});
 
-export const createFormResponseSchema = z.strictObject({ answers: formAnswersSchema });
+/**
+ * Isi formulir. `encounterId` (K06, fase 3): asesmen kunjungan; kunjungan harus milik pasien yang sama dan tidak batal,
+ * dan tetap di seluruh rantai versi isian.
+ */
+export const createFormResponseSchema = z.strictObject({
+  answers: formAnswersSchema,
+  encounterId: z.uuid().nullable().optional(),
+});
 export const correctFormResponseSchema = z.strictObject({
   answers: formAnswersSchema,
   reason: z.string().trim().min(10, 'Alasan koreksi minimal 10 karakter').max(500),

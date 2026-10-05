@@ -371,5 +371,7 @@ describe('registri bersama fase 3', () => {
     }
     expect(clinicalError('RECORD_LOCKED').status).toBe(409);
     expect(clinicalError('TRIAGE_REASON_REQUIRED').status).toBe(422);
+    expect(clinicalError('PRIMARY_DIAGNOSIS_EXISTS').status).toBe(409);
+    expect(clinicalError('PRIMARY_DPJP_EXISTS').status).toBe(409);
   });
 });

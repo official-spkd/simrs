@@ -155,7 +155,7 @@ export class FormResponsesController {
     @Param('code', new ZodValidationPipe(codeParam)) code: string,
     @Body(new ZodValidationPipe(createFormResponseSchema)) body: CreateFormResponseInput,
   ) {
-    return this.responses.create(patientId, code, body.answers);
+    return this.responses.create(patientId, code, body.answers, body.encounterId ?? null);
   }
 
   @RequirePermission('forms.response', 'read')
