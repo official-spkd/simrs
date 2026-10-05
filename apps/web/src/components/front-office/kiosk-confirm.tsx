@@ -95,8 +95,16 @@ export interface KioskTicketView {
   note: string | null;
 }
 
-/** F05 · Tiket antrean tercetak. */
-export function KioskTicket({ ticket, onDone }: { ticket: KioskTicketView; onDone: () => void }) {
+/** F05 · Tiket antrean tercetak. `displayLink`: tautan ke layar TV (mode presentasi; perangkat anjungan tidak). */
+export function KioskTicket({
+  ticket,
+  onDone,
+  displayLink = true,
+}: {
+  ticket: KioskTicketView;
+  onDone: () => void;
+  displayLink?: boolean;
+}) {
   return (
     <div className="flex flex-col items-stretch gap-8 px-16 pt-14">
       <KioskNotice tone="success">Tiket sedang dicetak. Ambil di bawah layar.</KioskNotice>
@@ -136,13 +144,15 @@ export function KioskTicket({ ticket, onDone }: { ticket: KioskTicketView; onDon
       >
         Selesai
       </button>
-      <Link
-        href="/display/antrean"
-        className="inline-flex min-h-16 items-center self-center px-4 font-semibold text-brand-600"
-        style={fs(22)}
-      >
-        Lihat layar antrean ruang tunggu
-      </Link>
+      {displayLink && (
+        <Link
+          href="/display/antrean"
+          className="inline-flex min-h-16 items-center self-center px-4 font-semibold text-brand-600"
+          style={fs(22)}
+        >
+          Lihat layar antrean ruang tunggu
+        </Link>
+      )}
     </div>
   );
 }

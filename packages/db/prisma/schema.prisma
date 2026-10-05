@@ -89,6 +89,8 @@ model Tenant {
   domainEvents          DomainEvent[]
   backupRuns            BackupRun[]
   restoreTests          RestoreTest[]
+  kioskLookups          KioskLookup[]
+  kioskTickets          KioskTicket[]
   idempotencyKeys       IdempotencyKey[]
 
   @@map("tenants")
@@ -724,6 +726,7 @@ model Patient {
   encounters      Encounter[]
   referrals       Referral[]
   contacts        PatientContact[]
+  kioskLookups    KioskLookup[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])
@@ -1075,6 +1078,8 @@ model RegisteredDevice {
   assignment   StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
   revoker      User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
   sessions     AuthSession[]
+  kioskLookups KioskLookup[]
+  kioskTickets KioskTicket[]
 
   @@unique([tenantId, id])
   @@index([tenantId, userId])
@@ -1423,6 +1428,7 @@ model Appointment {
   tickets      QueueTicket[]
   bpjsTasks    BpjsQueueTask[]
   encounters   Encounter[]
+  kioskLookups KioskLookup[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, bookingCode])
@@ -1460,6 +1466,8 @@ model QueueTicket {
   patient     Patient?     @relation(fields: [tenantId, patientId], references: [tenantId, id])
   calls       QueueCall[]
   encounters  Encounter[]
+  kioskLookups KioskLookup[]
+  kioskTickets KioskTicket[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, serviceId, serviceDate, seq])
@@ -1829,6 +1837,61 @@ model DomainEvent {
   @@unique([tenantId, id])
   @@index([tenantId, name, occurredAt])
   @@map("domain_events")
+}
+
+/// F05 · Percobaan identifikasi di anjungan (ditemukan atau tidak), dasar batas laju per perangkat dan token `kl1`
+/// berumur pendek (`KIOSK_LOOKUP_TTL_SECONDS`). Hanya hash token yang disimpan; nilai yang diketik (NIK/kartu/kode)
+/// tidak pernah disimpan. Token sekali pakai: `used_at` + `idempotency_key` + `ticket_id` diisi sekali (pemicu
+/// `app_kiosk_lookup_guard`, hak kolom); baris tidak bisa dihapus.
+model KioskLookup {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  deviceId       String    @map("device_id") @db.Uuid
+  /// booking | bpjs | umum | farmasi_kasir (`KIOSK_PURPOSES`)
+  purpose        String
+  /// nik | booking | bpjs (`KIOSK_ID_METHODS`)
+  method         String
+  found          Boolean
+  /// SHA-256 heksadesimal token `kl1.`; kosong bila tidak ditemukan.
+  tokenHash      String?   @unique @map("token_hash")
+  patientId      String?   @map("patient_id") @db.Uuid
+  /// Booking hari ini milik pasien (bila ada), sasaran check-in.
+  appointmentId  String?   @map("appointment_id") @db.Uuid
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt         DateTime? @map("used_at") @db.Timestamptz(3)
+  /// Header `Idempotency-Key` permintaan yang memakai token (sentuhan ganda → tiket yang sama).
+  idempotencyKey String?   @map("idempotency_key")
+  ticketId       String?   @map("ticket_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  device      RegisteredDevice @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  patient     Patient?         @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  appointment Appointment?     @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
+  ticket      QueueTicket?     @relation(fields: [tenantId, ticketId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, deviceId, createdAt])
+  @@map("kiosk_lookups")
+}
+
+/// F05 · Tiket antrean yang diterbitkan/diberikan ke perangkat anjungan (append-only). Perangkat hanya boleh mencetak
+/// tiket yang tercatat untuknya.
+model KioskTicket {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  deviceId  String   @map("device_id") @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  device RegisteredDevice @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+  ticket QueueTicket      @relation(fields: [tenantId, ticketId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, deviceId, ticketId])
+  @@index([tenantId, deviceId, createdAt])
+  @@map("kiosk_tickets")
 }
 
 /// F03 · Header `Idempotency-Key` (registrasi, kelak check-in anjungan): permintaan ulang dengan kunci sama
