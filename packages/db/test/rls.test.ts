@@ -162,11 +162,17 @@ describe('outbox', () => {
 });
 
 describe('outbox · batas waktu dan penundaan', () => {
+  // Tenant sendiri (lihat `outboxTenant`): di tenant seed, pesan sisa tes lain bisa mendorong pesan tes ini keluar batch.
+  let T = '';
+  beforeAll(async () => {
+    T = await outboxTenant();
+  });
+
   async function claimed(key: string, now: Date) {
-    const msg = await withTenant(app, A.id, (tx) =>
-      enqueueOutbox(tx, A.id, { target: 'bpjs', operation: 'ping', idempotencyKey: key, payload: {} }),
+    const msg = await withTenant(app, T, (tx) =>
+      enqueueOutbox(tx, T, { target: 'bpjs', operation: 'ping', idempotencyKey: key, payload: {} }),
     );
-    const rows = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 50, now));
+    const rows = await withTenant(app, T, (tx) => claimDueOutbox(tx, 50, now));
     const row = rows.find((m) => m.id === msg.id);
     expect(row).toBeDefined();
     return row!;
@@ -176,7 +182,7 @@ describe('outbox · batas waktu dan penundaan', () => {
     const now = new Date(Date.now() + 1000);
     const fail = { ok: false, statusCode: 503, error: 'HTTP 503', durationMs: 1 };
     const early = await claimed(`dl-${newId()}`, now);
-    const kept = await withTenant(app, A.id, (tx) =>
+    const kept = await withTenant(app, T, (tx) =>
       recordOutboxAttempt(tx, early, fail, {
         now,
         maxAttempts: Infinity,
@@ -188,7 +194,7 @@ describe('outbox · batas waktu dan penundaan', () => {
     expect(kept.nextAttemptAt.getTime() - now.getTime()).toBe(1000);
 
     const late = await claimed(`dl-${newId()}`, now);
-    const dead = await withTenant(app, A.id, (tx) =>
+    const dead = await withTenant(app, T, (tx) =>
       recordOutboxAttempt(tx, late, fail, {
         now,
         maxAttempts: Infinity,
@@ -202,7 +208,7 @@ describe('outbox · batas waktu dan penundaan', () => {
   it('capMs membatasi jeda; maxAttempts Infinity tidak pernah DLQ karena hitungan', async () => {
     const now = new Date(Date.now() + 1000);
     const row = await claimed(`cap-${newId()}`, now);
-    const updated = await withTenant(app, A.id, (tx) =>
+    const updated = await withTenant(app, T, (tx) =>
       recordOutboxAttempt(
         tx,
         { ...row, attempts: 40 },
@@ -216,11 +222,11 @@ describe('outbox · batas waktu dan penundaan', () => {
 
   it('urutan klaim pasti untuk pesan di milidetik yang sama: created_at lalu id', async () => {
     const at = new Date(Date.now() - 60_000);
-    const ids = await withTenant(app, A.id, async (tx) => {
+    const ids = await withTenant(app, T, async (tx) => {
       const made = [];
       for (let i = 0; i < 3; i++) {
         made.push(
-          await enqueueOutbox(tx, A.id, {
+          await enqueueOutbox(tx, T, {
             target: 'bpjs',
             operation: 'ping',
             idempotencyKey: `order-${newId()}`,
@@ -234,7 +240,7 @@ describe('outbox · batas waktu dan penundaan', () => {
       });
       return made.map((m) => m.id);
     });
-    const claimed = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 500, new Date()));
+    const claimed = await withTenant(app, T, (tx) => claimDueOutbox(tx, 500, new Date()));
     const order = claimed.map((m) => m.id).filter((id) => ids.includes(id));
     expect(order).toEqual([...ids].sort());
   });
@@ -243,16 +249,16 @@ describe('outbox · batas waktu dan penundaan', () => {
     const now = new Date(Date.now() + 1000);
     const row = await claimed(`defer-${newId()}`, now);
     const until = new Date(now.getTime() + 30_000);
-    const deferred = await withTenant(app, A.id, (tx) =>
+    const deferred = await withTenant(app, T, (tx) =>
       deferOutboxMessage(tx, row, { until, reason: 'menunggu task 1' }),
     );
     expect(deferred).toMatchObject({ status: 'pending', attempts: 0, lastError: 'ditunda: menunggu task 1' });
     expect(deferred.nextAttemptAt.toISOString()).toBe(until.toISOString());
-    const count = await withTenant(app, A.id, (tx) =>
+    const count = await withTenant(app, T, (tx) =>
       tx.deliveryAttempt.count({ where: { outboxMessageId: row.id } }),
     );
     expect(count).toBe(0);
-    const before = await withTenant(app, A.id, (tx) => claimDueOutbox(tx, 50, new Date(until.getTime() - 1)));
+    const before = await withTenant(app, T, (tx) => claimDueOutbox(tx, 50, new Date(until.getTime() - 1)));
     expect(before.map((m) => m.id)).not.toContain(row.id);
   });
 });

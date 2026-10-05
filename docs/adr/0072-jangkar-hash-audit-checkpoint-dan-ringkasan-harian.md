@@ -56,6 +56,8 @@ checkpoint.
 - **Membaca bucket:** isi jangkar = **versi pertama** objek; daftar memakai *ListObjectVersions*. Pemegang
   kredensial bucket hanya bisa menambah versi baru (isi palsu, ketahuan dari HMAC) atau penanda hapus, dan keduanya
   tidak mengubah apa yang dibaca job.
+- **Klien S3:** `S3Client` bersama di `@simrs/shared/node` (SigV4, juga dipakai dokumen P08 dan backup ADR-0071),
+  dengan `listObjectVersions()` (versi + penanda hapus, berhalaman) dan `contentMd5()` untuk PutObject ber-retensi.
 
 ### 2. Verifikasi dari titik periksa (`GET /audit/verify`)
 

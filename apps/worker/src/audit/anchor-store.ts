@@ -2,16 +2,18 @@ import {
   type AuditAnchorDocument,
   auditAnchorObjectKey,
   auditAnchorObjectPrefix,
+  contentMd5,
   parseAuditAnchorDocument,
+  S3Client,
+  S3Error,
 } from '@simrs/shared/node';
-import { md5Base64, S3Error, S3Lite, xmlValues } from './s3-lite';
 
 /**
  * Penyimpanan WORM jangkar audit (ADR-0072). Satu objek per (tenant, seq), ditulis sekali:
  * - `If-None-Match: *` → objek yang sudah ada tidak pernah ditimpa oleh job (job yang diulang membaca yang ada);
  * - Object Lock mode COMPLIANCE + `retain-until` → versi objek tidak bisa dihapus/ditimpa siapa pun (termasuk root)
  *   sampai masa kunci habis. Bucket wajib dibuat dengan object lock aktif (versi otomatis aktif).
- * Antarmuka kecil agar bisa diganti driver S3 bersama (P08) tanpa mengubah job.
+ * Memakai klien S3 bersama `@simrs/shared/node` (SigV4, juga dipakai dokumen P08 dan backup).
  */
 export interface AuditAnchorStore {
   /** `created` = objek baru; `exists` = sudah ada (isi yang tersimpan dikembalikan apa adanya, bisa null bila rusak). */
@@ -35,7 +37,7 @@ const DAY_MS = 86_400_000;
 
 export class S3WormAnchorStore implements AuditAnchorStore {
   constructor(
-    private readonly s3: S3Lite,
+    private readonly s3: S3Client,
     private readonly cfg: S3AnchorStoreConfig,
     private readonly now: () => Date = () => new Date(),
   ) {}
@@ -53,7 +55,7 @@ export class S3WormAnchorStore implements AuditAnchorStore {
         headers: {
           'content-type': 'application/json',
           // Object Lock mewajibkan Content-MD5 (atau checksum) pada PUT dengan retensi.
-          'content-md5': md5Base64(body),
+          'content-md5': contentMd5(body),
           'if-none-match': '*',
           'x-amz-object-lock-mode': 'COMPLIANCE',
           'x-amz-object-lock-retain-until-date': retainUntil.toISOString(),
@@ -74,8 +76,7 @@ export class S3WormAnchorStore implements AuditAnchorStore {
    * `If-None-Match`, jadi versi pertama adalah tulisan job.
    */
   async get(key: string): Promise<AuditAnchorDocument | null> {
-    const versions = await this.versions(key, null, key);
-    const first = versions.at(-1);
+    const first = (await this.versions(key, null)).filter((v) => v.key === key).at(-1);
     if (!first) return null;
     const res = await this.s3.send({
       method: 'GET',
@@ -98,47 +99,18 @@ export class S3WormAnchorStore implements AuditAnchorStore {
   }
 
   /** Versi objek (bukan penanda hapus) berawalan `prefix`; per kunci terbaru dulu (urutan S3). */
-  private async versions(
-    prefix: string,
-    afterKey: string | null,
-    exactKey?: string,
-  ): Promise<Array<{ key: string; versionId: string }>> {
-    const out: Array<{ key: string; versionId: string }> = [];
-    let marker: { key: string; versionId: string } | null = null;
-    do {
-      const res = await this.s3.send({
-        method: 'GET',
-        bucket: this.cfg.bucket,
-        query: {
-          versions: '',
-          prefix,
-          'max-keys': '1000',
-          ...(marker
-            ? { 'key-marker': marker.key, 'version-id-marker': marker.versionId }
-            : afterKey
-              ? { 'key-marker': afterKey }
-              : {}),
-        },
-      });
-      const xml = res.body.toString('utf8');
-      for (const block of xml.match(/<Version>[\s\S]*?<\/Version>/g) ?? []) {
-        const key = xmlValues(block, 'Key')[0];
-        const versionId = xmlValues(block, 'VersionId')[0];
-        if (key && versionId && key.startsWith(prefix) && (!exactKey || key === exactKey)) {
-          out.push({ key, versionId });
-        }
-      }
-      const truncated = xmlValues(xml, 'IsTruncated')[0] === 'true';
-      const nextKey = xmlValues(xml, 'NextKeyMarker')[0];
-      const nextVersion = xmlValues(xml, 'NextVersionIdMarker')[0];
-      marker = truncated && nextKey ? { key: nextKey, versionId: nextVersion ?? '' } : null;
-    } while (marker);
-    return out;
+  private async versions(prefix: string, afterKey: string | null) {
+    const all = await this.s3.listObjectVersions(
+      this.cfg.bucket,
+      prefix,
+      afterKey ? { keyMarker: afterKey } : {},
+    );
+    return all.filter((v) => !v.deleteMarker && v.key.startsWith(prefix));
   }
 
   async assertWorm(): Promise<void> {
     const res = await this.s3.send({ method: 'GET', bucket: this.cfg.bucket, query: { 'object-lock': '' } });
-    if (xmlValues(res.body.toString('utf8'), 'ObjectLockEnabled')[0] !== 'Enabled') {
+    if (!/<ObjectLockEnabled>Enabled<\/ObjectLockEnabled>/.test(res.body.toString('utf8'))) {
       throw new Error('Bucket jangkar audit tanpa object lock (buat dengan mc mb --with-lock)');
     }
   }
@@ -156,7 +128,7 @@ export function createAuditAnchorStore(env: {
   S3_SECRET_KEY?: string;
 }): AuditAnchorStore | null {
   if (!env.AUDIT_ANCHOR_BUCKET || !env.S3_ENDPOINT || !env.S3_ACCESS_KEY || !env.S3_SECRET_KEY) return null;
-  const s3 = new S3Lite({
+  const s3 = new S3Client({
     endpoint: env.S3_ENDPOINT,
     region: env.S3_REGION,
     accessKeyId: env.S3_ACCESS_KEY,
