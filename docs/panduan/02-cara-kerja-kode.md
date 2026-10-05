@@ -174,7 +174,14 @@ Aturan pengaman di `IamService`:
 2. Pasang `@RequirePermission(sumber, aksi)` di endpoint, dengan tes `403` untuk peran yang tidak berhak (token sungguhan, bukan mode header).
 3. Database tes tidak perlu dibuat ulang: `prepareTestDatabase` menjalankan sinkron yang sama untuk tenant seed (RSFA, RSFB, PLATFORM), dan tenant uji baru (`createTestTenant`) langsung memakai matriks bawaan terbaru.
 4. Database pengembangan, lalu setiap lingkungan setelah deploy: `pnpm db:sync-permissions --dry-run`, periksa rencana per RS, lalu `pnpm db:sync-permissions`. API yang sedang berjalan memakai izin baru paling lambat `AUTHZ_CACHE_TTL_SECONDS`.
-5. Sinkron hanya membawa izin yang **baru di katalog**. Menambah izin lama ke bawaan peran lain tidak ikut disinkron; RS mengaturnya lewat layar Akses.
+5. Sinkron biasa hanya membawa izin yang **baru di katalog**. Perubahan matriks bawaan untuk izin yang sudah ada (izin lama ditambahkan ke peran lain, dicabut dari bawaan, atau lingkupnya berubah) dibawa dengan rekonsiliasi di bawah.
+
+**Rekonsiliasi matriks bawaan** (`pnpm db:sync-permissions --reconcile`, `reconcileRolePermissions`): sesudah sinkron biasa, peran **sistem** yang belum pernah diubah RS disamakan dengan matriks bawaan saat ini (izin baru, izin yang dicabut, lingkup yang berubah).
+
+- "Pernah diubah RS" = ada jejak audit `role_permissions` peran itu dengan selisih tidak kosong yang **bukan** tulisan sistem (`actor_role = 'system'`, yaitu sinkron dan rekonsiliasi). Peran seperti itu tidak disentuh; selisihnya dicetak per RS untuk ditinjau admin di layar Akses.
+- Peran buatan RS (`is_system = false`) dan izin `platform.*` di tenant RS tidak pernah disentuh.
+- Setiap peran yang disesuaikan diaudit `system` (`via: cli_reconcile`, perubahan lingkup = lingkup lama keluar + lingkup baru masuk), jadi peran itu tetap "belum diubah RS" pada rekonsiliasi berikutnya. Jalan ulang tanpa perubahan bawaan tidak menulis apa pun.
+- `--reconcile --dry-run` menjalankan langkah yang sama lalu membatalkan transaksinya: rencana yang dicetak sama persis dengan hasil sungguhan.
 
 Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **jangan dipakai untuk menguji izin**. Tes izin memakai token sungguhan: `createTestUser(TENANT_A, { roles: [{ code: 'perawat' }] })` lalu `login(app, user)`. Contoh lengkapnya di `apps/api/test/authz.test.ts`.
 
@@ -830,34 +837,35 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Helper di `@simrs/db`
 
-| Ekspor                                            | Guna                                                                                                     |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `createPrismaClient({ connectionString })`        | Klien Prisma 7 dengan driver adapter `pg`; sesi database selalu ber-zona UTC (ADR-0014).                 |
-| `withTenant(prisma, tenantId, fn)`                | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.             |
-| `allocateNumber(tx, tenantId, kind)`              | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal. |
-| `isModuleEnabled(tx, code)`                       | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                             |
-| `verifyAuditChain(tx)`                            | P04 · Periksa hash berantai audit tenant aktif.                                                          |
-| `ensureSystemRoles(tx, tenantId)`                 | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).    |
-| `roleGrantScope(tx, role, resource, action)`      | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                   |
-| `roleGrants(tx, role)`                            | P03 · Seluruh izin satu peran (`sumber.aksi` → lingkup) dalam satu kueri; dipakai cache matriks API.     |
-| `syncRolePermissions(tx, tenantId, kind, opts)`   | P03 · Tambah izin yang baru di katalog ke peran RS yang sudah ada (CLI `db:sync-permissions`; `dryRun`). |
-| `activeAssignments(tx, userId)`                   | P03 · Penugasan pengguna yang berlaku sekarang.                                                          |
-| `lockTenantScope(tx, scope)`                      | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".      |
-| `insertPatient(tx, crypto, record)`               | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.         |
-| `detectDuplicates(tx, crypto, patientId)`         | P05 · Hitung ulang kandidat rekam medis ganda satu pasien (ambil `lockMpi` sendiri).                     |
-| `lockMpi(tx)`                                     | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.            |
-| `searchConcepts` · `getConcept` · `listRegions`   | P06 · Baca data rujukan global (skema `ref`).                                                            |
-| `importConcepts` · `importRegions` · `csvRecords` | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                              |
-| `seedHospitalStructure(tx, tenantId)`             | Seed · Gedung, 15 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.             |
-| `reserveQuota` · `releaseQuota`                   | F01/F02 · Pesan/kembalikan satu tempat kuota sesi (UPDATE bersyarat atomik); null = penuh.               |
-| `allocateQueueNumber(tx, tenantId, layanan, tgl)` | F04 · Nomor antrean `PD-027` berikutnya per layanan per hari WIB (urutan P08, maks. 999).                |
-| `seedFrontOffice(prisma, tenantId)`               | Seed · Layanan antrean, praktisi, templat jadwal, penjamin, papan antrean; idempoten.                    |
-| `seedStaff(prisma, tenantId, { encKeyB64 })`      | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.     |
-| `enqueueOutbox(tx, tenantId, envelope)`           | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                             |
-| `claimDueOutbox(tx, limit, now)`                  | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                         |
-| `recordOutboxAttempt(tx, msg, result, opts)`      | Catat percobaan: `sent` / `failed` + jadwal ulang / `dead`; opsi `maxAttempts`, `capMs`, `deadline`.     |
-| `deferOutboxMessage(tx, msg, { until, reason })`  | Kembalikan pesan ke `pending` tanpa menambah percobaan (dipakai `defer`).                                |
-| `@simrs/db/testing` → `prepareTestDatabase()`     | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.    |
+| Ekspor                                               | Guna                                                                                                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createPrismaClient({ connectionString })`           | Klien Prisma 7 dengan driver adapter `pg`; sesi database selalu ber-zona UTC (ADR-0014).                                                    |
+| `withTenant(prisma, tenantId, fn)`                   | Transaksi + `SET LOCAL app.tenant_id`. Dipakai interceptor permintaan API, worker, dan seed.                                                |
+| `allocateNumber(tx, tenantId, kind)`                 | P08 · Nomor dokumen berikutnya (No. RM, kunjungan, invoice, jurnal); atomik, batal bila transaksi batal.                                    |
+| `isModuleEnabled(tx, code)`                          | P10 · Modul aktif untuk tenant (baris `tenant_modules` atau bawaan katalog).                                                                |
+| `verifyAuditChain(tx)`                               | P04 · Periksa hash berantai audit tenant aktif.                                                                                             |
+| `ensureSystemRoles(tx, tenantId)`                    | P03 · Buat 16 peran sistem + matriks bawaan bila belum ada (idempoten, tidak menimpa penyesuaian RS).                                       |
+| `roleGrantScope(tx, role, resource, action)`         | P03 · Lingkup izin peran untuk satu aksi, atau `null`.                                                                                      |
+| `roleGrants(tx, role)`                               | P03 · Seluruh izin satu peran (`sumber.aksi` → lingkup) dalam satu kueri; dipakai cache matriks API.                                        |
+| `syncRolePermissions(tx, tenantId, kind, opts)`      | P03 · Tambah izin yang baru di katalog ke peran RS yang sudah ada (CLI `db:sync-permissions`; `dryRun`).                                    |
+| `reconcileRolePermissions(tx, tenantId, kind, opts)` | P03 · Samakan peran sistem yang belum diubah RS dengan matriks bawaan; peran yang diubah RS hanya dilaporkan (CLI `--reconcile`; `dryRun`). |
+| `activeAssignments(tx, userId)`                      | P03 · Penugasan pengguna yang berlaku sekarang.                                                                                             |
+| `lockTenantScope(tx, scope)`                         | Kunci transaksi per tenant untuk aturan lintas baris (cegah write skew), mis. "minimal satu admin".                                         |
+| `insertPatient(tx, crypto, record)`                  | P05 · Rekam medis baru: nomor RM, nama ternormalisasi, kontak dan identifier terenkripsi + hash.                                            |
+| `detectDuplicates(tx, crypto, patientId)`            | P05 · Hitung ulang kandidat rekam medis ganda satu pasien (ambil `lockMpi` sendiri).                                                        |
+| `lockMpi(tx)`                                        | P05 · Kunci MPI per tenant; ambil sebelum mengunci baris pasien di alur yang menulis antrean.                                               |
+| `searchConcepts` · `getConcept` · `listRegions`      | P06 · Baca data rujukan global (skema `ref`).                                                                                               |
+| `importConcepts` · `importRegions` · `csvRecords`    | P06 · Impor gagal-tertutup dari CSV (dipakai CLI dan seed).                                                                                 |
+| `seedHospitalStructure(tx, tenantId)`                | Seed · Gedung, 15 unit, kamar, dan bed fiktif (`SEED_UNITS`, `SEED_ROOMS`); upsert per kode.                                                |
+| `reserveQuota` · `releaseQuota`                      | F01/F02 · Pesan/kembalikan satu tempat kuota sesi (UPDATE bersyarat atomik); null = penuh.                                                  |
+| `allocateQueueNumber(tx, tenantId, layanan, tgl)`    | F04 · Nomor antrean `PD-027` berikutnya per layanan per hari WIB (urutan P08, maks. 999).                                                   |
+| `seedFrontOffice(prisma, tenantId)`                  | Seed · Layanan antrean, praktisi, templat jadwal, penjamin, papan antrean; idempoten.                                                       |
+| `seedStaff(prisma, tenantId, { encKeyB64 })`         | Seed · Staf fiktif `SEED_STAFF` + penugasan, tanpa sandi/MFA; idempoten per NIP, transaksi per staf.                                        |
+| `enqueueOutbox(tx, tenantId, envelope)`              | Tulis pesan outbox di transaksi domain; idempoten per kunci.                                                                                |
+| `claimDueOutbox(tx, limit, now)`                     | Ambil pesan jatuh tempo + lease (`SKIP LOCKED`).                                                                                            |
+| `recordOutboxAttempt(tx, msg, result, opts)`         | Catat percobaan: `sent` / `failed` + jadwal ulang / `dead`; opsi `maxAttempts`, `capMs`, `deadline`.                                        |
+| `deferOutboxMessage(tx, msg, { until, reason })`     | Kembalikan pesan ke `pending` tanpa menambah percobaan (dipakai `defer`).                                                                   |
+| `@simrs/db/testing` → `prepareTestDatabase()`        | Persiapan tes **tidak destruktif**: `migrate deploy` + upsert tenant fiktif ke `simrs_test(_<nama>)`.                                       |
 
 ## Worker
 
