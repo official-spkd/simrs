@@ -119,7 +119,7 @@ export class MpiService {
     const userId = this.db.actorUserId();
     const scopeAll = this.db.permissionScope() === 'all';
     if (!scopeAll && !userId) throw new AppError('UNAUTHENTICATED', 'Belum login', 401);
-    const onlyFor = scopeAll ? null : userId;
+    const onlyFor = scopeAll ? null : this.access.scopedActor();
     const birthDate = q.birthDate ? toDbDate(q.birthDate) : undefined;
 
     let ids: string[];
