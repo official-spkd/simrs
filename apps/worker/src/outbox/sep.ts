@@ -7,7 +7,6 @@ import {
   type FrontOfficeOperation,
   isoDateJakarta,
   newId,
-  normalizePhone,
   outboxKey,
   parseDomainEvent,
   parseFrontOfficePayload,
@@ -29,7 +28,7 @@ import {
 import type { BpjsRequest } from '@simrs/shared/node';
 import { z } from 'zod';
 import { type BpjsRejection, defineBpjsOperation } from './bpjs-operation';
-import { BPJS_DLQ_CODE } from './booking';
+import { BPJS_DLQ_CODE, bpjsContactPhone } from './booking';
 import { type OperationContext, type OutboxOperation, PermanentOperationError } from './operation-types';
 
 /**
@@ -131,21 +130,16 @@ async function sendData(s: SepForSend, ctx: OperationContext) {
       )
     : null;
   if (!dpjp) throw new PermanentOperationError('Kode DPJP BPJS dokter belum dipetakan');
-  let phone: string | null = null;
-  if (s.encounter.patient.phoneEnc) {
-    try {
-      phone = normalizePhone(ctx.crypto.decryptContact(s.encounter.patient.phoneEnc));
-    } catch {
-      throw new PermanentOperationError('No. HP pasien tidak bisa dibaca');
-    }
-  }
+  // No. HP pasien, atau no. telepon RS (`bpjs.contact_phone`) bila kosong/tidak sah.
+  const phone = await bpjsContactPhone(ctx, s.encounter.patient.phoneEnc);
   return {
     kartu: ctx.crypto.decryptIdentifier(ident.valueEnc),
     ppk,
     poli: s.poliCode,
     diagnosis: s.diagnosisCode,
     dpjp: dpjp.value,
-    // VClaim wajib no. telepon 8–15 digit; bentuk lokal `08…`.
+    // VClaim wajib no. telepon 8–15 digit; bentuk lokal `08…`. Tanpa no. HP pasien dan tanpa no. telepon RS:
+    // `0000000000` (perilaku lama; cocokkan aturan VClaim resmi sebelum integrasi nyata).
     noTelp: phone ? `0${phone.slice(2)}` : '0000000000',
   };
 }

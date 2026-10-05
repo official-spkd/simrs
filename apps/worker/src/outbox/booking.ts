@@ -1,4 +1,4 @@
-import { hhmmFromDbTime, isoFromDbDate } from '@simrs/db';
+import { hhmmFromDbTime, isoFromDbDate, readTenantSetting } from '@simrs/db';
 import type { OutboxMessage, TenantTx } from '@simrs/db';
 import {
   ANTREAN_ENDPOINTS,
@@ -14,7 +14,7 @@ import {
   type WhatsappSendRequest,
 } from '@simrs/shared';
 import { defineBpjsOperation } from './bpjs-operation';
-import { type OutboxOperation, PermanentOperationError } from './operation-types';
+import { type OperationContext, type OutboxOperation, PermanentOperationError } from './operation-types';
 
 /**
  * F02 · Operasi outbox booking: tambah/batal Antrean BPJS dan pengingat WhatsApp H-1. Payload hanya `appointmentId`
@@ -36,6 +36,29 @@ const idOf = (msg: { payload: unknown }) => {
 
 function setStatus(tx: TenantTx, id: string, data: Record<string, unknown>) {
   return tx.appointment.update({ where: { id }, data, select: { id: true } });
+}
+
+/**
+ * No. telepon untuk BPJS (bentuk `62…`): no. HP pasien; bila kosong atau tidak sah, no. telepon RS dari pengaturan
+ * `bpjs.contact_phone` (keputusan utang fase 2: pasien JKN tanpa no. HP tidak lagi membuat tambah antrean DLQ).
+ * `null` bila keduanya tidak ada. No. HP yang tidak bisa didekripsi tetap galat permanen (data rusak, bukan kosong).
+ */
+export async function bpjsContactPhone(
+  ctx: OperationContext,
+  phoneEnc: string | null,
+): Promise<string | null> {
+  if (phoneEnc) {
+    let raw: string;
+    try {
+      raw = ctx.crypto.decryptContact(phoneEnc);
+    } catch {
+      throw new PermanentOperationError('No. HP pasien tidak bisa dibaca');
+    }
+    const own = normalizePhone(raw);
+    if (own) return own;
+  }
+  const rs = await ctx.read((tx) => readTenantSetting(tx, 'bpjs.contact_phone'));
+  return rs ? normalizePhone(rs) : null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -111,9 +134,12 @@ export const bpjsAntreanAdd: OutboxOperation = defineBpjsOperation({
     const kartuEnc = ident('bpjs');
     const nikEnc = ident('nik');
     if (!kartuEnc || !nikEnc) throw new PermanentOperationError('No. kartu BPJS atau NIK pasien tidak ada');
-    if (!a.patient.phoneEnc) throw new PermanentOperationError('No. HP pasien tidak ada');
-    const phone = normalizePhone(ctx.crypto.decryptContact(a.patient.phoneEnc));
-    if (!phone) throw new PermanentOperationError('No. HP pasien tidak valid');
+    const phone = await bpjsContactPhone(ctx, a.patient.phoneEnc);
+    if (!phone) {
+      throw new PermanentOperationError(
+        'No. HP pasien tidak ada/tidak sah dan no. telepon RS untuk BPJS (bpjs.contact_phone) belum diatur',
+      );
+    }
     const ticket = a.tickets.find((t) => t.serviceId === a.serviceId);
     if (!ticket) throw new PermanentOperationError('Nomor antrean poli booking tidak ada');
     const s = a.session;

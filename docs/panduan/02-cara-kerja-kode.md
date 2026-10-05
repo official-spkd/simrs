@@ -559,6 +559,10 @@ Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data di
   API mengirim `rejectionReason` = pesan baku dari `last_error_code` (`sepFailureMessage` → `bpjsStaffMessage` di
   `@simrs/shared`). Lookup yang ditolak (422 `BPJS_REJECTED`) hanya membawa `details.reason`; web menampilkan
   `bpjsStaffMessage(reason)`. Kode yang tidak dikenal → "Ditolak BPJS; periksa di VClaim".
+- **No. telepon ke BPJS** (`bpjsContactPhone` di `outbox/booking.ts`): no. HP pasien; bila kosong/tidak sah, no.
+  telepon RS dari pengaturan `bpjs.contact_phone` (`PUT /settings/bpjs.contact_phone`, format `0…`). Tambah antrean
+  (`nohp` wajib) tanpa keduanya → DLQ dengan alasan yang menyebut pengaturan itu; SEP (`noTelp`) tanpa keduanya tetap
+  `0000000000`.
 
 Task ID untuk kunjungan ini (mesin `BpjsTaskEngine`, worker `bpjs-antrean.ts`): walk-in tanpa panggilan tiket loket
 mendapat task 1 (check-in) lalu task 2 dan 3 pada saat didaftarkan, karena Antrean BPJS menolak lompatan 1 → 3. Selama
