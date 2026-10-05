@@ -1,6 +1,6 @@
 # ADR-0008 · Konteks tenant wajib di DB dan worker lintas tenant tanpa BYPASSRLS
 
-Status: diterima · 3 Okt 2026
+Status: diterima · 3 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 
@@ -23,3 +23,17 @@ ADR-0002 menetapkan RLS dengan `current_setting('app.tenant_id')`. Dua hal belum
 + Lupa konteks tenant = galat keras di tes dan runtime, bukan kebocoran atau data hilang diam-diam.
 + Tidak ada role aplikasi dengan `BYPASSRLS`.
 − Setiap fungsi `SECURITY DEFINER` baru wajib ditinjau keamanan dan dicatat di ADR. Fungsinya harus mengembalikan data seminimal mungkin.
+
+## Pembaruan 5 Okt 2026 · daftar fungsi SECURITY DEFINER
+
+Aturan di atas ("setiap fungsi `SECURITY DEFINER` baru ditinjau dan dicatat di ADR") ditinjau ulang 5 Okt 2026. Semua fungsi memakai `SET search_path = public, pg_temp`; fungsi yang menembus RLS hanya mengembalikan data minimum.
+
+| Fungsi | Migrasi | ADR | Hak `EXECUTE` | Yang dikembalikan / ditulis |
+| --- | --- | --- | --- | --- |
+| `app_active_tenant_ids()` | `20261003000000_fondasi` | 0008 | `simrs_app` (worker) | ID tenant aktif |
+| `app_resolve_tenant_by_code(text)`, `app_resolve_tenant_by_host(text)` | `20261004020000_iam` | 0011 | `simrs_app` (login) | ID + jenis tenant |
+| `app_sync_patient_name()` (trigger), `app_search_patient_names(text)` | `20261005090000_patient_name_search_index` | 0015 | trigger; `simrs_app` | indeks nama tenant aktif; ID pasien |
+| `app_record_backup_run(…)`, `app_record_restore_test(…)` | `20261005110000_backup_runs` | 0071 | hanya `simrs_backup` | satu baris catatan di tenant PLATFORM |
+| `app_backup_status()` | `20261005110000_backup_runs` | 0071 | `simrs_app` | waktu + status per lokasi, jumlah gagal 24 jam, uji restore (tanpa lokasi, kunci, ukuran, galat) |
+
+`app_verify_audit_chain_from` (ADR-0072) sengaja **bukan** `SECURITY DEFINER`: verifikasi rantai berjalan di bawah RLS tenant pemanggil. Fungsi pencatat cadangan menyetel `app.tenant_id` lokal-transaksi ke tenant PLATFORM lalu mengembalikan konteks pemanggil; `simrs_backup` (BYPASSRLS) hanya dipakai alat cadangan di luar runtime aplikasi.
