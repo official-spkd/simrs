@@ -3,7 +3,7 @@
 import type { PoliVital } from '@simrs/shared';
 import { Alert, Button, Field } from '@simrs/ui';
 import { type ChangeEvent, useState, useTransition } from 'react';
-import { recordVitalsAction } from '@/app/(staf)/klinis/poli/actions';
+import { recordVitalsAction } from '@/app/(staf)/klinis/poli/actions-demo';
 import { bloodPressureFlag, parseBloodPressure } from '@/lib/klinis';
 
 type FormKey = 'td' | 'nadi' | 'suhu' | 'spo2';

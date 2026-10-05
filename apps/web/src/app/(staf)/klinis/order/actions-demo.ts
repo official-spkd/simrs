@@ -6,7 +6,7 @@ import { patientByEncounterId } from '@/lib/demo/fixtures/pasien';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { canWriteOrders } from '@/lib/klinis';
 import { evaluateOrders, type OrderLine, SCENARIO_ORDER_NOTE } from '@/lib/klinis-cds';
-import { getCpoeContext } from '@/lib/server/data/klinis';
+import { getCpoeContext } from '@/lib/server/data/klinis/cpoe';
 import { assertDemo } from '@/lib/server/demo-guard';
 import { getSession } from '@/lib/server/session';
 import { nextLoginStep } from '@/lib/session-view';

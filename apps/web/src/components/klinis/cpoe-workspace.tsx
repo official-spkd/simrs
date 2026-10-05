@@ -2,7 +2,7 @@
 
 import type { CpoeContext, CpoeOrderKind } from '@simrs/shared';
 import { useState, useTransition } from 'react';
-import { sendOrdersAction } from '@/app/(staf)/klinis/order/actions';
+import { sendOrdersAction } from '@/app/(staf)/klinis/order/actions-demo';
 import {
   type CdsFix,
   cdsFixes,
