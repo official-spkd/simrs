@@ -361,6 +361,20 @@ describe('RS dan isolasi', () => {
     );
     const res = await http().get(`/api/v1/public/${off.code}/schedules`).expect(404);
     expect(res.body.code).toBe('NOT_FOUND');
+    // RS yang ada tetapi F08 mati = RS yang tidak ada: jawaban (tanpa requestId) persis sama di semua endpoint.
+    const answer = async (code: string, path: string) => {
+      const r =
+        path === 'bookings/status'
+          ? await http()
+              .post(`/api/v1/public/${code}/${path}`)
+              .send({ bookingCode: x.bookingCode, birthDate: BIRTH })
+          : await http().get(`/api/v1/public/${code}/${path}`);
+      const { requestId: _r, ...rest } = r.body as { requestId: string };
+      return [r.status, rest];
+    };
+    for (const path of ['schedules', 'queues', 'queues/PD', 'bookings/status']) {
+      expect(await answer(off.code, path)).toEqual(await answer('TIDAKADA9', path));
+    }
   });
 
   it('jadwal dan antrean RS lain tidak terlihat', async () => {

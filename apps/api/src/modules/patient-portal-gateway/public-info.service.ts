@@ -47,7 +47,13 @@ export interface PublicRequestMeta {
   requestId: string | null;
 }
 
-/** RS tidak dikenal, tidak aktif, atau modul F08 dimatikan: jawaban sama (tidak membocorkan daftar RS). */
+/** Tenant pengganti untuk jalur RS tidak dikenal (UUID nol; tidak pernah dipakai tenant nyata). */
+const NO_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * RS tidak dikenal, tidak aktif, atau modul F08 dimatikan: jawaban sama (kode, pesan, header) dan kerja database yang
+ * sama, sehingga daftar RS yang tidak membuka F08 tidak bocor. RS dengan F08 aktif memang publik (jadwalnya terbuka).
+ */
 const unknownTenant = () => new AppError('NOT_FOUND', 'Rumah sakit tidak ditemukan', 404);
 
 const sameText = (a: string, b: string): boolean => {
@@ -76,7 +82,12 @@ export class PublicInfoService {
     const code = tenantCode.toUpperCase();
     if (!TENANT_CODE.test(code)) throw unknownTenant();
     const tenantId = await resolveTenantByCode(this.prisma.client, code);
-    if (!tenantId) throw unknownTenant();
+    if (!tenantId) {
+      // Kerja yang sama dengan RS yang ada tetapi F08 mati (transaksi bertenant + baca modul), agar waktu jawab tidak
+      // membedakan keduanya. RLS dengan tenant kosong tidak mengembalikan baris apa pun.
+      await this.prisma.forTenant(NO_TENANT_ID, (tx) => isModuleEnabled(tx, 'F08'));
+      throw unknownTenant();
+    }
     return this.prisma.forTenant(tenantId, async (tx) => {
       if (!(await isModuleEnabled(tx, 'F08'))) throw unknownTenant();
       return fn(tx, tenantId);
