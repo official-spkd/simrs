@@ -1,9 +1,15 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { ConsentController, EncounterConsentController } from './consent.controller';
+import { ConsentService } from './consent.service';
 
 /**
- * K11 · Persetujuan/penolakan tindakan tablet + TTE.
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.7 tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K11 · Persetujuan/penolakan tindakan tablet + TTE (potongan 3.7). Didaftarkan sekali di `AppModule` (potongan 3.1).
+ * TTE lewat `ClinicalSigningService` (infra klinis global); edukasi pasien lewat formulir P07 dengan `encounterId`.
  */
-@Module({})
+@Module({
+  imports: [AuthzModule],
+  controllers: [ConsentController, EncounterConsentController],
+  providers: [ConsentService],
+})
 export class ConsentModule {}

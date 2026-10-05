@@ -546,6 +546,28 @@ tindakan) dan SATUSEHAT `held` (ServiceRequest, MedicationRequest), event `order
 alergi terkode, obat aktif, diagnosis ICD-10 aktif sebagai flag `icd10-*`, eGFR LOINC terakhir, order 30 hari,
 penjamin, singkatan terlarang RS.
 
+### Persetujuan tindakan tablet + edukasi (K11, fase 3 potongan 3.7)
+
+Modul `consent`, kontrak `schemas/consent.ts`. Tablet memakai sesi staf (keputusan fase 3 no. 20). Persetujuan
+dicatat saat FINAL; pengisian sebelum itu memakai draf klinis (`/drafts/:encounterId/consent…`).
+
+| Endpoint `/api/v1/…`                  | Izin                    | Isi                                                                                                                           |
+| ------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GET consents/templates`              | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`)      |
+| `POST encounters/:id/consent-witness` | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri; disimpan sebagai draf klinis `consent_witness`, berlaku 30 menit, sekali pakai |
+| `POST consents`                       | `consent.sign` (dokter) | Persetujuan/penolakan final: isian templat (7 butir), tanda tangan pasien/wali (+ saksi keluarga), saksi petugas → PDF + TTE  |
+| `POST consents/:id/revoke`            | `consent.sign`          | Pencabutan = addendum `dicabut` (versi ber-TTE tidak bisa digantikan), juga PDF + TTE                                         |
+| `GET encounters/:id/consents`         | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada addendum pencabutan           |
+
+- Tanda tangan `goresan` = PNG yang diunggah lewat unggahan biner P08 (ADR-0020, `documents.write`, milik pasien yang
+  sama); `nama` = ketik nama. Gambar tidak ditanam di PDF; PDF mencantumkan nama + cara tanda tangan, berkas PNG tetap
+  di dokumen pasien.
+- Saksi petugas harus orang lain dari dokter yang memfinalkan dan beratestasi untuk kunjungan + tindakan yang sama.
+- PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, `source` = versi itu,
+  TTE dokter pemberi penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (setuju/tolak).
+- Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
+  `GET encounters/:id/assessments`.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin
