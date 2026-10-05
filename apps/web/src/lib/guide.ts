@@ -31,6 +31,12 @@ export const GUIDE_PAGES = [
     title: 'Tutorial',
     summary: 'Menyiapkan mesin, menjalankan layanan, membuat modul API, layar web, endpoint mock, dan tes.',
   },
+  {
+    slug: 'rotasi-kunci',
+    file: '04-rotasi-kunci.md',
+    title: 'Rotasi kunci enkripsi kolom',
+    summary: 'Runbook operator: cincin kunci v2, job enkripsi ulang bertahap, verifikasi, PIN, dan rollback.',
+  },
 ] as const satisfies readonly GuidePage[];
 
 export type GuideSlug = (typeof GUIDE_PAGES)[number]['slug'];

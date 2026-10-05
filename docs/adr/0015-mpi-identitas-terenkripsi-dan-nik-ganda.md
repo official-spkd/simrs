@@ -1,6 +1,6 @@
 # ADR-0015 · MPI: identitas terenkripsi, kebijakan NIK ganda, dan audit akses pasien
 
-Status: diterima · 4 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
 
 ## Konteks
 docs/04 §1 mewajibkan NIK, no. peserta BPJS, no. HP, dan alamat dienkripsi di aplikasi (AES-256-GCM, kunci per tenant) dengan kolom hash untuk pencarian sama-persis. docs/05 §3 mewajibkan NIK tampil tersamar kecuali lewat endpoint khusus yang diaudit, dan setiap baca/ubah data pasien diaudit. Mockup MPI menunjukkan pasangan rekam medis ganda dengan NIK yang sama (data lama), jadi database tidak bisa memaksakan NIK unik. Dokumen tidak mengatur: bentuk penyimpanan identifier, cara mencegah duplikat baru, apa yang dicatat untuk hasil pencarian, dan bagaimana penolakan ABAC tetap tercatat padahal transaksi permintaan dibatalkan.
@@ -44,3 +44,28 @@ Yang dilakukan operator bila migrasi melaporkan FK belum divalidasi:
 1. Cek: `SELECT conname, convalidated FROM pg_constraint WHERE conname LIKE '%_tenant_id_patient_id_fkey';`
 2. Database tes lama (`simrs_test` atau `simrs_test_<nama>`): `pnpm db:test:recreate -- --yes` (hanya database di `TEST_DATABASE_URL`), atau biarkan; FK tetap memeriksa baris baru.
 3. Database lain: baris relasi dan akses darurat adalah jejak akses, jadi jangan dihapus diam-diam. Tinjau bersama petugas privasi, bereskan, lalu jalankan sebagai migrator atau superuser: `SELECT * FROM app_validate_patient_fks();` (hasil per FK: jumlah baris yatim dan status validasi).
+
+### Rotasi kunci kolom v2 dan enkripsi ulang bertahap (fase 10, potongan 10.9b; utang P05)
+
+**Konteks.** Konsekuensi di atas mencatat "rotasi kunci butuh enkripsi ulang". Rencana fase 10 (keputusan 12) mewajibkan rotasi v2 sebelum pilot. Kunci yang sama juga dipakai di luar MPI: no. HP staf, rahasia MFA, kode cadangan login (ADR-0022), kontak keluarga pasien (F03), snapshot penggabungan (ADR-0016), dan lada PIN (ADR-0024, yang mencatat "rotasi `FIELD_HASH_KEY` membatalkan semua PIN"). Nomor ADR-0070–0075 sudah dipesan rencana fase 10, jadi keputusan ini dicatat di sini.
+
+**Keputusan.**
+
+1. **Cincin kunci.** `FIELD_ENCRYPTION_KEYS` dan `FIELD_HASH_KEYS` = `v2:<base64>,v1:<base64>`; kunci pertama aktif, sisanya hanya baca. `FIELD_ENCRYPTION_KEY`/`FIELD_HASH_KEY` tetap didukung sebagai kunci `v1` (bila cincin juga memuat v1, nilainya wajib sama). Kombinasi divalidasi saat start (API, worker, CLI, seed); galat berawalan `Konfigurasi env tidak valid` tanpa nilai kunci. Kunci enkripsi dan hash wajib berbeda; satu kunci tidak boleh dipakai di dua ID.
+2. **Format berversi.** Ciphertext `<ID>.<iv>.<ct>.<tag>`: dekripsi memilih kunci dari awalan, enkripsi selalu kunci aktif. ID yang tidak ada di cincin, kunci salah, atau format asing → `FieldKeyError` (kode + ID kunci, tanpa nilai). Blind index kunci v1 tetap 64 hex (data lama tidak berubah), kunci lain `<ID>:<64 hex>`; `v1:` tidak pernah ditulis. CHECK database menerima ID kunci apa pun (`app_field_key_id`, `app_blind_index_key_id`).
+3. **Pencarian selama rotasi = semua kunci, tanpa kolom ganda.** Cari NIK/BPJS/IHS/paspor, cek NIK ganda (termasuk advisory lock per hash, urut tetap), "nilai identifier sama", deteksi rekam medis ganda (pra-saring dengan hash pasien ini untuk semua kunci; skor dengan hash yang dihitung ulang ke kunci aktif), dan banding/batal gabung (isi didekripsi bila versi kunci berbeda) memakai semua kunci di cincin. Dipilih ketimbang menulis dua kolom hash: tanpa migrasi data, dan jumlah kunci di cincin kecil. Rilis dua tahap (kunci baru dipasang sebagai kunci baca dulu, baru dijadikan aktif) mencegah instans lama gagal membaca data baru.
+4. **Job enkripsi ulang** (`rotateTenantKeys`, CLI `pnpm db:rotate-keys --dry-run|--run`, worker `FIELD_KEY_ROTATION=auto`): per tenant di dalam `withTenant`, batch pendek (`lock_timeout` 5 detik) dengan jeda, kursor per tenant × tabel di `field_key_rotations` (bisa dilanjutkan; pelari bersamaan bergiliran lewat kunci baris status), compare-and-swap per baris, idempoten. Pemeriksaan awal gagal-tertutup: setiap versi kunci yang ada di data harus ada di cincin, contoh baris per versi harus bisa didekripsi dan blind index-nya cocok; bila tidak, tenant itu tidak ditulis sama sekali. Satu entri audit per tenant (jumlah, tanpa nilai). Tabel: `users`, `mfa_factors`, `login_challenges`, `patients`, `patient_identifiers`, `patient_links` (termasuk ciphertext/hash bersarang di snapshot), `patient_contacts`.
+5. **Kolom yang tidak boleh diubah aplikasi tetap begitu.** Nilai identifier, snapshot penggabungan, dan kontak pasien (append-only) ditulis ulang lewat fungsi `SECURITY DEFINER` sempit (`app_rekey_patient_identifier`, `app_rekey_patient_link`, `app_rekey_patient_contact`): hanya bila versi kunci berganti (identifier/kontak), compare-and-swap, tunduk RLS (FORCE berlaku bagi pemilik fungsi). Hak kolom `simrs_app` tidak bertambah; penjaga `patient_contacts` tetap menolak DELETE dan setiap UPDATE lain, juga bagi pemilik tabel.
+6. **Semua tenant, juga nonaktif.** Job memakai `app_key_rotation_tenant_ids()` (hanya ID, pola ADR-0008), bukan `app_active_tenant_ids()`: data RS yang dinonaktifkan tetap wajib terbaca (retensi rekam medis) setelah kunci lama dipensiunkan.
+7. **PIN: lada berversi, bukan kunci terpisah.** Setiap PIN mencatat ID kunci hash yang menjadi ladanya (`registered_devices.pin_key_id`, baris lama = v1, tidak bisa diubah). PIN diperiksa dengan kunci itu selama masih ada di cincin, sehingga rotasi tidak memutus PIN. PIN tidak bisa dilada ulang (PIN tidak diketahui sistem): operator memilih menunggu ≤ 30 hari (masa berlaku PIN) sebelum memensiunkan kunci hash lama, atau mencabut segera (`--revoke-old-pins`, alasan `key_rotated`, sesi PIN ikut berakhir, diaudit). PIN yang kuncinya sudah tidak ada dicabut `key_rotated` saat dipakai (audit `login_failed` alasan `pin_key_retired`). `PIN_PEPPER_KEY` terpisah tidak dipilih: satu rahasia lagi yang harus dikelola, tanpa manfaat tambahan karena lada tetap perlu bisa dirotasi.
+8. **Kode cadangan login, perangkat tepercaya, sesi.** Kode cadangan (`otp_enc`) ikut dienkripsi ulang dan tetap terbaca selama kunci lama di cincin (umurnya 5 menit). Token sesi, perangkat tepercaya, dan perangkat PIN memakai SHA-256 tanpa kunci: tidak terpengaruh.
+
+**Konsekuensi.**
+
++ Rotasi tanpa henti layanan; data lama terbaca dan tercari di setiap tahap; job bisa dihentikan dan dilanjutkan; kunci salah/hilang terdeteksi sebelum ada yang ditulis. Runbook: `docs/panduan/04-rotasi-kunci.md`.
+− Selama cincin memuat N kunci, setiap pencarian sama-persis menghitung N hash dan mencocokkan N nilai (N kecil, indeks tetap terpakai).
+− Instans yang belum menerima kunci baru tidak bisa membaca data baru: rilis wajib dua tahap (kunci baca dulu, baru aktif).
+− Fungsi tulis ulang tidak bisa memastikan plaintext tidak berubah (database tidak memegang kunci); yang dijamin hanya: versi kunci berganti, nilai lama persis sama (CAS), dan RLS. Aplikasi yang disusupi tetap bisa menulis identifier baru lewat jalur biasa, jadi permukaan serangan tidak bertambah berarti.
+− Backup yang dibuat sebelum rotasi berisi data berkunci lama: kunci lama disimpan di brankas selama backup itu masih disimpan (ADR-0071).
+− Server edge (ADR-0070) harus menerima cincin yang sama sebelum tahap B.
+

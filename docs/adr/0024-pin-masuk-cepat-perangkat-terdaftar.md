@@ -1,6 +1,6 @@
 # ADR-0024 · PIN masuk cepat per perangkat terdaftar
 
-Status: diterima · 5 Okt 2026 · Komponen: P02
+Status: diterima · 5 Okt 2026 · diperbarui 5 Okt 2026 · Komponen: P02
 
 ## Konteks
 docs/05 §1 meminta "login cepat (PIN 6 digit) hanya di perangkat terdaftar dalam unit, sesi pendek"; katalog P02 menyebut login cepat di unit sibuk. Perawat dan dokter bergantian memakai komputer nurse station: sandi panjang + kode TOTP setiap kali terlalu lambat, tetapi PIN 6 digit hanya punya sejuta kemungkinan dan tidak boleh menjadi jalan pintas di sekitar MFA (ADR-0011) atau perangkat tepercaya (ADR-0022). docs dan mockup Login tidak mengatur siapa yang mendaftarkan perangkat, panjang umur PIN, batas percobaan, jumlah perangkat, atau sesi; mockup juga belum punya tampilan PIN. Draf lama (`wip/pin-masuk-cepat-10c-2`) memakai perangkat unit yang didaftarkan admin + satu PIN per akun untuk semua perangkat. Rencana fase 2 (prinsipal perangkat anjungan/TV, ADR-0027 kelak) ingin memakai ulang tabel perangkat.
@@ -23,3 +23,8 @@ docs/05 §1 meminta "login cepat (PIN 6 digit) hanya di perangkat terdaftar dala
 − Siapa pun yang memegang profil peramban (cookie bisa disalin lewat alat pengembang bila komputer dibiarkan terbuka) dan tahu PIN bisa masuk sebagai pemiliknya: dimitigasi 5 percobaan, sesi pendek, peran terbatas, dan pencabutan dari mana pun. Label "hanya komputer milik RS" belum ditegakkan teknis (sama dengan ADR-0022); pendaftaran perangkat oleh admin bisa ditambahkan bersama prinsipal perangkat (ADR-0027).
 − Akun yang terlupakan dari cookie (lebih dari 8 akun di satu peramban) tetap tercantum aktif sampai kedaluwarsa atau dihapus pemiliknya.
 − Skema dibuat dalam dua migrasi (`20261005093000_pin_devices` lalu `20261005100000_registered_devices` yang mengganti nama), karena migrasi pertama sudah diterapkan ke database tes saat permintaan tabel umum datang.
+
+## Pembaruan 5 Okt 2026 · lada PIN berversi (rotasi kunci)
+
+Butir 3 ("rotasi `FIELD_HASH_KEY` membatalkan semua PIN") diganti: setiap PIN mencatat ID kunci hash ladanya (`pin_key_id`) dan diperiksa dengan kunci itu selama masih ada di cincin `FIELD_HASH_KEYS`. PIN yang kuncinya dipensiunkan dicabut dengan alasan `key_rotated` (saat dipakai, atau serentak lewat `pnpm db:rotate-keys --run --revoke-old-pins`), tercatat di audit. Rincian: ADR-0015, pembaruan 5 Okt 2026 butir 7.
+
