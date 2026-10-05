@@ -17,7 +17,7 @@ packages/
   config/     tsconfig, ESLint, Prettier bersama
 docs/         dokumen proyek, ADR, PROGRESS, panduan ini (docs/panduan)
 design/       token + mockup acuan (read-only)
-infra/        skrip SQL init Postgres
+infra/        skrip SQL init Postgres; backup/ = @simrs/backup (backup terenkripsi + uji restore, ADR-0071)
 scripts/      doctor.mjs (cek prasyarat), pg-portable.mjs (Postgres tanpa Docker)
 ```
 

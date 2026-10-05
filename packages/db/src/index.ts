@@ -59,6 +59,7 @@ export {
   wibDayRange,
 } from './audit-anomaly';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
+export { readBackupStatus } from './backup';
 export {
   activeAssignments,
   ensureSystemRoles,

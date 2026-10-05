@@ -576,6 +576,14 @@ Aturan:
 - Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
+### Backup dan uji restore
+
+Backup terenkripsi tiga lokasi (`pnpm backup:jalankan`), uji restore di kontainer bersih (`pnpm backup:uji-restore`),
+dan pemulihan bencana (`pnpm backup:dekripsi`) dijelaskan di [Backup dan restore](./04-backup-restore.md). Untuk
+mencobanya di salinan repo: peran `simrs_backup` (§2 halaman itu), `BACKUP_DATABASE_URL` ke database tes salinan
+itu, kunci uji dari `pnpm backup:kunci-baru --keluar <folder di luar repo>`, dan `BACKUP_PREFIX` + bucket offsite
+sendiri agar tidak bercampur dengan salinan lain.
+
 ## 8. Pemecahan masalah
 
 | Gejala                                                       | Penyebab dan solusi                                                                                                                                                                   |
