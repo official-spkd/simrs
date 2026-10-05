@@ -55,14 +55,11 @@ export class OutboxDispatcher implements OnModuleDestroy {
     return {
       tenantId,
       read: (fn) => withTenant(this.prisma, tenantId, fn),
-      crypto: new PatientCrypto(
-        { encKeyB64: this.env.FIELD_ENCRYPTION_KEY, hashKeyB64: this.env.FIELD_HASH_KEY },
-        tenantId,
-      ),
+      crypto: new PatientCrypto(this.env.fieldKeys, tenantId),
       decryptStaffPhone: (stored) =>
-        decryptField(stored, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'staff_phone' }),
+        decryptField(stored, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'staff_phone' }),
       decryptLoginOtp: (stored) =>
-        decryptField(stored, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' }),
+        decryptField(stored, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'login_otp' }),
       webBaseUrl: this.env.WEB_BASE_URL,
     };
   }

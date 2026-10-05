@@ -47,7 +47,7 @@ export class IamService {
   /** No. HP staf terenkripsi per tenant (`staff_phone`); layar hanya menerima bentuk tersamar. */
   private encryptPhone(phone: string): string {
     return encryptField(phone, {
-      keyB64: this.env.FIELD_ENCRYPTION_KEY,
+      ring: this.env.fieldKeys.enc,
       tenantId: this.db.tenantId(),
       purpose: 'staff_phone',
     });
@@ -58,7 +58,7 @@ export class IamService {
     try {
       return maskPhone(
         decryptField(phoneEnc, {
-          keyB64: this.env.FIELD_ENCRYPTION_KEY,
+          ring: this.env.fieldKeys.enc,
           tenantId: this.db.tenantId(),
           purpose: 'staff_phone',
         }),

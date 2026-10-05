@@ -96,6 +96,8 @@ export const RESOURCE_LABEL: Record<string, string> = {
   privacy_consent: 'Persetujuan privasi',
   form_definition: 'Definisi formulir',
   form_response: 'Isian formulir',
+  registered_device: 'Perangkat terdaftar (PIN)',
+  field_key_rotation: 'Rotasi kunci enkripsi',
   'iam.users': 'Kelola pengguna',
   'iam.roles': 'Kelola peran',
   audit: 'Jejak audit',

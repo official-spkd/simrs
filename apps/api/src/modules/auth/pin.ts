@@ -1,21 +1,25 @@
 import { pinAllowedForRole } from '@simrs/shared';
-import { blindIndex } from '@simrs/shared/node';
+import { blindIndex, type KeyRing } from '@simrs/shared/node';
 
 /**
  * PIN 6 digit hanya punya sejuta kemungkinan, jadi argon2id saja tidak cukup bila hash bocor. PIN dilada dulu
- * dengan HMAC (FIELD_HASH_KEY, per tenant) atas ID perangkat + akun, sehingga hash di database tidak bisa ditebak
+ * dengan HMAC (kunci hash kolom, per tenant) atas ID perangkat + akun, sehingga hash di database tidak bisa ditebak
  * tanpa kunci dan tidak bisa dipindah ke perangkat/akun/tenant lain.
+ *
+ * `keyId` = kunci lada yang tercatat di perangkat (`pin_key_id`); bawaan kunci aktif cincin (saat mendaftar). String
+ * = satu kunci format lama (`v1`, tes). Kunci yang sudah dipensiunkan → `FieldKeyError` (PIN dicabut `key_rotated`).
  */
 export function pinSecret(
-  hashKeyB64: string,
+  hashKeys: KeyRing | string,
   ids: { tenantId: string; deviceId: string; userId: string },
   pin: string,
+  keyId?: string,
 ): string {
-  return blindIndex(`${ids.deviceId}|${ids.userId}|${pin}`, {
-    hashKeyB64,
-    tenantId: ids.tenantId,
-    purpose: 'login_pin',
-  });
+  const value = `${ids.deviceId}|${ids.userId}|${pin}`;
+  const ctx = { tenantId: ids.tenantId, purpose: 'login_pin' as const };
+  return typeof hashKeys === 'string'
+    ? blindIndex(value, { ...ctx, hashKeyB64: hashKeys })
+    : blindIndex(value, { ...ctx, ring: hashKeys, keyId });
 }
 
 /** Keadaan akun + posisi yang menentukan apakah PIN boleh dipakai saat ini. */

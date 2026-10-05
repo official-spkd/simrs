@@ -70,3 +70,4 @@ export {
   type PresentationCredential,
   upsertPresentationAccounts,
 } from './presentation';
+export { rekeySurvivorSnapshot, type SurvivorSnapshot } from './patient-snapshot';

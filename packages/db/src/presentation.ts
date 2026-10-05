@@ -1,6 +1,7 @@
 import { newId, SYSTEM_ROLES, type SystemRoleCode } from '@simrs/shared';
 import {
   encryptField,
+  type KeyRing,
   generateTemporaryPassword,
   generateTotpSecret,
   hashPassword,
@@ -31,7 +32,7 @@ export interface PresentationCredential {
 export async function upsertPresentationAccounts(
   prisma: PrismaClient,
   tenantId: string,
-  opts: { encKeyB64: string; personas?: typeof PRESENTATION_PERSONAS },
+  opts: ({ encKeyB64: string } | { encRing: KeyRing }) & { personas?: typeof PRESENTATION_PERSONAS },
 ): Promise<PresentationCredential[]> {
   const personas = opts.personas ?? PRESENTATION_PERSONAS;
   // argon2id lambat: hitung di luar transaksi.
@@ -82,7 +83,11 @@ export async function upsertPresentationAccounts(
             id: newId(),
             tenantId,
             userId,
-            secretEnc: encryptField(totpSecret, { keyB64: opts.encKeyB64, tenantId, purpose: 'mfa_secret' }),
+            secretEnc: encryptField(totpSecret, {
+              ...('encRing' in opts ? { ring: opts.encRing } : { keyB64: opts.encKeyB64 }),
+              tenantId,
+              purpose: 'mfa_secret',
+            }),
             confirmedAt: now,
           },
         });

@@ -1,5 +1,6 @@
 import { isIP } from 'node:net';
 import { devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
+import { type FieldKeys, loadFieldKeys } from '@simrs/shared/node';
 import { z } from 'zod';
 
 const TRUST_PROXY_NAMES = new Set(['loopback', 'linklocal', 'uniquelocal']);
@@ -78,7 +79,12 @@ export const apiEnvSchema = envSchemas.base
       }),
   });
 
-export type ApiEnv = z.infer<typeof apiEnvSchema> & { devTools: boolean; devTenantHeader: boolean };
+export type ApiEnv = z.infer<typeof apiEnvSchema> & {
+  devTools: boolean;
+  devTenantHeader: boolean;
+  /** Cincin kunci enkripsi kolom + blind index (ADR-0015, pembaruan 5 Okt 2026). */
+  fieldKeys: FieldKeys;
+};
 
 export function loadApiEnv(source: Record<string, string | undefined> = process.env): ApiEnv {
   const env = parseEnv(apiEnvSchema, source);
@@ -95,9 +101,11 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
   if (env.STORAGE_DRIVER === 's3') {
     throw new Error('Konfigurasi env tidak valid → STORAGE_DRIVER=s3 belum tersedia (ADR-0020); pakai disk');
   }
+  const fieldKeys = loadFieldKeys(env);
   const devTools = devToolsAllowed(env);
   return {
     ...env,
+    fieldKeys,
     devTools,
     devTenantHeader: devTools && env.APP_ENV === 'local' && env.ALLOW_DEV_TENANT_HEADER,
   };

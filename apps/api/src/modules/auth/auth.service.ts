@@ -216,13 +216,13 @@ export class AuthService {
       }
       // Kode cadangan (WhatsApp/email) bila pernah dikirim untuk tantangan ini; selain itu TOTP aplikasi.
       const otp = ch.otpEnc
-        ? decryptField(ch.otpEnc, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' })
+        ? decryptField(ch.otpEnc, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'login_otp' })
         : null;
       const viaBackup = otp !== null && codeMatches(otp, input.code);
       const factor = viaBackup ? null : await this.repo.findActiveFactor(tx, ch.userId, true);
       const secret = factor
         ? decryptField(factor.secretEnc, {
-            keyB64: this.env.FIELD_ENCRYPTION_KEY,
+            ring: this.env.fieldKeys.enc,
             tenantId,
             purpose: 'mfa_secret',
           })
@@ -337,7 +337,7 @@ export class AuthService {
       if (input.channel === 'whatsapp' && contact?.phoneEnc) {
         sentTo = maskPhone(
           decryptField(contact.phoneEnc, {
-            keyB64: this.env.FIELD_ENCRYPTION_KEY,
+            ring: this.env.fieldKeys.enc,
             tenantId,
             purpose: 'staff_phone',
           }),
@@ -356,7 +356,7 @@ export class AuthService {
       }
       const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
       const sends = await this.repo.setChallengeOtp(tx, ch.id, {
-        otpEnc: encryptField(code, { keyB64: this.env.FIELD_ENCRYPTION_KEY, tenantId, purpose: 'login_otp' }),
+        otpEnc: encryptField(code, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'login_otp' }),
         channel: input.channel,
         maxSends: BACKUP_CODE_MAX_SENDS,
         minGapMs: BACKUP_CODE_GAP_MS,

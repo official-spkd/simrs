@@ -169,6 +169,13 @@ export class PinService {
         await fail(tx, d, d.revokedAt ? 'pin_revoked' : 'pin_expired');
         return { kind: 'revoked' as const };
       }
+      // Lada PIN memakai kunci hash yang sudah dipensiunkan dari cincin: PIN tidak bisa diperiksa lagi. Dicabut
+      // dengan alasan jelas (bukan gagal diam-diam); pemilik masuk dengan sandi + kode lalu mendaftar ulang.
+      if (!d.pinKeyId || !this.env.fieldKeys.hash.has(d.pinKeyId)) {
+        await revokePinDevices(tx, { id: d.id }, 'key_rotated', null);
+        await fail(tx, d, 'pin_key_retired', { pinKeyId: d.pinKeyId });
+        return { kind: 'revoked' as const };
+      }
       const block = pinBlock(d, now);
       if (block) {
         if (block === 'assignment_ended') await revokePinDevices(tx, { id: d.id }, 'assignment_ended', null);
@@ -190,7 +197,12 @@ export class PinService {
 
     // 2. Periksa PIN di luar transaksi (argon2id lambat; koneksi tidak ditahan).
     const ok = await verifyPassword(
-      pinSecret(this.env.FIELD_HASH_KEY, { tenantId, deviceId: d.id, userId: d.userId }, input.pin),
+      pinSecret(
+        this.env.fieldKeys.hash,
+        { tenantId, deviceId: d.id, userId: d.userId },
+        input.pin,
+        d.pinKeyId ?? undefined,
+      ),
       d.pinHash,
     );
     if (!ok) {
@@ -347,9 +359,11 @@ export class PinService {
       assignmentId: a.id,
       name: input.name,
       tokenHash: t.hash,
+      // Lada = kunci hash aktif; ID-nya disimpan agar PIN tetap berlaku selama rotasi kunci hash (ADR-0015).
       pinHash: await hashPassword(
-        pinSecret(this.env.FIELD_HASH_KEY, { tenantId, deviceId: id, userId }, input.pin),
+        pinSecret(this.env.fieldKeys.hash, { tenantId, deviceId: id, userId }, input.pin),
       ),
+      pinKeyId: this.env.fieldKeys.hash.currentId,
       userAgent: requestContext.getStore()?.userAgent?.slice(0, 200) ?? null,
       // Waktu daftar eksplisit: CHECK database membatasi masa berlaku terhadap kolom ini.
       createdAt: now,
