@@ -77,4 +77,4 @@ Fungsi ini bukan `SECURITY DEFINER` dan tidak membaca data, jadi tidak butuh pen
 ## Pembaruan 5 Okt 2026
 
 - `app_notify_row()` terpasang di migrasi `20261005161000_notify_row`; trigger `queue_calls_notify` memakainya (sebelumnya fungsi khusus `app_notify_queue_call()` dengan kanal dan payload yang sama).
-- Event domain dalam proses (`DomainEvents`, potongan 1b) kini juga disimpan: `publish()` menyisipkan baris `domain_events` (append-only, RLS FORCE, payload hanya ID/enum) di transaksi penerbit sebelum penangan berjalan (usulan peninjau S dan P). Ini jejak dan sumber kejadian untuk penelusuran, bukan kanal SSE: tabel itu tidak diberi trigger NOTIFY.
+- Event domain dalam proses (`DomainEvents`, potongan 1b) kini juga disimpan: `publish()` menyisipkan baris `domain_events` (append-only, RLS FORCE, payload hanya ID/enum) di transaksi penerbit sebelum penangan berjalan (temuan tinjauan fase 2 dan perencanaan fase 4–5, disetujui 5 Okt 2026). Ini jejak dan sumber kejadian untuk penelusuran, bukan kanal SSE: tabel itu tidak diberi trigger NOTIFY.
