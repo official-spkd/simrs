@@ -113,6 +113,12 @@ export const TENANT_SETTINGS = {
     z.number().int().min(1).max(1000),
     60,
   ),
+  // F02/F06 · Pengganti no. HP pasien JKN yang kosong/tidak sah: `nohp` tambah antrean dan `noTelp` SEP.
+  'bpjs.contact_phone': def(
+    'No. telepon RS untuk BPJS bila pasien JKN tidak punya no. HP (kosong = belum diatur)',
+    z.union([z.literal(''), z.string().regex(/^0\d{8,13}$/, 'No. telepon diawali 0, 9–14 digit')]),
+    '',
+  ),
   // K01–K15 · Klinis RME (fase 3, rencana §3.0a)
   'clinical.late_entry_hours': def(
     'Selisih waktu kejadian dan waktu catat sebelum entri klinis ditandai "entri terlambat" (jam, MRMIK 8b)',

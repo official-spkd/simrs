@@ -105,6 +105,10 @@ describe('pengaturan tenant', () => {
     expect(() => parseTenantSetting('booking.max_days_ahead', 0)).toThrow();
     expect(() => parseTenantSetting('kiosk.lookup_rate_per_min', 0)).toThrow();
     expect(() => parseTenantSetting('queue.avg_service_minutes', 0)).toThrow();
+    expect(TENANT_SETTINGS['bpjs.contact_phone'].default).toBe('');
+    expect(parseTenantSetting('bpjs.contact_phone', '0215550123')).toBe('0215550123');
+    expect(() => parseTenantSetting('bpjs.contact_phone', '62215550123')).toThrow();
+    expect(() => parseTenantSetting('bpjs.contact_phone', '0215')).toThrow();
   });
 });
 

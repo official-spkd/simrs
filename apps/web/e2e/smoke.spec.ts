@@ -82,6 +82,49 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
+  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
+    page,
+  }) => {
+    // Dokter memegang clinical.read/write, order.write, bed.read, consent.write (matriks bawaan 3.0a).
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter);
+    const clinical = SCREENS.filter((s) => s.phase === 3 && s.permission);
+    expect(clinical.map((s) => s.id).sort()).toEqual([
+      'bed',
+      'consent',
+      'igd',
+      'order',
+      'poli',
+      'ranap',
+      'resume',
+    ]);
+    const routes = [
+      ...clinical.map((s) => ({ route: s.route, label: s.label })),
+      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
+      { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
+      { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
+      { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
+    ];
+    for (const r of routes) {
+      const res = await page.goto(r.route);
+      expect(res?.status(), r.route).toBe(200);
+      await expect(page.getByRole('heading', { name: r.label, level: 1 })).toBeVisible();
+      await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+      await expect(page.getByText('Akses ditolak')).toHaveCount(0);
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+    }
+
+    // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
+    await page.context().clearCookies();
+    const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
+    await loginAs(page, admisi);
+    await page.goto('/klinis/igd');
+    await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+    await page.goto('/klinis/poli');
+    await expect(page.getByText('Akses ditolak')).toBeVisible();
+  });
+
   test('layar mode presentasi tidak ada di luar mode demo (404)', async ({ page }) => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account);

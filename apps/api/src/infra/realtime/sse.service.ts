@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import type { TenantTx } from '@simrs/db';
 import type { Request, Response } from 'express';
 import { sanitizeForLog } from '../../common/error.filter';
-import { requestContext } from '../../common/request-context';
+import { requestContext, type TenantRequestContext } from '../../common/request-context';
 import { PrismaService } from '../prisma.service';
 import { type NotificationSubscription, NOTIFY_CHANNEL, PgNotificationHub } from './pg-notification-hub';
 
@@ -52,6 +52,14 @@ export interface SseStreamOptions<T> {
    * (`TenantDb`) bekerja seperti biasa; hanya baca. Galat → aliran ditutup (klien menyambung ulang).
    */
   initial?: () => Promise<Array<{ event: string; data: unknown }>>;
+  /**
+   * Batas aliran bersamaan per prinsipal di instans ini; aliran baru menutup yang PALING LAMA (event `superseded` +
+   * `retry` panjang). Bawaan: perangkat `SSE_MAX_STREAMS_PER_DEVICE`, pengguna `SSE_MAX_STREAMS_PER_USER`; tanpa
+   * prinsipal (mode header pengembang) tidak dibatasi.
+   */
+  maxPerPrincipal?: number;
+  /** Kunci prinsipal pengganti (tes); bawaan dari konteks permintaan: tenant + perangkat, atau tenant + pengguna. */
+  principalKey?: string;
 }
 
 export const SSE_HEARTBEAT_MS = 15_000;
@@ -59,6 +67,16 @@ export const SSE_MAX_DURATION_MS = 5 * 60_000;
 export const SSE_REPLAY_LIMIT = 200;
 /** Saran jeda sambung ulang untuk EventSource (`retry:`). */
 export const SSE_RETRY_MS = 3_000;
+/**
+ * Aliran bersamaan per perangkat (TV/anjungan) per instans API. Satu TV normalnya satu aliran; dua memberi ruang untuk
+ * tumpang tindih sesaat saat BFF menyambung ulang. Lebih dari itu (tab ganda, cookie yang disalin) → yang paling lama
+ * ditutup.
+ */
+export const SSE_MAX_STREAMS_PER_DEVICE = 2;
+/** Aliran bersamaan per pengguna staf (beberapa tab) per instans API. */
+export const SSE_MAX_STREAMS_PER_USER = 5;
+/** Jeda sambung ulang yang disarankan ke aliran yang digantikan, agar dua klien tidak saling menendang tiap detik. */
+export const SSE_SUPERSEDED_RETRY_MS = 60_000;
 /** Antrean tugas per koneksi; lebih dari ini klien terlalu lambat → koneksi ditutup (klien memutar ulang). */
 const MAX_PENDING_TASKS = 500;
 /** Data yang belum terkirim ke socket; lebih dari ini klien terlalu lambat → koneksi ditutup. */
@@ -102,11 +120,13 @@ export class SseService implements OnModuleDestroy {
     }
     if (!NOTIFY_CHANNEL.test(channel.name)) throw new Error(`Nama kanal SSE tidak sah: ${channel.name}`);
     const { tenantId, requestId } = ctx;
+    const principal = options.principalKey ?? principalKeyOf(ctx);
     const replay = channel.replay?.bind(channel);
     const { initial } = options;
     const connection = new SseConnection({
       res,
       channel: channel.name,
+      principal,
       // Event yang sampai ke filter selalu berasal dari kanal ini, jadi bertipe SseEvent<T>.
       filter: (options.filter as ((e: SseEvent) => boolean) | undefined) ?? (() => true),
       heartbeatMs: options.heartbeatMs ?? SSE_HEARTBEAT_MS,
@@ -130,8 +150,30 @@ export class SseService implements OnModuleDestroy {
           'Aliran SSE dihentikan',
         ),
     });
+    if (principal) {
+      const max =
+        options.maxPerPrincipal ??
+        (ctx.actor.devicePrincipal ? SSE_MAX_STREAMS_PER_DEVICE : SSE_MAX_STREAMS_PER_USER);
+      this.evictOldest(principal, Math.max(0, max - 1));
+    }
     this.connections.add(connection);
     connection.start(req, lastEventId(req));
+  }
+
+  /** Sisakan paling banyak `keep` aliran prinsipal ini; yang paling lama (urutan masuk Set) ditutup lebih dulu. */
+  private evictOldest(principal: string, keep: number): void {
+    const mine = [...this.connections].filter((c) => c.principal === principal);
+    for (const old of mine.slice(0, Math.max(0, mine.length - keep))) {
+      this.logger.log({ channel: old.channel }, 'Aliran SSE lama ditutup: batas aliran per prinsipal');
+      old.supersede();
+    }
+  }
+
+  /** Jumlah aliran terbuka prinsipal ini di instans ini (tes dan metrik). */
+  activeForPrincipal(principal: string): number {
+    let n = 0;
+    for (const c of this.connections) if (c.principal === principal) n += 1;
+    return n;
   }
 
   /** Jumlah aliran terbuka di instans ini (opsional per kanal). Untuk tes dan metrik. */
@@ -170,6 +212,13 @@ export class SseService implements OnModuleDestroy {
   }
 }
 
+/** Kunci batas aliran: tenant + perangkat (ADR-0027) atau tenant + pengguna; `null` tanpa prinsipal. */
+export function principalKeyOf(ctx: Pick<TenantRequestContext, 'tenantId' | 'actor'>): string | null {
+  const device = ctx.actor.devicePrincipal?.id;
+  if (device) return `${ctx.tenantId}:device:${device}`;
+  return ctx.actor.userId ? `${ctx.tenantId}:user:${ctx.actor.userId}` : null;
+}
+
 /** `Last-Event-ID` dari header (EventSource) atau query `lastEventId` (BFF); nilai tak wajar diabaikan. */
 function lastEventId(req: Request): string | null {
   const header = req.headers['last-event-id'];
@@ -181,6 +230,7 @@ function lastEventId(req: Request): string | null {
 interface SseConnectionDeps {
   res: Response;
   channel: string;
+  principal: string | null;
   filter: (event: SseEvent) => boolean;
   heartbeatMs: number;
   maxDurationMs: number;
@@ -196,6 +246,7 @@ interface SseConnectionDeps {
 /** Satu koneksi SSE. Semua tugas (baca, putar ulang) berjalan berurutan agar urutan event terjaga. */
 class SseConnection {
   readonly channel: string;
+  readonly principal: string | null;
   private closed = false;
   private lastId: string | null = null;
   private readonly sent = new RecentIds(512);
@@ -207,6 +258,7 @@ class SseConnection {
 
   constructor(private readonly deps: SseConnectionDeps) {
     this.channel = deps.channel;
+    this.principal = deps.principal;
   }
 
   start(req: Request, lastEventId: string | null): void {
@@ -257,6 +309,17 @@ class SseConnection {
         for (const e of await this.deps.initial()) this.sendWithoutId(e.event, e.data);
       }
     });
+  }
+
+  /**
+   * Digantikan aliran baru prinsipal yang sama: beri tahu klien (event tanpa `id`, Last-Event-ID tidak berubah) dan
+   * sarankan jeda sambung ulang panjang, lalu tutup.
+   */
+  supersede(): void {
+    this.write(
+      `retry: ${SSE_SUPERSEDED_RETRY_MS}\nevent: superseded\ndata: ${JSON.stringify({ reason: 'too_many_streams' })}\n\n`,
+    );
+    this.close();
   }
 
   close(): void {

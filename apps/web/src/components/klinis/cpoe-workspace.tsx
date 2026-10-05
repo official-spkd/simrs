@@ -71,7 +71,13 @@ export function CpoeWorkspace({
   const gateOpen = Boolean(scenarioGate && gateTask && gateTask.status !== 'selesai');
   const orders = useCpoeOrders(ctx, signer, scenarioOwned);
   const payer = ctx.patient.payer;
-  const patient = { allergies: ctx.patient.allergies, activeMeds: ctx.activeMeds, flags: ctx.flags, payer };
+  const patient = {
+    allergies: ctx.patient.allergies,
+    activeMeds: ctx.activeMeds,
+    flags: ctx.flags,
+    egfr: ctx.egfr,
+    payer,
+  };
   const evaluated = evaluateOrders(orders.lines, patient, signer);
   const gate = sendGate(evaluated);
   const cost = costEstimate(evaluated, payer);

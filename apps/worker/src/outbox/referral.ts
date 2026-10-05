@@ -1,14 +1,18 @@
-import { dbDateFromIso, isoFromDbDate, type OutboxMessage, type TenantTx } from '@simrs/db';
+import { dbDateFromIso, enqueueOutbox, isoFromDbDate, type OutboxMessage, type TenantTx } from '@simrs/db';
 import {
   BPJS_RENCANA_KONTROL_DELETE_OPERATION,
   BPJS_RENCANA_KONTROL_INSERT_OPERATION,
   BPJS_RUJUKAN_DELETE_OPERATION,
   BPJS_RUJUKAN_INSERT_OPERATION,
   BPJS_SPRI_INSERT_OPERATION,
+  bpjsPath,
   type FrontOfficeOperation,
+  outboxKey,
   parseFrontOfficePayload,
   VCLAIM_ENDPOINTS,
+  VCLAIM_FILTER_SURAT,
   VCLAIM_JENIS_PELAYANAN,
+  VCLAIM_JENIS_SURAT,
   VCLAIM_TIPE_RUJUKAN,
   type VclaimRencanaKontrolDeleteRequest,
   type VclaimRencanaKontrolRequest,
@@ -21,13 +25,20 @@ import {
   type VclaimSpriRequest,
   type VclaimSpriResponse,
   vclaimSpriResponseSchema,
+  type VclaimSuratKontrolListItem,
+  vclaimSuratKontrolListResponseSchema,
   vclaimNoRujukanResponseSchema,
   vclaimNoSuratResponseSchema,
 } from '@simrs/shared';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { type BpjsRejection, defineBpjsOperation } from './bpjs-operation';
 import { BPJS_DLQ_CODE } from './booking';
-import { type OperationContext, type OutboxOperation, PermanentOperationError } from './operation-types';
+import {
+  type OperationContext,
+  type OutboxMessageLike,
+  type OutboxOperation,
+  PermanentOperationError,
+} from './operation-types';
 
 /**
  * F06/F07 · Operasi outbox surat kontrol, SPRI, dan rujukan keluar (VClaim), payload `{ referralId }` (ADR-0017):
@@ -37,6 +48,8 @@ import { type OperationContext, type OutboxOperation, PermanentOperationError } 
  * - DLQ → `dead` + `BPJS_DLQ`;
  * - hapus (batal) → status kirim `sent`; "tidak ditemukan" di BPJS juga dianggap tercapai.
  * Kunci pesan `<operasi>:<rujukan>:<urut>` (`referrals.sync_seq`); pesan yang urutnya bukan urut terbaru dilewati.
+ * Surat kontrol/SPRI yang mungkin sudah diproses BPJS dicari dulu di daftar surat kartu sebelum dikirim ulang
+ * (lihat `suratInsertOperation`).
  */
 
 const SEQ = /:(\d+)$/;
@@ -100,37 +113,51 @@ function loadReferral(tx: TenantTx, id: string) {
 const current = (r: { syncSeq: number; syncStatus: string }, msg: { idempotencyKey: string }) =>
   r.syncStatus === 'pending' && seqOf(msg) === r.syncSeq;
 
+/** Pembaca data tenant: `ctx.read` saat menyiapkan, atau transaksi pencatatan hasil (`inTx`). */
+type Read = OperationContext['read'];
+const inTx =
+  (tx: TenantTx): Read =>
+  (fn) =>
+    fn(tx);
+
 async function externalValue(
-  ctx: OperationContext,
+  read: Read,
   entity: 'practitioner' | 'queue_service',
   entityId: string | null,
   system: string,
   missing: string,
 ): Promise<string> {
   if (!entityId) throw new PermanentOperationError(missing);
-  const ext = await ctx.read((tx) =>
+  const ext = await read((tx) =>
     tx.externalId.findFirst({ where: { entity, entityId, system, active: true }, select: { value: true } }),
   );
   if (!ext) throw new PermanentOperationError(missing);
   return ext.value;
 }
 
-const dpjpCode = (r: ReferralForSend, ctx: OperationContext) =>
+const dpjpCode = (r: ReferralForSend, read: Read) =>
   externalValue(
-    ctx,
+    read,
     'practitioner',
     r.practitionerId,
     'bpjs:hfis-dokter',
     'Kode DPJP BPJS dokter belum dipetakan',
   );
-const poliCode = (r: ReferralForSend, ctx: OperationContext) =>
+const poliCode = (r: ReferralForSend, read: Read) =>
   externalValue(
-    ctx,
+    read,
     'queue_service',
     r.targetServiceId,
     'bpjs:poli',
     'Kode poli BPJS tujuan belum dipetakan',
   );
+
+/** No. kartu BPJS penjaminan kunjungan asal (didekripsi saat dikirim). */
+function kartuOf(r: ReferralForSend, ctx: OperationContext): string {
+  const ident = r.encounter?.coverages[0]?.patientIdentifier;
+  if (!ident || ident.system !== 'bpjs') throw new PermanentOperationError('Penjaminan tanpa no. kartu BPJS');
+  return ctx.crypto.decryptIdentifier(ident.valueEnc);
+}
 
 function sepNoOf(r: ReferralForSend): string {
   const no = r.encounter?.seps[0]?.sepNo;
@@ -244,43 +271,220 @@ function deleteOperation(def: {
 // Operasi
 // ---------------------------------------------------------------------------------------------------------------
 
-export const bpjsRencanaKontrolInsert = insertOperation<VclaimRencanaKontrolResponse>({
+// ---------------------------------------------------------------------------------------------------------------
+// Surat kontrol + SPRI: cari surat yang sudah terbit sebelum mengirim ulang
+// ---------------------------------------------------------------------------------------------------------------
+
+type SuratKind = 'surat-kontrol' | 'spri';
+
+/** Isian surat yang dicocokkan dengan daftar surat BPJS (dibaca ulang dari baris saat hasil dicatat). */
+interface SuratKeys {
+  jnsKontrol: '1' | '2';
+  /** SEP asal (surat kontrol); null untuk SPRI. */
+  sepNo: string | null;
+  dpjp: string;
+  poli: string;
+  planned: string;
+}
+
+async function suratKeys(r: ReferralForSend, kind: SuratKind, read: Read): Promise<SuratKeys> {
+  return {
+    jnsKontrol: kind === 'spri' ? VCLAIM_JENIS_SURAT.spri : VCLAIM_JENIS_SURAT.kontrol,
+    sepNo: kind === 'spri' ? null : sepNoOf(r),
+    dpjp: await dpjpCode(r, read),
+    poli: await poliCode(r, read),
+    planned: plannedOf(r),
+  };
+}
+
+/**
+ * Kiriman sebelumnya mungkin sudah diproses BPJS walau jawabannya tidak sampai:
+ * - pesan ini pernah dicoba (`attempts > 0`: gangguan/timeout, termasuk pencarian yang belum terjawab), atau
+ * - kirim ulang petugas setelah DLQ: pesan urut sebelumnya untuk baris ini berstatus `dead`.
+ * Pesan urut sebelumnya yang `sent` berarti jawaban BPJS pasti (ditolak, atau pencarian tidak menemukan surat).
+ */
+async function mayHaveIssued(
+  msg: Pick<OutboxMessageLike, 'attempts' | 'operation'>,
+  r: { id: string; syncSeq: number },
+  statusOf: (idempotencyKey: string) => Promise<string | null>,
+): Promise<boolean> {
+  if (msg.attempts > 0) return true;
+  if (r.syncSeq <= 1) return false;
+  const prev = outboxKey(msg.operation as FrontOfficeOperation, r.id, r.syncSeq - 1);
+  return (await statusOf(prev)) === 'dead';
+}
+
+/**
+ * Surat di daftar BPJS yang cocok dengan baris ini dan belum dipakai baris rujukan lain di RS ini. Lebih dari satu
+ * (kiriman ganda sebelum mitigasi ini) → nomor terkecil; sisanya dibiarkan kedaluwarsa di BPJS.
+ */
+async function matchSurat(
+  tx: TenantTx,
+  referralId: string,
+  list: VclaimSuratKontrolListItem[],
+  k: SuratKeys,
+): Promise<string | undefined> {
+  const candidates = list
+    .filter(
+      (s) =>
+        s.jnsKontrol === k.jnsKontrol &&
+        s.tglRencanaKontrol === k.planned &&
+        s.poliTujuan === k.poli &&
+        s.kodeDokter === k.dpjp &&
+        (k.sepNo === null || s.noSepAsalKontrol === k.sepNo),
+    )
+    .map((s) => s.noSuratKontrol)
+    .sort();
+  if (candidates.length === 0) return undefined;
+  const taken = await tx.referral.findMany({
+    where: { number: { in: candidates }, NOT: { id: referralId } },
+    select: { number: true },
+  });
+  const used = new Set(taken.map((t) => t.number));
+  return candidates.find((no) => !used.has(no));
+}
+
+/** Pencarian tidak menemukan surat: pesan urut berikutnya menerbitkan (percobaan pertamanya langsung insert). */
+async function nextInsert(tx: TenantTx, msg: OutboxMessage, r: { id: string; syncSeq: number }) {
+  const seq = r.syncSeq + 1;
+  const row = await tx.referral.update({
+    where: { id: r.id },
+    data: { syncSeq: seq },
+    select: { tenantId: true },
+  });
+  const operation = msg.operation as FrontOfficeOperation;
+  await enqueueOutbox(tx, row.tenantId, {
+    target: 'bpjs',
+    operation,
+    idempotencyKey: outboxKey(operation, r.id, seq),
+    payload: { referralId: r.id },
+  });
+}
+
+/** Status pesan outbox lain (tenant + target sama) dari transaksi pencatatan hasil. */
+const statusInTx = (tx: TenantTx, msg: OutboxMessage) => async (idempotencyKey: string) =>
+  (
+    await tx.outboxMessage.findUnique({
+      where: {
+        tenantId_target_idempotencyKey: { tenantId: msg.tenantId, target: msg.target, idempotencyKey },
+      },
+      select: { status: true },
+    })
+  )?.status ?? null;
+
+/**
+ * VClaim tidak idempoten untuk surat kontrol/SPRI: kiriman yang timeout setelah BPJS memprosesnya lalu dikirim ulang
+ * menerbitkan surat kedua. Pola histori SEP (5a): kiriman yang mungkin sudah diproses (`mayHaveIssued`) didahului
+ * `GET` daftar surat milik kartu pada bulan tanggal rencana (`filter` = tanggal rencana).
+ * - Ditemukan surat yang cocok (jenis, SEP asal untuk surat kontrol, tanggal rencana, poli, DPJP) → nomornya dipakai,
+ *   tanpa menerbitkan lagi.
+ * - Tidak ditemukan (tidak ada yang cocok, atau BPJS menjawab "data tidak ditemukan") → pesan urut berikutnya.
+ * - Pencarian ditolak BPJS dengan alasan lain → DLQ (bukan "ditolak"), agar kirim ulang petugas tetap didahului
+ *   pencarian.
+ * Sisa celah: worker mati setelah BPJS memproses tetapi sebelum percobaan tercatat (pesan diklaim ulang setelah lease
+ * habis dengan `attempts` yang sama) masih bisa menerbitkan surat kedua.
+ */
+function suratInsertOperation<R extends object>(def: {
+  kind: SuratKind;
+  response: z.ZodType<R>;
+  path: string;
+  request(r: ReferralForSend, ctx: OperationContext, k: SuratKeys): unknown;
+  number(res: R): string;
+}): OutboxOperation {
+  const listSchema = vclaimSuratKontrolListResponseSchema;
+  type List = z.infer<typeof listSchema>;
+  const isList = (res: R | List): res is List => 'list' in res;
+
+  return defineBpjsOperation<R | List>({
+    response: z.union([def.response, listSchema]),
+    async prepare(msg, ctx) {
+      const r = await ctx.read((tx) => loadReferral(tx, referralIdOf(msg)));
+      const skip = insertSkip(r, def.kind, msg);
+      if (skip || !r) return { skip: skip ?? 'rujukan tidak ditemukan' };
+      const k = await suratKeys(r, def.kind, ctx.read);
+      const lookup = await mayHaveIssued(
+        msg,
+        r,
+        async (idempotencyKey) => (await ctx.findMessage({ target: 'bpjs', idempotencyKey }))?.status ?? null,
+      );
+      if (!lookup) return { service: 'vclaim', method: 'POST', path: def.path, body: def.request(r, ctx, k) };
+      const [tahun, bulan] = k.planned.split('-') as [string, string];
+      return {
+        service: 'vclaim',
+        method: 'GET',
+        path: bpjsPath(VCLAIM_ENDPOINTS.rencanaKontrolListByKartu.path, {
+          bulan,
+          tahun,
+          noKartu: kartuOf(r, ctx),
+          filter: VCLAIM_FILTER_SURAT.tglRencana,
+        }),
+      };
+    },
+    async onAccepted(tx, msg, res) {
+      if (!isList(res)) {
+        await settle(tx, msg, 'pending', issued(def.number(res)));
+        return;
+      }
+      const r = await loadReferral(tx, referralIdOf(msg));
+      if (!r || insertSkip(r, def.kind, msg)) return;
+      const found = await matchSurat(tx, r.id, res.list, await suratKeys(r, def.kind, inTx(tx)));
+      if (found) await settle(tx, msg, 'pending', issued(found));
+      else await nextInsert(tx, msg, r);
+    },
+    async onRejected(tx, msg, rejection) {
+      const r = await loadReferral(tx, referralIdOf(msg));
+      if (!r || insertSkip(r, def.kind, msg)) return;
+      if (!(await mayHaveIssued(msg, r, statusInTx(tx, msg)))) {
+        await settle(tx, msg, 'pending', rejected(rejection));
+        return;
+      }
+      // Jawaban pencarian daftar surat.
+      if (rejection.code === 'BPJS_DATA_TIDAK_DITEMUKAN') {
+        await nextInsert(tx, msg, r);
+        return;
+      }
+      throw new PermanentOperationError(`Pencarian surat BPJS ditolak: ${rejection.code}`);
+    },
+    async onDead(tx, msg) {
+      await settle(tx, msg, 'pending', dead);
+    },
+  });
+}
+
+export const bpjsRencanaKontrolInsert = suratInsertOperation<VclaimRencanaKontrolResponse>({
   kind: 'surat-kontrol',
   response: vclaimRencanaKontrolResponseSchema,
-  async build(r, ctx) {
-    const body: VclaimRencanaKontrolRequest = {
+  path: VCLAIM_ENDPOINTS.rencanaKontrolInsert.path,
+  request(_r, _ctx, k): VclaimRencanaKontrolRequest {
+    return {
       request: {
-        noSEP: sepNoOf(r),
-        kodeDokter: await dpjpCode(r, ctx),
-        poliKontrol: await poliCode(r, ctx),
-        tglRencanaKontrol: plannedOf(r),
+        noSEP: k.sepNo as string,
+        kodeDokter: k.dpjp,
+        poliKontrol: k.poli,
+        tglRencanaKontrol: k.planned,
         user: VCLAIM_USER,
       },
     };
-    return { ...VCLAIM_ENDPOINTS.rencanaKontrolInsert, body };
   },
-  number: (res) => ({ number: res.noSuratKontrol }),
+  number: (res) => res.noSuratKontrol,
 });
 
-export const bpjsSpriInsert = insertOperation<VclaimSpriResponse>({
+export const bpjsSpriInsert = suratInsertOperation<VclaimSpriResponse>({
   kind: 'spri',
   response: vclaimSpriResponseSchema,
-  async build(r, ctx) {
-    const ident = r.encounter?.coverages[0]?.patientIdentifier;
-    if (!ident || ident.system !== 'bpjs')
-      throw new PermanentOperationError('Penjaminan tanpa no. kartu BPJS');
-    const body: VclaimSpriRequest = {
+  path: VCLAIM_ENDPOINTS.spriInsert.path,
+  request(r, ctx, k): VclaimSpriRequest {
+    return {
       request: {
-        noKartu: ctx.crypto.decryptIdentifier(ident.valueEnc),
-        kodeDokter: await dpjpCode(r, ctx),
-        poliKontrol: await poliCode(r, ctx),
-        tglRencanaKontrol: plannedOf(r),
+        noKartu: kartuOf(r, ctx),
+        kodeDokter: k.dpjp,
+        poliKontrol: k.poli,
+        tglRencanaKontrol: k.planned,
         user: VCLAIM_USER,
       },
     };
-    return { ...VCLAIM_ENDPOINTS.spriInsert, body };
   },
-  number: (res) => ({ number: res.noSPRI }),
+  number: (res) => res.noSPRI,
 });
 
 export const bpjsRujukanKeluarInsert = insertOperation<VclaimRujukanKeluarResponse>({

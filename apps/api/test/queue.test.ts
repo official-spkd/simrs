@@ -478,6 +478,50 @@ describe('display: prinsipal perangkat dan jalur staf', () => {
     expect(stream.status).toBe(403);
   });
 
+  it('aliran SSE per perangkat dibatasi: aliran ke-3 TV yang sama menutup yang paling lama (superseded)', async () => {
+    const open = async () => {
+      const controller = new AbortController();
+      const res = await fetch(`http://127.0.0.1:${port}/api/v1/queue/displays/${displayId}/events`, {
+        headers: asDevice(tv),
+        signal: controller.signal,
+      });
+      expect(res.status).toBe(200);
+      const state = { text: '', ended: false };
+      void (async () => {
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            state.text += decoder.decode(value, { stream: true });
+          }
+        } catch {
+          // dibatalkan
+        } finally {
+          state.ended = true;
+        }
+      })();
+      const ready = Date.now() + 5000;
+      while (!state.text.includes('event: queue.board') && Date.now() < ready) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      return { state, close: () => controller.abort() };
+    };
+    const streams = [await open(), await open()];
+    try {
+      streams.push(await open());
+      const until = Date.now() + 5000;
+      while (!streams[0]!.state.ended && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
+      expect(streams[0]!.state.ended).toBe(true);
+      expect(streams[0]!.state.text).toContain('event: superseded');
+      expect(streams[1]!.state.ended).toBe(false);
+      expect(streams[2]!.state.ended).toBe(false);
+    } finally {
+      for (const s of streams) s.close();
+    }
+  });
+
   it('staf: daftar display (untuk mengikat TV) dan pratinjau papan dengan queue.read', async () => {
     const list = await http().get('/api/v1/queue/displays').set(bearer(admin)).expect(200);
     expect(list.body).toEqual([

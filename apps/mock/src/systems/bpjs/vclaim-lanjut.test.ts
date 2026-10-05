@@ -11,6 +11,7 @@ import {
   vclaimRujukanKeluarResponseSchema,
   vclaimSepInsertResponseSchema,
   vclaimSpriResponseSchema,
+  vclaimSuratKontrolListResponseSchema,
   vclaimSuratKontrolSchema,
   type VclaimRujukanKeluarTRujukan,
 } from '@simrs/shared';
@@ -203,6 +204,76 @@ describe('ubah dan hapus rencana kontrol / SPRI', () => {
         request: { t_suratkontrol: { noSuratKontrol: no, user: 'x' } },
       }),
     ).toMatchObject({ rejection: 'BPJS_SURAT_SUDAH_DIPAKAI' });
+  });
+});
+
+describe('daftar surat kontrol / SPRI per kartu', () => {
+  const list = (p: Partial<Record<'bulan' | 'tahun' | 'noKartu' | 'filter', string>> = {}) =>
+    h.vclaim(VCLAIM_ENDPOINTS.rencanaKontrolListByKartu, vclaimSuratKontrolListResponseSchema, {
+      bulan: '10',
+      tahun: '2026',
+      noKartu: KARTU.aktif,
+      filter: '2',
+      ...p,
+    });
+
+  it('surat aktif milik kartu menurut bulan tanggal rencana/entri; yang dihapus tidak ikut', async () => {
+    const noSep = await sepRj();
+    const kontrol = await h.vclaim(
+      VCLAIM_ENDPOINTS.rencanaKontrolInsert,
+      vclaimRencanaKontrolResponseSchema,
+      undefined,
+      {
+        request: {
+          noSEP: noSep,
+          kodeDokter: '99001',
+          poliKontrol: 'INT',
+          tglRencanaKontrol: '2026-11-02',
+          user: 'x',
+        },
+      },
+    );
+    if (!kontrol.ok) throw new Error(kontrol.message);
+    const noSpri = await spri('2026-10-07');
+
+    // Menurut tanggal rencana: Oktober hanya SPRI, November hanya surat kontrol.
+    const okt = await list();
+    expect(okt.ok && okt.data.list.map((x) => x.noSuratKontrol)).toEqual([noSpri]);
+    expect(okt.ok && okt.data.list[0]).toMatchObject({
+      jnsKontrol: '1',
+      noSepAsalKontrol: null,
+      poliTujuan: 'INT',
+      kodeDokter: '99001',
+      tglRencanaKontrol: '2026-10-07',
+      tglTerbitKontrol: TODAY,
+      terbitSEP: 'Belum',
+    });
+    const nov = await list({ bulan: '11' });
+    expect(nov.ok && nov.data.list[0]).toMatchObject({
+      noSuratKontrol: kontrol.data.noSuratKontrol,
+      jnsKontrol: '2',
+      noSepAsalKontrol: noSep,
+      poliAsal: 'INT',
+      tglRencanaKontrol: '2026-11-02',
+    });
+    // Menurut tanggal entri: keduanya terbit Oktober.
+    const entri = await list({ filter: '1' });
+    expect(entri.ok && entri.data.list).toHaveLength(2);
+    // Kartu lain tidak melihat surat ini.
+    expect(await list({ noKartu: KARTU.aktif2 })).toMatchObject({ rejection: 'BPJS_DATA_TIDAK_DITEMUKAN' });
+
+    await h.vclaim(VCLAIM_ENDPOINTS.rencanaKontrolDelete, vclaimNoSuratResponseSchema, undefined, {
+      request: { t_suratkontrol: { noSuratKontrol: noSpri, user: 'x' } },
+    });
+    expect(await list()).toMatchObject({ rejection: 'BPJS_DATA_TIDAK_DITEMUKAN' });
+  });
+
+  it('menolak bulan, tahun, kartu, atau filter yang tidak sah', async () => {
+    expect(await list({ bulan: '13' })).toMatchObject({ rejection: 'BPJS_VALIDASI' });
+    expect(await list({ bulan: '1' })).toMatchObject({ rejection: 'BPJS_VALIDASI' });
+    expect(await list({ tahun: '26' })).toMatchObject({ rejection: 'BPJS_VALIDASI' });
+    expect(await list({ noKartu: '123' })).toMatchObject({ rejection: 'BPJS_VALIDASI' });
+    expect(await list({ filter: '3' })).toMatchObject({ rejection: 'BPJS_VALIDASI' });
   });
 });
 
