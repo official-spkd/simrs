@@ -439,6 +439,8 @@ model Encounter {
   sourceEncounterId  String?   @map("source_encounter_id") @db.Uuid
   /// Admisi: SPRI dasar (tetap; satu admisi aktif per SPRI).
   referralId         String?   @map("referral_id") @db.Uuid
+  /// Cara keluar kunjungan (pulang, rujuk, pulang paksa, meninggal, pindah rawat; IGD → `rawat_inap`). Fase 3.
+  disposition        String?
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy          String?   @map("created_by") @db.Uuid
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

@@ -165,8 +165,8 @@ Aturan untuk semua tabel klinis:
 
 ### 3.2a · Data klinis terkode, TTV/EWS, hasil, ringkasan (K08, K12-observasi, K14)
 
-- `POST/GET /api/v1/encounter/:id/observations`: NEWS2 dihitung server; eskalasi (≥ 5 atau satu parameter 3) → notifikasi P09 tanpa PHI + SSE.
-- `GET /api/v1/encounter/:id/context` (banner).
+- `POST/GET /api/v1/encounters/:id/observations`: NEWS2 dihitung server; eskalasi (≥ 5 atau satu parameter 3) → notifikasi P09 tanpa PHI + SSE.
+- `GET /api/v1/encounters/:id/context` (banner).
 - Diagnosis: `POST /api/v1/diagnosis/conditions` (ICD-10 dari `ref`, satu utama per encounter), koreksi/salah entri, `POST /api/v1/diagnosis/procedures` (ICD-9-CM), `GET /api/v1/diagnosis/problem-list?patientId=` (kelompok RM), `POST /api/v1/diagnosis/allergies` (+ NKDA; perubahan = versi baru).
 - `POST /api/v1/results/observations` (`result.write`) dan `GET /api/v1/results?patientId=`.
 - `GET /api/v1/summary/patients/:id` (K14).
@@ -183,7 +183,7 @@ Aturan untuk semua tabel klinis:
 
 ### 3.3 · ADT, papan bed, triase IGD, gelang, Aplicare (K03, K04, K05)
 
-- Triase: `POST /api/v1/triage/assessments` (saran ATS server; turun tanpa alasan → 422 `TRIAGE_REASON_REQUIRED`), `GET /api/v1/triage/board` + SSE, `POST /api/v1/triage/encounters/:id/status`.
+- Triase: `POST /api/v1/triage/assessments` (saran ATS server; turun tanpa alasan → 422 `TRIAGE_REASON_REQUIRED`), `GET /api/v1/triage/board` + SSE, `POST /api/v1/encounters/:id/ed-status` (rute per-kunjungan kanonik).
 - ADT: papan bed + SSE; `PATCH /api/v1/adt/beds/:id/status` (`baseVersion`); permintaan bed + alokasi (bed → `dipesan`); `POST /api/v1/adt/admissions` (IGD → encounter IMP `part_of`, atau dari encounter `planned`/SPRI; gelang terbit); transfer; `POST /api/v1/adt/discharges` (memanggil `DischargeGate`); cetak ulang gelang beralasan.
 - Outbox `bpjs.aplicare.update` (digabung); mock Aplicare dimiliki potongan ini.
 - Staging `billable_events` admit/transfer/pulang/IGD; SATUSEHAT `held` Encounter.

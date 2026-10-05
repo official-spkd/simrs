@@ -3,7 +3,7 @@ import { ENCOUNTER_CLASSES, type EncounterClass, PAYER_KINDS } from './schemas/r
 import type { AntreanTaskId } from './integrations/bpjs/antrean';
 import { QUEUE_SERVICE_KINDS } from './schemas/queue';
 import { MEDICATION_ADMINISTRATION_STATUSES } from './clinical/emar';
-import { BED_STATUSES } from './schemas/rawat-inap';
+import { BED_STATUSES, DISCHARGE_DISPOSITIONS } from './schemas/rawat-inap';
 
 /**
  * Event domain internal (CLAUDE.md §5) fase 2–3: nama + skema MUATAN. Amplop (`id`, `tenantId`, `occurredAt`, `actor`)
@@ -42,16 +42,6 @@ const clinicalEncounterEvent = z.strictObject({
   encounterClass: z.enum(ENCOUNTER_CLASS_TOKENS),
   unitId: z.uuid(),
 });
-
-/** Cara pulang (disposisi) di `adt.discharged`. */
-export const DISCHARGE_DISPOSITIONS = [
-  'pulang',
-  'rujuk',
-  'pulang_paksa',
-  'meninggal',
-  'pindah_rawat',
-] as const;
-export type DischargeDisposition = (typeof DISCHARGE_DISPOSITIONS)[number];
 
 export const DOMAIN_EVENT_SCHEMAS = {
   /** F02 · Booking di-check-in (anjungan/loket) → task 1. */

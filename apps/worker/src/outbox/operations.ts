@@ -1,5 +1,6 @@
 import {
   AUTH_BACKUP_CODE_OPERATION,
+  BPJS_APLICARE_UPDATE_OPERATION,
   BPJS_ANTREAN_ADD_OPERATION,
   BPJS_ANTREAN_BATAL_OPERATION,
   BPJS_ANTREAN_UPDATEWAKTU_OPERATION,
@@ -12,6 +13,7 @@ import {
   PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION,
   TTE_SIGN_OPERATION,
 } from '@simrs/shared';
+import { bpjsAplicareUpdate } from './aplicare';
 import { sendBackupCode } from './backup-code';
 import { bpjsAntreanAdd, bpjsAntreanBatal, patientWhatsappBookingReminder } from './booking';
 import { bpjsAntreanUpdateWaktu } from './bpjs-antrean';
@@ -77,4 +79,6 @@ export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<s
   ...SEP_OPERATIONS,
   // F06/F07 · Surat kontrol, SPRI, rujukan keluar (potongan 7).
   ...REFERRAL_OPERATIONS,
+  // K05 · Aplicare dari papan bed (fase 3, potongan 3.3).
+  [BPJS_APLICARE_UPDATE_OPERATION, bpjsAplicareUpdate],
 ]);

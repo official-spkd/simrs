@@ -127,6 +127,8 @@ model Tenant {
   abbreviations             Abbreviation[]
   billableEvents            BillableEvent[]
 
+  aplicareRooms AplicareRoom[]
+
   @@map("tenants")
 }
 
@@ -353,6 +355,8 @@ model Unit {
   bedStatuses BedStatus[]
   bedRequests BedRequest[]
   orderables  Orderable[]
+
+  aplicareRooms AplicareRoom[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])

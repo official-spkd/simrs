@@ -11,6 +11,7 @@ import {
   parseDomainEvent,
   parseFrontOfficePayload,
   VCLAIM_ASAL_RUJUKAN,
+  VCLAIM_POLI_IGD,
   VCLAIM_ENDPOINTS,
   VCLAIM_JENIS_PELAYANAN,
   VCLAIM_PESERTA_AKTIF,
@@ -58,6 +59,8 @@ const KELAS = { '1': 'kelas_1', '2': 'kelas_2', '3': 'kelas_3' } as const;
 const KELAS_KODE: Record<string, '1' | '2' | '3'> = { kelas_1: '1', kelas_2: '2', kelas_3: '3' };
 const DLQ_REASON = 'Gagal terkirim ke BPJS sampai batas waktu; kirim ulang';
 const VCLAIM_USER = 'SIMRS';
+/** Jeda cek ulang SEP rawat inap yang menunggu SEP IGD asal terbit. */
+const IGD_SEP_WAIT_MS = 60_000;
 
 const SEP_PREPARE_SELECT = {
   id: true,
@@ -65,6 +68,7 @@ const SEP_PREPARE_SELECT = {
   version: true,
   sepNo: true,
   poliCode: true,
+  serviceType: true,
   diagnosisCode: true,
   note: true,
   lastErrorCode: true,
@@ -76,6 +80,7 @@ const SEP_PREPARE_SELECT = {
     select: {
       id: true,
       classEntitlement: true,
+      careClass: true,
       patientIdentifier: { select: { system: true, valueEnc: true } },
     },
   },
@@ -84,6 +89,7 @@ const SEP_PREPARE_SELECT = {
     select: {
       patientId: true,
       practitionerId: true,
+      sourceEncounterId: true,
       arrivedAt: true,
       createdAt: true,
       patient: { select: { mrn: true, phoneEnc: true } },
@@ -114,7 +120,9 @@ async function sendData(s: SepForSend, ctx: OperationContext) {
   if (!ident || ident.system !== 'bpjs') throw new PermanentOperationError('Penjaminan tanpa no. kartu BPJS');
   const ppk = s.tenant.bpjsPpkCode;
   if (!ppk) throw new PermanentOperationError('Kode PPK BPJS rumah sakit belum diisi');
-  if (!s.poliCode) throw new PermanentOperationError('Kode poli BPJS layanan belum dipetakan');
+  const inpatient = s.serviceType === 'rawat_inap';
+  const emergency = !inpatient && s.poliCode === VCLAIM_POLI_IGD;
+  if (!inpatient && !s.poliCode) throw new PermanentOperationError('Kode poli BPJS layanan belum dipetakan');
   if (!s.diagnosisCode) throw new PermanentOperationError('Diagnosa awal SEP kosong');
   const dpjp = s.encounter.practitionerId
     ? await ctx.read((tx) =>
@@ -129,15 +137,18 @@ async function sendData(s: SepForSend, ctx: OperationContext) {
         }),
       )
     : null;
-  if (!dpjp) throw new PermanentOperationError('Kode DPJP BPJS dokter belum dipetakan');
+  // IGD: dokter jaga boleh belum ditetapkan (ASUMSI VClaim, `VCLAIM_POLI_IGD`); poli lain dan SPRI wajib DPJP.
+  if (!dpjp && !emergency) throw new PermanentOperationError('Kode DPJP BPJS dokter belum dipetakan');
   // No. HP pasien, atau no. telepon RS (`bpjs.contact_phone`) bila kosong/tidak sah.
   const phone = await bpjsContactPhone(ctx, s.encounter.patient.phoneEnc);
   return {
     kartu: ctx.crypto.decryptIdentifier(ident.valueEnc),
     ppk,
-    poli: s.poliCode,
+    poli: inpatient ? '' : (s.poliCode ?? ''),
     diagnosis: s.diagnosisCode,
-    dpjp: dpjp.value,
+    dpjp: dpjp?.value ?? '',
+    inpatient,
+    emergency,
     // VClaim wajib no. telepon 8–15 digit; bentuk lokal `08…`. Tanpa no. HP pasien dan tanpa no. telepon RS:
     // `0000000000` (perilaku lama; cocokkan aturan VClaim resmi sebelum integrasi nyata).
     noTelp: phone ? `0${phone.slice(2)}` : '0000000000',
@@ -148,6 +159,38 @@ async function sendData(s: SepForSend, ctx: OperationContext) {
 async function rujukanOf(s: SepForSend, ctx: OperationContext) {
   const r = s.referral;
   const empty = { asalRujukan: '' as const, tglRujukan: '' as const, noRujukan: '', ppkRujukan: '' };
+  if (s.serviceType === 'rawat_inap') {
+    // Rawat inap: dasar SPRI (`skdp.noSurat`), atau SEP IGD asal sebagai rujukan (ASUMSI `VCLAIM_POLI_IGD`).
+    if (r?.kind === 'spri' && r.number) return { rujukan: empty, noSurat: r.number };
+    const igd = s.encounter.sourceEncounterId
+      ? await ctx.read((tx) =>
+          tx.sep.findFirst({
+            where: {
+              encounterId: s.encounter.sourceEncounterId as string,
+              status: { in: ['issued', 'pending'] },
+            },
+            orderBy: { version: 'desc' },
+            select: { status: true, sepNo: true, issuedAt: true },
+          }),
+        )
+      : null;
+    // SEP IGD asal masih dalam antrean (admisi segera setelah registrasi IGD): tunggu terbit, jangan gagal.
+    if (igd?.status === 'pending') {
+      return { defer: { untilMs: Date.now() + IGD_SEP_WAIT_MS, reason: 'menunggu SEP IGD asal terbit' } };
+    }
+    if (!igd?.sepNo) {
+      throw new PermanentOperationError('SEP rawat inap butuh SPRI atau SEP IGD asal yang sudah terbit');
+    }
+    return {
+      rujukan: {
+        asalRujukan: VCLAIM_ASAL_RUJUKAN.rs,
+        tglRujukan: isoDateJakarta(igd.issuedAt ?? new Date()),
+        noRujukan: igd.sepNo,
+        ppkRujukan: s.tenant.bpjsPpkCode ?? '',
+      },
+      noSurat: '',
+    };
+  }
   if (!r?.number) return { rujukan: empty, noSurat: '' };
   const fromReferral = (ref: {
     kind: string;
@@ -259,7 +302,13 @@ async function nextInsertStep(
  */
 function matchHistori(list: VclaimHistori[], s: SepForSend, ppk: string, tgl: string) {
   const candidates = list.filter(
-    (h) => h.tglSep === tgl && h.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatJalan && h.ppkPelayanan === ppk,
+    (h) =>
+      h.tglSep === tgl &&
+      h.jnsPelayanan ===
+        (s.serviceType === 'rawat_inap'
+          ? VCLAIM_JENIS_PELAYANAN.rawatInap
+          : VCLAIM_JENIS_PELAYANAN.rawatJalan) &&
+      h.ppkPelayanan === ppk,
   );
   if (candidates.length === 1) return candidates[0];
   const byRujukan = candidates.filter((h) => s.referral?.number && h.noRujukan === s.referral.number);
@@ -302,14 +351,16 @@ export const bpjsSepInsert: OutboxOperation = defineBpjsOperation<InsertResponse
     }
     const klsRawatHak = KELAS_KODE[s.coverage.classEntitlement ?? ''];
     if (!klsRawatHak) throw new PermanentOperationError('Kelas hak peserta tidak dikenal');
-    const { rujukan, noSurat } = await rujukanOf(s, ctx);
+    const basis = await rujukanOf(s, ctx);
+    if (basis.defer) return { defer: basis.defer };
+    const { rujukan, noSurat } = basis;
     const body: VclaimSepInsertRequest = {
       request: {
         t_sep: {
           noKartu: d.kartu,
           tglSep,
           ppkPelayanan: d.ppk,
-          jnsPelayanan: VCLAIM_JENIS_PELAYANAN.rawatJalan,
+          jnsPelayanan: d.inpatient ? VCLAIM_JENIS_PELAYANAN.rawatInap : VCLAIM_JENIS_PELAYANAN.rawatJalan,
           klsRawat: { klsRawatHak, klsRawatNaik: '', pembiayaan: '', penanggungJawab: '' },
           noMR: s.encounter.patient.mrn,
           rujukan,
@@ -336,7 +387,8 @@ export const bpjsSepInsert: OutboxOperation = defineBpjsOperation<InsertResponse
           kdPenunjang: '',
           assesmentPel: '',
           skdp: { noSurat, kodeDPJP: noSurat ? d.dpjp : '' },
-          dpjpLayan: d.dpjp,
+          // Rawat inap: DPJP lewat SPRI (`skdp`), `dpjpLayan` kosong (aturan VClaim).
+          dpjpLayan: d.inpatient ? '' : d.dpjp,
           noTelp: d.noTelp,
           user: VCLAIM_USER,
         },
@@ -394,7 +446,8 @@ async function onPeserta(tx: TenantTx, s: SepForSend, p: VclaimPeserta) {
   }
   await tx.coverage.update({
     where: { id: s.coverage.id },
-    data: { classEntitlement: kelas, careClass: kelas },
+    // Kelas rawat yang sudah dipilih admisi (mis. naik kelas) tidak ditimpa hak peserta.
+    data: { classEntitlement: kelas, careClass: s.coverage.careClass ?? kelas },
   });
   await tx.sep.update({ where: { id: s.id }, data: { careClass: kelas } });
   await nextInsertStep(tx, s, {});

@@ -73,6 +73,11 @@ export interface PendingSepInput {
   poliCode: string | null;
   diagnosis: Icd10Coding;
   note: string | null;
+  /**
+   * Fase 3: `rawat_inap` untuk SEP admisi (`jnsPelayanan` 1; dasar SPRI atau SEP IGD asal), `rawat_jalan` (bawaan)
+   * untuk poli dan IGD (poli `VCLAIM_POLI_IGD`, tanpa rujukan).
+   */
+  serviceType?: 'rawat_jalan' | 'rawat_inap';
 }
 
 /**
@@ -113,7 +118,7 @@ export class SepService {
       coverageId: input.coverageId,
       referralId: input.referralId,
       status: 'pending',
-      serviceType: 'rawat_jalan',
+      serviceType: input.serviceType ?? 'rawat_jalan',
       poliCode: input.poliCode,
       diagnosisCode: input.diagnosis.code,
       diagnosisDisplay: input.diagnosis.display,

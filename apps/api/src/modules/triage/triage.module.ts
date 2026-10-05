@@ -1,9 +1,16 @@
 import { Module } from '@nestjs/common';
+import { AdtModule } from '../adt/adt.module';
+import { AuthzModule } from '../authz/authz.module';
+import { TriageController, TriageEncounterController } from './triage.controller';
+import { TriageService } from './triage.service';
 
 /**
- * K03 · Triase IGD (saran ATS server, turun wajib alasan), papan IGD, status alur IGD.
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.3 tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K03 · Triase IGD (potongan 3.3): saran ATS server + pilihan berversi, papan IGD (+ SSE), status alur dan penempatan
+ * bed IGD. Staging biaya IGD + SATUSEHAT Encounter (ADR-0032).
  */
-@Module({})
+@Module({
+  imports: [AuthzModule, AdtModule],
+  controllers: [TriageController, TriageEncounterController],
+  providers: [TriageService],
+})
 export class TriageModule {}

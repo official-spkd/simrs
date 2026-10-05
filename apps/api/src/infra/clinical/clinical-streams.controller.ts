@@ -9,7 +9,7 @@ import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { SseService } from '../realtime/sse.service';
 import { TenantDb } from '../tenant-db';
-import { bedBoardChannel, edBoardChannel, ewsChannel } from './clinical-channels';
+import { ewsChannel } from './clinical-channels';
 
 /**
  * Saringan lingkup izin untuk aliran klinis: `all` → semua; `unit` → unit penugasan sesi; `relationship` → kunjungan
@@ -28,9 +28,8 @@ const allows = (s: ScopeFilter, unitId: string | null, encounterId?: string) =>
   (encounterId !== undefined && s.encounterIds.has(encounterId));
 
 /**
- * Kanal SSE klinis (potongan 3.1, ADR-0026): papan IGD, papan bed, dan eskalasi EWS untuk staf. Berlangganan diaudit
- * (`read` + jenis aliran); muatan tanpa PHI. Data potret papan (snapshot) disediakan modul pemiliknya (triage/adt,
- * potongan 3.3); aliran ini hanya perubahan.
+ * Kanal SSE eskalasi EWS (potongan 3.1, ADR-0026) untuk staf. Berlangganan diaudit (`read`); muatan tanpa PHI. Papan
+ * IGD dan papan bed (dengan potret awal) ada di modulnya: `/triage/board/events`, `/adt/beds/events` (potongan 3.3).
  */
 @ApiTags('klinis · aliran SSE')
 @TenantScoped()
@@ -40,31 +39,6 @@ export class ClinicalStreamsController {
     private readonly sse: SseService,
     private readonly db: TenantDb,
   ) {}
-
-  @RequireModule('K03')
-  @RequirePermission('clinical', 'read')
-  @NoRequestTransaction()
-  @Audited({ action: 'read', resource: 'ed_board_stream' })
-  @Get('ed-board')
-  async edBoard(@Req() req: Request, @Res() res: Response) {
-    const scope = await this.scopeFilter();
-    this.sse.stream(req, res, edBoardChannel, {
-      filter: (e) => allows(scope, e.data.unitId, e.data.encounterId),
-    });
-  }
-
-  @RequireModule('K05')
-  @RequirePermission('bed', 'read')
-  @NoRequestTransaction()
-  @Audited({ action: 'read', resource: 'bed_board_stream' })
-  @Get('bed-board')
-  async bedBoard(@Req() req: Request, @Res() res: Response) {
-    // Papan bed tanpa data pasien: lingkup unit = bed unit itu; relasi tidak bermakna untuk bed (semua bed unit).
-    const scope = await this.scopeFilter();
-    this.sse.stream(req, res, bedBoardChannel, {
-      filter: (e) => allows(scope, e.data.unitId),
-    });
-  }
 
   @RequireModule('K12')
   @RequirePermission('clinical', 'read')

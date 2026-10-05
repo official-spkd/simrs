@@ -67,27 +67,27 @@ Galat:    di mana pun → ROLLBACK (data + audit batal) → AppErrorFilter → {
 
 Satu permintaan = satu transaksi database. Konsekuensinya: data dan jejak auditnya selalu konsisten, nomor dokumen yang dialokasikan ikut batal bila permintaan gagal, dan **handler tidak boleh memanggil sistem eksternal** (transaksi masih terbuka) — kirim lewat outbox.
 
-Pengecualian hanya untuk dua pola fase 2: lookup baca-saja ke BPJS/Dukcapil (ADR-0025) dan aliran SSE (ADR-0026). Keduanya memakai `@NoRequestTransaction()`, lihat [Lookup sinkron, SSE, dan event domain](#lookup-sinkron-sse-dan-event-domain-fase-2).
+Pengecualian hanya untuk tiga pola: lookup baca-saja ke BPJS/Dukcapil (ADR-0025), aliran SSE (ADR-0026), dan penolakan yang wajib tetap tercatat (kirim order yang diblokir CDS, ADR-0030). Ketiganya memakai `@NoRequestTransaction()`, lihat [Lookup sinkron, SSE, dan event domain](#lookup-sinkron-sse-dan-event-domain-fase-2).
 
 ### Fondasi di `src/common` dan `src/infra`
 
-| Berkas                                       | Isi                                                                                                                 |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `common/tenant-scoped.decorator.ts`          | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)          |
-| `common/require-permission.decorator.ts`     | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`               |
-| `common/tenant-transaction.interceptor.ts`   | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                             |
-| `common/request-context.ts`                  | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit              |
-| `infra/tenant-db.ts`                         | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant         |
-| `common/audited.decorator.ts`                | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason`         |
-| `common/require-module.decorator.ts`         | `@RequireModule(code)` untuk feature flag per RS                                                                    |
-| `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                            |
-| `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard`         |
-| `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup                    |
-| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (hanya lookup ADR-0025 dan SSE ADR-0026)              |
-| `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)                  |
-| `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                                   |
-| `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`             |
-| `infra/auth/device.guard.ts`                 | `DeviceGuard` + `@DeviceScoped()` (`common/device-scoped.decorator.ts`): prinsipal perangkat anjungan/TV (ADR-0027) |
+| Berkas                                       | Isi                                                                                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `common/tenant-scoped.decorator.ts`          | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)                 |
+| `common/require-permission.decorator.ts`     | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`                      |
+| `common/tenant-transaction.interceptor.ts`   | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                                    |
+| `common/request-context.ts`                  | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit                     |
+| `infra/tenant-db.ts`                         | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant                |
+| `common/audited.decorator.ts`                | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason`                |
+| `common/require-module.decorator.ts`         | `@RequireModule(code)` untuk feature flag per RS                                                                           |
+| `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                                   |
+| `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard`                |
+| `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup                           |
+| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (lookup ADR-0025, SSE ADR-0026, penolakan tercatat ADR-0030) |
+| `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)                         |
+| `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                                          |
+| `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`                    |
+| `infra/auth/device.guard.ts`                 | `DeviceGuard` + `@DeviceScoped()` (`common/device-scoped.decorator.ts`): prinsipal perangkat anjungan/TV (ADR-0027)        |
 
 Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12), dan `modules/iam/` (P03).
 
@@ -409,12 +409,11 @@ foldernya tanpa mengubah daftar modul.
 | `SatusehatRecorder`                 | Staging `satusehat.<resource>.upsert` berstatus `held`, payload `{ sourceId, revision }` (ADR-0032)                                                                                                                                                               |
 | `BillableRecorder`                  | `billable_events` tanpa harga, unik per sumber × jenis (ADR-0032)                                                                                                                                                                                                 |
 | `CareTeamService`                   | `encounter_participants` ↔ `access_relationships` (relasi ABAC); akhir keanggotaan = relasi sampai akhir hari berikutnya                                                                                                                                          |
-| `GET /clinical/streams/ed-board`    | SSE papan IGD (`clinical.read`), event `ed.status`; kanal `ed_board`                                                                                                                                                                                              |
-| `GET /clinical/streams/bed-board`   | SSE papan bed (`bed.read`), event `bed.status`; kanal `bed_board`                                                                                                                                                                                                 |
 | `GET /clinical/streams/ews`         | SSE eskalasi EWS (`clinical.read`), event `ews.escalation` bila skor ≥ `ews.escalation_score` atau satu parameter 3; kanal `clinical_vitals`                                                                                                                      |
 | `/api/v1/drafts/:encounterId/:kind` | Draf penulis (PUT/GET/DELETE), izin `clinical.write` + ABAC; job worker `clinical.drafts-cleanup`                                                                                                                                                                 |
 
-Aliran SSE disaring per lingkup izin: `all` → semua; `unit` → unit penugasan (unit bed/kunjungan pasien); di luar
+Aliran SSE papan IGD dan papan bed milik modulnya (potongan 3.3): `GET /triage/board/events` dan
+`GET /adt/beds/events`. Aliran SSE disaring per lingkup izin: `all` → semua; `unit` → unit penugasan (unit bed/kunjungan pasien); di luar
 itu → kunjungan aktif pasien yang berelasi. Lingkup `unit` ABAC kini membaca `app_patient_location` (tingkat bed,
 ADR-0031 pembaruan). Akses ke pasien `confidential` menjadi temuan audit `confidential`.
 
@@ -488,6 +487,42 @@ Aturan penting:
 - Worklist menyaring setiap pasien dengan ABAC (`PatientAccessService.basis`) dan mengaudit `read` per pasien
   (`resource_type = worklist`). Tinjau order residen membaca `order_groups.needs_review` tanpa atestasi `review_order`
   (target `order_groups`); endpoint tinjau dibangun potongan 3.4.
+
+### ADT, papan bed, triase IGD, gelang, Aplicare (K03/K04/K05, fase 3 potongan 3.3)
+
+Modul `triage` (K03), `adt` (K04/K05), dan `encounter` (bagian SEP IGD). Rute per kunjungan memakai bentuk kanonik
+fase 3 `/api/v1/encounters/:id/<sumber>`; sisanya berprefiks `adt/…` dan `triage/…`.
+
+| Rute                                                         | Guna                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /triage/assessments`                                   | Triase ATS (`triage.write`): saran dihitung server (`suggestTriage`); turun dari saran tanpa alasan ≥ 10 → 422 `TRIAGE_REASON_REQUIRED`; di bawah batas protokol → 422 `TRIAGE_LEVEL_NOT_ALLOWED`. Triase pertama: `in_progress`, `encounter.started`, biaya `igd`, SATUSEHAT Encounter `held` |
+| `GET /triage/board` (+ `/triage/board/events`)               | Papan IGD unit penugasan (`clinical.read`): LOS, status alur, zona, bed IGD, triase terkini, permintaan bed + boarding. SSE: potret `ed.board` lalu `ed.status`                                                                                                                                |
+| `POST /encounters/:id/ed-status`                             | Status alur + zona + penempatan bed IGD (bed lama → kotor), `triage.write`                                                                                                                                                                                                                     |
+| `GET /adt/beds` (+ `/adt/beds/events`)                       | Papan bed per unit (`bed.read`, lingkup unit): status + versi, inisial pasien saja, permintaan bed (`boarding` bila asal IGD menunggu ≥ `bed.boarding_alert_hours`). SSE: potret `bed.board` lalu `bed.status`                                                                                 |
+| `PATCH /adt/beds/:id/status`                                 | Status manual dengan `baseVersion` (beda → 409 `BED_VERSION_CONFLICT`); transisi sah di `MANUAL_BED_TRANSITIONS`                                                                                                                                                                               |
+| `POST /adt/bed-requests` · `/:id/allocate` · `/:id/cancel`   | Permintaan bed (satu terbuka per kunjungan); alokasi → bed `dipesan` (bed tidak siap → 409 `BED_NOT_AVAILABLE`); batal mengembalikan bed ke `siap`                                                                                                                                             |
+| `POST /adt/admissions`                                       | Admisi `planned` → bed (`siap` atau dipesan untuk admisi/IGD asalnya): `bed_assignments` (EXCLUDE → 409 hunian ganda), gelang terbit, DPJP masuk tim, IGD asal `finished` + disposisi `rawat_inap`, SEP rawat inap BPJS                                                                        |
+| `POST /adt/transfers` · `POST /adt/discharges`               | Transfer (lingkup unit ABAC ikut bed baru, bed lama `kotor`, biaya `transfer`); pulang lewat `DISCHARGE_GATE` (dasar di 3.3, aturan lengkap 3.6): bed `kotor`, gelang batal, tim berakhir, `adt.discharged`                                                                                    |
+| `GET /encounters/:id/wristband` · `POST …/wristband/reprint` | Data cetak gelang (audit `print`); cetak ulang wajib alasan, kode lama batal. Kode gelang acak `GL` + 10 karakter, bukan No. RM                                                                                                                                                                |
+| `POST /encounters/:id/emergency-sep`                         | SEP IGD menyusul diagnosa dokter jaga (`coverage.write`); registrasi IGD BPJS dengan `initialDiagnosis` langsung membuat SEP IGD `pending`                                                                                                                                                     |
+
+**SEP IGD dan rawat inap (utang fase 2).** Pola SEP 5a (`SepService.createPending` + outbox `bpjs.vclaim.sep.insert`).
+IGD = rawat jalan (`jnsPelayanan` 2) poli `VCLAIM_POLI_IGD` (`IGD`), tanpa rujukan, DPJP boleh kosong. Kode poli IGD
+tidak tercantum di docs/06: **ASUMSI**, cocokkan dengan katalog VClaim resmi sebelum integrasi nyata. Rawat inap
+(`jnsPelayanan` 1) dibuat saat admisi nyata (`POST /adt/admissions`, BPJS tanpa SEP wajib `initialDiagnosis`): dasar
+SPRI (`skdp.noSurat`), atau tanpa SPRI memakai SEP IGD asal yang sudah terbit sebagai rujukan (asal RS, PPK sendiri).
+Bila SEP IGD asal masih `pending`, worker menunda (`defer` 60 detik), tidak menggagalkan.
+
+**Aplicare.** Setiap perubahan status bed rawat inap ber-kelas (`BedOpsService.setStatus`) memanggil
+`AplicareSyncService.touch`: baris ruang `aplicare_rooms` (bangsal × kelas, kode ruang `MELATI-K2`) dibuat bila belum
+ada, `revision` naik (row lock), outbox `bpjs.aplicare.update` `{ roomId, revision }`. Worker (`outbox/aplicare.ts`)
+menghitung kapasitas (bed aktif tidak rusak) dan tersedia (`siap`) SAAT mengirim; pesan revisi lama dilewati. Tahap:
+kode kelas resmi dari `refKelas` (dicocokkan nama kelas) → `bed/create` → `bed/update`; "ruang tidak ditemukan" →
+daftar ulang, "sudah terdaftar" → lanjut update, paling banyak 4 langkah per revisi. Hasil: `class_code`,
+`registered_at`, `sent_revision`, `last_error_code`.
+
+**Lingkup unit tingkat kamar/bed (ADR-0031)** sudah dari 3.1 (`app_patient_location`); transfer otomatis memindah
+akses perawat unit.
 
 ### CPOE + CDS + resep (K09, fase 3 potongan 3.4)
 
@@ -1205,7 +1240,7 @@ Aturan:
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
 - [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
 - [ ] Endpoint anjungan/TV memakai `@DeviceScoped(izin)`, bukan `@TenantScoped()`; perangkat tidak pernah memegang izin manusia (ADR-0027).
-- [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025) dan aliran `SseService` (ADR-0026); akses data di dalamnya lewat `TenantDb.transaction()`.
+- [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025), aliran `SseService` (ADR-0026), dan penolakan yang wajib tetap tercatat (ADR-0030: satu `TenantDb.transaction()` mengembalikan hasil "ditolak" tanpa menulis data bisnis, galat dilempar setelah commit); akses data di dalamnya lewat `TenantDb.transaction()`.
 - [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.
 - [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).
 - [ ] FK antar-tabel tenant memakai pasangan `(tenant_id, id)`.
