@@ -574,6 +574,9 @@ Aturan:
 - Migrasi dari cabang yang belum digabung **hanya** diterapkan ke database salinan itu sendiri, tidak ke `simrs` atau database salinan lain. Setelah digabung ke `master`, checkout utama menerapkannya dengan `pnpm db:deploy`.
 - Bila migrasi cabang diubah setelah diterapkan (checksum ditolak), `pnpm db:test:recreate -- --yes` di salinan itu hanya membuat ulang database di `TEST_DATABASE_URL`-nya (aturan nama yang sama).
 - Di satu salinan, jalankan `pnpm test` dan E2E bergantian, jangan bersamaan: worker E2E mengirim semua pesan outbox di database tes, termasuk pesan yang sedang diperiksa tes integrasi.
+- Skenario mock (`setMockScenario`) berlaku untuk **semua** tes yang sedang berjalan. Spesifikasi yang mengubahnya: serial, hanya proyek desktop (daftarkan juga di `testIgnore` proyek tablet), dan kembali `normal` di `afterEach`. Untuk gangguan BPJS yang tidak boleh mengganggu tes lain, pakai gangguan per peserta `setBpjsOutage(noKartu, true)` (`e2e/support/front-office.ts`, panel mock `POST /_panel/api/bpjs/outage`), seperti `e2e/downtime-bpjs.spec.ts`.
+- Rantai DoD fase 2 (`e2e/dod-anjungan.spec.ts`): booking lewat API memakai token petugas yang sedang login (`createJknBooking`), lalu anjungan → Kendali antrean → Pendaftaran → TV, dan task 1–3 diperiksa di panel BPJS mock (`mockAntrean`). Butuh sesi poli PD yang cocok dengan HFIS mock (`hfisSession`), jadi dilewati hari Minggu.
+- `QA_VISUAL=1` juga menangkap layar fase 2 mode api (Jadwal, Kendali antrean, Pendaftaran, anjungan, TV) ke `.local/qa-visual/api-1366x768/` dan `api-1920x1080/` (`e2e/qa-visual-fase2.spec.ts`; tanpa variabel itu spesifikasinya dilewati).
 - Selesai: `git worktree remove ../simrs-pin`. Databasenya tidak ikut terhapus.
 
 ### Backup dan uji restore

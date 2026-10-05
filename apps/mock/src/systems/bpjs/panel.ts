@@ -19,6 +19,8 @@ import type { AntreanRecord, BpjsState, RujukanKeluarRecord, SepRecord, SuratRec
  * - `POST /_panel/api/bpjs/fingerprint`           → `{ noKartu, tanggal? }` peserta rekam sidik jari (bawaan hari ini)
  * - `POST /_panel/api/bpjs/hfis`                  → `{ kodedokter, tanggal, libur?, kapasitaspasien? }` seperti
  *                                                  petugas mengubah aplikasi HFIS (libur/cuti, kapasitas per tanggal)
+ * - `POST /_panel/api/bpjs/outage`                → `{ noKartu, aktif }` gangguan BPJS hanya untuk peserta ini (503 untuk
+ *                                                  permintaan VClaim/Antrean yang menyebut kartunya); E2E downtime
  * - `POST /_panel/api/bpjs/peserta`               → `{ noKartu, nik, nama?, sex?, tglLahir?, aktif?, hakKelas? }`
  *                                                  tetapkan peserta (mis. agar cocok dengan pasien seed)
  */
@@ -152,6 +154,8 @@ const kartu = z.string().regex(/^0000\d{9}$/, 'No. kartu fiktif: 13 digit berawa
 
 const fingerprintSchema = z.strictObject({ noKartu: kartu, tanggal: bpjsDateSchema.optional() });
 
+const outageSchema = z.strictObject({ noKartu: kartu, aktif: z.boolean() });
+
 const hfisOverrideSchema = z
   .strictObject({
     kodedokter: z.number().int().positive(),
@@ -205,6 +209,14 @@ export function registerBpjsPanel(app: FastifyInstance, config: MockConfig, stat
     const tanggal = parsed.data.tanggal ?? today();
     state.bpjs.fingerprints.add(`${parsed.data.noKartu}|${tanggal}`);
     return { noKartu: parsed.data.noKartu, tanggal, kode: '1' };
+  });
+
+  app.post('/_panel/api/bpjs/outage', async (req, reply) => {
+    const parsed = outageSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send(bad('noKartu fiktif dan aktif (boolean) wajib'));
+    if (parsed.data.aktif) state.bpjs.outageKartu.add(parsed.data.noKartu);
+    else state.bpjs.outageKartu.delete(parsed.data.noKartu);
+    return { noKartu: parsed.data.noKartu, aktif: parsed.data.aktif };
   });
 
   app.post('/_panel/api/bpjs/hfis', async (req, reply) => {

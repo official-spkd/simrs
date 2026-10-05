@@ -386,6 +386,8 @@ export class QueueService {
   async bpjsTasks(appointmentId: string): Promise<{ patientId: string; items: BpjsQueueTask[] }> {
     const appt = await this.repo.appointment(appointmentId);
     if (!appt) throw frontOfficeError('BOOKING_NOT_FOUND');
+    // Lingkup `unit` (klinisi): hanya booking di layanan unit sesinya (penolakan tercatat).
+    await this.accessibleService(appt.serviceId);
     const rows = await this.repo.bpjsTasks(appointmentId);
     return {
       patientId: appt.patientId,

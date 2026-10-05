@@ -171,6 +171,20 @@ export class KioskRepository {
     });
   }
 
+  countTicketsSince(deviceId: string, since: Date): Promise<number> {
+    return this.db.tx().kioskTicket.count({ where: { deviceId, createdAt: { gte: since } } });
+  }
+
+  /** Waktu "panggil petugas" terakhir perangkat ini sejak `since` (jeda antarpanggilan), atau null. */
+  async lastAssistSince(link: string, since: Date): Promise<Date | null> {
+    const row = await this.db.tx().notification.findFirst({
+      where: { kind: 'kiosk_assist', link, createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? null;
+  }
+
   /** Tiket ini tercatat untuk perangkat ini sejak `since` (cetak ulang hanya di hari yang sama). */
   async deviceHasTicket(deviceId: string, ticketId: string, since: Date): Promise<boolean> {
     const n = await this.db

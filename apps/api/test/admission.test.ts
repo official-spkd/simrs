@@ -455,11 +455,20 @@ describe('ABAC lingkup unit (ADR-0031), izin, isolasi', () => {
     }).expect(201);
     await as('perawatMelati').get(`/registration/encounters/${encId}`).expect(200);
 
-    // Kunjungan IGD dibatalkan → perawat IGD kehilangan akses.
+    // Kunjungan IGD dibatalkan → perawat IGD kehilangan akses, juga dari daftar unitnya (hanya kunjungan aktif).
     await as('daftar')
       .post(`/registration/encounters/${encId}/cancel`, { reason: 'Salah daftar unit' })
       .expect(200);
     await as('perawatIgd').get(`/registration/encounters/${encId}`).expect(403);
+    const afterCancel = await as('perawatIgd').get('/registration/encounters?limit=200').expect(200);
+    expect(afterCancel.body.items.map((i: { encounter: { id: string } }) => i.encounter.id)).not.toContain(
+      encId,
+    );
+    expect(
+      afterCancel.body.items.every((i: { encounter: { status: string } }) =>
+        ['planned', 'arrived', 'in_progress'].includes(i.encounter.status),
+      ),
+    ).toBe(true);
   });
 
   it('izin: perawat tidak boleh mendaftarkan IGD/admisi (403 + audit); kasir tidak boleh membatalkan', async () => {

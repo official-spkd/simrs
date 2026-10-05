@@ -10,7 +10,7 @@ Nomor 0024–0075 sudah dipesan oleh rencana fase di `docs/rencana/` (5 Okt 2026
 | --------- | ------------------------------------------------------------------ | --------------------------------------- |
 | 0001–0023 | Fase 0–1 dan mode presentasi                                       | semua                                   |
 | 0024      | Fase 1 · PIN masuk cepat                                           | 0024                                    |
-| 0025–0027 | Fase 2 · lookup sinkron, SSE, prinsipal perangkat                  | 0025, 0026                              |
+| 0025–0027 | Fase 2 · lookup sinkron, SSE, prinsipal perangkat                  | 0025, 0026, 0027                        |
 | 0028–0032 | Fase 3 · entri klinis berversi, PDF + TTE, CDS, ABAC unit, staging | 0031 (bagian fase 2 potongan 7)         |
 | 0033      | Batas laju Redis (di luar rencana fase)                            | 0033                                    |
 | 0034–0037 | Fase 4 · penunjang                                                 | –                                       |

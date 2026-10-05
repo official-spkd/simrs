@@ -495,6 +495,9 @@ Modul `modules/kiosk/` (potongan 6), kontrak `@simrs/shared` `schemas/kiosk.ts`.
   nilai yang diketik); `kiosk.lookup_rate_per_min` per perangkat dihitung dari tabel itu di bawah kunci advisori per
   perangkat → 429 `RATE_LIMITED` yang tetap tercatat (`AuditedDenial` dengan kode/status sendiri). NIK ganda → tidak
   ditemukan. Token perangkat lain → 410 yang sama, tercatat.
+- **Batas per perangkat lain** (review keamanan potongan 9): tiket loket tanpa identitas 6/menit (`kiosk_tickets`,
+  429 tercatat) dan "panggil petugas" sekali per 60 detik (tautan notifikasi `/antrean?perangkat=<id>`; sentuhan ulang
+  mengembalikan waktu panggilan pertama tanpa notifikasi baru).
 - **Idempotensi**: token ditandai terpakai bersama tiketnya (`used_at`, `idempotency_key`, `ticket_id`; pemicu
   `app_kiosk_lookup_guard` + hak kolom). Kunci yang sama → tiket yang sama; kunci lain → 410.
 - **Web** (`app/(perangkat)/kiosk/`): mode api = `live-kiosk-client.tsx` + Server Action `actions.ts` (token perangkat

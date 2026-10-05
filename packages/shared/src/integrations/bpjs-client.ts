@@ -152,7 +152,8 @@ export class BpjsClient {
         ...failure(
           fail.code,
           fail.retryable,
-          `kode ${decoded.code}: ${decoded.message.slice(0, 120)}`,
+          // Hanya kode: pesan BPJS bisa memuat data peserta dan detail ini masuk `lastError` + log worker.
+          `kode ${decoded.code}`,
           timing,
         ),
         bpjsCode: decoded.code,

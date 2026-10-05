@@ -34,6 +34,13 @@ import { SchedulingService } from '../scheduling/scheduling.service';
 import { type KioskPatient, KioskRepository, type LookupRow } from './kiosk.repository';
 
 const MINUTE_MS = 60_000;
+/**
+ * Tiket loket tanpa identitas per perangkat per menit: nomor harian per layanan terbatas (999), jadi satu anjungan
+ * tidak boleh menghabiskannya (temuan review keamanan potongan 9). Tiket dengan token sudah dibatasi pencarian.
+ */
+const ANONYMOUS_TICKETS_PER_MINUTE = 6;
+/** Jeda minimum antar "panggil petugas" dari satu anjungan: panggilan ulang dalam jeda tidak mengirim notifikasi baru. */
+const ASSIST_COOLDOWN_MS = 60_000;
 /** `Idempotency-Key`: UUID atau kunci acak klien (huruf, angka, `-_:.`). */
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_:.-]{8,100}$/;
 
@@ -204,6 +211,7 @@ export class KioskService {
       if (claim.lookup === null) return this.printable(claim.replayTicketId);
       lookup = claim.lookup;
     }
+    if (!lookup) await this.assertTicketRate();
     const { ticket } = await this.queue.issueKioskTicket(input.serviceKind, {
       patientId: lookup?.patientId ?? null,
       appointmentId: input.serviceKind === 'loket' ? (lookup?.appointmentId ?? null) : null,
@@ -319,6 +327,18 @@ export class KioskService {
   /** "Panggil petugas" (P09): notifikasi in-app ke petugas pendaftaran, tanpa PHI (hanya nama perangkat). */
   async assist(now = new Date()): Promise<{ requestedAt: string }> {
     const deviceId = this.deviceId();
+    await this.repo.lockDevice(deviceId);
+    // Satu panggilan per jeda: sentuhan berulang tidak membanjiri notifikasi petugas.
+    const link = `/antrean?perangkat=${deviceId}`;
+    const last = await this.repo.lastAssistSince(link, new Date(now.getTime() - ASSIST_COOLDOWN_MS));
+    if (last) {
+      this.db.audit({
+        action: 'create',
+        resourceType: 'kiosk_assist',
+        details: { notified: 0, repeated: true },
+      });
+      return { requestedAt: last.toISOString() };
+    }
     const [name, recipients] = await Promise.all([
       this.repo.deviceName(deviceId),
       this.repo.registrars(this.db.actor().unitId),
@@ -329,7 +349,7 @@ export class KioskService {
         kind: 'kiosk_assist',
         title: 'Anjungan meminta bantuan',
         body: `Pengunjung di ${name} membutuhkan bantuan petugas.`,
-        link: '/antrean',
+        link,
       },
       ['in_app'],
     );
@@ -340,6 +360,24 @@ export class KioskService {
   // ------------------------------------------------------------------------------------------------------------
   // Bantuan internal
   // ------------------------------------------------------------------------------------------------------------
+
+  /** Batas tiket loket tanpa identitas per perangkat (hitung-lalu-terbit di bawah kunci perangkat). */
+  private async assertTicketRate(now = new Date()): Promise<void> {
+    const deviceId = this.deviceId();
+    await this.repo.lockDevice(deviceId);
+    const recent = await this.repo.countTicketsSince(deviceId, new Date(now.getTime() - MINUTE_MS));
+    if (recent >= ANONYMOUS_TICKETS_PER_MINUTE) {
+      throw new AuditedDenial(
+        'Terlalu banyak tiket dari anjungan ini. Tunggu sebentar atau minta bantuan petugas.',
+        {
+          resourceType: 'kiosk_ticket',
+          details: { reason: 'rate_limited', limit: ANONYMOUS_TICKETS_PER_MINUTE },
+        },
+        { retryAfterSeconds: 60 },
+        { code: 'RATE_LIMITED', status: 429 },
+      );
+    }
+  }
 
   private deviceId(): string {
     const principal = this.db.actor().devicePrincipal;

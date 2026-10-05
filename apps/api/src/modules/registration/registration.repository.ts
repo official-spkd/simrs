@@ -380,6 +380,8 @@ export class RegistrationRepository {
     status?: string;
     unitId?: string;
     patientId?: string;
+    /** Hanya kunjungan aktif (`ACTIVE_ENCOUNTER_STATUSES`): lingkup `unit` ADR-0031. */
+    activeOnly?: boolean;
     access: Prisma.Sql | null;
   }): Promise<string[]> {
     const rows = await this.db.tx().$queryRaw<Array<{ id: string }>>`
@@ -390,6 +392,11 @@ export class RegistrationRepository {
         ${f.encounterClass ? Prisma.sql`AND e.class = ${f.encounterClass}` : Prisma.empty}
         ${f.status ? Prisma.sql`AND e.status = ${f.status}` : Prisma.empty}
         ${f.unitId ? Prisma.sql`AND e.unit_id = ${f.unitId}::uuid` : Prisma.empty}
+        ${
+          f.activeOnly
+            ? Prisma.sql`AND e.status IN (${Prisma.join([...ACTIVE_ENCOUNTER_STATUSES])})`
+            : Prisma.empty
+        }
         ${f.patientId ? Prisma.sql`AND e.patient_id = ${f.patientId}::uuid` : Prisma.empty}
         ${
           f.date

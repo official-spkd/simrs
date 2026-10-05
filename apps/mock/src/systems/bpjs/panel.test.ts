@@ -135,4 +135,31 @@ describe('panel BPJS', () => {
     const nonaktif = await post('/_panel/api/bpjs/peserta', { noKartu: '0000000009772', nik, aktif: false });
     expect(nonaktif.json().statusPeserta.keterangan).toBe('TIDAK AKTIF');
   });
+
+  it('gangguan per peserta: hanya permintaan yang menyebut kartu itu ditolak 503, pulih setelah dimatikan', async () => {
+    expect((await post('/_panel/api/bpjs/outage', { noKartu: '123', aktif: true })).statusCode).toBe(400);
+    expect((await post('/_panel/api/bpjs/outage', { noKartu: KARTU.aktif, aktif: true })).json()).toEqual({
+      noKartu: KARTU.aktif,
+      aktif: true,
+    });
+    const peserta = (noKartu: string) =>
+      h.raw('vclaim', VCLAIM_ENDPOINTS.pesertaByKartu, { params: { noKartu, tglSEP: TODAY } });
+    const down = await peserta(KARTU.aktif);
+    expect(down.statusCode).toBe(503);
+    expect(down.json()).toMatchObject({ code: 'MOCK_FAILURE' });
+    expect((await peserta(KARTU.aktif2)).statusCode).toBe(200);
+    // Body juga diperiksa (mis. SEP insert menyebut noKartu di body).
+    const { aktif } = await h.rujukanOf(KARTU.aktif2);
+    const body = sepRawatJalan({
+      noKartu: KARTU.aktif,
+      rujukan: { asalRujukan: '1', tglRujukan: TODAY, noRujukan: aktif, ppkRujukan: '' },
+    });
+    expect((await h.raw('vclaim', VCLAIM_ENDPOINTS.sepInsert, { body })).statusCode).toBe(503);
+
+    await post('/_panel/api/bpjs/outage', { noKartu: KARTU.aktif, aktif: false });
+    expect((await peserta(KARTU.aktif)).statusCode).toBe(200);
+    await post('/_panel/api/bpjs/outage', { noKartu: KARTU.aktif, aktif: true });
+    await post('/_panel/api/reset', {});
+    expect((await peserta(KARTU.aktif)).statusCode).toBe(200);
+  });
 });

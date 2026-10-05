@@ -34,7 +34,11 @@ export default async function KendaliAntreanPage({ searchParams }: { searchParam
   }
   const sp = await searchParams;
   const wanted = z.uuid().safeParse(sp.layanan);
-  const selected = services.find((s) => wanted.success && s.id === wanted.data) ?? services[0];
+  // Bawaan: loket pendaftaran (layanan yang paling sering dipanggil dari halaman ini), lalu layanan pertama.
+  const selected =
+    services.find((s) => wanted.success && s.id === wanted.data) ??
+    services.find((s) => s.kind === 'loket') ??
+    services[0];
   if (!selected) notFound();
   const tickets = await getQueueTickets(selected.id);
   return (

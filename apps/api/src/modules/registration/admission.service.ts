@@ -253,7 +253,8 @@ export class AdmissionService {
 
   /**
    * Daftar kunjungan dengan ABAC (ADR-0031): lingkup `unit` dipaksa ke unit penugasan (unit lain di filter → 403
-   * diaudit), lingkup `relationship` hanya pasien berelasi/akses darurat. Setiap pasien yang tampil diaudit `read`.
+   * diaudit) dan hanya kunjungan AKTIF (selesai/batal menutup akses, sama dengan `patientAccessSql`), lingkup
+   * `relationship` hanya pasien berelasi/akses darurat. Setiap pasien yang tampil diaudit `read`.
    */
   async list(q: EncounterListQuery): Promise<EncounterList> {
     const scope = this.db.permissionScope();
@@ -283,6 +284,7 @@ export class AdmissionService {
       status: q.status,
       unitId,
       patientId: q.patientId,
+      activeOnly: scope === 'unit',
       access,
     });
     const page = ids.slice(0, q.limit);
