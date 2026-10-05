@@ -73,3 +73,8 @@ Fungsi ini bukan `SECURITY DEFINER` dan tidak membaca data, jadi tidak butuh pen
 − Urutan replay bergantung pada id UUID v7 buatan aplikasi. Transaksi yang commit tidak berurutan bisa membuat event ber-id lebih kecil terlewat saat replay (pengiriman live tetap utuh). Kanal yang butuh urutan ketat memakai kolom urut dari DB sebagai `id` event. Klien wajib menangani `reset`.
 − Notifikasi selama koneksi LISTEN putus hilang dan hanya pulih lewat replay. Kanal tanpa replay memaksa klien memuat ulang snapshot.
 − BFF web (potongan 4b) wajib meneruskan aliran tanpa buffering dan meneruskan `Last-Event-ID`.
+
+## Pembaruan 5 Okt 2026
+
+- `app_notify_row()` terpasang di migrasi `20261005161000_notify_row`; trigger `queue_calls_notify` memakainya (sebelumnya fungsi khusus `app_notify_queue_call()` dengan kanal dan payload yang sama).
+- Event domain dalam proses (`DomainEvents`, potongan 1b) kini juga disimpan: `publish()` menyisipkan baris `domain_events` (append-only, RLS FORCE, payload hanya ID/enum) di transaksi penerbit sebelum penangan berjalan (usulan peninjau S dan P). Ini jejak dan sumber kejadian untuk penelusuran, bukan kanal SSE: tabel itu tidak diberi trigger NOTIFY.
