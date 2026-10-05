@@ -34,7 +34,11 @@
     "pg:portable": "node scripts/pg-portable.mjs",
     "db:test:recreate": "node scripts/recreate-test-db.mjs",
     "with-pg": "node scripts/with-pg.mjs",
-    "env:init": "node scripts/init-env.mjs"
+    "env:init": "node scripts/init-env.mjs",
+    "backup:jalankan": "pnpm --filter @simrs/backup jalankan",
+    "backup:uji-restore": "pnpm --filter @simrs/backup uji-restore",
+    "backup:kunci-baru": "pnpm --filter @simrs/backup kunci-baru",
+    "backup:dekripsi": "pnpm --filter @simrs/backup dekripsi"
   },
   "devDependencies": {
     "@types/node": "^24",

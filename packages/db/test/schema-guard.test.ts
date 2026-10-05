@@ -89,6 +89,9 @@ describe('penjaga skema', () => {
   it('role aplikasi tidak bisa menghapus data master, identitas, pasien, audit, atau jejak akses darurat', async () => {
     const tables = [
       'audit_events',
+      'audit_anchors',
+      'audit_daily_summaries',
+      'audit_daily_summary_items',
       'facilities',
       'units',
       'locations',

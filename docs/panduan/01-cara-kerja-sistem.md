@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan SIM RS dari sudut pandang sistem: apa yang dibangun, bagaimana bagian-bagiannya saling bicara, dan pengaman apa yang menjaga data pasien. Detail kode ada di [Cara kode bekerja](./02-cara-kerja-kode.md); langkah praktis ada di [Tutorial](./03-tutorial.md).
 
-> Status (5 Okt 2026): fondasi (fase 0) selesai dan platform inti (fase 1) hampir selesai: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi. Layar fase 2–10 sudah ada dalam mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase).
+> Status (5 Okt 2026): fondasi (fase 0) selesai dan platform inti (fase 1) selesai: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office (fase 2) sedang dibangun. Layar fase 2–10 sudah ada dalam mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase).
 
 ## Apa yang dibangun
 
@@ -126,8 +126,8 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 ## Rekam medis dan jejak audit
 
 - **Tidak ada hapus atau timpa untuk data klinis.** Koreksi membuat versi baru dengan alasan (`version`, `supersedes_id`, `correction_reason`). Data yang sudah ditandatangani elektronik hanya bisa ditambah addendum. Aturan ini berlaku mulai fase 3 (ADR-0004).
-- **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa.
-- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar) beserta riwayat tinjauannya (keputusan terbaru berlaku, yang lama tetap tercatat); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
+- **Audit append-only.** Role aplikasi tidak punya hak `UPDATE`/`DELETE` atas `audit_events`, dan trigger database menolak perubahan dari siapa pun. Setiap entri menyimpan hash entri sebelumnya (hash berantai), jadi baris yang diubah atau dihapus di tengah rantai (mis. oleh admin database yang mematikan trigger) ketahuan saat rantai diperiksa. Tiap jam worker menandatangani kepala rantai tiap RS (jangkar, HMAC dengan kunci terpisah) dan menyimpannya di database serta di bucket WORM yang tidak bisa dihapus siapa pun; karena itu entri terakhir yang dihapus, atau rantai yang ditulis ulang utuh, juga ketahuan. Pemeriksaan di layar mulai dari jangkar terakhir (cepat); "Periksa penuh" menghitung ulang seluruh rantai (ADR-0072).
+- **Layar Audit** (`/sistem/audit`) untuk petugas privasi dan auditor mutu: cari jejak per pasien, pengguna, peran, atau jenis aksi; periksa keutuhan rantai; tinjau **temuan anomali** (gagal masuk atau akses ditolak berulang, akses pasien di luar jam dinas, volume akses tak wajar; hari yang sudah lewat dibaca dari ringkasan harian, hari ini dihitung langsung) beserta riwayat tinjauannya (keputusan terbaru berlaku, yang lama tetap tercatat); tinjau setiap **akses darurat** (alasan wajib, keputusan "akses sah" atau "perlu klarifikasi") dan lihat laporan hariannya; unduh paket bukti akreditasi (CSV). Meninjau, membuka detail, dan mengunduh juga tercatat di audit. Pencatatan otomatis setiap baca data pasien menyusul bersama indeks pasien (P05).
 
 ## Data pasien (MPI)
 
@@ -204,19 +204,19 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 
 ## Peta fase
 
-| Fase | Isi                                                                                        | Status                                 |
-| ---- | ------------------------------------------------------------------------------------------ | -------------------------------------- |
-| 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | ✅ selesai                             |
-| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | 🟨 kriteria lolos, sisa penutupan fase |
-| 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | 🟨 berjalan                            |
-| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                                     |
-| 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                                     |
-| 5    | Keuangan: tarif, kasir, klaim, akuntansi                                                   | ⬜                                     |
-| 6    | Pembayaran TPDI × BTN dan pembiayaan                                                       | ⬜                                     |
-| 7    | Integration hub + SATUSEHAT                                                                | ⬜                                     |
-| 8    | Back office                                                                                | ⬜                                     |
-| 9    | Dasbor + aplikasi mobile                                                                   | ⬜                                     |
-| 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                                     |
+| Fase | Isi                                                                                        | Status                |
+| ---- | ------------------------------------------------------------------------------------------ | --------------------- |
+| 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | ✅ selesai            |
+| 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | ✅ selesai 5 Okt 2026 |
+| 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | 🟨 berjalan           |
+| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                    |
+| 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                    |
+| 5    | Keuangan: tarif, kasir, klaim, akuntansi                                                   | ⬜                    |
+| 6    | Pembayaran TPDI × BTN dan pembiayaan                                                       | ⬜                    |
+| 7    | Integration hub + SATUSEHAT                                                                | ⬜                    |
+| 8    | Back office                                                                                | ⬜                    |
+| 9    | Dasbor + aplikasi mobile                                                                   | ⬜                    |
+| 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                    |
 
 Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
 

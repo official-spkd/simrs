@@ -16,6 +16,7 @@ import {
   actionTone,
   type AuditParams,
   auditHref,
+  chainCheckSummary,
   deviceLabel,
   FINDING_KIND_LABEL,
   formatWaktuServer,
@@ -80,7 +81,8 @@ const paramsSchema = z.object({
   tinjau: z.uuid().optional().catch(undefined),
   temuan: z.string().max(120).optional().catch(undefined),
   laporan: z.iso.date().optional().catch(undefined),
-  verifikasi: z.literal('1').optional().catch(undefined),
+  /** `1` = dari titik periksa jangkar terakhir (cepat), `penuh` = hitung ulang seluruh rantai (ADR-0072). */
+  verifikasi: z.enum(['1', 'penuh']).optional().catch(undefined),
   semua: z.literal('1').optional().catch(undefined),
 });
 
@@ -112,7 +114,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   const p = paramsSchema.parse(
     Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, typeof v === 'string' ? v : undefined])),
   );
-  // `verifikasi` berlaku sekali (memeriksa seluruh rantai mahal), tidak ikut terbawa ke tautan lain.
+  // `verifikasi` berlaku sekali (pemeriksaan rantai membebani server), tidak ikut terbawa ke tautan lain.
   const { verifikasi: _verifikasi, ...sticky } = p;
   const current: AuditParams = sticky;
   const canReviewGrants = can(s, 'break_glass', 'review');
@@ -151,7 +153,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           schema: grantListSchema,
         })
       : Promise.resolve(null),
-    p.verifikasi ? api('/api/v1/audit/verify', { schema: verifySchema }) : Promise.resolve(null),
+    p.verifikasi
+      ? api(`/api/v1/audit/verify${p.verifikasi === 'penuh' ? '?mode=full' : ''}`, { schema: verifySchema })
+      : Promise.resolve(null),
     historyReq,
   ]);
   // Akses darurat ditinjau lewat `tinjau` (panel izin), bukan sebagai temuan biasa.
@@ -186,14 +190,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       </header>
 
       {chain && (
-        <Alert
-          level={chain.intact ? 'success' : 'critical'}
-          title={chain.intact ? 'Rantai utuh' : 'Rantai rusak'}
-        >
-          {chain.intact
-            ? `${chain.checked.toLocaleString('id-ID')} entri diperiksa pukul ${formatJam(chain.verifiedAt)}; tidak ada yang diubah atau dihapus.`
-            : `Ketidakcocokan hash mulai entri #${chain.firstBrokenSeq}. Laporkan ke tim keamanan; jangan ubah data.`}
-        </Alert>
+        <ChainAlert
+          summary={chainCheckSummary(chain, formatJam)}
+          full={chain.mode === 'full'}
+          current={current}
+        />
       )}
 
       <Filters p={p} current={current} roles={roleOptions} />
@@ -256,6 +257,40 @@ function exportHref(p: z.infer<typeof paramsSchema>): string {
   if (p.pasien) q.set('pasien', p.pasien);
   if (p.pengguna) q.set('pengguna', p.pengguna);
   return `/sistem/audit/ekspor?${q.toString()}`;
+}
+
+/** Hasil pemeriksaan keutuhan (ADR-0072): temuan per baris, dan tautan pemeriksaan penuh bila belum penuh. */
+function ChainAlert({
+  summary,
+  full,
+  current,
+}: {
+  summary: ReturnType<typeof chainCheckSummary>;
+  full: boolean;
+  current: AuditParams;
+}) {
+  return (
+    <Alert level={summary.level} title={summary.title}>
+      {/* Alert membungkus isi dengan <span>: pakai span blok, bukan <p>/<div>. */}
+      <span className="flex flex-col gap-1.5">
+        <span>{summary.text}</span>
+        {summary.lines.length > 0 && (
+          <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
+            {summary.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+        {!full && (
+          <span>
+            <Link href={auditHref(current, { verifikasi: 'penuh' })} className="font-semibold">
+              Periksa penuh (hitung ulang seluruh rantai)
+            </Link>
+          </span>
+        )}
+      </span>
+    </Alert>
+  );
 }
 
 const controlClass =

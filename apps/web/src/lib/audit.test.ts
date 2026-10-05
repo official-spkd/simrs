@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   actionTone,
   auditHref,
+  type ChainCheck,
+  chainCheckSummary,
   deviceLabel,
   formatWaktuServer,
   formatWaktuSingkat,
@@ -111,5 +113,60 @@ describe('riwayat tinjauan temuan', () => {
   it('keputusan tak dikenal tampil apa adanya; daftar kosong tetap kosong', () => {
     expect(reviewHistoryRows([item({ outcome: 'lainnya' })])[0]?.decision).toBe('Lainnya');
     expect(reviewHistoryRows([])).toEqual([]);
+  });
+});
+
+describe('ringkasan pemeriksaan keutuhan (ADR-0072)', () => {
+  const jam = () => '11.10';
+  const base: ChainCheck = {
+    intact: true,
+    mode: 'checkpoint',
+    checked: 1234,
+    firstBrokenSeq: null,
+    checkpoint: { seq: '1200', anchoredAt: '2026-10-05T03:00:00.000Z' },
+    anchors: { total: 3, verified: 3, keyConfigured: true },
+    issues: [],
+    issueCount: 0,
+    verifiedAt: '2026-10-05T04:10:00.000Z',
+  };
+
+  it('utuh: menyebut titik periksa dan jangkar yang cocok; penuh tanpa titik periksa', () => {
+    const s = chainCheckSummary(base, jam);
+    expect(s).toMatchObject({ level: 'success', title: 'Rantai utuh', lines: [] });
+    expect(s.text).toBe(
+      '1.234 entri diperiksa pukul 11.10 sejak titik periksa #1200 (jangkar Sen, 5 Okt 2026 · 10.00); ' +
+        'tidak ada yang diubah atau dihapus. 3 jangkar cocok.',
+    );
+    expect(chainCheckSummary({ ...base, mode: 'full', checkpoint: null }, jam).text).toContain(
+      '(pemeriksaan penuh)',
+    );
+    expect(
+      chainCheckSummary({ ...base, anchors: { total: 0, verified: 0, keyConfigured: false } }, jam).text,
+    ).toContain('Kunci jangkar belum dipasang');
+  });
+
+  it('rusak: satu baris per temuan, termasuk pemotongan ekor; sisa temuan disebut jumlahnya', () => {
+    const s = chainCheckSummary(
+      {
+        ...base,
+        intact: false,
+        checkpoint: null,
+        mode: 'full',
+        issues: [
+          { code: 'CHAIN_BROKEN', seq: '7', anchoredAt: null },
+          { code: 'TRUNCATION_DETECTED', seq: '1300', anchoredAt: '2026-10-05T04:00:00.000Z' },
+          { code: 'ANCHOR_TAMPERED', seq: '1301', anchoredAt: '2026-10-05T04:00:00.000Z' },
+        ],
+        issueCount: 5,
+      },
+      jam,
+    );
+    expect(s).toMatchObject({ level: 'critical', title: 'Rantai rusak' });
+    expect(s.lines).toEqual([
+      'Ketidakcocokan hash mulai entri #7: entri diubah, disisipkan, atau dihapus.',
+      'Entri #1300 yang sudah dijangkar (Sen, 5 Okt 2026 · 11.00) hilang: ujung jejak dipotong.',
+      'Jangkar #1301 tidak sah (tanda tangan tidak cocok): catatan jangkar diubah.',
+      '… dan 2 temuan lain.',
+    ]);
   });
 });
