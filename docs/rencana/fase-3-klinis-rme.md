@@ -165,8 +165,8 @@ Aturan untuk semua tabel klinis:
 
 ### 3.2a · Data klinis terkode, TTV/EWS, hasil, ringkasan (K08, K12-observasi, K14)
 
-- `POST/GET /api/v1/encounter/:id/observations`: NEWS2 dihitung server; eskalasi (≥ 5 atau satu parameter 3) → notifikasi P09 tanpa PHI + SSE.
-- `GET /api/v1/encounter/:id/context` (banner).
+- `POST/GET /api/v1/encounters/:id/observations`: NEWS2 dihitung server; eskalasi (≥ 5 atau satu parameter 3) → notifikasi P09 tanpa PHI + SSE.
+- `GET /api/v1/encounters/:id/context` (banner).
 - Diagnosis: `POST /api/v1/diagnosis/conditions` (ICD-10 dari `ref`, satu utama per encounter), koreksi/salah entri, `POST /api/v1/diagnosis/procedures` (ICD-9-CM), `GET /api/v1/diagnosis/problem-list?patientId=` (kelompok RM), `POST /api/v1/diagnosis/allergies` (+ NKDA; perubahan = versi baru).
 - `POST /api/v1/results/observations` (`result.write`) dan `GET /api/v1/results?patientId=`.
 - `GET /api/v1/summary/patients/:id` (K14).
