@@ -179,14 +179,14 @@ Mode header pengembang memakai peran `DEV_ROLE` yang melewati matriks, jadi **ja
 
 Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoint membaca `audit_events` lewat RLS biasa; tidak ada jalur khusus.
 
-| Endpoint                                  | Izin           | Isi                                                                                                                                                        |
-| ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /audit/events`, `/audit/events/:seq` | `audit.read`   | Daftar berfilter (pasien, pengguna, peran, kelompok aksi, rentang waktu, hasil) berpaginasi kursor `seq`; detail berisi hash. Membuka detail ikut diaudit. |
-| `GET /audit/verify`                       | `audit.read`   | Periksa seluruh rantai hash tenant. Mahal, jadi web hanya menjalankannya bila diminta (`?verifikasi=1`, tidak terbawa ke tautan lain).                     |
-| `GET /audit/anomalies?days=`              | `audit.read`   | Temuan dihitung dari jejak: gagal masuk/akses ditolak berulang, akses pasien di luar jam dinas, volume tak wajar, akses darurat belum ditinjau.            |
-| `POST /audit/anomalies/review`            | `audit.review` | Tinjauan temuan. Disimpan sebagai entri audit (`action=review`, `resource_type=audit_anomaly`, `resource_id`=kunci temuan), bukan tabel baru.              |
-| `GET /audit/anomalies/reviews?key=`       | `audit.read`   | Riwayat tinjauan satu temuan, terbaru dulu: peninjau, waktu, keputusan, catatan; `effective` = yang berlaku. Pembukaannya diaudit dengan kunci temuan.     |
-| `GET /audit/export`                       | `audit.export` | CSV bukti akreditasi: BOM UTF-8, maks. 92 hari / 10.000 baris, sel berawalan `= + - @` diberi `'` (anti formula injection). Ekspor ikut diaudit.           |
+| Endpoint                                  | Izin           | Isi                                                                                                                                                            |
+| ----------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /audit/events`, `/audit/events/:seq` | `audit.read`   | Daftar berfilter (pasien, pengguna, peran, kelompok aksi, rentang waktu, hasil) berpaginasi kursor `seq`; detail berisi hash. Membuka detail ikut diaudit.     |
+| `GET /audit/verify?mode=`                 | `audit.read`   | Keutuhan jejak (ADR-0072): `checkpoint` (bawaan) sejak jangkar sah terakhir + cocokkan semua jangkar; `full` hitung ulang semua. Web: `?verifikasi=1`/`penuh`. |
+| `GET /audit/anomalies?days=`              | `audit.read`   | Temuan: gagal masuk/akses ditolak berulang, akses di luar jam dinas, volume tak wajar, akses darurat belum ditinjau. Hari lampau dari ringkasan harian.        |
+| `POST /audit/anomalies/review`            | `audit.review` | Tinjauan temuan. Disimpan sebagai entri audit (`action=review`, `resource_type=audit_anomaly`, `resource_id`=kunci temuan), bukan tabel baru.                  |
+| `GET /audit/anomalies/reviews?key=`       | `audit.read`   | Riwayat tinjauan satu temuan, terbaru dulu: peninjau, waktu, keputusan, catatan; `effective` = yang berlaku. Pembukaannya diaudit dengan kunci temuan.         |
+| `GET /audit/export`                       | `audit.export` | CSV bukti akreditasi: BOM UTF-8, maks. 92 hari / 10.000 baris, sel berawalan `= + - @` diberi `'` (anti formula injection). Ekspor ikut diaudit.               |
 
 - **Kunci temuan** berbentuk `jenis:pengguna:tanggal WIB` (`AUDIT_ANOMALY_KEY` di `@simrs/shared`). Kunci yang sama di hari yang sama = temuan yang sama, sehingga tinjauan tetap melekat walau jumlah kejadian bertambah.
 - **Ambang** diatur per RS lewat pengaturan: `audit.night_hours`, `audit.volume_threshold`, `audit.burst_threshold`. Peran jaga malam (`NIGHT_SHIFT_ROLES`) tidak dihitung sebagai akses di luar jam dinas.
@@ -194,6 +194,13 @@ Modul `apps/api/src/modules/audit/` melayani layar `/sistem/audit`. Semua endpoi
 - Temuan **boleh ditinjau ulang** (layar: "Buka kembali tinjauan"): entri `review` baru ditambahkan dan yang terbaru berlaku; riwayatnya tampil di detail temuan. Kunci bertanggal mendatang (`400`) atau berisi akun di luar RS ini (`404`) ditolak, karena entri tinjauan tidak bisa dihapus.
 - Jendela `days` dimulai **00.00 WIB** (`days - 1` hari sebelum hari ini), sehingga hari pertama dihitung utuh dan jumlah per kunci temuan sama di rentang mana pun.
 - Query SQL temuan mengelompokkan per hari dengan `AT TIME ZONE 'Asia/Jakarta'` secara eksplisit, tidak bergantung pada zona sesi database.
+
+**Jangkar hash dan ringkasan harian (ADR-0072).** Rantai hash tidak berkunci, jadi superuser database bisa memotong ekornya atau menulis ulang seluruhnya. Penutupnya:
+
+- **Jangkar.** Job `audit.anchor` (tiap jam) menandatangani kepala rantai (HMAC, `AUDIT_ANCHOR_KEY`, kunci turunan per tenant) dan menyimpannya di `audit_anchors` + bucket WORM (`AUDIT_ANCHOR_BUCKET`, Object Lock COMPLIANCE, versi pertama objek yang dibaca). Jangkar di bucket yang hilang dari database dipulihkan job (`source = worm`).
+- **Pemeriksaan.** `verifyAuditTrail` (`@simrs/db`) mencocokkan setiap jangkar dengan entri di seq-nya (`TRUNCATION_DETECTED`, `ANCHOR_MISMATCH`, `ANCHOR_TAMPERED`, `ANCHOR_KEY_UNKNOWN`), lalu menghitung ulang hash sejak titik periksa (`CHAIN_BROKEN`). Perubahan mentah sebelum titik periksa hanya tertangkap mode `full`.
+- **Ringkasan.** Job `audit.daily-summary` (00.20 WIB) menulis `audit_daily_summaries` + `…_items` (per pengguna × jenis, tanpa PHI) untuk hari yang sudah final, berkunci parameter (jam malam, peran jaga, daftar aksi). `auditAnomalyBuckets` membaca ringkasan untuk hari lampau dan menghitung langsung sisanya; hasilnya sama dengan agregasi langsung (dibuktikan tes). SQL temuan ada di `packages/db/src/audit-anomaly.ts`, dipakai keduanya.
+- **Tes penyerang** memakai `asTestSuperuser` (`@simrs/db/testing`): superuser Postgres dengan trigger mati, hanya di DB uji.
 
 ### Master Patient Index (P05)
 
@@ -472,6 +479,8 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 | `app_reject_mutation()`          | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                                   |
 | `app_audit_chain()`              | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant.                  |
 | `app_verify_audit_chain()`       | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                                        |
+| `app_verify_audit_chain_from()`  | Seperti di atas, mulai dari titik periksa `(seq, hash)` (baris itu ikut dihitung ulang); juga mengembalikan baris terakhir yang lolos (ADR-0072).               |
+| `app_audit_anchor_guard()`       | Trigger `audit_anchors`: `recorded_at` dari jam database, tolak jangkar bertanggal masa depan.                                                                  |
 | `app_search_patient_names(teks)` | P05 · `SECURITY DEFINER`: kandidat nama mirip (`patient_id`, `score`) dari `search.patient_names` milik tenant `app_current_tenant()`; indeks trigram terpakai. |
 | `app_sync_patient_name()`        | Trigger `patients` → `search.patient_names` (INSERT, UPDATE `name_search`).                                                                                     |
 | `app_validate_patient_fks()`     | Operator/migrator: hitung baris yatim lalu `VALIDATE` FK relasi/akses darurat → pasien; ada yatim → peringatan, FK tetap `NOT VALID`, tanpa hapus.              |
@@ -560,7 +569,7 @@ Operasi BPJS dibangun dengan `defineBpjsOperation({ prepare, response?, onAccept
 
 ### Job berkala (P11)
 
-`jobs/periodic-jobs.ts` berisi peta `PERIODIC_JOBS` (nama `<konteks>.<job>` → `{ schedule, module?, run }`). Jadwal `{ everyMs }` (10 detik–24 jam) atau `{ dailyAt: 'HH:MM' }` (WIB). `PeriodicScheduler` menjalankan `run({ tenantId, now, tx })` sekali per tenant aktif; tenant yang modulnya (`module`) nonaktif dilewati; galat satu tenant dicatat tanpa menghentikan tenant lain. Dengan Redis: satu job scheduler BullMQ per job di antrean `periodic` (concurrency 1; cron harian ber-`tz` Asia/Jakarta; jadwal yang sudah dihapus dari peta ikut dihapus saat start). Tanpa Redis di luar produksi: timer berurutan. Job **wajib idempoten** (jadwal bisa terlewat atau terulang) dan efek ke sistem luar lewat outbox. Potongan berikutnya menambah satu baris per job, mis. `scheduling.generate-sessions`, `scheduling.hfis-pull`, `booking.no-show`, `booking.reminder`.
+`jobs/periodic-jobs.ts` berisi peta `PERIODIC_JOBS` (nama `<konteks>.<job>` → `{ schedule, module?, run }`). Jadwal `{ everyMs }` (10 detik–24 jam) atau `{ dailyAt: 'HH:MM' }` (WIB). `PeriodicScheduler` menjalankan `run({ tenantId, now, tx })` sekali per tenant aktif; tenant yang modulnya (`module`) nonaktif dilewati; galat satu tenant dicatat tanpa menghentikan tenant lain. Dengan Redis: satu job scheduler BullMQ per job di antrean `periodic` (concurrency 1; cron harian ber-`tz` Asia/Jakarta; jadwal yang sudah dihapus dari peta ikut dihapus saat start). Tanpa Redis di luar produksi: timer berurutan. Job **wajib idempoten** (jadwal bisa terlewat atau terulang) dan efek ke sistem luar lewat outbox. Potongan berikutnya menambah satu baris per job, mis. `scheduling.generate-sessions`, `scheduling.hfis-pull`, `booking.no-show`, `booking.reminder`. Job yang butuh env/klien lain (mis. `audit.anchor` dan `audit.daily-summary` dari `src/audit/`, ADR-0072) didaftarkan lewat factory `PERIODIC_JOB_REGISTRY` di `worker.module.ts`.
 
 ## Mock
 

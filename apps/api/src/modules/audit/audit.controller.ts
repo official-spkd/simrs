@@ -6,6 +6,8 @@ import {
   auditAnomalyReviewSchema,
   auditAnomalyReviewsQuerySchema,
   type AuditAnomalyReviewInput,
+  type AuditVerifyResult,
+  auditVerifyQuerySchema,
 } from '@simrs/shared';
 import { z } from 'zod';
 import { Audited, type AuditSource, param, queryPatientId } from '../../common/audited.decorator';
@@ -67,11 +69,27 @@ const queryKey = ({ query }: AuditSource): string | undefined =>
 export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
+  /**
+   * Keutuhan jejak audit (ADR-0072). `?mode=checkpoint` (bawaan) mulai dari jangkar sah terakhir; `?mode=full`
+   * menghitung ulang seluruh rantai. Hasil (mode, utuh/tidak, kode temuan) ikut dicatat di entri audit `verify`.
+   */
   @RequirePermission('audit', 'read')
   @Get('verify')
-  @Audited({ action: 'verify', resource: 'audit_chain' })
-  verify() {
-    return this.audit.verifyChain();
+  @Audited({
+    action: 'verify',
+    resource: 'audit_chain',
+    details: ({ result }) => {
+      const r = result as AuditVerifyResult;
+      return {
+        mode: r.mode,
+        intact: r.intact,
+        checked: r.checked,
+        issues: [...new Set(r.issues.map((i) => i.code))],
+      };
+    },
+  })
+  verify(@Query(new ZodValidationPipe(auditVerifyQuerySchema)) q: z.infer<typeof auditVerifyQuerySchema>) {
+    return this.audit.verifyChain(q.mode);
   }
 
   @RequirePermission('audit', 'read')

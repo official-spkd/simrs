@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { prepareTestDatabase } from '@simrs/db/testing';
 import { Redis } from 'ioredis';
 
@@ -14,6 +14,8 @@ export default async function setup() {
     // opsional
   }
   await prepareTestDatabase();
+  // Kunci jangkar audit (ADR-0072) dibangkitkan per run bila .env tidak menyediakannya; diwariskan ke proses tes.
+  process.env.AUDIT_ANCHOR_KEY ||= randomBytes(32).toString('base64');
   const prefix = `simrs:rl:test:${randomUUID()}:`;
   process.env.SIMRS_TEST_RATE_LIMIT_PREFIX = prefix;
   return () => deleteRateLimitKeys(prefix);
