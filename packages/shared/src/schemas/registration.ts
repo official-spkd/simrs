@@ -7,6 +7,7 @@ import {
   bpjsSyncSchema,
   changeReasonSchema,
   cursorPageQuerySchema,
+  cursorPageSchema,
   icd10CodingSchema,
   POLI_CODE_PATTERN,
   referralSchema,
@@ -53,6 +54,28 @@ export const ENCOUNTER_STATUS_LABEL: Record<EncounterStatus, string> = {
   cancelled: 'Dibatalkan',
 };
 
+/**
+ * Status kunjungan yang masih berjalan (bukan selesai/batal). Dasar ABAC lingkup `unit` (ADR-0031): staf berlingkup
+ * unit boleh membuka pasien yang punya kunjungan berstatus ini di unit penugasannya. Satu kunjungan IGD dan satu
+ * admisi rawat inap aktif per pasien (indeks unik database).
+ */
+export const ACTIVE_ENCOUNTER_STATUSES = [
+  'planned',
+  'arrived',
+  'in_progress',
+] as const satisfies readonly EncounterStatus[];
+
+/** Cara datang pasien IGD (`encounters.arrival_mode`). */
+export const ARRIVAL_MODES = ['datang_sendiri', 'ambulans', 'rujukan', 'diantar_polisi', 'lainnya'] as const;
+export type ArrivalMode = (typeof ARRIVAL_MODES)[number];
+export const ARRIVAL_MODE_LABEL: Record<ArrivalMode, string> = {
+  datang_sendiri: 'Datang sendiri',
+  ambulans: 'Ambulans',
+  rujukan: 'Rujukan faskes lain',
+  diantar_polisi: 'Diantar polisi',
+  lainnya: 'Lainnya',
+};
+
 /** Nomor kunjungan dari layanan penomoran: `RJ-2610-000123`, `IGD-…`, `RI-…`. */
 export const ENCOUNTER_NUMBER_PATTERN = /^(RJ|IGD|RI)-\d{4}-\d{6}$/;
 
@@ -92,6 +115,16 @@ export const encounterSchema = z.strictObject({
   startedAt: isoDateTime.nullable(),
   endedAt: isoDateTime.nullable(),
   cancelReason: z.string().max(300).nullable(),
+  /** IGD: cara datang. */
+  arrivalMode: z.enum(ARRIVAL_MODES).nullable(),
+  /** Admisi rawat inap: rencana masuk. */
+  plannedAt: isoDateTime.nullable(),
+  /** Admisi: kunjungan RJ/IGD asal. */
+  sourceEncounterId: z.uuid().nullable(),
+  /** Admisi: SPRI dasar (`referrals` jenis `spri`). */
+  referralId: z.uuid().nullable(),
+  /** IGD tanpa identitas: ciri-ciri untuk identifikasi kemudian (tanpa diagnosis). */
+  identificationNote: z.string().max(300).nullable(),
   createdAt: isoDateTime,
 });
 export type Encounter = z.infer<typeof encounterSchema>;
@@ -105,6 +138,24 @@ export const encounterListQuerySchema = z.strictObject({
   patientId: z.uuid().optional(),
 });
 export type EncounterListQuery = z.infer<typeof encounterListQuerySchema>;
+
+/**
+ * Baris daftar kunjungan (papan IGD/admisi sederhana). Lingkup `all` = semua; `unit` = hanya unit penugasan
+ * (ADR-0031); `relationship` = pasien berelasi/akses darurat. Setiap pasien yang tampil diaudit `read`.
+ */
+export const encounterListItemSchema = z.strictObject({
+  encounter: encounterSchema,
+  patient: z.strictObject({
+    id: z.uuid(),
+    mrn: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
+    name: z.string().min(1).max(120),
+    /** Pasien tanpa identitas (mis. "Tn. X" IGD) sampai dikenali dan digabung di MPI. */
+    unidentified: z.boolean(),
+  }),
+});
+export type EncounterListItem = z.infer<typeof encounterListItemSchema>;
+export const encounterListSchema = cursorPageSchema(encounterListItemSchema);
+export type EncounterList = z.infer<typeof encounterListSchema>;
 
 /** Batal kunjungan (task 99 bila dari booking JKN). Kunjungan dengan entri klinis final tidak bisa dibatalkan. */
 export const cancelEncounterSchema = z.strictObject({ reason: changeReasonSchema });
@@ -123,8 +174,7 @@ export const bpjsCoverageInputSchema = z.strictObject({
   note: z.string().trim().max(200).optional(),
 });
 
-export const coverageInputSchema = z.discriminatedUnion('payer', [
-  bpjsCoverageInputSchema,
+const NON_BPJS_COVERAGE_INPUTS = [
   z.strictObject({ payer: z.literal('umum') }),
   z.strictObject({
     payer: z.literal('asuransi'),
@@ -137,8 +187,25 @@ export const coverageInputSchema = z.discriminatedUnion('payer', [
     payerId: z.uuid(),
     employeeNo: z.string().trim().max(40).optional(),
   }),
+] as const;
+
+export const coverageInputSchema = z.discriminatedUnion('payer', [
+  bpjsCoverageInputSchema,
+  ...NON_BPJS_COVERAGE_INPUTS,
 ]);
 export type CoverageInput = z.infer<typeof coverageInputSchema>;
+
+/**
+ * Penjamin pasien IGD: BPJS tanpa rujukan (gawat darurat tidak butuh rujukan; diagnosa awal menyusul dari dokter
+ * jaga), atau penjamin lain seperti rawat jalan.
+ */
+export const emergencyCoverageInputSchema = z.discriminatedUnion('payer', [
+  z.strictObject({ payer: z.literal('bpjs') }),
+  ...NON_BPJS_COVERAGE_INPUTS,
+]);
+export type EmergencyCoverageInput = z.infer<typeof emergencyCoverageInputSchema>;
+/** Isian penjaminan yang dipakai pencatat penjaminan (rujukan BPJS tidak dibaca di sana). */
+export type CoveragePayerInput = CoverageInput | EmergencyCoverageInput;
 
 export const COVERAGE_STATUSES = ['active', 'cancelled'] as const;
 
@@ -391,9 +458,19 @@ export const outpatientRegistrationSchema = z.strictObject({
 });
 export type OutpatientRegistrationInput = z.infer<typeof outpatientRegistrationSchema>;
 
-export const ARRIVAL_MODES = ['datang_sendiri', 'ambulans', 'rujukan', 'diantar_polisi', 'lainnya'] as const;
+/**
+ * Nama sementara pasien IGD tanpa identitas (MPI `unidentified`). Rekam medis ini kelak diperbarui identitasnya atau
+ * digabung (alur MPI) ke rekam medis aslinya; ciri-ciri tidak dimasukkan ke nama.
+ */
+export function unidentifiedPatientName(sex: (typeof PATIENT_SEXES)[number]): string {
+  return sex === 'male' ? 'Tn. X' : sex === 'female' ? 'Ny. X' : 'Pasien X';
+}
 
-/** IGD: pasien tanpa identitas boleh (dibuat di MPI sebagai `unidentified`); penjamin boleh menyusul. */
+/**
+ * IGD: pasien tanpa identitas boleh (dibuat di MPI sebagai `unidentified`); penjamin boleh menyusul. SEP IGD belum
+ * diterbitkan otomatis (kode poli BPJS IGD belum ditetapkan, lihat PROGRESS utang teknis): penjaminan BPJS dicatat,
+ * `sep` = null.
+ */
 export const emergencyRegistrationSchema = z.strictObject({
   patient: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('known'), patientId: z.uuid() }),
@@ -405,9 +482,10 @@ export const emergencyRegistrationSchema = z.strictObject({
       description: z.string().trim().min(3).max(300),
     }),
   ]),
+  /** Unit IGD (unit berjenis `igd`). */
   unitId: z.uuid(),
   arrivalMode: z.enum(ARRIVAL_MODES),
-  coverage: coverageInputSchema.optional(),
+  coverage: emergencyCoverageInputSchema.optional(),
   guarantor: guarantorInputSchema.optional(),
 });
 export type EmergencyRegistrationInput = z.infer<typeof emergencyRegistrationSchema>;

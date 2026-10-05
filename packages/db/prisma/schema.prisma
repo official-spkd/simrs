@@ -312,6 +312,7 @@ model Unit {
   queueServices QueueService[]
   encounters    Encounter[]
   devices       RegisteredDevice[]
+  referrals     Referral[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -1464,12 +1465,12 @@ model QueueTicket {
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy     String?  @map("updated_by") @db.Uuid
 
-  tenant      Tenant       @relation(fields: [tenantId], references: [id])
-  service     QueueService @relation(fields: [tenantId, serviceId], references: [tenantId, id])
-  appointment Appointment? @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
-  patient     Patient?     @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  calls       QueueCall[]
-  encounters  Encounter[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  service      QueueService  @relation(fields: [tenantId, serviceId], references: [tenantId, id])
+  appointment  Appointment?  @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
+  patient      Patient?      @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  calls        QueueCall[]
+  encounters   Encounter[]
   kioskLookups KioskLookup[]
   kioskTickets KioskTicket[]
 
@@ -1528,29 +1529,39 @@ model BpjsQueueTask {
 /// F03 · Kunjungan (FHIR Encounter): rawat jalan AMB, IGD EMER, rawat inap IMP. Nomor dari P08, tidak bisa diubah;
 /// setiap perubahan status dicatat di `encounter_status_history`.
 model Encounter {
-  id             String    @id @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
   /// `RJ-2610-000123`, `IGD-…`, `RI-…`.
-  number         String
-  patientId      String    @map("patient_id") @db.Uuid
+  number             String
+  patientId          String    @map("patient_id") @db.Uuid
   /// AMB | EMER | IMP
-  encounterClass String    @map("class")
+  encounterClass     String    @map("class")
   /// planned | arrived | in_progress | finished | cancelled
-  status         String
-  unitId         String    @map("unit_id") @db.Uuid
-  serviceId      String?   @map("service_id") @db.Uuid
+  status             String
+  unitId             String    @map("unit_id") @db.Uuid
+  serviceId          String?   @map("service_id") @db.Uuid
   /// DPJP.
-  practitionerId String?   @map("practitioner_id") @db.Uuid
-  appointmentId  String?   @map("appointment_id") @db.Uuid
-  queueTicketId  String?   @map("queue_ticket_id") @db.Uuid
-  arrivedAt      DateTime? @map("arrived_at") @db.Timestamptz(3)
-  startedAt      DateTime? @map("started_at") @db.Timestamptz(3)
-  endedAt        DateTime? @map("ended_at") @db.Timestamptz(3)
-  cancelReason   String?   @map("cancel_reason")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy      String?   @map("created_by") @db.Uuid
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy      String?   @map("updated_by") @db.Uuid
+  practitionerId     String?   @map("practitioner_id") @db.Uuid
+  appointmentId      String?   @map("appointment_id") @db.Uuid
+  queueTicketId      String?   @map("queue_ticket_id") @db.Uuid
+  arrivedAt          DateTime? @map("arrived_at") @db.Timestamptz(3)
+  startedAt          DateTime? @map("started_at") @db.Timestamptz(3)
+  endedAt            DateTime? @map("ended_at") @db.Timestamptz(3)
+  cancelReason       String?   @map("cancel_reason")
+  /// IGD: datang_sendiri | ambulans | rujukan | diantar_polisi | lainnya (wajib untuk EMER, tetap).
+  arrivalMode        String?   @map("arrival_mode")
+  /// IGD tanpa identitas: ciri-ciri untuk identifikasi kemudian (tanpa diagnosis).
+  identificationNote String?   @map("identification_note")
+  /// Admisi rawat inap (`IMP`, status `planned`): rencana masuk.
+  plannedAt          DateTime? @map("planned_at") @db.Timestamptz(3)
+  /// Admisi: kunjungan RJ/IGD asal (tetap).
+  sourceEncounterId  String?   @map("source_encounter_id") @db.Uuid
+  /// Admisi: SPRI dasar (tetap; satu admisi aktif per SPRI).
+  referralId         String?   @map("referral_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?   @map("updated_by") @db.Uuid
 
   tenant          Tenant                   @relation(fields: [tenantId], references: [id])
   patient         Patient                  @relation(fields: [tenantId, patientId], references: [tenantId, id])
@@ -1559,9 +1570,12 @@ model Encounter {
   practitioner    Practitioner?            @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
   appointment     Appointment?             @relation(fields: [tenantId, appointmentId], references: [tenantId, id])
   queueTicket     QueueTicket?             @relation(fields: [tenantId, queueTicketId], references: [tenantId, id])
+  sourceEncounter Encounter?               @relation("EncounterSource", fields: [tenantId, sourceEncounterId], references: [tenantId, id])
+  followUps       Encounter[]              @relation("EncounterSource")
+  basisReferral   Referral?                @relation("EncounterBasisReferral", fields: [tenantId, referralId], references: [tenantId, id])
   statusHistory   EncounterStatusHistory[]
   coverages       Coverage[]
-  referrals       Referral[]
+  referrals       Referral[]               @relation("ReferralEncounter")
   seps            Sep[]
   privacyConsents PrivacyConsent[]
 
@@ -1569,6 +1583,7 @@ model Encounter {
   @@unique([tenantId, number])
   @@index([tenantId, patientId])
   @@index([tenantId, unitId, status])
+  @@index([tenantId, sourceEncounterId])
   @@map("encounters")
 }
 
@@ -1656,6 +1671,27 @@ model Referral {
   visitNo          Int?      @map("visit_no") @db.SmallInt
   /// pending | active | used | expired | cancelled
   status           String    @default("active")
+  /// Tanggal rencana kontrol / rawat inap / kunjungan ke faskes tujuan.
+  plannedDate      DateTime? @map("planned_date") @db.Date
+  /// SPRI: unit rawat inap tujuan.
+  targetUnitId     String?   @map("target_unit_id") @db.Uuid
+  /// Rujukan keluar: rawat_jalan | rawat_inap.
+  serviceType      String?   @map("service_type")
+  /// Rujukan keluar: penuh | partial | rujuk_balik.
+  referralType     String?   @map("referral_type")
+  /// Rujukan keluar: kode poli BPJS di faskes tujuan.
+  bpjsPoliCode     String?   @map("bpjs_poli_code")
+  /// Catatan rujukan keluar / alasan rujukan internal.
+  note             String?
+  /// Status kirim BPJS (surat kontrol, SPRI, rujukan keluar): not_required | pending | sent | rejected | dead.
+  syncStatus       String    @default("not_required") @map("sync_status")
+  syncedAt         DateTime? @map("synced_at") @db.Timestamptz(3)
+  syncErrorCode    String?   @map("sync_error_code")
+  /// Urut pesan outbox (kunci `<operasi>:<rujukan>:<urut>`), naik tiap kirim ulang/hapus.
+  syncSeq          Int       @default(1) @map("sync_seq")
+  cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy      String?   @map("cancelled_by") @db.Uuid
+  cancelReason     String?   @map("cancel_reason")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy        String?   @map("created_by") @db.Uuid
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1664,13 +1700,16 @@ model Referral {
   tenant        Tenant        @relation(fields: [tenantId], references: [id])
   patient       Patient       @relation(fields: [tenantId, patientId], references: [tenantId, id])
   targetService QueueService? @relation(fields: [tenantId, targetServiceId], references: [tenantId, id])
+  targetUnit    Unit?         @relation(fields: [tenantId, targetUnitId], references: [tenantId, id])
   practitioner  Practitioner? @relation(fields: [tenantId, practitionerId], references: [tenantId, id])
-  encounter     Encounter?    @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  encounter     Encounter?    @relation("ReferralEncounter", fields: [tenantId, encounterId], references: [tenantId, id])
+  admissions    Encounter[]   @relation("EncounterBasisReferral")
   seps          Sep[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, kind, number])
   @@index([tenantId, patientId])
+  @@index([tenantId, encounterId])
   @@map("referrals")
 }
 

@@ -82,6 +82,18 @@ export const FRONT_OFFICE_OPERATIONS = {
     label: 'Buat rujukan keluar',
     payload: z.strictObject({ referralId: id }),
   },
+  /** F06 · Hapus surat kontrol atau SPRI yang dibatalkan (satu endpoint VClaim untuk keduanya). */
+  'bpjs.vclaim.rencanakontrol.delete': {
+    target: 'bpjs',
+    label: 'Hapus surat kontrol/SPRI',
+    payload: z.strictObject({ referralId: id }),
+  },
+  /** F07 · Hapus rujukan keluar yang dibatalkan. */
+  'bpjs.vclaim.rujukan.delete': {
+    target: 'bpjs',
+    label: 'Hapus rujukan keluar',
+    payload: z.strictObject({ referralId: id }),
+  },
   /**
    * F02 · Pengingat booking H-1 ke WhatsApp pasien (keputusan fase 2 no. 8). Teks dari `patientWhatsappText`: tanpa
    * isi klinis, tanpa nama poli/dokter. No. HP dibaca dan didekripsi worker dari kontak pasien saat mengirim.
@@ -120,6 +132,9 @@ export const BPJS_RENCANA_KONTROL_INSERT_OPERATION =
   'bpjs.vclaim.rencanakontrol.insert' satisfies FrontOfficeOperation;
 export const BPJS_SPRI_INSERT_OPERATION = 'bpjs.vclaim.spri.insert' satisfies FrontOfficeOperation;
 export const BPJS_RUJUKAN_INSERT_OPERATION = 'bpjs.vclaim.rujukan.insert' satisfies FrontOfficeOperation;
+export const BPJS_RENCANA_KONTROL_DELETE_OPERATION =
+  'bpjs.vclaim.rencanakontrol.delete' satisfies FrontOfficeOperation;
+export const BPJS_RUJUKAN_DELETE_OPERATION = 'bpjs.vclaim.rujukan.delete' satisfies FrontOfficeOperation;
 export const PATIENT_WHATSAPP_BOOKING_REMINDER_OPERATION =
   'patient.whatsapp.booking_reminder' satisfies FrontOfficeOperation;
 export const PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION =

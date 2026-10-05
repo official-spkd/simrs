@@ -20,6 +20,7 @@ import { bpjsHfisPull, bpjsHfisUpdate } from './hfis';
 import { notifyEmail, notifyWhatsapp } from './notify';
 import type { OutboxOperation } from './operation-types';
 import { patientWhatsappScheduleChanged } from './schedule-changed';
+import { REFERRAL_OPERATIONS } from './referral';
 import { SEP_OPERATIONS } from './sep';
 import { tteSignDocument } from './tte';
 
@@ -74,4 +75,6 @@ export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<s
   [PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, patientWhatsappScheduleChanged],
   // F06 · SEP (potongan 5a).
   ...SEP_OPERATIONS,
+  // F06/F07 · Surat kontrol, SPRI, rujukan keluar (potongan 7).
+  ...REFERRAL_OPERATIONS,
 ]);

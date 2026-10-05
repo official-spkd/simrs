@@ -51,8 +51,10 @@ const KELAS: Record<string, EligibilityResult['eligibility']['kelas']> = {
   '3': 'Kelas 3',
 };
 
-const syncMessage = (code: string) =>
+/** Pesan petugas untuk kode galat status kirim BPJS (penolakan `BPJS_REJECTIONS` atau kode transport). */
+export const bpjsSyncMessage = (code: string) =>
   (BPJS_REJECTIONS as Record<string, string>)[code] ?? SEP_SYNC_ERRORS[code] ?? code;
+const syncMessage = bpjsSyncMessage;
 const invalidState = (message: string) => frontOfficeError('SEP_STATE_INVALID', undefined, message);
 
 export interface PendingSepInput {
