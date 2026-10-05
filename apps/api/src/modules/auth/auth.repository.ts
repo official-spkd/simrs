@@ -217,6 +217,7 @@ export class AuthRepository {
         assignmentId: true,
         tokenHash: true,
         pinHash: true,
+        pinKeyId: true,
         failedAttempts: true,
         expiresAt: true,
         revokedAt: true,
@@ -286,6 +287,8 @@ export class AuthRepository {
       name: string;
       tokenHash: string;
       pinHash: string;
+      /** ID kunci hash yang menjadi lada PIN (kunci aktif saat mendaftar). */
+      pinKeyId: string;
       userAgent: string | null;
       createdAt: Date;
       expiresAt: Date;

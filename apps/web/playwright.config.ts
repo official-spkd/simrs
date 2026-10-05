@@ -23,6 +23,9 @@ import { E2E_API_PORT, E2E_DEMO_PORT, E2E_MOCK_PORT, E2E_MOCK_URL, E2E_WEB_PORT 
 const ENV_ALLOWLIST = [
   'FIELD_ENCRYPTION_KEY',
   'FIELD_HASH_KEY',
+  // Cincin kunci (rotasi, ADR-0015): kunci pertama aktif; format lama di atas = v1.
+  'FIELD_ENCRYPTION_KEYS',
+  'FIELD_HASH_KEYS',
   'TEST_DATABASE_URL',
   'TEST_APP_DATABASE_URL',
 ] as const;

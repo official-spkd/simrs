@@ -1,5 +1,5 @@
 import { newId } from '@simrs/shared';
-import { encryptField } from '@simrs/shared/node';
+import { encryptField, type KeyRing } from '@simrs/shared/node';
 import { knownDbError, type PrismaClient, withTenant } from './client';
 import { SEED_STAFF, SEED_STAFF_VALID_FROM, type SeedStaffMember, seedStaffPhone } from './seed-data';
 
@@ -27,7 +27,7 @@ export interface SeedStaffResult {
 export async function seedStaff(
   prisma: PrismaClient,
   tenantId: string,
-  opts: { encKeyB64: string; staff?: readonly SeedStaffMember[] },
+  opts: ({ encKeyB64: string } | { encRing: KeyRing }) & { staff?: readonly SeedStaffMember[] },
 ): Promise<SeedStaffResult> {
   const staff = opts.staff ?? SEED_STAFF;
   const validFrom = new Date(SEED_STAFF_VALID_FROM);
@@ -51,7 +51,7 @@ export async function seedStaff(
   const result: SeedStaffResult = { created: 0, existing: 0 };
   for (const { s, positions } of plan) {
     const phoneEnc = encryptField(seedStaffPhone(s), {
-      keyB64: opts.encKeyB64,
+      ...('encRing' in opts ? { ring: opts.encRing } : { keyB64: opts.encKeyB64 }),
       tenantId,
       purpose: 'staff_phone',
     });

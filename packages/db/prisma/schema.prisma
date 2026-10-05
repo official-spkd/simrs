@@ -65,6 +65,7 @@ model Tenant {
   signatures            DocumentSignature[]
   trustedDevices        TrustedDevice[]
   devices               RegisteredDevice[]
+  keyRotations          FieldKeyRotation[]
   // Fase 2 · front office
   practitioners         Practitioner[]
   externalIds           ExternalId[]
@@ -1034,6 +1035,9 @@ model RegisteredDevice {
   tokenHash      String    @unique @map("token_hash")
   /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
   pinHash        String?   @map("pin_hash")
+  /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
+  /// dipensiunkan membuat PIN dicabut (`key_rotated`), bukan gagal diam-diam (ADR-0015, pembaruan 5 Okt 2026).
+  pinKeyId       String?   @map("pin_key_id")
   /// Percobaan salah berturut-turut, dicadangkan sebelum PIN diperiksa (aman dari tebakan paralel); maks. 5.
   failedAttempts Int       @default(0) @map("failed_attempts")
   /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
@@ -1044,7 +1048,7 @@ model RegisteredDevice {
   lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz(3)
   revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
   /// user_removed | admin_revoked | too_many_attempts | password_changed | password_reset | mfa_reset |
-  /// user_disabled | assignment_ended
+  /// user_disabled | assignment_ended | key_rotated
   revokedReason  String?   @map("revoked_reason")
   /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
   revokedBy      String?   @map("revoked_by") @db.Uuid
@@ -1058,6 +1062,36 @@ model RegisteredDevice {
   @@unique([tenantId, id])
   @@index([tenantId, userId])
   @@map("registered_devices")
+}
+
+/// P05 · Kemajuan job enkripsi ulang kolom (rotasi kunci, ADR-0015 pembaruan 5 Okt 2026). Satu baris per tenant ×
+/// tabel: kunci aktif tujuan, kursor ID terakhir (job bisa dilanjutkan setelah terputus), dan hitungan. Tanpa data
+/// atau nilai: galat hanya kode (`FIELD_KEY_UNKNOWN:v0`) + ID baris terakhir yang gagal.
+model FieldKeyRotation {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  /// users | mfa_factors | login_challenges | patients | patient_identifiers | patient_links | patient_contacts
+  target       String
+  /// Kunci aktif cincin enkripsi/hash saat putaran ini dimulai; berbeda dengan cincin sekarang = putaran baru.
+  encKeyId     String    @map("enc_key_id")
+  hashKeyId    String    @map("hash_key_id")
+  /// ID baris terakhir yang selesai diproses pada putaran ini (urut ID).
+  cursorId     String?   @map("cursor_id") @db.Uuid
+  scanned      Int       @default(0)
+  rewritten    Int       @default(0)
+  failed       Int       @default(0)
+  /// Baris yang masih memakai kunci lama setelah putaran selesai (dihitung ulang di akhir putaran).
+  remaining    Int?
+  lastError    String?   @map("last_error")
+  lastFailedId String?   @map("last_failed_id") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, target])
+  @@map("field_key_rotations")
 }
 
 // =====================================================================================================================
@@ -1646,6 +1680,7 @@ model Sep {
 
 /// F03 · Keluarga/penanggung jawab pasien. Nama, no. HP, alamat terenkripsi (`encryptField`, tujuan `contact`).
 /// Append-only: mengganti = baris baru dengan `supersedes_id`; menghapus = baris baru berstatus `removed`.
+/// Satu-satunya UPDATE: enkripsi ulang ke kunci lain lewat `app_rekey_patient_contact` (rotasi kunci, ADR-0015).
 model PatientContact {
   id           String   @id @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
