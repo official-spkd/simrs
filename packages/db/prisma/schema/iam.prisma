@@ -1,0 +1,391 @@
+// P02/P03 · Akun, sesi, MFA, peran, penugasan, relasi akses, akses darurat, perangkat.
+
+/// P02 · Akun per orang (tanpa akun bersama). Tidak dihapus; dinonaktifkan (status = disabled).
+model User {
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  /// NIP atau email RS, selalu huruf kecil (CHECK di database).
+  username           String
+  displayName        String    @map("display_name")
+  email              String?
+  /// No. HP staf terenkripsi (`staff_phone`, bentuk baku 62…): WhatsApp notifikasi + kode cadangan login.
+  phoneEnc           String?   @map("phone_enc")
+  /// active | disabled
+  status             String    @default("active")
+  mustChangePassword Boolean   @default(true) @map("must_change_password")
+  failedLoginCount   Int       @default(0) @map("failed_login_count")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?   @map("updated_by") @db.Uuid
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
+  credential          UserCredential?
+  mfaFactors          MfaFactor[]
+  sessions            AuthSession[]
+  loginChallenges     LoginChallenge[]
+  assignments         StaffAssignment[]
+  accessRelationships AccessRelationship[]
+  breakGlassGrants    BreakGlassGrant[]    @relation("BreakGlassUser")
+  breakGlassReviews   BreakGlassGrant[]    @relation("BreakGlassReviewer")
+  notifications       Notification[]
+  signatures          DocumentSignature[]
+  trustedDevices      TrustedDevice[]
+  devices             RegisteredDevice[]   @relation("RegisteredDeviceUser")
+  devicesRevoked      RegisteredDevice[]   @relation("RegisteredDeviceRevoker")
+  devicesCreated      RegisteredDevice[]   @relation("RegisteredDeviceCreator")
+  practitioners       Practitioner[]
+
+  // K · Klinis RME (fase 3): penulis entri, atestasi, tim perawatan.
+  clinicalDrafts             ClinicalDraft[]
+  clinicalAttestations       ClinicalAttestation[]
+  encounterParticipations    EncounterParticipant[] @relation("EncounterParticipantUser")
+  authoredObservations       Observation[]          @relation("ObservationAuthor")
+  authoredDiagnosticReports  DiagnosticReport[]     @relation("DiagnosticReportAuthor")
+  authoredConditions         Condition[]            @relation("ConditionAuthor")
+  authoredProcedures         Procedure[]            @relation("ProcedureAuthor")
+  authoredAllergies          AllergyIntolerance[]   @relation("AllergyAuthor")
+  authoredCpptEntries        CpptEntry[]            @relation("CpptAuthor")
+  authoredHandovers          Handover[]             @relation("HandoverAuthor")
+  receivedHandovers          Handover[]             @relation("HandoverRecipient")
+  authoredConsultRequests    ConsultRequest[]       @relation("ConsultRequestAuthor")
+  receivedConsultRequests    ConsultRequest[]       @relation("ConsultRequestRecipient")
+  authoredConsultResponses   ConsultResponse[]      @relation("ConsultResponseAuthor")
+  authoredConsents           Consent[]              @relation("ConsentAuthor")
+  informedConsents           Consent[]              @relation("ConsentInformer")
+  witnessedConsents          ConsentSignature[]     @relation("ConsentStaffWitness")
+  authoredDischargeSummaries DischargeSummary[]     @relation("DischargeSummaryAuthor")
+
+  wristbandScans            WristbandScan[]            @relation("WristbandScanUser")
+  authoredTriage            TriageAssessment[]         @relation("TriageAuthor")
+  orderGroups               OrderGroup[]               @relation("OrderGroupOrderer")
+  cdsDecisions              CdsAlert[]                 @relation("CdsAlertDecider")
+  medicationAdministrations MedicationAdministration[] @relation("MedicationAdministrationUser")
+  medicationDoubleChecks    MedicationAdministration[] @relation("MedicationAdministrationDoubleCheck")
+  authoredNursingCarePlans  NursingCarePlan[]          @relation("NursingCarePlanAuthor")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, username])
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+/// P02 · Hash kata sandi (argon2id) dipisah dari users agar tidak ikut terbaca query pengguna biasa.
+model UserCredential {
+  userId       String   @id @map("user_id") @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  passwordHash String   @map("password_hash")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, userId])
+  @@map("user_credentials")
+}
+
+/// P02 · Faktor MFA. Rahasia TOTP terenkripsi (AES-256-GCM, kunci per tenant). last_used_step mencegah replay.
+model MfaFactor {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  kind         String    @default("totp")
+  secretEnc    String    @map("secret_enc")
+  confirmedAt  DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  lastUsedStep Int?      @map("last_used_step")
+  disabledAt   DateTime? @map("disabled_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@index([tenantId, userId])
+  @@map("mfa_factors")
+}
+
+/// P02 · Sesi login. Token buram (bukan JWT): yang disimpan hanya hash SHA-256; dicek di setiap permintaan
+/// sehingga logout/pencabutan berlaku seketika. Refresh token berotasi; pemakaian ulang token lama → sesi dicabut.
+model AuthSession {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  accessHash          String    @map("access_hash")
+  accessExpiresAt     DateTime  @map("access_expires_at") @db.Timestamptz(3)
+  refreshHash         String    @map("refresh_hash")
+  previousRefreshHash String?   @map("previous_refresh_hash")
+  refreshExpiresAt    DateTime  @map("refresh_expires_at") @db.Timestamptz(3)
+  lastSeenAt          DateTime  @map("last_seen_at") @db.Timestamptz(3)
+  idleTimeoutMinutes  Int       @map("idle_timeout_minutes")
+  mfaVerified         Boolean   @default(false) @map("mfa_verified")
+  unitId              String?   @map("unit_id") @db.Uuid
+  /// P03 · Penugasan aktif yang dipilih (menentukan peran dan unit sesi).
+  assignmentId        String?   @map("assignment_id") @db.Uuid
+  /// P02 · Perangkat terdaftar yang membuka sesi ini dengan PIN (ADR-0024): posisi terkunci ke posisi pendaftaran
+  /// PIN, sesi pendek, dan sesi ikut berakhir saat PIN perangkat itu dicabut.
+  deviceId            String?   @map("device_id") @db.Uuid
+  /// active | revoked
+  status              String    @default("active")
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedReason       String?   @map("revoked_reason")
+  ip                  String?
+  userAgent           String?   @map("user_agent")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  user       User              @relation(fields: [tenantId, userId], references: [tenantId, id])
+  assignment StaffAssignment?  @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  device     RegisteredDevice? @relation(fields: [tenantId, deviceId], references: [tenantId, id])
+
+  @@index([tenantId, userId, status])
+  @@index([tenantId, deviceId])
+  @@map("auth_sessions")
+}
+
+/// P02 · Tantangan MFA setelah kata sandi benar (berlaku 5 menit, maksimal 5 percobaan, sekali pakai).
+model LoginChallenge {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  secretHash String    @map("secret_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Kode cadangan 6 digit (WhatsApp/email) terenkripsi `login_otp`; berlaku selama tantangan, berbagi batas
+  /// percobaan dengan TOTP.
+  otpEnc     String?   @map("otp_enc")
+  /// whatsapp | email
+  otpChannel String?   @map("otp_channel")
+  otpSentAt  DateTime? @map("otp_sent_at") @db.Timestamptz(3)
+  otpSends   Int       @default(0) @map("otp_sends")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@map("login_challenges")
+}
+
+/// P03 · Peran per RS. Peran sistem (16 bawaan) dibuat otomatis; matriks izinnya bisa diubah per RS.
+model Role {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  isSystem  Boolean  @default(true) @map("is_system")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  permissions RolePermission[]
+  assignments StaffAssignment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+/// P03 · Izin peran: sumber × aksi × lingkup (all | unit | relationship). Katalog sah di @simrs/shared.
+model RolePermission {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  resource  String
+  action    String
+  scope     String
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id])
+
+  @@id([roleId, resource, action])
+  @@index([tenantId, roleId])
+  @@map("role_permissions")
+}
+
+/// P03 · Penugasan staf: pengguna × peran × unit × periode. Tidak dihapus; diakhiri dengan valid_until.
+model StaffAssignment {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  roleId     String    @map("role_id") @db.Uuid
+  unitId     String?   @map("unit_id") @db.Uuid
+  validFrom  DateTime  @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime? @map("valid_until") @db.Timestamptz(3)
+  endReason  String?   @map("end_reason")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?   @map("updated_by") @db.Uuid
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id])
+  user     User               @relation(fields: [tenantId, userId], references: [tenantId, id])
+  role     Role               @relation(fields: [tenantId, roleId], references: [tenantId, id])
+  unit     Unit?              @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  sessions AuthSession[]
+  devices  RegisteredDevice[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@index([tenantId, roleId])
+  @@map("staff_assignments")
+}
+
+/// P03 · Relasi klinisi–pasien untuk ABAC (DPJP, perawat penanggung jawab, rawat bersama, konsultan).
+/// Diisi modul klinis (fase 2–3) dari encounter; FK ke patients ditambahkan saat tabel pasien dibuat (P05).
+model AccessRelationship {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  patientId  String    @map("patient_id") @db.Uuid
+  kind       String
+  validFrom  DateTime  @default(now()) @map("valid_from") @db.Timestamptz(3)
+  validUntil DateTime? @map("valid_until") @db.Timestamptz(3)
+  sourceType String?   @map("source_type")
+  sourceId   String?   @map("source_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  user    User    @relation(fields: [tenantId, userId], references: [tenantId, id])
+  patient Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+
+  @@index([tenantId, userId, patientId])
+  @@index([tenantId, patientId])
+  @@map("access_relationships")
+}
+
+/// P03 · Akses darurat (break-the-glass): alasan wajib, berbatas waktu, ditinjau petugas privasi.
+/// Aplikasi hanya boleh mengubah kolom tinjauan (column privilege); alasan & waktu tidak bisa diubah.
+model BreakGlassGrant {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  patientId     String    @map("patient_id") @db.Uuid
+  reason        String
+  grantedAt     DateTime  @default(now()) @map("granted_at") @db.Timestamptz(3)
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  reviewOutcome String?   @map("review_outcome")
+  reviewNote    String?   @map("review_note")
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz(3)
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  user     User    @relation("BreakGlassUser", fields: [tenantId, userId], references: [tenantId, id])
+  reviewer User?   @relation("BreakGlassReviewer", fields: [tenantId, reviewedBy], references: [tenantId, id])
+  patient  Patient @relation(fields: [tenantId, patientId], references: [tenantId, id])
+
+  @@index([tenantId, userId, patientId, expiresAt])
+  @@index([tenantId, reviewOutcome])
+  @@map("break_glass_grants")
+}
+
+/// P11 (awal) · Notifikasi in-app. Tanpa PHI di judul/isi; tautan ke halaman yang menerapkan izin.
+model Notification {
+  id              String    @id @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  recipientUserId String    @map("recipient_user_id") @db.Uuid
+  kind            String
+  title           String
+  body            String
+  link            String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt          DateTime? @map("read_at") @db.Timestamptz(3)
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  recipient User   @relation(fields: [tenantId, recipientUserId], references: [tenantId, id])
+
+  @@index([tenantId, recipientUserId, readAt])
+  @@map("notifications")
+}
+
+/// P02 · "Percayai perangkat ini" (mockup Login): selama berlaku, login dengan sandi di perangkat ini melewati
+/// langkah MFA. Token buram di cookie httpOnly; di sini hanya hash-nya. Dicabut saat sandi/MFA direset atau akun
+/// dinonaktifkan.
+model TrustedDevice {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@map("trusted_devices")
+}
+
+/// P02 · Perangkat terdaftar (docs/05 §1, ADR-0024). Jenis `staff_pin` = PIN masuk cepat: satu baris = satu akun ×
+/// satu perangkat (peramban) × satu posisi berunit, didaftarkan dari login penuh di perangkat itu sendiri. Token buram
+/// `sd1` di cookie httpOnly peramban; di sini hanya hash-nya. PIN disimpan argon2id dari HMAC berlada
+/// (FIELD_HASH_KEY) yang terikat tenant + akun + perangkat. Fase 2 memakai ulang tabel ini untuk anjungan/TV (jenis
+/// baru, kolom khusus PIN kosong). Tidak dihapus: pencabutan = kolom `revoked_*`, final (dijaga trigger).
+model RegisteredDevice {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  /// staff_pin (ADR-0024) | kiosk | display (prinsipal perangkat, ADR-0027); CHECK database
+  kind           String    @default("staff_pin")
+  /// staff_pin: pemilik PIN (wajib untuk jenis ini, CHECK `registered_devices_staff_pin`).
+  userId         String?   @map("user_id") @db.Uuid
+  /// staff_pin: posisi (penugasan) yang dibuka sesi PIN; unitnya = unit tempat perangkat terdaftar.
+  assignmentId   String?   @map("assignment_id") @db.Uuid
+  /// Nama perangkat dari pengguna (mis. "Komputer nurse station Melati").
+  name           String
+  /// SHA-256 rahasia token perangkat. kiosk/display: kosong sampai perangkat mendaftar dengan kode sekali pakai.
+  tokenHash      String?   @unique @map("token_hash")
+  /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
+  pinHash        String?   @map("pin_hash")
+  /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
+  /// dipensiunkan membuat PIN dicabut (`key_rotated`), bukan gagal diam-diam (ADR-0015, pembaruan 5 Okt 2026).
+  pinKeyId       String?   @map("pin_key_id")
+  /// Percobaan salah berturut-turut, dicadangkan sebelum PIN diperiksa (aman dari tebakan paralel); maks. 5.
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
+  userAgent      String?   @map("user_agent")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// staff_pin: maks. 30 hari setelah didaftarkan (CHECK database).
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  /// user_removed | admin_revoked | too_many_attempts | password_changed | password_reset | mfa_reset |
+  /// user_disabled | assignment_ended | key_rotated
+  revokedReason  String?   @map("revoked_reason")
+  /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
+  revokedBy      String?   @map("revoked_by") @db.Uuid
+  /// kiosk/display: unit tempat perangkat dipasang (wajib, CHECK `registered_devices_principal`).
+  unitId         String?   @map("unit_id") @db.Uuid
+  /// display: papan antrean yang ditampilkan (opsional; CHECK `registered_devices_queue_display`).
+  queueDisplayId String?   @map("queue_display_id") @db.Uuid
+  /// kiosk/display: HMAC kode pendaftaran sekali pakai (dibuang saat perangkat mendaftar).
+  enrolCodeHash  String?   @map("enrol_code_hash")
+  enrolExpiresAt DateTime? @map("enrol_expires_at") @db.Timestamptz(3)
+  enrolledAt     DateTime? @map("enrolled_at") @db.Timestamptz(3)
+  /// Admin yang mendaftarkan perangkat (kiosk/display).
+  createdBy      String?   @map("created_by") @db.Uuid
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  unit         Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  creator      User?            @relation("RegisteredDeviceCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  queueDisplay QueueDisplay?    @relation(fields: [tenantId, queueDisplayId], references: [tenantId, id])
+  user         User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
+  assignment   StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  revoker      User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
+  sessions     AuthSession[]
+  kioskLookups KioskLookup[]
+  kioskTickets KioskTicket[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId])
+  @@index([tenantId, kind, unitId])
+  @@index([tenantId, queueDisplayId])
+  @@map("registered_devices")
+}

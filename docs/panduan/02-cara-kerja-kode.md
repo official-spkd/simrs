@@ -332,6 +332,61 @@ Migrasi `20261005102000_worker_failure_states` (untuk worker potongan 1a) menamb
 domain: tanda tangan TTE `failed` (pending → failed → pending untuk kirim ulang; `signed` tetap final), status verifikasi
 identifier `error`, dan `outbox_messages.requeued_at` (kirim ulang manual memulai jendela retry baru).
 
+### Klinis RME (fase 3, skema potongan 3.0b–3.0c)
+
+Model ada di `prisma/schema/clinical.prisma` (migrasi `20261006000000_clinical_records`, ADR-0028). Semua entri klinis
+memakai satu pola berversi:
+
+| Aturan                         | Penjaga                                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tidak ada UPDATE/DELETE        | Hak SELECT/INSERT saja + `app_reject_mutation` (juga pemilik tabel)                                                                               |
+| Koreksi = versi baru beralasan | CHECK `<tabel>_version_chain` (alasan 10–500, salah entri selalu versi baru) + `app_clinical_guard` (akar sama, versi + 1, pasien/kunjungan sama) |
+| Satu pengganti per versi       | Indeks unik parsial `<tabel>_supersedes_once` (koreksi serentak: satu 409)                                                                        |
+| Versi ber-TTE terkunci         | `documents.source_type/source_id` + tanda tangan `pending`/`signed` → `RECORD_LOCKED`; perubahan lewat `addendum_of`                              |
+| Waktu catat tidak bisa diubah  | `recorded_at` diisi trigger dari jam server; CHECK waktu kejadian ≤ waktu catat + 5 menit                                                         |
+| Kode baku tidak dikarang       | `app_clinical_code_guard`: ICD-10 (`conditions`), ICD-9-CM (`procedures`), LOINC (`observations`, `diagnostic_reports`) harus ada di `ref`        |
+| Co-sign sekali                 | `clinical_attestations` append-only, indeks `clinical_attestations_one_cosign`, target wajib ada (trigger)                                        |
+| Satu DPJP utama aktif          | `encounter_participants_one_primary`; periode diakhiri sekali (`app_encounter_participant_guard`)                                                 |
+
+- Tabel berversi: `observations`, `diagnostic_reports`, `conditions`, `procedures`, `allergy_intolerances`,
+  `cppt_entries`, `handovers`, `consult_requests`, `consult_responses`, `consents`, `discharge_summaries`. Baca versi
+  terkini lewat view `<tabel>_current`; riwayat pasien lewat `app_patient_group` (kelompok rekam medis).
+- Anak append-only: `consent_signatures`, `discharge_medications`, `discharge_summary_sources`.
+- Bukan rekam medis: `clinical_drafts` (boleh diubah/dihapus; API membatasi ke penulis, P11 membersihkan).
+- Master: `drug_substances` (zat aktif + golongan untuk alergi terkode dan CDS), `form_packages` (paket formulir P07 per
+  setting, EP 6b/7a).
+- Tabel lama: `form_responses.encounter_id`, `documents.source_type/source_id`, `patients.confidential` (EP 10c).
+- Galat trigger berawalan stabil (`CLINICAL_CHAIN`, `RECORD_LOCKED`, `RECORD_NOT_FINAL`, `REF_CODE_UNKNOWN`,
+  `CLINICAL_ATTESTATION`, `PARTICIPANT_CLOSED`); API memetakannya ke `CLINICAL_ERRORS` di `@simrs/shared`.
+- Skema II (3.0c, migrasi `20261006010000_clinical_adt_orders_emar`, berkas `adt.prisma`, `orders.prisma`,
+  `nursing.prisma`):
+  - **ADT/bed**: `bed_status` (status kini + `version`; trigger menolak versi selain + 1 = `BED_VERSION_CONFLICT`, dan
+    menulis `bed_status_events` append-only + NOTIFY `bed_board`); `bed_requests` (satu terbuka per kunjungan, batal
+    beralasan, tertutup beku); `bed_assignments` dengan **EXCLUDE btree_gist** (satu bed tidak dihuni dua kunjungan,
+    satu kunjungan satu bed sekaligus; periode ditutup sekali). Fungsi `app_patient_location(pasien)` = kunjungan
+    aktif kelompok rekam medis + unit + bed kini (dasar ABAC unit tingkat bed, potongan 3.1).
+  - **Gelang**: `patient_wristbands` (kode acak, satu aktif per kunjungan, batal sekali beralasan),
+    `wristband_scans` (append-only, waktu server, "cocok" diperiksa trigger terhadap gelang aktif).
+  - **Triase**: `triage_assessments` berversi (CHECK: pilihan ≤ batas protokol, turun dari saran wajib alasan ≥ 10),
+    `ed_status_events` (append-only, NOTIFY `ed_board`).
+  - **Order/CDS**: master `orderables`, `drugs` (kode LOINC/ICD-9-CM/KFA hanya dari `ref`), `order_sets` + item;
+    `order_groups` (Idempotency-Key unik), `service_requests`/`medication_requests` (isi beku, racikan di `compound`,
+    frekuensi baku), `order_status_events` (batal beralasan), `cds_rules` (KB per RS berversi), `cds_alerts`
+    (override blok wajib alasan ≥ 10; blok tidak bisa "diterima").
+  - **eMAR**: `medication_schedules`, `medication_administrations` (append-only; trigger: pindaian cocok, kunjungan
+    sama, perawat sama, ≤ `emar.scan_valid_minutes`; high-alert wajib cek ganda perawat lain; indeks
+    `medication_administrations_one_given` = satu dosis diberikan per jadwal).
+  - **Lain-lain**: `nursing_diagnoses` (master lokal), `nursing_care_plans` (berversi), `abbreviations` (per RS),
+    `billable_events` (staging biaya tanpa harga, unik per sumber × jenis), `outbox_messages.status = 'held'`
+    (`enqueueOutbox(..., { held: true })`, tidak diklaim dispatcher).
+  - Seed (`src/seed-clinical.ts`): status bed awal, Melati 12 bed kelas 2, Anggrek 8 kelas 1, Isolasi 4, bed IGD
+    zona R/B/K, zat aktif + obat + item order dari katalog demo (kode hanya dari `SEED_REF_SAMPLES`, sisanya belum
+    dipetakan), 4 order set, KB CDS contoh (`SAMPLE_CDS_RULES`), singkatan "Do Not Use", diagnosis keperawatan, paket
+    formulir RJ/IGD/RI, riwayat klinis fiktif 3 pasien seed per RS.
+- Menambah tabel klinis berversi: salin kolom pola dari model yang ada, tambahkan tabel ke daftar `DO` di migrasi
+  (CHECK, indeks `supersedes_once`, trigger, view) dan ke `MANUAL_INDEXES` + daftar "tidak bisa dihapus" di
+  `test/schema-guard.test.ts`.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin
@@ -712,25 +767,32 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Skema dan migrasi
 
-- Model Prisma: `packages/db/prisma/schema.prisma`. Klien dibangkitkan ke `packages/db/src/generated` (tidak di-commit).
+- Model Prisma: skema multi-berkas `packages/db/prisma/schema/<domain>.prisma` (sejak fase 3 potongan 3.0b): `base` (generator + datasource), `platform`, `iam`, `patient`, `records` (formulir + dokumen), `front-office`, `clinical`, dan berkas domain fase 3 berikutnya. Model baru masuk ke berkas domainnya; relasi balik di model berkas lain tetap wajib (Prisma menggabungkan semua berkas). Klien dibangkitkan ke `packages/db/src/generated` (tidak di-commit).
 - Migrasi: `packages/db/prisma/migrations/<timestamp>_<nama>/migration.sql`. Bagian `CREATE TABLE` dibangkitkan Prisma; **blok RLS, GRANT, trigger, dan fungsi ditulis manual** di berkas yang sama. Contohnya di migrasi `20261003000000_fondasi`.
 - Migrasi yang sudah diterapkan tidak diubah. Perbaikan selalu migrasi baru (contoh: `20261003010000_tenants_registry_owner_read`).
 - Waktu: kolom `timestamptz`, sesi Prisma selalu UTC (`createPrismaClient`), tampilan dan pengelompokan per hari **eksplisit** Asia/Jakarta (`jakartaParts` di aplikasi, `AT TIME ZONE 'Asia/Jakarta'` di SQL). Jangan mengandalkan zona server: adapter `pg` Prisma menggeser waktu bila zona sesi bukan UTC (ADR-0014, tes `packages/db/test/time-zone.test.ts`).
 
 ### Fungsi database
 
-| Fungsi                           | Guna                                                                                                                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app_current_tenant()`           | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong.                                                                          |
-| `app_active_tenant_ids()`        | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).                                                                                |
-| `app_reject_mutation()`          | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                                   |
-| `app_audit_chain()`              | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant.                  |
-| `app_verify_audit_chain()`       | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                                        |
-| `app_verify_audit_chain_from()`  | Seperti di atas, mulai dari titik periksa `(seq, hash)` (baris itu ikut dihitung ulang); juga mengembalikan baris terakhir yang lolos (ADR-0072).               |
-| `app_audit_anchor_guard()`       | Trigger `audit_anchors`: `recorded_at` dari jam database, tolak jangkar bertanggal masa depan.                                                                  |
-| `app_search_patient_names(teks)` | P05 · `SECURITY DEFINER`: kandidat nama mirip (`patient_id`, `score`) dari `search.patient_names` milik tenant `app_current_tenant()`; indeks trigram terpakai. |
-| `app_sync_patient_name()`        | Trigger `patients` → `search.patient_names` (INSERT, UPDATE `name_search`).                                                                                     |
-| `app_validate_patient_fks()`     | Operator/migrator: hitung baris yatim lalu `VALIDATE` FK relasi/akses darurat → pasien; ada yatim → peringatan, FK tetap `NOT VALID`, tanpa hapus.              |
+| Fungsi                                  | Guna                                                                                                                                                                                                                                      |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app_current_tenant()`                  | Dipanggil semua kebijakan RLS. Melempar `TENANT_REQUIRED` bila `app.tenant_id` kosong.                                                                                                                                                    |
+| `app_active_tenant_ids()`               | `SECURITY DEFINER`, hanya mengembalikan ID tenant aktif untuk worker (ADR-0008).                                                                                                                                                          |
+| `app_reject_mutation()`                 | Trigger yang menolak `UPDATE`/`DELETE` di tabel append-only (`audit_events`).                                                                                                                                                             |
+| `app_audit_chain()`                     | Trigger `BEFORE INSERT` audit: menetapkan `seq`, waktu server, `prev_hash`, dan `hash` (sha256 dari bentuk kanonik) di bawah kunci per tenant.                                                                                            |
+| `app_verify_audit_chain()`              | Mengembalikan jumlah baris yang diperiksa dan `seq` pertama yang rusak (NULL bila utuh).                                                                                                                                                  |
+| `app_verify_audit_chain_from()`         | Seperti di atas, mulai dari titik periksa `(seq, hash)` (baris itu ikut dihitung ulang); juga mengembalikan baris terakhir yang lolos (ADR-0072).                                                                                         |
+| `app_audit_anchor_guard()`              | Trigger `audit_anchors`: `recorded_at` dari jam database, tolak jangkar bertanggal masa depan.                                                                                                                                            |
+| `app_search_patient_names(teks)`        | P05 · `SECURITY DEFINER`: kandidat nama mirip (`patient_id`, `score`) dari `search.patient_names` milik tenant `app_current_tenant()`; indeks trigram terpakai.                                                                           |
+| `app_sync_patient_name()`               | Trigger `patients` → `search.patient_names` (INSERT, UPDATE `name_search`).                                                                                                                                                               |
+| `app_clinical_guard()`                  | K · Trigger `BEFORE INSERT` tabel klinis berversi (ADR-0028): `recorded_at` = jam server, rantai versi (akar, versi + 1, pasien, kunjungan), tolak menggantikan versi ber-TTE (`RECORD_LOCKED`), addendum hanya atas versi final terkini. |
+| `app_clinical_code_guard()`             | K · Kode ICD-10/ICD-9-CM/LOINC entri baru wajib ada dan aktif di `ref.concepts` (`REF_CODE_UNKNOWN`).                                                                                                                                     |
+| `app_clinical_attestation_guard()`      | K · Atestasi (co-sign/verifikasi/tinjau order) hanya atas entri klinis yang ada untuk pasien yang sama.                                                                                                                                   |
+| `app_encounter_participant_guard()`     | K · Tim perawatan: tidak dihapus, periode diakhiri sekali.                                                                                                                                                                                |
+| `app_patient_location(pasien)`          | K · Kunjungan aktif kelompok rekam medis + unit + bed kini (ABAC unit tingkat bed, ADR-0031).                                                                                                                                             |
+| `app_medication_administration_guard()` | K12 · Pemberian obat: pindaian gelang cocok, kunjungan + perawat sama, belum kedaluwarsa; cek ganda high-alert.                                                                                                                           |
+| `app_bed_status_guard()`                | K05 · Status bed: hanya bed, versi + 1 (konkurensi optimistis), waktu server; `app_bed_status_log` menulis jejak.                                                                                                                         |
+| `app_validate_patient_fks()`            | Operator/migrator: hitung baris yatim lalu `VALIDATE` FK relasi/akses darurat → pasien; ada yatim → peringatan, FK tetap `NOT VALID`, tanpa hapus.                                                                                        |
 
 ### Helper di `@simrs/db`
 

@@ -17,6 +17,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS btree_gin;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- Skema data rujukan global (ICD, LOINC, KFA, wilayah): read-only bagi aplikasi.
 CREATE SCHEMA IF NOT EXISTS ref AUTHORIZATION simrs_migrator;

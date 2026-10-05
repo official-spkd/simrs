@@ -1,0 +1,14 @@
+// Skema SIM RS (multi-berkas, `prisma/schema/<domain>.prisma`). Konvensi: docs/04-data-model.md §1.
+// - PK UUID v7 dibangkitkan aplikasi; tabel domain punya tenant_id + RLS (lihat migrasi, ADR-0002, ADR-0008).
+// - Nama tabel/kolom snake_case jamak; model Prisma PascalCase.
+// - Kebijakan RLS, GRANT, trigger, dan fungsi ditulis manual di migration.sql (Prisma tidak memodelkannya).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}

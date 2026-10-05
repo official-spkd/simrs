@@ -17,7 +17,7 @@ afterAll(async () => {
   await owner.$disconnect();
 });
 
-/** Indeks yang ditulis manual di migrasi (unik parsial, trigram) sehingga tidak terlihat di schema.prisma. */
+/** Indeks yang ditulis manual di migrasi (unik parsial, trigram) sehingga tidak terlihat di skema Prisma. */
 const MANUAL_INDEXES = [
   'mfa_factors_one_active_per_user',
   'tenants_single_platform',
@@ -38,6 +38,30 @@ const MANUAL_INDEXES = [
   'encounters_one_active_emergency',
   'encounters_one_active_admission',
   'encounters_one_per_referral',
+  // Fase 3 · 3.0b: satu pengganti per versi entri klinis, satu co-sign per entri, satu DPJP utama aktif.
+  'observations_supersedes_once',
+  'diagnostic_reports_supersedes_once',
+  'conditions_supersedes_once',
+  'procedures_supersedes_once',
+  'allergy_intolerances_supersedes_once',
+  'cppt_entries_supersedes_once',
+  'handovers_supersedes_once',
+  'consult_requests_supersedes_once',
+  'consult_responses_supersedes_once',
+  'consents_supersedes_once',
+  'discharge_summaries_supersedes_once',
+  'clinical_attestations_one_cosign',
+  'encounter_participants_one_primary',
+  'encounter_participants_one_active_role',
+  // Fase 3 · 3.0c: versi triase/askep, satu permintaan bed terbuka, satu gelang aktif, satu dosis diberikan per jadwal,
+  // dan indeks EXCLUDE (btree_gist) hunian bed.
+  'triage_assessments_supersedes_once',
+  'nursing_care_plans_supersedes_once',
+  'bed_requests_one_open_per_encounter',
+  'patient_wristbands_one_active',
+  'medication_administrations_one_given',
+  'bed_assignments_no_double_occupancy',
+  'bed_assignments_one_bed_per_encounter',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -159,6 +183,49 @@ describe('penjaga skema', () => {
       'seps',
       'patient_contacts',
       'domain_events',
+      // Fase 3 · klinis RME: entri klinis, atestasi, tim perawatan, master.
+      'observations',
+      'diagnostic_reports',
+      'conditions',
+      'procedures',
+      'allergy_intolerances',
+      'cppt_entries',
+      'handovers',
+      'consult_requests',
+      'consult_responses',
+      'consents',
+      'consent_signatures',
+      'discharge_summaries',
+      'discharge_medications',
+      'discharge_summary_sources',
+      'clinical_attestations',
+      'encounter_participants',
+      'drug_substances',
+      'form_packages',
+      // Fase 3 · 3.0c: ADT, gelang, triase, order/CDS, eMAR, askep, staging.
+      'bed_status',
+      'bed_status_events',
+      'bed_requests',
+      'bed_assignments',
+      'patient_wristbands',
+      'wristband_scans',
+      'triage_assessments',
+      'ed_status_events',
+      'orderables',
+      'drugs',
+      'order_sets',
+      'order_groups',
+      'service_requests',
+      'medication_requests',
+      'order_status_events',
+      'cds_rules',
+      'cds_alerts',
+      'medication_schedules',
+      'medication_administrations',
+      'nursing_diagnoses',
+      'nursing_care_plans',
+      'abbreviations',
+      'billable_events',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

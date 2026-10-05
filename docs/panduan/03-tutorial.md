@@ -243,7 +243,7 @@ Contoh: master **hari libur RS** (`holidays`), yang nanti dipakai jadwal dokter 
 
 ### 4a. Model dan migrasi dengan RLS
 
-Tambahkan model di `packages/db/prisma/schema.prisma`. Setiap referensi ke tabel tenant lain memakai **FK komposit `(tenantId, …)`**, karena FK tidak tunduk RLS: tanpa itu sebuah baris bisa menunjuk (dan memastikan keberadaan) baris milik RS lain.
+Tambahkan model di berkas domainnya, `packages/db/prisma/schema/<domain>.prisma` (skema multi-berkas). Setiap referensi ke tabel tenant lain memakai **FK komposit `(tenantId, …)`**, karena FK tidak tunduk RLS: tanpa itu sebuah baris bisa menunjuk (dan memastikan keberadaan) baris milik RS lain.
 
 ```prisma
 /// F01 · Hari libur RS (berlaku untuk seluruh faskes atau satu faskes).
