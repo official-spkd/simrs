@@ -111,7 +111,10 @@ const input = (over: Partial<IssueClinicalPdfInput> = {}): IssueClinicalPdfInput
 
 describe('PDF klinis + TTE lewat alur dokumen', () => {
   it('terbit: berkas PDF ber-hash, dokumen, TTE pending + outbox tte.sign (ID saja), audit; unduh = byte yang sama', async () => {
-    const { result, audit } = await asDoctor(() => svc.issue(input()));
+    const sourceId = newId();
+    const { result, audit } = await asDoctor(() =>
+      svc.issue(input({ source: { table: 'discharge_summaries', id: sourceId } })),
+    );
     const doc = result.document;
     expect(doc).toMatchObject({
       patientId,
@@ -128,11 +131,13 @@ describe('PDF klinis + TTE lewat alur dokumen', () => {
     ]);
 
     const rows = await withTenant(testDb(), T.id, async (tx) => ({
+      doc: await tx.document.findUniqueOrThrow({ where: { id: doc.id } }),
       sig: await tx.documentSignature.findUniqueOrThrow({ where: { id: result.signatureId as string } }),
       msg: await tx.outboxMessage.findFirstOrThrow({
         where: { idempotencyKey: `tte-sign:${result.signatureId}` },
       }),
     }));
+    expect(rows.doc).toMatchObject({ sourceType: 'discharge_summaries', sourceId });
     expect(rows.sig).toMatchObject({
       signerUserId: dokter.id,
       documentSha256: doc.sha256,

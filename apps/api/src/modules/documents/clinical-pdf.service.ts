@@ -16,6 +16,11 @@ export interface IssueClinicalPdfInput {
   fileName: string;
   /** Nomor dokumen dari layanan penomoran, bila ada. */
   number?: string | null;
+  /**
+   * Entri klinis asal (nama tabel + id versi, mis. `discharge_summaries`). Dokumen ber-TTE mengunci versi itu: trigger
+   * `app_clinical_guard` menolak menggantikannya (`RECORD_LOCKED`), perubahan lewat addendum.
+   */
+  source?: { table: string; id: string } | null;
   /** Waktu terbit = waktu final rekaman klinisnya (bukan jam render), agar PDF bisa dibangun ulang sama persis. */
   issuedAt: Date;
   /** Baris identitas tambahan (kunjungan, ruang, penjamin, DPJP). */
@@ -124,6 +129,8 @@ export class ClinicalPdfService {
       sizeBytes: bytes.length,
       sha256,
       storageKey,
+      sourceType: input.source?.table ?? null,
+      sourceId: input.source?.id ?? null,
     });
     this.db.audit({
       action: 'create',
