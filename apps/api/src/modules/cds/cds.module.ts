@@ -1,9 +1,15 @@
 import { Module } from '@nestjs/common';
+import { CdsReportService } from './cds-report.service';
+import { CdsController } from './cds.controller';
+import { CdsService } from './cds.service';
 
 /**
- * K09 · CDS: evaluasi pratinjau, laporan override, basis pengetahuan per RS (ADR-0030).
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.4 tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K09 · CDS (ADR-0030): evaluasi server dengan basis pengetahuan per RS (`CdsService`, dipakai modul `orders` untuk
+ * pratinjau dan kirim order) dan laporan tinjauan override. Didaftarkan sekali di `AppModule` (potongan 3.1).
  */
-@Module({})
+@Module({
+  controllers: [CdsController],
+  providers: [CdsService, CdsReportService],
+  exports: [CdsService],
+})
 export class CdsModule {}
