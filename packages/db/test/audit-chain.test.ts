@@ -1,14 +1,14 @@
 /**
  * P04: hash berantai audit (DoD fase 1: "hash berantai terverifikasi oleh tes").
  * Tes berjalan sebagai simrs_app; simulasi perusakan memakai pemilik tabel (migrator) yang mematikan trigger.
+ * Setiap tes memakai tenant fiktif baru: rantai tenant seed (RSFA/RSFB) ikut ditulis tes lain dan proses lain yang
+ * memakai database tes yang sama (API, E2E), sehingga jumlah baris di antara dua transaksi bisa berubah.
  */
 import { newId } from '@simrs/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPrismaClient, type PrismaClient, verifyAuditChain, withTenant } from '../src/index';
-import { SEED_TENANTS } from '../src/seed-data';
 import { testDbUrls } from '../src/testing';
 
-const [A, B] = SEED_TENANTS;
 let app: PrismaClient;
 let owner: PrismaClient;
 
@@ -26,32 +26,42 @@ function event(tenantId: string, action = 'read') {
   return { id: newId(), tenantId, resourceType: 'test', action, details: { n: 1 } };
 }
 
+/** Tenant fiktif baru (dibuat pemilik tabel `tenants`); hanya tes ini yang menulis rantainya. */
+async function freshTenant(): Promise<string> {
+  const id = newId();
+  await withTenant(owner, id, (tx) =>
+    tx.tenant.create({ data: { id, code: `AUD${id.slice(-8).toUpperCase()}`, name: 'RS Fiktif Uji Audit' } }),
+  );
+  return id;
+}
+
 describe('rantai audit', () => {
   it('seq berurutan tanpa celah walau ditulis paralel, dan rantai terverifikasi', async () => {
+    const A = await freshTenant();
     await Promise.all(
-      Array.from({ length: 12 }, () =>
-        withTenant(app, A.id, (tx) => tx.auditEvent.create({ data: event(A.id) })),
-      ),
+      Array.from({ length: 12 }, () => withTenant(app, A, (tx) => tx.auditEvent.create({ data: event(A) }))),
     );
-    const rows = await withTenant(app, A.id, (tx) =>
+    const rows = await withTenant(app, A, (tx) =>
       tx.auditEvent.findMany({ orderBy: { seq: 'asc' }, select: { seq: true, prevHash: true, hash: true } }),
     );
+    expect(rows).toHaveLength(12);
     rows.forEach((r, i) => {
       expect(r.seq).toBe(BigInt(i + 1));
       expect(r.hash).toMatch(/^[0-9a-f]{64}$/);
       expect(r.prevHash).toBe(i === 0 ? null : rows[i - 1]?.hash);
     });
-    expect(await withTenant(app, A.id, (tx) => verifyAuditChain(tx))).toEqual({
-      checked: rows.length,
+    expect(await withTenant(app, A, (tx) => verifyAuditChain(tx))).toEqual({
+      checked: 12,
       firstBrokenSeq: null,
     });
   });
 
   it('waktu, urutan, dan hash dari server menimpa nilai kiriman aplikasi', async () => {
-    const forged = await withTenant(app, A.id, (tx) =>
+    const A = await freshTenant();
+    const forged = await withTenant(app, A, (tx) =>
       tx.auditEvent.create({
         data: {
-          ...event(A.id),
+          ...event(A),
           seq: 999_999n,
           hash: 'palsu',
           prevHash: 'palsu',
@@ -59,22 +69,30 @@ describe('rantai audit', () => {
         },
       }),
     );
-    expect(forged.seq).not.toBe(999_999n);
+    expect(forged.seq).toBe(1n);
     expect(forged.hash).not.toBe('palsu');
+    expect(forged.prevHash).toBeNull();
     expect(forged.occurredAt.getUTCFullYear()).toBeGreaterThan(2020);
   });
 
-  it('rantai tiap tenant terpisah', async () => {
-    await withTenant(app, B.id, (tx) => tx.auditEvent.create({ data: event(B.id) }));
-    const result = await withTenant(app, B.id, (tx) => verifyAuditChain(tx));
-    expect(result.firstBrokenSeq).toBeNull();
-    expect(result.checked).toBeGreaterThan(0);
+  it('rantai tiap tenant terpisah: ditulis bersamaan, masing-masing mulai dari seq 1', async () => {
+    const [P, Q] = [await freshTenant(), await freshTenant()];
+    await Promise.all(
+      [P, P, Q, P, Q].map((t) => withTenant(app, t, (tx) => tx.auditEvent.create({ data: event(t) }))),
+    );
+    expect(await withTenant(app, P, (tx) => verifyAuditChain(tx))).toEqual({
+      checked: 3,
+      firstBrokenSeq: null,
+    });
+    expect(await withTenant(app, Q, (tx) => verifyAuditChain(tx))).toEqual({
+      checked: 2,
+      firstBrokenSeq: null,
+    });
   });
 
   it('baris yang diubah langsung di database terdeteksi', async () => {
     // Tenant khusus tes ini agar tenant lain tidak ikut "rusak".
-    const T = { id: newId(), code: `AUD${Date.now()}`, name: 'RS Fiktif Uji Audit' };
-    await withTenant(owner, T.id, (tx) => tx.tenant.create({ data: T }));
+    const T = { id: await freshTenant() };
     for (let i = 0; i < 3; i++)
       await withTenant(app, T.id, (tx) => tx.auditEvent.create({ data: event(T.id) }));
     expect((await withTenant(app, T.id, (tx) => verifyAuditChain(tx))).firstBrokenSeq).toBeNull();
