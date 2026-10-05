@@ -158,6 +158,16 @@ pnpm db:import-ref --system wilayah --file .\wilayah.csv --version 2024 --source
 
 Satu baris tidak valid membatalkan seluruh berkas dan dilaporkan per baris. `--replace` menonaktifkan kode yang tidak ada di versi baru, tanpa menghapusnya (ADR-0018).
 
+Daftar kata sandi bocor (kata sandi baru yang ada di daftar ditolak) juga diisi operator. Lokal cukup contoh kecil yang ikut di repo; produksi wajib memakai daftar resmi, mis. berkas Pwned Passwords (Have I Been Pwned, baris `SHA1:hitungan`) yang diunduh operator di luar SIM RS. Perintah ini mengambil N hitungan terbesar dan menyimpan hanya SHA-1-nya:
+
+```powershell
+pnpm db:import-breached --file packages\db\data\breached-passwords-sample.txt --source contoh --version 1
+pnpm db:import-breached --file .\pwned-passwords-sha1.txt --source "HIBP Pwned Passwords" --version v8 --top 100000 --dry-run
+pnpm db:import-breached --file .\pwned-passwords-sha1.txt --source "HIBP Pwned Passwords" --version v8 --top 100000
+```
+
+Berkas teks (satu kata sandi per baris, urut paling umum) juga diterima. Isi daftar lama diganti dalam satu transaksi; baris rusak membatalkan seluruh impor. Daftar statis kecil di kode tetap berlaku walau tabel kosong.
+
 Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan di `packages/shared/src/authz.ts`), bawa izin itu ke peran RS yang sudah berjalan:
 
 ```powershell

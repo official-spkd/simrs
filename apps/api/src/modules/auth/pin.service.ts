@@ -9,6 +9,8 @@ import {
   PIN_MAX_DEVICES_PER_USER,
   PIN_SESSION_HOURS,
   pinAllowedForRole,
+  type PinPolicy,
+  pinRoleAllowed,
   type PinLoginFailure,
   type PinLoginInput,
   pinProblem,
@@ -26,7 +28,7 @@ import { PrismaService } from '../../infra/prisma.service';
 import { TenantDb } from '../../infra/tenant-db';
 import { AuthRepository } from './auth.repository';
 import type { RequestMeta } from './auth.service';
-import { pinBlock, pinSecret } from './pin';
+import { pinBlock, pinSecret, readPinPolicy } from './pin';
 
 const MESSAGES: Record<Exclude<PinLoginFailure, 'wrong'>, string> = {
   revoked:
@@ -34,7 +36,7 @@ const MESSAGES: Record<Exclude<PinLoginFailure, 'wrong'>, string> = {
   unknown:
     'Perangkat ini tidak dikenali untuk masuk dengan PIN. Masuk dengan kata sandi dan kode verifikasi.',
   not_allowed:
-    'Akun ini sedang tidak bisa masuk dengan PIN (akun terkunci atau nonaktif, atau posisinya tidak berlaku). Masuk dengan kata sandi.',
+    'Akun ini sedang tidak bisa masuk dengan PIN (akun terkunci atau nonaktif, posisinya tidak berlaku, atau PIN dimatikan RS). Masuk dengan kata sandi.',
 };
 
 /** 401 masuk dengan PIN; `details.pin` memberi tahu web apakah token perangkat perlu dilupakan. */
@@ -99,21 +101,28 @@ export class PinService {
     const parsed = await this.parseDeviceTokens(tokens, m.host);
     const byTenant = new Map<string, ParsedToken[]>();
     for (const p of parsed) byTenant.set(p.tenantId, [...(byTenant.get(p.tenantId) ?? []), p]);
-    const found = new Map<string, PinDeviceRow>();
+    const found = new Map<string, { d: PinDeviceRow; policy: PinPolicy }>();
     for (const [tenantId, list] of byTenant) {
-      const rows = await this.prisma.forTenant(tenantId, (tx) =>
-        this.repo.findPinDevices(
+      const { rows, policy } = await this.prisma.forTenant(tenantId, async (tx) => ({
+        rows: await this.repo.findPinDevices(
           tx,
           list.map((p) => p.id),
         ),
-      );
-      for (const r of rows) found.set(r.id, r);
+        policy: await readPinPolicy(tx),
+      }));
+      for (const d of rows) found.set(d.id, { d, policy });
     }
     const now = new Date();
     return parsed.flatMap((p) => {
-      const d = found.get(p.id);
-      if (!d || !secretMatches(p.secret, d.tokenHash)) return [];
-      if (d.revokedAt || d.expiresAt <= now || d.failedAttempts >= PIN_MAX_ATTEMPTS || pinBlock(d, now)) {
+      const hit = found.get(p.id);
+      if (!hit || !secretMatches(p.secret, hit.d.tokenHash)) return [];
+      const { d, policy } = hit;
+      if (
+        d.revokedAt ||
+        d.expiresAt <= now ||
+        d.failedAttempts >= PIN_MAX_ATTEMPTS ||
+        pinBlock(d, now, policy)
+      ) {
         return [];
       }
       return [
@@ -169,7 +178,7 @@ export class PinService {
         await fail(tx, d, d.revokedAt ? 'pin_revoked' : 'pin_expired');
         return { kind: 'revoked' as const };
       }
-      const block = pinBlock(d, now);
+      const block = pinBlock(d, now, await readPinPolicy(tx));
       if (block) {
         if (block === 'assignment_ended') await revokePinDevices(tx, { id: d.id }, 'assignment_ended', null);
         await fail(tx, d, block);
@@ -312,10 +321,21 @@ export class PinService {
     if (!a || !a.role.active || a.validFrom > now || (a.validUntil !== null && a.validUntil <= now)) {
       throw new AppError('CONFLICT', 'Pilih posisi kerja lebih dulu.', 409);
     }
+    const policy = await readPinPolicy(tx);
+    if (!policy.enabled) {
+      throw new AppError('FORBIDDEN', 'PIN masuk cepat dinonaktifkan oleh RS ini.', 403);
+    }
     if (!pinAllowedForRole(a.role.code)) {
       throw new AppError(
         'FORBIDDEN',
         `Posisi ${a.role.name} tidak bisa memakai PIN masuk cepat; peran ini wajib masuk dengan kata sandi dan kode verifikasi.`,
+        403,
+      );
+    }
+    if (!pinRoleAllowed(a.role.code, policy)) {
+      throw new AppError(
+        'FORBIDDEN',
+        `RS ini tidak mengizinkan PIN masuk cepat untuk posisi ${a.role.name}.`,
         403,
       );
     }

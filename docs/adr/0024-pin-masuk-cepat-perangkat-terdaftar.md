@@ -23,3 +23,8 @@ docs/05 §1 meminta "login cepat (PIN 6 digit) hanya di perangkat terdaftar dala
 − Siapa pun yang memegang profil peramban (cookie bisa disalin lewat alat pengembang bila komputer dibiarkan terbuka) dan tahu PIN bisa masuk sebagai pemiliknya: dimitigasi 5 percobaan, sesi pendek, peran terbatas, dan pencabutan dari mana pun. Label "hanya komputer milik RS" belum ditegakkan teknis (sama dengan ADR-0022); pendaftaran perangkat oleh admin bisa ditambahkan bersama prinsipal perangkat (ADR-0027).
 − Akun yang terlupakan dari cookie (lebih dari 8 akun di satu peramban) tetap tercantum aktif sampai kedaluwarsa atau dihapus pemiliknya.
 − Skema dibuat dalam dua migrasi (`20261005093000_pin_devices` lalu `20261005100000_registered_devices` yang mengganti nama), karena migrasi pertama sudah diterapkan ke database tes saat permintaan tabel umum datang.
+
+## Pembaruan 5 Okt 2026 · pengaturan per RS dan layar Akses
+- **Pengaturan P12** `pin.enabled` (bawaan aktif) dan `pin.allowed_roles` (bawaan semua `PIN_LOGIN_ROLES`; skema hanya menerima subset, jadi peran sensitif tidak pernah bisa dibuka lewat pengaturan). Dimatikan/dipersempit → daftar PIN 403, masuk dengan PIN `not_allowed`, layar masuk tidak menawarkan akun itu; PIN yang ada **tidak dicabut** dan berlaku lagi bila RS menyalakannya kembali (sesi PIN yang sedang berjalan habis dengan sendirinya, maks. 2 jam).
+- `/auth/me` memuat `pin: { available, reason }` (`quick_session`, `platform`, `disabled`, `no_position`, `role`, `no_unit`) dari `pinUnavailableReason` bersama; web tidak lagi menghitung kelayakan sendiri.
+- Detail pengguna di layar Akses menampilkan PIN perangkat dan perangkat tepercaya sekaligus, masing-masing dengan "Cabut" (E2E `pin.spec.ts`).

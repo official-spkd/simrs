@@ -135,16 +135,24 @@ export async function resetMfaAction(userId: string): Promise<ActionResult> {
   }
 }
 
-/** Cabut PIN masuk cepat di satu perangkat milik pengguna (perangkat hilang, pindah unit). ADR-0024. */
-export async function revokePinDeviceAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+/**
+ * Cabut perangkat milik pengguna lain: PIN masuk cepat (ADR-0024) atau "percayai perangkat ini" (ADR-0022), mis.
+ * perangkat hilang atau staf pindah unit. Jenis perangkat menentukan endpoint; ID divalidasi UUID.
+ */
+export async function revokeDeviceAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const denied = await authorize('iam.users', 'write');
   if (denied) return { error: denied };
+  const kind = text(formData.get('kind'));
   const deviceId = text(formData.get('deviceId'));
-  if (!z.uuid().safeParse(deviceId).success) return { error: 'Perangkat tidak valid.' };
+  if ((kind !== 'pin' && kind !== 'trusted') || !z.uuid().safeParse(deviceId).success) {
+    return { error: 'Perangkat tidak valid.' };
+  }
+  const path = kind === 'pin' ? 'pin-devices' : 'trusted-devices';
   try {
-    await api(`/api/v1/iam/pin-devices/${deviceId}/revoke`, { method: 'POST', schema: okSchema });
+    await api(`/api/v1/iam/${path}/${deviceId}/revoke`, { method: 'POST', schema: okSchema });
     revalidatePath(PATH);
-    return { ok: true, message: `PIN dicabut pukul ${formatJam(new Date())}.` };
+    const what = kind === 'pin' ? 'PIN' : 'Perangkat tepercaya';
+    return { ok: true, message: `${what} dicabut pukul ${formatJam(new Date())}.` };
   } catch (err) {
     return failure(err);
   }
