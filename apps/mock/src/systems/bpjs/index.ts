@@ -52,6 +52,24 @@ function authHook(config: MockConfig, service: Service) {
   };
 }
 
+/**
+ * Gangguan per peserta (`BpjsState.outageKartu`, panel `POST /_panel/api/bpjs/outage`): permintaan yang menyebut
+ * no. kartu terganggu (path atau body) dijawab 503 `MOCK_FAILURE`, sama seperti skenario sistem `gagal`.
+ */
+function outageHook(state: MockState) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    if (state.bpjs.outageKartu.size === 0) return;
+    const text = `${req.url} ${typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? '')}`;
+    for (const kartu of state.bpjs.outageKartu) {
+      if (text.includes(kartu)) {
+        return reply
+          .code(503)
+          .send({ code: 'MOCK_FAILURE', message: 'Gangguan BPJS untuk peserta ini (mock)' });
+      }
+    }
+  };
+}
+
 export function registerBpjs(app: FastifyInstance, config: MockConfig, state: MockState): void {
   const timestamp = (req: FastifyRequest) => req.headers['x-timestamp'] as string;
   const encrypt = (req: FastifyRequest, data: unknown) =>
@@ -71,6 +89,7 @@ export function registerBpjs(app: FastifyInstance, config: MockConfig, state: Mo
   void app.register(
     async (scope) => {
       scope.addHook('onRequest', authHook(config, 'vclaim'));
+      scope.addHook('preHandler', outageHook(state));
       registerVclaim(scope, ctx);
       registerRujukanKeluar(scope, ctx);
     },
@@ -80,6 +99,7 @@ export function registerBpjs(app: FastifyInstance, config: MockConfig, state: Mo
   void app.register(
     async (scope) => {
       scope.addHook('onRequest', authHook(config, 'antrean'));
+      scope.addHook('preHandler', outageHook(state));
       registerAntrean(scope, ctx);
       registerHfis(scope, ctx);
     },

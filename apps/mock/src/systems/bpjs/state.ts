@@ -122,6 +122,12 @@ export class BpjsState {
   nikByKartu = new Map<string, string>();
   kartuByNik = new Map<string, string>();
   pesertaOverride = new Map<string, PesertaOverride>();
+  /**
+   * Gangguan per peserta (khusus mock): setiap permintaan BPJS yang menyebut no. kartu ini (path atau body) ditolak
+   * 503 seperti skenario `gagal`. Untuk E2E downtime yang berjalan bersama tes lain tanpa mengubah skenario sistem
+   * `bpjs` milik semua tes.
+   */
+  outageKartu = new Set<string>();
   private sepSeq = 0;
   private suratSeq = 0;
   private rujukanSeq = 0;
@@ -140,6 +146,7 @@ export class BpjsState {
     this.nikByKartu.clear();
     this.kartuByNik.clear();
     this.pesertaOverride.clear();
+    this.outageKartu.clear();
     this.sepSeq = 0;
     this.suratSeq = 0;
   }
