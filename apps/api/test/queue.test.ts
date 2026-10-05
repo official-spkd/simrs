@@ -93,6 +93,29 @@ let registrar: Tokens;
 let nursePd: Tokens;
 let nurseJt: Tokens;
 let otherRegistrar: Tokens;
+let admin: Tokens;
+/** Token perangkat TV (dv1) yang terikat ke display RJ-LT2, dan TV lain tanpa display. */
+let tv: string;
+let tvUnbound: string;
+const asDevice = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+async function enrolTv(queueDisplayId?: string): Promise<string> {
+  const created = await http()
+    .post('/api/v1/iam/devices')
+    .set(bearer(admin))
+    .send({
+      kind: 'queue_display',
+      name: 'TV ruang tunggu uji',
+      unitId: unit.PD,
+      ...(queueDisplayId ? { queueDisplayId } : {}),
+    })
+    .expect(201);
+  const res = await http()
+    .post('/api/v1/devices/enrol')
+    .send({ tenantCode: T.code, code: created.body.enrolmentCode })
+    .expect(200);
+  return res.body.token as string;
+}
 const today = isoDateJakarta();
 
 const http = () => request(app.getHttpServer());
@@ -207,6 +230,12 @@ beforeAll(async () => {
   nursePd = await login(app, np);
   nurseJt = await login(app, nj);
   otherRegistrar = await login(app, o);
+  admin = await login(
+    app,
+    await createTestUser(T.id, { roles: [{ code: 'admin_tenant' }], tenantCode: T.code }),
+  );
+  tv = await enrolTv(displayId);
+  tvUnbound = await enrolTv();
 });
 
 afterAll(async () => {
@@ -331,7 +360,7 @@ describe('izin dan isolasi', () => {
     const t = await issue('SR');
     await http().get(`/api/v1/queue/services/${svc.SR}/tickets`).set(bearer(otherRegistrar)).expect(404);
     await act(t.id, 'call', otherRegistrar, { counter: 'Ruang 5' }).expect(404);
-    await http().get(`/api/v1/queue/displays/${displayId}/board`).set(bearer(otherRegistrar)).expect(404);
+    await http().get(`/api/v1/queue/displays/${displayId}/preview`).set(bearer(otherRegistrar)).expect(404);
     const theirs = await http().get('/api/v1/queue/services').set(bearer(otherRegistrar)).expect(200);
     expect((theirs.body as Array<{ id: string }>).map((s) => s.id)).not.toContain(svc.SR);
   });
@@ -342,10 +371,7 @@ describe('papan dan SSE display', () => {
     const w1 = await issue('JT');
     const w2 = await issue('JT');
     const called = await act(w1.id, 'call', registrar, { counter: 'Ruang 4' }).expect(200);
-    const res = await http()
-      .get(`/api/v1/queue/displays/${displayId}/board`)
-      .set(bearer(registrar))
-      .expect(200);
+    const res = await http().get(`/api/v1/queue/displays/${displayId}/board`).set(asDevice(tv)).expect(200);
     expect(res.body.area).toBe('Rawat Jalan Lantai 2');
     expect(res.body.clinics.map((c: { poliCode: string }) => c.poliCode)).toEqual(['PD', 'JT', 'SR', 'PR']);
     expect(res.body.calling).toEqual({ queueNo: called.body.ticket.queueNo, poliCode: 'JT' });
@@ -359,11 +385,15 @@ describe('papan dan SSE display', () => {
   it('SSE menerima panggilan layanan display secara real-time; layanan lain (loket A) tidak', async () => {
     const controller = new AbortController();
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/queue/displays/${displayId}/events`, {
-      headers: bearer(registrar),
+      headers: asDevice(tv),
       signal: controller.signal,
     });
     expect(res.status).toBe(200);
-    const frames: Array<{ id?: string; event?: string; data?: { queueNo?: string; counter?: string } }> = [];
+    const frames: Array<{
+      id?: string;
+      event?: string;
+      data?: { queueNo?: string; counter?: string; type?: string; board?: { area?: string } };
+    }> = [];
     void (async () => {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -391,8 +421,14 @@ describe('papan dan SSE display', () => {
       }
     })();
     try {
-      // Tunggu LISTEN aktif sebelum memanggil.
-      await new Promise((r) => setTimeout(r, 500));
+      // Potret papan dikirim saat tersambung (setelah LISTEN aktif), tanpa id SSE.
+      const ready = Date.now() + 5000;
+      while (!frames.some((f) => f.event === 'queue.board') && Date.now() < ready) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      const snapshot = frames.find((f) => f.event === 'queue.board');
+      expect(snapshot?.id).toBeUndefined();
+      expect(snapshot?.data).toMatchObject({ type: 'board', board: { area: 'Rawat Jalan Lantai 2' } });
       const loket = await issue('A');
       await act(loket.id, 'call', registrar, { counter: 'Loket 1' }).expect(200);
       const poli = await issue('PD');
@@ -412,6 +448,45 @@ describe('papan dan SSE display', () => {
     } finally {
       controller.abort();
     }
+  });
+});
+
+describe('display: prinsipal perangkat dan jalur staf', () => {
+  it('papan/SSE TV hanya untuk perangkat yang terikat ke display itu; token staf 403', async () => {
+    const board = `/api/v1/queue/displays/${displayId}/board`;
+    await http().get(board).set(bearer(registrar)).expect(403);
+    const unbound = await http().get(board).set(asDevice(tvUnbound)).expect(409);
+    expect(unbound.body.code).toBe('CONFLICT');
+    const otherDisplay = newId();
+    await http().get(`/api/v1/queue/displays/${otherDisplay}/board`).set(asDevice(tv)).expect(403);
+    const denied = await run((tx) =>
+      tx.auditEvent.count({
+        where: { action: 'access_denied', resourceType: 'queue_display', resourceId: otherDisplay },
+      }),
+    );
+    expect(denied).toBe(1);
+    const stream = await fetch(`http://127.0.0.1:${port}/api/v1/queue/displays/${displayId}/events`, {
+      headers: bearer(registrar),
+    });
+    expect(stream.status).toBe(403);
+  });
+
+  it('staf: daftar display (untuk mengikat TV) dan pratinjau papan dengan queue.read', async () => {
+    const list = await http().get('/api/v1/queue/displays').set(bearer(admin)).expect(200);
+    expect(list.body).toEqual([
+      expect.objectContaining({
+        id: displayId,
+        code: 'RJ-LT2',
+        active: true,
+        serviceIds: [svc.PD, svc.JT, svc.SR, svc.PR],
+      }),
+    ]);
+    const preview = await http()
+      .get(`/api/v1/queue/displays/${displayId}/preview`)
+      .set(bearer(registrar))
+      .expect(200);
+    expect(preview.body.area).toBe('Rawat Jalan Lantai 2');
+    await http().get('/api/v1/queue/displays').set(asDevice(tv)).expect(403);
   });
 });
 

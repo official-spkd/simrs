@@ -46,6 +46,12 @@ export interface SseStreamOptions<T> {
   maxDurationMs?: number;
   /** Batas event yang diputar ulang; lebih dari ini → event `reset`. Bawaan 200. */
   replayLimit?: number;
+  /**
+   * Potret awal (mis. papan antrean) yang dikirim setelah LISTEN aktif dan setelah replay, TANPA `id:` (tidak menggeser
+   * `Last-Event-ID` klien). Dijalankan di transaksi pendek bertenant dengan konteks permintaan, jadi repository
+   * (`TenantDb`) bekerja seperti biasa; hanya baca. Galat → aliran ditutup (klien menyambung ulang).
+   */
+  initial?: () => Promise<Array<{ event: string; data: unknown }>>;
 }
 
 export const SSE_HEARTBEAT_MS = 15_000;
@@ -97,6 +103,7 @@ export class SseService implements OnModuleDestroy {
     if (!NOTIFY_CHANNEL.test(channel.name)) throw new Error(`Nama kanal SSE tidak sah: ${channel.name}`);
     const { tenantId, requestId } = ctx;
     const replay = channel.replay?.bind(channel);
+    const { initial } = options;
     const connection = new SseConnection({
       res,
       channel: channel.name,
@@ -105,6 +112,12 @@ export class SseService implements OnModuleDestroy {
       heartbeatMs: options.heartbeatMs ?? SSE_HEARTBEAT_MS,
       maxDurationMs: options.maxDurationMs ?? SSE_MAX_DURATION_MS,
       replayLimit: options.replayLimit ?? SSE_REPLAY_LIMIT,
+      initial: initial
+        ? () =>
+            this.prisma.forTenant(tenantId, (tx) =>
+              requestContext.run({ ...ctx, tx, audit: [], afterCommit: [] }, initial),
+            )
+        : null,
       load: (id) => this.loadShared(channel, tenantId, id),
       replay: replay
         ? (afterId, limit) => this.prisma.forTenant(tenantId, (tx) => replay(tx, afterId, limit))
@@ -174,6 +187,7 @@ interface SseConnectionDeps {
   replayLimit: number;
   load: (id: string) => Promise<SseEvent | null>;
   replay: ((afterId: string, limit: number) => Promise<SseEvent[]>) | null;
+  initial: (() => Promise<Array<{ event: string; data: unknown }>>) | null;
   subscribe: (listener: { notify(id: string): void; resync(): void }) => NotificationSubscription;
   onClose: (connection: SseConnection) => void;
   onError: (err: unknown) => void;
@@ -239,6 +253,9 @@ class SseConnection {
     this.enqueue(async () => {
       await subscription.ready;
       if (lastEventId) await this.replay();
+      if (this.deps.initial) {
+        for (const e of await this.deps.initial()) this.sendWithoutId(e.event, e.data);
+      }
     });
   }
 
@@ -302,6 +319,13 @@ class SseConnection {
     this.write(`id: ${event.id}\nevent: ${event.event}\ndata: ${JSON.stringify(event.data ?? null)}\n\n`);
     this.sent.add(event.id);
     this.lastId = event.id;
+  }
+
+  /** Potret awal: event bernama tanpa `id` (Last-Event-ID klien tidak berubah), tidak melewati filter. */
+  private sendWithoutId(event: string, data: unknown): void {
+    if (this.closed) return;
+    if (!EVENT_NAME.test(event)) throw new Error(`Event SSE tidak sah di kanal ${this.channel}`);
+    this.write(`event: ${event}\ndata: ${JSON.stringify(data ?? null)}\n\n`);
   }
 
   /** Klien wajib memuat ulang snapshot (event tanpa `id`, jadi Last-Event-ID klien tidak berubah). */

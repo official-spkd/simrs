@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   type CallTicketInput,
@@ -8,17 +8,13 @@ import {
   queueTicketQuerySchema,
   skipTicketSchema,
 } from '@simrs/shared';
-import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { Audited, type AuditSource, param, paramId } from '../../common/audited.decorator';
-import { NoRequestTransaction } from '../../common/no-request-transaction.decorator';
+import { Audited, type AuditSource, paramId } from '../../common/audited.decorator';
 import { RequireModule } from '../../common/require-module.decorator';
 import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
-import { SseService } from '../../infra/realtime/sse.service';
 import { TenantDb } from '../../infra/tenant-db';
-import { queueCallsChannel } from './queue-calls.channel';
 import { QueueService } from './queue.service';
 
 const uuid = new ParseUUIDPipe();
@@ -29,12 +25,9 @@ const count = ({ result }: AuditSource) => ({
 });
 
 /**
- * F04 · `/api/v1/queue`: layanan, tiket, panggilan (`queue.call`, klinisi berlingkup unit), papan + aliran SSE display,
- * dan status task ID BPJS per booking. Kontrak di `@simrs/shared` (`schemas/queue.ts`).
- *
- * Papan dan SSE sementara memakai sesi staf (`queue.read`). Display TV memakai prinsipal perangkat
- * (`queue.display.read`, ADR-0027) setelah potongan 1b menyediakannya: cukup mengganti `@RequirePermission` dua
- * handler `displays/*` ke izin perangkat; isi dan penyaringannya sama.
+ * F04 · `/api/v1/queue` untuk STAF: layanan, tiket, panggilan (`queue.call`, klinisi berlingkup unit), daftar dan
+ * pratinjau display, status task ID BPJS per booking. Kontrak di `@simrs/shared` (`schemas/queue.ts`). Papan dan
+ * aliran SSE untuk TV ada di `QueueDisplayController` (prinsipal perangkat, ADR-0027).
  */
 @ApiTags('queue (F04)')
 @TenantScoped()
@@ -43,7 +36,6 @@ const count = ({ result }: AuditSource) => ({
 export class QueueController {
   constructor(
     private readonly queue: QueueService,
-    private readonly sse: SseService,
     private readonly db: TenantDb,
   ) {}
 
@@ -124,23 +116,18 @@ export class QueueController {
     return this.queue.finish(id);
   }
 
+  /** Daftar display (admin mengikat TV ke display di layar perangkat). */
   @RequirePermission('queue', 'read')
-  @Get('displays/:id/board')
-  board(@Param('id', uuid) id: string) {
-    return this.queue.board(id);
+  @Get('displays')
+  displays() {
+    return this.queue.listDisplays();
   }
 
-  /**
-   * Aliran SSE panggilan untuk satu display (ADR-0026): hanya layanan display ini; replay `Last-Event-ID`. Tanpa
-   * transaksi permintaan; layanan display dibaca di transaksi pendek sebelum aliran dimulai.
-   */
-  @NoRequestTransaction()
+  /** Papan display untuk staf (pratinjau, kendali antrean). TV memakai `QueueDisplayController`. */
   @RequirePermission('queue', 'read')
-  @Audited({ action: 'read', resource: 'queue_display_stream', resourceId: param('id') })
-  @Get('displays/:id/events')
-  async events(@Param('id', uuid) id: string, @Req() req: Request, @Res() res: Response) {
-    const codes = await this.db.transaction(() => this.queue.displayServiceCodes(id));
-    this.sse.stream(req, res, queueCallsChannel, { filter: (e) => codes.has(e.data.serviceCode) });
+  @Get('displays/:id/preview')
+  preview(@Param('id', uuid) id: string) {
+    return this.queue.board(id);
   }
 
   /** Status task ID BPJS satu booking (chip task 1–3 di Pendaftaran). */

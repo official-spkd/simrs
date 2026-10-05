@@ -12,6 +12,7 @@ import {
   type QueueBoard,
   type QueueCallAction,
   type QueueCallRecord,
+  type QueueDisplay,
   type QueueService as QueueServiceView,
   type QueueServiceKind,
   type QueueTicket,
@@ -242,6 +243,36 @@ export class QueueService {
   // ------------------------------------------------------------------------------------------------------------
   // Display
   // ------------------------------------------------------------------------------------------------------------
+
+  /** Daftar display + layanannya (urut posisi), untuk admin mengikat TV ke display. */
+  async listDisplays(): Promise<QueueDisplay[]> {
+    const rows = await this.repo.displays();
+    return rows.map((d) => ({
+      id: d.id,
+      code: d.code,
+      name: d.name,
+      serviceIds: d.services.map((s) => s.serviceId),
+      active: d.active,
+    }));
+  }
+
+  /**
+   * ADR-0027 · Display milik perangkat TV pemanggil (`registered_devices.queue_display_id`). TV hanya boleh membaca
+   * display yang terikat padanya: belum terikat → 409, display lain → 403 (tercatat).
+   */
+  async assertDeviceDisplay(displayId: string): Promise<void> {
+    const principal = this.db.actor().devicePrincipal;
+    if (!principal) throw new AppError('FORBIDDEN', 'Hanya untuk perangkat display terdaftar', 403);
+    const bound = await this.repo.deviceDisplayId(principal.id);
+    if (!bound) throw new AppError('CONFLICT', 'Perangkat ini belum diikat ke display antrean', 409);
+    if (bound !== displayId) {
+      throw new AuditedDenial('Display ini bukan milik perangkat Anda', {
+        resourceType: 'queue_display',
+        resourceId: displayId,
+        details: { boundDisplayId: bound },
+      });
+    }
+  }
 
   /** Kode layanan display (untuk menyaring aliran SSE). 404 bila display tidak ada/nonaktif. */
   async displayServiceCodes(displayId: string): Promise<Set<string>> {

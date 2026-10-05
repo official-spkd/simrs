@@ -187,6 +187,28 @@ export class QueueRepository {
     });
   }
 
+  displays() {
+    return this.db.tx().queueDisplay.findMany({
+      orderBy: { code: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        active: true,
+        services: { where: { active: true }, orderBy: { position: 'asc' }, select: { serviceId: true } },
+      },
+    });
+  }
+
+  /** Display yang terikat ke perangkat (prinsipal perangkat ADR-0027), atau null. */
+  async deviceDisplayId(deviceId: string): Promise<string | null> {
+    const row = await this.db.tx().registeredDevice.findFirst({
+      where: { id: deviceId },
+      select: { queueDisplayId: true },
+    });
+    return row?.queueDisplayId ?? null;
+  }
+
   /** Panggilan (`call`/`recall`) hari ini untuk layanan-layanan ini, terbaru dulu. */
   recentCalls(serviceIds: string[], serviceDate: string, take: number) {
     return this.db.tx().queueCall.findMany({

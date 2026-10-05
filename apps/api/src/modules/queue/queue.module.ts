@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BpjsTaskEngine } from './bpjs-task.engine';
 import { QueueController } from './queue.controller';
+import { QueueDisplayController } from './queue-display.controller';
 import { QueueRepository } from './queue.repository';
 import { QueueService } from './queue.service';
 
@@ -15,7 +16,7 @@ import { QueueService } from './queue.service';
  * `QueueService` diekspor untuk modul lain (registrasi 5a: `attachAppointment`, `issueTicket`).
  */
 @Module({
-  controllers: [QueueController],
+  controllers: [QueueController, QueueDisplayController],
   providers: [QueueRepository, QueueService, BpjsTaskEngine],
   exports: [QueueService, BpjsTaskEngine],
 })
