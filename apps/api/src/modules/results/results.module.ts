@@ -1,9 +1,16 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { ResultsController } from './results.controller';
+import { ResultsService } from './results.service';
 
 /**
- * K08 · Hasil penunjang (observasi, laporan) dan muara hasil fase 4.
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.2a tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K08 · Muara hasil penunjang: observasi + laporan diagnostik (potongan 3.2a, keputusan fase 3 no. 12). Didaftarkan
+ * sekali di `AppModule` (potongan 3.1). `ResultsService` diekspor untuk ringkasan pasien (`summary`).
  */
-@Module({})
+@Module({
+  imports: [AuthzModule],
+  controllers: [ResultsController],
+  providers: [ResultsService],
+  exports: [ResultsService],
+})
 export class ResultsModule {}

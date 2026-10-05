@@ -38,3 +38,7 @@ Akun tanpa kata sandi tampil **"Belum diaktifkan"** di layar Akses (teks + ikon,
 ## Pembaruan 5 Okt 2026 · lingkup `unit` memakai kunjungan aktif
 
 Keputusan 4 ("lingkup `unit` sementara = `relationship`") digantikan ADR-0031 (fase 2 potongan 7): lingkup `unit` = kunjungan aktif pasien di unit penugasan sesi, ditambah semua dasar lingkup `relationship`. `PatientAccessService.basis()` kini bisa mengembalikan `'unit'`; pencarian MPI dan daftar kunjungan memakai predikat yang sama (`patientAccessSql`).
+
+## Pembaruan 5 Okt 2026 · rekonsiliasi matriks bawaan
+
+Sinkron katalog hanya membawa izin yang baru di katalog, sehingga perubahan matriks bawaan untuk izin yang sudah ada (lingkup berubah, izin dicabut dari bawaan, izin lama diberikan ke peran lain) tidak sampai ke RS yang sudah berjalan. `pnpm db:sync-permissions --reconcile` (disetujui orkestrator atas mandat pemilik produk) menyamakan peran **sistem** yang belum pernah diubah RS dengan matriks bawaan saat ini. "Pernah diubah RS" dibaca dari jejak audit `role_permissions` dengan selisih tidak kosong yang bukan tulisan sistem; peran seperti itu tidak disentuh dan selisihnya dilaporkan untuk ditinjau admin. Setiap penyesuaian diaudit `system`. Prinsip keputusan 1 tetap: penyesuaian RS tidak pernah ditimpa.
