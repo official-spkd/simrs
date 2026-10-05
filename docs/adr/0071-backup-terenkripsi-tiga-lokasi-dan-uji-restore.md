@@ -149,7 +149,8 @@ Driver S3 P08 (agen I) dan jangkar audit 10.8 (ADR-0072) sudah masuk master.
      "versi pertama" seperti job 10.8. Versi tambahan berisi isi palsu tetap ditolak HMAC.
 4. **Klien S3 bersama.** `S3Client` + SigV4 dipindah dari `apps/api/src/infra` ke `@simrs/shared/node`
    (`src/s3/`), ditambah `listObjects()` (ListObjectsV2 berhalaman). Berkas lama di API tinggal re-ekspor; perilaku
-   tidak berubah. Salinan worker (`apps/worker/src/audit/s3-lite.ts`) belum disatukan.
+   tidak berubah. Bucket WORM jangkar audit di worker (`apps/worker/src/audit/anchor-store.ts`) juga memakainya;
+   `listObjectVersions()` dan `contentMd5()` ditambahkan untuk itu (ADR-0072), salinan klien worker dihapus.
 
 5. **Perbaikan:** kepala rantai audit di manifest kini dipilih dengan urutan **numerik** seq. Kueri awal mengurutkan
    alias `seq::text` secara leksikal ("9" > "52"). Uji restore lama tetap konsisten (membandingkan baris yang sama di
