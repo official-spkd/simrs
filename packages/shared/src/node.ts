@@ -9,3 +9,5 @@ export * from './security/field-crypto';
 export * from './security/password-hash';
 export * from './security/patient-crypto';
 export * from './security/totp';
+export * from './s3/client';
+export * from './s3/sigv4';
