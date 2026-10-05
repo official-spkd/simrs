@@ -1,6 +1,6 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import { API_ENV, type ApiEnv } from '../config/env';
-import { DiskObjectStorage, OBJECT_STORAGE } from './object-storage';
+import { createObjectStorage, OBJECT_STORAGE } from './object-storage';
 import { PermissionMatrix } from './permission-matrix';
 import { PrismaService } from './prisma.service';
 import { RateLimitStorage } from './rate-limit.storage';
@@ -28,7 +28,7 @@ export class InfraModule {
         SessionStore,
         AuthGuard,
         PermissionMatrix,
-        { provide: OBJECT_STORAGE, useValue: new DiskObjectStorage(env.STORAGE_DISK_ROOT) },
+        { provide: OBJECT_STORAGE, useValue: createObjectStorage(env) },
       ],
       exports: [
         API_ENV,

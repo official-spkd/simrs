@@ -33,7 +33,7 @@ export function StepCard({ step, rev, activeHref }: { step: SimStepView; rev: nu
           <span>Langkah ini sudah selesai. Anda sedang meninjau hasilnya.</span>
           <Link
             href={activeHref}
-            className="flex min-h-9 items-center rounded-[9px] border border-info bg-white px-3 font-semibold text-info no-underline"
+            className="flex min-h-11 items-center rounded-[9px] border border-info bg-white px-3 font-semibold text-info no-underline"
           >
             Kembali ke langkah aktif
           </Link>
@@ -92,7 +92,7 @@ export function SummaryActions({
         type="button"
         disabled={pending}
         onClick={() => run({ type: 'reset', scenario })}
-        className="min-h-[42px] cursor-pointer rounded-control border border-brand-800 bg-brand-600 px-4 font-[inherit] font-semibold text-white"
+        className="min-h-11 cursor-pointer rounded-control border border-brand-800 bg-brand-600 px-4 font-[inherit] font-semibold text-white"
       >
         Ulangi skenario
       </button>
@@ -100,7 +100,7 @@ export function SummaryActions({
         type="button"
         disabled={pending}
         onClick={() => run({ type: 'reset', scenario: nextScenario.id })}
-        className="min-h-[42px] cursor-pointer rounded-control border border-line-strong bg-white px-4 font-[inherit] font-medium text-ink-900"
+        className="min-h-11 cursor-pointer rounded-control border border-line-strong bg-white px-4 font-[inherit] font-medium text-ink-900"
       >
         Coba skenario {nextScenario.label}
       </button>

@@ -16,7 +16,8 @@ import { taskKey } from '../engine/run';
 import type { RunResult, TaskValue } from '../engine/types';
 import { evaluateOrders, type OrderLine } from '../../klinis-cds';
 import { bloodPressureFlag, glucoseFlag, icd10Display, minutesToJam, parseBloodPressure } from '../../klinis';
-import { encounterIdOf, type DemoPatient, patientById } from './pasien';
+import { PATIENT_ID } from './ids';
+import { ANTREAN_POLI_PD, type AntreanPoli, encounterIdOf, type DemoPatient, patientById } from './pasien';
 import { poliByCode, queueNo } from './rs';
 import { STAF } from './staf';
 import { DEMO_TODAY } from './waktu';
@@ -671,10 +672,9 @@ function vital(
 
 type Row<T extends unknown[]> = readonly [...T];
 
+/** Isi kunjungan poli; nomor antrean dan status diambil dari roster (`ANTREAN_POLI_PD`). */
 interface PoliFixture {
   patientId: string;
-  queue: number;
-  status: PoliQueueItem['status'];
   waitNote: string;
   sep: string | null;
   fallRisk: string;
@@ -699,14 +699,81 @@ interface PoliFixture {
 
 const POLI_FIXTURES: readonly PoliFixture[] = [
   {
-    patientId: 'ps-ayu',
-    queue: 22,
-    status: 'selesai',
-    waitNote: 'selesai 07.31',
+    patientId: PATIENT_ID.lukman,
+    waitNote: 'selesai 08.50',
+    sep: '0301R0011026V005096',
+    fallRisk: 'Risiko jatuh rendah',
+    stage: 5,
+    vitalsAt: '08.25',
+    vitals: [
+      vital('td', '134/84', 'sebelumnya 136/86'),
+      vital('nadi', '78', 'sebelumnya 80'),
+      vital('suhu', '36,6', 'sebelumnya 36,5'),
+      vital('napas', '18', 'sebelumnya 18'),
+      vital('spo2', '98', 'sebelumnya 98'),
+      vital('berat', '76', 'IMT 26,3'),
+      vital('gds', '168', 'sebelumnya 182', 'tinggi'),
+    ],
+    cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
+    s: 'Kontrol DM bulanan. Tidak ada keluhan; gula darah di rumah 140–170 mg/dL.',
+    o: 'Kompos mentis. Kaki: sensasi monofilamen baik, tidak ada luka.',
+    times: ['08.40', '08.46', '08.50'],
+    dx: ['E11.9'],
+    plan: [
+      ['OBAT', 'Metformin 500 mg · 2×1 sesudah makan · 7 hari', 'Diserahkan farmasi'],
+      ['KONTROL', 'Kontrol 1 minggu dengan hasil HbA1c', 'Surat kontrol dibuat'],
+    ],
+    labDate: '7 Sep 2026',
+    labs: [
+      ['HbA1c', '7,6 %', 'H', '< 7', '4548-4'],
+      ['Kreatinin', '1,0 mg/dL', '', '0,7–1,3', '2160-0'],
+    ],
+    meds: [['Metformin 500 mg · 2×1', 'sejak 2023']],
+    history: [
+      ['7 Sep 2026 · Poli PD', 'E11.9 · kontrol DM'],
+      ['3 Agu 2026 · Poli PD', 'E11.9'],
+    ],
+  },
+  {
+    patientId: PATIENT_ID.fransiska,
+    waitNote: 'selesai 09.02',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
     stage: 5,
-    vitalsAt: '07.12',
+    vitalsAt: '08.30',
+    vitals: [
+      vital('td', '132/86', 'sebelumnya 130/84'),
+      vital('nadi', '84', 'sebelumnya 82'),
+      vital('suhu', '36,7', 'sebelumnya 36,6'),
+      vital('napas', '18', 'sebelumnya 18'),
+      vital('spo2', '98', 'sebelumnya 99'),
+      vital('berat', '88', 'IMT 32,2'),
+    ],
+    cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
+    s: 'Nyeri sendi jari kaki hilang timbul; kontrol asam urat.',
+    o: 'Tidak ada tanda radang sendi akut. Obesitas sentral.',
+    times: ['08.52', '08.58', '09.02'],
+    dx: ['M10.9'],
+    plan: [
+      ['LAB', 'Asam urat, kreatinin, darah lengkap', 'Sampel diambil 09.05'],
+      ['OBAT', 'Allopurinol 100 mg · 1×1 · 14 hari', 'Diserahkan farmasi'],
+      ['KONTROL', 'Kontrol 2 minggu dengan hasil lab', 'Edukasi diet rendah purin'],
+    ],
+    labDate: '20 Agu 2026',
+    labs: [
+      ['Kreatinin', '0,8 mg/dL', '', '0,6–1,1', '2160-0'],
+      ['Kolesterol total', '226 mg/dL', 'H', '< 200', '2093-3'],
+    ],
+    meds: [],
+    history: [['20 Agu 2026 · Poli PD', 'M10.9 · edukasi diet']],
+  },
+  {
+    patientId: PATIENT_ID.ayu,
+    waitNote: 'selesai 09.14',
+    sep: null,
+    fallRisk: 'Risiko jatuh rendah',
+    stage: 5,
+    vitalsAt: '08.45',
     vitals: [
       vital('td', '118/76', 'sebelumnya 115/75'),
       vital('nadi', '88', 'sebelumnya 80'),
@@ -718,9 +785,10 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     cdsNote: 'Kunjungan sudah ditandatangani. Tidak ada peringatan klinis terbuka.',
     s: 'Batuk pilek 4 hari, tanpa demam tinggi.',
     o: 'Faring hiperemis ringan. Paru bersih.',
-    times: ['07.18', '07.26', '07.31'],
+    times: ['09.04', '09.10', '09.14'],
     dx: ['J06.9'],
     plan: [
+      ['LAB', 'Darah lengkap, CRP', 'Hasil dalam batas normal'],
       ['OBAT', 'Parasetamol 500 mg · 3×1 bila perlu · 10 tablet', 'Diserahkan farmasi'],
       ['KONTROL', 'Kontrol bila keluhan menetap lebih dari 7 hari', 'Edukasi diberikan'],
     ],
@@ -728,19 +796,17 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     labs: [],
     meds: [],
     history: [
-      ['Hari ini · Poli PD', 'J06.9 · selesai 07.31'],
+      ['Hari ini · Poli PD', 'J06.9 · selesai 09.14'],
       ['5 Jan 2026 · Poli Umum', 'J06.9'],
     ],
   },
   {
-    patientId: 'ps-siti',
-    queue: 23,
-    status: 'diperiksa',
-    waitNote: 'mulai 07.44',
+    patientId: PATIENT_ID.wahyuni,
+    waitNote: 'selesai 09.40',
     sep: '0301R0011026V005087',
     fallRisk: 'Risiko jatuh rendah',
-    stage: 2,
-    vitalsAt: '07.40',
+    stage: 5,
+    vitalsAt: '09.00',
     vitals: [
       vital('td', '150/95', '↑ dari 142/90', 'tinggi'),
       vital('nadi', '88', 'sebelumnya 84'),
@@ -749,15 +815,16 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       vital('spo2', '97', 'sebelumnya 98'),
       vital('berat', '72', 'IMT 28,1'),
     ],
-    cdsNote: 'Dosis amlodipin dinaikkan dari 5 mg ke 10 mg. Tidak ditemukan interaksi dengan obat aktif.',
+    cdsNote:
+      'Kunjungan sudah ditandatangani. Dosis amlodipin dinaikkan dari 5 mg ke 10 mg; tidak ditemukan interaksi dengan obat aktif.',
     s: 'Pusing dan tengkuk terasa berat sejak 3 hari. Kontrol rutin hipertensi.',
     o: 'Kompos mentis. TD 150/95 mmHg. Pemeriksaan fisik lain dalam batas normal.',
-    times: ['07.44', '07.51', null],
+    times: ['09.26', '09.34', '09.40'],
     dx: ['I10', 'E78.5'],
     plan: [
-      ['LAB', 'Profil lipid, kreatinin', 'Order baru'],
-      ['OBAT', 'Amlodipin 10 mg · 1×1 pagi · 30 tablet', 'Dosis naik dari 5 mg', true],
-      ['OBAT', 'Atorvastatin 20 mg · 1×1 malam · 30 tablet', 'Lanjutkan'],
+      ['LAB', 'Profil lipid, kreatinin', 'Sampel diambil 09.45'],
+      ['OBAT', 'Amlodipin 10 mg · 1×1 pagi · 30 tablet', 'Dosis naik dari 5 mg · resep PRB di farmasi', true],
+      ['OBAT', 'Atorvastatin 20 mg · 1×1 malam · 30 tablet', 'Lanjutkan · resep PRB di farmasi'],
       ['KONTROL', 'Kontrol 4 minggu · surat kontrol BPJS', 'Dibuat otomatis'],
     ],
     labDate: '12 Sep 2026',
@@ -777,10 +844,8 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-endang',
-    queue: 24,
-    status: 'menunggu',
-    waitNote: 'tunggu 18 mnt',
+    patientId: PATIENT_ID.rohana,
+    waitNote: 'mulai 10.31',
     sep: '0301R0011026V005091',
     fallRisk: 'Risiko jatuh sedang',
     stage: 2,
@@ -797,7 +862,7 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       'Alergi amoksisilin tercatat: golongan penisilin dan sefalosporin generasi 1 diblokir CDS. Makrolid atau linkosamid aman.',
     s: 'Kontrol pasca rawat inap pneumonia. Batuk berkurang, tidak demam. Gula darah di rumah 150–180 mg/dL.',
     o: '',
-    times: [null, null, null],
+    times: ['10.31', null, null],
     dx: [],
     plan: [],
     labDate: '20 Sep 2026',
@@ -816,14 +881,12 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-darmawan',
-    queue: 25,
-    status: 'menunggu',
-    waitNote: 'tunggu 9 mnt',
+    patientId: PATIENT_ID.darmawan,
+    waitNote: 'tunggu 27 mnt',
     sep: null,
     fallRisk: 'Risiko jatuh rendah',
     stage: 2,
-    vitalsAt: '07.47',
+    vitalsAt: '10.18',
     vitals: [
       vital('td', '128/82', 'sebelumnya 126/80'),
       vital('nadi', '80', 'sebelumnya 78'),
@@ -852,14 +915,12 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
     ],
   },
   {
-    patientId: 'ps-dewi',
-    queue: 26,
-    status: 'menunggu-hasil',
-    waitNote: 'lab 25 mnt',
+    patientId: PATIENT_ID.dewi,
+    waitNote: 'hasil lab dan USG',
     sep: '0301R0011026V005095',
     fallRisk: 'Risiko jatuh rendah',
     stage: 3,
-    vitalsAt: '07.22',
+    vitalsAt: '08.50',
     vitals: [
       vital('td', '124/78', 'sebelumnya 120/80'),
       vital('nadi', '76', 'sebelumnya 74'),
@@ -868,13 +929,15 @@ const POLI_FIXTURES: readonly PoliFixture[] = [
       vital('spo2', '99', 'sebelumnya 99'),
       vital('berat', '58', 'IMT 22,7'),
     ],
-    cdsNote: 'Menunggu hasil darah lengkap sebelum asesmen akhir. Tidak ada peringatan klinis terbuka.',
+    cdsNote:
+      'Menunggu hasil darah lengkap dan ekspertise USG sebelum asesmen akhir. Tidak ada peringatan klinis terbuka.',
     s: 'Nyeri ulu hati, kembung, dan mual sejak 2 minggu; memburuk setelah makan pedas.',
     o: 'Nyeri tekan epigastrium ringan. Tanda bahaya (alarm) tidak ada.',
-    times: ['07.25', '07.33', null],
+    times: ['09.16', '09.24', null],
     dx: ['K30'],
     plan: [
       ['LAB', 'Darah lengkap', 'Menunggu hasil'],
+      ['RAD', 'USG abdomen', 'Pemeriksaan 09.52 · menunggu ekspertise'],
       ['OBAT', 'Omeprazol 20 mg · 1×1 sebelum makan pagi', 'Draf'],
       ['OBAT', 'Antasida doen · 3×1 sendok takar', 'Draf'],
     ],
@@ -945,18 +1008,26 @@ function diagnoses(codes: readonly string[]): PoliEncounter['diagnoses'] {
   }));
 }
 
+/** Baris roster antrean Poli PD milik pasien fixture (nomor dan status satu sumber dengan papan TV). */
+function antreanOf(patientId: string): AntreanPoli {
+  const a = ANTREAN_POLI_PD.find((x) => x.patientId === patientId);
+  if (!a) throw new Error(`Pasien ${patientId} tidak ada di ANTREAN_POLI_PD`);
+  return a;
+}
+
 function fixtureQueueItem(f: PoliFixture): PoliQueueItem {
   const p = mustPatient(f.patientId);
+  const a = antreanOf(p.id);
   return {
     patientId: p.id,
     encounterId: encounterIdOf(p.id),
-    queueNo: queueNo(POLI_KODE, f.queue),
+    queueNo: a.no,
     name: p.nama,
     rm: p.rm,
     sex: p.jk,
     ageYears: p.umur,
     payer: p.penjamin,
-    status: f.status,
+    status: a.status,
     waitNote: f.waitNote,
     scenario: null,
   };
@@ -967,7 +1038,7 @@ function fixtureEncounter(f: PoliFixture): PoliEncounter {
   const [createdAt, savedAt, signedAt] = f.times;
   return {
     encounterId: encounterIdOf(p.id),
-    queueNo: queueNo(POLI_KODE, f.queue),
+    queueNo: antreanOf(p.id).no,
     poliName: POLI_NAME,
     doctor: POLI_DOKTER,
     patient: klinisPatient(p, f.sep, f.fallRisk),
@@ -1077,7 +1148,7 @@ export function scenarioLabs(hasil: readonly string[]): EncounterLab[] {
 
 /** Nomor antrean poli Tn. Suryo (naskah Simulasi: SEP terbit → `PD-027`). */
 export const SURYO_QUEUE = queueNo(POLI_KODE, 27);
-const SURYO = 'ps-suryo';
+const SURYO = PATIENT_ID.suryo;
 
 const FALL_RISK: Record<string, string> = {
   tidak: 'Tidak berisiko jatuh',
@@ -1242,11 +1313,24 @@ export function suryoEncounter(rj: RunResult): PoliEncounter {
   };
 }
 
-/** Antrean Poli PD hari ini: pasien fiktif + Tn. Suryo bila SEP-nya sudah terbit. */
+/**
+ * Antrean Poli PD hari ini (urut nomor roster): pasien fiktif + Tn. Suryo bila SEP-nya sudah terbit. Setelah DPJP
+ * memanggil PD-027 (skenario), pasien yang sedang diperiksa sudah dikirim ke penunjang, jadi hanya satu pasien di
+ * ruang periksa (selaras papan TV).
+ */
 export function demoPoliWorklist(rj: RunResult): PoliWorklist {
   const poli = poliByCode(POLI_KODE);
-  const items = POLI_FIXTURES.map(fixtureQueueItem);
+  const order = (no: string) => ANTREAN_POLI_PD.findIndex((a) => a.no === no);
   const suryo = suryoQueueItem(rj);
+  const suryoCalled = suryo !== null && suryo.status !== 'menunggu';
+  const items = [...POLI_FIXTURES]
+    .map(fixtureQueueItem)
+    .sort((a, b) => order(a.queueNo) - order(b.queueNo))
+    .map((q) =>
+      suryoCalled && q.status === 'diperiksa'
+        ? { ...q, status: 'menunggu-hasil' as const, waitNote: 'penunjang berjalan' }
+        : q,
+    );
   if (suryo) items.push(suryo);
   return {
     poli: { code: POLI_KODE, name: POLI_NAME, room: poli?.room ?? 'Ruang 2' },
@@ -1282,8 +1366,37 @@ interface CpoeFixture {
 }
 
 const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
-  'ps-ayu': { weightKg: 61, egfr: null, activeMeds: [], orders: [['parasetamol-500', 'terkirim']] },
-  'ps-siti': {
+  [PATIENT_ID.lukman]: {
+    weightKg: 76,
+    egfr: 84,
+    activeMeds: [med('Metformin 500 mg · 2×1', 'metformin', 'metformin-500')],
+    orders: [
+      ['hba1c', 'terkirim'],
+      ['metformin-500', 'terkirim'],
+      ['surat-kontrol', 'terkirim'],
+    ],
+  },
+  [PATIENT_ID.fransiska]: {
+    weightKg: 88,
+    egfr: 90,
+    activeMeds: [],
+    orders: [
+      ['kreatinin', 'terkirim'],
+      ['darah-lengkap', 'terkirim'],
+      ['allopurinol-100', 'terkirim'],
+    ],
+  },
+  [PATIENT_ID.ayu]: {
+    weightKg: 61,
+    egfr: null,
+    activeMeds: [],
+    orders: [
+      ['darah-lengkap', 'terkirim'],
+      ['crp', 'terkirim'],
+      ['parasetamol-500', 'terkirim'],
+    ],
+  },
+  [PATIENT_ID.wahyuni]: {
     weightKg: 72,
     egfr: 82,
     activeMeds: [
@@ -1291,14 +1404,14 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       med('Atorvastatin 20 mg · 1×1 malam', 'atorvastatin', 'atorvastatin-20'),
     ],
     orders: [
-      ['lipid', 'draf'],
-      ['kreatinin', 'draf'],
-      ['amlodipin-10', 'draf'],
-      ['atorvastatin-20', 'draf'],
-      ['surat-kontrol', 'draf'],
+      ['lipid', 'terkirim'],
+      ['kreatinin', 'terkirim'],
+      ['amlodipin-10', 'terkirim'],
+      ['atorvastatin-20', 'terkirim'],
+      ['surat-kontrol', 'terkirim'],
     ],
   },
-  'ps-endang': {
+  [PATIENT_ID.rohana]: {
     weightKg: 64,
     egfr: 71,
     activeMeds: [med('Metformin 500 mg · 2×1', 'metformin', 'metformin-500')],
@@ -1309,7 +1422,7 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['metformin-500', 'draf'],
     ],
   },
-  'ps-darmawan': {
+  [PATIENT_ID.darmawan]: {
     weightKg: 81,
     egfr: 88,
     activeMeds: [med('Allopurinol 100 mg · 1×1', 'allopurinol', 'allopurinol-100')],
@@ -1321,12 +1434,13 @@ const CPOE_FIXTURES: Readonly<Record<string, CpoeFixture>> = {
       ['asam-mefenamat-500', 'draf'],
     ],
   },
-  'ps-dewi': {
+  [PATIENT_ID.dewi]: {
     weightKg: 58,
     egfr: 95,
     activeMeds: [],
     orders: [
       ['darah-lengkap', 'terkirim'],
+      ['usg-abdomen', 'terkirim'],
       ['omeprazol-20', 'draf'],
       ['antasida', 'draf'],
     ],
@@ -1461,7 +1575,7 @@ function suryoCpoe(rj: RunResult): CpoeContext {
   return { ...base, orders: toOrders(lines, base) };
 }
 
-const HARTONO = 'ps-hartono';
+const HARTONO = PATIENT_ID.hartono;
 const HARTONO_LAB_IDS: Readonly<Record<string, readonly string[]>> = {
   'Troponin I': ['troponin'],
   Elektrolit: ['elektrolit'],

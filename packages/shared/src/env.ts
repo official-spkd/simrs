@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const port = z.coerce.number().int().min(1).max(65535);
+const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
 
 /**
  * Kunci 32 byte dalam base64 (`openssl rand -base64 32` → 44 karakter berakhiran `=`). Padding dan alfabet
@@ -58,11 +59,14 @@ export const envSchemas = {
     S3_REGION: z.string().default('ap-southeast-3'),
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_KEY: z.string().min(1),
-    S3_BUCKET_DOCUMENTS: z.string().default('simrs-documents'),
+    S3_BUCKET_DOCUMENTS: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/, 'Nama bucket S3 tidak valid')
+      .default('simrs-documents'),
   }),
   /**
-   * Penyimpanan berkas dokumen (P08, ADR-0020): `disk` = folder lokal (pengembangan tanpa Docker / server edge),
-   * `s3` = MinIO/S3 (belum tersedia). Path relatif dihitung dari folder kerja aplikasi (`apps/<app>`).
+   * Penyimpanan berkas dokumen (P08, ADR-0020): `s3` = MinIO/S3 (`S3_*`, wajib di staging dan produksi), `disk` =
+   * folder lokal (hanya APP_ENV=local). Path relatif dihitung dari folder kerja aplikasi (`apps/<app>`).
    */
   storage: z.object({
     STORAGE_DRIVER: z.enum(['disk', 's3']).default('disk'),
@@ -132,6 +136,16 @@ export const envSchemas = {
   integration: z.object({
     INTEGRATION_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     MOCK_BASE_URL: z.url().default('http://localhost:4100'),
+  }),
+  /**
+   * Klien BPJS (worker dan API): satu set kredensial (keputusan fase 2 #11). Kosong di luar produksi = nilai mock
+   * (`bpjsClientConfig` di `@simrs/shared/node`); di produksi wajib diisi.
+   */
+  bpjs: z.object({
+    BPJS_BASE_URL: z.preprocess(emptyToUndefined, z.url().optional()),
+    BPJS_CONS_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    BPJS_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    BPJS_USER_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   }),
 } as const;
 

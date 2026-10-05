@@ -90,7 +90,7 @@ describe('BPJS', () => {
   });
 
   it('respons peserta terenkripsi dan bisa didekripsi konektor', async () => {
-    const headers = bpjsHeaders({ ...config.bpjs, userKey: 'mock-user-key' });
+    const headers = bpjsHeaders(config.bpjs);
     const res = await app.inject({
       method: 'GET',
       url: `/bpjs/vclaim/Peserta/nik/${NIK}/tglSEP/2026-10-05`,
@@ -110,7 +110,7 @@ describe('BPJS', () => {
   });
 
   it('task id di luar 1–7/99 ditolak', async () => {
-    const headers = bpjsHeaders({ ...config.bpjs, userKey: 'k' });
+    const headers = bpjsHeaders(config.bpjs);
     const res = await app.inject({
       method: 'POST',
       url: '/bpjs/antrean/antrean/updatewaktu',

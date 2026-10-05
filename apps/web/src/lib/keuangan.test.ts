@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { monthlyInstalment } from './btn-pembiayaan';
 import { demoFinancingOverview } from './btn-skenario';
 import { runScenario, taskOptions } from './demo/engine/run';
+import { INVOICE_ID } from './demo/fixtures/ids';
 import { ICD10_NAME, ICD9_NAME, STATIC_CLAIMS, STATIC_INVOICES } from './demo/fixtures/keuangan';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import {
@@ -59,7 +60,7 @@ describe('data dummy Kasir', () => {
   });
 
   it('Ny. Endang (mockup Kasir): INA-CBG kelas 2, selisih naik kelas 1 dibayar pasien, deposit dikurangkan', () => {
-    const inv = STATIC_INVOICES.find((i) => i.id === 'inv-endang');
+    const inv = STATIC_INVOICES.find((i) => i.id === INVOICE_ID.endang);
     expect(inv?.split.inacbg).toMatchObject({ code: 'J-4-15-II', tariff: '6612800' });
     expect(inv?.split.payerPays).toBe('6612800');
     expect(inv?.split.patientShare).toBe('1250400');
@@ -69,15 +70,15 @@ describe('data dummy Kasir', () => {
 
   it('umum menanggung semua; asuransi menanggung ekses di atas plafon; BPJS tanpa naik kelas Rp 0', () => {
     const byId = (id: string) => STATIC_INVOICES.find((i) => i.id === id);
-    expect(byId('inv-ayu')?.split.patientShare).toBe(byId('inv-ayu')?.split.hospitalTotal);
-    expect(byId('inv-darmawan')?.split).toMatchObject({ payerPays: '500000', patientShare: '112000' });
-    expect(byId('inv-dewi')?.split.patientShare).toBe('0');
-    expect(BigInt(byId('inv-dewi')?.split.hospitalAbsorbs ?? '0')).toBeLessThan(0n);
+    expect(byId(INVOICE_ID.ayu)?.split.patientShare).toBe(byId(INVOICE_ID.ayu)?.split.hospitalTotal);
+    expect(byId(INVOICE_ID.fransiska)?.split).toMatchObject({ payerPays: '500000', patientShare: '112000' });
+    expect(byId(INVOICE_ID.lukman)?.split.patientShare).toBe('0');
+    expect(BigInt(byId(INVOICE_ID.lukman)?.split.hospitalAbsorbs ?? '0')).toBeLessThan(0n);
   });
 
   it('item manual menambah total; BPJS: tanggungan pasien tetap, umum: ikut naik', () => {
-    const endang = STATIC_INVOICES.find((i) => i.id === 'inv-endang');
-    const ayu = STATIC_INVOICES.find((i) => i.id === 'inv-ayu');
+    const endang = STATIC_INVOICES.find((i) => i.id === INVOICE_ID.endang);
+    const ayu = STATIC_INVOICES.find((i) => i.id === INVOICE_ID.ayu);
     if (!endang || !ayu) throw new Error('fixture');
     const e2 = recomputeSplit(endang.split, BigInt(endang.split.hospitalTotal) + 100_000n);
     expect(e2.patientShare).toBe(endang.split.patientShare);
@@ -156,25 +157,25 @@ describe('gerbang Server Action kasir (tagihan versi server)', () => {
 
   it('menolak tagihan tak dikenal, pasien skenario, dan yang sudah lunas', () => {
     expect(localActionProblem(undefined, 'bayar')).toMatch(/tidak ditemukan/);
-    expect(localActionProblem(byId('inv-siti'), 'tutup')).toMatch(/sudah lunas/);
-    const endang = byId('inv-endang');
+    expect(localActionProblem(byId(INVOICE_ID.wahyuni), 'tutup')).toMatch(/sudah lunas/);
+    const endang = byId(INVOICE_ID.endang);
     if (!endang) throw new Error('fixture');
     expect(localActionProblem({ ...endang, scenario: 'rawat-jalan' }, 'bayar')).toMatch(/skenario/);
   });
 
   it('final dan item manual hanya untuk tagihan berjalan; final/bayar menunggu pasien pulang', () => {
-    expect(localActionProblem(byId('inv-endang'), 'final')).toMatch(/sudah final/);
-    expect(localActionProblem(byId('inv-endang'), 'manual')).toMatch(/sudah final/);
-    expect(localActionProblem(byId('inv-endang'), 'bayar')).toBeNull();
-    expect(localActionProblem(byId('inv-ayu'), 'final')).toBeNull();
-    expect(localActionProblem(byId('inv-raka'), 'manual')).toBeNull();
-    expect(localActionProblem(byId('inv-raka'), 'final')).toMatch(/masih dirawat/);
-    expect(localActionProblem(byId('inv-raka'), 'tutup')).toMatch(/masih dirawat/);
+    expect(localActionProblem(byId(INVOICE_ID.endang), 'final')).toMatch(/sudah final/);
+    expect(localActionProblem(byId(INVOICE_ID.endang), 'manual')).toMatch(/sudah final/);
+    expect(localActionProblem(byId(INVOICE_ID.endang), 'bayar')).toBeNull();
+    expect(localActionProblem(byId(INVOICE_ID.ayu), 'final')).toBeNull();
+    expect(localActionProblem(byId(INVOICE_ID.raka), 'manual')).toBeNull();
+    expect(localActionProblem(byId(INVOICE_ID.raka), 'final')).toMatch(/masih dirawat/);
+    expect(localActionProblem(byId(INVOICE_ID.raka), 'tutup')).toMatch(/masih dirawat/);
   });
 
   it('sisa tagihan dihitung ulang dari baris + item manual (umum naik, BPJS tetap)', () => {
-    const ayu = byId('inv-ayu');
-    const endang = byId('inv-endang');
+    const ayu = byId(INVOICE_ID.ayu);
+    const endang = byId(INVOICE_ID.endang);
     if (!ayu || !endang) throw new Error('fixture');
     expect(invoiceSettlement(ayu).due).toBe(BigInt(ayu.patientDue));
     expect(invoiceSettlement(ayu, [{ amount: '35000' }])).toMatchObject({ total: 498_500n, due: 498_500n });
@@ -194,10 +195,10 @@ const PAY = {
 describe('hari shift dan isian kuantitas', () => {
   it('tagihan lunas dihitung per hari pelunasan (lini masa skenario lain tidak masuk shift hari ini)', () => {
     expect(settledCount(STATIC_INVOICES, '2026-10-05')).toBe(3);
-    const siti = STATIC_INVOICES.find((i) => i.id === 'inv-siti');
-    if (!siti) throw new Error('fixture');
+    const wahyuni = STATIC_INVOICES.find((i) => i.id === INVOICE_ID.wahyuni);
+    if (!wahyuni) throw new Error('fixture');
     const later = {
-      ...siti,
+      ...wahyuni,
       payments: [{ ...PAY, at: '2026-10-13T08:00:00+07:00' }],
     };
     expect(settledOn(later)).toBe('2026-10-13');

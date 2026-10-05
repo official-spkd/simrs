@@ -5,8 +5,7 @@ import { loadReadiness } from '@/lib/server/readiness';
 import { requireSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { isSuperadmin } from '@/lib/session-view';
-
-const CHECK_LABEL: Record<string, string> = { database: 'PostgreSQL', redis: 'Redis', storage: 'MinIO (S3)' };
+import { readinessCheckLabel } from '@/lib/system-status';
 
 export default async function BerandaPage() {
   const s = await requireSession();
@@ -55,7 +54,7 @@ export default async function BerandaPage() {
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {Object.entries(ready.checks).map(([name, c]) => (
                 <li key={name} className="flex items-center justify-between border-b border-line-soft pb-2">
-                  <span>{CHECK_LABEL[name] ?? name}</span>
+                  <span>{readinessCheckLabel(name, c.driver)}</span>
                   <Chip tone={c.ok ? 'success' : 'danger'}>
                     {c.ok ? `Siap · ${c.latencyMs ?? 0} ms` : 'Gagal'}
                   </Chip>

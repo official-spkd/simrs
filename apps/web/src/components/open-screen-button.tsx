@@ -39,7 +39,7 @@ export function OpenScreenButton({
         className={cx(
           'cursor-pointer self-start font-[inherit] font-semibold disabled:cursor-wait',
           variant === 'link'
-            ? 'border-0 bg-transparent p-0 text-small text-brand-700 underline-offset-2 hover:underline'
+            ? 'min-h-11 border-0 bg-transparent p-0 text-left text-small text-brand-700 underline-offset-2 hover:underline'
             : 'min-h-11 rounded-control border border-brand-800 bg-brand-600 px-4 text-small text-white',
         )}
       >

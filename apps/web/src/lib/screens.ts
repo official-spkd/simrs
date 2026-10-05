@@ -1,6 +1,23 @@
 import type { SystemRoleCode } from '@simrs/shared';
 
 /**
+ * Izin front office fase 2 (rencana fase 2 §2 potongan 0a) yang dipakai gerbang layar hibrida demo/api
+ * (`requireScreen`, menu). Sementara literal bertipe lokal karena katalog `PERMISSION_CATALOG` di `@simrs/shared`
+ * belum memuatnya (potongan 0a sedang dikerjakan paralel); setelah 0a tergabung, ganti tipe ini dengan kunci izin
+ * dari katalog bersama agar salah ketik tertangkap typecheck. `kiosk.use` dan `queue.display.read` adalah izin
+ * perangkat (ADR-0027): sampai prinsipal perangkat ada, hanya sesi staf yang memegangnya yang bisa membuka layar.
+ */
+export const FRONT_OFFICE_PERMISSIONS = [
+  'schedule.read',
+  'booking.read',
+  'queue.read',
+  'encounter.write',
+  'kiosk.use',
+  'queue.display.read',
+] as const;
+export type ScreenPermission = (typeof FRONT_OFFICE_PERMISSIONS)[number];
+
+/**
  * Registri layar fase 2–10 (ADR-0023, peta docs/08 §4). Satu tempat yang menentukan sumber data tiap layar:
  * - `belum`: belum dibangun; menu redup di semua mode.
  * - `demo`: sudah dibangun dengan data dummy fiktif; hanya tampil di mode presentasi (lokal + DATA_SOURCE=demo).
@@ -26,6 +43,12 @@ export interface ScreenDef {
    * (`demoRoles`) hanya di sisi UI; penegakan sungguhan lewat izin ini saat backend dibangun.
    */
   plannedPermission: string;
+  /**
+   * Izin sungguhan untuk layar hibrida demo/api (`requireScreen`): mode presentasi tetap memakai data dummy, mode api
+   * membuka rute untuk peran yang memegang izin ini (isi api diisi potongan fase 2). Kosong = layar hanya ada di mode
+   * presentasi sampai domainnya punya izin di katalog.
+   */
+  permission?: ScreenPermission;
   /** Posisi (peran) yang melihat layar ini di mode presentasi. */
   demoRoles: readonly SystemRoleCode[] | 'semua';
   /** `staf` = di kerangka staf (sidebar); `perangkat` = layar penuh (anjungan, TV, tablet, pratinjau ponsel). */
@@ -56,6 +79,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 2,
     status: 'demo',
     plannedPermission: 'encounter.write',
+    permission: 'encounter.write',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'staf',
   },
@@ -68,6 +92,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 2,
     status: 'demo',
     plannedPermission: 'schedule.read',
+    permission: 'schedule.read',
     demoRoles: ['petugas_pendaftaran', 'dokter', 'manajemen'],
     layout: 'staf',
   },
@@ -80,6 +105,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 2,
     status: 'demo',
     plannedPermission: 'kiosk.use',
+    permission: 'kiosk.use',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'perangkat',
   },
@@ -91,7 +117,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['F04'],
     phase: 2,
     status: 'demo',
-    plannedPermission: 'queue.display',
+    plannedPermission: 'queue.display.read',
+    permission: 'queue.display.read',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'perangkat',
   },
@@ -368,13 +395,21 @@ export function screenById(id: string): ScreenDef | undefined {
   return BY_ID.get(id);
 }
 
-/** Layar terbuka untuk posisi ini di sumber data aktif? (`belum` tidak pernah; `demo` hanya di mode demo.) */
+/**
+ * Layar terbuka untuk posisi ini di sumber data aktif?
+ * - `belum`: tidak pernah.
+ * - Mode presentasi: layar `demo` dan layar hibrida (ber-`permission`) mengikuti `demoRoles` (data dummy).
+ * - Mode api: layar hibrida hanya untuk peran yang memegang izinnya (`permissions` sesi); layar `api` tanpa izin
+ *   terdaftar selalu terbuka (izin ditegakkan API); layar `demo` tertutup.
+ */
 export function screenOpen(
   screen: ScreenDef,
-  opts: { dataSource: 'api' | 'demo'; role: string | null },
+  opts: { dataSource: 'api' | 'demo'; role: string | null; permissions?: readonly string[] },
 ): boolean {
   if (screen.status === 'belum') return false;
-  if (screen.status === 'api') return true;
-  if (opts.dataSource !== 'demo') return false;
-  return screen.demoRoles === 'semua' || (!!opts.role && screen.demoRoles.some((r) => r === opts.role));
+  if (opts.dataSource === 'demo' && (screen.status === 'demo' || screen.permission)) {
+    return screen.demoRoles === 'semua' || (!!opts.role && screen.demoRoles.some((r) => r === opts.role));
+  }
+  if (screen.permission) return opts.permissions?.includes(screen.permission) ?? false;
+  return screen.status === 'api';
 }

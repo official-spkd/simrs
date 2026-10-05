@@ -379,7 +379,7 @@ export function FormBuilder({
                   disabled={!editable}
                   aria-label={`Tambah field ${p.label} ke kanvas`}
                   onClick={() => addOfType(p.type)}
-                  className="flex min-h-10 cursor-copy items-center gap-2.5 rounded-[8px] border border-[#EEF1F4] bg-[#FAFBFC] px-2.5 py-2 text-left font-[inherit] text-small text-ink-900 disabled:cursor-not-allowed disabled:text-ink-500"
+                  className="flex min-h-11 cursor-copy items-center gap-2.5 rounded-[8px] border border-[#EEF1F4] bg-[#FAFBFC] px-2.5 py-2 text-left font-[inherit] text-small text-ink-900 disabled:cursor-not-allowed disabled:text-ink-500"
                 >
                   <span
                     aria-hidden="true"
@@ -598,7 +598,7 @@ function FieldCard({
                 aria-pressed={chosen}
                 onClick={() => onAnswer(o.value)}
                 className={cx(
-                  'min-h-10 cursor-pointer rounded-control px-3 py-[7px] text-left font-[inherit] text-small text-ink-900',
+                  'min-h-11 cursor-pointer rounded-control px-3 py-[7px] text-left font-[inherit] text-small text-ink-900',
                   chosen ? 'border border-brand-600 bg-[#E6F4F1]' : 'border border-line-strong bg-white',
                 )}
               >

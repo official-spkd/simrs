@@ -11,6 +11,7 @@ import type {
   TrailState,
   WebhookEvent,
 } from '@simrs/shared';
+import { DOCTOR_ID, PATIENT_ID } from './ids';
 import { patientById } from './pasien';
 import { REKENING } from './rs';
 import { DOKTER, PERSONA, STAF_LAIN } from './staf';
@@ -64,7 +65,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't1',
     invoiceNo: 'INV-2610-02217',
-    patient: patientRef('ps-endang'),
+    patient: patientRef(PATIENT_ID.endang),
     channel: 'QRIS',
     amount: '250400',
     status: 'menunggu',
@@ -91,7 +92,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't2',
     invoiceNo: 'INV-2610-02231',
-    patient: patientRef('ps-sutan'),
+    patient: patientRef(PATIENT_ID.sutan),
     channel: 'VA',
     amount: '5000000',
     status: 'lunas',
@@ -123,26 +124,26 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't3',
     invoiceNo: 'INV-2610-02209',
-    patient: patientRef('ps-ayu'),
+    patient: patientRef(PATIENT_ID.gilang),
     channel: 'EDC',
     amount: '785000',
     status: 'lunas',
-    externalRef: 'EDC-RI01-0417',
+    externalRef: 'EDC-IGD01-0417',
     reference: 'debit · approval 482913',
-    purpose: 'Rawat jalan umum · Poli Paru',
-    createdAt: wib('09.56'),
+    purpose: 'IGD umum · fast track (foto toraks dan obat)',
+    createdAt: wib('10.36'),
     expiresAt: null,
-    paidAt: wib('09.58'),
+    paidAt: wib('10.38'),
     account: REKENING.operasional,
     trail: [
       step(
         'Nominal dikirim ke EDC BTN',
-        wib('09.56'),
-        'terminal kasir RI-01 · tanpa input nominal manual',
+        wib('10.36'),
+        'terminal kasir IGD-01 · tanpa input nominal manual',
         'selesai',
       ),
-      step('Dibayar · approved', wib('09.58'), 'debit · approval 482913', 'selesai'),
-      step('Kasir lunas', wib('09.58'), 'kode approval tercatat otomatis · kuitansi terbit', 'selesai'),
+      step('Dibayar · approved', wib('10.38'), 'debit · approval 482913', 'selesai'),
+      step('Kasir lunas', wib('10.38'), 'kode approval tercatat otomatis · kuitansi terbit', 'selesai'),
       step(BANK_STEP, null, 'menunggu settlement batch EDC', 'menunggu'),
     ],
     webhooks: [],
@@ -152,13 +153,13 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't4',
     invoiceNo: 'INV-2610-02198',
-    patient: patientRef('ps-darmawan'),
+    patient: patientRef(PATIENT_ID.fajar),
     channel: 'VA',
     amount: '640000',
     status: 'menunggu',
     externalRef: 'TPDI-TX-2610-004377',
     reference: '8808 0127 0219 8002',
-    purpose: 'Pelunasan rawat jalan · selisih plafon asuransi',
+    purpose: 'Uang muka operasi elektif · selisih plafon asuransi',
     createdAt: wib('08.10'),
     expiresAt: wib('08.10', '2026-10-06'),
     paidAt: wib('08.47'),
@@ -186,13 +187,13 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't5',
     invoiceNo: 'INV-2610-02225',
-    patient: patientRef('ps-lestiani'),
+    patient: patientRef(PATIENT_ID.sugeng),
     channel: 'QRIS',
     amount: '142500',
     status: 'kedaluwarsa',
     externalRef: 'TPDI-TX-2610-004419',
     reference: 'QR-2610-88390',
-    purpose: 'Farmasi rawat jalan',
+    purpose: 'Obat non-Fornas (sitikolin) · farmasi rawat jalan',
     createdAt: wib('09.55'),
     expiresAt: wib('10.05'),
     paidAt: null,
@@ -213,7 +214,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't6',
     invoiceNo: 'INV-2610-02236',
-    patient: patientRef('ps-raka'),
+    patient: patientRef(PATIENT_ID.raka),
     channel: 'VA',
     amount: '1320000',
     status: 'menunggu',
@@ -240,7 +241,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't7',
     invoiceNo: 'INV-2610-02212',
-    patient: patientRef('ps-bonifasius'),
+    patient: patientRef(PATIENT_ID.bonifasius),
     channel: 'QRIS',
     amount: '96000',
     status: 'lunas',
@@ -265,26 +266,31 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   },
   {
     id: 't8',
-    invoiceNo: 'INV-2610-02219',
-    patient: patientRef('ps-siti'),
+    invoiceNo: 'INV-2610-02236',
+    patient: patientRef(PATIENT_ID.raka),
     channel: 'EDC',
-    amount: '2450000',
+    amount: '1320000',
     status: 'gagal',
     externalRef: 'EDC-RI01-0421',
     reference: 'kredit · response 51',
-    purpose: 'Pelunasan selisih naik kelas rawat inap',
-    createdAt: wib('10.11'),
+    purpose: 'Deposit naik kelas · rawat inap anak (kartu kredit)',
+    createdAt: wib('08.21'),
     expiresAt: null,
     paidAt: null,
     account: REKENING.operasional,
     trail: [
       step(
         'Nominal dikirim ke EDC BTN',
-        wib('10.11'),
+        wib('08.21'),
         'terminal kasir RI-01 · tanpa input nominal manual',
         'selesai',
       ),
-      step('Ditolak issuer', wib('10.12'), 'limit kartu kredit tidak cukup · tawarkan kanal lain', 'gagal'),
+      step(
+        'Ditolak issuer',
+        wib('08.22'),
+        'limit kartu kredit tidak cukup · kasir menerbitkan VA 08.30',
+        'gagal',
+      ),
       step('Kasir lunas', null, 'tidak terjadi', 'lewati'),
       step(BANK_STEP, null, 'tidak terjadi', 'lewati'),
     ],
@@ -295,7 +301,7 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't9',
     invoiceNo: 'INV-2610-02150',
-    patient: patientRef('ps-nadia'),
+    patient: patientRef(PATIENT_ID.nadia),
     channel: 'VA',
     amount: '3000000',
     status: 'dikembalikan',
@@ -334,13 +340,13 @@ export const TRANSAKSI: readonly PaymentTransaction[] = [
   {
     id: 't10',
     invoiceNo: 'INV-2610-02228',
-    patient: patientRef('ps-dewi'),
+    patient: patientRef(PATIENT_ID.sumarni),
     channel: 'QRIS',
     amount: '2000000',
     status: 'selisih',
     externalRef: 'TPDI-TX-2610-004424',
     reference: 'QR-2610-88402',
-    purpose: 'Deposit rawat inap',
+    purpose: 'Deposit rawat inap · pasien umum (menunggu bed)',
     createdAt: wib('10.18'),
     expiresAt: wib('10.28'),
     paidAt: wib('10.20'),
@@ -374,7 +380,7 @@ const src = (amount: string | null, note = '') => ({ amount, note });
 export const REKONSILIASI: readonly ReconRow[] = [
   {
     id: 'r1',
-    label: patientRef('ps-sutan').name,
+    label: patientRef(PATIENT_ID.sutan).name,
     source: 'VA BTN · INV-2610-02231',
     transactionId: 't2',
     kasir: src('5000000'),
@@ -387,7 +393,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'r2',
-    label: patientRef('ps-bonifasius').name,
+    label: patientRef(PATIENT_ID.bonifasius).name,
     source: 'QRIS · INV-2610-02212',
     transactionId: 't7',
     kasir: src('96000'),
@@ -400,7 +406,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'r3',
-    label: patientRef('ps-ayu').name,
+    label: patientRef(PATIENT_ID.gilang).name,
     source: 'EDC BTN · INV-2610-02209',
     transactionId: 't3',
     kasir: src('785000'),
@@ -413,7 +419,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'x1',
-    label: patientRef('ps-darmawan').name,
+    label: patientRef(PATIENT_ID.fajar).name,
     source: 'VA BTN · INV-2610-02198',
     transactionId: 't4',
     kasir: src(null, 'belum lunas'),
@@ -436,7 +442,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   },
   {
     id: 'x2',
-    label: patientRef('ps-dewi').name,
+    label: patientRef(PATIENT_ID.sumarni).name,
     source: 'QRIS · INV-2610-02228',
     transactionId: 't10',
     kasir: src('2000000', 'ditahan'),
@@ -460,7 +466,7 @@ export const REKONSILIASI: readonly ReconRow[] = [
   {
     id: 'x3',
     label: 'Tanpa referensi',
-    source: 'transfer masuk · berita "LESTIANI 02225"',
+    source: 'transfer masuk · berita "SUGENG 02225"',
     transactionId: null,
     kasir: src(null),
     tpdi: src(null),
@@ -471,9 +477,9 @@ export const REKONSILIASI: readonly ReconRow[] = [
       kind: 'hanya-di-bank',
       adjustment: '142500',
       explanation:
-        'Transfer masuk tanpa nomor VA, berita "LESTIANI 02225". QR tagihan INV-2610-02225 kedaluwarsa pukul 10.05.',
+        'Transfer masuk tanpa nomor VA, berita "SUGENG 02225". QR tagihan INV-2610-02225 kedaluwarsa pukul 10.05.',
       actions: [
-        { id: 'padan', label: 'Padankan ke Ny. Lestiani Hapsari · INV-2610-02225' },
+        { id: 'padan', label: 'Padankan ke Tn. Sugeng Riyadi · INV-2610-02225' },
         { id: 'titip', label: 'Catat sebagai titipan tak teridentifikasi' },
         { id: 'kembali', label: 'Kembalikan ke pengirim lewat refund' },
       ],
@@ -490,14 +496,14 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf14',
     number: 'RF-2610-0014',
-    patient: patientRef('ps-sutan'),
+    patient: patientRef(PATIENT_ID.sutan),
     channel: 'VA',
     transactionRef: 'TPDI-TX-2610-004402 · INV-2610-02231',
     amount: '1150000',
     maxAmount: '1150000',
     destination: 'rekening asal pembayar ••••2290 a.n. Sutan Batubara',
     context:
-      'Deposit VA Rp 5.000.000; bagian pasien final Rp 3.850.000 setelah selisih naik kelas VIP dihitung.',
+      'Deposit VA Rp 5.000.000 untuk naik kelas VIP; estimasi selisih kelas VIP − kelas 1 Rp 3.850.000, kelebihan dikembalikan tanpa menunggu pulang.',
     stage: 'draf',
     reason: null,
     reasonNote: '',
@@ -506,7 +512,7 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf13',
     number: 'RF-2610-0013',
-    patient: patientRef('ps-bonifasius'),
+    patient: patientRef(PATIENT_ID.bonifasius),
     channel: 'QRIS',
     transactionRef: 'TPDI-TX-2610-004396 · INV-2610-02212',
     amount: '96000',
@@ -524,7 +530,7 @@ export const REFUND: readonly Refund[] = [
   {
     id: 'rf11',
     number: 'RF-2610-0011',
-    patient: patientRef('ps-nadia'),
+    patient: patientRef(PATIENT_ID.nadia),
     channel: 'VA',
     transactionRef: 'TPDI-TX-2610-004201 · INV-2610-02150',
     amount: '3000000',
@@ -711,7 +717,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a1',
     reference: 'PB-2610-0084',
-    patientId: 'ps-fajar',
+    patientId: PATIENT_ID.fajar,
     service: 'Selisih plafon asuransi · laparoskopi kolesistektomi',
     invoiceNo: 'INV-2610-02244',
     amount: '8600000',
@@ -725,7 +731,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a2',
     reference: 'PB-2610-0087',
-    patientId: 'ps-wulan',
+    patientId: PATIENT_ID.wulan,
     service: 'Selisih naik kelas VIP · persalinan sesar',
     invoiceNo: 'INV-2610-02251',
     amount: '14200000',
@@ -739,9 +745,9 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a3',
     reference: 'PB-2610-0079',
-    patientId: 'ps-rizky',
-    service: 'Selisih naik kelas VIP · ORIF femur',
-    invoiceNo: 'INV-2610-02187',
+    patientId: PATIENT_ID.joko,
+    service: 'Selisih naik kelas VIP · ORIF femur (rawat 8–14 Sep)',
+    invoiceNo: 'INV-2609-01962',
     amount: '22300000',
     tenorMonths: 18,
     source: 'Kasir',
@@ -758,9 +764,9 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a4',
     reference: 'PB-2609-0071',
-    patientId: 'ps-maria',
-    service: 'Selisih naik kelas 1 ke VIP · rawat inap kemoterapi',
-    invoiceNo: 'INV-2610-02160',
+    patientId: PATIENT_ID.maria,
+    service: 'Selisih naik kelas VIP · rawat inap kemoterapi siklus 2 (Agu)',
+    invoiceNo: 'INV-2608-01790',
     amount: '11900000',
     tenorMonths: 12,
     source: 'Aplikasi pasien',
@@ -776,9 +782,9 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a5',
     reference: 'PB-2610-0075',
-    patientId: 'ps-yusuf',
-    service: 'Selisih naik kelas VIP · rawat inap',
-    invoiceNo: 'INV-2610-02105',
+    patientId: PATIENT_ID.yusuf,
+    service: 'Selisih naik kelas VIP · rawat inap Sep',
+    invoiceNo: 'INV-2609-01942',
     amount: '6750000',
     tenorMonths: 6,
     source: 'Kasir',
@@ -796,8 +802,8 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a6',
     reference: 'PB-2609-0068',
-    patientId: 'ps-lestiani',
-    service: 'Selisih naik kelas 1 ke VIP · rawat inap',
+    patientId: PATIENT_ID.lestiani,
+    service: 'Selisih naik kelas VIP · rawat inap stroke (Sep)',
     invoiceNo: 'INV-2609-01988',
     amount: '11900000',
     tenorMonths: 12,
@@ -816,7 +822,7 @@ export const CICILAN: readonly InstalmentApplication[] = [
   app({
     id: 'a7',
     reference: 'PB-2610-0077',
-    patientId: 'ps-ayu',
+    patientId: PATIENT_ID.ayu,
     service: 'Tindakan rawat jalan · pasien umum',
     invoiceNo: 'INV-2610-02133',
     amount: '4800000',
@@ -951,7 +957,7 @@ function orCase(s: CaseSeed): OrCase {
     icd9cm: s.icd9cm,
     diagnosis: s.diagnosis,
     operator: s.operator,
-    anesthetist: doctorName('dr-ferry'),
+    anesthetist: doctorName(DOCTOR_ID.ferry),
     anesthesia: s.anesthesia,
     nurses: { scrub: s.scrub, circulating },
     checklist: [
@@ -966,8 +972,8 @@ function orCase(s: CaseSeed): OrCase {
   };
 }
 
-const BEDAH = doctorName('dr-yohanes');
-const OBSGIN = doctorName('dr-hana');
+const BEDAH = doctorName(DOCTOR_ID.yohanes);
+const OBSGIN = doctorName(DOCTOR_ID.hana);
 
 /**
  * Kasus pasien skenario (Ny. Ratna Sari, laparoskopi kolesistektomi 51.23) saat langkah `operasi` Simulasi dimulai:
@@ -978,7 +984,7 @@ const OBSGIN = doctorName('dr-hana');
 export const KASUS_SKENARIO_OK: OrCase = {
   ...orCase({
     id: 'ok2-2',
-    patientId: 'ps-ratna',
+    patientId: PATIENT_ID.ratna,
     startMin: 10 * 60 + 30,
     durationMin: 120,
     status: 'berjalan',
@@ -1018,23 +1024,8 @@ export const KAMAR_OK: readonly OrRoom[] = [
     kind: 'Bedah umum',
     cases: [
       orCase({
-        id: 'ok1-1',
-        patientId: 'ps-darmawan',
-        startMin: 7 * 60,
-        durationMin: 90,
-        status: 'selesai',
-        statusNote: 'selesai 08.34',
-        procedure: 'Herniorafi inguinal',
-        icd9cm: null,
-        diagnosis: null,
-        operator: BEDAH,
-        anesthesia: 'Anestesi spinal',
-        scrub: NURSE[2],
-        setLabel: 'Set bedah dasar',
-      }),
-      orCase({
         id: 'ok1-2',
-        patientId: 'ps-maria',
+        patientId: PATIENT_ID.maria,
         startMin: 9 * 60,
         durationMin: 60,
         status: 'selesai',
@@ -1049,7 +1040,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
       }),
       orCase({
         id: 'ok1-3',
-        patientId: 'ps-yusuf',
+        patientId: PATIENT_ID.yusuf,
         startMin: 13 * 60,
         durationMin: 60,
         status: 'terjadwal',
@@ -1071,7 +1062,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok2-1',
-        patientId: 'ps-fajar',
+        patientId: PATIENT_ID.fajar,
         startMin: 7 * 60 + 30,
         durationMin: 120,
         status: 'selesai',
@@ -1087,14 +1078,14 @@ export const KAMAR_OK: readonly OrRoom[] = [
       KASUS_SKENARIO_OK,
       orCase({
         id: 'ok2-3',
-        patientId: 'ps-dewi',
+        patientId: PATIENT_ID.sumarni,
         startMin: 14 * 60,
         durationMin: 90,
         status: 'terjadwal',
         statusNote: BEDAH.split(',')[0] ?? BEDAH,
-        procedure: 'Laparoskopi diagnostik',
-        icd9cm: null,
-        diagnosis: { icd10: 'K30', label: 'Dispepsia' },
+        procedure: 'Kolesistektomi laparoskopik',
+        icd9cm: '51.23',
+        diagnosis: { icd10: 'K80.2', label: 'Batu kandung empedu tanpa kolesistitis' },
         operator: BEDAH,
         anesthesia: 'Anestesi umum (GA)',
         scrub: NURSE[1],
@@ -1108,8 +1099,23 @@ export const KAMAR_OK: readonly OrRoom[] = [
     kind: 'Obstetri dan ginekologi',
     cases: [
       orCase({
+        id: 'ok3-0',
+        patientId: PATIENT_ID.wulan,
+        startMin: 7 * 60 + 10,
+        durationMin: 70,
+        status: 'selesai',
+        statusNote: 'selesai 08.18',
+        procedure: 'Seksio sesarea elektif',
+        icd9cm: '74.1',
+        diagnosis: { icd10: 'O82.0', label: 'Persalinan dengan seksio sesarea elektif' },
+        operator: OBSGIN,
+        anesthesia: 'Anestesi spinal',
+        scrub: STAF_LAIN.bidan[0],
+        setLabel: 'Set seksio sesarea',
+      }),
+      orCase({
         id: 'ok3-1',
-        patientId: 'ps-wulan',
+        patientId: PATIENT_ID.anisa,
         startMin: 11 * 60,
         durationMin: 80,
         status: 'cito',
@@ -1131,7 +1137,7 @@ export const KAMAR_OK: readonly OrRoom[] = [
     cases: [
       orCase({
         id: 'ok4-1',
-        patientId: 'ps-rizky',
+        patientId: PATIENT_ID.rizky,
         startMin: 8 * 60,
         durationMin: 150,
         status: 'selesai',

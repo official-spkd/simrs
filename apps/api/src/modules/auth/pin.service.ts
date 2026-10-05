@@ -182,7 +182,7 @@ export class PinService {
         await fail(tx, d, block);
         return { kind: block === 'assignment_ended' ? ('revoked' as const) : ('not_allowed' as const) };
       }
-      const attempt = await this.repo.reservePinAttempt(tx, d.id, PIN_MAX_ATTEMPTS);
+      const attempt = await this.repo.reservePinAttempt(tx, d.id, PIN_MAX_ATTEMPTS, now);
       if (attempt === null) {
         await fail(tx, d, 'pin_revoked');
         return { kind: 'revoked' as const };
