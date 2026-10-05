@@ -22,6 +22,12 @@ Perintah dijalankan di **host ops** (server edge atau mesin operator), bukan ole
   - migrasi yang sudah diterapkan;
   - kepala rantai audit per tenant beserta hasil verifikasinya.
   Semua diambil dari snapshot yang sama dengan dump. Ada pula `digest` atas seluruh isi manifest.
+- **Dokumen** mengikuti driver API (`STORAGE_DRIVER`, ADR-0020):
+  - `disk`: semua berkas berkunci penyimpanan di `STORAGE_DISK_ROOT`;
+  - `s3`: objek bucket `S3_BUCKET_DOCUMENTS` untuk setiap baris `documents` di snapshot dump. Objek di-stream langsung
+    dari bucket ke arsip terenkripsi (plaintext tidak menyentuh disk host backup) dan dicocokkan dengan sha256 +
+    ukuran barisnya. Objek yang hilang/berbeda dicatat di manifest (`integrityErrors`) dan log `PERINGATAN`; backup
+    tetap berjalan dan menyalin apa adanya.
 - **Peran DB `simrs_backup`**: baca semua data + BYPASSRLS, tanpa hak tulis, transaksi baca-saja bawaan. Peran ini
   hanya untuk skrip ini, tidak pernah untuk aplikasi.
 - Hasil setiap run tercatat di `backup_runs`, dan hasil setiap uji di `restore_tests` (tenant PLATFORM). RS melihat
@@ -61,6 +67,8 @@ Perintah dijalankan di **host ops** (server edge atau mesin operator), bukan ole
    | `BACKUP_OFFSITE_BUCKET`, `BACKUP_OFFSITE_S3_ENDPOINT/_ACCESS_KEY/_SECRET_KEY` | lokasi 3. Bawaannya endpoint lokasi 2 (hanya pantas di lokal)                          |
    | `BACKUP_ENSURE_BUCKETS`                                              | `true` hanya di lokal. Kredensial produksi tidak boleh punya hak membuat bucket                  |
    | `BACKUP_KEEP_*`                                                      | retensi (§5)                                                                                    |
+   | `STORAGE_DRIVER`, `S3_BUCKET_DOCUMENTS`                              | sama dengan API; driver `s3` membaca bucket dokumen lewat `S3_ENDPOINT`/`S3_ACCESS_KEY` (cukup hak baca) |
+   | `AUDIT_ANCHOR_BUCKET`, `AUDIT_ANCHOR_KEY`                            | hanya di mesin uji restore: bucket WORM jangkar audit dan kunci HMAC-nya (ADR-0072), lihat §6     |
    | `BACKUP_TOOLS`                                                       | `auto` (bawaan): `pg_dump`/`mc` lokal bila versinya cocok, selain itu Docker                     |
 
    Kunci privat **tidak** dipasang di host backup. `BACKUP_PRIVATE_KEY_FILE` hanya diisi di mesin uji restore.
@@ -130,22 +138,30 @@ Langkah, berhenti di galat pertama:
 | `key`          | id kunci privat = manifest = header berkas                                                 | **kunci salah: berhenti sebelum ada plaintext/kontainer** |
 | `decrypt`      | dump didekripsi, hash plaintext = manifest                                                 | autentikasi potongan gagal                            |
 | `documents`    | arsip dokumen didekripsi + diekstrak, jumlah/ukuran = manifest                             | selisih                                               |
-| `container`    | `postgres:16-alpine` bersih + `init.sql` dan Redis, port acak di 127.0.0.1                 | Docker tidak ada                                      |
+| `container`    | `postgres:16-alpine` bersih + `init.sql` dan Redis (+ MinIO `pgsty/minio` bila dokumen `s3`), port acak di 127.0.0.1 | Docker tidak ada                 |
+| `documents_bucket` | (s3) objek hasil ekstrak diunggah ke bucket BARU `simrs-documents` di MinIO sementara; server memverifikasi SHA-256 | unggahan/checksum ditolak |
 | `restore`      | `pg_restore --single-transaction --exit-on-error`                                          | galat restore apa pun                                 |
 | `migrations`   | `prisma migrate status` (kode saat ini) + daftar migrasi = manifest                        | ada yang tertunda/beda                                |
 | `row_counts`   | jumlah baris setiap tabel = manifest                                                       | selisih satu baris pun                                |
-| `documents_db` | baris `documents` punya berkas di arsip                                                    | hanya dengan `--dokumen-ketat` (bawaan: peringatan)   |
-| `api_ready`    | API menyala di atas DB hasil restore (mode uji, loopback): `/ready` = DB, Redis, penyimpanan ok | `/ready` tidak 200                               |
+| `documents_db` | setiap baris `documents`: berkas hasil ekstrak dengan ukuran + SHA-256 sama, dan (s3) objek di bucket sementara membawa checksum yang sama | s3: selisih apa pun di luar temuan sumber manifest; disk: hanya dengan `--dokumen-ketat` |
+| `api_ready`    | API menyala di atas DB hasil restore (mode uji, loopback): `/ready` = DB, Redis, penyimpanan ok (folder hasil ekstrak, atau bucket MinIO sementara untuk s3) | `/ready` tidak 200 |
 | `audit_verify` | `/audit/verify` per tenant aktif + `app_verify_audit_chain()` semua tenant = hasil di sumber, kepala rantai = manifest | rantai berbeda dari sumber (terpotong/diubah) |
+| `audit_anchors` | jangkar audit sah **terbaru dengan waktu ≤ waktu backup** per tenant (bucket WORM `AUDIT_ANCHOR_BUCKET`; tanpa bucket: tabel `audit_anchors` hasil restore) cocok dengan rantai hasil restore: baris di seq jangkar ada dengan hash sama, kepala tidak di bawahnya, rantai bersambung dari jangkar (`app_verify_audit_chain_from`). Dengan `AUDIT_ANCHOR_KEY`, jangkar palsu/kunci lain dilewati dan dihitung | `ANCHOR_MISMATCH`, `TRUNCATION_DETECTED`, `CHAIN_BROKEN` |
 
-**RTO terukur** dihitung dari mulai sampai `audit_verify` lolos. Hasil per langkah dicatat ke `restore_tests`
+**RTO terukur** dihitung dari mulai sampai `audit_anchors` lolos. Hasil per langkah dicatat ke `restore_tests`
 (database sumber, lewat `BACKUP_DATABASE_URL`; `--tanpa-catat` untuk melewati). Laporan JSON disimpan di
 `.local/backup-restore/laporan/<id>.json`. Kontainer, proses API, dan semua plaintext dihapus di akhir, berhasil atau
 gagal. `--simpan-kontainer` membiarkan kontainer untuk diperiksa; hapus sendiri dengan `docker rm -f`.
 
-Tes otomatis yang sama (backup → tiga lokasi → restore dari offsite + tiga mode gagal):
-`pnpm --filter @simrs/backup test:pemulihan`. Tes ini butuh `docker compose up`, `pnpm build`, dan memakai database
-tes, awalan objek `uji-e2e-<acak>/`, serta bucket `simrs-backups-offsite-uji`. Awalannya dihapus di akhir tes.
+Tes otomatis yang sama: `pnpm --filter @simrs/backup test:pemulihan`. Isinya:
+- driver disk + jangkar tabel: backup → tiga lokasi → restore dari offsite, plus mode gagal kunci salah, manifest
+  rusak, dan berkas rusak;
+- driver s3 + jangkar WORM: backup dari bucket dokumen uji (satu objek sengaja hilang), restore dari cloud ke MinIO
+  sementara, dan jangkar WORM bertanda tangan sah yang tidak cocok → gagal di `audit_anchors`.
+
+Tes ini butuh `docker compose up` dan `pnpm build`. Yang dipakai: database tes, awalan objek `uji-e2e-<acak>/`, bucket
+`simrs-backups-offsite-uji`, dan bucket `simrs-dok-uji-*`/`simrs-jangkar-*-*`. Awalan dan bucket uji dihapus di akhir
+tes.
 
 ## 7. Pemulihan sungguhan (bencana)
 
@@ -166,7 +182,11 @@ tes, awalan objek `uji-e2e-<acak>/`, serta bucket `simrs-backups-offsite-uji`. A
    MIGRATOR_DATABASE_URL=…/simrs_pulih pnpm --filter @simrs/db exec prisma migrate status
    ```
 
-5. Salin `/srv/pulih-20261005/storage/` ke `STORAGE_DISK_ROOT`.
+5. Kembalikan dokumen:
+   - driver disk: salin `/srv/pulih-20261005/storage/` ke `STORAGE_DISK_ROOT`;
+   - driver s3: unggah isi `storage/` (kunci = path relatif) ke bucket dokumen BARU, misalnya
+     `mc mirror /srv/pulih-20261005/storage pulih/simrs-documents-pulih`. Arahkan `S3_BUCKET_DOCUMENTS` ke bucket itu.
+     Pembacaan dokumen API memverifikasi sha256 setiap berkas terhadap barisnya.
 6. Arahkan `DATABASE_URL` ke `simrs_pulih`, nyalakan API, lalu periksa `/ready` dan `/audit/verify`.
 7. Hapus folder pulih (berisi plaintext). Catat insiden + RTO aktual (`downtime_incidents`, fase 10.6).
 8. Bila PITR pgBackRest sudah terpasang, pakai PITR untuk menutup selisih sejak backup terakhir.
@@ -199,9 +219,14 @@ Rincian run 5 Okt 00.08 (ms):
 | ----------- | --------- | ------------ | ----------- | -------------- | ------- |
 | 3.632       | 2.639     | 721          | 1.077       | 391            | < 400 per langkah |
 
+Sesudah driver s3 dan jangkar 10.8 masuk (5 Okt 2026 07.30 WIB), `test:pemulihan` 8/8 hijau dalam 81,6 dtk total.
+Isinya dua backup penuh dan dua restore lengkap: disk + jangkar tabel dari offsite, dan s3 + jangkar WORM dari cloud
+dengan MinIO sementara. Termasuk satu objek dokumen yang sengaja hilang di sumber dan dilaporkan sebagai temuan sumber.
+
 Mode gagal terbukti di `test:pemulihan`: kunci privat lain berhenti di `key` (`KEY_MISMATCH`, tanpa kontainer), manifest
 diubah (`MANIFEST_DIGEST_MISMATCH`) atau terpotong (`MANIFEST_INVALID`) berhenti di `manifest`, dan satu byte berkas
-diubah berhenti di `checksum`. Database produksi jauh lebih besar; ulangi uji di perangkat keras pilot dan catat RTO
+diubah berhenti di `checksum`, dan jangkar WORM bertanda tangan sah dengan hash lain berhenti di `audit_anchors`
+(`ANCHOR_MISMATCH`). Database produksi jauh lebih besar; ulangi uji di perangkat keras pilot dan catat RTO
 nyata di tabel ini (sasaran ≤ 4 jam).
 
 ## 10. Pemecahan masalah
@@ -214,4 +239,6 @@ nyata di tabel ini (sasaran ≤ 4 jam).
 | `cannot execute … in a read-only transaction`                  | wajar untuk peran backup di luar pencatatan (baca-saja bawaan)                                |
 | `XMinioInvalidObjectName` / bucket tidak ada                   | `BACKUP_PREFIX` harus diakhiri `/`. Di lokal `BACKUP_ENSURE_BUCKETS=true`, atau `docker compose up minio-init` |
 | Kontainer Docker tidak menjangkau Postgres/MinIO di Linux      | layanan harus mendengar di antarmuka yang terlihat dari `host.docker.internal` (host-gateway)  |
+| `documents_db … sudah bermasalah di sumber`                    | objek s3 yang saat backup sudah hilang/berbeda dari barisnya (manifest `integrityErrors`, log backup `PERINGATAN`). Tinjau bersama pemilik P08 |
+| `audit_anchors … ditolak` / `tanpa jangkar`                    | jangkar bertanda tangan kunci lain/palsu, atau job jangkar (10.8) belum berjalan sebelum backup. `ANCHOR_MISMATCH` = rantai hasil restore beda dari yang dijangkar: insiden audit |
 | `documents_db … tanpa berkas`                                  | baris dokumen yang berkasnya tidak ada di `STORAGE_DISK_ROOT` sumber. Periksa sebelum memakai `--dokumen-ketat` |
