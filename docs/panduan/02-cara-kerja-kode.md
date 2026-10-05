@@ -400,6 +400,7 @@ stream(@Req() req: Request, @Res() res: Response, @Query('services') services: s
 - Setiap event dibaca di transaksi pendek `withTenant` tenant pelanggan (RLS). Hasil `load` dibagi ke semua koneksi selama 2 dtk.
 - `id:` event = id baris (UUID v7). `Last-Event-ID` (atau query `lastEventId` dari BFF) memanggil `replay`; replay juga dijalankan setelah koneksi LISTEN tersambung ulang. Lebih dari 200 event atau kanal tanpa `replay` → `event: reset` (klien memuat ulang snapshot).
 - Heartbeat `: ping` 15 dtk; umur koneksi maks 5 menit lalu klien menyambung ulang (sesi dan izin diperiksa ulang); klien lambat diputus; langganan dilepas saat klien putus.
+- Batas aliran bersamaan per prinsipal per instans API: perangkat 2 (`SSE_MAX_STREAMS_PER_DEVICE`), pengguna 5 (`SSE_MAX_STREAMS_PER_USER`); opsi `maxPerPrincipal` untuk kanal tertentu. Aliran baru menutup yang **paling lama** dengan `event: superseded` + `retry: 60000`, jadi dua tab yang berebut tidak saling menendang tiap 3 detik. Tanpa prinsipal (mode header pengembang) tidak dibatasi. Batasnya per instans (bukan gabungan antar-instans).
 - Header `X-Accel-Buffering: no` dan `Cache-Control: no-store, no-transform` agar proxy tidak menahan aliran.
 
 **Event domain.** `DomainEvents` (`infra/events/domain-events.ts`) sinkron di dalam transaksi penerbit. Nama dan payload (ID saja, tanpa PHI) ada di `domain-event-map.ts`; daftar namanya sementara disalin dari rencana potongan 0a dan diganti impor dari `@simrs/shared` setelah 0a tergabung.

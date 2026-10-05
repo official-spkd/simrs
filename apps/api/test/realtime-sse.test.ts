@@ -21,7 +21,13 @@ import {
   parsePayload,
   PgNotificationHub,
 } from '../src/infra/realtime/pg-notification-hub';
-import { type SseChannel, type SseEvent, SseService } from '../src/infra/realtime/sse.service';
+import {
+  principalKeyOf,
+  type SseChannel,
+  type SseEvent,
+  SSE_SUPERSEDED_RETRY_MS,
+  SseService,
+} from '../src/infra/realtime/sse.service';
 import {
   bearer,
   createTestApp,
@@ -79,12 +85,16 @@ class SseTestController {
     @Query('heartbeatMs') heartbeatMs?: string,
     @Query('maxMs') maxMs?: string,
     @Query('replay') replay?: string,
+    @Query('principal') principal?: string,
+    @Query('maxPer') maxPer?: string,
   ) {
     this.sse.stream(req, res, replay === 'off' ? channelWithoutReplay : channel, {
       filter: (e) => e.data.group === group,
       heartbeatMs: heartbeatMs ? Number(heartbeatMs) : undefined,
       maxDurationMs: maxMs ? Number(maxMs) : undefined,
       replayLimit: 5,
+      principalKey: principal,
+      maxPerPrincipal: maxPer ? Number(maxPer) : undefined,
     });
   }
 
@@ -325,6 +335,20 @@ describe('PgNotificationHub', () => {
   });
 });
 
+describe('principalKeyOf', () => {
+  it('perangkat lebih dulu, lalu pengguna; tanpa keduanya tidak dibatasi', () => {
+    const actor = { userId: null, role: null, sessionId: null, unitId: null };
+    expect(principalKeyOf({ tenantId: 't', actor })).toBeNull();
+    expect(principalKeyOf({ tenantId: 't', actor: { ...actor, userId: 'u' } })).toBe('t:user:u');
+    expect(
+      principalKeyOf({
+        tenantId: 't',
+        actor: { ...actor, devicePrincipal: { id: 'd', kind: 'queue_display', permissions: [] } },
+      }),
+    ).toBe('t:device:d');
+  });
+});
+
 describe('SseService (HTTP)', () => {
   it('header aliran, retry, heartbeat, dan @Audited tetap tercatat', async () => {
     const requestId = newId();
@@ -432,6 +456,31 @@ describe('SseService (HTTP)', () => {
     const c = await connect(TENANT_A, { group: newId(), maxMs: '200' });
     await c.waitFor(() => c.ended, 3_000);
     await c.waitFor(() => hub.subscriberCount(CHANNEL) === 0 && sse.activeCount() === 0);
+  });
+
+  it('batas aliran per prinsipal: aliran baru menutup yang paling lama (superseded + retry panjang); prinsipal lain tidak', async () => {
+    const group = newId();
+    const p1 = `${TENANT_A}:device:${newId()}`;
+    const p2 = `${TENANT_A}:device:${newId()}`;
+    const first = await connect(TENANT_A, { group, principal: p1, maxPer: '2' });
+    await first.waitFor(() => sse.activeForPrincipal(p1) === 1);
+    const second = await connect(TENANT_A, { group, principal: p1, maxPer: '2' });
+    await second.waitFor(() => sse.activeForPrincipal(p1) === 2);
+    const other = await connect(TENANT_A, { group, principal: p2, maxPer: '2' });
+    await other.waitFor(() => sse.activeForPrincipal(p2) === 1);
+    const third = await connect(TENANT_A, { group, principal: p1, maxPer: '2' });
+    await first.waitFor(() => first.ended);
+    expect(first.frames.at(-1)).toEqual({
+      retry: SSE_SUPERSEDED_RETRY_MS,
+      event: 'superseded',
+      data: { reason: 'too_many_streams' },
+    });
+    await third.waitFor(() => sse.activeForPrincipal(p1) === 2);
+    expect(second.ended).toBe(false);
+    expect(other.ended).toBe(false);
+    // Aliran yang tersisa tetap menerima event.
+    const id = await emit(TENANT_A, group);
+    for (const c of [second, third, other]) await c.waitFor(() => c.ids().includes(id));
   });
 
   it('tidak memegang transaksi atau koneksi pool selama streaming (12 aliran > pool 10)', async () => {
