@@ -561,10 +561,49 @@ describe('panggil petugas', () => {
       tx.notification.findMany({ where: { recipientUserId: registrarId, kind: 'kiosk_assist' } }),
     );
     expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ title: 'Anjungan meminta bantuan', link: '/antrean' });
+    expect(notes[0]).toMatchObject({
+      title: 'Anjungan meminta bantuan',
+      link: `/antrean?perangkat=${dev.kiosk.id}`,
+    });
     expect(notes[0]?.body).toContain('Anjungan lobi uji');
     const rows = await audits({ resourceType: 'kiosk_assist' });
     expect(rows.at(-1)?.details).toMatchObject({ notified: 1, deviceId: dev.kiosk.id });
+
+    // Sentuhan ulang dalam jeda 60 detik: tidak ada notifikasi baru, waktu panggilan pertama dikembalikan.
+    const again = await http().post('/api/v1/kiosk/assist').set(asDevice(dev.kiosk.token)).expect(200);
+    expect(again.body.requestedAt).toBe(notes[0]?.createdAt.toISOString());
+    const after = await run((tx) =>
+      tx.notification.count({ where: { recipientUserId: registrarId, kind: 'kiosk_assist' } }),
+    );
+    expect(after).toBe(1);
+    expect((await audits({ resourceType: 'kiosk_assist' })).at(-1)?.details).toMatchObject({
+      notified: 0,
+      repeated: true,
+    });
+    // Anjungan lain tetap bisa memanggil.
+    await http().post('/api/v1/kiosk/assist').set(asDevice(dev.kiosk2.token)).expect(200);
+    const both = await run((tx) =>
+      tx.notification.count({ where: { recipientUserId: registrarId, kind: 'kiosk_assist' } }),
+    );
+    expect(both).toBe(2);
+  });
+});
+
+describe('batas tiket tanpa identitas', () => {
+  it('tiket loket anonim per perangkat dibatasi (6/menit) → 429 tercatat; perangkat lain tidak terdampak', async () => {
+    const take = (token: string) =>
+      http().post('/api/v1/kiosk/tickets').set(asDevice(token)).send({ serviceKind: 'loket' });
+    const already = await run((tx) =>
+      tx.kioskTicket.count({
+        where: { deviceId: dev.kiosk2.id, createdAt: { gte: new Date(Date.now() - 60_000) } },
+      }),
+    );
+    for (let i = already; i < 6; i++) await take(dev.kiosk2.token).expect(201);
+    const blocked = await take(dev.kiosk2.token).expect(429);
+    expect(blocked.body.code).toBe('RATE_LIMITED');
+    const denied = await audits({ action: 'access_denied', resourceType: 'kiosk_ticket' });
+    expect(denied.at(-1)?.details).toMatchObject({ reason: 'rate_limited', deviceId: dev.kiosk2.id });
+    await take(dev.otherKiosk.token).expect(201);
   });
 });
 

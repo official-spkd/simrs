@@ -202,6 +202,8 @@ describe('BpjsClient · respons (dekoder kontrak bersama)', () => {
       if (res.kind === 'failure') details.push(res.detail);
     }
     expect(details.slice(0, 4)).toEqual(['timeout', 'jaringan: TypeError', 'HTTP 503', 'HTTP 429']);
+    // Pesan amplop BPJS tidak ikut ke detail (masuk `lastError` dan log worker): hanya kodenya.
+    expect(details.slice(5)).toEqual(['kode 503', 'kode 201']);
   });
 
   it('kredensial ditolak (HTTP 401/403, kode 401 di amplop) → BPJS_AUTH; 4xx lain → BPJS_PROTOCOL', async () => {

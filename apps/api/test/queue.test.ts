@@ -355,6 +355,8 @@ describe('izin dan isolasi', () => {
   it('status task BPJS butuh queue.read; pembacaannya diaudit dengan pasien booking', async () => {
     const appt = await appointment();
     await http().get(`/api/v1/queue/bpjs-tasks?appointmentId=${appt}`).set(bearer(nursePd)).expect(200);
+    // Perawat poli lain (lingkup unit) tidak membaca task booking poli PD.
+    await http().get(`/api/v1/queue/bpjs-tasks?appointmentId=${appt}`).set(bearer(nurseJt)).expect(403);
     const audit = await run((tx) =>
       tx.auditEvent.findFirstOrThrow({ where: { resourceType: 'bpjs_queue_task', resourceId: appt } }),
     );
