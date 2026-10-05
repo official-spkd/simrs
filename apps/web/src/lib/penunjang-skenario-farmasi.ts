@@ -1,5 +1,6 @@
 import type { DispenseStage, PharmacyCdsAlert, PharmacyItem, PharmacyPrescription } from '@simrs/shared';
 import type { RunResult } from './demo/engine/types';
+import { CDS_ALERT_ID, PRESCRIPTION_ID } from './demo/fixtures/ids';
 import { obat, supportPatient } from './demo/fixtures/penunjang';
 import { STAF } from './demo/fixtures/staf';
 import {
@@ -64,7 +65,7 @@ export function suryoPrescription(R: RunResult): PharmacyPrescription | null {
   const items: PharmacyItem[] = R.rec.obat.flatMap((o) => {
     const d = RJ_DRUGS.find((x) => o.startsWith(x.match));
     return d
-      ? [obat(`suryo-${d.id}`, d.name, null, d.dose, 'PO', d.freq, d.perDay * days, 'tab', d.stock)]
+      ? [obat(`r0890-${d.id}`, d.name, null, d.dose, 'PO', d.freq, d.perDay * days, 'tab', d.stock)]
       : [];
   });
   const cds = taskValue(R, 'resep', 'cds');
@@ -73,7 +74,7 @@ export function suryoPrescription(R: RunResult): PharmacyPrescription | null {
     resolution: string,
     itemIds: string[],
   ): PharmacyCdsAlert => ({
-    id: 'suryo-sulfonilurea',
+    id: CDS_ALERT_ID.suryoSulfonylurea,
     level: 'mayor',
     kind: 'kontraindikasi',
     title: 'Sulfonilurea pada riwayat hipoglikemia berat',
@@ -86,7 +87,7 @@ export function suryoPrescription(R: RunResult): PharmacyPrescription | null {
   const serahAt = taskAt(R, 'farmasi', 'serah');
   const receiver = taskValue(R, 'farmasi', 'serah');
   return {
-    id: 'rx-suryo',
+    id: PRESCRIPTION_ID.suryo,
     no: 'R-2610-0890',
     patient: supportPatient(scenarioPatientId('rawat-jalan')),
     location: 'Poli Penyakit Dalam',
@@ -108,7 +109,7 @@ export function suryoPrescription(R: RunResult): PharmacyPrescription | null {
             alert(
               'override',
               'Override DPJP di CPOE dengan alasan: edukasi hipoglikemia + cek gula mandiri.',
-              ['suryo-glimepirid'],
+              ['r0890-glimepirid'],
             ),
           ]
         : cds === 'ganti'
@@ -125,15 +126,15 @@ export function hartonoPrescription(R: RunResult): PharmacyPrescription | null {
   if (cdsAt === undefined) return null;
   const swapped = (R.rec.ppi ?? 'Pantoprazol').startsWith('Pantoprazol');
   const ppi = swapped
-    ? obat('hartono-pantoprazol', 'Pantoprazol 40 mg inj', null, '40 mg', 'IV', '1×1', 1, 'vial', 64, {
+    ? obat('r0893-pantoprazol', 'Pantoprazol 40 mg inj', null, '40 mg', 'IV', '1×1', 1, 'vial', 64, {
         note: 'pengganti omeprazol (CDS)',
       })
-    : obat('hartono-omeprazol', 'Omeprazol 20 mg kaps', null, '20 mg', 'PO', '1×1', 1, 'kaps', 420, {
+    : obat('r0893-omeprazol', 'Omeprazol 20 mg kaps', null, '20 mg', 'PO', '1×1', 1, 'kaps', 420, {
         note: 'obat rutin pasien',
       });
   const items: PharmacyItem[] = [
     obat(
-      'hartono-klopidogrel',
+      'r0893-klopidogrel',
       'Klopidogrel 75 mg tab',
       '93000387',
       '300 mg (4 tab)',
@@ -145,7 +146,7 @@ export function hartonoPrescription(R: RunResult): PharmacyPrescription | null {
     ),
     ppi,
     obat(
-      'hartono-kalsium',
+      'r0893-kalsium',
       'Kalsium glukonat 10% 10 mL inj',
       null,
       '10 mL',
@@ -159,7 +160,7 @@ export function hartonoPrescription(R: RunResult): PharmacyPrescription | null {
   if (taskValue(R, 'tata-laksana', 'k') === 'lengkap') {
     items.push(
       obat(
-        'hartono-insulin',
+        'r0893-insulin',
         'Insulin reguler 100 IU/mL + dekstrosa 40%',
         null,
         '10 unit + 50 mL',
@@ -177,20 +178,20 @@ export function hartonoPrescription(R: RunResult): PharmacyPrescription | null {
     );
   }
   const interaction: PharmacyCdsAlert = {
-    id: 'hartono-interaksi',
+    id: CDS_ALERT_ID.hartonoInteraction,
     level: 'mayor',
     kind: 'interaksi',
     title: 'Interaksi mayor: Klopidogrel + Omeprazol (obat rutin)',
     detail: 'Omeprazol menghambat CYP2C19 sehingga efek antiplatelet klopidogrel turun.',
     recommendation: swapped ? null : 'Usulkan ke dokter: ganti pantoprazol',
-    itemIds: ['hartono-klopidogrel', ppi.id],
+    itemIds: ['r0893-klopidogrel', ppi.id],
     status: swapped ? 'teratasi' : 'override',
     resolution: swapped
       ? 'CDS di CPOE: omeprazol diganti pantoprazol 40 mg; klopidogrel 300 mg loading tetap diberikan.'
       : 'Dokter jaga melanjutkan omeprazol dengan alasan klinis (tercatat di CPOE).',
   };
   return {
-    id: 'rx-hartono',
+    id: PRESCRIPTION_ID.hartono,
     no: 'R-2610-0893',
     patient: supportPatient(scenarioPatientId('igd-ranap')),
     location: 'IGD · bed resusitasi 2',

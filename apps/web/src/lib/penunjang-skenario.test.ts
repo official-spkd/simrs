@@ -3,6 +3,7 @@ import { labSampleSchema, labWorklistSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
+import { LAB_SAMPLE_ID, PATIENT_ID } from './demo/fixtures/ids';
 import { demoLabWorklist } from './demo/fixtures/penunjang';
 import { SCENARIOS } from './demo/skenario';
 import { criticalOpen, criticalStage, sampleStatusView, validationBlock } from './penunjang';
@@ -138,7 +139,10 @@ describe('worklist dengan pasien skenario', () => {
         .filter(criticalOpen)
         .map((s) => s.id)
         .sort(),
-    ).toEqual(['lab-hartono', 'lab-yusuf']);
-    expect(scenarioPatientMap()).toMatchObject({ 'ps-suryo': 'rawat-jalan', 'ps-hartono': 'igd-ranap' });
+    ).toEqual([LAB_SAMPLE_ID.hartono, LAB_SAMPLE_ID.yusuf].sort());
+    expect(scenarioPatientMap()).toMatchObject({
+      [PATIENT_ID.suryo]: 'rawat-jalan',
+      [PATIENT_ID.hartono]: 'igd-ranap',
+    });
   });
 });

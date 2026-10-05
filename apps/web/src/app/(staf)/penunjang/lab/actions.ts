@@ -18,7 +18,7 @@ import { findLabSample } from '@/lib/server/data/penunjang';
  * tidak disimpan)". Pasien skenario dimajukan lewat mesin skenario.
  */
 
-const sampleId = z.string().regex(/^lab-[a-z]{2,20}$/);
+const sampleId = z.uuid();
 
 export async function validateLabAction(input: {
   sampleId: string;

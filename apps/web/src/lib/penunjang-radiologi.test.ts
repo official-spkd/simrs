@@ -3,6 +3,7 @@ import { radiologyWorklistSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
+import { RAD_EXAM_ID } from './demo/fixtures/ids';
 import { demoRadiologyExams, demoRadiologyWorklist, RADIOLOG } from './demo/fixtures/penunjang';
 import { SCENARIOS } from './demo/skenario';
 import {
@@ -65,7 +66,7 @@ describe('data dummy radiologi', () => {
   });
 
   it('CT yang sudah ditandatangani mencatat dosis; laporan oleh radiolog fiktif', () => {
-    const ct = byId('rad-lestiani');
+    const ct = byId(RAD_EXAM_ID.lestiani);
     expect(ct.dose).toEqual({ ctdiVol: 52, dlp: 880 });
     expect(ct.report?.radiologist).toBe(RADIOLOG);
     expect(RADIOLOG).toBe('dr. Arman Siregar, Sp.Rad');
@@ -109,17 +110,17 @@ describe('gerbang radiologi', () => {
   it('TTE radiolog hanya bila temuan dan kesan lengkap (templat tanpa isian kosong)', () => {
     expect(reportError('', '')).toMatch(/Temuan/);
     expect(reportError('Cor dan pulmo dalam batas normal tanpa kelainan.', 'pendek')).toMatch(/Kesan/);
-    const angio = templateFor(byId('rad-sutan'));
+    const angio = templateFor(byId(RAD_EXAM_ID.sutan));
     expect(angio.id).toBe('angiografi');
     expect(reportError(angio.findings, angio.impression)).toMatch(/__/);
-    const t = templateFor(byId('rad-endang'));
+    const t = templateFor(byId(RAD_EXAM_ID.endang));
     expect(t.id).toBe('toraks');
     expect(reportError(t.findings, t.impression)).toBeNull();
-    expect(templateFor(byId('rad-dewi')).id).toBe('usg-abdomen');
+    expect(templateFor(byId(RAD_EXAM_ID.dewi)).id).toBe('usg-abdomen');
   });
 
   it('langkah lokal berurutan: mulai → akuisisi (dosis) → TTE; worklist cito dulu', () => {
-    const e = byId('rad-rizky');
+    const e = byId(RAD_EXAM_ID.rizky);
     const now = '2026-10-05T11:02:00+07:00';
     expect(applyRadLocal(e, { finishedAt: now }).status).toBe('terjadwal');
     const done = applyRadLocal(e, {
@@ -128,9 +129,9 @@ describe('gerbang radiologi', () => {
       report: { findings: 'x'.repeat(30), impression: 'y'.repeat(12), radiologist: RADIOLOG, signedAt: now },
     });
     expect(done.status).toBe('ditandatangani');
-    const ct = applyRadLocal(byId('rad-maria'), { finishedAt: now, dose: { ctdiVol: 14, dlp: 720 } });
+    const ct = applyRadLocal(byId(RAD_EXAM_ID.maria), { finishedAt: now, dose: { ctdiVol: 14, dlp: 720 } });
     expect(ct).toMatchObject({ status: 'ekspertise', dose: { ctdiVol: 14, dlp: 720 } });
-    expect(sortExams(demoRadiologyExams())[0]?.id).toBe('rad-hendro');
+    expect(sortExams(demoRadiologyExams())[0]?.id).toBe(RAD_EXAM_ID.hendro);
   });
 });
 
@@ -175,27 +176,27 @@ describe('gerbang Server Action radiologi (order dicari server, bukan dari klien
   });
 
   it('skrining kontras dibaca dari order: angiografi berkontras tetap wajib skrining', () => {
-    const sutan = byId('rad-sutan');
+    const sutan = byId(RAD_EXAM_ID.sutan);
     expect(sutan.contrast).toBe(true);
     expect(radStartGate(sutan, true, false)?.message).toMatch(/Skrining kontras/);
     expect(radStartGate(sutan, true, true)).toBeNull();
-    expect(radStartGate(byId('rad-rizky'), false, false)?.message).toMatch(/identitas/);
-    expect(radStartGate(byId('rad-rizky'), true, false)).toBeNull();
+    expect(radStartGate(byId(RAD_EXAM_ID.rizky), false, false)?.message).toMatch(/identitas/);
+    expect(radStartGate(byId(RAD_EXAM_ID.rizky), true, false)).toBeNull();
   });
 
   it('dosis dibaca dari modalitas order: CT wajib dosis, DR tidak', () => {
-    const maria = byId('rad-maria');
+    const maria = byId(RAD_EXAM_ID.maria);
     expect(maria.modality).toBe('CT');
     expect(radFinishGate(maria, null, null)).toEqual({
       message: expect.stringMatching(/CTDIvol/),
       field: 'dose',
     });
     expect(radFinishGate(maria, 14.2, 720)).toBeNull();
-    expect(radFinishGate(byId('rad-hendro'), null, null)).toBeNull();
+    expect(radFinishGate(byId(RAD_EXAM_ID.hendro), null, null)).toBeNull();
   });
 
   it('TTE radiolog: ekspertise lengkap', () => {
-    const dewi = byId('rad-dewi');
+    const dewi = byId(RAD_EXAM_ID.dewi);
     expect(radSignGate(dewi, 'pendek', 'pendek')).toEqual({
       message: 'Temuan wajib diisi (minimal 20 karakter).',
       field: 'report',

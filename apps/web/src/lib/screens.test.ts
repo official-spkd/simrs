@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { isPermission, SYSTEM_ROLES } from '@simrs/shared';
+import { isPermission, isPermissionKey, SYSTEM_ROLES } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { type ScreenDef, SCREENS, screenById, screenOpen } from './screens';
+import { FRONT_OFFICE_PERMISSIONS, type ScreenDef, SCREENS, screenById, screenOpen } from './screens';
 
 const mockupDir = fileURLToPath(new URL('../../../../design/mockups/', import.meta.url));
 
@@ -32,6 +32,7 @@ describe('registri layar (ADR-0023)', () => {
       const [resource, action] = [s.plannedPermission.slice(0, dot), s.plannedPermission.slice(dot + 1)];
       expect(isPermission(resource, action), `${s.id}: ${s.plannedPermission}`).toBe(true);
     }
+    for (const key of FRONT_OFFICE_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
   });
 
   it('screenById', () => {
@@ -72,5 +73,45 @@ describe('screenOpen', () => {
 
   it('tersambung API: terbuka di semua lingkungan (izin ditegakkan API)', () => {
     expect(screenOpen(screen({ status: 'api' }), { dataSource: 'api', role: 'perawat' })).toBe(true);
+  });
+
+  it('hibrida (ber-izin): mode presentasi menurut posisi, mode api menurut izin sungguhan', () => {
+    const s = screen({ permission: 'schedule.read' });
+    expect(screenOpen(s, { dataSource: 'demo', role: 'kasir', permissions: [] })).toBe(true);
+    expect(screenOpen(s, { dataSource: 'demo', role: 'perawat', permissions: ['schedule.read'] })).toBe(
+      false,
+    );
+    expect(screenOpen(s, { dataSource: 'api', role: 'perawat', permissions: ['schedule.read'] })).toBe(true);
+    expect(screenOpen(s, { dataSource: 'api', role: 'kasir', permissions: ['patient.read'] })).toBe(false);
+    expect(screenOpen(s, { dataSource: 'api', role: 'kasir' })).toBe(false);
+    // Setelah tersambung (status `api`), jalur demo tetap hidup dan izin tetap berlaku di mode api.
+    const live = screen({ status: 'api', permission: 'schedule.read' });
+    expect(screenOpen(live, { dataSource: 'demo', role: 'kasir' })).toBe(true);
+    expect(screenOpen(live, { dataSource: 'api', role: 'kasir', permissions: [] })).toBe(false);
+    expect(
+      screenOpen(screen({ status: 'belum', permission: 'schedule.read' }), {
+        dataSource: 'api',
+        role: 'kasir',
+        permissions: ['schedule.read'],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('izin layar front office (rencana fase 2 · 0c)', () => {
+  it('empat layar front office hibrida dengan izin fase 2; layar lain belum punya jalur api', () => {
+    const map = Object.fromEntries(SCREENS.filter((s) => s.permission).map((s) => [s.id, s.permission]));
+    expect(map).toEqual({
+      daftar: 'encounter.write',
+      jadwal: 'schedule.read',
+      kiosk: 'kiosk.use',
+      antrean: 'queue.display.read',
+    });
+    for (const s of SCREENS) {
+      if (s.permission) {
+        expect(FRONT_OFFICE_PERMISSIONS, s.id).toContain(s.permission);
+        expect(s.plannedPermission, s.id).toBe(s.permission);
+      }
+    }
   });
 });

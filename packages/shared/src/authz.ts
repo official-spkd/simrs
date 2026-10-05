@@ -52,6 +52,20 @@ export function isPermission(resource: string, action: string): resource is Perm
   );
 }
 
+/**
+ * Kunci izin katalog bertipe (`schedule.read`, `queue.display.read`, …): salah ketik di kode pemakai (mis. registri
+ * layar web) tertangkap typecheck.
+ */
+export type PermissionKey = {
+  [R in PermissionResource]: `${R}.${PermissionAction<R>}`;
+}[PermissionResource];
+
+/** Kunci `sumber.aksi` yang ada di katalog (aksi tidak pernah bertitik). */
+export function isPermissionKey(key: string): key is PermissionKey {
+  const dot = key.lastIndexOf('.');
+  return dot > 0 && isPermission(key.slice(0, dot), key.slice(dot + 1));
+}
+
 /** Kunci satu izin: `sumber.aksi` (mis. `iam.users.write`). Aksi tidak pernah bertitik. */
 export const permissionKey = (resource: string, action: string): string => `${resource}.${action}`;
 

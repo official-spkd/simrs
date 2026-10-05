@@ -1,5 +1,6 @@
 import type { PoliQueueItem } from '@simrs/shared';
 import type { ScenarioId } from '../engine/types';
+import { CONSENT_ID, ENCOUNTER_ID, PATIENT_ID } from './ids';
 
 /**
  * Pasien fiktif bersama untuk SEMUA layar mode presentasi (ADR-0023). Mockup memakai nomor RM/umur yang saling
@@ -32,7 +33,7 @@ export interface DemoPatient {
 
 export const PASIEN: readonly DemoPatient[] = [
   {
-    id: 'ps-suryo',
+    id: PATIENT_ID.suryo,
     rm: '00-28-44-17',
     nama: 'Tn. Suryo Adi Nugroho',
     jk: 'L',
@@ -49,7 +50,7 @@ export const PASIEN: readonly DemoPatient[] = [
     scenario: 'rawat-jalan',
   },
   {
-    id: 'ps-hartono',
+    id: PATIENT_ID.hartono,
     rm: '00-61-30-05',
     nama: 'Tn. Hartono Wibisono',
     jk: 'L',
@@ -66,7 +67,7 @@ export const PASIEN: readonly DemoPatient[] = [
     scenario: 'igd-ranap',
   },
   {
-    id: 'ps-ratna',
+    id: PATIENT_ID.ratna,
     rm: '00-52-03-19',
     nama: 'Ny. Ratna Sari',
     jk: 'P',
@@ -83,7 +84,7 @@ export const PASIEN: readonly DemoPatient[] = [
     scenario: 'elektif-btn',
   },
   {
-    id: 'ps-siti',
+    id: PATIENT_ID.siti,
     rm: '00-12-45-78',
     nama: 'Siti Rahmawati',
     jk: 'P',
@@ -99,7 +100,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Hipertensi esensial · kontrol rutin Poli PD',
   },
   {
-    id: 'ps-endang',
+    id: PATIENT_ID.endang,
     rm: '00-07-61-33',
     nama: 'Ny. Endang Wijaya',
     jk: 'P',
@@ -115,7 +116,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Pneumonia komunitas · DM tipe 2',
   },
   {
-    id: 'ps-darmawan',
+    id: PATIENT_ID.darmawan,
     rm: '00-19-74-03',
     nama: 'Tn. Darmawan Putra',
     jk: 'L',
@@ -131,7 +132,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Gout · dispepsia',
   },
   {
-    id: 'ps-lestiani',
+    id: PATIENT_ID.lestiani,
     rm: '00-58-02-41',
     nama: 'Ny. Lestiani Hapsari',
     jk: 'P',
@@ -147,7 +148,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Infark serebral 2024 · hipertensi',
   },
   {
-    id: 'ps-yusuf',
+    id: PATIENT_ID.yusuf,
     rm: '00-27-63-15',
     nama: 'Tn. Yusuf Hidayat',
     jk: 'L',
@@ -163,7 +164,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'CKD st. 5 · hemodialisis rutin',
   },
   {
-    id: 'ps-rizky',
+    id: PATIENT_ID.rizky,
     rm: '00-38-12-09',
     nama: 'Tn. Rizky Ramadhan',
     jk: 'L',
@@ -179,7 +180,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Fraktur batang femur (KLL) · pasca ORIF',
   },
   {
-    id: 'ps-maria',
+    id: PATIENT_ID.maria,
     rm: '00-41-27-88',
     nama: 'Ny. Maria Ulfa',
     jk: 'P',
@@ -195,7 +196,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Neoplasma ganas kolon · siklus kemoterapi',
   },
   {
-    id: 'ps-wulan',
+    id: PATIENT_ID.wulan,
     rm: '00-45-27-90',
     nama: 'Ny. Wulan Sari Dewi',
     jk: 'P',
@@ -211,7 +212,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'G2P1A0 hamil 39 minggu · riwayat SC',
   },
   {
-    id: 'ps-raka',
+    id: PATIENT_ID.raka,
     rm: '00-33-18-62',
     nama: 'An. Raka Pratama',
     jk: 'L',
@@ -227,7 +228,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Demam berdarah dengue hari ke-4',
   },
   {
-    id: 'ps-sutan',
+    id: PATIENT_ID.sutan,
     rm: '00-50-11-36',
     nama: 'Tn. Sutan Batubara',
     jk: 'L',
@@ -243,7 +244,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Angina tidak stabil · hipertensi',
   },
   {
-    id: 'ps-ayu',
+    id: PATIENT_ID.ayu,
     rm: '00-63-40-77',
     nama: 'Ny. Ayu Lestari',
     jk: 'P',
@@ -259,7 +260,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Infeksi saluran napas atas',
   },
   {
-    id: 'ps-hendro',
+    id: PATIENT_ID.hendro,
     rm: '00-17-55-90',
     nama: 'Tn. Hendro Gunawan',
     jk: 'L',
@@ -275,7 +276,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Pneumonia · gagal napas akut (ICU)',
   },
   {
-    id: 'ps-aminah',
+    id: PATIENT_ID.aminah,
     rm: '00-22-08-14',
     nama: 'Ny. Siti Aminah',
     jk: 'P',
@@ -291,7 +292,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Sepsis · syok septik (dirawat ICU)',
   },
   {
-    id: 'ps-nadia',
+    id: PATIENT_ID.nadia,
     rm: '00-71-26-58',
     nama: 'An. Nadia Putri',
     jk: 'P',
@@ -307,7 +308,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Demam, tidak spesifik',
   },
   {
-    id: 'ps-fajar',
+    id: PATIENT_ID.fajar,
     rm: '00-36-92-11',
     nama: 'Tn. Fajar Nugraha',
     jk: 'L',
@@ -323,7 +324,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Batu kandung empedu tanpa kolesistitis',
   },
   {
-    id: 'ps-dewi',
+    id: PATIENT_ID.dewi,
     rm: '00-44-73-29',
     nama: 'Ny. Dewi Kurniasih',
     jk: 'P',
@@ -339,7 +340,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Dispepsia · gastritis kronis',
   },
   {
-    id: 'ps-bonifasius',
+    id: PATIENT_ID.bonifasius,
     rm: '00-29-85-47',
     nama: 'Tn. Bonifasius Tarigan',
     jk: 'L',
@@ -357,7 +358,7 @@ export const PASIEN: readonly DemoPatient[] = [
   // Pasien tambahan roster hari demo: papan IGD, Poli PD, kasir, farmasi, dan kamar bersalin tidak lagi meminjam
   // pasien dari layar lain.
   {
-    id: 'ps-sumarni',
+    id: PATIENT_ID.sumarni,
     rm: '00-66-21-04',
     nama: 'Ny. Sumarni Pakpahan',
     jk: 'P',
@@ -373,7 +374,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Kolelitiasis · nyeri perut kanan atas berulang',
   },
   {
-    id: 'ps-joko',
+    id: PATIENT_ID.joko,
     rm: '00-47-90-12',
     nama: 'Tn. Joko Susilo',
     jk: 'L',
@@ -389,7 +390,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Fraktur batang femur kanan · ORIF Sep 2026',
   },
   {
-    id: 'ps-fauzi',
+    id: PATIENT_ID.fauzi,
     rm: '00-53-18-27',
     nama: 'Tn. Ahmad Fauzi',
     jk: 'L',
@@ -405,7 +406,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Dispepsia · perokok aktif',
   },
   {
-    id: 'ps-robert',
+    id: PATIENT_ID.robert,
     rm: '00-24-66-81',
     nama: 'Tn. Robert Manurung',
     jk: 'L',
@@ -421,7 +422,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Gagal jantung · infark miokard lama · rawat ICU 28 Sep – 3 Okt 2026',
   },
   {
-    id: 'ps-gilang',
+    id: PATIENT_ID.gilang,
     rm: '00-69-05-33',
     nama: 'Tn. Gilang Mahendra',
     jk: 'L',
@@ -437,7 +438,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Infeksi saluran napas atas',
   },
   {
-    id: 'ps-wahyuni',
+    id: PATIENT_ID.wahyuni,
     rm: '00-31-57-46',
     nama: 'Ny. Sri Wahyuni',
     jk: 'P',
@@ -453,7 +454,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Hipertensi esensial · dislipidemia · peserta PRB',
   },
   {
-    id: 'ps-rohana',
+    id: PATIENT_ID.rohana,
     rm: '00-14-82-59',
     nama: 'Ny. Rohana Siregar',
     jk: 'P',
@@ -469,7 +470,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Pneumonia komunitas (rawat inap Sep 2026) · DM tipe 2',
   },
   {
-    id: 'ps-sugeng',
+    id: PATIENT_ID.sugeng,
     rm: '00-59-34-70',
     nama: 'Tn. Sugeng Riyadi',
     jk: 'L',
@@ -485,7 +486,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Infark serebral lama · hipertensi · nyeri pinggang (curiga HNP)',
   },
   {
-    id: 'ps-fransiska',
+    id: PATIENT_ID.fransiska,
     rm: '00-72-13-95',
     nama: 'Ny. Fransiska Lumbantobing',
     jk: 'P',
@@ -501,7 +502,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'Hiperurisemia · obesitas',
   },
   {
-    id: 'ps-anisa',
+    id: PATIENT_ID.anisa,
     rm: '00-80-42-16',
     nama: 'Ny. Anisa Rahmadani',
     jk: 'P',
@@ -517,7 +518,7 @@ export const PASIEN: readonly DemoPatient[] = [
     riwayat: 'G1P0A0 hamil 38 minggu · gawat janin',
   },
   {
-    id: 'ps-lukman',
+    id: PATIENT_ID.lukman,
     rm: '00-35-61-88',
     nama: 'Tn. Lukman Hakim',
     jk: 'L',
@@ -542,21 +543,32 @@ export function patientByScenario(id: ScenarioId): DemoPatient | undefined {
   return PASIEN.find((p) => p.scenario === id);
 }
 
+type PatientKey = keyof typeof PATIENT_ID;
+const KEY_OF_PATIENT = new Map(
+  (Object.keys(PATIENT_ID) as PatientKey[]).map((k) => [PATIENT_ID[k] as string, k]),
+);
+
+function keyOf(patientId: string): PatientKey {
+  const k = KEY_OF_PATIENT.get(patientId);
+  if (!k) throw new Error(`Pasien ${patientId} tidak ada di PATIENT_ID`);
+  return k;
+}
+
 /**
- * Id kunjungan aktif pasien di hari demo, dipakai di rute berparameter agar tautan antar-layar konsisten:
- * `/klinis/order/kj-suryo`, `/klinis/rawat-inap/kj-hartono`, `/klinis/resume/kj-ratna`.
+ * Id kunjungan aktif pasien di hari demo (opak, `ENCOUNTER_ID`), dipakai di rute berparameter agar tautan antar-layar
+ * konsisten: `/klinis/order/<id>`, `/klinis/rawat-inap/<id>`, `/klinis/resume/<id>`.
  */
 export function encounterIdOf(patientId: string): string {
-  return patientId.replace(/^ps-/, 'kj-');
+  return ENCOUNTER_ID[keyOf(patientId)];
 }
 
 export function patientByEncounterId(encounterId: string): DemoPatient | undefined {
   return PASIEN.find((p) => encounterIdOf(p.id) === encounterId);
 }
 
-/** Id dokumen persetujuan tindakan di tablet: `/tablet/persetujuan/pk-hartono`. */
+/** Id dokumen persetujuan tindakan di tablet (opak, `CONSENT_ID`): `/tablet/persetujuan/<id>`. */
 export function consentIdOf(patientId: string): string {
-  return patientId.replace(/^ps-/, 'pk-');
+  return CONSENT_ID[keyOf(patientId)];
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -617,29 +629,29 @@ export interface RosterEntry {
  */
 export const ROSTER: readonly RosterEntry[] = [
   {
-    patientId: 'ps-suryo',
+    patientId: PATIENT_ID.suryo,
     lokasi: { di: 'skenario' },
     cerita: 'Skenario rawat jalan: anjungan A-031 → loket 3 → Poli PD PD-027 → lab → farmasi → kasir K-015.',
   },
   {
-    patientId: 'ps-hartono',
+    patientId: PATIENT_ID.hartono,
     lokasi: { di: 'skenario' },
     cerita: 'Skenario IGD → rawat inap: IGD R2 → ICU 3 / HCU 2 → Anggrek A-12.',
   },
   {
-    patientId: 'ps-ratna',
+    patientId: PATIENT_ID.ratna,
     lokasi: { di: 'skenario' },
     cerita: 'Skenario elektif TPDI × BTN: admisi → VIP 3 atau Melati M-210 → OK 2 pukul 10.30.',
   },
   {
-    patientId: 'ps-siti',
+    patientId: PATIENT_ID.siti,
     lokasi: { di: 'pendaftaran' },
     poliHariIni: ['PD'],
     cerita:
       'Baru datang kontrol hipertensi dengan surat kontrol Poli PD: di anjungan/loket 3, belum terdaftar (tiket A-032, antrean PD-028).',
   },
   {
-    patientId: 'ps-endang',
+    patientId: PATIENT_ID.endang,
     lokasi: { di: 'ranap', bed: 'M-203' },
     juga: [
       {
@@ -651,26 +663,26 @@ export const ROSTER: readonly RosterEntry[] = [
       'Pneumonia + DM, Melati M-203 hari ke-5, pulang hari ini: resume menunggu TTE, resep pulang di farmasi, tagihan final (sisa Rp 250.400 lewat QRIS setelah EDC ditolak).',
   },
   {
-    patientId: 'ps-darmawan',
+    patientId: PATIENT_ID.darmawan,
     lokasi: { di: 'poli', poli: 'PD' },
     poliHariIni: ['PD'],
     cerita:
       'Gout + dispepsia, menunggu dipanggil di Poli PD (PD-026); CPOE dengan blok CDS alergi ibuprofen.',
   },
   {
-    patientId: 'ps-lestiani',
+    patientId: PATIENT_ID.lestiani,
     lokasi: { di: 'igd', bed: 'B3' },
     cerita:
       'Kode stroke di IGD B3 sejak 10.10: CT kepala sudah diekspertise, lab tambahan menunggu sampel, minta bed kelas 3.',
   },
   {
-    patientId: 'ps-yusuf',
+    patientId: PATIENT_ID.yusuf,
     lokasi: { di: 'ranap', bed: 'A-15' },
     cerita:
       'CKD st. 5, Anggrek A-15 hari ke-3: kalium kritis 6,4 (10.39) belum dilaporkan; pasang kateter HD di OK 1 pukul 13.00.',
   },
   {
-    patientId: 'ps-rizky',
+    patientId: PATIENT_ID.rizky,
     lokasi: { di: 'kamar-operasi', kamar: 'OK 4' },
     juga: [
       {
@@ -682,136 +694,136 @@ export const ROSTER: readonly RosterEntry[] = [
       'Fraktur femur (KLL) masuk 2 Okt; ORIF di OK 4 selesai 10.28, kini di ruang pulih; foto kontrol 11.00.',
   },
   {
-    patientId: 'ps-maria',
+    patientId: PATIENT_ID.maria,
     lokasi: { di: 'radiologi', ruang: 'CT 1' },
     poliHariIni: ['PD'],
     cerita:
       'Kemoterapi: lab pra-kemo, kateter vena sentral di OK 1 selesai 09.52, kini CT restaging; kontrol dr. Rahmat 13.00 lalu rawat inap (minta bed kelas 2).',
   },
   {
-    patientId: 'ps-wulan',
+    patientId: PATIENT_ID.wulan,
     lokasi: { di: 'ranap', bed: 'W-322' },
     cerita:
       'SC elektif pagi ini di OK 3 (bayi lahir 07.52), kini di Mawar W-322; cicilan naik kelas VIP baru diajukan.',
   },
   {
-    patientId: 'ps-raka',
+    patientId: PATIENT_ID.raka,
     lokasi: { di: 'ranap', bed: 'W-308' },
     cerita:
       'DBD hari sakit ke-4, Mawar W-308 hari rawat ke-2: lab serial cito, tagihan berjalan, deposit naik kelas lewat VA setelah kartu kredit ditolak.',
   },
   {
-    patientId: 'ps-sutan',
+    patientId: PATIENT_ID.sutan,
     lokasi: { di: 'ranap', bed: 'VIP 2' },
     cerita:
       'Angina tidak stabil, pindah ke Paviliun VIP 2 setelah deposit naik kelas lunas 09.12; resep ditahan CDS, angiografi 13.00, konsul PD (eGFR 42).',
   },
   {
-    patientId: 'ps-ayu',
+    patientId: PATIENT_ID.ayu,
     lokasi: { di: 'kasir', antrean: 'K-011' },
     poliHariIni: ['PD'],
     cerita: 'Umum, ISPA: Poli PD PD-022 selesai 09.14, tagihan berjalan menunggu dibayar di kasir K-011.',
   },
   {
-    patientId: 'ps-hendro',
+    patientId: PATIENT_ID.hendro,
     lokasi: { di: 'ranap', bed: 'ICU 2' },
     cerita:
       'Pneumonia + gagal napas, ICU 2 hari ke-3 (ventilator): foto toraks portabel berlangsung, persetujuan CVC di tablet.',
   },
   {
-    patientId: 'ps-aminah',
+    patientId: PATIENT_ID.aminah,
     lokasi: { di: 'ranap', bed: 'ICU 7' },
     cerita: 'Syok septik, ICU 7 hari ke-2: resep cito meropenem, kultur darah dalam inkubasi.',
   },
   {
-    patientId: 'ps-nadia',
+    patientId: PATIENT_ID.nadia,
     lokasi: { di: 'igd', bed: 'B4' },
     cerita:
       'Demam anak, observasi di IGD B4; obat dari depo IGD siap diserahkan. Deposit rawat inap 1 Okt sudah dikembalikan (batal rawat).',
   },
   {
-    patientId: 'ps-fajar',
+    patientId: PATIENT_ID.fajar,
     lokasi: { di: 'kamar-operasi', kamar: 'OK 2' },
     cerita:
       'Kolesistektomi laparoskopik elektif di OK 2 selesai 09.24, di ruang pulih menunggu bed kelas 1; uang muka VA (webhook gagal), cicilan selisih plafon asuransi.',
   },
   {
-    patientId: 'ps-dewi',
+    patientId: PATIENT_ID.dewi,
     lokasi: { di: 'poli', poli: 'PD' },
     poliHariIni: ['PD'],
     cerita: 'Dispepsia, Poli PD PD-023: menunggu hasil darah lengkap dan ekspertise USG abdomen.',
   },
   {
-    patientId: 'ps-bonifasius',
+    patientId: PATIENT_ID.bonifasius,
     lokasi: { di: 'farmasi' },
     poliHariIni: ['JT'],
     cerita:
       'Pulang rawat angina 3 Okt, kontrol Poli Jantung pagi ini; tagihan lunas, menunggu serah terima obat PRB; refund lab APS diproses.',
   },
   {
-    patientId: 'ps-sumarni',
+    patientId: PATIENT_ID.sumarni,
     lokasi: { di: 'igd', bed: 'B5' },
     cerita:
       'Umum, kolik bilier: di IGD B5 sejak 06.05 menunggu bed kelas 1 (terlambat); USG sudah diekspertise, deposit QRIS (selisih MDR), kolesistektomi 14.00.',
   },
   {
-    patientId: 'ps-joko',
+    patientId: PATIENT_ID.joko,
     lokasi: { di: 'igd', bed: 'B6' },
     cerita:
       'Nyeri lutut kanan setelah jatuh, IGD B6. Riwayat ORIF femur Sep 2026 (klaim dispute tarif, cicilan naik kelas VIP).',
   },
   {
-    patientId: 'ps-fauzi',
+    patientId: PATIENT_ID.fauzi,
     lokasi: { di: 'igd', bed: 'B7' },
     cerita: 'Nyeri ulu hati sejak pagi, IGD B7 menunggu dokter (EKG).',
   },
   {
-    patientId: 'ps-robert',
+    patientId: PATIENT_ID.robert,
     lokasi: { di: 'igd', bed: 'B8' },
     cerita:
       'Sesak + kaki bengkak, IGD B8 menunggu lab, minta bed jantung kelas 1 telemetri; pulang rawat ICU 3 Okt (dua laporan IKP).',
   },
   {
-    patientId: 'ps-gilang',
+    patientId: PATIENT_ID.gilang,
     lokasi: { di: 'igd', bed: 'K1' },
     cerita: 'Umum, ISPA fast track di IGD K1: sudah bayar EDC 10.38, siap pulang.',
   },
   {
-    patientId: 'ps-wahyuni',
+    patientId: PATIENT_ID.wahyuni,
     lokasi: { di: 'farmasi' },
     poliHariIni: ['PD'],
     cerita:
       'Kontrol hipertensi Poli PD PD-024 selesai 09.40, tagihan lunas 09.55, menunggu obat PRB di farmasi.',
   },
   {
-    patientId: 'ps-rohana',
+    patientId: PATIENT_ID.rohana,
     lokasi: { di: 'poli', poli: 'PD' },
     poliHariIni: ['PD'],
     cerita:
       'Kontrol pasca rawat pneumonia + DM, sedang diperiksa dr. Andini (PD-025); alergi amoksisilin (blok CDS di CPOE).',
   },
   {
-    patientId: 'ps-sugeng',
+    patientId: PATIENT_ID.sugeng,
     lokasi: { di: 'farmasi' },
     poliHariIni: ['SR'],
     cerita:
       'Kontrol Poli Saraf, tagihan lunas; resep PRB ditelaah, QRIS sitikolin (non-Fornas) kedaluwarsa; MRI lumbosakral 14.00.',
   },
   {
-    patientId: 'ps-fransiska',
+    patientId: PATIENT_ID.fransiska,
     lokasi: { di: 'kasir', antrean: 'K-009' },
     poliHariIni: ['PD'],
     cerita:
       'Asuransi, kontrol hiperurisemia di Poli PD (PD-021); tagihan final (ekses plafon) menunggu dibayar di kasir K-009.',
   },
   {
-    patientId: 'ps-anisa',
+    patientId: PATIENT_ID.anisa,
     lokasi: { di: 'kamar-bersalin' },
     cerita:
       'Hamil 38 minggu, gawat janin: lab dan resep pra-operasi dari kamar bersalin, SC cito di OK 3 pukul 11.00.',
   },
   {
-    patientId: 'ps-lukman',
+    patientId: PATIENT_ID.lukman,
     lokasi: { di: 'kasir', antrean: 'K-010' },
     poliHariIni: ['PD'],
     cerita:
@@ -837,13 +849,13 @@ export interface AntreanPoli {
  * dan papan antrean TV. PD-027 milik Tn. Suryo (skenario; masuk lewat proyeksi setelah SEP terbit).
  */
 export const ANTREAN_POLI_PD: readonly AntreanPoli[] = [
-  { no: 'PD-020', patientId: 'ps-lukman', status: 'selesai', dipanggil: '08.40' },
-  { no: 'PD-021', patientId: 'ps-fransiska', status: 'selesai', dipanggil: '08.52' },
-  { no: 'PD-022', patientId: 'ps-ayu', status: 'selesai', dipanggil: '09.04' },
-  { no: 'PD-023', patientId: 'ps-dewi', status: 'menunggu-hasil', dipanggil: '09.16' },
-  { no: 'PD-024', patientId: 'ps-wahyuni', status: 'selesai', dipanggil: '09.26' },
-  { no: 'PD-025', patientId: 'ps-rohana', status: 'diperiksa', dipanggil: '10.31' },
-  { no: 'PD-026', patientId: 'ps-darmawan', status: 'menunggu', dipanggil: null },
+  { no: 'PD-020', patientId: PATIENT_ID.lukman, status: 'selesai', dipanggil: '08.40' },
+  { no: 'PD-021', patientId: PATIENT_ID.fransiska, status: 'selesai', dipanggil: '08.52' },
+  { no: 'PD-022', patientId: PATIENT_ID.ayu, status: 'selesai', dipanggil: '09.04' },
+  { no: 'PD-023', patientId: PATIENT_ID.dewi, status: 'menunggu-hasil', dipanggil: '09.16' },
+  { no: 'PD-024', patientId: PATIENT_ID.wahyuni, status: 'selesai', dipanggil: '09.26' },
+  { no: 'PD-025', patientId: PATIENT_ID.rohana, status: 'diperiksa', dipanggil: '10.31' },
+  { no: 'PD-026', patientId: PATIENT_ID.darmawan, status: 'menunggu', dipanggil: null },
 ];
 
 /** Nomor antrean Poli PD berikutnya untuk pendaftaran baru (sesudah PD-027 milik Tn. Suryo). */

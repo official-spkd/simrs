@@ -17,6 +17,7 @@ import type {
 import type { LogEntry } from '../engine/types';
 import { countInterfaceLogs, daysOfCover, reorderPoint } from '../../manajemen';
 import { demoExecutiveDashboard } from './dasbor';
+import { COSIGN_NOTE_ID, DOCTOR_APP_PATIENT_ID, PATIENT_ID } from './ids';
 import { PERSONA } from './staf';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from './waktu';
 
@@ -1032,8 +1033,8 @@ export const DOCTOR_PATIENTS: ReadonlyArray<
   Omit<DoctorAppInbox['patients'][number], 'name' | 'age' | 'rm'> & { patientId: string }
 > = [
   {
-    id: 'pt-endang',
-    patientId: 'ps-endang',
+    id: DOCTOR_APP_PATIENT_ID.endang,
+    patientId: PATIENT_ID.endang,
     location: 'Melati M-203',
     note: 'Pulang hari ini 13.00 · resume menunggu TTE',
     ews: 0,
@@ -1047,8 +1048,8 @@ export const DOCTOR_PATIENTS: ReadonlyArray<
     ],
   },
   {
-    id: 'pt-yusuf',
-    patientId: 'ps-yusuf',
+    id: DOCTOR_APP_PATIENT_ID.yusuf,
+    patientId: PATIENT_ID.yusuf,
     location: 'Anggrek A-15',
     note: 'Kalium kritis 6,4 (10.39) · kateter HD 13.00',
     ews: 2,
@@ -1062,8 +1063,8 @@ export const DOCTOR_PATIENTS: ReadonlyArray<
     ],
   },
   {
-    id: 'pt-aminah',
-    patientId: 'ps-aminah',
+    id: DOCTOR_APP_PATIENT_ID.aminah,
+    patientId: PATIENT_ID.aminah,
     location: 'ICU 7',
     note: 'Syok septik · norepinefrin titrasi',
     ews: 5,
@@ -1077,8 +1078,8 @@ export const DOCTOR_PATIENTS: ReadonlyArray<
     ],
   },
   {
-    id: 'pt-sutan',
-    patientId: 'ps-sutan',
+    id: DOCTOR_APP_PATIENT_ID.sutan,
+    patientId: PATIENT_ID.sutan,
     location: 'Paviliun VIP 2',
     note: 'Konsul PD: eGFR 42 sebelum angiografi 13.00',
     ews: 1,
@@ -1094,7 +1095,7 @@ export const DOCTOR_PATIENTS: ReadonlyArray<
 
 export const COSIGN_NOTES: DoctorAppInbox['cosign'] = [
   {
-    id: 'cs-endang',
+    id: COSIGN_NOTE_ID.endang,
     resident: `${PERSONA.dokterResiden} (PPDS PD)`,
     patientName: 'Ny. Endang Wijaya',
     rm: '00-07-61-33',
@@ -1102,7 +1103,7 @@ export const COSIGN_NOTES: DoctorAppInbox['cosign'] = [
     soap: 'A: pneumonia membaik, GDS terkontrol. P: pulang hari ini setelah resume ditandatangani, ganti antibiotik oral.',
   },
   {
-    id: 'cs-yusuf',
+    id: COSIGN_NOTE_ID.yusuf,
     resident: 'dr. Galang Prasetyo (PPDS PD)',
     patientName: 'Tn. Yusuf Hidayat',
     rm: '00-27-63-15',
@@ -1110,7 +1111,7 @@ export const COSIGN_NOTES: DoctorAppInbox['cosign'] = [
     soap: 'A: CKD st. 5, kalium 5,4. P: ikuti usulan apoteker, sesuaikan dosis antikoagulan; HD Rabu.',
   },
   {
-    id: 'cs-aminah',
+    id: COSIGN_NOTE_ID.aminah,
     resident: `${PERSONA.dokterResiden} (PPDS PD)`,
     patientName: 'Ny. Siti Aminah',
     rm: '00-22-08-14',

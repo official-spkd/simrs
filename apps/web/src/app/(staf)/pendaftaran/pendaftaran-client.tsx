@@ -18,7 +18,7 @@ import {
   registrationPrimary,
   registrationProgress,
 } from '@/lib/front-office';
-import { checkEligibilityAction, completeRegistrationAction, issueSepAction } from './actions';
+import { checkEligibilityAction, completeRegistrationAction, issueSepAction } from './actions-demo';
 import { type RegFixed, type RegScenarioView, useRegistration } from './use-registration';
 
 /**

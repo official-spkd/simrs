@@ -9,6 +9,7 @@ import {
   DEVICE_ONLY_RESOURCES,
   grantDiffEntry,
   isDeviceOnlyResource,
+  isPermissionKey,
   isPermission,
   isProtectedRole,
   parseGrantDiffEntry,
@@ -99,6 +100,10 @@ describe('izin front office (fase 2)', () => {
     expect(isPermission('kiosk', 'use')).toBe(true);
     expect(isPermission('queue.display', 'read')).toBe(true);
     expect(isPermission('queue.display', 'write')).toBe(false);
+    expect(isPermissionKey('queue.display.read')).toBe(true);
+    expect(isPermissionKey('schedule.sync')).toBe(true);
+    expect(isPermissionKey('schedule.delete')).toBe(false);
+    expect(isPermissionKey('schedule')).toBe(false);
   });
 
   it('petugas pendaftaran memegang semua izin front office berlingkup all', () => {

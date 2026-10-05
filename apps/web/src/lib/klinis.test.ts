@@ -3,6 +3,7 @@ import { cpoeContextSchema, poliEncounterSchema, poliWorklistSchema } from '@sim
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { RunResult, ScenarioDef, ScenarioEvent, TaskValue } from './demo/engine/types';
+import { ENCOUNTER_ID, PATIENT_ID } from './demo/fixtures/ids';
 import {
   CPOE_CATALOG,
   CPOE_ORDER_SETS,
@@ -105,10 +106,10 @@ describe('data dummy pemeriksaan poli dan CPOE', () => {
   });
 
   it('CPOE Ny. Rohana tanpa blok di awal; Tn. Darmawan: asam mefenamat diblokir (alergi ibuprofen)', () => {
-    const rohana = demoCpoeContext('kj-rohana', rj0, igd0);
+    const rohana = demoCpoeContext(ENCOUNTER_ID.rohana, rj0, igd0);
     expect(rohana?.patient.allergies).toEqual(['Amoksisilin']);
     expect(rohana?.orders.every((o) => o.cds.level !== 'block')).toBe(true);
-    const darmawan = demoCpoeContext('kj-darmawan', rj0, igd0);
+    const darmawan = demoCpoeContext(ENCOUNTER_ID.darmawan, rj0, igd0);
     expect(darmawan?.orders.find((o) => o.catalogId === 'asam-mefenamat-500')?.cds.level).toBe('block');
   });
 });
@@ -157,28 +158,30 @@ describe('proyeksi pasien skenario', () => {
     seq = act(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'panggil'), 'cek');
     const before = runScenario(RAWAT_JALAN, seq);
     expect(suryoQueueItem(before)).toBeNull();
-    expect(demoPoliWorklist(before).items.some((i) => i.patientId === 'ps-suryo')).toBe(false);
+    expect(demoPoliWorklist(before).items.some((i) => i.patientId === PATIENT_ID.suryo)).toBe(false);
     const after = runScenario(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'sep'));
-    const item = demoPoliWorklist(after).items.find((i) => i.patientId === 'ps-suryo');
+    const item = demoPoliWorklist(after).items.find((i) => i.patientId === PATIENT_ID.suryo);
     expect(item).toMatchObject({
       queueNo: SURYO_QUEUE,
       status: 'menunggu',
       waitNote: 'menunggu asesmen perawat',
     });
     expect(SURYO_QUEUE).toBe('PD-027');
-    expect(demoPoliEncounter('ps-suryo', after)?.patient.sep).toBe('0301R0011026V005102');
+    expect(demoPoliEncounter(PATIENT_ID.suryo, after)?.patient.sep).toBe('0301R0011026V005102');
   });
 
   it('tanda vital Tn. Suryo berasal dari rekam medis skenario setelah tugas asesmen perawat', () => {
     let seq = advance(RAWAT_JALAN, 'asesmen-perawat');
     expect(
-      demoPoliEncounter('ps-suryo', runScenario(RAWAT_JALAN, seq))?.vitals.every((v) => v.flag === 'belum'),
+      demoPoliEncounter(PATIENT_ID.suryo, runScenario(RAWAT_JALAN, seq))?.vitals.every(
+        (v) => v.flag === 'belum',
+      ),
     ).toBe(true);
     seq = act(RAWAT_JALAN, seq, 'td', '150/95');
     seq = act(RAWAT_JALAN, seq, 'gds', '250');
     const R = runScenario(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'jatuh', 'tinggi'));
     expect(R.rec.ttv).toBe('TD 150/95 · GDS 250 mg/dL');
-    const e = demoPoliEncounter('ps-suryo', R);
+    const e = demoPoliEncounter(PATIENT_ID.suryo, R);
     expect(e?.vitals.find((v) => v.id === 'td')).toMatchObject({ value: '150/95', flag: 'tinggi' });
     expect(e?.vitals.find((v) => v.id === 'gds')).toMatchObject({ value: '250', flag: 'tinggi' });
     expect(e?.patient.fallRisk).toBe('Risiko jatuh tinggi · gelang kuning');
@@ -190,10 +193,10 @@ describe('proyeksi pasien skenario', () => {
     let seq = advance(RAWAT_JALAN, 'pemeriksaan-dokter');
     seq = act(RAWAT_JALAN, act(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'panggil'), 'dx'), 'order', 'paket');
     const R = runScenario(RAWAT_JALAN, seq);
-    expect(demoPoliEncounter('ps-suryo', R)?.diagnoses.map((d) => d.code)).toEqual(['E11.9']);
+    expect(demoPoliEncounter(PATIENT_ID.suryo, R)?.diagnoses.map((d) => d.code)).toEqual(['E11.9']);
     expect(suryoQueueItem(R)?.status).toBe('menunggu-hasil');
     seq = act(RAWAT_JALAN, advance(RAWAT_JALAN, 'resep', seq), 'terapi', 'a');
-    const cpoe = demoCpoeContext('kj-suryo', runScenario(RAWAT_JALAN, seq), igd0);
+    const cpoe = demoCpoeContext(ENCOUNTER_ID.suryo, runScenario(RAWAT_JALAN, seq), igd0);
     expect(cpoe?.orders.filter((o) => o.kind === 'lab').map((o) => o.status)).toEqual([
       'terkirim',
       'terkirim',
@@ -205,13 +208,13 @@ describe('proyeksi pasien skenario', () => {
     });
     expect(cpoe?.results.map((r) => r.loinc)).toEqual(['4548-4', '13457-7', '2160-0']);
     const ganti = demoCpoeContext(
-      'kj-suryo',
+      ENCOUNTER_ID.suryo,
       runScenario(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'cds', 'ganti')),
       igd0,
     );
     expect(ganti?.orders.some((o) => o.catalogId === 'glimepirid-2')).toBe(false);
     const lanjut = demoCpoeContext(
-      'kj-suryo',
+      ENCOUNTER_ID.suryo,
       runScenario(RAWAT_JALAN, act(RAWAT_JALAN, seq, 'cds', 'lanjut')),
       igd0,
     );
@@ -220,11 +223,11 @@ describe('proyeksi pasien skenario', () => {
 
   it('Tn. Hartono: klopidogrel tertahan interaksi omeprazol sampai CDS ditindaklanjuti', () => {
     let seq = act(IGD_RANAP, advance(IGD_RANAP, 'tata-laksana'), 'k', 'lengkap');
-    const pending = demoCpoeContext('kj-hartono', rj0, runScenario(IGD_RANAP, seq));
+    const pending = demoCpoeContext(ENCOUNTER_ID.hartono, rj0, runScenario(IGD_RANAP, seq));
     const clop = pending?.orders.find((o) => o.catalogId === 'klopidogrel-75');
     expect(clop).toMatchObject({ status: 'draf', cds: { level: 'block', rule: 'interaksi' } });
     seq = act(IGD_RANAP, seq, 'cds', 'ganti');
-    const done = demoCpoeContext('kj-hartono', rj0, runScenario(IGD_RANAP, seq));
+    const done = demoCpoeContext(ENCOUNTER_ID.hartono, rj0, runScenario(IGD_RANAP, seq));
     expect(done?.orders.find((o) => o.catalogId === 'klopidogrel-75')).toMatchObject({
       status: 'terkirim',
       cds: { level: 'info' },
@@ -241,13 +244,13 @@ describe('ketersediaan CPOE kunjungan', () => {
     const triase = runScenario(IGD_RANAP, advance(IGD_RANAP, 'triase'));
     for (const igd of [igd0, triase]) {
       expect(hartonoCpoeOpen(igd)).toBe(false);
-      expect(demoCpoeContext('kj-hartono', rj0, igd)).toBeNull();
-      expect(listed(igd)).not.toContain('kj-hartono');
+      expect(demoCpoeContext(ENCOUNTER_ID.hartono, rj0, igd)).toBeNull();
+      expect(listed(igd)).not.toContain(ENCOUNTER_ID.hartono);
     }
     for (const step of ['asesmen-dokter', 'nilai-kritis', 'tata-laksana']) {
       const igd = runScenario(IGD_RANAP, advance(IGD_RANAP, step));
-      expect(demoCpoeContext('kj-hartono', rj0, igd)?.setting, step).toBe('igd');
-      expect(listed(igd), step).toContain('kj-hartono');
+      expect(demoCpoeContext(ENCOUNTER_ID.hartono, rj0, igd)?.setting, step).toBe('igd');
+      expect(listed(igd), step).toContain(ENCOUNTER_ID.hartono);
     }
     // Langkah admisi: tetap terbuka sampai tugas `transfer` selesai, lalu tertutup (order lanjut di rawat inap).
     let seq = advance(IGD_RANAP, 'admisi');
@@ -261,23 +264,30 @@ describe('ketersediaan CPOE kunjungan', () => {
     }
     const transferred = runScenario(IGD_RANAP, seq);
     expect(doneValue(transferred, 'admisi', 'transfer')).toBe(true);
-    expect(demoCpoeContext('kj-hartono', rj0, transferred)).toBeNull();
-    expect(listed(transferred)).not.toContain('kj-hartono');
+    expect(demoCpoeContext(ENCOUNTER_ID.hartono, rj0, transferred)).toBeNull();
+    expect(listed(transferred)).not.toContain(ENCOUNTER_ID.hartono);
     const ranap = runScenario(IGD_RANAP, advance(IGD_RANAP, 'rawat-inap'));
-    expect(demoCpoeContext('kj-hartono', rj0, ranap)).toBeNull();
+    expect(demoCpoeContext(ENCOUNTER_ID.hartono, rj0, ranap)).toBeNull();
   });
 
   it('demoCpoeAvailable selaras demoCpoeContext (dasar tautan "Order" di layar lain)', () => {
     const ranap = runScenario(IGD_RANAP, advance(IGD_RANAP, 'rawat-inap'));
-    const ids = ['kj-suryo', 'kj-hartono', 'kj-rohana', 'kj-darmawan', 'kj-ratna', 'kj-tidak-ada'];
+    const ids = [
+      ENCOUNTER_ID.suryo,
+      ENCOUNTER_ID.hartono,
+      ENCOUNTER_ID.rohana,
+      ENCOUNTER_ID.darmawan,
+      ENCOUNTER_ID.ratna,
+      'kj-tidak-ada',
+    ];
     for (const igd of [igd0, igdAsesmen, ranap]) {
       for (const id of ids) {
         expect(demoCpoeAvailable(id, igd), id).toBe(demoCpoeContext(id, rj0, igd) !== null);
       }
     }
-    expect(demoCpoeAvailable('kj-rohana', igd0)).toBe(true);
+    expect(demoCpoeAvailable(ENCOUNTER_ID.rohana, igd0)).toBe(true);
     // Ny. Endang dirawat inap (Melati M-203), bukan pasien poli: tidak punya CPOE rawat jalan.
-    expect(demoCpoeAvailable('kj-endang', igd0)).toBe(false);
+    expect(demoCpoeAvailable(ENCOUNTER_ID.endang, igd0)).toBe(false);
     expect(demoCpoeAvailable('kj-tidak-ada', igdAsesmen)).toBe(false);
   });
 });
