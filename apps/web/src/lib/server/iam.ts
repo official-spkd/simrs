@@ -1,6 +1,7 @@
 import 'server-only';
 import { PERMISSION_SCOPES } from '@simrs/shared';
 import { z } from 'zod';
+import { api } from './api';
 
 /** Bentuk respons API layar Akses (P03). Respons di luar bentuk ini ditolak, tidak diteruskan ke UI. */
 
@@ -110,6 +111,34 @@ export const unitsSchema = z.object({
   items: z.array(z.object({ id: z.uuid(), name: z.string(), active: z.boolean() })),
   nextCursor: z.string().nullable(),
 });
+
+/** Batas halaman API unit (`listQuerySchema.limit`) dan pengaman jumlah halaman (≤ 10.000 unit). */
+const UNIT_PAGE = 200;
+const MAX_UNIT_PAGES = 50;
+
+/**
+ * SEMUA unit aktif RS untuk pilihan di formulir (undang pengguna, perangkat anjungan/TV), urut nama. Mengikuti kursor
+ * API sampai habis: RS dengan lebih dari satu halaman unit tidak boleh kehilangan pilihan (unit terbaru ada di halaman
+ * terakhir karena urutan API = id UUID v7).
+ */
+export async function listActiveUnits(): Promise<Array<{ value: string; label: string }>> {
+  const items: Array<{ id: string; name: string; active: boolean }> = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < MAX_UNIT_PAGES; page++) {
+    const qs = new URLSearchParams({ limit: String(UNIT_PAGE) });
+    if (cursor) qs.set('cursor', cursor);
+    const res: z.infer<typeof unitsSchema> = await api(`/api/v1/facility/units?${qs.toString()}`, {
+      schema: unitsSchema,
+    });
+    items.push(...res.items);
+    cursor = res.nextCursor;
+    if (!cursor) break;
+  }
+  return items
+    .filter((u) => u.active)
+    .map((u) => ({ value: u.id, label: u.name }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'id'));
+}
 
 export const createdUserSchema = z.object({
   id: z.uuid(),
