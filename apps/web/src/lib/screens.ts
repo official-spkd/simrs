@@ -14,7 +14,18 @@ export const FRONT_OFFICE_PERMISSIONS = [
   'kiosk.use',
   'queue.display.read',
 ] as const satisfies readonly PermissionKey[];
-export type ScreenPermission = (typeof FRONT_OFFICE_PERMISSIONS)[number];
+
+/**
+ * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), dipilih agar cocok dengan posisi pemakai layar
+ * (`demoRoles`) menurut matriks bawaan potongan 3.0a: Pemeriksaan poli, IGD, Rawat inap, dan Resume `clinical.write`
+ * (TTE resume tetap `clinical.sign` di API), CPOE `order.write`, Tempat tidur `bed.read` (manajemen hanya membaca),
+ * Persetujuan tindakan `consent.write`. Kunci ini ditambahkan ke `PERMISSION_CATALOG` oleh potongan 3.0a; sampai itu
+ * tergabung tidak ada peran yang memegangnya, sehingga di mode api layar klinis menampilkan "Akses ditolak". Setelah
+ * 3.0a: tambahkan `satisfies readonly PermissionKey[]` seperti daftar front office.
+ */
+export const CLINICAL_PERMISSIONS = ['clinical.write', 'order.write', 'bed.read', 'consent.write'] as const;
+export type ScreenPermission =
+  (typeof FRONT_OFFICE_PERMISSIONS)[number] | (typeof CLINICAL_PERMISSIONS)[number];
 
 /**
  * Registri layar fase 2–10 (ADR-0023, peta docs/08 §4). Satu tempat yang menentukan sumber data tiap layar:
@@ -45,7 +56,7 @@ export interface ScreenDef {
   plannedPermission: string;
   /**
    * Izin sungguhan untuk layar hibrida demo/api (`requireScreen`): mode presentasi tetap memakai data dummy, mode api
-   * membuka rute untuk peran yang memegang izin ini (isi api diisi potongan fase 2). Kosong = layar hanya ada di mode
+   * membuka rute untuk peran yang memegang izin ini (isi api diisi potongan fase 2–3). Kosong = layar hanya ada di mode
    * presentasi sampai domainnya punya izin di katalog.
    */
   permission?: ScreenPermission;
@@ -150,6 +161,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'demo',
     plannedPermission: 'clinical.write',
+    permission: 'clinical.write',
     demoRoles: CLINICIANS,
     layout: 'staf',
   },
@@ -162,6 +174,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'demo',
     plannedPermission: 'order.write',
+    permission: 'order.write',
     demoRoles: ['dokter', 'dokter_residen'],
     layout: 'staf',
   },
@@ -174,6 +187,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'demo',
     plannedPermission: 'clinical.write',
+    permission: 'clinical.write',
     // Admisi IGD (petugas pendaftaran) membuka kunjungan gawat darurat dari papan IGD.
     demoRoles: ['dokter', 'dokter_residen', 'perawat', 'petugas_pendaftaran'],
     layout: 'staf',
@@ -186,7 +200,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['K05'],
     phase: 3,
     status: 'demo',
-    plannedPermission: 'bed.write',
+    plannedPermission: 'bed.read',
+    permission: 'bed.read',
     demoRoles: ['perawat', 'petugas_pendaftaran', 'manajemen'],
     layout: 'staf',
   },
@@ -199,6 +214,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'demo',
     plannedPermission: 'clinical.write',
+    permission: 'clinical.write',
     demoRoles: CLINICIANS,
     layout: 'staf',
   },
@@ -210,7 +226,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['K13'],
     phase: 3,
     status: 'demo',
-    plannedPermission: 'clinical.sign',
+    plannedPermission: 'clinical.write',
+    permission: 'clinical.write',
     demoRoles: ['dokter', 'dokter_residen'],
     layout: 'staf',
   },
@@ -223,6 +240,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 3,
     status: 'demo',
     plannedPermission: 'consent.write',
+    permission: 'consent.write',
     demoRoles: ['dokter', 'perawat'],
     layout: 'perangkat',
   },
