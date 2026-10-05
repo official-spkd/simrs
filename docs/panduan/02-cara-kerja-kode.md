@@ -99,7 +99,9 @@ POST /api/v1/auth/login       { tenantCode?, username, password, trustedDeviceTo
                                  ya, perangkat tepercaya sah → { status: 'authenticated', accessToken, … }  (langkah kode dilewati)
                                  ya, belum punya MFA → { status: 'mfa_enrollment_required', accessToken, … }  (sesi terbatas)
                                  tidak → hitungan gagal + audit di-commit, lalu 401 (pesan seragam)
+POST /api/v1/auth/mfa/backup-options { challengeToken } → { channels } yang diizinkan RS untuk akun ini (kosong = wajib aplikasi)
 POST /api/v1/auth/mfa/backup-code { challengeToken, channel: whatsapp|email } → kode 6 digit lewat outbox (maks 3, jeda 30 dtk)
+  → ditolak 403 (diaudit access_denied) bila kanal dimatikan RS atau akun memegang peran login.totp_only_roles
 POST /api/v1/auth/mfa/verify  { challengeToken, code, trustDevice? } → { accessToken, refreshToken, …, trustedDevice }
 POST /api/v1/auth/refresh     { refreshToken } → token baru (rotasi; token lama dipakai lagi → sesi dicabut)
 
@@ -112,6 +114,10 @@ POST /api/v1/auth/pin/login     { deviceToken, pin } → { status: 'authenticate
   → percobaan dicadangkan + di-commit SEBELUM PIN diperiksa; salah ke-5 → PIN dicabut (details.pin = 'revoked')
   → sesi 2 jam, idle 5 menit, posisi terkunci ke posisi pendaftaran (auth_sessions.device_id)
 POST /api/v1/iam/pin-devices/:id/revoke (iam.users.write) → admin mencabut PIN perangkat pengguna lain
+POST /api/v1/iam/trusted-devices/:id/revoke (iam.users.write) → admin mencabut perangkat tepercaya (st1)
+  → GET /api/v1/iam/users/:id memuat pinDevices + trustedDevices yang masih berlaku
+Pengaturan RS (P12): pin.enabled, pin.allowed_roles, login.backup_code_channels, login.totp_only_roles;
+  /auth/me → pin: { available, reason } (aturan + pengaturan RS, dihitung API; web hanya menampilkan)
 ```
 
 | Bagian             | Berkas                                  | Catatan                                                                                                                          |
@@ -123,6 +129,7 @@ POST /api/v1/iam/pin-devices/:id/revoke (iam.users.write) → admin mencabut PIN
 | Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |
 | Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)        |
 | Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                  |
+| Sandi bocor        | `@simrs/db` → `isBreachedPassword`      | `ref.breached_passwords` (SHA-1, diisi `pnpm db:import-breached`), kueri hanya rentang awalan 20 bit                             |
 | Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                             |
 
 Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=local` dan `ALLOW_DEV_TENANT_HEADER=true`; tes modul memakainya, tes auth memakai token sungguhan (`apps/api/test/helpers.ts` → `createTestUser`, `login`). Alasan desain: ADR-0011.

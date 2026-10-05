@@ -287,6 +287,23 @@ export function defaultRolesFor(
  */
 export const PROTECTED_ROLES = ['admin_tenant', 'superadmin_platform'] as const;
 
+/**
+ * Peran sensitif (docs/05 §1: admin, keuangan, rekam medis; ditambah koding, audit, privasi, manajemen, operator
+ * platform). Bawaan pengaturan `login.totp_only_roles` (tanpa kode cadangan WhatsApp/email, ADR-0022) dan tidak
+ * pernah boleh memakai PIN masuk cepat (ADR-0024).
+ */
+export const SENSITIVE_ROLES = [
+  'admin_tenant',
+  'kasir',
+  'koder',
+  'akuntan',
+  'petugas_rm',
+  'manajemen',
+  'auditor_mutu',
+  'petugas_privasi',
+  'superadmin_platform',
+] as const;
+
 export function isProtectedRole(code: string | null | undefined): boolean {
   return (PROTECTED_ROLES as readonly (string | null | undefined)[]).includes(code);
 }

@@ -5,7 +5,6 @@ import {
   PIN_IDLE_MINUTES,
   PIN_MAX_ATTEMPTS,
   PIN_SESSION_HOURS,
-  pinAllowedForRole,
 } from '@simrs/shared';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
@@ -14,22 +13,10 @@ import { cookieNames, parsePinTokens, pinTokenId } from '@/lib/server/cookies';
 import { pinDevicesSchema } from '@/lib/server/schemas';
 import { requireSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
-import { canRegisterPin, type SessionView } from '@/lib/session-view';
+import { canRegisterPin, pinUnavailableText } from '@/lib/session-view';
 import { RegisterPinForm, RemovePinButton } from './pin-forms';
 
 export const metadata: Metadata = { title: 'PIN masuk cepat' };
-
-/** Mengapa posisi sesi ini tidak bisa mendaftarkan PIN (sama dengan aturan API, ADR-0024). */
-function notEligible(s: SessionView): string {
-  if (s.quickLogin) {
-    return 'Anda sedang masuk dengan PIN. Untuk mendaftarkan atau mengganti PIN, keluar lalu masuk dengan kata sandi dan kode verifikasi.';
-  }
-  if (s.tenant.kind !== 'hospital') return 'PIN masuk cepat tidak tersedia untuk akun operator platform.';
-  if (!pinAllowedForRole(s.role?.code)) {
-    return `Posisi ${s.role?.name ?? 'ini'} tidak bisa memakai PIN masuk cepat; peran ini wajib masuk dengan kata sandi dan kode verifikasi.`;
-  }
-  return 'PIN hanya untuk posisi yang terikat ke unit kerja. Ganti posisi ke posisi berunit lebih dulu.';
-}
 
 /**
  * P02 · PIN masuk cepat per perangkat terdaftar (docs/05 §1, ADR-0024): daftarkan peramban ini untuk posisi sesi
@@ -77,7 +64,7 @@ export default async function PinPage() {
             replacing={devices.some((d) => here.has(d.id))}
           />
         ) : (
-          <p className="m-0 text-small text-ink-700">{notEligible(s)}</p>
+          <p className="m-0 text-small text-ink-700">{pinUnavailableText(s.pin?.reason, s.role?.name)}</p>
         )}
       </section>
 

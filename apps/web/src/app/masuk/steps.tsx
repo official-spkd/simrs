@@ -1,5 +1,6 @@
 'use client';
 
+import type { BackupCodeChannel } from '@simrs/shared';
 import { Button, cx, Field } from '@simrs/ui';
 import { useActionState, useState, useTransition } from 'react';
 import {
@@ -100,14 +101,61 @@ export function AkunStep({
   );
 }
 
-export function VerifikasiStep({ lanjut, akun }: { lanjut: string; akun: string }) {
+/** Tautan kode cadangan sesuai kanal yang diizinkan RS untuk akun ini (ADR-0022, pengaturan P12). */
+function BackupCodeLinks({
+  channels,
+  sending,
+  send,
+}: {
+  channels: BackupCodeChannel[];
+  sending: boolean;
+  send: (channel: BackupCodeChannel) => void;
+}) {
+  const linkClass =
+    'cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-brand-600 underline disabled:cursor-wait disabled:text-ink-400';
+  const wa = channels.includes('whatsapp');
+  const email = channels.includes('email');
+  if (!wa && !email) {
+    return (
+      <span className="text-caption text-ink-500">
+        Kode berlaku 30 detik. Tidak punya akses aplikasi? Akun ini wajib memakai aplikasi autentikator;
+        hubungi admin SIM RS untuk mereset verifikasi dua langkah.
+      </span>
+    );
+  }
+  return (
+    <span className="text-caption text-ink-500">
+      Kode berlaku 30 detik. Tidak punya akses aplikasi?{' '}
+      {wa && (
+        <button type="button" className={linkClass} disabled={sending} onClick={() => send('whatsapp')}>
+          Kirim kode lewat WhatsApp
+        </button>
+      )}
+      {wa && email && ' atau '}
+      {email && (
+        <button type="button" className={linkClass} disabled={sending} onClick={() => send('email')}>
+          {wa ? 'email' : 'Kirim kode lewat email'}
+        </button>
+      )}
+      .
+    </span>
+  );
+}
+
+export function VerifikasiStep({
+  lanjut,
+  akun,
+  backupChannels,
+}: {
+  lanjut: string;
+  akun: string;
+  backupChannels: BackupCodeChannel[];
+}) {
   const [state, action] = useActionState(verifyMfaAction, initial);
   const [backup, setBackup] = useState<BackupCodeState>({});
   const [sending, startSending] = useTransition();
-  const send = (channel: 'whatsapp' | 'email') =>
+  const send = (channel: BackupCodeChannel) =>
     startSending(async () => setBackup(await sendBackupCodeAction(channel)));
-  const linkClass =
-    'cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-brand-600 underline disabled:cursor-wait disabled:text-ink-400';
   return (
     <StepCard
       title="Verifikasi dua langkah"
@@ -121,17 +169,7 @@ export function VerifikasiStep({ lanjut, akun }: { lanjut: string; akun: string 
       <form action={action} className="flex flex-col gap-[18px]">
         <Lanjut value={lanjut} />
         <OtpInput error={state.fields?.code} />
-        <span className="text-caption text-ink-500">
-          Kode berlaku 30 detik. Tidak punya akses aplikasi?{' '}
-          <button type="button" className={linkClass} disabled={sending} onClick={() => send('whatsapp')}>
-            Kirim kode lewat WhatsApp
-          </button>{' '}
-          atau{' '}
-          <button type="button" className={linkClass} disabled={sending} onClick={() => send('email')}>
-            email
-          </button>
-          .
-        </span>
+        <BackupCodeLinks channels={backupChannels} sending={sending} send={send} />
         {backup.message && (
           <span role="status" className="text-caption text-success">
             {backup.message} Kode berlaku sampai langkah ini berakhir (5 menit).

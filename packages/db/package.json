@@ -45,6 +45,7 @@
     "create-admin": "tsx --env-file-if-exists=../../.env scripts/create-admin.ts",
     "create-demo": "tsx --env-file-if-exists=../../.env scripts/create-demo.ts",
     "akun-presentasi": "tsx --env-file-if-exists=../../.env scripts/create-presentation-accounts.ts",
+    "import-breached": "tsx --env-file-if-exists=../../.env scripts/import-breached.ts",
     "import-ref": "tsx --env-file-if-exists=../../.env scripts/import-ref.ts",
     "sync-permissions": "tsx --env-file-if-exists=../../.env scripts/sync-permissions.ts"
   },

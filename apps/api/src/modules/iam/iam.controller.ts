@@ -115,6 +115,20 @@ export class IamController {
     return this.iam.resetMfa(id);
   }
 
+  /** Cabut "percayai perangkat ini" satu perangkat milik pengguna lain. ADR-0022. */
+  @Post('trusted-devices/:id/revoke')
+  @HttpCode(200)
+  @RequirePermission('iam.users', 'write')
+  @Audited({
+    action: 'deactivate',
+    resource: 'trusted_device',
+    resourceId: paramId,
+    details: () => ({ reason: 'admin_revoked' }),
+  })
+  revokeTrustedDevice(@Param('id', uuid) id: string) {
+    return this.iam.revokeTrustedDevice(id);
+  }
+
   /** Cabut PIN masuk cepat satu perangkat (perangkat hilang, staf pindah unit). ADR-0024. */
   @Post('pin-devices/:id/revoke')
   @HttpCode(200)
