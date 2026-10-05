@@ -7,7 +7,6 @@ import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe';
 import { EmergencySepService } from './emergency-sep.service';
 
-
 /**
  * Kunjungan klinis · bagian ADT/IGD (potongan 3.3): SEP IGD menyusul diagnosa dokter jaga
  * (`POST /api/v1/encounters/:id/emergency-sep`, bentuk rute per-kunjungan kanonik fase 3). Izin `coverage.write`.
