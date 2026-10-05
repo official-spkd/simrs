@@ -86,6 +86,7 @@ model Tenant {
   referrals             Referral[]
   seps                  Sep[]
   patientContacts       PatientContact[]
+  domainEvents          DomainEvent[]
   backupRuns            BackupRun[]
   restoreTests          RestoreTest[]
 
@@ -1369,6 +1370,11 @@ model Appointment {
   quotaBucket     String    @map("quota_bucket")
   /// mobile_jkn | aplikasi | anjungan | loket
   channel         String
+  /// JKN: jenis kunjungan Antrean BPJS (`ANTREAN_JENIS_KUNJUNGAN`): 1 rujukan FKTP, 2 rujukan internal, 3 kontrol,
+  /// 4 rujukan antar-RS. Wajib bila `quota_bucket = jkn`, kosong untuk non-JKN.
+  jknVisitKind    Int?      @map("jkn_visit_kind") @db.SmallInt
+  /// JKN: nomor referensi (no. rujukan/surat kontrol) untuk `nomorreferensi` Antrean; wajib bila JKN.
+  referenceNumber String?   @map("reference_number")
   /// booked | checked_in | cancelled | no_show | completed
   status          String    @default("booked")
   estimatedAt     DateTime? @map("estimated_at") @db.Timestamptz(3)
@@ -1583,9 +1589,10 @@ model Referral {
   id               String    @id @db.Uuid
   tenantId         String    @map("tenant_id") @db.Uuid
   patientId        String    @map("patient_id") @db.Uuid
-  /// rujukan-fktp | rujukan-rs | surat-kontrol | rujukan-keluar | rujukan-internal
+  /// rujukan-fktp | rujukan-rs | surat-kontrol | rujukan-keluar | rujukan-internal | spri
   kind             String
-  number           String
+  /// Nomor dari BPJS/perujuk; kosong hanya selama `pending` (draf terkirim, menunggu nomor). Sekali terisi tetap.
+  number           String?
   /// Kode PPK BPJS perujuk (masuk) atau tujuan (keluar).
   ppkCode          String?   @map("ppk_code")
   /// Nama faskes perujuk/tujuan atau poli asal surat kontrol.
@@ -1603,7 +1610,7 @@ model Referral {
   validUntil       DateTime? @map("valid_until") @db.Date
   /// Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan).
   visitNo          Int?      @map("visit_no") @db.SmallInt
-  /// active | used | expired | cancelled
+  /// pending | active | used | expired | cancelled
   status           String    @default("active")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy        String?   @map("created_by") @db.Uuid
@@ -1647,6 +1654,8 @@ model Sep {
   /// Diagnosa awal ICD-10.
   diagnosisCode    String?   @map("diagnosis_code")
   lastErrorCode    String?   @map("last_error_code")
+  /// Alasan penolakan dari BPJS (pesan `metaData`, tanpa PHI); hanya untuk status `failed`.
+  rejectionReason  String?   @map("rejection_reason")
   issuedAt         DateTime? @map("issued_at") @db.Timestamptz(3)
   cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
   cancelledBy      String?   @map("cancelled_by") @db.Uuid
@@ -1755,4 +1764,26 @@ model RestoreTest {
 
   @@index([tenantId, finishedAt])
   @@map("restore_tests")
+}
+
+/// Event domain yang diterbitkan (`DomainEvents.publish`, apps/api/src/infra/events), disimpan di transaksi penerbit
+/// SEBELUM penangan berjalan: ikut commit/batal bersama perubahan asalnya. Payload hanya ID dan nilai enum (tanpa PHI,
+/// dijaga penerbit). Append-only.
+model DomainEvent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// Nama event, mis. `booking.checked_in`.
+  name          String
+  payload       Json
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  requestId     String?  @map("request_id")
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Perangkat pelaku (sesi PIN, kelak anjungan/TV ADR-0027).
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name, occurredAt])
+  @@map("domain_events")
 }
