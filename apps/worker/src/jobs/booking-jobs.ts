@@ -1,4 +1,4 @@
-import { enqueueOutbox, insertBpjsQueueTask } from '@simrs/db';
+import { dbDateFromIso, enqueueOutbox, insertBpjsQueueTask } from '@simrs/db';
 import {
   ANTREAN_TASK_BATAL,
   isoDateJakarta,
@@ -8,7 +8,6 @@ import {
 import type { PeriodicJob } from './periodic-job-types';
 
 const DAY_MS = 86_400_000;
-const dbDate = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 /**
  * F02 · Tandai tidak hadir (`no_show`) booking yang tidak pernah check-in sampai akhir hari layanan WIB, dan batalkan
@@ -20,7 +19,7 @@ export const bookingNoShowJob: PeriodicJob = {
   schedule: { dailyAt: '23:30' },
   module: 'F02',
   async run({ tenantId, now, tx }) {
-    const today = dbDate(isoDateJakarta(now));
+    const today = dbDateFromIso(isoDateJakarta(now));
     await tx(async (t) => {
       const rows = await t.appointment.findMany({
         where: { status: 'booked', appointmentDate: { lte: today } },
@@ -51,7 +50,7 @@ export const bookingReminderJob: PeriodicJob = {
   schedule: { dailyAt: '18:00' },
   module: 'F02',
   async run({ tenantId, now, tx }) {
-    const tomorrow = dbDate(isoDateJakarta(new Date(now.getTime() + DAY_MS)));
+    const tomorrow = dbDateFromIso(isoDateJakarta(new Date(now.getTime() + DAY_MS)));
     await tx(async (t) => {
       const rows = await t.appointment.findMany({
         where: { status: 'booked', appointmentDate: tomorrow, patient: { phoneEnc: { not: null } } },
