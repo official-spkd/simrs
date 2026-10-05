@@ -9,14 +9,19 @@ import { randomBytes } from 'node:crypto';
 import { createPrismaClient, type PrismaClient, verifyAuditTrail, withTenant } from '@simrs/db';
 import { asTestSuperuser, testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
-import { auditAnchorObjectKey, createAuditAnchorDocument } from '@simrs/shared/node';
+import {
+  auditAnchorObjectKey,
+  contentMd5,
+  createAuditAnchorDocument,
+  S3Client,
+  S3Error,
+} from '@simrs/shared/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { S3WormAnchorStore } from '../src/audit/anchor-store';
 import { AuditAnchorJob } from '../src/audit/audit-anchor.job';
 import { AuditSummaryJob } from '../src/audit/audit-summary.job';
 import { PERIODIC_JOB_REGISTRY, type PeriodicJob } from '../src/jobs/periodic-jobs';
 import { assertValidJobs, PeriodicScheduler, repeatOptions } from '../src/jobs/periodic.scheduler';
-import { md5Base64, S3Error, S3Lite, xmlValues } from '../src/audit/s3-lite';
 import { loadWorkerEnv, type WorkerEnv } from '../src/config/env';
 import { testEnv, testModule } from './helpers';
 
@@ -36,7 +41,7 @@ const hasS3 = Boolean(process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY && pr
 let env: WorkerEnv;
 let owner: PrismaClient;
 let app: PrismaClient;
-let s3: S3Lite;
+let s3: S3Client;
 let store: S3WormAnchorStore;
 let job: AuditAnchorJob;
 let dbOnlyJob: AuditAnchorJob;
@@ -44,13 +49,10 @@ let summaries: AuditSummaryJob;
 
 /** Hapus semua versi objek di bucket uji yang masa kuncinya sudah habis (yang masih terkunci ditolak, diabaikan). */
 async function purgeExpired(): Promise<void> {
-  const res = await s3.send({ method: 'GET', bucket: BUCKET, query: { versions: '', 'max-keys': '1000' } });
-  const xml = res.body.toString('utf8');
-  for (const block of xml.match(/<(Version|DeleteMarker)>[\s\S]*?<\/(Version|DeleteMarker)>/g) ?? []) {
-    const key = xmlValues(block, 'Key')[0];
-    const versionId = xmlValues(block, 'VersionId')[0];
-    if (!key || !versionId) continue;
-    await s3.send({ method: 'DELETE', bucket: BUCKET, key, query: { versionId } }).catch(() => undefined);
+  for (const v of await s3.listObjectVersions(BUCKET)) {
+    await s3
+      .send({ method: 'DELETE', bucket: BUCKET, key: v.key, query: { versionId: v.versionId } })
+      .catch(() => undefined);
   }
 }
 
@@ -65,7 +67,7 @@ beforeAll(async () => {
   owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
   app = createPrismaClient({ connectionString: testDbUrls().app, max: 2 });
   if (hasS3) {
-    s3 = new S3Lite({
+    s3 = new S3Client({
       endpoint: env.S3_ENDPOINT ?? '',
       region: env.S3_REGION,
       accessKeyId: env.S3_ACCESS_KEY ?? '',
@@ -155,12 +157,11 @@ describe.skipIf(!hasS3)('jangkar audit ke bucket WORM', () => {
       bucket: BUCKET,
       key,
       body: forged,
-      headers: { 'content-type': 'application/json', 'content-md5': md5Base64(forged) },
+      headers: { 'content-type': 'application/json', 'content-md5': contentMd5(forged) },
     });
     expect(await store.get(key)).toEqual(original);
 
-    const versions = await s3.send({ method: 'GET', bucket: BUCKET, query: { versions: '', prefix: key } });
-    const ids = xmlValues(versions.body.toString('utf8'), 'VersionId');
+    const ids = (await s3.listObjectVersions(BUCKET, key)).map((v) => v.versionId);
     const firstVersion = ids.at(-1) ?? '';
     expect(ids).toHaveLength(2);
     const retention = await s3.send({
@@ -169,7 +170,7 @@ describe.skipIf(!hasS3)('jangkar audit ke bucket WORM', () => {
       key,
       query: { retention: '', versionId: firstVersion },
     });
-    expect(xmlValues(retention.body.toString('utf8'), 'Mode')).toEqual(['COMPLIANCE']);
+    expect(retention.body.toString('utf8')).toContain('<Mode>COMPLIANCE</Mode>');
     await expect(
       s3.send({ method: 'DELETE', bucket: BUCKET, key, query: { versionId: firstVersion } }),
     ).rejects.toBeInstanceOf(S3Error);
