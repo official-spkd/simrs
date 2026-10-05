@@ -13,7 +13,7 @@ import {
 import { queueTicketSchema } from './queue';
 
 /**
- * F02 · Kontrak API booking dan janji temu (`/api/v1/bookings`, rencana fase 2 potongan 3).
+ * F02 · Kontrak API booking dan janji temu (`/api/v1/booking/appointments`, rencana fase 2 potongan 3).
  * Membuat booking = memesan kuota sesi secara atomik (`reserveQuota`), kode booking harian 10 digit
  * (`NUMBER_KINDS.booking_code`), nomor antrean poli dicadangkan, dan (JKN) operasi outbox `bpjs.antrean.add`.
  * Pendaftaran walk-in JKN di loket juga membuat booking kanal `loket`: kode booking dibutuhkan task ID BPJS.

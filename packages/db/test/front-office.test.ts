@@ -659,6 +659,133 @@ describe('SEP dan penjaminan', () => {
   });
 });
 
+describe('registrasi + SEP (potongan 5a)', () => {
+  it('status kirim SEP boleh berubah setelah terbit/batal (hasil hapus BPJS), isi tetap beku; sent wajib waktu', async () => {
+    const c = await makeChain(A);
+    await inA((tx) =>
+      tx.sep.update({
+        where: { id: c.sepId },
+        data: {
+          status: 'issued',
+          sepNo: '0301R0031027V000777',
+          issuedAt: new Date(),
+          syncStatus: 'sent',
+          syncedAt: new Date(),
+        },
+      }),
+    );
+    await inA((tx) =>
+      tx.sep.update({
+        where: { id: c.sepId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancelReason: 'Pasien batal berobat',
+          syncStatus: 'pending',
+          syncSeq: 2,
+        },
+      }),
+    );
+    // Hasil hapus dari worker: hanya kolom kirim.
+    await inA((tx) =>
+      tx.sep.update({
+        where: { id: c.sepId },
+        data: { syncStatus: 'rejected', syncErrorCode: 'BPJS_TIDAK_DIKENAL' },
+      }),
+    );
+    await expect(
+      inA((tx) => tx.sep.update({ where: { id: c.sepId }, data: { careClass: 'kelas_1' } })),
+    ).rejects.toThrow(/SEP_FROZEN/);
+    await expect(
+      inA((tx) => tx.sep.update({ where: { id: c.sepId }, data: { syncStatus: 'sent', syncedAt: null } })),
+    ).rejects.toThrow(/seps_sync_valid/);
+    // Catatan/teks diagnosa tidak termasuk hak ubah aplikasi (isi = versi baru).
+    await expect(
+      inA((tx) => tx.sep.update({ where: { id: c.sepId }, data: { note: 'diubah' } })),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it('satu kunjungan aktif per booking; kunjungan batal membebaskan booking', async () => {
+    const c = await makeChain(A);
+    const r = await inA((tx) => tx.encounter.findUniqueOrThrow({ where: { id: c.encounterId } }));
+    const second = () =>
+      inA((tx) =>
+        tx.encounter.create({
+          data: {
+            id: newId(),
+            tenantId: A,
+            number: `RJ-2706-${digits(6)}`,
+            patientId: r.patientId,
+            encounterClass: 'AMB',
+            status: 'arrived',
+            unitId: r.unitId,
+            appointmentId: c.appointmentId,
+          },
+        }),
+      );
+    await expect(second()).rejects.toThrow(/Unique constraint/);
+    await inA((tx) =>
+      tx.encounter.update({
+        where: { id: c.encounterId },
+        data: { status: 'cancelled', cancelReason: 'Salah daftar' },
+      }),
+    );
+    await second();
+  });
+
+  it('idempotency_keys: unik per tenant × lingkup × kunci, append-only (juga pemilik tabel), format diperiksa', async () => {
+    const key = newId();
+    const row = (id = newId()) => ({
+      id,
+      tenantId: A,
+      scope: 'registration.outpatient',
+      key,
+      requestHash: 'a'.repeat(64),
+      resourceType: 'encounter',
+      resourceId: newId(),
+    });
+    const first = row();
+    await inA((tx) => tx.idempotencyKey.create({ data: first }));
+    await expect(inA((tx) => tx.idempotencyKey.create({ data: row() }))).rejects.toThrow(/Unique constraint/);
+    // Kunci sama di RS lain tidak bentrok.
+    await withTenant(app, B, (tx) => tx.idempotencyKey.create({ data: { ...row(), tenantId: B } }));
+    await expect(
+      inA((tx) =>
+        tx.idempotencyKey.update({ where: { id: first.id }, data: { requestHash: 'b'.repeat(64) } }),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      withTenant(owner, A, (tx) =>
+        tx.idempotencyKey.update({ where: { id: first.id }, data: { requestHash: 'b'.repeat(64) } }),
+      ),
+    ).rejects.toThrow(/APPEND_ONLY/);
+    await expect(
+      inA((tx) => tx.idempotencyKey.create({ data: { ...row(), key: newId(), requestHash: 'bukan-hash' } })),
+    ).rejects.toThrow(/idempotency_keys_valid/);
+  });
+
+  it('penjaminan non-BPJS: no. anggota hanya bentuk terenkripsi', async () => {
+    const c = await makeChain(A);
+    const enc = encryptField('ASR-0001', { keyB64: keys.encKeyB64, tenantId: A, purpose: 'contact' });
+    const payer = await inA((tx) => tx.payer.findFirstOrThrow({ where: { kind: 'asuransi' } }));
+    const coverage = (memberNoEnc: string) =>
+      inA((tx) =>
+        tx.coverage.create({
+          data: {
+            id: newId(),
+            tenantId: A,
+            encounterId: c.encounterId,
+            payerId: payer.id,
+            priority: 2,
+            memberNoEnc,
+          },
+        }),
+      );
+    await coverage(enc);
+    await expect(coverage('ASR-0001')).rejects.toThrow(/coverages_member_valid/);
+  });
+});
+
 describe('celah kontrak 0a: Antrean JKN, SPRI/rujukan draf, penolakan SEP', () => {
   it('booking JKN wajib jenis kunjungan 1–4 + nomor referensi; non-JKN tanpa jenis kunjungan', async () => {
     const c = await makeChain(A);

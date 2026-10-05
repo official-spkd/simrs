@@ -1,6 +1,13 @@
 import { timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { isModuleEnabled, readTenantSetting, resolveTenantByCode, type TenantTx } from '@simrs/db';
+import {
+  hhmmFromDbTime,
+  isModuleEnabled,
+  isoFromDbDate,
+  readTenantSetting,
+  resolveTenantByCode,
+  type TenantTx,
+} from '@simrs/db';
 import {
   AppError,
   frontOfficeError,
@@ -15,7 +22,7 @@ import {
 } from '@simrs/shared';
 import { type AuditMeta, writeAudit } from '../../infra/audit-writer';
 import { PrismaService } from '../../infra/prisma.service';
-import { PublicInfoRepository as repo, timeOfDay } from './public-info.repository';
+import { PublicInfoRepository as repo } from './public-info.repository';
 
 const TENANT_CODE = /^[A-Z0-9][A-Z0-9-]{1,29}$/;
 const DAY_MS = 86_400_000;
@@ -36,8 +43,6 @@ const sameText = (a: string, b: string): boolean => {
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 };
-
-const isoDate = (d: Date): string => d.toISOString().slice(0, 10);
 
 /**
  * F08 · Gateway informasi publik (rencana fase 2 potongan 8): tanpa login, tanpa PHI, dibatasi laju. RS dari kode di
@@ -68,7 +73,7 @@ export class PublicInfoService {
       const today = isoDateJakarta();
       const day = date ?? today;
       const maxDays = await readTenantSetting(tx, 'booking.max_days_ahead');
-      const last = isoDate(new Date(Date.parse(`${today}T00:00:00Z`) + maxDays * DAY_MS));
+      const last = isoFromDbDate(new Date(Date.parse(`${today}T00:00:00Z`) + maxDays * DAY_MS));
       if (day < today || day > last) {
         throw new AppError('VALIDATION_FAILED', `Tanggal jadwal harus antara ${today} dan ${last}`, 400, {
           fields: ['date'],
@@ -81,8 +86,8 @@ export class PublicInfoService {
         sessions: sessions.map((s) => ({
           poliName: s.service.name,
           practitionerName: s.practitioner.name,
-          start: timeOfDay(s.startTime),
-          end: timeOfDay(s.endTime),
+          start: hhmmFromDbTime(s.startTime),
+          end: hhmmFromDbTime(s.endTime),
           status: s.kind === 'cuti' ? 'cuti' : 'praktik',
           substituteName: s.substitute?.name ?? null,
           remaining: {
@@ -140,7 +145,7 @@ export class PublicInfoService {
   ): Promise<PublicBookingStatus> {
     const result = await this.tenant(tenantCode, async (tx, tenantId) => {
       const appt = await repo.bookingByCode(tx, input.bookingCode);
-      const stored = appt?.patient.birthDate ? isoDate(appt.patient.birthDate) : DUMMY_BIRTH_DATE;
+      const stored = appt?.patient.birthDate ? isoFromDbDate(appt.patient.birthDate) : DUMMY_BIRTH_DATE;
       const match = sameText(stored, input.birthDate) && !!appt;
       const meta: AuditMeta = {
         actorUserId: null,
@@ -164,7 +169,7 @@ export class PublicInfoService {
       ]);
       if (!appt || !match) return null;
 
-      const serviceDate = isoDate(appt.appointmentDate);
+      const serviceDate = isoFromDbDate(appt.appointmentDate);
       let currentQueueNo: string | null = null;
       if (serviceDate === isoDateJakarta()) {
         const [call] = await repo.latestCalls(tx, [appt.serviceId], serviceDate);
@@ -174,7 +179,7 @@ export class PublicInfoService {
         bookingCode: appt.bookingCode,
         status: appt.status,
         serviceDate,
-        start: timeOfDay(appt.session.startTime),
+        start: hhmmFromDbTime(appt.session.startTime),
         poliName: appt.service.name,
         practitionerName: appt.practitioner.name,
         queueNo: appt.tickets[0]?.ticketNo ?? null,

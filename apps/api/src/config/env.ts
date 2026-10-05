@@ -36,6 +36,8 @@ export const apiEnvSchema = envSchemas.base
   .extend(envSchemas.storage.shape)
   .extend(envSchemas.api.shape)
   .extend(envSchemas.integration.shape)
+  // Lookup sinkron VClaim (ADR-0025): kredensial yang sama dengan worker; kosong di luar produksi = nilai mock.
+  .extend(envSchemas.bpjs.shape)
   .extend(envSchemas.fieldCrypto.shape)
   // Kunci jangkar audit: API hanya memeriksa tanda tangan jangkar (`/audit/verify`); worker yang menulisnya.
   .extend(envSchemas.auditAnchorKey.shape)

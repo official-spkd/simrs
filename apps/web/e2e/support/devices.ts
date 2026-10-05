@@ -85,12 +85,58 @@ export function testDeviceToken(kind: DevicePrincipalKind): string {
   return tokens[kind];
 }
 
+/**
+ * F04 · Display uji yang SUDAH terikat ke papan antrean `displayCode` (potongan 4b). Perangkat tidak bisa diubah
+ * setelah dibuat (`DEVICE_IMMUTABLE`), jadi ikatannya diberikan saat dibuat, di unit perangkat uji global setup.
+ * Mengembalikan token `dv1` untuk `useDeviceToken`.
+ */
+export async function registerBoundTestDisplay(
+  prisma: PrismaClient,
+  tenantId: string,
+  displayCode: string,
+): Promise<string> {
+  return withTenant(prisma, tenantId, async (tx) => {
+    const unit = await tx.unit.findUniqueOrThrow({
+      where: { tenantId_code: { tenantId, code: UNIT_CODE } },
+      select: { id: true },
+    });
+    const display = await tx.queueDisplay.findUniqueOrThrow({
+      where: { tenantId_code: { tenantId, code: displayCode } },
+      select: { id: true },
+    });
+    const id = newId();
+    const secret = randomToken();
+    const now = new Date();
+    await tx.registeredDevice.create({
+      data: {
+        id,
+        tenantId,
+        kind: 'queue_display',
+        name: `Display ${displayCode} uji`,
+        unitId: unit.id,
+        queueDisplayId: display.id,
+        tokenHash: hashToken(secret),
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + DEVICE_PRINCIPAL_DAYS * 86_400_000),
+        enrolExpiresAt: new Date(now.getTime() + 15 * 60_000),
+        enrolledAt: now,
+      },
+    });
+    return `dv1.${tenantId}.${id}.${secret}`;
+  });
+}
+
 /** Pasang cookie perangkat uji di konteks browser (web lokal: tanpa `__Host-`/Secure). */
 export async function useTestDevice(context: BrowserContext, kind: DevicePrincipalKind): Promise<void> {
+  await useDeviceToken(context, testDeviceToken(kind));
+}
+
+/** Pasang cookie perangkat dengan token `dv1` tertentu (mis. dari `registerBoundTestDisplay`). */
+export async function useDeviceToken(context: BrowserContext, token: string): Promise<void> {
   await context.addCookies([
     {
       name: 'simrs_device',
-      value: testDeviceToken(kind),
+      value: token,
       domain: 'localhost',
       path: '/',
       httpOnly: true,

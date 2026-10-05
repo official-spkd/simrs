@@ -26,6 +26,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
     title: 'FRONT OFFICE',
     items: [
       { id: 'daftar', label: 'Pendaftaran', href: '/pendaftaran', icon: 'userPlus', available: false },
+      { id: 'kendali', label: 'Kendali antrean', href: '/antrean', icon: 'list', available: false },
       { id: 'antrean', label: 'Antrean', href: '/display/antrean', icon: 'list', available: false },
       { id: 'jadwal', label: 'Jadwal dokter', href: '/jadwal', icon: 'cal', available: false },
     ],
