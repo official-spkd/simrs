@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { ENCRYPTION_SCHEME } from './crypto';
+import { STORAGE_KEY } from './tar';
 
 export const MANIFEST_FORMAT = 'simrs-backup-manifest/v1';
 export const MANIFEST_FILE = 'manifest.json';
@@ -87,10 +88,25 @@ export const manifestSchema = z.strictObject({
   }),
   documents: z.strictObject({
     file: fileSchema(DOCUMENTS_FILE),
-    /** disk = folder STORAGE_DISK_ROOT (ADR-0020). */
-    source: z.literal('disk'),
+    /**
+     * disk = semua berkas berkunci penyimpanan di STORAGE_DISK_ROOT; s3 = objek bucket dokumen untuk setiap baris
+     * `documents` di snapshot dump (ADR-0020), dicocokkan dengan sha256/ukuran baris itu saat diarsipkan.
+     */
+    source: z.enum(['disk', 's3']),
     fileCount: count,
     totalBytes: count,
+    /**
+     * Objek yang di sumber sudah hilang/berbeda dari barisnya (s3). Diarsipkan apa adanya (yang ada) dan dilaporkan;
+     * uji restore memperlakukannya sebagai temuan sumber, bukan kegagalan restore.
+     */
+    integrityErrors: z
+      .array(
+        z.strictObject({
+          key: z.string().regex(STORAGE_KEY),
+          reason: z.enum(['missing', 'size', 'sha256']),
+        }),
+      )
+      .max(10_000),
   }),
   digest: sha256Hex,
 });

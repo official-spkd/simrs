@@ -3,6 +3,7 @@
  * dan tanpa path dari luar: hanya kunci penyimpanan buatan server `<tenant>/<tahun>/<bulan>/<uuid>` (ADR-0020) yang
  * diarsipkan maupun diekstrak, jadi path traversal tidak mungkin. Hasilnya tetap bisa dibaca `tar -tf`.
  */
+import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
@@ -101,25 +102,58 @@ function header(key: string, size: number, mtime: number): Buffer {
   return h;
 }
 
-/** Aliran ustar berisi tepat berkas di inventaris (ukuran berubah saat dibaca = galat, berkas dokumen immutable). */
-export function tarStream(inventory: DocumentInventory, mtime = 0): Readable {
+export interface TarEntry {
+  key: string;
+  /** Ukuran yang ditulis ke header; isi yang lebih panjang/pendek = galat. */
+  size: number;
+  body: AsyncIterable<Buffer>;
+}
+
+export interface TarEntryResult {
+  key: string;
+  bytes: number;
+  sha256: string;
+}
+
+/**
+ * Aliran ustar dari entri asinkron (berkas disk atau objek S3). Setiap isi di-hash saat lewat; `onEntry` menerima
+ * hash itu (backup s3 mencocokkannya dengan baris `documents`). Kunci di luar format penyimpanan ditolak.
+ */
+export function tarFromEntries(
+  entries: AsyncIterable<TarEntry> | Iterable<TarEntry>,
+  onEntry?: (r: TarEntryResult) => void,
+  mtime = 0,
+): Readable {
   async function* generate() {
-    for (const entry of inventory.entries) {
+    for await (const entry of entries) {
+      if (!STORAGE_KEY.test(entry.key)) throw new TarError('kunci bukan kunci penyimpanan dokumen');
       yield header(entry.key, entry.size, mtime);
+      const hash = createHash('sha256');
       let read = 0;
-      for await (const chunk of createReadStream(entry.path)) {
+      for await (const chunk of entry.body) {
         const buf = chunk as Buffer;
         read += buf.length;
-        if (read > entry.size) throw new TarError(`berkas ${entry.key} berubah saat diarsipkan`);
+        if (read > entry.size) throw new TarError(`isi ${entry.key} lebih panjang dari ukurannya`);
+        hash.update(buf);
         yield buf;
       }
-      if (read !== entry.size) throw new TarError(`berkas ${entry.key} berubah saat diarsipkan`);
+      if (read !== entry.size) throw new TarError(`isi ${entry.key} lebih pendek dari ukurannya`);
+      onEntry?.({ key: entry.key, bytes: read, sha256: hash.digest('hex') });
       const pad = (BLOCK - (entry.size % BLOCK)) % BLOCK;
       if (pad) yield Buffer.alloc(pad, 0);
     }
     yield Buffer.alloc(BLOCK * 2, 0);
   }
   return Readable.from(generate());
+}
+
+/** Aliran ustar berisi tepat berkas di inventaris disk (berkas dokumen immutable; berubah saat dibaca = galat). */
+export function tarStream(inventory: DocumentInventory, mtime = 0): Readable {
+  // Generator: berkas baru dibuka saat gilirannya (tidak ribuan deskriptor sekaligus).
+  function* entries(): Generator<TarEntry> {
+    for (const e of inventory.entries) yield { key: e.key, size: e.size, body: createReadStream(e.path) };
+  }
+  return tarFromEntries(entries(), undefined, mtime);
 }
 
 function parseOctal(buf: Buffer): number {
