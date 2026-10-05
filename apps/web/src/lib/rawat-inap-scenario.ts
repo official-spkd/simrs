@@ -20,7 +20,7 @@ import {
   buildInpatient,
   hartonoConsentBase,
   ratnaConsentBase,
-  resumeChecklist,
+  demoResumeChecklist,
   type DxSeed,
   type InpatientSeed,
   minutesBefore,
@@ -792,7 +792,7 @@ export function hartonoResume(R: RunResult): DischargeSummary {
     medications: meds,
     reconciliationConfirmedAt: rekon ? taskInstant(R, 'resume', 'rekon') : null,
     codes,
-    checklist: resumeChecklist({
+    checklist: demoResumeChecklist({
       ident: true,
       anamnesis: filled('anamnesis'),
       fisik: filled('fisik'),
@@ -912,7 +912,7 @@ export function ratnaResume(R: RunResult): DischargeSummary {
     medications: himpun ? medsFrom(R.rec.obat) : [],
     reconciliationConfirmedAt: himpun ? taskInstant(R, 'resume', 'resume') : null,
     codes,
-    checklist: resumeChecklist({
+    checklist: demoResumeChecklist({
       ident: true,
       anamnesis: filled('anamnesis'),
       fisik: filled('fisik'),

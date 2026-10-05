@@ -19,9 +19,16 @@ const endang: CdsPatient = {
   allergies: ['Amoksisilin'],
   activeMeds: [{ name: 'Metformin 500 mg · 2×1', substance: 'metformin', catalogId: 'metformin-500' }],
   flags: [],
+  egfr: 84,
   payer: 'BPJS',
 };
-const darmawan: CdsPatient = { allergies: ['Ibuprofen'], activeMeds: [], flags: [], payer: 'Asuransi' };
+const darmawan: CdsPatient = {
+  allergies: ['Ibuprofen'],
+  activeMeds: [],
+  flags: [],
+  egfr: null,
+  payer: 'Asuransi',
+};
 const hartono: CdsPatient = {
   allergies: [],
   activeMeds: [
@@ -29,6 +36,7 @@ const hartono: CdsPatient = {
     { name: 'Omeprazol 20 mg', substance: 'omeprazol', catalogId: 'omeprazol-20' },
   ],
   flags: ['ckd'],
+  egfr: null,
   payer: 'BPJS',
 };
 
@@ -112,10 +120,18 @@ describe('CDS interaksi, riwayat, dosis', () => {
       allergies: [],
       activeMeds: [{ name: 'Amlodipin 5 mg · 1×1 pagi', substance: 'amlodipin', catalogId: 'amlodipin-5' }],
       flags: [],
+      egfr: null,
       payer: 'BPJS',
     };
     expect(evaluateCds(catalogItem('amlodipin-10'), siti)).toMatchObject({ level: 'warn', rule: 'dosis' });
     expect(evaluateCds(catalogItem('amlodipin-5'), siti).message).toMatch(/^Lanjutan obat rutin/);
+  });
+
+  it('dosis ginjal dari KB contoh bersama: metformin diblokir bila eGFR < 30, aman bila eGFR cukup', () => {
+    const ckd: CdsPatient = { ...darmawan, allergies: [], egfr: 25 };
+    expect(evaluateCds(catalogItem('metformin-500'), ckd)).toMatchObject({ level: 'block', rule: 'ginjal' });
+    expect(evaluateCds(catalogItem('metformin-500'), { ...ckd, egfr: 30 }).level).toBe('info');
+    expect(evaluateCds(catalogItem('metformin-500'), { ...ckd, egfr: null }).level).toBe('info');
   });
 });
 

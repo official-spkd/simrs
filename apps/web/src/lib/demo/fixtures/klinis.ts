@@ -1465,12 +1465,13 @@ function line(
 
 function toOrders(
   lines: readonly OrderLine[],
-  ctx: Pick<CpoeContext, 'patient' | 'activeMeds' | 'flags' | 'doctor'>,
+  ctx: Pick<CpoeContext, 'patient' | 'activeMeds' | 'flags' | 'egfr' | 'doctor'>,
 ): CpoeOrder[] {
   const patient = {
     allergies: ctx.patient.allergies,
     activeMeds: ctx.activeMeds,
     flags: ctx.flags,
+    egfr: ctx.egfr,
     payer: ctx.patient.payer,
   };
   return evaluateOrders(lines, patient, ctx.doctor).map((l) => ({

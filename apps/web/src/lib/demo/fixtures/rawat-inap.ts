@@ -1314,7 +1314,8 @@ export const INPATIENT_FLAG_LABEL: Record<InpatientFlag, string> = {
 // K13 · Resume medis pulang (Ny. Endang; pasien skenario diproyeksikan di lib/rawat-inap-scenario.ts)
 // ---------------------------------------------------------------------------------------------------------
 
-export function resumeChecklist(
+/** Daftar 12 butir resume fixture dari butir yang terpenuhi (label dari `RESUME_CHECK_LABEL` bersama). */
+export function demoResumeChecklist(
   done: Partial<Record<ResumeCheckId, boolean>>,
 ): DischargeSummary['checklist'] {
   return RESUME_CHECK_IDS.map((id) => ({ id, label: RESUME_CHECK_LABEL[id], done: !!done[id] }));
@@ -1389,7 +1390,7 @@ export function demoEndangResume(): DischargeSummary {
       { system: 'ICD-10', code: 'E11.9', label: 'DM tipe 2 tanpa komplikasi', primary: false },
       { system: 'ICD-9-CM', code: '38.93', label: 'Pemasangan kateter vena sentral', primary: false },
     ],
-    checklist: resumeChecklist({
+    checklist: demoResumeChecklist({
       ident: true,
       anamnesis: true,
       fisik: true,

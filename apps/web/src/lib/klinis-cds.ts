@@ -23,6 +23,8 @@ export interface CdsPatient {
   allergies: readonly string[];
   activeMeds: ReadonlyArray<{ name: string; substance: string; catalogId: string | null }>;
   flags: readonly string[];
+  /** eGFR terakhir (aturan dosis ginjal KB); null = belum ada hasil. */
+  egfr: number | null;
   payer: 'BPJS' | 'Umum' | 'Asuransi';
 }
 
@@ -33,7 +35,8 @@ export type CdsItem = Pick<
 
 /**
  * Evaluasi satu item terhadap pasien dan zat aktif lain (obat rutin + order lain di daftar) dengan KB contoh. Urutan
- * prioritas: alergi → alergi silang → riwayat → interaksi → perubahan dosis → biaya di luar paket → aman.
+ * prioritas: blok dulu, lalu peringatan (alergi → alergi silang → riwayat → interaksi → dosis ginjal → perubahan
+ * dosis → biaya di luar paket), lalu aman.
  */
 export function evaluateCds(
   item: CdsItem,
@@ -48,9 +51,13 @@ export function evaluateCds(
         const allergen = normalizeAllergen(label);
         return { label, substance: allergen, classes: SAMPLE_SUBSTANCE_CLASSES[allergen] ?? [] };
       }),
-      activeMeds: patient.activeMeds.map((m) => ({ name: m.name, substance: m.substance, itemId: m.catalogId })),
+      activeMeds: patient.activeMeds.map((m) => ({
+        name: m.name,
+        substance: m.substance,
+        itemId: m.catalogId,
+      })),
       flags: patient.flags,
-      egfr: null,
+      egfr: patient.egfr,
       payer: patient.payer,
     },
     SAMPLE_CDS_RULES,
