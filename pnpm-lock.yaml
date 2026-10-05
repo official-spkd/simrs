@@ -205,6 +205,9 @@ importers:
       '@simrs/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@simrs/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@simrs/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -389,6 +392,9 @@ importers:
       '@simrs/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@simrs/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       eslint:
         specifier: ^10
         version: 10.11.0(jiti@2.7.0)

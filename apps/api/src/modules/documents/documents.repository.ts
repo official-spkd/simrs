@@ -44,6 +44,36 @@ export class DocumentsRepository {
     });
   }
 
+  /** Identitas pasien untuk dokumen klinis (PDF): nama, RM, jenis kelamin, tanggal lahir. */
+  patientIdentity(id: string) {
+    return this.db.tx().patient.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        mrn: true,
+        sex: true,
+        birthDate: true,
+        status: true,
+        mergedInto: { select: { mrn: true } },
+      },
+    });
+  }
+
+  /** Kop dokumen: nama RS (tenant) dan fasilitas aktif pertama (nama, alamat). */
+  async letterhead(): Promise<{ name: string; facility: { name: string; address: string | null } | null }> {
+    const tx = this.db.tx();
+    const [tenant, facility] = await Promise.all([
+      tx.tenant.findUniqueOrThrow({ where: { id: this.db.tenantId() }, select: { name: true } }),
+      tx.facility.findFirst({
+        where: { active: true },
+        orderBy: { code: 'asc' },
+        select: { name: true, address: true },
+      }),
+    ]);
+    return { name: tenant.name, facility };
+  }
+
   /** Rekam medis yang digabung = satu orang (ADR-0016). */
   async patientGroup(patientId: string): Promise<string[]> {
     const rows = await this.db.tx().$queryRaw<Array<{ id: string }>>`
