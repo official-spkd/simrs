@@ -32,7 +32,7 @@ export const AUDIT_MAX_FINDINGS_PER_KIND = 50;
  * Versi logika ringkasan. Naikkan bila SQL hitungan di bawah berubah: ringkasan lama tidak cocok lagi (kunci
  * parameter lain) sehingga layar kembali ke agregasi langsung sampai job menghitung ulang.
  */
-export const AUDIT_SUMMARY_VERSION = 1;
+export const AUDIT_SUMMARY_VERSION = 2;
 
 const DAY_MS = 86_400_000;
 
@@ -107,6 +107,30 @@ export function auditNightBuckets(
     FROM e
     WHERE CASE WHEN ${q.startMin}::int > ${q.endMin}::int THEN m >= ${q.startMin}::int OR m < ${q.endMin}::int
                ELSE m >= ${q.startMin}::int AND m < ${q.endMin}::int END
+    GROUP BY 1, 3
+    ORDER BY last DESC
+    ${limitSql(q.limit)}`;
+}
+
+/**
+ * EP 10c (fase 3) · Pengguna yang membuka rekam medis pasien RAHASIA (`patients.confidential`, juga rekam medis lain
+ * milik orang yang sama) per hari WIB; tanpa ambang: setiap akses adalah temuan untuk ditinjau petugas privasi.
+ * Penanda dibaca saat menghitung (pasien yang baru ditandai ikut terhitung untuk hari yang belum diringkas).
+ */
+export function auditConfidentialBuckets(
+  tx: TenantTx,
+  q: Range & { limit?: number },
+): Promise<AuditDayBucket[]> {
+  return tx.$queryRaw<AuditDayBucket[]>`
+    SELECT a.actor_user_id::text AS "userId", max(a.actor_role) AS role,
+           to_char(a.occurred_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') AS day,
+           count(DISTINCT a.patient_id)::int AS n, max(a.occurred_at) AS last
+    FROM audit_events a
+    WHERE a.patient_id IS NOT NULL AND a.actor_user_id IS NOT NULL
+      AND a.action = ANY(${[...AUDIT_PATIENT_READ_ACTIONS]}::text[])
+      AND a.occurred_at >= ${q.from} ${upper(q.to)}
+      AND EXISTS (SELECT 1 FROM patients p
+                  WHERE p.confidential AND p.id IN (SELECT app_patient_group(a.patient_id)))
     GROUP BY 1, 3
     ORDER BY last DESC
     ${limitSql(q.limit)}`;
@@ -296,6 +320,7 @@ export async function auditAnomalyBuckets(
     volume: await merge('volume', s.volumeThreshold, (r) =>
       auditVolumeBuckets(tx, { ...r, threshold: s.volumeThreshold, limit }),
     ),
+    confidential: await merge('confidential', 1, (r) => auditConfidentialBuckets(tx, { ...r, limit })),
   };
   return { buckets, summarizedDays: covered.size };
 }
@@ -336,6 +361,7 @@ export async function summarizeAuditDay(
     await auditNightBuckets(tx, { from, to, ...settings.window, exemptRoles: settings.exemptRoles }),
   );
   add('volume', await auditVolumeBuckets(tx, { from, to, threshold: AUDIT_VOLUME_THRESHOLD_MIN }));
+  add('confidential', await auditConfidentialBuckets(tx, { from, to }));
   const [count] = await tx.$queryRaw<Array<{ n: number }>>`
     SELECT count(*)::int AS n FROM audit_events WHERE occurred_at >= ${from} AND occurred_at < ${to}`;
 

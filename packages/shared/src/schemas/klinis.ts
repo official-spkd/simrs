@@ -651,3 +651,28 @@ export const cdsAlertSchema = z.strictObject({
   decidedAt: instant,
 });
 export type CdsAlert = z.infer<typeof cdsAlertSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Draf klinis (`PUT/GET/DELETE /api/v1/drafts/:encounterId/:kind`, potongan 3.1; ADR-0028 butir 5)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Jenis draf: `cppt`, `soap`, `asesmen:<kode formulir>`, `resume`, … */
+export const CLINICAL_DRAFT_KIND_PATTERN = /^[a-z][a-z0-9_:-]{1,60}$/;
+/** Batas ukuran isi draf (JSON), cukup untuk SOAP/resume panjang. */
+export const CLINICAL_DRAFT_MAX_BYTES = 64 * 1024;
+
+export const clinicalDraftInputSchema = z.strictObject({
+  content: z
+    .record(z.string(), z.unknown())
+    .refine((v) => JSON.stringify(v).length <= CLINICAL_DRAFT_MAX_BYTES, 'Draf terlalu besar (maks. 64 KB)'),
+});
+export type ClinicalDraftInput = z.infer<typeof clinicalDraftInputSchema>;
+
+/** Draf milik penulis sesi; tidak pernah dikirim ke pengguna lain. */
+export const clinicalDraftSchema = z.strictObject({
+  encounterId: uuid,
+  kind: z.string().regex(CLINICAL_DRAFT_KIND_PATTERN),
+  content: z.record(z.string(), z.unknown()),
+  updatedAt: instant,
+});
+export type ClinicalDraft = z.infer<typeof clinicalDraftSchema>;

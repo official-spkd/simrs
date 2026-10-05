@@ -84,6 +84,46 @@ export interface KnownDbError {
   fields?: string[];
 }
 
+/**
+ * Kode stabil dari `RAISE EXCEPTION 'KODE: …' USING ERRCODE = 'P0001'` di trigger/fungsi (mis. `RECORD_LOCKED`,
+ * `CLINICAL_CHAIN`, `WRISTBAND_MISMATCH`), atau null. Hanya awalan huruf besar yang diambil; pesan (bisa memuat nilai)
+ * tidak pernah diteruskan.
+ */
+export function raisedDbCode(err: unknown): string | null {
+  if (!(err instanceof Error)) return null;
+  const cause = (
+    err as {
+      meta?: { driverAdapterError?: { cause?: { originalCode?: unknown; originalMessage?: unknown } } };
+    }
+  ).meta?.driverAdapterError?.cause;
+  const message =
+    cause?.originalCode === 'P0001' && typeof cause.originalMessage === 'string'
+      ? cause.originalMessage
+      : err.message;
+  const m = /(?:^|\s|")([A-Z][A-Z0-9_]{2,40}):\s/.exec(message);
+  return m ? (m[1] as string) : null;
+}
+
+/** Nama indeks/constraint unik yang dilanggar (P2002), bila adapter menyertakannya; tanpa nilai. */
+export function uniqueViolationTarget(err: unknown): string {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return '';
+  const meta = err.meta as
+    | {
+        target?: unknown;
+        driverAdapterError?: { cause?: { constraint?: { index?: unknown; fields?: unknown } } };
+      }
+    | undefined;
+  const parts: unknown[] = [
+    meta?.target,
+    meta?.driverAdapterError?.cause?.constraint?.index,
+    meta?.driverAdapterError?.cause?.constraint?.fields,
+  ];
+  return parts
+    .flat()
+    .filter((p): p is string => typeof p === 'string')
+    .join(',');
+}
+
 /** Ringkas galat database yang dikenal tanpa membawa pesan/nilai (bisa memuat PHI). */
 export function knownDbError(err: unknown): KnownDbError | null {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return null;

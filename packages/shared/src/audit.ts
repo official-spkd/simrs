@@ -102,10 +102,17 @@ export type AuditActionGroup = keyof typeof AUDIT_ACTION_GROUPS;
  * `<jenis>:<id pengguna | ->:<tanggal WIB>`; keputusan tinjauan dicatat sebagai entri audit `review`
  * dengan `resource_type = audit_anomaly` dan `resource_id = kunci` (append-only, tidak bisa dihapus).
  */
-export const AUDIT_ANOMALY_KINDS = ['login_failed', 'access_denied', 'night', 'volume'] as const;
+/** `confidential` (fase 3, EP 10c): akses ke rekam medis pasien rahasia (`patients.confidential`), tanpa ambang. */
+export const AUDIT_ANOMALY_KINDS = [
+  'login_failed',
+  'access_denied',
+  'night',
+  'volume',
+  'confidential',
+] as const;
 export type AuditAnomalyKind = (typeof AUDIT_ANOMALY_KINDS)[number];
 export const AUDIT_ANOMALY_KEY =
-  /^(login_failed|access_denied|night|volume):([0-9a-f-]{36}|-):(\d{4}-\d{2}-\d{2})$/;
+  /^(login_failed|access_denied|night|volume|confidential):([0-9a-f-]{36}|-):(\d{4}-\d{2}-\d{2})$/;
 
 export const AUDIT_REVIEW_OUTCOMES = ['sah', 'perlu_klarifikasi'] as const;
 export type AuditReviewOutcome = (typeof AUDIT_REVIEW_OUTCOMES)[number];
