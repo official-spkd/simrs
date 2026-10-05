@@ -1,6 +1,6 @@
 # ADR-0020 · Dokumen pasien: penyimpanan berkas lewat adapter, hash di DB, TTE lewat outbox, verifikasi QR publik
 
-Status: diterima · 4 Okt 2026 · Komponen: P08 (katalog: dokumen dan tanda tangan elektronik)
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026 · Komponen: P08 (katalog: dokumen dan tanda tangan elektronik)
 
 ## Konteks
 Katalog P08 meminta penyimpanan dokumen dan lampiran (foto, hasil scan), TTE tersertifikasi, dan QR verifikasi. docs/05 meminta unggahan dibatasi tipe dan ukurannya, disimpan dengan nama acak, dan tanda tangan diverifikasi saat dibuka. ADR-0004 melarang menimpa entri final. Docker (MinIO) belum aktif di mesin pengembangan; pengguna memilih penyimpanan disk lokal dulu (4 Okt 2026).
@@ -39,3 +39,8 @@ Konsekuensi:
 + Tes integrasi memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes; suite API dokumen dijalankan untuk kedua driver. `pnpm --filter @simrs/api test` kini butuh MinIO (`docker compose up -d`), seperti Redis.
 − Produksi perlu kredensial khusus aplikasi (bukan root MinIO) dengan izin `s3:PutObject`, `s3:GetObject`, dan `s3:ListBucket` (untuk HeadBucket) saja, tanpa `s3:DeleteObject`; object lock/versioning (WORM) di bucket dokumen dan endpoint TLS dianjurkan. Belum ditegakkan kode.
 − Hanya gaya path; virtual-hosted style dan unggah multipart (berkas > 10 MB) belum ada. Alat pindah berkas dari disk lokal ke S3 belum ada (data lokal fiktif, cukup di-seed ulang).
+
+## Pembaruan 5 Okt 2026 · generator PDF klinis dan TTE gagal
+
+- Generator PDF + cetak QR (P12 minimal) kini ada: ADR-0029 (`@simrs/pdf`, `ClinicalPdfService`). QR verifikasi dicetak di dalam PDF; kodenya dibuat sebelum hash dihitung.
+- Kegagalan permanen TTE (DLQ) mengubah tanda tangan menjadi `failed` lewat `onDead` worker, dengan audit `sign` berstatus `failed`; konsekuensi terakhir di atas tidak berlaku lagi.
