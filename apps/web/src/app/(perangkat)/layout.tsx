@@ -6,13 +6,14 @@ import { webEnv } from '@/lib/server/web-env';
 
 /**
  * Layar perangkat layar penuh (anjungan, TV antrean, tablet persetujuan, pratinjau aplikasi): tanpa sidebar staf.
- * Saat mode presentasi tetap di balik login staf (setiap halaman juga memanggil `requireDemoScreen`); token
- * perangkat sungguhan menyusul bersama backend. Tombol "Kembali" hanya untuk presenter di mode presentasi, di baris
+ * Mode presentasi: di balik login staf (setiap halaman juga memanggil `requireScreen`/`requireDemoScreen`). Tombol "Kembali" hanya untuk presenter di mode presentasi, di baris
  * sendiri di atas kanvas: kanvas (`ScaleToFit`) mengisi sisa tinggi sehingga judulnya tidak tertutup di tablet.
  */
 export default async function PerangkatLayout({ children }: { children: ReactNode }) {
-  await requireSession();
   const demo = webEnv().dataSource === 'demo';
+  // Mode api: tanpa sesi staf. Anjungan dan TV dibuka perangkat terdaftar (ADR-0027, `requireDevice` di halamannya);
+  // layar perangkat lain hanya ada di mode presentasi (404 di mode api).
+  if (demo) await requireSession();
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#E9EEF2] text-ink-900">
       {demo && (

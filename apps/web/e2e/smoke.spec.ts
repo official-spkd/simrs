@@ -34,7 +34,7 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Semua unit', { exact: true })).toBeVisible();
   });
 
-  test('layar hibrida front office di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak)', async ({
+  test('layar hibrida front office di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak; anjungan/TV → pendaftaran perangkat)', async ({
     page,
   }) => {
     // Kasir tidak memegang izin layar front office mana pun (perawat kini memegang `schedule.read`, potongan 0a).
@@ -45,6 +45,12 @@ test.describe('smoke', () => {
     for (const s of hybrid) {
       const res = await page.goto(s.route);
       expect(res?.status(), s.route).toBe(200);
+      if (s.layout === 'perangkat') {
+        // Anjungan/TV dibuka perangkat terdaftar, bukan sesi staf (ADR-0027): tanpa cookie perangkat → pendaftaran.
+        await expect(page).toHaveURL(/\/perangkat\/daftar/);
+        await expect(page.getByRole('heading', { name: 'Daftarkan perangkat', level: 1 })).toBeVisible();
+        continue;
+      }
       await expect(page.getByRole('heading', { name: s.label, level: 1 })).toBeVisible();
       await expect(page.getByText('Akses ditolak')).toBeVisible();
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);

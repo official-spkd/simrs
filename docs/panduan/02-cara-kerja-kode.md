@@ -69,22 +69,23 @@ Pengecualian hanya untuk dua pola fase 2: lookup baca-saja ke BPJS/Dukcapil (ADR
 
 ### Fondasi di `src/common` dan `src/infra`
 
-| Berkas                                       | Isi                                                                                                         |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `common/tenant-scoped.decorator.ts`          | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)  |
-| `common/require-permission.decorator.ts`     | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`       |
-| `common/tenant-transaction.interceptor.ts`   | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                     |
-| `common/request-context.ts`                  | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit      |
-| `infra/tenant-db.ts`                         | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant |
-| `common/audited.decorator.ts`                | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason` |
-| `common/require-module.decorator.ts`         | `@RequireModule(code)` untuk feature flag per RS                                                            |
-| `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                    |
-| `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard` |
-| `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup            |
-| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (hanya lookup ADR-0025 dan SSE ADR-0026)      |
-| `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)          |
-| `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                           |
-| `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`     |
+| Berkas                                       | Isi                                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `common/tenant-scoped.decorator.ts`          | `@TenantScoped()` = `AuthGuard` + `UserThrottlerGuard` + `TenantTransactionInterceptor` (+ bearer Swagger)          |
+| `common/require-permission.decorator.ts`     | `@RequirePermission(resource, action)`: cek matriks peran; lingkupnya di `TenantDb.permissionScope()`               |
+| `common/tenant-transaction.interceptor.ts`   | Satu transaksi ber-RLS per permintaan, cek `@RequireModule`, tulis audit sebelum commit                             |
+| `common/request-context.ts`                  | Konteks permintaan (AsyncLocalStorage): tenant, transaksi, pelaku + peran, lingkup izin, antrean audit              |
+| `infra/tenant-db.ts`                         | `TenantDb`: pintu repository ke transaksi permintaan; gagal keras bila dipakai di luar permintaan bertenant         |
+| `common/audited.decorator.ts`                | `@Audited` + pembantu `resultId`, `paramId`, `param(name)`, `queryPatientId`, `changedFields`, `bodyReason`         |
+| `common/require-module.decorator.ts`         | `@RequireModule(code)` untuk feature flag per RS                                                                    |
+| `common/pagination.ts`                       | `toPage()` untuk paginasi kursor `{ items, nextCursor }`                                                            |
+| `infra/rate-limit.ts`                        | Throttler `default` (IP), `auth` (kredensial), `user` (pengguna) + `IpThrottlerGuard`, `UserThrottlerGuard`         |
+| `infra/rate-limit.storage.ts`                | `RateLimitStorage`: penghitung batas laju di Redis (Lua atomik), cadangan memori, gagal tertutup                    |
+| `common/no-request-transaction.decorator.ts` | `@NoRequestTransaction()`: handler tanpa transaksi permintaan (hanya lookup ADR-0025 dan SSE ADR-0026)              |
+| `infra/lookup/`                              | `LookupGateway` + antarmuka `LookupConnector` (lookup sinkron, batas 5 dtk, audit sebelum/sesudah)                  |
+| `infra/realtime/`                            | `PgNotificationHub` (satu koneksi LISTEN per instans) + `SseService` (aliran SSE)                                   |
+| `infra/events/`                              | `DomainEvents` (event domain sinkron di dalam transaksi) + daftar nama/payload di `domain-event-map.ts`             |
+| `infra/auth/device.guard.ts`                 | `DeviceGuard` + `@DeviceScoped()` (`common/device-scoped.decorator.ts`): prinsipal perangkat anjungan/TV (ADR-0027) |
 
 Contoh modul lengkap: `modules/facility/` (P01), `modules/settings/` (P10, P12), dan `modules/iam/` (P03).
 
@@ -398,6 +399,26 @@ await this.events.publish('booking.checked_in', { appointmentId, patientId });
 - `publish` di luar transaksi → galat program. Rantai lebih dari 8 tingkat dianggap siklus.
 - Efek ke sistem luar dari penangan tetap lewat outbox.
 - Konsumen yang datang belakangan (charge capture fase 5, SATUSEHAT fase 7) membaca `domain_events`; penangan dalam proses hanya untuk reaksi yang harus atomik dengan perubahan asalnya.
+
+### Prinsipal perangkat anjungan dan display (ADR-0027)
+
+Anjungan (`kiosk`) dan TV antrean (`queue_display`) masuk sebagai **perangkat terdaftar per unit**, bukan akun staf. Barisnya ada di `registered_devices`, tabel yang sama dengan PIN (`staff_pin`).
+
+```
+Admin  POST /api/v1/iam/devices { kind, name, unitId, queueDisplayId? }   (iam.users.write)
+         → { id, device, enrolmentCode: 'XXXXX-XXXXX', enrolmentExpiresAt }   kode tampil sekali, 15 menit
+Perangkat  /perangkat/daftar (web, publik) → POST /api/v1/devices/enrol { tenantCode, code }
+         → { token: 'dv1…', expiresAt, device }   → cookie httpOnly `simrs_device`
+Perangkat  GET /api/v1/devices/me (Bearer dv1…) → identitas + izin tetap
+Admin  GET /api/v1/iam/devices · POST /api/v1/iam/devices/:id/revoke
+```
+
+- **Endpoint perangkat**: `@DeviceScoped('kiosk.use' | 'queue.display.read')` (`common/device-scoped.decorator.ts`). Isinya `DeviceGuard` + batas laju per perangkat + transaksi permintaan biasa. Repository tetap memakai `TenantDb`; pelaku ada di `TenantDb.actor().devicePrincipal`.
+- **Izin tetap per jenis** (`DEVICE_GRANTS` di katalog izin `@simrs/shared`), tidak pernah izin manusia. Token staf di endpoint perangkat → 403; `@RequirePermission` di endpoint perangkat ditolak.
+- **Token perangkat di endpoint staf** → 403 + audit `access_denied`. Semua audit pelaku perangkat membawa `details.deviceId`/`deviceKind`; audit tidak punya kolom baru.
+- **Validasi tiap permintaan di database**, jadi pencabutan berlaku seketika. Kode pendaftaran disimpan sebagai HMAC dan hanya bisa dipakai sekali (dijaga trigger database).
+- **Web mode api**: proxy mengalihkan `/kiosk` dan `/display/…` tanpa cookie perangkat ke `/perangkat/daftar`. Halaman memanggil `requireDevice(jenis)` (`lib/server/device.ts`). Admin mengelola perangkat di `/sistem/akses/perangkat`. Mode presentasi tetap memakai login staf.
+- **E2E**: global setup mendaftarkan satu anjungan + satu display uji (`e2e/support/devices.ts`, `useTestDevice(context, 'kiosk')`).
 
 ### Anatomi modul
 
@@ -735,6 +756,7 @@ Aturan:
 
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
 - [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
+- [ ] Endpoint anjungan/TV memakai `@DeviceScoped(izin)`, bukan `@TenantScoped()`; perangkat tidak pernah memegang izin manusia (ADR-0027).
 - [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025) dan aliran `SseService` (ADR-0026); akses data di dalamnya lewat `TenantDb.transaction()`.
 - [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.
 - [ ] Perubahan data diberi `@Audited` (akses data pasien wajib menyertakan `patientId`).

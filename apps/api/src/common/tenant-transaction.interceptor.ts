@@ -81,7 +81,14 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       ip: req.ip ?? null,
       userAgent: req.headers['user-agent']?.slice(0, MAX_USER_AGENT) ?? null,
       requestId: typeof req.id === 'string' ? req.id : null,
+      device: actor.devicePrincipal
+        ? { id: actor.devicePrincipal.id, kind: actor.devicePrincipal.kind }
+        : null,
     };
+    if (actor.devicePrincipal && requiredPermission) {
+      // Perangkat tidak pernah memakai matriks peran manusia (ADR-0027); endpoint seperti ini salah rakit.
+      throw new AppError('FORBIDDEN', 'Endpoint ini tidak untuk perangkat terdaftar', 403);
+    }
     const auditedEntry = (result: unknown): PendingAudit | null => {
       if (!audited) return null;
       const src: AuditSource = { params: req.params, query: req.query, body: req.body as unknown, result };
@@ -111,9 +118,7 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     }
 
     const run = async () => {
-      const permissionScope = requiredPermission
-        ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
-        : null;
+      const permissionScope = await this.scopeFor(tenantId, actor, requiredPermission, auditMeta);
       const afterCommit: TenantRequestContext['afterCommit'] = [];
 
       const result = await this.prisma
@@ -162,9 +167,7 @@ export class TenantTransactionInterceptor implements NestInterceptor {
     auditedEntry: (result: unknown) => PendingAudit | null,
     handle: () => Promise<unknown>,
   ): Promise<unknown> {
-    const permissionScope = requiredPermission
-      ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
-      : null;
+    const permissionScope = await this.scopeFor(tenantId, actor, requiredPermission, auditMeta);
     if (requiredModule) {
       const enabled = await this.prisma.forTenant(tenantId, (tx) => isModuleEnabled(tx, requiredModule));
       if (!enabled) {
@@ -209,6 +212,20 @@ export class TenantTransactionInterceptor implements NestInterceptor {
 
   private runAfterCommit(hooks: TenantRequestContext['afterCommit']): Promise<void> {
     return runAfterCommitHooks(hooks, (m) => this.logger.error(m));
+  }
+
+  /**
+   * Lingkup izin endpoint: perangkat (ADR-0027) selalu `unit` (izin tetapnya berlingkup unit perangkat, `DEVICE_GRANTS`;
+   * izinnya sudah diperiksa `DeviceGuard`); manusia dari matriks peran bila endpoint ber-`@RequirePermission`.
+   */
+  private scopeFor(
+    tenantId: string,
+    actor: RequestActor,
+    required: RequiredPermission | undefined,
+    auditMeta: AuditMeta,
+  ): Promise<PermissionScope | null> {
+    if (actor.devicePrincipal) return Promise.resolve('unit');
+    return required ? this.authorize(tenantId, actor, required, auditMeta) : Promise.resolve(null);
   }
 
   /** Lingkup izin peran aktif, atau 403 (dengan audit penolakan yang pasti tersimpan). */

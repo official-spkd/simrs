@@ -8,6 +8,11 @@ export interface AuditMeta {
   ip: string | null;
   userAgent: string | null;
   requestId: string | null;
+  /**
+   * Prinsipal perangkat (ADR-0027). Tanpa kolom audit baru (hash berantai memakai daftar kolom eksplisit): id dan
+   * jenis perangkat masuk ke `details` setiap entri sebagai `deviceId`/`deviceKind`.
+   */
+  device?: { id: string; kind: string } | null;
 }
 
 /**
@@ -36,7 +41,11 @@ export async function writeAudit(
       ip: meta.ip,
       userAgent: meta.userAgent?.slice(0, 300) ?? null,
       requestId: meta.requestId,
-      details: e.details === undefined ? undefined : (e.details as object),
+      details: meta.device
+        ? { ...e.details, deviceId: meta.device.id, deviceKind: meta.device.kind }
+        : e.details === undefined
+          ? undefined
+          : (e.details as object),
     })),
   });
 }

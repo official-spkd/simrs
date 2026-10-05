@@ -299,15 +299,16 @@ model Unit {
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   updatedBy  String?  @map("updated_by") @db.Uuid
 
-  tenant        Tenant            @relation(fields: [tenantId], references: [id])
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
   /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
-  facility      Facility          @relation(fields: [tenantId, facilityId], references: [tenantId, id])
-  parent        Unit?             @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
-  children      Unit[]            @relation("UnitTree")
+  facility      Facility           @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent        Unit?              @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children      Unit[]             @relation("UnitTree")
   locations     Location[]
   assignments   StaffAssignment[]
   queueServices QueueService[]
   encounters    Encounter[]
+  devices       RegisteredDevice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -434,6 +435,7 @@ model User {
   trustedDevices      TrustedDevice[]
   devices             RegisteredDevice[]   @relation("RegisteredDeviceUser")
   devicesRevoked      RegisteredDevice[]   @relation("RegisteredDeviceRevoker")
+  devicesCreated      RegisteredDevice[]   @relation("RegisteredDeviceCreator")
   practitioners       Practitioner[]
 
   @@unique([tenantId, id])
@@ -1024,7 +1026,7 @@ model TrustedDevice {
 model RegisteredDevice {
   id             String    @id @db.Uuid
   tenantId       String    @map("tenant_id") @db.Uuid
-  /// staff_pin (CHECK database; jenis lain menyusul fase 2)
+  /// staff_pin (ADR-0024) | kiosk | display (prinsipal perangkat, ADR-0027); CHECK database
   kind           String    @default("staff_pin")
   /// staff_pin: pemilik PIN (wajib untuk jenis ini, CHECK `registered_devices_staff_pin`).
   userId         String?   @map("user_id") @db.Uuid
@@ -1032,7 +1034,8 @@ model RegisteredDevice {
   assignmentId   String?   @map("assignment_id") @db.Uuid
   /// Nama perangkat dari pengguna (mis. "Komputer nurse station Melati").
   name           String
-  tokenHash      String    @unique @map("token_hash")
+  /// SHA-256 rahasia token perangkat. kiosk/display: kosong sampai perangkat mendaftar dengan kode sekali pakai.
+  tokenHash      String?   @unique @map("token_hash")
   /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
   pinHash        String?   @map("pin_hash")
   /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
@@ -1052,15 +1055,30 @@ model RegisteredDevice {
   revokedReason  String?   @map("revoked_reason")
   /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
   revokedBy      String?   @map("revoked_by") @db.Uuid
+  /// kiosk/display: unit tempat perangkat dipasang (wajib, CHECK `registered_devices_principal`).
+  unitId         String?   @map("unit_id") @db.Uuid
+  /// display: papan antrean yang ditampilkan (opsional; CHECK `registered_devices_queue_display`).
+  queueDisplayId String?   @map("queue_display_id") @db.Uuid
+  /// kiosk/display: HMAC kode pendaftaran sekali pakai (dibuang saat perangkat mendaftar).
+  enrolCodeHash  String?   @map("enrol_code_hash")
+  enrolExpiresAt DateTime? @map("enrol_expires_at") @db.Timestamptz(3)
+  enrolledAt     DateTime? @map("enrolled_at") @db.Timestamptz(3)
+  /// Admin yang mendaftarkan perangkat (kiosk/display).
+  createdBy      String?   @map("created_by") @db.Uuid
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id])
-  user       User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
-  assignment StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
-  revoker    User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
-  sessions   AuthSession[]
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  unit         Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  creator      User?            @relation("RegisteredDeviceCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  queueDisplay QueueDisplay?    @relation(fields: [tenantId, queueDisplayId], references: [tenantId, id])
+  user         User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
+  assignment   StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  revoker      User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
+  sessions     AuthSession[]
 
   @@unique([tenantId, id])
   @@index([tenantId, userId])
+  @@index([tenantId, kind, unitId])
+  @@index([tenantId, queueDisplayId])
   @@map("registered_devices")
 }
 
@@ -1235,6 +1253,7 @@ model QueueDisplay {
 
   tenant   Tenant                @relation(fields: [tenantId], references: [id])
   services QueueDisplayService[]
+  devices  RegisteredDevice[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
