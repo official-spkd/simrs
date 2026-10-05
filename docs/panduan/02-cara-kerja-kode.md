@@ -458,6 +458,33 @@ Aturan bersama:
 - Setiap baca diaudit `read` dengan `patientId`; tulis `create`/`correct` tanpa kode diagnosis di `details`.
 - Staging SATUSEHAT `held` per versi: Observation, DiagnosticReport, Condition, Procedure, AllergyIntolerance.
 
+### CPPT, co-sign, verifikasi DPJP, serah terima, asesmen, worklist (fase 3 potongan 3.2b)
+
+Kontrak di `schemas/rawat-inap.ts` (input/rekaman CPPT dan input serah terima, 3.0a) dan `schemas/clinical-notes.ts`.
+
+| Endpoint `/api/v1/…`                         | Izin                               | Isi                                                                                                                                                               |
+| -------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST cppt/entries`, `GET …?encounterId=`    | `clinical.write` / `clinical.read` | PPA dari peran sesi (`PPA_OF_ROLE`: dokter → `dpjp`, residen → `residen`, perawat, bidan, apoteker → `farmasi`); residen → `menunggu_cosign`                      |
+| `POST cppt/entries/:id/entered-in-error`     | `clinical.correct`                 | Salah entri (penulis asli)                                                                                                                                        |
+| `POST cppt/entries/:id/cosign`               | `clinical.cosign`                  | DPJP utama/rawat bersama (tim perawatan) atau DPJP kunjungan; bukan catatan sendiri (`COSIGN_NOT_ALLOWED`); satu per entri → 409                                  |
+| `POST cppt/entries/:id/verify`               | `clinical.cosign`                  | Verifikasi DPJP atas CPPT PPA lain (bukan residen/DPJP); tidak memblokir                                                                                          |
+| `POST cppt/handovers`, `GET …?encounterId=`  | `clinical.write` / `clinical.read` | SBAR berversi; penerima mendapat notifikasi `handover` tanpa PHI                                                                                                  |
+| `POST patients/:id/forms/:code/responses`    | `forms.response.write`             | Asesmen K06 = isian P07 dengan `encounterId` (kunjungan pasien yang sama, tidak batal; tetap di seluruh rantai koreksi)                                           |
+| `GET assessment/encounters/:id`              | `clinical.read`                    | Asesmen terkini satu kunjungan                                                                                                                                    |
+| `GET worklist?view=dpjp\|unit\|shift\|tugas` | `clinical.read`                    | Pasien per tampilan + tugas pribadi: co-sign, verifikasi lewat `cppt.verify_hours`, tinjau order residen, TTE gagal, EWS tinggi, resume lewat batas, serah terima |
+
+Aturan penting:
+
+- Status tampilan `menunggu_cosign` = `cosign_required` tanpa atestasi `cosign` (ADR-0028 butir 6); koreksi residen
+  menunggu co-sign lagi (atestasi menempel pada versi). Co-sign/verifikasi memakai kunci versi yang sama dengan
+  koreksi, jadi versi yang sudah digantikan → `RECORD_SUPERSEDED`.
+- Batas verifikasi dihitung dari waktu kejadian (`occurred_at`), sehingga catatan susulan tidak memperpanjang batas.
+- Singkatan terlarang daftar RS (`abbreviations`) → `abbreviationWarnings` di jawaban; tidak memblokir (EP 9a).
+- CPPT DPJP versi 1 = `billable_events` `visite`; setiap CPPT memicu event `cppt.finalized`.
+- Worklist menyaring setiap pasien dengan ABAC (`PatientAccessService.basis`) dan mengaudit `read` per pasien
+  (`resource_type = worklist`). Tinjau order residen membaca `order_groups.needs_review` tanpa atestasi `review_order`
+  (target `order_groups`); endpoint tinjau dibangun potongan 3.4.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin
