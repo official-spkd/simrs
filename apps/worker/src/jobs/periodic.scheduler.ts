@@ -6,7 +6,7 @@ import {
   type PrismaClient,
   withTenant,
 } from '@simrs/db';
-import { APP_TIME_ZONE, jakartaParts } from '@simrs/shared';
+import { APP_TIME_ZONE, jakartaParts, jakartaWallTime } from '@simrs/shared';
 import { Queue, type RepeatOptions, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 import { WORKER_ENV, type WorkerEnv } from '../config/env';
@@ -26,7 +26,6 @@ export const MAX_PERIODIC_EVERY_MS = 24 * 60 * 60_000;
 
 const JOB_NAME = /^[a-z][a-z0-9-]*(\.[a-z0-9-]+)+$/;
 const DAILY_AT = /^([01]\d|2[0-3]):([0-5]\d)$/;
-const WIB_OFFSET_HOURS = 7;
 
 /** Validasi peta job saat start (gagal cepat bila nama/jadwal salah). */
 export function assertValidJobs(jobs: ReadonlyMap<string, PeriodicJob>): void {
@@ -53,8 +52,7 @@ export function nextDailyRun(dailyAt: string, after: Date): Date {
   if (!m) throw new Error(`dailyAt harus HH:MM: ${dailyAt}`);
   const [hour, minute] = [Number(m[1]), Number(m[2])];
   const p = jakartaParts(after);
-  const at = (dayOffset: number) =>
-    new Date(Date.UTC(p.year, p.month - 1, p.day + dayOffset, hour - WIB_OFFSET_HOURS, minute));
+  const at = (dayOffset: number) => jakartaWallTime(p.year, p.month, p.day + dayOffset, hour, minute);
   const today = at(0);
   return today.getTime() > after.getTime() ? today : at(1);
 }

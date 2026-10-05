@@ -76,8 +76,8 @@ export async function auditHeads(client: pg.Client): Promise<DatabaseStats['audi
   const exists = await client.query("SELECT to_regclass('public.audit_events') AS t");
   if (!exists.rows[0]?.t) return [];
   const r = await client.query<{ tenant_id: string; seq: string; hash: string }>(`
-    SELECT DISTINCT ON (tenant_id) tenant_id::text, seq::text, hash
-    FROM public.audit_events ORDER BY tenant_id, seq DESC`);
+    SELECT DISTINCT ON (e.tenant_id) e.tenant_id::text AS tenant_id, e.seq::text AS seq, e.hash
+    FROM public.audit_events e ORDER BY e.tenant_id, e.seq DESC`);
   const verify = await client.query("SELECT to_regprocedure('public.app_verify_audit_chain()') AS f");
   const heads: DatabaseStats['auditHeads'] = [];
   for (const x of r.rows) {
@@ -93,6 +93,22 @@ export async function auditHeads(client: pg.Client): Promise<DatabaseStats['audi
   }
   if (verify.rows[0]?.f) await client.query("SELECT set_config('app.tenant_id', '', true)");
   return heads;
+}
+
+export interface DocumentRow {
+  key: string;
+  sha256: string;
+  size: number;
+}
+
+/** Baris `documents` (kunci penyimpanan + hash + ukuran) di snapshot: daftar objek yang di-backup driver s3. */
+export async function documentRows(client: pg.Client): Promise<DocumentRow[]> {
+  const exists = await client.query("SELECT to_regclass('public.documents') AS t");
+  if (!exists.rows[0]?.t) return [];
+  const r = await client.query<{ key: string; sha256: string; size: number }>(
+    'SELECT storage_key AS key, sha256, size_bytes AS size FROM public.documents ORDER BY storage_key',
+  );
+  return r.rows;
 }
 
 export async function tenants(client: pg.Client): Promise<DatabaseStats['tenants']> {

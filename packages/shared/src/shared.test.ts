@@ -7,6 +7,8 @@ import {
   formatRupiah,
   formatTanggalWaktu,
   isUuidV7,
+  jakartaParts,
+  jakartaWallTime,
   newId,
   parseEnv,
   parseRupiah,
@@ -50,6 +52,13 @@ describe('tanggal (Asia/Jakarta)', () => {
   it('melewati tengah malam UTC ke hari berikutnya di WIB', () => {
     expect(formatTanggalWaktu('2026-10-31T18:30:00Z')).toBe('Min, 1 Nov 2026 · 01.30');
     expect(periodYYMM('2026-10-31T18:30:00Z')).toBe('2611');
+  });
+
+  it('jam dinding WIB → instan UTC, termasuk hari yang melimpah ke bulan berikutnya', () => {
+    expect(jakartaWallTime(2026, 10, 5, 7, 10).toISOString()).toBe('2026-10-05T00:10:00.000Z');
+    // 00.00 WIB "besok" dari 31 Okt 23.30 WIB = 1 Nov 00.00 WIB = 31 Okt 17.00 UTC.
+    const p = jakartaParts('2026-10-31T16:30:00Z');
+    expect(jakartaWallTime(p.year, p.month, p.day + 1).toISOString()).toBe('2026-10-31T17:00:00.000Z');
   });
 });
 

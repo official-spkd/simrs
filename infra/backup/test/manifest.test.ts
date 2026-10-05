@@ -36,6 +36,7 @@ function body(): ManifestBody {
       source: 'disk',
       fileCount: 0,
       totalBytes: 0,
+      integrityErrors: [],
     },
   };
 }
