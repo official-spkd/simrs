@@ -1376,35 +1376,43 @@ model HfisScheduleSnapshot {
 
 /// F02 · Booking (Mobile JKN, aplikasi RS, anjungan, loket). `booking_code` unik dan tidak bisa diubah.
 model Appointment {
-  id              String    @id @db.Uuid
-  tenantId        String    @map("tenant_id") @db.Uuid
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
   /// Kode booking 10 digit (dikirim ke BPJS Antrean).
-  bookingCode     String    @map("booking_code")
-  patientId       String    @map("patient_id") @db.Uuid
-  sessionId       String    @map("session_id") @db.Uuid
-  practitionerId  String    @map("practitioner_id") @db.Uuid
-  serviceId       String    @map("service_id") @db.Uuid
-  appointmentDate DateTime  @map("appointment_date") @db.Date
+  bookingCode         String    @map("booking_code")
+  patientId           String    @map("patient_id") @db.Uuid
+  sessionId           String    @map("session_id") @db.Uuid
+  practitionerId      String    @map("practitioner_id") @db.Uuid
+  serviceId           String    @map("service_id") @db.Uuid
+  appointmentDate     DateTime  @map("appointment_date") @db.Date
   /// jkn | non_jkn (keranjang kuota sesi)
-  quotaBucket     String    @map("quota_bucket")
+  quotaBucket         String    @map("quota_bucket")
   /// mobile_jkn | aplikasi | anjungan | loket
-  channel         String
+  channel             String
   /// JKN: jenis kunjungan Antrean BPJS (`ANTREAN_JENIS_KUNJUNGAN`): 1 rujukan FKTP, 2 rujukan internal, 3 kontrol,
   /// 4 rujukan antar-RS. Wajib bila `quota_bucket = jkn`, kosong untuk non-JKN.
-  jknVisitKind    Int?      @map("jkn_visit_kind") @db.SmallInt
+  jknVisitKind        Int?      @map("jkn_visit_kind") @db.SmallInt
   /// JKN: nomor referensi (no. rujukan/surat kontrol) untuk `nomorreferensi` Antrean; wajib bila JKN.
-  referenceNumber String?   @map("reference_number")
+  referenceNumber     String?   @map("reference_number")
   /// booked | checked_in | cancelled | no_show | completed
-  status          String    @default("booked")
-  estimatedAt     DateTime? @map("estimated_at") @db.Timestamptz(3)
-  checkedInAt     DateTime? @map("checked_in_at") @db.Timestamptz(3)
-  cancelledAt     DateTime? @map("cancelled_at") @db.Timestamptz(3)
-  cancelledBy     String?   @map("cancelled_by") @db.Uuid
-  cancelReason    String?   @map("cancel_reason")
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy       String?   @map("created_by") @db.Uuid
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy       String?   @map("updated_by") @db.Uuid
+  status              String    @default("booked")
+  /// Status `bpjs.antrean.add`: not_required (non-JKN) | pending | sent | rejected | dead
+  bpjsSyncStatus      String    @default("not_required") @map("bpjs_sync_status")
+  bpjsSyncedAt        DateTime? @map("bpjs_synced_at") @db.Timestamptz(3)
+  /// Kode penolakan/galat terakhir (`BPJS_REJECTIONS`, `BPJS_TIDAK_DIKENAL`, `BPJS_DLQ`); pesan dari kode, tanpa PHI.
+  bpjsErrorCode       String?   @map("bpjs_error_code")
+  /// Status `bpjs.antrean.batal` (sama dengan di atas); not_required bila tidak pernah dikirim ke BPJS.
+  bpjsCancelStatus    String    @default("not_required") @map("bpjs_cancel_status")
+  bpjsCancelErrorCode String?   @map("bpjs_cancel_error_code")
+  estimatedAt         DateTime? @map("estimated_at") @db.Timestamptz(3)
+  checkedInAt         DateTime? @map("checked_in_at") @db.Timestamptz(3)
+  cancelledAt         DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancelledBy         String?   @map("cancelled_by") @db.Uuid
+  cancelReason        String?   @map("cancel_reason")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?   @map("created_by") @db.Uuid
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?   @map("updated_by") @db.Uuid
 
   tenant       Tenant          @relation(fields: [tenantId], references: [id])
   patient      Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])

@@ -674,7 +674,8 @@ describe('celah kontrak 0a: Antrean JKN, SPRI/rujukan draf, penolakan SEP', () =
             sessionId: base.sessionId,
             practitionerId: base.practitionerId,
             serviceId: base.serviceId,
-            appointmentDate: base.appointmentDate,
+            // Tanggal berbeda tiap booking: satu booking aktif per pasien × layanan × tanggal.
+            appointmentDate: day(nextDate()),
             channel: 'loket',
             quotaBucket: 'jkn',
             ...data,
@@ -695,6 +696,36 @@ describe('celah kontrak 0a: Antrean JKN, SPRI/rujukan draf, penolakan SEP', () =
     );
     await create({ jknVisitKind: 4, referenceNumber: '0301R00310270001' });
     await create({ quotaBucket: 'non_jkn' });
+  });
+
+  it('satu booking aktif per pasien × layanan × tanggal (indeks unik parsial); batal membebaskan slotnya', async () => {
+    const c = await makeChain(A);
+    const base = await inA((tx) => tx.appointment.findUniqueOrThrow({ where: { id: c.appointmentId } }));
+    const again = () =>
+      inA((tx) =>
+        tx.appointment.create({
+          data: {
+            id: newId(),
+            tenantId: A,
+            bookingCode: digits(10),
+            patientId: base.patientId,
+            sessionId: base.sessionId,
+            practitionerId: base.practitionerId,
+            serviceId: base.serviceId,
+            appointmentDate: base.appointmentDate,
+            channel: 'loket',
+            quotaBucket: 'non_jkn',
+          },
+        }),
+      );
+    await expect(again()).rejects.toThrow(/Unique constraint/);
+    await inA((tx) =>
+      tx.appointment.update({
+        where: { id: c.appointmentId },
+        data: { status: 'cancelled', cancelledAt: new Date(), cancelReason: 'Pasien batal' },
+      }),
+    );
+    await again();
   });
 
   it('rujukan: SPRI dan draf pending tanpa nomor; nomor wajib selain pending dan tidak berubah setelah terisi', async () => {
@@ -837,7 +868,7 @@ describe('isolasi tenant', () => {
             sessionId: a.sessionId,
             practitionerId: r.practitioner.id,
             serviceId: r.service.id,
-            appointmentDate: day('2027-06-01'),
+            appointmentDate: day(nextDate()),
             quotaBucket: 'jkn',
             jknVisitKind: 3,
             referenceNumber: `0301R${digits(14)}`,
