@@ -38,7 +38,7 @@ export function TransaksiTab({
     <div className="flex flex-wrap items-start gap-4">
       <section
         aria-label="Daftar transaksi"
-        className="flex min-w-0 flex-[999_1_560px] flex-col gap-2 rounded-card border border-line bg-white p-3"
+        className="@container flex min-w-0 flex-[999_1_560px] flex-col gap-2 rounded-card border border-line bg-white p-3"
       >
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex min-w-0 flex-[1_1_220px] flex-col gap-1 text-small font-semibold text-ink-700">
@@ -76,7 +76,7 @@ export function TransaksiTab({
         </div>
         <div
           aria-hidden="true"
-          className="hidden grid-cols-[64px_minmax(0,1fr)_76px_104px_128px] gap-3 border-b border-line px-2 pb-1.5 text-caption font-semibold text-ink-500 md:grid"
+          className="hidden grid-cols-[64px_minmax(0,1fr)_76px_104px_128px] gap-3 border-b border-line px-2 pb-1.5 text-caption font-semibold text-ink-500 @xl:grid"
         >
           <span>Waktu</span>
           <span>Pasien · tagihan</span>
@@ -95,11 +95,11 @@ export function TransaksiTab({
                   aria-pressed={on}
                   onClick={() => onSelect(t.id)}
                   className={cx(
-                    'grid min-h-12 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-0 border-b border-line px-2 py-2 text-left font-[inherit] md:grid-cols-[64px_minmax(0,1fr)_76px_104px_128px]',
+                    'grid min-h-12 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-0 border-b border-line px-2 py-2 text-left font-[inherit] @xl:grid-cols-[64px_minmax(0,1fr)_76px_104px_128px]',
                     on ? 'bg-[#EEF6F5] shadow-[inset_3px_0_0_#0F766E]' : 'bg-white',
                   )}
                 >
-                  <span className="font-mono text-caption text-ink-700 max-md:hidden">
+                  <span className="font-mono text-caption text-ink-700 @max-xl:hidden">
                     {t.createdAt ? when : '—'}
                   </span>
                   <span className="flex min-w-0 flex-col">
@@ -114,17 +114,17 @@ export function TransaksiTab({
                     </span>
                     <span className="truncate font-mono text-caption text-ink-500">
                       {t.invoiceNo}
-                      <span className="md:hidden">
+                      <span className="@xl:hidden">
                         {' '}
                         · {CHANNEL_LABEL[t.channel]}
                         {t.createdAt ? ` · ${when}` : ''}
                       </span>
                     </span>
                   </span>
-                  <span className="text-small max-md:hidden">{CHANNEL_LABEL[t.channel]}</span>
-                  <span className="text-right font-mono max-md:hidden">{digits(BigInt(t.amount))}</span>
+                  <span className="text-small @max-xl:hidden">{CHANNEL_LABEL[t.channel]}</span>
+                  <span className="text-right font-mono @max-xl:hidden">{digits(BigInt(t.amount))}</span>
                   <span className="flex flex-col items-end gap-1">
-                    <span className="font-mono text-small md:hidden">{digits(BigInt(t.amount))}</span>
+                    <span className="font-mono text-small @xl:hidden">{digits(BigInt(t.amount))}</span>
                     <Chip tone={STATUS_TONE[t.status]}>{STATUS_LABEL[t.status]}</Chip>
                   </span>
                 </button>

@@ -6,7 +6,7 @@ export function LogoutButton() {
     <form action={logoutAction}>
       <button
         type="submit"
-        className="min-h-9 w-full cursor-pointer rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-700 hover:bg-subtle"
+        className="min-h-11 w-full cursor-pointer rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-700 hover:bg-subtle"
       >
         Keluar
       </button>

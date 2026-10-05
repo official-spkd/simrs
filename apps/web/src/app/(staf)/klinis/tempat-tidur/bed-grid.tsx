@@ -99,7 +99,7 @@ export function WardOverview({
               {counts.kotor + counts.dibersihkan}
               {counts.rusak ? ` · Rusak ${counts.rusak}` : ''}
             </span>
-            <Button size="sm" className="h-11" onClick={() => onOpen(w.code)}>
+            <Button size="sm" onClick={() => onOpen(w.code)}>
               Lihat peta {w.name}
             </Button>
           </li>

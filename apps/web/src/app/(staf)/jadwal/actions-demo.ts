@@ -2,7 +2,8 @@
 
 import { formatJam } from '@simrs/shared';
 import { z } from 'zod';
-import { frontOfficeActionSession, getWeeklySchedule } from '@/lib/server/data/front-office';
+import { getWeeklySchedule } from '@/lib/server/data/front-office/jadwal';
+import { frontOfficeActionSession } from '@/lib/server/data/front-office/shared';
 
 /**
  * Server Action layar Jadwal dokter (F01, mode presentasi ADR-0023): gerbang demo + sesi lengkap + posisi,

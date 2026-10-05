@@ -2,6 +2,7 @@ import { type Bed, bedBoardSchema, edBoardSchema, triageAssessmentSchema } from 
 import { describe, expect, it } from 'vitest';
 import { advanceTo, applyAction, runScenario } from './demo/engine/run';
 import type { ScenarioEvent, TaskValue } from './demo/engine/types';
+import { ENCOUNTER_ID } from './demo/fixtures/ids';
 import {
   demoBedRequests,
   demoBeds,
@@ -134,7 +135,7 @@ describe('K05 · tempat tidur', () => {
     const booked = applyScenarioBeds(demoBeds(), runScenario(def, alloc), elektif).find(
       (b) => b.code === 'ICU 3',
     );
-    expect(booked).toMatchObject({ status: 'dipesan', encounterId: 'kj-hartono' });
+    expect(booked).toMatchObject({ status: 'dipesan', encounterId: ENCOUNTER_ID.hartono });
     const moved = play(
       'igd-ranap',
       [
@@ -240,7 +241,7 @@ describe('K03 · IGD', () => {
     expect(edLosAlert({ triageLevel: 3, status: 'tunggu-dokter' }, 30)).toBeNull();
     expect(edLosAlert({ triageLevel: 2, status: 'pemeriksaan' }, 30)).toBeNull();
     expect(losOverdue({ triageLevel: 4, status: 'observasi' }, 239)).toBe(false);
-    // Papan hari demo: hanya Tn. Fajar (B5, boarding 4 j 40 m) yang lewat batas saat dibuka.
+    // Papan hari demo: hanya Ny. Sumarni (B5, boarding 4 j 40 m) yang lewat batas saat dibuka.
     const late = demoEdBoardBase(DEMO_NOW).items.filter((p) => edLosAlert(p, p.losMinutes) !== null);
     expect(late.map((p) => p.bed)).toEqual(['B5']);
   });

@@ -14,6 +14,7 @@ import { FASILITAS } from './demo/fixtures/btn';
 import { firstOpenTask, taskKey, taskOptions, visibleTasks } from './demo/engine/run';
 import { formatSimClock, simInstant } from './demo/engine/format';
 import type { RunResult, ScenarioId, TaskValue } from './demo/engine/types';
+import { CLAIM_ID, INVOICE_ID, JOURNAL_ID, PATIENT_ID, PAYMENT_ID } from './demo/fixtures/ids';
 import { SCENARIO_ORDER } from './demo/skenario';
 import {
   ACCOUNTING_KPIS,
@@ -135,9 +136,16 @@ function dischargeLabel(R: RunResult): string {
 }
 
 const SCENARIO_PATIENT: Record<ScenarioId, string> = {
-  'rawat-jalan': 'ps-suryo',
-  'igd-ranap': 'ps-hartono',
-  'elektif-btn': 'ps-ratna',
+  'rawat-jalan': PATIENT_ID.suryo,
+  'igd-ranap': PATIENT_ID.hartono,
+  'elektif-btn': PATIENT_ID.ratna,
+};
+
+/** Id tagihan pasien skenario (opak). */
+const SCENARIO_INVOICE: Record<ScenarioId, string> = {
+  'rawat-jalan': INVOICE_ID.suryo,
+  'igd-ranap': INVOICE_ID.hartono,
+  'elektif-btn': INVOICE_ID.ratna,
 };
 
 /**
@@ -191,7 +199,7 @@ function paymentsOf(id: ScenarioId, R: RunResult): Payment[] {
   const dp = doneAt(R, 'deposit', 'webhook');
   if (r.deposit > 0n && dp) {
     out.push({
-      id: 'pay-ratna-dp',
+      id: PAYMENT_ID.ratnaDeposit,
       kind: 'deposit',
       method: r.kanal === 'qris' ? 'qris' : 'va',
       amount: r.deposit.toString(),
@@ -202,7 +210,7 @@ function paymentsOf(id: ScenarioId, R: RunResult): Payment[] {
   const cair = doneAt(R, 'kasir', 'cair');
   if (r.dibiayai > 0n && cair) {
     out.push({
-      id: 'pay-ratna-btn',
+      id: PAYMENT_ID.ratnaBtn,
       kind: 'pelunasan',
       method: 'cicilan',
       amount: r.dibiayai.toString(),
@@ -213,7 +221,7 @@ function paymentsOf(id: ScenarioId, R: RunResult): Payment[] {
   const qris = doneAt(R, 'kasir', 'qrisbayar');
   if (r.lunasQris > 0n && qris) {
     out.push({
-      id: 'pay-ratna-qris',
+      id: PAYMENT_ID.ratnaQris,
       kind: 'pelunasan',
       method: 'qris',
       amount: r.lunasQris.toString(),
@@ -256,7 +264,7 @@ export function scenarioInvoice(id: ScenarioId, R: RunResult): Invoice | null {
       ? startDay
       : `${startDay} – ${R.rec.pulangAt === null ? 'sekarang' : day(R.rec.pulangAt)}`;
   return buildInvoice({
-    id: `inv-${SCENARIO_PATIENT[id].replace('ps-', '')}`,
+    id: SCENARIO_INVOICE[id],
     seq: conf.seq,
     queue: id === 'rawat-jalan' && atKasir ? 15 : null,
     patientId: SCENARIO_PATIENT[id],
@@ -302,7 +310,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
     if (!has(R, 'pasca', 'klaim')) return null;
     const codes = R.rec.dx.map((d) => d.split(' ')[0] ?? '');
     return buildClaim({
-      id: 'kl-suryo',
+      id: CLAIM_ID.suryo,
       patientId: SCENARIO_PATIENT[id],
       scenario: id,
       encounter: {
@@ -337,7 +345,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
     const mismatch = valueOf(R, 'klaim', 'utama') === 'I20.0' && !has(R, 'klaim', 'bukti');
     const sekunder = has(R, 'klaim', 'sekunder');
     return buildClaim({
-      id: 'kl-hartono',
+      id: CLAIM_ID.hartono,
       patientId: SCENARIO_PATIENT[id],
       scenario: id,
       encounter: {
@@ -395,7 +403,7 @@ export function scenarioClaim(id: ScenarioId, R: RunResult): Claim | null {
   const extraDocs: Array<[string, string]> = [['lapop', 'Laporan operasi ber-TTE']];
   if (R.rec.vip) extraDocs.push(['naik-kelas', 'Persetujuan naik kelas bertanda tangan']);
   return buildClaim({
-    id: 'kl-ratna',
+    id: CLAIM_ID.ratna,
     patientId: SCENARIO_PATIENT[id],
     scenario: id,
     encounter: {
@@ -479,7 +487,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
   const dp = doneAt(R, 'deposit', 'webhook');
   if (dp && r.deposit > 0n) {
     add({
-      id: 'ju-ratna-dp',
+      id: JOURNAL_ID.ratnaDeposit,
       seq: 851,
       date: dp,
       source: 'tpdi-btn',
@@ -493,7 +501,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
   const sisa = r.dibiayai + r.lunasQris;
   if (lunas && sisa > 0n) {
     add({
-      id: 'ju-ratna-lunas',
+      id: JOURNAL_ID.ratnaSettled,
       seq: 867,
       date: lunas,
       source: 'tpdi-btn',
@@ -508,7 +516,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
   }
   if (close) {
     add({
-      id: 'ju-ratna',
+      id: JOURNAL_ID.ratna,
       seq: 869,
       date: close,
       source: 'kasir',
@@ -524,7 +532,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
   if (cair && financed) {
     const advance = BigInt(financed.advance);
     add({
-      id: 'ju-ratna-anjak',
+      id: JOURNAL_ID.ratnaAdvance,
       seq: 1042,
       date: cair,
       source: 'tpdi-btn',
@@ -541,7 +549,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
     const margin = BigInt(rep.margin);
     const forwarded = BigInt(rep.forwarded);
     add({
-      id: 'ju-ratna-bpjs',
+      id: JOURNAL_ID.ratnaBpjs,
       seq: 215,
       date: bpjs,
       source: 'klaim',
@@ -550,7 +558,7 @@ export function scenarioJournals(id: ScenarioId, R: RunResult): JournalEntry[] {
       lines: [debit(AKUN.bankKlaim, paid), credit(AKUN.piutangBpjsRi, paid)],
     });
     add({
-      id: 'ju-ratna-teruskan',
+      id: JOURNAL_ID.ratnaForward,
       seq: 216,
       date: bpjs,
       source: 'tpdi-btn',

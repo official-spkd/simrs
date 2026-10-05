@@ -11,7 +11,8 @@ import type {
   WeeklySchedule,
 } from '@simrs/shared';
 import { nextQueueNo } from '../../front-office';
-import { type DemoPatient, patientById } from './pasien';
+import { DOCTOR_ID, PATIENT_ID, REFERRAL_ID } from './ids';
+import { ANTREAN_POLI_PD, type DemoPatient, NEXT_POLI_PD, patientById } from './pasien';
 import { poliByCode, queueNo } from './rs';
 import { doctorById } from './staf';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from './waktu';
@@ -43,17 +44,17 @@ export const NO_PROGRESS: FrontOfficeProgress = {
 
 /** Identitas tetap pasien skenario rawat jalan di front office (naskah Simulasi). */
 export const SCENARIO_RJ = {
-  patientId: 'ps-suryo',
+  patientId: PATIENT_ID.suryo,
   bookingCode: '2610050117',
   ticket: 'A-031',
   sep: '0301R0011026V005102',
   poliQueue: 'PD-027',
-  doctorId: 'dr-andini',
+  doctorId: DOCTOR_ID.andini,
   diagnosis: 'E11.9 · Diabetes melitus tipe 2 tanpa komplikasi',
 } as const;
 
 /** Pasien bawaan meja pendaftaran dan anjungan di luar skenario. */
-export const DEFAULT_PATIENT_ID = 'ps-siti';
+export const DEFAULT_PATIENT_ID = PATIENT_ID.siti;
 /** Nomor SEP fiktif untuk pendaftaran lokal (format VClaim, bukan nomor nyata). */
 export const LOCAL_SEP = '0301R0011026V000812';
 
@@ -74,9 +75,9 @@ type Cell =
 /** Jadwal mingguan (mockup Jadwal): kuota bawaan 80% JKN / 20% non-JKN, booking per penjamin. */
 const WEEK: ReadonlyArray<readonly [doctorId: string, cells: readonly Cell[]]> = [
   [
-    'dr-andini',
+    DOCTOR_ID.andini,
     [
-      ['08.00', '12.00', 24, 6, 17, 5],
+      ['07.30', '12.00', 24, 6, 17, 5],
       ['08.00', '12.00', 24, 6, 21, 5],
       ['08.00', '12.00', 24, 6, 10, 2],
       ['08.00', '12.00', 24, 6, 7, 2],
@@ -85,7 +86,7 @@ const WEEK: ReadonlyArray<readonly [doctorId: string, cells: readonly Cell[]]> =
     ],
   ],
   [
-    'dr-rahmat',
+    DOCTOR_ID.rahmat,
     [
       ['13.00', '16.00', 20, 5, 7, 2],
       'libur',
@@ -96,29 +97,29 @@ const WEEK: ReadonlyArray<readonly [doctorId: string, cells: readonly Cell[]]> =
     ],
   ],
   [
-    'dr-bagus',
+    DOCTOR_ID.bagus,
     [
       ['09.00', '12.00', 16, 4, 16, 2],
       ['09.00', '12.00', 16, 4, 9, 2],
-      { cuti: 'dr-melati', patients: 18 },
+      { cuti: DOCTOR_ID.melati, patients: 18 },
       ['09.00', '12.00', 16, 4, 6, 1],
       ['09.00', '12.00', 16, 4, 5, 1],
       'libur',
     ],
   ],
   [
-    'dr-melati',
+    DOCTOR_ID.melati,
     [
       'libur',
       ['13.00', '15.00', 12, 3, 5, 1],
-      { pengganti: 'dr-bagus', start: '09.00', end: '12.00' },
+      { pengganti: DOCTOR_ID.bagus, start: '09.00', end: '12.00' },
       ['13.00', '15.00', 12, 3, 3, 0],
       'libur',
       ['08.00', '10.00', 8, 2, 1, 0],
     ],
   ],
   [
-    'dr-yudha',
+    DOCTOR_ID.yudha,
     [
       ['09.30', '12.00', 16, 4, 12, 3],
       ['09.30', '12.00', 16, 4, 14, 3],
@@ -129,7 +130,7 @@ const WEEK: ReadonlyArray<readonly [doctorId: string, cells: readonly Cell[]]> =
     ],
   ],
   [
-    'dr-kartika',
+    DOCTOR_ID.kartika,
     [
       ['08.00', '11.00', 16, 4, 11, 3],
       ['08.00', '11.00', 16, 4, 7, 2],
@@ -178,7 +179,7 @@ function slotOf(doctorId: string, date: string, cell: Cell, hfisSynced: boolean)
 }
 
 /** Slot cuti yang belum dikirim ke HFIS (satu-satunya perbedaan jadwal RS vs HFIS pagi ini). */
-export const HFIS_PENDING_SLOT = `dr-bagus.${shiftDate(DEMO_TODAY, 2)}`;
+export const HFIS_PENDING_SLOT = `${DOCTOR_ID.bagus}.${shiftDate(DEMO_TODAY, 2)}`;
 
 /** F01 · Jadwal minggu 5–10 Okt 2026. Setelah SEP Tn. Suryo terbit, slot Senin dr. Andini bertambah satu booking. */
 export function demoWeeklySchedule(p: FrontOfficeProgress = NO_PROGRESS): WeeklySchedule {
@@ -194,7 +195,7 @@ export function demoWeeklySchedule(p: FrontOfficeProgress = NO_PROGRESS): Weekly
     });
     return { id, name: d.nama, poliCode: poli.code, poliName: poli.name, room: poli.room, slots };
   });
-  const bagus = doctorOf('dr-bagus').d.nama;
+  const bagus = doctorOf(DOCTOR_ID.bagus).d.nama;
   return {
     weekStart: DEMO_TODAY,
     days: SCHEDULE_DAYS,
@@ -240,27 +241,50 @@ function boardClinic(
   };
 }
 
+/** Nomor Poli PD yang sudah dipanggil, urut jam panggil (roster `ANTREAN_POLI_PD`). */
+function pdCalled(): string[] {
+  return ANTREAN_POLI_PD.filter((a) => a.dipanggil !== null)
+    .sort((a, b) => (a.dipanggil ?? '').localeCompare(b.dipanggil ?? ''))
+    .map((a) => a.no);
+}
+
 /**
- * F04 · Papan antrean. PD-027 (Tn. Suryo, booking aplikasi) dicadangkan: muncul sebagai "berikutnya" setelah SEP
- * terbit dan baru dipanggil ketika DPJP memanggilnya (`pemeriksaan-dokter.panggil`), tidak oleh panggilan otomatis.
+ * Kartu Poli PD diturunkan dari roster antrean yang sama dengan layar Pemeriksaan: dilayani = pasien yang sedang
+ * diperiksa, berikutnya = yang menunggu (urut nomor). PD-027 (Tn. Suryo, booking aplikasi) dicadangkan: masuk
+ * "berikutnya" setelah SEP terbit dan baru dipanggil ketika DPJP memanggilnya (`pemeriksaan-dokter.panggil`).
+ */
+function pdClinic(p: FrontOfficeProgress): { clinic: QueueBoardClinic; previous: string | null } {
+  const note = 'Estimasi 12 menit per pasien';
+  const called = pdCalled();
+  const waiting = ANTREAN_POLI_PD.filter((a) => a.status === 'menunggu').map((a) => a.no);
+  if (p.doctorCalled) {
+    return {
+      clinic: boardClinic(DOCTOR_ID.andini, SCENARIO_RJ.poliQueue, waiting, note),
+      previous: called.at(-1) ?? null,
+    };
+  }
+  const current = ANTREAN_POLI_PD.find((a) => a.status === 'diperiksa')?.no ?? called.at(-1);
+  if (!current) throw new Error('Roster Poli PD belum punya pasien yang dipanggil');
+  const next = p.sep ? [...waiting, SCENARIO_RJ.poliQueue].sort() : waiting;
+  return {
+    clinic: boardClinic(DOCTOR_ID.andini, current, next, note, { reserved: [SCENARIO_RJ.poliQueue] }),
+    previous: called.filter((no) => no !== current).at(-1) ?? null,
+  };
+}
+
+/**
+ * F04 · Papan antrean. Poli PD mengikuti roster antrean (`pdClinic`); poli lain lantai 2 belum punya layar
+ * pemeriksaan, nomornya anonim.
  */
 export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard {
-  const pd = p.doctorCalled
-    ? boardClinic('dr-andini', SCENARIO_RJ.poliQueue, range('PD', 28, 31), 'Estimasi 12 menit per pasien')
-    : boardClinic(
-        'dr-andini',
-        'PD-025',
-        p.sep ? range('PD', 26, 31) : ['PD-026', ...range('PD', 28, 31)],
-        'Estimasi 12 menit per pasien',
-        { reserved: [SCENARIO_RJ.poliQueue] },
-      );
+  const { clinic: pd, previous } = pdClinic(p);
   const clinics = [
     pd,
-    boardClinic('dr-bagus', 'JT-009', range('JT', 10, 13), 'Estimasi 15 menit per pasien'),
-    boardClinic('dr-yudha', 'SR-004', range('SR', 5, 7), 'Dokter mulai praktik 09.30', {
+    boardClinic(DOCTOR_ID.bagus, 'JT-009', range('JT', 10, 13), 'Estimasi 15 menit per pasien'),
+    boardClinic(DOCTOR_ID.yudha, 'SR-004', range('SR', 5, 7), 'Dokter mulai praktik 09.30', {
       noteTone: 'perhatian',
     }),
-    boardClinic('dr-kartika', 'PR-011', range('PR', 12, 14), 'Estimasi 10 menit per pasien'),
+    boardClinic(DOCTOR_ID.kartika, 'PR-011', range('PR', 12, 14), 'Estimasi 10 menit per pasien'),
   ];
   const earlier = [
     { queueNo: 'PR-011', poliCode: 'PR' },
@@ -270,8 +294,8 @@ export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard
   return {
     area: 'Rawat Jalan Lantai 2',
     asOf: DEMO_NOW,
-    calling: { queueNo: pd.current ?? 'PD-025', poliCode: 'PD' },
-    history: [...earlier, { queueNo: p.doctorCalled ? 'PD-026' : 'PD-024', poliCode: 'PD' }],
+    calling: { queueNo: pd.current ?? SCENARIO_RJ.poliQueue, poliCode: 'PD' },
+    history: previous ? [...earlier, { queueNo: previous, poliCode: 'PD' }] : earlier,
     clinics,
     info: 'Tidak mendengar panggilan? Cek nomor Anda di aplikasi atau Mobile JKN. Nomor yang terlewat dipanggil ulang setelah 3 pasien berikutnya.',
   };
@@ -292,11 +316,11 @@ const dx = (code: keyof typeof ICD) => ({ code, label: ICD[code] });
 
 /** Nomor antrean poli berikutnya dan perkiraan panggil per dokter yang praktik hari ini. */
 const TODAY_QUEUE: Record<string, { next: number; eta: string }> = {
-  'dr-andini': { next: 32, eta: '11.20' },
-  'dr-rahmat': { next: 110, eta: '13.40' },
-  'dr-bagus': { next: 14, eta: '11.30' },
-  'dr-yudha': { next: 8, eta: '11.15' },
-  'dr-kartika': { next: 15, eta: '10.50' },
+  [DOCTOR_ID.andini]: { next: NEXT_POLI_PD, eta: '11.10' },
+  [DOCTOR_ID.rahmat]: { next: 110, eta: '13.40' },
+  [DOCTOR_ID.bagus]: { next: 14, eta: '11.30' },
+  [DOCTOR_ID.yudha]: { next: 8, eta: '11.15' },
+  [DOCTOR_ID.kartika]: { next: 15, eta: '10.50' },
 };
 
 /** Kuota dokter hari ini = slot Senin di jadwal mingguan (satu sumber), ditambah nomor antrean berikutnya. */
@@ -378,7 +402,7 @@ export function registrationPatients(): RegistrationPatient[] {
       lastVisit: '12 Sep 2026 · Poli Penyakit Dalam',
       referrals: [
         referral({
-          id: 'rj-siti-kontrol',
+          id: REFERRAL_ID.sitiKontrol,
           kind: 'surat-kontrol',
           number: '0301R0011025K000456',
           title: 'Surat kontrol · Poli Penyakit Dalam',
@@ -387,10 +411,10 @@ export function registrationPatients(): RegistrationPatient[] {
           issuedAt: '2026-09-12',
           validUntil: '2026-10-12',
           poliCode: 'PD',
-          doctorId: 'dr-andini',
+          doctorId: DOCTOR_ID.andini,
         }),
         referral({
-          id: 'rj-siti-fktp',
+          id: REFERRAL_ID.sitiFktp,
           kind: 'rujukan-fktp',
           number: '0301U0420926P001234',
           title: 'Rujukan FKTP · Puskesmas Sukamaju',
@@ -402,7 +426,7 @@ export function registrationPatients(): RegistrationPatient[] {
           poliCode: 'PD',
         }),
         referral({
-          id: 'rj-siti-lama',
+          id: REFERRAL_ID.sitiLama,
           kind: 'rujukan-fktp',
           number: '0301U0510626P000877',
           title: 'Rujukan FKTP · Klinik Pratama Sehat Sentosa',
@@ -418,13 +442,13 @@ export function registrationPatients(): RegistrationPatient[] {
     // Ny. Maria Ulfa: pasien rawat jalan kemoterapi (klaim siklus 3, 24 Sep). Hari ini kontrol Poli PD dr. Rahmat
     // (sesi 13.00) sebelum siklus berikutnya; permintaan bed kemoterapinya di Admisi berasal dari poli ini. Belum
     // dirawat inap di layar mana pun (dijaga tes).
-    lookupOf('ps-maria', {
+    lookupOf(PATIENT_ID.maria, {
       guardian: 'Rina (anak)',
       lastVisit: '24 Sep 2026 · Poli Penyakit Dalam',
       fktp: 'Klinik Pratama Harapan Sehat',
       referrals: [
         referral({
-          id: 'rj-maria-kontrol',
+          id: REFERRAL_ID.mariaKontrol,
           kind: 'surat-kontrol',
           number: '0301R0011025K000489',
           title: 'Surat kontrol · Poli Penyakit Dalam',
@@ -433,12 +457,20 @@ export function registrationPatients(): RegistrationPatient[] {
           issuedAt: '2026-09-24',
           validUntil: '2026-10-22',
           poliCode: 'PD',
-          doctorId: 'dr-rahmat',
+          doctorId: DOCTOR_ID.rahmat,
         }),
       ],
     }),
-    lookupOf('ps-ayu', { guardian: 'Dimas (suami)', lastVisit: '2 Agu 2026 · IGD', referrals: [] }),
-    lookupOf('ps-fajar', { guardian: 'Laras (istri)', lastVisit: '3 Jul 2026 · Poli Bedah', referrals: [] }),
+    lookupOf(PATIENT_ID.ayu, {
+      guardian: 'Dimas (suami)',
+      lastVisit: '5 Okt 2026 · Poli Penyakit Dalam (pagi ini)',
+      referrals: [],
+    }),
+    lookupOf(PATIENT_ID.fajar, {
+      guardian: 'Laras (istri)',
+      lastVisit: '28 Sep 2026 · Poli Bedah (pra-operasi)',
+      referrals: [],
+    }),
   ];
 }
 
@@ -449,7 +481,7 @@ export function scenarioRegistrationPatient(): RegistrationPatient {
     lastVisit: '14 Sep 2026 · Poli Penyakit Dalam',
     referrals: [
       referral({
-        id: 'rj-suryo-kontrol',
+        id: REFERRAL_ID.suryoKontrol,
         kind: 'surat-kontrol',
         number: '0301R0011025K000117',
         title: 'Surat kontrol · Poli Penyakit Dalam',

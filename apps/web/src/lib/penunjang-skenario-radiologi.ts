@@ -1,5 +1,6 @@
 import type { RadiologyExam, RadStatus } from '@simrs/shared';
 import type { RunResult } from './demo/engine/types';
+import { RAD_EXAM_ID } from './demo/fixtures/ids';
 import { exam } from './demo/fixtures/penunjang';
 import { STAF } from './demo/fixtures/staf';
 import { type ScenarioResults, scenarioPatientId, simIso, taskAt, taskValue } from './penunjang-skenario';
@@ -29,7 +30,7 @@ export function hartonoChestXray(R: RunResult): RadiologyExam | null {
   const admisiIdx = R.def.steps.findIndex((s) => s.id === 'admisi');
   const signedAt = R.stepStart[admisiIdx] ?? orderAt + 60;
   return exam({
-    id: 'rad-hartono',
+    id: RAD_EXAM_ID.hartono,
     accession: HARTONO_ACCESSION,
     patientId: scenarioPatientId('igd-ranap'),
     location: 'IGD · bed resusitasi 2',

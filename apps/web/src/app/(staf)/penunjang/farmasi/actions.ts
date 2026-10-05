@@ -18,7 +18,7 @@ import { findPrescription } from '@/lib/server/data/penunjang';
  * milik resep itu, cek ganda high alert oleh apoteker kedua) tetap ditegakkan di sini.
  */
 
-const rxId = z.string().regex(/^rx-[a-z]{2,20}$/);
+const rxId = z.uuid();
 
 const REVIEW_TEXT = {
   setujui: 'Resep lolos telaah dan masuk antrean penyiapan',

@@ -79,13 +79,7 @@ export function BedDetail({
       </span>
       <div className="flex flex-wrap gap-2">
         {scenarioAlloc && (
-          <Button
-            variant="primary"
-            size="sm"
-            className="h-11"
-            disabled={!scenarioAlloc.enabled}
-            onClick={scenarioAlloc.run}
-          >
+          <Button variant="primary" size="sm" disabled={!scenarioAlloc.enabled} onClick={scenarioAlloc.run}>
             {scenarioAlloc.label}
           </Button>
         )}
@@ -93,7 +87,6 @@ export function BedDetail({
           <Button
             variant="primary"
             size="sm"
-            className="h-11"
             onClick={() => {
               const t = formatJam(new Date());
               onChange(
@@ -118,7 +111,7 @@ export function BedDetail({
             Buka rawat inap
           </Link>
         )}
-        <Button size="sm" variant="secondary" className="h-11" onClick={onClose}>
+        <Button size="sm" variant="secondary" onClick={onClose}>
           Tutup
         </Button>
       </div>

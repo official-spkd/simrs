@@ -45,7 +45,7 @@ export function NewFormCard({ roles }: { roles: Array<{ code: string; label: str
           id="kategoriBaru"
           name="category"
           defaultValue="keperawatan"
-          className="h-10 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
+          className="h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
         >
           {Object.entries(FORM_CATEGORIES).map(([value, label]) => (
             <option key={value} value={value}>
@@ -59,7 +59,7 @@ export function NewFormCard({ roles }: { roles: Array<{ code: string; label: str
           Profesi yang boleh mengisi
         </legend>
         {roles.map((r) => (
-          <label key={r.code} className="flex min-h-8 items-center gap-2.5 text-small">
+          <label key={r.code} className="flex min-h-11 items-center gap-2.5 text-small">
             <input
               type="checkbox"
               name="writeRoles"

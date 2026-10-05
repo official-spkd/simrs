@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { DOCTOR_ID } from '../../src/lib/demo/fixtures/ids';
 import { createAccount, loginAs } from '../support/accounts';
 
 /**
@@ -64,7 +65,7 @@ test.describe('pendaftaran rawat jalan', () => {
     await page.getByLabel(/Persetujuan umum \(general consent\)/).check();
     await finish.click();
     await expect(
-      page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-032 · SEP 0301R0011026V000812/),
+      page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028 · SEP 0301R0011026V000812/),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Cetak tiket, SEP, dan gelang' }).click();
     await expect(page.getByRole('button', { name: /Tercetak \d{2}\.\d{2} · cetak ulang/ })).toBeVisible();
@@ -99,12 +100,12 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   await expect(page.getByText(/Sinkron HFIS 07\.30 · 1 perbedaan/)).toBeVisible();
 
   await grid
-    .getByRole('button', { name: /^dr\. Andini Prameswari, Sp\.PD, Senin 5 Okt, 08–12, 22\/30/ })
+    .getByRole('button', { name: /^dr\. Andini Prameswari, Sp\.PD, Senin 5 Okt, 07\.30–12, 22\/30/ })
     .click();
   const detail = page.getByRole('region', { name: 'Detail slot jadwal' });
   await expect(detail.getByText('Praktik · kuota tersedia')).toBeVisible();
   await expect(detail.getByText('22 pasien booking dari 30 kuota · 73% terisi')).toBeVisible();
-  await expect(page).toHaveURL(/pilih=dr-andini\.2026-10-05/);
+  await expect(page).toHaveURL(new RegExp(`pilih=${DOCTOR_ID.andini}\\.2026-10-05`));
 
   await detail.getByRole('button', { name: 'Tambah kuota JKN' }).click();
   await expect(detail.getByText('22 pasien booking dari 31 kuota · 71% terisi')).toBeVisible();

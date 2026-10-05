@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { clientInfo } from '@/lib/client-info';
+import { contentSecurityPolicy, NONCE_HEADER, newNonce } from '@/lib/csp';
 import { PATH_HEADER } from '@/lib/request-path';
 import { loginUrl } from '@/lib/safe-path';
 import { clearCookies, cookieNames, writeSessionCookies } from '@/lib/server/cookies';
@@ -12,6 +13,8 @@ import { webEnv } from '@/lib/server/web-env';
  * 2. Cookie akses habis tapi cookie refresh ada → perpanjang sesi sekali (aman untuk permintaan paralel),
  *    teruskan cookie baru ke render permintaan ini, dan simpan di browser.
  * 3. Refresh ditolak (sesi idle/dicabut) → hapus cookie, alihkan ke /masuk dengan alasan "sesi berakhir".
+ * 4. CSP ber-nonce per permintaan (ADR-0073): nonce + CSP diteruskan ke render (Next memasang nonce di skripnya)
+ *    dan dikirim sebagai header respons.
  * Server Action (POST) tidak dialihkan; setiap action memeriksa sesinya sendiri.
  */
 
@@ -39,10 +42,21 @@ function cookieHeader(req: NextRequest, set: Record<string, string>, remove: str
 }
 
 export async function proxy(req: NextRequest): Promise<NextResponse> {
+  const nonce = newNonce();
+  const csp = contentSecurityPolicy(nonce, { dev: process.env.NODE_ENV === 'development' });
+  const headers = new Headers(req.headers);
+  headers.set(NONCE_HEADER, nonce);
+  headers.set('content-security-policy', csp);
+  const res = await sessionProxy(req, headers);
+  res.headers.set('Content-Security-Policy', csp);
+  return res;
+}
+
+/** Langkah sesi (1–3) di atas; `headers` = header permintaan yang diteruskan ke render. */
+async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextResponse> {
   const env = webEnv();
   const names = cookieNames(env.secureCookies);
   const path = originalPath(req);
-  const headers = new Headers(req.headers);
   headers.set(PATH_HEADER, path);
 
   const access = req.cookies.get(names.access)?.value;

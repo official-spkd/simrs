@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
+import { CONSENT_ID, ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
 
 /**
  * IGD, tempat tidur, rawat inap, resume, dan persetujuan tindakan (mode presentasi, ADR-0023; mockup IGD,
@@ -167,7 +168,7 @@ test.describe('rawat inap', () => {
   test('CPPT: koreksi = versi baru beralasan, hanya oleh penulisnya; versi lama tetap tampil', async ({
     page,
   }) => {
-    await openAs(page, ['perawat'], '/klinis/rawat-inap/kj-endang');
+    await openAs(page, ['perawat'], `/klinis/rawat-inap/${ENCOUNTER_ID.endang}`);
     const cppt = page.getByRole('region', { name: 'CPPT terintegrasi' });
     const notes = cppt.getByRole('list', { name: 'Catatan CPPT' }).getByRole('listitem');
 
@@ -218,7 +219,7 @@ test.describe('rawat inap', () => {
     const account = await createAccount({ roles: ['perawat'] });
     await loginAs(page, account, '/simulasi');
     await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Rawat inap');
-    await page.goto('/klinis/rawat-inap/kj-hartono');
+    await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`);
     const journey = page.getByRole('region', { name: 'Perjalanan rawat (simulasi)' });
     const day1 = journey.getByRole('button', { name: 'Lompat ke hari 1 pagi' });
     await expect(day1).toBeDisabled();
@@ -261,7 +262,7 @@ test.describe('rawat inap', () => {
 
 test.describe('resume medis', () => {
   test('TTE terkunci sampai 12 butir lengkap, lalu final', async ({ page }) => {
-    await openAs(page, ['dokter'], '/klinis/resume/kj-endang');
+    await openAs(page, ['dokter'], `/klinis/resume/${ENCOUNTER_ID.endang}`);
     await expect(
       page.getByRole('heading', { name: 'Resume medis · Ny. Endang Wijaya', level: 1 }),
     ).toBeVisible();
@@ -287,7 +288,7 @@ test.describe('resume medis', () => {
 
 test.describe('persetujuan tindakan (tablet)', () => {
   test('tujuh butir dipahami sebelum tanda tangan; penolakan wajib alasan', async ({ page }) => {
-    await openAs(page, ['perawat'], '/tablet/persetujuan/pk-hendro');
+    await openAs(page, ['perawat'], `/tablet/persetujuan/${CONSENT_ID.hendro}`);
     const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
     await expect(tablet.getByRole('heading', { name: 'Pemasangan kateter vena sentral' })).toBeVisible();
     const next = tablet.getByRole('button', { name: 'Lanjut ke tanda tangan' });
@@ -317,7 +318,7 @@ test.describe('persetujuan tindakan (tablet)', () => {
     await scenarioAt(page, 'IGD → rawat inap', 'Tn. Hartono Wibisono', 'Tata laksana');
 
     // Langkah tata laksana dimulai tetapi tugas persetujuan belum gilirannya: tablet hanya bisa dibaca.
-    await page.goto('/tablet/persetujuan/pk-hartono');
+    await page.goto(`/tablet/persetujuan/${CONSENT_ID.hartono}`);
     const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
     await expect(
       tablet.getByRole('status').filter({ hasText: 'Menunggu giliran persetujuan di Simulasi.' }),
@@ -333,7 +334,7 @@ test.describe('persetujuan tindakan (tablet)', () => {
     await page.getByRole('button', { name: /^ICU\/ICCU/ }).click();
     await expect(page.getByRole('button', { name: 'Tanda tangani', exact: true })).toBeEnabled();
     await page.goto('/tablet/persetujuan');
-    await expect(page).toHaveURL(/\/tablet\/persetujuan\/pk-hartono$/);
+    await expect(page).toHaveURL(new RegExp(`/tablet/persetujuan/${CONSENT_ID.hartono}$`));
     await expect(tablet.getByText('Status: Menunggu tanda tangan')).toBeVisible();
     for (const box of await tablet.getByRole('checkbox', { name: /^Saya memahami/ }).all()) await box.check();
     await tablet.getByRole('button', { name: 'Lanjut ke tanda tangan' }).click();
@@ -358,7 +359,7 @@ test.describe('persetujuan tindakan (tablet)', () => {
   test('persetujuan operasi Ny. Ratna menunggu SEP admisi, lalu final dan hanya bisa dibaca', async ({
     page,
   }) => {
-    await openAs(page, ['perawat'], '/tablet/persetujuan/pk-ratna');
+    await openAs(page, ['perawat'], `/tablet/persetujuan/${CONSENT_ID.ratna}`);
     const tablet = page.getByRole('region', { name: 'Tablet persetujuan tindakan' });
     await expect(
       tablet
@@ -370,7 +371,7 @@ test.describe('persetujuan tindakan (tablet)', () => {
     await expect(tablet.getByRole('button', { name: 'Saya menolak tindakan' })).toBeDisabled();
 
     await scenarioAt(page, 'Elektif · TPDI × BTN', 'Ny. Ratna Sari', 'Deposit via TPDI');
-    await page.goto('/tablet/persetujuan/pk-ratna');
+    await page.goto(`/tablet/persetujuan/${CONSENT_ID.ratna}`);
     await expect(tablet.getByText('Status: Final · TTE')).toBeVisible();
     await expect(tablet.getByRole('status').filter({ hasText: 'Menunggu' })).toHaveCount(0);
     const first = tablet.getByRole('checkbox', { name: /^Saya memahami/ }).first();

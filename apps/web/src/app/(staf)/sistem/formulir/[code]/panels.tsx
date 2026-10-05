@@ -11,7 +11,7 @@ export type SchemaUpdate = (fn: (s: FormSchema) => FormSchema) => void;
 
 /** Gaya dasar input; lebar diatur pemakai (penuh, atau flex di baris opsi/kategori). */
 const INPUT =
-  'h-10 min-w-0 rounded-control border bg-white px-2.5 font-[inherit] text-ink-900 disabled:bg-subtle disabled:text-ink-700';
+  'h-11 min-w-0 rounded-control border bg-white px-2.5 font-[inherit] text-ink-900 disabled:bg-subtle disabled:text-ink-700';
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -95,7 +95,7 @@ function Check({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex min-h-8 items-center gap-2.5 text-small">
+    <label className="flex min-h-11 items-center gap-2.5 text-small">
       <input
         type="checkbox"
         checked={checked}
@@ -134,7 +134,7 @@ const IconButton = ({
     title={label}
     onClick={onClick}
     disabled={disabled}
-    className="size-10 shrink-0 cursor-pointer rounded-control border border-line-strong bg-white font-[inherit] text-[18px] leading-none text-ink-700 disabled:cursor-not-allowed disabled:text-ink-400"
+    className="size-11 shrink-0 cursor-pointer rounded-control border border-line-strong bg-white font-[inherit] text-[18px] leading-none text-ink-700 disabled:cursor-not-allowed disabled:text-ink-400"
   >
     ×
   </button>
