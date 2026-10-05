@@ -32,6 +32,7 @@ export const KEY_ROTATION_TARGETS = [
   'patients',
   'patient_identifiers',
   'patient_links',
+  'patient_contacts',
 ] as const;
 export type KeyRotationTarget = (typeof KEY_ROTATION_TARGETS)[number];
 
@@ -311,6 +312,57 @@ const linksTarget: TargetSpec<LinkRow> = {
   },
 };
 
+interface ContactRow extends Row {
+  name_enc: string;
+  phone_enc: string | null;
+  address_enc: string | null;
+}
+
+/** Keluarga/penanggung jawab pasien (F03, append-only): nama, HP, alamat tujuan `contact`, tanpa blind index. */
+const contactsTarget: TargetSpec<ContactRow> = {
+  target: 'patient_contacts',
+  select: (tx, ctx, cursor, limit) => tx.$queryRaw`
+    SELECT id::text AS id, name_enc, phone_enc, address_enc FROM patient_contacts
+    WHERE (app_field_key_id(name_enc) IS DISTINCT FROM ${ctx.enc}
+        OR (phone_enc IS NOT NULL AND app_field_key_id(phone_enc) IS DISTINCT FROM ${ctx.enc})
+        OR (address_enc IS NOT NULL AND app_field_key_id(address_enc) IS DISTINCT FROM ${ctx.enc}))
+      ${cursorFilter(cursor)}
+    ORDER BY id LIMIT ${limit}`,
+  async rewrite(tx, ctx, r) {
+    const { crypto } = ctx;
+    const re = (v: string | null) =>
+      v === null || crypto.isCurrentCipher(v) ? v : crypto.encryptContact(crypto.decryptContact(v));
+    const name = re(r.name_enc) as string;
+    const phone = re(r.phone_enc);
+    const address = re(r.address_enc);
+    if (name === r.name_enc && phone === r.phone_enc && address === r.address_enc) return 'unchanged';
+    // Tabel append-only: fungsi sempit hanya mengganti versi kunci kolom terenkripsi (CAS, penjaga trigger).
+    const [res] = await tx.$queryRaw<Array<{ ok: boolean }>>`
+      SELECT app_rekey_patient_contact(${r.id}::uuid, ${r.name_enc}, ${r.phone_enc}, ${r.address_enc},
+        ${name}, ${phone}, ${address}) AS ok`;
+    return res?.ok ? 'rewritten' : 'conflict';
+  },
+  async pending(tx, ctx) {
+    const [r] = await tx.$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM patient_contacts
+      WHERE app_field_key_id(name_enc) IS DISTINCT FROM ${ctx.enc}
+         OR (phone_enc IS NOT NULL AND app_field_key_id(phone_enc) IS DISTINCT FROM ${ctx.enc})
+         OR (address_enc IS NOT NULL AND app_field_key_id(address_enc) IS DISTINCT FROM ${ctx.enc})`;
+    return r?.n ?? 0;
+  },
+  usage: async (tx) => [
+    await columnUsage(tx, 'patient_contacts', 'name_enc', 'enc'),
+    await columnUsage(tx, 'patient_contacts', 'phone_enc', 'enc'),
+    await columnUsage(tx, 'patient_contacts', 'address_enc', 'enc'),
+  ],
+  async inspect(tx, ctx, id) {
+    const [r] = await tx.$queryRaw<ContactRow[]>`
+      SELECT id::text AS id, name_enc, phone_enc, address_enc FROM patient_contacts WHERE id = ${id}::uuid`;
+    if (!r) return;
+    for (const v of [r.name_enc, r.phone_enc, r.address_enc]) if (v) ctx.crypto.decryptContact(v);
+  },
+};
+
 const SPECS: Record<KeyRotationTarget, TargetSpec<Row>> = {
   users: simpleTarget('users', 'phone_enc', 'staff_phone') as unknown as TargetSpec<Row>,
   mfa_factors: simpleTarget('mfa_factors', 'secret_enc', 'mfa_secret') as unknown as TargetSpec<Row>,
@@ -318,6 +370,7 @@ const SPECS: Record<KeyRotationTarget, TargetSpec<Row>> = {
   patients: patientsTarget as unknown as TargetSpec<Row>,
   patient_identifiers: identifiersTarget as unknown as TargetSpec<Row>,
   patient_links: linksTarget as unknown as TargetSpec<Row>,
+  patient_contacts: contactsTarget as unknown as TargetSpec<Row>,
 };
 
 const context = (tenantId: string, keys: FieldKeys): Ctx => ({

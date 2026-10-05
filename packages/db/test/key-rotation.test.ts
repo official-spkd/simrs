@@ -94,7 +94,16 @@ const people = (n: number): NewPatientRecord[] =>
     identifiers: { nik: `9999${digits(12)}`, bpjs: `0000${digits(9)}` },
   }));
 
-const STATIC = { tenant: '', userId: '', deviceId: '', linkId: '', phone: '62812555000111', otp: '482913' };
+const STATIC = {
+  tenant: '',
+  userId: '',
+  deviceId: '',
+  linkId: '',
+  contactId: newId(),
+  contactName: 'Anak Pasien Fiktif',
+  phone: '62812555000111',
+  otp: '482913',
+};
 const A: { id: string; records: Array<NewPatientRecord & { id: string }> } = { id: '', records: [] };
 let B = '';
 
@@ -115,6 +124,8 @@ const v1Rows = (tenantId: string) =>
         + (SELECT count(*) FROM patients WHERE address_enc LIKE 'v1.%' OR phone_enc LIKE 'v1.%' OR phone_hash !~ '^v2:')
         + (SELECT count(*) FROM patient_identifiers WHERE value_enc LIKE 'v1.%' OR value_hash !~ '^v2:')
         + (SELECT count(*) FROM patient_links WHERE survivor_snapshot_enc LIKE 'v1.%')
+        + (SELECT count(*) FROM patient_contacts
+           WHERE name_enc LIKE 'v1.%' OR phone_enc LIKE 'v1.%' OR address_enc LIKE 'v1.%')
       )::int AS n`,
   );
 
@@ -188,6 +199,18 @@ async function seedTenantA(): Promise<void> {
         expiresAt: new Date(createdAt.getTime() + 30 * 86_400_000),
       },
     });
+    // Keluarga/penanggung jawab (F03, append-only) dengan nama + HP terenkripsi v1.
+    await tx.patientContact.create({
+      data: {
+        id: STATIC.contactId,
+        tenantId: A.id,
+        patientId: p0.id,
+        relation: 'anak',
+        nameEnc: crypto.encryptContact(STATIC.contactName),
+        phoneEnc: crypto.encryptContact(STATIC.phone),
+        isGuarantor: true,
+      },
+    });
     // Snapshot penggabungan (B → A) berisi ciphertext + hash v1 bersarang.
     const p0row = await tx.patient.findUniqueOrThrow({
       where: { id: p0.id },
@@ -238,6 +261,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
       patients: 7,
       patient_identifiers: 14,
       patient_links: 1,
+      patient_contacts: 1,
     });
     const ids = plan.targets.find((t) => t.target === 'patient_identifiers');
     expect(ids?.columns).toEqual([
@@ -329,10 +353,11 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(by.patients).toMatchObject({ scanned: 4, rewritten: 4, failed: 0, remaining: 0 });
     expect(by.patient_identifiers).toMatchObject({ rewritten: 14, failed: 0, remaining: 0 });
     expect(by.patient_links).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
+    expect(by.patient_contacts).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
     expect(await v1Rows(A.id)).toBe(0);
 
     const statuses = await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.findMany());
-    expect(statuses).toHaveLength(6);
+    expect(statuses).toHaveLength(7);
     expect(statuses.every((s) => s.finishedAt !== null && s.remaining === 0 && s.failed === 0)).toBe(true);
 
     const audits = await withTenant(app, A.id, (tx) =>
@@ -375,6 +400,11 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
       const ch = await tx.loginChallenge.findFirstOrThrow({ where: { userId: STATIC.userId } });
       expect(decryptField(ch.otpEnc as string, ctx('login_otp'))).toBe(STATIC.otp);
 
+      const contact = await tx.patientContact.findUniqueOrThrow({ where: { id: STATIC.contactId } });
+      expect(crypto.decryptContact(contact.nameEnc)).toBe(STATIC.contactName);
+      expect(crypto.decryptContact(contact.phoneEnc as string)).toBe(STATIC.phone);
+      expect(contact).toMatchObject({ relation: 'anak', isGuarantor: true, status: 'active' });
+
       const link = await tx.patientLink.findUniqueOrThrow({ where: { id: STATIC.linkId } });
       const snap = crypto.decryptSnapshot<SurvivorSnapshot>(link.survivorSnapshotEnc as string);
       const p0 = A.records[0] as NewPatientRecord & { id: string };
@@ -413,7 +443,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(row?.valueEnc.startsWith('v1.')).toBe(true);
     expect(row?.valueHash).toMatch(/^[0-9a-f]{64}$/);
     expect(await withTenant(app, B, (tx) => tx.fieldKeyRotation.count())).toBe(0);
-    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(6);
+    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(7);
   });
 
   it('gagal tertutup: kunci lama hilang atau salah → masalah dilaporkan, job tidak menulis apa pun', async () => {
@@ -480,6 +510,40 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
           tx.$executeRaw`UPDATE patient_identifiers SET value_enc = ${next.valueEnc} WHERE id = ${row.id}::uuid`,
       ),
     ).rejects.toThrow(/permission denied/);
+  });
+
+  it('kontak pasien tetap append-only: hanya fungsi rotasi yang boleh mengganti versi kunci', async () => {
+    const crypto = new PatientCrypto(during, A.id);
+    const c = await withTenant(app, A.id, (tx) =>
+      tx.patientContact.findUniqueOrThrow({ where: { id: STATIC.contactId } }),
+    );
+    // Role aplikasi tanpa hak UPDATE; pemilik tabel pun ditolak penjaga (tanpa penanda rotasi).
+    await expect(
+      withTenant(app, A.id, (tx) =>
+        tx.patientContact.update({ where: { id: c.id }, data: { relation: 'wali' } }),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      withTenant(owner, A.id, (tx) =>
+        tx.patientContact.update({
+          where: { id: c.id },
+          data: { nameEnc: crypto.encryptContact('Nama lain') },
+        }),
+      ),
+    ).rejects.toThrow(/APPEND_ONLY/);
+    await expect(
+      withTenant(owner, A.id, (tx) => tx.$executeRaw`DELETE FROM patient_contacts WHERE id = ${c.id}::uuid`),
+    ).rejects.toThrow(/APPEND_ONLY/);
+    // Versi kunci sama (v2 → v2) ditolak: fungsi rotasi bukan jalan pintas mengoreksi kontak.
+    await expect(
+      withTenant(
+        app,
+        A.id,
+        (tx) => tx.$queryRaw`
+        SELECT app_rekey_patient_contact(${c.id}::uuid, ${c.nameEnc}, ${c.phoneEnc}, ${c.addressEnc},
+          ${crypto.encryptContact('Nama lain')}, ${c.phoneEnc}, ${c.addressEnc})`,
+      ),
+    ).rejects.toThrow(/REKEY_SAME_KEY/);
   });
 
   it('daftar tenant rotasi memuat tenant nonaktif (datanya tetap harus terbaca); daftar tenant aktif tidak', async () => {
