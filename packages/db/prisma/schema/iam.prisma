@@ -39,6 +39,26 @@ model User {
   devicesCreated      RegisteredDevice[]   @relation("RegisteredDeviceCreator")
   practitioners       Practitioner[]
 
+  // K · Klinis RME (fase 3): penulis entri, atestasi, tim perawatan.
+  clinicalDrafts             ClinicalDraft[]
+  clinicalAttestations       ClinicalAttestation[]
+  encounterParticipations    EncounterParticipant[] @relation("EncounterParticipantUser")
+  authoredObservations       Observation[]          @relation("ObservationAuthor")
+  authoredDiagnosticReports  DiagnosticReport[]     @relation("DiagnosticReportAuthor")
+  authoredConditions         Condition[]            @relation("ConditionAuthor")
+  authoredProcedures         Procedure[]            @relation("ProcedureAuthor")
+  authoredAllergies          AllergyIntolerance[]   @relation("AllergyAuthor")
+  authoredCpptEntries        CpptEntry[]            @relation("CpptAuthor")
+  authoredHandovers          Handover[]             @relation("HandoverAuthor")
+  receivedHandovers          Handover[]             @relation("HandoverRecipient")
+  authoredConsultRequests    ConsultRequest[]       @relation("ConsultRequestAuthor")
+  receivedConsultRequests    ConsultRequest[]       @relation("ConsultRequestRecipient")
+  authoredConsultResponses   ConsultResponse[]      @relation("ConsultResponseAuthor")
+  authoredConsents           Consent[]              @relation("ConsentAuthor")
+  informedConsents           Consent[]              @relation("ConsentInformer")
+  witnessedConsents          ConsentSignature[]     @relation("ConsentStaffWitness")
+  authoredDischargeSummaries DischargeSummary[]     @relation("DischargeSummaryAuthor")
+
   @@unique([tenantId, id])
   @@unique([tenantId, username])
   @@unique([tenantId, email])

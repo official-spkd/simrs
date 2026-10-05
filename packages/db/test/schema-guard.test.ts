@@ -38,6 +38,21 @@ const MANUAL_INDEXES = [
   'encounters_one_active_emergency',
   'encounters_one_active_admission',
   'encounters_one_per_referral',
+  // Fase 3 · 3.0b: satu pengganti per versi entri klinis, satu co-sign per entri, satu DPJP utama aktif.
+  'observations_supersedes_once',
+  'diagnostic_reports_supersedes_once',
+  'conditions_supersedes_once',
+  'procedures_supersedes_once',
+  'allergy_intolerances_supersedes_once',
+  'cppt_entries_supersedes_once',
+  'handovers_supersedes_once',
+  'consult_requests_supersedes_once',
+  'consult_responses_supersedes_once',
+  'consents_supersedes_once',
+  'discharge_summaries_supersedes_once',
+  'clinical_attestations_one_cosign',
+  'encounter_participants_one_primary',
+  'encounter_participants_one_active_role',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -159,6 +174,25 @@ describe('penjaga skema', () => {
       'seps',
       'patient_contacts',
       'domain_events',
+      // Fase 3 · klinis RME: entri klinis, atestasi, tim perawatan, master.
+      'observations',
+      'diagnostic_reports',
+      'conditions',
+      'procedures',
+      'allergy_intolerances',
+      'cppt_entries',
+      'handovers',
+      'consult_requests',
+      'consult_responses',
+      'consents',
+      'consent_signatures',
+      'discharge_summaries',
+      'discharge_medications',
+      'discharge_summary_sources',
+      'clinical_attestations',
+      'encounter_participants',
+      'drug_substances',
+      'form_packages',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

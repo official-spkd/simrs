@@ -31,6 +31,8 @@ model FormDefinition {
   tenant    Tenant         @relation(fields: [tenantId], references: [id])
   responses FormResponse[]
 
+  consents Consent[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, code, version])
   @@map("form_definitions")
@@ -57,9 +59,12 @@ model FormResponse {
   correctionReason String?  @map("correction_reason")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy        String?  @map("created_by") @db.Uuid
+  /// K06 · Kunjungan tempat asesmen diisi (fase 3; null untuk isian di luar kunjungan). Tetap di seluruh rantai versi.
+  encounterId      String?  @map("encounter_id") @db.Uuid
 
   tenant       Tenant         @relation(fields: [tenantId], references: [id])
   patient      Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter    Encounter?     @relation(fields: [tenantId, encounterId], references: [tenantId, id])
   definition   FormDefinition @relation(fields: [tenantId, definitionId], references: [tenantId, id])
   supersedes   FormResponse?  @relation("FormResponseVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
   supersededBy FormResponse[] @relation("FormResponseVersion")
@@ -67,6 +72,7 @@ model FormResponse {
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
   @@index([tenantId, patientId, formCode])
+  @@index([tenantId, encounterId])
   @@map("form_responses")
 }
 
@@ -93,6 +99,10 @@ model Document {
   voidedAt   DateTime? @map("voided_at") @db.Timestamptz(3)
   voidedBy   String?   @map("voided_by") @db.Uuid
   voidReason String?   @map("void_reason")
+  /// K · Entri klinis asal dokumen (nama tabel + id versi, mis. `discharge_summaries`). Dokumen ber-TTE mengunci versi
+  /// itu (`app_clinical_guard`: tidak bisa digantikan, hanya addendum). Keduanya null untuk lampiran biasa.
+  sourceType String?   @map("source_type")
+  sourceId   String?   @map("source_id") @db.Uuid
 
   tenant     Tenant              @relation(fields: [tenantId], references: [id])
   patient    Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
@@ -100,8 +110,14 @@ model Document {
   /// Bukti persetujuan (scan) yang dirujuk persetujuan privasi.
   consents   PrivacyConsent[]
 
+  /// K11/K13 · Dokumen PDF klinis (persetujuan, resume) dan gambar tanda tangan.
+  clinicalConsents       Consent[]          @relation("ConsentDocument")
+  consentSignatureImages ConsentSignature[] @relation("ConsentSignatureImage")
+  dischargeSummaryDocs   DischargeSummary[] @relation("DischargeSummaryDocument")
+
   @@unique([tenantId, id])
   @@index([tenantId, patientId, createdAt])
+  @@index([tenantId, sourceType, sourceId])
   @@map("documents")
 }
 

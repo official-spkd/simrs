@@ -24,6 +24,9 @@ model Patient {
   phoneHash          String?   @map("phone_hash")
   /// Pasien tanpa identitas (mis. IGD tidak sadar, "Tn. X").
   unidentified       Boolean   @default(false)
+  /// EP 10c · Pasien rahasia (VIP/karyawan/kasus sensitif): setiap akses menjadi temuan audit "akses pasien rahasia";
+  /// pengetatan akses di B09 fase 8 (keputusan fase 3 no. 21).
+  confidential       Boolean   @default(false)
   /// active | merged
   status             String    @default("active")
   mergedIntoId       String?   @map("merged_into_id") @db.Uuid
@@ -52,6 +55,20 @@ model Patient {
   referrals       Referral[]
   contacts        PatientContact[]
   kioskLookups    KioskLookup[]
+
+  clinicalDrafts       ClinicalDraft[]
+  clinicalAttestations ClinicalAttestation[]
+  observations         Observation[]
+  diagnosticReports    DiagnosticReport[]
+  conditions           Condition[]
+  procedures           Procedure[]
+  allergyIntolerances  AllergyIntolerance[]
+  cpptEntries          CpptEntry[]
+  handovers            Handover[]
+  consultRequests      ConsultRequest[]
+  consultResponses     ConsultResponse[]
+  clinicalConsents     Consent[]
+  dischargeSummaries   DischargeSummary[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])

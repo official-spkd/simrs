@@ -80,6 +80,27 @@ model Tenant {
   kioskTickets          KioskTicket[]
   idempotencyKeys       IdempotencyKey[]
 
+  // K · Klinis RME (fase 3)
+  clinicalDrafts          ClinicalDraft[]
+  clinicalAttestations    ClinicalAttestation[]
+  encounterParticipants   EncounterParticipant[]
+  drugSubstances          DrugSubstance[]
+  formPackages            FormPackage[]
+  observations            Observation[]
+  diagnosticReports       DiagnosticReport[]
+  conditions              Condition[]
+  procedures              Procedure[]
+  allergyIntolerances     AllergyIntolerance[]
+  cpptEntries             CpptEntry[]
+  handovers               Handover[]
+  consultRequests         ConsultRequest[]
+  consultResponses        ConsultResponse[]
+  consents                Consent[]
+  consentSignatures       ConsentSignature[]
+  dischargeSummaries      DischargeSummary[]
+  dischargeMedications    DischargeMedication[]
+  dischargeSummarySources DischargeSummarySource[]
+
   @@map("tenants")
 }
 
@@ -300,6 +321,8 @@ model Unit {
   encounters    Encounter[]
   devices       RegisteredDevice[]
   referrals     Referral[]
+
+  consultRequests ConsultRequest[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])

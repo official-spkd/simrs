@@ -460,6 +460,22 @@ model Encounter {
   seps            Sep[]
   privacyConsents PrivacyConsent[]
 
+  formResponses        FormResponse[]
+  clinicalDrafts       ClinicalDraft[]
+  clinicalAttestations ClinicalAttestation[]
+  participants         EncounterParticipant[]
+  observations         Observation[]
+  diagnosticReports    DiagnosticReport[]
+  conditions           Condition[]
+  procedures           Procedure[]
+  allergyIntolerances  AllergyIntolerance[]
+  cpptEntries          CpptEntry[]
+  handovers            Handover[]
+  consultRequests      ConsultRequest[]
+  consultResponses     ConsultResponse[]
+  consents             Consent[]
+  dischargeSummaries   DischargeSummary[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, number])
   @@index([tenantId, patientId])
