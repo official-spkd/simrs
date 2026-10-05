@@ -121,17 +121,17 @@ Pengaturan RS (P12): pin.enabled, pin.allowed_roles, login.backup_code_channels,
   /auth/me → pin: { available, reason } (aturan + pengaturan RS, dihitung API; web hanya menampilkan)
 ```
 
-| Bagian             | Berkas                                  | Catatan                                                                                                                          |
-| ------------------ | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`/`sd1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` perangkat tepercaya, `sd1` PIN)      |
-| PIN perangkat      | `infra/auth/pin-devices.ts`             | tabel `registered_devices` (jenis `staff_pin`); PIN = argon2id dari HMAC `FIELD_HASH_KEY`; pencabutan bersama (ADR-0024)         |
-| Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                 |
-| Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                 |
-| Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED` |
-| Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)        |
-| Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                  |
-| Sandi bocor        | `@simrs/db` → `isBreachedPassword`      | `ref.breached_passwords` (SHA-1, diisi `pnpm db:import-breached`), kueri hanya rentang awalan 20 bit                             |
-| Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                             |
+| Bagian             | Berkas                                  | Catatan                                                                                                                                           |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Format token       | `infra/auth/session-tokens.ts`          | `sa1`/`sr1`/`sc1`/`st1`/`sd1`.`<tenant>`.`<id>`.`<rahasia>`; DB hanya menyimpan hash (`st1` perangkat tepercaya, `sd1` PIN)                       |
+| PIN perangkat      | `infra/auth/pin-devices.ts`             | tabel `registered_devices` (jenis `staff_pin`); PIN = argon2id dari HMAC kunci hash (`pin_key_id` = kunci ladanya); pencabutan bersama (ADR-0024) |
+| Siklus sesi        | `infra/auth/session-store.ts`           | buat, validasi (idle, kedaluwarsa, akun nonaktif), rotasi, cabut                                                                                  |
+| Guard              | `infra/auth/auth.guard.ts`              | dipasang `@TenantScoped()`; tenant dari sesi; header berbeda → `TENANT_MISMATCH`                                                                  |
+| Sesi belum lengkap | `@AllowIncompleteSession()`             | hanya `/auth/me`, `/auth/logout`, `/auth/password`, `/auth/mfa/enroll*`; lainnya `403 MFA_REQUIRED` / `PASSWORD_CHANGE_REQUIRED`                  |
+| Kripto             | `@simrs/shared/node`                    | `hashPassword`/`verifyPassword` (argon2id), `verifyTotp` (RFC 6238, anti-replay), `encryptField` (AES-256-GCM per tenant)                         |
+| Kebijakan sandi    | `@simrs/shared` → `checkPasswordPolicy` | panjang ≥ pengaturan RS (min 12), bukan sandi umum, tanpa nama pengguna/kode RS                                                                   |
+| Sandi bocor        | `@simrs/db` → `isBreachedPassword`      | `ref.breached_passwords` (SHA-1, diisi `pnpm db:import-breached`), kueri hanya rentang awalan 20 bit                                              |
+| Batas laju         | `@AuthRateLimited()`                    | throttler `auth` (`AUTH_RATE_LIMIT_PER_MIN`, bawaan 10/menit per IP)                                                                              |
 
 Mode header pengembang (`X-Tenant-Id` tanpa login) hanya hidup bila `APP_ENV=local` dan `ALLOW_DEV_TENANT_HEADER=true`; tes modul memakainya, tes auth memakai token sungguhan (`apps/api/test/helpers.ts` → `createTestUser`, `login`). Alasan desain: ADR-0011.
 
@@ -402,7 +402,7 @@ await this.events.publish('booking.checked_in', { appointmentId, patientId });
 
 ### Prinsipal perangkat anjungan dan display (ADR-0027)
 
-Anjungan (`kiosk`) dan TV antrean (`display`) masuk sebagai **perangkat terdaftar per unit**, bukan akun staf. Barisnya ada di `registered_devices`, tabel yang sama dengan PIN (`staff_pin`).
+Anjungan (`kiosk`) dan TV antrean (`queue_display`) masuk sebagai **perangkat terdaftar per unit**, bukan akun staf. Barisnya ada di `registered_devices`, tabel yang sama dengan PIN (`staff_pin`).
 
 ```
 Admin  POST /api/v1/iam/devices { kind, name, unitId, queueDisplayId? }   (iam.users.write)
@@ -414,7 +414,7 @@ Admin  GET /api/v1/iam/devices · POST /api/v1/iam/devices/:id/revoke
 ```
 
 - **Endpoint perangkat**: `@DeviceScoped('kiosk.use' | 'queue.display.read')` (`common/device-scoped.decorator.ts`). Isinya `DeviceGuard` + batas laju per perangkat + transaksi permintaan biasa. Repository tetap memakai `TenantDb`; pelaku ada di `TenantDb.actor().devicePrincipal`.
-- **Izin tetap per jenis** (`DEVICE_PERMISSIONS` di `@simrs/shared`), tidak pernah izin manusia. Token staf di endpoint perangkat → 403; `@RequirePermission` di endpoint perangkat ditolak.
+- **Izin tetap per jenis** (`DEVICE_GRANTS` di katalog izin `@simrs/shared`), tidak pernah izin manusia. Token staf di endpoint perangkat → 403; `@RequirePermission` di endpoint perangkat ditolak.
 - **Token perangkat di endpoint staf** → 403 + audit `access_denied`. Semua audit pelaku perangkat membawa `details.deviceId`/`deviceKind`; audit tidak punya kolom baru.
 - **Validasi tiap permintaan di database**, jadi pencabutan berlaku seketika. Kode pendaftaran disimpan sebagai HMAC dan hanya bisa dipakai sekali (dijaga trigger database).
 - **Web mode api**: proxy mengalihkan `/kiosk` dan `/display/…` tanpa cookie perangkat ke `/perangkat/daftar`. Halaman memanggil `requireDevice(jenis)` (`lib/server/device.ts`). Admin mengelola perangkat di `/sistem/akses/perangkat`. Mode presentasi tetap memakai login staf.

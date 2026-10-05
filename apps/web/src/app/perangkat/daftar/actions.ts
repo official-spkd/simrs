@@ -35,7 +35,7 @@ export async function enrolDeviceAction(_prev: EnrolState, formData: FormData): 
   const parsed = enrolDeviceSchema.safeParse({ code, tenantCode: tenantCode || undefined });
   if (!parsed.success) return { fields: { tenantCode: 'Kode RS tidak valid.' }, values };
 
-  let result: { token: string; expiresAt: string; device: { kind: 'kiosk' | 'display' } };
+  let result: { token: string; expiresAt: string; device: { kind: 'kiosk' | 'queue_display' } };
   try {
     result = await api('/api/v1/devices/enrol', {
       method: 'POST',

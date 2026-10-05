@@ -19,6 +19,6 @@ export default async function DisplayAntreanPage() {
     const access = await requireScreen('antrean');
     if (access.mode === 'demo') return <DemoAntrean access={access} />;
   }
-  const { device } = await requireDevice('display');
-  return <DeviceScreen kind="display" device={device} />;
+  const { device } = await requireDevice('queue_display');
+  return <DeviceScreen kind="queue_display" device={device} />;
 }

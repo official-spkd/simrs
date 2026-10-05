@@ -43,6 +43,7 @@ const device = (tenantId: string, p: { userId: string; assignmentId: string }, o
     name: 'Komputer nurse station',
     tokenHash: hashToken(randomToken()),
     pinHash: ARGON,
+    pinKeyId: 'v1',
     createdAt,
     expiresAt: new Date(createdAt.getTime() + 30 * 86_400_000),
     ...over,
@@ -139,9 +140,10 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
     await expect(create({ kind: 'tablet' })).rejects.toThrow(/registered_devices_kind/);
     // Jenis prinsipal (ADR-0027) tidak boleh membawa akun/posisi/PIN.
     await expect(create({ kind: 'kiosk' })).rejects.toThrow(/registered_devices_principal/);
-    for (const missing of [{ userId: null }, { assignmentId: null }, { pinHash: null }]) {
+    for (const missing of [{ userId: null }, { assignmentId: null }, { pinHash: null }, { pinKeyId: null }]) {
       await expect(create(missing)).rejects.toThrow(/registered_devices_staff_pin/);
     }
+    await expect(create({ pinKeyId: 'v01' })).rejects.toThrow(/registered_devices_pin_key_id/);
     await expect(create({ tokenHash: 'bukan-hash' })).rejects.toThrow(/registered_devices_token_hash_format/);
     await expect(create({ pinHash: '482913' })).rejects.toThrow(/registered_devices_pin_hash_argon2/);
     const createdAt = new Date();
@@ -164,6 +166,8 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
     await expect(update({ revokedBy: people.t!.userId })).rejects.toThrow(
       /registered_devices_revoked_consistent/,
     );
+    // Rotasi kunci hash: PIN berlada kunci yang dipensiunkan dicabut dengan alasan sendiri (ADR-0015).
+    await update({ revokedAt: new Date(), revokedReason: 'key_rotated' });
   });
 
   it('role aplikasi: tanpa hapus; jenis, hash, akun, posisi, dan masa berlaku tidak bisa diubah', async () => {
@@ -178,6 +182,7 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
       { name: 'Nama diganti' },
       { kind: 'staff_pin' },
       { userId: people.t!.userId },
+      { pinKeyId: 'v2' },
     ]) {
       await expect(
         withTenant(app, T, (tx) => tx.registeredDevice.update({ where: { id: d.id }, data })),

@@ -88,7 +88,8 @@ export class DevicesService {
   ) {}
 
   private codeHash(tenantId: string, code: string): string {
-    return blindIndex(code, { hashKeyB64: this.env.FIELD_HASH_KEY, tenantId, purpose: 'device_enrolment' });
+    // Kunci hash aktif saja: kode hidup maks. 15 menit; rotasi kunci di tengah jendela itu = admin membuat kode baru.
+    return blindIndex(code, { ring: this.env.fieldKeys.hash, tenantId, purpose: 'device_enrolment' });
   }
 
   async list(opts: { kind?: DevicePrincipalKind; cursor?: string; limit: number }) {

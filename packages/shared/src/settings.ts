@@ -86,6 +86,27 @@ export const TENANT_SETTINGS = {
     z.number().int().min(AUDIT_BURST_THRESHOLD_MIN).max(100),
     5,
   ),
+  // F01–F08 · Front office (fase 2)
+  'queue.avg_service_minutes': def(
+    'Rata-rata lama layanan per pasien untuk estimasi antrean (menit), bila layanan tidak mengatur sendiri',
+    z.number().int().min(1).max(120),
+    10,
+  ),
+  'booking.max_days_ahead': def(
+    'Batas hari ke depan untuk booking (juga rentang sesi jadwal yang dibangkitkan)',
+    z.number().int().min(1).max(90),
+    30,
+  ),
+  'schedule.jkn_share_percent': def(
+    'Porsi kuota JKN bawaan per sesi praktik (%); sisanya non-JKN',
+    z.number().int().min(0).max(100),
+    80,
+  ),
+  'kiosk.lookup_rate_per_min': def(
+    'Batas pencarian identitas per anjungan per menit (cegah enumerasi)',
+    z.number().int().min(1).max(60),
+    10,
+  ),
 } as const;
 
 export type TenantSettingKey = keyof typeof TENANT_SETTINGS;

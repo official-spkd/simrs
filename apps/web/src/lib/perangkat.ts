@@ -8,7 +8,7 @@ import { safeNextPath } from './safe-path';
  */
 export const DEVICE_SCREEN_ROUTES: Readonly<Record<DevicePrincipalKind, string>> = {
   kiosk: '/kiosk',
-  display: '/display',
+  queue_display: '/display',
 };
 
 /** Halaman pendaftaran perangkat (publik, tanpa login staf). */

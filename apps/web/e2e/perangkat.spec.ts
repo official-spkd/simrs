@@ -35,7 +35,7 @@ test.describe('prinsipal perangkat anjungan/TV (ADR-0027)', () => {
     ).toBeVisible();
 
     const deviceName = `TV ruang tunggu ${unitName.slice(-6)}`;
-    await page.getByLabel('Jenis').selectOption({ label: 'Display antrean' });
+    await page.getByLabel('Jenis').selectOption({ label: 'Display antrean (TV)' });
     await page.getByLabel('Nama perangkat').fill(deviceName);
     await page.getByLabel('Unit').selectOption({ label: unitName });
     await page.getByRole('button', { name: 'Buat kode pendaftaran' }).click();

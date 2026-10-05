@@ -4,6 +4,7 @@ import { createPrismaClient, upsertPresentationAccounts } from '@simrs/db';
 import { prepareTestDatabase, testDbUrls } from '@simrs/db/testing';
 import { DEMO_ACCOUNTS_FILE } from './demo-accounts-file';
 import { registerTestDevices } from './support/devices';
+import { e2eFieldKeys } from './support/field-keys';
 import { resetMockState } from './support/mock';
 
 /**
@@ -18,7 +19,7 @@ export default async function globalSetup(): Promise<void> {
   try {
     const tenant = await prisma.tenant.findUniqueOrThrow({ where: { code: 'RSFA' }, select: { id: true } });
     const accounts = await upsertPresentationAccounts(prisma, tenant.id, {
-      encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+      encRing: e2eFieldKeys().enc,
     });
     const tmpDir = dirname(DEMO_ACCOUNTS_FILE);
     mkdirSync(tmpDir, { recursive: true });

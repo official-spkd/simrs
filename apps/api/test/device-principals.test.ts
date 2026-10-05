@@ -39,7 +39,11 @@ class DisplayOnlyController {
   async short() {
     return this.db.transaction(async () => {
       this.db.audit({ action: 'read', resourceType: 'test_short' });
-      return { deviceId: this.db.actor().devicePrincipal?.id ?? null, unitId: this.db.actor().unitId };
+      return {
+        deviceId: this.db.actor().devicePrincipal?.id ?? null,
+        unitId: this.db.actor().unitId,
+        scope: this.db.permissionScope(),
+      };
     });
   }
 
@@ -82,7 +86,7 @@ async function createUnit(tenantId: string): Promise<string> {
 const auditRows = (tenantId: string, where: object) =>
   withTenant(testDb(), tenantId, (tx) => tx.auditEvent.findMany({ where, orderBy: { seq: 'asc' } }));
 
-async function registerDevice(admin: Tokens, kind: 'kiosk' | 'display', unitId: string) {
+async function registerDevice(admin: Tokens, kind: 'kiosk' | 'queue_display', unitId: string) {
   const res = await http()
     .post('/api/v1/iam/devices')
     .set(bearer(admin))
@@ -98,7 +102,7 @@ function enrol(code: string, tenantCode = 'RSFA') {
     .send({ tenantCode, code });
 }
 
-async function enrolled(admin: Tokens, kind: 'kiosk' | 'display', unitId = units.a as string) {
+async function enrolled(admin: Tokens, kind: 'kiosk' | 'queue_display', unitId = units.a as string) {
   const created = await registerDevice(admin, kind, unitId);
   const res = await enrol(created.enrolmentCode).expect(200);
   return { id: created.id, token: res.body.token as string };
@@ -161,7 +165,7 @@ describe('pendaftaran perangkat oleh admin', () => {
     const res = await http()
       .post('/api/v1/iam/devices')
       .set(bearer(t.adminA as Tokens))
-      .send({ kind: 'display', name: 'TV', unitId: units.b });
+      .send({ kind: 'queue_display', name: 'TV', unitId: units.b });
     expect(res.status).toBe(400);
     await http()
       .post('/api/v1/iam/devices')
@@ -190,9 +194,9 @@ describe('display terikat papan antrean (potongan 0b)', () => {
         .post('/api/v1/iam/devices')
         .set(bearer(t.adminA as Tokens))
         .send({ name: 'TV ruang tunggu', unitId: units.a, ...body });
-    const ok = await send({ kind: 'display', queueDisplayId: own }).expect(201);
+    const ok = await send({ kind: 'queue_display', queueDisplayId: own }).expect(201);
     expect(ok.body.device.queueDisplay).toEqual({ id: own, name: 'TV poli' });
-    await send({ kind: 'display', queueDisplayId: foreign }).expect(400);
+    await send({ kind: 'queue_display', queueDisplayId: foreign }).expect(400);
     await send({ kind: 'kiosk', queueDisplayId: own }).expect(400);
     const enrolled = await enrol(ok.body.enrolmentCode).expect(200);
     const me = await http().get('/api/v1/devices/me').set(asDevice(enrolled.body.token)).expect(200);
@@ -229,7 +233,7 @@ describe('penukaran kode oleh perangkat', () => {
   });
 
   it('kode milik RS lain tidak berlaku dengan kode RS ini', async () => {
-    const created = await registerDevice(t.adminA as Tokens, 'display', units.a as string);
+    const created = await registerDevice(t.adminA as Tokens, 'queue_display', units.a as string);
     await enrol(created.enrolmentCode, 'RSFB').expect(401);
     await enrol(created.enrolmentCode, 'RSXX').expect(401);
     await enrol(created.enrolmentCode, 'RSFA').expect(200);
@@ -289,7 +293,7 @@ describe('sesi perangkat', () => {
   });
 
   it('perangkat di endpoint staf → 403 + access_denied dengan deviceId; token palsu → 401 tanpa audit', async () => {
-    const display = await enrolled(t.adminA as Tokens, 'display');
+    const display = await enrolled(t.adminA as Tokens, 'queue_display');
     for (const path of ['/api/v1/iam/users', '/api/v1/tenancy/current', '/api/v1/patients?q=ab']) {
       const requestId = newId();
       const res = await http().get(path).set(asDevice(display.token)).set('X-Request-Id', requestId);
@@ -300,7 +304,7 @@ describe('sesi perangkat', () => {
           'access_denied',
           'denied',
           null,
-          { path: path.split('?')[0], deviceId: display.id, deviceKind: 'display' },
+          { path: path.split('?')[0], deviceId: display.id, deviceKind: 'queue_display' },
         ],
       ]);
     }
@@ -311,7 +315,7 @@ describe('sesi perangkat', () => {
   });
 
   it('izin tetap per jenis: display boleh papan, anjungan 403 + audit; audit endpoint perangkat membawa deviceId', async () => {
-    const display = await enrolled(t.adminA as Tokens, 'display');
+    const display = await enrolled(t.adminA as Tokens, 'queue_display');
     const kiosk = await enrolled(t.adminA as Tokens, 'kiosk');
     const okId = newId();
     await http()
@@ -320,7 +324,7 @@ describe('sesi perangkat', () => {
       .set('X-Request-Id', okId)
       .expect(200);
     expect((await auditRows(TENANT_A, { requestId: okId })).map((r) => [r.action, r.details])).toEqual([
-      ['read', { deviceId: display.id, deviceKind: 'display' }],
+      ['read', { deviceId: display.id, deviceKind: 'queue_display' }],
     ]);
     const deniedId = newId();
     await http()
@@ -338,9 +342,9 @@ describe('sesi perangkat', () => {
       .set(asDevice(display.token))
       .set('X-Request-Id', shortId)
       .expect(200);
-    expect(short.body).toEqual({ deviceId: display.id, unitId: units.a });
+    expect(short.body).toEqual({ deviceId: display.id, unitId: units.a, scope: 'unit' });
     expect((await auditRows(TENANT_A, { requestId: shortId })).map((r) => r.details)).toEqual([
-      { deviceId: display.id, deviceKind: 'display' },
+      { deviceId: display.id, deviceKind: 'queue_display' },
     ]);
     // Matriks peran manusia tidak pernah berlaku untuk perangkat.
     await http().post('/api/v1/test-infra/device-misassembled').set(asDevice(kiosk.token)).expect(403);
@@ -369,7 +373,7 @@ describe('sesi perangkat', () => {
   });
 
   it('isolasi tenant: admin RS lain tidak melihat atau mencabut; kode belum dipakai bisa dicabut', async () => {
-    const pending = await registerDevice(t.adminA as Tokens, 'display', units.a as string);
+    const pending = await registerDevice(t.adminA as Tokens, 'queue_display', units.a as string);
     const listB = await http()
       .get('/api/v1/iam/devices?limit=200')
       .set(bearer(t.adminB as Tokens))
@@ -391,7 +395,7 @@ describe('batas laju per perangkat', () => {
   it('USER_RATE_LIMIT_PER_MIN berlaku per perangkat', async () => {
     const limited = await createTestApp({ USER_RATE_LIMIT_PER_MIN: '3' });
     try {
-      const created = await registerDevice(t.adminA as Tokens, 'display', units.a as string);
+      const created = await registerDevice(t.adminA as Tokens, 'queue_display', units.a as string);
       const res = await request(limited.getHttpServer())
         .post('/api/v1/devices/enrol')
         .send({ tenantCode: 'RSFA', code: created.enrolmentCode })

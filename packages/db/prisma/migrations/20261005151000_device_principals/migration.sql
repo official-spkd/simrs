@@ -1,4 +1,4 @@
--- Fase 2 · potongan 1b · ADR-0027: prinsipal perangkat anjungan (`kiosk`, F05) dan display TV (`display`, F04) di
+-- Fase 2 · potongan 1b · ADR-0027: prinsipal perangkat anjungan (`kiosk`, F05) dan display TV (`queue_display`, F04) di
 -- tabel umum `registered_devices` (ADR-0024 §10). Perangkat didaftarkan admin per unit; perangkat menukar kode
 -- pendaftaran sekali pakai (HMAC, 15 menit) dengan token `dv1` miliknya sendiri. Tanpa akun staf.
 -- Validasi FK ke/dari tabel ber-FORCE RLS tidak punya konteks tenant, jadi FORCE dimatikan sementara pada tabel yang
@@ -40,17 +40,18 @@ CREATE UNIQUE INDEX registered_devices_enrol_code ON "registered_devices" (tenan
 -- Batasan
 -- =====================================================================
 ALTER TABLE "registered_devices" DROP CONSTRAINT registered_devices_kind;
-ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_kind CHECK (kind IN ('staff_pin', 'kiosk', 'display'));
+ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_kind CHECK (kind IN ('staff_pin', 'kiosk', 'queue_display'));
 -- PIN tetap wajib bertoken (ADR-0024); hanya perangkat prinsipal yang boleh menunggu pendaftaran.
 ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_staff_pin_token CHECK (
   kind <> 'staff_pin' OR (token_hash IS NOT NULL AND unit_id IS NULL AND enrol_code_hash IS NULL
     AND enrolled_at IS NULL));
+-- HMAC kode berversi seperti blind index lain (kunci `v1` = 64 hex, kunci lain `vN:` + 64 hex; ADR-0015 rotasi kunci).
 ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_enrol_code_format
-  CHECK (enrol_code_hash IS NULL OR enrol_code_hash ~ '^[a-f0-9]{64}$');
+  CHECK (enrol_code_hash IS NULL OR enrol_code_hash ~ '^(v[1-9][0-9]{0,2}:)?[a-f0-9]{64}$');
 -- Anjungan/display: terikat unit, tanpa akun/posisi/PIN, kredensial maks. 366 hari, kode pendaftaran maks. 1 hari;
 -- bertoken tepat saat sudah mendaftar; kode dibuang saat mendaftar.
 ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_principal CHECK (
-  kind NOT IN ('kiosk', 'display') OR (
+  kind NOT IN ('kiosk', 'queue_display') OR (
     unit_id IS NOT NULL AND user_id IS NULL AND assignment_id IS NULL AND pin_hash IS NULL
     AND expires_at <= created_at + interval '366 days'
     AND enrol_expires_at IS NOT NULL AND enrol_expires_at > created_at
@@ -59,7 +60,7 @@ ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_principal CHE
     AND (enrolled_at IS NULL OR (enrol_code_hash IS NULL AND enrolled_at <= enrol_expires_at))
     AND (enrolled_at IS NOT NULL OR enrol_code_hash IS NOT NULL OR revoked_at IS NOT NULL)));
 ALTER TABLE "registered_devices" ADD CONSTRAINT registered_devices_queue_display
-  CHECK (queue_display_id IS NULL OR kind = 'display');
+  CHECK (queue_display_id IS NULL OR kind = 'queue_display');
 
 -- Penjaga: selain kolom pakai/pencabutan, perangkat hanya berubah SEKALI saat mendaftar (token + waktu daftar terisi,
 -- kode dibuang, user agent dicatat) dan hanya sebelum kode kedaluwarsa. Yang sudah dicabut final.
@@ -73,7 +74,7 @@ BEGIN
     RAISE EXCEPTION 'DEVICE_IMMUTABLE: perangkat terdaftar % tidak bisa diubah', OLD.id USING ERRCODE = 'P0001';
   END IF;
   IF OLD.enrolled_at IS NULL AND NEW.enrolled_at IS NOT NULL THEN
-    IF OLD.kind NOT IN ('kiosk', 'display') OR OLD.enrol_code_hash IS NULL OR NEW.enrol_code_hash IS NOT NULL
+    IF OLD.kind NOT IN ('kiosk', 'queue_display') OR OLD.enrol_code_hash IS NULL OR NEW.enrol_code_hash IS NOT NULL
        OR NEW.token_hash IS NULL OR now() > OLD.enrol_expires_at
        OR (to_jsonb(NEW) - mutable - enrolment) IS DISTINCT FROM (to_jsonb(OLD) - mutable - enrolment) THEN
       RAISE EXCEPTION 'DEVICE_IMMUTABLE: pendaftaran perangkat % tidak sah', OLD.id USING ERRCODE = 'P0001';

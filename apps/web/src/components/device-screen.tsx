@@ -6,7 +6,7 @@ import Link from 'next/link';
 const NOT_CONNECTED: Record<DevicePrincipalKind, string> = {
   kiosk:
     'Anjungan pendaftaran mandiri belum dapat dipakai. Silakan ambil nomor antrean di loket pendaftaran.',
-  display: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
+  queue_display: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
 };
 
 /**
@@ -22,7 +22,7 @@ export function DeviceScreen({ kind, device }: { kind: DevicePrincipalKind; devi
         <h1 className="m-0 text-h1 font-semibold">{DEVICE_KIND_LABEL[kind]}</h1>
         {mismatch ? (
           <Alert level="warning" title="Perangkat untuk layar lain">
-            Perangkat ini terdaftar sebagai {DEVICE_KIND_LABEL[device.kind].toLowerCase()}.{' '}
+            Perangkat ini terdaftar sebagai {DEVICE_KIND_LABEL[device.kind]}.{' '}
             <Link href={DEVICE_HOME[device.kind]}>Buka {DEVICE_KIND_LABEL[device.kind]}</Link>
           </Alert>
         ) : (

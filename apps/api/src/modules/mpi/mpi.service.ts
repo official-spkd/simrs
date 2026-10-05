@@ -81,10 +81,7 @@ export class MpiService {
   ) {}
 
   private crypto(): PatientCrypto {
-    return new PatientCrypto(
-      { encKeyB64: this.env.FIELD_ENCRYPTION_KEY, hashKeyB64: this.env.FIELD_HASH_KEY },
-      this.db.tenantId(),
-    );
+    return new PatientCrypto(this.env.fieldKeys, this.db.tenantId());
   }
 
   /** Pelaku berlingkup relasi/unit hanya boleh pasien berelasi atau dengan akses darurat (P03). */
@@ -134,7 +131,7 @@ export class MpiService {
           ? await this.repo.idsByMrn(parsed.value)
           : await this.repo.idsByIdentifier(
               parsed.kind,
-              crypto.identifierHash(parsed.kind, parsed.value),
+              crypto.identifierHashes(parsed.kind, parsed.value),
               q.limit,
             );
       if (onlyFor) ids = await this.repo.accessibleAmong(ids, onlyFor);
@@ -225,7 +222,10 @@ export class MpiService {
     this.assertActive(row);
     const crypto = this.crypto();
     const current = row.identifiers.find((i) => i.system === system);
-    if (current?.valueHash === crypto.identifierHash(system, value)) return this.detail(row, crypto);
+    // Semua kunci di cincin: nilai sama yang hash-nya belum dienkripsi ulang tetap dianggap tidak berubah.
+    if (current && crypto.identifierHashes(system, value).includes(current.valueHash)) {
+      return this.detail(row, crypto);
+    }
     if (current && !input.reason) {
       throw new AppError(
         'VALIDATION_FAILED',
@@ -312,7 +312,9 @@ export class MpiService {
 
   /**
    * Cegah rekam medis ganda baru: nilai identifier yang sudah aktif di pasien lain → 409 berisi RM pemiliknya.
-   * Dikunci per nilai (advisory lock) agar dua pendaftaran serentak dengan NIK sama tidak sama-sama lolos.
+   * Dikunci per nilai (advisory lock) agar dua pendaftaran serentak dengan NIK sama tidak sama-sama lolos. Selama
+   * rotasi kunci, kunci dan pencarian memakai hash untuk SEMUA kunci di cincin (urut tetap, tanpa deadlock):
+   * instans yang masih memakai cincin lama tetap berbagi kunci `v1` yang sama.
    */
   private async assertIdentifiersFree(
     crypto: PatientCrypto,
@@ -322,9 +324,11 @@ export class MpiService {
     for (const system of IDENTIFIER_SYSTEM_CODES) {
       const value = identifiers[system];
       if (!value) continue;
-      const hash = crypto.identifierHash(system, value);
-      await lockTenantScope(this.db.tx(), `patient-identifier:${system}:${hash}`);
-      const owner = await this.repo.findIdentifierOwner(system, hash, exceptPatientId);
+      const hashes = crypto.identifierHashes(system, value);
+      for (const hash of [...hashes].sort()) {
+        await lockTenantScope(this.db.tx(), `patient-identifier:${system}:${hash}`);
+      }
+      const owner = await this.repo.findIdentifierOwner(system, hashes, exceptPatientId);
       if (owner) {
         throw new AppError(
           'CONFLICT',

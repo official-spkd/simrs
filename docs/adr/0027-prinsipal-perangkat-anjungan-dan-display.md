@@ -16,7 +16,7 @@ PIN masuk cepat (ADR-0024 §10) sudah menyiapkan tabel umum `registered_devices`
 
 ## Keputusan
 
-1. **Jenis perangkat baru di tabel yang sama.** `registered_devices.kind` bertambah `kiosk` dan `display` (migrasi `20261005150000_device_principals`). Aturan yang dijaga CHECK database:
+1. **Jenis perangkat baru di tabel yang sama.** `registered_devices.kind` bertambah `kiosk` dan `queue_display` (nama jenis dari katalog izin potongan 0a, `DEVICE_KINDS`) (migrasi `20261005151000_device_principals`). Aturan yang dijaga CHECK database:
    - terikat **unit** (FK komposit tenant),
    - tanpa akun, posisi, atau PIN,
    - kredensial maksimal 366 hari,
@@ -32,7 +32,7 @@ PIN masuk cepat (ADR-0024 §10) sudah menyiapkan tabel umum `registered_devices`
    - Web (BFF) menyimpan token di cookie `simrs_device`: httpOnly, SameSite=Lax, `__Host-` + Secure di luar lokal, berumur sampai kredensial kedaluwarsa. Cookie ini milik perangkat dan tidak dihapus saat staf keluar.
    - Pendaftaran terjadi sekali: penjaga database hanya mengizinkan transisi `token_hash`/`enrolled_at`/kode dibuang, satu kali, sebelum kode kedaluwarsa. Selebihnya baris tidak bisa diubah, dan pencabutan final.
 4. **Izin tetap, tidak pernah izin manusia.**
-   - Izin per jenis: `kiosk` → `kiosk.use`, `display` → `queue.display.read` (`DEVICE_PERMISSIONS` di `@simrs/shared`; literal sampai katalog fase 2 potongan 0a memuatnya). Izin ini bukan bagian matriks peran dan tidak bisa diubah RS.
+   - Izin per jenis dari katalog izin (`DEVICE_GRANTS`, potongan 0a): `kiosk` → `kiosk.use`, `queue_display` → `queue.display.read`. Sumber izin ini khusus perangkat (`DEVICE_ONLY_RESOURCES`), bukan bagian matriks peran, dan tidak bisa diberikan ke peran manusia atau diubah RS.
    - Endpoint perangkat memakai `@DeviceScoped(izin?)` = `DeviceGuard` + batas laju per perangkat + `TenantTransactionInterceptor`.
    - `DeviceGuard` hanya menerima token `dv1` dan memeriksanya di database setiap permintaan: terdaftar, tidak dicabut, belum kedaluwarsa, rahasia cocok waktu-konstan. Token staf di endpoint perangkat → 403. Izin yang tidak dimiliki jenisnya → audit `access_denied` (di-commit) lalu 403. `@RequirePermission` (matriks manusia) ditolak untuk pelaku perangkat.
 5. **Perangkat tidak bisa membuka endpoint staf.** `AuthGuard` (`@TenantScoped()`) mengenali token `dv1`:
@@ -56,4 +56,4 @@ PIN masuk cepat (ADR-0024 §10) sudah menyiapkan tabel umum `registered_devices`
 + Modul anjungan (potongan 6) dan display (potongan 4b) cukup memasang `@DeviceScoped('kiosk.use' | 'queue.display.read')`. `LookupGateway` dan `SseService` bekerja apa adanya karena hanya membaca tenant + pelaku dari konteks permintaan.
 − Siapa pun yang memegang profil peramban perangkat bisa memakai layar itu sampai dicabut. Mitigasinya: izin tetap yang sempit, layar tanpa data pasien utuh (keputusan §4 #3), dan audit per perangkat.
 − Satu kueri `registered_devices` per permintaan perangkat; penanda `last_used_at` ditulis paling sering 5 menit sekali.
-− Izin `kiosk.use`/`queue.display.read` masih literal sampai katalog fase 2 (0a) tergabung. Izin kelola perangkat memakai `iam.users`; izin tersendiri (mis. `iam.devices`) bisa dipisah bila RS membutuhkannya.
+− Izin kelola perangkat memakai `iam.users`; izin tersendiri (mis. `iam.devices`) bisa dipisah bila RS membutuhkannya.

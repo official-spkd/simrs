@@ -52,8 +52,8 @@ export async function registerTestDevices(ctx: TestDeviceContext): Promise<void>
       },
       select: { id: true },
     });
-    const out: Record<DevicePrincipalKind, string> = { kiosk: '', display: '' };
-    for (const kind of ['kiosk', 'display'] as const) {
+    const out: Record<DevicePrincipalKind, string> = { kiosk: '', queue_display: '' };
+    for (const kind of ['kiosk', 'queue_display'] as const) {
       const id = newId();
       const secret = randomToken();
       const now = new Date();

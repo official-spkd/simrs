@@ -144,7 +144,7 @@ describe('registered_devices jenis kiosk/display (ADR-0027)', () => {
         data: { id: board, tenantId: U, code: `TV${board.slice(-6).toUpperCase()}`, name: 'TV uji' },
       }),
     );
-    await expect(create({ kind: 'display', queueDisplayId: board })).rejects.toThrow(
+    await expect(create({ kind: 'queue_display', queueDisplayId: board })).rejects.toThrow(
       /Foreign key|foreign key/,
     );
     const own = newId();
@@ -153,7 +153,7 @@ describe('registered_devices jenis kiosk/display (ADR-0027)', () => {
         data: { id: own, tenantId: T, code: `TV${own.slice(-6).toUpperCase()}`, name: 'TV uji' },
       }),
     );
-    await create({ kind: 'display', queueDisplayId: own });
+    await create({ kind: 'queue_display', queueDisplayId: own });
     // Kode yang sama tidak boleh dipakai dua perangkat aktif di satu RS.
     const code = hex();
     await create({ enrolCodeHash: code });

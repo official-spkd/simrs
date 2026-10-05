@@ -13,7 +13,7 @@ const ID = '0199b000-0000-7000-8000-000000000001';
 describe('layar perangkat (ADR-0027)', () => {
   it('mengenali rute anjungan dan display', () => {
     expect(deviceRouteKind('/kiosk')).toBe('kiosk');
-    expect(deviceRouteKind('/display/antrean')).toBe('display');
+    expect(deviceRouteKind('/display/antrean')).toBe('queue_display');
     expect(deviceRouteKind('/kiosks')).toBeNull();
     expect(deviceRouteKind('/displayx')).toBeNull();
     expect(deviceRouteKind('/sistem/akses')).toBeNull();
@@ -27,9 +27,9 @@ describe('layar perangkat (ADR-0027)', () => {
   });
 
   it('tujuan setelah mendaftar sesuai jenis perangkat', () => {
-    expect(deviceLanding('display', '/display/antrean')).toBe('/display/antrean');
+    expect(deviceLanding('queue_display', '/display/antrean')).toBe('/display/antrean');
     expect(deviceLanding('kiosk', '/display/antrean')).toBe('/kiosk');
-    expect(deviceLanding('display', 'https://evil.example')).toBe('/display/antrean');
+    expect(deviceLanding('queue_display', 'https://evil.example')).toBe('/display/antrean');
     expect(deviceLanding('kiosk')).toBe('/kiosk');
   });
 

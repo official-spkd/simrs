@@ -36,7 +36,7 @@ export interface RequestActor {
 export interface DevicePrincipal {
   id: string;
   kind: DevicePrincipalKind;
-  /** Izin tetap jenis perangkat (`DEVICE_PERMISSIONS`), bukan matriks peran. */
+  /** Izin tetap jenis perangkat (`DEVICE_GRANTS` katalog izin), bukan matriks peran. */
   permissions: readonly string[];
 }
 

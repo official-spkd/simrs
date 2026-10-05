@@ -1,11 +1,10 @@
-import type { SystemRoleCode } from '@simrs/shared';
+import type { PermissionKey, SystemRoleCode } from '@simrs/shared';
 
 /**
- * Izin front office fase 2 (rencana fase 2 §2 potongan 0a) yang dipakai gerbang layar hibrida demo/api
- * (`requireScreen`, menu). Sementara literal bertipe lokal karena katalog `PERMISSION_CATALOG` di `@simrs/shared`
- * belum memuatnya (potongan 0a sedang dikerjakan paralel); setelah 0a tergabung, ganti tipe ini dengan kunci izin
- * dari katalog bersama agar salah ketik tertangkap typecheck. `kiosk.use` dan `queue.display.read` adalah izin
- * perangkat (ADR-0027): sampai prinsipal perangkat ada, hanya sesi staf yang memegangnya yang bisa membuka layar.
+ * Izin front office fase 2 yang dipakai gerbang layar hibrida demo/api (`requireScreen`, menu): kunci katalog bersama
+ * `PERMISSION_CATALOG` (potongan 0a), sehingga salah ketik tertangkap typecheck. `kiosk.use` dan `queue.display.read`
+ * adalah izin khusus perangkat (ADR-0027, `DEVICE_ONLY_RESOURCES`): tidak bisa diberikan ke peran, jadi sampai
+ * prinsipal perangkat ada layar itu hanya terbuka di mode presentasi.
  */
 export const FRONT_OFFICE_PERMISSIONS = [
   'schedule.read',
@@ -14,7 +13,7 @@ export const FRONT_OFFICE_PERMISSIONS = [
   'encounter.write',
   'kiosk.use',
   'queue.display.read',
-] as const;
+] as const satisfies readonly PermissionKey[];
 export type ScreenPermission = (typeof FRONT_OFFICE_PERMISSIONS)[number];
 
 /**
@@ -39,8 +38,9 @@ export interface ScreenDef {
   phase: number;
   status: ScreenStatus;
   /**
-   * Izin yang direncanakan untuk backend (belum ada di PERMISSION_CATALOG). Di mode demo layar dibatasi per peran
-   * (`demoRoles`) hanya di sisi UI; penegakan sungguhan lewat izin ini saat backend dibangun.
+   * Izin yang direncanakan untuk backend (`sumber.aksi`; layar fase 2 sudah ada di PERMISSION_CATALOG, fase berikutnya
+   * belum). Di mode demo layar dibatasi per peran (`demoRoles`) hanya di sisi UI; penegakan sungguhan lewat izin ini
+   * saat backend dibangun.
    */
   plannedPermission: string;
   /**

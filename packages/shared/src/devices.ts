@@ -1,31 +1,26 @@
 import { z } from 'zod';
+import { DEVICE_GRANTS, DEVICE_KINDS, type DeviceKind, permissionKey } from './authz';
 
 /**
  * ADR-0027 · Prinsipal perangkat: anjungan mandiri (F05) dan display TV antrean (F04) masuk sebagai PERANGKAT terdaftar
- * per unit, bukan sebagai akun staf. Baris `registered_devices` jenis `kiosk`/`display` (tabel yang sama dengan PIN
- * 10c-2, ADR-0024). Angka di bawah dijaga juga oleh CHECK database.
+ * per unit, bukan sebagai akun staf. Baris `registered_devices` jenis `kiosk`/`queue_display` (tabel yang sama dengan
+ * PIN 10c-2, ADR-0024). Jenis, label, dan izin tetap bersumber dari katalog izin (`DEVICE_KINDS`, `DEVICE_GRANTS`
+ * di `authz.ts`, potongan 0a); angka di bawah dijaga juga oleh CHECK database.
  */
-export const DEVICE_PRINCIPAL_KINDS = ['kiosk', 'display'] as const;
-export type DevicePrincipalKind = (typeof DEVICE_PRINCIPAL_KINDS)[number];
+export const DEVICE_PRINCIPAL_KINDS = Object.keys(DEVICE_KINDS) as DeviceKind[];
+export type DevicePrincipalKind = DeviceKind;
 
-export const DEVICE_KIND_LABEL: Record<DevicePrincipalKind, string> = {
-  kiosk: 'Anjungan mandiri',
-  display: 'Display antrean',
-};
+export const DEVICE_KIND_LABEL: Record<DevicePrincipalKind, string> = DEVICE_KINDS;
 
 /**
- * Izin TETAP per jenis perangkat. Bukan bagian matriks peran (tidak bisa diberikan ke peran manusia dan tidak bisa
- * diubah RS); perangkat juga tidak pernah mendapat izin manusia.
- * SEMENTARA: string literal sampai katalog izin fase 2 (potongan 0a) mengekspor `kiosk.use` dan `queue.display.read`.
+ * Izin TETAP per jenis perangkat (`sumber.aksi` dari `DEVICE_GRANTS`; lingkupnya = unit perangkat). Bukan bagian
+ * matriks peran (tidak bisa diberikan ke peran manusia dan tidak bisa diubah RS); perangkat juga tidak pernah mendapat
+ * izin manusia.
  */
-export const DEVICE_PERMISSIONS = {
-  kiosk: ['kiosk.use'],
-  display: ['queue.display.read'],
-} as const satisfies Record<DevicePrincipalKind, readonly string[]>;
-export type DevicePermission = (typeof DEVICE_PERMISSIONS)[DevicePrincipalKind][number];
+export type DevicePermission = 'kiosk.use' | 'queue.display.read';
 
 export function devicePermissions(kind: DevicePrincipalKind): readonly DevicePermission[] {
-  return DEVICE_PERMISSIONS[kind];
+  return DEVICE_GRANTS[kind].map(([resource, action]) => permissionKey(resource, action) as DevicePermission);
 }
 
 /** Kode pendaftaran sekali pakai yang ditampilkan ke admin, berlaku 15 menit. */
@@ -54,7 +49,7 @@ export function formatEnrolmentCode(code: string): string {
   return `${code.slice(0, 5)}-${code.slice(5)}`;
 }
 
-export const devicePrincipalKindSchema = z.enum(DEVICE_PRINCIPAL_KINDS);
+export const devicePrincipalKindSchema = z.enum(DEVICE_PRINCIPAL_KINDS as [DeviceKind, ...DeviceKind[]]);
 
 /** Admin mendaftarkan perangkat baru (layar Akses → Perangkat). */
 export const createDeviceSchema = z
@@ -69,7 +64,7 @@ export const createDeviceSchema = z
     /** Display: papan antrean yang ditampilkan (opsional; bisa menyusul saat papan dibuat). */
     queueDisplayId: z.uuid('Papan antrean tidak valid').optional(),
   })
-  .refine((v) => v.kind === 'display' || v.queueDisplayId === undefined, {
+  .refine((v) => v.kind === 'queue_display' || v.queueDisplayId === undefined, {
     message: 'Papan antrean hanya untuk display',
     path: ['queueDisplayId'],
   });
@@ -145,5 +140,5 @@ export const enrolledDeviceSchema = z.object({
 /** Halaman awal tiap jenis perangkat di web. */
 export const DEVICE_HOME: Record<DevicePrincipalKind, string> = {
   kiosk: '/kiosk',
-  display: '/display/antrean',
+  queue_display: '/display/antrean',
 };

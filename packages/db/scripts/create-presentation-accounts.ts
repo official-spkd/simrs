@@ -13,6 +13,7 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { resolveAppEnv } from '@simrs/shared';
+import { type KeyRing, loadFieldKeys } from '@simrs/shared/node';
 import { createPrismaClient } from '../src/client';
 import { upsertPresentationAccounts } from '../src/presentation';
 
@@ -35,8 +36,12 @@ const outFile = resolve(values.out ?? resolve(process.cwd(), '../../.local/demo-
 
 const url = process.env.MIGRATOR_DATABASE_URL;
 if (!url) fail('MIGRATOR_DATABASE_URL belum disetel (lihat .env.example)');
-const encKeyB64 = process.env.FIELD_ENCRYPTION_KEY;
-if (!encKeyB64) fail('FIELD_ENCRYPTION_KEY belum disetel (jalankan pnpm env:init)');
+let encRing: KeyRing;
+try {
+  encRing = loadFieldKeys(process.env).enc;
+} catch (err) {
+  fail(`${err instanceof Error ? err.message : 'Kunci kolom tidak valid'} (jalankan pnpm env:init)`);
+}
 
 const prisma = createPrismaClient({ connectionString: url, max: 1 });
 try {
@@ -47,7 +52,7 @@ try {
   if (!tenant) fail(`RS ${tenantCode} tidak ditemukan (jalankan pnpm db:seed lebih dulu)`);
   if (tenant.kind !== 'hospital' || tenant.status !== 'active') fail(`${tenant.code} bukan RS aktif`);
 
-  const accounts = await upsertPresentationAccounts(prisma, tenant.id, { encKeyB64 });
+  const accounts = await upsertPresentationAccounts(prisma, tenant.id, { encRing });
   await mkdir(dirname(outFile), { recursive: true });
   const body = { format: 1, tenantCode: tenant.code, createdAt: new Date().toISOString(), accounts };
   await writeFile(outFile, `${JSON.stringify(body, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });

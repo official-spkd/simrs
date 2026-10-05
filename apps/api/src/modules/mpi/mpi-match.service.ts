@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { lockMpi, type Prisma, toDbDate } from '@simrs/db';
+import { lockMpi, type Prisma, type SurvivorSnapshot, toDbDate } from '@simrs/db';
 import {
   AppError,
   editDistance,
@@ -62,18 +62,6 @@ export interface CompareRow {
   match: AttributeMatch;
 }
 
-/** Nilai rekam medis A sebelum ditimpa nilai B; disimpan terenkripsi di `patient_links`. */
-interface SurvivorSnapshot {
-  name?: { name: string; nameSearch: string };
-  sex?: string;
-  birthDate?: { value: string | null; estimated: boolean };
-  motherName?: string | null;
-  /** Ciphertext alamat A (tujuan `contact`). */
-  address?: string | null;
-  phone?: { enc: string | null; hash: string | null };
-  identifiers?: Partial<Record<IdentifierSystem, { valueEnc: string; valueHash: string } | null>>;
-}
-
 interface Person {
   id: string;
   mrn: string;
@@ -98,10 +86,7 @@ export class MpiMatchService {
   ) {}
 
   private crypto(): PatientCrypto {
-    return new PatientCrypto(
-      { encKeyB64: this.env.FIELD_ENCRYPTION_KEY, hashKeyB64: this.env.FIELD_HASH_KEY },
-      this.db.tenantId(),
-    );
+    return new PatientCrypto(this.env.fieldKeys, this.db.tenantId());
   }
 
   /** Tinjauan MPI menyentuh dua pasien sekaligus: hanya untuk peran berlingkup seluruh pasien. */
@@ -357,7 +342,7 @@ export class MpiMatchService {
     const kept: MergeAttribute[] = [];
     const data: Prisma.PatientUncheckedUpdateInput = {};
     for (const attr of link.takenAttributes as MergeAttribute[]) {
-      if (!this.stillFromB(attr, a, b)) {
+      if (!this.stillFromB(attr, a, b, crypto)) {
         kept.push(attr);
         continue;
       }
@@ -506,8 +491,29 @@ export class MpiMatchService {
     }
   }
 
+  /**
+   * Dua nilai terenkripsi berisi sama? Ciphertext identik = sama. Selain itu isinya dibandingkan: setelah enkripsi
+   * ulang (rotasi kunci) salinan yang semula identik punya ciphertext berbeda (IV acak) atau versi kunci berbeda.
+   * Gagal dekripsi = dianggap berbeda (nilai A dibiarkan).
+   */
+  private sameEnc(x: string | null, y: string | null, decrypt: (v: string) => string): boolean {
+    if (x === null || y === null) return x === y;
+    if (x === y) return true;
+    try {
+      return decrypt(x) === decrypt(y);
+    } catch {
+      return false;
+    }
+  }
+
   /** Nilai A pada atribut ini masih nilai yang diambil dari B (belum diubah sejak penggabungan). */
-  private stillFromB(attr: MergeAttribute, a: MatchPatientRow, b: MatchPatientRow): boolean {
+  private stillFromB(
+    attr: MergeAttribute,
+    a: MatchPatientRow,
+    b: MatchPatientRow,
+    crypto: PatientCrypto,
+  ): boolean {
+    const contact = (v: string) => crypto.decryptContact(v);
     switch (attr) {
       case 'name':
         return a.name === b.name;
@@ -518,14 +524,19 @@ export class MpiMatchService {
       case 'motherName':
         return a.motherName === b.motherName;
       case 'address':
-        return a.addressEnc === b.addressEnc;
+        return this.sameEnc(a.addressEnc, b.addressEnc, contact);
       case 'phone':
-        return a.phoneEnc === b.phoneEnc && a.phoneHash === b.phoneHash;
-      default:
+        return this.sameEnc(a.phoneEnc, b.phoneEnc, contact);
+      default: {
+        const x = this.identifier(a, attr);
+        const y = this.identifier(b, attr);
         return (
-          this.identifier(a, attr)?.valueHash !== undefined &&
-          this.identifier(a, attr)?.valueHash === this.identifier(b, attr)?.valueHash
+          !!x &&
+          !!y &&
+          (x.valueHash === y.valueHash ||
+            this.sameEnc(x.valueEnc, y.valueEnc, (v) => crypto.decryptIdentifier(v)))
         );
+      }
     }
   }
 
@@ -612,7 +623,12 @@ export class MpiMatchService {
         return grade(x === y, trigramSimilarity(x, y) >= 0.5);
       }
       case 'phone':
-        return grade(a.phoneHash === b.phoneHash, false);
+        // Hash berbeda versi kunci (rotasi berjalan) tidak bisa dibandingkan langsung: bandingkan isinya.
+        return grade(
+          a.phoneHash === b.phoneHash ||
+            this.sameEnc(a.phoneEnc, b.phoneEnc, (v) => crypto.decryptContact(v)),
+          false,
+        );
       default: {
         const x = this.identifier(a, attr);
         const y = this.identifier(b, attr);
@@ -620,7 +636,10 @@ export class MpiMatchService {
         const typo =
           attr === 'nik' &&
           editDistance(crypto.decryptIdentifier(x.valueEnc), crypto.decryptIdentifier(y.valueEnc)) <= 2;
-        return grade(x.valueHash === y.valueHash, typo);
+        const same =
+          x.valueHash === y.valueHash ||
+          this.sameEnc(x.valueEnc, y.valueEnc, (v) => crypto.decryptIdentifier(v));
+        return grade(same, typo);
       }
     }
   }

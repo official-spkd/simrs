@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createDeviceSchema,
   DEVICE_HOME,
-  DEVICE_PERMISSIONS,
   DEVICE_PRINCIPAL_KINDS,
   devicePermissions,
   ENROLMENT_ALPHABET,
@@ -14,9 +13,9 @@ import {
 describe('prinsipal perangkat (ADR-0027)', () => {
   it('izin tetap per jenis, tanpa izin manusia', () => {
     expect(devicePermissions('kiosk')).toEqual(['kiosk.use']);
-    expect(devicePermissions('display')).toEqual(['queue.display.read']);
+    expect(devicePermissions('queue_display')).toEqual(['queue.display.read']);
     for (const kind of DEVICE_PRINCIPAL_KINDS) {
-      for (const p of DEVICE_PERMISSIONS[kind]) {
+      for (const p of devicePermissions(kind)) {
         expect(p).not.toMatch(/^(patient|iam|audit|tenant|forms|documents|break_glass)\./);
       }
       expect(DEVICE_HOME[kind]).toMatch(/^\//);
