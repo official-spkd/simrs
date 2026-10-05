@@ -421,6 +421,28 @@ await this.records.insert(() =>
 await this.satusehat.record('Condition', f.id, f.version);
 ```
 
+### CPOE + CDS + resep (K09, fase 3 potongan 3.4)
+
+Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSchema` (`schemas/klinis.ts`), jawaban di
+`schemas/orders.ts`.
+
+| Endpoint                                  | Izin            | Isi                                                                                                                                                      |
+| ----------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                         |
+| `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                   |
+| `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
+| `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`) |
+| `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
+| `GET /orders/encounters/:encounterId`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
+| `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                       |
+
+Kiriman yang lolos menulis `order_groups` + order beku + status `aktif` + `cds_alerts`, staging biaya (lab/radiologi/
+tindakan) dan SATUSEHAT `held` (ServiceRequest, MedicationRequest), event `order.activated`. Penulis tanpa
+`clinical.sign` (residen) → `needs_review` untuk DPJP dan resep belum dimintakan TTE. Penulis dengan `clinical.sign`
+→ resep PDF klinis ber-TTE (`ClinicalPdfService`, sumber `order_groups`). Konteks CDS dari rekam medis kelompok RM:
+alergi terkode, obat aktif, diagnosis ICD-10 aktif sebagai flag `icd10-*`, eGFR LOINC terakhir, order 30 hari,
+penjamin, singkatan terlarang RS.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin
