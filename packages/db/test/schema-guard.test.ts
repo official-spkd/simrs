@@ -28,6 +28,7 @@ const MANUAL_INDEXES = [
   'form_definitions_one_published',
   'form_definitions_one_open_draft',
   'form_responses_supersedes_once',
+  'registered_devices_enrol_code',
   'seps_supersedes_once',
   'seps_one_chain_per_encounter',
   'patient_contacts_supersedes_once',
@@ -224,7 +225,13 @@ describe('penjaga skema', () => {
     const rows = await owner.$queryRaw<Array<{ column: string; can_update: boolean }>>`
       SELECT c AS column, has_column_privilege('simrs_app', 'public.registered_devices', c, 'UPDATE') AS can_update
       FROM unnest(${columns}::text[]) AS c`;
-    expect(rows.filter((r) => r.can_update).map((r) => r.column)).toEqual(['failed_attempts', 'revoked_at']);
+    // token_hash: hanya untuk pendaftaran sekali perangkat anjungan/TV (ADR-0027); penjaga database menolak
+    // perubahan lain, termasuk pada PIN (lihat test/device-principals.test.ts).
+    expect(rows.filter((r) => r.can_update).map((r) => r.column)).toEqual([
+      'token_hash',
+      'failed_attempts',
+      'revoked_at',
+    ]);
   });
 
   it('alasan akses darurat tidak bisa diubah setelah dicatat (hanya kolom tinjauan)', async () => {

@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { clientInfo } from '@/lib/client-info';
 import { contentSecurityPolicy, NONCE_HEADER, newNonce } from '@/lib/csp';
+import { deviceRouteKind, enrolUrl } from '@/lib/perangkat';
 import { PATH_HEADER } from '@/lib/request-path';
 import { loginUrl } from '@/lib/safe-path';
-import { clearCookies, cookieNames, writeSessionCookies } from '@/lib/server/cookies';
+import { clearCookies, cookieNames, parseDeviceToken, writeSessionCookies } from '@/lib/server/cookies';
 import { refreshSession } from '@/lib/server/refresh';
 import { webEnv } from '@/lib/server/web-env';
 
@@ -13,13 +14,18 @@ import { webEnv } from '@/lib/server/web-env';
  * 2. Cookie akses habis tapi cookie refresh ada → perpanjang sesi sekali (aman untuk permintaan paralel),
  *    teruskan cookie baru ke render permintaan ini, dan simpan di browser.
  * 3. Refresh ditolak (sesi idle/dicabut) → hapus cookie, alihkan ke /masuk dengan alasan "sesi berakhir".
+ * Layar perangkat (anjungan `/kiosk`, display `/display`) di mode api tidak memakai sesi staf (ADR-0027): tanpa
+ * cookie perangkat → halaman pendaftaran perangkat; dengan cookie → diteruskan (`requireDevice` memeriksanya ke API).
  * 4. CSP ber-nonce per permintaan (ADR-0073): nonce + CSP diteruskan ke render (Next memasang nonce di skripnya)
  *    dan dikirim sebagai header respons.
  * Server Action (POST) tidak dialihkan; setiap action memeriksa sesinya sendiri.
  */
 
-/** Rute yang boleh dibuka tanpa login (verifikasi QR dokumen: publik, tanpa PHI). */
-const PUBLIC_PREFIXES = ['/masuk', '/verifikasi'];
+/**
+ * Rute yang boleh dibuka tanpa login: verifikasi QR dokumen (publik, tanpa PHI) dan pendaftaran perangkat
+ * anjungan/TV dengan kode sekali pakai dari admin (ADR-0027).
+ */
+const PUBLIC_PREFIXES = ['/masuk', '/verifikasi', '/perangkat'];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -63,6 +69,13 @@ async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextRes
   const refresh = req.cookies.get(names.refresh)?.value;
   const navigation = req.method === 'GET' || req.method === 'HEAD';
   const protectedPage = !isPublic(req.nextUrl.pathname);
+
+  if (env.dataSource === 'api' && deviceRouteKind(req.nextUrl.pathname)) {
+    if (navigation && !parseDeviceToken(req.cookies.get(names.device)?.value)) {
+      return NextResponse.redirect(new URL(enrolUrl(path), req.url));
+    }
+    return NextResponse.next({ request: { headers } });
+  }
 
   if (!access && refresh) {
     const result = await refreshSession(env.apiBaseUrl, refresh, clientInfo(req.headers));

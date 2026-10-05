@@ -126,7 +126,12 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
           <span className="text-caption text-ink-500">Sistem / Pengguna dan akses</span>
           <h1 className="m-0 text-h1 font-semibold">Pengguna dan peran</h1>
         </div>
-        {canWriteUsers && <InviteUser roles={roleOptions} units={unitOptions} />}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/sistem/akses/perangkat" className="text-small font-semibold">
+            Perangkat anjungan dan display
+          </Link>
+          {canWriteUsers && <InviteUser roles={roleOptions} units={unitOptions} />}
+        </div>
       </header>
 
       <Kpis summary={summary} />

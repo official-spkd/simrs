@@ -6,6 +6,8 @@ import { PrismaService } from './prisma.service';
 import { RateLimitStorage } from './rate-limit.storage';
 import { RedisService } from './redis.service';
 import { AuthGuard } from './auth/auth.guard';
+import { DeviceGuard } from './auth/device.guard';
+import { DevicePrincipals } from './auth/device-principals';
 import { SessionStore } from './auth/session-store';
 import { TenantDb } from './tenant-db';
 
@@ -27,6 +29,8 @@ export class InfraModule {
         TenantDb,
         SessionStore,
         AuthGuard,
+        DevicePrincipals,
+        DeviceGuard,
         PermissionMatrix,
         { provide: OBJECT_STORAGE, useValue: createObjectStorage(env) },
       ],
@@ -38,6 +42,8 @@ export class InfraModule {
         TenantDb,
         SessionStore,
         AuthGuard,
+        DevicePrincipals,
+        DeviceGuard,
         PermissionMatrix,
         OBJECT_STORAGE,
       ],

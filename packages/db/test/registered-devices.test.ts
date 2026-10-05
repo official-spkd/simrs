@@ -137,7 +137,9 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
   it('batasan: jenis, kolom wajib PIN, hash token/PIN, jendela maks. 30 hari, maks. 5 salah, alasan pencabutan', async () => {
     const create = (over: object) =>
       withTenant(app, T, (tx) => tx.registeredDevice.create({ data: device(T, people.t!, over) }));
-    await expect(create({ kind: 'kiosk' })).rejects.toThrow(/registered_devices_kind/);
+    await expect(create({ kind: 'tablet' })).rejects.toThrow(/registered_devices_kind/);
+    // Jenis prinsipal (ADR-0027) tidak boleh membawa akun/posisi/PIN.
+    await expect(create({ kind: 'kiosk' })).rejects.toThrow(/registered_devices_principal/);
     for (const missing of [{ userId: null }, { assignmentId: null }, { pinHash: null }, { pinKeyId: null }]) {
       await expect(create(missing)).rejects.toThrow(/registered_devices_staff_pin/);
     }
@@ -176,7 +178,6 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
     ).rejects.toThrow(/permission denied/);
     for (const data of [
       { pinHash: ARGON.replace('aGFz', 'aGF6') },
-      { tokenHash: hashToken(randomToken()) },
       { expiresAt: new Date(Date.now() + 86_400_000) },
       { name: 'Nama diganti' },
       { kind: 'staff_pin' },
@@ -187,6 +188,12 @@ describe('registered_devices jenis staff_pin (P02, ADR-0024)', () => {
         withTenant(app, T, (tx) => tx.registeredDevice.update({ where: { id: d.id }, data })),
       ).rejects.toThrow(/permission denied/);
     }
+    // Kolom pendaftaran prinsipal (ADR-0027) bisa ditulis aplikasi, tetapi penjaga menolaknya untuk PIN.
+    await expect(
+      withTenant(app, T, (tx) =>
+        tx.registeredDevice.update({ where: { id: d.id }, data: { tokenHash: hashToken(randomToken()) } }),
+      ),
+    ).rejects.toThrow(/DEVICE_IMMUTABLE/);
   });
 
   it('pencabutan final: tidak bisa dibatalkan atau diubah, juga oleh pemilik tabel', async () => {

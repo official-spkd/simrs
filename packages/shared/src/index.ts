@@ -3,6 +3,7 @@ export * from './authz';
 export * from './backup';
 export * from './components';
 export * from './datetime';
+export * from './devices';
 export * from './documents';
 export * from './domain-events';
 export * from './env';

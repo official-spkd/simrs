@@ -12,12 +12,16 @@ export const USER_THROTTLER = 'user';
 const MINUTE_MS = 60_000;
 
 /**
- * Pelacak batas per pengguna: tenant + ID pengguna dari sesi yang sudah divalidasi AuthGuard. `null` untuk
+ * Pelacak batas per pengguna: tenant + ID pengguna dari sesi yang sudah divalidasi AuthGuard (atau tenant + ID
+ * perangkat untuk prinsipal perangkat, ADR-0027). `null` untuk
  * permintaan tanpa pengguna (anonim, mode header pengembang) sehingga throttler `user` dilewati.
  */
 export function userTracker(req: Pick<AuthenticatedRequest, 'tenantId' | 'actor'>): string | null {
   const userId = req.actor?.userId;
-  return req.tenantId && userId ? `${req.tenantId}:${userId}` : null;
+  if (req.tenantId && userId) return `${req.tenantId}:${userId}`;
+  // Prinsipal perangkat (ADR-0027): batas yang sama per perangkat (anjungan/TV), apa pun IP-nya.
+  const deviceId = req.actor?.devicePrincipal?.id;
+  return req.tenantId && deviceId ? `${req.tenantId}:device:${deviceId}` : null;
 }
 
 /**
