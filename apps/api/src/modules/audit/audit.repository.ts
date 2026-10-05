@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { verifyAuditChain } from '@simrs/db';
+import {
+  AUDIT_MAX_FINDINGS_PER_KIND,
+  auditAnomalyBuckets,
+  type AuditAnomalySettings,
+  readAuditAnomalySettings,
+  verifyAuditTrail,
+} from '@simrs/db';
+import type { AuditVerifyMode } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
 
 export interface AuditFilter {
@@ -17,15 +24,6 @@ export interface AuditListQuery extends AuditFilter {
   /** seq terakhir dari halaman sebelumnya (kursor, urut terbaru dulu). */
   beforeSeq?: bigint;
   limit: number;
-}
-
-/** Jumlah per pengguna per tanggal WIB (dasar temuan anomali). */
-export interface DayBucket {
-  userId: string | null;
-  role: string | null;
-  day: string;
-  n: number;
-  last: Date;
 }
 
 const EVENT_SELECT = {
@@ -46,14 +44,6 @@ const EVENT_SELECT = {
   hash: true,
 } as const;
 
-/** Aksi yang menyentuh data pasien (dasar deteksi akses di luar jam dinas). */
-const PATIENT_READ_ACTIONS = ['read', 'search', 'print', 'export'];
-/**
- * Dasar temuan volume: membuka, mencetak, mengekspor rekam medis. Tampil di hasil pencarian (`search`) tidak
- * dihitung: satu pencarian memuat hingga 20 pasien, sehingga petugas pendaftaran akan selalu melewati ambang.
- */
-const PATIENT_VOLUME_ACTIONS = ['read', 'print', 'export'];
-const MAX_FINDINGS_PER_KIND = 50;
 /** Batas pengaman riwayat tinjauan per temuan (dalam praktik hanya beberapa keputusan). */
 const MAX_REVIEW_HISTORY = 100;
 
@@ -61,8 +51,9 @@ const MAX_REVIEW_HISTORY = 100;
 export class AuditRepository {
   constructor(private readonly db: TenantDb) {}
 
-  verifyChain() {
-    return verifyAuditChain(this.db.tx());
+  /** Keutuhan rantai + jangkar (ADR-0072); kunci jangkar dari env, bukan dari database. */
+  verifyTrail(mode: AuditVerifyMode, anchorKeyB64: string | undefined) {
+    return verifyAuditTrail(this.db.tx(), { tenantId: this.db.tenantId(), anchorKeyB64, mode });
   }
 
   private where(f: AuditFilter) {
@@ -143,66 +134,16 @@ export class AuditRepository {
     });
   }
 
-  /** Lonjakan gagal login / akses ditolak per pengguna per hari (WIB). Pengguna tak dikenal = userId null. */
-  bursts(action: 'login_failed' | 'access_denied', since: Date, threshold: number): Promise<DayBucket[]> {
-    return this.db.tx().$queryRaw<DayBucket[]>`
-      SELECT actor_user_id::text AS "userId", max(actor_role) AS role,
-             to_char(occurred_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') AS day,
-             count(*)::int AS n, max(occurred_at) AS last
-      FROM audit_events
-      WHERE action = ${action} AND occurred_at >= ${since}
-      GROUP BY 1, 3
-      HAVING count(*) >= ${threshold}
-      ORDER BY last DESC
-      LIMIT ${MAX_FINDINGS_PER_KIND}`;
+  anomalySettings(): Promise<AuditAnomalySettings> {
+    return readAuditAnomalySettings(this.db.tx());
   }
 
   /**
-   * Pengguna yang membuka data pasien di jam malam (WIB) di luar peran jaga 24 jam. Jendela [start, end) dalam
-   * menit sejak tengah malam; bila start > end jendela melewati tengah malam (mis. 22:00–05:00).
+   * Dasar temuan per jenis sejak `since`: hari lampau dari ringkasan harian (bila ada, parameter sama), hari ini
+   * dan hari tanpa ringkasan dihitung langsung (ADR-0072). Hasil sama dengan agregasi langsung seluruh jendela.
    */
-  nightAccess(
-    since: Date,
-    startMin: number,
-    endMin: number,
-    exemptRoles: readonly string[],
-  ): Promise<DayBucket[]> {
-    return this.db.tx().$queryRaw<DayBucket[]>`
-      WITH e AS (
-        SELECT actor_user_id, actor_role, patient_id, occurred_at,
-               EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'Asia/Jakarta') * 60
-                 + EXTRACT(MINUTE FROM occurred_at AT TIME ZONE 'Asia/Jakarta') AS m
-        FROM audit_events
-        WHERE patient_id IS NOT NULL AND actor_user_id IS NOT NULL
-          AND action = ANY(${PATIENT_READ_ACTIONS}::text[])
-          AND (actor_role IS NULL OR actor_role <> ALL(${[...exemptRoles]}::text[]))
-          AND occurred_at >= ${since}
-      )
-      SELECT actor_user_id::text AS "userId", max(actor_role) AS role,
-             to_char(occurred_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') AS day,
-             count(DISTINCT patient_id)::int AS n, max(occurred_at) AS last
-      FROM e
-      WHERE CASE WHEN ${startMin}::int > ${endMin}::int THEN m >= ${startMin}::int OR m < ${endMin}::int
-                 ELSE m >= ${startMin}::int AND m < ${endMin}::int END
-      GROUP BY 1, 3
-      ORDER BY last DESC
-      LIMIT ${MAX_FINDINGS_PER_KIND}`;
-  }
-
-  /** Pengguna yang membuka data pasien berbeda melebihi batas dalam satu hari (WIB). */
-  patientVolume(since: Date, threshold: number): Promise<DayBucket[]> {
-    return this.db.tx().$queryRaw<DayBucket[]>`
-      SELECT actor_user_id::text AS "userId", max(actor_role) AS role,
-             to_char(occurred_at AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM-DD') AS day,
-             count(DISTINCT patient_id)::int AS n, max(occurred_at) AS last
-      FROM audit_events
-      WHERE patient_id IS NOT NULL AND actor_user_id IS NOT NULL
-        AND action = ANY(${PATIENT_VOLUME_ACTIONS}::text[])
-        AND occurred_at >= ${since}
-      GROUP BY 1, 3
-      HAVING count(DISTINCT patient_id) >= ${threshold}
-      ORDER BY last DESC
-      LIMIT ${MAX_FINDINGS_PER_KIND}`;
+  anomalyBuckets(since: Date, settings: AuditAnomalySettings) {
+    return auditAnomalyBuckets(this.db.tx(), { since, settings, limit: AUDIT_MAX_FINDINGS_PER_KIND });
   }
 
   /** Keputusan tinjauan anomali (entri audit `review`), terbaru dulu. */
@@ -236,7 +177,7 @@ export class AuditRepository {
     return this.db.tx().breakGlassGrant.findMany({
       where: { reviewOutcome: null, grantedAt: { gte: since } },
       orderBy: { grantedAt: 'desc' },
-      take: MAX_FINDINGS_PER_KIND,
+      take: AUDIT_MAX_FINDINGS_PER_KIND,
       select: {
         id: true,
         grantedAt: true,

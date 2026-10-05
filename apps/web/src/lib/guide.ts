@@ -31,6 +31,13 @@ export const GUIDE_PAGES = [
     title: 'Tutorial',
     summary: 'Menyiapkan mesin, menjalankan layanan, membuat modul API, layar web, endpoint mock, dan tes.',
   },
+  {
+    slug: 'backup-restore',
+    file: '04-backup-restore.md',
+    title: 'Backup dan restore',
+    summary:
+      'Backup terenkripsi tiga lokasi, jadwal, retensi, uji restore di kontainer bersih, dan pemulihan bencana.',
+  },
 ] as const satisfies readonly GuidePage[];
 
 export type GuideSlug = (typeof GUIDE_PAGES)[number]['slug'];

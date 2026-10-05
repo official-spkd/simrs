@@ -1,5 +1,14 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createAccount, loginAs, submitPassword, totpFor, typeCode } from './support/accounts';
+import {
+  createAccount,
+  createAccountDevices,
+  deviceRevocation,
+  loginAs,
+  submitPassword,
+  totpFor,
+  typeCode,
+} from './support/accounts';
+import { E2E_WEB_PORT } from './support/slot';
 
 /** P02 · PIN masuk cepat per perangkat terdaftar (docs/05 §1, ADR-0024) lewat web. */
 
@@ -117,5 +126,63 @@ test.describe('PIN masuk cepat (P02)', () => {
     await page.getByRole('button', { name: 'Daftarkan perangkat ini' }).click();
     await expect(page.getByText('Kata sandi saat ini salah.')).toBeVisible();
     await expect(page.getByText('Belum ada perangkat ber-PIN yang berlaku.')).toBeVisible();
+  });
+
+  test('admin mencabut PIN dan perangkat tepercaya pengguna di layar Akses', async ({ page, browser }) => {
+    const nurse = await createAccount({
+      roles: ['perawat'],
+      unitName: 'Melati Akses E2E',
+      displayName: 'Dewi Lestari',
+    });
+    const devices = await createAccountDevices(nurse);
+    // Peramban perawat yang mengingat PIN-nya: sebelum dicabut, layar masuk menawarkan PIN.
+    const nurseCtx = await browser.newContext();
+    await nurseCtx.addCookies([
+      {
+        name: 'simrs_pin',
+        value: devices.pin.token,
+        domain: 'localhost',
+        path: '/',
+        httpOnly: true,
+        sameSite: 'Lax',
+      },
+    ]);
+    const nursePage = await nurseCtx.newPage();
+    const masuk = `http://localhost:${E2E_WEB_PORT}/masuk`;
+    await nursePage.goto(masuk);
+    await expect(nursePage.getByRole('region', { name: 'Masuk dengan PIN' })).toContainText('Dewi Lestari');
+
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/akses');
+    await page.getByLabel('Cari pengguna').fill(nurse.username);
+    await page.getByRole('button', { name: 'Terapkan' }).click();
+    await page.getByRole('link', { name: new RegExp(nurse.username) }).click();
+    const list = page.getByRole('list', { name: 'Perangkat akun' });
+    await expect(list.getByText('PIN masuk cepat · Komputer nurse station E2E')).toBeVisible();
+    await expect(list.getByText('Perangkat tepercaya · Chrome di Windows')).toBeVisible();
+
+    await page.getByRole('button', { name: /^Cabut PIN Komputer nurse station E2E/ }).click();
+    await expect(page.getByText(/Sesi PIN dari perangkat itu langsung berakhir/)).toBeVisible();
+    await page.getByRole('button', { name: 'Cabut PIN', exact: true }).click();
+    // Perangkat yang dicabut hilang dari daftar (halaman dimuat ulang dari API).
+    await expect(list.getByText('PIN masuk cepat · Komputer nurse station E2E')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Cabut perangkat tepercaya Chrome di Windows' }).click();
+    await page.getByRole('button', { name: 'Cabut perangkat', exact: true }).click();
+    await expect(page.getByRole('list', { name: 'Perangkat akun' })).toHaveCount(0);
+
+    const state = await deviceRevocation(nurse, { pin: devices.pin.id, trusted: devices.trusted.id });
+    expect(state.pin).toMatchObject({ revokedReason: 'admin_revoked' });
+    expect(state.pin.revokedAt).not.toBeNull();
+    expect(state.trusted.revokedAt).not.toBeNull();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Penugasan', level: 3 })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Perangkat akun' })).toHaveCount(0);
+
+    // Peramban perawat tidak lagi ditawari PIN.
+    await nursePage.goto(masuk);
+    await expect(nursePage.getByRole('heading', { name: 'Masuk ke SIM RS' })).toBeVisible();
+    await expect(nursePage.getByRole('region', { name: 'Masuk dengan PIN' })).toHaveCount(0);
+    await nurseCtx.close();
   });
 });

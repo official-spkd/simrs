@@ -1,4 +1,9 @@
-import { PERMISSION_SCOPES, TENANT_KINDS } from '@simrs/shared';
+import {
+  BACKUP_CODE_CHANNELS,
+  PERMISSION_SCOPES,
+  PIN_UNAVAILABLE_REASONS,
+  TENANT_KINDS,
+} from '@simrs/shared';
 import { z } from 'zod';
 
 /** Bentuk respons API yang dipakai web. Respons di luar bentuk ini ditolak (gagal tertutup), tidak diteruskan. */
@@ -39,6 +44,8 @@ export const mfaVerifyResultSchema = sessionTokensSchema.extend({
     .nullable(),
 });
 
+export const backupOptionsSchema = z.object({ channels: z.array(z.enum(BACKUP_CODE_CHANNELS)) });
+
 export const backupCodeResultSchema = z.object({
   channel: z.enum(['whatsapp', 'email']),
   sentTo: z.string(),
@@ -63,6 +70,8 @@ export const meSchema = z.object({
   ),
   /** `quickLogin`: sesi dibuka dengan PIN perangkat (ADR-0024). */
   session: z.object({ quickLogin: z.boolean() }),
+  /** Posisi sesi ini boleh mendaftarkan PIN (aturan + pengaturan RS dihitung API); `reason` bila tidak. */
+  pin: z.object({ available: z.boolean(), reason: z.enum(PIN_UNAVAILABLE_REASONS).nullable() }),
 });
 export type MeResponse = z.infer<typeof meSchema>;
 
