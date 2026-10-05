@@ -46,8 +46,26 @@ export class KioskRepository {
     await this.db.tx().$executeRaw`SELECT pg_advisory_xact_lock(hashtext('kiosk:' || ${deviceId}))`;
   }
 
+  /**
+   * Kunci pencarian identitas se-RS sampai transaksi selesai: hitung-lalu-sisip batas laju per perangkat DAN per RS
+   * tidak bisa diselip permintaan paralel dari anjungan mana pun di RS ini.
+   */
+  async lockTenantLookups(): Promise<void> {
+    await this.db.tx()
+      .$executeRaw`SELECT pg_advisory_xact_lock(hashtext('kiosk-lookup:' || ${this.db.tenantId()}))`;
+  }
+
   lookupRatePerMinute(): Promise<number> {
     return readTenantSetting(this.db.tx(), 'kiosk.lookup_rate_per_min');
+  }
+
+  lookupRatePerTenantPerMinute(): Promise<number> {
+    return readTenantSetting(this.db.tx(), 'kiosk.lookup_rate_per_tenant_per_min');
+  }
+
+  /** Semua pencarian anjungan RS ini sejak `since` (RLS = tenant permintaan). */
+  countTenantLookupsSince(since: Date): Promise<number> {
+    return this.db.tx().kioskLookup.count({ where: { createdAt: { gte: since } } });
   }
 
   avgServiceMinutes(): Promise<number> {

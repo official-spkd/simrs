@@ -107,6 +107,11 @@ export const TENANT_SETTINGS = {
     z.number().int().min(1).max(60),
     10,
   ),
+  'kiosk.lookup_rate_per_tenant_per_min': def(
+    'Batas pencarian identitas semua anjungan RS per menit (cegah enumerasi lewat banyak perangkat)',
+    z.number().int().min(1).max(1000),
+    60,
+  ),
 } as const;
 
 export type TenantSettingKey = keyof typeof TENANT_SETTINGS;
