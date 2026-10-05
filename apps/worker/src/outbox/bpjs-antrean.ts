@@ -2,8 +2,10 @@ import {
   ANTREAN_ENDPOINTS,
   ANTREAN_TASK_BATAL,
   type AntreanUpdateWaktuRequest,
+  BPJS_ANTREAN_ADD_OPERATION,
   BPJS_ANTREAN_UPDATEWAKTU_OPERATION,
   FRONT_OFFICE_OPERATIONS,
+  outboxKey,
 } from '@simrs/shared';
 import { defineBpjsOperation } from './bpjs-operation';
 import { PermanentOperationError } from './operation-types';
@@ -29,6 +31,7 @@ function errorCode(lastError: string | null): string {
 /**
  * F04 · `bpjs.antrean.updatewaktu`: kirim waktu task ID (milidetik epoch = waktu event) ke Antrean BPJS.
  * - Payload hanya ID baris `bpjs_queue_tasks`; kode booking dan waktu dibaca saat dikirim.
+ * - Selama tambah antrean booking (`bpjs.antrean.add`) belum diterima BPJS, task menunggu pesan tambah itu.
  * - Urutan per booking: task menunggu (`defer.afterMessageId`, tanpa menghabiskan percobaan) pesan task sebelumnya
  *   yang masih `pending`; 99 menunggu task tertinggi yang sudah ada. Task sebelumnya yang ditolak/DLQ tidak
  *   ditunggu (BPJS yang memutuskan; penolakannya tercatat).
@@ -47,13 +50,32 @@ export const bpjsAntreanUpdateWaktu = defineBpjsOperation({
           taskId: true,
           occurredAt: true,
           status: true,
-          appointment: { select: { bookingCode: true } },
+          appointment: { select: { bookingCode: true, bpjsSyncStatus: true } },
         },
       }),
     );
     if (!task) return { skip: 'task antrean tidak ditemukan' };
     // `dead` boleh dikirim lagi (kirim ulang manual dari DLQ); terkirim/ditolak sudah final.
     if (task.status === 'sent' || task.status === 'rejected') return { skip: `task sudah ${task.status}` };
+
+    // Antrean harus sudah ada di BPJS: setelah gangguan, percobaan ulang task bisa mendahului tambah antrean
+    // (jeda acak) dan ditolak permanen "antrean tidak ditemukan". Tambah ditolak/DLQ tidak ditunggu.
+    if (task.appointment.bpjsSyncStatus === 'pending') {
+      const add = await ctx.read((tx) =>
+        tx.outboxMessage.findFirst({
+          where: {
+            target: 'bpjs',
+            idempotencyKey: outboxKey(BPJS_ANTREAN_ADD_OPERATION, task.appointmentId),
+          },
+          select: { id: true, status: true },
+        }),
+      );
+      const reason = 'menunggu tambah antrean';
+      if (add && add.status !== 'sent' && add.status !== 'dead') {
+        return { defer: { afterMessageId: add.id, reason } };
+      }
+      if (!add) return { defer: { untilMs: Date.now() + ORPHAN_RECHECK_MS, reason } };
+    }
 
     const before = await ctx.read((tx) =>
       tx.bpjsQueueTask.findFirst({
