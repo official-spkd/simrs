@@ -428,6 +428,36 @@ await this.records.insert(() =>
 await this.satusehat.record('Condition', f.id, f.version);
 ```
 
+### Data klinis terkode, tanda vital, hasil, ringkasan (fase 3 potongan 3.2a)
+
+Kontrak input di `schemas/klinis.ts` (3.0a), kontrak jawaban di `schemas/clinical-records.ts`. Bantuan bersama modul
+klinis ada di `infra/clinical/clinical-context.ts`: `clinicalEncounter()` (kunjungan ada + ABAC + tidak batal untuk
+tulis), `patientGroupIds()` (kelompok rekam medis), `assertRevisionAllowed()` (revisi `koreksi` butuh `clinical.correct`
+di samping izin endpoint), `lockClinicalKey()` (kunci advisory untuk aturan yang tidak bisa jadi indeks unik).
+
+| Endpoint `/api/v1/…`                                                    | Izin                               | Isi                                                                                                                                |
+| ----------------------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `POST/GET encounter/:id/observations`                                   | `clinical.write` / `clinical.read` | Modul `nursing` (K12). Tanda vital dewasa; NEWS2 dihitung server (`ewsScore`/`ewsMaxParam`), skor dari klien ditolak (skema ketat) |
+| `POST encounter/:id/observations/:obsId/entered-in-error`               | `clinical.correct`                 | Salah entri tanda vital (penulis asli)                                                                                             |
+| `GET encounter/:id/context`                                             | `clinical.read`                    | Modul `summary`. Banner: pasien, umur, RM, bed, DPJP, penjamin, alergi (teks), diagnosis utama, EWS terakhir                       |
+| `POST diagnosis/conditions`, `GET …?encounterId=`                       | `clinical.write` / `clinical.read` | ICD-10 dari `ref` (nama dari data rujukan); satu diagnosis utama final per kunjungan (kunci advisory `primary:<kunjungan>`) → 409  |
+| `GET diagnosis/problem-list?patientId=`                                 | `clinical.read`                    | Problem list final kelompok rekam medis                                                                                            |
+| `POST diagnosis/procedures`, `GET …?encounterId=`                       | `clinical.write` / `clinical.read` | ICD-9-CM; `billable_events` `tindakan` sekali per rantai (koreksi tidak menagih ulang)                                             |
+| `POST diagnosis/allergies`, `GET …?patientId=`                          | `clinical.write` / `clinical.read` | Alergi zat terkode/teks atau NKDA eksplisit; status `ada`/`nkda`/`belum_dikaji`; NKDA eksklusif dan satu entri per zat → 409       |
+| `POST diagnosis/{conditions,procedures,allergies}/:id/entered-in-error` | `clinical.correct`                 | Salah entri (penulis asli, alasan ≥ 10)                                                                                            |
+| `POST results/observations`, `POST results/reports`                     | `result.write`                     | Modul `results`. Hasil lab/imaging/survei (LOINC dari `ref` atau nama bila belum terkode); laporan + hasilnya sekaligus            |
+| `GET results?patientId=&encounterId=`                                   | `result.read`                      | Laporan (dengan hasil terkini rantai laporan) + hasil tanpa laporan, kelompok rekam medis                                          |
+| `GET summary/patients/:id`                                              | `clinical.read`                    | K14: alergi, masalah aktif, 10 kunjungan terakhir + diagnosis utama, TTV terakhir, hasil, tindakan, obat order aktif               |
+
+Aturan bersama:
+
+- Satu POST per jenis menerima `revision` `baru` / `koreksi` / `addendum` (ADR-0028). Daftar hanya menampilkan versi
+  final terkini; versi lama dan salah entri tetap di tabel.
+- Eskalasi EWS (skor ≥ `ews.escalation_score` atau satu parameter 3): SSE `ews.escalation` (trigger 3.1) + notifikasi
+  P09 `ews_escalation` tanpa PHI ke tim perawatan aktif + DPJP kunjungan (in-app + WhatsApp).
+- Setiap baca diaudit `read` dengan `patientId`; tulis `create`/`correct` tanpa kode diagnosis di `details`.
+- Staging SATUSEHAT `held` per versi: Observation, DiagnosticReport, Condition, Procedure, AllergyIntolerance.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin

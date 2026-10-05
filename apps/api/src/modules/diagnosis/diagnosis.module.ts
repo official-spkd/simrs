@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { DiagnosisController } from './diagnosis.controller';
+import { DiagnosisService } from './diagnosis.service';
 
 /**
- * K08 · Diagnosis ICD-10, prosedur ICD-9-CM, problem list, alergi + NKDA.
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.2a tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K08 · Diagnosis ICD-10, prosedur ICD-9-CM, problem list, alergi + NKDA (potongan 3.2a). Didaftarkan sekali di
+ * `AppModule` (potongan 3.1). Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * `DiagnosisService` diekspor untuk banner kunjungan dan ringkasan pasien (`summary`).
  */
-@Module({})
+@Module({
+  imports: [AuthzModule],
+  controllers: [DiagnosisController],
+  providers: [DiagnosisService],
+  exports: [DiagnosisService],
+})
 export class DiagnosisModule {}
