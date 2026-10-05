@@ -46,7 +46,8 @@
     "create-demo": "tsx --env-file-if-exists=../../.env scripts/create-demo.ts",
     "akun-presentasi": "tsx --env-file-if-exists=../../.env scripts/create-presentation-accounts.ts",
     "import-ref": "tsx --env-file-if-exists=../../.env scripts/import-ref.ts",
-    "sync-permissions": "tsx --env-file-if-exists=../../.env scripts/sync-permissions.ts"
+    "sync-permissions": "tsx --env-file-if-exists=../../.env scripts/sync-permissions.ts",
+    "rotate-keys": "tsx --env-file-if-exists=../../.env scripts/rotate-keys.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
