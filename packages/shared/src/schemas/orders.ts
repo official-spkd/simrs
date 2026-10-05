@@ -132,7 +132,13 @@ export const orderSetViewSchema = z.strictObject({
   name: nonEmpty,
   description: z.string(),
   items: z.array(
-    z.strictObject({ type: z.enum(['layanan', 'obat']), id: uuid, name: nonEmpty, active: z.boolean() }),
+    z.strictObject({
+      type: z.enum(['layanan', 'obat']),
+      id: uuid,
+      kind: z.enum(CPOE_ORDER_KINDS),
+      name: nonEmpty,
+      active: z.boolean(),
+    }),
   ),
 });
 export type OrderSetView = z.infer<typeof orderSetViewSchema>;
