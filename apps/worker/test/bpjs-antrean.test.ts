@@ -32,7 +32,8 @@ let ref: TestingModule;
 let db: PrismaClient;
 let dispatcher: OutboxDispatcher;
 let T: string;
-let fixture: { serviceId: string; practitionerId: string; sessionId: string; patientId: string };
+let fixture: { serviceId: string; practitionerId: string; sessionId: string };
+let crypto: PatientCrypto;
 
 const run = <R>(fn: (tx: TenantTx) => Promise<R>) => tenantDb(db, T)(fn);
 
@@ -49,10 +50,7 @@ beforeAll(async () => {
   dispatcher = ref.get(OutboxDispatcher);
   db = createPrismaClient({ connectionString: env.DATABASE_URL, max: 2 });
   T = await freshTenant('Uji Antrean BPJS');
-  const crypto = new PatientCrypto(
-    { encKeyB64: env.FIELD_ENCRYPTION_KEY, hashKeyB64: env.FIELD_HASH_KEY },
-    T,
-  );
+  crypto = new PatientCrypto({ encKeyB64: env.FIELD_ENCRYPTION_KEY, hashKeyB64: env.FIELD_HASH_KEY }, T);
   fixture = await tenantDb(
     db,
     T,
@@ -77,12 +75,7 @@ beforeAll(async () => {
         quotaNonJkn: 2,
       },
     });
-    const { id: patientId } = await insertPatient(tx, crypto, {
-      name: 'Pasien Uji',
-      sex: 'male',
-      birthDate: '1970-01-01',
-    });
-    return { serviceId, practitionerId, sessionId, patientId };
+    return { serviceId, practitionerId, sessionId };
   });
 });
 
@@ -98,13 +91,18 @@ beforeEach(() => mockState.reset());
 async function booking(inMock = true) {
   const id = newId();
   const bookingCode = String(Math.floor(Math.random() * 9e9) + 1e9);
+  // Satu booking aktif per pasien × layanan × hari: pasien baru per booking.
+  const patientId = await run(
+    async (tx) =>
+      (await insertPatient(tx, crypto, { name: 'Pasien Uji', sex: 'male', birthDate: '1970-01-01' })).id,
+  );
   await run((tx) =>
     tx.appointment.create({
       data: {
         id,
         tenantId: T,
         bookingCode,
-        patientId: fixture.patientId,
+        patientId,
         sessionId: fixture.sessionId,
         practitionerId: fixture.practitionerId,
         serviceId: fixture.serviceId,

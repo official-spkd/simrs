@@ -280,16 +280,16 @@ Aturan saat menambah formulir atau layar isian: validasi isian selalu terhadap v
 
 Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_signatures` (ADR-0020).
 
-| Bagian                              | Isi                                                                                                                                                                           |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                     |
-| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)        |
-| `infra/s3-client.ts`, `sigv4.ts`    | Re-ekspor klien S3 minimal di `@simrs/shared/node` (`packages/shared/src/s3/`, dipakai juga backup): SigV4, gaya path, `If-None-Match: *`, checksum SHA-256; `/ready` = HeadBucket                                      |
-| `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
-| `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
-| API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
+| Bagian                              | Isi                                                                                                                                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                          |
+| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)             |
+| `infra/s3-client.ts`, `sigv4.ts`    | Re-ekspor klien S3 minimal di `@simrs/shared/node` (`packages/shared/src/s3/`, dipakai juga backup): SigV4, gaya path, `If-None-Match: *`, checksum SHA-256; `/ready` = HeadBucket |
+| `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                                    |
+| `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci                   |
+| API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code`      |
 | Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → tanda tangan `failed` + audit `sign` (`onDead`)                              |
-| Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
+| Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                               |
 
 Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
 
@@ -328,6 +328,27 @@ mengikuti kontrak bersama `packages/shared` (potongan 0a).
 Migrasi `20261005102000_worker_failure_states` (untuk worker potongan 1a) menambah keadaan gagal permanen yang terlihat di
 domain: tanda tangan TTE `failed` (pending → failed → pending untuk kirim ulang; `signed` tetap final), status verifikasi
 identifier `error`, dan `outbox_messages.requeued_at` (kirim ulang manual memulai jendela retry baru).
+
+### Booking (F02, fase 2 potongan 3)
+
+API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin
+`booking.read`/`write`/`cancel`; modul `F02`). Kanal dari API staf selalu `loket`.
+
+| Aksi                              | Yang terjadi (satu transaksi permintaan)                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /`                          | Cek pasien aktif (JKN: kartu BPJS + NIK), sesi poli dibuka (bukan lewat, bukan cuti tanpa pengganti, ≤ `booking.max_days_ahead`), lalu `reserveQuota` (penuh → `QUOTA_FULL`)   |
+|                                   | Kode booking P08 `booking_code` (YYMMDD tanggal layanan + 4 digit), nomor poli cadangan (`allocateQueueNumber`), estimasi = jam mulai + urutan × `queue.avg_service_minutes`   |
+|                                   | JKN: outbox `bpjs.antrean.add` (payload `{ appointmentId }`); ganda pasien × poli × tanggal → `BOOKING_DUPLICATE` (juga indeks unik parsial `appointments_one_active_per_day`) |
+| `POST /:id/cancel`                | `releaseQuota`, nomor poli batal, JKN yang (mungkin) terdaftar → outbox `bpjs.antrean.batal`, event `booking.cancelled`                                                        |
+| `POST /:id/reschedule`            | Batal + booking baru (kode baru) di sesi lain, atomik                                                                                                                          |
+| `POST /:id/check-in`              | Hanya hari layanan: `checked_in`, JKN mendapat tiket loket pendaftaran (`A-031`), event `booking.checked_in`                                                                   |
+| `GET /`, `/:id`, `/by-code/:code` | Setiap booking yang tampil dicatat audit per pasien (`search`/`read`)                                                                                                          |
+
+Task ID BPJS (1, 99) TIDAK dikirim modul ini: mesin task ID modul antrean (potongan 4a) bereaksi pada event di atas.
+Worker (`apps/worker/src/outbox/booking.ts`) mengisi status kirim booking (`bpjs_sync_status`, `bpjs_cancel_status`:
+`not_required`/`pending`/`sent`/`rejected`/`dead` + kode galat, tanpa pesan BPJS mentah). Batal menunggu tambah terkirim
+(`defer`) dan dilewati bila booking tidak pernah terdaftar. Job `booking.no-show` (23.30 WIB) dan `booking.reminder`
+(18.00 WIB, WhatsApp H-1 tanpa poli/dokter, satu pesan per booking) ada di `apps/worker/src/jobs/booking-jobs.ts`.
 
 ### Lookup sinkron, SSE, dan event domain (fase 2)
 
@@ -424,18 +445,18 @@ Admin  GET /api/v1/iam/devices · POST /api/v1/iam/devices/:id/revoke
 
 Modul `modules/queue/` (potongan 4a), kontrak `@simrs/shared` `schemas/queue.ts`.
 
-| Endpoint `/api/v1/queue/…`                                 | Izin          | Isi                                                                                                                          |
-| ---------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `GET services`                                             | `queue.read`  | Layanan aktif; klinisi berlingkup `unit` hanya layanan unit sesinya                                                          |
-| `GET services/:id/tickets?serviceDate&status`              | `queue.read`  | Tiket hari ini (tanpa identitas pasien, hanya ID); estimasi panggil = posisi × `queue.avg_service_minutes`                   |
-| `POST services/:id/tickets {appointmentId?, encounterId?}` | `queue.call`  | Tiket loket (`allocateQueueNumber`, `<kode>-<3 digit>`); tertaut pasien → audit `create`                                     |
-| `POST services/:id/call-next {counter}`                    | `queue.call`  | FIFO, nomor cadangan booking dilewati, `SKIP LOCKED` (dua loket tidak memanggil tiket yang sama); kosong → 409 `QUEUE_EMPTY` |
-| `POST tickets/:id/{call,recall,skip,start,finish}`         | `queue.call`  | Transisi tiket; salah keadaan → 409 `TICKET_STATE_INVALID`; "panggil" tiket yang pernah dipanggil = ulang                    |
-| `GET displays`                                             | `queue.read` | Daftar display + layanannya (admin mengikat TV ke display)                                                                    |
-| `GET displays/:id/board`                                   | `queue.read` | Papan untuk staf (pratinjau, kendali antrean)                                                                                 |
-| `GET display/board`                                        | perangkat*   | Papan TV (`queueBoardSchema`): maks. 4 poli, panggilan terakhir (`calling` null bila belum ada) + riwayat                    |
+| Endpoint `/api/v1/queue/…`                                 | Izin         | Isi                                                                                                                                       |
+| ---------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET services`                                             | `queue.read` | Layanan aktif; klinisi berlingkup `unit` hanya layanan unit sesinya                                                                       |
+| `GET services/:id/tickets?serviceDate&status`              | `queue.read` | Tiket hari ini (tanpa identitas pasien, hanya ID); estimasi panggil = posisi × `queue.avg_service_minutes`                                |
+| `POST services/:id/tickets {appointmentId?, encounterId?}` | `queue.call` | Tiket loket (`allocateQueueNumber`, `<kode>-<3 digit>`); tertaut pasien → audit `create`                                                  |
+| `POST services/:id/call-next {counter}`                    | `queue.call` | FIFO, nomor cadangan booking dilewati, `SKIP LOCKED` (dua loket tidak memanggil tiket yang sama); kosong → 409 `QUEUE_EMPTY`              |
+| `POST tickets/:id/{call,recall,skip,start,finish}`         | `queue.call` | Transisi tiket; salah keadaan → 409 `TICKET_STATE_INVALID`; "panggil" tiket yang pernah dipanggil = ulang                                 |
+| `GET displays`                                             | `queue.read` | Daftar display + layanannya (admin mengikat TV ke display)                                                                                |
+| `GET displays/:id/board`                                   | `queue.read` | Papan untuk staf (pratinjau, kendali antrean)                                                                                             |
+| `GET display/board`                                        | perangkat*   | Papan TV (`queueBoardSchema`): maks. 4 poli, panggilan terakhir (`calling` null bila belum ada) + riwayat                                 |
 | `GET display/events`                                       | perangkat*   | SSE: `queue.board` (potret papan) saat tersambung, lalu `queue.call` (kanal `queue_calls`, hanya layanan display, replay `Last-Event-ID`) |
-| `GET bpjs-tasks?appointmentId=`                            | `queue.read`  | Status task ID per booking (chip task 1–3); dibaca = audit `read` dengan pasien booking                                      |
+| `GET bpjs-tasks?appointmentId=`                            | `queue.read` | Status task ID per booking (chip task 1–3); dibaca = audit `read` dengan pasien booking                                                   |
 
 \* `@DeviceScoped('queue.display.read')` (ADR-0027): display = `registered_devices.queue_display_id` perangkat pemanggil,
 bukan parameter URL, jadi TV tidak bisa membaca papan display lain. Perangkat tanpa display terikat → 409.
@@ -453,7 +474,7 @@ waktu event (ms), tidak pernah ditimpa; tidak ada task setelah 99; walk-in: tike
 task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih tinggi. Tiap task baru → outbox
 `bpjs.antrean.updatewaktu` (payload `{ queueTaskId }`, kunci `outboxKey`). Worker (`outbox/bpjs-antrean.ts`) menunda
 task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
-`sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan).
+`sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan). Job no-show booking (worker, F02) mencatat task 99 lewat helper yang sama, `insertBpjsQueueTask` (`@simrs/db`).
 
 ### Anatomi modul
 

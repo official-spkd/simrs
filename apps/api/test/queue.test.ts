@@ -126,7 +126,12 @@ async function seedTenant(tenantId: string) {
   await seedFrontOffice(owner, tenantId);
 }
 
+/**
+ * Booking hari ini untuk pasien BARU (satu booking aktif per pasien × layanan × hari, indeks booking potongan 3);
+ * `patientId` menunjuk pasien booking terakhir.
+ */
 async function appointment(bucket: 'jkn' | 'non_jkn' = 'jkn') {
+  patientId = (await createTestPatient(T.id)).id;
   const id = newId();
   await run((tx) =>
     tx.appointment.create({

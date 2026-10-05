@@ -11,7 +11,8 @@ import type { OutboxMessageLike } from './operation-types';
  * disimpan: `response` sudah didekripsi dan bisa memuat data peserta.
  */
 export const bpjsDeliverySchema = z.discriminatedUnion('outcome', [
-  z.object({ outcome: z.literal('accepted'), response: z.unknown() }),
+  // `response` tidak ada untuk Antrean/Aplicare tanpa isi (`undefined` hilang saat JSON.stringify).
+  z.object({ outcome: z.literal('accepted'), response: z.unknown().optional() }),
   z.object({
     outcome: z.literal('rejected'),
     code: z.enum([
@@ -65,8 +66,7 @@ export class BpjsConnector {
     const note = (message: string) => (opts.sensitive || !message ? '' : `: ${message}`);
     switch (res.kind) {
       case 'ok': {
-        // Operasi tulis Antrean tanpa isi: `undefined` hilang di JSON, jadi dikirim sebagai null.
-        const body: BpjsDelivery = { outcome: 'accepted', response: res.response ?? null };
+        const body: BpjsDelivery = { outcome: 'accepted', response: res.response };
         return { ...timing, ok: true, responseExcerpt: 'BPJS OK', responseBody: JSON.stringify(body) };
       }
       case 'rejected': {
