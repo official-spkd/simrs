@@ -3,16 +3,21 @@ import {
   BPJS_ANTREAN_ADD_OPERATION,
   BPJS_ANTREAN_BATAL_OPERATION,
   PATIENT_WHATSAPP_BOOKING_REMINDER_OPERATION,
+  BPJS_HFIS_PULL_OPERATION,
+  BPJS_HFIS_UPDATE_OPERATION,
   DUKCAPIL_VERIFY_OPERATION,
   NOTIFY_EMAIL_OPERATION,
   NOTIFY_WHATSAPP_OPERATION,
+  PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION,
   TTE_SIGN_OPERATION,
 } from '@simrs/shared';
 import { sendBackupCode } from './backup-code';
 import { bpjsAntreanAdd, bpjsAntreanBatal, patientWhatsappBookingReminder } from './booking';
 import { dukcapilVerifyNik } from './dukcapil';
+import { bpjsHfisPull, bpjsHfisUpdate } from './hfis';
 import { notifyEmail, notifyWhatsapp } from './notify';
 import type { OutboxOperation } from './operation-types';
+import { patientWhatsappScheduleChanged } from './schedule-changed';
 import { tteSignDocument } from './tte';
 
 export type {
@@ -58,4 +63,8 @@ export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<s
   [BPJS_ANTREAN_ADD_OPERATION, bpjsAntreanAdd],
   [BPJS_ANTREAN_BATAL_OPERATION, bpjsAntreanBatal],
   [PATIENT_WHATSAPP_BOOKING_REMINDER_OPERATION, patientWhatsappBookingReminder],
+  // F01 · Jadwal (potongan 2).
+  [BPJS_HFIS_UPDATE_OPERATION, bpjsHfisUpdate],
+  [BPJS_HFIS_PULL_OPERATION, bpjsHfisPull],
+  [PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, patientWhatsappScheduleChanged],
 ]);

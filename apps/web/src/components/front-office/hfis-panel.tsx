@@ -8,12 +8,15 @@ export function HfisPanel({
   inSyncText,
   busy,
   onSync,
+  canSync = true,
 }: {
   pending: boolean;
   diffText: string;
   inSyncText: string;
   busy: boolean;
   onSync: () => void;
+  /** false = peran tanpa izin sinkron HFIS: tombol kirim tidak ditampilkan. */
+  canSync?: boolean;
 }) {
   if (!pending) {
     return (
@@ -40,9 +43,15 @@ export function HfisPanel({
         Perbedaan dengan HFIS
       </span>
       <span className="text-small text-ink-700">{diffText}</span>
-      <Button variant="primary" disabled={busy} onClick={onSync}>
-        {busy ? 'Mengirim ke HFIS…' : 'Perbarui jadwal ke HFIS'}
-      </Button>
+      {canSync ? (
+        <Button variant="primary" disabled={busy} onClick={onSync}>
+          {busy ? 'Mengirim ke HFIS…' : 'Perbarui jadwal ke HFIS'}
+        </Button>
+      ) : (
+        <span className="text-caption text-ink-500">
+          Pengiriman ke HFIS dilakukan petugas pendaftaran atau admin.
+        </span>
+      )}
     </section>
   );
 }

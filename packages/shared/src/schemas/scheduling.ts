@@ -135,8 +135,10 @@ export const scheduleSessionSchema = z.strictObject({
   /** Catatan sesi (mis. alasan cuti). */
   note: z.string().max(300).nullable(),
   quota: slotQuotaSchema,
-  /** Jadwal RS dan HFIS sudah sama untuk sesi ini. */
+  /** Jadwal RS dan HFIS sudah sama untuk sesi ini (menurut tarikan HFIS terakhir). */
   hfisSynced: z.boolean(),
+  /** Versi baris; kirim balik sebagai `baseUpdatedAt` saat mengubah kuota. */
+  updatedAt: z.iso.datetime({ offset: true }),
 });
 export type ScheduleSession = z.infer<typeof scheduleSessionSchema>;
 
@@ -167,8 +169,16 @@ export const todayQuotaQuerySchema = z.strictObject({
   poliCode: z.string().regex(POLI_CODE_PATTERN).optional(),
 });
 
-/** Ubah kuota satu sesi. Di bawah jumlah booking → 409 `QUOTA_BELOW_BOOKED` (juga dijaga CHECK database). */
-export const updateSessionQuotaSchema = z.strictObject({ quotaJkn: quotaCount, quotaNonJkn: quotaCount });
+/**
+ * Ubah kuota satu sesi. Di bawah jumlah booking → 409 `QUOTA_BELOW_BOOKED` (juga dijaga CHECK database).
+ * `baseUpdatedAt` = `updatedAt` sesi yang dilihat petugas: bila sesi sudah berubah sejak itu → 409 `CONFLICT`
+ * (`details.reason: STALE`), muat ulang dulu.
+ */
+export const updateSessionQuotaSchema = z.strictObject({
+  quotaJkn: quotaCount,
+  quotaNonJkn: quotaCount,
+  baseUpdatedAt: z.iso.datetime({ offset: true }).optional(),
+});
 export type UpdateSessionQuotaInput = z.infer<typeof updateSessionQuotaSchema>;
 
 /** Catat cuti pada sesi praktik; dokter pengganti (poli yang sama) opsional. */
@@ -217,4 +227,84 @@ export type HfisPushInput = z.infer<typeof hfisPushSchema>;
 export const hfisPushResultSchema = z.strictObject({
   /** Pesan outbox yang diantrekan (per dokter × poli). */
   queued: z.number().int().min(0),
+  /** Pasangan dokter × poli yang tidak bisa dikirim (tanpa kode HFIS/poli BPJS atau tanpa templat aktif). */
+  skipped: z.number().int().min(0).default(0),
+});
+
+/** Tarik jadwal HFIS (operasi outbox `bpjs.hfis.pull` per poli × tanggal). Rentang bawaan: 14 hari dari hari ini. */
+export const hfisPullSchema = z.strictObject({
+  from: serviceDateSchema.optional(),
+  days: z.number().int().min(1).max(31).default(14),
+  serviceId: z.uuid().optional(),
+});
+export type HfisPullInput = z.infer<typeof hfisPullSchema>;
+
+/** Isi `hfis_schedule_snapshots.payload` arah `pull`: jadwal HFIS satu poli satu tanggal (kosong = tidak ada). */
+export const hfisPullSnapshotSchema = z.strictObject({
+  serviceId: z.uuid(),
+  kodepoli: z.string().min(1),
+  tanggal: serviceDateSchema,
+  jadwal: z.array(
+    z.strictObject({
+      kodedokter: z.number().int(),
+      namadokter: z.string(),
+      jadwal: z.string(),
+      kapasitaspasien: z.number().int().min(0),
+      libur: z.boolean(),
+    }),
+  ),
+});
+export type HfisPullSnapshot = z.infer<typeof hfisPullSnapshotSchema>;
+
+/** Isi snapshot arah `push`: templat mingguan yang dikirim ke HFIS. */
+export const hfisPushSnapshotSchema = z.strictObject({
+  serviceId: z.uuid(),
+  kodepoli: z.string().min(1),
+  kodedokter: z.number().int(),
+  revision: z.number().int().min(1),
+  jadwal: z.array(z.strictObject({ hari: z.string(), buka: z.string(), tutup: z.string() })),
+});
+export type HfisPushSnapshot = z.infer<typeof hfisPushSnapshotSchema>;
+
+/** Perbedaan RS vs HFIS untuk rentang tanggal (`GET /scheduling/hfis/differences`). */
+export const hfisDifferenceItemSchema = z.strictObject({
+  practitionerId: z.uuid(),
+  practitionerName: NAME,
+  serviceId: z.uuid(),
+  date: serviceDateSchema,
+  /** Sesi RS terkait, null bila hanya ada di HFIS. */
+  sessionId: z.uuid().nullable(),
+  slotId: z.uuid(),
+  kind: z.enum([
+    'hfis-praktik-rs-cuti',
+    'rs-praktik-hfis-tidak',
+    'rs-praktik-hfis-libur',
+    'jam-beda',
+    'kapasitas-beda',
+    'hfis-praktik-rs-tidak',
+  ]),
+  text: z.string().min(1),
+  resolution: z.enum(['kirim', 'aplikasi-hfis']),
+});
+export type HfisDifferenceItem = z.infer<typeof hfisDifferenceItemSchema>;
+export const hfisDifferencesSchema = z.strictObject({
+  from: serviceDateSchema,
+  to: serviceDateSchema,
+  /** Tarikan HFIS terakhir di rentang ini; null = belum pernah ditarik. */
+  lastPulledAt: z.iso.datetime({ offset: true }).nullable(),
+  /** Tanggal di rentang yang belum punya tarikan HFIS (perbandingan belum bisa dibuat). */
+  unpulledDates: z.array(serviceDateSchema),
+  items: z.array(hfisDifferenceItemSchema),
+});
+export type HfisDifferences = z.infer<typeof hfisDifferencesSchema>;
+
+/** Bangkitkan sesi dari templat sekarang (job harian melakukan hal yang sama). */
+export const generateSessionsSchema = z.strictObject({
+  from: serviceDateSchema.optional(),
+  days: z.number().int().min(1).max(90).optional(),
+});
+export const generateSessionsResultSchema = z.strictObject({
+  from: serviceDateSchema,
+  to: serviceDateSchema,
+  created: z.number().int().min(0),
 });

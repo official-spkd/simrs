@@ -141,6 +141,7 @@ export default defineConfig({
         AUTH_RATE_LIMIT_PER_MIN: '10000',
         RATE_LIMIT_PER_MIN: '100000',
         USER_RATE_LIMIT_PER_MIN: '100000',
+        PUBLIC_RATE_LIMIT_PER_MIN: '100000',
         LOG_LEVEL: 'warn',
         // Kunci jangkar audit per run (ADR-0072): `/audit/verify` berjalan dalam mode titik periksa seperti produksi.
         // Worker E2E sengaja tanpa kunci (tidak menjangkar semua tenant DB tes saat start).
