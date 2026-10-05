@@ -287,7 +287,10 @@ function pdClinic(p: FrontOfficeProgress): { clinic: QueueBoardClinic; previous:
  * F04 · Papan antrean. Poli PD mengikuti roster antrean (`pdClinic`); poli lain lantai 2 belum punya layar
  * pemeriksaan, nomornya anonim.
  */
-export function demoQueueBoard(p: FrontOfficeProgress = NO_PROGRESS): QueueBoard {
+/** Papan demo selalu punya panggilan berjalan (`calling` tidak null, berbeda dengan papan API pagi hari). */
+export function demoQueueBoard(
+  p: FrontOfficeProgress = NO_PROGRESS,
+): QueueBoard & { calling: NonNullable<QueueBoard['calling']> } {
   const { clinic: pd, previous } = pdClinic(p);
   const clinics = [
     pd,

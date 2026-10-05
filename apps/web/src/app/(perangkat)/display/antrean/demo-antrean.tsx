@@ -20,7 +20,11 @@ export async function DemoAntrean({ access }: { access: DemoScreenAccess }) {
       </div>
     );
   }
-  const board = await getQueueBoard(session);
+  const loaded = await getQueueBoard(session);
+  const { calling } = loaded;
+  // Fixture demo selalu punya panggilan berjalan; kontrak API mengizinkan null (belum ada panggilan hari ini).
+  if (!calling) throw new Error('Papan demo tanpa panggilan berjalan');
+  const board = { ...loaded, calling };
   // Papan dimulai ulang bila data berubah (mis. SEP Tn. Suryo terbit atau DPJP memanggil PD-027 di tab lain).
   const version = [
     board.calling.queueNo,

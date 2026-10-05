@@ -31,7 +31,8 @@ export function AntreanClient({
   tenantName: string;
   nowIso: string;
   dateLabel: string;
-  board: QueueBoard;
+  /** Mode presentasi: fixture selalu punya panggilan berjalan (papan API tanpa panggilan diisi potongan 4b). */
+  board: QueueBoard & { calling: NonNullable<QueueBoard['calling']> };
 }) {
   const { time } = useDemoClock(nowIso);
   const [s, setS] = useState<Ticker>(() => ({
