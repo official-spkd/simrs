@@ -109,7 +109,7 @@ test.describe('smoke', () => {
       const res = await page.goto(r.route);
       expect(res?.status(), r.route).toBe(200);
       await expect(page.getByRole('heading', { name: r.label, level: 1 })).toBeVisible();
-      await expect(page.getByText('Belum tersambung')).toBeVisible();
+      await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
@@ -120,7 +120,7 @@ test.describe('smoke', () => {
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
     await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
-    await expect(page.getByText('Belum tersambung')).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
   });
