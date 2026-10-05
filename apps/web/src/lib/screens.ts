@@ -16,14 +16,19 @@ export const FRONT_OFFICE_PERMISSIONS = [
 ] as const satisfies readonly PermissionKey[];
 
 /**
- * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), dipilih agar cocok dengan posisi pemakai layar
- * (`demoRoles`) menurut matriks bawaan potongan 3.0a: Pemeriksaan poli, IGD, Rawat inap, dan Resume `clinical.write`
- * (TTE resume tetap `clinical.sign` di API), CPOE `order.write`, Tempat tidur `bed.read` (manajemen hanya membaca),
- * Persetujuan tindakan `consent.write`. Kunci ini ditambahkan ke `PERMISSION_CATALOG` oleh potongan 3.0a; sampai itu
- * tergabung tidak ada peran yang memegangnya, sehingga di mode api layar klinis menampilkan "Akses ditolak". Setelah
- * 3.0a: tambahkan `satisfies readonly PermissionKey[]` seperti daftar front office.
+ * Izin layar hibrida klinis fase 3 (rencana fase 3 potongan 3.0d), kunci katalog bersama `PERMISSION_CATALOG`
+ * (potongan 3.0a), dipilih agar cocok dengan posisi pemakai layar (`demoRoles`) menurut matriks bawaan: Pemeriksaan
+ * poli, Rawat inap, dan Resume `clinical.write` (TTE resume tetap `clinical.sign` di API), IGD `clinical.read` (petugas
+ * pendaftaran membuka papan; triase `triage.write` dan aksi klinis lain diperiksa API), CPOE `order.write`, Tempat
+ * tidur `bed.read` (manajemen hanya membaca), Persetujuan tindakan `consent.write` (dokter, perawat/bidan lingkup unit).
  */
-export const CLINICAL_PERMISSIONS = ['clinical.write', 'order.write', 'bed.read', 'consent.write'] as const;
+export const CLINICAL_PERMISSIONS = [
+  'clinical.read',
+  'clinical.write',
+  'order.write',
+  'bed.read',
+  'consent.write',
+] as const satisfies readonly PermissionKey[];
 export type ScreenPermission =
   (typeof FRONT_OFFICE_PERMISSIONS)[number] | (typeof CLINICAL_PERMISSIONS)[number];
 
@@ -186,8 +191,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['K03'],
     phase: 3,
     status: 'demo',
-    plannedPermission: 'clinical.write',
-    permission: 'clinical.write',
+    plannedPermission: 'clinical.read',
+    permission: 'clinical.read',
     // Admisi IGD (petugas pendaftaran) membuka kunjungan gawat darurat dari papan IGD.
     demoRoles: ['dokter', 'dokter_residen', 'perawat', 'petugas_pendaftaran'],
     layout: 'staf',

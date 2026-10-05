@@ -31,7 +31,7 @@ describe('registri layar (ADR-0023)', () => {
     }
   });
 
-  it('layar fase 2: izin rencana sudah ada di katalog izin (rencana fase 2 §0a)', () => {
+  it('izin rencana layar fase 2 dan izin layar hibrida ada di katalog izin (fase 2 §0a, fase 3 §3.0a)', () => {
     const phase2 = SCREENS.filter((s) => s.phase === 2);
     expect(phase2.length).toBeGreaterThan(0);
     for (const s of phase2) {
@@ -40,6 +40,10 @@ describe('registri layar (ADR-0023)', () => {
       expect(isPermission(resource, action), `${s.id}: ${s.plannedPermission}`).toBe(true);
     }
     for (const key of FRONT_OFFICE_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
+    for (const key of CLINICAL_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
+    // Layar hibrida fase 3: izin layar juga kunci katalog (potongan 3.0a).
+    for (const s of SCREENS.filter((x) => x.permission))
+      expect(isPermissionKey(s.permission ?? ''), s.id).toBe(true);
   });
 
   it('screenById', () => {
@@ -129,7 +133,7 @@ describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
       kendali: 'queue.read',
       poli: 'clinical.write',
       order: 'order.write',
-      igd: 'clinical.write',
+      igd: 'clinical.read',
       bed: 'bed.read',
       ranap: 'clinical.write',
       resume: 'clinical.write',
