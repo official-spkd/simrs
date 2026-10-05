@@ -15,6 +15,16 @@ function canonical(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
+/**
+ * Sidik permintaan untuk Idempotency-Key: pelaku + isi (JSON kanonis). Kunci sama + sidik beda = 409
+ * `IDEMPOTENCY_KEY_REUSED`. Dipakai juga oleh tabel yang menyimpan kuncinya sendiri (mis. `order_groups`).
+ */
+export function requestFingerprint(actorUserId: string | null, body: unknown): string {
+  return createHash('sha256')
+    .update(canonical({ actor: actorUserId, body }))
+    .digest('hex');
+}
+
 export interface IdempotencyClaim {
   scope: string;
   key: string;
@@ -52,9 +62,7 @@ export class IdempotencyService {
     }
     const key = parsed.data;
     const tenantId = this.db.tenantId();
-    const hash = createHash('sha256')
-      .update(canonical({ actor: this.db.actorUserId(), body }))
-      .digest('hex');
+    const hash = requestFingerprint(this.db.actorUserId(), body);
     const tx = this.db.tx();
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenantId}:${scope}:${key}`}, 0))`;
     const existing = await tx.idempotencyKey.findUnique({
