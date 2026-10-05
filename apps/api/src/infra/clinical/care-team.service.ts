@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { AppError, isoDateJakarta, newId } from '@simrs/shared';
+import { uniqueViolationTarget } from '@simrs/db';
+import { AppError, clinicalError, isoDateJakarta, newId } from '@simrs/shared';
 import { TenantDb } from '../tenant-db';
 
 /** Peran tim perawatan (`encounter_participants.role`). */
@@ -49,17 +50,27 @@ export class CareTeamService {
     if (!enc) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
     const at = input.at ?? new Date();
     const id = newId();
-    await tx.encounterParticipant.create({
-      data: {
-        id,
-        tenantId: this.db.tenantId(),
-        encounterId: enc.id,
-        userId: input.userId,
-        role: input.role,
-        startedAt: at,
-        createdBy: this.db.actorUserId(),
-      },
-    });
+    try {
+      await tx.encounterParticipant.create({
+        data: {
+          id,
+          tenantId: this.db.tenantId(),
+          encounterId: enc.id,
+          userId: input.userId,
+          role: input.role,
+          startedAt: at,
+          createdBy: this.db.actorUserId(),
+        },
+      });
+    } catch (err) {
+      // Indeks unik `encounter_participants_one_primary` (satu DPJP utama aktif): kode galat stabil, bukan CONFLICT
+      // generik. Bentrok `one_active_role` (orang + peran yang sama) tetap 409 umum.
+      const target = uniqueViolationTarget(err);
+      if (input.role === 'dpjp_utama' && target && (/one_primary/.test(target) || !/user_id/.test(target))) {
+        throw clinicalError('PRIMARY_DPJP_EXISTS');
+      }
+      throw err;
+    }
     await tx.accessRelationship.create({
       data: {
         id: newId(),

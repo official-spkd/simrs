@@ -546,6 +546,7 @@ describe('ABAC lingkup unit tingkat bed (ADR-0031)', () => {
       role: 'dpjp_utama',
     });
     expect(dup.status).toBe(409);
+    expect(dup.body.code).toBe('PRIMARY_DPJP_EXISTS');
     await as('dokter').post(`/test-clinical/care-team/${member.body.id}/end`).expect(201);
     const rel = await run(A.id, (tx) =>
       tx.accessRelationship.findFirstOrThrow({
