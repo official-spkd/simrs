@@ -276,8 +276,8 @@ export const queueBoardSchema = z.strictObject({
   /** Area ruang tunggu, mis. "Rawat Jalan Lantai 2". */
   area: z.string().min(1),
   asOf: isoDateTime,
-  /** Panggilan terakhir (panel besar "SEDANG DIPANGGIL"). */
-  calling: queueCallSchema,
+  /** Panggilan terakhir (panel besar "SEDANG DIPANGGIL"); null bila belum ada panggilan hari ini (API, potongan 4a). */
+  calling: queueCallSchema.nullable(),
   /** Panggilan sebelumnya, terbaru dulu. */
   history: z.array(queueCallSchema).max(4),
   clinics: z.array(queueBoardClinicSchema).min(1).max(4),

@@ -288,6 +288,12 @@ describe('job booking', () => {
     expect((await appointment(id)).status).toBe('no_show');
     const ticket = await run((tx) => tx.queueTicket.findFirstOrThrow({ where: { appointmentId: id } }));
     expect(ticket.status).toBe('cancelled');
+    // Booking JKN: satu task 99 (job terulang aman) dengan waktu = saat job, diantrekan ke updatewaktu.
+    const tasks = await run((tx) => tx.bpjsQueueTask.findMany({ where: { appointmentId: id } }));
+    expect(tasks.map((t) => [t.taskId, t.occurredAt.toISOString(), t.status])).toEqual([
+      [99, endOfDay.toISOString(), 'pending'],
+    ]);
+    expect(tasks[0]?.outboxMessageId).not.toBeNull();
   });
 
   it('pengingat H-1: satu pesan per booking (job terulang aman), terkirim ke WhatsApp tanpa poli/dokter', async () => {

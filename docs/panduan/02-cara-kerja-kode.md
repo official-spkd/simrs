@@ -288,7 +288,7 @@ Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_
 | `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                                    |
 | `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci                   |
 | API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code`      |
-| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → audit `sign` berstatus `failed` (`onDead`)                                   |
+| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → tanda tangan `failed` + audit `sign` (`onDead`)                              |
 | Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                               |
 
 Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
@@ -440,6 +440,41 @@ Admin  GET /api/v1/iam/devices · POST /api/v1/iam/devices/:id/revoke
 - **Validasi tiap permintaan di database**, jadi pencabutan berlaku seketika. Kode pendaftaran disimpan sebagai HMAC dan hanya bisa dipakai sekali (dijaga trigger database).
 - **Web mode api**: proxy mengalihkan `/kiosk` dan `/display/…` tanpa cookie perangkat ke `/perangkat/daftar`. Halaman memanggil `requireDevice(jenis)` (`lib/server/device.ts`). Admin mengelola perangkat di `/sistem/akses/perangkat`. Mode presentasi tetap memakai login staf.
 - **E2E**: global setup mendaftarkan satu anjungan + satu display uji (`e2e/support/devices.ts`, `useTestDevice(context, 'kiosk')`).
+
+### Antrean dan task ID BPJS (F04)
+
+Modul `modules/queue/` (potongan 4a), kontrak `@simrs/shared` `schemas/queue.ts`.
+
+| Endpoint `/api/v1/queue/…`                                 | Izin         | Isi                                                                                                                                       |
+| ---------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET services`                                             | `queue.read` | Layanan aktif; klinisi berlingkup `unit` hanya layanan unit sesinya                                                                       |
+| `GET services/:id/tickets?serviceDate&status`              | `queue.read` | Tiket hari ini (tanpa identitas pasien, hanya ID); estimasi panggil = posisi × `queue.avg_service_minutes`                                |
+| `POST services/:id/tickets {appointmentId?, encounterId?}` | `queue.call` | Tiket loket (`allocateQueueNumber`, `<kode>-<3 digit>`); tertaut pasien → audit `create`                                                  |
+| `POST services/:id/call-next {counter}`                    | `queue.call` | FIFO, nomor cadangan booking dilewati, `SKIP LOCKED` (dua loket tidak memanggil tiket yang sama); kosong → 409 `QUEUE_EMPTY`              |
+| `POST tickets/:id/{call,recall,skip,start,finish}`         | `queue.call` | Transisi tiket; salah keadaan → 409 `TICKET_STATE_INVALID`; "panggil" tiket yang pernah dipanggil = ulang                                 |
+| `GET displays`                                             | `queue.read` | Daftar display + layanannya (admin mengikat TV ke display)                                                                                |
+| `GET displays/:id/board`                                   | `queue.read` | Papan untuk staf (pratinjau, kendali antrean)                                                                                             |
+| `GET display/board`                                        | perangkat*   | Papan TV (`queueBoardSchema`): maks. 4 poli, panggilan terakhir (`calling` null bila belum ada) + riwayat                                 |
+| `GET display/events`                                       | perangkat*   | SSE: `queue.board` (potret papan) saat tersambung, lalu `queue.call` (kanal `queue_calls`, hanya layanan display, replay `Last-Event-ID`) |
+| `GET bpjs-tasks?appointmentId=`                            | `queue.read` | Status task ID per booking (chip task 1–3); dibaca = audit `read` dengan pasien booking                                                   |
+
+\* `@DeviceScoped('queue.display.read')` (ADR-0027): display = `registered_devices.queue_display_id` perangkat pemanggil,
+bukan parameter URL, jadi TV tidak bisa membaca papan display lain. Perangkat tanpa display terikat → 409.
+
+- Setiap aksi menulis `queue_calls` (append-only; sumber waktu panggil/mulai/selesai) dan menerbitkan event domain
+  `queue.ticket_called|started|finished`. Tiket bertaut pasien diaudit `update` (`details.queueAction`).
+- Lingkup `unit`: layanan harus milik unit sesi pengguna (`actor.unitId`); penolakan = `AuditedDenial` (tercatat
+  `access_denied` walau permintaan batal).
+- `QueueService.attachAppointment(ticketId, appointmentId)` untuk registrasi walk-in (potongan 5a).
+
+**Mesin task ID** (`bpjs-task.engine.ts`) mendengar event domain (bukan tombol): `booking.checked_in` → 1, panggilan
+pertama tiket loket → 2, `encounter.registered` rawat jalan → 3, poli mulai/selesai → 4/5, batal → 99 (pemetaan
+`bpjsTaskForEvent`). Aturan: hanya booking `jkn`; satu baris per (booking, task) di `bpjs_queue_tasks` dengan waktu =
+waktu event (ms), tidak pernah ditimpa; tidak ada task setelah 99; walk-in: tiket loket yang tertaut booking mengisi
+task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih tinggi. Tiap task baru → outbox
+`bpjs.antrean.updatewaktu` (payload `{ queueTaskId }`, kunci `outboxKey`). Worker (`outbox/bpjs-antrean.ts`) menunda
+task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
+`sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan). Job no-show booking (worker, F02) mencatat task 99 lewat helper yang sama, `insertBpjsQueueTask` (`@simrs/db`).
 
 ### Gateway informasi publik (F08)
 
@@ -598,7 +633,7 @@ Payload outbox tidak boleh memuat PHI; worker memegang kunci kolom yang sama den
 
 ### Kebijakan retry per operasi
 
-`retry: { maxAttempts?, capMs?, untilEndOfServiceDay?, maxDeferMs? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
+`retry: { maxAttempts?, capMs?, untilEndOfServiceDay?, maxDeferMs? }` di operasi. Tanpa kebijakan: 8 percobaan, jeda backoff maks. 5 menit, lalu DLQ (ADR-0003). `untilEndOfServiceDay: true` mencoba ulang sampai **00.00 WIB berikutnya dari saat pesan dibuat, atau dari `requeued_at` bila dikirim ulang manual** (hari layanan), tanpa batas hitungan kecuali `maxAttempts` diisi; jadwal ulang yang jatuh pada/sesudah batas itu membuat pesan DLQ dengan catatan `batas waktu coba ulang terlewati`. Preset `SERVICE_DAY_RETRY` (jeda maks. 10 menit) dipakai SEP dan task ID BPJS (keputusan fase 2 #13); setelah DLQ, pengiriman ulang manual lewat tombol kirim ulang di domain.
 
 ### Tunda (`defer`)
 

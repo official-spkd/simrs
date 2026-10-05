@@ -127,6 +127,7 @@ export { seedStaff, type SeedStaffResult } from './seed-staff';
 export { seedHospitalStructure } from './seed-structure';
 export {
   allocateQueueNumber,
+  insertBpjsQueueTask,
   type AllocatedQueueNumber,
   QUEUE_NUMBER_MAX,
   type QuotaBucket,
