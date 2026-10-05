@@ -24,13 +24,13 @@ export class SummaryController {
 }
 
 /**
- * Banner pasien `GET /api/v1/encounter/:id/context` (rencana §3.2a). Rute di bawah `encounter/`; isinya milik modul
- * ringkasan. Modul K01 (worklist klinis), karena banner dipakai semua layar klinis.
+ * Banner pasien `GET /api/v1/encounters/:id/context` (rencana §3.2a; bentuk rute kanonik `/encounters/:id/<sumber>`).
+ * Isinya milik modul ringkasan. Modul K01 (worklist klinis), karena banner dipakai semua layar klinis.
  */
 @ApiTags('klinis · konteks kunjungan')
 @TenantScoped()
 @RequireModule('K01')
-@Controller('encounter')
+@Controller('encounters')
 export class EncounterContextController {
   constructor(private readonly summary: SummaryService) {}
 

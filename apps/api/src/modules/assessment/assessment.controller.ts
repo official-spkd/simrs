@@ -6,16 +6,16 @@ import { RequirePermission } from '../../common/require-permission.decorator';
 import { TenantScoped } from '../../common/tenant-scoped.decorator';
 import { AssessmentService } from './assessment.service';
 
-/** K06 · `GET /api/v1/assessment/encounters/:id`: asesmen (isian formulir P07) satu kunjungan. */
+/** K06 · `GET /api/v1/encounters/:id/assessments`: asesmen (isian formulir P07) satu kunjungan (rute kanonik). */
 @ApiTags('klinis · asesmen (K06)')
 @TenantScoped()
 @RequireModule('K06')
-@Controller('assessment')
+@Controller('encounters')
 export class AssessmentController {
   constructor(private readonly assessment: AssessmentService) {}
 
   @RequirePermission('clinical', 'read')
-  @Get('encounters/:id')
+  @Get(':id/assessments')
   forEncounter(@Param('id', new ParseUUIDPipe()) id: string): Promise<EncounterAssessment[]> {
     return this.assessment.forEncounter(id);
   }

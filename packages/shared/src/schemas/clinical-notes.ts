@@ -10,8 +10,6 @@ import { clinicalAuthorSchema, clinicalEntryMetaSchema } from './klinis';
 const uuid = z.uuid();
 const instant = z.iso.datetime({ offset: true });
 
-export const encounterQuerySchema = z.strictObject({ encounterId: uuid });
-
 /** Co-sign / verifikasi DPJP: atestasi elektronik sesi (keputusan fase 3 no. 2); catatan opsional. */
 export const clinicalAttestationInputSchema = z.strictObject({
   note: z.string().trim().min(1).max(500).nullable(),

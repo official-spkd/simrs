@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   type ClinicalAttestationInput,
@@ -7,7 +7,6 @@ import {
   clinicalEnteredInErrorInputSchema,
   type CpptCreateInput,
   cpptCreateInputSchema,
-  encounterQuerySchema,
   type HandoverInput,
   handoverInputSchema,
 } from '@simrs/shared';
@@ -37,12 +36,6 @@ export class CpptController {
     return this.cppt.create(body);
   }
 
-  @RequirePermission('clinical', 'read')
-  @Get('entries')
-  list(@Query(new ZodValidationPipe(encounterQuerySchema)) q: { encounterId: string }) {
-    return this.cppt.list(q.encounterId);
-  }
-
   @RequirePermission('clinical', 'correct')
   @Post('entries/:id/entered-in-error')
   enteredInError(
@@ -69,10 +62,25 @@ export class CpptController {
   handover(@Body(new ZodValidationPipe(handoverInputSchema)) body: HandoverInput) {
     return this.cppt.handover(body);
   }
+}
+
+/** K07 · Daftar per kunjungan, rute kanonik `/api/v1/encounters/:id/cppt` dan `/api/v1/encounters/:id/handovers`. */
+@ApiTags('klinis · CPPT dan serah terima (K07)')
+@TenantScoped()
+@RequireModule('K07')
+@Controller('encounters')
+export class EncounterCpptController {
+  constructor(private readonly cppt: CpptService) {}
 
   @RequirePermission('clinical', 'read')
-  @Get('handovers')
-  handovers(@Query(new ZodValidationPipe(encounterQuerySchema)) q: { encounterId: string }) {
-    return this.cppt.handovers(q.encounterId);
+  @Get(':id/cppt')
+  list(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.cppt.list(id);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/handovers')
+  handovers(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.cppt.handovers(id);
   }
 }

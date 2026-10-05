@@ -264,7 +264,7 @@ describe('CPPT + co-sign residen (K07)', () => {
     await as('perawat')
       .post(`/cppt/entries/${v1.body.id}/entered-in-error`, { reason: 'Catatan untuk pasien lain' })
       .expect(201);
-    const list = await as('dokter').get(`/cppt/entries?encounterId=${e.encounterId}`).expect(200);
+    const list = await as('dokter').get(`/encounters/${e.encounterId}/cppt`).expect(200);
     expect(list.body.map((x: { id: string }) => x.id)).not.toContain(v1.body.id);
     expect(list.body.map((x: { id: string }) => x.id)).toContain(corrected.body.id);
   });
@@ -285,9 +285,9 @@ describe('CPPT + co-sign residen (K07)', () => {
   it('izin unit + isolasi: perawat unit lain 403, kasir 403, tenant lain 404', async () => {
     const e = await inpatient();
     await as('perawatAnggrek').post('/cppt/entries', soap(e.encounterId)).expect(403);
-    await as('perawatAnggrek').get(`/cppt/entries?encounterId=${e.encounterId}`).expect(403);
-    await as('kasir').get(`/cppt/entries?encounterId=${e.encounterId}`).expect(403);
-    await as('dokterB').get(`/cppt/entries?encounterId=${e.encounterId}`).expect(404);
+    await as('perawatAnggrek').get(`/encounters/${e.encounterId}/cppt`).expect(403);
+    await as('kasir').get(`/encounters/${e.encounterId}/cppt`).expect(403);
+    await as('dokterB').get(`/encounters/${e.encounterId}/cppt`).expect(404);
   });
 });
 
@@ -301,7 +301,7 @@ describe('verifikasi DPJP + worklist (K01)', () => {
     const fresh = await as('perawat').post('/cppt/entries', soap(e.encounterId)).expect(201);
     const res = await as('residen').post('/cppt/entries', soap(e.encounterId)).expect(201);
     await as('perawat')
-      .post(`/encounter/${e.encounterId}/observations`, {
+      .post(`/encounters/${e.encounterId}/observations`, {
         encounterId: e.encounterId,
         occurredAt: hoursAgo(0.02),
         temp: 38.5,
@@ -382,7 +382,7 @@ describe('verifikasi DPJP + worklist (K01)', () => {
     );
     expect(audit).toBeGreaterThanOrEqual(1);
 
-    const hs = await as('dokter').get(`/cppt/handovers?encounterId=${e.encounterId}`).expect(200);
+    const hs = await as('dokter').get(`/encounters/${e.encounterId}/handovers`).expect(200);
     expect(hs.body[0]).toMatchObject({
       recommendation: 'Evaluasi DPJP segera',
       toUser: { userId: users.dokter },
@@ -417,11 +417,11 @@ describe('asesmen per kunjungan (K06)', () => {
       })
       .expect(201);
     expect(corrected.body.encounterId).toBe(e.encounterId);
-    const list = await as('dokter').get(`/assessment/encounters/${e.encounterId}`).expect(200);
+    const list = await as('dokter').get(`/encounters/${e.encounterId}/assessments`).expect(200);
     expect(list.body).toEqual([
       expect.objectContaining({ formCode: 'morse_dewasa', version: 2, score: 55, status: 'final' }),
     ]);
-    await as('perawatAnggrek').get(`/assessment/encounters/${e.encounterId}`).expect(403);
-    await as('dokterB').get(`/assessment/encounters/${e.encounterId}`).expect(404);
+    await as('perawatAnggrek').get(`/encounters/${e.encounterId}/assessments`).expect(403);
+    await as('dokterB').get(`/encounters/${e.encounterId}/assessments`).expect(404);
   });
 });

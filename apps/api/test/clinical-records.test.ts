@@ -178,7 +178,7 @@ describe('tanda vital + NEWS2 (K12)', () => {
         },
       }),
     );
-    const url = `/encounter/${e.encounterId}/observations`;
+    const url = `/encounters/${e.encounterId}/observations`;
     const low = await as('perawat').post(url, normalVitals(e.encounterId)).expect(201);
     expect(low.body).toMatchObject({
       version: 1,
@@ -210,7 +210,7 @@ describe('tanda vital + NEWS2 (K12)', () => {
     await as('perawat')
       .post(url, { ...normalVitals(e.encounterId), ewsScore: 0 })
       .expect(400);
-    await as('perawat').post(`/encounter/${newId()}/observations`, normalVitals(e.encounterId)).expect(422);
+    await as('perawat').post(`/encounters/${newId()}/observations`, normalVitals(e.encounterId)).expect(422);
 
     const list = await as('dokter').get(url).expect(200);
     expect(list.body.map((v: { id: string }) => v.id)).toEqual([high.body.id, low.body.id]);
@@ -226,7 +226,7 @@ describe('tanda vital + NEWS2 (K12)', () => {
 
   it('ABAC: perawat unit lain 403 + audit; tenant lain 404', async () => {
     const e = await inpatient(A.id, 'MELATI');
-    const url = `/encounter/${e.encounterId}/observations`;
+    const url = `/encounters/${e.encounterId}/observations`;
     const denied = await as('perawatAnggrek').post(url, normalVitals(e.encounterId));
     expect(denied.status).toBe(403);
     const audit = await run(A.id, (tx) =>
@@ -236,7 +236,7 @@ describe('tanda vital + NEWS2 (K12)', () => {
     );
     expect(audit).toBeGreaterThanOrEqual(1);
     await as('dokterB').get(url).expect(404);
-    await as('dokterB').get(`/encounter/${e.encounterId}/context`).expect(404);
+    await as('dokterB').get(`/encounters/${e.encounterId}/context`).expect(404);
   });
 });
 
@@ -266,7 +266,10 @@ describe('diagnosis (K08)', () => {
       condition(e.encounterId, { code: 'A41.9' }),
     );
     expect(second.status).toBe(409);
-    expect(second.body.details).toMatchObject({ rule: 'one_primary_diagnosis', existingId: v1.body.id });
+    expect(second.body).toMatchObject({
+      code: 'PRIMARY_DIAGNOSIS_EXISTS',
+      details: { existingId: v1.body.id },
+    });
     await as('residen')
       .post('/diagnosis/conditions', condition(e.encounterId, { role: 'sekunder', code: 'E11.9' }))
       .expect(201);
@@ -286,7 +289,7 @@ describe('diagnosis (K08)', () => {
       )
       .expect(201);
     expect(v2.body).toMatchObject({ version: 2, rootId: v1.body.id, supersedesId: v1.body.id, code: 'J13' });
-    const list = await as('perawat').get(`/diagnosis/conditions?encounterId=${e.encounterId}`).expect(200);
+    const list = await as('perawat').get(`/encounters/${e.encounterId}/conditions`).expect(200);
     expect(list.body.map((c: { code: string; role: string }) => [c.code, c.role])).toEqual([
       ['J13', 'utama'],
       ['E11.9', 'sekunder'],
@@ -330,6 +333,7 @@ describe('diagnosis (K08)', () => {
       as('dokter2').post('/diagnosis/conditions', condition(e.encounterId, { code: 'E11.9' })),
     ]);
     expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(results.find((r) => r.status === 409)?.body.code).toBe('PRIMARY_DIAGNOSIS_EXISTS');
   });
 
   it('izin per peran: kasir 403, analis lab tidak menulis diagnosis; problem list lintas kunjungan', async () => {
@@ -382,7 +386,7 @@ describe('prosedur (K08)', () => {
     );
     expect(billable).toHaveLength(1);
     expect(billable[0]).toMatchObject({ kind: 'tindakan', encounterId: e.encounterId });
-    const list = await as('dokter').get(`/diagnosis/procedures?encounterId=${e.encounterId}`).expect(200);
+    const list = await as('dokter').get(`/encounters/${e.encounterId}/procedures`).expect(200);
     expect(list.body.map((p: { code: string }) => p.code)).toEqual(['88.72']);
     // Koreksi oleh dokter lain: hanya penulis asli.
     const other = await as('dokter2').post('/diagnosis/procedures', {
@@ -629,10 +633,10 @@ describe('banner kunjungan dan ringkasan pasien (K14)', () => {
       })
       .expect(201);
     await as('perawat')
-      .post(`/encounter/${e.encounterId}/observations`, highVitals(e.encounterId))
+      .post(`/encounters/${e.encounterId}/observations`, highVitals(e.encounterId))
       .expect(201);
 
-    const ctx = await as('perawat').get(`/encounter/${e.encounterId}/context`).expect(200);
+    const ctx = await as('perawat').get(`/encounters/${e.encounterId}/context`).expect(200);
     expect(ctx.body).toMatchObject({
       patient: {
         id: e.patientId,

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthzModule } from '../authz/authz.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { CpptController } from './cppt.controller';
+import { CpptController, EncounterCpptController } from './cppt.controller';
 import { CpptService } from './cppt.service';
 
 /**
@@ -10,7 +10,7 @@ import { CpptService } from './cppt.service';
  */
 @Module({
   imports: [AuthzModule, NotificationsModule],
-  controllers: [CpptController],
+  controllers: [CpptController, EncounterCpptController],
   providers: [CpptService],
   exports: [CpptService],
 })
