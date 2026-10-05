@@ -1,5 +1,6 @@
 import { bookingNoShowJob, bookingReminderJob } from './booking-jobs';
 import type { PeriodicJob } from './periodic-job-types';
+import { generateSessionsJob, hfisPullJob } from './scheduling-jobs';
 
 export type {
   PeriodicJob,
@@ -20,4 +21,6 @@ export const PERIODIC_JOB_REGISTRY = Symbol('PERIODIC_JOB_REGISTRY');
 export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, PeriodicJob>([
   ['booking.no-show', bookingNoShowJob],
   ['booking.reminder', bookingReminderJob],
+  ['scheduling.generate-sessions', generateSessionsJob],
+  ['scheduling.hfis-pull', hfisPullJob],
 ]);

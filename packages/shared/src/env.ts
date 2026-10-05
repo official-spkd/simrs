@@ -86,6 +86,12 @@ export const envSchemas = {
     /** Per pengguna login per endpoint, apa pun IP-nya. */
     USER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(300),
     /**
+     * Gateway informasi publik (F08, `@PublicRateLimited`: jadwal, antrean berjalan) per IP per endpoint, di samping batas
+     * umum. Cek status booking memakai batas endpoint kredensial (`AUTH_RATE_LIMIT_PER_MIN`) karena berupa tebakan
+     * kode + tanggal lahir.
+     */
+    PUBLIC_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).default(60),
+    /**
      * Penyimpanan penghitung. `auto` = Redis bila terjangkau saat start, selain itu memori dengan peringatan; di
      * produksi `auto` sama dengan `redis`. `redis` = Redis wajib: bila gagal, endpoint kredensial ditolak 503 (gagal
      * tertutup) dan batas lain sementara per instans. `memory` = per proses, ditolak di produksi.

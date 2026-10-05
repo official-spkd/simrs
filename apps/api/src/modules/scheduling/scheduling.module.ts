@@ -1,16 +1,18 @@
 import { Module } from '@nestjs/common';
+import { SchedulingController } from './scheduling.controller';
+import { SchedulingRepository } from './scheduling.repository';
+import { SchedulingService } from './scheduling.service';
 
 /**
- * F01 · Jadwal praktik dan kuota. KERANGKA (fase 2 potongan 1b): sudah terdaftar di `AppModule`, potongan 2 cukup
- * menambah controller/service/repository di folder ini.
- *
- * Isi nanti (potongan 2, `docs/rencana/fase-2-front-office.md`):
- * - API `/api/v1/scheduling`: jadwal per minggu, kuota hari ini, templat mingguan, ubah kuota
- *   (409 `QUOTA_BELOW_BOOKED`), cuti/pengganti, alih jadwal, kirim/beda HFIS.
- * - Kuota dijamin DB (`schedule_sessions`, CHECK `booked <= quota`); reservasi lewat helper `reserveQuota`/`releaseQuota`
- *   dari `@simrs/db` (potongan 0b), bukan dihitung di kode.
- * - Outbox `bpjs.hfis.update`; job pembangkit sesi 30 hari + tarik HFIS ada di worker.
- * - Izin `schedule.read|write|sync` (potongan 0a); yang boleh mengubah: petugas pendaftaran + admin RS (keputusan §4 #12).
+ * F01 · Jadwal praktik dan kuota (rencana fase 2 potongan 2): `/api/v1/scheduling` — minggu, kuota hari ini, sesi,
+ * templat mingguan, ubah kuota berversi (409 `QUOTA_BELOW_BOOKED`), cuti + pengganti, pengalihan booking, kirim/tarik
+ * HFIS (outbox `bpjs.hfis.update` / `bpjs.hfis.pull`), perbedaan RS vs HFIS. Sesi dibangkitkan dari templat oleh job
+ * worker `scheduling.generate-sessions` (atau `POST sessions/generate`). Kuota dijamin DB (CHECK + UPDATE bersyarat).
+ * Cuti/libur per tanggal dan kapasitas dicatat petugas di aplikasi HFIS (web service HFIS hanya menerima templat).
  */
-@Module({})
+@Module({
+  controllers: [SchedulingController],
+  providers: [SchedulingService, SchedulingRepository],
+  exports: [SchedulingService],
+})
 export class SchedulingModule {}

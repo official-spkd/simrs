@@ -67,6 +67,7 @@ export async function createTestApp(
     ALLOW_DEV_TENANT_HEADER: 'true',
     AUTH_RATE_LIMIT_PER_MIN: '1000',
     USER_RATE_LIMIT_PER_MIN: '1000',
+    PUBLIC_RATE_LIMIT_PER_MIN: '1000',
     // Penghitung batas laju sendiri per aplikasi uji (Redis bila terjangkau): hitungan tes lain tidak terbawa.
     // Tes yang menguji penghitung bersama antar-instans memberi awalan yang sama ke dua aplikasi.
     RATE_LIMIT_REDIS_PREFIX: `${TEST_RATE_LIMIT_PREFIX}${newId()}:`,

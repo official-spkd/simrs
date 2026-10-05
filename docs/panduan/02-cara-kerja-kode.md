@@ -476,6 +476,22 @@ task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih t
 task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
 `sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan). Job no-show booking (worker, F02) mencatat task 99 lewat helper yang sama, `insertBpjsQueueTask` (`@simrs/db`).
 
+### Gateway informasi publik (F08)
+
+`modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.
+
+```
+GET  /api/v1/public/:tenantCode/schedules?date=YYYY-MM-DD   jadwal + sisa kuota (hari ini s.d. booking.max_days_ahead)
+GET  /api/v1/public/:tenantCode/queues[/:serviceCode]        nomor dipanggil, jumlah menunggu, perkiraan menit
+POST /api/v1/public/:tenantCode/bookings/status              { bookingCode, birthDate } di BODY → status booking
+```
+
+- **RS** dari kode di path (`app_resolve_tenant_by_code`, hanya RS aktif). RS tak dikenal atau modul F08 mati → 404 `NOT_FOUND` yang sama. Semua bacaan di transaksi tenant (RLS) yang dibuka service, karena tidak ada sesi.
+- **Tanpa PHI**: setiap jawaban di-`parse` skema ketat `@simrs/shared` public-info, jadi kolom di luar kontrak tidak bisa terkirim. Tes menegaskan kunci jawaban dan tidak adanya nama, tanggal lahir, no. RM, atau id pasien.
+- **Status booking tahan enumerasi**: tanggal lahir dibandingkan waktu-konstan; kode tidak ada, tanggal lahir salah, atau kode milik RS lain → 404 `BOOKING_NOT_FOUND` yang identik. Setiap percobaan diaudit tanpa kode/tanggal lahir: berhasil = `read appointment` + id pasien; gagal = `denied` + alasan internal (`not_found`/`birth_date_mismatch`).
+- **Batas laju**: batas umum per IP + throttler `public` (`@PublicRateLimited()`, `PUBLIC_RATE_LIMIT_PER_MIN`) untuk jadwal/antrean; status booking memakai batas endpoint kredensial (`@AuthRateLimited()`).
+- **Sementara** membaca tabel 0b langsung (`public-info.repository.ts`). Ganti ke service publik modul `scheduling`/`queue`/`booking` setelah tersedia; kontraknya tetap.
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
