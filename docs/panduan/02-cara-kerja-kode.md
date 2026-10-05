@@ -476,6 +476,31 @@ task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih t
 task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
 `sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan). Job no-show booking (worker, F02) mencatat task 99 lewat helper yang sama, `insertBpjsQueueTask` (`@simrs/db`).
 
+### Anjungan mandiri (F05)
+
+Modul `modules/kiosk/` (potongan 6), kontrak `@simrs/shared` `schemas/kiosk.ts`. Semua endpoint
+`@DeviceScoped('kiosk.use')` (ADR-0027): token staf → 403, pelaku audit = perangkat (`details.deviceId/deviceKind`).
+
+| Endpoint `/api/v1/kiosk/…`                        | Isi                                                                                                                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST identify {purpose, method, value}`          | NIK / kartu BPJS (blind index) / kode booking hari ini → `{found:false}` atau nama tersamar + tanggal lahir tanpa tahun + token `kl1.` (180 detik, sekali pakai, perangkat yang sama) |
+| `POST check-in {lookupToken}` + `Idempotency-Key` | `BookingService.checkIn` (sumber tiket `anjungan`, tiket loket untuk semua penjamin) → event `booking.checked_in` (task 1); sudah check-in → tiket loketnya dicetak ulang             |
+| `POST tickets {serviceKind, lookupToken?}`        | Loket tanpa identitas; farmasi/kasir dengan token (tiket menunggu milik pasien dipakai ulang); `QueueService.issueKioskTicket`                                                        |
+| `GET tickets/:id/print`                           | HTML 80 mm tanpa skrip (CSP `default-src 'none'`), hanya tiket di `kiosk_tickets` perangkat ini hari ini; selain itu 404 tercatat                                                     |
+| `POST assist`                                     | Notifikasi in-app ke petugas pendaftaran (unit anjungan didahulukan), tanpa PHI                                                                                                       |
+
+- **Anti-enumerasi**: jawaban identifikasi selalu 200 dengan baris jejak `kiosk_lookups` (ditemukan atau tidak, tanpa
+  nilai yang diketik); `kiosk.lookup_rate_per_min` per perangkat dihitung dari tabel itu di bawah kunci advisori per
+  perangkat → 429 `RATE_LIMITED` yang tetap tercatat (`AuditedDenial` dengan kode/status sendiri). NIK ganda → tidak
+  ditemukan. Token perangkat lain → 410 yang sama, tercatat.
+- **Idempotensi**: token ditandai terpakai bersama tiketnya (`used_at`, `idempotency_key`, `ticket_id`; pemicu
+  `app_kiosk_lookup_guard` + hak kolom). Kunci yang sama → tiket yang sama; kunci lain → 410.
+- **Web** (`app/(perangkat)/kiosk/`): mode api = `live-kiosk-client.tsx` + Server Action `actions.ts` (token perangkat
+  dari cookie httpOnly; browser hanya memegang token `kl1` berumur pendek). Tiket dicetak lewat `iframe srcdoc` berisi
+  HTML API. Layar kembali ke awal setelah 90 detik tanpa sentuhan. Jalur demo dibekukan (`demo-kiosk.tsx`).
+- **Titik perluasan** setelah potongan 5a: registrasi dari anjungan (`kioskRegisterSchema`, BPJS kontrol/rujukan →
+  encounter + SEP; umum → pilih sesi) menukar token lewat `KioskService.claim()`; di web lewat `kioskNextStep`.
+
 ### Gateway informasi publik (F08)
 
 `modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.

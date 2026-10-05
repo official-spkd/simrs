@@ -39,6 +39,8 @@ export function KioskFooter({
   onEnglish,
   onLarge,
   onCall,
+  cancelable = true,
+  calling = false,
 }: {
   calledAt: string | null;
   english: boolean;
@@ -46,6 +48,10 @@ export function KioskFooter({
   onEnglish: () => void;
   onLarge: () => void;
   onCall: () => void;
+  /** Panggilan bisa dibatalkan (mode presentasi). Mode api: notifikasi sudah terkirim, tombol menjadi status. */
+  cancelable?: boolean;
+  /** Permintaan panggil petugas sedang dikirim. */
+  calling?: boolean;
 }) {
   const btn = 'h-24 flex-1 cursor-pointer rounded-[22px] font-[inherit] font-semibold';
   return (
@@ -86,6 +92,7 @@ export function KioskFooter({
         <button
           type="button"
           aria-pressed={!!calledAt}
+          disabled={calling || (!cancelable && !!calledAt)}
           onClick={onCall}
           className={cx(
             btn,
@@ -94,7 +101,13 @@ export function KioskFooter({
           )}
           style={fs(26)}
         >
-          {calledAt ? 'Batalkan panggilan' : 'Panggil petugas'}
+          {calling
+            ? 'Memanggil petugas…'
+            : calledAt
+              ? cancelable
+                ? 'Batalkan panggilan'
+                : 'Petugas dipanggil'
+              : 'Panggil petugas'}
         </button>
       </div>
     </div>
