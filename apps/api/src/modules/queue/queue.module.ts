@@ -1,18 +1,23 @@
 import { Module } from '@nestjs/common';
+import { BpjsTaskEngine } from './bpjs-task.engine';
+import { QueueController } from './queue.controller';
+import { QueueDisplayController } from './queue-display.controller';
+import { QueueRepository } from './queue.repository';
+import { QueueService } from './queue.service';
 
 /**
- * F04 · Antrean, display real-time, dan task ID BPJS. KERANGKA (fase 2 potongan 1b): sudah terdaftar di `AppModule`,
- * potongan 4a cukup menambah controller/service/repository di folder ini.
- *
- * Isi nanti (potongan 4a):
- * - API antrean: layanan, tiket (`allocateQueueNumber`, `<prefix>-<3 digit>`), panggil berikutnya, ulang/lewati/mulai/
- *   selesai, papan display.
- * - Aliran SSE papan display: handler `@DeviceScoped('queue.display.read')` (prinsipal perangkat TV, ADR-0027) +
- *   `@NoRequestTransaction()` yang memanggil `SseService.stream(req, res, kanal)` dengan kanal `queue_calls` (trigger
- *   `app_notify_row`, ADR-0026); papan TV ada di `registered_devices.queue_display_id`.
- * - Mesin task ID mendaftar ke `DomainEvents` (`booking.checked_in` → 1, panggilan loket → 2, `encounter.registered`
- *   → 3, poli mulai/selesai → 4/5, batal → 99) dan menulis outbox `updatewaktu` dengan `defer` agar urutan terjaga.
- * - Izin `queue.read|call|manage`, perangkat `queue.display.read`.
+ * F04 · Antrean, display real-time, dan task ID BPJS (rencana fase 2 potongan 4a):
+ * - API `/api/v1/queue` (`QueueController`): layanan, tiket (`allocateQueueNumber`), panggil berikutnya,
+ *   panggil/ulang/lewati/mulai/selesai, daftar display (staf), status task ID;
+ * - display TV (`QueueDisplayController`, prinsipal perangkat `queue.display.read`, ADR-0027): papan + aliran SSE
+ *   (`queue_calls`, ADR-0026) untuk display yang terikat ke perangkat (`registered_devices.queue_display_id`);
+ * - `BpjsTaskEngine` mendengar event domain (bukan tombol) dan menulis `bpjs_queue_tasks` + outbox
+ *   `bpjs.antrean.updatewaktu`; worker menjaga urutan dengan `defer`.
+ * `QueueService` diekspor untuk modul lain (registrasi 5a: `attachAppointment`, `issueTicket`).
  */
-@Module({})
+@Module({
+  controllers: [QueueController, QueueDisplayController],
+  providers: [QueueRepository, QueueService, BpjsTaskEngine],
+  exports: [QueueService, BpjsTaskEngine],
+})
 export class QueueModule {}

@@ -164,14 +164,14 @@ describe('TTE dokumen (operasi outbox)', () => {
     expect(audit).toMatchObject({ actorRole: 'system', patientId, details: { status: 'signed' } });
   });
 
-  it('respons tidak dikenali → DLQ, tanda tangan tetap menunggu; sudah selesai → dilewati', async () => {
+  it('respons tidak dikenali → DLQ, tanda tangan gagal (onDead); sudah selesai → dilewati', async () => {
     reply = { status: 200, body: '{"ok":true}' };
     const bad = await pendingSignature();
     await dispatcher.dispatchOnce({ tenantIds: [T] });
     const m1 = await read((tx) => tx.outboxMessage.findUniqueOrThrow({ where: { id: bad.messageId } }));
     expect(m1).toMatchObject({ status: 'dead', lastError: 'Respons TTE tidak dikenali' });
     const s1 = await read((tx) => tx.documentSignature.findUniqueOrThrow({ where: { id: bad.sigId } }));
-    expect(s1.status).toBe('pending');
+    expect(s1.status).toBe('failed');
     // onDead: kegagalan permanen terlihat di jejak audit dokumen, atomik dengan perpindahan ke DLQ.
     const failed = await read((tx) =>
       tx.auditEvent.findFirstOrThrow({ where: { action: 'sign', resourceId: bad.docId } }),

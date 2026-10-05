@@ -68,4 +68,14 @@ describe('retryLimits', () => {
     });
     expect(retryLimits({ ...SERVICE_DAY_RETRY, maxAttempts: 50 }, { createdAt }).maxAttempts).toBe(50);
   });
+
+  it('kirim ulang manual (requeued_at) membuka hari layanan baru dari saat dikirim ulang', () => {
+    const requeuedAt = new Date('2026-10-06T02:00:00Z'); // 6 Okt 09.00 WIB
+    expect(retryLimits(SERVICE_DAY_RETRY, { createdAt, requeuedAt }).deadline).toEqual(
+      new Date('2026-10-06T17:00:00Z'),
+    );
+    expect(retryLimits(SERVICE_DAY_RETRY, { createdAt, requeuedAt: null }).deadline).toEqual(
+      new Date('2026-10-05T17:00:00Z'),
+    );
+  });
 });
