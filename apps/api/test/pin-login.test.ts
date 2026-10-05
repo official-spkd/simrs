@@ -312,6 +312,7 @@ describe('batas percobaan PIN', () => {
               PIN,
             ),
           ),
+          pinKeyId: 'v1',
           createdAt,
           expiresAt: new Date(createdAt.getTime() + 30 * DAY),
         },

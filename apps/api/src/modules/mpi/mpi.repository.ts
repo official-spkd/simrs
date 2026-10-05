@@ -92,9 +92,10 @@ export class MpiRepository {
     return p ? [p.id] : [];
   }
 
-  async idsByIdentifier(system: IdentifierSystem, valueHash: string, limit: number): Promise<string[]> {
+  /** `valueHashes`: hash nilai untuk semua kunci di cincin (`identifierHashes`), agar tetap ketemu selama rotasi. */
+  async idsByIdentifier(system: IdentifierSystem, valueHashes: string[], limit: number): Promise<string[]> {
     const rows = await this.db.tx().patientIdentifier.findMany({
-      where: { system, valueHash, active: true },
+      where: { system, valueHash: { in: valueHashes }, active: true },
       select: { patientId: true },
       orderBy: { createdAt: 'asc' },
       take: limit,
@@ -104,17 +105,18 @@ export class MpiRepository {
 
   /**
    * Rekam medis lain yang memegang nilai identifier ini (cek NIK/BPJS ganda saat daftar atau ganti identifier).
-   * Rekam medis yang sudah digabung diarahkan ke rekam medis yang dipertahankan.
+   * Rekam medis yang sudah digabung diarahkan ke rekam medis yang dipertahankan. `valueHashes` = hash untuk semua
+   * kunci di cincin (baris yang belum dienkripsi ulang tetap terdeteksi selama rotasi kunci).
    */
   async findIdentifierOwner(
     system: IdentifierSystem,
-    valueHash: string,
+    valueHashes: string[],
     exceptPatientId?: string,
   ): Promise<{ id: string; mrn: string } | null> {
     const row = await this.db.tx().patientIdentifier.findFirst({
       where: {
         system,
-        valueHash,
+        valueHash: { in: valueHashes },
         active: true,
         ...(exceptPatientId ? { patientId: { not: exceptPatientId } } : {}),
       },

@@ -25,6 +25,7 @@ import {
   totpCode,
   totpStep,
 } from '@simrs/shared/node';
+import { e2eFieldKeys } from './field-keys';
 
 /** Akun uji fiktif dibuat langsung di simrs_test (role aplikasi, RLS aktif). Nama pengguna unik per tes. */
 
@@ -118,7 +119,7 @@ export async function createAccount(
           tenantId,
           userId: id,
           secretEnc: encryptField(account.totpSecret, {
-            keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+            ring: e2eFieldKeys().enc,
             tenantId,
             purpose: 'mfa_secret',
           }),
@@ -237,10 +238,7 @@ export async function loginAs(page: Page, account: Account, path = '/'): Promise
 }
 
 function patientCrypto(tenantId: string): PatientCrypto {
-  return new PatientCrypto(
-    { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
-    tenantId,
-  );
+  return new PatientCrypto(e2eFieldKeys(), tenantId);
 }
 
 /** Pasien fiktif langsung di DB dengan kunci enkripsi yang sama dengan API. */
@@ -496,7 +494,7 @@ export async function setStaffPhone(account: Account, phone: string): Promise<vo
       where: { id: account.id },
       data: {
         phoneEnc: encryptField(phone, {
-          keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+          ring: e2eFieldKeys().enc,
           tenantId,
           purpose: 'staff_phone',
         }),
@@ -516,7 +514,7 @@ export async function latestBackupCode(account: Account): Promise<string> {
     }),
   );
   return decryptField(ch.otpEnc as string, {
-    keyB64: process.env.FIELD_ENCRYPTION_KEY ?? '',
+    ring: e2eFieldKeys().enc,
     tenantId,
     purpose: 'login_otp',
   });

@@ -1,4 +1,5 @@
 import { auditAnchorKeyProblem, envSchemas, parseEnv } from '@simrs/shared';
+import { type FieldKeys, loadFieldKeys } from '@simrs/shared/node';
 import { z } from 'zod';
 
 export const workerEnvSchema = envSchemas.base
@@ -9,6 +10,7 @@ export const workerEnvSchema = envSchemas.base
   .extend(envSchemas.bpjs.shape)
   // Operasi outbox yang membaca identitas pasien (verifikasi NIK ke Dukcapil) mendekripsi di worker.
   .extend(envSchemas.fieldCrypto.shape)
+  .extend(envSchemas.keyRotation.shape)
   // Jangkar hash audit (ADR-0072): kunci HMAC + bucket WORM. Kredensial S3 hanya wajib bila bucket diisi.
   .extend(envSchemas.auditAnchorKey.shape)
   .extend(envSchemas.auditAnchorStore.shape)
@@ -38,7 +40,10 @@ export const workerEnvSchema = envSchemas.base
       .default('bull'),
   });
 
-export type WorkerEnv = z.infer<typeof workerEnvSchema>;
+export type WorkerEnv = z.infer<typeof workerEnvSchema> & {
+  /** Cincin kunci enkripsi kolom + blind index (ADR-0015, pembaruan 5 Okt 2026). */
+  fieldKeys: FieldKeys;
+};
 
 export function loadWorkerEnv(source: Record<string, string | undefined> = process.env): WorkerEnv {
   const env = parseEnv(workerEnvSchema, source);
@@ -54,7 +59,7 @@ export function loadWorkerEnv(source: Record<string, string | undefined> = proce
       ? 'AUDIT_ANCHOR_BUCKET butuh S3_ENDPOINT, S3_ACCESS_KEY, dan S3_SECRET_KEY'
       : null);
   if (problem) throw new Error(`Konfigurasi env tidak valid → ${problem}`);
-  return env;
+  return { ...env, fieldKeys: loadFieldKeys(env) };
 }
 
 export const WORKER_ENV = Symbol('WORKER_ENV');

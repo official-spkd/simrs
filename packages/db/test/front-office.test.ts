@@ -163,6 +163,8 @@ async function makeChain(tenantId: string) {
         serviceId: r.service.id,
         appointmentDate: day('2027-06-01'),
         quotaBucket: 'jkn',
+        jknVisitKind: 1,
+        referenceNumber: `0301U${digits(14)}`,
         channel: 'mobile_jkn',
       },
     });
@@ -657,6 +659,96 @@ describe('SEP dan penjaminan', () => {
   });
 });
 
+describe('celah kontrak 0a: Antrean JKN, SPRI/rujukan draf, penolakan SEP', () => {
+  it('booking JKN wajib jenis kunjungan 1–4 + nomor referensi; non-JKN tanpa jenis kunjungan', async () => {
+    const c = await makeChain(A);
+    const base = await inA((tx) => tx.appointment.findUniqueOrThrow({ where: { id: c.appointmentId } }));
+    const create = (data: Record<string, unknown>) =>
+      inA((tx) =>
+        tx.appointment.create({
+          data: {
+            id: newId(),
+            tenantId: A,
+            bookingCode: digits(10),
+            patientId: base.patientId,
+            sessionId: base.sessionId,
+            practitionerId: base.practitionerId,
+            serviceId: base.serviceId,
+            appointmentDate: base.appointmentDate,
+            channel: 'loket',
+            quotaBucket: 'jkn',
+            ...data,
+          },
+        }),
+      );
+    await expect(create({ jknVisitKind: null, referenceNumber: '0301U001' })).rejects.toThrow(
+      /appointments_jkn_reference/,
+    );
+    await expect(create({ jknVisitKind: 1, referenceNumber: null })).rejects.toThrow(
+      /appointments_jkn_reference/,
+    );
+    await expect(create({ jknVisitKind: 5, referenceNumber: '0301U001' })).rejects.toThrow(
+      /appointments_jkn_reference/,
+    );
+    await expect(create({ quotaBucket: 'non_jkn', jknVisitKind: 1 })).rejects.toThrow(
+      /appointments_jkn_reference/,
+    );
+    await create({ jknVisitKind: 4, referenceNumber: '0301R00310270001' });
+    await create({ quotaBucket: 'non_jkn' });
+  });
+
+  it('rujukan: SPRI dan draf pending tanpa nomor; nomor wajib selain pending dan tidak berubah setelah terisi', async () => {
+    const c = await makeChain(A);
+    const draft = (status: string) =>
+      inA((tx) =>
+        tx.referral.create({
+          data: {
+            id: newId(),
+            tenantId: A,
+            patientId: c.patientId,
+            kind: 'spri',
+            number: null,
+            status,
+            facilityName: 'RS ini',
+            encounterId: c.encounterId,
+            issuedOn: day('2027-06-01'),
+          },
+        }),
+      );
+    await expect(draft('active')).rejects.toThrow(/referrals_valid/);
+    const r = await draft('pending');
+    await inA((tx) =>
+      tx.referral.update({ where: { id: r.id }, data: { number: '0301R0031027K000001', status: 'active' } }),
+    );
+    await expect(
+      inA((tx) => tx.referral.update({ where: { id: r.id }, data: { number: '0301R0031027K000002' } })),
+    ).rejects.toThrow(/REFERRAL_IMMUTABLE/);
+    await expect(
+      withTenant(owner, A, (tx) =>
+        tx.referral.update({ where: { id: r.id }, data: { kind: 'surat-kontrol' } }),
+      ),
+    ).rejects.toThrow(/REFERRAL_IMMUTABLE/);
+  });
+
+  it('SEP: alasan penolakan hanya untuk status gagal', async () => {
+    const c = await makeChain(A);
+    await expect(
+      inA((tx) =>
+        tx.sep.update({ where: { id: c.sepId }, data: { rejectionReason: 'Peserta tidak aktif' } }),
+      ),
+    ).rejects.toThrow(/seps_rejection_valid/);
+    await inA((tx) =>
+      tx.sep.update({
+        where: { id: c.sepId },
+        data: { status: 'failed', lastErrorCode: '201', rejectionReason: 'Peserta tidak aktif' },
+      }),
+    );
+    await inA((tx) =>
+      tx.sep.update({ where: { id: c.sepId }, data: { status: 'pending', rejectionReason: null } }),
+    );
+  });
+});
+
 describe('panggilan antrean → NOTIFY', () => {
   it('payload hanya tenant_id + id, dikirim setelah commit', async () => {
     const c = await makeChain(A);
@@ -747,6 +839,8 @@ describe('isolasi tenant', () => {
             serviceId: r.service.id,
             appointmentDate: day('2027-06-01'),
             quotaBucket: 'jkn',
+            jknVisitKind: 3,
+            referenceNumber: `0301R${digits(14)}`,
             channel: 'loket',
           },
         });

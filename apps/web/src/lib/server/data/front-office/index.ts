@@ -9,5 +9,5 @@ import 'server-only';
 export { getQueueBoard } from './antrean';
 export { getWeeklySchedule } from './jadwal';
 export { getKioskDefaultPatient } from './kiosk';
-export { getRegistrationDesk, getScenarioRegistrationPatient } from './pendaftaran';
+export { getDemoDeskPatients, getRegistrationDesk, getScenarioRegistrationPatient } from './pendaftaran';
 export { demoProgress, frontOfficeActionSession } from './shared';
