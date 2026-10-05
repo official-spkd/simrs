@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { isoDateJakarta, newId } from '@simrs/shared';
 import { createAccount, createPatient, inTenant, loginAs, TENANTS } from './support/accounts';
-import { setMockScenario } from './support/mock';
+import { hfisSession, sepInsertAttempts, sepOf, setBpjsOutage } from './support/front-office';
 import { ensureRsfaSchedule } from './support/schedule';
 
 /**
  * F03/F06 · Layar Pendaftaran mode api (fase 2 potongan 5b): petugas mencari pasien JKN, cek kepesertaan, memilih
- * rujukan, dokter, dan persetujuan umum, lalu mendaftarkan saat BPJS terganggu (mock `gagal`): kunjungan tetap tercatat
+ * rujukan, dokter, dan persetujuan umum, lalu mendaftarkan saat BPJS terganggu untuk pasien itu (gangguan per kartu di
+ * mock): kunjungan tetap tercatat
  * dengan SEP "menunggu BPJS", lalu terbit sendiri setelah mock pulih (DoD "gangguan BPJS"). Pasien baru lewat Dukcapil
  * + cek duplikat, penjamin umum, dan cetak tiket 80 mm. Data fiktif (NIK 9999…, kartu 0000…).
  */
@@ -44,101 +45,30 @@ async function todaySession(): Promise<{ id: string; label: RegExp }> {
   return { id, label: new RegExp(`dr\\. Andini Prameswari, Sp\\.PD\\s*${hour}\\.${minute}–23\\.59`) };
 }
 
-/**
- * Jadwal HFIS mock dokter poli PD (apps/mock `MOCK_HFIS_TEMPLAT`) per hari (0 = Minggu): Antrean BPJS menolak booking
- * yang jam praktiknya tidak ada di HFIS, jadi alur task ID memakai sesi yang sama persis.
- */
-const PD_HFIS: Record<number, { doctor: string; start: string; end: string } | undefined> = {
-  1: { doctor: 'dr. Andini Prameswari, Sp.PD', start: '08:00', end: '12:00' },
-  2: { doctor: 'dr. Andini Prameswari, Sp.PD', start: '08:00', end: '12:00' },
-  3: { doctor: 'dr. Andini Prameswari, Sp.PD', start: '08:00', end: '12:00' },
-  4: { doctor: 'dr. Andini Prameswari, Sp.PD', start: '08:00', end: '12:00' },
-  5: { doctor: 'dr. Rahmat Hidayat, Sp.PD', start: '13:00', end: '16:00' },
-  6: { doctor: 'dr. Andini Prameswari, Sp.PD', start: '08:00', end: '11:00' },
-};
-
-/**
- * Sesi praktik poli PD HARI INI yang sama dengan jadwal HFIS mock (dipakai ulang bila sudah dibangkitkan dari templat),
- * kuota dilonggarkan. Null pada hari Minggu (tidak ada praktik PD di HFIS mock).
- */
-async function hfisSession(): Promise<{ id: string; label: RegExp } | null> {
-  const h = PD_HFIS[new Date(`${today}T00:00:00.000Z`).getUTCDay()];
-  if (!h) return null;
-  const startTime = new Date(`1970-01-01T${h.start}:00.000Z`);
-  const id = await inTenant(TENANTS.RSFA, async (tx) => {
-    const service = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
-    const practitioner = await tx.practitioner.findFirstOrThrow({ where: { name: h.doctor } });
-    const where = {
-      practitionerId: practitioner.id,
-      sessionDate: new Date(`${today}T00:00:00.000Z`),
-      startTime,
-    };
-    const found = await tx.scheduleSession.findFirst({
-      where,
-      select: { id: true, bookedJkn: true, bookedNonJkn: true },
-    });
-    if (found) {
-      await tx.scheduleSession.update({
-        where: { id: found.id },
-        data: { kind: 'praktik', quotaJkn: found.bookedJkn + 50, quotaNonJkn: found.bookedNonJkn + 50 },
-      });
-      return found.id;
-    }
-    const created = await tx.scheduleSession.create({
-      data: {
-        id: newId(),
-        tenantId: TENANTS.RSFA,
-        ...where,
-        serviceId: service.id,
-        endTime: new Date(`1970-01-01T${h.end}:00.000Z`),
-        quotaJkn: 50,
-        quotaNonJkn: 50,
-      },
-    });
-    return created.id;
-  });
-  const esc = h.doctor.replace(/[.]/g, '\\.');
-  return {
-    id,
-    label: new RegExp(`${esc}\\s*${h.start.replace(':', '\\.')}–${h.end.replace(':', '\\.')}`),
-  };
-}
-
-function sepOf(encounterId: string) {
-  return inTenant(TENANTS.RSFA, (tx) =>
-    tx.sep.findFirst({
-      where: { encounterId },
-      orderBy: { version: 'desc' },
-      select: { id: true, status: true, sepNo: true },
-    }),
-  );
-}
-
-function sepInsertAttempts(sepId: string) {
-  return inTenant(TENANTS.RSFA, async (tx) => {
-    const m = await tx.outboxMessage.findFirst({
-      where: { operation: 'bpjs.vclaim.sep.insert', idempotencyKey: { contains: sepId } },
-      select: { attempts: true },
-    });
-    return m?.attempts ?? 0;
-  });
-}
-
 test.beforeAll(async () => {
   await ensureRsfaSchedule();
 });
 
 test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
-  // Mengubah skenario mock BPJS (keadaan bersama): berurutan, satu proyek, dan selalu dipulihkan.
+  // Gangguan BPJS hanya untuk kartu pasien tes ini (`POST /_panel/api/bpjs/outage`), bukan skenario global: spesifikasi
+  // lain (rantai DoD, anjungan) memakai mock BPJS bersamaan. Tetap berurutan dan selalu dipulihkan.
   test.describe.configure({ mode: 'serial' });
+  let outageCard: string | null = null;
+  const bpjsDown = async (card: string, down: boolean) => {
+    await setBpjsOutage(card, down);
+    outageCard = down ? card : null;
+  };
   test.afterEach(async () => {
-    await setMockScenario('bpjs', 'normal');
+    if (outageCard) await bpjsDown(outageCard, false);
   });
 
   test('pasien JKN: cari → cek kepesertaan → rujukan → daftar saat BPJS gagal → SEP menunggu → terbit setelah pulih', async ({
     page,
   }, info) => {
-    test.skip(info.project.name !== 'desktop', 'Satu proyek saja: skenario mock BPJS dipakai bersama.');
+    test.skip(
+      info.project.name !== 'desktop',
+      'Satu proyek saja: gangguan BPJS per kartu dipulihkan di afterEach.',
+    );
     test.setTimeout(150_000);
     // Hari Minggu tidak ada praktik PD di HFIS mock: alur SEP tetap diuji, task ID Antrean dilewati.
     const hfis = await hfisSession();
@@ -183,7 +113,7 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     await expect(submit).toBeEnabled();
 
     // BPJS terganggu tepat saat pendaftaran: kunjungan tetap tercatat, SEP menunggu.
-    await setMockScenario('bpjs', 'gagal');
+    await bpjsDown(card, true);
     await submit.click();
     await expect(page).toHaveURL(/\/pendaftaran\?kunjungan=[0-9a-f-]{36}$/);
     await expect(
@@ -202,7 +132,7 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     expect((await sepOf(encounterId))?.status).toBe('pending');
 
     // BPJS pulih: SEP terbit tanpa tindakan petugas, layar memperbarui sendiri.
-    await setMockScenario('bpjs', 'normal');
+    await bpjsDown(card, false);
     await expect(status.getByText('SEP terbit')).toBeVisible({ timeout: 60_000 });
     const issued = await sepOf(encounterId);
     expect(issued?.status).toBe('issued');
@@ -235,7 +165,10 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
   test('VClaim mati saat cek → rujukan manual → SEP ditolak BPJS tampil dengan alasan → kirim ulang', async ({
     page,
   }, info) => {
-    test.skip(info.project.name !== 'desktop', 'Satu proyek saja: skenario mock BPJS dipakai bersama.');
+    test.skip(
+      info.project.name !== 'desktop',
+      'Satu proyek saja: gangguan BPJS per kartu dipulihkan di afterEach.',
+    );
     test.setTimeout(120_000);
     const session = await todaySession();
     // Kartu berakhiran 0000 = peserta tidak aktif di mock: worker menolak SEP di tahap cek peserta.
@@ -256,7 +189,7 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     );
 
     // VClaim tidak terjangkau: pendaftaran tetap bisa lanjut dengan nomor rujukan dari dokumen pasien.
-    await setMockScenario('bpjs', 'gagal');
+    await bpjsDown(card, true);
     await page.getByRole('button', { name: 'Cek kepesertaan' }).click();
     await expect(page.getByText('VClaim tidak terjangkau')).toBeVisible();
     await expect(page.getByLabel('Isi nomor rujukan / surat kontrol manual')).toBeChecked();
@@ -272,7 +205,7 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     await expect(status.getByText('SEP menunggu BPJS')).toBeVisible();
 
     // BPJS pulih → worker menolak (peserta tidak aktif): status gagal + alasan + kode, tombol kirim ulang.
-    await setMockScenario('bpjs', 'normal');
+    await bpjsDown(card, false);
     await expect(status.getByText('SEP ditolak BPJS')).toBeVisible({ timeout: 60_000 });
     await expect(status).toContainText('BPJS_PESERTA_TIDAK_AKTIF');
     const encounterId = new URL(page.url()).searchParams.get('kunjungan') ?? '';
