@@ -12,6 +12,8 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Audited } from '../src/common/audited.decorator';
 import { DeviceScoped } from '../src/common/device-scoped.decorator';
+import { NoRequestTransaction } from '../src/common/no-request-transaction.decorator';
+import { TenantDb } from '../src/infra/tenant-db';
 import { RequirePermission } from '../src/common/require-permission.decorator';
 import { generateEnrolmentCode } from '../src/modules/devices/devices.service';
 import {
@@ -29,6 +31,18 @@ import {
 @Controller('test-infra/device')
 @DeviceScoped('queue.display.read')
 class DisplayOnlyController {
+  constructor(private readonly db: TenantDb) {}
+
+  /** Pola SSE/lookup (ADR-0025/0026) untuk perangkat: tanpa transaksi permintaan, transaksi pendek sendiri. */
+  @Get('short')
+  @NoRequestTransaction()
+  async short() {
+    return this.db.transaction(async () => {
+      this.db.audit({ action: 'read', resourceType: 'test_short' });
+      return { deviceId: this.db.actor().devicePrincipal?.id ?? null, unitId: this.db.actor().unitId };
+    });
+  }
+
   @Get('board')
   @Audited({ action: 'read', resource: 'test_board' })
   board() {
@@ -316,6 +330,17 @@ describe('sesi perangkat', () => {
       .expect(403);
     expect((await auditRows(TENANT_A, { requestId: deniedId })).map((r) => [r.action, r.details])).toEqual([
       ['access_denied', { permission: 'queue.display.read', deviceId: kiosk.id, deviceKind: 'kiosk' }],
+    ]);
+    // @NoRequestTransaction + transaksi pendek: pelaku perangkat dan deviceId di audit tetap terbawa.
+    const shortId = newId();
+    const short = await http()
+      .get('/api/v1/test-infra/device/short')
+      .set(asDevice(display.token))
+      .set('X-Request-Id', shortId)
+      .expect(200);
+    expect(short.body).toEqual({ deviceId: display.id, unitId: units.a });
+    expect((await auditRows(TENANT_A, { requestId: shortId })).map((r) => r.details)).toEqual([
+      { deviceId: display.id, deviceKind: 'display' },
     ]);
     // Matriks peran manusia tidak pernah berlaku untuk perangkat.
     await http().post('/api/v1/test-infra/device-misassembled').set(asDevice(kiosk.token)).expect(403);
