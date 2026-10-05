@@ -4,7 +4,7 @@ import { dayLong } from '../src/lib/front-office';
 import { addDaysIso, mondayOf } from '../src/lib/jadwal-api';
 import { createAccount, loginAs } from './support/accounts';
 import { E2E_MOCK_URL } from './support/slot';
-import { ensureRsfaSchedule, hfisUpdateMessages, sessionQuota } from './support/schedule';
+import { hfisUpdateMessages, sessionQuota } from './support/schedule';
 
 /**
  * F01 · Layar Jadwal dokter mode api (fase 2 potongan 2): petugas pendaftaran mengubah kuota satu sesi (disimpan
@@ -15,9 +15,7 @@ import { ensureRsfaSchedule, hfisUpdateMessages, sessionQuota } from './support/
 const weekStart = addDaysIso(mondayOf(isoDateJakarta(new Date())), 7);
 const tuesday = addDaysIso(weekStart, 1);
 
-test.beforeAll(async () => {
-  await ensureRsfaSchedule();
-});
+// Data jadwal RSFA (front office seed + sesi 30 hari) disiapkan sekali di `global-setup.ts`.
 
 test.describe('layar Jadwal dokter (/jadwal)', () => {
   test('petugas pendaftaran: ubah kuota sesi lalu kirim jadwal ke HFIS', async ({ page }, info) => {

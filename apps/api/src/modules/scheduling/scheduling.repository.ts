@@ -1,14 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  dbDateFromIso,
-  dbTimeFromHhmm,
-  enqueueOutbox,
-  hhmmFromDbTime,
-  isoFromDbDate,
-  type QuotaBucket,
-  releaseQuota,
-  reserveQuota,
-} from '@simrs/db';
+import { dbDateFromIso, dbTimeFromHhmm, enqueueOutbox, hhmmFromDbTime, isoFromDbDate } from '@simrs/db';
 import {
   hfisPullSnapshotSchema,
   newId,
@@ -48,6 +39,7 @@ type SessionRow = {
   bookedJkn: number;
   bookedNonJkn: number;
   updatedAt: Date;
+  transferredAt: Date | null;
   practitioner: { name: string };
   substitute: { name: string } | null;
   service: { code: string; name: string; room: string | null };
@@ -74,6 +66,7 @@ function toRsSession(r: SessionRow): RsSession {
     bookedJkn: r.bookedJkn,
     bookedNonJkn: r.bookedNonJkn,
     updatedAt: r.updatedAt,
+    transferredAt: r.transferredAt,
   };
 }
 
@@ -157,43 +150,43 @@ export class SchedulingRepository {
     });
   }
 
-  /** Booking yang belum datang (dipindah saat pengalihan); yang sudah check-in tetap di sesinya. */
+  /** Booking yang belum datang (dijadwal ulang saat pindah sesi); yang sudah check-in tetap di sesinya. */
   bookedAppointments(sessionId: string) {
     return this.db.tx().appointment.findMany({
       where: { sessionId, status: 'booked' },
-      select: { id: true, quotaBucket: true },
+      select: { id: true },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  reserve(sessionId: string, bucket: QuotaBucket) {
-    return reserveQuota(this.db.tx(), sessionId, bucket);
-  }
-
-  release(sessionId: string, bucket: QuotaBucket) {
-    return releaseQuota(this.db.tx(), sessionId, bucket);
-  }
-
-  async moveAppointment(id: string, target: RsSession) {
-    await this.db.tx().appointment.update({
-      where: { id },
-      data: {
-        sessionId: target.id,
-        practitionerId:
-          target.kind === 'cuti' && target.substituteId ? target.substituteId : target.practitionerId,
-        serviceId: target.serviceId,
-        appointmentDate: dbDateFromIso(target.date),
-        updatedBy: this.actor(),
+  /**
+   * Alihkan booking aktif sesi ini ke dokter pengganti (pasien tetap di sesi, kode booking dan nomor antrean tetap).
+   * Mengembalikan ID booking yang BARU dialihkan; yang sudah atas nama pengganti tidak dihitung lagi.
+   */
+  async assignSubstitute(sessionId: string, substituteId: string): Promise<string[]> {
+    const rows = await this.db.tx().appointment.findMany({
+      where: {
+        sessionId,
+        status: { in: [...ACTIVE_BOOKING_STATUSES] },
+        practitionerId: { not: substituteId },
       },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
     });
-  }
-
-  async assignSubstitute(sessionId: string, substituteId: string): Promise<number> {
-    const res = await this.db.tx().appointment.updateMany({
-      where: { sessionId, status: { in: [...ACTIVE_BOOKING_STATUSES] } },
+    if (rows.length === 0) return [];
+    await this.db.tx().appointment.updateMany({
+      where: { id: { in: rows.map((r) => r.id) } },
       data: { practitionerId: substituteId, updatedBy: this.actor() },
     });
-    return res.count;
+    return rows.map((r) => r.id);
+  }
+
+  async markTransferred(sessionId: string, target: 'substitute' | 'session') {
+    const actor = this.actor();
+    await this.db.tx().scheduleSession.update({
+      where: { id: sessionId },
+      data: { transferredAt: new Date(), transferredBy: actor, transferTarget: target, updatedBy: actor },
+    });
   }
 
   /** Praktisi aktif yang punya templat aktif di layanan ini (syarat dokter pengganti "poli yang sama"). */
