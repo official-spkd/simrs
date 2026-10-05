@@ -71,6 +71,10 @@ export class AdmissionService {
   }
 
   private async createEmergency(input: EmergencyRegistrationInput, claim: IdempotencyClaim): Promise<string> {
+    await this.assertWriteScope(
+      input.unitId,
+      input.patient.kind === 'known' ? input.patient.patientId : null,
+    );
     const unit = await this.repo.findUnit(input.unitId);
     if (!unit || !unit.active || unit.kind !== 'igd') throw invalid('Unit tujuan bukan IGD yang aktif');
 
@@ -144,6 +148,26 @@ export class AdmissionService {
     return encounterId;
   }
 
+  /**
+   * `encounter.write` berlingkup selain `all` (ADR-0031): kunjungan aktif di sebuah unit membuka akses unit ke
+   * pasiennya, jadi pendaftar berlingkup unit/relasi hanya boleh mendaftarkan ke unit penugasannya sendiri, dan pasien
+   * yang sudah ada harus sudah bisa ia akses (`PatientAccessService`: relasi, kunjungan aktif di unitnya, atau akses
+   * darurat). Pasien tanpa identitas baru boleh. Pelanggaran → 403 tercatat (`AuditedDenial`).
+   */
+  private async assertWriteScope(unitId: string, patientId: string | null): Promise<void> {
+    const scope = this.db.permissionScope();
+    if (scope === 'all') return;
+    const own = this.db.actor().unitId;
+    if (!own || own !== unitId) {
+      throw new AuditedDenial('Pendaftaran kunjungan hanya ke unit penugasan Anda', {
+        resourceType: 'encounter',
+        patientId,
+        details: { scope, unitId },
+      });
+    }
+    if (patientId) await this.access.assert(patientId);
+  }
+
   // ------------------------------------------------------------------------------------------------------------
   // Admisi rawat inap
   // ------------------------------------------------------------------------------------------------------------
@@ -156,6 +180,7 @@ export class AdmissionService {
   }
 
   private async createAdmission(input: AdmissionInput, claim: IdempotencyClaim): Promise<string> {
+    await this.assertWriteScope(input.unitId, input.patientId);
     const patient = await this.activePatient(input.patientId);
     const unit = await this.repo.findUnit(input.unitId);
     if (!unit || !unit.active || unit.kind !== 'rawat_inap') {
