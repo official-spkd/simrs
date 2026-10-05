@@ -35,6 +35,9 @@ const MANUAL_INDEXES = [
   'appointments_one_active_per_day',
   'external_ids_one_owner_per_value',
   'encounters_one_per_appointment',
+  'encounters_one_active_emergency',
+  'encounters_one_active_admission',
+  'encounters_one_per_referral',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
