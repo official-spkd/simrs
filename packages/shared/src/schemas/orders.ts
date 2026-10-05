@@ -114,8 +114,10 @@ export const orderGroupSchema = z.strictObject({
   orderSetId: uuid.nullable(),
   orderedAt: instant,
   orderedBy: clinicalAuthorSchema,
-  /** Order residen: menunggu tinjauan DPJP (keputusan fase 3 no. 4). */
+  /** Order residen yang BELUM ditinjau DPJP (keputusan fase 3 no. 4); false setelah atestasi `review_order`. */
   needsReview: z.boolean(),
+  /** Tinjauan DPJP atas order residen (`POST /orders/:id/review`), null bila belum/tidak perlu. */
+  review: z.strictObject({ by: clinicalAuthorSchema, at: instant }).nullable(),
   serviceRequests: z.array(serviceRequestViewSchema),
   medicationRequests: z.array(medicationRequestViewSchema),
   cdsAlerts: z.array(cdsAlertSchema),

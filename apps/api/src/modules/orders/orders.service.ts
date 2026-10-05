@@ -7,7 +7,6 @@ import {
   newId,
   type OrderEvaluation,
   type OrderGroup,
-  type OrderLineInput,
   type OrderSubmitInput,
 } from '@simrs/shared';
 import { requestFingerprint } from '../../common/idempotency';
@@ -20,12 +19,10 @@ import { PatientAccessService } from '../authz/patient-access.service';
 import { CdsService, type EvaluatedLine } from '../cds/cds.service';
 import { ClinicalPdfService } from '../documents/clinical-pdf.service';
 import { BILLABLE_FOR, OrdersView } from './orders-view';
-import { prescriptionSections } from './prescription';
+import { hasPrescription, prescriptionSections } from './prescription';
 
 /** Kunjungan yang boleh diberi order: sudah datang dan belum selesai/batal. */
 const ORDERABLE_ENCOUNTER_STATUSES = ['arrived', 'in_progress'];
-
-type MedicationLine = Extract<OrderLineInput, { type: 'obat' }>;
 
 export type SubmitOutcome =
   | { kind: 'created'; group: OrderGroup }
@@ -269,31 +266,114 @@ export class OrdersService {
       },
     });
 
-    const meds = input.items.flatMap((line, i) =>
-      line.type === 'obat' ? [{ input: line as MedicationLine, evaluated: lines[i] as EvaluatedLine }] : [],
-    );
-    if (meds.length > 0 && signer) {
-      await this.pdf.issue({
-        patientId: enc.patientId,
-        kind: 'lainnya',
-        title: 'Resep',
-        fileName: `resep ${enc.number}`,
-        issuedAt: orderedAt,
-        patientExtra: [
-          { label: 'Kunjungan', value: enc.number },
-          { label: 'Unit', value: enc.unit.name },
-        ],
-        sections: prescriptionSections(
-          meds,
-          patient.allergies.map((a) => a.label),
-        ),
-        source: { table: 'order_groups', id: groupId },
-        tte: { role: 'Dokter penulis resep', caption: null },
-      });
+    const created = await this.view.group(groupId);
+    if (!created) throw new Error('Kiriman order baru tidak terbaca');
+    if (signer && hasPrescription(created)) {
+      await this.issuePrescription(
+        created,
+        enc,
+        patient.allergies.map((a) => a.label),
+        'Dokter penulis resep',
+      );
     }
     const group = await this.view.group(groupId);
     if (!group) throw new Error('Kiriman order baru tidak terbaca');
     return { kind: 'created', group };
+  }
+
+  /**
+   * Lembar resep PDF ber-TTE pengguna sesi (ADR-0029) dari isi order TERSIMPAN, sumber `order_groups` (satu resep per
+   * kiriman). Waktu terbit = waktu order, sehingga PDF bisa dibangun ulang dari data.
+   */
+  private async issuePrescription(
+    group: OrderGroup,
+    enc: { number: string; unit: { name: string } },
+    allergies: readonly string[],
+    role: string,
+  ): Promise<void> {
+    await this.pdf.issue({
+      patientId: group.patientId,
+      kind: 'lainnya',
+      title: 'Resep',
+      fileName: `resep ${enc.number}`,
+      issuedAt: new Date(group.orderedAt),
+      patientExtra: [
+        { label: 'Kunjungan', value: enc.number },
+        { label: 'Unit', value: enc.unit.name },
+        { label: 'Penulis order', value: `${group.orderedBy.nama} (${group.orderedBy.peran})` },
+      ],
+      sections: prescriptionSections(group, allergies, await this.view.medicationOverrides(group.id)),
+      source: { table: 'order_groups', id: group.id },
+      tte: { role, caption: null },
+    });
+  }
+
+  /**
+   * Tinjauan DPJP atas order residen (keputusan fase 3 no. 4): peninjau wajib berwenang `clinical.sign`; atestasi
+   * `review_order` (append-only, satu per peninjau, `clinical_attestations`); resep ber-TTE peninjau diterbitkan bila
+   * kiriman memuat obat aktif dan belum punya resep. `order_groups` tidak diubah: "sudah ditinjau" = ada atestasinya.
+   */
+  async completeReview(groupId: string): Promise<OrderGroup> {
+    const reviewer = this.records.author();
+    if (!(await this.canSign(reviewer.role))) {
+      throw new AppError('FORBIDDEN', 'Tinjauan order residen hanya oleh DPJP yang berwenang TTE', 403);
+    }
+    const tx = this.db.tx();
+    const tenantId = this.db.tenantId();
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${tenantId}:orders.review:${groupId}`}, 0))`;
+    const row = await tx.orderGroup.findUnique({
+      where: { id: groupId },
+      select: { id: true, patientId: true, encounterId: true, needsReview: true, orderedBy: true },
+    });
+    if (!row) throw new AppError('NOT_FOUND', 'Kiriman order tidak ditemukan', 404);
+    await this.access.assert(row.patientId);
+    if (!row.needsReview)
+      throw new AppError('CONFLICT', 'Kiriman order ini tidak memerlukan tinjauan DPJP', 409);
+    if (row.orderedBy === reviewer.userId) {
+      throw new AppError('FORBIDDEN', 'Peninjau order bukan penulis order itu sendiri', 403);
+    }
+    const reviewed = await tx.clinicalAttestation.findFirst({
+      where: { targetType: 'order_groups', targetId: groupId, kind: 'review_order' },
+      select: { id: true },
+    });
+    if (reviewed) throw new AppError('CONFLICT', 'Kiriman order ini sudah ditinjau', 409);
+    await this.records.insert(() =>
+      tx.clinicalAttestation.create({
+        data: {
+          id: newId(),
+          tenantId,
+          patientId: row.patientId,
+          encounterId: row.encounterId,
+          targetType: 'order_groups',
+          targetId: groupId,
+          kind: 'review_order',
+          userId: reviewer.userId,
+          userRole: reviewer.role,
+        },
+      }),
+    );
+    const group = await this.view.group(groupId);
+    if (!group) throw new Error('Kiriman order tidak terbaca');
+    if (hasPrescription(group) && !group.prescription) {
+      const enc = await this.encounter(row.encounterId);
+      const patient = await this.cds.patientContext(row.encounterId, row.patientId);
+      await this.issuePrescription(
+        group,
+        enc,
+        patient.allergies.map((a) => a.label),
+        'DPJP peninjau resep',
+      );
+    }
+    this.db.audit({
+      action: 'verify',
+      resourceType: 'order_group',
+      resourceId: groupId,
+      patientId: row.patientId,
+      details: { kind: 'review_order', encounterId: row.encounterId },
+    });
+    const done = await this.view.group(groupId);
+    if (!done) throw new Error('Kiriman order tidak terbaca');
+    return done;
   }
 
   /**

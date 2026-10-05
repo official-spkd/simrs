@@ -40,7 +40,15 @@ Potongan 3.0a sudah menyediakan mesin murni `evaluateCdsItem` di `@simrs/shared`
 - \+ RS bisa menyesuaikan KB tanpa rilis. RS lain tidak terpengaruh: KB per tenant di bawah RLS, dan diuji (aturan dinonaktifkan di RS B tetap berlaku di RS A).
 - \+ Override dan penolakan bisa ditinjau komite, lengkap dengan versi aturan yang dipakai.
 - − **Belum ada alat kelola KB.** Impor KB (CLI gagal-tertutup dari berkas komite) dan layar kelola KB belum dibangun. Sementara KB = seed contoh 3.0c, dan perubahan lewat baris `cds_rules` versi baru oleh operator.
-- − **Dua aturan seed belum aktif di API.** Aturan seed `history` memakai flag `hipoglikemia-berat` dan `ckd`. Flag ini tidak dihasilkan dari diagnosis, jadi kedua aturan itu belum berlaku di API sampai KB RS menulisnya dengan token `icd10-*`. Aturan `renal` (metformin eGFR < 30) sudah berlaku.
+- − **Satu aturan seed belum aktif di API.** Seed memetakan flag `ckd` KB contoh ke `icd10-n18` (pembaruan 6 Okt 2026), sehingga `riwayat-ckd-ains` berlaku. `hipoglikemia-berat` belum punya padanan kode di data contoh, jadi aturan `riwayat-hipoglikemia-sulfonilurea` belum berlaku di API sampai KB RS menulisnya dengan token `icd10-*`. Aturan `renal` (metformin eGFR < 30) sudah berlaku.
 - − **Dosis per berat badan belum dinilai.** Belum ada jenis aturan untuknya; menyusul bila komite farmasi menetapkan datanya (perlu jenis aturan baru).
 - − **eGFR bergantung data rujukan.** eGFR hanya terbaca bila kode LOINC di atas ada di data rujukan yang diimpor dan hasil lab ditulis dengan kode itu (fase 4).
 - − **Kebenaran klinis KB contoh** wajib divalidasi komite medik/PFT sebelum pilot (rencana §5).
+
+## Pembaruan 6 Okt 2026 · tinjauan DPJP dan utang
+
+- Order residen ditinjau DPJP lewat `POST /orders/:id/review` (izin `clinical.sign`, diperiksa ulang di matriks):
+  - menulis atestasi `review_order` (`clinical_attestations`, append-only);
+  - menerbitkan resep ber-TTE peninjau bila kiriman memuat obat aktif.
+- `order_groups` tidak diubah. "Sudah ditinjau" dibaca dari atestasinya: `needsReview` = perlu tinjauan dan belum ada atestasi.
+- Keputusan orkestrator: impor KB (CLI) + layar kelola KB, dosis per berat badan, dan eGFR dari hasil lab menjadi utang fase 4/PFT. `order.manage` tidak masuk peran bawaan; RS memberikannya lewat layar Akses ke komite PFT.
