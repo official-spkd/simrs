@@ -5,8 +5,8 @@ import { queueNoSchema, serviceDateSchema, timeOfDaySchema } from './front-offic
 import { queueServiceCodeSchema } from './queue';
 
 /**
- * F08 · Kontrak gateway informasi publik (`/api/v1/public`, rencana fase 2 potongan 8): tanpa login, tenant dari host,
- * dibatasi laju, TANPA PHI. Jadwal + sisa kuota, antrean berjalan, dan status booking (kode + tanggal lahir di body).
+ * F08 · Kontrak gateway informasi publik (`/api/v1/public/:tenantCode`, rencana fase 2 potongan 8): tanpa login, RS dari
+ * kode RS di path (kode RS bukan rahasia), dibatasi laju, TANPA PHI. Jadwal + sisa kuota, antrean berjalan, dan status booking (kode + tanggal lahir di body).
  * Ketersediaan bed dan tarif (katalog F08) menyusul setelah K05/U01.
  */
 
@@ -44,6 +44,8 @@ export const publicQueueSchema = z.strictObject({
       name: NAME,
       current: queueNoSchema.nullable(),
       waiting: count,
+      /** Perkiraan menit sampai nomor terakhir yang menunggu dilayani: `waiting` × `queue.avg_service_minutes`. */
+      estimatedWaitMinutes: count,
     }),
   ),
 });
@@ -66,7 +68,8 @@ export const publicBookingStatusSchema = z.strictObject({
   start: timeOfDaySchema,
   poliName: NAME,
   practitionerName: NAME,
-  queueNo: queueNoSchema,
+  /** Nomor poli booking; null bila nomornya belum dialokasikan (mis. booking lama sebelum alokasi nomor). */
+  queueNo: queueNoSchema.nullable(),
   /** Nomor yang sedang dilayani di poli itu (hari layanan saja). */
   currentQueueNo: queueNoSchema.nullable(),
   estimatedAt: isoDateTime.nullable(),

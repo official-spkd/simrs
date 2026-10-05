@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard, type ThrottlerOptions } from '@nestjs/throttler';
 import { isAuthRateLimited } from '../common/auth-rate-limited.decorator';
+import { isPublicRateLimited } from '../common/public-rate-limited.decorator';
 import type { ApiEnv } from '../config/env';
 import type { AuthenticatedRequest } from './auth/auth.guard';
 
@@ -8,6 +9,7 @@ import type { AuthenticatedRequest } from './auth/auth.guard';
 export const IP_THROTTLER = 'default';
 export const AUTH_THROTTLER = 'auth';
 export const USER_THROTTLER = 'user';
+export const PUBLIC_THROTTLER = 'public';
 
 const MINUTE_MS = 60_000;
 
@@ -29,6 +31,7 @@ export function userTracker(req: Pick<AuthenticatedRequest, 'tenantId' | 'actor'
  * `ThrottlerGuard.generateKey`), jadi IP dan ID pengguna tidak tersimpan apa adanya di Redis.
  * - `default`: per IP klien (`req.ip`, mengikuti `TRUST_PROXY`). Tanpa tenant: berganti kode RS tidak membuka kuota baru.
  * - `auth`: endpoint `@AuthRateLimited()` per IP (penebakan kata sandi/kode).
+ * - `public`: gateway informasi publik F08 (`@PublicRateLimited()`) per IP, lebih ketat dari batas umum.
  * - `user`: per pengguna login, apa pun IP-nya (staf satu RS sering berbagi IP lewat NAT, jadi batas IP longgar).
  */
 export function rateLimitThrottlers(env: ApiEnv): ThrottlerOptions[] {
@@ -39,6 +42,12 @@ export function rateLimitThrottlers(env: ApiEnv): ThrottlerOptions[] {
       ttl: MINUTE_MS,
       limit: env.AUTH_RATE_LIMIT_PER_MIN,
       skipIf: (ctx) => !isAuthRateLimited(ctx),
+    },
+    {
+      name: PUBLIC_THROTTLER,
+      ttl: MINUTE_MS,
+      limit: env.PUBLIC_RATE_LIMIT_PER_MIN,
+      skipIf: (ctx) => !isPublicRateLimited(ctx),
     },
     {
       name: USER_THROTTLER,
