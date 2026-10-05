@@ -127,7 +127,7 @@ export class BookingService {
     const a = await this.load(id);
     if (a.status === 'checked_in') return;
     if (a.status !== 'booked') throw invalidState(`Booking berstatus ${a.status} tidak bisa didaftarkan`);
-    if (isoDay(a.appointmentDate) !== isoDateJakarta(new Date())) {
+    if (isoFromDbDate(a.appointmentDate) !== isoDateJakarta(new Date())) {
       throw invalidState('Registrasi hanya pada hari layanan booking');
     }
     await this.repo.updateAppointment(id, { status: 'checked_in', checkedInAt: new Date() });

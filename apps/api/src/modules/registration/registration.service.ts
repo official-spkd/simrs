@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { allocateNumber } from '@simrs/db';
+import { allocateNumber, dbDateFromIso, isoFromDbDate } from '@simrs/db';
 import {
   AppError,
   BPJS_VISIT_KINDS,
@@ -33,8 +33,6 @@ import { type CoverageRow, type EncounterRow, RegistrationRepository } from './r
 
 export const OUTPATIENT_SCOPE = 'registration.outpatient';
 
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-const dbDate = (date: string) => new Date(`${date}T00:00:00.000Z`);
 const invalid = (message: string, details?: unknown) =>
   new AppError('VALIDATION_FAILED', message, 422, details);
 
@@ -109,7 +107,7 @@ export class RegistrationService {
     if (session.service.kind !== 'poli' || !session.service.active) {
       throw frontOfficeError('SESSION_CLOSED', undefined, 'Layanan sesi ini bukan poli yang aktif');
     }
-    if (isoDay(session.sessionDate) !== today) {
+    if (isoFromDbDate(session.sessionDate) !== today) {
       throw frontOfficeError('SESSION_CLOSED', undefined, 'Registrasi rawat jalan hanya untuk sesi hari ini');
     }
     if (session.kind === 'cuti' && !session.substituteId) throw frontOfficeError('SESSION_CLOSED');
@@ -192,7 +190,11 @@ export class RegistrationService {
   ): Promise<string> {
     let id = input.appointmentId;
     if (!id) {
-      const active = await this.repo.activeAppointment(input.patientId, session.serviceId, dbDate(today));
+      const active = await this.repo.activeAppointment(
+        input.patientId,
+        session.serviceId,
+        dbDateFromIso(today),
+      );
       id = active?.id;
     }
     if (!id) {
@@ -213,7 +215,7 @@ export class RegistrationService {
     if (a.status !== 'booked' && a.status !== 'checked_in') {
       throw frontOfficeError('BOOKING_STATE_INVALID', undefined, `Booking berstatus ${a.status}`);
     }
-    if (isoDay(a.appointmentDate) !== today) {
+    if (isoFromDbDate(a.appointmentDate) !== today) {
       throw frontOfficeError('BOOKING_STATE_INVALID', undefined, 'Booking bukan untuk hari ini');
     }
     if (a.sessionId !== session.id) {
@@ -316,7 +318,10 @@ export class RegistrationService {
     const existing = await this.repo.findReferral(kind, coverage.referenceNumber);
     if (existing) {
       if (existing.patientId !== patientId) throw invalid('Nomor rujukan/surat kontrol milik pasien lain');
-      if (existing.status === 'expired' || (existing.validUntil && isoDay(existing.validUntil) < today)) {
+      if (
+        existing.status === 'expired' ||
+        (existing.validUntil && isoFromDbDate(existing.validUntil) < today)
+      ) {
         throw frontOfficeError('REFERRAL_EXPIRED');
       }
       if (existing.status !== 'active') throw frontOfficeError('REFERRAL_STATE_INVALID');
@@ -331,7 +336,7 @@ export class RegistrationService {
       targetServiceId: serviceId,
       diagnosisCode: coverage.initialDiagnosis.code,
       diagnosisDisplay: coverage.initialDiagnosis.display,
-      issuedOn: dbDate(today),
+      issuedOn: dbDateFromIso(today),
       status: 'active',
     });
     return created.id;

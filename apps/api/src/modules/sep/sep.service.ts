@@ -25,6 +25,7 @@ import {
   type VclaimRujukan,
   vclaimRujukanBerlakuSampai,
 } from '@simrs/shared';
+import { dbDateFromIso, isoFromDbDate } from '@simrs/db';
 import { PatientCrypto } from '@simrs/shared/node';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { LookupGateway } from '../../infra/lookup/lookup.gateway';
@@ -50,7 +51,6 @@ const KELAS: Record<string, EligibilityResult['eligibility']['kelas']> = {
   '3': 'Kelas 3',
 };
 
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 const syncMessage = (code: string) =>
   (BPJS_REJECTIONS as Record<string, string>)[code] ?? SEP_SYNC_ERRORS[code] ?? code;
 const invalidState = (message: string) => frontOfficeError('SEP_STATE_INVALID', undefined, message);
@@ -311,8 +311,8 @@ export class SepService {
             title: 'Surat kontrol',
             origin: r.facilityName,
             diagnosis: { code, label: r.diagnosisDisplay ?? code },
-            issuedAt: isoDay(r.issuedOn),
-            validUntil: isoDay(r.validUntil ?? r.issuedOn),
+            issuedAt: isoFromDbDate(r.issuedOn),
+            validUntil: isoFromDbDate(r.validUntil ?? r.issuedOn),
             visitNo: null,
             poliCode: r.targetService.code,
             doctorId: r.practitionerId,
@@ -349,7 +349,7 @@ export class SepService {
       const id = existing
         ? (
             await this.repo.updateReferral(existing.id, {
-              validUntil: new Date(`${validUntil}T00:00:00.000Z`),
+              validUntil: dbDateFromIso(validUntil),
               status,
               targetServiceId: service?.id ?? null,
             })
@@ -364,8 +364,8 @@ export class SepService {
               targetServiceId: service?.id ?? null,
               diagnosisCode: diagnosisOk ? r.diagnosa.kode : null,
               diagnosisDisplay: diagnosisOk ? r.diagnosa.nama.slice(0, 200) : null,
-              issuedOn: new Date(`${r.tglKunjungan}T00:00:00.000Z`),
-              validUntil: new Date(`${validUntil}T00:00:00.000Z`),
+              issuedOn: dbDateFromIso(r.tglKunjungan),
+              validUntil: dbDateFromIso(validUntil),
               status,
             })
           ).id;

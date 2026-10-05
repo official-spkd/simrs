@@ -1,4 +1,4 @@
-import { enqueueOutbox, type OutboxMessage, type TenantTx } from '@simrs/db';
+import { enqueueOutbox, isoFromDbDate, type OutboxMessage, type TenantTx } from '@simrs/db';
 import {
   BPJS_SEP_DELETE_OPERATION,
   BPJS_SEP_INSERT_OPERATION,
@@ -162,7 +162,7 @@ async function rujukanOf(s: SepForSend, ctx: OperationContext) {
     issuedOn: Date;
   }) => ({
     asalRujukan: ref.kind === 'rujukan-fktp' ? VCLAIM_ASAL_RUJUKAN.fktp : VCLAIM_ASAL_RUJUKAN.rs,
-    tglRujukan: ref.issuedOn.toISOString().slice(0, 10),
+    tglRujukan: isoFromDbDate(ref.issuedOn),
     noRujukan: ref.number ?? '',
     ppkRujukan: ref.ppkCode ?? '',
   });
