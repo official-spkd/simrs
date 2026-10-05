@@ -176,9 +176,13 @@ Setelah izin baru ditambahkan ke katalog (`PERMISSION_CATALOG` + matriks bawaan 
 pnpm db:sync-permissions --dry-run            # tampilkan rencana per RS, tanpa menyimpan
 pnpm db:sync-permissions                      # semua tenant aktif
 pnpm db:sync-permissions --tenant RSCM        # satu tenant saja
+pnpm db:sync-permissions --reconcile --dry-run   # + rencana menyamakan peran sistem dengan matriks bawaan
+pnpm db:sync-permissions --reconcile             # + terapkan pada peran yang belum pernah diubah RS
 ```
 
 Hanya menambah izin yang baru di katalog ke peran yang memilikinya di matriks bawaan; tidak pernah mencabut, tidak mengubah lingkup yang disesuaikan RS, dan tidak memberi lagi izin yang pernah dicabut admin (dibaca dari jejak audit). Satu transaksi per tenant, setiap perubahan diaudit, aman dijalankan berulang. API yang sedang berjalan memakai izin baru paling lambat setelah `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik).
+
+Bila **matriks bawaan** berubah untuk izin yang sudah ada (mis. lingkup perawat `relationship` → `unit`), jalankan `--reconcile --dry-run` lebih dulu dan baca dua bagian per RS: `✓` peran yang akan disamakan (belum pernah diubah RS) dan `? tinjau admin` peran yang pernah diubah RS (tidak disentuh, sampaikan selisihnya ke admin RS untuk diputuskan di layar Akses). Setelah rencana disetujui, jalankan tanpa `--dry-run`. Database tes lama yang matriksnya tertinggal cukup `pnpm db:sync-permissions --reconcile` dengan `MIGRATOR_DATABASE_URL` database tes, tidak perlu dibuat ulang.
 
 Kata sandi sementara dicetak sekali. Saat login pertama di http://localhost:3000/masuk (kode RS `RSCM`, `RSFA`, atau `PLATFORM`): pindai kode QR dengan aplikasi autentikator (Google/Microsoft Authenticator), masukkan kodenya, lalu buat kata sandi baru.
 
