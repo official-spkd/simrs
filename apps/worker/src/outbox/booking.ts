@@ -1,3 +1,4 @@
+import { hhmmFromDbTime, isoFromDbDate } from '@simrs/db';
 import type { OutboxMessage, TenantTx } from '@simrs/db';
 import {
   ANTREAN_ENDPOINTS,
@@ -32,9 +33,6 @@ const idOf = (msg: { payload: unknown }) => {
     throw new PermanentOperationError('Payload booking tidak dikenali');
   }
 };
-
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-const hhmm = (d: Date) => d.toISOString().slice(11, 16);
 
 function setStatus(tx: TenantTx, id: string, data: Record<string, unknown>) {
   return tx.appointment.update({ where: { id }, data, select: { id: true } });
@@ -123,10 +121,10 @@ export const bpjsAntreanAdd: OutboxOperation = defineBpjsOperation({
       namapoli: a.service.name,
       pasienbaru: a.patient._count.encounters === 0 ? 1 : 0,
       norm: a.patient.mrn,
-      tanggalperiksa: isoDay(a.appointmentDate),
+      tanggalperiksa: isoFromDbDate(a.appointmentDate),
       kodedokter,
       namadokter: a.practitioner.name,
-      jampraktek: `${hhmm(s.startTime)}-${hhmm(s.endTime)}`,
+      jampraktek: `${hhmmFromDbTime(s.startTime)}-${hhmmFromDbTime(s.endTime)}`,
       jeniskunjungan: (a.jknVisitKind ?? 1) as 1 | 2 | 3 | 4,
       nomorreferensi: a.referenceNumber ?? '',
       nomorantrean: ticket.ticketNo,
@@ -265,13 +263,13 @@ export const patientWhatsappBookingReminder: OutboxOperation = {
       throw new PermanentOperationError('No. HP pasien tidak bisa dibaca');
     }
     if (!to) return { skip: 'no. HP pasien tidak valid' };
-    const date = isoDay(a.appointmentDate);
+    const date = isoFromDbDate(a.appointmentDate);
     const body: WhatsappSendRequest = {
       to,
       text: patientWhatsappText('booking_reminder', {
         hospitalName: a.tenant.name,
         dateLabel: formatTanggal(`${date}T12:00:00+07:00`),
-        time: hhmm(a.session.startTime).replace(':', '.'),
+        time: hhmmFromDbTime(a.session.startTime).replace(':', '.'),
         bookingCode: a.bookingCode,
       }),
     };

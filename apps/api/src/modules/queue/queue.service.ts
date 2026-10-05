@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isoFromDbDate } from '@simrs/db';
 import {
   AppError,
   type BpjsErrorCode,
@@ -410,7 +411,7 @@ export class QueueService {
         serviceId: r.serviceId,
         serviceCode: r.service.code,
         queueNo: r.ticketNo,
-        serviceDate: r.serviceDate.toISOString().slice(0, 10),
+        serviceDate: isoFromDbDate(r.serviceDate),
         status: r.status as QueueTicketStatus,
         source: r.source as QueueTicket['source'],
         reserved: r.reserved,

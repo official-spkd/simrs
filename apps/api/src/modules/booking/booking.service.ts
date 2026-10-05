@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { allocateNumber, enqueueOutbox, readTenantSetting } from '@simrs/db';
+import {
+  allocateNumber,
+  enqueueOutbox,
+  readTenantSetting,
+  dbDateFromIso,
+  hhmmFromDbTime,
+  isoFromDbDate,
+} from '@simrs/db';
 import {
   AppError,
   BPJS_ANTREAN_ADD_OPERATION,
@@ -33,17 +40,12 @@ const SYNC_ERRORS: Record<string, string> = {
   BPJS_DLQ: 'Gagal dikirim ke BPJS sampai batas waktu; perlu dikirim ulang',
 };
 
-/** `Date` kolom `date` (tengah malam UTC) → `YYYY-MM-DD`. */
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-/** `Date` kolom `time` (sesi DB UTC, ADR-0014) → `HH:MM`. */
-const hhmm = (d: Date) => d.toISOString().slice(11, 16);
 /** Tanggal kalender `YYYY-MM-DD` + jam dinding WIB `HH:MM` → instan. */
 const wibInstant = (date: string, time: string) => {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
   const [hh, mm] = time.split(':').map(Number) as [number, number];
   return jakartaWallTime(y, m, d, hh, mm);
 };
-const dbDate = (date: string) => new Date(`${date}T00:00:00.000Z`);
 
 const visitKindByCode = (code: number): BpjsVisitKind | undefined =>
   (Object.entries(BPJS_VISIT_KINDS) as Array<[BpjsVisitKind, { code: number }]>).find(
@@ -73,7 +75,7 @@ export class BookingService {
 
   async list(q: BookingListQuery) {
     const page = toPage(
-      await this.repo.list({ ...q, serviceDate: q.serviceDate ? dbDate(q.serviceDate) : undefined }),
+      await this.repo.list({ ...q, serviceDate: q.serviceDate ? dbDateFromIso(q.serviceDate) : undefined }),
       q.limit,
     );
     for (const a of page.items) {
@@ -156,7 +158,7 @@ export class BookingService {
 
     const session = await this.repo.findSession(input.sessionId);
     if (!session) throw new AppError('NOT_FOUND', 'Sesi praktik tidak ditemukan', 404);
-    const serviceDate = isoDay(session.sessionDate);
+    const serviceDate = isoFromDbDate(session.sessionDate);
     const today = isoDateJakarta(new Date());
     if (session.service.kind !== 'poli' || !session.service.active) {
       throw frontOfficeError('SESSION_CLOSED', undefined, 'Layanan sesi ini bukan poli yang aktif');
@@ -165,7 +167,7 @@ export class BookingService {
       throw frontOfficeError('SESSION_CLOSED');
     }
     const maxDays = await readTenantSetting(this.db.tx(), 'booking.max_days_ahead');
-    if (dbDate(serviceDate).getTime() - dbDate(today).getTime() > maxDays * DAY_MS) {
+    if (dbDateFromIso(serviceDate).getTime() - dbDateFromIso(today).getTime() > maxDays * DAY_MS) {
       throw frontOfficeError('BOOKING_OUT_OF_RANGE', { maxDaysAhead: maxDays });
     }
     if ((await this.repo.hasActiveBooking(input.patientId, session.serviceId, session.sessionDate)) > 0) {
@@ -185,7 +187,7 @@ export class BookingService {
     const avgMinutes = await readTenantSetting(this.db.tx(), 'queue.avg_service_minutes');
     const position = await this.sessionPosition(session.id);
     const estimatedAt = new Date(
-      wibInstant(serviceDate, hhmm(session.startTime)).getTime() + position * avgMinutes * 60_000,
+      wibInstant(serviceDate, hhmmFromDbTime(session.startTime)).getTime() + position * avgMinutes * 60_000,
     );
 
     const id = newId();
@@ -302,7 +304,7 @@ export class BookingService {
     await this.repo.lock(id);
     const a = await this.load(id);
     if (a.status !== 'booked') throw invalidState(`Booking berstatus ${a.status} tidak bisa check-in`);
-    const serviceDate = isoDay(a.appointmentDate);
+    const serviceDate = isoFromDbDate(a.appointmentDate);
     if (serviceDate !== isoDateJakarta(new Date())) {
       throw invalidState('Check-in hanya pada hari layanan');
     }
@@ -355,9 +357,9 @@ export class BookingService {
       quotaBucket: a.quotaBucket as Booking['quotaBucket'],
       patientId: a.patientId,
       sessionId: a.sessionId,
-      serviceDate: isoDay(a.appointmentDate),
-      start: hhmm(a.session.startTime),
-      end: hhmm(a.session.endTime),
+      serviceDate: isoFromDbDate(a.appointmentDate),
+      start: hhmmFromDbTime(a.session.startTime),
+      end: hhmmFromDbTime(a.session.endTime),
       practitionerId: a.practitionerId,
       practitionerName: a.practitioner.name,
       serviceId: a.serviceId,
@@ -391,7 +393,7 @@ function toTicket(t: TicketRow): QueueTicket {
     serviceId: t.serviceId,
     serviceCode: t.service.code,
     queueNo: t.ticketNo,
-    serviceDate: isoDay(t.serviceDate),
+    serviceDate: isoFromDbDate(t.serviceDate),
     status: t.status as QueueTicket['status'],
     source: t.source as QueueTicket['source'],
     reserved: t.reserved,

@@ -98,14 +98,28 @@ describe('screenOpen', () => {
   });
 });
 
-describe('izin layar front office (rencana fase 2 · 0c)', () => {
-  it('empat layar front office hibrida dengan izin fase 2; layar lain belum punya jalur api', () => {
+describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
+  it('Kendali antrean (staf, `queue.read`) hanya mode api; display TV tetap izin perangkat', () => {
+    const kendali = screenById('kendali');
+    if (!kendali) throw new Error('kendali');
+    expect(kendali).toMatchObject({ route: '/antrean', status: 'api', apiOnly: true, layout: 'staf' });
+    expect(screenOpen(kendali, { dataSource: 'demo', role: 'petugas_pendaftaran', permissions: [] })).toBe(
+      false,
+    );
+    expect(screenOpen(kendali, { dataSource: 'api', role: 'perawat', permissions: ['queue.read'] })).toBe(
+      true,
+    );
+    expect(screenOpen(kendali, { dataSource: 'api', role: 'kasir', permissions: [] })).toBe(false);
+  });
+
+  it('layar front office ber-izin fase 2; layar lain belum punya jalur api', () => {
     const map = Object.fromEntries(SCREENS.filter((s) => s.permission).map((s) => [s.id, s.permission]));
     expect(map).toEqual({
       daftar: 'encounter.write',
       jadwal: 'schedule.read',
       kiosk: 'kiosk.use',
       antrean: 'queue.display.read',
+      kendali: 'queue.read',
     });
     for (const s of SCREENS) {
       if (s.permission) {

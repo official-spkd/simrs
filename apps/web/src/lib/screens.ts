@@ -49,6 +49,11 @@ export interface ScreenDef {
    * presentasi sampai domainnya punya izin di katalog.
    */
   permission?: ScreenPermission;
+  /**
+   * Layar hanya ada di mode api (tanpa mockup dan tanpa jalur data dummy, mis. Kendali antrean): di mode presentasi
+   * tertutup (menu tersembunyi, rute 404).
+   */
+  apiOnly?: true;
   /** Posisi (peran) yang melihat layar ini di mode presentasi. */
   demoRoles: readonly SystemRoleCode[] | 'semua';
   /** `staf` = di kerangka staf (sidebar); `perangkat` = layar penuh (anjungan, TV, tablet, pratinjau ponsel). */
@@ -121,6 +126,20 @@ export const SCREENS: readonly ScreenDef[] = [
     permission: 'queue.display.read',
     demoRoles: ['petugas_pendaftaran'],
     layout: 'perangkat',
+  },
+  {
+    id: 'kendali',
+    label: 'Kendali antrean',
+    route: '/antrean',
+    mockup: null,
+    components: ['F04'],
+    phase: 2,
+    status: 'api',
+    plannedPermission: 'queue.read',
+    permission: 'queue.read',
+    demoRoles: ['petugas_pendaftaran'],
+    apiOnly: true,
+    layout: 'staf',
   },
   {
     id: 'poli',
@@ -397,7 +416,7 @@ export function screenById(id: string): ScreenDef | undefined {
 
 /**
  * Layar terbuka untuk posisi ini di sumber data aktif?
- * - `belum`: tidak pernah.
+ * - `belum`: tidak pernah; `apiOnly` tidak pernah di mode presentasi.
  * - Mode presentasi: layar `demo` dan layar hibrida (ber-`permission`) mengikuti `demoRoles` (data dummy).
  * - Mode api: layar hibrida hanya untuk peran yang memegang izinnya (`permissions` sesi); layar `api` tanpa izin
  *   terdaftar selalu terbuka (izin ditegakkan API); layar `demo` tertutup.
@@ -407,6 +426,7 @@ export function screenOpen(
   opts: { dataSource: 'api' | 'demo'; role: string | null; permissions?: readonly string[] },
 ): boolean {
   if (screen.status === 'belum') return false;
+  if (screen.apiOnly && opts.dataSource === 'demo') return false;
   if (opts.dataSource === 'demo' && (screen.status === 'demo' || screen.permission)) {
     return screen.demoRoles === 'semua' || (!!opts.role && screen.demoRoles.some((r) => r === opts.role));
   }
