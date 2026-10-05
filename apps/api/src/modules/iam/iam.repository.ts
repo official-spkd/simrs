@@ -145,8 +145,29 @@ export class IamRepository {
             assignment: { select: { role: { select: { name: true } }, unit: { select: { name: true } } } },
           },
         },
+        // "Percayai perangkat ini" yang masih berlaku (ADR-0022).
+        trustedDevices: {
+          where: { revokedAt: null, expiresAt: { gt: now() } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, userAgent: true, createdAt: true, lastUsedAt: true, expiresAt: true },
+        },
       },
     });
+  }
+
+  findTrustedDevice(id: string) {
+    return this.db
+      .tx()
+      .trustedDevice.findUnique({ where: { id }, select: { userId: true, revokedAt: true } });
+  }
+
+  /** Cabut satu perangkat tepercaya (admin): login berikutnya di perangkat itu kembali wajib kode verifikasi. */
+  async revokeTrustedDevice(id: string) {
+    const r = await this.db.tx().trustedDevice.updateMany({
+      where: { id, revokedAt: null },
+      data: { revokedAt: now() },
+    });
+    return r.count;
   }
 
   /** PIN perangkat (jenis `staff_pin`) untuk dicabut admin. */

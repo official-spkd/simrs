@@ -90,6 +90,9 @@ describe('penjaga skema', () => {
   it('role aplikasi tidak bisa menghapus data master, identitas, pasien, audit, atau jejak akses darurat', async () => {
     const tables = [
       'audit_events',
+      'audit_anchors',
+      'audit_daily_summaries',
+      'audit_daily_summary_items',
       'facilities',
       'units',
       'locations',
@@ -132,6 +135,7 @@ describe('penjaga skema', () => {
       'referrals',
       'seps',
       'patient_contacts',
+      'domain_events',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
@@ -168,7 +172,7 @@ describe('penjaga skema', () => {
     expect(p).toEqual({ mrn: false, name: true, value: false, active: true });
   });
 
-  it('skema ref (data rujukan global) hanya bisa dibaca role aplikasi', async () => {
+  it('setiap tabel skema ref (data rujukan global, daftar sandi bocor) hanya bisa dibaca role aplikasi', async () => {
     const rows = await owner.$queryRaw<
       Array<{ table: string; sel: boolean; ins: boolean; upd: boolean; del: boolean }>
     >`
@@ -177,9 +181,18 @@ describe('penjaga skema', () => {
              has_table_privilege('simrs_app', 'ref.' || t, 'INSERT') AS ins,
              has_table_privilege('simrs_app', 'ref.' || t, 'UPDATE') AS upd,
              has_table_privilege('simrs_app', 'ref.' || t, 'DELETE') AS del
-      FROM unnest(ARRAY['code_systems', 'concepts', 'regions']) AS t`;
-    expect(rows.every((r) => r.sel && !r.ins && !r.upd && !r.del)).toBe(true);
-    expect(rows).toHaveLength(3);
+      FROM (SELECT tablename AS t FROM pg_tables WHERE schemaname = 'ref') AS ref_tables
+      ORDER BY 1`;
+    expect(rows.filter((r) => !r.sel || r.ins || r.upd || r.del).map((r) => r.table)).toEqual([]);
+    expect(rows.map((r) => r.table)).toEqual(
+      expect.arrayContaining([
+        'breached_password_imports',
+        'breached_passwords',
+        'code_systems',
+        'concepts',
+        'regions',
+      ]),
+    );
   });
 
   it('perangkat terdaftar: jenis, hash PIN/token, akun, dan masa berlaku tidak bisa diubah role aplikasi', async () => {

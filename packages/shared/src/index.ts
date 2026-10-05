@@ -1,5 +1,6 @@
 export * from './audit';
 export * from './authz';
+export * from './backup';
 export * from './components';
 export * from './datetime';
 export * from './devices';

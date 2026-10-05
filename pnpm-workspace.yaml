@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "infra/backup"
 allowBuilds:
   esbuild: true
   prisma: true

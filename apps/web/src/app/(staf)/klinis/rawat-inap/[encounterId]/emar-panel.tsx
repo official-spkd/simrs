@@ -129,83 +129,89 @@ export function EmarPanel({
           onScan={() => scan(rm, null)}
           onOverride={(reason) => scan(null, reason)}
         />
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-small">
-            <caption className="sr-only">Jadwal pemberian obat hari ini</caption>
-            <thead>
-              <tr className="text-left text-caption text-ink-700">
-                <th scope="col" className="py-2 pr-2 font-semibold">
-                  Obat · dosis · rute
-                </th>
-                {EMAR_TIMES.map((t) => (
-                  <th
-                    key={t}
-                    scope="col"
-                    className={cx('px-1 py-2 text-center font-semibold', t === now && 'text-brand-700')}
-                  >
-                    {t.slice(0, 2)}
-                    {t === now ? ' · kini' : ''}
+        {/* Kolom tetap: kelima jam muat di kartu laptop (≥ 460 px); lebih sempit lagi tabel bergeser dengan petunjuk. */}
+        <div className="@container flex flex-col gap-1">
+          <span className="text-caption text-ink-500 @min-[460px]:hidden" aria-hidden="true">
+            Geser tabel ke samping untuk melihat semua jam →
+          </span>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[460px] table-fixed border-collapse text-small">
+              <caption className="sr-only">Jadwal pemberian obat hari ini</caption>
+              <thead>
+                <tr className="text-left text-caption text-ink-700">
+                  <th scope="col" className="w-[36%] py-2 pr-2 font-semibold">
+                    Obat · dosis · rute
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {meds.map((m) => (
-                <tr key={m.id} className="border-t border-line-soft align-top">
-                  <th scope="row" className="py-2 pr-2 text-left font-normal">
-                    <span className="flex flex-col gap-0.5">
-                      <span className="font-semibold">{m.name}</span>
-                      <span className="text-caption text-ink-500">{m.sig}</span>
-                      <span className="flex flex-wrap gap-1">
-                        <span className="font-mono text-[11px] text-ink-500">
-                          {m.kfa ? `KFA ${m.kfa}` : 'KFA belum dipetakan'}
-                        </span>
-                        {m.highAlert && <Chip tone="danger">Kewaspadaan tinggi</Chip>}
-                      </span>
-                    </span>
-                  </th>
-                  {m.slots.map((s) => {
-                    const done = state.given[emarKey(m.id, s.time)];
-                    const meta = EMAR_STATE_META[done ? 'diberikan' : s.state];
-                    const label = done ?? (s.state === 'diberikan' ? `✓ ${s.label}` : s.label);
-                    const can = !done && emarActionable(s.state);
-                    const picked = pick?.med.id === m.id && pick.time === s.time;
-                    return (
-                      <td key={s.time} className="px-1 py-2">
-                        <button
-                          type="button"
-                          disabled={!can || !unlocked || locked}
-                          aria-expanded={can && unlocked ? picked : undefined}
-                          aria-controls={picked ? 'emar-dosis' : undefined}
-                          onClick={() => {
-                            setError(null);
-                            setPick({ med: m, time: s.time });
-                          }}
-                          aria-label={`${m.name} jam ${s.time} · ${meta.label}${label && s.state !== 'kosong' ? ` · ${label}` : ''}${can && !unlocked ? ' · pindai gelang dulu' : ''}`}
-                          title={
-                            can
-                              ? unlocked
-                                ? 'Pilih dosis ini, pindai label obat, lalu catat'
-                                : 'Pindai gelang pasien dulu'
-                              : undefined
-                          }
-                          className={cx(
-                            'min-h-11 w-full rounded-[8px] border px-1 font-[inherit] text-[11.5px] font-semibold',
-                            meta.cls,
-                            can && unlocked ? 'cursor-pointer' : 'cursor-default',
-                            can && !unlocked && 'opacity-70',
-                            picked && 'ring-2 ring-brand-600',
-                          )}
-                        >
-                          {s.state === 'kosong' && !done ? '·' : label}
-                        </button>
-                      </td>
-                    );
-                  })}
+                  {EMAR_TIMES.map((t) => (
+                    <th
+                      key={t}
+                      scope="col"
+                      className={cx('px-1 py-2 text-center font-semibold', t === now && 'text-brand-700')}
+                    >
+                      {t.slice(0, 2)}
+                      {t === now ? ' · kini' : ''}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {meds.map((m) => (
+                  <tr key={m.id} className="border-t border-line-soft align-top">
+                    <th scope="row" className="py-2 pr-2 text-left font-normal">
+                      <span className="flex flex-col gap-0.5">
+                        <span className="font-semibold">{m.name}</span>
+                        <span className="text-caption text-ink-500">{m.sig}</span>
+                        <span className="flex flex-wrap gap-1">
+                          <span className="font-mono text-[11px] text-ink-500">
+                            {m.kfa ? `KFA ${m.kfa}` : 'KFA belum dipetakan'}
+                          </span>
+                          {m.highAlert && <Chip tone="danger">Kewaspadaan tinggi</Chip>}
+                        </span>
+                      </span>
+                    </th>
+                    {m.slots.map((s) => {
+                      const done = state.given[emarKey(m.id, s.time)];
+                      const meta = EMAR_STATE_META[done ? 'diberikan' : s.state];
+                      const label = done ?? (s.state === 'diberikan' ? `✓ ${s.label}` : s.label);
+                      const can = !done && emarActionable(s.state);
+                      const picked = pick?.med.id === m.id && pick.time === s.time;
+                      return (
+                        <td key={s.time} className="px-1 py-2">
+                          <button
+                            type="button"
+                            disabled={!can || !unlocked || locked}
+                            aria-expanded={can && unlocked ? picked : undefined}
+                            aria-controls={picked ? 'emar-dosis' : undefined}
+                            onClick={() => {
+                              setError(null);
+                              setPick({ med: m, time: s.time });
+                            }}
+                            aria-label={`${m.name} jam ${s.time} · ${meta.label}${label && s.state !== 'kosong' ? ` · ${label}` : ''}${can && !unlocked ? ' · pindai gelang dulu' : ''}`}
+                            title={
+                              can
+                                ? unlocked
+                                  ? 'Pilih dosis ini, pindai label obat, lalu catat'
+                                  : 'Pindai gelang pasien dulu'
+                                : undefined
+                            }
+                            className={cx(
+                              'min-h-11 w-full rounded-[8px] border px-1 font-[inherit] text-[11.5px] font-semibold',
+                              meta.cls,
+                              can && unlocked ? 'cursor-pointer' : 'cursor-default',
+                              can && !unlocked && 'opacity-70',
+                              picked && 'ring-2 ring-brand-600',
+                            )}
+                          >
+                            {s.state === 'kosong' && !done ? '·' : label}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         {pick && (
           <EmarDosePanel

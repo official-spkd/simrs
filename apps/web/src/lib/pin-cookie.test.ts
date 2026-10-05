@@ -9,7 +9,7 @@ import {
   type SessionCookieOptions,
   writePinTokens,
 } from './server/cookies';
-import { canRegisterPin } from './session-view';
+import { canRegisterPin, pinUnavailableText, toSessionView } from './session-view';
 
 const TENANT = '0199a000-0000-7000-8000-000000000001';
 const id = (n: number) => `0199b000-0000-7000-8000-${String(n).padStart(12, '0')}`;
@@ -51,25 +51,23 @@ describe('cookie PIN perangkat (ADR-0024)', () => {
   });
 });
 
-describe('boleh mendaftarkan PIN (sama dengan aturan API)', () => {
-  const base = {
+describe('ketersediaan PIN dari /auth/me', () => {
+  const me = {
+    user: { id: id(1), username: 'uji', displayName: 'Akun uji', mustChangePassword: false },
     tenant: { code: 'RSFA', name: 'RS uji', kind: 'hospital' as const },
+    mfa: { enrolled: true, sessionVerified: true },
     role: { code: 'perawat', name: 'Perawat' },
     unit: { id: id(7), name: 'Melati' },
-    quickLogin: false,
+    permissions: [],
+    session: { quickLogin: false },
   };
-  it('posisi layanan berunit di sesi penuh saja', () => {
-    expect(canRegisterPin(base)).toBe(true);
-    expect(canRegisterPin({ ...base, quickLogin: true })).toBe(false);
-    expect(canRegisterPin({ ...base, unit: null })).toBe(false);
-    expect(canRegisterPin({ ...base, role: { code: 'kasir', name: 'Kasir' } })).toBe(false);
-    expect(canRegisterPin({ ...base, role: null })).toBe(false);
-    expect(
-      canRegisterPin({
-        ...base,
-        tenant: { ...base.tenant, kind: 'platform' },
-        role: { code: 'superadmin_platform', name: 'Superadmin' },
-      }),
-    ).toBe(false);
+  it('mengikuti keputusan API (aturan + pengaturan RS), bukan dihitung ulang di web', () => {
+    expect(canRegisterPin(toSessionView({ ...me, pin: { available: true, reason: null } }))).toBe(true);
+    const off = toSessionView({ ...me, pin: { available: false, reason: 'disabled' } });
+    expect(canRegisterPin(off)).toBe(false);
+    expect(pinUnavailableText(off.pin?.reason, off.role?.name)).toMatch(/dinonaktifkan oleh RS/);
+    expect(canRegisterPin(toSessionView(me))).toBe(false);
+    expect(pinUnavailableText('role', 'Kasir')).toMatch(/Posisi Kasir tidak bisa memakai PIN/);
+    expect(pinUnavailableText('quick_session', 'Perawat')).toMatch(/sedang masuk dengan PIN/);
   });
 });

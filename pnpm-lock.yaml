@@ -396,6 +396,37 @@ importers:
         specifier: ^5
         version: 5.0.3(@types/node@24.19.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@8.3.2(@types/node@24.19.1)(esbuild@0.27.7)(jiti@2.7.0))
 
+  infra/backup:
+    dependencies:
+      '@simrs/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      zod:
+        specifier: ^4
+        version: 4.6.5
+    devDependencies:
+      '@simrs/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@simrs/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@types/pg':
+        specifier: ^8
+        version: 8.23.1
+      eslint:
+        specifier: ^10
+        version: 10.11.0(jiti@2.7.0)
+      tsx:
+        specifier: ^4
+        version: 4.23.15
+      vitest:
+        specifier: ^5
+        version: 5.0.3(@types/node@24.19.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(vite@8.3.2(@types/node@24.19.1)(esbuild@0.27.7)(jiti@2.7.0))
+
   packages/config:
     dependencies:
       '@eslint/js':

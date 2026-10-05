@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSystemRoles } from './authz';
-import { createPrismaClient, withTenant } from './client';
+import { createPrismaClient, type TenantTx, withTenant } from './client';
 import { syncRolePermissions } from './permission-sync';
 import { seedRefSamples } from './seed-ref';
 import { SEED_PLATFORM_TENANT, SEED_TENANTS } from './seed-data';
@@ -32,6 +32,35 @@ export function testDbUrls(env: Record<string, string | undefined> = process.env
     app:
       env.TEST_APP_DATABASE_URL ?? 'postgresql://simrs_app:app_local@localhost:5432/simrs_test?schema=public',
   };
+}
+
+/**
+ * Superuser Postgres ke database tes yang sama (pengguna `postgres`, sandi `POSTGRES_SUPERUSER_PASSWORD`, sama
+ * dengan `scripts/recreate-test-db.mjs`). Hanya untuk mensimulasikan penyerang ber-hak penuh di tes.
+ */
+export function testSuperuserUrl(env: Record<string, string | undefined> = process.env): string {
+  const url = new URL(testDbUrls(env).migrator);
+  assertTestDatabase(url.toString());
+  url.username = 'postgres';
+  url.password = env.POSTGRES_SUPERUSER_PASSWORD ?? 'postgres_local';
+  return url.toString();
+}
+
+/**
+ * Jalankan `fn` sebagai superuser Postgres dengan SEMUA trigger biasa mati (`session_replication_role = replica`)
+ * dan tanpa RLS, dalam satu transaksi: penyerang yang bisa menghapus/mengubah baris audit dan jangkar sesukanya.
+ * Hanya database tes.
+ */
+export async function asTestSuperuser<T>(fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+  const prisma = createPrismaClient({ connectionString: testSuperuserUrl(), max: 1 });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      return fn(tx);
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 /**

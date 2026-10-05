@@ -1,7 +1,17 @@
 import { z } from 'zod';
+import { SENSITIVE_ROLES } from './authz';
 import { COMPONENTS, type ComponentCode } from './components';
+import { BACKUP_CODE_CHANNELS } from './schemas/auth';
+import { PIN_LOGIN_ROLES } from './security/pin-policy';
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Format jam HH:MM');
+/** Daftar tanpa duplikat. */
+const uniqueList = <T extends z.ZodType<string>>(item: T, max: number) =>
+  z
+    .array(item)
+    .max(max)
+    .refine((v) => new Set(v).size === v.length, 'Isi daftar tidak boleh ganda');
+const roleCode = z.string().regex(/^[a-z][a-z0-9_]{2,40}$/, 'Kode peran tidak valid');
 
 interface SettingDef<T> {
   label: string;
@@ -12,6 +22,13 @@ interface SettingDef<T> {
 function def<T>(label: string, schema: z.ZodType<T>, defaultValue: T): SettingDef<T> {
   return { label, schema, default: defaultValue };
 }
+
+/**
+ * Batas bawah ambang temuan anomali (P04). Ringkasan harian audit membuang hitungan di bawahnya karena tidak pernah
+ * bisa menjadi temuan, apa pun pengaturan RS (ADR-0072). Naikkan/turunkan hanya bersama versi ringkasan.
+ */
+export const AUDIT_VOLUME_THRESHOLD_MIN = 2;
+export const AUDIT_BURST_THRESHOLD_MIN = 2;
 
 /**
  * P12 · Registri pengaturan per RS. Hanya kunci di sini yang boleh disimpan; nilainya divalidasi skemanya.
@@ -26,6 +43,25 @@ export const TENANT_SETTINGS = {
     5,
   ),
   'login.lockout_minutes': def('Lama kunci akun (menit)', z.number().int().min(5).max(1440), 15),
+  // P02 · Kode cadangan login (ADR-0022): kanal yang boleh dipakai RS ini; kosong = kode cadangan nonaktif.
+  'login.backup_code_channels': def(
+    'Kanal kode cadangan login bila tidak punya aplikasi autentikator (kosong = nonaktif)',
+    uniqueList(z.enum(BACKUP_CODE_CHANNELS), BACKUP_CODE_CHANNELS.length),
+    [...BACKUP_CODE_CHANNELS],
+  ),
+  // Pemegang salah satu peran ini (di posisi mana pun) wajib kode aplikasi autentikator, tanpa kode cadangan.
+  'login.totp_only_roles': def(
+    'Peran yang wajib kode aplikasi autentikator (tanpa kode cadangan WhatsApp/email)',
+    uniqueList(roleCode, 50),
+    [...SENSITIVE_ROLES],
+  ),
+  // P02 · PIN masuk cepat (ADR-0024): bisa dimatikan per RS atau dipersempit ke sebagian peran layanan.
+  'pin.enabled': def('PIN masuk cepat di perangkat terdaftar', z.boolean(), true),
+  'pin.allowed_roles': def(
+    'Peran yang boleh memakai PIN masuk cepat',
+    uniqueList(z.enum(PIN_LOGIN_ROLES), PIN_LOGIN_ROLES.length),
+    [...PIN_LOGIN_ROLES],
+  ),
   'break_glass.duration_minutes': def('Durasi akses darurat (menit)', z.number().int().min(15).max(120), 60),
   'resume.deadline_hours': def('Batas waktu penyelesaian resume (jam)', z.number().int().min(1).max(72), 24),
   'service.hours': def(
@@ -42,12 +78,12 @@ export const TENANT_SETTINGS = {
   ),
   'audit.volume_threshold': def(
     'Batas pasien berbeda per pengguna per hari sebelum ditandai anomali',
-    z.number().int().min(2).max(1000),
+    z.number().int().min(AUDIT_VOLUME_THRESHOLD_MIN).max(1000),
     50,
   ),
   'audit.burst_threshold': def(
     'Batas gagal login atau akses ditolak per pengguna per hari sebelum ditandai anomali',
-    z.number().int().min(2).max(100),
+    z.number().int().min(AUDIT_BURST_THRESHOLD_MIN).max(100),
     5,
   ),
 } as const;

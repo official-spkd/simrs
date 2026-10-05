@@ -19,3 +19,8 @@ Mockup Login menawarkan "Tidak punya akses aplikasi? Kirim kode lewat WhatsApp" 
 ## Pembaruan 5 Okt 2026 · PIN perangkat terdaftar
 
 Registrasi perangkat kini ada sebagai `registered_devices` (ADR-0024), baru untuk PIN masuk cepat jenis `staff_pin` yang didaftarkan pemilik akun. Penegakan "hanya komputer milik RS" untuk perangkat tepercaya tetap menunggu pendaftaran perangkat oleh admin bersama prinsipal perangkat (ADR-0027).
+
+## Pembaruan 5 Okt 2026 · pengaturan per RS dan pencabutan oleh admin
+- **Pengaturan P12** `login.backup_code_channels` (bawaan WhatsApp + email; kosong = kode cadangan nonaktif) dan `login.totp_only_roles` (bawaan `SENSITIVE_ROLES`: admin, kasir, koder, akuntan, petugas RM, manajemen, auditor mutu, petugas privasi, superadmin platform). Akun yang memegang peran wajib-TOTP di **posisi mana pun** tidak mendapat kanal apa pun, karena setelah masuk ia bisa berpindah ke posisi itu. Penolakan kiriman = 403 + audit `access_denied` (`login_challenge`); kode yang sudah terkirim sebelum kebijakan diperketat ditolak saat verifikasi. `POST /auth/mfa/backup-options` memberi kanal yang berlaku agar layar verifikasi hanya menampilkan tautan yang sah. Konsekuensi "peran sensitif bisa dibatasi … belum ada" tertutup; bawaannya kini membatasi.
+- **Layar Akses** menampilkan perangkat tepercaya yang masih berlaku di detail pengguna; admin (izin `iam.users.write`, bukan akun sendiri, pengaman setara-admin ADR-0012) mencabutnya lewat `POST /iam/trusted-devices/:id/revoke` (audit `deactivate trusted_device`).
+- Perangkat tepercaya tetap di luar `login.totp_only_roles` (yang dilewatinya hanya langkah kode, sandi tetap wajib); RS yang ingin melarangnya untuk peran sensitif menunggu pengaturan tersendiri.

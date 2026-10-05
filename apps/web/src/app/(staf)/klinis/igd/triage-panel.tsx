@@ -146,10 +146,17 @@ export function TriagePanel({
           <span className="text-caption text-ink-500">
             Triase · tiba {formatJam(item.arrivedAt)} · {item.arrivalMode}
           </span>
-          <h2 className="m-0 text-[17px] font-bold">
-            {item.patientName} · {item.sex} · {item.ageLabel}
-          </h2>
-          {item.rm && <span className="font-mono text-caption text-ink-700">RM {item.rm}</span>}
+          <h2 className="m-0 text-[17px] leading-snug font-bold">{item.patientName}</h2>
+          {/* Jenis kelamin dan umur di baris sendiri: nama panjang (pasien anonim) tidak turun tiga baris. */}
+          <span className="text-caption text-ink-700">
+            {item.sex} · {item.ageLabel}
+            {item.rm && (
+              <>
+                {' · '}
+                <span className="font-mono">RM {item.rm}</span>
+              </>
+            )}
+          </span>
         </div>
         <span className="flex flex-none flex-col items-end gap-1">
           <span role="timer" aria-label="Lama di IGD" className="flex flex-col items-end">

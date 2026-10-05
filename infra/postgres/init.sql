@@ -3,6 +3,11 @@
 
 CREATE ROLE simrs_migrator LOGIN CREATEDB PASSWORD 'migrator_local';  -- CREATEDB: shadow database Prisma migrate dev
 CREATE ROLE simrs_app LOGIN PASSWORD 'app_local' NOSUPERUSER NOBYPASSRLS;
+-- Peran ops backup (ADR-0071): baca semua data + BYPASSRLS untuk pg_dump, tanpa hak tulis; hanya dipakai skrip
+-- infra/backup, tidak pernah oleh aplikasi. Cluster lama: infra/backup/sql/simrs-backup-role.sql.
+CREATE ROLE simrs_backup LOGIN PASSWORD 'backup_local' NOSUPERUSER BYPASSRLS NOCREATEDB NOCREATEROLE CONNECTION LIMIT 4;
+ALTER ROLE simrs_backup SET default_transaction_read_only = on;
+GRANT pg_read_all_data TO simrs_backup;
 
 ALTER DATABASE simrs OWNER TO simrs_migrator;
 ALTER SCHEMA public OWNER TO simrs_migrator;

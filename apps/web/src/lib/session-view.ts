@@ -1,4 +1,4 @@
-import { pinAllowedForRole, type TenantKind } from '@simrs/shared';
+import type { PinUnavailableReason, TenantKind } from '@simrs/shared';
 
 /** DTO sesi untuk render: hanya yang dibutuhkan UI (tanpa token, tanpa email, tanpa ID sesi). */
 export interface SessionView {
@@ -13,6 +13,8 @@ export interface SessionView {
   mustChangePassword: boolean;
   /** Sesi dibuka dengan PIN perangkat (ADR-0024): pendek, posisi terkunci, tidak bisa mendaftarkan PIN. */
   quickLogin?: boolean;
+  /** Boleh mendaftarkan PIN di posisi ini (dihitung API dari aturan + pengaturan RS); `reason` bila tidak. */
+  pin?: { available: boolean; reason: PinUnavailableReason | null };
 }
 
 interface MeLike {
@@ -23,6 +25,7 @@ interface MeLike {
   unit: { id: string; name: string } | null;
   permissions: ReadonlyArray<{ resource: string; action: string }>;
   session?: { quickLogin: boolean };
+  pin?: { available: boolean; reason: PinUnavailableReason | null };
 }
 
 export function toSessionView(me: MeLike): SessionView {
@@ -41,15 +44,37 @@ export function toSessionView(me: MeLike): SessionView {
     mfaVerified: me.mfa.sessionVerified,
     mustChangePassword: me.user.mustChangePassword,
     quickLogin: me.session?.quickLogin ?? false,
+    pin: me.pin ?? { available: false, reason: null },
   };
 }
 
 /**
- * Posisi sesi ini boleh mendaftarkan PIN masuk cepat (sama dengan aturan API): sesi penuh (bukan sesi PIN) di RS,
- * peran layanan (bukan peran sensitif), dan posisi yang terikat unit kerja.
+ * Posisi sesi ini boleh mendaftarkan PIN masuk cepat. Dihitung API (`/auth/me`): sesi penuh di RS, peran layanan yang
+ * diizinkan pengaturan RS, PIN tidak dimatikan RS, dan posisi terikat unit. API tetap menegakkan saat mendaftar.
  */
-export function canRegisterPin(s: Pick<SessionView, 'tenant' | 'role' | 'unit' | 'quickLogin'>): boolean {
-  return !s.quickLogin && s.tenant.kind === 'hospital' && pinAllowedForRole(s.role?.code) && s.unit !== null;
+export function canRegisterPin(s: Pick<SessionView, 'pin'>): boolean {
+  return s.pin?.available ?? false;
+}
+
+/** Teks penjelasan bila PIN tidak tersedia untuk posisi ini. */
+export function pinUnavailableText(
+  reason: PinUnavailableReason | null | undefined,
+  roleName: string | null | undefined,
+): string {
+  switch (reason) {
+    case 'quick_session':
+      return 'Anda sedang masuk dengan PIN. Untuk mendaftarkan atau mengganti PIN, keluar lalu masuk dengan kata sandi dan kode verifikasi.';
+    case 'platform':
+      return 'PIN masuk cepat tidak tersedia untuk akun operator platform.';
+    case 'disabled':
+      return 'PIN masuk cepat dinonaktifkan oleh RS ini.';
+    case 'no_position':
+      return 'Pilih posisi kerja lebih dulu.';
+    case 'no_unit':
+      return 'PIN hanya untuk posisi yang terikat ke unit kerja. Ganti posisi ke posisi berunit lebih dulu.';
+    default:
+      return `Posisi ${roleName ?? 'ini'} tidak bisa memakai PIN masuk cepat di RS ini; masuk dengan kata sandi dan kode verifikasi.`;
+  }
 }
 
 export function can(s: Pick<SessionView, 'permissions'>, resource: string, action: string): boolean {
