@@ -331,6 +331,46 @@ export const printableSepSchema = z.strictObject({
 });
 export type PrintableSep = z.infer<typeof printableSepSchema>;
 
+/**
+ * Lembar cetak loket pendaftaran rawat jalan (HTML 80 mm, keputusan fase 2 no. 10): tiket antrean poli + ringkasan SEP
+ * bila penjamin BPJS. `GET /registration/encounters/:id/print`, izin `documents.print`, diaudit `print` per pasien.
+ * Identitas minimal: nama + RM pasien, no. kartu tersamar (lembar SEP resmi VClaim memakai `printableSepSchema`).
+ */
+export const printableVisitSchema = z.strictObject({
+  tenantName: z.string().min(1).max(160),
+  encounterNumber: z.string().regex(ENCOUNTER_NUMBER_PATTERN),
+  serviceDate: serviceDateSchema,
+  arrivedAt: isoDateTime.nullable(),
+  patient: z.strictObject({
+    name: z.string().min(1).max(120),
+    mrn: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
+  }),
+  poliName: z.string().min(1).max(160),
+  room: z.string().max(60).nullable(),
+  practitionerName: z.string().max(160).nullable(),
+  /** Nomor antrean poli; null bila kunjungan tanpa tiket poli. */
+  queueNo: z.string().max(10).nullable(),
+  estimatedCallAt: isoDateTime.nullable(),
+  bookingCode: bookingCodeSchema.nullable(),
+  payerKind: z.enum(PAYER_KINDS).nullable(),
+  payerName: z.string().max(160).nullable(),
+  /** SEP terbaru (BPJS); null untuk non-BPJS. Nomor null selama `pending`/`failed`. */
+  sep: z
+    .strictObject({
+      status: z.enum(SEP_STATUSES),
+      sepNo: z.string().regex(SEP_NO_PATTERN).nullable(),
+      cardNoMasked: z.string().max(40).nullable(),
+      classEntitlement: z.enum(JKN_CLASS_RIGHTS).nullable(),
+      referenceNumber: z.string().max(40).nullable(),
+      referrerName: z.string().max(160).nullable(),
+      initialDiagnosis: icd10CodingSchema.nullable(),
+      issuedAt: isoDateTime.nullable(),
+    })
+    .nullable(),
+  printedAt: isoDateTime,
+});
+export type PrintableVisit = z.infer<typeof printableVisitSchema>;
+
 // ---------------------------------------------------------------------------------------------------------------
 // Persetujuan umum dan penanggung jawab
 // ---------------------------------------------------------------------------------------------------------------

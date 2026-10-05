@@ -1342,6 +1342,10 @@ model ScheduleSession {
   note           String?
   /// Terakhir sama dengan HFIS.
   hfisSyncedAt   DateTime? @map("hfis_synced_at") @db.Timestamptz(3)
+  /// Pasien sesi cuti sudah dialihkan (`substitute` = tetap di sesi ini atas nama pengganti, `session` = pindah sesi).
+  transferredAt  DateTime? @map("transferred_at") @db.Timestamptz(3)
+  transferredBy  String?   @map("transferred_by") @db.Uuid
+  transferTarget String?   @map("transfer_target")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy      String?   @map("created_by") @db.Uuid
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)

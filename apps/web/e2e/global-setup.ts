@@ -6,6 +6,7 @@ import { DEMO_ACCOUNTS_FILE } from './demo-accounts-file';
 import { registerTestDevices } from './support/devices';
 import { e2eFieldKeys } from './support/field-keys';
 import { resetMockState } from './support/mock';
+import { ensureRsfaSchedule } from './support/schedule';
 
 /**
  * Berjalan setelah semua webServer menyala (mock, API, worker, web). Migrasi tertunda + tenant fiktif (termasuk
@@ -32,5 +33,7 @@ export default async function globalSetup(): Promise<void> {
   } finally {
     await prisma.$disconnect();
   }
+  // F01–F04: poli, dokter (kode HFIS fiktif), templat, dan sesi 30 hari RSFA untuk spesifikasi jadwal/antrean/booking.
+  await ensureRsfaSchedule();
   await resetMockState();
 }

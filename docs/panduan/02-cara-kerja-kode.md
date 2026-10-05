@@ -508,17 +508,18 @@ Modul `modules/kiosk/` (potongan 6), kontrak `@simrs/shared` `schemas/kiosk.ts`.
 
 Modul `modules/registration/` (F03) dan `modules/sep/` (F06), kontrak `@simrs/shared` `schemas/registration.ts`.
 
-| Endpoint `/api/v1/…`                               | Izin              | Isi                                                                                                                  |
-| -------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `POST registration/outpatient` + `Idempotency-Key` | `encounter.write` | Registrasi rawat jalan (rincian di bawah); 201 `registrationResultSchema`                                            |
-| `GET registration/encounters/:id`                  | `encounter.read`  | Kunjungan + penjaminan + SEP terbaru + tiket poli + booking; lingkup relasi butuh relasi aktif (`app_patient_group`) |
-| `GET registration/desk`                            | `encounter.write` | Antrean loket admisi menunggu + kuota dokter hari ini (`SchedulingService.todayQuotas`), tanpa daftar pasien         |
-| `POST registration/dukcapil-lookup {nik}`          | `patient.write`   | Lookup sinkron demografi (mock `/dukcapil/verify`); tidak disimpan                                                   |
-| `POST sep/eligibility-checks?patientId=`           | `coverage.read`   | Lookup sinkron VClaim peserta (no. kartu/NIK di body); tidak aktif = hasil, tidak ditemukan = 422 `BPJS_REJECTED`    |
-| `GET sep/referrals?patientId=`                     | `coverage.read`   | Rujukan FKTP VClaim per no. kartu pasien (dibaca server) + surat kontrol RS; hasil VClaim disimpan di `referrals`    |
-| `GET sep/:id`, `PATCH sep/:id`                     | `coverage.*`      | Baca; revisi SEP terbit = versi baru `pending` (alasan wajib) + outbox `bpjs.vclaim.sep.update`                      |
-| `POST sep/:id/retry`, `POST sep/:id/cancel`        | `coverage.write`  | Kirim ulang setelah ditolak/DLQ (urut outbox baru); batal SEP terbit + outbox `bpjs.vclaim.sep.delete`               |
-| `GET/POST patients/:id/contacts`                   | `patient.*`       | Kontak/penanggung jawab (terenkripsi, append-only, no. HP tersamar)                                                  |
+| Endpoint `/api/v1/…`                               | Izin              | Isi                                                                                                                   |
+| -------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `POST registration/outpatient` + `Idempotency-Key` | `encounter.write` | Registrasi rawat jalan (rincian di bawah); 201 `registrationResultSchema`                                             |
+| `GET registration/encounters/:id`                  | `encounter.read`  | Kunjungan + penjaminan + SEP terbaru + tiket poli + booking; lingkup relasi butuh relasi aktif (`app_patient_group`)  |
+| `GET registration/desk`                            | `encounter.write` | Antrean loket admisi menunggu + kuota dokter hari ini (`SchedulingService.todayQuotas`), tanpa daftar pasien          |
+| `GET registration/encounters/:id/print`            | `documents.print` | Lembar cetak loket (`printableVisitSchema`: tiket poli + ringkasan SEP, no. kartu tersamar), audit `print` per pasien |
+| `POST registration/dukcapil-lookup {nik}`          | `patient.write`   | Lookup sinkron demografi (mock `/dukcapil/verify`); tidak disimpan                                                    |
+| `POST sep/eligibility-checks?patientId=`           | `coverage.read`   | Lookup sinkron VClaim peserta (no. kartu/NIK di body); tidak aktif = hasil, tidak ditemukan = 422 `BPJS_REJECTED`     |
+| `GET sep/referrals?patientId=`                     | `coverage.read`   | Rujukan FKTP VClaim per no. kartu pasien (dibaca server) + surat kontrol RS; hasil VClaim disimpan di `referrals`     |
+| `GET sep/:id`, `PATCH sep/:id`                     | `coverage.*`      | Baca; revisi SEP terbit = versi baru `pending` (alasan wajib) + outbox `bpjs.vclaim.sep.update`                       |
+| `POST sep/:id/retry`, `POST sep/:id/cancel`        | `coverage.write`  | Kirim ulang setelah ditolak/DLQ (urut outbox baru); batal SEP terbit + outbox `bpjs.vclaim.sep.delete`                |
+| `GET/POST patients/:id/contacts`                   | `patient.*`       | Kontak/penanggung jawab (terenkripsi, append-only, no. HP tersamar)                                                   |
 
 Registrasi rawat jalan (satu transaksi permintaan):
 
@@ -550,6 +551,11 @@ Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data di
 - **update** (versi ≥ 2) → `issued`; **delete** (SEP `cancelled`) → status kirim saja (`BPJS_SEP_TIDAK_DITEMUKAN` = sudah
   hilang → `sent`). Ditolak → `failed` + `last_error_code` + `rejection_reason`; DLQ → `failed` + `BPJS_DLQ`
   (`sync_status` `dead`). Status kirim terakhir di `seps.sync_status|synced_at|sync_error_code`.
+
+Task ID untuk kunjungan ini (mesin `BpjsTaskEngine`, worker `bpjs-antrean.ts`): walk-in tanpa panggilan tiket loket
+mendapat task 1 (check-in) lalu task 2 dan 3 pada saat didaftarkan, karena Antrean BPJS menolak lompatan 1 → 3. Selama
+`bpjs.antrean.add` booking masih `pending` (mis. setelah gangguan BPJS), `updatewaktu` menunggu pesan tambah itu;
+tambah antrean memakai nomor poli booking walau cadangannya sudah dilepas registrasi.
 
 ### IGD, admisi rawat inap, SPRI, surat kontrol, rujukan (F03/F06/F07, fase 2 potongan 7)
 
@@ -843,6 +849,18 @@ Layar fase 2–10 dibangun di rute finalnya sebelum backend ada, dengan data dum
 - Status layar di `lib/screens.ts`: `belum` → `demo` saat layar dibangun → `api` saat backend tersambung. Menu mengikuti status ini; posisi yang bukan pemakai tidak melihat menunya di mode demo.
 - Layar hibrida (fase 2, keputusan #4: jalur demo dipertahankan): layar yang punya `permission` di registri (Pendaftaran `encounter.write`, Jadwal `schedule.read`, Anjungan `kiosk.use`, Display antrean `queue.display.read`) memakai `requireScreen('<id>')`. Mode presentasi → jalur demo yang dibekukan di `demo-<layar>.tsx` + `actions-demo.ts`; mode api → sesi + izin sungguhan, tanpa izin "Akses ditolak", dengan izin halaman api (sementara "Belum tersambung", diisi potongan fase 2). Menu di mode api juga mengikuti izin itu. Data per layar di `lib/server/data/front-office/{jadwal,antrean,pendaftaran,kiosk}.ts`.
 - Antrean (F04, potongan 4b): display TV mode api dibuka perangkat display terdaftar yang terikat ke papan (`requireDevice('queue_display')`). Halaman memuat potret papan dari API dengan token perangkat, lalu `lib/queue-sse.ts` membuka `EventSource` ke BFF `app/(perangkat)/display/antrean/events/route.ts`, yang meneruskan aliran SSE API apa adanya (token dari cookie httpOnly, `Last-Event-ID` diteruskan, `X-Accel-Buffering: no`). Event `queue.call` diterapkan ke papan oleh `applyQueueEvent` (`lib/queue-board.ts`); `reset` membuka aliran baru tanpa `Last-Event-ID` agar server mengirim potret penuh. Suara panggilan memakai nada Web Audio + Web Speech `id-ID` dan diaktifkan petugas sekali di TV. Staf memanggil dari "Kendali antrean" (`/antrean`, `queue.read`; tombol aksi `queue.call`), layar khusus mode api (`apiOnly` di registri).
+- Pendaftaran (F03/F06, potongan 5b): mode api di `app/(staf)/pendaftaran/api-pendaftaran.tsx`. Klien
+  (`pendaftaran-api-client.tsx` + panel `patient-panel`, `new-patient-form`, `payer-panel`, `visit-panel`) hanya
+  memanggil Server Action `actions-api.ts` (BFF; NIK/no. kartu selalu di body). Alurnya: panggil nomor loket
+  (`queue.call`, tiket ditautkan ke registrasi untuk task 2) → cari pasien MPI atau pasien baru (Dukcapil mengisi
+  formulir, cek duplikat NIK/no. BPJS/nama + tanggal lahir sebelum disimpan) → BPJS: cek kepesertaan, pilih rujukan
+  (VClaim mati → nomor rujukan manual) dan diagnosa awal ICD-10, atau umum → dokter + kuota hari ini → penanggung jawab
+  → persetujuan umum (cukup sekali untuk rawat jalan) → `POST registration/outpatient` dengan Idempotency-Key dari klien
+  (dipakai ulang selama isi sama, `idempotencyFor` di `lib/registration-api.ts`). Hasil di `/pendaftaran?kunjungan=<id>`
+  (`registration-done.tsx`): nomor poli, chip SEP (menunggu/terbit/ditolak/gagal + alasan + "Kirim ulang SEP" untuk
+  `coverage.write`), chip task 1–3; halaman memuat ulang sendiri tiap 3 dtk (20 dtk setelah 5 menit) sampai semua
+  selesai. Cetak tiket + SEP: `app/cetak/pendaftaran/[encounterId]` (di luar kerangka staf, `@page` 80 mm, dialog cetak
+  browser), data dari `GET registration/encounters/:id/print`. Aturan tampilan murni + tesnya di `lib/registration-api.ts`.
 - Skema respons per domain ditulis di `packages/shared/src/schemas/<domain>.ts` (kontrak yang nanti dipenuhi API); halaman mengambil data lewat `lib/server/data/<domain>.ts`, yang memilih fixture (`lib/demo/`) atau API.
 - Id fixture opak: pasien, kunjungan, persetujuan, dokter, tagihan, klaim, sampel, resep, dan seterusnya memakai UUID v7 konstan dari `lib/demo/fixtures/ids.ts` (nama orang hanya di kunci dan komentar). Layar, tes, dan E2E mengimpor konstanta itu, tidak menulis id sebagai literal; `ids.test.ts` menolak id yang memuat nama orang fiktif.
 - Pasien fiktif dan tempatnya pada jam demo (Sen, 5 Okt 2026 · 10.45) hanya diatur di `lib/demo/fixtures/pasien.ts`: `PASIEN` (identitas), `ROSTER` (satu tempat per pasien; tempat kedua hanya bila sah dan beralasan) dan `ANTREAN_POLI_PD` (nomor antrean untuk layar Pemeriksaan dan papan TV). Saat menambah pasien atau baris fixture layar mana pun, perbarui roster; `fixtures.test.ts` menolak pasien yang muncul di dua tempat atau di tempat yang tidak tercatat.

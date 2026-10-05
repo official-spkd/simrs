@@ -252,6 +252,29 @@ export class RegistrationRepository {
     return this.db.tx().encounter.findUnique({ where: { id }, select: ENCOUNTER_SELECT });
   }
 
+  /** Data tampilan lembar cetak loket: RS, pasien (nama + RM), poli, DPJP, dan rujukan dasar SEP. */
+  async printDetails(encounterId: string, referralId: string | null) {
+    const encounter = await this.db.tx().encounter.findUnique({
+      where: { id: encounterId },
+      select: {
+        patient: { select: { name: true, mrn: true } },
+        service: { select: { name: true, room: true } },
+        unit: { select: { name: true } },
+        practitioner: { select: { name: true } },
+      },
+    });
+    const tenant = await this.db
+      .tx()
+      .tenant.findUnique({ where: { id: this.db.tenantId() }, select: { name: true } });
+    const referral = referralId
+      ? await this.db.tx().referral.findUnique({
+          where: { id: referralId },
+          select: { number: true, facilityName: true, kind: true },
+        })
+      : null;
+    return { encounter, tenant, referral };
+  }
+
   primaryCoverage(encounterId: string) {
     return this.db.tx().coverage.findFirst({
       where: { encounterId, status: 'active' },

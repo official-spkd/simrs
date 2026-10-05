@@ -139,6 +139,8 @@ export const scheduleSessionSchema = z.strictObject({
   hfisSynced: z.boolean(),
   /** Versi baris; kirim balik sebagai `baseUpdatedAt` saat mengubah kuota. */
   updatedAt: z.iso.datetime({ offset: true }),
+  /** Sesi cuti: pasien sudah dialihkan (`transfer`); null = belum. */
+  transferredAt: z.iso.datetime({ offset: true }).nullable(),
 });
 export type ScheduleSession = z.infer<typeof scheduleSessionSchema>;
 

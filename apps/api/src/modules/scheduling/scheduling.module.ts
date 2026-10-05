@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BookingModule } from '../booking/booking.module';
 import { SchedulingController } from './scheduling.controller';
 import { SchedulingRepository } from './scheduling.repository';
 import { SchedulingService } from './scheduling.service';
@@ -11,6 +12,7 @@ import { SchedulingService } from './scheduling.service';
  * Cuti/libur per tanggal dan kapasitas dicatat petugas di aplikasi HFIS (web service HFIS hanya menerima templat).
  */
 @Module({
+  imports: [BookingModule],
   controllers: [SchedulingController],
   providers: [SchedulingService, SchedulingRepository],
   exports: [SchedulingService],

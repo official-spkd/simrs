@@ -15,7 +15,13 @@ import {
   type TenantTx,
   toDbDate,
 } from '@simrs/db';
-import { BPJS_ANTREAN_UPDATEWAKTU_OPERATION, isoDateJakarta, newId, outboxKey } from '@simrs/shared';
+import {
+  BPJS_ANTREAN_ADD_OPERATION,
+  BPJS_ANTREAN_UPDATEWAKTU_OPERATION,
+  isoDateJakarta,
+  newId,
+  outboxKey,
+} from '@simrs/shared';
 import { PatientCrypto } from '@simrs/shared/node';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../mock/src/config';
@@ -234,6 +240,49 @@ describe('bpjs.antrean.updatewaktu', () => {
     await task(b.id, 3, new Date(Date.now() - 5_000));
     await drain(b.id);
     expect((await rows(b.id)).map((r) => r.status)).toEqual(['rejected', 'rejected']);
+  });
+
+  it('tambah antrean belum diterima (gangguan BPJS, dicoba ulang) → task menunggu tambah, lalu terkirim', async () => {
+    const b = await booking(false);
+    // Seperti booking JKN setelah gangguan: status kirim `pending`, pesan tambah gagal dan menunggu percobaan ulang.
+    const add = await run(async (tx) => {
+      await tx.appointment.update({ where: { id: b.id }, data: { bpjsSyncStatus: 'pending' } });
+      const msg = await enqueueOutbox(tx, T, {
+        target: 'bpjs',
+        operation: BPJS_ANTREAN_ADD_OPERATION,
+        idempotencyKey: outboxKey(BPJS_ANTREAN_ADD_OPERATION, b.id),
+        payload: { appointmentId: b.id },
+      });
+      return tx.outboxMessage.update({
+        where: { id: msg.id },
+        data: { status: 'failed', attempts: 1, nextAttemptAt: new Date(Date.now() + 3_600_000) },
+      });
+    });
+    const t1 = await task(b.id, 1, new Date(Date.now() - 10_000));
+    await dispatcher.dispatchOnce({ tenantIds: [T], now: new Date(Date.now() + 1000) });
+    expect(
+      await run((tx) => tx.outboxMessage.findUniqueOrThrow({ where: { id: t1.messageId } })),
+    ).toMatchObject({ status: 'pending', attempts: 0, lastError: 'ditunda: menunggu tambah antrean' });
+    expect((await rows(b.id))[0]?.status).toBe('pending');
+
+    // Tambah antrean diterima BPJS → task dikirim.
+    await run(async (tx) => {
+      await tx.outboxMessage.update({ where: { id: add.id }, data: { status: 'sent', sentAt: new Date() } });
+      await tx.appointment.update({
+        where: { id: b.id },
+        data: { bpjsSyncStatus: 'sent', bpjsSyncedAt: new Date() },
+      });
+    });
+    mockState.bpjs.antrean.set(b.bookingCode, {
+      kodebooking: b.bookingCode,
+      request: {} as never,
+      status: 'aktif',
+      dibuat: new Date().toISOString(),
+      tasks: [],
+      batal: null,
+    });
+    await drain(b.id);
+    expect((await rows(b.id)).map((r) => r.status)).toEqual(['sent']);
   });
 
   it('DLQ (kredensial ditolak) → task `dead` dengan kode galat', async () => {

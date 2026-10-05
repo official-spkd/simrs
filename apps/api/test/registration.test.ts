@@ -9,7 +9,7 @@ import type { AddressInfo } from 'node:net';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createPrismaClient, seedFrontOffice, seedHospitalStructure, withTenant } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
-import { isoDateJakarta, newId, outboxKey } from '@simrs/shared';
+import { isoDateJakarta, newId, outboxKey, printableVisitSchema } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../../mock/src/config';
@@ -225,7 +225,9 @@ describe('registrasi rawat jalan', () => {
     const tasks = await run(A.id, (tx) =>
       tx.bpjsQueueTask.findMany({ where: { appointmentId: appt.id }, orderBy: { taskId: 'asc' } }),
     );
-    expect(tasks.map((t) => t.taskId)).toEqual([1, 3]);
+    // Walk-in tanpa tiket loket: check-in (1), layanan admisi = saat didaftarkan (2), tunggu poli (3); BPJS menolak 1 → 3.
+    expect(tasks.map((t) => t.taskId)).toEqual([1, 2, 3]);
+    expect(tasks[1]?.occurredAt.getTime()).toBe(tasks[2]?.occurredAt.getTime());
     const events = await run(A.id, (tx) =>
       tx.domainEvent.findMany({
         where: { name: 'encounter.registered', payload: { path: ['encounterId'], equals: r.encounter.id } },
@@ -712,6 +714,41 @@ describe('meja, izin, ABAC, isolasi', () => {
       }),
     );
     expect(read.every((a) => a.patientId === p.id)).toBe(true);
+  });
+
+  it('lembar cetak loket: tiket poli + ringkasan SEP (kartu tersamar), diaudit print; perawat 403; RS lain 404', async () => {
+    const s = await todaySession(A.id);
+    const p = await makePatient(A.id);
+    const r = (
+      await register('daftar', {
+        patientId: p.id,
+        sessionId: s.id,
+        coverage: bpjsCoverage(p.card),
+        generalConsent: CONSENT,
+      }).expect(201)
+    ).body;
+    const res = await as('daftar').get(`/registration/encounters/${r.encounter.id}/print`).expect(200);
+    expect(printableVisitSchema.safeParse(res.body).success).toBe(true);
+    expect(res.body).toMatchObject({
+      encounterNumber: r.encounter.number,
+      serviceDate: today,
+      patient: { name: 'Pasien Registrasi Fiktif' },
+      queueNo: r.queueTicket.queueNo,
+      bookingCode: r.appointment.bookingCode,
+      payerKind: 'bpjs',
+      practitionerName: 'dr. Andini Prameswari, Sp.PD',
+      sep: { status: 'pending', sepNo: null, referenceNumber: rujukanNo(p.card), initialDiagnosis: DIAG },
+    });
+    expect(JSON.stringify(res.body)).not.toContain(p.card);
+    const printed = await run(A.id, (tx) =>
+      tx.auditEvent.findMany({
+        where: { resourceType: 'encounter', resourceId: r.encounter.id, action: 'print' },
+      }),
+    );
+    expect(printed).toHaveLength(1);
+    expect(printed[0]?.patientId).toBe(p.id);
+    await as('perawat').get(`/registration/encounters/${r.encounter.id}/print`).expect(403);
+    await as('rsB').get(`/registration/encounters/${r.encounter.id}/print`).expect(404);
   });
 
   it('kontak penanggung jawab: tambah (append-only, terenkripsi) dan daftar', async () => {

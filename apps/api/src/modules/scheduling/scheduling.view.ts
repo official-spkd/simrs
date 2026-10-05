@@ -42,6 +42,8 @@ export interface RsSession {
   bookedJkn: number;
   bookedNonJkn: number;
   updatedAt: Date;
+  /** Sesi cuti: pasien sudah dialihkan. */
+  transferredAt: Date | null;
 }
 
 export interface HfisPull {
@@ -67,6 +69,19 @@ export interface HfisComparison {
 }
 
 const pullKey = (serviceId: string, date: string) => `${serviceId}|${date}`;
+
+/** ID sel grid: sesi ke-`index` (0 = paling pagi) dokter itu pada tanggal itu; index 0 = `scheduleCellId` biasa. */
+export function scheduleSlotCellId(practitionerId: string, date: string, index = 0): string {
+  return scheduleCellId(index === 0 ? practitionerId : `${practitionerId}#${index + 1}`, date);
+}
+
+/** Urutan sesi ini di antara sesi dokter × poli × tanggal yang sama (urut jam mulai). */
+function sessionIndex(sessions: readonly RsSession[], s: RsSession): number {
+  return sessions
+    .filter((x) => x.practitionerId === s.practitionerId && x.serviceId === s.serviceId && x.date === s.date)
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .findIndex((x) => x.id === s.id);
+}
 const jam = (start: string, end: string) => `${toWallClock(start)}–${toWallClock(end)}`;
 const hari = (date: string) => formatTanggal(`${date}T00:00:00Z`);
 
@@ -100,6 +115,11 @@ export function compareWithHfis(input: {
     }
   }
 
+  const byId = new Map(sessions.map((x) => [x.id, x]));
+  const cellIndex = (sessionId: string | null) => {
+    const session = sessionId ? byId.get(sessionId) : undefined;
+    return session ? Math.max(0, sessionIndex(sessions, session)) : 0;
+  };
   const add = (
     s: { practitionerId: string; practitionerName: string; serviceId: string; date: string },
     sessionId: string | null,
@@ -113,7 +133,7 @@ export function compareWithHfis(input: {
       serviceId: s.serviceId,
       date: s.date,
       sessionId,
-      slotId: scheduleCellId(s.practitionerId, s.date),
+      slotId: scheduleSlotCellId(s.practitionerId, s.date, cellIndex(sessionId)),
       kind,
       text,
       resolution,
@@ -219,7 +239,11 @@ export function compareWithHfis(input: {
   return { items, synced, unpulledDates: [...unpulled].sort(), lastPulledAt };
 }
 
-/** Grid minggu: satu baris per dokter × poli yang punya sesi (atau menggantikan) di minggu itu. */
+/**
+ * Grid minggu: baris per dokter × poli yang punya sesi (atau menggantikan) di minggu itu. Dokter dengan dua sesi atau
+ * lebih di satu hari (pagi + sore) mendapat baris tambahan "(sesi 2)", "(sesi 3)": baris ke-k memuat sesi ke-k (urut
+ * jam mulai) tiap hari, sehingga kontrak tampilan tetap satu sel per hari per baris.
+ */
 export function buildWeek(input: {
   weekStart: string;
   days: readonly string[];
@@ -227,118 +251,123 @@ export function buildWeek(input: {
   comparison: HfisComparison;
 }): WeeklySchedule {
   const { days, sessions, comparison } = input;
-  type Row = {
+  type Entry = { session: RsSession; role: 'own' | 'pengganti' };
+  type Group = {
     practitionerId: string;
     name: string;
     serviceId: string;
     code: string;
     poli: string;
     room: string;
+    /** Per tanggal: sesi sendiri + sesi yang digantikan, urut jam mulai. */
+    byDate: Map<string, Entry[]>;
   };
-  const rows = new Map<string, Row>();
-  const addRow = (practitionerId: string, name: string, s: RsSession) => {
+  const groups = new Map<string, Group>();
+  const add = (practitionerId: string, name: string, s: RsSession, role: Entry['role']) => {
     const key = `${practitionerId}|${s.serviceId}`;
-    if (!rows.has(key)) {
-      rows.set(key, {
+    let g = groups.get(key);
+    if (!g) {
+      g = {
         practitionerId,
         name,
         serviceId: s.serviceId,
         code: s.serviceCode,
         poli: s.serviceName,
         room: s.room?.trim() || s.serviceName,
-      });
+        byDate: new Map(),
+      };
+      groups.set(key, g);
     }
+    const list = g.byDate.get(s.date) ?? [];
+    list.push({ session: s, role });
+    list.sort((a, b) => a.session.start.localeCompare(b.session.start));
+    g.byDate.set(s.date, list);
   };
   for (const s of sessions) {
-    addRow(s.practitionerId, s.practitionerName, s);
-    if (s.kind === 'cuti' && s.substituteId && s.substituteName) addRow(s.substituteId, s.substituteName, s);
+    add(s.practitionerId, s.practitionerName, s, 'own');
+    if (s.kind === 'cuti' && s.substituteId && s.substituteName)
+      add(s.substituteId, s.substituteName, s, 'pengganti');
   }
   const hfisOnly = new Set(
     comparison.items.filter((i) => i.kind === 'hfis-praktik-rs-tidak').map((i) => i.slotId),
   );
-  const byStart = (a: RsSession, b: RsSession) => a.start.localeCompare(b.start);
   const usedIds = new Set<string>();
 
-  const doctors: ScheduleDoctor[] = [...rows.values()]
+  const doctors: ScheduleDoctor[] = [...groups.values()]
     .sort((a, b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name))
-    .map((r) => {
-      const id = usedIds.has(r.practitionerId) ? `${r.practitionerId}~${r.code}` : r.practitionerId;
-      usedIds.add(r.practitionerId);
-      const slots = days.map((date): ScheduleSlot => {
-        const cell = scheduleCellId(r.practitionerId, date);
-        const own = sessions
-          .filter(
-            (s) => s.practitionerId === r.practitionerId && s.serviceId === r.serviceId && s.date === date,
-          )
-          .sort(byStart)[0];
-        const base = {
-          id: cell,
-          date,
-          relatedDoctorId: null,
-          affectedPatients: null,
-        };
-        if (own?.kind === 'praktik') {
+    .flatMap((g) => {
+      const baseId = usedIds.has(g.practitionerId) ? `${g.practitionerId}~${g.code}` : g.practitionerId;
+      usedIds.add(g.practitionerId);
+      const rowCount = Math.max(1, ...[...g.byDate.values()].map((l) => l.length));
+      return Array.from({ length: rowCount }, (_, k): ScheduleDoctor => {
+        const slots = days.map((date): ScheduleSlot => {
+          const cell = scheduleSlotCellId(g.practitionerId, date, k);
+          const entry = g.byDate.get(date)?.[k];
+          const base = { id: cell, date, relatedDoctorId: null, affectedPatients: null };
+          if (!entry) {
+            return {
+              ...base,
+              sessionId: null,
+              kind: 'libur',
+              start: null,
+              end: null,
+              quota: null,
+              hfisSynced: !hfisOnly.has(cell),
+            };
+          }
+          const s = entry.session;
+          const common = {
+            sessionId: s.id,
+            hfisSynced: comparison.synced.has(s.id),
+            updatedAt: s.updatedAt.toISOString(),
+            transferredAt: s.transferredAt?.toISOString() ?? null,
+          };
+          if (entry.role === 'pengganti') {
+            return {
+              ...base,
+              ...common,
+              kind: 'pengganti',
+              start: toWallClock(s.start),
+              end: toWallClock(s.end),
+              quota: null,
+              relatedDoctorId: s.practitionerId,
+            };
+          }
+          if (s.kind === 'cuti') {
+            return {
+              ...base,
+              ...common,
+              kind: 'cuti',
+              start: null,
+              end: null,
+              quota: null,
+              relatedDoctorId: s.substituteId,
+              affectedPatients: s.bookedJkn + s.bookedNonJkn,
+            };
+          }
           return {
             ...base,
-            sessionId: own.id,
+            ...common,
             kind: 'praktik',
-            start: toWallClock(own.start),
-            end: toWallClock(own.end),
+            start: toWallClock(s.start),
+            end: toWallClock(s.end),
             quota: {
-              jkn: own.quotaJkn,
-              nonJkn: own.quotaNonJkn,
-              bookedJkn: own.bookedJkn,
-              bookedNonJkn: own.bookedNonJkn,
+              jkn: s.quotaJkn,
+              nonJkn: s.quotaNonJkn,
+              bookedJkn: s.bookedJkn,
+              bookedNonJkn: s.bookedNonJkn,
             },
-            hfisSynced: comparison.synced.has(own.id),
-            updatedAt: own.updatedAt.toISOString(),
           };
-        }
-        if (own?.kind === 'cuti') {
-          return {
-            ...base,
-            sessionId: own.id,
-            kind: 'cuti',
-            start: null,
-            end: null,
-            quota: null,
-            relatedDoctorId: own.substituteId,
-            affectedPatients: own.bookedJkn + own.bookedNonJkn,
-            hfisSynced: comparison.synced.has(own.id),
-            updatedAt: own.updatedAt.toISOString(),
-          };
-        }
-        const covered = sessions.find(
-          (s) =>
-            s.kind === 'cuti' &&
-            s.substituteId === r.practitionerId &&
-            s.serviceId === r.serviceId &&
-            s.date === date,
-        );
-        if (covered) {
-          return {
-            ...base,
-            sessionId: covered.id,
-            kind: 'pengganti',
-            start: toWallClock(covered.start),
-            end: toWallClock(covered.end),
-            quota: null,
-            relatedDoctorId: covered.practitionerId,
-            hfisSynced: comparison.synced.has(covered.id),
-            updatedAt: covered.updatedAt.toISOString(),
-          };
-        }
+        });
         return {
-          ...base,
-          sessionId: null,
-          kind: 'libur',
-          start: null,
-          end: null,
-          quota: null,
-          hfisSynced: !hfisOnly.has(cell),
+          id: k === 0 ? baseId : `${baseId}~${k + 1}`,
+          name: k === 0 ? g.name : `${g.name} (sesi ${k + 1})`,
+          poliCode: g.code,
+          poliName: g.poli,
+          room: g.room,
+          slots,
         };
       });
-      return { id, name: r.name, poliCode: r.code, poliName: r.poli, room: r.room, slots };
     });
 
   return {
