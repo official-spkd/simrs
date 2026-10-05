@@ -2,7 +2,8 @@
  * Satu run backup (ADR-0071):
  * 1. kunci advisory + snapshot ekspor (peran simrs_backup) → statistik manifest dari snapshot itu;
  * 2. `pg_dump -Fc --snapshot` → enkripsi kunci publik → `db.dump.enc` (lokasi 1, disk lokal);
- * 3. arsip dokumen (ustar) → enkripsi → `documents.tar.enc`;
+ * 3. arsip dokumen (ustar; disk = folder penyimpanan, s3 = objek per baris `documents`) → enkripsi →
+ *    `documents.tar.enc`;
  * 4. `manifest.json` ditulis terakhir;
  * 5. unggah ke bucket cloud (lokasi 2), lalu `mc mirror` awalan ke offsite (lokasi 3);
  * 6. retensi di ketiga lokasi; 7. catat lewat `app_record_backup_run()`.
@@ -13,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { newId } from '@simrs/shared';
-import { type BackupConfig, databaseName, requireRecipient } from './config';
+import { type BackupConfig, databaseName, primaryS3, requireRecipient } from './config';
 import { createEncryptStream, ENCRYPTION_SCHEME, type RecipientKey } from './crypto';
 import * as db from './db';
 import {
@@ -28,7 +29,8 @@ import {
 } from './manifest';
 import { Mc } from './mc';
 import { planRetention, type StoredRun } from './retention';
-import { inventoryDocuments, tarStream } from './tar';
+import { inventoryDocuments, tarFromEntries, tarStream } from './tar';
+import { type IntegrityError, S3DocumentSource } from './documents';
 import {
   dockerAvailable,
   dockerRunBase,
@@ -160,9 +162,6 @@ export async function runBackup(
 ): Promise<BackupResult> {
   const log = opts.log ?? (() => undefined);
   if (!cfg.databaseUrl) throw new Error('BACKUP_DATABASE_URL belum disetel (koneksi peran simrs_backup)');
-  if (cfg.storageDriver !== 'disk') {
-    throw new Error('STORAGE_DRIVER=s3 belum didukung backup dokumen (driver S3 P08 belum ada, ADR-0020)');
-  }
   const recipient = requireRecipient(cfg);
   const databaseUrl = cfg.databaseUrl;
   const secrets = [parsePgUrl(databaseUrl).password, cfg.primary.secretKey, cfg.offsite.secretKey];
@@ -176,6 +175,7 @@ export async function runBackup(
   let stats: db.DatabaseStats | null = null;
   let dbFile: EncryptedFile | null = null;
   let docs: { file: EncryptedFile; fileCount: number; totalBytes: number } | null = null;
+  let docRows: db.DocumentRow[] = [];
 
   const lockClient = await db.connect(databaseUrl, 'simrs-backup');
   try {
@@ -192,6 +192,8 @@ export async function runBackup(
     try {
       const snapshot = await db.exportSnapshot(snapClient);
       stats = await db.collectStats(snapClient, databaseName(databaseUrl));
+      // Driver s3: daftar objek = baris `documents` di snapshot yang sama dengan dump.
+      if (cfg.storageDriver === 's3') docRows = await db.documentRows(snapClient);
       log(`snapshot ${snapshot}: ${Object.keys(stats.tables).length} tabel, pg_dump via ${pgMode}`);
       const broken = stats.auditHeads.filter((h) => h.firstBrokenSeq !== null);
       if (broken.length) {
@@ -213,12 +215,42 @@ export async function runBackup(
     }
     log(`${DB_FILE}: ${dbFile.plainBytes} B dump → ${dbFile.encBytes} B terenkripsi`);
 
-    // 3. Dokumen: setelah snapshot, jadi semua berkas yang dirujuk baris DB sudah ada (berkas ditulis sebelum commit
-    // dan tidak pernah dihapus).
-    const inventory = await inventoryDocuments(cfg.documentsRoot);
-    const docFile = await encryptTo(join(runDir, DOCUMENTS_FILE), tarStream(inventory), recipient);
-    docs = { file: docFile, fileCount: inventory.entries.length, totalBytes: inventory.totalBytes };
-    log(`${DOCUMENTS_FILE}: ${docs.fileCount} berkas dokumen (${inventory.skipped} dilewati)`);
+    // 3. Dokumen: setelah snapshot, jadi semua berkas/objek yang dirujuk baris DB sudah ada (ditulis sebelum commit
+    // dan tidak pernah dihapus). disk = folder penyimpanan; s3 = objek per baris `documents`, dicocokkan hash-nya.
+    let integrityErrors: IntegrityError[] = [];
+    if (cfg.storageDriver === 's3') {
+      const source = new S3DocumentSource(primaryS3(cfg), cfg.documentsBucket, docRows);
+      let count = 0;
+      let bytes = 0;
+      const docFile = await encryptTo(
+        join(runDir, DOCUMENTS_FILE),
+        tarFromEntries(source.entries(), (r) => {
+          count += 1;
+          bytes += r.bytes;
+          source.onEntry(r);
+        }),
+        recipient,
+      );
+      docs = { file: docFile, fileCount: count, totalBytes: bytes };
+      integrityErrors = source.errors;
+      log(
+        `${DOCUMENTS_FILE}: ${count} objek dari bucket ${cfg.documentsBucket} (${docRows.length} baris dokumen)`,
+      );
+      if (integrityErrors.length) {
+        log(
+          `PERINGATAN: ${integrityErrors.length} objek dokumen hilang/berbeda dari barisnya di sumber: ` +
+            integrityErrors
+              .slice(0, 10)
+              .map((e) => `${e.key} (${e.reason})`)
+              .join(', '),
+        );
+      }
+    } else {
+      const inventory = await inventoryDocuments(cfg.documentsRoot);
+      const docFile = await encryptTo(join(runDir, DOCUMENTS_FILE), tarStream(inventory), recipient);
+      docs = { file: docFile, fileCount: inventory.entries.length, totalBytes: inventory.totalBytes };
+      log(`${DOCUMENTS_FILE}: ${docs.fileCount} berkas dokumen (${inventory.skipped} dilewati)`);
+    }
 
     // 4. Manifest terakhir.
     const body: ManifestBody = {
@@ -230,10 +262,11 @@ export async function runBackup(
       encryption: { scheme: ENCRYPTION_SCHEME, recipientKeyId: recipient.id },
       database: { file: { name: DB_FILE, ...dbFile }, ...stats },
       documents: {
-        file: { name: DOCUMENTS_FILE, ...docFile },
-        source: 'disk',
+        file: { name: DOCUMENTS_FILE, ...docs.file },
+        source: cfg.storageDriver,
         fileCount: docs.fileCount,
         totalBytes: docs.totalBytes,
+        integrityErrors,
       },
     };
     const text = serializeManifest(sealManifest(body));

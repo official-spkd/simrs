@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { S3Client } from '@simrs/shared/node';
 import { z } from 'zod';
 import { parsePublicKey, type RecipientKey } from './crypto';
 import { type RetentionPolicy } from './retention';
@@ -61,6 +62,13 @@ export const backupEnvSchema = z.object({
   BACKUP_MC_IMAGE: z.string().min(1).default('pgsty/mc:latest'),
   BACKUP_REDIS_IMAGE: z.string().min(1).default('redis:7-alpine'),
   STORAGE_DRIVER: z.enum(['disk', 's3']).default('disk'),
+  /** Driver s3: bucket dokumen yang di-backup (sama dengan API). */
+  S3_BUCKET_DOCUMENTS: bucket.default('simrs-documents'),
+  S3_REGION: z.string().min(1).default('ap-southeast-3'),
+  /** Jangkar audit WORM (ADR-0072): uji restore mencocokkan rantai hasil restore dengan jangkar sah ≤ waktu backup. */
+  AUDIT_ANCHOR_KEY: z.preprocess(blankAsUndefined, z.string().optional()),
+  AUDIT_ANCHOR_BUCKET: z.preprocess(blankAsUndefined, bucket.optional()),
+  BACKUP_MINIO_IMAGE: z.string().min(1).default('pgsty/minio:latest'),
   /** Sama dengan API: relatif terhadap apps/api. */
   STORAGE_DISK_ROOT: z.string().trim().min(1).default('../../.local/storage'),
   // ── Uji restore ──
@@ -98,6 +106,11 @@ export interface BackupConfig {
   redisImage: string;
   storageDriver: 'disk' | 's3';
   documentsRoot: string;
+  documentsBucket: string;
+  s3Region: string;
+  anchorKey?: string;
+  anchorBucket?: string;
+  minioImage: string;
   privateKeyFile?: string;
   privateKeyPassphrase?: string;
   restoreWorkDir: string;
@@ -155,6 +168,11 @@ export function loadConfig(
     mcImage: e.BACKUP_MC_IMAGE,
     redisImage: e.BACKUP_REDIS_IMAGE,
     storageDriver: e.STORAGE_DRIVER,
+    documentsBucket: e.S3_BUCKET_DOCUMENTS,
+    s3Region: e.S3_REGION,
+    anchorKey: e.AUDIT_ANCHOR_KEY,
+    anchorBucket: e.AUDIT_ANCHOR_BUCKET,
+    minioImage: e.BACKUP_MINIO_IMAGE,
     documentsRoot: isAbsolute(e.STORAGE_DISK_ROOT)
       ? e.STORAGE_DISK_ROOT
       : resolve(repoRoot, 'apps/api', e.STORAGE_DISK_ROOT),
@@ -177,4 +195,15 @@ export function requireRecipient(cfg: BackupConfig): RecipientKey {
 /** Nama database dari URL koneksi (untuk log dan manifest; tanpa kredensial). */
 export function databaseName(url: string): string {
   return decodeURIComponent(new URL(url).pathname.replace(/^\//, ''));
+}
+
+/** Klien S3 (Node, tanpa Docker) ke endpoint utama: bucket dokumen dan bucket jangkar audit. */
+export function primaryS3(cfg: BackupConfig): S3Client {
+  return new S3Client({
+    endpoint: cfg.primary.endpoint,
+    region: cfg.s3Region,
+    accessKeyId: cfg.primary.accessKey,
+    secretAccessKey: cfg.primary.secretKey,
+    timeoutMs: 60_000,
+  });
 }
