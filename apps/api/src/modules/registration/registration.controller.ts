@@ -4,6 +4,7 @@ import {
   type DukcapilLookupResult,
   dukcapilLookupSchema,
   type OutpatientRegistrationInput,
+  type PrintableVisit,
   outpatientRegistrationSchema,
   type RegistrationDesk,
   type RegistrationResult,
@@ -62,6 +63,13 @@ export class RegistrationController {
   @Audited({ action: 'read', resource: 'encounter', resourceId: paramId, patientId: resultPatient })
   encounter(@Param('id', uuid) id: string): Promise<RegistrationResult> {
     return this.registration.getEncounter(id);
+  }
+
+  /** Lembar cetak loket (tiket poli + ringkasan SEP, HTML 80 mm di web); diaudit `print` oleh service. */
+  @RequirePermission('documents', 'print')
+  @Get('encounters/:id/print')
+  print(@Param('id', uuid) id: string): Promise<PrintableVisit> {
+    return this.registration.printable(id);
   }
 
   /** Isian otomatis pasien baru dari Dukcapil (NIK di body; tidak disimpan). */

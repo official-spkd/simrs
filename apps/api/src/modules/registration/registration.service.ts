@@ -15,6 +15,7 @@ import {
   newId,
   type OutpatientRegistrationInput,
   type PayerKind,
+  type PrintableVisit,
   type RegistrationDesk,
   type RegistrationResult,
 } from '@simrs/shared';
@@ -352,6 +353,53 @@ export class RegistrationService {
     if (!row) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
     if (this.db.permissionScope() !== 'all') await this.access.assert(row.patientId);
     return this.present(row);
+  }
+
+  /**
+   * Lembar cetak loket (tiket poli + ringkasan SEP, HTML 80 mm). Diaudit `print` per pasien di transaksi yang sama;
+   * no. kartu tetap tersamar.
+   */
+  async printable(id: string): Promise<PrintableVisit> {
+    const r = await this.getEncounter(id);
+    const d = await this.repo.printDetails(id, r.sep?.referralId ?? null);
+    if (!d.encounter || !d.tenant) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
+    const sep = r.sep;
+    const now = new Date();
+    this.db.audit({
+      action: 'print',
+      resourceType: 'encounter',
+      resourceId: id,
+      patientId: r.encounter.patientId,
+      details: { document: 'registration_slip', sep: sep !== null },
+    });
+    return {
+      tenantName: d.tenant.name,
+      encounterNumber: r.encounter.number,
+      serviceDate: isoDateJakarta(new Date(r.encounter.arrivedAt ?? r.encounter.createdAt)),
+      arrivedAt: r.encounter.arrivedAt,
+      patient: { name: d.encounter.patient.name, mrn: d.encounter.patient.mrn },
+      poliName: d.encounter.service?.name ?? d.encounter.unit.name,
+      room: d.encounter.service?.room ?? null,
+      practitionerName: d.encounter.practitioner?.name ?? null,
+      queueNo: r.queueTicket?.queueNo ?? null,
+      estimatedCallAt: r.queueTicket?.estimatedCallAt ?? null,
+      bookingCode: r.appointment?.bookingCode ?? null,
+      payerKind: r.coverage?.payerKind ?? null,
+      payerName: r.coverage?.payerName ?? null,
+      sep: sep
+        ? {
+            status: sep.status,
+            sepNo: sep.sepNo,
+            cardNoMasked: r.coverage?.memberNoMasked ?? null,
+            classEntitlement: sep.careClass ?? r.coverage?.classEntitlement ?? null,
+            referenceNumber: d.referral?.number ?? null,
+            referrerName: d.referral?.kind === 'rujukan-fktp' ? d.referral.facilityName : null,
+            initialDiagnosis: sep.initialDiagnosis,
+            issuedAt: sep.issuedAt,
+          }
+        : null,
+      printedAt: now.toISOString(),
+    };
   }
 
   private async result(encounterId: string, opts: { replay: boolean }): Promise<RegistrationResult> {
