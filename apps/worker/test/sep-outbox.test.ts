@@ -431,3 +431,154 @@ describe('revisi dan batal', () => {
     expect(await sep(v2Id)).toMatchObject({ status: 'cancelled', syncStatus: 'sent', syncErrorCode: null });
   });
 });
+
+/**
+ * Fase 3 · 3.3 (utang fase 2): SEP IGD = rawat jalan poli `VCLAIM_POLI_IGD` tanpa rujukan, dokter jaga boleh kosong
+ * (ASUMSI); SEP rawat inap dari IGD tanpa SPRI memakai SEP IGD terbit sebagai rujukan.
+ */
+describe('SEP IGD dan rawat inap dari IGD', () => {
+  async function emergencyAndAdmission() {
+    n += 1;
+    const tag = `${Date.now() % 1e5}${n}`.padStart(6, '0').slice(-6);
+    const card = `0000124${tag}`;
+    const crypto = new PatientCrypto(
+      { encKeyB64: process.env.FIELD_ENCRYPTION_KEY ?? '', hashKeyB64: process.env.FIELD_HASH_KEY ?? '' },
+      T,
+    );
+    const ids = await run(async (tx) => {
+      const patient = await insertPatient(tx, crypto, {
+        name: 'Pasien IGD Fiktif',
+        sex: 'female',
+        birthDate: '1980-02-03',
+        phone: `6281301${tag}`,
+        identifiers: { nik: `9999020202${tag}`, bpjs: card },
+      });
+      const ident = await tx.patientIdentifier.findFirstOrThrow({
+        where: { patientId: patient.id, system: 'bpjs', active: true },
+      });
+      const igd = await tx.unit.findFirstOrThrow({ where: { kind: 'igd' } });
+      const ward = await tx.unit.findFirstOrThrow({ where: { code: 'MELATI' } });
+      const practitioner = await tx.practitioner.findFirstOrThrow({
+        where: { name: { startsWith: 'dr. Andini' } },
+      });
+      const payer = await tx.payer.findFirstOrThrow({ where: { kind: 'bpjs' } });
+      const emergencyId = newId();
+      await tx.encounter.create({
+        data: {
+          id: emergencyId,
+          tenantId: T,
+          number: `GD-2610-${tag}`,
+          patientId: patient.id,
+          encounterClass: 'EMER',
+          status: 'arrived',
+          unitId: igd.id,
+          arrivalMode: 'datang_sendiri',
+          arrivedAt: new Date(),
+        },
+      });
+      const emergencyCoverage = newId();
+      await tx.coverage.create({
+        data: {
+          id: emergencyCoverage,
+          tenantId: T,
+          encounterId: emergencyId,
+          payerId: payer.id,
+          patientIdentifierId: ident.id,
+          classEntitlement: 'kelas_2',
+        },
+      });
+      const emergencySep = newId();
+      await tx.sep.create({
+        data: {
+          id: emergencySep,
+          tenantId: T,
+          encounterId: emergencyId,
+          coverageId: emergencyCoverage,
+          status: 'pending',
+          serviceType: 'rawat_jalan',
+          poliCode: 'IGD',
+          diagnosisCode: 'R10.4',
+          diagnosisDisplay: 'Nyeri perut lainnya',
+        },
+      });
+      const admissionId = newId();
+      await tx.encounter.create({
+        data: {
+          id: admissionId,
+          tenantId: T,
+          number: `RI-2610-${tag}`,
+          patientId: patient.id,
+          encounterClass: 'IMP',
+          status: 'in_progress',
+          unitId: ward.id,
+          practitionerId: practitioner.id,
+          sourceEncounterId: emergencyId,
+          plannedAt: new Date(),
+          arrivedAt: new Date(),
+          startedAt: new Date(),
+        },
+      });
+      const admissionCoverage = newId();
+      await tx.coverage.create({
+        data: {
+          id: admissionCoverage,
+          tenantId: T,
+          encounterId: admissionId,
+          payerId: payer.id,
+          patientIdentifierId: ident.id,
+          classEntitlement: 'kelas_2',
+          careClass: 'kelas_2',
+        },
+      });
+      const admissionSep = newId();
+      await tx.sep.create({
+        data: {
+          id: admissionSep,
+          tenantId: T,
+          encounterId: admissionId,
+          coverageId: admissionCoverage,
+          status: 'pending',
+          serviceType: 'rawat_inap',
+          diagnosisCode: 'K35.8',
+          diagnosisDisplay: 'Apendisitis akut lainnya',
+        },
+      });
+      return { emergencySep, admissionSep };
+    });
+    return { ...ids, card };
+  }
+
+  it('SEP IGD terbit tanpa rujukan/DPJP; SEP rawat inap menunggu lalu memakai SEP IGD sebagai rujukan', async () => {
+    const r = await emergencyAndAdmission();
+    // Rawat inap diproses sebelum SEP IGD terbit: ditunda (bukan gagal), belum ada SEP di BPJS.
+    await enqueue(BPJS_SEP_INSERT_OPERATION, r.admissionSep, 1);
+    await dispatch();
+    expect(mockSeps(r.card)).toHaveLength(0);
+    expect(await sep(r.admissionSep)).toMatchObject({ status: 'pending' });
+
+    await enqueue(BPJS_SEP_INSERT_OPERATION, r.emergencySep, 1);
+    await drain();
+    const igd = await sep(r.emergencySep);
+    expect(igd).toMatchObject({ status: 'issued', syncStatus: 'sent' });
+    const igdRec = mockState.bpjs.seps.get(igd.sepNo as string);
+    expect(igdRec?.tSep).toMatchObject({ jnsPelayanan: '2', poli: { tujuan: 'IGD' }, dpjpLayan: '' });
+    expect(igdRec?.tSep.rujukan.noRujukan).toBe('');
+
+    // Setelah jeda tunda: SEP rawat inap terbit dengan SEP IGD sebagai rujukan (asal RS, PPK sendiri).
+    await drain(2);
+    const ri = await sep(r.admissionSep);
+    expect(ri).toMatchObject({ status: 'issued', syncStatus: 'sent' });
+    const riRec = mockState.bpjs.seps.get(ri.sepNo as string);
+    expect(riRec?.tSep).toMatchObject({ jnsPelayanan: '1', dpjpLayan: '' });
+    expect(riRec?.tSep.rujukan).toMatchObject({ noRujukan: igd.sepNo, ppkRujukan: PPK, asalRujukan: '2' });
+  });
+
+  it('rawat inap tanpa SPRI dan tanpa SEP IGD asal → gagal permanen, tidak dikirim', async () => {
+    const r = await emergencyAndAdmission();
+    await run((tx) => tx.sep.update({ where: { id: r.emergencySep }, data: { status: 'failed' } }));
+    await enqueue(BPJS_SEP_INSERT_OPERATION, r.admissionSep, 1);
+    await drain();
+    expect(mockSeps(r.card)).toHaveLength(0);
+    expect(await sep(r.admissionSep)).toMatchObject({ status: 'failed', syncStatus: 'dead' });
+  });
+});
