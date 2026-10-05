@@ -127,10 +127,10 @@ Semua komunikasi keluar (BPJS, SATUSEHAT, E-Klaim, TPDI, BTN, Dukcapil, TTE) mem
 
 1. **Booking** (Mobile JKN, aplikasi, atau loket) mengurangi kuota sesi dokter (tidak bisa melebihi batas) dan
    mengirim antrean ke BPJS lewat outbox.
-2. **Anjungan** (perangkat terdaftar, bukan akun staf): pasien mengetik kode booking, NIK, atau no. kartu, membenarkan
-   nama tersamar + tanggal lahir tanpa tahun, lalu check-in. Anjungan mencetak nomor loket (task ID 1 ke BPJS).
-   Pasien umum bisa memilih dokter dan langsung terdaftar; pasien BPJS dengan rujukan/surat kontrol tercatat langsung
-   mendapat nomor poli. Hal yang butuh petugas diarahkan ke loket dengan nomor antrean.
+2. **Anjungan** (perangkat terdaftar, bukan akun staf): pasien mengetik kode booking, NIK, atau no. kartu, lalu tanggal
+   - bulan lahirnya (keduanya harus cocok), membenarkan nama tersamar + tanggal lahir tanpa tahun, lalu check-in. Anjungan mencetak nomor loket (task ID 1 ke BPJS).
+     Pasien umum bisa memilih dokter dan langsung terdaftar; pasien BPJS dengan rujukan/surat kontrol tercatat langsung
+     mendapat nomor poli. Hal yang butuh petugas diarahkan ke loket dengan nomor antrean.
 3. **Loket**: petugas memanggil nomor dari "Kendali antrean" (task 2), lalu mendaftarkan di layar Pendaftaran:
    kunjungan, penjamin, persetujuan umum, dan SEP. SEP dikirim ke BPJS lewat outbox (task 3 saat terdaftar).
 4. **Poli**: nomor poli dipanggil; TV ruang tunggu (perangkat display) menampilkan dan mengumumkannya langsung (SSE).

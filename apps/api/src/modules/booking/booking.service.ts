@@ -29,9 +29,11 @@ import {
   type RescheduleBookingInput,
   newId,
 } from '@simrs/shared';
+import { AuditedDenial } from '../../common/audited-denial';
 import { toPage } from '../../common/pagination';
 import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
+import { PatientAccessService } from '../authz/patient-access.service';
 import { type AppointmentRow, BookingRepository, type TicketRow } from './booking.repository';
 
 const DAY_MS = 86_400_000;
@@ -68,15 +70,60 @@ export class BookingService {
     private readonly repo: BookingRepository,
     private readonly db: TenantDb,
     private readonly events: DomainEvents,
+    private readonly access: PatientAccessService,
   ) {}
+
+  /**
+   * Lingkup izin `booking.read|write|cancel` (P03): `all` → semua; `unit` → booking di layanan/poli unit penugasan;
+   * `relationship` → pasien yang bisa diakses (`PatientAccessService`: relasi, kunjungan aktif di unit, akses darurat).
+   * Penolakan 403 tercatat. Hanya untuk endpoint booking; alur internal (registrasi 5a: `createForVisit`,
+   * `markArrived`) mengikuti izin endpoint pemanggilnya, dan perangkat anjungan diotorisasi token pencariannya.
+   */
+  private async assertScope(target: { patientId: string; serviceUnitId: string | null }): Promise<void> {
+    if (this.db.actor().devicePrincipal) return;
+    const scope = this.db.permissionScope();
+    if (!scope || scope === 'all') return;
+    if (scope === 'unit') {
+      const own = this.db.actor().unitId;
+      if (own && target.serviceUnitId === own) return;
+      throw new AuditedDenial('Booking ini bukan untuk layanan/poli di unit Anda', {
+        resourceType: 'appointment',
+        patientId: target.patientId,
+        details: { scope },
+      });
+    }
+    await this.access.assert(target.patientId);
+  }
+
+  private assertRow(a: AppointmentRow): Promise<void> {
+    return this.assertScope({ patientId: a.patientId, serviceUnitId: a.service.unitId });
+  }
 
   // -----------------------------------------------------------------------------------------------------------------
   // Baca
   // -----------------------------------------------------------------------------------------------------------------
 
   async list(q: BookingListQuery) {
+    const scope = this.db.permissionScope();
+    let unitId: string | undefined;
+    if (scope === 'unit') {
+      unitId = this.db.actor().unitId ?? '00000000-0000-0000-0000-000000000000';
+    } else if (scope === 'relationship') {
+      // Daftar berlingkup relasi hanya per pasien yang bisa diakses (tanpa saringan pasien → 403 tercatat).
+      if (!q.patientId) {
+        throw new AuditedDenial('Pilih pasien yang Anda tangani untuk melihat booking', {
+          resourceType: 'appointment',
+          details: { scope },
+        });
+      }
+      await this.access.assert(q.patientId);
+    }
     const page = toPage(
-      await this.repo.list({ ...q, serviceDate: q.serviceDate ? dbDateFromIso(q.serviceDate) : undefined }),
+      await this.repo.list({
+        ...q,
+        serviceDate: q.serviceDate ? dbDateFromIso(q.serviceDate) : undefined,
+        unitId,
+      }),
       q.limit,
     );
     for (const a of page.items) {
@@ -92,12 +139,15 @@ export class BookingService {
   }
 
   async get(id: string): Promise<Booking> {
-    return this.toBooking(await this.load(id));
+    const a = await this.load(id);
+    await this.assertRow(a);
+    return this.toBooking(a);
   }
 
   async getByCode(code: string): Promise<Booking> {
     const a = await this.repo.findByCode(code);
     if (!a) throw notFound();
+    await this.assertRow(a);
     return this.toBooking(a);
   }
 
@@ -106,6 +156,9 @@ export class BookingService {
   // -----------------------------------------------------------------------------------------------------------------
 
   async create(input: CreateBookingInput): Promise<Booking> {
+    const session = await this.repo.findSession(input.sessionId);
+    if (session)
+      await this.assertScope({ patientId: input.patientId, serviceUnitId: session.service.unitId });
     const id = await this.book({ ...input, channel: 'loket' });
     return this.get(id);
   }
@@ -243,6 +296,7 @@ export class BookingService {
   // -----------------------------------------------------------------------------------------------------------------
 
   async cancel(id: string, input: CancelBookingInput): Promise<Booking> {
+    await this.assertRow(await this.load(id));
     await this.cancelRow(id, input.reason);
     return this.get(id);
   }
@@ -281,9 +335,14 @@ export class BookingService {
     id: string,
     input: RescheduleBookingInput,
   ): Promise<{ cancelled: Booking; booking: Booking }> {
-    if ((await this.load(id)).sessionId === input.sessionId) {
+    const current = await this.load(id);
+    await this.assertRow(current);
+    if (current.sessionId === input.sessionId) {
       throw invalidState('Jadwal ulang harus ke sesi lain');
     }
+    const target = await this.repo.findSession(input.sessionId);
+    if (target)
+      await this.assertScope({ patientId: current.patientId, serviceUnitId: target.service.unitId });
     const old = await this.cancelRow(id, input.reason);
     const jknVisitKind = old.jknVisitKind === null ? undefined : visitKindByCode(old.jknVisitKind);
     const newId_ = await this.book(
@@ -313,6 +372,7 @@ export class BookingService {
   ): Promise<CheckInResult> {
     await this.repo.lock(id);
     const a = await this.load(id);
+    await this.assertRow(a);
     if (a.status !== 'booked') throw invalidState(`Booking berstatus ${a.status} tidak bisa check-in`);
     const serviceDate = isoFromDbDate(a.appointmentDate);
     if (serviceDate !== isoDateJakarta(new Date())) {

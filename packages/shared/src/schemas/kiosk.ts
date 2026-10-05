@@ -6,8 +6,10 @@ import { bookingCodeSchema } from './booking';
 
 /**
  * F05 · Kontrak API anjungan mandiri (`/api/v1/kiosk`, rencana fase 2 potongan 6). Hanya prinsipal perangkat
- * berizin `kiosk.use` (ADR-0027); akun staf → 403 `DEVICE_NOT_ALLOWED`. Identitas dikonfirmasi lewat nama tersamar +
- * tanggal lahir tanpa tahun (keputusan fase 2 no. 3); pencarian dibatasi `kiosk.lookup_rate_per_min` per perangkat.
+ * berizin `kiosk.use` (ADR-0027); akun staf → 403 `DEVICE_NOT_ALLOWED`. Pasien mengetik nomor identitas DAN tanggal +
+ * bulan lahir (DDMM); keduanya harus cocok sebelum nama tersamar + token terbit (keputusan fase 2 no. 3, revisi
+ * 5 Okt 2026); pencarian dibatasi `kiosk.lookup_rate_per_min` per perangkat dan
+ * `kiosk.lookup_rate_per_tenant_per_min` per RS.
  * Anjungan tidak pernah menerima ID pasien: tindakan lanjutan memakai token pencarian berumur pendek.
  */
 
@@ -36,11 +38,16 @@ export const KIOSK_LOOKUP_TOKEN_PATTERN = /^kl1\.[A-Za-z0-9_-]{43}$/;
 export const KIOSK_LOOKUP_TTL_SECONDS = 180;
 export const kioskLookupTokenSchema = z.string().regex(KIOSK_LOOKUP_TOKEN_PATTERN);
 
+/** Tanggal + bulan lahir yang diketik di keypad: `DDMM` (mis. `1403` = 14 Maret). */
+export const KIOSK_BIRTH_DDMM_PATTERN = /^(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])$/;
+
 export const kioskIdentifySchema = z
   .strictObject({
     purpose: z.enum(KIOSK_PURPOSES),
     method: z.enum(Object.keys(KIOSK_ID_METHODS) as [KioskIdMethod, ...KioskIdMethod[]]),
     value: z.string().regex(/^\d+$/, 'Hanya angka'),
+    /** Faktor kedua: salah = jawaban sama dengan "tidak ditemukan" (tidak membocorkan keberadaan pasien). */
+    birthDdmm: z.string().regex(KIOSK_BIRTH_DDMM_PATTERN, 'Tanggal dan bulan lahir 4 angka (DDMM)'),
   })
   .refine((v) => v.value.length === KIOSK_ID_METHODS[v.method].length, {
     message: 'Jumlah digit tidak sesuai',
@@ -150,3 +157,8 @@ export function maskNameForKiosk(name: string): string {
 
 /** Tanggal lahir tanpa tahun untuk konfirmasi di anjungan. */
 export const kioskBirthDayMonth = formatHariBulan;
+
+/** `YYYY-MM-DD` → `DDMM` (isian keypad tanggal + bulan lahir). */
+export function kioskBirthDdmm(isoDate: string): string {
+  return `${isoDate.slice(8, 10)}${isoDate.slice(5, 7)}`;
+}

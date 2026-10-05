@@ -40,6 +40,7 @@ import {
   hfisDifferenceSchema,
   isDomainEventName,
   kioskBirthDayMonth,
+  kioskBirthDdmm,
   kioskIdentifyResultSchema,
   kioskIdentifySchema,
   kioskRegisterSchema,
@@ -699,13 +700,40 @@ describe('rekaman rujukan', () => {
 describe('kontrak anjungan (F05)', () => {
   it('identifikasi: digit sesuai metode; hasil hanya nama tersamar + tanggal tanpa tahun', () => {
     expect(
-      kioskIdentifySchema.safeParse({ purpose: 'booking', method: 'booking', value: '2610050117' }).success,
+      kioskIdentifySchema.safeParse({
+        purpose: 'booking',
+        method: 'booking',
+        value: '2610050117',
+        birthDdmm: '1403',
+      }).success,
     ).toBe(true);
+    // Tanggal + bulan lahir wajib dan harus tanggal yang mungkin (DDMM).
+    for (const birthDdmm of [undefined, '0314', '3201', '140', '0000']) {
+      expect(
+        kioskIdentifySchema.safeParse({
+          purpose: 'booking',
+          method: 'booking',
+          value: '2610050117',
+          birthDdmm,
+        }).success,
+      ).toBe(false);
+    }
+    expect(kioskBirthDdmm('1972-03-14')).toBe('1403');
     expect(
-      kioskIdentifySchema.safeParse({ purpose: 'booking', method: 'nik', value: '2610050117' }).success,
+      kioskIdentifySchema.safeParse({
+        purpose: 'booking',
+        method: 'nik',
+        value: '2610050117',
+        birthDdmm: '1403',
+      }).success,
     ).toBe(false);
     expect(
-      kioskIdentifySchema.safeParse({ purpose: 'bpjs', method: 'bpjs', value: '00012345678x9' }).success,
+      kioskIdentifySchema.safeParse({
+        purpose: 'bpjs',
+        method: 'bpjs',
+        value: '00012345678x9',
+        birthDdmm: '1403',
+      }).success,
     ).toBe(false);
     expect(maskNameForKiosk('Siti Rahmawati')).toBe('Si•• Ra•••••••');
     expect(maskNameForKiosk('  Tn. Suryo  ')).toBe('Tn. Su•••');

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
 import { BookingController } from './booking.controller';
 import { BookingRepository } from './booking.repository';
 import { BookingService } from './booking.service';
@@ -14,6 +15,7 @@ import { BookingService } from './booking.service';
  * - Tes wajib: booking serentak di sisa kuota terakhir → tepat satu berhasil.
  */
 @Module({
+  imports: [AuthzModule],
   controllers: [BookingController],
   providers: [BookingService, BookingRepository],
   exports: [BookingService],

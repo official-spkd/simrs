@@ -62,13 +62,16 @@ PIN masuk cepat (ADR-0024 §10) sudah menyiapkan tabel umum `registered_devices`
 
 Modul anjungan (`modules/kiosk`) memakai prinsipal ini apa adanya. Keputusan tambahan:
 
-1. **Token pencarian, bukan ID pasien.** Identifikasi (NIK, kartu BPJS, kode booking hari ini) menjawab nama tersamar +
-   tanggal lahir tanpa tahun (keputusan fase 2 §4 #3) dan token `kl1.<256 bit>` berumur 180 detik. Token sekali pakai,
+1. **Token pencarian, bukan ID pasien.** Identifikasi (NIK, kartu BPJS, kode booking hari ini) + tanggal dan bulan
+   lahir yang diketik (DDMM, lihat revisi di bawah) menjawab nama tersamar + tanggal lahir tanpa tahun dan token
+   `kl1.<256 bit>` berumur 180 detik. Token sekali pakai,
    hanya di perangkat yang sama, hanya hash-nya disimpan (`kiosk_lookups`); check-in, tiket, dan registrasi menukarnya.
    Token perangkat lain → 410 yang sama, tercatat. Header `Idempotency-Key` yang sama → tiket yang sama.
 2. **Anti-enumerasi.** Jawaban identifikasi selalu 200 dengan baris jejak yang sama (ditemukan atau tidak, tanpa nilai
-   yang diketik); `kiosk.lookup_rate_per_min` per perangkat dihitung dari jejak itu di bawah kunci advisori perangkat;
-   pelanggaran 429 tetap tercatat (`AuditedDenial` dengan kode/status sendiri). NIK ganda → tidak ditemukan.
+   yang diketik); `kiosk.lookup_rate_per_min` per perangkat dan `kiosk.lookup_rate_per_tenant_per_min` per RS (bawaan
+   10 dan 60) dihitung dari jejak itu di bawah kunci advisori pencarian se-RS; pelanggaran 429 tetap tercatat
+   (`AuditedDenial` dengan kode/status sendiri, alasan `rate_limited` / `tenant_rate_limited`). NIK ganda → tidak
+   ditemukan.
 3. **Sumber daya bersama dibatasi per perangkat** (review keamanan potongan 9): tiket loket tanpa identitas 6 per menit
    (nomor harian per layanan terbatas 999), "panggil petugas" sekali per 60 detik (sentuhan ulang tidak membuat
    notifikasi baru), cetak tiket hanya untuk tiket yang tercatat bagi perangkat itu hari ini (`kiosk_tickets`).
@@ -76,9 +79,19 @@ Modul anjungan (`modules/kiosk`) memakai prinsipal ini apa adanya. Keputusan tam
    petugas (persetujuan umum belum ada, rujukan belum tercatat, kuota penuh) → 422 `KIOSK_NEEDS_COUNTER` dan tawaran
    nomor loket.
 
-Risiko terbuka (perlu keputusan pemilik produk, belum diubah): identifikasi tidak meminta tanggal lahir diketik, jadi
-siapa pun di depan anjungan bisa mengetahui bahwa pemilik NIK/kartu/kode booking adalah pasien RS ini (nama tersamar +
-hari/bulan lahir) dalam batas laju per perangkat. Kode booking (`YYMMDD` + 4 digit) bisa ditebak berurutan. Pilihan:
-wajibkan tanggal lahir di keypad (seperti gateway publik F08) dan/atau batas pencarian per RS; lihat laporan review
-keamanan potongan 9.
+### Revisi keputusan fase 2 §4 #3 (5 Okt 2026, orkestrator dengan mandat pemilik produk)
+
+Temuan review keamanan potongan 9: tanpa faktor kedua, siapa pun di depan anjungan bisa mengetahui bahwa pemilik
+NIK/kartu/kode booking (kode `YYMMDD` + 4 digit bisa ditebak berurutan) adalah pasien RS ini, lalu memakai tokennya untuk
+check-in atau registrasi. Keputusan baru:
+
+- Pasien mengetik nomor identitas **dan** tanggal + bulan lahir (`DDMM`, keypad kedua dengan target sentuh yang sama).
+  Keduanya dikirim dalam satu permintaan (`kioskIdentifySchema.birthDdmm`), jadi API tidak pernah memberi tahu bahwa
+  nomornya saja yang cocok.
+- DDMM salah → jawaban persis sama dengan "tidak ditemukan" (200 `{found:false}`, tanpa token, baris jejak
+  `found=false`), dibandingkan waktu-konstan, tetap dihitung batas laju, dan dicatat audit dengan pasien kandidatnya
+  (`details.birthMismatch`) sebagai bahan tinjauan petugas privasi.
+- Batas pencarian per RS (`kiosk.lookup_rate_per_tenant_per_min`, bawaan 60/menit) di atas batas per perangkat, agar
+  enumerasi tidak bisa dibagi ke banyak anjungan.
+- Nama tersamar + tanggal lahir tanpa tahun tetap ditampilkan sesudahnya sebagai konfirmasi ("Apakah ini data Anda?").
 

@@ -99,6 +99,10 @@ test.describe('anjungan mandiri (perangkat terdaftar)', () => {
     await kiosk.getByRole('button', { name: /NIK e-KTP/ }).click();
     await typeDigits(kiosk, nik);
     await kiosk.getByRole('button', { name: 'Lanjut' }).click();
+    // Faktor kedua: tanggal + bulan lahir (DDMM) sebelum nama tersamar tampil.
+    await expect(kiosk.getByRole('heading', { name: 'Masukkan tanggal dan bulan lahir' })).toBeVisible();
+    await typeDigits(kiosk, '1403');
+    await kiosk.getByRole('button', { name: 'Lanjut' }).click();
 
     // Konfirmasi: hanya nama tersamar + tanggal lahir tanpa tahun (tanpa RM/NIK).
     const data = kiosk.getByRole('region', { name: 'Data pasien' });
@@ -164,6 +168,10 @@ test.describe('anjungan mandiri (perangkat terdaftar)', () => {
     await kiosk.getByRole('button', { name: /NIK e-KTP/ }).click();
     await typeDigits(kiosk, nik);
     await kiosk.getByRole('button', { name: 'Lanjut' }).click();
+    // Faktor kedua: tanggal + bulan lahir (DDMM) sebelum nama tersamar tampil.
+    await expect(kiosk.getByRole('heading', { name: 'Masukkan tanggal dan bulan lahir' })).toBeVisible();
+    await typeDigits(kiosk, '2107');
+    await kiosk.getByRole('button', { name: 'Lanjut' }).click();
     await expect(kiosk.getByTestId('nama-tersamar')).toHaveText('De•• Le•••••');
     await kiosk.getByRole('button', { name: 'Ya, data saya benar · pilih dokter' }).click();
     await kiosk.getByRole('listitem', { name: new RegExp(`^${doctor.replace(/[.,]/g, '.')}`) }).click();
@@ -187,6 +195,10 @@ test.describe('anjungan mandiri (perangkat terdaftar)', () => {
     await kiosk.getByRole('button', { name: /Pasien umum atau asuransi/ }).click();
     await kiosk.getByRole('button', { name: /NIK e-KTP/ }).click();
     await typeDigits(kiosk, `9999${digits(12)}`);
+    await kiosk.getByRole('button', { name: 'Lanjut' }).click();
+    // Faktor kedua: tanggal + bulan lahir (DDMM) sebelum nama tersamar tampil.
+    await expect(kiosk.getByRole('heading', { name: 'Masukkan tanggal dan bulan lahir' })).toBeVisible();
+    await typeDigits(kiosk, '0101');
     await kiosk.getByRole('button', { name: 'Lanjut' }).click();
     await expect(kiosk.getByText('Data tidak ditemukan', { exact: false })).toBeVisible();
     await kiosk.getByRole('button', { name: 'Ambil nomor antrean loket pendaftaran' }).click();

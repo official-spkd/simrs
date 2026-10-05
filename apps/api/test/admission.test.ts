@@ -111,6 +111,19 @@ beforeAll(async () => {
           data: { scope: 'unit' },
         });
       }
+      // Bidan RS A diberi hak mendaftarkan kunjungan berlingkup unit (RS boleh mengubah lingkup, ADR-0031 §5).
+      const bidan = await tx.role.findFirstOrThrow({ where: { code: 'bidan' } });
+      for (const [resource, action] of [
+        ['encounter', 'write'],
+        ['encounter', 'read'],
+        ['patient', 'read'],
+      ] as const) {
+        await tx.rolePermission.upsert({
+          where: { roleId_resource_action: { roleId: bidan.id, resource, action } },
+          create: { tenantId: A.id, roleId: bidan.id, resource, action, scope: 'unit' },
+          update: { scope: 'unit' },
+        });
+      }
     });
   } finally {
     await owner.$disconnect();
@@ -122,6 +135,7 @@ beforeAll(async () => {
     ['perawatIgd', A, 'perawat', 'IGD'],
     ['perawatMelati', A, 'perawat', 'MELATI'],
     ['dokterLain', A, 'dokter', undefined],
+    ['bidanIgd', A, 'bidan', 'IGD'],
     ['rsB', B, 'petugas_pendaftaran', undefined],
   ] as const) {
     tok[who] = await login(
@@ -514,5 +528,69 @@ describe('ABAC lingkup unit (ADR-0031), izin, isolasi', () => {
     }).expect(404);
     const rows = await run(B.id, (tx) => tx.encounter.count({ where: { id: r.encounter.id } }));
     expect(rows).toBe(0);
+  });
+});
+
+describe('encounter.write berlingkup unit (bukan all)', () => {
+  it('hanya ke unit penugasan; pasien yang ada harus bisa diakses; Tn. X baru boleh; pelanggaran 403 + audit', async () => {
+    // Pasien tanpa identitas baru ke IGD (unit penugasannya) → boleh.
+    const created = await emergency('bidanIgd', unidentified()).expect(201);
+    expect(created.body.encounter.unitId).toBe(unit.IGD);
+
+    // Admisi ke bangsal (unit lain) → 403 tercatat.
+    const p = await makePatient(A.id, { jkn: false });
+    const wrongUnit = await admit('bidanIgd', {
+      patientId: p.id,
+      unitId: unit.MELATI,
+      practitionerId: dpjpId,
+      careClass: 'kelas_3',
+      plannedAt: tomorrowAt(),
+      coverage: { payer: 'umum' },
+      generalConsent: CONSENT,
+    }).expect(403);
+    expect(wrongUnit.body.message).toMatch(/unit penugasan/);
+
+    // Pasien yang sudah ada tanpa relasi/kunjungan di unitnya → 403 (akses pasien), tidak ada kunjungan dibuat.
+    const known = {
+      patient: { kind: 'known', patientId: p.id },
+      unitId: unit.IGD,
+      arrivalMode: 'datang_sendiri',
+    };
+    await emergency('bidanIgd', known).expect(403);
+    expect(await run(A.id, (tx) => tx.encounter.count({ where: { patientId: p.id } }))).toBe(0);
+    const denied = await run(A.id, (tx) =>
+      tx.auditEvent.findMany({
+        where: { action: 'access_denied', patientId: p.id },
+        orderBy: { seq: 'asc' },
+      }),
+    );
+    expect(denied.map((d) => d.resourceType)).toEqual(['encounter', 'patient']);
+    expect(denied[0]?.details).toMatchObject({ scope: 'unit', unitId: unit.MELATI });
+
+    // Setelah punya relasi dengan pasien → boleh mendaftarkannya ke IGD.
+    const bidanId = await run(A.id, async (tx) => {
+      const a = await tx.staffAssignment.findFirstOrThrow({
+        where: { role: { code: 'bidan' }, unitId: unit.IGD },
+        select: { userId: true },
+      });
+      return a.userId;
+    });
+    await run(A.id, (tx) =>
+      tx.accessRelationship.create({
+        data: { id: newId(), tenantId: A.id, userId: bidanId, patientId: p.id, kind: 'petugas_unit' },
+      }),
+    );
+    await emergency('bidanIgd', known).expect(201);
+
+    // Pendaftar berlingkup semua tetap boleh ke unit mana pun.
+    await admit('daftar', {
+      patientId: p.id,
+      unitId: unit.MELATI,
+      practitionerId: dpjpId,
+      careClass: 'kelas_3',
+      plannedAt: tomorrowAt(),
+      coverage: { payer: 'umum' },
+      generalConsent: CONSENT,
+    }).expect(201);
   });
 });

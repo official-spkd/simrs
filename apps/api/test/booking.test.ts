@@ -127,16 +127,50 @@ const events = (tenantId: string, name: string, appointmentId: string) =>
     tx.domainEvent.findMany({ where: { name, payload: { path: ['appointmentId'], equals: appointmentId } } }),
   );
 
+const unitOf: Record<string, string> = {};
+let dokterRelId = '';
+
 beforeAll(async () => {
   app = await createTestApp();
   A = await seededTenant();
   B = await seededTenant();
-  for (const [who, t, role] of [
-    ['daftar', A, 'petugas_pendaftaran'],
-    ['perawat', A, 'perawat'],
-    ['rsB', B, 'petugas_pendaftaran'],
+  // Lingkup booking diubah RS A seperti di layar Akses (sebelum login pertama: cache matriks per tenant × peran):
+  // bidan berlingkup unit (layanan/poli unit penugasan), dokter berlingkup relasi (pasien yang bisa diakses).
+  const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
+  try {
+    await withTenant(owner, A.id, async (tx) => {
+      for (const u of await tx.unit.findMany({ select: { id: true, code: true } })) unitOf[u.code] = u.id;
+      for (const [code, scope, actions] of [
+        ['bidan', 'unit', ['read', 'write', 'cancel']],
+        ['dokter', 'relationship', ['read']],
+      ] as const) {
+        const role = await tx.role.findFirstOrThrow({ where: { code } });
+        for (const action of actions) {
+          await tx.rolePermission.upsert({
+            where: { roleId_resource_action: { roleId: role.id, resource: 'booking', action } },
+            create: { tenantId: A.id, roleId: role.id, resource: 'booking', action, scope },
+            update: { scope },
+          });
+        }
+      }
+    });
+  } finally {
+    await owner.$disconnect();
+  }
+  for (const [who, t, role, unitCode] of [
+    ['daftar', A, 'petugas_pendaftaran', undefined],
+    ['perawat', A, 'perawat', undefined],
+    ['rsB', B, 'petugas_pendaftaran', undefined],
+    ['bidanPd', A, 'bidan', 'POLI-DALAM'],
+    ['bidanJt', A, 'bidan', 'POLI-JANTUNG'],
+    ['dokterRel', A, 'dokter', undefined],
   ] as const) {
-    tok[who] = await login(app, await createTestUser(t.id, { roles: [{ code: role }], tenantCode: t.code }));
+    const user = await createTestUser(t.id, {
+      roles: [{ code: role, unitId: unitCode ? unitOf[unitCode] : undefined }],
+      tenantCode: t.code,
+    });
+    if (who === 'dokterRel') dokterRelId = user.id;
+    tok[who] = await login(app, user);
   }
 });
 
@@ -367,5 +401,56 @@ describe('baca, audit, izin, isolasi', () => {
     const pb = await makePatient(B.id);
     await as('rsB').post('', { patientId: pb.id, sessionId: s.id, quotaBucket: 'non_jkn' }).expect(404);
     expect(await quota(A.id, s.id)).toEqual({ bookedJkn: 0, bookedNonJkn: 1 });
+  });
+});
+
+describe('lingkup izin booking (unit dan relasi)', () => {
+  it('unit: hanya booking di poli unit penugasan; relasi: hanya pasien yang bisa diakses; penolakan 403 + audit', async () => {
+    const s1 = await makeSession(A.id);
+    const p = await makePatient(A.id, { jkn: false });
+    const b = (
+      await as('daftar').post('', { patientId: p.id, sessionId: s1.id, quotaBucket: 'non_jkn' }).expect(201)
+    ).body as { id: string; bookingCode: string };
+
+    // Unit: bidan poli PD membaca; bidan poli Jantung tidak (baca, kode booking, daftar).
+    await as('bidanPd').get(`/${b.id}`).expect(200);
+    await as('bidanPd').get(`/by-code/${b.bookingCode}`).expect(200);
+    await as('bidanJt').get(`/${b.id}`).expect(403);
+    await as('bidanJt').get(`/by-code/${b.bookingCode}`).expect(403);
+    const ids = (r: { body: { items: Array<{ id: string }> } }) => r.body.items.map((i) => i.id);
+    expect(ids(await as('bidanPd').get(`?patientId=${p.id}`).expect(200))).toEqual([b.id]);
+    expect(ids(await as('bidanJt').get(`?patientId=${p.id}`).expect(200))).toEqual([]);
+    const denied = await withTenant(testDb(), A.id, (tx) =>
+      tx.auditEvent.findMany({
+        where: { action: 'access_denied', resourceType: 'appointment', patientId: p.id },
+      }),
+    );
+    expect(denied.length).toBeGreaterThanOrEqual(2);
+    expect(denied[0]?.details).toMatchObject({ scope: 'unit' });
+
+    // Tulis/batal berlingkup unit: poli unit lain ditolak, poli sendiri boleh.
+    const p2 = await makePatient(A.id, { jkn: false });
+    await as('bidanJt').post('', { patientId: p2.id, sessionId: s1.id, quotaBucket: 'non_jkn' }).expect(403);
+    expect(await quota(A.id, s1.id)).toEqual({ bookedJkn: 0, bookedNonJkn: 1 });
+    await as('bidanJt').post(`/${b.id}/cancel`, { reason: 'Coba batal dari poli lain' }).expect(403);
+    const own = (
+      await as('bidanPd').post('', { patientId: p2.id, sessionId: s1.id, quotaBucket: 'non_jkn' }).expect(201)
+    ).body as { id: string };
+    await as('bidanPd').post(`/${own.id}/cancel`, { reason: 'Pasien membatalkan' }).expect(200);
+
+    // Relasi: dokter tanpa relasi ditolak (baca dan daftar tanpa saringan pasien); dengan relasi boleh.
+    await as('dokterRel').get(`/${b.id}`).expect(403);
+    await as('dokterRel').get('').expect(403);
+    await as('dokterRel').get(`?patientId=${p.id}`).expect(403);
+    await withTenant(testDb(), A.id, (tx) =>
+      tx.accessRelationship.create({
+        data: { id: newId(), tenantId: A.id, userId: dokterRelId, patientId: p.id, kind: 'dpjp' },
+      }),
+    );
+    await as('dokterRel').get(`/${b.id}`).expect(200);
+    expect(ids(await as('dokterRel').get(`?patientId=${p.id}`).expect(200))).toEqual([b.id]);
+
+    // Lingkup semua (petugas pendaftaran) tetap melihat semuanya.
+    await as('daftar').get(`/${b.id}`).expect(200);
   });
 });

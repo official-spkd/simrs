@@ -27,7 +27,7 @@ export const APPOINTMENT_SELECT = {
   createdAt: true,
   session: { select: { startTime: true, endTime: true } },
   practitioner: { select: { name: true } },
-  service: { select: { code: true, name: true } },
+  service: { select: { code: true, name: true, unitId: true } },
   tickets: {
     select: {
       id: true,
@@ -79,10 +79,13 @@ export class BookingRepository {
     sessionId?: string;
     patientId?: string;
     status?: string;
+    /** Lingkup `unit`: hanya booking di layanan/poli unit ini. */
+    unitId?: string;
   }) {
     return this.db.tx().appointment.findMany({
       where: {
         ...(q.cursor ? { id: { gt: q.cursor } } : {}),
+        ...(q.unitId ? { service: { unitId: q.unitId } } : {}),
         ...(q.serviceDate ? { appointmentDate: q.serviceDate } : {}),
         ...(q.sessionId ? { sessionId: q.sessionId } : {}),
         ...(q.patientId ? { patientId: q.patientId } : {}),
@@ -118,7 +121,7 @@ export class BookingRepository {
         endTime: true,
         kind: true,
         substituteId: true,
-        service: { select: { kind: true, active: true } },
+        service: { select: { kind: true, active: true, unitId: true } },
       },
     });
   }

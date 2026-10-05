@@ -136,14 +136,21 @@ async function patient(opts: { booking?: 'jkn' | 'non_jkn'; name?: string; birth
   return { ...p, ...ids, bookingCode: code, appointmentId, controlNo };
 }
 
+/** Identifikasi; tanggal + bulan lahir bawaan `1403` = tanggal lahir bawaan `patient()` (14 Mar 1985). */
 const identify = (token: string, body: Record<string, unknown>) =>
   http()
     .post('/api/v1/kiosk/identify')
     .set(asDevice(token))
-    .send({ purpose: 'booking', ...body });
+    .send({ purpose: 'booking', birthDdmm: '1403', ...body });
 
-async function lookupToken(token: string, value: string, method = 'nik', purpose = 'booking') {
-  const res = await identify(token, { method, value, purpose }).expect(200);
+async function lookupToken(
+  token: string,
+  value: string,
+  method = 'nik',
+  purpose = 'booking',
+  birthDdmm = '1403',
+) {
+  const res = await identify(token, { method, value, purpose, birthDdmm }).expect(200);
   expect(res.body.found).toBe(true);
   return res.body.lookupToken as string;
 }
@@ -205,7 +212,12 @@ beforeAll(async () => {
     await createTestUser(OTHER.id, { roles: [{ code: 'admin_tenant' }], tenantCode: OTHER.code }),
   );
   await withTenant(owner, T.id, (tx) =>
-    tx.tenantSetting.create({ data: { tenantId: T.id, key: 'kiosk.lookup_rate_per_min', value: 60 } }),
+    tx.tenantSetting.createMany({
+      data: [
+        { tenantId: T.id, key: 'kiosk.lookup_rate_per_min', value: 60 },
+        { tenantId: T.id, key: 'kiosk.lookup_rate_per_tenant_per_min', value: 1000 },
+      ],
+    }),
   );
   const r = await createTestUser(T.id, { roles: [{ code: 'petugas_pendaftaran' }], tenantCode: T.code });
   registrarId = r.id;
@@ -242,6 +254,9 @@ describe('hanya perangkat anjungan', () => {
   it('isian divalidasi kontrak (jumlah digit per cara)', async () => {
     await identify(dev.kiosk.token, { method: 'nik', value: '123' }).expect(400);
     await identify(dev.kiosk.token, { method: 'booking', value: 'ABCDEFGHIJ' }).expect(400);
+    // Tanggal + bulan lahir wajib (DDMM yang mungkin).
+    await identify(dev.kiosk.token, { method: 'nik', value: nik(), birthDdmm: undefined }).expect(400);
+    await identify(dev.kiosk.token, { method: 'nik', value: nik(), birthDdmm: '3213' }).expect(400);
   });
 });
 
@@ -279,7 +294,11 @@ describe('identifikasi', () => {
       name: 'Budi Santoso Uji',
       birthDate: '1979-11-02',
     });
-    const byCard = await identify(dev.kiosk.token, { method: 'bpjs', value: withBooking.bpjs }).expect(200);
+    const byCard = await identify(dev.kiosk.token, {
+      method: 'bpjs',
+      value: withBooking.bpjs,
+      birthDdmm: '0211',
+    }).expect(200);
     expect(byCard.body).toMatchObject({
       found: true,
       nameMasked: 'Bu•• Sa••••• Uj•',
@@ -288,6 +307,7 @@ describe('identifikasi', () => {
     const byCode = await identify(dev.kiosk.token, {
       method: 'booking',
       value: withBooking.bookingCode,
+      birthDdmm: '0211',
     }).expect(200);
     expect(byCode.body).toMatchObject({ found: true, hasBookingToday: true });
 
@@ -326,6 +346,34 @@ describe('identifikasi', () => {
     expect(rows.every((r) => r.tokenHash === null && r.patientId === null)).toBe(true);
   });
 
+  it('tanggal + bulan lahir salah → jawaban sama dengan tidak ditemukan; tercatat dengan pasiennya, tanpa token', async () => {
+    const p = await patient({ booking: 'jkn' });
+    const wrong = await identify(dev.kiosk.token, { method: 'nik', value: p.nik, birthDdmm: '1503' }).expect(
+      200,
+    );
+    const unknown = await identify(dev.kiosk.token, {
+      method: 'nik',
+      value: nik(),
+      birthDdmm: '1503',
+    }).expect(200);
+    expect(wrong.body).toEqual({ found: false });
+    expect(Object.keys(wrong.body)).toEqual(Object.keys(unknown.body));
+    const lookups = await run((tx) =>
+      tx.kioskLookup.findMany({ where: { deviceId: dev.kiosk.id }, orderBy: { createdAt: 'desc' }, take: 2 }),
+    );
+    expect(lookups.every((l) => !l.found && l.tokenHash === null && l.patientId === null)).toBe(true);
+    const rows = await audits({ resourceType: 'kiosk_lookup', patientId: p.id });
+    expect(rows.at(-1)?.details).toMatchObject({ found: false, birthMismatch: true, deviceId: dev.kiosk.id });
+    // Kode booking juga butuh tanggal + bulan lahir.
+    const byCode = await identify(dev.kiosk.token, {
+      method: 'booking',
+      value: p.bookingCode,
+      birthDdmm: '1402',
+    }).expect(200);
+    expect(byCode.body).toEqual({ found: false });
+    await lookupToken(dev.kiosk.token, p.bookingCode, 'booking');
+  });
+
   it('anjungan RS lain tidak menemukan pasien RS ini (RLS)', async () => {
     const p = await patient();
     const res = await identify(dev.otherKiosk.token, { method: 'nik', value: p.nik }).expect(200);
@@ -351,6 +399,41 @@ describe('identifikasi', () => {
     });
     expect(counted).toBe(10);
     await identify(dev.otherKiosk.token, { method: 'nik', value: nik() }).expect(200);
+  });
+
+  it('batas pencarian per RS (semua anjungan) → 429 tercatat walau batas perangkat belum habis', async () => {
+    const recent = await withTenant(testDb(), OTHER.id, (tx) =>
+      tx.kioskLookup.count({ where: { createdAt: { gte: new Date(Date.now() - 60_000) } } }),
+    );
+    await withTenant(owner, OTHER.id, (tx) =>
+      tx.tenantSetting.upsert({
+        where: { tenantId_key: { tenantId: OTHER.id, key: 'kiosk.lookup_rate_per_tenant_per_min' } },
+        create: { tenantId: OTHER.id, key: 'kiosk.lookup_rate_per_tenant_per_min', value: recent + 1 },
+        update: { value: recent + 1 },
+      }),
+    );
+    try {
+      await identify(dev.otherKiosk.token, { method: 'nik', value: nik() }).expect(200);
+      const blocked = await identify(dev.otherKiosk.token, { method: 'nik', value: nik() }).expect(429);
+      expect(blocked.body.code).toBe('RATE_LIMITED');
+      const denied = await withTenant(testDb(), OTHER.id, (tx) =>
+        tx.auditEvent.findMany({
+          where: { action: 'access_denied', resourceType: 'kiosk_lookup' },
+          orderBy: { seq: 'asc' },
+        }),
+      );
+      expect(denied.at(-1)?.details).toMatchObject({
+        reason: 'tenant_rate_limited',
+        limit: recent + 1,
+        deviceId: dev.otherKiosk.id,
+      });
+    } finally {
+      await withTenant(owner, OTHER.id, (tx) =>
+        tx.tenantSetting.delete({
+          where: { tenantId_key: { tenantId: OTHER.id, key: 'kiosk.lookup_rate_per_tenant_per_min' } },
+        }),
+      );
+    }
   });
 });
 
@@ -722,7 +805,7 @@ describe('registrasi mandiri (alur 5a)', () => {
         data: { id: newId(), tenantId: T.id, patientId: p.id, kind: 'umum', note: 'Persetujuan umum uji' },
       }),
     );
-    const token = await lookupToken(dev.kiosk.token, p.nik, 'nik', 'umum');
+    const token = await lookupToken(dev.kiosk.token, p.nik, 'nik', 'umum', '2107');
     const res = await register(token, { payer: 'umum', sessionId }, newId()).expect(201);
     expect(res.body.queueNo).toMatch(/^PD-\d{3}$/);
     const [enc, seps] = await run((tx) =>

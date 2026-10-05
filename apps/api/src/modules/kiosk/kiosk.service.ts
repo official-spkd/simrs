@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { isoFromDbDate } from '@simrs/db';
 import {
@@ -14,6 +14,7 @@ import {
   type KioskIdentifyInput,
   type KioskIdentifyResult,
   kioskBirthDayMonth,
+  kioskBirthDdmm,
   type KioskRegisterInput,
   type KioskSessionOption,
   type KioskTicketRequest,
@@ -58,9 +59,10 @@ const lookupExpired = () => frontOfficeError('KIOSK_LOOKUP_EXPIRED');
 /**
  * F05 · Anjungan mandiri (prinsipal perangkat `kiosk.use`, ADR-0027; keputusan fase 2 no. 3).
  *
- * - `identify`: NIK / kartu BPJS / kode booking → nama tersamar + tanggal lahir tanpa tahun + token `kl1` berumur
- *   `KIOSK_LOOKUP_TTL_SECONDS`. Jawaban seragam (200 ditemukan/tidak, kueri dan baris jejak yang sama), dibatasi
- *   `kiosk.lookup_rate_per_min` per perangkat (429 tercatat), setiap percobaan diaudit atas nama perangkat.
+ * - `identify`: NIK / kartu BPJS / kode booking + tanggal dan bulan lahir (DDMM) → nama tersamar + tanggal lahir tanpa
+ *   tahun + token `kl1` berumur `KIOSK_LOOKUP_TTL_SECONDS`. Jawaban seragam (200 ditemukan/tidak; DDMM salah = tidak
+ *   ditemukan), dibatasi `kiosk.lookup_rate_per_min` per perangkat dan `kiosk.lookup_rate_per_tenant_per_min` per RS
+ *   (429 tercatat), setiap percobaan diaudit atas nama perangkat.
  * - `checkIn` / `issueTicket`: menukar token SEKALI PAKAI di perangkat yang sama; `Idempotency-Key` yang sama →
  *   tiket yang sama (sentuhan ganda tidak mencetak dua nomor).
  * - `print`: hanya tiket yang tercatat untuk perangkat ini hari ini (`kiosk_tickets`).
@@ -90,20 +92,35 @@ export class KioskService {
 
   async identify(input: KioskIdentifyInput, now = new Date()): Promise<KioskIdentifyResult> {
     const deviceId = this.deviceId();
-    await this.repo.lockDevice(deviceId);
-    const limit = await this.repo.lookupRatePerMinute();
-    const recent = await this.repo.countLookupsSince(deviceId, new Date(now.getTime() - MINUTE_MS));
-    if (recent >= limit) {
+    await this.repo.lockTenantLookups();
+    const since = new Date(now.getTime() - MINUTE_MS);
+    const [limit, tenantLimit, recent, tenantRecent] = await Promise.all([
+      this.repo.lookupRatePerMinute(),
+      this.repo.lookupRatePerTenantPerMinute(),
+      this.repo.countLookupsSince(deviceId, since),
+      this.repo.countTenantLookupsSince(since),
+    ]);
+    const exceeded =
+      recent >= limit
+        ? { reason: 'rate_limited', limit }
+        : tenantRecent >= tenantLimit
+          ? { reason: 'tenant_rate_limited', limit: tenantLimit }
+          : null;
+    if (exceeded) {
       throw new AuditedDenial(
-        'Terlalu banyak pencarian di anjungan ini. Tunggu sebentar atau minta bantuan petugas.',
-        { resourceType: 'kiosk_lookup', details: { reason: 'rate_limited', limit, method: input.method } },
+        'Terlalu banyak pencarian di anjungan. Tunggu sebentar atau minta bantuan petugas.',
+        { resourceType: 'kiosk_lookup', details: { ...exceeded, method: input.method } },
         { retryAfterSeconds: 60 },
         { code: 'RATE_LIMITED', status: 429 },
       );
     }
 
     const today = isoDateJakarta(now);
-    const match = await this.match(input, today);
+    const candidate = await this.match(input, today);
+    // Faktor kedua: tanggal + bulan lahir (DDMM). Salah = jawaban sama persis dengan "tidak ditemukan"; percobaannya
+    // tetap dihitung batas laju dan dicatat audit dengan pasiennya (bahan tinjauan petugas privasi).
+    const birthOk = candidate ? sameDdmm(candidate.patient.birthDate as Date, input.birthDdmm) : false;
+    const match = birthOk ? candidate : null;
     const token = match ? newLookupToken() : null;
     const expiresAt = new Date(now.getTime() + KIOSK_LOOKUP_TTL_SECONDS * 1000);
     const lookupId = await this.repo.insertLookup({
@@ -120,8 +137,13 @@ export class KioskService {
       action: 'search',
       resourceType: 'kiosk_lookup',
       resourceId: lookupId,
-      patientId: match?.patient.id ?? null,
-      details: { method: input.method, purpose: input.purpose, found: match !== null },
+      patientId: candidate?.patient.id ?? null,
+      details: {
+        method: input.method,
+        purpose: input.purpose,
+        found: match !== null,
+        ...(candidate && !birthOk ? { birthMismatch: true } : {}),
+      },
     });
     if (!match || !token) return { found: false };
     return {
@@ -482,6 +504,13 @@ function asCounterError(err: unknown): unknown {
     if (reason) return needsCounter(reason);
   }
   return err;
+}
+
+/** Tanggal + bulan lahir rekam medis sama dengan yang diketik (perbandingan waktu-konstan). */
+function sameDdmm(birthDate: Date, typed: string): boolean {
+  const expected = Buffer.from(kioskBirthDdmm(isoFromDbDate(birthDate)));
+  const given = Buffer.from(typed);
+  return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
 /** Rekam medis yang bisa dikonfirmasi pemiliknya di anjungan. */

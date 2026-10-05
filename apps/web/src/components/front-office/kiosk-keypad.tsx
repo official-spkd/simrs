@@ -23,7 +23,8 @@ export function KioskKeypad({
   onBack,
   onNext,
 }: {
-  method: KioskMethod;
+  /** Cara identifikasi, atau isian lain berpanjang tetap (mis. tanggal + bulan lahir DDMM). */
+  method: Pick<KioskMethod, 'title' | 'desc' | 'len'>;
   digits: string;
   step: string;
   busy: boolean;

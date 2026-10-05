@@ -97,6 +97,8 @@ describe('pengaturan tenant', () => {
     expect(TENANT_SETTINGS['queue.avg_service_minutes'].default).toBe(10);
     expect(TENANT_SETTINGS['booking.max_days_ahead'].default).toBe(30);
     expect(TENANT_SETTINGS['kiosk.lookup_rate_per_min'].default).toBe(10);
+    expect(TENANT_SETTINGS['kiosk.lookup_rate_per_tenant_per_min'].default).toBe(60);
+    expect(() => parseTenantSetting('kiosk.lookup_rate_per_tenant_per_min', 0)).toThrow();
     expect(parseTenantSetting('schedule.jkn_share_percent', 100)).toBe(100);
     expect(() => parseTenantSetting('schedule.jkn_share_percent', 101)).toThrow();
     expect(() => parseTenantSetting('schedule.jkn_share_percent', 79.5)).toThrow();
