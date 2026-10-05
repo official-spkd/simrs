@@ -4,7 +4,7 @@ import type { EncounterDiagnosis, PoliEncounter } from '@simrs/shared';
 import { Alert, Button, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState, useTransition } from 'react';
-import { saveCpptDraftAction, signCpptAction } from '@/app/(staf)/klinis/poli/actions';
+import { saveCpptDraftAction, signCpptAction } from '@/app/(staf)/klinis/poli/actions-demo';
 import { icd10Display } from '@/lib/klinis';
 import { SoapDiagnoses } from './soap-diagnoses';
 import { SoapPlan } from './soap-plan';

@@ -11,8 +11,9 @@ import { webEnv } from '@/lib/server/web-env';
  */
 export default async function PerangkatLayout({ children }: { children: ReactNode }) {
   const demo = webEnv().dataSource === 'demo';
-  // Mode api: tanpa sesi staf. Anjungan dan TV dibuka perangkat terdaftar (ADR-0027, `requireDevice` di halamannya);
-  // layar perangkat lain hanya ada di mode presentasi (404 di mode api).
+  // Mode api: tanpa sesi staf di layout. Anjungan dan TV dibuka perangkat terdaftar (ADR-0027, `requireDevice` di
+  // halamannya); tablet persetujuan memakai sesi staf (`requireScreen`, keputusan fase 3 #20); layar perangkat lain
+  // hanya ada di mode presentasi (404 di mode api).
   if (demo) await requireSession();
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#E9EEF2] text-ink-900">

@@ -17,7 +17,7 @@ import {
   triageSaveAllowed,
 } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
-import { saveTriageAction } from './actions';
+import { saveTriageAction } from './actions-demo';
 import { IdentifyBlock, VitalsEntry } from './scenario-intake';
 
 export interface SavedTriage {

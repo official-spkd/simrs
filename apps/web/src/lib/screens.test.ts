@@ -2,7 +2,14 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { isPermission, isPermissionKey, SYSTEM_ROLES } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
-import { FRONT_OFFICE_PERMISSIONS, type ScreenDef, SCREENS, screenById, screenOpen } from './screens';
+import {
+  CLINICAL_PERMISSIONS,
+  FRONT_OFFICE_PERMISSIONS,
+  type ScreenDef,
+  SCREENS,
+  screenById,
+  screenOpen,
+} from './screens';
 
 const mockupDir = fileURLToPath(new URL('../../../../design/mockups/', import.meta.url));
 
@@ -112,7 +119,7 @@ describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
     expect(screenOpen(kendali, { dataSource: 'api', role: 'kasir', permissions: [] })).toBe(false);
   });
 
-  it('layar front office ber-izin fase 2; layar lain belum punya jalur api', () => {
+  it('layar ber-izin: front office fase 2 dan klinis fase 3; layar lain belum punya jalur api', () => {
     const map = Object.fromEntries(SCREENS.filter((s) => s.permission).map((s) => [s.id, s.permission]));
     expect(map).toEqual({
       daftar: 'encounter.write',
@@ -120,12 +127,36 @@ describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
       kiosk: 'kiosk.use',
       antrean: 'queue.display.read',
       kendali: 'queue.read',
+      poli: 'clinical.write',
+      order: 'order.write',
+      igd: 'clinical.write',
+      bed: 'bed.read',
+      ranap: 'clinical.write',
+      resume: 'clinical.write',
+      consent: 'consent.write',
     });
+    const known: readonly string[] = [...FRONT_OFFICE_PERMISSIONS, ...CLINICAL_PERMISSIONS];
     for (const s of SCREENS) {
       if (s.permission) {
-        expect(FRONT_OFFICE_PERMISSIONS, s.id).toContain(s.permission);
+        expect(known, s.id).toContain(s.permission);
         expect(s.plannedPermission, s.id).toBe(s.permission);
+        expect(s.phase === 2 || s.phase === 3, s.id).toBe(true);
       }
     }
+  });
+
+  it('layar klinis hibrida: terbuka di mode api hanya bagi peran yang memegang izinnya', () => {
+    const ranap = screenById('ranap');
+    if (!ranap) throw new Error('layar ranap tidak ada');
+    expect(screenOpen(ranap, { dataSource: 'demo', role: 'perawat', permissions: [] })).toBe(true);
+    expect(screenOpen(ranap, { dataSource: 'demo', role: 'kasir', permissions: ['clinical.write'] })).toBe(
+      false,
+    );
+    expect(screenOpen(ranap, { dataSource: 'api', role: 'perawat', permissions: ['clinical.write'] })).toBe(
+      true,
+    );
+    expect(screenOpen(ranap, { dataSource: 'api', role: 'perawat', permissions: ['patient.read'] })).toBe(
+      false,
+    );
   });
 });

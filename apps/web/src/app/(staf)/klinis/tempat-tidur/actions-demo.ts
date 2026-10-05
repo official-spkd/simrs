@@ -1,7 +1,7 @@
 'use server';
 
 import { bedAllocationInputSchema, formatJam } from '@simrs/shared';
-import { demoActionSession } from '@/lib/server/data/rawat-inap';
+import { demoActionSession } from '@/lib/server/data/klinis/shared';
 
 export interface BedActionResult {
   ok?: { at: string };

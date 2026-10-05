@@ -227,7 +227,7 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 | 0    | Fondasi repo, infrastruktur, RLS, outbox, mock, sistem desain                              | ✅ selesai            |
 | 1    | Platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, master data, formulir | ✅ selesai 5 Okt 2026 |
 | 2    | Front office: jadwal, booking, registrasi + SEP, antrean, anjungan                         | ✅ selesai            |
-| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | ⬜                    |
+| 3    | Klinis RME: poli, IGD, rawat inap, CPPT, order + CDS, eMAR, resume                         | 🟨 berjalan           |
 | 4    | Penunjang: lab + nilai kritis, farmasi, kamar operasi                                      | ⬜                    |
 | 5    | Keuangan: tarif, kasir, klaim, akuntansi                                                   | ⬜                    |
 | 6    | Pembayaran TPDI × BTN dan pembiayaan                                                       | ⬜                    |

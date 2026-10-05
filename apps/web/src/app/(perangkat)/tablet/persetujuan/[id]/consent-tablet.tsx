@@ -8,7 +8,7 @@ import { type SignatureValue, SignaturePad } from '@/components/rawat-inap/signa
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
-import { finalizeConsentAction, refuseConsentAction } from './actions';
+import { finalizeConsentAction, refuseConsentAction } from './actions-demo';
 import { ConsentInfo, ConsentParties, RefusalForm } from './consent-body';
 
 const STEPS = ['Informasi', 'Tanda tangan pasien', 'Saksi', 'TTE dokter'];

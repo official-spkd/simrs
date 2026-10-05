@@ -3,7 +3,8 @@
 import { formatJam, triageAssessmentSchema } from '@simrs/shared';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { canTriage, TRIAGE_ROLE_REASON, triageBlocker, triageNeedsReason } from '@/lib/rawat-inap';
-import { demoActionSession, getEdItem } from '@/lib/server/data/rawat-inap';
+import { getEdItem } from '@/lib/server/data/klinis/igd';
+import { demoActionSession } from '@/lib/server/data/klinis/shared';
 
 export interface TriageActionResult {
   ok?: { at: string; orders: number; override: boolean };
