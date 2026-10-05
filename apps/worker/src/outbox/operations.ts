@@ -12,16 +12,25 @@ import type { OutboxOperation } from './operation-types';
 import { tteSignDocument } from './tte';
 
 export type {
+  BpjsRequestSpec,
   HttpRequestSpec,
   OperationContext,
+  OutboxDefer,
   OutboxMessageLike,
   OutboxOperation,
   PreparedRequest,
+  RetryPolicy,
 } from './operation-types';
 export { PermanentOperationError } from './operation-types';
+export { type BpjsOperationDefinition, type BpjsRejection, defineBpjsOperation } from './bpjs-operation';
+export { endOfServiceDay, SERVICE_DAY_RETRY } from './retry-policy';
+
+/** Token DI peta operasi (tes boleh menggantinya dengan peta berisi operasi uji). */
+export const OUTBOX_OPERATION_REGISTRY = Symbol('OUTBOX_OPERATION_REGISTRY');
 
 /**
- * Peta operasi outbox. Tambahkan operasi baru di sini (lihat Tutorial §6).
+ * Peta operasi outbox. Tambahkan operasi baru di sini (lihat Tutorial §6); operasi BPJS dibangun dengan
+ * `defineBpjsOperation`.
  * Memakai Map, bukan objek biasa: nama operasi seperti `constructor`/`__proto__` tidak boleh
  * tak sengaja cocok dengan properti bawaan objek.
  */

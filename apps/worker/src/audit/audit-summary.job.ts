@@ -22,8 +22,8 @@ export interface SummaryRunSummary {
 const LOOKBACK_DAYS = 90;
 /** Hari dianggap final 10 menit setelah 00.00 WIB (transaksi menjelang tengah malam sudah commit). */
 const SETTLE_MS = 10 * 60_000;
-/** Batas hari per tenant per putaran (isi ulang 90 hari setelah jam malam diubah tersebar ke beberapa putaran). */
-const MAX_DAYS_PER_RUN = 31;
+/** Batas hari per tenant per putaran: cukup untuk mengisi ulang seluruh jendela setelah jam malam diubah. */
+const MAX_DAYS_PER_RUN = LOOKBACK_DAYS;
 
 /**
  * P04 · Job ringkasan harian temuan anomali (ADR-0072). Per tenant aktif: tanggal WIB yang sudah final dalam 90 hari
@@ -57,7 +57,8 @@ export class AuditSummaryJob implements OnModuleDestroy {
     return summary;
   }
 
-  private async summarizeTenant(tenantId: string, now: Date | undefined, maxDays: number): Promise<number> {
+  /** Satu tenant (dipanggil job berkala P11 `audit.daily-summary`); mengembalikan jumlah hari yang ditulis. */
+  async summarizeTenant(tenantId: string, now?: Date, maxDays = MAX_DAYS_PER_RUN): Promise<number> {
     const { settings, days } = await withTenant(this.prisma, tenantId, async (tx) => {
       const s = await readAuditAnomalySettings(tx);
       const at = now ?? (await databaseNow(tx));

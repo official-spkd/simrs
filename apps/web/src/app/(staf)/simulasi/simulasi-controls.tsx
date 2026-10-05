@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon, Segmented } from '@simrs/ui';
+import { Icon, TabList } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useDemoRunner } from '@/components/demo-sync';
 import type { ScenarioId } from '@/lib/demo/engine/types';
@@ -16,6 +16,7 @@ export function SimulasiControls({
   finished,
   activeStep,
   stages,
+  idBase,
 }: {
   rev: number;
   scenario: ScenarioId;
@@ -23,6 +24,8 @@ export function SimulasiControls({
   finished: boolean;
   activeStep: number;
   stages: string[];
+  /** Pasangan `aria-controls` ↔ panel skenario di halaman (`TabPanel` dengan idBase sama). */
+  idBase: string;
 }) {
   const { run, pending, error } = useDemoRunner(rev);
   const [auto, setAuto] = useState(false);
@@ -51,7 +54,9 @@ export function SimulasiControls({
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex flex-wrap items-center gap-2.5">
-        <Segmented
+        <TabList
+          variant="segmen"
+          idBase={idBase}
           label="Skenario"
           value={scenario}
           items={tabs}
@@ -67,8 +72,8 @@ export function SimulasiControls({
           aria-pressed={auto}
           className={
             auto
-              ? 'flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-brand-800 bg-white px-3.5 font-[inherit] font-semibold text-brand-700'
-              : 'flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-brand-800 bg-brand-600 px-3.5 font-[inherit] font-semibold text-white'
+              ? 'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-brand-800 bg-white px-3.5 font-[inherit] font-semibold text-brand-700'
+              : 'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-brand-800 bg-brand-600 px-3.5 font-[inherit] font-semibold text-white'
           }
         >
           <Icon name={auto ? 'pause' : 'play'} size={16} />
@@ -81,13 +86,13 @@ export function SimulasiControls({
             setAuto(false);
             run({ type: 'reset', scenario });
           }}
-          className="min-h-10 cursor-pointer rounded-control border border-line-strong bg-white px-3.5 font-[inherit] font-medium text-ink-900"
+          className="min-h-11 cursor-pointer rounded-control border border-line-strong bg-white px-3.5 font-[inherit] font-medium text-ink-900"
         >
           Mulai ulang
         </button>
         {!finished && future.length > 0 && (
           <details ref={jumpMenu} className="relative">
-            <summary className="flex min-h-10 cursor-pointer list-none items-center rounded-control border border-line-strong bg-white px-3.5 font-medium">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-control border border-line-strong bg-white px-3.5 font-medium">
               Lompat ke tahap
             </summary>
             <div className="absolute right-0 z-20 mt-1 flex w-64 flex-col rounded-card border border-line bg-white p-1 shadow-lg">

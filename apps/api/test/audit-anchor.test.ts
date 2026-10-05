@@ -149,7 +149,7 @@ describe('/audit/verify dengan titik periksa', () => {
   });
 
   it('kunci jangkar: wajib di produksi dan harus berbeda dari kunci kolom', () => {
-    const base = { ...process.env, APP_ENV: 'production', TRUST_PROXY: 'loopback' };
+    const base = { ...process.env, APP_ENV: 'production', TRUST_PROXY: 'loopback', STORAGE_DRIVER: 's3' };
     expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: '' })).toThrow(/AUDIT_ANCHOR_KEY wajib/);
     expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: process.env.FIELD_HASH_KEY ?? '' })).toThrow(
       /harus berbeda/,

@@ -14,8 +14,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { S3WormAnchorStore } from '../src/audit/anchor-store';
 import { AuditAnchorJob } from '../src/audit/audit-anchor.job';
 import { AuditSummaryJob } from '../src/audit/audit-summary.job';
+import { PERIODIC_JOB_REGISTRY, type PeriodicJob } from '../src/jobs/periodic-jobs';
+import { assertValidJobs, PeriodicScheduler, repeatOptions } from '../src/jobs/periodic.scheduler';
 import { md5Base64, S3Error, S3Lite, xmlValues } from '../src/audit/s3-lite';
 import { loadWorkerEnv, type WorkerEnv } from '../src/config/env';
+import { testEnv, testModule } from './helpers';
 
 try {
   process.loadEnvFile('../../.env');
@@ -217,6 +220,29 @@ describe.skipIf(!hasS3)('jangkar audit ke bucket WORM', () => {
     expect(await store.listAfter(B, null)).toEqual([auditAnchorObjectKey(B, 4n)]);
     expect((await anchorsOf(A)).map((a) => a.seq)).toEqual([2n]);
     expect((await anchorsOf(B)).map((a) => a.seq)).toEqual([4n]);
+  });
+});
+
+describe('registri job berkala P11', () => {
+  it('modul worker mendaftarkan audit.anchor (tiap jam) dan audit.daily-summary (00.20 WIB) lewat penjadwal P11', async () => {
+    const T = await freshTenant(2);
+    const ref = await testModule(testEnv({ AUDIT_ANCHOR_KEY: KEY, AUDIT_ANCHOR_BUCKET: '' }));
+    try {
+      const jobs = ref.get<ReadonlyMap<string, PeriodicJob>>(PERIODIC_JOB_REGISTRY);
+      expect(() => assertValidJobs(jobs)).not.toThrow();
+      expect(repeatOptions((jobs.get('audit.anchor') as PeriodicJob).schedule)).toEqual({ every: 3_600_000 });
+      expect(repeatOptions((jobs.get('audit.daily-summary') as PeriodicJob).schedule)).toEqual({
+        pattern: '20 0 * * *',
+        tz: 'Asia/Jakarta',
+      });
+      const scheduler = ref.get(PeriodicScheduler);
+      expect(await scheduler.runJob('audit.anchor', { tenantIds: [T] })).toMatchObject({ ok: 1, failed: 0 });
+      expect((await anchorsOf(T)).map((a) => a.seq)).toEqual([2n]);
+      expect(await scheduler.runJob('audit.daily-summary', { tenantIds: [T] })).toMatchObject({ ok: 1 });
+      expect(await withTenant(app, T, (tx) => tx.auditDailySummary.count())).toBeGreaterThanOrEqual(88);
+    } finally {
+      await ref.close();
+    }
   });
 });
 

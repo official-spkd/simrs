@@ -96,8 +96,11 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
   }
   const anchorKeyProblem = auditAnchorKeyProblem(env);
   if (anchorKeyProblem) throw new Error(`Konfigurasi env tidak valid → ${anchorKeyProblem}`);
-  if (env.STORAGE_DRIVER === 's3') {
-    throw new Error('Konfigurasi env tidak valid → STORAGE_DRIVER=s3 belum tersedia (ADR-0020); pakai disk');
+  // Disk hanya untuk mesin pengembang dan tes; staging dan produksi menyimpan berkas di S3/MinIO (ADR-0020).
+  if (env.STORAGE_DRIVER === 'disk' && env.APP_ENV !== 'local') {
+    throw new Error(
+      'Konfigurasi env tidak valid → STORAGE_DRIVER=disk hanya untuk APP_ENV=local; staging dan produksi memakai s3',
+    );
   }
   const devTools = devToolsAllowed(env);
   return {

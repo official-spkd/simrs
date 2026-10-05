@@ -11,6 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSystemRoles } from './authz';
 import { createPrismaClient, type TenantTx, withTenant } from './client';
+import { syncRolePermissions } from './permission-sync';
 import { seedRefSamples } from './seed-ref';
 import { SEED_PLATFORM_TENANT, SEED_TENANTS } from './seed-data';
 
@@ -105,16 +106,20 @@ export async function prepareTestDatabase(urls: TestDbUrls = testDbUrls()): Prom
   try {
     // Contoh data rujukan global (P06) agar tes API/E2E punya kode ICD/LOINC/KFA; idempoten.
     await seedRefSamples(prisma);
+    // Peran tenant seed di database tes yang sudah lama dibuat ikut menerima izin yang baru ditambahkan ke
+    // katalog (sama dengan `pnpm db:sync-permissions`), tanpa harus membuat ulang database; idempoten.
     for (const t of SEED_TENANTS) {
       await withTenant(prisma, t.id, async (tx) => {
         await tx.tenant.upsert({ where: { id: t.id }, update: {}, create: { ...t } });
         await ensureSystemRoles(tx, t.id);
+        await syncRolePermissions(tx, t.id, 'hospital', { via: 'test_setup' });
       });
     }
     const p = SEED_PLATFORM_TENANT;
     await withTenant(prisma, p.id, async (tx) => {
       await tx.tenant.upsert({ where: { id: p.id }, update: {}, create: { ...p } });
       await ensureSystemRoles(tx, p.id, 'platform');
+      await syncRolePermissions(tx, p.id, 'platform', { via: 'test_setup' });
     });
   } finally {
     await prisma.$disconnect();

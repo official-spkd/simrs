@@ -23,6 +23,8 @@ export interface RequestActor {
   sessionId: string | null;
   /** Unit kerja yang dipilih saat login (diisi P03/layar Login). */
   unitId: string | null;
+  /** Sesi masuk cepat dengan PIN (ADR-0024): perangkat ber-PIN yang dipakai; posisi terkunci. */
+  deviceId?: string | null;
 }
 
 /**
@@ -31,7 +33,11 @@ export interface RequestActor {
  */
 export interface TenantRequestContext {
   tenantId: string;
-  tx: TenantTx;
+  /**
+   * Transaksi permintaan. `null` pada handler `@NoRequestTransaction()` (lookup sinkron ADR-0025, SSE ADR-0026)
+   * di luar transaksi pendek `TenantDb.transaction()`: di sana `TenantDb.tx()` menolak dengan galat program.
+   */
+  tx: TenantTx | null;
   actor: RequestActor;
   requestId: string | null;
   ip: string | null;
@@ -42,8 +48,27 @@ export interface TenantRequestContext {
   /**
    * Dijalankan interceptor setelah transaksi permintaan COMMIT (tidak dijalankan bila batal), mis. invalidasi
    * cache matriks izin. Tidak boleh mengubah data atau memanggil sistem eksternal (pakai outbox).
+   * Handler `@NoRequestTransaction()`: setelah transaksi pendek `TenantDb.transaction()` yang mendaftarkannya commit,
+   * atau setelah handler selesai bila didaftarkan di luar transaksi pendek.
    */
   afterCommit: Array<() => Promise<void> | void>;
 }
 
 export const requestContext = new AsyncLocalStorage<TenantRequestContext>();
+
+/**
+ * Jalankan kait `afterCommit` berurutan setelah transaksinya commit. Galat hanya dicatat (jenisnya saja, tanpa PHI):
+ * data sudah tersimpan, jadi respons tetap sukses. Dipakai interceptor permintaan dan `TenantDb.transaction()`.
+ */
+export async function runAfterCommitHooks(
+  hooks: TenantRequestContext['afterCommit'],
+  logError: (message: string) => void,
+): Promise<void> {
+  for (const fn of hooks) {
+    try {
+      await fn();
+    } catch (err) {
+      logError(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
+    }
+  }
+}

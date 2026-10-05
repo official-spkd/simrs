@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import {
   createPrismaClient,
   latestValidAuditAnchor,
@@ -50,7 +50,7 @@ const VERIFY_TIMEOUT_MS = 10 * 60_000;
  * Kunci HMAC tidak dipasang → job tidak berjalan (hanya di luar produksi; env produksi mewajibkannya).
  */
 @Injectable()
-export class AuditAnchorJob implements OnModuleDestroy {
+export class AuditAnchorJob implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(AuditAnchorJob.name);
   readonly prisma: PrismaClient;
 
@@ -65,22 +65,52 @@ export class AuditAnchorJob implements OnModuleDestroy {
     return Boolean(this.env.AUDIT_ANCHOR_KEY);
   }
 
-  async runOnce(opts: { tenantIds?: string[] } = {}): Promise<AnchorRunSummary> {
+  /** Peringatan konfigurasi saat start; bucket tanpa object lock dicatat sebagai galat (job tetap menyala). */
+  async onApplicationBootstrap(): Promise<void> {
+    if (this.env.NODE_ENV === 'test') return;
+    if (!this.enabled) {
+      this.logger.warn(
+        'AUDIT_ANCHOR_KEY kosong: jangkar hash audit tidak ditulis (hanya boleh di luar produksi).',
+      );
+    } else if (!this.store) {
+      this.logger.warn(
+        'AUDIT_ANCHOR_BUCKET kosong: jangkar audit hanya di database (hanya boleh di luar produksi).',
+      );
+    }
+    await this.store?.assertWorm().catch((err: unknown) => {
+      this.logger.error(
+        `bucket WORM jangkar audit tidak siap: ${err instanceof Error ? err.message : 'error'}`,
+      );
+    });
+  }
+
+  /**
+   * Satu tenant (dipanggil job berkala P11 `audit.anchor`). Temuan keutuhan dicatat sebagai galat log (tanpa PHI:
+   * id tenant, kode temuan, jumlah); galat teknis dilempar agar dihitung penjadwal. Tanpa kunci = tidak berbuat apa-apa.
+   */
+  async runTenant(tenantId: string): Promise<TenantAnchorResult | null> {
     const key = this.env.AUDIT_ANCHOR_KEY;
-    if (!key) return { tenants: 0, anchored: 0, failed: 0, results: [] };
+    if (!key) return null;
+    const r = await this.anchorTenant(tenantId, key);
+    if (r.issues.length > 0 || r.invalidWorm > 0) {
+      this.logger.error(
+        `jejak audit tenant ${tenantId} TIDAK UTUH: ${r.issues.join(', ') || '-'}; objek WORM tidak sah ${r.invalidWorm}`,
+      );
+    }
+    return r;
+  }
+
+  /** Semua tenant aktif (atau `tenantIds`), berurutan; galat satu tenant tidak menghentikan yang lain. */
+  async runOnce(opts: { tenantIds?: string[] } = {}): Promise<AnchorRunSummary> {
+    if (!this.enabled) return { tenants: 0, anchored: 0, failed: 0, results: [] };
     const tenantIds = opts.tenantIds ?? (await listActiveTenantIds(this.prisma));
     const summary: AnchorRunSummary = { tenants: tenantIds.length, anchored: 0, failed: 0, results: [] };
     for (const tenantId of tenantIds) {
       try {
-        const r = await this.anchorTenant(tenantId, key);
+        const r = await this.runTenant(tenantId);
+        if (!r) continue;
         summary.results.push(r);
         if (r.anchoredSeq) summary.anchored += 1;
-        if (r.issues.length > 0 || r.invalidWorm > 0) {
-          // Tanpa PHI: hanya id tenant, kode temuan, dan jumlah.
-          this.logger.error(
-            `jejak audit tenant ${tenantId} TIDAK UTUH: ${r.issues.join(', ') || '-'}; objek WORM tidak sah ${r.invalidWorm}`,
-          );
-        }
       } catch (err) {
         summary.failed += 1;
         this.logger.error(

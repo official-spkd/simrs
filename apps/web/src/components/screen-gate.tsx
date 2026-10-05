@@ -1,0 +1,76 @@
+import { Alert } from '@simrs/ui';
+import type { ReactNode } from 'react';
+import type { ScreenDef } from '@/lib/screens';
+
+/**
+ * Tampilan gerbang layar hibrida di mode api (`requireScreen`, rencana fase 2 potongan 0c): akses ditolak bila peran
+ * tidak memegang izin layar, dan "Belum tersambung" selama potongan fase 2 yang mengisi jalur api belum tergabung.
+ * Layar perangkat (anjungan, TV) berbicara kepada pasien; layar staf kepada petugas.
+ */
+
+interface Copy {
+  /** Teks untuk petugas (layar staf) atau pasien (layar perangkat). */
+  body: string;
+  /** Teks khusus per peran (kode peran sistem), menimpa `body`. */
+  byRole?: Readonly<Record<string, string>>;
+}
+
+const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
+  jadwal: {
+    body: 'Jadwal praktik dan kuota dokter akan tampil di sini setelah modul jadwal tersambung ke server SIM RS. Sementara itu, ikuti prosedur jadwal yang berlaku di rumah sakit.',
+    byRole: {
+      dokter:
+        'Jadwal praktik Anda dan jumlah pasien yang sudah booking akan tampil di sini setelah modul jadwal tersambung ke server SIM RS.',
+    },
+  },
+  daftar: {
+    body: 'Pencarian pasien, cek kepesertaan BPJS, rujukan, dan penerbitan SEP akan tersedia di sini setelah modul pendaftaran tersambung ke server SIM RS. Sementara itu, layani pendaftaran dengan prosedur cadangan rumah sakit.',
+  },
+  kiosk: {
+    body: 'Anjungan pendaftaran mandiri belum dapat dipakai. Silakan ambil nomor antrean di loket pendaftaran.',
+  },
+  antrean: {
+    body: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
+  },
+};
+
+function Frame({ screen, children }: { screen: ScreenDef; children: ReactNode }) {
+  if (screen.layout === 'staf') return <div className="flex max-w-3xl flex-col gap-4">{children}</div>;
+  return (
+    <div className="flex min-h-screen items-center justify-center p-8">
+      <div className="flex w-full max-w-2xl flex-col gap-4 rounded-card border border-line bg-white p-8">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Mode api: peran aktif tidak memegang izin layar ini. */
+export function ScreenAccessDenied({ screen }: { screen: ScreenDef }) {
+  return (
+    <Frame screen={screen}>
+      <h1 className="m-0 text-h1 font-semibold">{screen.label}</h1>
+      <Alert level="warning" title="Akses ditolak">
+        Peran Anda tidak memiliki izin untuk layar {screen.label}. Hubungi admin SIM RS bila Anda
+        membutuhkannya.
+      </Alert>
+    </Frame>
+  );
+}
+
+/** Mode api: layar sudah berizin, tetapi jalur datanya belum diisi potongan fase 2. */
+export function ScreenNotConnected({ screen, role }: { screen: ScreenDef; role: string | null }) {
+  const copy = NOT_CONNECTED[screen.id];
+  const body =
+    (role ? copy?.byRole?.[role] : undefined) ??
+    copy?.body ??
+    `Layar ${screen.label} belum tersambung ke server SIM RS.`;
+  return (
+    <Frame screen={screen}>
+      <h1 className="m-0 text-h1 font-semibold">{screen.label}</h1>
+      <Alert level="info" title="Belum tersambung">
+        {body}
+      </Alert>
+    </Frame>
+  );
+}

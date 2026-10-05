@@ -60,6 +60,25 @@ describe('navGroups', () => {
     expect(find(navGroups({ ...base, dataSource: 'demo', permissions: [] }))?.available).toBe(true);
   });
 
+  it('layar hibrida front office di mode api mengikuti izin sungguhan; di mode presentasi mengikuti posisi', () => {
+    const item = (groups: ReturnType<typeof navGroups>, id: string) =>
+      groups.flatMap((g) => g.items).find((i) => i.id === id);
+    const pendaftaran = { ...base, role: 'petugas_pendaftaran' };
+    // Tanpa izin: tidak tampil sama sekali (seperti menu ber-`requires`), bukan redup.
+    expect(item(navGroups({ ...pendaftaran, permissions: [] }), 'daftar')).toBeUndefined();
+    expect(item(navGroups({ ...pendaftaran, permissions: [] }), 'jadwal')).toBeUndefined();
+    const granted = navGroups({ ...pendaftaran, permissions: ['encounter.write', 'schedule.read'] });
+    expect(item(granted, 'daftar')?.available).toBe(true);
+    expect(item(granted, 'jadwal')?.available).toBe(true);
+    expect(item(granted, 'antrean')).toBeUndefined();
+    // Mode presentasi: izin tidak berperan, posisi pemakai layar yang menentukan.
+    const demo = navGroups({ ...pendaftaran, dataSource: 'demo', permissions: [] });
+    expect(item(demo, 'daftar')?.available).toBe(true);
+    expect(item(navGroups({ ...base, dataSource: 'demo', permissions: ['encounter.write'] }), 'daftar')).toBe(
+      undefined,
+    );
+  });
+
   it('setiap menu layar fase 2–10 terdaftar di registri SCREENS dengan rute yang sama', () => {
     const screenIds = new Set(SCREENS.map((s) => s.id));
     for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => screenIds.has(i.id))) {

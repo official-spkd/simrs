@@ -14,8 +14,16 @@ import { type AuditMeta, writeAudit } from '../infra/audit-writer';
 import { PermissionMatrix } from '../infra/permission-matrix';
 import { PrismaService } from '../infra/prisma.service';
 import { AuditedDenial } from './audited-denial';
-import { AUDITED_KEY, type AuditedOptions } from './audited.decorator';
-import { DEV_ROLE, type RequestActor, requestContext, type TenantRequestContext } from './request-context';
+import { AUDITED_KEY, type AuditedOptions, type AuditSource } from './audited.decorator';
+import { NO_REQUEST_TRANSACTION_KEY } from './no-request-transaction.decorator';
+import {
+  DEV_ROLE,
+  type PendingAudit,
+  type RequestActor,
+  requestContext,
+  runAfterCommitHooks,
+  type TenantRequestContext,
+} from './request-context';
 import { REQUIRED_MODULE_KEY } from './require-module.decorator';
 import { REQUIRED_PERMISSION_KEY, type RequiredPermission } from './require-permission.decorator';
 
@@ -32,6 +40,10 @@ const MAX_USER_AGENT = 300;
  *    (ABAC akses pasien) yang dicatat ulang sebagai `access_denied` di transaksi terpisah. Setelah commit,
  *    kait `TenantDb.afterCommit` dijalankan (mis. invalidasi cache matriks).
  * Konsekuensi: handler tidak boleh memanggil sistem eksternal (pakai outbox, CLAUDE.md §4.5).
+ *
+ * Pengecualian `@NoRequestTransaction()` (ADR-0025 lookup sinkron, ADR-0026 SSE): otorisasi dan cek modul tetap,
+ * masing-masing di transaksi pendek, lalu handler berjalan TANPA transaksi (`tx: null` di konteks); handler membuka
+ * transaksi pendek sendiri lewat `TenantDb.transaction()`. Audit `@Audited` ditulis di transaksi pendek setelahnya.
  */
 @Injectable()
 export class TenantTransactionInterceptor implements NestInterceptor {
@@ -60,6 +72,8 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       REQUIRED_PERMISSION_KEY,
       targets,
     );
+    const noTransaction =
+      this.reflector.getAllAndOverride<boolean | undefined>(NO_REQUEST_TRANSACTION_KEY, targets) === true;
     const actor = req.actor ?? { userId: null, role: null, sessionId: null, unitId: null };
     const auditMeta: AuditMeta = {
       actorUserId: actor.userId,
@@ -68,6 +82,33 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       userAgent: req.headers['user-agent']?.slice(0, MAX_USER_AGENT) ?? null,
       requestId: typeof req.id === 'string' ? req.id : null,
     };
+    const auditedEntry = (result: unknown): PendingAudit | null => {
+      if (!audited) return null;
+      const src: AuditSource = { params: req.params, query: req.query, body: req.body as unknown, result };
+      return {
+        action: audited.action,
+        resourceType: audited.resource,
+        resourceId: audited.resourceId?.(src) ?? null,
+        patientId: audited.patientId?.(src) ?? null,
+        details: audited.details?.(src),
+        reason: audited.reason?.(src) ?? null,
+      };
+    };
+    const handle = () => lastValueFrom(next.handle(), { defaultValue: undefined });
+
+    if (noTransaction) {
+      return from(
+        this.runWithoutTransaction(
+          tenantId,
+          actor,
+          auditMeta,
+          requiredPermission,
+          requiredModule,
+          auditedEntry,
+          handle,
+        ),
+      );
+    }
 
     const run = async () => {
       const permissionScope = requiredPermission
@@ -92,44 +133,82 @@ export class TenantTransactionInterceptor implements NestInterceptor {
             if (requiredModule && !(await isModuleEnabled(tx, requiredModule))) {
               throw new AppError('MODULE_DISABLED', `Modul ${requiredModule} tidak aktif untuk RS ini`, 403);
             }
-            const result = await lastValueFrom(next.handle(), { defaultValue: undefined });
-            if (audited) {
-              const src = { params: req.params, query: req.query, body: req.body as unknown, result };
-              store.audit.unshift({
-                action: audited.action,
-                resourceType: audited.resource,
-                resourceId: audited.resourceId?.(src) ?? null,
-                patientId: audited.patientId?.(src) ?? null,
-                details: audited.details?.(src),
-                reason: audited.reason?.(src) ?? null,
-              });
-            }
+            const result = await handle();
+            const entry = auditedEntry(result);
+            if (entry) store.audit.unshift(entry);
             await writeAudit(tx, tenantId, auditMeta, store.audit);
             return result;
           });
         })
-        .catch(async (err: unknown) => {
-          // Transaksi permintaan sudah batal; penolakan ABAC tetap dicatat di transaksi tersendiri.
-          if (err instanceof AuditedDenial) {
-            await this.prisma.forTenant(tenantId, (tx) =>
-              writeAudit(tx, tenantId, auditMeta, [
-                { ...err.entry, action: 'access_denied', outcome: 'denied' },
-              ]),
-            );
-          }
-          throw err;
-        });
-      for (const fn of afterCommit) {
-        try {
-          await fn();
-        } catch (err) {
-          // Transaksi sudah commit: respons tetap sukses. Tanpa PHI di log (hanya jenis galat).
-          this.logger.error(`Kait setelah commit gagal: ${err instanceof Error ? err.name : typeof err}`);
-        }
-      }
+        .catch((err: unknown) => this.recordDenial(err, tenantId, auditMeta));
+      await this.runAfterCommit(afterCommit);
       return result;
     };
     return from(run());
+  }
+
+  /**
+   * Jalur `@NoRequestTransaction()`: otorisasi (penolakan di-commit) → cek modul (transaksi pendek) → handler tanpa
+   * transaksi. Handler membuka transaksi pendek sendiri lewat `TenantDb.transaction()`. `@Audited` dan entri
+   * `TenantDb.audit()` di luar transaksi pendek ditulis setelah handler; kait `afterCommit` di luar transaksi pendek
+   * dijalankan sesudahnya.
+   */
+  private async runWithoutTransaction(
+    tenantId: string,
+    actor: RequestActor,
+    auditMeta: AuditMeta,
+    requiredPermission: RequiredPermission | undefined,
+    requiredModule: ComponentCode | undefined,
+    auditedEntry: (result: unknown) => PendingAudit | null,
+    handle: () => Promise<unknown>,
+  ): Promise<unknown> {
+    const permissionScope = requiredPermission
+      ? await this.authorize(tenantId, actor, requiredPermission, auditMeta)
+      : null;
+    if (requiredModule) {
+      const enabled = await this.prisma.forTenant(tenantId, (tx) => isModuleEnabled(tx, requiredModule));
+      if (!enabled) {
+        throw new AppError('MODULE_DISABLED', `Modul ${requiredModule} tidak aktif untuk RS ini`, 403);
+      }
+    }
+    const store: TenantRequestContext = {
+      tenantId,
+      tx: null,
+      actor,
+      requestId: auditMeta.requestId,
+      ip: auditMeta.ip,
+      userAgent: auditMeta.userAgent,
+      permissionScope,
+      audit: [],
+      afterCommit: [],
+    };
+    let result: unknown;
+    try {
+      result = await requestContext.run(store, handle);
+    } catch (err) {
+      return this.recordDenial(err, tenantId, auditMeta);
+    }
+    const entry = auditedEntry(result);
+    const entries = entry ? [entry, ...store.audit] : store.audit;
+    if (entries.length > 0) {
+      await this.prisma.forTenant(tenantId, (tx) => writeAudit(tx, tenantId, auditMeta, entries));
+    }
+    await this.runAfterCommit(store.afterCommit);
+    return result;
+  }
+
+  /** Transaksi permintaan sudah batal; penolakan ABAC tetap dicatat di transaksi tersendiri, lalu galat diteruskan. */
+  private async recordDenial(err: unknown, tenantId: string, auditMeta: AuditMeta): Promise<never> {
+    if (err instanceof AuditedDenial) {
+      await this.prisma.forTenant(tenantId, (tx) =>
+        writeAudit(tx, tenantId, auditMeta, [{ ...err.entry, action: 'access_denied', outcome: 'denied' }]),
+      );
+    }
+    throw err;
+  }
+
+  private runAfterCommit(hooks: TenantRequestContext['afterCommit']): Promise<void> {
+    return runAfterCommitHooks(hooks, (m) => this.logger.error(m));
   }
 
   /** Lingkup izin peran aktif, atau 403 (dengan audit penolakan yang pasti tersimpan). */

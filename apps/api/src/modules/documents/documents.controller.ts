@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -55,6 +56,8 @@ function contentDisposition(fileName: string): string {
 @RequireModule('P08')
 @Controller()
 export class DocumentsController {
+  private readonly log = new Logger(DocumentsController.name);
+
   constructor(private readonly docs: DocumentsService) {}
 
   /**
@@ -99,11 +102,15 @@ export class DocumentsController {
     return this.docs.get(id);
   }
 
-  /** Isi berkas; pembukaan diaudit di service (dengan pasien). Selalu sebagai lampiran, tidak dirender. */
+  /**
+   * Isi berkas di-stream dari penyimpanan; pembukaan diaudit di service (dengan pasien). Selalu sebagai lampiran,
+   * tidak dirender. Galat di tengah stream (mis. hash tidak cocok di akhir) memutus koneksi, sehingga klien tidak
+   * pernah menerima berkas yang tampak utuh (`Content-Length` tidak terpenuhi).
+   */
   @RequirePermission('documents', 'read')
   @Get('documents/:id/content')
   async content(@Param('id', uuid) id: string, @Res({ passthrough: true }) res: Response) {
-    const { doc, bytes } = await this.docs.content(id);
+    const { doc, body } = await this.docs.content(id);
     res.set({
       'Content-Type': doc.mimeType,
       'Content-Disposition': contentDisposition(doc.fileName),
@@ -111,7 +118,17 @@ export class DocumentsController {
       'Content-Security-Policy': "default-src 'none'; sandbox",
       'X-Content-Type-Options': 'nosniff',
     });
-    return new StreamableFile(bytes);
+    // Klien memutus di tengah unduhan → lepas koneksi ke penyimpanan segera (tidak menunggu batas waktu soket).
+    res.once('close', () => body.destroy());
+    return new StreamableFile(body, { type: doc.mimeType, length: doc.sizeBytes })
+      .setErrorLogger((err) =>
+        this.log.error({ documentId: doc.id, error: err.name }, 'Unduhan berkas dokumen terputus'),
+      )
+      .setErrorHandler((_err, out) => {
+        const r = out as unknown as Response;
+        if (r.headersSent) r.destroy();
+        else r.status(500).json({ code: 'DOCUMENT_INTEGRITY', message: 'Unduhan berkas dokumen gagal' });
+      });
   }
 
   @RequirePermission('documents', 'write')

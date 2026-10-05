@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
+import { ENCOUNTER_ID, PATIENT_ID } from '../../src/lib/demo/fixtures/ids';
 
 /** Pemeriksaan poli (K01/K02) dan CPOE + CDS (K09) — mode presentasi, ADR-0023; mockup Main dan CPOE. */
 
@@ -31,20 +32,20 @@ test.describe('klinis rawat jalan', () => {
     await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
 
     const queue = page.getByRole('region', { name: 'Antrean poli' });
-    await expect(queue.getByRole('link')).toHaveCount(5);
-    await expect(queue.getByRole('button', { name: 'Panggil berikutnya · PD-024' })).toBeEnabled();
-    await queue.getByLabel('Cari pasien').fill('00124578');
+    await expect(queue.getByRole('link')).toHaveCount(7);
+    await expect(queue.getByRole('button', { name: 'Panggil berikutnya · PD-026' })).toBeEnabled();
+    await queue.getByLabel('Cari pasien').fill('00315746');
     await expect(queue.getByRole('link')).toHaveCount(1);
-    await expect(queue.getByRole('link', { name: /Siti Rahmawati/ })).toBeVisible();
+    await expect(queue.getByRole('link', { name: /Ny\. Sri Wahyuni/ })).toBeVisible();
     await queue.getByLabel('Cari pasien').fill('');
     await queue.getByRole('button', { name: 'Hasil 1' }).click();
     await expect(queue.getByRole('link')).toHaveCount(1);
     await expect(queue.getByRole('link', { name: /Ny\. Dewi Kurniasih/ })).toContainText('Menunggu hasil');
-    await queue.getByRole('button', { name: 'Semua 5' }).click();
-    await queue.getByRole('link', { name: /Ny\. Endang Wijaya/ }).click();
-    await expect(page).toHaveURL(/pasien=ps-endang/);
+    await queue.getByRole('button', { name: 'Semua 7' }).click();
+    await queue.getByRole('link', { name: /Ny\. Rohana Siregar/ }).click();
+    await expect(page).toHaveURL(new RegExp(`pasien=${PATIENT_ID.rohana}`));
 
-    await expect(banner(page).getByText('Ny. Endang Wijaya')).toBeVisible();
+    await expect(banner(page).getByText('Ny. Rohana Siregar')).toBeVisible();
     await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
     await expect(page.getByText(/^NIK 9999•+\d{4}$/)).toBeVisible();
     const vitals = page.getByRole('region', { name: 'Tanda vital' });
@@ -65,7 +66,7 @@ test.describe('klinis rawat jalan', () => {
       page.getByText(/Ditandatangani \d{2}\.\d{2} · CPPT versi final \(simulasi, tidak disimpan\)/),
     ).toBeVisible();
     await expect(page.getByText(/Kunjungan selesai · ditandatangani \d{2}\.\d{2}/)).toBeVisible();
-    await expect(queue.getByRole('link', { name: /Ny\. Endang Wijaya/ })).toContainText('Selesai');
+    await expect(queue.getByRole('link', { name: /Ny\. Rohana Siregar/ })).toContainText('Selesai');
 
     await noHorizontalOverflowAtTablet(page);
   });
@@ -74,8 +75,8 @@ test.describe('klinis rawat jalan', () => {
     page,
   }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/klinis/order/kj-endang');
-    await page.goto('/klinis/order/kj-endang');
+    await loginAs(page, dokter, `/klinis/order/${ENCOUNTER_ID.rohana}`);
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.rohana}`);
     await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
     await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
 
@@ -106,14 +107,32 @@ test.describe('klinis rawat jalan', () => {
 
   test('CPOE: alternatif aman membuka blok (Tn. Darmawan, alergi ibuprofen)', async ({ page }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/klinis/order/kj-darmawan');
-    await page.goto('/klinis/order/kj-darmawan');
+    await loginAs(page, dokter, `/klinis/order/${ENCOUNTER_ID.darmawan}`);
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.darmawan}`);
     const send = page.getByRole('button', { name: /^Kirim \d+ order \(TTE\)$/ });
     await expect(send).toBeDisabled();
     const gate = page.getByRole('alert').filter({ hasText: 'CDS memblokir Asam mefenamat 500 mg tablet' });
     await gate.getByRole('button', { name: 'Ganti parasetamol 500 mg' }).click();
     await expect(page.getByText(/asam mefenamat 500 mg diganti parasetamol 500 mg/)).toBeVisible();
     await expect(send).toBeEnabled();
+  });
+
+  test('CSP ber-nonce (ADR-0073): layar poli terhidrasi tanpa pelanggaran CSP', async ({ page }) => {
+    const violations: string[] = [];
+    page.on('console', (m) => {
+      if (m.type() === 'error' && /Content Security Policy/i.test(m.text())) violations.push(m.text());
+    });
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/klinis/poli');
+    const res = await page.goto('/klinis/poli');
+    const csp = res?.headers()['content-security-policy'] ?? '';
+    expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'(;|$)/);
+    // Pencarian antrean berjalan di klien: hanya bekerja bila halaman terhidrasi.
+    const queue = page.getByRole('region', { name: 'Antrean poli' });
+    await queue.getByLabel('Cari pasien').fill('00315746');
+    await expect(queue.getByRole('link')).toHaveCount(1);
+    await expect(queue.getByRole('link', { name: /Ny\. Sri Wahyuni/ })).toBeVisible();
+    expect(violations).toEqual([]);
   });
 
   test('kunjungan tak dikenal → 404 di pemeriksaan poli dan CPOE (bukan membuka pasien lain)', async ({
@@ -124,7 +143,7 @@ test.describe('klinis rawat jalan', () => {
     for (const path of [
       '/klinis/poli?pasien=ps-tidak-ada',
       // Pasien dikenal, tetapi kunjungan polinya belum ada hari ini (Tn. Suryo sebelum SEP terbit).
-      '/klinis/poli?pasien=ps-suryo',
+      `/klinis/poli?pasien=${PATIENT_ID.suryo}`,
       '/klinis/order/kj-tidak-ada',
     ]) {
       const res = await page.goto(path);
@@ -132,15 +151,15 @@ test.describe('klinis rawat jalan', () => {
       await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toHaveCount(0);
       await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toHaveCount(0);
     }
-    const ok = await page.goto('/klinis/poli?pasien=ps-endang');
+    const ok = await page.goto(`/klinis/poli?pasien=${PATIENT_ID.rohana}`);
     expect(ok?.status()).toBe(200);
-    await expect(banner(page).getByText('Ny. Endang Wijaya')).toBeVisible();
+    await expect(banner(page).getByText('Ny. Rohana Siregar')).toBeVisible();
   });
 
   test('perawat: asesmen tanda vital tervalidasi; CPOE hanya untuk dokter', async ({ page }) => {
     const perawat = await createAccount({ roles: ['perawat'] });
-    await loginAs(page, perawat, '/klinis/poli?pasien=ps-darmawan');
-    await page.goto('/klinis/poli?pasien=ps-darmawan');
+    await loginAs(page, perawat, `/klinis/poli?pasien=${PATIENT_ID.darmawan}`);
+    await page.goto(`/klinis/poli?pasien=${PATIENT_ID.darmawan}`);
     await expect(banner(page).getByText('Alergi: Ibuprofen')).toBeVisible();
     await expect(page.getByText(/CPPT dokter hanya bisa diubah posisi dokter/)).toBeVisible();
     // Order dan resep hanya untuk posisi dokter: perawat tidak melihat tautan CPOE di rencana.
@@ -159,7 +178,7 @@ test.describe('klinis rawat jalan', () => {
       page.getByRole('region', { name: 'Tanda vital' }).getByText('Tinggi', { exact: true }),
     ).toBeVisible();
 
-    await page.goto('/klinis/order/kj-darmawan');
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.darmawan}`);
     await expect(page.getByText('Layar ini untuk posisi lain')).toBeVisible();
   });
 
@@ -167,14 +186,14 @@ test.describe('klinis rawat jalan', () => {
     page,
   }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/klinis/order/kj-suryo');
+    await loginAs(page, dokter, `/klinis/order/${ENCOUNTER_ID.suryo}`);
     const locked = 'Pasien simulasi: order mengikuti langkah skenario.';
     const why = `${locked} Tidak ada langkah order yang aktif untuk pasien ini.`;
 
     // Akun baru = skenario di langkah awal (kedatangan), lalu tepat sebelum langkah resep (laboratorium).
     for (const stage of [null, 'Laboratorium']) {
       if (stage) await jumpTo(page, stage);
-      await page.goto('/klinis/order/kj-suryo');
+      await page.goto(`/klinis/order/${ENCOUNTER_ID.suryo}`);
       await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
       const catalog = page.getByRole('complementary', { name: 'Katalog dan order set' });
       await expect(catalog.getByText(locked)).toBeVisible();
@@ -190,7 +209,7 @@ test.describe('klinis rawat jalan', () => {
     }
 
     await page.getByRole('link', { name: 'Kembali ke pemeriksaan' }).click();
-    await expect(page).toHaveURL(/\/klinis\/poli\?pasien=ps-suryo$/);
+    await expect(page).toHaveURL(new RegExp(`/klinis/poli\\?pasien=${PATIENT_ID.suryo}$`));
     await expect(banner(page).getByText('Tn. Suryo Adi Nugroho')).toBeVisible();
   });
 
@@ -200,7 +219,7 @@ test.describe('klinis rawat jalan', () => {
     const dokter = await createAccount({ roles: ['dokter'] });
     await loginAs(page, dokter, '/simulasi');
     await jumpTo(page, 'Tinjau hasil & resep');
-    await page.goto('/klinis/order/kj-suryo');
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.suryo}`);
     await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
 
     // Katalog dan order set nonaktif dengan catatan tertulis: item tidak bisa ditambahkan lokal.
@@ -238,14 +257,14 @@ test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
     await loginAs(page, perawat, '/klinis/igd');
     await page.goto('/klinis/igd');
     const board = page.getByRole('region', { name: 'Papan pasien IGD' });
-    const fajar = board.getByRole('button', { name: /Tn\. Fajar Nugraha/ });
-    await expect(fajar).toContainText(/04\.4\d j/);
-    await expect(fajar).toContainText('Lewat 4 jam');
+    const sumarni = board.getByRole('button', { name: /Ny\. Sumarni Pakpahan/ });
+    await expect(sumarni).toContainText(/04\.4\d j/);
+    await expect(sumarni).toContainText('Lewat 4 jam');
     await expect(board.getByRole('button', { name: /Ny\. Lestiani Hapsari/ })).not.toContainText('Lewat');
 
-    await fajar.click();
+    await sumarni.click();
     const panel = page.getByRole('complementary', { name: 'Triase pasien' });
-    await expect(panel.getByRole('heading', { name: /Tn\. Fajar Nugraha/ })).toBeVisible();
+    await expect(panel.getByRole('heading', { name: /Ny\. Sumarni Pakpahan/ })).toBeVisible();
     await expect(panel.getByText('Lewat 4 jam')).toBeVisible();
 
     await board.getByRole('button', { name: /Tn\. X \(tanpa identitas\)/ }).click();
@@ -266,8 +285,8 @@ test.describe('klinis IGD dan tempat tidur · status bertulisan', () => {
     await page.goto('/klinis/tempat-tidur');
     const requests = page.getByRole('region', { name: 'Permintaan bed' });
     const request = (name: string) => requests.getByRole('listitem').filter({ hasText: name });
-    await expect(request('Tn. Fajar Nugraha')).toContainText('4 j 40 m');
-    await expect(request('Tn. Fajar Nugraha')).toContainText('Lewat 4 jam');
+    await expect(request('Ny. Sumarni Pakpahan')).toContainText('4 j 40 m');
+    await expect(request('Ny. Sumarni Pakpahan')).toContainText('Lewat 4 jam');
     await expect(request('Ny. Maria')).toContainText('terjadwal');
     await expect(request('Ny. Maria')).not.toContainText('Lewat');
 
@@ -330,8 +349,8 @@ test.describe('panduan presentasi tidak menutupi isi layar', () => {
   }
 
   const SCREENS: ReadonlyArray<{ role: string; path: string; igdStage?: string }> = [
-    { role: 'dokter', path: '/klinis/order/kj-hartono', igdStage: 'Asesmen dokter' },
-    { role: 'dokter', path: '/klinis/order/kj-endang' },
+    { role: 'dokter', path: `/klinis/order/${ENCOUNTER_ID.hartono}`, igdStage: 'Asesmen dokter' },
+    { role: 'dokter', path: `/klinis/order/${ENCOUNTER_ID.rohana}` },
     { role: 'perawat', path: '/klinis/igd' },
     { role: 'petugas_pendaftaran', path: '/pendaftaran' },
     { role: 'kasir', path: '/keuangan/kasir' },

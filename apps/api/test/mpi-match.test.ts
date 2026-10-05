@@ -8,10 +8,11 @@ import { createPrismaClient, type PrismaClient, withTenant } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
 import { newId } from '@simrs/shared';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   bearer,
   createTestApp,
+  createTestPatient,
   createTestTenant,
   createTestUser,
   login,
@@ -321,5 +322,65 @@ describe('bukan orang yang sama', () => {
       .expect(200);
     const cmp = await as('rm').get(`/api/v1/mpi/candidates/${p.candId}`).expect(200);
     expect(cmp.body).toMatchObject({ status: 'open', decision: null });
+  });
+});
+
+describe('jam ABAC', () => {
+  it('relasi yang baru dibuat langsung berlaku di pencarian, juga bila jam database tertinggal', async () => {
+    const p = await pair();
+    // Hanya Date dipalsukan: jam aplikasi 60 detik di depan Postgres (seperti VM/DB yang jamnya tertinggal).
+    // `valid_from` bawaan Prisma diisi jam aplikasi, jadi pencarian harus memakai jam yang sama dengan detail.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 60_000);
+    try {
+      await withTenant(testDb(), T.id, (tx) =>
+        tx.accessRelationship.create({
+          data: {
+            id: newId(),
+            tenantId: T.id,
+            userId: u.perawat?.id as string,
+            patientId: p.a.id,
+            kind: 'dpjp',
+          },
+        }),
+      );
+      await as('perawat').get(`/api/v1/patients/${p.a.id}`).expect(200);
+      const found = await as('perawat').get(`/api/v1/patients?q=${p.a.mrn}`).expect(200);
+      expect(found.body.items.map((x: { id: string }) => x.id)).toEqual([p.a.id]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('akses darurat yang baru diberikan langsung berlaku di pencarian nama dan RM, juga bila jam database tertinggal', async () => {
+    // Cabang akses darurat (`granted_at`/`expires_at`, diisi `new Date()` aplikasi) dan jalur cari nama
+    // (`idsByName`) memakai saringan yang sama; pasien bernama unik agar hasil cari nama pasti.
+    const p = await createTestPatient(T.id, { name: 'Ratih Purbasari' });
+    const ids = async (q: string) =>
+      (
+        (
+          await as('perawat')
+            .get(`/api/v1/patients?q=${encodeURIComponent(q)}`)
+            .expect(200)
+        ).body.items as Array<{
+          id: string;
+        }>
+      ).map((x) => x.id);
+    expect(await ids('Ratih Purbasari')).toEqual([]);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 60_000);
+    try {
+      await as('perawat')
+        .post('/api/v1/authz/break-glass', {
+          patientId: p.id,
+          reason: 'Pasien tidak sadar di IGD, perlu riwayat alergi',
+        })
+        .expect(201);
+      await as('perawat').get(`/api/v1/patients/${p.id}`).expect(200);
+      expect(await ids('Ratih Purbasari')).toEqual([p.id]);
+      expect(await ids(p.mrn)).toEqual([p.id]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

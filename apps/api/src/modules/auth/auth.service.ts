@@ -268,17 +268,20 @@ export class AuthService {
     });
 
     if (!outcome.ok) {
-      // Catat kegagalan di transaksi terpisah yang PASTI commit.
-      await this.prisma.forTenant(tenantId, (tx) =>
-        writeAudit(tx, tenantId, this.meta(m, outcome.userId), [
-          {
-            action: 'login_failed',
-            resourceType: 'session',
-            outcome: 'denied',
-            details: { reason: outcome.reason },
-          },
-        ]),
-      );
+      // Catat kegagalan di transaksi terpisah yang PASTI commit. Tantangan yang tidak ditemukan tidak dicatat: tenant
+      // di token palsu bisa saja tidak ada (FK audit → galat 400 yang membocorkan ada/tidaknya RS).
+      if (outcome.userId) {
+        await this.prisma.forTenant(tenantId, (tx) =>
+          writeAudit(tx, tenantId, this.meta(m, outcome.userId), [
+            {
+              action: 'login_failed',
+              resourceType: 'session',
+              outcome: 'denied',
+              details: { reason: outcome.reason },
+            },
+          ]),
+        );
+      }
       throw challengeFailed();
     }
     return outcome.tokens;

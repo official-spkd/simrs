@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScaleToFit } from '@/components/scale-to-fit';
+import { CONSENT_ID } from '@/lib/demo/fixtures/ids';
 import { patientById } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS } from '@/lib/demo/fixtures/rawat-inap';
 import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
@@ -25,7 +26,7 @@ export default async function PersetujuanIndexPage() {
     );
   }
   const [tl] = await scenarioSteps(session, [['igd-ranap', 'tata-laksana']]);
-  if (tl?.tasks.consent?.enabled) redirect('/tablet/persetujuan/pk-hartono');
+  if (tl?.tasks.consent?.enabled) redirect(`/tablet/persetujuan/${CONSENT_ID.hartono}`);
   const docs = await Promise.all(
     (await Promise.all(CONSENT_IDS.map((id) => getConsentDocument(session, id))))
       .filter((d) => d !== null)

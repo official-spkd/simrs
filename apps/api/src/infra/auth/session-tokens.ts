@@ -3,15 +3,15 @@ import { hashToken, randomToken } from '@simrs/shared/node';
 
 /**
  * Token buram: `<awalan>.<tenantId>.<id>.<rahasia>`.
- * - awalan membedakan jenis (sa1 akses, sr1 refresh, sc1 tantangan MFA, st1 perangkat tepercaya) sehingga token
- *   tidak bisa dipakai silang;
+ * - awalan membedakan jenis (sa1 akses, sr1 refresh, sc1 tantangan MFA, st1 perangkat tepercaya, sd1 perangkat
+ *   ber-PIN) sehingga token tidak bisa dipakai silang;
  * - tenantId hanya petunjuk untuk membuka transaksi bertenant: memalsukannya membuat sesi tidak ditemukan (RLS);
  * - rahasia 256 bit; database hanya menyimpan hash SHA-256-nya.
  */
-export type TokenKind = 'sa1' | 'sr1' | 'sc1' | 'st1';
+export type TokenKind = 'sa1' | 'sr1' | 'sc1' | 'st1' | 'sd1';
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const TOKEN = new RegExp(`^(sa1|sr1|sc1|st1)\\.(${UUID})\\.(${UUID})\\.([A-Za-z0-9_-]{43})$`);
+const TOKEN = new RegExp(`^(sa1|sr1|sc1|st1|sd1)\\.(${UUID})\\.(${UUID})\\.([A-Za-z0-9_-]{43})$`);
 
 export interface ParsedToken {
   kind: TokenKind;

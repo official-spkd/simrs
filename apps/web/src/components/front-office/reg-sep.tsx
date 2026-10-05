@@ -49,14 +49,14 @@ export function RegSep({
   const bpjs = payer === 'BPJS';
   const list = quotas.filter((q) => q.poliCode === poli);
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-line bg-white p-4">
+    <div className="@container flex flex-col gap-3 rounded-card border border-line bg-white p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0 text-h2 font-semibold">{bpjs ? 'Data SEP' : 'Tujuan kunjungan'}</h2>
         <span className="text-caption text-ink-500">
           {bpjs ? 'Terisi otomatis dari rujukan · bisa disunting' : 'Pilih poli dan DPJP'}
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${id}-poli`} className="text-small font-semibold text-ink-700">
             Poli tujuan
