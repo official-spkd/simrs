@@ -5,7 +5,9 @@
  *   batal → hapus di BPJS (`dihapus` di mock), hapus ulang yang sudah hilang tetap `sent`;
  * - ditolak BPJS (dokter tidak praktik di tanggal itu) → `rejected` + kode, tanpa nomor; DLQ → `dead`;
  * - SPRI dengan no. kartu didekripsi saat kirim; rujukan keluar dari SEP terbit (masa berlaku dari BPJS) + hapus;
- * - pesan urut lama dilewati; data pribadi tidak tersimpan di outbox. Data fiktif.
+ * - pesan urut lama dilewati; data pribadi tidak tersimpan di outbox. Data fiktif;
+ * - kirim ulang surat kontrol/SPRI yang mungkin sudah diproses (timeout, DLQ) didahului pencarian daftar surat kartu:
+ *   surat yang sudah terbit dipakai nomornya, tidak terbit ganda.
  */
 import 'reflect-metadata';
 import type { AddressInfo } from 'node:net';
@@ -108,8 +110,13 @@ async function drain(minutes = 0) {
     if (s.claimed === 0) return;
   }
 }
-const setMock = (mode: 'normal' | 'gagal') =>
-  mockState.scenarios.set('bpjs', { ...mockState.scenario('bpjs'), mode });
+const setMock = (mode: 'normal' | 'gagal' | 'timeout', timeoutMs = 3000) =>
+  mockState.scenarios.set('bpjs', { ...mockState.scenario('bpjs'), mode, timeoutMs });
+/** Surat aktif milik kartu di mock BPJS. */
+const mockSurat = (card: string, jenis: 'kontrol' | 'spri' = 'kontrol') =>
+  [...mockState.bpjs.surat.values()].filter(
+    (s) => s.noKartu === card && s.jenis === jenis && s.status === 'aktif',
+  );
 const referral = (id: string) => run((tx) => tx.referral.findUniqueOrThrow({ where: { id } }));
 const enqueue = (
   operation: FrontOfficeOperation,
@@ -424,5 +431,125 @@ describe('SPRI dan rujukan keluar', () => {
     await drain();
     expect(await referral(id)).toMatchObject({ status: 'cancelled', syncStatus: 'sent' });
     expect(mockState.bpjs.rujukanKeluar.get(r.number as string)?.status).toBe('dihapus');
+  });
+});
+
+describe('kirim ulang surat kontrol/SPRI tanpa surat ganda (utang potongan 7)', () => {
+  const spriData = (planned: string) => ({
+    kind: 'spri',
+    facilityName: 'Bangsal Melati',
+    targetUnitId: ids.MELATI,
+    targetServiceId: ids.PD,
+    practitionerId: ids.andini,
+    plannedDate: new Date(`${planned}T00:00:00.000Z`),
+  });
+  const attemptsOf = (id: string, seq: number, operation: FrontOfficeOperation) =>
+    run(async (tx) => {
+      const msg = await tx.outboxMessage.findFirstOrThrow({
+        where: { idempotencyKey: outboxKey(operation, id, seq) },
+      });
+      return tx.deliveryAttempt.count({ where: { outboxMessageId: msg.id } });
+    });
+
+  it('surat kontrol: timeout setelah BPJS memproses → percobaan ulang menemukan surat di daftar kartu, tidak terbit ganda', async () => {
+    const e = await encounterWithSep();
+    const planned = nextDate(PRAKTIK);
+    setMock('timeout', 3000);
+    const id = await pendingReferral(e, kontrolData(planned), BPJS_RENCANA_KONTROL_INSERT_OPERATION);
+    await dispatch();
+    // Mock sudah menerbitkan surat, tetapi jawabannya tidak pernah sampai.
+    expect(mockSurat(e.card)).toHaveLength(1);
+    expect(await referral(id)).toMatchObject({ status: 'pending', number: null, syncStatus: 'pending' });
+    setMock('normal');
+    await drain(11);
+    const r = await referral(id);
+    expect(r).toMatchObject({ status: 'active', syncStatus: 'sent', syncSeq: 1 });
+    expect(mockSurat(e.card)).toHaveLength(1);
+    expect(r.number).toBe(mockSurat(e.card)[0]?.noSurat);
+    // Percobaan ke-2 = pencarian daftar surat, bukan insert.
+    expect(await attemptsOf(id, 1, BPJS_RENCANA_KONTROL_INSERT_OPERATION)).toBe(2);
+  });
+
+  it('SPRI: timeout lalu DLQ → kirim ulang petugas didahului pencarian → nomor lama dipakai', async () => {
+    const e = await encounterWithSep();
+    const planned = nextDate(PRAKTIK);
+    setMock('timeout', 3000);
+    const id = await pendingReferral(e, spriData(planned), BPJS_SPRI_INSERT_OPERATION);
+    await dispatch();
+    expect(mockSurat(e.card, 'spri')).toHaveLength(1);
+    setMock('gagal');
+    await dispatch(26 * 60); // pencarian pun gagal, lewat akhir hari layanan → DLQ
+    expect(await referral(id)).toMatchObject({ status: 'pending', syncStatus: 'dead', number: null });
+    // Kirim ulang dari API: pending lagi + pesan urut 2.
+    setMock('normal');
+    await run((tx) =>
+      tx.referral.update({
+        where: { id },
+        data: { syncStatus: 'pending', syncErrorCode: null, syncSeq: 2 },
+      }),
+    );
+    await enqueue(BPJS_SPRI_INSERT_OPERATION, { referralId: id }, id, 2);
+    await drain();
+    const r = await referral(id);
+    expect(r).toMatchObject({ kind: 'spri', status: 'active', syncStatus: 'sent', syncSeq: 2 });
+    expect(mockSurat(e.card, 'spri')).toHaveLength(1);
+    expect(r.number).toBe(mockSurat(e.card, 'spri')[0]?.noSurat);
+    expect(await attemptsOf(id, 2, BPJS_SPRI_INSERT_OPERATION)).toBe(1);
+  });
+
+  it('gangguan tanpa diproses → pencarian tidak menemukan → pesan urut berikutnya menerbitkan satu surat', async () => {
+    const e = await encounterWithSep();
+    setMock('gagal');
+    const id = await pendingReferral(
+      e,
+      kontrolData(nextDate(PRAKTIK)),
+      BPJS_RENCANA_KONTROL_INSERT_OPERATION,
+    );
+    await dispatch();
+    expect(mockSurat(e.card)).toHaveLength(0);
+    setMock('normal');
+    await drain(11);
+    const r = await referral(id);
+    expect(r).toMatchObject({ status: 'active', syncStatus: 'sent', syncSeq: 2 });
+    expect(mockSurat(e.card)).toHaveLength(1);
+    expect(r.number).toBe(mockSurat(e.card)[0]?.noSurat);
+    // Urut 1: gagal + pencarian; urut 2: langsung insert.
+    expect(await attemptsOf(id, 1, BPJS_RENCANA_KONTROL_INSERT_OPERATION)).toBe(2);
+    expect(await attemptsOf(id, 2, BPJS_RENCANA_KONTROL_INSERT_OPERATION)).toBe(1);
+  });
+
+  it('surat yang cocok tetapi sudah dipakai baris lain tidak diambil; kirim ulang setelah ditolak langsung insert', async () => {
+    const e = await encounterWithSep();
+    const planned = nextDate(PRAKTIK);
+    // Baris pertama terbit normal.
+    const first = await pendingReferral(e, kontrolData(planned), BPJS_RENCANA_KONTROL_INSERT_OPERATION);
+    await drain();
+    const firstNo = (await referral(first)).number;
+    expect(firstNo).not.toBeNull();
+    // Baris kedua dengan isian sama: kiriman pertama gagal, pencarian melihat surat baris pertama → tidak dipakai.
+    setMock('gagal');
+    const second = await pendingReferral(e, kontrolData(planned), BPJS_RENCANA_KONTROL_INSERT_OPERATION);
+    await dispatch();
+    setMock('normal');
+    await drain(11);
+    const r = await referral(second);
+    expect(r).toMatchObject({ status: 'active', syncSeq: 2 });
+    expect(r.number).not.toBe(firstNo);
+    expect(mockSurat(e.card)).toHaveLength(2);
+
+    // Ditolak BPJS (jawaban pasti) → kirim ulang petugas tidak perlu mencari.
+    const rej = await pendingReferral(e, kontrolData(nextDate([7])), BPJS_RENCANA_KONTROL_INSERT_OPERATION);
+    await drain();
+    expect(await referral(rej)).toMatchObject({ syncStatus: 'rejected' });
+    await run((tx) =>
+      tx.referral.update({
+        where: { id: rej },
+        data: { syncStatus: 'pending', syncErrorCode: null, syncSeq: 2 },
+      }),
+    );
+    await enqueue(BPJS_RENCANA_KONTROL_INSERT_OPERATION, { referralId: rej }, rej, 2);
+    await drain();
+    expect(await referral(rej)).toMatchObject({ syncStatus: 'rejected', syncSeq: 2 });
+    expect(await attemptsOf(rej, 2, BPJS_RENCANA_KONTROL_INSERT_OPERATION)).toBe(1);
   });
 });

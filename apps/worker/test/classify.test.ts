@@ -31,7 +31,7 @@ describe('OUTBOX_OPERATIONS', () => {
 
   it('ping diarahkan ke /<target>/_echo', async () => {
     const spec = await OUTBOX_OPERATIONS.get('ping')?.prepare(
-      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {} },
+      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {}, attempts: 0 },
       {} as OperationContext,
     );
     expect(spec).toMatchObject({ method: 'POST', path: '/bpjs/_echo' });
@@ -45,7 +45,7 @@ describe('HttpConnector', () => {
       OUTBOX_HTTP_TIMEOUT_MS: 500,
     } as WorkerEnv);
     const res = await connector.send(
-      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {} },
+      { target: 'bpjs', operation: 'ping', idempotencyKey: 'k', payload: {}, attempts: 0 },
       { method: 'POST', path: '//jahat.example/_echo' },
     );
     expect(res).toMatchObject({ ok: false, permanent: true, error: 'Path operasi keluar dari host tujuan' });

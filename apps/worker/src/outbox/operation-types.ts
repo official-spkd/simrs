@@ -4,7 +4,14 @@ import type { ZodType } from 'zod';
 
 /** Tipe bersama operasi outbox (dipisah dari peta operasi agar tidak ada impor melingkar). */
 
-export type OutboxMessageLike = Pick<OutboxMessage, 'target' | 'operation' | 'idempotencyKey' | 'payload'>;
+/**
+ * Pesan yang sedang disiapkan. `attempts` = percobaan yang sudah tercatat sebelum ini (0 = kiriman pertama); > 0
+ * berarti percobaan sebelumnya gagal/timeout dan mungkin sudah diproses sistem tujuan.
+ */
+export type OutboxMessageLike = Pick<
+  OutboxMessage,
+  'target' | 'operation' | 'idempotencyKey' | 'payload' | 'attempts'
+>;
 
 export interface HttpRequestSpec {
   method: 'POST' | 'PUT' | 'GET';

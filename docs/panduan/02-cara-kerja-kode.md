@@ -600,6 +600,19 @@ didekripsi dari penjaminan, poli DPJP dari templat jadwal), `bpjs.vclaim.rujukan
 `rejected` + kode (tanpa nomor); DLQ → `dead` + `BPJS_DLQ`; hapus yang sudah tidak ada di BPJS → `sent`. Kunci
 `<operasi>:<rujukan>:<urut>` (`referrals.sync_seq`); pesan urut lama dilewati.
 
+**Surat kontrol/SPRI tidak idempoten di VClaim** (kiriman yang timeout setelah BPJS memprosesnya bisa menerbitkan surat
+kedua). Pola histori SEP: bila kiriman sebelumnya mungkin sudah diproses, worker lebih dulu `GET` daftar surat milik
+kartu pada bulan tanggal rencana (`VCLAIM_ENDPOINTS.rencanaKontrolListByKartu`, filter tanggal rencana):
+
+- "mungkin sudah diproses" = pesan ini pernah dicoba (`attempts > 0`), atau kirim ulang petugas setelah DLQ (pesan urut
+  sebelumnya `dead`). Kirim ulang setelah **ditolak** (jawaban pasti) langsung insert;
+- surat yang cocok (jenis, SEP asal untuk surat kontrol, tanggal rencana, poli, DPJP) dan belum dipakai baris lain →
+  nomornya dipakai; tidak ada / "data tidak ditemukan" → pesan urut berikutnya yang langsung insert;
+- pencarian ditolak dengan alasan lain → DLQ, agar kirim ulang berikutnya tetap mencari dulu.
+
+Sisa celah: worker mati di antara jawaban BPJS dan pencatatan percobaan (pesan diklaim ulang setelah lease dengan
+`attempts` yang sama). Rujukan keluar (`bpjs.vclaim.rujukan.insert`) belum memakai pola ini.
+
 ### Gateway informasi publik (F08)
 
 `modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.
