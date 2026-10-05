@@ -8,6 +8,7 @@ import {
   type HfisPull,
   latestPulls,
   type RsSession,
+  scheduleSlotCellId,
 } from '../src/modules/scheduling/scheduling.view';
 
 const P = {
@@ -38,6 +39,7 @@ const session = (o: Partial<RsSession>): RsSession => ({
   bookedJkn: 0,
   bookedNonJkn: 0,
   updatedAt: new Date('2026-10-05T00:00:00Z'),
+  transferredAt: null,
   ...o,
 });
 
@@ -154,5 +156,33 @@ describe('grid minggu', () => {
       relatedDoctorId: P.bagus,
     });
     expect(week.hfis.lastSyncAt).toBeNull();
+  });
+
+  it('dua sesi sehari: baris tambahan "(sesi 2)" dengan sel sendiri; perbedaan HFIS menunjuk sel yang benar', () => {
+    const PAGI = '01990000-0000-7000-8000-0000000000b1';
+    const SORE = '01990000-0000-7000-8000-0000000000b2';
+    const pagi = session({ id: PAGI, start: '08:00', end: '11:00' });
+    const sore = session({ id: SORE, start: '13:00', end: '15:00', quotaJkn: 8, quotaNonJkn: 2 });
+    const comparison = compare([sore, pagi], [pull([entry({ jadwal: '08:00 - 11:00' })])]);
+    // Sesi sore tidak tercatat di HFIS → perbedaan untuk sel sesi ke-2.
+    expect(comparison.items).toEqual([
+      expect.objectContaining({ sessionId: SORE, slotId: scheduleSlotCellId(P.bagus, DATE, 1) }),
+    ]);
+    const week = weeklyScheduleSchema.parse(
+      buildWeek({ weekStart: '2026-10-05', days: [DATE], sessions: [sore, pagi], comparison }),
+    );
+    expect(week.doctors.map((d) => [d.id, d.name])).toEqual([
+      [P.bagus, 'dr. Bagus Santoso, Sp.JP'],
+      [`${P.bagus}~2`, 'dr. Bagus Santoso, Sp.JP (sesi 2)'],
+    ]);
+    const [r1, r2] = week.doctors;
+    expect(r1?.slots[0]).toMatchObject({ sessionId: PAGI, start: '08.00', hfisSynced: true });
+    expect(r2?.slots[0]).toMatchObject({
+      id: scheduleSlotCellId(P.bagus, DATE, 1),
+      sessionId: SORE,
+      start: '13.00',
+      hfisSynced: false,
+    });
+    expect(new Set(week.doctors.flatMap((d) => d.slots.map((x) => x.id))).size).toBe(2);
   });
 });

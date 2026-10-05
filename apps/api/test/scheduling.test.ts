@@ -234,6 +234,35 @@ describe('cuti, pengganti, pengalihan', () => {
       tx.outboxMessage.findMany({ where: { operation: 'patient.whatsapp.schedule_changed' } }),
     );
     expect(outbox.map((m) => m.payload)).toContainEqual({ appointmentId });
+    // BPJS: kode booking tetap, Antrean tidak punya ubah dokter → tidak ada outbox antrean untuk pengalihan ini.
+    expect(
+      await inT((tx) =>
+        tx.outboxMessage.count({ where: { payload: { equals: { appointmentId } }, target: 'bpjs' } }),
+      ),
+    ).toBe(0);
+
+    // Penanda tersimpan: grid menandai "sudah dialihkan"; pengalihan ulang tidak mengirim WhatsApp lagi.
+    const session = scheduleSessionSchema.parse(
+      (await as(T.id).get(`${api}/sessions/${s.id}`).expect(200)).body,
+    );
+    expect(session.transferredAt).not.toBeNull();
+    const again = await as(T.id)
+      .post(`${api}/sessions/${s.id}/transfer`, { target: { kind: 'substitute' } })
+      .expect(200);
+    expect(again.body).toEqual({ moved: 0, notified: 0 });
+    let monday = s.serviceDate;
+    while (isoWeekday(monday) !== 1) monday = addIsoDays(monday, -1);
+    const week = weeklyScheduleSchema.parse(
+      (await as(T.id).get(`${api}/week?weekStart=${monday}`).expect(200)).body,
+    );
+    const cell = week.doctors.flatMap((d) => d.slots).find((x) => x.sessionId === s.id && x.kind === 'cuti');
+    expect(cell?.transferredAt).toBe(session.transferredAt);
+    const wa = await inT((tx) =>
+      tx.outboxMessage.count({
+        where: { operation: 'patient.whatsapp.schedule_changed', payload: { equals: { appointmentId } } },
+      }),
+    );
+    expect(wa).toBe(1);
   });
 
   it('pindah ke sesi lain: kuota tujuan kurang → 409 QUOTA_FULL tanpa ada yang pindah; cukup → semua pindah', async () => {
@@ -266,10 +295,79 @@ describe('cuti, pengganti, pengalihan', () => {
     );
     expect(after.find((x) => x.id === source.id)?.bookedNonJkn).toBe(0);
     expect(after.find((x) => x.id === target.id)?.bookedNonJkn).toBe(2);
+    expect(after.find((x) => x.id === source.id)).toMatchObject({ transferTarget: 'session' });
+    // Jadwal ulang lewat modul booking: booking lama batal, booking baru berkode baru di sesi tujuan.
+    const old = await inT((tx) => tx.appointment.findMany({ where: { id: { in: [a1, a2] } } }));
+    expect(old.every((x) => x.status === 'cancelled' && x.sessionId === source.id)).toBe(true);
+    const moved = await inT((tx) =>
+      tx.appointment.findMany({ where: { sessionId: target.id, status: 'booked' } }),
+    );
+    expect(moved).toHaveLength(2);
+    expect(moved.some((m) => old.some((o) => o.bookingCode === m.bookingCode))).toBe(false);
     // Pengganti belum ada: pengalihan "substitute" ditolak.
     await as(T.id)
       .post(`${api}/sessions/${source.id}/transfer`, { target: { kind: 'substitute' } })
       .expect(400);
+  });
+});
+
+describe('pengalihan pasien JKN', () => {
+  it('pindah sesi: Antrean BPJS dibatalkan untuk booking lama dan ditambahkan untuk booking baru', async () => {
+    const yudha = await practitioner('dr. Yudha');
+    const source = await nextSession(yudha.id, addIsoDays(today, 2));
+    const target = await nextSession(yudha.id, source.serviceDate);
+    const patient = await createTestPatient(T.id, {
+      name: 'Pasien JKN Jadwal Fiktif',
+      identifiers: {
+        nik: `99990101900${String(Date.now()).slice(-5)}`,
+        bpjs: `0000${String(Date.now()).slice(-8)}1`,
+      },
+    });
+    const created = await as(T.id)
+      .post('/api/v1/booking/appointments', {
+        patientId: patient.id,
+        sessionId: source.id,
+        quotaBucket: 'jkn',
+        jkn: { visitKind: 'kontrol', referenceNumber: '0301R0011025K000117' },
+      })
+      .expect(201);
+    const oldId = created.body.id as string;
+    await as(T.id)
+      .post(`${api}/sessions/${source.id}/leave`, { reason: 'Pelatihan', substitutePractitionerId: null })
+      .expect(200);
+    const res = await as(T.id)
+      .post(`${api}/sessions/${source.id}/transfer`, { target: { kind: 'session', sessionId: target.id } })
+      .expect(200);
+    expect(res.body).toEqual({ moved: 1, notified: 1 });
+    const newBooking = await inT((tx) =>
+      tx.appointment.findFirstOrThrow({
+        where: { sessionId: target.id, patientId: patient.id, status: 'booked' },
+      }),
+    );
+    const ops = await inT((tx) =>
+      tx.outboxMessage.findMany({
+        where: { target: 'bpjs', idempotencyKey: { endsWith: oldId } },
+        select: { operation: true },
+      }),
+    );
+    expect(ops.map((o) => o.operation).sort()).toEqual(['bpjs.antrean.add', 'bpjs.antrean.batal']);
+    const added = await inT((tx) =>
+      tx.outboxMessage.findMany({
+        where: { operation: 'bpjs.antrean.add', payload: { equals: { appointmentId: newBooking.id } } },
+      }),
+    );
+    expect(added).toHaveLength(1);
+    const wa = await inT((tx) =>
+      tx.outboxMessage.findMany({
+        where: {
+          operation: 'patient.whatsapp.schedule_changed',
+          payload: { equals: { appointmentId: newBooking.id } },
+        },
+      }),
+    );
+    expect(wa.map((m) => m.idempotencyKey)).toEqual([
+      `patient.whatsapp.schedule_changed:${newBooking.id}:${target.id}`,
+    ]);
   });
 });
 

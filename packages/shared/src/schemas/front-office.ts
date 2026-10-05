@@ -187,6 +187,8 @@ export const scheduleSlotSchema = z
     hfisSynced: z.boolean(),
     /** Versi sesi (`updatedAt`) untuk ubah kuota berversi (`baseUpdatedAt`); tidak ada di data mode presentasi. */
     updatedAt: isoDateTime.optional(),
+    /** `cuti`: pasien sudah dialihkan (pengganti/sesi lain) pada waktu ini; null = belum. Tidak ada di data demo. */
+    transferredAt: isoDateTime.nullable().optional(),
   })
   .refine((s) => (s.kind === 'praktik') === (s.quota !== null), {
     message: 'Hanya slot praktik yang berkuota',

@@ -12,24 +12,15 @@ import { inTenant, TENANTS } from './accounts';
 /**
  * F01 · Data jadwal E2E di RSFA uji: struktur RS + front office seed (poli PD/JT/SR/PR, dokter fiktif dengan kode HFIS
  * 99001–99006, templat mingguan) lalu sesi 30 hari, seperti `pnpm db:seed` + job `scheduling.generate-sessions`.
- * Idempoten (aman dipanggil banyak spesifikasi sekaligus).
+ * Dipanggil sekali dari `global-setup.ts` (sebelum worker Playwright berjalan); idempoten.
  */
 export async function ensureRsfaSchedule(): Promise<void> {
   const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
   try {
-    // Worker Playwright paralel bisa menyemai bersamaan: upsert yang kalah balapan (unik) cukup diulang.
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await withTenant(owner, TENANTS.RSFA, (tx) => seedHospitalStructure(tx, TENANTS.RSFA), {
-          maxWaitMs: 20_000,
-        });
-        await seedFrontOffice(owner, TENANTS.RSFA);
-        break;
-      } catch (err) {
-        if (attempt >= 3) throw err;
-        await new Promise((r) => setTimeout(r, 300 * attempt));
-      }
-    }
+    await withTenant(owner, TENANTS.RSFA, (tx) => seedHospitalStructure(tx, TENANTS.RSFA), {
+      maxWaitMs: 20_000,
+    });
+    await seedFrontOffice(owner, TENANTS.RSFA);
   } finally {
     await owner.$disconnect();
   }
