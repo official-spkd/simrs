@@ -4,6 +4,9 @@ import {
   type KioskIdentifyResult,
   kioskHelpResultSchema,
   kioskIdentifyResultSchema,
+  type KioskRegisterInput,
+  type KioskSessionOption,
+  kioskSessionOptionSchema,
   type KioskTicketRequest,
   type PrintableTicket,
   printableTicketSchema,
@@ -66,6 +69,21 @@ export function kioskCheckIn(lookupToken: string, idempotencyKey: string): Promi
 /** Tiket loket (tanpa identitas) atau farmasi/kasir (dengan token identifikasi). */
 export function kioskTicket(input: KioskTicketRequest, idempotencyKey: string): Promise<PrintableTicket> {
   return kioskCall('/tickets', {
+    method: 'POST',
+    body: input,
+    idempotencyKey,
+    schema: printableTicketSchema,
+  });
+}
+
+/** Sesi dokter hari ini untuk pasien umum. */
+export function kioskSessions(): Promise<KioskSessionOption[]> {
+  return kioskCall('/sessions', { schema: kioskSessionOptionSchema.array() });
+}
+
+/** Registrasi mandiri rawat jalan (alur 5a di API) → tiket poli. */
+export function kioskRegister(input: KioskRegisterInput, idempotencyKey: string): Promise<PrintableTicket> {
+  return kioskCall('/register', {
     method: 'POST',
     body: input,
     idempotencyKey,

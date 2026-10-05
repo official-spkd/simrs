@@ -1,18 +1,19 @@
 'use client';
 
-import type { KioskPurpose, PrintableTicket } from '@simrs/shared';
+import type { KioskPurpose, KioskSessionOption, PrintableTicket } from '@simrs/shared';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { KioskTicket } from '@/components/front-office/kiosk-confirm';
 import { KioskFooter, KioskHeader } from '@/components/front-office/kiosk-frame';
 import { KioskKeypad, type KioskMethod } from '@/components/front-office/kiosk-keypad';
-import { KioskMaskedConfirm, KioskToCounter } from '@/components/front-office/kiosk-live';
+import { KioskMaskedConfirm, KioskSessions, KioskToCounter } from '@/components/front-office/kiosk-live';
 import { KioskHome, KioskMethods, METHODS, PURPOSES } from '@/components/front-office/kiosk-screens';
 import { KioskNotice } from '@/components/front-office/kiosk-ui';
 import { useDemoClock } from '@/components/front-office/use-demo-clock';
 import { greeting } from '@/lib/front-office';
 import {
   type KioskFound,
+  type KioskTicketOrigin,
   kioskFailure,
   kioskNextStep,
   kioskPurposeOf,
@@ -24,20 +25,22 @@ import {
   checkInAction,
   identifyAction,
   type KioskFailure,
+  registerAction,
+  sessionsAction,
   ticketAction,
   ticketHtmlAction,
 } from './actions';
 
-type Screen = 'home' | 'metode' | 'input' | 'konfirmasi' | 'loket' | 'tiket';
+type Screen = 'home' | 'metode' | 'input' | 'konfirmasi' | 'dokter' | 'loket' | 'tiket';
 
 /** Layar non-awal tanpa sentuhan selama ini → kembali ke awal (nama tersamar tidak tertinggal di layar umum). */
 const IDLE_MS = 90_000;
 
 /**
  * F05 · Anjungan mode api (fase 2 potongan 6) di PERANGKAT anjungan terdaftar: tujuan → cara identifikasi → keypad →
- * konfirmasi nama tersamar + tanggal lahir tanpa tahun → check-in / nomor loket / farmasi-kasir → tiket (dicetak
- * lewat HTML 80 mm dari API). Komponen layar sama dengan mode presentasi (target sentuh ≥ 64 px); jalur demo tetap
- * di `kiosk-client.tsx`. Registrasi mandiri (SEP/pilih dokter) menyusul setelah potongan 5a (`kioskNextStep`).
+ * konfirmasi nama tersamar + tanggal lahir tanpa tahun → check-in / daftar ke poli (BPJS, alur 5a + SEP) / pilih
+ * dokter (umum) / nomor loket / farmasi-kasir → tiket (dicetak lewat HTML 80 mm dari API). Komponen layar sama dengan
+ * mode presentasi (target sentuh ≥ 64 px); jalur demo tetap di `kiosk-client.tsx`.
  */
 export function LiveKioskClient({
   tenantName,
@@ -63,6 +66,8 @@ export function LiveKioskClient({
   const [notice, setNotice] = useState<string | null>(null);
   const [counterMessage, setCounterMessage] = useState('');
   const [ticket, setTicket] = useState<PrintableTicket | null>(null);
+  const [origin, setOrigin] = useState<KioskTicketOrigin>('ticket');
+  const [sessions, setSessions] = useState<KioskSessionOption[]>([]);
   const [printNote, setPrintNote] = useState<string | null>(null);
   const [calledAt, setCalledAt] = useState<string | null>(null);
   const [english, setEnglish] = useState(false);
@@ -73,7 +78,10 @@ export function LiveKioskClient({
   const { time } = useDemoClock(nowIso);
 
   const pur = PURPOSES[purposeIndex] ?? PURPOSES[0];
-  const order: Screen[] = ['metode', 'input', 'konfirmasi', 'tiket'];
+  const order: Screen[] =
+    purpose === 'umum'
+      ? ['metode', 'input', 'konfirmasi', 'dokter', 'tiket']
+      : ['metode', 'input', 'konfirmasi', 'tiket'];
   const stepLabel = `Langkah ${Math.max(order.indexOf(screen), 0) + 1} dari ${order.length}`;
 
   const reset = (message: string | null = null) => {
@@ -105,8 +113,9 @@ export function LiveKioskClient({
     } else setNotice(view.message);
   };
 
-  const showTicket = (t: PrintableTicket) => {
+  const showTicket = (t: PrintableTicket, from: KioskTicketOrigin) => {
     setTicket(t);
+    setOrigin(from);
     setFound(null);
     setScreen('tiket');
     setPrintNote(null);
@@ -143,8 +152,33 @@ export function LiveKioskClient({
     if (!found) return;
     startTransition(async () => {
       const res = await checkInAction({ lookupToken: found.lookupToken, idempotencyKey: actionKey });
-      if (res.ok) showTicket(res.ticket);
+      if (res.ok) showTicket(res.ticket, 'check-in');
       else fail(res);
+    });
+  };
+
+  /** Registrasi mandiri (alur 5a di API): BPJS langsung; umum sesudah memilih sesi dokter. */
+  const register = (sessionId?: string) => {
+    if (!found) return;
+    const token = found.lookupToken;
+    startTransition(async () => {
+      const res = await registerAction({
+        request: sessionId
+          ? { payer: 'umum', lookupToken: token, sessionId }
+          : { payer: 'bpjs', lookupToken: token },
+        idempotencyKey: actionKey,
+      });
+      if (res.ok) showTicket(res.ticket, 'register');
+      else fail(res);
+    });
+  };
+
+  const pickDoctor = () => {
+    startTransition(async () => {
+      const res = await sessionsAction();
+      if (!res.ok) return fail(res);
+      setSessions(res.sessions);
+      setScreen('dokter');
     });
   };
 
@@ -155,7 +189,7 @@ export function LiveKioskClient({
         request: { serviceKind: kind, ...(token ? { lookupToken: token } : {}) },
         idempotencyKey: token ? actionKey : newKioskKey(),
       });
-      if (res.ok) showTicket(res.ticket);
+      if (res.ok) showTicket(res.ticket, 'ticket');
       else fail(res);
     });
   };
@@ -174,11 +208,12 @@ export function LiveKioskClient({
       metode: 'home',
       input: 'metode',
       konfirmasi: 'input',
+      dokter: 'konfirmasi',
       loket: 'home',
       tiket: 'home',
     };
     setNotice(null);
-    setFound(null);
+    if (screen !== 'dokter') setFound(null);
     setScreen(prev[screen]);
   };
 
@@ -251,12 +286,22 @@ export function LiveKioskClient({
             busy={pending}
             onBack={back}
             onCheckIn={checkIn}
+            onRegister={() => (kioskNextStep(purpose, found) === 'register-umum' ? pickDoctor() : register())}
             onTicket={(kind) => takeTicket(kind, true)}
             onNotMe={() => {
               setFound(null);
               setDigits('');
               setScreen('input');
             }}
+          />
+        )}
+        {screen === 'dokter' && found && (
+          <KioskSessions
+            sessions={sessions}
+            step={stepLabel}
+            busy={pending}
+            onBack={back}
+            onPick={(id) => register(id)}
           />
         )}
         {screen === 'loket' && (
@@ -274,7 +319,11 @@ export function LiveKioskClient({
                 <KioskNotice tone="warning">{printNote}</KioskNotice>
               </div>
             )}
-            <KioskTicket ticket={kioskTicketView(ticket)} onDone={() => reset()} displayLink={false} />
+            <KioskTicket
+              ticket={kioskTicketView(ticket, origin)}
+              onDone={() => reset()}
+              displayLink={false}
+            />
           </>
         )}
         <p

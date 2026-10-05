@@ -23,23 +23,33 @@ export type KioskFound = Extract<KioskIdentifyResult, { found: true }>;
 /**
  * Tindakan sesudah pasien membenarkan datanya:
  * - farmasi/kasir (setelah pemeriksaan) → pilih antrean farmasi atau kasir;
- * - ada booking hari ini → check-in (tiket loket, task 1; sudah check-in → tiket loketnya dicetak ulang);
- * - selain itu (BPJS/umum tanpa booking) → nomor antrean loket pendaftaran. Registrasi mandiri dari anjungan
- *   (SEP/pilih dokter) menyusul setelah potongan 5a; titik perluasannya di sini.
+ * - pasien umum → pilih sesi dokter hari ini → registrasi mandiri (alur 5a) → nomor poli;
+ * - pasien BPJS dengan booking hari ini (kontrol/rujukan tercatat) → registrasi mandiri + SEP → nomor poli;
+ * - booking hari ini → check-in (tiket loket, task 1; sudah check-in → tiket loketnya dicetak ulang);
+ * - selain itu (BPJS tanpa booking: rujukan perlu diperiksa) → nomor antrean loket pendaftaran.
+ * Bila registrasi butuh petugas, API menjawab `KIOSK_NEEDS_COUNTER` dan layar menawarkan nomor loket.
  */
-export type KioskNextStep = 'check-in' | 'farmasi-kasir' | 'loket';
+export type KioskNextStep = 'check-in' | 'register-bpjs' | 'register-umum' | 'farmasi-kasir' | 'loket';
 
 export function kioskNextStep(
   purpose: KioskPurpose,
   found: Pick<KioskFound, 'hasBookingToday'>,
 ): KioskNextStep {
   if (purpose === 'farmasi_kasir') return 'farmasi-kasir';
+  if (purpose === 'umum') return 'register-umum';
+  if (purpose === 'bpjs' && found.hasBookingToday) return 'register-bpjs';
   if (found.hasBookingToday) return 'check-in';
   return 'loket';
 }
 
+/** Asal tiket di layar (catatan di bawah nomor). */
+export type KioskTicketOrigin = 'check-in' | 'register' | 'ticket';
+
 /** Tiket untuk layar anjungan (komponen `KioskTicket`). Perkiraan = jam ambil + menit tunggu. */
-export function kioskTicketView(t: PrintableTicket): {
+export function kioskTicketView(
+  t: PrintableTicket,
+  origin: KioskTicketOrigin = 'ticket',
+): {
   no: string;
   tujuan: string;
   lokasi: string;
@@ -55,9 +65,14 @@ export function kioskTicketView(t: PrintableTicket): {
     tujuan: t.destination,
     lokasi: eta ? `${t.location} · perkiraan dipanggil ${eta}` : t.location,
     sep: t.sepNo,
-    note: t.bookingCode
-      ? `Check-in booking ${t.bookingCode} berhasil. SEP dan nomor antrean poli diterbitkan petugas loket.`
-      : null,
+    note:
+      origin === 'register'
+        ? t.sepNo
+          ? 'Pendaftaran berhasil. Langsung menuju poli.'
+          : 'Pendaftaran berhasil. Langsung menuju poli; SEP BPJS (bila ada) dicetak petugas poli.'
+        : origin === 'check-in' && t.bookingCode
+          ? `Check-in booking ${t.bookingCode} berhasil. SEP dan nomor antrean poli diterbitkan petugas loket.`
+          : null,
   };
 }
 
@@ -103,7 +118,10 @@ export function kioskFailure(code: string, reason?: KioskCounterReason, message?
   };
 }
 
-/** Kunci idempotensi baru untuk satu tindakan anjungan (sentuhan ganda/ulang kirim → hasil yang sama). */
+/**
+ * Kunci idempotensi baru (UUID, sama dengan header registrasi 5a) untuk satu tindakan anjungan: sentuhan ganda/ulang
+ * kirim → hasil yang sama.
+ */
 export function newKioskKey(): string {
-  return `anjungan-${crypto.randomUUID()}`;
+  return crypto.randomUUID();
 }

@@ -6,6 +6,8 @@ import {
   type KioskIdentifyResult,
   kioskIdentifySchema,
   kioskLookupTokenSchema,
+  kioskRegisterSchema,
+  type KioskSessionOption,
   kioskTicketRequestSchema,
   type PrintableTicket,
 } from '@simrs/shared';
@@ -15,6 +17,8 @@ import {
   kioskAssist,
   kioskCheckIn,
   kioskIdentify,
+  kioskRegister,
+  kioskSessions,
   kioskTicket,
   kioskTicketHtml,
 } from '@/lib/server/data/front-office/kiosk';
@@ -37,7 +41,7 @@ export type KioskFailure = {
 };
 export type KioskResult<T> = ({ ok: true } & T) | KioskFailure;
 
-const idempotencyKey = z.string().regex(/^[A-Za-z0-9_:.-]{8,100}$/);
+const idempotencyKey = z.uuid();
 
 async function asKiosk(): Promise<KioskFailure | null> {
   if (webEnv().dataSource !== 'api') {
@@ -103,6 +107,30 @@ export async function ticketAction(input: unknown): Promise<KioskResult<{ ticket
   if (!p.success) return invalid('Pilihan antrean tidak dikenali. Ulangi dari awal.');
   try {
     return { ok: true, ticket: await kioskTicket(p.data.request, p.data.idempotencyKey) };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+/** Sesi dokter hari ini (pasien umum memilih dokter). */
+export async function sessionsAction(): Promise<KioskResult<{ sessions: KioskSessionOption[] }>> {
+  const denied = await asKiosk();
+  if (denied) return denied;
+  try {
+    return { ok: true, sessions: await kioskSessions() };
+  } catch (err) {
+    return failure(err);
+  }
+}
+
+/** Registrasi mandiri rawat jalan (BPJS dengan booking kontrol/rujukan, atau umum dengan sesi pilihan). */
+export async function registerAction(input: unknown): Promise<KioskResult<{ ticket: PrintableTicket }>> {
+  const denied = await asKiosk();
+  if (denied) return denied;
+  const p = z.strictObject({ request: kioskRegisterSchema, idempotencyKey }).safeParse(input);
+  if (!p.success) return invalid('Pilihan pendaftaran tidak dikenali. Ulangi dari awal.');
+  try {
+    return { ok: true, ticket: await kioskRegister(p.data.request, p.data.idempotencyKey) };
   } catch (err) {
     return failure(err);
   }

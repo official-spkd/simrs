@@ -1,4 +1,5 @@
 import { cx } from '@simrs/ui';
+import type { KioskSessionOption } from '@simrs/shared';
 import type { ReactNode } from 'react';
 import type { KioskNextStep } from '@/lib/kiosk';
 import { initials } from '@/lib/front-office';
@@ -9,7 +10,8 @@ const SECOND = 'h-24 cursor-pointer rounded-[22px] font-[inherit] font-semibold'
 
 /**
  * F05 · "Apakah ini data Anda?" mode api: hanya nama tersamar + tanggal lahir tanpa tahun (keputusan fase 2 no. 3),
- * tanpa RM/NIK/poli. Tombol utama mengikuti `kioskNextStep` (check-in, farmasi/kasir, atau nomor loket).
+ * tanpa RM/NIK/poli. Tombol utama mengikuti `kioskNextStep` (check-in, daftar ke poli, pilih dokter, farmasi/kasir,
+ * atau nomor loket).
  */
 export function KioskMaskedConfirm({
   nameMasked,
@@ -19,6 +21,7 @@ export function KioskMaskedConfirm({
   busy,
   onBack,
   onCheckIn,
+  onRegister,
   onTicket,
   onNotMe,
 }: {
@@ -29,6 +32,8 @@ export function KioskMaskedConfirm({
   busy: boolean;
   onBack: () => void;
   onCheckIn: () => void;
+  /** Daftar ke poli (BPJS) atau lanjut memilih dokter (umum). */
+  onRegister: () => void;
   onTicket: (kind: 'loket' | 'farmasi' | 'kasir') => void;
   onNotMe: () => void;
 }) {
@@ -74,6 +79,21 @@ export function KioskMaskedConfirm({
             style={fs(32)}
           >
             {busy ? 'Mencetak tiket…' : 'Ya, data saya benar · check-in'}
+          </button>
+        )}
+        {(next === 'register-bpjs' || next === 'register-umum') && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRegister}
+            className={cx(BIG, KIOSK_PRIMARY)}
+            style={fs(32)}
+          >
+            {busy
+              ? 'Mendaftarkan…'
+              : next === 'register-bpjs'
+                ? 'Ya, data saya benar · daftar ke poli'
+                : 'Ya, data saya benar · pilih dokter'}
           </button>
         )}
         {next === 'farmasi-kasir' && (
@@ -160,6 +180,65 @@ export function KioskToCounter({
       >
         Ulangi dari awal
       </button>
+    </div>
+  );
+}
+
+/** F05 · Pasien umum memilih sesi dokter hari ini (informasi publik); sesi penuh tidak bisa dipilih. */
+export function KioskSessions({
+  sessions,
+  step,
+  busy,
+  onBack,
+  onPick,
+}: {
+  sessions: KioskSessionOption[];
+  step: string;
+  busy: boolean;
+  onBack: () => void;
+  onPick: (sessionId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-8 px-16 pt-14">
+      <KioskBackRow onBack={onBack} step={step} />
+      <KioskTitle title="Pilih dokter" sub="Jadwal praktik hari ini. Sentuh dokter yang ingin Anda temui." />
+      {sessions.length === 0 ? (
+        <KioskNotice tone="info">
+          Tidak ada jadwal praktik hari ini. Silakan ke loket pendaftaran.
+        </KioskNotice>
+      ) : (
+        <div role="list" aria-label="Jadwal dokter hari ini" className="flex flex-col gap-5">
+          {sessions.map((s) => (
+            <button
+              key={s.sessionId}
+              type="button"
+              role="listitem"
+              disabled={busy || !s.available}
+              onClick={() => onPick(s.sessionId)}
+              aria-label={`${s.practitionerName}, ${s.poliName}, ${s.start}–${s.end}${s.available ? '' : ', kuota penuh'}`}
+              className={cx(
+                'flex min-h-[120px] cursor-pointer items-center justify-between gap-6 rounded-[24px] border-2 bg-white px-9 py-6 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60',
+                s.available ? 'border-line' : 'border-line bg-muted',
+              )}
+            >
+              <span className="flex flex-col gap-1">
+                <span className="font-bold" style={fs(30)}>
+                  {s.practitionerName}
+                </span>
+                <span className="text-ink-700" style={fs(22)}>
+                  {s.poliName} · {s.start}–{s.end}
+                </span>
+              </span>
+              <span
+                className={cx('font-semibold', s.available ? 'text-brand-700' : 'text-ink-500')}
+                style={fs(22)}
+              >
+                {s.available ? 'Tersedia' : 'Kuota penuh'}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

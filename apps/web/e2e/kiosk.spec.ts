@@ -13,21 +13,13 @@ import { ensureRsfaSchedule } from './support/schedule';
 
 const digits = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
-/** Pasien fiktif (NIK 9999…) dengan booking JKN hari ini di poli PD, sesi milik dokter uji sendiri. */
-async function patientWithBookingToday() {
-  const nik = `9999${digits(12)}`;
-  const patient = await createPatient('RSFA', {
-    name: 'Siti Rahmawati',
-    birthDate: '1985-03-14',
-    identifiers: { nik },
-  });
+/** Sesi poli PD hari ini milik dokter uji sendiri (nama unik per jalan agar mudah dipilih di anjungan). */
+async function sessionToday(doctorName: string) {
   const today = isoDateJakarta();
-  await inTenant(TENANTS.RSFA, async (tx) => {
+  return inTenant(TENANTS.RSFA, async (tx) => {
     const service = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' }, select: { id: true } });
     const practitionerId = newId();
-    await tx.practitioner.create({
-      data: { id: practitionerId, tenantId: TENANTS.RSFA, name: 'dr. Uji Anjungan, Sp.PD' },
-    });
+    await tx.practitioner.create({ data: { id: practitionerId, tenantId: TENANTS.RSFA, name: doctorName } });
     const sessionId = newId();
     await tx.scheduleSession.create({
       data: {
@@ -42,6 +34,21 @@ async function patientWithBookingToday() {
         quotaNonJkn: 2,
       },
     });
+    return { serviceId: service.id, practitionerId, sessionId };
+  });
+}
+
+/** Pasien fiktif (NIK 9999…) dengan booking JKN hari ini di poli PD, sesi milik dokter uji sendiri. */
+async function patientWithBookingToday() {
+  const nik = `9999${digits(12)}`;
+  const patient = await createPatient('RSFA', {
+    name: 'Siti Rahmawati',
+    birthDate: '1985-03-14',
+    identifiers: { nik },
+  });
+  const today = isoDateJakarta();
+  const { serviceId, practitionerId, sessionId } = await sessionToday('dr. Uji Anjungan, Sp.PD');
+  await inTenant(TENANTS.RSFA, async (tx) => {
     await tx.appointment.create({
       data: {
         id: newId(),
@@ -50,7 +57,7 @@ async function patientWithBookingToday() {
         patientId: patient.id,
         sessionId,
         practitionerId,
-        serviceId: service.id,
+        serviceId,
         appointmentDate: toDbDate(today),
         quotaBucket: 'jkn',
         channel: 'mobile_jkn',
@@ -118,6 +125,56 @@ test.describe('anjungan mandiri (perangkat terdaftar)', () => {
     // Selesai → anjungan kembali ke layar awal (tidak ada data pasien tertinggal).
     await kiosk.getByRole('button', { name: 'Selesai' }).click();
     await expect(kiosk.getByRole('heading', { level: 1 })).toContainText('Apa yang ingin Anda lakukan?');
+    await kioskContext.close();
+  });
+
+  test('pasien umum: pilih dokter di anjungan → terdaftar (alur 5a) dengan nomor poli PD-xxx', async ({
+    browser,
+  }, info) => {
+    test.skip(
+      info.project.name !== 'desktop',
+      'Satu proyek saja: anjungan uji dan antrean poli RSFA dipakai bersama.',
+    );
+    const doctor = `dr. Uji Anjungan ${digits(4)}, Sp.PD`;
+    await sessionToday(doctor);
+    const nik = `9999${digits(12)}`;
+    const patient = await createPatient('RSFA', {
+      name: 'Dewi Lestari',
+      birthDate: '1992-07-21',
+      identifiers: { nik },
+    });
+    // Persetujuan umum rawat jalan sudah ditandatangani di kunjungan sebelumnya (anjungan tidak memintanya).
+    await inTenant(TENANTS.RSFA, (tx) =>
+      tx.privacyConsent.create({
+        data: {
+          id: newId(),
+          tenantId: TENANTS.RSFA,
+          patientId: patient.id,
+          kind: 'umum',
+          note: 'Persetujuan uji',
+        },
+      }),
+    );
+
+    const kioskContext = await browser.newContext();
+    await useTestDevice(kioskContext, 'kiosk');
+    const kiosk = await kioskContext.newPage();
+    await kiosk.goto('/kiosk');
+    await kiosk.getByRole('button', { name: /Pasien umum atau asuransi/ }).click();
+    await kiosk.getByRole('button', { name: /NIK e-KTP/ }).click();
+    await typeDigits(kiosk, nik);
+    await kiosk.getByRole('button', { name: 'Lanjut' }).click();
+    await expect(kiosk.getByTestId('nama-tersamar')).toHaveText('De•• Le•••••');
+    await kiosk.getByRole('button', { name: 'Ya, data saya benar · pilih dokter' }).click();
+    await kiosk.getByRole('listitem', { name: new RegExp(`^${doctor.replace(/[.,]/g, '.')}`) }).click();
+
+    const ticket = kiosk.getByRole('region', { name: 'Tiket antrean' });
+    await expect(ticket).toContainText(/PD-\d{3}/);
+    await expect(ticket).toContainText('Pendaftaran berhasil');
+    const encounters = await inTenant(TENANTS.RSFA, (tx) =>
+      tx.encounter.count({ where: { patientId: patient.id } }),
+    );
+    expect(encounters).toBe(1);
     await kioskContext.close();
   });
 

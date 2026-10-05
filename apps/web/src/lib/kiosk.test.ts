@@ -24,14 +24,16 @@ describe('anjungan mode api', () => {
   it('farmasi/kasir memilih antrean; booking hari ini → check-in; selain itu nomor loket', () => {
     expect(kioskNextStep('farmasi_kasir', { hasBookingToday: true })).toBe('farmasi-kasir');
     expect(kioskNextStep('booking', { hasBookingToday: true })).toBe('check-in');
-    expect(kioskNextStep('umum', { hasBookingToday: true })).toBe('check-in');
+    expect(kioskNextStep('umum', { hasBookingToday: true })).toBe('register-umum');
+    expect(kioskNextStep('umum', { hasBookingToday: false })).toBe('register-umum');
+    expect(kioskNextStep('bpjs', { hasBookingToday: true })).toBe('register-bpjs');
     expect(kioskNextStep('farmasi_kasir', { hasBookingToday: false })).toBe('farmasi-kasir');
     expect(kioskNextStep('booking', { hasBookingToday: false })).toBe('loket');
     expect(kioskNextStep('bpjs', { hasBookingToday: false })).toBe('loket');
   });
 
   it('tiket: lokasi + jam perkiraan WIB, catatan check-in, tanpa SEP sebelum registrasi', () => {
-    expect(kioskTicketView(ticket)).toEqual({
+    expect(kioskTicketView(ticket, 'check-in')).toEqual({
       no: 'A-031',
       tujuan: 'Loket Pendaftaran',
       lokasi: 'Lantai 1 · Lobi Utama · perkiraan dipanggil 08.12',
@@ -41,6 +43,12 @@ describe('anjungan mode api', () => {
     expect(kioskTicketView({ ...ticket, estimatedWaitMinutes: null, bookingCode: null })).toMatchObject({
       lokasi: 'Lantai 1 · Lobi Utama',
       note: null,
+    });
+    const poli = { ...ticket, queueNo: 'PD-027', destination: 'Penyakit Dalam' };
+    expect(kioskTicketView(poli, 'register').note).toContain('SEP BPJS (bila ada) dicetak petugas poli');
+    expect(kioskTicketView({ ...poli, sepNo: '0301R0011025V000117' }, 'register')).toMatchObject({
+      sep: '0301R0011025V000117',
+      note: 'Pendaftaran berhasil. Langsung menuju poli.',
     });
   });
 
@@ -60,7 +68,7 @@ describe('anjungan mode api', () => {
 
   it('kunci idempotensi lolos pola API dan berbeda tiap tindakan', () => {
     const a = newKioskKey();
-    expect(a).toMatch(/^[A-Za-z0-9_:.-]{8,100}$/);
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(newKioskKey()).not.toBe(a);
   });
 });
