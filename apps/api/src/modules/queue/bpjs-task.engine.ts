@@ -32,7 +32,8 @@ const LABEL = 'queue.bpjs-task-id';
  * - satu baris per (booking, task) di `bpjs_queue_tasks`: waktu = waktu event (ms), tidak pernah ditimpa
  *   (task yang sudah ada diabaikan), dan tidak ada task baru setelah 99;
  * - walk-in: tiket loket yang kemudian tertaut ke booking mengisi task 1 (waktu ambil tiket) dan 2 (panggilan pertama)
- *   yang belum ada, sebelum task berikutnya dicatat, bila belum ada task yang lebih tinggi;
+ *   yang belum ada, sebelum task berikutnya dicatat, bila belum ada task yang lebih tinggi; sudah check-in (task 1)
+ *   tetapi tanpa panggilan loket → task 2 = waktu task berikutnya (BPJS menolak lompatan 1 → 3);
  * - tiap task baru → outbox `bpjs.antrean.updatewaktu` (payload ID baris). Worker menjaga urutan: task menunggu
  *   (`defer.afterMessageId`) pesan task sebelumnya yang belum terkirim.
  */
@@ -105,6 +106,10 @@ export class BpjsTaskEngine implements OnModuleInit {
         const firstCall = walkIn.calls[0]?.calledAt;
         if (taskId > 2 && highest < 2 && firstCall && firstCall <= at) await insert(2, firstCall);
       }
+      // Antrean BPJS menolak lompatan 1 → 3. Pasien yang sudah check-in (task 1) lalu didaftarkan petugas loket tanpa
+      // panggilan tiket (walk-in tanpa nomor, tiket tidak dipanggil): layanan admisi dimulai paling lambat saat
+      // pendaftaran itu, jadi task 2 dicatat pada waktu yang sama.
+      if (taskId > 2 && highest < 2 && existing.has(1)) await insert(2, at);
     }
     await insert(taskId, at);
     return created;
