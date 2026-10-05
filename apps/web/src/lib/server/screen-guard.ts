@@ -27,7 +27,10 @@ export type ScreenAccess =
 
 export async function requireScreen(id: string): Promise<ScreenAccess> {
   await connection();
-  if (webEnv().dataSource === 'demo') return { mode: 'demo', ...(await requireDemoScreen(id)) };
+  if (webEnv().dataSource === 'demo') {
+    if (screenById(id)?.apiOnly) notFound();
+    return { mode: 'demo', ...(await requireDemoScreen(id)) };
+  }
   const screen = screenById(id);
   if (!screen?.permission || screen.status === 'belum') notFound();
   const session = await requireSession();

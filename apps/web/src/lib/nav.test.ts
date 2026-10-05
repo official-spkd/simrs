@@ -79,6 +79,23 @@ describe('navGroups', () => {
     );
   });
 
+  it('menu antrean staf = Kendali antrean (`queue.read`, mode api); display TV hanya di mode presentasi', () => {
+    const item = (groups: ReturnType<typeof navGroups>, id: string) =>
+      groups.flatMap((g) => g.items).find((i) => i.id === id);
+    const api = navGroups({ ...base, permissions: ['queue.read'] });
+    expect(item(api, 'kendali')).toMatchObject({ href: '/antrean', available: true });
+    expect(item(api, 'antrean')).toBeUndefined();
+    expect(item(navGroups({ ...base, permissions: [] }), 'kendali')).toBeUndefined();
+    const demo = navGroups({
+      ...base,
+      role: 'petugas_pendaftaran',
+      dataSource: 'demo',
+      permissions: ['queue.read'],
+    });
+    expect(item(demo, 'kendali')).toBeUndefined();
+    expect(item(demo, 'antrean')?.href).toBe('/display/antrean');
+  });
+
   it('setiap menu layar fase 2–10 terdaftar di registri SCREENS dengan rute yang sama', () => {
     const screenIds = new Set(SCREENS.map((s) => s.id));
     for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => screenIds.has(i.id))) {

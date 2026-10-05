@@ -41,7 +41,7 @@ test.describe('smoke', () => {
     const account = await createAccount({ roles: ['kasir'] });
     await loginAs(page, account);
     const hybrid = SCREENS.filter((s) => s.permission);
-    expect(hybrid.map((s) => s.id).sort()).toEqual(['antrean', 'daftar', 'jadwal', 'kiosk']);
+    expect(hybrid.map((s) => s.id).sort()).toEqual(['antrean', 'daftar', 'jadwal', 'kendali', 'kiosk']);
     for (const s of hybrid) {
       const res = await page.goto(s.route);
       expect(res?.status(), s.route).toBe(200);
