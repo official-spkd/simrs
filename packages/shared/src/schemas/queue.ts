@@ -16,11 +16,12 @@ const LABEL = z.string().trim().min(1).max(120);
 /** Loket/ruang tempat pasien dipanggil (tampil di TV), mis. `Loket 3`, `Ruang Periksa 2`. */
 export const counterLabelSchema = z.string().trim().min(1).max(40);
 
-export const QUEUE_SERVICE_KINDS = ['admisi', 'poli', 'farmasi', 'kasir', 'penunjang'] as const;
+/** Jenis layanan antrean (`queue_services.kind`); `loket` = loket pendaftaran/admisi. */
+export const QUEUE_SERVICE_KINDS = ['poli', 'loket', 'farmasi', 'kasir', 'penunjang'] as const;
 export type QueueServiceKind = (typeof QUEUE_SERVICE_KINDS)[number];
 export const QUEUE_SERVICE_KIND_LABEL: Record<QueueServiceKind, string> = {
-  admisi: 'Loket pendaftaran',
   poli: 'Poli',
+  loket: 'Loket pendaftaran',
   farmasi: 'Farmasi',
   kasir: 'Kasir',
   penunjang: 'Penunjang',
@@ -39,8 +40,7 @@ export const queueServiceSchema = z.strictObject({
   /** Unit pemilik (lingkup `unit` klinisi); null untuk layanan umum RS. */
   unitId: z.uuid().nullable(),
   room: z.string().max(60).nullable(),
-  /** Menimpa pengaturan `queue.avg_service_minutes` untuk estimasi. */
-  avgServiceMinutes: z.number().int().min(1).max(120).nullable(),
+  floor: z.number().int().min(-5).max(100).nullable(),
   active: z.boolean(),
 });
 export type QueueService = z.infer<typeof queueServiceSchema>;
@@ -51,7 +51,7 @@ export const queueServiceInputSchema = z.strictObject({
   kind: z.enum(QUEUE_SERVICE_KINDS),
   unitId: z.uuid().optional(),
   room: z.string().trim().max(60).optional(),
-  avgServiceMinutes: z.number().int().min(1).max(120).optional(),
+  floor: z.number().int().min(-5).max(100).optional(),
 });
 export type QueueServiceInput = z.infer<typeof queueServiceInputSchema>;
 
@@ -81,6 +81,10 @@ export const QUEUE_TICKET_STATUS_LABEL: Record<QueueTicketStatus, string> = {
   cancelled: 'Batal',
 };
 
+/** Asal tiket (`queue_tickets.source`). */
+export const QUEUE_TICKET_SOURCES = ['anjungan', 'loket', 'booking', 'mobile_jkn'] as const;
+export type QueueTicketSource = (typeof QUEUE_TICKET_SOURCES)[number];
+
 export const queueTicketSchema = z.strictObject({
   id: z.uuid(),
   serviceId: z.uuid(),
@@ -88,16 +92,19 @@ export const queueTicketSchema = z.strictObject({
   queueNo: queueNoSchema,
   serviceDate: serviceDateSchema,
   status: z.enum(QUEUE_TICKET_STATUSES),
+  source: z.enum(QUEUE_TICKET_SOURCES),
   /**
    * Nomor yang dialokasikan ke booking (nomor poli saat booking): dipanggil petugas poli, bukan oleh "panggil
    * berikutnya" sebelum pasiennya terdaftar.
    */
   reserved: z.boolean(),
   appointmentId: z.uuid().nullable(),
+  /** Kunjungan yang memakai tiket ini (`encounters.queue_ticket_id`). */
   encounterId: z.uuid().nullable(),
   /** Tanpa nama/identitas: kontrak antrean tidak membawa PHI; layar berizin menggabungkan sendiri bila perlu. */
   patientId: z.uuid().nullable(),
   issuedAt: isoDateTime,
+  /** Waktu, jumlah panggilan, loket, mulai, dan selesai diturunkan dari `queue_calls`. */
   calledAt: isoDateTime.nullable(),
   callCount: z.number().int().min(0),
   counter: counterLabelSchema.nullable(),
@@ -125,14 +132,19 @@ export type CallTicketInput = z.infer<typeof callTicketSchema>;
 
 export const skipTicketSchema = z.strictObject({ reason: z.string().trim().max(300).optional() });
 
-/** Panggilan (`queue_calls`, append-only; satu baris per panggilan termasuk ulang). */
+/** Aksi tercatat di `queue_calls` (append-only): panggil, panggil ulang, lewati, mulai, selesai. */
+export const QUEUE_CALL_ACTIONS = ['call', 'recall', 'skip', 'start', 'finish'] as const;
+export type QueueCallAction = (typeof QUEUE_CALL_ACTIONS)[number];
+
+/** Satu baris `queue_calls`. Hanya `call`/`recall` disiarkan ke TV. */
 export const queueCallRecordSchema = z.strictObject({
   id: z.uuid(),
   ticketId: z.uuid(),
   serviceCode: queueServiceCodeSchema,
   queueNo: queueNoSchema,
-  counter: counterLabelSchema,
-  recall: z.boolean(),
+  action: z.enum(QUEUE_CALL_ACTIONS),
+  /** Loket/ruang pemanggil; null untuk aksi tanpa tempat (mis. lewati oleh sistem). */
+  counter: counterLabelSchema.nullable(),
   at: isoDateTime,
   /** Staf pemanggil (audit); null bila oleh sistem. */
   calledBy: z.uuid().nullable(),
@@ -145,24 +157,30 @@ export const callResultSchema = z.strictObject({ ticket: queueTicketSchema, call
 // Display (TV) dan event real-time
 // ---------------------------------------------------------------------------------------------------------------
 
+/** Kode display (`queue_displays.code`), mis. `RJ-LT2`. */
+export const queueDisplayCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9][A-Z0-9-]{1,29}$/, 'Kode display 2–30 karakter: huruf kapital, angka, strip');
+
+/**
+ * Display TV (`queue_displays` + `queue_display_services`): nama = area ruang tunggu di papan (mis. "Rawat Jalan
+ * Lantai 2"); urutan `serviceIds` = posisi 1–20 (papan menampilkan maks. 4 poli pertama yang aktif).
+ */
 export const queueDisplayInputSchema = z.strictObject({
+  code: queueDisplayCodeSchema,
   name: LABEL,
-  /** Area ruang tunggu, mis. "Rawat Jalan Lantai 2". */
-  area: LABEL,
-  unitId: z.uuid(),
-  /** Layanan yang tampil (papan memuat maks. 4 poli). */
-  serviceIds: z.array(z.uuid()).min(1).max(4),
-  info: z.string().trim().min(1).max(300),
+  serviceIds: z.array(z.uuid()).min(1).max(20),
 });
 export type QueueDisplayInput = z.infer<typeof queueDisplayInputSchema>;
 
 export const queueDisplaySchema = z.strictObject({
   id: z.uuid(),
+  code: queueDisplayCodeSchema,
   name: LABEL,
-  area: LABEL,
-  unitId: z.uuid(),
-  serviceIds: z.array(z.uuid()).min(1).max(4),
-  info: z.string().min(1).max(300),
+  /** Layanan aktif urut posisi. */
+  serviceIds: z.array(z.uuid()).max(20),
   active: z.boolean(),
 });
 export type QueueDisplay = z.infer<typeof queueDisplaySchema>;

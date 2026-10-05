@@ -92,13 +92,30 @@ export function cursorPageSchema<T extends z.ZodType>(item: T) {
 
 /**
  * Jenis kunjungan JKN (`jeniskunjungan` Antrean BPJS) = dasar rujukan SEP rawat jalan:
- * 1 rujukan FKTP, 2 rujukan internal, 3 kontrol (surat kontrol), 4 rujukan antar-RS.
+ * 1 rujukan FKTP, 2 rujukan internal, 3 kontrol (surat kontrol), 4 rujukan antar-RS. `referralKind` = jenis baris
+ * `referrals` yang menyimpan nomornya (SEP menautkannya lewat `referral_id`).
  */
 export const BPJS_VISIT_KINDS = {
-  rujukan_fktp: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanFktp, label: 'Rujukan FKTP' },
-  rujukan_internal: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanInternal, label: 'Rujukan internal' },
-  kontrol: { code: ANTREAN_JENIS_KUNJUNGAN.kontrol, label: 'Kontrol (surat kontrol)' },
-  rujukan_antar_rs: { code: ANTREAN_JENIS_KUNJUNGAN.rujukanAntarRs, label: 'Rujukan antar-RS' },
+  rujukan_fktp: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanFktp,
+    label: 'Rujukan FKTP',
+    referralKind: 'rujukan-fktp',
+  },
+  rujukan_internal: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanInternal,
+    label: 'Rujukan internal',
+    referralKind: 'rujukan-internal',
+  },
+  kontrol: {
+    code: ANTREAN_JENIS_KUNJUNGAN.kontrol,
+    label: 'Kontrol (surat kontrol)',
+    referralKind: 'surat-kontrol',
+  },
+  rujukan_antar_rs: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanAntarRs,
+    label: 'Rujukan antar-RS',
+    referralKind: 'rujukan-rs',
+  },
 } as const;
 export type BpjsVisitKind = keyof typeof BPJS_VISIT_KINDS;
 export const BPJS_VISIT_KIND_CODES = Object.keys(BPJS_VISIT_KINDS) as [BpjsVisitKind, ...BpjsVisitKind[]];

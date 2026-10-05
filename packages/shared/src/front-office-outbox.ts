@@ -33,13 +33,13 @@ export const FRONT_OFFICE_OPERATIONS = {
     payload: z.strictObject({ appointmentId: id }),
   },
   /**
-   * F01 · Perbarui jadwal dokter × poli di HFIS. `revision` naik tiap perubahan jadwal: pesan dengan revisi lama
+   * F01 · Perbarui jadwal dokter × poli (layanan antrean `serviceId`) di HFIS. `revision` naik tiap perubahan jadwal: pesan dengan revisi lama
    * dilewati (`skip`) bila revisi lebih baru sudah ada.
    */
   'bpjs.hfis.update': {
     target: 'bpjs',
     label: 'Perbarui jadwal dokter HFIS',
-    payload: z.strictObject({ practitionerId: id, unitId: id, revision: z.number().int().min(1) }),
+    payload: z.strictObject({ practitionerId: id, serviceId: id, revision: z.number().int().min(1) }),
   },
   /** F06 · Terbitkan SEP (cek SEP yang sudah ada di BPJS sebelum mengirim ulang; SEP tidak idempoten di BPJS). */
   'bpjs.vclaim.sep.insert': {
@@ -51,7 +51,7 @@ export const FRONT_OFFICE_OPERATIONS = {
   'bpjs.vclaim.sep.update': { target: 'bpjs', label: 'Perbarui SEP', payload: z.strictObject({ sepId: id }) },
   /** F06 · Hapus SEP di BPJS. */
   'bpjs.vclaim.sep.delete': { target: 'bpjs', label: 'Hapus SEP', payload: z.strictObject({ sepId: id }) },
-  /** F06 · Rencana kontrol (surat kontrol) → `referrals` jenis `surat_kontrol`. */
+  /** F06 · Rencana kontrol (surat kontrol) → `referrals` jenis `surat-kontrol`. */
   'bpjs.vclaim.rencanakontrol.insert': {
     target: 'bpjs',
     label: 'Buat rencana kontrol (surat kontrol)',
@@ -63,7 +63,7 @@ export const FRONT_OFFICE_OPERATIONS = {
     label: 'Buat SPRI',
     payload: z.strictObject({ referralId: id }),
   },
-  /** F07 · Rujukan keluar / rujuk balik → `referrals` jenis `rujukan_keluar` | `rujukan_balik`. */
+  /** F07 · Rujukan keluar → `referrals` jenis `rujukan-keluar`. */
   'bpjs.vclaim.rujukan.insert': {
     target: 'bpjs',
     label: 'Buat rujukan keluar',

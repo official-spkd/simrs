@@ -24,7 +24,7 @@ export const DOMAIN_EVENT_SCHEMAS = {
   'booking.checked_in': z.strictObject({ appointmentId: z.uuid(), patientId: z.uuid() }),
   /** F02 · Booking dibatalkan → task 99 (dan `bpjs.antrean.batal` oleh modul booking). */
   'booking.cancelled': z.strictObject({ appointmentId: z.uuid(), patientId: z.uuid() }),
-  /** F04 · Tiket dipanggil (termasuk ulang: `recall`). Loket pendaftaran → task 2. */
+  /** F04 · Tiket dipanggil (termasuk ulang: `recall`). Loket pendaftaran (`loket`) → task 2. */
   'queue.ticket_called': ticketEvent.extend({ callId: z.uuid(), recall: z.boolean() }),
   /** F04 · Layanan dimulai. Poli → task 4; farmasi → task 6 (fase 4). */
   'queue.ticket_started': ticketEvent,
@@ -91,9 +91,9 @@ export function bpjsTaskForEvent(
     case 'queue.ticket_called':
       return event.payload.recall
         ? null
-        : task(event.payload.appointmentId, event.payload.serviceKind === 'admisi' ? 2 : null);
+        : task(event.payload.appointmentId, event.payload.serviceKind === 'loket' ? 2 : null);
     case 'encounter.registered':
-      return task(event.payload.appointmentId, event.payload.class === 'rawat_jalan' ? 3 : null);
+      return task(event.payload.appointmentId, event.payload.class === 'AMB' ? 3 : null);
     case 'queue.ticket_started':
       return task(
         event.payload.appointmentId,

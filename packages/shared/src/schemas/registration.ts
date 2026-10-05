@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { normalizePhone, PATIENT_SEXES } from '../patient';
-import { CARE_CLASSES } from './facility';
 import {
   BPJS_VISIT_KIND_CODES,
   bpjsEligibilitySchema,
@@ -31,18 +30,13 @@ const NAME = z.string().trim().min(2, 'Nama minimal 2 karakter').max(120);
 // Kunjungan (encounter)
 // ---------------------------------------------------------------------------------------------------------------
 
-export const ENCOUNTER_CLASSES = ['rawat_jalan', 'igd', 'rawat_inap'] as const;
+/** Kelas kunjungan = kode FHIR `Encounter.class` (v3 ActCode), sama dengan `encounters.class`; label untuk UI. */
+export const ENCOUNTER_CLASSES = ['AMB', 'EMER', 'IMP'] as const;
 export type EncounterClass = (typeof ENCOUNTER_CLASSES)[number];
 export const ENCOUNTER_CLASS_LABEL: Record<EncounterClass, string> = {
-  rawat_jalan: 'Rawat jalan',
-  igd: 'IGD',
-  rawat_inap: 'Rawat inap',
-};
-/** Kelas FHIR `Encounter.class` (v3 ActCode) untuk SATUSEHAT (docs/04 §4). */
-export const ENCOUNTER_CLASS_FHIR: Record<EncounterClass, 'AMB' | 'EMER' | 'IMP'> = {
-  rawat_jalan: 'AMB',
-  igd: 'EMER',
-  rawat_inap: 'IMP',
+  AMB: 'Rawat jalan',
+  EMER: 'IGD',
+  IMP: 'Rawat inap',
 };
 
 /**
@@ -72,9 +66,12 @@ export const PAYER_KIND_LABEL: Record<PayerKind, string> = {
   perusahaan: 'Perusahaan',
 };
 
-/** Hak kelas rawat JKN. */
+/** Hak kelas rawat peserta JKN (`coverages.class_entitlement`). */
 export const JKN_CLASS_RIGHTS = ['kelas_1', 'kelas_2', 'kelas_3'] as const;
 export type JknClassRight = (typeof JKN_CLASS_RIGHTS)[number];
+/** Kelas rawat yang dipakai (`coverages.care_class`, bisa naik kelas). */
+export const COVERAGE_CARE_CLASSES = ['vip', 'kelas_1', 'kelas_2', 'kelas_3'] as const;
+export type CoverageCareClass = (typeof COVERAGE_CARE_CLASSES)[number];
 
 export const encounterSchema = z.strictObject({
   id: z.uuid(),
@@ -83,17 +80,18 @@ export const encounterSchema = z.strictObject({
   status: z.enum(ENCOUNTER_STATUSES),
   patientId: z.uuid(),
   unitId: z.uuid(),
+  /** Layanan antrean poli (rawat jalan). */
+  serviceId: z.uuid().nullable(),
   poliCode: z.string().regex(POLI_CODE_PATTERN).nullable(),
   /** DPJP; IGD boleh kosong sampai dokter jaga menerima pasien. */
   practitionerId: z.uuid().nullable(),
-  sessionId: z.uuid().nullable(),
   appointmentId: z.uuid().nullable(),
-  /** Kunjungan asal (IGD/RJ → admisi rawat inap). */
-  sourceEncounterId: z.uuid().nullable(),
-  payer: z.enum(PAYER_KINDS).nullable(),
-  /** Waktu terdaftar (atau rencana masuk untuk `planned`). */
-  startedAt: isoDateTime,
+  queueTicketId: z.uuid().nullable(),
+  /** Terdaftar/tiba (null untuk admisi `planned`). */
+  arrivedAt: isoDateTime.nullable(),
+  startedAt: isoDateTime.nullable(),
   endedAt: isoDateTime.nullable(),
+  cancelReason: z.string().max(300).nullable(),
   createdAt: isoDateTime,
 });
 export type Encounter = z.infer<typeof encounterSchema>;
@@ -142,19 +140,23 @@ export const coverageInputSchema = z.discriminatedUnion('payer', [
 ]);
 export type CoverageInput = z.infer<typeof coverageInputSchema>;
 
+export const COVERAGE_STATUSES = ['active', 'cancelled'] as const;
+
 export const coverageSchema = z.strictObject({
   id: z.uuid(),
   encounterId: z.uuid(),
-  payer: z.enum(PAYER_KINDS),
-  /** Master `payers` (asuransi/perusahaan); null untuk BPJS dan umum. */
-  payerId: z.uuid().nullable(),
+  /** Master `payers` (BPJS dan umum juga punya baris payer). */
+  payerId: z.uuid(),
+  payerKind: z.enum(PAYER_KINDS),
   payerName: z.string().min(1).max(160),
+  /** 1 = utama, 2–3 = pendamping (koordinasi manfaat). */
+  priority: z.number().int().min(1).max(3),
   /** No. peserta/anggota tersamar. */
   memberNoMasked: z.string().max(40).nullable(),
-  classRight: z.enum(JKN_CLASS_RIGHTS).nullable(),
-  visitKind: z.enum(BPJS_VISIT_KIND_CODES).nullable(),
-  referenceNumber: z.string().max(30).nullable(),
-  /** Terkunci setelah SEP terbit: ubah penjamin → 409 `COVERAGE_LOCKED` (koreksi lewat revisi SEP). */
+  classEntitlement: z.enum(JKN_CLASS_RIGHTS).nullable(),
+  careClass: z.enum(COVERAGE_CARE_CLASSES).nullable(),
+  status: z.enum(COVERAGE_STATUSES),
+  /** Terkunci (`locked_at`) setelah SEP terbit: ubah penjamin → 409 `COVERAGE_LOCKED` (koreksi lewat revisi SEP). */
   locked: z.boolean(),
 });
 export type Coverage = z.infer<typeof coverageSchema>;
@@ -164,17 +166,17 @@ export type Coverage = z.infer<typeof coverageSchema>;
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * `pending` antre/dicoba ulang (sampai akhir hari layanan); `issued` nomor SEP terbit; `rejected` ditolak BPJS (perlu
- * koreksi); `failed` gagal permanen (DLQ, tombol kirim ulang); `cancelled` dihapus di BPJS. Poli tidak diblokir SEP
+ * `pending` antre/dicoba ulang (sampai akhir hari layanan); `issued` nomor SEP terbit; `failed` ditolak BPJS atau gagal
+ * permanen (DLQ): bedanya di `sync.status` (`rejected`/`dead`) dan kodenya di `lastErrorCode` (kode penolakan
+ * `BPJS_REJECTIONS` atau kode transport), lalu koreksi/kirim ulang; `cancelled` dihapus di BPJS. Poli tidak diblokir SEP
  * yang belum terbit; klaim (fase 5) mewajibkan SEP `issued`.
  */
-export const SEP_STATUSES = ['pending', 'issued', 'rejected', 'failed', 'cancelled'] as const;
+export const SEP_STATUSES = ['pending', 'issued', 'failed', 'cancelled'] as const;
 export type SepStatus = (typeof SEP_STATUSES)[number];
 export const SEP_STATUS_LABEL: Record<SepStatus, string> = {
   pending: 'Menunggu BPJS',
   issued: 'Terbit',
-  rejected: 'Ditolak BPJS',
-  failed: 'Gagal terkirim',
+  failed: 'Gagal / ditolak BPJS',
   cancelled: 'Dibatalkan',
 };
 /** Nomor SEP VClaim 19 karakter, mis. `0301R0011026V005102`. */
@@ -184,17 +186,28 @@ export const sepSchema = z.strictObject({
   id: z.uuid(),
   encounterId: z.uuid(),
   coverageId: z.uuid(),
+  /** Rujukan/surat kontrol dasar SEP (`referrals`: jenis + nomor). */
+  referralId: z.uuid().nullable(),
   version: z.number().int().min(1),
   supersedesId: z.uuid().nullable(),
+  correctionReason: z.string().max(500).nullable(),
   status: z.enum(SEP_STATUSES),
   sepNo: z.string().regex(SEP_NO_PATTERN).nullable(),
   serviceType: z.enum(['rawat_jalan', 'rawat_inap']),
-  serviceDate: serviceDateSchema,
-  visitKind: z.enum(BPJS_VISIT_KIND_CODES),
-  referenceNumber: z.string().max(30),
-  initialDiagnosis: icd10CodingSchema,
-  classRight: z.enum(JKN_CLASS_RIGHTS),
+  /** Kelas rawat SEP. */
+  careClass: z.enum(JKN_CLASS_RIGHTS).nullable(),
+  /** Kode poli BPJS tujuan (rawat jalan, `external_ids` `bpjs:poli`). */
+  bpjsPoliCode: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .nullable(),
+  /** Diagnosa awal (kode tersimpan; teks dari data rujukan P06). */
+  initialDiagnosis: icd10CodingSchema.nullable(),
+  /** Kode galat/penolakan terakhir (tanpa PHI), mis. `BPJS_PESERTA_TIDAK_AKTIF`. */
+  lastErrorCode: z.string().max(60).nullable(),
   issuedAt: isoDateTime.nullable(),
+  cancelledAt: isoDateTime.nullable(),
+  cancelReason: z.string().max(300).nullable(),
   /** Pengiriman terakhir (insert/update/delete). */
   sync: bpjsSyncSchema,
 });
@@ -205,7 +218,8 @@ export const reviseSepSchema = z
   .strictObject({
     initialDiagnosis: icd10CodingSchema.optional(),
     note: z.string().trim().max(200).optional(),
-    reason: changeReasonSchema,
+    /** Alasan koreksi (`seps.correction_reason`, 10–500 karakter). */
+    reason: z.string().trim().min(10, 'Alasan koreksi minimal 10 karakter').max(500),
   })
   .refine((v) => v.initialDiagnosis !== undefined || v.note !== undefined, 'Minimal satu data SEP diubah');
 export type ReviseSepInput = z.infer<typeof reviseSepSchema>;
@@ -229,7 +243,7 @@ export const printableSepSchema = z.strictObject({
     mrn: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
     /** Segmen peserta, mis. PBPU, PBI, PPU. */
     segment: z.string().min(1).max(60),
-    classRight: z.enum(JKN_CLASS_RIGHTS),
+    classEntitlement: z.enum(JKN_CLASS_RIGHTS),
   }),
   poliName: z.string().min(1).max(160),
   practitionerName: z.string().min(1).max(160),
@@ -265,7 +279,7 @@ export const generalConsentInputSchema = z
   });
 export type GeneralConsentInput = z.infer<typeof generalConsentInputSchema>;
 
-export const CONTACT_RELATIONSHIPS = [
+export const CONTACT_RELATIONS = [
   'suami',
   'istri',
   'anak',
@@ -274,7 +288,7 @@ export const CONTACT_RELATIONSHIPS = [
   'wali',
   'lainnya',
 ] as const;
-export type ContactRelationship = (typeof CONTACT_RELATIONSHIPS)[number];
+export type ContactRelation = (typeof CONTACT_RELATIONS)[number];
 
 const PHONE = z.string().transform((v, ctx) => {
   const n = normalizePhone(v);
@@ -288,8 +302,9 @@ const PHONE = z.string().transform((v, ctx) => {
 /** Kontak/penanggung jawab pasien (`patient_contacts`, nama dan no. HP terenkripsi). Izin `patient.write`. */
 export const patientContactInputSchema = z.strictObject({
   name: NAME,
-  relationship: z.enum(CONTACT_RELATIONSHIPS),
+  relation: z.enum(CONTACT_RELATIONS),
   phone: PHONE.optional(),
+  address: z.string().trim().min(5).max(300).optional(),
   isGuarantor: z.boolean().default(true),
 });
 export type PatientContactInput = z.infer<typeof patientContactInputSchema>;
@@ -297,7 +312,7 @@ export type PatientContactInput = z.infer<typeof patientContactInputSchema>;
 export const patientContactSchema = z.strictObject({
   id: z.uuid(),
   name: z.string().min(1).max(120),
-  relationship: z.enum(CONTACT_RELATIONSHIPS),
+  relation: z.enum(CONTACT_RELATIONS),
   phoneMasked: z.string().max(20).nullable(),
   isGuarantor: z.boolean(),
   active: z.boolean(),
@@ -318,7 +333,7 @@ export const guarantorInputSchema = z.union([
 export const outpatientRegistrationSchema = z.strictObject({
   patientId: z.uuid(),
   sessionId: z.uuid(),
-  /** Booking yang di-check-in; tanpa ini kunjungan walk-in (JKN tetap dibuatkan booking sumber `loket`). */
+  /** Booking yang di-check-in; tanpa ini kunjungan walk-in (JKN tetap dibuatkan booking kanal `loket`). */
   appointmentId: z.uuid().optional(),
   /** Tiket loket admisi yang sedang dilayani (task 2/3 untuk walk-in). */
   counterTicketId: z.uuid().optional(),
@@ -363,7 +378,7 @@ export const admissionSchema = z
     /** Unit rawat inap (bangsal). */
     unitId: z.uuid(),
     practitionerId: z.uuid(),
-    careClass: z.enum(CARE_CLASSES),
+    careClass: z.enum(COVERAGE_CARE_CLASSES),
     plannedAt: isoDateTime,
     coverage: coverageInputSchema,
     generalConsent: generalConsentInputSchema,

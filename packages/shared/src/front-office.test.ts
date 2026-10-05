@@ -9,6 +9,12 @@ import {
   bpjsParticipantLookupSchema,
   bpjsRejectedDetailsSchema,
   bpjsTaskIdSchema,
+  REFERRAL_DOC_KINDS,
+  QUEUE_SERVICE_KINDS,
+  ENCOUNTER_CLASSES,
+  APPOINTMENT_STATUSES,
+  SEP_STATUSES,
+  REFERRAL_STATUSES,
   bpjsTaskForEvent,
   callTicketSchema,
   classifyBpjsRejection,
@@ -88,6 +94,7 @@ describe('galat front office', () => {
     expect(Object.values(BPJS_VISIT_KINDS).map((v) => v.code)).toEqual(
       Object.values(ANTREAN_JENIS_KUNJUNGAN),
     );
+    for (const v of Object.values(BPJS_VISIT_KINDS)) expect(REFERRAL_DOC_KINDS).toContain(v.referralKind);
     for (const id of ANTREAN_TASK_IDS) expect(bpjsTaskIdSchema.safeParse(id).success, String(id)).toBe(true);
     expect(bpjsTaskIdSchema.safeParse(8).success).toBe(false);
     const reason = classifyBpjsRejection('Status peserta tidak aktif');
@@ -103,6 +110,20 @@ describe('galat front office', () => {
       false,
     );
     expect(frontOfficeError('BPJS_REJECTED').status).toBe(422);
+  });
+
+  it('nilai enum = CHECK migrasi 0b (20261005101000_front_office; spri/pending menyusul migrasi susulan)', () => {
+    expect([...APPOINTMENT_STATUSES].sort()).toEqual(
+      ['booked', 'checked_in', 'cancelled', 'no_show', 'completed'].sort(),
+    );
+    expect([...QUEUE_SERVICE_KINDS].sort()).toEqual(
+      ['poli', 'loket', 'farmasi', 'kasir', 'penunjang'].sort(),
+    );
+    expect([...ENCOUNTER_CLASSES]).toEqual(['AMB', 'EMER', 'IMP']);
+    expect([...SEP_STATUSES].sort()).toEqual(['pending', 'issued', 'failed', 'cancelled'].sort());
+    expect([...REFERRAL_STATUSES].sort()).toEqual(
+      ['pending', 'active', 'used', 'expired', 'cancelled'].sort(),
+    );
   });
 
   it('frontOfficeError: status bawaan, pesan bisa dipertajam', () => {
@@ -223,9 +244,9 @@ describe('event domain', () => {
   it('task ID dari event: check-in 1, panggil loket 2, terdaftar 3, poli mulai/selesai 4/5, batal 99', () => {
     expect(ev({ name: 'booking.checked_in', payload: { appointmentId, patientId } })).toBe(1);
     const called = { ...ticket, callId: uuid(), recall: false };
-    expect(ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'admisi' } })).toBe(2);
+    expect(ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'loket' } })).toBe(2);
     expect(
-      ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'admisi', recall: true } }),
+      ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'loket', recall: true } }),
     ).toBeNull();
     expect(ev({ name: 'queue.ticket_called', payload: { ...called, serviceKind: 'poli' } })).toBeNull();
     const registered = {
@@ -235,8 +256,8 @@ describe('event domain', () => {
       appointmentId,
       payer: 'bpjs' as const,
     };
-    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'rawat_jalan' } })).toBe(3);
-    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'igd' } })).toBeNull();
+    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'AMB' } })).toBe(3);
+    expect(ev({ name: 'encounter.registered', payload: { ...registered, class: 'EMER' } })).toBeNull();
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'poli' } })).toBe(4);
     expect(ev({ name: 'queue.ticket_finished', payload: { ...ticket, serviceKind: 'poli' } })).toBe(5);
     expect(ev({ name: 'queue.ticket_started', payload: { ...ticket, serviceKind: 'farmasi' } })).toBe(6);
@@ -328,7 +349,7 @@ describe('kontrak API jadwal (F01)', () => {
   it('templat: jam berurutan, kuota bulat, field asing ditolak', () => {
     const t = {
       practitionerId: uuid(),
-      unitId: uuid(),
+      serviceId: uuid(),
       weekday: 1,
       start: '08:00',
       end: '12:00',
@@ -358,17 +379,16 @@ describe('kontrak API jadwal (F01)', () => {
 });
 
 describe('kontrak API booking (F02)', () => {
-  it('JKN wajib rujukan/surat kontrol; non-JKN tanpa rujukan; kanal staf dibatasi', () => {
+  it('JKN wajib rujukan/surat kontrol; non-JKN tanpa rujukan; kanal ditentukan API (staf = loket)', () => {
     const base = { patientId: uuid(), sessionId: uuid() };
     const jkn = { visitKind: 'kontrol', referenceNumber: '0301r0011025k000117' };
-    const parsed = createBookingSchema.parse({ ...base, payer: 'jkn', jkn });
-    expect(parsed.source).toBe('loket');
+    const parsed = createBookingSchema.parse({ ...base, quotaBucket: 'jkn', jkn });
     expect(parsed.jkn?.referenceNumber).toBe('0301R0011025K000117');
-    expect(createBookingSchema.safeParse({ ...base, payer: 'jkn' }).success).toBe(false);
-    expect(createBookingSchema.safeParse({ ...base, payer: 'non_jkn', jkn }).success).toBe(false);
-    expect(createBookingSchema.safeParse({ ...base, payer: 'non_jkn', source: 'mobile_jkn' }).success).toBe(
-      false,
-    );
+    expect(createBookingSchema.safeParse({ ...base, quotaBucket: 'jkn' }).success).toBe(false);
+    expect(createBookingSchema.safeParse({ ...base, quotaBucket: 'non_jkn', jkn }).success).toBe(false);
+    expect(
+      createBookingSchema.safeParse({ ...base, quotaBucket: 'non_jkn', channel: 'mobile_jkn' }).success,
+    ).toBe(false);
   });
 
   it('booking keluaran: kode 10 digit, nomor antrean poli', () => {
@@ -376,8 +396,8 @@ describe('kontrak API booking (F02)', () => {
       id: uuid(),
       bookingCode: '2610050117',
       status: 'booked',
-      source: 'aplikasi',
-      payer: 'jkn',
+      channel: 'aplikasi',
+      quotaBucket: 'jkn',
       patientId: uuid(),
       sessionId: uuid(),
       serviceDate: '2026-10-05',
@@ -385,7 +405,7 @@ describe('kontrak API booking (F02)', () => {
       end: '12:00',
       practitionerId: uuid(),
       practitionerName: 'dr. Fiktif, Sp.PD',
-      unitId: uuid(),
+      serviceId: uuid(),
       poliCode: 'PD',
       poliName: 'Penyakit Dalam',
       queueNo: 'PD-027',
@@ -394,7 +414,6 @@ describe('kontrak API booking (F02)', () => {
       checkedInAt: null,
       cancelledAt: null,
       cancelReason: null,
-      rescheduledToId: null,
       bpjs: { status: 'pending', sentAt: null, error: null },
       createdAt: AT,
     };
@@ -451,13 +470,13 @@ describe('kontrak API registrasi + SEP (F03/F06)', () => {
     expect(
       outpatientRegistrationSchema.safeParse({
         ...reg,
-        guarantor: { name: 'Wati', relationship: 'istri', phone: '0812-3456-7890' },
+        guarantor: { name: 'Wati', relation: 'istri', phone: '0812-3456-7890' },
       }).success,
     ).toBe(true);
     expect(
       outpatientRegistrationSchema.safeParse({
         ...reg,
-        guarantor: { name: 'Wati', relationship: 'tetangga' },
+        guarantor: { name: 'Wati', relation: 'tetangga' },
       }).success,
     ).toBe(false);
   });
@@ -507,7 +526,7 @@ describe('kontrak API registrasi + SEP (F03/F06)', () => {
         birthDate: '1960-01-01',
         mrn: '00-41-27-88',
         segment: 'PBPU',
-        classRight: 'kelas_2',
+        classEntitlement: 'kelas_2',
       },
       poliName: 'Penyakit Dalam',
       practitionerName: 'dr. Fiktif, Sp.PD',
@@ -548,15 +567,16 @@ describe('kontrak API rujukan (F07) dan surat (F06)', () => {
       plannedDate: '2026-10-07',
     };
     expect(createOutgoingReferralSchema.safeParse(out).success).toBe(false);
-    expect(createOutgoingReferralSchema.parse({ ...out, bpjsPoliCode: 'JAN' }).kind).toBe('rujukan_keluar');
+    expect(createOutgoingReferralSchema.safeParse({ ...out, bpjsPoliCode: 'JAN' }).success).toBe(true);
     expect(createOutgoingReferralSchema.safeParse({ ...out, serviceType: 'rawat_inap' }).success).toBe(true);
     expect(
       recordIncomingReferralSchema.safeParse({
+        kind: 'rujukan-fktp',
         patientId: uuid(),
         number: '0301U0420926P001234',
-        originName: 'Puskesmas Fiktif',
+        facilityName: 'Puskesmas Fiktif',
         diagnosis: { code: 'I10', display: 'Hipertensi esensial (primer)' },
-        issuedAt: '2026-09-28',
+        issuedOn: '2026-09-28',
         validUntil: '2026-09-01',
       }).success,
     ).toBe(false);
@@ -569,6 +589,16 @@ describe('kontrak API rujukan (F07) dan surat (F06)', () => {
         unitId: uuid(),
       }).success,
     ).toBe(true);
+    // Surat kontrol menuju poli (layanan antrean), bukan unit rawat inap.
+    expect(
+      createControlLetterSchema.safeParse({
+        kind: 'surat-kontrol',
+        encounterId: uuid(),
+        plannedDate: '2026-10-20',
+        practitionerId: uuid(),
+        unitId: uuid(),
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -605,7 +635,7 @@ describe('kontrak anjungan (F05)', () => {
     const token = `kl1.${'b'.repeat(43)}`;
     expect(kioskRegisterSchema.safeParse({ payer: 'bpjs', lookupToken: token }).success).toBe(true);
     expect(kioskRegisterSchema.safeParse({ payer: 'umum', lookupToken: token }).success).toBe(false);
-    expect(kioskTicketRequestSchema.safeParse({ serviceKind: 'admisi' }).success).toBe(true);
+    expect(kioskTicketRequestSchema.safeParse({ serviceKind: 'loket' }).success).toBe(true);
     expect(kioskTicketRequestSchema.safeParse({ serviceKind: 'farmasi' }).success).toBe(false);
     expect(
       kioskTicketRequestSchema.safeParse({ serviceKind: 'farmasi', lookupToken: 'kl1.pendek' }).success,

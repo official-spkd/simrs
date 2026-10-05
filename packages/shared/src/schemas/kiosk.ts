@@ -81,10 +81,10 @@ export type KioskRegisterInput = z.infer<typeof kioskRegisterSchema>;
 /** Ambil tiket: loket pendaftaran (tanpa identitas), farmasi/kasir (setelah identifikasi). */
 export const kioskTicketRequestSchema = z
   .strictObject({
-    serviceKind: z.enum(['admisi', 'farmasi', 'kasir']),
+    serviceKind: z.enum(['loket', 'farmasi', 'kasir']),
     lookupToken: kioskLookupTokenSchema.optional(),
   })
-  .refine((v) => v.serviceKind === 'admisi' || v.lookupToken !== undefined, {
+  .refine((v) => v.serviceKind === 'loket' || v.lookupToken !== undefined, {
     message: 'Antrean farmasi/kasir butuh identifikasi pasien',
     path: ['lookupToken'],
   });
