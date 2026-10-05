@@ -228,3 +228,32 @@ model EdStatusEvent {
   @@index([tenantId, encounterId, changedAt])
   @@map("ed_status_events")
 }
+
+/// K05 · Ruang Aplicare BPJS = bangsal × kelas rawat (hitungan bed dari `bed_status` + `locations`). `revision` naik
+/// setiap perubahan papan bed (pesan outbox `bpjs.aplicare.update`); worker mencatat kode kelas resmi dari referensi
+/// Aplicare, pendaftaran ruang, dan revisi terakhir terkirim. Master: tidak dihapus.
+model AplicareRoom {
+  id            String    @id @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  unitId        String    @map("unit_id") @db.Uuid
+  careClass     String    @map("care_class")
+  /// Kode ruang yang didaftarkan ke Aplicare (tetap).
+  roomCode      String    @map("room_code")
+  roomName      String    @map("room_name")
+  /// Kode kelas resmi dari `refKelas` Aplicare (diisi worker); null = belum dibaca.
+  classCode     String?   @map("class_code")
+  registeredAt  DateTime? @map("registered_at") @db.Timestamptz(3)
+  revision      Int       @default(0)
+  sentRevision  Int       @default(0) @map("sent_revision")
+  lastErrorCode String?   @map("last_error_code")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  unit   Unit   @relation(fields: [tenantId, unitId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, unitId, careClass])
+  @@unique([tenantId, roomCode])
+  @@map("aplicare_rooms")
+}

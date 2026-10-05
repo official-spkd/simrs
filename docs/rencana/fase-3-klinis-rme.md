@@ -183,7 +183,7 @@ Aturan untuk semua tabel klinis:
 
 ### 3.3 · ADT, papan bed, triase IGD, gelang, Aplicare (K03, K04, K05)
 
-- Triase: `POST /api/v1/triage/assessments` (saran ATS server; turun tanpa alasan → 422 `TRIAGE_REASON_REQUIRED`), `GET /api/v1/triage/board` + SSE, `POST /api/v1/triage/encounters/:id/status`.
+- Triase: `POST /api/v1/triage/assessments` (saran ATS server; turun tanpa alasan → 422 `TRIAGE_REASON_REQUIRED`), `GET /api/v1/triage/board` + SSE, `POST /api/v1/encounters/:id/ed-status` (rute per-kunjungan kanonik).
 - ADT: papan bed + SSE; `PATCH /api/v1/adt/beds/:id/status` (`baseVersion`); permintaan bed + alokasi (bed → `dipesan`); `POST /api/v1/adt/admissions` (IGD → encounter IMP `part_of`, atau dari encounter `planned`/SPRI; gelang terbit); transfer; `POST /api/v1/adt/discharges` (memanggil `DischargeGate`); cetak ulang gelang beralasan.
 - Outbox `bpjs.aplicare.update` (digabung); mock Aplicare dimiliki potongan ini.
 - Staging `billable_events` admit/transfer/pulang/IGD; SATUSEHAT `held` Encounter.

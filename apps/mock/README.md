@@ -48,7 +48,8 @@ Kontrak kabel (path, body, amplop, kode penolakan) ada di `@simrs/shared` → `i
 - kartu/NIK berakhiran `9999` → peserta tidak ditemukan;
 - kartu berakhiran `1111` → wajib rekam sidik jari sebelum SEP rawat jalan;
 - rujukan berakhiran `99` → kedaluwarsa (kunjungan 120 hari lalu, batas 90 hari);
-- SEP ganda: kartu + tanggal + poli sama (rawat jalan) atau kartu + tanggal (rawat inap); rawat inap wajib SPRI;
+- SEP ganda: kartu + tanggal + poli sama (rawat jalan) atau kartu + tanggal (rawat inap); rawat inap wajib SPRI atau SEP IGD terbit kartu yang sama sebagai `rujukan.noRujukan`;
+- SEP IGD (ASUMSI `VCLAIM_POLI_IGD` = `IGD`): rawat jalan tanpa rujukan, `dpjpLayan` boleh kosong (bila diisi harus dokter dikenal), satu per kartu per tanggal;
 - HFIS awal = jadwal minggu demo; perbedaan yang disemai: dr. Bagus (99003) tetap praktik Rabu 09:00–12:00 di HFIS, padahal cuti di jadwal RS Rabu 7 Okt 2026.
 
 ## Panel dan API skenario

@@ -1,3 +1,4 @@
+import { EmergencySepService } from '../encounter/emergency-sep.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { allocateNumber, insertPatient } from '@simrs/db';
 import {
@@ -53,6 +54,7 @@ export class AdmissionService {
     private readonly contacts: ContactsService,
     private readonly access: PatientAccessService,
     private readonly events: DomainEvents,
+    private readonly emergencySep: EmergencySepService,
   ) {}
 
   private crypto(): PatientCrypto {
@@ -135,6 +137,10 @@ export class AdmissionService {
     if (input.guarantor) await this.contacts.resolveGuarantor(patientId, input.guarantor);
     if (input.coverage) {
       await this.registration.createCoverage(encounterId, input.coverage, bpjsIdentifier?.id ?? null);
+      // Fase 3 (utang fase 2): SEP IGD otomatis bila diagnosa awal sudah ada; selain itu menyusul.
+      if (input.coverage.payer === 'bpjs' && input.coverage.initialDiagnosis) {
+        await this.emergencySep.create(encounterId, input.coverage.initialDiagnosis, null);
+      }
     }
     await this.events.publish('encounter.registered', {
       encounterId,
