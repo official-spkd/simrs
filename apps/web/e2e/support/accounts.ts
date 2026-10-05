@@ -154,6 +154,8 @@ export async function createAccountDevices(account: Account) {
         name: 'Komputer nurse station E2E',
         tokenHash: hashToken(pinSecret),
         pinHash: await hashPassword(randomToken()),
+        // Kunci lada PIN aktif, seperti API (wajib sejak rotasi kunci 10.9b, CHECK `registered_devices_staff_pin`).
+        pinKeyId: e2eFieldKeys().hash.currentId,
         createdAt: new Date(now),
         expiresAt: new Date(now + 30 * 86_400_000),
       },

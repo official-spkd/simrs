@@ -81,6 +81,23 @@ describe('penjaga skema', () => {
     expect(bad, 'tabel indeks tanpa isolasi').toEqual([]);
   });
 
+  it('fungsi SECURITY DEFINER menyetel search_path dengan pg_temp di akhir (ADR-0008)', async () => {
+    // Tanpa pg_temp eksplisit, skema sementara dicari PERTAMA untuk tabel: sesi dengan hak TEMP bisa membuat
+    // tabel sementara bernama sama (mis. `tenants`) yang lalu dibaca fungsi dengan hak pemiliknya.
+    const rows = await owner.$queryRaw<Array<{ fn: string; config: string[] | null }>>`
+      SELECT p.proname AS fn, p.proconfig AS config FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE p.prosecdef AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY 1`;
+    expect(rows.map((r) => r.fn)).toContain('app_active_tenant_ids');
+    const bad = rows
+      .filter((r) => {
+        const path = r.config?.find((c) => c.startsWith('search_path='));
+        return !path || !/(^|[ ,])pg_temp$/.test(path.replace(/"/g, ''));
+      })
+      .map((r) => `${r.fn} (${r.config?.join('; ') ?? 'tanpa SET'})`);
+    expect(bad, 'SECURITY DEFINER tanpa pg_temp di akhir search_path').toEqual([]);
+  });
+
   it('role aplikasi tidak punya BYPASSRLS dan bukan superuser', async () => {
     const [role] = await owner.$queryRaw<Array<{ bypass: boolean; superuser: boolean }>>`
       SELECT rolbypassrls AS bypass, rolsuper AS superuser FROM pg_roles WHERE rolname = 'simrs_app'`;

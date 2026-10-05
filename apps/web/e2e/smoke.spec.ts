@@ -37,7 +37,8 @@ test.describe('smoke', () => {
   test('layar hibrida front office di mode api: rute ada, dijaga izin sungguhan (tanpa izin → akses ditolak; anjungan/TV → pendaftaran perangkat)', async ({
     page,
   }) => {
-    const account = await createAccount({ roles: ['perawat'] });
+    // Akuntan tidak memegang izin front office satu pun (perawat kini memegang `schedule.read`, matriks 0a).
+    const account = await createAccount({ roles: ['akuntan'] });
     await loginAs(page, account);
     const hybrid = SCREENS.filter((s) => s.permission);
     expect(hybrid.map((s) => s.id).sort()).toEqual(['antrean', 'daftar', 'jadwal', 'kiosk']);
@@ -54,7 +55,7 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toBeVisible();
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
-    // Menu mengikuti izin sungguhan: perawat tidak memegang izin front office, jadi menunya tidak tampil.
+    // Menu mengikuti izin sungguhan: akuntan tidak memegang izin front office, jadi menunya tidak tampil.
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
     await expect(nav.getByText('Pendaftaran', { exact: true })).toHaveCount(0);
