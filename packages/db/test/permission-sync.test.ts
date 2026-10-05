@@ -72,6 +72,10 @@ async function newTenant(): Promise<{ id: string; code: string }> {
 
 const inTenant = <T>(id: string, fn: (tx: TenantTx) => Promise<T>) => withTenant(owner, id, fn);
 
+/** Izin katalog kode yang belum ada di baseline sinkron (mis. izin front office fase 2), urut katalog. */
+const sinceBaseline = () =>
+  CODE_PERMISSION_CATALOG.keys.filter((k) => !CODE_PERMISSION_CATALOG.baseline.includes(k));
+
 const sync = (id: string, opts: Parameters<typeof syncRolePermissions>[3] = {}) =>
   inTenant(id, (tx) => syncRolePermissions(tx, id, 'hospital', opts));
 
@@ -127,11 +131,16 @@ async function adminEdit(
 }
 
 describe('sinkron izin katalog', () => {
-  it('RS yang belum pernah disinkron: katalog saat ini = baseline → tidak ada izin baru, catatan ditulis sekali', async () => {
+  it('RS yang belum pernah disinkron: izin sesudah baseline dianggap baru, tetapi peran yang dibuat dari matriks bawaan saat ini sudah memegangnya → tidak ada tambahan; catatan ditulis sekali', async () => {
     const T = await newTenant();
     const before = await grantsOf(T.id, 'perawat');
     const r1 = await sync(T.id);
-    expect(r1).toMatchObject({ knownFrom: 'baseline', newPermissions: [], added: [], recordChanged: true });
+    expect(r1).toMatchObject({
+      knownFrom: 'baseline',
+      newPermissions: sinceBaseline(),
+      added: [],
+      recordChanged: true,
+    });
     expect(r1.missingRoles).toEqual([]);
     expect(await recordOf(T.id)).toEqual(CODE_PERMISSION_CATALOG.keys);
     expect(await grantsOf(T.id, 'perawat')).toEqual(before);
@@ -141,6 +150,38 @@ describe('sinkron izin katalog', () => {
     const r2 = await sync(T.id);
     expect(r2).toMatchObject({ knownFrom: 'record', newPermissions: [], added: [], recordChanged: false });
     expect(await auditCount(T.id)).toBe(audits);
+  });
+
+  it('fase 2: peran RS lama menerima izin front office lewat sinkron dengan lingkup bawaan; izin perangkat tidak pernah', async () => {
+    const T = await newTenant();
+    const fresh = sinceBaseline();
+    expect(fresh).toEqual(
+      expect.arrayContaining(['queue.call', 'encounter.write', 'kiosk.use', 'queue.display.read']),
+    );
+    // Tiru RS yang perannya dibuat sebelum fase 2: baris izin baru belum pernah ada (bukan dicabut admin).
+    await inTenant(T.id, async (tx) => {
+      for (const key of fresh) {
+        const dot = key.lastIndexOf('.');
+        await tx.rolePermission.deleteMany({
+          where: { resource: key.slice(0, dot), action: key.slice(dot + 1) },
+        });
+      }
+    });
+
+    const r = await sync(T.id);
+    expect(r).toMatchObject({ knownFrom: 'baseline', newPermissions: fresh, skippedRemoved: [] });
+    expect(
+      r.added.filter((a) => a.permission === 'kiosk.use' || a.permission === 'queue.display.read'),
+    ).toEqual([]);
+    expect(await grantsOf(T.id, 'dokter')).toEqual(
+      expect.arrayContaining(['queue.call:unit', 'encounter.read:relationship', 'schedule.read:all']),
+    );
+    // Setiap peran RS kembali tepat ke matriks bawaannya (izin front office dengan lingkup bawaan).
+    for (const role of CODE_PERMISSION_CATALOG.rolesFor('hospital')) {
+      expect(await grantsOf(T.id, role.code), role.code).toEqual(
+        role.grants.map(([res, act, sc]) => `${res}.${act}:${sc}`).sort(),
+      );
+    }
   });
 
   it('izin baru masuk hanya ke peran yang memilikinya di matriks bawaan, dengan lingkup bawaan; diaudit; idempoten', async () => {

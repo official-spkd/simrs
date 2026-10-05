@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { SYSTEM_ROLES } from '@simrs/shared';
+import { isPermission, isPermissionKey, SYSTEM_ROLES } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { FRONT_OFFICE_PERMISSIONS, type ScreenDef, SCREENS, screenById, screenOpen } from './screens';
 
@@ -22,6 +22,17 @@ describe('registri layar (ADR-0023)', () => {
       expect(s.demoRoles.length).toBeGreaterThan(0);
       for (const r of s.demoRoles) expect(Object.keys(SYSTEM_ROLES)).toContain(r);
     }
+  });
+
+  it('layar fase 2: izin rencana sudah ada di katalog izin (rencana fase 2 §0a)', () => {
+    const phase2 = SCREENS.filter((s) => s.phase === 2);
+    expect(phase2.length).toBeGreaterThan(0);
+    for (const s of phase2) {
+      const dot = s.plannedPermission.lastIndexOf('.');
+      const [resource, action] = [s.plannedPermission.slice(0, dot), s.plannedPermission.slice(dot + 1)];
+      expect(isPermission(resource, action), `${s.id}: ${s.plannedPermission}`).toBe(true);
+    }
+    for (const key of FRONT_OFFICE_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
   });
 
   it('screenById', () => {

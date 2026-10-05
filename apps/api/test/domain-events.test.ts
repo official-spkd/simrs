@@ -36,6 +36,14 @@ function fakeContext(tx: object | null = fakeTx()): TenantRequestContext {
 }
 
 const payload = { appointmentId: newId(), patientId: newId() };
+/** Payload tiket poli (kontrak `@simrs/shared`). */
+const ticketPayload = () => ({
+  ticketId: newId(),
+  queueServiceId: newId(),
+  serviceKind: 'poli' as const,
+  appointmentId: null,
+  encounterId: null,
+});
 
 describe('DomainEvents (unit)', () => {
   it('menjalankan penangan berurutan dengan transaksi yang sama dan amplop event lengkap', async () => {
@@ -141,9 +149,7 @@ describe('DomainEvents (unit)', () => {
     let count = 0;
     const off = events.on('queue.ticket_started', () => void (count += 1));
     off();
-    await requestContext.run(fakeContext(), () =>
-      events.publish('queue.ticket_started', { ticketId: newId(), queueServiceId: newId() }),
-    );
+    await requestContext.run(fakeContext(), () => events.publish('queue.ticket_started', ticketPayload()));
     expect(count).toBe(0);
     expect(() => events.on('tidak.ada' as DomainEventName, () => undefined)).toThrow(/tidak dikenal/);
 
@@ -153,15 +159,16 @@ describe('DomainEvents (unit)', () => {
       await events.publish('queue.ticket_finished', e.payload);
     });
     const run = requestContext.run(fakeContext(), () =>
-      events.publish('queue.ticket_finished', { ticketId: newId(), queueServiceId: newId() }),
+      events.publish('queue.ticket_finished', ticketPayload()),
     );
     await expect(run).rejects.toThrow(/melebihi/);
     expect(depth).toBe(MAX_DOMAIN_EVENT_DEPTH);
   });
 
-  it('daftar nama sementara sesuai rencana 0a', () => {
+  it('daftar nama dari kontrak bersama 0a (+ booking.cancelled untuk task 99)', () => {
     expect([...DOMAIN_EVENT_NAMES].sort()).toEqual(
       [
+        'booking.cancelled',
         'booking.checked_in',
         'encounter.cancelled',
         'encounter.registered',

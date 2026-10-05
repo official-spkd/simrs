@@ -1,9 +1,10 @@
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
-import { SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
+import { DEMO_VCLAIM_LATENCY_MS, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { simClock, taskDoneAt } from '@/lib/front-office';
 import {
+  getDemoDeskPatients,
   getRegistrationDesk,
   getScenarioRegistrationPatient,
 } from '@/lib/server/data/front-office/pendaftaran';
@@ -26,8 +27,9 @@ import type { RegScenarioView } from './use-registration';
 export async function DemoPendaftaran({ access }: { access: DemoScreenAccess }) {
   const { session, screen, allowed } = access;
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const [desk, suryo, runs] = await Promise.all([
+  const [desk, deskPatients, suryo, runs] = await Promise.all([
     getRegistrationDesk(session),
+    getDemoDeskPatients(),
     getScenarioRegistrationPatient(),
     scenarioRuns(session),
   ]);
@@ -53,6 +55,8 @@ export async function DemoPendaftaran({ access }: { access: DemoScreenAccess }) 
       <PendaftaranClient
         key={scenario.atCounter ? 'skenario' : 'lokal'}
         desk={desk}
+        deskPatients={deskPatients}
+        vclaimLatencyMs={DEMO_VCLAIM_LATENCY_MS}
         scenarioPatient={suryo}
         scenario={scenario}
         fixed={{

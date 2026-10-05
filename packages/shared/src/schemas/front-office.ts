@@ -1,23 +1,152 @@
 import { z } from 'zod';
+import { nameBasedId } from '../ids';
+import { ANTREAN_JENIS_KUNJUNGAN } from '../integrations/bpjs/antrean';
+import { BPJS_REJECTIONS, type BpjsRejectionCode } from '../integrations/bpjs/common';
 
 /**
- * F01–F06 · Front office: jadwal dokter, kuota, antrean, anjungan, pendaftaran + SEP.
- * Kontrak respons (zod) yang dipenuhi data dummy mode presentasi sekarang (ADR-0023) dan API kelak. Diisi
- * bersama layar domain ini; nama mengikuti entitas docs/04, camelCase, uang = string rupiah, waktu ISO 8601.
- * Angka mentah (bukan teks tampilan): format Indonesia dikerjakan lapisan tampilan.
+ * F01–F08 · Front office: jadwal dokter, kuota, antrean, anjungan, pendaftaran + SEP.
+ * File ini memuat (1) primitif bersama kontrak API front office (dipakai `scheduling`, `booking`, `queue`,
+ * `registration`, `referral`, `kiosk`, `public-info`) dan (2) model tampilan layar (view model) yang dipenuhi data
+ * dummy mode presentasi sekarang (ADR-0023) dan endpoint API layar yang sama kelak. Nama mengikuti entitas docs/04,
+ * camelCase, uang = string rupiah, waktu ISO 8601. Angka mentah (bukan teks tampilan): format Indonesia dikerjakan
+ * lapisan tampilan, kecuali jam dinding `HH.MM` di model tampilan.
  */
 
 const isoDate = z.iso.date();
 const isoDateTime = z.iso.datetime({ offset: true });
-/** Jam dinding WIB `HH.MM` (format tampilan docs/08, mis. `08.00`). */
+/** Jam dinding WIB `HH.MM` (format tampilan docs/08, mis. `08.00`). Hanya di model tampilan. */
 export const wallClockSchema = z.string().regex(/^([01]\d|2[0-3])\.[0-5]\d$/);
 /** Nomor antrean `<kode>-<3 digit>` (docs/04 §5): poli `PD-027`, loket admisi `A-031`, farmasi `F-021`. */
 export const QUEUE_NO_PATTERN = /^[A-Z]{1,2}-\d{3}$/;
 export const queueNoSchema = z.string().regex(QUEUE_NO_PATTERN);
-const poliCode = z.string().regex(/^[A-Z]{2}$/);
+/** Kode poli lokal RS (2 huruf, juga awalan nomor antrean poli): `PD`, `JT`, `SR`, `PR`. */
+export const POLI_CODE_PATTERN = /^[A-Z]{2}$/;
+const poliCode = z.string().regex(POLI_CODE_PATTERN);
 /** Kode ICD-10 (WHO) di awal teks diagnosa, mis. `I10` atau `E11.9`. */
 export const ICD10_PATTERN = /^[A-Z]\d{2}(\.\d{1,2})?$/;
 const count = z.number().int().min(0);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Primitif kontrak API front office (fase 2)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Tanggal layanan (kalender WIB) `YYYY-MM-DD`. */
+export const serviceDateSchema = isoDate;
+/** Jam di API `HH:MM` 24 jam (ISO 8601). Model tampilan memakai `HH.MM` (`wallClockSchema`). */
+export const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const timeOfDaySchema = z.string().regex(TIME_OF_DAY_PATTERN, 'Format jam HH:MM');
+/** `HH:MM` → `HH.MM` untuk model tampilan. */
+export function toWallClock(time: string): string {
+  return time.replace(':', '.');
+}
+/** Diagnosis ICD-10 (kode WHO + teks) untuk SEP, rujukan, dan surat kontrol. Kode tidak pernah dikarang (CLAUDE.md §4.10). */
+export const icd10CodingSchema = z.strictObject({
+  code: z.string().regex(ICD10_PATTERN, 'Kode ICD-10 tidak valid'),
+  display: z.string().trim().min(1).max(200),
+});
+export type Icd10Coding = z.infer<typeof icd10CodingSchema>;
+
+/**
+ * Status pengiriman ke BPJS lewat outbox (dilihat layar: chip SEP, task antrean, HFIS):
+ * `not_required` tidak dikirim (mis. pasien non-JKN), `pending` antre/dicoba ulang, `sent` diterima BPJS,
+ * `rejected` BPJS menolak (galat bisnis, bukan DLQ), `dead` gagal permanen setelah batas coba (DLQ, bisa dikirim ulang).
+ */
+export const BPJS_SYNC_STATUSES = ['not_required', 'pending', 'sent', 'rejected', 'dead'] as const;
+export type BpjsSyncStatus = (typeof BPJS_SYNC_STATUSES)[number];
+export const bpjsSyncSchema = z.strictObject({
+  status: z.enum(BPJS_SYNC_STATUSES),
+  /** Waktu terakhir diterima BPJS. */
+  sentAt: isoDateTime.nullable(),
+  /**
+   * Galat terakhir, null bila tidak ada: kode internal stabil (penolakan `BPJS_REJECTIONS`/`BPJS_TIDAK_DIKENAL`, atau
+   * kode transport mis. `BPJS_UNAVAILABLE`) + pesan untuk petugas.
+   */
+  error: z.strictObject({ code: z.string().min(1).max(60), message: z.string().max(500) }).nullable(),
+});
+export type BpjsSync = z.infer<typeof bpjsSyncSchema>;
+
+/** Kode penolakan BPJS (kontrak kawat) yang dibawa galat API `BPJS_REJECTED` dan status kirim `rejected`. */
+export const BPJS_REJECTION_CODES: readonly [BpjsRejectionCode, ...BpjsRejectionCode[]] = [
+  'BPJS_TIDAK_DIKENAL',
+  ...(Object.keys(BPJS_REJECTIONS) as BpjsRejectionCode[]),
+];
+/** `details` galat `BPJS_REJECTED`: alasan baku + pesan BPJS apa adanya (untuk petugas, tanpa PHI tambahan). */
+export const bpjsRejectedDetailsSchema = z.strictObject({
+  reason: z.enum(BPJS_REJECTION_CODES),
+  bpjsMessage: z.string().max(500),
+});
+export type BpjsRejectedDetails = z.infer<typeof bpjsRejectedDetailsSchema>;
+
+/** Header idempotensi untuk tindakan yang tidak boleh terjadi dua kali (registrasi, SEP, check-in anjungan). */
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+export const idempotencyKeySchema = z.uuid('Idempotency-Key harus UUID');
+
+/** Paginasi kursor (UUID v7 → urut waktu dibuat). */
+export const cursorPageQuerySchema = z.strictObject({
+  cursor: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export function cursorPageSchema<T extends z.ZodType>(item: T) {
+  return z.strictObject({ items: z.array(item), nextCursor: z.uuid().nullable() });
+}
+
+/**
+ * Jenis kunjungan JKN (`jeniskunjungan` Antrean BPJS) = dasar rujukan SEP rawat jalan:
+ * 1 rujukan FKTP, 2 rujukan internal, 3 kontrol (surat kontrol), 4 rujukan antar-RS. `referralKind` = jenis baris
+ * `referrals` yang menyimpan nomornya (SEP menautkannya lewat `referral_id`).
+ */
+export const BPJS_VISIT_KINDS = {
+  rujukan_fktp: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanFktp,
+    label: 'Rujukan FKTP',
+    referralKind: 'rujukan-fktp',
+  },
+  rujukan_internal: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanInternal,
+    label: 'Rujukan internal',
+    referralKind: 'rujukan-internal',
+  },
+  kontrol: {
+    code: ANTREAN_JENIS_KUNJUNGAN.kontrol,
+    label: 'Kontrol (surat kontrol)',
+    referralKind: 'surat-kontrol',
+  },
+  rujukan_antar_rs: {
+    code: ANTREAN_JENIS_KUNJUNGAN.rujukanAntarRs,
+    label: 'Rujukan antar-RS',
+    referralKind: 'rujukan-rs',
+  },
+} as const;
+export type BpjsVisitKind = keyof typeof BPJS_VISIT_KINDS;
+export const BPJS_VISIT_KIND_CODES = Object.keys(BPJS_VISIT_KINDS) as [BpjsVisitKind, ...BpjsVisitKind[]];
+/** Nomor rujukan / surat kontrol BPJS (alfanumerik, mis. `0301R0011025K000117`). */
+export const bpjsReferenceNumberSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[0-9A-Z]{8,40}$/, 'Nomor rujukan/surat kontrol tidak valid');
+/**
+ * Dasar kunjungan JKN: jenis kunjungan + nomor rujukan/surat kontrol. Disimpan di `appointments.jkn_visit_kind`
+ * (= `BPJS_VISIT_KINDS[visitKind].code`, 1–4) dan `appointments.reference_number` (wajib untuk keranjang `jkn`).
+ */
+export const jknReferenceSchema = z.strictObject({
+  visitKind: z.enum(BPJS_VISIT_KIND_CODES),
+  referenceNumber: bpjsReferenceNumberSchema,
+});
+export type JknReference = z.infer<typeof jknReferenceSchema>;
+
+/** Alasan pembatalan/perubahan (tercatat di audit dan riwayat status). */
+export const changeReasonSchema = z.string().trim().min(5, 'Alasan minimal 5 karakter').max(300);
+
+const SCHEDULE_CELL_NAMESPACE = '173f7131-5ea7-437a-8d2f-c152b892d46b';
+
+/**
+ * ID sel grid jadwal (dokter × tanggal), UUID deterministik. Sel tidak selalu punya baris sesi sendiri (hari libur,
+ * atau sel pengganti yang memakai sesi dokter yang digantikan), sehingga ID sel dipisah dari `sessionId`.
+ */
+export function scheduleCellId(practitionerId: string, date: string): string {
+  return nameBasedId(`${practitionerId}.${date}`, SCHEDULE_CELL_NAMESPACE);
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // F01 · Jadwal praktik mingguan dan kuota (sinkron HFIS)
@@ -37,8 +166,13 @@ export type SlotQuota = z.infer<typeof slotQuotaSchema>;
 
 export const scheduleSlotSchema = z
   .strictObject({
-    /** `<id dokter>.<tanggal>`. */
-    id: z.string().regex(/^[a-z0-9-]+\.\d{4}-\d{2}-\d{2}$/),
+    /** ID sel (dokter × tanggal), lihat `scheduleCellId`. Kunci pilihan di layar (`?pilih=`). */
+    id: z.uuid(),
+    /**
+     * Sesi praktik (`schedule_sessions.id`) yang ditindak lanjuti (ubah kuota, cuti, alih): `praktik`/`cuti` = sesi
+     * dokter itu sendiri, `pengganti` = sesi dokter yang digantikan, `libur` = null.
+     */
+    sessionId: z.uuid().nullable(),
     date: isoDate,
     kind: z.enum(SCHEDULE_SLOT_KINDS),
     start: wallClockSchema.nullable(),
@@ -57,6 +191,9 @@ export const scheduleSlotSchema = z
   })
   .refine((s) => (s.kind === 'praktik' || s.kind === 'pengganti') === (s.start !== null && s.end !== null), {
     message: 'Jam hanya untuk slot praktik/pengganti',
+  })
+  .refine((s) => (s.kind === 'libur') === (s.sessionId === null), {
+    message: 'Hanya slot libur yang tanpa sesi',
   });
 export type ScheduleSlot = z.infer<typeof scheduleSlotSchema>;
 
@@ -72,7 +209,8 @@ export const scheduleDoctorSchema = z.strictObject({
 export type ScheduleDoctor = z.infer<typeof scheduleDoctorSchema>;
 
 export const hfisDifferenceSchema = z.strictObject({
-  slotId: z.string().min(1),
+  /** ID sel jadwal (`scheduleSlotSchema.id`). */
+  slotId: z.uuid(),
   /** Kalimat penjelasan perbedaan (mis. HFIS masih mencatat praktik padahal cuti). */
   text: z.string().min(1),
 });
@@ -138,6 +276,8 @@ export type QueueBoard = z.infer<typeof queueBoardSchema>;
 // ---------------------------------------------------------------------------------------------------------------
 
 export const practitionerQuotaSchema = z.strictObject({
+  /** Sesi praktik hari ini yang dipilih saat registrasi (`outpatientRegistrationSchema.sessionId`). */
+  sessionId: z.uuid(),
   doctorId: z.string().min(1),
   doctorName: z.string().min(1),
   poliCode,
@@ -195,7 +335,10 @@ export type BpjsEligibility = z.infer<typeof bpjsEligibilitySchema>;
 export const PAYERS = ['BPJS', 'Umum', 'Asuransi'] as const;
 export type Payer = (typeof PAYERS)[number];
 
-/** Hasil pencarian pasien di meja pendaftaran (identitas tersamar). */
+/**
+ * Hasil pencarian pasien di meja pendaftaran (identitas tersamar). API mengembalikan pasien satu per satu lewat
+ * pencarian (MPI) + cek kepesertaan + rujukan; meja tidak pernah memuat daftar pasien di depan.
+ */
 export const registrationPatientSchema = z.strictObject({
   id: z.string().min(1),
   rm: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
@@ -219,6 +362,10 @@ export const registrationPatientSchema = z.strictObject({
 });
 export type RegistrationPatient = z.infer<typeof registrationPatientSchema>;
 
+/**
+ * Meja pendaftaran: antrean loket dan kuota dokter hari ini. Tanpa daftar pasien pra-muat (data pribadi hanya lewat
+ * pencarian berizin dan diaudit) dan tanpa latensi VClaim (status integrasi milik layar Integrasi, fase 7).
+ */
 export const registrationDeskSchema = z.strictObject({
   date: isoDate,
   counter: z.strictObject({
@@ -227,9 +374,6 @@ export const registrationDeskSchema = z.strictObject({
     /** Tiket loket admisi berikutnya, urut. */
     tickets: z.array(counterTicketSchema),
   }),
-  vclaimLatencyMs: count,
   quotas: z.array(practitionerQuotaSchema),
-  /** Pasien yang bisa dicari di meja ini (fiktif). */
-  patients: z.array(registrationPatientSchema),
 });
 export type RegistrationDesk = z.infer<typeof registrationDeskSchema>;
