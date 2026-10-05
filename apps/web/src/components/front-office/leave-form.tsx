@@ -16,19 +16,24 @@ export function LeaveForm({
   busy,
   onSubmit,
   onCancel,
+  withReason = false,
 }: {
   doctors: ScheduleDoctor[];
   /** Slot masih praktik (belum dicatat cuti di layar ini). */
   isPractice: (slotId: string) => boolean;
   busy: boolean;
-  onSubmit: (slotId: string, substituteId: string | null) => void;
+  onSubmit: (slotId: string, substituteId: string | null, reason: string) => void;
   onCancel: () => void;
+  /** Mode api: alasan cuti wajib (≥ 5 karakter, tercatat di audit). */
+  withReason?: boolean;
 }) {
   const [doctorId, setDoctorId] = useState(doctors[0]?.id ?? '');
   const doctor = doctors.find((d) => d.id === doctorId);
   const practice = (doctor?.slots ?? []).filter((s) => isPractice(s.id));
   const [slotId, setSlotId] = useState(practice[0]?.id ?? '');
   const [subId, setSubId] = useState('');
+  const [reason, setReason] = useState('');
+  const reasonOk = !withReason || reason.trim().length >= 5;
   const subs = doctors.filter((d) => d.poliCode === doctor?.poliCode && d.id !== doctorId);
   const validSlot = practice.some((s) => s.id === slotId);
 
@@ -79,11 +84,26 @@ export function LeaveForm({
           </select>
         </label>
       </div>
+      {withReason && (
+        <label className="flex flex-col gap-1 text-small font-semibold text-ink-700">
+          Alasan cuti
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={300}
+            placeholder="Mis. seminar nasional, sakit"
+            className="h-11 w-full rounded-control border border-line-strong bg-white px-3 font-[inherit] text-small text-ink-900"
+          />
+          <span className="text-caption font-normal text-ink-500">
+            Minimal 5 karakter. Cuti per tanggal juga perlu dicatat di aplikasi HFIS.
+          </span>
+        </label>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="primary"
-          disabled={!validSlot || busy}
-          onClick={() => onSubmit(slotId, subId || null)}
+          disabled={!validSlot || !reasonOk || busy}
+          onClick={() => onSubmit(slotId, subId || null, reason.trim())}
         >
           Catat cuti
         </Button>
