@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@simrs/db';
-import { ACTIVE_ENCOUNTER_STATUSES } from '@simrs/shared';
 import { AuditedDenial } from '../../common/audited-denial';
 import { TenantDb } from '../../infra/tenant-db';
 
@@ -18,15 +17,14 @@ export interface ScopedActor {
  * aturan dengan `PatientAccessService.basis`. Rekam medis yang digabung = satu orang (`app_patient_group`):
  * - relasi aktif (DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit);
  * - akses darurat (break-the-glass) yang belum kedaluwarsa;
- * - lingkup `unit` (ADR-0031): kunjungan aktif (`planned`/`arrived`/`in_progress`) di unit penugasan.
+ * - lingkup `unit` (ADR-0031): lokasi kini pasien (`app_patient_location`: unit bed yang ditempati, atau unit kunjungan
+ *   aktif bila belum/tanpa bed) = unit penugasan. Transfer bed ke unit lain memindah akses.
  * Alias tabel pasien wajib `p`.
  */
 export function patientAccessSql(actor: ScopedActor, at: Date): Prisma.Sql {
   const unit = actor.unitId
     ? Prisma.sql`
-  OR EXISTS (SELECT 1 FROM encounters e
-             WHERE e.patient_id IN (SELECT app_patient_group(p.id)) AND e.unit_id = ${actor.unitId}::uuid
-               AND e.status = ANY(${[...ACTIVE_ENCOUNTER_STATUSES]}::text[]))`
+  OR EXISTS (SELECT 1 FROM app_patient_location(p.id) l WHERE l.unit_id = ${actor.unitId}::uuid)`
     : Prisma.empty;
   return Prisma.sql`(
   EXISTS (SELECT 1 FROM access_relationships r
@@ -45,7 +43,7 @@ export function patientAccessSql(actor: ScopedActor, at: Date): Prisma.Sql {
  *                    lingkup `relationship` di bawah (unit ⊃ relationship);
  * - `relationship` → hanya relasi aktif (DPJP, perawat penanggung jawab, rawat bersama, konsultan, petugas unit)
  *                    ATAU akses darurat (break-the-glass) yang belum kedaluwarsa.
- * Lokasi tingkat kamar/bed (ADT) menyusul di fase 3 (ADR-0031).
+ * Lokasi tingkat bed lewat `app_patient_location` (ADR-0031 pembaruan fase 3).
  */
 @Injectable()
 export class PatientAccessService {
@@ -82,11 +80,10 @@ export class PatientAccessService {
     if (rel) return 'relationship';
     const unitId = scope === 'unit' ? this.db.actor().unitId : null;
     if (unitId) {
-      const here = await tx.encounter.findFirst({
-        where: { patientId: { in: patientIds }, unitId, status: { in: [...ACTIVE_ENCOUNTER_STATUSES] } },
-        select: { id: true },
-      });
-      if (here) return 'unit';
+      // ADR-0031 fase 3: tingkat bed. Pasien di bed unit lain (transfer) tidak lagi terbuka lewat unit asal.
+      const here = await tx.$queryRaw<Array<{ n: number }>>`
+        SELECT 1 AS n FROM app_patient_location(${patientId}::uuid) l WHERE l.unit_id = ${unitId}::uuid LIMIT 1`;
+      if (here.length > 0) return 'unit';
     }
     const bg = await tx.breakGlassGrant.findFirst({
       where: { userId, patientId: { in: patientIds }, grantedAt: { lte: at }, expiresAt: { gt: at } },

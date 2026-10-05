@@ -1,4 +1,5 @@
 import { bookingNoShowJob, bookingReminderJob } from './booking-jobs';
+import { clinicalDraftsCleanupJob } from './clinical-jobs';
 import type { PeriodicJob } from './periodic-job-types';
 import { generateSessionsJob, hfisPullJob } from './scheduling-jobs';
 
@@ -23,4 +24,6 @@ export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, P
   ['booking.reminder', bookingReminderJob],
   ['scheduling.generate-sessions', generateSessionsJob],
   ['scheduling.hfis-pull', hfisPullJob],
+  // Fase 3 · draf klinis kunjungan yang sudah selesai (ADR-0028 butir 5).
+  ['clinical.drafts-cleanup', clinicalDraftsCleanupJob],
 ]);

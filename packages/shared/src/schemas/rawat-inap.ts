@@ -764,3 +764,55 @@ export const emarOrderSchema = z.strictObject({
   slots: z.array(emarScheduleSlotSchema),
 });
 export type EmarOrder = z.infer<typeof emarOrderSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Kanal SSE klinis (potongan 3.1, ADR-0026): papan IGD, papan bed, eskalasi EWS. Muatan hanya ID, kode status, dan
+// angka; tanpa nama/diagnosis (aliran staf diaudit saat berlangganan).
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Kanal `pg_notify` (trigger `app_notify_row`). */
+export const CLINICAL_NOTIFY_CHANNELS = {
+  edBoard: 'ed_board',
+  bedBoard: 'bed_board',
+  vitals: 'clinical_vitals',
+} as const;
+
+export const CLINICAL_SSE_EVENTS = {
+  edStatus: 'ed.status',
+  bedStatus: 'bed.status',
+  ewsEscalation: 'ews.escalation',
+} as const;
+
+export const edStatusSseEventSchema = z.strictObject({
+  eventId: uuid,
+  encounterId: uuid,
+  /** Unit kunjungan IGD (dasar saringan lingkup unit). */
+  unitId: uuid,
+  status: z.enum(ED_STATUSES),
+  zone: z.enum(ED_ZONES).nullable(),
+  at: instant,
+});
+export type EdStatusSseEvent = z.infer<typeof edStatusSseEventSchema>;
+
+export const bedStatusSseEventSchema = z.strictObject({
+  eventId: uuid,
+  /** Lokasi bed (`locations.id`). */
+  bedId: uuid,
+  unitId: uuid,
+  status: z.enum(BED_STATUSES),
+  version: z.int().min(1),
+  at: instant,
+});
+export type BedStatusSseEvent = z.infer<typeof bedStatusSseEventSchema>;
+
+export const ewsEscalationSseEventSchema = z.strictObject({
+  observationId: uuid,
+  encounterId: uuid,
+  /** Unit tempat pasien kini (bed atau unit kunjungan), dasar saringan lingkup unit. */
+  unitId: uuid.nullable(),
+  score: z.int().min(0).max(20),
+  maxParam: z.int().min(0).max(3),
+  risk: z.enum(['rendah', 'sedang', 'tinggi']),
+  at: instant,
+});
+export type EwsEscalationSseEvent = z.infer<typeof ewsEscalationSseEventSchema>;

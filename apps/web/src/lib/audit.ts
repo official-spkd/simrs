@@ -147,6 +147,7 @@ export const FINDING_KIND_LABEL: Record<string, string> = {
   access_denied: 'AKSES DITOLAK BERULANG',
   night: 'DI LUAR JAM DINAS',
   volume: 'VOLUME TAK WAJAR',
+  confidential: 'PASIEN RAHASIA',
 };
 
 export const REVIEW_LABEL: Record<string, string> = {

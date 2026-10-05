@@ -387,6 +387,40 @@ memakai satu pola berversi:
   (CHECK, indeks `supersedes_once`, trigger, view) dan ke `MANUAL_INDEXES` + daftar "tidak bisa dihapus" di
   `test/schema-guard.test.ts`.
 
+### Infrastruktur API klinis (fase 3 potongan 3.1)
+
+`apps/api/src/infra/clinical/` (`ClinicalInfraModule`, global) dipakai semua modul klinis. Kerangka modul
+`worklist`, `encounter`, `triage`, `adt`, `assessment`, `cppt`, `diagnosis`, `orders`, `cds`, `consult`, `consent`,
+`nursing`, `discharge`, `summary`, `care-packages`, `results` sudah terdaftar di `AppModule`. Potongan 3.2–3.8 mengisi
+foldernya tanpa mengubah daftar modul.
+
+| Bagian                              | Guna                                                                                                                                                                                                                                                              |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ClinicalRecordService`             | Pola entri berversi (ADR-0028): `prepare(tabel, { patientId, encounterId, occurredAt, revision })` → kolom versi + penulis dari sesi; `insert(fn)` memetakan galat trigger/unik ke `CLINICAL_ERRORS`; `enteredInError()`; `meta()` (penulis, terlambat, terkunci) |
+| `lockForSigning(tabel, id, fn)`     | Kunci advisory versi (sama dengan koreksi), pastikan versi final terkini, lalu jalankan `fn`                                                                                                                                                                      |
+| `ClinicalSigningService`            | `issueSigned(tabel, idVersi, isi)`: PDF + TTE lewat `ClinicalPdfService` (ADR-0029) di bawah kunci versi; `source` = versi itu (mengunci `RECORD_LOCKED`)                                                                                                         |
+| `SatusehatRecorder`                 | Staging `satusehat.<resource>.upsert` berstatus `held`, payload `{ sourceId, revision }` (ADR-0032)                                                                                                                                                               |
+| `BillableRecorder`                  | `billable_events` tanpa harga, unik per sumber × jenis (ADR-0032)                                                                                                                                                                                                 |
+| `CareTeamService`                   | `encounter_participants` ↔ `access_relationships` (relasi ABAC); akhir keanggotaan = relasi sampai akhir hari berikutnya                                                                                                                                          |
+| `GET /clinical/streams/ed-board`    | SSE papan IGD (`clinical.read`), event `ed.status`; kanal `ed_board`                                                                                                                                                                                              |
+| `GET /clinical/streams/bed-board`   | SSE papan bed (`bed.read`), event `bed.status`; kanal `bed_board`                                                                                                                                                                                                 |
+| `GET /clinical/streams/ews`         | SSE eskalasi EWS (`clinical.read`), event `ews.escalation` bila skor ≥ `ews.escalation_score` atau satu parameter 3; kanal `clinical_vitals`                                                                                                                      |
+| `/api/v1/drafts/:encounterId/:kind` | Draf penulis (PUT/GET/DELETE), izin `clinical.write` + ABAC; job worker `clinical.drafts-cleanup`                                                                                                                                                                 |
+
+Aliran SSE disaring per lingkup izin: `all` → semua; `unit` → unit penugasan (unit bed/kunjungan pasien); di luar
+itu → kunjungan aktif pasien yang berelasi. Lingkup `unit` ABAC kini membaca `app_patient_location` (tingkat bed,
+ADR-0031 pembaruan). Akses ke pasien `confidential` menjadi temuan audit `confidential`.
+
+Contoh modul klinis menulis entri:
+
+```ts
+const f = await this.records.prepare('conditions', { patientId, encounterId, occurredAt, revision });
+await this.records.insert(() =>
+  this.db.tx().condition.create({ data: { ...f, kind, role, code, display, clinicalStatus } }),
+);
+await this.satusehat.record('Condition', f.id, f.version);
+```
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin

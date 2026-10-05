@@ -1,6 +1,6 @@
 # ADR-0031 · ABAC lingkup `unit`: kunjungan aktif di unit penugasan
 
-Status: diterima · 5 Okt 2026 (bagian fase 2 potongan 7; tingkat kamar/bed menyusul fase 3) · Komponen: P03, F03, P05
+Status: diterima · 5 Okt 2026 (bagian fase 2 potongan 7) · diperbarui 6 Okt 2026 (fase 3: tingkat bed, tim perawatan, pasien rahasia) · Komponen: P03, F03, P05
 
 ## Konteks
 
@@ -23,3 +23,28 @@ Kebutuhan nyatanya: perawat IGD harus bisa membuka pasien IGD (termasuk "Tn. X" 
 - Pencarian MPI berlingkup unit hanya menemukan pasien yang sedang ada di unitnya.
 - Belum ada lokasi kamar/bed: seluruh bangsal = satu unit. Fase 3 (bed, transfer, `app_patient_location`) mempersempit/menggeser akses saat pasien dipindah dan menambah tes "transfer memindah akses".
 - Biaya query: satu `EXISTS` tambahan per pasien pada indeks `(tenant_id, patient_id)` dan `(tenant_id, unit_id, status)` yang sudah ada.
+
+## Pembaruan 6 Okt 2026 · fase 3: tingkat bed, tim perawatan, pasien rahasia
+
+Potongan 3.1 menyelesaikan bagian yang dipesan fase 3:
+
+1. **Lingkup `unit` = lokasi kini pasien.**
+   - `PatientAccessService.basis()` dan `patientAccessSql()` membaca `app_patient_location(pasien)`. Fungsi ini
+     mengembalikan kunjungan aktif kelompok rekam medis, beserta unit bed yang sedang ditempati (`bed_assignments`
+     terbuka), atau unit kunjungan bila belum ada bed.
+   - Transfer bed ke unit lain memindah akses: perawat unit asal mendapat 403 (diaudit `access_denied`), perawat unit
+     tujuan mendapat akses. Dibuktikan tes API `clinical-infra.test.ts`.
+2. **Relasi dari tim perawatan.**
+   - `CareTeamService.add()` menulis `encounter_participants` dan `access_relationships` di transaksi yang sama.
+     Relasi bersumber `encounter_participant` + id, dengan pemetaan jenis: DPJP utama → `dpjp`, rawat bersama,
+     konsultan, perawat penanggung jawab → `perawat_penanggung_jawab`.
+   - `end()` menutup keanggotaan sekali, dan relasinya berlaku sampai akhir hari berikutnya (WIB) untuk dokumentasi
+     susulan, sesuai butir 3.
+3. **Pasien rahasia (EP 10c).**
+   - Setiap baca/cari/cetak/ekspor rekam medis pasien `confidential` (termasuk rekam medis lain milik orang yang sama)
+     menjadi temuan audit jenis `confidential`, tanpa ambang dan berkeparahan tinggi. Temuan ini tampil di layar Audit
+     dan ikut ringkasan harian (versi ringkasan 2).
+   - Pengetatan akses tetap di B09 fase 8 (keputusan fase 3 no. 21).
+4. **Matriks bawaan.** Klinisi kini memegang izin `clinical.*` berlingkup `unit` (rencana §3.0a).
+   - `patient.read` dan `encounter.read` bawaan tetap `relationship`; RS bisa mengubahnya di layar Akses.
+   - Petugas pendaftaran mendapat `clinical.read` lingkup unit untuk papan IGD.

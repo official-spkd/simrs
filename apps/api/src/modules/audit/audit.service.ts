@@ -45,7 +45,7 @@ type Severity = 'tinggi' | 'sedang';
 
 export interface AnomalyFinding {
   key: string;
-  kind: 'break_glass' | 'login_failed' | 'access_denied' | 'night' | 'volume';
+  kind: 'break_glass' | AuditAnomalyKind;
   severity: Severity;
   title: string;
   description: string;
@@ -288,6 +288,11 @@ export class AuditService {
         volume: {
           title: `${b.n} pasien dibuka dalam sehari`,
           description: `${who} membuka data ${b.n} pasien berbeda, ${when} (batas ${volumeThreshold}).`,
+          severity: 'tinggi',
+        },
+        confidential: {
+          title: 'Akses rekam medis pasien rahasia',
+          description: `${who} membuka rekam medis ${b.n} pasien rahasia, ${when}. Pastikan ada dasar pelayanan.`,
           severity: 'tinggi',
         },
       };

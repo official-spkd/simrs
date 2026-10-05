@@ -35,6 +35,24 @@ import { ReferralModule } from './modules/referral/referral.module';
 import { RegistrationModule } from './modules/registration/registration.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SepModule } from './modules/sep/sep.module';
+import { ClinicalInfraModule } from './infra/clinical/clinical-infra.module';
+import { DraftsModule } from './modules/drafts/drafts.module';
+import { WorklistModule } from './modules/worklist/worklist.module';
+import { EncounterModule } from './modules/encounter/encounter.module';
+import { TriageModule } from './modules/triage/triage.module';
+import { AdtModule } from './modules/adt/adt.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
+import { CpptModule } from './modules/cppt/cppt.module';
+import { DiagnosisModule } from './modules/diagnosis/diagnosis.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { CdsModule } from './modules/cds/cds.module';
+import { ConsultModule } from './modules/consult/consult.module';
+import { ConsentModule } from './modules/consent/consent.module';
+import { NursingModule } from './modules/nursing/nursing.module';
+import { DischargeModule } from './modules/discharge/discharge.module';
+import { SummaryModule } from './modules/summary/summary.module';
+import { CarePackagesModule } from './modules/care-packages/care-packages.module';
+import { ResultsModule } from './modules/results/results.module';
 
 /**
  * Akar aplikasi. Env diteruskan eksplisit (bukan dibaca saat impor) agar tes dan runtime memakai
@@ -102,6 +120,26 @@ export class AppModule {
         SepModule,
         ReferralModule,
         PatientPortalGatewayModule,
+        // Fase 3 · infrastruktur klinis (potongan 3.1): pola entri berversi, staging, ABAC tim, SSE klinis, draf.
+        ClinicalInfraModule,
+        DraftsModule,
+        // Fase 3 · modul klinis K01–K15 (kerangka dulu; isi per potongan 3.2–3.8, tanpa mengubah daftar ini lagi).
+        WorklistModule,
+        EncounterModule,
+        TriageModule,
+        AdtModule,
+        AssessmentModule,
+        CpptModule,
+        DiagnosisModule,
+        OrdersModule,
+        CdsModule,
+        ConsultModule,
+        ConsentModule,
+        NursingModule,
+        DischargeModule,
+        SummaryModule,
+        CarePackagesModule,
+        ResultsModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],

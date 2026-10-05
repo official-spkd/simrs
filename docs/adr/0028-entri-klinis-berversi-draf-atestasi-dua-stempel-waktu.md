@@ -69,3 +69,26 @@ dengan celah berbeda.
   ditegakkan API (potongan 3.2a) di bawah kunci per kunjungan.
 - View `_current` memakai `NOT EXISTS` pada indeks `(tenant_id, supersedes_id)`. Daftar per kunjungan memakai indeks
   `(tenant_id, encounter_id)`.
+
+## Pembaruan 6 Okt 2026 · implementasi API (potongan 3.1)
+
+- **`ClinicalRecordService`** (`apps/api/src/infra/clinical/`, global) menjadi satu-satunya jalur pola berversi di API:
+  - `prepare(tabel, { patientId, encounterId, occurredAt, revision })` membentuk kolom versi. Penulis diambil dari
+    sesi; tanpa pengguna atau peran → 403. Kejadian di masa depan → 422.
+  - Koreksi hanya oleh penulis asli (`RECORD_NOT_AUTHOR` 403). Versi yang sudah tergantikan → `RECORD_SUPERSEDED`
+    409. Versi ber-TTE → `RECORD_LOCKED` 409.
+  - Addendum hanya atas versi final terkini (`RECORD_NOT_FINAL` 409).
+  - `enteredInError()` menyalin isi versi itu apa adanya, generik untuk semua tabel berversi.
+  - `insert()` memetakan galat trigger/unik ke `CLINICAL_ERRORS`, dibantu `raisedDbCode`/`uniqueViolationTarget` di
+    `@simrs/db`.
+  - `meta()` membentuk jawaban `{ penulis bernama, lateEntry, locked }`.
+- **Kunci advisory per versi** (`pg_advisory_xact_lock`, kunci `clinical:<tabel>:<id versi>`) dipakai koreksi, salah
+  entri, dan `lockForSigning()`. Celah antara pemeriksaan kunci TTE dan permintaan TTE yang bersamaan (Konsekuensi
+  butir 3) tertutup. Koreksi serentak menghasilkan [201, 409] (tes API).
+- **TTE** lewat `ClinicalSigningService.issueSigned(tabel, idVersi, isi)`. Layanan ini menjalankan
+  `ClinicalPdfService.issue` (ADR-0029: PDF deterministik → `documents` dengan `source_type`/`source_id` = versi itu →
+  `document_signatures` pending → outbox `tte.sign`) di dalam `lockForSigning`. Modul klinis tidak memanggil
+  `ClinicalPdfService` langsung untuk dokumen bertanda tangan.
+- **Draf** lewat `PUT/GET/DELETE /api/v1/drafts/:encounterId/:kind`. Izin `clinical.write` + ABAC pasien; baris
+  selalu milik pengguna sesi; isi draf tidak masuk audit. Job worker `clinical.drafts-cleanup` (tiap jam) menghapus
+  draf kunjungan yang selesai/batal lebih dari 48 jam.

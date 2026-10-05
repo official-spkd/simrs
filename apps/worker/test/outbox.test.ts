@@ -128,6 +128,22 @@ describe('dispatcher', () => {
     }
   });
 
+  it('pesan staging `held` (ADR-0032) tidak diklaim dan tidak dikirim', async () => {
+    const held = await withTenant(db, A, (tx) =>
+      enqueueOutbox(
+        tx,
+        A,
+        { target: 'satusehat', operation: 'ping', idempotencyKey: `held-${newId()}`, payload: { n: 1 } },
+        { held: true },
+      ),
+    );
+    await dispatcher.dispatchOnce({ tenantIds: [A, B], now: new Date(Date.now() + 86_400_000) });
+    const s = await status(A, held.id);
+    expect(s.status).toBe('held');
+    expect(s.attempts).toBe(0);
+    expect(received.find((r) => r.key === held.idempotencyKey)).toBeUndefined();
+  });
+
   it('galat permanen (400) langsung DLQ tanpa retry', async () => {
     stubStatus = 400;
     const msg = await enqueue(A);

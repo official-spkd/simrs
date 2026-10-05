@@ -62,6 +62,8 @@ const MANUAL_INDEXES = [
   'medication_administrations_one_given',
   'bed_assignments_no_double_occupancy',
   'bed_assignments_one_bed_per_encounter',
+  // Fase 3 · 3.1: pasien rahasia (temuan audit EP 10c).
+  'patients_confidential',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
