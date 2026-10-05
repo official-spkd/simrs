@@ -47,7 +47,8 @@ Potongan 3.0a sudah menyediakan mesin murni `evaluateCdsItem` di `@simrs/shared`
 
 ## Pembaruan 6 Okt 2026 · tinjauan DPJP dan utang
 
-- Order residen ditinjau DPJP lewat `POST /orders/:id/review` (izin `clinical.sign`, diperiksa ulang di matriks):
+- **TTE resep = tanda tangan penulis resep** (keputusan orkestrator, pilihan a). Syaratnya peran memegang `clinical.sign` dan penulis sudah lolos ABAC akses pasien lewat `order.write`. Relasi DPJP tidak diwajibkan, karena dokter jaga yang menulis resep menandatangani resepnya sendiri.
+- **Order residen ditinjau lewat `POST /orders/:id/review`.** Peninjau wajib memegang `clinical.sign` (izin endpoint, diperiksa ulang di matriks), dan wajib DPJP utama atau rawat bersama aktif di tim perawatan, atau DPJP kunjungan. Aturannya sama dengan co-sign CPPT 3.2b, karena ini atestasi atas pekerjaan orang lain; selain itu `COSIGN_NOT_ALLOWED`. Tinjauan:
   - menulis atestasi `review_order` (`clinical_attestations`, append-only);
   - menerbitkan resep ber-TTE peninjau bila kiriman memuat obat aktif.
 - `order_groups` tidak diubah. "Sudah ditinjau" dibaca dari atestasinya: `needsReview` = perlu tinjauan dan belum ada atestasi.
