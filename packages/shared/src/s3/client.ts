@@ -49,7 +49,8 @@ export class S3Error extends Error {
 const MAX_ERROR_BODY = 16 * 1024;
 
 const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
-const decodeXml = (s: string) => s.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => XML_ENTITIES[e] ?? '');
+const decodeXml = (s: string) =>
+  s.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => XML_ENTITIES[e] ?? '');
 
 /** Baca isi respons sampai `limit` byte; lebih dari itu → stream dihentikan dan `null`. */
 async function readLimited(body: Readable, limit: number): Promise<Buffer | null> {
