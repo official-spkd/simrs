@@ -118,14 +118,19 @@ describe('envSchemas.base.APP_ENV', () => {
 });
 
 describe('envSchemas.rateLimit', () => {
-  it('bawaan: 600/IP, 10 kredensial/IP, 300/pengguna, 60 publik F08 per menit; penyimpanan auto; awalan Redis opsional', () => {
+  it('bawaan: 600/IP, 10 kredensial/IP, 300/pengguna, 60 publik F08 per menit, 10 salah per kode booking per hari; penyimpanan auto; awalan Redis opsional', () => {
     expect(parseEnv(envSchemas.rateLimit, {})).toEqual({
       RATE_LIMIT_PER_MIN: 600,
       AUTH_RATE_LIMIT_PER_MIN: 10,
       USER_RATE_LIMIT_PER_MIN: 300,
       PUBLIC_RATE_LIMIT_PER_MIN: 60,
+      BOOKING_STATUS_MAX_FAILURES: 10,
+      BOOKING_STATUS_FAILURE_WINDOW_MINUTES: 1440,
       RATE_LIMIT_STORE: 'auto',
     });
+    expect(() => parseEnv(envSchemas.rateLimit, { BOOKING_STATUS_MAX_FAILURES: '0' })).toThrow(
+      /BOOKING_STATUS_MAX_FAILURES/,
+    );
     expect(parseEnv(envSchemas.rateLimit, { USER_RATE_LIMIT_PER_MIN: '50' }).USER_RATE_LIMIT_PER_MIN).toBe(
       50,
     );

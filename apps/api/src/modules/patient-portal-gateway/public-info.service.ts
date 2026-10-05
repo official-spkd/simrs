@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   hhmmFromDbTime,
   isModuleEnabled,
@@ -20,14 +20,26 @@ import {
   publicQueueSchema,
   publicScheduleSchema,
 } from '@simrs/shared';
+import { API_ENV, type ApiEnv } from '../../config/env';
 import { type AuditMeta, writeAudit } from '../../infra/audit-writer';
 import { PrismaService } from '../../infra/prisma.service';
+import { RateLimitStorage } from '../../infra/rate-limit.storage';
 import { PublicInfoRepository as repo } from './public-info.repository';
 
 const TENANT_CODE = /^[A-Z0-9][A-Z0-9-]{1,29}$/;
 const DAY_MS = 86_400_000;
 /** Pembanding tanggal lahir saat booking tidak ada, agar jalur gagal tetap melakukan perbandingan yang sama. */
 const DUMMY_BIRTH_DATE = '0000-00-00';
+/** Nama penghitung tanggal lahir salah per kode booking (`RateLimitStorage.failures`). */
+const BOOKING_FAILURES = 'public-booking-status';
+
+/** Kunci penghitung: hash kode RS + kode booking (nilai mentah tidak disimpan di Redis). */
+const bookingSubject = (tenantCode: string, bookingCode: string) =>
+  createHash('sha256').update(`${tenantCode.toUpperCase()}\u0000${bookingCode}`).digest('hex');
+
+type BookingLookup =
+  | { found: true; status: PublicBookingStatus }
+  | { found: false; reason: 'not_found' | 'birth_date_mismatch' | 'too_many_failures' };
 
 export interface PublicRequestMeta {
   ip: string | null;
@@ -51,7 +63,11 @@ const sameText = (a: string, b: string): boolean => {
  */
 @Injectable()
 export class PublicInfoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly limits: RateLimitStorage,
+    @Inject(API_ENV) private readonly env: ApiEnv,
+  ) {}
 
   private async tenant<T>(
     tenantCode: string,
@@ -134,19 +150,35 @@ export class PublicInfoService {
   }
 
   /**
-   * Status booking dari kode + tanggal lahir (keduanya di body). Tidak ada, tanggal lahir tidak cocok, atau RS tanpa
-   * modul → 404 `BOOKING_NOT_FOUND` yang sama (anti-enumerasi). Setiap percobaan diaudit tanpa PHI (kode booking dan
-   * tanggal lahir tidak dicatat): berhasil = `read appointment` dengan id pasien; gagal = `denied` + alasan internal.
+   * Status booking dari kode + tanggal lahir (keduanya di body). Tidak ada, tanggal lahir tidak cocok, kode yang
+   * terkunci, atau RS tanpa modul → 404 `BOOKING_NOT_FOUND` yang sama (anti-enumerasi). Setiap percobaan diaudit tanpa
+   * PHI (kode booking dan tanggal lahir tidak dicatat): berhasil = `read appointment` dengan id pasien; gagal = `denied`
+   * + alasan internal.
+   *
+   * Batas per kode booking (review keamanan fase 2): tanggal lahir salah dihitung per kode RS + kode booking, apa pun
+   * IP-nya. Setelah `BOOKING_STATUS_MAX_FAILURES` dalam jendela, kode itu dijawab 404 seragam (juga untuk tanggal lahir
+   * yang benar) dengan alasan audit `too_many_failures`, sehingga tebakan tanggal lahir dari banyak IP tidak bisa
+   * dijumlahkan. Pencarian dan perbandingan tetap dijalankan agar waktu jawab tidak berbeda.
    */
   async bookingStatus(
     tenantCode: string,
     input: PublicBookingStatusQuery,
     m: PublicRequestMeta,
   ): Promise<PublicBookingStatus> {
-    const result = await this.tenant(tenantCode, async (tx, tenantId) => {
+    const subject = bookingSubject(tenantCode, input.bookingCode);
+    const locked =
+      (await this.limits.failures(BOOKING_FAILURES, subject)) >= this.env.BOOKING_STATUS_MAX_FAILURES;
+    const result = await this.tenant(tenantCode, async (tx, tenantId): Promise<BookingLookup> => {
       const appt = await repo.bookingByCode(tx, input.bookingCode);
       const stored = appt?.patient.birthDate ? isoFromDbDate(appt.patient.birthDate) : DUMMY_BIRTH_DATE;
-      const match = sameText(stored, input.birthDate) && !!appt;
+      const birthMatch = sameText(stored, input.birthDate) && !!appt;
+      const reason = !appt
+        ? 'not_found'
+        : locked
+          ? 'too_many_failures'
+          : birthMatch
+            ? null
+            : 'birth_date_mismatch';
       const meta: AuditMeta = {
         actorUserId: null,
         actorRole: null,
@@ -159,15 +191,12 @@ export class PublicInfoService {
           action: 'read',
           resourceType: 'appointment',
           resourceId: appt?.id ?? null,
-          patientId: match ? (appt?.patientId ?? null) : null,
-          outcome: match ? 'success' : 'denied',
-          details: {
-            channel: 'public_gateway',
-            ...(match ? {} : { reason: appt ? 'birth_date_mismatch' : 'not_found' }),
-          },
+          patientId: reason === null ? (appt?.patientId ?? null) : null,
+          outcome: reason === null ? 'success' : 'denied',
+          details: { channel: 'public_gateway', ...(reason === null ? {} : { reason }) },
         },
       ]);
-      if (!appt || !match) return null;
+      if (!appt || reason !== null) return { found: false, reason: reason ?? 'not_found' };
 
       const serviceDate = isoFromDbDate(appt.appointmentDate);
       let currentQueueNo: string | null = null;
@@ -175,20 +204,31 @@ export class PublicInfoService {
         const [call] = await repo.latestCalls(tx, [appt.serviceId], serviceDate);
         currentQueueNo = call?.ticket.ticketNo ?? null;
       }
-      return publicBookingStatusSchema.parse({
-        bookingCode: appt.bookingCode,
-        status: appt.status,
-        serviceDate,
-        start: hhmmFromDbTime(appt.session.startTime),
-        poliName: appt.service.name,
-        practitionerName: appt.practitioner.name,
-        queueNo: appt.tickets[0]?.ticketNo ?? null,
-        currentQueueNo,
-        estimatedAt: appt.estimatedAt?.toISOString() ?? null,
-      });
+      return {
+        found: true,
+        status: publicBookingStatusSchema.parse({
+          bookingCode: appt.bookingCode,
+          status: appt.status,
+          serviceDate,
+          start: hhmmFromDbTime(appt.session.startTime),
+          poliName: appt.service.name,
+          practitionerName: appt.practitioner.name,
+          queueNo: appt.tickets[0]?.ticketNo ?? null,
+          currentQueueNo,
+          estimatedAt: appt.estimatedAt?.toISOString() ?? null,
+        }),
+      };
     });
+    if (result.found) return result.status;
+    // Hanya tanggal lahir salah untuk booking yang ada yang dihitung (kode tak dikenal tidak membuka apa pun).
+    if (result.reason === 'birth_date_mismatch') {
+      await this.limits.addFailure(
+        BOOKING_FAILURES,
+        subject,
+        this.env.BOOKING_STATUS_FAILURE_WINDOW_MINUTES * 60_000,
+      );
+    }
     // Di luar transaksi: audit percobaan gagal sudah di-commit sebelum 404 dilempar.
-    if (!result) throw frontOfficeError('BOOKING_NOT_FOUND');
-    return result;
+    throw frontOfficeError('BOOKING_NOT_FOUND');
   }
 }

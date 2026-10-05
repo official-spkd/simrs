@@ -294,6 +294,48 @@ describe('status booking publik', () => {
     ]);
   });
 
+  it('batas per kode booking: setelah N tanggal lahir salah (dari IP mana pun) kode itu 404 seragam, juga untuk yang benar; diaudit', async () => {
+    const limited = await createTestApp({ BOOKING_STATUS_MAX_FAILURES: '3' });
+    const f = await seedTenant();
+    try {
+      const post = (body: object, requestId = newId(), ip = '203.0.113.1') =>
+        request(limited.getHttpServer())
+          .post(`/api/v1/public/${f.code}/bookings/status`)
+          .set('X-Request-Id', requestId)
+          .set('X-Forwarded-For', ip)
+          .send(body);
+      // Kode tak dikenal tidak dihitung (tidak ada yang dilindungi).
+      for (let i = 0; i < 4; i++) await post({ bookingCode: '9999999998', birthDate: BIRTH }).expect(404);
+      await post({ bookingCode: f.bookingCode, birthDate: BIRTH }).expect(200);
+      // Tiga tebakan salah dari tiga "IP" berbeda.
+      const bodies: unknown[] = [];
+      for (const [i, birthDate] of ['1972-03-15', '1972-03-16', '1972-03-17'].entries()) {
+        const res = await post({ bookingCode: f.bookingCode, birthDate }, newId(), `203.0.113.${10 + i}`);
+        expect(res.status).toBe(404);
+        const { requestId: _r, ...rest } = res.body as { requestId: string };
+        bodies.push(rest);
+      }
+      const requestId = newId();
+      const locked = await post({ bookingCode: f.bookingCode, birthDate: BIRTH }, requestId).expect(404);
+      const { requestId: _r, ...rest } = locked.body as { requestId: string };
+      expect([...bodies, rest]).toEqual(
+        Array(4).fill({ code: 'BOOKING_NOT_FOUND', message: 'Booking tidak ditemukan' }),
+      );
+      const rows = await auditRows(f, requestId);
+      expect(rows.map((r) => [r.outcome, r.resourceId, r.patientId, r.details])).toEqual([
+        ['denied', f.appointmentId, null, { channel: 'public_gateway', reason: 'too_many_failures' }],
+      ]);
+      expect(jsonText(rows)).not.toContain(f.bookingCode);
+      // Booking lain tidak ikut terkunci.
+      const other = await request(limited.getHttpServer())
+        .post(`/api/v1/public/${x.code}/bookings/status`)
+        .send({ bookingCode: x.bookingCode, birthDate: BIRTH });
+      expect(other.status).toBe(200);
+    } finally {
+      await limited.close();
+    }
+  });
+
   it('data hanya di body: GET dan field tambahan ditolak; format salah → 400', async () => {
     await http().get(`/api/v1/public/${x.code}/bookings/status?bookingCode=${x.bookingCode}`).expect(404);
     await ask(x, { bookingCode: x.bookingCode, birthDate: BIRTH, nik: '3174000000000001' }).expect(400);
