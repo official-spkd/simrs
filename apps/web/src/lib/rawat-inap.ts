@@ -17,11 +17,18 @@ import {
   formatTanggal,
   type EdTrackingItem,
   type EdZone,
+  emarActionable,
+  ewsMaxParam,
+  ewsParamScores,
+  ewsRisk,
+  ewsScore,
   OCCUPIED_BED_STATUSES,
+  RESUME_CHECK_LABEL,
+  resumeCompleteness,
+  type ResumeCompleteness,
   SAFETY_REASON_MIN,
-  RESUME_CHECK_IDS,
-  type ResumeCheckId,
   type ResumeSection,
+  triageNeedsReason,
   type TriageLevel,
   type Ward,
   type WardClass,
@@ -100,10 +107,8 @@ export function isTriageLevel(n: number): n is TriageLevel {
   return Number.isInteger(n) && n >= 1 && n <= 5;
 }
 
-/** Memilih level lebih rendah (angka lebih besar) dari saran sistem = override yang wajib beralasan. */
-export function triageNeedsReason(suggested: TriageLevel, chosen: TriageLevel): boolean {
-  return chosen > suggested;
-}
+/** Memilih level lebih rendah (angka lebih besar) dari saran sistem = override yang wajib beralasan (`@simrs/shared`). */
+export { triageNeedsReason };
 
 /** Simpan triase boleh bila tidak turun dari saran, atau turun dengan alasan ≥ 10 karakter. */
 export function triageSaveAllowed(suggested: TriageLevel, chosen: TriageLevel, reason: string): boolean {
@@ -575,59 +580,8 @@ export function correctCpptEntry(
 
 type EwsInput = Omit<EwsObservation, 'at' | 'score' | 'dbp'>;
 
-/** Skor per parameter EWS dewasa (pola NEWS2): napas, SpO2, oksigen, TD sistolik, nadi, kesadaran, suhu. */
-export function ewsParamScores(o: EwsInput): number[] {
-  const band = (v: number, rules: Array<[number, number]>) => rules.find(([max]) => v <= max)?.[1] ?? 0;
-  return [
-    band(o.rr, [
-      [8, 3],
-      [11, 1],
-      [20, 0],
-      [24, 2],
-      [Infinity, 3],
-    ]),
-    band(o.spo2, [
-      [91, 3],
-      [93, 2],
-      [95, 1],
-      [Infinity, 0],
-    ]),
-    o.onOxygen ? 2 : 0,
-    band(o.sbp, [
-      [90, 3],
-      [100, 2],
-      [110, 1],
-      [219, 0],
-      [Infinity, 3],
-    ]),
-    band(o.hr, [
-      [40, 3],
-      [50, 1],
-      [90, 0],
-      [110, 1],
-      [130, 2],
-      [Infinity, 3],
-    ]),
-    o.consciousness === 'A' ? 0 : 3,
-    band(o.temp, [
-      [35, 3],
-      [36, 1],
-      [38, 0],
-      [39, 1],
-      [Infinity, 2],
-    ]),
-  ];
-}
-
-/** Skor EWS dewasa = jumlah skor parameter. */
-export function ewsScore(o: EwsInput): number {
-  return ewsParamScores(o).reduce((a, b) => a + b, 0);
-}
-
-/** Skor parameter tunggal tertinggi (NEWS2: satu parameter bernilai 3 memicu respons urgen). */
-export function ewsMaxParam(o: EwsInput): number {
-  return Math.max(...ewsParamScores(o));
-}
+/** Skor NEWS2 per parameter, total, dan parameter tertinggi: mesin aturan bersama `@simrs/shared` (§3.0a). */
+export { ewsMaxParam, ewsParamScores, ewsScore };
 
 export interface EwsLevel {
   level: 'rendah' | 'sedang' | 'tinggi';
@@ -641,26 +595,15 @@ export interface EwsLevel {
  * ke minimal sedang: observasi tiap 1 jam dan lapor DPJP.
  */
 export function ewsLevel(score: number, maxParam = 0): EwsLevel {
-  if (score >= 7)
-    return {
-      level: 'tinggi',
-      action: 'Pantau kontinu, aktifkan tim reaksi cepat.',
-      tone: 'bg-danger-bg text-danger',
-    };
-  if (score >= 5)
-    return {
-      level: 'sedang',
-      action: 'Observasi tiap 1 jam, lapor DPJP.',
-      tone: 'bg-warning-bg text-warning',
-    };
-  if (maxParam >= 3)
-    return {
-      level: 'sedang',
-      action: 'Satu parameter bernilai 3: observasi tiap 1 jam, lapor DPJP.',
-      tone: 'bg-warning-bg text-warning',
-    };
-  return { level: 'rendah', action: 'Lanjutkan observasi tiap 4 jam.', tone: 'bg-success-bg text-success' };
+  const risk = ewsRisk(score, maxParam);
+  return { ...risk, tone: EWS_TONE[risk.level] };
 }
+
+const EWS_TONE: Record<EwsLevel['level'], string> = {
+  tinggi: 'bg-danger-bg text-danger',
+  sedang: 'bg-warning-bg text-warning',
+  rendah: 'bg-success-bg text-success',
+};
 
 /** Tingkat EWS satu observasi: skor total + aturan parameter tunggal NEWS2 (dihitung dari parameternya). */
 export function observationEwsLevel(o: EwsInput & Pick<EwsObservation, 'score'>): EwsLevel {
@@ -675,6 +618,7 @@ export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string
   },
   terlambat: { label: 'Terlambat', cls: 'border-danger-border bg-[#FEF3F2] text-danger' },
   ditunda: { label: 'Ditunda', cls: 'border-warning-border bg-warning-bg text-warning' },
+  ditolak: { label: 'Ditolak pasien', cls: 'border-warning-border bg-warning-bg text-warning' },
   rencana: { label: 'Rencana', cls: 'border-line-soft bg-subtle text-ink-500' },
   kosong: { label: 'Tidak dijadwalkan', cls: 'border-line-strong bg-white text-transparent' },
 };
@@ -687,10 +631,8 @@ export function formatTglJam(iso: string): string {
   return `${tgl} · ${formatJam(iso)}`;
 }
 
-/** Slot yang bisa dicatat pemberiannya (setelah gelang cocok). */
-export function emarActionable(state: EmarSlotState): boolean {
-  return state === 'jadwal' || state === 'terlambat';
-}
+/** Slot yang bisa dicatat pemberiannya (setelah gelang cocok; `@simrs/shared`). */
+export { emarActionable };
 
 /** Posisi yang mencatat pemberian obat di eMAR (perawat, bidan, dokter). */
 export const EMAR_ROLES: readonly string[] = ['perawat', 'bidan', 'dokter', 'dokter_residen'];
@@ -878,20 +820,8 @@ export function emarGivenLabel(at: string, f: { late: boolean; doubleCheckedBy: 
 // Resume medis: 12 butir kelengkapan; TTE hanya bila lengkap, lalu terkunci (perubahan lewat addendum)
 // ---------------------------------------------------------------------------------------------------------
 
-export const RESUME_CHECK_LABEL: Record<ResumeCheckId, string> = {
-  ident: 'Identitas pasien dan data kunjungan',
-  anamnesis: 'Alasan masuk dan anamnesis',
-  fisik: 'Pemeriksaan fisik masuk dan pulang',
-  penunjang: 'Hasil penunjang penting',
-  diagnosis: 'Diagnosis utama dan sekunder berkode',
-  prosedur: 'Prosedur berkode ICD-9-CM',
-  terapi: 'Ringkasan terapi dari eMAR',
-  rekonsiliasi: 'Rekonsiliasi obat pulang dikonfirmasi DPJP',
-  edukasi: 'Edukasi pasien terdokumentasi',
-  instruksi: 'Instruksi pulang dan tanda bahaya',
-  kontrol: 'Jadwal kontrol dan surat kontrol',
-  kondisi: 'Kondisi dan cara pulang',
-};
+/** Label 12 butir kelengkapan resume (`@simrs/shared`). */
+export { RESUME_CHECK_LABEL };
 
 export const RESUME_SOURCE_LABEL: Record<ResumeSection['source'], string> = {
   'asesmen-igd': 'dari asesmen awal IGD',
@@ -905,28 +835,8 @@ export const RESUME_SOURCE_LABEL: Record<ResumeSection['source'], string> = {
   'surat-kontrol': 'surat kontrol otomatis',
 };
 
-export interface ResumeCompleteness {
-  done: number;
-  total: number;
-  missing: string[];
-  complete: boolean;
-}
-
-/** Kelengkapan resume: 12 butir wajib, urutan tetap; TTE hanya bila semua terpenuhi. */
-export function resumeCompleteness(
-  checklist: ReadonlyArray<{ id: ResumeCheckId; done: boolean }>,
-): ResumeCompleteness {
-  const byId = new Map(checklist.map((c) => [c.id, c.done]));
-  const missing = RESUME_CHECK_IDS.filter((id) => !byId.get(id)).map((id) =>
-    RESUME_CHECK_LABEL[id].toLowerCase(),
-  );
-  return {
-    done: RESUME_CHECK_IDS.length - missing.length,
-    total: RESUME_CHECK_IDS.length,
-    missing,
-    complete: missing.length === 0,
-  };
-}
+/** Kelengkapan resume: 12 butir wajib, urutan tetap; TTE hanya bila semua terpenuhi (`@simrs/shared`). */
+export { type ResumeCompleteness, resumeCompleteness };
 
 /** Alasan tombol TTE nonaktif, atau null bila boleh ditandatangani. */
 export function resumeSignBlocker(c: ResumeCompleteness, canSign: boolean, signed: boolean): string | null {

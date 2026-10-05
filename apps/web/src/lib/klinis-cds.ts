@@ -1,15 +1,23 @@
 import {
+  CDS_RULE_LABEL,
   CPOE_OVERRIDE_MIN_REASON,
   type CpoeCatalogItem,
   type CpoeCdsFinding,
-  type CpoeCdsLevel,
+  evaluateCdsItem,
+  normalizeAllergen,
+  SAMPLE_CDS_RULES,
+  SAMPLE_SUBSTANCE_CLASSES,
+  topCdsFinding,
 } from '@simrs/shared';
 
 /**
- * K09 · Clinical decision support CPOE (aturan murni, dipakai server dan klien). Gerbang keselamatan CLAUDE.md §4.9:
- * temuan `block` menahan pengiriman sampai item diganti/dihapus atau di-override dengan alasan klinis tertulis.
- * Aturan contoh untuk mode presentasi; basis pengetahuan obat sungguhan menyusul (fase 3).
+ * K09 · Clinical decision support CPOE untuk pratinjau layar dan mode presentasi. Mesin aturan dan KB contoh ada di
+ * `@simrs/shared` (`evaluateCdsItem`, `SAMPLE_CDS_RULES`; rencana fase 3 §3.0a), sama dengan yang dipakai API sebagai
+ * sumber kebenaran. Gerbang keselamatan CLAUDE.md §4.9: temuan `block` menahan pengiriman sampai item diganti/dihapus
+ * atau di-override dengan alasan klinis tertulis.
  */
+
+export { normalizeAllergen };
 
 export interface CdsPatient {
   allergies: readonly string[];
@@ -23,150 +31,33 @@ export type CdsItem = Pick<
   'id' | 'name' | 'kind' | 'substance' | 'classes' | 'note' | 'coverage'
 >;
 
-/** Golongan zat yang tercatat sebagai alergi (dasar reaksi silang). */
-const ALLERGEN_CLASSES: Readonly<Record<string, readonly string[]>> = {
-  amoksisilin: ['penisilin'],
-  ampisilin: ['penisilin'],
-  ibuprofen: ['ains'],
-  'asam mefenamat': ['ains'],
-  kotrimoksazol: ['sulfonamid'],
-};
-
-const CROSS_REACTIVITY: ReadonlyArray<{ allergenClass: string; itemClass: string; level: CpoeCdsLevel }> = [
-  { allergenClass: 'penisilin', itemClass: 'sefalosporin-1', level: 'block' },
-  { allergenClass: 'penisilin', itemClass: 'sefalosporin-3', level: 'warn' },
-];
-
-/** Interaksi obat–obat berdasarkan zat aktif (urutan tidak penting). */
-export const INTERACTIONS: ReadonlyArray<{ a: string; b: string; level: CpoeCdsLevel; message: string }> = [
-  {
-    a: 'klopidogrel',
-    b: 'omeprazol',
-    level: 'block',
-    message:
-      'omeprazol menurunkan efek antiplatelet klopidogrel. Ganti PPI ke pantoprazol atau isi alasan klinis.',
-  },
-  {
-    a: 'glimepirid',
-    b: 'metformin',
-    level: 'warn',
-    message: 'kombinasi dengan metformin meningkatkan risiko hipoglikemia. Edukasi pasien.',
-  },
-];
-
-const HISTORY_RULES: ReadonlyArray<{
-  flag: string;
-  itemClass: string;
-  level: CpoeCdsLevel;
-  message: string;
-}> = [
-  {
-    flag: 'hipoglikemia-berat',
-    itemClass: 'sulfonilurea',
-    level: 'block',
-    message:
-      'Diblokir: sulfonilurea pada pasien dengan riwayat hipoglikemia berat (risiko hipoglikemia berulang). Hapus atau isi alasan klinis.',
-  },
-  {
-    flag: 'ckd',
-    itemClass: 'ains',
-    level: 'warn',
-    message: 'AINS pada penyakit ginjal kronik: risiko perburukan fungsi ginjal. Pertimbangkan parasetamol.',
-  },
-];
-
-/** "Kotrimoksazol (sulfa)" → "kotrimoksazol". */
-export function normalizeAllergen(allergy: string): string {
-  return allergy
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .trim();
-}
-
 /**
- * Evaluasi satu item terhadap pasien dan zat aktif lain (obat rutin + order lain di daftar). Urutan prioritas:
- * alergi → alergi silang → riwayat → interaksi → perubahan dosis → biaya di luar paket → aman.
+ * Evaluasi satu item terhadap pasien dan zat aktif lain (obat rutin + order lain di daftar) dengan KB contoh. Urutan
+ * prioritas: alergi → alergi silang → riwayat → interaksi → perubahan dosis → biaya di luar paket → aman.
  */
 export function evaluateCds(
   item: CdsItem,
   patient: CdsPatient,
   otherSubstances: readonly string[] = [],
 ): CpoeCdsFinding {
-  const findings: CpoeCdsFinding[] = [];
   const substance = item.substance?.toLowerCase() ?? null;
-  for (const raw of patient.allergies) {
-    const allergen = normalizeAllergen(raw);
-    if (substance && substance === allergen) {
-      findings.push({
-        level: 'block',
-        rule: 'alergi',
-        message: `Diblokir: pasien alergi ${raw.toLowerCase()}. Pilih alternatif atau isi alasan klinis.`,
-      });
-      continue;
-    }
-    const allergenClasses = ALLERGEN_CLASSES[allergen] ?? [];
-    if (substance && item.classes.some((c) => allergenClasses.includes(c))) {
-      findings.push({
-        level: 'block',
-        rule: 'alergi',
-        message: `Diblokir: ${item.name} satu golongan dengan alergi ${raw.toLowerCase()}. Pilih alternatif atau isi alasan klinis.`,
-      });
-    }
-    for (const x of CROSS_REACTIVITY) {
-      if (allergenClasses.includes(x.allergenClass) && item.classes.includes(x.itemClass)) {
-        findings.push({
-          level: x.level,
-          rule: 'alergi-silang',
-          message:
-            x.level === 'block'
-              ? `Diblokir: reaksi silang mungkin dengan alergi ${raw.toLowerCase()} (beta-laktam). Pilih alternatif atau isi alasan klinis.`
-              : `Reaksi silang dengan alergi ${raw.toLowerCase()} rendah. Pantau reaksi pada dosis pertama.`,
-        });
-      }
-    }
-  }
-  for (const r of HISTORY_RULES) {
-    if (patient.flags.includes(r.flag) && item.classes.includes(r.itemClass)) {
-      findings.push({ level: r.level, rule: 'riwayat', message: r.message });
-    }
-  }
-  if (substance) {
-    const others = new Set([...patient.activeMeds.map((m) => m.substance), ...otherSubstances]);
-    for (const x of INTERACTIONS) {
-      const partner = x.a === substance ? x.b : x.b === substance ? x.a : null;
-      if (partner && others.has(partner)) {
-        findings.push({
-          level: x.level,
-          rule: 'interaksi',
-          message: `${x.level === 'block' ? 'Diblokir: interaksi' : 'Interaksi'} dengan ${partner}: ${x.message}`,
-        });
-      }
-    }
-  }
-  const current = substance ? patient.activeMeds.find((m) => m.substance === substance) : undefined;
-  if (current && current.catalogId !== item.id) {
-    findings.push({
-      level: 'warn',
-      rule: 'dosis',
-      message: `Dosis berubah dari obat rutin ${current.name}. Pantau respons dan efek samping 2 minggu.`,
-    });
-  }
-  if (item.coverage === 'tidak-ditanggung' && patient.payer !== 'Umum') {
-    findings.push({
-      level: 'warn',
-      rule: 'biaya',
-      message: 'Di luar paket penjamin: biaya ditanggung pasien, perlu persetujuan pasien.',
-    });
-  }
-  const rank: Record<CpoeCdsLevel, number> = { block: 0, warn: 1, info: 2 };
-  findings.sort((a, b) => rank[a.level] - rank[b.level]);
-  return (
-    findings[0] ?? {
-      level: 'info',
-      rule: 'aman',
-      message: current ? `Lanjutan obat rutin. ${item.note}` : item.note,
-    }
+  const findings = evaluateCdsItem(
+    { ...item, instructions: null },
+    {
+      allergies: patient.allergies.map((label) => {
+        const allergen = normalizeAllergen(label);
+        return { label, substance: allergen, classes: SAMPLE_SUBSTANCE_CLASSES[allergen] ?? [] };
+      }),
+      activeMeds: patient.activeMeds.map((m) => ({ name: m.name, substance: m.substance, itemId: m.catalogId })),
+      flags: patient.flags,
+      egfr: null,
+      payer: patient.payer,
+    },
+    SAMPLE_CDS_RULES,
+    { others: otherSubstances.map((s) => ({ substance: s })) },
   );
+  const continuation = substance !== null && patient.activeMeds.some((m) => m.substance === substance);
+  return topCdsFinding(findings, { note: item.note, continuation });
 }
 
 /** Override sah bila alasan klinis cukup panjang; temuan blok menjadi peringatan yang tercatat. */
@@ -174,15 +65,7 @@ export function validOverride(reason: string | null | undefined): reason is stri
   return (reason?.trim().length ?? 0) >= CPOE_OVERRIDE_MIN_REASON;
 }
 
-const RULE_LABEL: Record<CpoeCdsFinding['rule'], string> = {
-  aman: 'CDS',
-  alergi: 'alergi',
-  'alergi-silang': 'alergi',
-  interaksi: 'interaksi',
-  riwayat: 'peringatan riwayat',
-  dosis: 'dosis',
-  biaya: 'biaya',
-};
+const RULE_LABEL = CDS_RULE_LABEL;
 
 export interface OrderLine {
   /** Id baris (unik dalam daftar). */
@@ -238,6 +121,8 @@ export function costEstimate(
   let total = 0n;
   let items = 0;
   for (const l of lines) {
+    // Tarif null (mode api sampai U01): tidak masuk estimasi.
+    if (l.item.tariff === null) continue;
     const tariff = BigInt(l.item.tariff);
     if (tariff > 0n && (payer === 'Umum' || l.item.coverage === 'tidak-ditanggung')) {
       total += tariff;

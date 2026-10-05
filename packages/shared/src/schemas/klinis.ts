@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { MEDICATION_FREQUENCY_CODES } from '../clinical/emar';
+import { NEWS2_CONSCIOUSNESS } from '../clinical/ews';
 
 /**
  * K01–K13 · Klinis RME: pemeriksaan poli, CPPT, order + CDS, resep.
@@ -171,6 +173,7 @@ export const CPOE_ORDER_KINDS = ['lab', 'radiologi', 'obat', 'tindakan', 'kontro
 export type CpoeOrderKind = (typeof CPOE_ORDER_KINDS)[number];
 /** Penjaminan item: masuk paket/ditanggung, obat Formularium Nasional, atau di luar paket (dibayar pasien). */
 export const CPOE_COVERAGES = ['ditanggung', 'fornas', 'tidak-ditanggung'] as const;
+export type CpoeCoverage = (typeof CPOE_COVERAGES)[number];
 export const CPOE_PRIORITIES = ['rutin', 'cito'] as const;
 export const CPOE_CDS_LEVELS = ['info', 'warn', 'block'] as const;
 export type CpoeCdsLevel = (typeof CPOE_CDS_LEVELS)[number];
@@ -182,7 +185,12 @@ export const CPOE_CDS_RULES = [
   'riwayat',
   'dosis',
   'biaya',
+  // Fase 3 (KB CDS per RS): dosis ginjal, duplikasi order, singkatan terlarang di aturan pakai.
+  'ginjal',
+  'duplikasi',
+  'singkatan',
 ] as const;
+export type CpoeCdsRule = (typeof CPOE_CDS_RULES)[number];
 
 /** Kode baku item order: LOINC (lab), KFA (obat), ICD-9-CM (tindakan); null = belum dipetakan. */
 export const cpoeCodeSchema = z.strictObject({
@@ -201,8 +209,11 @@ export const cpoeCatalogItemSchema = z.strictObject({
   code: cpoeCodeSchema.nullable(),
   coverage: z.enum(CPOE_COVERAGES),
   priority: z.enum(CPOE_PRIORITIES),
-  /** Tarif RS. Dibayar pasien bila item di luar paket penjamin, atau seluruhnya bila pasien umum. */
-  tariff: rupiahString,
+  /**
+   * Tarif RS. Dibayar pasien bila item di luar paket penjamin, atau seluruhnya bila pasien umum. Null = belum ada tarif
+   * (mode api sampai master tarif U01 fase 5; nominal disembunyikan).
+   */
+  tariff: rupiahString.nullable(),
   keywords: z.string(),
   /** Zat aktif (obat) untuk CDS alergi dan interaksi; null untuk non-obat. */
   substance: z.string().nullable(),
@@ -230,7 +241,7 @@ export const cpoeOrderSchema = z.strictObject({
   code: cpoeCodeSchema.nullable(),
   coverage: z.enum(CPOE_COVERAGES),
   priority: z.enum(CPOE_PRIORITIES),
-  tariff: rupiahString,
+  tariff: rupiahString.nullable(),
   cds: cpoeCdsFindingSchema,
   /** `terkirim` = sudah di worklist unit penerima (tidak bisa dihapus, hanya dibatalkan lewat addendum). */
   status: z.enum(['draf', 'terkirim']),
@@ -345,3 +356,298 @@ export const cpoeSendInputSchema = z.strictObject({
     .max(40),
 });
 export type CpoeSendInput = z.infer<typeof cpoeSendInputSchema>;
+
+// ===============================================================================================================
+// Kontrak API fase 3 (rencana §3.0a). Bagian di atas = kontrak mode presentasi (dibekukan bersama jalur demo,
+// keputusan fase 2 no. 4); bagian ini = kontrak jalur api. ID selalu UUID, penulis selalu dari sesi server, dua stempel
+// waktu (MRMIK 8b), biaya null sampai master tarif U01 (fase 5).
+// ===============================================================================================================
+
+/** Alasan wajib untuk override gerbang keselamatan dan koreksi entri klinis (= CHECK ≥ 10 di database). */
+export const SAFETY_REASON_MIN = 10;
+const safetyReason = z.string().trim().min(SAFETY_REASON_MIN).max(500);
+const uuid = z.uuid();
+const instant = z.iso.datetime({ offset: true });
+const freeText = (max: number) => z.string().trim().max(max);
+const roleCodeSchema = z.string().regex(/^[a-z][a-z0-9_]{2,40}$/);
+
+/** Status entri klinis tersimpan (ADR-0004/0028). Draf bukan rekam medis (`clinical_drafts`). */
+export const CLINICAL_ENTRY_STATUSES = ['final', 'entered_in_error'] as const;
+export type ClinicalEntryStatus = (typeof CLINICAL_ENTRY_STATUSES)[number];
+
+/** Penulis entri: SELALU dari sesi server (MRMIK 8a); body klien tidak pernah memuat penulis. */
+export const clinicalAuthorSchema = z.strictObject({
+  userId: uuid,
+  nama: z.string().min(1).max(120),
+  /** Kode peran penugasan sesi saat menulis (mis. `dokter_residen`). */
+  peran: roleCodeSchema,
+});
+export type ClinicalAuthor = z.infer<typeof clinicalAuthorSchema>;
+
+/** Kolom bersama setiap entri klinis berversi (jawaban API). */
+export const clinicalEntryMetaSchema = z.strictObject({
+  id: uuid,
+  /** Versi 1 rantai ini (riwayat = semua versi ber-`rootId` sama). */
+  rootId: uuid,
+  version: z.int().min(1),
+  supersedesId: uuid.nullable(),
+  /** Addendum: entri baru yang menunjuk entri final tanpa menggantikannya. */
+  addendumOf: uuid.nullable(),
+  status: z.enum(CLINICAL_ENTRY_STATUSES),
+  correctionReason: z.string().max(500).nullable(),
+  /** Waktu kejadian, diisi PPA. */
+  occurredAt: instant,
+  /** Waktu catat, dari server, tidak bisa diubah. */
+  recordedAt: instant,
+  /** Selisih catat − kejadian melebihi `clinical.late_entry_hours`. */
+  lateEntry: z.boolean(),
+  author: clinicalAuthorSchema,
+  /** Versi ber-TTE: tidak bisa digantikan, hanya addendum (`RECORD_LOCKED`). */
+  locked: z.boolean(),
+});
+export type ClinicalEntryMeta = z.infer<typeof clinicalEntryMetaSchema>;
+
+/**
+ * Skema input umum revisi entri klinis: entri baru, koreksi (versi baru oleh penulis asli, wajib alasan; 409 bila versi
+ * itu sudah digantikan), atau addendum (PPA lain boleh, atas entri final).
+ */
+export const clinicalRevisionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('baru') }),
+  z.strictObject({ kind: z.literal('koreksi'), supersedesId: uuid, correctionReason: safetyReason }),
+  z.strictObject({ kind: z.literal('addendum'), addendumOf: uuid }),
+]);
+export type ClinicalRevision = z.infer<typeof clinicalRevisionSchema>;
+
+/** Tandai salah entri (`entered_in_error`): versi baru beralasan; isi asli tetap tersimpan. ID target dari path. */
+export const clinicalEnteredInErrorInputSchema = z.strictObject({ reason: safetyReason });
+export type ClinicalEnteredInErrorInput = z.infer<typeof clinicalEnteredInErrorInputSchema>;
+
+/** Atestasi elektronik sesi (keputusan fase 3 no. 2): co-sign, verifikasi DPJP, tinjau order residen. */
+export const CLINICAL_ATTESTATION_KINDS = ['cosign', 'verify', 'review_order'] as const;
+export type ClinicalAttestationKind = (typeof CLINICAL_ATTESTATION_KINDS)[number];
+export const clinicalAttestationSchema = z.strictObject({
+  kind: z.enum(CLINICAL_ATTESTATION_KINDS),
+  by: clinicalAuthorSchema,
+  at: instant,
+});
+export type ClinicalAttestation = z.infer<typeof clinicalAttestationSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// K12/K08 · Observasi (tanda vital + NEWS2 dihitung server)
+// ---------------------------------------------------------------------------------------------------------------
+
+export const OBSERVATION_CATEGORIES = ['vital', 'lab', 'imaging', 'survei', 'cairan'] as const;
+export type ObservationCategory = (typeof OBSERVATION_CATEGORIES)[number];
+/** Bendera interpretasi hasil/observasi (arah selalu tertulis, tidak hanya warna). */
+export const OBSERVATION_INTERPRETATIONS = ['normal', 'tinggi', 'rendah', 'abnormal', 'kritis'] as const;
+export type ObservationInterpretation = (typeof OBSERVATION_INTERPRETATIONS)[number];
+
+/** Tanda vital dewasa. Skor NEWS2 dihitung server dari nilai ini, tidak diterima dari klien. */
+export const vitalSignsInputSchema = z.strictObject({
+  encounterId: uuid,
+  occurredAt: instant,
+  temp: z.number().min(30).max(45),
+  hr: z.int().min(20).max(250),
+  rr: z.int().min(4).max(60),
+  sbp: z.int().min(40).max(260),
+  dbp: z.int().min(20).max(160),
+  spo2: z.int().min(50).max(100),
+  onOxygen: z.boolean(),
+  consciousness: z.enum(NEWS2_CONSCIOUSNESS),
+  weightKg: z.number().positive().max(400).nullable(),
+});
+export type VitalSignsInput = z.infer<typeof vitalSignsInputSchema>;
+
+export const vitalSignsRecordSchema = clinicalEntryMetaSchema.extend({
+  encounterId: uuid,
+  values: vitalSignsInputSchema.omit({ encounterId: true, occurredAt: true }),
+  ews: z.strictObject({
+    score: z.int().min(0).max(20),
+    maxParam: z.int().min(0).max(3),
+    risk: z.enum(['rendah', 'sedang', 'tinggi']),
+  }),
+});
+export type VitalSignsRecord = z.infer<typeof vitalSignsRecordSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// K08 · Diagnosis, prosedur, alergi (kode baku dari `ref`; tidak dikarang)
+// ---------------------------------------------------------------------------------------------------------------
+
+const icd10 = z.string().regex(/^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/, 'Kode ICD-10 tidak valid');
+const icd9cm = z.string().regex(/^[0-9]{2}(\.[0-9]{1,2})?$/, 'Kode ICD-9-CM tidak valid');
+
+export const CONDITION_ROLES = ['utama', 'sekunder', 'komplikasi'] as const;
+export type ConditionRole = (typeof CONDITION_ROLES)[number];
+/** Diagnosis kunjungan, atau masalah di problem list pasien (lintas kunjungan). */
+export const CONDITION_KINDS = ['encounter', 'problem_list'] as const;
+export const CONDITION_CLINICAL_STATUSES = ['active', 'resolved'] as const;
+
+export const conditionInputSchema = z
+  .strictObject({
+    encounterId: uuid,
+    kind: z.enum(CONDITION_KINDS),
+    /** Wajib untuk diagnosis kunjungan; null untuk problem list. */
+    role: z.enum(CONDITION_ROLES).nullable(),
+    code: icd10,
+    clinicalStatus: z.enum(CONDITION_CLINICAL_STATUSES),
+    note: freeText(500).nullable(),
+    occurredAt: instant,
+    revision: clinicalRevisionSchema,
+  })
+  .refine((v) => (v.kind === 'encounter') === (v.role !== null), {
+    path: ['role'],
+    message: 'Diagnosis kunjungan wajib berperan utama/sekunder/komplikasi; problem list tanpa peran.',
+  });
+export type ConditionInput = z.infer<typeof conditionInputSchema>;
+
+export const procedureInputSchema = z.strictObject({
+  encounterId: uuid,
+  code: icd9cm,
+  note: freeText(500).nullable(),
+  occurredAt: instant,
+  revision: clinicalRevisionSchema,
+});
+export type ProcedureInput = z.infer<typeof procedureInputSchema>;
+
+export const ALLERGY_CATEGORIES = ['obat', 'makanan', 'lingkungan', 'lainnya'] as const;
+export const ALLERGY_CRITICALITIES = ['rendah', 'tinggi', 'tidak_diketahui'] as const;
+
+/**
+ * Alergi: zat terkode (`drug_substances`) atau teks bebas; `nkda` = "tidak ada alergi obat yang diketahui" dicatat
+ * eksplisit (bukan kosong). Perubahan = versi baru.
+ */
+export const allergyInputSchema = z
+  .strictObject({
+    patientId: uuid,
+    encounterId: uuid.nullable(),
+    kind: z.enum(['alergi', 'nkda']),
+    substanceId: uuid.nullable(),
+    text: freeText(120).nullable(),
+    category: z.enum(ALLERGY_CATEGORIES).nullable(),
+    criticality: z.enum(ALLERGY_CRITICALITIES).nullable(),
+    reaction: freeText(300).nullable(),
+    occurredAt: instant,
+    revision: clinicalRevisionSchema,
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'nkda') {
+      if (v.substanceId || v.text || v.category || v.criticality || v.reaction) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['kind'],
+          message: 'NKDA tidak memuat zat, kategori, atau reaksi.',
+        });
+      }
+      return;
+    }
+    if (!v.substanceId && !v.text) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['substanceId'],
+        message: 'Pilih zat terkode atau tulis nama alergen.',
+      });
+    }
+    if (!v.category || !v.criticality) {
+      ctx.addIssue({ code: 'custom', path: ['category'], message: 'Kategori dan kritikalitas wajib diisi.' });
+    }
+  });
+export type AllergyInput = z.infer<typeof allergyInputSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// K09 · CPOE + CDS (jalur api)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Item katalog order (orderable penunjang/tindakan atau obat). Tarif null sampai U01. */
+export const orderCatalogItemSchema = z.strictObject({
+  id: uuid,
+  kind: z.enum(CPOE_ORDER_KINDS),
+  name: nonEmpty,
+  code: cpoeCodeSchema.nullable(),
+  coverage: z.enum(CPOE_COVERAGES),
+  priority: z.enum(CPOE_PRIORITIES),
+  tariff: rupiahString.nullable(),
+  substance: z.string().nullable(),
+  classes: z.array(nonEmpty),
+  highAlert: z.boolean(),
+  /** Unit tujuan (lab/radiologi/farmasi); null = ditentukan saat order. */
+  unitId: uuid.nullable(),
+});
+export type OrderCatalogItem = z.infer<typeof orderCatalogItemSchema>;
+
+const overrideReason = z.string().trim().min(CPOE_OVERRIDE_MIN_REASON).max(500).nullable();
+const emarTime = z.string().regex(/^([01]\d|2[0-3])\.[0-5]\d$/, 'Jam HH.MM');
+
+/** Satu komponen racikan (keputusan fase 3 no. 17: struktur data sekarang, antarmuka bersama farmasi fase 4). */
+const compoundComponentSchema = z.strictObject({ drugId: uuid, amount: z.string().trim().min(1).max(40) });
+
+export const medicationOrderLineSchema = z
+  .strictObject({
+    type: z.literal('obat'),
+    /** Obat tunggal; null bila racikan. */
+    drugId: uuid.nullable(),
+    compound: z
+      .strictObject({
+        name: z.string().trim().min(1).max(80),
+        dosageForm: z.string().trim().min(1).max(40),
+        quantity: z.int().min(1).max(500),
+        components: z.array(compoundComponentSchema).min(2).max(10),
+      })
+      .nullable(),
+    dose: z.string().trim().min(1).max(40),
+    route: z.string().trim().min(1).max(30),
+    frequency: z.enum(MEDICATION_FREQUENCY_CODES),
+    /** Jam khusus order (WIB), mis. insulin 22.00; null = jam bawaan frekuensi. */
+    customTimes: z.array(emarTime).min(1).max(8).nullable(),
+    durationDays: z.int().min(1).max(90).nullable(),
+    instructions: freeText(300).nullable(),
+    override: overrideReason,
+  })
+  .refine((v) => (v.drugId === null) !== (v.compound === null), {
+    path: ['drugId'],
+    message: 'Pilih satu obat atau satu racikan.',
+  });
+
+export const serviceOrderLineSchema = z.strictObject({
+  type: z.literal('layanan'),
+  orderableId: uuid,
+  priority: z.enum(CPOE_PRIORITIES),
+  instructions: freeText(300).nullable(),
+  override: overrideReason,
+});
+
+export const orderLineInputSchema = z.discriminatedUnion('type', [
+  serviceOrderLineSchema,
+  medicationOrderLineSchema,
+]);
+export type OrderLineInput = z.infer<typeof orderLineInputSchema>;
+
+/**
+ * Kirim order (`POST /orders/submit`, header Idempotency-Key). Server mengevaluasi ulang CDS; temuan `block` tanpa
+ * override beralasan → 422 `CDS_BLOCKED`. Pratinjau (`/orders/evaluate`) memakai skema yang sama.
+ */
+export const orderSubmitInputSchema = z.strictObject({
+  encounterId: uuid,
+  orderSetId: uuid.nullable(),
+  items: z.array(orderLineInputSchema).min(1).max(40),
+});
+export type OrderSubmitInput = z.infer<typeof orderSubmitInputSchema>;
+
+export const orderCancelInputSchema = z.strictObject({ reason: safetyReason });
+
+/** Keputusan atas satu temuan CDS (`cds_alerts`, append-only). */
+export const CDS_ALERT_DECISIONS = ['diterima', 'override', 'diblokir'] as const;
+export type CdsAlertDecision = (typeof CDS_ALERT_DECISIONS)[number];
+
+export const cdsAlertSchema = z.strictObject({
+  id: uuid,
+  orderLineIndex: z.int().min(0),
+  ruleCode: z.string().min(1).max(80),
+  level: z.enum(CPOE_CDS_LEVELS),
+  rule: z.enum(CPOE_CDS_RULES),
+  message: nonEmpty,
+  decision: z.enum(CDS_ALERT_DECISIONS),
+  overrideReason: z.string().nullable(),
+  decidedBy: clinicalAuthorSchema,
+  decidedAt: instant,
+});
+export type CdsAlert = z.infer<typeof cdsAlertSchema>;

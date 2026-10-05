@@ -84,6 +84,70 @@ export const FRONT_OFFICE_ERROR_CODES = [
   'KIOSK_NEEDS_COUNTER',
 ] as const satisfies readonly FrontOfficeErrorCode[];
 
+/**
+ * K01–K15 · Kode galat klinis (fase 3, rencana §3.0a). `CDS_BLOCKED` sudah ada di daftar umum (gerbang CDS, 422).
+ */
+export const CLINICAL_ERRORS = {
+  // Entri klinis berversi (ADR-0004/0028)
+  RECORD_SUPERSEDED: {
+    status: 409,
+    message: 'Versi ini sudah digantikan versi lain; muat ulang lalu koreksi versi terbaru',
+  },
+  RECORD_LOCKED: { status: 409, message: 'Entri sudah ditandatangani (TTE); perubahan hanya lewat addendum' },
+  RECORD_NOT_AUTHOR: { status: 403, message: 'Koreksi hanya oleh penulis asli; PPA lain menambah addendum' },
+  RECORD_NOT_FINAL: { status: 409, message: 'Entri ini tidak final sehingga tidak bisa diberi addendum' },
+  COSIGN_NOT_ALLOWED: {
+    status: 403,
+    message: 'Co-sign hanya oleh DPJP/rawat bersama, bukan atas catatan sendiri',
+  },
+  // K03 · Triase
+  TRIAGE_REASON_REQUIRED: {
+    status: 422,
+    message: 'Level di bawah saran sistem wajib disertai alasan klinis (minimal 10 karakter)',
+  },
+  TRIAGE_LEVEL_NOT_ALLOWED: { status: 422, message: 'Level ini di bawah batas protokol keluhan pasien' },
+  // K04/K05 · ADT dan bed
+  BED_NOT_AVAILABLE: { status: 409, message: 'Tempat tidur tidak tersedia atau sudah dipakai' },
+  BED_VERSION_CONFLICT: { status: 409, message: 'Status tempat tidur sudah diubah petugas lain; muat ulang' },
+  DISCHARGE_BLOCKED: {
+    status: 409,
+    message: 'Syarat pulang belum lengkap (disposisi, resume final, atau surat)',
+  },
+  // K12 · eMAR
+  WRISTBAND_MISMATCH: { status: 422, message: 'Gelang tidak cocok dengan pasien kunjungan ini' },
+  WRISTBAND_SCAN_REQUIRED: {
+    status: 422,
+    message: 'Pindai gelang pasien lebih dulu (pindaian berlaku 10 menit untuk perawat yang sama)',
+  },
+  MEDICATION_ALREADY_GIVEN: { status: 409, message: 'Dosis jadwal ini sudah tercatat diberikan' },
+  DOUBLE_CHECK_REQUIRED: { status: 422, message: 'Obat kewaspadaan tinggi wajib cek ganda perawat kedua' },
+  LATE_REASON_REQUIRED: {
+    status: 422,
+    message: 'Dosis terlambat wajib disertai alasan (minimal 10 karakter)',
+  },
+} as const satisfies Record<string, { status: number; message: string }>;
+
+export type ClinicalErrorCode = keyof typeof CLINICAL_ERRORS;
+
+/** Urutan tetap (bagian dari `ERROR_CODES`). */
+export const CLINICAL_ERROR_CODES = [
+  'RECORD_SUPERSEDED',
+  'RECORD_LOCKED',
+  'RECORD_NOT_AUTHOR',
+  'RECORD_NOT_FINAL',
+  'COSIGN_NOT_ALLOWED',
+  'TRIAGE_REASON_REQUIRED',
+  'TRIAGE_LEVEL_NOT_ALLOWED',
+  'BED_NOT_AVAILABLE',
+  'BED_VERSION_CONFLICT',
+  'DISCHARGE_BLOCKED',
+  'WRISTBAND_MISMATCH',
+  'WRISTBAND_SCAN_REQUIRED',
+  'MEDICATION_ALREADY_GIVEN',
+  'DOUBLE_CHECK_REQUIRED',
+  'LATE_REASON_REQUIRED',
+] as const satisfies readonly ClinicalErrorCode[];
+
 /** Kode galat stabil. Klien boleh bergantung pada kode ini; pesan boleh berubah. */
 export const ERROR_CODES = [
   'VALIDATION_FAILED',
@@ -108,6 +172,7 @@ export const ERROR_CODES = [
   'INTERNAL_ERROR',
   // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,
+  ...CLINICAL_ERROR_CODES,
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -136,5 +201,11 @@ export class AppError extends Error {
 /** Galat front office dengan status dan pesan bawaan (`message` opsional untuk pesan yang lebih spesifik). */
 export function frontOfficeError(code: FrontOfficeErrorCode, details?: unknown, message?: string): AppError {
   const def = FRONT_OFFICE_ERRORS[code];
+  return new AppError(code, message ?? def.message, def.status, details);
+}
+
+/** Galat klinis dengan status dan pesan bawaan. */
+export function clinicalError(code: ClinicalErrorCode, details?: unknown, message?: string): AppError {
+  const def = CLINICAL_ERRORS[code];
   return new AppError(code, message ?? def.message, def.status, details);
 }
