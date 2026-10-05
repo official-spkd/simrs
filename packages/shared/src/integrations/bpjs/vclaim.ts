@@ -178,6 +178,12 @@ export const VCLAIM_ASAL_RUJUKAN = { fktp: '1', rs: '2' } as const;
 
 /** `jnsPelayanan`: 1 = rawat inap, 2 = rawat jalan. */
 export const VCLAIM_JENIS_PELAYANAN = { rawatInap: '1', rawatJalan: '2' } as const;
+/**
+ * ASUMSI (docs/06 tidak mencantumkan; cocokkan katalog VClaim resmi sebelum integrasi nyata): SEP gawat darurat =
+ * rawat jalan (`jnsPelayanan` 2) dengan poli tujuan `IGD`, tanpa rujukan; SEP rawat inap dari IGD memakai nomor SEP IGD
+ * sebagai rujukan (`asalRujukan` 2, PPK RS sendiri) bila tidak ada SPRI.
+ */
+export const VCLAIM_POLI_IGD = 'IGD';
 
 const flag01 = z.enum(['0', '1']);
 /** BPJS mengirim string kosong untuk isian yang tidak dipakai. */

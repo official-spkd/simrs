@@ -2,6 +2,7 @@ import {
   bpjsDateSchema,
   bpjsDiffDays,
   VCLAIM_JENIS_PELAYANAN,
+  VCLAIM_POLI_IGD,
   VCLAIM_JENIS_SURAT,
   VCLAIM_ASAL_RUJUKAN,
   vclaimRujukanKedaluwarsa,
@@ -65,7 +66,10 @@ function sepView(rec: SepRecord): VclaimSep {
     kelasRawat: t.klsRawat.klsRawatHak,
     diagnosa: diagnosaLabel(t.diagAwal),
     noRujukan: t.rujukan.noRujukan,
-    poli: poliByKode(t.poli.tujuan)?.nama ?? '-',
+    poli:
+      t.poli.tujuan === VCLAIM_POLI_IGD
+        ? 'INSTALASI GAWAT DARURAT'
+        : (poliByKode(t.poli.tujuan)?.nama ?? '-'),
     poliEksekutif: t.poli.eksekutif === '1' ? 'Ya' : 'Tidak',
     catatan: t.catatan,
     penjamin: null,
@@ -210,7 +214,15 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
         s.tSep.jnsPelayanan === t.jnsPelayanan,
     );
 
-    if (t.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatJalan) {
+    if (t.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatJalan && t.poli.tujuan === VCLAIM_POLI_IGD) {
+      // IGD (ASUMSI `VCLAIM_POLI_IGD`): tanpa rujukan, dokter jaga boleh kosong; bila diisi harus dokter dikenal.
+      if (t.dpjpLayan && !dokterByKode(t.dpjpLayan)) {
+        return vclaimFail('BPJS_DOKTER_TIDAK_DITEMUKAN', `dpjpLayan ${t.dpjpLayan} di IGD`);
+      }
+      if (terbit.some((s) => s.tSep.poli.tujuan === VCLAIM_POLI_IGD)) {
+        return vclaimFail('BPJS_SEP_GANDA', `IGD tanggal ${t.tglSep}`);
+      }
+    } else if (t.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatJalan) {
       const poli = poliByKode(t.poli.tujuan);
       if (!poli) return vclaimFail('BPJS_POLI_TIDAK_DITEMUKAN', t.poli.tujuan || 'poli.tujuan kosong');
       const dpjp = dokterByKode(t.dpjpLayan);
@@ -240,11 +252,22 @@ export function registerVclaim(app: FastifyInstance, ctx: BpjsContext): void {
         return vclaimFail('BPJS_SEP_GANDA', `rawat jalan poli ${poli.kode} tanggal ${t.tglSep}`);
       }
     } else {
+      // Dasar rawat inap: SPRI, atau (tanpa SPRI) SEP IGD terbit milik peserta yang sama sebagai rujukan
+      // (ASUMSI `VCLAIM_POLI_IGD`: admisi dari IGD).
+      const igd = t.skdp.noSurat ? undefined : bpjs.seps.get(t.rujukan.noRujukan);
+      const dariIgd =
+        igd?.status === 'terbit' &&
+        igd.tSep.noKartu === t.noKartu &&
+        igd.tSep.jnsPelayanan === VCLAIM_JENIS_PELAYANAN.rawatJalan &&
+        igd.tSep.poli.tujuan === VCLAIM_POLI_IGD;
       const spri = bpjs.surat.get(t.skdp.noSurat);
-      if (!spri || spri.status !== 'aktif' || spri.jenis !== 'spri' || spri.noKartu !== t.noKartu) {
+      if (
+        !dariIgd &&
+        (!spri || spri.status !== 'aktif' || spri.jenis !== 'spri' || spri.noKartu !== t.noKartu)
+      ) {
         return vclaimFail(
           'BPJS_SURAT_TIDAK_DITEMUKAN',
-          `SPRI ${t.skdp.noSurat || '(kosong)'} wajib untuk rawat inap`,
+          `SPRI ${t.skdp.noSurat || '(kosong)'} atau SEP IGD wajib untuk rawat inap`,
         );
       }
       if (terbit.length > 0) return vclaimFail('BPJS_SEP_GANDA', `rawat inap tanggal ${t.tglSep}`);

@@ -75,14 +75,13 @@ export const patientAllergiesSchema = z.strictObject({
 });
 export type PatientAllergies = z.infer<typeof patientAllergiesSchema>;
 
-export const encounterDiagnosesQuerySchema = z.strictObject({ encounterId: uuid });
 export const patientQuerySchema = z.strictObject({ patientId: uuid });
 
 // ---------------------------------------------------------------------------------------------------------------
 // Hasil penunjang (muara hasil, keputusan fase 3 no. 12): observasi + laporan diagnostik
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Kategori hasil penunjang yang diinput `POST /results/*` (tanda vital lewat `/encounter/:id/observations`). */
+/** Kategori hasil penunjang yang diinput `POST /results/*` (tanda vital lewat `/encounters/:id/observations`). */
 export const RESULT_CATEGORIES = ['lab', 'imaging', 'survei'] as const;
 export type ResultCategory = (typeof RESULT_CATEGORIES)[number];
 export const DIAGNOSTIC_REPORT_CATEGORIES = ['lab', 'radiologi', 'lainnya'] as const;
@@ -236,7 +235,7 @@ export const allergyBannerSchema = z.strictObject({
   labels: z.array(z.string()),
 });
 
-/** `GET /api/v1/encounter/:id/context` · banner pasien di setiap layar klinis. */
+/** `GET /api/v1/encounters/:id/context` · banner pasien di setiap layar klinis. */
 export const encounterContextSchema = z.strictObject({
   patient: patientBannerSchema,
   encounter: z.strictObject({

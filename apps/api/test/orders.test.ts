@@ -286,12 +286,20 @@ describe('CDS dan kirim order', () => {
     expect(blocked.body.details.lines[0].blocked).toBe(true);
     const afterBlock = await run(A.id, async (tx) => ({
       groups: await tx.orderGroup.count({ where: { encounterId: e.encounterId } }),
+      // Pola commit-lalu-422: tidak ada sisa data order apa pun selain cds_alerts + audit penolakan.
+      leftovers: {
+        medications: await tx.medicationRequest.count({ where: { encounterId: e.encounterId } }),
+        services: await tx.serviceRequest.count({ where: { encounterId: e.encounterId } }),
+        billable: await tx.billableEvent.count({ where: { encounterId: e.encounterId } }),
+        documents: await tx.document.count({ where: { patientId: e.patientId } }),
+      },
       alerts: await tx.cdsAlert.findMany({ where: { encounterId: e.encounterId } }),
       audit: await tx.auditEvent.findFirst({
         where: { resourceType: 'order_group', patientId: e.patientId, outcome: 'denied' },
       }),
     }));
     expect(afterBlock.groups).toBe(0);
+    expect(afterBlock.leftovers).toEqual({ medications: 0, services: 0, billable: 0, documents: 0 });
     expect(afterBlock.alerts).toEqual([
       expect.objectContaining({
         decision: 'diblokir',

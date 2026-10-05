@@ -15,14 +15,14 @@ import { VitalsService } from './vitals.service';
 const uuid = new ParseUUIDPipe();
 
 /**
- * K12 (observasi) · `/api/v1/encounter/:id/observations`: tanda vital + NEWS2 (dihitung server) per kunjungan.
- * Rute di bawah `encounter/` sesuai rencana §3.2a; isinya milik modul keperawatan (pemilik folder `encounter` adalah
- * potongan ADT/encounter).
+ * K12 (observasi) · `/api/v1/encounters/:id/observations`: tanda vital + NEWS2 (dihitung server) per kunjungan.
+ * Rute per kunjungan memakai bentuk kanonik `/encounters/:id/<sumber>` (keputusan orkestrator fase 3); isinya milik
+ * modul keperawatan, bukan modul `encounter`.
  */
 @ApiTags('klinis · observasi tanda vital (K12)')
 @TenantScoped()
 @RequireModule('K12')
-@Controller('encounter')
+@Controller('encounters')
 export class VitalsController {
   constructor(private readonly vitals: VitalsService) {}
 

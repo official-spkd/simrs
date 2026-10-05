@@ -5,8 +5,9 @@ import type { IntegrationTarget } from './outbox';
  * K01–K15 · Operasi outbox klinis (fase 3, rencana §3.0a; ADR-0003, ADR-0017). Payload HANYA ID baris domain; worker
  * membaca data terbaru saat `prepare`, sehingga PHI tidak tersimpan di `outbox_messages`.
  *
- * - `bpjs.aplicare.update`: ketersediaan bed per kelas ruang ke Aplicare BPJS (K05). Digabung per ruang: satu pesan per
- *   perubahan papan bed membawa `unitId` + `revision`; pesan dengan revisi lebih lama dilewati worker (pola HFIS).
+ * - `bpjs.aplicare.update`: ketersediaan bed satu ruang Aplicare (`aplicare_rooms` = bangsal × kelas) ke BPJS (K05).
+ *   Satu pesan per perubahan papan bed membawa `roomId` + `revision` (naik di baris ruang); worker membaca hitungan bed
+ *   terbaru saat mengirim dan melewati pesan berrevisi lama (pola HFIS). Kode kelas dibaca dari referensi Aplicare.
  * - `satusehat.<resource>.upsert`: staging SATUSEHAT (ADR-0032). Dicatat sekarang berstatus `held` (tidak diklaim
  *   dispatcher), dilepas berurutan fase 7, Encounter dulu (keputusan fase 3 no. 13).
  *
@@ -56,11 +57,11 @@ function satusehatOperations(): Record<
 }
 
 export const CLINICAL_OPERATIONS = {
-  /** K05 · Perbarui ketersediaan bed ruang (kelas Aplicare dari `locations.care_class`) setelah status bed berubah. */
+  /** K05 · Perbarui ketersediaan bed satu ruang Aplicare setelah status bed berubah. */
   'bpjs.aplicare.update': {
     target: 'bpjs',
     label: 'Perbarui ketersediaan bed Aplicare',
-    payload: z.strictObject({ unitId: id, revision: z.int().min(1) }),
+    payload: z.strictObject({ roomId: id, revision: z.int().min(1) }),
   },
   ...satusehatOperations(),
 } as const satisfies Record<

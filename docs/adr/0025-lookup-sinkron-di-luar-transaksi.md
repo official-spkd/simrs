@@ -46,6 +46,6 @@ Lewat outbox + polling, setiap lookup bertambah ±2 detik dan butuh layar menung
 + Pool koneksi aman: lookup lambat tidak memegang koneksi (diuji 12 lookup serentak > pool 10).
 + Gangguan BPJS terbatas 5 detik per lookup dengan kode galat yang bisa ditangani UI.
 + Setiap lookup meninggalkan jejak audit, walau sistem luar tidak menjawab.
-− Ada dua jalur integrasi (sinkron untuk lookup, outbox untuk penulisan). Peninjau wajib memastikan `@NoRequestTransaction()` hanya dipakai untuk lookup baca-saja dan SSE (ADR-0026).
+− Ada dua jalur integrasi (sinkron untuk lookup, outbox untuk penulisan). Peninjau wajib memastikan `@NoRequestTransaction()` hanya dipakai untuk lookup baca-saja, SSE (ADR-0026), dan penolakan yang wajib tetap tercatat (ADR-0030).
 − API memegang kredensial BPJS/Dukcapil, sehingga pengelolaan rahasia API setara worker. Kredensial per RS terenkripsi menyusul di fase 7.
 − Lookup tidak dicoba ulang otomatis; pengguna yang mengulang. Batas laju lookup anjungan (`kiosk.lookup_rate_per_min`) ditegakkan modul anjungan (potongan 6).

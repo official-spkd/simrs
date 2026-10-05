@@ -7,7 +7,6 @@ import {
   clinicalEnteredInErrorInputSchema,
   type ConditionInput,
   conditionInputSchema,
-  encounterDiagnosesQuerySchema,
   patientQuerySchema,
   type ProcedureInput,
   procedureInputSchema,
@@ -20,6 +19,30 @@ import { DiagnosisService } from './diagnosis.service';
 
 const uuid = new ParseUUIDPipe();
 const reason = new ZodValidationPipe(clinicalEnteredInErrorInputSchema);
+
+/**
+ * K08 · Daftar per kunjungan dalam bentuk rute kanonik `/api/v1/encounters/:id/<sumber>`: diagnosis + problem list yang
+ * dicatat di kunjungan itu, dan prosedurnya. Versi final terkini saja.
+ */
+@ApiTags('klinis · diagnosis (K08)')
+@TenantScoped()
+@RequireModule('K08')
+@Controller('encounters')
+export class EncounterDiagnosisController {
+  constructor(private readonly diagnosis: DiagnosisService) {}
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/conditions')
+  conditions(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.diagnosis.listConditions(id);
+  }
+
+  @RequirePermission('clinical', 'read')
+  @Get(':id/procedures')
+  procedures(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.diagnosis.listProcedures(id);
+  }
+}
 
 /**
  * K08 · `/api/v1/diagnosis/*`: diagnosis ICD-10 (kunjungan + problem list), prosedur ICD-9-CM, alergi + NKDA. Satu
@@ -40,12 +63,6 @@ export class DiagnosisController {
     return this.diagnosis.createCondition(body);
   }
 
-  @RequirePermission('clinical', 'read')
-  @Get('conditions')
-  conditions(@Query(new ZodValidationPipe(encounterDiagnosesQuerySchema)) q: { encounterId: string }) {
-    return this.diagnosis.listConditions(q.encounterId);
-  }
-
   @RequirePermission('clinical', 'correct')
   @Post('conditions/:id/entered-in-error')
   conditionError(@Param('id', uuid) id: string, @Body(reason) body: ClinicalEnteredInErrorInput) {
@@ -62,12 +79,6 @@ export class DiagnosisController {
   @Post('procedures')
   createProcedure(@Body(new ZodValidationPipe(procedureInputSchema)) body: ProcedureInput) {
     return this.diagnosis.createProcedure(body);
-  }
-
-  @RequirePermission('clinical', 'read')
-  @Get('procedures')
-  procedures(@Query(new ZodValidationPipe(encounterDiagnosesQuerySchema)) q: { encounterId: string }) {
-    return this.diagnosis.listProcedures(q.encounterId);
   }
 
   @RequirePermission('clinical', 'correct')

@@ -546,6 +546,7 @@ describe('ABAC lingkup unit tingkat bed (ADR-0031)', () => {
       role: 'dpjp_utama',
     });
     expect(dup.status).toBe(409);
+    expect(dup.body.code).toBe('PRIMARY_DPJP_EXISTS');
     await as('dokter').post(`/test-clinical/care-team/${member.body.id}/end`).expect(201);
     const rel = await run(A.id, (tx) =>
       tx.accessRelationship.findFirstOrThrow({
@@ -578,7 +579,7 @@ describe('temuan audit pasien rahasia (EP 10c)', () => {
 /** Klien SSE minimal (fetch + frame `\n\n`). */
 async function openStream(who: string, path: string) {
   const controller = new AbortController();
-  const res = await fetch(`http://127.0.0.1:${port}/api/v1/clinical/streams/${path}`, {
+  const res = await fetch(`http://127.0.0.1:${port}/api/v1/${path}`, {
     headers: bearer(tok[who] as Tokens),
     signal: controller.signal,
   });
@@ -620,7 +621,7 @@ const settle = () => new Promise((r) => setTimeout(r, 300));
 
 describe('aliran SSE klinis', () => {
   it('papan bed: perubahan status bed RS ini terkirim, RS lain tidak', async () => {
-    const s = await openStream('daftar', 'bed-board');
+    const s = await openStream('daftar', 'adt/beds/events');
     try {
       expect(s.status).toBe(200);
       await settle();
@@ -651,7 +652,7 @@ describe('aliran SSE klinis', () => {
   it('eskalasi EWS: hanya di atas ambang, hanya unit penugasan (dokter Melati)', async () => {
     const inMelati = await inpatient(A.id, 'MELATI');
     const inAnggrek = await inpatient(A.id, 'ANGGREK');
-    const s = await openStream('dokter', 'ews');
+    const s = await openStream('dokter', 'clinical/streams/ews');
     try {
       expect(s.status).toBe(200);
       await settle();
@@ -691,7 +692,7 @@ describe('aliran SSE klinis', () => {
   });
 
   it('papan IGD butuh clinical.read; tanpa izin 403', async () => {
-    const s = await openStream('privasi', 'ed-board');
+    const s = await openStream('privasi', 'triage/board/events');
     s.close();
     expect(s.status).toBe(403);
   });

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthzModule } from '../authz/authz.module';
-import { DiagnosisController } from './diagnosis.controller';
+import { DiagnosisController, EncounterDiagnosisController } from './diagnosis.controller';
 import { DiagnosisService } from './diagnosis.service';
 
 /**
@@ -10,7 +10,7 @@ import { DiagnosisService } from './diagnosis.service';
  */
 @Module({
   imports: [AuthzModule],
-  controllers: [DiagnosisController],
+  controllers: [DiagnosisController, EncounterDiagnosisController],
   providers: [DiagnosisService],
   exports: [DiagnosisService],
 })
