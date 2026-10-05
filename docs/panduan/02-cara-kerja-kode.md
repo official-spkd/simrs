@@ -304,6 +304,8 @@ dijamin database, bukan hanya kode:
 | Penjaminan                  | Terkunci (`locked_at`) begitu SEP-nya terbit; `app_coverage_guard` menolak perubahan sesudahnya                              |
 | Papan antrean real-time     | `queue_calls` memicu `pg_notify('queue_calls', {tenant_id, id})`: tanpa nomor, nama, atau isi lain                           |
 | Persetujuan umum rawat inap | `privacy_consents.encounter_id`: satu aktif per jenis × penerima × kunjungan (rawat jalan: tanpa kunjungan)                  |
+| Booking JKN                 | CHECK `appointments_jkn_reference`: `jkn_visit_kind` 1–4 + `reference_number` wajib untuk keranjang `jkn`                    |
+| Rujukan/SPRI draf           | `number` boleh kosong hanya selama `pending`; jenis, pasien, dan nomor yang sudah terisi tetap (`app_referral_guard`)        |
 
 Nilai status/jenis (mis. `booked`, `checked_in`; `AMB`/`EMER`/`IMP`; `pending`/`issued`) dibatasi CHECK di migrasi dan
 mengikuti kontrak bersama `packages/shared` (potongan 0a).
