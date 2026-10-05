@@ -1,0 +1,292 @@
+// K09 · CPOE: master orderable/obat, order set, kiriman order, CDS (fase 3, skema II potongan 3.0c).
+
+/// K09 · Master item order penunjang/tindakan. Kode LOINC/ICD-9-CM hanya dari `ref` (trigger); tanpa kode = "belum
+/// dipetakan". Master: diubah/dinonaktifkan, tidak dihapus.
+model Orderable {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// lab | radiologi | tindakan | kontrol
+  kind       String
+  name       String
+  /// loinc | icd9cm, atau null (belum dipetakan).
+  codeSystem String?  @map("code_system")
+  code       String?
+  /// Unit penerima (lab, radiologi, …).
+  unitId     String?  @map("unit_id") @db.Uuid
+  /// ditanggung | fornas | tidak-ditanggung
+  coverage   String   @default("ditanggung")
+  /// rutin | cito
+  priority   String   @default("rutin")
+  keywords   String   @default("")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  unit            Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  orderSetItems   OrderSetItem[]
+  serviceRequests ServiceRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, kind, name])
+  @@map("orderables")
+}
+
+/// K09 · Master obat per RS: KFA (nullable = belum dipetakan), sediaan, golongan dari zat aktif, Fornas, kewaspadaan
+/// tinggi (cek ganda eMAR).
+model Drug {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  substanceId String?  @map("substance_id") @db.Uuid
+  /// `kfa` bila berkode.
+  codeSystem  String?  @map("code_system")
+  code        String?
+  dosageForm  String   @map("dosage_form")
+  strength    String?
+  fornas      Boolean  @default(false)
+  highAlert   Boolean  @default(false) @map("high_alert")
+  coverage    String   @default("ditanggung")
+  keywords    String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  substance            DrugSubstance?        @relation(fields: [tenantId, substanceId], references: [tenantId, id])
+  orderSetItems        OrderSetItem[]
+  medicationRequests   MedicationRequest[]
+  dischargeMedications DischargeMedication[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@map("drugs")
+}
+
+/// K09 · Order set institusi (dikelola `order.manage`). Master: diubah/dinonaktifkan.
+model OrderSet {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String
+  name        String
+  description String   @default("")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  items       OrderSetItem[]
+  orderGroups OrderGroup[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("order_sets")
+}
+
+/// K09 · Isi order set: satu orderable atau satu obat.
+model OrderSetItem {
+  id          String  @id @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  orderSetId  String  @map("order_set_id") @db.Uuid
+  orderableId String? @map("orderable_id") @db.Uuid
+  drugId      String? @map("drug_id") @db.Uuid
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  orderSet  OrderSet   @relation(fields: [tenantId, orderSetId], references: [tenantId, id])
+  orderable Orderable? @relation(fields: [tenantId, orderableId], references: [tenantId, id])
+  drug      Drug?      @relation(fields: [tenantId, drugId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, orderSetId])
+  @@map("order_set_items")
+}
+
+/// K09 · Satu kiriman order (Idempotency-Key unik per RS). Append-only.
+model OrderGroup {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  encounterId    String   @map("encounter_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
+  idempotencyKey String   @map("idempotency_key")
+  /// SHA-256 isi kiriman: key sama + isi beda → 409 `IDEMPOTENCY_KEY_REUSED`.
+  requestHash    String   @map("request_hash")
+  orderSetId     String?  @map("order_set_id") @db.Uuid
+  orderedBy      String   @map("ordered_by") @db.Uuid
+  orderedRole    String   @map("ordered_role")
+  /// Order residen: wajib ditinjau DPJP (atestasi `review_order`).
+  needsReview    Boolean  @default(false) @map("needs_review")
+  orderedAt      DateTime @default(now()) @map("ordered_at") @db.Timestamptz(3)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
+  encounter          Encounter           @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient            Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  orderSet           OrderSet?           @relation(fields: [tenantId, orderSetId], references: [tenantId, id])
+  orderer            User                @relation("OrderGroupOrderer", fields: [tenantId, orderedBy], references: [tenantId, id])
+  serviceRequests    ServiceRequest[]
+  medicationRequests MedicationRequest[]
+  cdsAlerts          CdsAlert[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, encounterId])
+  @@map("order_groups")
+}
+
+/// K09 · Order penunjang/tindakan. Isi beku (append-only); status lewat `order_status_events`.
+model ServiceRequest {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  orderGroupId String   @map("order_group_id") @db.Uuid
+  encounterId  String   @map("encounter_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  orderableId  String   @map("orderable_id") @db.Uuid
+  /// Salinan saat order (master boleh berubah sesudahnya).
+  name         String
+  codeSystem   String?  @map("code_system")
+  code         String?
+  priority     String
+  instructions String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id])
+  orderGroup   OrderGroup         @relation(fields: [tenantId, orderGroupId], references: [tenantId, id])
+  encounter    Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient      Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  orderable    Orderable          @relation(fields: [tenantId, orderableId], references: [tenantId, id])
+  statusEvents OrderStatusEvent[]
+  cdsAlerts    CdsAlert[]
+  observations Observation[]
+  reports      DiagnosticReport[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("service_requests")
+}
+
+/// K09/K12 · Resep/order obat. Isi beku; racikan didukung (`compound`); jadwal eMAR dari frekuensi.
+model MedicationRequest {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  orderGroupId String   @map("order_group_id") @db.Uuid
+  encounterId  String   @map("encounter_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  /// Obat tunggal; null bila racikan.
+  drugId       String?  @map("drug_id") @db.Uuid
+  /// Racikan: { name, dosageForm, quantity, components: [{ drugId, amount }] }.
+  compound     Json?
+  name         String
+  dose         String
+  route        String
+  /// Kode `MEDICATION_FREQUENCIES` (@simrs/shared).
+  frequency    String
+  customTimes  String[] @map("custom_times")
+  durationDays Int?     @map("duration_days")
+  instructions String?
+  highAlert    Boolean  @default(false) @map("high_alert")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id])
+  orderGroup      OrderGroup                 @relation(fields: [tenantId, orderGroupId], references: [tenantId, id])
+  encounter       Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient         Patient                    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  drug            Drug?                      @relation(fields: [tenantId, drugId], references: [tenantId, id])
+  statusEvents    OrderStatusEvent[]
+  cdsAlerts       CdsAlert[]
+  schedules       MedicationSchedule[]
+  administrations MedicationAdministration[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("medication_requests")
+}
+
+/// K09 · Status order (append-only): aktif, dibatalkan (beralasan), selesai.
+model OrderStatusEvent {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  serviceRequestId    String?  @map("service_request_id") @db.Uuid
+  medicationRequestId String?  @map("medication_request_id") @db.Uuid
+  /// aktif | dibatalkan | selesai
+  status              String
+  reason              String?
+  changedAt           DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  changedBy           String?  @map("changed_by") @db.Uuid
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  serviceRequest    ServiceRequest?    @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+  medicationRequest MedicationRequest? @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, serviceRequestId])
+  @@index([tenantId, medicationRequestId])
+  @@map("order_status_events")
+}
+
+/// K09 · Basis pengetahuan CDS per RS, berversi (append-only; versi aktif = versi tertinggi per kode berstatus aktif).
+/// Definisi divalidasi `cdsRuleSchema` (@simrs/shared) sebelum disimpan; impor CLI gagal-tertutup (keputusan no. 10).
+model CdsRule {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  code       String
+  version    Int
+  /// aktif | nonaktif
+  status     String   @default("aktif")
+  definition Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code, version])
+  @@map("cds_rules")
+}
+
+/// K09 · Setiap temuan CDS dan keputusannya (append-only): diterima (peringatan), override (blok beralasan ≥ 10),
+/// diblokir (kiriman ditolak). Dasar laporan tinjauan override.
+model CdsAlert {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  encounterId         String   @map("encounter_id") @db.Uuid
+  patientId           String   @map("patient_id") @db.Uuid
+  /// Kiriman yang berhasil; null untuk kiriman yang diblokir.
+  orderGroupId        String?  @map("order_group_id") @db.Uuid
+  serviceRequestId    String?  @map("service_request_id") @db.Uuid
+  medicationRequestId String?  @map("medication_request_id") @db.Uuid
+  lineIndex           Int      @map("line_index")
+  ruleCode            String   @map("rule_code")
+  ruleVersion         Int?     @map("rule_version")
+  /// info | warn | block
+  level               String
+  /// Kategori temuan (`CPOE_CDS_RULES`).
+  rule                String
+  message             String
+  /// diterima | override | diblokir
+  decision            String
+  overrideReason      String?  @map("override_reason")
+  decidedBy           String   @map("decided_by") @db.Uuid
+  decidedRole         String   @map("decided_role")
+  decidedAt           DateTime @default(now()) @map("decided_at") @db.Timestamptz(3)
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  encounter         Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient           Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  orderGroup        OrderGroup?        @relation(fields: [tenantId, orderGroupId], references: [tenantId, id])
+  serviceRequest    ServiceRequest?    @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+  medicationRequest MedicationRequest? @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+  decider           User               @relation("CdsAlertDecider", fields: [tenantId, decidedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, decision, decidedAt])
+  @@map("cds_alerts")
+}

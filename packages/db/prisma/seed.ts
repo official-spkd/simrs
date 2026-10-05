@@ -17,6 +17,7 @@ import { syncRolePermissions } from '../src/permission-sync';
 import { SEED_LOCAL_TENANTS, SEED_PLATFORM_TENANT, SEED_TENANTS, SEED_UNITS } from '../src/seed-data';
 import { seedPatients } from '../src/seed-patients';
 import { seedRefSamples } from '../src/seed-ref';
+import { seedClinicalHistory, seedClinicalMasters } from '../src/seed-clinical';
 import { seedFrontOffice } from '../src/seed-front-office';
 import { seedStaff } from '../src/seed-staff';
 import { seedHospitalStructure } from '../src/seed-structure';
@@ -94,11 +95,17 @@ try {
     const staff = await seedStaff(prisma, t.id, { encRing: keys.enc });
     // F01–F04: layanan antrean, praktisi (tertaut staf seed), templat jadwal, penjamin, papan antrean.
     const fo = await seedFrontOffice(prisma, t.id);
+    // K · Master klinis fase 3 (bed, obat, order set, KB CDS, singkatan, paket formulir) + riwayat fiktif.
+    const clinical = await withTenant(prisma, t.id, (tx) => seedClinicalMasters(tx, t.id));
+    const history = await seedClinicalHistory(prisma, t.id);
     console.warn(
       `Tenant siap: ${t.code} · ${t.name} (struktur RS: ${SEED_UNITS.length} unit, formulir Morse: ${form.created ? 'dipasang v1' : 'sudah ada'}, pasien fiktif baru: ${patients.created}, kandidat duplikat terbuka: ${patients.candidates}, staf fiktif baru: ${staff.created}, sudah ada: ${staff.existing})`,
     );
     console.warn(
       `  front office baru: ${fo.services} layanan antrean, ${fo.practitioners} praktisi, ${fo.schedules} templat jadwal, ${fo.payers} penjamin, ${fo.displays} papan antrean; izin katalog baru ke peran: ${form.permissionsAdded}`,
+    );
+    console.warn(
+      `  klinis baru: ${clinical.beds} status bed, ${clinical.drugs} obat, ${clinical.orderables} item order, ${clinical.orderSets} order set, ${clinical.cdsRules} aturan CDS; riwayat fiktif ${history} kunjungan`,
     );
   }
   const p = SEED_PLATFORM_TENANT;

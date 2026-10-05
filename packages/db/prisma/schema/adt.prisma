@@ -1,0 +1,230 @@
+// K03/K04/K05 · ADT, papan bed, gelang pasien, triase IGD (fase 3, skema II potongan 3.0c).
+
+/// K05 · Status kini satu bed (`locations.kind = 'bed'`) + `version` untuk konkurensi optimistis (`baseVersion`).
+/// Setiap perubahan menulis `bed_status_events` lewat trigger. Status selalu tampil sebagai teks.
+model BedStatus {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  locationId  String   @map("location_id") @db.Uuid
+  unitId      String   @map("unit_id") @db.Uuid
+  /// siap | dipesan | terisi | pulang | kotor | dibersihkan | rusak
+  status      String   @default("siap")
+  version     Int      @default(1)
+  /// Kunjungan yang memesan/menempati bed (dipesan, terisi, pulang); null selain itu.
+  encounterId String?  @map("encounter_id") @db.Uuid
+  note        String?
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  changedBy   String?  @map("changed_by") @db.Uuid
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  location  Location         @relation(fields: [tenantId, locationId], references: [tenantId, id])
+  unit      Unit             @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  encounter Encounter?       @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  events    BedStatusEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, locationId])
+  @@index([tenantId, unitId, status])
+  @@map("bed_status")
+}
+
+/// K05 · Jejak perubahan status bed (append-only), ditulis trigger `bed_status`.
+model BedStatusEvent {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  bedStatusId String   @map("bed_status_id") @db.Uuid
+  fromStatus  String?  @map("from_status")
+  toStatus    String   @map("to_status")
+  version     Int
+  encounterId String?  @map("encounter_id") @db.Uuid
+  note        String?
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  changedBy   String?  @map("changed_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  bedStatus BedStatus @relation(fields: [tenantId, bedStatusId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, bedStatusId, version])
+  @@map("bed_status_events")
+}
+
+/// K04 · Permintaan bed (asal IGD/OK/poli; kebutuhan kelas/unit/isolasi). Satu permintaan terbuka per kunjungan.
+model BedRequest {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  patientId           String    @map("patient_id") @db.Uuid
+  /// Kunjungan asal (IGD, RJ, atau admisi `planned`).
+  encounterId         String    @map("encounter_id") @db.Uuid
+  /// igd | ok | poli | lainnya
+  origin              String
+  /// Kelas yang dibutuhkan (kode `locations.care_class`).
+  careClass           String    @map("care_class")
+  unitId              String?   @map("unit_id") @db.Uuid
+  isolation           Boolean   @default(false)
+  note                String?
+  /// menunggu | dialokasi | selesai | batal
+  status              String    @default("menunggu")
+  allocatedLocationId String?   @map("allocated_location_id") @db.Uuid
+  requestedAt         DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  requestedBy         String?   @map("requested_by") @db.Uuid
+  allocatedAt         DateTime? @map("allocated_at") @db.Timestamptz(3)
+  allocatedBy         String?   @map("allocated_by") @db.Uuid
+  closedAt            DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedBy            String?   @map("closed_by") @db.Uuid
+  closeReason         String?   @map("close_reason")
+
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  patient           Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter         Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  unit              Unit?     @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  allocatedLocation Location? @relation("BedRequestAllocation", fields: [tenantId, allocatedLocationId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, requestedAt])
+  @@index([tenantId, encounterId])
+  @@map("bed_requests")
+}
+
+/// K04 · Penempatan bed per kunjungan (periode `[started_at, ended_at)`). EXCLUDE btree_gist: satu bed tidak dihuni dua
+/// kunjungan dan satu kunjungan tidak di dua bed pada saat yang sama. `ended_at`/`end_reason` diisi sekali.
+model BedAssignment {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  encounterId String    @map("encounter_id") @db.Uuid
+  patientId   String    @map("patient_id") @db.Uuid
+  locationId  String    @map("location_id") @db.Uuid
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// transfer | pulang | batal
+  endReason   String?   @map("end_reason")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?   @map("created_by") @db.Uuid
+  endedBy     String?   @map("ended_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  location  Location  @relation("BedAssignmentLocation", fields: [tenantId, locationId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("bed_assignments")
+}
+
+/// K04/K12 · Gelang identitas per kunjungan: kode acak (bukan RM). Cetak ulang membatalkan yang lama (tutup-sekali);
+/// satu gelang aktif per kunjungan.
+model PatientWristband {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  encounterId String    @map("encounter_id") @db.Uuid
+  patientId   String    @map("patient_id") @db.Uuid
+  code        String
+  issuedAt    DateTime  @default(now()) @map("issued_at") @db.Timestamptz(3)
+  issuedBy    String?   @map("issued_by") @db.Uuid
+  voidedAt    DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedBy    String?   @map("voided_by") @db.Uuid
+  voidReason  String?   @map("void_reason")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  encounter Encounter       @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  scans     WristbandScan[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, encounterId])
+  @@map("patient_wristbands")
+}
+
+/// K12 · Setiap pindaian gelang (cocok atau tidak), append-only; waktu dari server. Pemberian obat wajib menunjuk
+/// pindaian cocok milik perawat yang sama yang belum kedaluwarsa (trigger `medication_administrations`).
+model WristbandScan {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  /// Gelang yang cocok; null bila kode tidak cocok dengan gelang aktif kunjungan ini.
+  wristbandId String?  @map("wristband_id") @db.Uuid
+  matched     Boolean
+  scannedCode String   @map("scanned_code")
+  userId      String   @map("user_id") @db.Uuid
+  scannedAt   DateTime @default(now()) @map("scanned_at") @db.Timestamptz(3)
+
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id])
+  encounter       Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient         Patient                    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  wristband       PatientWristband?          @relation(fields: [tenantId, wristbandId], references: [tenantId, id])
+  user            User                       @relation("WristbandScanUser", fields: [tenantId, userId], references: [tenantId, id])
+  administrations MedicationAdministration[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId, scannedAt])
+  @@map("wristband_scans")
+}
+
+/// K03 · Asesmen triase IGD (berversi): tanda vital + diskriminator, saran sistem vs pilihan petugas. Pilihan lebih
+/// rendah dari saran wajib alasan ≥ 10 (CHECK); pilihan di bawah batas protokol ditolak.
+model TriageAssessment {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// Skala (`triage.scale`), kini `ATS`.
+  scale            String   @default("ATS")
+  /// Tanda vital triase (objek JSON `triageVitalsSchema`).
+  vitals           Json
+  discriminators   String[]
+  suggestedLevel   Int      @map("suggested_level")
+  maxLevel         Int      @map("max_level")
+  chosenLevel      Int      @map("chosen_level")
+  overrideReason   String?  @map("override_reason")
+  reasons          String[]
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User               @relation("TriageAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     TriageAssessment?  @relation("TriageVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   TriageAssessment[] @relation("TriageVersion")
+  addendumTarget TriageAssessment?  @relation("TriageAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        TriageAssessment[] @relation("TriageAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@map("triage_assessments")
+}
+
+/// K03 · Status alur pasien di papan IGD (append-only; status kini = baris terakhir).
+model EdStatusEvent {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  /// registrasi | triase | resusitasi | pemeriksaan | tunggu-dokter | tunggu-lab | observasi | tunggu-bed | siap-pulang
+  status      String
+  /// Zona IGD T/R/B/K.
+  zone        String?
+  locationId  String?  @map("location_id") @db.Uuid
+  changedAt   DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
+  changedBy   String?  @map("changed_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  location  Location? @relation("EdStatusLocation", fields: [tenantId, locationId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId, changedAt])
+  @@map("ed_status_events")
+}

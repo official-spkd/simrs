@@ -1,0 +1,687 @@
+// K01–K15 · Klinis RME (fase 3, skema I potongan 3.0b; ADR-0004, ADR-0028).
+//
+// Pola entri klinis berversi (semua model bertanda "berversi" di bawah):
+// - `root_id` = id versi 1; `version` = versi pendahulu + 1; `supersedes_id` unik (satu pengganti per versi, indeks
+//   parsial manual `<tabel>_supersedes_once`), sehingga dari dua koreksi serentak satu ditolak.
+// - `status` hanya `final` | `entered_in_error`; koreksi dan salah entri wajib `correction_reason` (10–500 karakter).
+//   Tambahan informasi = `addendum_of` (entri baru versi 1 yang menunjuk entri final, tanpa menggantikannya).
+// - Dua stempel waktu (MRMIK 8b): `occurred_at` diisi PPA, `recorded_at` diisi trigger dari jam server.
+// - Penulis dari sesi (MRMIK 8a): `author_user_id` + `author_role`.
+// - Hak aplikasi SELECT/INSERT saja; `app_reject_mutation` menolak UPDATE/DELETE juga bagi pemilik tabel;
+//   `app_clinical_guard` menjaga rantai versi (satu root/pasien/kunjungan) dan menolak menggantikan versi ber-TTE.
+// - Baca versi terkini lewat view `<tabel>_current` (security_invoker).
+
+/// K06/K07 · Draf klinis per penulis × kunjungan × jenis (SOAP, asesmen, resume, …). BUKAN rekam medis: hanya penulis
+/// yang mengubah/menghapus (ditegakkan API), dibersihkan job P11 setelah kunjungan selesai. Entri final selalu ke
+/// tabel klinis berversi.
+model ClinicalDraft {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  encounterId  String   @map("encounter_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  authorUserId String   @map("author_user_id") @db.Uuid
+  /// Jenis draf (`cppt`, `soap`, `asesmen:<kode formulir>`, `resume`, …).
+  kind         String
+  content      Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  author    User      @relation(fields: [tenantId, authorUserId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, encounterId, kind, authorUserId])
+  @@index([tenantId, authorUserId])
+  @@map("clinical_drafts")
+}
+
+/// K07/K09 · Atestasi elektronik sesi atas entri klinis (keputusan fase 3 no. 2): co-sign DPJP atas CPPT residen,
+/// verifikasi DPJP atas CPPT PPA lain, tinjau order residen. Append-only; satu per (target, jenis, pengguna); satu
+/// co-sign per target (indeks parsial manual `clinical_attestations_one_cosign`).
+model ClinicalAttestation {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  encounterId String?  @map("encounter_id") @db.Uuid
+  /// Nama tabel target (`cppt_entries`, …; CHECK + trigger memeriksa barisnya ada).
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id") @db.Uuid
+  /// cosign | verify | review_order
+  kind        String
+  userId      String   @map("user_id") @db.Uuid
+  userRole    String   @map("user_role")
+  note        String?
+  attestedAt  DateTime @default(now()) @map("attested_at") @db.Timestamptz(3)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  patient   Patient    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter Encounter? @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  user      User       @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, targetType, targetId, kind, userId])
+  @@index([tenantId, encounterId])
+  @@map("clinical_attestations")
+}
+
+/// K10 · Tim perawatan kunjungan: DPJP utama, rawat bersama, konsultan, perawat penanggung jawab. Periode tutup-sekali
+/// (`ended_at` diisi sekali, trigger); satu DPJP utama aktif per kunjungan (indeks parsial manual). Sumber relasi akses
+/// (`access_relationships`, potongan 3.1).
+model EncounterParticipant {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  encounterId String    @map("encounter_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  /// dpjp_utama | rawat_bersama | konsultan | perawat_pj
+  role        String
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(3)
+  endedBy     String?   @map("ended_by") @db.Uuid
+  endReason   String?   @map("end_reason")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?   @map("created_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  user      User      @relation("EncounterParticipantUser", fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, userId])
+  @@map("encounter_participants")
+}
+
+/// K05/K08 · Zat aktif obat per RS (dasar alergi terkode dan CDS): kode token (`amoksisilin`) + golongan
+/// (`penisilin`). Master: dinonaktifkan, tidak dihapus. Obat (`drugs`, 3.0c) menunjuk zat ini.
+model DrugSubstance {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  /// Token huruf kecil, sama dengan `substance` di mesin CDS.
+  code      String
+  name      String
+  classes   String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant    Tenant               @relation(fields: [tenantId], references: [id])
+  allergies AllergyIntolerance[]
+
+  drugs Drug[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("drug_substances")
+}
+
+/// K15 · Paket formulir per setting (rawat jalan/IGD/rawat inap): formulir P07 wajib per kunjungan (EP 6b/7a).
+/// Master: diubah (wajib, urutan, aktif), tidak dihapus.
+model FormPackage {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  /// rawat_jalan | igd | rawat_inap
+  setting   String
+  formCode  String   @map("form_code")
+  required  Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, setting, formCode])
+  @@map("form_packages")
+}
+
+/// K08/K12 · Observasi (berversi): tanda vital + NEWS2, hasil lab/imaging (muara hasil penunjang, keputusan fase 3
+/// no. 12), survei, balans cairan. Kode LOINC hanya dari `ref.concepts` (trigger); panel tanda vital tanpa kode
+/// memakai `components`.
+model Observation {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  patientId          String   @map("patient_id") @db.Uuid
+  encounterId        String   @map("encounter_id") @db.Uuid
+  rootId             String   @map("root_id") @db.Uuid
+  version            Int      @default(1)
+  supersedesId       String?  @map("supersedes_id") @db.Uuid
+  addendumOf         String?  @map("addendum_of") @db.Uuid
+  status             String   @default("final")
+  correctionReason   String?  @map("correction_reason")
+  occurredAt         DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt         DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId       String   @map("author_user_id") @db.Uuid
+  authorRole         String   @map("author_role")
+  /// vital | lab | imaging | survei | cairan
+  category           String
+  /// `loinc` atau null (panel tanpa kode).
+  codeSystem         String?  @map("code_system")
+  code               String?
+  display            String
+  valueNumeric       Decimal? @map("value_numeric") @db.Decimal(14, 4)
+  valueUnit          String?  @map("value_unit")
+  valueText          String?  @map("value_text")
+  /// Panel (mis. NEWS2: rr, spo2, onOxygen, sbp, dbp, hr, consciousness, temp), objek JSON.
+  components         Json?
+  /// normal | tinggi | rendah | abnormal | kritis
+  interpretation     String?
+  referenceRange     String?  @map("reference_range")
+  ewsScore           Int?     @map("ews_score")
+  ewsMaxParam        Int?     @map("ews_max_param")
+  diagnosticReportId String?  @map("diagnostic_report_id") @db.Uuid
+  /// Order penunjang asal (fase 4 menulis hasil ke sini setelah validasi).
+  serviceRequestId   String?  @map("service_request_id") @db.Uuid
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  patient          Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter        Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author           User              @relation("ObservationAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes       Observation?      @relation("ObservationVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy     Observation[]     @relation("ObservationVersion")
+  addendumTarget   Observation?      @relation("ObservationAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda          Observation[]     @relation("ObservationAddendum")
+  diagnosticReport DiagnosticReport? @relation(fields: [tenantId, diagnosticReportId], references: [tenantId, id])
+  serviceRequest   ServiceRequest?   @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId, category])
+  @@map("observations")
+}
+
+/// K08 · Laporan hasil penunjang (lab/radiologi) yang mengelompokkan observasi (berversi).
+model DiagnosticReport {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// lab | radiologi | lainnya
+  category         String
+  codeSystem       String?  @map("code_system")
+  code             String?
+  display          String
+  conclusion       String?
+  serviceRequestId String?  @map("service_request_id") @db.Uuid
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User               @relation("DiagnosticReportAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     DiagnosticReport?  @relation("DiagnosticReportVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   DiagnosticReport[] @relation("DiagnosticReportVersion")
+  addendumTarget DiagnosticReport?  @relation("DiagnosticReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        DiagnosticReport[] @relation("DiagnosticReportAddendum")
+  observations   Observation[]
+  serviceRequest ServiceRequest?    @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("diagnostic_reports")
+}
+
+/// K08 · Diagnosis kunjungan (utama/sekunder/komplikasi) atau problem list pasien, ICD-10 dari `ref` (berversi).
+model Condition {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// encounter | problem_list
+  kind             String
+  /// utama | sekunder | komplikasi (diagnosis kunjungan); null untuk problem list.
+  role             String?
+  codeSystem       String   @default("icd10") @map("code_system")
+  code             String
+  display          String
+  /// active | resolved
+  clinicalStatus   String   @map("clinical_status")
+  note             String?
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  patient        Patient     @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter   @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User        @relation("ConditionAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     Condition?  @relation("ConditionVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   Condition[] @relation("ConditionVersion")
+  addendumTarget Condition?  @relation("ConditionAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        Condition[] @relation("ConditionAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId, kind])
+  @@map("conditions")
+}
+
+/// K08 · Prosedur/tindakan, ICD-9-CM dari `ref` (berversi).
+model Procedure {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  codeSystem       String   @default("icd9cm") @map("code_system")
+  code             String
+  display          String
+  note             String?
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  patient        Patient     @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter   @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User        @relation("ProcedureAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     Procedure?  @relation("ProcedureVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   Procedure[] @relation("ProcedureVersion")
+  addendumTarget Procedure?  @relation("ProcedureAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        Procedure[] @relation("ProcedureAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("procedures")
+}
+
+/// K08 · Alergi/intoleransi (berversi): zat terkode (`drug_substances`) atau teks; NKDA dicatat eksplisit. Riwayat
+/// pasien dibaca lewat kelompok rekam medis (`app_patient_group`).
+model AllergyIntolerance {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  /// Kunjungan saat pertama dicatat (tetap di seluruh rantai versi); null bila dicatat di luar kunjungan.
+  encounterId      String?  @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// alergi | nkda
+  kind             String
+  substanceId      String?  @map("substance_id") @db.Uuid
+  text             String?
+  /// obat | makanan | lingkungan | lainnya
+  category         String?
+  /// rendah | tinggi | tidak_diketahui
+  criticality      String?
+  reaction         String?
+
+  tenant         Tenant               @relation(fields: [tenantId], references: [id])
+  patient        Patient              @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter?           @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User                 @relation("AllergyAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  substance      DrugSubstance?       @relation(fields: [tenantId, substanceId], references: [tenantId, id])
+  supersedes     AllergyIntolerance?  @relation("AllergyVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   AllergyIntolerance[] @relation("AllergyVersion")
+  addendumTarget AllergyIntolerance?  @relation("AllergyAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        AllergyIntolerance[] @relation("AllergyAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, patientId])
+  @@index([tenantId, encounterId])
+  @@map("allergy_intolerances")
+}
+
+/// K07 · CPPT terintegrasi multi-PPA (berversi): SOAP/ADIME + instruksi. Catatan residen `cosign_required` menunggu
+/// atestasi co-sign DPJP (`clinical_attestations`).
+model CpptEntry {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// dpjp | residen | perawat | bidan | farmasi | gizi
+  ppa              String
+  /// soap | adime
+  format           String
+  content          Json
+  instruction      String?
+  cosignRequired   Boolean  @default(false) @map("cosign_required")
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  patient        Patient     @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter   @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User        @relation("CpptAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  supersedes     CpptEntry?  @relation("CpptVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   CpptEntry[] @relation("CpptVersion")
+  addendumTarget CpptEntry?  @relation("CpptAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        CpptEntry[] @relation("CpptAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId, occurredAt])
+  @@index([tenantId, patientId])
+  @@map("cppt_entries")
+}
+
+/// K07 · Serah terima SBAR antarshift/antarunit (berversi).
+model Handover {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  situation        String
+  background       String
+  assessment       String
+  recommendation   String
+  toUserId         String?  @map("to_user_id") @db.Uuid
+
+  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+  patient        Patient    @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User       @relation("HandoverAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  toUser         User?      @relation("HandoverRecipient", fields: [tenantId, toUserId], references: [tenantId, id])
+  supersedes     Handover?  @relation("HandoverVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   Handover[] @relation("HandoverVersion")
+  addendumTarget Handover?  @relation("HandoverAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        Handover[] @relation("HandoverAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@map("handovers")
+}
+
+/// K10 · Permintaan konsultasi/rawat bersama/alih rawat (berversi).
+model ConsultRequest {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// konsultasi | rawat_bersama | alih_rawat
+  kind             String
+  /// biasa | segera
+  urgency          String
+  toUnitId         String?  @map("to_unit_id") @db.Uuid
+  toUserId         String?  @map("to_user_id") @db.Uuid
+  question         String
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  patient        Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User              @relation("ConsultRequestAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  toUnit         Unit?             @relation(fields: [tenantId, toUnitId], references: [tenantId, id])
+  toUser         User?             @relation("ConsultRequestRecipient", fields: [tenantId, toUserId], references: [tenantId, id])
+  supersedes     ConsultRequest?   @relation("ConsultRequestVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   ConsultRequest[]  @relation("ConsultRequestVersion")
+  addendumTarget ConsultRequest?   @relation("ConsultRequestAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        ConsultRequest[]  @relation("ConsultRequestAddendum")
+  responses      ConsultResponse[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, toUserId])
+  @@map("consult_requests")
+}
+
+/// K10 · Jawaban konsultasi terstruktur (berversi).
+model ConsultResponse {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  patientId          String   @map("patient_id") @db.Uuid
+  encounterId        String   @map("encounter_id") @db.Uuid
+  rootId             String   @map("root_id") @db.Uuid
+  version            Int      @default(1)
+  supersedesId       String?  @map("supersedes_id") @db.Uuid
+  addendumOf         String?  @map("addendum_of") @db.Uuid
+  status             String   @default("final")
+  correctionReason   String?  @map("correction_reason")
+  occurredAt         DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt         DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId       String   @map("author_user_id") @db.Uuid
+  authorRole         String   @map("author_role")
+  requestId          String   @map("request_id") @db.Uuid
+  findings           String
+  assessment         String
+  recommendation     String
+  acceptComanagement Boolean  @default(false) @map("accept_comanagement")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  patient        Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User              @relation("ConsultResponseAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  request        ConsultRequest    @relation(fields: [tenantId, requestId], references: [tenantId, id])
+  supersedes     ConsultResponse?  @relation("ConsultResponseVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   ConsultResponse[] @relation("ConsultResponseVersion")
+  addendumTarget ConsultResponse?  @relation("ConsultResponseAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        ConsultResponse[] @relation("ConsultResponseAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, requestId])
+  @@map("consult_responses")
+}
+
+/// K11 · Persetujuan/penolakan tindakan (berversi; pencabutan = versi baru `dicabut`). Dicatat saat final; dokumen
+/// PDF bertanda tangan + TTE lewat P08 (`document_id`, `documents.source_type = 'consents'`).
+model Consent {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  /// Templat formulir P07 (7 butir informasi wajib).
+  formDefinitionId String?  @map("form_definition_id") @db.Uuid
+  procedure        String
+  /// setuju | tolak | dicabut
+  decision         String
+  refusalReason    String?  @map("refusal_reason")
+  /// Tujuh butir informasi yang dijelaskan (larik JSON).
+  information      Json
+  informerUserId   String   @map("informer_user_id") @db.Uuid
+  explainedAt      DateTime @map("explained_at") @db.Timestamptz(3)
+  documentId       String?  @map("document_id") @db.Uuid
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User               @relation("ConsentAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  informer       User               @relation("ConsentInformer", fields: [tenantId, informerUserId], references: [tenantId, id])
+  formDefinition FormDefinition?    @relation(fields: [tenantId, formDefinitionId], references: [tenantId, id])
+  document       Document?          @relation("ConsentDocument", fields: [tenantId, documentId], references: [tenantId, id])
+  supersedes     Consent?           @relation("ConsentVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   Consent[]          @relation("ConsentVersion")
+  addendumTarget Consent?           @relation("ConsentAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        Consent[]          @relation("ConsentAddendum")
+  signatures     ConsentSignature[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("consents")
+}
+
+/// K11 · Tanda tangan persetujuan (pasien/wali, saksi keluarga, saksi petugas). Append-only; satu per jenis per versi.
+model ConsentSignature {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  consentId       String   @map("consent_id") @db.Uuid
+  /// pasien | wali | saksi_keluarga | saksi_petugas
+  signerKind      String   @map("signer_kind")
+  signerName      String   @map("signer_name")
+  relation        String?
+  /// goresan | nama
+  method          String
+  /// Gambar tanda tangan (PNG, unggahan biner ADR-0020); null bila ketik nama.
+  imageDocumentId String?  @map("image_document_id") @db.Uuid
+  /// Petugas saksi (atestasi sesi); wajib untuk `saksi_petugas`.
+  staffUserId     String?  @map("staff_user_id") @db.Uuid
+  signedAt        DateTime @default(now()) @map("signed_at") @db.Timestamptz(3)
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  consent       Consent   @relation(fields: [tenantId, consentId], references: [tenantId, id])
+  imageDocument Document? @relation("ConsentSignatureImage", fields: [tenantId, imageDocumentId], references: [tenantId, id])
+  staffUser     User?     @relation("ConsentStaffWitness", fields: [tenantId, staffUserId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, consentId, signerKind])
+  @@map("consent_signatures")
+}
+
+/// K13 · Resume medis pulang (rawat inap) atau ringkas (rawat jalan), berversi; bagian membawa ref sumber
+/// (`discharge_summary_sources`). Versi ber-TTE dikunci (`documents.source_type = 'discharge_summaries'`).
+model DischargeSummary {
+  id                      String   @id @db.Uuid
+  tenantId                String   @map("tenant_id") @db.Uuid
+  patientId               String   @map("patient_id") @db.Uuid
+  encounterId             String   @map("encounter_id") @db.Uuid
+  rootId                  String   @map("root_id") @db.Uuid
+  version                 Int      @default(1)
+  supersedesId            String?  @map("supersedes_id") @db.Uuid
+  addendumOf              String?  @map("addendum_of") @db.Uuid
+  status                  String   @default("final")
+  correctionReason        String?  @map("correction_reason")
+  occurredAt              DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt              DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId            String   @map("author_user_id") @db.Uuid
+  authorRole              String   @map("author_role")
+  /// rawat_inap | rawat_jalan
+  kind                    String
+  /// Bagian resume (judul → isi), objek JSON.
+  sections                Json
+  /// pulang | rujuk | pulang_paksa | meninggal | pindah_rawat
+  disposition             String
+  dischargeCondition      String   @map("discharge_condition")
+  followUp                String?  @map("follow_up")
+  reconciliationConfirmed Boolean  @default(false) @map("reconciliation_confirmed")
+  documentId              String?  @map("document_id") @db.Uuid
+
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id])
+  patient        Patient                  @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter                @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User                     @relation("DischargeSummaryAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  document       Document?                @relation("DischargeSummaryDocument", fields: [tenantId, documentId], references: [tenantId, id])
+  supersedes     DischargeSummary?        @relation("DischargeSummaryVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   DischargeSummary[]       @relation("DischargeSummaryVersion")
+  addendumTarget DischargeSummary?        @relation("DischargeSummaryAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        DischargeSummary[]       @relation("DischargeSummaryAddendum")
+  medications    DischargeMedication[]
+  sources        DischargeSummarySource[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@index([tenantId, patientId])
+  @@map("discharge_summaries")
+}
+
+/// K13 · Rekonsiliasi obat pulang per versi resume (baru, lanjut, ubah dosis, dihentikan). Append-only.
+model DischargeMedication {
+  id        String  @id @db.Uuid
+  tenantId  String  @map("tenant_id") @db.Uuid
+  summaryId String  @map("summary_id") @db.Uuid
+  /// Obat katalog (`drugs`, potongan 3.0c); null bila obat luar katalog.
+  drugId    String? @map("drug_id") @db.Uuid
+  name      String
+  sig       String
+  /// baru | lanjut | ubah_dosis | dihentikan
+  change    String
+  sortOrder Int     @default(0) @map("sort_order")
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  summary DischargeSummary @relation(fields: [tenantId, summaryId], references: [tenantId, id])
+  drug    Drug?            @relation(fields: [tenantId, drugId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, summaryId])
+  @@map("discharge_medications")
+}
+
+/// K13 · Sumber tiap bagian resume (tabel + id baris klinis), sehingga isi resume = data sumber. Append-only.
+model DischargeSummarySource {
+  id         String @id @db.Uuid
+  tenantId   String @map("tenant_id") @db.Uuid
+  summaryId  String @map("summary_id") @db.Uuid
+  section    String
+  sourceType String @map("source_type")
+  sourceId   String @map("source_id") @db.Uuid
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id])
+  summary DischargeSummary @relation(fields: [tenantId, summaryId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, summaryId, section, sourceType, sourceId])
+  @@map("discharge_summary_sources")
+}
