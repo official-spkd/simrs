@@ -20,6 +20,7 @@ import { bpjsHfisPull, bpjsHfisUpdate } from './hfis';
 import { notifyEmail, notifyWhatsapp } from './notify';
 import type { OutboxOperation } from './operation-types';
 import { patientWhatsappScheduleChanged } from './schedule-changed';
+import { SEP_OPERATIONS } from './sep';
 import { tteSignDocument } from './tte';
 
 export type {
@@ -71,4 +72,6 @@ export const OUTBOX_OPERATIONS: ReadonlyMap<string, OutboxOperation> = new Map<s
   [BPJS_HFIS_UPDATE_OPERATION, bpjsHfisUpdate],
   [BPJS_HFIS_PULL_OPERATION, bpjsHfisPull],
   [PATIENT_WHATSAPP_SCHEDULE_CHANGED_OPERATION, patientWhatsappScheduleChanged],
+  // F06 · SEP (potongan 5a).
+  ...SEP_OPERATIONS,
 ]);
