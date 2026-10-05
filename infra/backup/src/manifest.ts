@@ -64,8 +64,17 @@ export const manifestSchema = z.strictObject({
     /** `skema.tabel` → jumlah baris pada snapshot dump. */
     tables: z.record(z.string().regex(/^[A-Za-z0-9_]{1,63}\.[A-Za-z0-9_]{1,63}$/), count),
     /** Kepala rantai audit per tenant pada snapshot dump (dibandingkan saat uji restore). */
+    /** Kepala rantai audit per tenant + seq pertama yang rusak (null = utuh) pada snapshot dump. */
     auditHeads: z.array(
-      z.strictObject({ tenantId: z.uuid(), seq: z.string().regex(/^[1-9][0-9]{0,18}$/), hash: sha256Hex }),
+      z.strictObject({
+        tenantId: z.uuid(),
+        seq: z.string().regex(/^[1-9][0-9]{0,18}$/),
+        hash: sha256Hex,
+        firstBrokenSeq: z
+          .string()
+          .regex(/^[1-9][0-9]{0,18}$/)
+          .nullable(),
+      }),
     ),
     tenants: z.array(
       z.strictObject({

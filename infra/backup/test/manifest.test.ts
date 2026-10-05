@@ -28,7 +28,7 @@ function body(): ManifestBody {
       serverVersion: '16.10',
       migrations: ['20261003000000_fondasi', '20261005110000_backup_runs'],
       tables: { 'public.patients': 230, 'public._prisma_migrations': 2, 'ref.concepts': 72 },
-      auditHeads: [{ tenantId: TENANT, seq: '42', hash: SHA }],
+      auditHeads: [{ tenantId: TENANT, seq: '42', hash: SHA, firstBrokenSeq: null }],
       tenants: [{ id: TENANT, code: 'RSCM', kind: 'hospital', status: 'active' }],
     },
     documents: {

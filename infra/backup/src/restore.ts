@@ -405,7 +405,9 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
       (s) => s,
     );
 
-    // 14. Rantai audit per tenant: /audit/verify (tenant aktif) + kepala rantai = manifest + verifikasi SQL semua tenant.
+    // 14. Rantai audit per tenant: hasil verifikasi harus SAMA dengan di sumber (manifest), lewat API /audit/verify
+    // (tenant aktif) dan SQL (semua tenant ber-audit); kepala rantai = manifest. Rantai yang sudah rusak di sumber
+    // dilaporkan sebagai peringatan (restore tidak bisa memperbaikinya), bukan kegagalan restore.
     await step(
       'audit_verify',
       async () => {
@@ -413,14 +415,16 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
         let viaApi = 0;
         for (const t of manifest.database.tenants.filter((x) => x.status === 'active')) {
           const r = await httpJson(`${apiBase}/api/v1/audit/verify`, { 'X-Tenant-Id': t.id });
-          const body = r.body as { intact?: boolean; checked?: number };
-          if (r.status !== 200 || body.intact !== true) {
+          const body = r.body as { intact?: boolean; checked?: number; firstBrokenSeq?: string | null };
+          const head = heads.get(t.id);
+          const expected = head?.firstBrokenSeq ?? null;
+          const actual = body.intact === true ? null : (body.firstBrokenSeq ?? 'tidak diketahui');
+          if (r.status !== 200 || actual !== expected) {
             throw new Error(
-              `AUDIT_BROKEN: /audit/verify ${t.code} → HTTP ${r.status}, intact=${String(body.intact)}`,
+              `AUDIT_BROKEN: /audit/verify ${t.code} → HTTP ${r.status}, rusak di ${actual ?? '-'}, sumber ${expected ?? '-'}`,
             );
           }
-          const head = heads.get(t.id);
-          if (head && (body.checked ?? 0) < Number(head.seq)) {
+          if (head && expected === null && (body.checked ?? 0) < Number(head.seq)) {
             throw new Error(`AUDIT_TRUNCATED: ${t.code} ${body.checked} < ${head.seq}`);
           }
           viaApi += 1;
@@ -432,26 +436,30 @@ export async function runRestoreTest(cfg: BackupConfig, opts: RestoreOptions): P
               'SELECT hash FROM public.audit_events WHERE tenant_id = $1 AND seq = $2',
               [h.tenantId, h.seq],
             );
-            if (r.rows[0]?.hash !== h.hash)
+            if (r.rows[0]?.hash !== h.hash) {
               throw new Error(`AUDIT_HEAD_MISMATCH: tenant ${h.tenantId} seq ${h.seq}`);
+            }
             await c.query('BEGIN');
             await c.query("SELECT set_config('app.tenant_id', $1, true)", [h.tenantId]);
-            const v = await c.query<{ checked: string; first_broken_seq: string | null }>(
-              'SELECT checked::text, first_broken_seq::text FROM app_verify_audit_chain()',
+            const v = await c.query<{ first_broken_seq: string | null }>(
+              'SELECT first_broken_seq::text FROM app_verify_audit_chain()',
             );
             await c.query('COMMIT');
-            if (v.rows[0]?.first_broken_seq !== null) {
+            if ((v.rows[0]?.first_broken_seq ?? null) !== h.firstBrokenSeq) {
               throw new Error(
-                `AUDIT_BROKEN: tenant ${h.tenantId} rusak di seq ${v.rows[0]?.first_broken_seq}`,
+                `AUDIT_BROKEN: tenant ${h.tenantId} rusak di ${v.rows[0]?.first_broken_seq ?? '-'}, sumber ${h.firstBrokenSeq ?? '-'}`,
               );
             }
           }
         } finally {
           await c.end();
         }
-        return { viaApi, heads: manifest.database.auditHeads.length };
+        const brokenAtSource = manifest.database.auditHeads.filter((h) => h.firstBrokenSeq !== null).length;
+        return { viaApi, heads: manifest.database.auditHeads.length, brokenAtSource };
       },
-      (x) => `${x.viaApi} tenant lewat API, ${x.heads} kepala rantai cocok`,
+      (x) =>
+        `${x.viaApi} tenant lewat API, ${x.heads} kepala rantai cocok` +
+        (x.brokenAtSource ? `, ${x.brokenAtSource} rantai sudah rusak di sumber (peringatan)` : ''),
     );
     rtoSeconds = Math.round((Date.now() - t0) / 1000);
   } catch (err) {

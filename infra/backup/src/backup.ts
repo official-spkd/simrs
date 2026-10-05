@@ -193,6 +193,13 @@ export async function runBackup(
       const snapshot = await db.exportSnapshot(snapClient);
       stats = await db.collectStats(snapClient, databaseName(databaseUrl));
       log(`snapshot ${snapshot}: ${Object.keys(stats.tables).length} tabel, pg_dump via ${pgMode}`);
+      const broken = stats.auditHeads.filter((h) => h.firstBrokenSeq !== null);
+      if (broken.length) {
+        // Bukan galat backup (dump tetap setia pada sumber), tetapi insiden yang harus ditinjau petugas audit.
+        log(
+          `PERINGATAN: rantai audit rusak di sumber untuk ${broken.length} tenant: ${broken.map((h) => `${h.tenantId}@${h.firstBrokenSeq}`).join(', ')}`,
+        );
+      }
       const child = spawnPgDump(pgMode, cfg, databaseUrl, snapshot);
       if (!child.stdout) throw new Error('pg_dump tanpa stdout');
       const [file] = await Promise.all([

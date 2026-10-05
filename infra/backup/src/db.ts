@@ -67,13 +67,32 @@ export async function appliedMigrations(client: pg.Client): Promise<string[]> {
   return r.rows.map((x) => x.name);
 }
 
+/**
+ * Kepala rantai audit per tenant + hasil verifikasi rantai di snapshot (`app_verify_audit_chain()` per tenant).
+ * Uji restore menuntut hasil yang SAMA di DB hasil restore: rantai utuh tetap utuh, rantai yang sudah rusak di sumber
+ * rusak di seq yang sama (dilaporkan, karena restore tidak bisa memperbaikinya).
+ */
 export async function auditHeads(client: pg.Client): Promise<DatabaseStats['auditHeads']> {
   const exists = await client.query("SELECT to_regclass('public.audit_events') AS t");
   if (!exists.rows[0]?.t) return [];
   const r = await client.query<{ tenant_id: string; seq: string; hash: string }>(`
     SELECT DISTINCT ON (tenant_id) tenant_id::text, seq::text, hash
     FROM public.audit_events ORDER BY tenant_id, seq DESC`);
-  return r.rows.map((x) => ({ tenantId: x.tenant_id, seq: x.seq, hash: x.hash }));
+  const verify = await client.query("SELECT to_regprocedure('public.app_verify_audit_chain()') AS f");
+  const heads: DatabaseStats['auditHeads'] = [];
+  for (const x of r.rows) {
+    let firstBrokenSeq: string | null = null;
+    if (verify.rows[0]?.f) {
+      await client.query("SELECT set_config('app.tenant_id', $1, true)", [x.tenant_id]);
+      const v = await client.query<{ b: string | null }>(
+        'SELECT first_broken_seq::text AS b FROM public.app_verify_audit_chain()',
+      );
+      firstBrokenSeq = v.rows[0]?.b ?? null;
+    }
+    heads.push({ tenantId: x.tenant_id, seq: x.seq, hash: x.hash, firstBrokenSeq });
+  }
+  if (verify.rows[0]?.f) await client.query("SELECT set_config('app.tenant_id', '', true)");
+  return heads;
 }
 
 export async function tenants(client: pg.Client): Promise<DatabaseStats['tenants']> {
