@@ -17,6 +17,7 @@
     "@nestjs/swagger": "^12.0.2",
     "@nestjs/throttler": "^6.7.1",
     "@simrs/db": "workspace:*",
+    "@simrs/pdf": "workspace:*",
     "@simrs/shared": "workspace:*",
     "ioredis": "^5",
     "nestjs-pino": "^5.3.1",

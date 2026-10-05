@@ -16,31 +16,46 @@ const today = isoDateJakarta(new Date());
 const digits = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
 
 /**
- * Sesi dr. Andini (poli PD) HARI INI dengan jam mulai unik di 05.xx, apa pun hari tes berjalan (templat mingguan bisa
- * libur hari ini). Kuota longgar.
+ * Sesi dr. Andini (poli PD) HARI INI dengan jam mulai acak 05.00–06.59, apa pun hari tes berjalan (templat mingguan bisa
+ * libur hari ini). Jam yang sudah dipakai run sebelumnya di database tes yang sama dipakai ulang (kunci unik praktisi ×
+ * tanggal × jam mulai), dengan kuota dilonggarkan.
  */
 async function todaySession(): Promise<{ id: string; label: RegExp }> {
   const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
   const hour = String(5 + Math.floor(Math.random() * 2)).padStart(2, '0');
-  const id = newId();
-  await inTenant(TENANTS.RSFA, async (tx) => {
+  const id = await inTenant(TENANTS.RSFA, async (tx) => {
     const service = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
     const practitioner = await tx.practitioner.findFirstOrThrow({
       where: { name: 'dr. Andini Prameswari, Sp.PD' },
     });
-    await tx.scheduleSession.create({
+    const where = {
+      practitionerId: practitioner.id,
+      sessionDate: new Date(`${today}T00:00:00.000Z`),
+      startTime: new Date(`1970-01-01T${hour}:${minute}:00.000Z`),
+    };
+    const found = await tx.scheduleSession.findFirst({
+      where,
+      select: { id: true, bookedJkn: true, bookedNonJkn: true },
+    });
+    if (found) {
+      await tx.scheduleSession.update({
+        where: { id: found.id },
+        data: { kind: 'praktik', quotaJkn: found.bookedJkn + 50, quotaNonJkn: found.bookedNonJkn + 50 },
+      });
+      return found.id;
+    }
+    const created = await tx.scheduleSession.create({
       data: {
-        id,
+        id: newId(),
         tenantId: TENANTS.RSFA,
-        practitionerId: practitioner.id,
+        ...where,
         serviceId: service.id,
-        sessionDate: new Date(`${today}T00:00:00.000Z`),
-        startTime: new Date(`1970-01-01T${hour}:${minute}:00.000Z`),
         endTime: new Date('1970-01-01T23:59:00.000Z'),
         quotaJkn: 50,
         quotaNonJkn: 50,
       },
     });
+    return created.id;
   });
   return { id, label: new RegExp(`dr\\. Andini Prameswari, Sp\\.PD\\s*${hour}\\.${minute}–23\\.59`) };
 }
