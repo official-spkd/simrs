@@ -82,6 +82,7 @@ model Tenant {
   referrals             Referral[]
   seps                  Sep[]
   patientContacts       PatientContact[]
+  domainEvents          DomainEvent[]
 
   @@map("tenants")
 }
@@ -1587,4 +1588,26 @@ model PatientContact {
   @@unique([tenantId, id])
   @@index([tenantId, patientId])
   @@map("patient_contacts")
+}
+
+/// Event domain yang diterbitkan (`DomainEvents.publish`, apps/api/src/infra/events), disimpan di transaksi penerbit
+/// SEBELUM penangan berjalan: ikut commit/batal bersama perubahan asalnya. Payload hanya ID dan nilai enum (tanpa PHI,
+/// dijaga penerbit). Append-only.
+model DomainEvent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// Nama event, mis. `booking.checked_in`.
+  name          String
+  payload       Json
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  requestId     String?  @map("request_id")
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Perangkat pelaku (sesi PIN, kelak anjungan/TV ADR-0027).
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name, occurredAt])
+  @@map("domain_events")
 }
