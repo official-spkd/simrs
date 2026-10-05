@@ -3,9 +3,12 @@ import { SetMetadata } from '@nestjs/common';
 export const NO_REQUEST_TRANSACTION_KEY = 'simrs:no-request-transaction';
 
 /**
- * Handler ini TIDAK dibungkus satu transaksi permintaan (ADR-0025, ADR-0026). Hanya untuk dua pola:
+ * Handler ini TIDAK dibungkus satu transaksi permintaan (ADR-0025, ADR-0026, ADR-0030). Hanya untuk tiga pola:
  * 1. lookup baca-saja ke sistem luar lewat `LookupGateway` (BPJS peserta/rujukan, Dukcapil demografi),
- * 2. aliran SSE lewat `SseService.stream()` yang bisa terbuka berjam-jam.
+ * 2. aliran SSE lewat `SseService.stream()` yang bisa terbuka berjam-jam,
+ * 3. penolakan yang wajib tetap tercatat: handler menjalankan satu `TenantDb.transaction()` yang MENGEMBALIKAN hasil
+ *    "ditolak" (mis. kirim order yang diblokir CDS mencatat `cds_alerts` `diblokir`), lalu melempar galatnya setelah
+ *    commit (ADR-0030).
  *
  * Yang tetap berlaku (dikerjakan `TenantTransactionInterceptor` dalam transaksi pendek masing-masing):
  * `AuthGuard`, `@RequirePermission` (penolakan diaudit lalu 403), `@RequireModule`, dan `@Audited` (ditulis setelah
