@@ -100,6 +100,8 @@ export const PIN_REVOKE_REASONS = [
   'mfa_reset',
   'user_disabled',
   'assignment_ended',
+  /** Kunci hash lada PIN dipensiunkan dari cincin (rotasi kunci, ADR-0015 pembaruan 5 Okt 2026). */
+  'key_rotated',
 ] as const;
 export type PinRevokeReason = (typeof PIN_REVOKE_REASONS)[number];
 

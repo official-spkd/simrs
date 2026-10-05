@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isPermission, PERMISSION_SCOPES } from '../authz';
+import { isDeviceOnlyResource, isPermission, PERMISSION_SCOPES } from '../authz';
 import { normalizePhone } from '../patient';
 import { USERNAME } from './auth';
 
@@ -50,7 +50,11 @@ export const rolePermissionsSchema = z.strictObject({
     .array(
       z
         .strictObject({ resource: z.string(), action: z.string(), scope: z.enum(PERMISSION_SCOPES) })
-        .refine((g) => isPermission(g.resource, g.action), 'Izin tidak dikenal'),
+        .refine((g) => isPermission(g.resource, g.action), 'Izin tidak dikenal')
+        .refine(
+          (g) => !isDeviceOnlyResource(g.resource),
+          'Izin khusus perangkat (anjungan, display antrean) tidak bisa diberikan ke peran',
+        ),
     )
     .max(200),
 });

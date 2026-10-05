@@ -1,14 +1,15 @@
-import type {
-  CounterTicket,
-  PractitionerQuota,
-  QueueBoard,
-  QueueBoardClinic,
-  Referral,
-  RegistrationDesk,
-  RegistrationPatient,
-  ScheduleDoctor,
-  ScheduleSlot,
-  WeeklySchedule,
+import {
+  type CounterTicket,
+  type PractitionerQuota,
+  type QueueBoard,
+  type QueueBoardClinic,
+  type Referral,
+  type RegistrationDesk,
+  type RegistrationPatient,
+  type ScheduleDoctor,
+  type ScheduleSlot,
+  scheduleCellId,
+  type WeeklySchedule,
 } from '@simrs/shared';
 import { nextQueueNo } from '../../front-office';
 import { DOCTOR_ID, PATIENT_ID, REFERRAL_ID } from './ids';
@@ -57,6 +58,8 @@ export const SCENARIO_RJ = {
 export const DEFAULT_PATIENT_ID = PATIENT_ID.siti;
 /** Nomor SEP fiktif untuk pendaftaran lokal (format VClaim, bukan nomor nyata). */
 export const LOCAL_SEP = '0301R0011026V000812';
+/** Chip "VClaim … ms" mockup Registrasi (hanya mode presentasi; kontrak meja pendaftaran tidak memuatnya). */
+export const DEMO_VCLAIM_LATENCY_MS = 320;
 
 /** Hari jadwal: Senin 5 – Sabtu 10 Okt 2026. */
 export const SCHEDULE_DAYS = Array.from({ length: 6 }, (_, i) => shiftDate(DEMO_TODAY, i));
@@ -149,9 +152,16 @@ function doctorOf(id: string) {
   return { d, poli };
 }
 
+/**
+ * ID sel = `scheduleCellId(dokter, tanggal)` (UUID deterministik, sama dengan API). Data dummy tidak punya baris sesi:
+ * sesi praktik/cuti = sel itu sendiri, sesi pengganti = sel dokter yang digantikan, libur tanpa sesi.
+ */
 function slotOf(doctorId: string, date: string, cell: Cell, hfisSynced: boolean): ScheduleSlot {
-  const base = { id: `${doctorId}.${date}`, date, relatedDoctorId: null, affectedPatients: null, hfisSynced };
-  if (cell === 'libur') return { ...base, kind: 'libur', start: null, end: null, quota: null };
+  const id = scheduleCellId(doctorId, date);
+  const base = { id, sessionId: id, date, relatedDoctorId: null, affectedPatients: null, hfisSynced };
+  if (cell === 'libur') {
+    return { ...base, sessionId: null, kind: 'libur', start: null, end: null, quota: null };
+  }
   if (Array.isArray(cell)) {
     const [start, end, jkn, nonJkn, bookedJkn, bookedNonJkn] = cell as Practice;
     return { ...base, kind: 'praktik', start, end, quota: { jkn, nonJkn, bookedJkn, bookedNonJkn } };
@@ -170,6 +180,7 @@ function slotOf(doctorId: string, date: string, cell: Cell, hfisSynced: boolean)
   const p = cell as { pengganti: string; start: string; end: string };
   return {
     ...base,
+    sessionId: scheduleCellId(p.pengganti, date),
     kind: 'pengganti',
     start: p.start,
     end: p.end,
@@ -179,7 +190,7 @@ function slotOf(doctorId: string, date: string, cell: Cell, hfisSynced: boolean)
 }
 
 /** Slot cuti yang belum dikirim ke HFIS (satu-satunya perbedaan jadwal RS vs HFIS pagi ini). */
-export const HFIS_PENDING_SLOT = `${DOCTOR_ID.bagus}.${shiftDate(DEMO_TODAY, 2)}`;
+export const HFIS_PENDING_SLOT = scheduleCellId(DOCTOR_ID.bagus, shiftDate(DEMO_TODAY, 2));
 
 /** F01 · Jadwal minggu 5–10 Okt 2026. Setelah SEP Tn. Suryo terbit, slot Senin dr. Andini bertambah satu booking. */
 export function demoWeeklySchedule(p: FrontOfficeProgress = NO_PROGRESS): WeeklySchedule {
@@ -187,7 +198,7 @@ export function demoWeeklySchedule(p: FrontOfficeProgress = NO_PROGRESS): Weekly
     const { d, poli } = doctorOf(id);
     const slots = cells.map((cell, i) => {
       const date = SCHEDULE_DAYS[i] ?? DEMO_TODAY;
-      const slot = slotOf(id, date, cell, `${id}.${date}` !== HFIS_PENDING_SLOT);
+      const slot = slotOf(id, date, cell, scheduleCellId(id, date) !== HFIS_PENDING_SLOT);
       if (p.sep && id === SCENARIO_RJ.doctorId && date === DEMO_TODAY && slot.quota) {
         return { ...slot, quota: { ...slot.quota, bookedJkn: slot.quota.bookedJkn + 1 } };
       }
@@ -328,9 +339,10 @@ export function todayQuotas(schedule: WeeklySchedule): PractitionerQuota[] {
   return schedule.doctors.flatMap((doc) => {
     const slot = doc.slots.find((s) => s.date === DEMO_TODAY);
     const q = TODAY_QUEUE[doc.id];
-    if (!slot?.quota || !slot.start || !slot.end || !q) return [];
+    if (!slot?.quota || !slot.sessionId || !slot.start || !slot.end || !q) return [];
     return [
       {
+        sessionId: slot.sessionId,
         doctorId: doc.id,
         doctorName: doc.name,
         poliCode: doc.poliCode,
@@ -505,15 +517,16 @@ export function counterTickets(p: FrontOfficeProgress): CounterTicket[] {
   return walkIn(32, 34);
 }
 
-/** F03/F06 · Meja pendaftaran loket 3: antrean loket, kuota dokter hari ini, dan pasien yang bisa dicari. */
+/**
+ * F03/F06 · Meja pendaftaran loket 3: antrean loket dan kuota dokter hari ini. Pasien yang bisa dicari di mode
+ * presentasi = `registrationPatients()` (indeks pencarian dummy), dimuat terpisah dari meja.
+ */
 export function demoRegistrationDesk(p: FrontOfficeProgress = NO_PROGRESS): RegistrationDesk {
   const tickets = counterTickets(p);
   return {
     date: DEMO_TODAY,
     counter: { name: 'Loket 3', waiting: 11 + tickets.length, tickets },
-    vclaimLatencyMs: 320,
     quotas: todayQuotas(demoWeeklySchedule(p)),
-    patients: registrationPatients(),
   };
 }
 

@@ -7,7 +7,7 @@
  * bisa langsung dipakai hanya lewat CLI: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
  */
 import { MORSE_FALL_SCALE } from '@simrs/shared';
-import { PatientCrypto } from '@simrs/shared/node';
+import { loadFieldKeys, PatientCrypto } from '@simrs/shared/node';
 import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type PrismaClient, withTenant } from '../src/client';
 import { ensurePublishedForm } from '../src/forms';
@@ -24,12 +24,8 @@ import { seedHospitalStructure } from '../src/seed-structure';
 const url = process.env.MIGRATOR_DATABASE_URL;
 if (!url) throw new Error('MIGRATOR_DATABASE_URL belum disetel');
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} belum disetel di .env (identitas pasien dan no. HP staf dienkripsi)`);
-  return value;
-}
-const keys = { encKeyB64: requiredEnv('FIELD_ENCRYPTION_KEY'), hashKeyB64: requiredEnv('FIELD_HASH_KEY') };
+// Identitas pasien dan no. HP staf dienkripsi dengan kunci aktif cincin (FIELD_*_KEYS, atau FIELD_*_KEY = v1).
+const keys = loadFieldKeys(process.env);
 
 /**
  * RS yang di-seed ke DB pengembangan + jumlah pasien fiktifnya. `index` menentukan rentang ID pasien tetap
@@ -95,7 +91,7 @@ try {
     });
     const patients = await seedPatientsFor(prisma, t.id, plan);
     // P02/P03: staf fiktif lintas peran, tanpa kata sandi (aktif setelah admin mereset sandinya).
-    const staff = await seedStaff(prisma, t.id, { encKeyB64: keys.encKeyB64 });
+    const staff = await seedStaff(prisma, t.id, { encRing: keys.enc });
     // F01–F04: layanan antrean, praktisi (tertaut staf seed), templat jadwal, penjamin, papan antrean.
     const fo = await seedFrontOffice(prisma, t.id);
     console.warn(

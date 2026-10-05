@@ -62,14 +62,48 @@ export function periodYYMM(input: Date | string): string {
   return `${String(p.year % 100).padStart(2, '0')}${String(p.month).padStart(2, '0')}`;
 }
 
+/**
+ * Periode harian `YYMMDD` untuk penomoran (mis. `261005`). Tanggal kalender `YYYY-MM-DD` (tanggal layanan) dipakai
+ * apa adanya; instan waktu dihitung di WIB, sehingga 23.30 WIB tetap hari yang sama walau UTC sudah berganti hari.
+ */
+export function periodYYMMDD(input: Date | string): string {
+  const date = typeof input === 'string' ? /^\d{2}(\d{2})-(\d{2})-(\d{2})$/.exec(input) : null;
+  if (date) {
+    const utc = new Date(`${input as string}T00:00:00Z`);
+    if (Number.isNaN(utc.getTime()) || utc.toISOString().slice(0, 10) !== input) {
+      throw new RangeError('Tanggal tidak valid');
+    }
+    return `${date[1]}${date[2]}${date[3]}`;
+  }
+  const p = jakartaParts(input);
+  return `${String(p.year % 100).padStart(2, '0')}${String(p.month).padStart(2, '0')}${String(p.day).padStart(2, '0')}`;
+}
+
 /** Tanggal kalender WIB `YYYY-MM-DD` (mis. "hari ini" untuk validasi tanggal lahir). */
 export function isoDateJakarta(input: Date | string = new Date()): string {
   const p = jakartaParts(input);
   return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
 }
 
+/** Selisih WIB terhadap UTC dalam jam (Indonesia tidak memakai musim panas). */
+export const JAKARTA_UTC_OFFSET_HOURS = 7;
+
+/**
+ * Instan untuk jam dinding WIB pada tanggal kalender. Hari/jam boleh melimpah seperti `Date.UTC`, jadi pasangan
+ * `jakartaParts` cukup untuk "00.00 WIB besok": `jakartaWallTime(p.year, p.month, p.day + 1)`.
+ */
+export function jakartaWallTime(year: number, month: number, day: number, hour = 0, minute = 0): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour - JAKARTA_UTC_OFFSET_HOURS, minute));
+}
+
 /** Tanggal saja dari `YYYY-MM-DD` (tanpa zona): `14 Mar 1972`. Untuk tanggal lahir. */
 export function formatTanggalLahir(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number) as [number, number, number];
   return `${d} ${BULAN[m - 1] ?? '?'} ${y}`;
+}
+
+/** Tanggal tanpa tahun dari `YYYY-MM-DD`: `14 Mar`. Konfirmasi identitas di anjungan (tahun lahir tidak ditampilkan). */
+export function formatHariBulan(isoDate: string): string {
+  const [, m, d] = isoDate.split('-').map(Number) as [number, number, number];
+  return `${d} ${BULAN[m - 1] ?? '?'}`;
 }

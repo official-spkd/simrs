@@ -28,22 +28,28 @@ import { type RegFixed, type RegScenarioView, useRegistration } from './use-regi
  */
 export function PendaftaranClient({
   desk,
+  deskPatients,
+  vclaimLatencyMs,
   scenarioPatient,
   scenario,
   fixed,
   today,
 }: {
   desk: RegistrationDesk;
+  /** Pasien dummy yang bisa dicari (mode presentasi). */
+  deskPatients: RegistrationPatient[];
+  /** Chip latensi VClaim mockup (mode presentasi). */
+  vclaimLatencyMs: number;
   scenarioPatient: RegistrationPatient;
   scenario: RegScenarioView;
   fixed: RegFixed;
   today: string;
 }) {
-  const patients = scenario.atCounter ? [scenarioPatient, ...desk.patients] : desk.patients;
+  const patients = scenario.atCounter ? [scenarioPatient, ...deskPatients] : deskPatients;
   const f = useRegistration(
     desk,
     patients,
-    scenario.atCounter ? fixed.patientId : (desk.patients[0]?.id ?? null),
+    scenario.atCounter ? fixed.patientId : (deskPatients[0]?.id ?? null),
     !scenario.atCounter ? 'showcase' : scenario.sepIssued ? 'preset' : 'fresh',
   );
   const { run, pending: running, error: runError } = useDemoRunner(scenario.rev);
@@ -209,7 +215,7 @@ export function PendaftaranClient({
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3 text-caption text-ink-700">
             <span aria-hidden="true" className="size-2 rounded-full bg-[#16A34A]" />
-            VClaim {desk.vclaimLatencyMs} ms
+            VClaim {vclaimLatencyMs} ms
           </span>
           <span className="text-small text-ink-700">Antrean loket: {waiting} menunggu</span>
           <Button variant="primary" disabled={working} onClick={callNext}>
@@ -235,8 +241,8 @@ export function PendaftaranClient({
           locked={isScenario && !f.done}
           onQuery={f.setQuery}
           onSearch={f.search}
-          onReadKtp={() => desk.patients[0] && f.load(desk.patients[0], desk.patients[0].nikMasked)}
-          onScanCard={() => desk.patients[0] && f.load(desk.patients[0], desk.patients[0].bpjsMasked ?? '')}
+          onReadKtp={() => deskPatients[0] && f.load(deskPatients[0], deskPatients[0].nikMasked)}
+          onScanCard={() => deskPatients[0] && f.load(deskPatients[0], deskPatients[0].bpjsMasked ?? '')}
         />
         <section aria-label="Penjaminan" className="flex min-w-0 flex-[999_1_420px] flex-col gap-4">
           <RegPayer

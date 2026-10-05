@@ -68,6 +68,7 @@ services:
       mc mb --ignore-existing local/simrs-documents &&
       mc mb --ignore-existing local/simrs-backups &&
       mc mb --ignore-existing --with-lock local/simrs-audit-anchors &&
+      mc mb --ignore-existing local/simrs-backups-offsite &&
       echo 'bucket siap'"
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-simrs_local}

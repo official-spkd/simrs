@@ -59,6 +59,7 @@ export {
   wibDayRange,
 } from './audit-anomaly';
 export { allocateNumber, isModuleEnabled, readTenantSetting, type AllocatedNumber } from './platform';
+export { readBackupStatus } from './backup';
 export {
   activeAssignments,
   ensureSystemRoles,
@@ -138,3 +139,21 @@ export {
   type PresentationCredential,
   upsertPresentationAccounts,
 } from './presentation';
+export { rekeySurvivorSnapshot, type SurvivorSnapshot } from './patient-snapshot';
+export {
+  type ColumnKeyUsage,
+  KEY_ROTATION_TARGETS,
+  type KeyRotationBatch,
+  KeyRotationBlockedError,
+  type KeyRotationOptions,
+  type KeyRotationProblem,
+  type KeyRotationTarget,
+  listKeyRotationTenantIds,
+  planTenantKeyRotation,
+  revokePinsOnRetiredKeys,
+  rotateTenantKeys,
+  type TargetPlan,
+  type TargetRunReport,
+  type TenantKeyPlan,
+  type TenantKeyRotationReport,
+} from './key-rotation';

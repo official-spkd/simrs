@@ -6,6 +6,7 @@ import { AuditSummaryJob } from './audit/audit-summary.job';
 import { loadWorkerEnv, WORKER_ENV, type WorkerEnv } from './config/env';
 import { PERIODIC_JOB_REGISTRY, PERIODIC_JOBS } from './jobs/periodic-jobs';
 import { PeriodicScheduler } from './jobs/periodic.scheduler';
+import { KeyRotationJob } from './key-rotation/key-rotation.job';
 import { BpjsConnector } from './outbox/bpjs-connector';
 import { HttpConnector } from './outbox/http-connector';
 import { OUTBOX_OPERATION_REGISTRY, OUTBOX_OPERATIONS } from './outbox/operations';
@@ -36,7 +37,15 @@ import { OutboxScheduler } from './outbox/outbox.scheduler';
     AuditAnchorJob,
     AuditSummaryJob,
     PeriodicScheduler,
+    KeyRotationJob,
   ],
-  exports: [OutboxDispatcher, OutboxScheduler, PeriodicScheduler, AuditAnchorJob, AuditSummaryJob],
+  exports: [
+    OutboxDispatcher,
+    OutboxScheduler,
+    PeriodicScheduler,
+    AuditAnchorJob,
+    AuditSummaryJob,
+    KeyRotationJob,
+  ],
 })
 export class WorkerModule {}

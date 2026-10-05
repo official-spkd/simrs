@@ -11,6 +11,19 @@ const base64Key32 = z
   .string()
   .regex(/^[A-Za-z0-9+/_-]{43}=?$/, 'Harus 32 byte base64 (openssl rand -base64 32)');
 
+/** Cincin kunci `<ID>:<base64 32 byte>` dipisah koma (mis. `v2:…,v1:…`); isi rinci diperiksa saat start. */
+const keyRingSpec = z
+  .string()
+  .trim()
+  .regex(
+    /^v[1-9][0-9]{0,2}:[A-Za-z0-9+/_-]{43}=?(?:\s*,\s*v[1-9][0-9]{0,2}:[A-Za-z0-9+/_-]{43}=?)*$/,
+    'Format <ID>:<base64 32 byte>, dipisah koma (mis. v2:…,v1:…)',
+  );
+
+/** Kosong (`X=`) diperlakukan sama dengan tidak disetel. */
+const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
+
 export const APP_ENVS = ['local', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 
@@ -98,8 +111,28 @@ export const envSchemas = {
     BPJS_CONS_ID: z.string().min(1),
     BPJS_SECRET_KEY: z.string().min(1),
   }),
-  /** Enkripsi kolom (rahasia MFA, identitas pasien) dan kunci blind index; API dan worker memakai kunci sama. */
-  fieldCrypto: z.object({ FIELD_ENCRYPTION_KEY: base64Key32, FIELD_HASH_KEY: base64Key32 }),
+  /**
+   * Enkripsi kolom (rahasia MFA, identitas pasien) dan kunci blind index; API, worker, dan CLI rotasi memakai kunci
+   * sama. Cincin `FIELD_*_KEYS` (`v2:<base64>,v1:<base64>`, kunci pertama = aktif) atau satu kunci format lama
+   * `FIELD_*_KEY` (= `v1`). Kombinasi dan isi kunci divalidasi `fieldKeysFromEnv` (`@simrs/shared/node`) saat start.
+   */
+  fieldCrypto: z.object({
+    FIELD_ENCRYPTION_KEY: optional(base64Key32),
+    FIELD_ENCRYPTION_KEYS: optional(keyRingSpec),
+    FIELD_HASH_KEY: optional(base64Key32),
+    FIELD_HASH_KEYS: optional(keyRingSpec),
+  }),
+  /**
+   * Job enkripsi ulang kolom (rotasi kunci, ADR-0015 pembaruan 5 Okt 2026). `auto` = worker menjalankan putaran
+   * berkala selama cincin masih memuat lebih dari satu kunci; `off` = hanya lewat `pnpm db:rotate-keys --run`.
+   * Batch kecil + jeda menjaga beban database tetap rendah (transaksi pendek per batch).
+   */
+  keyRotation: z.object({
+    FIELD_KEY_ROTATION: z.enum(['off', 'auto']).default('off'),
+    FIELD_KEY_ROTATION_BATCH: z.coerce.number().int().min(1).max(2000).default(200),
+    FIELD_KEY_ROTATION_PAUSE_MS: z.coerce.number().int().min(0).max(60_000).default(100),
+    FIELD_KEY_ROTATION_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(60),
+  }),
   integration: z.object({
     INTEGRATION_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     MOCK_BASE_URL: z.url().default('http://localhost:4100'),
@@ -144,17 +177,33 @@ export const envSchemas = {
 export function auditAnchorKeyProblem(env: {
   APP_ENV: AppEnv;
   AUDIT_ANCHOR_KEY?: string;
-  FIELD_ENCRYPTION_KEY: string;
-  FIELD_HASH_KEY: string;
+  FIELD_ENCRYPTION_KEY?: string;
+  FIELD_HASH_KEY?: string;
+  /** Cincin kunci kolom (`v2:<b64>,v1:<b64>`, ADR-0015): setiap kunci di cincin juga tidak boleh dipakai ulang. */
+  FIELD_ENCRYPTION_KEYS?: string;
+  FIELD_HASH_KEYS?: string;
 }): string | null {
   if (!env.AUDIT_ANCHOR_KEY) {
     return env.APP_ENV === 'production' ? 'AUDIT_ANCHOR_KEY wajib di produksi' : null;
   }
   // Bandingkan bentuk base64 baku (tanpa padding, alfabet standar); modul ini juga dimuat di browser (tanpa Buffer).
-  const norm = (b64: string) => b64.replace(/=+$/, '').replaceAll('-', '+').replaceAll('_', '/');
+  const norm = (b64: string) => b64.trim().replace(/=+$/, '').replaceAll('-', '+').replaceAll('_', '/');
+  const ringKeys = (spec?: string) =>
+    (spec ?? '')
+      .split(',')
+      .map((entry) => entry.slice(entry.indexOf(':') + 1))
+      .filter((k) => k.trim() !== '');
   const key = norm(env.AUDIT_ANCHOR_KEY);
-  const same = [env.FIELD_ENCRYPTION_KEY, env.FIELD_HASH_KEY].some((other) => norm(other) === key);
-  return same ? 'AUDIT_ANCHOR_KEY harus berbeda dari FIELD_ENCRYPTION_KEY dan FIELD_HASH_KEY' : null;
+  const others = [
+    env.FIELD_ENCRYPTION_KEY,
+    env.FIELD_HASH_KEY,
+    ...ringKeys(env.FIELD_ENCRYPTION_KEYS),
+    ...ringKeys(env.FIELD_HASH_KEYS),
+  ].filter((k): k is string => !!k);
+  const same = others.some((other) => norm(other) === key);
+  return same
+    ? 'AUDIT_ANCHOR_KEY harus berbeda dari semua kunci kolom (FIELD_ENCRYPTION_KEY[S] dan FIELD_HASH_KEY[S])'
+    : null;
 }
 
 /** Validasi env sekali saat start; gagal cepat dengan daftar variabel yang salah (tanpa mencetak nilainya). */

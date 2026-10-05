@@ -65,6 +65,7 @@ model Tenant {
   signatures            DocumentSignature[]
   trustedDevices        TrustedDevice[]
   devices               RegisteredDevice[]
+  keyRotations          FieldKeyRotation[]
   // Fase 2 · front office
   practitioners         Practitioner[]
   externalIds           ExternalId[]
@@ -85,6 +86,9 @@ model Tenant {
   referrals             Referral[]
   seps                  Sep[]
   patientContacts       PatientContact[]
+  domainEvents          DomainEvent[]
+  backupRuns            BackupRun[]
+  restoreTests          RestoreTest[]
 
   @@map("tenants")
 }
@@ -1031,6 +1035,9 @@ model RegisteredDevice {
   tokenHash      String    @unique @map("token_hash")
   /// staff_pin: argon2id dari HMAC berlada atas tenant + perangkat + akun + PIN.
   pinHash        String?   @map("pin_hash")
+  /// staff_pin: ID kunci hash (cincin FIELD_HASH_KEYS) yang menjadi lada PIN ini; baris lama = v1. Kunci yang
+  /// dipensiunkan membuat PIN dicabut (`key_rotated`), bukan gagal diam-diam (ADR-0015, pembaruan 5 Okt 2026).
+  pinKeyId       String?   @map("pin_key_id")
   /// Percobaan salah berturut-turut, dicadangkan sebelum PIN diperiksa (aman dari tebakan paralel); maks. 5.
   failedAttempts Int       @default(0) @map("failed_attempts")
   /// Ringkas (maks. 200 karakter), untuk ditampilkan/ditinjau.
@@ -1041,7 +1048,7 @@ model RegisteredDevice {
   lastUsedAt     DateTime? @map("last_used_at") @db.Timestamptz(3)
   revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
   /// user_removed | admin_revoked | too_many_attempts | password_changed | password_reset | mfa_reset |
-  /// user_disabled | assignment_ended
+  /// user_disabled | assignment_ended | key_rotated
   revokedReason  String?   @map("revoked_reason")
   /// Pengguna yang mencabut (pemilik atau admin); kosong untuk pencabutan sistem (mis. terlalu banyak salah).
   revokedBy      String?   @map("revoked_by") @db.Uuid
@@ -1055,6 +1062,36 @@ model RegisteredDevice {
   @@unique([tenantId, id])
   @@index([tenantId, userId])
   @@map("registered_devices")
+}
+
+/// P05 · Kemajuan job enkripsi ulang kolom (rotasi kunci, ADR-0015 pembaruan 5 Okt 2026). Satu baris per tenant ×
+/// tabel: kunci aktif tujuan, kursor ID terakhir (job bisa dilanjutkan setelah terputus), dan hitungan. Tanpa data
+/// atau nilai: galat hanya kode (`FIELD_KEY_UNKNOWN:v0`) + ID baris terakhir yang gagal.
+model FieldKeyRotation {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  /// users | mfa_factors | login_challenges | patients | patient_identifiers | patient_links | patient_contacts
+  target       String
+  /// Kunci aktif cincin enkripsi/hash saat putaran ini dimulai; berbeda dengan cincin sekarang = putaran baru.
+  encKeyId     String    @map("enc_key_id")
+  hashKeyId    String    @map("hash_key_id")
+  /// ID baris terakhir yang selesai diproses pada putaran ini (urut ID).
+  cursorId     String?   @map("cursor_id") @db.Uuid
+  scanned      Int       @default(0)
+  rewritten    Int       @default(0)
+  failed       Int       @default(0)
+  /// Baris yang masih memakai kunci lama setelah putaran selesai (dihitung ulang di akhir putaran).
+  remaining    Int?
+  lastError    String?   @map("last_error")
+  lastFailedId String?   @map("last_failed_id") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, target])
+  @@map("field_key_rotations")
 }
 
 // =====================================================================================================================
@@ -1333,6 +1370,11 @@ model Appointment {
   quotaBucket     String    @map("quota_bucket")
   /// mobile_jkn | aplikasi | anjungan | loket
   channel         String
+  /// JKN: jenis kunjungan Antrean BPJS (`ANTREAN_JENIS_KUNJUNGAN`): 1 rujukan FKTP, 2 rujukan internal, 3 kontrol,
+  /// 4 rujukan antar-RS. Wajib bila `quota_bucket = jkn`, kosong untuk non-JKN.
+  jknVisitKind    Int?      @map("jkn_visit_kind") @db.SmallInt
+  /// JKN: nomor referensi (no. rujukan/surat kontrol) untuk `nomorreferensi` Antrean; wajib bila JKN.
+  referenceNumber String?   @map("reference_number")
   /// booked | checked_in | cancelled | no_show | completed
   status          String    @default("booked")
   estimatedAt     DateTime? @map("estimated_at") @db.Timestamptz(3)
@@ -1547,9 +1589,10 @@ model Referral {
   id               String    @id @db.Uuid
   tenantId         String    @map("tenant_id") @db.Uuid
   patientId        String    @map("patient_id") @db.Uuid
-  /// rujukan-fktp | rujukan-rs | surat-kontrol | rujukan-keluar | rujukan-internal
+  /// rujukan-fktp | rujukan-rs | surat-kontrol | rujukan-keluar | rujukan-internal | spri
   kind             String
-  number           String
+  /// Nomor dari BPJS/perujuk; kosong hanya selama `pending` (draf terkirim, menunggu nomor). Sekali terisi tetap.
+  number           String?
   /// Kode PPK BPJS perujuk (masuk) atau tujuan (keluar).
   ppkCode          String?   @map("ppk_code")
   /// Nama faskes perujuk/tujuan atau poli asal surat kontrol.
@@ -1567,7 +1610,7 @@ model Referral {
   validUntil       DateTime? @map("valid_until") @db.Date
   /// Kunjungan ke- (rujukan FKTP berlaku untuk beberapa kunjungan).
   visitNo          Int?      @map("visit_no") @db.SmallInt
-  /// active | used | expired | cancelled
+  /// pending | active | used | expired | cancelled
   status           String    @default("active")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy        String?   @map("created_by") @db.Uuid
@@ -1611,6 +1654,8 @@ model Sep {
   /// Diagnosa awal ICD-10.
   diagnosisCode    String?   @map("diagnosis_code")
   lastErrorCode    String?   @map("last_error_code")
+  /// Alasan penolakan dari BPJS (pesan `metaData`, tanpa PHI); hanya untuk status `failed`.
+  rejectionReason  String?   @map("rejection_reason")
   issuedAt         DateTime? @map("issued_at") @db.Timestamptz(3)
   cancelledAt      DateTime? @map("cancelled_at") @db.Timestamptz(3)
   cancelledBy      String?   @map("cancelled_by") @db.Uuid
@@ -1635,6 +1680,7 @@ model Sep {
 
 /// F03 · Keluarga/penanggung jawab pasien. Nama, no. HP, alamat terenkripsi (`encryptField`, tujuan `contact`).
 /// Append-only: mengganti = baris baru dengan `supersedes_id`; menghapus = baris baru berstatus `removed`.
+/// Satu-satunya UPDATE: enkripsi ulang ke kunci lain lewat `app_rekey_patient_contact` (rotasi kunci, ADR-0015).
 model PatientContact {
   id           String   @id @db.Uuid
   tenantId     String   @map("tenant_id") @db.Uuid
@@ -1660,4 +1706,84 @@ model PatientContact {
   @@unique([tenantId, id])
   @@index([tenantId, patientId])
   @@map("patient_contacts")
+}
+
+/// Fase 10 · Backup terenkripsi tiga lokasi (ADR-0071). Baris milik tenant PLATFORM (bukan data RS), append-only, dan
+/// hanya ditulis lewat `app_record_backup_run()` oleh peran ops `simrs_backup`. RS membaca ringkasan lewat
+/// `app_backup_status()` (tanpa lokasi, kunci, atau ukuran).
+model BackupRun {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  /// `<UTC yyyymmddThhmmssZ>-<kind>`, sama dengan nama folder backup di ketiga lokasi.
+  backupKey      String   @map("backup_key")
+  /// hourly | daily | manual
+  kind           String
+  /// success (ketiga lokasi) | partial (dump ada, minimal satu lokasi gagal) | failed
+  status         String
+  startedAt      DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime @map("finished_at") @db.Timestamptz(3)
+  /// Lokasi yang berhasil: local | cloud | offsite
+  locationsOk    String[] @map("locations_ok")
+  dbBytes        BigInt?  @map("db_bytes")
+  documentsBytes BigInt?  @map("documents_bytes")
+  documentFiles  Int?     @map("document_files")
+  tableCount     Int?     @map("table_count")
+  rowTotal       BigInt?  @map("row_total")
+  manifestSha256 String?  @map("manifest_sha256")
+  /// Ringkas (maks. 500 karakter), tanpa rahasia koneksi.
+  error          String?
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, backupKey])
+  @@index([tenantId, finishedAt])
+  @@map("backup_runs")
+}
+
+/// Fase 10 · Hasil uji restore di kontainer bersih (ADR-0071): RTO terukur + hasil tiap langkah. Tenant PLATFORM,
+/// append-only, ditulis lewat `app_record_restore_test()`.
+model RestoreTest {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// Kosong bila tidak ada backup lengkap yang bisa dipulihkan (uji tetap dicatat sebagai gagal).
+  backupKey  String?  @map("backup_key")
+  /// Lokasi asal backup yang dipulihkan: local | cloud | offsite
+  source     String
+  /// success | failed
+  status     String
+  startedAt  DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime @map("finished_at") @db.Timestamptz(3)
+  rtoSeconds Int      @map("rto_seconds")
+  /// Hasil per langkah `{ <langkah>: { ok, ms, detail? } }`, tanpa data pasien.
+  checks     Json
+  error      String?
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, finishedAt])
+  @@map("restore_tests")
+}
+
+/// Event domain yang diterbitkan (`DomainEvents.publish`, apps/api/src/infra/events), disimpan di transaksi penerbit
+/// SEBELUM penangan berjalan: ikut commit/batal bersama perubahan asalnya. Payload hanya ID dan nilai enum (tanpa PHI,
+/// dijaga penerbit). Append-only.
+model DomainEvent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// Nama event, mis. `booking.checked_in`.
+  name          String
+  payload       Json
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  requestId     String?  @map("request_id")
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Perangkat pelaku (sesi PIN, kelak anjungan/TV ADR-0027).
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name, occurredAt])
+  @@map("domain_events")
 }

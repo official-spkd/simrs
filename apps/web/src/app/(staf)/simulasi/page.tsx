@@ -112,8 +112,9 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
         </section>
 
         <nav aria-label="Tahap perjalanan pasien" className="flex flex-col gap-2">
-          <div className="overflow-x-auto">
-            <ol className="m-0 flex w-max list-none gap-2 p-0 pb-1">
+          {/* Membungkus ke baris berikutnya, bukan digulir: semua tahap terlihat tanpa petunjuk geser. */}
+          <div>
+            <ol className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-2 p-0 pb-1">
               {v.journey.map((j) => {
                 const inner = (
                   <>
@@ -140,7 +141,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                   </>
                 );
                 const box = cx(
-                  'flex w-[132px] flex-col gap-1.5 rounded-[12px] border-[1.5px] p-2.5 text-ink-900 no-underline',
+                  'flex h-full w-full flex-col gap-1.5 rounded-[12px] border-[1.5px] p-2.5 text-ink-900 no-underline',
                   j.viewing
                     ? 'border-brand-600 bg-selected'
                     : j.state === 'aktif'
