@@ -81,7 +81,7 @@ export const referralRecordSchema = z
     sync: bpjsSyncSchema,
     createdAt: isoDateTime,
   })
-  .refine((v) => (v.number === null) === (v.status === 'pending'), {
+  .refine((v) => v.number !== null || v.status === 'pending', {
     message: 'Nomor kosong hanya selama menunggu BPJS (pending)',
     path: ['number'],
   });

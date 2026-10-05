@@ -634,7 +634,7 @@ describe('kontrak API rujukan (F07) dan surat (F06)', () => {
 });
 
 describe('rekaman rujukan', () => {
-  it('nomor kosong hanya selama pending (menunggu nomor BPJS)', () => {
+  it('nomor kosong hanya selama pending (CHECK referrals_valid; pending boleh sudah bernomor)', () => {
     const r = {
       id: uuid(),
       kind: 'surat-kontrol',
@@ -655,6 +655,7 @@ describe('rekaman rujukan', () => {
     };
     expect(referralRecordSchema.safeParse(r).success).toBe(true);
     expect(referralRecordSchema.safeParse({ ...r, status: 'active' }).success).toBe(false);
+    expect(referralRecordSchema.safeParse({ ...r, number: '0301R0011025K000117' }).success).toBe(true);
     expect(
       referralRecordSchema.safeParse({ ...r, status: 'active', number: '0301R0011025K000117' }).success,
     ).toBe(true);

@@ -13,10 +13,15 @@ import { TenantScoped } from '../src/common/tenant-scoped.decorator';
 import { DOMAIN_EVENT_NAMES, type DomainEventName } from '../src/infra/events/domain-event-map';
 import { type DomainEvent, DomainEvents, MAX_DOMAIN_EVENT_DEPTH } from '../src/infra/events/domain-events';
 import { TenantDb } from '../src/infra/tenant-db';
-import { createTestApp, TENANT_A, testDb } from './helpers';
+import { createTestApp, TENANT_A, TENANT_B, testDb } from './helpers';
 
-/** Konteks permintaan tiruan dengan transaksi palsu (cukup untuk logika penerbit, tanpa DB). */
-function fakeContext(tx: object | null = {}): TenantRequestContext {
+/** Transaksi palsu: mencatat baris `domain_events` yang akan disimpan (cukup untuk logika penerbit, tanpa DB). */
+function fakeTx(stored: unknown[] = []) {
+  return { domainEvent: { create: async (args: { data: unknown }) => void stored.push(args.data) } };
+}
+
+/** Konteks permintaan tiruan dengan transaksi palsu. */
+function fakeContext(tx: object | null = fakeTx()): TenantRequestContext {
   return {
     tenantId: TENANT_A,
     tx: tx as TenantTx | null,
@@ -44,11 +49,13 @@ describe('DomainEvents (unit)', () => {
   it('menjalankan penangan berurutan dengan transaksi yang sama dan amplop event lengkap', async () => {
     const events = new DomainEvents();
     const seen: string[] = [];
-    const tx = {};
+    const stored: unknown[] = [];
+    const tx = fakeTx(stored);
     let received: DomainEvent<'booking.checked_in'> | undefined;
     events.on('booking.checked_in', async (e, ctx) => {
       await new Promise((r) => setTimeout(r, 5));
-      seen.push(`first:${ctx.tx === tx}:${ctx.tenantId}`);
+      // Event sudah disimpan sebelum penangan pertama berjalan.
+      seen.push(`first:${ctx.tx === (tx as object)}:${ctx.tenantId}:${stored.length}`);
       received = e;
     });
     events.on('booking.checked_in', () => void seen.push('second'), { label: 'kedua' });
@@ -57,13 +64,54 @@ describe('DomainEvents (unit)', () => {
     const published = await requestContext.run(fakeContext(tx), () =>
       events.publish('booking.checked_in', payload),
     );
-    expect(seen).toEqual([`first:true:${TENANT_A}`, 'second']);
+    expect(seen).toEqual([`first:true:${TENANT_A}:1`, 'second']);
+    expect(stored).toEqual([
+      {
+        id: published.id,
+        tenantId: TENANT_A,
+        name: 'booking.checked_in',
+        payload,
+        occurredAt: published.occurredAt,
+        requestId: null,
+        actorUserId: null,
+        actorDeviceId: null,
+      },
+    ]);
     expect(received).toBe(published);
     expect(isUuidV7(published.id)).toBe(true);
     expect(published).toMatchObject({ name: 'booking.checked_in', tenantId: TENANT_A, payload });
     expect(published.actor).toEqual({ userId: null, role: 'dev' });
     expect(Object.isFrozen(published.payload)).toBe(true);
     expect(events.handlerLabels('booking.checked_in')).toEqual(['anonim', 'kedua']);
+  });
+
+  it('payload hanya ID atau nilai enum: teks bebas, ID bukan UUID, dan objek bersarang ditolak sebelum disimpan', async () => {
+    const events = new DomainEvents();
+    const stored: unknown[] = [];
+    const publish = (p: object) =>
+      requestContext.run(fakeContext(fakeTx(stored)), () =>
+        events.publish('booking.checked_in', p as { appointmentId: string; patientId: string }),
+      );
+    for (const bad of [
+      { appointmentId: newId(), patientId: 'Siti Rahmawati' },
+      { appointmentId: newId(), patientId: newId(), patientName: 'Siti Rahmawati' },
+      { appointmentId: newId(), patientId: newId(), note: 'Pasien alergi penisilin' },
+      { appointmentId: newId(), patientId: newId(), detail: { nik: '9999015403720001' } },
+      { appointmentId: newId(), patientId: newId(), ticketIds: ['A-031'] },
+    ]) {
+      await expect(publish(bad)).rejects.toThrow(/tanpa PHI/);
+    }
+    expect(stored).toEqual([]);
+    await publish({
+      appointmentId: newId(),
+      patientId: newId(),
+      channel: 'mobile_jkn',
+      taskId: null,
+      count: 2,
+      reserved: true,
+      ticketIds: [newId()],
+    });
+    expect(stored).toHaveLength(1);
   });
 
   it('di luar transaksi → galat program', async () => {
@@ -183,6 +231,20 @@ describe('DomainEvents (HTTP + DB)', () => {
       .post(`/api/v1/test-infra/events/${path}`)
       .set('X-Tenant-Id', TENANT_A)
       .send(body);
+  const storedEvents = (tenantId: string, appointmentId: string) =>
+    withTenant(testDb(), tenantId, (tx) =>
+      tx.domainEvent.findMany({
+        where: { payload: { path: ['appointmentId'], equals: appointmentId } },
+        select: {
+          id: true,
+          name: true,
+          payload: true,
+          requestId: true,
+          actorUserId: true,
+          actorDeviceId: true,
+        },
+      }),
+    );
   const rows = (resourceId: string) =>
     withTenant(testDb(), TENANT_A, (tx) =>
       tx.auditEvent.findMany({
@@ -228,6 +290,51 @@ describe('DomainEvents (HTTP + DB)', () => {
       { resourceType: 'test_booking', details: null },
       { resourceType: 'test_task', details: { eventId: res.body.eventId } },
     ]);
+  });
+
+  it('event tersimpan di domain_events bersama permintaan (id = id event, request ID tercatat)', async () => {
+    const appointmentId = newId();
+    const patientId = newId();
+    const res = await post('check-in', { appointmentId, patientId })
+      .set('X-Request-Id', 'uji-event-1')
+      .expect(200);
+    const stored = await storedEvents(TENANT_A, appointmentId);
+    expect(stored).toEqual([
+      {
+        id: res.body.eventId,
+        name: 'booking.checked_in',
+        payload: { appointmentId, patientId },
+        requestId: expect.any(String),
+        actorUserId: null,
+        actorDeviceId: null,
+      },
+    ]);
+  });
+
+  it('permintaan batal → baris event ikut batal; RS lain tidak melihat event; event tidak bisa diubah/dihapus', async () => {
+    const rejected = newId();
+    await post('check-in', { appointmentId: rejected, patientId: REJECTED_PATIENT }).expect(409);
+    expect(await storedEvents(TENANT_A, rejected)).toEqual([]);
+
+    const appointmentId = newId();
+    await post('check-in', { appointmentId, patientId: newId() }).expect(200);
+    expect(await storedEvents(TENANT_A, appointmentId)).toHaveLength(1);
+    expect(await storedEvents(TENANT_B, appointmentId)).toEqual([]);
+    await expect(
+      withTenant(
+        testDb(),
+        TENANT_A,
+        (tx) => tx.$executeRaw`DELETE FROM domain_events WHERE payload->>'appointmentId' = ${appointmentId}`,
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      withTenant(
+        testDb(),
+        TENANT_A,
+        (tx) =>
+          tx.$executeRaw`UPDATE domain_events SET name = 'sep.issued' WHERE payload->>'appointmentId' = ${appointmentId}`,
+      ),
+    ).rejects.toThrow(/permission denied/);
   });
 
   it('penangan gagal → seluruh permintaan batal (tulisan penerbit ikut batal)', async () => {
