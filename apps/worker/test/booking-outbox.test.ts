@@ -242,6 +242,15 @@ describe('Antrean BPJS untuk booking', () => {
     expect(added?.status).toBe('batal');
   });
 
+  it('walk-in loket: nomor poli sudah dilepas saat registrasi (bukan cadangan lagi) → tetap terkirim', async () => {
+    const id = await bookJkn();
+    await run((tx) => tx.queueTicket.updateMany({ where: { appointmentId: id }, data: { reserved: false } }));
+    await dispatch();
+    expect(await appointment(id)).toMatchObject({ bpjsSyncStatus: 'sent', bpjsErrorCode: null });
+    const added = mockState.bpjs.antrean.get((await appointment(id)).bookingCode);
+    expect(added?.request.nomorantrean).toMatch(/^PD-\d{3}$/);
+  });
+
   it('peserta tidak aktif → ditolak BPJS: status rejected + kode (pesan terkirim, bukan DLQ); batal dilewati', async () => {
     const id = await bookJkn({ cardSuffix: '000000' });
     await dispatch();

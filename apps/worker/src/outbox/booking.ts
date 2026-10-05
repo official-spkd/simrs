@@ -78,7 +78,13 @@ export const bpjsAntreanAdd: OutboxOperation = defineBpjsOperation({
           },
           service: { select: { name: true } },
           practitioner: { select: { name: true } },
-          tickets: { where: { reserved: true }, select: { serviceId: true, ticketNo: true, seq: true } },
+          // Nomor poli booking: dicadangkan saat booking, dilepas ke antrean berurutan saat pasien terdaftar
+          // (walk-in loket: dalam transaksi registrasi yang sama, sebelum pesan ini diproses).
+          tickets: {
+            where: { status: { not: 'cancelled' } },
+            orderBy: { seq: 'asc' },
+            select: { serviceId: true, ticketNo: true, seq: true },
+          },
         },
       }),
     );
