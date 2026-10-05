@@ -5,6 +5,7 @@ import { BookingModule } from '../booking/booking.module';
 import { QueueModule } from '../queue/queue.module';
 import { SchedulingModule } from '../scheduling/scheduling.module';
 import { SepModule } from '../sep/sep.module';
+import { AdmissionService } from './admission.service';
 import { ContactsController } from './contacts.controller';
 import { ContactsService } from './contacts.service';
 import { dukcapilLookupProvider } from './dukcapil-lookup';
@@ -13,10 +14,13 @@ import { RegistrationRepository } from './registration.repository';
 import { RegistrationService } from './registration.service';
 
 /**
- * F03 · Registrasi dan admisi (rencana fase 2 potongan 5a; IGD/admisi menyusul di potongan 7):
+ * F03 · Registrasi dan admisi (rencana fase 2 potongan 5a dan 7):
  * - `POST /registration/outpatient` (Idempotency-Key wajib): kunjungan, penjaminan, persetujuan umum, DPJP + relasi
  *   akses, booking walk-in/check-in, SEP `pending` lewat modul `sep` (outbox); event `encounter.registered` →
  *   task 3 (mesin task ID antrean);
+ * - `POST /registration/emergency` (IGD, pasien tanpa identitas boleh) dan `POST /registration/admissions` (admisi
+ *   rawat inap `planned`), keduanya Idempotency-Key (`AdmissionService`, memakai bagian bersama `RegistrationService`);
+ * - `GET /registration/encounters` (daftar, ABAC lingkup unit/relasi), `POST /registration/encounters/:id/cancel`;
  * - `GET /registration/encounters/:id` (ABAC kelompok rekam medis), `GET /registration/desk`;
  * - lookup Dukcapil sinkron (`@NoRequestTransaction()` + `LookupGateway`, ADR-0025);
  * - kontak penanggung jawab `/patients/:id/contacts` (terenkripsi, append-only).
@@ -27,6 +31,7 @@ import { RegistrationService } from './registration.service';
   controllers: [RegistrationController, ContactsController],
   providers: [
     RegistrationService,
+    AdmissionService,
     RegistrationRepository,
     ContactsService,
     IdempotencyService,

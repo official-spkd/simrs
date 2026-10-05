@@ -1,6 +1,6 @@
 # ADR-0012 · Model otorisasi: matriks per RS, satu penugasan per sesi, pengaman admin
 
-Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026
+Status: diterima · 4 Okt 2026 · diperbarui 5 Okt 2026 (lingkup unit: ADR-0031)
 
 ## Konteks
 docs/05 §1–2 menetapkan izin = peran × unit × relasi pasien × jenis formulir, ditegakkan di guard API dan di query, dengan 16 peran bawaan dan break-the-glass (alasan wajib, 60 menit, notifikasi petugas privasi). Dokumen tidak mengatur: di mana matriks disimpan, bagaimana sesi memilih peran bila staf punya beberapa penugasan, dan bagaimana mencegah RS terkunci atau eskalasi hak lewat menu admin.
@@ -34,3 +34,7 @@ Akun tanpa kata sandi tampil **"Belum diaktifkan"** di layar Akses (teks + ikon,
 ## Pembaruan 5 Okt 2026 · cache matriks dan sinkron izin katalog
 - **Cache matriks** (`apps/api/src/infra/permission-matrix.ts`) menggantikan satu kueri per permintaan berizin: izin per tenant × peran di memori proses. Perubahan lewat layar Akses membuang cache setelah commit dan disiarkan ke instans lain lewat Redis pub/sub; TTL `AUTHZ_CACHE_TTL_SECONDS` (bawaan 30 detik) membatasi keusangan bila siaran terlewat. Selama langganan Redis putus cache tidak dipakai (baca database), dan saat tersambung lagi seluruh cache dibuang, sehingga tidak pernah ada izin usang tanpa batas. "Berlaku seketika" kini: seketika di instans yang menyimpan, milidetik di instans lain, paling lambat TTL bila Redis bermasalah saat siaran.
 - **Izin baru di katalog** sampai ke peran yang sudah ada lewat `pnpm db:sync-permissions`: hanya menambah izin yang baru di katalog ke peran yang memilikinya di matriks bawaan. "Baru" ditentukan oleh catatan katalog per RS di `tenant_settings` (`authz.permission_catalog`, tanpa migrasi skema; RS yang belum pernah disinkron memakai `PERMISSION_CATALOG_BASELINE`), dan izin yang pernah dicabut admin dari peran itu (jejak audit) tidak diberikan lagi. `platform.*` tidak pernah ke peran RS. Dua konsekuensi "−" di atas tentang kueri per permintaan dan izin baru tertutup.
+
+## Pembaruan 5 Okt 2026 · lingkup `unit` memakai kunjungan aktif
+
+Keputusan 4 ("lingkup `unit` sementara = `relationship`") digantikan ADR-0031 (fase 2 potongan 7): lingkup `unit` = kunjungan aktif pasien di unit penugasan sesi, ditambah semua dasar lingkup `relationship`. `PatientAccessService.basis()` kini bisa mengembalikan `'unit'`; pencarian MPI dan daftar kunjungan memakai predikat yang sama (`patientAccessSql`).

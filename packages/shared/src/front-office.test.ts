@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ACTIVE_ENCOUNTER_STATUSES,
   admissionSchema,
+  unidentifiedPatientName,
   ANTREAN_JENIS_KUNJUNGAN,
   ANTREAN_TASK_IDS,
   AppError,
@@ -150,7 +152,9 @@ describe('operasi outbox front office', () => {
         'bpjs.antrean.updatewaktu',
         'bpjs.hfis.pull',
         'bpjs.hfis.update',
+        'bpjs.vclaim.rencanakontrol.delete',
         'bpjs.vclaim.rencanakontrol.insert',
+        'bpjs.vclaim.rujukan.delete',
         'bpjs.vclaim.rujukan.insert',
         'bpjs.vclaim.sep.delete',
         'bpjs.vclaim.sep.insert',
@@ -545,6 +549,12 @@ describe('kontrak API registrasi + SEP (F03/F06)', () => {
     expect(admissionSchema.safeParse({ ...adm, coverage: { payer: 'umum' } }).success).toBe(true);
     const { generalConsent: _omit, ...noConsent } = adm;
     expect(admissionSchema.safeParse({ ...noConsent, spriReferralId: uuid() }).success).toBe(false);
+    expect([...ACTIVE_ENCOUNTER_STATUSES]).toEqual(['planned', 'arrived', 'in_progress']);
+    expect(['male', 'female', 'unknown'].map((s) => unidentifiedPatientName(s as 'male'))).toEqual([
+      'Tn. X',
+      'Ny. X',
+      'Pasien X',
+    ]);
   });
 
   it('lembar SEP cetak: nomor SEP 19 karakter, kartu 13 digit, diagnosa ICD-10', () => {
@@ -602,6 +612,11 @@ describe('kontrak API rujukan (F07) dan surat (F06)', () => {
     expect(createOutgoingReferralSchema.safeParse(out).success).toBe(false);
     expect(createOutgoingReferralSchema.safeParse({ ...out, bpjsPoliCode: 'JAN' }).success).toBe(true);
     expect(createOutgoingReferralSchema.safeParse({ ...out, serviceType: 'rawat_inap' }).success).toBe(true);
+    // Rujuk balik ke FKTP tanpa poli tujuan; jenis bawaan = penuh.
+    expect(createOutgoingReferralSchema.safeParse({ ...out, referralType: 'rujuk_balik' }).success).toBe(
+      true,
+    );
+    expect(createOutgoingReferralSchema.parse({ ...out, bpjsPoliCode: 'JAN' }).referralType).toBe('penuh');
     expect(
       recordIncomingReferralSchema.safeParse({
         kind: 'rujukan-fktp',
@@ -652,11 +667,28 @@ describe('rekaman rujukan', () => {
       issuedOn: '2026-10-05',
       validUntil: null,
       visitNo: null,
+      plannedDate: '2026-10-08',
+      targetUnitId: null,
+      serviceType: null,
+      referralType: null,
+      bpjsPoliCode: null,
+      note: null,
+      cancelledAt: null,
+      cancelReason: null,
       sync: { status: 'pending', sentAt: null, error: null },
       createdAt: AT,
     };
     expect(referralRecordSchema.safeParse(r).success).toBe(true);
     expect(referralRecordSchema.safeParse({ ...r, status: 'active' }).success).toBe(false);
+    // Dibatalkan sebelum bernomor (mis. ditolak BPJS lalu dibatalkan petugas).
+    expect(
+      referralRecordSchema.safeParse({
+        ...r,
+        status: 'cancelled',
+        cancelledAt: AT,
+        cancelReason: 'Salah dokter',
+      }).success,
+    ).toBe(true);
     expect(referralRecordSchema.safeParse({ ...r, number: '0301R0011025K000117' }).success).toBe(true);
     expect(
       referralRecordSchema.safeParse({ ...r, status: 'active', number: '0301R0011025K000117' }).success,
