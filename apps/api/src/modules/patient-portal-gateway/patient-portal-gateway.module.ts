@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
+import { PublicInfoController } from './public-info.controller';
+import { PublicInfoService } from './public-info.service';
 
 /**
- * F08 · Layanan informasi pelanggan (gateway informasi publik). KERANGKA (fase 2 potongan 1b): sudah terdaftar di
- * `AppModule`, potongan 8 cukup menambah controller/service di folder ini. Kode mengikuti katalog docs/02
- * (keputusan §4 #14: F08 = Layanan informasi).
+ * F08 · Layanan informasi pelanggan (gateway informasi publik, rencana fase 2 potongan 8). Kode mengikuti katalog
+ * docs/02 (keputusan §4 #14: F08 = Layanan informasi).
  *
- * Isi nanti (potongan 8):
- * - Endpoint publik TANPA PHI dan tanpa sesi: jadwal + sisa kuota, antrean berjalan, status booking (kode booking +
- *   tanggal lahir di body, bukan di URL).
- * - Rate limit ketat per IP; tenant dari host/subdomain (`resolveTenantByHost`), bukan dari header klien.
+ * Endpoint publik TANPA PHI dan tanpa sesi (`/api/v1/public/:tenantCode/…`): jadwal + sisa kuota, antrean berjalan,
+ * status booking (kode booking + tanggal lahir di body). Dibatasi laju per IP; RS dari kode di path (resolver
+ * `app_resolve_tenant_by_code`, hanya RS aktif dengan modul F08 aktif). Bacaan langsung dari tabel 0b
+ * (`public-info.repository.ts`) sampai modul scheduling/queue/booking mengekspor service bacaan publik.
+ * Ketersediaan bed dan tarif (katalog F08) menyusul setelah K05/U01.
  */
-@Module({})
+@Module({ controllers: [PublicInfoController], providers: [PublicInfoService] })
 export class PatientPortalGatewayModule {}

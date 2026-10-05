@@ -280,16 +280,16 @@ Aturan saat menambah formulir atau layar isian: validasi isian selalu terhadap v
 
 Berkas di penyimpanan objek, metadata di `documents`, tanda tangan di `document_signatures` (ADR-0020).
 
-| Bagian                              | Isi                                                                                                                                                                           |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                     |
-| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)        |
-| `infra/s3-client.ts`, `sigv4.ts`    | Re-ekspor klien S3 minimal di `@simrs/shared/node` (`packages/shared/src/s3/`, dipakai juga backup): SigV4, gaya path, `If-None-Match: *`, checksum SHA-256; `/ready` = HeadBucket                                      |
-| `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                               |
-| `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci              |
-| API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code` |
-| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → audit `sign` berstatus `failed` (`onDead`)                              |
-| Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                          |
+| Bagian                              | Isi                                                                                                                                                                                |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@simrs/shared` → `documents`       | Jenis dokumen, jenis berkas dari magic bytes (`detectDocumentType`), `sanitizeFileName`, skema API, kode verifikasi `sv1.<tenant>.<acak>`                                          |
+| `infra/object-storage.ts`           | `ObjectStorage` (`put`/`open`/`check`, tanpa hapus) + driver `disk` (hanya `APP_ENV=local`) dan `s3`; `verifiedContent` mencocokkan hash/ukuran DB saat unduh (stream)             |
+| `infra/s3-client.ts`, `sigv4.ts`    | Re-ekspor klien S3 minimal di `@simrs/shared/node` (`packages/shared/src/s3/`, dipakai juga backup): SigV4, gaya path, `If-None-Match: *`, checksum SHA-256; `/ready` = HeadBucket |
+| `common/raw-upload.middleware.ts`   | Body biner unggahan dibaca sebelum transaksi dibuka (koneksi pool tidak ditahan klien lambat); batas 10 MB → 413 setelah klien selesai mengirim                                    |
+| `documents` / `document_signatures` | Trigger: dokumen tidak bisa diubah/dihapus, batal sekali beralasan, tidak untuk dokumen yang ditandatangani; hash tanda tangan = hash dokumen; `signed` terkunci                   |
+| API `modules/documents/`            | `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`; publik `GET /verification/signatures/:code`      |
+| Worker `outbox/tte.ts`              | `tte.sign`: kirim hash + ID penanda tangan ke `/tte/sign`, simpan hasil atomik, audit `system`; DLQ → audit `sign` berstatus `failed` (`onDead`)                                   |
+| Web `app/verifikasi/[code]/`        | Halaman verifikasi QR publik (dikecualikan dari login di `proxy.ts`)                                                                                                               |
 
 Kunci objek selalu `<tenant>/<tahun>/<bulan>/<uuid>` buatan server. Tes driver S3 memakai MinIO lokal di bucket uji `simrs-test-<acak>` yang dibuat dan dihapus tes (`apps/api/test/s3-test-bucket.ts`); suite API dokumen (`documents.suite.ts`) dijalankan untuk kedua driver.
 
@@ -419,6 +419,22 @@ Admin  GET /api/v1/iam/devices · POST /api/v1/iam/devices/:id/revoke
 - **Validasi tiap permintaan di database**, jadi pencabutan berlaku seketika. Kode pendaftaran disimpan sebagai HMAC dan hanya bisa dipakai sekali (dijaga trigger database).
 - **Web mode api**: proxy mengalihkan `/kiosk` dan `/display/…` tanpa cookie perangkat ke `/perangkat/daftar`. Halaman memanggil `requireDevice(jenis)` (`lib/server/device.ts`). Admin mengelola perangkat di `/sistem/akses/perangkat`. Mode presentasi tetap memakai login staf.
 - **E2E**: global setup mendaftarkan satu anjungan + satu display uji (`e2e/support/devices.ts`, `useTestDevice(context, 'kiosk')`).
+
+### Gateway informasi publik (F08)
+
+`modules/patient-portal-gateway/`: endpoint **tanpa login dan tanpa PHI** untuk situs/aplikasi publik RS.
+
+```
+GET  /api/v1/public/:tenantCode/schedules?date=YYYY-MM-DD   jadwal + sisa kuota (hari ini s.d. booking.max_days_ahead)
+GET  /api/v1/public/:tenantCode/queues[/:serviceCode]        nomor dipanggil, jumlah menunggu, perkiraan menit
+POST /api/v1/public/:tenantCode/bookings/status              { bookingCode, birthDate } di BODY → status booking
+```
+
+- **RS** dari kode di path (`app_resolve_tenant_by_code`, hanya RS aktif). RS tak dikenal atau modul F08 mati → 404 `NOT_FOUND` yang sama. Semua bacaan di transaksi tenant (RLS) yang dibuka service, karena tidak ada sesi.
+- **Tanpa PHI**: setiap jawaban di-`parse` skema ketat `@simrs/shared` public-info, jadi kolom di luar kontrak tidak bisa terkirim. Tes menegaskan kunci jawaban dan tidak adanya nama, tanggal lahir, no. RM, atau id pasien.
+- **Status booking tahan enumerasi**: tanggal lahir dibandingkan waktu-konstan; kode tidak ada, tanggal lahir salah, atau kode milik RS lain → 404 `BOOKING_NOT_FOUND` yang identik. Setiap percobaan diaudit tanpa kode/tanggal lahir: berhasil = `read appointment` + id pasien; gagal = `denied` + alasan internal (`not_found`/`birth_date_mismatch`).
+- **Batas laju**: batas umum per IP + throttler `public` (`@PublicRateLimited()`, `PUBLIC_RATE_LIMIT_PER_MIN`) untuk jadwal/antrean; status booking memakai batas endpoint kredensial (`@AuthRateLimited()`).
+- **Sementara** membaca tabel 0b langsung (`public-info.repository.ts`). Ganti ke service publik modul `scheduling`/`queue`/`booking` setelah tersedia; kontraknya tetap.
 
 ### Anatomi modul
 

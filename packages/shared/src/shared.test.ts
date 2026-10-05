@@ -118,11 +118,12 @@ describe('envSchemas.base.APP_ENV', () => {
 });
 
 describe('envSchemas.rateLimit', () => {
-  it('bawaan: 600/IP, 10 kredensial/IP, 300/pengguna per menit; penyimpanan auto; awalan Redis opsional', () => {
+  it('bawaan: 600/IP, 10 kredensial/IP, 300/pengguna, 60 publik F08 per menit; penyimpanan auto; awalan Redis opsional', () => {
     expect(parseEnv(envSchemas.rateLimit, {})).toEqual({
       RATE_LIMIT_PER_MIN: 600,
       AUTH_RATE_LIMIT_PER_MIN: 10,
       USER_RATE_LIMIT_PER_MIN: 300,
+      PUBLIC_RATE_LIMIT_PER_MIN: 60,
       RATE_LIMIT_STORE: 'auto',
     });
     expect(parseEnv(envSchemas.rateLimit, { USER_RATE_LIMIT_PER_MIN: '50' }).USER_RATE_LIMIT_PER_MIN).toBe(
