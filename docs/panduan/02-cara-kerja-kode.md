@@ -399,6 +399,39 @@ await this.events.publish('booking.checked_in', { appointmentId, patientId });
 - Efek ke sistem luar dari penangan tetap lewat outbox.
 - Event belum disimpan di tabel: hanya penangan yang terdaftar saat publikasi yang menerimanya. Reaksi yang harus bertahan (outbox, task ID, staging biaya) ditulis penangan di transaksi yang sama. Tabel `domain_events` append-only untuk konsumen yang datang belakangan (charge capture fase 5, SATUSEHAT fase 7) masih keputusan terbuka (lihat utang teknis PROGRESS).
 
+### Antrean dan task ID BPJS (F04)
+
+Modul `modules/queue/` (potongan 4a), kontrak `@simrs/shared` `schemas/queue.ts`.
+
+| Endpoint `/api/v1/queue/…`                                 | Izin          | Isi                                                                                                                          |
+| ---------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `GET services`                                             | `queue.read`  | Layanan aktif; klinisi berlingkup `unit` hanya layanan unit sesinya                                                          |
+| `GET services/:id/tickets?serviceDate&status`              | `queue.read`  | Tiket hari ini (tanpa identitas pasien, hanya ID); estimasi panggil = posisi × `queue.avg_service_minutes`                   |
+| `POST services/:id/tickets {appointmentId?, encounterId?}` | `queue.call`  | Tiket loket (`allocateQueueNumber`, `<kode>-<3 digit>`); tertaut pasien → audit `create`                                     |
+| `POST services/:id/call-next {counter}`                    | `queue.call`  | FIFO, nomor cadangan booking dilewati, `SKIP LOCKED` (dua loket tidak memanggil tiket yang sama); kosong → 409 `QUEUE_EMPTY` |
+| `POST tickets/:id/{call,recall,skip,start,finish}`         | `queue.call`  | Transisi tiket; salah keadaan → 409 `TICKET_STATE_INVALID`; "panggil" tiket yang pernah dipanggil = ulang                    |
+| `GET displays/:id/board`                                   | `queue.read`* | Papan TV (`queueBoardSchema`): maks. 4 poli, panggilan terakhir (`calling` null bila belum ada) + riwayat                    |
+| `GET displays/:id/events`                                  | `queue.read`* | SSE `queue.call` (kanal `queue_calls`, hanya layanan display, replay `Last-Event-ID`)                                        |
+| `GET bpjs-tasks?appointmentId=`                            | `queue.read`  | Status task ID per booking (chip task 1–3); dibaca = audit `read` dengan pasien booking                                      |
+
+\* Sementara sesi staf; display TV pindah ke prinsipal perangkat `queue.display.read` (ADR-0027) dengan mengganti
+`@RequirePermission` dua handler itu.
+
+- Setiap aksi menulis `queue_calls` (append-only; sumber waktu panggil/mulai/selesai) dan menerbitkan event domain
+  `queue.ticket_called|started|finished`. Tiket bertaut pasien diaudit `update` (`details.queueAction`).
+- Lingkup `unit`: layanan harus milik unit sesi pengguna (`actor.unitId`); penolakan = `AuditedDenial` (tercatat
+  `access_denied` walau permintaan batal).
+- `QueueService.attachAppointment(ticketId, appointmentId)` untuk registrasi walk-in (potongan 5a).
+
+**Mesin task ID** (`bpjs-task.engine.ts`) mendengar event domain (bukan tombol): `booking.checked_in` → 1, panggilan
+pertama tiket loket → 2, `encounter.registered` rawat jalan → 3, poli mulai/selesai → 4/5, batal → 99 (pemetaan
+`bpjsTaskForEvent`). Aturan: hanya booking `jkn`; satu baris per (booking, task) di `bpjs_queue_tasks` dengan waktu =
+waktu event (ms), tidak pernah ditimpa; tidak ada task setelah 99; walk-in: tiket loket yang tertaut booking mengisi
+task 1 (waktu ambil tiket) dan 2 (panggilan pertama) bila belum ada task lebih tinggi. Tiap task baru → outbox
+`bpjs.antrean.updatewaktu` (payload `{ queueTaskId }`, kunci `outboxKey`). Worker (`outbox/bpjs-antrean.ts`) menunda
+task yang task sebelumnya masih `pending` (`defer.afterMessageId`), mengirim `waktu` = `occurred_at`, lalu menandai
+`sent` / `rejected` + kode (`BPJS_TASK_GANDA` = sudah tercatat → `sent`) / `dead` + kode (DLQ akhir hari layanan).
+
 ### Anatomi modul
 
 Contoh nyata: `apps/api/src/modules/tenancy/`.
