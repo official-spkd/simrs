@@ -3,7 +3,7 @@ import { AuthzModule } from '../authz/authz.module';
 import { CdsModule } from '../cds/cds.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { OrderCatalogService } from './order-catalog.service';
-import { OrdersController } from './orders.controller';
+import { EncounterOrdersController, OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrdersView } from './orders-view';
 
@@ -14,7 +14,7 @@ import { OrdersView } from './orders-view';
  */
 @Module({
   imports: [AuthzModule, CdsModule, DocumentsModule],
-  controllers: [OrdersController],
+  controllers: [OrdersController, EncounterOrdersController],
   providers: [OrdersService, OrderCatalogService, OrdersView],
 })
 export class OrdersModule {}

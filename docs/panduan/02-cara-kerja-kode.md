@@ -470,7 +470,7 @@ Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSch
 | `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
 | `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`) |
 | `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
-| `GET /orders/encounters/:encounterId`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
+| `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
 | `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                       |
 
 Kiriman yang lolos menulis `order_groups` + order beku + status `aktif` + `cds_alerts`, staging biaya (lab/radiologi/

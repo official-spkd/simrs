@@ -39,7 +39,7 @@ const uuid = new ParseUUIDPipe();
 
 /**
  * K09 · CPOE (`/api/v1/orders`, rencana fase 3 §3.4): katalog, order set, pratinjau CDS, kirim order (Idempotency-Key),
- * batal beralasan, daftar order kunjungan. Izin `order.*`; akses pasien lewat ABAC di service; semua baca/ubah diaudit.
+ * batal beralasan (daftar order kunjungan: `EncounterOrdersController`). Izin `order.*`; akses pasien lewat ABAC di service; semua baca/ubah diaudit.
  */
 @ApiTags('klinis · order (CPOE)')
 @TenantScoped()
@@ -120,9 +120,21 @@ export class OrdersController {
   ): Promise<OrderGroup> {
     return this.orders.cancel(id, body.reason);
   }
+}
+
+/**
+ * K09 · Order per kunjungan, bentuk kanonik rute fase 3 `/api/v1/encounters/:id/<sumber>`: semua kiriman order
+ * kunjungan (terbaru dulu) dengan isi beku, status terkini, temuan CDS, dan resep.
+ */
+@ApiTags('klinis · order (CPOE)')
+@TenantScoped()
+@RequireModule('K09')
+@Controller('encounters')
+export class EncounterOrdersController {
+  constructor(private readonly orders: OrdersService) {}
 
   @RequirePermission('order', 'read')
-  @Get('encounters/:encounterId')
+  @Get(':encounterId/orders')
   forEncounter(@Param('encounterId', uuid) encounterId: string): Promise<OrderGroup[]> {
     return this.orders.forEncounter(encounterId);
   }

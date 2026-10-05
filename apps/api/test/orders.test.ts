@@ -501,7 +501,7 @@ describe('CDS dan kirim order', () => {
       orderType: 'service',
       encounterId: e.encounterId,
     });
-    const list = await as('dokter').get(`/orders/encounters/${e.encounterId}`).expect(200);
+    const list = await as('dokter').get(`/encounters/${e.encounterId}/orders`).expect(200);
     expect(list.body).toHaveLength(1);
   });
 
