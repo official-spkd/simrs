@@ -75,7 +75,6 @@ export const patientAllergiesSchema = z.strictObject({
 });
 export type PatientAllergies = z.infer<typeof patientAllergiesSchema>;
 
-export const encounterDiagnosesQuerySchema = z.strictObject({ encounterId: uuid });
 export const patientQuerySchema = z.strictObject({ patientId: uuid });
 
 // ---------------------------------------------------------------------------------------------------------------

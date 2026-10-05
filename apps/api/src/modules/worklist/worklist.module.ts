@@ -1,9 +1,15 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { WorklistController } from './worklist.controller';
+import { WorklistService } from './worklist.service';
 
 /**
- * K01 · Worklist DPJP/unit/shift/tugas (co-sign, verifikasi, tinjau order residen, TTE gagal, EWS tinggi, resume lewat batas).
- * Kerangka didaftarkan sekali di `AppModule` (potongan 3.1); isinya dibangun potongan 3.2b tanpa mengubah daftar
- * modul lagi. Pola entri berversi, staging, dan ABAC dari `infra/clinical` (global).
+ * K01 · Worklist klinis (potongan 3.2b): pasien per tampilan (DPJP, unit, shift) dan tugas pribadi (co-sign, verifikasi,
+ * tinjau order residen, TTE gagal, EWS tinggi, resume lewat batas, serah terima). Didaftarkan sekali di `AppModule`.
  */
-@Module({})
+@Module({
+  imports: [AuthzModule],
+  controllers: [WorklistController],
+  providers: [WorklistService],
+})
 export class WorklistModule {}
