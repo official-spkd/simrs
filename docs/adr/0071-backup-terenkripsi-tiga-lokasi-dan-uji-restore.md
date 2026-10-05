@@ -1,6 +1,6 @@
 # ADR-0071 · Backup terenkripsi tiga lokasi dan uji restore di kontainer bersih
 
-Status: diterima · 5 Okt 2026 · Komponen: P13, infra (P01 untuk catatan platform) · Fase 10 potongan 10.7
+Status: diterima · 5 Okt 2026 · diperbarui 5 Okt 2026 · Komponen: P13, infra (P01 untuk catatan platform) · Fase 10 potongan 10.7
 
 ## Konteks
 MRMIK 5 dan `docs/01-arsitektur.md` meminta backup di tiga lokasi (edge RS, cloud utama, salinan terenkripsi di
@@ -113,6 +113,47 @@ Kendala saat dibangun:
   menjadi pembanding independen.
 − Kehilangan kedua salinan kunci privat = backup tak terpulihkan. Mitigasinya prosedur dua pemegang dan uji restore
   berkala (yang gagal bila kunci hilang).
-− Dokumen hanya dari driver `disk`; driver S3 P08 belum ada (backup menolak `STORAGE_DRIVER=s3` dengan pesan jelas).
 − Jumlah baris `count(*)` per tabel menambah beban baca pada DB besar. Bila perlu, ganti ke statistik + sampel tanpa
   mengubah format manifest.
+
+## Pembaruan 5 Okt 2026 · Dokumen driver s3 dan pembanding jangkar audit WORM
+
+Driver S3 P08 (agen I) dan jangkar audit 10.8 (ADR-0072) sudah masuk master.
+
+1. **Dokumen s3 di-backup per baris.** Dengan `STORAGE_DRIVER=s3`, daftar objek = baris `documents` (kunci + sha256 +
+   ukuran) di snapshot yang sama dengan dump. Objek di luar baris (yatim) sengaja tidak ikut.
+   - Setiap objek di-GET dari `S3_BUCKET_DOCUMENTS` dan dialirkan langsung ke ustar terenkripsi; plaintext tetap tidak
+     menyentuh disk host backup.
+   - Ukuran header = `content-length` objek. Hash dihitung saat lewat, lalu dicocokkan dengan baris.
+   - Objek hilang, ukuran beda, atau hash beda dicatat di manifest `documents.integrityErrors` (kunci + alasan, tanpa
+     PHI) dan log `PERINGATAN`. Backup tetap berjalan dan menyalin apa adanya, karena temuan sumber bukan kegagalan
+     backup.
+   - Driver disk tidak berubah. Manifest `documents.source` = `disk` | `s3`.
+2. **Uji restore dokumen s3** memakai kontainer `pgsty/minio` sementara (kredensial acak, port loopback acak, dihapus
+   bersama kontainer lain), jadi bucket yang sedang dipakai tidak pernah disentuh.
+   - Objek hasil ekstrak diunggah ke bucket baru dengan `x-amz-checksum-sha256`, yang diverifikasi server.
+   - Langkah `documents_db` mencocokkan setiap baris dengan berkas hasil ekstrak (ukuran + SHA-256) dan dengan checksum
+     objek di bucket sementara.
+   - Untuk s3, selisih apa pun di luar `integrityErrors` = gagal.
+   - API uji menyala dengan `STORAGE_DRIVER=s3` ke bucket itu, sehingga `/ready` memeriksa bucket.
+3. **Langkah `audit_anchors`** (sesudah `audit_verify`), per tenant ber-audit:
+   - Pakai jangkar sah **terbaru dengan `anchoredAt` ≤ waktu mulai backup**.
+   - Sumber utama bucket WORM `AUDIT_ANCHOR_BUCKET`, di luar dump sehingga pembandingnya independen. Tanpa bucket:
+     tabel `audit_anchors` hasil restore, dan laporan menyebut sumbernya.
+   - Dengan `AUDIT_ANCHOR_KEY`, HMAC dan id kunci diperiksa: jangkar palsu atau berkunci lain dilewati dan dihitung
+     "ditolak", tidak dipercaya. Tanpa kunci, tanda tangan tidak dinilai, dan laporan menyebutnya.
+   - Syarat lolos: baris di seq jangkar ada dengan hash sama (`ANCHOR_MISMATCH`), kepala rantai hasil restore tidak di
+     bawah seq jangkar (`TRUNCATION_DETECTED`), dan rantai bersambung dari jangkar (`app_verify_audit_chain_from`,
+     `CHAIN_BROKEN`; dilewati untuk rantai yang menurut manifest sudah rusak di sumber).
+   - Penyederhanaan: daftar WORM memakai ListObjectsV2 (versi terbaru) + verifikasi HMAC, bukan ListObjectVersions
+     "versi pertama" seperti job 10.8. Versi tambahan berisi isi palsu tetap ditolak HMAC.
+4. **Klien S3 bersama.** `S3Client` + SigV4 dipindah dari `apps/api/src/infra` ke `@simrs/shared/node`
+   (`src/s3/`), ditambah `listObjects()` (ListObjectsV2 berhalaman). Berkas lama di API tinggal re-ekspor; perilaku
+   tidak berubah. Salinan worker (`apps/worker/src/audit/s3-lite.ts`) belum disatukan.
+
+5. **Perbaikan:** kepala rantai audit di manifest kini dipilih dengan urutan **numerik** seq. Kueri awal mengurutkan
+   alias `seq::text` secara leksikal ("9" > "52"). Uji restore lama tetap konsisten (membandingkan baris yang sama di
+   sumber dan hasil restore), tetapi "kepala" bisa bukan baris terakhir. Tes e2e kini mengunci kepala = seq terbesar.
+
+Konsekuensi tambahan: backup s3 membaca semua objek dokumen setiap run. Untuk volume besar, backup per jam bisa
+dibatasi ke dump saja dengan dokumen harian; itu keputusan NFR produksi, belum dibuat.
