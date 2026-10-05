@@ -197,7 +197,7 @@ Aturan untuk semua tabel: `tenant_id` + RLS `FORCE`, FK komposit `(tenant_id, id
 
 1. **Lookup BPJS/Dukcapil interaktif:** **sinkron dari API di luar transaksi (ADR-0025)**. Ini mengubah keputusan 4 Okt untuk lookup baca-saja. Alternatif: lewat outbox + polling (±2 detik lebih lambat, kredensial hanya di worker).
 2. **Autentikasi anjungan/TV:** **perangkat terdaftar per unit dengan izin tetap**, bukan akun staf.
-3. **Konfirmasi identitas di anjungan:** **nama tersamar + tanggal lahir tanpa tahun + rate limit** (mockup menampilkan data utuh).
+3. **Konfirmasi identitas di anjungan:** **nama tersamar + tanggal lahir tanpa tahun + rate limit** (mockup menampilkan data utuh). Direvisi 5 Okt 2026 setelah review keamanan potongan 9: pasien juga mengetik tanggal + bulan lahir (DDMM) sebelum token terbit, ditambah batas pencarian per RS (ADR-0027).
 4. **Jalur demo setelah tersambung:** **dipertahankan, dibekukan, dan diuji E2E demo**.
 5. **Kendali panggil antrean poli di fase 2 (tanpa mockup):** **halaman kecil "Kendali antrean"**. Alternatif: tunggu layar Poli fase 3.
 6. **UI IGD/admisi:** **API + tab sederhana di Pendaftaran**; papan IGD/bed disambungkan di fase 3.
