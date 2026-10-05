@@ -200,7 +200,11 @@ export type CoverageInput = z.infer<typeof coverageInputSchema>;
  * jaga), atau penjamin lain seperti rawat jalan.
  */
 export const emergencyCoverageInputSchema = z.discriminatedUnion('payer', [
-  z.strictObject({ payer: z.literal('bpjs') }),
+  z.strictObject({
+    payer: z.literal('bpjs'),
+    /** Fase 3: diisi → SEP IGD langsung `pending` (poli IGD); kosong → menyusul `POST /encounters/:id/emergency-sep`. */
+    initialDiagnosis: icd10CodingSchema.optional(),
+  }),
   ...NON_BPJS_COVERAGE_INPUTS,
 ]);
 export type EmergencyCoverageInput = z.infer<typeof emergencyCoverageInputSchema>;
@@ -470,9 +474,9 @@ export function unidentifiedPatientName(sex: (typeof PATIENT_SEXES)[number]): st
 }
 
 /**
- * IGD: pasien tanpa identitas boleh (dibuat di MPI sebagai `unidentified`); penjamin boleh menyusul. SEP IGD belum
- * diterbitkan otomatis (kode poli BPJS IGD belum ditetapkan, lihat PROGRESS utang teknis): penjaminan BPJS dicatat,
- * `sep` = null.
+ * IGD: pasien tanpa identitas boleh (dibuat di MPI sebagai `unidentified`); penjamin boleh menyusul. Fase 3: BPJS dengan
+ * diagnosa awal → SEP IGD `pending` otomatis (poli `VCLAIM_POLI_IGD`, ASUMSI); tanpa diagnosa → `sep` = null, SEP
+ * menyusul dari dokter jaga.
  */
 export const emergencyRegistrationSchema = z.strictObject({
   patient: z.discriminatedUnion('kind', [
