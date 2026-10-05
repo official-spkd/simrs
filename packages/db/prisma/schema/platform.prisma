@@ -1,0 +1,523 @@
+// P01/P04/P10/P12 · Tenant, struktur RS, audit, outbox, pengaturan, operasi (backup, rotasi kunci).
+
+/// P01 · Tenant = satu RS, atau satu tenant khusus operator platform (kind = platform, ADR-0013).
+/// RLS: baris hanya terlihat oleh tenant itu sendiri.
+model Tenant {
+  id             String   @id @db.Uuid
+  code           String   @unique
+  name           String
+  kemenkesCode   String?  @map("kemenkes_code")
+  bpjsPpkCode    String?  @map("bpjs_ppk_code")
+  satusehatOrgId String?  @map("satusehat_org_id")
+  hospitalClass  String?  @map("hospital_class")
+  status         String   @default("active")
+  /// hospital | platform (hanya satu tenant platform; indeks unik parsial di migrasi).
+  kind           String   @default("hospital")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outboxMessages        OutboxMessage[]
+  deliveryAttempts      DeliveryAttempt[]
+  inboundEvents         InboundEvent[]
+  auditEvents           AuditEvent[]
+  auditAnchors          AuditAnchor[]
+  auditSummaries        AuditDailySummary[]
+  auditSummaryItems     AuditDailySummaryItem[]
+  facilities            Facility[]
+  units                 Unit[]
+  locations             Location[]
+  modules               TenantModule[]
+  settings              TenantSetting[]
+  numberSequences       NumberSequence[]
+  domains               TenantDomain[]
+  users                 User[]
+  credentials           UserCredential[]
+  mfaFactors            MfaFactor[]
+  sessions              AuthSession[]
+  loginChallenges       LoginChallenge[]
+  roles                 Role[]
+  rolePermissions       RolePermission[]
+  assignments           StaffAssignment[]
+  relationships         AccessRelationship[]
+  breakGlassGrants      BreakGlassGrant[]
+  notifications         Notification[]
+  patients              Patient[]
+  identifiers           PatientIdentifier[]
+  matchCandidates       PatientMatchCandidate[]
+  patientLinks          PatientLink[]
+  privacyConsents       PrivacyConsent[]
+  formDefinitions       FormDefinition[]
+  formResponses         FormResponse[]
+  documents             Document[]
+  signatures            DocumentSignature[]
+  trustedDevices        TrustedDevice[]
+  devices               RegisteredDevice[]
+  keyRotations          FieldKeyRotation[]
+  // Fase 2 · front office
+  practitioners         Practitioner[]
+  externalIds           ExternalId[]
+  payers                Payer[]
+  queueServices         QueueService[]
+  queueDisplays         QueueDisplay[]
+  queueDisplayServices  QueueDisplayService[]
+  practitionerSchedules PractitionerSchedule[]
+  scheduleSessions      ScheduleSession[]
+  hfisScheduleSnapshots HfisScheduleSnapshot[]
+  appointments          Appointment[]
+  queueTickets          QueueTicket[]
+  queueCalls            QueueCall[]
+  bpjsQueueTasks        BpjsQueueTask[]
+  encounters            Encounter[]
+  encounterStatuses     EncounterStatusHistory[]
+  coverages             Coverage[]
+  referrals             Referral[]
+  seps                  Sep[]
+  patientContacts       PatientContact[]
+  domainEvents          DomainEvent[]
+  backupRuns            BackupRun[]
+  restoreTests          RestoreTest[]
+  kioskLookups          KioskLookup[]
+  kioskTickets          KioskTicket[]
+  idempotencyKeys       IdempotencyKey[]
+
+  @@map("tenants")
+}
+
+/// I01 · Transactional outbox (ADR-0003). Ditulis dalam transaksi domain; dikirim worker.
+model OutboxMessage {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  target         String
+  operation      String
+  idempotencyKey String    @map("idempotency_key")
+  payload        Json
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lastError      String?   @map("last_error")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
+  deadAt         DateTime? @map("dead_at") @db.Timestamptz(3)
+  /// Dikirim ulang manual (dari DLQ): batas retry hari layanan dihitung dari `coalesce(requeued_at, created_at)`.
+  requeuedAt     DateTime? @map("requeued_at") @db.Timestamptz(3)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  deliveries DeliveryAttempt[]
+
+  @@unique([tenantId, target, idempotencyKey])
+  @@index([tenantId, status, nextAttemptAt])
+  @@map("outbox_messages")
+}
+
+/// Jejak setiap percobaan kirim (request/response tersamar, durasi, kode).
+model DeliveryAttempt {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  outboxMessageId String   @map("outbox_message_id") @db.Uuid
+  attemptNo       Int      @map("attempt_no")
+  startedAt       DateTime @map("started_at") @db.Timestamptz(3)
+  durationMs      Int      @map("duration_ms")
+  statusCode      Int?     @map("status_code")
+  outcome         String
+  error           String?
+  responseExcerpt String?  @map("response_excerpt")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  outboxMessage OutboxMessage @relation(fields: [outboxMessageId], references: [id])
+
+  @@index([tenantId, outboxMessageId])
+  @@map("delivery_attempts")
+}
+
+/// Webhook masuk mentah (TPDI, BTN). Unik per sumber + idempotency key; diproses async.
+model InboundEvent {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  source         String
+  idempotencyKey String    @map("idempotency_key")
+  headers        Json
+  rawBody        String    @map("raw_body")
+  status         String    @default("received")
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(3)
+  error          String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, source, idempotencyKey])
+  @@map("inbound_events")
+}
+
+/// P04 · Audit trail append-only dengan hash berantai per tenant. seq, prev_hash, hash, dan occurred_at
+/// diisi trigger database (app_audit_chain), bukan aplikasi. UPDATE/DELETE ditolak.
+model AuditEvent {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  /// Nomor urut per tenant (1, 2, 3, …); celah = baris hilang.
+  seq          BigInt   @default(0)
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  actorRole    String?  @map("actor_role")
+  patientId    String?  @map("patient_id") @db.Uuid
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  action       String
+  /// success | denied
+  outcome      String   @default("success")
+  reason       String?
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  requestId    String?  @map("request_id")
+  /// Metadata tanpa PHI (mis. nama field yang berubah, jumlah hasil pencarian).
+  details      Json?
+  prevHash     String?  @map("prev_hash")
+  hash         String   @default("")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, seq])
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, patientId, occurredAt])
+  @@index([tenantId, actorUserId, occurredAt])
+  @@map("audit_events")
+}
+
+/// P04 · Jangkar hash audit (ADR-0072): kepala rantai per tenant + HMAC kunci terpisah, salinan dari bucket WORM.
+/// Append-only. Ditulis job worker setiap jam; dibaca `/audit/verify` sebagai titik periksa.
+model AuditAnchor {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// seq entri audit yang dijangkar.
+  seq        BigInt
+  /// hash entri itu (hex SHA-256).
+  hash       String
+  /// Waktu jangkar (jam database), bagian dari pesan yang ditandatangani.
+  anchoredAt DateTime @map("anchored_at") @db.Timestamptz(3)
+  /// Sidik kunci HMAC (16 hex), membedakan rotasi kunci dari perusakan.
+  keyId      String   @map("key_id")
+  hmac       String
+  /// Kunci objek di bucket WORM; null bila bucket tidak dipasang (lokal).
+  objectKey  String?  @map("object_key")
+  /// job = ditulis job jangkar · worm = dipulihkan dari bucket WORM (baris di database hilang).
+  source     String   @default("job")
+  /// Waktu baris dicatat (diisi trigger dari jam database).
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, seq])
+  @@map("audit_anchors")
+}
+
+/// P04 · Ringkasan harian temuan anomali per tenant per tanggal WIB (ADR-0072). Satu baris per (hari, parameter):
+/// parameter = jam malam, peran jaga, daftar aksi; berubah → ringkasan baru dihitung. Append-only, tanpa PHI.
+model AuditDailySummary {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  day        DateTime @db.Date
+  /// SHA-256 dari `params` kanonik.
+  paramsKey  String   @map("params_key")
+  params     Json
+  /// Jumlah entri audit tenant pada hari itu saat dihitung (kontrol).
+  eventCount Int      @map("event_count")
+  itemCount  Int      @map("item_count")
+  computedAt DateTime @default(now()) @map("computed_at") @db.Timestamptz(3)
+
+  tenant Tenant                  @relation(fields: [tenantId], references: [id])
+  items  AuditDailySummaryItem[]
+
+  @@unique([tenantId, day, paramsKey])
+  @@unique([tenantId, id])
+  @@map("audit_daily_summaries")
+}
+
+/// Hitungan per pengguna × jenis temuan dalam satu ringkasan harian. Hitungan di bawah ambang minimum dibuang.
+model AuditDailySummaryItem {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  summaryId   String   @map("summary_id") @db.Uuid
+  /// login_failed | access_denied | night | volume
+  kind        String
+  /// null = gagal masuk dengan nama pengguna tak dikenal.
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actorRole   String?  @map("actor_role")
+  /// Jumlah entri (gagal masuk/akses ditolak) atau pasien berbeda (malam/volume).
+  n           Int
+  lastAt      DateTime @map("last_at") @db.Timestamptz(3)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id])
+  summary AuditDailySummary @relation(fields: [tenantId, summaryId], references: [tenantId, id])
+
+  @@index([tenantId, summaryId, kind])
+  @@map("audit_daily_summary_items")
+}
+
+/// P01 · Faskes/cabang milik tenant (RS). Master: tidak dihapus, dinonaktifkan (active = false).
+model Facility {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String
+  name         String
+  kemenkesCode String?  @map("kemenkes_code")
+  address      String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  units  Unit[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("facilities")
+}
+
+/// P01 · Unit layanan (instalasi, poli, IGD, bangsal, penunjang, farmasi, OK, administrasi).
+model Unit {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  facilityId String   @map("facility_id") @db.Uuid
+  parentId   String?  @map("parent_id") @db.Uuid
+  code       String
+  name       String
+  kind       String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
+  facility      Facility           @relation(fields: [tenantId, facilityId], references: [tenantId, id])
+  parent        Unit?              @relation("UnitTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children      Unit[]             @relation("UnitTree")
+  locations     Location[]
+  assignments   StaffAssignment[]
+  queueServices QueueService[]
+  encounters    Encounter[]
+  devices       RegisteredDevice[]
+  referrals     Referral[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, facilityId])
+  @@map("units")
+}
+
+/// P01 · Lokasi fisik: ruang → kamar → bed. Kelas perawatan dipakai Aplicare/BPJS dan tarif.
+model Location {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  unitId              String   @map("unit_id") @db.Uuid
+  parentId            String?  @map("parent_id") @db.Uuid
+  kind                String
+  code                String
+  name                String
+  careClass           String?  @map("care_class")
+  satusehatLocationId String?  @map("satusehat_location_id")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?  @map("created_by") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  unit     Unit       @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  parent   Location?  @relation("LocationTree", fields: [tenantId, parentId], references: [tenantId, id])
+  children Location[] @relation("LocationTree")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, unitId])
+  @@map("locations")
+}
+
+/// P10 · Modul aktif per RS (feature flag). Tidak ada baris = bawaan katalog (MVP aktif).
+model TenantModule {
+  tenantId   String   @map("tenant_id") @db.Uuid
+  moduleCode String   @map("module_code")
+  enabled    Boolean
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, moduleCode])
+  @@map("tenant_modules")
+}
+
+/// P12 · Pengaturan per RS. Kunci dan bentuk nilai divalidasi registri di @simrs/shared (kunci asing ditolak).
+model TenantSetting {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, key])
+  @@map("tenant_settings")
+}
+
+/// P08 · Penomoran dokumen per tenant × jenis × periode. Nilai hanya naik; nomor tidak pernah dipakai ulang.
+model NumberSequence {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  kind      String
+  /// '' untuk nomor tanpa periode (No. RM), 'YYMM' untuk dokumen bulanan.
+  period    String
+  lastValue BigInt   @map("last_value")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, kind, period])
+  @@map("number_sequences")
+}
+
+/// P02 · Pemetaan host (subdomain) → tenant untuk login produksi. Registri platform: aplikasi tidak punya GRANT,
+/// hanya fungsi app_resolve_tenant_by_host() yang membacanya.
+model TenantDomain {
+  host      String   @id
+  tenantId  String   @map("tenant_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("tenant_domains")
+}
+
+/// Event domain yang diterbitkan (`DomainEvents.publish`, apps/api/src/infra/events), disimpan di transaksi penerbit
+/// SEBELUM penangan berjalan: ikut commit/batal bersama perubahan asalnya. Payload hanya ID dan nilai enum (tanpa PHI,
+/// dijaga penerbit). Append-only.
+model DomainEvent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  /// Nama event, mis. `booking.checked_in`.
+  name          String
+  payload       Json
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  requestId     String?  @map("request_id")
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  /// Perangkat pelaku (sesi PIN, kelak anjungan/TV ADR-0027).
+  actorDeviceId String?  @map("actor_device_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name, occurredAt])
+  @@map("domain_events")
+}
+
+/// F03 · Header `Idempotency-Key` (registrasi, kelak check-in anjungan): permintaan ulang dengan kunci sama
+/// mengembalikan hasil yang sama; isi berbeda → 409. Append-only.
+model IdempotencyKey {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  /// Tindakan, mis. `registration.outpatient`.
+  scope        String
+  key          String   @db.Uuid
+  /// SHA-256 isi permintaan (kanonis) + pelaku.
+  requestHash  String   @map("request_hash")
+  actorUserId  String?  @map("actor_user_id") @db.Uuid
+  resourceType String   @map("resource_type")
+  resourceId   String   @map("resource_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, scope, key])
+  @@map("idempotency_keys")
+}
+
+/// Fase 10 · Backup terenkripsi tiga lokasi (ADR-0071). Baris milik tenant PLATFORM (bukan data RS), append-only, dan
+/// hanya ditulis lewat `app_record_backup_run()` oleh peran ops `simrs_backup`. RS membaca ringkasan lewat
+/// `app_backup_status()` (tanpa lokasi, kunci, atau ukuran).
+model BackupRun {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  /// `<UTC yyyymmddThhmmssZ>-<kind>`, sama dengan nama folder backup di ketiga lokasi.
+  backupKey      String   @map("backup_key")
+  /// hourly | daily | manual
+  kind           String
+  /// success (ketiga lokasi) | partial (dump ada, minimal satu lokasi gagal) | failed
+  status         String
+  startedAt      DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt     DateTime @map("finished_at") @db.Timestamptz(3)
+  /// Lokasi yang berhasil: local | cloud | offsite
+  locationsOk    String[] @map("locations_ok")
+  dbBytes        BigInt?  @map("db_bytes")
+  documentsBytes BigInt?  @map("documents_bytes")
+  documentFiles  Int?     @map("document_files")
+  tableCount     Int?     @map("table_count")
+  rowTotal       BigInt?  @map("row_total")
+  manifestSha256 String?  @map("manifest_sha256")
+  /// Ringkas (maks. 500 karakter), tanpa rahasia koneksi.
+  error          String?
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, backupKey])
+  @@index([tenantId, finishedAt])
+  @@map("backup_runs")
+}
+
+/// Fase 10 · Hasil uji restore di kontainer bersih (ADR-0071): RTO terukur + hasil tiap langkah. Tenant PLATFORM,
+/// append-only, ditulis lewat `app_record_restore_test()`.
+model RestoreTest {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// Kosong bila tidak ada backup lengkap yang bisa dipulihkan (uji tetap dicatat sebagai gagal).
+  backupKey  String?  @map("backup_key")
+  /// Lokasi asal backup yang dipulihkan: local | cloud | offsite
+  source     String
+  /// success | failed
+  status     String
+  startedAt  DateTime @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime @map("finished_at") @db.Timestamptz(3)
+  rtoSeconds Int      @map("rto_seconds")
+  /// Hasil per langkah `{ <langkah>: { ok, ms, detail? } }`, tanpa data pasien.
+  checks     Json
+  error      String?
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, finishedAt])
+  @@map("restore_tests")
+}
+
+/// P05 · Kemajuan job enkripsi ulang kolom (rotasi kunci, ADR-0015 pembaruan 5 Okt 2026). Satu baris per tenant ×
+/// tabel: kunci aktif tujuan, kursor ID terakhir (job bisa dilanjutkan setelah terputus), dan hitungan. Tanpa data
+/// atau nilai: galat hanya kode (`FIELD_KEY_UNKNOWN:v0`) + ID baris terakhir yang gagal.
+model FieldKeyRotation {
+  id           String    @id @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  /// users | mfa_factors | login_challenges | patients | patient_identifiers | patient_links | patient_contacts
+  target       String
+  /// Kunci aktif cincin enkripsi/hash saat putaran ini dimulai; berbeda dengan cincin sekarang = putaran baru.
+  encKeyId     String    @map("enc_key_id")
+  hashKeyId    String    @map("hash_key_id")
+  /// ID baris terakhir yang selesai diproses pada putaran ini (urut ID).
+  cursorId     String?   @map("cursor_id") @db.Uuid
+  scanned      Int       @default(0)
+  rewritten    Int       @default(0)
+  failed       Int       @default(0)
+  /// Baris yang masih memakai kunci lama setelah putaran selesai (dihitung ulang di akhir putaran).
+  remaining    Int?
+  lastError    String?   @map("last_error")
+  lastFailedId String?   @map("last_failed_id") @db.Uuid
+  startedAt    DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(3)
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, target])
+  @@map("field_key_rotations")
+}

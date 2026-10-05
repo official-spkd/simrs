@@ -686,7 +686,7 @@ pino via `nestjs-pino`. Yang dicatat per permintaan hanya: id, metode, path tanp
 
 ### Skema dan migrasi
 
-- Model Prisma: `packages/db/prisma/schema.prisma`. Klien dibangkitkan ke `packages/db/src/generated` (tidak di-commit).
+- Model Prisma: skema multi-berkas `packages/db/prisma/schema/<domain>.prisma` (sejak fase 3 potongan 3.0b): `base` (generator + datasource), `platform`, `iam`, `patient`, `records` (formulir + dokumen), `front-office`, `clinical`, dan berkas domain fase 3 berikutnya. Model baru masuk ke berkas domainnya; relasi balik di model berkas lain tetap wajib (Prisma menggabungkan semua berkas). Klien dibangkitkan ke `packages/db/src/generated` (tidak di-commit).
 - Migrasi: `packages/db/prisma/migrations/<timestamp>_<nama>/migration.sql`. Bagian `CREATE TABLE` dibangkitkan Prisma; **blok RLS, GRANT, trigger, dan fungsi ditulis manual** di berkas yang sama. Contohnya di migrasi `20261003000000_fondasi`.
 - Migrasi yang sudah diterapkan tidak diubah. Perbaikan selalu migrasi baru (contoh: `20261003010000_tenants_registry_owner_read`).
 - Waktu: kolom `timestamptz`, sesi Prisma selalu UTC (`createPrismaClient`), tampilan dan pengelompokan per hari **eksplisit** Asia/Jakarta (`jakartaParts` di aplikasi, `AT TIME ZONE 'Asia/Jakarta'` di SQL). Jangan mengandalkan zona server: adapter `pg` Prisma menggeser waktu bila zona sesi bukan UTC (ADR-0014, tes `packages/db/test/time-zone.test.ts`).

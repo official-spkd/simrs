@@ -17,7 +17,7 @@ afterAll(async () => {
   await owner.$disconnect();
 });
 
-/** Indeks yang ditulis manual di migrasi (unik parsial, trigram) sehingga tidak terlihat di schema.prisma. */
+/** Indeks yang ditulis manual di migrasi (unik parsial, trigram) sehingga tidak terlihat di skema Prisma. */
 const MANUAL_INDEXES = [
   'mfa_factors_one_active_per_user',
   'tenants_single_platform',

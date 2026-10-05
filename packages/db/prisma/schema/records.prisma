@@ -1,0 +1,133 @@
+// P07/P08 · Formulir berversi + isian append-only, dokumen + TTE.
+
+/// P07 · Definisi formulir klinis berversi (formulir = data, MRMIK 6c). Satu versi berlaku (`published`) dan
+/// paling banyak satu draf terbuka per kode (indeks unik parsial). Isi versi terbit/arsip tidak bisa diubah
+/// (trigger `app_form_definition_guard`): isian lama selalu terbaca dengan versi saat diisi.
+model FormDefinition {
+  id          String    @id @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  code        String
+  version     Int
+  title       String
+  /// keperawatan | medis | kebidanan | umum
+  category    String
+  /// draft | submitted | published | archived
+  status      String    @default("draft")
+  /// Bagian, field, opsi, skor, logika tampil (`formSchemaSchema` di @simrs/shared).
+  schema      Json
+  /// Kode peran yang boleh mengisi (hak tulis per profesi, MRMIK 10a).
+  writeRoles  String[]  @map("write_roles")
+  changeNote  String    @map("change_note")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  submittedBy String?   @map("submitted_by") @db.Uuid
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  publishedBy String?   @map("published_by") @db.Uuid
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  responses FormResponse[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code, version])
+  @@map("form_definitions")
+}
+
+/// P07 · Isian formulir untuk pasien. Append-only (ADR-0004): koreksi = baris baru (`version` + 1,
+/// `supersedes_id`, `correction_reason`); tidak ada UPDATE/DELETE (hak + trigger). Kelompok versi = `root_id`.
+model FormResponse {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  /// Versi definisi yang dipakai saat diisi (bukan selalu versi terbaru).
+  definitionId     String   @map("definition_id") @db.Uuid
+  formCode         String   @map("form_code")
+  version          Int      @default(1)
+  /// ID versi 1 (kelompok semua versi isian ini).
+  rootId           String   @map("root_id") @db.Uuid
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  /// final | entered_in_error
+  status           String   @default("final")
+  answers          Json
+  score            Int?
+  scoreBand        String?  @map("score_band")
+  correctionReason String?  @map("correction_reason")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String?  @map("created_by") @db.Uuid
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  patient      Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  definition   FormDefinition @relation(fields: [tenantId, definitionId], references: [tenantId, id])
+  supersedes   FormResponse?  @relation("FormResponseVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy FormResponse[] @relation("FormResponseVersion")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, patientId, formCode])
+  @@map("form_responses")
+}
+
+/// P08 · Dokumen pasien (lampiran foto/scan, hasil, surat). Berkas ada di penyimpanan objek dengan kunci acak
+/// (`storage_key`); baris ini hanya metadata + SHA-256 isi berkas. Tidak pernah diubah atau dihapus: salah
+/// unggah ditandai batal sekali dengan alasan, dan dokumen bertanda tangan tidak bisa dibatalkan (trigger,
+/// ADR-0020).
+model Document {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  patientId  String    @map("patient_id") @db.Uuid
+  /// lampiran | hasil | surat | resume | consent | lainnya
+  kind       String
+  title      String
+  /// Nama untuk tampilan/unduhan saja (sudah disaring).
+  fileName   String    @map("file_name")
+  /// Dikenali dari isi berkas: application/pdf | image/png | image/jpeg
+  mimeType   String    @map("mime_type")
+  sizeBytes  Int       @map("size_bytes")
+  sha256     String
+  storageKey String    @unique @map("storage_key")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?   @map("created_by") @db.Uuid
+  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedBy   String?   @map("voided_by") @db.Uuid
+  voidReason String?   @map("void_reason")
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  patient    Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  signatures DocumentSignature[]
+  /// Bukti persetujuan (scan) yang dirujuk persetujuan privasi.
+  consents   PrivacyConsent[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, patientId, createdAt])
+  @@map("documents")
+}
+
+/// P08 · Tanda tangan elektronik atas hash dokumen, dimintakan ke penyelenggara TTE lewat outbox. Satu
+/// penanda tangan sekali per dokumen; hash yang ditandatangani wajib sama dengan hash dokumen, dan setelah
+/// `signed` baris terkunci (trigger). `verify_code` dicetak sebagai QR untuk verifikasi publik tanpa PHI.
+model DocumentSignature {
+  id                  String    @id @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  documentId          String    @map("document_id") @db.Uuid
+  signerUserId        String    @map("signer_user_id") @db.Uuid
+  documentSha256      String    @map("document_sha256")
+  /// pending | signed | failed (gagal permanen di penyelenggara TTE; bisa dikirim ulang → pending)
+  status              String    @default("pending")
+  verifyCode          String    @unique @map("verify_code")
+  requestedAt         DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  signedAt            DateTime? @map("signed_at") @db.Timestamptz(3)
+  providerSignatureId String?   @map("provider_signature_id")
+  certificate         String?
+  signature           String?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  document Document @relation(fields: [tenantId, documentId], references: [tenantId, id])
+  signer   User     @relation(fields: [tenantId, signerUserId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, documentId, signerUserId])
+  @@map("document_signatures")
+}

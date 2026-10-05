@@ -1,6 +1,6 @@
 # 04 · Data model
 
-Panduan, bukan skema final. Claude Code menerjemahkannya ke `packages/db/prisma/schema.prisma` per fase, dengan migrasi kecil bertahap.
+Panduan, bukan skema final. Claude Code menerjemahkannya ke `packages/db/prisma/schema/<domain>.prisma` (skema multi-berkas) per fase, dengan migrasi kecil bertahap.
 
 ## 1. Konvensi wajib
 
