@@ -425,17 +425,31 @@ describe('CDS dan kirim order', () => {
     });
     // Tinjauan DPJP (izin `clinical.sign`, relasi DPJP): atestasi review_order + resep ber-TTE peninjau.
     await as('residen').post(`/orders/${r.body.id}/review`).expect(403);
-    await run(A.id, (tx) =>
-      tx.accessRelationship.create({
+    // Relasi akses (ABAC lingkup relasi `clinical.sign`) untuk dua dokter; hanya satu yang DPJP utama kunjungan ini.
+    await run(A.id, async (tx) => {
+      for (const who of ['dokter', 'dokterAnggrek']) {
+        await tx.accessRelationship.create({
+          data: {
+            id: newId(),
+            tenantId: A.id,
+            userId: users[who] as string,
+            patientId: e.patientId,
+            kind: 'dpjp',
+          },
+        });
+      }
+      await tx.encounterParticipant.create({
         data: {
           id: newId(),
           tenantId: A.id,
+          encounterId: e.encounterId,
           userId: users.dokter as string,
-          patientId: e.patientId,
-          kind: 'dpjp',
+          role: 'dpjp_utama',
         },
-      }),
-    );
+      });
+    });
+    const notTeam = await as('dokterAnggrek').post(`/orders/${r.body.id}/review`).expect(403);
+    expect(notTeam.body.code).toBe('COSIGN_NOT_ALLOWED');
     const reviewed = await as('dokter').post(`/orders/${r.body.id}/review`).expect(200);
     expect(reviewed.body).toMatchObject({
       needsReview: false,

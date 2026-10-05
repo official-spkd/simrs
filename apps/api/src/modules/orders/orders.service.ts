@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@simrs/db';
 import {
   AppError,
+  clinicalError,
   frontOfficeError,
   idempotencyKeySchema,
   newId,
@@ -23,6 +24,9 @@ import { hasPrescription, prescriptionSections } from './prescription';
 
 /** Kunjungan yang boleh diberi order: sudah datang dan belum selesai/batal. */
 const ORDERABLE_ENCOUNTER_STATUSES = ['arrived', 'in_progress'];
+
+/** Peran tim perawatan yang boleh meninjau order residen (sama dengan co-sign CPPT). */
+const REVIEWING_TEAM_ROLES = ['dpjp_utama', 'rawat_bersama'];
 
 export type SubmitOutcome =
   | { kind: 'created'; group: OrderGroup }
@@ -309,7 +313,8 @@ export class OrdersService {
   }
 
   /**
-   * Tinjauan DPJP atas order residen (keputusan fase 3 no. 4): peninjau wajib berwenang `clinical.sign`; atestasi
+   * Tinjauan DPJP atas order residen (keputusan fase 3 no. 4): peninjau wajib berwenang `clinical.sign` DAN DPJP utama,
+   * rawat bersama, atau DPJP kunjungan (keputusan orkestrator, sama dengan co-sign 3.2b); atestasi
    * `review_order` (append-only, satu per peninjau, `clinical_attestations`); resep ber-TTE peninjau diterbitkan bila
    * kiriman memuat obat aktif dan belum punya resep. `order_groups` tidak diubah: "sudah ditinjau" = ada atestasinya.
    */
@@ -331,6 +336,30 @@ export class OrdersService {
       throw new AppError('CONFLICT', 'Kiriman order ini tidak memerlukan tinjauan DPJP', 409);
     if (row.orderedBy === reviewer.userId) {
       throw new AppError('FORBIDDEN', 'Peninjau order bukan penulis order itu sendiri', 403);
+    }
+    // Atestasi atas pekerjaan orang lain (seperti co-sign CPPT 3.2b): hanya DPJP utama / rawat bersama aktif di tim
+    // perawatan, atau DPJP kunjungan.
+    const [member, enc] = await Promise.all([
+      tx.encounterParticipant.findFirst({
+        where: {
+          encounterId: row.encounterId,
+          userId: reviewer.userId,
+          endedAt: null,
+          role: { in: REVIEWING_TEAM_ROLES },
+        },
+        select: { id: true },
+      }),
+      tx.encounter.findUniqueOrThrow({
+        where: { id: row.encounterId },
+        select: { practitioner: { select: { userId: true } } },
+      }),
+    ]);
+    if (!member && enc.practitioner?.userId !== reviewer.userId) {
+      throw clinicalError(
+        'COSIGN_NOT_ALLOWED',
+        { kind: 'review_order' },
+        'Tinjauan order residen hanya oleh DPJP utama, DPJP rawat bersama, atau DPJP kunjungan ini',
+      );
     }
     const reviewed = await tx.clinicalAttestation.findFirst({
       where: { targetType: 'order_groups', targetId: groupId, kind: 'review_order' },
