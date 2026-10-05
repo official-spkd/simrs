@@ -25,8 +25,6 @@ export interface ApiCall<S extends z.ZodType> {
   /** Bentuk respons yang diharapkan; respons di luar skema dianggap galat (tidak diteruskan ke UI). */
   schema: S;
   timeoutMs?: number;
-  /** Header tambahan yang aman diteruskan (mis. `Idempotency-Key`); tidak bisa menimpa header di atas. */
-  headers?: Readonly<Record<'Idempotency-Key', string>>;
 }
 
 const UNAVAILABLE = 'Layanan SIM RS sedang tidak terjangkau. Coba lagi beberapa saat lagi.';
@@ -41,8 +39,7 @@ export async function callApi<S extends z.ZodType>(
   path: string,
   call: ApiCall<S>,
 ): Promise<z.infer<S>> {
-  const headers = new Headers(call.headers);
-  headers.set('accept', 'application/json');
+  const headers = new Headers({ accept: 'application/json' });
   if (call.body !== undefined) headers.set('content-type', 'application/json');
   if (call.accessToken) headers.set('authorization', `Bearer ${call.accessToken}`);
   if (call.idempotencyKey) headers.set('idempotency-key', call.idempotencyKey);

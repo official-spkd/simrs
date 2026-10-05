@@ -11,7 +11,6 @@ import {
   dukcapilLookupSchema,
   type EligibilityResult,
   eligibilityResultSchema,
-  IDEMPOTENCY_HEADER,
   idempotencyKeySchema,
   outpatientRegistrationSchema,
   type PatientContact,
@@ -274,7 +273,7 @@ export async function registerOutpatientAction(
     const r = await api('/api/v1/registration/outpatient', {
       method: 'POST',
       body: p.data.registration,
-      headers: { [IDEMPOTENCY_HEADER]: p.data.key },
+      idempotencyKey: p.data.key,
       schema: registrationResultSchema,
       timeoutMs: 20_000,
     });
