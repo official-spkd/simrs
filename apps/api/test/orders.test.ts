@@ -251,8 +251,8 @@ describe('katalog dan order set', () => {
     expect(created.body).toMatchObject({
       code: 'pneumonia-awal',
       items: [
-        { type: 'layanan', name: 'Darah lengkap' },
-        { type: 'obat', name: 'Seftriakson 2 g injeksi' },
+        { type: 'layanan', kind: 'lab', name: 'Darah lengkap' },
+        { type: 'obat', kind: 'obat', name: 'Seftriakson 2 g injeksi' },
       ],
     });
     await as('apoteker').post('/orders/order-sets', input).expect(409);
