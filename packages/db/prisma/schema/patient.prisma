@@ -70,6 +70,19 @@ model Patient {
   clinicalConsents     Consent[]
   dischargeSummaries   DischargeSummary[]
 
+  bedRequests               BedRequest[]
+  bedAssignments            BedAssignment[]
+  wristbands                PatientWristband[]
+  wristbandScans            WristbandScan[]
+  triageAssessments         TriageAssessment[]
+  orderGroups               OrderGroup[]
+  serviceRequests           ServiceRequest[]
+  medicationRequests        MedicationRequest[]
+  cdsAlerts                 CdsAlert[]
+  medicationAdministrations MedicationAdministration[]
+  nursingCarePlans          NursingCarePlan[]
+  billableEvents            BillableEvent[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, mrn])
   @@index([tenantId, birthDate])

@@ -59,6 +59,14 @@ model User {
   witnessedConsents          ConsentSignature[]     @relation("ConsentStaffWitness")
   authoredDischargeSummaries DischargeSummary[]     @relation("DischargeSummaryAuthor")
 
+  wristbandScans            WristbandScan[]            @relation("WristbandScanUser")
+  authoredTriage            TriageAssessment[]         @relation("TriageAuthor")
+  orderGroups               OrderGroup[]               @relation("OrderGroupOrderer")
+  cdsDecisions              CdsAlert[]                 @relation("CdsAlertDecider")
+  medicationAdministrations MedicationAdministration[] @relation("MedicationAdministrationUser")
+  medicationDoubleChecks    MedicationAdministration[] @relation("MedicationAdministrationDoubleCheck")
+  authoredNursingCarePlans  NursingCarePlan[]          @relation("NursingCarePlanAuthor")
+
   @@unique([tenantId, id])
   @@unique([tenantId, username])
   @@unique([tenantId, email])

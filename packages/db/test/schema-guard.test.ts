@@ -53,6 +53,15 @@ const MANUAL_INDEXES = [
   'clinical_attestations_one_cosign',
   'encounter_participants_one_primary',
   'encounter_participants_one_active_role',
+  // Fase 3 · 3.0c: versi triase/askep, satu permintaan bed terbuka, satu gelang aktif, satu dosis diberikan per jadwal,
+  // dan indeks EXCLUDE (btree_gist) hunian bed.
+  'triage_assessments_supersedes_once',
+  'nursing_care_plans_supersedes_once',
+  'bed_requests_one_open_per_encounter',
+  'patient_wristbands_one_active',
+  'medication_administrations_one_given',
+  'bed_assignments_no_double_occupancy',
+  'bed_assignments_one_bed_per_encounter',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -193,6 +202,30 @@ describe('penjaga skema', () => {
       'encounter_participants',
       'drug_substances',
       'form_packages',
+      // Fase 3 · 3.0c: ADT, gelang, triase, order/CDS, eMAR, askep, staging.
+      'bed_status',
+      'bed_status_events',
+      'bed_requests',
+      'bed_assignments',
+      'patient_wristbands',
+      'wristband_scans',
+      'triage_assessments',
+      'ed_status_events',
+      'orderables',
+      'drugs',
+      'order_sets',
+      'order_groups',
+      'service_requests',
+      'medication_requests',
+      'order_status_events',
+      'cds_rules',
+      'cds_alerts',
+      'medication_schedules',
+      'medication_administrations',
+      'nursing_diagnoses',
+      'nursing_care_plans',
+      'abbreviations',
+      'billable_events',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

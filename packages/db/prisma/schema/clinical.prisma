@@ -111,6 +111,8 @@ model DrugSubstance {
   tenant    Tenant               @relation(fields: [tenantId], references: [id])
   allergies AllergyIntolerance[]
 
+  drugs Drug[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@map("drug_substances")
@@ -174,6 +176,8 @@ model Observation {
   ewsScore           Int?     @map("ews_score")
   ewsMaxParam        Int?     @map("ews_max_param")
   diagnosticReportId String?  @map("diagnostic_report_id") @db.Uuid
+  /// Order penunjang asal (fase 4 menulis hasil ke sini setelah validasi).
+  serviceRequestId   String?  @map("service_request_id") @db.Uuid
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
   patient          Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
@@ -184,6 +188,7 @@ model Observation {
   addendumTarget   Observation?      @relation("ObservationAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
   addenda          Observation[]     @relation("ObservationAddendum")
   diagnosticReport DiagnosticReport? @relation(fields: [tenantId, diagnosticReportId], references: [tenantId, id])
+  serviceRequest   ServiceRequest?   @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
@@ -214,6 +219,7 @@ model DiagnosticReport {
   code             String?
   display          String
   conclusion       String?
+  serviceRequestId String?  @map("service_request_id") @db.Uuid
 
   tenant         Tenant             @relation(fields: [tenantId], references: [id])
   patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])
@@ -224,6 +230,7 @@ model DiagnosticReport {
   addendumTarget DiagnosticReport?  @relation("DiagnosticReportAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
   addenda        DiagnosticReport[] @relation("DiagnosticReportAddendum")
   observations   Observation[]
+  serviceRequest ServiceRequest?    @relation(fields: [tenantId, serviceRequestId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
@@ -655,6 +662,7 @@ model DischargeMedication {
 
   tenant  Tenant           @relation(fields: [tenantId], references: [id])
   summary DischargeSummary @relation(fields: [tenantId, summaryId], references: [tenantId, id])
+  drug    Drug?            @relation(fields: [tenantId, drugId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@index([tenantId, summaryId])

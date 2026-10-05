@@ -476,6 +476,22 @@ model Encounter {
   consents             Consent[]
   dischargeSummaries   DischargeSummary[]
 
+  bedStatuses               BedStatus[]
+  bedRequests               BedRequest[]
+  bedAssignments            BedAssignment[]
+  wristbands                PatientWristband[]
+  wristbandScans            WristbandScan[]
+  triageAssessments         TriageAssessment[]
+  edStatusEvents            EdStatusEvent[]
+  orderGroups               OrderGroup[]
+  serviceRequests           ServiceRequest[]
+  medicationRequests        MedicationRequest[]
+  cdsAlerts                 CdsAlert[]
+  medicationSchedules       MedicationSchedule[]
+  medicationAdministrations MedicationAdministration[]
+  nursingCarePlans          NursingCarePlan[]
+  billableEvents            BillableEvent[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, number])
   @@index([tenantId, patientId])

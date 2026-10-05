@@ -101,6 +101,32 @@ model Tenant {
   dischargeMedications    DischargeMedication[]
   dischargeSummarySources DischargeSummarySource[]
 
+  // K · ADT, order/CDS, eMAR, askep, staging (fase 3 potongan 3.0c)
+  bedStatuses               BedStatus[]
+  bedStatusEvents           BedStatusEvent[]
+  bedRequests               BedRequest[]
+  bedAssignments            BedAssignment[]
+  patientWristbands         PatientWristband[]
+  wristbandScans            WristbandScan[]
+  triageAssessments         TriageAssessment[]
+  edStatusEvents            EdStatusEvent[]
+  orderables                Orderable[]
+  drugs                     Drug[]
+  orderSets                 OrderSet[]
+  orderSetItems             OrderSetItem[]
+  orderGroups               OrderGroup[]
+  serviceRequests           ServiceRequest[]
+  medicationRequests        MedicationRequest[]
+  orderStatusEvents         OrderStatusEvent[]
+  cdsRules                  CdsRule[]
+  cdsAlerts                 CdsAlert[]
+  medicationSchedules       MedicationSchedule[]
+  medicationAdministrations MedicationAdministration[]
+  nursingDiagnoses          NursingDiagnosis[]
+  nursingCarePlans          NursingCarePlan[]
+  abbreviations             Abbreviation[]
+  billableEvents            BillableEvent[]
+
   @@map("tenants")
 }
 
@@ -324,6 +350,10 @@ model Unit {
 
   consultRequests ConsultRequest[]
 
+  bedStatuses BedStatus[]
+  bedRequests BedRequest[]
+  orderables  Orderable[]
+
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@index([tenantId, facilityId])
@@ -351,6 +381,11 @@ model Location {
   unit     Unit       @relation(fields: [tenantId, unitId], references: [tenantId, id])
   parent   Location?  @relation("LocationTree", fields: [tenantId, parentId], references: [tenantId, id])
   children Location[] @relation("LocationTree")
+
+  bedStatus             BedStatus?
+  bedRequestAllocations BedRequest[]    @relation("BedRequestAllocation")
+  bedAssignments        BedAssignment[] @relation("BedAssignmentLocation")
+  edStatusEvents        EdStatusEvent[] @relation("EdStatusLocation")
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])

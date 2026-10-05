@@ -1,0 +1,165 @@
+// K12 · eMAR, asuhan keperawatan, singkatan per RS; staging lintas fase (fase 3, skema II potongan 3.0c).
+
+/// K12 · Jadwal dosis dari order obat aktif (jam WIB dari frekuensi → instan UTC). Satu jadwal per order × instan.
+model MedicationSchedule {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  medicationRequestId String   @map("medication_request_id") @db.Uuid
+  encounterId         String   @map("encounter_id") @db.Uuid
+  scheduledAt         DateTime @map("scheduled_at") @db.Timestamptz(3)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id])
+  medicationRequest MedicationRequest          @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+  encounter         Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  administrations   MedicationAdministration[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, medicationRequestId, scheduledAt])
+  @@index([tenantId, encounterId, scheduledAt])
+  @@map("medication_schedules")
+}
+
+/// K12 · Pemberian obat (append-only). `wristband_scan_id` wajib: trigger memastikan pindaian cocok, kunjungan sama,
+/// perawat sama, dan ≤ `emar.scan_valid_minutes`. Satu "diberikan" per jadwal (indeks parsial manual).
+model MedicationAdministration {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  medicationRequestId String   @map("medication_request_id") @db.Uuid
+  /// Null untuk PRN/stat.
+  scheduleId          String?  @map("schedule_id") @db.Uuid
+  encounterId         String   @map("encounter_id") @db.Uuid
+  patientId           String   @map("patient_id") @db.Uuid
+  wristbandScanId     String   @map("wristband_scan_id") @db.Uuid
+  /// given | held | refused
+  status              String
+  occurredAt          DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt          DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  userId              String   @map("user_id") @db.Uuid
+  userRole            String   @map("user_role")
+  /// Terlambat (lewat `emar.late_minutes`), ditentukan server.
+  late                Boolean  @default(false)
+  reason              String?
+  /// Obat kewaspadaan tinggi: perawat kedua (cek ganda).
+  doubleCheckUserId   String?  @map("double_check_user_id") @db.Uuid
+  labelCode           String   @map("label_code")
+
+  tenant            Tenant              @relation(fields: [tenantId], references: [id])
+  medicationRequest MedicationRequest   @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+  schedule          MedicationSchedule? @relation(fields: [tenantId, scheduleId], references: [tenantId, id])
+  encounter         Encounter           @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient           Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  wristbandScan     WristbandScan       @relation(fields: [tenantId, wristbandScanId], references: [tenantId, id])
+  user              User                @relation("MedicationAdministrationUser", fields: [tenantId, userId], references: [tenantId, id])
+  doubleCheckUser   User?               @relation("MedicationAdministrationDoubleCheck", fields: [tenantId, doubleCheckUserId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId, occurredAt])
+  @@index([tenantId, medicationRequestId])
+  @@map("medication_administrations")
+}
+
+/// K12 · Diagnosis keperawatan master lokal (tanpa kode resmi; SDKI diimpor bila tersedia, keputusan no. 15).
+model NursingDiagnosis {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  carePlans NursingCarePlan[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("nursing_diagnoses")
+}
+
+/// K12 · Rencana asuhan keperawatan (berversi): diagnosis, tujuan, intervensi (larik JSON), evaluasi.
+model NursingCarePlan {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  rootId           String   @map("root_id") @db.Uuid
+  version          Int      @default(1)
+  supersedesId     String?  @map("supersedes_id") @db.Uuid
+  addendumOf       String?  @map("addendum_of") @db.Uuid
+  status           String   @default("final")
+  correctionReason String?  @map("correction_reason")
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String   @map("author_user_id") @db.Uuid
+  authorRole       String   @map("author_role")
+  diagnosisId      String   @map("diagnosis_id") @db.Uuid
+  goals            String
+  interventions    Json
+  evaluation       String?
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  patient        Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User              @relation("NursingCarePlanAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  diagnosis      NursingDiagnosis  @relation(fields: [tenantId, diagnosisId], references: [tenantId, id])
+  supersedes     NursingCarePlan?  @relation("NursingCarePlanVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   NursingCarePlan[] @relation("NursingCarePlanVersion")
+  addendumTarget NursingCarePlan?  @relation("NursingCarePlanAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        NursingCarePlan[] @relation("NursingCarePlanAddendum")
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, rootId, version])
+  @@index([tenantId, encounterId])
+  @@map("nursing_care_plans")
+}
+
+/// K07/K09 · Daftar singkatan terlarang per RS ("Do Not Use", EP 9a): peringatan, tidak memblokir.
+model Abbreviation {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  /// token | pattern
+  kind       String
+  term       String
+  suggestion String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy  String?  @map("created_by") @db.Uuid
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy  String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, kind, term])
+  @@map("abbreviations")
+}
+
+/// U · Staging biaya lintas fase (ADR-0032): peristiwa yang kelak ditagih, TANPA harga (fase 5 memberi harga).
+/// Append-only, unik per sumber × jenis (idempoten).
+model BillableEvent {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  /// Tabel sumber (`service_requests`, `medication_administrations`, `bed_assignments`, …).
+  sourceType  String   @map("source_type")
+  sourceId    String   @map("source_id") @db.Uuid
+  /// visite | admisi | transfer | pulang | igd | lab | radiologi | tindakan | obat | konsultasi
+  kind        String
+  quantity    Int      @default(1)
+  occurredAt  DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt  DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  createdBy   String?  @map("created_by") @db.Uuid
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  encounter Encounter @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient   Patient   @relation(fields: [tenantId, patientId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, sourceType, sourceId, kind])
+  @@index([tenantId, encounterId])
+  @@map("billable_events")
+}

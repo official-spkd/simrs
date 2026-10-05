@@ -3,9 +3,15 @@ import type { Prisma, TenantTx } from './client';
 
 /**
  * Tulis pesan outbox di dalam transaksi domain yang sama (ADR-0003). Idempoten per (tenant, target, key):
- * menulis ulang dengan key sama tidak membuat pesan kedua.
+ * menulis ulang dengan key sama tidak membuat pesan kedua. `held: true` = staging (status `held`, tidak diklaim
+ * dispatcher; ADR-0032).
  */
-export async function enqueueOutbox(tx: TenantTx, tenantId: string, msg: OutboxEnvelope) {
+export async function enqueueOutbox(
+  tx: TenantTx,
+  tenantId: string,
+  msg: OutboxEnvelope,
+  opts: { held?: boolean } = {},
+) {
   return tx.outboxMessage.upsert({
     where: {
       tenantId_target_idempotencyKey: { tenantId, target: msg.target, idempotencyKey: msg.idempotencyKey },
@@ -18,6 +24,7 @@ export async function enqueueOutbox(tx: TenantTx, tenantId: string, msg: OutboxE
       operation: msg.operation,
       idempotencyKey: msg.idempotencyKey,
       payload: msg.payload as Prisma.InputJsonValue,
+      ...(opts.held ? { status: 'held' } : {}),
     },
   });
 }

@@ -13,7 +13,11 @@ export const INTEGRATION_TARGETS = [
 ] as const;
 export type IntegrationTarget = (typeof INTEGRATION_TARGETS)[number];
 
-export const OUTBOX_STATUSES = ['pending', 'processing', 'sent', 'failed', 'dead'] as const;
+/**
+ * `held` = staging (ADR-0032, fase 3): pesan SATUSEHAT dicatat sekarang tetapi tidak diklaim dispatcher sampai dilepas
+ * berurutan di fase 7.
+ */
+export const OUTBOX_STATUSES = ['pending', 'processing', 'sent', 'failed', 'dead', 'held'] as const;
 export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 
 /** Maks percobaan sebelum DLQ (ADR-0003). */
