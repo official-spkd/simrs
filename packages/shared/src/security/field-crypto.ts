@@ -16,7 +16,9 @@ export type FieldPurpose =
   /** Kode cadangan login sekali pakai (WhatsApp/email), berlaku selama tantangan MFA. */
   | 'login_otp'
   /** Lada (HMAC) PIN masuk cepat sebelum argon2id: hash PIN yang bocor tidak bisa ditebak tanpa kunci. */
-  | 'login_pin';
+  | 'login_pin'
+  /** Kode pendaftaran perangkat anjungan/TV sekali pakai (ADR-0027): dicari lewat HMAC, tidak disimpan. */
+  | 'device_enrolment';
 
 function masterKey(keyB64: string): Buffer {
   const key = Buffer.from(keyB64, 'base64');
