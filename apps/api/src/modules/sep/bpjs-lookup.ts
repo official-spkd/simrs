@@ -17,7 +17,7 @@ import { LOOKUP_TIMEOUT_MS, type LookupConnector } from '../../infra/lookup/look
 /**
  * ADR-0025 · Konektor lookup VClaim (baca-saja) di atas klien BPJS bersama (`@simrs/shared/node`, dipakai juga
  * worker). Kredensial dari env (satu set mock di fase 2, keputusan #11). Penolakan bisnis → 422 `BPJS_REJECTED`
- * (alasan baku di `details.reason`); gangguan/timeout → galat biasa, dipetakan `LookupGateway` ke 503
+ * (hanya alasan baku di `details.reason`, tanpa teks asli BPJS); gangguan/timeout → galat biasa, dipetakan `LookupGateway` ke 503
  * `BPJS_UNAVAILABLE`. Data peserta tidak pernah masuk log/audit (ringkasan audit hanya fakta tanpa PHI).
  */
 
@@ -52,7 +52,8 @@ function unwrap<T>(res: BpjsResult<T>, notFoundAsEmpty?: () => T): T {
     ) {
       return notFoundAsEmpty();
     }
-    throw frontOfficeError('BPJS_REJECTED', { reason: res.code, bpjsMessage: res.message.slice(0, 500) });
+    // Hanya kode baku: teks asli BPJS tidak dikirim ke klien dan tidak dicatat.
+    throw frontOfficeError('BPJS_REJECTED', { reason: res.code });
   }
   throw new BpjsLookupUnavailable(`${res.code} ${res.detail}`);
 }

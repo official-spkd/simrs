@@ -70,11 +70,11 @@ export const BPJS_REJECTION_CODES: readonly [BpjsRejectionCode, ...BpjsRejection
   'BPJS_TIDAK_DIKENAL',
   ...(Object.keys(BPJS_REJECTIONS) as BpjsRejectionCode[]),
 ];
-/** `details` galat `BPJS_REJECTED`: alasan baku + pesan BPJS apa adanya (untuk petugas, tanpa PHI tambahan). */
-export const bpjsRejectedDetailsSchema = z.strictObject({
-  reason: z.enum(BPJS_REJECTION_CODES),
-  bpjsMessage: z.string().max(500),
-});
+/**
+ * `details` galat `BPJS_REJECTED`: hanya alasan baku. Teks asli BPJS tidak dikirim ke klien (bisa memuat data peserta
+ * atau teks tak terkendali); layar memakai `bpjsStaffMessage(reason)`.
+ */
+export const bpjsRejectedDetailsSchema = z.strictObject({ reason: z.enum(BPJS_REJECTION_CODES) });
 export type BpjsRejectedDetails = z.infer<typeof bpjsRejectedDetailsSchema>;
 
 /** Header idempotensi untuk tindakan yang tidak boleh terjadi dua kali (registrasi, SEP, check-in anjungan). */

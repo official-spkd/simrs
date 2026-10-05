@@ -552,13 +552,15 @@ describe('SEP: mesin keadaan', () => {
         data: {
           status: 'failed',
           lastErrorCode: 'BPJS_RUJUKAN_TIDAK_DITEMUKAN',
-          rejectionReason: 'Rujukan tidak ditemukan',
+          // Teks asli BPJS (fiktif) bisa menyebut peserta: disimpan untuk ditinjau, tidak pernah ditampilkan.
+          rejectionReason: 'Rujukan 0301R0011025K000117 a.n. PASIEN FIKTIF tidak ditemukan',
           syncStatus: 'rejected',
           syncErrorCode: 'BPJS_RUJUKAN_TIDAK_DITEMUKAN',
         },
       }),
     );
     const got = await as('daftar').get(`/sep/${sepId}`).expect(200);
+    expect(JSON.stringify(got.body)).not.toContain('PASIEN FIKTIF');
     expect(got.body).toMatchObject({
       status: 'failed',
       rejectionReason: 'Rujukan tidak ditemukan',
@@ -599,10 +601,9 @@ describe('lookup sinkron (mock BPJS/Dukcapil)', () => {
     const missing = await as('daftar')
       .post('/sep/eligibility-checks', { by: 'kartu', value: '0000123459999' })
       .expect(422);
-    expect(missing.body).toMatchObject({
-      code: 'BPJS_REJECTED',
-      details: { reason: 'BPJS_PESERTA_TIDAK_DITEMUKAN' },
-    });
+    expect(missing.body).toMatchObject({ code: 'BPJS_REJECTED' });
+    // Hanya kode baku; teks asli BPJS tidak ikut.
+    expect(missing.body.details).toEqual({ reason: 'BPJS_PESERTA_TIDAK_DITEMUKAN' });
 
     mockState.scenarios.set('bpjs', { ...mockState.scenario('bpjs'), mode: 'gagal' });
     expect(

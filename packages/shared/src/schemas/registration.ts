@@ -273,7 +273,10 @@ export const sepSchema = z
     initialDiagnosis: icd10CodingSchema.nullable(),
     /** Kode galat/penolakan terakhir (tanpa PHI), mis. `BPJS_PESERTA_TIDAK_AKTIF`. */
     lastErrorCode: z.string().max(60).nullable(),
-    /** Alasan penolakan/kegagalan untuk petugas (`seps.rejection_reason`, hanya saat `failed`). */
+    /**
+     * Alasan penolakan/kegagalan untuk petugas, hanya saat `failed`: pesan baku dari `lastErrorCode`. Teks asli BPJS
+     * (`seps.rejection_reason`) tidak pernah dikirim ke klien.
+     */
     rejectionReason: z.string().max(300).nullable(),
     issuedAt: isoDateTime.nullable(),
     cancelledAt: isoDateTime.nullable(),

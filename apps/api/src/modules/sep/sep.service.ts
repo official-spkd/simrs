@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AppError,
-  BPJS_REJECTIONS,
   BPJS_SEP_DELETE_OPERATION,
   BPJS_SEP_INSERT_OPERATION,
   BPJS_SEP_UPDATE_OPERATION,
   type BpjsParticipantLookupInput,
+  bpjsStaffMessage,
   type BpjsSyncStatus,
   type CancelSepInput,
   type EligibilityResult,
@@ -39,22 +39,31 @@ import {
 } from './bpjs-lookup';
 import { type SepRow, SepRepository } from './sep.repository';
 
-/** Kode galat status kirim yang bukan penolakan bisnis BPJS (pesan dari sini). */
-export const SEP_SYNC_ERRORS: Record<string, string> = {
-  BPJS_TIDAK_DIKENAL: 'Ditolak BPJS (alasan belum dipetakan)',
-  BPJS_DLQ: 'Gagal dikirim ke BPJS sampai batas waktu; kirim ulang',
-};
-
 const KELAS: Record<string, EligibilityResult['eligibility']['kelas']> = {
   '1': 'Kelas 1',
   '2': 'Kelas 2',
   '3': 'Kelas 3',
 };
 
-/** Pesan petugas untuk kode galat status kirim BPJS (penolakan `BPJS_REJECTIONS` atau kode transport). */
-export const bpjsSyncMessage = (code: string) =>
-  (BPJS_REJECTIONS as Record<string, string>)[code] ?? SEP_SYNC_ERRORS[code] ?? code;
+/** Pesan petugas untuk kode galat status kirim BPJS: pesan baku dari kode, tidak pernah teks asli BPJS. */
+export const bpjsSyncMessage = (code: string) => bpjsStaffMessage(code);
 const syncMessage = bpjsSyncMessage;
+
+/** Kode kegagalan SEP yang butuh arahan lebih spesifik dari label umum. */
+const SEP_FAILURE_MESSAGES: Record<string, string> = {
+  BPJS_SEP_GANDA:
+    'Peserta sudah memiliki SEP pada tanggal ini yang bukan milik kunjungan ini; periksa histori SEP di VClaim',
+  BPJS_PESERTA_TIDAK_AKTIF: 'Status kepesertaan BPJS tidak aktif; cek kepesertaan untuk rinciannya',
+};
+
+/**
+ * Alasan kegagalan SEP untuk petugas: pesan baku dari `last_error_code`. Teks asli BPJS tetap di
+ * `seps.rejection_reason` untuk ditinjau di database, tidak pernah dikirim ke layar maupun log (review keamanan
+ * fase 2).
+ */
+export function sepFailureMessage(code: string | null): string {
+  return (code && SEP_FAILURE_MESSAGES[code]) || bpjsStaffMessage(code);
+}
 const invalidState = (message: string) => frontOfficeError('SEP_STATE_INVALID', undefined, message);
 
 export interface PendingSepInput {
@@ -420,7 +429,7 @@ export function toSep(row: SepRow): Sep {
       ? { code: row.diagnosisCode, display: row.diagnosisDisplay ?? row.diagnosisCode }
       : null,
     lastErrorCode: row.lastErrorCode,
-    rejectionReason: row.status === 'failed' ? row.rejectionReason : null,
+    rejectionReason: row.status === 'failed' ? sepFailureMessage(row.lastErrorCode) : null,
     issuedAt: row.issuedAt?.toISOString() ?? null,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelReason: row.cancelReason,

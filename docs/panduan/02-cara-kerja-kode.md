@@ -554,6 +554,10 @@ Worker `apps/worker/src/outbox/sep.ts` (`defineBpjsOperation`, sensitif, data di
 - **update** (versi ≥ 2) → `issued`; **delete** (SEP `cancelled`) → status kirim saja (`BPJS_SEP_TIDAK_DITEMUKAN` = sudah
   hilang → `sent`). Ditolak → `failed` + `last_error_code` + `rejection_reason`; DLQ → `failed` + `BPJS_DLQ`
   (`sync_status` `dead`). Status kirim terakhir di `seps.sync_status|synced_at|sync_error_code`.
+- **Teks asli BPJS tidak pernah ke layar atau log.** `rejection_reason` menyimpan teks asli untuk ditinjau di database;
+  API mengirim `rejectionReason` = pesan baku dari `last_error_code` (`sepFailureMessage` → `bpjsStaffMessage` di
+  `@simrs/shared`). Lookup yang ditolak (422 `BPJS_REJECTED`) hanya membawa `details.reason`; web menampilkan
+  `bpjsStaffMessage(reason)`. Kode yang tidak dikenal → "Ditolak BPJS; periksa di VClaim".
 
 Task ID untuk kunjungan ini (mesin `BpjsTaskEngine`, worker `bpjs-antrean.ts`): walk-in tanpa panggilan tiket loket
 mendapat task 1 (check-in) lalu task 2 dan 3 pada saat didaftarkan, karena Antrean BPJS menolak lompatan 1 → 3. Selama
