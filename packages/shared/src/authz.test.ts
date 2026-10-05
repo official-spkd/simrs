@@ -20,6 +20,7 @@ import {
   PLATFORM_ROLE_GRANTS,
   PROTECTED_ROLES,
   type RoleGrant,
+  SCOPE_RANK,
   SYSTEM_ROLES,
 } from './authz';
 import { rolePermissionsSchema } from './schemas/iam';
@@ -254,6 +255,134 @@ describe('sinkron izin katalog', () => {
     });
     for (const bad of ['', 'tanpa-lingkup', ':all', 'audit.read:', 'tanpatitik:all']) {
       expect(parseGrantDiffEntry(bad), bad).toBeNull();
+    }
+  });
+});
+
+describe('izin klinis (fase 3, rencana §3.0a)', () => {
+  const CLINICAL_RESOURCES = [
+    'clinical',
+    'order',
+    'medication',
+    'triage',
+    'bed',
+    'consent',
+    'result',
+  ] as const;
+  const holders = (resource: string, action: string) =>
+    Object.entries(DEFAULT_ROLE_GRANTS)
+      .filter(([, g]) => g.some(([r, a]) => r === resource && a === action))
+      .map(([role]) => role)
+      .sort();
+
+  it('katalog memuat sumber × aksi klinis', () => {
+    expect(PERMISSION_CATALOG.clinical.actions).toEqual(['read', 'write', 'correct', 'cosign', 'sign']);
+    expect(PERMISSION_CATALOG.order.actions).toEqual(['read', 'write', 'cancel', 'manage']);
+    expect(PERMISSION_CATALOG.medication.actions).toEqual(['administer']);
+    expect(PERMISSION_CATALOG.triage.actions).toEqual(['write']);
+    expect(PERMISSION_CATALOG.bed.actions).toEqual(['read', 'write']);
+    expect(PERMISSION_CATALOG.consent.actions).toEqual(['read', 'write', 'sign']);
+    expect(PERMISSION_CATALOG.result.actions).toEqual(['read', 'write']);
+    for (const key of ['medication.administer', 'triage.write', 'clinical.cosign', 'order.manage']) {
+      expect(isPermissionKey(key), key).toBe(true);
+    }
+    // Izin klinis baru bukan baseline: sinkron izin menambahkannya ke peran RS yang sudah ada.
+    expect(PERMISSION_CATALOG_BASELINE.filter((k) => k.startsWith('clinical.'))).toEqual([]);
+  });
+
+  it('dokter: catatan klinis lingkup unit; co-sign, TTE, dan tanda tangan persetujuan hanya relasi', () => {
+    const g = DEFAULT_ROLE_GRANTS.dokter;
+    for (const action of ['read', 'write', 'correct'] as const) {
+      expect(grantOf(g, 'clinical', action)).toBe('unit');
+    }
+    expect(grantOf(g, 'clinical', 'cosign')).toBe('relationship');
+    expect(grantOf(g, 'clinical', 'sign')).toBe('relationship');
+    expect(grantOf(g, 'consent', 'sign')).toBe('relationship');
+    expect(grantOf(g, 'order', 'write')).toBe('unit');
+    expect(grantOf(g, 'order', 'manage')).toBeNull();
+  });
+
+  it('residen menulis tanpa co-sign/TTE; order dan triase boleh', () => {
+    const g = DEFAULT_ROLE_GRANTS.dokter_residen;
+    expect(grantOf(g, 'clinical', 'write')).toBe('unit');
+    expect(grantOf(g, 'clinical', 'correct')).toBe('unit');
+    expect(grantOf(g, 'clinical', 'cosign')).toBeNull();
+    expect(grantOf(g, 'clinical', 'sign')).toBeNull();
+    expect(grantOf(g, 'order', 'write')).toBe('unit');
+    expect(grantOf(g, 'triage', 'write')).toBe('unit');
+    expect(grantOf(g, 'consent', 'sign')).toBeNull();
+  });
+
+  it('perawat/bidan: catatan, eMAR, triase, bed — semuanya lingkup unit, tanpa order/co-sign', () => {
+    for (const role of ['perawat', 'bidan'] as const) {
+      const g = DEFAULT_ROLE_GRANTS[role];
+      for (const [resource, action] of [
+        ['clinical', 'read'],
+        ['clinical', 'write'],
+        ['clinical', 'correct'],
+        ['medication', 'administer'],
+        ['triage', 'write'],
+        ['bed', 'read'],
+        ['bed', 'write'],
+      ] as const) {
+        expect(grantOf(g, resource, action), `${role}: ${resource}.${action}`).toBe('unit');
+      }
+      expect(grantOf(g, 'order', 'write'), role).toBeNull();
+      expect(grantOf(g, 'clinical', 'cosign'), role).toBeNull();
+      expect(grantOf(g, 'clinical', 'sign'), role).toBeNull();
+    }
+  });
+
+  it('pendaftaran: bed lingkup all; RM/koder baca klinis all; manajemen baca bed; auditor mutu baca order', () => {
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'bed', 'write')).toBe('all');
+    // Papan IGD + triase loket IGD: baca klinis dan triase lingkup unit, tanpa menulis catatan klinis.
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'clinical', 'read')).toBe('unit');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'triage', 'write')).toBe('unit');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_pendaftaran, 'clinical', 'write')).toBeNull();
+    // Perawat/bidan menyiapkan draf persetujuan, menjadi saksi, memandu tablet; tanda tangan hanya dokter.
+    for (const role of ['perawat', 'bidan'] as const) {
+      expect(grantOf(DEFAULT_ROLE_GRANTS[role], 'consent', 'write'), role).toBe('unit');
+      expect(grantOf(DEFAULT_ROLE_GRANTS[role], 'consent', 'read'), role).toBe('unit');
+    }
+    expect(holders('consent', 'sign')).toEqual(['dokter']);
+    expect(grantOf(DEFAULT_ROLE_GRANTS.petugas_rm, 'clinical', 'read')).toBe('all');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.koder, 'clinical', 'read')).toBe('all');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.koder, 'clinical', 'write')).toBeNull();
+    expect(grantOf(DEFAULT_ROLE_GRANTS.manajemen, 'bed', 'read')).toBe('all');
+    expect(grantOf(DEFAULT_ROLE_GRANTS.manajemen, 'bed', 'write')).toBeNull();
+    expect(grantOf(DEFAULT_ROLE_GRANTS.auditor_mutu, 'order', 'read')).toBe('all');
+  });
+
+  it('hak minimum: pemberian obat, co-sign, TTE, dan kelola order set/CDS', () => {
+    expect(holders('medication', 'administer')).toEqual(['bidan', 'perawat']);
+    expect(holders('clinical', 'cosign')).toEqual(['dokter']);
+    expect(holders('clinical', 'sign')).toEqual(['dokter']);
+    // Order set institusi dan basis CDS dikelola komite farmasi/PFT yang ditetapkan RS (keputusan 10): tanpa bawaan.
+    expect(holders('order', 'manage')).toEqual([]);
+    expect(holders('triage', 'write')).toEqual([
+      'bidan',
+      'dokter',
+      'dokter_residen',
+      'perawat',
+      'petugas_pendaftaran',
+    ]);
+  });
+
+  it('hak ubah klinis selalu disertai hak baca dengan lingkup tidak lebih sempit', () => {
+    for (const [role, grants] of Object.entries(DEFAULT_ROLE_GRANTS)) {
+      for (const [r, a, scope] of grants) {
+        if (!(CLINICAL_RESOURCES as readonly string[]).includes(r) || a === 'read') continue;
+        // eMAR dan triase dibaca lewat catatan klinis pasien.
+        const readResource = r === 'medication' || r === 'triage' ? 'clinical' : r;
+        const read = grantOf(grants, readResource, 'read');
+        expect(read, `${role}: ${r}.${a} tanpa ${readResource}.read`).not.toBeNull();
+        if (read) {
+          expect(
+            SCOPE_RANK[read],
+            `${role}: ${readResource}.read lebih sempit dari ${r}.${a}`,
+          ).toBeGreaterThanOrEqual(SCOPE_RANK[scope]);
+        }
+      }
     }
   });
 });

@@ -29,6 +29,20 @@ export const PERMISSION_CATALOG = {
   coverage: { label: 'Penjaminan & SEP (SPRI, rencana kontrol)', actions: ['read', 'write'] },
   queue: { label: 'Antrean (panggil, kelola layanan & display)', actions: ['read', 'call', 'manage'] },
   referral: { label: 'Rujukan masuk, keluar, internal', actions: ['read', 'write'] },
+  // K01–K15 · Klinis RME (fase 3, rencana §3.0a)
+  clinical: {
+    label: 'Catatan klinis (asesmen, CPPT, diagnosis, resume)',
+    actions: ['read', 'write', 'correct', 'cosign', 'sign'],
+  },
+  order: {
+    label: 'Order penunjang & resep (CPOE); kelola order set dan basis CDS',
+    actions: ['read', 'write', 'cancel', 'manage'],
+  },
+  medication: { label: 'Pemberian obat (eMAR)', actions: ['administer'] },
+  triage: { label: 'Triase IGD', actions: ['write'] },
+  bed: { label: 'Tempat tidur & ADT (admisi, transfer, pulang)', actions: ['read', 'write'] },
+  consent: { label: 'Persetujuan tindakan', actions: ['read', 'write', 'sign'] },
+  result: { label: 'Hasil penunjang (observasi, laporan)', actions: ['read', 'write'] },
   // Khusus perangkat terdaftar (lihat DEVICE_ONLY_RESOURCES): tidak pernah bisa diberikan ke peran.
   kiosk: { label: 'Anjungan mandiri (khusus perangkat)', actions: ['use'] },
   'queue.display': { label: 'Display antrean (khusus perangkat)', actions: ['read'] },
@@ -207,6 +221,65 @@ const ENCOUNTER_COVERAGE_READ: Grant[] = [
 ];
 
 /**
+ * K01–K15 · Klinisi fase 3 (rencana §3.0a). Lingkup `unit` = kunjungan aktif pasien di unit penugasan ditambah semua
+ * dasar lingkup `relationship` (ADR-0031; tingkat kamar/bed lewat `app_patient_location` di potongan 3.1). Co-sign dan
+ * tanda tangan (TTE) dokumen legal hanya untuk DPJP/rawat bersama: lingkup `relationship`.
+ */
+const DOCTOR_CLINICAL: Grant[] = [
+  ['clinical', 'read', 'unit'],
+  ['clinical', 'write', 'unit'],
+  ['clinical', 'correct', 'unit'],
+  ['clinical', 'cosign', 'relationship'],
+  ['clinical', 'sign', 'relationship'],
+  ['order', 'read', 'unit'],
+  ['order', 'write', 'unit'],
+  ['order', 'cancel', 'unit'],
+  ['consent', 'read', 'unit'],
+  ['consent', 'write', 'unit'],
+  ['consent', 'sign', 'relationship'],
+  ['result', 'read', 'unit'],
+  ['triage', 'write', 'unit'],
+  ['bed', 'read', 'unit'],
+];
+
+/** Residen: menulis dan mengoreksi tanpa co-sign/TTE (CPPT menunggu co-sign DPJP); order langsung aktif, ditinjau DPJP. */
+const RESIDENT_CLINICAL: Grant[] = [
+  ['clinical', 'read', 'unit'],
+  ['clinical', 'write', 'unit'],
+  ['clinical', 'correct', 'unit'],
+  ['order', 'read', 'unit'],
+  ['order', 'write', 'unit'],
+  ['consent', 'read', 'unit'],
+  ['result', 'read', 'unit'],
+  ['triage', 'write', 'unit'],
+  ['bed', 'read', 'unit'],
+];
+
+/** Perawat dan bidan: semuanya lingkup unit (eMAR, triase, bed, saksi persetujuan). */
+const NURSE_CLINICAL: Grant[] = [
+  ['clinical', 'read', 'unit'],
+  ['clinical', 'write', 'unit'],
+  ['clinical', 'correct', 'unit'],
+  ['medication', 'administer', 'unit'],
+  ['triage', 'write', 'unit'],
+  ['bed', 'read', 'unit'],
+  ['bed', 'write', 'unit'],
+  ['order', 'read', 'unit'],
+  ['consent', 'read', 'unit'],
+  ['consent', 'write', 'unit'],
+  ['result', 'read', 'unit'],
+];
+
+/**
+ * Analis lab dan radiografer: hasil penunjang diinput manual selama MVP (asumsi 1) untuk order dari unit mana pun,
+ * jadi lingkup `all`; fase 4 menyempitkannya ke worklist penunjang.
+ */
+const RESULT_ENTRY: Grant[] = [
+  ['result', 'read', 'all'],
+  ['result', 'write', 'all'],
+];
+
+/**
  * Matriks bawaan. Prinsip hak minimum: klinisi hanya pasien berelasi (+ akses darurat berjejak);
  * administrasi tanpa isi klinis; audit/privasi tanpa hak ubah data pasien.
  */
@@ -240,18 +313,26 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['ref', 'read', 'all'],
     ['documents', 'print', 'all'],
     ...FRONT_OFFICE_ALL,
+    // K04/K05 · Admisi dan papan bed seluruh RS.
+    ['bed', 'read', 'all'],
+    ['bed', 'write', 'all'],
+    // K03 · Papan IGD dan triase awal di loket IGD (keputusan orkestrator 5 Okt 2026): lingkup unit penugasan IGD.
+    ['clinical', 'read', 'unit'],
+    ['triage', 'write', 'unit'],
   ],
   perawat: [
     ...CLINICAL_READ,
     ['forms.response', 'write', 'relationship'],
     ['forms.response', 'correct', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
+    ...NURSE_CLINICAL,
   ],
   bidan: [
     ...CLINICAL_READ,
     ['forms.response', 'write', 'relationship'],
     ['forms.response', 'correct', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
+    ...NURSE_CLINICAL,
   ],
   dokter: [
     ...CLINICAL_READ,
@@ -259,18 +340,21 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['forms.response', 'correct', 'relationship'],
     ['documents', 'write', 'relationship'],
     ...CLINICAL_FRONT_OFFICE,
+    ...DOCTOR_CLINICAL,
   ],
-  dokter_residen: [...CLINICAL_READ, ['forms.response', 'write', 'relationship']],
+  dokter_residen: [...CLINICAL_READ, ['forms.response', 'write', 'relationship'], ...RESIDENT_CLINICAL],
   apoteker: [...CLINICAL_READ],
   analis_lab: [
     ['patient', 'read', 'unit'],
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
+    ...RESULT_ENTRY,
   ],
   radiografer: [
     ['patient', 'read', 'unit'],
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
+    ...RESULT_ENTRY,
   ],
   kasir: [
     ['patient', 'read', 'all'],
@@ -284,6 +368,7 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['ref', 'read', 'all'],
     ['documents', 'read', 'all'],
     ...ENCOUNTER_COVERAGE_READ,
+    ['clinical', 'read', 'all'],
   ],
   akuntan: [['facility', 'read', 'all']],
   petugas_rm: [
@@ -301,6 +386,7 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['ref', 'read', 'all'],
     ['facility', 'read', 'all'],
     ...ENCOUNTER_COVERAGE_READ,
+    ['clinical', 'read', 'all'],
   ],
   manajemen: [
     ['facility', 'read', 'all'],
@@ -308,11 +394,15 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
     ['tenant.settings', 'read', 'all'],
     // Layar Jadwal dokter (registri layar web: manajemen ikut memantau kuota).
     ['schedule', 'read', 'all'],
+    // K05 · Papan bed (BOR, kapasitas).
+    ['bed', 'read', 'all'],
   ],
   auditor_mutu: [
     ['audit', 'read', 'all'],
     ['audit', 'export', 'all'],
     ['facility', 'read', 'all'],
+    // K09 · Laporan tinjauan override CDS.
+    ['order', 'read', 'all'],
   ],
   petugas_privasi: [
     ['audit', 'read', 'all'],

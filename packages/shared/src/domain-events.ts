@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { ENCOUNTER_CLASSES, type EncounterClass, PAYER_KINDS } from './schemas/registration';
 import type { AntreanTaskId } from './integrations/bpjs/antrean';
 import { QUEUE_SERVICE_KINDS } from './schemas/queue';
+import { MEDICATION_ADMINISTRATION_STATUSES } from './clinical/emar';
+import { BED_STATUSES } from './schemas/rawat-inap';
 
 /**
- * Event domain internal (CLAUDE.md §5) fase 2: nama + skema MUATAN. Amplop (`id`, `tenantId`, `occurredAt`, `actor`)
+ * Event domain internal (CLAUDE.md §5) fase 2–3: nama + skema MUATAN. Amplop (`id`, `tenantId`, `occurredAt`, `actor`)
  * milik publisher API (`apps/api/src/infra/events`, potongan 1b) yang menjalankan penangan secara sinkron di transaksi
  * penerbit. Muatan hanya ID dan kode yang dibutuhkan pendengar, tanpa PHI (nama, NIK, diagnosis).
  * Pendengar utama fase 2: mesin task ID Antrean BPJS (potongan 4a, `bpjsTaskForEvent`).
@@ -32,6 +34,24 @@ export function encounterClassToken(c: EncounterClass): EncounterClassToken {
 export function encounterClassFromToken(t: EncounterClassToken): EncounterClass {
   return ENCOUNTER_CLASSES[ENCOUNTER_CLASS_TOKENS.indexOf(t)] as EncounterClass;
 }
+
+/** Muatan event klinis tingkat kunjungan. */
+const clinicalEncounterEvent = z.strictObject({
+  encounterId: z.uuid(),
+  patientId: z.uuid(),
+  encounterClass: z.enum(ENCOUNTER_CLASS_TOKENS),
+  unitId: z.uuid(),
+});
+
+/** Cara pulang (disposisi) di `adt.discharged`. */
+export const DISCHARGE_DISPOSITIONS = [
+  'pulang',
+  'rujuk',
+  'pulang_paksa',
+  'meninggal',
+  'pindah_rawat',
+] as const;
+export type DischargeDisposition = (typeof DISCHARGE_DISPOSITIONS)[number];
 
 export const DOMAIN_EVENT_SCHEMAS = {
   /** F02 · Booking di-check-in (anjungan/loket) → task 1. */
@@ -61,6 +81,91 @@ export const DOMAIN_EVENT_SCHEMAS = {
     encounterId: z.uuid(),
     patientId: z.uuid(),
     appointmentId: z.uuid().nullable(),
+  }),
+  // K01–K15 · Klinis RME (fase 3, rencana §3.0a). Pendengar: staging SATUSEHAT `held` dan `billable_events` (ADR-0032),
+  // SSE papan IGD/bed, worklist. Tetap tanpa PHI: hanya ID dan token enum.
+  /** K01/K02 · Pelayanan klinis kunjungan dimulai (dokter/perawat mulai memeriksa). */
+  'encounter.started': clinicalEncounterEvent,
+  /** K13 · Kunjungan selesai (gerbang tutup `DischargeGate` lolos). */
+  'encounter.finished': clinicalEncounterEvent,
+  /** K07 · CPPT final tersimpan (residen: `cosignRequired` → tugas co-sign DPJP). */
+  'cppt.finalized': z.strictObject({
+    cpptId: z.uuid(),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    cosignRequired: z.boolean(),
+  }),
+  /** K09 · Satu kiriman order aktif (lab/rad/tindakan → worklist penunjang fase 4; resep → farmasi). */
+  'order.activated': z.strictObject({
+    orderGroupId: z.uuid(),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    serviceRequestIds: z.array(z.uuid()),
+    medicationRequestIds: z.array(z.uuid()),
+    /** Order residen: tugas tinjau DPJP (keputusan fase 3 no. 4). */
+    needsReview: z.boolean(),
+  }),
+  /** K09 · Satu order dibatalkan (beralasan). */
+  'order.cancelled': z.strictObject({
+    orderId: z.uuid(),
+    orderType: z.enum(['service', 'medication']),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+  }),
+  /** K12 · Pemberian obat tercatat (diberikan, ditunda, atau ditolak). */
+  'medication.administered': z.strictObject({
+    administrationId: z.uuid(),
+    medicationRequestId: z.uuid(),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+  }),
+  /** K04 · Admisi rawat inap (bed terisi, gelang terbit). */
+  'adt.admitted': z.strictObject({
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    unitId: z.uuid(),
+    bedId: z.uuid(),
+    /** Kunjungan IGD/RJ asal (`part_of`), null bila dari SPRI/elektif. */
+    sourceEncounterId: z.uuid().nullable(),
+  }),
+  /** K04 · Pindah unit/bed (akses lingkup unit ikut pindah, ADR-0031). */
+  'adt.transferred': z.strictObject({
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    fromUnitId: z.uuid(),
+    toUnitId: z.uuid(),
+    fromBedId: z.uuid().nullable(),
+    toBedId: z.uuid(),
+  }),
+  /** K04 · Pasien pulang (bed → kotor). */
+  'adt.discharged': z.strictObject({
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    unitId: z.uuid(),
+    bedId: z.uuid().nullable(),
+    disposition: z.enum(DISCHARGE_DISPOSITIONS),
+  }),
+  /** K05 · Status bed berubah (papan bed SSE, Aplicare). */
+  'bed.status_changed': z.strictObject({
+    bedId: z.uuid(),
+    unitId: z.uuid(),
+    fromStatus: z.enum(BED_STATUSES),
+    toStatus: z.enum(BED_STATUSES),
+    version: z.int().min(1),
+  }),
+  /** K13 · Resume medis ditandatangani DPJP (TTE diminta; terkunci). */
+  'discharge.signed': z.strictObject({
+    dischargeSummaryId: z.uuid(),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+  }),
+  /** K11 · Persetujuan atau penolakan tindakan final (TTE diminta). */
+  'consent.signed': z.strictObject({
+    consentId: z.uuid(),
+    encounterId: z.uuid(),
+    patientId: z.uuid(),
+    outcome: z.enum(['setuju', 'tolak']),
   }),
 } as const;
 
@@ -122,6 +227,18 @@ export function bpjsTaskForEvent(
     case 'encounter.cancelled':
       return task(event.payload.appointmentId, 99);
     case 'sep.issued':
+    case 'encounter.started':
+    case 'encounter.finished':
+    case 'cppt.finalized':
+    case 'order.activated':
+    case 'order.cancelled':
+    case 'medication.administered':
+    case 'adt.admitted':
+    case 'adt.transferred':
+    case 'adt.discharged':
+    case 'bed.status_changed':
+    case 'discharge.signed':
+    case 'consent.signed':
       return null;
   }
 }

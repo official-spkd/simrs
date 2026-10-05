@@ -219,7 +219,7 @@ describe('event domain', () => {
   const ev = (e: Omit<DomainEvent, 'occurredAt'>) =>
     bpjsTaskForEvent({ ...e, occurredAt: new Date(AT) } as DomainEvent)?.taskId ?? null;
 
-  it('daftar nama event sesuai rencana fase 2 (+ booking.cancelled untuk task 99)', () => {
+  it('daftar nama event sesuai rencana fase 2 (+ booking.cancelled untuk task 99) dan fase 3 §3.0a', () => {
     expect([...DOMAIN_EVENT_NAMES].sort()).toEqual(
       [
         'booking.cancelled',
@@ -230,6 +230,19 @@ describe('event domain', () => {
         'queue.ticket_finished',
         'queue.ticket_started',
         'sep.issued',
+        // Fase 3 · klinis RME
+        'encounter.started',
+        'encounter.finished',
+        'cppt.finalized',
+        'order.activated',
+        'order.cancelled',
+        'medication.administered',
+        'adt.admitted',
+        'adt.transferred',
+        'adt.discharged',
+        'bed.status_changed',
+        'discharge.signed',
+        'consent.signed',
       ].sort(),
     );
     expect(isDomainEventName('queue.ticket_called')).toBe(true);
