@@ -41,6 +41,19 @@ export const FRONT_OFFICE_OPERATIONS = {
     label: 'Perbarui jadwal dokter HFIS',
     payload: z.strictObject({ practitionerId: id, serviceId: id, revision: z.number().int().min(1) }),
   },
+  /**
+   * F01 · Tarik jadwal dokter HFIS satu poli (layanan antrean `serviceId`) pada satu tanggal; hasilnya disimpan sebagai
+   * `hfis_schedule_snapshots` arah `pull` untuk perbandingan RS vs HFIS. `run` = penanda tarikan (menit epoch).
+   */
+  'bpjs.hfis.pull': {
+    target: 'bpjs',
+    label: 'Tarik jadwal dokter HFIS',
+    payload: z.strictObject({
+      serviceId: id,
+      date: z.iso.date(),
+      run: z.number().int().min(1),
+    }),
+  },
   /** F06 · Terbitkan SEP (cek SEP yang sudah ada di BPJS sebelum mengirim ulang; SEP tidak idempoten di BPJS). */
   'bpjs.vclaim.sep.insert': {
     target: 'bpjs',
@@ -99,6 +112,7 @@ export const BPJS_ANTREAN_ADD_OPERATION = 'bpjs.antrean.add' satisfies FrontOffi
 export const BPJS_ANTREAN_UPDATEWAKTU_OPERATION = 'bpjs.antrean.updatewaktu' satisfies FrontOfficeOperation;
 export const BPJS_ANTREAN_BATAL_OPERATION = 'bpjs.antrean.batal' satisfies FrontOfficeOperation;
 export const BPJS_HFIS_UPDATE_OPERATION = 'bpjs.hfis.update' satisfies FrontOfficeOperation;
+export const BPJS_HFIS_PULL_OPERATION = 'bpjs.hfis.pull' satisfies FrontOfficeOperation;
 export const BPJS_SEP_INSERT_OPERATION = 'bpjs.vclaim.sep.insert' satisfies FrontOfficeOperation;
 export const BPJS_SEP_UPDATE_OPERATION = 'bpjs.vclaim.sep.update' satisfies FrontOfficeOperation;
 export const BPJS_SEP_DELETE_OPERATION = 'bpjs.vclaim.sep.delete' satisfies FrontOfficeOperation;

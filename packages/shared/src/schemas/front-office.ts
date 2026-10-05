@@ -185,6 +185,8 @@ export const scheduleSlotSchema = z
     affectedPatients: count.nullable(),
     /** Jadwal RS dan HFIS sudah sama untuk slot ini. */
     hfisSynced: z.boolean(),
+    /** Versi sesi (`updatedAt`) untuk ubah kuota berversi (`baseUpdatedAt`); tidak ada di data mode presentasi. */
+    updatedAt: isoDateTime.optional(),
   })
   .refine((s) => (s.kind === 'praktik') === (s.quota !== null), {
     message: 'Hanya slot praktik yang berkuota',
@@ -208,12 +210,23 @@ export const scheduleDoctorSchema = z.strictObject({
 });
 export type ScheduleDoctor = z.infer<typeof scheduleDoctorSchema>;
 
+/**
+ * Cara menyelesaikan perbedaan: `kirim` = kirim templat jadwal lewat web service (`bpjs.hfis.update`);
+ * `aplikasi-hfis` = petugas mencatat di aplikasi HFIS (cuti/libur per tanggal dan kapasitas tidak bisa dikirim
+ * lewat web service, keputusan fase 2 potongan 2).
+ */
+export const HFIS_RESOLUTIONS = ['kirim', 'aplikasi-hfis'] as const;
+export type HfisResolution = (typeof HFIS_RESOLUTIONS)[number];
+
 export const hfisDifferenceSchema = z.strictObject({
   /** ID sel jadwal (`scheduleSlotSchema.id`). */
   slotId: z.uuid(),
   /** Kalimat penjelasan perbedaan (mis. HFIS masih mencatat praktik padahal cuti). */
   text: z.string().min(1),
+  /** Tidak ada di data mode presentasi. */
+  resolution: z.enum(HFIS_RESOLUTIONS).optional(),
 });
+export type HfisDifference = z.infer<typeof hfisDifferenceSchema>;
 
 export const weeklyScheduleSchema = z
   .strictObject({
@@ -222,7 +235,8 @@ export const weeklyScheduleSchema = z
     days: z.array(isoDate).min(1).max(7),
     doctors: z.array(scheduleDoctorSchema),
     hfis: z.strictObject({
-      lastSyncAt: isoDateTime,
+      /** Tarikan HFIS terakhir untuk minggu ini; null = belum pernah ditarik. */
+      lastSyncAt: isoDateTime.nullable(),
       differences: z.array(hfisDifferenceSchema),
     }),
   })

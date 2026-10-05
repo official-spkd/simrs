@@ -85,7 +85,7 @@ export function JadwalClient({
   const [quotas, setQuotas] = useState<Record<string, SlotQuota>>({});
   const [sent, setSent] = useState<Record<string, SlotQuota>>({});
   const [synced, setSynced] = useState(false);
-  const [syncAt, setSyncAt] = useState(formatJam(schedule.hfis.lastSyncAt));
+  const [syncAt, setSyncAt] = useState(schedule.hfis.lastSyncAt ? formatJam(schedule.hfis.lastSyncAt) : '—');
   const [approved, setApproved] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, startTransition] = useTransition();
