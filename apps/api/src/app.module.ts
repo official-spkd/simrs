@@ -18,6 +18,7 @@ import { AuthzModule } from './modules/authz/authz.module';
 import { IamModule } from './modules/iam/iam.module';
 import { MpiModule } from './modules/mpi/mpi.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
+import { DevicesModule } from './modules/devices/devices.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { FacilityModule } from './modules/facility/facility.module';
 import { FormsModule } from './modules/forms/forms.module';
@@ -90,6 +91,8 @@ export class AppModule {
         DomainEventsModule,
         LookupModule,
         RealtimeModule,
+        // Fase 2 · prinsipal perangkat anjungan/TV (ADR-0027).
+        DevicesModule,
         // Fase 2 · modul front office F01–F08 (kerangka dulu; isi per potongan, tanpa mengubah daftar ini lagi).
         SchedulingModule,
         BookingModule,

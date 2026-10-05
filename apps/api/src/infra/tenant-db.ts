@@ -104,6 +104,9 @@ export class TenantDb {
             ip: outer.ip,
             userAgent: outer.userAgent,
             requestId: outer.requestId,
+            device: outer.actor.devicePrincipal
+              ? { id: outer.actor.devicePrincipal.id, kind: outer.actor.devicePrincipal.kind }
+              : null,
           },
           inner.audit,
         );

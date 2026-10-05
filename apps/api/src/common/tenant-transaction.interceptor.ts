@@ -80,7 +80,14 @@ export class TenantTransactionInterceptor implements NestInterceptor {
       ip: req.ip ?? null,
       userAgent: req.headers['user-agent']?.slice(0, MAX_USER_AGENT) ?? null,
       requestId: typeof req.id === 'string' ? req.id : null,
+      device: actor.devicePrincipal
+        ? { id: actor.devicePrincipal.id, kind: actor.devicePrincipal.kind }
+        : null,
     };
+    if (actor.devicePrincipal && requiredPermission) {
+      // Perangkat tidak pernah memakai matriks peran manusia (ADR-0027); endpoint seperti ini salah rakit.
+      throw new AppError('FORBIDDEN', 'Endpoint ini tidak untuk perangkat terdaftar', 403);
+    }
     const auditedEntry = (result: unknown): PendingAudit | null => {
       if (!audited) return null;
       const src: AuditSource = { params: req.params, query: req.query, body: req.body as unknown, result };

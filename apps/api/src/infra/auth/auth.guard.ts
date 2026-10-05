@@ -6,6 +6,9 @@ import { DEV_ROLE, type RequestActor } from '../../common/request-context';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { PrismaService } from '../prisma.service';
 import { ALLOW_INCOMPLETE_SESSION_KEY } from './allow-incomplete-session.decorator';
+import { writeAudit } from '../audit-writer';
+import { deviceAuditMeta } from './device.guard';
+import { DevicePrincipals, deviceToken } from './device-principals';
 import { SessionStore } from './session-store';
 import { bearerToken, parseToken } from './session-tokens';
 
@@ -30,6 +33,7 @@ export class AuthGuard implements CanActivate {
     private readonly prisma: PrismaService,
     private readonly sessions: SessionStore,
     private readonly reflector: Reflector,
+    private readonly devices: DevicePrincipals,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -37,6 +41,7 @@ export class AuthGuard implements CanActivate {
     const header = req.headers[TENANT_HEADER];
     const token = bearerToken(req.headers.authorization);
 
+    if (token?.startsWith('dv1.')) await this.rejectDevice(req);
     if (token) {
       const parsed = parseToken(token, 'sa1');
       if (!parsed) throw unauthenticated();
@@ -78,5 +83,26 @@ export class AuthGuard implements CanActivate {
     }
 
     throw new AppError('UNAUTHENTICATED', 'Autentikasi diperlukan', 401);
+  }
+
+  /**
+   * ADR-0027 · Token prinsipal perangkat (anjungan/TV) di endpoint staf: perangkat yang sah dicatat `access_denied`
+   * (di-commit) lalu 403; token perangkat palsu/dicabut cukup 401 (tidak menulis audit atas nama tenant di token).
+   */
+  private async rejectDevice(req: AuthenticatedRequest): Promise<never> {
+    const parsed = deviceToken(req.headers.authorization);
+    const device = parsed ? await this.devices.authenticate(parsed) : null;
+    if (!device) throw unauthenticated();
+    await this.prisma.forTenant(device.tenantId, (tx) =>
+      writeAudit(tx, device.tenantId, deviceAuditMeta(req, device), [
+        {
+          action: 'access_denied',
+          resourceType: 'staff_endpoint',
+          outcome: 'denied',
+          details: { path: req.path },
+        },
+      ]),
+    );
+    throw new AppError('FORBIDDEN', 'Perangkat terdaftar tidak boleh membuka endpoint staf', 403);
   }
 }
