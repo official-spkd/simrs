@@ -11,5 +11,8 @@ allowBuilds:
   '@embedded-postgres/darwin-arm64': true
   '@embedded-postgres/windows-x64': true
   msgpackr-extract: false
+  # Fon IBM Plex (OFL) untuk PDF klinis: skrip pasang paket (telemetri) tidak dijalankan; berkas fon dipakai apa adanya.
+  '@ibm/plex-mono': false
+  '@ibm/plex-sans': false
 minimumReleaseAgeExclude:
   - nestjs-pino@5.3.1

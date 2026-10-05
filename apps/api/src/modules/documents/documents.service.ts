@@ -196,12 +196,25 @@ export class DocumentsService {
         409,
       );
     }
+    await this.recordSignatureRequest(doc, newVerifyCode(this.db.tenantId()));
+    return this.get(doc.id);
+  }
+
+  /**
+   * Catat permintaan TTE pengguna sesi atas hash dokumen (`pending`) + pesan outbox `tte.sign` (ID saja) + audit, di
+   * transaksi permintaan. Pemanggil sudah memeriksa akses, status dokumen, dan izin tanda tangan. `verifyCode` dibuat
+   * pemanggil: PDF klinis mencetak QR-nya sebelum hash dihitung (ADR-0029).
+   */
+  async recordSignatureRequest(
+    doc: Pick<DocumentRow, 'id' | 'sha256' | 'patientId'>,
+    verifyCode: string,
+  ): Promise<string> {
     const signatureId = newId();
     await this.repo.createSignature({
       id: signatureId,
       documentId: doc.id,
       documentSha256: doc.sha256,
-      verifyCode: newVerifyCode(this.db.tenantId()),
+      verifyCode,
     });
     await enqueueOutbox(this.db.tx(), this.db.tenantId(), {
       target: 'tte',
@@ -216,7 +229,17 @@ export class DocumentsService {
       patientId: doc.patientId,
       details: { status: 'requested', signatureId },
     });
-    return this.get(doc.id);
+    return signatureId;
+  }
+
+  /** URL verifikasi publik untuk kode QR (`/verifikasi/<kode>` di web). */
+  verifyUrl(verifyCode: string): string {
+    return new URL(verifyPath(verifyCode), this.env.WEB_BASE_URL).toString();
+  }
+
+  /** Tampilan satu dokumen (dengan nama pengguna) untuk pemanggil di modul lain. */
+  async view(row: DocumentRow): Promise<DocumentView> {
+    return (await this.presentWithNames([row]))[0] as DocumentView;
   }
 
   private async presentWithNames(rows: DocumentRow[]): Promise<DocumentView[]> {
@@ -249,7 +272,7 @@ export class DocumentsService {
         requestedAt: s.requestedAt.toISOString(),
         signedAt: s.signedAt?.toISOString() ?? null,
         certificate: s.certificate,
-        verifyUrl: new URL(verifyPath(s.verifyCode), this.env.WEB_BASE_URL).toString(),
+        verifyUrl: this.verifyUrl(s.verifyCode),
       })),
     }));
   }
