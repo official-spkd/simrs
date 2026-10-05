@@ -93,8 +93,9 @@ test.describe('prinsipal perangkat anjungan/TV (ADR-0027)', () => {
     await useTestDevice(kiosk, 'kiosk');
     const page = await kiosk.newPage();
     await page.goto('/kiosk');
-    await expect(page.getByRole('heading', { name: 'Anjungan mandiri', level: 1 })).toBeVisible();
-    await expect(page.getByText(TEST_DEVICE_UNIT)).toBeVisible();
+    // Anjungan tersambung ke API (potongan 6): layar awal anjungan + identitas perangkat untuk petugas pemasang.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Apa yang ingin Anda lakukan?');
+    await expect(page.getByTestId('nama-perangkat')).toContainText(TEST_DEVICE_UNIT);
     // Cookie perangkat bukan sesi staf: layar staf tetap meminta login.
     await page.goto('/sistem/akses');
     await expect(page).toHaveURL(/\/masuk/);

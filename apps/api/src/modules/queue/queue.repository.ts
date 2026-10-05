@@ -60,6 +60,34 @@ export class QueueRepository {
     return this.db.tx().queueService.findUnique({ where: { id }, select: serviceSelect });
   }
 
+  /** Layanan aktif pertama sejenis (kode terkecil), mis. loket pendaftaran untuk tiket anjungan. */
+  firstActiveService(kind: string) {
+    return this.db.tx().queueService.findFirst({
+      where: { kind, active: true },
+      orderBy: { code: 'asc' },
+      select: serviceSelect,
+    });
+  }
+
+  /** Tiket pasien yang masih menunggu di layanan ini hari ini (ambil ulang di anjungan → tiket yang sama). */
+  waitingTicketOf(serviceId: string, serviceDate: string, patientId: string) {
+    return this.db.tx().queueTicket.findFirst({
+      where: { serviceId, serviceDate: toDbDate(serviceDate), patientId, status: 'waiting' },
+      orderBy: { seq: 'asc' },
+      select: { id: true },
+    });
+  }
+
+  /** Jumlah tiket menunggu (bukan cadangan booking) sebelum tiket ini di layanan dan hari yang sama. */
+  async waitingAhead(ticketId: string): Promise<number> {
+    const rows = await this.db.tx().$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM queue_tickets t
+      JOIN queue_tickets me ON me.id = ${ticketId}::uuid
+      WHERE t.service_id = me.service_id AND t.service_date = me.service_date
+        AND t.status = 'waiting' AND NOT t.reserved AND t.seq < me.seq`;
+    return rows[0]?.n ?? 0;
+  }
+
   tickets(serviceId: string, serviceDate: string, status?: QueueTicketStatus) {
     return this.db.tx().queueTicket.findMany({
       where: { serviceId, serviceDate: toDbDate(serviceDate), ...(status ? { status } : {}) },
