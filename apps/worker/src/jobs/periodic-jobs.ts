@@ -1,4 +1,5 @@
 import type { PeriodicJob } from './periodic-job-types';
+import { generateSessionsJob, hfisPullJob } from './scheduling-jobs';
 
 export type {
   PeriodicJob,
@@ -16,4 +17,7 @@ export const PERIODIC_JOB_REGISTRY = Symbol('PERIODIC_JOB_REGISTRY');
  * `scheduling.generate-sessions` (harian), `scheduling.hfis-pull`, `booking.no-show`, `booking.reminder`.
  * Memakai Map (bukan objek) agar nama seperti `constructor` tidak cocok dengan properti bawaan.
  */
-export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, PeriodicJob>([]);
+export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, PeriodicJob>([
+  ['scheduling.generate-sessions', generateSessionsJob],
+  ['scheduling.hfis-pull', hfisPullJob],
+]);

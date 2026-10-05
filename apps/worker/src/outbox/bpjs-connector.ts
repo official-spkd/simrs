@@ -65,7 +65,8 @@ export class BpjsConnector {
     const note = (message: string) => (opts.sensitive || !message ? '' : `: ${message}`);
     switch (res.kind) {
       case 'ok': {
-        const body: BpjsDelivery = { outcome: 'accepted', response: res.response };
+        // Operasi tulis Antrean/HFIS tanpa isi: `undefined` hilang saat JSON.stringify, jadi kirim `null`.
+        const body: BpjsDelivery = { outcome: 'accepted', response: res.response ?? null };
         return { ...timing, ok: true, responseExcerpt: 'BPJS OK', responseBody: JSON.stringify(body) };
       }
       case 'rejected': {
