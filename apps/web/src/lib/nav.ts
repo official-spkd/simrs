@@ -48,6 +48,9 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'igd', label: 'IGD', href: '/klinis/igd', icon: 'pulse', available: false },
       { id: 'ranap', label: 'Rawat inap', href: '/klinis/rawat-inap', icon: 'bed', available: false },
       { id: 'bed', label: 'Tempat tidur', href: '/klinis/tempat-tidur', icon: 'layout', available: false },
+      // FE5 · onkologi (B11)
+      { id: 'onkologi', label: 'Onkologi', href: '/klinis/onkologi', icon: 'pulse', available: false },
+      // FE5 · akhir onkologi
     ],
   },
   {
@@ -147,6 +150,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         label: 'Pengalaman pasien',
         href: '/manajemen/pengaduan',
         icon: 'bell',
+        available: false,
+      },
+      {
+        id: 'pendidikan',
+        label: 'Pendidikan klinik',
+        href: '/manajemen/pendidikan',
+        icon: 'book',
         available: false,
       },
     ],

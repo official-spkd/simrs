@@ -13,6 +13,8 @@ const FE5_SCREENS = [
   'ppra',
   'regdok',
   'pengaduan',
+  'pendidikan',
+  'onkologi',
 ] as const;
 
 describe('registri layar FE5', () => {

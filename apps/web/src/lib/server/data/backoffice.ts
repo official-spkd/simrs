@@ -21,7 +21,14 @@ import {
   READ_RECEIPTS,
   REG_DOCS,
 } from '../../demo/fixtures/regulasi';
+import {
+  CHEMO_PLAN,
+  CHEMO_VERIFIERS,
+  ONCOLOGY_PATIENT_ID,
+  PRE_CHEMO_LABS,
+} from '../../demo/fixtures/onkologi';
 import { patientById } from '../../demo/fixtures/pasien';
+import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import {
@@ -150,4 +157,18 @@ export async function getRegDocs() {
 export async function getPatientExperience() {
   demoOnly('pengalaman pasien');
   return { complaints: OPEN_COMPLAINTS, recent: recentComplaints(), responses: surveyResponses() };
+}
+
+/** B10 · peserta didik, supervisor, tingkat supervisi, dan logbook. */
+export async function getEducation() {
+  demoOnly('pendidikan klinik');
+  return { trainees: TRAINEES, logbook: LOGBOOK };
+}
+
+/** B11 · rencana siklus kemoterapi satu pasien, lab pra-kemo, dan daftar verifikator. */
+export async function getOncology() {
+  demoOnly('onkologi');
+  const patient = patientById(ONCOLOGY_PATIENT_ID);
+  if (!patient) throw new Error('pasien onkologi fixture tidak ada');
+  return { patient, plan: CHEMO_PLAN, labs: PRE_CHEMO_LABS, verifiers: CHEMO_VERIFIERS };
 }

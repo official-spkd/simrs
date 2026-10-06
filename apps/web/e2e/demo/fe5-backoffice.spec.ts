@@ -465,4 +465,72 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B10 pendidikan klinik: verifikasi logbook membuka kenaikan tingkat supervisi; pengembalian beralasan', async ({
+    page,
+  }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/');
+    await page.goto('/manajemen/pendidikan');
+    await expect(page.getByRole('heading', { name: 'Pendidikan klinik', level: 1 })).toBeVisible();
+
+    const up = page.getByRole('button', { name: 'Naikkan ke tingkat 3…' });
+    await expect(up).toBeDisabled();
+    await expect(page.getByText('Butuh 5 tindakan terverifikasi (baru 4).')).toBeVisible();
+    await page.getByRole('button', { name: 'Verifikasi logbook Sab, 3 Okt 2026' }).click();
+    await expect(up).toBeEnabled();
+    await up.click();
+    await page
+      .getByLabel(/Pernyataan supervisor/)
+      .fill('Lima pemasangan CVC mandiri dibimbing tanpa komplikasi');
+    await page.getByRole('button', { name: 'Naikkan tingkat' }).click();
+    await expect(page.getByText(/naik ke tingkat 3 .* co-sign retrospektif ≤ 24 jam/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Kembalikan… logbook Min, 4 Okt 2026' }).click();
+    await page
+      .getByLabel('Umpan balik supervisor')
+      .fill('Peran observasi tidak dihitung, lengkapi catatan tindakan');
+    await page.getByRole('button', { name: 'Kembalikan', exact: true }).click();
+    await expect(page.getByText(/dikembalikan dengan umpan balik/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('B11 onkologi: dosis LPT, penyesuaian beralasan, gerbang neutrofil, verifikasi ganda berbeda', async ({
+    page,
+  }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/');
+    await page.goto('/klinis/onkologi');
+    await expect(page.getByRole('heading', { name: 'Onkologi · siklus kemoterapi', level: 1 })).toBeVisible();
+    await expect(page.getByText('Ny. Maria Ulfa')).toBeVisible();
+    const doses = page.getByRole('region', { name: 'Dosis per obat' });
+    await expect(doses.getByRole('row', { name: /Oksaliplatin/ })).toContainText('131 mg');
+
+    await page.getByLabel('Dosis', { exact: true }).selectOption('80');
+    const lock = page.getByRole('button', { name: 'Kunci order siklus 4' });
+    await expect(lock).toBeDisabled();
+    await page.getByLabel('Alasan penyesuaian dosis').fill('Neuropati perifer derajat 2 sejak siklus 3');
+    await expect(doses.getByRole('row', { name: /Oksaliplatin/ })).toContainText('105 mg');
+    await lock.click();
+
+    const gate = page.getByRole('alert').filter({ hasText: 'Neutrofil absolut di bawah ambang' });
+    await expect(gate).toBeVisible();
+    await gate.getByRole('button', { name: 'Tetap berikan dengan alasan klinis' }).click();
+    await gate.getByLabel(/Alasan klinis/).fill('Tren naik dari 1.100, G-CSF diberikan, disetujui DPJP');
+    await gate.getByRole('button', { name: 'Simpan alasan dan lanjut' }).click();
+
+    await page.getByLabel('Verifikator 1').selectOption('dr. Rahmat Hidayat, Sp.PD');
+    await expect(page.getByText('Verifikator harus berbeda dari penulis order.')).toBeVisible();
+    await page.getByLabel('Verifikator 1').selectOption(PERSONA.apoteker);
+    await page.getByRole('button', { name: 'Dosis cocok, verifikasi' }).click();
+    await page.getByLabel('Verifikator 2').selectOption(PERSONA.apoteker);
+    await expect(page.getByText('Verifikator kedua harus berbeda dari verifikator pertama.')).toBeVisible();
+    await page.getByLabel('Verifikator 2').selectOption('Ns. Lia Kartika, S.Kep (perawat onkologi)');
+    await page.getByRole('button', { name: 'Dosis cocok, verifikasi' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Verifikasi ganda selesai' })).toContainText(
+      'Override gerbang lab tercatat',
+    );
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

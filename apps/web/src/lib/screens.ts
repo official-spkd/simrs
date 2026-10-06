@@ -662,6 +662,30 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['auditor_mutu', 'petugas_pendaftaran', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'pendidikan',
+    label: 'Pendidikan klinik',
+    route: '/manajemen/pendidikan',
+    mockup: null,
+    components: ['B10'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'education.write',
+    demoRoles: ['dokter', 'manajemen'],
+    layout: 'staf',
+  },
+  {
+    id: 'onkologi',
+    label: 'Onkologi',
+    route: '/klinis/onkologi',
+    mockup: null,
+    components: ['B11'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'oncology.verify',
+    demoRoles: ['dokter', 'apoteker'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
