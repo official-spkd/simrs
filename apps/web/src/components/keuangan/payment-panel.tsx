@@ -2,9 +2,9 @@
 
 import { formatJam, formatRupiah, type PaymentMethod, PAYMENT_METHODS } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { useId, useState, useTransition } from 'react';
-import { kasirAction, type ManualLineInput } from '@/app/(staf)/keuangan/kasir/actions';
-import { REKENING } from '@/lib/demo/fixtures/rs';
+import { useId, useState } from 'react';
+import { kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { cashChange, digitsToRupiah, instalmentOptions, PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
 import { ChoiceCards } from './choice-cards';
 import { CicilanBox } from './cicilan-box';
@@ -18,31 +18,28 @@ const NEXT = [
   'Simulasikan: BTN mencairkan dana ke RS',
 ];
 
-export interface PaidInfo {
-  method: PaymentMethod;
-  at: string;
-  note: string;
-  message: string;
-}
-
-/** Metode pembayaran pasien (mockup Kasir) untuk tagihan biasa; tombol selesai digerbang per metode. */
+/**
+ * Metode pembayaran pasien (mockup Kasir) untuk tagihan biasa; tombol selesai digerbang per metode. Langkah kanal
+ * (QRIS dibayar, webhook VA, struk EDC, tahap BTN cicilan) mensimulasikan pihak luar di layar ini; "Selesaikan"
+ * menyimpan pelunasan di toko demo (server menghitung ulang sisa tagihan dan menolak nominal yang tidak cocok).
+ */
 export function PaymentPanel({
   invoiceId,
   receiptNo,
   due,
-  manual,
   final,
+  rev,
   onPaid,
 }: {
   invoiceId: string;
   /** Nomor kuitansi untuk tampilan (VA); server menurunkannya sendiri dari tagihan. */
   receiptNo: string;
   due: bigint;
-  /** Item manual di layar: server menghitung ulang sisa tagihan dan menolak nominal yang tidak cocok. */
-  manual: readonly ManualLineInput[];
   /** Tagihan sudah difinalkan (terkunci). */
   final: boolean;
-  onPaid: (p: PaidInfo) => void;
+  /** Revisi domain `tagihan` yang dilihat layar. */
+  rev: number;
+  onPaid: (message: string) => void;
 }) {
   const id = useId();
   const [method, setMethod] = useState<PaymentMethod>('qris');
@@ -55,7 +52,7 @@ export function PaymentPanel({
   const [tenor, setTenor] = useState<string | null>(null);
   const [cicil, setCicil] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
   const now = () => formatJam(new Date());
   const received = digitsToRupiah(cash);
   const fmt = (v: bigint) => formatRupiah(v);
@@ -86,27 +83,20 @@ export function PaymentPanel({
   const [ready, why] = final
     ? gate[method]
     : [false, 'Finalkan tagihan dulu; tagihan berjalan belum bisa dibayar.'];
-  const note: Record<PaymentMethod, string> = {
-    qris: `QRIS via TPDI ${fmt(due)} · masuk BTN ${REKENING.operasional}`,
-    va: `VA BTN ${fmt(due)} · lunas via webhook TPDI`,
-    debit: `Debit/kredit EDC BTN ${fmt(due)} · approval tercatat`,
-    tunai: `Tunai ${fmt(received)} · kembalian ${fmt(cashChange(due, received).change)}`,
-    transfer: `Transfer bank ${fmt(due)} · ref ${ref.trim()}`,
-    cicilan: `Cicilan BTN ${tenor ?? '-'} bulan · dana ${fmt(due)} cair dari BTN ke ${REKENING.operasional}`,
-  };
-
   const finish = () =>
-    startTransition(async () => {
-      const r = await kasirAction({
-        type: 'bayar',
-        invoiceId,
-        method,
-        amount: due.toString(),
-        manual: [...manual],
-      });
-      if (!r.ok) return setError(r.message);
-      onPaid({ method, at: r.at ?? now(), note: note[method], message: r.message });
-    });
+    run(
+      (r) =>
+        kasirAction({
+          type: 'bayar',
+          invoiceId,
+          rev: r,
+          method,
+          amount: due.toString(),
+          tenor: method === 'cicilan' && tenor ? Number(tenor) : null,
+          transferRef: method === 'transfer' ? ref.trim() : null,
+        }),
+      (res) => (res.ok ? onPaid(res.message) : setError(res.message)),
+    );
 
   const locked = cicil.length > 0;
   return (

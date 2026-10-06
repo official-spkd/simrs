@@ -4,6 +4,8 @@ import { registrationDomain } from '../../front-office-pendaftaran';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
 import { goLiveDomain } from '../../golive-toko';
+import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { tagihanDomain } from '../../keuangan-tagihan-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { referralDomain } from '../../rujukan-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
@@ -21,6 +23,7 @@ import type { DomainDef, DomainSource } from './define';
  * `lib/<domain>.ts` miliknya. Jangan mengubah baris domain lain. Kunci harus sama dengan `name` definisi (diuji).
  */
 export const DEMO_DOMAINS = {
+  akuntansi: akuntansiDomain,
   antrean: queueDomain,
   cadangan: backupDomain,
   dokumen: documentDomain,
@@ -33,6 +36,7 @@ export const DEMO_DOMAINS = {
   penjadwal: jobsDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
+  tagihan: tagihanDomain,
   terminologi: terminologyDomain,
 } as const;
 

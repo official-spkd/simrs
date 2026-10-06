@@ -21,6 +21,8 @@ import {
   TARIF_PENJAMIN,
   TARIF_USULAN,
 } from '../../demo/fixtures/tarif';
+import { applyCaptures } from '../../keuangan-tagihan-toko';
+import { readDomain } from '../demo/state';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -53,6 +55,28 @@ export function getChargeCaptureBoard() {
   demoOnly('charge capture (U02)');
   return { events: CAPTURE_EVENTS, eventTotal: CAPTURE_EVENT_TOTAL };
 }
+
+/**
+ * Monitor charge capture di atas toko demo (domain `tagihan`): event fixture + event baru (pendaftaran, item manual
+ * kasir) dengan tindak lanjut tersimpan. Satu jalur untuk halaman dan Server Action.
+ */
+export async function getChargeCaptureStore() {
+  demoOnly('charge capture (U02)');
+  const tg = await readDomain('tagihan');
+  const events = applyCaptures(CAPTURE_EVENTS, tg.state);
+  return {
+    events,
+    eventTotal: CAPTURE_EVENT_TOTAL + tg.state.newCaptures.length,
+    rev: tg.rev,
+    /** Event baru → tagihan Kasir (untuk tautan dan gerbang pembatalan). */
+    invoiceOf: Object.fromEntries(tg.state.newCaptures.map((c) => [c.id, c.invoiceId])),
+    /** Tagihan yang sudah final/lunas di toko (baris manualnya tidak bisa dibatalkan lagi). */
+    lockedInvoices: Object.entries(tg.state.invoices)
+      .filter(([, o]) => o.finalizedAt || o.closedAt)
+      .map(([id]) => id),
+  };
+}
+export type ChargeCaptureStore = Awaited<ReturnType<typeof getChargeCaptureStore>>;
 
 export function getReceivablesBoard() {
   demoOnly('piutang (U04)');

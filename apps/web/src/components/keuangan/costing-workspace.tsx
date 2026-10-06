@@ -121,8 +121,12 @@ export function CostingWorkspace({ board }: { board: CostingBoard }) {
                       </span>
                     </td>
                     <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{r.cases}</td>
-                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{formatRupiahRingkas(r.revenue)}</td>
-                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{formatRupiahRingkas(r.cost)}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">
+                      {formatRupiahRingkas(r.revenue)}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">
+                      {formatRupiahRingkas(r.cost)}
+                    </td>
                     <td
                       className={cx(
                         'py-1.5 pr-4 text-right font-mono font-semibold',
