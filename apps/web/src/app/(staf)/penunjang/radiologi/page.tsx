@@ -1,3 +1,4 @@
+import { IncomingOrders } from '@/components/penunjang/incoming-orders';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { RadWorkspace } from '@/components/penunjang/rad-workspace';
@@ -40,7 +41,12 @@ export default async function RadiologiPage({ searchParams }: { searchParams: Se
         </ul>
       </header>
       <ScenarioBanner session={session} screen="rad" />
-      <RadWorkspace data={data} initialSelected={typeof sp.pilih === 'string' ? sp.pilih : null} />
+      <IncomingOrders orders={data.incoming} destination="radiologi" />
+      <RadWorkspace
+        role={session.role?.code ?? null}
+        data={data}
+        initialSelected={typeof sp.pilih === 'string' ? sp.pilih : null}
+      />
     </div>
   );
 }

@@ -1,15 +1,15 @@
 'use server';
 
 import { z } from 'zod';
-import { STAF } from '@/lib/demo/fixtures/staf';
-import { criticalReportGate, labSampleGate } from '@/lib/penunjang';
+import { criticalReportGate } from '@/lib/penunjang';
 import {
   DENIED,
   invalid,
   type PenunjangActionResult,
   penunjangSession,
-  simulated,
+  saveSupport,
 } from '@/lib/penunjang-aksi';
+import { supportEventSchema } from '@/lib/penunjang-demo';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import {
   type CriticalStoreActionResult,
@@ -25,43 +25,43 @@ import { commitEvent } from '@/lib/server/demo/state';
 
 /**
  * S01/S09 · Server Action layar Laboratorium (mode presentasi, ADR-0023). Klien hanya mengirim id; sampel dicari
- * server di worklist sesi. Validasi dan sampel ulang belum tersimpan ("(simulasi, tidak disimpan)"); pelaporan nilai
+ * server di worklist sesi. Validasi dan sampel ulang tersimpan di domain penunjang; pelaporan nilai
  * kritis tersimpan di toko demo bersama (domain `hasil-kritis`, ADR-0085) dan tampil di Pusat hasil kritis. Pasien
  * skenario dimajukan lewat mesin skenario.
  */
 
 const sampleId = z.uuid();
 
-export async function validateLabAction(input: {
-  sampleId: string;
-  level: 'teknis' | 'klinis';
-}): Promise<PenunjangActionResult> {
-  const s = await penunjangSession('lab');
-  if (!s) return DENIED;
-  const p = z.strictObject({ sampleId, level: z.enum(['teknis', 'klinis']) }).safeParse(input);
-  if (!p.success) return invalid('Permintaan validasi tidak dikenal.');
-  const gate = labSampleGate(await findLabSample(s, p.data.sampleId));
-  if (gate) return invalid(gate.message, gate.field);
-  return simulated(
-    p.data.level === 'teknis'
-      ? 'Validasi teknis tersimpan'
-      : `Validasi klinis ditandatangani (TTE ${STAF.dokterPatologiKlinik}), hasil dirilis`,
-  );
+export async function receiveLabAction(
+  input: { sampleId: string; specimen: string; identityConfirmed: boolean },
+  rev: number,
+): Promise<PenunjangActionResult> {
+  const session = await penunjangSession('lab');
+  if (!session) return DENIED;
+  const parsed = supportEventSchema.safeParse({ type: 'lab.terima', ...input });
+  if (!parsed.success) return invalid('Lengkapi jenis spesimen dan pencocokan identitas.');
+  return saveSupport(session, parsed.data, rev);
 }
 
-export async function resampleLabAction(input: {
-  sampleId: string;
-  cancel: boolean;
-}): Promise<PenunjangActionResult> {
+export async function validateLabAction(
+  input: { sampleId: string; level: 'teknis' | 'klinis' },
+  rev: number,
+): Promise<PenunjangActionResult> {
   const s = await penunjangSession('lab');
   if (!s) return DENIED;
-  const p = z.strictObject({ sampleId, cancel: z.boolean() }).safeParse(input);
+  const p = supportEventSchema.safeParse({ type: 'lab.validasi', ...input });
+  if (!p.success) return invalid('Permintaan validasi tidak dikenal.');
+  return saveSupport(s, p.data, rev);
+}
+export async function resampleLabAction(
+  input: { sampleId: string; cancel: boolean },
+  rev: number,
+): Promise<PenunjangActionResult> {
+  const s = await penunjangSession('lab');
+  if (!s) return DENIED;
+  const p = supportEventSchema.safeParse({ type: 'lab.sampel-ulang', ...input });
   if (!p.success) return invalid('Permintaan sampel ulang tidak dikenal.');
-  const gate = labSampleGate(await findLabSample(s, p.data.sampleId));
-  if (gate) return invalid(gate.message, gate.field);
-  return simulated(
-    p.data.cancel ? 'Permintaan sampel ulang dibatalkan' : 'Permintaan sampel ulang dikirim ke ruangan',
-  );
+  return saveSupport(s, p.data, rev);
 }
 
 /**

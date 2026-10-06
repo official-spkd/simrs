@@ -3,12 +3,15 @@
 import { formatJam, formatTanggalLahir, type OrSchedule } from '@simrs/shared';
 import { Alert, Chip, cx, PatientBanner } from '@simrs/ui';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { startTransition, useOptimistic, useState } from 'react';
 import { OkChecklist } from '@/components/btn/ok-checklist';
 import { OkCount } from '@/components/btn/ok-count';
 import { OkGantt } from '@/components/btn/ok-gantt';
 import { OkIncision } from '@/components/btn/ok-incision';
 import { useDemoClock, useScenarioTask } from '@/components/btn/use-scenario-task';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { SupportState } from '@/lib/penunjang-demo';
+import { consentFor } from '@/lib/penunjang-klinis';
 import { OkAnesthesia } from '@/components/penunjang/ok-anestesi';
 import {
   CASE_STATUS_LABEL,
@@ -20,7 +23,7 @@ import {
   withLocal,
 } from '@/lib/btn-ok';
 import type { ScenarioHook } from '@/lib/btn-skenario';
-import { type OkEventInput, recordOkEventAction } from './actions';
+import { type OkEventInput, recordOkEventAction, recordOkChecklistAction } from './actions';
 
 /** Akibat konfirmasi tiap fase daftar tilik (mockup OK). */
 const PHASE_NEXT: Record<keyof typeof PHASE_LABEL, string> = {
@@ -35,31 +38,60 @@ export function OkClient({
   hook,
   initialCaseId,
   userName,
+  rev,
+  stored,
+  anesthesia,
+  consents,
 }: {
   schedule: OrSchedule;
   hook: ScenarioHook | null;
   initialCaseId: string;
   userName: string;
+  rev: number;
+  stored: SupportState['ok'];
+  anesthesia: SupportState['anesthesia'];
+  consents: SupportState['consents'];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const clock = useDemoClock(schedule.now);
   const scenario = useScenarioTask(hook);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const [selectedId, setSelectedId] = useState(initialCaseId);
   const [locals, setLocals] = useState<Record<string, OkLocal>>({});
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const busy = pending || scenario.pending;
 
-  const rooms = schedule.rooms.map((r) => ({
+  const [savedRooms, toggleOptimistic] = useOptimistic(
+    schedule.rooms,
+    (rooms, change: { caseId: string; itemId: string; checked: boolean }) =>
+      rooms.map((room) => ({
+        ...room,
+        cases: room.cases.map((c) =>
+          c.id !== change.caseId
+            ? c
+            : {
+                ...c,
+                checklist: c.checklist.map((phase) => ({
+                  ...phase,
+                  items: phase.items.map((item) =>
+                    item.id !== change.itemId ? item : { ...item, checked: change.checked },
+                  ),
+                })),
+              },
+        ),
+      })),
+  );
+  const rooms = savedRooms.map((r) => ({
     ...r,
-    cases: r.cases.map((c) => withLocal(c, locals[c.id] ?? EMPTY_LOCAL, userName)),
+    cases: r.cases.map((c) => (c.scenario && hook ? withLocal(c, locals[c.id] ?? EMPTY_LOCAL, userName) : c)),
   }));
   const all = rooms.flatMap((room) => room.cases.map((c) => ({ room, c })));
   const sel = all.find((x) => x.c.id === selectedId) ?? all[0];
   if (!sel) return null;
   const { room, c } = sel;
-  const local = locals[c.id] ?? EMPTY_LOCAL;
+  const consent = consentFor({ consents }, c.patient.id, c.procedure);
+  const local = (c.scenario && hook ? locals[c.id] : stored[c.id]) ?? EMPTY_LOCAL;
   const phaseIndex = currentPhase(c.checklist);
   const phase = c.checklist[phaseIndex];
   const nowMin = Math.round(
@@ -76,24 +108,35 @@ export function OkClient({
     task?: string,
     /** Akibat langkah ini (mockup), mis. "insisi dapat dicatat". */
     after?: string,
-  ) =>
-    startTransition(async () => {
-      const r = await recordOkEventAction(input);
-      if (r.error) {
-        setMsg({ text: r.error, ok: false });
-        return;
-      }
+  ) => {
+    if (c.scenario && hook) {
       const at = clock();
       apply(at);
-      const done = `${label} · ${formatJam(at)}${after ? ` · ${after}` : ''}`;
-      setMsg({ text: `${done} (simulasi, tidak disimpan)`, ok: true });
-      // Skenario baru dinyatakan maju setelah server menerima perintahnya (bukan saat perintah dikirim).
-      if (task && c.scenario) {
-        scenario.fire('operasi', task, true, (ok) => {
-          if (ok) setMsg({ text: `${done} · simulasi skenario maju (simulasi, tidak disimpan)`, ok: true });
-        });
-      }
-    });
+      setMsg({
+        text: `${label} · ${formatJam(at)}${after ? ` · ${after}` : ''} (simulasi skenario)`,
+        ok: true,
+      });
+      if (task) scenario.fire('operasi', task, true);
+      return;
+    }
+    save(
+      (rev) => recordOkEventAction(input, rev),
+      (result) =>
+        setMsg({
+          text: result.ok ? `${label} tersimpan${after ? ` · ${after}` : ''}` : result.message,
+          ok: result.ok,
+        }),
+    );
+  };
+  const checklist = (input: Parameters<typeof recordOkChecklistAction>[0], apply: () => void) => {
+    if (c.scenario && hook) return apply();
+    save(
+      (rev) => recordOkChecklistAction(input, rev),
+      (result) => {
+        if (!result.ok) setMsg({ text: result.message, ok: false });
+      },
+    );
+  };
 
   const select = (id: string) => {
     setSelectedId(id);
@@ -183,22 +226,35 @@ export function OkClient({
               <span role="status">{msg.text}</span>
             </Alert>
           )}
+          {consent && (
+            <Alert level={consent.status === 'final' ? 'success' : 'critical'}>
+              Persetujuan {consent.procedure}:{' '}
+              {consent.status === 'final'
+                ? `final ber-TTE oleh ${consent.by}`
+                : `ditolak — ${consent.reason}`}
+              .{consent.status === 'ditolak' && ' Sign in, induksi, dan insisi ditahan.'}
+            </Alert>
+          )}
           {scenario.error && <Alert level="critical">{scenario.error.message}</Alert>}
           <OkChecklist
             c={c}
             busy={busy}
-            onToggle={(itemId) =>
-              patch((l) => {
-                const current =
-                  c.checklist.flatMap((p) => p.items).find((i) => i.id === itemId)?.checked ?? false;
-                return { ...l, checked: { ...l.checked, [itemId]: !current } };
-              })
-            }
+            onToggle={(itemId) => {
+              const checked = !(
+                c.checklist.flatMap((p) => p.items).find((i) => i.id === itemId)?.checked ?? false
+              );
+              startTransition(() => {
+                if (!(c.scenario && hook)) toggleOptimistic({ caseId: c.id, itemId, checked });
+                checklist({ type: 'ok.centang', caseId: c.id, itemId, checked }, () =>
+                  patch((l) => ({ ...l, checked: { ...l.checked, [itemId]: checked } })),
+                );
+              });
+            }}
             onConfirm={confirm}
           />
         </section>
         <div className="flex min-w-0 flex-col gap-4">
-          <OkAnesthesia c={c} />
+          <OkAnesthesia key={c.id} c={c} record={anesthesia[c.id]} rev={rev} />
           <OkIncision
             c={c}
             local={local}
@@ -236,7 +292,11 @@ export function OkClient({
           <OkCount
             c={c}
             busy={busy}
-            onChange={(countId, value) => patch((l) => ({ ...l, finals: { ...l.finals, [countId]: value } }))}
+            onChange={(countId, value) =>
+              checklist({ type: 'ok.hitung', caseId: c.id, countId, value }, () =>
+                patch((l) => ({ ...l, finals: { ...l.finals, [countId]: value } })),
+              )
+            }
           />
           <section
             aria-label="Terhubung otomatis"

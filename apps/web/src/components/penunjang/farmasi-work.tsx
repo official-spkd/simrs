@@ -92,6 +92,7 @@ export function FarmasiWork({
               <input
                 type="checkbox"
                 checked={!!checks[i]}
+                disabled={busy}
                 onChange={(e) => onToggle(prep ? 'prep' : 'handover', i, e.target.checked)}
                 className="size-[18px] flex-none accent-brand-600"
               />

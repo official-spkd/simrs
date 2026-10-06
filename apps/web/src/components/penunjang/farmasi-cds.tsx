@@ -31,11 +31,13 @@ function Note({ tone, mark, children }: { tone: 'success' | 'warning'; mark: str
  * ditindaklanjuti di CPOE dan obat high alert tampil sebagai catatan.
  */
 export function FarmasiCds({
+  role,
   rx,
   local,
   busy,
   onAction,
 }: {
+  role: string | null;
   rx: PharmacyPrescription;
   local: RxLocal | undefined;
   busy: boolean;
@@ -72,9 +74,12 @@ export function FarmasiCds({
                 <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-caption font-semibold text-warning">
                   Menunggu dokter · {formatJam(l.at)}
                 </span>
-                <Button disabled={busy} onClick={() => onAction(a, 'setuju')}>
-                  Simulasi: dokter setuju
+                <Button disabled={busy || role !== 'dokter'} onClick={() => onAction(a, 'setuju')}>
+                  Setujui sebagai dokter
                 </Button>
+                {role !== 'dokter' && (
+                  <span className="text-caption text-warning">Persetujuan wajib dari posisi Dokter.</span>
+                )}
               </span>
             </div>
           );
@@ -91,7 +96,7 @@ export function FarmasiCds({
             onFollow={() => onAction(a, a.kind === 'interaksi' ? 'usul' : 'konfirmasi')}
             onOverride={(reason) => onAction(a, 'override', reason)}
             resolved={resolved}
-            disabled={busy}
+            disabled={busy || role !== 'apoteker'}
           >
             {a.detail}
             {a.status === 'override' && a.resolution ? ` Catatan CPOE: ${a.resolution}` : ''}
