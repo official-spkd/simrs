@@ -430,6 +430,20 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: 'semua',
     layout: 'perangkat',
   },
+  // FE2 · Fase 3 rekam medis elektronik (K01, K06–K08, K10–K15): layar demo mode presentasi, tanpa API.
+  {
+    id: 'worklist',
+    label: 'Worklist klinis',
+    route: '/klinis/worklist',
+    mockup: null,
+    components: ['K01'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'clinical.read',
+    demoRoles: CLINICIANS,
+    layout: 'staf',
+  },
+  // FE2 · akhir
 ];
 
 const BY_ID = new Map(SCREENS.map((s) => [s.id, s]));
