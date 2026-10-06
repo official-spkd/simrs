@@ -18,7 +18,7 @@ import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { nextLoginStep } from '@/lib/session-view';
 import { DemoPersonas, DemoPersonasMissing } from './demo-personas';
-import { LoginShell, StepCard } from './login-shell';
+import { LoginShell, NextStepPreview, StepCard } from './login-shell';
 import { PinLogin } from './pin-login';
 import { AkunStep, DaftarMfaStep, GantiSandiStep, RestartButton, UnitStep, VerifikasiStep } from './steps';
 
@@ -119,6 +119,7 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
         ) : (
           <VerifikasiStep lanjut={lanjut} akun={akun} backupChannels={backupChannels} />
         )}
+        <NextStepPreview />
       </LoginShell>
     );
   }
@@ -126,6 +127,7 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
     return (
       <LoginShell step={2}>
         <DaftarMfaStep lanjut={lanjut} akun={akun} />
+        <NextStepPreview />
       </LoginShell>
     );
   }
@@ -133,6 +135,7 @@ export default async function MasukPage({ searchParams }: { searchParams: Search
     return (
       <LoginShell step={2}>
         <GantiSandiStep lanjut={lanjut} minLength={PASSWORD_MIN_HINT} />
+        <NextStepPreview />
       </LoginShell>
     );
   }

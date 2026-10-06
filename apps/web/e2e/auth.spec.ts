@@ -65,10 +65,14 @@ test.describe('masuk (P02/P03 lewat web)', () => {
   test('dua penugasan: pilih unit, lalu kembali ke tujuan awal', async ({ page }) => {
     const account = await createAccount({ roles: ['perawat', 'kasir'] });
     await page.goto('/?dari=uji');
+    // Langkah 1–2 memperlihatkan pratinjau langkah unit kerja (mockup Login); di layar sempit disembunyikan.
+    const preview = page.getByRole('heading', { name: 'Langkah berikutnya: pilih unit kerja' });
+    if ((page.viewportSize()?.width ?? 1280) >= 640) await expect(preview).toBeVisible();
     await submitPassword(page, account, account.password);
     await typeCode(page, totpFor(account.totpSecret as string));
     await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
     await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+    await expect(preview).toHaveCount(0);
     await expect(page.locator('[aria-current="step"]')).toHaveText('3 Unit kerja');
     await page.getByText('Kasir', { exact: true }).click();
     await page.getByRole('button', { name: 'Masuk sebagai Kasir' }).click();

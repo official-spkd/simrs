@@ -69,7 +69,8 @@ pnpm dev                        # api + worker + web + mock → http://localhost
 | Rencana fase + kriteria selesai              | `docs/09-rencana-fase.md`         |
 | Status terkini, keputusan, utang teknis      | `docs/PROGRESS.md`                |
 | Keputusan arsitektur                         | `docs/adr/`                       |
-| Aturan kerja untuk Claude Code               | `CLAUDE.md`, `.claude/`           |
+| Aturan kerja Codex dan Claude Code           | `AGENTS.md`, `CLAUDE.md`, `.claude/` |
+| Kerja simultan dan serah-terima saat kuota habis | [Panduan Codex + Claude](docs/12-codex-claude.md), `docs/handoff/` |
 
 ## Stack
 

@@ -168,7 +168,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Sistem / Jejak audit</span>
-          <h1 className="m-0 text-h1 font-semibold">Jejak audit</h1>
+          <h1 className="m-0 text-h1 font-semibold">Jejak audit rekam medis</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-caption text-ink-500">Log bersifat append-only dan tidak dapat diubah</span>
@@ -198,6 +198,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       )}
 
       <Filters p={p} current={current} roles={roleOptions} />
+
+      {p.pasien && <PatientAccessSummary rows={page.items} more={Boolean(page.nextCursor)} />}
 
       {anomalies.findings.length > 0 ? (
         <Findings
@@ -455,6 +457,33 @@ function Findings({
   );
 }
 
+/**
+ * Ringkasan pengakses saat log disaring per pasien (mockup Audit "N pengguna mengakses RM pasien ini"). Dihitung dari
+ * entri yang sudah dimuat; bila masih ada halaman berikutnya, angkanya ditandai sebagai batas bawah.
+ */
+function PatientAccessSummary({ rows, more }: { rows: AuditEventRow[]; more: boolean }) {
+  const users = new Set(rows.filter((e) => e.actorUserId).map((e) => e.actorUserId));
+  const flagged = rows.filter((e) => e.outcome === 'denied' || e.action === 'break_glass').length;
+  return (
+    <section
+      aria-label="Ringkasan pengakses pasien"
+      className="flex flex-col gap-1 rounded-card border border-line bg-white px-4 py-3.5"
+    >
+      <span className="text-caption font-bold text-brand-700">PENGAKSES REKAM MEDIS PASIEN INI</span>
+      <span className="font-semibold">
+        {more ? 'Sedikitnya ' : ''}
+        {users.size} pengguna mengakses RM pasien ini dalam rentang terpilih
+      </span>
+      <span className="text-small text-ink-700">
+        {flagged > 0
+          ? `${flagged} entri ditolak atau akses darurat (berlatar merah di log); tinjau temuan terkait di atas.`
+          : 'Tidak ada entri ditolak atau akses darurat pada entri yang dimuat.'}
+        {more ? ' Muat halaman berikutnya untuk menghitung seluruh entri.' : ''}
+      </span>
+    </section>
+  );
+}
+
 function EventTable({
   rows,
   current,
@@ -501,7 +530,10 @@ function EventTable({
                 key={e.seq}
                 className={cx(
                   'border-t border-line-soft',
-                  on && 'bg-selected shadow-[inset_3px_0_0_#0F766E]',
+                  on
+                    ? 'bg-selected shadow-[inset_3px_0_0_#0F766E]'
+                    : // Mockup Audit: entri yang patut ditinjau (ditolak, akses darurat) berlatar merah sangat tipis.
+                      (e.outcome === 'denied' || e.action === 'break_glass') && 'bg-[#FFFBFA]',
                 )}
               >
                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-[12.5px]">

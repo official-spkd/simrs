@@ -2,25 +2,26 @@
 
 /// P02 · Akun per orang (tanpa akun bersama). Tidak dihapus; dinonaktifkan (status = disabled).
 model User {
-  id                 String    @id @db.Uuid
-  tenantId           String    @map("tenant_id") @db.Uuid
+  medicationDoseChecks MedicationDoubleCheck[]
+  id                   String                  @id @db.Uuid
+  tenantId             String                  @map("tenant_id") @db.Uuid
   /// NIP atau email RS, selalu huruf kecil (CHECK di database).
-  username           String
-  displayName        String    @map("display_name")
-  email              String?
+  username             String
+  displayName          String                  @map("display_name")
+  email                String?
   /// No. HP staf terenkripsi (`staff_phone`, bentuk baku 62…): WhatsApp notifikasi + kode cadangan login.
-  phoneEnc           String?   @map("phone_enc")
+  phoneEnc             String?                 @map("phone_enc")
   /// active | disabled
-  status             String    @default("active")
-  mustChangePassword Boolean   @default(true) @map("must_change_password")
-  failedLoginCount   Int       @default(0) @map("failed_login_count")
-  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
-  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz(3)
-  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(3)
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy          String?   @map("created_by") @db.Uuid
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy          String?   @map("updated_by") @db.Uuid
+  status               String                  @default("active")
+  mustChangePassword   Boolean                 @default(true) @map("must_change_password")
+  failedLoginCount     Int                     @default(0) @map("failed_login_count")
+  lockedUntil          DateTime?               @map("locked_until") @db.Timestamptz(3)
+  lastLoginAt          DateTime?               @map("last_login_at") @db.Timestamptz(3)
+  passwordChangedAt    DateTime?               @map("password_changed_at") @db.Timestamptz(3)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy            String?                 @map("created_by") @db.Uuid
+  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy            String?                 @map("updated_by") @db.Uuid
 
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   credential          UserCredential?

@@ -33,7 +33,12 @@ function SubmitButtons({
   const disabled = !ready || pending;
   return (
     <div className="flex flex-wrap gap-2.5">
-      <Button type="submit" formAction={onDistinct} disabled={disabled} aria-describedby="alasanHint">
+      <Button
+        type="submit"
+        formAction={onDistinct}
+        disabled={disabled}
+        aria-describedby={ready ? undefined : 'alasanHint'}
+      >
         Bukan orang yang sama
       </Button>
       <Button
@@ -41,7 +46,7 @@ function SubmitButtons({
         variant="primary"
         formAction={onMerge}
         disabled={disabled}
-        aria-describedby="alasanHint"
+        aria-describedby={ready ? undefined : 'alasanHint'}
       >
         Gabungkan ke {mrnA}
       </Button>
@@ -205,24 +210,29 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                 maxLength={500}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                aria-describedby="alasanHint"
+                aria-describedby={ready ? undefined : 'alasanHint'}
                 className="resize-y rounded-control border border-line-strong px-3 py-2.5 font-[inherit]"
               />
-              <span
-                id="alasanHint"
-                className={cx('text-caption', ready ? 'text-ink-500' : 'font-semibold text-warning')}
-              >
-                {ready
-                  ? 'Penggabungan berjejak dan dapat dibatalkan dalam 30 hari. Tidak ada data yang dihapus.'
-                  : 'Isi alasan dan dasar verifikasi (mis. KTP, wawancara) minimal 10 karakter untuk mengaktifkan tombol keputusan.'}
-              </span>
+              {/* Mockup MPI: petunjuk hanya selama alasan belum cukup; tombol tetap terlihat nonaktif. */}
+              {!ready && (
+                <span id="alasanHint" className="text-caption font-semibold text-warning">
+                  Isi alasan dan dasar verifikasi (mis. KTP, wawancara) minimal 10 karakter untuk mengaktifkan
+                  tombol keputusan.
+                </span>
+              )}
             </div>
             {error && (
               <p role="alert" className="m-0 text-small text-danger">
                 {error}
               </p>
             )}
-            <SubmitButtons ready={ready} mrnA={c.a.mrn} onMerge={merge} onDistinct={distinct} />
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <span className="max-w-[420px] flex-[1_1_260px] text-caption text-ink-500">
+                Penggabungan berjejak dan dapat dibatalkan dalam 30 hari. Nomor RM B dialihkan ke A (pencarian
+                diarahkan ke A); tidak ada data yang dihapus.
+              </span>
+              <SubmitButtons ready={ready} mrnA={c.a.mrn} onMerge={merge} onDistinct={distinct} />
+            </div>
           </form>
         )}
 

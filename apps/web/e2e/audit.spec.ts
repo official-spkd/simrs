@@ -1,7 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { jakartaParts } from '@simrs/shared';
-import { createAccount, createBreakGlassGrant, insertAuditEvents, loginAs } from './support/accounts';
+import {
+  createAccount,
+  createBreakGlassGrant,
+  createFormCorrection,
+  insertAuditEvents,
+  loginAs,
+} from './support/accounts';
 
 function todayWib(): string {
   const p = jakartaParts(new Date());
@@ -28,6 +34,24 @@ test.describe('layar Audit (/sistem/audit)', () => {
     await page.getByRole('link', { name: 'Periksa penuh (hitung ulang seluruh rantai)' }).click();
     await expect(page).toHaveURL(/verifikasi=penuh/);
     await expect(page.getByText(/pemeriksaan penuh/)).toBeVisible();
+  });
+
+  test('saring per pasien: ringkasan pengakses RM pasien (mockup Audit)', async ({ page }) => {
+    const author = await createAccount({ roles: ['perawat'], displayName: 'Rina Wulandari, S.Kep' });
+    const corrector = await createAccount({ roles: ['perawat'], displayName: 'Dewi Kartika, S.Kep' });
+    const { patientId } = await createFormCorrection(author, corrector, 'Salah pilih alat bantu saat entri');
+    const privasi = await createAccount({ roles: ['petugas_privasi'] });
+    await loginAs(page, privasi, '/sistem/audit');
+    await expect(page.getByRole('heading', { name: 'Jejak audit rekam medis', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Ringkasan pengakses pasien' })).toHaveCount(0);
+    await page.getByLabel('ID pasien').fill(patientId);
+    await page.getByRole('button', { name: 'Terapkan' }).click();
+    const summary = page.getByRole('region', { name: 'Ringkasan pengakses pasien' });
+    await expect(
+      summary.getByText('1 pengguna mengakses RM pasien ini dalam rentang terpilih'),
+    ).toBeVisible();
+    const log = page.getByRole('region', { name: 'Log aktivitas' });
+    await expect(log.getByText('Dewi Kartika, S.Kep')).toBeVisible();
   });
 
   test('akses darurat: buka dari tautan notifikasi, baca alasan, beri keputusan; tampil di laporan harian', async ({
