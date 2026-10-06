@@ -84,7 +84,9 @@ export function DecisionAlerts({
           {flash.text}
         </span>
       )}
-      {!canDecide && <span className="text-caption text-ink-500">Tanda tindak lanjut oleh posisi Manajemen.</span>}
+      {!canDecide && (
+        <span className="text-caption text-ink-500">Tanda tindak lanjut oleh posisi Manajemen.</span>
+      )}
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {alerts.map((a) => {
           const ack = done[a.id];

@@ -34,7 +34,14 @@ describe('B02 · domain toko aset', () => {
       [{ type: 'tiket.diterima', id: t.id, technician: TECHNICIANS[0], when }, ipsrs],
       [{ type: 'tiket.dikerjakan', id: t.id, when }, ipsrs],
       [
-        { type: 'tiket.selesai', id: t.id, functionTest: true, electricalSafety: true, note: 'Ganti kabel sensor', when },
+        {
+          type: 'tiket.selesai',
+          id: t.id,
+          functionTest: true,
+          electricalSafety: true,
+          note: 'Ganti kabel sensor',
+          when,
+        },
         ipsrs,
       ],
     ];
@@ -42,6 +49,8 @@ describe('B02 · domain toko aset', () => {
     const close: AssetEvent = { type: 'tiket.ditutup', id: t.id, when };
     expect(denied(assetDomain, s, close, ipsrs)).toMatch(/pemisahan tugas/);
     expect(denied(assetDomain, s, close, unit)).toBeNull();
-    expect(denied(assetDomain, initialAssets(), { type: 'tiket.dikerjakan', id: t.id, when }, ipsrs)).toMatch(/tahap/);
+    expect(denied(assetDomain, initialAssets(), { type: 'tiket.dikerjakan', id: t.id, when }, ipsrs)).toMatch(
+      /tahap/,
+    );
   });
 });

@@ -48,10 +48,12 @@ export async function liveCapacity(session: SessionView) {
   const beds = bed.beds.map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status }));
   const rows = wardRows(wards, beds);
   const sum = (pred: (code: string) => boolean) =>
-    rows.filter((r) => pred(r.code)).reduce((t, r) => ({ used: t.used + r.occupied, total: t.total + r.total }), {
-      used: 0,
-      total: 0,
-    });
+    rows
+      .filter((r) => pred(r.code))
+      .reduce((t, r) => ({ used: t.used + r.occupied, total: t.total + r.total }), {
+        used: 0,
+        total: 0,
+      });
   const ed2 = ed.items.map((i) => ({
     id: i.encounterId,
     label: `${i.bed ?? 'triase'} · ${i.chiefComplaint}`,

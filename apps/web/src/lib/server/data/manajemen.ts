@@ -84,7 +84,13 @@ export async function getLogisticsBoard() {
     ...base,
     kpi: { ...base.kpi, inventoryValue: inventoryValue(s).toString() },
     reorder: inventoryNow(s),
-    purchaseOrders: rows.map(({ id, title, total, stage, statusText }) => ({ id, title, total, stage, statusText })),
+    purchaseOrders: rows.map(({ id, title, total, stage, statusText }) => ({
+      id,
+      title,
+      total,
+      stage,
+      statusText,
+    })),
     nextPoNumber: poNumber(s.nextPoSeq),
   });
   const receiptLines: Record<string, readonly ReceiptLine[]> = {};
@@ -173,11 +179,25 @@ export async function getPatientAppHome(session: SessionView) {
     if (b.cancelled) continue;
     extraFeed.push(
       b.onLeave
-        ? { id: `booking-cuti-${b.code}`, title: 'Jadwal dokter berubah', detail: `${b.doctorName} cuti ${b.date}; pilih jadwal lain`, when: b.jam, tone: 'danger' }
-        : { id: `booking-${b.code}`, title: `Booking ${b.code} terdaftar`, detail: `${b.poliName} · ${b.doctorName} · ${b.date} ${b.start}`, when: b.jam, tone: 'brand' },
+        ? {
+            id: `booking-cuti-${b.code}`,
+            title: 'Jadwal dokter berubah',
+            detail: `${b.doctorName} cuti ${b.date}; pilih jadwal lain`,
+            when: b.jam,
+            tone: 'danger',
+          }
+        : {
+            id: `booking-${b.code}`,
+            title: `Booking ${b.code} terdaftar`,
+            detail: `${b.poliName} · ${b.doctorName} · ${b.date} ${b.start}`,
+            when: b.jam,
+            tone: 'brand',
+          },
     );
   }
-  const glucose = [...base.glucose, ...st.glucose.map((g) => ({ date: DEMO_TODAY, value: g.value }))].slice(-7);
+  const glucose = [...base.glucose, ...st.glucose.map((g) => ({ date: DEMO_TODAY, value: g.value }))].slice(
+    -7,
+  );
   const home = patientAppHomeSchema.parse({ ...base, queue, glucose, feed: [...extraFeed, ...base.feed] });
   return {
     home,
@@ -192,9 +212,7 @@ export async function getPatientAppHome(session: SessionView) {
  * membedakan "belum ada order lab" dari "hasil sedang diproses" selama nilai kritis menunggu hasil (belum ada di
  * kontrak `doctorAppInboxSchema`).
  */
-export async function getDoctorAppInbox(
-  session: SessionView,
-) {
+export async function getDoctorAppInbox(session: SessionView) {
   if (!isDemo()) return notImplemented('aplikasi dokter');
   const runs = await scenarioRuns(session);
   const R = runs.results['igd-ranap'];

@@ -27,7 +27,10 @@ describe('B08 · domain toko PPRA', () => {
 
   it('audit Gyssens berurutan menambah hasil; modul mati membuat layar baca saja', () => {
     const steps: Array<readonly [PpraEvent, ReturnType<typeof actor>]> = [
-      ...Array.from({ length: 6 }, () => [{ type: 'gyssens.dijawab', caseId: 'gys-1', answer: false, jam: '10.00' }, apoteker] as const),
+      ...Array.from(
+        { length: 6 },
+        () => [{ type: 'gyssens.dijawab', caseId: 'gys-1', answer: false, jam: '10.00' }, apoteker] as const,
+      ),
       [{ type: 'gyssens.dijawab', caseId: 'gys-1', answer: true, jam: '10.01' }, apoteker],
     ];
     const s = applyAll(ppraDomain, steps);

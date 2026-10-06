@@ -62,9 +62,7 @@ export function CriticalCard({
         aria-label="Nilai kritis"
         className="flex flex-col gap-2 rounded-[16px] border border-[#BFE0C7] bg-[#EAF5EC] p-3.5"
       >
-        <span className="font-semibold text-success">
-          Diterima {accepted} · read-back tercatat
-        </span>
+        <span className="font-semibold text-success">Diterima {accepted} · read-back tercatat</span>
         <span className="text-[13px] text-ink-700">
           {head} · {c.patientName} · {c.location}. Nilai dibacakan ulang ke analis lab; order tata laksana
           hiperkalemia dilanjutkan ke perawat IGD.
@@ -97,10 +95,10 @@ export function CriticalCard({
     : c.mode !== 'skenario'
       ? 'Tn. Hartono pasien skenario Simulasi IGD: read-back tersimpan saat skenario sampai langkah nilai kritis (layar Simulasi).'
       : runner.pending
-      ? 'Mencatat read-back…'
-      : !matches
-        ? 'Ketik nilai yang Anda bacakan ulang ke analis lab.'
-        : null;
+        ? 'Mencatat read-back…'
+        : !matches
+          ? 'Ketik nilai yang Anda bacakan ulang ke analis lab.'
+          : null;
   const confirm = () => {
     if (!matches || waiting) return;
     if (c.mode === 'skenario' && c.stepIndex !== null) {
@@ -169,9 +167,7 @@ export function CriticalCard({
           </button>
         </span>
         <span id="readback-alasan" className="text-[12px] text-ink-700">
-          {runner.error?.message ??
-            reason ??
-            'Siap dicatat ke skenario IGD (tugas read-back).'}
+          {runner.error?.message ?? reason ?? 'Siap dicatat ke skenario IGD (tugas read-back).'}
         </span>
       </form>
       <button

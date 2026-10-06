@@ -87,7 +87,14 @@ export function PpraBoard({
     if (!r || !kind || block) return;
     const { jam } = demoStamp();
     act(
-      { type: 'putusan.dicatat', id: r.id, kind, reason: reason.trim(), alternative: alternative.trim(), jam },
+      {
+        type: 'putusan.dicatat',
+        id: r.id,
+        kind,
+        reason: reason.trim(),
+        alternative: alternative.trim(),
+        jam,
+      },
       kind === 'setuju'
         ? `${r.number} ${r.drug} disetujui · ${jam}; order dilepas ke farmasi, evaluasi ulang 72 jam.`
         : `${r.number} ${r.drug} ditolak · ${jam}; DPJP diberi tahu dengan saran ${alternative.trim()}.`,
@@ -223,7 +230,8 @@ export function PpraBoard({
                   level={res.category === '0' ? 'success' : 'warning'}
                   title={`Kategori ${res.category}`}
                 >
-                  {GYSSENS_LABEL[res.category]}. Diaudit {state.auditors[c.id] ?? '—'}; umpan balik dikirim ke DPJP.
+                  {GYSSENS_LABEL[res.category]}. Diaudit {state.auditors[c.id] ?? '—'}; umpan balik dikirim ke
+                  DPJP.
                 </Alert>
               ) : (
                 <div className="flex flex-col gap-2">

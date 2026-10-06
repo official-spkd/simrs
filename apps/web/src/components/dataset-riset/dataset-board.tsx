@@ -136,8 +136,15 @@ export function DatasetBoard({
                 reason={pending ? 'Menyimpan…' : ethicsBlock(ethicsNo, ethicsUntil, today)}
                 onClick={() =>
                   act(
-                    { type: 'etik.dicatat', number: ethicsNo.trim(), until: ethicsUntil, when: demoStamp().when },
-                    done(`persetujuan etik ${ethicsNo.trim()} dicatat, berlaku s.d. ${formatTanggal(ethicsUntil)}`),
+                    {
+                      type: 'etik.dicatat',
+                      number: ethicsNo.trim(),
+                      until: ethicsUntil,
+                      when: demoStamp().when,
+                    },
+                    done(
+                      `persetujuan etik ${ethicsNo.trim()} dicatat, berlaku s.d. ${formatTanggal(ethicsUntil)}`,
+                    ),
                   )
                 }
               >
@@ -230,7 +237,10 @@ export function DatasetBoard({
               <ReasonButton
                 reason={approveBlock}
                 onClick={() =>
-                  act({ type: 'rilis.disetujui', when: demoStamp().when }, done(`rilis dataset disetujui ${viewer.name}`))
+                  act(
+                    { type: 'rilis.disetujui', when: demoStamp().when },
+                    done(`rilis dataset disetujui ${viewer.name}`),
+                  )
                 }
               >
                 Setujui rilis
@@ -249,7 +259,9 @@ export function DatasetBoard({
                   onClick={() =>
                     act(
                       { type: 'dataset.diekstrak', when: demoStamp().when },
-                      done(`dataset diekstrak; tautan untuk ${request.requester} berlaku s.d. ${formatTanggal(expiry)}`),
+                      done(
+                        `dataset diekstrak; tautan untuk ${request.requester} berlaku s.d. ${formatTanggal(expiry)}`,
+                      ),
                     )
                   }
                 >

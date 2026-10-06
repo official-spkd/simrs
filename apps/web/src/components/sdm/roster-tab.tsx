@@ -233,7 +233,10 @@ export function RosterTab({
                   `${e.name} · ${e.unit} · ${weeklyHours(roster, e.id)} jam minggu ini`,
                 ])}
               />
-              <ReasonButton reason={pending ? 'Menyimpan…' : pick ? null : 'Pilih perawat dulu.'} onClick={add}>
+              <ReasonButton
+                reason={pending ? 'Menyimpan…' : pick ? null : 'Pilih perawat dulu.'}
+                onClick={add}
+              >
                 Tambahkan ke dinas
               </ReasonButton>
             </Panel>

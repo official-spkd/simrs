@@ -41,8 +41,8 @@ export function BundleTab({
   const block = pending
     ? 'Menyimpan…'
     : !/^\d{2}-\d{2}-\d{2}-\d{2}$/.test(rm.trim())
-    ? 'Isi nomor RM pasien yang diaudit (format 00-00-00-00).'
-    : null;
+      ? 'Isi nomor RM pasien yang diaudit (format 00-00-00-00).'
+      : null;
 
   const save = () => {
     if (!bundle || block) return;

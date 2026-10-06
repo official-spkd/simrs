@@ -1,7 +1,21 @@
 import { z } from 'zod';
-import { type ActorRef, actorRef, idSchema, jamSchema, type LogLine, must, pushLog, roleBlock } from './backoffice-toko';
+import {
+  type ActorRef,
+  actorRef,
+  idSchema,
+  jamSchema,
+  type LogLine,
+  must,
+  pushLog,
+  roleBlock,
+} from './backoffice-toko';
 import { type DemoActor, defineDomain } from './demo/store/define';
-import { ACCREDITATION_CHAPTERS, DISTRIBUTION_UNITS, READ_RECEIPTS, REG_DOCS } from './demo/fixtures/regulasi';
+import {
+  ACCREDITATION_CHAPTERS,
+  DISTRIBUTION_UNITS,
+  READ_RECEIPTS,
+  REG_DOCS,
+} from './demo/fixtures/regulasi';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { publish, type RegDoc } from './dokumen';
 
@@ -66,7 +80,10 @@ export function initialRegDocs(): RegDocsStoreState {
 }
 
 /** Penyetuju harus pengguna lain dari penyusun (ID sesi; penyusun fixture: nama). */
-export function isAuthor(doc: Pick<StoredDoc, 'author' | 'authorRef'>, actor: Pick<DemoActor, 'userId' | 'name'>) {
+export function isAuthor(
+  doc: Pick<StoredDoc, 'author' | 'authorRef'>,
+  actor: Pick<DemoActor, 'userId' | 'name'>,
+) {
   return doc.authorRef ? doc.authorRef.userId === actor.userId : doc.author === actor.name;
 }
 
@@ -84,11 +101,18 @@ function gate(s: RegDocsStoreState, ev: RegDocsEvent, actor: DemoActor): string 
       if (ev.type === 'dokumen.ditelaah') return d.status === 'draf' ? null : `${name} bukan draf.`;
       if (ev.type === 'dokumen.disetujui') {
         if (d.status !== 'telaah') return `${name} belum dikirim ke telaah atau sudah disetujui.`;
-        const role = roleBlock(actor, DOC_APPROVER_ROLES, 'Penyetuju dokumen: posisi Auditor mutu atau Manajemen.');
+        const role = roleBlock(
+          actor,
+          DOC_APPROVER_ROLES,
+          'Penyetuju dokumen: posisi Auditor mutu atau Manajemen.',
+        );
         if (role) return role;
-        return isAuthor(d, actor) ? 'Penyetuju harus pengguna lain dari penyusun dokumen (pemisahan tugas).' : null;
+        return isAuthor(d, actor)
+          ? 'Penyetuju harus pengguna lain dari penyusun dokumen (pemisahan tugas).'
+          : null;
       }
-      if (ev.type === 'dokumen.diterbitkan') return d.status === 'disetujui' ? null : `${name} belum disetujui.`;
+      if (ev.type === 'dokumen.diterbitkan')
+        return d.status === 'disetujui' ? null : `${name} belum disetujui.`;
       if (d.status !== 'terbit') return 'Versi baru dibuat dari versi yang sedang berlaku.';
       return s.docs.some((x) => x.code === d.code && x.version > d.version)
         ? `Versi baru ${d.code} sudah ada.`
@@ -162,7 +186,10 @@ export const regDocsDomain = defineDomain<RegDocsStoreState, RegDocsEvent>(REG_D
         };
       }
       case 'baca.diingatkan':
-        return { ...s, reminded: { ...s.reminded, [remindKey(d.docId, d.unit)]: { jam: d.jam, by: by.name } } };
+        return {
+          ...s,
+          reminded: { ...s.reminded, [remindKey(d.docId, d.unit)]: { jam: d.jam, by: by.name } },
+        };
       case 'bukti.ditautkan':
         return {
           ...s,

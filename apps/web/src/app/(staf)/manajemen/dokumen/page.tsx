@@ -24,10 +24,13 @@ export default async function DokumenPage() {
   const published = st.docs.filter((x) => x.status === 'terbit');
   const review = published.filter((x) => reviewStatus(x.reviewDue, DEMO_TODAY).status !== 'aman');
   const process = st.docs.filter((x) => ['draf', 'telaah', 'disetujui'].includes(x.status)).length;
-  const ev = d.chapters.reduce((t, c) => ({ n: t.n + (st.evidence[c.code] ?? 0), total: t.total + c.elements }), {
-    n: 0,
-    total: 0,
-  });
+  const ev = d.chapters.reduce(
+    (t, c) => ({ n: t.n + (st.evidence[c.code] ?? 0), total: t.total + c.elements }),
+    {
+      n: 0,
+      total: 0,
+    },
+  );
 
   return (
     <div className="flex flex-col gap-4">

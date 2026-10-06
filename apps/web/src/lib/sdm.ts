@@ -158,8 +158,10 @@ export function publishBlock(
   over: readonly string[] = [],
 ): string | null {
   if (gaps.length > 0) return `${gaps.length} dinas di bawah jumlah minimum; isi dulu sebelum terbit.`;
-  if (violations.length > 0) return `${violations.length} jeda istirahat setelah dinas malam dilanggar; ubah dulu.`;
-  if (over.length > 0) return `${over.length} perawat melebihi ${MAX_WEEK_HOURS} jam per minggu; kurangi dinasnya dulu.`;
+  if (violations.length > 0)
+    return `${violations.length} jeda istirahat setelah dinas malam dilanggar; ubah dulu.`;
+  if (over.length > 0)
+    return `${over.length} perawat melebihi ${MAX_WEEK_HOURS} jam per minggu; kurangi dinasnya dulu.`;
   return null;
 }
 

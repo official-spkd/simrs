@@ -31,9 +31,21 @@ describe('I07 · domain toko aplikasi pasien', () => {
       domain: 'jadwal',
       at: '2026-10-05T03:50:00.000Z',
       actor: pasien,
-      data: { type: 'cuti.dicatat', slotId: 'slot-1', substituteId: null, reason: 'Seminar nasional', jam: '10.55' },
+      data: {
+        type: 'cuti.dicatat',
+        slotId: 'slot-1',
+        substituteId: null,
+        reason: 'Seminar nasional',
+        jam: '10.55',
+      },
     };
-    const book: StoredEvent = { seq: 1, domain: 'aplikasi-pasien', at: cuti.at, actor: pasien, data: booking };
+    const book: StoredEvent = {
+      seq: 1,
+      domain: 'aplikasi-pasien',
+      at: cuti.at,
+      actor: pasien,
+      data: booking,
+    };
     const after = project(patientAppDomain, { seq: 2, resetSeq: 0, events: [book, cuti] }).state;
     expect(after.bookings[0]?.onLeave).toBe(true);
     expect(denied(patientAppDomain, after, { ...booking, code: 'BK-2610-042' }, pasien)).toMatch(/cuti/);
@@ -41,11 +53,22 @@ describe('I07 · domain toko aplikasi pasien', () => {
 
   it('akses keluarga: setuju sekali, cabut tercatat', () => {
     const s = applyAll(patientAppDomain, [
-      [{ type: 'keluarga.disetujui', scopes: ['jadwal', 'lab'], duration: '30', until: '2026-11-04', jam: '10.00' }, pasien],
+      [
+        {
+          type: 'keluarga.disetujui',
+          scopes: ['jadwal', 'lab'],
+          duration: '30',
+          until: '2026-11-04',
+          jam: '10.00',
+        },
+        pasien,
+      ],
       [{ type: 'keluarga.dicabut', name: 'Ny. Ratih Nugroho', jam: '10.01' }, pasien],
     ]);
     expect(s.family.grants.map((g) => g.name)).toEqual(['Bayu Nugroho']);
-    expect(denied(patientAppDomain, s, { type: 'keluarga.ditolak', jam: '10.02' }, pasien)).toMatch(/menunggu/);
+    expect(denied(patientAppDomain, s, { type: 'keluarga.ditolak', jam: '10.02' }, pasien)).toMatch(
+      /menunggu/,
+    );
   });
 });
 
@@ -60,8 +83,16 @@ describe('I08 · aplikasi dokter', () => {
   it('co-sign hanya posisi Dokter; sekali per CPPT', () => {
     const n = COSIGN_NOTES[0];
     if (!n) throw new Error('fixture');
-    const sign = { type: 'cosign.ditandatangani' as const, noteId: n.id, patientName: n.patientName, rm: n.rm, jam: '10.00' };
-    expect(denied(doctorAppDomain, { signed: {}, notes: {} }, sign, actor('u-r', 'dokter_residen'))).toMatch(/Dokter/);
+    const sign = {
+      type: 'cosign.ditandatangani' as const,
+      noteId: n.id,
+      patientName: n.patientName,
+      rm: n.rm,
+      jam: '10.00',
+    };
+    expect(denied(doctorAppDomain, { signed: {}, notes: {} }, sign, actor('u-r', 'dokter_residen'))).toMatch(
+      /Dokter/,
+    );
     const s = applyAll(doctorAppDomain, [[sign, actor('u-d', 'dokter', 'dr. DPJP Uji')]]);
     expect(s.signed[n.id]?.by).toBe('dr. DPJP Uji');
     expect(denied(doctorAppDomain, s, sign, actor('u-d', 'dokter'))).toMatch(/sudah/);

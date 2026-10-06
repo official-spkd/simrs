@@ -40,20 +40,33 @@ describe('B04 · domain toko kredensial', () => {
     const done = applyAll(credentialDomain, [...steps, [komite, dokterB], [rkk, direktur]]);
     expect(done.apps['krd-05']?.rkk?.number).toBe('RKK/2026/10/014');
     const item = krd5.items[1] ?? '';
-    expect(orderGuard(krd5.practitioner, item, done.granted, licensesOf(done, krd5.practitioner), DEMO_TODAY).ok).toBe(true);
+    expect(
+      orderGuard(krd5.practitioner, item, done.granted, licensesOf(done, krd5.practitioner), DEMO_TODAY).ok,
+    ).toBe(true);
   });
 
   it('melanggan SDM: SIP baru membuka verifikasi berkas yang tertahan', () => {
     if (!krd6) throw new Error('fixture');
     const s0 = initialCredentials();
-    const verify: CredentialEvent = { type: 'berkas.diverifikasi', id: 'krd-06', docs: krd6.documents.map(() => true), when };
+    const verify: CredentialEvent = {
+      type: 'berkas.diverifikasi',
+      id: 'krd-06',
+      docs: krd6.documents.map(() => true),
+      when,
+    };
     expect(denied(credentialDomain, s0, verify, direktur)).toMatch(/kedaluwarsa/);
     const sip: StoredEvent = {
       seq: 1,
       domain: 'sdm',
       at: when,
       actor: direktur,
-      data: { type: 'sip.diperbarui', employeeId: krd6.employeeId, number: '9999/UM/0533', until: '2031-10-05', jam: '10.00' },
+      data: {
+        type: 'sip.diperbarui',
+        employeeId: krd6.employeeId,
+        number: '9999/UM/0533',
+        until: '2031-10-05',
+        jam: '10.00',
+      },
     };
     const s = project(credentialDomain, { seq: 1, resetSeq: 0, events: [sip] }).state;
     expect(denied(credentialDomain, s, verify, direktur)).toBeNull();

@@ -46,7 +46,15 @@ export interface DatasetStoreState {
 }
 
 export function initialDataset(): DatasetStoreState {
-  return { stage: 1, ethics: null, rules: {}, k: null, deidBy: null, approvedBy: null, log: [...ACCESS_LOG_SEED] };
+  return {
+    stage: 1,
+    ethics: null,
+    rules: {},
+    k: null,
+    deidBy: null,
+    approvedBy: null,
+    log: [...ACCESS_LOG_SEED],
+  };
 }
 
 export const datasetExpiry = () => shiftDate(DEMO_TODAY, ACCESS_DAYS);
@@ -59,12 +67,17 @@ function gate(s: DatasetStoreState, ev: DatasetEvent, actor: DemoActor): string 
       return s.stage === 1 ? ethicsBlock(ev.number, ev.until, DEMO_TODAY) : 'Persetujuan etik sudah dicatat.';
     case 'deid.diterapkan': {
       if (s.stage !== 2) return 'De-identifikasi diterapkan setelah etik dan sebelum persetujuan rilis.';
-      if (Object.keys(ev.rules).some((k) => !DATASET_FIELDS.some((f) => f.key === k))) return 'Kolom tidak dikenal.';
+      if (Object.keys(ev.rules).some((k) => !DATASET_FIELDS.some((f) => f.key === k)))
+        return 'Kolom tidak dikenal.';
       return deidBlock(DATASET_FIELDS, ev.rules, kAnonymity(ROWS, ev.rules));
     }
     case 'rilis.disetujui': {
       if (s.stage !== 3) return 'Rilis disetujui setelah de-identifikasi diterapkan.';
-      const role = roleBlock(actor, DATASET_APPROVER_ROLES, 'Rilis dataset disetujui posisi Petugas privasi.');
+      const role = roleBlock(
+        actor,
+        DATASET_APPROVER_ROLES,
+        'Rilis dataset disetujui posisi Petugas privasi.',
+      );
       if (role) return role;
       if (actor.name === DATASET_REQUEST.requester) return 'Penyetuju harus berbeda dari pemohon dataset.';
       if (s.deidBy?.userId === actor.userId)
@@ -123,7 +136,10 @@ export const datasetDomain = defineDomain<DatasetStoreState, DatasetEvent>(DATAS
       case 'dataset.diunduh':
         return {
           ...s,
-          log: log('mengunduh dataset (CSV bertanda air)', `${DATASET_REQUEST.requester} (diperagakan ${by.name})`),
+          log: log(
+            'mengunduh dataset (CSV bertanda air)',
+            `${DATASET_REQUEST.requester} (diperagakan ${by.name})`,
+          ),
         };
     }
   },

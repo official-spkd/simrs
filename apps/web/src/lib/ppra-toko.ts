@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { type ActorRef, actorRef, idSchema, jamSchema, type LogLine, must, pushLog, roleBlock } from './backoffice-toko';
+import {
+  type ActorRef,
+  actorRef,
+  idSchema,
+  jamSchema,
+  type LogLine,
+  must,
+  pushLog,
+  roleBlock,
+} from './backoffice-toko';
 import { type DemoActor, defineDomain } from './demo/store/define';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING } from './demo/fixtures/ppra';
 import { DEMO_NOW } from './demo/fixtures/waktu';
@@ -24,7 +33,12 @@ export const ppraEventSchema = z.discriminatedUnion('type', [
     alternative: z.string().trim().max(200),
     jam: jamSchema,
   }),
-  z.strictObject({ type: z.literal('gyssens.dijawab'), caseId: idSchema, answer: z.boolean(), jam: jamSchema }),
+  z.strictObject({
+    type: z.literal('gyssens.dijawab'),
+    caseId: idSchema,
+    answer: z.boolean(),
+    jam: jamSchema,
+  }),
   z.strictObject({
     type: z.literal('modul.diubah'),
     on: z.boolean(),
@@ -64,15 +78,24 @@ function gate(s: PpraStoreState, ev: PpraEvent, actor: DemoActor): string | null
       if (!s.moduleOn) return 'Modul PPRA tidak aktif; putusan tidak diperlukan.';
       if (s.decisions[ev.id]) return `${r.number} sudah diputus.`;
       if (approvalHoursLeft(r.requestedAt, DEMO_NOW) < 0) return `${r.number} sudah kedaluwarsa (24 jam).`;
-      const role = roleBlock(actor, PPRA_TEAM_ROLES, 'Putusan diambil tim PPRA (posisi Apoteker atau Dokter).');
+      const role = roleBlock(
+        actor,
+        PPRA_TEAM_ROLES,
+        'Putusan diambil tim PPRA (posisi Apoteker atau Dokter).',
+      );
       if (role) return role;
-      if (actor.name === r.prescriber) return 'Penulis resep tidak bisa memutus permintaannya sendiri (pemisahan tugas).';
+      if (actor.name === r.prescriber)
+        return 'Penulis resep tidak bisa memutus permintaannya sendiri (pemisahan tugas).';
       return decisionBlock(ev.kind, ev.reason, ev.alternative);
     }
     case 'gyssens.dijawab': {
       if (!GYSSENS_PENDING.some((c) => c.id === ev.caseId)) return 'Kasus audit tidak ditemukan.';
       if (!s.moduleOn) return 'Modul PPRA tidak aktif; audit hanya bisa dibaca.';
-      const role = roleBlock(actor, PPRA_TEAM_ROLES, 'Audit Gyssens oleh tim PPRA (posisi Apoteker atau Dokter).');
+      const role = roleBlock(
+        actor,
+        PPRA_TEAM_ROLES,
+        'Audit Gyssens oleh tim PPRA (posisi Apoteker atau Dokter).',
+      );
       if (role) return role;
       return gyssensResult(s.answers[ev.caseId] ?? []).done ? 'Audit kasus ini sudah selesai.' : null;
     }
@@ -98,7 +121,13 @@ export const ppraDomain = defineDomain<PpraStoreState, PpraEvent>(PPRA_DOMAIN, {
           ...s,
           decisions: {
             ...s.decisions,
-            [d.id]: { kind: d.kind, reason: d.reason.trim(), alternative: d.alternative.trim(), jam: d.jam, by },
+            [d.id]: {
+              kind: d.kind,
+              reason: d.reason.trim(),
+              alternative: d.alternative.trim(),
+              jam: d.jam,
+              by,
+            },
           },
           log: log(`${d.id} ${d.kind === 'setuju' ? 'disetujui' : 'ditolak'}`),
         };

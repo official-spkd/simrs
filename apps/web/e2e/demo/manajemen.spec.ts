@@ -228,7 +228,10 @@ test.describe('domain manajemen', () => {
     // Booking jadwal dari Jadwal dokter (kuota JKN tersisa) → kode BK, tampil di Jadwal + Notifikasi.
     await phone.getByRole('button', { name: /Daftar berobat/ }).click();
     const booking = phone.getByRole('region', { name: 'Booking jadwal' });
-    await booking.getByRole('button', { name: /^Pesan/ }).first().click();
+    await booking
+      .getByRole('button', { name: /^Pesan/ })
+      .first()
+      .click();
     await expect(booking.getByRole('status')).toContainText('Booking BK-2610-041 terdaftar');
     await expect(booking.getByRole('list', { name: 'Booking saya' })).toContainText('BK-2610-041');
 
@@ -274,7 +277,10 @@ test.describe('domain manajemen', () => {
   test('aplikasi dokter: read-back nilai kritis tersimpan ke Pusat hasil kritis (tampil di Lab); co-sign CPPT residen', async ({
     page,
   }) => {
-    const akun = await createAccount({ roles: ['dokter', 'analis_lab'], displayName: 'dr. Penerima Aplikasi Fiktif' });
+    const akun = await createAccount({
+      roles: ['dokter', 'analis_lab'],
+      displayName: 'dr. Penerima Aplikasi Fiktif',
+    });
     await loginWithPosition(page, akun, 'Dokter (DPJP)');
     await page.goto('/pratinjau/aplikasi-dokter');
     const doctor = page.getByRole('region', { name: 'Pratinjau aplikasi dokter' });
@@ -287,7 +293,9 @@ test.describe('domain manajemen', () => {
     await expect(ok).toBeDisabled();
     await yusuf.getByRole('textbox').fill(value);
     await ok.click();
-    await expect(yusuf.getByRole('status')).toContainText(/Read-back tercatat \d{2}\.\d{2} oleh dr\. Penerima Aplikasi Fiktif/);
+    await expect(yusuf.getByRole('status')).toContainText(
+      /Read-back tercatat \d{2}\.\d{2} oleh dr\. Penerima Aplikasi Fiktif/,
+    );
 
     // Co-sign CPPT residen atas nama pengguna sesi; bertahan setelah muat ulang.
     const cosign = doctor.getByRole('region', { name: 'Co-sign CPPT residen' });
@@ -303,9 +311,9 @@ test.describe('domain manajemen', () => {
     await page.goto('/');
     await switchPosition(page, 'Analis laboratorium');
     await page.goto('/penunjang/lab');
-    await expect(page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Yusuf Hidayat/ })).toContainText(
-      'dr. Penerima Aplikasi Fiktif',
-    );
+    await expect(
+      page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Yusuf Hidayat/ }),
+    ).toContainText('dr. Penerima Aplikasi Fiktif');
   });
 
   test('pratinjau aplikasi pasien: posisi antrean hidup dari papan antrean (mockup AppPasien)', async ({

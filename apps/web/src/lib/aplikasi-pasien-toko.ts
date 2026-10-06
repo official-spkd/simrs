@@ -18,8 +18,18 @@ import { scheduleDomain } from './front-office-jadwal';
 
 export const PATIENT_APP_DOMAIN = 'aplikasi-pasien';
 export const APP_PATIENT_ID = PATIENT_ID.suryo;
-export const FAMILY_REQUEST = { name: 'Bayu Nugroho', relation: 'Anak · 24 th', via: 'aplikasi pasien, 5 Okt 07.40' };
-export const FAMILY_EXISTING = { name: 'Ny. Ratih Nugroho', relation: 'Istri', scopes: ['jadwal'] as FamilyScope[], until: null, at: '12 Mar 2025' };
+export const FAMILY_REQUEST = {
+  name: 'Bayu Nugroho',
+  relation: 'Anak · 24 th',
+  via: 'aplikasi pasien, 5 Okt 07.40',
+};
+export const FAMILY_EXISTING = {
+  name: 'Ny. Ratih Nugroho',
+  relation: 'Istri',
+  scopes: ['jadwal'] as FamilyScope[],
+  until: null,
+  at: '12 Mar 2025',
+};
 
 const scope = z.enum(FAMILY_SCOPES.map((s) => s.id) as [FamilyScope, ...FamilyScope[]]);
 
@@ -37,8 +47,16 @@ export const patientAppEventSchema = z.discriminatedUnion('type', [
     start: jamSchema,
     jam: jamSchema,
   }),
-  z.strictObject({ type: z.literal('booking.dibatalkan'), code: z.string().regex(/^BK-\d{4}-\d{3}$/), jam: jamSchema }),
-  z.strictObject({ type: z.literal('gula.dicatat'), value: z.number().int().min(20).max(600), jam: jamSchema }),
+  z.strictObject({
+    type: z.literal('booking.dibatalkan'),
+    code: z.string().regex(/^BK-\d{4}-\d{3}$/),
+    jam: jamSchema,
+  }),
+  z.strictObject({
+    type: z.literal('gula.dicatat'),
+    value: z.number().int().min(20).max(600),
+    jam: jamSchema,
+  }),
   z.strictObject({
     type: z.literal('keluarga.disetujui'),
     scopes: z.array(scope).min(1).max(FAMILY_SCOPES.length),
@@ -80,7 +98,11 @@ export function initialPatientApp(): PatientAppStoreState {
     bookings: [],
     seq: 41,
     glucose: [],
-    family: { pending: true, grants: [{ ...FAMILY_EXISTING, scopes: [...FAMILY_EXISTING.scopes] }], notice: null },
+    family: {
+      pending: true,
+      grants: [{ ...FAMILY_EXISTING, scopes: [...FAMILY_EXISTING.scopes] }],
+      notice: null,
+    },
     leaves: [],
   };
 }
@@ -92,7 +114,9 @@ function gate(s: PatientAppStoreState, ev: PatientAppEvent): string | null {
     case 'booking.dibuat':
       if (ev.code !== bookingCode(s.seq)) return 'Kode booking berikutnya berbeda; muat ulang aplikasi.';
       if (s.leaves.includes(ev.slotId)) return 'Dokter cuti pada jadwal ini.';
-      return s.bookings.some((b) => !b.cancelled && b.slotId === ev.slotId) ? 'Anda sudah booking jadwal ini.' : null;
+      return s.bookings.some((b) => !b.cancelled && b.slotId === ev.slotId)
+        ? 'Anda sudah booking jadwal ini.'
+        : null;
     case 'booking.dibatalkan':
       return s.bookings.some((b) => b.code === ev.code && !b.cancelled) ? null : 'Booking tidak ditemukan.';
     case 'gula.dicatat':
@@ -129,7 +153,11 @@ export const patientAppDomain = defineDomain<PatientAppStoreState, PatientAppEve
     switch (d.type) {
       case 'booking.dibuat': {
         const { type: _t, ...rest } = d;
-        return { ...s, seq: s.seq + 1, bookings: [...s.bookings, { ...rest, cancelled: false, onLeave: false }] };
+        return {
+          ...s,
+          seq: s.seq + 1,
+          bookings: [...s.bookings, { ...rest, cancelled: false, onLeave: false }],
+        };
       }
       case 'booking.dibatalkan':
         return { ...s, bookings: s.bookings.map((b) => (b.code === d.code ? { ...b, cancelled: true } : b)) };
@@ -142,7 +170,13 @@ export const patientAppDomain = defineDomain<PatientAppStoreState, PatientAppEve
             pending: false,
             grants: [
               ...s.family.grants,
-              { name: FAMILY_REQUEST.name, relation: FAMILY_REQUEST.relation, scopes: [...d.scopes], until: d.until, at: d.jam },
+              {
+                name: FAMILY_REQUEST.name,
+                relation: FAMILY_REQUEST.relation,
+                scopes: [...d.scopes],
+                until: d.until,
+                at: d.jam,
+              },
             ],
             notice: `Akses ${FAMILY_REQUEST.name} aktif ${d.jam}`,
           },
@@ -150,7 +184,11 @@ export const patientAppDomain = defineDomain<PatientAppStoreState, PatientAppEve
       case 'keluarga.ditolak':
         return {
           ...s,
-          family: { ...s.family, pending: false, notice: `Permintaan ${FAMILY_REQUEST.name} ditolak ${d.jam}; pemohon diberi tahu.` },
+          family: {
+            ...s.family,
+            pending: false,
+            notice: `Permintaan ${FAMILY_REQUEST.name} ditolak ${d.jam}; pemohon diberi tahu.`,
+          },
         };
       case 'keluarga.dicabut':
         return {

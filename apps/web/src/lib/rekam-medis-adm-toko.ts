@@ -115,7 +115,8 @@ export function initialRecordsAdmin(): RecordsAdminStoreState {
         {
           stage: r.stage,
           // Fixture terverifikasi oleh penerima loket (bukan akun sesi): penyetuju cukup beda dari nama itu.
-          verifiedBy: r.stage > 0 ? { userId: `fixture:${r.receiver}`, name: r.receiver, role: 'petugas_rm' } : null,
+          verifiedBy:
+            r.stage > 0 ? { userId: `fixture:${r.receiver}`, name: r.receiver, role: 'petugas_rm' } : null,
           verifiedAt: r.verifiedAt ?? null,
           approvedBy: null,
           approvedAt: null,
@@ -128,7 +129,10 @@ export function initialRecordsAdmin(): RecordsAdminStoreState {
     clinical: [],
     loans: RECORD_LOANS.map((l) => ({ ...l })),
     loanSeq: 0,
-    destruction: { stage: 0, steps: [{ who: 'Sistem (job retensi 01.30)', userId: null, when: RETENTION_COMPUTED_AT }] },
+    destruction: {
+      stage: 0,
+      steps: [{ who: 'Sistem (job retensi 01.30)', userId: null, when: RETENTION_COMPUTED_AT }],
+    },
     log: [],
   };
 }
@@ -149,7 +153,11 @@ function gate(s: RecordsAdminStoreState, ev: RecordsAdminEvent, actor: DemoActor
         return p.stage === 0 ? null : `${r.number} sudah diverifikasi.`;
       if (ev.type === 'roi.disetujui') {
         if (p.stage !== 1) return `${r.number} belum diverifikasi atau sudah disetujui.`;
-        const role = roleBlock(actor, ROI_APPROVER_ROLES, 'Penyetuju pelepasan informasi: posisi Petugas privasi atau Manajemen.');
+        const role = roleBlock(
+          actor,
+          ROI_APPROVER_ROLES,
+          'Penyetuju pelepasan informasi: posisi Petugas privasi atau Manajemen.',
+        );
         if (role) return role;
         if (p.verifiedBy?.userId === actor.userId || actor.name === r.receiver) return SOD_ROI;
         return null;
@@ -175,9 +183,17 @@ function gate(s: RecordsAdminStoreState, ev: RecordsAdminEvent, actor: DemoActor
       if (cur >= DESTRUCTION_STAGES.length - 1) return 'Pemusnahan sudah tercatat selesai.';
       if (ev.target !== cur + 1) return 'Urutan persetujuan tidak bisa dilompati.';
       if (ev.target === 1)
-        return roleBlock(actor, DESTRUCTION_PROPOSER_ROLES, 'Usulan pemusnahan diajukan komite RM (posisi Petugas rekam medis atau Manajemen).');
+        return roleBlock(
+          actor,
+          DESTRUCTION_PROPOSER_ROLES,
+          'Usulan pemusnahan diajukan komite RM (posisi Petugas rekam medis atau Manajemen).',
+        );
       if (ev.target === 2 || ev.target === 3) {
-        const role = roleBlock(actor, DESTRUCTION_DIRECTOR_ROLES, 'Persetujuan dan berita acara pemusnahan ditandatangani direktur (posisi Manajemen).');
+        const role = roleBlock(
+          actor,
+          DESTRUCTION_DIRECTOR_ROLES,
+          'Persetujuan dan berita acara pemusnahan ditandatangani direktur (posisi Manajemen).',
+        );
         if (role) return role;
         if (ev.target === 2 && s.destruction.steps[1]?.userId === actor.userId)
           return 'Penyetuju harus pengguna lain dari pengusul (pemisahan tugas).';
@@ -187,95 +203,114 @@ function gate(s: RecordsAdminStoreState, ev: RecordsAdminEvent, actor: DemoActor
   }
 }
 
-export const recordsAdminDomain = defineDomain<RecordsAdminStoreState, RecordsAdminEvent>(RECORDS_ADMIN_DOMAIN, {
-  initial: initialRecordsAdmin,
-  eventSchema: recordsAdminEventSchema,
-  screens: ['rm-adm'],
-  generic: true,
-  validate: (s, ev, actor) => gate(s, ev, actor),
-  subscriptions: [
-    // CD-2 `rekam-medis/kunjungan.ditutup`: berkas kunjungan lengkap masuk antrean arsip RM.
-    on(rekamDomain, (s, ev) => {
-      if (ev.data.type !== 'kunjungan.ditutup') return s;
-      const d = ev.data;
-      const p = patientByEncounterId(d.encounterId);
-      return {
-        ...s,
-        clinical: [
-          { encounterId: d.encounterId, kind: 'kunjungan-ditutup' as const, patientName: p?.nama ?? 'Pasien', rm: p?.rm ?? null, detail: `Kunjungan ditutup · disposisi ${d.disposition}`, at: d.at },
-          ...s.clinical,
-        ].slice(0, 30),
-      };
-    }),
-    // CD-2 `klinis-igd/pasien.meninggal`: surat keterangan kematian ber-TTE masuk arsip permanen.
-    on(igdDomain, (s, ev) => {
-      if (ev.data.type !== 'pasien.meninggal') return s;
-      const d = ev.data;
-      const p = patientByEncounterId(d.encounterId);
-      return {
-        ...s,
-        clinical: [
-          { encounterId: d.encounterId, kind: 'meninggal' as const, patientName: d.patientName, rm: p?.rm ?? null, detail: `Meninggal · ${d.causeCode} ${d.causeLabel} · SKK ${d.certificateNo} diarsip permanen`, at: d.diedAt },
-          ...s.clinical,
-        ].slice(0, 30),
-      };
-    }),
-  ],
-  reduce: (s, ev) => {
-    const d = ev.data;
-    must(gate(s, d, ev.actor));
-    const by = actorRef(ev.actor);
-    const log = (jam: string, text: string) => pushLog(s.log, { jam, text, by: by.name });
-    const roi = (id: string, patch: Partial<RoiProgress>) => ({
-      ...s.roi,
-      [id]: { ...(s.roi[id] as RoiProgress), ...patch },
-    });
-    switch (d.type) {
-      case 'roi.diverifikasi':
-        return { ...s, roi: roi(d.id, { stage: 1, verifiedBy: by, verifiedAt: d.when }) };
-      case 'roi.disetujui':
-        return { ...s, roi: roi(d.id, { stage: 2, approvedBy: by, approvedAt: d.when }) };
-      case 'roi.dipenuhi':
-        return { ...s, roi: roi(d.id, { stage: 3, fulfilledBy: by, fulfilledAt: d.when }) };
-      case 'roi.ditolak':
-        return { ...s, roi: roi(d.id, { rejected: { reason: d.reason.trim(), when: d.when, by } }) };
-      case 'berkas.dipinjam': {
-        const n = s.loanSeq + 1;
+export const recordsAdminDomain = defineDomain<RecordsAdminStoreState, RecordsAdminEvent>(
+  RECORDS_ADMIN_DOMAIN,
+  {
+    initial: initialRecordsAdmin,
+    eventSchema: recordsAdminEventSchema,
+    screens: ['rm-adm'],
+    generic: true,
+    validate: (s, ev, actor) => gate(s, ev, actor),
+    subscriptions: [
+      // CD-2 `rekam-medis/kunjungan.ditutup`: berkas kunjungan lengkap masuk antrean arsip RM.
+      on(rekamDomain, (s, ev) => {
+        if (ev.data.type !== 'kunjungan.ditutup') return s;
+        const d = ev.data;
+        const p = patientByEncounterId(d.encounterId);
         return {
           ...s,
-          loanSeq: n,
-          loans: [
+          clinical: [
             {
-              id: `pinjam-baru-${n}`,
-              fileId: d.fileId,
-              borrower: d.borrower.trim(),
-              unit: d.unit,
-              purpose: d.purpose.trim(),
-              outDate: DEMO_TODAY,
-              dueDate: loanDueDate(DEMO_TODAY),
-              returnedAt: null,
-              lentBy: by.name,
+              encounterId: d.encounterId,
+              kind: 'kunjungan-ditutup' as const,
+              patientName: p?.nama ?? 'Pasien',
+              rm: p?.rm ?? null,
+              detail: `Kunjungan ditutup · disposisi ${d.disposition}`,
+              at: d.at,
             },
-            ...s.loans,
-          ],
-          log: log(d.jam, `Berkas ${d.fileId} keluar ke ${d.unit}`),
+            ...s.clinical,
+          ].slice(0, 30),
         };
+      }),
+      // CD-2 `klinis-igd/pasien.meninggal`: surat keterangan kematian ber-TTE masuk arsip permanen.
+      on(igdDomain, (s, ev) => {
+        if (ev.data.type !== 'pasien.meninggal') return s;
+        const d = ev.data;
+        const p = patientByEncounterId(d.encounterId);
+        return {
+          ...s,
+          clinical: [
+            {
+              encounterId: d.encounterId,
+              kind: 'meninggal' as const,
+              patientName: d.patientName,
+              rm: p?.rm ?? null,
+              detail: `Meninggal · ${d.causeCode} ${d.causeLabel} · SKK ${d.certificateNo} diarsip permanen`,
+              at: d.diedAt,
+            },
+            ...s.clinical,
+          ].slice(0, 30),
+        };
+      }),
+    ],
+    reduce: (s, ev) => {
+      const d = ev.data;
+      must(gate(s, d, ev.actor));
+      const by = actorRef(ev.actor);
+      const log = (jam: string, text: string) => pushLog(s.log, { jam, text, by: by.name });
+      const roi = (id: string, patch: Partial<RoiProgress>) => ({
+        ...s.roi,
+        [id]: { ...(s.roi[id] as RoiProgress), ...patch },
+      });
+      switch (d.type) {
+        case 'roi.diverifikasi':
+          return { ...s, roi: roi(d.id, { stage: 1, verifiedBy: by, verifiedAt: d.when }) };
+        case 'roi.disetujui':
+          return { ...s, roi: roi(d.id, { stage: 2, approvedBy: by, approvedAt: d.when }) };
+        case 'roi.dipenuhi':
+          return { ...s, roi: roi(d.id, { stage: 3, fulfilledBy: by, fulfilledAt: d.when }) };
+        case 'roi.ditolak':
+          return { ...s, roi: roi(d.id, { rejected: { reason: d.reason.trim(), when: d.when, by } }) };
+        case 'berkas.dipinjam': {
+          const n = s.loanSeq + 1;
+          return {
+            ...s,
+            loanSeq: n,
+            loans: [
+              {
+                id: `pinjam-baru-${n}`,
+                fileId: d.fileId,
+                borrower: d.borrower.trim(),
+                unit: d.unit,
+                purpose: d.purpose.trim(),
+                outDate: DEMO_TODAY,
+                dueDate: loanDueDate(DEMO_TODAY),
+                returnedAt: null,
+                lentBy: by.name,
+              },
+              ...s.loans,
+            ],
+            log: log(d.jam, `Berkas ${d.fileId} keluar ke ${d.unit}`),
+          };
+        }
+        case 'berkas.kembali':
+          return {
+            ...s,
+            loans: s.loans.map((l) =>
+              l.id === d.loanId ? { ...l, returnedAt: d.when, returnedBy: by.name } : l,
+            ),
+          };
+        case 'pengingat.dikirim':
+          return { ...s, loans: s.loans.map((l) => (l.id === d.loanId ? { ...l, remindedAt: d.jam } : l)) };
+        case 'pemusnahan.maju':
+          return {
+            ...s,
+            destruction: {
+              stage: d.target,
+              steps: [...s.destruction.steps, { who: by.name, userId: by.userId, when: d.when }],
+            },
+          };
       }
-      case 'berkas.kembali':
-        return {
-          ...s,
-          loans: s.loans.map((l) => (l.id === d.loanId ? { ...l, returnedAt: d.when, returnedBy: by.name } : l)),
-        };
-      case 'pengingat.dikirim':
-        return { ...s, loans: s.loans.map((l) => (l.id === d.loanId ? { ...l, remindedAt: d.jam } : l)) };
-      case 'pemusnahan.maju':
-        return {
-          ...s,
-          destruction: {
-            stage: d.target,
-            steps: [...s.destruction.steps, { who: by.name, userId: by.userId, when: d.when }],
-          },
-        };
-    }
+    },
   },
-});
+);

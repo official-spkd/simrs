@@ -58,7 +58,10 @@ export function PatientApp({
 }) {
   const [tab, setTab] = useState<TabKey>('beranda');
   const [sub, setSub] = useState<SubKey | null>(null);
-  const pages = buildPatientPages(home, store.bookings.filter((b) => !b.cancelled));
+  const pages = buildPatientPages(
+    home,
+    store.bookings.filter((b) => !b.cancelled),
+  );
   const page = sub ? pages[sub] : tab === 'beranda' ? null : pages[tab];
   const badge: Partial<Record<SubKey, string>> = {
     lab: home.labResults.length ? `${home.labResults.length} baru` : undefined,
@@ -154,7 +157,12 @@ export function PatientApp({
                 ))}
               </ul>
             </section>
-            <GlucoseCard glucose={home.glucose} target={home.glucoseTarget} recordedAt={glucoseAt} rev={rev} />
+            <GlucoseCard
+              glucose={home.glucose}
+              target={home.glucoseTarget}
+              recordedAt={glucoseAt}
+              rev={rev}
+            />
           </>
         )}
       </main>

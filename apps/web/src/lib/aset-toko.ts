@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { type ActorRef, actorRef, idSchema, must, whenSchema } from './backoffice-toko';
 import { type DemoActor, defineDomain } from './demo/store/define';
-import { ASSETS, CALIBRATION_LABS, type RepairTicket, REPAIR_TICKETS, TECHNICIANS } from './demo/fixtures/aset';
+import {
+  ASSETS,
+  CALIBRATION_LABS,
+  type RepairTicket,
+  REPAIR_TICKETS,
+  TECHNICIANS,
+} from './demo/fixtures/aset';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { completionBlock, type Impact, nextCalibration } from './aset';
 
@@ -30,7 +36,12 @@ export const assetEventSchema = z.discriminatedUnion('type', [
     impact: z.enum(['kritis', 'sedang', 'ringan']),
     when: whenSchema,
   }),
-  z.strictObject({ type: z.literal('tiket.diterima'), id: idSchema, technician: z.string().min(1).max(120), when: whenSchema }),
+  z.strictObject({
+    type: z.literal('tiket.diterima'),
+    id: idSchema,
+    technician: z.string().min(1).max(120),
+    when: whenSchema,
+  }),
   z.strictObject({ type: z.literal('tiket.dikerjakan'), id: idSchema, when: whenSchema }),
   z.strictObject({
     type: z.literal('tiket.selesai'),
@@ -52,7 +63,10 @@ export interface StoredTicket extends Omit<RepairTicket, 'stage'> {
 }
 
 export interface AssetStoreState {
-  calibration: Record<string, { lastCalibration: string; nextCalibration: string | null; withdrawn: boolean; cert: string; by: string }>;
+  calibration: Record<
+    string,
+    { lastCalibration: string; nextCalibration: string | null; withdrawn: boolean; cert: string; by: string }
+  >;
   tickets: StoredTicket[];
   seq: number;
 }
@@ -72,14 +86,18 @@ function gate(s: AssetStoreState, ev: AssetEvent, actor: DemoActor): string | nu
     case 'kalibrasi.dicatat': {
       const a = ASSETS.find((x) => x.id === ev.assetId);
       if (!a || !a.nextCalibration) return 'Aset ini tidak wajib kalibrasi.';
-      return (CALIBRATION_LABS as readonly string[]).includes(ev.lab) ? null : 'Lembaga penguji tidak dikenal.';
+      return (CALIBRATION_LABS as readonly string[]).includes(ev.lab)
+        ? null
+        : 'Lembaga penguji tidak dikenal.';
     }
     case 'tiket.dilaporkan':
       return ASSETS.some((x) => x.id === ev.assetId) ? null : 'Alat tidak ditemukan.';
     default: {
       const t = s.tickets.find((x) => x.id === ev.id);
       if (!t) return 'Tiket tidak ditemukan.';
-      const need = { 'tiket.diterima': 0, 'tiket.dikerjakan': 1, 'tiket.selesai': 2, 'tiket.ditutup': 3 }[ev.type];
+      const need = { 'tiket.diterima': 0, 'tiket.dikerjakan': 1, 'tiket.selesai': 2, 'tiket.ditutup': 3 }[
+        ev.type
+      ];
       if (t.stage !== need) return `${t.number} tidak di tahap ini.`;
       if (ev.type === 'tiket.diterima')
         return (TECHNICIANS as readonly string[]).includes(ev.technician) ? null : 'Teknisi tidak dikenal.';
@@ -133,7 +151,13 @@ export const assetDomain = defineDomain<AssetStoreState, AssetEvent>(ASSET_DOMAI
             ...s,
             calibration: {
               ...s.calibration,
-              [d.assetId]: { lastCalibration: DEMO_TODAY, nextCalibration: nextCalibration(DEMO_TODAY), withdrawn: false, cert: d.cert.trim(), by: by.name },
+              [d.assetId]: {
+                lastCalibration: DEMO_TODAY,
+                nextCalibration: nextCalibration(DEMO_TODAY),
+                withdrawn: false,
+                cert: d.cert.trim(),
+                by: by.name,
+              },
             },
           };
         const t = newTicket(s, {
@@ -149,7 +173,13 @@ export const assetDomain = defineDomain<AssetStoreState, AssetEvent>(ASSET_DOMAI
           tickets: [t, ...s.tickets],
           calibration: {
             ...s.calibration,
-            [d.assetId]: { lastCalibration: DEMO_TODAY, nextCalibration: a?.nextCalibration ?? null, withdrawn: true, cert: d.cert.trim(), by: by.name },
+            [d.assetId]: {
+              lastCalibration: DEMO_TODAY,
+              nextCalibration: a?.nextCalibration ?? null,
+              withdrawn: true,
+              cert: d.cert.trim(),
+              by: by.name,
+            },
           },
         };
       }
@@ -158,12 +188,20 @@ export const assetDomain = defineDomain<AssetStoreState, AssetEvent>(ASSET_DOMAI
           ...s,
           seq: s.seq + 1,
           tickets: [
-            newTicket(s, { assetId: d.assetId, complaint: d.complaint.trim(), impact: d.impact, reporter: by.name, when: d.when }),
+            newTicket(s, {
+              assetId: d.assetId,
+              complaint: d.complaint.trim(),
+              impact: d.impact,
+              reporter: by.name,
+              when: d.when,
+            }),
             ...s.tickets,
           ],
         };
       default: {
-        const stage = { 'tiket.diterima': 1, 'tiket.dikerjakan': 2, 'tiket.selesai': 3, 'tiket.ditutup': 4 }[d.type];
+        const stage = { 'tiket.diterima': 1, 'tiket.dikerjakan': 2, 'tiket.selesai': 3, 'tiket.ditutup': 4 }[
+          d.type
+        ];
         return {
           ...s,
           tickets: s.tickets.map((t) =>

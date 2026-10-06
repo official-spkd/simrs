@@ -64,12 +64,12 @@ export function RepairTab({
   const reportBlock = pending
     ? 'Menyimpan…'
     : !assetId
-    ? 'Pilih alat yang rusak.'
-    : complaint.trim().length < 10
-      ? 'Jelaskan keluhan minimal 10 huruf.'
-      : !impact
-        ? 'Pilih dampak ke layanan.'
-        : null;
+      ? 'Pilih alat yang rusak.'
+      : complaint.trim().length < 10
+        ? 'Jelaskan keluhan minimal 10 huruf.'
+        : !impact
+          ? 'Pilih dampak ke layanan.'
+          : null;
   const report = () => {
     if (reportBlock) return;
     const number = ticketNumber(nextTicket);
@@ -152,7 +152,9 @@ export function RepairTab({
             <ReasonButton
               reason={pending ? 'Menyimpan…' : tech ? null : 'Pilih teknisi dulu.'}
               onClick={() =>
-                advance('tiket.diterima', `diterima IPSRS, teknisi ${tech}`, { technician: tech }, () => setTech(''))
+                advance('tiket.diterima', `diterima IPSRS, teknisi ${tech}`, { technician: tech }, () =>
+                  setTech(''),
+                )
               }
             >
               Terima dan tetapkan teknisi
@@ -160,7 +162,11 @@ export function RepairTab({
           </div>
         ) : t.stage === 1 ? (
           <span>
-            <Button variant="primary" disabled={pending} onClick={() => advance('tiket.dikerjakan', 'mulai dikerjakan')}>
+            <Button
+              variant="primary"
+              disabled={pending}
+              onClick={() => advance('tiket.dikerjakan', 'mulai dikerjakan')}
+            >
               Mulai kerjakan
             </Button>
           </span>
@@ -198,7 +204,9 @@ export function RepairTab({
                     ? 'Anda yang menyelesaikan perbaikan: konfirmasi oleh pengguna unit lain (pemisahan tugas).'
                     : null
               }
-              onClick={() => advance('tiket.ditutup', `${t.unit} mengonfirmasi alat berfungsi; tiket ditutup`)}
+              onClick={() =>
+                advance('tiket.ditutup', `${t.unit} mengonfirmasi alat berfungsi; tiket ditutup`)
+              }
             >
               Konfirmasi unit dan tutup
             </ReasonButton>

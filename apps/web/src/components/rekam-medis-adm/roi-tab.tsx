@@ -92,7 +92,8 @@ export function RoiTab({
     const at = i === 1 ? s.verifiedAt : i === 2 ? s.approvedAt : i === 3 ? s.fulfilledAt : null;
     return at ? formatTanggalWaktu(at) : null;
   };
-  const who = (i: number) => (i === 1 ? s.verifiedBy : i === 2 ? s.approvedBy : i === 3 ? s.fulfilledBy : null)?.name;
+  const who = (i: number) =>
+    (i === 1 ? s.verifiedBy : i === 2 ? s.approvedBy : i === 3 ? s.fulfilledBy : null)?.name;
 
   const verify = () =>
     act(
@@ -112,11 +113,7 @@ export function RoiTab({
         : `${r.number}: berkas bertanda air dikirim ke ${r.requester} · ${demoStamp().jam}; tautan sekali pakai berlaku 24 jam dan tercatat di log akses pasien.`,
     );
   const reject = (reason: string) =>
-    act(
-      { type: 'roi.ditolak', id: r.id, reason, when: demoStamp().when },
-      null,
-      () => setRejecting(false),
-    );
+    act({ type: 'roi.ditolak', id: r.id, reason, when: demoStamp().when }, null, () => setRejecting(false));
 
   return (
     <div className="flex flex-col gap-4">

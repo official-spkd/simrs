@@ -76,14 +76,15 @@ export function CredentialBoard({
   const empByName = new Map(employees.map((e) => [e.name, e]));
   const a = applications.find((x) => x.id === sel);
   const p = a ? store.apps[a.id] : undefined;
-  const s = a && p
-    ? {
-        ...p,
-        docs: docDraft[a.id] ?? p.docs,
-        decisions: p.stage > 1 ? p.decisions : { ...p.decisions, ...(decDraft[a.id] ?? {}) },
-        note: p.stage > 1 ? p.note : (noteDraft[a.id] ?? ''),
-      }
-    : undefined;
+  const s =
+    a && p
+      ? {
+          ...p,
+          docs: docDraft[a.id] ?? p.docs,
+          decisions: p.stage > 1 ? p.decisions : { ...p.decisions, ...(decDraft[a.id] ?? {}) },
+          note: p.stage > 1 ? p.note : (noteDraft[a.id] ?? ''),
+        }
+      : undefined;
   const stamp = (i: number) => {
     const at = s?.at[i as 1 | 2 | 3 | 4];
     const who = s?.by[i as 1 | 2 | 3 | 4];
@@ -150,7 +151,9 @@ export function CredentialBoard({
               key={d.label}
               label={`${d.label}${d.ok ? '' : ' (susulan)'}`}
               checked={s.docs[i] ?? false}
-              onChange={(v) => setDocDraft((cur) => ({ ...cur, [a.id]: s.docs.map((x, j) => (j === i ? v : x)) }))}
+              onChange={(v) =>
+                setDocDraft((cur) => ({ ...cur, [a.id]: s.docs.map((x, j) => (j === i ? v : x)) }))
+              }
             />
           ))}
           <ReasonButton
@@ -403,9 +406,7 @@ export function CredentialBoard({
               reason={testWho && testItem ? null : 'Pilih praktisi dan tindakan dulu.'}
               variant="secondary"
               onClick={() =>
-                setTestResult(
-                  orderGuard(testWho, testItem, granted, licensesOf(store, testWho), today),
-                )
+                setTestResult(orderGuard(testWho, testItem, granted, licensesOf(store, testWho), today))
               }
             >
               Uji order

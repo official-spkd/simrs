@@ -117,7 +117,11 @@ function gate(s: CredentialStoreState, ev: CredentialEvent, actor: DemoActor): s
     }
     case 'komite.disetujui': {
       if (p.stage !== 2) return `${a.number} belum ditelaah atau sudah direkomendasikan.`;
-      const role = roleBlock(actor, COMMITTEE_ROLES, `Rekomendasi diputus rapat ${a.committee.toLowerCase()} (posisi Dokter).`);
+      const role = roleBlock(
+        actor,
+        COMMITTEE_ROLES,
+        `Rekomendasi diputus rapat ${a.committee.toLowerCase()} (posisi Dokter).`,
+      );
       if (role) return role;
       if (actor.name === a.practitioner) return 'Praktisi tidak bisa memutus pengajuannya sendiri.';
       if (p.by[2]?.userId === actor.userId)
@@ -147,7 +151,9 @@ export const credentialDomain = defineDomain<CredentialStoreState, CredentialEve
         licenses: {
           ...s.licenses,
           [d.employeeId]: cur.map((l) =>
-            l.kind === 'SIP' ? { kind: 'SIP' as const, number: `SIP ${d.number.trim()}`, expiry: d.until } : l,
+            l.kind === 'SIP'
+              ? { kind: 'SIP' as const, number: `SIP ${d.number.trim()}`, expiry: d.until }
+              : l,
           ),
         },
       };

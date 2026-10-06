@@ -29,13 +29,18 @@ const steps = (): Array<readonly [DatasetEvent, ReturnType<typeof actor>]> => [
 describe('I11 · domain toko dataset riset', () => {
   it('etik berlaku wajib; de-identifikasi dihitung ulang (k-anonimitas) di toko', () => {
     expect(
-      denied(datasetDomain, initialDataset(), { type: 'etik.dicatat', number: 'KEPK/1/26', until: '2026-01-01', when }, privasiA),
+      denied(
+        datasetDomain,
+        initialDataset(),
+        { type: 'etik.dicatat', number: 'KEPK/1/26', until: '2026-01-01', when },
+        privasiA,
+      ),
     ).toMatch(/tidak berlaku/);
     const s = applyAll(datasetDomain, steps().slice(0, 1));
     const leaky = { ...safeRules, age: 'pertahankan', district: 'pertahankan' } as const;
-    expect(denied(datasetDomain, s, { type: 'deid.diterapkan', rules: { ...leaky }, when }, privasiA)).toMatch(
-      /k-anonimitas/,
-    );
+    expect(
+      denied(datasetDomain, s, { type: 'deid.diterapkan', rules: { ...leaky }, when }, privasiA),
+    ).toMatch(/k-anonimitas/);
   });
 
   it('penyetuju rilis: petugas privasi, bukan penyusun de-identifikasi (ID sesi), bukan pemohon', () => {

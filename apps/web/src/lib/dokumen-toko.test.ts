@@ -9,10 +9,14 @@ const note = 'Catatan telaah cukup panjang';
 
 describe('B12 · domain toko dokumen regulasi', () => {
   it('setuju: posisi berhak, bukan penyusun (nama fixture atau ID sesi), catatan wajib', () => {
-    const s = applyAll(regDocsDomain, [[{ type: 'dokumen.ditelaah', id: 'doc-kep-014-v3', jam: '10.00' }, auditor]]);
+    const s = applyAll(regDocsDomain, [
+      [{ type: 'dokumen.ditelaah', id: 'doc-kep-014-v3', jam: '10.00' }, auditor],
+    ]);
     const ok: RegDocsEvent = { type: 'dokumen.disetujui', id: 'doc-kep-014-v3', note, jam: '10.01' };
     expect(denied(regDocsDomain, s, ok, actor('u-p', 'perawat'))).toMatch(/Auditor mutu atau Manajemen/);
-    expect(denied(regDocsDomain, s, ok, actor('u-x', 'manajemen', PERSONA.perawat))).toMatch(/pemisahan tugas/);
+    expect(denied(regDocsDomain, s, ok, actor('u-x', 'manajemen', PERSONA.perawat))).toMatch(
+      /pemisahan tugas/,
+    );
     expect(regDocsDomain.eventSchema.safeParse({ ...ok, note: 'pendek' }).success).toBe(false);
     expect(denied(regDocsDomain, s, ok, auditor)).toBeNull();
   });
@@ -37,9 +41,19 @@ describe('B12 · domain toko dokumen regulasi', () => {
   it('bukti hanya dokumen terbit, maksimal elemen bab; pengingat sekali per unit', () => {
     const s0 = initialRegDocs();
     expect(
-      denied(regDocsDomain, s0, { type: 'bukti.ditautkan', chapter: 'MRMIK', docId: 'doc-kep-014-v3', jam: '10.00' }, auditor),
+      denied(
+        regDocsDomain,
+        s0,
+        { type: 'bukti.ditautkan', chapter: 'MRMIK', docId: 'doc-kep-014-v3', jam: '10.00' },
+        auditor,
+      ),
     ).toMatch(/berlaku/);
-    const remind: RegDocsEvent = { type: 'baca.diingatkan', docId: 'doc-far-022-v4', unit: 'IGD', jam: '10.00' };
+    const remind: RegDocsEvent = {
+      type: 'baca.diingatkan',
+      docId: 'doc-far-022-v4',
+      unit: 'IGD',
+      jam: '10.00',
+    };
     const s = applyAll(regDocsDomain, [[remind, auditor]]);
     expect(denied(regDocsDomain, s, remind, auditor)).toMatch(/sudah dikirim/);
   });

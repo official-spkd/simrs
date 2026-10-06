@@ -2,15 +2,7 @@
 
 import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Chip } from '@simrs/ui';
-import {
-  FlashLine,
-  Panel,
-  ReasonButton,
-  StageTrack,
-  TableWrap,
-  TD,
-  TH,
-} from '@/components/backoffice/kit';
+import { FlashLine, Panel, ReasonButton, StageTrack, TableWrap, TD, TH } from '@/components/backoffice/kit';
 import { useTokoAction } from '@/components/backoffice/use-toko';
 import { demoStamp } from '@/lib/backoffice-toko';
 import {
@@ -31,7 +23,13 @@ import {
 
 const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 const BA_NUMBER = 'BAP-2026-003';
-const ROLE_TEXT = ['', 'komite RM (Petugas rekam medis/Manajemen)', 'direktur (Manajemen)', 'direktur (Manajemen)', 'petugas RM pelaksana'];
+const ROLE_TEXT = [
+  '',
+  'komite RM (Petugas rekam medis/Manajemen)',
+  'direktur (Manajemen)',
+  'direktur (Manajemen)',
+  'petugas RM pelaksana',
+];
 
 /**
  * B09 · Retensi dan pemusnahan berjejak: kandidat dihitung sistem (inaktif > masa retensi, tanpa legal hold,
@@ -68,7 +66,11 @@ export function RetentionTab({
   const totalHold = candidates.reduce((n, c) => n + c.legalHoldFiles, 0);
   const target = stage + 1;
   const roles: readonly string[] =
-    target === 1 ? DESTRUCTION_PROPOSER_ROLES : target === 2 || target === 3 ? DESTRUCTION_DIRECTOR_ROLES : [];
+    target === 1
+      ? DESTRUCTION_PROPOSER_ROLES
+      : target === 2 || target === 3
+        ? DESTRUCTION_DIRECTOR_ROLES
+        : [];
   const block = pending
     ? 'Menyimpan…'
     : (destructionStepBlock(stage, target) ??
@@ -187,7 +189,9 @@ export function RetentionTab({
               </ReasonButton>
             )}
             {stage < 4 && (
-              <span className="text-caption text-ink-500">Berikutnya dijalankan oleh: {ROLE_TEXT[target]}</span>
+              <span className="text-caption text-ink-500">
+                Berikutnya dijalankan oleh: {ROLE_TEXT[target]}
+              </span>
             )}
           </Panel>
         </div>

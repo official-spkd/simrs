@@ -68,7 +68,14 @@ export function LoanTab({
     const due = loanDueDate(today);
     const { jam } = demoStamp();
     act(
-      { type: 'berkas.dipinjam', fileId: file.id, unit, borrower: borrower.trim(), purpose: purpose.trim(), jam },
+      {
+        type: 'berkas.dipinjam',
+        fileId: file.id,
+        unit,
+        borrower: borrower.trim(),
+        purpose: purpose.trim(),
+        jam,
+      },
       `Berkas RM ${file.rm} keluar ${jam} ke ${unit}; kembali paling lambat ${formatTanggal(due)}${
         file.confidential ? ' · petugas privasi diberi tahu (pasien bertanda rahasia)' : ''
       }.`,
@@ -84,12 +91,18 @@ export function LoanTab({
     const l = loans.find((x) => x.id === loanId);
     const f = l ? byId.get(l.fileId) : undefined;
     const { jam, when } = demoStamp();
-    act({ type: 'berkas.kembali', loanId, when }, `Berkas RM ${f?.rm ?? ''} kembali ke rak ${f?.rack ?? ''} · ${jam}.`);
+    act(
+      { type: 'berkas.kembali', loanId, when },
+      `Berkas RM ${f?.rm ?? ''} kembali ke rak ${f?.rack ?? ''} · ${jam}.`,
+    );
   };
   const remind = (loanId: string) => {
     const l = loans.find((x) => x.id === loanId);
     const { jam } = demoStamp();
-    act({ type: 'pengingat.dikirim', loanId, jam }, `Pengingat keterlambatan terkirim ke ${l?.unit ?? 'peminjam'} · ${jam}.`);
+    act(
+      { type: 'pengingat.dikirim', loanId, jam },
+      `Pengingat keterlambatan terkirim ke ${l?.unit ?? 'peminjam'} · ${jam}.`,
+    );
   };
 
   return (
@@ -166,7 +179,12 @@ export function LoanTab({
                               <span className="sr-only"> berkas RM {f?.rm}</span>
                             </Button>
                             {st === 'terlambat' && !l.remindedAt && (
-                              <Button size="sm" variant="ghost" disabled={pending} onClick={() => remind(l.id)}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={pending}
+                                onClick={() => remind(l.id)}
+                              >
                                 Kirim pengingat
                                 <span className="sr-only"> untuk berkas RM {f?.rm}</span>
                               </Button>

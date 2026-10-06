@@ -4,7 +4,11 @@ import { formatTanggal } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useState } from 'react';
 import { STALE_TEXT } from '@/components/backoffice/use-toko';
-import { FAMILY_REQUEST as REQUEST, type PatientAppEvent, type PatientAppStoreState } from '@/lib/aplikasi-pasien-toko';
+import {
+  FAMILY_REQUEST as REQUEST,
+  type PatientAppEvent,
+  type PatientAppStoreState,
+} from '@/lib/aplikasi-pasien-toko';
 import { demoStamp } from '@/lib/backoffice-toko';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { useStoreAction } from '@/lib/demo/store/client';

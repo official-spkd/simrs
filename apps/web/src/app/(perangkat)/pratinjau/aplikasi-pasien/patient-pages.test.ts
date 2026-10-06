@@ -23,7 +23,10 @@ describe('aplikasi pasien · posisi antrean hidup dari papan antrean', () => {
     const home = waitingAtPoli();
     const q = home.queue;
     expect(q.stage).toBe('poli');
-    const far = applyLiveQueue(home, { current: 'PD-020', waiting: ['PD-021', 'PD-022', 'PD-023', 'PD-024', q.number] });
+    const far = applyLiveQueue(home, {
+      current: 'PD-020',
+      waiting: ['PD-021', 'PD-022', 'PD-023', 'PD-024', q.number],
+    });
     expect(far.queue).toMatchObject({ serving: 'PD-020', ahead: 4 });
     expect(far.notes).toEqual([]);
     const near = applyLiveQueue(home, { current: 'PD-023', waiting: ['PD-024', q.number] });

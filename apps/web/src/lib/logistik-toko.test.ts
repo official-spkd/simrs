@@ -69,7 +69,13 @@ describe('B01 · domain toko logistik', () => {
       [{ type: 'po.dikirim', po: 'PO-2610-032', jam: '10.54' }, apoteker],
     ]);
     const base = inputsFor(p.state, 'PO-2610-032');
-    const rec = buildReceipt(p.state, 'PO-2610-032', { 'seftriakson-1g': { ...base, received: '400' } }, false, '11.00');
+    const rec = buildReceipt(
+      p.state,
+      'PO-2610-032',
+      { 'seftriakson-1g': { ...base, received: '400' } },
+      false,
+      '11.00',
+    );
     if ('error' in rec) throw new Error(rec.error);
     expect(rec.event).toMatchObject({
       grn: 'GRN-2610-0145',
@@ -108,7 +114,12 @@ describe('B01 · domain toko logistik', () => {
     expect(buildReceipt(s0, 'PO-2610-031', {}, false, '10.00')).toMatchObject({
       error: expect.stringMatching(/belum dikirim/),
     });
-    const lines = { 'kasa-steril': '7000', 'benang-pga': '200', 'sarung-tangan-steril': '1000', 'spuit-3ml': '1000' };
+    const lines = {
+      'kasa-steril': '7000',
+      'benang-pga': '200',
+      'sarung-tangan-steril': '1000',
+      'spuit-3ml': '1000',
+    };
     const inputs = (over: Partial<Record<keyof typeof lines, string>> = {}) =>
       Object.fromEntries(
         Object.entries({ ...lines, ...over }).map(([k, v]) => [

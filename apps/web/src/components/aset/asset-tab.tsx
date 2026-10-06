@@ -59,7 +59,12 @@ export function AssetTab({
   const list: AssetState[] = assets.map((a) => {
     const c = calibration[a.id];
     return c
-      ? { ...a, lastCalibration: c.lastCalibration, nextCalibration: c.nextCalibration, withdrawn: c.withdrawn }
+      ? {
+          ...a,
+          lastCalibration: c.lastCalibration,
+          nextCalibration: c.nextCalibration,
+          withdrawn: c.withdrawn,
+        }
       : { ...a, withdrawn: false };
   });
   const [filter, setFilter] = useState<'tindakan' | 'semua'>('tindakan');
@@ -76,10 +81,10 @@ export function AssetTab({
   const block = pending
     ? 'Menyimpan…'
     : !result
-    ? 'Pilih hasil kalibrasi.'
-    : cert.trim().length < 5
-      ? 'Isi nomor sertifikat kalibrasi.'
-      : null;
+      ? 'Pilih hasil kalibrasi.'
+      : cert.trim().length < 5
+        ? 'Isi nomor sertifikat kalibrasi.'
+        : null;
   const overdueCritical = list.filter((a) => !a.withdrawn && statusOf(a).status === 'lewat');
 
   const save = () => {

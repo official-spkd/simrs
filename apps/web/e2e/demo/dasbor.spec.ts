@@ -36,7 +36,9 @@ test.describe('dasbor direksi', () => {
     await expect(alerts.getByText('4 terbuka')).toBeVisible();
     await alerts.getByRole('button', { name: 'Tandai ditindaklanjuti' }).first().click();
     await expect(alerts.getByText('3 terbuka')).toBeVisible();
-    await expect(alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · .* · tercatat di log direksi/)).toBeVisible();
+    await expect(
+      alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · .* · tercatat di log direksi/),
+    ).toBeVisible();
     await expect(page.getByText(/simulasi/)).toHaveCount(0);
     // Tanda tersimpan di toko demo (bukan penyimpanan sesi peramban): bertahan setelah muat ulang.
     await page.reload();
@@ -61,7 +63,9 @@ test.describe('dasbor direksi', () => {
     await expect(alerts).toContainText(/ICU 92% · \d+ pasien IGD menunggu/);
 
     await page.goto('/manajemen/logistik');
-    const enox = page.getByRole('region', { name: 'Pengadaan berjalan' }).getByRole('listitem', { name: /PO-2610-031/ });
+    const enox = page
+      .getByRole('region', { name: 'Pengadaan berjalan' })
+      .getByRole('listitem', { name: /PO-2610-031/ });
     await enox.getByRole('button', { name: 'Setujui PO-2610-031' }).click();
     await expect(enox).toContainText('Disetujui direktur');
     await page.goto('/manajemen/dasbor?periode=hari-ini');

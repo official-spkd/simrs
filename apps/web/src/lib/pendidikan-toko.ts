@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { actorRef, idSchema, jamSchema, must, roleBlock } from './backoffice-toko';
 import { type DemoActor, defineDomain } from './demo/store/define';
 import { LOGBOOK, TRAINEES } from './demo/fixtures/pendidikan';
-import { levelUpBlock, type LogbookEntry, returnBlock, type SupervisionLevel, verifiedCount } from './pendidikan';
+import {
+  levelUpBlock,
+  type LogbookEntry,
+  returnBlock,
+  type SupervisionLevel,
+  verifiedCount,
+} from './pendidikan';
 
 /**
  * B10 · Domain toko demo `pendidikan` (ADR-0085, CX-3): verifikasi/pengembalian logbook dan kenaikan tingkat
@@ -78,7 +84,10 @@ export const educationDomain = defineDomain<EducationStoreState, EducationEvent>
       return {
         ...s,
         levels: { ...s.levels, [d.traineeId]: level },
-        promotions: [{ traineeId: d.traineeId, level, reason: d.reason.trim(), jam: d.jam, by }, ...s.promotions],
+        promotions: [
+          { traineeId: d.traineeId, level, reason: d.reason.trim(), jam: d.jam, by },
+          ...s.promotions,
+        ],
       };
     }
     return {

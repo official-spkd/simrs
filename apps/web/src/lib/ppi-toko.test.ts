@@ -11,7 +11,12 @@ describe('B07 · domain toko PPI', () => {
   it('konfirmasi suspek menambah pembilang; sekali per kasus; kriteria wajib', () => {
     const x = HAI_SUSPECTS[0];
     if (!x) throw new Error('fixture');
-    const ok: PpiEvent = { type: 'suspek.dikonfirmasi', id: x.id, checks: HAI_CRITERIA[x.type].map(() => true), when };
+    const ok: PpiEvent = {
+      type: 'suspek.dikonfirmasi',
+      id: x.id,
+      checks: HAI_CRITERIA[x.type].map(() => true),
+      when,
+    };
     const none: PpiEvent = { ...ok, checks: HAI_CRITERIA[x.type].map(() => false) };
     expect(denied(ppiDomain, initialPpi(), none, ipcn)).toBeTruthy();
     const s = applyAll(ppiDomain, [[ok, ipcn]]);
@@ -20,7 +25,11 @@ describe('B07 · domain toko PPI', () => {
   });
 
   it('sensus sekali sehari menambah penyebut; observasi tangan mengubah kepatuhan', () => {
-    const census: PpiEvent = { type: 'sensus.dicatat', counts: { isk: 4, vap: 4, phlebitis: 4, ido: 4 }, jam: '10.00' };
+    const census: PpiEvent = {
+      type: 'sensus.dicatat',
+      counts: { isk: 4, vap: 4, phlebitis: 4, ido: 4 },
+      jam: '10.00',
+    };
     const s = applyAll(ppiDomain, [
       [census, ipcn],
       [{ type: 'hh.dicatat', profession: 'Dokter', moment: 0, action: 'tidak', jam: '10.01' }, ipcn],
@@ -37,9 +46,16 @@ describe('B07 · domain toko PPI', () => {
     const neg = initialPpi().rooms.find((r) => r.negativePressure && !r.occupiedBy);
     if (!plain || !neg) throw new Error('fixture');
     expect(
-      denied(ppiDomain, initialPpi(), { type: 'isolasi.ditempatkan', requestId: air.id, roomId: plain.id, jam: '10.00' }, ipcn),
+      denied(
+        ppiDomain,
+        initialPpi(),
+        { type: 'isolasi.ditempatkan', requestId: air.id, roomId: plain.id, jam: '10.00' },
+        ipcn,
+      ),
     ).toMatch(/negatif/);
-    const s = applyAll(ppiDomain, [[{ type: 'isolasi.ditempatkan', requestId: air.id, roomId: neg.id, jam: '10.00' }, ipcn]]);
+    const s = applyAll(ppiDomain, [
+      [{ type: 'isolasi.ditempatkan', requestId: air.id, roomId: neg.id, jam: '10.00' }, ipcn],
+    ]);
     expect(s.rooms.find((r) => r.id === neg.id)?.occupiedBy).toBe(air.rm);
   });
 });

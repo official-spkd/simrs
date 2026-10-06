@@ -67,7 +67,10 @@ export function BookingPanel({
                 onClick={() =>
                   run(
                     (r) =>
-                      patientAppAction({ event: { type: 'booking.dibatalkan', code: b.code, jam: demoStamp().jam }, rev: r }),
+                      patientAppAction({
+                        event: { type: 'booking.dibatalkan', code: b.code, jam: demoStamp().jam },
+                        rev: r,
+                      }),
                     (res) => done(res, `Booking ${b.code} dibatalkan.`),
                   )
                 }
@@ -82,7 +85,10 @@ export function BookingPanel({
       <span className="text-[13px] font-semibold">Pilih jadwal praktik (kuota JKN tersisa)</span>
       <ul aria-label="Jadwal tersedia" className="m-0 flex list-none flex-col gap-2 p-0">
         {shown.map((s) => (
-          <li key={s.slotId} className="flex items-center justify-between gap-2 rounded-[14px] border border-line bg-white p-3">
+          <li
+            key={s.slotId}
+            className="flex items-center justify-between gap-2 rounded-[14px] border border-line bg-white p-3"
+          >
             <span className="flex min-w-0 flex-col text-[13px]">
               <span className="font-semibold">
                 {s.poliName} · {formatTanggal(s.date)} {s.start}
@@ -95,15 +101,24 @@ export function BookingPanel({
               type="button"
               disabled={pending}
               onClick={() =>
-                run((r) => bookSlotAction({ slotId: s.slotId, jam: demoStamp().jam, rev: r }), (res) => done(res))
+                run(
+                  (r) => bookSlotAction({ slotId: s.slotId, jam: demoStamp().jam, rev: r }),
+                  (res) => done(res),
+                )
               }
               className={cx(BTN, 'shrink-0 border border-brand-800 bg-brand-600 text-white')}
             >
-              Pesan<span className="sr-only"> {s.poliName} {s.date} {s.start}</span>
+              Pesan
+              <span className="sr-only">
+                {' '}
+                {s.poliName} {s.date} {s.start}
+              </span>
             </button>
           </li>
         ))}
-        {shown.length === 0 && <li className="text-[13px] text-ink-500">Tidak ada jadwal tersedia minggu ini.</li>}
+        {shown.length === 0 && (
+          <li className="text-[13px] text-ink-500">Tidak ada jadwal tersedia minggu ini.</li>
+        )}
       </ul>
     </section>
   );

@@ -57,7 +57,13 @@ export async function getExecutiveDashboard(period: DashboardPeriod, session: Se
       ];
     if (a.id === 'stok')
       return enox && enox.daysOfCover < CRITICAL_COVER_DAYS
-        ? [{ ...a, title: `Stok enoksaparin ${String(enox.daysOfCover).replace('.', ',')} hari (< 7)`, detail: poText }]
+        ? [
+            {
+              ...a,
+              title: `Stok enoksaparin ${String(enox.daysOfCover).replace('.', ',')} hari (< 7)`,
+              detail: poText,
+            },
+          ]
         : [];
     return [a];
   });

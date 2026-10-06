@@ -24,12 +24,7 @@ import { recentComplaints, surveyResponses } from '../../demo/fixtures/pengalama
 import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
 import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
-import {
-  BUNDLES,
-  HAI_SUSPECTS,
-  ISOLATION_REQUESTS,
-  ppeAudits,
-} from '../../demo/fixtures/ppi';
+import { BUNDLES, HAI_SUSPECTS, ISOLATION_REQUESTS, ppeAudits } from '../../demo/fixtures/ppi';
 import type { SessionView } from '../../session-view';
 import { readDomain } from '../demo/state';
 import { boardOf, frontOfficeStore, loketOf } from './front-office/toko';
@@ -106,7 +101,12 @@ export type PpiData = Awaited<ReturnType<typeof getPpi>>;
 /** B02 · register aset, kalibrasi, dan tiket perbaikan. */
 export async function getAssets() {
   demoOnly('aset dan pemeliharaan');
-  return { assets: ASSETS, labs: CALIBRATION_LABS, technicians: TECHNICIANS, store: await readDomain('aset') };
+  return {
+    assets: ASSETS,
+    labs: CALIBRATION_LABS,
+    technicians: TECHNICIANS,
+    store: await readDomain('aset'),
+  };
 }
 export type AssetData = Awaited<ReturnType<typeof getAssets>>;
 

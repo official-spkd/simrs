@@ -41,7 +41,9 @@ describe('B05 · domain toko penggajian', () => {
     ]);
     const approve: PayrollEvent = { type: 'run.disetujui', when };
     expect(denied(payrollDomain, s, approve, akuntan)).toMatch(/pemisahan tugas/);
-    expect(denied(payrollDomain, s, approve, { ...direktur, userId: akuntan.userId })).toMatch(/pemisahan tugas/);
+    expect(denied(payrollDomain, s, approve, { ...direktur, userId: akuntan.userId })).toMatch(
+      /pemisahan tugas/,
+    );
     expect(denied(payrollDomain, s, approve, actor('u-x', 'perawat'))).toMatch(/Akuntan atau Manajemen/);
     expect(denied(payrollDomain, s, approve, direktur)).toBeNull();
   });
@@ -57,7 +59,11 @@ describe('B05 · domain toko penggajian', () => {
     const post = postingEvent(s, when);
     const forged = { ...post, journal: post.journal.map((j, i) => (i === 0 ? { ...j, debit: '1' } : j)) };
     expect(denied(payrollDomain, s, forged, akuntan)).toMatch(/tidak sesuai/);
-    const posted = applyAll(payrollDomain, [...steps, [post, akuntan], [{ type: 'slip.dikirim', jam: '11.00' }, akuntan]]);
+    const posted = applyAll(payrollDomain, [
+      ...steps,
+      [post, akuntan],
+      [{ type: 'slip.dikirim', jam: '11.00' }, akuntan],
+    ]);
     expect(posted.stage).toBe(3);
     expect(posted.slipsSent?.by.name).toBe('Akuntan Uji');
     expect(denied(payrollDomain, posted, { type: 'slip.dikirim', jam: '11.01' }, akuntan)).toMatch(/sudah/);

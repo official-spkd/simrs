@@ -39,7 +39,11 @@ export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; pa
   const ahead = queue.ahead;
   const serving = queue.serving;
   const pct =
-    ahead !== null ? Math.max(5, Math.round(100 - Math.min(ahead, 20) * 5)) : queue.stage === 'pulang' ? 100 : null;
+    ahead !== null
+      ? Math.max(5, Math.round(100 - Math.min(ahead, 20) * 5))
+      : queue.stage === 'pulang'
+        ? 100
+        : null;
 
   return (
     <section

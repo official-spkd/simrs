@@ -14,17 +14,36 @@ describe('B03 · domain toko SDM', () => {
   it('SIP kedaluwarsa diperbarui; pegawai keluar tidak bisa diproses lagi', () => {
     const expired = EMPLOYEES.find((e) => worstLicense(e.licenses, DEMO_TODAY).status === 'kedaluwarsa');
     if (!expired) throw new Error('fixture');
-    const sip: HrEvent = { type: 'sip.diperbarui', employeeId: expired.id, number: '9999/UM/0533', until: '2031-10-05', jam: '10.00' };
+    const sip: HrEvent = {
+      type: 'sip.diperbarui',
+      employeeId: expired.id,
+      number: '9999/UM/0533',
+      until: '2031-10-05',
+      jam: '10.00',
+    };
     const s = applyAll(hrDomain, [[sip, direktur]]);
     expect(worstLicense(s.employees[expired.id]?.licenses ?? [], DEMO_TODAY).status).not.toBe('kedaluwarsa');
     expect(denied(hrDomain, s, sip, direktur)).toMatch(/masih berlaku/);
     const out = applyAll(hrDomain, [
       [sip, direktur],
-      [{ type: 'pegawai.keluar', employeeId: expired.id, reason: 'Mengundurkan diri per 5 Okt', jam: '10.01' }, direktur],
+      [
+        {
+          type: 'pegawai.keluar',
+          employeeId: expired.id,
+          reason: 'Mengundurkan diri per 5 Okt',
+          jam: '10.01',
+        },
+        direktur,
+      ],
     ]);
     expect(out.employees[expired.id]?.left?.by).toBe('Direktur Uji');
     expect(
-      denied(hrDomain, out, { type: 'pegawai.keluar', employeeId: expired.id, reason: 'Ulang lagi keluar', jam: '10.02' }, direktur),
+      denied(
+        hrDomain,
+        out,
+        { type: 'pegawai.keluar', employeeId: expired.id, reason: 'Ulang lagi keluar', jam: '10.02' },
+        direktur,
+      ),
     ).toMatch(/sudah keluar/);
   });
 
@@ -33,7 +52,9 @@ describe('B03 · domain toko SDM', () => {
     const base = initialHr().roster;
     // Malam Sen → siang Sel untuk perawat yang sama.
     const night = base[0]?.M[0] ?? '';
-    expect(restViolations(assign(base, 1, 'S', night), 7).some((v) => v.shift === 'S' && v.staffId === night)).toBe(true);
+    expect(
+      restViolations(assign(base, 1, 'S', night), 7).some((v) => v.shift === 'S' && v.staffId === night),
+    ).toBe(true);
     // Tambah dinas sampai > 40 jam.
     let r = base;
     for (const d of [0, 1, 2, 3, 4, 5, 6]) r = assign(r, d, 'M', 'peg-0014');
@@ -57,7 +78,11 @@ describe('B03 · domain toko SDM', () => {
     const pub = applyAll(hrDomain, [...steps, [{ type: 'jadwal.diterbitkan', when }, direktur]]);
     expect(pub.published?.version).toBe(1);
     expect(denied(hrDomain, pub, steps[0]?.[0] as HrEvent, direktur)).toMatch(/revisi/);
-    const rev = applyAll(hrDomain, [...steps, [{ type: 'jadwal.diterbitkan', when }, direktur], [{ type: 'jadwal.direvisi', when }, direktur]]);
+    const rev = applyAll(hrDomain, [
+      ...steps,
+      [{ type: 'jadwal.diterbitkan', when }, direktur],
+      [{ type: 'jadwal.direvisi', when }, direktur],
+    ]);
     expect(rev).toMatchObject({ published: null, version: 2 });
   });
 });

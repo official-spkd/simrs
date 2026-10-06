@@ -59,6 +59,9 @@ export const doctorAppDomain = defineDomain<DoctorAppStoreState, DoctorAppEvent>
     must(gate(s, d, ev.actor));
     if (d.type === 'cosign.ditandatangani')
       return { ...s, signed: { ...s.signed, [d.noteId]: { jam: d.jam, by: ev.actor.name } } };
-    return { ...s, notes: { ...s.notes, [d.noteId]: { note: d.note.trim(), jam: d.jam, by: ev.actor.name } } };
+    return {
+      ...s,
+      notes: { ...s.notes, [d.noteId]: { note: d.note.trim(), jam: d.jam, by: ev.actor.name } },
+    };
   },
 });

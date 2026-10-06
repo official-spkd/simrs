@@ -3,7 +3,13 @@ import { z } from 'zod';
 import { type ActorRef, actorRef, jamSchema, type LogLine, must, pushLog } from './backoffice-toko';
 import { defineDomain } from './demo/store/define';
 import { PO_RECEIPT_LINES, PO_SUPPLIER } from './demo/fixtures/logistik-terima';
-import { EXPIRING, INVENTORY, LOGISTICS_KPI, OPEN_PO_ITEMS, PURCHASE_ORDERS } from './demo/fixtures/manajemen';
+import {
+  EXPIRING,
+  INVENTORY,
+  LOGISTICS_KPI,
+  OPEN_PO_ITEMS,
+  PURCHASE_ORDERS,
+} from './demo/fixtures/manajemen';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { grNumber, lineBlock, payableDue, type ReceiptLine } from './logistik-terima';
 import { CRITICAL_COVER_DAYS, daysOfCover, needsReorder, reorderPoint } from './manajemen';

@@ -51,7 +51,11 @@ export const ppiEventSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('hh.dicatat'),
     profession: z.enum(['Perawat', 'Dokter', 'Bidan', 'Penunjang']),
-    moment: z.number().int().min(0).max(HH_MOMENTS.length - 1),
+    moment: z
+      .number()
+      .int()
+      .min(0)
+      .max(HH_MOMENTS.length - 1),
     action: z.enum(['handrub', 'cuci', 'tidak']),
     jam: jamSchema,
   }),
@@ -62,7 +66,12 @@ export const ppiEventSchema = z.discriminatedUnion('type', [
     checks: z.array(z.boolean()).max(10),
     jam: jamSchema,
   }),
-  z.strictObject({ type: z.literal('isolasi.ditempatkan'), requestId: idSchema, roomId: idSchema, jam: jamSchema }),
+  z.strictObject({
+    type: z.literal('isolasi.ditempatkan'),
+    requestId: idSchema,
+    roomId: idSchema,
+    jam: jamSchema,
+  }),
 ]);
 export type PpiEvent = z.infer<typeof ppiEventSchema>;
 
@@ -79,7 +88,9 @@ export interface PpiStoreState {
 
 export function initialPpi(): PpiStoreState {
   return {
-    month: Object.fromEntries(Object.entries(HAI_MONTH).map(([k, v]) => [k, { ...v }])) as PpiStoreState['month'],
+    month: Object.fromEntries(
+      Object.entries(HAI_MONTH).map(([k, v]) => [k, { ...v }]),
+    ) as PpiStoreState['month'],
     decisions: {},
     census: null,
     handHygiene: handHygieneObservations(),
@@ -164,7 +175,10 @@ export const ppiDomain = defineDomain<PpiStoreState, PpiEvent>(PPI_DOMAIN, {
           ...s,
           bundleAudits: {
             ...s.bundleAudits,
-            [d.bundleId]: { total: a.total + 1, compliant: a.compliant + (bundleCompliant(d.checks) ? 1 : 0) },
+            [d.bundleId]: {
+              total: a.total + 1,
+              compliant: a.compliant + (bundleCompliant(d.checks) ? 1 : 0),
+            },
           },
         };
       }

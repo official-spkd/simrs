@@ -37,7 +37,8 @@ export interface CommandStoreState {
   acks: Record<string, CommandAck>;
 }
 
-export const alertKey = (a: { id: string; title: string; detail: string }) => `${a.id}|${a.title}|${a.detail}`;
+export const alertKey = (a: { id: string; title: string; detail: string }) =>
+  `${a.id}|${a.title}|${a.detail}`;
 
 export const commandDomain = defineDomain<CommandStoreState, CommandEvent>(COMMAND_CENTER_DOMAIN, {
   initial: () => ({ acks: {} }),

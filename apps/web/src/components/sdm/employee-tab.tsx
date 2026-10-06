@@ -155,7 +155,13 @@ export function EmployeeTab({
                   reason={sipBlock}
                   onClick={() =>
                     act(
-                      { type: 'sip.diperbarui', employeeId: e.id, number: sipNo.trim(), until: sipUntil, jam: at() },
+                      {
+                        type: 'sip.diperbarui',
+                        employeeId: e.id,
+                        number: sipNo.trim(),
+                        until: sipUntil,
+                        jam: at(),
+                      },
                       `SIP baru ${e.name} dicatat · ${at()}; kewenangan klinis aktif kembali setelah verifikasi komite medik.`,
                       () => {
                         setSipNo('');
@@ -196,7 +202,8 @@ export function EmployeeTab({
         <hr className="m-0 border-0 border-t border-line" />
         {s.left ? (
           <Alert level="info" title={`Pegawai keluar · ${s.left.jam} oleh ${s.left.by}`}>
-            Akun dinonaktifkan, semua penugasan diakhiri, dan sesi aktif dicabut otomatis. Alasan: {s.left.reason}.
+            Akun dinonaktifkan, semua penugasan diakhiri, dan sesi aktif dicabut otomatis. Alasan:{' '}
+            {s.left.reason}.
           </Alert>
         ) : askLeave ? (
           <ConfirmBox

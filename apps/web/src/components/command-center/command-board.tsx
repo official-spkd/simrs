@@ -180,7 +180,14 @@ export function CommandBoard({
                       onClick={() => {
                         const { jam } = demoStamp();
                         act(
-                          { type: 'alert.ditindaklanjuti', key: alertKey(a), title: a.title, action, note: note.trim(), jam },
+                          {
+                            type: 'alert.ditindaklanjuti',
+                            key: alertKey(a),
+                            title: a.title,
+                            action,
+                            note: note.trim(),
+                            jam,
+                          },
                           `Keputusan "${action}" untuk ${a.title.toLowerCase()} tercatat ${jam}; penanggung jawab diberi tahu.`,
                           () => setOpen(null),
                         );

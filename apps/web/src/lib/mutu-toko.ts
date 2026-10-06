@@ -22,7 +22,13 @@ export type QualityEvent = z.infer<typeof qualityEventSchema>;
 
 export interface QualityStoreState {
   discharges: Array<DischargeRecord & { encounterId: string; patientName: string }>;
-  deaths: Array<{ encounterId: string; patientName: string; diedAt: string; causeCode: string; causeLabel: string }>;
+  deaths: Array<{
+    encounterId: string;
+    patientName: string;
+    diedAt: string;
+    causeCode: string;
+    causeLabel: string;
+  }>;
   recomputed: { jam: string; by: string } | null;
 }
 

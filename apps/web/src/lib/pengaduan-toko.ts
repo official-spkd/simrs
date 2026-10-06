@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { actorRef, idSchema, must, whenSchema } from './backoffice-toko';
 import { defineDomain } from './demo/store/define';
-import { type Complaint, OPEN_COMPLAINTS, recentComplaints, surveyResponses } from './demo/fixtures/pengalaman';
+import {
+  type Complaint,
+  OPEN_COMPLAINTS,
+  recentComplaints,
+  surveyResponses,
+} from './demo/fixtures/pengalaman';
 import { answerBlock, type Grade, needsFollowUp, SURVEY_ASPECTS } from './pengalaman';
 
 /**
@@ -13,9 +18,24 @@ import { answerBlock, type Grade, needsFollowUp, SURVEY_ASPECTS } from './pengal
 export const COMPLAINT_DOMAIN = 'pengaduan';
 
 export const complaintEventSchema = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('aduan.digrading'), id: idSchema, grade: z.enum(['merah', 'kuning', 'hijau']), when: whenSchema }),
-  z.strictObject({ type: z.literal('aduan.ditindaklanjuti'), id: idSchema, text: z.string().trim().min(10).max(500), when: whenSchema }),
-  z.strictObject({ type: z.literal('aduan.dijawab'), id: idSchema, answer: z.string().trim().min(20).max(1000), when: whenSchema }),
+  z.strictObject({
+    type: z.literal('aduan.digrading'),
+    id: idSchema,
+    grade: z.enum(['merah', 'kuning', 'hijau']),
+    when: whenSchema,
+  }),
+  z.strictObject({
+    type: z.literal('aduan.ditindaklanjuti'),
+    id: idSchema,
+    text: z.string().trim().min(10).max(500),
+    when: whenSchema,
+  }),
+  z.strictObject({
+    type: z.literal('aduan.dijawab'),
+    id: idSchema,
+    answer: z.string().trim().min(20).max(1000),
+    when: whenSchema,
+  }),
   z.strictObject({ type: z.literal('aduan.ditutup'), id: idSchema, when: whenSchema }),
   z.strictObject({ type: z.literal('survei.dijadikan-aduan'), responseId: idSchema, when: whenSchema }),
 ]);
@@ -35,7 +55,12 @@ export interface ComplaintStoreState {
 
 export function initialComplaints(): ComplaintStoreState {
   return {
-    complaints: OPEN_COMPLAINTS.map((c) => ({ ...c, stageNow: c.stage, answeredAt: null, log: [...c.actions] })),
+    complaints: OPEN_COMPLAINTS.map((c) => ({
+      ...c,
+      stageNow: c.stage,
+      answeredAt: null,
+      log: [...c.actions],
+    })),
     converted: {},
     seq: 25,
   };
@@ -66,7 +91,9 @@ function gate(s: ComplaintStoreState, ev: ComplaintEvent): string | null {
   }
   const c = s.complaints.find((x) => x.id === ev.id);
   if (!c) return 'Pengaduan tidak ditemukan.';
-  const need = { 'aduan.digrading': 0, 'aduan.ditindaklanjuti': 1, 'aduan.dijawab': 2, 'aduan.ditutup': 3 }[ev.type];
+  const need = { 'aduan.digrading': 0, 'aduan.ditindaklanjuti': 1, 'aduan.dijawab': 2, 'aduan.ditutup': 3 }[
+    ev.type
+  ];
   if (c.stageNow !== need) return `${c.number} tidak di tahap ini.`;
   return ev.type === 'aduan.dijawab' ? answerBlock(ev.answer) : null;
 }
@@ -115,13 +142,27 @@ export const complaintDomain = defineDomain<ComplaintStoreState, ComplaintEvent>
     const patch = (c: StoredComplaint): StoredComplaint => {
       switch (d.type) {
         case 'aduan.digrading':
-          return { ...c, grade: d.grade as Grade, stageNow: 1, log: [...c.log, { at: d.when, by, text: `Digrading ${d.grade}, diteruskan ke ${c.unit}` }] };
+          return {
+            ...c,
+            grade: d.grade as Grade,
+            stageNow: 1,
+            log: [...c.log, { at: d.when, by, text: `Digrading ${d.grade}, diteruskan ke ${c.unit}` }],
+          };
         case 'aduan.ditindaklanjuti':
           return { ...c, stageNow: 2, log: [...c.log, { at: d.when, by, text: d.text.trim() }] };
         case 'aduan.dijawab':
-          return { ...c, stageNow: 3, answeredAt: d.when, log: [...c.log, { at: d.when, by, text: 'Jawaban dikirim ke pelapor' }] };
+          return {
+            ...c,
+            stageNow: 3,
+            answeredAt: d.when,
+            log: [...c.log, { at: d.when, by, text: 'Jawaban dikirim ke pelapor' }],
+          };
         case 'aduan.ditutup':
-          return { ...c, stageNow: 4, log: [...c.log, { at: d.when, by, text: 'Pelapor menerima jawaban; pengaduan ditutup' }] };
+          return {
+            ...c,
+            stageNow: 4,
+            log: [...c.log, { at: d.when, by, text: 'Pelapor menerima jawaban; pengaduan ditutup' }],
+          };
       }
     };
     return { ...s, complaints: s.complaints.map((c) => (c.id === d.id ? patch(c) : c)) };

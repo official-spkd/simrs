@@ -53,7 +53,13 @@ export function CosignCard({
   const approve = () => {
     if (!cs) return;
     act(
-      { type: 'cosign.ditandatangani', noteId: cs.id, patientName: cs.patientName, rm: cs.rm, jam: demoStamp().jam },
+      {
+        type: 'cosign.ditandatangani',
+        noteId: cs.id,
+        patientName: cs.patientName,
+        rm: cs.rm,
+        jam: demoStamp().jam,
+      },
       null,
       () => setOpen(false),
     );

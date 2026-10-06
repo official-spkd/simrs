@@ -2,15 +2,7 @@
 
 import { Chip } from '@simrs/ui';
 import { useState } from 'react';
-import {
-  FlashLine,
-  Panel,
-  ReasonButton,
-  SelectField,
-  TableWrap,
-  TD,
-  TH,
-} from '@/components/backoffice/kit';
+import { FlashLine, Panel, ReasonButton, SelectField, TableWrap, TD, TH } from '@/components/backoffice/kit';
 import { useTokoAction } from '@/components/backoffice/use-toko';
 import { demoStamp } from '@/lib/backoffice-toko';
 import { HH_MOMENTS, type HhAction, type HhObservation, hhByProfession, hhCompliance } from '@/lib/ppi';

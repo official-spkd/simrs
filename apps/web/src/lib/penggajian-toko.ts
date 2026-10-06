@@ -12,13 +12,7 @@ import {
 } from './backoffice-toko';
 import { type DemoActor, defineDomain } from './demo/store/define';
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from './demo/fixtures/penggajian';
-import {
-  calculateBlock,
-  computeSlip,
-  journalBalanced,
-  type PayInput,
-  payrollJournal,
-} from './penggajian';
+import { calculateBlock, computeSlip, journalBalanced, type PayInput, payrollJournal } from './penggajian';
 
 /**
  * B05 · Domain toko demo `penggajian` (ADR-0085, CX-3): run gaji satu periode `draf → dihitung → disetujui →
@@ -115,7 +109,10 @@ const jl = (j: { account: string; debit: bigint; credit: bigint }) => ({
 });
 
 /** Isi kejadian posting yang benar untuk keadaan terkini (dipakai layar dan `validate`). */
-export function postingEvent(s: PayrollStoreState, when: string): Extract<PayrollEvent, { type: 'run.diposting' }> {
+export function postingEvent(
+  s: PayrollStoreState,
+  when: string,
+): Extract<PayrollEvent, { type: 'run.diposting' }> {
   return { type: 'run.diposting', number: PAYROLL_PERIOD.number, journal: payrollJournalOf(s).map(jl), when };
 }
 
@@ -137,7 +134,9 @@ function gate(s: PayrollStoreState, ev: PayrollEvent, actor: DemoActor): string 
       return calculateBlock(lines, s.imported);
     }
     case 'run.dikembalikan':
-      return s.stage === 1 ? null : 'Hanya run yang sudah dihitung (belum disetujui) yang bisa dikembalikan ke draf.';
+      return s.stage === 1
+        ? null
+        : 'Hanya run yang sudah dihitung (belum disetujui) yang bisa dikembalikan ke draf.';
     case 'run.disetujui':
       if (s.stage !== 1) return 'Run belum dihitung atau sudah disetujui.';
       if (!actor.role || !(PAYROLL_APPROVER_ROLES as readonly string[]).includes(actor.role))
@@ -181,7 +180,13 @@ export const payrollDomain = defineDomain<PayrollStoreState, PayrollEvent>(PAYRO
           log: log(jamOf(d.when), 'Run gaji dihitung'),
         };
       case 'run.dikembalikan':
-        return { ...s, stage: 0, preparedBy: null, at: {}, log: log(jamOf(d.when), 'Run dikembalikan ke draf') };
+        return {
+          ...s,
+          stage: 0,
+          preparedBy: null,
+          at: {},
+          log: log(jamOf(d.when), 'Run dikembalikan ke draf'),
+        };
       case 'run.disetujui':
         return {
           ...s,

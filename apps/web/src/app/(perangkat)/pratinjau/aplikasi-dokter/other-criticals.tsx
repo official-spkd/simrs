@@ -69,7 +69,13 @@ export function OtherCriticals({ items, rev }: { items: readonly AppCritical[]; 
                     (Date.parse(DEMO_NOW) - Date.parse(c.raisedAt) + (Date.now() - opened.current)) / 1000,
                   );
                   run(
-                    (r) => readbackCriticalAction({ id: c.id, value: v, rev: r, elapsedSeconds: Math.max(0, elapsed) }),
+                    (r) =>
+                      readbackCriticalAction({
+                        id: c.id,
+                        value: v,
+                        rev: r,
+                        elapsedSeconds: Math.max(0, elapsed),
+                      }),
                     (res) => setMsg({ id: c.id, ok: res.ok, text: res.stale ? STALE_TEXT : res.message }),
                   );
                 }}
@@ -95,7 +101,11 @@ export function OtherCriticals({ items, rev }: { items: readonly AppCritical[]; 
                   </button>
                 </span>
                 <span className="text-[12px] text-ink-700">
-                  {msg?.id === c.id ? msg.text : ok ? 'Siap dicatat ke Pusat hasil kritis.' : 'Ketik nilai yang Anda bacakan ulang ke pelapor.'}
+                  {msg?.id === c.id
+                    ? msg.text
+                    : ok
+                      ? 'Siap dicatat ke Pusat hasil kritis.'
+                      : 'Ketik nilai yang Anda bacakan ulang ke pelapor.'}
                 </span>
               </form>
             )}

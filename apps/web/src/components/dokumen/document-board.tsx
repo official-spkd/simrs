@@ -94,7 +94,9 @@ export function DocumentBoard({
             ['Jenis', `${doc.kind} · pemilik ${doc.owner}`],
             ['Penyusun', doc.author],
             ...(doc.approval
-              ? ([['Disetujui', `${doc.approval.by.name} · ${doc.approval.jam} · ${doc.approval.note}`]] as const)
+              ? ([
+                  ['Disetujui', `${doc.approval.by.name} · ${doc.approval.jam} · ${doc.approval.note}`],
+                ] as const)
               : []),
             ['Terbit', doc.publishedAt ? formatTanggal(doc.publishedAt) : 'belum'],
             ['Tinjau ulang', doc.reviewDue ? formatTanggal(doc.reviewDue) : '—'],
@@ -121,8 +123,8 @@ export function DocumentBoard({
           <div className="flex flex-col gap-3">
             <TextField label="Catatan telaah" rows={2} value={note} onChange={setNote} />
             <span className="text-small text-ink-700">
-              Penyusun: {doc.author}. Penyetuju = pengguna yang masuk (posisi Auditor mutu atau Manajemen), wajib
-              orang lain.
+              Penyusun: {doc.author}. Penyetuju = pengguna yang masuk (posisi Auditor mutu atau Manajemen),
+              wajib orang lain.
             </span>
             <ReasonButton
               reason={
@@ -326,12 +328,12 @@ export function DocumentBoard({
   const evidenceBlock = pending
     ? 'Menyimpan…'
     : !chapter
-    ? 'Pilih bab.'
-    : !evDoc
-      ? 'Pilih dokumen terbit sebagai bukti.'
-      : (evidence[chapter] ?? 0) >= (chapters.find((c) => c.code === chapter)?.elements ?? 0)
-        ? 'Semua elemen bab ini sudah berbukti.'
-        : null;
+      ? 'Pilih bab.'
+      : !evDoc
+        ? 'Pilih dokumen terbit sebagai bukti.'
+        : (evidence[chapter] ?? 0) >= (chapters.find((c) => c.code === chapter)?.elements ?? 0)
+          ? 'Semua elemen bab ini sudah berbukti.'
+          : null;
   const accreditation = (
     <div className="flex flex-wrap items-start gap-4">
       <div className="min-w-0 flex-[999_1_460px]">
