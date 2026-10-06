@@ -5,6 +5,7 @@ import { cx, Icon, type IconName } from '@simrs/ui';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
+import { FamilyAccess } from './family-access';
 import { GlucoseCard } from './glucose-card';
 import { buildPatientPages, isSubKey, type SubKey, type TabKey } from './patient-pages';
 import { QueueCard } from './queue-card';
@@ -66,7 +67,9 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
         aria-label="Isi aplikasi"
         className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 outline-none *:shrink-0"
       >
-        {page ? (
+        {sub === 'keluarga' ? (
+          <FamilyAccess onBack={() => setSub(null)} />
+        ) : page ? (
           <AppPageView
             page={page}
             onBack={sub ? () => setSub(null) : undefined}

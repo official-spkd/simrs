@@ -609,4 +609,29 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('I07 aplikasi pasien: persetujuan akses keluarga dengan lingkup data dan pencabutan', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/');
+    await page.goto('/pratinjau/aplikasi-pasien');
+    const phone = page.getByRole('region', { name: 'Pratinjau aplikasi pasien' });
+    await phone.getByRole('button', { name: 'Keluarga' }).click();
+    const family = phone.getByRole('region', { name: 'Akses keluarga' });
+    const approve = family.getByRole('button', { name: 'Setujui akses' });
+    await expect(approve).toBeDisabled();
+    await family.getByRole('checkbox', { name: /Hasil laboratorium/ }).check();
+    await family.getByText('30 hari', { exact: true }).click();
+    await expect(family.getByRole('radio', { name: '30 hari' })).toBeChecked();
+    await family
+      .getByRole('checkbox', { name: /Saya menyetujui Bayu Nugroho .* termasuk data kesehatan/ })
+      .check();
+    await approve.click();
+    await expect(family.getByRole('status')).toContainText('Akses Bayu Nugroho aktif');
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).toContainText(
+      'Hasil laboratorium',
+    );
+    await family.getByRole('button', { name: 'Cabut akses Ny. Ratih Nugroho' }).click();
+    await expect(family.getByRole('status')).toContainText('Akses Ny. Ratih Nugroho dicabut');
+  });
 });
