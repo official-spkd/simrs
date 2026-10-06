@@ -28,7 +28,7 @@ import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
-import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
+import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
@@ -131,7 +131,12 @@ export async function getPayroll() {
 /** B08 · persetujuan antibiotik cadangan, audit Gyssens, katalog restriksi. */
 export async function getAms() {
   demoOnly('PPRA');
-  return { requests: AMS_REQUESTS, restrictions: RESTRICTIONS, pending: GYSSENS_PENDING, done: GYSSENS_DONE };
+  return {
+    requests: AMS_REQUESTS,
+    restrictions: RESTRICTIONS,
+    pending: GYSSENS_PENDING,
+    store: await readDomain('ppra'),
+  };
 }
 
 /** B12 · dokumen regulasi berversi, distribusi baca, dan bukti akreditasi. */

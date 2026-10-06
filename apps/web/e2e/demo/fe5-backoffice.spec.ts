@@ -352,7 +352,7 @@ test.describe('FE5 · back office', () => {
   test('B08 PPRA: setujui/tolak beralasan, kedaluwarsa 24 jam, audit Gyssens, modul dimatikan per RS', async ({
     page,
   }) => {
-    const apoteker = await createAccount({ roles: ['apoteker'] });
+    const apoteker = await createAccount({ roles: ['apoteker'], displayName: 'Apoteker PPRA Fiktif' });
     await loginAs(page, apoteker, '/');
     await page.goto('/manajemen/ppra');
     await expect(
@@ -366,6 +366,7 @@ test.describe('FE5 · back office', () => {
       .fill('Syok septik dengan riwayat ESBL, de-eskalasi setelah kultur');
     await page.getByRole('button', { name: 'Simpan persetujuan' }).click();
     await expect(page.getByText(/AB-2610-021 Meropenem disetujui/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan|\(simulasi\)/)).toHaveCount(0);
 
     await page.getByRole('button', { name: /AB-2610-019/ }).click();
     await page.getByRole('button', { name: 'Tolak…' }).click();
@@ -394,7 +395,24 @@ test.describe('FE5 · back office', () => {
     const meropenem = page.getByRole('row', { name: /Meropenem/ });
     await expect(meropenem).toContainText('Langsung ke farmasi');
 
+    // Bertahan setelah muat ulang: putusan atas nama pengguna sesi, audit, dan modul mati.
+    await page.reload();
+    await expect(page.getByText('Modul PPRA tidak aktif', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Disetujui · .* oleh Apoteker PPRA Fiktif/)).toBeVisible();
+    await page.getByRole('tab', { name: 'Audit Gyssens' }).click();
+    await expect(page.getByText('Kategori IIIA', { exact: true })).toBeVisible();
+
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('B08 PPRA: penulis resep tidak bisa memutus permintaannya sendiri', async ({ page }) => {
+    const dokter = await createAccount({ roles: ['dokter'], displayName: 'dr. Kartika Sari, Sp.P' });
+    await loginAs(page, dokter, '/');
+    await page.goto('/manajemen/ppra');
+    await page.getByRole('button', { name: 'Setujui…' }).click();
+    await page.getByLabel('Pertimbangan klinis tim PPRA').fill('Pertimbangan yang cukup panjang untuk diuji');
+    await expect(page.getByRole('button', { name: 'Simpan persetujuan' })).toBeDisabled();
+    await expect(page.getByText(/Anda penulis resep ini/)).toBeVisible();
   });
   test('B12 dokumen: telaah → setuju (sesi ≠ penyusun) → terbit, versi baru disusun pengguna sesi, baca, bukti; bertahan', async ({
     page,

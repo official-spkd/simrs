@@ -1,11 +1,10 @@
 'use client';
 
-import { formatJam, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, Tabs } from '@simrs/ui';
 import { useState } from 'react';
 import {
   ConfirmBox,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -16,8 +15,9 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { AmsRequest, GyssensCase } from '@/lib/demo/fixtures/ppra';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   appropriateRate,
   approvalHoursLeft,
@@ -29,70 +29,74 @@ import {
   type Restriction,
   RESTRICTION_LABEL,
 } from '@/lib/ppra';
+import { MIN_MODULE_REASON, PPRA_TEAM_ROLES, type PpraStoreState } from '@/lib/ppra-toko';
 
 const R_TONE: Record<Restriction, ChipTone> = { bebas: 'success', pengawasan: 'warning', cadangan: 'danger' };
 
-interface Decision {
-  kind: 'setuju' | 'tolak';
-  reason: string;
-  alternative: string;
-  at: string;
-}
-
 /**
- * B08 · PPRA: antrean persetujuan antibiotik cadangan dari CPOE (kedaluwarsa 24 jam, putusan beralasan), audit
- * Gyssens berurutan, dan katalog restriksi. Modul bisa dimatikan per RS: order tidak lagi ditahan dan layar menjadi
- * baca saja.
+ * B08 · PPRA: antrean persetujuan antibiotik cadangan dari CPOE (kedaluwarsa 24 jam, putusan beralasan oleh tim
+ * PPRA = posisi Apoteker/Dokter, bukan penulis resep), audit Gyssens berurutan, dan katalog restriksi. Modul bisa
+ * dimatikan per RS: order tidak lagi ditahan dan layar menjadi baca saja. Tersimpan di toko demo (domain `ppra`).
  */
 export function PpraBoard({
   requests,
   restrictions,
-  pending,
-  done,
+  pending: cases,
+  state,
+  rev,
+  viewer,
   now,
 }: {
   requests: readonly AmsRequest[];
   restrictions: ReadonlyArray<{ drug: string; restriction: Restriction }>;
   pending: readonly GyssensCase[];
-  done: readonly string[];
+  state: PpraStoreState;
+  rev: number;
+  viewer: { name: string; role: string | null };
   now: string;
 }) {
-  const [moduleOn, setModuleOn] = useState(true);
+  const moduleOn = state.moduleOn;
+  const decisions = state.decisions;
+  const answers = state.answers;
+  const results = state.results;
   const [askToggle, setAskToggle] = useState(false);
   const [tab, setTab] = useState('persetujuan');
   const [sel, setSel] = useState(requests[0]?.id ?? '');
-  const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [kind, setKind] = useState<'setuju' | 'tolak' | null>(null);
   const [reason, setReason] = useState('');
   const [alternative, setAlternative] = useState('');
-  const [answers, setAnswers] = useState<Record<string, boolean[]>>({});
-  const [results, setResults] = useState<string[]>([...done]);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('ppra', rev);
+  const teamRole = !!viewer.role && (PPRA_TEAM_ROLES as readonly string[]).includes(viewer.role);
 
   const r = requests.find((x) => x.id === sel);
   const left = r ? approvalHoursLeft(r.requestedAt, now) : 0;
   const d = r ? decisions[r.id] : undefined;
   const expired = !d && left < 0;
-  const block = kind ? decisionBlock(kind, reason, alternative) : null;
+  const block = pending
+    ? 'Menyimpan…'
+    : !teamRole
+      ? 'Putusan diambil tim PPRA (posisi Apoteker atau Dokter).'
+      : r && viewer.name === r.prescriber
+        ? 'Anda penulis resep ini: putusan oleh anggota tim PPRA lain (pemisahan tugas).'
+        : kind
+          ? decisionBlock(kind, reason, alternative)
+          : null;
   const restrictionOf = (drug: string) => restrictions.find((x) => x.drug === drug)?.restriction ?? 'bebas';
 
   const decide = () => {
     if (!r || !kind || block) return;
-    const at = formatTanggalWaktu(demoNow());
-    setDecisions((cur) => ({
-      ...cur,
-      [r.id]: { kind, reason: reason.trim(), alternative: alternative.trim(), at },
-    }));
-    setFlash({
-      ok: kind === 'setuju',
-      text:
-        kind === 'setuju'
-          ? `${r.number} ${r.drug} disetujui · ${formatJam(demoNow())}; order dilepas ke farmasi, evaluasi ulang 72 jam (simulasi).`
-          : `${r.number} ${r.drug} ditolak · ${formatJam(demoNow())}; DPJP diberi tahu dengan saran ${alternative.trim()}.`,
-    });
-    setKind(null);
-    setReason('');
-    setAlternative('');
+    const { jam } = demoStamp();
+    act(
+      { type: 'putusan.dicatat', id: r.id, kind, reason: reason.trim(), alternative: alternative.trim(), jam },
+      kind === 'setuju'
+        ? `${r.number} ${r.drug} disetujui · ${jam}; order dilepas ke farmasi, evaluasi ulang 72 jam.`
+        : `${r.number} ${r.drug} ditolak · ${jam}; DPJP diberi tahu dengan saran ${alternative.trim()}.`,
+      () => {
+        setKind(null);
+        setReason('');
+        setAlternative('');
+      },
+    );
   };
 
   const approvals = (
@@ -146,7 +150,7 @@ export function PpraBoard({
             {d ? (
               <Alert
                 level={d.kind === 'setuju' ? 'success' : 'warning'}
-                title={`${d.kind === 'setuju' ? 'Disetujui' : 'Ditolak'} · ${d.at}`}
+                title={`${d.kind === 'setuju' ? 'Disetujui' : 'Ditolak'} · ${d.jam} oleh ${d.by.name}`}
               >
                 {d.reason}
                 {d.kind === 'tolak' && ` Saran: ${d.alternative}.`}
@@ -181,7 +185,7 @@ export function PpraBoard({
                   >
                     {kind === 'setuju' ? 'Simpan persetujuan' : 'Simpan penolakan'}
                   </ReasonButton>
-                  <Button variant="ghost" onClick={() => setKind(null)}>
+                  <Button variant="ghost" disabled={pending} onClick={() => setKind(null)}>
                     Batal
                   </Button>
                 </span>
@@ -208,7 +212,7 @@ export function PpraBoard({
   const audit = (
     <div className="flex flex-wrap items-start gap-4">
       <div className="flex min-w-0 flex-[999_1_460px] flex-col gap-4">
-        {pending.map((c) => {
+        {cases.map((c) => {
           const a = answers[c.id] ?? [];
           const res = gyssensResult(a);
           return (
@@ -219,7 +223,7 @@ export function PpraBoard({
                   level={res.category === '0' ? 'success' : 'warning'}
                   title={`Kategori ${res.category}`}
                 >
-                  {GYSSENS_LABEL[res.category]}. Umpan balik dikirim ke DPJP.
+                  {GYSSENS_LABEL[res.category]}. Diaudit {state.auditors[c.id] ?? '—'}; umpan balik dikirim ke DPJP.
                 </Alert>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -232,18 +236,16 @@ export function PpraBoard({
                       <Button
                         key={String(v)}
                         variant={v ? 'secondary' : 'primary'}
-                        disabled={!moduleOn}
+                        disabled={!moduleOn || !teamRole || pending}
                         onClick={() => {
-                          const next = [...a, v];
-                          setAnswers((cur) => ({ ...cur, [c.id]: next }));
-                          const out = gyssensResult(next);
-                          if (out.done) {
-                            setResults((cur) => [...cur, out.category]);
-                            setFlash({
-                              ok: true,
-                              text: `Audit RM ${c.rm}: kategori ${out.category} (${GYSSENS_LABEL[out.category]}) · ${formatJam(demoNow())}.`,
-                            });
-                          }
+                          const out = gyssensResult([...a, v]);
+                          const { jam } = demoStamp();
+                          act(
+                            { type: 'gyssens.dijawab', caseId: c.id, answer: v, jam },
+                            out.done
+                              ? `Audit RM ${c.rm}: kategori ${out.category} (${GYSSENS_LABEL[out.category]}) · ${jam}.`
+                              : null,
+                          );
                         }}
                       >
                         {v ? 'Ya' : 'Tidak'}
@@ -318,7 +320,7 @@ export function PpraBoard({
           <>
             <Chip tone={moduleOn ? 'success' : 'neutral'}>{moduleOn ? 'Aktif' : 'Tidak aktif'}</Chip>
             {!askToggle && (
-              <Button onClick={() => setAskToggle(true)}>
+              <Button disabled={pending} onClick={() => setAskToggle(true)}>
                 {moduleOn ? 'Matikan modul…' : 'Aktifkan modul…'}
               </Button>
             )}
@@ -340,16 +342,16 @@ export function PpraBoard({
           <ConfirmBox
             title={moduleOn ? 'Matikan modul PPRA untuk RS ini?' : 'Aktifkan modul PPRA untuk RS ini?'}
             confirmLabel={moduleOn ? 'Matikan' : 'Aktifkan'}
-            minReason={10}
+            minReason={MIN_MODULE_REASON}
             danger={moduleOn}
             onCancel={() => setAskToggle(false)}
             onConfirm={(why) => {
-              setModuleOn(!moduleOn);
-              setAskToggle(false);
-              setFlash({
-                ok: true,
-                text: `Modul PPRA ${moduleOn ? 'dimatikan' : 'diaktifkan'} · ${formatJam(demoNow())} · alasan: ${why}.`,
-              });
+              const { jam } = demoStamp();
+              act(
+                { type: 'modul.diubah', on: !moduleOn, reason: why, jam },
+                `Modul PPRA ${moduleOn ? 'dimatikan' : 'diaktifkan'} · ${jam} · alasan: ${why}.`,
+                () => setAskToggle(false),
+              );
             }}
           >
             {moduleOn

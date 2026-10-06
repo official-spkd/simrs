@@ -8,6 +8,7 @@ import { goLiveDomain } from '../../golive-toko';
 import { logisticsDomain } from '../../logistik-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
+import { ppraDomain } from '../../ppra-toko';
 import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
 import { regDocsDomain } from '../../dokumen-toko';
 import { referralDomain } from '../../rujukan-toko';
@@ -39,6 +40,7 @@ export const DEMO_DOMAINS = {
   pengaturan: settingsDomain,
   penggajian: payrollDomain,
   penjadwal: jobsDomain,
+  ppra: ppraDomain,
   regulasi: regDocsDomain,
   'rekam-medis-adm': recordsAdminDomain,
   rujukan: referralDomain,
