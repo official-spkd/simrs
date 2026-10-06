@@ -332,6 +332,58 @@ test.describe('I03 · konektor BPJS', () => {
   });
 });
 
+test.describe('I04, I06, I12 · Kemenkes, perangkat, API publik', () => {
+  test('SIRS rawat inap tertahan validasi; setelah dilengkapi dikirim berkonfirmasi', async ({ page }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/integrasi/kemenkes');
+    await page
+      .getByRole('region', { name: 'Daftar laporan' })
+      .getByRole('button', { name: /kegiatan rawat inap/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail laporan' });
+    await expect(detail.getByRole('button', { name: 'Kirim ke Kemenkes' })).toBeDisabled();
+    await detail.getByRole('button', { name: 'Lengkapi dari rekam medis' }).click();
+    await detail.getByRole('button', { name: 'Kirim ke Kemenkes' }).click();
+    await detail.getByRole('button', { name: 'Ya, kirim' }).click();
+    await expect(detail.getByText(/tanda terima SIRS-2610-/)).toBeVisible();
+  });
+
+  test('gateway HL7: pesan cocok → ACK AA draf; nomor lab asing → AE; PID tersamar', async ({ page }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/integrasi/perangkat');
+    const form = page.getByRole('form', { name: 'Simulasi pesan masuk' });
+    await form.getByRole('button', { name: 'Kirim ke gateway' }).click();
+    const log = page.getByRole('region', { name: 'Log pesan gateway' });
+    await expect(log.getByRole('listitem').first()).toContainText('ACK AA');
+    await expect(log).toContainText('sebagai draf');
+    await expect(log).toContainText('PID|||•••');
+    await form
+      .getByLabel('Pesan contoh')
+      .selectOption({ label: 'Hematologi · L2610059999 (nomor lab tidak dikenal)' });
+    await form.getByRole('button', { name: 'Kirim ke gateway' }).click();
+    await expect(log.getByRole('listitem').first()).toContainText('ACK AE');
+  });
+
+  test('API publik: cakupan klinis wajib dasar persetujuan; rotasi kunci berkonfirmasi', async ({ page }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/integrasi/api-publik');
+    const form = page.getByRole('form', { name: 'Daftarkan klien baru' });
+    await form.getByLabel('Nama klien').fill('Mitra D');
+    await form.getByLabel('Tujuan pemakaian').fill('Integrasi hasil lab untuk klinik rujukan');
+    await form.getByRole('checkbox', { name: 'Observation.read' }).check();
+    await form.getByRole('button', { name: 'Daftarkan klien' }).click();
+    await expect(form.getByRole('alert')).toContainText('wajib dasar persetujuan');
+    await form.getByLabel(/Dasar persetujuan/).fill('PKS No. 22/2026 dengan klinik rujukan');
+    await form.getByRole('button', { name: 'Daftarkan klien' }).click();
+    await expect(page.getByRole('article', { name: 'Klien Mitra D' })).toBeVisible();
+    const asuransi = page.getByRole('article', { name: 'Klien Asuransi mitra A' });
+    await expect(asuransi).toContainText('Rotasi dalam');
+    await asuransi.getByRole('button', { name: 'Rotasi kunci' }).click();
+    await asuransi.getByRole('button', { name: 'Ya, rotasi kunci' }).click();
+    await expect(asuransi).toContainText('Kunci berlaku 365 hari');
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

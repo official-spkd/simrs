@@ -6,8 +6,21 @@ import {
   demoBookings,
   demoHfis,
 } from '../../demo/fixtures/integrasi-bpjs';
+import { demoAccessLog, demoApiClients } from '../../demo/fixtures/integrasi-api-publik';
+import { demoKemenkesReports } from '../../demo/fixtures/integrasi-kemenkes';
+import {
+  DEVICES,
+  type GatewayDevice,
+  PRESET_MESSAGES,
+  type PresetMessage,
+  PROCESSED_TODAY,
+} from '../../demo/fixtures/integrasi-perangkat';
+import { demoLabSamples } from '../../demo/fixtures/penunjang';
 import { demoSatusehatVisits } from '../../demo/fixtures/integrasi-satusehat';
-import { DEMO_NOW } from '../../demo/fixtures/waktu';
+import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
+import type { AccessLog, ApiClient } from '../../integrasi-api-publik';
+import type { KemenkesReport } from '../../integrasi-kemenkes';
+import type { Specimen } from '../../integrasi-perangkat';
 import type { BedClassRow, BookingTasks, BpjsService, HfisRow } from '../../integrasi-bpjs';
 import type { Visit } from '../../integrasi-satusehat';
 import { assertDemo } from '../demo-guard';
@@ -50,4 +63,43 @@ export async function getBpjsConnector(): Promise<BpjsData> {
     aplicareLastSync: APLICARE_LAST_SYNC,
     hfis: demoHfis(),
   };
+}
+
+export async function getKemenkesReports(): Promise<{ asOf: string; reports: KemenkesReport[] }> {
+  if (!isDemo()) return notImplemented('konektor Kemenkes');
+  return { asOf: DEMO_NOW, reports: demoKemenkesReports() };
+}
+
+export interface GatewayData {
+  asOf: string;
+  devices: readonly GatewayDevice[];
+  presets: readonly PresetMessage[];
+  processed: readonly string[];
+  specimens: Specimen[];
+}
+
+/** Spesimen yang dikenal gateway = worklist Laboratorium hari demo (nomor lab + sudah diterima atau belum). */
+export async function getDeviceGateway(): Promise<GatewayData> {
+  if (!isDemo()) return notImplemented('device gateway');
+  return {
+    asOf: DEMO_NOW,
+    devices: DEVICES,
+    presets: PRESET_MESSAGES,
+    processed: PROCESSED_TODAY,
+    specimens: demoLabSamples().map((s) => ({
+      labNo: s.labNo,
+      patientName: s.patient.name,
+      received: s.receivedAt !== null,
+    })),
+  };
+}
+
+export async function getApiClients(): Promise<{
+  asOf: string;
+  today: string;
+  clients: ApiClient[];
+  log: AccessLog[];
+}> {
+  if (!isDemo()) return notImplemented('API publik dan FHIR');
+  return { asOf: DEMO_NOW, today: DEMO_TODAY, clients: demoApiClients(), log: demoAccessLog() };
 }

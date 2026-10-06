@@ -156,6 +156,27 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'bpjs', label: 'BPJS', href: '/sistem/integrasi/bpjs', icon: 'plug', available: false },
+      {
+        id: 'kemenkes',
+        label: 'Kemenkes',
+        href: '/sistem/integrasi/kemenkes',
+        icon: 'plug',
+        available: false,
+      },
+      {
+        id: 'perangkat',
+        label: 'Perangkat medis',
+        href: '/sistem/integrasi/perangkat',
+        icon: 'plug',
+        available: false,
+      },
+      {
+        id: 'api-publik',
+        label: 'API publik',
+        href: '/sistem/integrasi/api-publik',
+        icon: 'plug',
+        available: false,
+      },
       // FE3 · akhir konektor
     ],
   },
