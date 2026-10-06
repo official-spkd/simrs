@@ -121,8 +121,15 @@ export const GUIDE_PAGES = [
     file: '19-peta-kode.md',
     title: 'Peta kode',
     summary:
-      'Web mode demo vs api, registri layar, pola menambah layar, dan peta 40 modul API beserta kematangannya.',
+      'Web mode demo vs api, registri 80 layar, pola menambah layar, peta modul API, dan utang mode front end dulu.',
     group: 'sistem',
+  },
+  {
+    slug: 'peta-alur-semua-fase',
+    file: '20-peta-alur-semua-fase.md',
+    title: 'Peta alur semua fase',
+    summary: 'Fase 0–10 → layar → rute → sumber data (demo, hibrida, api), dengan tautan ke panduan fitur.',
+    group: 'fitur',
   },
 ] as const satisfies readonly GuidePage[];
 

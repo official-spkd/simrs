@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 760" width="1000" height="760" role="img" aria-labelledby="judul ket">
+  <title id="judul">Peta fase ke kelompok layar</title>
+  <desc id="ket">Sebelas fase SIM RS (0 sampai 10) dengan status backend dan layar web per fase. Fase 0 sampai 2 selesai, fase 3 berjalan, fase 4 sampai 9 belum dibangun backend-nya tetapi semua layarnya sudah ada di mode presentasi, fase 10 sebagian. Registri SCREENS berisi 80 layar; layar fase 1 yang tersambung API berada di luar registri.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.row{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.leg{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.2}
+    .cok{fill:#EAF5EC;stroke:#1E6B34}.cwarn{fill:#FFF3E0;stroke:#8A4B00}.cno{fill:#F1F3F5;stroke:#98A6B3}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}.cap{font-size:11px;font-weight:700;letter-spacing:.08em;fill:#5B6B79}
+    .s{font-size:12px;fill:#14212B}.xs{font-size:11.5px;fill:#3F4C58}.cnt{font-size:12px;font-weight:600;fill:#0B5D56}
+    .chip{font-size:10.5px;font-weight:700}.tok{fill:#1E6B34}.twarn{fill:#8A4B00}.tno{fill:#5B6B79}
+    .num{fill:#0F766E}.numt{fill:#FFFFFF;font-size:12px;font-weight:700}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.row{fill:#15212A;stroke:#2A3945}.leg{fill:#0F302D;stroke:#3FB8AA}
+      .cok{fill:#12301D;stroke:#6FCF8A}.cwarn{fill:#362510;stroke:#F0B45A}.cno{fill:#1C2731;stroke:#55687A}
+      text{fill:#E6EDF3}.sub,.xs{fill:#B8C4CE}.cap,.tno{fill:#8FA1B0}.s{fill:#E6EDF3}.cnt{fill:#6FD3C6}.tok{fill:#6FCF8A}.twarn{fill:#F0B45A}
+      .num{fill:#3FB8AA}.numt{fill:#0E161C}
+    }
+  </style>
+  <rect class="bg" x="0" y="0" width="1000" height="760" rx="14"/>
+  <text class="h" x="24" y="38">Peta fase: dari fondasi sampai pilot</text>
+  <text class="sub" x="24" y="60">Status = backend fase itu (docs/PROGRESS.md). Layar fase 2–10 sudah ada di mode presentasi sebelum backend-nya jadi (ADR-0023).</text>
+  <text class="cap" x="24" y="86">FASE · BACKEND</text>
+  <text class="cap" x="214" y="86">LAYAR (SUMBER DATA)</text>
+  <text class="cap" x="384" y="86">KELOMPOK LAYAR</text>
+  <rect class="row" x="24" y="96" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="120" r="15"/><text class="numt" x="50" y="124" text-anchor="middle">0</text>
+  <text class="t" x="76" y="117">Fondasi</text>
+  <rect class="cok" x="76" y="124" width="74" height="16" rx="8"/><text class="chip tok" x="113" y="136" text-anchor="middle">selesai</text>
+  <text class="cnt" x="214" y="125">—</text>
+  <text class="s" x="384" y="117">Fondasi UI (/dev/ui), panduan superadmin, mock + panel kendali</text>
+  <text class="xs" x="384" y="135">RLS, outbox, worker, sistem desain Klinis Bersih</text>
+  <rect class="row" x="24" y="150" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="174" r="15"/><text class="numt" x="50" y="178" text-anchor="middle">1</text>
+  <text class="t" x="76" y="171">Platform inti</text>
+  <rect class="cok" x="76" y="178" width="74" height="16" rx="8"/><text class="chip tok" x="113" y="190" text-anchor="middle">selesai</text>
+  <text class="cnt" x="214" y="179">6 api · 5 demo</text>
+  <text class="s" x="384" y="171">api: Pengguna &amp; akses, Audit, MPI, Formulir, Notifikasi, PIN</text>
+  <text class="xs" x="384" y="189">demo: Struktur RS, Pengaturan, Data rujukan, Dokumen &amp; TTE, Penjadwal</text>
+  <rect class="row" x="24" y="204" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="228" r="15"/><text class="numt" x="50" y="232" text-anchor="middle">2</text>
+  <text class="t" x="76" y="225">Front office</text>
+  <rect class="cok" x="76" y="232" width="74" height="16" rx="8"/><text class="chip tok" x="113" y="244" text-anchor="middle">selesai</text>
+  <text class="cnt" x="214" y="233">5 hibrida · 1 api · 1 demo</text>
+  <text class="s" x="384" y="225">hibrida: Pendaftaran, Jadwal, Anjungan, Display antrean</text>
+  <text class="xs" x="384" y="243">api: Kendali antrean · demo: Rujukan, Info publik</text>
+  <rect class="row" x="24" y="258" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="282" r="15"/><text class="numt" x="50" y="286" text-anchor="middle">3</text>
+  <text class="t" x="76" y="279">Klinis RME</text>
+  <rect class="cwarn" x="76" y="286" width="74" height="16" rx="8"/><text class="chip twarn" x="113" y="298" text-anchor="middle">berjalan</text>
+  <text class="cnt" x="214" y="287">7 hibrida · 10 demo</text>
+  <text class="s" x="384" y="279">hibrida: Poli, CPOE, IGD, Tempat tidur, Rawat inap, Resume, Persetujuan</text>
+  <text class="xs" x="384" y="297">demo: Worklist, CPPT, Asesmen, Diagnosis, Konsul, Edukasi, Askep, Ringkasan, Paket, Kelengkapan</text>
+  <rect class="row" x="24" y="312" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="336" r="15"/><text class="numt" x="50" y="340" text-anchor="middle">4</text>
+  <text class="t" x="76" y="333">Penunjang</text>
+  <rect class="cno" x="76" y="340" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="352" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="341">10 demo</text>
+  <text class="s" x="384" y="333">Laboratorium, Radiologi, Farmasi, Kamar operasi, Hasil kritis</text>
+  <text class="xs" x="384" y="351">Depo, Bank darah, Gizi, Mikrobiologi &amp; PA, Diagnostik lain</text>
+  <rect class="row" x="24" y="366" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="390" r="15"/><text class="numt" x="50" y="394" text-anchor="middle">5</text>
+  <text class="t" x="76" y="387">Keuangan</text>
+  <rect class="cno" x="76" y="394" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="406" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="395">10 demo</text>
+  <text class="s" x="384" y="387">Kasir, Klaim &amp; koding, Akuntansi, Tarif &amp; paket, Charge capture</text>
+  <text class="xs" x="384" y="405">Piutang, Workbench koder, Jasa pelayanan, Kas &amp; bank, Hutang usaha</text>
+  <rect class="row" x="24" y="420" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="444" r="15"/><text class="numt" x="50" y="448" text-anchor="middle">6</text>
+  <text class="t" x="76" y="441">Pembayaran BTN</text>
+  <rect class="cno" x="76" y="448" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="460" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="449">2 demo</text>
+  <text class="s" x="384" y="441">Pembayaran digital TPDI × BTN, Pembiayaan BTN</text>
+  <text class="xs" x="384" y="459">dana langsung ke rekening RS (ADR-0005)</text>
+  <rect class="row" x="24" y="474" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="498" r="15"/><text class="numt" x="50" y="502" text-anchor="middle">7</text>
+  <text class="t" x="76" y="495">Integrasi</text>
+  <rect class="cno" x="76" y="502" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="514" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="503">6 demo</text>
+  <text class="s" x="384" y="495">Integration hub, SATUSEHAT, Konektor BPJS</text>
+  <text class="xs" x="384" y="513">Kemenkes (SIRS), Perangkat medis, API publik &amp; FHIR</text>
+  <rect class="row" x="24" y="528" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="552" r="15"/><text class="numt" x="50" y="556" text-anchor="middle">8</text>
+  <text class="t" x="76" y="549">Back office</text>
+  <rect class="cno" x="76" y="556" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="568" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="557">13 demo</text>
+  <text class="s" x="384" y="549">Logistik, Mutu, RM administratif, SDM, Kredensial, PPI, Aset</text>
+  <text class="xs" x="384" y="567">Penggajian, PPRA, Dokumen &amp; akreditasi, Pengaduan, Pendidikan, Onkologi</text>
+  <rect class="row" x="24" y="582" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="606" r="15"/><text class="numt" x="50" y="610" text-anchor="middle">9</text>
+  <text class="t" x="76" y="603">Dasbor + kanal</text>
+  <rect class="cno" x="76" y="610" width="74" height="16" rx="8"/><text class="chip tno" x="113" y="622" text-anchor="middle">belum</text>
+  <text class="cnt" x="214" y="611">6 demo</text>
+  <text class="s" x="384" y="603">Dasbor eksekutif, Command center, Costing &amp; case-mix, Dataset riset</text>
+  <text class="xs" x="384" y="621">pratinjau Aplikasi pasien dan Aplikasi dokter</text>
+  <rect class="row" x="24" y="636" width="952" height="48" rx="10"/>
+  <circle class="num" cx="50" cy="660" r="15"/><text class="numt" x="50" y="664" text-anchor="middle">10</text>
+  <text class="t" x="76" y="657">Simulasi + pilot</text>
+  <rect class="cwarn" x="76" y="664" width="74" height="16" rx="8"/><text class="chip twarn" x="113" y="676" text-anchor="middle">sebagian</text>
+  <text class="cnt" x="214" y="665">4 demo</text>
+  <text class="s" x="384" y="657">Simulasi pasien, Mode downtime, Cadangan &amp; pemulihan, Kesiapan go-live</text>
+  <text class="xs" x="384" y="675">backup terenkripsi, jangkar audit, rotasi kunci sudah (10.7–10.9)</text>
+  <rect class="leg" x="24" y="700" width="952" height="44" rx="10"/>
+  <text class="s" x="40" y="719"><tspan font-weight="700">api</tspan> = tersambung backend · <tspan font-weight="700">hibrida</tspan> = jalur demo + jalur api (izin sungguhan) · <tspan font-weight="700">demo</tspan> = data dummy fiktif (APP_ENV=local + DATA_SOURCE=demo)</text>
+  <text class="xs" x="40" y="736">Registri apps/web/src/lib/screens.ts: 80 layar. Layar fase 1 yang tersambung API (akses, audit, MPI, formulir, notifikasi, PIN) di luar registri.</text>
+</svg>
