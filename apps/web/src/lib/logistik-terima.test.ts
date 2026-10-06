@@ -60,6 +60,6 @@ describe('B01 · penerimaan barang', () => {
     expect(net.get('2-1110')).toBe(-f.invoiceAmount);
     // Jurnal GRN di Akuntansi memakai akun yang sama dengan Logistik.
     const grn = STATIC_JOURNALS.find((j) => j.id === 'ju-grn');
-    expect(grn?.lines.map((l) => l.account.code)).toEqual(['1-1410', '2-1120']);
+    expect(grn?.lines.map((l) => l.account?.code)).toEqual(['1-1410', '2-1120']);
   });
 });
