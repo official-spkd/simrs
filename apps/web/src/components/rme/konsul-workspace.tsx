@@ -1,18 +1,16 @@
 'use client';
 
-import { formatJam } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
+import { answerConsultAction, sendConsultAction } from '@/app/(staf)/klinis/konsultasi/actions';
 import { PERSONA } from '@/lib/demo/fixtures/staf';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { shortWhen } from '@/lib/rme';
 import {
   activeTeam,
   answerBlocker,
-  answerDueAt,
-  applyFollowUp,
   CARE_ROLE_LABEL,
   type CareTeamMember,
   CONSULT_KIND_LABEL,
@@ -39,14 +37,15 @@ const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-whi
 /**
  * K10 · Konsultasi antar-DPJP dan rawat bersama: kotak masuk konsul, kirim konsul (urgensi + pertanyaan klinis),
  * jawaban terstruktur oleh dokter konsultan, tindak lanjut ke tim perawatan (rawat bersama / alih rawat = versi
- * baru tim), akses konsultan berbatas waktu. Keadaan lokal (simulasi, tidak disimpan).
+ * baru tim), akses konsultan berbatas waktu. Konsul, jawaban, dan tim perawatan datang dari server (toko demo
+ * `rekam-medis`); jawaban hanya oleh dokter konsultan yang dituju (posisi dokter dari sesi).
  */
 export function KonsulWorkspace({
   encounterId,
-  patientId,
   patientNames,
-  initialConsults,
-  initialTeam,
+  consults,
+  team,
+  rev,
   consultants,
   role,
   user,
@@ -54,11 +53,12 @@ export function KonsulWorkspace({
   route,
 }: {
   encounterId: string;
-  patientId: string;
   /** Nama pasien per id (kotak masuk lintas pasien). */
   patientNames: Readonly<Record<string, string>>;
-  initialConsults: readonly ConsultRequest[];
-  initialTeam: readonly CareTeamMember[];
+  consults: readonly ConsultRequest[];
+  team: readonly CareTeamMember[];
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
   consultants: ReadonlyArray<{ name: string; specialty: string }>;
   role: string | null;
   user: string;
@@ -66,8 +66,7 @@ export function KonsulWorkspace({
   route: string;
 }) {
   const id = useId();
-  const [consults, setConsults] = useState<ConsultRequest[]>([...initialConsults]);
-  const [team, setTeam] = useState<CareTeamMember[]>([...initialTeam]);
+  const { run, pending } = useStoreAction(rev);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
   const [answering, setAnswering] = useState<string | null>(null);
   const [ans, setAns] = useState<Omit<ConsultAnswer, 'by' | 'at'>>({
@@ -84,7 +83,6 @@ export function KonsulWorkspace({
     question: '',
   });
   const [sendTried, setSendTried] = useState(false);
-  const [seq, setSeq] = useState(1);
   const inbox = consults.filter((c) => !c.answer && (role === 'dokter' || role === 'dokter_residen'));
   const mine = consults.filter((c) => c.encounterId === encounterId);
   /** Dokter yang diperankan posisi aktif (posisi dokter = DPJP persona demo); menentukan konsul mana yang boleh dijawab. */
@@ -95,16 +93,13 @@ export function KonsulWorkspace({
   const answer = (c: ConsultRequest) => {
     setAnsTried(true);
     if (answerBlocker(c, ans, role, actor)) return;
-    const at = demoNow().toISOString();
-    const full: ConsultAnswer = { ...ans, by: user, at };
-    setConsults((cur) => cur.map((x) => (x.id === c.id ? { ...x, answer: full } : x)));
-    setTeam(applyFollowUp(team, c, full, `${encounterId}-tim-baru-${seq}`));
-    setSeq((n) => n + 1);
-    setAnswering(null);
-    setMsg({
-      ok: true,
-      text: `Konsul dijawab · ${formatJam(at)} · ${FOLLOW_UP_LABEL[full.followUp]} (simulasi, tidak disimpan).`,
-    });
+    run(
+      (r) => answerConsultAction({ consultId: c.id, ...ans }, r),
+      (res) => {
+        setMsg({ ok: res.ok, text: res.message });
+        if (res.ok) setAnswering(null);
+      },
+    );
   };
 
   return (
@@ -264,7 +259,7 @@ export function KonsulWorkspace({
                           </p>
                         )}
                         <span className="flex gap-2">
-                          <Button type="submit" variant="primary">
+                          <Button type="submit" variant="primary" disabled={pending}>
                             Tanda tangani jawaban
                           </Button>
                           <Button onClick={() => setAnswering(null)}>Batal</Button>
@@ -284,29 +279,15 @@ export function KonsulWorkspace({
               e.preventDefault();
               setSendTried(true);
               if (sendBlock) return;
-              const at = demoNow().toISOString();
-              const target = consultants.find((c) => c.name === draft.to);
-              const c: ConsultRequest = {
-                id: `${encounterId}-konsul-baru-${seq}`,
-                encounterId,
-                patientId,
-                from: user,
-                to: draft.to,
-                toSpecialty: target?.specialty ?? '',
-                kind: draft.kind,
-                urgency: draft.urgency,
-                question: draft.question.trim(),
-                sentAt: at,
-                answer: null,
-              };
-              setConsults((cur) => [...cur, c]);
-              setSeq((n) => n + 1);
-              setDraft({ to: '', kind: 'sekali', urgency: 'biasa', question: '' });
-              setSendTried(false);
-              setMsg({
-                ok: true,
-                text: `Konsul terkirim ke ${c.to} · ${formatJam(at)} · jawab sebelum ${shortWhen(answerDueAt(c), at)} (simulasi, tidak disimpan).`,
-              });
+              run(
+                (r) => sendConsultAction({ encounterId, ...draft }, r),
+                (res) => {
+                  setMsg({ ok: res.ok, text: res.message });
+                  if (!res.ok) return;
+                  setDraft({ to: '', kind: 'sekali', urgency: 'biasa', question: '' });
+                  setSendTried(false);
+                },
+              );
             }}
           >
             <h3 className="m-0 text-small font-semibold">Kirim konsul baru</h3>
@@ -379,7 +360,7 @@ export function KonsulWorkspace({
                 {sendBlock}
               </p>
             )}
-            <Button type="submit" variant="primary" className="self-start">
+            <Button type="submit" variant="primary" className="self-start" disabled={pending}>
               Kirim konsul
             </Button>
           </form>

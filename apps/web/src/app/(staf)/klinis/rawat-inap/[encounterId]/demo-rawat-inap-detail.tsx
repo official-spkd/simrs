@@ -1,4 +1,4 @@
-import { formatTanggalLahir } from '@simrs/shared';
+import { formatJam, formatTanggalLahir } from '@simrs/shared';
 import { Chip, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,9 +7,12 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientById } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS, RESUME_ENCOUNTERS } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
-import { ewsLevel } from '@/lib/rawat-inap';
+import { canAdministerMeds, ewsLevel } from '@/lib/rawat-inap';
+import { emarGiven, emarLog } from '@/lib/rme-toko';
 import { screenById } from '@/lib/screens';
 import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/klinis/ranap';
+import { readRekam } from '@/lib/server/data/klinis/rekam';
+import { criticalNotices } from '@/lib/server/data/klinis/worklist';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { InpatientWorkspace } from './inpatient-workspace';
 import { INPATIENT_TABS, type InpatientTab } from './tabs';
@@ -22,7 +25,7 @@ function routeOf(id: string): string | null {
 
 /**
  * K04/K07/K12 · Rekam rawat inap satu pasien mode presentasi (mockup `Ranap.dc.html`): CPPT, eMAR, EWS, askep, hasil
- * (data fiktif, ADR-0023; dibekukan, jalur api diisi layar W4 di `page.tsx`).
+ * (data fiktif + toko demo `rekam-medis`, ADR-0023/0085; jalur api diisi layar W4 di `page.tsx`).
  */
 export async function DemoRawatInapDetail({
   access,
@@ -66,7 +69,14 @@ export async function DemoRawatInapDetail({
   if (!p) notFound();
   const ward = BANGSAL.find((w) => w.code === s.wardCode);
   const wardName = ward?.name ?? s.wardCode;
-  const step = await inpatientScenarioStep(session, p.scenario);
+  const [step, rekam, notices] = await Promise.all([
+    inpatientScenarioStep(session, p.scenario),
+    readRekam(),
+    criticalNotices(session),
+  ]);
+  // Aliran masuk: nilai kritis pasien ini dari Laboratorium / Pusat hasil kritis (domain `hasil-kritis`).
+  const critical = notices.filter((c) => c.rm === p.rm);
+  const roleCode = session.role?.code ?? null;
   const tab = INPATIENT_TABS.find((t) => t === wantedTab) ?? 'cppt';
   const guarantor = `${p.penjamin}${p.kelas ? ` ${p.kelas}` : ''}`;
   const primary = s.diagnoses.find((x) => x.primary) ?? s.diagnoses[0];
@@ -137,6 +147,26 @@ export async function DemoRawatInapDetail({
           EWS {s.lastEws} · {lv.level}
         </Chip>
       </div>
+      {critical.length > 0 && (
+        <section
+          aria-label="Nilai kritis pasien"
+          className="flex flex-col gap-1 rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3"
+        >
+          {critical.map((c) => (
+            <span key={`${c.test}-${c.valueText}`} className="text-small">
+              <span className="font-semibold text-danger-strong">
+                Nilai kritis: {c.test} · {c.valueText}
+              </span>
+              <span className="text-ink-700">
+                {' · '}
+                {c.report
+                  ? `dilaporkan ${c.report.reportedBy} ke ${c.report.recipient} (${c.report.recipientRole}) ${formatJam(c.report.reportedAt)} · read-back`
+                  : 'belum dilaporkan lab ke penerima'}
+              </span>
+            </span>
+          ))}
+        </section>
+      )}
       <nav aria-label="Tautan cepat pasien" className="flex flex-wrap gap-2">
         {quickLinks.map((l) =>
           l.href ? (
@@ -164,7 +194,12 @@ export async function DemoRawatInapDetail({
         patient={{ name: p.nama, rm: p.rm }}
         user={session.user.displayName}
         userRole={session.role?.name ?? null}
-        canCosign={session.role?.code === 'dokter'}
+        canCosign={roleCode === 'dokter'}
+        canNurse={roleCode === 'perawat' || roleCode === 'bidan'}
+        canObserve={canAdministerMeds(roleCode)}
+        rev={rekam.rev}
+        storedGiven={s.scenario ? {} : emarGiven(rekam.state, s.encounterId)}
+        storedLog={s.scenario ? [] : emarLog(rekam.state, s.encounterId)}
         initialTab={tab as InpatientTab}
         scenario={step}
         links={links}

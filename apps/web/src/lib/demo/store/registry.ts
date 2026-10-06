@@ -2,21 +2,29 @@ import { queueDomain } from '../../front-office-antrean';
 import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
+import { goLiveDomain } from '../../golive-toko';
+import { igdDomain } from '../../klinis-igd-toko';
+import { orderDomain } from '../../klinis-order-toko';
+import { poliDomain } from '../../klinis-poli-toko';
+import { oncologyDomain } from '../../onkologi-toko';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
-import { goLiveDomain } from '../../golive-toko';
 import { logisticsDomain } from '../../logistik-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { ppraDomain } from '../../ppra-toko';
 import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
 import { regDocsDomain } from '../../dokumen-toko';
-import { referralDomain } from '../../rujukan-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
 import { jobsDomain } from '../../platform-penjadwal-toko';
 import { structureDomain } from '../../platform-struktur-toko';
 import { terminologyDomain } from '../../platform-terminologi-toko';
+import { bedDomain } from '../../rawat-inap-bed-toko';
+import { consentDomain } from '../../rawat-inap-consent-toko';
+import { resumeDomain } from '../../rawat-inap-resume-toko';
+import { rekamDomain } from '../../rme-toko';
+import { referralDomain } from '../../rujukan-toko';
 import type { DomainDef, DomainSource } from './define';
 
 /**
@@ -35,16 +43,24 @@ export const DEMO_DOMAINS = {
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
   jadwal: scheduleDomain,
+  'klinis-igd': igdDomain,
+  'klinis-order': orderDomain,
+  'klinis-poli': poliDomain,
   logistik: logisticsDomain,
+  onkologi: oncologyDomain,
   pendaftaran: registrationDomain,
   pengaturan: settingsDomain,
   penggajian: payrollDomain,
   penjadwal: jobsDomain,
+  persetujuan: consentDomain,
   ppra: ppraDomain,
   regulasi: regDocsDomain,
+  'rekam-medis': rekamDomain,
   'rekam-medis-adm': recordsAdminDomain,
+  'resume-medis': resumeDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
+  'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
 } as const;
 

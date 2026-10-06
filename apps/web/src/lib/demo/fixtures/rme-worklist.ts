@@ -20,6 +20,7 @@ const KALIUM_YUSUF = { kind: 'baca-ulang', value: '6,4', unit: 'mmol/L' } as con
 const DOKTER: WorklistTask[] = [
   {
     id: id(E.yusuf, 'kalium'),
+    ref: { kind: 'kritis', test: 'Kalium' },
     kind: 'nilai-kritis',
     priority: 'kritis',
     encounterId: E.yusuf,
@@ -34,6 +35,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'cosign'),
+    ref: { kind: 'cppt', entryId: cpptNoteId(E.endang, 1) },
     kind: 'cosign',
     priority: 'tinggi',
     encounterId: E.endang,
@@ -60,6 +62,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(cpptNoteId(E.endang, 2), 'verifikasi'),
+    ref: { kind: 'cppt', entryId: cpptNoteId(E.endang, 2) },
     kind: 'verifikasi',
     priority: 'normal',
     encounterId: E.endang,
@@ -73,6 +76,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(cpptNoteId(E.endang, 6), 'verifikasi'),
+    ref: { kind: 'cppt', entryId: cpptNoteId(E.endang, 6) },
     kind: 'verifikasi',
     priority: 'normal',
     encounterId: E.endang,
@@ -99,6 +103,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(E.sutan, 'konsul'),
+    ref: { kind: 'konsul', consultId: `${E.sutan}-konsul-1` },
     kind: 'konsul',
     priority: 'tinggi',
     encounterId: E.sutan,
@@ -113,6 +118,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'resume'),
+    ref: { kind: 'resume' },
     kind: 'resume',
     priority: 'normal',
     encounterId: E.endang,
@@ -129,6 +135,7 @@ const DOKTER: WorklistTask[] = [
 const RESIDEN: WorklistTask[] = [
   {
     id: id(cpptNoteId(E.endang, 1), 'menunggu'),
+    ref: { kind: 'cppt', entryId: cpptNoteId(E.endang, 1) },
     kind: 'menunggu-cosign',
     priority: 'normal',
     encounterId: E.endang,
@@ -186,6 +193,7 @@ const RESIDEN: WorklistTask[] = [
 const PERAWAT: WorklistTask[] = [
   {
     id: id(E.yusuf, 'kalium-perawat'),
+    ref: { kind: 'kritis', test: 'Kalium' },
     kind: 'nilai-kritis',
     priority: 'kritis',
     encounterId: E.yusuf,
@@ -200,6 +208,7 @@ const PERAWAT: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'omeprazol'),
+    ref: { kind: 'emar', medicationId: `${E.endang}-obat-7`, time: '08.00' },
     kind: 'obat',
     priority: 'tinggi',
     encounterId: E.endang,
@@ -213,6 +222,7 @@ const PERAWAT: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'aspart'),
+    ref: { kind: 'emar', medicationId: `${E.endang}-obat-2`, time: '12.00' },
     kind: 'obat',
     priority: 'tinggi',
     encounterId: E.endang,
@@ -226,6 +236,7 @@ const PERAWAT: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'morse'),
+    ref: { kind: 'asesmen', formCode: 'morse_dewasa' },
     kind: 'reasesmen',
     priority: 'normal',
     encounterId: E.endang,
@@ -252,6 +263,7 @@ const PERAWAT: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'askep-pagi'),
+    ref: { kind: 'askep-evaluasi' },
     kind: 'askep',
     priority: 'normal',
     encounterId: E.endang,

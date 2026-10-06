@@ -5,7 +5,7 @@ import { KeyValues, PageHead, Panel } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ChemoBoard } from '@/components/onkologi/chemo-board';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
-import { getOncology } from '@/lib/server/data/backoffice';
+import { getOncologyView } from '@/lib/server/data/klinis/onkologi';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Onkologi' };
@@ -13,12 +13,12 @@ export const metadata: Metadata = { title: 'Onkologi' };
 /**
  * B11 · Onkologi (rencana fase 8 §8.5, struktur dasar, tanpa mockup): siklus kemoterapi dengan dosis LPT, gerbang
  * lab, dan verifikasi ganda; ringkasan registri kanker. Layar klinis: banner pasien selalu tampil. Mode presentasi
- * (ADR-0023).
+ * (ADR-0023): siklus tersimpan di toko demo `onkologi` (ADR-0085).
  */
 export default async function OnkologiPage() {
   const { screen, allowed } = await requireDemoScreen('onkologi');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const { patient: p, plan, labs, verifiers } = await getOncology();
+  const { patient: p, plan, labs, verifiers, cycle, rev } = await getOncologyView();
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +48,7 @@ export default async function OnkologiPage() {
           ]}
         />
       </Panel>
-      <ChemoBoard plan={plan} labs={labs} verifiers={verifiers} />
+      <ChemoBoard plan={plan} labs={labs} verifiers={verifiers} cycle={cycle} rev={rev} />
     </div>
   );
 }

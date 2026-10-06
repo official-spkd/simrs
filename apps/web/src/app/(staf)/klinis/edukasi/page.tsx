@@ -4,12 +4,12 @@ import { EdukasiWorkspace } from '@/components/rme/edukasi-workspace';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { consentIdOf } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS } from '@/lib/demo/fixtures/rawat-inap';
-import { DEFAULT_RECIPIENT, EDU_RECORDS, requiredTopics } from '@/lib/demo/fixtures/rme-edukasi';
+import { DEFAULT_RECIPIENT, requiredTopics } from '@/lib/demo/fixtures/rme-edukasi';
 import { chartPatient } from '@/lib/demo/fixtures/rme-pasien';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { openRoute } from '@/lib/rme';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { rmeChartFor } from '@/lib/server/data/klinis/rme';
+import { eduRecordsOf, rmeChart } from '@/lib/server/data/klinis/rme';
 
 export const metadata: Metadata = { title: 'Edukasi pasien' };
 
@@ -19,12 +19,13 @@ const EDUCATORS = ['dokter', 'dokter_residen', 'perawat', 'bidan'];
 
 /**
  * K11 · Edukasi pasien dan keluarga terintegrasi (`?pasien=`), melengkapi persetujuan tindakan di tablet. Mode
- * presentasi (ADR-0023); backend lewat formulir P07 menyusul (rencana fase 3 · 3.7).
+ * presentasi (ADR-0023): catatan rekam awal + toko demo `rekam-medis` (ADR-0085); backend lewat formulir P07
+ * menyusul (rencana fase 3 · 3.7).
  */
 export default async function EdukasiPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('edukasi');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const chart = rmeChartFor((await searchParams).pasien);
+  const { chart, state, rev } = await rmeChart((await searchParams).pasien);
   const p = chartPatient(chart);
   const role = session.role?.code ?? null;
   const consentRoute = openRoute('consent', role);
@@ -48,7 +49,8 @@ export default async function EdukasiPage({ searchParams }: { searchParams: Sear
         user={session.user.displayName}
         canEducate={!!role && EDUCATORS.includes(role)}
         required={requiredTopics(chart)}
-        initialRecords={EDU_RECORDS[chart.encounterId] ?? []}
+        records={eduRecordsOf(chart.encounterId, state)}
+        rev={rev}
         defaultRecipient={DEFAULT_RECIPIENT[chart.encounterId] ?? p.nama}
         consentHref={consentHref}
       />

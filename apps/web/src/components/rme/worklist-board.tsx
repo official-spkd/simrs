@@ -4,12 +4,12 @@ import { formatJam } from '@simrs/shared';
 import { Button, Chip, cx, KpiCard, TabList } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
+import { completeWorklistTaskAction } from '@/app/(staf)/klinis/worklist/actions';
 import { StatusFlag } from '@/components/klinis/status-flag';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { shortWhen } from '@/lib/rme';
 import {
   completionBlocker,
-  completionNote,
   dueLabel,
   isOverdue,
   PATIENT_STATUS_META,
@@ -17,6 +17,7 @@ import {
   readBackMatches,
   sortTasks,
   targetHref,
+  WORKLIST_FOLLOW_UPS,
   WORKLIST_KIND_LABEL,
   type WorklistDone,
   type WorklistPatient,
@@ -31,41 +32,43 @@ export interface WorklistPatientView extends WorklistPatient {
   allergies: readonly string[];
 }
 
-const FOLLOW_UPS = [
-  'Lapor ke DPJP dengan SBAR',
-  'Tata laksana sesuai protokol hiperkalemia',
-  'Ulang pemeriksaan dan pantau EKG',
-] as const;
-
 const PRIORITY_TONE = { kritis: 'danger', tinggi: 'warning', normal: 'neutral' } as const;
 
 /**
  * K01 · Papan worklist klinis: tugas tertunda per posisi, urut prioritas dan tenggat; nilai kritis wajib baca ulang
  * sebelum tercatat diterima; co-sign/verifikasi/tinjau order hanya DPJP; tugas lain menuju layar tindak lanjutnya.
- * Keadaan lokal (simulasi, tidak disimpan).
+ * Penyelesaian tersimpan di toko demo (`rekam-medis`); tugas juga selesai sendiri bila rekamnya diselesaikan di layar
+ * lain (co-sign di CPPT, dosis di eMAR, resume final).
  */
 export function WorklistBoard({
   role,
-  user,
   now,
   tasks,
+  done,
+  notes,
+  rev,
   patients,
   routes,
   screenLabels,
 }: {
   role: WorklistRole | null;
-  user: string;
   /** "Data per" (instan ISO) untuk tenggat. */
   now: string;
   tasks: readonly WorklistTask[];
+  /** Tugas selesai (server: rekam sumber + penyelesaian langsung). */
+  done: Readonly<Record<string, WorklistDone>>;
+  /** Keterangan tambahan per tugas (status pelaporan nilai kritis dari lab). */
+  notes: Readonly<Record<string, string>>;
+  /** Revisi toko `rekam-medis` yang dilihat layar. */
+  rev: number;
   patients: readonly WorklistPatientView[];
   /** Rute layar tindak lanjut yang terbuka untuk posisi ini (id layar → rute). */
   routes: Readonly<Record<string, string | null>>;
   screenLabels: Readonly<Record<string, string>>;
 }) {
   const [tab, setTab] = useState<'tugas' | 'pasien' | 'selesai'>('tugas');
-  const [done, setDone] = useState<Record<string, WorklistDone>>({});
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { run, pending } = useStoreAction(rev);
   const sum = worklistSummary(tasks, done, now);
   const open = sortTasks(
     tasks.filter((t) => !done[t.id]),
@@ -74,12 +77,20 @@ export function WorklistBoard({
   const finished = tasks.filter((t) => done[t.id]);
   const nameOf = (patientId: string) => patients.find((p) => p.patientId === patientId)?.name ?? '';
 
-  const complete = (task: WorklistTask, followUp?: string) => {
-    const at = demoNow().toISOString();
-    const note = completionNote(task, followUp);
-    setDone((cur) => ({ ...cur, [task.id]: { at, by: user, note } }));
-    setMsg(`${note} · ${formatJam(at)} · ${nameOf(task.patientId)} (simulasi, tidak disimpan)`);
-  };
+  const complete = (task: WorklistTask, readBack?: { value: string; follow: string }) =>
+    run(
+      (r) =>
+        completeWorklistTaskAction(
+          { taskId: task.id, readBack: readBack?.value ?? null, followUp: readBack?.follow ?? null },
+          r,
+        ),
+      (res) =>
+        setMsg(
+          res.ok
+            ? { ok: true, text: `${res.message} · ${nameOf(task.patientId)}` }
+            : { ok: false, text: res.message },
+        ),
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -91,10 +102,15 @@ export function WorklistBoard({
       </div>
       {msg && (
         <p
-          role="status"
-          className="m-0 rounded-control border border-success-border bg-success-bg px-3.5 py-2.5 text-small font-semibold text-success"
+          role={msg.ok ? 'status' : 'alert'}
+          className={cx(
+            'm-0 rounded-control border px-3.5 py-2.5 text-small font-semibold',
+            msg.ok
+              ? 'border-success-border bg-success-bg text-success'
+              : 'border-warning-border bg-warning-bg text-warning',
+          )}
         >
-          {msg}
+          {msg.text}
         </p>
       )}
       <TabList
@@ -128,7 +144,9 @@ export function WorklistBoard({
                 now={now}
                 route={t.target ? (routes[t.target.screen] ?? null) : null}
                 screenLabel={t.target ? (screenLabels[t.target.screen] ?? '') : ''}
-                onComplete={(f) => complete(t, f)}
+                note={notes[t.id] ?? null}
+                busy={pending}
+                onComplete={(rb) => complete(t, rb)}
               />
             ))}
           </ol>
@@ -213,6 +231,8 @@ function TaskCard({
   now,
   route,
   screenLabel,
+  note,
+  busy,
   onComplete,
 }: {
   task: WorklistTask;
@@ -220,7 +240,10 @@ function TaskCard({
   now: string;
   route: string | null;
   screenLabel: string;
-  onComplete: (followUp?: string) => void;
+  /** Keterangan dari layar lain (mis. status pelaporan nilai kritis oleh lab). */
+  note: string | null;
+  busy: boolean;
+  onComplete: (readBack?: { value: string; follow: string }) => void;
 }) {
   const id = useId();
   const [readBack, setReadBack] = useState<{ value: string; follow: string; tried: boolean } | null>(null);
@@ -261,6 +284,7 @@ function TaskCard({
           {task.title}
         </h2>
         <span className="text-small text-ink-700">{task.detail}</span>
+        {note && <span className="text-small font-semibold text-info">{note}</span>}
         {task.waitingFor && (
           <StatusFlag icon="clock" tone="warning" inline>
             {task.waitingFor}
@@ -277,14 +301,14 @@ function TaskCard({
             </Button>
           )}
           {a.kind === 'tandai-dibaca' && (
-            <Button variant="primary" disabled={!!blocker} onClick={() => onComplete()}>
+            <Button variant="primary" disabled={!!blocker || busy} onClick={() => onComplete()}>
               Tandai sudah dibaca
             </Button>
           )}
           {a.kind === 'cosign' && (
             <Button
               variant="primary"
-              disabled={!!blocker}
+              disabled={!!blocker || busy}
               aria-describedby={blocker ? `${id}-why` : undefined}
               onClick={() => onComplete()}
             >
@@ -294,7 +318,7 @@ function TaskCard({
           {a.kind === 'verifikasi' && (
             <Button
               variant="primary"
-              disabled={!!blocker}
+              disabled={!!blocker || busy}
               aria-describedby={blocker ? `${id}-why` : undefined}
               onClick={() => onComplete()}
             >
@@ -304,7 +328,7 @@ function TaskCard({
           {a.kind === 'setujui-order' && (
             <Button
               variant="primary"
-              disabled={!!blocker}
+              disabled={!!blocker || busy}
               aria-describedby={blocker ? `${id}-why` : undefined}
               onClick={() => onComplete()}
             >
@@ -341,7 +365,7 @@ function TaskCard({
             onSubmit={(e) => {
               e.preventDefault();
               setReadBack({ ...readBack, tried: true });
-              if (readOk && readBack.follow) onComplete(readBack.follow);
+              if (readOk && readBack.follow) onComplete({ value: readBack.value, follow: readBack.follow });
             }}
           >
             <span className="text-small font-semibold text-danger-strong">
@@ -373,7 +397,7 @@ function TaskCard({
                   className="h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]"
                 >
                   <option value="">Pilih tindak lanjut…</option>
-                  {FOLLOW_UPS.map((f) => (
+                  {WORKLIST_FOLLOW_UPS.map((f) => (
                     <option key={f} value={f}>
                       {f}
                     </option>
@@ -395,7 +419,11 @@ function TaskCard({
                   : 'Ketik nilai seperti yang Anda dengar dari pelapor.'}
             </span>
             <span className="flex flex-wrap gap-2">
-              <Button type="submit" variant="danger" disabled={!readBack.value.trim() || !readBack.follow}>
+              <Button
+                type="submit"
+                variant="danger"
+                disabled={!readBack.value.trim() || !readBack.follow || busy}
+              >
                 Simpan penerimaan
               </Button>
               <Button variant="ghost" onClick={() => setReadBack(null)}>

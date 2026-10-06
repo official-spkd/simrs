@@ -71,6 +71,12 @@ const id = (args.find((a) => !a.startsWith('--')) ?? '').toUpperCase();
 const execMode = args.includes('--exec');
 const dryRun = args.includes('--dry-run');
 const slot = SLOTS[id];
+if (id === 'CX-2' || id === 'CX-3') {
+  console.error(
+    `${id} diambil alih Claude Code (docs/13, pembaruan 6 Okt 2026); jalankan CX-1, CX-0, atau CX-4.`,
+  );
+  process.exit(2);
+}
 if (!slot) {
   console.error(`Pakai: node scripts/codex-tugas.mjs <${Object.keys(SLOTS).join('|')}> [--exec] [--dry-run]`);
   process.exit(2);

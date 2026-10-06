@@ -4,14 +4,20 @@ import { formatJam } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import {
+  cancelDocumentAction,
+  closeVisitAction,
+  cosignPendingAction,
+  deathCertificateAction,
+  retryTteAction,
+  uploadScanAction,
+} from '@/app/(staf)/klinis/kelengkapan/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { DEATH_CAUSES } from '@/lib/klinis-igd-toko';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { hasReason } from '@/lib/rme';
 import {
   cancelBlocker,
-  cancelDocument,
-  retryTte,
-  tteRetryBlocker,
   type CheckItem,
   closeBlocker,
   completeness,
@@ -19,6 +25,7 @@ import {
   type Disposition,
   DOC_STATUS_META,
   type PatientDocument,
+  tteRetryBlocker,
 } from '@/lib/rme-kelengkapan';
 import { Feedback, type FeedbackMsg, ReasonField } from './feedback';
 
@@ -34,64 +41,71 @@ const UPLOAD_KINDS = [
 /**
  * K13 · Dokumen pasien (kirim ulang TTE gagal, batal beralasan, unggah pindaian) dan daftar periksa kelengkapan DPJP
  * sebelum tutup kunjungan: tombol tutup nonaktif dengan alasannya sampai semua butir terpenuhi dan disposisi dipilih;
- * setelah ditutup rekam terkunci. Keadaan lokal (simulasi, tidak disimpan).
+ * setelah ditutup rekam terkunci. Daftar periksa dihitung server dari rekam layar asal (asesmen, CPPT, diagnosis,
+ * edukasi, resume, persetujuan) di toko demo; semua aksi tersimpan atas nama pengguna sesi. Disposisi meninggal
+ * mengikuti usulan K-1 (menunggu konfirmasi pemilik produk).
  */
 export function KelengkapanWorkspace({
   encounterId,
   role,
   user,
-  initialDocs,
-  initialItems,
+  dpjp,
+  isDpjp,
+  docs,
+  items,
+  closed,
+  rev,
   routes,
 }: {
   encounterId: string;
   role: string | null;
   user: string;
-  initialDocs: readonly PatientDocument[];
-  initialItems: readonly CheckItem[];
+  /** DPJP pasien ini (untuk keterangan gerbang K-1). */
+  dpjp: string;
+  /** Posisi aktif membawakan DPJP pasien ini (relasi dokter–pasien, K-1). */
+  isDpjp: boolean;
+  docs: readonly PatientDocument[];
+  items: readonly CheckItem[];
+  /** Kunjungan sudah ditutup (server). */
+  closed: { disposition: Disposition; by: string; at: string } | null;
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
   /** Rute layar perbaikan (id layar → rute) yang terbuka untuk posisi ini. */
   routes: Readonly<Record<string, string | null>>;
 }) {
   const id = useId();
-  const [docs, setDocs] = useState<PatientDocument[]>([...initialDocs]);
-  const [items, setItems] = useState<CheckItem[]>([...initialItems]);
+  const { run, pending } = useStoreAction(rev);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
   const [cancel, setCancel] = useState<{ id: string; reason: string; tried: boolean } | null>(null);
   const [upload, setUpload] = useState({ kind: '', note: '' });
   const [disposition, setDisposition] = useState<Disposition | ''>('');
-  const [closedAt, setClosedAt] = useState<string | null>(null);
-  const [seq, setSeq] = useState(1);
+  const [death, setDeath] = useState({ hm: '', cause: '', signed: false });
   const prog = completeness(items);
   const block = closeBlocker(items, { role, disposition, documents: docs });
-  const isDpjp = role === 'dokter';
-  const clock = () => demoNow().toISOString();
-  const say = (text: string) => setMsg({ ok: true, text: `${text} (simulasi, tidak disimpan).` });
+  const isDoctor = role === 'dokter';
+  const say = (res: { ok: boolean; message: string }) => setMsg({ ok: res.ok, text: res.message });
   const retryBlock = (docId: string) => {
     const doc = docs.find((d) => d.id === docId);
     return doc ? tteRetryBlocker(doc) : 'Dokumen tidak ditemukan.';
   };
-  const resolve = (itemId: string, detail: string) =>
-    setItems((cur) => cur.map((i) => (i.id === itemId ? { ...i, done: true, detail } : i)));
-
-  const retryTteDoc = (docId: string) => {
-    const at = clock();
-    const doc = docs.find((d) => d.id === docId);
-    if (!doc || tteRetryBlocker(doc)) return;
-    setDocs((cur) => cur.map((d) => (d.id === docId ? retryTte(d, user, at) : d)));
-    resolve(`tte-${docId}`, `TTE berhasil ${formatJam(at)}`);
-    say(`${doc?.title ?? 'Dokumen'} ber-TTE · ${formatJam(at)} (kirim ulang berhasil)`);
-  };
+  const hasDeathCertificate = docs.some(
+    (d) => d.title === 'Surat keterangan kematian' && d.status === 'final-tte',
+  );
+  const k1Block =
+    disposition === 'meninggal' && !isDpjp
+      ? `Disposisi meninggal hanya oleh DPJP pasien ini (${dpjp}).`
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
       <Feedback msg={msg} />
-      {closedAt && (
+      {closed && (
         <p
           role="status"
           className="m-0 rounded-control border border-success-border bg-success-bg px-3.5 py-2.5 font-semibold text-success"
         >
-          Kunjungan ditutup · {formatJam(closedAt)} · {disposition ? DISPOSITION_LABEL[disposition] : ''}.
-          Rekam medis terkunci; perubahan berikutnya lewat addendum.
+          Kunjungan ditutup · {formatJam(closed.at)} · {DISPOSITION_LABEL[closed.disposition]}. Rekam medis
+          terkunci; perubahan berikutnya lewat addendum.
         </p>
       )}
       <div className="flex flex-wrap items-start gap-4">
@@ -118,18 +132,14 @@ export function KelengkapanWorkspace({
                     {it.done ? '✓' : '✗'} {it.label}
                   </span>
                   <span className="text-caption text-ink-700">{it.detail}</span>
-                  {!it.done && !closedAt && fix && (
+                  {!it.done && !closed && fix && (
                     <span className="flex flex-wrap items-center gap-2">
                       {fix.kind === 'cosign' && (
                         <Button
                           size="sm"
                           variant="primary"
-                          disabled={!isDpjp}
-                          onClick={() => {
-                            const at = clock();
-                            resolve(it.id, `Co-sign DPJP ${formatJam(at)}`);
-                            say(`CPPT residen di-co-sign DPJP · ${formatJam(at)}`);
-                          }}
+                          disabled={!isDoctor || pending}
+                          onClick={() => run((r) => cosignPendingAction({ encounterId }, r), say)}
                         >
                           Co-sign sekarang
                         </Button>
@@ -138,9 +148,11 @@ export function KelengkapanWorkspace({
                         <Button
                           size="sm"
                           variant="primary"
-                          disabled={!isDpjp || retryBlock(fix.documentId) !== null}
+                          disabled={!isDoctor || retryBlock(fix.documentId) !== null || pending}
                           title={retryBlock(fix.documentId) ?? undefined}
-                          onClick={() => retryTteDoc(fix.documentId)}
+                          onClick={() =>
+                            run((r) => retryTteAction({ encounterId, docId: fix.documentId }, r), say)
+                          }
                         >
                           Kirim ulang TTE
                         </Button>
@@ -153,7 +165,7 @@ export function KelengkapanWorkspace({
                           Lengkapi di layar asal
                         </Link>
                       )}
-                      {!isDpjp && fix.kind !== 'layar' && (
+                      {!isDoctor && fix.kind !== 'layar' && (
                         <span className="text-caption text-ink-500">Diselesaikan DPJP (posisi dokter).</span>
                       )}
                     </span>
@@ -162,7 +174,7 @@ export function KelengkapanWorkspace({
               );
             })}
           </ul>
-          {!closedAt && (
+          {!closed && (
             <div className="flex flex-col gap-2 rounded-control bg-subtle p-3">
               <label htmlFor={`${id}-disp`} className="text-small font-semibold">
                 Disposisi
@@ -180,25 +192,103 @@ export function KelengkapanWorkspace({
                   </option>
                 ))}
               </select>
+              {disposition === 'meninggal' && !hasDeathCertificate && (
+                <form
+                  aria-label="Surat keterangan kematian"
+                  className="flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    run(
+                      (r) =>
+                        deathCertificateAction(
+                          {
+                            encounterId,
+                            diedAt: death.hm,
+                            causeCode: death.cause,
+                            certificateSigned: death.signed,
+                          },
+                          r,
+                        ),
+                      say,
+                    );
+                  }}
+                >
+                  <span className="text-caption text-ink-700">
+                    Aturan K-1 (usulan, menunggu konfirmasi pemilik produk): hanya DPJP pasien ini ({dpjp});
+                    jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE.
+                  </span>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`${id}-jam`} className="text-small font-semibold">
+                        Jam kematian (HH.MM)
+                      </label>
+                      <input
+                        id={`${id}-jam`}
+                        value={death.hm}
+                        maxLength={5}
+                        inputMode="numeric"
+                        onChange={(e) => setDeath((d) => ({ ...d, hm: e.target.value }))}
+                        className={cx(INPUT, 'font-mono')}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`${id}-sebab`} className="text-small font-semibold">
+                        Sebab kematian (ICD-10)
+                      </label>
+                      <select
+                        id={`${id}-sebab`}
+                        value={death.cause}
+                        onChange={(e) => setDeath((d) => ({ ...d, cause: e.target.value }))}
+                        className={INPUT}
+                      >
+                        <option value="">Pilih…</option>
+                        {DEATH_CAUSES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} · {c.display}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <label className="flex min-h-11 items-center gap-2 text-small">
+                    <input
+                      type="checkbox"
+                      checked={death.signed}
+                      onChange={(e) => setDeath((d) => ({ ...d, signed: e.target.checked }))}
+                      className="size-[18px] accent-brand-600"
+                    />
+                    Tanda tangani surat keterangan kematian (TTE {user})
+                  </label>
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    className="self-start"
+                    disabled={!isDpjp || pending || !death.hm || !death.cause || !death.signed}
+                  >
+                    Terbitkan surat keterangan kematian
+                  </Button>
+                </form>
+              )}
               <Button
                 variant="primary"
                 className="self-start"
-                disabled={!!block}
+                disabled={!!block || !!k1Block || pending}
                 aria-describedby={`${id}-gate`}
-                onClick={() => {
-                  const at = clock();
-                  setClosedAt(at);
-                  say(`Kunjungan ditutup · ${formatJam(at)}`);
-                }}
+                onClick={() =>
+                  disposition && run((r) => closeVisitAction({ encounterId, disposition }, r), say)
+                }
               >
                 Tutup kunjungan
               </Button>
               <p
                 id={`${id}-gate`}
                 role="status"
-                className={cx('m-0 text-small font-semibold', block ? 'text-warning' : 'text-success')}
+                className={cx(
+                  'm-0 text-small font-semibold',
+                  block || k1Block ? 'text-warning' : 'text-success',
+                )}
               >
-                {block ?? 'Semua syarat terpenuhi; kunjungan siap ditutup.'}
+                {block ?? k1Block ?? 'Semua syarat terpenuhi; kunjungan siap ditutup.'}
               </p>
             </div>
           )}
@@ -227,10 +317,14 @@ export function KelengkapanWorkspace({
                     {d.kind} · {d.by} · {formatTglJam(d.at)}
                     {d.note ? ` · ${d.note}` : ''}
                   </span>
-                  {!closedAt && (
+                  {!closed && (
                     <span className="flex flex-wrap gap-2">
                       {d.status === 'tte-gagal' && (
-                        <Button size="sm" disabled={!isDpjp} onClick={() => retryTteDoc(d.id)}>
+                        <Button
+                          size="sm"
+                          disabled={!isDoctor || pending}
+                          onClick={() => run((r) => retryTteAction({ encounterId, docId: d.id }, r), say)}
+                        >
                           Kirim ulang TTE
                         </Button>
                       )}
@@ -253,15 +347,13 @@ export function KelengkapanWorkspace({
                       onSubmit={(e) => {
                         e.preventDefault();
                         if (!hasReason(cancel.reason)) return setCancel({ ...cancel, tried: true });
-                        const at = clock();
-                        setDocs((cur) =>
-                          cur.map((x) => (x.id === d.id ? cancelDocument(x, cancel.reason, user, at) : x)),
+                        run(
+                          (r) => cancelDocumentAction({ encounterId, docId: d.id, reason: cancel.reason }, r),
+                          (res) => {
+                            say(res);
+                            if (res.ok) setCancel(null);
+                          },
                         );
-                        // Butir "TTE gagal" dokumen ini selesai sebagai dibatalkan (tidak bisa dihidupkan lagi).
-                        if (d.status === 'tte-gagal')
-                          resolve(`tte-${d.id}`, `Dokumen dibatalkan ${formatJam(at)}`);
-                        setCancel(null);
-                        say(`${d.title} dibatalkan · ${formatJam(at)}; dokumen tetap tersimpan`);
                       }}
                     >
                       <ReasonField
@@ -272,7 +364,7 @@ export function KelengkapanWorkspace({
                         hint="Dokumen tidak dihapus: tetap tampil berstatus dibatalkan dan tercatat di jejak audit."
                       />
                       <span className="flex gap-2">
-                        <Button type="submit" variant="danger">
+                        <Button type="submit" variant="danger" disabled={pending}>
                           Batalkan dokumen
                         </Button>
                         <Button onClick={() => setCancel(null)}>Kembali</Button>
@@ -283,29 +375,20 @@ export function KelengkapanWorkspace({
               );
             })}
           </ul>
-          {!closedAt && (
+          {!closed && (
             <form
               aria-label="Unggah pindaian"
               className="flex flex-wrap items-end gap-2 rounded-control bg-subtle p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (!upload.kind) return;
-                const at = clock();
-                setDocs((cur) => [
-                  ...cur,
-                  {
-                    id: `${encounterId}-dok-baru-${seq}`,
-                    title: upload.note.trim() ? `${upload.kind}: ${upload.note.trim()}` : upload.kind,
-                    kind: 'Pindaian',
-                    status: 'terunggah',
-                    by: user,
-                    at,
-                    note: null,
+                run(
+                  (r) => uploadScanAction({ encounterId, ...upload }, r),
+                  (res) => {
+                    say(res);
+                    if (res.ok) setUpload({ kind: '', note: '' });
                   },
-                ]);
-                setSeq((n) => n + 1);
-                setUpload({ kind: '', note: '' });
-                say(`Pindaian terunggah · ${formatJam(at)}`);
+                );
               }}
             >
               <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-1">
@@ -333,11 +416,12 @@ export function KelengkapanWorkspace({
                 <input
                   id={`${id}-ket`}
                   value={upload.note}
+                  maxLength={60}
                   onChange={(e) => setUpload({ ...upload, note: e.target.value })}
                   className={INPUT}
                 />
               </div>
-              <Button type="submit" disabled={!upload.kind}>
+              <Button type="submit" disabled={!upload.kind || pending}>
                 Unggah (simulasi)
               </Button>
             </form>

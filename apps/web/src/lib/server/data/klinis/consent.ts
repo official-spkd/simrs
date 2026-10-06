@@ -2,6 +2,7 @@ import 'server-only';
 import { type ConsentDocument, consentDocumentSchema } from '@simrs/shared';
 import { CONSENT_ID } from '../../../demo/fixtures/ids';
 import { demoHendroConsent } from '../../../demo/fixtures/rawat-inap';
+import { applyConsent } from '../../../rawat-inap-consent-toko';
 import {
   consentScenarioWait,
   hartonoConsent,
@@ -11,13 +12,15 @@ import {
 } from '../../../rawat-inap-scenario';
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
+import { readDomain } from '../../demo/state';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
 import { scenarioSteps } from './shared';
 
 /**
- * K11 · Data tablet Persetujuan tindakan. Mode presentasi: dokumen fiktif + persetujuan pasien skenario, divalidasi
+ * K11 · Data tablet Persetujuan tindakan. Mode presentasi: dokumen fiktif + keputusan tersimpan di toko demo
+ * (`persetujuan`, ADR-0085) + persetujuan pasien skenario, divalidasi
  * kontrak yang sama dengan API kelak; mode api menunggu backend fase 3 (potongan 3.7, layar W5a; halaman menampilkan
  * "Belum tersambung").
  */
@@ -39,7 +42,7 @@ export async function getConsentDocument(session: SessionView, id: string): Prom
         : id === CONSENT_ID.ratna
           ? ratnaConsent(runs.results['elektif-btn'])
           : id === CONSENT_ID.hendro
-            ? demoHendroConsent()
+            ? applyConsent(demoHendroConsent(), (await readDomain('persetujuan')).state)
             : null;
     return doc ? consentDocumentSchema.parse(doc) : null;
   }

@@ -8,6 +8,7 @@ import { patientById } from '@/lib/demo/fixtures/pasien';
 import { screenById } from '@/lib/screens';
 import { getDischargeSummary } from '@/lib/server/data/klinis/resume';
 import { scenarioSteps } from '@/lib/server/data/klinis/shared';
+import { readDomain } from '@/lib/server/demo/state';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { PrintButton } from './print-button';
 import { ResumeClient } from './resume-client';
@@ -18,8 +19,8 @@ function routeOf(id: string): string | null {
 }
 
 /**
- * K13 · Resume medis pulang mode presentasi (mockup `Resume.dc.html`, data fiktif, ADR-0023; dibekukan, jalur api
- * diisi layar W5b di `page.tsx`).
+ * K13 · Resume medis pulang mode presentasi (mockup `Resume.dc.html`, data fiktif + toko demo `resume-medis`,
+ * ADR-0023/0085; jalur api diisi layar W5b di `page.tsx`).
  */
 export async function DemoResume({ access, encounterId }: { access: DemoScreenAccess; encounterId: string }) {
   const { session, screen, allowed } = access;
@@ -67,6 +68,7 @@ export async function DemoResume({ access, encounterId }: { access: DemoScreenAc
     : [];
   const los = Math.max(1, Math.round((Date.parse(s.dischargeAt) - Date.parse(s.admittedAt)) / 86_400_000));
   const klaim = routeOf('klaim');
+  const { rev } = await readDomain('resume-medis');
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,6 +95,7 @@ export async function DemoResume({ access, encounterId }: { access: DemoScreenAc
         scenario={step ?? null}
         canSign={session.role?.code === 'dokter'}
         klaimHref={klaim}
+        rev={rev}
       />
     </div>
   );
