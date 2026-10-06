@@ -65,6 +65,9 @@ test.describe('penunjang · laboratorium', () => {
     await hasil.getByRole('button', { name: 'Validasi klinis (TTE Sp.PK)' }).click();
     await expect(hasil.getByText(/Validasi klinis selesai pukul \d{2}\.\d{2}/)).toBeVisible();
     await expect(hasil.getByRole('button', { name: 'Tervalidasi' })).toBeDisabled();
+    // Mockup: "Minta ulang sampel" tetap tampil, nonaktif dengan alasan setelah hasil dirilis.
+    await expect(hasil.getByRole('button', { name: 'Minta ulang sampel' })).toBeDisabled();
+    await expect(hasil.getByText(/^Minta ulang sampel: Hasil sudah dirilis/)).toBeVisible();
   });
 
   test('skenario IGD: hasil kritis Tn. Hartono dilaporkan dengan read-back dari layar Lab', async ({
@@ -89,7 +92,7 @@ test.describe('penunjang · laboratorium', () => {
     await kritis.getByRole('checkbox', { name: /Read-back/ }).check();
     await kritis.getByRole('button', { name: 'Simpan pelaporan' }).click();
     const dilaporkan = page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Hartono Wibisono/ });
-    await expect(dilaporkan).toContainText('waktu lapor 5 menit');
+    await expect(dilaporkan).toContainText(/waktu lapor 05:\d{2} \(target ≤ 30 menit/);
   });
 
   test('tablet 768 px tanpa scroll horizontal', async ({ page }) => {

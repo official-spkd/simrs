@@ -8,7 +8,14 @@ import { reportCriticalAction } from '@/app/(staf)/penunjang/lab/actions';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
-import { criticalStage, criticalTimer, formatLabNumber, formatMmSs, type LabLocal } from '@/lib/penunjang';
+import {
+  criticalReportSeconds,
+  criticalStage,
+  criticalTimer,
+  formatLabNumber,
+  formatMmSs,
+  type LabLocal,
+} from '@/lib/penunjang';
 import { CriticalReportForm } from './lab-critical-form';
 import { NOT_YOUR_TURN, type ScenarioTasks } from './use-scenario-tasks';
 import { useElapsed } from './use-elapsed';
@@ -71,7 +78,7 @@ export function CriticalBanner({
   };
 
   if (stage === 'selesai') {
-    const took = c.minutesToReport ?? 0;
+    const took = formatMmSs(criticalReportSeconds(c));
     return (
       <section
         aria-label={`Nilai kritis dilaporkan · ${sample.patient.name}`}
@@ -89,7 +96,7 @@ export function CriticalBanner({
           </span>
           <span className="text-small text-ink-700">
             Diterima {c.recipient} pukul {c.reportedAt ? formatJam(c.reportedAt) : '—'} · read-back
-            terkonfirmasi · waktu lapor {took} menit (target ≤ {c.limitMinutes} menit, timer berhenti).
+            terkonfirmasi · waktu lapor {took} (target ≤ {c.limitMinutes} menit, timer berhenti).
           </span>
           {feedback && <span className="text-caption font-semibold text-success">{feedback}</span>}
         </span>

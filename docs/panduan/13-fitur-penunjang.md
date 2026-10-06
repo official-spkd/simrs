@@ -71,10 +71,14 @@ melaporkan nilai kritis dengan read-back dalam batas waktu, lalu memvalidasi has
 
    ![Form pelaporan nilai kritis: nama penerima laporan, centang read-back, dan pesan galat bila belum lengkap](./gambar/lab--nilai-kritis.png)
 
-5. Banner berubah menjadi "Nilai kritis dilaporkan · <pasien>" dengan "read-back terkonfirmasi" dan waktu lapor.
+5. Banner berubah menjadi "Nilai kritis dilaporkan · <pasien>" dengan "read-back terkonfirmasi" dan waktu lapor
+   dalam menit:detik, mis. "waktu lapor 06:12".
 6. Tekan **Validasi teknis**. Setelah itu tekan **Validasi klinis (TTE Sp.PK)**. Tombol berubah menjadi
    **Tervalidasi**. Layar menyebut hasil dirilis ke CPPT, DPJP, dan SATUSEHAT (simulasi).
-7. Bila sampel bermasalah, tekan **Minta ulang sampel** (atau **Batalkan sampel ulang**).
+7. Bila sampel bermasalah, tekan **Minta ulang sampel** (atau **Batalkan sampel ulang**). Tombol ini selalu tampil;
+   bila tidak berlaku ia nonaktif dengan alasan tertulis (hasil sudah dirilis, belum ada hasil, atau sampel pasien
+   simulasi). Sampel tanpa hasil menulis "Hasil belum lengkap (status: …)" atau, bila sudah selesai, "Hasil sudah
+   divalidasi klinis dan dirilis. Buka riwayat untuk melihat rincian."
 8. Pasien skenario memakai tombol langkahnya: Tn. Suryo (rawat jalan) **Pindai tabung**, **Terima hasil (HL7 ORU)**,
    lalu **Validasi dan rilis**; Tn. Hartono (IGD) **Buka hasil**, lalu pelaporan kalium kritis.
 
