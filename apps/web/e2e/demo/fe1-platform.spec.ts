@@ -257,4 +257,52 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(wa.getByRole('status')).toContainText(/dilanjutkan · \d{2}\.\d{2}/);
     await expectNoHorizontalOverflow(page);
   });
+
+  test('rujukan: surat kontrol terbit, SPRI ditolak diperbaiki lalu terbit, rujukan internal dibatalkan', async ({
+    page,
+  }) => {
+    const petugas = await createAccount({ roles: ['petugas_pendaftaran'] });
+    await loginAs(page, petugas, '/rujukan');
+    await expect(
+      page.getByRole('heading', { name: 'Rujukan, surat kontrol, dan SPRI', level: 1 }),
+    ).toBeVisible();
+
+    const list = page.getByRole('list', { name: 'Daftar rujukan' });
+    await list.getByRole('button', { name: /Surat kontrol · Ny\. Endang Wijaya/ }).click();
+    const kontrol = page.getByRole('region', { name: 'Surat kontrol · Ny. Endang Wijaya' });
+    await kontrol.getByRole('button', { name: 'Proses antrean kirim (simulasi)' }).click();
+    await expect(kontrol.getByRole('status')).toContainText(
+      /Nomor BPJS terbit 0301R0011025K000045 · \d{2}\.\d{2}/,
+    );
+
+    await page
+      .getByRole('group', { name: 'Saring rujukan' })
+      .getByRole('button', { name: /^Bermasalah/ })
+      .click();
+    await list
+      .getByRole('button', { name: /Surat perintah rawat inap \(SPRI\) · Tn\. Yusuf Hidayat/ })
+      .click();
+    const spri = page.getByRole('region', { name: 'Surat perintah rawat inap (SPRI) · Tn. Yusuf Hidayat' });
+    await expect(spri.getByRole('alert')).toContainText('BPJS_TANGGAL_TIDAK_VALID');
+    const fix = spri.getByRole('button', { name: 'Perbaiki & kirim ulang' });
+    await expect(fix).toBeDisabled();
+    await expect(spri.getByText('Pilih tanggal rencana baru dulu.')).toBeVisible();
+    await spri.getByLabel('Tanggal rencana baru').selectOption('2026-10-06');
+    await fix.click();
+    await spri.getByRole('button', { name: 'Proses antrean kirim (simulasi)' }).click();
+    await expect(spri.getByRole('status')).toContainText('Nomor BPJS terbit 0301R0011025S000019');
+
+    await page
+      .getByRole('group', { name: 'Saring rujukan' })
+      .getByRole('button', { name: 'Internal antarpoli' })
+      .click();
+    await list.getByRole('button', { name: /Rujukan internal antarpoli/ }).click();
+    const internal = page.getByRole('region', { name: /^Rujukan internal antarpoli/ });
+    await internal.getByRole('button', { name: 'Batalkan' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await dialog.getByLabel('Alasan pembatalan').fill('Pasien menolak konsul hari ini');
+    await dialog.getByRole('button', { name: 'Ya, batalkan' }).click();
+    await expect(internal.getByRole('status')).toContainText(/dibatalkan · \d{2}\.\d{2}/);
+    await expectNoHorizontalOverflow(page);
+  });
 });

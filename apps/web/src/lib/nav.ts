@@ -29,6 +29,9 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'kendali', label: 'Kendali antrean', href: '/antrean', icon: 'list', available: false },
       { id: 'antrean', label: 'Antrean', href: '/display/antrean', icon: 'list', available: false },
       { id: 'jadwal', label: 'Jadwal dokter', href: '/jadwal', icon: 'cal', available: false },
+      // FE1 · front office (mode presentasi)
+      { id: 'rujukan', label: 'Rujukan', href: '/rujukan', icon: 'arrowRight', available: false },
+      // FE1 · akhir
     ],
   },
   {

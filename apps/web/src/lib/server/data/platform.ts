@@ -21,6 +21,9 @@ import type { DemoDocument, DocPatient } from '../../platform-dokumen';
 import { DEMO_JOBS } from '../../demo/fixtures/penjadwal';
 import type { ScheduledJob } from '../../platform-penjadwal';
 import type { StructNode } from '../../platform-struktur';
+import { DEMO_REFERRALS } from '../../demo/fixtures/rujukan';
+import { DEMO_TODAY, shiftDate } from '../../demo/fixtures/waktu';
+import type { DemoReferral } from '../../rujukan';
 import type { RefConcept, RefVersion } from '../../platform-terminologi';
 import {
   DEMO_IMPORT_FILES,
@@ -120,4 +123,11 @@ export async function getDocumentsOverview(): Promise<{
 export async function getScheduledJobs(): Promise<ScheduledJob[]> {
   if (!isDemo()) return notImplemented('penjadwal pekerjaan (layar demo)');
   return DEMO_JOBS.map((j) => ({ ...j, runs: [...j.runs] }));
+}
+
+export async function getReferralsOverview(): Promise<{ referrals: DemoReferral[]; planDates: string[] }> {
+  if (!isDemo()) return notImplemented('rujukan (layar demo)');
+  // Hari praktik Senin–Jumat dalam 7 hari ke depan (tanggal rencana SPRI/kontrol).
+  const planDates = [1, 2, 3, 4, 7].map((d) => shiftDate(DEMO_TODAY, d));
+  return { referrals: [...DEMO_REFERRALS], planDates };
 }
