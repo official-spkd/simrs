@@ -3,7 +3,6 @@
 import type { RadiologyExam } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { RADIOLOG } from '@/lib/demo/fixtures/penunjang';
 import { EXPERTISE_TEMPLATES, reportError, templateFor } from '@/lib/penunjang-radiologi';
 
 /**
@@ -11,11 +10,13 @@ import { EXPERTISE_TEMPLATES, reportError, templateFor } from '@/lib/penunjang-r
  * dengan alasan tertulis sampai temuan dan kesan lengkap; setelah ditandatangani laporan terkunci (addendum).
  */
 export function RadExpertise({
+  role,
   exam,
   busy,
   serverError,
   onSign,
 }: {
+  role: string | null;
   exam: RadiologyExam;
   busy: boolean;
   serverError: string | null;
@@ -26,7 +27,10 @@ export function RadExpertise({
   const [template, setTemplate] = useState(initial.id);
   const [findings, setFindings] = useState(exam.report?.findings ?? '');
   const [impression, setImpression] = useState(exam.report?.impression ?? '');
-  const reason = reportError(findings, impression);
+  const reason =
+    role !== 'dokter'
+      ? 'TTE ekspertise wajib posisi Dokter; ganti posisi untuk melanjutkan.'
+      : reportError(findings, impression);
   const apply = () => {
     const t = EXPERTISE_TEMPLATES.find((x) => x.id === template);
     if (!t) return;
@@ -40,7 +44,7 @@ export function RadExpertise({
       aria-label="Ekspertise"
       className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
     >
-      <h3 className="m-0 text-body font-semibold">Ekspertise · {RADIOLOG}</h3>
+      <h3 className="m-0 text-body font-semibold">Ekspertise radiologi</h3>
       <div className="flex flex-wrap items-end gap-2">
         <span className="flex min-w-0 flex-[1_1_220px] flex-col gap-1">
           <label htmlFor={`${id}-tpl`} className="text-small font-semibold text-ink-700">
@@ -106,8 +110,8 @@ export function RadExpertise({
         </Button>
       </div>
       <span className="text-caption text-ink-500">
-        Simulasi: di produksi ekspertise ditulis dan ditandatangani radiolog dari akunnya sendiri; setelah TTE
-        laporan terkunci dan koreksi hanya lewat addendum.
+        Ekspertise ditandatangani atas nama pengguna sesi dokter; setelah TTE laporan terkunci dan koreksi
+        hanya lewat addendum.
       </span>
     </section>
   );

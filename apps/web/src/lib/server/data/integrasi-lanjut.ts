@@ -1,105 +1,84 @@
 import 'server-only';
+import { BPJS_SERVICES } from '../../demo/fixtures/integrasi-bpjs';
 import {
-  APLICARE_LAST_SYNC,
-  BPJS_SERVICES,
-  demoBedClasses,
-  demoBookings,
-  demoHfis,
-} from '../../demo/fixtures/integrasi-bpjs';
-import { demoAccessLog, demoApiClients } from '../../demo/fixtures/integrasi-api-publik';
-import { demoKemenkesReports } from '../../demo/fixtures/integrasi-kemenkes';
-import {
-  DEVICES,
-  type GatewayDevice,
   PRESET_MESSAGES,
+  type GatewayDevice,
   type PresetMessage,
-  PROCESSED_TODAY,
 } from '../../demo/fixtures/integrasi-perangkat';
-import { demoLabSamples } from '../../demo/fixtures/penunjang';
-import { demoSatusehatVisits } from '../../demo/fixtures/integrasi-satusehat';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
-import type { AccessLog, ApiClient } from '../../integrasi-api-publik';
-import type { KemenkesReport } from '../../integrasi-kemenkes';
+import type { IntegrationState } from '../../integrasi-demo';
 import type { Specimen } from '../../integrasi-perangkat';
-import type { BedClassRow, BookingTasks, BpjsService, HfisRow } from '../../integrasi-bpjs';
-import type { Visit } from '../../integrasi-satusehat';
+import { readDomain } from '../demo/state';
 import { assertDemo } from '../demo-guard';
-import { webEnv } from '../web-env';
-import { notImplemented } from './not-implemented';
 
-/**
- * I02–I04, I06, I12 · Pintu data layar konektor integrasi (SATUSEHAT, BPJS, Kemenkes, perangkat medis, API publik).
- * Mode presentasi: data dummy fiktif (ADR-0023); mode api menunggu backend fase 7. Server Action mencari rekaman
- * lewat fixture yang sama (klien hanya mengirim id).
- */
-
-const isDemo = () => {
-  if (webEnv().dataSource !== 'demo') return false;
+/** Satu proyeksi toko per RS untuk seluruh konektor mode presentasi. */
+export async function getSatusehatVisits() {
   assertDemo();
-  return true;
-};
-
-export async function getSatusehatVisits(): Promise<{ asOf: string; visits: Visit[] }> {
-  if (!isDemo()) return notImplemented('konektor SATUSEHAT');
-  return { asOf: DEMO_NOW, visits: demoSatusehatVisits() };
+  const { state, rev } = await readDomain('integrasi');
+  return { asOf: DEMO_NOW, visits: state.visits, fixed: state.fixed, audit: state.audit, rev };
 }
-
 export interface BpjsData {
   asOf: string;
-  services: readonly BpjsService[];
-  bookings: BookingTasks[];
-  beds: BedClassRow[];
+  rev: number;
+  services: typeof BPJS_SERVICES;
+  bookings: IntegrationState['bookings'];
+  beds: IntegrationState['beds'];
   aplicareLastSync: string;
-  hfis: HfisRow[];
+  hfis: IntegrationState['hfis'];
+  down: IntegrationState['down'];
+  backlog: IntegrationState['backlog'];
+  synchronized: IntegrationState['synchronized'];
 }
-
 export async function getBpjsConnector(): Promise<BpjsData> {
-  if (!isDemo()) return notImplemented('konektor BPJS');
+  assertDemo();
+  const { state, rev } = await readDomain('integrasi');
   return {
     asOf: DEMO_NOW,
+    rev,
     services: BPJS_SERVICES,
-    bookings: demoBookings(),
-    beds: demoBedClasses(),
-    aplicareLastSync: APLICARE_LAST_SYNC,
-    hfis: demoHfis(),
+    bookings: state.bookings,
+    beds: state.beds,
+    aplicareLastSync: state.aplicareLastSync,
+    hfis: state.hfis,
+    down: state.down,
+    backlog: state.backlog,
+    synchronized: state.synchronized,
   };
 }
-
-export async function getKemenkesReports(): Promise<{ asOf: string; reports: KemenkesReport[] }> {
-  if (!isDemo()) return notImplemented('konektor Kemenkes');
-  return { asOf: DEMO_NOW, reports: demoKemenkesReports() };
+export async function getKemenkesReports() {
+  assertDemo();
+  const { state, rev } = await readDomain('integrasi');
+  return { asOf: DEMO_NOW, reports: state.reports, rev };
 }
-
 export interface GatewayData {
   asOf: string;
+  rev: number;
   devices: readonly GatewayDevice[];
   presets: readonly PresetMessage[];
   processed: readonly string[];
   specimens: Specimen[];
+  log: IntegrationState['gatewayLog'];
 }
-
-/** Spesimen yang dikenal gateway = worklist Laboratorium hari demo (nomor lab + sudah diterima atau belum). */
 export async function getDeviceGateway(): Promise<GatewayData> {
-  if (!isDemo()) return notImplemented('device gateway');
+  assertDemo();
+  const { state, rev } = await readDomain('integrasi');
+  const support = await readDomain('penunjang');
   return {
     asOf: DEMO_NOW,
-    devices: DEVICES,
+    rev,
+    devices: state.devices,
     presets: PRESET_MESSAGES,
-    processed: PROCESSED_TODAY,
-    specimens: demoLabSamples().map((s) => ({
+    processed: state.processed,
+    log: state.gatewayLog,
+    specimens: support.state.samples.map((s) => ({
       labNo: s.labNo,
       patientName: s.patient.name,
-      received: s.receivedAt !== null,
+      received: !!s.receivedAt,
     })),
   };
 }
-
-export async function getApiClients(): Promise<{
-  asOf: string;
-  today: string;
-  clients: ApiClient[];
-  log: AccessLog[];
-}> {
-  if (!isDemo()) return notImplemented('API publik dan FHIR');
-  return { asOf: DEMO_NOW, today: DEMO_TODAY, clients: demoApiClients(), log: demoAccessLog() };
+export async function getApiClients() {
+  assertDemo();
+  const { state, rev } = await readDomain('integrasi');
+  return { asOf: DEMO_NOW, today: DEMO_TODAY, clients: state.clients, log: state.apiLog, rev };
 }

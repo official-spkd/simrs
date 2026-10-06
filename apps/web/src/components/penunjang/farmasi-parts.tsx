@@ -46,6 +46,7 @@ export function FlashBar({
 
 /** Hitung gerbang (CDS, tahanan, giliran simulasi) untuk resep terpilih lalu tampilkan rinciannya. */
 export function FarmasiDetailFor({
+  role,
   tab,
   rx,
   local,
@@ -58,6 +59,7 @@ export function FarmasiDetailFor({
   handlers,
 }: {
   tab: Tab;
+  role: string | null;
   rx: PharmacyPrescription;
   local: RxLocal | undefined;
   /** Resep Tn. Suryo (skenario rawat jalan): tahapnya mengikuti tugas simulasi `farmasi`. */
@@ -71,10 +73,18 @@ export function FarmasiDetailFor({
 }) {
   const blocking = blockingAlerts(rx, local);
   const approveReason =
-    telaahBlock(blocking, !!local?.hold) ?? (rj && !enabled('telaah') ? NOT_YOUR_TURN : null);
-  const workReason = rj && !enabled(tab === 'siap' ? 'siap' : 'serah') ? NOT_YOUR_TURN : null;
+    (role !== 'apoteker' ? 'Telaah dan penyiapan hanya oleh posisi Apoteker.' : null) ??
+    telaahBlock(blocking, !!local?.hold) ??
+    (rj && !enabled('telaah') ? NOT_YOUR_TURN : null);
+  const workReason =
+    role !== 'apoteker'
+      ? 'Penyiapan dan serah terima hanya oleh posisi Apoteker.'
+      : rj && !enabled(tab === 'siap' ? 'siap' : 'serah')
+        ? NOT_YOUR_TURN
+        : null;
   return (
     <FarmasiDetail
+      role={role}
       tab={tab}
       rx={rx}
       local={local}

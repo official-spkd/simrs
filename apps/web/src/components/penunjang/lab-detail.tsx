@@ -22,6 +22,7 @@ interface PrimaryAction {
  * buka hasil kritis, validasi dan rilis) bila sedang giliran.
  */
 export function LabDetail({
+  role,
   sample: s,
   resample,
   scenario,
@@ -31,6 +32,7 @@ export function LabDetail({
   onValidate,
   onResample,
 }: {
+  role: string | null;
   sample: LabSample;
   resample: string | null;
   scenario: ScenarioId | null;
@@ -40,7 +42,10 @@ export function LabDetail({
   onValidate: (level: 'teknis' | 'klinis') => void;
   onResample: () => void;
 }) {
-  const block = validationBlock(s, !!resample);
+  const block =
+    nextValidation(s) === 'klinis' && role !== 'dokter'
+      ? 'Validasi klinis wajib posisi Dokter; ganti posisi untuk melanjutkan.'
+      : validationBlock(s, !!resample);
   const next = nextValidation(s);
   const step = (label: string, task: string): PrimaryAction => {
     const turn = tasks.enabled(scenario, task);
@@ -73,12 +78,12 @@ export function LabDetail({
     resample !== null
       ? {
           tone: 'warning',
-          text: `Permintaan sampel ulang dikirim ke ruangan pukul ${resample}. Hasil lama ditandai tidak valid.`,
+          text: `Permintaan sampel ulang dikirim ke ruangan pukul ${formatJam(resample)}. Hasil lama ditandai tidak valid.`,
         }
       : s.status === 'selesai' && s.clinical
         ? {
             tone: 'success',
-            text: `Validasi klinis selesai pukul ${formatJam(s.clinical.at)} (TTE ${s.clinical.by}) · hasil dirilis ke CPPT, DPJP, dan SATUSEHAT.`,
+            text: `Validasi klinis selesai pukul ${formatJam(s.clinical.at)} (TTE ${s.clinical.by}) · hasil final tersimpan dan masuk antrean integrasi.`,
           }
         : s.status === 'validasi-teknis' && s.technical
           ? {

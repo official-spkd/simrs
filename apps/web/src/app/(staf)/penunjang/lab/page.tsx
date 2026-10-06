@@ -51,6 +51,7 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
       </header>
       <ScenarioBanner session={session} screen="lab" />
       <LabWorkspace
+        role={session.role?.code ?? null}
         data={data}
         hook={hook}
         initialSelected={pilih}

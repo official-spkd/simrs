@@ -5,12 +5,10 @@ import {
   criticalFromLab,
   demoOtherCriticals,
 } from '../../demo/fixtures/penunjang-kritis';
-import { demoBloodRequests, demoBloodUnits } from '../../demo/fixtures/penunjang-bank-darah';
-import { demoCultures, demoPaCases } from '../../demo/fixtures/penunjang-mikro';
-import { demoDiagOrders } from '../../demo/fixtures/penunjang-diagnostik';
-import { DEFAULT_MEAL, demoDeliveries, demoDietOrders } from '../../demo/fixtures/penunjang-gizi';
-import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
+import { DEFAULT_MEAL } from '../../demo/fixtures/penunjang-gizi';
+import { DEPO_MASTER, DEPO_REQUESTS } from '../../demo/fixtures/penunjang-depo';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
+import type { SupportState } from '../../penunjang-demo';
 import type { BloodState } from '../../penunjang-bank-darah';
 import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import type { Delivery, DietOrder, MealTime } from '../../penunjang-gizi';
@@ -56,9 +54,19 @@ export async function getCriticalCenter(session: SessionView): Promise<CriticalC
     return c ? [c] : [];
   });
   const { state } = await readDomain('hasil-kritis');
+  const support = await readDomain('penunjang');
   return {
     asOf: DEMO_NOW,
-    items: sortCritical(applyStoredReports([...fromLab, ...demoOtherCriticals()], state)),
+    items: sortCritical(
+      applyStoredReports(
+        [
+          ...fromLab,
+          ...demoOtherCriticals().filter((i) => !support.state.criticals.some((x) => x.id === i.id)),
+          ...support.state.criticals,
+        ],
+        state,
+      ),
+    ),
     history7d: CRITICAL_HISTORY_7D,
     rules: CRITICAL_RULES,
   };
@@ -71,6 +79,8 @@ export async function findCriticalItem(session: SessionView, id: string): Promis
 // ─── S05 · Depo dan stok farmasi ─────────────────────────────────────────────────────────────────────────────
 
 export interface DepoData {
+  rev: number;
+  checks: SupportState['checks'];
   asOf: string;
   today: string;
   master: DepoMaster;
@@ -80,11 +90,14 @@ export interface DepoData {
 
 export async function getDepoData(): Promise<DepoData> {
   if (!isDemo()) return notImplemented('stok depo farmasi');
+  const { state, rev } = await readDomain('penunjang');
   return {
     asOf: DEMO_NOW,
     today: DEMO_TODAY,
     master: DEPO_MASTER,
-    state: demoDepoState(),
+    state: state.depo,
+    rev,
+    checks: state.checks,
     requests: DEPO_REQUESTS,
   };
 }
@@ -92,6 +105,8 @@ export async function getDepoData(): Promise<DepoData> {
 // ─── S08 · Bank darah ────────────────────────────────────────────────────────────────────────────────────────
 
 export interface BloodBankData {
+  rev: number;
+  checks: SupportState['checks'];
   asOf: string;
   today: string;
   state: BloodState;
@@ -99,16 +114,20 @@ export interface BloodBankData {
 
 export async function getBloodBank(): Promise<BloodBankData> {
   if (!isDemo()) return notImplemented('bank darah');
+  const { state, rev } = await readDomain('penunjang');
   return {
     asOf: DEMO_NOW,
     today: DEMO_TODAY,
-    state: { requests: demoBloodRequests(), units: demoBloodUnits() },
+    state: state.blood,
+    rev,
+    checks: state.checks,
   };
 }
 
 // ─── S07 · Gizi ──────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface NutritionData {
+  rev: number;
   asOf: string;
   orders: DietOrder[];
   deliveries: Record<string, Delivery>;
@@ -117,12 +136,14 @@ export interface NutritionData {
 
 export async function getNutrition(): Promise<NutritionData> {
   if (!isDemo()) return notImplemented('gizi');
-  return { asOf: DEMO_NOW, orders: demoDietOrders(), deliveries: demoDeliveries(), meal: DEFAULT_MEAL };
+  const { state, rev } = await readDomain('penunjang');
+  return { asOf: DEMO_NOW, orders: state.diets, deliveries: state.deliveries, meal: DEFAULT_MEAL, rev };
 }
 
 // ─── S02 · Mikrobiologi dan patologi anatomi ─────────────────────────────────────────────────────────────────
 
 export interface MicroData {
+  rev: number;
   asOf: string;
   cultures: CultureCase[];
   pa: PaCase[];
@@ -130,12 +151,14 @@ export interface MicroData {
 
 export async function getMicroPa(): Promise<MicroData> {
   if (!isDemo()) return notImplemented('mikrobiologi dan patologi anatomi');
-  return { asOf: DEMO_NOW, cultures: demoCultures(), pa: demoPaCases() };
+  const { state, rev } = await readDomain('penunjang');
+  return { asOf: DEMO_NOW, cultures: state.cultures, pa: state.pa, rev };
 }
 
 // ─── S10 · Penunjang diagnostik lain ─────────────────────────────────────────────────────────────────────────
 
-export async function getDiagOrders(): Promise<{ asOf: string; orders: DiagOrder[] }> {
+export async function getDiagOrders(): Promise<{ asOf: string; orders: DiagOrder[]; rev: number }> {
   if (!isDemo()) return notImplemented('penunjang diagnostik lain');
-  return { asOf: DEMO_NOW, orders: demoDiagOrders() };
+  const { state, rev } = await readDomain('penunjang');
+  return { asOf: DEMO_NOW, orders: state.diagnostics, rev };
 }
