@@ -3,6 +3,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { JaspelWorkspace } from '@/components/keuangan/jaspel-workspace';
 import { getFeeSharingBoard } from '@/lib/server/data/keuangan-lanjut';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { readDomain } from '@/lib/server/demo/state';
 
 export const metadata: Metadata = { title: 'Jasa pelayanan' };
 
@@ -14,6 +15,7 @@ export default async function JasaPelayananPage() {
   const { session, screen, allowed } = await requireDemoScreen('jaspel');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const board = getFeeSharingBoard();
+  const { state, rev } = await readDomain('jasa-pelayanan');
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
@@ -22,7 +24,9 @@ export default async function JasaPelayananPage() {
       </header>
       <JaspelWorkspace
         board={board}
-        viewer={{ name: session.user.displayName, role: session.role?.code ?? null }}
+        store={state}
+        rev={rev}
+        viewer={{ id: session.user.id, name: session.user.displayName, role: session.role?.code ?? null }}
       />
     </div>
   );

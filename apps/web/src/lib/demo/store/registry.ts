@@ -6,6 +6,7 @@ import { pembayaranDomain } from '../../btn-pembayaran-toko';
 import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
 import { hutangDomain } from '../../keuangan-hutang-toko';
+import { jaspelDomain } from '../../keuangan-jaspel-toko';
 import { kasbankDomain } from '../../keuangan-kasbank-toko';
 import { klaimDomain } from '../../keuangan-klaim-toko';
 import { piutangDomain } from '../../keuangan-piutang-toko';
@@ -46,6 +47,7 @@ export const DEMO_DOMAINS = {
   'hasil-kritis': criticalDomain,
   hutang: hutangDomain,
   jadwal: scheduleDomain,
+  'jasa-pelayanan': jaspelDomain,
   'kas-bank': kasbankDomain,
   klaim: klaimDomain,
   'klinis-igd': igdDomain,

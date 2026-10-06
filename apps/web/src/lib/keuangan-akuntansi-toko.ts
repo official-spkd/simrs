@@ -21,6 +21,7 @@ import { type AutoJurnal, labelPeriode, periodeOf } from './keuangan-jurnal';
 import { pembayaranDomain } from './btn-pembayaran-toko';
 import { pembiayaanDomain } from './btn-pembiayaan-toko';
 import { hutangDomain } from './keuangan-hutang-toko';
+import { jaspelDomain } from './keuangan-jaspel-toko';
 import { kasbankDomain } from './keuangan-kasbank-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
 import { tagihanDomain } from './keuangan-tagihan-toko';
@@ -245,6 +246,7 @@ export const akuntansiDomain = defineDomain<AkuntansiState, AkuntansiEvent>(AKUN
     journalSubscription(piutangDomain),
     journalSubscription(kasbankDomain),
     journalSubscription(hutangDomain),
+    journalSubscription(jaspelDomain),
     journalSubscription(pembayaranDomain),
     journalSubscription(pembiayaanDomain),
     // Rekonsiliasi 3 arah TPDI × BTN cocok → jurnal QRIS/VA yang menunggu rekonsiliasi terposting.
