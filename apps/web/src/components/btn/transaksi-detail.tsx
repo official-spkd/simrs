@@ -37,7 +37,7 @@ function payload(tx: PaymentTransaction): string {
   const last = tx.webhooks.filter((w) => !w.duplicate).at(-1);
   if (!last) return 'Belum ada webhook dari TPDI untuk tagihan ini.';
   const lines = [
-    `POST /api/v1/webhooks/tpdi ← ${last.response}`,
+    `POST /api/v1/webhooks/tpdi/RSFA ← ${last.response}`,
     `X-TPDI-Event-Id: ${last.id}`,
     `X-TPDI-Signature: sha256=••••${last.id.slice(-4)} (${last.signatureValid ? 'valid' : 'tidak valid'})`,
     `{ "event": "${last.event}", "merchant_id": "TPDI-RS-00127",`,
