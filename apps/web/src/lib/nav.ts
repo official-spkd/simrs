@@ -88,6 +88,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'kas-bank', label: 'Kas & bank', href: '/keuangan/kas-bank', icon: 'bank', available: false },
+      { id: 'hutang', label: 'Hutang usaha', href: '/keuangan/hutang', icon: 'box', available: false },
       // FE4 · akhir
     ],
   },

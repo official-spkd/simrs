@@ -1,5 +1,6 @@
 import 'server-only';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
+import { FAKTUR_PEMASOK, HUTANG_SUMMARY } from '../../demo/fixtures/hutang';
 import { LACI, MUTASI_BANK, REKENING_KORAN } from '../../demo/fixtures/kas-bank';
 import { ATURAN_JASPEL, JASPEL_START, REKAP_SEPTEMBER, TINDAKAN_JASPEL } from '../../demo/fixtures/jaspel';
 import { AGING } from '../../demo/fixtures/keuangan';
@@ -82,3 +83,9 @@ export function getCashBankBoard() {
   return { drawers: LACI, mutations: MUTASI_BANK, statement: REKENING_KORAN };
 }
 export type CashBankBoard = ReturnType<typeof getCashBankBoard>;
+
+export function getPayablesBoard() {
+  demoOnly('hutang usaha (U10)');
+  return { invoices: FAKTUR_PEMASOK, summary: HUTANG_SUMMARY };
+}
+export type PayablesBoard = ReturnType<typeof getPayablesBoard>;

@@ -431,6 +431,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['kasir', 'akuntan'],
     layout: 'staf',
   },
+  {
+    id: 'hutang',
+    label: 'Hutang usaha',
+    route: '/keuangan/hutang',
+    mockup: null,
+    components: ['U10'],
+    phase: 5,
+    status: 'demo',
+    plannedPermission: 'payable.write',
+    demoRoles: ['akuntan', 'manajemen'],
+    layout: 'staf',
+  },
   // FE4 · akhir
   {
     id: 'integrasi',

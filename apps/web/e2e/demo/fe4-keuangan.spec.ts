@@ -366,3 +366,56 @@ test.describe('kas dan bank (U09)', () => {
     await noHorizontalOverflow(page);
   });
 });
+
+test.describe('hutang usaha (U10)', () => {
+  test('cocok 3 arah, verifikasi, persetujuan tingkat 2, batch bayar berjurnal', async ({
+    page,
+    browser,
+  }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/keuangan/hutang');
+    await page.goto('/keuangan/hutang');
+    await expect(
+      page.getByRole('heading', { name: 'Hutang usaha · faktur dan jadwal bayar', level: 1 }),
+    ).toBeVisible();
+
+    const infus = page.getByRole('listitem', { name: 'Faktur INV/DFA/2610/0331' });
+    await expect(infus.getByRole('button', { name: 'Verifikasi faktur' })).toBeDisabled();
+    await expect(infus.getByText(/Faktur lebih dari penerimaan \(Rp 480\.000\)/)).toBeVisible();
+    await infus.getByRole('button', { name: /Minta nota kredit/ }).click();
+    await expect(infus.getByText('✓ PO, penerimaan, dan faktur cocok')).toBeVisible();
+    await infus.getByRole('button', { name: 'Verifikasi faktur' }).click();
+    await expect(page.getByText(/Faktur INV\/DFA\/2610\/0331 diverifikasi · \d{2}\.\d{2}/)).toBeVisible();
+    await expect(infus.getByText('Persetujuan faktur oleh posisi manajemen.')).toBeVisible();
+    await journalsBalanced(infus);
+
+    await page.getByRole('tab', { name: 'Jadwal bayar' }).click();
+    await page.getByLabel(/INV\/DAB\/2609\/2210/).check();
+    await page.getByLabel(/INV\/DFA\/2609\/0288/).check();
+    await page.getByRole('button', { name: 'Buat batch pembayaran' }).click();
+    const batch = page.getByRole('complementary', { name: 'Batch pembayaran' });
+    await journalsBalanced(batch);
+    await batch.getByRole('button', { name: 'Posting pembayaran' }).click();
+    await expect(
+      page.getByText(/BYR-2610-003 dibayar \d{2}\.\d{2} · Dr 2-1110 Rp 61\.050\.000/),
+    ).toBeVisible();
+
+    const direktur = await createAccount({ roles: ['manajemen'] });
+    const ctx = await browser.newContext({
+      baseURL: test.info().project.use.baseURL,
+      viewport: test.info().project.use.viewport,
+      locale: 'id-ID',
+      timezoneId: 'Asia/Jakarta',
+    });
+    const mgr = await ctx.newPage();
+    await loginAs(mgr, direktur, '/keuangan/hutang');
+    await mgr.goto('/keuangan/hutang');
+    const ek = mgr.getByRole('listitem', { name: 'Faktur EK/2609/55120' });
+    await ek.getByRole('button', { name: 'Setujui tingkat 2' }).click();
+    await expect(
+      mgr.getByText(/EK\/2609\/55120 disetujui tingkat 2 · Dr 2-1120 Rp 184\.000\.000/),
+    ).toBeVisible();
+    await noHorizontalOverflow(mgr);
+    await ctx.close();
+  });
+});
