@@ -1,4 +1,5 @@
 import type { DashboardKpi, DashboardPeriod, ExecutiveDashboard } from '@simrs/shared';
+import { CLAIM_KPIS } from './keuangan';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from './waktu';
 
 /**
@@ -165,7 +166,8 @@ export function demoExecutiveDashboard(period: DashboardPeriod): ExecutiveDashbo
       },
       {
         id: 'klaim',
-        title: 'Klaim pending Rp 184 jt > 30 hari',
+        // Sama dengan KPI "Pending" di layar Klaim (U05).
+        title: `Klaim pending Rp ${BigInt(CLAIM_KPIS.pending.value) / JUTA} jt > 30 hari`,
         detail: 'Mayoritas ICU sepsis, resume belum final.',
         severity: 'perhatian',
         link: { screen: 'klaim', label: 'Lihat klaim pending' },
