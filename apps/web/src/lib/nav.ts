@@ -159,6 +159,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'book',
         available: false,
       },
+      {
+        id: 'command-center',
+        label: 'Command center',
+        href: '/manajemen/command-center',
+        icon: 'layout',
+        available: false,
+      },
     ],
   },
   // FE5 · akhir

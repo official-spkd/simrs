@@ -686,6 +686,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['dokter', 'apoteker'],
     layout: 'staf',
   },
+  {
+    id: 'command-center',
+    label: 'Command center',
+    route: '/manajemen/command-center',
+    mockup: null,
+    components: ['I09'],
+    phase: 9,
+    status: 'demo',
+    plannedPermission: 'dashboard.read',
+    demoRoles: ['manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 

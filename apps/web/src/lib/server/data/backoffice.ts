@@ -27,7 +27,10 @@ import {
   ONCOLOGY_PATIENT_ID,
   PRE_CHEMO_LABS,
 } from '../../demo/fixtures/onkologi';
+import { demoQueueBoard } from '../../demo/fixtures/front-office';
 import { patientById } from '../../demo/fixtures/pasien';
+import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
+import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
@@ -163,6 +166,37 @@ export async function getPatientExperience() {
 export async function getEducation() {
   demoOnly('pendidikan klinik');
   return { trainees: TRAINEES, logbook: LOGBOOK };
+}
+
+/**
+ * I09 · Command center: bed per ruang (sama dengan Tempat tidur dan Dasbor), papan IGD, dan antrean poli dari
+ * fixture layar asalnya; IGD hanya label bed + keluhan (tanpa nama pasien).
+ */
+export async function getCommandCenter() {
+  demoOnly('command center');
+  const ed = demoEdBoardBase();
+  return {
+    asOf: DEMO_NOW,
+    wards: demoWards().map((w) => ({ code: w.code, name: w.name, beds: w.beds })),
+    state: {
+      minute: 0,
+      beds: demoBeds().map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status })),
+      ed: ed.items.map((i) => ({
+        id: i.encounterId,
+        label: `${i.bed ?? 'triase'} · ${i.chiefComplaint}`,
+        status: i.status,
+        losMinutes: i.losMinutes,
+        triageLevel: i.triageLevel,
+      })),
+      queues: demoQueueBoard().clinics.map((c) => ({
+        poliCode: c.poliCode,
+        poliName: c.poliName,
+        waiting: c.waiting.length,
+        current: c.current,
+      })),
+      ambulances: ed.ambulancesIncoming,
+    },
+  };
 }
 
 /** B11 · rencana siklus kemoterapi satu pasien, lab pra-kemo, dan daftar verifikator. */

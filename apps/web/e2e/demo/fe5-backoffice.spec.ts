@@ -533,4 +533,34 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('I09 command center: alert kritis ditindaklanjuti beralasan; maju waktu memindahkan pasien IGD ke bed', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/');
+    await page.goto('/manajemen/command-center');
+    await expect(page.getByRole('heading', { name: 'Command center', level: 1 })).toBeVisible();
+    const alerts = page.getByRole('region', { name: 'Alert keputusan' });
+    await expect(alerts).toContainText('Kritis: 1 pasien IGD menunggu bed rawat inap');
+    await expect(alerts).toContainText('ICU/ICCU 92%');
+
+    await alerts.getByRole('button', { name: /Putuskan tindakan.*1 pasien IGD menunggu bed/ }).click();
+    const save = alerts.getByRole('button', { name: 'Simpan keputusan' });
+    await expect(save).toBeDisabled();
+    await alerts.getByLabel('Tindakan', { exact: true }).selectOption('Prioritaskan bed siap untuk IGD');
+    await alerts
+      .getByLabel('Catatan dan penanggung jawab')
+      .fill('Kepala ruang Kenanga siapkan K-4xx dalam 30 menit');
+    await save.click();
+    await expect(alerts.getByText('Ditindaklanjuti 10.45')).toBeVisible();
+
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Maju 15 menit' }).click();
+    await expect(page.getByText('Data per 11.30')).toBeVisible();
+    await expect(alerts).not.toContainText('menunggu bed rawat inap');
+    await expect(page.getByRole('list', { name: 'Peristiwa terbaru' })).toContainText(
+      'Pasien IGD terlama mendapat bed',
+    );
+
+    await expectNoHorizontalOverflow(page);
+  });
 });
