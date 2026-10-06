@@ -366,11 +366,7 @@ export function LiveKioskClient({
             />
           </>
         )}
-        <p
-          className="m-0 mt-auto px-16 pt-6 text-ink-500"
-          style={fs(20)}
-          data-testid="nama-perangkat"
-        >
+        <p className="m-0 mt-auto px-16 pt-6 text-ink-500" style={fs(20)} data-testid="nama-perangkat">
           {deviceName} · {unitName}
         </p>
       </div>
