@@ -1,10 +1,10 @@
 # Serah-terima · CD-2 · Klinis interaktif
 
-- Diperbarui: Sel, 6 Okt 2026 · 16.10 WIB
-- Status: **berjalan**
+- Diperbarui: Sel, 6 Okt 2026 · 16.40 WIB
+- Status: **siap integrasi**
 - Pemilik sesi: Claude Code (agen CD-2)
 - Worktree: `/Users/godam/PROYEK/simrs/.claude/worktrees/agent-a3af8ce8198660c39`
-- Branch dan commit terakhir: `cd/cd-2` (basis `master` c6f3d04; lihat `git log -1 cd/cd-2`)
+- Branch dan commit terakhir: `cd/cd-2` (basis `master` c6f3d04, sudah digabung dengan `master` e997e9c; lihat `git log -1 cd/cd-2`). Belum di-push.
 - Tujuan dan kriteria selesai: `docs/13-pembagian-tugas-cd-cx.md` §6 CD-2. Semua aksi layar klinis tersimpan di toko demo bersama (ADR-0085), bertahan setelah muat ulang, mengalir ke layar terkait; gerbang memakai pengguna sesi; tanpa label "tidak disimpan".
 - Rencana/otorisasi pengguna: tugas CD-2 dari CD-0 (front end mode presentasi; tanpa API backend, migrasi, dependensi baru).
 - Kepemilikan file/modul: `app/(staf)/klinis/**`, `app/(perangkat)/tablet/**`, `components/{klinis,rawat-inap,rme,onkologi}/**`, `lib/{klinis*,rawat-inap*,rme*,onkologi*}.ts`, fixture klinis, `lib/server/data/klinis/**`, satu baris per domain di `lib/demo/store/registry.ts`.
@@ -55,15 +55,16 @@ Tabel lengkap (field per kejadian) ada di `docs/panduan/19-peta-kode.md` bagian 
 
 ## Validasi
 
-- `pnpm --filter @simrs/web lint` · lolos. `typecheck` · lolos. `test` · lolos (tes baru `lib/rme-toko.test.ts`, `lib/klinis-alur-toko.test.ts`).
-- E2E slot CD-2 `demo-desktop`: `rawat-inap`, `klinis`, `fe2-klinis`, `fe5-backoffice` (B11) · lolos setelah perbaikan (lihat hasil akhir di bawah).
+- Setelah merge `master` e997e9c: `pnpm lint` · lolos. `pnpm typecheck` · lolos. `pnpm --filter @simrs/web test` · lolos (126 berkas, 895 tes; tes baru `lib/rme-toko.test.ts`, `lib/klinis-alur-toko.test.ts`).
+- E2E slot CD-2 (`demo-desktop` + `demo-tablet`): `rawat-inap`, `klinis`, `fe2-klinis`, `simulasi`, `superadmin-demo`, `semua-layar`, `toko-demo`, `fe5-backoffice` · 186 lolos, 0 gagal.
 
 ## Kendala dan langkah berikutnya
 
 - Rekam medis tidak melanggan `hasil-kritis` (tes CD-1 `state-actions.test.ts` mengunci daftar layar yang dimuat ulang); status nilai kritis dibaca langsung dari domain itu setiap render.
 - Celah demo yang tetap untuk backend: verifikator kemoterapi dan perawat pemeriksa kedua dipilih dari daftar nama; relasi DPJP = posisi dokter yang membawakan DPJP persona.
 - K-1 disposisi meninggal menunggu konfirmasi pemilik produk.
+- Belum dilanggan (tersedia setelah merge CD-3): `pendaftaran/kunjungan.terdaftar` dan `antrean/antrean.dipanggil` (via display) ke antrean Poli. Antrean poli masih dari fixture + panggilan tersimpan di `klinis-poli`; menyambungkannya butuh membangun kunjungan poli dari pendaftaran (tugas lanjutan).
 
 ## Pengambilalihan
 
-Agen CD-2 masih berjalan.
+Selesai; tidak ada pekerjaan setengah jalan. Integrasi: merge `cd/cd-2` ke `master`, lalu jalankan gerbang di atas. `docs/PROGRESS.md` tidak diubah (wewenang integrator).
