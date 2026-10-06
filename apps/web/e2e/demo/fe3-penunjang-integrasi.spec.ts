@@ -132,6 +132,53 @@ test.describe('S08 · bank darah', () => {
   });
 });
 
+test.describe('S07 · gizi', () => {
+  test('alergi makanan menahan baki; puasa tidak diantar; order baru wajib skrining lalu verifikasi', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/penunjang/gizi');
+    await expect(page.getByRole('heading', { name: /Gizi/, level: 1 })).toBeVisible();
+    const mawar = page.getByRole('region', { name: 'Distribusi Bangsal Mawar' });
+    const wulan = mawar.getByRole('listitem').filter({ hasText: 'Ny. Wulan Sari Dewi' });
+    await expect(wulan.getByRole('alert')).toContainText('mengandung alergen: udang');
+    await wulan.getByRole('button', { name: /Ganti menu pengganti/ }).click();
+    await expect(wulan).toContainText(/Diantar \d{2}\.\d{2}/);
+    await expect(wulan).toContainText('menu pengganti');
+
+    const vip = page.getByRole('region', { name: 'Distribusi Paviliun VIP' });
+    await expect(vip.getByRole('button', { name: 'Antar ke bangsal' })).toBeDisabled();
+    await expect(vip).toContainText('Pasien sedang puasa');
+
+    const raka = mawar.getByRole('listitem').filter({ hasText: 'An. Raka Pratama' });
+    await expect(raka.getByRole('button', { name: 'Antar ke bangsal' })).toBeDisabled();
+    await page.getByRole('tab', { name: /Skrining gizi/ }).click();
+    await page
+      .getByRole('list', { name: 'Skrining gizi pasien' })
+      .getByRole('listitem')
+      .filter({ hasText: 'An. Raka Pratama' })
+      .getByRole('button', { name: 'Simpan skrining' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'skor MST 0' })).toBeVisible();
+    await page.getByRole('tab', { name: /Order diet/ }).click();
+    await page
+      .getByRole('list', { name: 'Order diet dari DPJP' })
+      .getByRole('listitem')
+      .filter({ hasText: 'An. Raka Pratama' })
+      .getByRole('button', { name: 'Verifikasi order' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'diverifikasi' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Distribusi makan' }).click();
+    await expect(
+      page
+        .getByRole('region', { name: 'Distribusi Bangsal Mawar' })
+        .getByRole('listitem')
+        .filter({ hasText: 'An. Raka Pratama' })
+        .getByRole('button', { name: 'Antar ke bangsal' }),
+    ).toBeEnabled();
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

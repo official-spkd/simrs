@@ -6,10 +6,12 @@ import {
   demoOtherCriticals,
 } from '../../demo/fixtures/penunjang-kritis';
 import { demoBloodRequests, demoBloodUnits } from '../../demo/fixtures/penunjang-bank-darah';
+import { DEFAULT_MEAL, demoDeliveries, demoDietOrders } from '../../demo/fixtures/penunjang-gizi';
 import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
 import type { BloodState } from '../../penunjang-bank-darah';
 import type { DepoMaster, DepoState } from '../../penunjang-depo';
+import type { Delivery, DietOrder, MealTime } from '../../penunjang-gizi';
 import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
@@ -95,4 +97,18 @@ export async function getBloodBank(): Promise<BloodBankData> {
     today: DEMO_TODAY,
     state: { requests: demoBloodRequests(), units: demoBloodUnits() },
   };
+}
+
+// ─── S07 · Gizi ──────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface NutritionData {
+  asOf: string;
+  orders: DietOrder[];
+  deliveries: Record<string, Delivery>;
+  meal: MealTime;
+}
+
+export async function getNutrition(): Promise<NutritionData> {
+  if (!isDemo()) return notImplemented('gizi');
+  return { asOf: DEMO_NOW, orders: demoDietOrders(), deliveries: demoDeliveries(), meal: DEFAULT_MEAL };
 }

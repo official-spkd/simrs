@@ -335,6 +335,19 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['analis_lab', 'perawat', 'bidan', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'gizi',
+    label: 'Gizi',
+    route: '/penunjang/gizi',
+    mockup: null,
+    components: ['S07'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'nutrition.write',
+    // Peran `nutrisionis` (keputusan fase 4 #21) belum ada di katalog; sementara perawat dan dokter.
+    demoRoles: ['perawat', 'dokter'],
+    layout: 'staf',
+  },
   // FE3 · akhir
   {
     id: 'kasir',

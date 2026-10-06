@@ -63,6 +63,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'pulse',
         available: false,
       },
+      { id: 'gizi', label: 'Gizi', href: '/penunjang/gizi', icon: 'list', available: false },
       // FE3 · akhir
     ],
   },
