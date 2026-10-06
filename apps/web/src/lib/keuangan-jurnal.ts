@@ -71,6 +71,16 @@ export const AKUN_LANJUT = {
   potonganPenjualan: { code: '4-1950', name: 'Potongan dan penyesuaian tagihan' },
 } as const satisfies Record<string, AkunRef>;
 
+const AKUN_UANG_MUKA: AkunRef = { code: '2-1210', name: 'Uang muka pasien' };
+
+/**
+ * Jurnal refund pasien (fase 6, layar Pembayaran digital): dana kembali dari rekening operasional BTN ke rekening
+ * pasien, mengurangi uang muka/kelebihan bayar pasien. Dr Uang muka pasien / Cr Bank BTN operasional.
+ */
+export function refundJournal(number: string, amount: bigint): DrafJurnal {
+  return jurnal(`Refund ${number}`, [dr(AKUN_UANG_MUKA, amount), cr(AKUN_LANJUT.bankOps, amount)]);
+}
+
 /** Ringkasan satu baris untuk umpan balik: "Dr 1-1120 Rp 9.850.000 · Cr 1-1210 Rp 10.000.000". */
 export function ringkasJurnal(j: DrafJurnal): string {
   return j.lines

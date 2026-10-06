@@ -9,6 +9,7 @@ import {
   labelPeriode,
   periodeTerkunci,
   persen,
+  refundJournal,
   ringkasJurnal,
   selisihHari,
   tanggalPendek,
@@ -31,6 +32,12 @@ describe('jurnal berpasangan', () => {
     );
     expect(jurnalSeimbang([dr(A.bankOps, -100n), cr(A.kasKasir, -100n)])).toBe(false);
     expect(jurnalSeimbang([dr(A.bankOps, 0n), cr(A.kasKasir, 0n)])).toBe(false);
+  });
+
+  it('refund pasien: Dr uang muka / Cr bank operasional, seimbang', () => {
+    const j = refundJournal('RF-2610-0014', 1_250_000n);
+    expect(jurnalSeimbang(j.lines)).toBe(true);
+    expect(j.lines.map((l) => l.account.code)).toEqual(['2-1210', '1-1120']);
   });
 
   it('baris nol dibuang saat membentuk jurnal', () => {
