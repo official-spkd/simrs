@@ -8,6 +8,7 @@ import {
   compatible,
   ISSUE_CHECKS,
   isExpired,
+  manualBedsideGate,
   REACTION_SIGNS,
 } from '@/lib/penunjang-bank-darah';
 import {
@@ -60,7 +61,9 @@ const input = z.discriminatedUnion('type', [
     requestId: id,
     wristband: z.string().max(40),
     bag: z.string().max(40),
-    manual: z.strictObject({ reason: z.string().max(300), secondVerifier: name }).optional(),
+    manual: z
+      .strictObject({ reason: z.string().max(300), secondVerifier: name, identityConfirmed: z.boolean() })
+      .optional(),
     baseline: vitals,
   }),
   z.strictObject({
@@ -104,8 +107,8 @@ export async function recordBloodAction(raw: unknown): Promise<PenunjangActionRe
     }
     case 'pasang': {
       if (a.manual) {
-        if (a.manual.reason.trim().length < 10 || a.manual.secondVerifier.trim().length < 5)
-          return invalid(BLOOD_GATE_TEXT.MANUAL_REASON);
+        const code = manualBedsideGate(a.manual, s.user.displayName);
+        if (code) return invalid(BLOOD_GATE_TEXT[code]);
         return simulated('Transfusi dimulai dengan verifikasi manual dua petugas');
       }
       const norm = (v: string) => v.replace(/\s+/g, '').toUpperCase();

@@ -103,10 +103,29 @@ describe('alur permintaan', () => {
     expect(
       applyBlood(
         s,
-        { ...bed, wristband: '', bag: '', manual: { reason: 'rusak', secondVerifier: 'Ns' } },
+        {
+          ...bed,
+          wristband: '',
+          bag: '',
+          manual: { reason: 'rusak', secondVerifier: 'Ns', identityConfirmed: true },
+        },
         ctx,
       ),
     ).toMatchObject({ code: 'MANUAL_REASON' });
+    // Manual: identitas gelang ↔ label kantong tetap wajib dicocokkan dua petugas BERBEDA (bukan dilewati).
+    const manual = (m: { secondVerifier: string; identityConfirmed: boolean }) =>
+      applyBlood(
+        s,
+        { ...bed, wristband: '', bag: '', manual: { reason: 'Printer barcode rusak, label buram', ...m } },
+        ctx,
+      );
+    expect(manual({ secondVerifier: 'Ns. Rina Kartika', identityConfirmed: false })).toMatchObject({
+      code: 'MANUAL_IDENTITY',
+    });
+    expect(manual({ secondVerifier: ` ${ctx.by.toUpperCase()} `, identityConfirmed: true })).toMatchObject({
+      code: 'CHECKER_SAME',
+    });
+    expect(manual({ secondVerifier: 'Ns. Rina Kartika', identityConfirmed: true }).ok).toBe(true);
     s = ok(applyBlood(s, { ...bed, wristband: rm, bag: 'KD-261001-031' }, ctx));
     expect(req(s, 'bd-01').transfusion?.vitals).toHaveLength(1);
   });
