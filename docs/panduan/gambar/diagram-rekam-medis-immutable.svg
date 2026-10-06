@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="judul ket">
+  <title id="judul">Rekam medis immutable: versi, koreksi, addendum</title>
+  <desc id="ket">Draf boleh diubah oleh penulisnya. Saat final, entri menjadi versi 1. Koreksi membuat versi 2 yang menggantikan versi 1 dengan alasan wajib; versi lama tetap tersimpan. Salah entri juga versi baru beralasan. Layar membaca view current (versi tanpa pengganti). Versi yang dokumennya sudah ditandatangani elektronik terkunci; perubahan hanya lewat addendum. CPPT residen menunggu co-sign DPJP. Database menolak UPDATE dan DELETE.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .old{fill:#FFFFFF;stroke:#5B6B79;stroke-width:1.2;stroke-dasharray:5 4}.warnbox{fill:#FFF3E0;stroke:#8A4B00;stroke-width:1.4}.dangerbox{fill:#FDECEA;stroke:#B42318;stroke-width:1.4}.okbox{fill:#EAF5EC;stroke:#1E6B34;stroke-width:1.4}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}.cap{font-size:11px;font-weight:700;letter-spacing:.08em;fill:#5B6B79}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .tb{fill:#0B5D56}.tok{fill:#1E6B34}.tw{fill:#8A4B00}.td{fill:#B42318}.strike{text-decoration:line-through}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnb{stroke:#0F766E;stroke-width:1.7;fill:none}.ah{fill:#5B6B79}.ahb{fill:#0F766E}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.old{fill:#15212A;stroke:#8FA1B0}
+      .warnbox{fill:#362510;stroke:#F0B45A}.dangerbox{fill:#3A1714;stroke:#F2877C}.okbox{fill:#12301D;stroke:#6FCF8A}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.cap,.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tok{fill:#6FCF8A}.tw{fill:#F0B45A}.td{fill:#F2877C}
+      .ln{stroke:#8FA1B0}.lnb{stroke:#3FB8AA}.ah{fill:#8FA1B0}.ahb{fill:#3FB8AA}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahb" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="640" rx="14"/>
+  <text class="h" x="24" y="38">Rekam medis tidak pernah ditimpa: versi, koreksi, addendum</text>
+  <text class="sub" x="24" y="60">Koreksi = versi baru beralasan. Versi lama tetap tersimpan dan terbaca sebagai riwayat (ADR-0004, ADR-0028).</text>
+
+  <text class="cap" x="24" y="94">RANTAI VERSI SATU ENTRI (MIS. CPPT, DIAGNOSIS, TANDA VITAL)</text>
+  <!-- Draf -->
+  <rect class="card" x="24" y="106" width="200" height="104" rx="12"/>
+  <text class="t" x="40" y="130">Draf</text>
+  <text class="mono" x="40" y="150">clinical_drafts</text>
+  <text class="s" x="40" y="172">boleh diubah/dihapus,</text>
+  <text class="s" x="40" y="190">hanya oleh penulisnya</text>
+  <path class="lnb" d="M224 158H262" marker-end="url(#ab)"/>
+  <text class="xs tb" x="230" y="150">final</text>
+  <!-- v1 -->
+  <rect class="old" x="266" y="106" width="220" height="104" rx="12"/>
+  <text class="t" x="282" y="130">Versi 1 · final</text>
+  <text class="s" x="282" y="152">penulis + peran dari sesi</text>
+  <text class="s" x="282" y="170">occurred_at (PPA) · recorded_at</text>
+  <text class="s" x="282" y="188">(jam server, trigger)</text>
+  <text class="xs" x="282" y="204">digantikan v2, tetap terbaca</text>
+  <path class="ln" d="M486 158H520" marker-end="url(#a)"/>
+  <text class="xs" x="503" y="100" text-anchor="middle">koreksi</text>
+  <!-- v2 -->
+  <rect class="brandbox" x="524" y="106" width="220" height="104" rx="12"/>
+  <text class="t tb" x="540" y="130">Versi 2 · koreksi</text>
+  <text class="mono" x="540" y="152">supersedes_id = v1</text>
+  <text class="mono" x="540" y="170">correction_reason</text>
+  <text class="s" x="540" y="190">alasan 10–500 karakter</text>
+  <text class="xs" x="540" y="204">satu pengganti per versi (409)</text>
+  <path class="ln" d="M744 158H778" marker-end="url(#a)"/>
+  <text class="xs" x="761" y="100" text-anchor="middle">salah entri</text>
+  <!-- v3 -->
+  <rect class="warnbox" x="782" y="106" width="194" height="104" rx="12"/>
+  <text class="t tw" x="798" y="130">Salah entri</text>
+  <text class="mono" x="798" y="152">entered_in_error</text>
+  <text class="s" x="798" y="172">versi baru, alasan wajib</text>
+  <text class="s" x="798" y="190">tampil dicoret, tidak hilang</text>
+
+  <rect class="card" x="266" y="226" width="710" height="40" rx="10"/>
+  <text class="s" x="282" y="251">Layar membaca view <tspan class="mono">&lt;tabel&gt;_current</tspan> (versi tanpa pengganti) + riwayat: alasan, penulis, pengoreksi.</text>
+
+  <text class="cap" x="24" y="304">SETELAH TANDA TANGAN ELEKTRONIK</text>
+  <rect class="okbox" x="24" y="316" width="280" height="96" rx="12"/>
+  <text class="t tok" x="40" y="340">Dokumen ditandatangani</text>
+  <text class="s" x="40" y="362">resume, persetujuan, resep: TTE</text>
+  <text class="s" x="40" y="380">lewat P08; status pending/signed</text>
+  <text class="xs" x="40" y="398">documents.source_type + source_id</text>
+  <path class="ln" d="M304 364H338" marker-end="url(#a)"/>
+  <rect class="dangerbox" x="342" y="316" width="300" height="96" rx="12"/>
+  <text class="t td" x="358" y="340">Versi terkunci</text>
+  <text class="s" x="358" y="362">koreksi ditolak: RECORD_LOCKED</text>
+  <text class="s" x="358" y="380">TTE gagal tidak mengunci: koreksi</text>
+  <text class="s" x="358" y="398">lalu tanda tangan ulang</text>
+  <path class="ln" d="M642 364H676" marker-end="url(#a)"/>
+  <rect class="brandbox" x="680" y="316" width="296" height="96" rx="12"/>
+  <text class="t tb" x="696" y="340">Addendum</text>
+  <text class="s" x="696" y="362">entri akar baru, addendum_of =</text>
+  <text class="s" x="696" y="380">versi final terkini, pasien dan</text>
+  <text class="s" x="696" y="398">kunjungan sama</text>
+
+  <text class="cap" x="24" y="450">CO-SIGN RESIDEN (K07, B10)</text>
+  <rect class="card" x="24" y="462" width="200" height="64" rx="12"/>
+  <text class="t" x="40" y="486">CPPT residen</text><text class="s" x="40" y="506">ditulis, belum final klinis</text>
+  <path class="ln" d="M224 494H262" marker-end="url(#a)"/>
+  <rect class="warnbox" x="266" y="462" width="220" height="64" rx="12"/>
+  <text class="t tw" x="282" y="486">menunggu_cosign</text><text class="s" x="282" y="506">masuk worklist DPJP</text>
+  <path class="ln" d="M486 494H520" marker-end="url(#a)"/>
+  <rect class="okbox" x="524" y="462" width="452" height="64" rx="12"/>
+  <text class="t tok" x="540" y="486">Atestasi co-sign DPJP</text>
+  <text class="s" x="540" y="506">clinical_attestations (append-only), satu co-sign per entri</text>
+
+  <rect class="card" x="24" y="546" width="952" height="64" rx="12"/>
+  <text class="t" x="40" y="570">Dijaga database, bukan hanya kode</text>
+  <text class="s" x="40" y="592">app_reject_mutation menolak UPDATE/DELETE (juga pemilik tabel) · app_clinical_guard memeriksa rantai versi · kode ICD/LOINC dicek ke ref.concepts</text>
+</svg>
