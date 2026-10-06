@@ -77,7 +77,7 @@ Chip status memakai pasangan 100/800 (mis. `bg-koral-100 text-koral-800`). Statu
 
 ## 3. Komponen dasar (`packages/ui`)
 
-`AppShell` (jendela kaca, `domain`/`domainLabel`, sidebar 236 px + header) · `Sidebar` (titik rona per grup, item aktif bergradien, grup terlipat bila > 24 layar yang bisa dibuka) · `CommandPalette` (⌘K / Ctrl K) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` · `Chip`/`StatusChip`/`FilterChip` · `Tabs` · `RadioSegmented` · `KpiCard`/`Card` · `Alert` (4 tingkat) · `SafetyGate` · `LineChart` · `Icon`.
+`AppShell` (kaca selebar layar, `domain`/`domainLabel`, `layout` dock atau sidebar 236 px + header, ADR-0092) · `Dock` (ikon per grup, stack layar di atas ikon, Cari, Akun; bilah bawah di ponsel) · `Sidebar` (titik rona per grup, item aktif bergradien, grup terlipat bila > 24 layar yang bisa dibuka) · `CommandPalette` (⌘K / Ctrl K; bisa dikendalikan `open`/`onOpenChange`) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` · `Chip`/`StatusChip`/`FilterChip` · `Tabs` · `RadioSegmented` · `KpiCard`/`Card` · `Alert` (4 tingkat) · `SafetyGate` · `LineChart` · `Icon`.
 
 ## 4. Peta layar → rute → komponen
 
@@ -122,4 +122,4 @@ Chip status memakai pasangan 100/800 (mis. `bg-koral-100 text-koral-800`). Statu
 3. Setiap aksi penting memberi umpan balik berjam (mis. "Tervalidasi · 10.41").
 4. Daftar kiri + detail kanan untuk worklist (lab, farmasi, klaim, transaksi).
 5. Data yang dihimpun otomatis diberi label sumbernya ("dari eMAR", "dari CPPT").
-6. Semua layar halaman bekerja di lebar tablet (≥ 768 px); sidebar runtuh menjadi menu atas di layar sempit.
+6. Semua layar memenuhi lebar layar dan bekerja dari ponsel sampai desktop. Navigasi bawaan dock; pengguna bisa memilih sidebar (cookie `simrs_nav`, bawaan server `NAV_LAYOUT`). Di bawah 768 px dock menjadi bilah bawah, sidebar runtuh menjadi menu atas.

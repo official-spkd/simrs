@@ -185,6 +185,8 @@
   --animate-pop: pop 0.45s var(--ease-spring) both;
   --animate-crit: crit-pulse 1.6s ease-out infinite;
   --animate-grow: grow 0.9s 0.2s var(--ease-spring) both;
+  --animate-stack-in: stack-in 0.32s var(--ease-spring) both;
+  --animate-dock-in: dock-in 0.55s var(--ease-spring) both;
 
   /*
    * Jendela hanya memudar masuk, tanpa transform: jendela membungkus header lengket dan semua kontrol, sehingga
@@ -258,6 +260,41 @@
     }
     to {
       transform: scaleX(1);
+    }
+  }
+  /* Stack dock tumbuh dari ikonnya (asal bawah tengah), tanpa geser horizontal agar tetap di atas ikon. */
+  @keyframes stack-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.92);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+  @keyframes dock-in {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes dock-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-12px);
+    }
+    70% {
+      transform: translateY(-3px);
     }
   }
   @keyframes shine {
@@ -465,5 +502,41 @@
   }
   & > *:nth-child(n + 5) {
     animation-delay: 0.2s;
+  }
+}
+
+/*
+ * Dock ala macOS (ADR-0092): ikon membesar saat kursor di atasnya, tetangga ikut sedikit membesar (`:has`).
+ * Hanya di perangkat berpenunjuk halus (mouse/trackpad) dan tanpa preferensi kurangi gerak; layar sentuh tidak.
+ */
+@layer components {
+  .dock-tile {
+    transform-origin: bottom center;
+    transition: transform 220ms var(--ease-spring);
+  }
+  @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) and (min-width: 48rem) {
+    .dock-item:hover .dock-tile {
+      transform: translateY(-10px) scale(1.24);
+    }
+    .dock-item:hover + .dock-item .dock-tile,
+    .dock-item:has(+ .dock-item:hover) .dock-tile {
+      transform: translateY(-5px) scale(1.12);
+    }
+    .dock-item:hover + .dock-item + .dock-item .dock-tile,
+    .dock-item:has(+ .dock-item + .dock-item:hover) .dock-tile {
+      transform: translateY(-2px) scale(1.04);
+    }
+    .dock-item:hover .dock-tip {
+      opacity: 1;
+    }
+  }
+  .dock-btn[aria-expanded='true'] .dock-tile {
+    animation: dock-bounce 0.5s var(--ease-spring);
+  }
+  .dock-btn:focus-visible .dock-tip {
+    opacity: 1;
+  }
+  .dock-btn:not(:disabled):active .dock-tile {
+    transform: scale(0.94);
   }
 }

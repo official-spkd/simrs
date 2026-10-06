@@ -245,6 +245,20 @@ Sisa pekerjaan:
 - Kelas lokal `components/{ppi,ppra,dokumen,pengalaman,onkologi,rekam-medis-adm}` belum ditinjau; layar-layar itu sudah bergaya Pelangi lewat kit.
 - Tangkapan layar panduan perlu dibuat ulang (`pnpm docs:gambar`, CD-5).
 
+### Navigasi dock + layar penuh (7 Okt 2026, ADR-0092)
+
+Mockup "Dock · layar penuh" disetujui, lalu diterapkan:
+- `Dock` di `@simrs/ui`: ikon per grup, stack layar di atas ikon, Cari → palet, stack Akun; di ponsel menjadi bilah bawah;
+- pilihan Dock/Sidebar di toolbar, disimpan di cookie `simrs_nav` (bawaan server `NAV_LAYOUT`, default `dock`);
+- kaca selebar layar di kedua tampilan.
+
+Gerbang:
+- build, lint, typecheck: hijau;
+- test: hijau (ui 37, web 971);
+- E2E penuh: 509 lolos / 0 gagal / 122 dilewati, termasuk `e2e/demo/dock.spec.ts`.
+
+Suite E2E lama tetap memakai `NAV_LAYOUT=sidebar`.
+
 ## Langkah berikutnya
 
 - **6 Okt 2026 · front end semua fase**: 80 layar di registri. Berikutnya: (1) putaran 2 agen bug + dokumentasi untuk layar baru; (2) `docker compose up -d` setelah agen selesai agar port infra hanya 127.0.0.1 berlaku (SEC `c51607b`); (3) keputusan produk: gerbang `DischargeGate` untuk disposisi meninggal sebelum 3.6; (4) lanjut backend fase 3 (3.6–3.9; 3.5 selesai) atau sambungkan layar demo ke API per domain.

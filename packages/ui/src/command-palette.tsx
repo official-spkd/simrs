@@ -48,12 +48,27 @@ export function CommandPalette({
   items,
   onSelect,
   placeholder = 'Cari layar… (mis. "farmasi", "klaim")',
+  open: openProp,
+  onOpenChange,
 }: {
   items: readonly CommandItem[];
   onSelect: (href: string) => void;
   placeholder?: string;
+  /** Mode terkendali (mis. tombol Cari di dock membuka palet). Tanpa ini palet mengatur dirinya sendiri. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
+  const open = openProp ?? innerOpen;
+  const openRef = useRef(open);
+  openRef.current = open;
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (openProp === undefined) setInnerOpen(next);
+      onOpenChange?.(next);
+    },
+    [openProp, onOpenChange],
+  );
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const [mac, setMac] = useState(false);
@@ -67,19 +82,19 @@ export function CommandPalette({
     setQuery('');
     setActive(0);
     trigger.current?.focus();
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     setMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent));
     const onKey = (e: globalThis.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen(!openRef.current);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [setOpen]);
 
   useEffect(() => {
     if (open) document.getElementById(`${listId}-opt-${active}`)?.scrollIntoView?.({ block: 'nearest' });

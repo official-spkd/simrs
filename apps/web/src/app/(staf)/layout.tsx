@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { ActingRolePicker } from '@/components/acting-role-picker';
 import { DemoBadge } from '@/components/demo-badge';
@@ -14,6 +15,7 @@ import { runScenario } from '@/lib/demo/engine/run';
 import { guideView } from '@/lib/demo/guide-view';
 import { SCENARIOS } from '@/lib/demo/skenario';
 import { navGroups } from '@/lib/nav';
+import { NAV_LAYOUT_COOKIE, parseNavLayout } from '@/lib/nav-layout';
 import { api } from '@/lib/server/api';
 import { readActiveModules } from '@/lib/server/data/platform';
 import { loadDemoRuns } from '@/lib/server/demo/scenario';
@@ -29,7 +31,9 @@ import { canRegisterPin, isSuperadmin } from '@/lib/session-view';
  */
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const s = await requireSession();
-  const { dataSource } = webEnv();
+  const { dataSource, navLayout } = webEnv();
+  // Tampilan navigasi pilihan pengguna (dock/sidebar, ADR-0092); tanpa pilihan memakai bawaan `NAV_LAYOUT`.
+  const layout = parseNavLayout((await cookies()).get(NAV_LAYOUT_COOKIE)?.value) ?? navLayout;
   const demo = dataSource === 'demo' ? await loadDemoRuns(s) : null;
   // Modul aktif dari layar Pengaturan (toko demo): menu modul yang dimatikan disembunyikan. Mode api: null.
   const modules = dataSource === 'demo' ? await readActiveModules() : null;
@@ -53,10 +57,30 @@ export default async function StaffLayout({ children }: { children: ReactNode })
     allAccess: Boolean(allAccess),
     modules,
   });
+  const unitName = s.unit?.name ?? 'Semua unit';
+  const user = {
+    name: s.user.displayName,
+    role: allAccess ? 'Superadmin demo · semua layar' : (s.role?.name ?? '—'),
+    initials: s.user.initials,
+  };
+  const userActions =
+    positions > 1 || pin ? (
+      <div className="flex flex-col gap-2">
+        {positions > 1 && <SwitchPositionLink />}
+        {pin && <PinLink />}
+        <LogoutButton />
+      </div>
+    ) : (
+      <LogoutButton />
+    );
   return (
     <StaffShell
       tenantName={s.tenant.name}
+      unitName={unitName}
+      user={user}
       groups={groups}
+      initialLayout={layout}
+      userActions={userActions}
       // Mode presentasi: header lengket berisi pemicu panduan (tidak melayang di atas isi halaman).
       stickyHeader={Boolean(demo)}
       header={
@@ -81,24 +105,10 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       sidebar={
         <StaffSidebar
           tenantName={s.tenant.name}
-          unitName={s.unit?.name ?? 'Semua unit'}
-          user={{
-            name: s.user.displayName,
-            role: allAccess ? 'Superadmin demo · semua layar' : (s.role?.name ?? '—'),
-            initials: s.user.initials,
-          }}
+          unitName={unitName}
+          user={user}
           groups={groups}
-          userActions={
-            positions > 1 || pin ? (
-              <div className="flex flex-col gap-2">
-                {positions > 1 && <SwitchPositionLink />}
-                {pin && <PinLink />}
-                <LogoutButton />
-              </div>
-            ) : (
-              <LogoutButton />
-            )
-          }
+          userActions={userActions}
         />
       }
     >

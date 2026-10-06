@@ -213,6 +213,8 @@ export default defineConfig({
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
         // Isi awal "Kode RS" pasti sama dengan yang diuji, apa pun isi .env pengembang.
         LOGIN_TENANT_CODE: 'RSCM',
+        // Suite lama menguji menu lewat sidebar; tampilan dock diuji tersendiri dengan cookie pilihan (e2e/demo/dock.spec.ts).
+        NAV_LAYOUT: 'sidebar',
         // Suite utama selalu memakai API, walau .env pengembang berisi DATA_SOURCE=demo.
         DATA_SOURCE: 'api',
       },
@@ -228,6 +230,8 @@ export default defineConfig({
         APP_ENV: 'local',
         API_BASE_URL: `http://127.0.0.1:${API_PORT}`,
         LOGIN_TENANT_CODE: 'RSCM',
+        // Suite lama menguji menu lewat sidebar; tampilan dock diuji tersendiri dengan cookie pilihan (e2e/demo/dock.spec.ts).
+        NAV_LAYOUT: 'sidebar',
         DATA_SOURCE: 'demo',
         // Keadaan simulasi akun uji di folder sementara, bukan `.local/demo-state` milik pengembang.
         DEMO_STATE_DIR: dirname(DEMO_ACCOUNTS_FILE),

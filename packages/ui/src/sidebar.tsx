@@ -19,6 +19,8 @@ export interface NavGroup {
   items: NavItem[];
   /** Rona domain grup (titik grup dan item aktif). Bawaan `fo` (samudra). */
   domain?: DomainKey;
+  /** Ikon grup di dock (ADR-0092). */
+  icon?: IconName;
 }
 
 export type LinkLike = ComponentType<{

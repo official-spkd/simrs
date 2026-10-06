@@ -6,19 +6,23 @@ import type { DomainKey } from './tokens';
 /** Tinggi header lengket (`stickyHeader`); elemen `sticky` di halaman memakai `var(--app-sticky-top)`. */
 const STICKY_HEADER_HEIGHT = '4rem';
 
+export type NavLayout = 'sidebar' | 'dock';
+
 /**
- * Kerangka halaman staf Pelangi Klinis (ADR-0091): jendela kaca berisi sidebar 236 px + header + konten. Mulai
- * 1024 px jendela menempel di tepi atas (header lengket tetap di y = 0) dengan celah kiri/kanan/bawah, sudut bawah
- * radius 20, dan bayangan; di bawahnya memenuhi layar.
+ * Kerangka halaman staf Pelangi Klinis (ADR-0091, ADR-0092): kaca selebar layar (tanpa margin) berisi navigasi +
+ * header + konten, sehingga isi layar memakai seluruh ruang.
+ * - `layout="sidebar"`: sidebar 236 px; di bawah 768 px runtuh menjadi menu atas (details/summary, tanpa JS).
+ * - `layout="dock"`: tanpa sidebar; `dock` (komponen `Dock`) melayang di bawah layar di semua lebar, konten diberi
+ *   ruang bawah agar tidak tertutup dock.
  * `domain` memasang `data-domain` sehingga aksen `brand-*` seluruh layar mengikuti rona domain menu aktif; garis 3 px
- * di tepi atas jendela bergradien rona itu, dan `domainLabel` tampil sebagai label di awal header.
- * Di bawah 768 px sidebar runtuh menjadi menu atas yang bisa dibuka (details/summary, tanpa JS).
- * `stickyHeader`: mulai 768 px header tetap di atas saat halaman digulir (kontrol di header, mis. panduan presentasi,
- * selalu terjangkau tanpa melayang di atas isi); `--app-sticky-top` = tingginya, 0 bila tidak lengket. Di layar
- * ponsel header boleh membungkus dua baris, jadi ikut tergulir agar tidak memakan layar.
+ * di tepi atas bergradien rona itu, dan `domainLabel` tampil sebagai label di awal header.
+ * `stickyHeader`: mulai 768 px header tetap di atas saat halaman digulir; `--app-sticky-top` = tingginya, 0 bila
+ * tidak lengket. Di layar ponsel header boleh membungkus dua baris, jadi ikut tergulir agar tidak memakan layar.
  */
 export function AppShell({
   sidebar,
+  dock,
+  layout = 'sidebar',
   header,
   children,
   tenantName,
@@ -27,6 +31,8 @@ export function AppShell({
   domainLabel,
 }: {
   sidebar: ReactNode;
+  dock?: ReactNode;
+  layout?: NavLayout;
   header?: ReactNode;
   children: ReactNode;
   tenantName: string;
@@ -35,36 +41,39 @@ export function AppShell({
   domainLabel?: string;
 }) {
   const sticky = stickyHeader && Boolean(header);
+  const docked = layout === 'dock' && Boolean(dock);
   return (
     <div
-      className="min-h-screen lg:px-4 lg:pb-4"
+      className="min-h-screen"
       data-domain={domain}
+      data-nav-layout={docked ? 'dock' : 'sidebar'}
       data-sticky-header={sticky ? '' : undefined}
       style={{ '--app-sticky-top': sticky ? STICKY_HEADER_HEIGHT : '0px' } as CSSProperties}
     >
-      <div className="glass relative min-h-screen overflow-x-clip md:flex lg:min-h-[calc(100vh-1rem)] lg:animate-win-in lg:overflow-clip lg:rounded-b-window lg:border lg:border-t-0 lg:border-white/85 lg:shadow-window">
+      <div className="glass relative min-h-screen animate-win-in overflow-x-clip md:flex">
         <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-40 h-[3px] bg-domain-bar" />
-        <aside className="sticky top-0 hidden h-screen shrink-0 overflow-y-auto md:block">
-          {sidebar}
-        </aside>
-
-        <details className="group border-b border-white/70 bg-white/80 md:hidden">
-          <summary className="flex h-14 cursor-pointer list-none items-center gap-2 px-4 font-semibold">
-            <Icon name="menu" size={20} />
-            {tenantName}
-            <span className="ml-auto text-caption font-normal text-ink-500 group-open:hidden">Buka menu</span>
-            <span className="ml-auto hidden text-caption font-normal text-ink-500 group-open:inline">
-              Tutup menu
-            </span>
-          </summary>
-          <div className="max-h-[70vh] overflow-y-auto">{sidebar}</div>
-        </details>
+        {!docked && (
+          <>
+            <aside className="sticky top-0 hidden h-screen shrink-0 overflow-y-auto md:block">{sidebar}</aside>
+            <details className="group border-b border-white/70 bg-white/80 md:hidden">
+              <summary className="flex h-14 cursor-pointer list-none items-center gap-2 px-4 font-semibold">
+                <Icon name="menu" size={20} />
+                {tenantName}
+                <span className="ml-auto text-caption font-normal text-ink-500 group-open:hidden">Buka menu</span>
+                <span className="ml-auto hidden text-caption font-normal text-ink-500 group-open:inline">
+                  Tutup menu
+                </span>
+              </summary>
+              <div className="max-h-[70vh] overflow-y-auto">{sidebar}</div>
+            </details>
+          </>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           {header && (
             <header
               className={cx(
-                'flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/70 px-6 py-2 backdrop-blur-xl',
+                'flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/70 px-4 py-2 backdrop-blur-xl md:px-6',
                 sticky ? 'bg-white/85 md:sticky md:top-0 md:z-30' : 'bg-white/40',
               )}
             >
@@ -77,9 +86,11 @@ export function AppShell({
               {header}
             </header>
           )}
-          <main className="stagger-rise flex-1 px-4 py-6 md:px-8">{children}</main>
+          <main className={cx('stagger-rise flex-1 px-4 py-6 md:px-8', docked && 'pb-28 md:pb-32')}>{children}</main>
         </div>
       </div>
+      {/* Di luar kaca: backdrop-filter menjadi containing block bagi `fixed`, dock harus mengacu ke layar. */}
+      {docked && dock}
     </div>
   );
 }

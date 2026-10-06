@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { activeNavId, type WebNavGroup } from '@/lib/nav';
+import { INTEGRATION_STATUS } from './staff-shell';
 
 /**
  * Sidebar staf. Semua isinya (identitas, menu sesuai izin) dihitung di server dari sesi lalu diteruskan sebagai
@@ -31,10 +32,7 @@ export function StaffSidebar({
       tenantName={tenantName}
       unitName={unitName}
       user={user}
-      integrations={[
-        { label: 'SATUSEHAT', state: 'tidak-diketahui', text: 'mock' },
-        { label: 'BPJS', state: 'tidak-diketahui', text: 'mock' },
-      ]}
+      integrations={[...INTEGRATION_STATUS]}
       integrationHref="/"
       LinkComponent={Link}
       userActions={userActions}

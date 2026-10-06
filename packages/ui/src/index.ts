@@ -1,9 +1,10 @@
 export { Alert, type AlertLevel } from './alert';
-export { AppShell } from './app-shell';
+export { AppShell, type NavLayout } from './app-shell';
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from './button';
 export { CommandPalette, filterCommands, type CommandItem } from './command-palette';
 export { Chip, FilterChip, StatusChip, STATUS_TONE, type ChipTone } from './chip';
 export { cx } from './cx';
+export { Dock, groupLabel, type DockProps } from './dock';
 export { Field, type FieldProps } from './field';
 export { Icon, iconPaths, type IconName } from './icons';
 export { Card, KpiCard } from './kpi-card';

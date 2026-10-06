@@ -1,5 +1,5 @@
 import type { TenantKind } from '@simrs/shared';
-import type { DomainKey, NavGroup, NavItem } from '@simrs/ui';
+import type { DomainKey, IconName, NavGroup, NavItem } from '@simrs/ui';
 import { screenById, screenOpen } from './screens';
 import type { DataSource } from './server/web-env';
 
@@ -504,7 +504,11 @@ export function navGroups(opts: {
       }),
     }))
     .filter((g) => g.items.length > 0);
-  const withDomain = (g: WebNavGroup): WebNavGroup => ({ ...g, domain: groupDomain(g.title) });
+  const withDomain = (g: WebNavGroup): WebNavGroup => ({
+    ...g,
+    domain: groupDomain(g.title),
+    icon: GROUP_ICON[g.title] ?? 'layout',
+  });
   return (opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups).map(withDomain);
 }
 
@@ -524,6 +528,21 @@ const GROUP_DOMAIN: Readonly<Record<string, DomainKey>> = {
   SUPERADMIN: 'si',
   'PERANGKAT & PRATINJAU': 'fo',
   PANDUAN: 'si',
+};
+
+/** Ikon grup di dock (ADR-0092). */
+const GROUP_ICON: Readonly<Record<string, IconName>> = {
+  UMUM: 'home',
+  'FRONT OFFICE': 'userPlus',
+  KLINIS: 'pulse',
+  PENUNJANG: 'flask',
+  KEUANGAN: 'wallet',
+  MANAJEMEN: 'chart',
+  'BACK OFFICE': 'box',
+  SISTEM: 'shield',
+  SUPERADMIN: 'palette',
+  'PERANGKAT & PRATINJAU': 'phone',
+  PANDUAN: 'book',
 };
 
 export function groupDomain(title: string): DomainKey {

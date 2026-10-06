@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppShell, type CommandItem, CommandPalette, filterCommands, Sidebar } from './index';
+import { AppShell, type CommandItem, CommandPalette, Dock, filterCommands, Sidebar } from './index';
 
 afterEach(cleanup);
 
@@ -113,5 +113,81 @@ describe('AppShell domain', () => {
     );
     expect((container.firstElementChild as HTMLElement).dataset.domain).toBe('pj');
     expect(screen.getByRole('banner').textContent).toContain('Penunjang');
+  });
+});
+
+describe('Dock', () => {
+  const groups = [
+    {
+      title: 'KLINIS',
+      domain: 'kl' as const,
+      icon: 'pulse' as const,
+      items: [
+        { id: 'igd', label: 'IGD', href: '/klinis/igd', icon: 'pulse' as const, available: true },
+        { id: 'ranap', label: 'Rawat inap', href: '/klinis/rawat-inap', icon: 'bed' as const, available: true },
+        { id: 'lab', label: 'Lab', href: '/lab', icon: 'flask' as const, available: false },
+      ],
+    },
+    {
+      title: 'PANDUAN',
+      domain: 'si' as const,
+      items: [{ id: 'panduan', label: 'Panduan sistem', href: '/panduan', icon: 'book' as const, available: true }],
+    },
+  ];
+  const renderDock = (onSearch = vi.fn()) =>
+    render(
+      <Dock
+        groups={groups}
+        activeId="ranap"
+        tenantName="RS Fiktif"
+        unitName="Bangsal Melati"
+        user={{ name: 'Ns. Fiktif', role: 'Perawat', initials: 'NF' }}
+        userActions={<button type="button">Keluar</button>}
+        onSearch={onSearch}
+      />,
+    );
+
+  it('ikon membuka stack (tautan tetap di DOM saat tertutup); Esc menutup dan mengembalikan fokus', () => {
+    renderDock();
+    const klinis = screen.getByRole('button', { name: 'Klinis · 3 layar' });
+    const panel = document.getElementById(klinis.getAttribute('aria-controls') ?? '') as HTMLElement;
+    expect(panel.hidden).toBe(true);
+    expect(panel.querySelector('a[href="/klinis/igd"]')).toBeTruthy();
+    fireEvent.click(klinis);
+    expect(klinis.getAttribute('aria-expanded')).toBe('true');
+    expect(panel.hidden).toBe(false);
+    expect(screen.getByRole('link', { name: 'Rawat inap' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByTitle('Lab · layar belum tersedia').getAttribute('aria-disabled')).toBe('true');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(klinis.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(klinis);
+  });
+
+  it('satu stack terbuka sekaligus; klik di luar menutup; grup satu layar langsung tautan; Cari memanggil palet', () => {
+    const onSearch = vi.fn();
+    renderDock(onSearch);
+    fireEvent.click(screen.getByRole('button', { name: 'Klinis · 3 layar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Akun · Ns. Fiktif' }));
+    expect(screen.getByRole('button', { name: 'Klinis · 3 layar' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByText('RS Fiktif · Bangsal Melati')).toBeTruthy();
+    fireEvent.pointerDown(document.body);
+    expect(screen.getByRole('button', { name: 'Akun · Ns. Fiktif' }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('link', { name: /Panduan sistem/ }).getAttribute('href')).toBe('/panduan');
+    fireEvent.click(screen.getByRole('button', { name: 'Cari layar' }));
+    expect(onSearch).toHaveBeenCalledOnce();
+  });
+});
+
+describe('AppShell layout dock', () => {
+  it('dock menggantikan sidebar dan berada di luar kaca', () => {
+    const { container } = render(
+      <AppShell tenantName="RS Fiktif" sidebar={<nav aria-label="Samping" />} dock={<nav aria-label="Dock uji" />} layout="dock">
+        isi
+      </AppShell>,
+    );
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.dataset.navLayout).toBe('dock');
+    expect(screen.queryByRole('navigation', { name: 'Samping' })).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Dock uji' }).parentElement).toBe(root);
   });
 });

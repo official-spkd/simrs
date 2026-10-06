@@ -1,4 +1,6 @@
 import { type AppEnv, resolveAppEnv } from '@simrs/shared';
+import type { NavLayout } from '@simrs/ui';
+import { parseNavLayout } from '../nav-layout';
 
 /**
  * Sumber data layar yang backend-nya belum ada (ADR-0023): `demo` = data dummy fiktif untuk presentasi,
@@ -29,6 +31,8 @@ export interface WebEnv {
   refreshStore: RefreshStore;
   /** Awalan kunci Redis peta refresh (`REFRESH_REDIS_PREFIX`). */
   refreshRedisPrefix: string;
+  /** Tampilan navigasi bawaan bila pengguna belum memilih (`NAV_LAYOUT`: `dock` bawaan, atau `sidebar`). ADR-0092. */
+  navLayout: NavLayout;
 }
 
 function refreshStoreOf(raw: string | undefined, appEnv: AppEnv): RefreshStore {
@@ -57,5 +61,6 @@ export function webEnv(source: Record<string, string | undefined> = process.env)
     redisUrl: source.REDIS_URL?.trim() || null,
     refreshStore: refreshStoreOf(source.REFRESH_STORE, appEnv),
     refreshRedisPrefix: source.REFRESH_REDIS_PREFIX?.trim() || 'simrs:web:refresh:',
+    navLayout: parseNavLayout(source.NAV_LAYOUT?.trim().toLowerCase()) ?? 'dock',
   };
 }
