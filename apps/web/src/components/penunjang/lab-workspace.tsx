@@ -1,17 +1,16 @@
 'use client';
 
-import { formatJam, type LabSample, type LabWorklist } from '@simrs/shared';
+import { type LabSample } from '@simrs/shared';
 import { KpiCard } from '@simrs/ui';
-import { useMemo, useState, useTransition } from 'react';
-import { resampleLabAction, validateLabAction } from '@/app/(staf)/penunjang/lab/actions';
-import { STAF } from '@/lib/demo/fixtures/staf';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useMemo, useState } from 'react';
+import { receiveLabAction, resampleLabAction, validateLabAction } from '@/app/(staf)/penunjang/lab/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { StoredLabWorklist } from '@/lib/server/data/penunjang';
 import {
   applyLabLocal,
   criticalOpen,
   criticalStage,
   formatLabNumber,
-  type LabLocal,
   labFlowStage,
   pendingCount,
   sampleStatusView,
@@ -28,18 +27,19 @@ import { useScenarioTasks } from './use-scenario-tasks';
 /**
  * S01/S09 · Ruang kerja Laboratorium (mockup Lab): KPI, banner nilai kritis, worklist, hasil terpilih, alur
  * validasi. Pelaporan nilai kritis tersimpan di toko demo bersama (ADR-0085) dan datang kembali lewat `data`;
- * validasi dan sampel ulang masih disimulasikan (Server Action, tidak disimpan) dan diingat selama halaman terbuka;
+ * validasi dan sampel ulang tersimpan dalam toko demo bersama;
  * pasien skenario mengikuti mesin simulasi.
  */
 export function LabWorkspace({
+  role,
   data,
   hook,
   initialSelected,
-  userName,
   criticalRev,
   storedCritical,
 }: {
-  data: LabWorklist;
+  role: string | null;
+  data: StoredLabWorklist;
   hook: ScenarioTaskHook;
   initialSelected: string | null;
   userName: string;
@@ -49,9 +49,9 @@ export function LabWorkspace({
   storedCritical: readonly string[];
 }) {
   const tasks = useScenarioTasks(hook);
-  const [local, setLocal] = useState<Record<string, LabLocal>>({});
+  const local = data.stored;
   const [feedback, setFeedback] = useState<Record<string, string>>({});
-  const [busy, startTransition] = useTransition();
+  const { run, pending: busy } = useStoreAction(data.rev);
   const samples = useMemo(
     () => sortWorklist(data.samples.map((s) => applyLabLocal(s, local[s.id]))),
     [data.samples, local],
@@ -67,35 +67,17 @@ export function LabWorkspace({
       // URL hanya kenyamanan (tautan langsung ke sampel).
     }
   };
-  const patch = (id: string, fn: (cur: LabLocal) => LabLocal) =>
-    setLocal((all) => ({ ...all, [id]: fn(all[id] ?? {}) }));
   const say = (id: string, message: string) => setFeedback((f) => ({ ...f, [id]: message }));
-
   const validate = (s: LabSample, level: 'teknis' | 'klinis') =>
-    startTransition(async () => {
-      const r = await validateLabAction({ sampleId: s.id, level });
-      say(s.id, r.message);
-      if (!r.ok) return;
-      const at = demoNow().toISOString();
-      patch(s.id, (cur) =>
-        level === 'teknis'
-          ? { ...cur, technical: { by: userName, at } }
-          : { ...cur, clinical: { by: STAF.dokterPatologiKlinik, at } },
-      );
-    });
-
-  const resample = (s: LabSample) => {
-    const cancel = !!local[s.id]?.resampleAt;
-    startTransition(async () => {
-      const r = await resampleLabAction({ sampleId: s.id, cancel });
-      say(s.id, r.message);
-      if (!r.ok) return;
-      const at = demoNow().toISOString();
-      patch(s.id, (cur) =>
-        cancel ? { critical: cur.critical } : { critical: cur.critical, resampleAt: at },
-      );
-    });
-  };
+    run(
+      (rev) => validateLabAction({ sampleId: s.id, level }, rev),
+      (r) => say(s.id, r.message),
+    );
+  const resample = (s: LabSample) =>
+    run(
+      (rev) => resampleLabAction({ sampleId: s.id, cancel: !!local[s.id]?.resampleAt }, rev),
+      (r) => say(s.id, r.message),
+    );
 
   const open = samples.filter(criticalOpen).length;
   const stored = new Set(storedCritical);
@@ -167,13 +149,20 @@ export function LabWorkspace({
           {sel && (
             <>
               <LabDetail
+                role={role}
                 sample={sel}
-                resample={local[sel.id]?.resampleAt ? formatJam(local[sel.id]?.resampleAt ?? '') : null}
+                resample={local[sel.id]?.resampleAt ?? null}
                 scenario={tasks.scenarioOf(sel.patient.id)}
                 tasks={tasks}
                 busy={busy}
                 feedback={feedback[sel.id] ?? null}
                 onValidate={(level) => validate(sel, level)}
+                onReceive={(specimen, identityConfirmed) =>
+                  run(
+                    (rev) => receiveLabAction({ sampleId: sel.id, specimen, identityConfirmed }, rev),
+                    (r) => say(sel.id, r.message),
+                  )
+                }
                 onResample={() => resample(sel)}
               />
               <LabFlow stage={labFlowStage(sel, !!local[sel.id]?.resampleAt)} pending={pendingCount(sel)} />

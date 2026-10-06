@@ -3,16 +3,10 @@
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import Link from 'next/link';
-import { useId, useState, useTransition } from 'react';
+import { useId, useState } from 'react';
 import { processHl7Action } from '@/app/(staf)/sistem/integrasi/perangkat/actions';
-import type { InboundResult } from '@/lib/integrasi-perangkat';
+import { useStoreAction } from '@/lib/demo/store/client';
 import type { GatewayData } from '@/lib/server/data/integrasi-lanjut';
-
-interface LogRow {
-  at: string;
-  result: InboundResult;
-  redacted: string;
-}
 
 const ACK_TONE = { AA: 'success', AE: 'warning', AR: 'danger' } as const;
 
@@ -24,23 +18,15 @@ export function GatewayView({ data }: { data: GatewayData }) {
   const id = useId();
   const [presetId, setPresetId] = useState(data.presets[0]?.id ?? '');
   const [raw, setRaw] = useState(data.presets[0]?.raw ?? '');
-  const [processed, setProcessed] = useState<string[]>([]);
-  const [log, setLog] = useState<LogRow[]>([]);
+  const log = data.log;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
 
   const send = () =>
-    startTransition(async () => {
-      const r = await processHl7Action({ raw, processed });
-      if (!r.ok || !r.result) return setMsg({ ok: false, text: r.message });
-      const result = r.result;
-      setMsg({ ok: result.ack === 'AA', text: r.message });
-      setLog((cur) => [{ at: r.at ?? '', result, redacted: r.redacted ?? '' }, ...cur]);
-      if (result.status === 'dicocokkan' && result.controlId) {
-        const cid = result.controlId;
-        setProcessed((cur) => [...cur, cid]);
-      }
-    });
+    save(
+      (rev) => processHl7Action({ raw }, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -106,18 +92,21 @@ export function GatewayView({ data }: { data: GatewayData }) {
           </Button>
           <span className="text-caption text-ink-500">
             Hasil yang cocok selalu masuk sebagai draf; validasi dan nilai kritis tetap di layar{' '}
-            <Link href="/penunjang/lab">Laboratorium</Link>.
+            <Link href="/penunjang/lab" className="inline-flex min-h-11 items-center">
+              Laboratorium
+            </Link>
+            .
           </span>
         </form>
         <section
           aria-label="Log pesan gateway"
           className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Log pesan (sesi ini)</h2>
+          <h2 className="m-0 text-base font-semibold">Log pesan tersimpan</h2>
           {msg && <Alert level={msg.ok ? 'success' : 'warning'}>{msg.text}</Alert>}
           {log.length === 0 ? (
             <p className="m-0 text-small text-ink-700">
-              Belum ada pesan di sesi ini. Hari ini sudah diproses: {data.processed.join(', ')}.
+              Belum ada pesan baru. Hari ini sudah diproses: {data.processed.join(', ')}.
             </p>
           ) : (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">

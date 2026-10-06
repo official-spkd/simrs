@@ -10,7 +10,9 @@ import {
   REACTION_SIGNS,
   VITALS_PLAN,
 } from '@/lib/penunjang-bank-darah';
-import type { BloodRun } from './bank-darah-workspace';
+import type { BloodCheck, BloodRun } from './bank-darah-workspace';
+
+import type { BloodBankData } from '@/lib/server/data/penunjang-lanjut';
 
 const inputCls = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
 const labelCls = 'flex flex-col gap-1 text-small font-semibold text-ink-700';
@@ -22,23 +24,29 @@ export function IssuePanel({
   busy,
   run,
   userName,
+  userId,
+  check,
+  checks,
 }: {
   r: BloodRequest;
   units: readonly BloodUnit[];
   busy: boolean;
   run: BloodRun;
   userName: string;
+  userId: string;
+  check: BloodCheck;
+  checks: BloodBankData['checks'];
 }) {
-  const id = useId();
   const ready = r.crossmatches
     .filter((c) => c.result === 'kompatibel' && !r.issued.some((i) => i.unitId === c.unitId))
     .map((c) => units.find((u) => u.id === c.unitId))
     .filter((u): u is BloodUnit => !!u);
   const [unitId, setUnitId] = useState(ready[0]?.id ?? '');
-  const [second, setSecond] = useState('');
   const [items, setItems] = useState<Record<string, boolean>>({});
   const current = ready.some((u) => u.id === unitId) ? unitId : (ready[0]?.id ?? '');
   const complete = ISSUE_CHECKS.every((c) => items[c.id]);
+  const recorded = checks[`${r.id}:${current}`] ?? [];
+  const checkedHere = recorded.some((c) => c.userId === userId);
   if (ready.length === 0) return null;
   return (
     <form
@@ -46,10 +54,12 @@ export function IssuePanel({
       className="flex flex-col gap-3 rounded-[12px] border border-line p-3"
       onSubmit={(e) => {
         e.preventDefault();
-        run({ type: 'keluarkan', requestId: r.id, unitId: current, first: userName, second, items }, () => {
-          setItems({});
-          setSecond('');
-        });
+        run(
+          { type: 'keluarkan', requestId: r.id, unitId: current, first: userName, second: '', items },
+          () => {
+            setItems({});
+          },
+        );
       }}
     >
       <span className="font-semibold">Cek ganda dan pengeluaran kantong</span>
@@ -79,31 +89,24 @@ export function IssuePanel({
           </label>
         ))}
       </fieldset>
-      <div className="flex flex-wrap gap-3">
-        <span className={cx(labelCls, 'min-w-[200px] flex-1')}>
-          Petugas 1 (bank darah)
-          <span className="flex h-11 items-center rounded-control border border-line bg-subtle px-3 font-normal text-ink-900">
-            {userName}
-          </span>
-        </span>
-        <label htmlFor={`${id}-p2`} className={cx(labelCls, 'min-w-[200px] flex-1')}>
-          Petugas 2 (penerima dari ruangan)
-          <input
-            id={`${id}-p2`}
-            value={second}
-            maxLength={120}
-            onChange={(e) => setSecond(e.target.value)}
-            placeholder="mis. Bd. Wina Kartikasari"
-            className={inputCls}
-          />
-        </label>
-      </div>
+      <p className="m-0 text-small text-ink-700">
+        Pemeriksaan tercatat: {recorded.map((c) => c.name).join(' + ') || 'belum ada'}. Setiap petugas masuk
+        dan mencatat pemeriksaan dari sesinya sendiri.
+      </p>
+      <Button
+        disabled={busy || !complete || checkedHere || recorded.length >= 2}
+        onClick={() => check({ requestId: r.id, unitId: current, stage: 'issue', items })}
+      >
+        {checkedHere ? 'Pemeriksaan Anda tercatat' : 'Catat pemeriksaan saya'}
+      </Button>
       <span className="flex flex-wrap items-center gap-3">
-        <Button type="submit" variant="primary" disabled={busy || !current}>
+        <Button type="submit" variant="primary" disabled={busy || !current || recorded.length < 2}>
           Keluarkan kantong
         </Button>
         {!complete && (
-          <span className="text-caption text-ink-500">Centang kelima butir dan isi petugas kedua.</span>
+          <span className="text-caption text-ink-500">
+            Centang kelima butir, lalu dua petugas mencatat pemeriksaan dari sesi masing-masing.
+          </span>
         )}
       </span>
     </form>
@@ -116,20 +119,33 @@ export function BedsidePanel({
   units,
   busy,
   run,
+  check,
+  checks,
 }: {
   r: BloodRequest;
   units: readonly BloodUnit[];
   busy: boolean;
   run: BloodRun;
+  check: BloodCheck;
+  checks: BloodBankData['checks'];
 }) {
   const id = useId();
-  const issued = r.issued.map((i) => units.find((u) => u.id === i.unitId)).filter((u): u is BloodUnit => !!u);
+  const completed = new Set(
+    (r.transfusions ?? [])
+      .map((t) => t.unitId)
+      .concat(r.transfusion?.finishedAt ? [r.transfusion.unitId] : []),
+  );
+  const issued = r.issued
+    .filter((i) => !completed.has(i.unitId))
+    .map((i) => units.find((u) => u.id === i.unitId))
+    .filter((u): u is BloodUnit => !!u);
   const [wristband, setWristband] = useState('');
   const [bag, setBag] = useState('');
   const [manual, setManual] = useState(false);
   const [reason, setReason] = useState('');
-  const [verifier, setVerifier] = useState('');
   const [identity, setIdentity] = useState(false);
+  const selectedUnit = issued.find((u) => u.bagNo === bag) ?? issued[0];
+  const attestations = checks[`bedside:${r.id}:${selectedUnit?.id}:${reason.trim()}`] ?? [];
   const [v, setV] = useState({ tempC: '36,7', systolic: '118', diastolic: '74', pulse: '96' });
   const baseline = {
     tempC: Number(v.tempC.replace(',', '.')),
@@ -147,9 +163,9 @@ export function BedsidePanel({
           type: 'pasang',
           requestId: r.id,
           wristband,
-          bag,
+          bag: manual ? (selectedUnit?.bagNo ?? '') : bag,
           baseline,
-          ...(manual ? { manual: { reason, secondVerifier: verifier, identityConfirmed: identity } } : {}),
+          ...(manual ? { manual: { reason, secondVerifier: '', identityConfirmed: identity } } : {}),
         });
       }}
     >
@@ -237,14 +253,40 @@ export function BedsidePanel({
             />
           </label>
           <label className={labelCls}>
-            Petugas verifikasi kedua (bukan Anda)
-            <input
-              value={verifier}
-              maxLength={120}
-              onChange={(e) => setVerifier(e.target.value)}
+            Kantong yang diverifikasi
+            <select
               className={inputCls}
-            />
+              value={selectedUnit?.bagNo ?? ''}
+              onChange={(e) => setBag(e.target.value)}
+            >
+              {issued.map((u) => (
+                <option key={u.id} value={u.bagNo}>
+                  {u.bagNo}
+                </option>
+              ))}
+            </select>
           </label>
+          <p className="m-0 text-small">
+            Pemeriksaan manual tercatat: {attestations.map((c) => c.name).join(' + ') || 'belum ada'}. Gunakan
+            alasan yang sama dari dua sesi petugas.
+          </p>
+          <Button
+            disabled={
+              busy || !identity || reason.trim().length < 10 || !selectedUnit || attestations.length >= 2
+            }
+            onClick={() =>
+              selectedUnit &&
+              check({
+                requestId: r.id,
+                unitId: selectedUnit.id,
+                stage: 'bedside',
+                items: { identitas: identity },
+                reason: reason.trim(),
+              })
+            }
+          >
+            Catat verifikasi manual saya
+          </Button>
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-small">
             <input
               type="checkbox"
@@ -256,7 +298,12 @@ export function BedsidePanel({
           </label>
         </div>
       )}
-      <Button type="submit" variant="primary" className="self-start" disabled={busy}>
+      <Button
+        type="submit"
+        variant="primary"
+        className="self-start"
+        disabled={busy || (manual && attestations.length < 2)}
+      >
         Cocokkan dan mulai transfusi
       </Button>
     </form>

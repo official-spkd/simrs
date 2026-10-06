@@ -77,6 +77,8 @@ export interface BloodRequest {
   crossmatches: readonly Crossmatch[];
   /** Kantong yang sudah dikeluarkan dengan cek ganda. */
   issued: ReadonlyArray<{ unitId: string; at: string; checkers: readonly [string, string] }>;
+  /** Kantong yang telah ditransfusikan sebelum kantong aktif. */
+  transfusions?: ReadonlyArray<NonNullable<BloodRequest['transfusion']>>;
   /** Transfusi berjalan (kantong yang dipasang + TTV). */
   transfusion: {
     unitId: string;
@@ -123,7 +125,8 @@ const dayNum = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 export const isExpired = (u: Pick<BloodUnit, 'expiry'>, today: string) => dayNum(u.expiry) < dayNum(today);
 
 export function stageOf(r: BloodRequest): RequestStage {
-  if (r.transfusion?.finishedAt || r.transfusion?.reaction) return 'selesai';
+  if (r.transfusion?.reaction) return 'selesai';
+  if (r.transfusion?.finishedAt && (r.transfusions?.length ?? 0) + 1 >= r.units) return 'selesai';
   if (r.transfusion) return 'transfusi';
   if (r.issued.length > 0) return 'transfusi';
   if (!r.receivedAt) return 'permintaan';
@@ -193,6 +196,7 @@ export function issueGate(
   u: BloodUnit,
   today: string,
   check: { first: string; second: string; items: Readonly<Record<string, boolean>> },
+  checkerIds?: readonly [string, string],
 ): BloodGateCode | null {
   const g = unitGate(r, u, today);
   if (g) return g;
@@ -200,8 +204,13 @@ export function issueGate(
     return 'CROSSMATCH_REQUIRED';
   const a = check.first.trim();
   const b = check.second.trim();
-  if (a.length < 5 || b.length < 5) return 'CHECKER_REQUIRED';
-  if (a.toLowerCase() === b.toLowerCase()) return 'CHECKER_SAME';
+  if (checkerIds) {
+    if (!checkerIds[0] || !checkerIds[1] || !a || !b) return 'CHECKER_REQUIRED';
+    if (checkerIds[0] === checkerIds[1]) return 'CHECKER_SAME';
+  } else {
+    if (a.length < 5 || b.length < 5) return 'CHECKER_REQUIRED';
+    if (a.toLowerCase() === b.toLowerCase()) return 'CHECKER_SAME';
+  }
   if (!ISSUE_CHECKS.every((c) => check.items[c.id])) return 'CHECKLIST_INCOMPLETE';
   return null;
 }
@@ -216,10 +225,20 @@ export interface ManualBedside {
 }
 
 /** Gerbang verifikasi manual (dipakai juga Server Action): alasan, identitas dicocokkan, petugas kedua orang lain. */
-export function manualBedsideGate(m: ManualBedside, by: string): BloodGateCode | null {
-  if (m.reason.trim().length < 10 || m.secondVerifier.trim().length < 5) return 'MANUAL_REASON';
+export function manualBedsideGate(
+  m: ManualBedside,
+  by: string,
+  checkerIds?: readonly [string, string],
+): BloodGateCode | null {
+  if (m.reason.trim().length < 10 || (!checkerIds && m.secondVerifier.trim().length < 5))
+    return 'MANUAL_REASON';
   if (!m.identityConfirmed) return 'MANUAL_IDENTITY';
-  if (m.secondVerifier.trim().toLowerCase() === by.trim().toLowerCase()) return 'CHECKER_SAME';
+  if (
+    checkerIds
+      ? !checkerIds[0] || !checkerIds[1] || checkerIds[0] === checkerIds[1]
+      : m.secondVerifier.trim().toLowerCase() === by.trim().toLowerCase()
+  )
+    return 'CHECKER_SAME';
   return null;
 }
 
@@ -233,12 +252,23 @@ export function bedsideGate(
   input: { wristband: string; bag: string; manual?: ManualBedside },
   units: readonly BloodUnit[],
   by: string,
+  checkerIds?: readonly [string, string],
 ): { code: BloodGateCode } | { unitId: string; manual: boolean } {
-  const issuedUnits = r.issued.map((i) => units.find((u) => u.id === i.unitId)).filter((u) => !!u);
+  const completed = new Set(
+    (r.transfusions ?? [])
+      .map((t) => t.unitId)
+      .concat(r.transfusion?.finishedAt ? [r.transfusion.unitId] : []),
+  );
+  const issuedUnits = r.issued
+    .filter((i) => !completed.has(i.unitId))
+    .map((i) => units.find((u) => u.id === i.unitId))
+    .filter((u) => !!u);
   if (input.manual) {
-    const code = manualBedsideGate(input.manual, by);
+    const code = manualBedsideGate(input.manual, by, checkerIds);
     if (code) return { code };
-    const u = issuedUnits[0];
+    const u =
+      issuedUnits.find((u) => u.bagNo === input.bag) ??
+      (issuedUnits.length === 1 ? issuedUnits[0] : undefined);
     return u ? { unitId: u.id, manual: true } : { code: 'NOT_ISSUED' };
   }
   const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase();
@@ -323,7 +353,13 @@ const stageFail = (message: string): BloodResult => ({ ok: false, code: 'STAGE',
 export function applyBlood(
   state: BloodState,
   a: BloodAction,
-  ctx: { at: string; by: string; today: string },
+  ctx: {
+    at: string;
+    by: string;
+    today: string;
+    checkerIds?: readonly [string, string];
+    bedsideCheckerIds?: readonly [string, string];
+  },
 ): BloodResult {
   const r = state.requests.find((x) => x.id === a.requestId);
   if (!r) return { ok: false, code: 'REQUEST_UNKNOWN', message: 'Permintaan darah tidak ditemukan.' };
@@ -342,6 +378,7 @@ export function applyBlood(
       };
     case 'golongan':
       if (!r.receivedAt) return stageFail('Terima permintaan dan sampel dulu.');
+      if (r.crossmatches.length || r.issued.length) return stageFail('Golongan terkunci setelah crossmatch.');
       return {
         ok: true,
         state: put({ ...r, abo: a.abo, rh: a.rh, groupSource: `Diperiksa bank darah oleh ${ctx.by}` }),
@@ -370,10 +407,11 @@ export function applyBlood(
       };
     }
     case 'keluarkan': {
+      if (r.issued.length >= r.units) return stageFail('Jumlah kantong sesuai permintaan sudah dikeluarkan.');
       const u = unitById(a.unitId);
       if (!u) return failB('BAG_UNAVAILABLE');
       if (r.issued.some((i) => i.unitId === u.id)) return stageFail('Kantong ini sudah dikeluarkan.');
-      const g = issueGate(r, u, ctx.today, a);
+      const g = issueGate(r, u, ctx.today, a, ctx.checkerIds);
       if (g) return failB(g);
       return {
         ok: true,
@@ -390,14 +428,16 @@ export function applyBlood(
       };
     }
     case 'pasang': {
-      if (r.transfusion) return stageFail('Transfusi sudah berjalan.');
-      const g = bedsideGate(r, a, state.units, ctx.by);
+      if (r.transfusion && !r.transfusion.finishedAt)
+        return stageFail('Transfusi sudah berjalan atau dihentikan karena reaksi.');
+      const g = bedsideGate(r, a, state.units, ctx.by, ctx.bedsideCheckerIds);
       if ('code' in g) return failB(g.code);
       const u = unitById(g.unitId);
       return {
         ok: true,
         state: put({
           ...r,
+          transfusions: r.transfusion ? [...(r.transfusions ?? []), r.transfusion] : r.transfusions,
           transfusion: {
             unitId: g.unitId,
             startedAt: ctx.at,
@@ -436,6 +476,8 @@ export function applyBlood(
     case 'selesai': {
       const t = r.transfusion;
       if (!t || t.finishedAt || t.reaction) return stageFail('Tidak ada transfusi yang berjalan.');
+      if (!t.vitals.some((v) => v.label === '15 menit'))
+        return stageFail('Catat TTV 15 menit sebelum menutup transfusi.');
       return {
         ok: true,
         state: put({ ...r, transfusion: { ...t, finishedAt: ctx.at } }),

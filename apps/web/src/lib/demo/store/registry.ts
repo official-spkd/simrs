@@ -8,6 +8,8 @@ import { poliDomain } from '../../klinis-poli-toko';
 import { oncologyDomain } from '../../onkologi-toko';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
+import { integrationDomain } from '../../integrasi-demo';
+import { supportDomain } from '../../penunjang-demo';
 import { criticalDomain } from '../../penunjang-kritis';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
@@ -35,6 +37,7 @@ export const DEMO_DOMAINS = {
   downtime: downtimeDomain,
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
+  integrasi: integrationDomain,
   jadwal: scheduleDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
@@ -46,6 +49,7 @@ export const DEMO_DOMAINS = {
   persetujuan: consentDomain,
   'rekam-medis': rekamDomain,
   'resume-medis': resumeDomain,
+  penunjang: supportDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
   'tempat-tidur': bedDomain,

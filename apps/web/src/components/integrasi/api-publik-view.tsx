@@ -2,20 +2,20 @@
 
 import { formatJam, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
-import { useId, useState, useTransition } from 'react';
+import { useId, useState } from 'react';
 import { apiClientAction } from '@/app/(staf)/sistem/integrasi/api-publik/actions';
 import {
-  addDays,
   type AccessLog,
   type ApiClient,
   CLINICAL_SCOPES,
   FHIR_SCOPES,
   type FhirScope,
   keyState,
-  nextKeySuffix,
   registerGate,
   suspendGate,
 } from '@/lib/integrasi-api-publik';
+
+import { useStoreAction } from '@/lib/demo/store/client';
 
 const inputCls = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] font-normal';
 const labelCls = 'flex flex-col gap-1 text-small font-semibold text-ink-700';
@@ -26,33 +26,38 @@ const day = (iso: string) => formatTanggal(`${iso.slice(0, 10)}T00:00:00+07:00`)
  * berkonfirmasi, penangguhan beralasan, pendaftaran klien baru (cakupan klinis wajib dasar persetujuan), log akses.
  */
 export function ApiPublicView({
-  clients: initial,
+  clients,
+  rev,
   log,
   today,
 }: {
   clients: ApiClient[];
+  rev: number;
   log: AccessLog[];
   today: string;
 }) {
   const id = useId();
-  const [clients, setClients] = useState(initial);
   const [confirmRotate, setConfirmRotate] = useState<string | null>(null);
   const [suspending, setSuspending] = useState<string | null>(null);
   const [reason, setReason] = useState('');
-  const [rotations, setRotations] = useState(0);
   const [form, setForm] = useState({ name: '', purpose: '', basis: '', scopes: [] as FhirScope[] });
   const [errors, setErrors] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
 
-  const act = (payload: Parameters<typeof apiClientAction>[0], apply: () => void) =>
-    startTransition(async () => {
-      const r = await apiClientAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply();
-    });
-  const patch = (cid: string, fn: (c: ApiClient) => ApiClient) =>
-    setClients((cur) => cur.map((c) => (c.id === cid ? fn(c) : c)));
+  const act = (payload: Parameters<typeof apiClientAction>[0]) =>
+    save(
+      (rev) => apiClientAction(payload, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) {
+          setConfirmRotate(null);
+          setSuspending(null);
+          setReason('');
+          setForm({ name: '', purpose: '', basis: '', scopes: [] });
+        }
+      },
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -113,19 +118,7 @@ export function ApiPublicView({
                     <Button
                       variant="primary"
                       disabled={pending}
-                      onClick={() =>
-                        act({ kind: 'rotasi', clientId: c.id, confirmed: true }, () => {
-                          const n = rotations + 1;
-                          setRotations(n);
-                          patch(c.id, (x) => ({
-                            ...x,
-                            keySuffix: nextKeySuffix(x.id, n),
-                            keyCreated: today,
-                            keyExpires: addDays(today, 365),
-                          }));
-                          setConfirmRotate(null);
-                        })
-                      }
+                      onClick={() => act({ kind: 'rotasi', clientId: c.id, confirmed: true })}
                     >
                       Ya, rotasi kunci
                     </Button>
@@ -141,11 +134,7 @@ export function ApiPublicView({
                     e.preventDefault();
                     const err = suspendGate(reason);
                     if (err) return setMsg({ ok: false, text: err });
-                    act({ kind: 'tangguhkan', clientId: c.id, reason }, () => {
-                      patch(c.id, (x) => ({ ...x, status: 'ditangguhkan', suspendedReason: reason.trim() }));
-                      setSuspending(null);
-                      setReason('');
-                    });
+                    act({ kind: 'tangguhkan', clientId: c.id, reason });
                   }}
                 >
                   <label className={labelCls}>
@@ -184,11 +173,7 @@ export function ApiPublicView({
                       size="sm"
                       variant="ghost"
                       disabled={pending}
-                      onClick={() =>
-                        act({ kind: 'aktifkan', clientId: c.id }, () =>
-                          patch(c.id, (x) => ({ ...x, status: 'aktif', suspendedReason: null })),
-                        )
-                      }
+                      onClick={() => act({ kind: 'aktifkan', clientId: c.id })}
                     >
                       Aktifkan kembali
                     </Button>
@@ -209,27 +194,7 @@ export function ApiPublicView({
             const errs = registerGate(form);
             setErrors(errs);
             if (errs.length) return;
-            act({ kind: 'daftar', ...form }, () => {
-              const n = rotations + 1;
-              setRotations(n);
-              setClients((cur) => [
-                ...cur,
-                {
-                  id: `cl-baru-${n}`,
-                  name: form.name.trim(),
-                  purpose: form.purpose.trim(),
-                  scopes: form.scopes,
-                  status: 'aktif',
-                  keySuffix: nextKeySuffix(form.name, n),
-                  keyCreated: today,
-                  keyExpires: addDays(today, 365),
-                  lastUsed: null,
-                  basis: form.basis.trim() || null,
-                  suspendedReason: null,
-                },
-              ]);
-              setForm({ name: '', purpose: '', basis: '', scopes: [] });
-            });
+            act({ kind: 'daftar', ...form });
           }}
         >
           <h2 className="m-0 text-base font-semibold">Daftarkan klien baru</h2>

@@ -3,22 +3,15 @@
 import { formatJam, type IntegrationOverview, type InterfaceId } from '@simrs/shared';
 import { Button, Icon } from '@simrs/ui';
 import Link from 'next/link';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { InterfaceCard } from '@/components/manajemen/interface-card';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { IntegrationState } from '@/lib/integrasi-demo';
+import { hubStateAction } from './actions';
 import { formatNumber } from '@/lib/manajemen';
 import { DeadLetterQueue } from './dead-letter-queue';
 
 type Counts = Partial<Record<InterfaceId, number>>;
-
-/** Satu detak uji downtime (2 dtk): pesan antarmuka eksternal masuk antrean lokal secara bergiliran. */
-function tick(cur: Counts, external: InterfaceId[], n: number): Counts {
-  const next = { ...cur };
-  const a = external[n % external.length];
-  if (a) next[a] = (next[a] ?? 0) + 1;
-  next.satusehat = (next.satusehat ?? 0) + 1;
-  return next;
-}
 
 const sum = (c: Counts) => Object.values(c).reduce((a, b) => a + (b ?? 0), 0);
 
@@ -31,57 +24,45 @@ export function IntegrationHub({
   aside,
   heading,
   subnav,
+  rev,
+  stored,
 }: {
   data: IntegrationOverview;
+  rev: number;
+  stored: IntegrationState['hub'];
   aside: ReactNode;
   /** Judul halaman; status server edge, Uji mode downtime, dan Log audit sebaris di kanannya (mockup). */
   heading: ReactNode;
   /** Navigasi sub-layar dan banner skenario di bawah kepala layar. */
   subnav?: ReactNode;
 }) {
-  const [down, setDown] = useState<{ at: string } | null>(null);
-  const [queued, setQueued] = useState<Counts>({});
-  const [synced, setSynced] = useState<Counts>({});
-  const [restored, setRestored] = useState<string | null>(null);
+  const { down, queued, synced, restored } = stored;
+  const gone = new Set(stored.gone);
   const [dest, setDest] = useState<InterfaceId | null>(null);
-  const [gone, setGone] = useState<Set<string>>(new Set());
-
-  const external = useMemo(
-    () => data.interfaces.filter((i) => i.external).map((i) => i.id),
-    [data.interfaces],
-  );
+  const [error, setError] = useState<string | null>(null);
+  const { run: save, pending } = useStoreAction(rev);
   const names = Object.fromEntries(data.interfaces.map((i) => [i.id, i.name])) as Record<InterfaceId, string>;
-
   useEffect(() => {
     if (!down) return;
-    let n = 0;
-    const timer = setInterval(() => {
-      n += 1;
-      const at = n;
-      setQueued((q) => tick(q, external, at));
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [down, external]);
-
-  const start = () => {
-    setRestored(null);
-    setQueued({});
-    setDown({ at: formatJam(demoNow()) });
-  };
-  const restore = () => {
-    const n = sum(queued);
-    setSynced((s) => {
-      const next = { ...s };
-      for (const [id, v] of Object.entries(queued) as Array<[InterfaceId, number]>)
-        next[id] = (next[id] ?? 0) + v;
-      return next;
-    });
-    setQueued({});
-    setDown(null);
-    setRestored(
-      `Koneksi pulih pukul ${formatJam(demoNow())} · ${formatNumber(n)} transaksi lokal disinkronkan ulang berurutan tanpa duplikasi. Server edge kembali online.`,
+    const timer = setInterval(
+      () =>
+        save(
+          (rev) => hubStateAction('hub.detak', rev),
+          (result) => {
+            if (!result.ok && !result.stale) setError(result.message);
+          },
+        ),
+      2000,
     );
-  };
+    return () => clearInterval(timer);
+  }, [down, save]);
+  const act = (type: 'hub.mulai' | 'hub.pulih') =>
+    save(
+      (rev) => hubStateAction(type, rev),
+      (result) => setError(result.ok ? null : result.message),
+    );
+  const start = () => act('hub.mulai');
+  const restore = () => act('hub.pulih');
 
   const resentBy = (id: InterfaceId) =>
     data.deadLetters.filter((d) => d.target === id && gone.has(d.id)).length;
@@ -115,7 +96,11 @@ export function IntegrationHub({
               </>
             )}
           </span>
-          {!holding && <Button onClick={start}>Uji mode downtime</Button>}
+          {!holding && (
+            <Button disabled={pending} onClick={start}>
+              Uji mode downtime
+            </Button>
+          )}
           <Link
             href="/sistem/audit"
             className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900 no-underline"
@@ -125,6 +110,11 @@ export function IntegrationHub({
         </div>
       </header>
       {subnav}
+      {error && (
+        <p role="alert" className="m-0 text-small text-danger">
+          {error}
+        </p>
+      )}
 
       {holding && down && (
         <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-[#F1D3A8] bg-[linear-gradient(120deg,#FFF3E0,#FFFFFF_75%)] px-4 py-3">
@@ -135,7 +125,7 @@ export function IntegrationHub({
             {/* Hanya perubahan keadaan yang diumumkan; penghitung yang berdetak tiap 2 dtk di luar live region. */}
             <span role="status" className="flex flex-col gap-0.5">
               <span className="font-semibold text-warning">
-                Mode downtime aktif sejak {down.at} · uji terkendali
+                Mode downtime aktif sejak {formatJam(down.at)} · uji terkendali
               </span>
               <span>
                 Layanan klinis dan kasir tetap berjalan. Setiap transaksi disimpan lokal di server edge dengan
@@ -148,7 +138,7 @@ export function IntegrationHub({
               <span className="font-mono font-semibold text-ink-900">{formatNumber(sum(queued))}</span>
             </span>
           </span>
-          <Button variant="primary" onClick={restore}>
+          <Button variant="primary" disabled={pending} onClick={restore}>
             Pulihkan
           </Button>
         </div>
@@ -187,7 +177,7 @@ export function IntegrationHub({
           filterName={dest ? names[dest] : null}
           onClearFilter={() => setDest(null)}
           holding={holding}
-          onResent={(ids) => setGone((g) => new Set([...g, ...ids]))}
+          rev={rev}
         />
         <aside
           aria-label="Kepatuhan dan keamanan"

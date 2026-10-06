@@ -8,6 +8,7 @@ import type { SessionView } from './session-view';
 const current = vi.hoisted(() => ({ session: null as SessionView | null }));
 vi.mock('@/lib/server/session', () => ({ getSession: async () => current.session }));
 vi.mock('@/lib/server/demo-guard', () => ({ assertDemo: () => undefined }));
+vi.mock('@/lib/server/demo/state', () => ({ commitEvent: async () => ({ ok: true, rev: 1 }) }));
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     throw new Error(`redirect ${url}`);
@@ -27,7 +28,7 @@ function as(role: string | null): SessionView {
   };
 }
 
-const resend = () => resendDeadLettersAction({ ids: [DEAD_LETTERS[0]?.id ?? ''] });
+const resend = () => resendDeadLettersAction({ ids: [DEAD_LETTERS[0]?.id ?? ''] }, 0);
 const submit = () =>
   submitPoAction({ number: 'PO-2610-032', lines: [{ itemId: INVENTORY[0]?.id ?? '', qty: 2 }] });
 
