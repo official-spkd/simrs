@@ -3,6 +3,7 @@
 import { formatJam, formatTanggal, formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, Field } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   type PrintTemplate,
@@ -99,15 +100,25 @@ const demoPrintDate = '2026-10-05T10:45:00+07:00';
 /**
  * P12 · Template cetak per RS berversi: pilih template → ubah isi → pratinjau langsung dengan pasien contoh fiktif →
  * terbitkan versi baru (gerbang: alergi + barcode di gelang, QR verifikasi di dokumen ber-TTE). Versi lama tetap
- * tersimpan untuk cetak ulang dokumen lama.
+ * tersimpan untuk cetak ulang dokumen lama. Versi terbit tersimpan di toko demo bersama (domain `pengaturan`) atas
+ * nama pengguna sesi.
  */
-export function PengaturanCetak({ initial, sample }: { initial: PrintTemplate[]; sample: SamplePatient }) {
-  const [templates, setTemplates] = useState(initial);
+export function PengaturanCetak({
+  templates,
+  history,
+  rev,
+  sample,
+}: {
+  templates: readonly PrintTemplate[];
+  history: Readonly<Partial<Record<string, ReadonlyArray<{ v: number; at: string; note: string }>>>>;
+  rev: number;
+  sample: SamplePatient;
+}) {
   const [selected, setSelected] = useState<PrintTemplate['id']>('gelang');
   const [drafts, setDrafts] = useState<Record<string, PrintTemplate>>({});
-  const [history, setHistory] = useState<Record<string, Array<{ v: number; at: string; note: string }>>>({});
   const [confirming, setConfirming] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const { dispatch, pending, error } = useDemoDispatch('pengaturan', rev);
 
   const current = templates.find((t) => t.id === selected) ?? templates[0];
   if (!current) return null;
@@ -210,7 +221,7 @@ export function PengaturanCetak({ initial, sample }: { initial: PrintTemplate[];
         <span className="flex flex-wrap items-center gap-2">
           <Button
             variant="primary"
-            disabled={!!reason}
+            disabled={!!reason || pending}
             aria-describedby={reason ? 'cetak-alasan' : undefined}
             onClick={() => setConfirming(true)}
           >
@@ -225,9 +236,9 @@ export function PengaturanCetak({ initial, sample }: { initial: PrintTemplate[];
             </span>
           )}
         </span>
-        {flash && (
+        {(flash || error) && (
           <span role="status">
-            <Stamp>{flash}</Stamp>
+            <Stamp>{error ?? flash}</Stamp>
           </span>
         )}
         {(history[current.id] ?? []).length > 0 && (
@@ -261,23 +272,31 @@ export function PengaturanCetak({ initial, sample }: { initial: PrintTemplate[];
         onConfirm={(note) => {
           const now = demoNow();
           const v = current.version + 1;
-          setTemplates((cur) =>
-            cur.map((t) =>
-              t.id === current.id
-                ? { ...draft, version: v, publishedAt: now.toISOString(), publishedBy: 'Anda (sesi ini)' }
-                : t,
-            ),
+          const id = current.id;
+          dispatch(
+            {
+              type: 'template.diterbitkan',
+              id,
+              header: draft.header,
+              subheader: draft.subheader,
+              showQr: draft.showQr,
+              showBarcode: draft.showBarcode,
+              showAllergy: draft.showAllergy,
+              footer: draft.footer,
+              note,
+              at: now.toISOString(),
+              jam: formatJam(now),
+            },
+            (ok) => {
+              if (!ok) return;
+              setDrafts((cur) => {
+                const next = { ...cur };
+                delete next[id];
+                return next;
+              });
+              setFlash(`Versi ${v} terbit · ${formatJam(now)} · cetakan berikutnya memakai versi ini`);
+            },
           );
-          setDrafts((cur) => {
-            const next = { ...cur };
-            delete next[current.id];
-            return next;
-          });
-          setHistory((cur) => ({
-            ...cur,
-            [current.id]: [{ v, at: formatJam(now), note }, ...(cur[current.id] ?? [])],
-          }));
-          setFlash(`Versi ${v} terbit · ${formatJam(now)} · cetakan berikutnya memakai versi ini`);
         }}
       />
     </div>

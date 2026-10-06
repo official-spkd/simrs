@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Pengaturan RS' };
 
 /**
  * P10/P12 · Modul aktif, pengaturan umum, dan template cetak per RS (tanpa mockup). Mode presentasi: data fiktif
- * (ADR-0023); perubahan hanya di layar (tidak disimpan).
+ * (ADR-0023); perubahan tersimpan di toko demo bersama (domain `pengaturan`, ADR-0085) atas nama pengguna sesi.
  */
 export default async function PengaturanPage() {
   const { session, screen, allowed } = await requireDemoScreen('pengaturan');
@@ -21,7 +21,7 @@ export default async function PengaturanPage() {
         trail={`Sistem / Pengaturan RS · P10 · P12 · ${session.tenant.name}`}
         title="Pengaturan RS · modul, aturan, dan template cetak"
       />
-      <PengaturanBoard modules={d.modules} settings={d.settings} templates={d.templates} sample={d.sample} />
+      <PengaturanBoard state={d.store.state} rev={d.store.rev} sample={d.sample} />
     </div>
   );
 }

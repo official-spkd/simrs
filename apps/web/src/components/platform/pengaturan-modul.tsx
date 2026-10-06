@@ -3,6 +3,7 @@
 import { type ComponentCode, COMPONENTS, formatJam } from '@simrs/shared';
 import { Button, Chip, cx, FilterChip } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   canToggle,
@@ -19,17 +20,23 @@ const LAYERS = Object.keys(LAYER_LABEL);
 /**
  * P10 · Modul aktif per RS (`tenant_modules`): sakelar per modul dengan gerbang dependensi (modul inti tidak bisa
  * dimatikan, modul yang dipakai modul aktif lain tidak bisa dimatikan, modul tidak bisa dinyalakan sebelum
- * dependensinya aktif). Perubahan dikumpulkan sebagai draf lalu disimpan sekaligus berkonfirmasi + alasan.
+ * dependensinya aktif). Perubahan dikumpulkan sebagai draf lalu disimpan sekaligus berkonfirmasi + alasan ke toko
+ * demo bersama (domain `pengaturan`); modul yang mati dibaca layar lain (menu) lewat `readActiveModules`.
  */
-export function PengaturanModul({ initial }: { initial: ModuleState }) {
-  const [saved, setSaved] = useState(initial);
-  const [draft, setDraft] = useState(initial);
+export function PengaturanModul({
+  saved,
+  log,
+  rev,
+}: {
+  saved: ModuleState;
+  log: ReadonlyArray<{ t: string; text: string }>;
+  rev: number;
+}) {
+  const [draft, setDraft] = useState(saved);
   const [layer, setLayer] = useState<string>('penunjang');
   const [confirming, setConfirming] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [log, setLog] = useState<Array<{ t: string; text: string }>>([
-    { t: '07.55', text: 'B06 Mutu dan keselamatan pasien diaktifkan · pilot komite mutu' },
-  ]);
+  const { dispatch, pending, error } = useDemoDispatch('pengaturan', rev);
 
   const diff = moduleDiff(saved, draft);
   const shown = MODULE_CODES.filter((c) => layer === 'semua' || COMPONENTS[c].layer === layer);
@@ -92,21 +99,21 @@ export function PengaturanModul({ initial }: { initial: ModuleState }) {
                 .join(', ')}`}
         </span>
         <span className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={diff.length === 0} onClick={() => setDraft(saved)}>
+          <Button size="sm" disabled={diff.length === 0 || pending} onClick={() => setDraft(saved)}>
             Batalkan draf
           </Button>
           <Button
             size="sm"
             variant="primary"
-            disabled={diff.length === 0}
+            disabled={diff.length === 0 || pending}
             onClick={() => setConfirming(true)}
           >
             Simpan perubahan
           </Button>
         </span>
-        {flash && (
+        {(flash || error) && (
           <span role="status" className="basis-full">
-            <Stamp>{flash}</Stamp>
+            <Stamp>{error ?? flash}</Stamp>
           </span>
         )}
       </div>
@@ -169,7 +176,7 @@ export function PengaturanModul({ initial }: { initial: ModuleState }) {
       </ul>
 
       <Panel title="Riwayat modul" sub="Hari ini · tercatat di jejak audit">
-        <ActivityLog label="Riwayat perubahan modul" items={log} />
+        <ActivityLog label="Riwayat perubahan modul" items={[...log]} />
       </Panel>
 
       <ConfirmDialog
@@ -177,15 +184,10 @@ export function PengaturanModul({ initial }: { initial: ModuleState }) {
         onClose={() => setConfirming(false)}
         onConfirm={(reason) => {
           const t = formatJam(demoNow());
-          setLog((cur) => [
-            ...diff.map((d) => ({
-              t,
-              text: `${label(d.code)} ${d.on ? 'diaktifkan' : 'dimatikan'} · ${reason}`,
-            })),
-            ...cur,
-          ]);
-          setSaved(draft);
-          setFlash(`Tersimpan · ${t} · ${diff.length} modul berubah, berlaku tanpa rilis ulang`);
+          const n = diff.length;
+          dispatch({ type: 'modul.disimpan', changes: diff, reason, jam: t }, (ok) => {
+            if (ok) setFlash(`Tersimpan · ${t} · ${n} modul berubah, berlaku tanpa rilis ulang`);
+          });
         }}
       />
     </div>

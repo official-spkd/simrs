@@ -7,7 +7,10 @@ import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Rujukan' };
 
-/** F07 · Rujukan, surat kontrol, dan SPRI dengan status kirim BPJS (tanpa mockup). Mode presentasi (ADR-0023). */
+/**
+ * F07 · Rujukan, surat kontrol, dan SPRI dengan status kirim BPJS (tanpa mockup). Mode presentasi (ADR-0023); aksi
+ * tersimpan di toko demo bersama (domain `rujukan`, ADR-0085).
+ */
 export default async function RujukanPage() {
   const { screen, allowed } = await requireDemoScreen('rujukan');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
@@ -18,7 +21,7 @@ export default async function RujukanPage() {
         trail="Front office / Rujukan · F07 · BPJS VClaim lewat antrean kirim"
         title="Rujukan, surat kontrol, dan SPRI"
       />
-      <RujukanBoard initial={d.referrals} planDates={d.planDates} />
+      <RujukanBoard state={d.store.state} rev={d.store.rev} planDates={d.planDates} />
     </div>
   );
 }

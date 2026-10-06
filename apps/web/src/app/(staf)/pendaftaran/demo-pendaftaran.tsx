@@ -1,4 +1,5 @@
 import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { DowntimeBanner } from '@/components/operasional/downtime-banner';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { DEMO_VCLAIM_LATENCY_MS, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
@@ -97,6 +98,7 @@ export async function DemoPendaftaran({ access }: { access: DemoScreenAccess }) 
   return (
     <div className="flex flex-col gap-4">
       <ScenarioBanner session={session} screen="daftar" />
+      <DowntimeBanner />
       <PendaftaranClient
         key={
           scenario.atCounter ? 'skenario' : counterPatientId ? `loket-${current?.ticketNo ?? ''}` : 'lokal'

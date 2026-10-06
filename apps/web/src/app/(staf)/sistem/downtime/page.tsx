@@ -7,7 +7,10 @@ import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Mode downtime' };
 
-/** P13 · Mode downtime, cetak darurat, entri susulan, dan sinkron edge (tanpa mockup). Mode presentasi (ADR-0023). */
+/**
+ * P13 · Mode downtime, cetak darurat, entri susulan, dan sinkron edge (tanpa mockup). Mode presentasi (ADR-0023):
+ * keadaan latihan tersimpan di toko demo bersama (domain `downtime`, ADR-0085) dan dibaca banner semua layar.
+ */
 export default async function DowntimePage() {
   const { session, screen, allowed } = await requireDemoScreen('downtime');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
@@ -18,7 +21,13 @@ export default async function DowntimePage() {
         trail="Sistem / Mode downtime · P13 · server edge dan sinkron"
         title="Mode downtime dan sinkron edge"
       />
-      <DowntimeBoard forms={d.forms} pack={d.pack} operator={session.user.displayName} />
+      <DowntimeBoard
+        forms={d.forms}
+        pack={d.pack}
+        operator={session.user.displayName}
+        state={d.store.state}
+        rev={d.store.rev}
+      />
     </div>
   );
 }

@@ -1,41 +1,28 @@
 import 'server-only';
 import { PATIENT_ID } from '../../demo/fixtures/ids';
 import { PASIEN } from '../../demo/fixtures/pasien';
-import {
-  DEMO_MODULE_OVERRIDES,
-  DEMO_SETTINGS,
-  DEMO_STRUCTURE,
-  DEMO_STRUCTURE_LOG,
-  DEMO_TEMPLATES,
-} from '../../demo/fixtures/platform';
-import {
-  type ModuleState,
-  moduleStateFrom,
-  type PrintTemplate,
-  type SamplePatient,
-  type SettingDraft,
-} from '../../platform-pengaturan';
-import { DEMO_DOCUMENTS, DOCUMENT_PATIENT_IDS } from '../../demo/fixtures/dokumen';
+import type { ModuleState, SamplePatient } from '../../platform-pengaturan';
+import type { SettingsStoreState } from '../../platform-pengaturan-toko';
+import { DOCUMENT_PATIENT_IDS } from '../../demo/fixtures/dokumen';
 import { PERSONA, STAF } from '../../demo/fixtures/staf';
-import type { DemoDocument, DocPatient } from '../../platform-dokumen';
-import { DEMO_JOBS } from '../../demo/fixtures/penjadwal';
-import type { ScheduledJob } from '../../platform-penjadwal';
-import type { StructNode } from '../../platform-struktur';
-import { DEMO_REFERRALS } from '../../demo/fixtures/rujukan';
+import type { DocPatient } from '../../platform-dokumen';
+import type { DocumentStoreState } from '../../platform-dokumen-toko';
+import type { JobsStoreState } from '../../platform-penjadwal-toko';
+import type { StructureStoreState } from '../../platform-struktur-toko';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from '../../demo/fixtures/waktu';
-import type { DemoReferral } from '../../rujukan';
-import {
-  BACKUP_LOCATIONS,
-  BACKUP_RUNS,
-  DOWNTIME_PAPER_FORMS,
-  EMERGENCY_PACK,
-  LAST_RESTORE_TEST,
-  MANIFEST_ROWS,
-} from '../../demo/fixtures/operasional';
-import type { BackupLocation, BackupRun } from '../../operasional-backup';
+import type { ReferralStoreState } from '../../rujukan-toko';
+import { DOWNTIME_PAPER_FORMS, EMERGENCY_PACK, MANIFEST_ROWS } from '../../demo/fixtures/operasional';
+import type { BackupStoreState } from '../../operasional-backup-toko';
 import { GOLIVE_CHECKLIST, GOLIVE_OWNERS, MRMIK_EPS } from '../../demo/fixtures/golive';
 import type { ChecklistArea, MrmikEp } from '../../golive';
+import type { GoLiveStoreState } from '../../golive-toko';
 import type { PaperForm } from '../../operasional-downtime';
+import {
+  type DowntimeBanner,
+  downtimeBannerOf,
+  type DowntimeStoreState,
+} from '../../operasional-downtime-toko';
+import { readDomain } from '../demo/state';
 import type { PublicQueue, PublicSchedule } from '@simrs/shared';
 import type { SessionView } from '../../session-view';
 import { boardOf, frontOfficeStore, loketOf, quotasOf } from './front-office/toko';
@@ -45,13 +32,8 @@ import {
   PUBLIC_EXTRA_SERVICES,
 } from '../../demo/fixtures/info-publik';
 import { type PublicBookingRecord, publicQueueFrom, publicScheduleFrom } from '../../info-publik';
-import type { RefConcept, RefVersion } from '../../platform-terminologi';
-import {
-  DEMO_IMPORT_FILES,
-  DEMO_REF_CONCEPTS,
-  DEMO_REF_VERSIONS,
-  type DemoImportFile,
-} from '../../demo/fixtures/terminologi';
+import type { TerminologyStoreState } from '../../platform-terminologi-toko';
+import { DEMO_IMPORT_FILES, type DemoImportFile } from '../../demo/fixtures/terminologi';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -81,46 +63,43 @@ function samplePatient(id: string): SamplePatient {
   };
 }
 
-export async function getFacilityStructure(): Promise<{
-  nodes: StructNode[];
-  log: Array<{ t: string; text: string }>;
-}> {
+export async function getFacilityStructure(): Promise<{ state: StructureStoreState; rev: number }> {
   if (!isDemo()) return notImplemented('struktur RS (layar demo)');
-  return { nodes: [...DEMO_STRUCTURE], log: [...DEMO_STRUCTURE_LOG] };
+  return readDomain('struktur');
 }
 
 export async function getTenantSettingsOverview(): Promise<{
-  modules: ModuleState;
-  settings: SettingDraft;
-  templates: PrintTemplate[];
+  store: { state: SettingsStoreState; rev: number };
   sample: SamplePatient;
 }> {
   if (!isDemo()) return notImplemented('pengaturan RS (layar demo)');
   return {
-    modules: moduleStateFrom(DEMO_MODULE_OVERRIDES),
-    settings: { ...DEMO_SETTINGS },
-    templates: [...DEMO_TEMPLATES],
+    store: await readDomain('pengaturan'),
     // Ny. Endang: beralergi, sehingga penanda alergi di gelang/label terlihat di pratinjau.
     sample: samplePatient(PATIENT_ID.endang),
   };
 }
 
+/**
+ * Modul aktif RS demo sesi ini (toko demo `pengaturan`) untuk menyembunyikan menu modul yang mati (CD-0, dengan
+ * `screenHiddenByModules`). Mode api: null (modul aktif sungguhan dari `tenant_modules` lewat API).
+ */
+export async function readActiveModules(): Promise<ModuleState | null> {
+  if (!isDemo()) return null;
+  return (await readDomain('pengaturan')).state.modules;
+}
+
 export async function getTerminologyOverview(): Promise<{
-  concepts: RefConcept[];
-  versions: RefVersion[];
+  store: { state: TerminologyStoreState; rev: number };
   files: DemoImportFile[];
 }> {
   if (!isDemo()) return notImplemented('data rujukan (layar demo)');
-  return {
-    concepts: [...DEMO_REF_CONCEPTS],
-    versions: [...DEMO_REF_VERSIONS],
-    files: [...DEMO_IMPORT_FILES],
-  };
+  return { store: await readDomain('terminologi'), files: [...DEMO_IMPORT_FILES] };
 }
 
 export async function getDocumentsOverview(): Promise<{
   patients: DocPatient[];
-  documents: DemoDocument[];
+  store: { state: DocumentStoreState; rev: number };
 }> {
   if (!isDemo()) return notImplemented('dokumen pasien (layar demo)');
   const patients = DOCUMENT_PATIENT_IDS.map((id): DocPatient => {
@@ -138,19 +117,22 @@ export async function getDocumentsOverview(): Promise<{
       dpjp: STAF.dpjpPenyakitDalam,
     };
   });
-  return { patients, documents: [...DEMO_DOCUMENTS] };
+  return { patients, store: await readDomain('dokumen') };
 }
 
-export async function getScheduledJobs(): Promise<ScheduledJob[]> {
+export async function getScheduledJobs(): Promise<{ state: JobsStoreState; rev: number }> {
   if (!isDemo()) return notImplemented('penjadwal pekerjaan (layar demo)');
-  return DEMO_JOBS.map((j) => ({ ...j, runs: [...j.runs] }));
+  return readDomain('penjadwal');
 }
 
-export async function getReferralsOverview(): Promise<{ referrals: DemoReferral[]; planDates: string[] }> {
+export async function getReferralsOverview(): Promise<{
+  store: { state: ReferralStoreState; rev: number };
+  planDates: string[];
+}> {
   if (!isDemo()) return notImplemented('rujukan (layar demo)');
   // Hari praktik Senin–Jumat dalam 7 hari ke depan (tanggal rencana SPRI/kontrol).
   const planDates = [1, 2, 3, 4, 7].map((d) => shiftDate(DEMO_TODAY, d));
-  return { referrals: [...DEMO_REFERRALS], planDates };
+  return { store: await readDomain('rujukan'), planDates };
 }
 
 export async function getPublicInfo(session: SessionView): Promise<{
@@ -160,7 +142,9 @@ export async function getPublicInfo(session: SessionView): Promise<{
   hint: { code: string; birthDate: string };
 }> {
   if (!isDemo()) return notImplemented('portal informasi publik (layar demo)');
-  const avg = Number(DEMO_SETTINGS['queue.avg_service_minutes'] ?? 10);
+  // Rata-rata layanan antrean dari Pengaturan RS (toko demo `pengaturan`).
+  const settings = (await readDomain('pengaturan')).state.settings;
+  const avg = Number(settings['queue.avg_service_minutes'] ?? 10);
   // Toko demo (jadwal, pendaftaran, antrean) tanpa kemajuan skenario: portal publik tidak bergantung pada langkah
   // Simulasi presenter, tetapi cuti, kuota, kunjungan baru, dan panggilan dari layar front office langsung tampil.
   const fo = await frontOfficeStore(session, { scenario: false });
@@ -192,27 +176,31 @@ export async function getPublicInfo(session: SessionView): Promise<{
 export async function getDowntimeDrill(): Promise<{
   forms: PaperForm[];
   pack: { ward: string; patients: number; forms: string[]; sample: string };
+  store: { state: DowntimeStoreState; rev: number };
 }> {
   if (!isDemo()) return notImplemented('mode downtime (layar demo)');
   return {
     forms: [...DOWNTIME_PAPER_FORMS],
     pack: { ...EMERGENCY_PACK, forms: [...EMERGENCY_PACK.forms] },
+    store: await readDomain('downtime'),
   };
 }
 
+/**
+ * Banner downtime untuk semua layar mode presentasi (null bila normal). Mode api: null (toko demo tidak dibaca;
+ * status downtime sungguhan menunggu backend fase 10).
+ */
+export async function readDowntimeBanner(): Promise<DowntimeBanner | null> {
+  if (!isDemo()) return null;
+  return downtimeBannerOf((await readDomain('downtime')).state);
+}
+
 export async function getBackupOverview(): Promise<{
-  locations: BackupLocation[];
-  runs: BackupRun[];
-  lastTest: { at: string; rtoMinutes: number; source: string };
+  store: { state: BackupStoreState; rev: number };
   manifest: Array<readonly [string, number]>;
 }> {
   if (!isDemo()) return notImplemented('cadangan dan pemulihan (layar demo)');
-  return {
-    locations: BACKUP_LOCATIONS.map((l) => ({ ...l, kept: { ...l.kept } })),
-    runs: [...BACKUP_RUNS],
-    lastTest: { ...LAST_RESTORE_TEST },
-    manifest: [...MANIFEST_ROWS],
-  };
+  return { store: await readDomain('cadangan'), manifest: [...MANIFEST_ROWS] };
 }
 
 export async function getGoLiveReadiness(): Promise<{
@@ -220,6 +208,7 @@ export async function getGoLiveReadiness(): Promise<{
   areas: ChecklistArea[];
   owners: readonly string[];
   director: string;
+  store: { state: GoLiveStoreState; rev: number };
 }> {
   if (!isDemo()) return notImplemented('kesiapan go-live (layar demo)');
   return {
@@ -227,5 +216,6 @@ export async function getGoLiveReadiness(): Promise<{
     areas: GOLIVE_CHECKLIST.map((a) => ({ ...a, items: a.items.map((i) => ({ ...i })) })),
     owners: GOLIVE_OWNERS,
     director: PERSONA.direktur,
+    store: await readDomain('golive'),
   };
 }

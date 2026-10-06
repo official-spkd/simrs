@@ -16,11 +16,11 @@
 
 Tiga domain toko demo (ADR-0085), satu baris registri masing-masing:
 
-| Domain        | Berkas                              | Kejadian                                                                                       |
-| ------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `pendaftaran` | `lib/front-office-pendaftaran.ts`   | `sep.diterbitkan`, `kunjungan.terdaftar` (kontrak keluar), `kunjungan.dicetak`                 |
-| `antrean`     | `lib/front-office-antrean.ts`       | `tiket.diambil`, `tiket.dipanggil`, `antrean.dipanggil` (kontrak keluar), `bantuan.diminta/ditangani`; melanggan `pendaftaran` |
-| `jadwal`      | `lib/front-office-jadwal.ts`        | `kuota.diubah`, `cuti.dicatat` (alasan wajib), `cuti.dialihkan`, `hfis.dikirim`                |
+| Domain        | Berkas                            | Kejadian                                                                                                                       |
+| ------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pendaftaran` | `lib/front-office-pendaftaran.ts` | `sep.diterbitkan`, `kunjungan.terdaftar` (kontrak keluar), `kunjungan.dicetak`                                                 |
+| `antrean`     | `lib/front-office-antrean.ts`     | `tiket.diambil`, `tiket.dipanggil`, `antrean.dipanggil` (kontrak keluar), `bantuan.diminta/ditangani`; melanggan `pendaftaran` |
+| `jadwal`      | `lib/front-office-jadwal.ts`      | `kuota.diubah`, `cuti.dicatat` (alasan wajib), `cuti.dialihkan`, `hfis.dikirim`                                                |
 
 - Jalur data: `lib/server/data/front-office/toko.ts` (`frontOfficeStore`, `scheduleOf`, `quotasOf`, `deskOf`, `loketOf`, `boardOf`, `displayOf`, `commitFresh`) dipakai halaman, Server Action, dan info publik. `getWeeklySchedule`/`getRegistrationDesk`/`getQueueBoard` (cabang demo) kini memakainya.
 - Aliran: anjungan (tiket A-0xx beridentitas, didahulukan dari walk-in) → papan TV (strip "Loket pendaftaran", polling 3 dtk tanpa muat ulang) → "Panggil berikutnya" di loket (formulir memuat pasien tiket) → SEP → kunjungan baru (`kunjungan.terdaftar`) → kuota jadwal +1, nomor poli berikutnya maju, PD-028 di "Berikutnya" papan TV → "Panggil berikutnya"/otomatis di papan (`antrean.dipanggil`). Cuti hari ini menghapus dokter dari kuota hari ini (meja, info publik). Info publik membaca jadwal/antrean/loket dari toko.
