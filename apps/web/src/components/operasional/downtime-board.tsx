@@ -247,7 +247,7 @@ export function DowntimeBoard({
 
       {s.stage === 1 && (
         <>
-          <Alert level="critical" title={`Mode downtime aktif sejak ${jam(s.startedAt)}`}>
+          <Alert level="critical" title={`Downtime berjalan sejak ${jam(s.startedAt)} · langkah layanan`}>
             {s.cause === 'bpjs'
               ? 'Pendaftaran tetap jalan; SEP diganti surat jaminan sementara dan dikirim ulang setelah BPJS pulih.'
               : 'Server edge melayani baca dan pendaftaran; tulis klinis memakai formulir kertas darurat.'}{' '}

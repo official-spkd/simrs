@@ -470,6 +470,12 @@ export function navGroups(opts: {
    * tambahan. Hanya berlaku di mode presentasi dan di RS; diabaikan total di mode api.
    */
   allAccess?: boolean;
+  /**
+   * Modul aktif RS dari toko demo (layar Pengaturan, `readActiveModules`). Mode presentasi saja: layar yang semua
+   * komponennya dimatikan disembunyikan dari menu. Pengaturan sendiri tidak pernah disembunyikan agar modul bisa
+   * dinyalakan lagi. Diabaikan di mode api.
+   */
+  modules?: Readonly<Partial<Record<string, boolean>>> | null;
 }): WebNavGroup[] {
   const allAccess = opts.allAccess === true && opts.dataSource === 'demo' && opts.kind === 'hospital';
   const base = allAccess ? withAllAccessNav(NAV_GROUPS) : NAV_GROUPS;
@@ -481,6 +487,14 @@ export function navGroups(opts: {
         if (opts.kind === 'platform' && !PLATFORM_ITEM_IDS.has(item.id)) return [];
         const screen = screenById(item.id);
         if (!screen) return [item];
+        if (
+          opts.dataSource === 'demo' &&
+          opts.modules &&
+          screen.id !== 'pengaturan' &&
+          screen.components.length > 0 &&
+          screen.components.every((c) => opts.modules?.[c] === false)
+        )
+          return [];
         const open = screenOpen(screen, { ...opts, allAccess });
         // Mode presentasi: layar posisi lain disembunyikan. Layar hibrida (ber-izin) di mode api mengikuti izin
         // sungguhan seperti menu ber-`requires`: tanpa izin, menu tidak tampil.

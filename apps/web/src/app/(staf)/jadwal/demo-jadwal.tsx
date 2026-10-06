@@ -1,5 +1,4 @@
 import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { DowntimeBanner } from '@/components/operasional/downtime-banner';
 import { weeklyScheduleSchema } from '@simrs/shared';
 import { demoWeeklySchedule } from '@/lib/demo/fixtures/front-office';
 import { dirtyQuotaSlots, unsyncedLeaves } from '@/lib/front-office-jadwal';
@@ -18,7 +17,6 @@ export async function DemoJadwal({ access, pilih }: { access: DemoScreenAccess; 
   const st = fo.schedule.state;
   return (
     <div className="flex flex-col gap-4">
-      <DowntimeBanner />
       <JadwalClient
         schedule={weeklyScheduleSchema.parse(scheduleOf(fo))}
         initialSlot={pilih}

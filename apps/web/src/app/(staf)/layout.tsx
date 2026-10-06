@@ -4,6 +4,7 @@ import { ActingRolePicker } from '@/components/acting-role-picker';
 import { DemoBadge } from '@/components/demo-badge';
 import { DemoGuide } from '@/components/demo-guide';
 import { DemoSync } from '@/components/demo-sync';
+import { DowntimeBanner } from '@/components/operasional/downtime-banner';
 import { LogoutButton } from '@/components/logout-button';
 import { NotificationBell } from '@/components/notification-bell';
 import { PinLink } from '@/components/pin-link';
@@ -14,6 +15,7 @@ import { guideView } from '@/lib/demo/guide-view';
 import { SCENARIOS } from '@/lib/demo/skenario';
 import { navGroups } from '@/lib/nav';
 import { api } from '@/lib/server/api';
+import { readActiveModules } from '@/lib/server/data/platform';
 import { loadDemoRuns } from '@/lib/server/demo/scenario';
 import { unreadNotifications } from '@/lib/server/notifications';
 import { assignmentsSchema } from '@/lib/server/schemas';
@@ -29,6 +31,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   const s = await requireSession();
   const { dataSource } = webEnv();
   const demo = dataSource === 'demo' ? await loadDemoRuns(s) : null;
+  // Modul aktif dari layar Pengaturan (toko demo): menu modul yang dimatikan disembunyikan. Mode api: null.
+  const modules = dataSource === 'demo' ? await readActiveModules() : null;
   const [unread, positions] = await Promise.all([
     unreadNotifications(),
     api('/api/v1/auth/assignments', { schema: assignmentsSchema }).then(
@@ -80,6 +84,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
             dataSource,
             role: s.role?.code ?? null,
             allAccess: Boolean(allAccess),
+            modules,
           })}
           userActions={
             positions > 1 || pin ? (
@@ -95,6 +100,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         />
       }
     >
+      {dataSource === 'demo' && <DowntimeBanner />}
       {children}
       {demo && <DemoSync />}
     </AppShell>
