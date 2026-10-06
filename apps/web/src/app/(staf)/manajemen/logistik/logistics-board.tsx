@@ -8,7 +8,8 @@ import {
   type PurchaseOrderDraft,
 } from '@simrs/shared';
 import { Alert, Button, cx, FilterChip } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { type ReactNode, useState, useTransition } from 'react';
+import { GatedButton } from '@/components/gated-button';
 import { ExpiryPanel } from '@/components/manajemen/expiry-panel';
 import { PoDraftPanel } from '@/components/manajemen/po-draft-panel';
 import { ProcurementList, type ProcurementRow } from '@/components/manajemen/procurement-list';
@@ -16,7 +17,7 @@ import { ReorderRow } from '@/components/manajemen/reorder-row';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { GoodsReceiptPanel } from '@/components/manajemen/goods-receipt-panel';
 import { grNumber, payableDue, type ReceiptLine } from '@/lib/logistik-terima';
-import { buildPoDraft, daysOfCover, formatDays, needsReorder } from '@/lib/manajemen';
+import { buildPoDraft, daysOfCover, needsReorder } from '@/lib/manajemen';
 import { submitPoAction } from './actions';
 
 type ClassFilter = 'semua' | 'A' | 'V';
@@ -37,7 +38,17 @@ export function LogisticsBoard({
   canApprove,
   receiptLines = {},
   suppliers = {},
+  openPo = {},
+  heading,
+  kpis,
+  banner,
 }: {
+  /** Judul halaman; tombol Stok opname dan Buat usulan PO tampil sebaris di kanannya (mockup Logistik). */
+  heading?: ReactNode;
+  kpis?: ReactNode;
+  banner?: ReactNode;
+  /** Item yang sudah masuk PO terbuka (id item -> nomor PO): terkunci agar tidak dipesan ganda. */
+  openPo?: Record<string, string>;
   data: LogisticsOverview;
   today: string;
   canApprove: boolean;
@@ -46,8 +57,11 @@ export function LogisticsBoard({
   suppliers?: Record<string, string>;
 }) {
   const [cls, setCls] = useState<ClassFilter>('semua');
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [inPo, setInPo] = useState<Record<string, string>>({});
+  // Mockup: semua item yang bisa diusulkan sudah tercentang saat layar dibuka (kecuali yang sudah ada di PO terbuka).
+  const [picked, setPicked] = useState<Set<string>>(
+    () => new Set(data.reorder.filter((i) => !openPo[i.id]).map((i) => i.id)),
+  );
+  const [inPo, setInPo] = useState<Record<string, string>>(openPo);
   const [draft, setDraft] = useState<PurchaseOrderDraft | null>(null);
   const [newPos, setNewPos] = useState<ProcurementRow[]>([]);
   const [approved, setApproved] = useState<Record<string, string>>({});
@@ -147,61 +161,43 @@ export function LogisticsBoard({
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        role="group"
-        aria-label="Usulan PO"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white px-4 py-3"
-      >
-        <span className="flex min-w-0 flex-[1_1_240px] flex-col text-small text-ink-700">
-          <span className="font-semibold text-ink-900">
-            {chosen.length} item dipilih
-            {estimate ? ` · estimasi ${formatRupiah(BigInt(estimate.total))}` : ''}
-          </span>
-          <span className="text-caption text-ink-500">
-            {critical.length} item kritis (&lt; 7 hari):{' '}
-            {critical.map((i) => `${i.name} ${formatDays(i.daysOfCover)}`).join(', ')}
-          </span>
-        </span>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
         <span className="flex flex-col items-end gap-1">
-          <span className="flex flex-wrap justify-end gap-2">
+          <span className="flex flex-wrap items-center justify-end gap-2">
+            {reason && (
+              <span id="po-alasan" className="text-caption font-medium text-warning">
+                {reason}
+              </span>
+            )}
             <Button aria-expanded={opname} onClick={() => setOpname((o) => !o)}>
               Stok opname
             </Button>
-            <Button
+            <GatedButton
               variant="primary"
-              disabled={reason !== null}
+              enabled={reason === null}
               aria-describedby={reason ? 'po-alasan' : undefined}
               onClick={makeDraft}
             >
               Buat usulan PO ({chosen.length})
-            </Button>
+            </GatedButton>
           </span>
-          {reason && (
-            <span id="po-alasan" className="text-caption text-ink-500">
-              {reason}
+          {estimate && (
+            <span className="text-caption text-ink-500">
+              {chosen.length} item dipilih · estimasi {formatRupiah(BigInt(estimate.total))}
+              {critical.length > 0 && ` · ${critical.length} kritis (< 7 hari)`}
             </span>
           )}
         </span>
-      </div>
+      </header>
+      {kpis}
+      {banner}
 
       {opname && (
         <Alert level="info" title="Stok opname">
           Opname terakhir 30 Sep dengan akurasi {String(data.kpi.opnameAccuracy).replace('.', ',')}%. Opname
           berikutnya 31 Okt (gudang farmasi dan depo); lembar hitung dibuka saat jadwal dimulai.
         </Alert>
-      )}
-      {flash && (
-        <div
-          role="status"
-          className={cx(
-            'rounded-card border px-4 py-2.5 text-small font-medium',
-            flash.ok
-              ? 'border-[#BFE0C7] bg-[#EAF5EC] text-success'
-              : 'border-[#F5D9A8] bg-warning-bg text-warning',
-          )}
-        >
-          {flash.text}
-        </div>
       )}
       {receiving && receiptLines[receiving] && (
         <GoodsReceiptPanel
@@ -226,9 +222,11 @@ export function LogisticsBoard({
               .map((l) => `+${Number(inputs[l.itemId]?.received ?? 0).toLocaleString('id-ID')} ${l.unit}`)
               .join(', ');
             setReceived((cur) => ({ ...cur, [po]: `Diterima ${gr} · ${at} · stok ${added}` }));
+            // Barang sudah diterima: item boleh diusulkan lagi bila stoknya masih di bawah ROP.
+            setInPo((cur) => Object.fromEntries(Object.entries(cur).filter(([, no]) => no !== po)));
             setFlash({
               ok: true,
-              text: `${gr} dicatat ${at}: stok ${added}; persediaan dan utang usaha ${formatRupiah(value)} jatuh tempo ${formatTanggal(payableDue(today))} (simulasi, tidak disimpan).`,
+              text: `${gr} dicatat ${at}: stok ${added}; persediaan dan utang penerimaan belum difakturkan ${formatRupiah(value)} jatuh tempo ${formatTanggal(payableDue(today))} (simulasi, tidak disimpan).`,
             });
             setReceiving(null);
           }}
@@ -260,6 +258,19 @@ export function LogisticsBoard({
               ))}
             </span>
           </div>
+          {flash && (
+            <div
+              role="status"
+              className={cx(
+                'border-b px-4 py-2.5 text-small font-medium',
+                flash.ok
+                  ? 'border-[#BFE0C7] bg-[#EAF5EC] text-success'
+                  : 'border-[#F5D9A8] bg-warning-bg text-warning',
+              )}
+            >
+              {flash.text}
+            </div>
+          )}
           <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line bg-[#F8FAFB] pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
             <label className="flex h-11 w-11 cursor-pointer items-center justify-center has-[:disabled]:cursor-not-allowed">
               <input
@@ -273,9 +284,9 @@ export function LogisticsBoard({
             </label>
             <span>Item</span>
             <span className="hidden xl:block">Kelas</span>
-            <span className="hidden xl:block">Stok</span>
-            <span className="hidden xl:block">ROP</span>
-            <span className="hidden xl:block">Cukup</span>
+            <span className="hidden text-right xl:block">Stok</span>
+            <span className="hidden text-right xl:block">ROP</span>
+            <span className="hidden text-right xl:block">Cukup</span>
             <span className="hidden xl:block">Usulan</span>
           </div>
           {visible.map((i) => (

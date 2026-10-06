@@ -658,7 +658,9 @@ test.describe('FE5 · back office', () => {
     await expect(receipt).toContainText('D Rp 22.700.000');
     await record.click();
     await expect(
-      page.getByText(/GRN-2610-0145 dicatat .* utang usaha Rp 22\.700\.000 jatuh tempo Rab, 4 Nov 2026/),
+      page.getByText(
+        /GRN-2610-0145 dicatat .* utang penerimaan belum difakturkan Rp 22\.700\.000 jatuh tempo Rab, 4 Nov 2026/,
+      ),
     ).toBeVisible();
     await expect(page.getByRole('region', { name: 'Pengadaan berjalan' })).toContainText(
       'Diterima GRN-2610-0145',

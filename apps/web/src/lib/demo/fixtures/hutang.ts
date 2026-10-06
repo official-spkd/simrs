@@ -30,7 +30,7 @@ export const FAKTUR_PEMASOK: readonly FakturPemasok[] = [
     supplier: 'Distributor farmasi A',
     poNumber: 'PO-2610-028',
     grnNumber: 'GRN-2610-0144',
-    title: 'Cairan infus (tiba 5 Okt)',
+    title: 'Cairan infus NaCl 0,9% dan D5% (tiba 5 Okt)',
     receivedAt: at('2026-10-05', '08.40'),
     invoiceDate: '2026-10-05',
     dueDate: '2026-11-04',

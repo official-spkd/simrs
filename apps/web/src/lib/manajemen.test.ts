@@ -123,6 +123,20 @@ describe('logistik', () => {
     expect(needsReorder({ stock: 3, reorderPoint: 2 })).toBe(false);
   });
 
+  it('ROP item sama dengan mockup Logistik', () => {
+    const rop = Object.fromEntries(demoLogisticsOverview().reorder.map((i) => [i.id, i.reorderPoint]));
+    expect(rop).toMatchObject({
+      'enoksaparin-60': 120,
+      'seftriakson-1g': 400,
+      'infus-rl-500': 900,
+      'kateter-iv-20g': 600,
+      'insulin-glargine': 40,
+      'kasa-steril': 2000,
+      'benang-pga': 70,
+      'reagen-hba1c': 2,
+    });
+  });
+
   it('semua item di tabel di bawah ROP; enoksaparin < 7 hari paling atas', () => {
     const d = demoLogisticsOverview();
     expect(d.reorder).toHaveLength(12);
