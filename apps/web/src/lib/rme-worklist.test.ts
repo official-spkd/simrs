@@ -123,9 +123,6 @@ describe('worklist klinis (K01)', () => {
   });
 });
 
-/** Layar FE2 yang dibangun bertahap (dihapus setelah semuanya terdaftar). */
-const PLANNED = new Set(['ringkasan', 'cppt', 'asesmen', 'askep', 'edukasi', 'konsul', 'paket']);
-
 describe('fixture worklist hari demo', () => {
   const all = Object.values(WORKLIST_TASKS).flat();
 
@@ -135,10 +132,7 @@ describe('fixture worklist hari demo', () => {
       expect(patientById(t.patientId), t.id).toBeDefined();
       expect(encounterIdOf(t.patientId), t.id).toBe(t.encounterId);
       if (t.target) {
-        expect(
-          !!screenById(t.target.screen) || PLANNED.has(t.target.screen),
-          `${t.id} → ${t.target.screen}`,
-        ).toBe(true);
+        expect(screenById(t.target.screen), `${t.id} → ${t.target.screen}`).toBeDefined();
       }
     }
     for (const list of Object.values(WORKLIST_PATIENTS)) {

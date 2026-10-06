@@ -43,6 +43,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'folder',
         available: false,
       },
+      { id: 'paket', label: 'Paket layanan', href: '/klinis/paket-layanan', icon: 'cal', available: false },
       { id: 'konsul', label: 'Konsultasi', href: '/klinis/konsultasi', icon: 'users', available: false },
       // FE2 · akhir
       { id: 'poli', label: 'Pasien saya', href: '/klinis/poli', icon: 'users', available: false },

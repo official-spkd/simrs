@@ -476,7 +476,48 @@ test.describe('K14 · ringkasan pasien', () => {
     );
     await expect(page.getByRole('region', { name: 'Obat aktif' })).toContainText('Kalsium karbonat 500 mg');
     await expect(page.getByRole('region', { name: 'Problem aktif' })).toContainText('N18.5');
-    await expect(page.getByRole('region', { name: 'Kunjungan terakhir' })).toContainText('Hemodialisis rutin');
+    await expect(page.getByRole('region', { name: 'Kunjungan terakhir' })).toContainText(
+      'Hemodialisis rutin',
+    );
     await expectNoHorizontalScroll(page);
+  });
+});
+
+test.describe('K15 · paket layanan khusus', () => {
+  test('perawat: siklus kemoterapi tertahan kelengkapan dan gerbang Hb; override beralasan → mulai → selesai', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/klinis/paket-layanan');
+    await expect(banner(page).getByText('Ny. Maria Ulfa')).toBeVisible();
+    const gate = page.getByRole('region', { name: 'Gerbang sesi' });
+    const start = gate.getByRole('button', { name: 'Mulai pemberian siklus' });
+    await expect(start).toBeDisabled();
+    await expect(gate.getByText(/^Lengkapi dulu: Verifikasi ganda dosis/)).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Tandai selesai: Verifikasi ganda dosis (apoteker + perawat)' })
+      .click();
+    await expect(gate.getByText(/^Hasil lab di bawah ambang protokol/)).toBeVisible();
+    await expect(start).toBeDisabled();
+    await gate.getByRole('button', { name: 'Lanjut dengan alasan klinis' }).click();
+    await gate.getByLabel(/^Alasan klinis/).fill('Transfusi PRC 1 unit selesai, Hb ulang 10,2 g/dL');
+    await gate.getByRole('button', { name: 'Simpan alasan dan lanjut' }).click();
+    await expect(gate.getByText(/^Override tercatat · Transfusi PRC/)).toBeVisible();
+    await start.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Kemoterapi dimulai' })).toBeVisible();
+    await gate.getByRole('button', { name: 'Selesaikan siklus hari ini' }).click();
+    const jadwal = page.getByRole('list', { name: 'Jadwal sesi' });
+    await expect(jadwal.getByRole('listitem').filter({ hasText: 'Siklus 4' })).toContainText(
+      new RegExp(`Selesai ${JAM}`),
+    );
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('hemodialisis: butir resep HD hanya diisi DPJP', async ({ page }) => {
+    await openAs(page, ['perawat'], `/klinis/paket-layanan?pasien=${ENCOUNTER_ID.yusuf}`);
+    await expect(
+      page.getByRole('button', { name: 'Tandai selesai: Resep HD DPJP (durasi, target UF, antikoagulan)' }),
+    ).toBeDisabled();
+    await expect(page.getByText('Diisi oleh Dokter (DPJP).').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mulai sesi HD' })).toBeDisabled();
   });
 });
