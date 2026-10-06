@@ -16,12 +16,14 @@ export interface RadHandlers {
 
 /** Rincian pemeriksaan terpilih: banner pasien, order, alur status, lalu langkah sesuai status. */
 export function RadDetail({
+  role,
   exam: e,
   busy,
   error,
   feedback,
   handlers: h,
 }: {
+  role: string | null;
   exam: RadiologyExam;
   busy: boolean;
   error: string | null;
@@ -120,7 +122,7 @@ export function RadDetail({
         <RadFinish key={e.id} exam={e} busy={busy} serverError={error} onFinish={h.onFinish} />
       )}
       {e.status === 'ekspertise' && (
-        <RadExpertise key={e.id} exam={e} busy={busy} serverError={error} onSign={h.onSign} />
+        <RadExpertise role={role} key={e.id} exam={e} busy={busy} serverError={error} onSign={h.onSign} />
       )}
       {e.status === 'ditandatangani' && e.report && (
         <section
@@ -136,8 +138,8 @@ export function RadDetail({
           </p>
           <span className="text-caption font-semibold text-success">
             ✓ Ditandatangani {e.report.radiologist}
-            {e.report.signedAt ? ` · ${formatJam(e.report.signedAt)}` : ''} · terkirim ke DPJP dan SATUSEHAT
-            (ImagingStudy, DiagnosticReport)
+            {e.report.signedAt ? ` · ${formatJam(e.report.signedAt)}` : ''} · hasil final tersimpan dan masuk
+            antrean integrasi
           </span>
         </section>
       )}

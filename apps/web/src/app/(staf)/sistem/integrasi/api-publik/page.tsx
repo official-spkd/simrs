@@ -28,7 +28,7 @@ export default async function ApiPublikPage() {
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/api-publik" />
       <ScenarioBanner session={session} screen="api-publik" />
-      <ApiPublicView clients={data.clients} log={data.log} today={data.today} />
+      <ApiPublicView rev={data.rev} clients={data.clients} log={data.log} today={data.today} />
     </div>
   );
 }

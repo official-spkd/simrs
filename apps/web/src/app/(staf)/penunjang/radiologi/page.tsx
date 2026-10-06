@@ -40,7 +40,11 @@ export default async function RadiologiPage({ searchParams }: { searchParams: Se
         </ul>
       </header>
       <ScenarioBanner session={session} screen="rad" />
-      <RadWorkspace data={data} initialSelected={typeof sp.pilih === 'string' ? sp.pilih : null} />
+      <RadWorkspace
+        role={session.role?.code ?? null}
+        data={data}
+        initialSelected={typeof sp.pilih === 'string' ? sp.pilih : null}
+      />
     </div>
   );
 }

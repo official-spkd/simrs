@@ -1,9 +1,8 @@
 'use client';
 
 import { formatJam } from '@simrs/shared';
-import { Button, cx } from '@simrs/ui';
-import { useId, useState } from 'react';
-import { secondPharmacistError } from '@/lib/penunjang-farmasi';
+import { Button } from '@simrs/ui';
+import { useState } from 'react';
 
 /**
  * Gerbang cek ganda obat high alert (CLAUDE.md §4.9): apoteker kedua yang bertugas, bukan penyiap, memeriksa ulang
@@ -11,7 +10,6 @@ import { secondPharmacistError } from '@/lib/penunjang-farmasi';
  */
 export function DoubleCheck({
   items,
-  pharmacists,
   currentUser,
   done,
   busy,
@@ -26,11 +24,8 @@ export function DoubleCheck({
   serverError: string | null;
   onConfirm: (second: string) => void;
 }) {
-  const id = useId();
-  const [second, setSecond] = useState('');
   const [verified, setVerified] = useState(false);
   const [tried, setTried] = useState(false);
-  const pickErr = tried ? secondPharmacistError(second, currentUser, pharmacists) : null;
   const verifyErr = tried && !verified ? 'Centang konfirmasi pemeriksaan ulang.' : null;
 
   if (done) {
@@ -53,33 +48,10 @@ export function DoubleCheck({
           <li key={i}>{i}</li>
         ))}
       </ul>
-      <label htmlFor={`${id}-apt`} className="text-small font-semibold">
-        Apoteker kedua
-      </label>
-      <select
-        id={`${id}-apt`}
-        value={second}
-        onChange={(e) => setSecond(e.target.value)}
-        aria-invalid={!!pickErr}
-        aria-describedby={pickErr ? `${id}-apt-err` : undefined}
-        className={cx(
-          'h-11 rounded-control border bg-white px-3 font-[inherit]',
-          pickErr ? 'border-danger' : 'border-line-strong',
-        )}
-      >
-        <option value="">Pilih apoteker bertugas</option>
-        {pharmacists.map((p) => (
-          <option key={p} value={p}>
-            {p}
-            {p === currentUser ? ' (Anda)' : ''}
-          </option>
-        ))}
-      </select>
-      {pickErr && (
-        <span id={`${id}-apt-err`} className="text-caption text-danger">
-          {pickErr}
-        </span>
-      )}
+      <p className="m-0 text-small">
+        Anda mencatat sebagai {currentUser}. Pemeriksaan wajib memakai sesi apoteker yang berbeda dari
+        penyiap.
+      </p>
       <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-small">
         <input
           type="checkbox"
@@ -100,7 +72,7 @@ export function DoubleCheck({
           disabled={busy}
           onClick={() => {
             setTried(true);
-            if (!secondPharmacistError(second, currentUser, pharmacists) && verified) onConfirm(second);
+            if (verified) onConfirm(currentUser);
           }}
         >
           Konfirmasi cek ganda

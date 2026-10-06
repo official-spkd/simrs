@@ -77,6 +77,8 @@ export interface BloodRequest {
   crossmatches: readonly Crossmatch[];
   /** Kantong yang sudah dikeluarkan dengan cek ganda. */
   issued: ReadonlyArray<{ unitId: string; at: string; checkers: readonly [string, string] }>;
+  /** Kantong yang telah ditransfusikan sebelum kantong aktif. */
+  transfusions?: ReadonlyArray<NonNullable<BloodRequest['transfusion']>>;
   /** Transfusi berjalan (kantong yang dipasang + TTV). */
   transfusion: {
     unitId: string;
@@ -123,7 +125,8 @@ const dayNum = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 export const isExpired = (u: Pick<BloodUnit, 'expiry'>, today: string) => dayNum(u.expiry) < dayNum(today);
 
 export function stageOf(r: BloodRequest): RequestStage {
-  if (r.transfusion?.finishedAt || r.transfusion?.reaction) return 'selesai';
+  if (r.transfusion?.reaction) return 'selesai';
+  if (r.transfusion?.finishedAt && (r.transfusions?.length ?? 0) + 1 >= r.units) return 'selesai';
   if (r.transfusion) return 'transfusi';
   if (r.issued.length > 0) return 'transfusi';
   if (!r.receivedAt) return 'permintaan';
@@ -234,11 +237,21 @@ export function bedsideGate(
   units: readonly BloodUnit[],
   by: string,
 ): { code: BloodGateCode } | { unitId: string; manual: boolean } {
-  const issuedUnits = r.issued.map((i) => units.find((u) => u.id === i.unitId)).filter((u) => !!u);
+  const completed = new Set(
+    (r.transfusions ?? [])
+      .map((t) => t.unitId)
+      .concat(r.transfusion?.finishedAt ? [r.transfusion.unitId] : []),
+  );
+  const issuedUnits = r.issued
+    .filter((i) => !completed.has(i.unitId))
+    .map((i) => units.find((u) => u.id === i.unitId))
+    .filter((u) => !!u);
   if (input.manual) {
     const code = manualBedsideGate(input.manual, by);
     if (code) return { code };
-    const u = issuedUnits[0];
+    const u =
+      issuedUnits.find((u) => u.bagNo === input.bag) ??
+      (issuedUnits.length === 1 ? issuedUnits[0] : undefined);
     return u ? { unitId: u.id, manual: true } : { code: 'NOT_ISSUED' };
   }
   const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase();
@@ -342,6 +355,7 @@ export function applyBlood(
       };
     case 'golongan':
       if (!r.receivedAt) return stageFail('Terima permintaan dan sampel dulu.');
+      if (r.crossmatches.length || r.issued.length) return stageFail('Golongan terkunci setelah crossmatch.');
       return {
         ok: true,
         state: put({ ...r, abo: a.abo, rh: a.rh, groupSource: `Diperiksa bank darah oleh ${ctx.by}` }),
@@ -370,6 +384,7 @@ export function applyBlood(
       };
     }
     case 'keluarkan': {
+      if (r.issued.length >= r.units) return stageFail('Jumlah kantong sesuai permintaan sudah dikeluarkan.');
       const u = unitById(a.unitId);
       if (!u) return failB('BAG_UNAVAILABLE');
       if (r.issued.some((i) => i.unitId === u.id)) return stageFail('Kantong ini sudah dikeluarkan.');
@@ -390,7 +405,8 @@ export function applyBlood(
       };
     }
     case 'pasang': {
-      if (r.transfusion) return stageFail('Transfusi sudah berjalan.');
+      if (r.transfusion && !r.transfusion.finishedAt)
+        return stageFail('Transfusi sudah berjalan atau dihentikan karena reaksi.');
       const g = bedsideGate(r, a, state.units, ctx.by);
       if ('code' in g) return failB(g.code);
       const u = unitById(g.unitId);
@@ -398,6 +414,7 @@ export function applyBlood(
         ok: true,
         state: put({
           ...r,
+          transfusions: r.transfusion ? [...(r.transfusions ?? []), r.transfusion] : r.transfusions,
           transfusion: {
             unitId: g.unitId,
             startedAt: ctx.at,
@@ -436,6 +453,8 @@ export function applyBlood(
     case 'selesai': {
       const t = r.transfusion;
       if (!t || t.finishedAt || t.reaction) return stageFail('Tidak ada transfusi yang berjalan.');
+      if (!t.vitals.some((v) => v.label === '15 menit'))
+        return stageFail('Catat TTV 15 menit sebelum menutup transfusi.');
       return {
         ok: true,
         state: put({ ...r, transfusion: { ...t, finishedAt: ctx.at } }),

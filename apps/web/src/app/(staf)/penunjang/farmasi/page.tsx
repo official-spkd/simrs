@@ -25,6 +25,7 @@ export default async function FarmasiPage({ searchParams }: { searchParams: Sear
   return (
     <div className="flex flex-col gap-4">
       <FarmasiWorkspace
+        role={session.role?.code ?? null}
         heading={
           <div className="flex flex-col gap-0.5">
             <span className="text-caption text-ink-500">

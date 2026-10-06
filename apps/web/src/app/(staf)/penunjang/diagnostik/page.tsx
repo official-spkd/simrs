@@ -27,7 +27,7 @@ export default async function DiagnostikPage() {
         </h1>
       </header>
       <ScenarioBanner session={session} screen="diagnostik" />
-      <DiagnosticWorkspace orders={data.orders} userName={session.user.displayName} />
+      <DiagnosticWorkspace orders={data.orders} rev={data.rev} userName={session.user.displayName} />
     </div>
   );
 }

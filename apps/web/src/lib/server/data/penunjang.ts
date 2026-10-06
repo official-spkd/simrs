@@ -19,6 +19,7 @@ import {
   scenarioLabSamples,
   scenarioPatientMap,
 } from '../../penunjang-skenario';
+import { prescriptionsWithStock, type SupportState } from '../../penunjang-demo';
 import { applyStoredReportToSample } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns, scenariosHere } from '../demo/scenario-context';
@@ -49,37 +50,66 @@ export async function penunjangScenario(
  * mode api menunggu backend fase 4.
  */
 
+export type StoredLabWorklist = LabWorklist & { rev: number; stored: SupportState['labs'] };
+export type StoredPharmacyQueue = PharmacyQueue & { rev: number; stored: SupportState['rx'] };
+export type StoredRadiologyWorklist = RadiologyWorklist & { rev: number };
+
 /**
  * Worklist laboratorium; `scenario` = hasil replay simulasi sesi ini (`scenarioRuns(session).results`). Laporan
  * nilai kritis yang tersimpan di toko demo (domain `hasil-kritis`, ADR-0085) diterapkan ke sampelnya.
  */
-export async function getLabWorklist(scenario: ScenarioResults): Promise<LabWorklist> {
+export async function getLabWorklist(scenario: ScenarioResults): Promise<StoredLabWorklist> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
     const base = demoLabWorklist(scenarioLabSamples(scenario));
     const { state } = await readDomain('hasil-kritis');
-    return labWorklistSchema.parse({
-      ...base,
-      samples: base.samples.map((s) => applyStoredReportToSample(s, state)),
-    });
+    const support = await readDomain('penunjang');
+    const persisted = new Map(support.state.samples.map((s) => [s.id, s]));
+    return {
+      ...labWorklistSchema.parse({
+        ...base,
+        samples: base.samples.map((s) => applyStoredReportToSample(persisted.get(s.id) ?? s, state)),
+      }),
+      rev: support.rev,
+      stored: support.state.labs,
+    };
   }
   return notImplemented('laboratorium');
 }
 
 /** Antrean resep farmasi (telaah, penyiapan, serah terima) termasuk resep pasien skenario. */
-export async function getPharmacyQueue(scenario: ScenarioResults): Promise<PharmacyQueue> {
+export async function getPharmacyQueue(scenario: ScenarioResults): Promise<StoredPharmacyQueue> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    return pharmacyQueueSchema.parse(demoPharmacyQueue(scenarioPrescriptions(scenario)));
+    const base = demoPharmacyQueue(scenarioPrescriptions(scenario));
+    const { state, rev } = await readDomain('penunjang');
+    const persisted = new Map(prescriptionsWithStock(state).map((rx) => [rx.id, rx]));
+    return {
+      ...pharmacyQueueSchema.parse({
+        ...base,
+        prescriptions: base.prescriptions.map((rx) => persisted.get(rx.id) ?? rx),
+      }),
+      rev,
+      stored: state.rx,
+    };
   }
   return notImplemented('farmasi');
 }
 
 /** Papan modalitas dan worklist radiologi termasuk pemeriksaan pasien skenario (foto toraks IGD). */
-export async function getRadiologyWorklist(scenario: ScenarioResults): Promise<RadiologyWorklist> {
+export async function getRadiologyWorklist(scenario: ScenarioResults): Promise<StoredRadiologyWorklist> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    return radiologyWorklistSchema.parse(demoRadiologyWorklist(scenarioRadiologyExams(scenario)));
+    const base = demoRadiologyWorklist(scenarioRadiologyExams(scenario));
+    const { state, rev } = await readDomain('penunjang');
+    const persisted = new Map(state.exams.map((exam) => [exam.id, exam]));
+    return {
+      ...radiologyWorklistSchema.parse({
+        ...base,
+        exams: base.exams.map((exam) => persisted.get(exam.id) ?? exam),
+      }),
+      rev,
+    };
   }
   return notImplemented('radiologi');
 }

@@ -1,19 +1,10 @@
 'use client';
 
 import { Alert, FilterChip, KpiCard, Tabs } from '@simrs/ui';
-import { useState, useTransition } from 'react';
-import { recordDepoAction } from '@/app/(staf)/penunjang/depo/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
-import {
-  applyDepo,
-  type DepoAction,
-  type DepoState,
-  depotAlerts,
-  fefoPlan,
-  formatStockValue,
-  opnameDiffs,
-  stockValue,
-} from '@/lib/penunjang-depo';
+import { useState } from 'react';
+import { recordDepoAction, checkDepoAction } from '@/app/(staf)/penunjang/depo/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { type DepoAction, depotAlerts, formatStockValue, stockValue } from '@/lib/penunjang-depo';
 import type { DepoData } from '@/lib/server/data/penunjang-lanjut';
 import { DispensePanel, LedgerPanel, OpnamePanel, StockPanel, TransferPanel } from './depo-panels';
 
@@ -23,45 +14,35 @@ export interface DepoRun {
 
 /**
  * S05 · Depo dan stok farmasi: saldo per depo × batch dengan ED, pengeluaran FEFO (override beralasan; batch
- * kedaluwarsa tidak pernah keluar), mutasi dua langkah, stok opname, dan kartu stok. Saldo = keadaan lokal sesi
- * (simulasi); setiap transaksi diperiksa gerbang lokal lalu Server Action.
+ * kedaluwarsa tidak pernah keluar), mutasi dua langkah, stok opname, dan kartu stok. Saldo berasal dari toko demo bersama;
+ * setiap transaksi diperiksa server.
  */
-export function DepoWorkspace({ data, userName }: { data: DepoData; userName: string }) {
-  const [state, setState] = useState<DepoState>(data.state);
+export function DepoWorkspace({ data, userName, userId }: { data: DepoData; userName: string; userId: string }) {
+  const state = data.state;
   const [depotId, setDepotId] = useState('dp-ri');
   const [tab, setTab] = useState('stok');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
   const { master, today } = data;
   const depot = master.depots.find((d) => d.id === depotId) ?? master.depots[0];
   const alerts = depotAlerts(state, master, depotId, today);
   const inTransit = state.transfers.filter((t) => t.status === 'dikirim');
 
-  const run: DepoRun = (action, onDone) => {
-    let seq = state.movements.length + state.transfers.length;
-    const local = applyDepo(state, master, action, {
-      at: demoNow().toISOString(),
-      by: userName,
-      today,
-      nextId: (p) => `${p}-${String(++seq).padStart(3, '0')}`,
-    });
-    if (!local.ok) {
-      setMsg({ ok: false, text: local.message });
-      return;
-    }
-    startTransition(async () => {
-      const server = await recordDepoAction(toServer(action, state, data, userName));
-      if (!server.ok) {
-        setMsg({ ok: false, text: server.message });
-        return;
-      }
-      setState(local.state);
-      setMsg({ ok: true, text: `${local.message} · ${server.at} (simulasi, tidak disimpan)` });
-      onDone?.();
-    });
-  };
+  const run: DepoRun = (action, onDone) =>
+    save(
+      (rev) => recordDepoAction(action, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) onDone?.();
+      },
+    );
+  const check = (action: Extract<DepoAction, { type: 'keluar' }>) =>
+    save(
+      (rev) => checkDepoAction(action, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
-  const common = { state, master, today, depotId, busy: pending, run, userName };
+  const common = { state, master, today, depotId, busy: pending, run, userName, userId, check, checks: data.checks };
   return (
     <div className="flex flex-col gap-4">
       <div role="group" aria-label="Pilih depo" className="flex flex-wrap gap-2">
@@ -135,49 +116,4 @@ export function DepoWorkspace({ data, userName }: { data: DepoData; userName: st
       />
     </div>
   );
-}
-
-/** Bentuk kiriman Server Action: id + aturan yang bisa diperiksa server (tanpa saldo lokal). */
-function toServer(action: DepoAction, state: DepoState, data: DepoData, userName: string) {
-  switch (action.type) {
-    case 'keluar': {
-      const batchIds = action.batchId
-        ? [action.batchId]
-        : fefoPlan(state, data.master, action.depotId, action.itemId, action.qty, data.today).allocations.map(
-            (a) => a.batchId,
-          );
-      const fefo = fefoPlan(state, data.master, action.depotId, action.itemId, action.qty, data.today);
-      const overrideFefo =
-        !!action.batchId &&
-        !(fefo.allocations.length === 1 && fefo.allocations[0]?.batchId === action.batchId);
-      return {
-        kind: 'keluar',
-        depotId: action.depotId,
-        itemId: action.itemId,
-        qty: action.qty,
-        batchIds,
-        overrideFefo,
-        reason: action.reason ?? '',
-        secondChecker: action.secondChecker ?? '',
-      };
-    }
-    case 'kirim':
-      return { kind: 'kirim', from: action.from, to: action.to, itemId: action.itemId, qty: action.qty };
-    case 'terima':
-      return {
-        kind: 'terima',
-        transferId: action.transferId,
-        sentBy: state.transfers.find((t) => t.id === action.transferId)?.sentBy ?? userName,
-        receiver: action.receiver,
-      };
-    case 'opname':
-      return {
-        kind: 'opname',
-        depotId: action.depotId,
-        diffCount: opnameDiffs(state, action.depotId, action.counts).filter((d) => d.diff !== 0).length,
-        reason: action.reason,
-      };
-    case 'karantina':
-      return { kind: 'karantina', depotId: action.depotId, batchId: action.batchId };
-  }
 }

@@ -3,9 +3,9 @@
 import { formatJam, formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, PatientBanner, Tabs } from '@simrs/ui';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { recordMicroAction } from '@/app/(staf)/penunjang/mikrobiologi/actions';
-import { DOKTER_PA } from '@/lib/demo/fixtures/penunjang-mikro';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
@@ -36,16 +36,16 @@ const selectCls = 'h-11 rounded-control border border-line-strong bg-white px-3 
 
 /**
  * S02 · Mikrobiologi dan patologi anatomi: kultur bertahap (inkubasi → Gram → identifikasi → uji kepekaan →
- * validasi TTE) dan laporan PA ber-TTE yang terkunci (koreksi lewat addendum). Keadaan lokal sesi (simulasi).
+ * validasi TTE) dan laporan PA ber-TTE yang terkunci (koreksi lewat addendum). Keadaan tersimpan di toko demo bersama.
  */
 export function MicroWorkspace({ data, userName }: { data: MicroData; userName: string }) {
-  const [cultures, setCultures] = useState(data.cultures);
-  const [pa, setPa] = useState(data.pa);
+  const cultures = data.cultures;
+  const pa = data.pa;
   const [tab, setTab] = useState('kultur');
   const [cultureId, setCultureId] = useState(data.cultures[0]?.id ?? '');
   const [paId, setPaId] = useState(data.pa[0]?.id ?? '');
   const [msg, setMsg] = useState<Msg>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
 
   const runCulture = (c: CultureCase, action: MicroAction) => {
     const by = action.type === 'final' ? STAF.dokterPatologiKlinik : userName;
@@ -62,30 +62,16 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
             : action.type === 'kepekaan'
               ? { kind: 'kepekaan', caseId: c.id, gram, results: action.results }
               : { kind: 'final', caseId: c.id };
-    startTransition(async () => {
-      const r = await recordMicroAction(payload);
-      if (!r.ok) return setMsg({ ok: false, text: r.message });
-      setCultures((cur) => cur.map((x) => (x.id === c.id ? local.next : x)));
-      setMsg({
-        ok: true,
-        text: `${local.message} · ${r.at} (simulasi, tidak disimpan)`,
-        critical: local.critical,
-      });
-    });
+    save(
+      (rev) => recordMicroAction(payload, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message, critical: result.ok && local.critical }),
+    );
   };
-
-  const runPa = (
-    p: PaCase,
-    payload: Parameters<typeof recordMicroAction>[0],
-    apply: (at: string) => PaCase,
-  ) =>
-    startTransition(async () => {
-      const r = await recordMicroAction(payload);
-      if (!r.ok) return setMsg({ ok: false, text: r.message });
-      const at = demoNow().toISOString();
-      setPa((cur) => cur.map((x) => (x.id === p.id ? apply(at) : x)));
-      setMsg({ ok: true, text: r.message });
-    });
+  const runPa = (payload: Parameters<typeof recordMicroAction>[0]) =>
+    save(
+      (rev) => recordMicroAction(payload, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
   const selC = cultures.find((c) => c.id === cultureId);
   const selP = pa.find((p) => p.id === paId);
@@ -214,19 +200,8 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
                     busy={pending}
                     feedback={feedback}
                     onLocalError={(t) => setMsg({ ok: false, text: t })}
-                    onSign={(f) =>
-                      runPa(selP, { kind: 'pa-tte', caseId: selP.id, ...f }, (at) => ({
-                        ...selP,
-                        ...f,
-                        signed: { at, by: DOKTER_PA },
-                      }))
-                    }
-                    onAddendum={(text) =>
-                      runPa(selP, { kind: 'pa-addendum', caseId: selP.id, text }, (at) => ({
-                        ...selP,
-                        addenda: [...selP.addenda, { at, by: DOKTER_PA, text: text.trim() }],
-                      }))
-                    }
+                    onSign={(f) => runPa({ kind: 'pa-tte', caseId: selP.id, ...f })}
+                    onAddendum={(text) => runPa({ kind: 'pa-addendum', caseId: selP.id, text })}
                   />
                 )}
               </section>
@@ -433,7 +408,7 @@ function CultureDetail({
       {st === 'validasi' && (
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="primary" disabled={busy} onClick={() => run({ type: 'final' })}>
-            Validasi & TTE ({STAF.dokterPatologiKlinik})
+            Validasi & TTE pengguna aktif
           </Button>
           <span className="text-small text-ink-700">
             Laporan akhir masuk ke hasil pasien dan sumber antibiogram PPRA.
@@ -515,7 +490,7 @@ function PaDetail({
         {!locked && (
           <span className="flex flex-wrap items-center gap-3">
             <Button type="submit" variant="primary" disabled={busy}>
-              Tandatangani (TTE {DOKTER_PA})
+              Tandatangani (TTE pengguna aktif)
             </Button>
             <span className="text-caption text-ink-500">
               Setelah ditandatangani laporan terkunci; koreksi lewat addendum.

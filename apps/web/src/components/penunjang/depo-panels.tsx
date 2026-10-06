@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 import {
   batchesIn,
   type DepoMaster,
+  type DepoAction,
   type DepoState,
   expiryStatus,
   expiryText,
@@ -15,6 +16,7 @@ import {
   qtyOf,
   usableStock,
 } from '@/lib/penunjang-depo';
+import { depotCheckKey } from '@/lib/penunjang-demo';
 import type { DepoData } from '@/lib/server/data/penunjang-lanjut';
 import type { DepoRun } from './depo-workspace';
 
@@ -26,6 +28,9 @@ interface PanelProps {
   busy: boolean;
   run: DepoRun;
   userName: string;
+  userId: string;
+  check: (action: Extract<DepoAction, { type: 'keluar' }>) => void;
+  checks: DepoData['checks'];
 }
 
 const inputCls = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
@@ -141,6 +146,9 @@ export function DispensePanel({
   busy,
   run,
   requests,
+  userId,
+  check,
+  checks,
 }: PanelProps & { requests: DepoData['requests'] }) {
   const id = useId();
   const items = master.items.filter((i) => batchesIn(state, master, depotId, i.id).length > 0);
@@ -150,13 +158,21 @@ export function DispensePanel({
   const [override, setOverride] = useState(false);
   const [batchId, setBatchId] = useState('');
   const [reason, setReason] = useState('');
-  const [checker, setChecker] = useState('');
   const current = items.some((i) => i.id === itemId) ? itemId : (items[0]?.id ?? '');
   const highAlert = master.items.find((i) => i.id === current)?.highAlert ?? false;
   const n = Number(qty);
   const plan = fefoPlan(state, master, depotId, current, Number.isInteger(n) && n > 0 ? n : 0, today);
   const batches = batchesIn(state, master, depotId, current);
   const unit = master.items.find((i) => i.id === current)?.unit ?? '';
+  const action: Extract<DepoAction, { type: 'keluar' }> = {
+    type: 'keluar',
+    depotId,
+    itemId: current,
+    qty: n,
+    ref: ref.trim() || 'Permintaan ruangan',
+    ...(override && batchId ? { batchId, reason } : {}),
+  };
+  const recorded = checks[depotCheckKey(action)] ?? [];
   const waiting = requests.filter((r) => r.depotId === depotId);
 
   const reset = () => {
@@ -165,7 +181,6 @@ export function DispensePanel({
     setOverride(false);
     setBatchId('');
     setReason('');
-    setChecker('');
   };
 
   if (items.length === 0)
@@ -216,18 +231,7 @@ export function DispensePanel({
         className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
         onSubmit={(e) => {
           e.preventDefault();
-          run(
-            {
-              type: 'keluar',
-              depotId,
-              itemId: current,
-              qty: n,
-              ref: ref.trim() || 'Permintaan ruangan',
-              ...(override && batchId ? { batchId, reason } : {}),
-              ...(highAlert ? { secondChecker: checker } : {}),
-            },
-            reset,
-          );
+          run(action, reset);
         }}
       >
         <h3 className="m-0 text-base font-semibold">Keluarkan dari {depotName(master, depotId)}</h3>
@@ -275,17 +279,17 @@ export function DispensePanel({
           />
         </div>
         {highAlert && (
-          <div className="flex flex-col gap-1 rounded-control border border-warning-border bg-warning-bg p-3">
-            <label htmlFor={`${id}-cek`} className={labelCls}>
-              Obat high alert · pemeriksa kedua (bukan Anda)
-            </label>
-            <input
-              id={`${id}-cek`}
-              value={checker}
-              maxLength={120}
-              onChange={(e) => setChecker(e.target.value)}
-              className={inputCls}
-            />
+          <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+            <p className="m-0 text-small">
+              Obat high alert: pemeriksa kedua mencatat dari sesinya, kemudian petugas berbeda mengeluarkan.
+              Pemeriksa: {recorded.map((c) => c.name).join(', ') || 'belum ada'}.
+            </p>
+            <Button
+              disabled={busy || !(n > 0) || recorded.some((c) => c.userId === userId)}
+              onClick={() => check(action)}
+            >
+              Catat pemeriksaan saya
+            </Button>
           </div>
         )}
         <div className="flex flex-col gap-1.5 rounded-control bg-canvas p-3 text-small" aria-live="polite">
@@ -374,7 +378,6 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
   const items = master.items.filter((i) => usableStock(state, master, depotId, i.id, today) > 0);
   const [itemId, setItemId] = useState(items[0]?.id ?? '');
   const [qty, setQty] = useState('');
-  const [receivers, setReceivers] = useState<Record<string, string>>({});
   const current = items.some((i) => i.id === itemId) ? itemId : (items[0]?.id ?? '');
   const dest = to === depotId ? (master.depots.find((d) => d.id !== depotId)?.id ?? '') : to;
   return (
@@ -493,18 +496,15 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
                         </label>
                         <input
                           id={`${id}-${t.id}`}
-                          value={receivers[t.id] ?? ''}
+                          value={userName}
                           maxLength={120}
-                          placeholder={`bukan ${userName}`}
-                          onChange={(e) => setReceivers((r) => ({ ...r, [t.id]: e.target.value }))}
+                          readOnly
                           className={inputCls}
                         />
                       </span>
                       <Button
                         disabled={busy}
-                        onClick={() =>
-                          run({ type: 'terima', transferId: t.id, receiver: receivers[t.id] ?? '' })
-                        }
+                        onClick={() => run({ type: 'terima', transferId: t.id, receiver: userName })}
                       >
                         Konfirmasi terima
                       </Button>

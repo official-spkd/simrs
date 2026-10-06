@@ -2,9 +2,9 @@
 
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, RadioSegmented, SafetyGate, Tabs } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { recordGiziAction } from '@/app/(staf)/penunjang/gizi/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   allergyConflict,
   averageLeftover,
@@ -35,47 +35,32 @@ const LEFTOVERS = [0, 25, 50, 75, 100] as const;
 
 /**
  * S07 · Gizi: distribusi makan per bangsal × jam makan (gerbang alergi makanan dan puasa), verifikasi order diet
- * dari DPJP, dan skrining gizi MST. Keadaan lokal sesi (simulasi); setiap aksi lewat Server Action.
+ * dari DPJP, dan skrining gizi MST. Keadaan tersimpan di toko demo bersama; setiap aksi lewat Server Action.
  */
-export function NutritionWorkspace({ data, userName }: { data: NutritionData; userName: string }) {
-  const [orders, setOrders] = useState<DietOrder[]>(data.orders);
-  const [deliveries, setDeliveries] = useState<Record<string, Delivery>>(data.deliveries);
+export function NutritionWorkspace({ data }: { data: NutritionData; userName: string }) {
+  const orders = data.orders;
+  const deliveries = data.deliveries;
   const [meal, setMeal] = useState<MealTime>(data.meal);
   const [tab, setTab] = useState('distribusi');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
 
-  const call = (payload: Parameters<typeof recordGiziAction>[0], apply: () => void) =>
-    startTransition(async () => {
-      const r = await recordGiziAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply();
-    });
-
-  const deliver = (o: DietOrder, d: Delivery, overrideReason: string | null, substituted: boolean) => {
+  const call = (payload: Parameters<typeof recordGiziAction>[0]) =>
+    save(
+      (rev) => recordGiziAction(payload, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
+  const deliver = (o: DietOrder, overrideReason: string | null, substituted: boolean) => {
     const gate = deliveryGate(o, meal, { substituted, overrideReason });
     if (gate) return setMsg({ ok: false, text: GIZI_GATE_TEXT[gate] });
-    call(
-      {
-        kind: 'antar',
-        orderId: o.id,
-        meal,
-        substituted,
-        overrideReason,
-        verified: o.status === 'diverifikasi',
-      },
-      () =>
-        setDeliveries((cur) => ({
-          ...cur,
-          [key(o.id, meal)]: {
-            ...d,
-            status: 'diantar',
-            substituted,
-            overrideReason,
-            at: demoNow().toISOString(),
-          },
-        })),
-    );
+    call({
+      kind: 'antar',
+      orderId: o.id,
+      meal,
+      substituted,
+      overrideReason,
+      verified: o.status === 'diverifikasi',
+    });
   };
 
   const summary = wardSummary(orders, meal);
@@ -139,19 +124,8 @@ export function NutritionWorkspace({ data, userName }: { data: NutritionData; us
                   meal={meal}
                   d={deliveries[key(o.id, meal)] ?? EMPTY}
                   busy={pending}
-                  onDeliver={(reason, sub) => deliver(o, deliveries[key(o.id, meal)] ?? EMPTY, reason, sub)}
-                  onReceive={(left) =>
-                    call({ kind: 'terima', orderId: o.id, meal, leftover: left }, () =>
-                      setDeliveries((cur) => ({
-                        ...cur,
-                        [key(o.id, meal)]: {
-                          ...(cur[key(o.id, meal)] ?? EMPTY),
-                          status: 'diterima',
-                          leftover: left,
-                        },
-                      })),
-                    )
-                  }
+                  onDeliver={(reason, sub) => deliver(o, reason, sub)}
+                  onReceive={(left) => call({ kind: 'terima', orderId: o.id, meal, leftover: left })}
                   onVerify={() => setTab('order')}
                 />
               ))}
@@ -184,15 +158,7 @@ export function NutritionWorkspace({ data, userName }: { data: NutritionData; us
               <OrderList
                 orders={orders}
                 busy={pending}
-                onVerify={(o) =>
-                  call({ kind: 'verifikasi', orderId: o.id, screened: !!o.screening }, () =>
-                    setOrders((cur) =>
-                      cur.map((x) =>
-                        x.id === o.id ? { ...x, status: 'diverifikasi', verifiedBy: userName } : x,
-                      ),
-                    ),
-                  )
-                }
+                onVerify={(o) => call({ kind: 'verifikasi', orderId: o.id, screened: !!o.screening })}
               />
             ),
           },
@@ -207,22 +173,7 @@ export function NutritionWorkspace({ data, userName }: { data: NutritionData; us
                 orders={orders}
                 busy={pending}
                 onScreen={(o, weightLoss, poorAppetite) =>
-                  call({ kind: 'skrining', orderId: o.id, weightLoss, poorAppetite }, () =>
-                    setOrders((cur) =>
-                      cur.map((x) =>
-                        x.id === o.id
-                          ? {
-                              ...x,
-                              screening: {
-                                at: demoNow().toISOString(),
-                                by: userName,
-                                score: mstScore(weightLoss, poorAppetite).score,
-                              },
-                            }
-                          : x,
-                      ),
-                    ),
-                  )
+                  call({ kind: 'skrining', orderId: o.id, weightLoss, poorAppetite })
                 }
               />
             ),

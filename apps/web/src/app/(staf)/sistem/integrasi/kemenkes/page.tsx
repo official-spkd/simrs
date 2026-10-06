@@ -28,7 +28,7 @@ export default async function KemenkesPage() {
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/kemenkes" />
       <ScenarioBanner session={session} screen="kemenkes" />
-      <KemenkesView reports={data.reports} />
+      <KemenkesView rev={data.rev} reports={data.reports} />
     </div>
   );
 }
