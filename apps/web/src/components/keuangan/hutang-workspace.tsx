@@ -1,12 +1,12 @@
 'use client';
 
-import { formatJam, formatRupiah, formatTanggalWaktu, sumRupiah } from '@simrs/shared';
+import { formatRupiah, formatTanggalWaktu, sumRupiah } from '@simrs/shared';
 import { Button, Chip, type ChipTone, cx, KpiCard, Tabs } from '@simrs/ui';
 import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type HutangActionInput, hutangAction } from '@/app/(staf)/keuangan/hutang/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatRupiahRingkas } from '@/lib/keuangan';
 import {
-  applyApproval,
   approvalJournal,
   approveProblem,
   dueGroup,
@@ -21,7 +21,8 @@ import {
   threeWay,
   verifyProblem,
 } from '@/lib/keuangan-hutang';
-import { PERIODE_TERTUTUP, ringkasJurnal, tanggalPendek } from '@/lib/keuangan-jurnal';
+import { PERIODE_TERTUTUP, tanggalPendek } from '@/lib/keuangan-jurnal';
+import type { HutangState } from '@/lib/keuangan-hutang-toko';
 import type { PayablesBoard } from '@/lib/server/data/keuangan-lanjut';
 import { AlasanForm } from './alasan-form';
 import { JurnalPasangan } from './jurnal-pasangan';
@@ -37,25 +38,36 @@ const STATUS_TONE: Record<StatusFaktur, ChipTone> = {
 /**
  * U10 · Hutang usaha: faktur pemasok dari penerimaan (cocok 3 arah), verifikasi akuntan, persetujuan berjenjang
  * menurut nilai, jatuh tempo, dan batch pembayaran dengan jurnal. Faktur yang dibayar di periode tertutup terkunci.
- * Simulasi lokal.
+ * Tersimpan di toko demo (domain `hutang`, ADR-0085) atas nama pengguna sesi; faktur baru datang dari penerimaan
+ * barang Logistik.
  */
 export function HutangWorkspace({
   board,
+  store,
+  rev,
   today,
   viewer,
 }: {
   board: PayablesBoard;
+  /** Faktur, batch, dan saldo bank mitra setelah aksi tersimpan (domain `hutang`). */
+  store: HutangState;
+  rev: number;
   today: string;
-  viewer: { name: string; role: string | null };
+  viewer: { id: string; name: string; role: string | null };
 }) {
   const [tab, setTab] = useState('faktur');
-  const [list, setList] = useState<readonly FakturPemasok[]>(board.invoices);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [batch, setBatch] = useState<{ number: string; ids: string[]; total: bigint } | null>(null);
-  const [balance, setBalance] = useState<bigint>(board.summary.bankMitraBalance);
-  const [seq, setSeq] = useState<number>(board.summary.nextBatchSeq);
-  const [flash, setFlash] = useState<string | null>(null);
-  const update = (f: FakturPemasok) => setList((l) => l.map((x) => (x.id === f.id ? f : x)));
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
+  const { invoices: list, batch, balance } = store;
+  const { run } = useStoreAction(rev);
+  const act = (input: HutangActionInput, done?: () => void) =>
+    run(
+      (r) => hutangAction({ ...input, rev: r }),
+      (res) => {
+        setFlash({ text: res.message, ok: res.ok });
+        if (res.ok) done?.();
+      },
+    );
   const open = list.filter((f) => f.status !== 'dibayar');
   const overdue = open.filter((f) => dueGroup(f.dueDate, today) === 'lewat');
   const waiting = list.filter((f) => f.status === 'diverifikasi' || f.status === 'draf');
@@ -94,9 +106,15 @@ export function HutangWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
       <Tabs
@@ -112,16 +130,7 @@ export function HutangWorkspace({
             content: (
               <ul aria-label="Faktur pemasok" className="m-0 flex list-none flex-col gap-3 p-0 pt-3">
                 {list.map((f) => (
-                  <FakturCard
-                    key={f.id}
-                    f={f}
-                    today={today}
-                    viewer={viewer}
-                    onChange={(next, msg) => {
-                      update(next);
-                      setFlash(`${msg} · ${formatJam(demoNow())}`);
-                    }}
-                  />
+                  <FakturCard key={f.id} f={f} today={today} viewer={viewer} act={act} />
                 ))}
               </ul>
             ),
@@ -142,21 +151,11 @@ export function HutangWorkspace({
                         variant="primary"
                         disabled={!!sProblem}
                         aria-describedby={sProblem ? 'jadwal-gate' : undefined}
-                        onClick={() => {
-                          const number = `BYR-2610-${String(seq).padStart(3, '0')}`;
-                          setSeq((n) => n + 1);
-                          const ids = selected.map((s) => s.id);
-                          setBatch({ number, ids, total: sumRupiah(selected.map((s) => s.invoiceAmount)) });
-                          setList((l) =>
-                            l.map((x) =>
-                              ids.includes(x.id) ? { ...x, status: 'terjadwal', paymentBatch: number } : x,
-                            ),
-                          );
-                          setPicked(new Set());
-                          setFlash(
-                            `Batch ${number} dijadwalkan ${tanggalPendek(today)} · ${ids.length} faktur · ${formatJam(demoNow())}`,
-                          );
-                        }}
+                        onClick={() =>
+                          act({ type: 'batch', invoiceIds: selected.map((x) => x.id), rev: 0 }, () =>
+                            setPicked(new Set()),
+                          )
+                        }
                       >
                         Buat batch pembayaran
                       </Button>
@@ -231,21 +230,7 @@ export function HutangWorkspace({
                         variant="primary"
                         disabled={viewer.role !== 'akuntan'}
                         aria-describedby={viewer.role !== 'akuntan' ? 'bayar-gate' : undefined}
-                        onClick={() => {
-                          const now = demoNow();
-                          setList((l) =>
-                            l.map((x) =>
-                              batch.ids.includes(x.id)
-                                ? { ...x, status: 'dibayar', paidAt: now.toISOString() }
-                                : x,
-                            ),
-                          );
-                          setBalance((b) => b - batch.total);
-                          setFlash(
-                            `${batch.number} dibayar ${formatJam(now)} · ${ringkasJurnal(paymentJournal(batch.number, batch.total))}`,
-                          );
-                          setBatch(null);
-                        }}
+                        onClick={() => act({ type: 'bayar', rev: 0 })}
                       >
                         Posting pembayaran
                       </Button>
@@ -274,12 +259,12 @@ function FakturCard({
   f,
   today,
   viewer,
-  onChange,
+  act,
 }: {
   f: FakturPemasok;
   today: string;
-  viewer: { name: string; role: string | null };
-  onChange: (f: FakturPemasok, message: string) => void;
+  viewer: { id: string; name: string; role: string | null };
+  act: (input: HutangActionInput) => void;
 }) {
   const [accepting, setAccepting] = useState(false);
   const m = threeWay(f);
@@ -345,20 +330,12 @@ function FakturCard({
             onCancel={() => setAccepting(false)}
             onSubmit={(r) => {
               setAccepting(false);
-              onChange({ ...f, varianceNote: r }, `Selisih faktur ${f.invoiceNo} diterima dengan alasan`);
+              act({ type: 'selisih', invoiceId: f.id, reason: r, rev: 0 });
             }}
           />
         ) : (
           <span className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={() =>
-                onChange(
-                  { ...f, invoiceAmount: f.grnAmount },
-                  `Nota kredit ${f.supplier} diterima; faktur ${f.invoiceNo} disesuaikan ke nilai penerimaan`,
-                )
-              }
-            >
+            <Button size="sm" onClick={() => act({ type: 'nota-kredit', invoiceId: f.id, rev: 0 })}>
               Minta nota kredit (simulasikan diterima)
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setAccepting(true)}>
@@ -379,12 +356,7 @@ function FakturCard({
           <Button
             variant="primary"
             disabled={!!vp}
-            onClick={() =>
-              onChange(
-                { ...f, status: 'diverifikasi', verifiedBy: viewer.name },
-                `Faktur ${f.invoiceNo} diverifikasi`,
-              )
-            }
+            onClick={() => act({ type: 'verifikasi', invoiceId: f.id, rev: 0 })}
           >
             Verifikasi faktur
           </Button>
@@ -398,15 +370,7 @@ function FakturCard({
             <Button
               variant="primary"
               disabled={!!ap}
-              onClick={() => {
-                const next = applyApproval(f, viewer.name, demoNow().toISOString());
-                onChange(
-                  next,
-                  next.status === 'disetujui'
-                    ? `Faktur ${f.invoiceNo} disetujui tingkat ${next.approvals.length} · ${ringkasJurnal(approvalJournal(f))}`
-                    : `Faktur ${f.invoiceNo} disetujui tingkat ${next.approvals.length}; menunggu tingkat 2`,
-                );
-              }}
+              onClick={() => act({ type: 'setujui', invoiceId: f.id, rev: 0 })}
             >
               Setujui tingkat {f.approvals.length + 1}
             </Button>

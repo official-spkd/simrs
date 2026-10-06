@@ -33,6 +33,7 @@ import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keu
 import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
 import { kasbankDomain } from './keuangan-kasbank-toko';
+import { applyReceipt, hutangDomain, receiptContractSchema } from './keuangan-hutang-toko';
 import { closeJournal, expectedCash } from './keuangan-kasbank';
 import { LACI } from './demo/fixtures/kas-bank';
 import { TRANSAKSI } from './demo/fixtures/btn';
@@ -768,6 +769,42 @@ describe('domain kas-bank · tunai Kasir masuk laci; nomor invoice konsisten ant
         expect(btn.has(no), `${no} di laci bentrok dengan BTN`).toBe(false);
       }
     }
+  });
+});
+
+describe('domain hutang · penerimaan Logistik → faktur; pemverifikasi ≠ penyetuju; tingkat 2 ≠ tingkat 1', () => {
+  it('kontrak penerimaan.dicatat menjadi faktur draf idempoten; persetujuan berjenjang dari id sesi', () => {
+    const receipt = receiptContractSchema.parse({
+      type: 'penerimaan.dicatat',
+      grn: 'GRN-2610-0145',
+      po: 'PO-2610-032',
+      supplier: 'PBF Fiktif Sehat',
+      title: 'Cairan infus',
+      items: [],
+      total: '62000000',
+      poTotal: '62000000',
+      coldChainOk: true,
+      tanggal: '2026-10-05',
+      jatuhTempo: '2026-11-04',
+      jam: '10.40',
+    });
+    let s = applyReceipt(hutangDomain.initial(), receipt);
+    s = applyReceipt(s, receipt);
+    const f = s.invoices.filter((x) => x.grnNumber === 'GRN-2610-0145');
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatchObject({ status: 'draf', invoiceAmount: 62_000_000n });
+    const akuntan: DemoActor = { userId: 'u-ak', name: 'Akuntan', role: 'akuntan', baseRole: null };
+    const m1: DemoActor = { userId: 'u-m1', name: 'Manajer Keuangan', role: 'manajemen', baseRole: null };
+    const m2: DemoActor = { userId: 'u-m2', name: 'Direktur', role: 'manajemen', baseRole: null };
+    const fid = f[0]?.id ?? '';
+    const v = { type: 'faktur.verifikasi' as const, invoiceId: fid, at: AT };
+    expect(hutangDomain.validate?.(s, v, m1)).toMatch(/posisi akuntan/);
+    s = hutangDomain.reduce(s, { seq: 1, domain: 'hutang', at: AT, actor: akuntan, data: v });
+    const ok = { type: 'faktur.setujui' as const, invoiceId: fid, at: AT, jurnal: [] };
+    expect(hutangDomain.validate?.(s, ok, { ...m1, userId: akuntan.userId })).toMatch(/Pemverifikasi/);
+    s = hutangDomain.reduce(s, { seq: 2, domain: 'hutang', at: AT, actor: m1, data: ok });
+    expect(hutangDomain.validate?.(s, ok, m1)).toMatch(/tingkat 2/);
+    expect(hutangDomain.validate?.(s, ok, m2)).toBeNull();
   });
 });
 

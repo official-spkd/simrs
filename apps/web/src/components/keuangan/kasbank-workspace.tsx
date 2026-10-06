@@ -6,12 +6,7 @@ import { useId, useState } from 'react';
 import { type KasBankActionInput, kasBankAction } from '@/app/(staf)/keuangan/kas-bank/actions';
 import { useStoreAction } from '@/lib/demo/store/client';
 import { formatRupiahRingkas } from '@/lib/keuangan';
-import {
-  type DrafJurnal,
-  labelPeriode,
-  periodeOf,
-  PERIODE_TERTUTUP,
-} from '@/lib/keuangan-jurnal';
+import { type DrafJurnal, labelPeriode, periodeOf, PERIODE_TERTUTUP } from '@/lib/keuangan-jurnal';
 import {
   candidateFits,
   closeJournal,
