@@ -3,18 +3,19 @@
 /// P01 · Tenant = satu RS, atau satu tenant khusus operator platform (kind = platform, ADR-0013).
 /// RLS: baris hanya terlihat oleh tenant itu sendiri.
 model Tenant {
-  id             String   @id @db.Uuid
-  code           String   @unique
-  name           String
-  kemenkesCode   String?  @map("kemenkes_code")
-  bpjsPpkCode    String?  @map("bpjs_ppk_code")
-  satusehatOrgId String?  @map("satusehat_org_id")
-  hospitalClass  String?  @map("hospital_class")
-  status         String   @default("active")
+  medicationDoubleChecks MedicationDoubleCheck[]
+  id                     String                  @id @db.Uuid
+  code                   String                  @unique
+  name                   String
+  kemenkesCode           String?                 @map("kemenkes_code")
+  bpjsPpkCode            String?                 @map("bpjs_ppk_code")
+  satusehatOrgId         String?                 @map("satusehat_org_id")
+  hospitalClass          String?                 @map("hospital_class")
+  status                 String                  @default("active")
   /// hospital | platform (hanya satu tenant platform; indeks unik parsial di migrasi).
-  kind           String   @default("hospital")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  kind                   String                  @default("hospital")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outboxMessages        OutboxMessage[]
   deliveryAttempts      DeliveryAttempt[]

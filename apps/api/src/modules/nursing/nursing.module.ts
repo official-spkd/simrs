@@ -3,6 +3,10 @@ import { AuthzModule } from '../authz/authz.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VitalsController } from './vitals.controller';
 import { VitalsService } from './vitals.service';
+import { NursingController } from './nursing.controller';
+import { EmarService } from './emar.service';
+import { NursingCareService } from './nursing-care.service';
+import { MedicationSchedulesService } from './medication-schedules.service';
 
 /**
  * K12 · eMAR (pindai gelang, pemberian, cek ganda high-alert), asuhan keperawatan, balans cairan.
@@ -12,8 +16,8 @@ import { VitalsService } from './vitals.service';
  */
 @Module({
   imports: [AuthzModule, NotificationsModule],
-  controllers: [VitalsController],
-  providers: [VitalsService],
+  controllers: [VitalsController, NursingController],
+  providers: [VitalsService, EmarService, NursingCareService, MedicationSchedulesService],
   exports: [VitalsService],
 })
 export class NursingModule {}
