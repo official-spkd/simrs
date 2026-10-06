@@ -13,6 +13,7 @@ import {
 import { Alert, Button, Icon } from '@simrs/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { RegQueuePreview } from '@/components/front-office/reg-quota';
 import { RegStepper, type RegStepView } from '@/components/front-office/reg-stepper';
 import { counterOptions } from '@/lib/queue-board';
 import {
@@ -529,6 +530,21 @@ export function PendaftaranApiClient({
               setSessionId(null);
             }}
             onSession={setSessionId}
+          />
+          {/* Mockup Registrasi: pratinjau nomor antrean dari kuota dokter terpilih (nomor final dibentuk API). */}
+          <RegQueuePreview
+            label="PRATINJAU ANTREAN"
+            queueNo={p && quota ? quota.nextQueueNo : '—'}
+            line={
+              p && quota
+                ? `${/^Poli /.test(quota.poliName) ? '' : 'Poli '}${quota.poliName} · ${quota.room} · perkiraan dipanggil ${quota.eta}`
+                : 'Pilih pasien dan dokter untuk membentuk nomor antrean.'
+            }
+            note={
+              payer === 'bpjs'
+                ? 'Task ID 1–3 Antrean BPJS terkirim otomatis'
+                : 'Antrean non-JKN · tidak dikirim ke Antrean BPJS'
+            }
           />
           <ConsentPanel
             enabled={!!p}
