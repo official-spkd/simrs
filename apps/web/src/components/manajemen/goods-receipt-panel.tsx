@@ -26,6 +26,7 @@ export function GoodsReceiptPanel({
   supplier,
   lines,
   today,
+  pending = false,
   onCancel,
   onConfirm,
 }: {
@@ -34,7 +35,9 @@ export function GoodsReceiptPanel({
   lines: readonly ReceiptLine[];
   today: string;
   onCancel: () => void;
-  onConfirm: (inputs: Record<string, ReceiptInput>, value: bigint) => void;
+  pending?: boolean;
+  /** Isian + cek rantai dingin; nilai, nomor GRN, dan jatuh tempo dihitung ulang di server. */
+  onConfirm: (inputs: Record<string, ReceiptInput>, coldChainOk: boolean) => void;
 }) {
   const [inputs, setInputs] = useState<Record<string, ReceiptInput>>(() =>
     Object.fromEntries(lines.map((l) => [l.itemId, { received: String(l.ordered), batch: '', expiry: '' }])),
@@ -126,7 +129,7 @@ export function GoodsReceiptPanel({
         </span>
       </div>
       <span className="flex flex-wrap items-start gap-2">
-        <ReasonButton reason={block} onClick={() => onConfirm(inputs, value)}>
+        <ReasonButton reason={pending ? 'Menyimpan…' : block} onClick={() => onConfirm(inputs, cold)}>
           Catat penerimaan
         </ReasonButton>
         <Button variant="ghost" onClick={onCancel}>

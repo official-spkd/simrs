@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { submitPoAction } from '@/app/(staf)/manajemen/logistik/actions';
 import { resendDeadLettersAction } from '@/app/(staf)/sistem/integrasi/actions';
 import { DEAD_LETTERS, INVENTORY } from './demo/fixtures/manajemen';
@@ -8,6 +11,7 @@ import type { SessionView } from './session-view';
 const current = vi.hoisted(() => ({ session: null as SessionView | null }));
 vi.mock('@/lib/server/session', () => ({ getSession: async () => current.session }));
 vi.mock('@/lib/server/demo-guard', () => ({ assertDemo: () => undefined }));
+vi.mock('next/cache', () => ({ revalidatePath: () => undefined }));
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     throw new Error(`redirect ${url}`);
@@ -28,12 +32,20 @@ function as(role: string | null): SessionView {
 }
 
 const resend = () => resendDeadLettersAction({ ids: [DEAD_LETTERS[0]?.id ?? ''] });
-const submit = () =>
-  submitPoAction({ number: 'PO-2610-032', lines: [{ itemId: INVENTORY[0]?.id ?? '', qty: 2 }] });
+// Item di bawah ROP yang tidak sedang di PO terbuka (enoksaparin sudah di PO-2610-031).
+const low = INVENTORY.find((i) => i.id === 'seftriakson-1g');
+const submit = () => submitPoAction({ lines: [{ itemId: low?.id ?? '', qty: 2 }], jam: '10.50', rev: 0 });
+
+const dir = mkdtempSync(join(tmpdir(), 'simrs-logistik-aksi-'));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('Server Action manajemen memeriksa posisi pemakai layar', () => {
   beforeEach(() => {
     current.session = null;
+    vi.unstubAllEnvs();
+    vi.stubEnv('APP_ENV', 'local');
+    vi.stubEnv('DATA_SOURCE', 'demo');
+    vi.stubEnv('DEMO_STATE_DIR', dir);
   });
 
   it('kirim ulang DLQ hanya untuk posisi layar integrasi', async () => {
@@ -45,13 +57,16 @@ describe('Server Action manajemen memeriksa posisi pemakai layar', () => {
     expect(await resend()).toMatchObject({ ok: true, ids: [DEAD_LETTERS[0]?.id] });
   });
 
-  it('ajukan PO hanya untuk posisi layar logistik', async () => {
+  it('ajukan PO hanya untuk posisi layar logistik; tersimpan di toko (item lalu terkunci)', async () => {
     current.session = as('admin_tenant');
     expect(await submit()).toEqual({ ok: false, message: DENIED_MESSAGE });
-    for (const role of ['manajemen', 'apoteker']) {
-      current.session = as(role);
-      expect((await submit()).ok, role).toBe(true);
-    }
+    current.session = as('apoteker');
+    const r = await submit();
+    expect(r.ok, r.message).toBe(true);
+    expect(r.message).toMatch(/PO-2610-032/);
+    current.session = as('manajemen');
+    // Item sudah di PO terbuka (keadaan toko dibaca server, bukan dari klien).
+    expect(await submit()).toMatchObject({ ok: false, message: expect.stringMatching(/PO-2610-032/) });
   });
 
   it('tanpa sesi lengkap → ke halaman masuk', async () => {

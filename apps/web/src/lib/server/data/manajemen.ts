@@ -20,6 +20,17 @@ import { hartonoCpoeOpen } from '../../demo/fixtures/klinis';
 import { encounterIdOf } from '../../demo/fixtures/pasien';
 import { PATIENT_ID } from '../../demo/fixtures/ids';
 import { doctorAppInbox, hartonoLabOrdered, patientAppHome } from '../../manajemen-aplikasi';
+import type { ReceiptLine } from '../../logistik-terima';
+import {
+  inventoryNow,
+  inventoryValue,
+  openPoItems,
+  poNumber,
+  procurementRows,
+  receiptLinesOf,
+  supplierOf,
+} from '../../logistik-toko';
+import { readDomain } from '../demo/state';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
 import { assertDemo } from '../demo-guard';
@@ -47,8 +58,38 @@ export async function getIntegrationOverview(session: SessionView): Promise<Inte
 
 export async function getLogisticsOverview(): Promise<LogisticsOverview> {
   if (!isDemo()) return notImplemented('logistik');
-  return logisticsOverviewSchema.parse(demoLogisticsOverview());
+  return (await getLogisticsBoard()).overview;
 }
+
+/**
+ * B01 · Logistik dari toko demo (domain `logistik`, ADR-0085): stok + penerimaan, pengadaan berjalan dengan tahap
+ * dari kejadian, baris penerimaan PO, dan item yang terkunci di PO terbuka. Satu jalur untuk halaman dan Dasbor.
+ */
+export async function getLogisticsBoard() {
+  if (!isDemo()) return notImplemented('logistik');
+  const store = await readDomain('logistik');
+  const s = store.state;
+  const base = demoLogisticsOverview();
+  const rows = procurementRows(s);
+  const overview = logisticsOverviewSchema.parse({
+    ...base,
+    kpi: { ...base.kpi, inventoryValue: inventoryValue(s).toString() },
+    reorder: inventoryNow(s),
+    purchaseOrders: rows.map(({ id, title, total, stage, statusText }) => ({ id, title, total, stage, statusText })),
+    nextPoNumber: poNumber(s.nextPoSeq),
+  });
+  const receiptLines: Record<string, readonly ReceiptLine[]> = {};
+  const suppliers: Record<string, string> = {};
+  for (const r of rows) {
+    const lines = receiptLinesOf(s, r.id);
+    if (lines) {
+      receiptLines[r.id] = lines;
+      suppliers[r.id] = supplierOf(s, r.id);
+    }
+  }
+  return { overview, rows, store, receiptLines, suppliers, openPo: openPoItems(s) };
+}
+export type LogisticsBoardData = Awaited<ReturnType<typeof getLogisticsBoard>>;
 
 export async function getQualityOverview(): Promise<QualityOverview> {
   if (!isDemo()) return notImplemented('mutu dan keselamatan pasien');

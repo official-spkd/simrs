@@ -20,6 +20,8 @@ function line(itemId: string, ordered: number): ReceiptLine {
 }
 
 export const PO_RECEIPT_LINES: Record<string, readonly ReceiptLine[]> = {
+  // PO darurat enoksaparin (menunggu persetujuan direktur): bisa diterima setelah disetujui, terbit, dan dikirim.
+  'PO-2610-031': [line('enoksaparin-60', 300)],
   'PO-2610-024': [
     line('kasa-steril', 7_000),
     line('benang-pga', 200),
@@ -28,4 +30,7 @@ export const PO_RECEIPT_LINES: Record<string, readonly ReceiptLine[]> = {
   ],
 };
 
-export const PO_SUPPLIER: Record<string, string> = { 'PO-2610-024': 'Distributor alkes B' };
+export const PO_SUPPLIER: Record<string, string> = {
+  'PO-2610-031': 'Distributor farmasi A',
+  'PO-2610-024': 'Distributor alkes B',
+};

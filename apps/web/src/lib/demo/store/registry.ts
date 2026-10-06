@@ -4,6 +4,7 @@ import { registrationDomain } from '../../front-office-pendaftaran';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
 import { goLiveDomain } from '../../golive-toko';
+import { logisticsDomain } from '../../logistik-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { referralDomain } from '../../rujukan-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
@@ -28,6 +29,7 @@ export const DEMO_DOMAINS = {
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
   jadwal: scheduleDomain,
+  logistik: logisticsDomain,
   pendaftaran: registrationDomain,
   pengaturan: settingsDomain,
   penjadwal: jobsDomain,

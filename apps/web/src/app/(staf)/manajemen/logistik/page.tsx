@@ -5,8 +5,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { formatNumber, formatRupiahShort } from '@/lib/manajemen';
-import { getGoodsReceiptLines } from '@/lib/server/data/backoffice';
-import { getLogisticsOverview } from '@/lib/server/data/manajemen';
+import { getLogisticsBoard } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { LogisticsBoard } from './logistics-board';
 
@@ -18,13 +17,32 @@ const tanggal = (iso: string) => {
   return `${d} ${['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][m - 1]}`;
 };
 
-/** B01 · Logistik farmasi dan BHP (mockup `Logistik.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023). */
+/**
+ * B01 · Logistik farmasi dan BHP (mockup `Logistik.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023); aksi
+ * tersimpan di toko demo bersama (domain `logistik`, ADR-0085) dan penerimaan barang mengalir ke Hutang usaha.
+ */
 export default async function LogistikPage() {
   const { session, screen, allowed } = await requireDemoScreen('logistik');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const d = await getLogisticsOverview();
-  const receipt = await getGoodsReceiptLines();
+  const b = await getLogisticsBoard();
+  const d = b.overview;
   const k = d.kpi;
+  const ex = b.store.state.expiry;
+  const expiryDone = Object.fromEntries(
+    d.expiring.flatMap((e) => {
+      const x = ex[e.id];
+      return x
+        ? [
+            [
+              e.id,
+              x.action === 'pindah'
+                ? `Dipindahkan ke ${e.moveTo} · stok depo diperbarui · ${x.jam} oleh ${x.by.name}`
+                : `Diretur ke distributor · menunggu nota kredit · ${x.jam} oleh ${x.by.name}`,
+            ],
+          ]
+        : [];
+    }),
+  );
 
   return (
     <div className="@container flex flex-col gap-4">
@@ -41,9 +59,13 @@ export default async function LogistikPage() {
         data={d}
         today={DEMO_TODAY}
         canApprove={session.role?.code === 'manajemen'}
-        receiptLines={receipt.lines}
-        suppliers={receipt.suppliers}
-        openPo={receipt.openPo}
+        viewerId={session.user.id}
+        rev={b.store.rev}
+        orders={b.rows}
+        expiryDone={expiryDone}
+        receiptLines={b.receiptLines}
+        suppliers={b.suppliers}
+        openPo={b.openPo}
         kpis={
           <div
             role="region"
