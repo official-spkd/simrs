@@ -426,4 +426,43 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B13 pengalaman pasien: grading → tindak lanjut → jawab → tutup; skor survei rendah jadi pengaduan', async ({
+    page,
+  }) => {
+    const loket = await createAccount({ roles: ['petugas_pendaftaran'] });
+    await loginAs(page, loket, '/');
+    await page.goto('/manajemen/pengaduan');
+    await expect(page.getByRole('heading', { name: 'Pengalaman pasien', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Ringkasan pengalaman pasien' })).toContainText('87%');
+    await expect(page.getByRole('button', { name: /ADU-2610-016/ })).toContainText('Lewat SLA');
+
+    await page.getByLabel('Grading risiko').selectOption('merah');
+    await page.getByRole('button', { name: 'Simpan grading dan teruskan' }).click();
+    await page
+      .getByLabel('Tindak lanjut unit')
+      .fill('Kepala IGD menjelaskan alur triase dan memprioritaskan pemeriksaan');
+    await page.getByRole('button', { name: 'Catat tindak lanjut' }).click();
+    const send = page.getByRole('button', { name: 'Kirim jawaban' });
+    await page.getByLabel('Jawaban ke pelapor').fill('Mohon maaf');
+    await expect(send).toBeDisabled();
+    await page
+      .getByLabel('Jawaban ke pelapor')
+      .fill(
+        'Mohon maaf atas penantian. Ayah Anda sudah diperiksa dan kami memperbaiki informasi antrean IGD.',
+      );
+    await send.click();
+    await page.getByRole('button', { name: 'Tutup pengaduan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Pengaduan selesai' })).toBeVisible();
+    await expect(
+      page.getByRole('list', { name: 'Catatan tindakan (tidak bisa diubah)' }).getByRole('listitem'),
+    ).toHaveCount(4);
+
+    await page.getByRole('tab', { name: 'Survei kepuasan' }).click();
+    await page.getByRole('button', { name: 'Jadikan pengaduan dari survei srv-008' }).click();
+    await expect(page.getByText(/dijadikan pengaduan ADU-2610-025/).first()).toBeVisible();
+    await page.getByRole('tab', { name: /Pengaduan/ }).click();
+    await expect(page.getByRole('button', { name: /ADU-2610-025/ })).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

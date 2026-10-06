@@ -22,6 +22,7 @@ import {
   REG_DOCS,
 } from '../../demo/fixtures/dokumen';
 import { patientById } from '../../demo/fixtures/pasien';
+import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import {
   PAYROLL_APPROVERS,
@@ -143,4 +144,10 @@ export async function getRegDocs() {
     receipts: READ_RECEIPTS,
     chapters: ACCREDITATION_CHAPTERS,
   };
+}
+
+/** B13 · pengaduan terbuka, pengaduan 30 hari terakhir (INM-12), dan respons survei (INM-13). */
+export async function getPatientExperience() {
+  demoOnly('pengalaman pasien');
+  return { complaints: OPEN_COMPLAINTS, recent: recentComplaints(), responses: surveyResponses() };
 }

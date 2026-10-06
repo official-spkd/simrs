@@ -115,6 +115,21 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'wallet',
         available: false,
       },
+      { id: 'ppra', label: 'PPRA', href: '/manajemen/ppra', icon: 'pill', available: false },
+      {
+        id: 'dokumen',
+        label: 'Dokumen & akreditasi',
+        href: '/manajemen/dokumen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      {
+        id: 'pengaduan',
+        label: 'Pengalaman pasien',
+        href: '/manajemen/pengaduan',
+        icon: 'bell',
+        available: false,
+      },
     ],
   },
   // FE5 · akhir

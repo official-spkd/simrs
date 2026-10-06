@@ -527,6 +527,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['auditor_mutu', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'pengaduan',
+    label: 'Pengalaman pasien',
+    route: '/manajemen/pengaduan',
+    mockup: null,
+    components: ['B13'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'complaint.write',
+    demoRoles: ['auditor_mutu', 'petugas_pendaftaran', 'manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
