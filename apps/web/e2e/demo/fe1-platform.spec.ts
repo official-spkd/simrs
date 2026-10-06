@@ -305,4 +305,30 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(internal.getByRole('status')).toContainText(/dibatalkan · \d{2}\.\d{2}/);
     await expectNoHorizontalOverflow(page);
   });
+
+  test('info publik: jadwal + sisa kuota, antrean nomor saja, cek booking tanpa nama dan bergerbang percobaan', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/pratinjau/info-publik');
+    await expect(page.getByRole('region', { name: 'Pratinjau info publik' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Jadwal dokter hari ini' })).toContainText(
+      /JKN (sisa \d+|penuh)/,
+    );
+
+    await page.getByRole('tab', { name: 'Antrean' }).click();
+    await expect(page.getByRole('list', { name: 'Antrean berjalan' })).toContainText('Poli Penyakit Dalam');
+
+    await page.getByRole('tab', { name: 'Cek booking' }).click();
+    const form = page.getByRole('form', { name: 'Cek status booking' });
+    await form.getByLabel('Tanggal lahir pasien').fill('1979-01-26');
+    await form.getByRole('button', { name: 'Cek status' }).click();
+    await expect(form.getByRole('alert')).toContainText('Sisa 4 percobaan');
+    await form.getByLabel('Tanggal lahir pasien').fill('1979-01-25');
+    await form.getByRole('button', { name: 'Cek status' }).click();
+    const status = form.getByRole('region', { name: 'Status booking' });
+    await expect(status).toContainText('Nomor Anda PD-026');
+    await expect(status).toContainText(/Dicek · \d{2}\.\d{2}/);
+    await expect(status).not.toContainText('Darmawan');
+  });
 });

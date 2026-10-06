@@ -22,8 +22,16 @@ import { DEMO_JOBS } from '../../demo/fixtures/penjadwal';
 import type { ScheduledJob } from '../../platform-penjadwal';
 import type { StructNode } from '../../platform-struktur';
 import { DEMO_REFERRALS } from '../../demo/fixtures/rujukan';
-import { DEMO_TODAY, shiftDate } from '../../demo/fixtures/waktu';
+import { DEMO_NOW, DEMO_TODAY, shiftDate } from '../../demo/fixtures/waktu';
 import type { DemoReferral } from '../../rujukan';
+import type { PublicQueue, PublicSchedule } from '@simrs/shared';
+import { demoQueueBoard, demoWeeklySchedule, todayQuotas } from '../../demo/fixtures/front-office';
+import {
+  DEMO_PUBLIC_BOOKINGS,
+  PUBLIC_BOOKING_HINT,
+  PUBLIC_EXTRA_SERVICES,
+} from '../../demo/fixtures/info-publik';
+import { type PublicBookingRecord, publicQueueFrom, publicScheduleFrom } from '../../info-publik';
 import type { RefConcept, RefVersion } from '../../platform-terminologi';
 import {
   DEMO_IMPORT_FILES,
@@ -130,4 +138,21 @@ export async function getReferralsOverview(): Promise<{ referrals: DemoReferral[
   // Hari praktik Senin–Jumat dalam 7 hari ke depan (tanggal rencana SPRI/kontrol).
   const planDates = [1, 2, 3, 4, 7].map((d) => shiftDate(DEMO_TODAY, d));
   return { referrals: [...DEMO_REFERRALS], planDates };
+}
+
+export async function getPublicInfo(): Promise<{
+  schedule: PublicSchedule;
+  queue: PublicQueue;
+  bookings: PublicBookingRecord[];
+  hint: { code: string; birthDate: string };
+}> {
+  if (!isDemo()) return notImplemented('portal informasi publik (layar demo)');
+  const avg = Number(DEMO_SETTINGS['queue.avg_service_minutes'] ?? 10);
+  return {
+    // Keadaan awal hari demo (tanpa kemajuan skenario): portal publik tidak bergantung pada akun presenter.
+    schedule: publicScheduleFrom(todayQuotas(demoWeeklySchedule()), DEMO_TODAY, DEMO_NOW),
+    queue: publicQueueFrom(demoQueueBoard(), PUBLIC_EXTRA_SERVICES, avg),
+    bookings: [...DEMO_PUBLIC_BOOKINGS],
+    hint: PUBLIC_BOOKING_HINT,
+  };
 }

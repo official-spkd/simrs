@@ -503,6 +503,19 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['petugas_pendaftaran', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'info-publik',
+    label: 'Info publik (pratinjau)',
+    route: '/pratinjau/info-publik',
+    mockup: null,
+    components: ['F08'],
+    phase: 2,
+    status: 'demo',
+    // Portal publik tanpa login (gateway `/api/v1/public`); izin katalog terdekat untuk registri fase 2.
+    plannedPermission: 'schedule.read',
+    demoRoles: 'semua',
+    layout: 'perangkat',
+  },
   // FE1 · akhir
 ];
 

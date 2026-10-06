@@ -31,6 +31,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'jadwal', label: 'Jadwal dokter', href: '/jadwal', icon: 'cal', available: false },
       // FE1 · front office (mode presentasi)
       { id: 'rujukan', label: 'Rujukan', href: '/rujukan', icon: 'arrowRight', available: false },
+      {
+        id: 'info-publik',
+        label: 'Info publik',
+        href: '/pratinjau/info-publik',
+        icon: 'info',
+        available: false,
+      },
       // FE1 · akhir
     ],
   },
