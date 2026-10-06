@@ -1,6 +1,14 @@
 import 'server-only';
+import {
+  APLICARE_LAST_SYNC,
+  BPJS_SERVICES,
+  demoBedClasses,
+  demoBookings,
+  demoHfis,
+} from '../../demo/fixtures/integrasi-bpjs';
 import { demoSatusehatVisits } from '../../demo/fixtures/integrasi-satusehat';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
+import type { BedClassRow, BookingTasks, BpjsService, HfisRow } from '../../integrasi-bpjs';
 import type { Visit } from '../../integrasi-satusehat';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
@@ -21,4 +29,25 @@ const isDemo = () => {
 export async function getSatusehatVisits(): Promise<{ asOf: string; visits: Visit[] }> {
   if (!isDemo()) return notImplemented('konektor SATUSEHAT');
   return { asOf: DEMO_NOW, visits: demoSatusehatVisits() };
+}
+
+export interface BpjsData {
+  asOf: string;
+  services: readonly BpjsService[];
+  bookings: BookingTasks[];
+  beds: BedClassRow[];
+  aplicareLastSync: string;
+  hfis: HfisRow[];
+}
+
+export async function getBpjsConnector(): Promise<BpjsData> {
+  if (!isDemo()) return notImplemented('konektor BPJS');
+  return {
+    asOf: DEMO_NOW,
+    services: BPJS_SERVICES,
+    bookings: demoBookings(),
+    beds: demoBedClasses(),
+    aplicareLastSync: APLICARE_LAST_SYNC,
+    hfis: demoHfis(),
+  };
 }

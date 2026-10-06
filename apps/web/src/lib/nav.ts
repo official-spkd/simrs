@@ -155,6 +155,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'plug',
         available: false,
       },
+      { id: 'bpjs', label: 'BPJS', href: '/sistem/integrasi/bpjs', icon: 'plug', available: false },
       // FE3 · akhir konektor
     ],
   },

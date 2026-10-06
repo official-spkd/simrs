@@ -303,6 +303,35 @@ test.describe('I02 · SATUSEHAT', () => {
   });
 });
 
+test.describe('I03 · konektor BPJS', () => {
+  test('task ID dikirim ulang berurutan; mode downtime wajib alasan lalu backlog disinkronkan', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/integrasi/bpjs');
+    const detail = page.getByRole('region', { name: 'Detail BPJS Antrean' });
+    const booking = detail.getByRole('listitem').filter({ hasText: '2610050093' }).first();
+    await expect(booking).toContainText('task 4 harus terkirim lebih dulu');
+    await booking.getByRole('button', { name: 'Kirim ulang berurutan' }).click();
+    await booking.getByRole('button', { name: 'Ya, kirim berurutan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Task 4 lalu 5' })).toBeVisible();
+    await expect(booking.getByRole('button', { name: 'Kirim ulang berurutan' })).toHaveCount(0);
+
+    const downtime = page.getByRole('region', { name: 'Mode downtime BPJS' });
+    await downtime.getByRole('button', { name: 'Mode downtime BPJS' }).click();
+    await downtime.getByRole('button', { name: 'Aktifkan mode downtime' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Alasan mode downtime wajib' })).toBeVisible();
+    await downtime.getByLabel(/Alasan mode downtime/).fill('Gangguan VClaim nasional sejak 10.50');
+    await downtime.getByRole('button', { name: 'Aktifkan mode downtime' }).click();
+    await expect(downtime).toContainText('Mode downtime BPJS aktif');
+    await downtime.getByRole('button', { name: /Catat pendaftaran BPJS/ }).click();
+    await downtime.getByRole('button', { name: 'Pulihkan & sinkronkan' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: '1 transaksi tertunda disinkronkan' }),
+    ).toBeVisible();
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

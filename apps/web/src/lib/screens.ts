@@ -458,6 +458,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['admin_tenant'],
     layout: 'staf',
   },
+  {
+    id: 'bpjs',
+    label: 'Konektor BPJS',
+    route: '/sistem/integrasi/bpjs',
+    mockup: null,
+    components: ['I03'],
+    phase: 7,
+    status: 'demo',
+    plannedPermission: 'integration.manage',
+    demoRoles: ['admin_tenant'],
+    layout: 'staf',
+  },
   // FE3 · akhir fase 7
   {
     id: 'logistik',
