@@ -200,13 +200,13 @@ Rujukan regulasi: KMK 1596/2024 (51 elemen MRMIK), Permenkes 24/2022, UU 27/2022
 
 Variabel `APP_ENV` menentukan fitur pengembangan mana yang hidup. Nilai yang tidak dikenal, kosong, atau tidak disetel dianggap `production`.
 
-| Perilaku                                      | `local` / `staging` | `production` (atau tidak disetel)   |
-| --------------------------------------------- | ------------------- | ----------------------------------- |
-| Swagger `/docs` di API                        | aktif               | tidak ada (404)                     |
-| Endpoint `/api/v1/dev/*`                      | aktif               | tidak terdaftar (404)               |
-| Tenant dari header `X-Tenant-Id`              | diizinkan           | ditolak `401` sampai login tersedia |
-| Area superadmin web (panduan ini, Fondasi UI) | terbuka tanpa login | tertutup (404)                      |
-| HSTS                                          | mati                | aktif                               |
+| Perilaku                                      | `local` / `staging`                                          | `production` (atau tidak disetel)               |
+| --------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
+| Swagger `/docs` di API                        | aktif                                                        | tidak ada (404)                                 |
+| Endpoint `/api/v1/dev/*`                      | aktif                                                        | tidak terdaftar (404)                           |
+| Tenant dari header `X-Tenant-Id`              | diizinkan                                                    | ditolak `401` sampai login tersedia             |
+| Area superadmin web (panduan ini, Fondasi UI) | hanya operator platform (`superadmin_platform`), lainnya 404 | sama (gerbang peran, bukan `APP_ENV`, ADR-0013) |
+| HSTS                                          | mati                                                         | aktif                                           |
 
 **Penyimpanan berkas dokumen.** `STORAGE_DRIVER=disk` (folder lokal) hanya diterima bila `APP_ENV=local`; staging dan produksi wajib `s3` (MinIO/S3), dan API menolak start bila tidak (ADR-0020).
 

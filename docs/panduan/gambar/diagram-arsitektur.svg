@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" width="1000" height="620" role="img" aria-labelledby="judul ket">
+  <title id="judul">Arsitektur SIM RS</title>
+  <desc id="ket">Kanal (web staf, anjungan, TV, tablet, aplikasi) memanggil web Next.js sebagai BFF. Web memilih sumber data: mode api memanggil API NestJS, mode presentasi memakai fixture fiktif. API memeriksa keamanan, tenant, izin, dan validasi, lalu menulis ke PostgreSQL dengan RLS dalam satu transaksi bersama audit dan outbox. Worker mengambil outbox dan mengirim ke sistem luar (lokal: mock) dengan retry dan DLQ. Webhook dari luar masuk ke API dengan verifikasi HMAC.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .dash{stroke-dasharray:6 4}.warnbox{fill:#FFF3E0;stroke:#E0B070;stroke-width:1.2}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.cap{font-size:11px;font-weight:700;letter-spacing:.08em;fill:#5B6B79}
+    .b{font-weight:600}.s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+    .tb{fill:#0B5D56}.tw{fill:#8A4B00}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnb{stroke:#0F766E;stroke-width:1.8;fill:none}.ah{fill:#5B6B79}.ahb{fill:#0F766E}
+    .num{fill:#0F766E}.numt{fill:#FFFFFF;font-size:11px;font-weight:700}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.warnbox{fill:#362510;stroke:#8A5A1E}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.cap,.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tw{fill:#F0B45A}
+      .ln{stroke:#8FA1B0}.lnb{stroke:#3FB8AA}.ah{fill:#8FA1B0}.ahb{fill:#3FB8AA}.num{fill:#3FB8AA}.numt{fill:#0E161C}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahb" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="620" rx="14"/>
+  <text class="h" x="24" y="38">Arsitektur SIM RS: satu API untuk semua kanal</text>
+  <text class="sub" x="24" y="60">Browser tidak pernah memegang token API; database menegakkan isolasi antar-RS; efek ke sistem luar selalu lewat outbox.</text>
+
+  <!-- Judul kolom -->
+  <text class="cap" x="24" y="98">KANAL</text>
+  <text class="cap" x="214" y="98">WEB · BFF (NEXT.JS)</text>
+  <text class="cap" x="484" y="98">API (NESTJS) · /api/v1</text>
+  <text class="cap" x="764" y="98">SISTEM LUAR</text>
+
+  <!-- Kanal -->
+  <rect class="card" x="24" y="110" width="160" height="52" rx="10"/>
+  <text class="b" x="38" y="132">Web staf</text><text class="xs" x="38" y="150">peramban, sesi + MFA</text>
+  <rect class="card" x="24" y="174" width="160" height="52" rx="10"/>
+  <text class="b" x="38" y="196">Anjungan · TV</text><text class="xs" x="38" y="214">perangkat terdaftar</text>
+  <rect class="card" x="24" y="238" width="160" height="52" rx="10"/>
+  <text class="b" x="38" y="260">Tablet persetujuan</text><text class="xs" x="38" y="278">tanda tangan pasien</text>
+  <rect class="card dash" x="24" y="302" width="160" height="52" rx="10"/>
+  <text class="b" x="38" y="324">Aplikasi ponsel</text><text class="xs" x="38" y="342">fase 9 · kini pratinjau</text>
+  <path class="ln" d="M184 136H210" marker-end="url(#a)"/>
+  <path class="ln" d="M184 200H210" marker-end="url(#a)"/>
+  <path class="ln" d="M184 264H210" marker-end="url(#a)"/>
+  <path class="ln" d="M184 328H210" marker-end="url(#a)"/>
+
+  <!-- BFF -->
+  <rect class="brandbox" x="214" y="110" width="230" height="244" rx="12"/>
+  <text class="b tb" x="230" y="134">Next.js App Router</text>
+  <text class="s" x="230" y="158">• komponen server (bawaan)</text>
+  <text class="s" x="230" y="178">• Server Action cek sesi sendiri</text>
+  <text class="s" x="230" y="198">• token di cookie httpOnly</text>
+  <text class="s" x="230" y="218">• CSP ber-nonce</text>
+  <text class="s" x="230" y="238">• menu dari izin sesi</text>
+  <text class="s" x="230" y="258">• gerbang layar requireScreen</text>
+  <line class="ln" x1="230" y1="276" x2="428" y2="276" stroke-dasharray="3 3"/>
+  <text class="b" x="230" y="298">DATA_SOURCE</text>
+  <text class="mono" x="230" y="318">api  → panggil API</text>
+  <text class="mono" x="230" y="338">demo → fixture fiktif</text>
+
+  <!-- Fixture demo -->
+  <rect class="warnbox" x="214" y="392" width="230" height="74" rx="12"/>
+  <text class="b tw" x="230" y="415">Mode presentasi</text>
+  <text class="s" x="230" y="435">fixture fiktif lib/demo + skenario</text>
+  <text class="xs" x="230" y="454">APP_ENV=local + DATA_SOURCE=demo</text>
+  <path class="ln dash" d="M329 354V388" marker-end="url(#a)"/>
+
+  <!-- Infrastruktur pendukung -->
+  <rect class="card" x="214" y="492" width="230" height="72" rx="12"/>
+  <text class="b" x="230" y="515">Pendukung</text>
+  <text class="s" x="230" y="535">Redis: batas laju, antrean job</text>
+  <text class="s" x="230" y="554">MinIO/S3: berkas dokumen</text>
+  <path class="ln dash" d="M444 528H462V336H480" marker-end="url(#a)"/>
+
+  <!-- API -->
+  <rect class="card" x="484" y="110" width="236" height="244" rx="12"/>
+  <text class="b" x="500" y="134">Satu permintaan API</text>
+  <circle class="num" cx="508" cy="155" r="9"/><text class="numt" x="508" y="159" text-anchor="middle">1</text><text class="s" x="524" y="159">header keamanan, request id</text>
+  <circle class="num" cx="508" cy="183" r="9"/><text class="numt" x="508" y="187" text-anchor="middle">2</text><text class="s" x="524" y="187">batas laju IP + pengguna</text>
+  <circle class="num" cx="508" cy="211" r="9"/><text class="numt" x="508" y="215" text-anchor="middle">3</text><text class="s" x="524" y="215">sesi → tenant, peran, unit</text>
+  <circle class="num" cx="508" cy="239" r="9"/><text class="numt" x="508" y="243" text-anchor="middle">4</text><text class="s" x="524" y="243">izin RBAC + ABAC</text>
+  <circle class="num" cx="508" cy="267" r="9"/><text class="numt" x="508" y="271" text-anchor="middle">5</text><text class="s" x="524" y="271">validasi zod</text>
+  <circle class="num" cx="508" cy="295" r="9"/><text class="numt" x="508" y="299" text-anchor="middle">6</text><text class="s" x="524" y="299">service → repository</text>
+  <circle class="num" cx="508" cy="323" r="9"/><text class="numt" x="508" y="327" text-anchor="middle">7</text><text class="s" x="524" y="327">@Audited di transaksi sama</text>
+  <path class="lnb" d="M444 170H480" marker-end="url(#ab)"/>
+  <text class="xs" x="448" y="162">HTTP</text>
+
+  <!-- Database -->
+  <rect class="brandbox" x="484" y="400" width="236" height="164" rx="12"/>
+  <text class="b tb" x="500" y="424">PostgreSQL 16</text>
+  <text class="s" x="500" y="446">RLS: tenant_id = app.tenant_id</text>
+  <text class="s" x="500" y="466">tanpa konteks tenant → galat</text>
+  <text class="mono" x="500" y="490">audit_events (hash berantai)</text>
+  <text class="mono" x="500" y="510">outbox_messages</text>
+  <text class="mono" x="500" y="530">inbound_events (webhook)</text>
+  <text class="xs" x="500" y="551">role aplikasi tanpa BYPASSRLS</text>
+  <path class="lnb" d="M602 354V396" marker-end="url(#ab)"/>
+  <text class="xs" x="610" y="381">satu transaksi bertenant</text>
+
+  <!-- Worker -->
+  <rect class="card" x="764" y="400" width="212" height="164" rx="12"/>
+  <text class="b" x="780" y="424">Worker (NestJS)</text>
+  <text class="s" x="780" y="446">klaim pesan SKIP LOCKED</text>
+  <text class="s" x="780" y="466">lease 60 dtk per pesan</text>
+  <text class="s" x="780" y="486">retry eksponensial + jitter</text>
+  <text class="s" x="780" y="506">gagal 8× / 4xx → DLQ</text>
+  <text class="s" x="780" y="526">job berkala per tenant</text>
+  <text class="xs" x="780" y="550">jejak: delivery_attempts</text>
+  <path class="ln" d="M720 482H760" marker-end="url(#a)"/>
+  <text class="xs" x="726" y="474">ambil</text>
+
+  <!-- Sistem luar -->
+  <rect class="card" x="764" y="110" width="212" height="244" rx="12"/>
+  <text class="b" x="780" y="134">Lokal: apps/mock :4100</text>
+  <text class="s" x="780" y="158">BPJS VClaim, Antrean, Aplicare</text>
+  <text class="s" x="780" y="178">E-Klaim INA-CBG</text>
+  <text class="s" x="780" y="198">SATUSEHAT (FHIR R4)</text>
+  <text class="s" x="780" y="218">Dukcapil</text>
+  <text class="s" x="780" y="238">Penyelenggara TTE</text>
+  <text class="s" x="780" y="258">TPDI, BTN</text>
+  <line class="ln" x1="780" y1="276" x2="960" y2="276" stroke-dasharray="3 3"/>
+  <text class="xs" x="780" y="298">panel kendali skenario:</text>
+  <text class="xs" x="780" y="316">lambat, gagal, webhook ganda,</text>
+  <text class="xs" x="780" y="334">tagihan dibayar, kedaluwarsa</text>
+  <path class="ln" d="M870 400V358" marker-end="url(#a)"/>
+  <text class="xs" x="878" y="376">HTTP +</text>
+  <text class="xs" x="878" y="391">idempotency key</text>
+
+  <!-- Webhook dan lookup -->
+  <path class="ln" d="M764 304H724" marker-end="url(#a)"/>
+  <text class="xs" x="726" y="296">webhook</text>
+  <text class="xs" x="730" y="322">HMAC</text>
+  <path class="ln dash" d="M720 150H760" marker-end="url(#a)"/>
+  <text class="xs" x="726" y="143">lookup</text>
+
+  <text class="xs" x="24" y="600">Lookup sinkron (cek peserta, Dukcapil) dipanggil di luar transaksi (ADR-0025). Pesan keluar lain selalu lewat outbox (ADR-0003). Rujukan: docs/01-arsitektur.md.</text>
+</svg>
