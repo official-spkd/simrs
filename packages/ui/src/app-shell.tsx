@@ -7,8 +7,9 @@ import type { DomainKey } from './tokens';
 const STICKY_HEADER_HEIGHT = '4rem';
 
 /**
- * Kerangka halaman staf Pelangi Klinis (ADR-0086): jendela kaca berisi sidebar 236 px + header + konten. Mulai
- * 1024 px jendela melayang di atas latar (radius 20, bayangan); di bawahnya memenuhi layar.
+ * Kerangka halaman staf Pelangi Klinis (ADR-0091): jendela kaca berisi sidebar 236 px + header + konten. Mulai
+ * 1024 px jendela menempel di tepi atas (header lengket tetap di y = 0) dengan celah kiri/kanan/bawah, sudut bawah
+ * radius 20, dan bayangan; di bawahnya memenuhi layar.
  * `domain` memasang `data-domain` sehingga aksen `brand-*` seluruh layar mengikuti rona domain menu aktif; garis 3 px
  * di tepi atas jendela bergradien rona itu, dan `domainLabel` tampil sebagai label di awal header.
  * Di bawah 768 px sidebar runtuh menjadi menu atas yang bisa dibuka (details/summary, tanpa JS).
@@ -36,14 +37,14 @@ export function AppShell({
   const sticky = stickyHeader && Boolean(header);
   return (
     <div
-      className="min-h-screen lg:p-4"
+      className="min-h-screen lg:px-4 lg:pb-4"
       data-domain={domain}
       data-sticky-header={sticky ? '' : undefined}
       style={{ '--app-sticky-top': sticky ? STICKY_HEADER_HEIGHT : '0px' } as CSSProperties}
     >
-      <div className="glass relative min-h-screen md:flex lg:min-h-[calc(100vh-2rem)] lg:animate-win-in lg:overflow-clip lg:rounded-window lg:border lg:border-white/85 lg:shadow-window">
+      <div className="glass relative min-h-screen overflow-x-clip md:flex lg:min-h-[calc(100vh-1rem)] lg:animate-win-in lg:overflow-clip lg:rounded-b-window lg:border lg:border-t-0 lg:border-white/85 lg:shadow-window">
         <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-40 h-[3px] bg-domain-bar" />
-        <aside className="sticky top-0 hidden h-screen shrink-0 overflow-y-auto md:block lg:top-4 lg:h-[calc(100vh-2rem)]">
+        <aside className="sticky top-0 hidden h-screen shrink-0 overflow-y-auto md:block">
           {sidebar}
         </aside>
 

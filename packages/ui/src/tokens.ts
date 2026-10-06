@@ -1,4 +1,4 @@
-/** Nilai token Pelangi Klinis untuk kebutuhan JS (halaman /dev/ui, grafik). Sumber: theme.css (ADR-0086). */
+/** Nilai token Pelangi Klinis untuk kebutuhan JS (halaman /dev/ui, grafik). Sumber: theme.css (ADR-0091). */
 
 export const RAMP_STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900'] as const;
 
