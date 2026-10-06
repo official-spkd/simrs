@@ -5,7 +5,6 @@ import { Alert, Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
   CheckField,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -15,8 +14,10 @@ import {
   StageTrack,
   TextField,
 } from '@/components/backoffice/kit';
-import type { Asset, RepairTicket } from '@/lib/demo/fixtures/aset';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { type StoredTicket, ticketNumber } from '@/lib/aset-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import type { Asset } from '@/lib/demo/fixtures/aset';
 import {
   completionBlock,
   formatDuration,
@@ -28,12 +29,6 @@ import {
   TICKET_STAGES,
 } from '@/lib/aset';
 
-export interface TicketView extends Omit<RepairTicket, 'stage'> {
-  stage: number;
-  at: Record<number, string>;
-  note: string;
-}
-
 /**
  * B02 · Permintaan perbaikan → tiket → selesai: unit melapor (dampak menentukan SLA respons), IPSRS menerima dan
  * menetapkan teknisi, dikerjakan, selesai setelah uji fungsi + keselamatan listrik, lalu unit mengonfirmasi.
@@ -41,17 +36,19 @@ export interface TicketView extends Omit<RepairTicket, 'stage'> {
 export function RepairTab({
   assets,
   tickets,
-  setTickets,
   technicians,
   now,
-  nextNumber,
+  nextTicket,
+  rev,
+  viewerId,
 }: {
   assets: readonly Asset[];
-  tickets: TicketView[];
-  setTickets: (fn: (cur: TicketView[]) => TicketView[]) => void;
+  tickets: readonly StoredTicket[];
   technicians: readonly string[];
   now: string;
-  nextNumber: () => string;
+  nextTicket: number;
+  rev: number;
+  viewerId: string;
 }) {
   const [sel, setSel] = useState(tickets[0]?.id ?? '');
   const [tech, setTech] = useState('');
@@ -61,14 +58,12 @@ export function RepairTab({
   const [assetId, setAssetId] = useState('');
   const [complaint, setComplaint] = useState('');
   const [impact, setImpact] = useState('');
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('aset', rev);
   const byId = new Map(assets.map((a) => [a.id, a]));
   const t = tickets.find((x) => x.id === sel);
-  const stamp = () => demoNow().toISOString();
-  const patch = (id: string, p: Partial<TicketView>) =>
-    setTickets((cur) => cur.map((x) => (x.id === id ? { ...x, ...p } : x)));
-
-  const reportBlock = !assetId
+  const reportBlock = pending
+    ? 'Menyimpan…'
+    : !assetId
     ? 'Pilih alat yang rusak.'
     : complaint.trim().length < 10
       ? 'Jelaskan keluhan minimal 10 huruf.'
@@ -77,41 +72,25 @@ export function RepairTab({
         : null;
   const report = () => {
     if (reportBlock) return;
-    const a = byId.get(assetId);
-    const number = nextNumber();
-    const id = `tkt-baru-${number}`;
-    setTickets((cur) => [
-      {
-        id,
-        number,
-        assetId,
-        unit: a?.location ?? '',
-        reporter: 'Unit pelapor',
-        complaint: complaint.trim(),
-        impact: impact as Impact,
-        reportedAt: stamp(),
-        stage: 0,
-        technician: null,
-        respondedAt: null,
-        at: {},
-        note: '',
+    const number = ticketNumber(nextTicket);
+    const { jam, when } = demoStamp();
+    act(
+      { type: 'tiket.dilaporkan', assetId, complaint: complaint.trim(), impact: impact as Impact, when },
+      `Tiket ${number} dibuat · ${jam}; SLA respons ${RESPONSE_SLA_HOURS[impact as Impact]} jam.`,
+      () => {
+        setSel(`tkt-${number}`);
+        setAssetId('');
+        setComplaint('');
+        setImpact('');
       },
-      ...cur,
-    ]);
-    setSel(id);
-    setFlash({
-      ok: true,
-      text: `Tiket ${number} dibuat · ${formatJam(demoNow())}; SLA respons ${RESPONSE_SLA_HOURS[impact as Impact]} jam.`,
-    });
-    setAssetId('');
-    setComplaint('');
-    setImpact('');
+    );
   };
 
-  const advance = (to: number, extra: Partial<TicketView>, text: string) => {
+  type Step = 'tiket.diterima' | 'tiket.dikerjakan' | 'tiket.selesai' | 'tiket.ditutup';
+  const advance = (type: Step, text: string, extra: Record<string, unknown> = {}, onOk?: () => void) => {
     if (!t) return;
-    patch(t.id, { stage: to, at: { ...t.at, [to]: formatTanggalWaktu(demoNow()) }, ...extra });
-    setFlash({ ok: true, text: `${t.number}: ${text} · ${formatJam(demoNow())}.` });
+    const { jam, when } = demoStamp();
+    act({ type, id: t.id, when, ...extra } as never, `${t.number}: ${text} · ${jam}.`, onOk);
   };
 
   let detail = (
@@ -147,7 +126,9 @@ export function RepairTab({
                 ? formatJam(t.reportedAt)
                 : i === 1 && t.respondedAt
                   ? formatJam(t.respondedAt)
-                  : (t.at[i] ?? null),
+                  : t.at[i]
+                    ? `${formatJam(t.at[i] as string)}${t.by[i] ? ` · ${t.by[i]?.name}` : ''}`
+                    : null,
           }))}
           current={t.stage >= 4 ? TICKET_STAGES.length : t.stage + 1}
         />
@@ -169,18 +150,17 @@ export function RepairTab({
               options={technicians.map((x) => [x, x])}
             />
             <ReasonButton
-              reason={tech ? null : 'Pilih teknisi dulu.'}
-              onClick={() => {
-                advance(1, { technician: tech, respondedAt: stamp() }, `diterima IPSRS, teknisi ${tech}`);
-                setTech('');
-              }}
+              reason={pending ? 'Menyimpan…' : tech ? null : 'Pilih teknisi dulu.'}
+              onClick={() =>
+                advance('tiket.diterima', `diterima IPSRS, teknisi ${tech}`, { technician: tech }, () => setTech(''))
+              }
             >
               Terima dan tetapkan teknisi
             </ReasonButton>
           </div>
         ) : t.stage === 1 ? (
           <span>
-            <Button variant="primary" onClick={() => advance(2, {}, 'mulai dikerjakan')}>
+            <Button variant="primary" disabled={pending} onClick={() => advance('tiket.dikerjakan', 'mulai dikerjakan')}>
               Mulai kerjakan
             </Button>
           </span>
@@ -190,17 +170,19 @@ export function RepairTab({
             <CheckField label="Uji keselamatan listrik lulus" checked={elec} onChange={setElec} />
             <TextField label="Tindakan perbaikan" rows={2} value={note} onChange={setNote} />
             <ReasonButton
-              reason={doneBlock}
-              onClick={() => {
+              reason={pending ? 'Menyimpan…' : doneBlock}
+              onClick={() =>
                 advance(
-                  3,
-                  { note: note.trim() },
+                  'tiket.selesai',
                   'selesai, uji fungsi dan keselamatan lulus; menunggu konfirmasi unit',
-                );
-                setFnTest(false);
-                setElec(false);
-                setNote('');
-              }}
+                  { functionTest: fnTest, electricalSafety: elec, note: note.trim() },
+                  () => {
+                    setFnTest(false);
+                    setElec(false);
+                    setNote('');
+                  },
+                )
+              }
             >
               Selesai dan lulus uji
             </ReasonButton>
@@ -208,17 +190,24 @@ export function RepairTab({
         ) : t.stage === 3 ? (
           <div className="flex flex-col gap-2">
             <span className="text-small text-ink-700">Tindakan: {t.note}</span>
-            <span>
-              <Button
-                variant="primary"
-                onClick={() => advance(4, {}, `${t.unit} mengonfirmasi alat berfungsi; tiket ditutup`)}
-              >
-                Konfirmasi unit dan tutup
-              </Button>
-            </span>
+            <ReasonButton
+              reason={
+                pending
+                  ? 'Menyimpan…'
+                  : t.by[3]?.userId === viewerId
+                    ? 'Anda yang menyelesaikan perbaikan: konfirmasi oleh pengguna unit lain (pemisahan tugas).'
+                    : null
+              }
+              onClick={() => advance('tiket.ditutup', `${t.unit} mengonfirmasi alat berfungsi; tiket ditutup`)}
+            >
+              Konfirmasi unit dan tutup
+            </ReasonButton>
           </div>
         ) : (
-          <Alert level="success" title={`Ditutup · ${t.at[4] ?? ''}`}>
+          <Alert
+            level="success"
+            title={`Ditutup · ${t.at[4] ? formatTanggalWaktu(t.at[4]) : ''} · ${t.by[4]?.name ?? ''}`}
+          >
             Alat kembali dipakai. Riwayat perbaikan masuk kartu aset {a?.code} dan data ASPAK.
           </Alert>
         )}

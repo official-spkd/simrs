@@ -14,21 +14,28 @@ export const metadata: Metadata = { title: 'Aset & pemeliharaan' };
 
 /**
  * B02 · Aset dan pemeliharaan (rencana fase 8 §8.3, tanpa mockup): register + nilai buku, kalibrasi alat medis,
- * tiket perbaikan ber-SLA. Mode presentasi: data dummy fiktif (ADR-0023).
+ * tiket perbaikan ber-SLA. Mode presentasi: data dummy fiktif (ADR-0023), aksi tersimpan di toko demo (domain
+ * `aset`, ADR-0085).
  */
 export default async function AsetPage() {
-  const { screen, allowed } = await requireDemoScreen('aset');
+  const { session, screen, allowed } = await requireDemoScreen('aset');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getAssets();
   const book = d.assets.reduce(
     (n, a) => n + bookValue(BigInt(a.cost), a.acquired, a.lifeYears, DEMO_TODAY),
     0n,
   );
-  const st = d.assets.map((a) => calibrationStatus(a.nextCalibration, DEMO_TODAY).status);
+  const cal = d.store.state.calibration;
+  const st = d.assets.map((a) =>
+    cal[a.id]?.withdrawn
+      ? 'ditarik'
+      : calibrationStatus(cal[a.id]?.nextCalibration ?? a.nextCalibration, DEMO_TODAY).status,
+  );
+  const openTickets = d.store.state.tickets.filter((t) => t.stage < 4);
   const overdue = st.filter((s) => s === 'lewat').length;
   const soon = st.filter((s) => s === 'segera').length;
   const pm = d.assets.filter((a) => a.nextMaintenance <= shiftDate(DEMO_TODAY, 6)).length;
-  const late = d.tickets.filter(
+  const late = openTickets.filter(
     (t) => !responseWithinSla(t.reportedAt, t.respondedAt, DEMO_NOW, t.impact),
   ).length;
 
@@ -59,14 +66,14 @@ export default async function AsetPage() {
         />
         <KpiCard
           label="Tiket perbaikan terbuka"
-          value={String(d.tickets.length)}
+          value={String(openTickets.length)}
           hint={late ? `${late} respons lewat SLA` : 'semua respons dalam SLA'}
           detail="SLA respons kritis 2 jam"
           tone={late ? 'danger' : 'success'}
           tinted
         />
       </div>
-      <AssetBoard data={d} today={DEMO_TODAY} now={DEMO_NOW} />
+      <AssetBoard data={d} today={DEMO_TODAY} now={DEMO_NOW} viewerId={session.user.id} />
     </div>
   );
 }

@@ -1,10 +1,9 @@
 'use client';
 
-import { formatJam, formatRupiah, formatTanggal } from '@simrs/shared';
+import { formatRupiah, formatTanggal } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, FilterChip } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -15,8 +14,10 @@ import {
   TH,
 } from '@/components/backoffice/kit';
 import { type Asset } from '@/lib/demo/fixtures/aset';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
 import { bookValue, calibrationStatus, type CalibrationStatus, nextCalibration } from '@/lib/aset';
+import { type AssetStoreState, ticketNumber } from '@/lib/aset-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 
 const TONE: Record<CalibrationStatus, ChipTone> = {
   laik: 'success',
@@ -44,26 +45,37 @@ export function AssetTab({
   assets,
   labs,
   today,
-  onWithdraw,
+  calibration,
+  nextTicket,
+  rev,
 }: {
   assets: readonly Asset[];
   labs: readonly string[];
   today: string;
-  onWithdraw: (asset: Asset, reason: string) => string;
+  calibration: AssetStoreState['calibration'];
+  nextTicket: number;
+  rev: number;
 }) {
-  const [list, setList] = useState<AssetState[]>(() => assets.map((a) => ({ ...a, withdrawn: false })));
+  const list: AssetState[] = assets.map((a) => {
+    const c = calibration[a.id];
+    return c
+      ? { ...a, lastCalibration: c.lastCalibration, nextCalibration: c.nextCalibration, withdrawn: c.withdrawn }
+      : { ...a, withdrawn: false };
+  });
   const [filter, setFilter] = useState<'tindakan' | 'semua'>('tindakan');
   const [sel, setSel] = useState<string | null>(null);
   const [result, setResult] = useState('');
   const [cert, setCert] = useState('');
   const [lab, setLab] = useState(labs[0] ?? '');
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('aset', rev);
 
   const statusOf = (a: AssetState) => calibrationStatus(a.nextCalibration, today);
   const needs = (a: AssetState) => a.withdrawn || ['lewat', 'segera'].includes(statusOf(a).status);
   const visible = list.filter((a) => filter === 'semua' || needs(a));
   const asset = list.find((a) => a.id === sel);
-  const block = !result
+  const block = pending
+    ? 'Menyimpan…'
+    : !result
     ? 'Pilih hasil kalibrasi.'
     : cert.trim().length < 5
       ? 'Isi nomor sertifikat kalibrasi.'
@@ -72,31 +84,25 @@ export function AssetTab({
 
   const save = () => {
     if (!asset || block) return;
-    const at = formatJam(demoNow());
+    const { jam, when } = demoStamp();
+    const reset = () => {
+      setSel(null);
+      setResult('');
+      setCert('');
+    };
     if (result === 'laik') {
-      const next = nextCalibration(today);
-      setList((cur) =>
-        cur.map((a) =>
-          a.id === asset.id ? { ...a, lastCalibration: today, nextCalibration: next, withdrawn: false } : a,
-        ),
+      act(
+        { type: 'kalibrasi.dicatat', assetId: asset.id, result: 'laik', cert: cert.trim(), lab, when },
+        `${asset.name} (${asset.code}) laik pakai · sertifikat ${cert.trim()} · ${jam}; kalibrasi berikutnya ${formatTanggal(nextCalibration(today))}.`,
+        reset,
       );
-      setFlash({
-        ok: true,
-        text: `${asset.name} (${asset.code}) laik pakai · sertifikat ${cert.trim()} · ${at}; kalibrasi berikutnya ${formatTanggal(next)}.`,
-      });
     } else {
-      const ticket = onWithdraw(asset, `Hasil kalibrasi tidak laik (sertifikat ${cert.trim()})`);
-      setList((cur) =>
-        cur.map((a) => (a.id === asset.id ? { ...a, lastCalibration: today, withdrawn: true } : a)),
+      act(
+        { type: 'kalibrasi.dicatat', assetId: asset.id, result: 'tidak', cert: cert.trim(), lab, when },
+        `${asset.name} tidak laik · ${jam}: label merah dipasang, alat ditarik dari layanan, tiket ${ticketNumber(nextTicket)} dibuat.`,
+        reset,
       );
-      setFlash({
-        ok: false,
-        text: `${asset.name} tidak laik · ${at}: label merah dipasang, alat ditarik dari layanan, tiket ${ticket} dibuat.`,
-      });
     }
-    setSel(null);
-    setResult('');
-    setCert('');
   };
 
   return (

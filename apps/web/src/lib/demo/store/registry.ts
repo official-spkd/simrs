@@ -1,4 +1,5 @@
 import { queueDomain } from '../../front-office-antrean';
+import { assetDomain } from '../../aset-toko';
 import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
@@ -39,6 +40,7 @@ import type { DomainDef, DomainSource } from './define';
  */
 export const DEMO_DOMAINS = {
   antrean: queueDomain,
+  aset: assetDomain,
   cadangan: backupDomain,
   'dataset-riset': datasetDomain,
   dokumen: documentDomain,

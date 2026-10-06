@@ -362,14 +362,26 @@ test.describe('FE5 · back office', () => {
     await repair.getByRole('checkbox', { name: 'Uji keselamatan listrik lulus' }).check();
     await repair.getByLabel('Tindakan perbaikan').fill('Ganti kabel sensor SpO2 dan kalibrasi alarm');
     await done.click();
-    await repair.getByRole('button', { name: 'Konfirmasi unit dan tutup' }).click();
-    await expect(repair.getByRole('status').filter({ hasText: /^Ditutup/ })).toBeVisible();
+    // Penutupan oleh pengguna unit lain dari petugas yang menyelesaikan (pemisahan tugas memakai pengguna sesi).
+    await expect(repair.getByRole('button', { name: 'Konfirmasi unit dan tutup' })).toBeDisabled();
+    await expect(repair.getByText(/Anda yang menyelesaikan perbaikan/)).toBeVisible();
 
     await repair.getByLabel('Alat', { exact: true }).selectOption('ast-01');
     await repair.getByLabel('Keluhan').fill('Alarm tekanan jalan napas tinggi muncul tanpa sebab');
     await repair.getByLabel('Dampak ke layanan').selectOption('kritis');
     await repair.getByRole('button', { name: 'Kirim laporan' }).click();
     await expect(repair.getByText(/Tiket WO-2610-043 dibuat .* SLA respons 2 jam/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: kalibrasi, tiket otomatis, tahap tiket, dan laporan baru.
+    await page.reload();
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Alat lewat jatuh tempo kalibrasi' }).filter({ hasText: 'Defibrilator' }),
+    ).toHaveCount(0);
+    await page.getByRole('tab', { name: /Perbaikan/ }).click();
+    await expect(repair.getByRole('button', { name: /WO-2610-042/ })).toBeVisible();
+    await expect(repair.getByRole('button', { name: /WO-2610-043/ })).toBeVisible();
+    await expect(repair.getByRole('button', { name: /WO-2610-041/ })).toContainText('Selesai diuji');
 
     await expectNoHorizontalOverflow(page);
   });
