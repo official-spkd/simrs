@@ -4,7 +4,7 @@ import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 
-// Pelangi Klinis (ADR-0086): Poppins untuk seluruh teks; IBM Plex Mono hanya untuk pengenal (RM, ICD, SEP).
+// Pelangi Klinis (ADR-0091): Poppins untuk seluruh teks; IBM Plex Mono hanya untuk pengenal (RM, ICD, SEP).
 const sans = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
