@@ -292,11 +292,24 @@ export function KeyValues({ rows }: { rows: ReadonlyArray<readonly [string, Reac
   );
 }
 
-/** Pembungkus tabel: tabel lebar menggulir di dalam kartu, bukan halaman. */
-export function TableWrap({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * Pembungkus tabel: tabel lebar menggulir di dalam kartu, bukan halaman. `minWidth` menjaga kolom tidak terjepit di
+ * lebar tablet (lebih baik digulir daripada teks patah per kata).
+ */
+export function TableWrap({
+  label,
+  children,
+  minWidth = 560,
+}: {
+  label: string;
+  children: ReactNode;
+  minWidth?: number;
+}) {
   return (
     <div role="region" aria-label={label} tabIndex={0} className="max-w-full overflow-x-auto">
-      <table className="w-full border-collapse text-small">{children}</table>
+      <table className="w-full border-collapse text-small" style={{ minWidth }}>
+        {children}
+      </table>
     </div>
   );
 }

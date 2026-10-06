@@ -13,6 +13,7 @@ import {
   ORDER_GUARD_EVENTS,
   PRIVILEGE_APPLICATIONS,
 } from '../../demo/fixtures/kredensial';
+import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
 import { patientById } from '../../demo/fixtures/pasien';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
@@ -91,3 +92,10 @@ export async function getPpi() {
   };
 }
 export type PpiData = Awaited<ReturnType<typeof getPpi>>;
+
+/** B02 · register aset, kalibrasi, dan tiket perbaikan. */
+export async function getAssets() {
+  demoOnly('aset dan pemeliharaan');
+  return { assets: ASSETS, labs: CALIBRATION_LABS, tickets: REPAIR_TICKETS, technicians: TECHNICIANS };
+}
+export type AssetData = Awaited<ReturnType<typeof getAssets>>;

@@ -254,4 +254,55 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B02 aset: kalibrasi laik/tidak laik, tiket perbaikan sampai ditutup, lapor kerusakan', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/');
+    await page.goto('/manajemen/aset');
+    await expect(page.getByRole('heading', { name: 'Aset dan pemeliharaan', level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('alert').filter({ hasText: 'Alat lewat jatuh tempo kalibrasi' }),
+    ).toContainText('Defibrilator');
+
+    await page.getByRole('button', { name: 'Catat kalibrasi Defibrilator' }).click();
+    const save = page.getByRole('button', { name: 'Simpan hasil kalibrasi' });
+    await expect(save).toBeDisabled();
+    await page.getByLabel('Hasil', { exact: true }).selectOption('laik');
+    await page.getByLabel('Nomor sertifikat').fill('KAL-2610-118');
+    await save.click();
+    await expect(page.getByText(/Defibrilator \(AST-ALK-0118\) laik pakai/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Catat kalibrasi Timbangan bayi digital' }).click();
+    await page.getByLabel('Hasil', { exact: true }).selectOption('tidak');
+    await page.getByLabel('Nomor sertifikat').fill('KAL-2610-119');
+    await save.click();
+    await expect(
+      page.getByText(/Timbangan bayi digital tidak laik .* tiket WO-2610-042 dibuat/),
+    ).toBeVisible();
+
+    await page.getByRole('tab', { name: /Perbaikan/ }).click();
+    const repair = page.getByRole('tabpanel', { name: /Perbaikan/ });
+    await expect(repair.getByRole('button', { name: /WO-2610-042/ })).toBeVisible();
+    await repair.getByRole('button', { name: /WO-2610-041/ }).click();
+    await repair.getByLabel('Teknisi', { exact: true }).selectOption({ index: 1 });
+    await repair.getByRole('button', { name: 'Terima dan tetapkan teknisi' }).click();
+    await repair.getByRole('button', { name: 'Mulai kerjakan' }).click();
+    const done = repair.getByRole('button', { name: 'Selesai dan lulus uji' });
+    await expect(done).toBeDisabled();
+    await repair.getByRole('checkbox', { name: 'Uji fungsi lulus' }).check();
+    await repair.getByRole('checkbox', { name: 'Uji keselamatan listrik lulus' }).check();
+    await repair.getByLabel('Tindakan perbaikan').fill('Ganti kabel sensor SpO2 dan kalibrasi alarm');
+    await done.click();
+    await repair.getByRole('button', { name: 'Konfirmasi unit dan tutup' }).click();
+    await expect(repair.getByRole('status').filter({ hasText: /^Ditutup/ })).toBeVisible();
+
+    await repair.getByLabel('Alat', { exact: true }).selectOption('ast-01');
+    await repair.getByLabel('Keluhan').fill('Alarm tekanan jalan napas tinggi muncul tanpa sebab');
+    await repair.getByLabel('Dampak ke layanan').selectOption('kritis');
+    await repair.getByRole('button', { name: 'Kirim laporan' }).click();
+    await expect(repair.getByText(/Tiket WO-2610-043 dibuat .* SLA respons 2 jam/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

@@ -479,6 +479,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['auditor_mutu', 'perawat'],
     layout: 'staf',
   },
+  {
+    id: 'aset',
+    label: 'Aset & pemeliharaan',
+    route: '/manajemen/aset',
+    mockup: null,
+    components: ['B02'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'asset.write',
+    demoRoles: ['manajemen', 'perawat'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 

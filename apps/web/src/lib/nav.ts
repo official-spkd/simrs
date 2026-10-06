@@ -107,6 +107,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'ppi', label: 'PPI', href: '/manajemen/ppi', icon: 'shield', available: false },
+      { id: 'aset', label: 'Aset & pemeliharaan', href: '/manajemen/aset', icon: 'box', available: false },
     ],
   },
   // FE5 · akhir
