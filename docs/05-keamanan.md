@@ -59,6 +59,14 @@ izin = { sumber: "cppt", aksi: "write", lingkup: { unit: "melati", relasi: "pera
 - [ ] Panggilan eksternal lewat outbox; webhook diverifikasi + idempotent
 - [ ] Uang `bigint`; jurnal seimbang
 - [ ] Tidak ada rahasia di kode atau di commit
+- [ ] Gerbang statis rute hijau (`apps/api/test/route-security.test.ts`, ADR-0076): endpoint baru masuk golongan staf
+      (izin), perangkat, swalayan, atau publik (batas laju); entri baru di daftar pengecualian disertai alasan
+- [ ] Lingkup `unit`/`relationship` ditegakkan di service untuk SETIAP id yang diterima (pasien, kunjungan, bed,
+      permintaan, entri), bukan hanya di endpoint baca; tes 403 dari unit lain
+- [ ] Potret awal SSE dan laporan/daftar berisi PHI mencatat audit per pasien (`patientId`)
+- [ ] Operasi outbox HTTP baru: payload hanya ID; potongan respons hanya bila `sensitive: false` (ADR-0076)
+- [ ] Redirect setelah login/aksi memakai `safeNextPath` (diperiksa ulang SETELAH normalisasi URL)
+- [ ] Konfigurasi produksi gagal aman: variabel baru yang berbahaya bila bawaan (mock, disk, memori) ditolak saat start
 
 ## 6. Sisa risiko yang diterima
 
@@ -73,3 +81,16 @@ izin = { sumber: "cppt", aksi: "write", lingkup: { unit: "melati", relasi: "pera
   (kode booking `YYMMDD` + 4 digit bisa ditebak). Dampaknya hanya layanan informasi publik selama jendela batas;
   booking, check-in, dan antrean tidak terpengaruh. Penghitung berada di Redis bersama; bila Redis gagal, hitungan
   sementara per instans API (endpoint ini juga memakai batas endpoint kredensial yang gagal tertutup di produksi).
+- **Host permintaan dari `X-Forwarded-Host` (web BFF → API).** Di produksi RS ditentukan dari host. Web mengambil
+  host dari `X-Forwarded-Host`/`Host` permintaan masuk dan API mempercayai web (`TRUST_PROXY`). Reverse proxy di depan
+  web WAJIB menimpa (bukan menambah) `X-Forwarded-Host` dan `Host`; bila tidak, klien bisa memilih RS lain saat login
+  (kredensial RS itu tetap dibutuhkan, tetapi kontrol per subdomain seperti allowlist IP/WAF bisa dilewati).
+- **Pulang/meninggal lewat `bed.write`.** Sampai gerbang tutup kunjungan potongan 3.6 (`DischargeGate`: resume final
+  ber-TTE, surat kematian, surat rujukan) terpasang, peran ber-`bed.write` lingkup `all` (admisi) bisa memulangkan
+  kunjungan IGD/rawat inap dengan disposisi apa pun, termasuk `meninggal`. Tercatat di audit dan event domain.
+- **Infra lokal.** Docker Compose memakai kata sandi lokal yang diketahui, Redis tanpa kata sandi, dan kredensial root
+  MinIO juga dipakai aplikasi; semua port hanya di loopback (ADR-0076). Lingkungan bersama/edge wajib memakai rahasia
+  sendiri, Redis ber-`requirepass`, dan pengguna MinIO berkebijakan terbatas ke bucket aplikasi.
+- **Dependensi pengembangan.** `pnpm audit --prod` bersih. Tersisa advisori dev-only: `deepmerge-ts` < 8 (lewat
+  `@prisma/config`, butuh naik mayor) dan `esbuild` < 0.28.1 (pembacaan berkas dev server di Windows, lewat tsup/vite);
+  tidak terjangkau input pengguna. Naikkan bersama pembaruan prisma/tsup berikutnya.

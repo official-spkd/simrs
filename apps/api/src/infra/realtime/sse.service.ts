@@ -133,16 +133,16 @@ export class SseService implements OnModuleDestroy {
       heartbeatMs: options.heartbeatMs ?? SSE_HEARTBEAT_MS,
       maxDurationMs: options.maxDurationMs ?? SSE_MAX_DURATION_MS,
       replayLimit: options.replayLimit ?? SSE_REPLAY_LIMIT,
-      // Potret awal di transaksi pendek; entri audit service (mis. satu per pasien di papan IGD) ditulis di
-      // transaksi yang sama sebelum commit, seperti `TenantDb.transaction()`. Tanpa ini entri itu hilang diam-diam.
+      // Potret awal sering memuat PHI (mis. papan IGD: nama + RM): entri `TenantDb.audit()` di dalamnya ditulis di
+      // transaksi yang sama, seperti versi REST-nya. Diulang setiap sambung ulang (umur aliran maks. 5 menit).
       initial: initial
         ? () =>
             this.prisma.forTenant(tenantId, (tx) => {
-              const inner: TenantRequestContext = { ...ctx, tx, audit: [], afterCommit: [] };
-              return requestContext.run(inner, async () => {
-                const events = await initial();
-                await writeAudit(tx, tenantId, auditMetaOf(ctx), inner.audit);
-                return events;
+              const store: TenantRequestContext = { ...ctx, tx, audit: [], afterCommit: [] };
+              return requestContext.run(store, async () => {
+                const snapshot = await initial();
+                await writeAudit(tx, tenantId, auditMetaOf(ctx), store.audit);
+                return snapshot;
               });
             })
         : null,

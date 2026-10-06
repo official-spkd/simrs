@@ -15,6 +15,20 @@ export interface AuditMeta {
   device?: { id: string; kind: string } | null;
 }
 
+/** Metadata audit dari konteks permintaan bertenant (pelaku, IP, agen, request id, perangkat). */
+export function auditMetaOf(ctx: TenantRequestContext): AuditMeta {
+  return {
+    actorUserId: ctx.actor.userId,
+    actorRole: ctx.actor.role,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    requestId: ctx.requestId,
+    device: ctx.actor.devicePrincipal
+      ? { id: ctx.actor.devicePrincipal.id, kind: ctx.actor.devicePrincipal.kind }
+      : null,
+  };
+}
+
 /**
  * Tulis entri audit di transaksi bertenant yang diberikan. seq, waktu, dan hash diisi trigger database.
  * Satu-satunya tempat yang menyisipkan `audit_events` (dipakai interceptor permintaan dan alur login).
@@ -48,18 +62,4 @@ export async function writeAudit(
           : (e.details as object),
     })),
   });
-}
-
-/** Metadata audit dari konteks permintaan bertenant (transaksi pendek di luar interceptor: `TenantDb`, SSE). */
-export function auditMetaOf(ctx: TenantRequestContext): AuditMeta {
-  return {
-    actorUserId: ctx.actor.userId,
-    actorRole: ctx.actor.role,
-    ip: ctx.ip,
-    userAgent: ctx.userAgent,
-    requestId: ctx.requestId,
-    device: ctx.actor.devicePrincipal
-      ? { id: ctx.actor.devicePrincipal.id, kind: ctx.actor.devicePrincipal.kind }
-      : null,
-  };
 }

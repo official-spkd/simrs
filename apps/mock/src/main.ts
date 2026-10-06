@@ -1,7 +1,12 @@
-import { loadConfig } from './config';
+import { loadConfig, mockStartupProblem } from './config';
 import { buildServer } from './server';
 import { MockState } from './state';
 
+const problem = mockStartupProblem(process.env);
+if (problem) {
+  console.error(problem);
+  process.exit(1);
+}
 const config = loadConfig();
 const app = buildServer(config, new MockState());
 

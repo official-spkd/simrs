@@ -30,6 +30,8 @@ function readPayload(payload: unknown) {
  * pelaku `system`. NIK yang sudah diganti sebelum terkirim dilewati.
  */
 export const dukcapilVerifyNik: OutboxOperation = {
+  // Respons Dukcapil nyata (galat/elemen) bisa menggemakan NIK atau nama: potongannya tidak disimpan.
+  sensitive: true,
   async prepare(msg, ctx) {
     const { patientId, identifierId } = readPayload(msg.payload);
     const ident = await ctx.read((tx) =>
