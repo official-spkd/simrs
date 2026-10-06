@@ -47,6 +47,15 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'rad', label: 'Radiologi', href: '/penunjang/radiologi', icon: 'scan', available: false },
       { id: 'farmasi', label: 'Farmasi', href: '/penunjang/farmasi', icon: 'pill', available: false },
       { id: 'ok', label: 'Kamar operasi', href: '/penunjang/kamar-operasi', icon: 'cut', available: false },
+      // FE3 · penunjang lanjutan
+      {
+        id: 'kritis',
+        label: 'Hasil kritis',
+        href: '/penunjang/hasil-kritis',
+        icon: 'alert',
+        available: false,
+      },
+      // FE3 · akhir
     ],
   },
   {

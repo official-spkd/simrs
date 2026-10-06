@@ -298,6 +298,20 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['dokter', 'perawat'],
     layout: 'staf',
   },
+  // FE3 · fase 4 penunjang lanjutan (mode presentasi, data dummy)
+  {
+    id: 'kritis',
+    label: 'Pusat hasil kritis',
+    route: '/penunjang/hasil-kritis',
+    mockup: null,
+    components: ['S09'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'critical_result.report',
+    demoRoles: ['analis_lab', 'radiografer', 'dokter', 'perawat'],
+    layout: 'staf',
+  },
+  // FE3 · akhir
   {
     id: 'kasir',
     label: 'Kasir',
