@@ -9,8 +9,11 @@ import { WORKLIST_PATIENTS, WORKLIST_TASKS } from '@/lib/demo/fixtures/rme-workl
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { openRoute } from '@/lib/rme';
 import { WORKLIST_ROLE_TITLE, worklistRole } from '@/lib/rme-worklist';
+import { criticalFor, criticalStatusText, worklistDone } from '@/lib/rme-worklist-toko';
 import { screenById } from '@/lib/screens';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { readRekam } from '@/lib/server/data/klinis/rekam';
+import { worklistSources } from '@/lib/server/data/klinis/worklist';
 
 export const metadata: Metadata = { title: 'Worklist klinis' };
 
@@ -20,7 +23,8 @@ const TARGETS = ['ringkasan', 'cppt', 'asesmen', 'askep', 'edukasi', 'konsul', '
 /**
  * K01 · Worklist klinis per posisi (DPJP, residen, perawat, bidan): pasien saya dan tugas tertunda (nilai kritis,
  * co-sign, verifikasi CPPT, tinjau order residen, hasil baru, konsul, obat jatuh tempo, serah terima). Mode
- * presentasi: data fiktif hari demo (ADR-0023); backend `GET /api/v1/worklist` menyusul (rencana fase 3 · 3.2b).
+ * presentasi: tugas fiktif hari demo (ADR-0023) yang statusnya dihitung dari toko demo (ADR-0085): rekam
+ * `rekam-medis` dan laporan nilai kritis `hasil-kritis`; backend `GET /api/v1/worklist` menyusul (rencana fase 3).
  */
 export default async function WorklistPage() {
   const { session, screen, allowed } = await requireDemoScreen('worklist');
@@ -29,6 +33,15 @@ export default async function WorklistPage() {
   const role = worklistRole(roleCode);
   const routes = Object.fromEntries(TARGETS.map((id) => [id, openRoute(id, roleCode)]));
   const labels = Object.fromEntries(TARGETS.map((id) => [id, screenById(id)?.label ?? id]));
+  const tasks = role ? WORKLIST_TASKS[role] : [];
+  const [src, { rev }] = await Promise.all([worklistSources(session, tasks), readRekam()]);
+  const done = worklistDone(tasks, src);
+  const notes = Object.fromEntries(
+    tasks.flatMap((t) => {
+      const c = criticalFor(t, src);
+      return c ? [[t.id, criticalStatusText(c)]] : [];
+    }),
+  );
   const patients = (role ? WORKLIST_PATIENTS[role] : []).flatMap((x) => {
     const p = patientById(x.patientId);
     return p ? [{ ...x, name: p.nama, rm: p.rm, allergies: p.alergi }] : [];
@@ -54,9 +67,11 @@ export default async function WorklistPage() {
       ) : (
         <WorklistBoard
           role={role}
-          user={session.user.displayName}
           now={DEMO_NOW}
-          tasks={WORKLIST_TASKS[role]}
+          tasks={tasks}
+          done={done}
+          notes={notes}
+          rev={rev}
           patients={patients}
           routes={routes}
           screenLabels={labels}

@@ -14,11 +14,13 @@ import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
+import { readRekam, withRekam } from './rekam';
 import { scenarioSteps } from './shared';
 
 /**
  * K04/K07/K12 · Data layar Rawat inap (daftar pasien + rekam rawat inap: CPPT, eMAR, EWS). Mode presentasi: rekam
- * fiktif + proyeksi pasien skenario (Tn. Hartono, Ny. Ratna), divalidasi kontrak yang sama dengan API kelak; mode api
+ * fiktif + rekam tersimpan di toko demo (`rekam-medis`, ADR-0085) + proyeksi pasien skenario (Tn. Hartono, Ny. Ratna),
+ * divalidasi kontrak yang sama dengan API kelak; mode api
  * menunggu backend fase 3 (potongan 3.2b/3.5, layar W4; halaman menampilkan "Belum tersambung").
  */
 
@@ -38,9 +40,13 @@ export async function inpatientScenarioStep(
 }
 
 async function allInpatients(session: SessionView): Promise<InpatientDetail[]> {
-  const runs = await scenarioRuns(session);
+  const [runs, { state }] = await Promise.all([scenarioRuns(session), readRekam()]);
   const scenario = [hartonoInpatient(runs.results['igd-ranap']), ratnaInpatient(runs.results['elektif-btn'])];
-  return [...scenario.filter((x): x is InpatientDetail => x !== null), ...demoInpatients()];
+  // Pasien fixture memakai rekam tersimpan di toko demo (CPPT, co-sign, observasi, askep); pasien skenario tidak.
+  return [
+    ...scenario.filter((x): x is InpatientDetail => x !== null),
+    ...demoInpatients().map((d) => withRekam(d, state)),
+  ];
 }
 
 /** K04 · Daftar pasien rawat inap (pasien skenario masuk daftar setelah serah terima / SEP rawat inap). */

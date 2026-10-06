@@ -1,4 +1,5 @@
 import { criticalDomain } from '../../penunjang-kritis';
+import { rekamDomain } from '../../rme-toko';
 import type { DomainDef, DomainSource } from './define';
 
 /**
@@ -10,6 +11,7 @@ import type { DomainDef, DomainSource } from './define';
  */
 export const DEMO_DOMAINS = {
   'hasil-kritis': criticalDomain,
+  'rekam-medis': rekamDomain,
 } as const;
 
 export type DemoDomains = typeof DEMO_DOMAINS;

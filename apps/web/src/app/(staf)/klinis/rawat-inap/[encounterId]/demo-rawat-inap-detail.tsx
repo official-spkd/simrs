@@ -7,9 +7,11 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientById } from '@/lib/demo/fixtures/pasien';
 import { CONSENT_IDS, RESUME_ENCOUNTERS } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
-import { ewsLevel } from '@/lib/rawat-inap';
+import { canAdministerMeds, ewsLevel } from '@/lib/rawat-inap';
+import { emarGiven, emarLog } from '@/lib/rme-toko';
 import { screenById } from '@/lib/screens';
 import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/klinis/ranap';
+import { readRekam } from '@/lib/server/data/klinis/rekam';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { InpatientWorkspace } from './inpatient-workspace';
 import { INPATIENT_TABS, type InpatientTab } from './tabs';
@@ -22,7 +24,7 @@ function routeOf(id: string): string | null {
 
 /**
  * K04/K07/K12 · Rekam rawat inap satu pasien mode presentasi (mockup `Ranap.dc.html`): CPPT, eMAR, EWS, askep, hasil
- * (data fiktif, ADR-0023; dibekukan, jalur api diisi layar W4 di `page.tsx`).
+ * (data fiktif + toko demo `rekam-medis`, ADR-0023/0085; jalur api diisi layar W4 di `page.tsx`).
  */
 export async function DemoRawatInapDetail({
   access,
@@ -66,7 +68,8 @@ export async function DemoRawatInapDetail({
   if (!p) notFound();
   const ward = BANGSAL.find((w) => w.code === s.wardCode);
   const wardName = ward?.name ?? s.wardCode;
-  const step = await inpatientScenarioStep(session, p.scenario);
+  const [step, rekam] = await Promise.all([inpatientScenarioStep(session, p.scenario), readRekam()]);
+  const roleCode = session.role?.code ?? null;
   const tab = INPATIENT_TABS.find((t) => t === wantedTab) ?? 'cppt';
   const guarantor = `${p.penjamin}${p.kelas ? ` ${p.kelas}` : ''}`;
   const primary = s.diagnoses.find((x) => x.primary) ?? s.diagnoses[0];
@@ -164,7 +167,12 @@ export async function DemoRawatInapDetail({
         patient={{ name: p.nama, rm: p.rm }}
         user={session.user.displayName}
         userRole={session.role?.name ?? null}
-        canCosign={session.role?.code === 'dokter'}
+        canCosign={roleCode === 'dokter'}
+        canNurse={roleCode === 'perawat' || roleCode === 'bidan'}
+        canObserve={canAdministerMeds(roleCode)}
+        rev={rekam.rev}
+        storedGiven={s.scenario ? {} : emarGiven(rekam.state, s.encounterId)}
+        storedLog={s.scenario ? [] : emarLog(rekam.state, s.encounterId)}
         initialTab={tab as InpatientTab}
         scenario={step}
         links={links}
