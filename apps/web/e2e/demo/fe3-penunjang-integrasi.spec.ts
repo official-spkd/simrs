@@ -223,6 +223,30 @@ test.describe('S02 · mikrobiologi dan PA', () => {
   });
 });
 
+test.describe('S10 · diagnostik lain', () => {
+  test('EKG cito: jadwal → identitas wajib → ekspertise lengkap ber-TTE', async ({ page }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/penunjang/diagnostik');
+    await page
+      .getByRole('region', { name: 'Worklist diagnostik' })
+      .getByRole('button', { name: /Tn\. Ahmad Fauzi/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail pemeriksaan' });
+    await expect(detail).toContainText('ICD-9-CM 89.52');
+    await detail.getByRole('button', { name: 'Jadwalkan' }).click();
+    await detail.getByRole('button', { name: 'Mulai dan catat pelaksanaan' }).click();
+    await expect(detail.getByRole('alert')).toContainText('Konfirmasi identitas pasien');
+    await detail.getByRole('checkbox', { name: /Identitas pasien dicocokkan/ }).check();
+    await detail.getByRole('button', { name: 'Mulai dan catat pelaksanaan' }).click();
+    const form = detail.getByRole('form', { name: 'Ekspertise EKG 12 sadapan' });
+    await form.getByRole('button', { name: /Simpan dan tandatangani/ }).click();
+    await expect(detail.getByRole('alert')).toContainText('Semua isian ekspertise wajib diisi');
+    for (const box of await form.getByRole('textbox').all()) await box.fill('Dalam batas normal');
+    await form.getByRole('button', { name: /Simpan dan tandatangani/ }).click();
+    await expect(detail.getByText(/Ekspertise ditandatangani dr\. Bagus Santoso/)).toBeVisible();
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

@@ -360,6 +360,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['analis_lab', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'diagnostik',
+    label: 'Diagnostik lain',
+    route: '/penunjang/diagnostik',
+    mockup: null,
+    components: ['S10'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'diagnostic.write',
+    demoRoles: ['dokter', 'perawat'],
+    layout: 'staf',
+  },
   // FE3 · akhir
   {
     id: 'kasir',

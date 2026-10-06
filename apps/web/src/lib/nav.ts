@@ -71,6 +71,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'flask',
         available: false,
       },
+      {
+        id: 'diagnostik',
+        label: 'Diagnostik lain',
+        href: '/penunjang/diagnostik',
+        icon: 'pulse',
+        available: false,
+      },
       // FE3 · akhir
     ],
   },

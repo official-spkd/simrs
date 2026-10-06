@@ -7,6 +7,7 @@ import {
 } from '../../demo/fixtures/penunjang-kritis';
 import { demoBloodRequests, demoBloodUnits } from '../../demo/fixtures/penunjang-bank-darah';
 import { demoCultures, demoPaCases } from '../../demo/fixtures/penunjang-mikro';
+import { demoDiagOrders } from '../../demo/fixtures/penunjang-diagnostik';
 import { DEFAULT_MEAL, demoDeliveries, demoDietOrders } from '../../demo/fixtures/penunjang-gizi';
 import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
@@ -14,6 +15,7 @@ import type { BloodState } from '../../penunjang-bank-darah';
 import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import type { Delivery, DietOrder, MealTime } from '../../penunjang-gizi';
 import type { CultureCase, PaCase } from '../../penunjang-mikro';
+import type { DiagOrder } from '../../penunjang-diagnostik';
 import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
@@ -126,4 +128,11 @@ export interface MicroData {
 export async function getMicroPa(): Promise<MicroData> {
   if (!isDemo()) return notImplemented('mikrobiologi dan patologi anatomi');
   return { asOf: DEMO_NOW, cultures: demoCultures(), pa: demoPaCases() };
+}
+
+// ─── S10 · Penunjang diagnostik lain ─────────────────────────────────────────────────────────────────────────
+
+export async function getDiagOrders(): Promise<{ asOf: string; orders: DiagOrder[] }> {
+  if (!isDemo()) return notImplemented('penunjang diagnostik lain');
+  return { asOf: DEMO_NOW, orders: demoDiagOrders() };
 }
