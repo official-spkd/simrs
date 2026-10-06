@@ -27,13 +27,13 @@ Mode presentasi dibuat agar klien dan direksi bisa melihat **seluruh alur RS** s
 
 ### Menjalankan
 
-| Perintah                               | Kapan                                                                         |
-| -------------------------------------- | ----------------------------------------------------------------------------- |
-| `pnpm with-pg pnpm db:akun-presentasi` | Sekali (atau bila kredensial perlu diganti): 16 akun fiktif per posisi        |
-| `pnpm demo`                            | Presentasi: build produksi lalu jalankan semua layanan (tanpa jeda kompilasi) |
-| `pnpm demo --tanpa-build`              | Sama, memakai build terakhir                                                  |
-| `pnpm dev:demo`                        | Latihan atau pengembangan layar demo (mode dev, ada jeda kompilasi)           |
-| `pnpm demo:cek`                        | Daftar periksa sebelum tampil; semua butir harus ✓                            |
+| Perintah                               | Kapan                                                                             |
+| -------------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm with-pg pnpm db:akun-presentasi` | Sekali (atau bila kredensial perlu diganti): 16 akun per posisi + Superadmin demo |
+| `pnpm demo`                            | Presentasi: build produksi lalu jalankan semua layanan (tanpa jeda kompilasi)     |
+| `pnpm demo --tanpa-build`              | Sama, memakai build terakhir                                                      |
+| `pnpm dev:demo`                        | Latihan atau pengembangan layar demo (mode dev, ada jeda kompilasi)               |
+| `pnpm demo:cek`                        | Daftar periksa sebelum tampil; semua butir harus ✓                                |
 
 Naskah presentasi (versi direksi ±20 menit dan versi tim RS ±45 menit) ada di `docs/presentasi/naskah.md`.
 
@@ -42,6 +42,17 @@ Naskah presentasi (versi direksi ±20 menit dan versi tim RS ±45 menit) ada di 
 Di layar `/masuk` mode presentasi muncul kartu **"Masuk cepat · mode presentasi"**, dikelompokkan per bagian (front office, klinis, penunjang, keuangan dan rekam medis, manajemen dan sistem). Satu klik menjalankan login biasa (sandi + kode verifikasi) di server dengan kredensial lokal `.local/demo-accounts.json`. Kredensial tidak pernah dikirim ke browser.
 
 Semua akun presentasi satu RS **berbagi satu keadaan simulasi**, jadi presenter bisa berganti posisi di tengah skenario tanpa kehilangan langkah. Akun uji E2E memakai berkas dan folder keadaan sendiri (`DEMO_ACCOUNTS_FILE`, `DEMO_STATE_DIR`).
+
+### Superadmin demo · semua layar
+
+Untuk menunjukkan semua fitur dengan satu akun (ADR-0023 keputusan 10):
+
+1. Jalankan `pnpm with-pg pnpm db:akun-presentasi` (akun `presentasi.superadmin-demo` ikut dibuat), lalu `pnpm demo` atau `pnpm dev:demo`.
+2. Buka `/masuk`, pilih **Superadmin demo · semua layar** (paling atas di "Masuk cepat").
+3. Sidebar memuat semua layar presentasi: front office, klinis (termasuk CPPT, asesmen, diagnosis, CPOE, resume), penunjang, keuangan, manajemen, back office, **Perangkat & pratinjau** (anjungan, tablet persetujuan, aplikasi pasien/dokter), sistem, dan **Panduan**. Layar berparameter dibuka lewat halaman indeksnya yang berisi contoh pasien.
+4. Di header ada kontrol **Bertindak sebagai**. Layar yang dipakai beberapa posisi (mis. Rawat inap: dokter, residen, perawat, bidan) menampilkan pilihan; bawaannya pemakai pertama layar. Pilihan ini menentukan tombol yang tersedia, misalnya co-sign dan TTE hanya saat bertindak sebagai Dokter (DPJP). Gerbang keselamatan tetap sama: override tetap wajib alasan.
+
+Batasnya: tanda "semua layar" hanya berlaku di mode presentasi. Di mode api, staging, dan produksi akun ini hanya akun berperan **Manajemen** (hanya-baca): menunya sama dengan akun manajemen biasa, layar data dummy dan panduan 404. API tidak diberi peran atau izin baru.
 
 ## Simulasi pasien
 
@@ -283,6 +294,7 @@ Aturan:
 - `apps/web/e2e/demo/simulasi.spec.ts`: tugas berurutan, jam berjalan, lompat ke akhir, ringkasan; gerbang triase IGD; panel panduan di layar lain.
 - `apps/web/e2e/demo/akun-presentasi.spec.ts`: masuk cepat per posisi, panduan berganti akun, keadaan simulasi bersama.
 - `apps/web/e2e/demo/semua-layar.spec.ts`: jaring pengaman semua layar demo (tanpa galat, tanpa scroll horizontal).
+- `apps/web/e2e/demo/superadmin-demo.spec.ts`: Superadmin demo membuka setiap layar registri dari satu sidebar, "Bertindak sebagai", dan panduan; `apps/web/e2e/superadmin-demo-api.spec.ts`: di mode api akun yang sama tanpa kuasa tambahan. Unit: `apps/web/src/lib/server/demo/all-access.test.ts`, `screens.test.ts`, `nav.test.ts`, `packages/db/test/presentation.test.ts`.
 - `apps/web/e2e/demo/fe1-platform.spec.ts`: Mode downtime (aktif beralasan, cetak paket wajib, entri susulan, sinkron sampai nol), Cadangan (backup manual beralasan, uji restore gagal aman lalu lulus), Kesiapan go-live (GO terkunci, keputusan tercatat, matriks tersaring).
 - `apps/web/src/lib/operasional-downtime.test.ts`, `apps/web/src/lib/operasional-backup.test.ts`, `apps/web/src/lib/golive.test.ts`: aturan murni tiga layar operasional.
 - `apps/web/src/lib/demo/engine/run.test.ts`, `apps/web/src/lib/demo/skenario/skenario.test.ts`, `apps/web/src/lib/server/demo/store.test.ts`.

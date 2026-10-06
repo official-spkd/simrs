@@ -8,9 +8,13 @@ import {
 } from '@simrs/shared/node';
 import { ensureSystemRoles } from './authz';
 import { type PrismaClient, withTenant } from './client';
-import { PRESENTATION_PERSONAS, PRESENTATION_USERNAME_PREFIX } from './seed-data';
+import {
+  PRESENTATION_ALL_ACCESS_LABEL,
+  PRESENTATION_PERSONAS,
+  PRESENTATION_USERNAME_PREFIX,
+} from './seed-data';
 
-export { PRESENTATION_PERSONAS, PRESENTATION_USERNAME_PREFIX };
+export { PRESENTATION_ALL_ACCESS_LABEL, PRESENTATION_PERSONAS, PRESENTATION_USERNAME_PREFIX };
 
 /** Kredensial satu akun presentasi (hanya untuk berkas lokal `.local/demo-accounts.json`). */
 export interface PresentationCredential {
@@ -22,6 +26,11 @@ export interface PresentationCredential {
   role: string;
   roleName: string;
   unitName: string | null;
+  /**
+   * Posisi Superadmin demo (ADR-0023 keputusan 10): web di mode presentasi membuka semua layar untuk akun ini. Tanda
+   * hanya ada di berkas lokal; di database akun ini akun biasa dengan satu penugasan `role`.
+   */
+  allAccess?: true;
 }
 
 /**
@@ -121,7 +130,12 @@ export async function upsertPresentationAccounts(
             resourceType: 'user',
             resourceId: userId,
             action: existing ? 'update' : 'create',
-            details: { via: 'cli', presentasi: true, role: p.role },
+            details: {
+              via: 'cli',
+              presentasi: true,
+              role: p.role,
+              ...(p.allAccess ? { allAccess: true } : {}),
+            },
           },
         });
         creds.push({
@@ -130,8 +144,11 @@ export async function upsertPresentationAccounts(
           totpSecret,
           displayName: p.displayName,
           role: p.role,
-          roleName: SYSTEM_ROLES[p.role as SystemRoleCode] ?? p.role,
+          roleName: p.allAccess
+            ? PRESENTATION_ALL_ACCESS_LABEL
+            : (SYSTEM_ROLES[p.role as SystemRoleCode] ?? p.role),
           unitName: unit?.name ?? null,
+          ...(p.allAccess ? { allAccess: true as const } : {}),
         });
       }
     },

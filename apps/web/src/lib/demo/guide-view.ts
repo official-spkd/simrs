@@ -17,11 +17,11 @@ export interface GuideView {
   /** Tugas terbuka berikutnya (null bila langkah sudah lengkap: tinggal lanjut). */
   nextTask: string | null;
   finished: boolean;
-  /** Posisi aktif sudah sesuai dengan pembawa langkah ini. */
+  /** Posisi aktif sudah sesuai dengan pembawa langkah ini (Superadmin demo: selalu, ADR-0023 keputusan 10). */
   onRole: boolean;
 }
 
-export function guideView(R: RunResult, currentRole: string | null): GuideView {
+export function guideView(R: RunResult, currentRole: string | null, allAccess = false): GuideView {
   const N = R.def.steps.length;
   const s = R.def.steps[Math.min(R.step, N - 1)];
   const screen = s ? screenById(s.screen) : undefined;
@@ -40,6 +40,6 @@ export function guideView(R: RunResult, currentRole: string | null): GuideView {
       : null,
     nextTask: R.finished ? null : (open?.label ?? null),
     finished: R.finished,
-    onRole: !s?.role || s.role === currentRole,
+    onRole: allAccess || !s?.role || s.role === currentRole,
   };
 }

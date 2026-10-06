@@ -15,6 +15,16 @@ export interface SessionView {
   quickLogin?: boolean;
   /** Boleh mendaftarkan PIN di posisi ini (dihitung API dari aturan + pengaturan RS); `reason` bila tidak. */
   pin?: { available: boolean; reason: PinUnavailableReason | null };
+  /**
+   * Posisi Superadmin demo (ADR-0023 keputusan 10). Diisi HANYA oleh server di mode presentasi setelah memverifikasi
+   * akun (nama pengguna dari API + berkas kredensial lokal); di mode api tidak pernah ada. Bila ada, `role` di atas
+   * adalah posisi yang sedang dibawakan di layar ini (UI saja), sedangkan `baseRole` adalah penugasan asli di API.
+   */
+  demoAllAccess?: {
+    baseRole: { code: string; name: string } | null;
+    /** Pilihan "Bertindak sebagai" presenter (cookie), sudah divalidasi; null = bawaan per layar. */
+    preferredRole: string | null;
+  };
 }
 
 interface MeLike {
@@ -84,6 +94,19 @@ export function can(s: Pick<SessionView, 'permissions'>, resource: string, actio
 /** Operator platform: tenant PLATFORM + izin panduan (peran superadmin_platform). */
 export function isSuperadmin(s: Pick<SessionView, 'tenant' | 'permissions'>): boolean {
   return s.tenant.kind === 'platform' && can(s, 'platform.guide', 'read');
+}
+
+/**
+ * Boleh membaca panduan `/superadmin/panduan`: operator platform, atau Superadmin demo HANYA di mode presentasi
+ * (ADR-0023 keputusan 10). Area superadmin lain (`/dev/ui`, status sistem) tetap khusus operator platform.
+ */
+export function canReadGuide(
+  s: Pick<SessionView, 'tenant' | 'permissions' | 'demoAllAccess'>,
+  dataSource: 'api' | 'demo',
+): boolean {
+  return (
+    isSuperadmin(s) || (dataSource === 'demo' && s.tenant.kind === 'hospital' && Boolean(s.demoAllAccess))
+  );
 }
 
 export type LoginStep = 'akun' | 'verifikasi' | 'daftar-mfa' | 'ganti-sandi' | 'unit' | 'selesai';

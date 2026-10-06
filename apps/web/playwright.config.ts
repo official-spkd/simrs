@@ -92,6 +92,8 @@ export default defineConfig({
         'infrastruktur.spec.ts',
         'pendaftaran.spec.ts',
         'downtime-bpjs.spec.ts',
+        // Satu akun presentasi bersama (cukup sekali, di proyek desktop).
+        'superadmin-demo-api.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
     },
@@ -103,8 +105,9 @@ export default defineConfig({
     {
       name: 'demo-tablet',
       testMatch: 'demo/**/*.spec.ts',
-      // Akun presentasi uji berbagi satu keadaan simulasi: jalankan di satu proyek saja.
-      testIgnore: 'demo/akun-presentasi.spec.ts',
+      // Akun presentasi uji berbagi satu keadaan simulasi (dan pilihan "Bertindak sebagai" Superadmin demo):
+      // jalankan di satu proyek saja.
+      testIgnore: ['demo/akun-presentasi.spec.ts', 'demo/superadmin-demo.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
         channel,

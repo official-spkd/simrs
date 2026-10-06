@@ -1079,19 +1079,64 @@ export function screenById(id: string): ScreenDef | undefined {
 /**
  * Layar terbuka untuk posisi ini di sumber data aktif?
  * - `belum`: tidak pernah; `apiOnly` tidak pernah di mode presentasi.
- * - Mode presentasi: layar `demo` dan layar hibrida (ber-`permission`) mengikuti `demoRoles` (data dummy).
+ * - Mode presentasi: layar `demo` dan layar hibrida (ber-`permission`) mengikuti `demoRoles` (data dummy). Posisi
+ *   Superadmin demo (`allAccess`, ADR-0023 keputusan 10) dianggap memegang semua `demoRoles`.
  * - Mode api: layar hibrida hanya untuk peran yang memegang izinnya (`permissions` sesi); layar `api` tanpa izin
- *   terdaftar selalu terbuka (izin ditegakkan API); layar `demo` tertutup.
+ *   terdaftar selalu terbuka (izin ditegakkan API); layar `demo` tertutup. `allAccess` diabaikan total.
  */
 export function screenOpen(
   screen: ScreenDef,
-  opts: { dataSource: 'api' | 'demo'; role: string | null; permissions?: readonly string[] },
+  opts: {
+    dataSource: 'api' | 'demo';
+    role: string | null;
+    permissions?: readonly string[];
+    /** Sesi Superadmin demo yang sudah diverifikasi server; hanya berlaku di mode presentasi. */
+    allAccess?: boolean;
+  },
 ): boolean {
   if (screen.status === 'belum') return false;
   if (screen.apiOnly && opts.dataSource === 'demo') return false;
   if (opts.dataSource === 'demo' && (screen.status === 'demo' || screen.permission)) {
+    if (opts.allAccess === true) return true;
     return screen.demoRoles === 'semua' || (!!opts.role && screen.demoRoles.some((r) => r === opts.role));
   }
   if (screen.permission) return opts.permissions?.includes(screen.permission) ?? false;
   return screen.status === 'api';
+}
+
+/** Layar registri yang memuat `pathname` (awalan rute terpanjang; query diabaikan), atau undefined. */
+export function screenForPath(pathname: string): ScreenDef | undefined {
+  const path = pathname.split(/[?#]/)[0] ?? '';
+  let best: ScreenDef | undefined;
+  for (const s of SCREENS) {
+    if (
+      (path === s.route || path.startsWith(`${s.route}/`)) &&
+      (!best || s.route.length > best.route.length)
+    ) {
+      best = s;
+    }
+  }
+  return best;
+}
+
+/** Pilihan "Bertindak sebagai" di layar ini: posisi pemakainya (kosong bila layar untuk semua posisi). */
+export function actingRoleOptions(screen: ScreenDef | undefined): readonly SystemRoleCode[] {
+  return screen && screen.demoRoles !== 'semua' ? screen.demoRoles : [];
+}
+
+/**
+ * Posisi yang dibawakan Superadmin demo di layar ini (ADR-0023 keputusan 10): pilihan presenter bila layar memakai
+ * posisi itu, selain itu pemakai pertama layar (bawaan yang sama dengan uji semua layar). Layar untuk semua posisi
+ * dan halaman di luar registri memakai pilihan presenter atau peran asli akun. Hanya memilih tampilan di mode
+ * presentasi; gerbang keselamatan dan alasan override tetap berlaku untuk posisi mana pun.
+ */
+export function actingRoleFor(
+  screen: ScreenDef | undefined,
+  preferred: string | null,
+  base: string | null,
+): string | null {
+  const options = actingRoleOptions(screen);
+  if (options.length === 0) return preferred ?? base;
+  if (preferred && options.some((r) => r === preferred)) return preferred;
+  return options[0] ?? base;
 }

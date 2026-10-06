@@ -8,8 +8,45 @@ import {
   type ScreenDef,
   SCREENS,
   screenById,
+  actingRoleFor,
+  actingRoleOptions,
+  screenForPath,
   screenOpen,
 } from './screens';
+
+describe('posisi yang dibawakan Superadmin demo (ADR-0023 keputusan 10)', () => {
+  it('screenForPath: awalan rute terpanjang, query diabaikan, di luar registri undefined', () => {
+    expect(screenForPath('/klinis/rawat-inap/0199a1b2-0000-7000-8000-000000000001?tab=cppt')?.id).toBe(
+      'ranap',
+    );
+    expect(screenForPath('/sistem/integrasi/satusehat')?.id).toBe('satusehat');
+    expect(screenForPath('/sistem/integrasi')?.id).toBe('integrasi');
+    expect(screenForPath('/klinis/order-lain')).toBeUndefined();
+    expect(screenForPath('/')).toBeUndefined();
+    expect(screenForPath('/superadmin/panduan')).toBeUndefined();
+  });
+
+  it('actingRoleFor: pilihan presenter bila layar memakainya, selain itu pemakai pertama layar', () => {
+    const ranap = screenById('ranap');
+    const kasir = screenById('kasir');
+    const simulasi = screenById('simulasi');
+    expect(actingRoleOptions(ranap)).toEqual(['dokter', 'dokter_residen', 'perawat', 'bidan']);
+    expect(actingRoleFor(ranap, null, 'manajemen')).toBe('dokter');
+    expect(actingRoleFor(ranap, 'perawat', 'manajemen')).toBe('perawat');
+    expect(actingRoleFor(kasir, 'perawat', 'manajemen')).toBe('kasir');
+    // Layar untuk semua posisi dan halaman di luar registri: pilihan presenter atau peran asli.
+    expect(actingRoleOptions(simulasi)).toEqual([]);
+    expect(actingRoleFor(simulasi, null, 'manajemen')).toBe('manajemen');
+    expect(actingRoleFor(undefined, 'kasir', 'manajemen')).toBe('kasir');
+  });
+
+  it('setiap layar registri terbuka untuk posisi yang dibawakan di rutenya (tanpa tanda pun)', () => {
+    for (const s of SCREENS.filter((x) => x.status !== 'belum' && !x.apiOnly)) {
+      const role = actingRoleFor(screenForPath(s.route), null, 'manajemen');
+      expect(screenOpen(s, { dataSource: 'demo', role }), s.id).toBe(true);
+    }
+  });
+});
 
 const mockupDir = fileURLToPath(new URL('../../../../design/mockups/', import.meta.url));
 
@@ -80,6 +117,27 @@ describe('screenOpen', () => {
     expect(screenOpen(s, { dataSource: 'demo', role: null })).toBe(false);
     expect(screenOpen(s, { dataSource: 'api', role: 'kasir' })).toBe(false);
     expect(screenOpen(screen({ demoRoles: 'semua' }), { dataSource: 'demo', role: null })).toBe(true);
+  });
+
+  it('Superadmin demo (allAccess): semua layar di mode presentasi; di mode api tidak ada layar tambahan', () => {
+    const demoOnly = screen({});
+    const hybrid = screen({ permission: 'schedule.read' });
+    const opts = { role: 'manajemen', allAccess: true } as const;
+    expect(screenOpen(demoOnly, { ...opts, dataSource: 'demo' })).toBe(true);
+    expect(screenOpen(hybrid, { ...opts, dataSource: 'demo' })).toBe(true);
+    // Tetap tertutup: belum dibangun dan layar khusus api.
+    expect(screenOpen(screen({ status: 'belum' }), { ...opts, dataSource: 'demo' })).toBe(false);
+    expect(screenOpen(screen({ status: 'api', apiOnly: true }), { ...opts, dataSource: 'demo' })).toBe(false);
+    // Mode api: tanda diabaikan, hasilnya sama dengan tanpa tanda untuk SETIAP layar registri.
+    for (const s of SCREENS) {
+      for (const permissions of [[], ['schedule.read', 'bed.read'], ['clinical.write']]) {
+        expect(
+          screenOpen(s, { dataSource: 'api', role: 'manajemen', permissions, allAccess: true }),
+          s.id,
+        ).toBe(screenOpen(s, { dataSource: 'api', role: 'manajemen', permissions }));
+      }
+    }
+    expect(screenOpen(demoOnly, { ...opts, dataSource: 'api', permissions: [] })).toBe(false);
   });
 
   it('tersambung API: terbuka di semua lingkungan (izin ditegakkan API)', () => {
