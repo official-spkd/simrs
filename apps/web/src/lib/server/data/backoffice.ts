@@ -20,13 +20,7 @@ import {
   ONCOLOGY_PATIENT_ID,
   PRE_CHEMO_LABS,
 } from '../../demo/fixtures/onkologi';
-import {
-  ACCESS_LOG_SEED,
-  cohort,
-  DATASET_APPROVERS,
-  DATASET_FIELDS,
-  DATASET_REQUEST,
-} from '../../demo/fixtures/dataset-riset';
+import { cohort, DATASET_FIELDS, DATASET_REQUEST } from '../../demo/fixtures/dataset-riset';
 import { demoQueueBoard } from '../../demo/fixtures/front-office';
 import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
@@ -200,8 +194,7 @@ export async function getResearchDataset() {
     request: DATASET_REQUEST,
     fields: DATASET_FIELDS,
     rows: cohort(),
-    approvers: DATASET_APPROVERS,
-    log: ACCESS_LOG_SEED,
+    store: await readDomain('dataset-riset'),
   };
 }
 

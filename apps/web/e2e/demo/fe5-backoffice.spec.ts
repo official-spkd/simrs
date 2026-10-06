@@ -589,7 +589,7 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('I11 dataset riset: etik, de-identifikasi dengan k-anonimitas, persetujuan privasi ≠ pemohon, ekstrak dan jejak', async ({
+  test('I11 dataset riset: etik, de-identifikasi dengan k-anonimitas, penyetuju ≠ penyusun (sesi), jejak; bertahan', async ({
     page,
   }) => {
     const privasi = await createAccount({ roles: ['petugas_privasi'] });
@@ -625,13 +625,20 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel('Aturan Kecamatan domisili', { exact: true }).selectOption('hapus');
     await apply.click();
 
-    await page.getByLabel('Penyetuju').selectOption('dr. Andini Prameswari, Sp.PD');
-    await expect(page.getByText('Penyetuju harus berbeda dari pemohon dataset.')).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasPrivasi);
-    await page.getByRole('button', { name: 'Setujui rilis' }).click();
-    await page.getByRole('button', { name: 'Ekstrak dan kirim tautan' }).click();
-    await page.getByRole('button', { name: 'Simulasikan unduhan peneliti' }).click();
-    await expect(page.getByRole('list', { name: 'Jejak akses dataset' })).toContainText('mengunduh dataset');
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Penyetuju rilis = pengguna sesi (Petugas privasi) yang bukan penyusun de-identifikasi.
+    const approve = page.getByRole('button', { name: 'Setujui rilis' });
+    await expect(approve).toBeDisabled();
+    await expect(page.getByText(/Anda menyusun de-identifikasi: penyetuju harus pengguna lain/)).toBeVisible();
+
+    // Bertahan setelah muat ulang: tahap, aturan kolom, dan jejak akses atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap DSR-2610-003' })).toBeVisible();
+    await expect(approve).toBeDisabled();
+    const trail = page.getByRole('list', { name: 'Jejak akses dataset' });
+    await expect(trail).toContainText('persetujuan etik KEPK/031/2026 dicatat');
+    await expect(trail).toContainText('de-identifikasi diterapkan (k =');
 
     await expectNoHorizontalOverflow(page);
   });

@@ -13,10 +13,11 @@ export const metadata: Metadata = { title: 'Dataset riset' };
 
 /**
  * I11 · Dataset riset ter-de-identifikasi (tanpa mockup): etik → de-identifikasi + k-anonimitas → persetujuan
- * privasi → ekstrak berbatas waktu + jejak akses. Mode presentasi: kohort sintetis (ADR-0023).
+ * privasi → ekstrak berbatas waktu + jejak akses. Mode presentasi: kohort sintetis (ADR-0023), langkah tersimpan
+ * di toko demo (domain `dataset-riset`, ADR-0085).
  */
 export default async function DatasetRisetPage() {
-  const { screen, allowed } = await requireDemoScreen('dataset-riset');
+  const { session, screen, allowed } = await requireDemoScreen('dataset-riset');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getResearchDataset();
   const ids = d.fields.filter((f) => f.kind === 'pengenal').length;
@@ -52,8 +53,9 @@ export default async function DatasetRisetPage() {
         request={d.request}
         fields={d.fields}
         rows={d.rows}
-        approvers={d.approvers}
-        log={d.log}
+        state={d.store.state}
+        rev={d.store.rev}
+        viewer={{ userId: session.user.id, name: session.user.displayName, role: session.role?.code ?? null }}
         today={DEMO_TODAY}
       />
     </div>
