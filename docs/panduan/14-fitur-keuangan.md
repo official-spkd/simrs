@@ -1,8 +1,8 @@
 # Fitur keuangan
 
-Halaman ini menjelaskan lima layar keuangan: Kasir, Klaim & koding, Akuntansi, Pembayaran digital TPDI × BTN, dan Pembiayaan BTN. Isinya ditulis untuk orang yang perlu tahu apa yang terjadi di layar, aturan apa yang menjaga uang, dan di mana kodenya. Uang selalu `bigint` rupiah, setiap mutasi uang menghasilkan jurnal berpasangan, dan dana pasien tidak pernah transit di TPDI.
+Halaman ini menjelaskan tiga belas layar keuangan. Lima layar utama: Kasir, Klaim & koding, Akuntansi, Pembayaran digital TPDI × BTN, dan Pembiayaan BTN. Delapan layar keuangan lanjutan: Tarif & paket, Charge capture, Penjaminan & piutang, Workbench koder, Jasa pelayanan, Kas & bank, Hutang usaha, dan Costing & case-mix. Isinya ditulis untuk orang yang perlu tahu apa yang terjadi di layar, aturan apa yang menjaga uang, dan di mana kodenya. Uang selalu `bigint` rupiah, setiap mutasi uang menghasilkan jurnal berpasangan, dan dana pasien tidak pernah transit di TPDI.
 
-> Status 6 Okt 2026: kelima layar hanya berjalan di **mode presentasi** (data dummy fiktif, ADR-0023, `pnpm dev:demo`). Backend fase 5 (keuangan) dan fase 6 (TPDI × BTN) belum dibangun. Setiap aksi divalidasi Server Action lalu dibuang; pesan umpan balik berakhiran "(simulasi, tidak disimpan)". Di luar mode presentasi rute ini menjawab 404, dan jalur data api masih `notImplemented`.
+> Status 6 Okt 2026: ketiga belas layar hanya berjalan di **mode presentasi** (data dummy fiktif, ADR-0023, `pnpm dev:demo`). Backend fase 5 (keuangan), fase 6 (TPDI × BTN), dan fase 9 (costing) belum dibangun. Di lima layar utama setiap aksi divalidasi Server Action lalu dibuang. Delapan layar lanjutan tidak punya Server Action: aksi hanya mengubah keadaan di peramban dan hilang saat halaman dimuat ulang. Pesan umpan balik umumnya berakhiran "(simulasi, tidak disimpan)". Di luar mode presentasi rute ini menjawab 404, dan jalur data api masih `notImplemented`.
 
 ![Alur pasien rawat jalan dari pendaftaran sampai kasir dan klaim](./gambar/diagram-alur-rawat-jalan.svg)
 
@@ -10,17 +10,71 @@ Layar keuangan ada di ujung perjalanan pasien. Tindakan klinis menjadi baris tag
 
 ## Ringkasan layar
 
-| Layar              | Rute                   | Peran (mode presentasi) | Komponen      | Status        |
-| ------------------ | ---------------------- | ----------------------- | ------------- | ------------- |
-| Kasir              | `/keuangan/kasir`      | Kasir                   | U02, U03      | demo · fase 5 |
-| Klaim & koding     | `/keuangan/klaim`      | Koder klinis            | U05, U06      | demo · fase 5 |
-| Akuntansi          | `/keuangan/akuntansi`  | Akuntan                 | U04, U07, U09 | demo · fase 5 |
-| Pembayaran digital | `/keuangan/pembayaran` | Kasir, Akuntan          | I05, U09      | demo · fase 6 |
-| Pembiayaan BTN     | `/keuangan/pembiayaan` | Akuntan, Manajemen      | U04           | demo · fase 6 |
+| Layar                | Rute                       | Peran (mode presentasi) | Komponen      | Status        |
+| -------------------- | -------------------------- | ----------------------- | ------------- | ------------- |
+| Kasir                | `/keuangan/kasir`          | Kasir                   | U02, U03      | demo · fase 5 |
+| Klaim & koding       | `/keuangan/klaim`          | Koder klinis            | U05, U06      | demo · fase 5 |
+| Akuntansi            | `/keuangan/akuntansi`      | Akuntan                 | U04, U07, U09 | demo · fase 5 |
+| Pembayaran digital   | `/keuangan/pembayaran`     | Kasir, Akuntan          | I05, U09      | demo · fase 6 |
+| Pembiayaan BTN       | `/keuangan/pembiayaan`     | Akuntan, Manajemen      | U04           | demo · fase 6 |
+| Tarif & paket        | `/keuangan/tarif`          | Akuntan, Manajemen      | U01           | demo · fase 5 |
+| Charge capture       | `/keuangan/charge-capture` | Kasir, Akuntan          | U02           | demo · fase 5 |
+| Penjaminan & piutang | `/keuangan/piutang`        | Akuntan, Manajemen      | U04           | demo · fase 5 |
+| Workbench koder      | `/keuangan/koding`         | Koder klinis            | U06           | demo · fase 5 |
+| Jasa pelayanan       | `/keuangan/jasa-pelayanan` | Akuntan, Manajemen      | U08           | demo · fase 5 |
+| Kas & bank           | `/keuangan/kas-bank`       | Kasir, Akuntan          | U09           | demo · fase 5 |
+| Hutang usaha         | `/keuangan/hutang`         | Akuntan, Manajemen      | U10           | demo · fase 5 |
+| Costing & case-mix   | `/keuangan/costing`        | Manajemen, Akuntan      | I10           | demo · fase 9 |
 
 Posisi lain yang membuka rute ini melihat pesan "Layar ini untuk posisi lain" dengan tautan **Ganti posisi**. Sumber kebenaran tabel ini adalah registri `SCREENS` di `apps/web/src/lib/screens.ts`.
 
 Semua layar mengambil data hanya lewat satu pintu per domain: `apps/web/src/lib/server/data/keuangan.ts` (Kasir, Klaim, Akuntansi) dan `apps/web/src/lib/server/data/btn.ts` (Pembayaran, Pembiayaan). Data dummy divalidasi skema zod yang sama dengan kontrak API kelak (`packages/shared/src/schemas/keuangan.ts`, `btn.ts`). Pasien skenario Simulasi (Tn. Suryo, Tn. Hartono, Ny. Ratna) diproyeksikan dari mesin skenario; lihat [Simulasi dan operasional](./18-simulasi-dan-operasional.md).
+
+Delapan layar lanjutan punya satu pintu data sendiri: `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getTariffBoard`, `getChargeCaptureBoard`, `getReceivablesBoard`, `getCodingBoard`, `getFeeSharingBoard`, `getCashBankBoard`, `getPayablesBoard`, `getCostingBoard`). Fixture-nya ada di `apps/web/src/lib/demo/fixtures/{tarif,charge-capture,piutang,koding,jaspel,kas-bank,hutang,costing}.ts`. Kedelapan layar ini tidak punya mockup.
+
+## Pola bersama: jurnal berpasangan
+
+Setiap mutasi uang di delapan layar lanjutan tampil sebagai jurnal berpasangan lewat satu komponen bersama, `JurnalPasangan` (`apps/web/src/components/keuangan/jurnal-pasangan.tsx`). Aturannya ada di `apps/web/src/lib/keuangan-jurnal.ts`, fungsi murni yang dipakai server dan klien.
+
+- Uang selalu `bigint` rupiah. Tidak ada float: persen dihitung dengan bigint (`persen`), dan pembagian memakai sisa terbesar (`bagiSisaTerbesar`) sehingga Σ bagian = total tepat.
+- Satu baris hanya debit atau hanya kredit. Jurnal sah bila Σ debit = Σ kredit dan tidak nol (`jurnalSeimbang`). Baris bernilai nol dibuang (`jurnal`).
+- Komponen menulis status dalam teks, bukan hanya warna: "✓ Seimbang (debit = kredit)" atau "✗ Tidak seimbang". Total ada di atribut `data-total-debit` dan `data-total-credit`; E2E membandingkan keduanya di setiap jurnal yang tampil.
+- Keterangan posting tertulis di kepala jurnal, mis. "draf · diposting setelah disetujui" atau "terposting".
+- Pesan umpan balik meringkas jurnal dalam satu baris (`ringkasJurnal`), mis. "Dr 1-1120 Rp 9.850.000 · Dr 6-1200 Rp 150.000 · Cr 1-1210 Rp 10.000.000".
+- Agustus dan September 2026 adalah periode tertutup (`PERIODE_TERTUTUP`). Mutasi bertanggal periode itu tampil "Terkunci: periode … ditutup"; koreksi masuk periode berjalan.
+- Layar Pembayaran digital juga memakai komponen ini untuk jurnal refund (`refundJournal`: Dr 2-1210 Uang muka pasien / Cr 1-1120 Bank BTN operasional).
+
+Kode akun yang dipakai layar lanjutan berikut ini fiktif dan hanya ada di kode web. Bagan akun belum ada di seed `packages/db`.
+
+| Kode     | Nama akun                                    | Didefinisikan di                       | Dipakai layar                           |
+| -------- | -------------------------------------------- | -------------------------------------- | --------------------------------------- |
+| `1-1110` | Kas kasir (laci loket)                       | `AKUN_LANJUT`                          | Kas & bank                              |
+| `1-1120` | Bank BTN ••••4417 — operasional              | `AKUN_LANJUT` (juga `AKUN`)            | Piutang, Kas & bank, Pembayaran digital |
+| `1-1140` | Bank mitra ••••7730 — penggajian dan pemasok | `AKUN_LANJUT`                          | Jasa pelayanan, Hutang usaha            |
+| `1-1210` | Piutang settlement EDC                       | `AKUN_LANJUT`                          | Kas & bank                              |
+| `1-1320` | Piutang BPJS — RI                            | `keuangan-piutang.ts` (salinan `AKUN`) | Piutang (pembagian penjamin)            |
+| `1-1330` | Piutang pasien                               | `AKUN_LANJUT` (juga `AKUN`)            | Piutang                                 |
+| `1-1340` | Piutang asuransi swasta                      | `AKUN_LANJUT`                          | Piutang, Kas & bank                     |
+| `1-1350` | Piutang perusahaan kerja sama                | `AKUN_LANJUT`                          | Piutang                                 |
+| `1-1410` | Persediaan obat dan BHP                      | `AKUN_LANJUT` (juga `AKUN`)            | Hutang usaha                            |
+| `2-1110` | Utang usaha — pemasok                        | `AKUN_LANJUT` (juga `AKUN`)            | Hutang usaha                            |
+| `2-1120` | Utang penerimaan belum difakturkan           | `AKUN_LANJUT`                          | Hutang usaha                            |
+| `2-1210` | Uang muka pasien                             | `keuangan-jurnal.ts` (juga `AKUN`)     | Pembayaran digital (refund)             |
+| `2-1290` | Titipan dana belum teridentifikasi           | `keuangan-kasbank.ts`                  | Kas & bank                              |
+| `2-1410` | Utang jasa pelayanan                         | `AKUN_LANJUT`                          | Jasa pelayanan                          |
+| `2-1420` | Utang PPh 21 jasa pelayanan                  | `AKUN_LANJUT`                          | Jasa pelayanan                          |
+| `4-1200` | Pendapatan RI — JKN                          | `keuangan-piutang.ts` (salinan `AKUN`) | Piutang (pembagian penjamin)            |
+| `4-1300` | Pendapatan layanan — non-JKN                 | `keuangan-piutang.ts`                  | Piutang (pembagian penjamin)            |
+| `4-1900` | Selisih tarif INA-CBG (pengurang pendapatan) | `keuangan-piutang.ts` (salinan `AKUN`) | Piutang (pembagian penjamin)            |
+| `4-1950` | Potongan dan penyesuaian tagihan             | `AKUN_LANJUT`                          | Piutang (penyesuaian)                   |
+| `4-3100` | Pendapatan lain-lain (selisih lebih kas)     | `AKUN_LANJUT`                          | Kas & bank                              |
+| `5-1100` | Beban jasa pelayanan                         | `AKUN_LANJUT`                          | Jasa pelayanan                          |
+| `6-1200` | Beban administrasi bank (MDR EDC)            | `AKUN_LANJUT`                          | Kas & bank                              |
+| `6-1210` | Beban administrasi rekening bank             | `demo/fixtures/kas-bank.ts`            | Kas & bank                              |
+| `6-1300` | Beban selisih kurang kas                     | `AKUN_LANJUT`                          | Kas & bank                              |
+| `6-3100` | Beban penurunan nilai piutang                | `AKUN_LANJUT` (juga `AKUN`)            | Piutang (hapus buku)                    |
+
+`AKUN_LANJUT` ada di `apps/web/src/lib/keuangan-jurnal.ts`; `AKUN` adalah bagan akun layar Akuntansi di `apps/web/src/lib/demo/fixtures/keuangan.ts`.
 
 ## Kasir
 
@@ -236,20 +290,349 @@ Contoh tindakan pengecualian dari data dummy: "Tandai lunas di kasir (TPDI + BTN
 
 **Rencana backend.** Izin terencana `financing.write`. Fase 6 membangun `modules/financing`: pool piutang dan pencairan dibatasi plafon dan advance rate, pelunasan otomatis saat BPJS membayar dengan jurnal, serta mesin status cicilan. Pesan ke BTN dikirim lewat outbox.
 
+## Tarif & paket
+
+![Layar Tarif dan paket: indikator tarif di atas, tab Tarif layanan dengan daftar item per kelas dan pilihan penjamin di kiri, rincian komponen dan riwayat versi Akomodasi kamar rawat inap di kanan](./gambar/tarif.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/tarif`                                                                                                                                                                                                                                           |
+| Pemakai  | akuntan, manajemen                                                                                                                                                                                                                                          |
+| Komponen | U01 tarif dan paket                                                                                                                                                                                                                                         |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                       |
+| Mockup   | tidak ada (gaya mengikuti layar Akuntansi)                                                                                                                                                                                                                  |
+| Kode web | `apps/web/src/app/(staf)/keuangan/tarif/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getTariffBoard`) · aturan `apps/web/src/lib/keuangan-tarif.ts` · komponen `apps/web/src/components/keuangan/tarif-{workspace,detail,usulan,paket}.tsx` |
+| Kode API | belum ada (rencana modul `tariff`, `docs/01-arsitektur.md` §2)                                                                                                                                                                                              |
+
+**Tujuan.** Pengelola tarif memelihara master tarif berkomponen per kelas dan penjamin. Setiap perubahan harga menjadi versi baru dengan tanggal berlaku, lewat usulan yang disetujui orang lain. Paket dan aturan selisih naik kelas ada di tab tersendiri.
+
+**Alur.**
+
+1. Buka **Keuangan › Tarif & paket**. Wilayah "Indikator tarif": Item tarif aktif (1.284, SK tarif 2026), Paket aktif, Usulan menunggu, dan Perubahan terjadwal.
+2. Tab **Tarif layanan**. Di "Daftar tarif", isi "Cari item tarif" (nama atau kode), saring kategori, dan pilih Penjamin: Umum / pribadi, Asuransi swasta, Perusahaan kerja sama, atau JKN (tarif RS). Harga Kelas 3, Kelas 2, Kelas 1, dan VIP dihitung ulang untuk penjamin itu. Kolom Status berisi "Berlaku vN", "Ada usulan", atau "Terjadwal …" dengan tanggalnya.
+3. Pilih item, mis. Pemasangan kateter urin. "Rincian tarif" menampilkan komponen (Jasa sarana, Jasa medis, Jasa paramedis, BHP) per kelas, baris "Tarif (Σ komponen)", dan "Riwayat versi" (Berlaku, Terjadwal, Berakhir).
+4. Tekan **Buat usulan perubahan**. Isi harga tiap kelas (Rp), "Berlaku mulai", dan "Alasan perubahan (wajib)". Petunjuk di bawah tiap harga menulis perubahannya ("▲ …%", "▼ …%", atau "tetap"). Tekan **Ajukan usulan**. Pesannya: "Usulan UT-2610-008 diajukan · …".
+5. Tab **Usulan perubahan** (lencana jumlah yang menunggu). Tiap usulan menampilkan tabel Kelas, Berlaku, Usulan, Perubahan, dan status Menunggu persetujuan, Disetujui · terjadwal, atau Ditolak.
+6. Posisi manajemen menekan **Setujui usulan**. Contoh: UT-2610-007 USG abdomen menjadi "USG abdomen versi baru terjadwal berlaku 1 Nov 2026; versi berlaku ditutup sehari sebelumnya".
+7. Untuk menolak, tekan **Tolak…**, isi "Alasan penolakan (wajib, dibaca pembuat usulan)", lalu **Tolak usulan**. Contoh: UT-2610-006 Nebulisasi.
+8. Tab **Paket**. Pilih paket di "Daftar paket" dan kelas di "Kelas paket". "Isi paket" membandingkan "Jumlah bila ditagih per item", "Harga paket", dan "Pasien hemat". Contoh: Paket kolesistektomi laparoskopik `PKT-OK-051` kelas VIP Rp 18.200.000. Di sampingnya ada "Aturan selisih naik kelas JKN" berversi (angka simulasi), dipakai Kasir dan Piutang.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Usulan ditahan (`usulanProblems`) bila ada harga kelas nol, harga tidak berjenjang (Kelas 3 ≤ Kelas 2 ≤ Kelas 1 ≤ VIP), berlaku mulai hari ini atau lampau (tarif tidak retroaktif), sudah ada versi terjadwal, harga sama dengan versi berlaku, atau alasan kurang dari 15 karakter. Pesan "Belum bisa diajukan: …" tertulis di samping tombol.
+- Satu usulan aktif per item. Item yang sudah punya versi terjadwal tidak bisa diusulkan lagi sampai versi itu berlaku.
+- Kenaikan lebih dari 20% memunculkan catatan "lampirkan analisis biaya untuk penyetuju". Ini peringatan, bukan penolakan.
+- Persetujuan (`approvalProblem`) hanya oleh posisi manajemen, pembuat ≠ penyetuju, usulan masih diajukan, dan tanggal berlaku belum lewat. Akuntan melihat tombol nonaktif dengan alasan "Persetujuan tarif oleh posisi manajemen (direktur/manajer keuangan)."
+- Penolakan wajib alasan minimal 15 karakter.
+- Versi yang disetujui menutup versi lama sehari sebelum tanggal berlaku (`applyApproved`). Tagihan yang sudah final tidak berubah.
+- Σ komponen = harga tepat (sisa terbesar, bigint). Tarif penjamin = tarif dasar × (10.000 + bp) / 10.000, dibulatkan ke Rp 100 terdekat: asuransi +10%, perusahaan −5%.
+- Tes menjaga keselarasan: tarif Kelas 2 sama dengan baris tagihan Kasir, dan setiap paket lebih murah dari jumlah item satuannya di semua kelas.
+
+**Rencana backend.** Izin terencana `tariff.write`, belum ada di `PERMISSION_CATALOG`. Fase 5 potongan 5.2 membangun `/api/v1/tariffs`: draf dengan Σ komponen = total, `approve` (pemohon ≠ penyetuju, versi lama ditutup), paket, `class-upgrade-rules` berversi, `billable-items`, dan impor CSV lewat CLI `db:import-tariff`. Rencana menulis `valid_from ≥ hari ini`, sedangkan layar demo menolak tanggal hari ini; keduanya perlu diselaraskan.
+
+## Charge capture
+
+![Layar Charge capture: indikator event bisa-tagih dan tertahan, baris rekonsiliasi capture, aliran event klinis dengan filter sumber dan status di kiri, kelengkapan tagihan per kunjungan dan aturan koreksi di kanan](./gambar/charge.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                   |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/charge-capture`                                                                                                                                                                                                                                            |
+| Pemakai  | kasir, akuntan                                                                                                                                                                                                                                                        |
+| Komponen | U02 charge capture                                                                                                                                                                                                                                                    |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                                 |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                             |
+| Kode web | `apps/web/src/app/(staf)/keuangan/charge-capture/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getChargeCaptureBoard`) · aturan `apps/web/src/lib/keuangan-charge.ts` · komponen `apps/web/src/components/keuangan/{charge-workspace,alasan-form}.tsx` |
+| Kode API | belum ada (rencana modul `charge-capture`, konsumen di `modules/charge-capture/consumers/`)                                                                                                                                                                           |
+
+**Tujuan.** Kasir dan akuntan memantau bagaimana event klinis menjadi baris tagihan bersumber. Event yang tidak bisa diberi harga tidak hilang diam-diam: event itu tertahan dengan alasan sampai ditangani.
+
+**Alur.**
+
+1. Buka **Keuangan › Charge capture**. Wilayah "Indikator charge capture": Event bisa-tagih hari ini (1.842), Tertahan, Baris pembalik, dan Kunjungan menahan finalisasi.
+2. Baca baris "Rekonsiliasi capture". Keadaan awal: "17 event = 10 tertagih + 4 tertahan + 3 pembalik · ✓ tidak ada event tanpa baris atau alasan".
+3. Di "Aliran event klinis", saring per sumber (mis. ADT (kamar), Visite (CPPT), Laboratorium, Manual kasir) dan per status (Semua status, Tertahan, Pembalik, Manual). Tiap event menampilkan jam, sumber, nama event domain (mis. `lab.specimen_received`), pasien, dan baris "kuantitas × harga = jumlah".
+4. Tangani event tertahan menurut jenisnya:
+   - Tarif tidak ada, tetapi tarif sudah disetujui: tekan **Coba ulang capture**. Contoh: "Visite dokter subspesialis VIP Rp 400.000 masuk tagihan Tn. Sutan Batubara".
+   - Tarif tidak ada dan belum disetujui (prokalsitonin): tombol coba ulang nonaktif. Tekan **Minta tarif ke pengelola tarif** atau tautan **Buka Tarif & paket**.
+   - Kelas belum ditetapkan (An. Raka Pratama, titipan bangsal penuh): tekan **Minta admisi menetapkan kelas**, lalu **Simulasikan admisi menetapkan kelas**, lalu **Coba ulang capture**.
+   - Penjamin berubah (Ny. Fransiska, Umum → Asuransi swasta): tabel menunjukkan baris terbuka sebelum dan sesudah. Tekan **Reprice baris terbuka**; selisih bersih Rp 105.000 masuk tagihan.
+5. Untuk baris klinis yang tertagih, tekan **Minta koreksi ke unit asal…**, isi "Alasan koreksi untuk … (wajib)" (nama sumber), lalu **Kirim permintaan koreksi**. Baris tetap ada sampai unit asal membaliknya.
+6. Untuk baris manual kasir (saringan **Manual**), tekan **Batalkan baris manual…**, isi "Alasan pembatalan baris manual (wajib)", lalu **Batalkan baris**. Contoh: Sewa kursi roda; baris pembalik −Rp 25.000 ditambahkan.
+7. Panel kanan "Kelengkapan tagihan per kunjungan" menandai tiap pasien "Finalisasi ditahan (n)" atau "Lengkap". Kotak "Aturan koreksi" merangkum siapa mengoreksi apa.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Setiap event menjadi baris bersumber atau pengecualian beralasan (`captureReconciliation`). Jumlah event tanpa baris dan tanpa alasan harus nol.
+- Harga = tarif berlaku pada kelas dan penjamin saat layanan; tes membandingkannya dengan layar Tarif. Tanpa tarif, event tertahan, bukan diabaikan.
+- Coba ulang hanya bila tarif sudah disetujui. Kelas rawat ditetapkan admisi di modul ADT, bukan di billing (`captureActions`).
+- Penjamin berubah: setiap baris terbuka dibalik lalu dibuat ulang dengan tarif penjamin baru; tagihan menyimpan selisih bersihnya (`repriceNetLine`).
+- Billing tidak menghapus baris klinis. Kasir hanya membatalkan baris manual, dengan alasan minimal 15 karakter (`KOREKSI_REASON_MIN`). Baris asal ditandai "Dibalik" dan baris pembalik bernilai negatif ditambahkan; jejaknya tetap.
+- Jumlah baris = kuantitas × harga satuan, termasuk pembalik dan reprice (`lineConsistent`).
+- Kunjungan dengan event tertahan menahan finalisasi. Di mode presentasi penahanan ini hanya tampil di sini; layar Kasir tidak membacanya.
+
+**Rencana backend.** Izin terencana `billing.read`, padahal layar memuat aksi tulis (coba ulang, reprice, batal baris manual). Fase 5 potongan 5.4 membangun konsumen per event (`bed.occupied`, `visit.recorded`, `lab.specimen_received`, `pharmacy.returned`, `coverage.changed`, dan lainnya) dan API `/api/v1/billing`: `encounters/:id/charges`, `charges/:id/void` hanya untuk baris manual, serta `charge-exceptions` + `retry`. Tarif yang baru disetujui memicu coba ulang otomatis. Finalisasi kasir menolak `CHARGES_PENDING` (potongan 5.7).
+
+## Penjaminan & piutang
+
+![Layar Penjaminan dan piutang: indikator total piutang dan umur lebih dari 90 hari, tab Umur piutang dan penagihan dengan tabel umur per penjamin, daftar piutang bercentang, dan kartu batch penagihan](./gambar/piutang.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                                                       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/piutang`                                                                                                                                                                                                                                                                                       |
+| Pemakai  | akuntan, manajemen                                                                                                                                                                                                                                                                                        |
+| Komponen | U04 penjaminan dan piutang                                                                                                                                                                                                                                                                                |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                                                                     |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                                                                 |
+| Kode web | `apps/web/src/app/(staf)/keuangan/piutang/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getReceivablesBoard`) · aturan `apps/web/src/lib/keuangan-piutang.ts` · komponen `apps/web/src/components/keuangan/piutang-{workspace,penagihan,pembagian,penyesuaian}.tsx`, `jurnal-pasangan.tsx` |
+| Kode API | belum ada (rencana modul `guarantor`, `docs/01-arsitektur.md` §2)                                                                                                                                                                                                                                         |
+
+**Tujuan.** Akuntan menagih piutang asuransi dan perusahaan per batch, mencatat pelunasan dengan referensi bank, dan mengajukan penyesuaian. Tab pembagian penjamin menjelaskan asal porsi penjamin, pasien, dan RS.
+
+**Alur.**
+
+1. Buka **Keuangan › Penjaminan & piutang**. Indikator: Total piutang, Umur > 90 hari, Belum ditagih (contoh), dan Penyesuaian menunggu.
+2. Tab **Umur piutang & penagihan**: tabel umur per penjamin (0–30, 31–60, 61–90, > 90 hari) dihitung dari tanggal invoice, sama dengan layar Akuntansi. Tautan **Buka Klaim & koding** dan **Pembiayaan BTN** mengarah ke piutang BPJS.
+3. Di "Daftar piutang", centang invoice dari satu penjamin, mis. `INV-2610-02190` dan `INV-2610-02205` (Asuransi Mitra A). Tekan **Buat batch penagihan**. Hasilnya "Batch TG-2610-005 dibuat untuk Asuransi Mitra A (2 invoice)".
+4. Di kartu batch (Ditagih, Dibayar, Sisa), tekan **Kirim tagihan ke penjamin**. Status berubah dari Draf ke Ditagih.
+5. Tekan **Catat pelunasan…**. Isi "Nominal diterima (Rp)" dan "Referensi mutasi bank" (mis. `BTN-H2H-2610-90311`). Draf jurnal tampil. Tekan **Posting pelunasan**. Contoh Rp 8.630.000 menghasilkan "Dr 1-1120 … · Cr 1-1340 …" dan batch berstatus Lunas.
+6. Batch lama `TG-2609-031` menampilkan pembayaran 28 Sep dengan "Terkunci: periode September 2026 ditutup; koreksi lewat penyesuaian".
+7. Tab **Pembagian penjamin**. Pilih tagihan contoh: Ny. Endang Wijaya (BPJS, naik Kelas 1), Tn. Sutan Batubara (BPJS, naik VIP), Tn. Darmawan Putra (asuransi berplafon), atau Ny. Ayu Lestari (umum). Rincian memuat Total tarif RS, porsi penjamin, porsi pasien, porsi yang ditanggung RS, dasar perhitungan, dan jurnal pengakuan saat tagihan final. Ny. Endang membayar selisih naik kelas Rp 1.250.400.
+8. Tab **Penyesuaian**. Isi formulir "Ajukan penyesuaian piutang": Piutang, Jenis penyesuaian (potongan kontrak atau hapus buku), Nominal (Rp), dan "Alasan (wajib, dibaca penyetuju dan auditor)". Tekan **Ajukan penyesuaian**. Hasilnya "Penyesuaian AJ-2610-004 diajukan".
+9. Posisi manajemen menekan **Setujui dan posting** atau **Tolak**. Contoh: AJ-2610-003 hapus buku Rp 3.250.000 menghasilkan "Dr 6-3100 Rp 3.250.000 · Cr 1-1340 Rp 3.250.000".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Batch baru (`batchProblem`): minimal satu piutang, belum masuk batch lain, satu penjamin per batch ("Satu batch hanya untuk satu penjamin."), dan bukan piutang pasien umum (ditagih lewat Kasir).
+- Pelunasan (`paymentProblem`): nominal lebih dari nol dan tidak melebihi sisa batch; lebih bayar dicatat sebagai titipan, bukan pelunasan. Referensi mutasi bank minimal 6 karakter. Pelunasan dialokasikan ke invoice tertua dulu (FIFO).
+- Jurnal pelunasan: Dr 1-1120 Bank BTN operasional / Cr piutang penjamin (1-1340 asuransi, 1-1350 perusahaan).
+- Pembayaran di periode tertutup terkunci (`paymentLocked`).
+- Pembagian: total = penjamin + pasien + ditanggung RS, selalu; tes membandingkannya dengan Kasir. BPJS membayar INA-CBG hak kelas. Selisih naik ke Kelas 1 = CBG Kelas 1 − CBG hak; naik ke VIP = 75% CBG Kelas 1 (aturan berversi, angka simulasi). Asuransi membayar sampai plafon.
+- Penyesuaian (`adjustmentProblems`): nominal 1 rupiah sampai sisa piutang, alasan minimal 20 karakter. Persetujuan hanya oleh posisi manajemen, pembuat ≠ penyetuju. Jurnal bertanggal periode berjalan: potongan Dr 4-1950, hapus buku Dr 6-3100, Cr piutang penjamin.
+- Penolakan penyesuaian tidak meminta alasan, berbeda dengan penolakan usulan tarif.
+
+**Rencana backend.** Izin terencana `receivable.write`. Fase 5 potongan 5.6 membangun `GuarantorSplitService.compute` dan API `/api/v1/receivables`: umur piutang per tanggal WIB, pelunasan manual bereferensi, batch penagihan asuransi/perusahaan (cetak HTML), dan hapus buku berpersetujuan dengan jurnal. Pembayaran penjamin swasta dari mutasi bank dicocokkan di potongan 5.8.
+
+## Workbench koder
+
+![Workbench koder: indikator perlu koding dan pending verifikator, worklist koder di kiri, berkas Tn. Yusuf Hidayat dengan kode ICD-10 dan ICD-9-CM beserta sumbernya, saran J13, dan tombol validasi yang masih nonaktif](./gambar/koding.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rute     | `/keuangan/koding`                                                                                                                                                                                                                                     |
+| Pemakai  | koder                                                                                                                                                                                                                                                  |
+| Komponen | U06 koding klinis                                                                                                                                                                                                                                      |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                  |
+| Mockup   | tidak ada (melengkapi layar Klaim & koding; komponen `@simrs/ui`)                                                                                                                                                                                      |
+| Kode web | `apps/web/src/app/(staf)/keuangan/koding/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getCodingBoard`) · aturan `apps/web/src/lib/keuangan-koding.ts` · komponen `apps/web/src/components/keuangan/{koding-workspace,alasan-form}.tsx` |
+| Kode API | belum ada (rencana modul `coding`, `docs/01-arsitektur.md` §2)                                                                                                                                                                                         |
+
+**Tujuan.** Koder memvalidasi kode diagnosis dan prosedur yang ditarik dari RME, menautkan bukti klinis, bertanya ke DPJP, dan membuat versi koding baru bila verifikator bertanya. Grouping dan kirim E-Klaim tetap di layar Klaim & koding.
+
+**Alur.**
+
+1. Buka **Keuangan › Workbench koder**. Indikator: Perlu koding, Menunggu jawaban DPJP, Pending verifikator, dan Kesesuaian audit · September 2026 (46/48 berkas sampel).
+2. Pilih berkas di "Worklist koder": Tn. Yusuf Hidayat (Perlu koding), Ny. Siti Aminah (Menunggu jawaban DPJP), atau Tn. Joko Susilo (Pending verifikator).
+3. Berkas Tn. Yusuf: tiap kode menampilkan sistem, peran, dan sumbernya (resume medis, CPPT, hasil lab). Kode J18.9 punya saran. Tekan **Terima J13** (bukti kultur sputum ikut tertaut) atau **Tolak saran…** dengan alasan.
+4. Kode N17.9 berstatus Perlu bukti. Pilih bukti di "Bukti dari RME untuk N17.9", lalu **Tautkan bukti**. Hasilnya "✓ Bukti: Kreatinin serial …". Pilihan lain: **Pertahankan dengan alasan…** atau **Query ke DPJP…** ("Pertanyaan ke DPJP (wajib, tanpa mengarahkan jawaban)", **Kirim query ke DPJP**).
+5. Tekan **Validasi dan teruskan ke grouping**. Pesannya: "Koding Tn. Yusuf Hidayat tervalidasi · … diteruskan ke grouper di Klaim & koding".
+6. Berkas Ny. Siti Aminah menunggu jawaban query R57.2 (syok septik). Tekan **Kirim pengingat**, atau di demo **Simulasikan jawaban DPJP**. Jawaban tertaut sebagai addendum resume ("✓ Dijawab …"), dan tombol validasi aktif.
+7. Berkas Tn. Joko Susilo sudah terkirim. Kotak "Pertanyaan verifikator" menyebut E87.5 tanpa bukti lab. Tekan **Hapus E87.5 di versi baru**, isi "Alasan versi koding baru (berkas sudah terkirim; wajib)", lalu **Simpan versi 2 dan siapkan tanggapan**.
+8. Panel "Audit koding" menampilkan temuan audit sampel September.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Validasi berkas (`validateBerkas`) menahan tombol sampai: tepat satu diagnosis utama, semua saran diputuskan, setiap kode butuh-bukti tertaut ke bukti atau beralasan minimal 10 karakter, dan query DPJP terjawab. Pesan "Belum bisa diteruskan: …" menyebut kekurangannya.
+- Kode hanya dari contoh seed (`ICD10_NAME`, `ICD9_NAME`), sama dengan layar Klaim. Kode di luar daftar membuat fixture gagal dimuat.
+- Menolak saran wajib alasan minimal 10 karakter. Query ke DPJP wajib minimal 20 karakter.
+- Koder tidak mengubah RME. Jawaban DPJP berupa addendum resume yang tertaut sebagai bukti kode yang dikonfirmasi (`applyAnswer`).
+- Berkas yang sudah terkirim: setiap perubahan menjadi versi baru dengan alasan minimal 15 karakter (`versionProblem`), dan harus ada perubahan kode atau bukti. Kode yang dihapus tetap tampil "Dihapus di versi baru".
+- Audit koding memakai sampel; auditor (petugas rekam medis) bukan koder.
+
+**Rencana backend.** Izin terencana `claim.write`, sama dengan layar Klaim & koding. Fase 5 potongan 5.5 membangun di `/api/v1/claims`: worklist koder, `:id/coding` (tarik diagnosis dan prosedur dari RME, saran dari `coding_rules`, tautan bukti, versi beralasan), `:id/queries` yang mengirim notifikasi ke DPJP, dan `audits` (auditor ≠ koder). Tes rencana mencakup 403 untuk kasir.
+
+## Jasa pelayanan
+
+![Layar Jasa pelayanan: pilihan periode Oktober 2026 berjalan, indikator jasa terealisasi dan ditahan, tabel rekap per PPA dengan bruto, PPh 21, dan neto, serta panel aturan pembagian, tahapan persetujuan, dan dua jurnal berpasangan](./gambar/jaspel.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/jasa-pelayanan`                                                                                                                                                                                                                                             |
+| Pemakai  | akuntan, manajemen                                                                                                                                                                                                                                                     |
+| Komponen | U08 jasa pelayanan                                                                                                                                                                                                                                                     |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                                  |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                              |
+| Kode web | `apps/web/src/app/(staf)/keuangan/jasa-pelayanan/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getFeeSharingBoard`) · aturan `apps/web/src/lib/keuangan-jaspel.ts` · komponen `apps/web/src/components/keuangan/{jaspel-workspace,jurnal-pasangan}.tsx` |
+| Kode API | belum ada (rencana modul `fee-sharing`, `docs/01-arsitektur.md` §2)                                                                                                                                                                                                    |
+
+**Tujuan.** Akuntan dan manajemen merekap jasa medis dan paramedis per PPA dari komponen tarif setiap tindakan, menyetujui rekap, mengekspornya, lalu memposting pembayaran. Jasa dari klaim BPJS baru terealisasi setelah klaim dibayar.
+
+**Alur.**
+
+1. Buka **Keuangan › Jasa pelayanan**. Pilih "Periode jasa": Oktober 2026 · berjalan, atau September 2026 · ditutup. Di sampingnya tertulis aturan JP-2026-02 · SK direktur dan tanggal berlakunya.
+2. Oktober: indikator Jasa terealisasi, Bruto PPA, Ditahan (klaim BPJS belum dibayar), dan Pos kebersamaan + manajemen.
+3. Tabel "Rekap per PPA" berisi Tindakan, Bruto, PPh 21, dan Neto, lalu baris Total PPA dan pos kebersamaan serta manajemen. Buka "Rincian n tindakan sumber" untuk melihat tiap tindakan: Ditahan, terealisasi sebagian, atau terealisasi penuh.
+4. Panel "Persetujuan dan jurnal" memuat aturan pembagian (pelaksana 60%, tim pendamping 25%, pos kebersamaan 10%, manajemen dan struktural 5%), tahapan Dihitung → Diverifikasi akuntan → Disetujui manajemen → Dibayar, tombol tahap berikutnya, dan dua jurnal.
+5. Keadaan awal: rekap sudah diverifikasi akuntan pukul 09.30. Posisi manajemen menekan **Setujui rekap dan posting akrual**. Pesannya: "Rekap jasa Oktober disetujui manajemen · … · Dr 5-1100 …".
+6. Setelah disetujui, tekan **Ekspor CSV**. "Pratinjau CSV" berisi kolom `PPA;Jumlah tindakan;Bruto;PPh 21;Neto`.
+7. Posisi akuntan menekan **Posting pembayaran jasa**. Jurnal pembayaran terposting dan tahap menjadi Dibayar.
+8. September: kotak "Periode ditutup" dengan Bruto Rp 1.420.000.000, PPh 21 Rp 71.000.000, Neto dibayar, dan 214 PPA. **Hitung ulang** nonaktif dengan tulisan "Terkunci: periode September 2026 ditutup."
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Aturan pembagian berjumlah 100%. Σ alokasi per tindakan = jasa terealisasi tepat (sisa terbesar, bigint).
+- BPJS: jasa terealisasi = jasa × (INA-CBG dibayar ÷ tarif RS), paling banyak jasa penuh. Klaim yang belum dibayar membuat jasa ditahan (nol).
+- Tahapan (`stepProblem`): verifikasi oleh akuntan; persetujuan oleh manajemen yang bukan pemverifikasi; pembayaran oleh akuntan. Tahap tidak bisa dilompati. Alasan tombol nonaktif tertulis, mis. "Persetujuan rekap oleh posisi manajemen."
+- Jurnal akrual saat disetujui: Dr 5-1100 Beban jasa pelayanan / Cr 2-1410 Utang jasa pelayanan, sebesar bruto pelaksana + tim. Jurnal bayar: Dr 2-1410 / Cr 1-1140 Bank mitra (neto) / Cr 2-1420 Utang PPh 21.
+- PPh 21 flat 5% adalah angka simulasi, bukan aturan pajak.
+- Ekspor CSV aman dari formula injection: sel berawalan `=`, `+`, `-`, `@`, tab, atau CR diberi apostrof (`csvCell`). Pesan ekspor menyebut "tercatat di jejak audit".
+- Periode tertutup tidak dihitung ulang; koreksi masuk sebagai penyesuaian di periode berjalan.
+
+**Rencana backend.** Izin terencana `fee_sharing.read`, padahal layar memuat aksi tulis (setujui, bayar). Fase 5 potongan 5.9: konsumen `invoice.finalized` mengalokasikan komponen jasa, BPJS direalisasikan saat `claim.status_changed: paid`, dan `GET /api/v1/fee-sharing/recap?period` + ekspor CSV. Keputusan #17 rencana fase 5 menyebut jasa pelayanan tanpa layar, akrual saat tutup periode, dan pembayaran ke dokter lewat penggajian B05. Layar demo ini berbeda (akrual saat disetujui, bayar lewat bank mitra), jadi perlu ADR atau penyelarasan.
+
+## Kas & bank
+
+![Layar Kas dan bank: indikator laci terbuka, kas seharusnya, saldo rekening koran, dan mutasi belum dipadankan; tab Kas harian kasir dengan kartu laci tiap loket beserta transaksi tunai dan saldo seharusnya](./gambar/kas-bank.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/kas-bank`                                                                                                                                                                                                                                                         |
+| Pemakai  | kasir, akuntan                                                                                                                                                                                                                                                               |
+| Komponen | U09 kas dan bank                                                                                                                                                                                                                                                             |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                                        |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                                    |
+| Kode web | `apps/web/src/app/(staf)/keuangan/kas-bank/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getCashBankBoard`) · aturan `apps/web/src/lib/keuangan-kasbank.ts` · komponen `apps/web/src/components/keuangan/{kasbank-workspace,jurnal-pasangan,alasan-form}.tsx` |
+| Kode API | belum ada (rencana modul `cash-bank`, pencocok di `modules/cash-bank/matchers/`)                                                                                                                                                                                             |
+
+**Tujuan.** Kasir menutup laci dengan hitungan fisik dan setoran, dan akuntan memadankan mutasi rekening BTN operasional dengan dokumennya. Setiap langkah membentuk jurnal berpasangan.
+
+**Alur.**
+
+1. Buka **Keuangan › Kas & bank**. Indikator: Laci terbuka, Kas di laci (seharusnya), Saldo rekening koran (dengan jam sinkron H2H), dan Mutasi belum dipadankan.
+2. Tab **Kas harian kasir**. Tiap kartu laci memuat loket, kasir, jam buka, modal, transaksi tunai (pembayaran neto setelah kembalian; refund bernilai negatif), dan "Saldo seharusnya". Contoh: Laci Loket 1 · RJ dan RI = Rp 4.208.400.
+3. Tekan **Tutup laci…**. Isi jumlah lembar atau keping per pecahan (Rp 100.000 sampai Rp 100). Selisih tampil sebagai "Rp 0 · cocok", "kurang …", atau "lebih …".
+4. Bila ada selisih, isi alasan selisih. Selisih di atas Rp 50.000 juga butuh centang "Supervisor kasir menyaksikan hitung ulang". Jurnal tutup laci tampil di formulir.
+5. Tekan **Tutup laci dan buat setoran**. Contoh: fisik Rp 4.208.000 (kurang Rp 400) menghasilkan "setoran STR-2610-0413 Rp 3.708.000"; modal Rp 500.000 tetap di laci.
+6. Laci yang tertutup (Loket 3) bisa dibuka lagi dengan **Buka laci dengan modal Rp 500.000**; pesannya menyebut modal dihitung dua orang.
+7. Tab **Mutasi bank**. Tiap mutasi berstatus Cocok, Belum dipadankan, atau Pengecualian. Tombol **Padankan ke …** (nama dokumen) hanya muncul untuk kandidat yang nominalnya cocok, dengan usulan jurnal di bawahnya. Contoh settlement EDC Rp 9.850.000 ke Batch EDC RI-01 (MDR 1,5%): "Dr 1-1120 Rp 9.850.000 · Dr 6-1200 Rp 150.000 · Cr 1-1210 Rp 10.000.000".
+8. Untuk dana masuk tanpa dokumen (TRF MASUK TANPA BERITA), tekan **Tandai pengecualian…**, isi "Catatan pengecualian (wajib)", lalu **Catat pengecualian**. Dana dicatat sebagai titipan 2-1290, bukan pendapatan.
+9. Untuk padanan yang salah, tekan **Lepas padanan…**, isi "Alasan melepas padanan (wajib; jurnal balik dibentuk)", lalu **Lepas padanan**. Jurnal balik menukar debit dan kredit, mis. "jurnal balik Dr 1-1210 …".
+
+![Jurnal berpasangan di layar Kas dan bank: baris akun debit dan kredit dalam rupiah, total debit sama dengan total kredit, dan tanda Seimbang (debit = kredit)](./gambar/kas-bank--jurnal.png)
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Saldo seharusnya = modal + Σ transaksi tunai (`expectedCash`). Hitungan fisik dari jumlah lembar per pecahan berupa bilangan bulat; nilai negatif diabaikan.
+- Tutup laci (`closeProblems`): hitungan fisik wajib; selisih bukan nol wajib alasan minimal 15 karakter; selisih di atas Rp 50.000 wajib disaksikan supervisor.
+- Jurnal tutup laci: setoran = fisik − modal. Kurang: Dr 1-1120 + Dr 6-1300 / Cr 1-1110. Lebih: Dr 1-1120 / Cr 1-1110 + Cr 4-3100.
+- Kandidat padanan cocok bila nominal mutasi = nilai dokumen − MDR (EDC) atau = nilai dokumen; biaya bank dicocokkan sebagai mutasi keluar (`candidateFits`).
+- Jurnal padanan: dana masuk Dr Bank (+ Dr MDR) / Cr akun lawan; biaya bank Dr 6-1210 / Cr 1-1120.
+- Catatan pengecualian dan alasan lepas padanan minimal 10 karakter (`PENGECUALIAN_NOTE_MIN`).
+- Mutasi periode tertutup terkunci. "BUNGA JASA GIRO SEP 2026" tampil "Terkunci: periode September 2026 ditutup; koreksi lewat jurnal di periode berjalan."
+- Saldo buku = saldo rekening koran − mutasi yang belum dipadankan (`reconSummary`).
+- Tes menjaga keselarasan: transfer Asuransi Mitra A Rp 14.800.000 sama dengan sisa batch TG-2609-031 di layar Piutang. Modal Laci Loket 1 diambil dari shift Kasir (Rp 500.000).
+
+**Rencana backend.** Izin terencana `cashbank.write`. Fase 5 potongan 5.7 membangun shift kasir (buka, tutup dengan selisih wajib alasan, setoran). Potongan 5.8 membangun `/api/v1/bank`: impor mutasi CSV (pola ADR-0020) atau dari mock H2H, registri pencocok di `modules/cash-bank/matchers/` (setoran kas, settlement EDC + MDR, transfer penjamin), padanan manual dan pengecualian bercatatan, serta jurnal saat cocok. Rencana 5.8 menulis "Web: API saja"; layar ini dibangun lebih dulu untuk mode presentasi. Tutup laci di sini tumpang tindih dengan **Tutup shift** di Kasir.
+
+## Hutang usaha
+
+![Layar Hutang usaha: indikator jatuh tempo 7 hari dan saldo bank mitra, tab Faktur pemasok dengan kartu faktur, pencocokan PO, penerimaan, dan faktur, serta tombol verifikasi yang menunggu penyelesaian selisih](./gambar/hutang.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rute     | `/keuangan/hutang`                                                                                                                                                                                                                                                       |
+| Pemakai  | akuntan, manajemen                                                                                                                                                                                                                                                       |
+| Komponen | U10 hutang usaha                                                                                                                                                                                                                                                         |
+| Status   | demo (mode presentasi); backend fase 5 belum dibangun                                                                                                                                                                                                                    |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                                |
+| Kode web | `apps/web/src/app/(staf)/keuangan/hutang/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getPayablesBoard`) · aturan `apps/web/src/lib/keuangan-hutang.ts` · komponen `apps/web/src/components/keuangan/{hutang-workspace,jurnal-pasangan,alasan-form}.tsx` |
+| Kode API | belum ada (rencana modul `payables`, `docs/01-arsitektur.md` §2)                                                                                                                                                                                                         |
+
+**Tujuan.** Akuntan memverifikasi faktur pemasok terhadap PO dan penerimaan barang, manajemen menyetujuinya berjenjang menurut nilai, lalu akuntan menjadwalkan dan memposting pembayaran.
+
+**Alur.**
+
+1. Buka **Keuangan › Hutang usaha**. Indikator: Jatuh tempo ≤ 7 hari (sama dengan Akuntansi), Lewat jatuh tempo (contoh), Menunggu verifikasi/persetujuan, dan Saldo bank mitra.
+2. Tab **Faktur pemasok**. Tiap faktur memuat pemasok, jatuh tempo, status, dan pencocokan tiga arah PO ↔ Penerimaan ↔ Faktur.
+3. Faktur `INV/DFA/2610/0331` (Distributor farmasi A) lebih Rp 480.000 dari penerimaan, jadi **Verifikasi faktur** nonaktif. Pilih **Minta nota kredit (simulasikan diterima)** agar faktur disesuaikan ke nilai penerimaan, atau **Terima selisih dengan alasan…** ("Alasan menerima selisih harga (wajib)", **Terima selisih**).
+4. Setelah "✓ PO, penerimaan, dan faktur cocok", akuntan menekan **Verifikasi faktur**. Faktur menunggu persetujuan dan draf jurnal tampil.
+5. Posisi manajemen menekan **Setujui tingkat 1**. Faktur di atas Rp 50 juta butuh **Setujui tingkat 2** oleh orang lain. Contoh `EK/2609/55120` (Penyedia e-katalog, Rp 184.000.000): "disetujui tingkat 2 · Dr 2-1120 Rp 184.000.000 · Cr 2-1110 Rp 184.000.000".
+6. Tab **Jadwal bayar**. Centang faktur disetujui di "Faktur siap dibayar" (mis. `INV/DAB/2609/2210` dan `INV/DFA/2609/0288`), lalu **Buat batch pembayaran**.
+7. Panel "Batch pembayaran" menampilkan jurnal Dr 2-1110 / Cr 1-1140. Akuntan menekan **Posting pembayaran**: "BYR-2610-003 dibayar … · Dr 2-1110 Rp 61.050.000 …".
+
+![Persetujuan tingkat 2 faktur hutang usaha di atas Rp 50 juta oleh posisi manajemen, beserta jurnal berpasangan yang terbentuk saat faktur disetujui](./gambar/hutang--persetujuan.png)
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Pencocokan tiga arah (`threeWay`): faktur harus sama dengan nilai penerimaan, dan penerimaan tidak melebihi PO.
+- Verifikasi (`verifyProblem`) hanya oleh posisi akuntan, untuk faktur draf, bila cocok tiga arah atau selisihnya diterima dengan alasan minimal 15 karakter. Penerimaan yang melebihi PO diselesaikan dengan logistik dulu.
+- Persetujuan (`approveProblem`) hanya oleh posisi manajemen, dan pemverifikasi tidak boleh menyetujui. Faktur di atas Rp 50.000.000 butuh dua tingkat oleh orang berbeda (manajer keuangan, lalu direktur).
+- Jurnal saat semua tingkat setuju: Dr 2-1120 Utang penerimaan belum difakturkan (nilai penerimaan), ± 1-1410 Persediaan untuk selisih harga yang diterima, Cr 2-1110 Utang usaha (nilai faktur).
+- Jadwal bayar (`scheduleProblem`): hanya faktur disetujui, total batch tidak melebihi saldo bank mitra, dan hanya satu batch terbuka.
+- Posting pembayaran hanya oleh posisi akuntan ("Pembayaran diposting posisi akuntan (transfer H2H bank mitra).").
+- Faktur yang dibayar di periode tertutup terkunci; koreksi lewat nota debit di periode berjalan.
+- Tes menjaga keselarasan: nilai PO cairan infus dan reagen sama dengan layar Logistik.
+
+**Rencana backend.** Izin terencana `payable.write`. Fase 5 potongan 5.8 membangun `/api/v1/payables`: tagihan pemasok draf dari konsumen `stock.received` atau input manual, persetujuan maker-checker, jatuh tempo (KPI 7 hari), dan bayar dengan jurnal. Rencana menulis "Web: API saja"; layar ini dibangun lebih dulu untuk mode presentasi.
+
+## Costing & case-mix
+
+![Layar Costing dan case-mix: indikator pendapatan INA-CBG, biaya, margin, dan kelompok kasus merugi; tabel margin per kelompok INA-CBG di kiri; komposisi biaya kasus pneumonia J-4-15-II dengan margin negatif dan varians lama rawat di kanan](./gambar/costing.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/keuangan/costing`                                                                                                                                                                                                                                        |
+| Pemakai  | manajemen, akuntan                                                                                                                                                                                                                                         |
+| Komponen | I10 costing dan case-mix                                                                                                                                                                                                                                   |
+| Status   | demo (mode presentasi); backend fase 9 belum dibangun; modul lanjutan RS tersier yang bisa dinonaktifkan per RS                                                                                                                                            |
+| Mockup   | tidak ada (gaya mengikuti layar keuangan bermockup; komponen `@simrs/ui`)                                                                                                                                                                                  |
+| Kode web | `apps/web/src/app/(staf)/keuangan/costing/` · data `apps/web/src/lib/server/data/keuangan-lanjut.ts` (`getCostingBoard`) · aturan `apps/web/src/lib/keuangan-costing.ts` · komponen `apps/web/src/components/keuangan/{costing-workspace,alasan-form}.tsx` |
+| Kode API | belum ada (rencana modul `costing` di lapisan integrasi dan data, `docs/01-arsitektur.md` §2)                                                                                                                                                              |
+
+**Tujuan.** Manajemen dan akuntan membandingkan biaya per kasus berbasis aktivitas dengan tarif INA-CBG, melihat margin per kelompok kasus dan per DPJP, lalu mengirim telaah clinical pathway ke komite medik bila lama rawat melebihi pathway.
+
+**Alur.**
+
+1. Buka **Keuangan › Costing & case-mix**. Periode: Kuartal III 2026 (Jul–Sep) · periode tertutup. Indikator: Pendapatan INA-CBG, Biaya pelayanan, Margin, dan Kelompok kasus merugi.
+2. Pilih "Kelompokkan margin": **Per kelompok INA-CBG** atau **Per DPJP**. Tabel "Margin kasus" (Kasus, Pendapatan, Biaya, Margin) diurut dari margin terburuk.
+3. Pilih baris. "Komposisi biaya kasus" menampilkan lima komponen (Akomodasi, Tindakan dan jasa, Obat dan BHP, Lab dan radiologi, Overhead teralokasi) dengan nominal dan persen, serta margin per kasus. Contoh J-4-15-II pneumonia sedang (dr. Andini Prameswari, Sp.PD): margin −Rp 607.200 per kasus.
+4. Baca kotak varians: "Lama rawat 5,8 hari vs pathway 5,0 hari" dan perkiraan biaya akomodasi per kasus yang bisa dihindari. Bila sesuai, tertulis "✓ Lama rawat … sesuai clinical pathway".
+5. Tekan **Ajukan telaah clinical pathway…**, isi "Catatan telaah untuk komite medik (wajib)", lalu **Kirim ke komite medik**. Hasilnya chip "Telaah dikirim ke komite medik HH.MM".
+6. Buka "Dasar alokasi overhead" untuk membaca driver alokasi biaya tidak langsung.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Biaya per kasus = Σ lima komponen (bigint). Margin kelompok = Σ (tarif × kasus) − Σ (biaya × kasus).
+- Margin per kelompok INA-CBG dan per DPJP berjumlah sama dengan total (dijaga tes). Persen komponen dibulatkan dengan sisa terbesar sehingga selalu 100%.
+- Lama rawat disimpan dalam persepuluh hari (bilangan bulat, tanpa float). Biaya yang bisa dihindari = biaya akomodasi per hari × kelebihan hari (`losVariance`).
+- Tarif INA-CBG sama dengan tarif simulasi bersama Kasir dan Klaim (`CBG`). Biaya fiktif dan ilustratif.
+- Telaah wajib catatan minimal 20 karakter (`TELAAH_REASON_MIN`). Layar tidak mengubah clinical pathway; keputusan tetap di komite medik.
+
+**Rencana backend.** Izin terencana `costing.read`; telaah ke komite medik adalah aksi tulis yang belum punya izin. Registri menaruh layar ini di fase 9. Komponen I10 bergantung pada U02, U07, dan I11 (`docs/02-katalog-komponen.md`). Rencana fase 9 mencatat margin penjamin non-JKN di dasbor baru terisi setelah I10 aktif.
+
 ## Tes yang menjaga layar ini
 
-| Tes                                                     | Yang dijaga                                                                                                                                                                                                                                    |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web/e2e/demo/keuangan.spec.ts`                    | Kasir: total = jumlah baris, bayar QRIS sampai kuitansi, item manual ditahan tanpa alasan, posisi lain ditolak. Klaim: tabel kode, grouper, saran J13, kirim. Akuntansi: jurnal seimbang, dialog tutup periode menahan sampai syarat terpenuhi |
-| `apps/web/e2e/demo/btn.spec.ts`                         | Pembayaran: pelunasan simulasi + HMAC, callback ganda diabaikan, pengecualian wajib catatan. Pembiayaan: pencairan piutang, lima tahap cicilan, penolakan beralasan                                                                            |
-| `apps/web/src/lib/keuangan.test.ts`                     | Total = baris, pembagian penjamin, gerbang item manual, gerbang Server Action kasir, kuantitas bulat, kode klaim hanya dari seed                                                                                                               |
-| `apps/web/src/lib/keuangan-klaim.test.ts`               | Klaim lolos kontrak, J13 + bukti N17.9 → J-4-15-III, grouping ditahan, gerbang kirim                                                                                                                                                           |
-| `apps/web/src/lib/keuangan-akuntansi.test.ts`           | Jurnal seimbang, umur piutang 100%, syarat tutup periode diperiksa terhadap papan server                                                                                                                                                       |
-| `apps/web/src/lib/keuangan-skenario.test.ts`            | Proyeksi tiga skenario ke tiga papan: tagihan = charge capture, jurnal seimbang di setiap langkah                                                                                                                                              |
-| `apps/web/src/lib/btn.test.ts`                          | Dana ke rekening RS, idempotensi webhook, rekonsiliasi 3 arah, refund berjenjang                                                                                                                                                               |
-| `apps/web/src/lib/btn-pembiayaan.test.ts`               | Aritmetika advance/margin/pelunasan (bigint), pemeriksaan server pencairan, alur cicilan                                                                                                                                                       |
-| `apps/web/src/lib/btn-skenario.test.ts`                 | Deposit dan pembiayaan Ny. Ratna, webhook ganda tidak dobel, angka "hari ini"                                                                                                                                                                  |
-| `packages/shared/src/integrations/integrations.test.ts` | Tanda tangan HMAC TPDI dan batas umur timestamp                                                                                                                                                                                                |
+| Tes                                                     | Yang dijaga                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/e2e/demo/keuangan.spec.ts`                    | Kasir: total = jumlah baris, bayar QRIS sampai kuitansi, item manual ditahan tanpa alasan, posisi lain ditolak. Klaim: tabel kode, grouper, saran J13, kirim. Akuntansi: jurnal seimbang, dialog tutup periode menahan sampai syarat terpenuhi                                                                                                                                                                                                                                                                                                                  |
+| `apps/web/e2e/demo/btn.spec.ts`                         | Pembayaran: pelunasan simulasi + HMAC, callback ganda diabaikan, pengecualian wajib catatan. Pembiayaan: pencairan piutang, lima tahap cicilan, penolakan beralasan                                                                                                                                                                                                                                                                                                                                                                                             |
+| `apps/web/src/lib/keuangan.test.ts`                     | Total = baris, pembagian penjamin, gerbang item manual, gerbang Server Action kasir, kuantitas bulat, kode klaim hanya dari seed                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `apps/web/src/lib/keuangan-klaim.test.ts`               | Klaim lolos kontrak, J13 + bukti N17.9 → J-4-15-III, grouping ditahan, gerbang kirim                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `apps/web/src/lib/keuangan-akuntansi.test.ts`           | Jurnal seimbang, umur piutang 100%, syarat tutup periode diperiksa terhadap papan server                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `apps/web/src/lib/keuangan-skenario.test.ts`            | Proyeksi tiga skenario ke tiga papan: tagihan = charge capture, jurnal seimbang di setiap langkah                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `apps/web/src/lib/btn.test.ts`                          | Dana ke rekening RS, idempotensi webhook, rekonsiliasi 3 arah, refund berjenjang                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `apps/web/src/lib/btn-pembiayaan.test.ts`               | Aritmetika advance/margin/pelunasan (bigint), pemeriksaan server pencairan, alur cicilan                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `apps/web/src/lib/btn-skenario.test.ts`                 | Deposit dan pembiayaan Ny. Ratna, webhook ganda tidak dobel, angka "hari ini"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `packages/shared/src/integrations/integrations.test.ts` | Tanda tangan HMAC TPDI dan batas umur timestamp                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `apps/web/e2e/demo/fe4-keuangan.spec.ts`                | Tarif: retroaktif ditolak, pembuat tidak menyetujui sendiri, persetujuan manajemen, paket lebih murah. Charge capture: coba ulang, reprice, batal manual beralasan. Piutang: batch satu penjamin, pelunasan bereferensi, penyesuaian dua posisi. Koder: saran, bukti, query DPJP, versi 2. Jasa pelayanan: gerbang tahap, akrual, CSV, September terkunci. Kas & bank: selisih beralasan, padanan EDC, pengecualian, lepas padanan. Hutang: tiga arah, tingkat 2, batch bayar. Costing: margin, per DPJP, telaah. Semua jurnal seimbang, tanpa gulir horizontal |
+| `apps/web/src/lib/keuangan-jurnal.test.ts`              | Jurnal seimbang, baris nol dibuang, jurnal refund, sisa terbesar, periode tertutup, persen tanpa float                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `apps/web/src/lib/keuangan-tarif.test.ts`               | Komposisi 100%, satu versi berlaku, tarif Kelas 2 = Kasir, paket lebih murah, gerbang usulan dan persetujuan, versi lama ditutup                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `apps/web/src/lib/keuangan-charge.test.ts`              | Jumlah = kuantitas × harga, harga = tarif berlaku, rekonsiliasi capture, penahanan finalisasi, coba ulang, batal manual dengan pembalik                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `apps/web/src/lib/keuangan-piutang.test.ts`             | Identitas pembagian = Kasir, selisih naik kelas, plafon asuransi, gerbang batch dan pelunasan, FIFO, kunci periode, penyesuaian                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `apps/web/src/lib/keuangan-koding.test.ts`              | Kode hanya dari seed, satu diagnosis utama, bukti atau alasan, jawaban DPJP sebagai addendum, versi beralasan                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `apps/web/src/lib/keuangan-jaspel.test.ts`              | Aturan 100%, Σ alokasi = terealisasi, rasio BPJS, jurnal akrual dan bayar seimbang, tahapan, CSV anti formula injection                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `apps/web/src/lib/keuangan-kasbank.test.ts`             | Saldo seharusnya, hitungan pecahan, selisih + supervisor, jurnal tutup laci, padanan/pengecualian/balik, transfer = sisa batch Piutang, kunci periode                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `apps/web/src/lib/keuangan-hutang.test.ts`              | PO = Logistik, tiga arah, persetujuan berjenjang, jurnal seimbang, jadwal bayar, kunci periode                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `apps/web/src/lib/keuangan-costing.test.ts`             | Tarif CBG = Kasir/Klaim, margin per kelompok = total, porsi 100%, varians lama rawat                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## Lihat juga
 
@@ -257,6 +640,8 @@ Contoh tindakan pengecualian dari data dummy: "Tandai lunas di kasir (TPDI + BTN
 - [Cara kode bekerja: mode presentasi dan data dummy](./02-cara-kerja-kode.md#mode-presentasi-dan-data-dummy-adr-0023)
 - [Fitur integrasi](./15-fitur-integrasi.md)
 - [Fitur klinis](./12-fitur-klinis.md) dan [Fitur penunjang](./13-fitur-penunjang.md), sumber charge capture
+- [Fitur back office](./16-fitur-back-office.md), sumber PO dan penerimaan barang untuk Hutang usaha
 - [Simulasi dan operasional](./18-simulasi-dan-operasional.md)
 - [Peta kode](./19-peta-kode.md)
-- Dokumen desain: `docs/07-pembayaran-btn-tpdi.md`, `docs/adr/0005-tpdi-non-custodial-btn.md`, `docs/rencana/fase-5-keuangan.md`, `docs/rencana/fase-6-pembayaran-tpdi-btn.md`
+- [Peta alur semua fase](./20-peta-alur-semua-fase.md)
+- Dokumen desain: `docs/07-pembayaran-btn-tpdi.md`, `docs/adr/0005-tpdi-non-custodial-btn.md`, `docs/rencana/fase-5-keuangan.md`, `docs/rencana/fase-6-pembayaran-tpdi-btn.md`, `docs/rencana/fase-9-kanal-dasbor-mobile.md`

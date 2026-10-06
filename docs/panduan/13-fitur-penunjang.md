@@ -1,13 +1,15 @@
 # Fitur penunjang
 
-Halaman ini menjelaskan empat layar penunjang (lapisan S): laboratorium dengan nilai kritis, radiologi, farmasi, dan
-kamar operasi. Layar-layar ini menerima order dari CPOE dan mengembalikan hasil, obat, atau laporan operasi ke rekam
+Halaman ini menjelaskan sepuluh layar penunjang (lapisan S): laboratorium dengan nilai kritis, radiologi, farmasi,
+kamar operasi dan anestesi, pusat hasil kritis, depo dan stok farmasi, bank darah, gizi, mikrobiologi dan patologi
+anatomi, serta diagnostik lain. Layar-layar ini menerima order dari CPOE dan mengembalikan hasil, obat, atau laporan operasi ke rekam
 medis pasien. Setiap layar punya gerbang keselamatan yang ditegakkan ulang di Server Action, bukan hanya di tombol.
 
-> Status 6 Okt 2026: keempat layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Fase 4 belum
-> dimulai, jadi belum ada modul API lab, radiologi, farmasi, atau kamar operasi. Yang sudah ada di API hanya modul
-> `results` (fase 3 potongan 3.2a: observasi dan laporan hasil berkode, izin `result`) dan CPOE + CDS (3.4) sebagai
-> sumber order. Di mode api keempat rute ini 404.
+> Status 6 Okt 2026: kesepuluh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Enam layar
+> (pusat hasil kritis, depo, bank darah, gizi, mikrobiologi dan PA, diagnostik lain) serta region Anestesi di Kamar
+> operasi ditambahkan agen FE3 tanpa mockup. Fase 4 belum dimulai, jadi belum ada modul API penunjang. Yang sudah ada
+> di API hanya modul `results` (fase 3 potongan 3.2a: observasi dan laporan hasil berkode, izin `result`) dan CPOE +
+> CDS (3.4) sebagai sumber order. Di mode api kesepuluh rute ini 404.
 
 Posisi layar penunjang dalam perjalanan pasien rawat jalan (CPOE → lab dan farmasi → kasir):
 
@@ -18,12 +20,18 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 ## Ringkasan layar
 
-| Layar         | Rute                       | Peran (mode presentasi) | Komponen | Status                                   |
-| ------------- | -------------------------- | ----------------------- | -------- | ---------------------------------------- |
-| Laboratorium  | `/penunjang/lab`           | analis lab              | S01, S09 | 🟨 demo; API lab belum (fase 4)          |
-| Radiologi     | `/penunjang/radiologi`     | radiografer             | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
-| Farmasi       | `/penunjang/farmasi`       | apoteker                | S04, S05 | 🟨 demo; API belum (fase 4)              |
-| Kamar operasi | `/penunjang/kamar-operasi` | dokter, perawat         | S06      | 🟨 demo; API belum (fase 4)              |
+| Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                   |
+| ------------------- | -------------------------- | ---------------------------------------- | -------- | ---------------------------------------- |
+| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; API lab belum (fase 4)          |
+| Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API belum (fase 4)              |
+| Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)              |
+| Pusat hasil kritis  | `/penunjang/hasil-kritis`  | analis lab, radiografer, dokter, perawat | S09      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Depo & stok farmasi | `/penunjang/depo`          | apoteker                                 | S05      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Bank darah          | `/penunjang/bank-darah`    | analis lab, perawat, bidan, dokter       | S08      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Gizi                | `/penunjang/gizi`          | perawat, dokter                          | S07      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | analis lab, dokter                       | S02      | 🟨 demo tanpa mockup; API belum (fase 4) |
+| Diagnostik lain     | `/penunjang/diagnostik`    | dokter, perawat                          | S10      | 🟨 demo tanpa mockup; API belum (fase 4) |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -235,9 +243,378 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
 - Operasi hanya bisa dicatat selesai setelah sign out dikonfirmasi.
 - Kasus pasien skenario (Ny. Ratna Sari) menunggu langkah operasi di Simulasi; sebelum itu tertulis "Pasien skenario
   Simulasi · menunggu langkah operasi".
+- Region "Anestesi" (`components/penunjang/ok-anestesi.tsx`, aturan `lib/penunjang-anestesi.ts`): **Catat induksi**
+  terkunci sampai "Asesmen pra-anestesi" ditandatangani, lalu sampai sign in WHO dikonfirmasi. Teksnya "Induksi
+  terkunci: asesmen pra-anestesi belum ditandatangani dokter anestesi." lalu "Induksi terkunci: konfirmasi sign in
+  daftar tilik WHO lebih dulu." Tidak ada override.
+- **Tandatangani asesmen (TTE dr. Ferry Setiawan, Sp.An)** nonaktif sampai kelas ASA, jam mulai puasa (kecuali
+  "Operasi darurat (ASA E)"), jalan napas, rencana anestesi (minimal 5 karakter), dan persetujuan anestesi lengkap.
+  Server Action `recordAnesthesiaAction` mengulang pemeriksaan ini. Contoh: SC cito Ny. Anisa (`?pilih=ok3-1`) menjadi
+  "ASA IIE" setelah ditandatangani. Monitoring intraoperasi memberi peringatan bila SpO₂ di bawah 92%, sistolik di
+  bawah 90 atau di atas 180 mmHg, nadi di bawah 50 atau di atas 120, atau EtCO₂ di luar 30–45.
 
 **Mode api.** `ScreenDef` belum punya `permission` (rencana `surgery.write`). Di mode api rute 404 dan menu redup
 sampai fase 4.
+
+## Pusat hasil kritis
+
+![Layar Pusat hasil kritis: empat kartu kepatuhan (belum dilaporkan, dilaporkan 30 menit, median dan p90, kepatuhan 7 hari), daftar hasil kritis lintas unit dengan timer berjalan di kiri, dan detail hasil kritis dengan jenjang eskalasi di kanan](./gambar/kritis.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                           |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/hasil-kritis` (`?pilih=<id>`, mis. `kr-L2610050131`)                                                                                                                                                                              |
+| Pemakai  | analis lab, radiografer, dokter, perawat                                                                                                                                                                                                      |
+| Komponen | S09 hasil kritis                                                                                                                                                                                                                              |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.3 belum dibangun                                                                                                                                                                            |
+| Mockup   | tidak ada (gaya mengikuti banner nilai kritis di layar Laboratorium)                                                                                                                                                                          |
+| Kode web | `apps/web/src/app/(staf)/penunjang/hasil-kritis/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getCriticalCenter`) · aturan `apps/web/src/lib/penunjang-kritis.ts` · komponen `apps/web/src/components/penunjang/kritis-*.tsx` |
+| Kode API | belum ada (rencana modul `critical-results`, docs/01-arsitektur.md §2)                                                                                                                                                                        |
+
+**Tujuan.** Satu tempat untuk semua nilai kritis lintas unit (laboratorium, POCT, mikrobiologi, radiologi, diagnostik
+lain). Petugas melihat timer batas lapor, mencatat pelaporan berpenerima dengan read-back, dan memantau kepatuhan
+durasi lapor sebagai indikator mutu.
+
+**Alur.**
+
+1. Buka **Pusat hasil kritis**. Region "Kepatuhan hasil kritis" memuat empat kartu: Belum dilaporkan, Dilaporkan ≤ 30
+   menit (hari ini), Median · p90 durasi lapor, dan Kepatuhan 7 hari (sasaran ≥ 95%).
+2. "Hasil kritis hari ini" menggabungkan nilai kritis dari worklist Laboratorium yang sama dengan sumber lain, mis.
+   kultur darah Ny. Siti Aminah (mikrobiologi) dan glukosa POCT Tn. Lukman Hakim. Saring dengan **Semua**,
+   **Belum dilaporkan**, atau **Dilaporkan**. Yang belum dilaporkan dan paling lama menunggu ada di atas.
+3. Setiap baris punya chip bertulisan "Terbuka · timer berjalan", "Lewat batas · eskalasi", atau "Dilaporkan ·
+   read-back", lalu nilai, lokasi, jam terbit, dan timer mm:ss.
+4. Pilih pasien, mis. Tn. Yusuf Hidayat: "Kalium · LOINC 2823-3" 6,4 mmol/L, batas kritis "> 6,0 mmol/L", Bangsal
+   Anggrek A-15. "Detail hasil kritis" memuat nilai, batas, lokasi, timer, dan "Jenjang eskalasi" (terbit, Eskalasi 1
+   pada batas 30 menit, Eskalasi 2 pada batas + 30 menit).
+5. Tekan **Catat pelaporan**. Pilih penerima dari daftar (DPJP, dokter jaga, perawat penanggung jawab) atau
+   **Penerima lain (di luar daftar jaga)** lalu isi "Nama penerima". Isi "Peran penerima", pilih "Saluran" (bawaan
+   Telepon (direkam), atau Langsung (tatap muka)), centang **Read-back terkonfirmasi**, lalu **Simpan pelaporan**.
+
+   ![Form pelaporan hasil kritis di Pusat hasil kritis: pilihan penerima, peran, saluran, dan centang read-back yang menyebut ulang nama pasien, pemeriksaan, dan nilai](./gambar/kritis--read-back.png)
+
+6. Layar menulis "Hasil kritis dilaporkan ke … read-back terkonfirmasi · <jam> (simulasi, tidak disimpan)". Chip
+   berubah "Dilaporkan · read-back" dan jenjang eskalasi mencatat penerima, saluran, dan pelapor. Kartu Belum
+   dilaporkan menjadi "semua sudah dilaporkan" bila tidak ada lagi yang terbuka.
+7. Buka "Aturan batas kritis aktif" untuk melihat acuan, mis. "Kalium · LOINC 2823-3: < 2,5 atau > 6,0 mmol/L".
+8. Nilai kritis pasien skenario Simulasi (mis. kalium Tn. Hartono di skenario IGD) tidak dilaporkan dari sini. Alert
+   "Pasien skenario Simulasi" mengarahkan ke layar [Laboratorium](#laboratorium) agar alur Simulasi ikut maju.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Hasil kritis hanya tertutup lewat laporan berpenerima dengan read-back (`reportGate`). Tidak ada tombol penutupan
+  lain.
+- Galat per isian: nama penerima minimal 5 karakter ("Nama penerima wajib diisi (minimal 5 karakter)."), peran
+  minimal 3 karakter, saluran wajib, dan read-back wajib ("Read-back wajib: penerima mengulang nama pasien,
+  pemeriksaan, dan nilainya.").
+- Hasil yang sudah dilaporkan ditolak ("Hasil kritis ini sudah dilaporkan dengan read-back."). Id yang tidak ada di
+  daftar ditolak.
+- Server Action `reportCriticalCenterAction` memeriksa posisi pemakai layar, mencari hasil kritis di server (klien
+  hanya mengirim id dan isian), lalu menjalankan `reportGate` yang sama. Pasien skenario ditolak di server dengan
+  pesan "Pasien skenario dilaporkan dari layar Laboratorium agar alur Simulasi ikut maju."
+- Batas lapor 30 menit (`limitMinutes` di fixture). Eskalasi 1 pada batas: kepala unit pelapor, DPJP, dan kepala
+  ruangan (in-app + WhatsApp tanpa data pasien). Eskalasi 2 pada batas + 30 menit: manajemen dan komite mutu, masuk
+  tinjauan insiden. Di mode presentasi eskalasi hanya tampil sebagai teks; tidak ada notifikasi terkirim.
+- Metrik dihitung murni: persen dilaporkan ≤ batas, median, dan p90 (nearest-rank) durasi lapor. Riwayat 7 hari
+  berisi 30 durasi fiktif dengan dua laporan lewat 30 menit, jadi kartu Kepatuhan 7 hari di bawah sasaran 95%.
+- Status tidak hanya lewat warna: chip bertulisan dan timer berbentuk teks.
+
+**Rencana backend.** Izin rencana `critical_result.report`. Fase 4 potongan 4.3 membangun `/api/v1/critical-results`:
+`POST :id/reports` dengan penerima, saluran, dan `readBackConfirmed: true` wajib (422
+`CRITICAL_RECIPIENT_REQUIRED` / `CRITICAL_READBACK_REQUIRED`, ditegakkan juga oleh CHECK DB), durasi dari jam server,
+job eskalasi P11 sekali per level, dan `GET metrics` untuk peninjau mutu. Di mode api rute 404 dan menu redup.
+
+## Depo & stok farmasi
+
+![Layar Depo dan stok farmasi: pilihan depo, empat kartu ringkasan (nilai persediaan, batch kedaluwarsa, segera kedaluwarsa, di bawah minimum), dan tab Stok dan kedaluwarsa dengan tabel batch per obat](./gambar/depo.png)
+
+| Hal      | Isi                                                                                                                                                                                                                         |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/depo`                                                                                                                                                                                                           |
+| Pemakai  | apoteker                                                                                                                                                                                                                    |
+| Komponen | S05 dispensing dan depo                                                                                                                                                                                                     |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.6a belum dibangun                                                                                                                                                         |
+| Mockup   | tidak ada (gaya mengikuti layar Farmasi dan Logistik)                                                                                                                                                                       |
+| Kode web | `apps/web/src/app/(staf)/penunjang/depo/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getDepoData`) · aturan `apps/web/src/lib/penunjang-depo.ts` · komponen `apps/web/src/components/penunjang/depo-*.tsx` |
+| Kode API | belum ada (rencana modul `dispensing` dengan `/api/v1/stock`, docs/01-arsitektur.md §2)                                                                                                                                     |
+
+**Tujuan.** Apoteker mengelola saldo obat per depo dan per batch: mengeluarkan obat dengan urutan FEFO (first expired,
+first out), memindahkan stok antar depo dua langkah, mengarantina batch kedaluwarsa, dan menutup stok opname.
+
+**Alur.**
+
+1. Buka **Depo & stok farmasi**. "Pilih depo" berisi Gudang farmasi, Depo rawat jalan, Depo rawat inap (bawaan), Depo
+   IGD, dan Depo kamar operasi. Ringkasan depo memuat Nilai persediaan (harga pokok per batch), Batch kedaluwarsa,
+   Segera kedaluwarsa (≤ 90 hari), dan Di bawah stok minimum.
+2. Tab **Stok & kedaluwarsa** menampilkan saldo per obat dan batch dengan tanggal kedaluwarsa. Batch Omeprazol
+   OMZ2509 di depo rawat inap bertanda "Kedaluwarsa"; tekan **Pindahkan ke karantina**.
+3. Tab **Keluarkan (FEFO)**. Di "Permintaan menunggu disiapkan", pilih mis. Seftriakson untuk UDD siang Ny. Endang
+   Wijaya (10 vial), lalu **Siapkan**. Form "Pengeluaran stok" menulis "Rencana FEFO (batch ED terdekat keluar dulu)",
+   mis. "CFX2510 · 10 vial". Tekan **Keluarkan**.
+4. Untuk memakai batch lain, centang **Pilih batch lain (override FEFO, wajib alasan)**, pilih "Batch pilihan", dan isi
+   "Alasan override (minimal 10 karakter, tercatat di kartu stok)". Batch kedaluwarsa tertulis "kedaluwarsa, tidak
+   bisa dipilih".
+
+   ![Pengeluaran stok depo: rencana FEFO memilih batch kedaluwarsa terdekat, dan override ke batch lain menampilkan isian alasan wajib](./gambar/depo--fefo.png)
+
+5. Tab **Mutasi antar depo**. "Langkah 1 · Kirim dari <depo>": pilih Depo tujuan, Obat, dan Jumlah, lalu
+   **Kirim mutasi**. "Langkah 2 · Terima di depo tujuan": isi "Petugas penerima di <depo tujuan>", lalu
+   **Konfirmasi terima**.
+6. Tab **Stok opname**. Isi hitung fisik per batch (kosong = sama dengan sistem). Bila ada selisih, isi "Alasan selisih
+   (wajib, minimal 10 karakter)" lalu tekan **Tutup opname (N selisih)**; tanpa selisih tombolnya
+   **Tutup opname tanpa selisih**.
+7. Tab **Kartu stok** menampilkan ledger: Saldo awal, Keluar ke pasien, Mutasi keluar, Mutasi masuk, Penyesuaian
+   opname, dan Karantina kedaluwarsa, dengan rujukan, petugas, dan alasan.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- FEFO otomatis: batch dengan ED terdekat yang belum kedaluwarsa keluar lebih dulu (`fefoPlan`). Memilih batch lain
+  wajib alasan minimal 10 karakter ("Memilih batch selain urutan FEFO wajib alasan (minimal 10 karakter) dan tercatat
+  di kartu stok."). Alasan tersimpan sebagai "Override FEFO: …" di kartu stok.
+- Batch kedaluwarsa tidak pernah keluar ke pasien ("Batch kedaluwarsa tidak boleh dikeluarkan. Pindahkan ke
+  karantina.") dan tidak dihitung sebagai stok yang boleh dipakai. Karantina hanya untuk batch kedaluwarsa.
+- Jumlah harus bilangan bulat lebih dari 0. Saldo tidak pernah negatif; bila kurang, "Stok yang boleh dipakai di depo
+  ini tidak cukup."
+- Mutasi dua langkah: depo asal dan tujuan berbeda, penerima minimal 5 karakter dan bukan pengirim ("Penerima harus
+  petugas lain, bukan pengirim mutasi.").
+- Selisih opname wajib alasan minimal 10 karakter.
+- Setiap perubahan saldo menjadi baris ledger; saldo selalu sama dengan jumlah ledger (`ledgerBalance`, dijaga tes).
+  Nilai persediaan dihitung dalam rupiah `bigint` (jumlah × harga pokok batch).
+- Server Action `recordDepoAction` memeriksa depo, obat, dan batch terhadap master, menolak batch kedaluwarsa,
+  override tanpa alasan, opname berselisih tanpa alasan, dan penerima yang sama dengan pengirim. Saldo di layar adalah
+  keadaan lokal sesi; server belum memeriksa kecukupan saldo.
+- Kode KFA hanya dari seed; Seftriakson 1 g tertulis "KFA belum dipetakan".
+
+**Rencana backend.** Izin rencana `stock.write`. Fase 4 potongan 4.6a membangun `/api/v1/stock`: ledger append-only,
+saldo dijaga trigger + CHECK ≥ 0, FEFO otomatis dengan override beralasan, `POST transfers` dua langkah, dan
+`POST adjustments` beralasan (keputusan fase 4 #9–#10). Rencana itu menaruh stok depo sebagai kolom di layar Farmasi;
+opname penuh baru di fase 8. Di mode api rute 404 dan menu redup.
+
+## Bank darah
+
+![Layar Bank darah: daftar permintaan darah dan stok kantong per komponen di kiri, detail permintaan dengan tahap terima, golongan, crossmatch, cek ganda, dan di samping pasien di kanan](./gambar/bank-darah.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/bank-darah`                                                                                                                                                                                                                        |
+| Pemakai  | analis lab, perawat, bidan, dokter                                                                                                                                                                                                             |
+| Komponen | S08 bank darah                                                                                                                                                                                                                                 |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                             |
+| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                  |
+| Kode web | `apps/web/src/app/(staf)/penunjang/bank-darah/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getBloodBank`) · aturan `apps/web/src/lib/penunjang-bank-darah.ts` · komponen `apps/web/src/components/penunjang/bank-darah-*.tsx` |
+| Kode API | belum ada (rencana modul `blood-bank`, docs/01-arsitektur.md §2)                                                                                                                                                                               |
+
+**Tujuan.** Mengikuti satu permintaan darah dari penerimaan sampel sampai transfusi selesai: golongan darah,
+crossmatch, pengeluaran kantong dengan cek ganda dua petugas, pindai gelang dan kantong di samping pasien, lalu
+pemantauan reaksi transfusi.
+
+**Alur.**
+
+1. Buka **Bank darah**. "Permintaan darah" memuat, antara lain, Ny. Anisa Rahmadani (PRC 2 kantong, persiapan SC cito
+   pukul 11.00, golongan O+ dari LIS) dan Ny. Maria Ulfa (permintaan baru). "Stok kantong" merangkum PRC, TC, dan FFP
+   per golongan dan menandai kantong kedaluwarsa untuk dimusnahkan.
+2. Detail permintaan menampilkan "Tahap permintaan darah": Terima permintaan, Golongan darah, Crossmatch, Cek ganda &
+   keluar, Di samping pasien, Selesai.
+3. Permintaan baru: cocokkan label sampel dengan formulir, tekan **Terima permintaan & sampel**, isi golongan ABO dan
+   "Rhesus", lalu **Simpan golongan**.
+4. Region "Crossmatch" mendaftar kantong kandidat. Kantong yang tidak layak menulis alasannya, mis. KD-260830-007
+   "Kedaluwarsa". Untuk kantong layak, tekan **Hasil kompatibel** atau **Inkompatibel**. Ringkasan menjadi "2 dari 2
+   kantong kompatibel".
+5. Form "Cek ganda pengeluaran kantong": pilih "Kantong (sudah crossmatch kompatibel)", centang lima "Butir cek ganda
+   (dibacakan bersama)", isi "Petugas 2 (penerima dari ruangan)" (Petugas 1 = pemakai), lalu **Keluarkan kantong**.
+
+   ![Cek ganda pengeluaran kantong darah: lima butir yang dibacakan bersama, petugas bank darah dan petugas ruangan, serta tombol Keluarkan kantong](./gambar/bank-darah--cek-ganda.png)
+
+6. "Verifikasi di samping pasien": isi "Pindai gelang pasien (No. RM)" dan "Pindai label kantong" (tombol **Pindai**
+   mengisi hasil pindai simulasi), isi TTV sebelum mulai, lalu **Cocokkan dan mulai transfusi**. Bila barcode tidak
+   terbaca, centang "Barcode tidak terbaca: verifikasi manual dua petugas (alasan tercatat)".
+7. "Pemantauan transfusi" berstatus "Berjalan" dengan jadwal TTV Sebelum mulai, 15 menit, 1 jam, dan Selesai. Di form
+   "Catat TTV transfusi" isi tanda vital dan "Gejala (centang bila ada)", lalu **Catat TTV**. Tekan
+   **Transfusi selesai** bila tuntas tanpa reaksi.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Kompatibilitas ABO/Rh (`compatible`): sel darah merah (PRC) mengikuti antigen donor dan pasien Rh-negatif hanya
+  menerima sel Rh-negatif; plasma dan trombosit mengikuti antibodi donor (AB = donor plasma universal). Kantong
+  inkompatibel atau kedaluwarsa tidak pernah keluar, tanpa override.
+- Crossmatch butuh golongan pasien, komponen sesuai permintaan, dan kantong yang belum dipegang pasien lain.
+- Pengeluaran butuh crossmatch kompatibel, dua petugas berbeda dengan nama masing-masing minimal 5 karakter ("Cek
+  ganda wajib dua petugas …", "Petugas pemeriksa kedua harus orang lain."), dan kelima butir dicentang ("Semua butir
+  cek ganda wajib dicentang.").
+- Di samping pasien, gelang yang tidak cocok dengan RM memblokir tanpa override: "Gelang pasien tidak cocok dengan
+  permintaan. Hentikan: jangan pasang kantong." Kantong yang bukan kantong keluaran untuk pasien itu juga ditolak.
+  Verifikasi manual hanya bila barcode tidak terbaca, dengan alasan minimal 10 karakter dan petugas kedua.
+- Reaksi transfusi (`reactionCheck`): gejala apa pun, suhu naik ≥ 1 °C dari awal, atau sistolik turun ≥ 30 mmHg.
+  Layar menulis "Dugaan reaksi transfusi", menghentikan transfusi ("Dihentikan · reaksi"), dan meminta jalur infus
+  dipertahankan dengan NaCl 0,9% serta DPJP dan bank darah dilapori.
+- Server Action `recordBloodAction` mencari permintaan dan kantong di fixture. Golongan dari fixture menang atas kiriman
+  klien. Server menegakkan komponen, kedaluwarsa, kompatibilitas, dua petugas, kelima butir, dan gelang. Crossmatch dan
+  pengeluaran yang terjadi di sesi ini adalah keadaan lokal, jadi server belum memeriksanya.
+
+**Rencana backend.** Izin rencana `blood.write`. Fase 4 potongan 4.9 membangun modul `blood-bank` (stok kantong,
+crossmatch, pengeluaran, reaksi transfusi, event `blood.unit_issued`). Rencana memakai nama izin `blood_bank` untuk
+analis lab dan menetapkan bank darah tanpa layar (keputusan fase 4 #1), jadi layar demo ini mendahului rencana.
+Keputusan #22 (darah darurat golongan O tanpa crossmatch dengan alasan dokter) belum ada di demo. Di mode api rute 404
+dan menu redup.
+
+## Gizi
+
+![Layar Gizi: tab Distribusi makan dengan pilihan jam makan, chip jumlah baki, puasa, konflik alergi, dan order belum diverifikasi, lalu kartu distribusi per bangsal berisi baki pasien](./gambar/gizi.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rute     | `/penunjang/gizi`                                                                                                                                                                                                                    |
+| Pemakai  | perawat, dokter (peran `nutrisionis` belum ada di katalog peran)                                                                                                                                                                     |
+| Komponen | S07 gizi                                                                                                                                                                                                                             |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                   |
+| Mockup   | tidak ada (gaya mengikuti layar penunjang lain)                                                                                                                                                                                      |
+| Kode web | `apps/web/src/app/(staf)/penunjang/gizi/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getNutrition`) · aturan `apps/web/src/lib/penunjang-gizi.ts` · komponen `apps/web/src/components/penunjang/gizi-workspace.tsx` |
+| Kode API | belum ada (rencana modul `nutrition`, docs/01-arsitektur.md §2)                                                                                                                                                                      |
+
+**Tujuan.** Instalasi gizi memverifikasi order diet dari DPJP, melakukan skrining gizi, lalu mendistribusikan makan
+per bangsal dan jam makan dengan label baki, tanpa mengantar makanan beralergen atau makanan untuk pasien puasa.
+
+**Alur.**
+
+1. Buka **Gizi**. Tab **Distribusi makan** aktif dengan "Jam makan" Makan siang · 11.30 (pilihan lain Makan pagi ·
+   06.30 dan Makan sore · 17.00). Chip merangkum jumlah baki, puasa, konflik alergi, order belum diverifikasi, dan
+   sisa makan rata-rata.
+2. Setiap bangsal punya kartu "Distribusi <bangsal>" (Melati, Anggrek, Mawar, Paviliun VIP, ICU/ICCU) dan daftar
+   "Label baki" berisi nama, RM, bed, diet, tekstur, menu, dan alergi.
+3. Baki Ny. Wulan Sari Dewi (Bangsal Mawar) menulis "Menu makan siang mengandung alergen: udang". Tekan
+   **Ganti menu pengganti (…)**, atau **Tetap antar dengan alasan**. Baki berstatus "Diantar <jam>" dengan chip "menu
+   pengganti".
+4. Baki Tn. Sutan Batubara (Paviliun VIP) berstatus "Puasa · Persiapan angiografi koroner pukul 13.00"; tombol
+   **Antar ke bangsal** nonaktif.
+5. Baki An. Raka Pratama nonaktif karena order belum diverifikasi. **Buka order diet** membuka tab **Order diet**, tetapi
+   **Verifikasi order** masih nonaktif karena pasien belum diskrining. Di tab **Skrining gizi**, isi "Penurunan berat
+   badan tanpa disengaja (6 bulan)", centang "Asupan makan berkurang karena nafsu makan turun (1)" bila ada, lalu
+   **Simpan skrining**.
+6. Di tab **Order diet**, tekan **Verifikasi order** pada An. Raka. Kembali ke **Distribusi makan**; tombol
+   **Antar ke bangsal** kini aktif.
+7. Setelah diantar, pilih "Sisa makanan" (0–100%) lalu **Konfirmasi diterima pasien**.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Order diet yang belum diverifikasi tidak boleh diantar ("Order diet belum diverifikasi ahli gizi; makanan belum
+  boleh disiapkan untuk diantar."). **Verifikasi order** nonaktif sampai pasien diskrining ("Skrining gizi dulu (tab
+  Skrining gizi).").
+- Pasien puasa tidak pernah diantar makanan, tanpa override ("Pasien sedang puasa. Makanan tidak diantar sampai puasa
+  dicabut DPJP.").
+- Menu yang mengandung alergen pasien (pencocokan bahan, tidak peka huruf besar) ditahan. Pilihannya: ganti menu
+  pengganti, atau **Tetap antar dengan alasan** minimal 10 karakter yang tercatat ("Override alergi tercatat: …").
+- Skrining memakai Malnutrition Screening Tool (MST): skor penurunan berat badan 0–4 ditambah 1 bila nafsu makan turun.
+  Skor ≥ 2 = berisiko malnutrisi, asuhan gizi oleh ahli gizi ≤ 24 jam.
+- Server Action `recordGiziAction` mencari order di fixture dan menjalankan `deliveryGate` yang sama. Status verifikasi
+  dan skrining yang dibuat di sesi ini dikirim klien sebagai tanda boolean, karena belum ada penyimpanan.
+
+**Rencana backend.** Izin rencana `nutrition.write`. Fase 4 potongan 4.9 membangun modul `nutrition` (order diet,
+daftar makan per ruang × jam makan, label, sisa makanan; asuhan gizi lewat formulir P07). Komentar `screens.ts`
+mencatat peran `nutrisionis` (keputusan fase 4 #21) belum ada di katalog, jadi sementara layar dipakai perawat dan
+dokter. Rencana fase 4 #1 menetapkan gizi tanpa layar (cetak HTML); layar demo ini mendahului rencana. Di mode api
+rute 404 dan menu redup.
+
+## Mikrobiologi & PA
+
+![Layar Mikrobiologi dan patologi anatomi: tab Kultur dan uji kepekaan dengan daftar kultur di kiri, detail kultur dengan tahap inkubasi sampai laporan akhir dan pilihan organisme di kanan](./gambar/mikro.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/mikrobiologi`                                                                                                                                                                                                                    |
+| Pemakai  | analis lab, dokter                                                                                                                                                                                                                           |
+| Komponen | S02 mikrobiologi dan patologi anatomi                                                                                                                                                                                                        |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                           |
+| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                |
+| Kode web | `apps/web/src/app/(staf)/penunjang/mikrobiologi/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getMicroPa`) · aturan `apps/web/src/lib/penunjang-mikro.ts` · komponen `apps/web/src/components/penunjang/mikro-workspace.tsx` |
+| Kode API | belum ada (rencana modul `micro-pa`, docs/01-arsitektur.md §2)                                                                                                                                                                               |
+
+**Tujuan.** Menjalankan kultur bertahap sampai uji kepekaan antibiotik dan laporan akhir ber-TTE, serta laporan
+patologi anatomi yang terkunci setelah ditandatangani. Kultur darah positif diteruskan sebagai nilai kritis.
+
+**Alur.**
+
+1. Buka **Mikrobiologi & PA**. Tab **Kultur & uji kepekaan** aktif. Kultur pertama, kultur darah Ny. Siti Aminah
+   (L2610040398, ICU 7), sudah tumbuh batang Gram negatif dan menunggu identifikasi.
+2. "Tahap kultur": Inkubasi, Pewarnaan Gram, Identifikasi, Uji kepekaan, Validasi & TTE, Laporan akhir. Kultur yang
+   masih inkubasi memakai **Catat tumbuh**; tahap Gram memakai "Hasil pewarnaan Gram" dan **Simpan dan kirim laporan
+   awal**.
+3. Pilih "Organisme (daftar lokal, batang gram negatif)", mis. Escherichia coli, lalu **Simpan identifikasi**.
+4. Form "Uji kepekaan antibiotik" mendaftar panel sesuai Gram (mis. Ampisilin sampai Kotrimoksazol). Antibiotik yang
+   termasuk alergi pasien ditandai "alergi pasien". Isi S/I/R tiap baris, lalu **Simpan uji kepekaan**.
+5. Tekan **Validasi & TTE (dr. Maya Lestari, Sp.PK)**. Layar menulis "✓ Laporan akhir ditandatangani …".
+6. Tab **Patologi anatomi**: pilih kasus di "Daftar patologi anatomi", mis. biopsi kolon Ny. Maria Ulfa. Isi
+   "Makroskopik", "Mikroskopik", dan "Diagnosis (kesimpulan)", lalu **Tandatangani (TTE dr. Hendra Wiguna, Sp.PA)**.
+   Status menjadi "… terkunci" dan isian menjadi hanya-baca.
+7. Koreksi setelah TTE lewat "Addendum (laporan asli tidak diubah)" dan **Tambah addendum**.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Tahap kultur berurutan dan tidak bisa dilompati (`applyCulture`): "Langkah ini belum bisa dilakukan; selesaikan
+  tahap sebelumnya dulu."
+- Organisme harus dari daftar lokal yang sesuai hasil Gram ("Organisme tidak sesuai dengan hasil pewarnaan Gram.").
+  Pemetaan SNOMED menyusul (keputusan fase 4 #20).
+- Semua antibiotik di panel wajib diisi S/I/R sebelum disimpan ("Semua antibiotik di panel wajib diisi S/I/R sebelum
+  disimpan.").
+- Pewarnaan Gram pada kultur darah adalah nilai kritis. Layar menautkan ke [Pusat hasil kritis](#pusat-hasil-kritis)
+  untuk pelaporan dengan read-back.
+- TTE PA butuh ketiga isian minimal 10 karakter ("Isian wajib minimal 10 karakter."). Setelah TTE laporan terkunci;
+  addendum hanya untuk laporan ber-TTE dan minimal 10 karakter. Isi lama tidak pernah diubah (rekam medis immutable).
+- Server Action `recordMicroAction` menegakkan kosakata Gram, organisme per Gram, kelengkapan panel S/I/R, dan panjang
+  isian PA. Urutan tahap di sesi ini dijaga layar; server belum memeriksanya.
+- Di mode presentasi analis lab menjalankan TTE atas nama dokter Sp.PK dan Sp.PA fiktif. Pemisahan peran dibangun di
+  fase 4.
+
+**Rencana backend.** Izin rencana `lab.write`. Fase 4 potongan 4.8 membangun modul `micro-pa`: kultur bertahap, isolat,
+S/I/R + MIC, PA dengan gambar (P08) + TTE, dan `GET micro/antibiogram` untuk PPRA. Rencana menaruh mikrobiologi sebagai
+tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mode api rute 404 dan menu redup.
+
+## Diagnostik lain
+
+![Layar Diagnostik lain: saringan jenis pemeriksaan, worklist EKG, ekokardiografi, endoskopi, dan rehabilitasi medik di kiri, detail pemeriksaan dengan tahap order sampai ekspertise ber-TTE di kanan](./gambar/diagnostik.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/diagnostik`                                                                                                                                                                                                                                 |
+| Pemakai  | dokter, perawat                                                                                                                                                                                                                                         |
+| Komponen | S10 penunjang diagnostik lain                                                                                                                                                                                                                           |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                                      |
+| Mockup   | tidak ada (gaya mengikuti layar Radiologi)                                                                                                                                                                                                              |
+| Kode web | `apps/web/src/app/(staf)/penunjang/diagnostik/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getDiagOrders`) · aturan `apps/web/src/lib/penunjang-diagnostik.ts` · komponen `apps/web/src/components/penunjang/diagnostik-workspace.tsx` |
+| Kode API | belum ada (rencana modul `diagnostics`, docs/01-arsitektur.md §2)                                                                                                                                                                                       |
+
+**Tujuan.** Menjalankan pemeriksaan EKG, ekokardiografi, endoskopi, dan rehabilitasi medik dari order sampai
+ekspertise terstruktur per templat yang ditandatangani dokter pembaca. Temuan kritis diteruskan ke jalur S09.
+
+**Alur.**
+
+1. Buka **Diagnostik lain**. Saring dengan "Saring jenis pemeriksaan". "Worklist diagnostik" menampilkan tahap tiap
+   order: Order diterima, Terjadwal, Dilaksanakan, Ekspertise ber-TTE.
+2. Pilih Tn. Ahmad Fauzi (IGD B7, EKG cito). "Detail pemeriksaan" menulis "EKG 12 sadapan" dan "ICD-9-CM 89.52".
+   Ekokardiografi memakai ICD-9-CM 88.72; endoskopi dan rehab medik tertulis "ICD-9-CM belum dipetakan".
+3. Di "Jadwalkan pemeriksaan" pilih "Slot jadwal" (mis. "Segera (cito, di tempat)"), lalu **Jadwalkan**.
+4. Centang "Identitas pasien dicocokkan (nama + tanggal lahir / RM di gelang)", lalu
+   **Mulai dan catat pelaksanaan**.
+5. Isi form "Ekspertise EKG 12 sadapan": Irama, Laju jantung, Aksis, Segmen ST / gelombang T, dan Kesimpulan. Centang
+   "Temuan kritis (mis. STEMI, aritmia mengancam) → laporkan dengan read-back" bila perlu.
+6. Tekan **Simpan dan tandatangani (TTE dr. Bagus Santoso, Sp.JP)**. Layar menulis "Ekspertise ditandatangani dr.
+   Bagus Santoso, Sp.JP …". Bila temuan kritis dicentang, layar menautkan ke Pusat hasil kritis.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Tahap berurutan (`applyDiag`): jadwal hanya dari tahap order, pelaksanaan hanya setelah terjadwal, TTE hanya setelah
+  dilaksanakan.
+- Slot harus dari daftar slot templat ("Pilih slot jadwal yang tersedia.").
+- Pemeriksaan tidak bisa dimulai tanpa konfirmasi identitas ("Konfirmasi identitas pasien (dua pengenal) sebelum
+  pemeriksaan dimulai.").
+- Semua isian ekspertise templat wajib diisi sebelum TTE ("Semua isian ekspertise wajib diisi sebelum
+  ditandatangani.").
+- Kode ICD-9-CM hanya dari seed (89.52, 88.72); selebihnya "belum dipetakan".
+- Server Action `recordDiagAction` mencari order di fixture dan menegakkan slot, identitas, dan kelengkapan isian.
+- Di mode presentasi dokter dan perawat sama-sama bisa menekan TTE atas nama dokter pembaca fiktif. Temuan kritis yang
+  dicentang belum muncul di Pusat hasil kritis karena keadaan antarlayar tidak disimpan.
+
+**Rencana backend.** Izin rencana `diagnostic.write`. Fase 4 potongan 4.8 membangun modul `diagnostics`: order F3-1 +
+isian formulir P07 (lima formulir diseed) + lampiran P08 + TTE, event `diagnostic.report_signed`. Rencana menampilkan
+hasil S10 di panel hasil fase 3 (keputusan fase 4 #1), bukan layar sendiri. Di mode api rute 404 dan menu redup.
 
 ## Tes yang menjaga layar ini
 
@@ -248,6 +625,11 @@ E2E mode presentasi (Playwright):
   skenario resep Tn. Suryo, dosis CT wajib, ekspertise ber-TTE, tablet 768 px tanpa scroll horizontal.
 - `apps/web/e2e/demo/btn.spec.ts` (blok "kamar operasi"): insisi terkunci sampai time out lengkap, override wajib
   beralasan.
+- `apps/web/e2e/demo/fe3-penunjang-integrasi.spec.ts` (blok S09, S05, S08, S07, S02, S10, S06): hasil kritis tidak
+  tertutup tanpa penerima dan read-back, FEFO dan override beralasan, karantina batch kedaluwarsa, crossmatch → cek
+  ganda dua petugas → pindai gelang → reaksi menghentikan transfusi, alergi makanan dan puasa menahan baki, kultur
+  sampai TTE dan PA terkunci dengan addendum, EKG cito ber-TTE, induksi terkunci sampai asesmen pra-anestesi ber-TTE,
+  dan depo tanpa scroll horizontal di tablet 768 px.
 - `apps/web/e2e/demo/semua-layar.spec.ts`: jaring pengaman semua layar dan QA visual.
 
 Unit:
@@ -255,12 +637,19 @@ Unit:
 - `apps/web/src/lib/penunjang.test.ts`, `penunjang-farmasi.test.ts`, `penunjang-radiologi.test.ts`,
   `penunjang-skenario.test.ts` (gerbang server per aksi dan skenario).
 - `apps/web/src/lib/btn-ok.test.ts` (gerbang time out, hitung kasa).
+- `apps/web/src/lib/penunjang-kritis.test.ts`, `penunjang-depo.test.ts`, `penunjang-bank-darah.test.ts`,
+  `penunjang-gizi.test.ts`, `penunjang-mikro.test.ts`, `penunjang-diagnostik.test.ts`, `penunjang-anestesi.test.ts`
+  (gerbang murni layar penunjang lanjutan).
 - `apps/web/src/lib/demo/fixtures/fixtures.test.ts`.
 
 ## Lihat juga
 
 - [Fitur klinis (RME)](./12-fitur-klinis.md): CPOE yang mengirim order, rawat inap dan eMAR yang menerima obat.
 - [Fitur keuangan](./14-fitur-keuangan.md): tarif penunjang masuk tagihan lewat charge capture.
+- [Fitur integrasi](./15-fitur-integrasi.md#perangkat-medis): device gateway HL7 yang memasukkan hasil analyzer
+  sebagai draf, dan [SATUSEHAT](./15-fitur-integrasi.md#satusehat) yang mengirim hasil ke luar.
+- [Fitur back office](./16-fitur-back-office.md): Logistik memasok gudang farmasi yang dipakai layar Depo.
+- [Peta alur semua fase](./20-peta-alur-semua-fase.md).
 - [Rekam medis dan jejak audit](./01-cara-kerja-sistem.md#rekam-medis-dan-jejak-audit).
 - [Membuat layar web dari mockup](./03-tutorial.md#5-membuat-layar-web-dari-mockup).
 - [Simulasi dan operasional](./18-simulasi-dan-operasional.md) dan [Peta kode](./19-peta-kode.md).
