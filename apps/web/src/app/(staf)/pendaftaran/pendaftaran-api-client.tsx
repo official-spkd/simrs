@@ -13,6 +13,7 @@ import {
 import { Alert, Button, Icon } from '@simrs/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { RegQueuePreview } from '@/components/front-office/reg-quota';
 import { RegStepper, type RegStepView } from '@/components/front-office/reg-stepper';
 import { counterOptions } from '@/lib/queue-board';
 import {
@@ -157,26 +158,29 @@ export function PendaftaranApiClient({
   const guarantorOk = guarantor.mode !== 'new' || guarantor.name.trim().length >= 2;
   const done = [!!p, payerDone, payerDone && quotaOk, false];
   const active = done.findIndex((d) => !d);
+  // Teks alasan mengikuti mockup Registrasi; gerbang tambahan api (blok BPJS, kuota penuh, penanggung jawab) tetap.
   const reason = !p
-    ? 'Pilih pasien dulu.'
+    ? 'Langkah 1 belum selesai: cari pasien dulu.'
     : !payerDone
       ? payer === 'bpjs'
         ? bpjsBlock
           ? bpjsBlock
           : !eligibleOk
-            ? 'Cek kepesertaan BPJS pasien.'
+            ? 'Cek kepesertaan BPJS dulu.'
             : !reference
-              ? 'Pilih rujukan aktif atau isi nomor rujukan.'
-              : 'Lengkapi diagnosa awal ICD-10.'
+              ? manualMode
+                ? 'Isi nomor rujukan atau surat kontrol dulu.'
+                : 'Pilih rujukan aktif dulu.'
+              : 'Isi diagnosa awal dulu.'
         : 'Lengkapi penjamin.'
       : !quota
-        ? 'Pilih dokter tujuan.'
+        ? 'Pilih dokter dengan kuota tersedia.'
         : !quotaOk
           ? 'Kuota dokter ini penuh; pilih dokter lain.'
           : !guarantorOk
             ? 'Lengkapi nama penanggung jawab.'
             : !consentOk
-              ? 'Persetujuan umum wajib ditandatangani sebelum didaftarkan.'
+              ? 'Persetujuan umum belum ditandatangani pasien.'
               : '';
 
   const steps: RegStepView[] = STEPS.map((label, i) => ({
@@ -526,6 +530,21 @@ export function PendaftaranApiClient({
               setSessionId(null);
             }}
             onSession={setSessionId}
+          />
+          {/* Mockup Registrasi: pratinjau nomor antrean dari kuota dokter terpilih (nomor final dibentuk API). */}
+          <RegQueuePreview
+            label="PRATINJAU ANTREAN"
+            queueNo={p && quota ? quota.nextQueueNo : '—'}
+            line={
+              p && quota
+                ? `${/^Poli /.test(quota.poliName) ? '' : 'Poli '}${quota.poliName} · ${quota.room} · perkiraan dipanggil ${quota.eta}`
+                : 'Pilih pasien dan dokter untuk membentuk nomor antrean.'
+            }
+            note={
+              payer === 'bpjs'
+                ? 'Task ID 1–3 Antrean BPJS terkirim otomatis'
+                : 'Antrean non-JKN · tidak dikirim ke Antrean BPJS'
+            }
           />
           <ConsentPanel
             enabled={!!p}

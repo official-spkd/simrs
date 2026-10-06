@@ -45,7 +45,7 @@ export function ScheduleGrid({
         <div className="grid border-b border-line bg-subtle" style={cols}>
           <span className="px-3.5 py-2.5 text-caption font-semibold text-ink-500">Dokter · poli</span>
           {days.map((d) => (
-            <span key={d} className="px-2 py-2.5 text-caption font-semibold text-ink-700">
+            <span key={d} className="px-2 py-2.5 text-center text-caption font-semibold text-ink-700">
               {d}
             </span>
           ))}

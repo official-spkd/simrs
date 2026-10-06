@@ -204,7 +204,7 @@ describe('tombol kirim CPOE pasien skenario', () => {
   it('kunjungan biasa: kirim draf bila tidak ada blok; setelah terkirim tombol mati', () => {
     const base = { scenarioOwned: false, sendTask: null, stepActive: false, sent: false };
     expect(cpoeSendView({ ...base, gate: open })).toEqual({
-      label: 'Kirim 2 order (TTE)',
+      label: 'Tanda tangani dan kirim 2 order',
       canSend: true,
       reason: null,
     });
@@ -216,6 +216,9 @@ describe('tombol kirim CPOE pasien skenario', () => {
       label: 'Order terkirim',
       canSend: false,
     });
+    expect(cpoeSendView({ ...base, gate: open, sent: true, sentAt: '10.41' }).label).toBe(
+      'Order terkirim · 10.41',
+    );
   });
 
   it('pasien skenario dengan tugas kirim: hanya lewat tugas yang giliran DAN gerbang CDS sudah selesai', () => {

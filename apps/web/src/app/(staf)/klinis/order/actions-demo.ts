@@ -73,6 +73,6 @@ export async function sendOrdersAction(input: CpoeSendInput): Promise<CpoeSendRe
     ok: true,
     at,
     count,
-    message: `${count} order terkirim pukul ${at} · ditandatangani ${s.user.displayName} (TTE) (simulasi, tidak disimpan)`,
+    message: `Ditandatangani ${s.user.displayName} dengan TTE. Order sudah masuk antrean unit penerima (simulasi, tidak disimpan).`,
   };
 }

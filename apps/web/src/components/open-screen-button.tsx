@@ -13,11 +13,14 @@ export function OpenScreenButton({
   role,
   roleName,
   variant = 'link',
+  text,
 }: {
   screen: { id: string; label: string; ready: boolean };
   role: string | null;
   roleName: string | null;
-  variant?: 'link' | 'button';
+  variant?: 'link' | 'button' | 'outline';
+  /** Teks tombol pengganti (mis. "Lihat dari sisi pasien"); nama layar dan posisi tetap ada di `title`. */
+  text?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +33,9 @@ export function OpenScreenButton({
       <button
         type="button"
         disabled={pending}
+        title={text ? label : undefined}
+        // Teks terlihat di awal nama aksesibel (label-in-name), lalu layar dan posisi tujuannya.
+        aria-label={text && !pending ? `${text} · ${label}` : undefined}
         onClick={() =>
           startTransition(async () => {
             const r = await openScreenAsAction(screen.id, role);
@@ -40,10 +46,12 @@ export function OpenScreenButton({
           'cursor-pointer self-start font-[inherit] font-semibold disabled:cursor-wait',
           variant === 'link'
             ? 'min-h-11 border-0 bg-transparent p-0 text-left text-small text-brand-700 underline-offset-2 hover:underline'
-            : 'min-h-11 rounded-control border border-brand-800 bg-brand-600 px-4 text-small text-white',
+            : variant === 'outline'
+              ? 'min-h-11 rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900'
+              : 'min-h-11 rounded-control border border-brand-800 bg-brand-600 px-4 text-small text-white',
         )}
       >
-        {pending ? 'Membuka…' : `${label} →`}
+        {pending ? 'Membuka…' : (text ?? `${label} →`)}
       </button>
       {error && (
         <span role="alert" className="text-caption text-danger">

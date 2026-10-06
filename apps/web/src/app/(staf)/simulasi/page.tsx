@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { LogKind } from '@/lib/demo/engine/format';
 import { runScenario } from '@/lib/demo/engine/run';
 import { SCENARIO_ORDER, SCENARIOS } from '@/lib/demo/skenario';
-import { simulationView } from '@/lib/demo/simulasi-view';
+import { scenarioName, simulationView } from '@/lib/demo/simulasi-view';
 import { OpenScreenButton } from '@/components/open-screen-button';
 import { screenById } from '@/lib/screens';
 import { SYSTEM_ROLES, type SystemRoleCode } from '@simrs/shared';
@@ -17,6 +17,12 @@ import { StepCard, SummaryActions } from './step-card';
 export const metadata: Metadata = { title: 'Simulasi pasien' };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+/** Tautan di kartu ringkasan (mockup Simulasi): sisi pasien dan dasbor direksi. */
+const SUMMARY_LINKS = [
+  { id: 'app-pasien', text: 'Lihat dari sisi pasien' },
+  { id: 'dasbor', text: 'Dasbor direksi' },
+] as const;
 
 /** Tab skenario (kontrol) ↔ panel skenario aktif (halaman). */
 const SCENARIO_TABS = 'simulasi-skenario';
@@ -189,7 +195,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
 
         <div className="flex flex-wrap items-start gap-5">
           <section aria-label="Langkah aktif" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
-            {v.step && <StepCard step={v.step} rev={runs.rev} activeHref="/simulasi" />}
+            {v.step && <StepCard step={v.step} rev={runs.rev} activeHref="/simulasi" finished={v.finished} />}
             {v.summary && (
               <div className="overflow-hidden rounded-card border border-line bg-white">
                 <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,rgba(30,107,52,0.10),#FFFFFF_60%)] p-[18px]">
@@ -248,10 +254,9 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                 <SummaryActions
                   rev={runs.rev}
                   scenario={runs.active}
-                  nextScenario={{ id: nextId, label: SCENARIOS[nextId].label }}
-                />
-                <div className="flex flex-wrap gap-4 px-[18px] pb-4">
-                  {(['dasbor', 'app-pasien'] as const).map((id) => {
+                  nextScenario={{ id: nextId, label: scenarioName(SCENARIOS[nextId]) }}
+                >
+                  {SUMMARY_LINKS.map(({ id, text }) => {
                     const target = screenById(id);
                     if (!target || target.status === 'belum') return null;
                     const role = target.demoRoles === 'semua' ? null : (target.demoRoles[0] ?? null);
@@ -261,10 +266,12 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                         screen={{ id: target.id, label: target.label, ready: true }}
                         role={role}
                         roleName={role ? SYSTEM_ROLES[role as SystemRoleCode] : null}
+                        variant="outline"
+                        text={text}
                       />
                     );
                   })}
-                </div>
+                </SummaryActions>
               </div>
             )}
           </section>

@@ -9,7 +9,7 @@ import {
   recordRows,
   scenarioSummary,
 } from './engine/summary';
-import type { RunResult } from './engine/types';
+import type { RunResult, ScenarioDef } from './engine/types';
 
 /**
  * Model tampilan layar Simulasi (mockup `Simulasi.dc.html`), dihitung di server dari hasil replay. Semuanya bisa
@@ -97,6 +97,9 @@ export interface SimulationView {
   activeStep: number;
   stepsCount: number;
 }
+
+/** Nama skenario untuk teks (bukan tab), mis. "Bedah elektif · BTN". */
+export const scenarioName = (def: Pick<ScenarioDef, 'label' | 'name'>) => def.name ?? def.label;
 
 const roleName = (r: SystemRoleCode | null) => (r ? SYSTEM_ROLES[r] : null);
 
@@ -226,8 +229,8 @@ export function simulationView(R: RunResult, view: number | null): SimulationVie
     const maxT = Math.max(1, ...sum.bars.map((b) => b.wait + b.service));
     const start = def.showDay ? fmt(def.startMin) : `${formatSimDate(def)} ${fmt(def.startMin)}`;
     summary = {
-      title: `${def.label}: ${R.rec.nama}`,
-      sub: `Datang ${start}, pulang ${R.rec.pulangAt != null ? fmt(R.rec.pulangAt) : '—'}. Semua data di bawah dihasilkan dari keputusan di tiap langkah.`,
+      title: `${scenarioName(def)}: ${R.rec.nama}`,
+      sub: `Datang ${start}, pulang ${R.rec.pulangAt != null ? fmt(R.rec.pulangAt) : '—'}. Semua data di bawah dihasilkan dari keputusan Anda di tiap langkah.`,
       stats: [
         {
           label: 'Lama di rumah sakit',
@@ -279,7 +282,7 @@ export function simulationView(R: RunResult, view: number | null): SimulationVie
     patient: {
       initials: R.rec.initials,
       nama: R.rec.nama,
-      meta: `${R.rec.jk} · ${R.rec.umur} th · RM ${R.rec.rm} · ${def.label}`,
+      meta: `${R.rec.jk} · ${R.rec.umur} th · RM ${R.rec.rm} · ${scenarioName(def)}`,
       alergi: `Alergi: ${R.rec.alergi}`,
       riwayat: R.rec.riwayat,
       penjamin: R.rec.penjamin,

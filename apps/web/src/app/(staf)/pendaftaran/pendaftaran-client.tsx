@@ -217,8 +217,10 @@ export function PendaftaranClient({
             <span aria-hidden="true" className="size-2 rounded-full bg-[#16A34A]" />
             VClaim {vclaimLatencyMs} ms
           </span>
-          <span className="text-small text-ink-700">Antrean loket: {waiting} menunggu</span>
-          <Button variant="primary" disabled={working} onClick={callNext}>
+          <span className="inline-flex h-9 items-center rounded-control bg-muted px-3 text-caption text-ink-700">
+            Antrean loket: {waiting} menunggu
+          </span>
+          <Button disabled={working} onClick={callNext}>
             <Icon name="bell" size={16} />
             Panggil berikutnya · {headerTicket}
           </Button>
@@ -353,7 +355,10 @@ export function PendaftaranClient({
                 Terdaftar pukul {f.done.at} · antrean {f.done.queueNo}
                 {bpjs && sepNo ? ` · SEP ${sepNo}` : ''}.
               </Alert>
-              <Link href="/display/antrean" className="text-small font-semibold">
+              <Link
+                href="/display/antrean"
+                className="inline-flex min-h-12 items-center justify-center rounded-control border border-brand-800 bg-btn-primary px-4 font-semibold text-white no-underline shadow-button"
+              >
                 Lihat antrean
               </Link>
             </div>
@@ -368,6 +373,7 @@ export function PendaftaranClient({
           </Button>
           {f.done && (
             <Button
+              variant="ghost"
               onClick={() => {
                 setNotice(null);
                 f.load(null, '');

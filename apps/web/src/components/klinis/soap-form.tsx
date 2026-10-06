@@ -32,6 +32,7 @@ export function SoapForm({
   tasks,
   cpoeHref,
   kasirHref,
+  createdFallback = null,
   onSigned,
 }: {
   encounter: PoliEncounter;
@@ -46,6 +47,8 @@ export function SoapForm({
   tasks: ScenarioTasks;
   cpoeHref: string;
   kasirHref: string | null;
+  /** Jam pasien dipanggil di layar ini: jam "dibuat" bila catatan belum punya draf. */
+  createdFallback?: string | null;
   onSigned: (at: string) => void;
 }) {
   const e = encounter;
@@ -55,6 +58,8 @@ export function SoapForm({
   const [dx, setDx] = useState<EncounterDiagnosis[]>(e.diagnoses);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState(e.soap.savedAt);
+  /** true setelah dokter menekan "Simpan draf" (mockup: "Draf disimpan", bukan "tersimpan otomatis"). */
+  const [savedManually, setSavedManually] = useState(false);
   const [signedAt, setSignedAt] = useState(e.soap.signedAt);
   /** Jam simpan CPPT residen yang menunggu co-sign DPJP (belum final). */
   const [cosignAt, setCosignAt] = useState<string | null>(null);
@@ -91,6 +96,7 @@ export function SoapForm({
       setMsg(r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Gagal menyimpan.' });
       if (r.ok && r.at) {
         setSavedAt(r.at);
+        setSavedManually(true);
         setDirty(false);
       }
     });
@@ -116,7 +122,11 @@ export function SoapForm({
   if (signed) [draftLabel, draftTone] = [`Final · ditandatangani ${signedAt}`, 'bg-success'];
   else if (cosignAt) [draftLabel, draftTone] = [`Menunggu co-sign DPJP · disimpan ${cosignAt}`, 'bg-warning'];
   else if (dirty) [draftLabel, draftTone] = ['Perubahan belum disimpan', 'bg-warning'];
-  else if (savedAt) [draftLabel, draftTone] = [`Draf tersimpan ${savedAt}`, 'bg-success'];
+  else if (savedAt)
+    [draftLabel, draftTone] = [
+      savedManually ? `Draf disimpan ${savedAt}` : `Draf tersimpan otomatis ${savedAt}`,
+      'bg-success',
+    ];
 
   const finishWhy = signed
     ? null
@@ -249,7 +259,7 @@ export function SoapForm({
       )}
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-line-soft pt-2">
         <span className="text-caption text-ink-500">
-          Penulis: {e.soap.author} · dibuat {e.soap.createdAt ?? '—'} ·{' '}
+          Penulis: {e.soap.author} · dibuat {e.soap.createdAt ?? createdFallback ?? '—'} ·{' '}
           {signed ? 'versi 2 (final)' : cosignAt ? 'versi 1 (menunggu co-sign DPJP)' : 'versi 1 (draf)'} ·
           setiap perubahan tercatat
         </span>
