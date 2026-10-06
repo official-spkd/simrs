@@ -1,8 +1,10 @@
 # Fitur platform
 
-Halaman ini menjelaskan layar platform fase 1 dari sisi pemakai: tujuan, alur langkah demi langkah, dan aturan yang dijaga sistem. Semua layar di sini tersambung ke API sungguhan (mode api). Cara kerja di balik layar ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md) dan [Cara kode bekerja](./02-cara-kerja-kode.md); halaman ini hanya meringkas dan menautkannya.
+Halaman ini menjelaskan layar platform fase 1 dari sisi pemakai: tujuan, alur langkah demi langkah, dan aturan yang dijaga sistem. Layar fase 1 di bagian atas tersambung ke API sungguhan (mode api); lima layar tambahan di bagian bawah masih mode presentasi. Cara kerja di balik layar ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md) dan [Cara kode bekerja](./02-cara-kerja-kode.md); halaman ini hanya meringkas dan menautkannya.
 
-> Status 6 Okt 2026: fase 1 selesai (5 Okt 2026). Semua layar di bawah tersambung ke API di semua lingkungan dan dijaga tes E2E. Menu dan tombol hanya kenyamanan; izin selalu ditegakkan ulang oleh API.
+> Status 6 Okt 2026: fase 1 selesai (5 Okt 2026). Layar fase 1 (Masuk sampai Fondasi UI) tersambung ke API di semua lingkungan dan dijaga tes E2E. Menu dan tombol hanya kenyamanan; izin selalu ditegakkan ulang oleh API.
+>
+> Lima layar tambahan (Struktur RS, Pengaturan RS, Data rujukan, Dokumen & TTE, Penjadwal pekerjaan) berstatus `demo`: hanya ada di mode presentasi, memakai data dummy fiktif, dan aksinya tidak disimpan. Sebagian komponennya sudah punya API fase 1 (P01 `facility`, P06 `ref`, P08 `documents`, P10 `settings`) dan P11 sudah punya job berkala di worker, tetapi layar baru ini belum memanggilnya. Setiap bagian menulis beda aturan demo dan API di **Rencana backend**.
 
 ## Ringkasan layar
 
@@ -22,8 +24,13 @@ Halaman ini menjelaskan layar platform fase 1 dari sisi pemakai: tujuan, alur la
 | Pendaftaran perangkat          | `/perangkat/daftar`                           | perangkat anjungan/TV, tanpa login                     | P02      | api    |
 | Panduan superadmin             | `/superadmin/panduan`                         | superadmin_platform                                    | —        | api    |
 | Fondasi UI                     | `/dev/ui`                                     | superadmin_platform                                    | —        | api    |
+| Struktur RS                    | `/sistem/struktur`                            | admin_tenant, manajemen                                | P01      | demo   |
+| Pengaturan RS                  | `/sistem/pengaturan`                          | admin_tenant                                           | P10, P12 | demo   |
+| Data rujukan                   | `/sistem/terminologi`                         | admin_tenant, koder, petugas_rm                        | P06      | demo   |
+| Dokumen & TTE                  | `/rekam-medis/dokumen`                        | petugas_rm, dokter                                     | P08      | demo   |
+| Penjadwal pekerjaan            | `/sistem/penjadwal`                           | admin_tenant                                           | P11      | demo   |
 
-Kolom Peran memakai peran bawaan (`DEFAULT_ROLE_GRANTS` di `packages/shared/src/authz.ts`). Admin RS bisa mengubah matriks itu, jadi yang menentukan tetap izinnya.
+Kolom Peran memakai peran bawaan (`DEFAULT_ROLE_GRANTS` di `packages/shared/src/authz.ts`). Admin RS bisa mengubah matriks itu, jadi yang menentukan tetap izinnya. Untuk layar `demo`, kolom Peran adalah posisi pemakai mode presentasi (`demoRoles` di `apps/web/src/lib/screens.ts`), bukan izin API.
 
 ## Masuk
 
@@ -503,6 +510,237 @@ Rincian: [UI dan sistem desain](./02-cara-kerja-kode.md#ui-dan-sistem-desain).
 
 **Mode presentasi.** Sama di kedua mode.
 
+## Struktur RS
+
+![Layar Struktur RS: empat KPI unit aktif dan bed, daftar faskes dan unit di kiri, detail unit Bangsal Melati dengan tombol Nonaktifkan terkunci karena bed masih terisi, rekap bed per kelas rawat di bawah](./gambar/struktur.png)
+
+| Hal      | Isi                                                                                                                                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/sistem/struktur`                                                                                                                                                                                             |
+| Pemakai  | admin_tenant, manajemen                                                                                                                                                                                        |
+| Komponen | P01 Tenant dan struktur faskes                                                                                                                                                                                 |
+| Status   | demo (mode presentasi); API P01 fase 1 sudah ada, layar belum disambungkan                                                                                                                                     |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Fondasi.dc.html` dan docs/08)                                                                                                                                        |
+| Kode web | `apps/web/src/app/(staf)/sistem/struktur/` · data `apps/web/src/lib/server/data/platform.ts` · aturan `apps/web/src/lib/platform-struktur.ts` · komponen `apps/web/src/components/platform/struktur-board.tsx` |
+| Kode API | `apps/api/src/modules/facility/` (fase 1; belum dipakai layar ini)                                                                                                                                             |
+
+**Tujuan.** Admin RS mengelola hierarki faskes → unit → ruang → kamar → bed beserta kelas rawat dan status aktif. Rekap bed per kelas menjadi bahan ketersediaan bed Aplicare/SIRANAP.
+
+**Alur.**
+
+1. Buka menu **SISTEM → Struktur RS**. Baca KPI **Ringkasan struktur**: **Unit aktif**, **Bed tersedia**, **Bed terisi**, **Bed nonaktif**.
+2. Pilih faskes atau unit di panel **Faskes dan unit**. Bawaan: unit Bangsal Melati terpilih; detail menampilkan **Kode**, **Jenis unit**, dan **Status**.
+3. Telusuri ke bawah lewat tombol **Buka <nama>** di tabel anak (mis. **Buka Melati lantai 3**, lalu **Buka Kamar M-212**).
+4. Tambah simpul anak: **Tambah kamar** (labelnya mengikuti jenis anak: unit, ruang, kamar, atau bed). Isi **Kode**, **Nama**, dan **Kelas rawat \*** (kamar) atau **Jenis unit** (unit). Tekan **Simpan kamar**. Stempel "Kamar M-214 ditambahkan · HH.MM" muncul dan barisnya masuk tabel.
+5. Nonaktifkan: pilih simpul → **Nonaktifkan** → dialog "Nonaktifkan kamar <nama>?" → isi **Alasan menonaktifkan** → **Ya, nonaktifkan**.
+6. Pulihkan dengan **Aktifkan kembali** → **Ya, aktifkan**.
+7. Di **Rekap bed per kelas rawat**, **Kirim ke Aplicare** memasukkan rekap ke antrean kirim (simulasi).
+8. **Riwayat perubahan** ("Hari ini · tercatat di jejak audit") mencatat jam, perubahan, dan alasannya.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Kode divalidasi skema bersama API (`FACILITY_CODE`): 1–30 karakter, huruf kapital, angka, strip. Kode unit unik per RS; kode ruang/kamar/bed unik per induk. Nama minimal 2 karakter.
+- Unit wajib punya jenis unit. Kamar di unit rawat inap wajib kelas rawat ("Kamar rawat inap wajib punya kelas rawat"). Bed mewarisi kelas kamarnya.
+- Simpul tidak bisa ditambah di bawah induk nonaktif ("… induk nonaktif; aktifkan dulu.").
+- Faskes utama tidak bisa dinonaktifkan.
+- Simpul dengan bed terisi (di dirinya atau turunannya) tidak bisa dinonaktifkan: "N bed masih terisi pasien (…). Pindahkan atau pulangkan pasien lewat ADT dulu."
+- Nonaktif berlaku untuk semua turunan dan tidak menghapus apa pun. Simpul nonaktif tidak bisa dipilih untuk pendaftaran, admisi, atau transfer baru.
+- Aktifkan kembali hanya satu simpul, dan hanya bila induknya aktif. Turunan tetap pada status masing-masing.
+- Alasan nonaktif minimal 10 huruf (dialog konfirmasi bersama, "tercatat di jejak audit").
+- Rekap bed: bed di bawah simpul nonaktif dihitung **nonaktif**, bukan tersedia.
+
+**Rencana backend.** Izin rencana `facility.write` (sudah ada di katalog; di matriks bawaan hanya admin_tenant). API fase 1 sudah ada di `modules/facility/`: `GET/POST/PATCH /facility/facilities`, `/facility/units`, `/facility/locations` dengan izin `facility.read`/`facility.write`. Bedanya dengan demo:
+
+- API menolak menonaktifkan simpul yang masih punya anak aktif (tanpa kaskade). Demo menonaktifkan seluruh turunan dan hanya menolak bila ada bed terisi.
+- Status terisi bed milik ADT dan papan bed (K04/K05), bukan modul facility.
+- API mewajibkan kelas perawatan pada bed (diisi di bed atau kamarnya). Demo mewajibkannya di kamar unit rawat inap.
+- manajemen hanya punya `facility.read`, tetapi di demo melihat tombol ubah yang sama.
+
+Kiriman Aplicare sungguhan lewat outbox K05 (lihat [Fitur klinis](./12-fitur-klinis.md)).
+
+## Pengaturan RS
+
+![Layar Pengaturan RS tab Modul aktif: chip saring lapisan dengan Penunjang terpilih, bar perubahan belum disimpan, dan kartu modul bersakelar Aktif atau Mati beserta alasan kunci](./gambar/pengaturan.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/sistem/pengaturan`                                                                                                                                                                                                                                                                        |
+| Pemakai  | admin_tenant                                                                                                                                                                                                                                                                                |
+| Komponen | P10 Konfigurasi tenant, P12 Cetak dan template                                                                                                                                                                                                                                              |
+| Status   | demo (mode presentasi); API P10 fase 1 sudah ada, P12 belum punya backend                                                                                                                                                                                                                   |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Fondasi.dc.html` dan docs/08)                                                                                                                                                                                                                     |
+| Kode web | `apps/web/src/app/(staf)/sistem/pengaturan/` · data `apps/web/src/lib/server/data/platform.ts` · aturan `apps/web/src/lib/platform-pengaturan.ts` · komponen `apps/web/src/components/platform/pengaturan-board.tsx`, `pengaturan-modul.tsx`, `pengaturan-umum.tsx`, `pengaturan-cetak.tsx` |
+| Kode API | `apps/api/src/modules/settings/` (P10, fase 1; belum dipakai layar ini) · P12 belum ada                                                                                                                                                                                                     |
+
+**Tujuan.** Admin RS menyalakan atau mematikan modul (`tenant_modules`), mengubah pengaturan umum, dan menerbitkan template cetak berversi, semuanya tanpa rilis ulang aplikasi.
+
+**Alur.**
+
+1. Tab **Modul aktif**. Saring dengan chip **Saring lapisan** (bawaan **Penunjang**; ada **Semua**). Hitungan "N aktif · M mati dari … modul" tampil di kanan.
+2. Klik sakelar modul (**Aktif**/**Mati**). Modul yang berubah diberi chip "Draf: akan diaktifkan/dimatikan".
+3. Bar **Perubahan belum disimpan** merangkum draf, mis. "2 perubahan belum disimpan: S07 → mati, S08 → aktif". **Batalkan draf** membuangnya.
+4. **Simpan perubahan** → dialog "Simpan 2 perubahan modul?" → isi **Alasan perubahan** → **Ya, simpan**. Stempel "Tersimpan · HH.MM · 2 modul berubah, berlaku tanpa rilis ulang". **Riwayat modul** mencatatnya.
+5. Tab **Pengaturan umum**: kelompok **Keamanan sesi**, **Layanan**, dan **Klinis** (mis. **Batas sesi idle (menit)**, jam layanan **Buka**/**Tutup**, batas waktu resume). Setiap isian menulis nilai bawaan ("Bawaan N").
+6. Ubah nilai lalu **Simpan pengaturan**. Stempel "Tersimpan · HH.MM · N pengaturan berubah (…)".
+7. Tab **Template cetak**: pilih di **Daftar template** (Kop surat dan resume, Label pasien, Gelang pasien dewasa, Etiket obat, Kuitansi pembayaran).
+8. Ubah **Baris kop (nama RS)**, **Baris kedua**, centang **QR verifikasi dokumen**, **Barcode nomor RM**, **Penanda alergi**, dan **Catatan kaki**. Panel **Pratinjau** langsung memakai pasien contoh fiktif beralergi (mis. "ALERGI: Amoksisilin" di gelang).
+9. **Terbitkan versi N+1** → dialog → isi **Catatan perubahan** → **Terbitkan versi N+1**. Stempel "Versi N+1 terbit · HH.MM · cetakan berikutnya memakai versi ini". **Riwayat versi** bertambah.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Modul inti (P01, P02, P03, P04, P10) tidak bisa dimatikan ("Modul inti, tidak bisa dimatikan.").
+- Modul yang dipakai modul aktif lain terkunci, mis. "Dipakai modul aktif S02; matikan itu dulu." untuk S01. Modul tidak bisa dinyalakan sebelum dependensinya aktif ("Butuh … aktif dulu.").
+- Peta dependensi `MODULE_DEPENDS` diambil dari kolom Dependensi docs/02, hanya kode tunggal. Rentang seperti "S01–S08" atau "Semua di atas" tidak dipakai sebagai gerbang.
+- Simpan modul wajib alasan minimal 10 huruf.
+- Pengaturan umum divalidasi skema `TENANT_SETTINGS` yang sama dengan API: "Isi dengan angka", "Minimal N", "Maksimal N" (mis. sesi idle 90 → "Maksimal 60"). **Simpan pengaturan** nonaktif dengan keterangan "Perbaiki isian yang ditandai merah dulu." atau "Belum ada nilai yang diubah.".
+- Template tidak bisa terbit bila:
+  - baris kop kurang dari 3 huruf;
+  - gelang tanpa penanda alergi ("Gelang pasien wajib menampilkan penanda alergi.");
+  - gelang atau label tanpa barcode nomor RM (dipakai pindai eMAR);
+  - kop atau kuitansi tanpa QR verifikasi;
+  - catatan kaki lebih dari 120 karakter.
+- Terbit wajib catatan perubahan minimal 10 huruf. Versi lama tetap tersimpan; dokumen lama dicetak ulang dengan versinya sendiri.
+
+**Rencana backend.** Izin rencana `tenant.settings.write` (sudah ada di katalog). API P10 fase 1 sudah ada di `modules/settings/`: `GET /settings`, `PUT /settings/:key`, `GET /settings/modules`, `PUT /settings/modules/:code` (izin `tenant.settings.read`/`write`). Bedanya dengan demo:
+
+- API mengubah satu modul per panggilan, tanpa alasan, dan hanya menolak mematikan modul inti (`409`). Gerbang dependensi baru ada di web.
+- Template cetak P12 belum punya tabel, API, maupun kaitan ke `@simrs/pdf`.
+
+## Data rujukan
+
+![Layar Data rujukan: KPI jumlah kode ICD-10, ICD-9-CM, LOINC, dan KFA, tab Cari kode dengan kata kunci salah ketik pnemonia dan dua hasil, J13 dan J18.9, bertanda ejaan mirip](./gambar/terminologi.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                  |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/sistem/terminologi`                                                                                                                                                                                                                                                |
+| Pemakai  | admin_tenant, koder, petugas_rm                                                                                                                                                                                                                                      |
+| Komponen | P06 Master data dan terminologi                                                                                                                                                                                                                                      |
+| Status   | demo (mode presentasi); API P06 fase 1 sudah ada (baca saja), layar belum disambungkan                                                                                                                                                                               |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Fondasi.dc.html` dan docs/08)                                                                                                                                                                                              |
+| Kode web | `apps/web/src/app/(staf)/sistem/terminologi/` · data `apps/web/src/lib/server/data/platform.ts` (fixture `lib/demo/fixtures/terminologi.ts`) · aturan `apps/web/src/lib/platform-terminologi.ts` · komponen `apps/web/src/components/platform/terminologi-board.tsx` |
+| Kode API | `apps/api/src/modules/ref/` (baca saja) · impor `pnpm db:import-ref` (`packages/db/src/ref.ts`)                                                                                                                                                                      |
+
+**Tujuan.** Mencari kode baku (ICD-10, ICD-9-CM, LOINC, KFA) dengan pencarian yang tahan salah ketik, dan memasukkan versi dataset baru lewat CSV dengan uji kering yang gagal tertutup.
+
+**Alur.**
+
+1. Buka menu **SISTEM → Data rujukan**. KPI **Ringkasan data rujukan** menampilkan jumlah kode aktif dan versi terakhir per sistem.
+2. Tab **Cari kode**: pilih **Sistem kode**, ketik **Kode atau kata kunci**. Bawaan "pnemonia" (salah ketik) menemukan J13 dan J18.9 bertanda "ejaan mirip N%".
+3. Hasil diurutkan: kode persis, awalan kode, kata di label, lalu ejaan mirip. Centang **Termasuk kode nonaktif** bila perlu. Tanpa hasil: "Tidak ada kode yang cocok.".
+4. Tab **Impor CSV** mengikuti **Tahap impor**: Pilih berkas → Uji kering → Ringkasan → Terapkan.
+5. Di **1. Pilih berkas**, pilih berkas contoh (`loinc-2.77-lab-rsfa.csv` atau `loinc-2.77-lab-rsfa-perbaikan.csv`) atau unggah CSV LOINC sendiri (diproses di browser, tidak dikirim). Centang **Versi pengganti: nonaktifkan kode yang tidak ada di berkas** bila berkas menggantikan seluruh versi.
+6. Tekan **Jalankan uji kering**. Panel **2. Ringkasan uji kering** menampilkan **Baris dibaca**, **Kode baru**, **Label berubah**, **Tetap**, dan **Dinonaktifkan**.
+7. Berkas pertama punya galat (daftar **Galat impor**: "kode 2823-3 muncul lebih dari sekali"). Judulnya "N baris galat · tidak ada yang ditulis" dan **Terapkan impor** nonaktif.
+8. Pilih berkas perbaikan → **Jalankan uji kering** → **Terapkan impor** → dialog "Terapkan <berkas>?" → **Ya, terapkan**. Stempel "Diterapkan · HH.MM · LOINC versi 2.77-contoh". Kode baru (mis. 10839-9) langsung muncul di **Cari kode**.
+9. Tab **Riwayat versi**: sistem, versi, sumber, waktu diterapkan, jumlah tambah/ubah/nonaktif. Baris sesi ini bertanda "Anda (sesi ini)".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Header CSV wajib memuat `code` dan `display`. Setiap baris divalidasi:
+  - format kode per sistem (`isValidRefCode`, termasuk check digit LOINC);
+  - label wajib, maksimal 500 karakter;
+  - kolom `active` harus dikenali (true/false, ya/tidak, aktif/nonaktif, 1/0);
+  - kode ganda dalam satu berkas ditolak.
+- Gagal tertutup: satu baris galat berarti tidak ada yang ditulis. **Terapkan impor** nonaktif dengan "Jalankan uji kering dulu." atau "Perbaiki baris galat lalu uji ulang (gagal tertutup).".
+- Kode tidak pernah diketik manual ("Hanya dataset resmi; tidak ada kode yang diketik manual"). Kode demo hanya salinan `SEED_REF_SAMPLES` dari seed.
+- Versi pengganti menonaktifkan kode lama, tidak menghapusnya.
+- Ambang kemiripan ejaan 0,35 (`FUZZY_THRESHOLD`), meniru trigram `pg_trgm` di `packages/db/src/ref.ts`.
+
+**Rencana backend.** Izin rencana `ref.write` (sudah ada di katalog; di matriks bawaan hanya admin_tenant, sedangkan koder dan petugas_rm baru `ref.read`). API P06 fase 1 hanya membaca: `GET /ref/systems`, `/ref/concepts`, `/ref/concepts/:system/:code`, `/ref/regions` (izin `ref.read`). Bedanya dengan demo:
+
+- Skema `ref` bersifat global (tanpa tenant, tanpa RLS, ADR-0018) dan diisi operator platform lewat CLI `pnpm db:import-ref`, bukan oleh admin RS di web.
+- Layar impor untuk RS perlu keputusan baru (ADR) sebelum disambungkan: siapa yang boleh mengganti versi global, atau apakah RS hanya boleh mengusulkan.
+
+Rincian: [Data rujukan (P06)](./02-cara-kerja-kode.md#data-rujukan-p06) dan [Data rujukan](./01-cara-kerja-sistem.md#data-rujukan).
+
+## Dokumen & TTE
+
+![Layar Dokumen & TTE untuk petugas rekam medis: pilihan pasien, banner pasien dengan alergi Amoksisilin, daftar dokumen dengan status tanda tangan, dan detail resume medis yang menunggu TTE](./gambar/dokumen.png)
+
+| Hal      | Isi                                                                                                                                                                                                              |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/rekam-medis/dokumen`                                                                                                                                                                                           |
+| Pemakai  | petugas_rm, dokter                                                                                                                                                                                               |
+| Komponen | P08 Dokumen dan tanda tangan elektronik                                                                                                                                                                          |
+| Status   | demo (mode presentasi); API P08 fase 1 sudah ada, layar belum disambungkan                                                                                                                                       |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Fondasi.dc.html` dan docs/08)                                                                                                                                          |
+| Kode web | `apps/web/src/app/(staf)/rekam-medis/dokumen/` · data `apps/web/src/lib/server/data/platform.ts` · aturan `apps/web/src/lib/platform-dokumen.ts` · komponen `apps/web/src/components/platform/dokumen-board.tsx` |
+| Kode API | `apps/api/src/modules/documents/` · worker `apps/worker/src/outbox/tte.ts` (fase 1; belum dipakai layar ini)                                                                                                     |
+
+**Tujuan.** Petugas rekam medis dan dokter mengelola dokumen pasien: unggah berkas ber-hash, minta tanda tangan elektronik (TTE) ke DPJP, memantau TTE yang gagal, dan melihat pratinjau halaman verifikasi QR.
+
+**Alur.**
+
+1. Buka menu **MANAJEMEN → Dokumen & TTE**. Pilih pasien di grup **Pilih pasien**. Banner pasien menampilkan nama, umur, RM, alergi, penjamin, dan DPJP.
+2. Panel **Dokumen pasien · N** ("Tidak pernah dihapus; salah unggah dibatalkan beralasan"). Pilih dokumen untuk membuka detail dengan **Tahap tanda tangan elektronik** (Unggah → Minta TTE → Tanda tangan → QR verifikasi), status, SHA-256, dan penanda tangan.
+3. Dokumen draf: **Minta TTE ke <DPJP>**. Dokumen menunggu: **Setujui sebagai <penanda tangan> (simulasi)** atau **Simulasikan gangguan TTE**.
+4. TTE gagal (mis. Surat kontrol pasca rawat inap): alert **TTE gagal** "Penyelenggara TTE tidak menjawab dalam 10 detik (3× dicoba ulang otomatis).". Tekan **Kirim ulang permintaan TTE**, lalu setujui.
+5. Setelah ditandatangani: "Ditandatangani <nama> · HH.MM" dan alert **Terkunci**. Panel **Verifikasi QR publik** menampilkan QR dan **Pratinjau halaman verifikasi** ("Dokumen asli · tanda tangan sah").
+6. Centang **Uji dengan berkas yang sudah diubah (hash berbeda)**: pratinjau berubah menjadi "Tidak cocok · isi berkas berbeda dari yang ditandatangani".
+7. **Unggah dokumen**: pilih **Jenis dokumen**, isi **Judul**, pilih **Berkas (PDF, PNG, JPEG · maks. 10 MB)**. Nama, ukuran, dan SHA-256 berkas tampil. **Isi contoh** mengisi contoh hasil EKG.
+8. **Simpan dokumen** → stempel "Tersimpan · HH.MM · SHA-256 …".
+9. **Batalkan dokumen** → dialog "Batalkan <judul>?" → isi **Alasan pembatalan** → **Ya, batalkan dokumen**. Status "Dibatalkan: <judul>".
+10. **Aktivitas sesi ini** mencatat unggah, cetak, TTE, dan batal.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Jenis berkas hanya PDF, PNG, atau JPEG: "Jenis berkas ditolak. Hanya PDF, PNG, atau JPEG (bukan Office/HTML/SVG).". Maksimal 10 MB; berkas kosong ditolak.
+- Judul 3–200 huruf dan jenis dokumen wajib (skema bersama `uploadDocumentSchema`).
+- Lampiran foto/scan tidak memerlukan TTE ("Lampiran (tanpa TTE)").
+- Dokumen bertanda tangan terkunci: tidak bisa diubah atau dibatalkan; koreksi lewat addendum.
+- Batal tidak menghapus. Alasan minimal 10 huruf (`voidDocumentSchema`).
+- Permintaan TTE ditolak bila dokumen dibatalkan, sudah ditandatangani, atau masih menunggu penanda tangan.
+- Halaman verifikasi menjawab "Kode tidak dikenal" untuk kode asing atau dokumen draf.
+
+**Rencana backend.** Izin rencana `documents.write` (sudah ada di katalog; di matriks bawaan petugas_rm baru `documents.read` + `documents.print`, dokter `documents.write` lingkup relasi). API P08 fase 1 sudah ada: `POST/GET /patients/:id/documents`, `GET /documents/:id[/content]`, `POST /documents/:id/void`, `POST /documents/:id/signatures`, verifikasi publik `GET /verification/signatures/:code`. Bedanya dengan demo:
+
+- TTE sungguhan dikirim worker lewat outbox `tte.sign` ke mock TTE. Tidak ada tombol "Setujui (simulasi)".
+- Jenis berkas di API dicek dari isi berkas (magic bytes), bukan dari ekstensi.
+- Kode verifikasi asli berformat `sv1.<tenant>.<acak>`. Halaman verifikasi asli ([Verifikasi QR dokumen](#verifikasi-qr-dokumen)) tidak menampilkan identitas pasien sama sekali, sedangkan pratinjau demo menampilkan nama tersamar.
+
+Rincian: [Dokumen dan TTE (P08)](./02-cara-kerja-kode.md#dokumen-dan-tte-p08) dan [Dokumen dan tanda tangan elektronik](./01-cara-kerja-sistem.md#dokumen-dan-tanda-tangan-elektronik).
+
+## Penjadwal pekerjaan
+
+![Layar Penjadwal pekerjaan: KPI job aktif, gagal saat ini, jalan gagal 24 jam, dan terlambat; tabel job berkala; detail job Sinkron ketersediaan bed ke Aplicare dengan alert jalan terakhir gagal](./gambar/penjadwal.png)
+
+| Hal      | Isi                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/sistem/penjadwal`                                                                                                                                                                                               |
+| Pemakai  | admin_tenant                                                                                                                                                                                                      |
+| Komponen | P11 Penjadwal pekerjaan                                                                                                                                                                                           |
+| Status   | demo (mode presentasi); job berkala sudah berjalan di worker, tetapi pemantauan dan kendalinya belum punya backend                                                                                                |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Fondasi.dc.html` dan docs/08)                                                                                                                                           |
+| Kode web | `apps/web/src/app/(staf)/sistem/penjadwal/` · data `apps/web/src/lib/server/data/platform.ts` · aturan `apps/web/src/lib/platform-penjadwal.ts` · komponen `apps/web/src/components/platform/penjadwal-board.tsx` |
+| Kode API | belum ada · job berkala di `apps/worker/src/jobs/periodic-jobs.ts`                                                                                                                                                |
+
+**Tujuan.** Admin RS memantau job berkala (sinkron Aplicare, laporan RL, backup, jangkar audit, outbox, pengingat), menjalankan ulang job yang gagal, dan menjeda job dengan alasan.
+
+**Alur.**
+
+1. Buka menu **SISTEM → Penjadwal pekerjaan**. Baca KPI **Ringkasan job**: **Job aktif**, **Gagal saat ini**, **Jalan gagal 24 jam**, **Terlambat**.
+2. Tabel **Job berkala** menampilkan **Jadwal**, **Terakhir jalan**, **Status**, dan komponen pemilik. Buka job dengan tombol **Detail** di barisnya.
+3. Detail job gagal menampilkan alert **Jalan terakhir gagal** (mis. "Aplicare menjawab 503"). Job dijeda menampilkan alert **Dijeda** beserta alasannya.
+4. **Jalankan ulang** (job gagal) atau **Jalankan sekarang** → dialog "Jalankan <job> sekarang?" → **Ya, jalankan**.
+5. Job berisiko (mis. Laporan RL/SIRS Online bulanan) meminta **Alasan menjalankan manual** sebelum **Ya, jalankan** aktif.
+6. Stempel "<job> selesai · HH.MM · berhasil (jalan manual)". **Riwayat jalan** mendapat baris baru bertanda **Manual**.
+7. **Jeda** → isi **Alasan menjeda** → **Ya, jeda**. **Lanjutkan** → **Ya, lanjutkan** (stempel "dilanjutkan · HH.MM").
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Job dijeda tidak bisa dijalankan: "Job dijeda; lanjutkan dulu sebelum menjalankan.". Job yang sedang berjalan tidak bisa dijalankan lagi.
+- Jalan manual memakai kunci idempoten yang sama, jadi pesan yang sudah terkirim tidak terkirim dua kali.
+- Job yang menyentuh pihak luar atau data besar (`sensitive`: laporan RL, backup per jam, pengingat WhatsApp) wajib alasan minimal 10 huruf. Jeda selalu wajib alasan.
+- Kesehatan job: **Gagal** bila jalan terakhir gagal; **Terlambat** bila jalan berhasil terakhir lebih tua dari 2× selang jadwal; **Dijeda**.
+- Riwayat jalan disimpan maksimal 8 baris per job.
+
+**Rencana backend.** Izin rencana `jobs.manage` (belum ada di `PERMISSION_CATALOG`). Job berkala sungguhan sudah ada di worker: peta `PERIODIC_JOBS`, `PeriodicScheduler`, antrean BullMQ `periodic` ([Job berkala (P11)](./02-cara-kerja-kode.md#job-berkala-p11)). Yang belum ada:
+
+- riwayat jalan per tenant, jeda, dan jalan manual lewat API;
+- sebagian job di daftar demo (laporan RL, KFA, pengingat kontrol, paket cetak darurat).
+
+Backup di daftar demo tampil sebagai job P11 ("Tiap jam · menit 00"), padahal backup sungguhan dijalankan cron di host ops pada menit 05 ([Backup dan restore](./04-backup-restore.md#4-jadwal-host-ops)).
+
 ## Tes yang menjaga layar ini
 
 | Layar                               | E2E (`apps/web/e2e/`)                                                                     | Tes lain                                                                                                           |
@@ -520,6 +758,11 @@ Rincian: [UI dan sistem desain](./02-cara-kerja-kode.md#ui-dan-sistem-desain).
 | Verifikasi QR                       | `verifikasi.spec.ts`                                                                      | `apps/api/test/documents.suite.ts` (lewat `documents.test.ts` dan `documents-s3.test.ts`)                          |
 | Panduan superadmin                  | `panduan.spec.ts`                                                                         | `apps/web/src/lib/guide.test.ts`                                                                                   |
 | Fondasi UI                          | `smoke.spec.ts` (`/dev/ui`), `demo/fondasi.spec.ts`                                       | —                                                                                                                  |
+| Struktur RS                         | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts`                                   | `apps/web/src/lib/platform-struktur.test.ts` · API: `apps/api/test/facility.test.ts`                               |
+| Pengaturan RS                       | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts`                                   | `apps/web/src/lib/platform-pengaturan.test.ts`                                                                     |
+| Data rujukan                        | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts`                                   | `apps/web/src/lib/platform-terminologi.test.ts` · API: `apps/api/test/ref.test.ts`                                 |
+| Dokumen & TTE                       | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts`                                   | `apps/web/src/lib/platform-dokumen.test.ts` · API: `apps/api/test/documents.test.ts`                               |
+| Penjadwal pekerjaan                 | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts`                                   | `apps/web/src/lib/platform-penjadwal.test.ts` · worker: `apps/worker/test/periodic.test.ts`                        |
 
 Cara menjalankan dan aturan stack E2E: [Strategi tes](./02-cara-kerja-kode.md#strategi-tes).
 
@@ -531,4 +774,7 @@ Cara menjalankan dan aturan stack E2E: [Strategi tes](./02-cara-kerja-kode.md#st
 - [Rotasi kunci enkripsi kolom](./05-rotasi-kunci.md)
 - [Fitur front office](./11-fitur-front-office.md)
 - [Fitur klinis](./12-fitur-klinis.md)
+- [Simulasi dan operasional](./18-simulasi-dan-operasional.md): mode presentasi, downtime, cadangan, go-live
+- [Backup dan restore](./04-backup-restore.md)
 - [Peta kode](./19-peta-kode.md)
+- [Peta alur semua fase](./20-peta-alur-semua-fase.md)
