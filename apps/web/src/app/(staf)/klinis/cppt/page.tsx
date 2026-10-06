@@ -66,7 +66,7 @@ export default async function CpptPage({ searchParams }: { searchParams: SearchP
         />
         {handoverOn ? (
           <HandoverPanel
-            key={chart.encounterId}
+            key={`${chart.encounterId}-serah-terima`}
             encounterId={chart.encounterId}
             user={session.user.displayName}
             shift={NEXT_SHIFT_LABEL}
