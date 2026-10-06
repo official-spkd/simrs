@@ -195,7 +195,7 @@ export function JadwalClient({
           }`
         : slot.kind === 'pengganti'
           ? `Menggantikan ${nameOf(slot.relatedDoctorId)}. Kuota mengikuti slot dokter yang digantikan.`
-          : 'Tidak ada jadwal praktik di hari ini.';
+          : 'Tidak ada jadwal praktik di hari ini. Tambahkan lewat Catat cuti atau pengganti.';
     detail = {
       slotId: slot.id,
       doctorName: doctor.name,
@@ -252,7 +252,7 @@ export function JadwalClient({
         <div className="flex flex-wrap items-end gap-2.5">
           <span
             role="status"
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-white px-3 text-small text-ink-700"
+            className="inline-flex h-11 items-center gap-2 rounded-control border border-line bg-white px-3 text-small text-ink-700"
           >
             <span
               aria-hidden="true"
