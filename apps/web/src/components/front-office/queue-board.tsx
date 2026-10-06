@@ -33,22 +33,22 @@ export function CallingPanel({
       aria-live="polite"
       className="flex flex-[1.15] flex-col justify-between rounded-[32px] p-12 text-white shadow-[0_16px_40px_rgba(11,93,86,0.25)]"
       style={{
-        backgroundColor: '#0B5D56',
+        backgroundColor: 'var(--color-brand-700)',
         backgroundImage:
-          'radial-gradient(700px 400px at 100% 0%, rgba(255,255,255,0.14), rgba(255,255,255,0) 70%), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1.2px, rgba(255,255,255,0) 1.8px), linear-gradient(150deg, #12807A, #0B5D56)',
+          'radial-gradient(700px 400px at 100% 0%, rgba(255,255,255,0.14), rgba(255,255,255,0) 70%), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1.2px, rgba(255,255,255,0) 1.8px), linear-gradient(150deg, #12807A, var(--color-brand-700))',
         backgroundSize: 'auto, 26px 26px, auto',
       }}
     >
-      <span className="text-[32px] font-semibold tracking-[0.06em] text-[#CDEBE5]">SEDANG DIPANGGIL</span>
+      <span className="text-[32px] font-semibold tracking-[0.06em] text-brand-100">SEDANG DIPANGGIL</span>
       <span className="font-mono text-[260px] leading-none font-bold tracking-[-0.02em]">{queueNo}</span>
       <div className="flex flex-col gap-2">
         <span className="text-[56px] font-bold">
           {place ?? (poliName ? `Poli ${poliName}` : 'Belum ada panggilan')}
         </span>
-        <span className="text-[40px] text-[#DDF2EE]">{room}</span>
+        <span className="text-[40px] text-brand-100">{room}</span>
       </div>
       <div aria-label="Panggilan sebelumnya" className="flex flex-wrap items-center gap-3.5">
-        <span className="text-[24px] font-semibold text-[#CDEBE5]">Sebelumnya</span>
+        <span className="text-[24px] font-semibold text-brand-100">Sebelumnya</span>
         {history.map((h, i) => (
           <span
             key={`${h}-${i}`}

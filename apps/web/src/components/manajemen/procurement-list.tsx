@@ -45,7 +45,7 @@ export function ProcurementList({
             <li
               key={p.id}
               aria-label={`${p.id} · ${p.title}`}
-              className="flex flex-col gap-1.5 border-b border-[#EEF1F4] pb-3 last:border-0 last:pb-0"
+              className="flex flex-col gap-1.5 border-b border-line-soft pb-3 last:border-0 last:pb-0"
             >
               <span className="flex flex-wrap items-baseline justify-between gap-x-3 text-small">
                 <span className="font-medium text-ink-900">

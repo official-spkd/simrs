@@ -216,7 +216,7 @@ export function BedWorkspace({
           />
           <section
             aria-label="Perkiraan pulang"
-            className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-[linear-gradient(180deg,#F2FAF8,#FFFFFF)] px-4 py-3.5"
+            className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-[linear-gradient(180deg,var(--color-brand-50),#FFFFFF)] px-4 py-3.5"
           >
             <span className="font-semibold text-brand-700">Perkiraan sore ini</span>
             <span className="text-small text-ink-700">

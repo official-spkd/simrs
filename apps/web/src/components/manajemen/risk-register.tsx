@@ -9,10 +9,10 @@ const LEVEL_TONE: Record<RiskLevel, ChipTone> = {
   ekstrem: 'danger',
 };
 const CELL_BG: Record<RiskLevel, string> = {
-  rendah: 'bg-[#EAF6EC]',
-  sedang: 'bg-[#EEF4FF]',
-  tinggi: 'bg-[#FFF3E0]',
-  ekstrem: 'bg-[#FDECEA]',
+  rendah: 'bg-zamrud-50',
+  sedang: 'bg-samudra-50',
+  tinggi: 'bg-kunyit-50',
+  ekstrem: 'bg-koral-50',
 };
 const TREND = { naik: '▲ naik', tetap: '■ tetap', turun: '▼ turun' } as const;
 
@@ -87,7 +87,7 @@ export function RiskRegister({ risks }: { risks: RiskEntry[] }) {
             return (
               <li
                 key={r.id}
-                className="flex flex-col gap-1 border-b border-[#EEF1F4] py-2.5 first:pt-0 last:border-0"
+                className="flex flex-col gap-1 border-b border-line-soft py-2.5 first:pt-0 last:border-0"
               >
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-mono text-small font-semibold text-ink-900">{r.id}</span>

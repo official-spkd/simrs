@@ -240,7 +240,7 @@ export function SoapForm({
       {signed && (
         <div
           role="status"
-          className="flex flex-col gap-2.5 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)] px-4 py-3.5"
+          className="flex flex-col gap-2.5 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] px-4 py-3.5"
         >
           <span className="font-bold text-success">✓ Kunjungan selesai · ditandatangani {signedAt}</span>
           <dl className="m-0 grid gap-2.5 text-small sm:grid-cols-3">

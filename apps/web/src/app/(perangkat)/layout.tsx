@@ -17,7 +17,7 @@ export default async function PerangkatLayout({ children }: { children: ReactNod
   // hanya ada di mode presentasi (404 di mode api).
   if (demo) await requireSession();
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#E9EEF2] text-ink-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-line text-ink-900">
       {demo && (
         <nav aria-label="Presenter" className="flex shrink-0 items-center px-3 pt-2">
           <Link

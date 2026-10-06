@@ -169,7 +169,7 @@ export function IgdDispositionPanel({
           ) : (
             <form
               aria-label="Pernyataan meninggal"
-              className="flex flex-col gap-2 rounded-control border border-danger-border bg-[#FFF8F7] p-3"
+              className="flex flex-col gap-2 rounded-control border border-danger-border bg-koral-50 p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 run(

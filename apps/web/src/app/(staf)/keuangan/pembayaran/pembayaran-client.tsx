@@ -196,7 +196,7 @@ export function PembayaranClient({
                 journalHref={journalHref}
                 scenarioControls={
                   reconTask ? (
-                    <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-[#9FCFC8] bg-[#F7FBFA] p-3">
+                    <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-brand-200 bg-brand-50 p-3">
                       <span className="text-caption font-semibold text-brand-700">
                         Simulasi · rekonsiliasi pasien skenario
                       </span>

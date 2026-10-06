@@ -1,5 +1,5 @@
 import type { TenantKind } from '@simrs/shared';
-import type { NavGroup, NavItem } from '@simrs/ui';
+import type { DomainKey, NavGroup, NavItem } from '@simrs/ui';
 import { screenById, screenOpen } from './screens';
 import type { DataSource } from './server/web-env';
 
@@ -504,7 +504,41 @@ export function navGroups(opts: {
       }),
     }))
     .filter((g) => g.items.length > 0);
-  return opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups;
+  const withDomain = (g: WebNavGroup): WebNavGroup => ({ ...g, domain: groupDomain(g.title) });
+  return (opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups).map(withDomain);
+}
+
+/**
+ * Rona domain per grup menu (Pelangi Klinis, ADR-0086): front office samudra, klinis zamrud, penunjang anggrek,
+ * keuangan toska, manajemen + back office bougenvil, sistem batu. Grup umum/perangkat memakai samudra (bawaan).
+ */
+const GROUP_DOMAIN: Readonly<Record<string, DomainKey>> = {
+  UMUM: 'fo',
+  'FRONT OFFICE': 'fo',
+  KLINIS: 'kl',
+  PENUNJANG: 'pj',
+  KEUANGAN: 'ku',
+  MANAJEMEN: 'mj',
+  'BACK OFFICE': 'mj',
+  SISTEM: 'si',
+  SUPERADMIN: 'si',
+  'PERANGKAT & PRATINJAU': 'fo',
+  PANDUAN: 'si',
+};
+
+export function groupDomain(title: string): DomainKey {
+  return GROUP_DOMAIN[title] ?? 'fo';
+}
+
+/** Domain dan label grup menu untuk pathname (warna jendela + label di header). Tanpa menu cocok: samudra. */
+export function navContext(pathname: string): { domain: DomainKey; label: string } {
+  const id = activeNavId(pathname);
+  const group = id
+    ? [...NAV_GROUPS, SUPERADMIN_GROUP, ...ALL_ACCESS_NAV].find((g) => g.items.some((i) => i.id === id))
+    : undefined;
+  if (!group) return { domain: 'fo', label: '' };
+  const t = group.title;
+  return { domain: groupDomain(t), label: t.charAt(0) + t.slice(1).toLowerCase() };
 }
 
 /** Cari menu aktif dari pathname: cocokkan prefix terpanjang. */

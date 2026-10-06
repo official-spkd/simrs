@@ -21,7 +21,7 @@ export function JurnalPasangan({
   return (
     <figure
       className={cx(
-        'm-0 flex flex-col gap-1.5 rounded-control border border-line bg-[#F8FAFB] p-3',
+        'm-0 flex flex-col gap-1.5 rounded-control border border-line bg-subtle p-3',
         className,
       )}
     >

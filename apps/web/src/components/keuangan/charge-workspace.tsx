@@ -118,7 +118,7 @@ export function ChargeWorkspace({
         className={cx(
           'm-0 rounded-control border px-3 py-2 text-small',
           rec.unexplained === 0
-            ? 'border-[#B7DEC0] bg-[#F2FAF4] text-ink-700'
+            ? 'border-zamrud-200 bg-zamrud-50 text-ink-700'
             : 'border-danger-border bg-danger-bg',
         )}
       >
@@ -134,7 +134,7 @@ export function ChargeWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              ? 'border-zamrud-200 bg-zamrud-50 text-success'
               : 'border-danger-border bg-danger-bg text-danger',
           )}
         >
@@ -188,7 +188,7 @@ export function ChargeWorkspace({
                   aria-label={`${formatJam(e.at)} ${e.patient.name} ${e.description}`}
                   className={cx(
                     'flex flex-col gap-2 border-b border-line px-4 py-3',
-                    e.status === 'tertahan' && 'bg-[#FFFBFA]',
+                    e.status === 'tertahan' && 'bg-koral-50',
                   )}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">

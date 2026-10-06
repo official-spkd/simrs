@@ -65,7 +65,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
         aria-hidden="true"
         className={cx(
           GRID,
-          'hidden border-b border-line bg-[#F8FAFB] py-1.5 text-caption font-semibold text-ink-500 @2xl:grid',
+          'hidden border-b border-line bg-subtle py-1.5 text-caption font-semibold text-ink-500 @2xl:grid',
         )}
       >
         <span />
@@ -85,7 +85,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
           else if (draw?.stage === 'cair') chip = [`Dibiayai · ${draw.id}`, 'brand'];
           else if (draw) chip = [`Diajukan · ${draw.id}`, 'info'];
           return (
-            <li key={b.id} className={cx(GRID, 'border-b border-line py-1.5', chk && 'bg-[#F3FAF8]')}>
+            <li key={b.id} className={cx(GRID, 'border-b border-line py-1.5', chk && 'bg-brand-50')}>
               {can ? (
                 // Seluruh sel 44 × 44 px menjadi target sentuh kotak centang.
                 <label className="flex size-11 cursor-pointer items-center justify-center">
@@ -138,7 +138,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
           );
         })}
       </ul>
-      <div className="flex flex-col gap-2 rounded-[12px] border border-line bg-[#F8FAFB] p-3">
+      <div className="flex flex-col gap-2 rounded-[12px] border border-line bg-subtle p-3">
         <span className="flex flex-wrap gap-x-4 gap-y-1 text-small">
           <span>
             Terpilih <b>{s.picked.length} batch</b> · nilai klaim{' '}

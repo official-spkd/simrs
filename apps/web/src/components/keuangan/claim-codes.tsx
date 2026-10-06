@@ -10,7 +10,7 @@ const ROLE: Record<Claim['diagnoses'][number]['role'], { label: string; tone: Ch
 };
 
 const TH = 'pb-1.5 text-left text-caption font-semibold text-ink-500';
-const TD = 'border-t border-[#EEF1F4] py-1.5 align-top';
+const TD = 'border-t border-line-soft py-1.5 align-top';
 
 /**
  * Tabel kode klaim (mockup Klaim): diagnosis ICD-10 dan prosedur ICD-9-CM yang ditarik dari resume, order, dan
@@ -28,7 +28,7 @@ export function ClaimCodes({
 }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2">
-      <div className="flex min-w-0 flex-col gap-2.5 border-b border-[#EEF1F4] px-4 py-3.5 lg:border-r lg:border-b-0">
+      <div className="flex min-w-0 flex-col gap-2.5 border-b border-line-soft px-4 py-3.5 lg:border-r lg:border-b-0">
         <table aria-label="Diagnosis ICD-10" className="w-full border-collapse text-[13px]">
           <caption className="pb-2 text-left font-semibold">Diagnosis ICD-10</caption>
           <thead>

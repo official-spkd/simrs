@@ -67,7 +67,7 @@ export function JournalTable({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px] @2xl:min-w-[620px]">
           <thead>
-            <tr className="bg-[#F8FAFB] text-left text-caption text-ink-500">
+            <tr className="bg-subtle text-left text-caption text-ink-500">
               <th scope="col" className="hidden px-4 py-2 font-semibold @2xl:table-cell">
                 No. · sumber
               </th>
@@ -112,7 +112,7 @@ export function JournalTable({
                   const d = BigInt(l.debit);
                   const c = BigInt(l.credit);
                   return (
-                    <tr key={`${j.id}-${i}`} className={cx(!l.account && 'bg-[#FFFAF2]')}>
+                    <tr key={`${j.id}-${i}`} className={cx(!l.account && 'bg-kunyit-50')}>
                       {i === 0 && (
                         <td
                           rowSpan={j.lines.length + 1}

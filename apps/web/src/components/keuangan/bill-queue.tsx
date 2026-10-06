@@ -33,8 +33,8 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
                 href={`/keuangan/kasir?pilih=${i.id}`}
                 aria-current={sel ? 'page' : undefined}
                 className={cx(
-                  'grid min-h-14 grid-cols-[4px_minmax(0,1fr)_auto] gap-3 border-b border-[#EEF1F4] py-2.5 pr-3 text-ink-900 no-underline',
-                  sel ? 'bg-[#F2FAF8]' : 'bg-white hover:bg-[#F8FAFB]',
+                  'grid min-h-14 grid-cols-[4px_minmax(0,1fr)_auto] gap-3 border-b border-line-soft py-2.5 pr-3 text-ink-900 no-underline',
+                  sel ? 'bg-brand-50' : 'bg-white hover:bg-subtle',
                 )}
               >
                 <span aria-hidden="true" className={sel ? 'bg-brand-600' : ''} />

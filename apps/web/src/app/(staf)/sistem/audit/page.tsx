@@ -414,8 +414,8 @@ function Findings({
               !open
                 ? 'border-success-border bg-white'
                 : f.severity === 'tinggi'
-                  ? 'border-danger-border bg-[linear-gradient(180deg,#FEF3F2,#FFFFFF)]'
-                  : 'border-warning-border bg-[linear-gradient(180deg,#FFF8EB,#FFFFFF)]',
+                  ? 'border-danger-border bg-[linear-gradient(180deg,var(--color-koral-50),#FFFFFF)]'
+                  : 'border-warning-border bg-[linear-gradient(180deg,var(--color-kunyit-50),#FFFFFF)]',
             )}
           >
             <span
@@ -531,9 +531,9 @@ function EventTable({
                 className={cx(
                   'border-t border-line-soft',
                   on
-                    ? 'bg-selected shadow-[inset_3px_0_0_#0F766E]'
+                    ? 'bg-selected shadow-[inset_3px_0_0_var(--color-brand-600)]'
                     : // Mockup Audit: entri yang patut ditinjau (ditolak, akses darurat) berlatar merah sangat tipis.
-                      (e.outcome === 'denied' || e.action === 'break_glass') && 'bg-[#FFFBFA]',
+                      (e.outcome === 'denied' || e.action === 'break_glass') && 'bg-koral-50',
                 )}
               >
                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-[12.5px]">
@@ -580,7 +580,7 @@ function Field({ label, children, mono }: { label: string; children: React.React
 
 function PanelHead({ sub, title }: { sub: string; title: string }) {
   return (
-    <div className="border-b border-line bg-[linear-gradient(100deg,rgba(15,118,110,0.08),#FFFFFF_60%)] px-4 py-3.5">
+    <div className="border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-4 py-3.5">
       <span className="text-caption text-ink-500">{sub}</span>
       <h2 className="m-0 mt-0.5 text-[17px] font-bold">{title}</h2>
     </div>
@@ -633,11 +633,11 @@ function CorrectionPanel({ event, change: c }: { event: AuditEventDetail; change
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {c.rows.map((r) => (
                 <li key={r.key} className="flex flex-col gap-1.5 text-small">
-                  <span className="rounded-[10px] border border-danger-border bg-[#FFFBFA] px-3 py-2.5">
+                  <span className="rounded-[10px] border border-danger-border bg-koral-50 px-3 py-2.5">
                     <span className="font-bold text-danger">− v{c.fromVersion}</span> {r.label}:{' '}
                     <s>{r.before}</s>
                   </span>
-                  <span className="rounded-[10px] border border-success-border bg-[#F6FCF7] px-3 py-2.5">
+                  <span className="rounded-[10px] border border-success-border bg-zamrud-50 px-3 py-2.5">
                     <span className="font-bold text-success">+ v{c.toVersion}</span> {r.label}:{' '}
                     <span className="font-bold">{r.after}</span>
                   </span>
@@ -838,7 +838,7 @@ function ReviewHistoryList({ items }: { items: ReviewHistoryItem[] }) {
             key={r.seq}
             className={cx(
               'flex flex-col gap-1 rounded-control border px-3 py-2.5 text-small',
-              r.effective ? 'border-success-border bg-[#F6FCF7]' : 'border-line bg-white',
+              r.effective ? 'border-success-border bg-zamrud-50' : 'border-line bg-white',
             )}
           >
             <span className="flex flex-wrap items-center gap-2">
@@ -874,7 +874,7 @@ function ReviewBox({
     <div
       className={cx(
         'flex flex-col gap-2 rounded-control border p-3',
-        reviewed ? 'border-success-border bg-[#F6FCF7]' : 'border-danger-border bg-[#FFFBFA]',
+        reviewed ? 'border-success-border bg-zamrud-50' : 'border-danger-border bg-koral-50',
       )}
     >
       <span className="text-caption font-semibold text-ink-500">TINJAUAN</span>

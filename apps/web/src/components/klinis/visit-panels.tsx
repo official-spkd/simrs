@@ -54,7 +54,7 @@ export function VitalTiles({ vitals }: { vitals: readonly PoliVital[] }) {
             className={cx(
               'flex min-w-0 flex-col gap-0.5 rounded-control border px-3 py-2.5',
               flag
-                ? 'border-danger-border bg-[linear-gradient(180deg,#FEF3F2,#FFFFFF)]'
+                ? 'border-danger-border bg-[linear-gradient(180deg,var(--color-koral-50),#FFFFFF)]'
                 : 'border-line-soft bg-subtle',
             )}
           >

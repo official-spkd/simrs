@@ -31,9 +31,9 @@ const TABS: Array<{ key: TabKey; label: string; icon: IconName }> = [
 ];
 const DOT: Record<PatientAppHome['feed'][number]['tone'], string> = {
   brand: 'bg-brand-600',
-  warning: 'bg-[#8A4B00]',
-  info: 'bg-[#1E3A8A]',
-  success: 'bg-[#1E6B34]',
+  warning: 'bg-kunyit-700',
+  info: 'bg-samudra-700',
+  success: 'bg-zamrud-700',
   danger: 'bg-danger',
 };
 
@@ -78,7 +78,7 @@ export function PatientApp({
           <span className="text-[22px] leading-tight font-bold">{home.greeting}</span>
         </span>
         <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,#1D7E77,#0B5D56)] font-semibold text-white"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,var(--color-brand-500),var(--color-brand-700))] font-semibold text-white"
           role="img"
           aria-label={`Akun ${home.fullName}`}
         >
@@ -142,7 +142,7 @@ export function PatientApp({
                 {home.feed.slice(0, 4).map((f) => (
                   <li
                     key={f.id}
-                    className="flex items-start gap-2.5 border-b border-[#EEF1F4] py-2 last:border-0"
+                    className="flex items-start gap-2.5 border-b border-line-soft py-2 last:border-0"
                   >
                     <span
                       className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', DOT[f.tone])}

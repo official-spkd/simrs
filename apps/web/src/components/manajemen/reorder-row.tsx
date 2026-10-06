@@ -42,9 +42,9 @@ export function ReorderRow({
   return (
     <label
       className={cx(
-        'grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-[#EEF1F4] pr-4 text-small xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]',
-        inPo ? 'cursor-default bg-[#F8FAFB]' : 'cursor-pointer',
-        !inPo && critical && 'bg-[#FFF8F7]',
+        'grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line-soft pr-4 text-small xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]',
+        inPo ? 'cursor-default bg-subtle' : 'cursor-pointer',
+        !inPo && critical && 'bg-koral-50',
       )}
     >
       <span className="flex h-11 items-center justify-center self-start xl:self-center">

@@ -123,7 +123,7 @@ export function RekonTab({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
         >
           {flash}
         </div>
@@ -165,7 +165,7 @@ export function RekonTab({
           return (
             <li
               key={r.id}
-              className={cx('flex flex-col gap-2 border-b border-line pb-2', open && 'bg-[#FFFBFA]')}
+              className={cx('flex flex-col gap-2 border-b border-line pb-2', open && 'bg-koral-50')}
             >
               <div className="grid grid-cols-2 gap-3 @2xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_minmax(0,1.1fr)]">
                 <span className="col-span-2 flex min-w-0 flex-col @2xl:col-span-1">

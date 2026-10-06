@@ -193,7 +193,7 @@ export function ConsentTablet({
                 aria-hidden="true"
                 className={cx(
                   'h-1.5 rounded-full',
-                  isDone ? 'bg-brand-600' : cur ? 'bg-[linear-gradient(90deg,#0F766E,#5FB3AA)]' : 'bg-line',
+                  isDone ? 'bg-brand-600' : cur ? 'bg-[linear-gradient(90deg,var(--color-brand-600),var(--color-brand-400))]' : 'bg-line',
                 )}
               />
               {i + 1}. {label}
@@ -220,7 +220,7 @@ export function ConsentTablet({
         {wasRefused && !refused && (
           <div
             role="status"
-            className="rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3 font-semibold text-danger-strong"
+            className="rounded-card border border-danger-border bg-koral-50 px-4 py-3 font-semibold text-danger-strong"
           >
             Pasien menolak tindakan · penolakan tercatat di rekam medis
             {refusal ? ` ${formatJam(refusal.at)} · alasan: ${refusal.reason}` : ''}; dokumen terkunci.
@@ -324,7 +324,7 @@ export function ConsentTablet({
         {refused && (
           <div
             role="status"
-            className="flex flex-col gap-1 rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3"
+            className="flex flex-col gap-1 rounded-card border border-danger-border bg-koral-50 px-4 py-3"
           >
             <span className="font-semibold text-danger-strong">
               Pasien menolak tindakan · tercatat {refused.at}

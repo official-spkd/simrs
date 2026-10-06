@@ -86,7 +86,7 @@ export function VitalsCard({
       </section>
       <div
         role="note"
-        className="flex items-start gap-3 rounded-[12px] border border-warning-border bg-[linear-gradient(90deg,#FFF8EB,#FFFFFF)] px-4 py-3"
+        className="flex items-start gap-3 rounded-[12px] border border-warning-border bg-[linear-gradient(90deg,var(--color-kunyit-50),#FFFFFF)] px-4 py-3"
       >
         <Icon name="info" size={18} className="mt-0.5 flex-none text-warning" />
         <span className="flex flex-col gap-0.5">

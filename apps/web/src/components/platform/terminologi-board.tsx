@@ -79,7 +79,7 @@ function SearchTab({ concepts }: { concepts: RefConcept[] }) {
           {hits.map((h) => (
             <li
               key={h.concept.code}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#EEF1F4] py-2 last:border-0"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft py-2 last:border-0"
             >
               <span className="w-24 font-mono font-semibold text-brand-700">{h.concept.code}</span>
               <span className="min-w-0 flex-[1_1_220px]">{h.concept.display}</span>

@@ -229,7 +229,7 @@ export function JadwalApiClient({
           >
             <span
               aria-hidden="true"
-              className={cx('size-2 rounded-full', summary.pending ? 'bg-[#D97706]' : 'bg-[#16A34A]')}
+              className={cx('size-2 rounded-full', summary.pending ? 'bg-kunyit-500' : 'bg-zamrud-500')}
             />
             {summary.label}
           </span>

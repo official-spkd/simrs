@@ -78,7 +78,7 @@ export function PiutangWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              ? 'border-zamrud-200 bg-zamrud-50 text-success'
               : 'border-danger-border bg-danger-bg text-danger',
           )}
         >

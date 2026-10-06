@@ -257,7 +257,7 @@ function Checklist({
                 return (
                   <li
                     key={i.id}
-                    className="flex flex-col gap-1 border-b border-[#EEF1F4] py-1.5 last:border-0"
+                    className="flex flex-col gap-1 border-b border-line-soft py-1.5 last:border-0"
                   >
                     <label className="flex min-h-11 cursor-pointer items-start gap-2.5 text-small">
                       <input

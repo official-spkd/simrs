@@ -39,7 +39,7 @@ export function DoubleCheck({
     );
   }
   return (
-    <fieldset className="m-0 flex flex-col gap-2 rounded-[12px] border border-warning-border bg-[#FFFAF2] p-3.5">
+    <fieldset className="m-0 flex flex-col gap-2 rounded-[12px] border border-warning-border bg-kunyit-50 p-3.5">
       <legend className="px-1 text-small font-semibold text-warning-strong">
         Cek ganda obat high alert (apoteker kedua)
       </legend>

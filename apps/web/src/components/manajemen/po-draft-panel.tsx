@@ -17,7 +17,7 @@ export function PoDraftPanel({
   return (
     <section
       aria-labelledby="po-draf-judul"
-      className="flex flex-col gap-3 rounded-card border border-brand-600 bg-white p-4 shadow-[0_4px_12px_rgba(15,118,110,0.12)]"
+      className="flex flex-col gap-3 rounded-card border border-brand-600 bg-white p-4 shadow-[0_4px_12px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="po-draf-judul" className="m-0 text-base font-semibold">
@@ -33,7 +33,7 @@ export function PoDraftPanel({
         {draft.lines.map((l) => (
           <li
             key={l.itemId}
-            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-[#EEF1F4] py-2 text-small"
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 border-b border-line-soft py-2 text-small"
           >
             <span className="flex min-w-0 flex-[1_1_220px] flex-col">
               <span className="font-medium text-ink-900">{l.name}</span>

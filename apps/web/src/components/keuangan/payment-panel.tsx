@@ -172,7 +172,7 @@ export function PaymentPanel({
           'min-h-12 rounded-control font-[inherit] font-semibold',
           ready
             ? 'cursor-pointer border border-brand-800 bg-brand-600 text-white'
-            : 'cursor-not-allowed border border-line-strong bg-[#E9EDF1] text-ink-500',
+            : 'cursor-not-allowed border border-line-strong bg-line text-ink-500',
         )}
       >
         Selesaikan dan cetak kuitansi

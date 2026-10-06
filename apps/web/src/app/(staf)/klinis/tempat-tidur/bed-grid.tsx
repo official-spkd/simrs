@@ -44,7 +44,7 @@ export function WardGrid({
                 className={cx(
                   'flex min-h-[72px] w-full cursor-pointer flex-col gap-0.5 rounded-control border px-2.5 py-2 text-left font-[inherit] text-ink-900',
                   m.tile,
-                  on && 'border-brand-600 ring-2 ring-[rgba(15,118,110,0.35)]',
+                  on && 'border-brand-600 ring-2 ring-[color-mix(in_srgb,_var(--color-brand-600)_35%,_transparent)]',
                 )}
               >
                 <span className="flex items-baseline justify-between gap-1">

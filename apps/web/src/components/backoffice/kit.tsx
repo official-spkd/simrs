@@ -118,7 +118,7 @@ export function StageTrack({
               active && rejected
                 ? 'border-danger-border bg-danger-bg'
                 : active
-                  ? 'border-brand-600 bg-[linear-gradient(90deg,#E6F4F1,#FFFFFF)]'
+                  ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-50),#FFFFFF)]'
                   : 'border-line bg-white',
             )}
           >

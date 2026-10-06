@@ -30,7 +30,7 @@ export function RekonException({
   const hint = tried && error ? error : `${len}/${RESOLUTION_NOTE_MIN} karakter minimal · dibaca auditor`;
   return (
     <form
-      className="flex flex-col gap-2 rounded-control border border-danger-border bg-[#FFFBFA] p-3"
+      className="flex flex-col gap-2 rounded-control border border-danger-border bg-koral-50 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);

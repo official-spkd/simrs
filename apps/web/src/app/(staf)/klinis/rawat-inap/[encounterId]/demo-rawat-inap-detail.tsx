@@ -150,7 +150,7 @@ export async function DemoRawatInapDetail({
       {critical.length > 0 && (
         <section
           aria-label="Nilai kritis pasien"
-          className="flex flex-col gap-1 rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3"
+          className="flex flex-col gap-1 rounded-card border border-danger-border bg-koral-50 px-4 py-3"
         >
           {critical.map((c) => (
             <span key={`${c.test}-${c.valueText}`} className="text-small">

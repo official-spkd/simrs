@@ -25,7 +25,7 @@ export function StepCard({
   const { run, pending, error } = useDemoRunner(rev);
   return (
     <div className="overflow-hidden rounded-card border border-line bg-white">
-      <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,rgba(15,118,110,0.07),#FFFFFF_60%)] px-[18px] py-4">
+      <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_7%,_transparent),#FFFFFF_60%)] px-[18px] py-4">
         <span className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[12.5px] text-ink-500">
             Langkah {step.no} · {step.stage}
@@ -70,7 +70,7 @@ export function StepCard({
                 'min-h-11 rounded-control border px-[18px] font-[inherit] font-semibold',
                 step.canNext
                   ? 'cursor-pointer border-brand-800 bg-brand-600 text-white'
-                  : 'cursor-not-allowed border-line-strong bg-[#E9EDF1] text-ink-500',
+                  : 'cursor-not-allowed border-line-strong bg-line text-ink-500',
               )}
             >
               {step.nextLabel}

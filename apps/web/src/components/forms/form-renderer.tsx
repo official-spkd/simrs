@@ -152,7 +152,7 @@ function FieldControl({
       {error ?? hint}
     </span>
   );
-  const tone = error ? 'border-danger bg-[#FFFBFA]' : 'border-line-strong bg-white';
+  const tone = error ? 'border-danger bg-koral-50' : 'border-line-strong bg-white';
 
   if ((f.type === 'single' || f.type === 'multi') && f.options) {
     const multi = f.type === 'multi';
@@ -175,7 +175,7 @@ function FieldControl({
                 key={o.value}
                 className={cx(
                   'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-small text-ink-900 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-600',
-                  chosen ? 'border-brand-600 bg-[#E6F4F1]' : 'border-line-strong bg-white',
+                  chosen ? 'border-brand-600 bg-brand-50' : 'border-line-strong bg-white',
                 )}
               >
                 <input

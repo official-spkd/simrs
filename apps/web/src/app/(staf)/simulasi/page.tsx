@@ -80,12 +80,12 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
       <TabPanel idBase={SCENARIO_TABS} value={runs.active} className="flex flex-col gap-4">
         <section
           aria-label="Pasien"
-          className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-white bg-[linear-gradient(100deg,rgba(15,118,110,0.08),rgba(255,255,255,0)_55%)] px-[18px] py-3.5"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),rgba(255,255,255,0)_55%)] px-[18px] py-3.5"
         >
           <div className="flex items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(160deg,#1D7E77,#0B5D56)] font-semibold text-white"
+              className="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(160deg,var(--color-brand-500),var(--color-brand-700))] font-semibold text-white"
             >
               {v.patient.initials}
             </span>
@@ -151,7 +151,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                   j.viewing
                     ? 'border-brand-600 bg-selected'
                     : j.state === 'aktif'
-                      ? 'border-[#9FCFC8] bg-white'
+                      ? 'border-brand-200 bg-white'
                       : 'border-line bg-white',
                 );
                 return (
@@ -187,7 +187,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
             aria-valuemax={100}
           >
             <span
-              className="block h-1 bg-[linear-gradient(90deg,#1D7E77,#0F766E)]"
+              className="block h-1 bg-[linear-gradient(90deg,var(--color-brand-500),var(--color-brand-600))]"
               style={{ width: `${v.progress}%` }}
             />
           </span>
@@ -209,7 +209,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                   {v.summary.stats.map((s) => (
                     <div
                       key={s.label}
-                      className="flex flex-col gap-0.5 rounded-[12px] border border-line bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(15,118,110,0.06))] p-3"
+                      className="flex flex-col gap-0.5 rounded-[12px] border border-line bg-[linear-gradient(160deg,#FFFFFF_55%,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent))] p-3"
                     >
                       <span className="text-caption text-ink-500">{s.label}</span>
                       <span className="text-[20px] font-bold">{s.value}</span>
@@ -226,7 +226,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                     >
                       <span>{b.stage}</span>
                       <span className="flex h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                        <span className="bg-[#E9B26B]" style={{ width: `${b.waitPct}%` }} />
+                        <span className="bg-kunyit-300" style={{ width: `${b.waitPct}%` }} />
                         <span className="bg-brand-600" style={{ width: `${b.servicePct}%` }} />
                       </span>
                       <span className="text-[12.5px] text-ink-700">{b.text}</span>
@@ -234,7 +234,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
                   ))}
                   <span className="flex flex-wrap gap-4 text-caption text-ink-700">
                     <span>
-                      <span className="mr-1.5 inline-block size-2.5 rounded-[3px] bg-[#E9B26B]" />
+                      <span className="mr-1.5 inline-block size-2.5 rounded-[3px] bg-kunyit-300" />
                       Jeda atau menunggu sebelum tahap dimulai
                     </span>
                     <span>

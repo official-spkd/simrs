@@ -24,7 +24,7 @@ export function ClaimScenarioControls({
   const bukti = flow.tasks.bukti;
   const run = (task: string) => onTask(task, true);
   return (
-    <div className="flex flex-col gap-2.5 rounded-control border border-[#9FCFC8] bg-[#F7FBFA] p-3">
+    <div className="flex flex-col gap-2.5 rounded-control border border-brand-200 bg-brand-50 p-3">
       <span className="text-caption font-semibold text-brand-700">Validasi koding · pasien simulasi</span>
       {utama && (
         <div className="flex flex-col gap-1.5">

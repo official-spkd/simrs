@@ -18,9 +18,9 @@ const CHIP_TONE: Record<FlagView['tone'], string> = {
   neutral: 'bg-muted text-ink-700',
 };
 const STROKE: Record<FlagView['tone'], string> = {
-  danger: '#B42318',
-  warning: '#8A4B00',
-  neutral: '#0F766E',
+  danger: 'var(--color-koral-600)',
+  warning: 'var(--color-kunyit-700)',
+  neutral: 'var(--color-brand-600)',
 };
 
 function Sparkline({ r, tone }: { r: LabResult; tone: FlagView['tone'] }) {
@@ -77,7 +77,7 @@ export function LabResultsTable({ results, caption }: { results: readonly LabRes
               key={r.loinc}
               className={cx(
                 'border-b border-line-soft align-middle',
-                r.flag === 'KRITIS' ? 'bg-[#FFF5F4]' : r.delta ? 'bg-[#FFFAF2]' : 'bg-white',
+                r.flag === 'KRITIS' ? 'bg-[#FFF5F4]' : r.delta ? 'bg-kunyit-50' : 'bg-white',
               )}
             >
               <th scope="row" className="px-4 py-2 text-left font-normal">

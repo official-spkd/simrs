@@ -90,7 +90,7 @@ export function KasirSettlement({
   return (
     <section
       aria-label="Pembayaran"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,rgba(15,118,110,0.06))] p-4"
+      className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent))] p-4"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold">Dibayar pasien</span>
@@ -126,7 +126,7 @@ export function KasirSettlement({
       {lunas && receipt && (
         <div
           role="status"
-          className="flex flex-col gap-2.5 rounded-control border border-[#B7DEC0] bg-[#EAF5EC] p-3"
+          className="flex flex-col gap-2.5 rounded-control border border-zamrud-200 bg-zamrud-50 p-3"
         >
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-bold text-success">Lunas</span>

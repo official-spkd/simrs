@@ -7,7 +7,7 @@ import { cashChange, digitsToRupiah } from '@/lib/keuangan';
 import { REKENING } from '@/lib/demo/fixtures/rs';
 
 const BOX =
-  'flex flex-col gap-2 rounded-control border border-line bg-[#F8FAFB] p-3 text-[12.5px] text-ink-700';
+  'flex flex-col gap-2 rounded-control border border-line bg-subtle p-3 text-[12.5px] text-ink-700';
 const SIM_BTN =
   'min-h-11 cursor-pointer rounded-control border border-dashed border-brand-700 bg-white px-3.5 font-[inherit] font-medium text-brand-700 disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -23,9 +23,9 @@ export function QrSample({ faded }: { faded: boolean }) {
       className={cx('flex-none', faded && 'opacity-35')}
     >
       <rect width="9" height="9" fill="#FFFFFF" />
-      <path d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0z" fill="#14212B" />
+      <path d="M0 0h3v3H0zM6 0h3v3H6zM0 6h3v3H0z" fill="var(--color-ink-900)" />
       <path d="M1 1h1v1H1zM7 1h1v1H7zM1 7h1v1H1z" fill="#FFFFFF" />
-      <path d="M4 0h1v2H4zM3 4h2v1H3zM6 4h1v2H6zM4 6h1v3H4zM7 6h2v1H7zM6 8h2v1H6z" fill="#14212B" />
+      <path d="M4 0h1v2H4zM3 4h2v1H3zM6 4h1v2H6zM4 6h1v3H4zM7 6h2v1H7zM6 8h2v1H6z" fill="var(--color-ink-900)" />
     </svg>
   );
 }
@@ -40,7 +40,7 @@ export function QrisBox({
   onSimulate: () => void;
 }) {
   return (
-    <div className={cx(BOX, 'flex-row items-center gap-3', paidAt && 'border-[#B7DEC0] bg-[#EAF5EC]')}>
+    <div className={cx(BOX, 'flex-row items-center gap-3', paidAt && 'border-zamrud-200 bg-zamrud-50')}>
       <QrSample faded={!!paidAt} />
       <span className="flex min-w-0 flex-col gap-1">
         <span className={cx('font-semibold', paidAt ? 'text-success' : 'text-ink-900')}>
@@ -91,7 +91,7 @@ export function VaBox({
       {paidAt ? (
         <span
           role="status"
-          className="flex flex-col rounded-[8px] border border-[#B7DEC0] bg-[#EAF5EC] px-2.5 py-2"
+          className="flex flex-col rounded-[8px] border border-zamrud-200 bg-zamrud-50 px-2.5 py-2"
         >
           <span className="font-semibold text-success">Webhook TPDI diterima {paidAt} · status lunas</span>
           <span>payment.paid · signature valid</span>

@@ -38,7 +38,7 @@ apps/
 packages/
   db/           Prisma schema, migrasi, seed, helper RLS
   shared/       Tipe, skema zod, enum, kode komponen, util tanggal/uang
-  ui/           Token desain + komponen React (Klinis Bersih)
+  ui/           Token desain + komponen React (Pelangi Klinis, ADR-0091)
   fhir/         Pemetaan domain → FHIR R4 (SATUSEHAT)
   config/       eslint, tsconfig, prettier bersama
 infra/          docker, skrip SQL init
@@ -91,7 +91,7 @@ Jangan menjalankan perintah yang menghapus volume Docker atau database tanpa izi
 
 ## 6. UI
 
-- Ikuti `docs/08-desain-ui.md` dan token di `packages/ui` (palet teal klinis, IBM Plex Sans/Mono, latar dot halus, radius 10–14).
+- Ikuti `docs/08-desain-ui.md` dan token di `packages/ui` (Pelangi Klinis, ADR-0091): Poppins (+ IBM Plex Mono untuk kode/nomor), aksen `brand-*` = rona domain layar (`data-domain`), warna status terpisah dari warna domain, gradien hanya satu rona gelap → terang, kaca + animasi dengan fallback reduced-motion/transparency, radius 11/16/20.
 - Mockup `design/mockups/<Layar>.dc.html` adalah acuan tata letak, isi, dan interaksi. Baca markup + blok `<script type="text/x-dc">` untuk memahami state dan alurnya; implementasikan ulang sebagai komponen React, jangan menyalin runtime mockup.
 - Aksesibilitas: elemen interaktif asli (`button`, `a`, `input`), label terlihat, kontras ≥ 4,5:1, target sentuh ≥ 44 px (anjungan ≥ 64 px), status tidak hanya lewat warna.
 - Banner pasien (nama, umur, RM, alergi, penjamin) tampil di setiap layar klinis.

@@ -46,7 +46,7 @@ export function IncidentList({ incidents, today }: { incidents: IncidentReport[]
           return (
             <li
               key={i.id}
-              className="flex flex-col gap-1.5 border-b border-[#EEF1F4] py-3 first:pt-0 last:border-0 last:pb-0"
+              className="flex flex-col gap-1.5 border-b border-line-soft py-3 first:pt-0 last:border-0 last:pb-0"
             >
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="font-mono text-small font-semibold text-ink-900">{i.id}</span>

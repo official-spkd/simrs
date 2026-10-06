@@ -17,7 +17,7 @@ export function RegStepper({ steps }: { steps: RegStepView[] }) {
           className={cx(
             'flex min-w-[180px] flex-1 items-center gap-2.5 rounded-control border px-3 py-2',
             s.state === 'aktif'
-              ? 'border-brand-600 bg-[linear-gradient(90deg,#E6F4F1,#FFFFFF)]'
+              ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-50),#FFFFFF)]'
               : 'border-line bg-white',
           )}
         >

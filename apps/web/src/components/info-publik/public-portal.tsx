@@ -171,7 +171,7 @@ function BookingTab({
       {result?.kind === 'found' && (
         <section
           aria-label="Status booking"
-          className="flex flex-col gap-1 rounded-[12px] border border-[#BFE3C6] bg-[#EAF6EC] p-2.5 text-[13px]"
+          className="flex flex-col gap-1 rounded-[12px] border border-zamrud-200 bg-zamrud-50 p-2.5 text-[13px]"
         >
           <span className="flex items-center justify-between gap-2">
             <b>Booking ditemukan</b>

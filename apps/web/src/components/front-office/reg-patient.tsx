@@ -64,7 +64,7 @@ export function RegPatient({
             placeholder="mis. 00-12-45-78 atau Siti 14-03-1972"
             className={`h-11 min-w-[200px] flex-[1_1_200px] rounded-control border px-3 font-[inherit] text-ink-900 disabled:bg-muted ${
               error
-                ? 'border-danger bg-[#FFFBFA]'
+                ? 'border-danger bg-koral-50'
                 : patient
                   ? 'border-brand-600 bg-white'
                   : 'border-line-strong bg-white'

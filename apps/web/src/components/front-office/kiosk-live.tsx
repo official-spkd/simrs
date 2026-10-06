@@ -46,7 +46,7 @@ export function KioskMaskedConfirm({
       />
       <section
         aria-label="Data pasien"
-        className="flex items-center gap-6 rounded-[28px] border-2 border-[#D5E3E1] bg-[linear-gradient(160deg,rgba(15,118,110,0.08),#FFFFFF_55%)] px-10 py-9"
+        className="flex items-center gap-6 rounded-[28px] border-2 border-brand-200 bg-[linear-gradient(160deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_55%)] px-10 py-9"
       >
         <span
           aria-hidden="true"

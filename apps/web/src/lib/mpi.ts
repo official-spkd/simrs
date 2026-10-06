@@ -77,8 +77,8 @@ export const MATCH_TONE: Record<AttributeMatch, string> = {
 /** Latar baris tabel banding (mockup: mirip kuning pudar, beda merah pudar). */
 export const MATCH_ROW_BG: Record<AttributeMatch, string> = {
   sama: 'bg-white',
-  mirip: 'bg-[#FFFCF5]',
-  beda: 'bg-[#FFFBFA]',
+  mirip: 'bg-kunyit-50',
+  beda: 'bg-koral-50',
   kosong: 'bg-white',
 };
 

@@ -31,7 +31,7 @@ import { Feedback, type FeedbackMsg } from './feedback';
 const INPUT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
 const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
 const CHECK =
-  'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-small has-[:checked]:border-brand-600 has-[:checked]:bg-[#E6F4F1]';
+  'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-small has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50';
 
 const toggle = <T,>(list: readonly T[], v: T): T[] =>
   list.includes(v) ? list.filter((x) => x !== v) : [...list, v];

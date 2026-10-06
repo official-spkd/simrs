@@ -57,7 +57,7 @@ export function RegQuota({
                   v.level === 'penuh'
                     ? 'bg-danger'
                     : v.level === 'hampir-penuh'
-                      ? 'bg-[#D97706]'
+                      ? 'bg-kunyit-500'
                       : 'bg-brand-600',
                 )}
                 style={{ width: `${v.percent}%` }}
@@ -98,7 +98,7 @@ export function RegQueuePreview({
     <section
       aria-label="Antrean poli"
       aria-live="polite"
-      className="flex flex-col gap-1 rounded-card border border-brand-100 bg-[linear-gradient(160deg,rgba(15,118,110,0.08),#FFFFFF_60%)] p-4"
+      className="flex flex-col gap-1 rounded-card border border-brand-100 bg-[linear-gradient(160deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] p-4"
     >
       <span className="text-caption font-semibold tracking-[0.06em] text-brand-700">{label}</span>
       <span className="font-mono text-[40px] leading-tight font-bold text-brand-700">{queueNo}</span>

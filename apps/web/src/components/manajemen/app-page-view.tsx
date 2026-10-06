@@ -83,7 +83,7 @@ export function AppPageView({
             </>
           );
           return (
-            <li key={r.id} className="border-b border-[#EEF1F4] last:border-0">
+            <li key={r.id} className="border-b border-line-soft last:border-0">
               {r.link && onOpen ? (
                 <button
                   type="button"

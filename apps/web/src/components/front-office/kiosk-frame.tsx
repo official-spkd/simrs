@@ -6,7 +6,7 @@ export function KioskHeader({ tenantName, time, date }: { tenantName: string; ti
   return (
     <header className="flex items-center justify-between gap-6 px-16 pt-12">
       <div className="flex items-center gap-[18px]">
-        <div className="flex size-[72px] flex-none items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#1D7E77,#0F766E)] text-white shadow-[0_6px_16px_rgba(15,118,110,0.3)]">
+        <div className="flex size-[72px] flex-none items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-600))] text-white shadow-[0_6px_16px_color-mix(in_srgb,_var(--color-brand-600)_30%,_transparent)]">
           <Icon name="plus" size={34} strokeWidth={2.2} />
         </div>
         <div className="flex flex-col">
@@ -97,7 +97,7 @@ export function KioskFooter({
           className={cx(
             btn,
             'flex-[1.4] border-2 border-brand-800 font-bold',
-            calledAt ? 'bg-white text-brand-700' : 'bg-[linear-gradient(180deg,#1D7E77,#0F766E)] text-white',
+            calledAt ? 'bg-white text-brand-700' : 'bg-[linear-gradient(180deg,var(--color-brand-500),var(--color-brand-600))] text-white',
           )}
           style={fs(26)}
         >

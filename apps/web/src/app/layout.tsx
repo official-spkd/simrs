@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
-import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
+import { IBM_Plex_Mono, Poppins } from 'next/font/google';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 
-const sans = IBM_Plex_Sans({
+// Pelangi Klinis (ADR-0086): Poppins untuk seluruh teks; IBM Plex Mono hanya untuk pengenal (RM, ICD, SEP).
+const sans = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-plex-sans',
+  variable: '--font-poppins',
   display: 'swap',
 });
 const mono = IBM_Plex_Mono({

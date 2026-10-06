@@ -71,7 +71,7 @@ export function ConsentInfo({
         ))}
       </ol>
       {/* Pita catatan penjelasan (mockup: gradasi biru). */}
-      <p className="m-0 rounded-control border border-info-border bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)] px-3 py-2 text-[0.85em] text-info">
+      <p className="m-0 rounded-control border border-info-border bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)] px-3 py-2 text-[0.85em] text-info">
         Dibacakan dan dijelaskan oleh {doc.informer} pada {formatTglJam(doc.explainedAt)} · durasi penjelasan{' '}
         {doc.explanationMinutes} menit · pasien diberi kesempatan bertanya
       </p>
@@ -99,7 +99,7 @@ export function RefusalForm({
   return (
     <section
       aria-label="Konfirmasi penolakan"
-      className="flex flex-col gap-2 rounded-card border border-danger-border bg-[#FFF8F7] p-4"
+      className="flex flex-col gap-2 rounded-card border border-danger-border bg-koral-50 p-4"
     >
       <h2 className="m-0 text-[1.05em] font-semibold text-danger-strong">Konfirmasi penolakan tindakan</h2>
       <span className="text-ink-700">
@@ -140,7 +140,7 @@ export function RefusalForm({
           type="button"
           disabled={busy}
           onClick={onConfirm}
-          className="min-h-12 cursor-pointer rounded-control border border-[#9A1E14] bg-danger px-5 font-[inherit] font-semibold text-white disabled:opacity-60"
+          className="min-h-12 cursor-pointer rounded-control border border-koral-700 bg-danger px-5 font-[inherit] font-semibold text-white disabled:opacity-60"
         >
           Catat penolakan
         </button>

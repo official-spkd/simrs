@@ -114,7 +114,7 @@ export function QuotaPanel({
                   u.level === 'penuh'
                     ? 'bg-danger'
                     : u.level === 'hampir-penuh'
-                      ? 'bg-[#D97706]'
+                      ? 'bg-kunyit-500'
                       : 'bg-brand-600',
                 )}
                 style={{ width: `${u.percent}%` }}

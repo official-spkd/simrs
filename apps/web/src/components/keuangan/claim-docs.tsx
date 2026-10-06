@@ -94,7 +94,7 @@ export function ClaimDocs({
       {sent && (
         <div
           role="status"
-          className="mt-1 flex flex-col gap-2 rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2.5 text-[12.5px]"
+          className="mt-1 flex flex-col gap-2 rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2.5 text-[12.5px]"
         >
           <span className="font-bold text-success">{sent.title}</span>
           <span className="text-ink-700">{sent.note}</span>

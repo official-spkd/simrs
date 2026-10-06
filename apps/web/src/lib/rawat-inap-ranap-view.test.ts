@@ -39,11 +39,11 @@ describe('tampilan rawat inap (mockup Ranap)', () => {
   });
 
   it('IGD: saran sistem dan tombol simpan berwarna per level, abu bila nonaktif', () => {
-    expect(TRIAGE_META[1].advice.box).toContain('#FEF3F2');
-    expect(TRIAGE_META[3].advice.box).toContain('#FFF8EB');
-    expect(TRIAGE_META[4].advice.box).toContain('#EAF6EC');
-    expect(TRIAGE_META[5].advice.box).toContain('#EEF4FF');
+    expect(TRIAGE_META[1].advice.box).toContain('var(--color-koral-50)');
+    expect(TRIAGE_META[3].advice.box).toContain('var(--color-kunyit-50)');
+    expect(TRIAGE_META[4].advice.box).toContain('var(--color-zamrud-50)');
+    expect(TRIAGE_META[5].advice.box).toContain('var(--color-samudra-50)');
     expect(TRIAGE_META[2].save).toContain('#C4320A');
-    expect(TRIAGE_SAVE_DISABLED).toContain('#F1F4F6');
+    expect(TRIAGE_SAVE_DISABLED).toContain('bg-batu-100');
   });
 });

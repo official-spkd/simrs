@@ -81,7 +81,7 @@ export function OkChecklist({
               key={p.phase}
               className={cx(
                 'm-0 flex min-w-0 flex-col gap-1 rounded-[12px] border p-3',
-                isCur ? 'border-[#9FCFC8] bg-[#F7FBFA]' : 'border-line bg-white',
+                isCur ? 'border-brand-200 bg-brand-50' : 'border-line bg-white',
               )}
             >
               <legend className="sr-only">{PHASE_LABEL[p.phase]}</legend>

@@ -6,23 +6,23 @@ export type AlertLevel = 'critical' | 'warning' | 'info' | 'success';
 const levels: Record<AlertLevel, { label: string; box: string; title: string }> = {
   critical: {
     label: 'Kritis',
-    box: 'bg-[linear-gradient(90deg,#FEF3F2,#FFFFFF)] border-[#FECDCA]',
-    title: 'text-danger',
+    box: 'bg-alert-critical border-koral-200 text-koral-900',
+    title: 'text-koral-800',
   },
   warning: {
     label: 'Perhatian',
-    box: 'bg-[linear-gradient(90deg,#FFF8EB,#FFFFFF)] border-[#F5D9A8]',
-    title: 'text-warning',
+    box: 'bg-alert-warning border-kunyit-200 text-kunyit-900',
+    title: 'text-kunyit-800',
   },
   info: {
     label: 'Info',
-    box: 'bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)] border-[#C7D7FE]',
-    title: 'text-info',
+    box: 'bg-alert-info border-samudra-200 text-samudra-900',
+    title: 'text-samudra-700',
   },
   success: {
     label: 'Berhasil',
-    box: 'bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)] border-[#BFE3C6]',
-    title: 'text-success',
+    box: 'bg-alert-success border-zamrud-200 text-zamrud-900',
+    title: 'text-zamrud-700',
   },
 };
 
@@ -43,14 +43,14 @@ export function Alert({
     <div
       role={level === 'critical' ? 'alert' : 'status'}
       className={cx(
-        'flex flex-wrap gap-x-2.5 gap-y-1 rounded-control border px-3.5 py-2.5',
+        'flex flex-wrap gap-x-2.5 gap-y-1 rounded-[14px] border px-3.5 py-3',
         l.box,
         className,
       )}
     >
       {/* Judul tidak dipersempit kata per kata: isi di sampingnya bila lebarnya cukup (≥ 12rem), selain itu di bawah. */}
       <span className={cx('max-w-full font-bold', l.title)}>{title ?? l.label}</span>
-      <span className="min-w-48 flex-1 text-ink-700">{children}</span>
+      <span className="min-w-48 flex-1">{children}</span>
     </div>
   );
 }

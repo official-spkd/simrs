@@ -222,14 +222,14 @@ export function LogisticsBoard({
               className={cx(
                 'border-b px-4 py-2.5 text-small font-medium',
                 flash.ok
-                  ? 'border-[#BFE0C7] bg-[#EAF5EC] text-success'
-                  : 'border-[#F5D9A8] bg-warning-bg text-warning',
+                  ? 'border-zamrud-200 bg-zamrud-50 text-success'
+                  : 'border-kunyit-200 bg-warning-bg text-warning',
               )}
             >
               {flash.text}
             </div>
           )}
-          <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line bg-[#F8FAFB] pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
+          <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line bg-subtle pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
             <label className="flex h-11 w-11 cursor-pointer items-center justify-center has-[:disabled]:cursor-not-allowed">
               <input
                 type="checkbox"

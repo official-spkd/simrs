@@ -60,7 +60,7 @@ export function CriticalCard({
       <section
         role="status"
         aria-label="Nilai kritis"
-        className="flex flex-col gap-2 rounded-[16px] border border-[#BFE0C7] bg-[#EAF5EC] p-3.5"
+        className="flex flex-col gap-2 rounded-[16px] border border-zamrud-200 bg-zamrud-50 p-3.5"
       >
         <span className="font-semibold text-success">Diterima {accepted} · read-back tercatat</span>
         <span className="text-[13px] text-ink-700">
@@ -110,7 +110,7 @@ export function CriticalCard({
     <section
       role="alert"
       aria-label="Nilai kritis"
-      className="flex flex-col gap-2.5 rounded-[16px] border border-[#F0C2BD] bg-[#FDECEA] p-3.5"
+      className="flex flex-col gap-2.5 rounded-[16px] border border-koral-200 bg-koral-50 p-3.5"
     >
       <span className="flex items-start gap-2.5">
         <span
@@ -161,7 +161,7 @@ export function CriticalCard({
           <button
             type="submit"
             disabled={reason !== null}
-            className="h-11 shrink-0 cursor-pointer rounded-[12px] border border-[#9A1E14] bg-danger px-3.5 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:text-ink-400"
+            className="h-11 shrink-0 cursor-pointer rounded-[12px] border border-koral-700 bg-danger px-3.5 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:text-ink-400"
           >
             Read-back benar
           </button>

@@ -16,7 +16,7 @@ export function QrCode({ value, size = 96, label }: { value: string; size?: numb
     >
       {qr.data.flatMap((row, y) =>
         row.map((on, x) =>
-          on ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#14212B" /> : null,
+          on ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="var(--color-ink-900)" /> : null,
         ),
       )}
     </svg>
@@ -55,7 +55,7 @@ export function BarcodePreview({
         preserveAspectRatio="none"
       >
         {bars.map((b) => (
-          <rect key={b.x} x={b.x} y={0} width={b.w} height={height} fill="#14212B" />
+          <rect key={b.x} x={b.x} y={0} width={b.w} height={height} fill="var(--color-ink-900)" />
         ))}
       </svg>
       <span className="font-mono text-[11px] tracking-wider">{value}</span>

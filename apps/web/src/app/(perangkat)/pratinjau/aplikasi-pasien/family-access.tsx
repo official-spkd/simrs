@@ -71,13 +71,13 @@ export function FamilyAccess({
       {notice && (
         <p
           role="status"
-          className="m-0 rounded-[12px] bg-[#EAF5EC] px-3 py-2 text-[13px] font-medium text-success"
+          className="m-0 rounded-[12px] bg-zamrud-50 px-3 py-2 text-[13px] font-medium text-success"
         >
           {notice}
         </p>
       )}
       {pending && (
-        <div className="flex flex-col gap-2 rounded-[16px] border border-warning-border bg-[#FFF8EB] p-3">
+        <div className="flex flex-col gap-2 rounded-[16px] border border-warning-border bg-kunyit-50 p-3">
           <span className="text-[14px] font-semibold">Permintaan akses baru</span>
           <span className="text-[13px] text-ink-700">
             {REQUEST.name} ({REQUEST.relation}) meminta akses ke data Anda · {REQUEST.via}

@@ -11,9 +11,9 @@ import { useDemoRunner } from './demo-sync';
  * gerbang merah/kuning, galat dari server. Dipakai layar Simulasi dan banner skenario di layar lain.
  */
 const toneBox: Record<'danger' | 'warn' | 'giliran' | 'netral' | 'selesai', string> = {
-  danger: 'border-danger-border bg-[linear-gradient(100deg,rgba(180,35,24,0.09),#FFF8F7_60%)]',
-  warn: 'border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),#FFFAF2_60%)]',
-  giliran: 'border-[#9FCFC8] bg-[linear-gradient(100deg,rgba(15,118,110,0.06),#FFFFFF_60%)]',
+  danger: 'border-danger-border bg-[linear-gradient(100deg,rgba(180,35,24,0.09),var(--color-koral-50)_60%)]',
+  warn: 'border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),var(--color-kunyit-50)_60%)]',
+  giliran: 'border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)]',
   netral: 'border-line bg-white',
   selesai: 'border-brand-100 bg-white',
 };
@@ -114,7 +114,7 @@ export function ScenarioTaskCard({
                 ? task.tone === 'danger'
                   ? 'cursor-pointer border-danger-strong bg-danger text-white'
                   : 'cursor-pointer border-brand-800 bg-brand-600 text-white'
-                : 'cursor-not-allowed border-line-strong bg-[#E9EDF1] text-ink-500',
+                : 'cursor-not-allowed border-line-strong bg-line text-ink-500',
             )}
           >
             {task.btn}
@@ -179,7 +179,7 @@ export function ScenarioTaskCard({
               'h-11 rounded-control border px-4 font-[inherit] font-semibold',
               task.enabled
                 ? 'cursor-pointer border-brand-800 bg-brand-600 text-white'
-                : 'cursor-not-allowed border-line-strong bg-[#E9EDF1] text-ink-500',
+                : 'cursor-not-allowed border-line-strong bg-line text-ink-500',
             )}
           >
             Simpan

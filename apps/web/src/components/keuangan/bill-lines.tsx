@@ -35,7 +35,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
         </button>
       </div>
       <div
-        className={cx(GRID, 'bg-[#F8FAFB] px-4 py-2 text-caption font-semibold text-ink-500')}
+        className={cx(GRID, 'bg-subtle px-4 py-2 text-caption font-semibold text-ink-500')}
         aria-hidden="true"
       >
         <span>Kategori</span>
@@ -54,8 +54,8 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
               onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}
               className={cx(
                 GRID,
-                'min-h-11 w-full cursor-pointer border-0 border-b border-[#EEF1F4] px-4 py-2 text-left font-[inherit] text-ink-900',
-                isOpen ? 'bg-[#F8FAFB]' : 'bg-white',
+                'min-h-11 w-full cursor-pointer border-0 border-b border-line-soft px-4 py-2 text-left font-[inherit] text-ink-900',
+                isOpen ? 'bg-subtle' : 'bg-white',
               )}
             >
               <span className="flex min-w-0 items-center gap-2">
@@ -67,12 +67,12 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
               <span className="truncate text-right text-caption text-ink-500">{g.sources.join(', ')}</span>
             </button>
             {isOpen && (
-              <ul id={`kategori-${g.id}`} className="m-0 list-none bg-[#FAFBFC] p-0">
+              <ul id={`kategori-${g.id}`} className="m-0 list-none bg-batu-50 p-0">
                 {g.lines.map((l) => (
                   <li
                     key={l.id}
                     data-line-amount={l.amount}
-                    className={cx(GRID, 'border-b border-[#EEF1F4] px-4 py-2 text-small')}
+                    className={cx(GRID, 'border-b border-line-soft px-4 py-2 text-small')}
                   >
                     <span className="flex min-w-0 flex-col pl-5 text-ink-700">
                       <span className="break-words">
@@ -109,7 +109,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
           </div>
         );
       })}
-      <div className="flex items-center justify-between gap-2 bg-[#F8FAFB] px-4 py-3 font-semibold">
+      <div className="flex items-center justify-between gap-2 bg-subtle px-4 py-3 font-semibold">
         <span>Total tarif RS</span>
         <span aria-live="polite" data-total-amount={total.toString()} className="font-mono">
           {formatRupiah(total)}

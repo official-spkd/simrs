@@ -379,11 +379,11 @@ export function FormBuilder({
                   disabled={!editable}
                   aria-label={`Tambah field ${p.label} ke kanvas`}
                   onClick={() => addOfType(p.type)}
-                  className="flex min-h-11 cursor-copy items-center gap-2.5 rounded-[8px] border border-[#EEF1F4] bg-[#FAFBFC] px-2.5 py-2 text-left font-[inherit] text-small text-ink-900 disabled:cursor-not-allowed disabled:text-ink-500"
+                  className="flex min-h-11 cursor-copy items-center gap-2.5 rounded-[8px] border border-line-soft bg-batu-50 px-2.5 py-2 text-left font-[inherit] text-small text-ink-900 disabled:cursor-not-allowed disabled:text-ink-500"
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-[22px] w-[30px] flex-none items-center justify-center rounded-[6px] bg-[#E6F4F1] font-mono text-[11px] font-semibold text-brand-700"
+                    className="flex h-[22px] w-[30px] flex-none items-center justify-center rounded-[6px] bg-brand-50 font-mono text-[11px] font-semibold text-brand-700"
                   >
                     {p.badge}
                   </span>
@@ -416,7 +416,7 @@ export function FormBuilder({
                     className={cx(
                       'flex flex-col gap-1 rounded-card bg-card px-5 py-4',
                       sectionOn
-                        ? 'border-2 border-brand-600 shadow-[0_0_0_4px_rgba(15,118,110,0.12)]'
+                        ? 'border-2 border-brand-600 shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
                         : 'border border-line',
                     )}
                   >
@@ -473,7 +473,7 @@ export function FormBuilder({
             })}
 
             {showScore && (
-              <div className="flex flex-col gap-1 rounded-card border border-[#D5E3E1] bg-[linear-gradient(100deg,rgba(15,118,110,0.08),#FFFFFF_60%)] px-[18px] py-3.5">
+              <div className="flex flex-col gap-1 rounded-card border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-3.5">
                 <span className="font-bold">Skor total (otomatis)</span>
                 {summary}
               </div>
@@ -562,9 +562,9 @@ function FieldCard({
       className={cx(
         'flex flex-col gap-2.5 rounded-card px-[18px] py-3.5',
         on
-          ? 'border-2 border-brand-600 bg-card shadow-[0_0_0_4px_rgba(15,118,110,0.12)]'
+          ? 'border-2 border-brand-600 bg-card shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
           : f.type === 'score'
-            ? 'border border-[#D5E3E1] bg-[linear-gradient(100deg,rgba(15,118,110,0.08),#FFFFFF_60%)]'
+            ? 'border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)]'
             : 'border border-line bg-card',
       )}
     >
@@ -599,7 +599,7 @@ function FieldCard({
                 onClick={() => onAnswer(o.value)}
                 className={cx(
                   'min-h-11 cursor-pointer rounded-control px-3 py-[7px] text-left font-[inherit] text-small text-ink-900',
-                  chosen ? 'border border-brand-600 bg-[#E6F4F1]' : 'border border-line-strong bg-white',
+                  chosen ? 'border border-brand-600 bg-brand-50' : 'border border-line-strong bg-white',
                 )}
               >
                 {o.label || '(opsi tanpa label)'}
@@ -615,7 +615,7 @@ function FieldCard({
       ) : f.type === 'score' ? (
         summary
       ) : (
-        <span className="rounded-control border border-dashed border-line-strong bg-[#FAFBFC] px-3 py-[9px] text-small text-ink-500">
+        <span className="rounded-control border border-dashed border-line-strong bg-batu-50 px-3 py-[9px] text-small text-ink-500">
           {lib.fieldHint(f)}
         </span>
       )}

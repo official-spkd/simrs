@@ -96,7 +96,7 @@ export function TransaksiTab({
                   onClick={() => onSelect(t.id)}
                   className={cx(
                     'grid min-h-12 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-0 border-b border-line px-2 py-2 text-left font-[inherit] @xl:grid-cols-[64px_minmax(0,1fr)_76px_104px_128px]',
-                    on ? 'bg-[#EEF6F5] shadow-[inset_3px_0_0_#0F766E]' : 'bg-white',
+                    on ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
                   )}
                 >
                   <span className="font-mono text-caption text-ink-700 @max-xl:hidden">

@@ -13,7 +13,7 @@ apps/
 packages/
   shared/     kode bersama tanpa I/O: uang, tanggal, galat, env, id, katalog komponen, kripto integrasi
   db/         Prisma 7 + PostgreSQL 16: skema, migrasi (dengan RLS), withTenant, outbox, utilitas tes
-  ui/         token desain Klinis Bersih + komponen React
+  ui/         token desain Pelangi Klinis + komponen React
   pdf/        PDF klinis deterministik (pdf-lib + fontkit + IBM Plex, ADR-0029), dipakai API dan worker
   config/     tsconfig, ESLint, Prettier bersama
 docs/         dokumen proyek, ADR, PROGRESS, panduan ini (docs/panduan)
@@ -1062,7 +1062,7 @@ Mode `timeout` **memproses** permintaan lalu menahan jawabannya (meniru jawaban 
 
 | Path                          | Isi                                                                                                                           |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `app/layout.tsx`              | Root: font IBM Plex, `lang="id"`, CSS global                                                                                  |
+| `app/layout.tsx`              | Root: font Poppins + IBM Plex Mono, `lang="id"`, CSS global                                                                   |
 | `proxy.ts`                    | Proxy Next 16: CSP ber-nonce per permintaan; belum login → `/masuk?lanjut=…`; cookie akses habis → perbarui sesi sekali       |
 | `app/masuk/`                  | Layar masuk: `page.tsx` (menentukan langkah di server), `actions.ts` (Server Action), `steps.tsx` (formulir)                  |
 | `app/(staf)/layout.tsx`       | Kerangka staf: identitas, unit, dan menu sesuai izin dari sesi; tombol Keluar                                                 |

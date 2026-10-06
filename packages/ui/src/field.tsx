@@ -45,8 +45,8 @@ export function Field({
         aria-invalid={invalid}
         aria-describedby={hint || error ? msgId : undefined}
         className={cx(
-          'h-11 rounded-control border px-3 font-[inherit] text-ink-900',
-          invalid ? 'border-danger bg-[#FFFBFA]' : 'border-line-strong bg-white',
+          'h-11 rounded-control border px-3 font-[inherit] text-ink-900 transition-[box-shadow,border-color] duration-150 focus:border-brand-600 focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-brand-600)_16%,transparent)] focus:outline-none',
+          invalid ? 'border-danger bg-koral-50' : 'border-line-strong bg-white',
         )}
         {...input}
       />

@@ -23,7 +23,7 @@ export default async function DaftarPerangkatPage({ searchParams }: { searchPara
   const env = webEnv();
   const current = await getDevice().catch(() => null);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#E9EEF2] p-6 text-ink-900">
+    <main className="flex min-h-screen items-center justify-center bg-line p-6 text-ink-900">
       <div className="flex w-full max-w-xl flex-col gap-5 rounded-card border border-line bg-white p-8">
         <div className="flex flex-col gap-1">
           <span className="text-caption text-ink-500">SIM RS · Perangkat anjungan dan display</span>

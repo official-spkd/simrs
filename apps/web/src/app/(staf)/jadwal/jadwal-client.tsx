@@ -203,7 +203,7 @@ export function JadwalClient({
           >
             <span
               aria-hidden="true"
-              className={cx('size-2 rounded-full', pendingN ? 'bg-[#D97706]' : 'bg-[#16A34A]')}
+              className={cx('size-2 rounded-full', pendingN ? 'bg-kunyit-500' : 'bg-zamrud-500')}
             />
             {pendingN ? `Sinkron HFIS ${syncAt} · ${pendingN} perbedaan` : `Tersinkron HFIS ${syncAt}`}
           </span>

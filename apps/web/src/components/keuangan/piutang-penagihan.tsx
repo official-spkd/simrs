@@ -75,7 +75,7 @@ export function PiutangPenagihan({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] border-collapse text-[13px]">
             <thead>
-              <tr className="bg-[#F8FAFB] text-left text-caption text-ink-500">
+              <tr className="bg-subtle text-left text-caption text-ink-500">
                 <th scope="col" className="px-4 py-2 font-semibold">
                   Penjamin
                 </th>
@@ -294,7 +294,7 @@ export function PiutangPenagihan({
                     (paying === b.number ? (
                       <form
                         aria-label={`Pelunasan ${b.number}`}
-                        className="flex flex-col gap-2 rounded-control border border-brand-600 bg-[#F4FBFA] p-3"
+                        className="flex flex-col gap-2 rounded-control border border-brand-600 bg-brand-50 p-3"
                         onSubmit={(e) => {
                           e.preventDefault();
                           if (payProblem) return;

@@ -96,7 +96,7 @@ export function KodingWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              ? 'border-zamrud-200 bg-zamrud-50 text-success'
               : 'border-danger-border bg-danger-bg text-danger',
           )}
         >
@@ -208,7 +208,7 @@ function BerkasDetail({
         </Alert>
       )}
       {b.query && (
-        <div className="flex flex-col gap-2 rounded-control border border-[#C9D3EE] bg-[#F6F8FD] p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-samudra-50 p-3 text-small">
           <span className="font-semibold">Query klinis ke {b.query.to}</span>
           <span className="text-ink-700">“{b.query.question}”</span>
           <span className="text-caption text-ink-500">
@@ -281,7 +281,7 @@ function BerkasDetail({
       {done ? (
         <p
           role="status"
-          className="m-0 rounded-control border border-[#B7DEC0] bg-[#F2FAF4] px-3 py-2 text-small text-ink-700"
+          className="m-0 rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-ink-700"
         >
           ✓{' '}
           {b.status === 'tanggapan-siap'
@@ -400,7 +400,7 @@ function KodeRow({
       </div>
 
       {st === 'ada-saran' && c.suggestion && !locked && (
-        <div className="flex flex-col gap-2 rounded-control border border-[#C9D3EE] bg-[#F6F8FD] p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-samudra-50 p-3 text-small">
           <span>
             <span className="font-semibold">Saran: {c.suggestion.code}</span> {c.suggestion.name} ·{' '}
             {c.suggestion.why}
@@ -436,7 +436,7 @@ function KodeRow({
       )}
 
       {st === 'perlu-bukti' && !locked && (
-        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-[#FFFAF2] p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-kunyit-50 p-3 text-small">
           <span className="text-ink-700">
             Kode ini menaikkan severitas; tautkan bukti klinis dari RME, pertahankan dengan alasan, atau
             tanyakan DPJP.

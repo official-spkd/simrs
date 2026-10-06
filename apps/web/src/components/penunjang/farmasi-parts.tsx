@@ -22,7 +22,7 @@ export function FlashBar({
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-between gap-2.5 rounded-control border border-success-border bg-[#EAF6EC] py-2 pr-2 pl-3.5 text-small font-semibold text-success"
+      className="flex flex-wrap items-center justify-between gap-2.5 rounded-control border border-success-border bg-zamrud-50 py-2 pr-2 pl-3.5 text-small font-semibold text-success"
     >
       <span className="flex min-w-0 flex-[1_1_280px] flex-col gap-0.5">
         <span>{flash.text}</span>

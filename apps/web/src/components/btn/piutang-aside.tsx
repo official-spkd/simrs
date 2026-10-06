@@ -12,7 +12,7 @@ function Box({ title, sub, value, active }: { title: string; sub: string; value:
     <div
       className={cx(
         'flex flex-col gap-0.5 rounded-control border px-3 py-2',
-        active ? 'border-[#9FD3C9] bg-[#F3FAF8]' : 'border-line bg-white',
+        active ? 'border-brand-200 bg-brand-50' : 'border-line bg-white',
       )}
     >
       <span className="font-semibold">{title}</span>
@@ -90,7 +90,7 @@ export function PiutangAside({ data, s }: { data: FinancingOverview; s: Financin
         {p && (
           <div
             role="status"
-            className="flex flex-col gap-1 rounded-control border border-[#B7DEC0] bg-[#F3FAF8] p-3 text-small"
+            className="flex flex-col gap-1 rounded-control border border-zamrud-200 bg-brand-50 p-3 text-small"
           >
             <span className="font-semibold">
               Klaim {p.basis} dibayar BPJS · {formatWhen(p.at)}
@@ -109,7 +109,7 @@ export function PiutangAside({ data, s }: { data: FinancingOverview; s: Financin
               </span>
               <span className="font-mono">− {formatRupiah(p.margin)}</span>
             </span>
-            <span className="flex justify-between gap-2 border-t border-[#B7DEC0] pt-1.5 font-bold">
+            <span className="flex justify-between gap-2 border-t border-zamrud-200 pt-1.5 font-bold">
               <span>Diteruskan ke operasional {f.operationalAccount}</span>
               <span className="font-mono">{formatRupiah(p.forwarded)}</span>
             </span>

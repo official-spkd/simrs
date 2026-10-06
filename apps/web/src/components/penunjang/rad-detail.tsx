@@ -44,7 +44,7 @@ export function RadDetail({
       />
       <section
         aria-label="Order pemeriksaan"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,rgba(15,118,110,0.06),rgba(255,255,255,0)_60%)] px-4 py-3"
+        className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),rgba(255,255,255,0)_60%)] px-4 py-3"
       >
         <div className="flex flex-wrap justify-between gap-2.5">
           <div className="flex min-w-0 flex-col">
@@ -110,7 +110,7 @@ export function RadDetail({
       {feedback && (
         <p
           role="status"
-          className="m-0 rounded-control border border-success-border bg-[#EAF6EC] px-3 py-2 text-small font-semibold text-success"
+          className="m-0 rounded-control border border-success-border bg-zamrud-50 px-3 py-2 text-small font-semibold text-success"
         >
           {feedback}
         </p>

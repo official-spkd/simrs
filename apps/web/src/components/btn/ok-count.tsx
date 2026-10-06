@@ -66,7 +66,7 @@ export function OkCount({
                   onChange(x.id, v === '' ? null : Math.max(0, Math.floor(Number(v)) || 0));
                 }}
                 className={cx(
-                  'h-11 w-full rounded-control border px-2 text-right font-mono disabled:bg-[#F8FAFB]',
+                  'h-11 w-full rounded-control border px-2 text-right font-mono disabled:bg-subtle',
                   has ? (match ? 'border-[#7BC08F]' : 'border-danger') : 'border-line-strong',
                 )}
               />

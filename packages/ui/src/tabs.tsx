@@ -24,7 +24,7 @@ export interface TabListItem {
 }
 
 const LIST: Record<TabsVariant, string> = {
-  pil: 'flex flex-wrap gap-1 self-start rounded-[12px] bg-line-soft p-1',
+  pil: 'flex flex-wrap gap-1 self-start rounded-[12px] bg-[rgba(23,32,46,0.06)] p-1',
   segmen: SEGMENT_GROUP,
   garis: 'flex flex-wrap border-b border-line',
 };
@@ -32,7 +32,7 @@ const LIST: Record<TabsVariant, string> = {
 const TAB: Record<TabsVariant, { base: string; on: string; off: string }> = {
   pil: {
     base: 'inline-flex min-h-touch items-center gap-2 rounded-[9px] border-0 px-3.5',
-    on: 'bg-white font-semibold text-brand-700 shadow-tab',
+    on: 'bg-white font-semibold text-brand-800 shadow-tab',
     off: 'bg-transparent text-ink-700',
   },
   segmen: { base: SEGMENT_ITEM, on: SEGMENT_ON, off: SEGMENT_OFF },

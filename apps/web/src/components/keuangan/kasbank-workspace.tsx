@@ -95,7 +95,7 @@ export function KasBankWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              ? 'border-zamrud-200 bg-zamrud-50 text-success'
               : 'border-danger-border bg-danger-bg text-danger',
           )}
         >
@@ -264,7 +264,7 @@ function LaciCard({
           ) : (
             <form
               aria-label={`Tutup laci ${d.counter}`}
-              className="flex flex-col gap-3 rounded-control border border-brand-600 bg-[#F4FBFA] p-3"
+              className="flex flex-col gap-3 rounded-control border border-brand-600 bg-brand-50 p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (problems.length === 0) onClose(physical, diff === 0n ? null : reason.trim(), witness);

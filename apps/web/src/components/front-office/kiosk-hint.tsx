@@ -57,7 +57,7 @@ export function KioskPresenterHint({
         onClick={() => setOpen(true)}
         className={cx(
           DOCK,
-          'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-[#9FCFC8] bg-white/95 px-3 font-[inherit] text-caption font-semibold text-brand-700 shadow-sm',
+          'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-brand-200 bg-white/95 px-3 font-[inherit] text-caption font-semibold text-brand-700 shadow-sm',
         )}
       >
         <Icon name="play" size={13} />
@@ -70,7 +70,7 @@ export function KioskPresenterHint({
       aria-label="Petunjuk presenter"
       className={cx(
         DOCK,
-        'flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-[#9FCFC8] bg-white/95 p-3 shadow-[0_4px_16px_rgba(15,118,110,0.18)]',
+        'flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-brand-200 bg-white/95 p-3 shadow-[0_4px_16px_color-mix(in_srgb,_var(--color-brand-600)_18%,_transparent)]',
       )}
     >
       <span className="flex items-start justify-between gap-2">

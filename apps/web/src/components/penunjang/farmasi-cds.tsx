@@ -14,7 +14,7 @@ function Note({ tone, mark, children }: { tone: 'success' | 'warning'; mark: str
         'flex items-start gap-2.5 rounded-[12px] border px-3.5 py-2.5 text-small',
         tone === 'success'
           ? 'border-success-border bg-[#F3FAF5] text-success'
-          : 'border-warning-border bg-[#FFFAF2] text-warning-strong',
+          : 'border-warning-border bg-kunyit-50 text-warning-strong',
       )}
     >
       <span aria-hidden="true" className="font-bold">
@@ -61,7 +61,7 @@ export function FarmasiCds({
             <div
               key={a.id}
               role="status"
-              className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),#FFFAF2_60%)] p-3.5"
+              className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),var(--color-kunyit-50)_60%)] p-3.5"
             >
               <span className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
                 <span className="font-semibold text-warning-strong">{a.title}</span>

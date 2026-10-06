@@ -42,7 +42,7 @@ export function BookingPanel({
           role="status"
           className={cx(
             'm-0 rounded-[12px] px-3 py-2 text-[13px] font-medium',
-            notice.ok ? 'bg-[#EAF5EC] text-success' : 'bg-warning-bg text-warning',
+            notice.ok ? 'bg-zamrud-50 text-success' : 'bg-warning-bg text-warning',
           )}
         >
           {notice.text}

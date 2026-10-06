@@ -44,7 +44,7 @@ export function ExpiryPanel({
           return (
             <li
               key={e.id}
-              className="flex flex-col gap-1.5 border-b border-[#EEF1F4] pb-3 last:border-0 last:pb-0"
+              className="flex flex-col gap-1.5 border-b border-line-soft pb-3 last:border-0 last:pb-0"
             >
               <span className="flex flex-wrap items-center justify-between gap-2 text-small">
                 <span className="font-medium text-ink-900">

@@ -52,11 +52,11 @@ export function Panel({
       className={cx(
         'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4',
         tone === 'danger'
-          ? 'border-[#FECDCA]'
+          ? 'border-koral-200'
           : tone === 'warning'
-            ? 'border-[#F5D9A8]'
+            ? 'border-kunyit-200'
             : tone === 'success'
-              ? 'border-[#BFE3C6]'
+              ? 'border-zamrud-200'
               : 'border-line',
         className,
       )}
@@ -93,7 +93,7 @@ export function FlowSteps({ label, steps, current }: { label: string; steps: Flo
             className={cx(
               'flex min-w-[150px] flex-1 items-center gap-2 rounded-control border px-3 py-2',
               state === 'aktif'
-                ? 'border-brand-600 bg-[linear-gradient(90deg,#E6F4F1,#FFFFFF)]'
+                ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-50),#FFFFFF)]'
                 : 'border-line bg-white',
             )}
           >
@@ -146,7 +146,7 @@ export function TableWrap({ label, children }: { label: string; children: ReactN
 }
 
 export const TH = 'border-b border-line px-2.5 py-2 text-left text-caption font-semibold text-ink-500';
-export const TD = 'border-b border-[#EEF1F4] px-2.5 py-2 align-top text-small';
+export const TD = 'border-b border-line-soft px-2.5 py-2 align-top text-small';
 
 export interface ConfirmRequest {
   title: string;
@@ -195,7 +195,7 @@ export function ConfirmDialog({
       onClose={onClose}
       className={cx(
         'm-auto w-[min(560px,calc(100vw-32px))] rounded-card border p-0 text-ink-900 backdrop:bg-[rgba(20,33,43,0.45)]',
-        request?.danger ? 'border-[#FECDCA]' : 'border-line',
+        request?.danger ? 'border-koral-200' : 'border-line',
       )}
     >
       {request && (

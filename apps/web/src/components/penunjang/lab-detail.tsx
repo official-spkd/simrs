@@ -112,7 +112,7 @@ export function LabDetail({
         aria-label="Hasil pemeriksaan"
         className="overflow-hidden rounded-card border border-line bg-white"
       >
-        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,rgba(15,118,110,0.06),#FFFFFF_60%)] px-4 py-3">
+        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] px-4 py-3">
           <div className="flex min-w-0 flex-col">
             <h2 className="m-0 text-[16px] font-semibold">{s.tests}</h2>
             <span className="text-[12.5px] text-ink-500">
@@ -168,7 +168,7 @@ export function LabDetail({
             className={cx(
               'mx-4 mt-3 rounded-control border px-3 py-2 text-small font-semibold',
               status.tone === 'warning' && 'border-warning-border bg-[#FFF7EB] text-warning',
-              status.tone === 'success' && 'border-success-border bg-[#EAF6EC] text-success',
+              status.tone === 'success' && 'border-success-border bg-zamrud-50 text-success',
               status.tone === 'brand' && 'border-brand-100 bg-selected text-brand-700',
             )}
           >

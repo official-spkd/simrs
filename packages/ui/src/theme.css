@@ -1,54 +1,157 @@
 /*
- * Token Klinis Bersih (sumber: design/tokens.json, design/tokens.css) sebagai tema Tailwind v4.
+ * Token Pelangi Klinis (ADR-0086, docs/08-desain-ui.md) sebagai tema Tailwind v4.
  * Dipakai lewat `@import '@simrs/ui/theme.css';` setelah `@import 'tailwindcss';`.
- * Kelas yang tersedia: bg-brand-600, text-ink-700, border-line, bg-danger-bg, rounded-control, rounded-card, dst.
+ *
+ * Tiga lapis warna:
+ * 1. Ramp 50–900 per rona: samudra (biru), zamrud (hijau), anggrek (ungu), toska, bougenvil (merah muda),
+ *    kunyit (kuning, khusus status peringatan), koral (merah, khusus status kritis), batu (netral).
+ * 2. Aksen `brand-*` = rona domain layar yang sedang dibuka. Bawaan samudra; `[data-domain]` (AppShell) menukarnya
+ *    ke rona domain (fo samudra, kl zamrud, pj anggrek, ku toska, mj bougenvil, si batu). Kelas lama
+ *    (`bg-brand-600`, `text-brand-700`, …) otomatis ikut warna domain.
+ * 3. Status (`danger`, `warning`, `success`, `info`) tetap, tidak ikut domain: warna status tidak pernah dipakai
+ *    sebagai hiasan domain dan sebaliknya.
+ *
+ * Gradien hanya satu rona, gelap → terang (800 → 600); tidak ada gradien lintas rona (mis. merah → biru).
  */
-@theme {
-  --color-brand-50: #e6f4f1;
-  --color-brand-100: #d5ece7;
-  --color-brand-200: #bfddd8;
-  --color-brand-500: #1d7e77;
-  --color-brand-600: #0f766e;
-  --color-brand-700: #0b5d56;
-  --color-brand-800: #0d6861;
+@theme static {
+  --color-samudra-50: #eef4ff;
+  --color-samudra-100: #dce7ff;
+  --color-samudra-200: #bbd0ff;
+  --color-samudra-300: #8eb0fa;
+  --color-samudra-400: #5f8bf0;
+  --color-samudra-500: #3d6ce0;
+  --color-samudra-600: #2c55c4;
+  --color-samudra-700: #24449e;
+  --color-samudra-800: #1f3a80;
+  --color-samudra-900: #1b3166;
 
-  --color-ink-900: #14212b;
-  --color-ink-700: #3f4c58;
-  --color-ink-500: #5b6b79;
-  --color-ink-400: #8c99a6;
+  --color-zamrud-50: #ecfaf4;
+  --color-zamrud-100: #d2f2e4;
+  --color-zamrud-200: #a7e4ca;
+  --color-zamrud-300: #73cfaa;
+  --color-zamrud-400: #43b488;
+  --color-zamrud-500: #24976d;
+  --color-zamrud-600: #1a7a58;
+  --color-zamrud-700: #176249;
+  --color-zamrud-800: #154f3c;
+  --color-zamrud-900: #124133;
 
-  --color-line: #e3e8ee;
-  --color-line-strong: #cbd3db;
-  --color-line-soft: #eef1f4;
+  --color-anggrek-50: #f5f2ff;
+  --color-anggrek-100: #ebe4ff;
+  --color-anggrek-200: #d6cafe;
+  --color-anggrek-300: #b9a3fb;
+  --color-anggrek-400: #9a78f4;
+  --color-anggrek-500: #7f56e6;
+  --color-anggrek-600: #6a3fcf;
+  --color-anggrek-700: #5832ab;
+  --color-anggrek-800: #482b8b;
+  --color-anggrek-900: #3b2670;
 
-  --color-canvas: #f5f7f9;
+  --color-toska-50: #edfcfb;
+  --color-toska-100: #d3f6f3;
+  --color-toska-200: #a8ece6;
+  --color-toska-300: #6fdad2;
+  --color-toska-400: #36bfb6;
+  --color-toska-500: #1ba29b;
+  --color-toska-600: #148280;
+  --color-toska-700: #146868;
+  --color-toska-800: #155354;
+  --color-toska-900: #154546;
+
+  --color-bougenvil-50: #fff1f7;
+  --color-bougenvil-100: #ffe2ef;
+  --color-bougenvil-200: #ffc6df;
+  --color-bougenvil-300: #ff9bc4;
+  --color-bougenvil-400: #f769a3;
+  --color-bougenvil-500: #e54486;
+  --color-bougenvil-600: #c82c6b;
+  --color-bougenvil-700: #a42257;
+  --color-bougenvil-800: #871f49;
+  --color-bougenvil-900: #701d3f;
+
+  --color-kunyit-50: #fff8eb;
+  --color-kunyit-100: #feedc8;
+  --color-kunyit-200: #fdd98d;
+  --color-kunyit-300: #fbbf52;
+  --color-kunyit-400: #f5a524;
+  --color-kunyit-500: #db860f;
+  --color-kunyit-600: #b8670a;
+  --color-kunyit-700: #924e0d;
+  --color-kunyit-800: #763f11;
+  --color-kunyit-900: #613512;
+
+  --color-koral-50: #fff1ef;
+  --color-koral-100: #ffe0db;
+  --color-koral-200: #ffc1b8;
+  --color-koral-300: #fe9787;
+  --color-koral-400: #f86751;
+  --color-koral-500: #e5442e;
+  --color-koral-600: #c23221;
+  --color-koral-700: #9e291d;
+  --color-koral-800: #82261d;
+  --color-koral-900: #6b241d;
+
+  --color-batu-50: #f8fafc;
+  --color-batu-100: #f1f4f8;
+  --color-batu-200: #e5eaf1;
+  --color-batu-300: #d2dae5;
+  --color-batu-400: #b3bfce;
+  --color-batu-500: #8794a8;
+  --color-batu-600: #65728a;
+  --color-batu-700: #4d5870;
+  --color-batu-800: #263043;
+  --color-batu-900: #17202e;
+
+  /* Aksen domain (bawaan samudra; ditukar oleh [data-domain] di bawah). */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dce7ff;
+  --color-brand-200: #bbd0ff;
+  --color-brand-300: #8eb0fa;
+  --color-brand-400: #5f8bf0;
+  --color-brand-500: #3d6ce0;
+  --color-brand-600: #2c55c4;
+  --color-brand-700: #24449e;
+  --color-brand-800: #1f3a80;
+  --color-brand-900: #1b3166;
+
+  --color-ink-900: #17202e;
+  --color-ink-700: #3b4559;
+  --color-ink-500: #4d5870;
+  --color-ink-400: #65728a;
+
+  --color-line: #e5eaf1;
+  --color-line-strong: #d2dae5;
+  --color-line-soft: #f1f4f8;
+
+  --color-canvas: #f8fafc;
   --color-card: #ffffff;
-  --color-subtle: #f8fafb;
-  --color-selected: #f2faf8;
-  --color-muted: #f1f4f6;
+  --color-subtle: #f8fafc;
+  --color-selected: var(--color-brand-50);
+  --color-muted: #f1f4f8;
 
-  --color-danger: #b42318;
-  --color-danger-strong: #8e1b13;
-  --color-danger-bg: #fdecea;
-  --color-danger-border: #f0c2bd;
-  --color-warning: #8a4b00;
-  --color-warning-strong: #6b3a00;
-  --color-warning-bg: #fff3e0;
-  --color-warning-border: #f1d3a8;
-  --color-success: #1e6b34;
-  --color-success-bg: #eaf5ec;
-  --color-success-border: #bfe3c6;
-  --color-info: #1e3a8a;
-  --color-info-bg: #eef2fb;
-  --color-info-border: #c9d3ee;
+  --color-danger: #c23221;
+  --color-danger-strong: #9e291d;
+  --color-danger-bg: #fff1ef;
+  --color-danger-border: #ffc1b8;
+  --color-warning: #924e0d;
+  --color-warning-strong: #763f11;
+  --color-warning-bg: #fff8eb;
+  --color-warning-border: #fdd98d;
+  --color-success: #176249;
+  --color-success-bg: #ecfaf4;
+  --color-success-border: #a7e4ca;
+  --color-info: #24449e;
+  --color-info-bg: #eef4ff;
+  --color-info-border: #bbd0ff;
 
-  --color-triage-1: #b42318;
+  /* Triase IGD (5 tingkat, warna baku triase; bukan warna domain). */
+  --color-triage-1: #c23221;
   --color-triage-2: #c4320a;
-  --color-triage-3: #fef0c7;
-  --color-triage-4: #eaf6ec;
-  --color-triage-5: #eef4ff;
+  --color-triage-3: #feedc8;
+  --color-triage-4: #d2f2e4;
+  --color-triage-5: #dce7ff;
 
-  --font-sans: var(--font-plex-sans, 'IBM Plex Sans'), system-ui, sans-serif;
+  --font-sans: var(--font-poppins, 'Poppins'), system-ui, sans-serif;
   --font-mono: var(--font-plex-mono, 'IBM Plex Mono'), ui-monospace, monospace;
 
   --text-caption: 12px;
@@ -56,22 +159,179 @@
   --text-body: 14px;
   --text-kiosk: 20px;
   --text-h2: 18px;
-  --text-h1: 20px;
-  --text-kpi: 24px;
+  --text-h1: 22px;
+  --text-kpi: 26px;
 
-  --radius-control: 10px;
-  --radius-card: 14px;
+  --radius-control: 11px;
+  --radius-card: 16px;
+  --radius-window: 20px;
 
-  --shadow-button: 0 1px 2px rgba(16, 24, 40, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  --shadow-tab: 0 1px 2px rgba(16, 24, 40, 0.08);
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-button: 0 8px 20px color-mix(in srgb, var(--color-brand-600) 32%, transparent);
+  --shadow-tab: 0 2px 8px rgba(23, 32, 46, 0.14);
+  --shadow-card: 0 10px 30px rgba(23, 32, 46, 0.07);
+  --shadow-window: 0 30px 70px rgba(23, 32, 46, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --shadow-float: 0 30px 80px rgba(15, 23, 42, 0.35);
 
   --spacing-touch: 44px;
   --spacing-kiosk-touch: 64px;
-  --spacing-sidebar: 240px;
+  --spacing-sidebar: 236px;
+
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-win-in: win-in 0.6s var(--ease-spring) both;
+  --animate-rise: rise 0.5s var(--ease-spring) both;
+  --animate-pal-in: pal-in 0.34s var(--ease-spring) both;
+  --animate-fade: fade 0.2s ease both;
+  --animate-pop: pop 0.45s var(--ease-spring) both;
+  --animate-crit: crit-pulse 1.6s ease-out infinite;
+  --animate-grow: grow 0.9s 0.2s var(--ease-spring) both;
+
+  @keyframes win-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pal-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+      filter: blur(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.03);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes crit-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(194, 50, 33, 0.55);
+    }
+    70% {
+      box-shadow: 0 0 0 8px rgba(194, 50, 33, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(194, 50, 33, 0);
+    }
+  }
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes shine {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
 @layer base {
+  /* Rona domain: menukar seluruh ramp brand-* untuk subtree (AppShell memasang data-domain dari menu aktif). */
+  [data-domain='kl'] {
+    --color-brand-50: var(--color-zamrud-50);
+    --color-brand-100: var(--color-zamrud-100);
+    --color-brand-200: var(--color-zamrud-200);
+    --color-brand-300: var(--color-zamrud-300);
+    --color-brand-400: var(--color-zamrud-400);
+    --color-brand-500: var(--color-zamrud-500);
+    --color-brand-600: var(--color-zamrud-600);
+    --color-brand-700: var(--color-zamrud-700);
+    --color-brand-800: var(--color-zamrud-800);
+    --color-brand-900: var(--color-zamrud-900);
+  }
+  [data-domain='pj'] {
+    --color-brand-50: var(--color-anggrek-50);
+    --color-brand-100: var(--color-anggrek-100);
+    --color-brand-200: var(--color-anggrek-200);
+    --color-brand-300: var(--color-anggrek-300);
+    --color-brand-400: var(--color-anggrek-400);
+    --color-brand-500: var(--color-anggrek-500);
+    --color-brand-600: var(--color-anggrek-600);
+    --color-brand-700: var(--color-anggrek-700);
+    --color-brand-800: var(--color-anggrek-800);
+    --color-brand-900: var(--color-anggrek-900);
+  }
+  [data-domain='ku'] {
+    --color-brand-50: var(--color-toska-50);
+    --color-brand-100: var(--color-toska-100);
+    --color-brand-200: var(--color-toska-200);
+    --color-brand-300: var(--color-toska-300);
+    --color-brand-400: var(--color-toska-400);
+    --color-brand-500: var(--color-toska-500);
+    --color-brand-600: var(--color-toska-600);
+    --color-brand-700: var(--color-toska-700);
+    --color-brand-800: var(--color-toska-800);
+    --color-brand-900: var(--color-toska-900);
+  }
+  [data-domain='mj'] {
+    --color-brand-50: var(--color-bougenvil-50);
+    --color-brand-100: var(--color-bougenvil-100);
+    --color-brand-200: var(--color-bougenvil-200);
+    --color-brand-300: var(--color-bougenvil-300);
+    --color-brand-400: var(--color-bougenvil-400);
+    --color-brand-500: var(--color-bougenvil-500);
+    --color-brand-600: var(--color-bougenvil-600);
+    --color-brand-700: var(--color-bougenvil-700);
+    --color-brand-800: var(--color-bougenvil-800);
+    --color-brand-900: var(--color-bougenvil-900);
+  }
+  [data-domain='si'] {
+    --color-brand-50: var(--color-batu-100);
+    --color-brand-100: var(--color-batu-200);
+    --color-brand-200: var(--color-batu-300);
+    --color-brand-300: var(--color-batu-400);
+    --color-brand-400: var(--color-batu-500);
+    --color-brand-500: var(--color-batu-600);
+    --color-brand-600: var(--color-batu-700);
+    --color-brand-700: var(--color-batu-800);
+    --color-brand-800: var(--color-batu-800);
+    --color-brand-900: var(--color-batu-900);
+  }
+  /* fo (front office) = samudra = bawaan. */
+
   body {
     margin: 0;
     font-family: var(--font-sans);
@@ -79,18 +339,30 @@
     color: var(--color-ink-900);
     background-color: var(--color-canvas);
     background-image:
-      radial-gradient(900px 360px at 88% -8%, rgba(15, 118, 110, 0.09), rgba(15, 118, 110, 0) 70%),
-      radial-gradient(circle at 1px 1px, rgba(20, 33, 43, 0.07) 1px, rgba(20, 33, 43, 0) 1.5px);
-    background-size:
-      auto,
-      22px 22px;
+      radial-gradient(1100px 700px at 0% 0%, var(--color-samudra-100) 0%, transparent 55%),
+      radial-gradient(900px 700px at 100% 100%, var(--color-samudra-50) 0%, transparent 55%);
+    background-attachment: fixed;
     font-variant-numeric: tabular-nums;
+  }
+  h1,
+  h2 {
+    letter-spacing: -0.015em;
   }
   a {
     color: var(--color-brand-600);
   }
   a:hover {
-    color: var(--color-brand-700);
+    color: var(--color-brand-800);
+  }
+  button {
+    transition:
+      transform 120ms ease-out,
+      box-shadow 200ms ease,
+      filter 200ms ease,
+      background-color 200ms ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
   }
   :focus-visible {
     outline: 2px solid var(--color-brand-600);
@@ -102,17 +374,94 @@
       scroll-padding-top: calc(4rem + 0.75rem);
     }
   }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
+/* Tombol utama: gradien satu rona domain (800 → 600). */
 @utility bg-btn-primary {
-  background-image: linear-gradient(180deg, #1d7e77, #0f766e);
+  background-image: linear-gradient(135deg, var(--color-brand-800), var(--color-brand-600));
 }
 @utility bg-btn-danger {
-  background-image: linear-gradient(180deg, #c0331f, #b42318);
+  background-image: linear-gradient(135deg, var(--color-koral-800), var(--color-koral-600));
 }
 @utility bg-card-header {
-  background-image: linear-gradient(100deg, rgba(15, 118, 110, 0.07), #ffffff 60%);
+  background-image: linear-gradient(120deg, var(--color-brand-50), #ffffff 65%);
 }
 @utility bg-nav-active {
-  background-image: linear-gradient(90deg, #e2f2ee, #f1f9f7);
+  background-image: linear-gradient(135deg, var(--color-brand-800), var(--color-brand-600));
+}
+/* Gradien merek (logo, ikon aplikasi): selalu samudra, tidak ikut domain. */
+@utility bg-fajar {
+  background-image: linear-gradient(135deg, var(--color-samudra-800), var(--color-samudra-600));
+}
+@utility bg-domain-bar {
+  background-image: linear-gradient(90deg, var(--color-brand-600), var(--color-brand-800));
+}
+@utility bg-alert-warning {
+  background-image: linear-gradient(120deg, var(--color-kunyit-50), var(--color-kunyit-100));
+}
+@utility bg-alert-critical {
+  background-image: linear-gradient(120deg, var(--color-koral-50), var(--color-koral-100));
+}
+@utility bg-alert-info {
+  background-image: linear-gradient(120deg, var(--color-samudra-50), var(--color-samudra-100));
+}
+@utility bg-alert-success {
+  background-image: linear-gradient(120deg, var(--color-zamrud-50), var(--color-zamrud-100));
+}
+/* Permukaan kaca: jendela, sidebar, palet perintah. Tanpa transparansi bila pengguna memintanya. */
+@utility glass {
+  background-color: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(30px) saturate(170%);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: #ffffff;
+    backdrop-filter: none;
+  }
+}
+@utility glass-soft {
+  background-color: rgba(255, 255, 255, 0.45);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--color-batu-50);
+  }
+}
+/* Kilau sekali lewat di kartu KPI. */
+@utility shine-once {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 40%, rgba(255, 255, 255, 0.6) 50%, transparent 60%);
+    background-size: 250% 100%;
+    animation: shine 1.6s 0.4s ease-out 1 both;
+  }
+}
+/* Isi halaman naik bertahap saat layar dibuka. */
+@utility stagger-rise {
+  & > * {
+    animation: var(--animate-rise);
+  }
+  & > *:nth-child(2) {
+    animation-delay: 0.05s;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 0.1s;
+  }
+  & > *:nth-child(4) {
+    animation-delay: 0.15s;
+  }
+  & > *:nth-child(n + 5) {
+    animation-delay: 0.2s;
+  }
 }

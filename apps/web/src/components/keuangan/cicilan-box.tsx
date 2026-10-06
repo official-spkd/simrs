@@ -52,7 +52,7 @@ export function CicilanBox({
 }) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-2.5 rounded-control border border-line bg-[#F8FAFB] p-3 text-[12.5px] text-ink-700">
+    <div className="flex flex-col gap-2.5 rounded-control border border-line bg-subtle p-3 text-[12.5px] text-ink-700">
       <span className="flex flex-col gap-0.5">
         <span className="font-semibold text-ink-900">Cicilan BTN · {formatRupiah(due)}</span>
         <span>Pembiayaan kesehatan BTN (simulasi) · keputusan kredit oleh BTN</span>
@@ -84,7 +84,7 @@ export function CicilanBox({
                     ok
                       ? 'border-brand-600 bg-brand-600'
                       : cur
-                        ? 'border-[#E9B26B] bg-white'
+                        ? 'border-kunyit-300 bg-white'
                         : 'border-line-strong bg-white',
                   )}
                 />
@@ -122,7 +122,7 @@ function ActionButton({ action, id, primary }: { action: CicilanAction; id: stri
         className={cx(
           'min-h-11 rounded-control px-3.5 font-[inherit] font-semibold',
           !action.enabled
-            ? 'cursor-not-allowed border border-line-strong bg-[#E9EDF1] text-ink-500'
+            ? 'cursor-not-allowed border border-line-strong bg-line text-ink-500'
             : primary
               ? 'cursor-pointer border border-brand-800 bg-brand-600 text-white'
               : 'cursor-pointer border border-dashed border-brand-700 bg-white text-brand-700',

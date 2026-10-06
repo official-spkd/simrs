@@ -52,7 +52,7 @@ export function FarmasiItems({
                 className={cx(
                   'border-b border-line-soft align-middle',
                   cds.tone === 'danger'
-                    ? 'bg-[#FFF8F7]'
+                    ? 'bg-koral-50'
                     : cds.tone === 'warning'
                       ? 'bg-[#FFFCF7]'
                       : 'bg-white',

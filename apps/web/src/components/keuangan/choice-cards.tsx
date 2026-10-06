@@ -50,7 +50,7 @@ export function ChoiceCards<T extends string>({
                 'relative flex min-h-11 flex-col gap-0.5 border-[1.5px] text-left text-ink-900',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand-600',
                 compact ? 'rounded-[9px] px-2 py-1.5' : 'rounded-control px-3 py-2',
-                on ? 'border-brand-600 bg-[#F2FAF8]' : 'border-line bg-white',
+                on ? 'border-brand-600 bg-brand-50' : 'border-line bg-white',
                 o.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
                 o.disabled && !on && 'opacity-60',
                 o.className,

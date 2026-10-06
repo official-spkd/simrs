@@ -24,13 +24,13 @@ export function ClaimGrouper({
   return (
     <section
       aria-label="Hasil grouper"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,rgba(15,118,110,0.06))] p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent))] p-4"
     >
       <span className="font-semibold">Hasil grouper INA-CBG (simulasi)</span>
       {held && (
         <span
           role="status"
-          className="rounded-control border border-warning-border bg-[#FFFAF2] px-3 py-2 text-small text-warning"
+          className="rounded-control border border-warning-border bg-kunyit-50 px-3 py-2 text-small text-warning"
         >
           Grouping ditahan: {held}
         </span>
@@ -41,7 +41,7 @@ export function ClaimGrouper({
             key={g.k}
             className={cx(
               'flex min-w-0 flex-col rounded-control border border-line px-3 py-2.5',
-              g.tone === 'warn' ? 'bg-[#FFFAF2]' : g.tone === 'ok' ? 'bg-[#EAF5EC]' : 'bg-white',
+              g.tone === 'warn' ? 'bg-kunyit-50' : g.tone === 'ok' ? 'bg-zamrud-50' : 'bg-white',
             )}
           >
             <span className="text-caption text-ink-500">{g.k}</span>
@@ -63,7 +63,7 @@ export function ClaimGrouper({
             <span>Tarif RS vs INA-CBG {classLabel}</span>
             <span className="font-mono">{ratio.percent}%</span>
           </span>
-          <span className="flex h-2 overflow-hidden rounded-full bg-[#EEF1F4]" aria-hidden="true">
+          <span className="flex h-2 overflow-hidden rounded-full bg-line-soft" aria-hidden="true">
             <span className="bg-brand-600" style={{ width: `${ratio.cbgWidth}%` }} />
             <span className="bg-[#F4C98E]" style={{ width: `${100 - ratio.cbgWidth}%` }} />
           </span>

@@ -213,24 +213,24 @@ export function Fondasi() {
         </div>
         <p className="m-0 text-small text-ink-700">
           Warna triase hanya dipakai di IGD dan selalu disertai angka level dan label, tidak pernah warna
-          saja. Merah semantik (#B42318) dicadangkan untuk alergi, nilai kritis, dan tindakan berbahaya.
+          saja. Merah semantik (var(--color-koral-600)) dicadangkan untuk alergi, nilai kritis, dan tindakan berbahaya.
         </p>
       </Section>
 
       <Section id="h-latar" title="2. Latar, gradien, dan elevasi">
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="flex h-[140px] items-end rounded-card border border-line bg-canvas bg-[radial-gradient(420px_160px_at_90%_-10%,rgba(15,118,110,0.12),rgba(15,118,110,0)_70%),radial-gradient(circle_at_1px_1px,rgba(20,33,43,0.09)_1px,rgba(20,33,43,0)_1.5px)] bg-[length:auto,22px_22px] p-3.5">
+          <div className="flex h-[140px] items-end rounded-card border border-line bg-canvas bg-[radial-gradient(420px_160px_at_90%_-10%,color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent),transparent_70%),radial-gradient(circle_at_1px_1px,rgba(20,33,43,0.09)_1px,rgba(20,33,43,0)_1.5px)] bg-[length:auto,22px_22px] p-3.5">
             <span className="rounded-md bg-white px-2 py-1 text-small">
               Latar halaman: titik 7% + cahaya teal 9%
             </span>
           </div>
-          <div className="flex h-[140px] items-end rounded-card border border-[#D5E3E1] bg-[linear-gradient(100deg,rgba(15,118,110,0.08)_0%,#FFFFFF_55%)] p-3.5">
+          <div className="flex h-[140px] items-end rounded-card border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent)_0%,#FFFFFF_55%)] p-3.5">
             <span className="text-small">
               Gradien banner: teal 8% → putih, hanya untuk identitas pasien dan header modul
             </span>
           </div>
           <div className="flex h-[140px] items-end rounded-card border border-line bg-white p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_rgba(16,24,40,0.06)]">
-            <span className="text-small">Kartu: putih, garis #E3E8EE, bayangan sangat tipis, radius 14</span>
+            <span className="text-small">Kartu: putih, garis var(--color-line), bayangan sangat tipis, radius 14</span>
           </div>
         </div>
       </Section>
@@ -354,7 +354,7 @@ export function Fondasi() {
               </Button>
             </div>
             {cancelOpen && (
-              <div className="flex flex-col gap-2 rounded-control border border-[#FECDCA] bg-[linear-gradient(90deg,#FEF3F2,#FFFFFF)] px-3.5 py-3">
+              <div className="flex flex-col gap-2 rounded-control border border-koral-200 bg-[linear-gradient(90deg,var(--color-koral-50),#FFFFFF)] px-3.5 py-3">
                 <Field
                   label="Alasan pembatalan"
                   required
@@ -475,7 +475,7 @@ export function Fondasi() {
               <StatusChip status="terkirim">Terkirim SATUSEHAT</StatusChip>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#FECDCA] bg-[#FEF3F2] px-2 py-1 text-caption font-bold text-danger">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-koral-200 bg-koral-50 px-2 py-1 text-caption font-bold text-danger">
                 <Icon name="alert" size={13} strokeWidth={2} />
                 Alergi: Amoksisilin
               </span>
@@ -665,7 +665,7 @@ export function Fondasi() {
                       className={cx(
                         'border-t border-line-soft',
                         dense ? 'h-9' : 'h-11',
-                        r.flag && 'bg-[#FFFBFA]',
+                        r.flag && 'bg-koral-50',
                       )}
                     >
                       <td className="px-3.5">{r.name}</td>

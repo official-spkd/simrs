@@ -257,7 +257,7 @@ export function CadanganBoard({
                   className={cx(
                     'flex flex-wrap items-center gap-2 rounded-control border px-3 py-2',
                     state === 'gagal'
-                      ? 'border-[#FECDCA] bg-danger-bg'
+                      ? 'border-koral-200 bg-danger-bg'
                       : state === 'berikutnya'
                         ? 'border-brand-600'
                         : 'border-line',

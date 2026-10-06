@@ -9,7 +9,7 @@ export function LoginShell({ step, children }: { step: 1 | 2 | 3; children: Reac
     <div className="flex min-h-screen flex-wrap text-body text-ink-900">
       <section
         aria-label="Tentang sistem"
-        className="flex flex-[1_1_480px] flex-col justify-between gap-8 px-6 py-5 md:min-h-[320px] md:p-14 bg-[radial-gradient(700px_420px_at_100%_0%,rgba(255,255,255,0.12),rgba(255,255,255,0)_70%),radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.10)_1px,rgba(255,255,255,0)_1.5px),linear-gradient(160deg,#0F766E_0%,#0B5D56_100%)] bg-[length:auto,22px_22px,auto] text-white"
+        className="flex flex-[1_1_480px] flex-col justify-between gap-8 px-6 py-5 md:min-h-[320px] md:p-14 bg-[radial-gradient(700px_420px_at_100%_0%,rgba(255,255,255,0.12),rgba(255,255,255,0)_70%),radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.10)_1px,rgba(255,255,255,0)_1.5px),linear-gradient(160deg,var(--color-brand-600)_0%,var(--color-brand-700)_100%)] bg-[length:auto,22px_22px,auto] text-white"
       >
         <div className="flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-[12px] border border-white/30 bg-white/15">
@@ -28,7 +28,7 @@ export function LoginShell({ step, children }: { step: 1 | 2 | 3; children: Reac
           </div>
           <div className="flex flex-col">
             <span className="text-[16px] font-bold">SIM RS</span>
-            <span className="text-small text-[#CDEBE5]">Sistem informasi rumah sakit terintegrasi</span>
+            <span className="text-small text-brand-100">Sistem informasi rumah sakit terintegrasi</span>
           </div>
         </div>
         {/* Ponsel: hanya identitas ringkas, agar formulir langsung terlihat tanpa menggulir. */}
@@ -36,7 +36,7 @@ export function LoginShell({ step, children }: { step: 1 | 2 | 3; children: Reac
           <h1 className="m-0 text-[28px] leading-tight font-bold md:text-[32px]">
             Satu rekam medis untuk setiap pasien, dari pendaftaran sampai pulang.
           </h1>
-          <p className="m-0 text-[#DDF2EE]">
+          <p className="m-0 text-brand-100">
             Terhubung dengan SATUSEHAT, BPJS Kesehatan, dan sistem nasional. Setiap akses dicatat untuk
             melindungi kerahasiaan pasien.
           </p>

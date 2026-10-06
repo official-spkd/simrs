@@ -82,7 +82,7 @@ export function CicilanTab({ data, s }: { data: FinancingOverview; s: FinancingS
               onClick={() => setSel(a.id)}
               className={cx(
                 'flex min-h-12 w-full cursor-pointer flex-col gap-1 rounded-control border-0 px-2 py-2 text-left font-[inherit]',
-                a.id === app?.id ? 'bg-[#F3FAF8] shadow-[inset_3px_0_0_#0F766E]' : 'bg-white',
+                a.id === app?.id ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
               )}
             >
               <span className="flex w-full justify-between gap-2">

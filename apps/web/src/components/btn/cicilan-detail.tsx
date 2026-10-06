@@ -98,7 +98,7 @@ export function CicilanDetail({
         ))}
       </dl>
       {app.note && (
-        <span className="rounded-control bg-[#F8FAFB] p-2.5 text-small text-ink-700">{app.note}</span>
+        <span className="rounded-control bg-subtle p-2.5 text-small text-ink-700">{app.note}</span>
       )}
       <div className="flex flex-col gap-1.5">
         <span className="text-small font-semibold">Timeline status</span>
@@ -150,7 +150,7 @@ export function CicilanDetail({
       {app.stage === 'dicairkan' && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
         >
           ✓ BTN mencairkan {formatRupiah(amount)} ke rekening operasional {account}
           {at('dicairkan') ? ` (${formatWhen(at('dicairkan') ?? '')})` : ''}. Tagihan {app.invoiceNo} lunas;
@@ -204,7 +204,7 @@ export function CicilanDetail({
       )}
       {open && canReject(app) && !app.scenario && (
         <form
-          className="flex flex-col gap-1.5 rounded-control border border-danger-border bg-[#FFFBFA] p-3"
+          className="flex flex-col gap-1.5 rounded-control border border-danger-border bg-koral-50 p-3"
           onSubmit={async (e) => {
             e.preventDefault();
             setTried(true);
@@ -264,7 +264,7 @@ export function CicilanDetail({
           </span>
         </form>
       )}
-      <div className="flex gap-2.5 rounded-control border border-[#C9D3EE] bg-[#F6F8FD] px-3 py-2.5 text-[12.5px] text-ink-700">
+      <div className="flex gap-2.5 rounded-control border border-samudra-200 bg-samudra-50 px-3 py-2.5 text-[12.5px] text-ink-700">
         <span aria-hidden="true" className="font-bold text-info">
           i
         </span>

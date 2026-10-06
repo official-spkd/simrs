@@ -21,11 +21,11 @@ export function PatientBanner(p: PatientBannerProps) {
     .join('');
   return (
     <div
-      className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand-100 bg-card-header px-4 py-3"
+      className="sticky top-[var(--app-sticky-top,0px)] z-10 flex flex-wrap items-center justify-between gap-3 rounded-card border border-white/95 bg-card-header px-4 py-3 shadow-card backdrop-blur-xl"
       aria-label="Identitas pasien"
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700">
+        <span className="flex size-10 items-center justify-center rounded-full bg-nav-active font-bold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]">
           {initials}
         </span>
         <div className="flex flex-col">

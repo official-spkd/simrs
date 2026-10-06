@@ -58,7 +58,7 @@ export function CriticalReportForm({
         aria-describedby={nameErr ? `${id}-nama-err` : undefined}
         className={cx(
           'h-11 rounded-control border px-3 font-[inherit] text-ink-900',
-          nameErr ? 'border-danger bg-[#FFFBFA]' : 'border-line-strong bg-white',
+          nameErr ? 'border-danger bg-koral-50' : 'border-line-strong bg-white',
         )}
       />
       {nameErr && (

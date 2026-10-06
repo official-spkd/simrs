@@ -80,7 +80,7 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-gradient-to-r from-[#FFF8EB] to-white px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-gradient-to-r from-kunyit-50 to-white px-4 py-3">
         <span className="font-bold text-warning">
           {open ? `Skor kecocokan ${c.score}%` : `Skor kecocokan saat terdeteksi ${c.score}%`}
         </span>
@@ -134,7 +134,7 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                     <span
                       className={cx(
                         'block px-4 py-2.5',
-                        which === 'b' && useB && open && 'bg-[#E6F4F1] font-semibold text-brand-700',
+                        which === 'b' && useB && open && 'bg-brand-50 font-semibold text-brand-700',
                         crossed && 'text-ink-400 line-through',
                       )}
                     >
@@ -151,7 +151,7 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                     className={cx(
                       'block min-h-11 w-full cursor-pointer border-0 px-4 py-2.5 text-left font-[inherit]',
                       which === 'b' && chosen
-                        ? 'bg-[#E6F4F1] font-semibold text-brand-700'
+                        ? 'bg-brand-50 font-semibold text-brand-700'
                         : 'bg-transparent text-ink-900',
                       crossed && 'text-ink-400 line-through',
                     )}

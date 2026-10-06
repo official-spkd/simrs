@@ -88,7 +88,7 @@ export function PengaturanModul({
         aria-label="Perubahan belum disimpan"
         className={cx(
           'flex flex-wrap items-center justify-between gap-2 rounded-control border px-3 py-2',
-          diff.length > 0 ? 'border-[#F5D9A8] bg-warning-bg' : 'border-line bg-white',
+          diff.length > 0 ? 'border-kunyit-200 bg-warning-bg' : 'border-line bg-white',
         )}
       >
         <span className="text-small">

@@ -35,14 +35,14 @@ export function MoneyFlow({ operational }: { operational: string }) {
         dana.
       </p>
       <div className="flex flex-wrap items-stretch gap-y-2.5">
-        <div className="flex min-w-0 flex-[0_1_150px] flex-col gap-0.5 rounded-control border border-line bg-[#F8FAFB] px-3 py-2.5 max-md:flex-[1_1_100%]">
+        <div className="flex min-w-0 flex-[0_1_150px] flex-col gap-0.5 rounded-control border border-line bg-subtle px-3 py-2.5 max-md:flex-[1_1_100%]">
           <span className="font-semibold">Pasien</span>
           <span className="text-caption text-ink-500">
             membayar tagihan RS di loket, aplikasi, atau m-banking
           </span>
         </div>
         <Arrow label="bayar" />
-        <div className="flex min-w-0 flex-[1_1_180px] flex-col gap-1 rounded-control border border-[#BFE0D9] bg-[#F2FAF8] px-3 py-2.5">
+        <div className="flex min-w-0 flex-[1_1_180px] flex-col gap-1 rounded-control border border-brand-200 bg-brand-50 px-3 py-2.5">
           <span className="font-semibold text-brand-700">Kanal BTN</span>
           <span className="flex flex-wrap gap-1.5">
             <Chip tone="brand">VA BTN</Chip>
@@ -51,7 +51,7 @@ export function MoneyFlow({ operational }: { operational: string }) {
           </span>
         </div>
         <Arrow label="dana langsung" />
-        <div className="flex min-w-0 flex-[1_1_190px] flex-col gap-0.5 rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2.5">
+        <div className="flex min-w-0 flex-[1_1_190px] flex-col gap-0.5 rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2.5">
           <span className="font-semibold text-success">Rekening operasional RS</span>
           <span className="text-caption text-ink-700">
             BTN <span className="font-mono">{operational}</span> · atas nama RS · mutasi ditarik lewat API H2H

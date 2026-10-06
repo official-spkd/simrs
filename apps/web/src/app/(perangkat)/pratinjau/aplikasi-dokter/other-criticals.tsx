@@ -47,7 +47,7 @@ export function OtherCriticals({ items, rev }: { items: readonly AppCritical[]; 
             aria-label={`Nilai kritis ${c.patientName}`}
             className={cx(
               'flex flex-col gap-1.5 rounded-[16px] border p-3',
-              c.report ? 'border-[#BFE0C7] bg-[#EAF5EC]' : 'border-[#F0C2BD] bg-[#FDECEA]',
+              c.report ? 'border-zamrud-200 bg-zamrud-50' : 'border-koral-200 bg-koral-50',
             )}
           >
             <span className="text-[13.5px] font-semibold">
@@ -95,7 +95,7 @@ export function OtherCriticals({ items, rev }: { items: readonly AppCritical[]; 
                   <button
                     type="submit"
                     disabled={!ok || pending}
-                    className="h-11 shrink-0 cursor-pointer rounded-[12px] border border-[#9A1E14] bg-danger px-3 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:text-ink-400"
+                    className="h-11 shrink-0 cursor-pointer rounded-[12px] border border-koral-700 bg-danger px-3 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:text-ink-400"
                   >
                     Read-back benar<span className="sr-only"> {c.patientName}</span>
                   </button>

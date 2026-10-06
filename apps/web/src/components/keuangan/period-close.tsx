@@ -38,7 +38,7 @@ export function PeriodClose({
         aria-describedby={`${id}-isi`}
         className="m-auto w-[min(560px,calc(100vw-32px))] rounded-card border border-warning-border p-0 text-ink-900 backdrop:bg-[rgba(20,33,43,0.45)]"
       >
-        <div className="flex flex-col gap-3 bg-[linear-gradient(100deg,rgba(138,75,0,0.08),#FFFAF2_60%)] p-5">
+        <div className="flex flex-col gap-3 bg-[linear-gradient(100deg,rgba(138,75,0,0.08),var(--color-kunyit-50)_60%)] p-5">
           <h2 id={`${id}-judul`} className="m-0 text-h2 font-semibold">
             Tutup periode {periodLabel}?
           </h2>

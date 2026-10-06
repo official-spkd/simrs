@@ -5,10 +5,13 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 export type ButtonSize = 'md' | 'sm' | 'kiosk';
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'border border-brand-800 bg-btn-primary text-white font-semibold shadow-button',
-  secondary: 'border border-line-strong bg-white text-ink-900 font-medium',
-  danger: 'border border-[#9A1E14] bg-btn-danger text-white font-semibold shadow-button',
-  ghost: 'border-0 bg-transparent text-brand-600 font-medium',
+  primary:
+    'border border-transparent bg-btn-primary text-white font-semibold shadow-button hover:brightness-[1.07] hover:shadow-[0_10px_26px_color-mix(in_srgb,var(--color-brand-600)_42%,transparent)]',
+  secondary:
+    'border border-[rgba(23,32,46,0.12)] bg-white/95 text-ink-900 font-semibold hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]',
+  danger:
+    'border border-transparent bg-btn-danger text-white font-semibold shadow-[0_8px_20px_rgba(194,50,33,0.3)] hover:brightness-[1.07]',
+  ghost: 'border-0 bg-transparent text-brand-700 font-semibold hover:bg-brand-50',
 };
 
 /**
@@ -22,7 +25,7 @@ const sizes: Record<ButtonSize, string> = {
 };
 
 const disabledStyle =
-  'disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400 disabled:shadow-none disabled:cursor-not-allowed';
+  'disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400 disabled:shadow-none disabled:brightness-100 disabled:cursor-not-allowed';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;

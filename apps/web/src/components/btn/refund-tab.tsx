@@ -117,7 +117,7 @@ export function RefundTab({
               onClick={() => setSel(r.id)}
               className={cx(
                 'flex min-h-12 w-full cursor-pointer flex-col gap-1 rounded-control border-0 px-2 py-2 text-left font-[inherit]',
-                r.id === f.id ? 'bg-[#EEF6F5] shadow-[inset_3px_0_0_#0F766E]' : 'bg-white',
+                r.id === f.id ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
               )}
             >
               <span className="flex w-full justify-between gap-2">
@@ -162,7 +162,7 @@ export function RefundTab({
                   aria-hidden="true"
                   className={cx(
                     'h-1.5 rounded-full',
-                    done ? 'bg-brand-600' : cur ? 'bg-[#E9B26B]' : 'bg-line',
+                    done ? 'bg-brand-600' : cur ? 'bg-kunyit-300' : 'bg-line',
                   )}
                 />
                 <span
@@ -197,7 +197,7 @@ export function RefundTab({
         {isDraft ? (
           <RefundForm refund={f} draft={draft} errors={errors} tried={tried} onChange={setDraft} />
         ) : (
-          <div className="flex flex-col gap-0.5 rounded-control bg-[#F8FAFB] p-3 text-small">
+          <div className="flex flex-col gap-0.5 rounded-control bg-subtle p-3 text-small">
             <span className="font-semibold">Alasan: {reasonLabel}</span>
             <span className="text-ink-700">{f.reasonNote}</span>
           </div>
@@ -215,7 +215,7 @@ export function RefundTab({
         {stage === 'dana-kembali' && (
           <div
             role="status"
-            className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+            className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
           >
             Dana {formatRupiah(amount)} sudah kembali ke {f.destination}. Status transaksi asal diperbarui dan
             jurnal refund terbentuk otomatis.

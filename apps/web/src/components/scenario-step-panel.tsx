@@ -15,9 +15,9 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
   return (
     <section
       aria-label={`Simulasi ${here.label}`}
-      className="overflow-hidden rounded-card border border-[#9FCFC8] bg-white shadow-[0_4px_16px_rgba(15,118,110,0.10)]"
+      className="overflow-hidden rounded-card border border-brand-200 bg-white shadow-[0_4px_16px_color-mix(in_srgb,_var(--color-brand-600)_10%,_transparent)]"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-[linear-gradient(100deg,rgba(15,118,110,0.10),#FFFFFF_60%)] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_10%,_transparent),#FFFFFF_60%)] px-4 py-3">
         <span className="flex min-w-0 flex-col">
           <span className="text-caption font-semibold text-brand-700">
             Simulasi · {here.label} · Langkah {step.no}
@@ -64,7 +64,7 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
                 'min-h-11 rounded-control border px-4 font-[inherit] font-semibold',
                 step.canNext
                   ? 'cursor-pointer border-brand-800 bg-brand-600 text-white'
-                  : 'cursor-not-allowed border-line-strong bg-[#E9EDF1] text-ink-500',
+                  : 'cursor-not-allowed border-line-strong bg-line text-ink-500',
               )}
             >
               {step.nextLabel}

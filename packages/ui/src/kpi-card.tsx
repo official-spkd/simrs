@@ -3,7 +3,7 @@ import { cx } from './cx';
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cx('rounded-card border border-line bg-card shadow-card', className)}>
+    <section className={cx('rounded-card border border-white/95 bg-white/90 shadow-card', className)}>
       {children}
     </section>
   );
@@ -33,16 +33,17 @@ export function KpiCard({
     warning: 'text-warning',
     success: 'text-success',
   }[tone];
+  // Gradien satu rona, gelap → terang (100 → 50): domain untuk netral, rona status untuk nada lain.
   const tint = {
-    neutral: '',
-    danger: 'bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(180,35,24,0.06))]',
-    warning: 'bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(138,75,0,0.06))]',
-    success: 'bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(30,107,52,0.06))]',
+    neutral: 'bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))]',
+    danger: 'bg-[linear-gradient(135deg,var(--color-koral-100),var(--color-koral-50))]',
+    warning: 'bg-[linear-gradient(135deg,var(--color-kunyit-100),var(--color-kunyit-50))]',
+    success: 'bg-[linear-gradient(135deg,var(--color-zamrud-100),var(--color-zamrud-50))]',
   }[tone];
   return (
-    <Card className={cx('flex flex-col gap-1 p-4', tinted && tint)}>
+    <Card className={cx('shine-once flex flex-col gap-1 px-4 py-3.5', tinted && tint)}>
       <span className="text-caption font-semibold text-ink-500">{label}</span>
-      <span className="text-kpi font-bold leading-tight text-ink-900">{value}</span>
+      <span className="text-kpi font-bold leading-tight tracking-[-0.03em] text-ink-900">{value}</span>
       {hint && <span className={cx('text-caption font-medium', hintTone)}>{hint}</span>}
       {detail && <span className="text-[11.5px] text-ink-500">{detail}</span>}
     </Card>

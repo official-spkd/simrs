@@ -267,7 +267,7 @@ export function PendaftaranClient({
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3 text-caption text-ink-700">
-            <span aria-hidden="true" className="size-2 rounded-full bg-[#16A34A]" />
+            <span aria-hidden="true" className="size-2 rounded-full bg-zamrud-500" />
             VClaim {vclaimLatencyMs} ms
           </span>
           {serving && (

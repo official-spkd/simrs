@@ -116,7 +116,7 @@ export function KonfigurasiTab({
                 key={k.id}
                 className={cx(
                   'flex flex-wrap items-center gap-3 rounded-control border p-2.5',
-                  on ? 'border-[#BFE0D9] bg-[#F7FCFB]' : 'border-line bg-[#FAFBFC]',
+                  on ? 'border-brand-200 bg-[#F7FCFB]' : 'border-line bg-batu-50',
                 )}
               >
                 <label className="flex min-h-11 min-w-0 flex-[1_1_220px] cursor-pointer items-center gap-2.5">

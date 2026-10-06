@@ -56,7 +56,7 @@ export function BedRequests({
               key={r.id}
               className={cx(
                 'flex flex-col gap-1.5 border-b border-line-soft px-4 py-3',
-                r.late ? 'bg-[#FFFBFA]' : r.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
+                r.late ? 'bg-koral-50' : r.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
               )}
             >
               <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">

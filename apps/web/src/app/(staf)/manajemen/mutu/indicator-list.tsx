@@ -59,7 +59,7 @@ export function IndicatorList({ indicators, months }: { indicators: QualityIndic
           return (
             <li
               key={q.id}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#EEF1F4] py-2.5 last:border-0"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line-soft py-2.5 last:border-0"
             >
               <span className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
                 <span className="font-medium text-ink-900">{q.label}</span>

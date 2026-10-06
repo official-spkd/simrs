@@ -47,7 +47,7 @@ export function CpoeOrderRow({
     <li
       className={cx(
         'flex flex-col gap-2 border-b border-line-soft px-4 py-3 last:border-b-0',
-        gate ? 'bg-[#FFFBFA]' : 'bg-white',
+        gate ? 'bg-koral-50' : 'bg-white',
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5">

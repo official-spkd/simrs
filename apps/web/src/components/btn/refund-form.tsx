@@ -32,7 +32,7 @@ export function RefundForm({
     (refund.maxAmount ? `Maksimal ${formatRupiah(BigInt(refund.maxAmount))} (kelebihan deposit).` : '');
   const len = draft.note.trim().length;
   return (
-    <div className="flex flex-col gap-2.5 rounded-[12px] border border-line bg-[#F8FAFB] p-3">
+    <div className="flex flex-col gap-2.5 rounded-[12px] border border-line bg-subtle p-3">
       <div className="flex flex-wrap gap-3">
         <span className="flex min-w-0 flex-[1_1_160px] flex-col gap-1">
           <label htmlFor={`${id}-nominal`} className="text-small font-semibold text-ink-700">

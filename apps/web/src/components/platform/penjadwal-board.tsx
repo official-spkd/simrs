@@ -246,7 +246,7 @@ export function PenjadwalBoard({ jobs, rev }: { jobs: ScheduledJob[]; rev: numbe
             {job.runs.map((r, i) => (
               <li
                 key={`${r.at}-${i}`}
-                className="flex flex-col gap-0.5 border-b border-[#EEF1F4] pb-2 last:border-0"
+                className="flex flex-col gap-0.5 border-b border-line-soft pb-2 last:border-0"
               >
                 <span className="flex flex-wrap items-center gap-2 text-small">
                   <span className="font-mono">{formatTanggalWaktu(r.at)}</span>

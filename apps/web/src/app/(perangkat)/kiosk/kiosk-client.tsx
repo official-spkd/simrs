@@ -257,9 +257,9 @@ export function KioskClient({
 
   const root = {
     '--k': large ? 1.2 : 1,
-    backgroundColor: '#F5F7F9',
+    backgroundColor: 'var(--color-canvas)',
     backgroundImage:
-      'radial-gradient(1100px 600px at 100% 0%, rgba(15,118,110,0.12), rgba(15,118,110,0) 70%), radial-gradient(900px 500px at 0% 100%, rgba(14,116,144,0.07), rgba(14,116,144,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px)',
+      'radial-gradient(1100px 600px at 100% 0%, color-mix(in srgb, var(--color-brand-600) 12%, transparent), transparent 70%), radial-gradient(900px 500px at 0% 100%, rgba(14,116,144,0.07), rgba(14,116,144,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px)',
     backgroundSize: 'auto, auto, 30px 30px',
   } as CSSProperties;
 

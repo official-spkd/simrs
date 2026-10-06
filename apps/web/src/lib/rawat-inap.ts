@@ -66,11 +66,11 @@ export interface TriageMeta {
 }
 
 /** Tombol simpan triase nonaktif: abu (mockup IGD), bukan warna level. */
-export const TRIAGE_SAVE_DISABLED = 'cursor-not-allowed border-line bg-[#F1F4F6] text-[#8C99A6]';
+export const TRIAGE_SAVE_DISABLED = 'cursor-not-allowed border-line bg-batu-100 text-ink-400';
 
 const ADVICE_RED = {
-  box: 'border-[#FECDCA] bg-[linear-gradient(90deg,#FEF3F2,#FFFFFF)]',
-  label: 'text-[#B42318]',
+  box: 'border-koral-200 bg-[linear-gradient(90deg,var(--color-koral-50),#FFFFFF)]',
+  label: 'text-koral-600',
 };
 
 /** Nama level dan target waktu dokter dari skala ATS bersama (`@simrs/shared`, keputusan fase 3 no. 6). */
@@ -82,11 +82,11 @@ function atsText(level: TriageLevel): Pick<TriageMeta, 'label' | 'target'> {
 export const TRIAGE_META: Record<TriageLevel, TriageMeta> = {
   1: {
     ...atsText(1),
-    badge: 'border-[#9A1E14] bg-triage-1 text-white',
-    rail: 'shadow-[inset_4px_0_0_#B42318]',
-    selected: 'border-2 border-[#9A1E14] bg-triage-1 text-white ring-3 ring-[rgba(180,35,24,0.18)]',
+    badge: 'border-koral-700 bg-triage-1 text-white',
+    rail: 'shadow-[inset_4px_0_0_var(--color-koral-600)]',
+    selected: 'border-2 border-koral-700 bg-triage-1 text-white ring-3 ring-[rgba(180,35,24,0.18)]',
     advice: ADVICE_RED,
-    save: 'cursor-pointer border-[#9A1E14] bg-[linear-gradient(180deg,#C8402F,#B42318)] text-white shadow-button',
+    save: 'cursor-pointer border-koral-700 bg-[linear-gradient(180deg,var(--color-koral-500),var(--color-koral-600))] text-white shadow-button',
   },
   2: {
     ...atsText(2),
@@ -98,27 +98,27 @@ export const TRIAGE_META: Record<TriageLevel, TriageMeta> = {
   },
   3: {
     ...atsText(3),
-    badge: 'border-[#F5D9A8] bg-triage-3 text-[#7A4300]',
+    badge: 'border-kunyit-200 bg-triage-3 text-kunyit-800',
     rail: 'shadow-[inset_4px_0_0_#E9B949]',
-    selected: 'border-2 border-[#F5D9A8] bg-triage-3 text-[#7A4300] ring-3 ring-[rgba(181,71,8,0.18)]',
-    advice: { box: 'border-[#F5D9A8] bg-[linear-gradient(90deg,#FFF8EB,#FFFFFF)]', label: 'text-[#8A4B00]' },
+    selected: 'border-2 border-kunyit-200 bg-triage-3 text-kunyit-800 ring-3 ring-[rgba(181,71,8,0.18)]',
+    advice: { box: 'border-kunyit-200 bg-[linear-gradient(90deg,var(--color-kunyit-50),#FFFFFF)]', label: 'text-kunyit-700' },
     save: 'cursor-pointer border-[#93370D] bg-[linear-gradient(180deg,#C25A1A,#B54708)] text-white shadow-button',
   },
   4: {
     ...atsText(4),
-    badge: 'border-[#BFE3C6] bg-triage-4 text-[#1E6B34]',
+    badge: 'border-zamrud-200 bg-triage-4 text-zamrud-700',
     rail: 'shadow-[inset_4px_0_0_#7CC08B]',
-    selected: 'border-2 border-[#BFE3C6] bg-triage-4 text-[#1E6B34] ring-3 ring-[rgba(30,107,52,0.18)]',
-    advice: { box: 'border-[#BFE3C6] bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)]', label: 'text-[#1E6B34]' },
-    save: 'cursor-pointer border-[#17562A] bg-[linear-gradient(180deg,#2A7D42,#1E6B34)] text-white shadow-button',
+    selected: 'border-2 border-zamrud-200 bg-triage-4 text-zamrud-700 ring-3 ring-[rgba(30,107,52,0.18)]',
+    advice: { box: 'border-zamrud-200 bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)]', label: 'text-zamrud-700' },
+    save: 'cursor-pointer border-[#17562A] bg-[linear-gradient(180deg,#2A7D42,var(--color-zamrud-700))] text-white shadow-button',
   },
   5: {
     ...atsText(5),
-    badge: 'border-[#C7D7FE] bg-triage-5 text-[#1E3A8A]',
+    badge: 'border-samudra-200 bg-triage-5 text-samudra-700',
     rail: 'shadow-[inset_4px_0_0_#8DA8F0]',
-    selected: 'border-2 border-[#C7D7FE] bg-triage-5 text-[#1E3A8A] ring-3 ring-[rgba(30,58,138,0.18)]',
-    advice: { box: 'border-[#C7D7FE] bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)]', label: 'text-[#1E3A8A]' },
-    save: 'cursor-pointer border-[#172E6E] bg-[linear-gradient(180deg,#2B4A9E,#1E3A8A)] text-white shadow-button',
+    selected: 'border-2 border-samudra-200 bg-triage-5 text-samudra-700 ring-3 ring-[rgba(30,58,138,0.18)]',
+    advice: { box: 'border-samudra-200 bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)]', label: 'text-samudra-700' },
+    save: 'cursor-pointer border-[#172E6E] bg-[linear-gradient(180deg,#2B4A9E,var(--color-samudra-700))] text-white shadow-button',
   },
 };
 
@@ -357,8 +357,8 @@ export const BED_STATUS_META: Record<BedStatus, { label: string; tile: string; t
   pulang: { label: 'Pulang hari ini', tile: 'border-brand-200 bg-selected', text: 'text-brand-700' },
   dipesan: { label: 'Dipesan', tile: 'border-info-border bg-info-bg', text: 'text-info' },
   kotor: { label: 'Kotor', tile: 'border-[#D9CDBE] bg-[#F7F3EE]', text: 'text-[#6B4E2E]' },
-  dibersihkan: { label: 'Dibersihkan', tile: 'border-warning-border bg-[#FFF8EB]', text: 'text-warning' },
-  rusak: { label: 'Rusak', tile: 'border-danger-border bg-[#FEF3F2]', text: 'text-danger' },
+  dibersihkan: { label: 'Dibersihkan', tile: 'border-warning-border bg-kunyit-50', text: 'text-warning' },
+  rusak: { label: 'Rusak', tile: 'border-danger-border bg-koral-50', text: 'text-danger' },
 };
 
 export function isOccupied(status: BedStatus): boolean {
@@ -652,9 +652,9 @@ export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string
   diberikan: { label: 'Diberikan', cls: 'border-success-border bg-success-bg text-success' },
   jadwal: {
     label: 'Jadwal',
-    cls: 'border-brand-600 bg-[linear-gradient(180deg,#E6F4F1,#FFFFFF)] text-brand-700',
+    cls: 'border-brand-600 bg-[linear-gradient(180deg,var(--color-brand-50),#FFFFFF)] text-brand-700',
   },
-  terlambat: { label: 'Terlambat', cls: 'border-danger-border bg-[#FEF3F2] text-danger' },
+  terlambat: { label: 'Terlambat', cls: 'border-danger-border bg-koral-50 text-danger' },
   ditunda: { label: 'Ditunda', cls: 'border-warning-border bg-warning-bg text-warning' },
   ditolak: { label: 'Ditolak pasien', cls: 'border-warning-border bg-warning-bg text-warning' },
   rencana: { label: 'Rencana', cls: 'border-line-soft bg-subtle text-ink-500' },

@@ -3,10 +3,10 @@ import type { SlotCellKind, SlotCellView } from '@/lib/front-office';
 
 /** Warna sel jadwal (mockup Jadwal); status juga tertulis di teks/ikon, tidak hanya warna. */
 export const SLOT_TONE: Record<SlotCellKind, string> = {
-  ok: 'border-[#BFDDD8] bg-[#F2FAF8] text-brand-700',
-  full: 'border-[#F5D9A8] bg-[#FFF8EB] text-warning',
-  off: 'border-[#FECDCA] bg-[#FEF3F2] text-danger',
-  sub: 'border-[#C7D7FE] bg-[#EEF4FF] text-info',
+  ok: 'border-brand-200 bg-brand-50 text-brand-700',
+  full: 'border-kunyit-200 bg-kunyit-50 text-warning',
+  off: 'border-koral-200 bg-koral-50 text-danger',
+  sub: 'border-samudra-200 bg-samudra-50 text-info',
   none: 'border-transparent bg-white text-ink-500',
 };
 
@@ -68,7 +68,7 @@ export function ScheduleGrid({
                   className={cx(
                     'm-1.5 flex min-h-12 cursor-pointer flex-col items-start justify-start gap-0.5 rounded-control border p-2 text-left font-[inherit] text-caption',
                     SLOT_TONE[c.kind],
-                    on && 'shadow-[0_0_0_2px_#0F766E]',
+                    on && 'shadow-[0_0_0_2px_var(--color-brand-600)]',
                   )}
                 >
                   <span className="font-mono font-semibold">{c.time}</span>

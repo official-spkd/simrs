@@ -114,7 +114,7 @@ export function ResumeClient({
     <div className="flex flex-wrap items-start gap-4">
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
         {scn && !taskDone(sc, 'resume') && (
-          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-card border border-[#9FCFC8] bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-card border border-brand-200 bg-white px-4 py-3">
             <span className="text-small text-ink-700">
               Draf terisi otomatis dari CPPT, hasil, dan eMAR. Himpun ringkasan untuk mengisi diagnosis
               berkode dan obat pulang.

@@ -79,7 +79,7 @@ export function CostingWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
         >
           ✓ {flash}
         </div>
@@ -112,7 +112,7 @@ export function CostingWorkspace({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] border-collapse text-[13px]">
               <thead>
-                <tr className="bg-[#F8FAFB] text-left text-caption text-ink-500">
+                <tr className="bg-subtle text-left text-caption text-ink-500">
                   <th scope="col" className="px-4 py-2 font-semibold">
                     {by === 'cbg' ? 'Kelompok INA-CBG' : 'DPJP'}
                   </th>
@@ -291,7 +291,7 @@ function CaseDetail({
         <div
           className={cx(
             'rounded-control border px-3 py-2 text-small',
-            v ? 'border-warning-border bg-[#FFFAF2]' : 'border-[#B7DEC0] bg-[#F2FAF4]',
+            v ? 'border-warning-border bg-kunyit-50' : 'border-zamrud-200 bg-zamrud-50',
           )}
         >
           {v ? (

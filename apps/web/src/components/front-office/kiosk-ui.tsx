@@ -8,7 +8,7 @@ import type { CSSProperties, ReactNode } from 'react';
 export const fs = (px: number): CSSProperties => ({ fontSize: `calc(${px}px * var(--k, 1))` });
 
 export const KIOSK_PRIMARY =
-  'border-2 border-brand-800 bg-[linear-gradient(180deg,#1D7E77,#0F766E)] text-white shadow-[0_6px_16px_rgba(15,118,110,0.25)] disabled:border-line disabled:bg-none disabled:bg-muted disabled:text-ink-400 disabled:shadow-none disabled:cursor-not-allowed';
+  'border-2 border-brand-800 bg-[linear-gradient(180deg,var(--color-brand-500),var(--color-brand-600))] text-white shadow-[0_6px_16px_color-mix(in_srgb,_var(--color-brand-600)_25%,_transparent)] disabled:border-line disabled:bg-none disabled:bg-muted disabled:text-ink-400 disabled:shadow-none disabled:cursor-not-allowed';
 export const KIOSK_SECONDARY = 'border-2 border-line-strong bg-white text-ink-900';
 
 export function KioskOption({
@@ -43,7 +43,7 @@ export function KioskOption({
         'flex cursor-pointer items-center gap-8 rounded-[28px] border-2 px-10 text-left font-[inherit] shadow-[0_2px_4px_rgba(16,24,40,0.05),0_10px_30px_rgba(16,24,40,0.07)] disabled:cursor-wait disabled:opacity-70',
         large ? 'min-h-[188px] py-9' : 'min-h-[168px] py-8',
         primary
-          ? 'border-brand-700 bg-[linear-gradient(135deg,#12807A_0%,#0F766E_55%,#0B5D56_100%)] text-white'
+          ? 'border-brand-700 bg-[linear-gradient(135deg,#12807A_0%,var(--color-brand-600)_55%,var(--color-brand-700)_100%)] text-white'
           : 'border-line bg-white text-ink-900',
       )}
     >
@@ -60,12 +60,12 @@ export function KioskOption({
         <span className="font-bold" style={fs(36)}>
           {title}
         </span>
-        <span className={primary ? 'text-[#DDF2EE]' : 'text-ink-700'} style={fs(22)}>
+        <span className={primary ? 'text-brand-100' : 'text-ink-700'} style={fs(22)}>
           {desc}
         </span>
       </span>
       {tag ? (
-        <span className={cx('font-semibold', primary ? 'text-[#DDF2EE]' : 'text-ink-700')} style={fs(20)}>
+        <span className={cx('font-semibold', primary ? 'text-brand-100' : 'text-ink-700')} style={fs(20)}>
           {tag}
         </span>
       ) : chevron ? (
@@ -128,9 +128,9 @@ export function KioskNotice({
   children: ReactNode;
 }) {
   const box = {
-    success: 'border-success-border bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)] text-success',
-    info: 'border-info-border bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)] text-info',
-    warning: 'border-warning-border bg-[linear-gradient(90deg,#FFF8EB,#FFFFFF)] text-warning',
+    success: 'border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] text-success',
+    info: 'border-info-border bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)] text-info',
+    warning: 'border-warning-border bg-[linear-gradient(90deg,var(--color-kunyit-50),#FFFFFF)] text-warning',
   }[tone];
   const icon: IconName = tone === 'success' ? 'check' : tone === 'info' ? 'info' : 'alert';
   return (

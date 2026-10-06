@@ -24,7 +24,7 @@ function CodePattern({ code }: { code: string }) {
       className="shrink-0 rounded-md bg-white p-1.5"
     >
       {cells.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="#14212B" />
+        <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="var(--color-ink-900)" />
       ))}
     </svg>
   );
@@ -48,7 +48,7 @@ export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; pa
   return (
     <section
       aria-label="Antrean aktif"
-      className="flex flex-col gap-3 rounded-[18px] bg-[linear-gradient(150deg,#0F766E,#0B5D56)] p-4 text-white"
+      className="flex flex-col gap-3 rounded-[18px] bg-[linear-gradient(150deg,var(--color-brand-600),var(--color-brand-700))] p-4 text-white"
     >
       <span className="flex items-center justify-between gap-2 text-[12.5px]">
         <span className="font-semibold">{queue.title}</span>

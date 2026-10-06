@@ -38,7 +38,7 @@ function TaskInput({ tasks, id, unit }: { tasks: ScenarioTasks; id: string; unit
             inputMode={id === 'gds' ? 'numeric' : 'text'}
             className={cx(
               'h-11 w-40 rounded-control border px-3 font-[inherit] disabled:bg-muted',
-              error ? 'border-danger bg-[#FFFBFA]' : 'border-line-strong bg-white',
+              error ? 'border-danger bg-koral-50' : 'border-line-strong bg-white',
             )}
           />
           <span className="text-small text-ink-500">{unit}</span>
@@ -61,7 +61,7 @@ function TaskInput({ tasks, id, unit }: { tasks: ScenarioTasks; id: string; unit
 export function NurseScenarioForm({ tasks }: { tasks: ScenarioTasks }) {
   const jatuh = tasks.task('jatuh');
   return (
-    <div className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(100deg,rgba(15,118,110,0.06),#FFFFFF_60%)] p-3.5">
+    <div className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] p-3.5">
       <span className="text-small font-semibold text-brand-700">
         Asesmen awal keperawatan · isian skenario
       </span>

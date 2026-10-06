@@ -48,7 +48,7 @@ export function BedDetail({
   return (
     <section
       aria-label="Bed terpilih"
-      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-white px-4 py-3.5 shadow-[0_0_0_3px_rgba(15,118,110,0.08)]"
+      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-white px-4 py-3.5 shadow-[0_0_0_3px_color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent)]"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex flex-col">

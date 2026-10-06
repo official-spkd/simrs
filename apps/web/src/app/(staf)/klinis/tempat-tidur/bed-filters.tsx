@@ -105,7 +105,7 @@ export function BedStatusTiles({ counts }: { counts: BedCounts }) {
       label: 'Dibersihkan',
       value: String(counts.kotor + counts.dibersihkan),
       sub: `${counts.kotor} kotor · ${counts.dibersihkan} sedang dibersihkan`,
-      swatch: 'border-warning-border bg-[#FFF8EB]',
+      swatch: 'border-warning-border bg-kunyit-50',
     },
     {
       label: 'Rencana pulang hari ini',

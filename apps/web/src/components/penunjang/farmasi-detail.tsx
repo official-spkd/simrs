@@ -67,7 +67,7 @@ export function FarmasiDetail({
         allergies={rx.patient.allergies}
         guarantor={rx.patient.guarantor}
       />
-      <div className="flex flex-wrap justify-between gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,rgba(15,118,110,0.06),rgba(255,255,255,0)_60%)] px-4 py-3">
+      <div className="flex flex-wrap justify-between gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),rgba(255,255,255,0)_60%)] px-4 py-3">
         <div className="flex min-w-0 flex-col">
           <h2 className="m-0 text-[16px] font-semibold">
             Resep <span className="font-mono">{rx.no}</span>

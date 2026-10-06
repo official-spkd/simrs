@@ -113,7 +113,7 @@ export function EdBoardTable({
                   className={cx(
                     'grid w-full cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-x-1 border-0 p-0 text-left font-[inherit] text-ink-900',
                     COLS,
-                    p.triageLevel ? TRIAGE_META[p.triageLevel].rail : 'shadow-[inset_4px_0_0_#CBD3DB]',
+                    p.triageLevel ? TRIAGE_META[p.triageLevel].rail : 'shadow-[inset_4px_0_0_var(--color-line-strong)]',
                     on ? 'bg-selected' : p.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
                   )}
                 >

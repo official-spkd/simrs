@@ -35,7 +35,7 @@ export function Sparkbars({
         return (
           <g key={i}>
             <rect x={x} y={height - h} width={bw} height={h} rx={1.5} fill={err ? '#C9564B' : '#8CC4BC'} />
-            {err && <rect x={x} y={height - h - 4} width={bw} height={2} fill="#B42318" />}
+            {err && <rect x={x} y={height - h - 4} width={bw} height={2} fill="var(--color-koral-600)" />}
           </g>
         );
       })}

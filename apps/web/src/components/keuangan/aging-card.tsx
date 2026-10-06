@@ -1,7 +1,7 @@
 import type { AgingRow } from '@simrs/shared';
 import { AGING_LABELS, agingView, formatJuta } from '@/lib/keuangan-akuntansi';
 
-const COLORS = ['bg-brand-600', 'bg-[#6FB5AC]', 'bg-[#E9B26B]', 'bg-[#C9564B]'] as const;
+const COLORS = ['bg-brand-600', 'bg-[#6FB5AC]', 'bg-kunyit-300', 'bg-[#C9564B]'] as const;
 
 /** Umur piutang per penjamin (mockup Akuntansi): total (Rp juta) dan porsi kelompok umur, juga dalam teks. */
 export function AgingCard({ rows }: { rows: readonly AgingRow[] }) {
@@ -23,7 +23,7 @@ export function AgingCard({ rows }: { rows: readonly AgingRow[] }) {
                 <span className="font-medium">{r.label}</span>
                 <span className="font-mono">{formatJuta(v.total)}</span>
               </span>
-              <span className="flex h-2.5 overflow-hidden rounded-full bg-[#EEF1F4]" aria-hidden="true">
+              <span className="flex h-2.5 overflow-hidden rounded-full bg-line-soft" aria-hidden="true">
                 {v.shares.map((s, i) => (
                   <span key={AGING_LABELS[i]} className={COLORS[i]} style={{ width: `${s}%` }} />
                 ))}

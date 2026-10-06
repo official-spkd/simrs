@@ -358,7 +358,7 @@ export function RoleMatrix({
   return (
     <div className="flex flex-col gap-4">
       <div className="overflow-hidden rounded-card border border-line bg-card">
-        <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,rgba(15,118,110,0.08),#FFFFFF_60%)] px-[18px] py-4">
+        <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-4">
           {/* Label terpisah (htmlFor): nama aksesibel tepat "Peran", tanpa ikut teks opsi terpilih. */}
           <label htmlFor="matriks-peran" className="text-caption text-ink-500">
             Peran
@@ -405,7 +405,7 @@ export function RoleMatrix({
       {saved?.code === role.code && dirty === 0 && (
         <div
           role="status"
-          className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)] px-4 py-3"
+          className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] px-4 py-3"
         >
           <span className="font-bold text-success">Tersimpan pukul {saved.at}</span>
           <span className="text-small text-ink-700">

@@ -1,4 +1,3 @@
-import { AppShell } from '@simrs/ui';
 import type { ReactNode } from 'react';
 import { ActingRolePicker } from '@/components/acting-role-picker';
 import { DemoBadge } from '@/components/demo-badge';
@@ -9,6 +8,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { NotificationBell } from '@/components/notification-bell';
 import { PinLink } from '@/components/pin-link';
 import { SwitchPositionLink } from '@/components/switch-position-link';
+import { StaffShell } from '@/components/staff-shell';
 import { StaffSidebar } from '@/components/staff-sidebar';
 import { runScenario } from '@/lib/demo/engine/run';
 import { guideView } from '@/lib/demo/guide-view';
@@ -44,9 +44,19 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   const pin = canRegisterPin(s) || Boolean(s.quickLogin);
   // Superadmin demo (ADR-0023 keputusan 10): hanya ada bila server memverifikasinya di mode presentasi.
   const allAccess = dataSource === 'demo' ? s.demoAllAccess : undefined;
+  const groups = navGroups({
+    kind: s.tenant.kind,
+    superadmin: isSuperadmin(s),
+    permissions: s.permissions,
+    dataSource,
+    role: s.role?.code ?? null,
+    allAccess: Boolean(allAccess),
+    modules,
+  });
   return (
-    <AppShell
+    <StaffShell
       tenantName={s.tenant.name}
+      groups={groups}
       // Mode presentasi: header lengket berisi pemicu panduan (tidak melayang di atas isi halaman).
       stickyHeader={Boolean(demo)}
       header={
@@ -77,15 +87,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
             role: allAccess ? 'Superadmin demo · semua layar' : (s.role?.name ?? '—'),
             initials: s.user.initials,
           }}
-          groups={navGroups({
-            kind: s.tenant.kind,
-            superadmin: isSuperadmin(s),
-            permissions: s.permissions,
-            dataSource,
-            role: s.role?.code ?? null,
-            allAccess: Boolean(allAccess),
-            modules,
-          })}
+          groups={groups}
           userActions={
             positions > 1 || pin ? (
               <div className="flex flex-col gap-2">
@@ -103,6 +105,6 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       {dataSource === 'demo' && <DowntimeBanner />}
       {children}
       {demo && <DemoSync />}
-    </AppShell>
+    </StaffShell>
   );
 }

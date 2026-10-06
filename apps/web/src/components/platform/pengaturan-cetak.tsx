@@ -260,7 +260,7 @@ export function PengaturanCetak({
         <div
           role="img"
           aria-label={`Pratinjau ${current.name}${dirty ? ' (draf)' : ''}`}
-          className="flex min-h-[180px] items-center justify-center rounded-control bg-[repeating-linear-gradient(45deg,#F5F7F9,#F5F7F9_10px,#EEF1F4_10px,#EEF1F4_20px)] p-4"
+          className="flex min-h-[180px] items-center justify-center rounded-control bg-[repeating-linear-gradient(45deg,var(--color-canvas),var(--color-canvas)_10px,var(--color-line-soft)_10px,var(--color-line-soft)_20px)] p-4"
         >
           <Preview t={draft} p={sample} />
         </div>

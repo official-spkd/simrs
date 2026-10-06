@@ -119,13 +119,13 @@ export function LiveAntreanClient({
       style={{
         backgroundColor: '#F3F6F8',
         backgroundImage:
-          'radial-gradient(1200px 600px at 0% 0%, rgba(15,118,110,0.10), rgba(15,118,110,0) 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px)',
+          'radial-gradient(1200px 600px at 0% 0%, color-mix(in srgb, var(--color-brand-600) 10%, transparent), transparent 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px)',
         backgroundSize: 'auto, 30px 30px',
       }}
     >
       <header className="flex items-center justify-between border-b border-line bg-white/90 px-12 py-7">
         <div className="flex items-center gap-4">
-          <div className="flex size-14 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#1D7E77,#0F766E)] text-white">
+          <div className="flex size-14 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-600))] text-white">
             <Icon name="plus" size={28} strokeWidth={2.2} />
           </div>
           <div className="flex flex-col">

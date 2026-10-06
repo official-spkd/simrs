@@ -194,7 +194,7 @@ export function TriagePanel({
                   key={v.label}
                   className={cx(
                     'flex min-w-0 flex-col rounded-control border px-2.5 py-2',
-                    flag ? 'border-danger-border bg-[#FFFBFA]' : 'border-line-soft bg-subtle',
+                    flag ? 'border-danger-border bg-koral-50' : 'border-line-soft bg-subtle',
                   )}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-1 text-[11.5px] text-ink-500">
@@ -347,7 +347,7 @@ function ReasonForm({ enabled, onSubmit }: { enabled: boolean; onSubmit: (r: str
   const short = r.trim().length < 10;
   return (
     <form
-      className="flex flex-col gap-1.5 rounded-[12px] border border-danger-border bg-[#FFF8F7] p-3"
+      className="flex flex-col gap-1.5 rounded-[12px] border border-danger-border bg-koral-50 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (!short) onSubmit(r.trim());

@@ -117,7 +117,7 @@ export function IntegrationHub({
       )}
 
       {holding && down && (
-        <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-[#F1D3A8] bg-[linear-gradient(120deg,#FFF3E0,#FFFFFF_75%)] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-kunyit-200 bg-[linear-gradient(120deg,var(--color-kunyit-50),#FFFFFF_75%)] px-4 py-3">
           <span className="text-warning" aria-hidden="true">
             <Icon name="alert" size={22} />
           </span>
@@ -146,7 +146,7 @@ export function IntegrationHub({
       {!holding && restored && (
         <div
           role="status"
-          className="rounded-card border border-[#BFE0C7] bg-[#EAF5EC] px-4 py-2.5 text-small font-medium text-success"
+          className="rounded-card border border-zamrud-200 bg-zamrud-50 px-4 py-2.5 text-small font-medium text-success"
         >
           {restored}
         </div>

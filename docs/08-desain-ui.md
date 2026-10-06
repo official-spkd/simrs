@@ -1,7 +1,8 @@
-# 08 · Desain UI "Klinis Bersih"
+# 08 · Desain UI "Pelangi Klinis"
 
-Kanvas interaktif: https://claude.ai/artifact/68mwSh34uMk31GWyNDJfHj
-Salinan sumber tiap layar: `design/mockups/*.dc.html` · token: `design/tokens.json`, `design/tokens.css`.
+Sistem desain resmi sejak 6 Okt 2026 (ADR-0091), menggantikan "Klinis Bersih".
+Kanvas fondasi + 44 layar: https://claude.ai/artifact/SkzcCc4jNGv48usyiFF1p8 (halaman "Fondasi" dan "Pelangi · 44 layar").
+Tata letak dan alur per layar: `design/mockups/*.dc.html` (read-only). Token kode: `packages/ui/src/theme.css`, `packages/ui/src/tokens.ts`.
 
 ## 1. Cara Claude Code memakai mockup
 
@@ -14,29 +15,69 @@ Mockup bukan spesifikasi API; field dan aturan bisnis mengikuti `04-data-model.m
 
 ## 2. Token
 
+### Rona (ramp 50–900, kelas Tailwind `bg-<rona>-<step>`)
+
+| Rona | 600 | Peran |
+|---|---|---|
+| samudra | `#2C55C4` | aksi utama, tautan, fokus, front office, info |
+| zamrud | `#1A7A58` | domain klinis; status sukses (700 `#176249`) |
+| anggrek | `#6A3FCF` | domain penunjang (lab, radiologi, farmasi, OK) |
+| toska | `#148280` | domain keuangan dan pembayaran |
+| bougenvil | `#C82C6B` | domain manajemen dan back office |
+| batu | `#65728A` | netral: teks, garis, permukaan; domain sistem |
+| kunyit | `#B8670A` | **hanya** status peringatan |
+| koral | `#C23221` | **hanya** status kritis/bahaya |
+
+### Domain → aksen `brand-*`
+
+`AppShell` memasang `data-domain` dari grup menu aktif. Di dalamnya kelas `brand-50…900` menjadi ramp rona domain.
+Pemetaan: `fo` samudra, `kl` zamrud, `pj` anggrek, `ku` toska, `mj` bougenvil, `si` batu.
+Grup menu dipetakan di `apps/web/src/lib/nav.ts` (`GROUP_DOMAIN`).
+Komponen layar cukup memakai `brand-*` untuk aksen; jangan menulis hex rona domain langsung.
+
+### Semantik (tidak ikut domain)
+
 | Token | Nilai | Pemakaian |
 |---|---|---|
-| `brand-600` | `#0F766E` | aksi utama, tautan, fokus |
-| `brand-700` | `#0B5D56` | teks aksen, hover |
-| `brand-100` | `#D5ECE7` | border lembut |
-| `brand-50` | `#E6F4F1` | latar chip/terpilih |
-| `ink-900` | `#14212B` | teks utama |
-| `ink-700` | `#3F4C58` | teks sekunder |
-| `ink-500` | `#5B6B79` | teks keterangan (min. 12,5 px) |
-| `line` | `#E3E8EE` | border |
-| `canvas` | `#F5F7F9` | latar halaman |
-| `danger` | `#B42318` (latar `#FDECEA`) | blokir, nilai kritis, gagal |
-| `warning` | `#8A4B00` (latar `#FFF3E0`) | perhatian, perlu tindakan |
-| `success` | `#1E6B34` (latar `#EAF5EC`) | selesai, lunas, cocok |
-| `info` | `#1E3A8A` (latar `#EEF2FB`) | informasi, BPJS |
-| Triase 1–5 | merah, oranye, kuning, hijau, biru (lihat `tokens.json`) | papan IGD, selalu disertai angka/teks |
+| `ink-900` / `ink-700` / `ink-500` / `ink-400` | `#17202E` / `#3B4559` / `#4D5870` / `#65728A` | teks utama / sekunder / keterangan / redup |
+| `line` / `line-strong` / `line-soft` | `#E5EAF1` / `#D2DAE5` / `#F1F4F8` | garis |
+| `canvas` | `#F8FAFC` + cahaya radial samudra | latar halaman |
+| `danger` | koral `#C23221` (latar `#FFF1EF`) | blokir, nilai kritis, gagal |
+| `warning` | kunyit `#924E0D` (latar `#FFF8EB`) | perhatian, perlu tindakan |
+| `success` | zamrud `#176249` (latar `#ECFAF4`) | selesai, lunas, cocok |
+| `info` | samudra `#24449E` (latar `#EEF4FF`) | informasi |
+| Triase 1–5 | merah, oranye, kuning, hijau, biru | papan IGD, selalu disertai angka/teks |
 
-Tipografi: IBM Plex Sans (UI), IBM Plex Mono (angka, kode, nomor). Ukuran dasar 14 px desktop, 16 px mobile, ≥ 20 px anjungan.
-Radius: tombol/input 10, kartu 14, chip 999. Latar: dot halus 22 px + radial teal sangat tipis di kanan atas. Gradien hanya singkat (tombol utama, kepala kartu), tidak pernah di area teks panjang.
+Chip status memakai pasangan 100/800 (mis. `bg-koral-100 text-koral-800`). Status tidak pernah hanya warna.
+
+### Gradien, kaca, gerak
+
+- **Gradien hanya satu rona, gelap → terang.**
+  - Tombol utama, menu aktif, langkah aktif, dan garis domain: 800 → 600 (`bg-btn-primary`, `bg-nav-active`, `bg-domain-bar`).
+  - Kotak peringatan: 50 → 100 (`bg-alert-warning|critical|info|success`).
+  - KPI: 100 → 50.
+  - Logo: `bg-fajar` (samudra).
+  - Dilarang gradien lintas rona (merah → biru, hijau → ungu, dst.).
+- **Kaca** (`glass`, `glass-soft`): jendela, sidebar, header, palet perintah. Bila `prefers-reduced-transparency`, kaca diganti permukaan padat.
+- **Gerak.**
+  - Jendela `animate-win-in`.
+  - Isi halaman `stagger-rise`.
+  - Palet `animate-pal-in`.
+  - Sukses `animate-pop`.
+  - KPI `shine-once`.
+  - Denyut `animate-crit` hanya untuk status kritis.
+  - Semua dimatikan oleh `prefers-reduced-motion`.
+
+### Tipografi dan bentuk
+
+- Poppins 400/500/600/700 untuk seluruh antarmuka, dengan angka tabular. Judul memakai tracking negatif (−0,015 em).
+- IBM Plex Mono hanya untuk pengenal: RM, ICD, SEP, nomor resep, kode barang.
+- Ukuran dasar 14 px desktop, 16 px mobile, ≥ 20 px anjungan.
+- Radius: kontrol 11, kartu 16, jendela 20, chip 999. Bayangan kartu lembut (`shadow-card`); jendela `shadow-window`.
 
 ## 3. Komponen dasar (`packages/ui`)
 
-`AppShell` (sidebar 240 px + header) · `Sidebar` (grup menu sesuai `design/mockups/Sidebar.dc.html`) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` (label, bantuan, galat) · `Chip`/`StatusChip` · `Tabs` · `Segmented` · `DataTable` (sticky header, paginasi kursor) · `KpiCard` · `Alert` (4 tingkat) · `SafetyGate` (alarm + alasan override) · `Stepper` · `Timeline` · `Drawer` · `ConfirmDialog` · `SignaturePad` · `Keypad` (anjungan) · `EmptyState` · `Skeleton`.
+`AppShell` (jendela kaca, `domain`/`domainLabel`, sidebar 236 px + header) · `Sidebar` (titik rona per grup, item aktif bergradien, grup terlipat bila > 24 layar) · `CommandPalette` (⌘K / Ctrl K) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` · `Chip`/`StatusChip`/`FilterChip` · `Tabs` · `RadioSegmented` · `KpiCard`/`Card` · `Alert` (4 tingkat) · `SafetyGate` · `LineChart` · `Icon`.
 
 ## 4. Peta layar → rute → komponen
 

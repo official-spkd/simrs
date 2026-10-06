@@ -23,7 +23,7 @@ export function HfisPanel({
       <section
         role="status"
         aria-label="Sinkron HFIS"
-        className="flex flex-col gap-1.5 rounded-card border border-success-border bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)] p-4"
+        className="flex flex-col gap-1.5 rounded-card border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] p-4"
       >
         <span className="flex items-center gap-1.5 font-semibold text-success">
           <Icon name="check" size={15} strokeWidth={2.4} />

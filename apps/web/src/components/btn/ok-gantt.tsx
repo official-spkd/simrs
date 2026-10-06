@@ -7,16 +7,16 @@ import { CASE_STATUS_LABEL, ganttBox, minutesLabel, scenarioCaseNote } from '@/l
 
 const BLOCK: Record<OrCaseStatus, string> = {
   berjalan: 'border-brand-800 bg-brand-600 text-white',
-  terjadwal: 'border-[#BFDDD8] bg-[#E6F4F1] text-brand-800',
-  selesai: 'border-line bg-[#EEF1F4] text-ink-700',
-  cito: 'border-[#F0C2BD] bg-danger-bg text-danger',
+  terjadwal: 'border-brand-200 bg-brand-50 text-brand-800',
+  selesai: 'border-line bg-line-soft text-ink-700',
+  cito: 'border-koral-200 bg-danger-bg text-danger',
 };
 
 const SWATCH: Record<OrCaseStatus, string> = {
   berjalan: 'bg-brand-600',
-  terjadwal: 'border border-[#BFDDD8] bg-[#E6F4F1]',
-  selesai: 'bg-[#E3E8EE]',
-  cito: 'border border-[#F0C2BD] bg-danger-bg',
+  terjadwal: 'border border-brand-200 bg-brand-50',
+  selesai: 'bg-line',
+  cito: 'border border-koral-200 bg-danger-bg',
 };
 
 function blockSub(c: OrCase): string {
@@ -94,7 +94,7 @@ export function OkGantt({
                       className={cx(
                         'absolute inset-y-1.5 flex min-h-11 cursor-pointer flex-col justify-center overflow-hidden rounded-[9px] border px-2 text-left font-[inherit]',
                         BLOCK[c.status],
-                        selected && 'shadow-[0_0_0_2px_#FFFFFF,0_0_0_4px_#0B5D56]',
+                        selected && 'shadow-[0_0_0_2px_#FFFFFF,0_0_0_4px_var(--color-brand-700)]',
                       )}
                       style={{ left: `${box.left}%`, width: `calc(${box.width}% - 4px)` }}
                     >

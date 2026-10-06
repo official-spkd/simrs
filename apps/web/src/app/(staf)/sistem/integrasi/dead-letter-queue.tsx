@@ -166,7 +166,7 @@ export function DeadLetterQueue({
           role="alertdialog"
           aria-labelledby="dlq-konfirmasi"
           aria-describedby="dlq-konfirmasi-isi"
-          className="flex flex-col gap-2 border-b border-[#F5D9A8] bg-warning-bg px-4 py-3 outline-none"
+          className="flex flex-col gap-2 border-b border-kunyit-200 bg-warning-bg px-4 py-3 outline-none"
         >
           <span id="dlq-konfirmasi" className="font-semibold text-ink-900">
             Kirim ulang {chosen.length} pesan ke {byTarget.join(', ')}?
@@ -190,14 +190,14 @@ export function DeadLetterQueue({
           role="status"
           className={cx(
             'border-b border-line px-4 py-2 text-[12.5px] font-medium',
-            flash.tone === 'ok' ? 'bg-[#EAF5EC] text-success' : 'bg-warning-bg text-warning',
+            flash.tone === 'ok' ? 'bg-zamrud-50 text-success' : 'bg-warning-bg text-warning',
           )}
         >
           {flash.text}
         </div>
       )}
 
-      <div className="flex items-center gap-1 border-b border-line bg-[#F8FAFB] text-caption font-semibold text-ink-500">
+      <div className="flex items-center gap-1 border-b border-line bg-subtle text-caption font-semibold text-ink-500">
         <label className="flex h-11 cursor-pointer items-center gap-2 pr-3 pl-3.5">
           <input
             type="checkbox"
@@ -219,11 +219,11 @@ export function DeadLetterQueue({
             <li
               key={d.id}
               className={cx(
-                'flex items-stretch border-b border-[#EEF1F4]',
+                'flex items-stretch border-b border-line-soft',
                 isSel
-                  ? 'bg-[#EEF6F5] shadow-[inset_3px_0_0_#0F766E]'
+                  ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]'
                   : d.critical
-                    ? 'bg-[#FFF8F7]'
+                    ? 'bg-koral-50'
                     : 'bg-white',
               )}
             >
@@ -281,11 +281,11 @@ export function DeadLetterQueue({
         })}
       </ul>
       {messages.length === 0 && (
-        <p className="m-0 border-b border-[#EEF1F4] px-4 py-4 text-small text-ink-500">
+        <p className="m-0 border-b border-line-soft px-4 py-4 text-small text-ink-500">
           Tidak ada pesan gagal{filterName ? ` untuk ${filterName}` : ''}.
         </p>
       )}
-      <div className="flex flex-col gap-1 bg-[#F8FAFB] px-4 py-3">
+      <div className="flex flex-col gap-1 bg-subtle px-4 py-3">
         <span className="text-caption font-semibold text-ink-500">
           Payload galat{selected ? ` · ${selected.id}` : ''} · pengenal saja, tanpa data pribadi
         </span>

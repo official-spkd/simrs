@@ -5,12 +5,12 @@ import { Icon } from './icons';
 export type ChipTone = 'brand' | 'neutral' | 'warning' | 'success' | 'danger' | 'info';
 
 const tones: Record<ChipTone, string> = {
-  brand: 'bg-brand-50 text-brand-700',
-  neutral: 'bg-[#F1F3F5] text-ink-700',
-  warning: 'bg-warning-bg text-warning',
-  success: 'bg-[#EAF6EC] text-success',
-  danger: 'bg-danger-bg text-danger',
-  info: 'bg-info-bg text-info',
+  brand: 'bg-brand-100 text-brand-800',
+  neutral: 'bg-batu-200 text-batu-800',
+  warning: 'bg-kunyit-100 text-kunyit-800',
+  success: 'bg-zamrud-100 text-zamrud-700',
+  danger: 'bg-koral-100 text-koral-800',
+  info: 'bg-samudra-100 text-samudra-700',
 };
 
 /** Status selalu berupa teks, tidak hanya warna. */
@@ -30,7 +30,7 @@ export function Chip({
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-[3px] text-caption font-semibold',
+        'inline-flex items-center gap-1.5 rounded-full px-[11px] py-1 text-caption font-semibold',
         mono && 'font-mono',
         tones[tone],
         className,
@@ -69,8 +69,8 @@ export function FilterChip({
       className={cx(
         'inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-small font-[inherit]',
         selected
-          ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-          : 'border-line-strong bg-white text-ink-700',
+          ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+          : 'border-[rgba(23,32,46,0.12)] bg-white/90 text-ink-700 hover:bg-white',
         className,
       )}
       {...rest}

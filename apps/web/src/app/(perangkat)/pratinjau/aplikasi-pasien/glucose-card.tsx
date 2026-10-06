@@ -17,7 +17,7 @@ const y = (v: number) =>
   Math.round((H - 6 - ((Math.min(Math.max(v, LO), HI) - LO) / (HI - LO)) * (H - 12)) * 10) / 10;
 const x = (i: number, n: number) => 10 + (i * (W - 20)) / Math.max(n - 1, 1);
 /** Titik terakhir per pita: brand = dalam sasaran, oranye = di atas, merah = di bawah (status juga dalam teks). */
-const DOT: Record<GlucoseBand, string> = { dalam: '#0F766E', atas: '#C27A1A', bawah: '#B42318' };
+const DOT: Record<GlucoseBand, string> = { dalam: 'var(--color-brand-600)', atas: '#C27A1A', bawah: 'var(--color-koral-600)' };
 
 /**
  * Gula darah mandiri 7 hari (mockup AppPasien): garis dengan pita sasaran dokter, catat hasil hari ini dengan
@@ -79,8 +79,8 @@ export function GlucoseCard({
         role="img"
         aria-label={`Gula darah 7 hari dari ${values[0]} ke ${last} mg/dL, ${GLUCOSE_BAND_LABEL[band]}; sasaran dokter ${target.min}–${target.max} mg/dL`}
       >
-        <rect x={0} y={y(target.max)} width={W} height={y(target.min) - y(target.max)} fill="#EAF5EC" />
-        <path d={d} fill="none" stroke="#0F766E" strokeWidth={2.2} strokeLinejoin="round" />
+        <rect x={0} y={y(target.max)} width={W} height={y(target.min) - y(target.max)} fill="var(--color-zamrud-50)" />
+        <path d={d} fill="none" stroke="var(--color-brand-600)" strokeWidth={2.2} strokeLinejoin="round" />
         <circle cx={x(values.length - 1, values.length)} cy={y(last)} r={4.5} fill={DOT[band]} />
       </svg>
       <span className="text-[12.5px] text-ink-700">

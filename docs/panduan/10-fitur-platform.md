@@ -493,7 +493,7 @@ Rincian: [Panduan superadmin](./02-cara-kerja-kode.md#panduan-superadmin-halaman
 | Kode web | `apps/web/src/app/(staf)/dev/ui/` · `packages/ui/` |
 | Kode API | —                                                  |
 
-**Tujuan.** Galeri token dan komponen sistem desain "Klinis Bersih" untuk pengembang.
+**Tujuan.** Galeri token dan komponen sistem desain "Pelangi Klinis" untuk pengembang.
 
 **Alur.**
 

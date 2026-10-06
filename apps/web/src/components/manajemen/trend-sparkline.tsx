@@ -42,7 +42,7 @@ export function TrendSparkline({
           x2={width - pad}
           y1={y(target)}
           y2={y(target)}
-          stroke="#8A4B00"
+          stroke="var(--color-kunyit-700)"
           strokeWidth={1}
           strokeDasharray="3 3"
         />
@@ -50,13 +50,13 @@ export function TrendSparkline({
       <path
         d={d}
         fill="none"
-        stroke="#0F766E"
+        stroke="var(--color-brand-600)"
         strokeWidth={1.8}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
       {last >= 0 && (
-        <circle cx={x(last)} cy={y(values[last] ?? 0)} r={3.2} fill={ok ? '#1E6B34' : '#B42318'} />
+        <circle cx={x(last)} cy={y(values[last] ?? 0)} r={3.2} fill={ok ? 'var(--color-zamrud-700)' : 'var(--color-koral-600)'} />
       )}
     </svg>
   );

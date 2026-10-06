@@ -147,7 +147,7 @@ export function DoctorApp({
               ].map((r) => (
                 <div
                   key={r.label}
-                  className="flex flex-col gap-0.5 border-b border-[#EEF1F4] px-3.5 py-2.5 last:border-0"
+                  className="flex flex-col gap-0.5 border-b border-line-soft px-3.5 py-2.5 last:border-0"
                 >
                   <dt className="text-[12px] text-ink-500">{r.label}</dt>
                   <dd
@@ -209,7 +209,7 @@ export function DoctorApp({
                     key={p.id}
                     type="button"
                     onClick={() => setPt(p.id)}
-                    className="flex min-h-16 w-full cursor-pointer items-stretch gap-3 border-0 border-b border-[#EEF1F4] bg-transparent py-2.5 pr-3 pl-0 text-left font-[inherit] last:border-b-0"
+                    className="flex min-h-16 w-full cursor-pointer items-stretch gap-3 border-0 border-b border-line-soft bg-transparent py-2.5 pr-3 pl-0 text-left font-[inherit] last:border-b-0"
                   >
                     <span
                       className={cx('w-1 shrink-0 rounded-r-full', LEVEL[p.level].bar)}

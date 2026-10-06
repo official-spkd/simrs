@@ -123,7 +123,7 @@ export default async function CetakPendaftaranPage({ params }: { params: Promise
     throw err;
   }
   return (
-    <main className="min-h-screen bg-[#E9EEF2] p-2">
+    <main className="min-h-screen bg-line p-2">
       <style>{PRINT_CSS}</style>
       <SlipActions />
       <Slip v={visit} />

@@ -87,7 +87,7 @@ export function JaspelWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              ? 'border-zamrud-200 bg-zamrud-50 text-success'
               : 'border-danger-border bg-danger-bg text-danger',
           )}
         >
@@ -166,7 +166,7 @@ export function JaspelWorkspace({
                   aria-current={i === stageIdx ? 'step' : undefined}
                   className={cx(
                     'flex min-w-0 flex-[1_1_150px] flex-col rounded-control border px-3 py-2 text-small',
-                    doneStep ? 'border-[#B7DEC0] bg-[#F2FAF4]' : 'border-line bg-white',
+                    doneStep ? 'border-zamrud-200 bg-zamrud-50' : 'border-line bg-white',
                   )}
                 >
                   <span className="font-semibold">
@@ -196,7 +196,7 @@ export function JaspelWorkspace({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] border-collapse text-[13px]">
                   <thead>
-                    <tr className="bg-[#F8FAFB] text-left text-caption text-ink-500">
+                    <tr className="bg-subtle text-left text-caption text-ink-500">
                       <th scope="col" className="px-4 py-2 font-semibold">
                         PPA
                       </th>
@@ -340,7 +340,7 @@ export function JaspelWorkspace({
                 {csv && (
                   <pre
                     aria-label="Pratinjau CSV"
-                    className="m-0 max-h-40 overflow-auto rounded-control bg-[#F8FAFB] p-2 text-[11.5px]"
+                    className="m-0 max-h-40 overflow-auto rounded-control bg-subtle p-2 text-[11.5px]"
                   >
                     {csv}
                   </pre>

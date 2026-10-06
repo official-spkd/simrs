@@ -137,7 +137,7 @@ export function TarifDetail({
       </div>
 
       {pendingNumber ? (
-        <p className="m-0 rounded-control border border-[#C9D3EE] bg-[#F6F8FD] px-3 py-2 text-small text-ink-700">
+        <p className="m-0 rounded-control border border-samudra-200 bg-samudra-50 px-3 py-2 text-small text-ink-700">
           Usulan {pendingNumber} untuk item ini masih menunggu persetujuan; satu usulan aktif per item.
         </p>
       ) : open && current ? (
@@ -203,7 +203,7 @@ function UsulanForm({
   return (
     <form
       aria-label="Usulan perubahan tarif"
-      className="flex flex-col gap-3 rounded-control border border-brand-600 bg-[#F4FBFA] p-3"
+      className="flex flex-col gap-3 rounded-control border border-brand-600 bg-brand-50 p-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (problems.length === 0) onSubmit({ validFrom, prices, reason: reason.trim() });

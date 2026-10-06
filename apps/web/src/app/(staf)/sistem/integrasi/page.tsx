@@ -48,7 +48,7 @@ export default async function IntegrasiPage() {
                 </span>
                 <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
                   <span
-                    className={cx('block h-1.5', ok ? 'bg-brand-600' : 'bg-[#E9B26B]')}
+                    className={cx('block h-1.5', ok ? 'bg-brand-600' : 'bg-kunyit-300')}
                     style={{ width: `${f.percent}%` }}
                   />
                 </span>
