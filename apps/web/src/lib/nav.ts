@@ -56,6 +56,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'depo', label: 'Depo & stok', href: '/penunjang/depo', icon: 'box', available: false },
+      {
+        id: 'bank-darah',
+        label: 'Bank darah',
+        href: '/penunjang/bank-darah',
+        icon: 'pulse',
+        available: false,
+      },
       // FE3 · akhir
     ],
   },

@@ -1,0 +1,143 @@
+import { expect, type Page, test } from '@playwright/test';
+import { createAccount, loginAs } from '../support/accounts';
+
+/**
+ * Layar penunjang lanjutan (fase 4) dan integrasi (fase 7) mode presentasi (ADR-0023): alur utama dan gerbang
+ * keselamatan (read-back hasil kritis, FEFO, cek ganda darah, …).
+ */
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+}
+
+test.describe('S09 · pusat hasil kritis', () => {
+  test('tidak bisa ditutup tanpa penerima dan read-back; metrik kepatuhan ikut berubah', async ({ page }) => {
+    const analis = await createAccount({ roles: ['analis_lab'] });
+    await loginAs(page, analis, '/penunjang/hasil-kritis');
+    await expect(page.getByRole('heading', { name: 'Pusat hasil kritis', level: 1 })).toBeVisible();
+    const kpi = page.getByRole('region', { name: 'Kepatuhan hasil kritis' });
+    await expect(kpi).toContainText('timer berjalan');
+    const list = page.getByRole('region', { name: 'Daftar hasil kritis' });
+    await list.getByRole('button', { name: /Tn\. Yusuf Hidayat/ }).click();
+    const detail = page.getByRole('region', { name: 'Detail hasil kritis' });
+    await expect(detail.getByRole('timer')).toHaveText(/^\d{2}:\d{2}$/);
+    await detail.getByRole('button', { name: 'Catat pelaporan' }).click();
+    const form = detail.getByRole('form', { name: 'Catat pelaporan hasil kritis' });
+    // Penerima di luar daftar tanpa nama + tanpa read-back → ditolak per isian.
+    await form.getByRole('radio', { name: /Penerima lain/ }).check();
+    await form.getByRole('button', { name: 'Simpan pelaporan' }).click();
+    await expect(form.getByText('Nama penerima wajib diisi (minimal 5 karakter).')).toBeVisible();
+    await expect(form.getByText(/Read-back wajib/)).toBeVisible();
+    await form.getByRole('radio', { name: /dr\. Sinta Maharani/ }).check();
+    await form.getByRole('button', { name: 'Simpan pelaporan' }).click();
+    await expect(form.getByText(/Read-back wajib/)).toBeVisible();
+    await form.getByRole('checkbox', { name: /Read-back terkonfirmasi/ }).check();
+    await form.getByRole('button', { name: 'Simpan pelaporan' }).click();
+    await expect(detail.getByRole('status').filter({ hasText: 'read-back terkonfirmasi' })).toContainText(
+      '(simulasi, tidak disimpan)',
+    );
+    await expect(detail).toContainText('Dilaporkan · read-back');
+    await expect(kpi).toContainText('semua sudah dilaporkan');
+  });
+});
+
+test.describe('S05 · depo dan stok farmasi', () => {
+  test('FEFO: batch ED terdekat keluar dulu; override wajib alasan; batch kedaluwarsa dikarantina', async ({
+    page,
+  }) => {
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await loginAs(page, apoteker, '/penunjang/depo');
+    await expect(page.getByRole('heading', { name: 'Depo & stok farmasi', level: 1 })).toBeVisible();
+    await page.getByRole('tab', { name: 'Keluarkan (FEFO)' }).click();
+    const form = page.getByRole('form', { name: 'Pengeluaran stok' });
+    await page
+      .getByRole('region', { name: 'Permintaan menunggu' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Seftriakson' })
+      .getByRole('button', { name: 'Siapkan' })
+      .click();
+    await expect(form).toContainText('CFX2510 · 10 vial');
+    // Override FEFO tanpa alasan ditolak.
+    await form.getByRole('checkbox', { name: /Pilih batch lain/ }).check();
+    await form.getByLabel('Batch pilihan').selectOption('bt-cfx2511');
+    await form.getByRole('button', { name: 'Keluarkan' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'wajib alasan' })).toBeVisible();
+    await form.getByRole('checkbox', { name: /Pilih batch lain/ }).uncheck();
+    await form.getByRole('button', { name: 'Keluarkan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: '10 dari CFX2510' })).toContainText(
+      '(simulasi, tidak disimpan)',
+    );
+
+    await page.getByRole('tab', { name: 'Stok & kedaluwarsa' }).click();
+    const row = page.getByRole('row', { name: /OMZ2509/ });
+    await expect(row).toContainText('Kedaluwarsa');
+    await row.getByRole('button', { name: 'Pindahkan ke karantina' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'karantina' })).toBeVisible();
+    await expect(page.getByRole('row', { name: /OMZ2509/ })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Kartu stok' }).click();
+    await expect(page.getByRole('row', { name: /Karantina kedaluwarsa/ })).toBeVisible();
+  });
+});
+
+test.describe('S08 · bank darah', () => {
+  test('crossmatch → cek ganda dua petugas → pindai gelang + kantong → reaksi menghentikan transfusi', async ({
+    page,
+  }) => {
+    const analis = await createAccount({ roles: ['analis_lab'] });
+    await loginAs(page, analis, '/penunjang/bank-darah');
+    await expect(page.getByRole('heading', { name: /Bank darah/, level: 1 })).toBeVisible();
+    await page
+      .getByRole('region', { name: 'Permintaan darah' })
+      .getByRole('button', { name: /Ny\. Anisa Rahmadani/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail permintaan darah' });
+    const cross = detail.getByRole('region', { name: 'Crossmatch' });
+    await expect(cross.getByRole('listitem').filter({ hasText: 'KD-260830-007' })).toContainText('Kedaluwarsa');
+    await cross
+      .getByRole('listitem')
+      .filter({ hasText: 'KD-261001-044' })
+      .getByRole('button', { name: 'Hasil kompatibel' })
+      .click();
+    await expect(cross).toContainText('2 dari 2 kantong kompatibel');
+
+    // Cek ganda: tanpa butir lengkap dan petugas kedua → ditolak.
+    const issue = detail.getByRole('form', { name: 'Cek ganda pengeluaran kantong' });
+    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
+    await expect(detail.getByRole('alert').filter({ hasText: 'dua petugas' })).toBeVisible();
+    await issue.getByLabel('Petugas 2 (penerima dari ruangan)').fill('Bd. Wina Kartikasari, S.Tr.Keb');
+    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
+    await expect(detail.getByRole('alert').filter({ hasText: 'butir cek ganda' })).toBeVisible();
+    for (const box of await issue.getByRole('checkbox').all()) await box.check();
+    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
+    await expect(detail.getByRole('status').filter({ hasText: 'dikeluarkan setelah cek ganda' })).toBeVisible();
+
+    // Di samping pasien: gelang salah memblokir; pindai benar → transfusi berjalan.
+    const bed = detail.getByRole('form', { name: 'Verifikasi di samping pasien' });
+    await bed.getByLabel('Pindai gelang pasien (No. RM)').fill('00-00-00-00');
+    await bed.getByLabel('Pindai label kantong').fill('KD-261001-031');
+    await bed.getByRole('button', { name: 'Cocokkan dan mulai transfusi' }).click();
+    await expect(detail.getByRole('alert').filter({ hasText: 'Gelang pasien tidak cocok' })).toBeVisible();
+    await bed.getByRole('button', { name: 'Pindai' }).first().click();
+    await bed.getByRole('button', { name: 'Cocokkan dan mulai transfusi' }).click();
+    const monitor = detail.getByRole('region', { name: 'Pemantauan transfusi' });
+    await expect(monitor).toContainText('Berjalan');
+    const ttv = monitor.getByRole('form', { name: 'Catat TTV transfusi' });
+    await ttv.getByRole('checkbox', { name: 'Menggigil' }).check();
+    await ttv.getByRole('button', { name: 'Catat TTV' }).click();
+    await expect(monitor.getByRole('alert')).toContainText('Dugaan reaksi transfusi');
+    await expect(monitor).toContainText('Dihentikan · reaksi');
+  });
+});
+
+test.describe('tablet 768 px', () => {
+  test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await loginAs(page, apoteker, '/penunjang/depo');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  });
+});

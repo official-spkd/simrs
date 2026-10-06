@@ -361,11 +361,7 @@ function CriticalDetail({
       {level !== 0 && (
         <Alert level="critical">{ESCALATION_TEXT[level]}. Segera laporkan dengan read-back.</Alert>
       )}
-      {feedback && (
-        <Alert level="success">
-          <span role="status">{feedback}</span>
-        </Alert>
-      )}
+      {feedback && <Alert level="success">{feedback}</Alert>}
 
       {!item.report && item.scenario && (
         <Alert level="info" title="Pasien skenario Simulasi">

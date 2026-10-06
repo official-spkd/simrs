@@ -5,8 +5,10 @@ import {
   criticalFromLab,
   demoOtherCriticals,
 } from '../../demo/fixtures/penunjang-kritis';
+import { demoBloodRequests, demoBloodUnits } from '../../demo/fixtures/penunjang-bank-darah';
 import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
+import type { BloodState } from '../../penunjang-bank-darah';
 import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
@@ -75,5 +77,22 @@ export async function getDepoData(): Promise<DepoData> {
     master: DEPO_MASTER,
     state: demoDepoState(),
     requests: DEPO_REQUESTS,
+  };
+}
+
+// ─── S08 · Bank darah ────────────────────────────────────────────────────────────────────────────────────────
+
+export interface BloodBankData {
+  asOf: string;
+  today: string;
+  state: BloodState;
+}
+
+export async function getBloodBank(): Promise<BloodBankData> {
+  if (!isDemo()) return notImplemented('bank darah');
+  return {
+    asOf: DEMO_NOW,
+    today: DEMO_TODAY,
+    state: { requests: demoBloodRequests(), units: demoBloodUnits() },
   };
 }

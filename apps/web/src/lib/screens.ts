@@ -323,6 +323,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['apoteker'],
     layout: 'staf',
   },
+  {
+    id: 'bank-darah',
+    label: 'Bank darah',
+    route: '/penunjang/bank-darah',
+    mockup: null,
+    components: ['S08'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'blood.write',
+    demoRoles: ['analis_lab', 'perawat', 'bidan', 'dokter'],
+    layout: 'staf',
+  },
   // FE3 · akhir
   {
     id: 'kasir',

@@ -107,11 +107,7 @@ export function DepoWorkspace({ data, userName }: { data: DepoData; userName: st
           detail={inTransit.length ? `${inTransit.length} mutasi dalam perjalanan` : undefined}
         />
       </section>
-      {msg && (
-        <Alert level={msg.ok ? 'success' : 'critical'}>
-          <span role="status">{msg.text}</span>
-        </Alert>
-      )}
+      {msg && <Alert level={msg.ok ? 'success' : 'critical'}>{msg.text}</Alert>}
       <Tabs
         label="Kegiatan depo"
         value={tab}
