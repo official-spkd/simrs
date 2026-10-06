@@ -17,10 +17,10 @@ export function PoDraftPanel({
   return (
     <section
       aria-labelledby="po-draf-judul"
-      className="flex flex-col gap-3 rounded-card border border-brand-600 bg-white p-4 shadow-[0_4px_12px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]"
+      className="flex flex-col gap-3 rounded-card border border-brand-600 bg-white/90 p-4 shadow-[0_0_0_1px_var(--color-brand-600),0_10px_30px_rgba(23,32,46,0.07)]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="po-draf-judul" className="m-0 text-base font-semibold">
+        <h2 id="po-draf-judul" className="m-0 text-[15px] font-semibold">
           Draf usulan {draft.number}
         </h2>
         {draft.urgent ? (

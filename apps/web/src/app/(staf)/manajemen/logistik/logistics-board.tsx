@@ -201,7 +201,7 @@ export function LogisticsBoard({
         >
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
             <span className="flex min-w-0 flex-[1_1_260px] flex-col">
-              <h2 id="rop-judul" className="m-0 text-base font-semibold">
+              <h2 id="rop-judul" className="m-0 text-[15px] font-semibold">
                 Item di bawah titik pesan ulang
               </h2>
               <span className="text-[12.5px] text-ink-500">
@@ -229,7 +229,7 @@ export function LogisticsBoard({
               {flash.text}
             </div>
           )}
-          <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-line bg-subtle pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
+          <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 border-b border-[rgba(23,32,46,0.08)] pr-4 text-caption font-semibold text-ink-500 xl:grid-cols-[44px_minmax(0,2.2fr)_64px_minmax(0,1fr)_72px_120px_minmax(0,1.7fr)]">
             <label className="flex h-11 w-11 cursor-pointer items-center justify-center has-[:disabled]:cursor-not-allowed">
               <input
                 type="checkbox"

@@ -50,7 +50,9 @@ export default async function NotifikasiPage() {
                     type="submit"
                     className={cx(
                       'flex w-full cursor-pointer flex-col gap-1 rounded-card border px-4 py-3 text-left font-[inherit] text-ink-900',
-                      unread ? 'border-brand-200 bg-selected' : 'border-line bg-card',
+                      unread
+                        ? 'border-brand-200 bg-[linear-gradient(120deg,var(--color-brand-50),#FFFFFF_70%)] shadow-card'
+                        : 'border-white/95 bg-white/90 shadow-card',
                     )}
                   >
                     <span className="flex flex-wrap items-baseline justify-between gap-2">

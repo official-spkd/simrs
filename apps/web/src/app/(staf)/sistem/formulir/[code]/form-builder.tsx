@@ -414,7 +414,7 @@ export function FormBuilder({
                 <Fragment key={si}>
                   <div
                     className={cx(
-                      'flex flex-col gap-1 rounded-card bg-card px-5 py-4',
+                      'flex flex-col gap-1 rounded-card bg-white/90 px-5 py-4 shadow-card',
                       sectionOn
                         ? 'border-2 border-brand-600 shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
                         : 'border border-line',
@@ -473,7 +473,7 @@ export function FormBuilder({
             })}
 
             {showScore && (
-              <div className="flex flex-col gap-1 rounded-card border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-3.5">
+              <div className="flex flex-col gap-1 rounded-card border border-brand-200 bg-card-header px-[18px] py-3.5">
                 <span className="font-bold">Skor total (otomatis)</span>
                 {summary}
               </div>
@@ -562,10 +562,10 @@ function FieldCard({
       className={cx(
         'flex flex-col gap-2.5 rounded-card px-[18px] py-3.5',
         on
-          ? 'border-2 border-brand-600 bg-card shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
+          ? 'border-2 border-brand-600 bg-white/95 shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_14%,_transparent)]'
           : f.type === 'score'
-            ? 'border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)]'
-            : 'border border-line bg-card',
+            ? 'border border-brand-200 bg-card-header'
+            : 'border border-white/95 bg-white/90 shadow-card',
       )}
     >
       {preview ? (

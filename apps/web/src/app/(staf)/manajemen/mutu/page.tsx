@@ -101,7 +101,7 @@ export default async function MutuPage() {
           aria-label="Kematian di IGD untuk telaah mutu"
           className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Kematian di IGD untuk telaah mutu</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Kematian di IGD untuk telaah mutu</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
             {q.deaths.map((x) => (
               <li key={x.encounterId}>

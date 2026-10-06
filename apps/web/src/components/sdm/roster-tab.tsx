@@ -167,10 +167,10 @@ export function RosterTab({
                         className={cx(
                           'flex min-h-touch w-full min-w-[84px] cursor-pointer flex-col items-start gap-0.5 rounded-control border px-2 py-1.5 text-left font-[inherit] text-caption disabled:cursor-default',
                           active
-                            ? 'border-brand-600 bg-selected'
+                            ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
                             : gap || viol
                               ? 'border-warning-border bg-warning-bg'
-                              : 'border-line bg-white',
+                              : 'border-line bg-white/90 hover:bg-brand-50/60',
                         )}
                       >
                         {ids.map((id) => (

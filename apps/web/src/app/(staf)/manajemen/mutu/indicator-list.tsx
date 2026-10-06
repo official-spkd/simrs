@@ -36,7 +36,7 @@ export function IndicatorList({ indicators, months }: { indicators: QualityIndic
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex min-w-0 flex-col">
-          <h2 id="indikator-judul" className="m-0 text-base font-semibold">
+          <h2 id="indikator-judul" className="m-0 text-[15px] font-semibold">
             Indikator mutu · {months.at(-1)} 2026
           </h2>
           <span className="text-[12.5px] text-ink-500">

@@ -13,6 +13,7 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
+import { PROGRESS_FILL, PROGRESS_FILL_DANGER, PROGRESS_TRACK } from '@/components/backoffice/styles';
 import { useTokoAction } from '@/components/backoffice/use-toko';
 import { DemoPolling } from '@/components/front-office/demo-polling';
 import { demoStamp } from '@/lib/backoffice-toko';
@@ -102,10 +103,10 @@ export function CommandBoard({
               className={cx(
                 'flex flex-col gap-2 rounded-card border px-4 py-3',
                 ack
-                  ? 'border-line bg-white'
+                  ? 'border-white/95 bg-white/90 shadow-card'
                   : a.level === 'critical'
-                    ? 'border-danger-border bg-danger-bg'
-                    : 'border-warning-border bg-warning-bg',
+                    ? 'border-danger-border bg-alert-critical'
+                    : 'border-warning-border bg-alert-warning',
               )}
             >
               <span className="flex flex-wrap items-center justify-between gap-2">
@@ -234,12 +235,9 @@ export function CommandBoard({
                     <td className={`${TD} text-right font-mono`}>{r.turnover}</td>
                     <td className={TD}>
                       <span className="flex items-center gap-2">
-                        <span
-                          className="h-2 w-20 overflow-hidden rounded-full bg-line-soft"
-                          aria-hidden="true"
-                        >
+                        <span className={cx(PROGRESS_TRACK, 'w-20')} aria-hidden="true">
                           <span
-                            className={cx('block h-full', r.bor > BOR_ALERT ? 'bg-danger' : 'bg-brand-600')}
+                            className={r.bor > BOR_ALERT ? PROGRESS_FILL_DANGER : PROGRESS_FILL}
                             style={{ width: `${r.bor}%` }}
                           />
                         </span>

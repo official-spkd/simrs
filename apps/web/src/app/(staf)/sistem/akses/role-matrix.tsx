@@ -358,7 +358,7 @@ export function RoleMatrix({
   return (
     <div className="flex flex-col gap-4">
       <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
-        <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-4">
+        <div className="flex flex-col gap-1.5 border-b border-[rgba(23,32,46,0.06)] bg-card-header px-[18px] py-4">
           {/* Label terpisah (htmlFor): nama aksesibel tepat "Peran", tanpa ikut teks opsi terpilih. */}
           <label htmlFor="matriks-peran" className="text-caption text-ink-500">
             Peran

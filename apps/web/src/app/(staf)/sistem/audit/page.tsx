@@ -580,7 +580,7 @@ function Field({ label, children, mono }: { label: string; children: React.React
 
 function PanelHead({ sub, title }: { sub: string; title: string }) {
   return (
-    <div className="border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-4 py-3.5">
+    <div className="border-b border-[rgba(23,32,46,0.06)] bg-card-header px-4 py-3.5">
       <span className="text-caption text-ink-500">{sub}</span>
       <h2 className="m-0 mt-0.5 text-[17px] font-bold">{title}</h2>
     </div>

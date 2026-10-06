@@ -50,7 +50,7 @@ export default async function GuideIndexPage() {
             {GUIDE_PAGES.filter((page) => page.group === group.id).map((page) => (
               <li key={page.slug}>
                 <Link href={`/superadmin/panduan/${page.slug}`} className="block h-full no-underline">
-                  <Card className="flex h-full flex-col gap-2 p-5 transition-colors hover:border-brand-200 hover:bg-selected">
+                  <Card className="flex h-full flex-col gap-2 p-5 transition-colors hover:border-brand-200 hover:shadow-[0_14px_34px_rgba(23,32,46,0.12)]">
                     <span className="font-mono text-caption text-ink-500">{pageNumber(page)}</span>
                     <span className="text-h2 font-semibold text-ink-900">{page.title}</span>
                     <span className="text-small text-ink-700">{page.summary}</span>

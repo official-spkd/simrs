@@ -30,7 +30,7 @@ export function ExpiryPanel({
       className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="ed-judul" className="m-0 text-base font-semibold">
+        <h2 id="ed-judul" className="m-0 text-[15px] font-semibold">
           Kedaluwarsa ≤ 90 hari
         </h2>
         <span className="font-mono font-semibold text-warning" title={formatRupiah(total)}>
