@@ -3,6 +3,7 @@
 import { EMAR_TIMES, type EmarMedication, type EmarTime } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import { type ReactNode, useState, useTransition } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   allDueGiven,
   dueProgress,
@@ -19,15 +20,19 @@ import { EmarGate, type EmarScan } from './emar-gate';
 
 export interface EmarLocal {
   scan: EmarScan;
-  /** Slot diberikan di layar ini: kunci `<obat>|<jam>` → label "✓ 12.03". */
+  /**
+   * Slot diberikan: kunci `<obat>|<jam>` → label "✓ 12.03". Pasien fixture: dari toko demo (server); pasien skenario:
+   * dosis yang sudah diperiksa server di layar ini sampai tugas `emar` Simulasi mencatatnya.
+   */
   given: Record<string, string>;
   log: Array<{ t: string; what: string; note: string }>;
 }
 
 /**
  * eMAR (mockup Ranap): grid obat × jam, terkunci sampai gelang cocok; lalu dosis diberikan satu per satu (pilih
- * slot → pindai label obat → catat), masing-masing diperiksa server. Pasien skenario: tugas `emar` Simulasi selesai
- * setelah semua dosis jam "kini" tercatat (`onAllDue`).
+ * slot → pindai label obat → catat), masing-masing diperiksa server dan tersimpan di toko demo (`rekam-medis`) atas
+ * nama pengguna sesi. Pasien skenario: tugas `emar` Simulasi selesai setelah semua dosis jam "kini" tercatat
+ * (`onAllDue`).
  */
 export function EmarPanel({
   encounterId,
@@ -37,6 +42,7 @@ export function EmarPanel({
   rm,
   name,
   nurse,
+  rev,
   state,
   wait,
   scenarioTask,
@@ -52,6 +58,8 @@ export function EmarPanel({
   rm: string;
   name: string;
   nurse: string;
+  /** Revisi toko `rekam-medis` yang dilihat layar. */
+  rev: number;
   state: EmarLocal;
   /** Pasien skenario di luar giliran tugas `emar`: alasan menunggu (grid tetap terkunci). */
   wait: string | null;
@@ -65,7 +73,9 @@ export function EmarPanel({
 }) {
   const [pick, setPick] = useState<{ med: EmarMedication; time: EmarTime } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, start] = useTransition();
+  const [scanning, start] = useTransition();
+  const { run, pending: recording } = useStoreAction(rev);
+  const busy = scanning || recording;
   const unlocked = state.scan.status !== 'terkunci';
   const locked = busy || scenarioBusy;
   const progress = dueProgress(meds, now, state.given);
@@ -85,30 +95,37 @@ export function EmarPanel({
     });
 
   const record = (med: EmarMedication, time: EmarTime, d: DoseInput) =>
-    start(async () => {
-      const r = await recordAdministrationAction(
-        emarDosePayload({ encounterId, medicationId: med.id, time, rm, identity: state.scan, dose: d }),
-      );
-      if (!r.ok) return setError(r.error ?? 'Pemberian belum tercatat.');
-      const ok = r.ok;
-      const key = emarKey(med.id, time);
-      const given = { ...state.given, [key]: emarGivenLabel(ok.at, ok) };
-      setError(null);
-      setPick(null);
-      onChange((cur) => ({
-        ...cur,
-        given: { ...cur.given, [key]: emarGivenLabel(ok.at, ok) },
-        log: [
-          ...cur.log,
-          {
-            t: ok.at,
-            what: med.name,
-            note: `jadwal ${time}${ok.late ? ` · terlambat · ${d.lateReason ?? ''}` : ''}${ok.doubleCheckedBy ? ` · cek ganda ${ok.doubleCheckedBy}` : ''} · ${nurse} (simulasi, tidak disimpan)`,
-          },
-        ],
-      }));
-      if (allDueGiven(meds, now, given)) onAllDue();
-    });
+    run(
+      (r) =>
+        recordAdministrationAction(
+          emarDosePayload({ encounterId, medicationId: med.id, time, rm, identity: state.scan, dose: d }),
+          r,
+        ),
+      (res) => {
+        if (!res.ok || !res.at) return setError(res.message || 'Pemberian belum tercatat.');
+        setError(null);
+        setPick(null);
+        if (!res.scenario) return;
+        // Pasien skenario: dosis sudah diperiksa server; dicatat ke Simulasi lewat tugas `emar` setelah semua dosis.
+        const facts = { late: !!res.late, doubleCheckedBy: res.doubleCheckedBy ?? null };
+        const at = res.at;
+        const key = emarKey(med.id, time);
+        const given = { ...state.given, [key]: emarGivenLabel(at, facts) };
+        onChange((cur) => ({
+          ...cur,
+          given: { ...cur.given, [key]: emarGivenLabel(at, facts) },
+          log: [
+            ...cur.log,
+            {
+              t: at,
+              what: med.name,
+              note: `jadwal ${time}${facts.late ? ` · terlambat · ${d.lateReason ?? ''}` : ''}${facts.doubleCheckedBy ? ` · cek ganda ${facts.doubleCheckedBy}` : ''} · ${nurse} · masuk rekam Simulasi saat semua dosis jam ini tercatat`,
+            },
+          ],
+        }));
+        if (allDueGiven(meds, now, given)) onAllDue();
+      },
+    );
 
   return (
     <section aria-label="eMAR" className="flex min-w-0 flex-[1_1_520px] flex-col gap-3">

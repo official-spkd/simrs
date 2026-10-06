@@ -79,8 +79,25 @@ export interface WorklistTarget {
   query?: string;
 }
 
+/**
+ * Rekam sumber tugas (toko demo `rekam-medis` dan domain lain, ADR-0085): tugas tertutup otomatis saat rekamnya
+ * selesai di layar mana pun (co-sign di CPPT, dosis di eMAR, resume final, konsul dijawab, asesmen final).
+ */
+export type WorklistRef =
+  | { kind: 'cppt'; entryId: string }
+  | { kind: 'emar'; medicationId: string; time: string }
+  /** Nilai kritis: status pelaporan lab dibaca dari domain `hasil-kritis` (pemeriksaan + RM pasien). */
+  | { kind: 'kritis'; test: string }
+  | { kind: 'resume' }
+  | { kind: 'konsul'; consultId: string }
+  | { kind: 'asesmen'; formCode: string }
+  | { kind: 'askep-evaluasi' }
+  | { kind: 'edukasi' };
+
 export interface WorklistTask {
   id: string;
+  /** Rekam sumber (opsional): tugas selesai otomatis saat rekamnya selesai. */
+  ref?: WorklistRef;
   kind: WorklistKind;
   priority: WorklistPriority;
   encounterId: string;
@@ -179,6 +196,13 @@ export function dueLabel(task: Pick<WorklistTask, 'dueAt'>, nowIso: string): str
   const diff = (Date.parse(task.dueAt) - Date.parse(nowIso)) / 60_000;
   return diff < 0 ? `Lewat ${formatDuration(-diff)}` : `${formatDuration(diff)} lagi`;
 }
+
+/** Pilihan tindak lanjut penerimaan nilai kritis (diperiksa juga di server). */
+export const WORKLIST_FOLLOW_UPS: readonly string[] = [
+  'Lapor ke DPJP dengan SBAR',
+  'Tata laksana sesuai protokol hiperkalemia',
+  'Ulang pemeriksaan dan pantau EKG',
+];
 
 /** Nilai yang dibaca ulang cocok dengan nilai kritis: koma/titik desimal setara, spasi diabaikan. */
 export function readBackMatches(input: string, expected: string): boolean {

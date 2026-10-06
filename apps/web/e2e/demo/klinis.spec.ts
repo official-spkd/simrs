@@ -67,14 +67,18 @@ test.describe('klinis rawat jalan', () => {
     await expect(page.getByText('Diabetes melitus tipe 2 tanpa komplikasi').first()).toBeVisible();
     await expect(sign).toBeEnabled();
     await sign.click();
-    await expect(
-      page.getByText(/Ditandatangani \d{2}\.\d{2} · CPPT versi final \(simulasi, tidak disimpan\)/),
-    ).toBeVisible();
+    await expect(page.getByText(/^Ditandatangani \d{2}\.\d{2} · CPPT versi final$/)).toBeVisible();
     await expect(page.getByText(/Kunjungan selesai · ditandatangani \d{2}\.\d{2}/)).toBeVisible();
     await expect(queue.getByRole('link', { name: /Ny\. Rohana Siregar/ })).toContainText('Selesai');
     // Setelah tanda tangan: tahapan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat (mockup Main).
     await expect(stepper.locator('[aria-current="step"]')).toContainText('Kasir');
     await expect(docs).toContainText(/Surat (kontrol|keterangan)\s*✓ Dibuat/);
+
+    // Bertahan (toko demo `klinis-poli`): setelah muat ulang kunjungan tetap selesai dengan diagnosisnya.
+    await page.reload();
+    await expect(page.getByText(/Kunjungan selesai · ditandatangani \d{2}\.\d{2}/)).toBeVisible();
+    await expect(queue.getByRole('link', { name: /Ny\. Rohana Siregar/ })).toContainText('Selesai');
+    await expect(page.getByText('Diabetes melitus tipe 2 tanpa komplikasi').first()).toBeVisible();
 
     // Panggil berikutnya mengembalikan filter ke "Semua" agar pasien yang dipanggil tetap terlihat.
     await queue.getByRole('button', { name: /^Hasil \d+$/ }).click();
@@ -116,6 +120,13 @@ test.describe('klinis rawat jalan', () => {
     await send.click();
     await expect(page.getByText(/^5 order terkirim pukul \d{2}\.\d{2}$/)).toBeVisible();
     await expect(page.getByRole('button', { name: /^Order terkirim · \d{2}\.\d{2}$/ })).toBeDisabled();
+
+    // Bertahan (toko demo `klinis-order`): order yang ditandatangani tetap terkirim setelah muat ulang, berikut
+    // alasan override CDS-nya; tidak ada draf yang bisa dihapus.
+    await page.reload();
+    await expect(page.getByText(/^5 order terkirim pukul \d{2}\.\d{2}$/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Order terkirim · \d{2}\.\d{2}$/ })).toBeDisabled();
+    await expect(page.getByText(/alasan: Ruam ringan 10 tahun lalu/)).toBeVisible();
 
     // Mockup CPOE: menambah order setelah kirim membuka kiriman baru; order terkirim tetap terkunci.
     await page.getByLabel('Cari pemeriksaan, obat, tindakan').fill('lipid');
@@ -195,9 +206,7 @@ test.describe('klinis rawat jalan', () => {
     await expect(page.getByText('Isi dengan format sistolik/diastolik, mis. 120/80.')).toBeVisible();
     await page.getByLabel('Tekanan darah (mmHg)').fill('150/96');
     await page.getByRole('button', { name: 'Simpan tanda vital' }).click();
-    await expect(
-      page.getByText(/Tanda vital tersimpan \d{2}\.\d{2} \(simulasi, tidak disimpan\)/),
-    ).toBeVisible();
+    await expect(page.getByText(/^Tanda vital tersimpan \d{2}\.\d{2}$/)).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Tanda vital' }).getByText('Tinggi', { exact: true }),
     ).toBeVisible();

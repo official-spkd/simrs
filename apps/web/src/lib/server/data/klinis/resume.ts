@@ -3,16 +3,18 @@ import { type DischargeSummary, dischargeSummarySchema } from '@simrs/shared';
 import { ENCOUNTER_ID } from '../../../demo/fixtures/ids';
 import { patientByEncounterId } from '../../../demo/fixtures/pasien';
 import { demoEndangResume, demoInpatients } from '../../../demo/fixtures/rawat-inap';
+import { applyResume } from '../../../rawat-inap-resume-toko';
 import { hartonoResume, isDone, ratnaResume } from '../../../rawat-inap-scenario';
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
+import { readDomain } from '../../demo/state';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
 
 /**
- * K13 · Data layar Resume medis. Mode presentasi: resume fiktif + draf resume pasien skenario, divalidasi kontrak
- * yang sama dengan API kelak; mode api menunggu backend fase 3 (potongan 3.6, layar W5b; halaman menampilkan "Belum
+ * K13 · Data layar Resume medis. Mode presentasi: resume fiktif + keadaan toko demo (`resume-medis`) + draf resume
+ * pasien skenario, divalidasi kontrak yang sama dengan API kelak; mode api menunggu backend fase 3 (potongan 3.6, layar W5b; halaman menampilkan "Belum
  * tersambung").
  */
 
@@ -34,7 +36,10 @@ export async function getDischargeSummary(
     assertDemo();
     const runs = await scenarioRuns(session);
     if (encounterId === ENCOUNTER_ID.endang) {
-      return { kind: 'resume', summary: dischargeSummarySchema.parse(demoEndangResume()), scenario: false };
+      // Butir, rekonsiliasi, dan TTE tersimpan di toko demo (`resume-medis`, ADR-0085).
+      const { state } = await readDomain('resume-medis');
+      const summary = applyResume(demoEndangResume(), state);
+      return { kind: 'resume', summary: dischargeSummarySchema.parse(summary), scenario: false };
     }
     const scenarioResume = [
       {

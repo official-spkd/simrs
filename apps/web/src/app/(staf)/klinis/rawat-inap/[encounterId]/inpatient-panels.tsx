@@ -3,6 +3,8 @@
 import { type ClinicalResult, type EwsObservation, formatJam } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
+import { useState } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   ewsRepeatLabel,
   formatTglJam,
@@ -11,6 +13,8 @@ import {
   nextObservationText,
   observationEwsLevel,
 } from '@/lib/rawat-inap';
+import { recordInterventionAction } from './actions-demo';
+import { ObservationForm, type ObservationEntry } from './observation-form';
 
 const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   normal: { label: 'Normal', cls: 'text-success' },
@@ -19,8 +23,15 @@ const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   kritis: { label: 'Kritis', cls: 'font-bold text-danger-strong' },
 };
 
-/** Observasi tanda vital + skor EWS dewasa (mockup Ranap). */
-export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
+/** Observasi tanda vital + skor EWS dewasa (mockup Ranap), dengan isian observasi baru (EWS dihitung server). */
+export function EwsPanel({
+  observations,
+  entry,
+}: {
+  observations: EwsObservation[];
+  /** Isian observasi baru; null = pasien skenario (observasinya mengikuti Simulasi). */
+  entry: ObservationEntry | null;
+}) {
   const last = observations.at(-1);
   const lv = last ? observationEwsLevel(last) : null;
   return (
@@ -88,6 +99,7 @@ export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
           </span>
         </div>
       )}
+      {entry && <ObservationForm entry={entry} />}
     </section>
   );
 }
@@ -169,20 +181,46 @@ export interface NursingView {
   interventions: Array<{ id: string; label: string; done: boolean }>;
 }
 
-/** Intervensi keperawatan shift berjalan (centang disimpan lokal, simulasi) + bilah kemajuan berlabel teks. */
+/**
+ * Intervensi keperawatan shift berjalan + bilah kemajuan berlabel teks. Centang = intervensi dikerjakan, tersimpan di
+ * toko demo atas nama pengguna sesi (tampil juga di layar Asuhan keperawatan); tidak bisa dibatalkan (rekam
+ * append-only). Centang tampil segera, lalu dikonfirmasi server.
+ */
 export function NursingPanel({
+  encounterId,
+  rev,
   problems,
   shift,
-  onToggle,
+  lockedReason,
 }: {
+  encounterId: string;
+  rev: number;
   problems: NursingView[];
   /** Shift berjalan ("pagi", "sore", "malam") untuk judul. */
   shift: string;
-  onToggle: (id: string) => void;
+  /** Alasan centang nonaktif (posisi bukan perawat/bidan, pasien skenario); null = boleh. */
+  lockedReason: string | null;
 }) {
-  const all = problems.flatMap((p) => p.interventions);
+  const { run, pending } = useStoreAction(rev);
+  const [optimistic, setOptimistic] = useState<string[]>([]);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const view = problems.map((p) => ({
+    ...p,
+    interventions: p.interventions.map((i) => ({ ...i, done: i.done || optimistic.includes(i.id) })),
+  }));
+  const all = view.flatMap((p) => p.interventions);
   const done = all.filter((i) => i.done).length;
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
+  const mark = (id: string) => {
+    setOptimistic((cur) => [...cur, id]);
+    run(
+      (r) => recordInterventionAction({ encounterId, interventionId: id }, r),
+      (res) => {
+        if (!res.ok) setOptimistic((cur) => cur.filter((x) => x !== id));
+        setMsg({ ok: res.ok, text: res.message });
+      },
+    );
+  };
   return (
     <section
       aria-label="Asuhan keperawatan"
@@ -205,7 +243,21 @@ export function NursingPanel({
           {done}/{all.length} intervensi
         </span>
       </div>
-      {problems.map((p) => {
+      {lockedReason && (
+        <p className="m-0 border-b border-line-soft px-4 py-2 text-caption text-ink-500">{lockedReason}</p>
+      )}
+      {msg && (
+        <p
+          role={msg.ok ? 'status' : 'alert'}
+          className={cx(
+            'm-0 border-b border-line-soft px-4 py-2 text-small font-semibold',
+            msg.ok ? 'text-success' : 'text-warning',
+          )}
+        >
+          {msg.text}
+        </p>
+      )}
+      {view.map((p) => {
         const d = p.interventions.filter((i) => i.done).length;
         return (
           <fieldset
@@ -223,7 +275,8 @@ export function NursingPanel({
                 <input
                   type="checkbox"
                   checked={i.done}
-                  onChange={() => onToggle(i.id)}
+                  disabled={i.done || !!lockedReason || pending}
+                  onChange={() => mark(i.id)}
                   className="size-[18px] accent-brand-600"
                 />
                 {i.label}

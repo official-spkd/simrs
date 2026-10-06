@@ -14,11 +14,15 @@ import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
+import { admissionFlows, type AdmissionFlow } from '../../../rawat-inap-bed-toko';
+import { readDomain } from '../../demo/state';
+import { readRekam, withRekam } from './rekam';
 import { scenarioSteps } from './shared';
 
 /**
  * K04/K07/K12 · Data layar Rawat inap (daftar pasien + rekam rawat inap: CPPT, eMAR, EWS). Mode presentasi: rekam
- * fiktif + proyeksi pasien skenario (Tn. Hartono, Ny. Ratna), divalidasi kontrak yang sama dengan API kelak; mode api
+ * fiktif + rekam tersimpan di toko demo (`rekam-medis`, ADR-0085) + proyeksi pasien skenario (Tn. Hartono, Ny. Ratna),
+ * divalidasi kontrak yang sama dengan API kelak; mode api
  * menunggu backend fase 3 (potongan 3.2b/3.5, layar W4; halaman menampilkan "Belum tersambung").
  */
 
@@ -38,19 +42,53 @@ export async function inpatientScenarioStep(
 }
 
 async function allInpatients(session: SessionView): Promise<InpatientDetail[]> {
-  const runs = await scenarioRuns(session);
+  const [runs, { state }] = await Promise.all([scenarioRuns(session), readRekam()]);
   const scenario = [hartonoInpatient(runs.results['igd-ranap']), ratnaInpatient(runs.results['elektif-btn'])];
-  return [...scenario.filter((x): x is InpatientDetail => x !== null), ...demoInpatients()];
+  // Pasien fixture memakai rekam tersimpan di toko demo (CPPT, co-sign, observasi, askep); pasien skenario tidak.
+  return [
+    ...scenario.filter((x): x is InpatientDetail => x !== null),
+    ...demoInpatients().map((d) => withRekam(d, state)),
+  ];
 }
 
 /** K04 · Daftar pasien rawat inap (pasien skenario masuk daftar setelah serah terima / SEP rawat inap). */
 export async function getInpatientList(session: SessionView): Promise<InpatientSummary[]> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    const list = (await allInpatients(session)).map((d) => d.summary);
-    return inpatientSummarySchema.array().parse(list);
+    return (await getInpatientBoard(session)).list;
   }
   return notImplemented('rawat inap');
+}
+
+export interface InpatientBoard {
+  /** Pasien yang masih di bed (pasien yang sudah pulang dan bednya dilepas tidak termasuk). */
+  list: InpatientSummary[];
+  /** Pasien IGD dengan bed dialokasikan (dipesan) atau sudah tiba (terisi) dari papan tempat tidur. */
+  arrivals: AdmissionFlow[];
+  /** Pasien fixture yang sudah pulang hari ini (bed dilepas di papan tempat tidur). */
+  discharged: Array<{ encounterId: string; patientId: string; bed: string; at: string }>;
+}
+
+/**
+ * Daftar rawat inap + aliran dari papan tempat tidur (toko `tempat-tidur`): pasien IGD yang dialokasikan/tiba, dan
+ * pasien yang sudah pulang (bed dilepas).
+ */
+export async function getInpatientBoard(session: SessionView): Promise<InpatientBoard> {
+  assertDemo();
+  const [all, bed] = await Promise.all([allInpatients(session), readDomain('tempat-tidur')]);
+  const discharged = all.flatMap((d) => {
+    const at = d.summary.scenario ? undefined : bed.state.discharged[d.summary.encounterId];
+    return at
+      ? [{ encounterId: d.summary.encounterId, patientId: d.summary.patientId, bed: d.summary.bed, at }]
+      : [];
+  });
+  const gone = new Set(discharged.map((x) => x.encounterId));
+  const list = all.filter((d) => !gone.has(d.summary.encounterId)).map((d) => d.summary);
+  return {
+    list: inpatientSummarySchema.array().parse(list),
+    arrivals: admissionFlows(bed.state),
+    discharged,
+  };
 }
 
 export type InpatientLookup =

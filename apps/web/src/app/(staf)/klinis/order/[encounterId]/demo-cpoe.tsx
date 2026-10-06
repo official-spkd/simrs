@@ -8,10 +8,12 @@ import { KlinisPatientHeader } from '@/components/klinis/patient-header';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { consentIdOf, patientByEncounterId } from '@/lib/demo/fixtures/pasien';
 import { egfrLow } from '@/lib/klinis';
+import { lastSent } from '@/lib/klinis-order-toko';
 import { screenById } from '@/lib/screens';
 import { getCpoeContext } from '@/lib/server/data/klinis/cpoe';
 import { getPoliWorklist } from '@/lib/server/data/klinis/poli';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
+import { readDomain } from '@/lib/server/demo/state';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 
 /** Tugas CDS skenario: ikuti = 'ganti', override beralasan = 'lanjut' (rawat jalan: glimepirid; IGD: klopidogrel). */
@@ -21,8 +23,8 @@ const GATES: Record<string, ScenarioGate> = {
 };
 
 /**
- * K09 · CPOE + CDS mode presentasi (mockup `CPOE.dc.html`, data dummy fiktif, ADR-0023; dibekukan, jalur api diisi
- * layar W2 di `page.tsx`). Langkah Simulasi `resep` (Tn. Suryo) dan `asesmen-dokter`/`tata-laksana` (Tn. Hartono)
+ * K09 · CPOE + CDS mode presentasi (mockup `CPOE.dc.html`, data dummy fiktif + order tersimpan di toko demo
+ * `klinis-order`, ADR-0023/0085; jalur api diisi layar W2 di `page.tsx`). Langkah Simulasi `resep` (Tn. Suryo) dan `asesmen-dokter`/`tata-laksana` (Tn. Hartono)
  * dibawakan lewat kontrol asli layar ini; kunjungan pasien skenario mengikuti langkah skenario (katalog nonaktif,
  * kirim hanya lewat tugas skenario). Persetujuan tindakan Tn. Hartono hanya bisa diselesaikan di tablet persetujuan
  * (tanda tangan pasien + saksi + TTE dokter).
@@ -32,7 +34,7 @@ export async function DemoCpoe({ access, encounterId }: { access: DemoScreenAcce
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const ctx = await getCpoeContext(session, encounterId);
   if (!ctx) notFound();
-  const runs = await scenarioRuns(session);
+  const [runs, orderStore] = await Promise.all([scenarioRuns(session), readDomain('klinis-order')]);
   const scenario = patientByEncounterId(encounterId)?.scenario;
   const here = scenario ? scenariosHere(runs, 'order').find((h) => h.scenario === scenario) : undefined;
   const hasTask = (id: string) => Boolean(here?.step.tasks.some((t) => t.id === id));
@@ -106,6 +108,8 @@ export async function DemoCpoe({ access, encounterId }: { access: DemoScreenAcce
         sendTask={here && hasTask('tte') ? 'tte' : null}
         handoff={handoff}
         links={links}
+        rev={orderStore.rev}
+        lastSent={scenario ? null : lastSent(orderStore.state, ctx.encounterId)}
       />
     </div>
   );

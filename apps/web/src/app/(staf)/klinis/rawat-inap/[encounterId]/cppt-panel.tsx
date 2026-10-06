@@ -2,17 +2,17 @@
 
 import { type CpptEntry, formatJam, formatTanggal } from '@simrs/shared';
 import { Button, cx, FilterChip } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   canCorrectCppt,
   CPPT_ROLE_META,
   type CpptFilter,
-  correctCpptEntry,
+  type CpptMode,
   cpptMatches,
   cpptNotePayload,
   formatTglJam,
   formatTglSingkat,
-  newCpptEntry,
   type SoapText,
   supersededIds,
 } from '@/lib/rawat-inap';
@@ -31,7 +31,8 @@ type FormState =
 
 /**
  * CPPT terintegrasi (mockup Ranap): filter profesi, co-sign DPJP, tulis baru. Koreksi = versi baru, hanya oleh
- * penulisnya (alasan wajib, versi lama tetap tampil); PPA lain menambah addendum. Server memeriksa ulang semuanya.
+ * penulisnya (alasan wajib, versi lama tetap tampil); PPA lain menambah addendum. Server memeriksa ulang semuanya
+ * lalu menyimpannya di toko demo (`rekam-medis`); daftar catatan datang dari server sesudah aksi.
  */
 export function CpptPanel({
   encounterId,
@@ -40,9 +41,8 @@ export function CpptPanel({
   userRole,
   today,
   canCosign,
+  rev,
   sbar,
-  onAdd,
-  onCosign,
 }: {
   encounterId: string;
   entries: CpptEntry[];
@@ -53,15 +53,15 @@ export function CpptPanel({
   /** Tanggal rawat berjalan (ISO) untuk judul, mis. "CPPT terintegrasi · 5 Okt". */
   today: string;
   canCosign: boolean;
+  /** Revisi toko `rekam-medis` yang dilihat layar. */
+  rev: number;
   sbar: { s: string; b: string; a: string; r: string };
-  onAdd: (e: CpptEntry) => void;
-  onCosign: (id: string, by: string, at: string) => void;
 }) {
   const [filter, setFilter] = useState<CpptFilter>('semua');
   const [form, setForm] = useState<FormState | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [showSbar, setShowSbar] = useState(false);
-  const [busy, start] = useTransition();
+  const { run, pending: busy } = useStoreAction(rev);
   const old = supersededIds(entries);
   const shown = [...entries]
     .filter((e) => cpptMatches(e, filter))
@@ -70,56 +70,49 @@ export function CpptPanel({
   const submit = (soap: SoapText, reason: string | null) => {
     if (!form) return;
     const cur = form;
-    start(async () => {
-      const r = await saveCpptAction(
-        cpptNotePayload(
-          encounterId,
-          soap,
-          cur.mode === 'koreksi'
-            ? { kind: 'koreksi', targetId: cur.target.id, reason: reason ?? '' }
-            : cur.mode === 'addendum'
-              ? { kind: 'addendum', targetId: cur.target.id }
-              : { kind: 'baru' },
-        ),
-      );
-      if (!r.ok) {
-        setMsg({ ok: false, text: r.error ?? 'CPPT belum tersimpan.' });
-        return;
-      }
-      const base = { id: r.ok.id, author: r.ok.author, role: r.ok.role, at: r.ok.at, soap };
-      const entry =
-        cur.mode === 'koreksi'
-          ? correctCpptEntry(entries, cur.target.id, { ...base, reason: reason ?? '' })
-          : newCpptEntry({
-              ...base,
-              encounterId,
-              addendumOf: cur.mode === 'addendum' ? cur.target.id : null,
-            });
-      onAdd(entry);
-      setForm(null);
-      if (filter !== 'semua' && !cpptMatches(entry, filter)) setFilter('semua');
-      setMsg({
-        ok: true,
-        text:
-          cur.mode === 'koreksi'
-            ? `Koreksi tersimpan ${formatJam(r.ok.at)} sebagai versi ${entry.version}; versi lama tetap tercatat (simulasi, tidak disimpan).`
-            : cur.mode === 'addendum'
-              ? `Addendum tersimpan ${formatJam(r.ok.at)}; catatan ${cur.target.author} tidak berubah (simulasi, tidak disimpan).`
-              : `CPPT baru tersimpan ${formatJam(r.ok.at)} dan ditandatangani elektronik (simulasi, tidak disimpan).`,
-      });
-    });
+    const mode: CpptMode =
+      cur.mode === 'koreksi'
+        ? { kind: 'koreksi', targetId: cur.target.id, reason: reason ?? '' }
+        : cur.mode === 'addendum'
+          ? { kind: 'addendum', targetId: cur.target.id }
+          : { kind: 'baru' };
+    run(
+      (r) => saveCpptAction(cpptNotePayload(encounterId, soap, mode), r),
+      (res) => {
+        if (!res.ok || !res.at) {
+          setMsg({ ok: false, text: res.message || 'CPPT belum tersimpan.' });
+          return;
+        }
+        setForm(null);
+        setFilter('semua');
+        setMsg({
+          ok: true,
+          text:
+            cur.mode === 'koreksi'
+              ? `Koreksi tersimpan ${formatJam(res.at)} sebagai versi ${res.version ?? cur.target.version + 1}; versi lama tetap tercatat.`
+              : cur.mode === 'addendum'
+                ? `Addendum tersimpan ${formatJam(res.at)}; catatan ${cur.target.author} tidak berubah.`
+                : res.role === 'residen'
+                  ? `CPPT residen tersimpan ${formatJam(res.at)} · belum final, menunggu co-sign DPJP.`
+                  : `CPPT baru tersimpan ${formatJam(res.at)} dan ditandatangani elektronik.`,
+        });
+      },
+    );
   };
 
   const cosign = (e: CpptEntry) =>
-    start(async () => {
-      const r = await cosignCpptAction({ encounterId, entryId: e.id });
-      if (!r.ok) return setMsg({ ok: false, text: r.error ?? 'Co-sign gagal.' });
-      onCosign(e.id, r.ok.by, r.ok.at);
-      setMsg({
-        ok: true,
-        text: `CPPT residen ${formatJam(e.writtenAt)} disetujui DPJP ${formatJam(r.ok.at)} (simulasi).`,
-      });
-    });
+    run(
+      (r) => cosignCpptAction({ encounterId, entryId: e.id }, r),
+      (res) =>
+        setMsg(
+          res.ok && res.at
+            ? {
+                ok: true,
+                text: `CPPT residen ${formatJam(e.writtenAt)} disetujui DPJP ${formatJam(res.at)}.`,
+              }
+            : { ok: false, text: res.message || 'Co-sign gagal.' },
+        ),
+    );
 
   return (
     <section

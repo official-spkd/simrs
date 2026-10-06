@@ -1,18 +1,12 @@
 'use client';
 
-import {
-  formatJam,
-  POLI_VISIT_STAGES,
-  type PoliEncounter,
-  type PoliQueueItem,
-  type PoliQueueStatus,
-  type PoliWorklist,
-} from '@simrs/shared';
+import { POLI_VISIT_STAGES, type PoliEncounter, type PoliQueueItem, type PoliWorklist } from '@simrs/shared';
 import { Button, Icon } from '@simrs/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { callNextAction } from '@/app/(staf)/klinis/poli/actions-demo';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   canRecordVitals,
   canWriteDoctorNote,
@@ -29,9 +23,10 @@ import { VisitStepper } from './visit-panels';
 import { VitalsCard } from './vitals-card';
 
 /**
- * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien. Status antrean yang
- * diubah di layar ini (panggil, selesai) disimpan lokal (simulasi, tidak disimpan); setelah tanda tangan tahapan
- * kunjungan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat (mockup: `activeIdx = signed ? 5`).
+ * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien. Panggil pasien,
+ * tanda vital, dan CPPT tersimpan di toko demo (`klinis-poli`, ADR-0085); status antrean dan tahapan kunjungan datang
+ * dari server. Setelah tanda tangan tahapan kunjungan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat
+ * (mockup: `activeIdx = signed ? 5`).
  */
 export function PoliWorkspace({
   worklist,
@@ -41,6 +36,8 @@ export function PoliWorkspace({
   cpoeHref,
   kasirHref,
   rujukHref,
+  rev,
+  pendingCosign,
 }: {
   worklist: PoliWorklist;
   encounter: PoliEncounter;
@@ -50,44 +47,42 @@ export function PoliWorkspace({
   kasirHref: string | null;
   /** Layar rujukan (tombol "Rujuk" di banner pasien), null bila layar belum tersedia. */
   rujukHref: string | null;
+  /** Revisi toko `klinis-poli`. */
+  rev: number;
+  /** CPPT residen kunjungan ini yang menunggu co-sign DPJP (server). */
+  pendingCosign: { at: string; author: string } | null;
 }) {
   const router = useRouter();
   const tasks = useScenarioTasks(binding);
-  const [local, setLocal] = useState<Record<string, { status: PoliQueueStatus; wait: string }>>({});
+  const { run, pending } = useStoreAction(rev);
   const [called, setCalled] = useState<string | null>(null);
-  /** Jam tanda tangan CPPT per kunjungan yang diselesaikan di layar ini. */
-  const [signedHere, setSignedHere] = useState<Record<string, string>>({});
-  const statusOf = (i: PoliQueueItem) => (i.scenario ? i.status : (local[i.patientId]?.status ?? i.status));
-  const waitOf = (i: PoliQueueItem) => (i.scenario ? i.waitNote : (local[i.patientId]?.wait ?? i.waitNote));
+  const statusOf = (i: PoliQueueItem) => i.status;
+  const waitOf = (i: PoliQueueItem) => i.waitNote;
   const isDoctor = canWriteDoctorNote(role);
   const canOrder = canWriteOrders(role);
   const isNurse = canRecordVitals(role);
   const current = worklist.items.find((i) => i.encounterId === encounter.encounterId);
   const scenarioPatient = Boolean(current?.scenario);
   const next = nextWaiting(worklist.items, statusOf);
-  const signedNow = signedHere[encounter.encounterId] ?? null;
+  const signedNow = encounter.soap.signedAt;
   // Mockup: catatan dibuat saat pasien dipanggil ("mulai 08.53") bila belum ada draf.
   const wait = current ? waitOf(current) : '';
   const createdFallback = wait.startsWith('mulai ') ? wait.slice('mulai '.length) : null;
 
   const callNext = () => {
-    if (!next) return;
-    const t = formatJam(demoNow());
+    if (!next || pending) return;
     if (next.scenario) {
       setCalled(`${next.queueNo} · ${next.name} adalah pasien skenario: buka lalu tekan "Panggil pasien".`);
-    } else {
-      setLocal((cur) => {
-        const out = { ...cur };
-        for (const i of worklist.items) {
-          if (!i.scenario && statusOf(i) === 'diperiksa')
-            out[i.patientId] = { status: 'dijeda', wait: `dijeda ${t}` };
-        }
-        out[next.patientId] = { status: 'diperiksa', wait: `mulai ${t}` };
-        return out;
-      });
-      setCalled(`${next.queueNo} · ${next.name} dipanggil ${t} · tampil di layar antrean (simulasi)`);
+      router.push(`/klinis/poli?pasien=${next.patientId}`, { scroll: false });
+      return;
     }
-    router.push(`/klinis/poli?pasien=${next.patientId}`, { scroll: false });
+    run(
+      (r) => callNextAction(r),
+      (res) => {
+        setCalled(res.ok ? (res.message ?? null) : (res.error ?? 'Pasien belum dipanggil.'));
+        if (res.patientId) router.push(`/klinis/poli?pasien=${res.patientId}`, { scroll: false });
+      },
+    );
   };
 
   const panggil = tasks.task('panggil');
@@ -154,7 +149,8 @@ export function PoliWorkspace({
         )}
         <VisitStepper stage={signedNow ? POLI_VISIT_STAGES.length - 1 : encounter.stage} />
         <VitalsCard
-          key={`${encounter.encounterId}-${encounter.vitalsAt ?? ''}`}
+          key={`tanda-vital-${encounter.encounterId}${scenarioPatient ? `-${encounter.vitalsAt ?? ''}` : ''}`}
+          rev={rev}
           encounterId={encounter.encounterId}
           vitals={encounter.vitals}
           vitalsAt={encounter.vitalsAt}
@@ -164,7 +160,16 @@ export function PoliWorkspace({
           cdsNote={encounter.cdsNote}
         />
         <SoapForm
-          key={`${encounter.encounterId}-${encounter.diagnoses.map((d) => d.code).join()}-${encounter.soap.savedAt ?? ''}-${encounter.soap.signedAt ?? ''}`}
+          // Pasien skenario: catatan dimuat ulang saat tugas skenario mengubahnya; pasien lain: isian dokter tetap
+          // selama aksi tersimpan (status catatan datang dari server lewat props).
+          key={
+            scenarioPatient
+              ? `soap-${encounter.encounterId}-${encounter.diagnoses.map((d) => d.code).join()}-${encounter.soap.savedAt ?? ''}-${encounter.soap.signedAt ?? ''}`
+              : `soap-${encounter.encounterId}`
+          }
+          rev={rev}
+          pendingCosign={pendingCosign}
+          canCosign={role === 'dokter'}
           encounter={encounter}
           canWrite={isDoctor}
           canOrder={canOrder}
@@ -174,14 +179,6 @@ export function PoliWorkspace({
           cpoeHref={cpoeHref}
           kasirHref={kasirHref}
           createdFallback={createdFallback}
-          onSigned={(at) => {
-            setSignedHere((cur) => ({ ...cur, [encounter.encounterId]: at }));
-            if (current)
-              setLocal((cur) => ({
-                ...cur,
-                [current.patientId]: { status: 'selesai', wait: `selesai ${at}` },
-              }));
-          }}
         />
       </section>
       <div className="min-w-0 lg:col-span-2 min-[1400px]:col-span-1">

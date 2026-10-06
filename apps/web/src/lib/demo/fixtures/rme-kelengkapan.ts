@@ -1,7 +1,8 @@
 import type { CheckItem, PatientDocument } from '../../rme-kelengkapan';
-import { latestResponse } from '../../rme-asesmen';
-import { primaryDx } from '../../rme-diagnosis';
-import { topicCoverage } from '../../rme-edukasi';
+import { formatJam } from '@simrs/shared';
+import { type AssessmentResponse, latestResponse } from '../../rme-asesmen';
+import { type EncounterDx, primaryDx } from '../../rme-diagnosis';
+import { type EduRecord, topicCoverage } from '../../rme-edukasi';
 import { latestEntries } from '../../rme-cppt';
 import { ENCOUNTER_ID } from './ids';
 import { at } from './rawat-inap';
@@ -92,18 +93,35 @@ export function patientDocuments(chart: RmeChart): PatientDocument[] {
   ];
 }
 
+/**
+ * Sumber daftar periksa dari layar RME lain (toko demo `rekam-medis`, ADR-0085). Tanpa sumber = rekam awal fixture.
+ */
+export interface CloseSources {
+  responses?: readonly AssessmentResponse[];
+  dx?: readonly EncounterDx[];
+  edu?: readonly EduRecord[];
+  /** Dokumen awal (fixture): dasar butir "TTE gagal" yang tetap tampil setelah dikirim ulang/dibatalkan. */
+  baseDocs?: readonly PatientDocument[];
+}
+
 /** Daftar periksa DPJP sebelum menutup kunjungan, dihitung dari data layar RME. */
-export function closeChecklist(chart: RmeChart, docs: readonly PatientDocument[]): CheckItem[] {
+export function closeChecklist(
+  chart: RmeChart,
+  docs: readonly PatientDocument[],
+  src: CloseSources = {},
+): CheckItem[] {
   const enc = chart.encounterId;
-  const responses = assessmentResponsesFor({ ...chart, riwayat: chartPatient(chart).riwayat });
+  const responses =
+    src.responses ?? assessmentResponsesFor({ ...chart, riwayat: chartPatient(chart).riwayat });
   const pendingCosign = chart.inpatient
     ? latestEntries(chart.inpatient.cppt).filter((e) => e.cosignRequired && !e.cosignedBy).length
     : 0;
-  const { dx } = encounterCoding(chart);
-  const cov = topicCoverage(EDU_RECORDS[enc] ?? [], requiredTopics(chart));
+  const dx = src.dx ?? encounterCoding(chart).dx;
+  const cov = topicCoverage(src.edu ?? EDU_RECORDS[enc] ?? [], requiredTopics(chart));
   const eduOpen = [...cov.ulang, ...cov.belum];
   const resume = docs.find((d) => d.kind === 'Resume');
-  const failed = docs.filter((d) => d.status === 'tte-gagal');
+  const failed = (src.baseDocs ?? docs).filter((d) => d.status === 'tte-gagal');
+  const now = (id: string) => docs.find((d) => d.id === id);
   const items: CheckItem[] = [
     {
       id: 'asesmen-medis',
@@ -146,13 +164,22 @@ export function closeChecklist(chart: RmeChart, docs: readonly PatientDocument[]
           : `${eduOpen.length} materi belum terverifikasi paham`,
       fix: { kind: 'layar', screen: 'edukasi' },
     },
-    ...failed.map((d): CheckItem => ({
-      id: `tte-${d.id}`,
-      label: `${d.title} ber-TTE`,
-      done: false,
-      detail: `TTE gagal: ${d.note ?? ''}`,
-      fix: { kind: 'tte-ulang', documentId: d.id },
-    })),
+    ...failed.map((d): CheckItem => {
+      const cur = now(d.id);
+      const ok = cur?.status === 'final-tte';
+      const gone = cur?.status === 'dibatalkan';
+      return {
+        id: `tte-${d.id}`,
+        label: `${d.title} ber-TTE`,
+        done: ok || gone,
+        detail: ok
+          ? `TTE berhasil ${formatJam(cur.at)}`
+          : gone
+            ? `Dokumen dibatalkan ${formatJam(cur.at)}`
+            : `TTE gagal: ${d.note ?? ''}`,
+        fix: { kind: 'tte-ulang', documentId: d.id },
+      };
+    }),
   ];
   if (chart.setting === 'rawat-inap') {
     items.push({

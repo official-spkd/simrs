@@ -298,7 +298,7 @@ export function walkInEncounterId(kind: WalkInKind, seq: number): string {
 
 /**
  * Pasien IGD baru di area triase (tombol "Pasien tanpa identitas" / "+ Triase pasien baru"); identitas dan
- * tanda vital menyusul. Hanya di layar (simulasi). Pasien tanpa identitas yang ditemukan tidak sadar disarankan
+ * tanda vital menyusul; tersimpan di toko demo `klinis-igd`. Pasien tanpa identitas yang ditemukan tidak sadar disarankan
  * triase 1 sampai jalan napas dan tanda vital aman.
  */
 export function newWalkIn(kind: WalkInKind, seq: number, arrivedAt: string): EdTrackingItem {
