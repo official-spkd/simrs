@@ -315,6 +315,7 @@ describe('job jangkar tanpa bucket dan ringkasan harian', () => {
       ...base,
       ...s3Env,
       APP_ENV: 'production',
+      INTEGRATION_MODE: 'sandbox',
       AUDIT_ANCHOR_KEY: key,
       AUDIT_ANCHOR_BUCKET: 'simrs-audit-anchors',
     });

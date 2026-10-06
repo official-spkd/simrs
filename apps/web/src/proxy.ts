@@ -107,6 +107,11 @@ async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextRes
   return NextResponse.next({ request: { headers } });
 }
 
+/**
+ * Hanya aset build Next yang dikecualikan. Pengecualian per ekstensi (`.png`, `.svg`, …) dulu juga melewatkan HALAMAN
+ * yang path-nya berakhiran ekstensi itu (mis. `/verifikasi/kode.png`, 404 `/x.png`) sehingga dirender tanpa CSP;
+ * aplikasi ini tidak punya folder `public`, jadi tidak ada aset statis lain yang perlu dikecualikan.
+ */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
 };

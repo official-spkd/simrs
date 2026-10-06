@@ -69,6 +69,27 @@ test.describe('header keamanan web (produksi)', () => {
     expect(next).not.toBe(nonce);
   });
 
+  test('CSP ber-nonce + header keamanan di semua jenis rute (publik, 404, path berakhiran ekstensi)', async ({
+    request,
+  }) => {
+    for (const path of [
+      '/masuk',
+      '/perangkat/daftar',
+      '/verifikasi/sv1.bukan-kode',
+      '/verifikasi/kode.png',
+      '/tidak-ada.png',
+      '/tidak-ada',
+      '/pasien',
+    ]) {
+      const res = await request.get(path, { maxRedirects: 0 });
+      const h = res.headers();
+      expect(nonceOf(h['content-security-policy'] ?? ''), path).not.toBe('');
+      expect(h['content-security-policy'], path).toContain("frame-ancestors 'none'");
+      expect(h['x-frame-options'], path).toBe('DENY');
+      expect(h['x-content-type-options'], path).toBe('nosniff');
+    }
+  });
+
   test('login lengkap (sandi → kode MFA) berjalan di bawah CSP tanpa pelanggaran', async ({ page }) => {
     const violations = await watchCsp(page);
     const account = await createAccount({ roles: ['perawat'] });
