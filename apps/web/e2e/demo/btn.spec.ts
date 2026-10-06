@@ -42,7 +42,7 @@ test.describe('kamar operasi', () => {
     const signIn = tilik.getByRole('group', { name: 'Sign in', exact: true });
     for (const box of await signIn.getByRole('checkbox').all()) await box.check();
     await tilik.getByRole('button', { name: 'Konfirmasi sign in' }).click();
-    await expect(tilik.getByText(/Sign in dikonfirmasi oleh .* \(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(tilik.getByText(/Sign in dikonfirmasi oleh Pengguna E2E Fiktif/)).toBeVisible();
     await expect(tilik.getByText(/· induksi dapat dimulai/)).toBeVisible();
     await expect(tilik.getByText('Fase: Time out', { exact: true })).toBeVisible();
     await expect(page.getByText('Insisi terkunci: time out belum lengkap')).toBeVisible();
@@ -57,10 +57,10 @@ test.describe('kamar operasi', () => {
     for (const box of await timeOut.getByRole('checkbox').all()) await box.check();
     await expect(insisi).toBeDisabled();
     await tilik.getByRole('button', { name: 'Konfirmasi time out' }).click();
-    await expect(tilik.getByText(/Time out dikonfirmasi oleh .* \(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(tilik.getByText(/Time out dikonfirmasi oleh Pengguna E2E Fiktif/)).toBeVisible();
     await expect(insisi).toBeEnabled();
     await insisi.click();
-    await expect(page.getByText(/✓ Insisi dicatat \d{2}\.\d{2}/)).toBeVisible();
+    await expect(page.getByText(/✓ Insisi dicatat \d+ \S+ \d{2}\.\d{2}/)).toBeVisible();
 
     // Kasus lain lewat Gantt: blok terjadwal belum punya daftar tilik yang terisi.
     await jadwal.getByRole('button', { name: /Ny\. Anisa Rahmadani/ }).click();

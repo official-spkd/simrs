@@ -1,3 +1,4 @@
+import { IncomingOrders } from '@/components/penunjang/incoming-orders';
 import type { Metadata } from 'next';
 import { z } from 'zod';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -24,7 +25,9 @@ export default async function FarmasiPage({ searchParams }: { searchParams: Sear
 
   return (
     <div className="flex flex-col gap-4">
+      <IncomingOrders orders={data.incoming} destination="farmasi" />
       <FarmasiWorkspace
+        role={session.role?.code ?? null}
         heading={
           <div className="flex flex-col gap-0.5">
             <span className="text-caption text-ink-500">

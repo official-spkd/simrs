@@ -5,6 +5,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { IntegrasiSubnav } from '@/components/integrasi/integrasi-subnav';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { formatPercent } from '@/lib/manajemen';
+import { readDomain } from '@/lib/server/demo/state';
 import { getIntegrationOverview } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { IntegrationHub } from './integration-hub';
@@ -19,6 +20,7 @@ export default async function IntegrasiPage() {
   const { session, screen, allowed } = await requireDemoScreen('integrasi');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getIntegrationOverview(session);
+  const stored = await readDomain('integrasi');
 
   const aside = (
     <>
@@ -96,6 +98,8 @@ export default async function IntegrasiPage() {
 
   return (
     <IntegrationHub
+      rev={stored.rev}
+      stored={stored.state.hub}
       heading={
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">

@@ -35,7 +35,7 @@ export default async function DepoPage() {
         </Link>
       </header>
       <ScenarioBanner session={session} screen="depo" />
-      <DepoWorkspace data={data} userName={session.user.displayName} />
+      <DepoWorkspace userId={session.user.id} data={data} userName={session.user.displayName} />
     </div>
   );
 }

@@ -1,17 +1,17 @@
 'use client';
 
-import type { RadiologyExam, RadiologyWorklist } from '@simrs/shared';
+import type { RadiologyExam } from '@simrs/shared';
 import { KpiCard } from '@simrs/ui';
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useState } from 'react';
 import {
   finishExamAction,
   signReportAction,
   startExamAction,
 } from '@/app/(staf)/penunjang/radiologi/actions';
-import { RADIOLOG } from '@/lib/demo/fixtures/penunjang';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { StoredRadiologyWorklist } from '@/lib/server/data/penunjang';
 import type { PenunjangActionResult } from '@/lib/penunjang-aksi';
-import { applyRadLocal, type RadLocal, sortExams } from '@/lib/penunjang-radiologi';
+import { sortExams } from '@/lib/penunjang-radiologi';
 import { RadBoard } from './rad-board';
 import { RadDetail, type RadHandlers } from './rad-detail';
 import { type RadFilter, RadWorklist } from './rad-worklist';
@@ -23,24 +23,22 @@ function durasi(min: number): string {
 
 /**
  * S03 · Ruang kerja Radiologi: KPI, papan modalitas, worklist berfilter, dan rincian pemeriksaan dengan langkah
- * mulai → akuisisi (dosis CT) → ekspertise → TTE radiolog. Tindakan disimulasikan (tidak disimpan).
+ * mulai → akuisisi (dosis CT) → ekspertise → TTE radiolog. Tindakan tersimpan di toko demo bersama.
  */
 export function RadWorkspace({
+  role,
   data,
   initialSelected,
 }: {
-  data: RadiologyWorklist;
+  role: string | null;
+  data: StoredRadiologyWorklist;
   initialSelected: string | null;
 }) {
-  const [local, setLocal] = useState<Record<string, RadLocal>>({});
   const [filter, setFilter] = useState<RadFilter>('semua');
   const [selected, setSelected] = useState(initialSelected ?? '');
   const [msg, setMsg] = useState<Record<string, { ok: boolean; text: string }>>({});
-  const [busy, startTransition] = useTransition();
-  const exams = useMemo(
-    () => sortExams(data.exams.map((e) => applyRadLocal(e, local[e.id]))),
-    [data.exams, local],
-  );
+  const { run, pending: busy } = useStoreAction(data.rev);
+  const exams = useMemo(() => sortExams(data.exams), [data.exams]);
   const shown = filter === 'semua' ? exams : exams.filter((e) => e.status === filter);
   const sel = exams.find((e) => e.id === selected) ?? shown[0] ?? exams[0];
   const count = (f: RadFilter) => (f === 'semua' ? exams.length : exams.filter((e) => e.status === f).length);
@@ -60,39 +58,16 @@ export function RadWorkspace({
       // URL hanya kenyamanan.
     }
   };
-  const call = (e: RadiologyExam, action: () => Promise<PenunjangActionResult>, onOk: () => RadLocal) =>
-    startTransition(async () => {
-      const r = await action();
-      setMsg((m) => ({ ...m, [e.id]: { ok: r.ok, text: r.message } }));
-      if (!r.ok) return;
-      const next = onOk(); // cap waktu dibuat di penangan, bukan di dalam updater state
-      setLocal((cur) => ({ ...cur, [e.id]: { ...cur[e.id], ...next } }));
-    });
-  // Cap waktu catatan lokal memakai jam demo (hari presentasi), bukan jam dinding.
+  const call = (e: RadiologyExam, action: (rev: number) => Promise<PenunjangActionResult>) =>
+    run(action, (r) => setMsg((m) => ({ ...m, [e.id]: { ok: r.ok, text: r.message } })));
   const handlers = (e: RadiologyExam): RadHandlers => ({
     onStart: (identity, contrast) =>
-      call(
-        e,
-        () => startExamAction({ examId: e.id, identityChecked: identity, contrastChecked: contrast }),
-        () => ({ startedAt: demoNow().toISOString() }),
+      call(e, (rev) =>
+        startExamAction({ examId: e.id, identityChecked: identity, contrastChecked: contrast }, rev),
       ),
-    onFinish: (ctdiVol, dlp) =>
-      call(
-        e,
-        () => finishExamAction({ examId: e.id, ctdiVol, dlp }),
-        () => ({
-          finishedAt: demoNow().toISOString(),
-          dose: ctdiVol !== null && dlp !== null && e.modality === 'CT' ? { ctdiVol, dlp } : null,
-        }),
-      ),
+    onFinish: (ctdiVol, dlp) => call(e, (rev) => finishExamAction({ examId: e.id, ctdiVol, dlp }, rev)),
     onSign: (findings, impression) =>
-      call(
-        e,
-        () => signReportAction({ examId: e.id, findings, impression }),
-        () => ({
-          report: { findings, impression, radiologist: RADIOLOG, signedAt: demoNow().toISOString() },
-        }),
-      ),
+      call(e, (rev) => signReportAction({ examId: e.id, findings, impression }, rev)),
   });
 
   const waiting = counts.ekspertise;
@@ -144,6 +119,7 @@ export function RadWorkspace({
         <div className="@container flex min-w-0 flex-[999_1_480px] flex-col">
           {sel && (
             <RadDetail
+              role={role}
               exam={sel}
               busy={busy}
               error={m && !m.ok ? m.text : null}

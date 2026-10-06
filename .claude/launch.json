@@ -2,6 +2,14 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev:demo"
+      ],
+      "port": 3000
+    },
+    {
       "name": "lokal",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
