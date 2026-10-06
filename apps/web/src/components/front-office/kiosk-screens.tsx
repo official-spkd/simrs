@@ -75,6 +75,7 @@ export function KioskHome({ greeting, onPick }: { greeting: string; onPick: (i: 
             desc={p.desc}
             icon={p.icon}
             primary={i === 0}
+            large
             onClick={() => onPick(i)}
           />
         ))}
@@ -98,6 +99,7 @@ export function KioskMethods({
     <div className="flex flex-col gap-10 px-16 pt-14">
       <KioskBackRow onBack={onBack} step={step} />
       <KioskTitle
+        size={56}
         title="Bagaimana kami menemukan data Anda?"
         sub={`${purpose.title}. Pilih salah satu cara di bawah.`}
       />
@@ -113,6 +115,7 @@ export function KioskMethods({
               icon={m.icon}
               primary={rec}
               tag={rec ? 'Disarankan' : undefined}
+              chevron={false}
               onClick={() => onPick(id)}
             />
           );

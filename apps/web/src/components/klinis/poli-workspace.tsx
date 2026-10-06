@@ -2,6 +2,7 @@
 
 import {
   formatJam,
+  POLI_VISIT_STAGES,
   type PoliEncounter,
   type PoliQueueItem,
   type PoliQueueStatus,
@@ -10,7 +11,7 @@ import {
 import { Button, Icon } from '@simrs/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   canRecordVitals,
@@ -20,6 +21,7 @@ import {
   nextWaiting,
 } from '@/lib/klinis';
 import { KlinisPatientHeader } from './patient-header';
+import { PoliContext } from './poli-context';
 import { PoliQueue } from './poli-queue';
 import { SoapForm } from './soap-form';
 import { type ScenarioBinding, useScenarioTasks } from './use-scenario-tasks';
@@ -27,8 +29,9 @@ import { VisitStepper } from './visit-panels';
 import { VitalsCard } from './vitals-card';
 
 /**
- * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien (`aside`, dirender
- * server). Status antrean yang diubah di layar ini (panggil, selesai) disimpan lokal (simulasi, tidak disimpan).
+ * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien. Status antrean yang
+ * diubah di layar ini (panggil, selesai) disimpan lokal (simulasi, tidak disimpan); setelah tanda tangan tahapan
+ * kunjungan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat (mockup: `activeIdx = signed ? 5`).
  */
 export function PoliWorkspace({
   worklist,
@@ -37,7 +40,7 @@ export function PoliWorkspace({
   binding,
   cpoeHref,
   kasirHref,
-  aside,
+  rujukHref,
 }: {
   worklist: PoliWorklist;
   encounter: PoliEncounter;
@@ -45,12 +48,15 @@ export function PoliWorkspace({
   binding: ScenarioBinding | null;
   cpoeHref: string;
   kasirHref: string | null;
-  aside: ReactNode;
+  /** Layar rujukan (tombol "Rujuk" di banner pasien), null bila layar belum tersedia. */
+  rujukHref: string | null;
 }) {
   const router = useRouter();
   const tasks = useScenarioTasks(binding);
   const [local, setLocal] = useState<Record<string, { status: PoliQueueStatus; wait: string }>>({});
   const [called, setCalled] = useState<string | null>(null);
+  /** Jam tanda tangan CPPT per kunjungan yang diselesaikan di layar ini. */
+  const [signedHere, setSignedHere] = useState<Record<string, string>>({});
   const statusOf = (i: PoliQueueItem) => (i.scenario ? i.status : (local[i.patientId]?.status ?? i.status));
   const waitOf = (i: PoliQueueItem) => (i.scenario ? i.waitNote : (local[i.patientId]?.wait ?? i.waitNote));
   const isDoctor = canWriteDoctorNote(role);
@@ -59,6 +65,10 @@ export function PoliWorkspace({
   const current = worklist.items.find((i) => i.encounterId === encounter.encounterId);
   const scenarioPatient = Boolean(current?.scenario);
   const next = nextWaiting(worklist.items, statusOf);
+  const signedNow = signedHere[encounter.encounterId] ?? null;
+  // Mockup: catatan dibuat saat pasien dipanggil ("mulai 08.53") bila belum ada draf.
+  const wait = current ? waitOf(current) : '';
+  const createdFallback = wait.startsWith('mulai ') ? wait.slice('mulai '.length) : null;
 
   const callNext = () => {
     if (!next) return;
@@ -101,6 +111,15 @@ export function PoliWorkspace({
         <Icon name="history" size={16} />
         Riwayat
       </a>
+      {isDoctor && rujukHref && (
+        <Link
+          href={rujukHref}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+        >
+          <Icon name="arrowRight" size={16} />
+          Rujuk
+        </Link>
+      )}
       {canOrder && (
         <Link
           href={cpoeHref}
@@ -114,7 +133,7 @@ export function PoliWorkspace({
   );
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_280px]">
+    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] min-[1400px]:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(240px,280px)]">
       <PoliQueue
         title={worklist.poli.name}
         items={worklist.items}
@@ -133,7 +152,7 @@ export function PoliWorkspace({
             {tasks.errorFor('panggil')}
           </p>
         )}
-        <VisitStepper stage={encounter.stage} />
+        <VisitStepper stage={signedNow ? POLI_VISIT_STAGES.length - 1 : encounter.stage} />
         <VitalsCard
           key={`${encounter.encounterId}-${encounter.vitalsAt ?? ''}`}
           encounterId={encounter.encounterId}
@@ -154,7 +173,9 @@ export function PoliWorkspace({
           tasks={tasks}
           cpoeHref={cpoeHref}
           kasirHref={kasirHref}
+          createdFallback={createdFallback}
           onSigned={(at) => {
+            setSignedHere((cur) => ({ ...cur, [encounter.encounterId]: at }));
             if (current)
               setLocal((cur) => ({
                 ...cur,
@@ -163,7 +184,9 @@ export function PoliWorkspace({
           }}
         />
       </section>
-      <div className="min-w-0 lg:col-span-2 2xl:col-span-1">{aside}</div>
+      <div className="min-w-0 lg:col-span-2 min-[1400px]:col-span-1">
+        <PoliContext encounter={encounter} signed={Boolean(signedNow)} />
+      </div>
     </div>
   );
 }

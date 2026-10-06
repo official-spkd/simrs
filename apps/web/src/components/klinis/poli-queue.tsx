@@ -111,7 +111,9 @@ export function PoliQueue({
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex justify-between gap-2">
                     <span className="truncate font-semibold">{p.name}</span>
-                    <span className="font-mono text-caption text-ink-500">{p.queueNo}</span>
+                    <span className="flex-none font-mono text-caption whitespace-nowrap text-ink-500">
+                      {p.queueNo}
+                    </span>
                   </span>
                   <span className="text-caption text-ink-500">
                     {p.rm} · {p.ageYears} th · {p.payer}
@@ -136,7 +138,11 @@ export function PoliQueue({
         <Button
           variant="primary"
           type="button"
-          onClick={onCallNext}
+          onClick={() => {
+            // Mockup: memanggil pasien mengembalikan daftar ke "Semua" agar pasien yang dipanggil tetap terlihat.
+            setFilter('semua');
+            onCallNext();
+          }}
           disabled={!canCall || !next}
           aria-describedby={!canCall ? `${searchId}-call` : undefined}
         >

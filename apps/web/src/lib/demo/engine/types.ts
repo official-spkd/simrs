@@ -135,7 +135,10 @@ export interface ExtraStat {
 
 export interface ScenarioDef {
   id: ScenarioId;
+  /** Label tab skenario. */
   label: string;
+  /** Nama skenario di banner pasien, judul ringkasan, dan "Coba skenario …" (mockup `D.label`); bawaan `label`. */
+  name?: string;
   /** Tanggal mulai `YYYY-MM-DD` (fiktif). */
   startDate: string;
   /** Menit sejak tengah malam saat skenario dimulai. */

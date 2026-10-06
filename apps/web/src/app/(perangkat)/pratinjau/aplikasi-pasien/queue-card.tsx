@@ -44,7 +44,16 @@ function CodePattern({ code }: { code: string }) {
  * Kartu antrean aktif aplikasi pasien (mockup AppPasien). Nomor dan tahap mengikuti skenario rawat jalan
  * (booking → A-031 → PD-027); tombol "Maju" hanya mensimulasikan antrean bergerak di ponsel ini.
  */
-export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; payer: string }) {
+export function QueueCard({
+  queue,
+  payer,
+  onAdvance,
+}: {
+  queue: PatientAppHome['queue'];
+  payer: string;
+  /** Dipanggil setelah antrean maju dengan sisa pasien di depan (notifikasi saat tersisa 3 dan giliran tiba). */
+  onAdvance?: (ahead: number) => void;
+}) {
   const [moved, setMoved] = useState(0);
   const total = queue.ahead;
   const ahead = total === null ? null : Math.max(0, total - moved);
@@ -99,7 +108,10 @@ export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; pa
         {ahead !== null && ahead > 0 && (
           <button
             type="button"
-            onClick={() => setMoved((m) => m + 1)}
+            onClick={() => {
+              setMoved(moved + 1);
+              onAdvance?.(Math.max(0, (total ?? 0) - moved - 1));
+            }}
             aria-label="Simulasi antrean maju satu pasien"
             className={cx(
               'h-11 shrink-0 cursor-pointer rounded-full border border-white/50 bg-white/15 px-4 font-[inherit] text-[13px] font-semibold text-white',

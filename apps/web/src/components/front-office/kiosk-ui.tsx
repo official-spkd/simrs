@@ -19,6 +19,8 @@ export function KioskOption({
   tag,
   onClick,
   disabled,
+  large,
+  chevron = true,
 }: {
   title: string;
   desc: string;
@@ -27,6 +29,10 @@ export function KioskOption({
   tag?: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Kartu tujuan di layar awal (mockup: tinggi 188, ikon 112) lebih besar dari kartu cara identifikasi (168, 104). */
+  large?: boolean;
+  /** false = tanpa panah (kartu cara identifikasi di mockup hanya menampilkan label "Disarankan"). */
+  chevron?: boolean;
 }) {
   return (
     <button
@@ -34,7 +40,8 @@ export function KioskOption({
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        'flex min-h-[168px] cursor-pointer items-center gap-8 rounded-[28px] border-2 px-10 py-8 text-left font-[inherit] shadow-[0_2px_4px_rgba(16,24,40,0.05),0_10px_30px_rgba(16,24,40,0.07)] disabled:cursor-wait disabled:opacity-70',
+        'flex cursor-pointer items-center gap-8 rounded-[28px] border-2 px-10 text-left font-[inherit] shadow-[0_2px_4px_rgba(16,24,40,0.05),0_10px_30px_rgba(16,24,40,0.07)] disabled:cursor-wait disabled:opacity-70',
+        large ? 'min-h-[188px] py-9' : 'min-h-[168px] py-8',
         primary
           ? 'border-brand-700 bg-[linear-gradient(135deg,#12807A_0%,#0F766E_55%,#0B5D56_100%)] text-white'
           : 'border-line bg-white text-ink-900',
@@ -42,11 +49,12 @@ export function KioskOption({
     >
       <span
         className={cx(
-          'flex size-[104px] flex-none items-center justify-center rounded-[26px]',
+          'flex flex-none items-center justify-center rounded-[26px]',
+          large ? 'size-28' : 'size-[104px]',
           primary ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700',
         )}
       >
-        <Icon name={icon} size={52} strokeWidth={1.6} />
+        <Icon name={icon} size={large ? 56 : 52} strokeWidth={1.6} />
       </span>
       <span className="flex flex-1 flex-col gap-2">
         <span className="font-bold" style={fs(36)}>
@@ -60,9 +68,9 @@ export function KioskOption({
         <span className={cx('font-semibold', primary ? 'text-[#DDF2EE]' : 'text-ink-700')} style={fs(20)}>
           {tag}
         </span>
-      ) : (
+      ) : chevron ? (
         <Icon name="chevronRight" size={40} strokeWidth={2} />
-      )}
+      ) : null}
     </button>
   );
 }
@@ -89,10 +97,19 @@ export function KioskBackRow({ onBack, step }: { onBack: () => void; step: strin
   );
 }
 
-export function KioskTitle({ title, sub }: { title: ReactNode; sub: ReactNode }) {
+export function KioskTitle({
+  title,
+  sub,
+  size = 52,
+}: {
+  title: ReactNode;
+  sub: ReactNode;
+  /** Ukuran judul (mockup: 56 di layar cara identifikasi, 52 di layar masukan dan konfirmasi). */
+  size?: 52 | 56;
+}) {
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="m-0 leading-[1.15] font-bold tracking-[-0.01em]" style={fs(52)}>
+      <h1 className="m-0 leading-[1.15] font-bold tracking-[-0.01em]" style={fs(size)}>
         {title}
       </h1>
       <p className="m-0 text-ink-700" style={fs(24)}>

@@ -152,5 +152,36 @@ test.describe('domain manajemen', () => {
     await expect(readback).toBeEnabled();
     await readback.click();
     await expect(doctor.getByRole('status', { name: 'Nilai kritis' })).toContainText('read-back tercatat');
+
+    // Mockup AppDokter: Profil → Keluar (hanya pratinjau ponsel) → Masuk lagi.
+    await doctor.getByRole('button', { name: 'Profil' }).click();
+    await doctor.getByRole('button', { name: 'Keluar' }).click();
+    await expect(doctor.getByRole('status')).toHaveText('Anda sudah keluar dari aplikasi dokter');
+    await doctor.getByRole('button', { name: 'Masuk lagi' }).click();
+    await expect(doctor.getByRole('region', { name: 'Daftar pasien' })).toBeVisible();
+  });
+
+  test('pratinjau aplikasi pasien: antrean maju sampai giliran mengirim notifikasi (mockup AppPasien)', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/simulasi');
+    await page.getByText('Lompat ke tahap', { exact: true }).click();
+    await page.getByRole('button', { name: /^\d+\. Asesmen perawat$/ }).click();
+    await expect(page.getByText(/Langkah \d+ dari \d+ · Asesmen perawat/)).toBeVisible();
+
+    await page.goto('/pratinjau/aplikasi-pasien');
+    const phone = page.getByRole('region', { name: 'Pratinjau aplikasi pasien' });
+    const queue = phone.getByRole('region', { name: 'Antrean aktif' });
+    await expect(queue).toContainText('PD-027');
+    const advance = queue.getByRole('button', { name: 'Simulasi antrean maju satu pasien' });
+    for (let i = 0; i < 20 && (await advance.count()) > 0; i++) await advance.click();
+    await expect(advance).toHaveCount(0);
+    await expect(queue).toContainText('Giliran Anda.');
+
+    await phone.getByRole('button', { name: 'Notifikasi' }).click();
+    const notif = phone.getByRole('region', { name: 'Notifikasi' });
+    await expect(notif.getByText('Giliran Anda dipanggil')).toBeVisible();
+    await expect(notif.getByText('SEP terbit, antrean poli aktif')).toBeVisible();
   });
 });

@@ -86,7 +86,7 @@ export function SlotDetail({
   return (
     <section
       aria-label="Detail slot jadwal"
-      className="flex flex-col gap-3 rounded-card border border-brand-200 bg-white p-4 shadow-card"
+      className="flex flex-col gap-3 rounded-card border-2 border-brand-600 bg-white p-4"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">

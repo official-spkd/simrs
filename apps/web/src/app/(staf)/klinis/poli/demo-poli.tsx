@@ -1,10 +1,10 @@
-import { formatTanggal } from '@simrs/shared';
+import { formatJam, formatTanggal } from '@simrs/shared';
 import { Alert, Chip } from '@simrs/ui';
 import { notFound } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { PoliContext } from '@/components/klinis/poli-context';
 import { PoliWorkspace } from '@/components/klinis/poli-workspace';
 import { ScenarioBanner } from '@/components/scenario-banner';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { screenById } from '@/lib/screens';
 import { getPoliEncounter, getPoliWorklist } from '@/lib/server/data/klinis/poli';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
@@ -30,6 +30,7 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
   if (requested && !encounter) notFound();
   const h = selected?.scenario ? here.find((x) => x.scenario === selected.scenario) : undefined;
   const kasir = screenById('kasir');
+  const rujukan = screenById('rujukan');
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,7 +42,9 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
           <h1 className="m-0 text-h1 font-semibold">Pemeriksaan pasien</h1>
         </div>
         <span className="flex flex-wrap gap-2">
-          <Chip tone="neutral">{formatTanggal(worklist.date)}</Chip>
+          <Chip tone="neutral">
+            {formatTanggal(worklist.date)} · {formatJam(demoNow())}
+          </Chip>
           <Chip tone="brand">
             {worklist.poli.room} · {worklist.doctor}
           </Chip>
@@ -56,7 +59,7 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
           binding={h ? { here: h, rev: runs.rev } : null}
           cpoeHref={`/klinis/order/${encounter.encounterId}`}
           kasirHref={kasir && kasir.status !== 'belum' ? kasir.route : null}
-          aside={<PoliContext encounter={encounter} />}
+          rujukHref={rujukan && rujukan.status !== 'belum' ? rujukan.route : null}
         />
       ) : (
         <Alert level="info" title="Antrean kosong">

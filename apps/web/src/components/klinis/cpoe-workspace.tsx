@@ -32,7 +32,11 @@ export interface ScenarioGate {
 const GROUPS: ReadonlyArray<{ kind: CpoeOrderKind; title: string; dest: (igd: boolean) => string }> = [
   { kind: 'lab', title: 'LABORATORIUM', dest: () => 'Lab PK · sampel diambil hari ini' },
   { kind: 'radiologi', title: 'RADIOLOGI', dest: () => 'Radiologi · jadwal hari ini' },
-  { kind: 'obat', title: 'OBAT', dest: (igd) => (igd ? 'Farmasi satelit IGD' : 'Farmasi rawat jalan') },
+  {
+    kind: 'obat',
+    title: 'OBAT',
+    dest: (igd) => (igd ? 'Farmasi satelit IGD' : 'Farmasi rawat jalan · 30 hari'),
+  },
   {
     kind: 'tindakan',
     title: 'TINDAKAN',
@@ -81,7 +85,7 @@ export function CpoeWorkspace({
   const evaluated = evaluateOrders(orders.lines, patient, signer);
   const gate = sendGate(evaluated);
   const cost = costEstimate(evaluated, payer);
-  const [sent, setSent] = useState<SentInfo | null>(null);
+  const [sent, setSent] = useState<(SentInfo & { at: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const igd = ctx.setting === 'igd';
@@ -97,7 +101,18 @@ export function CpoeWorkspace({
     stepActive: tasks.active,
     gate,
     sent: sent !== null,
+    sentAt: sent?.at ?? null,
   });
+  /**
+   * Mockup CPOE: setiap perubahan daftar (tambah, hapus, ganti, override) membuka kiriman baru; order yang sudah
+   * terkirim tetap terkunci (hanya draf baru yang bisa diubah dan dikirim).
+   */
+  const edit =
+    <A extends unknown[]>(fn: (...args: A) => void) =>
+    (...args: A) => {
+      setSent(null);
+      fn(...args);
+    };
 
   const onSend = () => {
     setError(null);
@@ -115,8 +130,9 @@ export function CpoeWorkspace({
       if (!r.ok) return setError(r.error ?? 'Gagal mengirim order.');
       orders.markSent();
       setSent({
-        title: `${r.count ?? drafts.length} order terkirim pukul ${r.at ?? ''}`,
+        title: `${gate.count} order terkirim pukul ${r.at ?? ''}`,
         message: r.message ?? '',
+        at: r.at ?? '',
       });
     });
   };
@@ -129,14 +145,14 @@ export function CpoeWorkspace({
         : 'Seluruh item masuk paket penjamin. Tidak ada biaya tambahan untuk pasien.';
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)] min-[1400px]:grid-cols-[minmax(240px,280px)_minmax(0,1fr)_minmax(260px,300px)]">
       <CpoeCatalog
         catalog={ctx.catalog}
         orderSets={ctx.orderSets}
         disabled={pending}
         lockedNote={scenarioOwned ? `${SCENARIO_ORDER_NOTE}.` : null}
-        onAdd={orders.add}
-        onApplySet={orders.applySet}
+        onAdd={edit(orders.add)}
+        onApplySet={edit(orders.applySet)}
       />
       <section aria-label="Daftar order" className="flex min-w-0 flex-col gap-3.5">
         <CpoeScenarioPanel
@@ -201,20 +217,16 @@ export function CpoeWorkspace({
                       fixes={fixes}
                       payer={payer}
                       removable={!scenarioOwned}
-                      disabled={
-                        isLocked
-                          ? !tasks.enabled(scenarioGate.task)
-                          : scenarioOwned || pending || sent !== null
-                      }
+                      disabled={isLocked ? !tasks.enabled(scenarioGate.task) : scenarioOwned || pending}
                       onFix={(f) =>
-                        isLocked ? tasks.run(scenarioGate.task, scenarioGate.follow) : orders.fix(f)
+                        isLocked ? tasks.run(scenarioGate.task, scenarioGate.follow) : edit(orders.fix)(f)
                       }
                       onOverride={(reason) =>
                         isLocked
                           ? tasks.run(scenarioGate.task, scenarioGate.override)
-                          : orders.override(l.lineId, reason)
+                          : edit(orders.override)(l.lineId, reason)
                       }
-                      onRemove={() => orders.remove(l.lineId)}
+                      onRemove={edit(() => orders.remove(l.lineId))}
                     />
                   );
                 })}
@@ -234,7 +246,7 @@ export function CpoeWorkspace({
           </p>
         )}
       </section>
-      <div className="flex min-w-0 flex-col gap-3.5 lg:col-span-2 2xl:col-span-1">
+      <div className="flex min-w-0 flex-col gap-3.5 lg:col-span-2 min-[1400px]:col-span-1">
         <CpoeResults results={ctx.results} />
         <CpoeSummary
           checks={preSendChecks(evaluated, signer, payer)}

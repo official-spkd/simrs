@@ -66,7 +66,7 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
         role="region"
         aria-label="Indikator kinerja utama"
         aria-live="polite"
-        className="grid grid-cols-2 gap-3.5 md:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-6"
       >
         {d.kpis.map((k) => {
           const good = kpiOnTrack(k);

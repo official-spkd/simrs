@@ -181,19 +181,23 @@ export function preSendChecks(
   return checks;
 }
 
-/** Tombol "Kirim order (TTE)": jumlah order draf dan alasan tertulis bila belum bisa dikirim. */
+/**
+ * Tombol kirim CPOE: jumlah order draf dan alasan tertulis bila belum bisa dikirim. Seperti mockup, surat kontrol
+ * (tindak lanjut otomatis) tidak dihitung sebagai order bila ada order lain.
+ */
 export function sendGate(lines: readonly EvaluatedLine[]): { count: number; reason: string | null } {
   const drafts = lines.filter((l) => l.status === 'draf');
+  const orders = drafts.filter((l) => l.item.kind !== 'kontrol').length || drafts.length;
   const blocked = drafts.filter((l) => l.blocked);
   if (blocked.length > 0) {
     const names = blocked.map((l) => (l.item.substance ?? l.item.name).toLowerCase()).join(', ');
     return {
-      count: drafts.length,
+      count: orders,
       reason: `Belum bisa dikirim: ${blocked.length} order diblokir CDS (${names}). Ganti alternatif, hapus, atau override dengan alasan.`,
     };
   }
   if (drafts.length === 0) return { count: 0, reason: 'Belum ada order baru untuk dikirim.' };
-  return { count: drafts.length, reason: null };
+  return { count: orders, reason: null };
 }
 
 /** Catatan CPOE pasien simulasi: katalog/order set nonaktif, order hanya lewat tugas langkah skenario. */
@@ -219,10 +223,14 @@ export function cpoeSendView(o: {
   stepActive: boolean;
   gate: { count: number; reason: string | null };
   sent: boolean;
+  /** Jam kirim terakhir (label "Order terkirim · 10.41"). */
+  sentAt?: string | null;
 }): CpoeSendView {
   if (!o.scenarioOwned) {
     return {
-      label: o.sent ? 'Order terkirim' : `Kirim ${o.gate.count} order (TTE)`,
+      label: o.sent
+        ? `Order terkirim${o.sentAt ? ` · ${o.sentAt}` : ''}`
+        : `Tanda tangani dan kirim ${o.gate.count} order`,
       canSend: o.gate.reason === null && !o.sent,
       reason: o.gate.reason,
     };
