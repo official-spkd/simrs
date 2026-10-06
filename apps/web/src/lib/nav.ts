@@ -69,6 +69,9 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'akuntansi', label: 'Akuntansi', href: '/keuangan/akuntansi', icon: 'book', available: false },
+      // FE4 · keuangan lanjutan
+      { id: 'tarif', label: 'Tarif & paket', href: '/keuangan/tarif', icon: 'list', available: false },
+      // FE4 · akhir
     ],
   },
   {

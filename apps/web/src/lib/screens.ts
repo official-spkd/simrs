@@ -358,6 +358,20 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['akuntan', 'manajemen'],
     layout: 'staf',
   },
+  // FE4 · keuangan lanjutan (U01–U10, I10), tanpa mockup; mode presentasi (ADR-0023).
+  {
+    id: 'tarif',
+    label: 'Tarif & paket',
+    route: '/keuangan/tarif',
+    mockup: null,
+    components: ['U01'],
+    phase: 5,
+    status: 'demo',
+    plannedPermission: 'tariff.write',
+    demoRoles: ['akuntan', 'manajemen'],
+    layout: 'staf',
+  },
+  // FE4 · akhir
   {
     id: 'integrasi',
     label: 'Integrasi',
