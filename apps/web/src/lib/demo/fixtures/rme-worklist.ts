@@ -56,7 +56,7 @@ const DOKTER: WorklistTask[] = [
     createdAt: T('07.45'),
     dueAt: T('07.45', 1),
     action: { kind: 'setujui-order' },
-    target: { screen: 'order', suffix: `/${E.endang}` },
+    target: { screen: 'ranap', suffix: `/${E.endang}` },
   },
   {
     id: id(cpptNoteId(E.endang, 2), 'verifikasi'),
@@ -152,7 +152,7 @@ const RESIDEN: WorklistTask[] = [
     createdAt: T('07.45'),
     dueAt: T('07.45', 1),
     action: { kind: 'buka' },
-    target: { screen: 'order', suffix: `/${E.endang}` },
+    target: { screen: 'ranap', suffix: `/${E.endang}` },
     waitingFor: `Menunggu tinjauan ${STAF.dpjpPenyakitDalam}.`,
   },
   {

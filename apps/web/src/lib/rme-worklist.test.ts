@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { RunResult } from './demo/engine/types';
+import { demoCpoeAvailable } from './demo/fixtures/klinis';
 import { encounterIdOf, patientById } from './demo/fixtures/pasien';
+import { PATIENT_ID } from './demo/fixtures/ids';
+
+const HARTONO_ID = PATIENT_ID.hartono;
 import { WORKLIST_PATIENTS, WORKLIST_TASKS } from './demo/fixtures/rme-worklist';
 import { DEMO_NOW } from './demo/fixtures/waktu';
 import {
@@ -137,6 +142,15 @@ describe('fixture worklist hari demo', () => {
     }
     for (const list of Object.values(WORKLIST_PATIENTS)) {
       for (const p of list) expect(encounterIdOf(p.patientId)).toBe(p.encounterId);
+    }
+  });
+
+  it('tautan CPOE hanya ke kunjungan yang punya halaman CPOE (bukan 404); pasien rawat inap ke rekam rawat inap', () => {
+    // Tn. Hartono bergantung pada tahap skenario IGD; pasien lain tidak memakai hasil skenario.
+    const noRun = {} as RunResult;
+    for (const t of all.filter((x) => x.target?.screen === 'order')) {
+      expect(t.encounterId).not.toBe(encounterIdOf(HARTONO_ID));
+      expect(demoCpoeAvailable(t.encounterId, noRun), `${t.id} → /klinis/order`).toBe(true);
     }
   });
 
