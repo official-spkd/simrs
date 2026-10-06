@@ -3,8 +3,13 @@
 import type { EncounterDiagnosis, PoliEncounter } from '@simrs/shared';
 import { Alert, Button, cx } from '@simrs/ui';
 import Link from 'next/link';
-import { useId, useState, useTransition } from 'react';
-import { saveCpptDraftAction, signCpptAction } from '@/app/(staf)/klinis/poli/actions-demo';
+import { useId, useState } from 'react';
+import {
+  cosignPoliCpptAction,
+  saveCpptDraftAction,
+  signCpptAction,
+} from '@/app/(staf)/klinis/poli/actions-demo';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { icd10Display } from '@/lib/klinis';
 import { SoapDiagnoses } from './soap-diagnoses';
 import { SoapPlan } from './soap-plan';
@@ -20,8 +25,10 @@ function withPrimary(list: readonly Omit<EncounterDiagnosis, 'primary'>[]): Enco
 
 /**
  * CPPT · SOAP dokter (mockup Main): S/O, diagnosis ICD-10, rencana, simpan draf, tanda tangan. Catatan dokter residen
- * tidak final: tanda tangannya menyimpan catatan "menunggu co-sign DPJP" (kunjungan belum selesai). Pasien skenario:
- * S/O dari naskah skenario (hanya baca) dan diagnosis dibatasi ke yang disimpan tugas skenario.
+ * tidak final: tanda tangannya menyimpan catatan "menunggu co-sign DPJP" (kunjungan belum selesai) sampai DPJP
+ * (posisi dokter lain) co-sign. Draf, tanda tangan, dan co-sign tersimpan di toko demo (`klinis-poli`); status catatan
+ * datang dari server. Pasien skenario: S/O dari naskah skenario (hanya baca) dan diagnosis dibatasi ke yang disimpan
+ * tugas skenario.
  */
 export function SoapForm({
   encounter,
@@ -33,7 +40,9 @@ export function SoapForm({
   cpoeHref,
   kasirHref,
   createdFallback = null,
-  onSigned,
+  rev,
+  pendingCosign,
+  canCosign,
 }: {
   encounter: PoliEncounter;
   /** Posisi dokter (perawat/bidan hanya melihat). */
@@ -49,7 +58,12 @@ export function SoapForm({
   kasirHref: string | null;
   /** Jam pasien dipanggil di layar ini: jam "dibuat" bila catatan belum punya draf. */
   createdFallback?: string | null;
-  onSigned: (at: string) => void;
+  /** Revisi toko `klinis-poli`. */
+  rev: number;
+  /** CPPT residen menunggu co-sign DPJP (server), null bila tidak ada. */
+  pendingCosign: { at: string; author: string } | null;
+  /** Posisi dokter (DPJP) yang boleh co-sign catatan residen. */
+  canCosign: boolean;
 }) {
   const e = encounter;
   const ids = useId();
@@ -57,14 +71,14 @@ export function SoapForm({
   const [o, setO] = useState(e.soap.objective);
   const [dx, setDx] = useState<EncounterDiagnosis[]>(e.diagnoses);
   const [dirty, setDirty] = useState(false);
-  const [savedAt, setSavedAt] = useState(e.soap.savedAt);
+  const savedAt = e.soap.savedAt;
   /** true setelah dokter menekan "Simpan draf" (mockup: "Draf disimpan", bukan "tersimpan otomatis"). */
   const [savedManually, setSavedManually] = useState(false);
-  const [signedAt, setSignedAt] = useState(e.soap.signedAt);
+  const signedAt = e.soap.signedAt;
   /** Jam simpan CPPT residen yang menunggu co-sign DPJP (belum final). */
-  const [cosignAt, setCosignAt] = useState<string | null>(null);
+  const cosignAt = pendingCosign?.at ?? null;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
 
   const signed = Boolean(signedAt);
   const editable = canWrite && !signed && !cosignAt;
@@ -91,31 +105,36 @@ export function SoapForm({
   };
 
   const saveDraft = () =>
-    startTransition(async () => {
-      const r = await saveCpptDraftAction(input());
-      setMsg(r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Gagal menyimpan.' });
-      if (r.ok && r.at) {
-        setSavedAt(r.at);
-        setSavedManually(true);
-        setDirty(false);
-      }
-    });
-  const sign = () =>
-    startTransition(async () => {
-      const r = await signCpptAction(input());
-      setMsg(
-        r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Gagal menandatangani.' },
-      );
-      if (r.ok && r.at) {
-        setDirty(false);
-        if (r.cosignRequired) {
-          setCosignAt(r.at);
-          return;
+    run(
+      (rv) => saveCpptDraftAction(input(), rv),
+      (r) => {
+        setMsg(
+          r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Gagal menyimpan.' },
+        );
+        if (r.ok) {
+          setSavedManually(true);
+          setDirty(false);
         }
-        setSignedAt(r.at);
-        onSigned(r.at);
-      }
-    });
+      },
+    );
+  const sign = () =>
+    run(
+      (rv) => signCpptAction(input(), rv),
+      (r) => {
+        setMsg(
+          r.ok
+            ? { ok: true, text: r.message ?? '' }
+            : { ok: false, text: r.error ?? 'Gagal menandatangani.' },
+        );
+        if (r.ok) setDirty(false);
+      },
+    );
+  const cosign = () =>
+    run(
+      (rv) => cosignPoliCpptAction({ encounterId: e.encounterId }, rv),
+      (r) =>
+        setMsg(r.ok ? { ok: true, text: r.message ?? '' } : { ok: false, text: r.error ?? 'Co-sign gagal.' }),
+    );
 
   let draftLabel = 'Belum ada draf';
   let draftTone = 'bg-line-strong';
@@ -308,6 +327,16 @@ export function SoapForm({
             <Link href={cpoeHref} className="inline-flex min-h-11 items-center font-semibold">
               Buka CPOE
             </Link>
+          </span>
+        )}
+        {cosignAt && !signed && canCosign && !resident && (
+          <span className="flex flex-[1_1_100%] flex-wrap items-center justify-end gap-2.5">
+            <span className="text-caption text-ink-700">
+              CPPT residen {pendingCosign?.author} disimpan {cosignAt} · menunggu co-sign DPJP.
+            </span>
+            <Button variant="primary" type="button" disabled={pending} onClick={cosign}>
+              Setujui co-sign DPJP
+            </Button>
           </span>
         )}
         {resident && canWrite && !scenarioPatient && !signed && (

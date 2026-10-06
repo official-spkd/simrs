@@ -8,7 +8,10 @@ import { NurseVitalsForm } from './nurse-vitals-form';
 import type { ScenarioTasks } from './use-scenario-tasks';
 import { VitalTiles } from './visit-panels';
 
-/** Tanda vital + asesmen awal keperawatan (perawat/bidan mengisi; dokter melihat) + catatan CDS. */
+/**
+ * Tanda vital + asesmen awal keperawatan (perawat/bidan mengisi; dokter melihat) + catatan CDS. Nilai dari server
+ * (fixture + toko demo `klinis-poli`).
+ */
 export function VitalsCard({
   encounterId,
   vitals,
@@ -17,6 +20,7 @@ export function VitalsCard({
   scenarioPatient,
   tasks,
   cdsNote,
+  rev,
 }: {
   encounterId: string;
   vitals: readonly PoliVital[];
@@ -25,11 +29,13 @@ export function VitalsCard({
   scenarioPatient: boolean;
   tasks: ScenarioTasks;
   cdsNote: string;
+  /** Revisi toko `klinis-poli`. */
+  rev: number;
 }) {
-  const [local, setLocal] = useState<{ vitals: PoliVital[]; at: string; message: string } | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const shown = local?.vitals ?? vitals;
-  const at = local?.at ?? vitalsAt;
+  const shown = vitals;
+  const at = vitalsAt;
   const nurseTasks = scenarioPatient && Boolean(tasks.task('td'));
   const pendingNurse = scenarioPatient && !vitalsAt;
 
@@ -55,15 +61,16 @@ export function VitalsCard({
           <NurseVitalsForm
             encounterId={encounterId}
             vitals={shown}
-            onSaved={(v, savedAt, message) => {
-              setLocal({ vitals: v, at: savedAt, message });
+            rev={rev}
+            onSaved={(message) => {
+              setSaved(message);
               setEditing(false);
             }}
           />
         )}
-        {local && !editing && (
+        {saved && !editing && (
           <p role="status" className="m-0 text-small font-semibold text-success">
-            {local.message}
+            {saved}
           </p>
         )}
         {!isNurse && pendingNurse && (

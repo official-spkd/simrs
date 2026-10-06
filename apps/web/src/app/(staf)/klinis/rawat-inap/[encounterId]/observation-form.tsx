@@ -47,7 +47,8 @@ export function ObservationForm({ entry }: { entry: ObservationEntry }) {
   const [onOxygen, setOxygen] = useState(false);
   const [consciousness, setConsciousness] = useState<(typeof CONSCIOUSNESS)[number]>('A');
   const [msg, setMsg] = useState<{ ok: boolean; text: string; field?: string } | null>(null);
-  const set = (k: Key) => (e: ChangeEvent<HTMLInputElement>) => setF((cur) => ({ ...cur, [k]: e.target.value }));
+  const set = (k: Key) => (e: ChangeEvent<HTMLInputElement>) =>
+    setF((cur) => ({ ...cur, [k]: e.target.value }));
   const num = (k: Key) => Number(f[k].replace(',', '.'));
   const complete = FIELDS.every((x) => f[x.k].trim() !== '' && Number.isFinite(num(x.k)));
   const preview = complete
@@ -65,7 +66,9 @@ export function ObservationForm({ entry }: { entry: ObservationEntry }) {
 
   if (!entry.allowed) {
     return (
-      <p className="m-0 text-caption text-ink-500">Observasi baru dicatat posisi perawat, bidan, atau dokter.</p>
+      <p className="m-0 text-caption text-ink-500">
+        Observasi baru dicatat posisi perawat, bidan, atau dokter.
+      </p>
     );
   }
 
@@ -135,12 +138,7 @@ export function ObservationForm({ entry }: { entry: ObservationEntry }) {
           Mendapat oksigen tambahan
         </label>
         {preview !== null && (
-          <span
-            className={cx(
-              'rounded-full px-2.5 py-1 text-caption font-bold',
-              ewsLevel(preview).tone,
-            )}
-          >
+          <span className={cx('rounded-full px-2.5 py-1 text-caption font-bold', ewsLevel(preview).tone)}>
             Pratinjau EWS {preview} · {ewsLevel(preview).level}
           </span>
         )}
@@ -151,7 +149,10 @@ export function ObservationForm({ entry }: { entry: ObservationEntry }) {
         </Button>
         {!complete && <span className="text-caption text-ink-500">Isi keenam tanda vital.</span>}
         {msg && !msg.field && (
-          <span role={msg.ok ? 'status' : 'alert'} className={cx('text-small font-semibold', msg.ok ? 'text-success' : 'text-danger')}>
+          <span
+            role={msg.ok ? 'status' : 'alert'}
+            className={cx('text-small font-semibold', msg.ok ? 'text-success' : 'text-danger')}
+          >
             {msg.text}
           </span>
         )}

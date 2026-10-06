@@ -7,12 +7,14 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { screenById } from '@/lib/screens';
 import { getPoliEncounter, getPoliWorklist } from '@/lib/server/data/klinis/poli';
+import { pendingCosign } from '@/lib/klinis-poli-toko';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
+import { readDomain } from '@/lib/server/demo/state';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 
 /**
- * K01/K02 · Pemeriksaan poli mode presentasi (mockup `Main.dc.html`, data dummy fiktif, ADR-0023). Jalur demo
- * dibekukan dan tetap diuji E2E demo (keputusan fase 2 #4); jalur api diisi layar W1 di `page.tsx`. Tn. Suryo
+ * K01/K02 · Pemeriksaan poli mode presentasi (mockup `Main.dc.html`, data dummy fiktif + toko demo `klinis-poli`,
+ * ADR-0023/0085). Jalur demo tetap diuji E2E demo (keputusan fase 2 #4); jalur api diisi layar W1 di `page.tsx`. Tn. Suryo
  * (skenario rawat jalan) masuk antrean setelah SEP terbit dan langkah asesmen perawat / pemeriksaan dokter dibawakan
  * lewat tombol asli layar ini. Kunjungan yang diminta (`?pasien=`) tetapi tidak ada di antrean hari ini → 404, bukan
  * diam-diam membuka rekam pasien lain (cegah salah pasien).
@@ -21,7 +23,11 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
   const { session, screen, allowed } = access;
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const requested = pasien || undefined;
-  const [worklist, runs] = await Promise.all([getPoliWorklist(session), scenarioRuns(session)]);
+  const [worklist, runs, poliStore] = await Promise.all([
+    getPoliWorklist(session),
+    scenarioRuns(session),
+    readDomain('klinis-poli'),
+  ]);
   const here = scenariosHere(runs, 'poli');
   const scenarioItem = worklist.items.find((i) => i.scenario && here.some((h) => h.scenario === i.scenario));
   const fallback = scenarioItem ?? worklist.items.find((i) => i.status === 'diperiksa') ?? worklist.items[0];
@@ -60,6 +66,8 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
           cpoeHref={`/klinis/order/${encounter.encounterId}`}
           kasirHref={kasir && kasir.status !== 'belum' ? kasir.route : null}
           rujukHref={rujukan && rujukan.status !== 'belum' ? rujukan.route : null}
+          rev={poliStore.rev}
+          pendingCosign={pendingCosign(poliStore.state, encounter.encounterId)}
         />
       ) : (
         <Alert level="info" title="Antrean kosong">

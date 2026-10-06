@@ -75,7 +75,8 @@ export function worklistDone(
             x.encounterId === t.encounterId &&
             emarKey(x.medicationId, x.time) === emarKey(ref.medicationId, ref.time),
         );
-        if (g) out[t.id] = done(g.givenAt, g.by, `Diberikan ${g.at}${g.late ? ' · terlambat beralasan' : ''}`);
+        if (g)
+          out[t.id] = done(g.givenAt, g.by, `Diberikan ${g.at}${g.late ? ' · terlambat beralasan' : ''}`);
         break;
       }
       case 'resume': {
@@ -107,7 +108,10 @@ export function worklistDone(
 }
 
 /** Laporan lab nilai kritis pasien tugas ini (domain `hasil-kritis`), bila ada. */
-export function criticalFor(t: WorklistTask, src: Pick<WorklistSources, 'rmOf' | 'critical'>): CriticalNotice | null {
+export function criticalFor(
+  t: WorklistTask,
+  src: Pick<WorklistSources, 'rmOf' | 'critical'>,
+): CriticalNotice | null {
   if (t.ref?.kind !== 'kritis') return null;
   const rm = src.rmOf[t.encounterId];
   const test = t.ref.test.toLowerCase();

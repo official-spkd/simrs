@@ -47,7 +47,9 @@ export async function criticalNotices(session: SessionView): Promise<CriticalNot
 export async function worklistSources(
   session: SessionView,
   tasks: readonly WorklistTask[],
-  extra: Partial<Pick<WorklistSources, 'resumeFinal' | 'consultAnswered' | 'assessed' | 'askepEvaluated'>> = {},
+  extra: Partial<
+    Pick<WorklistSources, 'resumeFinal' | 'consultAnswered' | 'assessed' | 'askepEvaluated'>
+  > = {},
 ): Promise<WorklistSources> {
   const [{ state }, index, critical] = await Promise.all([
     readRekam(),
@@ -61,9 +63,7 @@ export async function worklistSources(
       return e?.cosignedBy && e.cosignedAt ? [[id, { by: e.cosignedBy, at: e.cosignedAt }]] : [];
     }),
   );
-  const rmOf = Object.fromEntries(
-    tasks.map((t) => [t.encounterId, patientById(t.patientId)?.rm ?? '']),
-  );
+  const rmOf = Object.fromEntries(tasks.map((t) => [t.encounterId, patientById(t.patientId)?.rm ?? '']));
   return {
     state,
     cosigned,

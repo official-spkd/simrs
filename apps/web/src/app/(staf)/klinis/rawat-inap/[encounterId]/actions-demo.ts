@@ -63,7 +63,8 @@ export async function saveCpptAction(input: unknown, rev: unknown): Promise<Cppt
   }
   const parsed = cpptNoteInputSchema.safeParse(input);
   const r = revSchema.safeParse(rev);
-  if (!parsed.success || !r.success) return rekamFail(parsed.error?.issues[0]?.message ?? 'CPPT tidak valid.');
+  if (!parsed.success || !r.success)
+    return rekamFail(parsed.error?.issues[0]?.message ?? 'CPPT tidak valid.');
   const d = await admitted(s, parsed.data.encounterId);
   if (!d) return rekamFail(UNKNOWN);
   if (d.summary.scenario) return rekamFail(SCENARIO_RECORD);
@@ -246,7 +247,11 @@ export async function recordInterventionAction(input: unknown, rev: unknown): Pr
 const obsSchema = z.strictObject({
   encounterId: z.string().min(1).max(60),
   temp: z.coerce.number().min(30, 'Suhu 30–45 °C.').max(45, 'Suhu 30–45 °C.'),
-  hr: z.coerce.number().int('Nadi bilangan bulat.').min(20, 'Nadi 20–250 x/mnt.').max(250, 'Nadi 20–250 x/mnt.'),
+  hr: z.coerce
+    .number()
+    .int('Nadi bilangan bulat.')
+    .min(20, 'Nadi 20–250 x/mnt.')
+    .max(250, 'Nadi 20–250 x/mnt.'),
   rr: z.coerce.number().int('Napas bilangan bulat.').min(4, 'Napas 4–60 x/mnt.').max(60, 'Napas 4–60 x/mnt.'),
   sbp: z.coerce.number().int().min(40, 'Sistolik 40–260 mmHg.').max(260, 'Sistolik 40–260 mmHg.'),
   dbp: z.coerce.number().int().min(20, 'Diastolik 20–160 mmHg.').max(160, 'Diastolik 20–160 mmHg.'),

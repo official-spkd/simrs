@@ -13,7 +13,14 @@ import { type DemoActor, defineDomain, type DomainEvent } from './demo/store/def
 import { emarGivenLabel, emarKey, ewsMaxParam, newCpptEntry, supersededIds } from './rawat-inap';
 import type { EvalResult, NursingDx, Shift, ShiftEval } from './rme-askep';
 import type { Handover, Sbar } from './rme-cppt';
-import { type RmeExtraEvent, rmeExtraEventSchema, reduceRmeExtra, rmeExtraConflict, type RmeExtraState, RME_EXTRA_INITIAL } from './rme-toko-bagan';
+import {
+  type RmeExtraEvent,
+  rmeExtraEventSchema,
+  reduceRmeExtra,
+  rmeExtraConflict,
+  type RmeExtraState,
+  RME_EXTRA_INITIAL,
+} from './rme-toko-bagan';
 
 /**
  * Toko demo bersama (ADR-0085) · domain `rekam-medis`: rekam medis elektronik pasien yang dipakai bersama layar
@@ -51,7 +58,12 @@ export const rekamCoreEventSchema = z.discriminatedUnion('type', [
     /** Jam pencatatan kunjungan (server). */
     writtenAt: isoInstant,
   }),
-  z.strictObject({ type: z.literal('cppt.cosign'), encounterId, entryId: z.string().min(1).max(80), at: isoInstant }),
+  z.strictObject({
+    type: z.literal('cppt.cosign'),
+    encounterId,
+    entryId: z.string().min(1).max(80),
+    at: isoInstant,
+  }),
   z.strictObject({
     type: z.literal('cppt.verifikasi'),
     encounterId,
@@ -425,7 +437,10 @@ function reduceCore(s: RekamState, ev: DomainEvent<RekamCoreEvent>): RekamState 
     case 'worklist.selesai':
       return {
         ...s,
-        worklist: { ...s.worklist, [d.taskId]: { ...sign(ev, d.at), encounterId: d.encounterId, note: d.note } },
+        worklist: {
+          ...s.worklist,
+          [d.taskId]: { ...sign(ev, d.at), encounterId: d.encounterId, note: d.note },
+        },
       };
   }
 }
@@ -499,6 +514,37 @@ export function emarLog(s: RekamCoreState, enc: string): EmarLogLine[] {
       what: x.name,
       note: `jadwal ${x.time}${x.late ? ` · terlambat · ${x.lateReason ?? ''}` : ''}${x.doubleCheckedBy ? ` · cek ganda ${x.doubleCheckedBy}` : ''}${x.override ? ' · identitas override beralasan' : ''} · ${x.by}`,
     }));
+}
+
+/**
+ * Catatan pemberian per slot untuk ronde obat Asuhan keperawatan: "✓ Diberikan 10.52 · Ns. … · terlambat: … · cek
+ * ganda …" (sumber sama dengan grid eMAR Rawat inap).
+ */
+export function askepGivenNotes(s: RekamCoreState, enc: string): Record<string, string> {
+  return Object.fromEntries(
+    s.doses
+      .filter((x) => x.encounterId === enc)
+      .map((x) => [
+        emarKey(x.medicationId, x.time),
+        `✓ Diberikan ${x.at} · ${x.by}${x.late ? ` · terlambat: ${x.lateReason ?? ''}` : ''}${x.doubleCheckedBy ? ` · cek ganda ${x.doubleCheckedBy}` : ''}`,
+      ]),
+  );
+}
+
+/** Rencana askep kunjungan + toko: diagnosis tambahan, intervensi dikerjakan, evaluasi shift. */
+export function askepView(
+  base: { dxs: readonly NursingDx[]; done: Readonly<Record<string, true>>; evals: readonly ShiftEval[] },
+  s: RekamCoreState,
+  enc: string,
+) {
+  const dxs = [...base.dxs, ...s.askepDx.filter((x) => x.encounterId === enc)];
+  const ids = new Set(dxs.map((d) => d.id));
+  const done: Record<string, { by: string; at: string } | true> = { ...base.done };
+  for (const [k, v] of Object.entries(s.askepDone)) {
+    if (ids.has(k.split('|')[0] ?? '')) done[k] = { by: v.by, at: v.at };
+  }
+  const evals = [...base.evals, ...s.askepEvals.filter((e) => e.encounterId === enc)];
+  return { dxs, done, evals };
 }
 
 /** Shift askep dari jam `HH.MM` eMAR (rawat inap memakai pagi/sore/malam; askep pagi/siang/malam). */

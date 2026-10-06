@@ -4,7 +4,13 @@ import { type EmarMedication, formatJam } from '@simrs/shared';
 import { Button, Chip, cx, TabList } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import {
+  addNursingDxAction,
+  markInterventionAction,
+  recordRoundDoseAction,
+  saveEvalAction,
+} from '@/app/(staf)/klinis/asuhan-keperawatan/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   dueDoses,
   type EvalDraft,
@@ -38,7 +44,9 @@ interface MasterDx {
 /**
  * K12 · Asuhan keperawatan per shift (diagnosis master lokal, luaran, intervensi, evaluasi SOAP) dan ronde obat
  * shift dengan gerbang gelang eMAR: sebelum gelang cocok, tombol catat pemberian nonaktif beserta alasannya; dosis
- * terlambat wajib alasan, obat high-alert wajib cek ganda. Keadaan lokal (simulasi, tidak disimpan).
+ * terlambat wajib alasan, obat high-alert wajib cek ganda. Semua aksi tersimpan di toko demo (`rekam-medis`) atas
+ * nama pengguna sesi; pemberian obat tercatat di eMAR yang sama dengan layar Rawat inap. Pindai gelang di layar ini
+ * hanya membuka tombol; server mencocokkan kode gelang lagi pada setiap dosis.
  */
 export function AskepWorkspace({
   encounterId,
@@ -47,9 +55,11 @@ export function AskepWorkspace({
   user,
   now,
   today,
-  initialDx,
-  initialDone,
-  initialEvals,
+  dxs,
+  done,
+  evals,
+  given,
+  rev,
   master,
   meds,
   emarNote,
@@ -62,9 +72,15 @@ export function AskepWorkspace({
   user: string;
   now: string;
   today: string;
-  initialDx: readonly NursingDx[];
-  initialDone: Readonly<Record<string, true>>;
-  initialEvals: readonly ShiftEval[];
+  /** Diagnosis keperawatan (rencana + tambahan tersimpan). */
+  dxs: readonly NursingDx[];
+  /** Intervensi dikerjakan per kunjungan|intervensi|shift|tanggal (rekam awal = true, tersimpan = pelaku + jam). */
+  done: Readonly<Record<string, { by: string; at: string } | true>>;
+  evals: readonly ShiftEval[];
+  /** Dosis tercatat per `<obat>|<jam>` (eMAR bersama Rawat inap). */
+  given: Readonly<Record<string, string>>;
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
   master: readonly MasterDx[];
   meds: readonly EmarMedication[];
   emarNote: string;
@@ -72,9 +88,8 @@ export function AskepWorkspace({
   emarHref: string | null;
 }) {
   const id = useId();
-  const [dxs, setDxs] = useState<NursingDx[]>([...initialDx]);
-  const [done, setDone] = useState<Record<string, { by: string; at: string } | true>>({ ...initialDone });
-  const [evals, setEvals] = useState<ShiftEval[]>([...initialEvals]);
+  const { run, pending } = useStoreAction(rev);
+  const [optimistic, setOptimistic] = useState<string[]>([]);
   const [shift, setShift] = useState<Shift>(shiftOf(now));
   const [drafts, setDrafts] = useState<Record<string, EvalDraft>>({});
   const [tried, setTried] = useState<Record<string, boolean>>({});
@@ -82,36 +97,19 @@ export function AskepWorkspace({
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
   const [scan, setScan] = useState<ScanState>({ status: 'belum' });
   const [code, setCode] = useState('');
-  const [given, setGiven] = useState<Record<string, string>>({});
   const [doseInput, setDoseInput] = useState<
     Record<string, { lateReason: string; secondNurse: string; tried: boolean }>
   >({});
   const progress = shiftProgress(dxs, evals, shift, today);
   const doses = dueDoses(meds);
-  const clock = () => demoNow().toISOString();
-  const say = (text: string) => setMsg({ ok: true, text: `${text} (simulasi, tidak disimpan).` });
+  const say = (res: { ok: boolean; message: string }) => setMsg({ ok: res.ok, text: res.message });
+  const nowShift = shiftOf(now);
 
   const saveEval = (dx: NursingDx) => {
     const d = drafts[dx.id] ?? EMPTY_EVAL;
     setTried((t) => ({ ...t, [dx.id]: true }));
     if (evalBlocker(d) || !d.result) return;
-    const at = clock();
-    setEvals((cur) => [
-      ...cur,
-      {
-        id: `${dx.id}-eval-${shift}`,
-        dxId: dx.id,
-        shift,
-        date: today,
-        s: d.s,
-        o: d.o,
-        result: d.result as EvalResult,
-        p: d.p,
-        by: user,
-        at,
-      },
-    ]);
-    say(`Evaluasi ${dx.label} shift ${shift} final · ${formatJam(at)}`);
+    run((r) => saveEvalAction({ encounterId, dxId: dx.id, shift, ...d }, r), say);
   };
 
   return (
@@ -157,16 +155,23 @@ export function AskepWorkspace({
                   <legend className="mb-1 p-0 text-small font-semibold">Intervensi shift {shift}</legend>
                   {dx.interventions.map((x) => {
                     const k = interventionKey(dx.id, x.id, shift, today);
-                    const v = done[k];
+                    const v = done[k] ?? (optimistic.includes(k) ? { by: user, at: now } : undefined);
                     return (
                       <label key={x.id} className="flex min-h-11 items-center gap-2 text-small">
                         <input
                           type="checkbox"
                           checked={!!v}
-                          disabled={!canNurse || !!v}
+                          disabled={!canNurse || !!v || pending || shift !== nowShift}
                           onChange={() => {
-                            const at = clock();
-                            setDone((cur) => ({ ...cur, [k]: { by: user, at } }));
+                            setOptimistic((cur) => [...cur, k]);
+                            run(
+                              (r) =>
+                                markInterventionAction({ encounterId, dxId: dx.id, interventionId: x.id }, r),
+                              (res) => {
+                                if (!res.ok) setOptimistic((cur) => cur.filter((y) => y !== k));
+                                say(res);
+                              },
+                            );
                           }}
                           className="size-4 accent-brand-600"
                         />
@@ -271,19 +276,13 @@ export function AskepWorkspace({
                 e.preventDefault();
                 const m = master.find((x) => x.label === newDx);
                 if (!m) return;
-                const dxId = `${encounterId}-askep-baru-${dxs.length + 1}`;
-                setDxs((cur) => [
-                  ...cur,
-                  {
-                    id: dxId,
-                    label: m.label,
-                    since: today,
-                    outcome: m.outcome,
-                    interventions: m.interventions.map((label, i) => ({ id: `${dxId}-i${i}`, label })),
+                run(
+                  (r) => addNursingDxAction({ encounterId, label: m.label }, r),
+                  (res) => {
+                    if (res.ok) setNewDx('');
+                    say(res);
                   },
-                ]);
-                setNewDx('');
-                say(`Diagnosis keperawatan ${m.label} ditambahkan · ${formatJam(clock())}`);
+                );
               }}
             >
               <div className="flex min-w-0 flex-[1_1_240px] flex-col gap-1">
@@ -347,10 +346,12 @@ export function AskepWorkspace({
                   className="flex flex-wrap items-end gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const at = clock();
+                    const at = new Date().toISOString();
                     const r = scanWristband(code, rm, at);
                     setScan(r);
-                    if (r.status === 'cocok') say(`Gelang cocok · ${formatJam(at)}; ronde obat terbuka`);
+                    if (r.status === 'cocok') {
+                      setMsg({ ok: true, text: `Gelang cocok · ${formatJam(at)}; ronde obat terbuka.` });
+                    }
                   }}
                 >
                   <div className="flex flex-col gap-1">
@@ -433,15 +434,26 @@ export function AskepWorkspace({
                         <Button
                           variant="primary"
                           className="self-start"
-                          disabled={!canNurse || scan.status !== 'cocok'}
+                          disabled={!canNurse || scan.status !== 'cocok' || pending}
                           aria-describedby={scan.status !== 'cocok' ? `${id}-${dose.key}-why` : undefined}
                           onClick={() => {
                             setInp({ tried: true });
                             if (block) return;
-                            const at = clock();
-                            const note = `✓ Diberikan ${formatJam(at)} · ${user}${dose.late ? ` · terlambat: ${inp.lateReason.trim()}` : ''}${dose.highAlert ? ` · cek ganda ${inp.secondNurse}` : ''}`;
-                            setGiven((cur) => ({ ...cur, [dose.key]: note }));
-                            say(`${dose.name} jadwal ${dose.time} tercatat diberikan · ${formatJam(at)}`);
+                            run(
+                              (r) =>
+                                recordRoundDoseAction(
+                                  {
+                                    encounterId,
+                                    medicationId: dose.medicationId,
+                                    time: dose.time,
+                                    wristbandCode: code,
+                                    lateReason: inp.lateReason,
+                                    secondNurse: inp.secondNurse,
+                                  },
+                                  r,
+                                ),
+                              say,
+                            );
                           }}
                         >
                           Catat pemberian

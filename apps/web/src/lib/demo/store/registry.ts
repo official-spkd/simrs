@@ -1,4 +1,10 @@
+import { igdDomain } from '../../klinis-igd-toko';
+import { orderDomain } from '../../klinis-order-toko';
+import { poliDomain } from '../../klinis-poli-toko';
 import { criticalDomain } from '../../penunjang-kritis';
+import { bedDomain } from '../../rawat-inap-bed-toko';
+import { consentDomain } from '../../rawat-inap-consent-toko';
+import { resumeDomain } from '../../rawat-inap-resume-toko';
 import { rekamDomain } from '../../rme-toko';
 import type { DomainDef, DomainSource } from './define';
 
@@ -11,7 +17,13 @@ import type { DomainDef, DomainSource } from './define';
  */
 export const DEMO_DOMAINS = {
   'hasil-kritis': criticalDomain,
+  'klinis-igd': igdDomain,
+  'klinis-order': orderDomain,
+  'klinis-poli': poliDomain,
+  persetujuan: consentDomain,
   'rekam-medis': rekamDomain,
+  'resume-medis': resumeDomain,
+  'tempat-tidur': bedDomain,
 } as const;
 
 export type DemoDomains = typeof DEMO_DOMAINS;

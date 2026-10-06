@@ -67,8 +67,12 @@ describe('toko rekam-medis: CPPT, co-sign, eMAR', () => {
   it('CPPT tersimpan atas nama pelaku sesi, koreksi = versi baru, versi lama tidak bisa dikoreksi dua kali', () => {
     const first = ev(note());
     const id = storedCpptId(E, first.seq);
-    const fix = ev(note({ version: 2, supersedesId: id, correctionReason: 'Salah ketik sistolik', o: 'TD 130/90' }));
-    const again = ev(note({ version: 2, supersedesId: id, correctionReason: 'Koreksi kedua kali', o: 'TD 120/80' }));
+    const fix = ev(
+      note({ version: 2, supersedesId: id, correctionReason: 'Salah ketik sistolik', o: 'TD 130/90' }),
+    );
+    const again = ev(
+      note({ version: 2, supersedesId: id, correctionReason: 'Koreksi kedua kali', o: 'TD 120/80' }),
+    );
     const { state, applied } = view([first, fix, again]);
     expect(applied).toBe(2);
     expect(state.cppt.map((c) => c.entry.version)).toEqual([1, 2]);
@@ -143,7 +147,10 @@ describe('toko rekam-medis: CPPT, co-sign, eMAR', () => {
     const { state } = view([give, second]);
     expect(state.handovers).toHaveLength(1);
     const id = state.handovers[0]?.id ?? '';
-    const accepted = view([give, ev({ type: 'serahterima.diterima', encounterId: E, handoverId: id, at: AT })]);
+    const accepted = view([
+      give,
+      ev({ type: 'serahterima.diterima', encounterId: E, handoverId: id, at: AT }),
+    ]);
     expect(accepted.state.handovers[0]?.acceptedBy).toBe('Ns. Uji Fiktif');
   });
 });

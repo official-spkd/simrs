@@ -2,21 +2,26 @@
 
 import type { BedBoard, BedRequest } from '@simrs/shared';
 import Link from 'next/link';
-import { type ReactNode, useId, useState, useTransition } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { TabList, TabPanel } from '@simrs/ui';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { ENCOUNTER_ID } from '../../../../lib/demo/fixtures/ids';
-import { allocateBedAction } from './actions-demo';
-import { BedDetail, type BedPatch } from './bed-detail';
+import { advanceBedAction, allocateBedAction } from './actions-demo';
+import { BedDetail } from './bed-detail';
 import { BedFilters, BedStatusTiles } from './bed-filters';
 import { BedList, WardGrid, WardOverview } from './bed-grid';
 import { BedRequests } from './bed-requests';
 
 type Steps = Partial<Record<'igd-ranap' | 'elektif-btn', ScenarioStepState>>;
 
-/** K05 · Ruang kerja papan bed: ubin status, filter, peta/daftar, bed terpilih, antrean permintaan. */
+/**
+ * K05 · Ruang kerja papan bed: ubin status, filter, peta/daftar, bed terpilih, antrean permintaan. Alokasi dan status
+ * bed tersimpan di toko demo (`tempat-tidur`); papan datang dari server sesudah setiap aksi (tampil juga di IGD dan
+ * Rawat inap).
+ */
 export function BedWorkspace({
   heading,
   syncNote,
@@ -26,6 +31,7 @@ export function BedWorkspace({
   reserved,
   steps,
   rev,
+  bedRev,
   ranapRoute,
 }: {
   /** Remah + judul halaman (kiri kepala); kanan kepala = status sinkron Aplicare/SIRANAP + tab tampilan (mockup). */
@@ -37,21 +43,22 @@ export function BedWorkspace({
   initialWard: string;
   reserved: string[];
   steps: Steps;
+  /** Revisi skenario Simulasi (tugas alokasi pasien skenario). */
   rev: number;
+  /** Revisi toko `tempat-tidur`. */
+  bedRev: number;
   ranapRoute: string | null;
 }) {
   const { runTask, pending } = useScenarioTask(rev);
+  const { run, pending: busy } = useStoreAction(bedRev);
   const [view, setView] = useState('peta');
   const viewTabsId = useId();
   const [filter, setFilter] = useState<BedFilter>({ ward: initialWard, kelas: 'semua', status: 'semua' });
   const [selected, setSelected] = useState('');
-  const [patches, setPatches] = useState<Record<string, BedPatch>>({});
-  const [allocated, setAllocated] = useState<string[]>([]);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, startTransition] = useTransition();
 
-  const beds = board.beds.map((b) => (patches[b.code] ? { ...b, ...patches[b.code] } : b));
-  const requests = board.requests.filter((r) => !allocated.includes(r.id));
+  const beds = board.beds;
+  const requests = board.requests;
   const shown = filterBeds(beds, board.wards, filter);
   const counts = bedCounts(beds);
   const selBed = beds.find((b) => b.code === selected) ?? null;
@@ -68,7 +75,6 @@ export function BedWorkspace({
   };
 
   const allocate = (r: BedRequest) => {
-    const short = r.patientName.split(' ').slice(0, 2).join(' ');
     if (!selBed || selBed.status !== 'siap') {
       setMessage({
         ok: false,
@@ -81,24 +87,17 @@ export function BedWorkspace({
       return;
     }
     const code = selBed.code;
-    startTransition(async () => {
-      const res = await allocateBedAction({ requestId: r.id, bedCode: code });
-      if (!res.ok) {
-        setMessage({ ok: false, text: res.error ?? 'Alokasi gagal.' });
-        return;
-      }
-      const at = res.ok.at;
-      setPatches((p) => ({
-        ...p,
-        [code]: { status: 'dipesan', patientLabel: r.patientName, note: `dari ${r.from} · ${at}` },
-      }));
-      setAllocated((a) => [...a, r.id]);
-      setMessage({
-        ok: true,
-        text: `${short} dialokasikan ke ${code} · dipesan ${at} · notifikasi ke ${r.from} (simulasi, tidak disimpan)`,
-      });
-    });
+    run(
+      (rv) => allocateBedAction({ requestId: r.id, bedCode: code }, rv),
+      (res) => setMessage({ ok: res.ok, text: res.message || 'Alokasi gagal.' }),
+    );
   };
+
+  const advance = (code: string) =>
+    run(
+      (rv) => advanceBedAction({ bedCode: code }, rv),
+      (res) => setMessage({ ok: res.ok, text: res.message || 'Status bed belum berubah.' }),
+    );
 
   // Bed terpilih adalah kandidat pasien skenario yang tugas alokasinya sedang giliran → tombol alokasi asli.
   const scenarioAlloc = (() => {
@@ -200,10 +199,8 @@ export function BedWorkspace({
                 selBed.encounterId === ENCOUNTER_ID.hartono || selBed.encounterId === ENCOUNTER_ID.ratna
               }
               scenarioAlloc={scenarioAlloc}
-              onChange={(code, patch, msg) => {
-                setPatches((p) => ({ ...p, [code]: patch }));
-                setMessage({ ok: true, text: msg });
-              }}
+              busy={busy}
+              onAdvance={advance}
               onClose={() => setSelected('')}
             />
           )}

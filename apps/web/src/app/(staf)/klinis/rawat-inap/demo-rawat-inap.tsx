@@ -1,3 +1,4 @@
+import { formatJam } from '@simrs/shared';
 import { Chip, cx, KpiCard } from '@simrs/ui';
 import Link from 'next/link';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -7,15 +8,16 @@ import { patientById } from '@/lib/demo/fixtures/pasien';
 import { INPATIENT_FLAG_LABEL } from '@/lib/demo/fixtures/rawat-inap';
 import { BANGSAL } from '@/lib/demo/fixtures/rs';
 import { ewsLevel } from '@/lib/rawat-inap';
-import { getInpatientList } from '@/lib/server/data/klinis/ranap';
+import { getInpatientBoard } from '@/lib/server/data/klinis/ranap';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 
 const COLS = 'lg:grid-cols-[120px_1.6fr_1.5fr_1.3fr_64px_96px_1.4fr]';
 
 /**
- * K04 · Daftar pasien rawat inap mode presentasi (pintu ke CPPT, eMAR, EWS per pasien; data fiktif, ADR-0023;
- * dibekukan, jalur api diisi layar W4 di `page.tsx`).
+ * K04 · Daftar pasien rawat inap mode presentasi (pintu ke CPPT, eMAR, EWS per pasien; data fiktif + toko demo,
+ * ADR-0023/0085; jalur api diisi layar W4 di `page.tsx`). Pasien IGD yang dialokasikan bed di papan tempat tidur
+ * tampil sebagai "masuk dari IGD"; pasien yang bednya dilepas (pulang) keluar dari daftar.
  */
 export async function DemoRawatInap({
   access,
@@ -26,7 +28,7 @@ export async function DemoRawatInap({
 }) {
   const { session, screen, allowed } = access;
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const all = await getInpatientList(session);
+  const { list: all, arrivals, discharged } = await getInpatientBoard(session);
   const ward = bangsal !== null ? bangsal.toUpperCase() : 'SEMUA';
   const list = all.filter((x) => ward === 'SEMUA' || x.wardCode === ward);
   const wards = BANGSAL.filter((w) => all.some((x) => x.wardCode === w.code));
@@ -77,6 +79,46 @@ export async function DemoRawatInap({
           tone="success"
         />
       </div>
+      {arrivals.length > 0 && (
+        <section
+          aria-label="Masuk dari IGD"
+          className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-white px-4 py-3.5"
+        >
+          <h2 className="m-0 text-body font-semibold">Masuk dari IGD</h2>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+            {arrivals.map((a) => (
+              <li key={a.encounterId} className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{a.patientLabel}</span>
+                <span className="font-mono">{a.bedCode}</span>
+                <span className="text-ink-700">
+                  {BANGSAL.find((w) => w.code === a.wardCode)?.name ?? a.wardCode} · dari {a.from}
+                </span>
+                <Chip tone={a.status === 'terisi' ? 'success' : 'warning'}>
+                  {a.status === 'terisi'
+                    ? `Tiba di bangsal ${formatJam(a.at)} · asesmen awal rawat inap`
+                    : `Bed dipesan ${formatJam(a.at)} · menunggu transfer`}
+                </Chip>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {discharged.length > 0 && (
+        <section
+          aria-label="Pulang hari ini"
+          className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-4 py-3.5"
+        >
+          <h2 className="m-0 text-body font-semibold">Sudah pulang hari ini</h2>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+            {discharged.map((d) => (
+              <li key={d.encounterId}>
+                <span className="font-semibold">{patientById(d.patientId)?.nama}</span> · bed{' '}
+                <span className="font-mono">{d.bed}</span> dilepas {formatJam(d.at)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <nav aria-label="Filter bangsal" className="flex flex-wrap gap-1.5">
         {[{ code: 'SEMUA', name: 'Semua bangsal' }, ...wards].map((w) => {
           const on = w.code === ward;

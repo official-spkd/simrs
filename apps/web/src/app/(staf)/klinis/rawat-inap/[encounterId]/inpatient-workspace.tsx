@@ -122,9 +122,7 @@ export function InpatientWorkspace({
       content: (
         <EwsPanel
           observations={detail.observations}
-          entry={
-            scenarioPatient ? null : { encounterId: enc, rev, allowed: canObserve, user }
-          }
+          entry={scenarioPatient ? null : { encounterId: enc, rev, allowed: canObserve, user }}
         />
       ),
     },

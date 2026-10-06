@@ -14,6 +14,8 @@ import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
+import { admissionFlows, type AdmissionFlow } from '../../../rawat-inap-bed-toko';
+import { readDomain } from '../../demo/state';
 import { readRekam, withRekam } from './rekam';
 import { scenarioSteps } from './shared';
 
@@ -53,10 +55,40 @@ async function allInpatients(session: SessionView): Promise<InpatientDetail[]> {
 export async function getInpatientList(session: SessionView): Promise<InpatientSummary[]> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    const list = (await allInpatients(session)).map((d) => d.summary);
-    return inpatientSummarySchema.array().parse(list);
+    return (await getInpatientBoard(session)).list;
   }
   return notImplemented('rawat inap');
+}
+
+export interface InpatientBoard {
+  /** Pasien yang masih di bed (pasien yang sudah pulang dan bednya dilepas tidak termasuk). */
+  list: InpatientSummary[];
+  /** Pasien IGD dengan bed dialokasikan (dipesan) atau sudah tiba (terisi) dari papan tempat tidur. */
+  arrivals: AdmissionFlow[];
+  /** Pasien fixture yang sudah pulang hari ini (bed dilepas di papan tempat tidur). */
+  discharged: Array<{ encounterId: string; patientId: string; bed: string; at: string }>;
+}
+
+/**
+ * Daftar rawat inap + aliran dari papan tempat tidur (toko `tempat-tidur`): pasien IGD yang dialokasikan/tiba, dan
+ * pasien yang sudah pulang (bed dilepas).
+ */
+export async function getInpatientBoard(session: SessionView): Promise<InpatientBoard> {
+  assertDemo();
+  const [all, bed] = await Promise.all([allInpatients(session), readDomain('tempat-tidur')]);
+  const discharged = all.flatMap((d) => {
+    const at = d.summary.scenario ? undefined : bed.state.discharged[d.summary.encounterId];
+    return at
+      ? [{ encounterId: d.summary.encounterId, patientId: d.summary.patientId, bed: d.summary.bed, at }]
+      : [];
+  });
+  const gone = new Set(discharged.map((x) => x.encounterId));
+  const list = all.filter((d) => !gone.has(d.summary.encounterId)).map((d) => d.summary);
+  return {
+    list: inpatientSummarySchema.array().parse(list),
+    arrivals: admissionFlows(bed.state),
+    discharged,
+  };
 }
 
 export type InpatientLookup =

@@ -6,8 +6,9 @@ import { NURSING_DX_MASTER, nursingPlan, SECOND_NURSES, SHIFT_EVALS } from '@/li
 import { chartPatient } from '@/lib/demo/fixtures/rme-pasien';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { openRoute } from '@/lib/rme';
+import { askepGivenNotes, askepView } from '@/lib/rme-toko';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { rmeChartFor } from '@/lib/server/data/klinis/rme';
+import { rmeChart } from '@/lib/server/data/klinis/rme';
 
 export const metadata: Metadata = { title: 'Asuhan keperawatan' };
 
@@ -15,12 +16,13 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * K12 · Asuhan keperawatan per shift + ronde obat dengan gerbang gelang eMAR (`?pasien=`, pasien rawat inap). Mode
- * presentasi (ADR-0023); backend `POST /api/v1/nursing/…` menyusul (rencana fase 3 · 3.5).
+ * presentasi (ADR-0023): rencana + toko demo `rekam-medis` (ADR-0085), eMAR sama dengan layar Rawat inap; backend
+ * `POST /api/v1/nursing/…` menyusul (rencana fase 3 · 3.5).
  */
 export default async function AskepPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('askep');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const chart = rmeChartFor((await searchParams).pasien);
+  const { chart, state, rev } = await rmeChart((await searchParams).pasien);
   const role = session.role?.code ?? null;
   const d = chart.inpatient;
   const ranap = openRoute('ranap', role);
@@ -35,7 +37,7 @@ export default async function AskepPage({ searchParams }: { searchParams: Search
         role={role}
         asOf={DEMO_NOW}
       />
-      {d ? (
+      {d && !d.summary.scenario ? (
         <AskepWorkspace
           key={chart.encounterId}
           encounterId={chart.encounterId}
@@ -44,9 +46,16 @@ export default async function AskepPage({ searchParams }: { searchParams: Search
           user={session.user.displayName}
           now={DEMO_NOW}
           today={DEMO_TODAY}
-          initialDx={nursingPlan(d).dxs}
-          initialDone={nursingPlan(d).done}
-          initialEvals={SHIFT_EVALS.filter((e) => e.dxId.startsWith(chart.encounterId))}
+          {...askepView(
+            {
+              ...nursingPlan(d),
+              evals: SHIFT_EVALS.filter((e) => e.dxId.startsWith(chart.encounterId)),
+            },
+            state,
+            chart.encounterId,
+          )}
+          given={askepGivenNotes(state, chart.encounterId)}
+          rev={rev}
           master={NURSING_DX_MASTER}
           meds={d.medications}
           emarNote={d.emarNote}
