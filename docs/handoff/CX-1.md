@@ -1,6 +1,7 @@
 # Serah-terima · CX-1
 
 - Status: **siap integrasi — potongan Penunjang/Integrasi; batas aliran lintas pemilik di bawah tetap terbuka**.
+- Commit fitur tervalidasi: **`98aaa51`** (`feat(web): persist support and integration demo workflows`); gunakan HEAD branch `codex/cx-1` agar checkpoint ini ikut terambil.
 - Pemilik: Codex; otorisasi pengguna 6 Okt 2026, backend ditunda.
 - Worktree: `/Users/godam/.codex/worktrees/cx-1-7568/simrs`, branch `codex/cx-1`; master terbaru `1ce8485` sudah digabung, termasuk domain CD-3 dan CD-2.
 - Slot: DB `simrs_test_codex_a`, PG 5433; API/web/demo/mock 4510/3510/3511/4610; `E2E_TMP_NAME=simrs-demo-e2e-cxa`.
