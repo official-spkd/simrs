@@ -32,6 +32,10 @@ import {
 import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keuangan-skenario';
 import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
+import { kasbankDomain } from './keuangan-kasbank-toko';
+import { closeJournal, expectedCash } from './keuangan-kasbank';
+import { LACI } from './demo/fixtures/kas-bank';
+import { TRANSAKSI } from './demo/fixtures/btn';
 import { applyPembayaran, pembayaranDomain, pendingReconKeys } from './btn-pembayaran-toko';
 import { demoFinancingOverview, demoPaymentOverview } from './btn-skenario';
 import {
@@ -710,6 +714,60 @@ describe('domain pembiayaan-btn · klaim layak → pool → pencairan → BPJS m
     pb = project(pembiayaanDomain, log(events));
     expect(applyPembiayaan(base(), pb.state).drawdowns.find((d) => d.id === idNew)?.stage).toBe('lunas');
     expect(project(akuntansiDomain, log(events)).state.journals).toHaveLength(3);
+  });
+});
+
+describe('domain kas-bank · tunai Kasir masuk laci; nomor invoice konsisten antarlayar', () => {
+  it('pembayaran tunai Kasir menjadi transaksi laci loket 1 dan tutup laci berjurnal seimbang', () => {
+    const bayar = ev('tagihan', {
+      type: 'tagihan.bayar',
+      invoiceId: registeredInvoiceId('kj-1'),
+      invoiceNo: 'INV-2610-02401',
+      patient: { id: PATIENT_ID.ayu, name: 'Pasien Daftar Fiktif', rm: '00-12-45-78' },
+      method: 'tunai',
+      amount: '30000',
+      reference: 'Tunai · KW-2610-02401',
+      tenor: null,
+      at: AT,
+      settlement: {
+        scheme: 'umum',
+        payerLabel: 'Umum (bayar sendiri)',
+        setting: 'rawat-jalan',
+        hospitalTotal: '30000',
+        payerPays: '0',
+        patientShare: '30000',
+        hospitalAbsorbs: '0',
+        prepaid: '0',
+        cbg: null,
+        sep: null,
+        dpjp: 'dr. Andini Prameswari, Sp.PD',
+        label: 'Rawat jalan Poli Penyakit Dalam',
+        diagnosis: null,
+      },
+      jurnal: [patientPaymentJournal('tunai', 30_000n, 'INV-2610-02401')],
+    });
+    const p = project(kasbankDomain, log([visit(1, 'Umum'), bayar]));
+    const laci = p.state.drawers[0];
+    expect(laci?.transactions.at(-1)).toMatchObject({
+      label: 'INV-2610-02401 · tunai (Kasir)',
+      amount: 30_000n,
+    });
+    const expected = laci ? expectedCash(laci) : 0n;
+    const j = closeJournal('Loket 1', expected, expected, laci?.float ?? 0n);
+    expect(balanced(toAutoJurnal(j, { source: 'kasir', reference: 'Kas' }))).toBe(true);
+  });
+
+  it('nomor invoice di laci tidak bentrok dengan tagihan Kasir atau transaksi BTN (bug 6 Okt INV-02203/02209)', () => {
+    const kasir = new Set(STATIC_INVOICES.map((i) => i.number));
+    const btn = new Set(TRANSAKSI.map((t) => t.invoiceNo));
+    for (const d of LACI) {
+      for (const t of d.transactions) {
+        const no = /INV-\d{4}-\d{5}/.exec(t.label)?.[0];
+        if (!no) continue;
+        expect(kasir.has(no), `${no} di laci bentrok dengan Kasir`).toBe(false);
+        expect(btn.has(no), `${no} di laci bentrok dengan BTN`).toBe(false);
+      }
+    }
   });
 });
 

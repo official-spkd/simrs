@@ -22,9 +22,9 @@ export const LACI: readonly Laci[] = [
     float: BigInt(KASIR_SHIFT.openingCash),
     transactions: [
       { id: 't1', at: at('07.48'), label: 'INV-2610-02201 · tunai (kembalian Rp 4.000)', amount: 96_000n },
-      { id: 't2', at: at('08.15'), label: 'INV-2610-02203 · tunai', amount: 463_500n },
+      { id: 't2', at: at('08.15'), label: 'INV-2610-02206 · tunai', amount: 463_500n },
       { id: 't3', at: at('08.52'), label: 'INV-2610-02207 · deposit rawat inap tunai', amount: 2_000_000n },
-      { id: 't4', at: at('09.20'), label: 'INV-2610-02209 · tunai (kembalian Rp 1.500)', amount: 248_500n },
+      { id: 't4', at: at('09.20'), label: 'INV-2610-02211 · tunai (kembalian Rp 1.500)', amount: 248_500n },
       { id: 't5', at: at('09.41'), label: 'RF-2610-0012 · refund tunai sisa deposit', amount: -350_000n },
       { id: 't6', at: at('10.12'), label: 'INV-2610-02214 · tunai', amount: 1_250_400n },
     ],

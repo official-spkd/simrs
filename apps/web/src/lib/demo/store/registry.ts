@@ -5,6 +5,7 @@ import { goLiveDomain } from '../../golive-toko';
 import { pembayaranDomain } from '../../btn-pembayaran-toko';
 import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { kasbankDomain } from '../../keuangan-kasbank-toko';
 import { klaimDomain } from '../../keuangan-klaim-toko';
 import { piutangDomain } from '../../keuangan-piutang-toko';
 import { tagihanDomain } from '../../keuangan-tagihan-toko';
@@ -43,6 +44,7 @@ export const DEMO_DOMAINS = {
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
   jadwal: scheduleDomain,
+  'kas-bank': kasbankDomain,
   klaim: klaimDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
