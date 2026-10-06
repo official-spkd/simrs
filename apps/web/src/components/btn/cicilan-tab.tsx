@@ -66,7 +66,7 @@ export function CicilanTab({ data, s }: { data: FinancingOverview; s: FinancingS
       <div className="flex flex-wrap items-start gap-4">
         <section
           aria-label="Daftar pengajuan cicilan"
-          className="flex min-w-0 flex-[1_1_320px] flex-col gap-1 rounded-card border border-line bg-white p-3 lg:max-w-[440px]"
+          className="flex min-w-0 flex-[1_1_320px] flex-col gap-1 rounded-card border border-white/95 bg-white/90 shadow-card p-3 lg:max-w-[440px]"
         >
           <span className="flex flex-col px-1 pb-1">
             <span className="font-semibold">Pengajuan cicilan</span>
@@ -82,7 +82,9 @@ export function CicilanTab({ data, s }: { data: FinancingOverview; s: FinancingS
               onClick={() => setSel(a.id)}
               className={cx(
                 'flex min-h-12 w-full cursor-pointer flex-col gap-1 rounded-control border-0 px-2 py-2 text-left font-[inherit]',
-                a.id === app?.id ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
+                a.id === app?.id
+                  ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                  : 'hover:bg-brand-50/60',
               )}
             >
               <span className="flex w-full justify-between gap-2">

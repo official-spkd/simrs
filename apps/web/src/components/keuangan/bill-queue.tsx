@@ -15,7 +15,7 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
   return (
     <nav
       aria-label="Antrean tagihan"
-      className="flex min-w-0 flex-[1_1_280px] flex-col overflow-hidden rounded-card border border-line bg-white xl:max-w-[320px]"
+      className="flex min-w-0 flex-[1_1_280px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card xl:max-w-[320px]"
     >
       <span className="flex flex-col border-b border-line px-4 py-3">
         <span className="font-semibold">Antrean tagihan</span>
@@ -34,7 +34,9 @@ export function BillQueue({ invoices, selectedId }: { invoices: readonly Invoice
                 aria-current={sel ? 'page' : undefined}
                 className={cx(
                   'grid min-h-14 grid-cols-[4px_minmax(0,1fr)_auto] gap-3 border-b border-line-soft py-2.5 pr-3 text-ink-900 no-underline',
-                  sel ? 'bg-brand-50' : 'bg-white hover:bg-subtle',
+                  sel
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'hover:bg-brand-50/60',
                 )}
               >
                 <span aria-hidden="true" className={sel ? 'bg-brand-600' : ''} />

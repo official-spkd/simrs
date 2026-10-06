@@ -75,7 +75,12 @@ export function KodingWorkspace({
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Indikator koding" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
         <KpiCard label="Perlu koding" value={count('perlu-koding')} tone="warning" tinted hint="hari ini" />
-        <KpiCard label="Menunggu jawaban DPJP" value={count('query-dpjp')} detail="query klinis terbuka" />
+        <KpiCard
+          label="Menunggu jawaban DPJP"
+          value={count('query-dpjp')}
+          detail="query klinis terbuka"
+          tinted
+        />
         <KpiCard
           label="Pending verifikator"
           value={count('pending')}
@@ -88,6 +93,7 @@ export function KodingWorkspace({
           value={persen(BigInt(audit.agreed), BigInt(audit.sampled))}
           detail={`${audit.agreed}/${audit.sampled} berkas sampel`}
           tone="success"
+          tinted
         />
       </div>
       {flash && (
@@ -96,8 +102,8 @@ export function KodingWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}
@@ -117,7 +123,9 @@ export function KodingWorkspace({
               onClick={() => setSel(x.id)}
               className={cx(
                 'flex min-h-11 cursor-pointer flex-col gap-1 rounded-control border px-3 py-2 text-left font-[inherit]',
-                x.id === b?.id ? 'border-brand-600 bg-brand-50' : 'border-line bg-white',
+                x.id === b?.id
+                  ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                  : 'border-line bg-white hover:bg-brand-50/60',
               )}
             >
               <span className="font-semibold text-ink-900">{x.patient.name}</span>
@@ -129,7 +137,7 @@ export function KodingWorkspace({
           ))}
           <section
             aria-label="Audit koding"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-3 text-small"
+            className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3 text-small"
           >
             <span className="font-semibold">Audit koding sampel</span>
             <span className="text-caption text-ink-500">
@@ -188,7 +196,7 @@ function BerkasDetail({
   return (
     <section
       aria-label="Berkas koding"
-      className="flex min-w-0 flex-[999_1_520px] flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex min-w-0 flex-[999_1_520px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex flex-col">
@@ -208,7 +216,7 @@ function BerkasDetail({
         </Alert>
       )}
       {b.query && (
-        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-samudra-50 p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-alert-info p-3 text-small">
           <span className="font-semibold">Query klinis ke {b.query.to}</span>
           <span className="text-ink-700">“{b.query.question}”</span>
           <span className="text-caption text-ink-500">
@@ -281,7 +289,7 @@ function BerkasDetail({
       {done ? (
         <p
           role="status"
-          className="m-0 rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-ink-700"
+          className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small text-ink-700"
         >
           ✓{' '}
           {b.status === 'tanggapan-siap'
@@ -400,7 +408,7 @@ function KodeRow({
       </div>
 
       {st === 'ada-saran' && c.suggestion && !locked && (
-        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-samudra-50 p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-alert-info p-3 text-small">
           <span>
             <span className="font-semibold">Saran: {c.suggestion.code}</span> {c.suggestion.name} ·{' '}
             {c.suggestion.why}
@@ -436,7 +444,7 @@ function KodeRow({
       )}
 
       {st === 'perlu-bukti' && !locked && (
-        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-kunyit-50 p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-alert-warning p-3 text-small">
           <span className="text-ink-700">
             Kode ini menaikkan severitas; tautkan bukti klinis dari RME, pertahankan dengan alasan, atau
             tanyakan DPJP.

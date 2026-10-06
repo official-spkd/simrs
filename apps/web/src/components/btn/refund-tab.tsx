@@ -43,7 +43,6 @@ const ACTION: Partial<Record<RefundStage, { label: string; note: string }>> = {
   },
 };
 
-
 /** Tab Refund: persetujuan 2 tingkat (pembuat ≠ penyetuju), dana didebit dari rekening operasional BTN. */
 export function RefundTab({
   refunds,
@@ -98,7 +97,7 @@ export function RefundTab({
     <div className="flex flex-wrap items-start gap-4">
       <section
         aria-label="Daftar refund"
-        className="flex min-w-0 flex-[1_1_300px] flex-col gap-1 rounded-card border border-line bg-white p-3 lg:max-w-[400px]"
+        className="flex min-w-0 flex-[1_1_300px] flex-col gap-1 rounded-card border border-white/95 bg-white/90 shadow-card p-3 lg:max-w-[400px]"
       >
         <span className="flex flex-col px-1 pb-1">
           <span className="font-semibold">Pengajuan refund</span>
@@ -117,7 +116,9 @@ export function RefundTab({
               onClick={() => setSel(r.id)}
               className={cx(
                 'flex min-h-12 w-full cursor-pointer flex-col gap-1 rounded-control border-0 px-2 py-2 text-left font-[inherit]',
-                r.id === f.id ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
+                r.id === f.id
+                  ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                  : 'hover:bg-brand-50/60',
               )}
             >
               <span className="flex w-full justify-between gap-2">
@@ -137,7 +138,7 @@ export function RefundTab({
       <section
         aria-label="Detail refund"
         aria-live="polite"
-        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <span className="flex flex-wrap items-start justify-between gap-2">
           <span className="flex min-w-0 flex-col">
@@ -215,7 +216,7 @@ export function RefundTab({
         {stage === 'dana-kembali' && (
           <div
             role="status"
-            className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
+            className="rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small text-success"
           >
             Dana {formatRupiah(amount)} sudah kembali ke {f.destination}. Status transaksi asal diperbarui dan
             jurnal refund terbentuk otomatis.

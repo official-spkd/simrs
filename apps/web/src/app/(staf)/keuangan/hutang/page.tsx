@@ -21,7 +21,7 @@ export default async function HutangPage() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Keuangan / Hutang usaha · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Hutang usaha · faktur dan jadwal bayar</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Hutang usaha · faktur dan jadwal bayar</h1>
       </header>
       <HutangWorkspace
         board={board}

@@ -41,7 +41,7 @@ export function PiutangDraws({ data, s }: { data: FinancingOverview; s: Financin
   return (
     <section
       aria-label="Pencairan berjalan"
-      className="@container flex min-w-0 flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+      className="@container flex min-w-0 flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">

@@ -38,7 +38,9 @@ export default async function PembiayaanPage({ searchParams }: { searchParams: S
           <span className="text-caption text-ink-500">
             Keuangan / Pembiayaan / BTN · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Pembiayaan BTN · fasilitas kesehatan (simulasi)</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+            Pembiayaan BTN · fasilitas kesehatan (simulasi)
+          </h1>
           <span className="text-caption text-ink-500">
             No. perjanjian <span className="font-mono">{f.agreementNo}</span> (fiktif) · berlaku{' '}
             {formatTanggalPendek(f.validFrom, true)} – {formatTanggalPendek(f.validTo, true)} · semua angka

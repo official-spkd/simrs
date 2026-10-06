@@ -23,10 +23,10 @@ import { ClaimScenarioControls } from './claim-scenario-controls';
 import { FlowTaskButton } from './flow-task-button';
 
 const NOTE = {
-  ok: { box: 'border-zamrud-200 bg-zamrud-50', mark: '✓', fg: 'text-success' },
-  warn: { box: 'border-warning-border bg-kunyit-50', mark: '!', fg: 'text-warning' },
-  bad: { box: 'border-danger-border bg-danger-bg', mark: '!', fg: 'text-danger' },
-  info: { box: 'border-samudra-200 bg-samudra-50', mark: 'i', fg: 'text-info' },
+  ok: { box: 'border-zamrud-200 bg-alert-success', mark: '✓', fg: 'text-success' },
+  warn: { box: 'border-warning-border bg-alert-warning', mark: '!', fg: 'text-warning' },
+  bad: { box: 'border-danger-border bg-alert-critical', mark: '!', fg: 'text-danger' },
+  info: { box: 'border-samudra-200 bg-alert-info', mark: 'i', fg: 'text-info' },
   none: { box: 'border-line bg-white', mark: '·', fg: 'text-ink-700' },
 } as const;
 
@@ -198,8 +198,8 @@ export function ClaimDetail({
 
   return (
     <section aria-label="Berkas klaim" className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
-      <div className="overflow-hidden rounded-card border border-line bg-white">
-        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] px-4 py-3.5">
+      <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
+        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-card-header px-4 py-3.5">
           <span className="flex min-w-0 flex-col">
             <span className="text-base font-semibold">
               {claim.patient.name} · {claim.encounter.title}

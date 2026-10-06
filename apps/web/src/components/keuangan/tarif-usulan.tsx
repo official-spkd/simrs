@@ -55,7 +55,7 @@ export function TarifUsulan({
           <li
             key={u.id}
             aria-label={`${u.number} ${item?.name ?? u.itemCode}`}
-            className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+            className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <span className="flex min-w-0 flex-col">

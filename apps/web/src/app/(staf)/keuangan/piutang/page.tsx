@@ -24,7 +24,7 @@ export default async function PiutangPage() {
         <span className="text-caption text-ink-500">
           Keuangan / Penjaminan & piutang / Periode Oktober 2026 · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Penjaminan & piutang · tagih dan lunasi</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Penjaminan & piutang · tagih dan lunasi</h1>
       </header>
       <PiutangWorkspace
         board={{ ...board, aging: applyAgingDelta(board.aging, ak.state) }}

@@ -115,7 +115,7 @@ export function ManualLineForm({
     <form
       ref={formRef}
       aria-label="Tambah item manual"
-      className="flex flex-col gap-3 rounded-card border border-warning-border bg-kunyit-50 p-4"
+      className="flex flex-col gap-3 rounded-card border border-warning-border bg-alert-warning p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (problems.length === 0) submit();

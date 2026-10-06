@@ -22,7 +22,7 @@ export default async function KodingPage() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Keuangan / Workbench koder · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Workbench koder · validasi kode dari RME</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Workbench koder · validasi kode dari RME</h1>
       </header>
       <KodingWorkspace board={board} berkas={codingList(state)} reminders={state.reminders} rev={rev} />
     </div>

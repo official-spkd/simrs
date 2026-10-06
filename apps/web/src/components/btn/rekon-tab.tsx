@@ -92,7 +92,7 @@ export function RekonTab({
   return (
     <section
       aria-label="Rekonsiliasi tiga arah"
-      className="@container flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="@container flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <span className="flex min-w-0 flex-[1_1_280px] flex-col">
@@ -123,7 +123,7 @@ export function RekonTab({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
+          className="rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small text-success"
         >
           {flash}
         </div>

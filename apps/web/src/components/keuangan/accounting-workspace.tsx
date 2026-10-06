@@ -143,7 +143,7 @@ export function AccountingWorkspace({
       {closed && (
         <div
           role="status"
-          className="flex gap-2.5 rounded-card border border-zamrud-200 bg-zamrud-50 px-4 py-3 text-[13px]"
+          className="flex gap-2.5 rounded-card border border-zamrud-200 bg-alert-success px-4 py-3 text-[13px]"
         >
           <span aria-hidden="true" className="font-bold text-success">
             ✓
@@ -167,7 +167,7 @@ export function AccountingWorkspace({
             (mapping.mapped ? (
               <div
                 role="status"
-                className="flex flex-wrap items-center gap-2.5 border-t border-zamrud-200 bg-zamrud-50 px-4 py-3 text-[13px]"
+                className="flex flex-wrap items-center gap-2.5 border-t border-zamrud-200 bg-alert-success px-4 py-3 text-[13px]"
               >
                 <span aria-hidden="true" className="font-bold text-success">
                   ✓
@@ -196,7 +196,7 @@ export function AccountingWorkspace({
                 )}
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-2.5 border-t border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),var(--color-kunyit-50)_60%)] px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2.5 border-t border-warning-border bg-alert-warning px-4 py-3">
                 <span className="min-w-[240px] flex-1 text-[13px] text-ink-700">
                   <span className="font-bold text-warning">! </span>
                   {mapping.number}: {mapping.description} {formatRupiah(BigInt(mapping.amount))} belum punya
@@ -264,7 +264,7 @@ export function AccountingWorkspace({
           />
           <section
             aria-label="Kontrol"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-4 text-[13px] text-ink-700"
+            className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-[13px] text-ink-700"
           >
             <span className="font-semibold text-ink-900">Kontrol</span>
             <span>• Jurnal terposting tidak bisa diedit, hanya dibalik</span>

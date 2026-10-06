@@ -47,7 +47,7 @@ export default async function PembayaranPage() {
           <span className="text-caption text-ink-500">
             Keuangan / Pembayaran digital · I05 + U09 · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Pembayaran digital · TPDI × BTN</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pembayaran digital · TPDI × BTN</h1>
         </div>
         {related.length > 0 && (
           <nav aria-label="Layar terkait" className="flex flex-wrap gap-2">

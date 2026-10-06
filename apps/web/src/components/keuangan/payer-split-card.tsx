@@ -88,7 +88,7 @@ export function PayerSplitCard({
   return (
     <section
       aria-label="Pembagian penjamin"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="font-semibold">Pembagian penjamin</span>
       <dl className="m-0 flex flex-col gap-2">

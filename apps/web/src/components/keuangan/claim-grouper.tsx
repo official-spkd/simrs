@@ -24,13 +24,13 @@ export function ClaimGrouper({
   return (
     <section
       aria-label="Hasil grouper"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent))] p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 shadow-card bg-[linear-gradient(160deg,rgba(255,255,255,0.9)_60%,var(--color-brand-50))] p-4"
     >
       <span className="font-semibold">Hasil grouper INA-CBG (simulasi)</span>
       {held && (
         <span
           role="status"
-          className="rounded-control border border-warning-border bg-kunyit-50 px-3 py-2 text-small text-warning"
+          className="rounded-control border border-warning-border bg-alert-warning px-3 py-2 text-small text-warning"
         >
           Grouping ditahan: {held}
         </span>
@@ -65,7 +65,7 @@ export function ClaimGrouper({
           </span>
           <span className="flex h-2 overflow-hidden rounded-full bg-line-soft" aria-hidden="true">
             <span className="bg-brand-600" style={{ width: `${ratio.cbgWidth}%` }} />
-            <span className="bg-[#F4C98E]" style={{ width: `${100 - ratio.cbgWidth}%` }} />
+            <span className="bg-kunyit-200" style={{ width: `${100 - ratio.cbgWidth}%` }} />
           </span>
           <span className="text-caption text-ink-500">
             {ratio.overrun

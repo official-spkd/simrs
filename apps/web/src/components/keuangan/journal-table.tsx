@@ -34,7 +34,7 @@ export function JournalTable({
   return (
     <section
       aria-label="Jurnal otomatis"
-      className="@container flex min-w-0 flex-[999_1_600px] flex-col overflow-hidden rounded-card border border-line bg-white"
+      className="@container flex min-w-0 flex-[999_1_600px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-4 py-3">
         <span className="flex flex-col">

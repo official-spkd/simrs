@@ -95,6 +95,7 @@ export function ChargeWorkspace({
           label="Event bisa-tagih hari ini"
           value={eventTotal.toLocaleString('id-ID')}
           detail={`${events.length} terbaru tampil di monitor`}
+          tinted
         />
         <KpiCard
           label="Tertahan"
@@ -103,7 +104,12 @@ export function ChargeWorkspace({
           tone={rec.held ? 'danger' : 'success'}
           tinted
         />
-        <KpiCard label="Baris pembalik" value={rec.reversed} detail="batal order, retur obat, batal manual" />
+        <KpiCard
+          label="Baris pembalik"
+          value={rec.reversed}
+          detail="batal order, retur obat, batal manual"
+          tinted
+        />
         <KpiCard
           label="Kunjungan menahan finalisasi"
           value={enc.filter((k) => k.held > 0).length}
@@ -118,8 +124,8 @@ export function ChargeWorkspace({
         className={cx(
           'm-0 rounded-control border px-3 py-2 text-small',
           rec.unexplained === 0
-            ? 'border-zamrud-200 bg-zamrud-50 text-ink-700'
-            : 'border-danger-border bg-danger-bg',
+            ? 'border-zamrud-200 bg-alert-success text-ink-700'
+            : 'border-danger-border bg-alert-critical',
         )}
       >
         <span className="font-semibold">Rekonsiliasi capture:</span> {rec.total} event = {rec.billed} tertagih
@@ -134,8 +140,8 @@ export function ChargeWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}
@@ -146,7 +152,7 @@ export function ChargeWorkspace({
       <div className="flex flex-wrap items-start gap-4">
         <section
           aria-label="Aliran event klinis"
-          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-line bg-white"
+          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
             <span className="flex flex-col">
@@ -393,7 +399,7 @@ export function ChargeWorkspace({
           aria-label="Kelengkapan per kunjungan"
           className="flex min-w-0 flex-[1_1_300px] flex-col gap-4 xl:max-w-[380px]"
         >
-          <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+          <section className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
             <span className="font-semibold">Kelengkapan tagihan per kunjungan</span>
             <span className="text-caption text-ink-500">
               Finalisasi di Kasir ditahan selama ada event tertahan
@@ -414,7 +420,7 @@ export function ChargeWorkspace({
               ))}
             </ul>
           </section>
-          <section className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-4 text-[13px] text-ink-700">
+          <section className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-[13px] text-ink-700">
             <span className="font-semibold text-ink-900">Aturan koreksi</span>
             <span>
               • Baris klinis dikoreksi di unit asal (order, eMAR, LIS, farmasi), lalu baris pembalik otomatis

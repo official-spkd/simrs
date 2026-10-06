@@ -30,7 +30,7 @@ export function PiutangAside({ data, s }: { data: FinancingOverview; s: Financin
   return (
     <aside
       aria-label="Pelunasan dan parameter fasilitas"
-      className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex justify-between gap-2">
         <span className="font-semibold">Alur dana pelunasan</span>

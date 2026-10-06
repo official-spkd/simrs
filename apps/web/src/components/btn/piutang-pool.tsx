@@ -43,7 +43,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
   return (
     <section
       aria-label="Pool klaim BPJS"
-      className="@container flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="@container flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">
@@ -179,7 +179,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
         {a && a.stage !== 'lunas' && (
           <div
             role="status"
-            className="flex flex-col gap-2 rounded-control border border-[#C9DDF7] bg-white p-3"
+            className="flex flex-col gap-2 rounded-control border border-samudra-100 bg-white p-3"
           >
             <span className="font-semibold">
               Pengajuan {a.id} · <span className="font-mono">{formatRupiah(BigInt(a.principal))}</span>
@@ -198,7 +198,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                     st.done
                       ? 'border-line bg-white text-ink-900'
                       : i === nextStep
-                        ? 'border-[#9DB7E8] bg-[#F4F8FE] text-info'
+                        ? 'border-samudra-300 bg-samudra-50 text-info'
                         : 'border-line bg-white text-ink-500',
                   )}
                 >
@@ -228,7 +228,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
               </span>
             ) : (
               <Button
-                className="self-start border-dashed border-[#9DB7E8] text-info"
+                className="self-start border-dashed border-samudra-300 text-info"
                 disabled={s.pending}
                 onClick={() => s.advanceDrawdown(a)}
               >

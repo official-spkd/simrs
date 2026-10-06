@@ -21,7 +21,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
   return (
     <section
       aria-label="Rincian tagihan"
-      className="overflow-hidden rounded-card border border-line bg-white"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5">
         <span className="font-semibold">Rincian tarif RS · {lines.length} baris</span>

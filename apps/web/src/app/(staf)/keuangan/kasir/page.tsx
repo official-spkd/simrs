@@ -47,7 +47,7 @@ export default async function KasirPage({ searchParams }: { searchParams: Search
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Keuangan / Kasir · {session.tenant.name}</span>
-          <h1 className="m-0 text-h1 font-semibold">Kasir · tagihan pasien</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kasir · tagihan pasien</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-[13px] text-ink-700">

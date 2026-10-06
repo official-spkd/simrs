@@ -103,8 +103,8 @@ export function PembayaranClient({
         <span
           className={
             s.savedMode === 'sandbox'
-              ? 'rounded-full border border-warning-border bg-warning-bg px-2.5 py-0.5 text-caption font-bold tracking-wide text-warning'
-              : 'rounded-full bg-brand-50 px-2.5 py-0.5 text-caption font-bold tracking-wide text-brand-700'
+              ? 'rounded-full bg-kunyit-100 px-2.5 py-0.5 text-caption font-bold tracking-wide text-kunyit-800'
+              : 'rounded-full bg-brand-100 px-2.5 py-0.5 text-caption font-bold tracking-wide text-brand-800'
           }
         >
           Mode {s.savedMode === 'sandbox' ? 'SANDBOX' : 'PRODUKSI'}

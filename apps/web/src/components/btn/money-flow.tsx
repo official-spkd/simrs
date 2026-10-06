@@ -23,7 +23,7 @@ export function MoneyFlow({ operational }: { operational: string }) {
   return (
     <section
       aria-label="Alur dana"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 pb-4 pt-3"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 pb-4 pt-3"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold">Alur dana</span>
@@ -58,7 +58,7 @@ export function MoneyFlow({ operational }: { operational: string }) {
           </span>
         </div>
         <span className="mx-3 w-px flex-none self-stretch border-l-[1.5px] border-dashed border-line-strong max-lg:hidden" />
-        <div className="flex min-w-0 flex-[1.4_1_260px] flex-col gap-1 rounded-control border-[1.5px] border-dashed border-[#9FB0BF] bg-white px-3 py-2.5">
+        <div className="flex min-w-0 flex-[1.4_1_260px] flex-col gap-1 rounded-control border-[1.5px] border-dashed border-batu-400 bg-white px-3 py-2.5">
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold">TPDI · orkestrasi</span>
             <Chip tone="warning">TPDI tidak menampung dana</Chip>

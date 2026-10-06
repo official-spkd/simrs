@@ -20,7 +20,7 @@ export default async function JasaPelayananPage() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Keuangan / Jasa pelayanan · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Jasa pelayanan · rekap per PPA</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Jasa pelayanan · rekap per PPA</h1>
       </header>
       <JaspelWorkspace
         board={board}

@@ -38,7 +38,7 @@ export function TransaksiTab({
     <div className="flex flex-wrap items-start gap-4">
       <section
         aria-label="Daftar transaksi"
-        className="@container flex min-w-0 flex-[999_1_560px] flex-col gap-2 rounded-card border border-line bg-white p-3"
+        className="@container flex min-w-0 flex-[999_1_560px] flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-3"
       >
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex min-w-0 flex-[1_1_220px] flex-col gap-1 text-small font-semibold text-ink-700">
@@ -96,7 +96,9 @@ export function TransaksiTab({
                   onClick={() => onSelect(t.id)}
                   className={cx(
                     'grid min-h-12 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-0 border-b border-line px-2 py-2 text-left font-[inherit] @xl:grid-cols-[64px_minmax(0,1fr)_76px_104px_128px]',
-                    on ? 'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
+                    on
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : 'hover:bg-brand-50/60',
                   )}
                 >
                   <span className="font-mono text-caption text-ink-700 @max-xl:hidden">

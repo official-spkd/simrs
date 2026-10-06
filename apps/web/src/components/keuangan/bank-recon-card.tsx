@@ -25,7 +25,7 @@ export function BankReconCard({
   return (
     <section
       aria-label="Rekonsiliasi bank"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="font-semibold">Rekonsiliasi bank otomatis</span>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">

@@ -65,7 +65,10 @@ export function PiutangPenagihan({
 
   return (
     <div className="flex flex-col gap-4">
-      <section aria-label="Umur piutang per penjamin" className="rounded-card border border-line bg-white">
+      <section
+        aria-label="Umur piutang per penjamin"
+        className="rounded-card border border-white/95 bg-white/90 shadow-card"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
           <span className="font-semibold">Umur piutang per penjamin (Rp juta)</span>
           <span className="text-caption text-ink-500">
@@ -94,7 +97,15 @@ export function PiutangPenagihan({
                 const v = agingView(r);
                 const on = r.payer === group;
                 return (
-                  <tr key={r.payer} className={cx('border-t border-line', on && 'bg-brand-50')}>
+                  <tr
+                    key={r.payer}
+                    className={cx(
+                      'border-t border-line',
+                      on
+                        ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                        : 'hover:bg-brand-50/60',
+                    )}
+                  >
                     <td className="px-4 py-1.5">
                       <button
                         type="button"
@@ -126,7 +137,7 @@ export function PiutangPenagihan({
       </section>
 
       {group === 'bpjs' ? (
-        <p className="m-0 rounded-card border border-line bg-white p-4 text-small text-ink-700">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small text-ink-700">
           Piutang BPJS ditagih lewat klaim INA-CBG per berkas, bukan batch penagihan.{' '}
           <Link href="/keuangan/klaim" className="font-semibold">
             Buka Klaim & koding
@@ -141,7 +152,7 @@ export function PiutangPenagihan({
         <div className="flex flex-wrap items-start gap-4">
           <section
             aria-label="Daftar piutang"
-            className="flex min-w-0 flex-[999_1_520px] flex-col overflow-hidden rounded-card border border-line bg-white"
+            className="flex min-w-0 flex-[999_1_520px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
           >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
               <span className="flex flex-col">
@@ -217,7 +228,7 @@ export function PiutangPenagihan({
             className="flex min-w-0 flex-[1_1_360px] flex-col gap-3 xl:max-w-[480px]"
           >
             {groupBatches.length === 0 && (
-              <p className="m-0 rounded-card border border-line bg-white p-4 text-small text-ink-500">
+              <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small text-ink-500">
                 Belum ada batch penagihan untuk penjamin ini.
               </p>
             )}
@@ -232,7 +243,7 @@ export function PiutangPenagihan({
                 <article
                   key={b.number}
                   aria-label={`Batch ${b.number}`}
-                  className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+                  className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
                 >
                   <span className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">

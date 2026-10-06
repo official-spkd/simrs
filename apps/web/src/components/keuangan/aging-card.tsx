@@ -1,14 +1,14 @@
 import type { AgingRow } from '@simrs/shared';
 import { AGING_LABELS, agingView, formatJuta } from '@/lib/keuangan-akuntansi';
 
-const COLORS = ['bg-brand-600', 'bg-[#6FB5AC]', 'bg-kunyit-300', 'bg-[#C9564B]'] as const;
+const COLORS = ['bg-brand-600', 'bg-brand-300', 'bg-kunyit-300', 'bg-koral-500'] as const;
 
 /** Umur piutang per penjamin (mockup Akuntansi): total (Rp juta) dan porsi kelompok umur, juga dalam teks. */
 export function AgingCard({ rows }: { rows: readonly AgingRow[] }) {
   return (
     <section
       aria-label="Umur piutang"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex justify-between">
         <span className="font-semibold">Umur piutang</span>
