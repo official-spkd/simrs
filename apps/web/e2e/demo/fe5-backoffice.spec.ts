@@ -670,4 +670,17 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B06 mutu: lima indikator dihitung dari data transaksi dengan pembilang/penyebut', async ({
+    page,
+  }) => {
+    const auditor = await createAccount({ roles: ['auditor_mutu'] });
+    await loginAs(page, auditor, '/');
+    await page.goto('/manajemen/mutu');
+    const table = page.getByRole('region', { name: 'Indikator dari data transaksi' });
+    await expect(table.getByRole('row')).toHaveCount(6);
+    await expect(table.getByRole('row', { name: /kebersihan tangan/ })).toContainText('352 / 400');
+    await expect(table.getByRole('row', { name: /Resume medis/ })).toContainText('44 / 50');
+    await page.getByRole('button', { name: 'Hitung ulang' }).click();
+    await expect(page.getByText(/terakhir dihitung ulang \d{2}\.\d{2}/)).toBeVisible();
+  });
 });

@@ -2,11 +2,13 @@ import { formatJam } from '@simrs/shared';
 import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { ComputedIndicators } from '@/components/manajemen/computed-indicators';
 import { IncidentList } from '@/components/manajemen/incident-list';
 import { RiskRegister } from '@/components/manajemen/risk-register';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { formatPercent, indicatorOnTarget, riskLevel, riskScore } from '@/lib/manajemen';
+import { getComputedIndicators } from '@/lib/server/data/backoffice';
 import { getQualityOverview } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { IndicatorList } from './indicator-list';
@@ -21,6 +23,7 @@ export default async function MutuPage() {
   const { session, screen, allowed } = await requireDemoScreen('mutu');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getQualityOverview();
+  const computed = await getComputedIndicators();
 
   const onTarget = d.indicators.filter(indicatorOnTarget).length;
   const month = DEMO_TODAY.slice(0, 7);
@@ -83,6 +86,7 @@ export default async function MutuPage() {
 
       <ScenarioBanner session={session} screen="mutu" />
       <IndicatorList indicators={d.indicators} months={d.months} />
+      <ComputedIndicators items={computed} computedAt="01.30" />
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-[1_1_420px]">
           <IncidentList incidents={d.incidents} today={DEMO_TODAY} />

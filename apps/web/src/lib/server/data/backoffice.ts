@@ -36,6 +36,7 @@ import {
 } from '../../demo/fixtures/dataset-riset';
 import { demoQueueBoard } from '../../demo/fixtures/front-office';
 import { PO_RECEIPT_LINES, PO_SUPPLIER } from '../../demo/fixtures/logistik-terima';
+import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
 import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
@@ -60,6 +61,7 @@ import {
   ISOLATION_ROOMS,
   ppeAudits,
 } from '../../demo/fixtures/ppi';
+import { computeIndicators } from '../../mutu-transaksi';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -231,4 +233,17 @@ export async function getOncology() {
 export async function getGoodsReceiptLines() {
   demoOnly('penerimaan barang');
   return { lines: PO_RECEIPT_LINES, suppliers: PO_SUPPLIER };
+}
+
+/** B06 · indikator mutu yang dihitung dari data transaksi layar PPI, pengalaman pasien, dan rekam medis. */
+export async function getComputedIndicators() {
+  demoOnly('indikator mutu');
+  return computeIndicators({
+    handHygiene: handHygieneObservations(),
+    ppe: ppeAudits(),
+    complaints: recentComplaints(),
+    survey: surveyResponses(),
+    discharges: dischargeRecords(),
+    now: DEMO_NOW,
+  });
 }
