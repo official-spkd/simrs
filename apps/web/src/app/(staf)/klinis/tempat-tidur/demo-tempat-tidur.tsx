@@ -47,7 +47,7 @@ export async function DemoTempatTidur({
             <span className="text-caption text-ink-500">
               Klinis / Rawat inap / Tempat tidur · {session.tenant.name}
             </span>
-            <h1 className="m-0 text-h1 font-semibold">Manajemen tempat tidur</h1>
+            <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Manajemen tempat tidur</h1>
           </div>
         }
         syncNote={`Aplicare & SIRANAP diperbarui ${formatJam(board.asOf)}`}

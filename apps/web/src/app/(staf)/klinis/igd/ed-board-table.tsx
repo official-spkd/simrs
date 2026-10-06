@@ -46,7 +46,7 @@ export function EdBoardTable({
   return (
     <section
       aria-label="Papan pasien IGD"
-      className="@container min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-white"
+      className="@container min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-3 py-2.5">
         {/* Tab zona (mockup: tablist/tab/aria-selected); panah kiri/kanan berpindah zona. */}
@@ -73,8 +73,8 @@ export function EdBoardTable({
                   on
                     ? n
                       ? TRIAGE_META[n].badge
-                      : 'border-brand-600 bg-brand-50 text-brand-700'
-                    : 'border-line bg-white text-ink-700',
+                      : 'border-transparent bg-nav-active text-white'
+                    : 'border-line-strong bg-white/90 text-ink-700 hover:bg-brand-50/60',
                 )}
               >
                 {n || 'Semua'}
@@ -90,7 +90,10 @@ export function EdBoardTable({
       >
         <div
           aria-hidden="true"
-          className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 @4xl:grid', COLS)}
+          className={cx(
+            'hidden border-b border-line text-caption font-semibold text-ink-500 @4xl:grid',
+            COLS,
+          )}
         >
           {['Bed', 'Pasien', 'Triase', 'Keluhan utama', 'Dokter', 'Lama', 'Status'].map((h) => (
             <span key={h} className="px-3 py-2.5">
@@ -113,8 +116,12 @@ export function EdBoardTable({
                   className={cx(
                     'grid w-full cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-x-1 border-0 p-0 text-left font-[inherit] text-ink-900',
                     COLS,
-                    p.triageLevel ? TRIAGE_META[p.triageLevel].rail : 'shadow-[inset_4px_0_0_var(--color-line-strong)]',
-                    on ? 'bg-selected' : p.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
+                    p.triageLevel
+                      ? TRIAGE_META[p.triageLevel].rail
+                      : 'shadow-[inset_4px_0_0_var(--color-line-strong)]',
+                    on
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : cx('hover:bg-brand-50/60', p.scenario ? 'bg-brand-50/40' : 'bg-transparent'),
                   )}
                 >
                   <span className="px-3 py-2.5 font-mono font-semibold">{p.bed ?? '—'}</span>

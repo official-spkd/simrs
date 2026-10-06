@@ -106,8 +106,8 @@ export function WorklistBoard({
           className={cx(
             'm-0 rounded-control border px-3.5 py-2.5 text-small font-semibold',
             msg.ok
-              ? 'border-success-border bg-success-bg text-success'
-              : 'border-warning-border bg-warning-bg text-warning',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-kunyit-200 bg-alert-warning text-warning',
           )}
         >
           {msg.text}
@@ -131,7 +131,7 @@ export function WorklistBoard({
       {tab === 'tugas' && (
         <section aria-label="Tugas tertunda" className="flex flex-col gap-2.5">
           {open.length === 0 && (
-            <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-500">
+            <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5 text-small text-ink-500">
               Semua tugas shift ini sudah selesai. Tugas baru (hasil, konsul, co-sign) muncul di sini.
             </p>
           )}
@@ -155,7 +155,7 @@ export function WorklistBoard({
       {tab === 'pasien' && (
         <section
           aria-label="Pasien saya"
-          className="overflow-hidden rounded-card border border-line bg-white"
+          className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <ul className="m-0 list-none p-0">
             {patients.map((p) => {
@@ -165,7 +165,7 @@ export function WorklistBoard({
               return (
                 <li
                   key={p.encounterId}
-                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-4 py-3 hover:bg-brand-50/60"
                 >
                   <span className="flex min-w-0 flex-col">
                     {summary ? (
@@ -198,7 +198,7 @@ export function WorklistBoard({
       {tab === 'selesai' && (
         <section
           aria-label="Tugas selesai"
-          className="overflow-hidden rounded-card border border-line bg-white"
+          className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           {finished.length === 0 ? (
             <p className="m-0 px-4 py-3.5 text-small text-ink-500">
@@ -259,8 +259,8 @@ function TaskCard({
       <article
         aria-labelledby={`${id}-judul`}
         className={cx(
-          'flex flex-col gap-2 rounded-card border bg-white px-4 py-3',
-          task.priority === 'kritis' ? 'border-danger-border' : 'border-line',
+          'flex flex-col gap-2 rounded-card border bg-white/90 px-4 py-3 shadow-card',
+          task.priority === 'kritis' ? 'border-danger-border' : 'border-white/95',
         )}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -361,7 +361,7 @@ function TaskCard({
         </div>
         {a.kind === 'baca-ulang' && readBack && (
           <form
-            className="flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3"
+            className="flex flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical p-3"
             onSubmit={(e) => {
               e.preventDefault();
               setReadBack({ ...readBack, tried: true });

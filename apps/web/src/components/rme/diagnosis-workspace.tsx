@@ -38,7 +38,8 @@ const SEVERITY_LABEL: Record<AllergySeverity, string> = {
 };
 const SELECT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-small';
 const INPUT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
+const CARD =
+  'flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5';
 
 /**
  * K08 · Diagnosis kunjungan (ICD-10, tepat satu utama, kerja → akhir), prosedur ICD-9-CM, problem list lintas
@@ -580,7 +581,7 @@ function VoidForm({
   return (
     <form
       aria-label="Tandai salah entri"
-      className="flex flex-col gap-2 rounded-control border border-warning-border bg-white p-3"
+      className="flex flex-col gap-2 rounded-control border border-kunyit-200 bg-alert-warning p-3"
       onSubmit={(e) => {
         e.preventDefault();
         onConfirm();

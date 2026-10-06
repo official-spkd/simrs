@@ -23,7 +23,7 @@ export function BedFilters({
     <div
       role="group"
       aria-label="Filter tempat tidur"
-      className="flex flex-wrap items-end gap-2.5 rounded-card border border-line bg-white px-3.5 py-2.5"
+      className="flex flex-wrap items-end gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-3.5 py-2.5"
     >
       <label className="flex flex-col gap-1 text-caption font-semibold text-ink-700">
         Bangsal
@@ -99,13 +99,13 @@ export function BedStatusTiles({ counts }: { counts: BedCounts }) {
       label: 'Siap pakai',
       value: String(counts.siap),
       sub: 'bersih, bisa dialokasikan',
-      swatch: 'border-success-border bg-success-bg',
+      swatch: 'border-zamrud-200 bg-alert-success',
     },
     {
       label: 'Dibersihkan',
       value: String(counts.kotor + counts.dibersihkan),
       sub: `${counts.kotor} kotor · ${counts.dibersihkan} sedang dibersihkan`,
-      swatch: 'border-warning-border bg-kunyit-50',
+      swatch: 'border-kunyit-200 bg-alert-warning',
     },
     {
       label: 'Rencana pulang hari ini',
@@ -123,7 +123,7 @@ export function BedStatusTiles({ counts }: { counts: BedCounts }) {
       {tiles.map((t) => (
         <div
           key={t.label}
-          className="flex items-center gap-3 rounded-card border border-line bg-white px-3.5 py-3"
+          className="flex items-center gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-3.5 py-3"
         >
           <span aria-hidden="true" className={cx('h-10 w-3 flex-none rounded-[4px] border', t.swatch)} />
           <span className="flex min-w-0 flex-col">

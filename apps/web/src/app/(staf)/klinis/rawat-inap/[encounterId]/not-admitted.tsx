@@ -32,7 +32,7 @@ export function NotAdmitted({
             <Link
               key={l.href}
               href={l.href}
-              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
             >
               {l.label}
             </Link>

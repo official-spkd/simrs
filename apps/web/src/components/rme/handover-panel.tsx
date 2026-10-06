@@ -57,7 +57,7 @@ export function HandoverPanel({
   return (
     <section
       aria-label="Serah terima SBAR"
-      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 self-start rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 self-start rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <div className="flex flex-col">
         <h2 className="m-0 text-body font-semibold">Serah terima SBAR</h2>

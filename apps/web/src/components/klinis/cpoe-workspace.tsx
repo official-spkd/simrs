@@ -189,7 +189,7 @@ export function CpoeWorkspace({
         {orders.note && (
           <div
             role="status"
-            className="flex items-center justify-between gap-2.5 rounded-control border border-brand-100 bg-selected py-1.5 pr-1.5 pl-3.5 text-small text-brand-700"
+            className="flex items-center justify-between gap-2.5 rounded-control border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] py-1.5 pr-1.5 pl-3.5 text-small text-brand-800"
           >
             <span>{orders.note}</span>
             <button
@@ -215,9 +215,9 @@ export function CpoeWorkspace({
             <section
               key={g.kind}
               aria-label={`Order ${g.title.toLowerCase()}`}
-              className="overflow-hidden rounded-card border border-line bg-white shadow-card"
+              className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
             >
-              <div className="flex flex-wrap justify-between gap-2 border-b border-line bg-[linear-gradient(90deg,var(--color-subtle),#FFFFFF)] px-4 py-2.5">
+              <div className="flex flex-wrap justify-between gap-2 border-b border-line bg-card-header px-4 py-2.5">
                 <h2 className="m-0 text-caption font-bold tracking-[0.06em] text-ink-700">{g.title}</h2>
                 <span className="text-caption text-ink-500">{g.dest(igd)}</span>
               </div>

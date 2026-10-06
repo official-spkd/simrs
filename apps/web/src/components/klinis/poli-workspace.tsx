@@ -101,7 +101,7 @@ export function PoliWorkspace({
       )}
       <a
         href="#riwayat-kunjungan"
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
       >
         <Icon name="history" size={16} />
         Riwayat
@@ -109,7 +109,7 @@ export function PoliWorkspace({
       {isDoctor && rujukHref && (
         <Link
           href={rujukHref}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
         >
           <Icon name="arrowRight" size={16} />
           Rujuk
@@ -118,7 +118,7 @@ export function PoliWorkspace({
       {canOrder && (
         <Link
           href={cpoeHref}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-brand-800 bg-white px-3 text-small font-semibold text-brand-700 no-underline"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-brand-600 bg-white/90 px-3 text-small font-semibold text-brand-800 hover:bg-brand-50/60 no-underline"
         >
           <Icon name="pill" size={16} />
           Buka CPOE

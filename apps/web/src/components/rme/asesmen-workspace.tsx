@@ -24,9 +24,9 @@ import { Feedback, type FeedbackMsg, ReasonField } from './feedback';
 
 const TONE_TEXT = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const;
 const TONE_BOX = {
-  success: 'border-success-border bg-success-bg text-success',
-  warning: 'border-warning-border bg-warning-bg text-warning',
-  danger: 'border-danger-border bg-danger-bg text-danger',
+  success: 'border-zamrud-200 bg-alert-success text-success',
+  warning: 'border-kunyit-200 bg-alert-warning text-warning',
+  danger: 'border-koral-200 bg-alert-critical text-danger',
 } as const;
 
 type Mode = { kind: 'lihat' } | { kind: 'isi' } | { kind: 'koreksi'; prev: AssessmentResponse };
@@ -134,7 +134,7 @@ export function AsesmenWorkspace({
     <div className="flex flex-wrap items-start gap-4">
       <section
         aria-label="Paket asesmen"
-        className="flex min-w-0 flex-[1_1_280px] flex-col overflow-hidden rounded-card border border-line bg-white"
+        className="flex min-w-0 flex-[1_1_280px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         <div className="flex flex-col border-b border-line px-4 py-3">
           <h2 className="m-0 text-body font-semibold">Paket asesmen · {settingLabel}</h2>
@@ -155,7 +155,9 @@ export function AsesmenWorkspace({
                   onClick={() => pick(f.code)}
                   className={cx(
                     'flex min-h-11 w-full cursor-pointer flex-col items-start gap-0.5 border-0 px-4 py-2.5 text-left font-[inherit]',
-                    f.code === code ? 'bg-brand-50' : 'bg-white',
+                    f.code === code
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : 'bg-transparent hover:bg-brand-50/60',
                   )}
                 >
                   <span className="font-semibold text-ink-900">{f.title}</span>
@@ -176,7 +178,7 @@ export function AsesmenWorkspace({
 
       <section
         aria-label={form.title}
-        className="flex min-w-0 flex-[2_1_520px] flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+        className="flex min-w-0 flex-[2_1_520px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex flex-col">

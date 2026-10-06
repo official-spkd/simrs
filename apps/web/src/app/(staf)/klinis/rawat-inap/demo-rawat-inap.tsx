@@ -44,14 +44,14 @@ export async function DemoRawatInap({
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Klinis / Rawat inap · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Pasien rawat inap</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pasien rawat inap</h1>
       </header>
       <ScenarioBanner session={session} screen="ranap" />
       {active.map((x) => (
         <Link
           key={x.encounterId}
           href={`/klinis/rawat-inap/${x.encounterId}`}
-          className="inline-flex min-h-11 items-center self-start rounded-control border border-brand-800 bg-white px-3.5 text-small font-semibold text-brand-700 no-underline"
+          className="inline-flex min-h-11 items-center self-start rounded-control border border-brand-600 bg-white/90 px-3.5 text-small font-semibold text-brand-800 hover:bg-brand-50/60 no-underline"
         >
           Buka rekam rawat inap {patientById(x.patientId)?.nama} (langkah simulasi aktif)
         </Link>
@@ -82,7 +82,7 @@ export async function DemoRawatInap({
       {arrivals.length > 0 && (
         <section
           aria-label="Masuk dari IGD"
-          className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-white px-4 py-3.5"
+          className="flex flex-col gap-1.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3.5 shadow-card"
         >
           <h2 className="m-0 text-body font-semibold">Masuk dari IGD</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
@@ -106,7 +106,7 @@ export async function DemoRawatInap({
       {discharged.length > 0 && (
         <section
           aria-label="Pulang hari ini"
-          className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-4 py-3.5"
+          className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
         >
           <h2 className="m-0 text-body font-semibold">Sudah pulang hari ini</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
@@ -130,8 +130,8 @@ export async function DemoRawatInap({
               className={cx(
                 'inline-flex h-11 items-center rounded-full border px-3.5 text-small no-underline',
                 on
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white text-ink-700',
+                  ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : 'border-line-strong bg-white/90 text-ink-700 hover:bg-brand-50/60',
               )}
             >
               {w.name}
@@ -141,11 +141,11 @@ export async function DemoRawatInap({
       </nav>
       <section
         aria-label="Daftar pasien rawat inap"
-        className="overflow-hidden rounded-card border border-line bg-white"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         <div
           aria-hidden="true"
-          className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 lg:grid', COLS)}
+          className={cx('hidden border-b border-line text-caption font-semibold text-ink-500 lg:grid', COLS)}
         >
           {['Bed', 'Pasien', 'Diagnosis', 'DPJP', 'Hari', 'EWS', 'Penanda'].map((h) => (
             <span key={h} className="px-3 py-2.5">
@@ -164,7 +164,7 @@ export async function DemoRawatInap({
                 <Link
                   href={`/klinis/rawat-inap/${x.encounterId}`}
                   className={cx(
-                    'grid grid-cols-[1fr_auto] gap-x-2 px-0 py-1 text-ink-900 no-underline lg:py-0',
+                    'grid grid-cols-[1fr_auto] gap-x-2 px-0 py-1 text-ink-900 no-underline hover:bg-brand-50/60 lg:py-0',
                     COLS,
                   )}
                 >

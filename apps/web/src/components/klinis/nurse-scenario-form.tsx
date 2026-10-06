@@ -61,7 +61,7 @@ function TaskInput({ tasks, id, unit }: { tasks: ScenarioTasks; id: string; unit
 export function NurseScenarioForm({ tasks }: { tasks: ScenarioTasks }) {
   const jatuh = tasks.task('jatuh');
   return (
-    <div className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] p-3.5">
+    <div className="flex flex-col gap-3 rounded-control border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] p-3.5">
       <span className="text-small font-semibold text-brand-700">
         Asesmen awal keperawatan · isian skenario
       </span>
@@ -83,8 +83,8 @@ export function NurseScenarioForm({ tasks }: { tasks: ScenarioTasks }) {
                 className={cx(
                   'flex min-h-11 cursor-pointer flex-col items-start rounded-control border px-3 py-1.5 text-left font-[inherit] disabled:cursor-not-allowed',
                   o.selected
-                    ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                    : 'border-line-strong bg-white text-ink-900',
+                    ? 'border-brand-600 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] font-semibold text-brand-800'
+                    : 'border-line-strong bg-white/90 text-ink-900 hover:bg-brand-50/60',
                   !o.selected && !jatuh.enabled && 'opacity-60',
                 )}
               >

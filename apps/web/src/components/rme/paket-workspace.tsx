@@ -25,7 +25,8 @@ import {
 } from '@/lib/rme-paket';
 import { Feedback, type FeedbackMsg } from './feedback';
 
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
+const CARD =
+  'flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5';
 const STATUS_TONE: Record<SessionStatus, 'success' | 'brand' | 'info' | 'neutral' | 'warning'> = {
   selesai: 'success',
   'hari-ini': 'brand',

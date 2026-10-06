@@ -45,7 +45,7 @@ export async function DemoPoli({ access, pasien }: { access: DemoScreenAccess; p
           <span className="text-caption text-ink-500">
             Rawat jalan / {worklist.poli.name} / Pemeriksaan · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Pemeriksaan pasien</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pemeriksaan pasien</h1>
         </div>
         <span className="flex flex-wrap gap-2">
           <Chip tone="neutral">

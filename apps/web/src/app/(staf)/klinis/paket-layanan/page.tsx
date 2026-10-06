@@ -52,8 +52,8 @@ export default async function PaketPage({ searchParams }: { searchParams: Search
               className={cx(
                 'inline-flex h-11 items-center rounded-full border px-3.5 text-small no-underline',
                 on
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white text-ink-700',
+                  ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : 'border-line-strong bg-white/90 text-ink-700 hover:bg-brand-50/60',
               )}
             >
               {p.title} · {patientById(p.patientId)?.nama}
@@ -71,7 +71,7 @@ export default async function PaketPage({ searchParams }: { searchParams: Search
           role={role}
         />
       ) : (
-        <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-700">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5 text-small text-ink-700">
           Pasien ini tidak mengikuti paket layanan khusus. Pilih paket aktif di atas.
         </p>
       )}

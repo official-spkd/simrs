@@ -126,7 +126,7 @@ export function BedWorkspace({
       <header className="flex flex-wrap items-center justify-between gap-3">
         {heading}
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex min-h-9 items-center gap-2 rounded-control border border-line bg-white px-3 text-small">
+          <span className="inline-flex min-h-9 items-center gap-2 rounded-control border border-white/95 bg-white/90 px-3 text-small shadow-card">
             <span aria-hidden="true" className="size-[7px] rounded-full bg-success" />
             {syncNote}
           </span>
@@ -158,7 +158,7 @@ export function BedWorkspace({
           />
           <TabPanel idBase={viewTabsId} value={view}>
             {shown.length === 0 ? (
-              <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-4 text-small text-ink-500">
+              <p className="m-0 rounded-card border border-dashed border-line-strong bg-white/70 p-4 text-small text-ink-500">
                 Tidak ada bed yang cocok dengan filter bangsal, kelas, dan status ini.
               </p>
             ) : view === 'daftar' ? (
@@ -216,7 +216,7 @@ export function BedWorkspace({
           />
           <section
             aria-label="Perkiraan pulang"
-            className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-[linear-gradient(180deg,var(--color-brand-50),#FFFFFF)] px-4 py-3.5"
+            className="flex flex-col gap-1.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3.5 shadow-card"
           >
             <span className="font-semibold text-brand-700">Perkiraan sore ini</span>
             <span className="text-small text-ink-700">

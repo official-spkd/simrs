@@ -28,7 +28,7 @@ export default async function MpiPage({ searchParams }: { searchParams: SearchPa
   if (!can(s, 'patient', 'merge')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Master Patient Index</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Master Patient Index</h1>
         <Alert level="warning" title="Akses ditolak">
           Tinjauan rekam medis ganda khusus petugas rekam medis. Hubungi admin SIM RS bila perlu.
         </Alert>
@@ -52,9 +52,9 @@ export default async function MpiPage({ searchParams }: { searchParams: SearchPa
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Rekam medis / Master Patient Index</span>
-          <h1 className="m-0 text-h1 font-semibold">Kemungkinan rekam medis ganda</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kemungkinan rekam medis ganda</h1>
         </div>
-        <span className="text-small text-ink-700">
+        <span className="text-small text-ink-500">
           {list.openCount} pasangan menunggu tinjauan · terdeteksi otomatis saat registrasi
         </span>
       </header>
@@ -62,7 +62,7 @@ export default async function MpiPage({ searchParams }: { searchParams: SearchPa
       <div className="flex flex-wrap items-start gap-5">
         <section
           aria-labelledby="antrean-judul"
-          className="w-full flex-[1_1_300px] overflow-hidden rounded-card border border-line bg-card lg:max-w-[340px]"
+          className="w-full flex-[1_1_300px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card lg:max-w-[340px]"
         >
           <h2 id="antrean-judul" className="m-0 border-b border-line px-4 py-3.5 text-body font-semibold">
             Antrean tinjauan
@@ -88,7 +88,7 @@ export default async function MpiPage({ searchParams }: { searchParams: SearchPa
               auditHref={auditHref}
             />
           ) : (
-            <p className="m-0 rounded-card border border-line bg-card px-4 py-6 text-small text-ink-500">
+            <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-6 text-small text-ink-500">
               {p.pasangan
                 ? 'Pasangan tidak ditemukan.'
                 : 'Pilih pasangan di antrean. Pasangan baru muncul otomatis saat ada pendaftaran yang mirip dengan rekam medis lama.'}
@@ -109,7 +109,9 @@ function QueueItem({ item, selected }: { item: MatchItem; selected: boolean }) {
         aria-current={selected ? 'true' : undefined}
         className={cx(
           'flex flex-col gap-1 border-b border-l-[3px] border-b-line-soft px-4 py-3 text-ink-900 no-underline',
-          selected ? 'border-l-brand-600 bg-selected' : 'border-l-transparent bg-white',
+          selected
+            ? 'border-l-brand-600 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+            : 'border-l-transparent bg-transparent hover:bg-brand-50/60',
         )}
       >
         <span className="flex justify-between gap-2">

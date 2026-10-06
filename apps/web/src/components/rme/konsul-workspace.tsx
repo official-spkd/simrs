@@ -32,7 +32,8 @@ import { Feedback, type FeedbackMsg } from './feedback';
 const TONE = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const;
 const FIELD = 'rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit]';
 const SELECT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-small';
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
+const CARD =
+  'flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5';
 
 /**
  * K10 · Konsultasi antar-DPJP dan rawat bersama: kotak masuk konsul, kirim konsul (urgensi + pertanyaan klinis),
@@ -211,7 +212,7 @@ export function KonsulWorkspace({
                     {answering === c.id && (
                       <form
                         aria-label="Jawaban konsul"
-                        className="flex flex-col gap-2 rounded-control bg-brand-50 p-3"
+                        className="flex flex-col gap-2 rounded-control bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] p-3"
                         onSubmit={(e) => {
                           e.preventDefault();
                           answer(c);

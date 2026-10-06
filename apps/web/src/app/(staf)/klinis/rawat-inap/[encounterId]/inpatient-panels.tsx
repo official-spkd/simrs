@@ -4,6 +4,7 @@ import { type ClinicalResult, type EwsObservation, formatJam } from '@simrs/shar
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
+import { VALUE_FLAG_STYLE, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { useStoreAction } from '@/lib/demo/store/client';
 import {
   ewsRepeatLabel,
@@ -18,10 +19,17 @@ import { ObservationForm, type ObservationEntry } from './observation-form';
 
 const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   normal: { label: 'Normal', cls: 'text-success' },
-  tinggi: { label: 'Tinggi', cls: 'text-danger' },
-  rendah: { label: 'Rendah', cls: 'text-warning' },
-  kritis: { label: 'Kritis', cls: 'font-bold text-danger-strong' },
+  tinggi: { label: 'Tinggi', cls: VALUE_FLAG_STYLE.tinggi.text },
+  rendah: { label: 'Rendah', cls: VALUE_FLAG_STYLE.rendah.text },
+  kritis: { label: 'Kritis', cls: `font-bold ${VALUE_FLAG_STYLE.kritis.text}` },
 };
+
+/** Ubin EWS di atas ambang: sedang = kunyit (perhatian), tinggi = koral (kritis); selalu bertulisan level. */
+const EWS_TILE = {
+  sedang: 'border-kunyit-200 bg-kunyit-50',
+  tinggi: 'border-koral-200 bg-koral-50',
+} as const;
+const EWS_TEXT = { sedang: 'text-kunyit-800', tinggi: 'text-koral-800' } as const;
 
 /** Observasi tanda vital + skor EWS dewasa (mockup Ranap), dengan isian observasi baru (EWS dihitung server). */
 export function EwsPanel({
@@ -37,7 +45,7 @@ export function EwsPanel({
   return (
     <section
       aria-label="Observasi dan EWS"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0 text-body font-semibold">
@@ -51,7 +59,7 @@ export function EwsPanel({
         <table className="w-full min-w-[620px] border-collapse text-small">
           <caption className="sr-only">Observasi tanda vital dan skor EWS</caption>
           <thead>
-            <tr className="bg-subtle text-left text-caption text-ink-700">
+            <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
               {['Waktu', 'Suhu °C', 'Nadi', 'Napas', 'TD', 'SpO2', 'Oksigen', 'Kesadaran', 'EWS'].map((h) => (
                 <th key={h} scope="col" className="px-2.5 py-2 font-semibold">
                   {h}
@@ -122,24 +130,37 @@ export function MonitoringTiles({
   return (
     <ul aria-label="Pantauan terakhir" className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2">
       {last && lv && (
-        <li className="flex flex-col gap-0.5 rounded-card border border-line bg-white px-3.5 py-3">
+        <li
+          className={cx(
+            'flex flex-col gap-0.5 rounded-card border px-3.5 py-3 shadow-card',
+            lv.level === 'rendah' ? 'border-white/95 bg-white/90' : EWS_TILE[lv.level],
+          )}
+        >
           <span className="text-caption text-ink-500">EWS dewasa {formatJam(last.at)}</span>
-          <span className={cx('text-h2 font-bold', lv.level === 'rendah' ? 'text-success' : 'text-danger')}>
+          <span
+            className={cx('text-h2 font-bold', lv.level === 'rendah' ? 'text-success' : EWS_TEXT[lv.level])}
+          >
             {last.score} · {lv.level}
           </span>
           <span className="text-caption text-ink-700">{ewsRepeatLabel(lv.level)}</span>
         </li>
       )}
       {gds && (
-        <li className="flex flex-col gap-0.5 rounded-card border border-line bg-white px-3.5 py-3">
+        <li
+          className={cx(
+            'flex flex-col gap-0.5 rounded-card border px-3.5 py-3 shadow-card',
+            gds.flag === 'normal' ? 'border-white/95 bg-white/90' : VALUE_FLAG_STYLE[gds.flag].tile,
+          )}
+        >
           <span className="text-caption text-ink-500">GDS terakhir · {formatJam(gds.at)}</span>
           <span
-            className={cx('text-h2 font-bold', gds.flag === 'normal' ? 'text-ink-900' : FLAG[gds.flag].cls)}
+            className={cx(
+              'flex flex-wrap items-center gap-1.5 text-h2 font-bold',
+              gds.flag === 'normal' ? 'text-ink-900' : FLAG[gds.flag].cls,
+            )}
           >
             {gds.value}
-            {gds.flag !== 'normal' && (
-              <span className="ml-1.5 text-caption font-semibold">{FLAG[gds.flag].label}</span>
-            )}
+            {gds.flag !== 'normal' && <ValueFlagBadge flag={gds.flag} />}
           </span>
           {gds.history && <span className="text-caption text-ink-700">{gds.history}</span>}
         </li>
@@ -153,7 +174,7 @@ export function ResultsPanel({ results }: { results: ClinicalResult[] }) {
   return (
     <section
       aria-label="Hasil penunjang"
-      className="overflow-hidden rounded-card border border-line bg-white"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <h2 className="m-0 border-b border-line px-4 py-3 text-body font-semibold">Hasil penunjang terbaru</h2>
       <ul className="m-0 list-none p-0">
@@ -165,7 +186,13 @@ export function ResultsPanel({ results }: { results: ClinicalResult[] }) {
             <span className="font-mono text-caption text-ink-500">{formatTglJam(r.at)}</span>
             <span className="font-semibold">{r.name}</span>
             <span className="col-span-2 sm:col-span-1">{r.value}</span>
-            <span className={cx('text-caption font-semibold', FLAG[r.flag].cls)}>{FLAG[r.flag].label}</span>
+            {r.flag === 'normal' ? (
+              <span className={cx('text-caption font-semibold', FLAG[r.flag].cls)}>{FLAG[r.flag].label}</span>
+            ) : (
+              <span>
+                <ValueFlagBadge flag={r.flag} />
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -224,7 +251,7 @@ export function NursingPanel({
   return (
     <section
       aria-label="Asuhan keperawatan"
-      className="overflow-hidden rounded-card border border-line bg-white"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <h2 className="m-0 text-body font-semibold">Intervensi keperawatan · shift {shift}</h2>
@@ -238,7 +265,10 @@ export function NursingPanel({
             aria-valuetext={`${done} dari ${all.length} intervensi selesai`}
             className="h-2 w-[90px] overflow-hidden rounded-full bg-line-soft"
           >
-            <span className="block h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
+            <span
+              className="block h-full origin-left animate-grow rounded-full bg-domain-bar"
+              style={{ width: `${pct}%` }}
+            />
           </span>
           {done}/{all.length} intervensi
         </span>
@@ -300,7 +330,7 @@ export function SummaryPanel({
   return (
     <section
       aria-label="Ringkasan pasien"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <h2 className="m-0 text-body font-semibold">Ringkasan rawat inap</h2>
       <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-1.5 text-small sm:grid-cols-[180px_1fr]">
@@ -317,7 +347,7 @@ export function SummaryPanel({
             <Link
               key={l.href}
               href={l.href}
-              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
             >
               {l.label}
             </Link>

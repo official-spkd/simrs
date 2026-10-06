@@ -31,7 +31,10 @@ export function BedRequests({
 }) {
   const free = selectedBed?.status === 'siap' ? selectedBed : null;
   return (
-    <section aria-label="Permintaan bed" className="overflow-hidden rounded-card border border-line bg-white">
+    <section
+      aria-label="Permintaan bed"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
+    >
       <div className="flex justify-between border-b border-line px-4 py-3.5">
         <h2 className="m-0 text-body font-semibold">Permintaan bed</h2>
         <span className="text-caption text-ink-500">{requests.length} menunggu</span>
@@ -41,7 +44,7 @@ export function BedRequests({
           role="status"
           className={cx(
             'border-b border-line-soft px-4 py-2.5 text-[12.5px] font-semibold',
-            message.ok ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning',
+            message.ok ? 'bg-alert-success text-zamrud-800' : 'bg-alert-warning text-kunyit-800',
           )}
         >
           {message.text}
@@ -56,7 +59,7 @@ export function BedRequests({
               key={r.id}
               className={cx(
                 'flex flex-col gap-1.5 border-b border-line-soft px-4 py-3',
-                r.late ? 'bg-koral-50' : r.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
+                r.late ? 'bg-koral-50' : r.scenario ? 'bg-brand-50/40' : 'bg-transparent',
               )}
             >
               <span className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
@@ -88,7 +91,7 @@ export function BedRequests({
                       type="button"
                       onClick={() => onPickBed(c.bedCode)}
                       aria-label={`Tampilkan bed ${c.bedCode} di peta (${c.note})`}
-                      className="min-h-11 min-w-11 cursor-pointer rounded-full border border-brand-200 bg-white px-3 font-[inherit] text-caption font-semibold text-brand-700"
+                      className="min-h-11 min-w-11 cursor-pointer rounded-full border border-brand-200 bg-white/90 px-3 font-[inherit] text-caption font-semibold text-brand-800 hover:bg-brand-50/60"
                     >
                       {c.bedCode}
                     </button>

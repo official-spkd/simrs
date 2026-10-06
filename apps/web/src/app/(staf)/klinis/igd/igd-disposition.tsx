@@ -56,7 +56,7 @@ export function IgdDispositionPanel({
   return (
     <section
       aria-label="Disposisi pasien IGD"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <h2 className="m-0 text-body font-semibold">Disposisi · {item.patientName}</h2>
       <div className="flex flex-col gap-1.5 text-small">
@@ -79,7 +79,7 @@ export function IgdDispositionPanel({
       <div className="flex flex-col gap-2 border-t border-line-soft pt-2.5">
         <h3 className="m-0 text-small font-semibold">Rawat inap</h3>
         {view.placement ? (
-          <p className="m-0 rounded-control border border-success-border bg-success-bg px-3 py-2 text-small font-semibold text-success">
+          <p className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small font-semibold text-success">
             Bed {view.placement} · menunggu transfer ke bangsal
           </p>
         ) : view.bedRequested ? (
@@ -169,7 +169,7 @@ export function IgdDispositionPanel({
           ) : (
             <form
               aria-label="Pernyataan meninggal"
-              className="flex flex-col gap-2 rounded-control border border-danger-border bg-koral-50 p-3"
+              className="flex flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 run(

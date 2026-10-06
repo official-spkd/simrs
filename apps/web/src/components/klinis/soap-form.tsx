@@ -161,12 +161,12 @@ export function SoapForm({
           ? 'Panggil pasien ke ruang periksa lebih dulu.'
           : null;
   const textArea =
-    'min-h-[84px] rounded-control border border-line-strong bg-[#FCFDFD] px-3 py-2.5 font-[inherit] text-ink-900 read-only:bg-subtle';
+    'min-h-[84px] rounded-control border border-line-strong bg-white px-3 py-2.5 font-[inherit] text-ink-900 read-only:bg-subtle';
 
   return (
     <section
       aria-labelledby={`${ids}-title`}
-      className="flex flex-col gap-4 rounded-card border border-line bg-white p-4 shadow-card md:p-5"
+      className="flex flex-col gap-4 rounded-card border border-white/95 bg-white/90 shadow-card p-4 md:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 id={`${ids}-title`} className="m-0 text-[16px] font-semibold">
@@ -240,7 +240,7 @@ export function SoapForm({
       {signed && (
         <div
           role="status"
-          className="flex flex-col gap-2.5 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] px-4 py-3.5"
+          className="flex flex-col gap-2.5 rounded-[14px] border border-zamrud-200 bg-alert-success px-4 py-3.5"
         >
           <span className="font-bold text-success">✓ Kunjungan selesai · ditandatangani {signedAt}</span>
           <dl className="m-0 grid gap-2.5 text-small sm:grid-cols-3">

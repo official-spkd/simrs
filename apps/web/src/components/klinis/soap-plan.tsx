@@ -6,11 +6,11 @@ import Link from 'next/link';
 import type { ScenarioTasks } from './use-scenario-tasks';
 
 const TAG: Record<SoapPlanRow['kind'], string> = {
-  LAB: 'bg-info-bg text-info',
-  RAD: 'bg-info-bg text-info',
-  OBAT: 'bg-brand-50 text-brand-700',
-  TINDAKAN: 'bg-muted text-ink-700',
-  KONTROL: 'bg-muted text-ink-700',
+  LAB: 'bg-samudra-100 text-samudra-800',
+  RAD: 'bg-samudra-100 text-samudra-800',
+  OBAT: 'bg-brand-100 text-brand-800',
+  TINDAKAN: 'bg-batu-200 text-batu-800',
+  KONTROL: 'bg-batu-200 text-batu-800',
 };
 
 /** Pilihan order penunjang Tn. Suryo (tugas skenario `pemeriksaan-dokter.order`). */
@@ -27,7 +27,7 @@ function ScenarioOrderChoice({ tasks }: { tasks: ScenarioTasks }) {
             type="button"
             disabled={!tasks.enabled('order')}
             onClick={() => tasks.run('order', o.id)}
-            className="flex min-h-11 cursor-pointer flex-col items-start rounded-control border border-brand-800 bg-white px-3 py-1.5 text-left font-[inherit] text-brand-700 disabled:cursor-not-allowed disabled:border-line-strong disabled:text-ink-500"
+            className="flex min-h-11 cursor-pointer flex-col items-start rounded-control border border-brand-600 bg-white/90 px-3 py-1.5 text-left font-[inherit] text-brand-800 hover:bg-brand-50/60 disabled:cursor-not-allowed disabled:border-line-strong disabled:text-ink-500"
           >
             <span className="font-semibold">Kirim order: {o.label}</span>
             {o.sub && <span className="text-caption text-ink-500">{o.sub}</span>}
@@ -65,14 +65,14 @@ export function SoapPlan({
           <span className="flex flex-wrap gap-2">
             <Link
               href={cpoeHref}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
             >
               <Icon name="flask" size={15} />
               Order penunjang
             </Link>
             <Link
               href={cpoeHref}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
             >
               <Icon name="pill" size={15} />
               Tulis resep (CPOE)

@@ -24,7 +24,7 @@ export function IdentifyBlock({
   const idDone = taskDone(kd, 'id');
   const options = kd?.tasks.id?.options ?? [];
   return (
-    <div className="flex flex-col gap-2 rounded-control border border-info-border bg-info-bg p-3">
+    <div className="flex flex-col gap-2 rounded-control border border-samudra-200 bg-alert-info p-3">
       <span className="text-small font-semibold text-info">Identifikasi pasien sebelum triase</span>
       {idDone ? (
         <span role="status" className="text-small text-ink-700">

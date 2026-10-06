@@ -206,7 +206,7 @@ export function IgdWorkspace({
       {deaths.length > 0 && (
         <section
           aria-label="Disposisi meninggal hari ini"
-          className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-4 py-3.5"
+          className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
         >
           <h2 className="m-0 text-body font-semibold">Disposisi meninggal hari ini</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">

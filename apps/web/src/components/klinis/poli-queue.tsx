@@ -55,7 +55,7 @@ export function PoliQueue({
   return (
     <section
       aria-label="Antrean poli"
-      className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white shadow-card"
+      className="flex min-w-0 flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-col gap-2.5 border-b border-line px-4 pt-3.5 pb-3">
         <span className="flex items-baseline justify-between gap-2">
@@ -95,7 +95,9 @@ export function PoliQueue({
                 aria-current={on ? 'true' : undefined}
                 className={cx(
                   'flex min-h-11 gap-3 border-l-[3px] px-4 py-3 text-ink-900 no-underline',
-                  on ? 'bg-selected' : 'bg-white hover:bg-subtle',
+                  on
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'bg-transparent hover:bg-brand-50/60',
                   s === 'diperiksa' ? 'border-l-brand-600' : 'border-l-transparent',
                 )}
               >
@@ -103,7 +105,9 @@ export function PoliQueue({
                   aria-hidden="true"
                   className={cx(
                     'flex size-[34px] flex-none items-center justify-center rounded-full text-caption font-bold',
-                    on ? 'bg-brand-600 text-white' : 'bg-muted text-ink-700',
+                    on
+                      ? 'bg-nav-active text-white'
+                      : 'bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] text-brand-800',
                   )}
                 >
                   {initials(p.name)}

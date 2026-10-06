@@ -76,10 +76,10 @@ export const MATCH_TONE: Record<AttributeMatch, string> = {
 
 /** Latar baris tabel banding (mockup: mirip kuning pudar, beda merah pudar). */
 export const MATCH_ROW_BG: Record<AttributeMatch, string> = {
-  sama: 'bg-white',
+  sama: 'bg-transparent',
   mirip: 'bg-kunyit-50',
   beda: 'bg-koral-50',
-  kosong: 'bg-white',
+  kosong: 'bg-transparent',
 };
 
 /** Warna skor di antrean: ≥ 85 merah, ≥ 70 kuning, selebihnya abu (mockup). */

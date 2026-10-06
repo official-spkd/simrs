@@ -115,7 +115,7 @@ export function CpoeOrderRow({
                   type="button"
                   disabled={disabled}
                   onClick={() => onFix(f)}
-                  className="min-h-11 cursor-pointer rounded-control border border-brand-800 bg-white px-3 font-[inherit] text-small font-semibold text-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-11 cursor-pointer rounded-control border border-brand-600 bg-white/90 px-3 font-[inherit] text-small font-semibold text-brand-800 hover:bg-brand-50/60 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {f.label}
                 </button>

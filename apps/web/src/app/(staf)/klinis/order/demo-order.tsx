@@ -28,12 +28,12 @@ export async function DemoOrderIndex({ access }: { access: DemoScreenAccess }) {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Klinis / Order &amp; resep · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Order &amp; resep (CPOE)</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Order &amp; resep (CPOE)</h1>
       </header>
       <ScenarioBanner session={session} screen="order" />
       <section
         aria-label="Kunjungan hari ini"
-        className="overflow-hidden rounded-card border border-line bg-white shadow-card"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         <h2 className="m-0 border-b border-line px-4 py-3 text-[15px] font-semibold">Kunjungan hari ini</h2>
         <ul className="m-0 list-none p-0">
@@ -41,7 +41,7 @@ export async function DemoOrderIndex({ access }: { access: DemoScreenAccess }) {
             <li key={e.encounterId} className="border-b border-line-soft last:border-b-0">
               <Link
                 href={`/klinis/order/${e.encounterId}`}
-                className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline hover:bg-subtle"
+                className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline hover:bg-brand-50/60"
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-semibold">{e.name}</span>

@@ -88,7 +88,7 @@ export default async function CpptPage({ searchParams }: { searchParams: SearchP
             })}
           />
         ) : (
-          <p className="m-0 flex-[1_1_340px] rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-500">
+          <p className="m-0 flex-[1_1_340px] rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5 text-small text-ink-500">
             Serah terima SBAR antarshift berlaku untuk rawat inap dan kamar bersalin. Kunjungan rawat jalan
             ditutup dengan resume rawat jalan.
           </p>
