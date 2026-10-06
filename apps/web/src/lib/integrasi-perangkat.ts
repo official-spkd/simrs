@@ -55,7 +55,7 @@ export function parseOru(raw: string): ParseResult {
 export function redactPid(raw: string): string {
   return raw
     .split(/\r?\n|\r/)
-    .map((line) => (line.startsWith('PID|') ? 'PID|||•••' : line))
+    .map((line) => (line.trimStart().startsWith('PID|') ? 'PID|||•••' : line))
     .join('\n');
 }
 

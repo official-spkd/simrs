@@ -28,6 +28,7 @@ const SETTING = { 'rawat-jalan': 'Rawat jalan', 'rawat-inap': 'Rawat inap', igd:
 
 /** Rincian resep terpilih: banner pasien, kepala resep, item, lalu telaah atau penyiapan/serah terima. */
 export function FarmasiDetail({
+  role,
   tab,
   rx,
   local,
@@ -42,6 +43,7 @@ export function FarmasiDetail({
   handlers: h,
 }: {
   tab: 'telaah' | 'siap' | 'serah';
+  role: string | null;
   rx: PharmacyPrescription;
   local: RxLocal | undefined;
   blocking: readonly PharmacyCdsAlert[];
@@ -95,7 +97,7 @@ export function FarmasiDetail({
       )}
       {tab === 'telaah' ? (
         <>
-          <FarmasiCds rx={rx} local={local} busy={busy} onAction={h.onCds} />
+          <FarmasiCds role={role} rx={rx} local={local} busy={busy} onAction={h.onCds} />
           <FarmasiTelaah
             rxId={rx.id}
             blocking={blocking}

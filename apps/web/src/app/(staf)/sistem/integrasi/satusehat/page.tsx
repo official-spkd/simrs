@@ -29,7 +29,13 @@ export default async function SatusehatPage() {
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/satusehat" />
       <ScenarioBanner session={session} screen="satusehat" />
-      <SatusehatView visits={data.visits} userName={session.user.displayName} />
+      <SatusehatView
+        rev={data.rev}
+        visits={data.visits}
+        fixed={data.fixed}
+        audit={data.audit}
+        userName={session.user.displayName}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { IncomingOrders } from '@/components/penunjang/incoming-orders';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { LabWorkspace } from '@/components/penunjang/lab-workspace';
@@ -50,7 +51,9 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
         </ul>
       </header>
       <ScenarioBanner session={session} screen="lab" />
+      <IncomingOrders orders={data.incoming} destination="lab" />
       <LabWorkspace
+        role={session.role?.code ?? null}
         data={data}
         hook={hook}
         initialSelected={pilih}

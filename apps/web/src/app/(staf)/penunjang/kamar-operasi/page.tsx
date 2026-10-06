@@ -2,6 +2,7 @@ import { formatTanggal } from '@simrs/shared';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
+import { readDomain } from '@/lib/server/demo/state';
 import { getOrSchedule } from '@/lib/server/data/btn';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { OkClient } from './ok-client';
@@ -18,7 +19,18 @@ export default async function KamarOperasiPage({ searchParams }: { searchParams:
   const { session, screen, allowed } = await requireDemoScreen('ok');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
-  const { data, hook } = await getOrSchedule(session);
+  const base = await getOrSchedule(session);
+  const stored = await readDomain('penunjang');
+  const { hook } = base;
+  const data = {
+    ...base.data,
+    rooms: base.data.rooms.map((room) => ({
+      ...room,
+      cases: room.cases.map((c) =>
+        c.scenario && hook ? c : (stored.state.operations.find((x) => x.id === c.id) ?? c),
+      ),
+    })),
+  };
   const ids = data.rooms.flatMap((r) => r.cases.map((c) => c.id));
   const pick = typeof sp.pilih === 'string' && ids.includes(sp.pilih) ? sp.pilih : 'ok2-2';
   const stats = [
@@ -48,7 +60,16 @@ export default async function KamarOperasiPage({ searchParams }: { searchParams:
         </dl>
       </header>
       <ScenarioBanner session={session} screen="ok" />
-      <OkClient schedule={data} hook={hook} initialCaseId={pick} userName={session.user.displayName} />
+      <OkClient
+        schedule={data}
+        hook={hook}
+        rev={stored.rev}
+        stored={stored.state.ok}
+        anesthesia={stored.state.anesthesia}
+        consents={stored.state.consents}
+        initialCaseId={pick}
+        userName={session.user.displayName}
+      />
     </div>
   );
 }

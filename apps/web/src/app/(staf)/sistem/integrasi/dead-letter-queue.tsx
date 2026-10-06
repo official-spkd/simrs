@@ -3,7 +3,8 @@
 import { type DlqMessage, formatJam, type InterfaceId, OUTBOX_MAX_ATTEMPTS } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { GatedButton } from '@/components/gated-button';
 import { dlqNeedsFix, dlqPayloadText } from '@/lib/manajemen';
 import { resendDeadLettersAction } from './actions';
@@ -24,20 +25,20 @@ export function DeadLetterQueue({
   filterName,
   onClearFilter,
   holding,
-  onResent,
+  rev,
 }: {
   messages: DlqMessage[];
   names: Record<InterfaceId, string>;
   filterName: string | null;
   onClearFilter: () => void;
   holding: boolean;
-  onResent: (ids: string[]) => void;
+  rev: number;
 }) {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [sel, setSel] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [flash, setFlash] = useState<Flash | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const confirmRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -98,15 +99,14 @@ export function DeadLetterQueue({
   const send = () => {
     if (holding) return;
     const ids = chosen.map((m) => m.id);
-    startTransition(async () => {
-      const r = await resendDeadLettersAction({ ids });
-      closeConfirm();
-      setFlash({ tone: r.ok ? 'ok' : 'warn', text: r.message });
-      if (r.ok) {
-        setPicked((cur) => new Set([...cur].filter((id) => !r.ids.includes(id))));
-        onResent(r.ids);
-      }
-    });
+    save(
+      (rev) => resendDeadLettersAction({ ids }, rev),
+      (result) => {
+        closeConfirm();
+        setFlash({ tone: result.ok ? 'ok' : 'warn', text: result.message });
+        if (result.ok) setPicked((cur) => new Set([...cur].filter((id) => !result.ids.includes(id))));
+      },
+    );
   };
 
   const byTarget = [...new Set(chosen.map((m) => names[m.target]))];

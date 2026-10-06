@@ -2,10 +2,9 @@
 
 import { formatJam, formatTanggalWaktu, type OrCase } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
-import { useId, useState, useTransition } from 'react';
+import { useId, useState } from 'react';
 import { recordAnesthesiaAction } from '@/app/(staf)/penunjang/kamar-operasi/anestesi-actions';
-import { ANESTESIOLOG, demoAnesthesia } from '@/lib/demo/fixtures/penunjang-anestesi';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   AIRWAY_OPTIONS,
   ASA_CLASSES,
@@ -26,19 +25,21 @@ const labelCls = 'flex flex-col gap-1 text-small font-semibold text-ink-700';
  * S06 · Panel anestesi di layar Kamar operasi: asesmen pra-anestesi (ASA, puasa, jalan napas, rencana, persetujuan)
  * ber-TTE, gerbang induksi (asesmen + sign in WHO), dan monitoring intraoperasi. Tidak mengubah urutan daftar tilik.
  */
-export function OkAnesthesia({ c }: { c: OrCase }) {
+export function OkAnesthesia({
+  c,
+  record,
+  rev,
+}: {
+  c: OrCase;
+  record: AnesthesiaRecord | undefined;
+  rev: number;
+}) {
   const id = useId();
-  const [records, setRecords] = useState<Record<string, AnesthesiaRecord>>(() => demoAnesthesia());
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [lastCase, setLastCase] = useState(c.id);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const [v, setV] = useState({ systolic: '118', diastolic: '72', pulse: '80', spo2: '99', etco2: '35' });
-  if (lastCase !== c.id) {
-    setLastCase(c.id);
-    setMsg(null);
-  }
-  const rec: AnesthesiaRecord = records[c.id] ?? {
-    pre: {
+  const [draft, setDraft] = useState<PreAnesthesia>(
+    record?.pre ?? {
       asa: null,
       emergency: false,
       fastingSince: '',
@@ -47,22 +48,19 @@ export function OkAnesthesia({ c }: { c: OrCase }) {
       consent: false,
       signed: null,
     },
-    inductionAt: null,
-    vitals: [],
-  };
+  );
+  const rec: AnesthesiaRecord = record?.pre.signed
+    ? record
+    : { ...(record ?? { inductionAt: null, vitals: [] }), pre: draft };
   const signIn = !!c.checklist[0]?.confirmedAt;
   const block = inductionGate(rec, signIn);
   const finished = c.status === 'selesai';
-  const patch = (fn: (r: AnesthesiaRecord) => AnesthesiaRecord) =>
-    setRecords((cur) => ({ ...cur, [c.id]: fn(rec) }));
-  const setPre = (p: Partial<PreAnesthesia>) => patch((r) => ({ ...r, pre: { ...r.pre, ...p } }));
-
-  const call = (payload: Parameters<typeof recordAnesthesiaAction>[0], apply: (at: string) => void) =>
-    startTransition(async () => {
-      const r = await recordAnesthesiaAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply(demoNow().toISOString());
-    });
+  const setPre = (p: Partial<PreAnesthesia>) => setDraft((cur) => ({ ...cur, ...p }));
+  const call = (payload: Parameters<typeof recordAnesthesiaAction>[0]) =>
+    save(
+      (rev) => recordAnesthesiaAction(payload, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
   const missing = preAnesthesiaMissing(rec.pre);
   const vitals = {
@@ -97,10 +95,7 @@ export function OkAnesthesia({ c }: { c: OrCase }) {
           onSubmit={(e) => {
             e.preventDefault();
             const { asa, emergency, fastingSince, airway, plan, consent } = rec.pre;
-            call(
-              { kind: 'tte', caseId: c.id, pre: { asa, emergency, fastingSince, airway, plan, consent } },
-              (at) => setPre({ signed: { at, by: ANESTESIOLOG } }),
-            );
+            call({ kind: 'tte', caseId: c.id, pre: { asa, emergency, fastingSince, airway, plan, consent } });
           }}
         >
           <span className="text-small font-semibold">Asesmen pra-anestesi</span>
@@ -175,7 +170,7 @@ export function OkAnesthesia({ c }: { c: OrCase }) {
           </label>
           <span className="flex flex-wrap items-center gap-2">
             <Button type="submit" variant="primary" disabled={pending || missing.length > 0}>
-              Tandatangani asesmen (TTE {ANESTESIOLOG})
+              Tandatangani asesmen (TTE pengguna aktif)
             </Button>
             {missing.length > 0 && (
               <span className="text-caption text-ink-500">Belum lengkap: {missing.join(', ')}.</span>
@@ -189,10 +184,7 @@ export function OkAnesthesia({ c }: { c: OrCase }) {
           <Button
             disabled={pending || block !== null}
             onClick={() =>
-              call(
-                { kind: 'induksi', caseId: c.id, preSigned: !!rec.pre.signed, signInConfirmed: signIn },
-                (at) => patch((r) => ({ ...r, inductionAt: at })),
-              )
+              call({ kind: 'induksi', caseId: c.id, preSigned: !!rec.pre.signed, signInConfirmed: signIn })
             }
           >
             Catat induksi
@@ -245,9 +237,7 @@ export function OkAnesthesia({ c }: { c: OrCase }) {
               className="flex flex-wrap items-end gap-2"
               onSubmit={(e) => {
                 e.preventDefault();
-                call({ kind: 'ttv', caseId: c.id, vitals }, (at) =>
-                  patch((r) => ({ ...r, vitals: [...r.vitals, { ...vitals, at }] })),
-                );
+                call({ kind: 'ttv', caseId: c.id, vitals });
               }}
             >
               {(

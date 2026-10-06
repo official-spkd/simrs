@@ -2,12 +2,11 @@
 
 import { formatJam, formatTanggal, formatTanggalLahir } from '@simrs/shared';
 import { Alert, Button, Chip, cx, PatientBanner } from '@simrs/ui';
-import { useState, useTransition } from 'react';
-import { recordBloodAction } from '@/app/(staf)/penunjang/bank-darah/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useState } from 'react';
+import { recordBloodAction, checkBloodAction } from '@/app/(staf)/penunjang/bank-darah/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   type Abo,
-  applyBlood,
   type BloodAction,
   BLOOD_GATE_TEXT,
   type BloodRequest,
@@ -32,38 +31,39 @@ const STAGE_TONE = {
   selesai: 'success',
 } as const;
 
+export type BloodCheck = (input: Parameters<typeof checkBloodAction>[0]) => void;
 export type BloodRun = (action: BloodAction, onDone?: () => void) => void;
 
 /**
  * S08 · Bank darah: worklist permintaan → golongan darah → crossmatch → pengeluaran dengan cek ganda dua petugas →
- * pindai gelang + kantong di samping pasien → pemantauan reaksi transfusi. Keadaan lokal sesi (simulasi); setiap
- * langkah diperiksa gerbang lokal lalu Server Action.
+ * pindai gelang + kantong di samping pasien → pemantauan reaksi transfusi. Keadaan tersimpan di toko demo; setiap
+ * langkah diperiksa server dari sesi petugas.
  */
-export function BloodBankWorkspace({ data, userName }: { data: BloodBankData; userName: string }) {
-  const [state, setState] = useState<BloodState>(data.state);
+export function BloodBankWorkspace({ data, userName, userId }: { data: BloodBankData; userName: string; userId: string }) {
+  const state = data.state;
   const [selectedId, setSelectedId] = useState(data.state.requests[0]?.id ?? '');
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
   const sel = state.requests.find((r) => r.id === selectedId);
 
   const run: BloodRun = (action, onDone) => {
-    const local = applyBlood(state, action, { at: demoNow().toISOString(), by: userName, today: data.today });
-    if (!local.ok) return setMsg({ ok: false, text: local.message });
     const r = state.requests.find((x) => x.id === action.requestId);
     const group = { abo: r?.abo ?? 'O', rh: r?.rh ?? '+' };
     const payload =
       action.type === 'crossmatch' || action.type === 'keluarkan' ? { ...action, group } : action;
-    startTransition(async () => {
-      const server = await recordBloodAction(payload);
-      if (!server.ok) return setMsg({ ok: false, text: server.message });
-      setState(local.state);
-      setMsg({
-        ok: !local.reaction,
-        text: `${local.message} · ${server.at} (simulasi, tidak disimpan)`,
-      });
-      onDone?.();
-    });
+    save(
+      (rev) => recordBloodAction(payload, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) onDone?.();
+      },
+    );
   };
+  const check: BloodCheck = (input) =>
+    save(
+      (rev) => checkBloodAction(input, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.6fr)]">
@@ -122,6 +122,9 @@ export function BloodBankWorkspace({ data, userName }: { data: BloodBankData; us
             today={data.today}
             busy={pending}
             run={run}
+            check={check}
+            checks={data.checks}
+            userId={userId}
             userName={userName}
             msg={msg}
           />
@@ -140,6 +143,9 @@ function RequestDetail({
   busy,
   run,
   userName,
+  userId,
+  check,
+  checks,
   msg,
 }: {
   r: BloodRequest;
@@ -148,6 +154,9 @@ function RequestDetail({
   busy: boolean;
   run: BloodRun;
   userName: string;
+  userId: string;
+  check: BloodCheck;
+  checks: BloodBankData['checks'];
   msg: { ok: boolean; text: string } | null;
 }) {
   const st = stageOf(r);
@@ -245,11 +254,23 @@ function RequestDetail({
       {(st === 'crossmatch' || st === 'pengeluaran') && (
         <CrossmatchPanel r={r} units={state.units} today={today} busy={busy} run={run} okCount={okCount} />
       )}
-      {st === 'pengeluaran' && (
-        <IssuePanel r={r} units={state.units} busy={busy} run={run} userName={userName} />
-      )}
-      {st === 'transfusi' && !r.transfusion && (
-        <BedsidePanel r={r} units={state.units} busy={busy} run={run} />
+      {r.issued.length < r.units &&
+        r.crossmatches.some(
+          (c) => c.result === 'kompatibel' && !r.issued.some((i) => i.unitId === c.unitId),
+        ) && (
+          <IssuePanel
+            r={r}
+            units={state.units}
+            busy={busy}
+            run={run}
+            userId={userId}
+            userName={userName}
+            check={check}
+            checks={checks}
+          />
+        )}
+      {st === 'transfusi' && (!r.transfusion || !!r.transfusion.finishedAt) && (
+        <BedsidePanel r={r} units={state.units} busy={busy} run={run} check={check} checks={checks} />
       )}
       {r.transfusion && <MonitorPanel r={r} units={state.units} busy={busy} run={run} />}
     </>

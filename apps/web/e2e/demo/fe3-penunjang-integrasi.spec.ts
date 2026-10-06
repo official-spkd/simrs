@@ -1,3 +1,4 @@
+import { loginRole, sharedAccount, resetShared, switchRole } from './penunjang-support';
 import { expect, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
 
@@ -68,15 +69,15 @@ test.describe('S05 · depo dan stok farmasi', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'wajib alasan' })).toBeVisible();
     await form.getByRole('checkbox', { name: /Pilih batch lain/ }).uncheck();
     await form.getByRole('button', { name: 'Keluarkan' }).click();
-    await expect(page.getByRole('status').filter({ hasText: '10 dari CFX2510' })).toContainText(
-      '(simulasi, tidak disimpan)',
+    await expect(page.getByRole('status').filter({ hasText: 'tersimpan atas nama' })).toContainText(
+      'tersimpan atas nama Pengguna E2E Fiktif',
     );
 
     await page.getByRole('tab', { name: 'Stok & kedaluwarsa' }).click();
     const row = page.getByRole('row', { name: /OMZ2509/ });
     await expect(row).toContainText('Kedaluwarsa');
     await row.getByRole('button', { name: 'Pindahkan ke karantina' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'karantina' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'tersimpan atas nama' })).toBeVisible();
     await expect(page.getByRole('row', { name: /OMZ2509/ })).toHaveCount(0);
     await page.getByRole('tab', { name: 'Kartu stok' }).click();
     await expect(page.getByRole('row', { name: /Karantina kedaluwarsa/ })).toBeVisible();
@@ -87,8 +88,11 @@ test.describe('S08 · bank darah', () => {
   test('crossmatch → cek ganda dua petugas → pindai gelang + kantong → reaksi menghentikan transfusi', async ({
     page,
   }) => {
-    const analis = await createAccount({ roles: ['analis_lab'] });
-    await loginAs(page, analis, '/penunjang/bank-darah');
+    const analis = await sharedAccount('analis_lab', 'Analis Darah Fiktif');
+    const second = await sharedAccount('perawat', 'Perawat Darah Fiktif');
+    await resetShared(page, analis);
+    await switchRole(page, 'Analis laboratorium');
+    await page.goto('/penunjang/bank-darah');
     await expect(page.getByRole('heading', { name: /Bank darah/, level: 1 })).toBeVisible();
     await page
       .getByRole('region', { name: 'Permintaan darah' })
@@ -106,18 +110,29 @@ test.describe('S08 · bank darah', () => {
       .click();
     await expect(cross).toContainText('2 dari 2 kantong kompatibel');
 
-    // Cek ganda: tanpa butir lengkap dan petugas kedua → ditolak.
+    // Dua sesi nyata wajib. Nama petugas kedua tidak lagi dapat diisi bebas.
     const issue = detail.getByRole('form', { name: 'Cek ganda pengeluaran kantong' });
-    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
-    await expect(detail.getByRole('alert').filter({ hasText: 'dua petugas' })).toBeVisible();
-    await issue.getByLabel('Petugas 2 (penerima dari ruangan)').fill('Bd. Wina Kartikasari, S.Tr.Keb');
-    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
-    await expect(detail.getByRole('alert').filter({ hasText: 'butir cek ganda' })).toBeVisible();
+    await expect(issue.getByRole('button', { name: 'Keluarkan kantong' })).toBeDisabled();
     for (const box of await issue.getByRole('checkbox').all()) await box.check();
+    await issue.getByRole('button', { name: 'Catat pemeriksaan saya' }).click();
+    await expect(issue).toContainText('Analis Darah Fiktif');
+    await expect(issue.getByRole('button', { name: 'Keluarkan kantong' })).toBeDisabled();
+    const otherContext = await page.context().browser()!.newContext({ baseURL: test.info().project.use.baseURL as string });
+    const other = await otherContext.newPage();
+    try {
+      await loginRole(other, second, 'Perawat');
+      await other.goto('/penunjang/bank-darah');
+      await other.getByRole('region', { name: 'Permintaan darah' }).getByRole('button', { name: /Ny\. Anisa Rahmadani/ }).click();
+      const otherIssue = other.getByRole('form', { name: 'Cek ganda pengeluaran kantong' });
+      for (const box of await otherIssue.getByRole('checkbox').all()) await box.check();
+      await otherIssue.getByRole('button', { name: 'Catat pemeriksaan saya' }).click();
+      await expect(otherIssue).toContainText('Analis Darah Fiktif + Perawat Darah Fiktif');
+    } finally { await otherContext.close(); }
+    await page.reload();
+    await page.getByRole('region', { name: 'Permintaan darah' }).getByRole('button', { name: /Ny\. Anisa Rahmadani/ }).click();
+    await expect(issue).toContainText('Analis Darah Fiktif + Perawat Darah Fiktif');
     await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
-    await expect(
-      detail.getByRole('status').filter({ hasText: 'dikeluarkan setelah cek ganda' }),
-    ).toBeVisible();
+    await expect(detail.getByRole('form', { name: 'Verifikasi di samping pasien' })).toBeVisible();
 
     // Di samping pasien: gelang salah memblokir; pindai benar → transfusi berjalan.
     const bed = detail.getByRole('form', { name: 'Verifikasi di samping pasien' });
@@ -164,7 +179,7 @@ test.describe('S07 · gizi', () => {
       .filter({ hasText: 'An. Raka Pratama' })
       .getByRole('button', { name: 'Simpan skrining' })
       .click();
-    await expect(page.getByRole('status').filter({ hasText: 'skor MST 0' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'tersimpan atas nama' })).toBeVisible();
     await page.getByRole('tab', { name: /Order diet/ }).click();
     await page
       .getByRole('list', { name: 'Order diet dari DPJP' })
@@ -172,7 +187,7 @@ test.describe('S07 · gizi', () => {
       .filter({ hasText: 'An. Raka Pratama' })
       .getByRole('button', { name: 'Verifikasi order' })
       .click();
-    await expect(page.getByRole('status').filter({ hasText: 'diverifikasi' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'tersimpan atas nama' })).toBeVisible();
     await page.getByRole('tab', { name: 'Distribusi makan' }).click();
     await expect(
       page
@@ -188,7 +203,7 @@ test.describe('S02 · mikrobiologi dan PA', () => {
   test('kultur bertahap sampai uji kepekaan lengkap dan TTE; laporan PA terkunci setelah TTE', async ({
     page,
   }) => {
-    const analis = await createAccount({ roles: ['analis_lab'] });
+    const analis = await createAccount({ roles: ['dokter'] });
     await loginAs(page, analis, '/penunjang/mikrobiologi');
     await expect(page.getByRole('heading', { name: /Mikrobiologi/, level: 1 })).toBeVisible();
     const detail = page.getByRole('region', { name: 'Detail kultur' });
@@ -244,7 +259,7 @@ test.describe('S10 · diagnostik lain', () => {
     await expect(detail.getByRole('alert')).toContainText('Semua isian ekspertise wajib diisi');
     for (const box of await form.getByRole('textbox').all()) await box.fill('Dalam batas normal');
     await form.getByRole('button', { name: /Simpan dan tandatangani/ }).click();
-    await expect(detail.getByText(/Ekspertise ditandatangani dr\. Bagus Santoso/)).toBeVisible();
+    await expect(detail.getByText(/Ekspertise ditandatangani Pengguna E2E Fiktif/)).toBeVisible();
   });
 });
 
@@ -294,12 +309,12 @@ test.describe('I02 · SATUSEHAT', () => {
       .getByRole('group', { name: 'Konfirmasi kirim ulang' })
       .getByRole('button', { name: 'Ya, kirim ulang' })
       .click();
-    await expect(page.getByRole('status').filter({ hasText: '201 Created' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Perubahan demo tersimpan' })).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Kunjungan' }).getByRole('button', { name: /Ny\. Fransiska/ }),
     ).toContainText('4/4 terkirim');
     await expect(page.getByRole('region', { name: 'Jejak audit integrasi' })).toContainText(
-      'dilepas berurutan',
+      'Kirim ulang Encounter',
     );
   });
 });
@@ -315,7 +330,7 @@ test.describe('I03 · konektor BPJS', () => {
     await expect(booking).toContainText('task 4 harus terkirim lebih dulu');
     await booking.getByRole('button', { name: 'Kirim ulang berurutan' }).click();
     await booking.getByRole('button', { name: 'Ya, kirim berurutan' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Task 4 lalu 5' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Perubahan demo tersimpan' })).toBeVisible();
     await expect(booking.getByRole('button', { name: 'Kirim ulang berurutan' })).toHaveCount(0);
 
     const downtime = page.getByRole('region', { name: 'Mode downtime BPJS' });
@@ -328,7 +343,7 @@ test.describe('I03 · konektor BPJS', () => {
     await downtime.getByRole('button', { name: /Catat pendaftaran BPJS/ }).click();
     await downtime.getByRole('button', { name: 'Pulihkan & sinkronkan' }).click();
     await expect(
-      page.getByRole('status').filter({ hasText: '1 transaksi tertunda disinkronkan' }),
+      downtime.getByText('1 transaksi tertunda disinkronkan', { exact: true }),
     ).toBeVisible();
   });
 });
