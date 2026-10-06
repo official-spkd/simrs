@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { clientInfo } from '@/lib/client-info';
-import { contentSecurityPolicy, NONCE_HEADER, newNonce } from '@/lib/csp';
+import { contentSecurityPolicy, NONCE_HEADER, newNonce, responsePolicy } from '@/lib/csp';
 import { deviceRouteKind, enrolUrl } from '@/lib/perangkat';
 import { PATH_HEADER } from '@/lib/request-path';
 import { loginUrl } from '@/lib/safe-path';
@@ -54,7 +54,7 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
   headers.set(NONCE_HEADER, nonce);
   headers.set('content-security-policy', csp);
   const res = await sessionProxy(req, headers);
-  res.headers.set('Content-Security-Policy', csp);
+  res.headers.set('Content-Security-Policy', responsePolicy(req.nextUrl.pathname, csp));
   return res;
 }
 
@@ -107,6 +107,11 @@ async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextRes
   return NextResponse.next({ request: { headers } });
 }
 
+/**
+ * Hanya aset build Next yang dikecualikan. Pengecualian per ekstensi (`.png`, `.svg`, …) dulu juga melewatkan HALAMAN
+ * yang path-nya berakhiran ekstensi itu (mis. `/verifikasi/kode.png`, 404 `/x.png`) sehingga dirender tanpa CSP;
+ * aplikasi ini tidak punya folder `public`, jadi tidak ada aset statis lain yang perlu dikecualikan.
+ */
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
 };

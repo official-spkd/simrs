@@ -6,7 +6,7 @@ import {
   runAfterCommitHooks,
   type TenantRequestContext,
 } from '../common/request-context';
-import { writeAudit } from './audit-writer';
+import { auditMetaOf, writeAudit } from './audit-writer';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -100,21 +100,7 @@ export class TenantDb {
       const inner: TenantRequestContext = { ...outer, tx, audit: [], afterCommit };
       return requestContext.run(inner, async () => {
         const value = await fn();
-        await writeAudit(
-          tx,
-          outer.tenantId,
-          {
-            actorUserId: outer.actor.userId,
-            actorRole: outer.actor.role,
-            ip: outer.ip,
-            userAgent: outer.userAgent,
-            requestId: outer.requestId,
-            device: outer.actor.devicePrincipal
-              ? { id: outer.actor.devicePrincipal.id, kind: outer.actor.devicePrincipal.kind }
-              : null,
-          },
-          inner.audit,
-        );
+        await writeAudit(tx, outer.tenantId, auditMetaOf(outer), inner.audit);
         return value;
       });
     });

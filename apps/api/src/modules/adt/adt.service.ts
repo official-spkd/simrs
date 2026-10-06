@@ -122,6 +122,7 @@ export class AdtService {
     if (req.status !== 'menunggu' && req.status !== 'dialokasi') {
       throw new AppError('CONFLICT', 'Permintaan bed sudah ditutup', 409);
     }
+    await this.assertRequestScope(req, { openRequestAnyUnit: true });
     const bed = await this.beds.bedByLocation(locationId);
     await this.assertUnitScope(bed.unitId);
     if (bed.status !== 'siap') throw clinicalError('BED_NOT_AVAILABLE');
@@ -132,10 +133,7 @@ export class AdtService {
     if (location.unit.kind !== 'rawat_inap') throw invalid('Bed yang dialokasikan harus di unit rawat inap');
     // Alokasi ulang: bed lama kembali siap.
     if (req.allocatedLocationId && req.allocatedLocationId !== locationId) {
-      const old = await this.beds.bedByLocation(req.allocatedLocationId);
-      if (old.status === 'dipesan' && old.encounterId === req.encounterId) {
-        await this.beds.setStatus(old, 'siap', { encounterId: null });
-      }
+      await this.releaseReservation(req.allocatedLocationId, req.encounterId);
     }
     await this.beds.setStatus(bed, 'dipesan', { encounterId: req.encounterId });
     await tx.bedRequest.update({
@@ -164,12 +162,8 @@ export class AdtService {
     if (req.status !== 'menunggu' && req.status !== 'dialokasi') {
       throw new AppError('CONFLICT', 'Permintaan bed sudah ditutup', 409);
     }
-    if (req.allocatedLocationId) {
-      const bed = await this.beds.bedByLocation(req.allocatedLocationId);
-      if (bed.status === 'dipesan' && bed.encounterId === req.encounterId) {
-        await this.beds.setStatus(bed, 'siap', { encounterId: null });
-      }
-    }
+    await this.assertRequestScope(req, { openRequestAnyUnit: false });
+    if (req.allocatedLocationId) await this.releaseReservation(req.allocatedLocationId, req.encounterId);
     await tx.bedRequest.update({
       where: { id: req.id },
       data: { status: 'batal', closedAt: new Date(), closedBy: this.db.actorUserId(), closeReason: reason },
@@ -191,6 +185,7 @@ export class AdtService {
 
   async admit(input: AdmitInput): Promise<AdmissionResultApi> {
     const tx = this.db.tx();
+    await this.lockEncounter(input.encounterId);
     const enc = await tx.encounter.findUnique({ where: { id: input.encounterId } });
     if (!enc || enc.encounterClass !== 'IMP')
       throw new AppError('NOT_FOUND', 'Admisi rawat inap tidak ditemukan', 404);
@@ -203,6 +198,7 @@ export class AdtService {
       select: { unit: { select: { id: true, kind: true } } },
     });
     if (location.unit.kind !== 'rawat_inap') throw invalid('Bed admisi harus di unit rawat inap');
+    if (enc.sourceEncounterId) await this.lockEncounter(enc.sourceEncounterId);
     const reservedForMe =
       bed.status === 'dipesan' &&
       bed.encounterId !== null &&
@@ -234,13 +230,11 @@ export class AdtService {
       },
     });
     await this.statusHistory(enc.id, 'planned', 'in_progress');
-    await tx.bedRequest.updateMany({
-      where: {
-        encounterId: { in: [enc.id, ...(enc.sourceEncounterId ? [enc.sourceEncounterId] : [])] },
-        status: { in: ['menunggu', 'dialokasi'] },
-      },
-      data: { status: 'selesai', closedAt: now, closedBy: this.db.actorUserId() },
-    });
+    await this.closeOpenRequests(
+      [enc.id, ...(enc.sourceEncounterId ? [enc.sourceEncounterId] : [])],
+      { placedAt: input.locationId },
+      now,
+    );
     const wristbandCode = await this.issueWristband(enc.id, enc.patientId, null);
 
     // DPJP admisi masuk tim perawatan (relasi akses, ADR-0031).
@@ -320,6 +314,7 @@ export class AdtService {
 
   async transfer(input: TransferInput) {
     const tx = this.db.tx();
+    await this.lockEncounter(input.encounterId);
     const enc = await tx.encounter.findUnique({ where: { id: input.encounterId } });
     if (!enc || enc.encounterClass !== 'IMP' || enc.status !== 'in_progress') {
       throw stateInvalid('Transfer hanya untuk pasien rawat inap yang sedang dirawat');
@@ -333,12 +328,15 @@ export class AdtService {
     if (location.unit.kind !== 'rawat_inap') throw invalid('Bed tujuan harus di unit rawat inap');
     const reservedForMe = target.status === 'dipesan' && target.encounterId === enc.id;
     if (target.status !== 'siap' && !reservedForMe) throw clinicalError('BED_NOT_AVAILABLE');
+    // Lingkup unit: bed `siap` di unit lain hanya lewat permintaan + alokasi oleh unit tujuan (bed `dipesan`).
+    if (!reservedForMe) await this.assertUnitScope(target.unitId);
     const now = new Date();
     const from = await this.beds.endOpenAssignment(enc.id, 'transfer', now);
     if (from === input.locationId) throw invalid('Bed tujuan sama dengan bed sekarang');
     const assignmentId = await this.beds.assign(enc.id, enc.patientId, input.locationId, now);
     await this.beds.setStatus(target, 'terisi', { encounterId: enc.id });
     if (from) await this.beds.vacate(from);
+    await this.closeOpenRequests([enc.id], { placedAt: input.locationId }, now);
     await tx.encounter.update({
       where: { id: enc.id },
       data: { unitId: location.unit.id, updatedBy: this.db.actorUserId() },
@@ -374,6 +372,7 @@ export class AdtService {
 
   async discharge(input: DischargeInput) {
     const tx = this.db.tx();
+    await this.lockEncounter(input.encounterId);
     const enc = await tx.encounter.findUnique({ where: { id: input.encounterId } });
     if (!enc || (enc.encounterClass !== 'IMP' && enc.encounterClass !== 'EMER')) {
       throw new AppError('NOT_FOUND', 'Kunjungan rawat inap/IGD tidak ditemukan', 404);
@@ -414,6 +413,20 @@ export class AdtService {
       details: { disposition: input.disposition },
     });
     return { encounterId: enc.id, disposition: input.disposition, bedId };
+  }
+
+  /**
+   * Kunjungan dibatalkan pendaftaran (IGD `arrived` salah daftar, admisi `planned`; baris kunjungan sudah dikunci
+   * pemanggil): penempatan bed IGD berakhir (bed → kotor), bed pesanan kembali siap, permintaan bed batal, gelang batal.
+   */
+  async releaseCancelledEncounter(encounterId: string, at: Date): Promise<void> {
+    const bedId = await this.beds.endOpenAssignment(encounterId, 'batal', at);
+    if (bedId) await this.beds.vacate(bedId);
+    await this.closeOpenRequests([encounterId], { cancelReason: 'Kunjungan dibatalkan' }, at);
+    await this.db.tx().patientWristband.updateMany({
+      where: { encounterId, voidedAt: null },
+      data: { voidedAt: at, voidedBy: this.db.actorUserId(), voidReason: 'Kunjungan dibatalkan' },
+    });
   }
 
   // ----------------------------------------------------------------------------------------------------------
@@ -510,6 +523,9 @@ export class AdtService {
       at,
     );
     if (bedId) await this.beds.vacate(bedId);
+    // Permintaan bed yang belum ditempati (mis. pasien IGD pulang/meninggal saat menunggu bed): batal, bed pesanan
+    // kembali siap. Admisi dari IGD sudah menutupnya sebagai `selesai` sebelum langkah ini.
+    await this.closeOpenRequests([encounterId], { cancelReason: 'Pasien keluar sebelum menempati bed' }, at);
     await tx.patientWristband.updateMany({
       where: { encounterId, voidedAt: null },
       data: {
@@ -541,6 +557,72 @@ export class AdtService {
     return bedId;
   }
 
+  /**
+   * Kunci baris kunjungan sampai commit: langkah ADT bersamaan pada kunjungan yang sama (klik ganda pulang, admisi,
+   * transfer) berurutan, dan yang kedua membaca status terbaru (→ 409 `ENCOUNTER_STATE_INVALID` / `BED_NOT_AVAILABLE`),
+   * bukan galat trigger 500 atau event ganda.
+   */
+  private async lockEncounter(id: string): Promise<void> {
+    await this.db.tx().$queryRaw`SELECT id FROM encounters WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+
+  /** Bed yang masih `dipesan` untuk kunjungan ini kembali `siap`. */
+  private async releaseReservation(locationId: string, encounterId: string): Promise<void> {
+    const bed = await this.beds.bedByLocation(locationId);
+    if (bed.status === 'dipesan' && bed.encounterId === encounterId) {
+      await this.beds.setStatus(bed, 'siap', { encounterId: null });
+    }
+  }
+
+  /**
+   * Tutup permintaan bed terbuka kunjungan. `placedAt` = bed yang ditempati pasien → `selesai` di bed itu; bed lain
+   * yang sempat dipesan untuknya dilepas (tanpa ini bed tersangkut `dipesan`: papan tidak punya transisi manual keluar
+   * dari `dipesan`). `cancelReason` → `batal` beralasan, bed pesanan dilepas.
+   */
+  private async closeOpenRequests(
+    encounterIds: string[],
+    outcome: { placedAt: string } | { cancelReason: string },
+    at: Date,
+  ): Promise<void> {
+    const tx = this.db.tx();
+    const actor = this.db.actorUserId();
+    const open = await tx.bedRequest.findMany({
+      where: { encounterId: { in: encounterIds }, status: { in: ['menunggu', 'dialokasi'] } },
+    });
+    for (const req of open) {
+      const placedAt = 'placedAt' in outcome ? outcome.placedAt : null;
+      if (req.allocatedLocationId && req.allocatedLocationId !== placedAt) {
+        await this.releaseReservation(req.allocatedLocationId, req.encounterId);
+      }
+      await tx.bedRequest.update({
+        where: { id: req.id },
+        data:
+          placedAt === null
+            ? {
+                status: 'batal',
+                closedAt: at,
+                closedBy: actor,
+                closeReason: (outcome as { cancelReason: string }).cancelReason,
+              }
+            : {
+                status: 'selesai',
+                closedAt: at,
+                closedBy: actor,
+                ...(req.allocatedLocationId === placedAt
+                  ? {}
+                  : { allocatedLocationId: placedAt, allocatedAt: at, allocatedBy: actor }),
+              },
+      });
+      this.db.audit({
+        action: 'update',
+        resourceType: 'bed_request',
+        resourceId: req.id,
+        patientId: req.patientId,
+        details: { status: placedAt === null ? 'batal' : 'selesai', bed: placedAt },
+      });
+    }
+  }
+
   private statusHistory(encounterId: string, from: string | null, to: string) {
     return this.db.tx().encounterStatusHistory.create({
       data: {
@@ -569,6 +651,26 @@ export class AdtService {
     if (!enc) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
     if (!(ACTIVE as readonly string[]).includes(enc.status)) throw stateInvalid('Kunjungan tidak aktif');
     return enc;
+  }
+
+  /**
+   * Permintaan bed bagi `bed.write` berlingkup unit (ADR-0031): boleh oleh unit TUJUAN (unit bed yang sudah dipesan,
+   * atau unit yang diminta selama belum dialokasi) atau oleh pihak peminta yang berhak atas pasiennya. Tanpa ini
+   * perawat bangsal mana pun bisa membatalkan/memindah pesanan bed pasien unit lain dan membebaskan bed bangsal lain.
+   * `openRequestAnyUnit`: permintaan tanpa unit yang belum dialokasi boleh diambil bangsal mana pun (alokasi).
+   */
+  private async assertRequestScope(
+    req: { patientId: string; unitId: string | null; allocatedLocationId: string | null },
+    opts: { openRequestAnyUnit: boolean },
+  ): Promise<void> {
+    if (this.db.permissionScope() === 'all') return;
+    const myUnit = this.db.actor().unitId;
+    const targetUnit = req.allocatedLocationId
+      ? (await this.beds.bedByLocation(req.allocatedLocationId)).unitId
+      : req.unitId;
+    if (myUnit && targetUnit === myUnit) return;
+    if (opts.openRequestAnyUnit && !req.allocatedLocationId && req.unitId === null) return;
+    await this.access.assert(req.patientId);
   }
 
   /** `bed.write` berlingkup unit: hanya bed di unit penugasan (ADR-0031). */

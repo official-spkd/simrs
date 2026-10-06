@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createAccount, loginAs, submitPassword, totpFor, typeCode } from './support/accounts';
+import { clickUntilShown } from './support/hydration';
 
 /** Cari pengguna di daftar lalu buka panel detailnya. */
 async function openUser(page: Page, username: string) {
@@ -65,8 +66,10 @@ test.describe('layar Akses (/sistem/akses)', () => {
     await loginAs(page, admin, '/sistem/akses');
     await openUser(page, staff.username);
 
-    await page.getByRole('button', { name: 'Reset kata sandi' }).click();
-    await expect(page.getByText(/Semua sesi aktifnya dicabut/)).toBeVisible();
+    await clickUntilShown(
+      page.getByRole('button', { name: 'Reset kata sandi' }),
+      page.getByText(/Semua sesi aktifnya dicabut/),
+    );
     await page.getByRole('button', { name: 'Ya, lanjutkan' }).click();
     await expect(page.getByTestId('sandi-sementara')).toHaveText(/^.{16}$/);
 
@@ -96,8 +99,10 @@ test.describe('layar Akses (/sistem/akses)', () => {
     await row.getByRole('link', { name: new RegExp(staff.username) }).click();
     await expect(page.getByText(/belum punya kata sandi, jadi belum bisa masuk/)).toBeVisible();
 
-    await page.getByRole('button', { name: 'Reset kata sandi' }).click();
-    await expect(page.getByText(/Aktifkan akun Ns\. Dewi Seed, S\.Kep dengan sandi sementara/)).toBeVisible();
+    await clickUntilShown(
+      page.getByRole('button', { name: 'Reset kata sandi' }),
+      page.getByText(/Aktifkan akun Ns\. Dewi Seed, S\.Kep dengan sandi sementara/),
+    );
     await page.getByRole('button', { name: 'Ya, lanjutkan' }).click();
     await expect(page.getByTestId('sandi-sementara')).toHaveText(/^.{16}$/);
     await page.reload();

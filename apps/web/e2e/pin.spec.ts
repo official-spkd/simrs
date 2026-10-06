@@ -8,6 +8,7 @@ import {
   totpFor,
   typeCode,
 } from './support/accounts';
+import { clickUntilShown } from './support/hydration';
 import { E2E_WEB_PORT } from './support/slot';
 
 /** P02 · PIN masuk cepat per perangkat terdaftar (docs/05 §1, ADR-0024) lewat web. */
@@ -161,8 +162,10 @@ test.describe('PIN masuk cepat (P02)', () => {
     await expect(list.getByText('PIN masuk cepat · Komputer nurse station E2E')).toBeVisible();
     await expect(list.getByText('Perangkat tepercaya · Chrome di Windows')).toBeVisible();
 
-    await page.getByRole('button', { name: /^Cabut PIN Komputer nurse station E2E/ }).click();
-    await expect(page.getByText(/Sesi PIN dari perangkat itu langsung berakhir/)).toBeVisible();
+    await clickUntilShown(
+      page.getByRole('button', { name: /^Cabut PIN Komputer nurse station E2E/ }),
+      page.getByText(/Sesi PIN dari perangkat itu langsung berakhir/),
+    );
     await page.getByRole('button', { name: 'Cabut PIN', exact: true }).click();
     // Perangkat yang dicabut hilang dari daftar (halaman dimuat ulang dari API).
     await expect(list.getByText('PIN masuk cepat · Komputer nurse station E2E')).toHaveCount(0);

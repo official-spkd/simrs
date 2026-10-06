@@ -15,6 +15,8 @@ import { FRONT_OFFICE_OPERATIONS } from './front-office-outbox';
 import { newId } from './ids';
 import {
   allergyInputSchema,
+  CLINICAL_DRAFT_MAX_BYTES,
+  clinicalDraftInputSchema,
   clinicalEntryMetaSchema,
   clinicalRevisionSchema,
   conditionInputSchema,
@@ -373,5 +375,15 @@ describe('registri bersama fase 3', () => {
     expect(clinicalError('TRIAGE_REASON_REQUIRED').status).toBe(422);
     expect(clinicalError('PRIMARY_DIAGNOSIS_EXISTS').status).toBe(409);
     expect(clinicalError('PRIMARY_DPJP_EXISTS').status).toBe(409);
+  });
+});
+
+describe('draf klinis: batas ukuran dalam byte UTF-8', () => {
+  it('teks multi-byte dihitung per byte, bukan per karakter', () => {
+    const ascii = 'a'.repeat(CLINICAL_DRAFT_MAX_BYTES - 20);
+    expect(clinicalDraftInputSchema.safeParse({ content: { s: ascii } }).success).toBe(true);
+    // Karakter 3 byte: jumlah karakter di bawah batas, ukuran byte jauh di atasnya.
+    const multi = '\u2603'.repeat(Math.floor(CLINICAL_DRAFT_MAX_BYTES / 2));
+    expect(clinicalDraftInputSchema.safeParse({ content: { s: multi } }).success).toBe(false);
   });
 });

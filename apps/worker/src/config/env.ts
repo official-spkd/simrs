@@ -1,4 +1,4 @@
-import { auditAnchorKeyProblem, envSchemas, parseEnv } from '@simrs/shared';
+import { auditAnchorKeyProblem, envSchemas, integrationModeProblem, parseEnv } from '@simrs/shared';
 import { type FieldKeys, loadFieldKeys } from '@simrs/shared/node';
 import { z } from 'zod';
 
@@ -57,7 +57,8 @@ export function loadWorkerEnv(source: Record<string, string | undefined> = proce
       : null) ??
     (env.AUDIT_ANCHOR_BUCKET && !(env.S3_ENDPOINT && env.S3_ACCESS_KEY && env.S3_SECRET_KEY)
       ? 'AUDIT_ANCHOR_BUCKET butuh S3_ENDPOINT, S3_ACCESS_KEY, dan S3_SECRET_KEY'
-      : null);
+      : null) ??
+    integrationModeProblem(env);
   if (problem) throw new Error(`Konfigurasi env tidak valid → ${problem}`);
   return { ...env, fieldKeys: loadFieldKeys(env) };
 }

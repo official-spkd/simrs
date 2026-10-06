@@ -3,6 +3,7 @@ import type { Prisma } from '@simrs/db';
 import {
   AppError,
   CLINICAL_DRAFT_KIND_PATTERN,
+  CLINICAL_DRAFT_MAX_PER_ENCOUNTER,
   type ClinicalDraft,
   type ClinicalDraftInput,
   newId,
@@ -51,6 +52,17 @@ export class DraftsService {
     const { userId, patientId } = await this.context(encounterId, kind);
     const tenantId = this.db.tenantId();
     const content = input.content as Prisma.InputJsonValue;
+    const drafts = await this.db.tx().clinicalDraft.findMany({
+      where: { encounterId, authorUserId: userId },
+      select: { kind: true },
+    });
+    if (drafts.length >= CLINICAL_DRAFT_MAX_PER_ENCOUNTER && !drafts.some((d) => d.kind === kind)) {
+      throw new AppError(
+        'CONFLICT',
+        `Draf Anda untuk kunjungan ini sudah ${CLINICAL_DRAFT_MAX_PER_ENCOUNTER}; simpan atau hapus draf lain dulu`,
+        409,
+      );
+    }
     const row = await this.db.tx().clinicalDraft.upsert({
       where: {
         tenantId_encounterId_kind_authorUserId: { tenantId, encounterId, kind, authorUserId: userId },

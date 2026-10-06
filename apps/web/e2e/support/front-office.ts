@@ -4,6 +4,16 @@ import { inTenant, TENANTS } from './accounts';
 import { E2E_API_PORT, E2E_MOCK_URL } from './slot';
 
 /**
+ * No. kartu BPJS fiktif acak untuk peserta AKTIF tanpa syarat khusus di mock: akhiran tetap `21` sehingga tidak pernah
+ * jatuh ke akhiran khusus mock (`0000` tidak aktif, `9999` tidak ditemukan, `1111` wajib sidik jari sebelum SEP,
+ * `apps/mock/src/systems/bpjs/peserta.ts`). Pola lama `0000<8 acak>1` berakhiran `1111` sekali per 1.000 run, lalu SEP
+ * ditolak `BPJS_FINGERPRINT_BELUM` dan tes pendaftaran menunggu "SEP terbit" sampai habis waktu.
+ */
+export function activeBpjsCard(): string {
+  return `0000${Array.from({ length: 7 }, () => Math.floor(Math.random() * 10)).join('')}21`;
+}
+
+/**
  * Helper E2E front office fase 2 (rantai DoD potongan 9): sesi praktik yang cocok dengan HFIS mock, booking JKN lewat
  * API dengan sesi petugas yang sedang login, SEP/task di DB, dan API panel BPJS mock (antrean + task, gangguan per
  * peserta). Data fiktif (NIK 9999…, kartu 0000…).

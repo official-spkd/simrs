@@ -29,6 +29,16 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'kendali', label: 'Kendali antrean', href: '/antrean', icon: 'list', available: false },
       { id: 'antrean', label: 'Antrean', href: '/display/antrean', icon: 'list', available: false },
       { id: 'jadwal', label: 'Jadwal dokter', href: '/jadwal', icon: 'cal', available: false },
+      // FE1 · front office (mode presentasi)
+      { id: 'rujukan', label: 'Rujukan', href: '/rujukan', icon: 'arrowRight', available: false },
+      {
+        id: 'info-publik',
+        label: 'Info publik',
+        href: '/pratinjau/info-publik',
+        icon: 'info',
+        available: false,
+      },
+      // FE1 · akhir
     ],
   },
   {
@@ -59,6 +69,38 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'rad', label: 'Radiologi', href: '/penunjang/radiologi', icon: 'scan', available: false },
       { id: 'farmasi', label: 'Farmasi', href: '/penunjang/farmasi', icon: 'pill', available: false },
       { id: 'ok', label: 'Kamar operasi', href: '/penunjang/kamar-operasi', icon: 'cut', available: false },
+      // FE3 · penunjang lanjutan
+      {
+        id: 'kritis',
+        label: 'Hasil kritis',
+        href: '/penunjang/hasil-kritis',
+        icon: 'alert',
+        available: false,
+      },
+      { id: 'depo', label: 'Depo & stok', href: '/penunjang/depo', icon: 'box', available: false },
+      {
+        id: 'bank-darah',
+        label: 'Bank darah',
+        href: '/penunjang/bank-darah',
+        icon: 'pulse',
+        available: false,
+      },
+      { id: 'gizi', label: 'Gizi', href: '/penunjang/gizi', icon: 'list', available: false },
+      {
+        id: 'mikro',
+        label: 'Mikrobiologi & PA',
+        href: '/penunjang/mikrobiologi',
+        icon: 'flask',
+        available: false,
+      },
+      {
+        id: 'diagnostik',
+        label: 'Diagnostik lain',
+        href: '/penunjang/diagnostik',
+        icon: 'pulse',
+        available: false,
+      },
+      // FE3 · akhir
     ],
   },
   {
@@ -81,6 +123,34 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'akuntansi', label: 'Akuntansi', href: '/keuangan/akuntansi', icon: 'book', available: false },
+      // FE4 · keuangan lanjutan
+      { id: 'tarif', label: 'Tarif & paket', href: '/keuangan/tarif', icon: 'list', available: false },
+      {
+        id: 'charge',
+        label: 'Charge capture',
+        href: '/keuangan/charge-capture',
+        icon: 'pulse',
+        available: false,
+      },
+      { id: 'piutang', label: 'Piutang', href: '/keuangan/piutang', icon: 'fileCheck', available: false },
+      { id: 'koding', label: 'Workbench koder', href: '/keuangan/koding', icon: 'search', available: false },
+      {
+        id: 'jaspel',
+        label: 'Jasa pelayanan',
+        href: '/keuangan/jasa-pelayanan',
+        icon: 'users',
+        available: false,
+      },
+      { id: 'kas-bank', label: 'Kas & bank', href: '/keuangan/kas-bank', icon: 'bank', available: false },
+      { id: 'hutang', label: 'Hutang usaha', href: '/keuangan/hutang', icon: 'box', available: false },
+      {
+        id: 'costing',
+        label: 'Costing & case-mix',
+        href: '/keuangan/costing',
+        icon: 'chart',
+        available: false,
+      },
+      // FE4 · akhir
     ],
   },
   {
@@ -95,6 +165,15 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: true,
         requires: 'patient.merge',
       },
+      // FE1 · dokumen rekam medis (mode presentasi)
+      {
+        id: 'dokumen',
+        label: 'Dokumen & TTE',
+        href: '/rekam-medis/dokumen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      // FE1 · akhir
       { id: 'logistik', label: 'Logistik', href: '/manajemen/logistik', icon: 'box', available: false },
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],
@@ -127,6 +206,70 @@ export const NAV_GROUPS: WebNavGroup[] = [
         requires: 'forms.definition.write',
       },
       { id: 'integrasi', label: 'Integrasi', href: '/sistem/integrasi', icon: 'plug', available: false },
+      // FE3 · konektor integrasi
+      {
+        id: 'satusehat',
+        label: 'SATUSEHAT',
+        href: '/sistem/integrasi/satusehat',
+        icon: 'plug',
+        available: false,
+      },
+      { id: 'bpjs', label: 'BPJS', href: '/sistem/integrasi/bpjs', icon: 'plug', available: false },
+      {
+        id: 'kemenkes',
+        label: 'Kemenkes',
+        href: '/sistem/integrasi/kemenkes',
+        icon: 'plug',
+        available: false,
+      },
+      {
+        id: 'perangkat',
+        label: 'Perangkat medis',
+        href: '/sistem/integrasi/perangkat',
+        icon: 'plug',
+        available: false,
+      },
+      {
+        id: 'api-publik',
+        label: 'API publik',
+        href: '/sistem/integrasi/api-publik',
+        icon: 'plug',
+        available: false,
+      },
+      // FE3 · akhir konektor
+      // FE1 · platform dan operasional (mode presentasi)
+      { id: 'struktur', label: 'Struktur RS', href: '/sistem/struktur', icon: 'layout', available: false },
+      {
+        id: 'pengaturan',
+        label: 'Pengaturan RS',
+        href: '/sistem/pengaturan',
+        icon: 'menu',
+        available: false,
+      },
+      {
+        id: 'terminologi',
+        label: 'Data rujukan',
+        href: '/sistem/terminologi',
+        icon: 'book',
+        available: false,
+      },
+      {
+        id: 'penjadwal',
+        label: 'Penjadwal pekerjaan',
+        href: '/sistem/penjadwal',
+        icon: 'clock',
+        available: false,
+      },
+      { id: 'downtime', label: 'Mode downtime', href: '/sistem/downtime', icon: 'alert', available: false },
+      {
+        id: 'cadangan',
+        label: 'Cadangan & pemulihan',
+        href: '/sistem/cadangan',
+        icon: 'box',
+        available: false,
+      },
+      { id: 'golive', label: 'Kesiapan go-live', href: '/sistem/go-live', icon: 'check', available: false },
+      // FE1 · akhir
     ],
   },
 ];

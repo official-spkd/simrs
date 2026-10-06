@@ -63,6 +63,15 @@ export class CdsReportService {
       resourceType: 'cds_alert',
       details: { report: 'cds_overrides', decision: q.decision, count: page.length },
     });
+    // RM + alasan override per pasien: setiap pasien di halaman masuk jejak akses rekam medisnya (docs/05 §1, P04).
+    for (const patientId of new Set(page.map((r) => r.patientId))) {
+      this.db.audit({
+        action: 'read',
+        resourceType: 'cds_alert',
+        patientId,
+        details: { report: 'cds_overrides' },
+      });
+    }
     return {
       items: page.map((r) => ({
         id: r.id,
