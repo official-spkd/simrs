@@ -10,6 +10,7 @@ import {
   type EdZone,
   encounterClassToken,
   frontOfficeError,
+  isoDateJakarta,
   newId,
   SAFETY_REASON_MIN,
   suggestTriage,
@@ -17,6 +18,7 @@ import {
   type TriageAssessmentInput,
   type TriageAssessmentRecord,
 } from '@simrs/shared';
+import { ageYears } from '../../infra/clinical/clinical-context';
 import { ClinicalRecordService } from '../../infra/clinical/clinical-record.service';
 import { BillableRecorder, SatusehatRecorder } from '../../infra/clinical/staging';
 import { DomainEvents } from '../../infra/events/domain-events';
@@ -28,13 +30,9 @@ import { PatientAccessService } from '../authz/patient-access.service';
 
 const ACTIVE = ['arrived', 'in_progress'] as const;
 
-function ageYears(birthDate: Date | null, now: Date): number | null {
-  if (!birthDate) return null;
-  const years = now.getUTCFullYear() - birthDate.getUTCFullYear();
-  const beforeBirthday =
-    now.getUTCMonth() < birthDate.getUTCMonth() ||
-    (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() < birthDate.getUTCDate());
-  return Math.max(0, years - (beforeBirthday ? 1 : 0));
+/** Umur pasien untuk saran triase pada tanggal WIB saat penilaian (bukan tanggal UTC). */
+export function triageAgeYears(birthDate: Date | null, now: Date): number | null {
+  return ageYears(birthDate, isoDateJakarta(now));
 }
 
 /**
@@ -69,7 +67,7 @@ export class TriageService {
     const suggestion = suggestTriage({
       vitals: input.vitals,
       discriminators: input.discriminators,
-      ageYears: ageYears(patient.birthDate, now),
+      ageYears: triageAgeYears(patient.birthDate, now),
     });
     const blocked = triageBlockReason(suggestion, input.chosenLevel, input.overrideReason, SAFETY_REASON_MIN);
     if (blocked)
