@@ -58,7 +58,7 @@ export async function klaimAction(input: KlaimActionInput): Promise<KlaimActionR
   const messages: Record<KlaimActionInput['type'], string> = {
     kirim: `Grouping final dan terkirim ke E-Klaim · ${at} ${SIM}`,
     tanggapan: `Tanggapan dan berkas tambahan terkirim ke verifikator · ${at} ${SIM}`,
-    banding: `Penyelesaian dispute diajukan · ${at} ${SIM}`,
+    banding: `Banding (penyelesaian dispute) diajukan · ${at} ${SIM}`,
     query: `Query koder terkirim ke DPJP · ${at} ${SIM}`,
     'terima-saran': `Saran koding diterima, grouper dihitung ulang · ${at} ${SIM}`,
     'alasan-bukti': `Alasan ketidaksesuaian kode tercatat dan dapat ditinjau · ${at} ${SIM}`,

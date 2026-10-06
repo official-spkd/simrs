@@ -138,6 +138,47 @@ test.describe('klaim', () => {
   });
 });
 
+test.describe('klaim · keadaan kerja koder (mockup Klaim)', () => {
+  test('query, saran, dan kirim bertahan saat pindah klaim; chip daftar dan status berkas ikut berubah', async ({
+    page,
+  }) => {
+    const koder = await createAccount({ roles: ['koder'] });
+    await loginAs(page, koder, '/keuangan/klaim');
+    await page.goto(`/keuangan/klaim?status=draft&pilih=${CLAIM_ID.endang}`);
+    const list = page.getByRole('region', { name: 'Daftar klaim' });
+    const rows = list.getByRole('listitem');
+    const endang = rows.filter({ hasText: 'Ny. Endang Wijaya' });
+    const status = page.locator('[data-claim-status]');
+
+    await page.getByRole('button', { name: 'Kirim query ke DPJP' }).first().click();
+    await expect(status).toHaveText('Menunggu jawaban DPJP');
+    await expect(endang.getByText('Menunggu DPJP')).toBeVisible();
+
+    // Pindah ke berkas lain lalu kembali: query tetap tercatat.
+    await rows.filter({ hasNotText: 'Ny. Endang Wijaya' }).first().getByRole('link').click();
+    await expect(page).not.toHaveURL(new RegExp(CLAIM_ID.endang));
+    await endang.getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(CLAIM_ID.endang));
+    await expect(status).toHaveText('Menunggu jawaban DPJP');
+
+    const send = page.getByRole('button', { name: 'Final dan kirim E-Klaim' });
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveAttribute('aria-describedby', /.+/);
+    await page.getByRole('button', { name: 'DPJP setuju · terapkan J13' }).click();
+    await expect(status).toHaveText('Siap grouping · J13');
+    await expect(endang.getByText('Saran diterima')).toBeVisible();
+    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).check();
+    await expect(status).toHaveText('Siap final · J-4-15-III');
+    await send.click();
+    await expect(status).toHaveText('Terkirim ke E-Klaim');
+    await expect(endang.getByText('Terkirim', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Lihat jurnal piutang di Akuntansi' })).toHaveAttribute(
+      'href',
+      '/keuangan/akuntansi',
+    );
+  });
+});
+
 test.describe('akuntansi', () => {
   test('jurnal seimbang, dialog tutup periode menahan sampai syarat terpenuhi', async ({ page }) => {
     const akuntan = await createAccount({ roles: ['akuntan'] });

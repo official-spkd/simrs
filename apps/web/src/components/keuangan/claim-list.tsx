@@ -1,7 +1,8 @@
 import type { Claim, ClaimBoard, ClaimStatus } from '@simrs/shared';
-import { Chip, cx } from '@simrs/ui';
+import { cx } from '@simrs/ui';
 import Link from 'next/link';
-import { CLAIM_FILTERS, CLAIM_STATUS_LABEL, levelTone } from '@/lib/keuangan-klaim';
+import { CLAIM_FILTERS, CLAIM_STATUS_LABEL } from '@/lib/keuangan-klaim';
+import { ClaimListTag } from './claim-local';
 
 const num = new Intl.NumberFormat('id-ID');
 
@@ -73,7 +74,7 @@ export function ClaimList({
                   )}
                 </span>
                 <span className="flex flex-col items-end gap-1">
-                  <Chip tone={levelTone(c.tag.level)}>{c.tag.label}</Chip>
+                  <ClaimListTag claim={c} />
                   <span className="text-caption text-ink-500">{c.ageLabel}</span>
                 </span>
               </Link>
