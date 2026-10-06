@@ -7,9 +7,21 @@ import { OpenScreenButton } from '@/components/open-screen-button';
 import { ScenarioTaskCard } from '@/components/scenario-task-card';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import type { SimStepView } from '@/lib/demo/simulasi-view';
+import type { ReactNode } from 'react';
 
 /** Kartu langkah aktif/ditinjau: tugas berurutan, gerbang keselamatan merah, tombol lanjut ke tahap berikutnya. */
-export function StepCard({ step, rev, activeHref }: { step: SimStepView; rev: number; activeHref: string }) {
+export function StepCard({
+  step,
+  rev,
+  activeHref,
+  finished,
+}: {
+  step: SimStepView;
+  rev: number;
+  activeHref: string;
+  /** Simulasi selesai: tautan kembali menuju ringkasan (mockup "Lihat ringkasan"). */
+  finished: boolean;
+}) {
   const { run, pending, error } = useDemoRunner(rev);
   return (
     <div className="overflow-hidden rounded-card border border-line bg-white">
@@ -35,7 +47,7 @@ export function StepCard({ step, rev, activeHref }: { step: SimStepView; rev: nu
             href={activeHref}
             className="flex min-h-11 items-center rounded-[9px] border border-info bg-white px-3 font-semibold text-info no-underline"
           >
-            Kembali ke langkah aktif
+            {finished ? 'Lihat ringkasan' : 'Kembali ke langkah aktif'}
           </Link>
         </div>
       )}
@@ -80,10 +92,13 @@ export function SummaryActions({
   rev,
   scenario,
   nextScenario,
+  children,
 }: {
   rev: number;
   scenario: ScenarioId;
   nextScenario: { id: ScenarioId; label: string };
+  /** Tautan lanjutan di baris yang sama (mockup: "Lihat dari sisi pasien", "Dasbor direksi"). */
+  children?: ReactNode;
 }) {
   const { run, pending } = useDemoRunner(rev);
   return (
@@ -104,6 +119,7 @@ export function SummaryActions({
       >
         Coba skenario {nextScenario.label}
       </button>
+      {children}
     </div>
   );
 }

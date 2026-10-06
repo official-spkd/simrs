@@ -13,7 +13,7 @@ import { KioskFooter, KioskHeader } from '@/components/front-office/kiosk-frame'
 import { KioskKeypad, type KioskMethod } from '@/components/front-office/kiosk-keypad';
 import { KioskMaskedConfirm, KioskSessions, KioskToCounter } from '@/components/front-office/kiosk-live';
 import { KioskHome, KioskMethods, METHODS, PURPOSES } from '@/components/front-office/kiosk-screens';
-import { KioskNotice } from '@/components/front-office/kiosk-ui';
+import { fs, KioskNotice } from '@/components/front-office/kiosk-ui';
 import { useDemoClock } from '@/components/front-office/use-demo-clock';
 import { greeting } from '@/lib/front-office';
 import {
@@ -366,11 +366,7 @@ export function LiveKioskClient({
             />
           </>
         )}
-        <p
-          className="m-0 mt-auto px-16 pt-6 text-ink-500"
-          style={{ fontSize: 18 }}
-          data-testid="nama-perangkat"
-        >
+        <p className="m-0 mt-auto px-16 pt-6 text-ink-500" style={fs(20)} data-testid="nama-perangkat">
           {deviceName} · {unitName}
         </p>
       </div>

@@ -90,7 +90,10 @@ export function RegistrationDone({
         <h1 className="m-0 text-h1 font-semibold">Pendaftaran rawat jalan selesai</h1>
       </header>
 
-      <Alert level="success" title={`Terdaftar pukul ${at} · ${encounter.number}`}>
+      <Alert
+        level="success"
+        title={`Terdaftar pukul ${at}${queueTicket ? ` · antrean ${queueTicket.queueNo}` : ''} · ${encounter.number}`}
+      >
         {patient ? `${patient.name} · RM ${patient.mrn}` : 'Pasien'} ·{' '}
         {ENCOUNTER_STATUS_LABEL[encounter.status]}
         {result.coverage ? ` · ${result.coverage.payerName}` : ''}
@@ -129,9 +132,17 @@ export function RegistrationDone({
             ) : (
               <span className="text-caption text-ink-500">Peran Anda tidak berizin mencetak.</span>
             )}
+            {/* Mockup Registrasi: "Lihat antrean" utama; di mode api ke layar kendali antrean staf (display TV
+                hanya dibuka perangkat terdaftar). */}
+            <Link
+              href="/antrean"
+              className="inline-flex min-h-12 items-center justify-center rounded-control border border-brand-800 bg-btn-primary px-4 font-semibold text-white no-underline shadow-button"
+            >
+              Lihat antrean
+            </Link>
             <Link
               href="/pendaftaran"
-              className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand-600 px-4 font-semibold text-white no-underline"
+              className="inline-flex min-h-11 items-center justify-center rounded-control px-4 font-medium text-brand-600 no-underline"
             >
               Pasien berikutnya
             </Link>

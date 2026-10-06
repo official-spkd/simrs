@@ -136,7 +136,7 @@ export function buildDoctorPages(
           tone: 'muted',
         },
       ],
-      note: 'Keluar dari aplikasi lewat menu akun di perangkat.',
+      note: 'Perubahan SIP dan kewenangan klinis diurus lewat komite medik.',
     },
   };
 }

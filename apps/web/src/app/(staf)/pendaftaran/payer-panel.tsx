@@ -10,6 +10,7 @@ import {
 } from '@simrs/shared';
 import { Alert, Button, Chip, cx, Field } from '@simrs/ui';
 import { useId } from 'react';
+import { ReferralInfo, referralPurpose } from '@/components/front-office/reg-sep';
 import { referralExpired, referralMeta } from '@/lib/front-office';
 
 export type PayerChoice = 'bpjs' | 'umum';
@@ -82,6 +83,7 @@ export function PayerPanel({
   const bpjs = payer === 'bpjs';
   const e = eligibility?.eligibility ?? null;
   const showReferrals = bpjs && (e?.status === 'aktif' || bpjsDown);
+  const selected = referrals?.find((r) => r.id === referralId) ?? null;
   return (
     <div className="flex flex-col gap-3 rounded-card border border-line bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -272,6 +274,20 @@ export function PayerPanel({
             </div>
           )}
 
+          {showReferrals && !manualMode && selected && (
+            <div className="flex flex-col gap-1.5">
+              <span id={`${id}-tujuan`} className="text-small font-semibold text-ink-700">
+                Tujuan kunjungan
+              </span>
+              <output
+                aria-labelledby={`${id}-tujuan`}
+                className="flex min-h-11 items-center rounded-control border border-line bg-subtle px-3 text-ink-900"
+              >
+                {referralPurpose(selected)}
+              </output>
+            </div>
+          )}
+          {showReferrals && !manualMode && selected && <ReferralInfo referral={selected} />}
           {showReferrals && (
             <Field
               label="Diagnosa awal (ICD-10)"

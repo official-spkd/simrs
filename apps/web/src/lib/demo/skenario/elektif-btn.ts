@@ -12,6 +12,7 @@ const PRODUK_CICILAN = 'Pembiayaan kesehatan BTN (simulasi)';
 export const ELEKTIF_BTN: ScenarioDef = {
   id: 'elektif-btn',
   label: 'Elektif · TPDI × BTN',
+  name: 'Bedah elektif · BTN',
   startDate: '2026-10-12',
   startMin: 7 * 60 + 30,
   showDay: true,
