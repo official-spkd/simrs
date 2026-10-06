@@ -68,7 +68,7 @@ test.describe('domain manajemen', () => {
     const confirm = page.getByRole('alertdialog', { name: /Kirim ulang 1 pesan ke PACS radiologi/ });
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Ya, kirim ulang' }).click();
-    await expect(dlq.getByRole('status')).toContainText('(simulasi, tidak disimpan)');
+    await expect(dlq.getByRole('status')).toContainText('Perubahan demo tersimpan atas nama');
     // Fokus kembali ke tombol pemicu setelah konfirmasi tertutup.
     await expect(resend).toBeFocused();
     await expect(dlq.getByText('Tujuan: PACS radiologi · 1 pesan')).toBeVisible();
@@ -90,7 +90,7 @@ test.describe('domain manajemen', () => {
     await expect(cards.getByRole('button', { name: /SATUSEHAT/ })).toContainText('Antre lokal');
     await expect(dlq.getByText(/Ditahan selama uji downtime/)).toBeVisible();
     await page.getByRole('button', { name: 'Pulihkan' }).click();
-    await expect(page.getByText(/Koneksi pulih pukul/)).toBeVisible();
+    await expect(page.getByText(/transaksi lokal disinkronkan berurutan tanpa duplikasi/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });
