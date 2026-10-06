@@ -412,7 +412,7 @@ function SoapForm({
       aria-label={
         mode === 'koreksi' ? 'Koreksi CPPT' : mode === 'addendum' ? 'Addendum CPPT' : 'Tulis CPPT baru'
       }
-      className="flex flex-col gap-2.5 border-b border-line bg-brand-50 px-4 py-3.5"
+      className="flex flex-col gap-2.5 border-b border-line bg-card-header px-4 py-3.5"
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);

@@ -1,7 +1,7 @@
 import type { EncounterLab } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { labValueFlag } from '@/lib/klinis';
-import { ValueFlagBadge } from './status-flag';
+import { VALUE_FLAG_STYLE, ValueFlagBadge } from './status-flag';
 
 /** Hasil penunjang terbaru di samping order (nilai di luar rentang ditandai teks + ikon, bukan hanya warna). */
 export function CpoeResults({ results }: { results: readonly EncounterLab[] }) {
@@ -22,7 +22,7 @@ export function CpoeResults({ results }: { results: readonly EncounterLab[] }) {
                 <span
                   className={cx(
                     'inline-flex flex-wrap items-center justify-end gap-1 text-right font-bold',
-                    flag ? 'text-danger' : 'text-ink-900',
+                    flag ? VALUE_FLAG_STYLE[flag].text : 'text-ink-900',
                   )}
                 >
                   {r.value}

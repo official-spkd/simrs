@@ -82,8 +82,8 @@ export function RmeChartHeader({
               className={cx(
                 'inline-flex h-11 items-center rounded-full border px-3.5 text-small no-underline',
                 l.current
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white text-ink-700',
+                  ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : 'border-line-strong bg-white/90 text-ink-700 hover:bg-brand-50/60',
               )}
             >
               {l.label}

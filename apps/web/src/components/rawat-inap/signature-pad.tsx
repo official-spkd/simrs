@@ -113,7 +113,8 @@ export function SignaturePad({
             const seg = stroke.current.move(e.pointerId, point(e));
             const ctx = seg ? e.currentTarget.getContext('2d') : null;
             if (!seg || !ctx) return;
-            ctx.strokeStyle = '#14212B';
+            // Canvas 2D tidak menerima var(); nilai = token ink-900.
+            ctx.strokeStyle = '#17202E';
             ctx.lineWidth = 3;
             ctx.lineCap = 'round';
             ctx.beginPath();

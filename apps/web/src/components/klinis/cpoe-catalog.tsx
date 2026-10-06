@@ -55,7 +55,7 @@ export function CpoeCatalog({
       {locked && (
         <p
           role="note"
-          className="m-0 rounded-card border border-brand-100 bg-selected px-3.5 py-3 text-small font-semibold text-brand-700"
+          className="m-0 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-3.5 py-3 text-small font-semibold text-brand-800"
         >
           {lockedNote}
         </p>
@@ -88,7 +88,9 @@ export function CpoeCatalog({
                   onClick={() => onAdd([r.id], null)}
                   className={cx(
                     'flex min-h-11 w-full cursor-pointer flex-col items-start border-0 px-2.5 py-2 text-left font-[inherit] disabled:cursor-not-allowed',
-                    i === 0 ? 'bg-selected' : 'bg-white hover:bg-subtle',
+                    i === 0
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : 'bg-transparent hover:bg-brand-50/60',
                   )}
                 >
                   <span className="font-semibold">Tambah {r.name}</span>
@@ -102,7 +104,7 @@ export function CpoeCatalog({
                   type="button"
                   disabled={off}
                   onClick={() => apply(s)}
-                  className="flex min-h-11 w-full cursor-pointer flex-col items-start border-0 bg-white px-2.5 py-2 text-left font-[inherit] hover:bg-subtle disabled:cursor-not-allowed"
+                  className="flex min-h-11 w-full cursor-pointer flex-col items-start border-0 bg-transparent px-2.5 py-2 text-left font-[inherit] hover:bg-brand-50/60 disabled:cursor-not-allowed"
                 >
                   <span className="font-semibold">Tambah paket {s.name}</span>
                   <span className="text-caption text-ink-500">Paket · {s.meta}</span>
@@ -135,7 +137,9 @@ export function CpoeCatalog({
             onClick={() => apply(s)}
             className={cx(
               'flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-control px-3 py-2.5 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60',
-              applied === s.id ? 'border-2 border-brand-600 bg-selected' : 'border border-line bg-white',
+              applied === s.id
+                ? 'border-2 border-brand-600 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))]'
+                : 'border border-line bg-white/90 hover:bg-brand-50/60',
             )}
           >
             <span className="text-small font-semibold">{s.name}</span>

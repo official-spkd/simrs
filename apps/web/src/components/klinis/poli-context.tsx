@@ -2,7 +2,7 @@ import type { PoliEncounter } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import type { ReactNode } from 'react';
 import { labValueFlag } from '@/lib/klinis';
-import { ValueFlagBadge } from './status-flag';
+import { VALUE_FLAG_STYLE, ValueFlagBadge } from './status-flag';
 
 function Box({
   title,
@@ -55,7 +55,7 @@ export function PoliContext({ encounter, signed = false }: { encounter: PoliEnco
                     <span
                       className={cx(
                         'inline-flex flex-wrap items-center justify-end gap-1 text-right font-bold',
-                        flag ? 'text-danger' : 'text-ink-900',
+                        flag ? VALUE_FLAG_STYLE[flag].text : 'text-ink-900',
                       )}
                     >
                       {l.value}

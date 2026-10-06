@@ -155,7 +155,9 @@ export function AsesmenWorkspace({
                   onClick={() => pick(f.code)}
                   className={cx(
                     'flex min-h-11 w-full cursor-pointer flex-col items-start gap-0.5 border-0 px-4 py-2.5 text-left font-[inherit]',
-                    f.code === code ? 'bg-brand-50' : 'bg-white',
+                    f.code === code
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : 'bg-transparent hover:bg-brand-50/60',
                   )}
                 >
                   <span className="font-semibold text-ink-900">{f.title}</span>

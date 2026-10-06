@@ -35,7 +35,7 @@ export function CpoeScenarioPanel({
   return (
     <section
       aria-label="Rencana tata laksana"
-      className="flex flex-col gap-3.5 rounded-card border border-brand-100 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_7%,_transparent),#FFFFFF_55%)] px-4 py-3.5 shadow-card"
+      className="flex flex-col gap-3.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3.5 shadow-card"
     >
       <span className="flex flex-col gap-0.5">
         <span className="text-caption font-semibold tracking-[0.04em] text-brand-700">

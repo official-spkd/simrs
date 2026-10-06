@@ -165,7 +165,7 @@ export function WorklistBoard({
               return (
                 <li
                   key={p.encounterId}
-                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-4 py-3 hover:bg-brand-50/60"
                 >
                   <span className="flex min-w-0 flex-col">
                     {summary ? (

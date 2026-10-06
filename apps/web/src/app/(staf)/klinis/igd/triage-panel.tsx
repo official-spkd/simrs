@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useStoreAction } from '@/lib/demo/store/client';
 import type { IgdTriage } from '@/lib/klinis-igd-toko';
-import { StatusFlag, ValueFlagBadge } from '@/components/klinis/status-flag';
+import { StatusFlag, VALUE_FLAG_STYLE, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { TriageLevelPicker } from '@/components/rawat-inap/triage-level-picker';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import {
@@ -194,14 +194,16 @@ export function TriagePanel({
                   key={v.label}
                   className={cx(
                     'flex min-w-0 flex-col rounded-control border px-2.5 py-2',
-                    flag ? 'border-koral-200 bg-koral-50' : 'border-line-soft bg-subtle',
+                    flag ? VALUE_FLAG_STYLE[flag].tile : 'border-line-soft bg-subtle',
                   )}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-1 text-[11.5px] text-ink-500">
                     {v.label}
                     {flag && <ValueFlagBadge flag={flag} />}
                   </span>
-                  <span className={cx('font-bold', flag ? 'text-koral-800' : 'text-ink-900')}>{v.value}</span>
+                  <span className={cx('font-bold', flag ? VALUE_FLAG_STYLE[flag].text : 'text-ink-900')}>
+                    {v.value}
+                  </span>
                 </li>
               );
             })}

@@ -92,9 +92,12 @@ export function WardOverview({
               </span>
               {nearlyFull && <StatusFlag icon="alert">Hampir penuh</StatusFlag>}
             </span>
-            <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <span className="h-2 overflow-hidden rounded-full bg-[rgba(23,32,46,0.08)]" aria-hidden="true">
               <span
-                className={cx('block h-2', nearlyFull ? 'bg-danger' : 'bg-brand-600')}
+                className={cx(
+                  'block h-2 origin-left animate-grow rounded-full',
+                  nearlyFull ? 'bg-danger' : 'bg-domain-bar',
+                )}
                 style={{ width: `${pct}%` }}
               />
             </span>
@@ -129,7 +132,7 @@ export function BedList({
     <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
       <div
         aria-hidden="true"
-        className="hidden grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr] bg-subtle text-caption font-semibold text-ink-700 lg:grid"
+        className="hidden grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr] border-b border-line text-caption font-semibold text-ink-500 lg:grid"
       >
         {['Bed', 'Bangsal', 'Status', 'Pasien', 'Catatan'].map((h) => (
           <span key={h} className="px-3.5 py-2.5">
@@ -148,7 +151,9 @@ export function BedList({
                 onClick={() => onSelect(b.code)}
                 className={cx(
                   'grid min-h-11 w-full cursor-pointer grid-cols-[84px_1fr_auto] items-center border-0 p-0 text-left font-[inherit] text-ink-900 lg:grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr]',
-                  b.code === selected ? 'bg-selected' : 'bg-white',
+                  b.code === selected
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'bg-transparent hover:bg-brand-50/60',
                 )}
               >
                 <span className="px-3.5 py-2 font-mono font-semibold">{b.code}</span>

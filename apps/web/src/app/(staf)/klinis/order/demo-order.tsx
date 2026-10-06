@@ -41,7 +41,7 @@ export async function DemoOrderIndex({ access }: { access: DemoScreenAccess }) {
             <li key={e.encounterId} className="border-b border-line-soft last:border-b-0">
               <Link
                 href={`/klinis/order/${e.encounterId}`}
-                className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline hover:bg-subtle"
+                className="flex min-h-11 flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline hover:bg-brand-50/60"
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-semibold">{e.name}</span>

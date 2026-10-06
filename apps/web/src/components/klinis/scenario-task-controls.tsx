@@ -40,8 +40,8 @@ export function TaskChoice({ tasks, t }: { tasks: ScenarioTasks; t: SimTaskView 
             className={cx(
               'flex min-h-11 max-w-full cursor-pointer flex-col items-start rounded-control border px-3 py-1.5 text-left font-[inherit] disabled:cursor-not-allowed',
               o.selected
-                ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                : 'border-line-strong bg-white text-ink-900',
+                ? 'border-brand-600 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] font-semibold text-brand-800'
+                : 'border-line-strong bg-white/90 text-ink-900 hover:bg-brand-50/60',
               !o.selected && !t.enabled && 'opacity-60',
             )}
           >

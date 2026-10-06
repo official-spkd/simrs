@@ -48,7 +48,7 @@ export function DayJumps({
   return (
     <section
       aria-label="Perjalanan rawat (simulasi)"
-      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] px-4 py-3"
+      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3 shadow-card"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-semibold text-brand-700">Perjalanan rawat · pasien simulasi</span>

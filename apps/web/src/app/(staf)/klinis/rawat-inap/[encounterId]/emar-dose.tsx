@@ -59,7 +59,9 @@ export function EmarDosePanel({
       aria-labelledby={`${id}-judul`}
       className={cx(
         'flex flex-col gap-2.5 rounded-control border p-3 outline-none focus-visible:ring-2 focus-visible:ring-brand-600',
-        late ? 'border-koral-200 bg-alert-critical' : 'border-brand-200 bg-selected',
+        late
+          ? 'border-koral-200 bg-alert-critical'
+          : 'border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))]',
       )}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">

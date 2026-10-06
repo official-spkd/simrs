@@ -51,7 +51,7 @@ export function EwsPanel({
         <table className="w-full min-w-[620px] border-collapse text-small">
           <caption className="sr-only">Observasi tanda vital dan skor EWS</caption>
           <thead>
-            <tr className="bg-subtle text-left text-caption text-ink-700">
+            <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
               {['Waktu', 'Suhu °C', 'Nadi', 'Napas', 'TD', 'SpO2', 'Oksigen', 'Kesadaran', 'EWS'].map((h) => (
                 <th key={h} scope="col" className="px-2.5 py-2 font-semibold">
                   {h}

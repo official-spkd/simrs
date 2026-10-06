@@ -68,7 +68,7 @@ export function CpoeSummary({
       </section>
       <section
         aria-label="Estimasi biaya pasien"
-        className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-[linear-gradient(180deg,var(--color-brand-50),#FFFFFF)] px-4 py-3.5"
+        className="flex flex-col gap-1.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3.5 shadow-card"
       >
         <span className="text-caption font-semibold tracking-[0.06em] text-brand-700">
           ESTIMASI BIAYA PASIEN

@@ -54,6 +54,23 @@ export function StatusFlag({
   );
 }
 
+const WARN_VALUE = {
+  tile: 'border-kunyit-200 bg-kunyit-50',
+  text: 'text-kunyit-800',
+  badge: 'bg-kunyit-100 text-kunyit-800',
+};
+
+/**
+ * Gaya nilai di luar batas (Pelangi, ADR-0091): tinggi/rendah/abnormal = kunyit (perhatian), kritis = koral. Warna
+ * selalu disertai teks + panah di `ValueFlagBadge`, jadi status tidak hanya lewat warna.
+ */
+export const VALUE_FLAG_STYLE: Record<ValueFlag, { tile: string; text: string; badge: string }> = {
+  tinggi: WARN_VALUE,
+  rendah: WARN_VALUE,
+  abnormal: WARN_VALUE,
+  kritis: { tile: 'border-koral-200 bg-koral-50', text: 'text-koral-800', badge: 'bg-danger text-white' },
+};
+
 const VALUE_ICON: Record<ValueFlag, IconName> = {
   tinggi: 'arrowUp',
   rendah: 'arrowDown',
@@ -67,7 +84,7 @@ export function ValueFlagBadge({ flag, className }: { flag: ValueFlag; className
     <span
       className={cx(
         'inline-flex flex-none items-center gap-0.5 rounded-full px-1.5 text-[11px] leading-[18px] font-bold whitespace-nowrap',
-        flag === 'kritis' ? 'bg-danger text-white' : 'bg-koral-100 text-koral-800',
+        VALUE_FLAG_STYLE[flag].badge,
         className,
       )}
     >

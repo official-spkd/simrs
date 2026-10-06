@@ -130,8 +130,8 @@ export async function DemoRawatInap({
               className={cx(
                 'inline-flex h-11 items-center rounded-full border px-3.5 text-small no-underline',
                 on
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white text-ink-700',
+                  ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : 'border-line-strong bg-white/90 text-ink-700 hover:bg-brand-50/60',
               )}
             >
               {w.name}
@@ -145,7 +145,7 @@ export async function DemoRawatInap({
       >
         <div
           aria-hidden="true"
-          className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 lg:grid', COLS)}
+          className={cx('hidden border-b border-line text-caption font-semibold text-ink-500 lg:grid', COLS)}
         >
           {['Bed', 'Pasien', 'Diagnosis', 'DPJP', 'Hari', 'EWS', 'Penanda'].map((h) => (
             <span key={h} className="px-3 py-2.5">

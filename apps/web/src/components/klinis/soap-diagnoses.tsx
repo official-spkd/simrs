@@ -42,10 +42,10 @@ export function SoapDiagnoses({
             key={d.code}
             className={cx(
               'flex min-h-9 items-center gap-1.5 rounded-control border px-2.5 py-1 text-small',
-              d.primary ? 'border-brand-200 bg-brand-50' : 'border-line bg-white',
+              d.primary ? 'border-brand-200 bg-brand-100' : 'border-line bg-white/90',
             )}
           >
-            <span className={cx('font-mono font-semibold', d.primary ? 'text-brand-700' : 'text-ink-900')}>
+            <span className={cx('font-mono font-semibold', d.primary ? 'text-brand-800' : 'text-ink-900')}>
               {d.code}
             </span>
             <span>{d.display}</span>
@@ -55,7 +55,7 @@ export function SoapDiagnoses({
                 type="button"
                 onClick={() => onRemove(d.code)}
                 aria-label={`Hapus diagnosis ${d.code}`}
-                className="-my-2.5 -mr-1.5 ml-0.5 flex size-11 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-ink-500 hover:bg-muted"
+                className="-my-2.5 -mr-1.5 ml-0.5 flex size-11 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-ink-500 hover:bg-brand-50/60"
               >
                 ✕
               </button>
