@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ENCOUNTER_ID } from './demo/fixtures/ids';
 import { closeChecklist, patientDocuments } from './demo/fixtures/rme-kelengkapan';
 import { rmeChartByEncounter } from './demo/fixtures/rme-pasien';
-import { cancelBlocker, cancelDocument, closeBlocker, completeness } from './rme-kelengkapan';
+import {
+  cancelBlocker,
+  cancelDocument,
+  closeBlocker,
+  completeness,
+  retryTte,
+  tteRetryBlocker,
+} from './rme-kelengkapan';
 
 const chart = (enc: string) => {
   const c = rmeChartByEncounter(enc);
@@ -55,5 +62,18 @@ describe('kelengkapan rekam medis dan gerbang tutup kunjungan (K13)', () => {
       status: 'dibatalkan',
       note: 'Dokumen milik pasien lain',
     });
+  });
+
+  it('kirim ulang TTE hanya untuk dokumen TTE gagal; dokumen dibatalkan tidak hidup lagi', () => {
+    const docs = patientDocuments(chart(ENCOUNTER_ID.endang));
+    const failed = docs.find((d) => d.status === 'tte-gagal');
+    if (!failed) throw new Error('fixture tanpa TTE gagal');
+    expect(tteRetryBlocker(failed)).toBeNull();
+    expect(retryTte(failed, 'dr. Andini', '2026-10-05T10:50:00+07:00')).toMatchObject({
+      status: 'final-tte',
+    });
+    const cancelled = cancelDocument(failed, 'Surat kontrol tidak jadi diterbitkan', 'x', 'y');
+    expect(tteRetryBlocker(cancelled)).toMatch(/dibatalkan/);
+    expect(() => retryTte(cancelled, 'dr. Andini', '2026-10-05T10:50:00+07:00')).toThrow(/dibatalkan/);
   });
 });

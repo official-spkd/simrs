@@ -54,6 +54,20 @@ export function cancelBlocker(doc: Pick<PatientDocument, 'status'>): string | nu
   return null;
 }
 
+/** Kirim ulang TTE hanya untuk dokumen yang TTE-nya gagal (bukan dokumen dibatalkan/final). */
+export function tteRetryBlocker(doc: Pick<PatientDocument, 'status'>): string | null {
+  if (doc.status === 'dibatalkan')
+    return 'Dokumen sudah dibatalkan; buat dokumen baru bila masih diperlukan.';
+  if (doc.status !== 'tte-gagal') return 'Hanya dokumen dengan TTE gagal yang dikirim ulang.';
+  return null;
+}
+
+export function retryTte(doc: PatientDocument, by: string, at: string): PatientDocument {
+  const block = tteRetryBlocker(doc);
+  if (block) throw new Error(block);
+  return { ...doc, status: 'final-tte', at, by, note: null };
+}
+
 export type CheckFix =
   | { kind: 'cosign' }
   | { kind: 'tte-ulang'; documentId: string }
