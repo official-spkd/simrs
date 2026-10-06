@@ -366,6 +366,7 @@ export function SelectField({
   options,
   placeholder,
   hint,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -373,6 +374,7 @@ export function SelectField({
   options: ReadonlyArray<readonly [string, string]>;
   placeholder?: string;
   hint?: ReactNode;
+  disabled?: boolean;
 }) {
   const id = useId();
   return (
@@ -384,6 +386,7 @@ export function SelectField({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         aria-describedby={hint ? `${id}-h` : undefined}
         className={cx('h-11 min-w-0', CONTROL)}
       >
@@ -412,6 +415,7 @@ export function TextField({
   hint,
   inputMode,
   placeholder,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -420,6 +424,7 @@ export function TextField({
   hint?: ReactNode;
   inputMode?: 'numeric' | 'decimal' | 'text';
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const id = useId();
   const described = hint ? `${id}-h` : undefined;
@@ -434,6 +439,7 @@ export function TextField({
           value={value}
           rows={rows}
           placeholder={placeholder}
+          disabled={disabled}
           aria-describedby={described}
           onChange={(e) => onChange(e.target.value)}
           className={cx('min-h-11 py-2', CONTROL)}
@@ -444,6 +450,7 @@ export function TextField({
           value={value}
           inputMode={inputMode}
           placeholder={placeholder}
+          disabled={disabled}
           aria-describedby={described}
           onChange={(e) => onChange(e.target.value)}
           className={cx('h-11 min-w-0', CONTROL)}

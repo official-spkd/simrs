@@ -19,10 +19,13 @@ import {
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   addDays,
-  adjustmentBlock,
+  type ChemoOrderLock,
+  chemoInputValid,
+  chemoVerifyBlock,
   doseMg,
   type LabValue,
   labFailures,
+  lockChemoOrder,
   mosteller,
   verifierBlock,
 } from '@/lib/onkologi';
@@ -67,6 +70,8 @@ export function ChemoBoard({
   const [pct, setPct] = useState('100');
   const [reason, setReason] = useState('');
   const [stage, setStage] = useState(0);
+  /** Order yang dikunci penulis: dasar dan dosis yang diverifikasi ganda (isian terkunci sesudahnya). */
+  const [locked, setLocked] = useState<ChemoOrderLock | null>(null);
   const [gate, setGate] = useState<SafetyGateResolution | null>(null);
   const [deferred, setDeferred] = useState<string | null>(null);
   const [v1, setV1] = useState('');
@@ -76,9 +81,10 @@ export function ChemoBoard({
 
   const h = Number(height);
   const w = Number(weight);
-  const valid = Number.isFinite(h) && Number.isFinite(w) && h >= 100 && h <= 220 && w >= 25 && w <= 200;
-  const bsa = valid ? mosteller(h, w) : 0;
+  const valid = chemoInputValid(h, w);
+  const bsa = locked ? locked.bsa : valid ? mosteller(h, w) : 0;
   const p = Number(pct);
+  const lockResult = lockChemoOrder({ heightCm: h, weightKg: w, pct: p, reason }, plan.drugs);
   const failures = labFailures(labs);
   const weightShift = Math.abs(w - plan.previousWeightKg) / plan.previousWeightKg;
   const due = addDays(plan.lastCycleDate, plan.intervalDays);
@@ -88,9 +94,7 @@ export function ChemoBoard({
     setLog((cur) => [...cur, `${text} · ${at}`]);
     setFlash({ ok: true, text: `Siklus ${plan.cycle}: ${text} · ${at}.` });
   };
-  const orderBlock = !valid
-    ? 'Isi tinggi (100–220 cm) dan berat badan (25–200 kg) yang wajar.'
-    : adjustmentBlock(p, reason);
+  const orderBlock = 'block' in lockResult ? lockResult.block : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -130,12 +134,19 @@ export function ChemoBoard({
         <div className="min-w-0 flex-[999_1_460px]">
           <Panel title="Perhitungan dosis" sub={`Penulis order: ${plan.writer}`} flush>
             <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-              <TextField label="Tinggi badan (cm)" inputMode="decimal" value={height} onChange={setHeight} />
+              <TextField
+                label="Tinggi badan (cm)"
+                inputMode="decimal"
+                value={height}
+                onChange={setHeight}
+                disabled={locked !== null}
+              />
               <TextField
                 label="Berat badan (kg)"
                 inputMode="decimal"
                 value={weight}
                 onChange={setWeight}
+                disabled={locked !== null}
                 hint={
                   valid && weightShift > 0.1
                     ? 'Berubah > 10% dari siklus lalu: tinjau ulang dosis.'
@@ -146,6 +157,7 @@ export function ChemoBoard({
                 label="Dosis"
                 value={pct}
                 onChange={setPct}
+                disabled={locked !== null}
                 options={[
                   ['100', '100% (penuh)'],
                   ['80', '80% (penyesuaian)'],
@@ -155,7 +167,13 @@ export function ChemoBoard({
             </div>
             {p < 100 && (
               <div className="px-4 pb-3">
-                <TextField label="Alasan penyesuaian dosis" rows={2} value={reason} onChange={setReason} />
+                <TextField
+                  label="Alasan penyesuaian dosis"
+                  rows={2}
+                  value={reason}
+                  onChange={setReason}
+                  disabled={locked !== null}
+                />
               </div>
             )}
             <div className="px-4 pb-2 text-small">
@@ -179,7 +197,11 @@ export function ChemoBoard({
                     <td className={TD}>{d.name}</td>
                     <td className={`${TD} text-right font-mono`}>{fmt(d.mgPerM2)}</td>
                     <td className={`${TD} text-right font-mono font-semibold whitespace-nowrap`}>
-                      {valid ? `${fmt(doseMg(d.mgPerM2, bsa, p))} mg` : '—'}
+                      {locked
+                        ? `${fmt(locked.doses[d.name] ?? 0)} mg`
+                        : valid
+                          ? `${fmt(doseMg(d.mgPerM2, bsa, p))} mg`
+                          : '—'}
                     </td>
                     <td className={TD}>{d.route}</td>
                   </tr>
@@ -190,12 +212,14 @@ export function ChemoBoard({
               <div className="p-4">
                 <ReasonButton
                   reason={orderBlock}
-                  onClick={() =>
+                  onClick={() => {
+                    if (!('lock' in lockResult)) return;
+                    setLocked(lockResult.lock);
                     step(
                       1,
-                      `order ditulis ${plan.writer} (LPT ${bsa.toLocaleString('id-ID')} m², dosis ${p}%)`,
-                    )
-                  }
+                      `order ditulis ${plan.writer} (LPT ${lockResult.lock.bsa.toLocaleString('id-ID')} m², dosis ${p}%)`,
+                    );
+                  }}
                 >
                   Kunci order siklus {plan.cycle}
                 </ReasonButton>
@@ -267,7 +291,10 @@ export function ChemoBoard({
                 options={verifiers.map((v) => [v, v])}
               />
               <ReasonButton
-                reason={verifierBlock(plan.writer, v1 || null, v2 || null, stage === 2 ? 1 : 2)}
+                reason={
+                  chemoVerifyBlock(locked, { heightCm: h, weightKg: w, pct: p }) ??
+                  verifierBlock(plan.writer, v1 || null, v2 || null, stage === 2 ? 1 : 2)
+                }
                 onClick={() =>
                   stage === 2
                     ? step(3, `verifikasi 1 oleh ${v1}: dosis cocok`)
