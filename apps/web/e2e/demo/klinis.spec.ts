@@ -94,7 +94,7 @@ test.describe('klinis rawat jalan', () => {
     await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
     await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
 
-    const send = page.getByRole('button', { name: /^Kirim \d+ order \(TTE\)$/ });
+    const send = page.getByRole('button', { name: /^Tanda tangani dan kirim \d+ order$/ });
     await expect(send).toBeEnabled();
     await page.getByLabel('Cari pemeriksaan, obat, tindakan').fill('amoksisilin');
     await page.getByRole('button', { name: /Tambah Amoksisilin 500 mg kapsul/ }).click();
@@ -115,6 +115,16 @@ test.describe('klinis rawat jalan', () => {
     await expect(send).toBeEnabled();
     await send.click();
     await expect(page.getByText(/^5 order terkirim pukul \d{2}\.\d{2}$/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Order terkirim · \d{2}\.\d{2}$/ })).toBeDisabled();
+
+    // Mockup CPOE: menambah order setelah kirim membuka kiriman baru; order terkirim tetap terkunci.
+    await page.getByLabel('Cari pemeriksaan, obat, tindakan').fill('lipid');
+    await page.getByRole('button', { name: /^Tambah Profil lipid/ }).click();
+    const again = page.getByRole('button', { name: 'Tanda tangani dan kirim 1 order' });
+    await expect(again).toBeEnabled();
+    await expect(page.getByRole('button', { name: /^Hapus Amoksisilin/ })).toHaveCount(0);
+    await again.click();
+    await expect(page.getByText(/^1 order terkirim pukul \d{2}\.\d{2}$/)).toBeVisible();
 
     await noHorizontalOverflowAtTablet(page);
   });
@@ -123,7 +133,7 @@ test.describe('klinis rawat jalan', () => {
     const dokter = await createAccount({ roles: ['dokter'] });
     await loginAs(page, dokter, `/klinis/order/${ENCOUNTER_ID.darmawan}`);
     await page.goto(`/klinis/order/${ENCOUNTER_ID.darmawan}`);
-    const send = page.getByRole('button', { name: /^Kirim \d+ order \(TTE\)$/ });
+    const send = page.getByRole('button', { name: /^Tanda tangani dan kirim \d+ order$/ });
     await expect(send).toBeDisabled();
     const gate = page.getByRole('alert').filter({ hasText: 'CDS memblokir Asam mefenamat 500 mg tablet' });
     await gate.getByRole('button', { name: 'Ganti parasetamol 500 mg' }).click();
@@ -249,7 +259,7 @@ test.describe('klinis rawat jalan', () => {
     // Hanya kirim skenario (TTE), belum bisa sebelum rencana terapi dan PRB; tidak ada kirim order biasa.
     const send = page.getByRole('button', { name: 'Kirim resep (TTE)' });
     await expect(send).toBeDisabled();
-    await expect(page.getByRole('button', { name: /^Kirim \d+ order \(TTE\)$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Tanda tangani dan kirim \d+ order$/ })).toHaveCount(0);
 
     const plan = page.getByRole('region', { name: 'Rencana tata laksana' });
     await plan.getByRole('button', { name: /Metformin \+ atorvastatin/ }).click();
