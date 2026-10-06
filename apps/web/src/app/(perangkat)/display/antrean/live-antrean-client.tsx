@@ -148,7 +148,7 @@ export function LiveAntreanClient({
       <div className="flex min-h-0 flex-1 gap-8 px-12 py-8">
         <CallingPanel
           queueNo={board.calling?.queueNo ?? '—'}
-          poliName={callingMeta?.poliName ?? board.calling?.poliCode ?? 'Belum ada panggilan'}
+          poliName={callingMeta?.poliName ?? board.calling?.poliCode ?? ''}
           room={callingMeta ? `${callingMeta.room} · ${callingMeta.doctorName}` : ''}
           history={board.history.map((h) => h.queueNo)}
         />

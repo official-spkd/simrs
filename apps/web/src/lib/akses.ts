@@ -150,7 +150,7 @@ export function countChanges(base: GrantMap, current: GrantMap): number {
 }
 
 export type AksesParams = Partial<
-  Record<'q' | 'peran' | 'status' | 'kursor' | 'pengguna' | 'matriks', string>
+  Record<'q' | 'peran' | 'unit' | 'status' | 'kursor' | 'pengguna' | 'matriks', string>
 >;
 
 /** Tautan /sistem/akses yang mempertahankan filter; nilai `undefined` menghapus parameter. */

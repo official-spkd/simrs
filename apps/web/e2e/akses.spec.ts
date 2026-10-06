@@ -24,6 +24,21 @@ test.describe('layar Akses (/sistem/akses)', () => {
     for (const kpi of ['Pengguna aktif', 'MFA aktif', 'Break-the-glass 7 hari', 'Akun dikunci']) {
       await expect(page.getByText(kpi, { exact: true })).toBeVisible();
     }
+    // Mockup Akses: sinkron SDM tampil nonaktif dengan alasannya (modul SDM belum ber-API).
+    await expect(page.getByRole('button', { name: 'Sinkron dari data SDM' })).toBeDisabled();
+    await expect(page.getByText('Belum tersambung ke modul SDM')).toBeVisible();
+    // Aturan kontekstual = status turunan matriks, bukan sakelar (ABAC dan break-the-glass tidak bisa dimatikan).
+    const rules = page.getByRole('region', { name: 'Aturan kontekstual' });
+    await expect(rules.getByText('Pasien rahasia (VIP, kasus sensitif)')).toBeVisible();
+    await expect(rules.getByRole('switch')).toHaveCount(0);
+    // Filter unit (mockup Akses) diteruskan ke API (`unitId`): setiap baris punya penugasan di unit itu.
+    await page.getByLabel('Unit', { exact: true }).selectOption({ label: 'Bangsal Melati' });
+    await page.getByRole('button', { name: 'Terapkan' }).click();
+    await expect(page).toHaveURL(/unit=/);
+    const rows = page.getByRole('region', { name: 'Daftar pengguna' }).locator('tbody tr');
+    await expect(rows.first()).toContainText('Bangsal Melati');
+    for (const text of await rows.allInnerTexts()) expect(text).toContain('Bangsal Melati');
+    await page.goto('/sistem/akses');
 
     const username = `undang.${admin.id.slice(-8)}`;
     await page.getByRole('button', { name: '+ Undang pengguna' }).click();

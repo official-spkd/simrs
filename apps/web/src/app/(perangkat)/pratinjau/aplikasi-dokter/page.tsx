@@ -21,10 +21,10 @@ export default async function AplikasiDokterPage() {
       </div>
     );
   }
-  const { inbox, rev, labOrdered } = await getDoctorAppInbox(session);
+  const { inbox, rev, labOrdered, orderHref } = await getDoctorAppInbox(session);
   return (
     <ScaleToFit width={390} height={844} label="Pratinjau aplikasi dokter">
-      <DoctorApp inbox={inbox} rev={rev} labOrdered={labOrdered} />
+      <DoctorApp inbox={inbox} rev={rev} labOrdered={labOrdered} orderHref={orderHref} />
     </ScaleToFit>
   );
 }

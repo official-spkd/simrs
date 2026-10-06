@@ -9,6 +9,9 @@ import {
   revenueChart,
 } from './dasbor';
 import { demoExecutiveDashboard } from './demo/fixtures/dasbor';
+import { CLAIM_KPIS } from './demo/fixtures/keuangan';
+import { INVENTORY } from './demo/fixtures/manajemen';
+import { daysOfCover } from './manajemen';
 
 describe('data dummy Dasbor direksi', () => {
   it('setiap rentang lolos kontrak (skema ketat yang nanti dipenuhi API)', () => {
@@ -24,6 +27,17 @@ describe('data dummy Dasbor direksi', () => {
     const icu = capacityRows(d.capacity).find((c) => c.id === 'icu');
     expect(d.alerts[0]?.title).toContain(`ICU ${icu?.percent}%`);
     expect(icu?.high).toBe(true);
+  });
+
+  it('butir "Perlu keputusan direksi" sama dengan layar asalnya (Klaim, Logistik)', () => {
+    const alerts = demoExecutiveDashboard('bulan').alerts;
+    const pendingJuta = BigInt(CLAIM_KPIS.pending.value) / 1_000_000n;
+    expect(alerts.find((a) => a.id === 'klaim')?.title).toBe(`Klaim pending Rp ${pendingJuta} jt > 30 hari`);
+    const enox = INVENTORY.find((i) => i.id === 'enoksaparin-60');
+    expect(enox).toBeDefined();
+    expect(daysOfCover(enox?.stock ?? 0, enox?.avgDailyUse ?? 1)).toBeLessThan(7);
+    expect(enox?.channel).toBe('po-darurat');
+    expect(alerts.find((a) => a.id === 'stok')?.title).toBe('Stok enoksaparin < 7 hari');
   });
 
   it('pendapatan 30 hari berakhir kemarin; realisasi dihitung dari deret', () => {

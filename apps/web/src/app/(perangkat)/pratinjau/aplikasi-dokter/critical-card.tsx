@@ -2,6 +2,7 @@
 
 import type { DoctorAppInbox } from '@simrs/shared';
 import { cx } from '@simrs/ui';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useDemoRunner } from '@/components/demo-sync';
 import { criticalPendingText } from './doctor-pages';
@@ -23,6 +24,7 @@ export function CriticalCard({
   acceptedLocally,
   onAcceptLocal,
   onOpenPatient,
+  orderHref,
 }: {
   critical: Critical;
   rev: number;
@@ -31,6 +33,8 @@ export function CriticalCard({
   acceptedLocally: string | null;
   onAcceptLocal: () => void;
   onOpenPatient: () => void;
+  /** CPOE kunjungan pasien ("Buka order" setelah diterima), bila tersedia. */
+  orderHref: string | null;
 }) {
   const runner = useDemoRunner(rev);
   const [readback, setReadback] = useState('');
@@ -69,13 +73,23 @@ export function CriticalCard({
           {head} · {c.patientName} · {c.location}. Nilai dibacakan ulang ke analis lab; order tata laksana
           hiperkalemia dilanjutkan ke perawat IGD.
         </span>
-        <button
-          type="button"
-          onClick={onOpenPatient}
-          className="h-11 w-fit cursor-pointer rounded-[12px] border border-line-strong bg-white px-3.5 font-[inherit] font-semibold"
-        >
-          Lihat EKG dan detail pasien
-        </button>
+        <span className={cx('grid gap-2', orderHref ? 'grid-cols-2' : 'grid-cols-1')}>
+          <button
+            type="button"
+            onClick={onOpenPatient}
+            className="h-12 cursor-pointer rounded-[12px] border border-line-strong bg-white px-3 font-[inherit] font-medium"
+          >
+            Lihat EKG
+          </button>
+          {orderHref ? (
+            <Link
+              href={orderHref}
+              className="flex h-12 items-center justify-center rounded-[12px] border border-brand-800 bg-white px-3 font-semibold text-brand-700 no-underline"
+            >
+              Buka order
+            </Link>
+          ) : null}
+        </span>
       </section>
     );
   }

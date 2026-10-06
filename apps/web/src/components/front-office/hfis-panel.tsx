@@ -44,7 +44,7 @@ export function HfisPanel({
       </span>
       <span className="text-small text-ink-700">{diffText}</span>
       {canSync ? (
-        <Button variant="primary" disabled={busy} onClick={onSync}>
+        <Button size="sm" className="self-start" disabled={busy} onClick={onSync}>
           {busy ? 'Mengirim ke HFIS…' : 'Perbarui jadwal ke HFIS'}
         </Button>
       ) : (
@@ -80,14 +80,20 @@ export function LeaveImpact({
   return (
     <section
       aria-label={`Dampak cuti ${dayName}`}
-      className="flex flex-col gap-2.5 rounded-card border border-danger-border bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(180,35,24,0.06))] p-4"
+      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
     >
-      <span className="font-semibold text-danger">Dampak cuti {dayName}</span>
+      <span className="font-semibold">Dampak cuti {dayName}</span>
       <span className="text-small text-ink-700">
         {patients} pasien sudah booking ke {doctorName}. Notifikasi WhatsApp dan pengalihan ke{' '}
         {substituteName} {approved ? 'sudah dikirim.' : 'siap dikirim setelah disetujui.'}
       </span>
-      <Button aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <Button
+        variant={open ? 'secondary' : 'primary'}
+        size="sm"
+        className="self-start"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         {open ? 'Tutup tinjauan' : `Tinjau ${patients} pasien`}
       </Button>
       {open && (

@@ -65,7 +65,7 @@ export function VitalTiles({ vitals }: { vitals: readonly PoliVital[] }) {
             <span className={cx('text-[19px] font-bold', flag ? 'text-danger' : 'text-ink-900')}>
               {v.value} <span className="text-caption font-normal text-ink-500">{v.unit}</span>
             </span>
-            <span className="truncate text-caption text-ink-500">{v.note}</span>
+            <span className="text-caption text-ink-500">{v.note}</span>
           </div>
         );
       })}

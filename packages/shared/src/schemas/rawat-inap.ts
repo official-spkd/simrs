@@ -720,6 +720,8 @@ export const medicationAdministrationInputSchema = z
     occurredAt: instant,
     reason: z.string().trim().max(500).nullable(),
     doubleCheckUserId: uuid.nullable(),
+    /** Atestasi dosis oleh sesi perawat kedua (3.5); ID petugas saja tidak cukup. */
+    doubleCheckId: uuid.nullable().default(null),
   })
   .superRefine((v, ctx) => {
     if (v.status !== 'given' && (v.reason ?? '').length < SAFETY_REASON_MIN) {

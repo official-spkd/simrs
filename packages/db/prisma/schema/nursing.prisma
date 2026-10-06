@@ -42,21 +42,45 @@ model MedicationAdministration {
   reason              String?
   /// Obat kewaspadaan tinggi: perawat kedua (cek ganda).
   doubleCheckUserId   String?  @map("double_check_user_id") @db.Uuid
+  doubleCheckId       String?  @map("double_check_id") @db.Uuid
   labelCode           String   @map("label_code")
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id])
-  medicationRequest MedicationRequest   @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
-  schedule          MedicationSchedule? @relation(fields: [tenantId, scheduleId], references: [tenantId, id])
-  encounter         Encounter           @relation(fields: [tenantId, encounterId], references: [tenantId, id])
-  patient           Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  wristbandScan     WristbandScan       @relation(fields: [tenantId, wristbandScanId], references: [tenantId, id])
-  user              User                @relation("MedicationAdministrationUser", fields: [tenantId, userId], references: [tenantId, id])
-  doubleCheckUser   User?               @relation("MedicationAdministrationDoubleCheck", fields: [tenantId, doubleCheckUserId], references: [tenantId, id])
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id])
+  medicationRequest MedicationRequest      @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+  schedule          MedicationSchedule?    @relation(fields: [tenantId, scheduleId], references: [tenantId, id])
+  encounter         Encounter              @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  patient           Patient                @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  wristbandScan     WristbandScan          @relation(fields: [tenantId, wristbandScanId], references: [tenantId, id])
+  user              User                   @relation("MedicationAdministrationUser", fields: [tenantId, userId], references: [tenantId, id])
+  doubleCheckUser   User?                  @relation("MedicationAdministrationDoubleCheck", fields: [tenantId, doubleCheckUserId], references: [tenantId, id])
+  doubleCheck       MedicationDoubleCheck? @relation(fields: [tenantId, doubleCheckId], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@index([tenantId, encounterId, occurredAt])
   @@index([tenantId, medicationRequestId])
   @@map("medication_administrations")
+}
+
+/// K12 · Cek ganda sebelum pemberian: isi dosis beku dan petugas pemeriksa dari sesi kedua.
+model MedicationDoubleCheck {
+  id                  String   @id @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  medicationRequestId String   @map("medication_request_id") @db.Uuid
+  wristbandScanId     String   @map("wristband_scan_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  userRole            String   @map("user_role")
+  content             Json
+  checkedAt           DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id])
+  medicationRequest MedicationRequest          @relation(fields: [tenantId, medicationRequestId], references: [tenantId, id])
+  wristbandScan     WristbandScan              @relation(fields: [tenantId, wristbandScanId], references: [tenantId, id])
+  user              User                       @relation(fields: [tenantId, userId], references: [tenantId, id])
+  administrations   MedicationAdministration[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, medicationRequestId])
+  @@map("medication_double_checks")
 }
 
 /// K12 · Diagnosis keperawatan master lokal (tanpa kode resmi; SDKI diimpor bila tersedia, keputusan no. 15).
