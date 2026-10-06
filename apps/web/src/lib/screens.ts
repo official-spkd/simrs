@@ -516,6 +516,30 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: 'semua',
     layout: 'perangkat',
   },
+  {
+    id: 'downtime',
+    label: 'Mode downtime',
+    route: '/sistem/downtime',
+    mockup: null,
+    components: ['P13'],
+    phase: 10,
+    status: 'demo',
+    plannedPermission: 'system.downtime.manage',
+    demoRoles: ['admin_tenant'],
+    layout: 'staf',
+  },
+  {
+    id: 'cadangan',
+    label: 'Cadangan & pemulihan',
+    route: '/sistem/cadangan',
+    mockup: null,
+    components: [],
+    phase: 10,
+    status: 'demo',
+    plannedPermission: 'backup.read',
+    demoRoles: ['admin_tenant'],
+    layout: 'staf',
+  },
   // FE1 · akhir
 ];
 

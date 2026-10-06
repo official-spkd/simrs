@@ -24,6 +24,16 @@ import type { StructNode } from '../../platform-struktur';
 import { DEMO_REFERRALS } from '../../demo/fixtures/rujukan';
 import { DEMO_NOW, DEMO_TODAY, shiftDate } from '../../demo/fixtures/waktu';
 import type { DemoReferral } from '../../rujukan';
+import {
+  BACKUP_LOCATIONS,
+  BACKUP_RUNS,
+  DOWNTIME_PAPER_FORMS,
+  EMERGENCY_PACK,
+  LAST_RESTORE_TEST,
+  MANIFEST_ROWS,
+} from '../../demo/fixtures/operasional';
+import type { BackupLocation, BackupRun } from '../../operasional-backup';
+import type { PaperForm } from '../../operasional-downtime';
 import type { PublicQueue, PublicSchedule } from '@simrs/shared';
 import { demoQueueBoard, demoWeeklySchedule, todayQuotas } from '../../demo/fixtures/front-office';
 import {
@@ -154,5 +164,31 @@ export async function getPublicInfo(): Promise<{
     queue: publicQueueFrom(demoQueueBoard(), PUBLIC_EXTRA_SERVICES, avg),
     bookings: [...DEMO_PUBLIC_BOOKINGS],
     hint: PUBLIC_BOOKING_HINT,
+  };
+}
+
+export async function getDowntimeDrill(): Promise<{
+  forms: PaperForm[];
+  pack: { ward: string; patients: number; forms: string[]; sample: string };
+}> {
+  if (!isDemo()) return notImplemented('mode downtime (layar demo)');
+  return {
+    forms: [...DOWNTIME_PAPER_FORMS],
+    pack: { ...EMERGENCY_PACK, forms: [...EMERGENCY_PACK.forms] },
+  };
+}
+
+export async function getBackupOverview(): Promise<{
+  locations: BackupLocation[];
+  runs: BackupRun[];
+  lastTest: { at: string; rtoMinutes: number; source: string };
+  manifest: Array<readonly [string, number]>;
+}> {
+  if (!isDemo()) return notImplemented('cadangan dan pemulihan (layar demo)');
+  return {
+    locations: BACKUP_LOCATIONS.map((l) => ({ ...l, kept: { ...l.kept } })),
+    runs: [...BACKUP_RUNS],
+    lastTest: { ...LAST_RESTORE_TEST },
+    manifest: [...MANIFEST_ROWS],
   };
 }

@@ -157,6 +157,14 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'clock',
         available: false,
       },
+      { id: 'downtime', label: 'Mode downtime', href: '/sistem/downtime', icon: 'alert', available: false },
+      {
+        id: 'cadangan',
+        label: 'Cadangan & pemulihan',
+        href: '/sistem/cadangan',
+        icon: 'box',
+        available: false,
+      },
       // FE1 · akhir
     ],
   },

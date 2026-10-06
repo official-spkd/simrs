@@ -331,4 +331,92 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(status).toContainText(/Dicek · \d{2}\.\d{2}/);
     await expect(status).not.toContainText('Darmawan');
   });
+
+  test('downtime: aktifkan beralasan, cetak paket wajib, entri susulan, sinkron sampai nol, ringkasan insiden', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/downtime');
+    await expect(
+      page.getByRole('heading', { name: 'Mode downtime dan sinkron edge', level: 1 }),
+    ).toBeVisible();
+
+    const activate = page.getByRole('button', { name: 'Aktifkan mode downtime' });
+    await expect(activate).toBeDisabled();
+    await page
+      .getByLabel('Alasan dan dampak (tercatat di log insiden)')
+      .fill('VClaim timeout sejak 10.40, SEP tidak terbit');
+    await activate.click();
+    await page
+      .getByRole('alertdialog', { name: 'Aktifkan mode downtime?' })
+      .getByRole('button', { name: 'Ya, aktifkan' })
+      .click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' })).toBeVisible();
+
+    const recover = page.getByRole('button', { name: 'Layanan pulih · akhiri downtime' });
+    await expect(recover).toBeDisabled();
+    await expect(page.getByText('Cetak paket darurat dulu (langkah wajib SOP).')).toBeVisible();
+    await page.getByRole('button', { name: 'Cetak paket darurat' }).click();
+    await expect(page.getByText(/DICETAK \d{2}\.\d{2} OLEH/)).toBeVisible();
+    await page.getByRole('button', { name: 'Daftarkan pasien (offline)' }).click();
+    await page.getByRole('button', { name: 'Waktu berjalan 15 menit' }).click();
+    await recover.click();
+    await page
+      .getByRole('alertdialog', { name: 'Nyatakan layanan pulih?' })
+      .getByRole('button', { name: 'Ya, layanan pulih' })
+      .click();
+
+    const sync = page.getByRole('button', { name: 'Mulai sinkronisasi antrean' });
+    await expect(sync).toBeDisabled();
+    const enter = page.getByRole('button', { name: /^Masukkan/ });
+    for (let left = 4; left > 0; left--) {
+      await expect(enter).toHaveCount(left);
+      await enter.first().click();
+    }
+    await expect(enter).toHaveCount(0);
+    await sync.click();
+    const batch = page.getByRole('button', { name: /^Kirim batch berikutnya/ });
+    while (await batch.isVisible()) await batch.click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Downtime selesai · antrean kirim kosong' }),
+    ).toContainText('data hilang 0');
+    await expect(page.getByRole('list', { name: 'Log insiden downtime' })).toContainText('Layanan pulih');
+    await expectNoHorizontalOverflow(page);
+  });
+
+  test('cadangan: backup manual beralasan, uji restore gagal aman dengan kunci salah lalu lulus', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/cadangan');
+    await expect(page.getByRole('heading', { name: 'Cadangan dan pemulihan', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Ringkasan cadangan' })).toContainText('3/3');
+
+    await page.getByRole('button', { name: 'Jalankan backup manual' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Jalankan backup manual sekarang?' });
+    await dialog.getByLabel('Alasan backup manual').fill('Sebelum migrasi data tarif');
+    await dialog.getByRole('button', { name: 'Ya, jalankan backup' }).click();
+    await expect(page.getByText(/Backup manual selesai · \d{2}\.\d{2}/)).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Riwayat backup' })).toContainText(
+      'Manual: Sebelum migrasi data tarif',
+    );
+
+    await page.getByLabel('Simulasikan kunci privat yang salah').check();
+    await page.getByRole('button', { name: 'Mulai uji restore' }).click();
+    for (const n of [2, 3]) await page.getByRole('button', { name: `Jalankan langkah ${n}` }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Uji restore gagal' })).toContainText(
+      'sebelum ada plaintext',
+    );
+    await page.getByRole('button', { name: 'Ulang uji' }).click();
+    await page.getByLabel('Simulasikan kunci privat yang salah').uncheck();
+    await page.getByRole('button', { name: 'Mulai uji restore' }).click();
+    for (let n = 2; n <= 8; n++) await page.getByRole('button', { name: `Jalankan langkah ${n}` }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Uji restore lulus' })).toContainText(
+      'RTO 36 menit',
+    );
+    await expect(page.getByRole('region', { name: 'Jumlah baris manifest dan hasil pulih' })).toContainText(
+      '1.284.551',
+    );
+    await expectNoHorizontalOverflow(page);
+  });
 });
