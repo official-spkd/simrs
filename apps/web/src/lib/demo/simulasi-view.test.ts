@@ -3,7 +3,7 @@ import { advanceTo, applyAction, runScenario } from './engine/run';
 import type { ScenarioEvent } from './engine/types';
 import { guideView } from './guide-view';
 import { SCENARIOS } from './skenario';
-import { simulationView } from './simulasi-view';
+import { scenarioName, simulationView } from './simulasi-view';
 
 const RJ = SCENARIOS['rawat-jalan'];
 
@@ -59,6 +59,16 @@ describe('model tampilan Simulasi', () => {
     expect(v.summary?.stats.find((s) => s.label === 'Tarif RS')?.value).toBe('Rp 806.000');
     expect(v.progress).toBe(100);
     expect(guideView(R, 'perawat')).toMatchObject({ finished: true, nextTask: null });
+  });
+
+  it('nama skenario seperti mockup: tab "Elektif · TPDI × BTN", banner dan ringkasan "Bedah elektif · BTN"', () => {
+    const BTN = SCENARIOS['elektif-btn'];
+    expect(BTN.label).toBe('Elektif · TPDI × BTN');
+    expect(scenarioName(BTN)).toBe('Bedah elektif · BTN');
+    expect(scenarioName(RJ)).toBe('Rawat jalan BPJS');
+    const v = simulationView(runScenario(BTN, []), null);
+    expect(v.patient.meta).toBe('P · 45 th · RM 00-52-03-19 · Bedah elektif · BTN');
+    expect(v.scenario.label).toBe('Elektif · TPDI × BTN');
   });
 
   it('panduan: posisi pembawa langkah dan tugas berikutnya', () => {

@@ -44,6 +44,23 @@ test.describe('simulasi pasien', () => {
     await page.getByRole('button', { name: 'Selesaikan simulasi' }).click();
     await expect(page.getByText('Simulasi selesai', { exact: true })).toBeVisible();
     await expect(page.getByTestId('total-tarif')).toHaveText('Rp 806.000');
+    // Kartu ringkasan seperti mockup: ulangi, skenario lain, sisi pasien, dasbor direksi.
+    const summary = page.getByRole('region', { name: 'Langkah aktif' });
+    await expect(summary.getByRole('button', { name: 'Coba skenario IGD → rawat inap' })).toBeVisible();
+    await expect(
+      summary.getByRole('button', { name: /^Lihat dari sisi pasien · Buka layar Aplikasi pasien/ }),
+    ).toBeVisible();
+    await expect(
+      summary.getByRole('button', { name: /^Dasbor direksi · Buka layar Dasbor eksekutif/ }),
+    ).toBeVisible();
+    // Meninjau langkah setelah selesai: tautan kembali menuju ringkasan.
+    await page
+      .getByRole('navigation', { name: 'Tahap perjalanan pasien' })
+      .getByRole('link', { name: /Kasir/ })
+      .click();
+    await expect(page.getByText('Langkah ini sudah selesai. Anda sedang meninjau hasilnya.')).toBeVisible();
+    await page.getByRole('link', { name: 'Lihat ringkasan' }).click();
+    await expect(page.getByText('Simulasi selesai', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('simulasi-ringkasan.png'), fullPage: true });
   });
 
