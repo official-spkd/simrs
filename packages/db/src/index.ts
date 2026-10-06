@@ -163,6 +163,7 @@ export {
   seedPractitionerNumbers,
 } from './seed-front-office';
 export {
+  PRESENTATION_ALL_ACCESS_LABEL,
   PRESENTATION_PERSONAS,
   PRESENTATION_USERNAME_PREFIX,
   type PresentationCredential,

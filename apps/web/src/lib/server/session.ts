@@ -4,22 +4,27 @@ import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { PATH_HEADER } from '../request-path';
 import { loginUrl } from '../safe-path';
-import { isSuperadmin, nextLoginStep, type SessionView, toSessionView } from '../session-view';
+import { canReadGuide, isSuperadmin, nextLoginStep, type SessionView, toSessionView } from '../session-view';
 import { api } from './api';
 import { ApiError } from './api-core';
+import { withDemoAllAccess } from './demo/all-access';
 import { meSchema } from './schemas';
+import { webEnv } from './web-env';
 
 /**
  * Sesi saat ini menurut API (`/auth/me`), sekali per render (React cache). `null` bila belum login atau
  * sesi sudah berakhir/dicabut. Galat lain (API mati) dilempar ke error boundary, bukan dianggap logout.
+ * Mode presentasi saja: akun Superadmin demo mendapat posisi per layar (`withDemoAllAccess`, ADR-0023 keputusan 10).
  */
 export const getSession = cache(async (): Promise<SessionView | null> => {
+  let view: SessionView;
   try {
-    return toSessionView(await api('/api/v1/auth/me', { schema: meSchema }));
+    view = toSessionView(await api('/api/v1/auth/me', { schema: meSchema }));
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) return null;
     throw err;
   }
+  return webEnv().dataSource === 'demo' ? withDemoAllAccess(view) : view;
 });
 
 async function currentPath(): Promise<string> {
@@ -33,6 +38,16 @@ async function currentPath(): Promise<string> {
 export async function requireSession(): Promise<SessionView> {
   const s = await getSession();
   if (!s || nextLoginStep(s, false) !== 'selesai') redirect(loginUrl(await currentPath()));
+  return s;
+}
+
+/**
+ * Panduan sistem (`/superadmin/panduan`): operator platform, atau Superadmin demo hanya di mode presentasi
+ * (`canReadGuide`). Selain itu 404.
+ */
+export async function requireGuideReader(): Promise<SessionView> {
+  const s = await requireSession();
+  if (!canReadGuide(s, webEnv().dataSource)) notFound();
   return s;
 }
 

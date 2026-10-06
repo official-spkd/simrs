@@ -353,6 +353,102 @@ export const SUPERADMIN_GROUP: WebNavGroup = {
   ],
 };
 
+/**
+ * Menu tambahan khusus Superadmin demo di mode presentasi (ADR-0023 keputusan 10): layar registri yang tidak punya
+ * menu sendiri (sub-layar RME, layar berparameter yang dibuka lewat halaman indeks berisi contoh pasien, layar
+ * perangkat/pratinjau) dan panduan sistem. Disisipkan ke grup yang sama judulnya, atau grup baru sebelum SISTEM /
+ * di akhir. Posisi lain tidak melihat menu ini (mereka membuka layar itu dari worklist/alur masing-masing).
+ */
+export const ALL_ACCESS_NAV: ReadonlyArray<{ title: string; items: WebNavItem[] }> = [
+  {
+    title: 'KLINIS',
+    items: [
+      { id: 'order', label: 'Order & resep (CPOE)', href: '/klinis/order', icon: 'pill', available: false },
+      { id: 'cppt', label: 'CPPT & serah terima', href: '/klinis/cppt', icon: 'book', available: false },
+      {
+        id: 'asesmen',
+        label: 'Asesmen & skrining',
+        href: '/klinis/asesmen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      {
+        id: 'diagnosis',
+        label: 'Diagnosis & problem list',
+        href: '/klinis/diagnosis',
+        icon: 'list',
+        available: false,
+      },
+      {
+        id: 'askep',
+        label: 'Asuhan keperawatan',
+        href: '/klinis/asuhan-keperawatan',
+        icon: 'pulse',
+        available: false,
+      },
+      { id: 'edukasi', label: 'Edukasi pasien', href: '/klinis/edukasi', icon: 'info', available: false },
+      { id: 'resume', label: 'Resume medis', href: '/klinis/resume', icon: 'fileCheck', available: false },
+      {
+        id: 'kelengkapan',
+        label: 'Kelengkapan rekam medis',
+        href: '/klinis/kelengkapan',
+        icon: 'check',
+        available: false,
+      },
+    ],
+  },
+  {
+    title: 'PERANGKAT & PRATINJAU',
+    items: [
+      { id: 'kiosk', label: 'Anjungan mandiri', href: '/kiosk', icon: 'qr', available: false },
+      {
+        id: 'consent',
+        label: 'Tablet persetujuan',
+        href: '/tablet/persetujuan',
+        icon: 'idCard',
+        available: false,
+      },
+      {
+        id: 'app-pasien',
+        label: 'Aplikasi pasien',
+        href: '/pratinjau/aplikasi-pasien',
+        icon: 'phone',
+        available: false,
+      },
+      {
+        id: 'app-dokter',
+        label: 'Aplikasi dokter',
+        href: '/pratinjau/aplikasi-dokter',
+        icon: 'phone',
+        available: false,
+      },
+    ],
+  },
+  {
+    title: 'PANDUAN',
+    items: [
+      { id: 'panduan', label: 'Panduan sistem', href: '/superadmin/panduan', icon: 'info', available: true },
+    ],
+  },
+];
+
+/** Gabungkan menu Superadmin demo ke menu dasar (grup bernama sama ditambah, grup baru sebelum SISTEM / di akhir). */
+function withAllAccessNav(groups: WebNavGroup[]): WebNavGroup[] {
+  const out = groups.map((g) => ({ ...g, items: [...g.items] }));
+  for (const extra of ALL_ACCESS_NAV) {
+    const same = out.find((g) => g.title === extra.title);
+    if (same) {
+      same.items.push(...extra.items);
+      continue;
+    }
+    const system = out.findIndex((g) => g.title === 'SISTEM');
+    const group = { title: extra.title, items: [...extra.items] };
+    if (extra.title !== 'PANDUAN' && system >= 0) out.splice(system, 0, group);
+    else out.push(group);
+  }
+  return out;
+}
+
 /** Menu RS yang relevan bagi operator platform (tanpa modul klinis/keuangan). */
 const PLATFORM_ITEM_IDS = new Set(['beranda', 'akses', 'audit']);
 
@@ -369,28 +465,38 @@ export function navGroups(opts: {
   dataSource: DataSource;
   /** Kode peran posisi aktif (null bila belum memilih). */
   role: string | null;
+  /**
+   * Sesi Superadmin demo yang sudah diverifikasi server (ADR-0023 keputusan 10): semua layar registri + menu
+   * tambahan. Hanya berlaku di mode presentasi dan di RS; diabaikan total di mode api.
+   */
+  allAccess?: boolean;
 }): WebNavGroup[] {
-  const groups = NAV_GROUPS.map((g) => ({
-    ...g,
-    items: g.items.flatMap((item): WebNavItem[] => {
-      if (item.requires && !opts.permissions.includes(item.requires)) return [];
-      if (opts.kind === 'platform' && !PLATFORM_ITEM_IDS.has(item.id)) return [];
-      const screen = screenById(item.id);
-      if (!screen) return [item];
-      const open = screenOpen(screen, opts);
-      // Mode presentasi: layar posisi lain disembunyikan. Layar hibrida (ber-izin) di mode api mengikuti izin
-      // sungguhan seperti menu ber-`requires`: tanpa izin, menu tidak tampil.
-      if (!open && (screen.permission || (screen.status === 'demo' && opts.dataSource === 'demo'))) return [];
-      return [{ ...item, available: open }];
-    }),
-  })).filter((g) => g.items.length > 0);
+  const allAccess = opts.allAccess === true && opts.dataSource === 'demo' && opts.kind === 'hospital';
+  const base = allAccess ? withAllAccessNav(NAV_GROUPS) : NAV_GROUPS;
+  const groups = base
+    .map((g) => ({
+      ...g,
+      items: g.items.flatMap((item): WebNavItem[] => {
+        if (item.requires && !opts.permissions.includes(item.requires)) return [];
+        if (opts.kind === 'platform' && !PLATFORM_ITEM_IDS.has(item.id)) return [];
+        const screen = screenById(item.id);
+        if (!screen) return [item];
+        const open = screenOpen(screen, { ...opts, allAccess });
+        // Mode presentasi: layar posisi lain disembunyikan. Layar hibrida (ber-izin) di mode api mengikuti izin
+        // sungguhan seperti menu ber-`requires`: tanpa izin, menu tidak tampil.
+        if (!open && (screen.permission || (screen.status === 'demo' && opts.dataSource === 'demo')))
+          return [];
+        return [{ ...item, available: open }];
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
   return opts.superadmin ? [...groups, SUPERADMIN_GROUP] : groups;
 }
 
 /** Cari menu aktif dari pathname: cocokkan prefix terpanjang. */
 export function activeNavId(pathname: string): string | undefined {
   let best: { id: string; len: number } | undefined;
-  for (const g of [...NAV_GROUPS, SUPERADMIN_GROUP]) {
+  for (const g of [...NAV_GROUPS, SUPERADMIN_GROUP, ...ALL_ACCESS_NAV]) {
     for (const item of g.items) {
       const match =
         item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);

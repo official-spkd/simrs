@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { USERNAME } from '@simrs/shared';
 import { z } from 'zod';
 import type { PersonaView } from '../../demo/personas';
-import { assertDemo } from '../demo-guard';
+import { assertDemo } from '../demo-mode';
 
 /**
  * Akun presentasi (ADR-0023): kredensial lokal yang dibuat `pnpm db:akun-presentasi` di `.local/demo-accounts.json`.
@@ -26,6 +26,8 @@ const fileSchema = z.strictObject({
         role: z.string().regex(/^[a-z][a-z0-9_]{2,40}$/),
         roleName: z.string().min(1).max(80),
         unitName: z.string().max(120).nullable(),
+        /** Superadmin demo (ADR-0023 keputusan 10): semua layar di mode presentasi. */
+        allAccess: z.literal(true).optional(),
       }),
     )
     .max(40),
@@ -59,11 +61,12 @@ export async function loadPresentationAccounts(): Promise<PresentationAccounts |
 
 /** Daftar akun untuk ditampilkan (tanpa sandi dan rahasia TOTP). */
 export function publicPersonas(file: PresentationAccounts): PersonaView[] {
-  return file.accounts.map(({ username, displayName, role, roleName, unitName }) => ({
+  return file.accounts.map(({ username, displayName, role, roleName, unitName, allAccess }) => ({
     username,
     displayName,
     role,
     roleName,
     unitName,
+    ...(allAccess ? { allAccess } : {}),
   }));
 }

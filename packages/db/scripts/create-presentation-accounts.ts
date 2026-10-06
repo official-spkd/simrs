@@ -1,6 +1,8 @@
 /**
  * Akun presentasi LOKAL (mode presentasi ADR-0023, permintaan pengguna 4 Okt 2026): 16 akun fiktif, satu per posisi,
- * yang bisa dipilih sekali klik di layar masuk saat `pnpm dev:demo`.
+ * yang bisa dipilih sekali klik di layar masuk saat `pnpm dev:demo`, ditambah satu akun "Superadmin demo · semua layar"
+ * (ADR-0023 keputusan 10) yang di mode presentasi membuka semua layar tanpa ganti posisi. Di API akun itu akun biasa
+ * berperan `manajemen` (hanya-baca); tanda semua-layar hanya ada di berkas kredensial lokal.
  *
  *   pnpm db:akun-presentasi                # RS bawaan RSCM
  *   pnpm db:akun-presentasi --tenant RSFA
@@ -60,7 +62,7 @@ try {
 
   process.stdout.write(
     `${[
-      `Akun presentasi siap di ${tenant.code} · ${tenant.name}: ${accounts.length} posisi`,
+      `Akun presentasi siap di ${tenant.code} · ${tenant.name}: ${accounts.length} akun`,
       ...accounts.map((a) => `  ${a.roleName.padEnd(32)} ${a.displayName}`),
       '',
       `Kredensial (sandi + rahasia TOTP) tersimpan di ${outFile}. Jangan dibagikan atau di-commit.`,
