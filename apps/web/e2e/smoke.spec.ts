@@ -146,11 +146,18 @@ test.describe('smoke', () => {
       await page.getByRole('button', { name: 'Batalkan tindakan' }).click();
       const confirm = page.getByRole('button', { name: 'Ya, batalkan' });
       await expect(confirm).toBeDisabled();
+      // Alasan terlalu pendek (< 5 karakter, mockup Fondasi): tombol tetap nonaktif dengan penjelasan.
+      await page.getByLabel('Alasan pembatalan').fill('oke');
+      await expect(confirm).toBeDisabled();
+      await expect(page.getByText('Tulis alasan minimal 5 karakter.', { exact: false })).toBeVisible();
       await page.getByLabel('Alasan pembatalan').fill('Pasien menolak tindakan');
       await expect(confirm).toBeEnabled();
       await confirm.click();
+      // Umpan balik berjam beserta alasannya (docs/08 §5.3).
       await expect(
-        page.getByRole('status').filter({ hasText: 'dibatalkan dengan alasan tercatat' }),
+        page
+          .getByRole('status')
+          .filter({ hasText: /Tindakan dibatalkan pukul \d{2}\.\d{2} · alasan: Pasien menolak tindakan/ }),
       ).toBeVisible();
     });
 
