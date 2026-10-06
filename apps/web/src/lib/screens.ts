@@ -430,6 +430,20 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: 'semua',
     layout: 'perangkat',
   },
+  // FE5 · back office fase 8 dan kanal fase 9 (mode presentasi, tanpa mockup; isi dari prototipe alur)
+  {
+    id: 'rm-adm',
+    label: 'RM administratif',
+    route: '/rekam-medis/administrasi',
+    mockup: null,
+    components: ['B09'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'record.release.read',
+    demoRoles: ['petugas_rm', 'petugas_privasi', 'manajemen'],
+    layout: 'staf',
+  },
+  // FE5 · akhir
 ];
 
 const BY_ID = new Map(SCREENS.map((s) => [s.id, s]));

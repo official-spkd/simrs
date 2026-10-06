@@ -87,6 +87,20 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],
   },
+  // FE5 · back office fase 8 (B02–B13) dan command center/dataset riset fase 9
+  {
+    title: 'BACK OFFICE',
+    items: [
+      {
+        id: 'rm-adm',
+        label: 'RM administratif',
+        href: '/rekam-medis/administrasi',
+        icon: 'folder',
+        available: false,
+      },
+    ],
+  },
+  // FE5 · akhir
   {
     title: 'SISTEM',
     items: [
