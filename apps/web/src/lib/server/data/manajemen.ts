@@ -16,6 +16,9 @@ import {
   demoLogisticsOverview,
   demoQualityOverview,
 } from '../../demo/fixtures/manajemen';
+import { hartonoCpoeOpen } from '../../demo/fixtures/klinis';
+import { encounterIdOf } from '../../demo/fixtures/pasien';
+import { PATIENT_ID } from '../../demo/fixtures/ids';
 import { doctorAppInbox, hartonoLabOrdered, patientAppHome } from '../../manajemen-aplikasi';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
@@ -66,7 +69,7 @@ export async function getPatientAppHome(session: SessionView): Promise<PatientAp
  */
 export async function getDoctorAppInbox(
   session: SessionView,
-): Promise<{ inbox: DoctorAppInbox; rev: number; labOrdered: boolean }> {
+): Promise<{ inbox: DoctorAppInbox; rev: number; labOrdered: boolean; orderHref: string | null }> {
   if (!isDemo()) return notImplemented('aplikasi dokter');
   const runs = await scenarioRuns(session);
   const R = runs.results['igd-ranap'];
@@ -74,5 +77,7 @@ export async function getDoctorAppInbox(
     inbox: doctorAppInboxSchema.parse(doctorAppInbox(R)),
     rev: runs.rev,
     labOrdered: hartonoLabOrdered(R),
+    // "Buka order" (mockup AppDokter) membuka CPOE kunjungan IGD Tn. Hartono setelah kunjungan itu ada di CPOE.
+    orderHref: hartonoCpoeOpen(R) ? `/klinis/order/${encounterIdOf(PATIENT_ID.hartono)}` : null,
   };
 }
