@@ -41,6 +41,11 @@ describe('kas kasir', () => {
       'selisih di atas Rp 50.000 wajib disaksikan supervisor',
     ]);
     expect(closeProblems(0n, 1n, '', false)[0]).toMatch(/hitungan fisik/);
+    // Fisik di bawah modal laci → setoran negatif (Dr Bank negatif): ditahan, bukan dijurnal.
+    expect(
+      closeProblems(300_000n, 4_208_400n, 'Uang laci hilang, sedang diperiksa', true, 500_000n),
+    ).toContain('hitungan fisik kurang dari modal laci Rp 500.000: hitung ulang bersama supervisor');
+    expect(closeProblems(4_208_400n, 4_208_400n, '', false, 500_000n)).toEqual([]);
   });
 
   it('jurnal tutup laci seimbang: pas, kurang, lebih; setoran = fisik − modal', () => {
