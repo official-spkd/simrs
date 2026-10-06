@@ -1,4 +1,4 @@
-import { claimBoardSchema, journalBalanced, kasirBoardSchema } from '@simrs/shared';
+import { claimBoardSchema, journalBalanced, kasirBoardSchema, paymentOverviewSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { type DemoActor, project, type StoredEvent } from './demo/store/define';
 import { CAPTURE_EVENTS } from './demo/fixtures/charge-capture';
@@ -26,6 +26,8 @@ import {
 import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keuangan-skenario';
 import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
+import { applyPembayaran, pembayaranDomain, pendingReconKeys } from './btn-pembayaran-toko';
+import { demoPaymentOverview } from './btn-skenario';
 import { paymentJournal } from './keuangan-piutang';
 import { NEXT_BATCH_SEQ } from './demo/fixtures/piutang';
 import { runScenario } from './demo/engine/run';
@@ -548,6 +550,87 @@ describe('domain piutang · batch, pelunasan berjurnal, penyesuaian pembuat ≠ 
     const lain = { ...manajer, userId: 'u-mgr-2', name: 'Manajer Keuangan' };
     expect(piutangDomain.validate?.(p.state, putus(false, null), lain)).toMatch(/alasan penolakan/);
     expect(piutangDomain.validate?.(p.state, putus(true, null), lain)).toBeNull();
+  });
+});
+
+describe('domain pembayaran-btn · kasir QRIS → rekonsiliasi 3 arah → jurnal terposting; refund berjenjang', () => {
+  it('pelunasan QRIS di Kasir muncul sebagai transaksi TPDI + baris rekonsiliasi; rekonsiliasi memposting jurnal', () => {
+    const id = registeredInvoiceId('kj-1');
+    const bayar = ev('tagihan', {
+      type: 'tagihan.bayar',
+      invoiceId: id,
+      invoiceNo: 'INV-2610-02401',
+      patient: { id: PATIENT_ID.ayu, name: 'Pasien Daftar Fiktif', rm: '00-12-45-78' },
+      method: 'qris',
+      amount: '30000',
+      reference: 'QR-2610-09001',
+      tenor: null,
+      at: AT,
+      settlement: {
+        scheme: 'umum',
+        payerLabel: 'Umum (bayar sendiri)',
+        setting: 'rawat-jalan',
+        hospitalTotal: '30000',
+        payerPays: '0',
+        patientShare: '30000',
+        hospitalAbsorbs: '0',
+        prepaid: '0',
+        cbg: null,
+        sep: null,
+        dpjp: 'dr. Andini Prameswari, Sp.PD',
+        label: 'Rawat jalan Poli Penyakit Dalam',
+        diagnosis: null,
+      },
+      jurnal: [patientPaymentJournal('qris', 30_000n, 'INV-2610-02401')],
+    });
+    const events = [visit(1, 'Umum'), bayar];
+    let pb = project(pembayaranDomain, log(events));
+    const data = () =>
+      applyPembayaran(demoPaymentOverview(emptyScenarioResults()['elektif-btn']), pb.state).data;
+    const tx = data().transactions.find((t) => t.invoiceNo === 'INV-2610-02401');
+    expect(tx).toMatchObject({ channel: 'QRIS', status: 'lunas', amount: '30000' });
+    expect(paymentOverviewSchema.safeParse(data()).success).toBe(true);
+    expect(data().recon.rows.find((r) => r.transactionId === tx?.id)?.status).toBe('belum-dicocokkan');
+    expect(pendingReconKeys(pb.state)).toEqual(['tpdi:INV-2610-02401']);
+    events.push(
+      ev('pembayaran-btn', { type: 'rekonsiliasi', reconKeys: pendingReconKeys(pb.state), at: AT }),
+    );
+    pb = project(pembayaranDomain, log(events));
+    expect(data().recon.rows.find((r) => r.transactionId === tx?.id)?.status).toBe('cocok');
+    const ak = project(akuntansiDomain, log(events)).state;
+    const board = applyAkuntansi(demoAccountingBoard(emptyScenarioResults()), ak);
+    expect(board.journals.find((j) => j.reference === 'Kasir · INV-2610-02401')?.status).toBe('terposting');
+  });
+
+  it('refund: pengaju ≠ penyetuju tingkat 1 ≠ penyetuju tingkat 2 (id pengguna sesi)', () => {
+    const a: DemoActor = { userId: 'u-a', name: 'Kasir A', role: 'kasir', baseRole: null };
+    const b: DemoActor = { userId: 'u-b', name: 'Supervisor B', role: 'kasir', baseRole: null };
+    const p = project(
+      pembayaranDomain,
+      log([
+        ev(
+          'pembayaran-btn',
+          {
+            type: 'refund-ajukan',
+            refundId: 'rf14',
+            amount: '100000',
+            reason: 'deposit-berlebih',
+            note: 'Kelebihan deposit rawat inap',
+            at: AT,
+          },
+          a,
+        ),
+      ]),
+    );
+    const t1 = {
+      type: 'refund-setujui' as const,
+      refundId: 'rf14',
+      stage: 'menunggu-supervisor' as const,
+      at: AT,
+      jurnal: [],
+    };
+    expect(pembayaranDomain.validate?.(p.state, t1, a)).toMatch(/pengaju refund/);
+    expect(pembayaranDomain.validate?.(p.state, t1, b)).toBeNull();
   });
 });
 

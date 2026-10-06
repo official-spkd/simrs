@@ -18,6 +18,7 @@ import {
 } from './demo/fixtures/keuangan';
 import { closeReadiness, needsMapping, reconLabel } from './keuangan-akuntansi';
 import { type AutoJurnal, labelPeriode, periodeOf } from './keuangan-jurnal';
+import { pembayaranDomain } from './btn-pembayaran-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
 import { tagihanDomain } from './keuangan-tagihan-toko';
 
@@ -236,7 +237,23 @@ export const akuntansiDomain = defineDomain<AkuntansiState, AkuntansiEvent>(AKUN
         return { ...s, lastExport: sig };
     }
   },
-  subscriptions: [journalSubscription(tagihanDomain), journalSubscription(piutangDomain)],
+  subscriptions: [
+    journalSubscription(tagihanDomain),
+    journalSubscription(piutangDomain),
+    journalSubscription(pembayaranDomain),
+    // Rekonsiliasi 3 arah TPDI × BTN cocok → jurnal QRIS/VA yang menunggu rekonsiliasi terposting.
+    on(pembayaranDomain, (s, ev) =>
+      ev.data.type === 'rekonsiliasi'
+        ? {
+            ...s,
+            reconciled: {
+              ...s.reconciled,
+              ...Object.fromEntries(ev.data.reconKeys.map((k) => [k, signed(ev.actor, ev.data.at)])),
+            },
+          }
+        : s,
+    ),
+  ],
 });
 
 // ---------------------------------------------------------------------------------------------------------------

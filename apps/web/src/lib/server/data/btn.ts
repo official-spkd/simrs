@@ -20,6 +20,8 @@ import { type ScenarioRuns, scenarioRuns, scenariosHere } from '../demo/scenario
 import { assertDemo } from '../demo-guard';
 import { getSession } from '../session';
 import { webEnv } from '../web-env';
+import { readDomain } from '../demo/state';
+import { applyPembayaran, type PembayaranState } from '../../btn-pembayaran-toko';
 import { notImplemented } from './not-implemented';
 
 /**
@@ -64,12 +66,22 @@ function hookFor(runs: ScenarioRuns, screenId: string): ScenarioHook | null {
   };
 }
 
-export async function getPaymentOverview(session: SessionView): Promise<WithScenario<PaymentOverview>> {
+export interface PaymentStore extends WithScenario<PaymentOverview> {
+  /** Revisi domain `pembayaran-btn`. */
+  rev: number;
+  state: PembayaranState;
+  /** Transaksi yang lunas karena aksi tersimpan (KPI harian). */
+  localPaid: string[];
+}
+
+/** Pembayaran digital: fixture + skenario elektif + toko demo (domain `pembayaran-btn`, ADR-0085). */
+export async function getPaymentOverview(session: SessionView): Promise<PaymentStore> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    const runs = await scenarioRuns(session);
-    const data = paymentOverviewSchema.parse(demoPaymentOverview(runs.results['elektif-btn']));
-    return { data, hook: hookFor(runs, 'pembayaran') };
+    const [runs, pb] = await Promise.all([scenarioRuns(session), readDomain('pembayaran-btn')]);
+    const applied = applyPembayaran(demoPaymentOverview(runs.results['elektif-btn']), pb.state);
+    const data = paymentOverviewSchema.parse(applied.data);
+    return { data, hook: hookFor(runs, 'pembayaran'), rev: pb.rev, state: pb.state, localPaid: applied.localPaid };
   }
   return notImplemented('pembayaran digital');
 }
