@@ -178,7 +178,9 @@ export type DepoErrorCode =
   | 'RECEIVER_REQUIRED'
   | 'RECEIVER_SAME_AS_SENDER'
   | 'OPNAME_REASON'
-  | 'NOT_EXPIRED';
+  | 'NOT_EXPIRED'
+  | 'HIGH_ALERT_CHECK'
+  | 'HIGH_ALERT_SAME';
 
 export const DEPO_ERROR_TEXT: Record<DepoErrorCode, string> = {
   QTY_INVALID: 'Jumlah harus bilangan bulat lebih dari 0.',
@@ -193,6 +195,9 @@ export const DEPO_ERROR_TEXT: Record<DepoErrorCode, string> = {
   RECEIVER_SAME_AS_SENDER: 'Penerima harus petugas lain, bukan pengirim mutasi.',
   OPNAME_REASON: 'Ada selisih opname: alasan wajib diisi (minimal 10 karakter).',
   NOT_EXPIRED: 'Hanya batch kedaluwarsa yang dipindahkan ke karantina.',
+  HIGH_ALERT_CHECK:
+    'Obat high alert keluar dengan cek ganda: isi nama petugas pemeriksa kedua (minimal 5 karakter).',
+  HIGH_ALERT_SAME: 'Pemeriksa kedua obat high alert harus petugas lain, bukan yang mengeluarkan.',
 };
 
 export type DepoAction =
@@ -205,6 +210,8 @@ export type DepoAction =
       /** Batch pilihan manual (override FEFO); kosong = FEFO otomatis. */
       batchId?: string;
       reason?: string;
+      /** Pemeriksa kedua (wajib untuk obat high alert, orang lain dari petugas yang mengeluarkan). */
+      secondChecker?: string;
     }
   | { type: 'kirim'; from: string; to: string; itemId: string; qty: number }
   | { type: 'terima'; transferId: string; receiver: string }
@@ -262,6 +269,19 @@ export function dispenseGate(
   return { allocations: plan.allocations, overridden: false };
 }
 
+/** Cek ganda obat high alert (dipakai juga Server Action): pemeriksa kedua terisi dan bukan petugas yang mengeluarkan. */
+export function highAlertGate(
+  item: Pick<StockItemDef, 'highAlert'> | undefined,
+  secondChecker: string | undefined,
+  by: string,
+): DepoErrorCode | null {
+  if (!item?.highAlert) return null;
+  const second = (secondChecker ?? '').trim();
+  if (second.length < 5) return 'HIGH_ALERT_CHECK';
+  if (second.toLowerCase() === by.trim().toLowerCase()) return 'HIGH_ALERT_SAME';
+  return null;
+}
+
 /** Terapkan satu transaksi stok; saldo tidak pernah negatif, setiap perubahan tercatat di kartu stok. */
 export function applyDepo(state: DepoState, master: DepoMaster, a: DepoAction, ctx: DepoCtx): DepoResult {
   const batchNo = (id: string) => master.batches.find((b) => b.id === id)?.batchNo ?? id;
@@ -272,6 +292,10 @@ export function applyDepo(state: DepoState, master: DepoMaster, a: DepoAction, c
     case 'keluar': {
       const g = dispenseGate(state, master, a, ctx.today);
       if ('code' in g) return fail(g.code);
+      const high = master.items.find((i) => i.id === a.itemId);
+      const ha = highAlertGate(high, a.secondChecker, ctx.by);
+      if (ha) return fail(ha);
+      const by = high?.highAlert ? `${ctx.by} + ${(a.secondChecker ?? '').trim()}` : ctx.by;
       let balances = [...state.balances];
       const moves: Movement[] = g.allocations.map((al) => {
         balances = setQty(balances, a.depotId, al.batchId, -al.qty);
@@ -283,7 +307,7 @@ export function applyDepo(state: DepoState, master: DepoMaster, a: DepoAction, c
           batchId: al.batchId,
           qty: -al.qty,
           ref: a.ref,
-          by: ctx.by,
+          by,
           ...(g.overridden ? { reason: `Override FEFO: ${(a.reason ?? '').trim()}` } : {}),
         };
       });
