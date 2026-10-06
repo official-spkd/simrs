@@ -29,6 +29,24 @@ describe('safeNextPath (anti open redirect)', () => {
     expect(safeNextPath('/x'.repeat(300))).toBe('/');
   });
 
+  it('menolak segmen titik yang setelah normalisasi URL menjadi `//host` (redirect protokol-relatif)', () => {
+    for (const bad of [
+      '/.//jahat.id',
+      '/a/..//jahat.id',
+      '/%2e//jahat.id',
+      '/%2e%2e//jahat.id',
+      '/././/jahat.id',
+    ]) {
+      expect(safeNextPath(bad), bad).toBe('/');
+    }
+    // Hasil selalu idempoten: memvalidasi ulang keluaran tidak mengubahnya.
+    for (const ok of ['/a/../b', '/./sistem', '/pasien/%2e%2e/x?y=1']) {
+      const once = safeNextPath(ok);
+      expect(safeNextPath(once), ok).toBe(once);
+      expect(once.startsWith('//')).toBe(false);
+    }
+  });
+
   it('loginUrl membawa tujuan dan alasan', () => {
     expect(loginUrl('/')).toBe('/masuk');
     expect(loginUrl('/sistem/akses')).toBe('/masuk?lanjut=%2Fsistem%2Fakses');
