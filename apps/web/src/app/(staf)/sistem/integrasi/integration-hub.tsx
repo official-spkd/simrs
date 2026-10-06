@@ -2,6 +2,7 @@
 
 import { formatJam, type IntegrationOverview, type InterfaceId } from '@simrs/shared';
 import { Button, Icon } from '@simrs/ui';
+import Link from 'next/link';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { InterfaceCard } from '@/components/manajemen/interface-card';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
@@ -25,7 +26,19 @@ const sum = (c: Counts) => Object.values(c).reduce((a, b) => a + (b ?? 0), 0);
  * I01–I06 · Pemantauan antarmuka (mockup Integrasi): uji mode downtime server edge, kartu status per antarmuka
  * (klik = saring dead-letter queue), dan dead-letter queue dengan kirim ulang terkonfirmasi.
  */
-export function IntegrationHub({ data, aside }: { data: IntegrationOverview; aside: ReactNode }) {
+export function IntegrationHub({
+  data,
+  aside,
+  heading,
+  subnav,
+}: {
+  data: IntegrationOverview;
+  aside: ReactNode;
+  /** Judul halaman; status server edge, Uji mode downtime, dan Log audit sebaris di kanannya (mockup). */
+  heading: ReactNode;
+  /** Navigasi sub-layar dan banner skenario di bawah kepala layar. */
+  subnav?: ReactNode;
+}) {
   const [down, setDown] = useState<{ at: string } | null>(null);
   const [queued, setQueued] = useState<Counts>({});
   const [synced, setSynced] = useState<Counts>({});
@@ -77,27 +90,41 @@ export function IntegrationHub({ data, aside }: { data: IntegrationOverview; asi
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        role="group"
-        aria-label="Server edge"
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-line bg-white px-4 py-2.5"
-      >
-        <span className="flex-[1_1_280px] text-small text-ink-700">
-          Server edge:{' '}
-          {holding ? (
-            <>
-              <span className="font-semibold text-warning">mode downtime (uji)</span> · replikasi ke cloud
-              dijeda
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-success">online</span> · replikasi ke cloud tertinggal{' '}
-              {data.replicationLagSeconds} dtk
-            </>
-          )}
-        </span>
-        {!holding && <Button onClick={start}>Uji mode downtime</Button>}
-      </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
+        <div
+          role="group"
+          aria-label="Server edge"
+          className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2"
+        >
+          <span className="text-small text-ink-700">
+            <span
+              aria-hidden="true"
+              className={`mr-1.5 inline-block size-2 rounded-full ${holding ? 'bg-warning' : 'bg-success'}`}
+            />
+            Server edge:{' '}
+            {holding ? (
+              <>
+                <span className="font-semibold text-warning">mode downtime (uji)</span> · replikasi ke cloud
+                dijeda
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-success">online</span> · replikasi ke cloud tertinggal{' '}
+                {data.replicationLagSeconds} dtk
+              </>
+            )}
+          </span>
+          {!holding && <Button onClick={start}>Uji mode downtime</Button>}
+          <Link
+            href="/sistem/audit"
+            className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900 no-underline"
+          >
+            Log audit
+          </Link>
+        </div>
+      </header>
+      {subnav}
 
       {holding && down && (
         <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-[#F1D3A8] bg-[linear-gradient(120deg,#FFF3E0,#FFFFFF_75%)] px-4 py-3">

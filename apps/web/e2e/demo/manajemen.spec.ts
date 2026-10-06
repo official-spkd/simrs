@@ -41,8 +41,21 @@ test.describe('domain manajemen', () => {
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Ya, kirim ulang' }).click();
     await expect(dlq.getByRole('status')).toContainText('(simulasi, tidak disimpan)');
+    // Fokus kembali ke tombol pemicu setelah konfirmasi tertutup.
+    await expect(resend).toBeFocused();
     await expect(dlq.getByText('Tujuan: PACS radiologi · 1 pesan')).toBeVisible();
     await expect(dlq.getByLabel('Payload galat')).toContainText('RAD-2610-117');
+
+    // Galat permanen (4xx / penolakan bisnis) tidak bisa dikirim ulang tanpa perbaikan data; ada tautan perbaikan.
+    await cards.getByRole('button', { name: /SATUSEHAT/ }).click();
+    await expect(dlq.getByText(/Tujuan: SATUSEHAT/)).toBeVisible();
+    await expect(dlq.getByRole('checkbox', { name: /Encounter/ })).toBeDisabled();
+    await expect(dlq.getByText(/Galat permanen: perbaiki datanya dulu/).first()).toBeVisible();
+    await expect(dlq.getByRole('link', { name: /Perbaiki di SATUSEHAT/ }).first()).toHaveAttribute(
+      'href',
+      '/sistem/integrasi/satusehat',
+    );
+    await expect(page.getByRole('link', { name: 'Log audit' })).toHaveAttribute('href', '/sistem/audit');
 
     await page.getByRole('button', { name: 'Uji mode downtime' }).click();
     await expect(page.getByText(/Mode downtime aktif sejak/)).toBeVisible();

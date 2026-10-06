@@ -25,6 +25,7 @@ import {
   CRITICAL_COVER_DAYS,
   daysOfCover,
   daysUntil,
+  dlqNeedsFix,
   dlqPayloadText,
   formatLatency,
   formatRupiahShort,
@@ -232,5 +233,21 @@ describe('aplikasi pasien: pita gula darah', () => {
     expect(GLUCOSE_BAND_LABEL[glucoseBand(65, GLUCOSE_TARGET)]).toBe('di bawah sasaran');
     expect(GLUCOSE_BAND_LABEL[glucoseBand(146, GLUCOSE_TARGET)]).toBe('di atas sasaran');
     expect(GLUCOSE_BAND_LABEL[glucoseBand(GLUCOSE_TARGET.min, GLUCOSE_TARGET)]).toBe('dalam sasaran');
+  });
+});
+
+describe('dead-letter queue: galat permanen', () => {
+  it('4xx dan penolakan bisnis menunggu perbaikan data; galat sementara boleh dikirim ulang', () => {
+    const fix = Object.fromEntries(
+      DEAD_LETTERS.map((d) => [d.id, dlqNeedsFix(d)?.fix?.label ?? !!dlqNeedsFix(d)]),
+    );
+    expect(fix).toMatchObject({
+      'dlq-0103': 'SATUSEHAT',
+      'dlq-0099': 'SATUSEHAT',
+      'dlq-0087': 'SATUSEHAT',
+      'dlq-0072': 'BPJS',
+      'dlq-0035': false,
+      'dlq-0041': false,
+    });
   });
 });

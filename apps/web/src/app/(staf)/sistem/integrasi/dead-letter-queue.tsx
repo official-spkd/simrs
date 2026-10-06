@@ -2,8 +2,10 @@
 
 import { type DlqMessage, formatJam, type InterfaceId, OUTBOX_MAX_ATTEMPTS } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
+import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { dlqPayloadText } from '@/lib/manajemen';
+import { GatedButton } from '@/components/gated-button';
+import { dlqNeedsFix, dlqPayloadText } from '@/lib/manajemen';
 import { resendDeadLettersAction } from './actions';
 
 interface Flash {
@@ -37,10 +39,13 @@ export function DeadLetterQueue({
   const [flash, setFlash] = useState<Flash | null>(null);
   const [pending, startTransition] = useTransition();
   const confirmRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const visibleIds = messages.map((m) => m.id);
-  const chosen = messages.filter((m) => picked.has(m.id));
-  const allOn = messages.length > 0 && chosen.length === messages.length;
+  // Hanya pesan bergalat sementara yang bisa dipilih; galat permanen menunggu perbaikan data.
+  const resendable = messages.filter((m) => !dlqNeedsFix(m));
+  const visibleIds = resendable.map((m) => m.id);
+  const chosen = resendable.filter((m) => picked.has(m.id));
+  const allOn = resendable.length > 0 && chosen.length === resendable.length;
   const selected = messages.find((m) => m.id === sel) ?? messages[0] ?? null;
   const reason = holding
     ? 'Ditahan selama uji downtime: pesan tetap di antrean lokal sampai koneksi pulih.'
@@ -57,14 +62,29 @@ export function DeadLetterQueue({
     if (holding) setConfirm(false);
   }, [holding]);
 
-  const toggle = (id: string) =>
+  // Ganti tujuan (klik kartu): pesan dan payload terpilih dikosongkan seperti mockup.
+  useEffect(() => {
+    setFlash(null);
+    setSel(null);
+  }, [filterName]);
+
+  /** Tutup konfirmasi dan kembalikan fokus ke tombol pemicunya. */
+  const closeConfirm = () => {
+    setConfirm(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
+  const toggle = (id: string) => {
+    setFlash(null);
     setPicked((cur) => {
       const next = new Set(cur);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  const toggleAll = () =>
+  };
+  const toggleAll = () => {
+    setFlash(null);
     setPicked((cur) => {
       const next = new Set(cur);
       for (const id of visibleIds) {
@@ -73,13 +93,14 @@ export function DeadLetterQueue({
       }
       return next;
     });
+  };
 
   const send = () => {
     if (holding) return;
     const ids = chosen.map((m) => m.id);
     startTransition(async () => {
       const r = await resendDeadLettersAction({ ids });
-      setConfirm(false);
+      closeConfirm();
       setFlash({ tone: r.ok ? 'ok' : 'warn', text: r.message });
       if (r.ok) {
         setPicked((cur) => new Set([...cur].filter((id) => !r.ids.includes(id))));
@@ -118,9 +139,10 @@ export function DeadLetterQueue({
           )}
         </div>
         <div className="flex max-w-[300px] flex-col items-end gap-1">
-          <Button
+          <GatedButton
+            ref={triggerRef}
             variant="primary"
-            disabled={reason !== null || pending}
+            enabled={reason === null && !pending}
             aria-describedby={reason ? 'dlq-alasan' : undefined}
             onClick={() => {
               setFlash(null);
@@ -128,7 +150,7 @@ export function DeadLetterQueue({
             }}
           >
             {chosen.length ? `Kirim ulang terpilih (${chosen.length})` : 'Kirim ulang terpilih'}
-          </Button>
+          </GatedButton>
           {reason && (
             <span id="dlq-alasan" className="text-right text-caption text-ink-500">
               {reason}
@@ -154,7 +176,7 @@ export function DeadLetterQueue({
             Tindakan ini tercatat di log audit.
           </span>
           <span className="flex flex-wrap gap-2">
-            <Button onClick={() => setConfirm(false)} disabled={pending}>
+            <Button onClick={closeConfirm} disabled={pending}>
               Batal
             </Button>
             <Button variant="primary" onClick={send} disabled={pending || holding}>
@@ -181,7 +203,7 @@ export function DeadLetterQueue({
             type="checkbox"
             checked={allOn}
             onChange={toggleAll}
-            disabled={messages.length === 0}
+            disabled={resendable.length === 0}
             className="h-4 w-4 accent-brand-600"
           />
           Pilih semua yang tampil
@@ -192,6 +214,7 @@ export function DeadLetterQueue({
         {messages.map((d) => {
           const isSel = selected?.id === d.id;
           const t = formatJam(d.at);
+          const needsFix = dlqNeedsFix(d);
           return (
             <li
               key={d.id}
@@ -207,9 +230,11 @@ export function DeadLetterQueue({
               <label className="flex w-11 shrink-0 cursor-pointer items-center justify-center">
                 <input
                   type="checkbox"
-                  checked={picked.has(d.id)}
+                  checked={!needsFix && picked.has(d.id)}
+                  disabled={!!needsFix}
                   onChange={() => toggle(d.id)}
                   aria-label={`Pilih pesan ${names[d.target]} ${d.operation} pukul ${t}`}
+                  aria-describedby={needsFix ? `dlq-fix-${d.id}` : undefined}
                   className="h-4 w-4 accent-brand-600"
                 />
               </label>
@@ -233,7 +258,24 @@ export function DeadLetterQueue({
                     {d.errorCode} · {d.errorMessage}
                   </span>
                 </span>
+                {needsFix && (
+                  <span id={`dlq-fix-${d.id}`} className="text-caption font-medium text-warning">
+                    {needsFix.reason}
+                  </span>
+                )}
               </button>
+              {needsFix?.fix && (
+                <Link
+                  href={needsFix.fix.href}
+                  className="flex shrink-0 items-center px-3 text-caption font-semibold text-brand-700"
+                >
+                  Perbaiki di {needsFix.fix.label}
+                  <span className="sr-only">
+                    {' '}
+                    · pesan {d.operation} pukul {t}
+                  </span>
+                </Link>
+              )}
             </li>
           );
         })}

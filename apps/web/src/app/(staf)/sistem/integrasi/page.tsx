@@ -1,7 +1,6 @@
 import { formatJam } from '@simrs/shared';
 import { Chip, cx } from '@simrs/ui';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { IntegrasiSubnav } from '@/components/integrasi/integrasi-subnav';
 import { ScenarioBanner } from '@/components/scenario-banner';
@@ -68,9 +67,11 @@ export default async function IntegrasiPage() {
         </h2>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {d.credentials.map((c) => (
-            <li key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-small">
+            <li key={c.id} className="flex flex-col gap-0.5 text-small">
               <span className="text-ink-700">{c.label}</span>
-              <Chip tone={c.status === 'aman' ? 'success' : 'warning'}>{c.detail}</Chip>
+              <span>
+                <Chip tone={c.status === 'aman' ? 'success' : 'warning'}>{c.detail}</Chip>
+              </span>
             </li>
           ))}
         </ul>
@@ -94,24 +95,23 @@ export default async function IntegrasiPage() {
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <IntegrationHub
+      heading={
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">
             Sistem / Integration hub · I01–I06 · data per {formatJam(d.asOf)}
           </span>
           <h1 className="m-0 text-h1 font-semibold">Integrasi · pemantauan antarmuka</h1>
         </div>
-        <Link
-          href="/sistem/audit"
-          className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900 no-underline"
-        >
-          Jejak audit
-        </Link>
-      </header>
-      <IntegrasiSubnav current="/sistem/integrasi" />
-      <ScenarioBanner session={session} screen="integrasi" />
-      <IntegrationHub data={d} aside={aside} />
-    </div>
+      }
+      subnav={
+        <>
+          <IntegrasiSubnav current="/sistem/integrasi" />
+          <ScenarioBanner session={session} screen="integrasi" />
+        </>
+      }
+      data={d}
+      aside={aside}
+    />
   );
 }

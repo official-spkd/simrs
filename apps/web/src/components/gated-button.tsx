@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, type ButtonProps, cx } from '@simrs/ui';
-import { type MouseEvent, useId } from 'react';
+import { type MouseEvent, type Ref, useId } from 'react';
 
 /** Gaya nonaktif yang sama dengan `Button` (`disabled:`), tetapi untuk `aria-disabled`. */
 const SOFT_DISABLED =
@@ -21,8 +21,10 @@ export function GatedButton({
   reasonClassName,
   children,
   type = 'button',
+  ref,
   ...rest
 }: Omit<ButtonProps, 'disabled'> & {
+  ref?: Ref<HTMLButtonElement>;
   enabled: boolean;
   /** Alasan tombol belum bisa dipakai; tampil di bawah tombol saat `enabled` false. */
   reason?: string | null;
@@ -43,6 +45,7 @@ export function GatedButton({
     <>
       <Button
         {...rest}
+        ref={ref}
         type={type}
         aria-disabled={!enabled}
         aria-describedby={why ? id : rest['aria-describedby']}
