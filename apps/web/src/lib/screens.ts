@@ -311,6 +311,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['analis_lab', 'radiografer', 'dokter', 'perawat'],
     layout: 'staf',
   },
+  {
+    id: 'depo',
+    label: 'Depo & stok farmasi',
+    route: '/penunjang/depo',
+    mockup: null,
+    components: ['S05'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'stock.write',
+    demoRoles: ['apoteker'],
+    layout: 'staf',
+  },
   // FE3 · akhir
   {
     id: 'kasir',

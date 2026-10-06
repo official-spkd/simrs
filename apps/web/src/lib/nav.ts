@@ -55,6 +55,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'alert',
         available: false,
       },
+      { id: 'depo', label: 'Depo & stok', href: '/penunjang/depo', icon: 'box', available: false },
       // FE3 · akhir
     ],
   },

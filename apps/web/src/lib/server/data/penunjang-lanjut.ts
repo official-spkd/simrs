@@ -5,7 +5,9 @@ import {
   criticalFromLab,
   demoOtherCriticals,
 } from '../../demo/fixtures/penunjang-kritis';
-import { DEMO_NOW } from '../../demo/fixtures/waktu';
+import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
+import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
+import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
@@ -53,4 +55,25 @@ export async function getCriticalCenter(session: SessionView): Promise<CriticalC
 
 export async function findCriticalItem(session: SessionView, id: string): Promise<CriticalItem | undefined> {
   return (await getCriticalCenter(session)).items.find((i) => i.id === id);
+}
+
+// ─── S05 · Depo dan stok farmasi ─────────────────────────────────────────────────────────────────────────────
+
+export interface DepoData {
+  asOf: string;
+  today: string;
+  master: DepoMaster;
+  state: DepoState;
+  requests: typeof DEPO_REQUESTS;
+}
+
+export async function getDepoData(): Promise<DepoData> {
+  if (!isDemo()) return notImplemented('stok depo farmasi');
+  return {
+    asOf: DEMO_NOW,
+    today: DEMO_TODAY,
+    master: DEPO_MASTER,
+    state: demoDepoState(),
+    requests: DEPO_REQUESTS,
+  };
 }
