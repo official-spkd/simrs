@@ -142,7 +142,7 @@ test.describe('smoke', () => {
     });
 
     test('gerbang alasan pembatalan bekerja', async ({ page }) => {
-      await expect(page.getByRole('heading', { name: 'Klinis Bersih' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Pelangi Klinis', level: 1 })).toBeVisible();
       await page.getByRole('button', { name: 'Batalkan tindakan' }).click();
       const confirm = page.getByRole('button', { name: 'Ya, batalkan' });
       await expect(confirm).toBeDisabled();
@@ -171,7 +171,7 @@ test.describe('smoke', () => {
     });
 
     test('setiap kontrol interaktif galeri setinggi ≥ 44 px (target sentuh)', async ({ page }, testInfo) => {
-      await expect(page.getByRole('heading', { name: 'Klinis Bersih' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Pelangi Klinis', level: 1 })).toBeVisible();
       // Tampilkan juga field dan tombol ringkas (sm) di formulir alasan pembatalan.
       await page.getByRole('button', { name: 'Batalkan tindakan' }).click();
       await expect(page.getByLabel('Alasan pembatalan')).toBeVisible();
