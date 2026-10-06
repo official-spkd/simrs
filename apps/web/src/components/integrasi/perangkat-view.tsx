@@ -116,7 +116,7 @@ export function GatewayView({ data }: { data: GatewayData }) {
               {log.map((l, i) => (
                 <li
                   key={`${l.at}-${i}`}
-                  className="flex flex-col gap-1 rounded-control border border-line p-2.5 text-small"
+                  className="flex flex-col gap-1 rounded-[12px] border border-line bg-white/80 p-2.5 text-small"
                 >
                   <span className="flex flex-wrap items-center gap-2">
                     <Chip tone={ACK_TONE[l.result.ack]}>ACK {l.result.ack}</Chip>
@@ -133,7 +133,7 @@ export function GatewayView({ data }: { data: GatewayData }) {
                       ))}
                     </ul>
                   )}
-                  <pre className="m-0 overflow-auto rounded-control bg-subtle p-2 font-mono text-caption">
+                  <pre className="m-0 overflow-auto rounded-control bg-batu-100 p-2 font-mono text-caption">
                     {l.redacted}
                   </pre>
                 </li>

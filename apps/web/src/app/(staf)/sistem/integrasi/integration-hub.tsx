@@ -103,7 +103,7 @@ export function IntegrationHub({
           )}
           <Link
             href="/sistem/audit"
-            className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900 no-underline"
+            className="inline-flex h-11 items-center rounded-control border border-[rgba(23,32,46,0.12)] bg-white/95 px-4 font-semibold text-ink-900 no-underline hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]"
           >
             Log audit
           </Link>
@@ -117,7 +117,7 @@ export function IntegrationHub({
       )}
 
       {holding && down && (
-        <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-kunyit-200 bg-[linear-gradient(120deg,var(--color-kunyit-50),#FFFFFF_75%)] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3.5 rounded-card border border-kunyit-200 bg-alert-warning px-4 py-3 shadow-card">
           <span className="text-warning" aria-hidden="true">
             <Icon name="alert" size={22} />
           </span>
@@ -146,7 +146,7 @@ export function IntegrationHub({
       {!holding && restored && (
         <div
           role="status"
-          className="rounded-card border border-zamrud-200 bg-zamrud-50 px-4 py-2.5 text-small font-medium text-success"
+          className="rounded-card border border-zamrud-200 bg-alert-success px-4 py-2.5 text-small font-medium text-success"
         >
           {restored}
         </div>

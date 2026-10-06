@@ -76,7 +76,7 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
           {items.map((i) => {
             const usable = usableStock(state, master, depotId, i.id, today);
             return [
-              <tr key={i.id} className="border-b border-line bg-canvas">
+              <tr key={i.id} className="border-b border-line-soft bg-brand-50/60">
                 <th scope="row" colSpan={2} className="px-3 py-2 text-left font-semibold">
                   {i.name}{' '}
                   <span className="font-normal text-ink-500">
@@ -98,7 +98,7 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
               ...batchesIn(state, master, depotId, i.id).map((b, idx) => {
                 const expired = expiryStatus(b.expiry, today).status === 'kedaluwarsa';
                 return (
-                  <tr key={b.id} className={cx('border-b border-line', expired && 'bg-danger-bg')}>
+                  <tr key={b.id} className={cx('border-b border-line-soft', expired && 'bg-danger-bg')}>
                     <td className="px-3 py-2 pl-6">
                       <span className="font-mono">{b.batchNo}</span>
                       {idx === 0 && !expired && (
@@ -203,7 +203,7 @@ export function DispensePanel({
             {waiting.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line p-2.5 text-small"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-white/80 p-2.5 text-small"
               >
                 <span className="min-w-0 flex-1">
                   <span className="font-semibold">{master.items.find((i) => i.id === r.itemId)?.name}</span> ·{' '}
@@ -292,7 +292,10 @@ export function DispensePanel({
             </Button>
           </div>
         )}
-        <div className="flex flex-col gap-1.5 rounded-control bg-canvas p-3 text-small" aria-live="polite">
+        <div
+          className="flex flex-col gap-1.5 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
+          aria-live="polite"
+        >
           <span className="font-semibold">Rencana FEFO (batch ED terdekat keluar dulu)</span>
           {plan.allocations.length === 0 ? (
             <span className="text-ink-700">Isi jumlah untuk melihat batch yang keluar.</span>
@@ -470,7 +473,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
               return (
                 <li
                   key={t.id}
-                  className="flex flex-col gap-2 rounded-control border border-line p-3 text-small"
+                  className="flex flex-col gap-2 rounded-[12px] border border-line bg-white/80 p-3 text-small"
                 >
                   <span className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">
@@ -549,7 +552,7 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-small">
           <thead>
-            <tr className="border-b border-line text-left text-caption text-ink-500">
+            <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
               <th className="px-2 py-2 font-semibold">Batch</th>
               <th className="px-2 py-2 text-right font-semibold">Sistem</th>
               <th className="px-2 py-2 font-semibold">Hitung fisik</th>
@@ -561,7 +564,10 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
               const b = batchOf(master, d.batchId);
               const item = master.items.find((i) => i.id === b?.itemId);
               return (
-                <tr key={d.batchId} className="border-b border-line">
+                <tr
+                  key={d.batchId}
+                  className="border-b border-line-soft transition-colors hover:bg-brand-50/60"
+                >
                   <td className="px-2 py-1.5">
                     {item?.name} · <span className="font-mono">{b?.batchNo}</span>
                     {b && expiryStatus(b.expiry, today).status === 'kedaluwarsa' && (
@@ -636,7 +642,10 @@ export function LedgerPanel({ state, master, depotId }: PanelProps) {
           {rows.map((m) => {
             const b = batchOf(master, m.batchId);
             return (
-              <tr key={m.id} className="border-b border-line align-top">
+              <tr
+                key={m.id}
+                className="border-b border-line-soft align-top transition-colors hover:bg-brand-50/60"
+              >
                 <td className="px-3 py-1.5 font-mono">{formatJam(m.at)}</td>
                 <td className="px-3 py-1.5">{MOVEMENT_LABEL[m.kind]}</td>
                 <td className="px-3 py-1.5">

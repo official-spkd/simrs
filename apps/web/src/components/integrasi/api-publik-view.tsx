@@ -111,7 +111,7 @@ export function ApiPublicView({
                 <div
                   role="group"
                   aria-label={`Konfirmasi rotasi kunci ${c.name}`}
-                  className="flex flex-col gap-2 rounded-control border border-brand-600 p-3 text-small"
+                  className="flex flex-col gap-2 rounded-[12px] border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
                 >
                   Rotasi kunci {c.name}? Kunci lama dicabut seketika; mitra harus memasang kunci baru.
                   <span className="flex gap-2">

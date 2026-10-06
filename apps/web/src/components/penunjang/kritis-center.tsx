@@ -175,7 +175,7 @@ export function CriticalCenterView({
                         'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
                         i.id === sel?.id
                           ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
-                          : 'border-line bg-white hover:bg-brand-50/60',
+                          : 'border-line bg-white/80 hover:bg-brand-50/60',
                         st === 'lewat-batas' && i.id !== sel?.id && 'border-koral-200',
                       )}
                     >

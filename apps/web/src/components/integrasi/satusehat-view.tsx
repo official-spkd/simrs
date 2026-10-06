@@ -83,23 +83,27 @@ export function SatusehatView({
           label="Resource terkirim"
           value={`${totals.sent}/${totals.total}`}
           detail={`${visits.length} kunjungan hari ini (contoh)`}
+          tinted
         />
         <KpiCard
           label="Gagal · DLQ"
           value={String(totals.failed)}
           tone={totals.failed ? 'danger' : 'success'}
           hint="galat 4xx permanen → DLQ tanpa retry"
+          tinted
         />
         <KpiCard
           label="Ditahan"
           value={String(totals.held)}
           tone={totals.held ? 'warning' : 'neutral'}
           hint="menunggu urutan atau dokumen"
+          tinted
         />
         <KpiCard
           label="Kirim ulang tercatat"
           value={String(audit.filter((a) => a.action.startsWith('Kirim ulang')).length)}
           detail="setiap kirim ulang diaudit"
+          tinted
         />
       </section>
       {msg && <Alert level={msg.ok ? 'success' : 'critical'}>{msg.text}</Alert>}
@@ -124,10 +128,10 @@ export function SatusehatView({
                       setMsg(null);
                     }}
                     className={cx(
-                      'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
+                      'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
                       x.id === visitId
                         ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
-                        : 'border-line bg-white hover:bg-brand-50/60',
+                        : 'border-line bg-white/80 hover:bg-brand-50/60',
                     )}
                   >
                     <span className="flex flex-wrap items-center justify-between gap-2">
@@ -181,7 +185,7 @@ export function SatusehatView({
             <table className="w-full min-w-[640px] border-collapse text-small">
               <caption className="sr-only">Resource SATUSEHAT kunjungan {v.encounterNo}</caption>
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-500">
+                <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
                   <th className="px-2 py-1.5">#</th>
                   <th className="px-2 py-1.5">Resource</th>
                   <th className="px-2 py-1.5">Isi</th>
@@ -195,7 +199,12 @@ export function SatusehatView({
                   return (
                     <tr
                       key={r.id}
-                      className={cx('border-b border-line align-top', r.id === sel?.id && 'bg-selected')}
+                      className={cx(
+                        'border-b border-line-soft align-top transition-colors',
+                        r.id === sel?.id
+                          ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                          : 'hover:bg-brand-50/60',
+                      )}
                     >
                       <td className="px-2 py-1.5 font-mono">{i + 1}</td>
                       <td className="px-2 py-1.5">
@@ -239,7 +248,7 @@ export function SatusehatView({
           {sel && (
             <section
               aria-label={`Payload ${sel.type}`}
-              className="flex flex-col gap-2 rounded-[12px] border border-line bg-subtle p-3"
+              className="flex flex-col gap-2 rounded-[12px] border border-brand-100 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3"
             >
               <span className="font-semibold">
                 {sel.type} · {sel.label}
@@ -382,7 +391,7 @@ function FixPanel({
         <div
           role="group"
           aria-label="Konfirmasi kirim ulang"
-          className="flex flex-col gap-2 rounded-control border border-brand-600 bg-white p-3 text-small"
+          className="flex flex-col gap-2 rounded-[12px] border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
         >
           <span>
             Kirim ulang {r.type} ({err.dlqId}) ke SATUSEHAT dengan kunci idempotensi yang sama? Tindakan ini

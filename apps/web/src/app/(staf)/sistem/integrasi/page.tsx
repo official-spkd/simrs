@@ -28,7 +28,7 @@ export default async function IntegrasiPage() {
         aria-labelledby="fhir-judul"
         className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h2 id="fhir-judul" className="m-0 text-base font-semibold">
+        <h2 id="fhir-judul" className="m-0 text-[15px] font-semibold">
           Kepatuhan SATUSEHAT hari ini
         </h2>
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
@@ -51,7 +51,10 @@ export default async function IntegrasiPage() {
                   aria-hidden="true"
                 >
                   <span
-                    className={cx('block h-1.5', ok ? 'bg-brand-600' : 'bg-kunyit-300')}
+                    className={cx(
+                      'block h-1.5 origin-left animate-grow rounded-full',
+                      ok ? 'bg-domain-bar' : 'bg-kunyit-500',
+                    )}
                     style={{ width: `${f.percent}%` }}
                   />
                 </span>
@@ -67,7 +70,7 @@ export default async function IntegrasiPage() {
         aria-labelledby="kred-judul"
         className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h2 id="kred-judul" className="m-0 text-base font-semibold">
+        <h2 id="kred-judul" className="m-0 text-[15px] font-semibold">
           Kredensial dan sertifikat
         </h2>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -85,7 +88,7 @@ export default async function IntegrasiPage() {
         aria-labelledby="backup-judul"
         className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h2 id="backup-judul" className="m-0 text-base font-semibold">
+        <h2 id="backup-judul" className="m-0 text-[15px] font-semibold">
           Backup (aturan 3-2-1)
         </h2>
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-small text-ink-700">

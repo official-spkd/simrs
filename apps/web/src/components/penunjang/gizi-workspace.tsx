@@ -210,7 +210,7 @@ function TrayRow({
     <li
       className={cx(
         'flex flex-col gap-2 rounded-[12px] border p-3',
-        o.npo ? 'border-warning-border bg-warning-bg' : 'border-line',
+        o.npo ? 'border-kunyit-200 bg-alert-warning' : 'border-line bg-white/80',
       )}
     >
       <span className="flex flex-wrap items-start justify-between gap-2">

@@ -29,7 +29,7 @@ export default async function DepoPage() {
         </div>
         <Link
           href="/penunjang/farmasi"
-          className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-4 font-medium text-ink-900 no-underline"
+          className="inline-flex h-11 items-center rounded-control border border-[rgba(23,32,46,0.12)] bg-white/95 px-4 font-semibold text-ink-900 no-underline hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]"
         >
           Antrean resep
         </Link>

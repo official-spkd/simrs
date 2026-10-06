@@ -103,10 +103,10 @@ export function DiagnosticWorkspace({
                         setMsg(null);
                       }}
                       className={cx(
-                        'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
+                        'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
                         o.id === selectedId
                           ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
-                          : 'border-line bg-white hover:bg-brand-50/60',
+                          : 'border-line bg-white/80 hover:bg-brand-50/60',
                       )}
                     >
                       <span className="flex flex-wrap items-center justify-between gap-2">
@@ -268,7 +268,7 @@ function DiagDetail({
                 onChange={(e) => setFindings((s) => ({ ...s, [f]: e.target.value }))}
                 className={cx(
                   'h-11 rounded-control border px-3 font-[inherit] font-normal',
-                  st === 'ditandatangani' ? 'border-line bg-subtle' : 'border-line-strong bg-white',
+                  st === 'ditandatangani' ? 'border-line bg-batu-100' : 'border-line-strong bg-white',
                 )}
               />
             </label>

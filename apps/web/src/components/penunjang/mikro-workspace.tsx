@@ -99,10 +99,10 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
                 setMsg(null);
               }}
               className={cx(
-                'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
+                'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
                 x.id === selected
                   ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
-                  : 'border-line bg-white hover:bg-brand-50/60',
+                  : 'border-line bg-white/80 hover:bg-brand-50/60',
               )}
             >
               <span className="flex flex-wrap items-center justify-between gap-2">
@@ -349,14 +349,14 @@ function CultureDetail({
             <table className="w-full min-w-[420px] border-collapse text-small">
               <caption className="pb-1 text-left font-semibold">Uji kepekaan antibiotik (S/I/R)</caption>
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-500">
+                <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
                   <th className="px-2 py-1.5">Antibiotik</th>
                   <th className="px-2 py-1.5">Hasil</th>
                 </tr>
               </thead>
               <tbody>
                 {panel.map((ab) => (
-                  <tr key={ab} className="border-b border-line">
+                  <tr key={ab} className="border-b border-line-soft transition-colors hover:bg-brand-50/60">
                     <td className="px-2 py-1.5">
                       {ab}
                       {flagged.includes(ab) && (
@@ -484,7 +484,7 @@ function PaDetail({
               onChange={(e) => setF((s) => ({ ...s, [k]: e.target.value }))}
               className={cx(
                 'rounded-control border px-3 py-2 font-[inherit] font-normal',
-                locked ? 'border-line bg-subtle' : 'border-line-strong bg-white',
+                locked ? 'border-line bg-batu-100' : 'border-line-strong bg-white',
               )}
             />
           </label>
@@ -506,7 +506,7 @@ function PaDetail({
         </span>
       )}
       {p.addenda.map((a) => (
-        <div key={a.at} className="rounded-control border border-info-border bg-info-bg p-3 text-small">
+        <div key={a.at} className="rounded-[12px] border border-samudra-200 bg-alert-info p-3 text-small">
           <span className="font-semibold">
             Addendum {formatTanggalWaktu(a.at)} · {a.by}:
           </span>{' '}

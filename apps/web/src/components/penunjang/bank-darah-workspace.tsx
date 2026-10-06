@@ -95,10 +95,10 @@ export function BloodBankWorkspace({
                       setMsg(null);
                     }}
                     className={cx(
-                      'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
+                      'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
                       r.id === selectedId
                         ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
-                        : 'border-line bg-white hover:bg-brand-50/60',
+                        : 'border-line bg-white/80 hover:bg-brand-50/60',
                     )}
                   >
                     <span className="flex flex-wrap items-center justify-between gap-2">
@@ -306,7 +306,10 @@ function CrossmatchPanel({
     (u) => u.component === r.component && (u.status === 'tersedia' || u.requestId === r.id),
   );
   return (
-    <section aria-label="Crossmatch" className="flex flex-col gap-2 rounded-[12px] border border-line p-3">
+    <section
+      aria-label="Crossmatch"
+      className="flex flex-col gap-2 rounded-[12px] border border-white/95 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3"
+    >
       <span className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">Crossmatch</span>
         <Chip tone={okCount >= r.units ? 'success' : 'warning'}>
@@ -322,7 +325,7 @@ function CrossmatchPanel({
               key={u.id}
               className={cx(
                 'flex flex-wrap items-center justify-between gap-2 rounded-control border p-2.5 text-small',
-                gate ? 'border-line bg-subtle' : 'border-line',
+                gate ? 'border-line bg-batu-100' : 'border-line',
               )}
             >
               <span className="min-w-0">

@@ -14,7 +14,7 @@ export const INTEGRASI_LINKS = [
 export function IntegrasiSubnav({ current }: { current: (typeof INTEGRASI_LINKS)[number]['href'] }) {
   return (
     <nav aria-label="Sub-menu integrasi">
-      <ul className="m-0 flex list-none flex-wrap gap-1 rounded-[12px] bg-line-soft p-1">
+      <ul className="m-0 flex w-fit max-w-full list-none flex-wrap gap-1 rounded-[11px] bg-[rgba(23,32,46,0.06)] p-[3px]">
         {INTEGRASI_LINKS.map((l) => (
           <li key={l.href}>
             <Link
@@ -22,7 +22,9 @@ export function IntegrasiSubnav({ current }: { current: (typeof INTEGRASI_LINKS)
               aria-current={l.href === current ? 'page' : undefined}
               className={cx(
                 'inline-flex min-h-11 items-center rounded-[9px] px-3.5 text-small no-underline',
-                l.href === current ? 'bg-white font-semibold text-brand-700 shadow-tab' : 'text-ink-700',
+                l.href === current
+                  ? 'bg-white font-semibold text-ink-900 shadow-tab'
+                  : 'text-ink-700 hover:bg-white/60 hover:text-ink-900',
               )}
             >
               {l.label}
