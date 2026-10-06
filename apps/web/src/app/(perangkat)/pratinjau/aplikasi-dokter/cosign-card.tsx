@@ -1,50 +1,62 @@
 'use client';
 
-import { type DoctorAppInbox, formatJam } from '@simrs/shared';
+import type { DoctorAppInbox } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { type FormEvent, useState } from 'react';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 
 type Note = DoctorAppInbox['cosign'][number];
 
 /**
- * Co-sign CPPT residen (mockup AppDokter): beri catatan (min. 5 karakter) atau setujui dengan TTE. Di mode
- * presentasi tanda tangan dan catatan hanya berlaku di layar ini (simulasi, tidak disimpan).
+ * Co-sign CPPT residen (mockup AppDokter): beri catatan (min. 5 karakter) atau setujui dengan TTE atas nama pengguna
+ * sesi (posisi Dokter). Tersimpan di toko demo (domain `aplikasi-dokter`); CPPT yang sudah ditandatangani keluar dari
+ * antrean.
  */
 export function CosignCard({
   notes,
-  index,
-  onSigned,
+  signed,
+  sentNotes,
+  rev,
 }: {
   notes: Note[];
-  index: number;
-  onSigned: (message: string) => void;
+  signed: Readonly<Record<string, { jam: string; by: string }>>;
+  sentNotes: Readonly<Record<string, { note: string; jam: string; by: string }>>;
+  rev: number;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [err, setErr] = useState('');
-  const [sent, setSent] = useState('');
-  const [signed, setSigned] = useState('');
-  const cs = notes[index];
-  const left = notes.length - index;
+  const { act, pending, flash } = useTokoAction('aplikasi-dokter', rev);
+  const waiting = notes.filter((n) => !signed[n.id]);
+  const cs = waiting[0];
+  const left = waiting.length;
+  const last = Object.entries(signed).at(-1);
+  const sentNote = cs ? sentNotes[cs.id] : undefined;
+  const sent = sentNote
+    ? `Catatan dikirim ke ${cs?.resident} ${sentNote.jam} oleh ${sentNote.by} · CPPT tetap menunggu tanda tangan Anda.`
+    : '';
+  const signedText = last
+    ? `Ditandatangani (TTE) ${last[1].jam} oleh ${last[1].by} · CPPT ${notes.find((n) => n.id === last[0])?.patientName ?? ''}`
+    : '';
 
   const send = (e: FormEvent) => {
     e.preventDefault();
     if (!cs) return;
     if (text.trim().length < 5) return setErr('Tulis catatan minimal 5 karakter.');
-    setSent(
-      `Catatan dikirim ke ${cs.resident} ${formatJam(new Date())} · CPPT tetap menunggu tanda tangan Anda (simulasi, tidak disimpan).`,
-    );
-    setOpen(false);
-    setText('');
-    setErr('');
+    act({ type: 'cosign.dicatat', noteId: cs.id, note: text.trim(), jam: demoStamp().jam }, null, () => {
+      setOpen(false);
+      setText('');
+      setErr('');
+    });
   };
   const approve = () => {
     if (!cs) return;
-    const msg = `Ditandatangani (TTE) ${formatJam(new Date())} · CPPT ${cs.patientName} (simulasi, tidak disimpan)`;
-    setSigned(msg);
-    setSent('');
-    setOpen(false);
-    onSigned(msg);
+    act(
+      { type: 'cosign.ditandatangani', noteId: cs.id, patientName: cs.patientName, rm: cs.rm, jam: demoStamp().jam },
+      null,
+      () => setOpen(false),
+    );
   };
 
   return (
@@ -53,9 +65,14 @@ export function CosignCard({
       className="flex flex-col gap-2.5 rounded-[16px] border border-line bg-white p-3.5"
     >
       <span className="font-semibold">Co-sign CPPT residen · {left} menunggu</span>
-      {signed && (
+      {signedText && (
         <span role="status" className="text-[12.5px] font-semibold text-success">
-          {signed}
+          {signedText}
+        </span>
+      )}
+      {flash && !flash.ok && (
+        <span role="status" className="text-[12.5px] font-semibold text-warning">
+          {flash.text}
         </span>
       )}
       {cs ? (
@@ -106,6 +123,7 @@ export function CosignCard({
                 </button>
                 <button
                   type="submit"
+                  disabled={pending}
                   className="h-11 flex-1 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
                 >
                   Kirim catatan
@@ -116,16 +134,14 @@ export function CosignCard({
             <span className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setOpen(true);
-                  setSent('');
-                }}
+                onClick={() => setOpen(true)}
                 className="h-11 flex-1 cursor-pointer rounded-[12px] border border-line-strong bg-white font-[inherit] font-semibold"
               >
                 Beri catatan
               </button>
               <button
                 type="button"
+                disabled={pending}
                 onClick={approve}
                 className="h-11 flex-1 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
               >

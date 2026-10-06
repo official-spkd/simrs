@@ -1,21 +1,16 @@
 'use client';
 
-import { formatJam, type PatientAppHome } from '@simrs/shared';
+import type { PatientAppHome } from '@simrs/shared';
 import { cx, Icon, type IconName } from '@simrs/ui';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import type { PatientAppStoreState } from '@/lib/aplikasi-pasien-toko';
+import type { BookableSlot } from '@/lib/server/data/manajemen';
+import { BookingPanel } from './booking-panel';
 import { FamilyAccess } from './family-access';
 import { GlucoseCard } from './glucose-card';
-import {
-  buildPatientPages,
-  type FeedItem,
-  isSubKey,
-  queueNotification,
-  type SubKey,
-  type TabKey,
-} from './patient-pages';
+import { buildPatientPages, isSubKey, type SubKey, type TabKey } from './patient-pages';
 import { QueueCard } from './queue-card';
 
 const MENU: Array<{ key: SubKey; label: string; icon: IconName }> = [
@@ -42,23 +37,34 @@ const DOT: Record<PatientAppHome['feed'][number]['tone'], string> = {
   danger: 'bg-danger',
 };
 
-/** I07 · Pratinjau aplikasi pasien (mockup AppPasien) untuk Tn. Suryo, mengikuti skenario rawat jalan. */
-export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: string }) {
+/**
+ * I07 · Pratinjau aplikasi pasien (mockup AppPasien) untuk Tn. Suryo: skenario rawat jalan + posisi antrean hidup,
+ * booking jadwal, gula darah, dan akses keluarga yang tersimpan di toko demo (domain `aplikasi-pasien`).
+ */
+export function PatientApp({
+  home,
+  rsName,
+  store,
+  rev,
+  slots,
+  glucoseAt,
+}: {
+  home: PatientAppHome;
+  rsName: string;
+  store: PatientAppStoreState;
+  rev: number;
+  slots: readonly BookableSlot[];
+  glucoseAt: string | null;
+}) {
   const [tab, setTab] = useState<TabKey>('beranda');
   const [sub, setSub] = useState<SubKey | null>(null);
-  /** Notifikasi dari simulasi antrean maju (mockup AppPasien: saat tersisa 3 dan saat giliran tiba). */
-  const [queueNotes, setQueueNotes] = useState<FeedItem[]>([]);
-  const pages = buildPatientPages(home, queueNotes);
+  const pages = buildPatientPages(home, store.bookings.filter((b) => !b.cancelled));
   const page = sub ? pages[sub] : tab === 'beranda' ? null : pages[tab];
   const badge: Partial<Record<SubKey, string>> = {
     lab: home.labResults.length ? `${home.labResults.length} baru` : undefined,
     obat: home.medicines.length ? `${home.medicines.length} aktif` : undefined,
   };
   const q = home.queue;
-  const onAdvance = (ahead: number) => {
-    const note = queueNotification(q, ahead, formatJam(demoNow()));
-    if (note) setQueueNotes((cur) => [note, ...cur]);
-  };
 
   return (
     <PhoneFrame time="10.45">
@@ -82,21 +88,19 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
         className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 outline-none *:shrink-0"
       >
         {sub === 'keluarga' ? (
-          <FamilyAccess onBack={() => setSub(null)} />
+          <FamilyAccess onBack={() => setSub(null)} family={store.family} rev={rev} />
         ) : page ? (
-          <AppPageView
-            page={page}
-            onBack={sub ? () => setSub(null) : undefined}
-            onOpen={(k) => isSubKey(k) && setSub(k)}
-          />
+          <>
+            <AppPageView
+              page={page}
+              onBack={sub ? () => setSub(null) : undefined}
+              onOpen={(k) => isSubKey(k) && setSub(k)}
+            />
+            {sub === 'daftar' && <BookingPanel slots={slots} bookings={store.bookings} rev={rev} />}
+          </>
         ) : (
           <>
-            <QueueCard
-              key={`${q.stage}-${q.number}-${q.serving}-${q.ahead}`}
-              queue={q}
-              payer={home.payer}
-              onAdvance={onAdvance}
-            />
+            <QueueCard queue={q} payer={home.payer} />
             <section aria-label="Menu" className="grid grid-cols-4 gap-2">
               {MENU.map((m) => (
                 <button
@@ -150,7 +154,7 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
                 ))}
               </ul>
             </section>
-            <GlucoseCard glucose={home.glucose} target={home.glucoseTarget} />
+            <GlucoseCard glucose={home.glucose} target={home.glucoseTarget} recordedAt={glucoseAt} rev={rev} />
           </>
         )}
       </main>

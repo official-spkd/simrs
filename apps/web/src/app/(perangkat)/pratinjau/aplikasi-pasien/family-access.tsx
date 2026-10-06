@@ -1,9 +1,14 @@
 'use client';
 
-import { formatJam, formatTanggal } from '@simrs/shared';
+import { formatTanggal } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useState } from 'react';
-import { DEMO_TODAY, demoNow } from '@/lib/demo/fixtures/waktu';
+import { STALE_TEXT } from '@/components/backoffice/use-toko';
+import { FAMILY_REQUEST as REQUEST, type PatientAppEvent, type PatientAppStoreState } from '@/lib/aplikasi-pasien-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { patientAppAction } from './actions';
 import {
   accessUntil,
   DURATIONS,
@@ -13,39 +18,37 @@ import {
   includesMedical,
 } from '@/lib/akses-keluarga';
 
-interface Grant {
-  name: string;
-  relation: string;
-  scopes: FamilyScope[];
-  until: string | null;
-  at: string;
-}
-
-/** Permintaan akses keluarga fiktif untuk Tn. Suryo (keluarga tidak ada di daftar pasien). */
-const REQUEST = { name: 'Bayu Nugroho', relation: 'Anak · 24 th', via: 'aplikasi pasien, 5 Okt 07.40' };
-const EXISTING: Grant = {
-  name: 'Ny. Ratih Nugroho',
-  relation: 'Istri',
-  scopes: ['jadwal'],
-  until: null,
-  at: '12 Mar 2025',
-};
-
 const BTN =
   'min-h-11 cursor-pointer rounded-[12px] px-4 font-[inherit] text-[14px] font-semibold disabled:cursor-not-allowed';
 
 /**
  * I07 · Akses keluarga: permintaan masuk → pasien memilih lingkup data dan masa berlaku → setuju dengan pernyataan
- * (data medis disebut eksplisit) → akses aktif yang bisa dicabut. Simulasi di ponsel ini, tidak disimpan.
+ * (data medis disebut eksplisit) → akses aktif yang bisa dicabut. Tersimpan di toko demo (domain
+ * `aplikasi-pasien`).
  */
-export function FamilyAccess({ onBack }: { onBack: () => void }) {
-  const [grants, setGrants] = useState<Grant[]>([EXISTING]);
-  const [pending, setPending] = useState(true);
+export function FamilyAccess({
+  onBack,
+  family,
+  rev,
+}: {
+  onBack: () => void;
+  family: PatientAppStoreState['family'];
+  rev: number;
+}) {
+  const grants = family.grants;
+  const pending = family.pending;
   const [scopes, setScopes] = useState<FamilyScope[]>(['jadwal']);
   const [duration, setDuration] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const block = grantBlock(scopes, duration, agreed);
+  const { run, pending: saving } = useStoreAction(rev);
+  const [error, setError] = useState<string | null>(null);
+  const notice = error ?? family.notice;
+  const send = (event: PatientAppEvent) =>
+    run(
+      (r) => patientAppAction({ event, rev: r }),
+      (res) => setError(res.ok ? null : res.stale ? STALE_TEXT : res.message),
+    );
+  const block = saving ? 'Menyimpan…' : grantBlock(scopes, duration, agreed);
   const toggle = (s: FamilyScope) =>
     setScopes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
@@ -137,17 +140,15 @@ export function FamilyAccess({ onBack }: { onBack: () => void }) {
               type="button"
               disabled={block !== null}
               aria-describedby="akses-alasan"
-              onClick={() => {
-                const until = accessUntil(DEMO_TODAY, duration);
-                setGrants((cur) => [
-                  ...cur,
-                  { name: REQUEST.name, relation: REQUEST.relation, scopes, until, at: formatJam(demoNow()) },
-                ]);
-                setPending(false);
-                setNotice(
-                  `Akses ${REQUEST.name} aktif ${formatJam(demoNow())}${until ? ` sampai ${formatTanggal(until)}` : ''}.`,
-                );
-              }}
+              onClick={() =>
+                send({
+                  type: 'keluarga.disetujui',
+                  scopes,
+                  duration,
+                  until: accessUntil(DEMO_TODAY, duration),
+                  jam: demoStamp().jam,
+                })
+              }
               className={cx(
                 BTN,
                 'border border-brand-800 bg-brand-600 text-white disabled:border-line disabled:bg-muted disabled:text-ink-400',
@@ -157,10 +158,8 @@ export function FamilyAccess({ onBack }: { onBack: () => void }) {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setPending(false);
-                setNotice(`Permintaan ${REQUEST.name} ditolak ${formatJam(demoNow())}; pemohon diberi tahu.`);
-              }}
+              disabled={saving}
+              onClick={() => send({ type: 'keluarga.ditolak', jam: demoStamp().jam })}
               className={cx(BTN, 'border border-line-strong bg-white text-ink-900')}
             >
               Tolak
@@ -184,10 +183,8 @@ export function FamilyAccess({ onBack }: { onBack: () => void }) {
             </span>
             <button
               type="button"
-              onClick={() => {
-                setGrants((cur) => cur.filter((x) => x.name !== g.name));
-                setNotice(`Akses ${g.name} dicabut ${formatJam(demoNow())}; sesi aplikasinya berakhir.`);
-              }}
+              disabled={saving}
+              onClick={() => send({ type: 'keluarga.dicabut', name: g.name, jam: demoStamp().jam })}
               className={cx(BTN, 'self-start border border-line-strong bg-white text-danger')}
             >
               Cabut akses<span className="sr-only"> {g.name}</span>

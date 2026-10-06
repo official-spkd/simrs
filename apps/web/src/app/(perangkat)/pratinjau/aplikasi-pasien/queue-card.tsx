@@ -1,16 +1,6 @@
 'use client';
 
 import type { PatientAppHome } from '@simrs/shared';
-import { cx } from '@simrs/ui';
-import { useState } from 'react';
-
-/** "PD-021" + 2 → "PD-023". */
-function bump(code: string, by: number): string {
-  const m = /^(.*-)(\d+)$/.exec(code);
-  if (!m) return code;
-  const digits = m[2] ?? '0';
-  return `${m[1] ?? ''}${String(Number(digits) + by).padStart(digits.length, '0')}`;
-}
 
 /** Pola kotak deterministik dari kode booking (hiasan mirip QR; kode tertulis di sebelahnya). */
 function CodePattern({ code }: { code: string }) {
@@ -42,28 +32,14 @@ function CodePattern({ code }: { code: string }) {
 
 /**
  * Kartu antrean aktif aplikasi pasien (mockup AppPasien). Nomor dan tahap mengikuti skenario rawat jalan
- * (booking → A-031 → PD-027); tombol "Maju" hanya mensimulasikan antrean bergerak di ponsel ini.
+ * (booking → A-031 → PD-027); posisi di poli hidup dari papan antrean (panggilan papan TV/poli memajukannya,
+ * halaman diperbarui berkala), notifikasi saat tersisa 3 dan saat giliran tiba.
  */
-export function QueueCard({
-  queue,
-  payer,
-  onAdvance,
-}: {
-  queue: PatientAppHome['queue'];
-  payer: string;
-  /** Dipanggil setelah antrean maju dengan sisa pasien di depan (notifikasi saat tersisa 3 dan giliran tiba). */
-  onAdvance?: (ahead: number) => void;
-}) {
-  const [moved, setMoved] = useState(0);
-  const total = queue.ahead;
-  const ahead = total === null ? null : Math.max(0, total - moved);
-  const serving =
-    queue.serving && total ? (ahead === 0 ? queue.number : bump(queue.serving, moved)) : queue.serving;
-  const pct = total
-    ? Math.round(((total - (ahead ?? 0)) / total) * 100)
-    : queue.stage === 'pulang'
-      ? 100
-      : null;
+export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; payer: string }) {
+  const ahead = queue.ahead;
+  const serving = queue.serving;
+  const pct =
+    ahead !== null ? Math.max(5, Math.round(100 - Math.min(ahead, 20) * 5)) : queue.stage === 'pulang' ? 100 : null;
 
   return (
     <section
@@ -105,21 +81,6 @@ export function QueueCard({
           <span className="text-white/90">{queue.message}</span>
           <span className="text-[12px] text-white/85">{queue.location}</span>
         </span>
-        {ahead !== null && ahead > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              setMoved(moved + 1);
-              onAdvance?.(Math.max(0, (total ?? 0) - moved - 1));
-            }}
-            aria-label="Simulasi antrean maju satu pasien"
-            className={cx(
-              'h-11 shrink-0 cursor-pointer rounded-full border border-white/50 bg-white/15 px-4 font-[inherit] text-[13px] font-semibold text-white',
-            )}
-          >
-            Maju
-          </button>
-        )}
       </span>
     </section>
   );

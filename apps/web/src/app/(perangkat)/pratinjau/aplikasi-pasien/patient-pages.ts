@@ -1,4 +1,5 @@
 import type { PatientAppHome } from '@simrs/shared';
+import type { StoredBooking } from '@/lib/aplikasi-pasien-toko';
 import type { AppPage, AppRow, RowTone } from '@/components/manajemen/app-page-view';
 
 export const SUB_KEYS = [
@@ -15,32 +16,6 @@ export type SubKey = (typeof SUB_KEYS)[number];
 export type TabKey = 'beranda' | 'jadwal' | 'notif' | 'profil';
 
 export type FeedItem = PatientAppHome['feed'][number];
-
-/**
- * Notifikasi yang dikirim saat antrean bergerak (mockup AppPasien): tersisa 3 pasien → menuju ruang tunggu,
- * giliran tiba → masuk ruang periksa. Selain itu tidak ada notifikasi.
- */
-export function queueNotification(q: PatientAppHome['queue'], ahead: number, when: string): FeedItem | null {
-  if (ahead === 3) {
-    return {
-      id: `antrean-sisa-3-${q.number}`,
-      title: 'Antrean tersisa 3 pasien',
-      detail: `${q.number} · silakan menuju ruang tunggu`,
-      when,
-      tone: 'warning',
-    };
-  }
-  if (ahead === 0) {
-    return {
-      id: `antrean-giliran-${q.number}`,
-      title: 'Giliran Anda dipanggil',
-      detail: `${q.number} · ${q.location}`,
-      when,
-      tone: 'danger',
-    };
-  }
-  return null;
-}
 
 export function isSubKey(k: string): k is SubKey {
   return (SUB_KEYS as readonly string[]).includes(k);
@@ -59,13 +34,23 @@ const QUEUE_STATUS: Record<PatientAppHome['queue']['stage'], { label: string; to
   pulang: { label: 'Selesai', tone: 'ok' },
 };
 
-/** Halaman menu dan tab aplikasi pasien (mockup AppPasien), diisi dari proyeksi skenario rawat jalan. */
+/**
+ * Halaman menu dan tab aplikasi pasien (mockup AppPasien), diisi dari proyeksi skenario rawat jalan dan booking
+ * tersimpan (toko demo). Notifikasi antrean (tersisa 3 / giliran) sudah ada di `h.feed` dari posisi antrean hidup.
+ */
 export function buildPatientPages(
   h: PatientAppHome,
-  /** Notifikasi lokal dari simulasi antrean (terbaru di atas), ditampilkan sebelum notifikasi skenario. */
-  queueNotes: readonly FeedItem[] = [],
+  bookings: readonly StoredBooking[] = [],
 ): Record<SubKey | Exclude<TabKey, 'beranda'>, AppPage> {
   const q = h.queue;
+  const bookingRows: AppRow[] = bookings.map((b) => ({
+    id: `booking-${b.code}`,
+    title: b.poliName,
+    detail: `${b.doctorName} · ${b.date} ${b.start} · kode ${b.code}`,
+    value: b.code,
+    status: b.onLeave ? 'Dokter cuti' : 'Terdaftar',
+    tone: b.onLeave ? 'bad' : 'brand',
+  }));
   const has = (id: string) => h.feed.some((f) => f.id === id);
   const control: AppRow[] = h.controlVisit
     ? [
@@ -91,17 +76,7 @@ export function buildPatientPages(
     daftar: {
       title: 'Daftar berobat',
       intro: 'Pendaftaran online poli rawat jalan, terhubung dengan antrean BPJS.',
-      rows: [
-        today,
-        ...control,
-        {
-          id: 'lain',
-          title: 'Daftar ke poli lain',
-          detail: 'Pilih poli, dokter, dan jam praktik',
-          status: 'Rujukan aktif',
-          tone: 'muted',
-        },
-      ],
+      rows: [today, ...control, ...bookingRows],
       note: 'Pendaftaran ditutup H-1 pukul 20.00. Bawa kartu BPJS atau KTP saat datang.',
     },
     lab: {
@@ -243,6 +218,7 @@ export function buildPatientPages(
       rows: [
         ...(q.stage === 'pulang' ? [] : [today]),
         ...control,
+        ...bookingRows,
         ...h.medicines.map((m) => ({
           id: `ingat-${m.id}`,
           title: m.name,
@@ -264,7 +240,7 @@ export function buildPatientPages(
     notif: {
       title: 'Notifikasi',
       intro: 'Pemberitahuan dari rumah sakit untuk Anda.',
-      rows: [...queueNotes, ...h.feed].map((f) => ({
+      rows: h.feed.map((f) => ({
         id: f.id,
         title: f.title,
         detail: f.detail,

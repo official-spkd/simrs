@@ -1,4 +1,6 @@
 import { queueDomain } from '../../front-office-antrean';
+import { doctorAppDomain } from '../../aplikasi-dokter-toko';
+import { patientAppDomain } from '../../aplikasi-pasien-toko';
 import { assetDomain } from '../../aset-toko';
 import { commandDomain } from '../../command-center-toko';
 import { dashboardDomain } from '../../dasbor-toko';
@@ -47,6 +49,8 @@ import type { DomainDef, DomainSource } from './define';
  */
 export const DEMO_DOMAINS = {
   antrean: queueDomain,
+  'aplikasi-dokter': doctorAppDomain,
+  'aplikasi-pasien': patientAppDomain,
   aset: assetDomain,
   cadangan: backupDomain,
   'command-center': commandDomain,

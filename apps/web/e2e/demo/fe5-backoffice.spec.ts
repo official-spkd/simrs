@@ -811,6 +811,14 @@ test.describe('FE5 · back office', () => {
     );
     await family.getByRole('button', { name: 'Cabut akses Ny. Ratih Nugroho' }).click();
     await expect(family.getByRole('status')).toContainText('Akses Ny. Ratih Nugroho dicabut');
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang (toko demo `aplikasi-pasien`).
+    await page.reload();
+    await phone.getByRole('button', { name: 'Keluarga' }).click();
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).toContainText('Bayu Nugroho');
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).not.toContainText('Ratih');
+    await expect(family.getByRole('button', { name: 'Setujui akses' })).toHaveCount(0);
   });
   test('B01 logistik: penerimaan barang menambah stok (keluar dari daftar ROP) dan utang usaha', async ({
     page,

@@ -462,3 +462,52 @@ export function doctorAppInbox(R: RunResult): DoctorAppInbox {
     schedule: DOCTOR_SCHEDULE.map((s) => ({ ...s })),
   };
 }
+
+/**
+ * Posisi antrean poli HIDUP Tn. Suryo dari papan antrean (domain `antrean`, CD-3): saat menunggu di poli, nomor yang
+ * dilayani dan jumlah pasien di depan diambil dari papan (panggilan papan TV/poli memajukannya). Notifikasi mockup
+ * AppPasien: tersisa ≤ 3 pasien → menuju ruang tunggu; giliran tiba → masuk ruang periksa.
+ */
+export function applyLiveQueue(
+  home: PatientAppHome,
+  clinic: { current: string | null; waiting: readonly string[] } | null,
+): { queue: PatientAppHome['queue']; notes: PatientAppHome['feed'] } {
+  let queue = home.queue;
+  if (queue.stage !== 'poli' || queue.ahead === 0 || !clinic) return { queue, notes: [] };
+  const idx = clinic.waiting.indexOf(queue.number);
+  if (clinic.current === queue.number) queue = { ...queue, serving: queue.number, ahead: 0 };
+  else if (idx >= 0) queue = { ...queue, serving: clinic.current, ahead: idx };
+  const notes: PatientAppHome['feed'] = [];
+  if (queue.ahead !== null && queue.ahead <= 3) {
+    notes.push(
+      queue.ahead === 0
+        ? {
+            id: `antrean-giliran-${queue.number}`,
+            title: 'Giliran Anda dipanggil',
+            detail: `${queue.number} · ${queue.location}`,
+            when: 'baru saja',
+            tone: 'danger',
+          }
+        : {
+            id: `antrean-sisa-${queue.number}`,
+            title: `Antrean tersisa ${queue.ahead} pasien`,
+            detail: `${queue.number} · silakan menuju ruang tunggu`,
+            when: 'baru saja',
+            tone: 'warning',
+          },
+    );
+  }
+  return { queue, notes };
+}
+
+/** Peran penerima read-back yang dicatat dari aplikasi dokter (penanda laporan dari ponsel di Pusat hasil kritis). */
+export const APP_READBACK_ROLE = 'Dokter · read-back aplikasi dokter';
+
+const normReadback = (v: string) => v.trim().toLowerCase().replace(/\s+/g, '').replace(',', '.');
+
+/** Nilai yang dibacakan ulang cocok dengan laporan: angka saja ("6,4") atau teks lengkap ("6,4 mmol/L"). */
+export function readbackMatches(valueText: string, typed: string): boolean {
+  const t = normReadback(typed);
+  if (!t) return false;
+  return t === normReadback(valueText) || t === normReadback(valueText.split(' ')[0] ?? '');
+}

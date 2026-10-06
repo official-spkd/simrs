@@ -1,14 +1,15 @@
 'use client';
 
-import { type DoctorAppInbox, formatJam } from '@simrs/shared';
+import type { DoctorAppInbox } from '@simrs/shared';
 import { Chip, type ChipTone, cx, Icon, type IconName } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { DOCTOR_APP_PATIENT_ID } from '../../../../lib/demo/fixtures/ids';
+import type { DoctorAppStoreState } from '@/lib/aplikasi-dokter-toko';
 import { CosignCard } from './cosign-card';
+import { type AppCritical, OtherCriticals } from './other-criticals';
 import { CriticalCard } from './critical-card';
 import { buildDoctorPages, criticalDetailRow, type DoctorTab } from './doctor-pages';
 
@@ -33,9 +34,17 @@ export function DoctorApp({
   rev,
   labOrdered,
   orderHref,
+  criticals,
+  criticalRev,
+  app,
 }: {
   inbox: DoctorAppInbox;
   rev: number;
+  /** Nilai kritis lain dari Pusat hasil kritis (toko demo `hasil-kritis`). */
+  criticals: readonly AppCritical[];
+  criticalRev: number;
+  /** Keadaan co-sign aplikasi (toko demo `aplikasi-dokter`). */
+  app: { state: DoctorAppStoreState; rev: number };
   /** Order lab Tn. Hartono sudah dikirim di skenario IGD (lihat `getDoctorAppInbox`). */
   labOrdered: boolean;
   /** CPOE kunjungan IGD Tn. Hartono, bila kunjungan itu sedang terbuka di CPOE. */
@@ -43,18 +52,18 @@ export function DoctorApp({
 }) {
   const [tab, setTab] = useState<DoctorTab>('pasien');
   const [pt, setPt] = useState<string | null>(null);
-  const [csIdx, setCsIdx] = useState(0);
-  const [localAccepted, setLocalAccepted] = useState<string | null>(null);
+
   /** "Keluar" di tab Profil (mockup AppDokter): hanya keluar dari pratinjau ponsel, sesi SIM RS tetap. */
   const [signedOut, setSignedOut] = useState(false);
   const c = inbox.critical;
-  const accepted = c.state === 'diterima' ? c.acceptedAt : localAccepted;
-  const left = inbox.cosign.length - csIdx;
+  const accepted = c.state === 'diterima' ? c.acceptedAt : null;
+  const waitingCosign = inbox.cosign.filter((n) => !app.state.signed[n.id]);
+  const left = waitingCosign.length;
   const pages = buildDoctorPages(inbox, {
     accepted,
     labOrdered,
     cosignLeft: left,
-    nextCosign: inbox.cosign[csIdx]?.patientName ?? null,
+    nextCosign: waitingCosign[0]?.patientName ?? null,
   });
   const detail = inbox.patients.find((p) => p.id === pt) ?? null;
   const title = tab === 'pasien' ? `Pasien saya · ${inbox.patients.length}` : pages[tab].title;
@@ -79,8 +88,8 @@ export function DoctorApp({
               Anda sudah keluar dari aplikasi dokter
             </span>
             <span className="text-[13px] text-ink-700">
-              Notifikasi nilai kritis berhenti dikirim ke ponsel ini sampai Anda masuk lagi (simulasi; sesi
-              SIM RS di komputer tetap aktif).
+              Notifikasi nilai kritis berhenti dikirim ke ponsel ini sampai Anda masuk lagi (hanya pratinjau
+              ponsel; sesi SIM RS di komputer tetap aktif).
             </span>
             <button
               type="button"
@@ -167,11 +176,10 @@ export function DoctorApp({
               critical={c}
               rev={rev}
               labOrdered={labOrdered}
-              acceptedLocally={localAccepted}
               orderHref={orderHref}
-              onAcceptLocal={() => setLocalAccepted(formatJam(demoNow()))}
               onOpenPatient={() => setPt(DOCTOR_APP_PATIENT_ID.hartono)}
             />
+            <OtherCriticals items={criticals} rev={criticalRev} />
             <section aria-label="Tugas" className="grid grid-cols-3 gap-2">
               {[
                 { n: left, l: 'Co-sign residen', fg: 'text-brand-700' },
@@ -224,7 +232,12 @@ export function DoctorApp({
                 );
               })}
             </section>
-            <CosignCard notes={inbox.cosign} index={csIdx} onSigned={() => setCsIdx((i) => i + 1)} />
+            <CosignCard
+              notes={inbox.cosign}
+              signed={app.state.signed}
+              sentNotes={app.state.notes}
+              rev={app.rev}
+            />
           </>
         )}
       </main>
