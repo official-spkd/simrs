@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan SIM RS dari sudut pandang sistem: apa yang dibangun, bagaimana bagian-bagiannya saling bicara, dan pengaman apa yang menjaga data pasien. Detail kode ada di [Cara kode bekerja](./02-cara-kerja-kode.md); langkah praktis ada di [Tutorial](./03-tutorial.md).
 
-> Status (5 Okt 2026): fondasi (fase 0) selesai dan platform inti (fase 1) selesai: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office (fase 2) sedang dibangun. Layar fase 2–10 sudah ada dalam mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase).
+> Status (6 Okt 2026): fase 0–2 selesai (fondasi; platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office: jadwal, booking, registrasi + SEP, antrean, anjungan). Fase 3 (klinis RME) berjalan: API potongan 3.1–3.4 sudah tergabung. Semua 80 layar fase 1–10 di registri sudah bisa dicoba di mode presentasi dengan data dummy; backend-nya menyusul per fase. Lihat [Peta fase](#peta-fase) dan [Peta alur semua fase](./20-peta-alur-semua-fase.md).
 
 ## Apa yang dibangun
 
@@ -236,6 +236,6 @@ Seed juga mengisi 33 staf fiktif per RS (16 peran, penugasan per unit) dengan NI
 | 9    | Dasbor + aplikasi mobile                                                                   | ⬜                    |
 | 10   | Simulasi end-to-end, ketahanan, persiapan pilot                                            | ⬜                    |
 
-Layar fase 2–10 sedang dibangun lebih dulu dalam mode presentasi (data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
+Layar fase 1–10 sudah dibangun lebih dulu dalam mode presentasi (80 layar di registri, data dummy, ADR-0023); fase itu baru selesai setelah tersambung ke backend. Daftar layar per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status terbaru selalu ada di `docs/PROGRESS.md`; kriteria selesai tiap fase di `docs/09-rencana-fase.md`.
 
 Rencana rinci fase yang sedang berjalan ada di `docs/rencana/`. Fase 2 (potongan kerja, urutan, dan keputusan yang disetujui 5 Okt 2026): `docs/rencana/fase-2-front-office.md`.
