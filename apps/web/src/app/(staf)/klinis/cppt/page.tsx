@@ -59,6 +59,7 @@ export default async function CpptPage({ searchParams }: { searchParams: SearchP
           initialVerified={verified}
           user={session.user.displayName}
           role={role}
+          dpjp={chart.dpjp}
           writerRole={cpptRoleOf(role)}
           canWrite={canWriteCppt(role)}
           now={DEMO_NOW}

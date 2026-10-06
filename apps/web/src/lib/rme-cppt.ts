@@ -67,29 +67,38 @@ export function cpptStatus(
       };
 }
 
-/** Gerbang co-sign: hanya catatan residen yang belum di-co-sign, oleh DPJP (posisi dokter), bukan catatan sendiri. */
-export function cosignBlocker(
-  e: CpptEntry,
-  o: { role: string | null; user: string; superseded: boolean; cosigned: boolean },
-): string | null {
+/** Pelaku atestasi: `actor` = dokter yang diperankan posisi aktif; `dpjp` = DPJP pasien ini. */
+interface Attester {
+  role: string | null;
+  user: string;
+  actor: string;
+  dpjp: string;
+  superseded: boolean;
+}
+
+const notDpjp = (o: Pick<Attester, 'actor' | 'dpjp'>) =>
+  o.actor !== o.dpjp ? `Hanya DPJP pasien ini (${o.dpjp}) yang dapat co-sign/verifikasi.` : null;
+
+/**
+ * Gerbang co-sign: hanya catatan residen yang belum di-co-sign, oleh DPJP pasien ini (posisi dokter), bukan catatan
+ * sendiri.
+ */
+export function cosignBlocker(e: CpptEntry, o: Attester & { cosigned: boolean }): string | null {
   if (!e.cosignRequired) return 'Bukan catatan residen.';
   if (o.superseded) return 'Versi lama; co-sign versi terbaru.';
   if (o.cosigned || e.cosignedBy) return 'Sudah di-co-sign DPJP.';
   if (o.role !== 'dokter') return 'Hanya DPJP (posisi dokter) yang dapat co-sign.';
-  if (e.author === o.user) return 'Tidak bisa co-sign catatan sendiri.';
-  return null;
+  if (e.author === o.user || e.author === o.actor) return 'Tidak bisa co-sign catatan sendiri.';
+  return notDpjp(o);
 }
 
 /** Gerbang verifikasi DPJP atas CPPT PPA lain. */
-export function verifyBlocker(
-  e: CpptEntry,
-  o: { role: string | null; user: string; superseded: boolean; verified: boolean },
-): string | null {
+export function verifyBlocker(e: CpptEntry, o: Attester & { verified: boolean }): string | null {
   if (!needsVerification(e)) return 'Catatan dokter tidak perlu verifikasi.';
   if (o.superseded) return 'Versi lama; verifikasi versi terbaru.';
   if (o.verified) return 'Sudah diverifikasi DPJP.';
   if (o.role !== 'dokter') return 'Hanya DPJP (posisi dokter) yang memverifikasi CPPT PPA lain.';
-  return null;
+  return notDpjp(o);
 }
 
 /** Label tombol simpan catatan baru: residen tidak bisa memfinalkan sendiri. */
