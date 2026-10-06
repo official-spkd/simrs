@@ -292,6 +292,80 @@ describe('domain tagihan (Kasir + Charge capture)', () => {
   });
 });
 
+describe('aliran klinis (CD-2) → charge capture + kasir', () => {
+  it('order CPOE ber-tarif, eMAR, dan CPPT final masuk tagihan berjalan; tarif null tertahan', () => {
+    const doctor: DemoActor = { userId: 'u-dr', name: 'dr. Sesi', role: 'dokter', baseRole: null };
+    const order = ev(
+      'klinis-order',
+      {
+        type: 'order.ditandatangani',
+        encounterId: 'enc-rj-1',
+        patientId: PATIENT_ID.ayu,
+        rm: '00-12-45-78',
+        patientName: 'Pasien Daftar Fiktif',
+        setting: 'rawat-jalan',
+        payer: 'Umum',
+        signedAt: '2026-10-05T09:30:00+07:00',
+        lines: [
+          {
+            lineId: 'enc-rj-1-o1-darah-lengkap',
+            catalogId: 'darah-lengkap',
+            kind: 'lab',
+            name: 'Darah lengkap',
+            detail: 'cito',
+            code: { system: 'LOINC', code: '58410-2' },
+            coverage: 'ditanggung',
+            priority: 'rutin',
+            tariff: '95000',
+            override: null,
+            dest: 'lab',
+          },
+          {
+            lineId: 'enc-rj-1-o1-baru',
+            catalogId: 'baru',
+            kind: 'tindakan',
+            name: 'Tindakan baru',
+            detail: '—',
+            code: null,
+            coverage: 'ditanggung',
+            priority: 'rutin',
+            tariff: null,
+            override: null,
+            dest: 'tindakan',
+          },
+        ],
+      },
+      doctor,
+    );
+    const cppt = ev(
+      'klinis-poli',
+      {
+        type: 'cppt.ditandatangani',
+        encounterId: 'enc-rj-1',
+        patientId: PATIENT_ID.ayu,
+        subjective: 'Keluhan',
+        objective: 'TD 150/90',
+        diagnosisCodes: ['I10'],
+        final: true,
+        at: '09.40',
+      },
+      doctor,
+    );
+    const p = project(tagihanDomain, log([visit(1, 'Umum'), order, cppt]));
+    const inv = applyTagihan(kasirBoard(), p.state).invoices.find(
+      (i) => i.id === registeredInvoiceId('kj-1'),
+    );
+    expect(inv?.lines.map((l) => [l.name, l.amount])).toEqual([
+      ['Administrasi rawat jalan', '30000'],
+      ['Darah lengkap', '95000'],
+      ['Konsultasi dokter spesialis', '150000'],
+    ]);
+    const caps = applyCaptures(CAPTURE_EVENTS, p.state);
+    expect(caps.find((c) => c.id === 'cc-or-enc-rj-1-o1-baru')?.status).toBe('tertahan');
+    expect(heldByRm(caps).get('00-12-45-78')).toBe(1);
+  });
+});
+
 describe('domain akuntansi · pembuat ≠ penyetuju, K-2, periode terkunci', () => {
   const petakan = { type: 'jurnal.petakan', journalId: DISPUTE_JOURNAL_ID, accountCode: '1-1390', at: AT };
   const setujui = { type: 'jurnal.setujui', journalId: DISPUTE_JOURNAL_ID, at: AT } as const;

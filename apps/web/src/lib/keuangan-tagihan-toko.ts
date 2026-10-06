@@ -18,11 +18,16 @@ import {
   guarantorLabel,
   line as chargeLine,
   type SplitInput,
+  STATIC_INVOICES,
 } from './demo/fixtures/keuangan';
-import { patientById } from './demo/fixtures/pasien';
+import { TARIF_ITEMS } from './demo/fixtures/tarif';
+import { patientByEncounterId, patientById } from './demo/fixtures/pasien';
 import { queueNo } from './demo/fixtures/rs';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { registrationDomain, type VisitRegisteredEvent } from './front-office-pendaftaran';
+import { type OrderLine, orderDomain } from './klinis-order-toko';
+import { poliDomain } from './klinis-poli-toko';
+import { rekamDomain } from './rme-toko';
 import { categorizeCharge, invoiceSettlement, invoiceTotal, patientDue } from './keuangan';
 import { type BarisCapture, type EventCapture, line as captureLine } from './keuangan-charge';
 import { autoJurnalSchema } from './keuangan-jurnal';
@@ -421,6 +426,78 @@ export const tagihanDomain = defineDomain<TagihanState, TagihanEvent>(TAGIHAN_DO
     }
   },
   subscriptions: [
+    // Klinis (CD-2): order CPOE ber-tarif, pemberian obat eMAR, dan CPPT final poli → charge capture + tagihan.
+    on(orderDomain, (s, ev) =>
+      ev.data.type === 'order.ditandatangani'
+        ? ev.data.lines.reduce(
+            (acc, l) =>
+              addClinicalCharge(acc, {
+                id: `cc-or-${l.lineId}`.slice(0, 120),
+                patientId: ev.data.patientId,
+                patient: {
+                  name: ev.data.patientName,
+                  rm: ev.data.rm,
+                  place: ev.data.setting === 'igd' ? 'IGD' : 'Rawat jalan',
+                  payer: ev.data.payer,
+                },
+                at: ev.data.signedAt,
+                source:
+                  l.kind === 'obat'
+                    ? 'farmasi'
+                    : l.kind === 'lab'
+                      ? 'lis'
+                      : l.kind === 'radiologi'
+                        ? 'ris'
+                        : 'cpoe',
+                event: 'order.signed',
+                description: `Order ${l.name} ditandatangani ${ev.actor.name}`,
+                charge: orderCharge(l),
+              }),
+            s,
+          )
+        : s,
+    ),
+    on(rekamDomain, (s, ev) => {
+      if (ev.data.type !== 'emar.diberikan') return s;
+      const p = patientByEncounterId(ev.data.encounterId);
+      if (!p) return s;
+      return addClinicalCharge(s, {
+        id: `cc-emar-${ev.seq}`,
+        patientId: p.id,
+        patient: { name: p.nama, rm: p.rm, place: 'Rawat inap', payer: p.penjamin },
+        at: ev.data.givenAt,
+        source: 'emar',
+        event: 'medication.administered',
+        description: `${ev.data.name} diberikan ${ev.data.at} (dipindai ${ev.actor.name})`,
+        charge: {
+          itemCode: EMAR_ADMIN.itemCode,
+          name: `${EMAR_ADMIN.name} · ${ev.data.name}`,
+          category: 'tindakan',
+          unitPrice: EMAR_ADMIN.price,
+        },
+      });
+    }),
+    on(poliDomain, (s, ev) => {
+      const d = ev.data;
+      if (!((d.type === 'cppt.ditandatangani' && d.final) || d.type === 'cppt.cosign')) return s;
+      const reg = [...s.registered].reverse().find((r) => r.patientId === d.patientId);
+      if (!reg || s.newCaptures.some((c) => c.id === `cc-kns-${reg.invoiceId}`)) return s;
+      return addClinicalCharge(s, {
+        id: `cc-kns-${reg.invoiceId}`,
+        patientId: d.patientId,
+        patient: { name: reg.patientName, rm: reg.rm, place: reg.poliName, payer: reg.payer },
+        at: demoStampOf(d.at),
+        source: 'cppt',
+        event: 'visit.recorded',
+        description: `CPPT poli ditandatangani ${ev.actor.name} · kunjungan selesai`,
+        charge: {
+          itemCode: 'KNS-SP',
+          name: KONSULTASI.name,
+          category: 'visite',
+          unitPrice: KONSULTASI.price,
+        },
+      });
+    }),
     on(registrationDomain, (s, ev) =>
       ev.data.type === 'kunjungan.terdaftar'
         ? applyVisit(s, ev.data, demoStampOf(ev.data.jam), ev.actor.name)
@@ -428,6 +505,126 @@ export const tagihanDomain = defineDomain<TagihanState, TagihanEvent>(TAGIHAN_DO
     ),
   ],
 });
+
+/** Tarif berlaku (kelas 3 = rawat jalan) dari master tarif, bukan diketik. */
+function tariffOf(code: string): { name: string; price: bigint } {
+  const t = TARIF_ITEMS.find((i) => i.code === code);
+  const v = t?.versions.at(-1);
+  if (!t || !v) throw new Error(`Tarif ${code} tidak ada`);
+  return { name: t.name, price: v.prices.k3 };
+}
+const KONSULTASI = tariffOf('KNS-SP');
+/** Jasa pemberian obat per dosis eMAR (sama dengan baris "Pemberian obat injeksi" tagihan rawat inap). */
+const EMAR_ADMIN = { itemCode: 'TND-EMAR', name: 'Pemberian obat', price: 25_000n } as const;
+
+/** Baris tagihan dari order CPOE (kontrol tanpa tarif tidak ditagihkan; tarif null = tertahan). */
+function orderCharge(l: OrderLine): ClinicalCharge['charge'] {
+  if (l.dest === 'kontrol' || l.tariff === '0') return null;
+  const category: ChargeItem['category'] =
+    l.kind === 'lab'
+      ? 'laboratorium'
+      : l.kind === 'radiologi'
+        ? 'radiologi'
+        : l.kind === 'obat'
+          ? 'obat'
+          : 'tindakan';
+  return {
+    itemCode: l.code?.code ?? l.catalogId.toUpperCase().slice(0, 20),
+    name: l.name,
+    category,
+    unitPrice: l.tariff === null ? null : BigInt(l.tariff),
+  };
+}
+
+interface ClinicalCharge {
+  id: string;
+  patientId: string;
+  patient: EventCapture['patient'];
+  at: string;
+  source: EventCapture['source'];
+  event: string;
+  description: string;
+  /** null = tidak ditagihkan; `unitPrice` null = tarif belum ada (event tertahan). */
+  charge: {
+    itemCode: string;
+    name: string;
+    category: ChargeItem['category'];
+    unitPrice: bigint | null;
+  } | null;
+}
+
+/**
+ * Tagihan tujuan charge klinis pasien: kunjungan rawat jalan hari ini (pendaftaran) atau tagihan fixture yang masih
+ * berjalan; null bila tagihannya sudah final/lunas (charge tercatat di monitor sebagai tagihan susulan).
+ */
+function targetInvoice(s: TagihanState, patientId: string): string | null {
+  const reg = [...s.registered].reverse().find((r) => r.patientId === patientId);
+  const id =
+    reg?.invoiceId ??
+    STATIC_INVOICES.find((i) => i.patient.id === patientId && i.status === 'berjalan')?.id ??
+    null;
+  if (!id) return null;
+  const o = s.invoices[id];
+  return o?.finalizedAt || o?.closedAt ? null : id;
+}
+
+function addClinicalCharge(s: TagihanState, c: ClinicalCharge): TagihanState {
+  if (!c.charge || s.newCaptures.some((x) => x.id === c.id)) return s;
+  const invoiceId = targetInvoice(s, c.patientId);
+  const price = c.charge.unitPrice;
+  const capture: NewCapture = {
+    id: c.id,
+    at: c.at,
+    source: c.source,
+    event: c.event,
+    description: invoiceId
+      ? c.description
+      : `${c.description} · tagihan induk sudah final: masuk tagihan susulan`,
+    patient: c.patient,
+    status: price === null ? 'tertahan' : 'tertagih',
+    line: price === null ? null : captureLine(c.charge.itemCode, c.charge.name, 1, price),
+    ...(price === null
+      ? {
+          hold: {
+            kind: 'tarif-tidak-ada' as const,
+            reason: `Tarif ${c.charge.name} belum ada di master tarif.`,
+            resolution: null,
+          },
+        }
+      : {}),
+    invoiceId,
+  };
+  const next = { ...s, newCaptures: [...s.newCaptures, capture] };
+  if (!invoiceId || price === null) return next;
+  const o = overlayOf(next, invoiceId);
+  const item: ChargeItem = {
+    id: c.id,
+    name: c.charge.name,
+    category: c.charge.category,
+    source: CAPTURE_SOURCE_LABEL[c.source] ?? c.source,
+    when: c.at.length > 10 ? isoClock(c.at) : c.at,
+    qty: 1,
+    unitPrice: price.toString(),
+    amount: price.toString(),
+    manual: false,
+  };
+  return patchInvoice(next, invoiceId, { captured: [...o.captured, item] });
+}
+
+const CAPTURE_SOURCE_LABEL: Partial<Record<EventCapture['source'], string>> = {
+  cpoe: 'CPOE',
+  lis: 'LIS',
+  ris: 'RIS',
+  farmasi: 'Farmasi',
+  emar: 'eMAR',
+  cppt: 'CPPT poli',
+};
+
+/** Jam WIB `HH.MM` dari stempel ISO (zona apa pun). */
+function isoClock(iso: string): string {
+  const d = new Date(Date.parse(iso) + 7 * 3_600_000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}.${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
 
 /** Jam `HH.MM` hari demo → ISO WIB (kejadian pendaftaran membawa jam layar, bukan stempel lengkap). */
 export function demoStampOf(jam: string): string {
