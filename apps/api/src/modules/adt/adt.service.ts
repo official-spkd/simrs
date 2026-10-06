@@ -411,6 +411,20 @@ export class AdtService {
     return { encounterId: enc.id, disposition: input.disposition, bedId };
   }
 
+  /**
+   * Kunjungan dibatalkan pendaftaran (IGD `arrived` salah daftar, admisi `planned`; baris kunjungan sudah dikunci
+   * pemanggil): penempatan bed IGD berakhir (bed → kotor), bed pesanan kembali siap, permintaan bed batal, gelang batal.
+   */
+  async releaseCancelledEncounter(encounterId: string, at: Date): Promise<void> {
+    const bedId = await this.beds.endOpenAssignment(encounterId, 'batal', at);
+    if (bedId) await this.beds.vacate(bedId);
+    await this.closeOpenRequests([encounterId], { cancelReason: 'Kunjungan dibatalkan' }, at);
+    await this.db.tx().patientWristband.updateMany({
+      where: { encounterId, voidedAt: null },
+      data: { voidedAt: at, voidedBy: this.db.actorUserId(), voidReason: 'Kunjungan dibatalkan' },
+    });
+  }
+
   // ----------------------------------------------------------------------------------------------------------
   // Gelang
   // ----------------------------------------------------------------------------------------------------------
