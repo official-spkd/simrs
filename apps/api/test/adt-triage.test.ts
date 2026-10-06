@@ -528,6 +528,71 @@ describe('alur IGD → rawat inap → transfer → pulang (K04)', () => {
   });
 });
 
+describe('lingkup unit permintaan bed dan transfer (review keamanan 6 Okt 2026)', () => {
+  const bedRequest = (encounterId: string, unitId: string | undefined) => ({
+    encounterId,
+    origin: 'igd',
+    careClass: 'kelas_2',
+    unitId,
+    isolation: false,
+    note: null,
+  });
+
+  it('perawat unit lain tidak bisa membatalkan atau mengalokasi ulang permintaan bed pasien yang bukan rawatannya', async () => {
+    const e = await igd();
+    const id = (
+      await as('perawatIgd').post('/adt/bed-requests', bedRequest(e.encounterId, unit.MELATI)).expect(201)
+    ).body.id as string;
+    const melatiBed = await freeBed('MELATI');
+    await as('daftar').post(`/adt/bed-requests/${id}/allocate`, { locationId: melatiBed }).expect(200);
+
+    // Anggrek: bukan peminta, bukan unit bed yang dipesan → 403; bed Melati tetap dipesan.
+    await as('perawatAnggrek')
+      .post(`/adt/bed-requests/${id}/cancel`, { reason: 'Coba batalkan dari bangsal lain' })
+      .expect(403);
+    const anggrekBed = await freeBed('ANGGREK');
+    await as('perawatAnggrek')
+      .post(`/adt/bed-requests/${id}/allocate`, { locationId: anggrekBed })
+      .expect(403);
+    expect(await bedStatus(melatiBed)).toMatchObject({ status: 'dipesan', encounterId: e.encounterId });
+    expect((await bedStatus(anggrekBed)).status).toBe('siap');
+
+    // Unit bed yang dipesan (Melati) boleh menolak; peminta (IGD, pasien di unitnya) boleh membatalkan.
+    await as('perawatMelati').post(`/adt/bed-requests/${id}/cancel`, { reason: 'Bangsal penuh' }).expect(200);
+    expect((await bedStatus(melatiBed)).status).toBe('siap');
+    const id2 = (
+      await as('perawatIgd').post('/adt/bed-requests', bedRequest(e.encounterId, unit.MELATI)).expect(201)
+    ).body.id as string;
+    await as('perawatIgd').post(`/adt/bed-requests/${id2}/cancel`, { reason: 'Pasien membaik' }).expect(200);
+  });
+
+  it('transfer oleh perawat berlingkup unit hanya ke bed unitnya atau bed yang sudah dipesan untuk pasien ini', async () => {
+    const e = await igd();
+    const imp = await planned(e);
+    const bed = await freeBed('MELATI');
+    await as('daftar')
+      .post('/adt/admissions', { encounterId: imp, locationId: bed, initialDiagnosis: null })
+      .expect(201);
+    const target = await freeBed('ANGGREK');
+    await as('perawatMelati')
+      .post('/adt/transfers', { encounterId: imp, locationId: target, reason: 'Pindah ke kelas 1' })
+      .expect(403);
+    expect((await bedStatus(target)).status).toBe('siap');
+
+    // Jalur sah: bangsal asal meminta bed, unit tujuan mengalokasikan, lalu transfer ke bed yang dipesan.
+    const rq = (
+      await as('perawatMelati')
+        .post('/adt/bed-requests', { ...bedRequest(imp, unit.ANGGREK), origin: 'lainnya' })
+        .expect(201)
+    ).body.id as string;
+    await as('perawatAnggrek').post(`/adt/bed-requests/${rq}/allocate`, { locationId: target }).expect(200);
+    await as('perawatMelati')
+      .post('/adt/transfers', { encounterId: imp, locationId: target, reason: 'Pindah ke kelas 1' })
+      .expect(201);
+    expect(await bedStatus(target)).toMatchObject({ status: 'terisi', encounterId: imp });
+  });
+});
+
 /** Klien SSE minimal (fetch + frame `\n\n`). */
 async function openStream(who: string, path: string) {
   const controller = new AbortController();
