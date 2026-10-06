@@ -1,5 +1,13 @@
 import 'server-only';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
+import { AGING } from '../../demo/fixtures/keuangan';
+import {
+  BATCH_TAGIHAN,
+  CONTOH_PEMBAGIAN,
+  NEXT_BATCH_SEQ,
+  PENYESUAIAN,
+  PIUTANG_ITEMS,
+} from '../../demo/fixtures/piutang';
 import {
   ATURAN_NAIK_KELAS,
   TARIF_ITEM_TOTAL,
@@ -40,3 +48,16 @@ export function getChargeCaptureBoard() {
   demoOnly('charge capture (U02)');
   return { events: CAPTURE_EVENTS, eventTotal: CAPTURE_EVENT_TOTAL };
 }
+
+export function getReceivablesBoard() {
+  demoOnly('piutang (U04)');
+  return {
+    aging: AGING,
+    examples: CONTOH_PEMBAGIAN,
+    items: PIUTANG_ITEMS,
+    batches: BATCH_TAGIHAN,
+    nextBatchSeq: NEXT_BATCH_SEQ,
+    adjustments: PENYESUAIAN,
+  };
+}
+export type ReceivablesBoard = ReturnType<typeof getReceivablesBoard>;

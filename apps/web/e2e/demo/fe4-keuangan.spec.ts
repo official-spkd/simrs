@@ -147,4 +147,92 @@ test.describe('charge capture (U02)', () => {
   });
 });
 
-export { journalsBalanced };
+test.describe('penjaminan dan piutang (U04)', () => {
+  test('batch penagihan → kirim → pelunasan bereferensi dengan jurnal seimbang', async ({ page }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/keuangan/piutang');
+    await page.goto('/keuangan/piutang');
+    await expect(page.getByRole('heading', { name: /Penjaminan & piutang · tagih/, level: 1 })).toBeVisible();
+
+    const list = page.getByRole('region', { name: 'Daftar piutang' });
+    const make = list.getByRole('button', { name: 'Buat batch penagihan' });
+    await expect(make).toBeDisabled();
+    await list.getByLabel(/INV-2610-02190/).check();
+    await list.getByLabel(/INV-2610-02244/).check();
+    await expect(list.getByText('Satu batch hanya untuk satu penjamin.')).toBeVisible();
+    await list.getByLabel(/INV-2610-02244/).uncheck();
+    await list.getByLabel(/INV-2610-02205/).check();
+    await make.click();
+    await expect(
+      page.getByText(/Batch TG-2610-005 dibuat untuk Asuransi Mitra A \(2 invoice\)/),
+    ).toBeVisible();
+
+    const batch = page.getByRole('article', { name: 'Batch TG-2610-005' });
+    await batch.getByRole('button', { name: 'Kirim tagihan ke penjamin' }).click();
+    await batch.getByRole('button', { name: 'Catat pelunasan…' }).click();
+    const form = batch.getByRole('form', { name: 'Pelunasan TG-2610-005' });
+    await form.getByLabel('Nominal diterima (Rp)').fill('9.000.000');
+    await expect(form.getByText(/melebihi sisa/)).toBeVisible();
+    await form.getByLabel('Nominal diterima (Rp)').fill('8.630.000');
+    await form.getByLabel('Referensi mutasi bank').fill('BTN-H2H-2610-90311');
+    await journalsBalanced(form);
+    await form.getByRole('button', { name: 'Posting pelunasan' }).click();
+    await expect(batch.getByText('Lunas', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(/Pelunasan TG-2610-005 Rp 8\.630\.000 diposting · \d{2}\.\d{2} · Dr 1-1120/),
+    ).toBeVisible();
+
+    const old = page.getByRole('article', { name: 'Batch TG-2609-031' });
+    await expect(old.getByText(/Terkunci: periode September 2026 ditutup/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Pembagian penjamin' }).click();
+    const split = page.getByRole('region', { name: 'Pembagian penjamin' });
+    await expect(split.getByText('Rp 1.250.400')).toBeVisible();
+    await expect(split.getByText('✓ Total = penjamin + pasien + ditanggung RS')).toBeVisible();
+    await journalsBalanced(split);
+    await noHorizontalOverflow(page);
+  });
+
+  test('penyesuaian: akuntan mengajukan, manajemen menyetujui dan jurnal terposting', async ({
+    page,
+    browser,
+  }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/keuangan/piutang');
+    await page.goto('/keuangan/piutang');
+    await page.getByRole('tab', { name: /Penyesuaian/ }).click();
+    const pending = page.getByRole('listitem', { name: 'AJ-2610-003' });
+    await expect(pending.getByRole('button', { name: 'Setujui dan posting' })).toBeDisabled();
+    await expect(pending.getByText(/posisi manajemen/)).toBeVisible();
+    const form = page.getByRole('form', { name: 'Ajukan penyesuaian piutang' });
+    await form
+      .getByLabel('Piutang', { exact: true })
+      .selectOption({ label: 'INV-2609-01950 · Ny. Sumarni Pakpahan · sisa Rp 1.875.000' });
+    await form.getByLabel('Nominal (Rp)').fill('93.750');
+    const submit = form.getByRole('button', { name: 'Ajukan penyesuaian' });
+    await expect(submit).toBeDisabled();
+    await form.getByLabel(/Alasan/).fill('Diskon kontrak 5% sesuai addendum PKS 2026');
+    await submit.click();
+    await expect(page.getByText(/Penyesuaian AJ-2610-004 diajukan/)).toBeVisible();
+
+    const direktur = await createAccount({ roles: ['manajemen'] });
+    const ctx = await browser.newContext({
+      baseURL: test.info().project.use.baseURL,
+      viewport: test.info().project.use.viewport,
+      locale: 'id-ID',
+      timezoneId: 'Asia/Jakarta',
+    });
+    const mgr = await ctx.newPage();
+    await loginAs(mgr, direktur, '/keuangan/piutang');
+    await mgr.goto('/keuangan/piutang');
+    await mgr.getByRole('tab', { name: /Penyesuaian/ }).click();
+    const aj = mgr.getByRole('listitem', { name: 'AJ-2610-003' });
+    await aj.getByRole('button', { name: 'Setujui dan posting' }).click();
+    await expect(aj.getByText(/✓ Disetujui/)).toBeVisible();
+    await expect(
+      mgr.getByText(/AJ-2610-003 disetujui dan diposting · \d{2}\.\d{2} · Dr 6-3100 Rp 3\.250\.000/),
+    ).toBeVisible();
+    await journalsBalanced(aj);
+    await ctx.close();
+  });
+});

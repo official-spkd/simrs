@@ -78,6 +78,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'pulse',
         available: false,
       },
+      { id: 'piutang', label: 'Piutang', href: '/keuangan/piutang', icon: 'fileCheck', available: false },
       // FE4 · akhir
     ],
   },
