@@ -53,8 +53,10 @@ const nextConfig: NextConfig = {
   typedRoutes: false,
   // Hanya `next dev`: izinkan membuka lewat 127.0.0.1 (mis. bila localhost:3000 di IPv6 dipakai aplikasi lain).
   allowedDevOrigins: ['127.0.0.1'],
-  // Panduan superadmin dibaca dari docs/panduan saat runtime; sertakan saat output standalone.
-  outputFileTracingIncludes: { '/superadmin/panduan/**': ['../../docs/panduan/**/*.md'] },
+  // Panduan superadmin (Markdown + gambar) dibaca dari docs/panduan saat runtime; sertakan saat output standalone.
+  outputFileTracingIncludes: {
+    '/superadmin/panduan/**': ['../../docs/panduan/**/*.md', '../../docs/panduan/gambar/*.{png,svg}'],
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
