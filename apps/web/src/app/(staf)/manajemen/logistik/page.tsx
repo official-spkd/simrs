@@ -5,6 +5,7 @@ import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { formatNumber, formatRupiahShort } from '@/lib/manajemen';
+import { getGoodsReceiptLines } from '@/lib/server/data/backoffice';
 import { getLogisticsOverview } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { LogisticsBoard } from './logistics-board';
@@ -22,6 +23,7 @@ export default async function LogistikPage() {
   const { session, screen, allowed } = await requireDemoScreen('logistik');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getLogisticsOverview();
+  const receipt = await getGoodsReceiptLines();
   const k = d.kpi;
 
   return (
@@ -77,7 +79,13 @@ export default async function LogistikPage() {
       </div>
 
       <ScenarioBanner session={session} screen="logistik" />
-      <LogisticsBoard data={d} today={DEMO_TODAY} canApprove={session.role?.code === 'manajemen'} />
+      <LogisticsBoard
+        data={d}
+        today={DEMO_TODAY}
+        canApprove={session.role?.code === 'manajemen'}
+        receiptLines={receipt.lines}
+        suppliers={receipt.suppliers}
+      />
     </div>
   );
 }

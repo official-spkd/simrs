@@ -642,7 +642,7 @@ export const PURCHASE_ORDERS: readonly PurchaseOrder[] = [
   {
     id: 'PO-2610-028',
     title: 'Cairan infus',
-    total: '96000000',
+    total: '95400000',
     stage: 4,
     statusText: 'Dalam pengiriman · tiba 5 Okt',
   },

@@ -35,6 +35,7 @@ import {
   DATASET_REQUEST,
 } from '../../demo/fixtures/dataset-riset';
 import { demoQueueBoard } from '../../demo/fixtures/front-office';
+import { PO_RECEIPT_LINES, PO_SUPPLIER } from '../../demo/fixtures/logistik-terima';
 import { patientById } from '../../demo/fixtures/pasien';
 import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
@@ -224,4 +225,10 @@ export async function getOncology() {
   const patient = patientById(ONCOLOGY_PATIENT_ID);
   if (!patient) throw new Error('pasien onkologi fixture tidak ada');
   return { patient, plan: CHEMO_PLAN, labs: PRE_CHEMO_LABS, verifiers: CHEMO_VERIFIERS };
+}
+
+/** B01 · baris PO tahap "kirim" untuk penerimaan barang di layar Logistik. */
+export async function getGoodsReceiptLines() {
+  demoOnly('penerimaan barang');
+  return { lines: PO_RECEIPT_LINES, suppliers: PO_SUPPLIER };
 }

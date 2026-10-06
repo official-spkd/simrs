@@ -1,6 +1,12 @@
 'use client';
 
-import { formatJam, formatRupiah, type LogisticsOverview, type PurchaseOrderDraft } from '@simrs/shared';
+import {
+  formatJam,
+  formatRupiah,
+  formatTanggal,
+  type LogisticsOverview,
+  type PurchaseOrderDraft,
+} from '@simrs/shared';
 import { Alert, Button, cx, FilterChip } from '@simrs/ui';
 import { useState, useTransition } from 'react';
 import { ExpiryPanel } from '@/components/manajemen/expiry-panel';
@@ -8,7 +14,9 @@ import { PoDraftPanel } from '@/components/manajemen/po-draft-panel';
 import { ProcurementList, type ProcurementRow } from '@/components/manajemen/procurement-list';
 import { ReorderRow } from '@/components/manajemen/reorder-row';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
-import { buildPoDraft, formatDays } from '@/lib/manajemen';
+import { GoodsReceiptPanel } from '@/components/manajemen/goods-receipt-panel';
+import { grNumber, payableDue, type ReceiptLine } from '@/lib/logistik-terima';
+import { buildPoDraft, daysOfCover, formatDays, needsReorder } from '@/lib/manajemen';
 import { submitPoAction } from './actions';
 
 type ClassFilter = 'semua' | 'A' | 'V';
@@ -27,10 +35,15 @@ export function LogisticsBoard({
   data,
   today,
   canApprove,
+  receiptLines = {},
+  suppliers = {},
 }: {
   data: LogisticsOverview;
   today: string;
   canApprove: boolean;
+  /** Baris PO tahap "kirim" untuk penerimaan barang (menambah stok dan utang usaha). */
+  receiptLines?: Record<string, readonly ReceiptLine[]>;
+  suppliers?: Record<string, string>;
 }) {
   const [cls, setCls] = useState<ClassFilter>('semua');
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -42,10 +55,24 @@ export function LogisticsBoard({
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null);
   const [opname, setOpname] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [receiving, setReceiving] = useState<string | null>(null);
+  const [received, setReceived] = useState<Record<string, string>>({});
+  const [stockAdd, setStockAdd] = useState<Record<string, number>>({});
+  const [grSeq, setGrSeq] = useState(1);
+  // Stok bertambah setelah penerimaan; item yang tidak lagi di bawah ROP keluar dari daftar.
+  const reorder = data.reorder
+    .map((i) =>
+      stockAdd[i.id]
+        ? {
+            ...i,
+            stock: i.stock + (stockAdd[i.id] ?? 0),
+            daysOfCover: daysOfCover(i.stock + (stockAdd[i.id] ?? 0), i.avgDailyUse),
+          }
+        : i,
+    )
+    .filter(needsReorder);
 
-  const visible = data.reorder.filter(
-    (i) => cls === 'semua' || (cls === 'A' ? i.abc === 'A' : i.ven === 'V'),
-  );
+  const visible = reorder.filter((i) => cls === 'semua' || (cls === 'A' ? i.abc === 'A' : i.ven === 'V'));
   const pickable = visible.filter((i) => !inPo[i.id]);
   const chosen = pickable.filter((i) => picked.has(i.id));
   const allOn = pickable.length > 0 && chosen.length === pickable.length;
@@ -74,7 +101,7 @@ export function LogisticsBoard({
 
   const makeDraft = () => {
     setFlash(null);
-    setDraft(buildPoDraft(data.reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo)));
+    setDraft(buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo)));
   };
   const submit = () => {
     if (!draft) return;
@@ -112,9 +139,10 @@ export function LogisticsBoard({
   const orders: ProcurementRow[] = [...newPos, ...data.purchaseOrders].map((p) => ({
     ...p,
     approvedText: approved[p.id],
+    receivedText: received[p.id],
   }));
-  const estimate = buildPoDraft(data.reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo));
-  const critical = data.reorder.filter((i) => i.daysOfCover < 7);
+  const estimate = buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo));
+  const critical = reorder.filter((i) => i.daysOfCover < 7);
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,6 +201,37 @@ export function LogisticsBoard({
         >
           {flash.text}
         </div>
+      )}
+      {receiving && receiptLines[receiving] && (
+        <GoodsReceiptPanel
+          poId={receiving}
+          supplier={suppliers[receiving] ?? 'Pemasok'}
+          lines={receiptLines[receiving] ?? []}
+          today={today}
+          onCancel={() => setReceiving(null)}
+          onConfirm={(inputs, value) => {
+            const po = receiving;
+            const lines = receiptLines[po] ?? [];
+            const gr = grNumber(grSeq);
+            const at = formatJam(demoNow());
+            setGrSeq((n) => n + 1);
+            setStockAdd((cur) => {
+              const next = { ...cur };
+              for (const l of lines)
+                next[l.itemId] = (next[l.itemId] ?? 0) + Number(inputs[l.itemId]?.received ?? 0);
+              return next;
+            });
+            const added = lines
+              .map((l) => `+${Number(inputs[l.itemId]?.received ?? 0).toLocaleString('id-ID')} ${l.unit}`)
+              .join(', ');
+            setReceived((cur) => ({ ...cur, [po]: `Diterima ${gr} · ${at} · stok ${added}` }));
+            setFlash({
+              ok: true,
+              text: `${gr} dicatat ${at}: stok ${added}; persediaan dan utang usaha ${formatRupiah(value)} jatuh tempo ${formatTanggal(payableDue(today))} (simulasi, tidak disimpan).`,
+            });
+            setReceiving(null);
+          }}
+        />
       )}
       {draft && (
         <PoDraftPanel draft={draft} pending={pending} onCancel={() => setDraft(null)} onSubmit={submit} />
@@ -238,7 +297,12 @@ export function LogisticsBoard({
           className="flex min-w-0 flex-[1_1_320px] flex-col gap-4 xl:max-w-[400px]"
         >
           <ExpiryPanel items={data.expiring} today={today} />
-          <ProcurementList orders={orders} canApprove={canApprove} onApprove={approve} />
+          <ProcurementList
+            orders={orders}
+            canApprove={canApprove}
+            onApprove={approve}
+            onReceive={(id) => receiptLines[id] && !received[id] && setReceiving(id)}
+          />
         </aside>
       </div>
     </div>
