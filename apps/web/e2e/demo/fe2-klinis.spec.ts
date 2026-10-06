@@ -521,3 +521,61 @@ test.describe('K15 · paket layanan khusus', () => {
     await expect(page.getByRole('button', { name: 'Mulai sesi HD' })).toBeDisabled();
   });
 });
+
+test.describe('K13 · kelengkapan rekam medis dan gerbang tutup kunjungan', () => {
+  test('DPJP: perbaiki butir inline; tutup kunjungan tetap terkunci sampai resume dan edukasi lengkap', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], '/klinis/kelengkapan');
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await expect(cek.getByText('3 dari 7 terpenuhi · 43%')).toBeVisible();
+    const close = cek.getByRole('button', { name: 'Tutup kunjungan' });
+    await expect(close).toBeDisabled();
+    await expect(cek.getByText(/^4 butir kelengkapan belum terpenuhi/)).toBeVisible();
+    await cek.getByRole('button', { name: 'Co-sign sekarang' }).click();
+    await cek.getByRole('button', { name: 'Kirim ulang TTE' }).click();
+    await expect(cek.getByText('5 dari 7 terpenuhi · 71%')).toBeVisible();
+    const dok = page.getByRole('region', { name: 'Dokumen pasien' });
+    await expect(
+      dok
+        .getByRole('listitem')
+        .filter({ hasText: 'Surat kontrol Poli Penyakit Dalam' })
+        .getByText('Final · TTE'),
+    ).toBeVisible();
+    await cek.getByLabel('Disposisi').selectOption('pulang');
+    await expect(close).toBeDisabled();
+    await expect(cek.getByText(/^2 butir kelengkapan belum terpenuhi: Edukasi pulang/)).toBeVisible();
+    await expect(cek.getByRole('link', { name: 'Lengkapi di layar asal' }).first()).toBeVisible();
+
+    await dok.getByRole('button', { name: 'Batalkan Hasil lab luar RS (pindaian)' }).click();
+    const batal = dok.getByRole('form', { name: 'Batalkan dokumen' });
+    await batal.getByLabel('Alasan pembatalan').fill('Hasil milik pasien lain, salah unggah');
+    await batal.getByRole('button', { name: 'Batalkan dokumen' }).click();
+    await expect(
+      dok.getByRole('listitem').filter({ hasText: 'Hasil lab luar RS (pindaian)' }).getByText('Dibatalkan'),
+    ).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('DPJP: kunjungan rawat jalan lengkap ditutup dengan disposisi; residen tidak bisa menutup', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], `/klinis/kelengkapan?pasien=${ENCOUNTER_ID.rohana}`);
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await expect(cek.getByText(/terpenuhi · 100%/)).toBeVisible();
+    await expect(cek.getByRole('button', { name: 'Tutup kunjungan' })).toBeDisabled();
+    await cek.getByLabel('Disposisi').selectOption('pulang');
+    await cek.getByRole('button', { name: 'Tutup kunjungan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Rekam medis terkunci' })).toHaveText(
+      new RegExp(`^Kunjungan ditutup · ${JAM} · Pulang atas persetujuan DPJP`),
+    );
+  });
+
+  test('residen: tutup kunjungan hanya oleh DPJP', async ({ page }) => {
+    await openAs(page, ['dokter_residen'], `/klinis/kelengkapan?pasien=${ENCOUNTER_ID.rohana}`);
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await cek.getByLabel('Disposisi').selectOption('pulang');
+    await expect(cek.getByRole('button', { name: 'Tutup kunjungan' })).toBeDisabled();
+    await expect(cek.getByText('Kunjungan ditutup oleh DPJP (posisi dokter).')).toBeVisible();
+  });
+});

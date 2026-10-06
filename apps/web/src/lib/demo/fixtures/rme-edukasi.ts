@@ -88,6 +88,22 @@ export const EDU_RECORDS: Readonly<Record<string, readonly EduRecord[]>> = {
       at: T('09.30'),
     },
   ],
+  [E.rohana]: [
+    {
+      id: `${E.rohana}-edukasi-1`,
+      topics: ['penyakit', 'obat'],
+      methods: ['lisan', 'leaflet'],
+      educator: STAF.dpjpPenyakitDalam,
+      profession: 'Dokter (DPJP)',
+      recipient: 'pasien',
+      recipientName: 'Ny. Rohana Siregar',
+      understanding: 'paham',
+      teachBack: 'Paru sudah membaik; glargine malam naik dua unit, cek gula pagi tiap hari.',
+      repeatAt: null,
+      signature: 'Rohana Siregar',
+      at: T('10.40'),
+    },
+  ],
   [E.sutan]: [
     {
       id: `${E.sutan}-edukasi-1`,

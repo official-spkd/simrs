@@ -400,6 +400,14 @@ export const ASSESSMENT_RESPONSES: readonly AssessmentResponse[] = [
     rencana_pulang: 'tidak',
   }),
   r(E.rohana, 2, 'nyeri_nrs', PERSONA.perawat, T('07.38'), { skala: 'n0' }),
+  r(E.rohana, 3, 'asesmen_awal_medis', STAF.dpjpPenyakitDalam, T('10.38'), {
+    keluhan_utama: 'Kontrol pasca rawat pneumonia, batuk sisa ringan.',
+    riwayat_sekarang: 'Pulang rawat 19 Sep; batuk berkurang, tidak demam. GDS pagi 198 mg/dL.',
+    riwayat_dahulu: 'DM tipe 2 (metformin, insulin glargine). Alergi amoksisilin.',
+    keadaan_umum: 'baik',
+    pemeriksaan_fisik: 'TD 132/84 · N 80 · SpO2 98%. Paru bersih.',
+    rencana: 'Lanjut terapi DM, titrasi glargine, kontrol 1 bulan.',
+  }),
   r(E.anisa, 1, 'asesmen_awal_keperawatan', PERSONA.bidan, T('09.55'), {
     keluhan_utama: 'Hamil 38 minggu, gerak janin berkurang sejak pagi.',
     status_fungsional: 'mandiri',
