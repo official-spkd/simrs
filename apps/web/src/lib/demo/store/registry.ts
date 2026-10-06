@@ -12,6 +12,8 @@ import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
 import { credentialDomain } from '../../kredensial-toko';
 import { logisticsDomain } from '../../logistik-toko';
+import { complaintDomain } from '../../pengaduan-toko';
+import { educationDomain } from '../../pendidikan-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { ppiDomain } from '../../ppi-toko';
@@ -55,6 +57,8 @@ export const DEMO_DOMAINS = {
   logistik: logisticsDomain,
   onkologi: oncologyDomain,
   pendaftaran: registrationDomain,
+  pendidikan: educationDomain,
+  pengaduan: complaintDomain,
   pengaturan: settingsDomain,
   penggajian: payrollDomain,
   penjadwal: jobsDomain,

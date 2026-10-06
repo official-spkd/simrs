@@ -546,7 +546,7 @@ test.describe('FE5 · back office', () => {
   test('B13 pengalaman pasien: grading → tindak lanjut → jawab → tutup; skor survei rendah jadi pengaduan', async ({
     page,
   }) => {
-    const loket = await createAccount({ roles: ['petugas_pendaftaran'] });
+    const loket = await createAccount({ roles: ['petugas_pendaftaran'], displayName: 'Petugas Pengaduan Fiktif' });
     await loginAs(page, loket, '/');
     await page.goto('/manajemen/pengaduan');
     await expect(page.getByRole('heading', { name: 'Pengalaman pasien', level: 1 })).toBeVisible();
@@ -579,6 +579,16 @@ test.describe('FE5 · back office', () => {
     await expect(page.getByText(/dijadikan pengaduan ADU-2610-025/).first()).toBeVisible();
     await page.getByRole('tab', { name: /Pengaduan/ }).click();
     await expect(page.getByRole('button', { name: /ADU-2610-025/ })).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan + mengalir: jawaban dalam SLA masuk INM-12 (20/23 → 21/24), catatan atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Ringkasan pengalaman pasien' })).toContainText('88%');
+    await expect(page.getByRole('button', { name: /ADU-2610-024/ })).toContainText('Selesai');
+    await page.getByRole('button', { name: /ADU-2610-024/ }).click();
+    await expect(page.getByRole('list', { name: 'Catatan tindakan (tidak bisa diubah)' })).toContainText(
+      'Petugas Pengaduan Fiktif',
+    );
 
     await expectNoHorizontalOverflow(page);
   });
@@ -608,6 +618,13 @@ test.describe('FE5 · back office', () => {
       .fill('Peran observasi tidak dihitung, lengkapi catatan tindakan');
     await page.getByRole('button', { name: 'Kembalikan', exact: true }).click();
     await expect(page.getByText(/dikembalikan dengan umpan balik/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: tingkat baru dan logbook yang diputus.
+    await page.reload();
+    await expect(page.getByText(/Tingkat 3 · /).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Verifikasi logbook Sab, 3 Okt 2026' })).toHaveCount(0);
+    await expect(page.getByText('Dikembalikan ke peserta')).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });

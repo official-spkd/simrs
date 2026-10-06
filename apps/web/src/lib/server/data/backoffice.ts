@@ -22,8 +22,8 @@ import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
 import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
-import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
-import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
+import { TRAINEES } from '../../demo/fixtures/pendidikan';
+import { recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
 import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
@@ -147,13 +147,13 @@ export async function getRegDocs() {
 /** B13 · pengaduan terbuka, pengaduan 30 hari terakhir (INM-12), dan respons survei (INM-13). */
 export async function getPatientExperience() {
   demoOnly('pengalaman pasien');
-  return { complaints: OPEN_COMPLAINTS, recent: recentComplaints(), responses: surveyResponses() };
+  return { recent: recentComplaints(), responses: surveyResponses(), store: await readDomain('pengaduan') };
 }
 
 /** B10 · peserta didik, supervisor, tingkat supervisi, dan logbook. */
 export async function getEducation() {
   demoOnly('pendidikan klinik');
-  return { trainees: TRAINEES, logbook: LOGBOOK };
+  return { trainees: TRAINEES, store: await readDomain('pendidikan') };
 }
 
 /**
