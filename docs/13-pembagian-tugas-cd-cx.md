@@ -68,7 +68,7 @@ Nomor ADR: **CD 0085–0089**, **CX 0090–0094** (0077 sudah dipakai Codex untu
 | Dev server pemilik produk    | `simrs`               | 4000 / 3000 / — / 4100             | —                    |
 | CD-1, CD-2                   | `simrs_test_cd_a`     | 4020 / 3020 / 3021 / 4120          | `simrs-demo-e2e-cda` |
 | CD-3, CD-4                   | `simrs_test_cd_b`     | 4030 / 3030 / 3031 / 4130          | `simrs-demo-e2e-cdb` |
-| CX-1                         | `simrs_test_codex_a`  | 4510 / 3510 / 3511 / 4610          | `simrs-demo-e2e-cxa` |
+| CX-0, CX-1, CX-4             | `simrs_test_codex_a`  | 4510 / 3510 / 3511 / 4610          | `simrs-demo-e2e-cxa` |
 | CX-2                         | `simrs_test_codex_b`  | 4520 / 3520 / 3521 / 4620          | `simrs-demo-e2e-cxb` |
 | CX-3                         | `simrs_test_codex_c`  | 4530 / 3530 / 3531 / 4630          | `simrs-demo-e2e-cxc` |
 
@@ -271,13 +271,28 @@ cd /Users/godam/PROYEK/simrs
 claude --worktree cd-1
 ```
 
-**Codex:** buat worktree dari `master` terbaru, lalu buka di Codex app (mode worktree) atau jalankan `codex` di sana:
+**Codex:** satu perintah dari checkout utama menyiapkan semuanya, lalu menjalankan Codex dengan prompt tugas:
 
 ```bash
-git -C /Users/godam/PROYEK/simrs worktree add ~/.codex/worktrees/cx-0/simrs -b codex/cx-0 master
+node scripts/codex-tugas.mjs CX-0          # sesi Codex interaktif
+node scripts/codex-tugas.mjs CX-0 --exec   # tanpa interaksi; pesan akhir di ~/.codex/worktrees/cx-0/hasil-terakhir.md
+node scripts/codex-tugas.mjs CX-0 --dry-run # lihat langkah dan prompt saja
 ```
 
-Prompt awal Codex (ganti ID dan slot):
+Yang disiapkan skrip (tidak destruktif; yang sudah ada dipakai ulang):
+
+1. Worktree `~/.codex/worktrees/<cx-n>/simrs` di branch `codex/<cx-n>` dari `master`.
+2. Salinan `.env` lokal.
+3. Database tes slot §4 (hanya `CREATE` bila belum ada).
+4. `pnpm install` + `pnpm build`.
+5. Codex dijalankan dengan:
+   - sandbox `workspace-write` + jaringan lokal;
+   - akses tulis ke direktori git repo untuk commit di worktree;
+   - variabel slot (URL database tes, port E2E) yang menimpa `.env`.
+
+Codex tidak mendapat akses tulis ke checkout utama. Untuk melanjutkan tugas yang terputus, jalankan perintah yang sama: worktree dan handoff `docs/handoff/<CX-n>.md` dipakai ulang.
+
+Prompt yang dikirim skrip (bisa juga ditempel manual di Codex app pada worktree tugas):
 
 ```text
 Kerjakan tugas CX-0 dari docs/13-pembagian-tugas-cd-cx.md di worktree ~/.codex/worktrees/cx-0/simrs

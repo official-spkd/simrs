@@ -15,7 +15,7 @@ For structural codebase exploration, use the installed `codebase-memory` skill.
 # Codex · SIM RS
 
 - Baca seluruh `CLAUDE.md` sebagai aturan proyek bersama: bahasa, arsitektur, keamanan, konvensi, dan validasi berlaku juga untuk Codex.
-- Di awal sesi, baca `docs/PROGRESS.md` dan `docs/12-codex-claude.md`. Jika melanjutkan tugas, baca catatan `docs/handoff/<id-tugas>.md` di worktree tugas tersebut.
+- Di awal sesi, baca `docs/PROGRESS.md`, `docs/12-codex-claude.md`, dan papan tugas `docs/13-pembagian-tugas-cd-cx.md` (Codex mengerjakan tugas **CX-n**; mulai dengan `node scripts/codex-tugas.mjs CX-n` dari checkout utama). Jika melanjutkan tugas, baca catatan `docs/handoff/<id-tugas>.md` di worktree tugas tersebut.
 - Kerja simultan memakai worktree dan tugas terpisah. Jangan mengubah atau membatalkan perubahan agen lain. Jangan menjalankan operasi Git yang mengubah checkout milik sesi lain.
 - Sebelum mengambil alih tugas, pastikan agen sebelumnya sudah berhenti; periksa branch, `git status`, diff, dan catatan serah-terima. Lanjutkan perubahan yang ada, termasuk yang belum di-commit.
 - Catat checkpoint setelah setiap potongan di `docs/handoff/<id-tugas>.md`: tujuan, worktree/branch, file berubah, bukti tes, kendala, dan langkah berikutnya. Jangan menunggu kuota habis.
