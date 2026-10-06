@@ -77,7 +77,7 @@ Chip status memakai pasangan 100/800 (mis. `bg-koral-100 text-koral-800`). Statu
 
 ## 3. Komponen dasar (`packages/ui`)
 
-`AppShell` (jendela kaca, `domain`/`domainLabel`, sidebar 236 px + header) · `Sidebar` (titik rona per grup, item aktif bergradien, grup terlipat bila > 24 layar) · `CommandPalette` (⌘K / Ctrl K) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` · `Chip`/`StatusChip`/`FilterChip` · `Tabs` · `RadioSegmented` · `KpiCard`/`Card` · `Alert` (4 tingkat) · `SafetyGate` · `LineChart` · `Icon`.
+`AppShell` (jendela kaca, `domain`/`domainLabel`, sidebar 236 px + header) · `Sidebar` (titik rona per grup, item aktif bergradien, grup terlipat bila > 24 layar yang bisa dibuka) · `CommandPalette` (⌘K / Ctrl K) · `PatientBanner` · `Button` (primary/secondary/danger/ghost) · `Field` · `Chip`/`StatusChip`/`FilterChip` · `Tabs` · `RadioSegmented` · `KpiCard`/`Card` · `Alert` (4 tingkat) · `SafetyGate` · `LineChart` · `Icon`.
 
 ## 4. Peta layar → rute → komponen
 
