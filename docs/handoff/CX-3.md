@@ -1,7 +1,7 @@
 # Serah-terima · CX-3 · Back office + manajemen + aplikasi interaktif
 
 - Diperbarui: Sel, 6 Okt 2026
-- Status: **berjalan** (gerbang akhir sedang dijalankan)
+- Status: **siap integrasi**
 - Pemilik sesi: Claude Code (mengambil alih tugas Codex atas permintaan pemilik produk, 6 Okt 2026)
 - Worktree: `/Users/godam/PROYEK/simrs/.claude/worktrees/agent-a67bd17b71094c816`
 - Branch dan commit terakhir: `cd/cx-3` (lihat `git log -1 cd/cx-3`; `master` CD-2 + CX-1 sudah digabung)
@@ -79,7 +79,12 @@ Rinci di `docs/panduan/19-peta-kode.md` → "Aliran back office, manajemen, dan 
 
 ## Validasi
 
-(diperbarui di akhir)
+Gerbang akhir (Sel, 6 Okt 2026, setelah `master` terbaru digabung: CD-2, CX-1, CX-2; `master` tidak bergerak sejak itu):
+
+- `pnpm lint` · lolos (12/12 tugas turbo). `pnpm typecheck` · lolos (12/12).
+- `pnpm --filter @simrs/web test` · lolos (143 berkas, 969 tes). Tes baru per domain: `lib/{logistik,penggajian,rekam-medis-adm,dokumen,dataset-riset,ppra,kredensial,sdm,ppi,aset,pengaduan-pendidikan,mutu-dasbor,aplikasi}-toko.test.ts` (gerbang peran, pemisahan tugas ID sesi termasuk pengguna sama di posisi lain, langganan lintas domain, isi kejadian palsu ditolak), `manajemen-aksi.test.ts` (Server Action PO di toko), `patient-pages.test.ts` (antrean hidup).
+- E2E slot CX-3 (`demo-desktop` + `demo-tablet`, `--workers=2`): `e2e/demo/{manajemen,dasbor,fe5-backoffice,keuangan,fe4-keuangan,superadmin-demo,semua-layar,toko-demo,simulasi}.spec.ts` · **140 lolos, 0 gagal**. Setiap alur CX-3 memeriksa bertahan (muat ulang) dan, bila ada, mengalir: Logistik → Hutang (GRN-2610-0145 → `INV/2610-0145`), Logistik → Dasbor, PPI/Pengaduan → Mutu, SDM → Kredensial, IGD minta bed → Command center, IGD meninggal → RM administratif, aplikasi dokter read-back → Lab, aplikasi pasien antrean hidup + booking.
+- Catatan: putaran sebelumnya gagal karena mesin sangat terbebani (load > 400, E2E lain paralel); diulang dengan `--workers=2` setelah beban turun. Satu perbaikan nyata dari putaran itu: Jadwal dinas mengosongkan pilihan perawat saat itu juga (commit `1b15583`).
 
 ## Kendala dan langkah berikutnya
 
