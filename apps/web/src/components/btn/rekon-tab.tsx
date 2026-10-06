@@ -15,17 +15,45 @@ const TONE: Record<ReconRow['status'], ChipTone> = {
   pengecualian: 'danger',
 };
 
-function Cell({ label, src }: { label: string; src: ReconRow['kasir'] }) {
+function Cell({ label, src, bad }: { label: string; src: ReconRow['kasir']; bad: boolean }) {
   const missing = src.amount === null;
   return (
     <span className="flex min-w-0 flex-col @2xl:items-end">
-      <span className="text-caption text-ink-500 @2xl:hidden">{label}</span>
-      <span className={cx('font-mono', missing ? 'text-ink-500' : 'text-ink-900')}>
+      {/* Label kolom tetap terbaca pembaca layar di tata letak lebar (kepala tabel aria-hidden). */}
+      <span className="text-caption text-ink-500 @2xl:sr-only">{label}</span>
+      <span
+        className={cx(
+          'font-mono',
+          bad ? 'font-semibold text-danger' : missing ? 'text-ink-500' : 'text-ink-900',
+        )}
+      >
         {missing ? '—' : digits(BigInt(src.amount ?? '0'))}
+        {bad && <span className="sr-only"> (selisih)</span>}
       </span>
-      {src.note && <span className="text-caption text-ink-500">{src.note}</span>}
+      {src.note && (
+        <span className={cx('text-caption', bad ? 'text-danger' : 'text-ink-500')}>{src.note}</span>
+      )}
     </span>
   );
+}
+
+/** Sel yang berbeda dari nilai mayoritas ketiga sumber pada pengecualian terbuka (ditandai merah, mockup). */
+function oddCells(r: ReconRow): Record<'kasir' | 'tpdi' | 'bank', boolean> {
+  const none = { kasir: false, tpdi: false, bank: false };
+  if (!r.exception || r.exception.resolution) return none;
+  const vals = { kasir: r.kasir.amount, tpdi: r.tpdi.amount, bank: r.bank.amount };
+  const count = new Map<string, number>();
+  for (const v of Object.values(vals)) if (v !== null) count.set(v, (count.get(v) ?? 0) + 1);
+  const major = [...count.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (!major || major[1] < 2) {
+    // Hanya satu sumber yang mencatat (mis. transfer tanpa referensi): sisi yang kosong yang janggal.
+    return { kasir: vals.kasir === null, tpdi: vals.tpdi === null, bank: vals.bank === null };
+  }
+  return {
+    kasir: vals.kasir !== major[0],
+    tpdi: vals.tpdi !== major[0],
+    bank: vals.bank !== major[0],
+  };
 }
 
 /** Tab Rekonsiliasi 3 arah: kasir SIM RS ↔ laporan TPDI ↔ mutasi BTN; pengecualian wajib dijelaskan. */
@@ -133,6 +161,7 @@ export function RekonTab({
           const status =
             open && ex ? `Selisih ${formatRupiah(BigInt(ex.adjustment))}` : RECON_STATUS_LABEL[r.status];
           const done = ex?.resolution;
+          const odd = oddCells(r);
           return (
             <li
               key={r.id}
@@ -146,9 +175,9 @@ export function RekonTab({
                   </span>
                   <span className="text-caption text-ink-500">{r.source}</span>
                 </span>
-                <Cell label="Kasir SIM RS" src={r.kasir} />
-                <Cell label="Laporan TPDI" src={r.tpdi} />
-                <Cell label="Mutasi BTN" src={r.bank} />
+                <Cell label="Kasir SIM RS" src={r.kasir} bad={odd.kasir} />
+                <Cell label="Laporan TPDI" src={r.tpdi} bad={odd.tpdi} />
+                <Cell label="Mutasi BTN" src={r.bank} bad={odd.bank} />
                 <span className="flex flex-col items-start gap-0.5 @2xl:items-end">
                   <Chip tone={open ? 'danger' : done ? 'success' : TONE[r.status]}>
                     {done ? 'Ditangani' : status}

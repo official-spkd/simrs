@@ -2,6 +2,7 @@
 
 import { Button, cx } from '@simrs/ui';
 import { useId, useRef } from 'react';
+import { GatedButton } from '@/components/gated-button';
 
 /**
  * Tutup periode fiskal (mockup Akuntansi) dengan dialog konfirmasi modal: syarat (pemetaan akun, rekonsiliasi
@@ -60,19 +61,19 @@ export function PeriodClose({
           </ul>
           <span className="flex flex-wrap items-center gap-2">
             <Button onClick={() => ref.current?.close()}>Batal</Button>
-            <Button
+            <GatedButton
               variant="primary"
-              disabled={!ready || pending}
-              aria-describedby={reason ? `${id}-alasan` : undefined}
+              enabled={ready && !pending}
+              aria-describedby={!ready && reason ? `${id}-alasan` : undefined}
               onClick={() => {
                 onConfirm();
                 ref.current?.close();
               }}
             >
-              Tutup periode
-            </Button>
+              Ya, tutup dan kunci periode
+            </GatedButton>
           </span>
-          {reason && (
+          {!ready && reason && (
             <span id={`${id}-alasan`} className="text-small font-medium text-warning">
               {reason}
             </span>

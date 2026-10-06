@@ -61,7 +61,7 @@ export function MoneyFlow({ operational }: { operational: string }) {
         <div className="flex min-w-0 flex-[1.4_1_260px] flex-col gap-1 rounded-control border-[1.5px] border-dashed border-[#9FB0BF] bg-white px-3 py-2.5">
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold">TPDI · orkestrasi</span>
-            <Chip tone="neutral">tidak menampung dana</Chip>
+            <Chip tone="warning">TPDI tidak menampung dana</Chip>
           </span>
           <span className="text-caption text-ink-700">
             Tagihan VA/QR via API BTN · webhook ke SIM RS (HMAC, idempoten) · laporan transaksi untuk

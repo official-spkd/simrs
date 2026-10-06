@@ -1,15 +1,23 @@
 'use client';
 
 import { type Claim, formatJam, formatTanggal } from '@simrs/shared';
-import { Button, cx } from '@simrs/ui';
+import { cx } from '@simrs/ui';
 import { useState, useTransition } from 'react';
+import { GatedButton } from '@/components/gated-button';
 import { type KlaimActionInput, klaimAction } from '@/app/(staf)/keuangan/klaim/actions';
 import { useDemoRunner } from '@/components/demo-sync';
 import { flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
-import { CLAIM_STATUS_LABEL, codingView, missingDocs, submitLabel } from '@/lib/keuangan-klaim';
+import {
+  CLAIM_STATUS_LABEL,
+  claimHeaderStatus,
+  codingView,
+  missingDocs,
+  submitLabel,
+} from '@/lib/keuangan-klaim';
 import { ClaimCodes } from './claim-codes';
 import { ClaimDocs } from './claim-docs';
 import { ClaimGrouper } from './claim-grouper';
+import { useClaimLocal } from './claim-local';
 import { ClaimScenarioControls } from './claim-scenario-controls';
 import { FlowTaskButton } from './flow-task-button';
 
@@ -27,10 +35,15 @@ const NOTE = {
  */
 export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: ScenarioFlow | null; rev: number }) {
   const runner = useDemoRunner(rev);
-  const [docs, setDocs] = useState(claim.documents);
-  const [acceptedAt, setAcceptedAt] = useState<string | null>(null);
-  const [queryAt, setQueryAt] = useState<string | null>(null);
-  const [sentAt, setSentAt] = useState<string | null>(null);
+  // Per klaim, bertahan saat koder pindah ke klaim lain lalu kembali (mockup Klaim).
+  const [local, patch] = useClaimLocal(claim.id);
+  const docs = local.docs ?? claim.documents;
+  const acceptedAt = local.acceptedAt ?? null;
+  const queryAt = local.queryAt ?? null;
+  const sentAt = local.sentAt ?? null;
+  const setAcceptedAt = (at: string) => patch({ acceptedAt: at });
+  const setQueryAt = (at: string) => patch({ queryAt: at });
+  const setSentAt = (at: string) => patch({ sentAt: at });
   const [message, setMessage] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
   const pending = busy || runner.pending;
@@ -38,7 +51,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
   const task = (id: string, value: true | string = true) => {
     if (scen) runner.run({ type: 'task', step: scen.step, task: id, value, scenario: scen.scenario });
   };
-  const local = (input: KlaimActionInput, done?: (at: string) => void) =>
+  const run = (input: KlaimActionInput, done?: (at: string) => void) =>
     startTransition(async () => {
       const r = await klaimAction(input);
       setMessage(r.message);
@@ -71,7 +84,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
           onClick: () =>
             kirimTask
               ? task('kirim')
-              : local(
+              : run(
                   {
                     type:
                       claim.status === 'pending'
@@ -92,11 +105,12 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
             ? `Terkirim ke E-Klaim ${sentAt}`
             : claim.status === 'pending'
               ? `Tanggapan terkirim ke verifikator ${sentAt}`
-              : `Penyelesaian dispute diajukan ${sentAt}`,
+              : `Banding diajukan ${sentAt}`,
         note:
           claim.status === 'draft'
             ? 'Berkas dikunci untuk verifikasi BPJS. Jurnal piutang BPJS terbentuk otomatis di Akuntansi.'
             : 'Berkas tambahan dikunci dan tercatat di audit. Piutang BPJS tetap terbuka sampai dana cair.',
+        journalLink: claim.status === 'draft',
       }
     : atVerifier
       ? {
@@ -122,11 +136,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
           text: `kode utama ${sug.from} → ${sug.to} (${acceptedAt}). Hasil grouper dihitung ulang.`,
         }
       : claim.note;
-  const status = sentAt
-    ? claim.status === 'draft'
-      ? 'Terkirim ke E-Klaim'
-      : 'Tanggapan terkirim'
-    : `${CLAIM_STATUS_LABEL[claim.status]} · ${claim.tag.label}`;
+  const status = claimHeaderStatus(claim, local, { grouper: view.grouper, missing: missing.length });
 
   const noteBox = note && (
     <div
@@ -145,20 +155,20 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
       </span>
       {sug && !acceptedAt && !locked && (
         <span className="flex flex-wrap gap-2 pl-5">
-          <Button
+          <GatedButton
             variant="primary"
-            disabled={pending}
-            onClick={() => local({ type: 'terima-saran', claimId: claim.id, code: sug.to }, setAcceptedAt)}
+            enabled={!pending}
+            onClick={() => run({ type: 'terima-saran', claimId: claim.id, code: sug.to }, setAcceptedAt)}
           >
             {queryAt ? `DPJP setuju · terapkan ${sug.to}` : `Terima ${sug.to}`}
-          </Button>
+          </GatedButton>
           {!queryAt && (
-            <Button
-              disabled={pending}
-              onClick={() => local({ type: 'query', claimId: claim.id }, setQueryAt)}
+            <GatedButton
+              enabled={!pending}
+              onClick={() => run({ type: 'query', claimId: claim.id }, setQueryAt)}
             >
               Kirim query ke DPJP
-            </Button>
+            </GatedButton>
           )}
         </span>
       )}
@@ -183,8 +193,19 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
               {claim.encounter.dpjp} · {claim.encounter.resume}
             </span>
           </span>
-          <span aria-live="polite" className="self-center text-[12.5px] font-semibold text-brand-700">
-            {status}
+          <span
+            aria-live="polite"
+            data-claim-status
+            className={cx(
+              'self-center text-[12.5px] font-semibold',
+              status.tone === 'info'
+                ? 'text-info'
+                : status.tone === 'success'
+                  ? 'text-success'
+                  : 'text-brand-700',
+            )}
+          >
+            {status.label}
           </span>
         </div>
         <ClaimCodes
@@ -198,7 +219,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
                   flow={scen}
                   pending={pending}
                   onTask={task}
-                  onReason={(reason) => local({ type: 'alasan-bukti', claimId: claim.id, reason })}
+                  onReason={(reason) => run({ type: 'alasan-bukti', claimId: claim.id, reason })}
                 />
               )}
             </>
@@ -216,14 +237,14 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
         <ClaimDocs
           docs={docs}
           locked={locked}
-          onToggle={(id) => setDocs((ds) => ds.map((d) => (d.id === id ? { ...d, ok: !d.ok } : d)))}
+          onToggle={(id) => patch({ docs: docs.map((d) => (d.id === id ? { ...d, ok: !d.ok } : d)) })}
           query={
             !scen && !locked
               ? {
                   label: queryAt ? `Query terkirim ${queryAt}` : 'Kirim query ke DPJP',
                   enabled: !queryAt && !pending,
                   reason: '',
-                  onClick: () => local({ type: 'query', claimId: claim.id }, setQueryAt),
+                  onClick: () => run({ type: 'query', claimId: claim.id }, setQueryAt),
                 }
               : null
           }

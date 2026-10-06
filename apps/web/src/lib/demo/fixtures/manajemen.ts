@@ -360,7 +360,8 @@ export const INVENTORY: readonly InventoryBase[] = [
     stock: 46,
     avgDailyUse: 11.5,
     leadTimeDays: 7,
-    safetyStock: 40,
+    // ROP 120 (mockup Logistik): 11,5 × 7 + 39 = 119,5 → dibulatkan ke atas.
+    safetyStock: 39,
     suggestedQty: 300,
     unitPrice: '138000',
     channel: 'po-darurat',
@@ -380,7 +381,8 @@ export const INVENTORY: readonly InventoryBase[] = [
     stock: 310,
     avgDailyUse: 52,
     leadTimeDays: 6,
-    safetyStock: 90,
+    // ROP 400 (mockup Logistik): 52 × 6 + 88.
+    safetyStock: 88,
     suggestedQty: 1_500,
     unitPrice: '9800',
     channel: 'e-katalog',
@@ -637,6 +639,9 @@ export const EXPIRING: readonly ExpiryAlert[] = [
   },
 ];
 
+/** Item yang sudah masuk PO terbuka (belum diterima): tidak bisa dipilih lagi agar tidak dipesan ganda. */
+export const OPEN_PO_ITEMS: Readonly<Record<string, string>> = { 'enoksaparin-60': 'PO-2610-031' };
+
 export const PURCHASE_ORDERS: readonly PurchaseOrder[] = [
   {
     id: 'PO-2610-031',
@@ -647,7 +652,8 @@ export const PURCHASE_ORDERS: readonly PurchaseOrder[] = [
   },
   {
     id: 'PO-2610-028',
-    title: 'Cairan infus',
+    // Bukan Infus RL: RL masih di bawah ROP dan diusulkan lewat e-katalog (tidak bertentangan dengan GRN pagi ini).
+    title: 'Cairan infus NaCl 0,9% dan D5%',
     total: '96000000',
     stage: 5,
     statusText: 'Diterima GRN-2610-0144 · 08.40 · cek mutu lolos',

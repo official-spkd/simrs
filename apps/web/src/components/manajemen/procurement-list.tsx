@@ -63,6 +63,7 @@ export function ProcurementList({
               </span>
               <span className="flex flex-wrap items-center justify-between gap-2 text-[12.5px]">
                 <span
+                  aria-live="polite"
                   className={cx(
                     p.approvedText || p.receivedText ? 'font-semibold text-success' : 'text-ink-700',
                   )}

@@ -4,7 +4,15 @@ import { runScenario } from './demo/engine/run';
 import { CLAIM_ID } from './demo/fixtures/ids';
 import { CLAIM_TOTALS, CLAIM_KPIS, STATIC_CLAIMS } from './demo/fixtures/keuangan';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
-import { claimRatio, codingView, docCount, missingDocs, submitLabel } from './keuangan-klaim';
+import {
+  claimHeaderStatus,
+  claimRatio,
+  codingView,
+  docCount,
+  localClaimTag,
+  missingDocs,
+  submitLabel,
+} from './keuangan-klaim';
 import { demoClaimBoard, type ScenarioResults } from './keuangan-skenario';
 
 const fresh = (): ScenarioResults =>
@@ -58,5 +66,40 @@ describe('data dummy Klaim', () => {
     const docs = claim(CLAIM_ID.aminah).documents;
     expect(missingDocs(docs)).toHaveLength(3);
     expect(docCount(docs)).toBe('1/4 lengkap');
+  });
+});
+
+describe('tindakan koder di layar (mockup Klaim)', () => {
+  it('chip daftar dan status kepala berkas mengikuti query → terima saran → berkas lengkap → kirim', () => {
+    const c = claim(CLAIM_ID.endang);
+    const docsOk = c.documents.map((d) => ({ ...d, ok: true }));
+    expect(localClaimTag(c, {})).toEqual(c.tag);
+    expect(localClaimTag(c, { queryAt: '10.02' })).toEqual({ label: 'Menunggu DPJP', level: 'info' });
+    expect(claimHeaderStatus(c, { queryAt: '10.02' }, { grouper: c.grouper, missing: 1 })).toEqual({
+      label: 'Menunggu jawaban DPJP',
+      tone: 'info',
+    });
+    const accepted = { queryAt: '10.02', acceptedAt: '10.05' };
+    expect(localClaimTag(c, accepted).label).toBe('Saran diterima');
+    expect(claimHeaderStatus(c, accepted, { grouper: c.grouper, missing: 1 }).label).toBe(
+      'Siap grouping · J13',
+    );
+    const view = codingView(c, { accepted: true, docs: docsOk });
+    expect(claimHeaderStatus(c, accepted, { grouper: view.grouper, missing: 0 }).label).toBe(
+      'Siap final · J-4-15-III',
+    );
+    expect(view.tiles[0]?.s).toBe('Pneumonia berat · J13 + N17.9');
+    const sent = { ...accepted, sentAt: '10.09' };
+    expect(claimHeaderStatus(c, sent, { grouper: view.grouper, missing: 0 })).toEqual({
+      label: 'Terkirim ke E-Klaim',
+      tone: 'success',
+    });
+    expect(localClaimTag(c, sent)).toEqual({ label: 'Terkirim', level: 'ok' });
+  });
+
+  it('tanggapan pending dan banding dispute diberi label berbeda setelah terkirim', () => {
+    const tag = { label: 'x', level: 'warn' as const };
+    expect(localClaimTag({ status: 'pending', tag }, { sentAt: '10.00' }).label).toBe('Tanggapan terkirim');
+    expect(localClaimTag({ status: 'dispute', tag }, { sentAt: '10.00' }).label).toBe('Banding diajukan');
   });
 });

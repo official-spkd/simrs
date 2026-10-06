@@ -52,18 +52,18 @@ Posisi lain melihat "Layar ini untuk posisi lain" dengan tautan **Ganti posisi**
 1. Buka **Manajemen › Logistik**. Judul "Rantai pasok · stok dan pengadaan". Wilayah "Indikator logistik": Nilai persediaan (Rp 4,82 M), Perputaran, Stockout bulan ini (dengan jumlah item VEN-V), Akurasi opname (sasaran ≥ 98%), dan Lead time rata-rata.
 2. Tabel "Item di bawah titik pesan ulang" memuat Item, Kelas, Stok, ROP, Cukup, dan Usulan. Rumusnya tertulis: ROP = pemakaian harian rata-rata 90 hari × lead time + stok pengaman.
 3. Saring kelas dengan **Semua kelas**, **ABC-A**, atau **VEN-V**.
-4. Kolom Cukup memberi label teks, mis. "Kritis · 4 hari" untuk stok di bawah 7 hari. Bar "Usulan PO" di atas tabel merangkum item kritis.
-5. Centang item (mis. "Masukkan Enoksaparin 60 mg/0,6 mL ke usulan PO"), lalu tekan **Buat usulan PO (N)**. Bar menampilkan estimasi total.
+4. Kolom Cukup memberi label teks, mis. "Kritis · 4 hari" untuk stok di bawah 7 hari. Stok, ROP, dan Cukup rata kanan; tiap sel membawa label kolomnya untuk pembaca layar.
+5. Seperti mockup, semua item yang bisa diusulkan sudah tercentang saat layar dibuka, jadi tombol di kepala layar langsung **Buat usulan PO (7)**; di bawahnya tertulis jumlah item, estimasi total, dan jumlah item kritis. Item yang sudah ada di PO terbuka terkunci dengan label "Masuk PO-…" agar tidak dipesan ganda: Enoksaparin di `PO-2610-031` (menunggu persetujuan) dan empat BHP kamar operasi di `PO-2610-024` (dalam pengiriman). Kosongkan atau ubah centang lalu tekan **Buat usulan PO (N)**; tanpa centang tombol tertahan dengan alasan "Centang item dulu untuk membuat usulan." (tetap bisa difokus).
 6. Panel "Draf usulan PO-2610-032" muncul dengan baris (kuantitas × harga, kanal, pemasok), total, dan chip "Mendesak · ada stok kritis" atau "Rutin". Tekan **Ajukan ke direktur** atau **Batal**.
 7. Setelah diajukan, baris item berlabel "Masuk PO-2610-032" dan PO baru masuk daftar "Pengadaan berjalan" dengan lima tahap: usulan, persetujuan, PO / e-katalog, kirim, terima dan cek mutu.
 8. Posisi Manajemen melihat tombol **Setujui** pada PO di tahap usulan. Posisi lain melihat "Menunggu persetujuan posisi Manajemen".
 9. Panel "Kedaluwarsa ≤ 90 hari" memberi chip "ED N hari" dan dua tindakan: **Pindahkan ke** depo pemakai terbesar (nama depo tertulis di tombol) atau **Retur ke distributor**.
 10. **Stok opname** menampilkan info opname terakhir dan jadwal berikutnya.
 11. PO di tahap kirim (contoh `PO-2610-024`, Distributor alkes B) punya tombol **Terima barang**. Panel "Penerimaan barang PO-2610-024" memuat empat baris: Kasa steril 16×16, Benang PGA 2-0, Sarung tangan steril 7,5, dan Spuit 3 mL. Kolom Diterima terisi jumlah pesanan; isi Batch dan Kedaluwarsa (TTTT-BB-HH) tiap baris.
-12. Panel menampilkan "Jurnal otomatis saat dicatat": debit `1-1410 Persediaan obat dan BHP` dan kredit `2-1110 Utang usaha — pemasok`, masing-masing Rp 22.700.000. Tekan **Catat penerimaan** (atau **Batal**).
-13. Pesan "GRN-2610-0145 dicatat … utang usaha Rp 22.700.000 jatuh tempo Rab, 4 Nov 2026" muncul. PO berlabel "Diterima GRN-2610-0145 · HH.MM · stok +…", tahapnya selesai, dan stok item bertambah. Kasa steril keluar dari tabel item di bawah titik pesan ulang.
+12. Panel menampilkan "Jurnal otomatis saat dicatat": debit `1-1410 Persediaan obat dan BHP` dan kredit `2-1120 Utang penerimaan belum difakturkan`, masing-masing Rp 22.700.000 (menjadi utang usaha `2-1110` setelah faktur pemasok diverifikasi di Hutang usaha). Tekan **Catat penerimaan** (atau **Batal**).
+13. Pesan "GRN-2610-0145 dicatat … utang penerimaan belum difakturkan Rp 22.700.000 jatuh tempo Rab, 4 Nov 2026" muncul di bawah judul tabel item. PO berlabel "Diterima GRN-2610-0145 · HH.MM · stok +…", tahapnya selesai, dan stok item bertambah. Kasa steril keluar dari tabel item di bawah titik pesan ulang; item PO itu yang stoknya masih di bawah ROP bisa diusulkan lagi.
 
-Contoh data dummy: Enoksaparin masuk usulan `PO-2610-032` bernilai Rp 41.400.000. Kanal pengadaan yang dipakai: e-katalog, PO distributor, kontrak KSO, dan PO darurat. Nomor GRN melanjutkan `GRN-2610-0144` di layar Hutang usaha.
+Contoh data dummy: Seftriakson 1 g masuk usulan `PO-2610-032` bernilai Rp 14.700.000 (1.500 vial × Rp 9.800). ROP sama dengan mockup (mis. Enoksaparin 120, Seftriakson 400, Infus RL 900). `PO-2610-028` berisi cairan infus NaCl 0,9% dan D5% (sudah diterima `GRN-2610-0144`, sama dengan faktur di Hutang usaha), jadi Infus RL tetap diusulkan. Kanal pengadaan yang dipakai: e-katalog, PO distributor, kontrak KSO, dan PO darurat. Nomor GRN melanjutkan `GRN-2610-0144` di layar Hutang usaha.
 
 **Gerbang keselamatan dan aturan bisnis.**
 
@@ -76,7 +76,7 @@ Contoh data dummy: Enoksaparin masuk usulan `PO-2610-032` bernilai Rp 41.400.000
 - Kode KFA item hanya dari daftar seed (dijaga tes).
 - Persetujuan PO hanya untuk posisi Manajemen (`canApprove`).
 - **Catat penerimaan** nonaktif beralasan (`receiptBlock`) sampai setiap baris lolos: jumlah diterima 1 sampai jumlah pesanan, batch minimal 3 karakter, kedaluwarsa format TTTT-BB-HH, dan sisa umur ≥ 6 bulan (`supply.min_expiry_months`). Kedaluwarsa lebih dekat ditolak dengan pesan "kedaluwarsa kurang dari 6 bulan, tolak atau minta persetujuan apoteker penanggung jawab." Item rantai dingin wajib centang "Suhu rantai dingin 2–8 °C sesuai saat diterima".
-- Nilai penerimaan = Σ harga satuan × jumlah diterima (bigint). Jurnal selalu berpasangan: persediaan (debit) = utang usaha (kredit). Jatuh tempo utang 30 hari.
+- Nilai penerimaan = Σ harga satuan × jumlah diterima (bigint). Jurnal selalu berpasangan: persediaan (debit) = utang penerimaan belum difakturkan (kredit). Jatuh tempo utang 30 hari.
 - Penerimaan hanya mengubah keadaan layar ini. Stok dan utang tidak terbawa ke layar Hutang usaha atau Depo (simulasi, tidak disimpan).
 
 **Rencana backend.** Izin terencana `inventory.write`. Fase 8 membangun `modules/supply-chain`: master item generik, kebijakan stok ABC-VEN, ROP → usulan PO, persetujuan, PO, penerimaan barang (stok + hutang + jurnal), retur, kedaluwarsa/FEFO, dan stok opname. Penerimaan kelak memakai izin `inventory.receive` dan peran `petugas_logistik` (rencana ADR-0063). Layar dipindah ke mode api; jalur demo tetap diuji.

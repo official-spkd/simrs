@@ -1,8 +1,10 @@
 'use client';
 
 import type { Claim } from '@simrs/shared';
-import { Button, cx } from '@simrs/ui';
-import { type ReactNode, useId } from 'react';
+import { cx } from '@simrs/ui';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { GatedButton } from '@/components/gated-button';
 import { docCount } from '@/lib/keuangan-klaim';
 
 export interface ClaimButton {
@@ -29,9 +31,8 @@ export function ClaimDocs({
   onToggle: (id: string) => void;
   query: ClaimButton | null;
   submit: ClaimButton | null;
-  sent: { title: string; note: string; extra?: ReactNode } | null;
+  sent: { title: string; note: string; extra?: ReactNode; journalLink?: boolean } | null;
 }) {
-  const id = useId();
   const complete = docs.every((d) => d.ok);
   return (
     <section
@@ -70,28 +71,25 @@ export function ClaimDocs({
         ))}
       </ul>
       {(query || submit) && (
-        <div className="mt-1 flex flex-wrap gap-2">
+        <div className="mt-1 flex flex-wrap items-start gap-2">
           {query && (
-            <Button disabled={!query.enabled} onClick={query.onClick}>
+            <GatedButton enabled={query.enabled} onClick={query.onClick}>
               {query.label}
-            </Button>
+            </GatedButton>
           )}
           {submit && (
-            <Button
-              variant="primary"
-              disabled={!submit.enabled}
-              aria-describedby={submit.reason ? id : undefined}
-              onClick={submit.onClick}
-            >
-              {submit.label}
-            </Button>
+            <span className="flex min-w-0 flex-col gap-1">
+              <GatedButton
+                variant="primary"
+                enabled={submit.enabled}
+                reason={submit.reason}
+                onClick={submit.onClick}
+              >
+                {submit.label}
+              </GatedButton>
+            </span>
           )}
         </div>
-      )}
-      {submit?.reason && (
-        <span id={id} className="text-caption font-medium text-warning">
-          {submit.reason}
-        </span>
       )}
       {sent && (
         <div
@@ -100,6 +98,11 @@ export function ClaimDocs({
         >
           <span className="font-bold text-success">{sent.title}</span>
           <span className="text-ink-700">{sent.note}</span>
+          {sent.journalLink && (
+            <Link href="/keuangan/akuntansi" className="self-start font-semibold text-brand-700">
+              Lihat jurnal piutang di Akuntansi
+            </Link>
+          )}
           {sent.extra}
         </div>
       )}

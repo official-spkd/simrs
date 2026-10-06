@@ -121,7 +121,7 @@ export function PaymentPanel({
           label: PAYMENT_METHOD_LABEL[m].name,
           sub: PAYMENT_METHOD_LABEL[m].sub,
           disabled: locked && method !== m,
-          className: m === 'cicilan' ? 'col-span-2' : undefined,
+          className: m === 'cicilan' || m === 'transfer' ? 'col-span-2' : undefined,
         }))}
       />
       {method === 'qris' && <QrisBox due={due} paidAt={qrisAt} onSimulate={() => setQrisAt(now())} />}

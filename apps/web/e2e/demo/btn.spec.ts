@@ -76,7 +76,7 @@ test.describe('pembayaran digital TPDI × BTN', () => {
       page.getByRole('heading', { name: 'Pembayaran digital · TPDI × BTN', level: 1 }),
     ).toBeVisible();
     await expect(
-      page.getByRole('region', { name: 'Alur dana' }).getByText('tidak menampung dana', { exact: true }),
+      page.getByRole('region', { name: 'Alur dana' }).getByText('TPDI tidak menampung dana', { exact: true }),
     ).toBeVisible();
     const kpi = page.getByRole('region', { name: 'Indikator pembayaran' });
     await expect(kpi.getByText('Rp 48,62 jt')).toBeVisible();
@@ -91,6 +91,14 @@ test.describe('pembayaran digital TPDI × BTN', () => {
       page.getByText(/Webhook TPDI diterima, tagihan lunas · \d{2}\.\d{2} \(simulasi, tidak disimpan\)/),
     ).toBeVisible();
     await expect(detail.getByText('✓ HMAC valid').first()).toBeVisible();
+    // Kepala layar: webhook terakhir ikut jam pelunasan simulasi (mockup).
+    await expect(page.getByText(/webhook terakhir \d{2}\.\d{2} \(\d+ dtk lalu\)/)).toBeVisible();
+
+    // Webhook yang timeout belum sampai SIM RS: tidak tampil sebagai HMAC valid dan belum dikreditkan.
+    await daftar.getByRole('button', { name: /Tn\. Fajar Nugraha/ }).click();
+    await expect(detail.getByText(/belum sampai · timeout/)).toBeVisible();
+    await expect(detail.getByText('✓ HMAC valid')).toHaveCount(0);
+    await expect(detail.getByText(/Webhook gagal sampai SIM RS/)).toBeVisible();
 
     // Callback ganda: tercatat tetapi diabaikan (idempoten).
     await daftar.getByRole('button', { name: /Tn\. Sutan Batubara/ }).click();
@@ -101,7 +109,7 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     const rekon = page.getByRole('region', { name: 'Rekonsiliasi tiga arah' });
     const baris = rekon.getByRole('listitem').filter({ hasText: 'Tn. Fajar Nugraha' });
     await baris
-      .getByRole('combobox', { name: 'Tindakan untuk selisih Tn. Fajar Nugraha' })
+      .getByRole('combobox', { name: 'Tindakan penyelesaian untuk selisih Tn. Fajar Nugraha' })
       .selectOption('lunas');
     const catatan = baris.getByLabel('Catatan penyelesaian (wajib)');
     const terapkan = baris.getByRole('button', { name: 'Terapkan' });
@@ -113,8 +121,16 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
     await expect(baris.getByText(/tercatat di jejak audit/)).toBeVisible();
     await expect(page.getByRole('tab', { name: /^Rekonsiliasi\s*2 selisih$/ })).toBeVisible();
+    // Terapkan tetap bisa difokus; menekannya tanpa tindakan menampilkan alasan (mockup aria-disabled).
+    const sumarni = rekon.getByRole('listitem').filter({ hasText: 'Ny. Sumarni Pakpahan' });
+    await sumarni.getByRole('button', { name: 'Terapkan' }).click({ force: true });
+    await expect(sumarni.getByText('Pilih tindakan penyelesaian.')).toBeVisible();
     // Pindah tab tidak menghapus penyelesaian yang sudah dicatat di layar ini.
     await page.getByRole('tab', { name: /^Transaksi/ }).click();
+    // Tab Transaksi mencerminkan penyelesaian: webhook dilewati, kasir lunas lewat rekonsiliasi.
+    await daftar.getByRole('button', { name: /Tn\. Fajar Nugraha/ }).click();
+    await expect(detail.getByText(/dilewati: dilunasi dari laporan TPDI \+ mutasi BTN/)).toBeVisible();
+    await expect(detail.getByText(/diselesaikan lewat rekonsiliasi/)).toBeVisible();
     await page.getByRole('tab', { name: /^Rekonsiliasi/ }).click();
     await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
@@ -136,9 +152,19 @@ test.describe('pembiayaan BTN', () => {
     const pool = page.getByRole('region', { name: 'Pool klaim BPJS' });
     await pool.getByRole('button', { name: 'Ajukan pencairan' }).click();
     await expect(pool.getByText(/Pengajuan PCR-2610-01/)).toBeVisible();
+    // Mockup: tiap langkah bertanda jam, langkah berikutnya "menunggu", dasar klaim beserta nilainya.
+    await expect(pool.getByText(/dasar: .+ · Rp [\d.,]+ (M|jt)/)).toBeVisible();
+    await expect(pool.getByText(/^pukul \d{2}\.\d{2}$/)).toHaveCount(1);
+    await expect(pool.getByText('menunggu', { exact: true })).toBeVisible();
+    // Pengajuan berikutnya tertahan, alasan tetap terbaca (aria-disabled).
+    const ajukan = pool.getByRole('button', { name: 'Ajukan pencairan' });
+    await expect(ajukan).toBeDisabled();
+    await expect(pool.getByText('Selesaikan pengajuan PCR-2610-01 dulu.')).toBeVisible();
     await pool.getByRole('button', { name: 'Simulasi: BTN menyetujui' }).click();
     await pool.getByRole('button', { name: 'Simulasi: BTN mencairkan dana' }).click();
-    await expect(pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional/)).toBeVisible();
+    await expect(
+      pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional ••••4417 pukul \d{2}\.\d{2}/),
+    ).toBeVisible();
 
     // Tab B: Diajukan → Verifikasi BTN → Disetujui → Akad TTE → Dicairkan.
     await page.getByRole('tab', { name: /^B · Cicilan biaya pasien/ }).click();
@@ -157,6 +183,9 @@ test.describe('pembiayaan BTN', () => {
       await expect(detail.getByText(chip, { exact: true })).toBeVisible();
     }
     await expect(detail.getByText(/✓ BTN mencairkan Rp 14\.200\.000/)).toBeVisible();
+    await expect(
+      detail.getByRole('link', { name: 'Lihat penerimaan di Pembayaran via BTN' }),
+    ).toHaveAttribute('href', '/keuangan/pembayaran');
 
     // Penolakan wajib beralasan (≥ 10 karakter).
     await daftar.getByRole('button', { name: /Tn\. Fajar Nugraha/ }).click();
@@ -164,6 +193,14 @@ test.describe('pembiayaan BTN', () => {
     const tolak = detail.getByRole('button', { name: 'Konfirmasi tolak' });
     await detail.getByLabel('Alasan penolakan dari BTN (wajib)').fill('kurang');
     await expect(tolak).toBeDisabled();
+    // Klik saat alasan kurang menampilkan galat (mockup: aria-disabled, bukan tombol mati). Playwright menganggap
+    // aria-disabled "tidak aktif", jadi klik dipaksa seperti klik pengguna sungguhan.
+    await tolak.click({ force: true });
+    await expect(detail.getByText('Alasan wajib diisi, minimal 10 karakter.')).toBeVisible();
+    await expect(detail.getByLabel('Alasan penolakan dari BTN (wajib)')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
     await detail
       .getByLabel('Alasan penolakan dari BTN (wajib)')
       .fill('Slip gaji tidak dapat diverifikasi BTN');

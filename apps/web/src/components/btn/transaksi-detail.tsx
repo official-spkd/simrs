@@ -12,6 +12,7 @@ import {
   STATUS_LABEL,
   STATUS_TONE,
   TRAIL_MARK,
+  webhookDelivered,
 } from '@/lib/btn';
 
 const DOT: Record<TrailState, string> = {
@@ -26,8 +27,10 @@ const DOT: Record<TrailState, string> = {
 /** Payload webhook ringkas (contoh kontrak docs/07 §2; tanda tangan hanya tampil tersamar). */
 function payload(tx: PaymentTransaction): string {
   if (tx.channel === 'EDC') {
+    // Terminal dari jejak status ("terminal kasir IGD-01"), bukan nilai tetap.
+    const terminal = /terminal (?:kasir )?([A-Z]+-\d+)/.exec(tx.trail[0]?.note ?? '')?.[1] ?? '—';
     return [
-      `EDC BTN · terminal RI-01 · ${tx.status === 'gagal' ? 'response 51 (limit tidak cukup)' : 'response 00 (approved)'}`,
+      `EDC BTN · terminal ${terminal} · ${tx.status === 'gagal' ? 'response 51 (limit tidak cukup)' : 'response 00 (approved)'}`,
       `trace ${tx.externalRef ?? '—'} · ${tx.reference ?? '—'}`,
       `{ "invoice": "${tx.invoiceNo}", "amount": ${tx.amount},`,
       `  "settlement": "batch harian ke BTN ${tx.account}" }`,
@@ -36,14 +39,25 @@ function payload(tx: PaymentTransaction): string {
   }
   const last = tx.webhooks.filter((w) => !w.duplicate).at(-1);
   if (!last) return 'Belum ada webhook dari TPDI untuk tagihan ini.';
+  const delivered = webhookDelivered(last);
+  // Dana sudah mengendap di BTN hanya bila dibayar; tagihan menunggu/kedaluwarsa menyebut batas berlakunya.
+  const settled =
+    tx.status === 'lunas' || tx.status === 'dikembalikan' || tx.status === 'selisih' || !!tx.paidAt;
+  const tail =
+    settled && last.event !== 'payment.expired'
+      ? `  "settled_to": "BTN ${tx.account}", "paid_at": "${tx.paidAt ?? last.receivedAt}" }`
+      : `  "expires_at": "${tx.expiresAt ?? '—'}" }`;
   const lines = [
-    `POST /api/v1/webhooks/tpdi/RSFA ← ${last.response}`,
+    `POST /api/v1/webhooks/tpdi/RSFA ${delivered ? '←' : '→'} ${last.response}`,
     `X-TPDI-Event-Id: ${last.id}`,
-    `X-TPDI-Signature: sha256=••••${last.id.slice(-4)} (${last.signatureValid ? 'valid' : 'tidak valid'})`,
+    delivered
+      ? `X-TPDI-Signature: sha256=••••${last.id.slice(-4)} (${last.signatureValid ? 'valid' : 'tidak valid'})`
+      : 'X-TPDI-Signature: belum diverifikasi (webhook belum sampai SIM RS)',
     `{ "event": "${last.event}", "merchant_id": "TPDI-RS-00127",`,
     `  "channel": "${tx.channel === 'VA' ? 'VA_BTN' : 'QRIS_BTN'}", "invoice_id": "${tx.invoiceNo}",`,
-    `  "external_ref": "${tx.externalRef ?? ''}", "amount": ${last.amount},`,
-    `  "settled_to": "BTN ${tx.account}" }`,
+    `  "external_ref": "${tx.externalRef ?? ''}", "${tx.channel === 'VA' ? 'va_number' : 'qr_ref'}": "${tx.reference ?? ''}",`,
+    `  "amount": ${last.amount},`,
+    tail,
   ];
   for (const d of tx.webhooks.filter((w) => w.duplicate)) {
     lines.push(`${formatWhen(d.receivedAt)} callback ulang · event id sama → 200 OK, diabaikan (idempoten)`);
@@ -73,7 +87,7 @@ export function TransaksiDetail({
       false,
     ],
     ['Referensi', tx.reference ?? '—', true],
-    ['Rekening tujuan', `BTN ${tx.account} · operasional RS`, false],
+    ['Rekening tujuan', `BTN ${tx.account} · operasional`, false],
     ['Keterangan', tx.purpose, false],
   ];
   const credited = creditedAmount(tx.webhooks);
@@ -130,21 +144,27 @@ export function TransaksiDetail({
       </div>
       {tx.webhooks.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-small font-semibold">Webhook TPDI diterima</span>
+          <span className="text-small font-semibold">Webhook TPDI</span>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-caption">
             {tx.webhooks.map((w, i) => (
               <li key={`${w.id}-${i}`} className="flex flex-wrap items-center gap-1.5">
                 <span className="font-mono">{formatWhen(w.receivedAt)}</span>
                 <span className="font-mono">{w.event}</span>
-                <Chip tone={w.signatureValid ? 'success' : 'danger'}>
-                  {w.signatureValid ? '✓ HMAC valid' : '✕ HMAC tidak valid'}
-                </Chip>
+                {webhookDelivered(w) ? (
+                  <Chip tone={w.signatureValid ? 'success' : 'danger'}>
+                    {w.signatureValid ? '✓ HMAC valid' : '✕ HMAC tidak valid'}
+                  </Chip>
+                ) : (
+                  <Chip tone="warning">! belum sampai · {w.response}</Chip>
+                )}
                 {w.duplicate && <Chip tone="warning">duplikat · diabaikan</Chip>}
               </li>
             ))}
           </ul>
           <span className="text-caption text-ink-700">
-            Dikreditkan sekali per event id: {formatRupiah(credited)}
+            {tx.webhooks.some((w) => !webhookDelivered(w)) && credited === 0n
+              ? 'Webhook belum sampai ke SIM RS: belum ada yang dikreditkan lewat webhook.'
+              : `Dikreditkan sekali per event id: ${formatRupiah(credited)}`}
           </span>
         </div>
       )}
@@ -158,7 +178,11 @@ export function TransaksiDetail({
       </div>
       {scenarioControls}
       {canSimulatePay(tx) && (
-        <Button variant="primary" disabled={busy} onClick={onSimulatePay}>
+        <Button
+          disabled={busy}
+          onClick={onSimulatePay}
+          className="border-dashed border-brand-700 font-semibold text-brand-700"
+        >
           Simulasikan pembayaran (webhook TPDI)
         </Button>
       )}

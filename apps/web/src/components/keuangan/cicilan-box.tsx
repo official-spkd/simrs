@@ -4,6 +4,7 @@ import { formatRupiah } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { useId } from 'react';
 import { REKENING } from '@/lib/demo/fixtures/rs';
+import { INSTALMENT_MARGIN_PERCENT } from '@/lib/keuangan';
 import { ChoiceCards } from './choice-cards';
 
 export const CICIL_STEPS = [
@@ -65,8 +66,8 @@ export function CicilanBox({
         options={tenors.map((t) => ({ ...t, disabled: !onTenor }))}
       />
       <span className="text-caption text-ink-500">
-        Estimasi angsuran/bulan · <span className="font-semibold text-warning">simulasi</span>. Angka final
-        ditetapkan BTN setelah verifikasi.
+        Estimasi angsuran/bulan · <span className="font-semibold text-warning">simulasi</span> margin{' '}
+        {INSTALMENT_MARGIN_PERCENT}% p.a. flat. Angka final ditetapkan BTN setelah verifikasi.
       </span>
       {submit && <ActionButton action={submit} id={`${id}-ajukan`} primary />}
       {done > 0 && (
@@ -103,7 +104,8 @@ export function CicilanBox({
       {next && <ActionButton action={next} id={`${id}-lanjut`} />}
       <span className="rounded-[8px] bg-info-bg px-2.5 py-2 text-caption text-info">
         Angsuran dibayar pasien langsung ke BTN, bukan ke RS. Setelah dana cair ke rekening RS (BTN{' '}
-        {REKENING.operasional}), tagihan RS lunas dan RS tidak menanggung risiko gagal bayar.
+        {REKENING.operasional}), tagihan RS lunas dan RS tidak menanggung risiko gagal bayar (kecuali diatur
+        lain di perjanjian).
       </span>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { type ConnectionMode, formatJam, type PaymentConfig } from '@simrs/shared';
 import { Button, Chip, cx, RadioSegmented } from '@simrs/ui';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { PaymentEventInput } from '@/app/(staf)/keuangan/pembayaran/actions';
 import { formatTanggalPendek } from '@/lib/btn';
 
@@ -30,12 +30,15 @@ export function KonfigurasiTab({
   record,
   now,
   onSavedMode,
+  onDirty,
 }: {
   config: PaymentConfig;
   busy: boolean;
   record: (input: PaymentEventInput, label: string) => Promise<boolean>;
   now: () => string;
   onSavedMode: (mode: ConnectionMode) => void;
+  /** Ada perubahan belum disimpan (lencana tab "belum disimpan", mockup). */
+  onDirty?: (dirty: boolean) => void;
 }) {
   const [cfg, setCfg] = useState(() => initial(config));
   const [saved, setSaved] = useState(() => initial(config));
@@ -45,6 +48,7 @@ export function KonfigurasiTab({
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   const dirty = !same(cfg, saved);
+  useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
   const anyOn = Object.values(cfg.on).some(Boolean);
   const canSave = dirty && anyOn;
   const note = !anyOn
@@ -52,7 +56,7 @@ export function KonfigurasiTab({
     : dirty
       ? 'Ada perubahan yang belum disimpan.'
       : savedAt
-        ? `Konfigurasi disimpan ${formatJam(savedAt)} · tercatat di jejak audit (simulasi, tidak disimpan).`
+        ? `Perubahan konfigurasi disimpan ${formatJam(savedAt)} · tercatat di jejak audit (simulasi, tidak disimpan).`
         : 'Tidak ada perubahan.';
   const save = async () => {
     if (!canSave) return;

@@ -47,6 +47,7 @@ export function ExpiryPanel({ items, today }: { items: ExpiryAlert[]; today: str
                 Batch {e.batch} · nilai {formatRupiah(BigInt(e.value))}
               </span>
               <span
+                aria-live="polite"
                 className={status ? 'text-[12.5px] font-semibold text-success' : 'text-[12.5px] text-ink-700'}
               >
                 {status ?? e.suggestion}
