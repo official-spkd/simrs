@@ -444,11 +444,13 @@ menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga b
 1. Buka **Persetujuan tindakan**. Bila ada dokumen skenario yang sedang gilirannya, tablet langsung membukanya.
    Selain itu tampil "Dokumen di tablet ini".
 2. Langkah **Informasi**: centang ketujuh butir "Saya memahami: …". Ukuran teks bisa diperbesar atau diperkecil.
-3. Tekan **Lanjut ke tanda tangan**. Pasien atau keluarga menandatangani di bantalan, atau mengisi "Atau ketik nama
-   lengkap sebagai tanda tangan" lalu **Pakai nama ketik**.
-4. Tekan **Lanjut ke saksi**. Saksi keluarga menandatangani, lalu centang "Saksi kedua (petugas): … hadir dan
-   menyaksikan penandatanganan".
-5. Tekan **Lanjut ke TTE dokter**, lalu dokter menekan **Tanda tangani (TTE)**. Status menjadi "Dokumen final · TTE".
+3. Tekan **Lanjut ke tanda tangan**. Pasien atau keluarga menandatangani di bantalan kartu kiri, atau mengisi "Atau
+   ketik nama lengkap sebagai tanda tangan" lalu **Pakai nama ketik**. **Ulangi** menghapus tanda tangan selama
+   langkahnya aktif. Keterangan di bawah bantalan menulis nama, cara, jam, dan "lokasi tablet: …".
+4. Tekan **Lanjut ke saksi**. Saksi keluarga menandatangani di kartu kanan ("Nama dan hubungan: …"), lalu centang
+   "Saksi kedua (petugas): … hadir dan menyaksikan penandatanganan".
+5. Tekan **Lanjut ke TTE dokter**. Kotak "TTE dokter pelaksana" menyebut sertifikat elektronik tersertifikasi
+   (BSrE/PSrE). Dokter menekan **Tanda tangani (TTE)**. Status menjadi "Dokumen final · TTE".
 6. Untuk menolak, tekan **Saya menolak tindakan**, tulis alasan dengan kata-kata pasien, lalu **Catat penolakan**.
    Status menjadi "Ditolak pasien" dan dokumen terkunci.
 

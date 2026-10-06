@@ -333,6 +333,23 @@ test.describe('persetujuan tindakan (tablet)', () => {
     for (const box of await tablet.getByRole('checkbox', { name: /^Saya memahami/ }).all()) await box.check();
     await expect(next).toBeEnabled();
 
+    // Tanda tangan pasien: nama ketik, keterangan menulis lokasi tablet; "Ulangi" menghapusnya selama langkah aktif.
+    await next.click();
+    const typed = tablet.getByLabel('Atau ketik nama lengkap sebagai tanda tangan').first();
+    const name =
+      (
+        await tablet
+          .getByText(/ · belum menandatangani$/)
+          .first()
+          .textContent()
+      )?.split(' · ')[0] ?? '';
+    await typed.fill(name);
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).first().click();
+    await expect(tablet.getByText(/ · nama diketik · \d{2}\.\d{2} · lokasi tablet: /)).toBeVisible();
+    await expect(tablet.getByText('Nama dan hubungan:')).toBeVisible();
+    await tablet.getByRole('button', { name: 'Ulangi tanda tangan pasien/keluarga' }).click();
+    await expect(tablet.getByRole('button', { name: 'Lanjut ke saksi' })).toBeDisabled();
+
     await tablet.getByRole('button', { name: 'Saya menolak tindakan' }).click();
     const form = tablet.getByRole('region', { name: 'Konfirmasi penolakan' });
     await form.getByRole('button', { name: 'Catat penolakan' }).click();

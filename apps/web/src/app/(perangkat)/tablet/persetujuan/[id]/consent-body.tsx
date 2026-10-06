@@ -70,11 +70,12 @@ export function ConsentInfo({
           </li>
         ))}
       </ol>
-      <span className="text-[0.8em] text-ink-500">
+      {/* Pita catatan penjelasan (mockup: gradasi biru). */}
+      <p className="m-0 rounded-control border border-info-border bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)] px-3 py-2 text-[0.85em] text-info">
         Dibacakan dan dijelaskan oleh {doc.informer} pada {formatTglJam(doc.explainedAt)} · durasi penjelasan{' '}
-        {doc.explanationMinutes} menit · pasien diberi kesempatan bertanya. Centang tiap butir setelah
-        dipahami.
-      </span>
+        {doc.explanationMinutes} menit · pasien diberi kesempatan bertanya
+      </p>
+      <span className="text-[0.8em] text-ink-500">Centang tiap butir setelah dipahami.</span>
     </section>
   );
 }
