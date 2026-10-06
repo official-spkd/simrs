@@ -166,6 +166,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'layout',
         available: false,
       },
+      {
+        id: 'dataset-riset',
+        label: 'Dataset riset',
+        href: '/manajemen/dataset-riset',
+        icon: 'search',
+        available: false,
+      },
     ],
   },
   // FE5 · akhir

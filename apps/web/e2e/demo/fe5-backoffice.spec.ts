@@ -563,4 +563,50 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('I11 dataset riset: etik, de-identifikasi dengan k-anonimitas, persetujuan privasi ≠ pemohon, ekstrak dan jejak', async ({
+    page,
+  }) => {
+    const privasi = await createAccount({ roles: ['petugas_privasi'] });
+    await loginAs(page, privasi, '/');
+    await page.goto('/manajemen/dataset-riset');
+    await expect(
+      page.getByRole('heading', { name: 'Dataset riset ter-de-identifikasi', level: 1 }),
+    ).toBeVisible();
+
+    await page.getByLabel('Nomor persetujuan etik').fill('KEPK/031/2026');
+    await page.getByLabel('Berlaku sampai').fill('2027-09-30');
+    await page.getByRole('button', { name: 'Catat persetujuan etik' }).click();
+
+    const rules: Record<string, string> = {
+      'Nama pasien': 'hapus',
+      'Nomor RM': 'pseudonim',
+      NIK: 'hapus',
+      'Nomor telepon': 'hapus',
+      Umur: 'pertahankan',
+      'Jenis kelamin': 'pertahankan',
+      'Kecamatan domisili': 'pertahankan',
+      'HbA1c terakhir': 'pertahankan',
+      'Jumlah episode hipoglikemia': 'pertahankan',
+      'Terapi insulin (ya/tidak)': 'pertahankan',
+    };
+    for (const [label, rule] of Object.entries(rules)) {
+      await page.getByLabel(`Aturan ${label}`, { exact: true }).selectOption(rule);
+    }
+    const apply = page.getByRole('button', { name: 'Terapkan de-identifikasi' });
+    await expect(apply).toBeDisabled();
+    await expect(page.getByText(/k-anonimitas \d < 5/)).toBeVisible();
+    await page.getByLabel('Aturan Umur', { exact: true }).selectOption('generalisasi');
+    await page.getByLabel('Aturan Kecamatan domisili', { exact: true }).selectOption('hapus');
+    await apply.click();
+
+    await page.getByLabel('Penyetuju').selectOption('dr. Andini Prameswari, Sp.PD');
+    await expect(page.getByText('Penyetuju harus berbeda dari pemohon dataset.')).toBeVisible();
+    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasPrivasi);
+    await page.getByRole('button', { name: 'Setujui rilis' }).click();
+    await page.getByRole('button', { name: 'Ekstrak dan kirim tautan' }).click();
+    await page.getByRole('button', { name: 'Simulasikan unduhan peneliti' }).click();
+    await expect(page.getByRole('list', { name: 'Jejak akses dataset' })).toContainText('mengunduh dataset');
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

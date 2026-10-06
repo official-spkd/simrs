@@ -698,6 +698,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'dataset-riset',
+    label: 'Dataset riset',
+    route: '/manajemen/dataset-riset',
+    mockup: null,
+    components: ['I11'],
+    phase: 9,
+    status: 'demo',
+    plannedPermission: 'dataset.approve',
+    demoRoles: ['petugas_privasi', 'manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
