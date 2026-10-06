@@ -17,6 +17,7 @@ import {
   percentile,
   reportGate,
   reportMinutes,
+  reportedWithinLimit,
   sortCritical,
 } from './penunjang-kritis';
 
@@ -68,6 +69,16 @@ describe('timer, status, dan eskalasi', () => {
     })[0];
     expect(reported && criticalState(reported, 99 * 60)).toBe('dilaporkan');
     expect(reported && reportMinutes(reported)).toBe(12);
+    // Batas 30 menit dihitung dalam detik, sama dengan timer: 30.29 menit = lewat batas (bukan dibulatkan ke 30).
+    const late = applyReports([y], {
+      [y.id]: { ...ok, reportedBy: 'x', reportedAt: '2026-10-05T11:09:29+07:00', readBackConfirmed: true },
+    })[0];
+    if (!late) throw new Error('laporan');
+    expect(Date.parse(late.report?.reportedAt ?? '') - Date.parse(late.raisedAt)).toBe(30 * 60_000 + 29_000);
+    expect(reportMinutes(late)).toBe(30);
+    expect(reportedWithinLimit(late)).toBe(false);
+    expect(reported && reportedWithinLimit(reported)).toBe(true);
+    expect(complianceMetrics([late], {}).withinLimit).toBe(0);
   });
 
   it('eskalasi 1 tepat di batas, eskalasi 2 di batas + 30 menit', () => {
