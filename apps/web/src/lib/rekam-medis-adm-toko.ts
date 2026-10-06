@@ -10,7 +10,10 @@ import {
   roleBlock,
   whenSchema,
 } from './backoffice-toko';
-import { type DemoActor, defineDomain } from './demo/store/define';
+import { type DemoActor, defineDomain, on } from './demo/store/define';
+import { patientByEncounterId } from './demo/fixtures/pasien';
+import { igdDomain } from './klinis-igd-toko';
+import { rekamDomain } from './rme-toko';
 import { LOAN_UNITS, RECORD_FILES, RECORD_LOANS, ROI_REQUESTS } from './demo/fixtures/rekam-medis-adm';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { DESTRUCTION_STAGES, lendBlock, loanDueDate, type RecordLoan } from './rekam-medis-adm';
@@ -83,8 +86,19 @@ export interface DestructionStep {
   when: string;
 }
 
+/** Kejadian klinis yang masuk RM administratif: kunjungan ditutup (berkas lengkap) dan kematian (SKK diarsip). */
+export interface ClinicalArrival {
+  encounterId: string;
+  kind: 'kunjungan-ditutup' | 'meninggal';
+  patientName: string;
+  rm: string | null;
+  detail: string;
+  at: string;
+}
+
 export interface RecordsAdminStoreState {
   roi: Record<string, RoiProgress>;
+  clinical: ClinicalArrival[];
   loans: StoredLoan[];
   loanSeq: number;
   destruction: { stage: number; steps: DestructionStep[] };
@@ -111,6 +125,7 @@ export function initialRecordsAdmin(): RecordsAdminStoreState {
         } satisfies RoiProgress,
       ]),
     ),
+    clinical: [],
     loans: RECORD_LOANS.map((l) => ({ ...l })),
     loanSeq: 0,
     destruction: { stage: 0, steps: [{ who: 'Sistem (job retensi 01.30)', userId: null, when: RETENTION_COMPUTED_AT }] },
@@ -178,6 +193,34 @@ export const recordsAdminDomain = defineDomain<RecordsAdminStoreState, RecordsAd
   screens: ['rm-adm'],
   generic: true,
   validate: (s, ev, actor) => gate(s, ev, actor),
+  subscriptions: [
+    // CD-2 `rekam-medis/kunjungan.ditutup`: berkas kunjungan lengkap masuk antrean arsip RM.
+    on(rekamDomain, (s, ev) => {
+      if (ev.data.type !== 'kunjungan.ditutup') return s;
+      const d = ev.data;
+      const p = patientByEncounterId(d.encounterId);
+      return {
+        ...s,
+        clinical: [
+          { encounterId: d.encounterId, kind: 'kunjungan-ditutup' as const, patientName: p?.nama ?? 'Pasien', rm: p?.rm ?? null, detail: `Kunjungan ditutup · disposisi ${d.disposition}`, at: d.at },
+          ...s.clinical,
+        ].slice(0, 30),
+      };
+    }),
+    // CD-2 `klinis-igd/pasien.meninggal`: surat keterangan kematian ber-TTE masuk arsip permanen.
+    on(igdDomain, (s, ev) => {
+      if (ev.data.type !== 'pasien.meninggal') return s;
+      const d = ev.data;
+      const p = patientByEncounterId(d.encounterId);
+      return {
+        ...s,
+        clinical: [
+          { encounterId: d.encounterId, kind: 'meninggal' as const, patientName: d.patientName, rm: p?.rm ?? null, detail: `Meninggal · ${d.causeCode} ${d.causeLabel} · SKK ${d.certificateNo} diarsip permanen`, at: d.diedAt },
+          ...s.clinical,
+        ].slice(0, 30),
+      };
+    }),
+  ],
   reduce: (s, ev) => {
     const d = ev.data;
     must(gate(s, d, ev.actor));

@@ -5,8 +5,8 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 /**
  * Perangkat kecil layar back office fase 8–9 (mode presentasi, ADR-0023): panel berjudul, umpan balik berjam,
- * jejak tahap, tombol nonaktif beralasan (docs/08 §5.2), dan konfirmasi beralasan. Semua aksi lokal (simulasi,
- * tidak disimpan); aturan bisnisnya di `lib/<domain>.ts`.
+ * jejak tahap, tombol nonaktif beralasan (docs/08 §5.2), dan konfirmasi beralasan. Aksi layar tersimpan di toko demo
+ * bersama (ADR-0085, `use-toko.ts`); aturan bisnisnya di `lib/<domain>.ts` dan `lib/<domain>-toko.ts`.
  */
 
 export interface Flash {

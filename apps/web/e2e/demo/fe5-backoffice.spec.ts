@@ -125,6 +125,30 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('K-1 → B09: pasien dinyatakan meninggal di IGD → SKK masuk arsip RM administratif', async ({ page }) => {
+    const akun = await createAccount({ roles: ['dokter', 'petugas_rm'] });
+    await loginWithPosition(page, akun, 'Dokter (DPJP)');
+    await page.goto('/klinis/igd');
+    const board = page.getByRole('region', { name: 'Papan pasien IGD' });
+    await board.getByRole('button', { name: /Tn\. Ahmad Fauzi/ }).click();
+    const disp = page.getByRole('region', { name: 'Disposisi pasien IGD' });
+    await disp.getByRole('button', { name: 'Tangani sebagai dokter penanggung jawab' }).click();
+    await expect(disp.getByRole('status')).toContainText('kini dokter penanggung jawab');
+    await disp.getByRole('button', { name: 'Nyatakan meninggal' }).click();
+    const form = disp.getByRole('form', { name: 'Pernyataan meninggal' });
+    await form.getByLabel('Jam kematian (HH.MM)').fill('10.40');
+    await form.getByLabel('Sebab kematian (ICD-10)').selectOption('I21.4');
+    await form.getByLabel(/Tanda tangani surat keterangan kematian/).check();
+    await form.getByRole('button', { name: 'Simpan pernyataan meninggal' }).click();
+    await expect(page.getByRole('region', { name: 'Disposisi meninggal hari ini' })).toContainText('Tn. Ahmad Fauzi');
+
+    await switchPosition(page, 'Petugas rekam medis');
+    await page.goto('/rekam-medis/administrasi');
+    await expect(page.getByRole('region', { name: 'Masuk dari layar klinis' })).toContainText(
+      /Tn\. Ahmad Fauzi .* Meninggal · I21\.4 .* SKK\/RSFA\/0001 diarsip permanen/,
+    );
+  });
+
   test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit (jeda + 40 jam); bertahan', async ({
     page,
   }) => {

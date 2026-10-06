@@ -74,6 +74,22 @@ export default async function RekamMedisAdministrasiPage() {
           detail="akses, salinan, dan koreksi oleh pasien"
         />
       </div>
+      {st.clinical.length > 0 && (
+        <section
+          aria-label="Masuk dari layar klinis"
+          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        >
+          <h2 className="m-0 text-base font-semibold">Masuk dari layar klinis</h2>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+            {st.clinical.map((c) => (
+              <li key={`${c.kind}-${c.encounterId}`}>
+                {c.patientName}
+                {c.rm ? ` · RM ${c.rm}` : ''} · {c.detail} · {formatJam(c.at)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <RecordsAdminBoard
         data={d}
         today={DEMO_TODAY}
