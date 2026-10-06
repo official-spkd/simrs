@@ -4,6 +4,7 @@ import { testDbUrls } from '@simrs/db/testing';
 import { createAccount, createPatient, loginAs, TENANTS } from './support/accounts';
 import { registerBoundTestDisplay, useDeviceToken, useTestDevice } from './support/devices';
 import {
+  activeBpjsCard,
   bpjsTaskStatuses,
   createJknBooking,
   hfisSession,
@@ -51,7 +52,7 @@ test('DoD: anjungan → loket → SEP → PD-xxx di display → task 1–3 terki
   if (!session) return;
 
   // Pasien JKN fiktif (Antrean BPJS mewajibkan no. HP) dengan rujukan FKTP aktif di mock.
-  const card = `0000${digits(8)}1`;
+  const card = activeBpjsCard();
   const patient = await createPatient('RSFA', {
     name: 'Bambang Rahardjo Fiktif',
     sex: 'male',
