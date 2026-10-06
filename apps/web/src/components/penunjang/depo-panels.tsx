@@ -150,7 +150,9 @@ export function DispensePanel({
   const [override, setOverride] = useState(false);
   const [batchId, setBatchId] = useState('');
   const [reason, setReason] = useState('');
+  const [checker, setChecker] = useState('');
   const current = items.some((i) => i.id === itemId) ? itemId : (items[0]?.id ?? '');
+  const highAlert = master.items.find((i) => i.id === current)?.highAlert ?? false;
   const n = Number(qty);
   const plan = fefoPlan(state, master, depotId, current, Number.isInteger(n) && n > 0 ? n : 0, today);
   const batches = batchesIn(state, master, depotId, current);
@@ -163,6 +165,7 @@ export function DispensePanel({
     setOverride(false);
     setBatchId('');
     setReason('');
+    setChecker('');
   };
 
   if (items.length === 0)
@@ -221,6 +224,7 @@ export function DispensePanel({
               qty: n,
               ref: ref.trim() || 'Permintaan ruangan',
               ...(override && batchId ? { batchId, reason } : {}),
+              ...(highAlert ? { secondChecker: checker } : {}),
             },
             reset,
           );
@@ -270,6 +274,20 @@ export function DispensePanel({
             className={inputCls}
           />
         </div>
+        {highAlert && (
+          <div className="flex flex-col gap-1 rounded-control border border-warning-border bg-warning-bg p-3">
+            <label htmlFor={`${id}-cek`} className={labelCls}>
+              Obat high alert · pemeriksa kedua (bukan Anda)
+            </label>
+            <input
+              id={`${id}-cek`}
+              value={checker}
+              maxLength={120}
+              onChange={(e) => setChecker(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1.5 rounded-control bg-canvas p-3 text-small" aria-live="polite">
           <span className="font-semibold">Rencana FEFO (batch ED terdekat keluar dulu)</span>
           {plan.allocations.length === 0 ? (

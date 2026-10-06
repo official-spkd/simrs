@@ -48,6 +48,63 @@ export function verifierBlock(
   return null;
 }
 
+export interface ChemoOrderInput {
+  heightCm: number;
+  weightKg: number;
+  pct: number;
+  reason: string;
+}
+
+/** Order siklus yang dikunci penulis: dasar perhitungan + dosis per obat yang diverifikasi ganda. */
+export interface ChemoOrderLock {
+  heightCm: number;
+  weightKg: number;
+  pct: number;
+  bsa: number;
+  doses: Readonly<Record<string, number>>;
+}
+
+/** TB 100–220 cm dan BB 25–200 kg. */
+export const chemoInputValid = (h: number, w: number): boolean =>
+  Number.isFinite(h) && Number.isFinite(w) && h >= 100 && h <= 220 && w >= 25 && w <= 200;
+
+/** Kunci order: isian wajar + penyesuaian beralasan → potret dosis yang tidak berubah lagi. */
+export function lockChemoOrder(
+  input: ChemoOrderInput,
+  drugs: ReadonlyArray<{ name: string; mgPerM2: number }>,
+): { lock: ChemoOrderLock } | { block: string } {
+  if (!chemoInputValid(input.heightCm, input.weightKg)) {
+    return { block: 'Isi tinggi (100–220 cm) dan berat badan (25–200 kg) yang wajar.' };
+  }
+  const adjust = adjustmentBlock(input.pct, input.reason);
+  if (adjust) return { block: adjust };
+  const bsa = mosteller(input.heightCm, input.weightKg);
+  return {
+    lock: {
+      heightCm: input.heightCm,
+      weightKg: input.weightKg,
+      pct: input.pct,
+      bsa,
+      doses: Object.fromEntries(drugs.map((d) => [d.name, doseMg(d.mgPerM2, bsa, input.pct)])),
+    },
+  };
+}
+
+/**
+ * Verifikasi ganda hanya atas order yang terkunci, dan hanya bila dasar perhitungan di layar masih sama dengan yang
+ * dikunci (TB/BB/persen dosis berubah → order ditulis ulang, bukan diverifikasi).
+ */
+export function chemoVerifyBlock(
+  lock: ChemoOrderLock | null,
+  current: Pick<ChemoOrderInput, 'heightCm' | 'weightKg' | 'pct'>,
+): string | null {
+  if (!lock) return 'Kunci order siklus dulu; yang diverifikasi adalah dosis yang ditulis.';
+  if (lock.heightCm !== current.heightCm || lock.weightKg !== current.weightKg || lock.pct !== current.pct) {
+    return 'Dasar perhitungan berubah setelah order dikunci: tulis ulang order, jangan diverifikasi.';
+  }
+  return null;
+}
+
 export function addDays(iso: string, days: number): string {
   const [y = 2026, m = 1, d = 1] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);

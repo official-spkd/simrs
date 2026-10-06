@@ -4,6 +4,7 @@ import { formatJam } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
+import { PERSONA } from '@/lib/demo/fixtures/staf';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { shortWhen } from '@/lib/rme';
@@ -86,12 +87,14 @@ export function KonsulWorkspace({
   const [seq, setSeq] = useState(1);
   const inbox = consults.filter((c) => !c.answer && (role === 'dokter' || role === 'dokter_residen'));
   const mine = consults.filter((c) => c.encounterId === encounterId);
+  /** Dokter yang diperankan posisi aktif (posisi dokter = DPJP persona demo); menentukan konsul mana yang boleh dijawab. */
+  const actor = role === 'dokter' ? PERSONA.dokter : user;
   const sendBlock = sendBlocker(draft, role, user);
   const dpjp = primaryDoctor(team);
 
   const answer = (c: ConsultRequest) => {
     setAnsTried(true);
-    if (answerBlocker(c, ans, role)) return;
+    if (answerBlocker(c, ans, role, actor)) return;
     const at = demoNow().toISOString();
     const full: ConsultAnswer = { ...ans, by: user, at };
     setConsults((cur) => cur.map((x) => (x.id === c.id ? { ...x, answer: full } : x)));
@@ -153,7 +156,7 @@ export function KonsulWorkspace({
             {mine.map((c) => {
               const st = consultStatus(c, now);
               const access = consultantAccessUntil(c);
-              const block = answerBlocker(c, ans, role);
+              const block = answerBlocker(c, ans, role, actor);
               return (
                 <li key={c.id}>
                   <article

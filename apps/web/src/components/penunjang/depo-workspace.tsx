@@ -158,6 +158,7 @@ function toServer(action: DepoAction, state: DepoState, data: DepoData, userName
         batchIds,
         overrideFefo,
         reason: action.reason ?? '',
+        secondChecker: action.secondChecker ?? '',
       };
     }
     case 'kirim':

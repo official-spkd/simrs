@@ -129,6 +129,7 @@ export function BedsidePanel({
   const [manual, setManual] = useState(false);
   const [reason, setReason] = useState('');
   const [verifier, setVerifier] = useState('');
+  const [identity, setIdentity] = useState(false);
   const [v, setV] = useState({ tempC: '36,7', systolic: '118', diastolic: '74', pulse: '96' });
   const baseline = {
     tempC: Number(v.tempC.replace(',', '.')),
@@ -148,7 +149,7 @@ export function BedsidePanel({
           wristband,
           bag,
           baseline,
-          ...(manual ? { manual: { reason, secondVerifier: verifier } } : {}),
+          ...(manual ? { manual: { reason, secondVerifier: verifier, identityConfirmed: identity } } : {}),
         });
       }}
     >
@@ -236,13 +237,22 @@ export function BedsidePanel({
             />
           </label>
           <label className={labelCls}>
-            Petugas verifikasi kedua
+            Petugas verifikasi kedua (bukan Anda)
             <input
               value={verifier}
               maxLength={120}
               onChange={(e) => setVerifier(e.target.value)}
               className={inputCls}
             />
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-small">
+            <input
+              type="checkbox"
+              checked={identity}
+              onChange={(e) => setIdentity(e.target.checked)}
+              className="size-4 accent-brand-600"
+            />
+            Kami berdua sudah mencocokkan nama, tanggal lahir, dan No. RM di gelang dengan label kantong
           </label>
         </div>
       )}

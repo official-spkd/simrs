@@ -1,4 +1,4 @@
-import { formatRupiah, sumRupiah } from '@simrs/shared';
+import { formatRupiah, isoDateJakarta, sumRupiah } from '@simrs/shared';
 
 /**
  * Jurnal berpasangan untuk layar keuangan lanjutan (U01–U10, I10; mode presentasi ADR-0023). Murni, dipakai server
@@ -93,10 +93,13 @@ export function ringkasJurnal(j: DrafJurnal): string {
 }
 
 /**
- * Periode akuntansi `YYYY-MM` dari tanggal ISO (WIB, `YYYY-MM-DD…`). Layar membandingkan dengan daftar periode
- * tertutup: mutasi bertanggal periode tertutup tidak bisa diubah; koreksi masuk periode berjalan.
+ * Periode akuntansi `YYYY-MM` dari tanggal ISO menurut tanggal WIB: tanggal saja (`YYYY-MM-DD`) dipakai apa adanya,
+ * stempel waktu (termasuk UTC dari `toISOString()`) dikonversi ke Asia/Jakarta dulu (00.00–06.59 WIB tanggal 1 masih
+ * tanggal terakhir bulan lalu di UTC). Layar membandingkan dengan daftar periode tertutup: mutasi bertanggal periode
+ * tertutup tidak bisa diubah; koreksi masuk periode berjalan.
  */
-export const periodeOf = (isoDate: string): string => isoDate.slice(0, 7);
+export const periodeOf = (isoDate: string): string =>
+  (isoDate.length > 10 ? isoDateJakarta(isoDate) : isoDate).slice(0, 7);
 
 export function periodeTerkunci(isoDate: string, closed: readonly string[]): boolean {
   return closed.includes(periodeOf(isoDate));

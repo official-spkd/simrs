@@ -22,6 +22,7 @@ import {
   escalationLevel,
   formatPercentId,
   reportMinutes,
+  reportedWithinLimit,
   SOURCE_LABEL,
   STATE_VIEW,
 } from '@/lib/penunjang-kritis';
@@ -322,7 +323,7 @@ function CriticalDetail({
           {item.report ? (
             <span>
               berhenti saat read-back · {mins} menit{' '}
-              {mins !== null && mins <= item.limitMinutes ? '(≤ batas)' : '(lewat batas)'}
+              {reportedWithinLimit(item) ? '(< batas)' : '(lewat batas)'}
             </span>
           ) : (
             <span

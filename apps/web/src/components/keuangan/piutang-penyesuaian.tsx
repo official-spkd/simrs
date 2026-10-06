@@ -130,7 +130,7 @@ export function PiutangPenyesuaian({
       >
         {adjustments.map((a) => {
           const it = items.find((i) => i.id === a.itemId);
-          const gate = adjustmentApprovalProblem(a, viewer);
+          const gate = adjustmentApprovalProblem(a, viewer, it);
           return (
             <li
               key={a.id}

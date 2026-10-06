@@ -7,6 +7,7 @@ import {
   jurnal,
   jurnalSeimbang,
   labelPeriode,
+  periodeOf,
   periodeTerkunci,
   persen,
   refundJournal,
@@ -71,6 +72,11 @@ describe('periode dan format', () => {
     expect(periodeTerkunci('2026-09-30', ['2026-09'])).toBe(true);
     expect(periodeTerkunci('2026-10-05T10:00:00+07:00', ['2026-09'])).toBe(false);
     expect(labelPeriode('2026-09')).toBe('September 2026');
+    // Stempel UTC dari `toISOString()`: 1 Okt 01.30 WIB = 30 Sep 18.30 UTC → periode Oktober (WIB), bukan September.
+    expect(periodeOf('2026-09-30T18:30:00.000Z')).toBe('2026-10');
+    expect(periodeTerkunci('2026-09-30T18:30:00.000Z', ['2026-09'])).toBe(false);
+    expect(periodeOf('2026-09-30T23:59:00+07:00')).toBe('2026-09');
+    expect(periodeOf('2026-09-30')).toBe('2026-09');
   });
 
   it('tanggal pendek, selisih hari, persen tanpa float', () => {

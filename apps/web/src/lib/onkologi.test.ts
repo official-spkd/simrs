@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CHEMO_PLAN, PRE_CHEMO_LABS } from './demo/fixtures/onkologi';
-import { addDays, adjustmentBlock, doseMg, labFailures, mosteller, verifierBlock } from './onkologi';
+import {
+  addDays,
+  adjustmentBlock,
+  chemoVerifyBlock,
+  doseMg,
+  labFailures,
+  lockChemoOrder,
+  mosteller,
+  verifierBlock,
+} from './onkologi';
 
 describe('B11 · onkologi', () => {
   it('LPT Mosteller (golden) dan dosis mg/m²', () => {
@@ -33,5 +42,24 @@ describe('B11 · onkologi', () => {
 
   it('jadwal siklus berikutnya', () => {
     expect(addDays(CHEMO_PLAN.lastCycleDate, CHEMO_PLAN.intervalDays)).toBe('2026-10-08');
+  });
+
+  it('order terkunci: verifikasi ganda memeriksa dosis yang ditulis, bukan isian yang berubah sesudahnya', () => {
+    const order = { heightCm: 158, weightKg: 54, pct: 100, reason: '' };
+    const locked = lockChemoOrder(order, CHEMO_PLAN.drugs);
+    if (!('lock' in locked)) throw new Error(locked.block);
+    expect(locked.lock.bsa).toBe(1.54);
+    expect(locked.lock.doses).toEqual(
+      Object.fromEntries(CHEMO_PLAN.drugs.map((d) => [d.name, doseMg(d.mgPerM2, 1.54)])),
+    );
+    // Belum dikunci → tidak ada yang diverifikasi.
+    expect(chemoVerifyBlock(null, order)).toMatch(/kunci order/i);
+    // Berat diubah setelah order dikunci → verifikasi ditahan (dosis tidak lagi sama dengan yang ditulis).
+    expect(chemoVerifyBlock(locked.lock, { ...order, weightKg: 70 })).toMatch(/berubah/);
+    expect(chemoVerifyBlock(locked.lock, { ...order, pct: 80 })).toMatch(/berubah/);
+    expect(chemoVerifyBlock(locked.lock, order)).toBeNull();
+    // Isian tidak wajar atau penyesuaian tanpa alasan tidak bisa dikunci.
+    expect(lockChemoOrder({ ...order, heightCm: 0 }, CHEMO_PLAN.drugs)).toHaveProperty('block');
+    expect(lockChemoOrder({ ...order, pct: 80 }, CHEMO_PLAN.drugs)).toHaveProperty('block');
   });
 });

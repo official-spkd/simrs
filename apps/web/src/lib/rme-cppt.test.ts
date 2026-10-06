@@ -53,7 +53,13 @@ describe('CPPT (K07): status, co-sign, verifikasi', () => {
 
   it('co-sign hanya DPJP, bukan catatan sendiri, sekali saja', () => {
     const e = entry({ role: 'residen' });
-    const base = { user: 'dr. Andini', superseded: false, cosigned: false };
+    const base = {
+      user: 'dr. Andini',
+      actor: 'dr. Andini',
+      dpjp: 'dr. Andini',
+      superseded: false,
+      cosigned: false,
+    };
     expect(cosignBlocker(e, { ...base, role: 'dokter' })).toBeNull();
     expect(cosignBlocker(e, { ...base, role: 'dokter_residen' })).toMatch(/Hanya DPJP/);
     expect(cosignBlocker(e, { ...base, role: 'dokter', user: 'dr. Residen' })).toMatch(/catatan sendiri/);
@@ -61,6 +67,14 @@ describe('CPPT (K07): status, co-sign, verifikasi', () => {
     expect(cosignBlocker(entry({ role: 'perawat' }), { ...base, role: 'dokter' })).toMatch(
       /Bukan catatan residen/,
     );
+    // Hanya DPJP pasien ini: dokter lain (bukan DPJP) tidak co-sign/verifikasi atas namanya.
+    expect(cosignBlocker(e, { ...base, role: 'dokter', dpjp: 'dr. Sinta Maharani, Sp.PD' })).toMatch(
+      /DPJP pasien ini/,
+    );
+    const nurse = entry({ role: 'perawat' });
+    const v = { user: 'dr. Andini', actor: 'dr. Andini', superseded: false, verified: false, role: 'dokter' };
+    expect(verifyBlocker(nurse, { ...v, dpjp: 'dr. Andini' })).toBeNull();
+    expect(verifyBlocker(nurse, { ...v, dpjp: 'dr. Sinta Maharani, Sp.PD' })).toMatch(/DPJP pasien ini/);
   });
 
   it('verifikasi DPJP untuk PPA non-dokter dalam 24 jam; lewat batas ditandai', () => {
@@ -77,11 +91,25 @@ describe('CPPT (K07): status, co-sign, verifikasi', () => {
     expect(cpptStatus(fresh, { ...o, nowIso: NOW }).label).toBe(
       'Final · menunggu verifikasi DPJP (batas 6 Okt · 08.15)',
     );
-    expect(verifyBlocker(fresh, { role: 'perawat', user: 'x', superseded: false, verified: false })).toMatch(
-      /Hanya DPJP/,
-    );
     expect(
-      verifyBlocker(fresh, { role: 'dokter', user: 'x', superseded: false, verified: false }),
+      verifyBlocker(fresh, {
+        role: 'perawat',
+        user: 'x',
+        actor: 'x',
+        dpjp: 'x',
+        superseded: false,
+        verified: false,
+      }),
+    ).toMatch(/Hanya DPJP/);
+    expect(
+      verifyBlocker(fresh, {
+        role: 'dokter',
+        user: 'x',
+        actor: 'x',
+        dpjp: 'x',
+        superseded: false,
+        verified: false,
+      }),
     ).toBeNull();
   });
 

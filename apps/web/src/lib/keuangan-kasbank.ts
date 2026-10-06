@@ -1,4 +1,4 @@
-import { sumRupiah } from '@simrs/shared';
+import { formatRupiah, sumRupiah } from '@simrs/shared';
 import {
   AKUN_LANJUT as A,
   type AkunRef,
@@ -69,10 +69,14 @@ export function closeProblems(
   expected: bigint,
   reason: string,
   supervisorWitnessed: boolean,
+  /** Modal laci (tetap di laci); setoran = fisik − modal tidak boleh negatif. */
+  float = 0n,
 ): string[] {
   const diff = physical - expected;
   const out: string[] = [];
   if (physical <= 0n) out.push('isi hitungan fisik per pecahan');
+  else if (physical < float)
+    out.push(`hitungan fisik kurang dari modal laci ${formatRupiah(float)}: hitung ulang bersama supervisor`);
   if (diff !== 0n) {
     const short = SELISIH_REASON_MIN - reason.trim().length;
     if (short > 0) out.push(`tulis alasan selisih (min. ${SELISIH_REASON_MIN} karakter, ${short} lagi)`);

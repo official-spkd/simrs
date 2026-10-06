@@ -74,10 +74,15 @@ export interface JournalLine {
   credit: bigint;
 }
 
+/**
+ * Jurnal penerimaan barang: Dr Persediaan / Cr Utang penerimaan belum difakturkan (2-1120). Utang usaha pemasok
+ * (2-1110) baru timbul saat faktur disetujui di layar Hutang (`approvalJournal` memindahkan 2-1120 → 2-1110);
+ * mengkredit 2-1110 di sini membuat utang yang sama tercatat dua kali.
+ */
 export function receiptJournal(value: bigint): JournalLine[] {
   return [
     { account: '1-1410 Persediaan obat dan BHP', debit: value, credit: 0n },
-    { account: '2-1110 Utang usaha — pemasok', debit: 0n, credit: value },
+    { account: '2-1120 Utang penerimaan belum difakturkan', debit: 0n, credit: value },
   ];
 }
 

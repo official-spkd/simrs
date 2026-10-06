@@ -67,7 +67,15 @@ export function elapsedSecondsAt(item: Pick<CriticalItem, 'raisedAt'>, nowIso: s
 /** Menit utuh dari terbit sampai dilaporkan (null bila belum). */
 export function reportMinutes(item: Pick<CriticalItem, 'raisedAt' | 'report'>): number | null {
   if (!item.report) return null;
-  return Math.max(0, Math.round((Date.parse(item.report.reportedAt) - Date.parse(item.raisedAt)) / 60_000));
+  return Math.max(0, Math.floor((Date.parse(item.report.reportedAt) - Date.parse(item.raisedAt)) / 60_000));
+}
+
+/** Dilaporkan sebelum batas? Dihitung dalam detik, sama dengan timer `criticalState` (tepat di batas = lewat). */
+export function reportedWithinLimit(
+  item: Pick<CriticalItem, 'raisedAt' | 'report' | 'limitMinutes'>,
+): boolean {
+  if (!item.report) return false;
+  return Date.parse(item.report.reportedAt) - Date.parse(item.raisedAt) < item.limitMinutes * 60_000;
 }
 
 export function criticalState(item: CriticalItem, elapsedSeconds: number): CriticalState {
@@ -186,10 +194,7 @@ export function complianceMetrics(
     const m = reportMinutes(i);
     return m === null ? [] : [m];
   });
-  const withinLimit = items.filter((i) => {
-    const m = reportMinutes(i);
-    return m !== null && m <= i.limitMinutes;
-  }).length;
+  const withinLimit = items.filter(reportedWithinLimit).length;
   const open = items.filter((i) => !i.report);
   return {
     total: items.length,

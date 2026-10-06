@@ -1036,6 +1036,7 @@ export const AKUN = {
   ckpn: { code: '1-1390', name: 'Cadangan kerugian penurunan nilai — piutang BPJS' },
   persediaan: { code: '1-1410', name: 'Persediaan obat dan BHP' },
   utangUsaha: { code: '2-1110', name: 'Utang usaha — pemasok' },
+  utangBelumFaktur: { code: '2-1120', name: 'Utang penerimaan belum difakturkan' },
   uangMuka: { code: '2-1210', name: 'Uang muka pasien' },
   utangPembiayaan: { code: '2-1310', name: 'Utang pembiayaan piutang — BTN' },
   pendapatanRj: { code: '4-1100', name: 'Pendapatan RJ — JKN' },
@@ -1153,7 +1154,7 @@ export const STATIC_JOURNALS: readonly JournalEntry[] = [
     source: 'logistik',
     reference: 'Logistik · GRN-2610-0233',
     description: 'Penerimaan BHP bedah dari pemasok PBF-022',
-    lines: [debit(AKUN.persediaan, 18_750_000n), credit(AKUN.utangUsaha, 18_750_000n)],
+    lines: [debit(AKUN.persediaan, 18_750_000n), credit(AKUN.utangBelumFaktur, 18_750_000n)],
   }),
   buildJournal({
     id: BPJS_TRANSFER_JOURNAL_ID,

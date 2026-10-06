@@ -238,7 +238,7 @@ function LaciCard({
   const expected = expectedCash(d);
   const physical = countTotal(counts);
   const diff = physical - expected;
-  const problems = closeProblems(physical, expected, reason, witness);
+  const problems = closeProblems(physical, expected, reason, witness, d.float);
   const abs = diff < 0n ? -diff : diff;
   const last = d.lastClose;
   return (

@@ -29,6 +29,9 @@ test('panduan berpindah ke akun presentasi posisi lain; keadaan simulasi tetap s
   await expect(page.getByText(/Anda masuk sebagai\s*Perawat/)).toBeVisible();
 
   await page.goto('/simulasi');
+  // Keadaan akun presentasi dibagi bersama dan bertahan antar-run di folder slot (termasuk skenario aktif): pilih
+  // skenario rawat jalan dulu, jangan bergantung pada skenario yang terakhir dibuka run/spesifikasi lain.
+  await page.getByRole('tab', { name: 'Rawat jalan BPJS' }).click();
   await page.getByRole('button', { name: 'Mulai ulang' }).click();
   await expect(page.getByTestId('jam-simulasi')).toHaveText('07.10');
   await page.getByText('Lompat ke tahap', { exact: true }).click();

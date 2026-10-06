@@ -11,9 +11,8 @@ import {
   adjustmentJournal,
   allocatePayment,
   type BatchTagihan,
-  batchPaid,
-  batchStatus,
-  batchTotal,
+  batchStatusOf,
+  approveAdjustment,
   outstanding,
   paymentJournal,
   type Penyesuaian,
@@ -85,7 +84,7 @@ export function PiutangWorkspace({
     if (!b) return;
     const nextItems = allocatePayment(items, b, amount);
     const payments = [...b.payments, { id: `py-${now.getTime()}`, at: now.toISOString(), amount, reference }];
-    const status = batchStatus(batchTotal(b, nextItems), batchPaid({ payments }), true);
+    const status = batchStatusOf({ ...b, payments, sentAt: b.sentAt ?? now.toISOString() }, nextItems);
     setItems(nextItems);
     setBatches((list) => list.map((x) => (x.number === number ? { ...x, payments, status } : x)));
     setFlash(
@@ -124,8 +123,14 @@ export function PiutangWorkspace({
       ),
     );
     const it = items.find((i) => i.id === a.itemId);
-    if (approve)
-      setItems((list) => list.map((i) => (i.id === a.itemId ? { ...i, paid: i.paid + a.amount } : i)));
+    if (approve) {
+      const nextItems = approveAdjustment(items, a);
+      setItems(nextItems);
+      // Batch yang memuat piutang ini ikut berkurang sisanya (lunas bila habis).
+      setBatches((list) =>
+        list.map((b) => (b.itemIds.includes(a.itemId) ? { ...b, status: batchStatusOf(b, nextItems) } : b)),
+      );
+    }
     setFlash(
       approve && it
         ? `${a.number} disetujui dan diposting · ${formatJam(now)} · ${ringkasJurnal(adjustmentJournal(a, it.payerGroup))}`

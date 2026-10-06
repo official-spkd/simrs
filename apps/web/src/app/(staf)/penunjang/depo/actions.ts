@@ -10,7 +10,7 @@ import {
   penunjangSession,
   simulated,
 } from '@/lib/penunjang-aksi';
-import { DEPO_ERROR_TEXT, expiryStatus } from '@/lib/penunjang-depo';
+import { DEPO_ERROR_TEXT, expiryStatus, highAlertGate } from '@/lib/penunjang-depo';
 
 /**
  * S05 · Server Action depo farmasi (mode presentasi, ADR-0023). Saldo di layar adalah keadaan lokal sesi; server
@@ -30,6 +30,7 @@ const input = z.discriminatedUnion('kind', [
     batchIds: z.array(id).min(1).max(10),
     overrideFefo: z.boolean(),
     reason: z.string().max(300),
+    secondChecker: z.string().max(120),
   }),
   z.strictObject({ kind: z.literal('kirim'), from: id, to: id, itemId: id, qty }),
   z.strictObject({
@@ -69,6 +70,8 @@ export async function recordDepoAction(raw: unknown): Promise<PenunjangActionRes
       }
       if (a.overrideFefo && a.reason.trim().length < 10)
         return invalid(DEPO_ERROR_TEXT.FEFO_OVERRIDE_REASON, 'reason');
+      const ha = highAlertGate(it, a.secondChecker, s.user.displayName);
+      if (ha) return invalid(DEPO_ERROR_TEXT[ha], 'secondChecker');
       return simulated(
         `${it.name} ${a.qty} ${it.unit} keluar dari ${depotName(a.depotId)}${a.overrideFefo ? ' · override FEFO tercatat' : ' · FEFO'}`,
       );

@@ -146,6 +146,7 @@ export type BloodGateCode =
   | 'WRONG_PATIENT'
   | 'WRONG_BAG'
   | 'MANUAL_REASON'
+  | 'MANUAL_IDENTITY'
   | 'NOT_ISSUED';
 
 export const BLOOD_GATE_TEXT: Record<BloodGateCode, string> = {
@@ -163,6 +164,8 @@ export const BLOOD_GATE_TEXT: Record<BloodGateCode, string> = {
   WRONG_BAG: 'Nomor kantong tidak cocok dengan kantong yang dikeluarkan untuk pasien ini.',
   MANUAL_REASON:
     'Verifikasi manual (barcode tidak terbaca) wajib alasan minimal 10 karakter dan nama petugas kedua.',
+  MANUAL_IDENTITY:
+    'Verifikasi manual: kedua petugas wajib mencocokkan nama, tanggal lahir, dan No. RM di gelang dengan label kantong.',
   NOT_ISSUED: 'Kantong ini belum dikeluarkan untuk pasien ini.',
 };
 
@@ -203,19 +206,38 @@ export function issueGate(
   return null;
 }
 
+/** Isian verifikasi manual di samping pasien (barcode tidak terbaca). */
+export interface ManualBedside {
+  reason: string;
+  /** Petugas kedua: orang lain dari petugas yang memasang. */
+  secondVerifier: string;
+  /** Kedua petugas sudah mencocokkan nama, tanggal lahir, dan No. RM gelang dengan label kantong. */
+  identityConfirmed: boolean;
+}
+
+/** Gerbang verifikasi manual (dipakai juga Server Action): alasan, identitas dicocokkan, petugas kedua orang lain. */
+export function manualBedsideGate(m: ManualBedside, by: string): BloodGateCode | null {
+  if (m.reason.trim().length < 10 || m.secondVerifier.trim().length < 5) return 'MANUAL_REASON';
+  if (!m.identityConfirmed) return 'MANUAL_IDENTITY';
+  if (m.secondVerifier.trim().toLowerCase() === by.trim().toLowerCase()) return 'CHECKER_SAME';
+  return null;
+}
+
 /**
  * Gerbang di samping pasien: pindai gelang (RM) dan kantong. Salah pasien/kantong memblokir tanpa override.
- * Hanya bila barcode tidak terbaca, verifikasi manual dua petugas dengan alasan tercatat.
+ * Hanya bila barcode tidak terbaca, verifikasi manual dua petugas BERBEDA yang mencocokkan identitas gelang ↔ label
+ * kantong, dengan alasan tercatat.
  */
 export function bedsideGate(
   r: BloodRequest,
-  input: { wristband: string; bag: string; manual?: { reason: string; secondVerifier: string } },
+  input: { wristband: string; bag: string; manual?: ManualBedside },
   units: readonly BloodUnit[],
+  by: string,
 ): { code: BloodGateCode } | { unitId: string; manual: boolean } {
   const issuedUnits = r.issued.map((i) => units.find((u) => u.id === i.unitId)).filter((u) => !!u);
   if (input.manual) {
-    if (input.manual.reason.trim().length < 10 || input.manual.secondVerifier.trim().length < 5)
-      return { code: 'MANUAL_REASON' };
+    const code = manualBedsideGate(input.manual, by);
+    if (code) return { code };
     const u = issuedUnits[0];
     return u ? { unitId: u.id, manual: true } : { code: 'NOT_ISSUED' };
   }
@@ -278,7 +300,7 @@ export type BloodAction =
       requestId: string;
       wristband: string;
       bag: string;
-      manual?: { reason: string; secondVerifier: string };
+      manual?: ManualBedside;
       baseline: Omit<Vitals, 'at' | 'label'>;
     }
   | {
@@ -369,7 +391,7 @@ export function applyBlood(
     }
     case 'pasang': {
       if (r.transfusion) return stageFail('Transfusi sudah berjalan.');
-      const g = bedsideGate(r, a, state.units);
+      const g = bedsideGate(r, a, state.units, ctx.by);
       if ('code' in g) return failB(g.code);
       const u = unitById(g.unitId);
       return {

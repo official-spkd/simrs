@@ -10,6 +10,8 @@ import { hasReason } from '@/lib/rme';
 import {
   cancelBlocker,
   cancelDocument,
+  retryTte,
+  tteRetryBlocker,
   type CheckItem,
   closeBlocker,
   completeness,
@@ -64,15 +66,18 @@ export function KelengkapanWorkspace({
   const isDpjp = role === 'dokter';
   const clock = () => demoNow().toISOString();
   const say = (text: string) => setMsg({ ok: true, text: `${text} (simulasi, tidak disimpan).` });
+  const retryBlock = (docId: string) => {
+    const doc = docs.find((d) => d.id === docId);
+    return doc ? tteRetryBlocker(doc) : 'Dokumen tidak ditemukan.';
+  };
   const resolve = (itemId: string, detail: string) =>
     setItems((cur) => cur.map((i) => (i.id === itemId ? { ...i, done: true, detail } : i)));
 
-  const retryTte = (docId: string) => {
+  const retryTteDoc = (docId: string) => {
     const at = clock();
     const doc = docs.find((d) => d.id === docId);
-    setDocs((cur) =>
-      cur.map((d) => (d.id === docId ? { ...d, status: 'final-tte', at, by: user, note: null } : d)),
-    );
+    if (!doc || tteRetryBlocker(doc)) return;
+    setDocs((cur) => cur.map((d) => (d.id === docId ? retryTte(d, user, at) : d)));
     resolve(`tte-${docId}`, `TTE berhasil ${formatJam(at)}`);
     say(`${doc?.title ?? 'Dokumen'} ber-TTE · ${formatJam(at)} (kirim ulang berhasil)`);
   };
@@ -133,8 +138,9 @@ export function KelengkapanWorkspace({
                         <Button
                           size="sm"
                           variant="primary"
-                          disabled={!isDpjp}
-                          onClick={() => retryTte(fix.documentId)}
+                          disabled={!isDpjp || retryBlock(fix.documentId) !== null}
+                          title={retryBlock(fix.documentId) ?? undefined}
+                          onClick={() => retryTteDoc(fix.documentId)}
                         >
                           Kirim ulang TTE
                         </Button>
@@ -224,7 +230,7 @@ export function KelengkapanWorkspace({
                   {!closedAt && (
                     <span className="flex flex-wrap gap-2">
                       {d.status === 'tte-gagal' && (
-                        <Button size="sm" disabled={!isDpjp} onClick={() => retryTte(d.id)}>
+                        <Button size="sm" disabled={!isDpjp} onClick={() => retryTteDoc(d.id)}>
                           Kirim ulang TTE
                         </Button>
                       )}
@@ -251,6 +257,9 @@ export function KelengkapanWorkspace({
                         setDocs((cur) =>
                           cur.map((x) => (x.id === d.id ? cancelDocument(x, cancel.reason, user, at) : x)),
                         );
+                        // Butir "TTE gagal" dokumen ini selesai sebagai dibatalkan (tidak bisa dihidupkan lagi).
+                        if (d.status === 'tte-gagal')
+                          resolve(`tte-${d.id}`, `Dokumen dibatalkan ${formatJam(at)}`);
                         setCancel(null);
                         say(`${d.title} dibatalkan · ${formatJam(at)}; dokumen tetap tersimpan`);
                       }}

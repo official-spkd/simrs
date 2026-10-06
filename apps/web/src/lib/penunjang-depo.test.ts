@@ -120,6 +120,34 @@ describe('FEFO', () => {
   });
 });
 
+describe('obat high alert (cek ganda)', () => {
+  const out = (secondChecker?: string) =>
+    applyDepo(
+      demoDepoState(),
+      M,
+      { type: 'keluar', depotId: 'dp-ri', itemId: 'it-enox', qty: 1, ref: 'UDD A-12', secondChecker },
+      ctx(),
+    );
+
+  it('enoksaparin keluar hanya dengan petugas pemeriksa kedua yang berbeda', () => {
+    expect(out()).toMatchObject({ ok: false, code: 'HIGH_ALERT_CHECK' });
+    expect(out(' APT. DEWI ANGGRAINI, S.FARM. ')).toMatchObject({ ok: false, code: 'HIGH_ALERT_SAME' });
+    const r = out('Ns. Rina Kartika');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.state.movements[0]?.by).toBe('apt. Dewi Anggraini, S.Farm. + Ns. Rina Kartika');
+  });
+
+  it('obat biasa tidak butuh cek ganda', () => {
+    const r = applyDepo(
+      demoDepoState(),
+      M,
+      { type: 'keluar', depotId: 'dp-ri', itemId: 'it-omz', qty: 1, ref: 'x' },
+      ctx(),
+    );
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe('mutasi dua langkah, opname, karantina', () => {
   it('kirim mengurangi asal; stok tujuan baru bertambah setelah diterima petugas lain', () => {
     const s0 = demoDepoState();

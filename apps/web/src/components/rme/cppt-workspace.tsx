@@ -3,6 +3,7 @@
 import { type CpptEntry, type CpptRole, formatJam } from '@simrs/shared';
 import { Button, Chip, cx, FilterChip } from '@simrs/ui';
 import { useId, useState } from 'react';
+import { PERSONA } from '@/lib/demo/fixtures/staf';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   canCorrectCppt,
@@ -66,6 +67,7 @@ export function CpptWorkspace({
   initialVerified,
   user,
   role,
+  dpjp,
   writerRole,
   canWrite,
   now,
@@ -76,12 +78,16 @@ export function CpptWorkspace({
   user: string;
   /** Kode peran sesi (mis. `dokter`). */
   role: string | null;
+  /** DPJP pasien ini: satu-satunya dokter yang co-sign/verifikasi CPPT-nya. */
+  dpjp: string;
   /** Profesi penulis CPPT dari peran sesi. */
   writerRole: CpptRole;
   canWrite: boolean;
   now: string;
 }) {
   const [entries, setEntries] = useState<CpptEntry[]>([...initialEntries]);
+  /** Dokter yang diperankan posisi aktif (posisi dokter = DPJP persona demo). */
+  const actor = role === 'dokter' ? PERSONA.dokter : user;
   const [verified, setVerified] = useState<Record<string, CpptSign>>({ ...initialVerified });
   const [cosigns, setCosigns] = useState<Record<string, CpptSign>>({});
   const [filter, setFilter] = useState<CpptFilter>('semua');
@@ -201,8 +207,9 @@ export function CpptWorkspace({
           const cosign = cosigns[e.id] ?? null;
           const ver = verified[e.id] ?? null;
           const st = cpptStatus(e, { superseded: false, cosign, verified: ver, nowIso: now });
-          const cb = cosignBlocker(e, { role, user, superseded: false, cosigned: !!cosign });
-          const vb = verifyBlocker(e, { role, user, superseded: false, verified: !!ver });
+          const who = { role, user, actor, dpjp, superseded: false };
+          const cb = cosignBlocker(e, { ...who, cosigned: !!cosign });
+          const vb = verifyBlocker(e, { ...who, verified: !!ver });
           const addendumTo = e.addendumOf ? entries.find((x) => x.id === e.addendumOf) : undefined;
           const waitingCosign = e.cosignRequired && !e.cosignedBy && !cosign;
           return (

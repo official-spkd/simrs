@@ -19,7 +19,7 @@ const INPUT = 'h-11 w-full min-w-0 rounded-control border border-line-strong bg-
 
 /**
  * B01 · Penerimaan barang satu PO: jumlah diterima, batch, kedaluwarsa (≥ 6 bulan), cek rantai dingin; pratinjau
- * jurnal persediaan/utang usaha sebelum dicatat. "Catat penerimaan" nonaktif beralasan sampai lengkap.
+ * jurnal persediaan/utang belum difakturkan sebelum dicatat. "Catat penerimaan" nonaktif beralasan sampai lengkap.
  */
 export function GoodsReceiptPanel({
   poId,
