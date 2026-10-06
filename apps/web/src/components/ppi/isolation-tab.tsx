@@ -1,11 +1,12 @@
 'use client';
 
-import { formatJam, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggalWaktu } from '@simrs/shared';
 import { Chip } from '@simrs/ui';
 import { useState } from 'react';
-import { type Flash, FlashLine, Panel, ReasonButton, SelectField } from '@/components/backoffice/kit';
+import { FlashLine, Panel, ReasonButton, SelectField } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { IsolationRequest } from '@/lib/demo/fixtures/ppi';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { type IsolationRoom, PRECAUTION_LABEL, roomBlock } from '@/lib/ppi';
 
 /**
@@ -13,26 +14,27 @@ import { type IsolationRoom, PRECAUTION_LABEL, roomBlock } from '@/lib/ppi';
  * kewaspadaannya; airborne wajib ruang bertekanan negatif, ruang terisi tidak bisa dipilih.
  */
 export function IsolationTab({
-  rooms: initialRooms,
+  rooms,
+  placed,
   requests,
+  rev,
 }: {
   rooms: readonly IsolationRoom[];
+  placed: Record<string, { room: string; jam: string; by: string }>;
   requests: readonly IsolationRequest[];
+  rev: number;
 }) {
-  const [rooms, setRooms] = useState<IsolationRoom[]>([...initialRooms]);
   const [pick, setPick] = useState<Record<string, string>>({});
-  const [placed, setPlaced] = useState<Record<string, { room: string; at: string }>>({});
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('ppi', rev);
 
   const place = (r: IsolationRequest) => {
     const room = rooms.find((x) => x.id === pick[r.id]);
     if (!room || roomBlock(r.precaution, room)) return;
-    setRooms((cur) => cur.map((x) => (x.id === room.id ? { ...x, occupiedBy: r.rm } : x)));
-    setPlaced((cur) => ({ ...cur, [r.id]: { room: room.label, at: formatJam(demoNow()) } }));
-    setFlash({
-      ok: true,
-      text: `RM ${r.rm} ditempatkan di ${room.label} · ${formatJam(demoNow())}; papan tempat tidur dan tanda ${PRECAUTION_LABEL[r.precaution].toLowerCase()} di pintu diperbarui.`,
-    });
+    const { jam } = demoStamp();
+    act(
+      { type: 'isolasi.ditempatkan', requestId: r.id, roomId: room.id, jam },
+      `RM ${r.rm} ditempatkan di ${room.label} · ${jam}; papan tempat tidur dan tanda ${PRECAUTION_LABEL[r.precaution].toLowerCase()} di pintu diperbarui.`,
+    );
   };
 
   return (
@@ -57,7 +59,7 @@ export function IsolationTab({
                 <p className="m-0 text-small text-ink-700">{r.reason}</p>
                 {done ? (
                   <span className="text-small font-semibold text-success">
-                    Ditempatkan di {done.room} · {done.at}
+                    Ditempatkan di {done.room} · {done.jam} oleh {done.by}
                   </span>
                 ) : (
                   <>
@@ -71,7 +73,10 @@ export function IsolationTab({
                         `${x.label}${x.occupiedBy ? ` · terisi RM ${x.occupiedBy}` : ' · kosong'}`,
                       ])}
                     />
-                    <ReasonButton reason={roomBlock(r.precaution, room)} onClick={() => place(r)}>
+                    <ReasonButton
+                      reason={pending ? 'Menyimpan…' : roomBlock(r.precaution, room)}
+                      onClick={() => place(r)}
+                    >
                       Tempatkan
                     </ReasonButton>
                   </>

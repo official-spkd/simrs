@@ -28,13 +28,10 @@ import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
 import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
-  BUNDLE_AUDITS,
   BUNDLES,
-  HAI_MONTH,
   HAI_SUSPECTS,
   handHygieneObservations,
   ISOLATION_REQUESTS,
-  ISOLATION_ROOMS,
   ppeAudits,
 } from '../../demo/fixtures/ppi';
 import { computeIndicators } from '../../mutu-transaksi';
@@ -99,14 +96,11 @@ export async function getCredentialing() {
 export async function getPpi() {
   demoOnly('PPI');
   return {
-    month: HAI_MONTH,
     suspects: HAI_SUSPECTS,
-    handHygiene: handHygieneObservations(),
     ppe: ppeAudits(),
     bundles: BUNDLES,
-    bundleAudits: BUNDLE_AUDITS,
-    rooms: ISOLATION_ROOMS,
     isolationRequests: ISOLATION_REQUESTS,
+    store: await readDomain('ppi'),
   };
 }
 export type PpiData = Awaited<ReturnType<typeof getPpi>>;

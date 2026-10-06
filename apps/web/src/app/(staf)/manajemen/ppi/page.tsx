@@ -19,12 +19,13 @@ export default async function PpiPage() {
   const { screen, allowed } = await requireDemoScreen('ppi');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getPpi();
+  const st = d.store.state;
   const over = HAI_DEFS.filter(
-    (h) => !haiOnTarget(haiRate(d.month[h.id].cases, d.month[h.id].denominator, h.per), h.target),
+    (h) => !haiOnTarget(haiRate(st.month[h.id].cases, st.month[h.id].denominator, h.per), h.target),
   );
-  const hh = hhCompliance(d.handHygiene);
+  const hh = hhCompliance(st.handHygiene);
   const ppe = hhCompliance(d.ppe.map((a) => ({ action: a.compliant ? 'handrub' : 'tidak' })));
-  const free = d.rooms.filter((r) => !r.occupiedBy).length;
+  const free = st.rooms.filter((r) => !r.occupiedBy).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +41,7 @@ export default async function PpiPage() {
             over
               .map(
                 (h) =>
-                  `${h.short} ${formatRate(haiRate(d.month[h.id].cases, d.month[h.id].denominator, h.per), h.unit)}`,
+                  `${h.short} ${formatRate(haiRate(st.month[h.id].cases, st.month[h.id].denominator, h.per), h.unit)}`,
               )
               .join(' · ') || 'semua sesuai sasaran'
           }
@@ -66,9 +67,9 @@ export default async function PpiPage() {
         />
         <KpiCard
           label="Ruang isolasi kosong"
-          value={`${free} dari ${d.rooms.length}`}
+          value={`${free} dari ${st.rooms.length}`}
           hint={`${d.isolationRequests.length} permintaan menunggu`}
-          detail={`${d.rooms.filter((r) => r.negativePressure).length} ruang bertekanan negatif`}
+          detail={`${st.rooms.filter((r) => r.negativePressure).length} ruang bertekanan negatif`}
           tone={d.isolationRequests.length > free ? 'danger' : 'warning'}
           tinted
         />

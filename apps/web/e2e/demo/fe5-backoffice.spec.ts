@@ -309,6 +309,16 @@ test.describe('FE5 · back office', () => {
       .getByRole('button', { name: 'Tempatkan' })
       .click();
     await expect(page.getByText(/RM 00-47-90-12 ditempatkan di Isolasi 2/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: putusan suspek, sensus, observasi, audit bundle, penempatan isolasi.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^Phlebitis/ })).toContainText('Bukan HAI');
+    await expect(page.getByText(/Sensus hari ini tercatat · .* oleh/)).toBeVisible();
+    await page.getByRole('tab', { name: 'Kebersihan tangan' }).click();
+    await expect(page.getByText(/401 peluang diamati/)).toBeVisible();
+    await page.getByRole('tab', { name: /Isolasi/ }).click();
+    await expect(page.getByText(/Ditempatkan di Isolasi 2 · .* oleh/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });

@@ -13,6 +13,7 @@ import { credentialDomain } from '../../kredensial-toko';
 import { logisticsDomain } from '../../logistik-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
+import { ppiDomain } from '../../ppi-toko';
 import { ppraDomain } from '../../ppra-toko';
 import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
 import { hrDomain } from '../../sdm-toko';
@@ -56,6 +57,7 @@ export const DEMO_DOMAINS = {
   penggajian: payrollDomain,
   penjadwal: jobsDomain,
   persetujuan: consentDomain,
+  ppi: ppiDomain,
   ppra: ppraDomain,
   regulasi: regDocsDomain,
   'rekam-medis': rekamDomain,

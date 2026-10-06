@@ -1,11 +1,9 @@
 'use client';
 
-import { formatJam } from '@simrs/shared';
 import { Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
   CheckField,
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -15,7 +13,8 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import { type BundleDef, bundleCompliant } from '@/lib/ppi';
 
 const TARGET = 85;
@@ -27,18 +26,21 @@ const pct = (c: number, t: number) => (t ? Math.round((c / t) * 100) : 0);
  */
 export function BundleTab({
   bundles,
-  initial,
+  audits,
+  rev,
 }: {
   bundles: readonly BundleDef[];
-  initial: Record<string, { total: number; compliant: number }>;
+  audits: Record<string, { total: number; compliant: number }>;
+  rev: number;
 }) {
-  const [audits, setAudits] = useState(initial);
   const [bundleId, setBundleId] = useState(bundles[0]?.id ?? '');
   const [rm, setRm] = useState('');
   const [checks, setChecks] = useState<boolean[]>(() => (bundles[0]?.elements ?? []).map(() => false));
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash, setFlash } = useTokoAction('ppi', rev);
   const bundle = bundles.find((b) => b.id === bundleId);
-  const block = !/^\d{2}-\d{2}-\d{2}-\d{2}$/.test(rm.trim())
+  const block = pending
+    ? 'Menyimpan…'
+    : !/^\d{2}-\d{2}-\d{2}-\d{2}$/.test(rm.trim())
     ? 'Isi nomor RM pasien yang diaudit (format 00-00-00-00).'
     : null;
 
@@ -46,18 +48,15 @@ export function BundleTab({
     if (!bundle || block) return;
     const ok = bundleCompliant(checks);
     const missed = bundle.elements.filter((_, i) => !checks[i]);
-    setAudits((cur) => {
-      const a = cur[bundle.id] ?? { total: 0, compliant: 0 };
-      return { ...cur, [bundle.id]: { total: a.total + 1, compliant: a.compliant + (ok ? 1 : 0) } };
+    const { jam } = demoStamp();
+    const text = ok
+      ? `${bundle.label} RM ${rm.trim()} patuh (semua elemen) · ${jam}.`
+      : `${bundle.label} RM ${rm.trim()} tidak patuh · ${jam}: terlewat ${missed.join(', ').toLowerCase()}. Umpan balik dikirim ke kepala ruang.`;
+    act({ type: 'bundle.diaudit', bundleId: bundle.id, rm: rm.trim(), checks, jam }, null, () => {
+      setFlash({ ok, text });
+      setRm('');
+      setChecks(bundle.elements.map(() => false));
     });
-    setFlash({
-      ok,
-      text: ok
-        ? `${bundle.label} RM ${rm.trim()} patuh (semua elemen) · ${formatJam(demoNow())}.`
-        : `${bundle.label} RM ${rm.trim()} tidak patuh · ${formatJam(demoNow())}: terlewat ${missed.join(', ').toLowerCase()}. Umpan balik dikirim ke kepala ruang.`,
-    });
-    setRm('');
-    setChecks(bundle.elements.map(() => false));
   };
 
   return (

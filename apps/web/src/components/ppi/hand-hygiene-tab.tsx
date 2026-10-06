@@ -1,10 +1,8 @@
 'use client';
 
-import { formatJam } from '@simrs/shared';
 import { Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -13,7 +11,8 @@ import {
   TD,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import { HH_MOMENTS, type HhAction, type HhObservation, hhByProfession, hhCompliance } from '@/lib/ppi';
 
 const TARGET = 85;
@@ -27,29 +26,44 @@ const ACTIONS: ReadonlyArray<readonly [HhAction, string]> = [
  * B07 · Audit kebersihan tangan 5 momen (INM-01): observer mencatat tiap peluang (profesi, momen, tindakan);
  * kepatuhan = tindakan ÷ peluang, per profesi dan total, terhadap sasaran ≥ 85%.
  */
-export function HandHygieneTab({ initial }: { initial: readonly HhObservation[] }) {
-  const [obs, setObs] = useState<HhObservation[]>([...initial]);
+export function HandHygieneTab({
+  observations: obs,
+  session,
+  rev,
+}: {
+  observations: readonly HhObservation[];
+  /** Peluang yang dicatat di layar (toko demo). */
+  session: number;
+  rev: number;
+}) {
   const [profession, setProfession] = useState('');
   const [moment, setMoment] = useState('');
   const [action, setAction] = useState('');
-  const [session, setSession] = useState(0);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('ppi', rev);
   const total = hhCompliance(obs);
   const rows = hhByProfession(obs);
-  const block = !profession || !moment || !action ? 'Pilih profesi, momen, dan tindakan.' : null;
+  const block = pending
+    ? 'Menyimpan…'
+    : !profession || !moment || !action
+      ? 'Pilih profesi, momen, dan tindakan.'
+      : null;
 
   const record = () => {
     if (block) return;
     const o: HhObservation = { profession, moment: Number(moment), action: action as HhAction };
-    const next = [...obs, o];
-    setObs(next);
-    setSession((n) => n + 1);
-    const c = hhCompliance(next);
-    setFlash({
-      ok: true,
-      text: `Peluang ${HH_MOMENTS[o.moment]?.toLowerCase()} (${profession}) tercatat · ${formatJam(demoNow())}; kepatuhan bulan ini ${c.pct}% (${c.done}/${c.total}).`,
-    });
-    setAction('');
+    const c = hhCompliance([...obs, o]);
+    const { jam } = demoStamp();
+    act(
+      {
+        type: 'hh.dicatat',
+        profession: profession as 'Perawat' | 'Dokter' | 'Bidan' | 'Penunjang',
+        moment: o.moment,
+        action: o.action,
+        jam,
+      },
+      `Peluang ${HH_MOMENTS[o.moment]?.toLowerCase()} (${profession}) tercatat · ${jam}; kepatuhan bulan ini ${c.pct}% (${c.done}/${c.total}).`,
+      () => setAction(''),
+    );
   };
 
   return (
