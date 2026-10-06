@@ -67,7 +67,7 @@ test.describe('domain manajemen', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('logistik: item tercentang seperti mockup, PO terbuka terkunci, usulan wajib berisi item, ajukan (simulasi)', async ({
+  test('logistik: usulan PO tersimpan, penyetuju ≠ pengusul, PO → kirim → terima menambah stok, bertahan', async ({
     page,
   }) => {
     const direksi = await createAccount({ roles: ['manajemen'] });
@@ -76,9 +76,8 @@ test.describe('domain manajemen', () => {
     await expect(
       page.getByRole('heading', { name: 'Rantai pasok · stok dan pengadaan', level: 1 }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('region', { name: 'Indikator logistik' }).getByText('Rp 4,82 M'),
-    ).toBeVisible();
+    const kpi = page.getByRole('region', { name: 'Indikator logistik' });
+    await expect(kpi.getByText('Rp 4,82 M')).toBeVisible();
 
     // Mockup: semua item yang bisa diusulkan sudah tercentang; item di PO terbuka terkunci (tidak dipesan ganda).
     const make = page.getByRole('button', { name: /^Buat usulan PO/ });
@@ -103,11 +102,47 @@ test.describe('domain manajemen', () => {
     const draft = page.getByRole('region', { name: 'Draf usulan PO-2610-032' });
     await expect(draft).toContainText('Rp 14.700.000');
     await draft.getByRole('button', { name: 'Ajukan ke direktur' }).click();
-    await expect(
-      page.getByText(/Usulan PO-2610-032 diajukan ke direktur .*\(simulasi, tidak disimpan\)/),
-    ).toBeVisible();
+    await expect(page.getByText(/Usulan PO-2610-032 diajukan ke direktur pukul/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
     await expect(table.getByText('Masuk PO-2610-032').filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Pengadaan berjalan' })).toContainText('PO-2610-032');
+    const orders = page.getByRole('region', { name: 'Pengadaan berjalan' });
+    // Pengusul (pengguna sesi yang sama, walau posisinya Manajemen) tidak bisa menyetujui usulannya sendiri.
+    const own = orders.getByRole('listitem', { name: /PO-2610-032/ });
+    await expect(own).toContainText('penyetuju harus pengguna lain');
+    await expect(own.getByRole('button', { name: /Setujui/ })).toHaveCount(0);
+
+    // Bertahan setelah muat ulang.
+    await page.reload();
+    await expect(own).toContainText('Diajukan');
+    await expect(table.getByText('Masuk PO-2610-032').filter({ visible: true }).first()).toBeVisible();
+
+    // PO darurat enoksaparin: setujui → terbit → dikirim → terima barang (stok +300, keluar dari daftar ROP).
+    const enox = orders.getByRole('listitem', { name: /PO-2610-031/ });
+    await enox.getByRole('button', { name: 'Setujui PO-2610-031' }).click();
+    await expect(enox).toContainText(/Disetujui direktur .* oleh/);
+    await enox.getByRole('button', { name: 'Terbitkan PO PO-2610-031' }).click();
+    await expect(enox).toContainText('PO terbit ke Distributor farmasi A');
+    await enox.getByRole('button', { name: 'Konfirmasi dikirim pemasok PO-2610-031' }).click();
+    await enox.getByRole('button', { name: 'Terima barang PO-2610-031' }).click();
+    const gr = page.getByRole('region', { name: 'Penerimaan barang PO-2610-031' });
+    await gr.getByLabel('Batch Enoksaparin 60 mg/0,6 mL').fill('ENX2610B');
+    await gr.getByLabel('Kedaluwarsa Enoksaparin 60 mg/0,6 mL').fill('2028-06-30');
+    await gr.getByRole('button', { name: 'Catat penerimaan' }).click();
+    await expect(page.getByText(/GRN-2610-0145 dicatat .*diteruskan ke Hutang usaha/)).toBeVisible();
+    await expect(enox).toContainText('Diterima GRN-2610-0145');
+    await expect(table.getByRole('checkbox', { name: /Enoksaparin/ })).toHaveCount(0);
+    await expect(kpi.getByText('Rp 4,86 M')).toBeVisible();
+
+    await page.reload();
+    await expect(enox).toContainText('Diterima GRN-2610-0145');
+    await expect(kpi.getByText('Rp 4,86 M')).toBeVisible();
+
+    // Kedaluwarsa FEFO: tindakan tersimpan atas nama pengguna sesi.
+    const ed = page.getByRole('region', { name: 'Kedaluwarsa ≤ 90 hari' });
+    await ed.getByRole('button', { name: 'Pindahkan ke depo ICU' }).first().click();
+    await expect(ed).toContainText(/Dipindahkan ke depo ICU .* oleh/);
+    await page.reload();
+    await expect(ed).toContainText(/Dipindahkan ke depo ICU .* oleh/);
 
     await expectNoHorizontalOverflow(page);
   });

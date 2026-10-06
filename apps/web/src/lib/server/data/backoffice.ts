@@ -42,13 +42,7 @@ import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
-import {
-  PAYROLL_APPROVERS,
-  PAYROLL_INPUTS,
-  PAYROLL_PERIOD,
-  PAYROLL_PREPARER,
-  SERVICE_FEES,
-} from '../../demo/fixtures/penggajian';
+import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
   BUNDLE_AUDITS,
@@ -61,6 +55,7 @@ import {
   ppeAudits,
 } from '../../demo/fixtures/ppi';
 import { computeIndicators } from '../../mutu-transaksi';
+import { readDomain } from '../demo/state';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -135,15 +130,14 @@ export async function getAssets() {
 }
 export type AssetData = Awaited<ReturnType<typeof getAssets>>;
 
-/** B05 · run gaji periode berjalan (angka simulasi). */
+/** B05 · run gaji periode berjalan (tarif iuran simulasi) + keadaan run di toko demo (domain `penggajian`). */
 export async function getPayroll() {
   demoOnly('penggajian');
   return {
     period: PAYROLL_PERIOD,
     inputs: PAYROLL_INPUTS,
     serviceFees: SERVICE_FEES,
-    preparer: PAYROLL_PREPARER,
-    approvers: PAYROLL_APPROVERS,
+    store: await readDomain('penggajian'),
   };
 }
 
