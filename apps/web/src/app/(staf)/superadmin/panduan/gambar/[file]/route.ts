@@ -1,3 +1,4 @@
+import { STATIC_FILE_CSP } from '@/lib/csp';
 import { loadGuideImage } from '@/lib/guide';
 import { getSession } from '@/lib/server/session';
 import { isSuperadmin, nextLoginStep } from '@/lib/session-view';
@@ -27,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Params }): Promis
     headers: {
       'content-type': image.contentType,
       'x-content-type-options': 'nosniff',
-      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      'content-security-policy': STATIC_FILE_CSP,
       'cache-control': 'private, max-age=300',
       'content-disposition': 'inline',
     },

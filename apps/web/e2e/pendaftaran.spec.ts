@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { isoDateJakarta, newId } from '@simrs/shared';
 import { createAccount, createPatient, inTenant, loginAs, TENANTS } from './support/accounts';
-import { hfisSession, sepInsertAttempts, sepOf, setBpjsOutage } from './support/front-office';
+import { activeBpjsCard, hfisSession, sepInsertAttempts, sepOf, setBpjsOutage } from './support/front-office';
 import { ensureRsfaSchedule } from './support/schedule';
 
 /**
@@ -88,7 +88,7 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     // Hari Minggu tidak ada praktik PD di HFIS mock: alur SEP tetap diuji, task ID Antrean dilewati.
     const hfis = await hfisSession();
     const session = hfis ?? (await todaySession());
-    const card = `0000${digits(8)}1`;
+    const card = activeBpjsCard();
     const patient = await createPatient('RSFA', {
       name: 'Suryani Fiktif Daftar',
       sex: 'female',
