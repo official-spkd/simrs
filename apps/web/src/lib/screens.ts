@@ -455,6 +455,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'kredensial',
+    label: 'Kredensial & kewenangan',
+    route: '/manajemen/kredensial',
+    mockup: null,
+    components: ['B04'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'credential.verify',
+    demoRoles: ['manajemen', 'dokter'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 

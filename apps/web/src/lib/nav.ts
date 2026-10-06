@@ -99,6 +99,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'sdm', label: 'SDM & kepegawaian', href: '/manajemen/sdm', icon: 'users', available: false },
+      {
+        id: 'kredensial',
+        label: 'Kredensial & kewenangan',
+        href: '/manajemen/kredensial',
+        icon: 'idCard',
+        available: false,
+      },
     ],
   },
   // FE5 · akhir

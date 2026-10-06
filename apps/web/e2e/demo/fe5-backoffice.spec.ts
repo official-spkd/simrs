@@ -142,4 +142,42 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B04 kredensial: berkas susulan → telaah → komite → RKK terbit, ditegakkan di CPOE', async ({
+    page,
+  }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/');
+    await page.goto('/manajemen/kredensial');
+    await expect(
+      page.getByRole('heading', { name: 'Kredensial dan kewenangan klinis', level: 1 }),
+    ).toBeVisible();
+
+    const forward = page.getByRole('button', { name: 'Berkas lengkap, teruskan ke mitra bestari' });
+    await expect(forward).toBeDisabled();
+    await expect(page.getByText(/Berkas belum lengkap: Sertifikat pelatihan biopsi ginjal/)).toBeVisible();
+    await page.getByRole('checkbox', { name: /Sertifikat pelatihan biopsi ginjal/ }).check();
+    await forward.click();
+    await page.getByLabel('Pemasangan kateter dialisis femoral').selectOption('diberikan');
+    await page.getByLabel('Biopsi ginjal perkutan').selectOption('supervisi');
+    await page.getByLabel('Catatan mitra bestari').fill('Logbook 24 tindakan, observasi langsung memadai');
+    await page.getByRole('button', { name: 'Kirim hasil telaah ke komite' }).click();
+    await page.getByRole('button', { name: 'Setujui rekomendasi komite' }).click();
+    await page.getByRole('button', { name: 'Terbitkan RKK dan SPK (direktur)' }).click();
+    await expect(page.getByText(/KRD-2610-005: RKK\/2026\/10\/014 terbit/)).toBeVisible();
+
+    const guard = page.getByRole('region', { name: 'Uji penegakan di CPOE' });
+    await guard.getByLabel('Praktisi').selectOption('dr. Sinta Maharani, Sp.PD-KGH');
+    await guard.getByLabel('Tindakan yang dipesan').selectOption('Biopsi ginjal perkutan');
+    await guard.getByRole('button', { name: 'Uji order' }).click();
+    await expect(guard.getByRole('status')).toContainText('Diizinkan dengan supervisi');
+    await guard.getByLabel('Praktisi').selectOption('dr. Rina Kusuma');
+    await guard.getByLabel('Tindakan yang dipesan').selectOption('Resusitasi jantung paru lanjut');
+    await guard.getByRole('button', { name: 'Uji order' }).click();
+    await expect(guard.getByRole('alert')).toContainText('LICENSE_EXPIRED');
+
+    await page.getByRole('button', { name: /KRD-2610-006/ }).click();
+    await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

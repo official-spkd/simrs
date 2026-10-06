@@ -160,6 +160,14 @@ export const EMPLOYEES: readonly Employee[] = [
     str('9999-06-2019'),
   ]),
   emp(PERSONA.kasir, 'Kasir', 'administrasi', 'Keuangan', '2021-03-01', []),
+  emp(
+    doctor('dr. Sinta Maharani, Sp.PD-KGH'),
+    'Dokter subspesialis ginjal hipertensi',
+    'medis',
+    'Poli Penyakit Dalam',
+    '2025-08-01',
+    [str('9999-01-2521'), sip('9999/PD/0233', '2030-08-01')],
+  ),
 ];
 
 export function employeeByName(name: string): Employee | undefined {

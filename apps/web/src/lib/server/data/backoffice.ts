@@ -8,6 +8,11 @@ import {
   ROI_APPROVERS,
   ROI_REQUESTS,
 } from '../../demo/fixtures/rekam-medis-adm';
+import {
+  GRANTED_PRIVILEGES,
+  ORDER_GUARD_EVENTS,
+  PRIVILEGE_APPLICATIONS,
+} from '../../demo/fixtures/kredensial';
 import { patientById } from '../../demo/fixtures/pasien';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import { assertDemo } from '../demo-guard';
@@ -49,3 +54,14 @@ export async function getHr() {
   return { employees: EMPLOYEES, roster: ROSTER_UNIT, rosterStaff: ROSTER_STAFF, draft: draftRoster() };
 }
 export type HrData = Awaited<ReturnType<typeof getHr>>;
+
+/** B04 · pengajuan kewenangan klinis, RKK berlaku, dan izin praktik praktisi (gerbang verifikasi/CPOE). */
+export async function getCredentialing() {
+  demoOnly('kredensial dan kewenangan klinis');
+  return {
+    applications: PRIVILEGE_APPLICATIONS,
+    granted: GRANTED_PRIVILEGES,
+    employees: EMPLOYEES,
+    guardEvents: ORDER_GUARD_EVENTS,
+  };
+}
