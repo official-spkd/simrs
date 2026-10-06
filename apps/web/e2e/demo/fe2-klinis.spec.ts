@@ -63,7 +63,7 @@ test.describe('K01 · worklist klinis', () => {
 
     await page.getByRole('tab', { name: /Pasien saya/ }).click();
     const mine = page.getByRole('region', { name: 'Pasien saya' });
-    await expect(mine.getByText('Ny. Endang Wijaya', { exact: true })).toBeVisible();
+    await expect(mine.getByRole('link', { name: 'Ny. Endang Wijaya' })).toBeVisible();
     await expect(mine.getByText('Pulang hari ini')).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
@@ -447,6 +447,36 @@ test.describe('K12 · asuhan keperawatan dan gerbang gelang eMAR', () => {
     await expect(page.getByRole('region', { name: 'Rencana asuhan keperawatan' })).toContainText(
       'evaluasi 1 dari 3 diagnosis shift ini',
     );
+    await expectNoHorizontalScroll(page);
+  });
+});
+
+test.describe('K14 · ringkasan pasien', () => {
+  test('dokter: dari worklist ke ringkasan; nilai kritis di atas, NKDA, obat aktif, kunjungan', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], '/klinis/worklist');
+    await page.getByRole('tab', { name: /Pasien saya/ }).click();
+    await page
+      .getByRole('region', { name: 'Pasien saya' })
+      .getByRole('link', { name: 'Tn. Yusuf Hidayat' })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/klinis/ringkasan\\?pasien=${ENCOUNTER_ID.yusuf}`));
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Ringkasan pasien · Tn. Yusuf Hidayat' }),
+    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Flag risiko' })).toContainText(
+      'Nilai kritis: Kalium 6,4 mmol/L',
+    );
+    const hasil = page.getByRole('list', { name: 'Daftar hasil' }).getByRole('listitem');
+    await expect(hasil.first()).toContainText('Kalium');
+    await expect(hasil.first()).toContainText('Kritis');
+    await expect(page.getByRole('region', { name: 'Alergi' })).toContainText(
+      'Tidak ada alergi yang diketahui (NKDA)',
+    );
+    await expect(page.getByRole('region', { name: 'Obat aktif' })).toContainText('Kalsium karbonat 500 mg');
+    await expect(page.getByRole('region', { name: 'Problem aktif' })).toContainText('N18.5');
+    await expect(page.getByRole('region', { name: 'Kunjungan terakhir' })).toContainText('Hemodialisis rutin');
     await expectNoHorizontalScroll(page);
   });
 });

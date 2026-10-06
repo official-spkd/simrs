@@ -36,6 +36,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
     items: [
       // FE2 · layar demo RME fase 3
       { id: 'worklist', label: 'Worklist klinis', href: '/klinis/worklist', icon: 'list', available: false },
+      {
+        id: 'ringkasan',
+        label: 'Ringkasan pasien',
+        href: '/klinis/ringkasan',
+        icon: 'folder',
+        available: false,
+      },
       { id: 'konsul', label: 'Konsultasi', href: '/klinis/konsultasi', icon: 'users', available: false },
       // FE2 · akhir
       { id: 'poli', label: 'Pasien saya', href: '/klinis/poli', icon: 'users', available: false },
