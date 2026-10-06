@@ -14,7 +14,7 @@ export default async function BerandaPage() {
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="m-0 text-h1 font-bold">Beranda</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Beranda</h1>
         <p className="m-0 text-ink-500">
           {formatTanggalWaktu(new Date())} · {s.tenant.name}
         </p>

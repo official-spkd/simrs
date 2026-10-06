@@ -70,7 +70,7 @@ export function KioskPresenterHint({
       aria-label="Petunjuk presenter"
       className={cx(
         DOCK,
-        'flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-brand-200 bg-white/95 p-3 shadow-[0_4px_16px_color-mix(in_srgb,_var(--color-brand-600)_18%,_transparent)]',
+        'flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-card border border-white/95 bg-white/95 p-3 shadow-card',
       )}
     >
       <span className="flex items-start justify-between gap-2">
@@ -95,7 +95,7 @@ export function KioskPresenterHint({
         <span className="text-small text-ink-900">
           {scenario.patientName} check-in: pilih <b>Saya sudah punya booking</b> → <b>Kode booking</b>, lalu
           ketik{' '}
-          <span className="rounded bg-brand-50 px-1 font-mono font-semibold text-brand-700">
+          <span className="rounded bg-brand-100 px-1 font-mono font-semibold text-brand-800">
             {bookingCode}
           </span>
           .
@@ -118,7 +118,7 @@ export function KioskPresenterHint({
           type="button"
           disabled={pending}
           onClick={() => run({ type: 'next', scenario: 'rawat-jalan' })}
-          className="min-h-11 cursor-pointer rounded-control border border-brand-800 bg-brand-600 px-3 font-[inherit] text-small font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+          className="min-h-11 cursor-pointer rounded-control border border-transparent bg-btn-primary px-3 font-[inherit] text-small font-semibold text-white shadow-button disabled:cursor-wait disabled:opacity-70"
         >
           {scenario.nextLabel}
         </button>

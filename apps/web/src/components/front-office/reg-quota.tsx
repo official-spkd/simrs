@@ -24,7 +24,7 @@ export function RegQuota({
   return (
     <section
       aria-label="Kuota dokter hari ini"
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 p-4 shadow-card"
     >
       <span className="font-semibold">Kuota dokter hari ini</span>
       {quotas.map((q) => {
@@ -50,15 +50,15 @@ export function RegQuota({
                 {q.start}–{q.end}
               </span>
             </span>
-            <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <span className="h-1.5 overflow-hidden rounded-full bg-ink-900/8" aria-hidden="true">
               <span
                 className={cx(
-                  'block h-1.5',
+                  'block h-1.5 rounded-full',
                   v.level === 'penuh'
                     ? 'bg-danger'
                     : v.level === 'hampir-penuh'
                       ? 'bg-kunyit-500'
-                      : 'bg-brand-600',
+                      : 'bg-domain-bar',
                 )}
                 style={{ width: `${v.percent}%` }}
               />
@@ -98,10 +98,12 @@ export function RegQueuePreview({
     <section
       aria-label="Antrean poli"
       aria-live="polite"
-      className="flex flex-col gap-1 rounded-card border border-brand-100 bg-[linear-gradient(160deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] p-4"
+      className="flex flex-col gap-1 rounded-card border border-white/95 bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] p-4 shadow-card"
     >
-      <span className="text-caption font-semibold tracking-[0.06em] text-brand-700">{label}</span>
-      <span className="font-mono text-[40px] leading-tight font-bold text-brand-700">{queueNo}</span>
+      <span className="text-caption font-semibold tracking-[0.06em] text-brand-800">{label}</span>
+      <span className="font-mono text-[40px] leading-tight font-bold tracking-[-0.02em] text-brand-800">
+        {queueNo}
+      </span>
       <span className="text-small text-ink-700">{line}</span>
       <span className="text-caption text-ink-500">{note}</span>
     </section>

@@ -36,12 +36,12 @@ export function KioskConfirm({
       />
       <section
         aria-label="Data pasien"
-        className="flex flex-col gap-1 rounded-[28px] border-2 border-brand-200 bg-[linear-gradient(160deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_55%)] px-10 py-9"
+        className="flex flex-col gap-1 rounded-[32px] border-2 border-white bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] px-10 py-9 shadow-card"
       >
         <div className="flex items-center gap-6 pb-5">
           <span
             aria-hidden="true"
-            className="flex size-24 flex-none items-center justify-center rounded-full border-[3px] border-brand-600 bg-white font-bold text-brand-700"
+            className="flex size-24 flex-none items-center justify-center rounded-full border-[3px] border-brand-600 bg-white font-bold text-brand-800"
             style={fs(36)}
           >
             {initials(patient.name)}
@@ -56,7 +56,11 @@ export function KioskConfirm({
           </span>
         </div>
         {rows.map((r) => (
-          <div key={r.k} className="flex justify-between gap-6 border-t border-line py-[18px]" style={fs(24)}>
+          <div
+            key={r.k}
+            className="flex justify-between gap-6 border-t border-brand-200/70 py-[18px]"
+            style={fs(24)}
+          >
             <span className="text-ink-500">{r.k}</span>
             <span className="text-right font-semibold">{r.v}</span>
           </div>
@@ -110,12 +114,12 @@ export function KioskTicket({
       <KioskNotice tone="success">Tiket sedang dicetak. Ambil di bawah layar.</KioskNotice>
       <section
         aria-label="Tiket antrean"
-        className="flex flex-col items-center gap-4 rounded-[32px] border-2 border-dashed border-line-strong bg-white px-10 py-12 text-center shadow-[0_10px_30px_rgba(16,24,40,0.07)]"
+        className="flex flex-col items-center gap-4 rounded-[32px] border-2 border-dashed border-brand-200 bg-white px-10 py-12 text-center shadow-[0_10px_30px_rgba(23,32,46,0.12)]"
       >
         <span className="font-semibold tracking-[0.08em] text-brand-700" style={fs(26)}>
           NOMOR ANTREAN ANDA
         </span>
-        <span className="font-mono leading-none font-bold tracking-[-0.02em] text-brand-700" style={fs(200)}>
+        <span className="font-mono leading-none font-bold tracking-[-0.03em] text-brand-700" style={fs(200)}>
           {ticket.no}
         </span>
         <span className="font-bold" style={fs(36)}>

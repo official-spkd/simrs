@@ -118,7 +118,7 @@ export function NewPatientForm({
   return (
     <section
       aria-label="Pasien baru"
-      className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 rounded-card border border-line bg-white p-4 lg:max-w-[420px]"
+      className="flex min-w-0 flex-[1_1_300px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 lg:max-w-[420px]"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 text-h2 font-semibold">Pasien baru</h2>
@@ -202,7 +202,7 @@ export function NewPatientForm({
       {dupes && dupes.length > 0 ? (
         <div
           role="alert"
-          className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3"
+          className="flex flex-col gap-2 rounded-[14px] border border-warning-border bg-alert-warning p-3"
         >
           <span className="font-semibold">Kemungkinan pasien yang sama sudah terdaftar</span>
           <ul aria-label="Kemungkinan duplikat" className="m-0 flex list-none flex-col gap-2 p-0">

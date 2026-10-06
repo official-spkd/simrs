@@ -43,7 +43,7 @@ export function RegPatient({
       aria-label="Identitas pasien"
       className="flex min-w-0 flex-[1_1_300px] flex-col gap-4 lg:max-w-[340px]"
     >
-      <div className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+      <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
         <label htmlFor={id} className="text-small font-semibold text-ink-700">
           Cari pasien (NIK, No. RM, No. BPJS, nama + tgl lahir)
         </label>
@@ -92,11 +92,11 @@ export function RegPatient({
         </div>
       </div>
       {patient ? (
-        <div className="flex flex-col gap-2.5 rounded-card border border-brand-100 bg-card-header p-4">
+        <div className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-card-header p-4 shadow-card">
           <div className="flex items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex size-11 flex-none items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700"
+              className="flex size-11 flex-none items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] font-bold text-brand-700"
             >
               {initials(patient.name)}
             </span>
@@ -129,7 +129,7 @@ export function RegPatient({
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5 rounded-card border border-dashed border-line-strong bg-white p-4">
+        <div className="flex flex-col gap-1.5 rounded-card border border-dashed border-line-strong bg-white/70 p-4">
           <span className="font-semibold">Belum ada pasien dipilih</span>
           <span className="text-small text-ink-700">
             Ketik NIK, No. RM, atau No. BPJS lalu tekan Cari pasien, atau baca e-KTP / pindai kartu BPJS.

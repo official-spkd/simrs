@@ -92,7 +92,7 @@ export function SlotDetail({
   return (
     <section
       aria-label="Detail slot jadwal"
-      className="flex flex-col gap-3 rounded-card border-2 border-brand-600 bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border-2 border-brand-600 bg-white/95 p-4 shadow-card"
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">
@@ -132,15 +132,15 @@ export function SlotDetail({
             busy={busy}
             onChange={(d) => onAdjust('nonJkn', d)}
           />
-          <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+          <span className="h-2 overflow-hidden rounded-full bg-ink-900/8" aria-hidden="true">
             <span
               className={cx(
-                'block h-2',
+                'block h-2 rounded-full',
                 u.level === 'penuh'
                   ? 'bg-danger'
                   : u.level === 'hampir-penuh'
                     ? 'bg-kunyit-500'
-                    : 'bg-brand-600',
+                    : 'bg-domain-bar',
               )}
               style={{ width: `${u.percent}%` }}
             />

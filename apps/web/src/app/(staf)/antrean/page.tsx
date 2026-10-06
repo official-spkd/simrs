@@ -25,7 +25,7 @@ export default async function KendaliAntreanPage({ searchParams }: { searchParam
   if (services.length === 0) {
     return (
       <div className="flex max-w-3xl flex-col gap-4">
-        <h1 className="m-0 text-h1 font-semibold">Kendali antrean</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kendali antrean</h1>
         <Alert level="info" title="Belum ada layanan antrean">
           Layanan antrean (loket, poli, farmasi, kasir) untuk unit Anda belum dibuat. Hubungi admin SIM RS.
         </Alert>

@@ -39,7 +39,7 @@ export function KioskKeypad({
     if (digits.length < method.len) onDigits(digits + d);
   };
   const key =
-    'h-[124px] cursor-pointer rounded-[24px] border-2 font-[inherit] font-semibold text-ink-900 shadow-[0_2px_4px_rgba(16,24,40,0.05)]';
+    'h-[124px] cursor-pointer rounded-[24px] border-2 font-[inherit] font-semibold text-ink-900 shadow-[0_2px_6px_rgba(23,32,46,0.08)]';
   return (
     <div className="flex flex-col gap-8 px-16 pt-14">
       <KioskBackRow onBack={onBack} step={step} />
@@ -49,7 +49,7 @@ export function KioskKeypad({
         aria-live="polite"
         aria-label={`${method.title}: ${digits || 'kosong'}`}
         className={cx(
-          'flex flex-col gap-2.5 rounded-[26px] border-2 bg-white px-9 py-7 shadow-[0_2px_4px_rgba(16,24,40,0.05)]',
+          'flex flex-col gap-2.5 rounded-[26px] border-2 bg-white px-9 py-7 shadow-card',
           full ? 'border-brand-600' : 'border-line-strong',
         )}
       >
@@ -68,7 +68,7 @@ export function KioskKeypad({
             type="button"
             aria-label={`Angka ${n}`}
             onClick={() => press(n)}
-            className={cx(key, 'border-line bg-white font-mono')}
+            className={cx(key, 'border-white bg-white font-mono')}
             style={fs(48)}
           >
             {n}
@@ -87,7 +87,7 @@ export function KioskKeypad({
           type="button"
           aria-label="Angka 0"
           onClick={() => press('0')}
-          className={cx(key, 'border-line bg-white font-mono')}
+          className={cx(key, 'border-white bg-white font-mono')}
           style={fs(48)}
         >
           0

@@ -6,7 +6,7 @@ export function KioskHeader({ tenantName, time, date }: { tenantName: string; ti
   return (
     <header className="flex items-center justify-between gap-6 px-16 pt-12">
       <div className="flex items-center gap-[18px]">
-        <div className="flex size-[72px] flex-none items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-600))] text-white shadow-[0_6px_16px_color-mix(in_srgb,_var(--color-brand-600)_30%,_transparent)]">
+        <div className="flex size-[72px] flex-none items-center justify-center rounded-[18px] bg-fajar text-white shadow-[0_6px_16px_rgba(44,85,196,0.35)]">
           <Icon name="plus" size={34} strokeWidth={2.2} />
         </div>
         <div className="flex flex-col">
@@ -66,7 +66,7 @@ export function KioskFooter({
           English version coming soon. Bahasa Inggris segera tersedia; petugas siap membantu.
         </KioskNotice>
       )}
-      <div className="flex items-center gap-5 rounded-[22px] border border-line bg-white/90 px-7 py-6">
+      <div className="flex items-center gap-5 rounded-[22px] border border-white/95 bg-white/90 px-7 py-6 shadow-card">
         <Icon name="info" size={32} className="flex-none text-brand-700" />
         <span className="text-ink-700" style={fs(22)}>
           Pasien BPJS: siapkan kartu atau NIK. Verifikasi wajah atau sidik jari diperlukan untuk penerbitan
@@ -83,7 +83,7 @@ export function KioskFooter({
           onClick={onLarge}
           className={cx(
             btn,
-            large ? 'border-2 border-brand-600 bg-brand-50 text-brand-700' : KIOSK_SECONDARY,
+            large ? 'border-2 border-brand-600 bg-brand-100 text-brand-800' : KIOSK_SECONDARY,
           )}
           style={fs(26)}
         >
@@ -96,8 +96,10 @@ export function KioskFooter({
           onClick={onCall}
           className={cx(
             btn,
-            'flex-[1.4] border-2 border-brand-800 font-bold',
-            calledAt ? 'bg-white text-brand-700' : 'bg-[linear-gradient(180deg,var(--color-brand-500),var(--color-brand-600))] text-white',
+            'flex-[1.4] border-2 font-bold',
+            calledAt
+              ? 'border-brand-700 bg-white text-brand-700'
+              : 'border-transparent bg-btn-primary text-white shadow-button',
           )}
           style={fs(26)}
         >

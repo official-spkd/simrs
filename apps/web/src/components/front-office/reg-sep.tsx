@@ -76,7 +76,7 @@ export function RegSep({
   const bpjs = payer === 'BPJS';
   const list = quotas.filter((q) => q.poliCode === poli);
   return (
-    <div className="@container flex flex-col gap-3 rounded-card border border-line bg-white p-4">
+    <div className="@container flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0 text-h2 font-semibold">{bpjs ? 'Data SEP' : 'Tujuan kunjungan'}</h2>
         <span className="text-caption text-ink-500">

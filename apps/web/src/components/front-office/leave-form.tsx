@@ -47,7 +47,7 @@ export function LeaveForm({
   return (
     <section
       aria-label="Catat cuti atau pengganti"
-      className="flex flex-col gap-3 rounded-card border border-brand-200 bg-white p-4 shadow-card"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-card-header p-4 shadow-card"
     >
       <span className="font-semibold">Catat cuti atau pengganti</span>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

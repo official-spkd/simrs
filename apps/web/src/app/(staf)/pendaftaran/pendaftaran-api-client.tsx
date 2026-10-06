@@ -395,7 +395,7 @@ export function PendaftaranApiClient({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Front office / Pendaftaran / Rawat jalan</span>
-          <h1 className="m-0 text-h1 font-semibold">Pendaftaran pasien rawat jalan</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pendaftaran pasien rawat jalan</h1>
         </div>
         {counterService && (
           <div role="group" aria-label="Antrean loket" className="flex flex-wrap items-center gap-2.5">

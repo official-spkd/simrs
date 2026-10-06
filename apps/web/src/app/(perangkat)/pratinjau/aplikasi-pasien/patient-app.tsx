@@ -71,14 +71,14 @@ export function PatientApp({
 
   return (
     <PhoneFrame time="10.45">
-      <header className="flex shrink-0 items-center justify-between gap-3 bg-white px-5 pt-1 pb-3">
+      <header className="flex shrink-0 items-center justify-between gap-3 px-5 pt-1 pb-3">
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[12px] text-ink-500">{rsName}</span>
           <span className="text-[13px] text-ink-700">Selamat pagi,</span>
-          <span className="text-[22px] leading-tight font-bold">{home.greeting}</span>
+          <span className="text-[22px] leading-tight font-bold tracking-[-0.02em]">{home.greeting}</span>
         </span>
         <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,var(--color-brand-500),var(--color-brand-700))] font-semibold text-white"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] font-bold text-brand-700"
           role="img"
           aria-label={`Akun ${home.fullName}`}
         >
@@ -110,9 +110,9 @@ export function PatientApp({
                   key={m.key}
                   type="button"
                   onClick={() => setSub(m.key)}
-                  className="relative flex min-h-[78px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[14px] border border-line bg-white px-1 font-[inherit] text-[12px] leading-tight text-ink-900"
+                  className="relative flex min-h-[78px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[14px] border border-white/95 bg-white/90 shadow-card px-1 font-[inherit] text-[12px] leading-tight text-ink-900"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-brand-50 text-brand-700">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] text-brand-700">
                     <Icon name={m.icon} size={19} />
                   </span>
                   {m.label}
@@ -126,7 +126,7 @@ export function PatientApp({
             </section>
             <section
               aria-label="Terbaru"
-              className="flex flex-col gap-1 rounded-[18px] border border-line bg-white px-4 py-3"
+              className="flex flex-col gap-1 rounded-[18px] border border-white/95 bg-white/90 shadow-card px-4 py-3"
             >
               <span className="flex items-center justify-between">
                 <span className="font-semibold">Terbaru untuk Anda</span>
@@ -168,7 +168,7 @@ export function PatientApp({
       </main>
       <nav
         aria-label="Navigasi aplikasi"
-        className="grid shrink-0 grid-cols-4 border-t border-line bg-white pb-3"
+        className="mx-3 mb-3 grid shrink-0 grid-cols-4 gap-1 rounded-[18px] border border-white/95 bg-white p-1.5 shadow-card"
       >
         {TABS.map((t) => {
           const on = tab === t.key && !sub;
@@ -182,8 +182,8 @@ export function PatientApp({
                 setSub(null);
               }}
               className={cx(
-                'flex h-14 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent font-[inherit] text-[11.5px]',
-                on ? 'font-semibold text-brand-700' : 'text-ink-500',
+                'flex h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[12px] border-0 font-[inherit] text-[11.5px]',
+                on ? 'bg-brand-100 font-semibold text-brand-700' : 'bg-transparent text-ink-500',
               )}
             >
               <Icon name={t.icon} size={22} />

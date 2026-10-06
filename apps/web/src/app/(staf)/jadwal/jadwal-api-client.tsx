@@ -212,7 +212,7 @@ export function JadwalApiClient({
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Front office / Jadwal dokter</span>
-          <h1 className="m-0 text-h1 font-semibold">
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
             Jadwal praktik · {dayShort(first).split(' ')[1]}–{dayLong(last).split(' ').slice(1).join(' ')}{' '}
             {last.slice(0, 4)}
           </h1>
@@ -225,11 +225,14 @@ export function JadwalApiClient({
         <div className="flex flex-wrap items-end gap-2.5">
           <span
             role="status"
-            className="inline-flex h-11 items-center gap-2 rounded-control border border-line bg-white px-3 text-small text-ink-700"
+            className={cx(
+              'inline-flex h-11 items-center gap-2 rounded-full px-3.5 text-small font-semibold',
+              summary.pending ? 'bg-kunyit-100 text-kunyit-800' : 'bg-zamrud-100 text-zamrud-700',
+            )}
           >
             <span
               aria-hidden="true"
-              className={cx('size-2 rounded-full', summary.pending ? 'bg-kunyit-500' : 'bg-zamrud-500')}
+              className={cx('size-2 rounded-full', summary.pending ? 'bg-kunyit-600' : 'bg-zamrud-600')}
             />
             {summary.label}
           </span>

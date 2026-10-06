@@ -64,7 +64,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
           <span className="text-caption text-ink-500">
             Umum / Simulasi / Data fiktif, tidak tersimpan ke rekam medis
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Simulasi pasien end-to-end</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Simulasi pasien end-to-end</h1>
         </div>
         <SimulasiControls
           rev={runs.rev}
@@ -80,7 +80,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
       <TabPanel idBase={SCENARIO_TABS} value={runs.active} className="flex flex-col gap-4">
         <section
           aria-label="Pasien"
-          className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),rgba(255,255,255,0)_55%)] px-[18px] py-3.5"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-white/95 bg-white/90 shadow-card bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),rgba(255,255,255,0)_55%)] px-[18px] py-3.5"
         >
           <div className="flex items-center gap-3">
             <span
@@ -197,7 +197,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
           <section aria-label="Langkah aktif" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3.5">
             {v.step && <StepCard step={v.step} rev={runs.rev} activeHref="/simulasi" finished={v.finished} />}
             {v.summary && (
-              <div className="overflow-hidden rounded-card border border-line bg-white">
+              <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
                 <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,rgba(30,107,52,0.10),#FFFFFF_60%)] p-[18px]">
                   <span className="self-start rounded-full bg-success-bg px-2.5 py-0.5 text-caption font-semibold text-success">
                     Simulasi selesai
@@ -280,7 +280,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
             aria-label="Rekam pasien dan jejak sistem"
             className="flex w-full flex-[1_1_340px] flex-col gap-3.5 lg:max-w-[440px]"
           >
-            <div className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3.5">
+            <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="font-semibold">Rekam medis terbentuk</span>
                 <span className="text-caption text-ink-500">diisi sekali, dipakai semua unit</span>
@@ -296,7 +296,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
               ))}
             </div>
 
-            <div className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5">
+            <div className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5">
               <span className="font-semibold">Integrasi dan keselamatan</span>
               <div className="grid grid-cols-2 gap-2">
                 {v.integration.map((s) => (
@@ -331,7 +331,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
               )}
             </div>
 
-            <div className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3.5">
+            <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="font-semibold">Tagihan berjalan</span>
                 <span className="text-caption text-ink-500">charge capture otomatis</span>
@@ -365,7 +365,7 @@ export default async function SimulasiPage({ searchParams }: { searchParams: Sea
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-card border border-line bg-white">
+            <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
               <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
                 <span className="font-semibold">Jejak sistem</span>
                 <span className="text-caption text-ink-500">{v.logs.length} kejadian · terbaru di atas</span>

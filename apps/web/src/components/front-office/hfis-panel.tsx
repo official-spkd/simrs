@@ -23,7 +23,7 @@ export function HfisPanel({
       <section
         role="status"
         aria-label="Sinkron HFIS"
-        className="flex flex-col gap-1.5 rounded-card border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] p-4"
+        className="flex flex-col gap-1.5 rounded-card border border-success-border bg-alert-success p-4"
       >
         <span className="flex items-center gap-1.5 font-semibold text-success">
           <Icon name="check" size={15} strokeWidth={2.4} />
@@ -36,7 +36,7 @@ export function HfisPanel({
   return (
     <section
       aria-label="Perbedaan dengan HFIS"
-      className="flex flex-col gap-2.5 rounded-card border border-warning-border bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(138,75,0,0.07))] p-4"
+      className="flex flex-col gap-2.5 rounded-card border border-warning-border bg-alert-warning p-4"
     >
       <span className="flex items-center gap-1.5 font-semibold text-warning">
         <Icon name="alert" size={15} strokeWidth={2.2} />
@@ -80,7 +80,7 @@ export function LeaveImpact({
   return (
     <section
       aria-label={`Dampak cuti ${dayName}`}
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="font-semibold">Dampak cuti {dayName}</span>
       <span className="text-small text-ink-700">
@@ -97,7 +97,7 @@ export function LeaveImpact({
         {open ? 'Tutup tinjauan' : `Tinjau ${patients} pasien`}
       </Button>
       {open && (
-        <div className="flex flex-col gap-2 rounded-control border border-line bg-white p-3 text-small">
+        <div className="flex flex-col gap-2 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small">
           <span>
             <span className="font-semibold">{patients} pasien</span> · {dayName} {time} · dialihkan ke{' '}
             {substituteName} di jam yang sama, nomor antrean tetap.

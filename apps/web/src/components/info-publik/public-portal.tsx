@@ -51,7 +51,7 @@ function ScheduleTab({ schedule }: { schedule: PublicSchedule }) {
         {list.map((s) => (
           <li
             key={`${s.practitionerName}-${s.start}`}
-            className="rounded-[12px] border border-line bg-white p-2.5"
+            className="rounded-[12px] border border-white/95 bg-white/90 p-2.5 shadow-[0_2px_8px_rgba(23,32,46,0.06)]"
           >
             <span className="block text-[13.5px] font-semibold">{s.practitionerName}</span>
             <span className="block font-mono text-[12.5px] text-ink-500">
@@ -78,7 +78,7 @@ function QueueTab({ queue }: { queue: PublicQueue }) {
       {queue.services.map((s) => (
         <li
           key={s.code}
-          className="flex items-center justify-between gap-2 rounded-[12px] border border-line bg-white p-2.5"
+          className="flex items-center justify-between gap-2 rounded-[12px] border border-white/95 bg-white/90 p-2.5 shadow-[0_2px_8px_rgba(23,32,46,0.06)]"
         >
           <span className="flex flex-col">
             <span className="text-[13.5px] font-semibold">{s.name}</span>
@@ -171,7 +171,7 @@ function BookingTab({
       {result?.kind === 'found' && (
         <section
           aria-label="Status booking"
-          className="flex flex-col gap-1 rounded-[12px] border border-zamrud-200 bg-zamrud-50 p-2.5 text-[13px]"
+          className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-alert-success p-2.5 text-[13px]"
         >
           <span className="flex items-center justify-between gap-2">
             <b>Booking ditemukan</b>
@@ -226,14 +226,14 @@ export function PublicPortal({
     <div className="flex h-full w-full gap-8">
       <div className="h-full w-[390px] flex-none">
         <PhoneFrame time="10.45">
-          <header className="flex shrink-0 items-center justify-between gap-2 bg-white px-4 pt-1 pb-2">
+          <header className="flex shrink-0 items-center justify-between gap-2 px-4 pt-1 pb-2">
             <span className="flex flex-col">
-              <h1 className="m-0 text-[17px] font-semibold">{rsName}</h1>
+              <h1 className="m-0 text-[20px] font-bold tracking-[-0.02em]">{rsName}</h1>
               <span className="text-[12.5px] text-ink-500">Info layanan publik</span>
             </span>
             <Chip tone="brand">tanpa login</Chip>
           </header>
-          <div className="bg-white px-4 pb-2">
+          <div className="px-4 pb-2">
             <TabList items={TABS} value={tab} onChange={setTab} label="Menu info publik" variant="garis" />
           </div>
           <main className={cx('flex min-h-0 flex-1 flex-col overflow-auto px-4 py-3')}>
@@ -245,7 +245,7 @@ export function PublicPortal({
       </div>
       <aside
         aria-label="Aturan halaman publik"
-        className="flex flex-1 flex-col gap-3 self-start rounded-card border border-line bg-white p-5 text-[14px]"
+        className="flex flex-1 flex-col gap-3 self-start rounded-card border border-white/95 bg-white/90 shadow-card p-5 text-[14px]"
       >
         <h2 className="m-0 text-[17px] font-semibold">Aturan halaman publik (F08)</h2>
         <p className="m-0 flex flex-wrap items-center gap-2">

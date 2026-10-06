@@ -87,7 +87,7 @@ export function RegistrationDone({
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Front office / Pendaftaran / Rawat jalan</span>
-        <h1 className="m-0 text-h1 font-semibold">Pendaftaran rawat jalan selesai</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pendaftaran rawat jalan selesai</h1>
       </header>
 
       <Alert
@@ -155,7 +155,7 @@ export function RegistrationDone({
           className="flex min-w-0 flex-[999_1_420px] flex-col gap-4"
         >
           {sep && sepView ? (
-            <div className="flex flex-col gap-3 rounded-card border border-line bg-white p-4">
+            <div className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="m-0 text-h2 font-semibold">SEP</h2>
                 <StatusChip view={sepView} />
@@ -201,7 +201,7 @@ export function RegistrationDone({
           )}
 
           {tasks && (
-            <div className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+            <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
               <h2 className="m-0 text-h2 font-semibold">Task ID Antrean BPJS</h2>
               <ul aria-label="Task ID 1–3" className="m-0 flex list-none flex-col gap-2 p-0">
                 {taskChips(tasks).map((t) => (

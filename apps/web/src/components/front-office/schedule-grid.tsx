@@ -3,11 +3,11 @@ import type { SlotCellKind, SlotCellView } from '@/lib/front-office';
 
 /** Warna sel jadwal (mockup Jadwal); status juga tertulis di teks/ikon, tidak hanya warna. */
 export const SLOT_TONE: Record<SlotCellKind, string> = {
-  ok: 'border-brand-200 bg-brand-50 text-brand-700',
-  full: 'border-kunyit-200 bg-kunyit-50 text-warning',
-  off: 'border-koral-200 bg-koral-50 text-danger',
-  sub: 'border-samudra-200 bg-samudra-50 text-info',
-  none: 'border-transparent bg-white text-ink-500',
+  ok: 'border-transparent bg-brand-100 text-brand-800',
+  full: 'border-transparent bg-kunyit-100 text-kunyit-800',
+  off: 'border-transparent bg-koral-100 text-koral-800',
+  sub: 'border-dashed border-samudra-400 bg-samudra-50 text-samudra-800',
+  none: 'border-transparent bg-ink-900/5 text-ink-500',
 };
 
 export interface ScheduleGridCell extends SlotCellView {
@@ -39,19 +39,28 @@ export function ScheduleGrid({
   return (
     <section
       aria-label="Grid jadwal"
-      className="min-w-0 flex-[999_1_640px] overflow-x-auto rounded-card border border-line bg-white"
+      className="min-w-0 flex-[999_1_640px] overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="min-w-fit">
-        <div className="grid border-b border-line bg-subtle" style={cols}>
+        <div className="grid border-b border-ink-900/8" style={cols}>
           <span className="px-3.5 py-2.5 text-caption font-semibold text-ink-500">Dokter · poli</span>
           {days.map((d) => (
-            <span key={d} className="px-2 py-2.5 text-center text-caption font-semibold text-ink-700">
+            <span key={d} className="px-2 py-2.5 text-center text-caption font-semibold text-ink-500">
               {d}
             </span>
           ))}
         </div>
         {rows.map((r) => (
-          <div key={r.doctorId} className="grid border-b border-line-soft last:border-b-0" style={cols}>
+          <div
+            key={r.doctorId}
+            className={cx(
+              'grid border-b border-ink-900/5 transition-colors last:border-b-0',
+              r.cells.some((c) => c.slotId === selected)
+                ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                : 'hover:bg-brand-50/60',
+            )}
+            style={cols}
+          >
             <span className="flex flex-col justify-center gap-0.5 px-3.5 py-2">
               <span className="text-small font-semibold text-ink-900">{r.doctorName}</span>
               <span className="text-caption text-ink-500">{r.poliName}</span>
@@ -66,9 +75,10 @@ export function ScheduleGrid({
                   aria-label={c.aria}
                   onClick={() => onSelect(c.slotId)}
                   className={cx(
-                    'm-1.5 flex min-h-12 cursor-pointer flex-col items-start justify-start gap-0.5 rounded-control border p-2 text-left font-[inherit] text-caption',
+                    'm-1.5 flex min-h-12 cursor-pointer flex-col items-start justify-start gap-0.5 rounded-[12px] border p-2 text-left font-[inherit] text-caption font-medium transition-shadow hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]',
                     SLOT_TONE[c.kind],
-                    on && 'shadow-[0_0_0_2px_var(--color-brand-600)]',
+                    on &&
+                      'shadow-[0_0_0_2px_var(--color-brand-600)] hover:shadow-[0_0_0_2px_var(--color-brand-600)]',
                   )}
                 >
                   <span className="font-mono font-semibold">{c.time}</span>
@@ -102,7 +112,7 @@ export function ScheduleLegend() {
   return (
     <section
       aria-label="Legenda"
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="font-semibold">Legenda</span>
       {items.map((i) => (

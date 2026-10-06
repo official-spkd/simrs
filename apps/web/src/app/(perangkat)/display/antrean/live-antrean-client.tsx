@@ -117,19 +117,18 @@ export function LiveAntreanClient({
     <div
       className="flex h-full w-full flex-col text-ink-900"
       style={{
-        backgroundColor: '#F3F6F8',
+        backgroundColor: 'var(--color-canvas)',
         backgroundImage:
-          'radial-gradient(1200px 600px at 0% 0%, color-mix(in srgb, var(--color-brand-600) 10%, transparent), transparent 70%), radial-gradient(circle at 1px 1px, rgba(20,33,43,0.06) 1.2px, rgba(20,33,43,0) 1.8px)',
-        backgroundSize: 'auto, 30px 30px',
+          'radial-gradient(1200px 700px at 0% 0%, var(--color-samudra-100) 0%, transparent 55%), radial-gradient(1000px 700px at 100% 100%, var(--color-samudra-50) 0%, transparent 55%)',
       }}
     >
-      <header className="flex items-center justify-between border-b border-line bg-white/90 px-12 py-7">
+      <header className="glass flex items-center justify-between border-b border-white/70 px-12 py-7">
         <div className="flex items-center gap-4">
-          <div className="flex size-14 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-600))] text-white">
+          <div className="flex size-14 items-center justify-center rounded-[14px] bg-fajar text-white shadow-[0_6px_16px_rgba(44,85,196,0.35)]">
             <Icon name="plus" size={28} strokeWidth={2.2} />
           </div>
           <div className="flex flex-col">
-            <h1 className="m-0 text-[28px] font-bold">
+            <h1 className="m-0 text-[28px] font-bold tracking-[-0.02em]">
               {tenantName} · {board.area}
             </h1>
             <span className="text-[20px] text-ink-700">
@@ -158,13 +157,13 @@ export function LiveAntreanClient({
           ))}
         </section>
       </div>
-      <footer className="flex items-center gap-6 bg-ink-900 px-12 py-5 text-white">
+      <footer className="flex items-center gap-6 bg-brand-900 px-12 py-5 text-white">
         <span className="flex-none rounded-lg bg-brand-600 px-3.5 py-1.5 text-[20px] font-bold">INFO</span>
         <span className="flex-1 text-[24px]">{board.info}</span>
         <div role="group" aria-label="Kontrol perangkat" className="flex flex-none items-center gap-3">
           <span
             role="status"
-            className="flex items-center gap-2 text-[16px] whitespace-nowrap text-[#B8C4CE]"
+            className="flex items-center gap-2 text-[16px] whitespace-nowrap text-brand-200"
           >
             <Icon name={status === 'tersambung' ? 'check' : 'alert'} size={18} strokeWidth={2.2} />
             {STATUS_TEXT[status]}

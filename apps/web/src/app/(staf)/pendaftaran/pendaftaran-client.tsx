@@ -263,10 +263,10 @@ export function PendaftaranClient({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Front office / Pendaftaran / Rawat jalan</span>
-          <h1 className="m-0 text-h1 font-semibold">Pendaftaran pasien rawat jalan</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pendaftaran pasien rawat jalan</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3 text-caption text-ink-700">
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-white/90 bg-white/80 px-3 text-caption font-medium text-ink-700 shadow-[0_2px_8px_rgba(23,32,46,0.06)]">
             <span aria-hidden="true" className="size-2 rounded-full bg-zamrud-500" />
             VClaim {vclaimLatencyMs} ms
           </span>
@@ -274,13 +274,13 @@ export function PendaftaranClient({
             <span
               role="status"
               aria-label="Sedang dilayani di loket"
-              className="inline-flex h-9 items-center rounded-control border border-brand-200 bg-brand-50 px-3 text-caption text-ink-900"
+              className="inline-flex h-9 items-center rounded-full bg-brand-100 px-3 text-caption font-semibold text-brand-800"
             >
               Dilayani {serving.ticketNo}
               {servingName ? ` · ${servingName}` : ''} · dipanggil {serving.jam}
             </span>
           )}
-          <span className="inline-flex h-9 items-center rounded-control bg-muted px-3 text-caption text-ink-700">
+          <span className="inline-flex h-9 items-center rounded-full bg-batu-200 px-3 text-caption font-semibold text-batu-800">
             Antrean loket: {store.loket.waiting} menunggu
           </span>
           <Button disabled={working} onClick={callNext}>
@@ -416,7 +416,7 @@ export function PendaftaranClient({
                   : 'Antrean non-JKN · tidak dikirim ke Antrean BPJS'
             }
           />
-          <label className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-control border border-line bg-white p-3 text-small">
+          <label className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-control border border-white/95 bg-white/90 p-3 text-small shadow-card">
             <input
               type="checkbox"
               checked={f.consent || !!visit}

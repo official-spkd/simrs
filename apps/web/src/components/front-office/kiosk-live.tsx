@@ -46,11 +46,11 @@ export function KioskMaskedConfirm({
       />
       <section
         aria-label="Data pasien"
-        className="flex items-center gap-6 rounded-[28px] border-2 border-brand-200 bg-[linear-gradient(160deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_55%)] px-10 py-9"
+        className="flex items-center gap-6 rounded-[32px] border-2 border-white bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] px-10 py-9 shadow-card"
       >
         <span
           aria-hidden="true"
-          className="flex size-24 flex-none items-center justify-center rounded-full border-[3px] border-brand-600 bg-white font-bold text-brand-700"
+          className="flex size-24 flex-none items-center justify-center rounded-full border-[3px] border-brand-600 bg-white font-bold text-brand-800"
           style={fs(36)}
         >
           {initials(nameMasked)}
@@ -217,8 +217,8 @@ export function KioskSessions({
               onClick={() => onPick(s.sessionId)}
               aria-label={`${s.practitionerName}, ${s.poliName}, ${s.start}–${s.end}${s.available ? '' : ', kuota penuh'}`}
               className={cx(
-                'flex min-h-[120px] cursor-pointer items-center justify-between gap-6 rounded-[24px] border-2 bg-white px-9 py-6 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60',
-                s.available ? 'border-line' : 'border-line bg-muted',
+                'flex min-h-[120px] cursor-pointer items-center justify-between gap-6 rounded-[24px] border-2 px-9 py-6 text-left font-[inherit] disabled:cursor-not-allowed disabled:opacity-60',
+                s.available ? 'border-white bg-white shadow-card' : 'border-line bg-muted',
               )}
             >
               <span className="flex flex-col gap-1">

@@ -51,7 +51,10 @@ export function BookingPanel({
       {active.length > 0 && (
         <ul aria-label="Booking saya" className="m-0 flex list-none flex-col gap-2 p-0">
           {active.map((b) => (
-            <li key={b.code} className="flex flex-col gap-1 rounded-[14px] border border-line bg-white p-3">
+            <li
+              key={b.code}
+              className="flex flex-col gap-1 rounded-[14px] border border-white/95 bg-white/90 shadow-card p-3"
+            >
               <span className="font-mono text-[15px] font-semibold">{b.code}</span>
               <span className="text-[13px] text-ink-700">
                 {b.poliName} · {b.doctorName} · {formatTanggal(b.date)} {b.start}
@@ -87,7 +90,7 @@ export function BookingPanel({
         {shown.map((s) => (
           <li
             key={s.slotId}
-            className="flex items-center justify-between gap-2 rounded-[14px] border border-line bg-white p-3"
+            className="flex items-center justify-between gap-2 rounded-[14px] border border-white/95 bg-white/90 shadow-card p-3"
           >
             <span className="flex min-w-0 flex-col text-[13px]">
               <span className="font-semibold">
@@ -106,7 +109,10 @@ export function BookingPanel({
                   (res) => done(res),
                 )
               }
-              className={cx(BTN, 'shrink-0 border border-brand-800 bg-brand-600 text-white')}
+              className={cx(
+                BTN,
+                'shrink-0 border border-transparent bg-btn-primary text-white shadow-button',
+              )}
             >
               Pesan
               <span className="sr-only">

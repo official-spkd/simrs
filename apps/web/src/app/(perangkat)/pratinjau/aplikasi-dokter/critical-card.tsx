@@ -45,7 +45,7 @@ export function CriticalCard({
       <section
         role="status"
         aria-label="Nilai kritis"
-        className="rounded-[16px] border border-line bg-white p-3.5 text-[13px]"
+        className="rounded-[16px] border border-white/95 bg-white/90 shadow-card p-3.5 text-[13px]"
       >
         <span className="font-semibold">Belum ada nilai kritis</span>
         <span className="block text-ink-700">

@@ -59,7 +59,7 @@ export function KioskHome({ greeting, onPick }: { greeting: string; onPick: (i: 
   return (
     <>
       <div className="flex flex-col gap-3 px-16 pt-[72px] pb-8">
-        <h1 className="m-0 leading-[1.15] font-bold tracking-[-0.01em]" style={fs(56)}>
+        <h1 className="m-0 leading-[1.1] font-bold tracking-[-0.02em]" style={fs(56)}>
           {greeting}
           <span className="block text-brand-700">Apa yang ingin Anda lakukan?</span>
         </h1>
