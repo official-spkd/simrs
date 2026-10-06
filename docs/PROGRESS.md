@@ -211,6 +211,40 @@ Keputusan pemilik produk 6 Okt 2026: semua fase (0–10) dibangun sebagai alur f
 
 Gerbang di master setelah semua merge termasuk DOCS-2 dan BUG-2 (6 Okt 2026, `8df1b26`): build, lint, typecheck hijau; `pnpm test` 2.055/0 (web 798, api 504, shared 257, db 216, worker 120, mock 73, backup 52, ui 28, pdf 7); E2E penuh 432 lolos / 0 gagal / 122 dilewati sengaja (tangkap layar dokumen tanpa `DOCS_CAPTURE`, QA visual, spesifikasi khusus desktop).
 
+## Sistem desain Pelangi Klinis (7 Okt 2026, ADR-0091)
+
+Pemilik produk menyetujui penggantian "Klinis Bersih" dengan Pelangi Klinis:
+- Poppins sebagai font utama;
+- aksen per domain lewat `data-domain`;
+- gradien satu rona;
+- kaca + animasi;
+- palet perintah ⌘K.
+
+Fondasinya ada di `packages/ui` dan kerangka staf. Lima agen lalu menyelaraskan gaya layar per domain; perilaku dan teks tidak diubah.
+
+| Agen  | Cakupan                                                                                                                         | Merge     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| CD-0  | Token, ramp, domain → `brand-*`, AppShell kaca, Sidebar lipat, CommandPalette, Poppins, pemetaan hex teal/lama ke token          | `ddc3397` |
+| PK-1  | Front office + perangkat (masuk, pendaftaran, antrean, jadwal, rujukan, anjungan, display, tablet, pratinjau aplikasi, simulasi) | `bb08a5b` |
+| PK-2  | Klinis + rekam medis (`VALUE_FLAG_STYLE` nilai abnormal bertulisan ↑/↓, triase tetap 5 warna baku)                                | `185bb62` |
+| PK-3  | Penunjang + integrasi (titik kritis berdenyut hanya untuk kritis, Gantt OK)                                                     | `106d020` |
+| PK-4  | Keuangan (baris terpilih bergradien, alur dana tanpa gradien)                                                                    | `8f7f524` |
+| PK-5  | Manajemen, back office, sistem, kit `backoffice/kit.tsx` + `platform/parts.tsx`, `KpiTile`, galeri `/dev/ui` Pelangi             | `ccdb966` |
+
+Gerbang di master setelah semua merge (7 Okt 2026, `ccdb966`):
+- build, lint, typecheck: hijau;
+- `pnpm test`: hijau (web 969, ui 34);
+- E2E penuh: 503 lolos / 0 gagal / 122 dilewati sengaja.
+
+Sisa pekerjaan:
+- Usulan agen untuk `packages/ui`:
+  - satukan pola baris terpilih (`bg-row-selected`) yang kini ditulis di `components/penunjang/pelangi.ts`, `components/backoffice/styles.ts`, dan kelas lokal;
+  - tambah prop `ramp` di `KpiCard` untuk menggantikan `KpiTile` lokal;
+  - komponen `ProgressBar` dan footer aksi kaca.
+- Tata letak isi per papan C01–C44 belum disentuh, mis. panel inspektur kanan di poli dan KPI di atas papan IGD.
+- Kelas lokal `components/{ppi,ppra,dokumen,pengalaman,onkologi,rekam-medis-adm}` belum ditinjau; layar-layar itu sudah bergaya Pelangi lewat kit.
+- Tangkapan layar panduan perlu dibuat ulang (`pnpm docs:gambar`, CD-5).
+
 ## Langkah berikutnya
 
 - **6 Okt 2026 · front end semua fase**: 80 layar di registri. Berikutnya: (1) putaran 2 agen bug + dokumentasi untuk layar baru; (2) `docker compose up -d` setelah agen selesai agar port infra hanya 127.0.0.1 berlaku (SEC `c51607b`); (3) keputusan produk: gerbang `DischargeGate` untuk disposisi meninggal sebelum 3.6; (4) lanjut backend fase 3 (3.6–3.9; 3.5 selesai) atau sambungkan layar demo ke API per domain.
