@@ -22,10 +22,10 @@ export function DemoPersonas({
   return (
     <section
       aria-labelledby="masuk-cepat"
-      className="flex flex-col gap-3 rounded-[16px] border border-warning-border bg-[linear-gradient(160deg,#FFFFFF_55%,rgba(138,75,0,0.06))] p-5"
+      className="flex flex-col gap-3 rounded-card border border-warning-border bg-alert-warning p-5 shadow-card"
     >
       <div className="flex flex-col gap-0.5">
-        <h2 id="masuk-cepat" className="m-0 text-[17px] font-bold">
+        <h2 id="masuk-cepat" className="m-0 text-[17px] font-bold tracking-[-0.01em]">
           Masuk cepat · mode presentasi
         </h2>
         <p className="m-0 text-small text-ink-700">
@@ -54,7 +54,7 @@ export function DemoPersonas({
                       if (r?.error) setError(r.error);
                     });
                   }}
-                  className="flex min-h-12 w-full cursor-pointer flex-col justify-center rounded-control border border-line bg-white px-3 py-2 text-left font-[inherit] hover:border-brand-600 disabled:cursor-wait disabled:opacity-60"
+                  className="flex min-h-12 w-full cursor-pointer flex-col justify-center rounded-control border border-white bg-white/95 px-3 py-2 text-left font-[inherit] shadow-[0_2px_8px_rgba(23,32,46,0.06)] hover:border-brand-600 hover:bg-white disabled:cursor-wait disabled:opacity-60"
                 >
                   <span className="text-small font-semibold text-ink-900">
                     {pending && chosen === p.username ? 'Masuk…' : p.roleName}
@@ -76,7 +76,7 @@ export function DemoPersonas({
 /** Mode presentasi tanpa berkas akun: jelaskan cara membuatnya (perintah lokal). */
 export function DemoPersonasMissing() {
   return (
-    <section className="flex flex-col gap-1 rounded-[16px] border border-warning-border bg-warning-bg p-4 text-small text-warning">
+    <section className="flex flex-col gap-1 rounded-card border border-warning-border bg-alert-warning p-4 text-small text-warning">
       <span className="font-semibold">Akun presentasi belum dibuat</span>
       <span>
         Jalankan <code className="font-mono">pnpm db:akun-presentasi</code> di terminal proyek, lalu muat
