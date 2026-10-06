@@ -34,7 +34,7 @@ export async function DemoPersetujuan({ access, id }: { access: DemoScreenAccess
       width={834}
       height={1194}
       label="Tablet persetujuan tindakan"
-      className="overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(20,33,43,0.18)]"
+      className="overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(23,32,46,0.18)]"
     >
       <ConsentTablet
         doc={doc}

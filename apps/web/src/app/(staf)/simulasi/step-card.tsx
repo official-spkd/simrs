@@ -25,23 +25,23 @@ export function StepCard({
   const { run, pending, error } = useDemoRunner(rev);
   return (
     <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
-      <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_7%,_transparent),#FFFFFF_60%)] px-[18px] py-4">
+      <div className="flex flex-col gap-1.5 border-b border-line bg-card-header px-[18px] py-4">
         <span className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[12.5px] text-ink-500">
             Langkah {step.no} · {step.stage}
           </span>
-          <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-caption font-semibold text-brand-700">
+          <span className="rounded-full bg-brand-100 px-[11px] py-0.5 text-caption font-semibold text-brand-800">
             Peran: {step.actor}
             {step.roleName ? ` (posisi ${step.roleName})` : ''}
           </span>
         </span>
-        <h2 className="m-0 text-[19px] font-semibold">{step.title}</h2>
-        <p className="m-0 max-w-[760px] text-[13.5px] text-ink-700">{step.desc}</p>
+        <h2 className="m-0 text-[19px] font-bold tracking-[-0.015em]">{step.title}</h2>
+        <p className="m-0 max-w-[760px] text-[13.5px] text-ink-500">{step.desc}</p>
         {step.screen && <OpenScreenButton screen={step.screen} role={step.role} roleName={step.roleName} />}
       </div>
 
       {step.past && (
-        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-info-border bg-info-bg px-[18px] py-2.5 text-small text-info">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-info-border bg-alert-info px-[18px] py-2.5 text-small text-info">
           <span>Langkah ini sudah selesai. Anda sedang meninjau hasilnya.</span>
           <Link
             href={activeHref}
@@ -58,7 +58,7 @@ export function StepCard({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-subtle px-[18px] py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/70 bg-white/50 px-[18px] py-3.5">
         <span className="text-small text-ink-700">{step.footNote}</span>
         {!step.past && (
           <span className="flex flex-col items-end gap-1">
@@ -69,8 +69,8 @@ export function StepCard({
               className={cx(
                 'min-h-11 rounded-control border px-[18px] font-[inherit] font-semibold',
                 step.canNext
-                  ? 'cursor-pointer border-brand-800 bg-brand-600 text-white'
-                  : 'cursor-not-allowed border-line-strong bg-line text-ink-500',
+                  ? 'cursor-pointer border-transparent bg-btn-primary text-white shadow-button hover:brightness-[1.07]'
+                  : 'cursor-not-allowed border-line bg-line text-ink-400',
               )}
             >
               {step.nextLabel}
@@ -107,7 +107,7 @@ export function SummaryActions({
         type="button"
         disabled={pending}
         onClick={() => run({ type: 'reset', scenario })}
-        className="min-h-11 cursor-pointer rounded-control border border-brand-800 bg-brand-600 px-4 font-[inherit] font-semibold text-white"
+        className="min-h-11 cursor-pointer rounded-control border border-transparent bg-btn-primary px-4 font-[inherit] font-semibold text-white shadow-button hover:brightness-[1.07]"
       >
         Ulangi skenario
       </button>
