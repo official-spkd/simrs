@@ -649,6 +649,14 @@ describe('SSE papan IGD dan papan bed', () => {
       expect(snapshot.unitId).toBe(unit.IGD);
       expect(snapshot.items.some((i) => i.encounterId === mine.encounterId)).toBe(true);
       expect(snapshot.items.some((i) => i.encounterId === theirs.encounterId)).toBe(false);
+      // Potret awal memuat nama + RM pasien: akses per pasien tercatat sama seperti GET /triage/board.
+      expect(
+        await run(A.id, (tx) =>
+          tx.auditEvent.count({
+            where: { resourceType: 'ed_board', action: 'search', patientId: mine.patientId },
+          }),
+        ),
+      ).toBeGreaterThanOrEqual(1);
       await as('perawatIgdB')
         .post(`/encounters/${theirs.encounterId}/ed-status`, {
           status: 'pemeriksaan',
