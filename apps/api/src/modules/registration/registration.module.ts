@@ -1,6 +1,7 @@
 import { EncounterModule } from '../encounter/encounter.module';
 import { Module } from '@nestjs/common';
 import { IdempotencyService } from '../../common/idempotency';
+import { AdtModule } from '../adt/adt.module';
 import { AuthzModule } from '../authz/authz.module';
 import { BookingModule } from '../booking/booking.module';
 import { QueueModule } from '../queue/queue.module';
@@ -28,7 +29,7 @@ import { RegistrationService } from './registration.service';
  * Tes wajib: BPJS gagal → registrasi tetap 201 dan SEP `pending` (`apps/api/test/registration.test.ts`).
  */
 @Module({
-  imports: [AuthzModule, BookingModule, EncounterModule, QueueModule, SchedulingModule, SepModule],
+  imports: [AdtModule, AuthzModule, BookingModule, EncounterModule, QueueModule, SchedulingModule, SepModule],
   controllers: [RegistrationController, ContactsController],
   providers: [
     RegistrationService,

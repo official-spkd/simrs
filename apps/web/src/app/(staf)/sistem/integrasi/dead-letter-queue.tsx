@@ -1,6 +1,6 @@
 'use client';
 
-import { type DlqMessage, formatJam, type InterfaceId } from '@simrs/shared';
+import { type DlqMessage, formatJam, type InterfaceId, OUTBOX_MAX_ATTEMPTS } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { dlqPayloadText } from '@/lib/manajemen';
@@ -101,7 +101,8 @@ export function DeadLetterQueue({
             Dead-letter queue
           </h2>
           <span className="text-[12.5px] text-ink-500">
-            Pesan gagal setelah 5× retry eksponensial. Transaksi klinis tetap tersimpan lokal.
+            Galat sementara di-retry eksponensial (bawaan {OUTBOX_MAX_ATTEMPTS} percobaan); galat permanen
+            (4xx, penolakan bisnis) langsung masuk antrean ini. Transaksi klinis tetap tersimpan lokal.
           </span>
           {filterName && (
             <span className="flex flex-wrap items-center gap-x-2 text-[12.5px] font-semibold text-brand-700">

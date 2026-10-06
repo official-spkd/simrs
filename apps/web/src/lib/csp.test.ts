@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contentSecurityPolicy, newNonce } from './csp';
+import { contentSecurityPolicy, newNonce, responsePolicy, STATIC_FILE_CSP } from './csp';
 
 /** Arahan `script-src` dari sebuah CSP. */
 const scriptSrc = (csp: string) => csp.split('; ').find((d) => d.startsWith('script-src ')) ?? '';
@@ -30,5 +30,23 @@ describe('CSP ber-nonce (ADR-0073)', () => {
     const csp = contentSecurityPolicy('n', { dev: true });
     expect(scriptSrc(csp)).toBe("script-src 'self' 'nonce-n' 'strict-dynamic' 'unsafe-eval'");
     expect(csp).toContain("connect-src 'self' ws: wss:");
+  });
+});
+
+describe('CSP respons per path', () => {
+  const page = contentSecurityPolicy('n', { dev: false });
+
+  it('gambar panduan (SVG bisa dibuka langsung): sandbox tanpa skrip, tidak ditimpa kebijakan halaman', () => {
+    const csp = responsePolicy('/superadmin/panduan/gambar/diagram-outbox.svg', page);
+    expect(csp).toBe(STATIC_FILE_CSP);
+    expect(csp).toContain('sandbox');
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).not.toContain('script-src');
+  });
+
+  it('halaman lain (termasuk halaman panduan itu sendiri): kebijakan halaman ber-nonce', () => {
+    expect(responsePolicy('/superadmin/panduan', page)).toBe(page);
+    expect(responsePolicy('/superadmin/panduan/02-cara-kerja-kode', page)).toBe(page);
+    expect(responsePolicy('/verifikasi/kode.svg', page)).toBe(page);
   });
 });

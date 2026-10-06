@@ -3,6 +3,7 @@ import { isoDateJakarta, newId } from '@simrs/shared';
 import { createAccount, createPatient, inTenant, loginAs, TENANTS } from './support/accounts';
 import { useTestDevice } from './support/devices';
 import {
+  activeBpjsCard,
   createJknBooking,
   hfisSession,
   mockAntrean,
@@ -50,7 +51,7 @@ test('BPJS mati: daftar mandiri di anjungan tetap jalan, SEP menunggu terlihat, 
   test.skip(!session, 'Hari Minggu: tidak ada praktik poli PD di HFIS mock, Antrean BPJS menolak booking.');
   if (!session) return;
 
-  const card = `0000${digits(8)}1`;
+  const card = activeBpjsCard();
   const patient = await createPatient('RSFA', {
     name: 'Ratna Kusuma Fiktif',
     sex: 'female',

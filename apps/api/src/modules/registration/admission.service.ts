@@ -21,6 +21,7 @@ import { type IdempotencyClaim, IdempotencyService } from '../../common/idempote
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
+import { AdtService } from '../adt/adt.service';
 import { PatientAccessService, patientAccessSql } from '../authz/patient-access.service';
 import { ContactsService } from './contacts.service';
 import { RegistrationRepository } from './registration.repository';
@@ -55,6 +56,7 @@ export class AdmissionService {
     private readonly access: PatientAccessService,
     private readonly events: DomainEvents,
     private readonly emergencySep: EmergencySepService,
+    private readonly adt: AdtService,
   ) {}
 
   private crypto(): PatientCrypto {
@@ -361,6 +363,8 @@ export class AdmissionService {
     }
     const updated = await this.repo.cancelEncounter(id, input.reason);
     await this.repo.addStatusHistory(id, row.status, 'cancelled', input.reason);
+    // Fase 3: bed IGD yang sempat ditempati, bed yang dipesan, dan permintaan bed ikut dilepas.
+    await this.adt.releaseCancelledEncounter(id, new Date());
     await this.events.publish('encounter.cancelled', {
       encounterId: id,
       patientId: row.patientId,

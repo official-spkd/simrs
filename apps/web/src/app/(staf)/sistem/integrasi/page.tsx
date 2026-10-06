@@ -3,6 +3,7 @@ import { Chip, cx } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { IntegrasiSubnav } from '@/components/integrasi/integrasi-subnav';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { formatPercent } from '@/lib/manajemen';
 import { getIntegrationOverview } from '@/lib/server/data/manajemen';
@@ -108,6 +109,7 @@ export default async function IntegrasiPage() {
           Jejak audit
         </Link>
       </header>
+      <IntegrasiSubnav current="/sistem/integrasi" />
       <ScenarioBanner session={session} screen="integrasi" />
       <IntegrationHub data={d} aside={aside} />
     </div>
