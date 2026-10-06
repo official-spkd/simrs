@@ -5,6 +5,7 @@ import { CriticalCenterView } from '@/components/penunjang/kritis-center';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { getCriticalCenter } from '@/lib/server/data/penunjang-lanjut';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { readDomain } from '@/lib/server/demo/state';
 
 export const metadata: Metadata = { title: 'Pusat hasil kritis' };
 
@@ -19,6 +20,7 @@ export default async function HasilKritisPage({ searchParams }: { searchParams: 
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
   const data = await getCriticalCenter(session);
+  const { rev } = await readDomain('hasil-kritis');
   const pilih = typeof sp.pilih === 'string' && data.items.some((i) => i.id === sp.pilih) ? sp.pilih : null;
   return (
     <div className="flex flex-col gap-4">
@@ -29,7 +31,7 @@ export default async function HasilKritisPage({ searchParams }: { searchParams: 
         <h1 className="m-0 text-h1 font-semibold">Pusat hasil kritis</h1>
       </header>
       <ScenarioBanner session={session} screen="kritis" />
-      <CriticalCenterView data={data} initialSelected={pilih} userName={session.user.displayName} />
+      <CriticalCenterView data={data} initialSelected={pilih} rev={rev} />
     </div>
   );
 }

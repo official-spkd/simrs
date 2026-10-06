@@ -16,9 +16,10 @@ import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import type { Delivery, DietOrder, MealTime } from '../../penunjang-gizi';
 import type { CultureCase, PaCase } from '../../penunjang-mikro';
 import type { DiagOrder } from '../../penunjang-diagnostik';
-import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
+import { applyStoredReports, type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
+import { readDomain } from '../demo/state';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -45,6 +46,7 @@ export interface CriticalCenter {
   rules: typeof CRITICAL_RULES;
 }
 
+/** Pusat hasil kritis: fixture + nilai kritis worklist Lab + laporan tersimpan di toko demo (ADR-0085). */
 export async function getCriticalCenter(session: SessionView): Promise<CriticalCenter> {
   if (!isDemo()) return notImplemented('pusat hasil kritis');
   const { results } = await scenarioRuns(session);
@@ -53,9 +55,10 @@ export async function getCriticalCenter(session: SessionView): Promise<CriticalC
     const c = criticalFromLab(s);
     return c ? [c] : [];
   });
+  const { state } = await readDomain('hasil-kritis');
   return {
     asOf: DEMO_NOW,
-    items: sortCritical([...fromLab, ...demoOtherCriticals()]),
+    items: sortCritical(applyStoredReports([...fromLab, ...demoOtherCriticals()], state)),
     history7d: CRITICAL_HISTORY_7D,
     rules: CRITICAL_RULES,
   };

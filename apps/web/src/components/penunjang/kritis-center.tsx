@@ -4,13 +4,12 @@ import { formatJam, formatTanggalLahir } from '@simrs/shared';
 import { Alert, Button, Chip, cx, FilterChip, KpiCard, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useState } from 'react';
 import { reportCriticalCenterAction } from '@/app/(staf)/penunjang/hasil-kritis/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatMmSs } from '@/lib/penunjang';
 import {
   addMinutesIso,
-  applyReports,
   CHANNEL_LABEL,
   complianceMetrics,
   type CriticalItem,
@@ -34,28 +33,29 @@ type Filter = 'semua' | 'terbuka' | 'dilaporkan';
 
 /**
  * S09 · Pusat hasil kritis lintas unit: daftar dengan timer batas lapor, detail dengan jenjang eskalasi, pelaporan
- * berpenerima + read-back (gerbang), dan metrik kepatuhan durasi lapor (hari ini dan 7 hari).
+ * berpenerima + read-back (gerbang), dan metrik kepatuhan durasi lapor (hari ini dan 7 hari). Laporan tersimpan di
+ * toko demo bersama (domain `hasil-kritis`, ADR-0085), termasuk yang dicatat dari layar Laboratorium.
  */
 export function CriticalCenterView({
   data,
   initialSelected,
-  userName,
+  rev,
 }: {
   data: CriticalCenter;
   initialSelected: string | null;
-  userName: string;
+  /** Revisi domain toko `hasil-kritis` yang dilihat halaman. */
+  rev: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [local, setLocal] = useState<Record<string, CriticalReport>>({});
   const [filter, setFilter] = useState<Filter>('semua');
   const [selectedId, setSelectedId] = useState(initialSelected ?? data.items[0]?.id ?? null);
   const [formOpen, setFormOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
 
-  const items = useMemo(() => applyReports(data.items, local), [data.items, local]);
+  const items = data.items;
   const anyOpen = items.some((i) => !i.report);
   const tick = useElapsed(0, anyOpen);
   const elapsed = Object.fromEntries(items.map((i) => [i.id, elapsedSecondsAt(i, data.asOf) + tick]));
@@ -79,21 +79,16 @@ export function CriticalCenterView({
     input: Omit<CriticalReport, 'reportedAt' | 'reportedBy' | 'readBackConfirmed'>,
   ) => {
     setError(null);
-    startTransition(async () => {
-      const r = await reportCriticalCenterAction({ id: item.id, ...input, readBack: true });
-      if (!r.ok) return setError(r.message);
-      setLocal((cur) => ({
-        ...cur,
-        [item.id]: {
-          ...input,
-          reportedBy: userName,
-          reportedAt: demoNow().toISOString(),
-          readBackConfirmed: true,
-        },
-      }));
-      setFormOpen(false);
-      setFeedback(r.message);
-    });
+    const elapsedSeconds = Math.floor(elapsed[item.id] ?? 0);
+    run(
+      (current) =>
+        reportCriticalCenterAction({ id: item.id, ...input, readBack: true, rev: current, elapsedSeconds }),
+      (r) => {
+        if (!r.ok) return setError(r.message);
+        setFormOpen(false);
+        setFeedback(r.message);
+      },
+    );
   };
 
   return (

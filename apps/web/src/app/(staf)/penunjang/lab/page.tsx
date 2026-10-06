@@ -4,6 +4,7 @@ import { LabWorkspace } from '@/components/penunjang/lab-workspace';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { getLabWorklist, penunjangScenario } from '@/lib/server/data/penunjang';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { readDomain } from '@/lib/server/demo/state';
 
 export const metadata: Metadata = { title: 'Laboratorium' };
 
@@ -19,6 +20,8 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
   const sp = await searchParams;
   const { results, hook } = await penunjangScenario(session, 'lab');
   const data = await getLabWorklist(results);
+  // Laporan nilai kritis tersimpan (toko demo, ADR-0085): revisi untuk aksi + id yang dilaporkan.
+  const critical = await readDomain('hasil-kritis');
   const pilih = typeof sp.pilih === 'string' ? sp.pilih : null;
 
   return (
@@ -47,7 +50,14 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
         </ul>
       </header>
       <ScenarioBanner session={session} screen="lab" />
-      <LabWorkspace data={data} hook={hook} initialSelected={pilih} userName={session.user.displayName} />
+      <LabWorkspace
+        data={data}
+        hook={hook}
+        initialSelected={pilih}
+        userName={session.user.displayName}
+        criticalRev={critical.rev}
+        storedCritical={Object.keys(critical.state.reports)}
+      />
     </div>
   );
 }

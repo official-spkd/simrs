@@ -3,18 +3,17 @@
 import type { LabSample } from '@simrs/shared';
 import { formatJam } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { reportCriticalAction } from '@/app/(staf)/penunjang/lab/actions';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   criticalReportSeconds,
   criticalStage,
   criticalTimer,
   formatLabNumber,
   formatMmSs,
-  type LabLocal,
 } from '@/lib/penunjang';
 import { CriticalReportForm } from './lab-critical-form';
 import { NOT_YOUR_TURN, type ScenarioTasks } from './use-scenario-tasks';
@@ -23,18 +22,20 @@ import { ReadBackConfirm } from './lab-readback-confirm';
 
 /**
  * S09 · Banner nilai kritis (mockup Lab): alarm + timer 30 menit berjalan sampai laporan sah (read-back). Pasien
- * skenario IGD memajukan tugas `nilai-kritis.lapor` lalu `readback`; pasien lain disimulasikan lewat Server Action.
+ * skenario IGD memajukan tugas `nilai-kritis.lapor` lalu `readback`; laporan pasien lain tersimpan di toko demo
+ * bersama (domain `hasil-kritis`, ADR-0085) atas nama pengguna sesi dan tampil juga di Pusat hasil kritis.
  */
 export function CriticalBanner({
   sample,
   scenario,
   tasks,
-  onLocalReport,
+  rev,
 }: {
   sample: LabSample;
   scenario: ScenarioId | null;
   tasks: ScenarioTasks;
-  onLocalReport: (sampleId: string, report: NonNullable<LabLocal['critical']>) => void;
+  /** Revisi domain toko `hasil-kritis` yang dilihat halaman. */
+  rev: number;
 }) {
   const c = sample.critical;
   const stage = c ? criticalStage(c) : 'selesai';
@@ -43,7 +44,7 @@ export function CriticalBanner({
   const [chain, setChain] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
   const readbackTurn = tasks.enabled(scenario, 'readback');
 
   // Formulir tunggal (nama + read-back) di skenario: setelah `lapor` tersimpan, read-back dikonfirmasi otomatis.
@@ -67,14 +68,21 @@ export function CriticalBanner({
       tasks.runTask(scenario, 'lapor', recipient, (ok) => ok && setChain(true));
       return;
     }
-    startTransition(async () => {
-      const r = await reportCriticalAction({ sampleId: sample.id, recipient, readBack: true });
-      if (!r.ok) return setError(r.message);
-      const now = demoNow().toISOString();
-      setFeedback(r.message);
-      setFormOpen(false);
-      onLocalReport(sample.id, { recipient, reportedAt: now, readBackAt: now, tookSeconds: elapsed });
-    });
+    run(
+      (current) =>
+        reportCriticalAction({
+          sampleId: sample.id,
+          recipient,
+          readBack: true,
+          rev: current,
+          elapsedSeconds: elapsed,
+        }),
+      (r) => {
+        if (!r.ok) return setError(r.message);
+        setFeedback(r.message);
+        setFormOpen(false);
+      },
+    );
   };
 
   if (stage === 'selesai') {

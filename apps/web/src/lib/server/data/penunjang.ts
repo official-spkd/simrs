@@ -19,8 +19,10 @@ import {
   scenarioLabSamples,
   scenarioPatientMap,
 } from '../../penunjang-skenario';
+import { applyStoredReportToSample } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns, scenariosHere } from '../demo/scenario-context';
+import { readDomain } from '../demo/state';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -47,11 +49,19 @@ export async function penunjangScenario(
  * mode api menunggu backend fase 4.
  */
 
-/** Worklist laboratorium; `scenario` = hasil replay simulasi sesi ini (`scenarioRuns(session).results`). */
+/**
+ * Worklist laboratorium; `scenario` = hasil replay simulasi sesi ini (`scenarioRuns(session).results`). Laporan
+ * nilai kritis yang tersimpan di toko demo (domain `hasil-kritis`, ADR-0085) diterapkan ke sampelnya.
+ */
 export async function getLabWorklist(scenario: ScenarioResults): Promise<LabWorklist> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    return labWorklistSchema.parse(demoLabWorklist(scenarioLabSamples(scenario)));
+    const base = demoLabWorklist(scenarioLabSamples(scenario));
+    const { state } = await readDomain('hasil-kritis');
+    return labWorklistSchema.parse({
+      ...base,
+      samples: base.samples.map((s) => applyStoredReportToSample(s, state)),
+    });
   }
   return notImplemented('laboratorium');
 }
