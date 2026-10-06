@@ -4,6 +4,7 @@ import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
 import { klaimDomain } from '../../keuangan-klaim-toko';
+import { piutangDomain } from '../../keuangan-piutang-toko';
 import { tagihanDomain } from '../../keuangan-tagihan-toko';
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
@@ -49,6 +50,7 @@ export const DEMO_DOMAINS = {
   pengaturan: settingsDomain,
   penjadwal: jobsDomain,
   persetujuan: consentDomain,
+  piutang: piutangDomain,
   'rekam-medis': rekamDomain,
   'resume-medis': resumeDomain,
   rujukan: referralDomain,

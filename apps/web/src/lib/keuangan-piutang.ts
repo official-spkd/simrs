@@ -303,8 +303,8 @@ export function adjustmentProblems(
 
 /** Persetujuan penyesuaian: posisi manajemen dan pembuat ≠ penyetuju. */
 export function adjustmentApprovalProblem(
-  a: Pick<Penyesuaian, 'maker' | 'status' | 'amount'>,
-  approver: { name: string; role: string | null },
+  a: Pick<Penyesuaian, 'maker' | 'status' | 'amount'> & { makerId?: string },
+  approver: { id?: string; name: string; role: string | null },
   item?: Pick<PiutangItem, 'amount' | 'paid'>,
 ): string | null {
   if (a.status !== 'menunggu') return 'Penyesuaian sudah diputuskan.';
@@ -312,7 +312,9 @@ export function adjustmentApprovalProblem(
     return 'Nominal penyesuaian melebihi sisa piutang saat ini (ada pelunasan sesudah diajukan); ajukan ulang.';
   if (approver.role !== 'manajemen')
     return 'Penyesuaian piutang disetujui posisi manajemen (manajer keuangan).';
-  if (approver.name === a.maker) return 'Pembuat penyesuaian tidak boleh menyetujui sendiri.';
+  // Pembuat dari sesi dibandingkan dengan id pengguna; data contoh (tanpa id) dengan nama.
+  const same = a.makerId && approver.id ? a.makerId === approver.id : approver.name === a.maker;
+  if (same) return 'Pembuat penyesuaian tidak boleh menyetujui sendiri.';
   return null;
 }
 

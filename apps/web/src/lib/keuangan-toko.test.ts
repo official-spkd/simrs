@@ -10,6 +10,7 @@ import { akuntansiDomain, applyAkuntansi, closeCheck, periodLockMessage } from '
 import {
   autoJurnalSchema,
   patientPaymentJournal,
+  toAutoJurnal,
   recognitionAutoJournal,
   type AutoJurnal,
 } from './keuangan-jurnal';
@@ -24,6 +25,9 @@ import {
 } from './keuangan-tagihan-toko';
 import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keuangan-skenario';
 import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
+import { piutangDomain } from './keuangan-piutang-toko';
+import { paymentJournal } from './keuangan-piutang';
+import { NEXT_BATCH_SEQ } from './demo/fixtures/piutang';
 import { runScenario } from './demo/engine/run';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import { invoiceSettlement } from './keuangan';
@@ -477,6 +481,73 @@ describe('domain klaim · Kasir → Klaim → verifikasi; koding → klaim', () 
         koder,
       ),
     ).toMatch(/tervalidasi/);
+  });
+});
+
+describe('domain piutang · batch, pelunasan berjurnal, penyesuaian pembuat ≠ penyetuju', () => {
+  const staf: DemoActor = { userId: 'u-piutang', name: 'Staf Piutang', role: 'akuntan', baseRole: null };
+  const manajer: DemoActor = { userId: 'u-mgr', name: 'Manajer Keuangan', role: 'manajemen', baseRole: null };
+
+  it('batch → kirim → bayar sebagian; jurnal pelunasan mengalir ke Akuntansi', () => {
+    const pay = {
+      type: 'batch.bayar',
+      number: 'TG-2610-' + String(NEXT_BATCH_SEQ).padStart(3, '0'),
+      amount: '4000000',
+      reference: 'MT-BTN-77821',
+      at: AT,
+      jurnal: [
+        toAutoJurnal(paymentJournal({ number: 'TG', payerGroup: 'asuransi' }, 4_000_000n), {
+          source: 'klaim',
+          reference: 'Piutang · TG',
+        }),
+      ],
+    };
+    const events = [
+      ev('piutang', { type: 'batch.buat', itemIds: ['pi-03', 'pi-04'], at: AT }, staf),
+      ev('piutang', { type: 'batch.kirim', number: pay.number, at: AT }, staf),
+      ev('piutang', pay, staf),
+    ];
+    const p = project(piutangDomain, log(events));
+    const b = p.state.batches.find((x) => x.number === pay.number);
+    expect(b?.status).toBe('sebagian');
+    expect(p.state.items.find((i) => i.id === 'pi-03')?.paid).toBe(4_000_000n);
+    expect(project(akuntansiDomain, log(events)).state.journals).toHaveLength(1);
+  });
+
+  it('penyesuaian: pembuat (id sesi) tidak boleh menyetujui; posisi manajemen; tolak wajib alasan', () => {
+    const p = project(
+      piutangDomain,
+      log([
+        ev(
+          'piutang',
+          {
+            type: 'penyesuaian.ajukan',
+            itemId: 'pi-05',
+            kind: 'potongan',
+            amount: '500000',
+            reason: 'Potongan kontrak 10% sesuai PKS penjamin B',
+            at: AT,
+          },
+          manajer,
+        ),
+      ]),
+    );
+    const adj = p.state.adjustments[0];
+    const putus = (approve: boolean, reason: string | null) => ({
+      type: 'penyesuaian.putuskan' as const,
+      adjId: adj?.id ?? '',
+      approve,
+      reason,
+      at: AT,
+      jurnal: [],
+    });
+    expect(piutangDomain.validate?.(p.state, putus(true, null), manajer)).toMatch(
+      /tidak boleh menyetujui sendiri/,
+    );
+    expect(piutangDomain.validate?.(p.state, putus(true, null), staf)).toMatch(/posisi manajemen/);
+    const lain = { ...manajer, userId: 'u-mgr-2', name: 'Manajer Keuangan' };
+    expect(piutangDomain.validate?.(p.state, putus(false, null), lain)).toMatch(/alasan penolakan/);
+    expect(piutangDomain.validate?.(p.state, putus(true, null), lain)).toBeNull();
   });
 });
 

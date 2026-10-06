@@ -18,6 +18,7 @@ import {
 } from './demo/fixtures/keuangan';
 import { closeReadiness, needsMapping, reconLabel } from './keuangan-akuntansi';
 import { type AutoJurnal, labelPeriode, periodeOf } from './keuangan-jurnal';
+import { piutangDomain } from './keuangan-piutang-toko';
 import { tagihanDomain } from './keuangan-tagihan-toko';
 
 /**
@@ -235,7 +236,7 @@ export const akuntansiDomain = defineDomain<AkuntansiState, AkuntansiEvent>(AKUN
         return { ...s, lastExport: sig };
     }
   },
-  subscriptions: [journalSubscription(tagihanDomain)],
+  subscriptions: [journalSubscription(tagihanDomain), journalSubscription(piutangDomain)],
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -295,6 +296,23 @@ const add = (a: string, b: bigint) => {
   return (v < 0n ? 0n : v).toString();
 };
 
+/**
+ * Umur piutang + piutang baru dari jurnal toko periode berjalan (kelompok 0–30 hari). Dipakai layar Akuntansi dan
+ * Penjaminan & piutang agar angkanya sama.
+ */
+export function applyAgingDelta(
+  aging: AccountingBoard['aging'],
+  s: Pick<AkuntansiState, 'journals'>,
+): AccountingBoard['aging'] {
+  const delta = receivableDelta(s.journals.filter((j) => periodeOf(j.date) === CURRENT_PERIOD.id));
+  return aging.map((row) => {
+    const d = delta[row.payer];
+    return d === 0n
+      ? row
+      : { ...row, buckets: [add(row.buckets[0], d), row.buckets[1], row.buckets[2], row.buckets[3]] };
+  });
+}
+
 /** Papan Akuntansi (fixture + skenario) setelah keadaan toko diterapkan. */
 export function applyAkuntansi(board: AccountingBoard, s: AkuntansiState): AccountingBoard {
   const inPeriod = s.journals.filter((j) => periodeOf(j.date) === board.period.id);
@@ -327,12 +345,7 @@ export function applyAkuntansi(board: AccountingBoard, s: AkuntansiState): Accou
     journals: [...journals, ...own].sort(
       (a, b) => Date.parse(a.date) - Date.parse(b.date) || a.number.localeCompare(b.number),
     ),
-    aging: board.aging.map((row) => {
-      const d = delta[row.payer];
-      return d === 0n
-        ? row
-        : { ...row, buckets: [add(row.buckets[0], d), row.buckets[1], row.buckets[2], row.buckets[3]] };
-    }),
+    aging: applyAgingDelta(board.aging, s),
   };
 }
 
