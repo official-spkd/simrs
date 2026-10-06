@@ -16,7 +16,7 @@ import {
   type SettingDraft,
 } from '../../platform-pengaturan';
 import { DEMO_DOCUMENTS, DOCUMENT_PATIENT_IDS } from '../../demo/fixtures/dokumen';
-import { STAF } from '../../demo/fixtures/staf';
+import { PERSONA, STAF } from '../../demo/fixtures/staf';
 import type { DemoDocument, DocPatient } from '../../platform-dokumen';
 import { DEMO_JOBS } from '../../demo/fixtures/penjadwal';
 import type { ScheduledJob } from '../../platform-penjadwal';
@@ -33,6 +33,8 @@ import {
   MANIFEST_ROWS,
 } from '../../demo/fixtures/operasional';
 import type { BackupLocation, BackupRun } from '../../operasional-backup';
+import { GOLIVE_CHECKLIST, GOLIVE_OWNERS, MRMIK_EPS } from '../../demo/fixtures/golive';
+import type { ChecklistArea, MrmikEp } from '../../golive';
 import type { PaperForm } from '../../operasional-downtime';
 import type { PublicQueue, PublicSchedule } from '@simrs/shared';
 import { demoQueueBoard, demoWeeklySchedule, todayQuotas } from '../../demo/fixtures/front-office';
@@ -190,5 +192,20 @@ export async function getBackupOverview(): Promise<{
     runs: [...BACKUP_RUNS],
     lastTest: { ...LAST_RESTORE_TEST },
     manifest: [...MANIFEST_ROWS],
+  };
+}
+
+export async function getGoLiveReadiness(): Promise<{
+  eps: MrmikEp[];
+  areas: ChecklistArea[];
+  owners: readonly string[];
+  director: string;
+}> {
+  if (!isDemo()) return notImplemented('kesiapan go-live (layar demo)');
+  return {
+    eps: [...MRMIK_EPS],
+    areas: GOLIVE_CHECKLIST.map((a) => ({ ...a, items: a.items.map((i) => ({ ...i })) })),
+    owners: GOLIVE_OWNERS,
+    director: PERSONA.direktur,
   };
 }

@@ -165,6 +165,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'box',
         available: false,
       },
+      { id: 'golive', label: 'Kesiapan go-live', href: '/sistem/go-live', icon: 'check', available: false },
       // FE1 · akhir
     ],
   },

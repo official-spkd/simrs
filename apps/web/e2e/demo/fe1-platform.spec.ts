@@ -419,4 +419,52 @@ test.describe('FE1 · platform dan operasional', () => {
     );
     await expectNoHorizontalOverflow(page);
   });
+
+  test('go-live: GO terkunci sampai item kritis selesai berpemilik, keputusan tercatat, matriks 51 EP tersaring', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/sistem/go-live');
+    await expect(
+      page.getByRole('heading', { name: 'Kesiapan go-live · ceklis dan bukti MRMIK', level: 1 }),
+    ).toBeVisible();
+    const go = page.getByRole('button', { name: 'Putuskan GO' });
+    await page
+      .getByLabel('Catatan keputusan (wajib, tercatat)')
+      .fill('Pilot mulai Senin 12 Okt, hypercare 2 minggu');
+    await expect(go).toBeDisabled();
+    await expect(
+      page.getByText('Terkunci: 3 item kritis belum selesai atau belum berpemilik.'),
+    ).toBeVisible();
+
+    await page.getByRole('checkbox', { name: /Kunci cadangan dipegang dua orang terpisah/ }).check();
+    await page.getByLabel('Pemilik: Kunci cadangan dipegang dua orang terpisah').selectOption('Direktur');
+    await page.getByRole('checkbox', { name: /Dokter dan perawat terlatih CPPT/ }).check();
+    await page.getByRole('checkbox', { name: /Kontak 24 jam BPJS/ }).check();
+    await expect(go).toBeDisabled();
+    await page.getByLabel(/^Pemilik: Kontak 24 jam BPJS/).selectOption('Kepala IT');
+    await expect(go).toBeEnabled();
+    await go.click();
+    await page
+      .getByRole('alertdialog', { name: 'Putuskan GO go-live?' })
+      .getByRole('button', { name: 'Ya, putuskan GO' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: /Keputusan GO · \d{2}\.\d{2}/ })).toContainText(
+      'Pilot mulai Senin 12 Okt',
+    );
+
+    await page.getByRole('tab', { name: 'Matriks 51 EP MRMIK' }).click();
+    await expect(page.getByRole('region', { name: 'Ringkasan MRMIK' })).toContainText(
+      '21 kunci · 16 pendukung · 14 tata kelola',
+    );
+    await page
+      .getByRole('group', { name: 'Saring klasifikasi' })
+      .getByRole('button', { name: 'Kunci' })
+      .click();
+    await page.getByRole('group', { name: 'Saring status' }).getByRole('button', { name: 'Belum' }).click();
+    const matrix = page.getByRole('region', { name: 'Matriks 51 EP MRMIK' });
+    await expect(matrix.getByRole('row')).toHaveCount(2);
+    await expect(matrix).toContainText('MRMIK 10b');
+    await expectNoHorizontalOverflow(page);
+  });
 });

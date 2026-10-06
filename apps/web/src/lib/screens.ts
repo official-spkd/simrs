@@ -540,6 +540,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['admin_tenant'],
     layout: 'staf',
   },
+  {
+    id: 'golive',
+    label: 'Kesiapan go-live',
+    route: '/sistem/go-live',
+    mockup: null,
+    components: [],
+    phase: 10,
+    status: 'demo',
+    plannedPermission: 'golive.read',
+    demoRoles: ['manajemen', 'admin_tenant', 'petugas_rm'],
+    layout: 'staf',
+  },
   // FE1 · akhir
 ];
 
