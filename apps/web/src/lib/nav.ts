@@ -115,6 +115,16 @@ export const NAV_GROUPS: WebNavGroup[] = [
         requires: 'forms.definition.write',
       },
       { id: 'integrasi', label: 'Integrasi', href: '/sistem/integrasi', icon: 'plug', available: false },
+      // FE1 · platform dan operasional (mode presentasi)
+      { id: 'struktur', label: 'Struktur RS', href: '/sistem/struktur', icon: 'layout', available: false },
+      {
+        id: 'pengaturan',
+        label: 'Pengaturan RS',
+        href: '/sistem/pengaturan',
+        icon: 'menu',
+        available: false,
+      },
+      // FE1 · akhir
     ],
   },
 ];

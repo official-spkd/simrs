@@ -430,6 +430,32 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: 'semua',
     layout: 'perangkat',
   },
+  // FE1 · platform fase 1–2 tanpa layar + operasional fase 10 (mode presentasi)
+  {
+    id: 'struktur',
+    label: 'Struktur RS',
+    route: '/sistem/struktur',
+    mockup: null,
+    components: ['P01'],
+    phase: 1,
+    status: 'demo',
+    plannedPermission: 'facility.write',
+    demoRoles: ['admin_tenant', 'manajemen'],
+    layout: 'staf',
+  },
+  {
+    id: 'pengaturan',
+    label: 'Pengaturan RS',
+    route: '/sistem/pengaturan',
+    mockup: null,
+    components: ['P10', 'P12'],
+    phase: 1,
+    status: 'demo',
+    plannedPermission: 'tenant.settings.write',
+    demoRoles: ['admin_tenant'],
+    layout: 'staf',
+  },
+  // FE1 · akhir
 ];
 
 const BY_ID = new Map(SCREENS.map((s) => [s.id, s]));
