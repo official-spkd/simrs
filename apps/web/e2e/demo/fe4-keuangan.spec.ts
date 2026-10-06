@@ -419,3 +419,32 @@ test.describe('hutang usaha (U10)', () => {
     await ctx.close();
   });
 });
+
+test.describe('costing dan case-mix (I10)', () => {
+  test('margin per INA-CBG dan DPJP, varians pathway, telaah ke komite medik', async ({ page }) => {
+    const direktur = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direktur, '/keuangan/costing');
+    await page.goto('/keuangan/costing');
+    await expect(
+      page.getByRole('heading', { name: /Costing & case-mix · biaya per kasus/, level: 1 }),
+    ).toBeVisible();
+    const detail = page.getByRole('complementary', { name: 'Komposisi biaya kasus' });
+    await expect(detail.locator('[data-margin]')).toHaveAttribute('data-margin', '-607200');
+    await expect(detail.getByText(/Lama rawat 5,8 hari vs pathway 5,0 hari/)).toBeVisible();
+    await page.getByRole('radio', { name: 'Per DPJP' }).click();
+    await expect(
+      page.getByRole('region', { name: 'Margin kasus' }).getByText('dr. Kartika Sari, Sp.P').first(),
+    ).toBeVisible();
+    await detail.getByRole('button', { name: 'Ajukan telaah clinical pathway…' }).click();
+    const send = detail.getByRole('button', { name: 'Kirim ke komite medik' });
+    await expect(send).toBeDisabled();
+    await detail
+      .getByLabel(/Catatan telaah/)
+      .fill('LOS di atas pathway; tinjau kriteria pulang dan switch antibiotik oral');
+    await send.click();
+    await expect(
+      page.getByText(/Telaah clinical pathway J-4-15-II .* dikirim ke komite medik · \d{2}\.\d{2}/),
+    ).toBeVisible();
+    await noHorizontalOverflow(page);
+  });
+});

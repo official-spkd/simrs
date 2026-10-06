@@ -1,4 +1,5 @@
 import 'server-only';
+import { COSTING_PERIOD, DRIVER_OVERHEAD, KASUS_COSTING } from '../../demo/fixtures/costing';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
 import { FAKTUR_PEMASOK, HUTANG_SUMMARY } from '../../demo/fixtures/hutang';
 import { LACI, MUTASI_BANK, REKENING_KORAN } from '../../demo/fixtures/kas-bank';
@@ -89,3 +90,9 @@ export function getPayablesBoard() {
   return { invoices: FAKTUR_PEMASOK, summary: HUTANG_SUMMARY };
 }
 export type PayablesBoard = ReturnType<typeof getPayablesBoard>;
+
+export function getCostingBoard() {
+  demoOnly('costing dan case-mix (I10)');
+  return { cases: KASUS_COSTING, drivers: DRIVER_OVERHEAD, period: COSTING_PERIOD };
+}
+export type CostingBoard = ReturnType<typeof getCostingBoard>;
