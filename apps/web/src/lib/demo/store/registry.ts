@@ -5,12 +5,14 @@ import { goLiveDomain } from '../../golive-toko';
 import { pembayaranDomain } from '../../btn-pembayaran-toko';
 import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { costingDomain } from '../../keuangan-costing-toko';
 import { hutangDomain } from '../../keuangan-hutang-toko';
 import { jaspelDomain } from '../../keuangan-jaspel-toko';
 import { kasbankDomain } from '../../keuangan-kasbank-toko';
 import { klaimDomain } from '../../keuangan-klaim-toko';
 import { piutangDomain } from '../../keuangan-piutang-toko';
 import { tagihanDomain } from '../../keuangan-tagihan-toko';
+import { tarifDomain } from '../../keuangan-tarif-toko';
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
 import { poliDomain } from '../../klinis-poli-toko';
@@ -43,6 +45,7 @@ export const DEMO_DOMAINS = {
   akuntansi: akuntansiDomain,
   antrean: queueDomain,
   cadangan: backupDomain,
+  costing: costingDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
   golive: goLiveDomain,
@@ -70,6 +73,7 @@ export const DEMO_DOMAINS = {
   rujukan: referralDomain,
   struktur: structureDomain,
   tagihan: tagihanDomain,
+  tarif: tarifDomain,
   'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
 } as const;

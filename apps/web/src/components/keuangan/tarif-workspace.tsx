@@ -1,21 +1,21 @@
 'use client';
 
-import { type ChargeCategory, formatJam, formatTanggalWaktu } from '@simrs/shared';
+import type { ChargeCategory } from '@simrs/shared';
 import { Chip, cx, FilterChip, KpiCard, RadioSegmented, Tabs } from '@simrs/ui';
 import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type TarifActionInput, tarifAction } from '@/app/(staf)/keuangan/tarif/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { CATEGORY_LABEL } from '@/lib/keuangan';
 import { tanggalPendek } from '@/lib/keuangan-jurnal';
 import {
   activeVersion,
-  applyApproved,
   type HargaKelas,
-  type ItemTarif,
   KELAS_TARIF,
   payerPrice,
   scheduledVersion,
   type UsulanTarif,
 } from '@/lib/keuangan-tarif';
+import type { TarifState } from '@/lib/keuangan-tarif-toko';
 import type { TariffBoard } from '@/lib/server/data/keuangan-lanjut';
 import { TarifDetail } from './tarif-detail';
 import { TarifPaket } from './tarif-paket';
@@ -26,26 +26,35 @@ const num = (v: bigint) => v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 /**
  * U01 · Ruang kerja Tarif dan paket (tanpa mockup; gaya layar Akuntansi): daftar tarif per kelas dan penjamin,
  * rincian komponen dan riwayat versi, usulan perubahan → persetujuan (pembuat ≠ penyetuju, tidak retroaktif),
- * dan paket. Simulasi lokal; tidak ada yang disimpan.
+ * dan paket. Usulan dan keputusan tersimpan di toko demo (domain `tarif`, ADR-0085) atas nama pengguna sesi.
  */
 export function TarifWorkspace({
   board,
+  store,
+  rev,
   today,
   viewer,
 }: {
   board: TariffBoard;
+  /** Item tarif dan usulan setelah aksi tersimpan (domain `tarif`). */
+  store: TarifState;
+  rev: number;
   today: string;
   viewer: { name: string; role: string | null };
 }) {
-  const [items, setItems] = useState<readonly ItemTarif[]>(board.items);
-  const [proposals, setProposals] = useState<readonly UsulanTarif[]>(board.proposals);
+  const { items, proposals } = store;
   const [tab, setTab] = useState('tarif');
   const [cat, setCat] = useState<ChargeCategory | 'semua'>('semua');
   const [q, setQ] = useState('');
   const [payer, setPayer] = useState<string>('umum');
   const [sel, setSel] = useState('AKM-KMR');
-  const [flash, setFlash] = useState<string | null>(null);
-  const [seq, setSeq] = useState(8);
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
+  const { run } = useStoreAction(rev);
+  const act = (input: TarifActionInput) =>
+    run(
+      (r) => tarifAction({ ...input, rev: r }),
+      (res) => setFlash({ text: res.message, ok: res.ok }),
+    );
 
   const bp = board.payers.find((p) => p.id === payer) ?? board.payers[0];
   const cats = [...new Set(items.map((i) => i.category))];
@@ -60,52 +69,22 @@ export function TarifWorkspace({
   const scheduled = items.filter((i) => scheduledVersion(i, today));
   const pendingFor = (code: string) => pending.find((p) => p.itemCode === code)?.number ?? null;
 
-  const propose = (code: string, d: { validFrom: string; prices: HargaKelas; reason: string }) => {
-    const now = demoNow();
-    const number = `UT-2610-${String(seq).padStart(3, '0')}`;
-    setSeq((n) => n + 1);
-    setProposals((list) => [
-      {
-        id: `ut-${seq}`,
-        number,
-        itemCode: code,
-        maker: viewer.name,
-        makerRole: viewer.role === 'manajemen' ? 'Manajemen' : 'Akuntan',
-        createdAt: now.toISOString(),
-        status: 'diajukan',
-        ...d,
+  const propose = (code: string, d: { validFrom: string; prices: HargaKelas; reason: string }) =>
+    act({
+      type: 'ajukan',
+      itemCode: code,
+      validFrom: d.validFrom,
+      prices: {
+        k3: d.prices.k3.toString(),
+        k2: d.prices.k2.toString(),
+        k1: d.prices.k1.toString(),
+        vip: d.prices.vip.toString(),
       },
-      ...list,
-    ]);
-    setFlash(
-      `Usulan ${number} diajukan · ${formatTanggalWaktu(now)} · berlaku mulai ${tanggalPendek(d.validFrom)} setelah disetujui manajemen (simulasi, tidak disimpan)`,
-    );
-  };
-  const decide = (u: UsulanTarif, approve: boolean, note?: string) => {
-    const now = demoNow();
-    const at = now.toISOString();
-    setProposals((list) =>
-      list.map((p) =>
-        p.id === u.id
-          ? {
-              ...p,
-              status: approve ? 'disetujui' : 'ditolak',
-              decidedBy: viewer.name,
-              decidedAt: at,
-              decisionNote: note,
-            }
-          : p,
-      ),
-    );
-    if (approve)
-      setItems((list) => list.map((i) => (i.code === u.itemCode ? applyApproved(i, u, viewer.name, at) : i)));
-    const name = items.find((i) => i.code === u.itemCode)?.name ?? u.itemCode;
-    setFlash(
-      approve
-        ? `${u.number} disetujui · ${formatJam(now)} · ${name} versi baru terjadwal berlaku ${tanggalPendek(u.validFrom)}; versi berlaku ditutup sehari sebelumnya`
-        : `${u.number} ditolak · ${formatJam(now)} · alasan dikirim ke ${u.maker}`,
-    );
-  };
+      reason: d.reason,
+      rev: 0,
+    });
+  const decide = (u: UsulanTarif, approve: boolean, note?: string) =>
+    act({ type: 'putuskan', proposalId: u.id, approve, note: approve ? null : (note ?? null), rev: 0 });
 
   const list = (
     <section
@@ -238,9 +217,15 @@ export function TarifWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash}
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
       <Tabs
