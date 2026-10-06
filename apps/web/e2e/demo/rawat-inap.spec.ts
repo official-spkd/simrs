@@ -133,6 +133,18 @@ test.describe('rawat inap', () => {
     const dose = emar.getByRole('button', { name: /^Insulin aspart sesuai skala jam 12\.00/ });
     await expect(dose).toBeDisabled();
     await expect(emar.getByRole('alert')).toContainText('Pemberian obat terkunci sampai gelang pasien cocok');
+    // Mockup Ranap: dua baris status gerbang, tautan cepat yang selalu terlihat, ubin EWS dan GDS terakhir.
+    await expect(
+      emar.getByRole('status').filter({ hasText: '○ Pasien · gelang belum dipindai' }),
+    ).toContainText('○ Obat · pemberian nonaktif sampai gelang cocok');
+    const quick = page.getByRole('navigation', { name: 'Tautan cepat pasien' });
+    for (const l of ['Order & resep (CPOE)', 'Persetujuan tindakan', 'Resume medis', 'Perencanaan pulang']) {
+      await expect(quick.getByText(l)).toBeVisible();
+    }
+    const tiles = emar.getByRole('list', { name: 'Pantauan terakhir' });
+    await expect(tiles).toContainText(/EWS dewasa \d{2}\.\d{2}/);
+    await expect(tiles).toContainText('GDS terakhir');
+    await expect(page.getByRole('heading', { name: /^CPPT terintegrasi · \d+ \w+$/ })).toBeVisible();
     await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
     await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
     await expect(dose).toBeEnabled();
@@ -170,6 +182,24 @@ test.describe('rawat inap', () => {
     await expect(cppt.getByText('S wajib diisi.')).toBeVisible();
     await expect(cppt.getByText('Versi 2 · koreksi: Salah ketik nilai SpO2')).toBeVisible();
     await expectNoHorizontalScroll(page);
+  });
+
+  test('observasi bertanggal dengan jam observasi berikutnya; askep shift pagi berbilah kemajuan', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], `/klinis/rawat-inap/${ENCOUNTER_ID.endang}`);
+    await page.getByRole('tab', { name: 'Observasi & EWS' }).click();
+    const obs = page.getByRole('region', { name: 'Observasi dan EWS' });
+    await expect(obs.getByRole('heading', { name: /^Observasi tanda vital · \d+ \w+$/ })).toBeVisible();
+    await expect(obs.getByText(/Observasi berikutnya (\d{2}\.\d{2}|: pantau kontinu)/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Asuhan keperawatan' }).click();
+    const askep = page.getByRole('region', { name: 'Asuhan keperawatan' });
+    await expect(askep.getByRole('heading', { name: 'Intervensi keperawatan · shift pagi' })).toBeVisible();
+    const bar = askep.getByRole('progressbar', { name: 'Kemajuan intervensi keperawatan' });
+    const before = Number(await bar.getAttribute('aria-valuenow'));
+    await askep.getByRole('checkbox', { checked: false }).first().check();
+    await expect(bar).toHaveAttribute('aria-valuenow', String(before + 1));
   });
 
   test('CPPT: koreksi = versi baru beralasan, hanya oleh penulisnya; versi lama tetap tampil', async ({
@@ -262,7 +292,7 @@ test.describe('rawat inap', () => {
     // Dosis terakhir tercatat → tugas `emar` Simulasi selesai, hari berikutnya terbuka.
     await expect(journey).toContainText('Obat jadwal pertama tercatat per dosis');
     await expect(day1).toBeEnabled();
-    await expect(emar.getByRole('listitem')).toHaveCount(5);
+    await expect(emar.getByRole('list', { name: 'Pemberian tercatat' }).getByRole('listitem')).toHaveCount(5);
     await expectNoHorizontalScroll(page);
   });
 });

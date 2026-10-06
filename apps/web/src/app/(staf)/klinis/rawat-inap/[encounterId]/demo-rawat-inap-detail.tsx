@@ -1,5 +1,6 @@
 import { formatTanggalLahir } from '@simrs/shared';
 import { Chip, PatientBanner } from '@simrs/ui';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
@@ -87,6 +88,26 @@ export async function DemoRawatInapDetail({
       : []),
     ...(order ? [{ href: `${order}/${s.encounterId}`, label: 'Order' }] : []),
   ];
+  // Baris tautan cepat yang selalu terlihat (mockup Ranap). Pasien tanpa draf resume / dokumen persetujuan sendiri
+  // diarahkan ke daftar layar itu; layar yang belum ada di presentasi tertulis "belum tersedia".
+  const resumeHref = resume
+    ? RESUME_ENCOUNTERS.includes(s.encounterId)
+      ? `${resume}/${s.encounterId}`
+      : resume
+    : null;
+  const quickLinks = [
+    { label: 'Order & resep (CPOE)', href: order ? `${order}/${s.encounterId}` : null },
+    {
+      label: 'Persetujuan tindakan',
+      href: consent
+        ? CONSENT_IDS.includes(consentIdOf(p.id))
+          ? `${consent}/${consentIdOf(p.id)}`
+          : consent
+        : null,
+    },
+    { label: 'Resume medis', href: resumeHref },
+    { label: 'Perencanaan pulang', href: resumeHref },
+  ];
 
   return (
     <div className="flex flex-col gap-4">
@@ -116,11 +137,33 @@ export async function DemoRawatInapDetail({
           EWS {s.lastEws} · {lv.level}
         </Chip>
       </div>
+      <nav aria-label="Tautan cepat pasien" className="flex flex-wrap gap-2">
+        {quickLinks.map((l) =>
+          l.href ? (
+            <Link
+              key={l.label}
+              href={l.href}
+              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+            >
+              {l.label}
+            </Link>
+          ) : (
+            <span
+              key={l.label}
+              aria-disabled="true"
+              className="inline-flex min-h-11 items-center rounded-control border border-line bg-muted px-3.5 text-small text-ink-500"
+            >
+              {l.label} · belum tersedia
+            </span>
+          ),
+        )}
+      </nav>
       <ScenarioBanner session={session} screen="ranap" />
       <InpatientWorkspace
         detail={d}
         patient={{ name: p.nama, rm: p.rm }}
         user={session.user.displayName}
+        userRole={session.role?.name ?? null}
         canCosign={session.role?.code === 'dokter'}
         initialTab={tab as InpatientTab}
         scenario={step}

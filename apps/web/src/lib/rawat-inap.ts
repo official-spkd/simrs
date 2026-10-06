@@ -2,6 +2,7 @@ import {
   ATS_LABEL,
   ATS_TARGET_MINUTES,
   type Bed,
+  type ClinicalResult,
   type BedStatus,
   type ConsentDocument,
   type CpptEntry,
@@ -662,10 +663,75 @@ export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string
 
 /** "5 Okt · 07.40" (WIB) untuk daftar padat. */
 export function formatTglJam(iso: string): string {
-  const tgl = formatTanggal(iso)
+  return `${formatTglSingkat(iso)} · ${formatJam(iso)}`;
+}
+
+/** "5 Okt" (tanpa hari dan tahun; zona Asia/Jakarta). */
+export function formatTglSingkat(iso: string): string {
+  return formatTanggal(iso)
     .replace(/^\w+, /, '')
     .replace(/ \d{4}$/, '');
-  return `${tgl} · ${formatJam(iso)}`;
+}
+
+/** Interval observasi ulang per tingkat EWS dalam jam (selaras tindak lanjut `ewsRisk`); null = pantau kontinu. */
+export const EWS_REPEAT_HOURS: Record<EwsLevel['level'], number | null> = {
+  rendah: 4,
+  sedang: 1,
+  tinggi: null,
+};
+
+/** "ulang tiap 4 jam" / "pantau kontinu" untuk ubin EWS. */
+export function ewsRepeatLabel(level: EwsLevel['level']): string {
+  const h = EWS_REPEAT_HOURS[level];
+  return h === null ? 'pantau kontinu' : `ulang tiap ${h} jam`;
+}
+
+/** "Observasi berikutnya 15.00" dari observasi terakhir + interval EWS (tinggi: pantau kontinu, tanpa jam). */
+export function nextObservationText(lastAt: string, level: EwsLevel['level']): string {
+  const h = EWS_REPEAT_HOURS[level];
+  if (h === null) return 'Observasi berikutnya: pantau kontinu.';
+  return `Observasi berikutnya ${formatJam(new Date(Date.parse(lastAt) + h * 3_600_000))}.`;
+}
+
+/** Shift keperawatan dari jam "HH.MM": pagi 07–14, sore 14–21, malam selebihnya. */
+export function nursingShift(hhmm: string): 'pagi' | 'sore' | 'malam' {
+  const h = Number(hhmm.slice(0, 2));
+  return h >= 7 && h < 14 ? 'pagi' : h >= 14 && h < 21 ? 'sore' : 'malam';
+}
+
+export interface GdsTrend {
+  at: string;
+  value: string;
+  flag: ClinicalResult['flag'];
+  /** Nilai sebelumnya, terbaru dulu, mis. "06.00: 188 · kemarin: 254". */
+  history: string;
+}
+
+/**
+ * Gula darah terakhir + dua nilai sebelumnya dari hasil penunjang (nama "Gula darah …"); null bila tidak ada hasil
+ * gula darah (ubin tidak ditampilkan, nilai tidak dikarang).
+ */
+export function gdsTrend(results: readonly ClinicalResult[]): GdsTrend | null {
+  const gds = results
+    .filter((r) => /^gula darah/i.test(r.name))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const [last, ...prev] = gds;
+  if (!last) return null;
+  const day = (iso: string) => formatTanggal(iso);
+  const yesterday = formatTanggal(new Date(Date.parse(last.at) - 86_400_000));
+  const history = prev
+    .slice(0, 2)
+    .map((r) => {
+      const when =
+        day(r.at) === day(last.at)
+          ? formatJam(r.at)
+          : day(r.at) === yesterday
+            ? 'kemarin'
+            : formatTglSingkat(r.at);
+      return `${when}: ${r.value.replace(/\s*mg\/dL$/i, '')}`;
+    })
+    .join(' · ');
+  return { at: last.at, value: last.value, flag: last.flag, history };
 }
 
 /** Slot yang bisa dicatat pemberiannya (setelah gelang cocok; `@simrs/shared`). */

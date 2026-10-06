@@ -23,6 +23,7 @@ export function EmarGate({
   wait,
   progress,
   busy,
+  drugScanned = false,
   onScan,
   onOverride,
 }: {
@@ -35,6 +36,8 @@ export function EmarGate({
   /** Kemajuan dosis jam "kini" yang tampil setelah gelang cocok. */
   progress: string | null;
   busy: boolean;
+  /** Sudah ada dosis yang label obatnya terpindai dan tercatat (baris status "Obat"). */
+  drugScanned?: boolean;
   onScan: () => void;
   onOverride: (reason: string) => void;
 }) {
@@ -56,6 +59,9 @@ export function EmarGate({
             : `Override tercatat ${scan.at ?? ''} · verifikasi manual dua identitas`}
         </span>
         {scan.reason && <span className="text-ink-700">Alasan: {scan.reason}</span>}
+        <span className={drugScanned ? 'font-semibold' : 'text-ink-700'}>
+          {drugScanned ? '✓ Obat benar · label terpindai' : '○ Obat · menunggu pindai (pilih dosis)'}
+        </span>
         <span className="text-ink-700">
           Pilih satu slot jadwal, pindai label obatnya, lalu catat pemberian dosis itu.
           {progress ? ` ${progress}` : ''}
@@ -65,11 +71,8 @@ export function EmarGate({
   }
   return (
     <div className="flex flex-col gap-2.5">
-      <div
-        role="alert"
-        className="flex flex-wrap items-center gap-3 rounded-control border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),#FFFAF2_60%)] px-3.5 py-3"
-      >
-        <span className="flex min-w-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center gap-3 rounded-control border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),#FFFAF2_60%)] px-3.5 py-3">
+        <span role="alert" className="flex min-w-0 flex-1 flex-col">
           <span className="font-semibold text-warning-strong">
             Pemberian obat terkunci sampai gelang pasien cocok
           </span>
@@ -79,6 +82,11 @@ export function EmarGate({
               {wait} Gelang dipindai pada langkah perawatan pasien ini.
             </span>
           )}
+        </span>
+        {/* Dua baris status pemindaian (mockup Ranap): pasien, lalu obat. */}
+        <span role="status" className="flex flex-col text-caption font-semibold text-warning">
+          <span>○ Pasien · gelang belum dipindai</span>
+          <span className="text-ink-500">○ Obat · pemberian nonaktif sampai gelang cocok</span>
         </span>
         <span className="flex flex-wrap gap-2">
           <Button

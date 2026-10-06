@@ -3,7 +3,14 @@
 import { type ClinicalResult, type EwsObservation, formatJam } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
-import { formatTglJam, observationEwsLevel } from '@/lib/rawat-inap';
+import {
+  ewsRepeatLabel,
+  formatTglJam,
+  formatTglSingkat,
+  type GdsTrend,
+  nextObservationText,
+  observationEwsLevel,
+} from '@/lib/rawat-inap';
 
 const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   normal: { label: 'Normal', cls: 'text-success' },
@@ -22,7 +29,9 @@ export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
       className="flex flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="m-0 text-body font-semibold">Observasi tanda vital</h2>
+        <h2 className="m-0 text-body font-semibold">
+          Observasi tanda vital{last ? ` · ${formatTglSingkat(last.at)}` : ''}
+        </h2>
         <span className="text-caption text-ink-500">
           EWS dewasa · rendah 0–4 · sedang 5–6 atau satu parameter 3 · tinggi ≥ 7
         </span>
@@ -75,11 +84,55 @@ export function EwsPanel({ observations }: { observations: EwsObservation[] }) {
             EWS {last.score} · {lv.level}
           </span>
           <span className="text-ink-700">
-            {lv.action} Observasi terakhir {formatJam(last.at)}.
+            {lv.action} Observasi terakhir {formatJam(last.at)}. {nextObservationText(last.at, lv.level)}
           </span>
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Ubin pantauan di bawah eMAR (mockup Ranap): EWS terakhir + interval ulang, gula darah terakhir + tren. Hanya dari
+ * data yang ada: tanpa observasi/hasil gula darah ubinnya tidak tampil. Balans cairan 24 jam belum ada di data rekam
+ * rawat inap, jadi tidak ditampilkan (tidak dikarang).
+ */
+export function MonitoringTiles({
+  observations,
+  gds,
+}: {
+  observations: EwsObservation[];
+  gds: GdsTrend | null;
+}) {
+  const last = observations.at(-1);
+  const lv = last ? observationEwsLevel(last) : null;
+  if (!last && !gds) return null;
+  return (
+    <ul aria-label="Pantauan terakhir" className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2">
+      {last && lv && (
+        <li className="flex flex-col gap-0.5 rounded-card border border-line bg-white px-3.5 py-3">
+          <span className="text-caption text-ink-500">EWS dewasa {formatJam(last.at)}</span>
+          <span className={cx('text-h2 font-bold', lv.level === 'rendah' ? 'text-success' : 'text-danger')}>
+            {last.score} · {lv.level}
+          </span>
+          <span className="text-caption text-ink-700">{ewsRepeatLabel(lv.level)}</span>
+        </li>
+      )}
+      {gds && (
+        <li className="flex flex-col gap-0.5 rounded-card border border-line bg-white px-3.5 py-3">
+          <span className="text-caption text-ink-500">GDS terakhir · {formatJam(gds.at)}</span>
+          <span
+            className={cx('text-h2 font-bold', gds.flag === 'normal' ? 'text-ink-900' : FLAG[gds.flag].cls)}
+          >
+            {gds.value}
+            {gds.flag !== 'normal' && (
+              <span className="ml-1.5 text-caption font-semibold">{FLAG[gds.flag].label}</span>
+            )}
+          </span>
+          {gds.history && <span className="text-caption text-ink-700">{gds.history}</span>}
+        </li>
+      )}
+    </ul>
   );
 }
 
@@ -116,24 +169,39 @@ export interface NursingView {
   interventions: Array<{ id: string; label: string; done: boolean }>;
 }
 
-/** Intervensi keperawatan shift ini (centang disimpan lokal, simulasi). */
+/** Intervensi keperawatan shift berjalan (centang disimpan lokal, simulasi) + bilah kemajuan berlabel teks. */
 export function NursingPanel({
   problems,
+  shift,
   onToggle,
 }: {
   problems: NursingView[];
+  /** Shift berjalan ("pagi", "sore", "malam") untuk judul. */
+  shift: string;
   onToggle: (id: string) => void;
 }) {
   const all = problems.flatMap((p) => p.interventions);
   const done = all.filter((i) => i.done).length;
+  const pct = all.length ? Math.round((done / all.length) * 100) : 0;
   return (
     <section
       aria-label="Asuhan keperawatan"
       className="overflow-hidden rounded-card border border-line bg-white"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
-        <h2 className="m-0 text-body font-semibold">Intervensi keperawatan · shift ini</h2>
-        <span className="text-caption font-semibold text-ink-700">
+        <h2 className="m-0 text-body font-semibold">Intervensi keperawatan · shift {shift}</h2>
+        <span className="flex items-center gap-2 text-caption font-semibold text-ink-700">
+          <span
+            role="progressbar"
+            aria-label="Kemajuan intervensi keperawatan"
+            aria-valuemin={0}
+            aria-valuemax={all.length}
+            aria-valuenow={done}
+            aria-valuetext={`${done} dari ${all.length} intervensi selesai`}
+            className="h-2 w-[90px] overflow-hidden rounded-full bg-line-soft"
+          >
+            <span className="block h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
+          </span>
           {done}/{all.length} intervensi
         </span>
       </div>

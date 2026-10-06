@@ -11,6 +11,7 @@ import {
   cpptMatches,
   cpptNotePayload,
   formatTglJam,
+  formatTglSingkat,
   newCpptEntry,
   type SoapText,
   supersededIds,
@@ -36,6 +37,8 @@ export function CpptPanel({
   encounterId,
   entries,
   user,
+  userRole,
+  today,
   canCosign,
   sbar,
   onAdd,
@@ -45,6 +48,10 @@ export function CpptPanel({
   entries: CpptEntry[];
   /** Nama pengguna yang masuk (penulis catatan baru; penentu siapa boleh mengoreksi). */
   user: string;
+  /** Nama posisi pengguna yang masuk (judul formulir CPPT baru), mis. "Perawat". */
+  userRole: string | null;
+  /** Tanggal rawat berjalan (ISO) untuk judul, mis. "CPPT terintegrasi · 5 Okt". */
+  today: string;
   canCosign: boolean;
   sbar: { s: string; b: string; a: string; r: string };
   onAdd: (e: CpptEntry) => void;
@@ -120,7 +127,7 @@ export function CpptPanel({
       className="min-w-0 flex-[1_1_460px] overflow-hidden rounded-card border border-line bg-white"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-4 py-3">
-        <h2 className="m-0 text-body font-semibold">CPPT terintegrasi</h2>
+        <h2 className="m-0 text-body font-semibold">CPPT terintegrasi · {formatTglSingkat(today)}</h2>
         <div role="group" aria-label="Filter profesi" className="flex flex-wrap gap-1.5">
           {FILTERS.map(([id, label]) => (
             <FilterChip key={id} selected={filter === id} onClick={() => setFilter(id)}>
@@ -137,7 +144,7 @@ export function CpptPanel({
               ? `Koreksi CPPT ${formatJam(form.target.writtenAt)} · menjadi versi ${form.target.version + 1}`
               : form.mode === 'addendum'
                 ? `Addendum atas CPPT ${form.target.author} · ${formatTglJam(form.target.writtenAt)} (catatan asli tidak berubah)`
-                : 'CPPT baru · ditandatangani atas nama pengguna yang masuk'
+                : `CPPT baru · ${user}${userRole ? ` · ${userRole.toLowerCase()}` : ''}`
           }
           initial={
             form.mode === 'koreksi'
@@ -184,7 +191,9 @@ export function CpptPanel({
         ))}
       </ol>
       {shown.length === 0 && (
-        <p className="m-0 px-4 py-3.5 text-small text-ink-500">Belum ada catatan dari profesi ini.</p>
+        <p className="m-0 px-4 py-3.5 text-small text-ink-500">
+          Belum ada catatan dari profesi ini hari ini.
+        </p>
       )}
       {showSbar && (
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-line bg-subtle px-4 py-3 text-small">

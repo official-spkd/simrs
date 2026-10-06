@@ -2,7 +2,7 @@
 
 import { EMAR_TIMES, type EmarMedication, type EmarTime } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { type ReactNode, useState, useTransition } from 'react';
 import {
   allDueGiven,
   dueProgress,
@@ -43,6 +43,7 @@ export function EmarPanel({
   scenarioBusy,
   onChange,
   onAllDue,
+  footer,
 }: {
   encounterId: string;
   meds: EmarMedication[];
@@ -59,6 +60,8 @@ export function EmarPanel({
   scenarioBusy: boolean;
   onChange: (update: (cur: EmarLocal) => EmarLocal) => void;
   onAllDue: () => void;
+  /** Ubin pantauan di bawah kartu eMAR (mockup Ranap: EWS terakhir, GDS). */
+  footer?: ReactNode;
 }) {
   const [pick, setPick] = useState<{ med: EmarMedication; time: EmarTime } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +129,7 @@ export function EmarPanel({
               : null
           }
           busy={locked}
+          drugScanned={state.log.length > 0}
           onScan={() => scan(rm, null)}
           onOverride={(reason) => scan(null, reason)}
         />
@@ -247,7 +251,7 @@ export function EmarPanel({
         {state.log.length > 0 && (
           <div className="flex flex-col gap-1 border-t border-line-soft pt-2.5">
             <span className="text-caption font-semibold text-ink-700">Pemberian tercatat shift ini</span>
-            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+            <ul aria-label="Pemberian tercatat" className="m-0 flex list-none flex-col gap-1 p-0 text-small">
               {state.log.map((g) => (
                 <li key={`${g.t}-${g.what}`}>
                   <span className="font-mono font-semibold">{g.t}</span> · {g.what}{' '}
@@ -258,6 +262,7 @@ export function EmarPanel({
           </div>
         )}
       </div>
+      {footer}
     </section>
   );
 }

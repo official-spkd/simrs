@@ -326,12 +326,17 @@ dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
 
 1. Buka **Rawat inap**. Daftar memuat bed, pasien, diagnosis, DPJP, hari rawat, EWS, dan penanda (mis. "Menunggu
    co-sign DPJP"). Saring dengan "Filter bangsal", lalu klik pasien, mis. Ny. Endang Wijaya.
-2. Judul menjadi "Rawat inap · Bangsal Melati M-203". Banner pasien memuat "Alergi: Amoksisilin".
+2. Judul menjadi "Rawat inap · Bangsal Melati M-203". Banner pasien memuat "Alergi: Amoksisilin". Di bawahnya baris
+   "Tautan cepat pasien" selalu terlihat: **Order & resep (CPOE)**, **Persetujuan tindakan**, **Resume medis**, dan
+   **Perencanaan pulang** (pasien tanpa draf resume atau dokumen persetujuan sendiri diarahkan ke daftar layarnya).
 
    ![Rekam rawat inap Ny. Endang Wijaya: tab CPPT dan eMAR dengan grid jadwal obat terkunci dan CPPT terintegrasi](./gambar/ranap--detail.png)
 
-3. Di tab **CPPT & eMAR**, grid eMAR terkunci dengan pesan "Pemberian obat terkunci sampai gelang pasien cocok".
-   Tekan **Pindai gelang**. Status menjadi "✓ Pasien benar · gelang terpindai … · RM …".
+3. Di tab **CPPT & eMAR**, grid eMAR terkunci dengan pesan "Pemberian obat terkunci sampai gelang pasien cocok" dan
+   dua baris status "○ Pasien · gelang belum dipindai" dan "○ Obat · pemberian nonaktif sampai gelang cocok".
+   Tekan **Pindai gelang**. Status menjadi "✓ Pasien benar · gelang terpindai … · RM …". Di bawah kartu eMAR ada
+   ubin EWS terakhir (dengan interval ulang) dan GDS terakhir dengan nilai sebelumnya bila pasien punya hasil gula
+   darah. Balans cairan 24 jam belum ditampilkan karena belum ada di data rekam rawat inap.
 
    ![eMAR setelah gelang terpindai: slot jadwal obat bisa dipilih, dosis kewaspadaan tinggi bertanda cek ganda](./gambar/ranap--emar-terbuka.png)
 
@@ -343,8 +348,10 @@ dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
 7. Untuk catatan sendiri tekan **Koreksi CPPT …**, ubah isi, isi "Alasan koreksi", lalu
    **Simpan koreksi (versi baru)**. Untuk catatan PPA lain tekan **Addendum atas CPPT …** lalu **Simpan addendum**.
 8. DPJP (posisi dokter) menekan **Setujui co-sign DPJP** pada catatan residen yang "Menunggu co-sign DPJP".
-9. Tab **Observasi & EWS** menampilkan tabel tanda vital dengan skor EWS. Tab **Asuhan keperawatan** memuat
-   intervensi shift ini. Tab **Hasil** memuat hasil penunjang terbaru.
+9. Tab **Observasi & EWS** ("Observasi tanda vital · <tanggal>") menampilkan tabel tanda vital dengan skor EWS dan
+   tindak lanjut "Observasi berikutnya HH.MM" (rendah tiap 4 jam, sedang tiap 1 jam, tinggi pantau kontinu). Tab
+   **Asuhan keperawatan** ("Intervensi keperawatan · shift pagi") memuat bilah kemajuan berlabel "n/m intervensi".
+   Tab **Hasil** memuat hasil penunjang terbaru.
 10. Pasien skenario (Tn. Hartono, Ny. Ratna Sari) punya region "Perjalanan rawat (simulasi)" dengan tombol
     **Lompat ke hari 1 pagi** dan seterusnya, yang terbuka setelah semua dosis jadwal pertama tercatat.
 

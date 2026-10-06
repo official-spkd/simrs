@@ -4,12 +4,12 @@ import type { CpptEntry, InpatientDetail } from '@simrs/shared';
 import { TabList, TabPanel } from '@simrs/ui';
 import { useId, useState } from 'react';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
-import { emarTurnBlocker } from '@/lib/rawat-inap';
+import { emarTurnBlocker, gdsTrend, nursingShift } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { CpptPanel } from './cppt-panel';
 import { DayJumps } from './day-jumps';
 import { type EmarLocal, EmarPanel } from './emar-panel';
-import { EwsPanel, NursingPanel, ResultsPanel, SummaryPanel } from './inpatient-panels';
+import { EwsPanel, MonitoringTiles, NursingPanel, ResultsPanel, SummaryPanel } from './inpatient-panels';
 import type { InpatientTab } from './tabs';
 
 /** K04/K07/K12 · Lima tab rekam rawat inap; state lokal (CPPT baru, eMAR, centang askep) bertahan antar-tab. */
@@ -17,6 +17,7 @@ export function InpatientWorkspace({
   detail,
   patient,
   user,
+  userRole,
   canCosign,
   initialTab,
   scenario,
@@ -27,6 +28,7 @@ export function InpatientWorkspace({
   detail: InpatientDetail;
   patient: { name: string; rm: string };
   user: string;
+  userRole: string | null;
   canCosign: boolean;
   initialTab: InpatientTab;
   scenario: ScenarioStepState | null;
@@ -46,6 +48,8 @@ export function InpatientWorkspace({
   });
   const [askep, setAskep] = useState<Record<string, boolean>>({});
   const enc = detail.summary.encounterId;
+  // Hari rawat berjalan = tanggal observasi terakhir (pasien skenario mengikuti jam Simulasinya).
+  const today = detail.observations.at(-1)?.at ?? `${detail.summary.admittedOn}T00:00:00+07:00`;
 
   const entries = [...detail.cppt, ...added].map((e) => {
     const c = cosigned[e.id];
@@ -72,6 +76,8 @@ export function InpatientWorkspace({
             encounterId={enc}
             entries={entries}
             user={user}
+            userRole={userRole}
+            today={today}
             canCosign={canCosign}
             sbar={sbar}
             onAdd={(e) => setAdded((cur) => [...cur, e])}
@@ -91,6 +97,7 @@ export function InpatientWorkspace({
             scenarioBusy={pending}
             onChange={setEmar}
             onAllDue={() => runTask(scenario ?? undefined, 'emar', true)}
+            footer={<MonitoringTiles observations={detail.observations} gds={gdsTrend(detail.results)} />}
           />
         </div>
       ),
@@ -102,6 +109,7 @@ export function InpatientWorkspace({
       content: (
         <NursingPanel
           problems={nursing}
+          shift={nursingShift(detail.emarNow)}
           onToggle={(id) =>
             setAskep((cur) => {
               const base =
