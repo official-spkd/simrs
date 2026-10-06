@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600" role="img" aria-labelledby="judul ket">
+  <title id="judul">Satu layar, dua sumber data</title>
+  <desc id="ket">Halaman page.tsx memanggil requireScreen dengan id layar dari registri SCREENS. Di mode presentasi (APP_ENV local dan DATA_SOURCE demo) halaman merender komponen demo yang memakai fixture fiktif dan mesin skenario, dengan Server Action yang dijaga assertDemo. Di mode api halaman memeriksa sesi dan izin layar, lalu memanggil API lewat BFF; bila jalur api belum dibangun, tampil Belum tersambung atau Akses ditolak.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}.warnbox{fill:#FFF3E0;stroke:#8A4B00;stroke-width:1.3}.infobox{fill:#EEF2FB;stroke:#1E3A8A;stroke-width:1.3}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}.cap{font-size:11px;font-weight:700;letter-spacing:.08em}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+    .tb{fill:#0B5D56}.tw{fill:#8A4B00}.ti{fill:#1E3A8A}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnw{stroke:#8A4B00;stroke-width:1.6;fill:none}.lni{stroke:#1E3A8A;stroke-width:1.6;fill:none}
+    .ah{fill:#5B6B79}.ahw{fill:#8A4B00}.ahi{fill:#1E3A8A}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.warnbox{fill:#362510;stroke:#F0B45A}.infobox{fill:#18223F;stroke:#93ACF5}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tw{fill:#F0B45A}.ti{fill:#A9BCF7}
+      .ln{stroke:#8FA1B0}.lnw{stroke:#F0B45A}.lni{stroke:#93ACF5}.ah{fill:#8FA1B0}.ahw{fill:#F0B45A}.ahi{fill:#93ACF5}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahw" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahi" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="600" rx="14"/>
+  <text class="h" x="24" y="38">Satu layar, dua sumber data (ADR-0023)</text>
+  <text class="sub" x="24" y="60">Rute final sama di kedua mode. Registri SCREENS menentukan status, posisi pemakai, dan izin setiap layar.</text>
+
+  <!-- Registri -->
+  <rect class="brandbox" x="24" y="88" width="300" height="168" rx="12"/>
+  <text class="t tb" x="40" y="112">Registri layar</text>
+  <text class="mono" x="40" y="132">apps/web/src/lib/screens.ts</text>
+  <text class="s" x="40" y="156">id, rute, mockup, komponen, fase</text>
+  <text class="s" x="40" y="176">status: belum → demo → api</text>
+  <text class="s" x="40" y="196">demoRoles: posisi di mode presentasi</text>
+  <text class="s" x="40" y="216">permission: izin sungguhan (hibrida)</text>
+  <text class="s" x="40" y="236">apiOnly: hanya mode api</text>
+  <path class="ln" d="M324 172H366" marker-end="url(#a)"/>
+  <text class="xs" x="331" y="164">menu</text>
+
+  <!-- page.tsx -->
+  <rect class="card" x="370" y="88" width="260" height="168" rx="12"/>
+  <text class="t" x="386" y="112">page.tsx (komponen server)</text>
+  <text class="mono" x="386" y="136">requireScreen('poli')</text>
+  <text class="s" x="386" y="160">baca webEnv().dataSource</text>
+  <text class="s" x="386" y="180">demo hanya bila APP_ENV=local</text>
+  <text class="s" x="386" y="198">dan DATA_SOURCE=demo</text>
+  <text class="s" x="386" y="222">layar tanpa izin/registri → 404</text>
+  <text class="xs" x="386" y="242">lib/server/screen-guard.ts</text>
+
+  <!-- Cabang -->
+  <path class="lnw" d="M450 256V300H200V322" marker-end="url(#aw)"/>
+  <text class="cap tw" x="210" y="292">MODE PRESENTASI</text>
+  <path class="lni" d="M550 256V300H780V322" marker-end="url(#ai)"/>
+  <text class="cap ti" x="640" y="292">MODE API</text>
+
+  <!-- Demo -->
+  <rect class="warnbox" x="24" y="326" width="460" height="196" rx="12"/>
+  <text class="t tw" x="40" y="350">Jalur demo (data dummy fiktif)</text>
+  <text class="s" x="40" y="374">requireDemoScreen: sesi + posisi aktif ∈ demoRoles,</text>
+  <text class="s" x="40" y="392">bukan pemakai → ajakan "Ganti posisi"</text>
+  <text class="mono" x="40" y="416">demo-&lt;layar&gt;.tsx · actions-demo.ts (assertDemo)</text>
+  <text class="mono" x="40" y="436">lib/server/data/&lt;domain&gt;.ts → lib/demo/fixtures</text>
+  <text class="s" x="40" y="460">skenario Simulasi: lib/demo/engine (putar ulang murni)</text>
+  <text class="s" x="40" y="478">+ keadaan per akun (lib/server/demo/store.ts)</text>
+  <text class="xs" x="40" y="504">skema respons dibagi dengan API: packages/shared/src/schemas</text>
+
+  <!-- API -->
+  <rect class="infobox" x="516" y="326" width="460" height="196" rx="12"/>
+  <text class="t ti" x="532" y="350">Jalur api (tersambung backend)</text>
+  <text class="s" x="532" y="374">requireSession + izin ScreenDef.permission</text>
+  <text class="s" x="532" y="392">tanpa izin → "Akses ditolak"</text>
+  <text class="mono" x="532" y="416">api-&lt;layar&gt;.tsx · actions.ts / actions-api.ts</text>
+  <text class="mono" x="532" y="436">api() di lib/server/api.ts → /api/v1/…</text>
+  <text class="s" x="532" y="460">respons divalidasi zod (lib/server/schemas.ts)</text>
+  <text class="s" x="532" y="478">jalur belum dibangun → "Belum tersambung"</text>
+  <text class="xs" x="532" y="504">izin ditegakkan ulang oleh API (RBAC + ABAC + RLS)</text>
+
+  <text class="xs" x="24" y="552">Contoh hibrida lengkap: Pendaftaran (demo-pendaftaran.tsx + api-pendaftaran.tsx). Contoh demo saja: Laboratorium (requireDemoScreen, 404 di mode api).</text>
+  <text class="xs" x="24" y="572">Contoh api saja: Kendali antrean (apiOnly). Panduan langkah demi langkah: docs/panduan/19-peta-kode.md.</text>
+</svg>
