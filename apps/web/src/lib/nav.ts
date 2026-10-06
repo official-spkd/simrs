@@ -111,6 +111,34 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'akuntansi', label: 'Akuntansi', href: '/keuangan/akuntansi', icon: 'book', available: false },
+      // FE4 · keuangan lanjutan
+      { id: 'tarif', label: 'Tarif & paket', href: '/keuangan/tarif', icon: 'list', available: false },
+      {
+        id: 'charge',
+        label: 'Charge capture',
+        href: '/keuangan/charge-capture',
+        icon: 'pulse',
+        available: false,
+      },
+      { id: 'piutang', label: 'Piutang', href: '/keuangan/piutang', icon: 'fileCheck', available: false },
+      { id: 'koding', label: 'Workbench koder', href: '/keuangan/koding', icon: 'search', available: false },
+      {
+        id: 'jaspel',
+        label: 'Jasa pelayanan',
+        href: '/keuangan/jasa-pelayanan',
+        icon: 'users',
+        available: false,
+      },
+      { id: 'kas-bank', label: 'Kas & bank', href: '/keuangan/kas-bank', icon: 'bank', available: false },
+      { id: 'hutang', label: 'Hutang usaha', href: '/keuangan/hutang', icon: 'box', available: false },
+      {
+        id: 'costing',
+        label: 'Costing & case-mix',
+        href: '/keuangan/costing',
+        icon: 'chart',
+        available: false,
+      },
+      // FE4 · akhir
     ],
   },
   {

@@ -15,6 +15,8 @@ import {
   type RefundSubmission,
   refundView,
 } from '@/lib/btn';
+import { refundJournal } from '@/lib/keuangan-jurnal';
+import { JurnalPasangan } from '@/components/keuangan/jurnal-pasangan';
 import { type RefundDraft, RefundForm } from './refund-form';
 
 const STEPS = ['Diajukan', 'Supervisor kasir', 'Manajer keuangan', 'Transfer BTN', 'Dana kembali'];
@@ -229,6 +231,12 @@ export function RefundTab({
             Dana {formatRupiah(amount)} sudah kembali ke {f.destination}. Status transaksi asal diperbarui dan
             jurnal refund terbentuk otomatis.
           </div>
+        )}
+        {!isDraft && amount > 0n && (
+          <JurnalPasangan
+            jurnal={refundJournal(f.number, amount)}
+            status={stage === 'dana-kembali' ? 'terposting saat dana kembali' : 'diposting saat dana kembali'}
+          />
         )}
         <div className="flex flex-col gap-1 border-t border-line pt-2.5">
           <span className="text-small font-semibold">Riwayat</span>

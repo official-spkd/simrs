@@ -88,7 +88,7 @@ export function VaBox({
           role="status"
           className="rounded-[8px] border border-[#B7DEC0] bg-[#EAF5EC] px-2.5 py-2 font-semibold text-success"
         >
-          Webhook TPDI diterima {paidAt} · payment.succeeded · status lunas
+          Webhook TPDI diterima {paidAt} · payment.paid · status lunas
         </span>
       ) : (
         <button type="button" onClick={onSimulate} className={cx(SIM_BTN, 'self-start')}>

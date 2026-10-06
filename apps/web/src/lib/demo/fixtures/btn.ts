@@ -607,7 +607,7 @@ export const KONFIGURASI: PaymentConfig = {
   ],
   mode: 'produksi',
   webhook: {
-    url: 'POST /api/v1/webhooks/tpdi',
+    url: 'POST /api/v1/webhooks/tpdi/RSFA',
     algorithm: 'HMAC-SHA256',
     signatureHeader: 'X-TPDI-Signature',
     eventIdHeader: 'X-TPDI-Event-Id',
