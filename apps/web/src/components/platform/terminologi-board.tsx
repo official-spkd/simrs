@@ -9,10 +9,11 @@ import {
 } from '@simrs/shared';
 import { Alert, Button, Chip, cx, Field, KpiCard, RadioSegmented, Tabs } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
+import type { TerminologyStoreState } from '@/lib/platform-terminologi-toko';
 import type { DemoImportFile } from '@/lib/demo/fixtures/terminologi';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
-  applyImport,
   dryRunImport,
   type ImportReport,
   MATCH_LABEL,
@@ -135,12 +136,13 @@ function ReportView({ report, replace }: { report: ImportReport; replace: boolea
 function ImportTab({
   concepts,
   files,
-  onApplied,
+  rev,
 }: {
-  concepts: RefConcept[];
+  concepts: readonly RefConcept[];
   files: DemoImportFile[];
-  onApplied: (next: RefConcept[], version: RefVersion) => void;
+  rev: number;
 }) {
+  const { dispatch, pending, error } = useDemoDispatch('terminologi', rev);
   const [fileId, setFileId] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<DemoImportFile | null>(null);
   const [replace, setReplace] = useState(false);
@@ -209,7 +211,7 @@ function ImportTab({
         </ul>
         <label className="flex flex-col gap-1.5 text-small">
           <span className="font-semibold text-ink-700">
-            Atau unggah CSV LOINC sendiri (diproses di browser, tidak dikirim)
+            Atau unggah CSV LOINC sendiri (uji kering di browser; isi dikirim hanya saat diterapkan)
           </span>
           <input
             type="file"
@@ -267,7 +269,7 @@ function ImportTab({
           <span className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={!!applyReason || !!applied}
+              disabled={!!applyReason || !!applied || pending}
               aria-describedby={applyReason ? 'impor-alasan' : undefined}
               onClick={() => setConfirming(true)}
             >
@@ -278,9 +280,9 @@ function ImportTab({
                 {applyReason}
               </span>
             )}
-            {applied && (
+            {(applied || error) && (
               <span role="status">
-                <Stamp>{applied}</Stamp>
+                <Stamp>{error ?? applied}</Stamp>
               </span>
             )}
           </span>
@@ -292,36 +294,41 @@ function ImportTab({
         onConfirm={() => {
           if (!report || !file) return;
           const now = demoNow();
-          onApplied(applyImport(concepts, report, replace), {
-            system: report.system,
-            version: file.version,
-            source: file.name,
-            appliedAt: now.toISOString(),
-            appliedBy: 'Anda (sesi ini)',
-            inserted: report.inserted,
-            updated: report.updated,
-            deactivated: replace ? report.deactivated : 0,
-          });
-          setApplied(`Diterapkan · ${formatJam(now)} · ${SYSTEM_SHORT[report.system]} versi ${file.version}`);
+          const text = `Diterapkan · ${formatJam(now)} · ${SYSTEM_SHORT[report.system]} versi ${file.version}`;
+          dispatch(
+            {
+              type: 'impor.diterapkan',
+              fileId: file.id,
+              ...(file.id === 'unggah'
+                ? { upload: { name: file.name, system: file.system, text: file.text.slice(0, 12_000) } }
+                : {}),
+              replace,
+              at: now.toISOString(),
+            },
+            (ok) => ok && setApplied(text),
+          );
         }}
       />
     </div>
   );
 }
 
-/** P06 · Cari kode baku (tahan salah ketik), impor CSV bergerbang uji kering, dan riwayat versi per sistem kode. */
+/**
+ * P06 · Cari kode baku (tahan salah ketik), impor CSV bergerbang uji kering, dan riwayat versi per sistem kode. Impor
+ * yang diterapkan tersimpan di toko demo bersama (domain `terminologi`) atas nama pengguna sesi.
+ */
 export function TerminologiBoard({
-  initial,
-  versions,
+  state,
+  rev,
   files,
 }: {
-  initial: RefConcept[];
-  versions: RefVersion[];
+  state: TerminologyStoreState;
+  rev: number;
   files: DemoImportFile[];
 }) {
   const [tab, setTab] = useState('cari');
-  const [concepts, setConcepts] = useState(initial);
-  const [history, setHistory] = useState(versions);
+  const concepts = state.concepts;
+  const history: readonly RefVersion[] = state.versions;
   const counts = REF_CODE_SYSTEM_IDS.map((s) => ({
     s,
     active: concepts.filter((c) => c.system === s && c.active).length,
@@ -349,20 +356,11 @@ export function TerminologiBoard({
         onChange={setTab}
         keepMounted
         items={[
-          { id: 'cari', label: 'Cari kode', content: <SearchTab concepts={concepts} /> },
+          { id: 'cari', label: 'Cari kode', content: <SearchTab concepts={[...concepts]} /> },
           {
             id: 'impor',
             label: 'Impor CSV',
-            content: (
-              <ImportTab
-                concepts={concepts}
-                files={files}
-                onApplied={(next, v) => {
-                  setConcepts(next);
-                  setHistory((cur) => [v, ...cur]);
-                }}
-              />
-            ),
+            content: <ImportTab concepts={concepts} files={files} rev={rev} />,
           },
           {
             id: 'riwayat',

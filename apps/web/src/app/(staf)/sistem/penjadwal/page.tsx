@@ -7,15 +7,18 @@ import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Penjadwal pekerjaan' };
 
-/** P11 · Penjadwal pekerjaan berkala (tanpa mockup). Mode presentasi: data fiktif (ADR-0023). */
+/**
+ * P11 · Penjadwal pekerjaan berkala (tanpa mockup). Mode presentasi: data fiktif (ADR-0023); jalan manual, jeda, dan
+ * lanjut tersimpan di toko demo bersama (domain `penjadwal`, ADR-0085).
+ */
 export default async function PenjadwalPage() {
   const { screen, allowed } = await requireDemoScreen('penjadwal');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const jobs = await getScheduledJobs();
+  const d = await getScheduledJobs();
   return (
     <div className="flex flex-col gap-4">
       <ScreenHeader trail="Sistem / Penjadwal pekerjaan · P11" title="Penjadwal pekerjaan · job berkala" />
-      <PenjadwalBoard initial={jobs} />
+      <PenjadwalBoard jobs={[...d.state.jobs]} rev={d.rev} />
     </div>
   );
 }

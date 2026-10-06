@@ -3,6 +3,8 @@
 import { type BpjsSyncStatus, formatJam, formatTanggal, type ReferralStatus } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx, FilterChip, KpiCard } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
+import type { ReferralStoreState } from '@/lib/rujukan-toko';
 import {
   ActivityLog,
   type ConfirmRequest,
@@ -23,7 +25,6 @@ import {
   kindLabel,
   processSync,
   referralCounts,
-  resend,
   STATUS_LABEL,
   SYNC_LABEL,
 } from '@/lib/rujukan';
@@ -54,17 +55,27 @@ type Filter = 'semua' | Direction | 'masalah';
 
 /**
  * F07 · Rujukan masuk/keluar/internal, surat kontrol, dan SPRI: daftar kiri + detail kanan, status kirim BPJS
- * tertulis (menunggu/terbit/ditolak + alasan berkode), proses antrean kirim (simulasi mock), perbaiki tanggal lalu
- * kirim ulang, kirim ulang dari DLQ, cetak, dan batal beralasan.
+ * tertulis (menunggu/terbit/ditolak + alasan berkode), proses antrean kirim (mock BPJS), perbaiki tanggal lalu
+ * kirim ulang, kirim ulang dari DLQ, cetak, dan batal beralasan. Tersimpan di toko demo bersama (domain `rujukan`)
+ * atas nama pengguna sesi.
  */
-export function RujukanBoard({ initial, planDates }: { initial: DemoReferral[]; planDates: string[] }) {
-  const [list, setList] = useState(initial);
+export function RujukanBoard({
+  state,
+  rev,
+  planDates,
+}: {
+  state: ReferralStoreState;
+  rev: number;
+  planDates: string[];
+}) {
+  const list = state.referrals;
+  const log = [...state.log];
+  const { dispatch, pending, error } = useDemoDispatch('rujukan', rev);
   const [filter, setFilter] = useState<Filter>('semua');
-  const [selected, setSelected] = useState(initial[0]?.id ?? '');
+  const [selected, setSelected] = useState(list[0]?.id ?? '');
   const [newDate, setNewDate] = useState<string>('');
   const [flash, setFlash] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<DemoReferral | null>(null);
-  const [log, setLog] = useState<Array<{ t: string; text: string }>>([]);
 
   const shown = list.filter((r) =>
     filter === 'semua'
@@ -76,11 +87,10 @@ export function RujukanBoard({ initial, planDates }: { initial: DemoReferral[]; 
   const r = list.find((x) => x.id === selected) ?? shown[0];
   const counts = referralCounts(list);
 
-  const replace = (next: DemoReferral, text: string) => {
-    setList((cur) => cur.map((x) => (x.id === next.id ? next : x)));
+  /** Kirim aksi ke toko; umpan balik berjam bila tersimpan. */
+  const send = (build: (t: string) => Parameters<typeof dispatch>[0], text: string) => {
     const t = formatJam(demoNow());
-    setLog((cur) => [{ t, text }, ...cur]);
-    setFlash(`${text} · ${t}`);
+    dispatch(build(t), (ok) => ok && setFlash(`${text} · ${t}`));
   };
   const pick = (id: string) => {
     setSelected(id);
@@ -288,39 +298,51 @@ export function RujukanBoard({ initial, planDates }: { initial: DemoReferral[]; 
                 {r.sync.status === 'pending' && (
                   <Button
                     variant="primary"
+                    disabled={pending}
                     onClick={() => {
-                      const next = processSync(r, demoNow().toISOString());
-                      replace(
-                        next,
+                      const at = demoNow().toISOString();
+                      const next = processSync(r, at);
+                      send(
+                        (jam) => ({ type: 'antrean.diproses', id: r.id, at, jam }),
                         next.sync.status === 'sent'
                           ? `Nomor BPJS terbit ${next.number}`
                           : `Ditolak BPJS: ${next.sync.error?.message ?? ''}`,
                       );
                     }}
                   >
-                    Proses antrean kirim (simulasi)
+                    Proses antrean kirim (mock BPJS)
                   </Button>
                 )}
                 {(r.sync.status === 'rejected' || r.sync.status === 'dead') && r.status !== 'cancelled' && (
                   <Button
                     variant="primary"
-                    disabled={!resendCheck?.ok}
+                    disabled={!resendCheck?.ok || pending}
                     aria-describedby={resendCheck && !resendCheck.ok ? 'rujukan-alasan' : undefined}
-                    onClick={() => {
-                      const num =
-                        r.kind === 'spri'
-                          ? '0301R0011025S000019'
-                          : r.kind === 'rujukan-keluar'
-                            ? '0301R0011025B000007'
-                            : '0301R0011025K000099';
-                      replace(resend(r, needsDate ? newDate : null, num), 'Dikirim ulang ke antrean BPJS');
-                    }}
+                    onClick={() =>
+                      send(
+                        (jam) => ({
+                          type: 'kirim.ulang',
+                          id: r.id,
+                          newPlannedDate: needsDate ? newDate : null,
+                          jam,
+                        }),
+                        'Dikirim ulang ke antrean BPJS',
+                      )
+                    }
                   >
                     {needsDate ? 'Perbaiki & kirim ulang' : 'Kirim ulang'}
                   </Button>
                 )}
                 {(r.status === 'active' || r.status === 'used') && (
-                  <Button onClick={() => replace(r, `Surat ${r.number} dicetak · tercatat audit`)}>
+                  <Button
+                    disabled={pending}
+                    onClick={() =>
+                      send(
+                        (jam) => ({ type: 'surat.dicetak', id: r.id, jam }),
+                        `Surat ${r.number} dicetak · tercatat audit`,
+                      )
+                    }
+                  >
                     Cetak
                   </Button>
                 )}
@@ -337,9 +359,11 @@ export function RujukanBoard({ initial, planDates }: { initial: DemoReferral[]; 
                     </span>
                   )}
               </span>
-              {flash && (
+              {(flash || error) && (
                 <span role="status">
-                  <Stamp tone={flash.startsWith('Ditolak') ? 'danger' : 'success'}>{flash}</Stamp>
+                  <Stamp tone={error || flash?.startsWith('Ditolak') ? 'danger' : 'success'}>
+                    {error ?? flash}
+                  </Stamp>
                 </span>
               )}
             </Panel>
@@ -358,9 +382,10 @@ export function RujukanBoard({ initial, planDates }: { initial: DemoReferral[]; 
         onClose={() => setCancelling(null)}
         onConfirm={(reason) => {
           if (!cancelling) return;
-          replace(
-            { ...cancelling, status: 'cancelled', cancelReason: reason },
-            `${kindLabel(cancelling.kind)} dibatalkan`,
+          const c = cancelling;
+          send(
+            (jam) => ({ type: 'rujukan.dibatalkan', id: c.id, reason, jam }),
+            `${kindLabel(c.kind)} dibatalkan`,
           );
         }}
       />

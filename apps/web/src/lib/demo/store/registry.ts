@@ -1,4 +1,16 @@
+import { queueDomain } from '../../front-office-antrean';
+import { scheduleDomain } from '../../front-office-jadwal';
+import { registrationDomain } from '../../front-office-pendaftaran';
+import { backupDomain } from '../../operasional-backup-toko';
+import { downtimeDomain } from '../../operasional-downtime-toko';
+import { goLiveDomain } from '../../golive-toko';
 import { criticalDomain } from '../../penunjang-kritis';
+import { referralDomain } from '../../rujukan-toko';
+import { documentDomain } from '../../platform-dokumen-toko';
+import { settingsDomain } from '../../platform-pengaturan-toko';
+import { jobsDomain } from '../../platform-penjadwal-toko';
+import { structureDomain } from '../../platform-struktur-toko';
+import { terminologyDomain } from '../../platform-terminologi-toko';
 import type { DomainDef, DomainSource } from './define';
 
 /**
@@ -9,7 +21,19 @@ import type { DomainDef, DomainSource } from './define';
  * `lib/<domain>.ts` miliknya. Jangan mengubah baris domain lain. Kunci harus sama dengan `name` definisi (diuji).
  */
 export const DEMO_DOMAINS = {
+  antrean: queueDomain,
+  cadangan: backupDomain,
+  dokumen: documentDomain,
+  downtime: downtimeDomain,
+  golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
+  jadwal: scheduleDomain,
+  pendaftaran: registrationDomain,
+  pengaturan: settingsDomain,
+  penjadwal: jobsDomain,
+  rujukan: referralDomain,
+  struktur: structureDomain,
+  terminologi: terminologyDomain,
 } as const;
 
 export type DemoDomains = typeof DEMO_DOMAINS;

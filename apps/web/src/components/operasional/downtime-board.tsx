@@ -3,6 +3,7 @@
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx, Field, RadioSegmented } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import {
   ActivityLog,
   type ConfirmRequest,
@@ -22,12 +23,11 @@ import {
   type DowntimeAction,
   type DowntimeCause,
   incidentSummary,
-  initialDowntime,
   MAX_OFFLINE,
   type PaperForm,
-  reduceDowntime,
   STAGES,
 } from '@/lib/operasional-downtime';
+import type { DowntimeStoreState } from '@/lib/operasional-downtime-toko';
 
 const BASE = Date.parse(DEMO_NOW);
 const jam = (min: number | null) => (min === null ? '–' : formatJam(new Date(BASE + min * 60_000)));
@@ -42,29 +42,34 @@ interface Pack {
 /**
  * P13 · Latihan/penanganan downtime: aktifkan (alasan wajib, berkonfirmasi), cetak paket darurat, pendaftaran tetap
  * jalan di server edge, nyatakan pulih, masukkan entri susulan dari formulir kertas, sinkronkan antrean kirim per
- * batch sampai nol, lalu ringkasan insiden (lama gangguan, pemulihan, data hilang).
+ * batch sampai nol, lalu ringkasan insiden (lama gangguan, pemulihan, data hilang). Keadaan dan log insiden tersimpan
+ * di toko demo bersama (domain `downtime`) atas nama pengguna sesi; banner downtime tampil di layar lain.
  */
 export function DowntimeBoard({
   forms,
   pack,
   operator,
+  state,
+  rev,
 }: {
   forms: PaperForm[];
   pack: Pack;
   operator: string;
+  state: DowntimeStoreState;
+  rev: number;
 }) {
-  const [s, setS] = useState(initialDowntime);
+  const s = state.s;
   const [cause, setCause] = useState<DowntimeCause>('bpjs');
   const [reason, setReason] = useState('');
   const [backReason, setBackReason] = useState('Downtime layanan, dicatat di formulir kertas darurat');
   const [confirm, setConfirm] = useState<'activate' | 'recover' | null>(null);
-  const [log, setLog] = useState<Array<{ t: string; text: string }>>([]);
+  const { dispatch, pending, error } = useDemoDispatch('downtime', rev);
+  const log = state.log.map((l) => ({ t: jam(l.clock), text: `${l.text} · ${l.by}` }));
+  const printedBy = state.log.find((l) => l.text.startsWith('Paket cetak darurat'))?.by ?? operator;
 
-  const act = (a: DowntimeAction, text?: string) => {
-    if (!canDo(s, a, forms).ok) return;
-    const next = reduceDowntime(s, a, forms);
-    setS(next);
-    if (text) setLog((cur) => [{ t: jam(next.clock), text }, ...cur]);
+  const act = (a: DowntimeAction) => {
+    if (pending || !canDo(s, a, forms).ok) return;
+    dispatch(a);
   };
   const total = backlogTotal(s.backlog);
   const activateCheck = canDo(s, { type: 'activate', cause, reason }, forms);
@@ -121,6 +126,11 @@ export function DowntimeBoard({
 
   return (
     <div className="flex flex-col gap-4">
+      {error && (
+        <Alert level="warning" title="Aksi ditolak">
+          {error}
+        </Alert>
+      )}
       <FlowSteps
         label="Tahap downtime"
         steps={STAGES.map((label) => ({ label }))}
@@ -262,7 +272,7 @@ export function DowntimeBoard({
                     </b>{' '}
                     · {pack.sample}
                     <div className="mt-1.5 font-semibold text-danger">
-                      DICETAK {jam(s.printedAt)} OLEH {operator.toUpperCase()} · RAHASIA · tercatat audit
+                      DICETAK {jam(s.printedAt)} OLEH {printedBy.toUpperCase()} · RAHASIA · tercatat audit
                     </div>
                   </div>
                   <span role="status">
@@ -271,10 +281,7 @@ export function DowntimeBoard({
                 </>
               ) : (
                 <span>
-                  <Button
-                    variant="primary"
-                    onClick={() => act({ type: 'print' }, `Paket cetak darurat ${pack.ward} dicetak`)}
-                  >
+                  <Button variant="primary" disabled={pending} onClick={() => act({ type: 'print' })}>
                     Cetak paket darurat
                   </Button>
                 </span>
@@ -288,14 +295,12 @@ export function DowntimeBoard({
               <p className="m-0 text-small">{s.offlineRegistrations} pasien didaftarkan selama downtime.</p>
               <span className="flex flex-wrap gap-2">
                 <Button
-                  disabled={s.offlineRegistrations >= MAX_OFFLINE}
-                  onClick={() =>
-                    act({ type: 'offline-registration' }, 'Pasien didaftarkan di server edge (offline)')
-                  }
+                  disabled={s.offlineRegistrations >= MAX_OFFLINE || pending}
+                  onClick={() => act({ type: 'offline-registration' })}
                 >
                   Daftarkan pasien (offline)
                 </Button>
-                <Button variant="ghost" onClick={() => act({ type: 'tick' })}>
+                <Button variant="ghost" disabled={pending} onClick={() => act({ type: 'tick' })}>
                   Waktu berjalan 15 menit
                 </Button>
               </span>
@@ -303,7 +308,7 @@ export function DowntimeBoard({
               <span className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="primary"
-                  disabled={!recoverCheck.ok}
+                  disabled={!recoverCheck.ok || pending}
                   aria-describedby={!recoverCheck.ok ? 'dt-pulih' : undefined}
                   onClick={() => setConfirm('recover')}
                 >
@@ -362,13 +367,8 @@ export function DowntimeBoard({
                         ) : (
                           <Button
                             size="sm"
-                            disabled={!check.ok}
-                            onClick={() =>
-                              act(
-                                { type: 'back-entry', id: f.id, reason: backReason },
-                                `Entri susulan: ${f.form} · ${f.patient}`,
-                              )
-                            }
+                            disabled={!check.ok || pending}
+                            onClick={() => act({ type: 'back-entry', id: f.id, reason: backReason })}
                           >
                             Masukkan
                             <span className="sr-only">
@@ -387,9 +387,9 @@ export function DowntimeBoard({
           <span className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={!syncCheck.ok}
+              disabled={!syncCheck.ok || pending}
               aria-describedby={!syncCheck.ok ? 'dt-sync' : undefined}
-              onClick={() => act({ type: 'sync' }, 'Sinkronisasi antrean kirim dimulai')}
+              onClick={() => act({ type: 'sync' })}
             >
               Mulai sinkronisasi antrean
             </Button>
@@ -408,7 +408,7 @@ export function DowntimeBoard({
           sub="Dikirim per batch 12 pesan, berurutan, dengan kunci idempoten"
         >
           <span>
-            <Button variant="primary" onClick={() => act({ type: 'sync' })}>
+            <Button variant="primary" disabled={pending} onClick={() => act({ type: 'sync' })}>
               Kirim batch berikutnya (sisa {total})
             </Button>
           </span>
@@ -422,7 +422,7 @@ export function DowntimeBoard({
             pulih · {summary.messagesSynced} pesan tersinkron · data hilang {summary.dataLost} (RPO 0).
           </Alert>
           <span>
-            <Button onClick={() => act({ type: 'reset' }, 'Latihan downtime direset')}>
+            <Button disabled={pending} onClick={() => act({ type: 'reset' })}>
               Mulai latihan baru
             </Button>
           </span>
@@ -441,9 +441,8 @@ export function DowntimeBoard({
         request={request}
         onClose={() => setConfirm(null)}
         onConfirm={() => {
-          if (confirm === 'activate')
-            act({ type: 'activate', cause, reason }, `Mode downtime diaktifkan · ${CAUSE_LABEL[cause]}`);
-          if (confirm === 'recover') act({ type: 'recover' }, 'Layanan pulih · downtime diakhiri');
+          if (confirm === 'activate') act({ type: 'activate', cause, reason });
+          if (confirm === 'recover') act({ type: 'recover' });
         }}
       />
     </div>

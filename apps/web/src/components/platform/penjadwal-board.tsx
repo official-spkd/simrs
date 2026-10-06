@@ -3,6 +3,7 @@
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx, KpiCard } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { DEMO_NOW, demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   canRunNow,
@@ -11,7 +12,6 @@ import {
   type JobHealth,
   jobHealth,
   jobSummary,
-  recordRun,
   type ScheduledJob,
 } from '@/lib/platform-penjadwal';
 import { type ConfirmRequest, ConfirmDialog, Panel, Stamp, TableWrap, TD, TH } from './parts';
@@ -23,21 +23,16 @@ const TONE: Record<JobHealth, ChipTone> = {
   dijeda: 'neutral',
 };
 
-/** Pesan hasil jalan manual yang berhasil (mock pihak luar sudah pulih). */
-const RERUN_MESSAGE: Record<string, string> = {
-  'aplicare-bed': '8 kelas rawat terkirim (Aplicare pulih)',
-  'laporan-rl': 'RL 3.1 September terkirim ulang setelah koreksi koding; tanda terima SIRS diterima',
-};
-
 type Pending = { kind: 'run' | 'pause' | 'resume'; job: ScheduledJob } | null;
 
 /**
  * P11 · Penjadwal pekerjaan: daftar job berkala dengan status tertulis (berhasil/gagal/terlambat/dijeda), riwayat
- * jalan, jalankan sekarang berkonfirmasi (alasan wajib untuk job berisiko), dan jeda/lanjutkan beralasan.
+ * jalan, jalankan sekarang berkonfirmasi (alasan wajib untuk job berisiko), dan jeda/lanjutkan beralasan. Tersimpan
+ * di toko demo bersama (domain `penjadwal`) atas nama pengguna sesi.
  */
-export function PenjadwalBoard({ initial }: { initial: ScheduledJob[] }) {
-  const [jobs, setJobs] = useState(initial);
-  const [selected, setSelected] = useState(initial[0]?.id ?? '');
+export function PenjadwalBoard({ jobs, rev }: { jobs: ScheduledJob[]; rev: number }) {
+  const { dispatch, pending: saving, error } = useDemoDispatch('penjadwal', rev);
+  const [selected, setSelected] = useState(jobs[0]?.id ?? '');
   const [running, setRunning] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<Pending>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -56,25 +51,18 @@ export function PenjadwalBoard({ initial }: { initial: ScheduledJob[] }) {
     setFlash(`${j.name} mulai berjalan · ${formatJam(t0)}${reason ? ` · alasan: ${reason}` : ''}`);
     const timer = window.setTimeout(() => {
       const t1 = demoNow();
-      setJobs((cur) =>
-        cur.map((x) =>
-          x.id === j.id
-            ? recordRun(x, {
-                at: t1.toISOString(),
-                durationSec: 2,
-                result: 'berhasil',
-                message: RERUN_MESSAGE[j.id] ?? j.runs[0]?.message ?? 'Selesai',
-                manual: true,
-              })
-            : x,
-        ),
+      dispatch(
+        { type: 'job.dijalankan', id: j.id, reason, at: t1.toISOString(), jam: formatJam(t1) },
+        (ok) => {
+          setRunning((cur) => {
+            const next = { ...cur };
+            delete next[j.id];
+            return next;
+          });
+          if (ok) setFlash(`${j.name} selesai · ${formatJam(t1)} · berhasil (jalan manual)`);
+          else setFlash(null);
+        },
       );
-      setRunning((cur) => {
-        const next = { ...cur };
-        delete next[j.id];
-        return next;
-      });
-      setFlash(`${j.name} selesai · ${formatJam(t1)} · berhasil (jalan manual)`);
     }, 1200);
     timers.current.push(timer);
   };
@@ -225,16 +213,21 @@ export function PenjadwalBoard({ initial }: { initial: ScheduledJob[] }) {
           <span className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={!check.ok}
+              disabled={!check.ok || saving}
               aria-describedby={!check.ok ? 'job-alasan' : undefined}
               onClick={() => setPending({ kind: 'run', job })}
             >
               {health === 'gagal' ? 'Jalankan ulang' : 'Jalankan sekarang'}
             </Button>
             {job.paused ? (
-              <Button onClick={() => setPending({ kind: 'resume', job })}>Lanjutkan</Button>
+              <Button disabled={saving} onClick={() => setPending({ kind: 'resume', job })}>
+                Lanjutkan
+              </Button>
             ) : (
-              <Button disabled={!!running[job.id]} onClick={() => setPending({ kind: 'pause', job })}>
+              <Button
+                disabled={!!running[job.id] || saving}
+                onClick={() => setPending({ kind: 'pause', job })}
+              >
                 Jeda
               </Button>
             )}
@@ -244,9 +237,9 @@ export function PenjadwalBoard({ initial }: { initial: ScheduledJob[] }) {
               </span>
             )}
           </span>
-          {flash && (
+          {(flash || error) && (
             <span role="status">
-              <Stamp tone={running[job.id] ? 'info' : 'success'}>{flash}</Stamp>
+              <Stamp tone={error ? 'danger' : running[job.id] ? 'info' : 'success'}>{error ?? flash}</Stamp>
             </span>
           )}
           <ol aria-label={`Riwayat jalan ${job.name}`} className="m-0 flex list-none flex-col gap-2 p-0">
@@ -278,15 +271,13 @@ export function PenjadwalBoard({ initial }: { initial: ScheduledJob[] }) {
           const t = formatJam(demoNow());
           if (pending.kind === 'run') start(j, reason);
           else if (pending.kind === 'pause') {
-            setJobs((cur) =>
-              cur.map((x) => (x.id === j.id ? { ...x, paused: true, pausedReason: reason } : x)),
+            dispatch({ type: 'job.dijeda', id: j.id, reason, jam: t }, (ok) =>
+              setFlash(ok ? `${j.name} dijeda · ${t}` : null),
             );
-            setFlash(`${j.name} dijeda · ${t}`);
           } else {
-            setJobs((cur) =>
-              cur.map((x) => (x.id === j.id ? { ...x, paused: false, pausedReason: undefined } : x)),
+            dispatch({ type: 'job.dilanjutkan', id: j.id, jam: t }, (ok) =>
+              setFlash(ok ? `${j.name} dilanjutkan · ${t}` : null),
             );
-            setFlash(`${j.name} dilanjutkan · ${t}`);
           }
         }}
       />

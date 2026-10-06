@@ -11,6 +11,8 @@ import {
 import { Alert, Button, Chip, type ChipTone, cx, Field, PatientBanner } from '@simrs/ui';
 import { useState } from 'react';
 import { demoHash } from '@/lib/demo/fixtures/dokumen';
+import { useDemoDispatch } from '@/lib/demo/store/client';
+import { DOCUMENT_SIGNER, type DocumentStoreState, SIGN_ONLY_DOCTOR } from '@/lib/platform-dokumen-toko';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   canRequestTte,
@@ -56,19 +58,29 @@ type FileMeta = { name: string; size: number; type: string; sha256: string };
 /**
  * P08 · Dokumen pasien: daftar per pasien, unggah (PDF/PNG/JPEG ≤ 10 MB, hash SHA-256 dihitung di browser), minta
  * TTE → tanda tangan → QR verifikasi, batal beralasan, dan pratinjau halaman verifikasi publik (nama tersamar).
+ * Tersimpan di toko demo bersama (domain `dokumen`); TTE hanya oleh posisi Dokter (DPJP), atas nama pengguna sesi.
  */
 export function DokumenBoard({
   patients,
-  initial,
+  state,
+  rev,
   tenantName,
+  canSign,
+  userName,
 }: {
   patients: DocPatient[];
-  initial: DemoDocument[];
+  state: DocumentStoreState;
+  rev: number;
   tenantName: string;
+  /** Posisi aktif = Dokter (DPJP) (gerbang ulang di toko). */
+  canSign: boolean;
+  /** Nama pengguna sesi (penanda tangan bila Dokter). */
+  userName: string;
 }) {
-  const [docs, setDocs] = useState(initial);
+  const docs = state.docs;
+  const { dispatch, pending, error: saveError } = useDemoDispatch('dokumen', rev);
   const [patientId, setPatientId] = useState(patients[0]?.id ?? '');
-  const [selected, setSelected] = useState<string>(initial[0]?.id ?? '');
+  const [selected, setSelected] = useState<string>(docs[0]?.id ?? '');
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState<{ kind: string; title: string; file: FileMeta | null }>({
     kind: '',
@@ -79,18 +91,26 @@ export function DokumenBoard({
   const [flash, setFlash] = useState<string | null>(null);
   const [voiding, setVoiding] = useState<DemoDocument | null>(null);
   const [tamper, setTamper] = useState(false);
-  const [log, setLog] = useState<Array<{ t: string; text: string }>>([]);
+  const log = [...state.log];
 
   const patient = patients.find((p) => p.id === patientId) ?? patients[0];
   if (!patient) return null;
   const list = docs.filter((d) => d.patientId === patient.id);
   const doc = list.find((d) => d.id === selected) ?? list[0];
 
-  const update = (id: string, patch: Partial<DemoDocument>, text: string) => {
-    setDocs((cur) => cur.map((d) => (d.id === id ? { ...d, ...patch } : d)));
-    const t = formatJam(demoNow());
-    setLog((cur) => [{ t, text }, ...cur]);
-    setFlash(`${text} · ${t}`);
+  /** Kirim aksi dokumen ke toko; umpan balik berjam bila tersimpan. */
+  const send = (
+    build: (now: Date, t: string) => Parameters<typeof dispatch>[0],
+    text: string,
+    then?: () => void,
+  ) => {
+    const now = demoNow();
+    const t = formatJam(now);
+    dispatch(build(now, t), (ok) => {
+      if (!ok) return;
+      setFlash(`${text} · ${t}`);
+      then?.();
+    });
   };
 
   const pickPatient = (id: string) => {
@@ -116,26 +136,31 @@ export function DokumenBoard({
     const now = demoNow();
     const id = `dok-unggah-${docs.length + 1}`;
     const kind = form.kind as DocumentKind;
-    const d: DemoDocument = {
-      id,
-      patientId: patient.id,
-      kind,
-      title: form.title.trim(),
-      mime: check.mime,
-      sizeBytes: form.file.size,
-      sha256: form.file.sha256,
-      uploadedAt: now.toISOString(),
-      uploadedBy: 'Anda (sesi ini)',
-      status: 'draft',
-      needsSignature: kind !== 'lampiran',
-    };
-    setDocs((cur) => [d, ...cur]);
-    setSelected(id);
-    setUploading(false);
-    setForm({ kind: '', title: '', file: null });
+    const file = form.file;
     const t = formatJam(now);
-    setLog((cur) => [{ t, text: `Diunggah: ${d.title}` }, ...cur]);
-    setFlash(`Tersimpan · ${t} · SHA-256 ${d.sha256.slice(0, 12)}…`);
+    dispatch(
+      {
+        type: 'dokumen.diunggah',
+        patientId: patient.id as Extract<
+          Parameters<typeof dispatch>[0],
+          { type: 'dokumen.diunggah' }
+        >['patientId'],
+        kind,
+        title: form.title.trim(),
+        mime: check.mime,
+        sizeBytes: file.size,
+        sha256: file.sha256,
+        at: now.toISOString(),
+        jam: t,
+      },
+      (ok) => {
+        if (!ok) return;
+        setSelected(id);
+        setUploading(false);
+        setForm({ kind: '', title: '', file: null });
+        setFlash(`Tersimpan · ${t} · SHA-256 ${file.sha256.slice(0, 12)}…`);
+      },
+    );
   };
 
   const voidRequest: ConfirmRequest | null = voiding
@@ -364,12 +389,11 @@ export function DokumenBoard({
                 {doc.status === 'draft' && doc.needsSignature && (
                   <Button
                     variant="primary"
-                    disabled={!canRequestTte(doc).ok}
+                    disabled={!canRequestTte(doc).ok || pending}
                     onClick={() =>
-                      update(
-                        doc.id,
-                        { status: 'pending', signer: patient.dpjp, requestedAt: demoNow().toISOString() },
-                        `Permintaan TTE dikirim ke ${patient.dpjp}`,
+                      send(
+                        (now, t) => ({ type: 'tte.diminta', id: doc.id, at: now.toISOString(), jam: t }),
+                        `Permintaan TTE dikirim ke ${DOCUMENT_SIGNER}`,
                       )
                     }
                   >
@@ -379,10 +403,10 @@ export function DokumenBoard({
                 {doc.status === 'failed' && (
                   <Button
                     variant="primary"
+                    disabled={pending}
                     onClick={() =>
-                      update(
-                        doc.id,
-                        { status: 'pending', failReason: undefined, requestedAt: demoNow().toISOString() },
+                      send(
+                        (now, t) => ({ type: 'tte.diminta', id: doc.id, at: now.toISOString(), jam: t }),
                         'Permintaan TTE dikirim ulang',
                       )
                     }
@@ -394,35 +418,38 @@ export function DokumenBoard({
                   <>
                     <Button
                       variant="primary"
+                      disabled={!canSign || pending}
+                      aria-describedby={!canSign ? 'tte-hanya-dokter' : undefined}
                       onClick={() =>
-                        update(
-                          doc.id,
-                          {
-                            status: 'signed',
-                            signedAt: demoNow().toISOString(),
-                            verifyCode: `sv1-demo-${doc.id.slice(-4)}`,
-                          },
-                          `Ditandatangani ${doc.signer ?? 'DPJP'}`,
+                        send(
+                          (now, t) => ({
+                            type: 'tte.ditandatangani',
+                            id: doc.id,
+                            at: now.toISOString(),
+                            jam: t,
+                          }),
+                          `Ditandatangani ${userName}`,
                         )
                       }
                     >
-                      Setujui sebagai {doc.signer} (simulasi)
+                      Tandatangani (TTE) sebagai {canSign ? userName : 'Dokter (DPJP)'}
                     </Button>
                     <Button
+                      disabled={pending}
                       onClick={() =>
-                        update(
-                          doc.id,
-                          {
-                            status: 'failed',
-                            failReason:
-                              'Penyelenggara TTE tidak menjawab dalam 10 detik (3× dicoba ulang otomatis).',
-                          },
+                        send(
+                          (_now, t) => ({ type: 'tte.gagal', id: doc.id, jam: t }),
                           'TTE gagal: penyelenggara tidak menjawab',
                         )
                       }
                     >
                       Simulasikan gangguan TTE
                     </Button>
+                    {!canSign && (
+                      <span id="tte-hanya-dokter" className="basis-full text-caption text-ink-700">
+                        Menunggu tanda tangan {doc.signer ?? DOCUMENT_SIGNER}. {SIGN_ONLY_DOCTOR}
+                      </span>
+                    )}
                   </>
                 )}
                 {doc.status !== 'void' && doc.status !== 'signed' && (
@@ -431,9 +458,9 @@ export function DokumenBoard({
                   </Button>
                 )}
               </span>
-              {flash && (
+              {(flash || saveError) && (
                 <span role="status">
-                  <Stamp>{flash}</Stamp>
+                  <Stamp>{saveError ?? flash}</Stamp>
                 </span>
               )}
             </Panel>
@@ -502,7 +529,11 @@ export function DokumenBoard({
         onClose={() => setVoiding(null)}
         onConfirm={(reason) => {
           if (!voiding) return;
-          update(voiding.id, { status: 'void', voidReason: reason }, `Dibatalkan: ${voiding.title}`);
+          const v = voiding;
+          send(
+            (_now, t) => ({ type: 'dokumen.dibatalkan', id: v.id, reason, jam: t }),
+            `Dibatalkan: ${v.title}`,
+          );
         }}
       />
     </div>

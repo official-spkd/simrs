@@ -7,7 +7,10 @@ import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Struktur RS' };
 
-/** P01 · Struktur RS: faskes → unit → ruang → kamar → bed (tanpa mockup). Mode presentasi: data fiktif (ADR-0023). */
+/**
+ * P01 · Struktur RS: faskes → unit → ruang → kamar → bed (tanpa mockup). Mode presentasi: data fiktif (ADR-0023);
+ * perubahan tersimpan di toko demo bersama (domain `struktur`, ADR-0085).
+ */
 export default async function StrukturPage() {
   const { session, screen, allowed } = await requireDemoScreen('struktur');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
@@ -18,7 +21,7 @@ export default async function StrukturPage() {
         trail={`Sistem / Struktur RS · P01 · ${session.tenant.name}`}
         title="Struktur RS · faskes sampai bed"
       />
-      <StrukturBoard initial={d.nodes} initialLog={d.log} />
+      <StrukturBoard state={d.state} rev={d.rev} />
     </div>
   );
 }
