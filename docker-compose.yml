@@ -1,5 +1,8 @@
 # Infrastruktur lokal SIM RS (data fiktif saja).
 # Jalankan: docker compose up -d        · FHIR opsional: docker compose --profile fhir up -d
+# Keamanan: kata sandi di sini (dan di infra/postgres/init.sql) adalah nilai lokal yang diketahui umum, Redis dan
+# Mailpit tanpa autentikasi. Semua port karena itu hanya dibuka di loopback (127.0.0.1), bukan ke jaringan (LAN/Wi-Fi
+# RS). Berkas ini JANGAN dipakai di server edge/staging/produksi; di sana pakai rahasia dari secret manager.
 name: simrs
 
 services:
@@ -12,7 +15,7 @@ services:
       POSTGRES_DB: simrs
       TZ: Asia/Jakarta
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -27,7 +30,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -47,8 +50,8 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-simrs_local}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-simrs_local_secret}
     ports:
-      - "9000:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - miniodata:/data
     healthcheck:
@@ -79,15 +82,15 @@ services:
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
   hapi-fhir:
     image: hapiproject/hapi:latest
     profiles: ["fhir"]
     restart: unless-stopped
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
 
 volumes:
   pgdata:

@@ -3,6 +3,7 @@ import type { TenantTx } from '@simrs/db';
 import type { Request, Response } from 'express';
 import { sanitizeForLog } from '../../common/error.filter';
 import { requestContext, type TenantRequestContext } from '../../common/request-context';
+import { auditMetaOf, writeAudit } from '../audit-writer';
 import { PrismaService } from '../prisma.service';
 import { type NotificationSubscription, NOTIFY_CHANNEL, PgNotificationHub } from './pg-notification-hub';
 
@@ -132,11 +133,18 @@ export class SseService implements OnModuleDestroy {
       heartbeatMs: options.heartbeatMs ?? SSE_HEARTBEAT_MS,
       maxDurationMs: options.maxDurationMs ?? SSE_MAX_DURATION_MS,
       replayLimit: options.replayLimit ?? SSE_REPLAY_LIMIT,
+      // Potret awal sering memuat PHI (mis. papan IGD: nama + RM): entri `TenantDb.audit()` di dalamnya ditulis di
+      // transaksi yang sama, seperti versi REST-nya. Diulang setiap sambung ulang (umur aliran maks. 5 menit).
       initial: initial
         ? () =>
-            this.prisma.forTenant(tenantId, (tx) =>
-              requestContext.run({ ...ctx, tx, audit: [], afterCommit: [] }, initial),
-            )
+            this.prisma.forTenant(tenantId, (tx) => {
+              const store: TenantRequestContext = { ...ctx, tx, audit: [], afterCommit: [] };
+              return requestContext.run(store, async () => {
+                const snapshot = await initial();
+                await writeAudit(tx, tenantId, auditMetaOf(ctx), store.audit);
+                return snapshot;
+              });
+            })
         : null,
       load: (id) => this.loadShared(channel, tenantId, id),
       replay: replay

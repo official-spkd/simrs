@@ -22,6 +22,22 @@ describe('penjadwal outbox', () => {
     expect(loadWorkerEnv({ ...base, APP_ENV: 'local' }).OUTBOX_SCHEDULER).toBe('auto');
   });
 
+  it('produksi menolak INTEGRATION_MODE=mock (juga bawaan bila lupa disetel)', () => {
+    const prod = {
+      ...base,
+      APP_ENV: 'production',
+      AUDIT_ANCHOR_KEY: Buffer.alloc(32, 3).toString('base64'),
+      AUDIT_ANCHOR_BUCKET: 'simrs-audit-anchor',
+      S3_ENDPOINT: 'http://127.0.0.1:9000',
+      S3_ACCESS_KEY: 'uji',
+      S3_SECRET_KEY: 'uji-rahasia',
+    };
+    expect(() => loadWorkerEnv(prod)).toThrow(/INTEGRATION_MODE=mock/);
+    expect(() => loadWorkerEnv({ ...prod, INTEGRATION_MODE: 'mock' })).toThrow(/INTEGRATION_MODE=mock/);
+    expect(loadWorkerEnv({ ...prod, INTEGRATION_MODE: 'sandbox' }).INTEGRATION_MODE).toBe('sandbox');
+    expect(loadWorkerEnv({ ...base, APP_ENV: 'staging' }).INTEGRATION_MODE).toBe('mock');
+  });
+
   it('auto tanpa Redis (lokal) → timer; putaran tidak tumpang tindih; berhenti saat modul ditutup', async () => {
     const env: WorkerEnv = loadWorkerEnv({ ...base, APP_ENV: 'local', OUTBOX_POLL_MS: '250' });
     let running = 0;

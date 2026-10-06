@@ -1,5 +1,11 @@
 import { isIP } from 'node:net';
-import { auditAnchorKeyProblem, devToolsAllowed, envSchemas, parseEnv } from '@simrs/shared';
+import {
+  auditAnchorKeyProblem,
+  devToolsAllowed,
+  envSchemas,
+  integrationModeProblem,
+  parseEnv,
+} from '@simrs/shared';
 import { type FieldKeys, loadFieldKeys } from '@simrs/shared/node';
 import { z } from 'zod';
 
@@ -102,7 +108,7 @@ export function loadApiEnv(source: Record<string, string | undefined> = process.
       'Konfigurasi env tidak valid → RATE_LIMIT_STORE=memory tidak boleh di produksi (penghitung harus sama di semua instans)',
     );
   }
-  const anchorKeyProblem = auditAnchorKeyProblem(env);
+  const anchorKeyProblem = auditAnchorKeyProblem(env) ?? integrationModeProblem(env);
   if (anchorKeyProblem) throw new Error(`Konfigurasi env tidak valid → ${anchorKeyProblem}`);
   // Disk hanya untuk mesin pengembang dan tes; staging dan produksi menyimpan berkas di S3/MinIO (ADR-0020).
   if (env.STORAGE_DRIVER === 'disk' && env.APP_ENV !== 'local') {
