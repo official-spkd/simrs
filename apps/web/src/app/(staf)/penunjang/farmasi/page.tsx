@@ -24,14 +24,16 @@ export default async function FarmasiPage({ searchParams }: { searchParams: Sear
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-0.5">
-        <span className="text-caption text-ink-500">
-          Penunjang / Farmasi / Telaah resep · {session.tenant.name}
-        </span>
-        <h1 className="m-0 text-h1 font-semibold">Farmasi · verifikasi dan penyiapan</h1>
-      </header>
-      <ScenarioBanner session={session} screen="farmasi" />
       <FarmasiWorkspace
+        heading={
+          <div className="flex flex-col gap-0.5">
+            <span className="text-caption text-ink-500">
+              Penunjang / Farmasi / Telaah resep · {session.tenant.name}
+            </span>
+            <h1 className="m-0 text-h1 font-semibold">Farmasi · verifikasi dan penyiapan</h1>
+          </div>
+        }
+        banner={<ScenarioBanner session={session} screen="farmasi" />}
         data={data}
         hook={hook}
         userName={session.user.displayName}

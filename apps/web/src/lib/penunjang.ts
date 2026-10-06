@@ -137,6 +137,37 @@ export function formatMmSs(totalSeconds: number): string {
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 
+/**
+ * Waktu lapor nilai kritis dalam detik (mm:ss di layar, mockup Lab). Laporan dari layar ini menyimpan detik timer
+ * (`elapsedSeconds` = `tookSeconds`); laporan dari data hanya tahu menitnya (`minutesToReport`), jadi detiknya 00.
+ */
+export function criticalReportSeconds(
+  c: Pick<LabCriticalReport, 'elapsedSeconds' | 'minutesToReport'>,
+): number {
+  const m = c.minutesToReport ?? 0;
+  return Math.floor(c.elapsedSeconds / 60) === m ? c.elapsedSeconds : m * 60;
+}
+
+/** Hasil kosong (mockup Lab): selesai → rincian di riwayat; inkubasi → jadwal laporan; lainnya → status saat ini. */
+export function emptyResultText(s: LabSample, resample = false): string {
+  if (s.status === 'selesai')
+    return 'Hasil sudah divalidasi klinis dan dirilis. Buka riwayat untuk melihat rincian.';
+  if (s.status === 'inkubasi')
+    return 'Kultur dalam inkubasi. Laporan pertumbuhan tersedia H+1, uji kepekaan H+3.';
+  return `Hasil belum lengkap (status: ${sampleStatusView(s, resample).label}). Rincian tampil setelah analyzer mengirim hasil.`;
+}
+
+/**
+ * Alasan tombol "Minta ulang sampel" nonaktif (mockup: selalu tampil); null = boleh. Sampel pasien simulasi
+ * mengikuti langkah Simulasi; sampel tanpa hasil belum bisa diulang; hasil yang sudah dirilis dikoreksi lewat revisi.
+ */
+export function resampleBlock(s: Pick<LabSample, 'status' | 'results'>, scenario: boolean): string | null {
+  if (scenario) return 'Sampel pasien simulasi mengikuti langkah di Simulasi.';
+  if (s.status === 'selesai') return 'Hasil sudah dirilis; koreksi hanya lewat hasil revisi berversi.';
+  if (s.results.length === 0) return 'Belum ada hasil; sampel ulang diminta setelah hasil dinilai.';
+  return null;
+}
+
 /** Timer nilai kritis: teks berjalan, lewat batas atau belum, sisa menit (bulat ke atas, minimal 0). */
 export function criticalTimer(elapsedSeconds: number, limitMinutes: number) {
   const limit = limitMinutes * 60;
@@ -209,7 +240,7 @@ export function sampleStatusView(s: LabSample, resample = false): { label: strin
   if (stage === 'terbuka') return { label: 'Kritis', tone: 'danger' };
   if (stage === 'menunggu-read-back') return { label: 'Menunggu read-back', tone: 'danger' };
   const byStatus: Record<LabSampleStatus, { label: string; tone: StatusTone }> = {
-    order: { label: 'Menunggu sampling', tone: 'neutral' },
+    order: { label: 'Sampling', tone: 'neutral' },
     diterima: { label: 'Proses', tone: 'neutral' },
     hasil:
       stage === 'selesai' ? { label: 'Dilaporkan', tone: 'warning' } : { label: 'Validasi', tone: 'brand' },

@@ -48,6 +48,10 @@ test.describe('IGD', () => {
     ).toContainText('Belum triase');
     await expect(board.getByText('Tn. Hartono Wibisono')).toHaveCount(0);
 
+    const zones = board.getByRole('tablist', { name: 'Zona IGD' });
+    await zones.getByRole('tab', { name: /^Resusitasi · \d+$/ }).click();
+    await expect(zones.getByRole('tab', { name: /^Resusitasi/ })).toHaveAttribute('aria-selected', 'true');
+    await zones.getByRole('tab', { name: /^Semua zona/ }).click();
     await board.getByRole('button', { name: 'Level 4 · Semi-urgen' }).click();
     const rows = board.getByRole('list', { name: 'Pasien di IGD' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
@@ -60,17 +64,19 @@ test.describe('IGD', () => {
     await panel.locator('label', { has: page.getByRole('radio', { name: /^Level 3 · Urgen/ }) }).click();
     const save = panel.getByRole('button', { name: /^Simpan triase 3/ });
     await expect(save).toBeDisabled();
-    await expect(
-      panel.getByRole('alert').filter({ hasText: 'Level 3 di bawah saran sistem (triase 2)' }),
-    ).toBeVisible();
+    await expect(panel.getByRole('status').filter({ hasText: 'Sistem menyarankan triase 2.' })).toBeVisible();
 
-    await panel.getByRole('button', { name: 'Tetap lanjut dengan alasan klinis' }).click();
-    const reason = panel.getByRole('textbox', { name: /Alasan klinis \(wajib/ });
+    // Alasan turun level: input inline berlabel (mockup), minimal 10 karakter; simpan tetap nonaktif sampai cukup.
+    const reason = panel.getByRole('textbox', {
+      name: 'Alasan memilih level lebih rendah dari saran (triase 2)',
+    });
+    await expect(
+      panel.getByText('Wajib diisi (minimal 10 karakter) sebelum triase bisa disimpan.'),
+    ).toBeVisible();
     await reason.fill('Membaik');
-    await expect(panel.getByRole('button', { name: 'Simpan alasan dan lanjut' })).toBeDisabled();
+    await expect(save).toBeDisabled();
     await reason.fill('Kekuatan motorik kembali penuh, bicara jelas');
-    await panel.getByRole('button', { name: 'Simpan alasan dan lanjut' }).click();
-    await expect(panel.getByText(/Override tercatat/)).toBeVisible();
+    await expect(panel.getByText('Alasan tercatat di jejak audit triase.')).toBeVisible();
     await expect(save).toBeEnabled();
     await save.click();
     await expect(
@@ -86,9 +92,10 @@ test.describe('tempat tidur', () => {
     await openAs(page, ['perawat'], '/klinis/tempat-tidur');
     await expect(page.getByRole('heading', { name: 'Manajemen tempat tidur', level: 1 })).toBeVisible();
     const tiles = page.getByRole('region', { name: 'Ringkasan status bed' });
-    for (const t of ['Terisi', 'Siap pakai', 'Dipesan', 'Kotor · dibersihkan', 'Rusak']) {
+    for (const t of ['Total bed', 'Terisi', 'Siap pakai', 'Dibersihkan', 'Rencana pulang hari ini']) {
       await expect(tiles.getByText(t, { exact: true })).toBeVisible();
     }
+    await expect(page.getByText(/^Aplicare & SIRANAP diperbarui \d{2}\.\d{2}$/)).toBeVisible();
 
     const filters = page.getByRole('group', { name: 'Filter tempat tidur' });
     await filters.getByLabel('Bangsal').selectOption('ICU');
@@ -126,6 +133,18 @@ test.describe('rawat inap', () => {
     const dose = emar.getByRole('button', { name: /^Insulin aspart sesuai skala jam 12\.00/ });
     await expect(dose).toBeDisabled();
     await expect(emar.getByRole('alert')).toContainText('Pemberian obat terkunci sampai gelang pasien cocok');
+    // Mockup Ranap: dua baris status gerbang, tautan cepat yang selalu terlihat, ubin EWS dan GDS terakhir.
+    await expect(
+      emar.getByRole('status').filter({ hasText: '○ Pasien · gelang belum dipindai' }),
+    ).toContainText('○ Obat · pemberian nonaktif sampai gelang cocok');
+    const quick = page.getByRole('navigation', { name: 'Tautan cepat pasien' });
+    for (const l of ['Order & resep (CPOE)', 'Persetujuan tindakan', 'Resume medis', 'Perencanaan pulang']) {
+      await expect(quick.getByText(l)).toBeVisible();
+    }
+    const tiles = emar.getByRole('list', { name: 'Pantauan terakhir' });
+    await expect(tiles).toContainText(/EWS dewasa \d{2}\.\d{2}/);
+    await expect(tiles).toContainText('GDS terakhir');
+    await expect(page.getByRole('heading', { name: /^CPPT terintegrasi · \d+ \w+$/ })).toBeVisible();
     await emar.getByRole('button', { name: 'Pindai gelang', exact: true }).click();
     await expect(emar.getByText(/Pasien benar · gelang terpindai/)).toBeVisible();
     await expect(dose).toBeEnabled();
@@ -163,6 +182,24 @@ test.describe('rawat inap', () => {
     await expect(cppt.getByText('S wajib diisi.')).toBeVisible();
     await expect(cppt.getByText('Versi 2 · koreksi: Salah ketik nilai SpO2')).toBeVisible();
     await expectNoHorizontalScroll(page);
+  });
+
+  test('observasi bertanggal dengan jam observasi berikutnya; askep shift pagi berbilah kemajuan', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], `/klinis/rawat-inap/${ENCOUNTER_ID.endang}`);
+    await page.getByRole('tab', { name: 'Observasi & EWS' }).click();
+    const obs = page.getByRole('region', { name: 'Observasi dan EWS' });
+    await expect(obs.getByRole('heading', { name: /^Observasi tanda vital · \d+ \w+$/ })).toBeVisible();
+    await expect(obs.getByText(/Observasi berikutnya (\d{2}\.\d{2}|: pantau kontinu)/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Asuhan keperawatan' }).click();
+    const askep = page.getByRole('region', { name: 'Asuhan keperawatan' });
+    await expect(askep.getByRole('heading', { name: 'Intervensi keperawatan · shift pagi' })).toBeVisible();
+    const bar = askep.getByRole('progressbar', { name: 'Kemajuan intervensi keperawatan' });
+    const before = Number(await bar.getAttribute('aria-valuenow'));
+    await askep.getByRole('checkbox', { checked: false }).first().check();
+    await expect(bar).toHaveAttribute('aria-valuenow', String(before + 1));
   });
 
   test('CPPT: koreksi = versi baru beralasan, hanya oleh penulisnya; versi lama tetap tampil', async ({
@@ -255,7 +292,7 @@ test.describe('rawat inap', () => {
     // Dosis terakhir tercatat → tugas `emar` Simulasi selesai, hari berikutnya terbuka.
     await expect(journey).toContainText('Obat jadwal pertama tercatat per dosis');
     await expect(day1).toBeEnabled();
-    await expect(emar.getByRole('listitem')).toHaveCount(5);
+    await expect(emar.getByRole('list', { name: 'Pemberian tercatat' }).getByRole('listitem')).toHaveCount(5);
     await expectNoHorizontalScroll(page);
   });
 });
@@ -270,8 +307,17 @@ test.describe('resume medis', () => {
     const tte = aside.getByRole('button', { name: 'Tanda tangani resume (TTE)' });
     await expect(tte).toBeDisabled();
     await expect(aside.getByText(/TTE terkunci: lengkapi 1 butir lagi/)).toBeVisible();
-    await expect(page.getByText('Sumber: perlu konfirmasi DPJP')).toBeVisible();
+    await expect(page.getByText('perlu konfirmasi DPJP', { exact: true })).toBeVisible();
 
+    await expect(page.getByRole('button', { name: 'Pratinjau PDF' })).toBeVisible();
+    await expect(page.getByText(/batas resume final 24 jam setelah pulang/)).toBeVisible();
+    await expect(page.getByText('dari eMAR', { exact: true })).toBeVisible();
+
+    // Konfirmasi DPJP berjam dan bisa dibatalkan selama resume belum final.
+    await page.getByRole('button', { name: 'Konfirmasi DPJP' }).click();
+    await expect(page.getByText(/^dikonfirmasi DPJP · \d{2}\.\d{2}$/)).toBeVisible();
+    await page.getByRole('button', { name: 'Batalkan konfirmasi' }).click();
+    await expect(aside.getByText('11/12')).toBeVisible();
     await page.getByRole('button', { name: 'Konfirmasi DPJP' }).click();
     await expect(aside.getByText('12/12')).toBeVisible();
     const edukasi = aside.getByRole('checkbox', { name: 'Edukasi pasien terdokumentasi' });
@@ -281,6 +327,8 @@ test.describe('resume medis', () => {
     await expect(tte).toBeEnabled();
     await tte.click();
     await expect(aside.getByRole('status')).toContainText('Resume final · TTE');
+    await expect(aside.getByText('Setelah final, perubahan hanya lewat addendum berversi.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Batalkan konfirmasi' })).toHaveCount(0);
     await expect(edukasi).toBeDisabled();
     await expectNoHorizontalScroll(page);
   });
@@ -295,6 +343,23 @@ test.describe('persetujuan tindakan (tablet)', () => {
     await expect(next).toBeDisabled();
     for (const box of await tablet.getByRole('checkbox', { name: /^Saya memahami/ }).all()) await box.check();
     await expect(next).toBeEnabled();
+
+    // Tanda tangan pasien: nama ketik, keterangan menulis lokasi tablet; "Ulangi" menghapusnya selama langkah aktif.
+    await next.click();
+    const typed = tablet.getByLabel('Atau ketik nama lengkap sebagai tanda tangan').first();
+    const name =
+      (
+        await tablet
+          .getByText(/ · belum menandatangani$/)
+          .first()
+          .textContent()
+      )?.split(' · ')[0] ?? '';
+    await typed.fill(name);
+    await tablet.getByRole('button', { name: 'Pakai nama ketik' }).first().click();
+    await expect(tablet.getByText(/ · nama diketik · \d{2}\.\d{2} · lokasi tablet: /)).toBeVisible();
+    await expect(tablet.getByText('Nama dan hubungan:')).toBeVisible();
+    await tablet.getByRole('button', { name: 'Ulangi tanda tangan pasien/keluarga' }).click();
+    await expect(tablet.getByRole('button', { name: 'Lanjut ke saksi' })).toBeDisabled();
 
     await tablet.getByRole('button', { name: 'Saya menolak tindakan' }).click();
     const form = tablet.getByRole('region', { name: 'Konfirmasi penolakan' });

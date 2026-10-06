@@ -77,13 +77,22 @@ export function BedFilters({
   );
 }
 
-/** Lima ubin status (teks + angka, warna hanya penegas). */
+/**
+ * Lima ubin status sesuai mockup (Total bed, Terisi, Siap pakai, Dibersihkan, Rencana pulang hari ini; teks + angka,
+ * warna hanya penegas). Bed dipesan dan rusak tidak punya ubin sendiri di mockup: ditulis di keterangan ubin.
+ */
 export function BedStatusTiles({ counts }: { counts: BedCounts }) {
   const tiles = [
     {
+      label: 'Total bed',
+      value: String(counts.total),
+      sub: counts.rusak ? `${counts.rusak} rusak · tidak dapat dipakai` : 'semua dapat dipakai',
+      swatch: 'border-line-strong bg-muted',
+    },
+    {
       label: 'Terisi',
       value: `${counts.occupied} · ${percent(counts.occupied, counts.total)}%`,
-      sub: `dari ${counts.total} bed · ${counts.pulang} pulang hari ini`,
+      sub: `${counts.dipesan} dipesan · menunggu pasien tiba`,
       swatch: 'border-line-strong bg-white',
     },
     {
@@ -93,22 +102,16 @@ export function BedStatusTiles({ counts }: { counts: BedCounts }) {
       swatch: 'border-success-border bg-success-bg',
     },
     {
-      label: 'Dipesan',
-      value: String(counts.dipesan),
-      sub: 'menunggu pasien tiba',
-      swatch: 'border-info-border bg-info-bg',
-    },
-    {
-      label: 'Kotor · dibersihkan',
+      label: 'Dibersihkan',
       value: String(counts.kotor + counts.dibersihkan),
-      sub: `${counts.kotor} kotor · ${counts.dibersihkan} dibersihkan`,
+      sub: `${counts.kotor} kotor · ${counts.dibersihkan} sedang dibersihkan`,
       swatch: 'border-warning-border bg-[#FFF8EB]',
     },
     {
-      label: 'Rusak',
-      value: String(counts.rusak),
-      sub: 'tidak dapat dipakai',
-      swatch: 'border-danger-border bg-[#FEF3F2]',
+      label: 'Rencana pulang hari ini',
+      value: String(counts.pulang),
+      sub: 'bed kosong setelah pasien keluar',
+      swatch: 'border-brand-200 bg-brand-50',
     },
   ];
   return (

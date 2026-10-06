@@ -71,10 +71,14 @@ melaporkan nilai kritis dengan read-back dalam batas waktu, lalu memvalidasi has
 
    ![Form pelaporan nilai kritis: nama penerima laporan, centang read-back, dan pesan galat bila belum lengkap](./gambar/lab--nilai-kritis.png)
 
-5. Banner berubah menjadi "Nilai kritis dilaporkan · <pasien>" dengan "read-back terkonfirmasi" dan waktu lapor.
+5. Banner berubah menjadi "Nilai kritis dilaporkan · <pasien>" dengan "read-back terkonfirmasi" dan waktu lapor
+   dalam menit:detik, mis. "waktu lapor 06:12".
 6. Tekan **Validasi teknis**. Setelah itu tekan **Validasi klinis (TTE Sp.PK)**. Tombol berubah menjadi
    **Tervalidasi**. Layar menyebut hasil dirilis ke CPPT, DPJP, dan SATUSEHAT (simulasi).
-7. Bila sampel bermasalah, tekan **Minta ulang sampel** (atau **Batalkan sampel ulang**).
+7. Bila sampel bermasalah, tekan **Minta ulang sampel** (atau **Batalkan sampel ulang**). Tombol ini selalu tampil;
+   bila tidak berlaku ia nonaktif dengan alasan tertulis (hasil sudah dirilis, belum ada hasil, atau sampel pasien
+   simulasi). Sampel tanpa hasil menulis "Hasil belum lengkap (status: …)" atau, bila sudah selesai, "Hasil sudah
+   divalidasi klinis dan dirilis. Buka riwayat untuk melihat rincian."
 8. Pasien skenario memakai tombol langkahnya: Tn. Suryo (rawat jalan) **Pindai tabung**, **Terima hasil (HL7 ORU)**,
    lalu **Validasi dan rilis**; Tn. Hartono (IGD) **Buka hasil**, lalu pelaporan kalium kritis.
 
@@ -161,7 +165,8 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
 
 **Alur.**
 
-1. Buka **Farmasi**. Tab **Telaah · n** aktif. Pilih resep di "Antrean telaah", mis. Tn. Sutan Batubara.
+1. Buka **Farmasi**. Tab antrean di kanan kepala layar (**Telaah · n**, **Penyiapan · n**, **Serah terima · n**);
+   **Telaah · n** aktif. Pilih resep di "Antrean telaah", mis. Tn. Sutan Batubara.
 2. "Item resep" menampilkan obat dengan kode KFA dan status formularium (mis. "KFA 93000387 · Fornas" untuk
    Klopidogrel 75 mg tab). Daftar telaah memuat identitas, SIP dokter, sediaan, stabilitas, interaksi, dosis ginjal,
    duplikasi, dan kontraindikasi.
@@ -217,8 +222,9 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
 
 1. Buka **Kamar operasi**. "Jadwal kamar" berbentuk Gantt per kamar. Kasus terpilih bawaan adalah Ny. Ratna Sari,
    "OK 2 · Kolesistektomi laparoskopik" dengan "ICD-9-CM 51.23 · Kolesistektomi laparoskopik".
-2. Region "Daftar tilik keselamatan" memuat tiga fase. Centang butir **Sign in** (sebelum induksi), lalu
-   **Konfirmasi sign in**. Konfirmasi tercatat dengan nama dan jam.
+2. Region "Daftar tilik keselamatan" memuat tiga fase; kanan judul kasus menulis fase berjalan ("Fase: Sign in").
+   Centang butir **Sign in** (sebelum induksi), lalu **Konfirmasi sign in**. Konfirmasi tercatat dengan nama dan
+   jam beserta akibatnya, mis. "· induksi dapat dimulai" atau "· insisi dapat dicatat".
 3. Centang butir **Time out** (sebelum insisi), lalu **Konfirmasi time out**. Tombol **Mulai insisi** baru aktif.
 
    ![Daftar tilik time out lengkap dan terkonfirmasi, tombol Mulai insisi aktif](./gambar/ok--time-out.png)

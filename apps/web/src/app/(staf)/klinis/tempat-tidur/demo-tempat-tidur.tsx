@@ -40,20 +40,17 @@ export async function DemoTempatTidur({
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-caption text-ink-500">
-            Klinis / Rawat inap / Tempat tidur · {session.tenant.name}
-          </span>
-          <h1 className="m-0 text-h1 font-semibold">Manajemen tempat tidur</h1>
-        </div>
-        <span className="inline-flex min-h-9 items-center gap-2 rounded-control border border-line bg-white px-3 text-small">
-          <span aria-hidden="true" className="size-[7px] rounded-full bg-success" />
-          Ketersediaan bed terkirim ke BPJS dan Kemenkes · {formatJam(board.asOf)}
-        </span>
-      </header>
-      <ScenarioBanner session={session} screen="bed" />
       <BedWorkspace
+        heading={
+          <div className="flex flex-col gap-0.5">
+            <span className="text-caption text-ink-500">
+              Klinis / Rawat inap / Tempat tidur · {session.tenant.name}
+            </span>
+            <h1 className="m-0 text-h1 font-semibold">Manajemen tempat tidur</h1>
+          </div>
+        }
+        syncNote={`Aplicare & SIRANAP diperbarui ${formatJam(board.asOf)}`}
+        banner={<ScenarioBanner session={session} screen="bed" />}
         board={board}
         initialWard={initialWard}
         reserved={SCENARIO_BEDS}

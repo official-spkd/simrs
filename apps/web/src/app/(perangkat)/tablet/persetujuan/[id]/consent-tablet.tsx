@@ -37,7 +37,7 @@ export function ConsentTablet({
   const { runTask, pending, error: runError } = useScenarioTask(scenario?.rev ?? 0);
   const wasFinal = doc.status === 'final';
   const wasRefused = doc.status === 'ditolak';
-  const [fs, setFs] = useState(17);
+  const [fs, setFs] = useState(16);
   const [step, setStep] = useState(wasFinal ? 3 : 0);
   const [ack, setAck] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(doc.items.map((i) => [i.id, wasFinal])),
@@ -224,24 +224,30 @@ export function ConsentTablet({
           locked={locked || step !== 0}
           onAck={(id) => setAck((a) => ({ ...a, [id]: !a[id] }))}
         />
-        <section
-          aria-label="Tanda tangan"
-          className="grid grid-cols-2 gap-4 rounded-card border border-line bg-white p-4"
-        >
-          <SignaturePad
-            label="Tanda tangan pasien/keluarga"
-            signerName={doc.signerName}
-            disabled={locked || step !== 1}
-            value={pSig ?? signed(doc.signerName)}
-            onChange={setPSig}
-          />
-          <SignaturePad
-            label={`Saksi (keluarga · ${doc.witness.relation})`}
-            signerName={doc.witness.name}
-            disabled={locked || step !== 2}
-            value={wSig ?? signed(doc.witness.name)}
-            onChange={setWSig}
-          />
+        {/* Dua kartu tanda tangan terpisah (mockup: radius 14, padding 14). */}
+        <section aria-label="Tanda tangan" className="grid grid-cols-2 gap-4">
+          <div className="rounded-[14px] border border-line bg-white p-[14px]">
+            <SignaturePad
+              label="Tanda tangan pasien/keluarga"
+              signerName={doc.signerName}
+              disabled={locked || step !== 1}
+              value={pSig ?? signed(doc.signerName)}
+              onChange={setPSig}
+              location={doc.location}
+            />
+          </div>
+          <div className="rounded-[14px] border border-line bg-white p-[14px]">
+            <SignaturePad
+              label="Saksi (keluarga)"
+              signerName={doc.witness.name}
+              signerDetail={doc.witness.relation}
+              captionLabel="Nama dan hubungan:"
+              disabled={locked || step !== 2}
+              value={wSig ?? signed(doc.witness.name)}
+              onChange={setWSig}
+              location={doc.location}
+            />
+          </div>
         </section>
         {step >= 2 && !refused && !wasRefused && (
           <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-card border border-line bg-white px-4">
@@ -265,13 +271,20 @@ export function ConsentTablet({
           </p>
         )}
         {!closed && !wait && step === 3 && (
-          <p className="m-0 flex flex-col rounded-card border border-brand-200 bg-selected px-4 py-3">
-            <span className="font-semibold">TTE dokter pelaksana</span>
-            <span className="text-ink-700">
-              {doc.doctor} · sertifikat elektronik · pasien dan saksi sudah menandatangani. Tekan &quot;Tanda
-              tangani (TTE)&quot; di bawah.
+          // Kotak TTE (mockup): putih, garis brand-600, ajakan di kanan. Penyedia sertifikat belum ditetapkan di
+          // dokumen (docs/03 menyebut BSrE atau PSrE swasta), jadi keduanya ditulis.
+          <div className="flex flex-wrap items-center gap-3 rounded-card border-2 border-brand-600 bg-white px-4 py-3">
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="font-semibold">TTE dokter pelaksana</span>
+              <span className="text-ink-700">
+                {doc.doctor} · sertifikat elektronik tersertifikasi (BSrE/PSrE) · pasien dan saksi sudah
+                menandatangani
+              </span>
             </span>
-          </p>
+            <span className="text-[0.85em] font-semibold text-brand-700">
+              Tekan &quot;Tanda tangani (TTE)&quot; di bawah
+            </span>
+          </div>
         )}
         {finalAt && (
           <div
@@ -329,18 +342,18 @@ export function ConsentTablet({
           type="button"
           disabled={locked}
           onClick={() => setRefusing(true)}
-          className="min-h-12 cursor-pointer rounded-control border border-danger-border bg-white px-4 font-[inherit] font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-45"
+          className="min-h-[52px] cursor-pointer rounded-control border border-danger-border bg-white px-4 font-[inherit] font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-45"
         >
           Saya menolak tindakan
         </button>
-        <span id="consent-hint" className="flex-1 text-right text-[13px] text-ink-700">
+        <span id="consent-hint" className="flex-1 text-right text-[13px] font-semibold text-warning">
           {hint}
         </span>
         <button
           type="button"
           disabled={locked || step === 0}
           onClick={() => setStep((s) => s - 1)}
-          className="min-h-12 cursor-pointer rounded-control border border-line-strong bg-white px-5 font-[inherit] disabled:cursor-not-allowed disabled:opacity-45"
+          className="min-h-[52px] cursor-pointer rounded-control border border-line-strong bg-white px-5 font-[inherit] disabled:cursor-not-allowed disabled:opacity-45"
         >
           Kembali
         </button>
@@ -349,7 +362,7 @@ export function ConsentTablet({
           disabled={!canNext || busy || pending}
           aria-describedby={hint ? 'consent-hint' : undefined}
           onClick={next}
-          className="min-h-12 cursor-pointer rounded-control border border-brand-800 bg-btn-primary px-6 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400"
+          className="min-h-[52px] cursor-pointer rounded-control border border-brand-800 bg-btn-primary px-6 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400"
         >
           {nextLabel}
         </button>

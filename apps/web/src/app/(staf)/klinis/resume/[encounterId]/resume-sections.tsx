@@ -73,7 +73,7 @@ export function ResumeSections({
                       : 'text-brand-700',
                 )}
               >
-                Sumber: {srcText}
+                {srcText}
               </span>
             </div>
             {empty ? (

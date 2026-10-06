@@ -215,22 +215,25 @@ ATS) dengan saran sistem dari tanda vital.
 
 **Alur.**
 
-1. Buka **IGD**. Kepala layar menunjukkan bed terpakai dan ambulans menuju. Region "Ringkasan IGD" memuat Triase 1–2,
-   Waktu tunggu dokter, Boarding > 4 jam, dan Pulang tanpa diperiksa.
-2. Saring papan dengan **Semua level** atau level tertentu (mis. **Level 4 · Semi-urgen**) dan dengan zona (Area
-   triase, Resusitasi, Akut, Fast track).
+1. Buka **IGD**. Kepala layar menunjukkan kapasitas bed dan ambulans menuju (SISRUTE). Region "Ringkasan IGD" memuat
+   Triase 1–2, Waktu tunggu dokter, Boarding > 4 jam, dan Pulang tanpa diperiksa.
+2. Saring papan dengan **Semua level** atau level tertentu (mis. **Level 4 · Semi-urgen**) dan dengan tab zona (Area
+   triase, Resusitasi, Akut, Fast track; panah kiri/kanan berpindah tab).
 3. Klik pasien, mis. Ny. Lestiani Hapsari. Panel "Triase pasien" menampilkan waktu tiba, penghitung "Lama di IGD",
    keluhan utama, dan ubin tanda vital bertulisan Tinggi atau Rendah.
 
    ![Panel triase dengan saran sistem level 2, pilihan level 1 sampai 5, dan gerbang keselamatan bila level diturunkan](./gambar/igd--triase.png)
 
-4. Pilih level di "Level triase". Saran sistem diberi tanda "(saran sistem)". Teks anjuran menyesuaikan level,
-   misalnya "Urgen: zona akut, dokter ≤ 30 menit, ulang tanda vital tiap 30 menit."
-5. Bila level lebih rendah dari saran, gerbang "Level 3 di bawah saran sistem (triase 2)" muncul. Pilih
-   **Kembali ke level 2 (saran sistem)** atau **Tetap lanjut dengan alasan klinis**, isi alasan, lalu
-   **Simpan alasan dan lanjut**.
-6. Centang order awal yang perlu, lalu tekan **Simpan triase N** (atau "… dan tempatkan di bed …" bila bed sudah
-   ada). Papan langsung menulis level baru, mis. "3 · Urgen".
+4. Pilih level di "Level triase". Saran sistem diberi tanda "(saran sistem)". Kotak "Saran sistem" berwarna sesuai
+   level terpilih (1–2 merah, 3 kuning, 4 hijau, 5 biru) dan teksnya menyesuaikan level, misalnya "Urgen: zona akut,
+   dokter ≤ 30 menit, ulang tanda vital tiap 30 menit."
+5. Bila level lebih rendah dari saran, isian "Alasan memilih level lebih rendah dari saran (triase 2)" muncul di
+   bawah kotak saran dengan keterangan "Wajib diisi (minimal 10 karakter) sebelum triase bisa disimpan." Setelah
+   cukup, keterangannya berubah "Alasan tercatat di jejak audit triase." Kembali ke level saran cukup dengan
+   memilih level itu lagi.
+6. Centang order awal yang perlu, lalu tekan **Simpan triase N dan tempatkan di bed X** (tanpa bagian bed bila
+   pasien belum punya bed). Tombol berwarna level terpilih dan abu selama nonaktif. Papan langsung menulis level
+   baru, mis. "3 · Urgen".
 7. Dari panel, **Minta bed** membuka Tempat tidur dan **Rawat inap** membuka daftar rawat inap.
 8. **Pasien tanpa identitas** dan **+ Triase pasien baru** menambah pasien ke area triase (hanya di layar ini).
 9. Skenario IGD → rawat inap: pasien anonim "Pasien laki-laki ±60 th · identitas belum dicocokkan" diidentifikasi
@@ -273,10 +276,12 @@ dan perputaran status bed (pulang, kotor, dibersihkan, siap).
 
 **Alur.**
 
-1. Buka **Tempat tidur**. Kepala layar menulis "Ketersediaan bed terkirim ke BPJS dan Kemenkes · <jam>".
-2. Region "Ringkasan status bed" memuat Terisi, Siap pakai, Dipesan, Kotor · dibersihkan, dan Rusak.
+1. Buka **Tempat tidur**. Kepala layar menulis "Aplicare & SIRANAP diperbarui <jam>" dan memuat tab tampilan
+   **Peta bed** / **Daftar**.
+2. Region "Ringkasan status bed" memuat Total bed (keterangan: bed rusak), Terisi (keterangan: bed dipesan), Siap
+   pakai, Dibersihkan (kotor + sedang dibersihkan), dan Rencana pulang hari ini.
 3. Saring dengan **Bangsal**, **Kelas**, dan **Status**. Layar menulis jumlah yang tampil, mis. "1 dari 286 bed
-   ditampilkan". Ganti tampilan **Peta bed** atau **Daftar**.
+   ditampilkan".
 4. Pilih bed berstatus Siap di peta. Kartu "Bed terpilih" menampilkan rincian dan satu aksi status berikutnya.
 5. Di "Permintaan bed", tekan **Alokasikan Ny. Maria ke bed M-xxx**. Layar menulis "… dialokasikan ke M-xxx ·
    dipesan …". Chip kandidat bed (**Tampilkan bed … di peta**) memilih bed itu di peta.
@@ -321,12 +326,17 @@ dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
 
 1. Buka **Rawat inap**. Daftar memuat bed, pasien, diagnosis, DPJP, hari rawat, EWS, dan penanda (mis. "Menunggu
    co-sign DPJP"). Saring dengan "Filter bangsal", lalu klik pasien, mis. Ny. Endang Wijaya.
-2. Judul menjadi "Rawat inap · Bangsal Melati M-203". Banner pasien memuat "Alergi: Amoksisilin".
+2. Judul menjadi "Rawat inap · Bangsal Melati M-203". Banner pasien memuat "Alergi: Amoksisilin". Di bawahnya baris
+   "Tautan cepat pasien" selalu terlihat: **Order & resep (CPOE)**, **Persetujuan tindakan**, **Resume medis**, dan
+   **Perencanaan pulang** (pasien tanpa draf resume atau dokumen persetujuan sendiri diarahkan ke daftar layarnya).
 
    ![Rekam rawat inap Ny. Endang Wijaya: tab CPPT dan eMAR dengan grid jadwal obat terkunci dan CPPT terintegrasi](./gambar/ranap--detail.png)
 
-3. Di tab **CPPT & eMAR**, grid eMAR terkunci dengan pesan "Pemberian obat terkunci sampai gelang pasien cocok".
-   Tekan **Pindai gelang**. Status menjadi "✓ Pasien benar · gelang terpindai … · RM …".
+3. Di tab **CPPT & eMAR**, grid eMAR terkunci dengan pesan "Pemberian obat terkunci sampai gelang pasien cocok" dan
+   dua baris status "○ Pasien · gelang belum dipindai" dan "○ Obat · pemberian nonaktif sampai gelang cocok".
+   Tekan **Pindai gelang**. Status menjadi "✓ Pasien benar · gelang terpindai … · RM …". Di bawah kartu eMAR ada
+   ubin EWS terakhir (dengan interval ulang) dan GDS terakhir dengan nilai sebelumnya bila pasien punya hasil gula
+   darah. Balans cairan 24 jam belum ditampilkan karena belum ada di data rekam rawat inap.
 
    ![eMAR setelah gelang terpindai: slot jadwal obat bisa dipilih, dosis kewaspadaan tinggi bertanda cek ganda](./gambar/ranap--emar-terbuka.png)
 
@@ -338,8 +348,10 @@ dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
 7. Untuk catatan sendiri tekan **Koreksi CPPT …**, ubah isi, isi "Alasan koreksi", lalu
    **Simpan koreksi (versi baru)**. Untuk catatan PPA lain tekan **Addendum atas CPPT …** lalu **Simpan addendum**.
 8. DPJP (posisi dokter) menekan **Setujui co-sign DPJP** pada catatan residen yang "Menunggu co-sign DPJP".
-9. Tab **Observasi & EWS** menampilkan tabel tanda vital dengan skor EWS. Tab **Asuhan keperawatan** memuat
-   intervensi shift ini. Tab **Hasil** memuat hasil penunjang terbaru.
+9. Tab **Observasi & EWS** ("Observasi tanda vital · <tanggal>") menampilkan tabel tanda vital dengan skor EWS dan
+   tindak lanjut "Observasi berikutnya HH.MM" (rendah tiap 4 jam, sedang tiap 1 jam, tinggi pantau kontinu). Tab
+   **Asuhan keperawatan** ("Intervensi keperawatan · shift pagi") memuat bilah kemajuan berlabel "n/m intervensi".
+   Tab **Hasil** memuat hasil penunjang terbaru.
 10. Pasien skenario (Tn. Hartono, Ny. Ratna Sari) punya region "Perjalanan rawat (simulasi)" dengan tombol
     **Lompat ke hari 1 pagi** dan seterusnya, yang terbuka setelah semua dosis jadwal pertama tercatat.
 
@@ -388,8 +400,10 @@ operasi) tanpa input ulang, dengan 12 butir kelengkapan sebelum TTE DPJP.
    Selain itu tampil daftar resume yang sedang disiapkan.
 2. Buka resume, mis. "Resume medis · Ny. Endang Wijaya". Setiap bagian diberi label sumber, mis. "dari CPPT",
    "dari eMAR", "dari hasil lab dan radiologi".
-3. Periksa obat pulang. Bagian rekonsiliasi menulis "Sumber: perlu konfirmasi DPJP" sampai dokter menekan
-   **Konfirmasi DPJP**. Setelah itu daftar obat pulang dikunci untuk resep pulang.
+3. Periksa obat pulang. Bagian rekonsiliasi menulis "perlu konfirmasi DPJP" sampai dokter menekan
+   **Konfirmasi DPJP**; labelnya menjadi "dikonfirmasi DPJP · HH.MM" dan daftar obat pulang dikunci untuk resep
+   pulang. **Batalkan konfirmasi** tersedia selama resume belum final. Kepala layar memuat rencana pulang, batas
+   resume final 24 jam, dan **Pratinjau PDF** (dialog cetak browser).
 4. Panel "Kelengkapan dan tanda tangan" menunjukkan jumlah butir, mis. 12/12, dan daftar centang.
 5. Tekan **Tanda tangani resume (TTE)**. Status menjadi "Resume final · TTE" dan semua centang terkunci.
 6. Pasien skenario memakai **Himpun resume** dan pilihan rekonsiliasi skenario; TTE-nya mengikuti giliran Simulasi.
@@ -432,11 +446,13 @@ menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga b
 1. Buka **Persetujuan tindakan**. Bila ada dokumen skenario yang sedang gilirannya, tablet langsung membukanya.
    Selain itu tampil "Dokumen di tablet ini".
 2. Langkah **Informasi**: centang ketujuh butir "Saya memahami: …". Ukuran teks bisa diperbesar atau diperkecil.
-3. Tekan **Lanjut ke tanda tangan**. Pasien atau keluarga menandatangani di bantalan, atau mengisi "Atau ketik nama
-   lengkap sebagai tanda tangan" lalu **Pakai nama ketik**.
-4. Tekan **Lanjut ke saksi**. Saksi keluarga menandatangani, lalu centang "Saksi kedua (petugas): … hadir dan
-   menyaksikan penandatanganan".
-5. Tekan **Lanjut ke TTE dokter**, lalu dokter menekan **Tanda tangani (TTE)**. Status menjadi "Dokumen final · TTE".
+3. Tekan **Lanjut ke tanda tangan**. Pasien atau keluarga menandatangani di bantalan kartu kiri, atau mengisi "Atau
+   ketik nama lengkap sebagai tanda tangan" lalu **Pakai nama ketik**. **Ulangi** menghapus tanda tangan selama
+   langkahnya aktif. Keterangan di bawah bantalan menulis nama, cara, jam, dan "lokasi tablet: …".
+4. Tekan **Lanjut ke saksi**. Saksi keluarga menandatangani di kartu kanan ("Nama dan hubungan: …"), lalu centang
+   "Saksi kedua (petugas): … hadir dan menyaksikan penandatanganan".
+5. Tekan **Lanjut ke TTE dokter**. Kotak "TTE dokter pelaksana" menyebut sertifikat elektronik tersertifikasi
+   (BSrE/PSrE). Dokter menekan **Tanda tangani (TTE)**. Status menjadi "Dokumen final · TTE".
 6. Untuk menolak, tekan **Saya menolak tindakan**, tulis alasan dengan kata-kata pasien, lalu **Catat penolakan**.
    Status menjadi "Ditolak pasien" dan dokumen terkunci.
 

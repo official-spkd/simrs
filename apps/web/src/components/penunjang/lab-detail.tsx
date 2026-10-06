@@ -5,7 +5,7 @@ import { Button, cx, PatientBanner } from '@simrs/ui';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
-import { formatWhen, nextValidation, validationBlock } from '@/lib/penunjang';
+import { emptyResultText, formatWhen, nextValidation, resampleBlock, validationBlock } from '@/lib/penunjang';
 import { LabResultsTable } from './lab-results-table';
 import { NOT_YOUR_TURN, type ScenarioTasks } from './use-scenario-tasks';
 
@@ -67,7 +67,8 @@ export function LabDetail({
       run: () => onValidate(next),
     };
   }
-  const canResample = !scenario && s.results.length > 0 && s.status !== 'selesai';
+  // Mockup: "Minta ulang sampel" selalu tampil; bila tidak berlaku, nonaktif dengan alasan tertulis.
+  const resampleReason = resample !== null ? null : resampleBlock(s, !!scenario);
   const status =
     resample !== null
       ? {
@@ -119,9 +120,7 @@ export function LabDetail({
           <LabResultsTable results={s.results} caption={`Hasil ${s.tests} · ${s.patient.name}`} />
         ) : (
           <p className="m-0 border-b border-line-soft px-4 py-4 text-small text-ink-500">
-            {s.status === 'inkubasi'
-              ? 'Kultur dalam inkubasi. Laporan pertumbuhan tersedia H+1, uji kepekaan H+3.'
-              : 'Belum ada hasil. Rincian tampil setelah sampel diambil dan analyzer mengirim hasil (HL7 ORU).'}
+            {emptyResultText(s, resample !== null)}
           </p>
         )}
         {status && (
@@ -140,11 +139,13 @@ export function LabDetail({
         <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3">
           <span className="min-w-0 flex-[1_1_240px] text-small text-ink-700">{s.qcNote}</span>
           <span className="flex flex-wrap gap-2">
-            {canResample && (
-              <Button onClick={onResample} disabled={busy}>
-                {resample !== null ? 'Batalkan sampel ulang' : 'Minta ulang sampel'}
-              </Button>
-            )}
+            <Button
+              onClick={onResample}
+              disabled={busy || !!resampleReason}
+              aria-describedby={resampleReason ? `ulang-${s.id}` : undefined}
+            >
+              {resample !== null ? 'Batalkan sampel ulang' : 'Minta ulang sampel'}
+            </Button>
             <Button
               variant="primary"
               disabled={primary.disabled}
@@ -160,6 +161,11 @@ export function LabDetail({
               className="basis-full text-right text-[12.5px] font-semibold text-warning"
             >
               {primary.reason}
+            </span>
+          )}
+          {resampleReason && (
+            <span id={`ulang-${s.id}`} className="basis-full text-right text-[12.5px] text-ink-500">
+              Minta ulang sampel: {resampleReason}
             </span>
           )}
           {(next === 'klinis' || primary.label === 'Validasi dan rilis') && (

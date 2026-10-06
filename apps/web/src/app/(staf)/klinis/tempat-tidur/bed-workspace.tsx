@@ -2,7 +2,7 @@
 
 import type { BedBoard, BedRequest } from '@simrs/shared';
 import Link from 'next/link';
-import { useId, useState, useTransition } from 'react';
+import { type ReactNode, useId, useState, useTransition } from 'react';
 import { TabList, TabPanel } from '@simrs/ui';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { bedCounts, type BedFilter, filterBeds } from '@/lib/rawat-inap';
@@ -18,6 +18,9 @@ type Steps = Partial<Record<'igd-ranap' | 'elektif-btn', ScenarioStepState>>;
 
 /** K05 · Ruang kerja papan bed: ubin status, filter, peta/daftar, bed terpilih, antrean permintaan. */
 export function BedWorkspace({
+  heading,
+  syncNote,
+  banner,
   board,
   initialWard,
   reserved,
@@ -25,6 +28,11 @@ export function BedWorkspace({
   rev,
   ranapRoute,
 }: {
+  /** Remah + judul halaman (kiri kepala); kanan kepala = status sinkron Aplicare/SIRANAP + tab tampilan (mockup). */
+  heading: ReactNode;
+  syncNote: string;
+  /** Banner skenario: di antara kepala dan ubin ringkasan. */
+  banner: ReactNode;
   board: BedBoard;
   initialWard: string;
   reserved: string[];
@@ -116,21 +124,29 @@ export function BedWorkspace({
 
   return (
     <>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex min-h-9 items-center gap-2 rounded-control border border-line bg-white px-3 text-small">
+            <span aria-hidden="true" className="size-[7px] rounded-full bg-success" />
+            {syncNote}
+          </span>
+          <TabList
+            label="Tampilan"
+            idBase={viewTabsId}
+            value={view}
+            onChange={setView}
+            items={[
+              { id: 'peta', label: 'Peta bed' },
+              { id: 'daftar', label: 'Daftar' },
+            ]}
+          />
+        </div>
+      </header>
+      {banner}
       <BedStatusTiles counts={counts} />
       <div className="flex flex-wrap items-start gap-4">
         <section aria-label="Peta tempat tidur" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <TabList
-              label="Tampilan"
-              idBase={viewTabsId}
-              value={view}
-              onChange={setView}
-              items={[
-                { id: 'peta', label: 'Peta bed' },
-                { id: 'daftar', label: 'Daftar' },
-              ]}
-            />
-          </div>
           <BedFilters
             wards={board.wards}
             filter={filter}

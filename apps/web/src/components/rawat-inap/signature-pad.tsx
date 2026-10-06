@@ -16,8 +16,8 @@ const W = 600;
 const H = 150;
 
 /**
- * Bantalan tanda tangan aksesibel: kanvas dengan pointer events (jari, stylus, mouse) + tombol "Hapus" + alternatif
- * ketik nama lengkap. Koordinat dihitung dari ukuran tampil sehingga tetap tepat di dalam `ScaleToFit`.
+ * Bantalan tanda tangan aksesibel: kanvas dengan pointer events (jari, stylus, mouse) + garis dasar + tombol "Ulangi"
+ * + alternatif ketik nama lengkap. Koordinat dihitung dari ukuran tampil sehingga tetap tepat di dalam `ScaleToFit`.
  */
 export function SignaturePad({
   label,
@@ -25,17 +25,27 @@ export function SignaturePad({
   disabled,
   value,
   onChange,
+  captionLabel,
+  signerDetail,
+  location,
 }: {
   label: string;
   signerName: string;
   disabled: boolean;
   value: SignatureValue | null;
   onChange: (v: SignatureValue | null) => void;
+  /** Awalan keterangan di bawah bantalan, mis. "Nama dan hubungan:" (saksi). */
+  captionLabel?: string;
+  /** Rincian penanda tangan setelah nama, mis. hubungan saksi ("anak"). */
+  signerDetail?: string;
+  /** Lokasi tablet yang ditulis setelah tanda tangan, mis. "Melati". */
+  location?: string;
 }) {
   const id = useId();
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const stroke = useRef(new StrokeTracker());
   const [typed, setTyped] = useState('');
+  const detail = signerDetail ? ` · ${signerDetail}` : '';
 
   const point = (e: PointerEvent<HTMLCanvasElement>) => {
     const c = e.currentTarget;
@@ -71,10 +81,10 @@ export function SignaturePad({
           type="button"
           disabled={disabled || !value}
           onClick={clear}
-          aria-label={`Hapus ${label.toLowerCase()}`}
+          aria-label={`Ulangi ${/^tanda tangan/i.test(label) ? '' : 'tanda tangan '}${label.toLowerCase()}`}
           className="min-h-11 cursor-pointer rounded-control border border-line-strong bg-white px-3.5 font-[inherit] text-small disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Hapus
+          Ulangi
         </button>
       </div>
       <div
@@ -115,6 +125,11 @@ export function SignaturePad({
           onPointerCancel={end}
           onLostPointerCapture={end}
         />
+        {/* Garis dasar tanda tangan (mockup Consent). */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-6 bottom-7 border-b border-line-strong"
+        />
         {!value && (
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-ink-400">
             Tanda tangan di sini
@@ -127,9 +142,10 @@ export function SignaturePad({
         )}
       </div>
       <span id={`${id}-hint`} className="text-caption text-ink-700">
+        {captionLabel && <span className="font-semibold">{captionLabel} </span>}
         {value
-          ? `${value.name} · ${value.method === 'nama' ? 'nama diketik' : 'goresan'} · ${value.at}`
-          : `${signerName} · belum menandatangani`}
+          ? `${value.name}${detail} · ${value.method === 'nama' ? 'nama diketik' : 'goresan'} · ${value.at}${location ? ` · lokasi tablet: ${location}` : ''}`
+          : `${signerName}${detail} · belum menandatangani`}
       </span>
       {!value && (
         <form
