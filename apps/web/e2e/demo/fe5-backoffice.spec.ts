@@ -305,4 +305,37 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B05 penggajian: impor jasa pelayanan, PPh 21 manual, hitung, setujui (SoD), posting, slip', async ({
+    page,
+  }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/');
+    await page.goto('/manajemen/penggajian');
+    await expect(page.getByRole('heading', { name: 'Penggajian · Oktober 2026', level: 1 })).toBeVisible();
+
+    const calc = page.getByRole('button', { name: 'Hitung gaji' });
+    await expect(calc).toBeDisabled();
+    await page.getByRole('button', { name: 'Impor jasa pelayanan' }).click();
+    await expect(page.getByText('PPh 21 belum diisi untuk 2 pegawai.')).toBeVisible();
+    await page.getByLabel(`PPh 21 ${PERSONA.perawat}`).fill('95.000');
+    await page.getByLabel(`PPh 21 ${PERSONA.apoteker}`).fill('118000');
+    await calc.click();
+    await expect(page.getByText(/PAY-2610-001: gaji 8 pegawai dihitung/)).toBeVisible();
+
+    await page.getByLabel('Penyetuju').selectOption(PERSONA.akuntan);
+    const approve = page.getByRole('button', { name: 'Setujui run gaji' });
+    await expect(approve).toBeDisabled();
+    await page.getByLabel('Penyetuju').selectOption(PERSONA.direktur);
+    await approve.click();
+    await page.getByRole('button', { name: 'Posting jurnal gaji' }).click();
+    await expect(page.getByText(/jurnal gaji diposting ke buku besar/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Jurnal gaji' })).toContainText('Debit = kredit');
+
+    await page.getByLabel('Pegawai', { exact: true }).selectOption({ label: PERSONA.perawat });
+    await expect(page.getByLabel(`Slip ${PERSONA.perawat}`)).toContainText('−Rp 95.000');
+    await page.getByRole('button', { name: 'Kirim slip ke pegawai' }).click();
+    await expect(page.getByText(/Slip 8 pegawai terkirim/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

@@ -15,6 +15,13 @@ import {
 } from '../../demo/fixtures/kredensial';
 import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
 import { patientById } from '../../demo/fixtures/pasien';
+import {
+  PAYROLL_APPROVERS,
+  PAYROLL_INPUTS,
+  PAYROLL_PERIOD,
+  PAYROLL_PREPARER,
+  SERVICE_FEES,
+} from '../../demo/fixtures/penggajian';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
   BUNDLE_AUDITS,
@@ -99,3 +106,15 @@ export async function getAssets() {
   return { assets: ASSETS, labs: CALIBRATION_LABS, tickets: REPAIR_TICKETS, technicians: TECHNICIANS };
 }
 export type AssetData = Awaited<ReturnType<typeof getAssets>>;
+
+/** B05 · run gaji periode berjalan (angka simulasi). */
+export async function getPayroll() {
+  demoOnly('penggajian');
+  return {
+    period: PAYROLL_PERIOD,
+    inputs: PAYROLL_INPUTS,
+    serviceFees: SERVICE_FEES,
+    preparer: PAYROLL_PREPARER,
+    approvers: PAYROLL_APPROVERS,
+  };
+}

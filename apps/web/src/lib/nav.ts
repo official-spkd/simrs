@@ -108,6 +108,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
       },
       { id: 'ppi', label: 'PPI', href: '/manajemen/ppi', icon: 'shield', available: false },
       { id: 'aset', label: 'Aset & pemeliharaan', href: '/manajemen/aset', icon: 'box', available: false },
+      {
+        id: 'penggajian',
+        label: 'Penggajian',
+        href: '/manajemen/penggajian',
+        icon: 'wallet',
+        available: false,
+      },
     ],
   },
   // FE5 · akhir

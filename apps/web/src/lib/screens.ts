@@ -491,6 +491,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['manajemen', 'perawat'],
     layout: 'staf',
   },
+  {
+    id: 'penggajian',
+    label: 'Penggajian',
+    route: '/manajemen/penggajian',
+    mockup: null,
+    components: ['B05'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'payroll.approve',
+    demoRoles: ['akuntan', 'manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
