@@ -272,11 +272,11 @@ Contoh tindakan pengecualian dari data dummy: "Tandai lunas di kasir (TPDI + BTN
 
 1. Buka **Keuangan › Pembiayaan BTN**. Judul "Pembiayaan BTN · fasilitas kesehatan (simulasi)" dengan nomor perjanjian fiktif.
 2. Tab **A · Pembiayaan piutang BPJS**. Wilayah "Indikator fasilitas": Plafon fasilitas (Rp 15,00 M), Outstanding, Sisa plafon, Klaim layak bayar eligible, Rata-rata hari cair BPJS, Margin berjalan.
-3. Di "Pool klaim BPJS", centang batch layak bayar (atau **Pilih semua layak bayar**), lalu **Ajukan pencairan**. Lanjutkan **Simulasi: BTN menyetujui** dan **Simulasi: BTN mencairkan dana**. Dana masuk rekening operasional.
-4. Panel "Alur dana pelunasan": BPJS membayar ke rekening penampungan ••••9021, pokok + margin didebit otomatis ke BTN, sisanya diteruskan ke operasional ••••4417. Tekan **BPJS membayar klaim** untuk menyimulasikan.
+3. Di "Pool klaim BPJS", centang batch layak bayar (atau **Pilih semua layak bayar**), lalu **Ajukan pencairan**. Lanjutkan **Simulasi: BTN menyetujui** dan **Simulasi: BTN mencairkan dana**. Tiap langkah bertanda "pukul HH.MM", langkah berikutnya "menunggu"; dasar pengajuan menyebut batch dan nilai klaimnya. Dana masuk rekening operasional. Selama ada pengajuan berjalan, **Ajukan pencairan** tetap bisa difokus dengan alasan "Selesaikan pengajuan … dulu."
+4. Panel "Alur dana pelunasan" (wilayah "Pelunasan dan parameter fasilitas"): BPJS membayar ke rekening penampungan ••••9021, pokok + margin didebit otomatis ke BTN, sisanya diteruskan ke operasional ••••4417. Tekan **BPJS membayar klaim** untuk menyimulasikan.
 5. Tab **B · Cicilan biaya pasien**. Pilih pengajuan di "Daftar pengajuan cicilan". "Detail pengajuan" menampilkan nilai pembiayaan, estimasi angsuran, dan timeline.
 6. Majukan tahap: **Simulasi: teruskan ke verifikasi BTN**, **Simulasi: BTN menyetujui**, **Simulasi: pasien tanda tangan akad (TTE)**, **Simulasi: BTN mencairkan dana**. Contoh: Ny. Wulan Sari Dewi berakhir "✓ BTN mencairkan Rp 14.200.000".
-7. Untuk menolak, tekan **Tolak**, isi "Alasan penolakan dari BTN (wajib)", lalu **Konfirmasi tolak**.
+7. Untuk menolak, tekan **Tolak**, isi "Alasan penolakan dari BTN (wajib)", lalu **Konfirmasi tolak**. Menekannya saat alasan kurang dari 10 karakter menampilkan "Alasan wajib diisi, minimal 10 karakter." Setelah dicairkan, tautan **Lihat penerimaan di Pembayaran via BTN** membuka Pembayaran digital.
 
 **Gerbang keselamatan dan aturan bisnis.**
 

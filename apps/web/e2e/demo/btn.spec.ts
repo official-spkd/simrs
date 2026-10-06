@@ -136,9 +136,19 @@ test.describe('pembiayaan BTN', () => {
     const pool = page.getByRole('region', { name: 'Pool klaim BPJS' });
     await pool.getByRole('button', { name: 'Ajukan pencairan' }).click();
     await expect(pool.getByText(/Pengajuan PCR-2610-01/)).toBeVisible();
+    // Mockup: tiap langkah bertanda jam, langkah berikutnya "menunggu", dasar klaim beserta nilainya.
+    await expect(pool.getByText(/dasar: .+ · Rp [\d.,]+ (M|jt)/)).toBeVisible();
+    await expect(pool.getByText(/^pukul \d{2}\.\d{2}$/)).toHaveCount(1);
+    await expect(pool.getByText('menunggu', { exact: true })).toBeVisible();
+    // Pengajuan berikutnya tertahan, alasan tetap terbaca (aria-disabled).
+    const ajukan = pool.getByRole('button', { name: 'Ajukan pencairan' });
+    await expect(ajukan).toBeDisabled();
+    await expect(pool.getByText('Selesaikan pengajuan PCR-2610-01 dulu.')).toBeVisible();
     await pool.getByRole('button', { name: 'Simulasi: BTN menyetujui' }).click();
     await pool.getByRole('button', { name: 'Simulasi: BTN mencairkan dana' }).click();
-    await expect(pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional/)).toBeVisible();
+    await expect(
+      pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional ••••4417 pukul \d{2}\.\d{2}/),
+    ).toBeVisible();
 
     // Tab B: Diajukan → Verifikasi BTN → Disetujui → Akad TTE → Dicairkan.
     await page.getByRole('tab', { name: /^B · Cicilan biaya pasien/ }).click();
@@ -157,6 +167,9 @@ test.describe('pembiayaan BTN', () => {
       await expect(detail.getByText(chip, { exact: true })).toBeVisible();
     }
     await expect(detail.getByText(/✓ BTN mencairkan Rp 14\.200\.000/)).toBeVisible();
+    await expect(
+      detail.getByRole('link', { name: 'Lihat penerimaan di Pembayaran via BTN' }),
+    ).toHaveAttribute('href', '/keuangan/pembayaran');
 
     // Penolakan wajib beralasan (≥ 10 karakter).
     await daftar.getByRole('button', { name: /Tn\. Fajar Nugraha/ }).click();
@@ -164,6 +177,14 @@ test.describe('pembiayaan BTN', () => {
     const tolak = detail.getByRole('button', { name: 'Konfirmasi tolak' });
     await detail.getByLabel('Alasan penolakan dari BTN (wajib)').fill('kurang');
     await expect(tolak).toBeDisabled();
+    // Klik saat alasan kurang menampilkan galat (mockup: aria-disabled, bukan tombol mati). Playwright menganggap
+    // aria-disabled "tidak aktif", jadi klik dipaksa seperti klik pengguna sungguhan.
+    await tolak.click({ force: true });
+    await expect(detail.getByText('Alasan wajib diisi, minimal 10 karakter.')).toBeVisible();
+    await expect(detail.getByLabel('Alasan penolakan dari BTN (wajib)')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
     await detail
       .getByLabel('Alasan penolakan dari BTN (wajib)')
       .fill('Slip gaji tidak dapat diverifikasi BTN');
