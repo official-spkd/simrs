@@ -183,3 +183,153 @@ test.describe('dokumentasi · langkah kunci alur', () => {
     await shoot(page, info, 'simulasi--ringkasan');
   });
 });
+
+test.describe('dokumentasi · langkah kunci putaran 2 (FE1–FE5)', () => {
+  test('downtime--aktif (mode downtime beralasan)', async ({ page }, info) => {
+    await openAs(page, 'admin_tenant', '/sistem/downtime');
+    await page
+      .getByLabel('Alasan dan dampak (tercatat di log insiden)')
+      .fill('VClaim timeout sejak 10.40, SEP tidak terbit');
+    await page.getByRole('button', { name: 'Aktifkan mode downtime' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Aktifkan mode downtime?' })
+      .getByRole('button', { name: 'Ya, aktifkan' })
+      .click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' })).toBeVisible();
+    await shoot(page, info, 'downtime--aktif');
+  });
+
+  test('golive--matriks (GO terkunci sampai item kritis selesai)', async ({ page }, info) => {
+    await openAs(page, 'manajemen', '/sistem/go-live');
+    await page
+      .getByLabel('Catatan keputusan (wajib, tercatat)')
+      .fill('Pilot mulai Senin 12 Okt, hypercare 2 minggu');
+    const locked = page.getByText('Terkunci: 3 item kritis belum selesai atau belum berpemilik.');
+    await expect(locked).toBeVisible();
+    await shoot(page, info, 'golive--matriks', { focus: locked });
+  });
+
+  test('cppt--cosign (CPPT residen menunggu co-sign DPJP)', async ({ page }, info) => {
+    await openAs(page, 'dokter_residen', '/klinis/cppt');
+    await page.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
+    const form = page.getByRole('form', { name: 'Tulis CPPT baru' });
+    await form.getByLabel('S · Subjektif').fill('Mual berkurang, nafsu makan membaik.');
+    await form.getByLabel('A · Asesmen').fill('Hiperglikemia membaik.');
+    await form.getByLabel('P · Rencana').fill('Insulin aspart 6 U sebelum makan siang.');
+    await form.getByRole('button', { name: 'Simpan dan ajukan co-sign DPJP' }).click();
+    const status = page.getByRole('status').filter({ hasText: 'menunggu co-sign DPJP' });
+    await expect(status).toBeVisible();
+    const mine = page
+      .getByRole('list', { name: 'Catatan CPPT' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Hiperglikemia membaik.' });
+    await shoot(page, info, 'cppt--cosign', { focus: mine });
+  });
+
+  test('askep--gelang (pemberian obat terkunci sampai gelang cocok)', async ({ page }, info) => {
+    await openAs(page, 'perawat', '/klinis/asuhan-keperawatan');
+    const ronde = page.getByRole('region', { name: 'Ronde obat shift' });
+    await ronde.getByLabel('Kode gelang (hasil pindai)').fill('00-12-45-78');
+    await ronde.getByRole('button', { name: 'Verifikasi gelang' }).click();
+    await expect(ronde.getByRole('alert')).toContainText('Gelang tidak cocok');
+    await shoot(page, info, 'askep--gelang', { focus: ronde });
+  });
+
+  test('kelengkapan--tutup (tutup kunjungan terkunci)', async ({ page }, info) => {
+    await openAs(page, 'dokter', '/klinis/kelengkapan');
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await expect(cek.getByRole('button', { name: 'Tutup kunjungan' })).toBeDisabled();
+    await shoot(page, info, 'kelengkapan--tutup', {
+      focus: cek.getByRole('button', { name: 'Tutup kunjungan' }),
+    });
+  });
+
+  test('kritis--read-back (penerima + read-back wajib)', async ({ page }, info) => {
+    await openAs(page, 'analis_lab', '/penunjang/hasil-kritis');
+    await page
+      .getByRole('region', { name: 'Daftar hasil kritis' })
+      .getByRole('button', { name: /Tn\. Yusuf Hidayat/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail hasil kritis' });
+    await detail.getByRole('button', { name: 'Catat pelaporan' }).click();
+    const form = detail.getByRole('form', { name: 'Catat pelaporan hasil kritis' });
+    await form.getByRole('radio', { name: /dr\. Sinta Maharani/ }).check();
+    await form.getByRole('button', { name: 'Simpan pelaporan' }).click();
+    await expect(form.getByText(/Read-back wajib/)).toBeVisible();
+    await shoot(page, info, 'kritis--read-back', { focus: form });
+  });
+
+  test('depo--fefo (batch ED terdekat keluar dulu)', async ({ page }, info) => {
+    await openAs(page, 'apoteker', '/penunjang/depo');
+    await page.getByRole('tab', { name: 'Keluarkan (FEFO)' }).click();
+    await page
+      .getByRole('region', { name: 'Permintaan menunggu' })
+      .getByRole('listitem')
+      .filter({ hasText: 'Seftriakson' })
+      .getByRole('button', { name: 'Siapkan' })
+      .click();
+    const form = page.getByRole('form', { name: 'Pengeluaran stok' });
+    await expect(form).toContainText('CFX2510');
+    await shoot(page, info, 'depo--fefo', { focus: form });
+  });
+
+  test('bank-darah--cek-ganda (dua petugas sebelum kantong keluar)', async ({ page }, info) => {
+    await openAs(page, 'analis_lab', '/penunjang/bank-darah');
+    await page
+      .getByRole('region', { name: 'Permintaan darah' })
+      .getByRole('button', { name: /Ny\. Anisa Rahmadani/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail permintaan darah' });
+    const cross = detail.getByRole('region', { name: 'Crossmatch' });
+    await cross
+      .getByRole('listitem')
+      .filter({ hasText: 'KD-261001-044' })
+      .getByRole('button', { name: 'Hasil kompatibel' })
+      .click();
+    const issue = detail.getByRole('form', { name: 'Cek ganda pengeluaran kantong' });
+    await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
+    await expect(detail.getByRole('alert').filter({ hasText: 'dua petugas' })).toBeVisible();
+    await shoot(page, info, 'bank-darah--cek-ganda', { focus: issue });
+  });
+
+  test('satusehat--tahan (resource anak ditahan menunggu Encounter)', async ({ page }, info) => {
+    await openAs(page, 'admin_tenant', '/sistem/integrasi/satusehat');
+    await page
+      .getByRole('region', { name: 'Kunjungan' })
+      .getByRole('button', { name: /Ny\. Fransiska/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail kunjungan SATUSEHAT' });
+    await expect(detail.getByRole('row', { name: /Condition/ })).toContainText('menunggu Encounter terkirim');
+    await shoot(page, info, 'satusehat--tahan', { focus: detail });
+  });
+
+  test('kas-bank--jurnal (tutup laci: selisih beralasan, jurnal seimbang)', async ({ page }, info) => {
+    await openAs(page, 'kasir', '/keuangan/kas-bank');
+    const laci = page.getByRole('article', { name: 'Laci Loket 1 · RJ dan RI' });
+    await laci.getByRole('button', { name: 'Tutup laci…' }).click();
+    const form = laci.getByRole('form', { name: /Tutup laci Loket 1/ });
+    await form.getByLabel('Rp 100.000', { exact: true }).fill('42');
+    await form.getByLabel('Rp 5.000', { exact: true }).fill('1');
+    await form.getByLabel('Rp 2.000', { exact: true }).fill('1');
+    await form.getByLabel('Rp 1.000', { exact: true }).fill('1');
+    await form.getByLabel(/Alasan selisih/).fill('Kembalian pecahan Rp 200 dua kali tidak dicatat');
+    const journal = form.locator('figure:has([data-total-debit])').first();
+    await expect(journal).toBeVisible();
+    await shoot(page, info, 'kas-bank--jurnal', { focus: journal });
+  });
+
+  test('hutang--persetujuan (persetujuan tingkat 2 oleh manajemen)', async ({ page }, info) => {
+    await openAs(page, 'manajemen', '/keuangan/hutang');
+    const ek = page.getByRole('listitem', { name: 'Faktur EK/2609/55120' });
+    await expect(ek.getByRole('button', { name: 'Setujui tingkat 2' })).toBeVisible();
+    await shoot(page, info, 'hutang--persetujuan', { focus: ek });
+  });
+
+  test('command-center--alert (alert kritis wajib keputusan beralasan)', async ({ page }, info) => {
+    await openAs(page, 'manajemen', '/manajemen/command-center');
+    const alerts = page.getByRole('region', { name: 'Alert keputusan' });
+    await alerts.getByRole('button', { name: /Putuskan tindakan.*1 pasien IGD menunggu bed/ }).click();
+    await expect(alerts.getByRole('button', { name: 'Simpan keputusan' })).toBeDisabled();
+    await shoot(page, info, 'command-center--alert', { focus: alerts });
+  });
+});

@@ -1,7 +1,9 @@
 # Fitur klinis (RME)
 
-Halaman ini menjelaskan tujuh layar rekam medis elektronik (lapisan K): pemeriksaan poli, CPOE, IGD, tempat tidur,
-rawat inap dengan CPPT dan eMAR, resume medis, dan tablet persetujuan tindakan. Setiap layar memuat gerbang
+Halaman ini menjelaskan tujuh belas layar rekam medis elektronik (lapisan K). Tujuh layar inti: pemeriksaan poli, CPOE,
+IGD, tempat tidur, rawat inap dengan CPPT dan eMAR, resume medis, dan tablet persetujuan tindakan. Sepuluh layar
+bagan RME per pasien (FE2): worklist, CPPT dan serah terima, asesmen, diagnosis, konsultasi, edukasi, asuhan
+keperawatan, ringkasan pasien, paket layanan khusus, dan kelengkapan rekam medis. Setiap layar memuat gerbang
 keselamatan yang tidak bisa dilewati diam-diam (CLAUDE.md §4.9) dan mengikuti pola rekam medis immutable: koreksi
 menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 
@@ -9,7 +11,9 @@ menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 > semuanya masih "Belum tersambung" (potongan W1–W5b). Backend yang sudah ada: infrastruktur entri klinis (3.1),
 > diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist (3.2b), ADT, papan bed, triase, gelang,
 > Aplicare (3.3, sudah digabung ke master), dan CPOE + CDS + resep (3.4). eMAR (3.5), resume (3.6), dan persetujuan
-> tindakan (3.7) belum.
+> tindakan (3.7) belum. Sepuluh layar bagan RME (FE2) berstatus `demo` saja: hanya ada di mode presentasi, tanpa
+> Server Action, dan belum hibrida. API worklist, CPPT, asesmen, diagnosis, dan ringkasan untuk layar itu sudah ada;
+> konsultasi, edukasi, askep/eMAR, paket layanan, dan gerbang tutup kunjungan belum (3.5–3.8).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
 
@@ -20,24 +24,55 @@ Posisi layar-layar ini dalam perjalanan pasien rawat jalan:
 Konsep dasarnya ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md#rekam-medis-dan-jejak-audit). Cara mode
 presentasi dan simulasi pasien dibawakan ada di [Simulasi dan operasional](./18-simulasi-dan-operasional.md).
 
+Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` dan `apps/web/src/lib/rme.ts`:
+
+- **`RmeChartHeader`** (`chart-header.tsx`): remah "Klinis / Rekam medis / <judul>", judul "<judul> · <nama pasien>",
+  pemilih **Pasien** (`patient-picker.tsx`, dikelompokkan Rawat inap, Rawat jalan, Kamar bersalin), banner pasien
+  wajib (nama, umur, RM, alergi, penjamin, DPJP), chip konteks kunjungan (setting, lokasi, hari rawat, tanggal mulai),
+  dan navigasi bagan Ringkasan, CPPT & serah terima, Asesmen, Diagnosis, Konsultasi, Edukasi, Asuhan keperawatan, dan
+  Kelengkapan RM. Navigasi hanya memuat layar yang terbuka untuk posisi (`chartLinks`) dan membawa `?pasien=`.
+- **Pasien dari URL**: `rmeChartFor` (`apps/web/src/lib/server/data/klinis/rme.ts`) membaca `?pasien=<encounterId>`.
+  Kosong = pasien bawaan Ny. Endang Wijaya (Bangsal Melati M-203, pulang hari ini); id tak dikenal = 404. Fixture ada di
+  `apps/web/src/lib/demo/fixtures/rme-*.ts`; pasien rawat inap diambil dari fixture Rawat inap, pasien skenario
+  Simulasi tidak ikut.
+- **`Feedback` dan `ReasonField`** (`feedback.tsx`): umpan balik berjam yang berakhiran "(simulasi, tidak disimpan)",
+  dan isian alasan wajib dengan hitungan "Wajib minimal 10 karakter · N karakter lagi." (`hasReason`, minimal 10).
+- **Aturan murni** per layar di `apps/web/src/lib/rme-<layar>.ts` dengan tes `rme-<layar>.test.ts`.
+- **Keadaan hanya di browser**: tidak ada Server Action, sehingga gerbang hanya ditegakkan di klien. Memuat ulang
+  halaman mengembalikan keadaan awal, dan aksi di satu layar (mis. co-sign di worklist) tidak terlihat di layar lain.
+
 ## Ringkasan layar
 
-| Layar                  | Rute                   | Peran (mode presentasi)                              | Komponen      | Status                                     |
-| ---------------------- | ---------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------ |
-| Pemeriksaan poli       | `/klinis/poli`         | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada |
-| Order dan resep (CPOE) | `/klinis/order`        | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)          |
-| IGD                    | `/klinis/igd`          | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)  |
-| Tempat tidur           | `/klinis/tempat-tidur` | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)     |
-| Rawat inap             | `/klinis/rawat-inap`   | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT ada, eMAR belum (3.5)    |
-| Resume medis           | `/klinis/resume`       | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                   |
-| Persetujuan tindakan   | `/tablet/persetujuan`  | dokter, perawat                                      | K11           | 🟨 demo; API belum (3.7, modul kerangka)   |
+| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                     |
+| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------ |
+| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)          |
+| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)  |
+| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)     |
+| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT ada, eMAR belum (3.5)    |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                   |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API belum (3.7, modul kerangka)   |
+| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)           |
+| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)               |
+| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada        |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)          |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API belum (3.8, modul kerangka)   |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API belum (3.7)                   |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep belum (3.5)      |
+| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)          |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API belum (3.8, modul kerangka)   |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API belum (3.6, 3.8)              |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
-Semua layar di atas adalah layar hibrida (`requireScreen`): mode presentasi memakai jalur `demo-*.tsx` yang
+Tujuh layar inti di atas adalah layar hibrida (`requireScreen`): mode presentasi memakai jalur `demo-*.tsx` yang
 dibekukan, mode api memeriksa `ScreenDef.permission` lalu menampilkan "Akses ditolak" atau "Belum tersambung".
 Server Action mode presentasi (`actions-demo.ts`) memeriksa ulang posisi, kontrak zod, dan gerbang keselamatan,
 tetapi tidak menyimpan apa pun. Umpan baliknya berakhiran "(simulasi, tidak disimpan)".
+
+Sepuluh layar bagan RME memakai `requireDemoScreen`: di mode api rutenya 404 dan menunya redup. Di mode presentasi
+posisi di luar `demoRoles` melihat "Layar ini untuk posisi lain". Bagian **Rencana backend** di tiap layar menyebut
+izin rencana (`plannedPermission` di `screens.ts`) dan modul API yang menunggu disambung.
 
 ## Pemeriksaan poli
 
@@ -423,6 +458,553 @@ menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga b
 **Mode api.** Izin layar `consent.write`, dibuka dengan sesi staf di tablet (tanpa prinsipal perangkat). TTE di API
 kelak memakai `consent.sign`. Sampai potongan 3.7 dan W5a halaman menampilkan "Belum tersambung".
 
+## Worklist klinis
+
+![Worklist klinis DPJP dr. Andini Prameswari: ubin Tugas tertunda 8, Nilai kritis 1, Lewat batas 1, tab Tugas tertunda, kartu kalium 6,4 mmol/L kritis dengan tombol Terima nilai kritis, dan konsul cito yang lewat batas](./gambar/worklist.png)
+
+| Hal      | Isi                                                                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/worklist`                                                                                                                                                                                         |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                     |
+| Komponen | K01 worklist klinis                                                                                                                                                                                        |
+| Status   | demo (mode presentasi); API `worklist` sudah ada (fase 3 potongan 3.2b), layar belum disambung                                                                                                             |
+| Mockup   | tidak ada (gaya mengikuti ubin KPI dan kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                        |
+| Kode web | `apps/web/src/app/(staf)/klinis/worklist/` · data `apps/web/src/lib/demo/fixtures/rme-worklist.ts` · aturan `apps/web/src/lib/rme-worklist.ts` · komponen `apps/web/src/components/rme/worklist-board.tsx` |
+| Kode API | `apps/api/src/modules/worklist/` (`GET /api/v1/worklist`)                                                                                                                                                  |
+
+**Tujuan.** Satu daftar kerja per posisi klinis: pasien yang menjadi tanggung jawabnya dan tugas tertunda (nilai
+kritis, co-sign, verifikasi CPPT, tinjau order residen, hasil baru, konsul, obat, reasesmen, serah terima), diurutkan
+dari yang paling mendesak.
+
+**Alur.**
+
+1. Buka **Worklist klinis**. Judul "Worklist klinis · <nama>" dengan posisi di bawahnya (DPJP, Dokter residen (PPDS),
+   Perawat penanggung jawab, atau Bidan penanggung jawab). Data per Sen, 5 Okt 2026 · 10.45.
+2. Ubin ringkasan memuat Tugas tertunda, Nilai kritis ("baca ulang wajib"), Lewat batas, dan Selesai shift ini.
+3. Tab **Tugas tertunda** terbuka lebih dulu. Setiap kartu memuat chip prioritas (Kritis, Prioritas tinggi, Rutin),
+   jenis tugas, dan tenggat bertulisan, mis. "Batas 11.09 · 24 mnt lagi" atau "Lewat 15 mnt".
+4. Nilai kritis (DPJP: "Kalium 6,4 mmol/L (kritis) · Tn. Yusuf Hidayat"; perawat: "Telepon lab: kalium 6,4 mmol/L
+   (kritis) · …"): tekan **Terima nilai kritis**, isi "Nilai dibaca ulang (mmol/L)", pilih "Tindak lanjut" (Lapor ke
+   DPJP dengan SBAR, Tata laksana sesuai protokol hiperkalemia, atau Ulang pemeriksaan dan pantau EKG), lalu
+   **Simpan penerimaan**. Hasilnya "Diterima dan dibaca ulang: 6,4 mmol/L · tindak lanjut: … · <jam> · <nama>".
+5. DPJP menyelesaikan tugas langsung di kartu: **Co-sign sekarang** ("CPPT residen 07.40 · Ny. Endang Wijaya"),
+   **Verifikasi** (CPPT farmasi 08.15 dan CPPT perawat 22.25), **Setujui order** (order residen insulin glargine), dan
+   **Tandai sudah dibaca** (gula darah sewaktu 236 mg/dL).
+6. Tugas yang diselesaikan di layar lain punya tautan **Buka <nama layar>**, mis. **Buka Konsultasi & rawat bersama**
+   untuk konsul cito dr. Melati Kusumawardani, Sp.JP.
+7. Tab **Selesai** menulis "✓ <catatan> · <jam> · <nama>". Tab **Pasien saya** memuat pasien dengan status bertulisan
+   (Menunggu, Diperiksa, Menunggu hasil, Dirawat, Pulang hari ini, Konsul, Pra-operasi, Nifas) dan jumlah tugasnya.
+   Nama pasien menaut ke Ringkasan pasien.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Nilai kritis wajib dibaca ulang (komunikasi efektif). **Simpan penerimaan** nonaktif sampai nilai dan tindak lanjut
+  terisi. Nilai yang berbeda ditolak: "Nilai tidak cocok dengan laporan lab. Konfirmasi ulang ke pelapor sebelum
+  menerima." Pencocokan mengabaikan spasi dan menyamakan koma dengan titik desimal (`readBackMatches`).
+- Co-sign, verifikasi, dan persetujuan order residen hanya oleh DPJP (posisi dokter). Posisi lain melihat "Hanya
+  DPJP (posisi dokter) yang dapat menyelesaikan tugas ini." (`completionBlocker`).
+- Residen melihat "CPPT Anda 07.40 menunggu co-sign DPJP" tanpa tombol, dengan alasan "Residen tidak dapat
+  memfinalkan CPPT sendiri: menunggu co-sign dr. …". Tugas yang menunggu pihak lain selalu di urutan terakhir.
+- Urutan kerja: kritis dulu, lalu yang lewat batas, lalu batas terdekat, lalu yang paling lama menunggu (`sortTasks`).
+- Tenggat selalu bertulisan ("Lewat 45 mnt", "1 jam 15 mnt lagi", "Tanpa batas waktu"), bukan hanya warna.
+- Penyelesaian hanya ada di state browser: memuat ulang halaman mengembalikan daftar awal, dan co-sign di worklist
+  tidak mengubah status catatan di layar CPPT.
+
+**Rencana backend.** Izin rencana `clinical.read` (sudah ada di katalog). `GET /api/v1/worklist` sudah ada (3.2b)
+dengan tugas `cosign`, `verify`, `review_order`, `ews_high`, `tte_failed`, `resume_overdue`, dan `handover`. Jenis
+tugas demo yang belum punya sumber API: nilai kritis dengan baca ulang (rencana modul `critical-results`, fase 4),
+hasil baru, konsul (3.8), obat dan askep (3.5), reasesmen, dan edukasi. Co-sign dan verifikasi kelak memanggil
+`POST /api/v1/cppt/entries/:id/cosign` dan `…/verify` (izin `clinical.cosign`). Layar belum punya `permission` di
+`screens.ts`, jadi belum hibrida.
+
+## CPPT & serah terima
+
+![CPPT dan serah terima Ny. Endang Wijaya: navigasi bagan rekam medis, CPPT terintegrasi dengan filter profesi dan catatan dietisien yang sudah diverifikasi DPJP, serta panel serah terima SBAR shift pagi ke siang](./gambar/cppt.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/cppt` (`?pasien=<encounterId>`)                                                                                                                                                                                                                                   |
+| Pemakai  | dokter, dokter residen, perawat, bidan, apoteker                                                                                                                                                                                                                           |
+| Komponen | K07 CPPT dan serah terima                                                                                                                                                                                                                                                  |
+| Status   | demo (mode presentasi); API `cppt` sudah ada (fase 3 potongan 3.2b), layar belum disambung                                                                                                                                                                                 |
+| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                                                                                             |
+| Kode web | `apps/web/src/app/(staf)/klinis/cppt/` · data `apps/web/src/lib/demo/fixtures/rme-cppt.ts` dan `rawat-inap.ts` · aturan `apps/web/src/lib/rme-cppt.ts`, `apps/web/src/lib/rawat-inap.ts` · komponen `apps/web/src/components/rme/cppt-workspace.tsx`, `handover-panel.tsx` |
+| Kode API | `apps/api/src/modules/cppt/` (`POST /api/v1/cppt/entries`, `…/:id/cosign`, `…/:id/verify`, `…/:id/entered-in-error`, `POST /api/v1/cppt/handovers`, `GET /api/v1/encounters/:id/cppt`, `…/handovers`)                                                                      |
+
+**Tujuan.** CPPT terintegrasi lintas PPA dalam format SOAP: tulis, tanda tangan, co-sign residen, verifikasi DPJP atas
+catatan PPA lain, koreksi berversi, addendum, dan serah terima SBAR antarshift.
+
+**Alur.**
+
+1. Buka **CPPT & serah terima**. Pasien bawaan Ny. Endang Wijaya (Bangsal Melati M-203, hari rawat ke-5). Ganti
+   pasien di **Pasien**.
+2. Kolom "CPPT terintegrasi" menulis jumlah yang menunggu co-sign dan verifikasi. Saring dengan **Semua PPA**,
+   **Dokter**, **Perawat & bidan**, atau **Farmasi & gizi**.
+3. Tekan **+ Tulis CPPT (SOAP)**. Formulir "CPPT baru · <profesi>" memuat S · Subjektif, O · Objektif, A · Asesmen,
+   dan P · Rencana. Singkatan terlarang muncul sebagai "Singkatan terlarang (peringatan, tidak memblokir):".
+4. DPJP, perawat, bidan, dan apoteker menekan **Simpan dan tanda tangani (final)**. Dokter residen menekan
+   **Simpan dan ajukan co-sign DPJP**; catatannya berstatus "Belum final · menunggu co-sign DPJP".
+
+   ![Catatan CPPT dokter residen berstatus Belum final · menunggu co-sign DPJP, dengan tombol Co-sign DPJP nonaktif dan alasan hanya DPJP yang dapat co-sign](./gambar/cppt--cosign.png)
+
+5. DPJP menekan **Co-sign DPJP** pada catatan residen. Status menjadi "Final · co-sign DPJP <nama> · <jam>".
+6. Catatan perawat, bidan, farmasi, atau gizi berstatus "Final · menunggu verifikasi DPJP (batas 6 Okt · 08.15)".
+   DPJP menekan **Verifikasi DPJP**; status menjadi "Final · diverifikasi DPJP <nama> · <jam>".
+7. Untuk catatan sendiri tekan **Koreksi**, ubah isi, isi "Alasan koreksi", lalu **Simpan koreksi (versi baru)**.
+   Untuk catatan PPA lain tekan **Addendum** lalu **Simpan addendum**. **Riwayat versi (N)** menampilkan rantai
+   "Versi 1 · … · digantikan".
+8. Panel "Serah terima SBAR" (rawat inap dan kamar bersalin) menampilkan serah terima terakhir, mis. "Malam → pagi ·
+   diserahkan Ns. Yudi Pratama, S.Kep" dan "Diterima Ns. Maya Sari, S.Kep · 07.06". SBAR shift Pagi → siang · 14.00
+   terisi dari CPPT terakhir, riwayat, diagnosis utama, alergi, EWS, dan rencana, dan bisa disunting.
+9. Pilih "Penerima shift berikutnya", tekan **Serahkan shift**. Status "Menunggu konfirmasi <penerima>" berubah
+   menjadi "Diterima <penerima> · <jam>" setelah **Konfirmasi penerimaan (simulasi penerima)**.
+10. Kunjungan rawat jalan tidak memakai serah terima; panel diganti catatan bahwa kunjungan ditutup dengan resume
+    rawat jalan.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- S dan A wajib ("S wajib diisi."). Koreksi wajib alasan minimal 10 karakter ("Wajib minimal 10 karakter · N karakter
+  lagi.").
+- Catatan residen tidak final sebelum co-sign DPJP. Formulir residen selalu menulis "Residen tidak dapat memfinalkan
+  catatannya sendiri."
+- Co-sign hanya untuk catatan residen yang belum di-co-sign, hanya oleh DPJP (posisi dokter), dan bukan catatan
+  sendiri ("Hanya DPJP (posisi dokter) yang dapat co-sign.", "Tidak bisa co-sign catatan sendiri.") (`cosignBlocker`).
+- Verifikasi DPJP berlaku untuk CPPT PPA non-dokter dalam 24 jam (`VERIFY_WITHIN_HOURS`). Lewat batas ditulis "Final ·
+  verifikasi DPJP lewat 24 jam". Catatan DPJP tidak perlu verifikasi; catatan residen memakai co-sign.
+- Koreksi hanya oleh penulisnya (`canCorrectCppt`) dan menjadi versi baru. Versi lama tetap tersimpan dengan label
+  "Versi lama · digantikan koreksi (tetap tersimpan)". Catatan PPA lain hanya bisa diberi addendum.
+- Singkatan terlarang hanya peringatan (EP 9a), dari daftar contoh `SAMPLE_FORBIDDEN_ABBREVIATIONS`.
+- Serah terima: keempat bagian SBAR wajib, penerima wajib dan bukan pemberi ("Pilih perawat penerima shift
+  berikutnya.", "Penerima harus petugas shift berikutnya, bukan pemberi.").
+
+**Rencana backend.** Izin rencana `cppt.write` belum ada di katalog; modul `cppt` yang sudah jadi memakai
+`clinical.write`, `clinical.correct`, dan `clinical.cosign`. Matriks bawaan apoteker belum memegang `clinical.write`,
+padahal apoteker ada di `demoRoles` dan di daftar penulis CPPT web (`CPPT_WRITER_ROLES`). Konfirmasi serah terima di
+layar ini disimulasikan oleh pemberi; di API penerima mengonfirmasi dari sesinya sendiri.
+
+## Asesmen & skrining
+
+![Asesmen dan skrining Ny. Endang Wijaya: paket asesmen rawat inap 4 dari 5 final dengan reasesmen Morse jatuh tempo, dan panel Morse skor 35 risiko sedang yang hanya bisa diisi perawat atau bidan](./gambar/asesmen.png)
+
+| Hal      | Isi                                                                                                                                                                                                                               |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/asesmen` (`?pasien=<encounterId>`)                                                                                                                                                                                       |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                                            |
+| Komponen | K06 asesmen dan skrining                                                                                                                                                                                                          |
+| Status   | demo (mode presentasi); API `assessment` dan `forms` sudah ada (fase 3 potongan 3.2b, fase 1), layar belum disambung                                                                                                              |
+| Mockup   | `design/mockups/Formulir.dc.html`                                                                                                                                                                                                 |
+| Kode web | `apps/web/src/app/(staf)/klinis/asesmen/` · data `apps/web/src/lib/demo/fixtures/rme-asesmen.ts` · aturan `apps/web/src/lib/rme-asesmen.ts` · komponen `apps/web/src/components/rme/asesmen-workspace.tsx` (penyaji formulir P07) |
+| Kode API | `apps/api/src/modules/assessment/` (`GET /api/v1/encounters/:id/assessments`) · `apps/api/src/modules/forms/` (`POST /api/v1/patients/:patientId/forms/:code/responses`, `POST /api/v1/form-responses/:id/corrections`)           |
+
+**Tujuan.** Paket formulir asesmen per setting dengan skor otomatis, saran tindak lanjut, hak tulis per profesi, dan
+isian final yang tidak bisa diubah (koreksi menjadi versi baru, reasesmen menjadi isian baru).
+
+**Alur.**
+
+1. Buka **Asesmen & skrining**. Kolom "Paket asesmen · Rawat inap" menulis kemajuan, mis. "4 dari 5 final". Paket
+   rawat inap: Asesmen awal medis, Asesmen awal keperawatan, Risiko jatuh dewasa (Morse), Skrining nyeri (NRS 0–10),
+   dan Skrining gizi (MST). Rawat jalan dan kamar bersalin memakai paket lebih kecil.
+2. Setiap formulir menulis status: "Final · …", "Belum diisi · batas …", atau "Reasesmen jatuh tempo sejak …", beserta
+   skor terakhir (mis. "Skor 35 · Risiko sedang").
+3. Pilih formulir. Panel kanan menulis "Diisi oleh … · reasesmen tiap N jam" dan menampilkan isian final.
+4. Perawat menekan **Isi reasesmen** (atau **Isi sekarang** bila belum pernah diisi), mengisi semua butir, dan melihat
+   kotak "Tindak lanjut:" yang dihitung dari skor.
+5. Tekan **Simpan final**. Umpan balik "Final · <jam> · Risiko jatuh dewasa (Morse) · skor 85 Risiko tinggi" dan paket
+   menjadi "5 dari 5 final".
+6. Untuk koreksi tekan **Koreksi isian**, ubah jawaban, periksa "Perubahan dari versi 1 (N)", isi "Alasan koreksi",
+   lalu **Simpan koreksi (versi 2)**. Isian lama tetap ada di "Riwayat versi".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Hak tulis per profesi (ADR-0019): asesmen awal medis oleh dokter dan residen; asesmen awal keperawatan, Morse, dan
+  MST oleh perawat dan bidan; NRS oleh keempatnya. Posisi lain melihat "Formulir ini diisi oleh … Posisi Anda dapat
+  membaca isian." dan tombol isi nonaktif.
+- Isian wajib harus lengkap: "N isian belum lengkap atau belum valid; periksa tanda merah di formulir."
+- Asesmen awal wajib ≤ 24 jam sejak kunjungan dimulai (`INITIAL_WITHIN_HOURS`). Lewat batas ditulis "Belum diisi ·
+  lewat batas …".
+- Interval reasesmen: Morse 24 jam, NRS 8 jam, MST 168 jam (7 hari).
+- Koreksi wajib berisi perubahan ("Tidak ada perubahan untuk dikoreksi.") dan alasan minimal 10 karakter. Versi lama
+  tidak diubah (`newResponse`).
+- Tindak lanjut skor adalah saran, bukan keputusan otomatis (`scoreFollowUp`): Morse ≥ 45 risiko tinggi (gelang
+  kuning, bundle pencegahan jatuh, reasesmen tiap shift, masuk asuhan keperawatan), 25–44 sedang, < 25 rendah; NRS ≥ 7
+  nyeri berat (lapor DPJP, reasesmen 30 menit), 4–6 sedang (reasesmen 1 jam); MST ≥ 2 rujuk dietisien.
+- Morse memakai definisi bersama `MORSE_FALL_SCALE` (`packages/shared/src/forms.ts`). Formulir lain adalah contoh
+  komite rekam medis tanpa kode terminologi.
+
+**Rencana backend.** Izin rencana `forms.response.write` (sudah ada di katalog; koreksi memakai
+`forms.response.correct`). Pembacaan per kunjungan dan penyimpanan isian sudah ada di API; layar tinggal disambung.
+Kelengkapan paket per setting (`GET /api/v1/assessment/encounters/:id/completeness`) direncanakan di potongan 3.8.
+
+## Diagnosis & problem list
+
+![Diagnosis dan problem list Ny. Endang Wijaya: J18.9 pneumonia sebagai diagnosis utama dan E11.9 sekunder berstatus diagnosis kerja, tombol Tetapkan diagnosis akhir, dan kartu alergi amoksisilin](./gambar/diagnosis.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/diagnosis` (`?pasien=<encounterId>`)                                                                                                                                                                                                  |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                                                         |
+| Komponen | K08 diagnosis dan problem list                                                                                                                                                                                                                 |
+| Status   | demo (mode presentasi); API `diagnosis` sudah ada (fase 3 potongan 3.2a), layar belum disambung                                                                                                                                                |
+| Mockup   | tidak ada (gaya mengikuti bagian A · Asesmen di `design/mockups/Main.dc.html`)                                                                                                                                                                 |
+| Kode web | `apps/web/src/app/(staf)/klinis/diagnosis/` · data `apps/web/src/lib/demo/fixtures/rme-diagnosis.ts` · aturan `apps/web/src/lib/rme-diagnosis.ts` · komponen `apps/web/src/components/rme/diagnosis-workspace.tsx`                             |
+| Kode API | `apps/api/src/modules/diagnosis/` (`GET /api/v1/encounters/:id/conditions`, `…/procedures`, `POST /api/v1/diagnosis/conditions`, `…/procedures`, `…/allergies`, `…/:id/entered-in-error`, `GET /api/v1/diagnosis/problem-list`, `…/allergies`) |
+
+**Tujuan.** Diagnosis kunjungan berkode ICD-10 dengan tepat satu diagnosis utama, prosedur ICD-9-CM, daftar masalah
+lintas kunjungan, dan alergi atau NKDA. Setiap perubahan adalah versi baru yang menunjuk versi lama.
+
+**Alur.**
+
+1. Buka **Diagnosis & problem list**. Kolom "Diagnosis kunjungan ini (ICD-10)" untuk Ny. Endang memuat J18.9
+   Pneumonia, tidak spesifik (Utama) dan E11.9 Diabetes melitus tipe 2 tanpa komplikasi (Sekunder), keduanya
+   "Diagnosis kerja".
+2. Di bawahnya pilih "Kode ICD-10" dan "Jenis" (Utama, Sekunder, Komplikasi), lalu **Tambahkan**. Contoh: E87.5
+   Hiperkalemia sebagai sekunder.
+3. **Jadikan utama** (label aksesibel "Jadikan E11.9 diagnosis utama") menurunkan utama lama menjadi sekunder dan
+   menaikkan yang dipilih. Keduanya menjadi versi 2.
+4. **Salah entri** membuka "Alasan salah entri"; **Tandai salah entri** mencoret entri dengan "Salah entri · <alasan>".
+5. **Masukkan ke problem list** menambah diagnosis yang belum ada di daftar masalah aktif.
+6. **Tetapkan diagnosis akhir** mengubah semua diagnosis kerja menjadi diagnosis akhir.
+7. Kartu "Prosedur (ICD-9-CM)": pilih "Kode ICD-9-CM", lalu **Tambahkan prosedur**.
+8. Kartu "Problem list": saring **Aktif** atau **Teratasi**. **Tandai teratasi** meminta "Tanggal teratasi" dan
+   "Catatan", lalu **Simpan**.
+9. Kartu "Alergi": isi "Zat/obat penyebab", "Reaksi", dan "Tingkat keparahan", lalu **Catat alergi**. Alergi keliru
+   ditandai **Salah entri**. **Verifikasi NKDA** mencatat "Tidak ada alergi yang diketahui (NKDA)".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Tepat satu diagnosis utama. Utama kedua ditolak: "Diagnosis utama sudah ada (J18.9). Tambahkan sebagai sekunder,
+  lalu pakai "Jadikan utama" untuk menggantinya." Kode ganda ditolak (`addDxBlocker`).
+- Diagnosis akhir butuh tepat satu utama ("Belum ada diagnosis utama. Tetapkan tepat satu diagnosis utama."). Setelah
+  ditetapkan tombol menulis "Diagnosis akhir sudah ditetapkan." (`finalizeBlocker`).
+- Salah entri diagnosis dan alergi wajib alasan minimal 10 karakter. Entri tetap tampil dicoret, tidak dihapus.
+- Kode hanya dari `RME_ICD10` dan `RME_ICD9` di fixture, yang diambil dari rujukan seed `SEED_REF_SAMPLES` dan
+  dijaga `rme-diagnosis.test.ts`.
+- Diagnosis, prosedur, dan problem list hanya oleh dokter dan residen ("Diagnosis ditetapkan dokter (DPJP/residen).").
+  Alergi juga boleh dicatat perawat dan bidan.
+- NKDA hanya bila tidak ada alergi aktif: "Masih ada N alergi aktif; batalkan sebagai salah entri dulu bila memang
+  keliru." Zat dan reaksi wajib; zat ganda ditolak. Masalah teratasi wajib bertanggal.
+
+**Rencana backend.** Izin rencana `diagnosis.write` belum ada di katalog; modul `diagnosis` yang sudah jadi memakai
+`clinical.read`, `clinical.write`, dan `clinical.correct`. API sudah menegakkan satu diagnosis utama final per
+kunjungan dan NKDA eksklusif. Pemetaan aksi **Jadikan utama**, **Tetapkan diagnosis akhir**, dan **Tandai teratasi**
+ke endpoint versi baru perlu dipastikan saat penyambungan.
+
+## Konsultasi & rawat bersama
+
+![Konsultasi dan rawat bersama Tn. Sutan Batubara: konsul masuk cito dari dr. Melati Kusumawardani yang belum dijawab lewat batas 10.30, kartu konsul dengan tombol Jawab konsul, dan kartu tim perawatan](./gambar/konsul.png)
+
+| Hal      | Isi                                                                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/konsultasi` (`?pasien=<encounterId>`; bawaan Tn. Sutan Batubara)                                                                                                                                  |
+| Pemakai  | dokter, dokter residen                                                                                                                                                                                     |
+| Komponen | K10 konsultasi dan rawat bersama                                                                                                                                                                           |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.8 belum dibangun                                                                                                                                         |
+| Mockup   | tidak ada (gaya mengikuti kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                                     |
+| Kode web | `apps/web/src/app/(staf)/klinis/konsultasi/` · data `apps/web/src/lib/demo/fixtures/rme-konsul.ts` · aturan `apps/web/src/lib/rme-konsul.ts` · komponen `apps/web/src/components/rme/konsul-workspace.tsx` |
+| Kode API | `apps/api/src/modules/consult/` (kerangka; isi di potongan 3.8)                                                                                                                                            |
+
+**Tujuan.** Permintaan konsul antar-DPJP dengan batas jawab per urgensi, jawaban terstruktur, penetapan rawat bersama
+atau alih rawat, dan tim perawatan yang berubah sebagai versi baru.
+
+**Alur.**
+
+1. Buka **Konsultasi & rawat bersama**. Kartu "Konsul masuk belum dijawab (N)" memuat, mis., "Tn. Sutan Batubara ·
+   Cito · dari dr. Melati Kusumawardani, Sp.JP" dengan status "Belum dijawab · lewat batas 10.30". Konsul pasien lain
+   punya tautan **Buka konsul**.
+2. Kartu "Konsul pasien ini" memuat chip urgensi dan jenis, jam kirim, "dr. Melati Kusumawardani, Sp.JP → dr. Andini
+   Prameswari, Sp.PD (SMF Penyakit Dalam)", pertanyaan klinis, dan "Akses rekam konsultan berakhir 6 Okt · 09.30".
+3. Tekan **Jawab konsul**. Isi "Temuan pemeriksaan", "Kesimpulan / diagnosis konsultan", "Rekomendasi tata laksana",
+   dan "Tindak lanjut": Konsul selesai, kembali ke DPJP; Rawat bersama (konsultan ikut merawat); atau Alih rawat
+   (konsultan menjadi DPJP utama).
+4. Tekan **Tanda tangani jawaban**. Umpan balik "Konsul dijawab · <jam> · Rawat bersama …" dan kartu menulis
+   "Dijawab <nama> · <jam>".
+5. Kartu "Tim perawatan" menulis DPJP utama dan anggota aktif. Rawat bersama menambah "DPJP rawat bersama · sejak …";
+   alih rawat menutup DPJP utama lama dan menetapkan konsultan.
+6. Formulir "Kirim konsul baru": pilih "Dokter konsultan", "Jenis", dan "Urgensi" (Cito (≤ 1 jam) atau Biasa (≤ 24
+   jam)), tulis "Pertanyaan klinis", lalu **Kirim konsul**. Umpan balik "Konsul terkirim ke … · <jam> · jawab sebelum
+   …".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Batas jawab cito 1 jam dan biasa 24 jam (`URGENCY_HOURS`). Lewat batas ditulis "Belum dijawab · lewat batas …".
+- Jawaban hanya oleh posisi dokter. Residen melihat **Jawab konsul** nonaktif dengan "Jawaban konsul ditandatangani
+  dokter konsultan (posisi dokter)." Kesimpulan dan rekomendasi wajib ("Isi kesimpulan/diagnosis konsultan.").
+- Kirim konsul hanya oleh dokter atau residen, ke konsultan yang bukan diri sendiri, dengan pertanyaan minimal 20
+  karakter ("Tulis pertanyaan klinis yang jelas (minimal 20 karakter).") (`sendBlocker`).
+- Akses rekam konsultan berbatas waktu: konsul sekali 24 jam sejak dijawab (atau sejak dikirim bila belum dijawab);
+  rawat bersama dan alih rawat selama pasien dirawat (`consultantAccessUntil`).
+- Tim perawatan tidak dihapus: anggota lama ditutup dengan tanggal berakhir, alih rawat dicatat "Alih rawat ke …
+  (konsul <jam>)" (`applyFollowUp`).
+
+**Rencana backend.** Izin rencana `consult.write` belum ada di katalog. Modul API `consult` masih kerangka; isinya
+(permintaan + jawaban terstruktur, ganti DPJP utama sebagai versi baru dengan relasi akses ikut berpindah) dijadwalkan
+di potongan 3.8 (`docs/rencana/fase-3-klinis-rme.md`). Akses berbatas waktu konsultan perlu dipetakan ke relasi ABAC.
+
+## Edukasi pasien
+
+![Edukasi pasien Ny. Endang Wijaya dari posisi dokter: formulir catat edukasi dengan materi bertanda wajib, dan kartu kebutuhan edukasi 3 dari 6 materi wajib terverifikasi paham](./gambar/edukasi.png)
+
+| Hal      | Isi                                                                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/edukasi` (`?pasien=<encounterId>`)                                                                                                                                                                |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                     |
+| Komponen | K11 persetujuan dan edukasi                                                                                                                                                                                |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.7 belum dibangun                                                                                                                                         |
+| Mockup   | `design/mockups/Consent.dc.html`                                                                                                                                                                           |
+| Kode web | `apps/web/src/app/(staf)/klinis/edukasi/` · data `apps/web/src/lib/demo/fixtures/rme-edukasi.ts` · aturan `apps/web/src/lib/rme-edukasi.ts` · komponen `apps/web/src/components/rme/edukasi-workspace.tsx` |
+| Kode API | belum ada (rencana lewat formulir P07 `apps/api/src/modules/forms/` dan modul `consent` yang masih kerangka, docs/01-arsitektur.md §2)                                                                     |
+
+**Tujuan.** Edukasi pasien dan keluarga terintegrasi lintas PPA dengan verifikasi pemahaman (teach-back), tanda
+tangan penerima, dan atestasi edukator. Edukasi tindakan menjadi syarat persetujuan tindakan di tablet.
+
+**Alur.**
+
+1. Buka **Edukasi pasien**. Formulir "Catat edukasi · <profesi>" terdiri dari lima bagian.
+2. **1. Materi**: pilih materi; materi wajib kunjungan ini diberi tanda "wajib".
+3. **2. Metode**: Lisan / diskusi, Demonstrasi + redemonstrasi, Leaflet, atau Video.
+4. **3. Sasaran** (Pasien, Keluarga / pendamping, Pasien dan keluarga) dan "Nama penerima". Untuk keluarga Ny. Endang
+   nama terisi Sdr. Dimas Wijaya.
+5. **4. Verifikasi pemahaman (teach-back)**: Paham (mampu menjelaskan ulang), Perlu diulang, atau Belum paham. Paham
+   meminta "Ucapan ulang penerima"; selain itu meminta "Jadwal edukasi ulang hari ini".
+6. **5. Tanda tangan penerima (ketik nama penerima)**, lalu centang "Saya, <nama>, memberikan edukasi ini dan
+   memverifikasi pemahaman penerima."
+7. Tekan **Simpan edukasi (final)**. Umpan balik "Edukasi final · <jam> · N materi terverifikasi paham", atau "Edukasi
+   tercatat · … · edukasi ulang dijadwalkan …".
+8. Kartu "Kebutuhan edukasi kunjungan ini" menulis kemajuan, mis. "3 dari 6 materi wajib terverifikasi paham", dengan
+   status per materi ✓ Paham, Perlu diulang, atau Belum. Kartu "Riwayat edukasi terintegrasi" memuat catatan semua
+   PPA.
+9. Pasien dengan materi tindakan (mis. Ny. Anisa Rahmadani sebelum SC) mendapat status "Persetujuan tindakan belum
+   siap: …" yang berubah menjadi "Persetujuan tindakan siap: …" beserta tautan **Buka persetujuan di tablet**.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Simpan ditolak dengan pesan berurutan (`eduBlocker`): minimal satu materi, metode, nama penerima, hasil verifikasi
+  pemahaman, ucapan ulang minimal 10 karakter bila paham, jadwal ulang bila belum paham, tanda tangan sama dengan nama
+  penerima ("Tanda tangan penerima: ketik nama yang sama dengan nama penerima."), dan atestasi ("Centang atestasi
+  edukator.").
+- Materi wajib per kunjungan: bawaan rawat jalan penyakit dan obat; rawat inap penyakit, obat, dan perawatan di rumah;
+  beberapa kunjungan punya daftar sendiri (`requiredTopics`). Status materi memakai catatan terbaru per materi.
+- Persetujuan tindakan siap hanya setelah materi "Tindakan yang direncanakan: manfaat, risiko, alternatif"
+  terverifikasi paham (`consentReady`).
+- Edukator: dokter, residen, perawat, dan bidan. Catatan final tidak bisa diubah.
+
+**Rencana backend.** Izin rencana `education.write` belum ada di katalog. Rencana fase 3 potongan 3.7 menyimpan
+edukasi lewat formulir P07 bersama tablet persetujuan (modul `consent`, izin `consent.write` dan `consent.sign`).
+Syarat "edukasi tindakan paham sebelum persetujuan" baru ada di layar ini; tablet persetujuan belum memeriksanya.
+
+## Asuhan keperawatan
+
+![Asuhan keperawatan Ny. Endang Wijaya: rencana asuhan shift pagi dengan diagnosis Risiko jatuh (Morse 35) dan intervensinya, serta ronde obat eMAR terkunci karena gelang belum terverifikasi](./gambar/askep.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/asuhan-keperawatan` (`?pasien=<encounterId>`, pasien rawat inap)                                                                                                                                                           |
+| Pemakai  | perawat, bidan                                                                                                                                                                                                                      |
+| Komponen | K12 asuhan keperawatan dan eMAR                                                                                                                                                                                                     |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.5 (eMAR + askep) belum dibangun; tanda vital + EWS sudah ada                                                                                                                      |
+| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                                                      |
+| Kode web | `apps/web/src/app/(staf)/klinis/asuhan-keperawatan/` · data `apps/web/src/lib/demo/fixtures/rme-askep.ts` dan `rawat-inap.ts` · aturan `apps/web/src/lib/rme-askep.ts` · komponen `apps/web/src/components/rme/askep-workspace.tsx` |
+| Kode API | `apps/api/src/modules/nursing/` (sebagian: tanda vital + NEWS2; eMAR dan askep di potongan 3.5)                                                                                                                                     |
+
+**Tujuan.** Rencana asuhan keperawatan per shift (diagnosis keperawatan, luaran, intervensi, evaluasi SOAP) dan ronde
+obat shift dengan gerbang gelang eMAR.
+
+**Alur.**
+
+1. Buka **Asuhan keperawatan**. Kartu "Rencana asuhan keperawatan" menulis "Diagnosis keperawatan master lokal
+   (selaras SDKI) · evaluasi 0 dari 3 diagnosis shift ini". Pilih shift: Pagi 07.00–14.00, Siang 14.00–21.00, atau
+   Malam 21.00–07.00.
+2. Setiap diagnosis (mis. "Risiko jatuh (Morse 35)") memuat Luaran dan "Intervensi shift pagi". Centang intervensi
+   yang selesai; jamnya tercatat.
+3. Isi evaluasi: S · Subjektif, O · Objektif, A · Hasil evaluasi (Masalah teratasi, Teratasi sebagian, Belum
+   teratasi), dan P · Rencana lanjut. Tekan **Simpan evaluasi shift**; hasilnya "Evaluasi final · <jam> · <nama>".
+4. **Tambah diagnosis keperawatan** dari master (Nyeri akut, Defisit pengetahuan, Risiko infeksi, Gangguan mobilitas
+   fisik), lalu **Tambahkan**.
+5. Kartu "Ronde obat shift (eMAR)" mulai terkunci: "Pemberian obat terkunci: gelang belum terverifikasi". Isi "Kode
+   gelang (hasil pindai)" atau tekan **Pindai gelang (simulasi)**, lalu **Verifikasi gelang**.
+
+   ![Ronde obat dengan kode gelang 00-12-45-78 ditolak karena bukan pasien ini; tombol Catat pemberian insulin dan omeprazol tetap nonaktif](./gambar/askep--gelang.png)
+
+6. Gelang yang cocok menulis "✓ Pasien benar · gelang terpindai <jam> · RM 00-07-61-33".
+7. Untuk setiap dosis jatuh tempo tekan **Catat pemberian**. Dosis terlambat (08.00 · Omeprazol 40 mg injeksi) meminta
+   "Alasan keterlambatan". Obat high-alert (12.00 · Insulin aspart sesuai skala) meminta "Perawat pemeriksa kedua".
+   Hasilnya "✓ Diberikan <jam> · … · terlambat: …" atau "… · cek ganda <nama>".
+8. **Buka eMAR lengkap** membuka tab CPPT & eMAR di Rawat inap.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Pemberian obat terkunci sampai gelang cocok dengan RM pasien (hanya huruf dan angka yang dibandingkan). Pesan di
+  setiap dosis: "Pindai gelang pasien dulu: pemberian obat tidak bisa dicatat sebelum identitas terverifikasi."
+- Gelang salah ditolak: "Gelang tidak cocok (<kode>): bukan pasien ini. Pemberian tetap terkunci; periksa identitas
+  pasien."
+- Dosis terlambat wajib alasan minimal 10 karakter. Obat high-alert wajib cek ganda perawat kedua
+  (`recordDoseBlocker`).
+- Evaluasi shift wajib O, A, dan P ("Isi O (data objektif) evaluasi.", "Pilih hasil evaluasi (A).", "Isi P (rencana
+  lanjut)."); S boleh kosong.
+- Intervensi, evaluasi, dan pemberian obat hanya oleh perawat dan bidan.
+- Diagnosis keperawatan memakai master lokal tanpa kode resmi (keputusan fase 3 no. 15). Pasien bukan rawat inap
+  melihat penjelasan bahwa askep dan ronde obat berlaku untuk rawat inap.
+
+**Rencana backend.** Izin rencana `nursing.write` belum ada di katalog; katalog sudah punya `medication.administer`
+untuk eMAR. Potongan 3.5 merencanakan `POST /api/v1/nursing/wristband-scans` (gelang salah tercatat dan 422
+`WRISTBAND_MISMATCH`), `POST /api/v1/nursing/administrations` (wajib `scanId`, alasan terlambat, atestasi perawat
+kedua untuk high-alert), `GET /api/v1/nursing/emar/:encounterId`, dan `POST /api/v1/nursing/care-plans`.
+
+## Ringkasan pasien
+
+![Ringkasan pasien Ny. Endang Wijaya: chip flag alergi amoksisilin, risiko jatuh sedang, dan rencana pulang hari ini, serta kartu identitas, alergi, problem aktif, obat aktif, hasil terbaru, dan tanda vital terakhir](./gambar/ringkasan.png)
+
+| Hal      | Isi                                                                                                                                                                   |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/ringkasan` (`?pasien=<encounterId>`)                                                                                                                         |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                |
+| Komponen | K14 ringkasan pasien                                                                                                                                                  |
+| Status   | demo (mode presentasi); API `summary` sudah ada (fase 3 potongan 3.2a), layar belum disambung                                                                         |
+| Mockup   | tidak ada (gaya mengikuti kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                |
+| Kode web | `apps/web/src/app/(staf)/klinis/ringkasan/` · data `apps/web/src/lib/demo/fixtures/rme-ringkasan.ts`, `rme-diagnosis.ts` · aturan `apps/web/src/lib/rme-ringkasan.ts` |
+| Kode API | `apps/api/src/modules/summary/` (`GET /api/v1/summary/patients/:id`, `GET /api/v1/encounters/:id/context`)                                                            |
+
+**Tujuan.** Satu halaman baca untuk mengenal pasien dengan cepat: identitas, flag risiko, alergi, problem aktif, obat
+aktif, hasil terbaru, tanda vital, kunjungan terakhir, dan rencana. Setiap blok menyebut sumbernya.
+
+**Alur.**
+
+1. Buka **Ringkasan pasien** dari menu, dari chip **Ringkasan** di navigasi bagan, atau dari tab **Pasien saya** di
+   Worklist klinis (klik nama pasien).
+2. Baris "Flag risiko" memuat chip bertulisan: alergi, nilai kritis (mis. "Nilai kritis: Kalium 6,4 mmol/L"), EWS bila
+   bukan rendah, risiko tercatat (mis. "Risiko jatuh sedang · Morse 35"), Isolasi, dan "Rencana pulang hari ini".
+   Tanpa flag tertulis "Tidak ada flag risiko aktif".
+3. Baca kartu Identitas & penjamin (NIK tersamar), Alergi (atau "Tidak ada alergi yang diketahui (NKDA)"), Problem
+   aktif, Obat aktif (chip High-alert), Hasil terbaru, Tanda vital terakhir (dengan EWS), Kunjungan terakhir, dan
+   Rencana. Setiap kartu ditutup "Sumber: …".
+4. Pindah ke layar asal lewat **Kelola** (Diagnosis & problem list), **Ronde obat** (Asuhan keperawatan), atau
+   **CPPT**.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Layar hanya baca; perubahan dilakukan di layar asal.
+- Hasil terbaru: satu baris per pemeriksaan (nilai terakhir), nilai kritis selalu paling atas, maksimal 6 baris
+  (`latestResults`). Contoh Tn. Yusuf Hidayat: Kalium kritis di baris pertama.
+- Flag risiko selalu bertulisan, bukan hanya warna (`riskFlags`). Tingkat EWS dari tanda vital terakhir (NEWS2).
+- Tautan ke layar asal hanya tampil bila layar itu terbuka untuk posisi (mis. **Ronde obat** hanya untuk perawat dan
+  bidan pada pasien rawat inap).
+- Pasien rawat jalan: obat dari resep rawat jalan terakhir; tanda vital ditulis "Tanda vital rawat jalan tercatat di
+  layar Pemeriksaan poli."
+
+**Rencana backend.** Izin rencana `clinical.read` (sudah ada di katalog). Modul `summary` sudah jadi dan hanya
+membaca modul lain; layar tinggal disambung. Flag nilai kritis menunggu sumber hasil kritis (fase 4).
+
+## Paket layanan khusus
+
+![Paket layanan khusus kemoterapi Ny. Maria Ulfa siklus 4 dari 12: jadwal siklus, gerbang sesi dengan hemoglobin 8,9 g/dL di bawah ambang 10, dan tombol Tunda sesi hari ini serta Lanjut dengan alasan klinis](./gambar/paket.png)
+
+| Hal      | Isi                                                                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/paket-layanan` (`?pasien=<encounterId>`; bawaan kemoterapi Ny. Maria Ulfa)                                                                                                                        |
+| Pemakai  | dokter, perawat, bidan                                                                                                                                                                                     |
+| Komponen | K15 paket layanan khusus                                                                                                                                                                                   |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.8 belum dibangun                                                                                                                                         |
+| Mockup   | tidak ada (gaya mengikuti `SafetyGate` dan kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                    |
+| Kode web | `apps/web/src/app/(staf)/klinis/paket-layanan/` · data `apps/web/src/lib/demo/fixtures/rme-paket.ts` · aturan `apps/web/src/lib/rme-paket.ts` · komponen `apps/web/src/components/rme/paket-workspace.tsx` |
+| Kode API | `apps/api/src/modules/care-packages/` (kerangka; isi di potongan 3.8)                                                                                                                                      |
+
+**Tujuan.** Paket layanan berulang (hemodialisis, kemoterapi, antenatal) dengan jadwal sesi, daftar kelengkapan per
+sesi yang diisi sesuai profesi, gerbang lab pra-tindakan, dan alur mulai sampai selesai sesi.
+
+**Alur.**
+
+1. Buka **Paket layanan khusus**. Navigasi "Paket aktif" memuat Hemodialisis · Tn. Yusuf Hidayat, Kemoterapi · Ny.
+   Maria Ulfa, dan Antenatal (ANC) · Ny. Anisa Rahmadani.
+2. Kartu paket menulis judul dan siklus ("Kemoterapi · Siklus 4 dari 12"), protokol, kemajuan ("3 dari 5 sesi di
+   jadwal ini selesai"), dan "Jadwal sesi" dengan status Selesai, Hari ini, Berlangsung, Terjadwal, atau Ditunda.
+3. Di daftar kelengkapan, tekan **Tandai selesai** pada butir yang menjadi hak profesi Anda (label aksesibel "Tandai
+   selesai: <butir>"), mis. "Verifikasi ganda dosis (apoteker + perawat)".
+4. Kartu "Gerbang sesi hari ini" menampilkan lab pra-tindakan: Hemoglobin 8,9 g/dL < 10, Leukosit 3.100 /µL ✓,
+   Trombosit 168.000 /µL ✓, dengan catatan "Ambang = contoh protokol komite RS."
+5. Gerbang "Hemoglobin 8,9 g/dL di bawah ambang 10" memberi dua pilihan: **Tunda sesi hari ini** (sesi menjadi
+   Ditunda) atau **Lanjut dengan alasan klinis**, isi "Alasan klinis", lalu **Simpan alasan dan lanjut**. Gerbang
+   menulis "Override tercatat · …".
+6. Tekan **Mulai pemberian siklus** ("Kemoterapi dimulai · <jam>"), lalu **Selesaikan siklus hari ini**. Jadwal menulis
+   "Selesai <jam> · <nama>" pada Siklus 4.
+7. Hemodialisis memakai **Mulai sesi HD** dan **Selesaikan sesi HD**. ANC memakai **Tutup paket ANC (lanjut
+   persalinan)** yang langsung menutup sesi.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Mulai sesi nonaktif sampai semua butir kelengkapan selesai ("Lengkapi dulu: …") lalu sampai gerbang lab lolos atau
+  di-override ("Hasil lab di bawah ambang protokol: tunda sesi atau lanjut dengan alasan klinis.") (`startBlocker`).
+- Override wajib alasan klinis minimal 10 karakter (`SafetyGate`) dan tercatat bersama nama dan jam.
+- Butir kelengkapan punya hak isi per profesi. Butir di luar hak menulis "Diisi oleh …", mis. "Resep HD DPJP (durasi,
+  target UF, antikoagulan)" hanya "Diisi oleh Dokter (DPJP)." (`markBlocker`).
+- Ambang lab adalah contoh protokol RS di fixture, bukan pedoman klinis: kemoterapi Hb ≥ 10 g/dL, leukosit ≥ 3.000/µL,
+  trombosit ≥ 100.000/µL.
+- Butir hanya bisa ditandai bila paket punya sesi hari ini. Mulai dan selesai hanya mengubah sesi hari ini; sesi
+  lain tidak berubah (`setTodayStatus`).
+
+**Rencana backend.** Izin rencana `care-package.write` belum ada di katalog. Modul API `care-packages` masih kerangka;
+potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme paket formulir + kelengkapan
+(keputusan fase 3 no. 18). Ambang gerbang lab perlu menjadi pengaturan protokol per RS, bukan konstanta.
+
+## Kelengkapan rekam medis
+
+![Kelengkapan rekam medis Ny. Endang Wijaya: daftar periksa 3 dari 7 terpenuhi 43 persen dengan butir co-sign residen dan edukasi pulang belum terpenuhi, serta daftar dokumen pasien dengan status TTE](./gambar/kelengkapan.png)
+
+| Hal      | Isi                                                                                                                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
+| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
+| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
+| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
+| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
+| Kode API | belum ada (rencana `DischargeGate` di modul `discharge` yang masih kerangka dan kelengkapan di modul `assessment`, docs/01-arsitektur.md §2); dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi)            |
+
+**Tujuan.** Daftar periksa DPJP sebelum menutup kunjungan (gerbang tutup encounter, EP 5c) dan daftar dokumen pasien
+per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.
+
+**Alur.**
+
+1. Buka **Kelengkapan rekam medis**. Kartu "Kelengkapan sebelum tutup kunjungan" Ny. Endang menulis "3 dari 7
+   terpenuhi · 43%". Butirnya ditandai ✓ atau ✕: Asesmen awal medis ≤ 24 jam, Asesmen awal keperawatan, Semua CPPT
+   residen sudah co-sign DPJP, Tepat satu diagnosis utama berkode ICD-10, Edukasi pulang terverifikasi paham, Surat
+   kontrol Poli Penyakit Dalam ber-TTE, dan Resume medis final ber-TTE.
+2. Perbaiki butir di tempat: **Co-sign sekarang** dan **Kirim ulang TTE**. Butir lain punya tautan **Lengkapi di layar
+   asal** (Asesmen, Diagnosis, Edukasi, Resume medis, atau CPPT).
+3. Pilih "Disposisi": Pulang atas persetujuan DPJP, Dirujuk ke fasilitas lain, Pulang atas permintaan sendiri, atau
+   Meninggal.
+4. Tekan **Tutup kunjungan**. Selama ada butir terbuka, tombol nonaktif dan alasannya tertulis.
+
+   ![Tombol Tutup kunjungan nonaktif dengan alasan 4 butir kelengkapan belum terpenuhi, di samping daftar dokumen dengan surat kontrol berstatus TTE gagal](./gambar/kelengkapan--tutup.png)
+
+5. Bila semua butir terpenuhi (mis. rawat jalan Ny. Rohana Siregar, 100%), kunjungan ditutup: "Kunjungan ditutup ·
+   <jam> · Pulang atas persetujuan DPJP. Rekam medis terkunci; perubahan berikutnya lewat addendum."
+6. Kartu "Dokumen pasien kunjungan ini" memuat status Final · TTE, Final · atestasi elektronik, Menunggu TTE, TTE
+   gagal, Draf, Pindaian terunggah, atau Dibatalkan. Dokumen belum final bisa **Batalkan**: isi "Alasan pembatalan",
+   lalu **Batalkan dokumen**.
+7. Unggah pindaian: pilih "Jenis pindaian" (Pindaian surat rujukan, Hasil pemeriksaan luar RS, Surat keterangan,
+   Dokumen identitas penjamin), isi "Keterangan", lalu **Unggah (simulasi)**.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Tutup kunjungan hanya oleh DPJP (posisi dokter). Residen dan petugas rekam medis melihat "Kunjungan ditutup oleh
+  DPJP (posisi dokter)." (`closeBlocker`).
+- Semua butir wajib terpenuhi: "N butir kelengkapan belum terpenuhi: …". Disposisi wajib ("Pilih disposisi
+  pasien."). Rujuk membutuhkan surat rujukan ber-TTE; meninggal membutuhkan surat keterangan kematian ber-TTE.
+- Co-sign dan kirim ulang TTE dari layar ini hanya oleh DPJP; posisi lain melihat "Diselesaikan DPJP (posisi
+  dokter)."
+- Butir dihitung dari data layar RME lain (asesmen, CPPT, diagnosis, edukasi) agar konsisten; rawat inap menambah
+  butir resume medis final ber-TTE.
+- Pembatalan dokumen wajib alasan minimal 10 karakter dan dokumen tetap ada di daftar dengan status Dibatalkan.
+  Dokumen final tidak bisa dibatalkan: "Dokumen final terkunci; koreksi lewat addendum." (`cancelBlocker`).
+- Setelah ditutup, rekam medis kunjungan terkunci; perubahan hanya lewat addendum.
+
+**Rencana backend.** Izin rencana `clinical.sign` (sudah ada di katalog), tetapi petugas rekam medis di `demoRoles`
+tidak memegangnya dan juga tidak memegang `documents.write`. Potongan 3.6 membangun `DischargeGate` (rawat inap =
+disposisi + resume final; meninggal = surat kematian; rujuk = surat rujukan) dan potongan 3.8 membangun
+`GET /api/v1/assessment/encounters/:id/completeness` serta `components/klinis/patient-documents.tsx`. Daftar,
+unggah, batal, dan TTE dokumen kelak memakai modul `documents` (`POST /api/v1/patients/:patientId/documents`,
+`POST /api/v1/documents/:id/void`, `POST /api/v1/documents/:id/signatures`).
+
 ## Tes yang menjaga layar ini
 
 E2E mode presentasi (Playwright, proyek `demo-desktop` dan `demo-tablet`):
@@ -432,6 +1014,13 @@ E2E mode presentasi (Playwright, proyek `demo-desktop` dan `demo-tablet`):
   CPOE, CPOE pasien skenario terkunci, status IGD dan bed bertulisan, CSP ber-nonce.
 - `apps/web/e2e/demo/rawat-inap.spec.ts`: triase turun wajib alasan, alokasi bed, eMAR terkunci sampai gelang cocok,
   cek ganda, dosis terlambat, koreksi dan addendum CPPT, TTE resume 12 butir, persetujuan tablet dan penolakan.
+- `apps/web/e2e/demo/fe2-klinis.spec.ts`: sepuluh layar bagan RME. Worklist (baca ulang nilai kritis, co-sign dari
+  worklist, residen menunggu co-sign), CPPT (co-sign, verifikasi, riwayat versi, koreksi beralasan, serah terima SBAR
+  wajib penerima), asesmen (reasesmen Morse dan hak tulis per profesi), diagnosis (satu utama, salah entri beralasan,
+  NKDA), konsultasi (jawaban terstruktur, pertanyaan minimal 20 karakter), edukasi (teach-back, tanda tangan,
+  persetujuan siap), askep (gerbang gelang, terlambat, cek ganda), ringkasan (nilai kritis di atas), paket (gerbang Hb
+  dan override), dan kelengkapan (tutup kunjungan terkunci, hanya DPJP). Setiap tes juga memeriksa tidak ada gulir
+  horizontal.
 - `apps/web/e2e/demo/semua-layar.spec.ts`: jaring pengaman semua layar dan QA visual.
 - `apps/web/e2e/smoke.spec.ts`: mode api menampilkan "Belum tersambung" atau "Akses ditolak" di layar klinis dan rute
   detailnya.
@@ -440,6 +1029,9 @@ Unit:
 
 - `apps/web/src/lib/klinis.test.ts`, `klinis-cds.test.ts`, `rawat-inap.test.ts`, `rawat-inap-gates.test.ts`,
   `rawat-inap-scenario.test.ts`, `screens.test.ts`, `apps/web/src/lib/demo/fixtures/fixtures.test.ts`.
+- Bagan RME: `apps/web/src/lib/rme.test.ts`, `rme-worklist.test.ts`, `rme-cppt.test.ts`, `rme-asesmen.test.ts`,
+  `rme-diagnosis.test.ts` (termasuk kode hanya dari rujukan seed), `rme-konsul.test.ts`, `rme-edukasi.test.ts`,
+  `rme-askep.test.ts`, `rme-ringkasan.test.ts`, `rme-paket.test.ts`, `rme-kelengkapan.test.ts`.
 - `packages/shared/src/clinical/clinical.test.ts` (CDS, EWS, triase, eMAR, resume).
 - API: `apps/api/test/clinical-infra.test.ts`, `clinical-records.test.ts`, `clinical-notes.test.ts`,
   `orders.test.ts`, `adt-triage.test.ts`, `admission.test.ts`.
@@ -453,4 +1045,6 @@ Unit:
   [CPPT, co-sign, worklist](./02-cara-kerja-kode.md#cppt-co-sign-verifikasi-dpjp-serah-terima-asesmen-worklist-fase-3-potongan-3-2b).
 - [Siapa boleh apa](./01-cara-kerja-sistem.md#siapa-boleh-apa): RBAC, ABAC, dan break-the-glass.
 - [Simulasi dan operasional](./18-simulasi-dan-operasional.md) dan [Peta kode](./19-peta-kode.md).
+- [Peta alur semua fase](./20-peta-alur-semua-fase.md): posisi layar bagan RME dalam alur pasien lintas fase.
+- [Fitur back office](./16-fitur-back-office.md): layar onkologi dan administrasi rekam medis yang memakai data klinis.
 - Rencana: `docs/rencana/fase-3-klinis-rme.md`; status: `docs/PROGRESS.md`.

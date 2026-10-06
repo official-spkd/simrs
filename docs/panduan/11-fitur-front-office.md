@@ -3,16 +3,20 @@
 Halaman ini menjelaskan layar front office fase 2: jadwal dokter, anjungan mandiri, kendali antrean, pendaftaran + SEP, dan display TV. Setiap layar punya dua mode: mode presentasi (data dummy fiktif) dan mode api (tersambung ke backend). Cara kerja di balik layar ada di [Cara kode bekerja](./02-cara-kerja-kode.md); halaman ini meringkas dan menautkannya.
 
 > Status 6 Okt 2026: fase 2 selesai (5 Okt 2026, 4/4 kriteria). Backend F01–F08 tersambung; rantai anjungan → loket → SEP → display → task ID 1–3 dan pendaftaran saat BPJS mati diuji E2E dengan mock. Booking (F02) belum punya layar web sendiri: booking dibuat lewat API `/api/v1/booking/appointments` atau otomatis saat walk-in didaftarkan.
+>
+> Dua layar tambahan, **Rujukan** (F07, F06) dan **Info publik (pratinjau)** (F08), berstatus `demo`: hanya ada di mode presentasi dengan data dummy fiktif. Backend keduanya sudah ada (modul `referral` dan `patient-portal-gateway`), tetapi layar ini belum memanggilnya. Bedanya ditulis di **Rencana backend** masing-masing.
 
 ## Ringkasan layar
 
-| Layar            | Rute               | Peran                                                                              | Komponen | Status                     |
-| ---------------- | ------------------ | ---------------------------------------------------------------------------------- | -------- | -------------------------- |
-| Pendaftaran      | `/pendaftaran`     | petugas_pendaftaran                                                                | F03, F06 | hibrida (presentasi + api) |
-| Jadwal dokter    | `/jadwal`          | petugas_pendaftaran, admin_tenant (ubah); dokter, perawat, bidan, manajemen (baca) | F01      | hibrida (presentasi + api) |
-| Anjungan mandiri | `/kiosk`           | perangkat anjungan terdaftar                                                       | F05      | hibrida (presentasi + api) |
-| Display antrean  | `/display/antrean` | perangkat TV terdaftar                                                             | F04      | hibrida (presentasi + api) |
-| Kendali antrean  | `/antrean`         | petugas_pendaftaran, klinisi poli (panggil); admin_tenant (lihat)                  | F04      | api saja                   |
+| Layar                   | Rute                     | Peran                                                                              | Komponen | Status                     |
+| ----------------------- | ------------------------ | ---------------------------------------------------------------------------------- | -------- | -------------------------- |
+| Pendaftaran             | `/pendaftaran`           | petugas_pendaftaran                                                                | F03, F06 | hibrida (presentasi + api) |
+| Jadwal dokter           | `/jadwal`                | petugas_pendaftaran, admin_tenant (ubah); dokter, perawat, bidan, manajemen (baca) | F01      | hibrida (presentasi + api) |
+| Anjungan mandiri        | `/kiosk`                 | perangkat anjungan terdaftar                                                       | F05      | hibrida (presentasi + api) |
+| Display antrean         | `/display/antrean`       | perangkat TV terdaftar                                                             | F04      | hibrida (presentasi + api) |
+| Kendali antrean         | `/antrean`               | petugas_pendaftaran, klinisi poli (panggil); admin_tenant (lihat)                  | F04      | api saja                   |
+| Rujukan                 | `/rujukan`               | petugas_pendaftaran, dokter                                                        | F07, F06 | demo (presentasi saja)     |
+| Info publik (pratinjau) | `/pratinjau/info-publik` | semua posisi (pratinjau); publik tanpa login di produksi                           | F08      | demo (presentasi saja)     |
 
 Registri layar ada di `apps/web/src/lib/screens.ts` (id `daftar`, `jadwal`, `kiosk`, `antrean`, `kendali`). Empat layar pertama berstatus `demo` dengan `permission`, artinya hibrida: `requireScreen(id)` memilih jalurnya.
 
@@ -234,15 +238,108 @@ Rincian: [Antrean dan task ID BPJS](./02-cara-kerja-kode.md#antrean-dan-task-id-
 
 **Mode api.** Layar ini hanya ada di mode api (`apiOnly` di registri). Di mode presentasi menunya tersembunyi dan rutenya `404`; pemanggilan dummy dilakukan dari layar Pendaftaran dan Display antrean.
 
+## Rujukan
+
+![Layar Rujukan untuk petugas pendaftaran: KPI menunggu BPJS, ditolak atau gagal kirim, berlaku, dan rujukan masuk dipakai; chip saring jenis rujukan; daftar rujukan dengan status kirim BPJS dan detail rujukan terpilih](./gambar/rujukan.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/rujukan`                                                                                                                                                                                                                          |
+| Pemakai  | petugas_pendaftaran, dokter                                                                                                                                                                                                         |
+| Komponen | F07 Rujukan, F06 Penjaminan dan eligibilitas                                                                                                                                                                                        |
+| Status   | demo (mode presentasi); API rujukan fase 2 sudah ada, layar belum disambungkan                                                                                                                                                      |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Registrasi.dc.html` dan docs/08)                                                                                                                                                          |
+| Kode web | `apps/web/src/app/(staf)/rujukan/` · data `apps/web/src/lib/server/data/platform.ts` (fixture `lib/demo/fixtures/rujukan.ts`) · aturan `apps/web/src/lib/rujukan.ts` · komponen `apps/web/src/components/rujukan/rujukan-board.tsx` |
+| Kode API | `apps/api/src/modules/referral/` · worker `apps/worker/src/outbox/referral.ts` (fase 2 potongan 7; belum dipakai layar ini)                                                                                                         |
+
+**Tujuan.** Satu tempat untuk rujukan masuk dan keluar, rujukan internal antarpoli, surat kontrol, dan SPRI, lengkap dengan status kirim ke BPJS VClaim. Petugas melihat surat mana yang belum bernomor, ditolak, atau gagal kirim, lalu memperbaikinya.
+
+**Alur.**
+
+1. Buka menu **FRONT OFFICE → Rujukan**. Baca KPI: **Menunggu BPJS**, **Ditolak / gagal kirim**, **Berlaku**, **Rujukan masuk dipakai**.
+2. Saring di grup **Saring rujukan**: **Semua**, **Rujukan masuk**, **Rujukan keluar**, **Surat kontrol & SPRI**, **Internal antarpoli**, **Bermasalah (N)**.
+3. Pilih di **Daftar rujukan**. Tiap baris memuat jenis · pasien, nomor (atau "belum bernomor"), status surat, dan status kirim.
+4. Detail menampilkan **Tahap kirim BPJS** (Dikirim ke BPJS → Nomor terbit → Dipakai), perujuk atau asal/tujuan, diagnosis ICD-10, tanggal terbit, masa berlaku, dan tanggal rencana. Rujukan FKTP yang tinggal ≤ 7 hari diberi tanda "sisa N hari".
+5. Surat menunggu kirim (mis. surat kontrol Ny. Endang Wijaya): **Proses antrean kirim (simulasi)**. Stempel "Nomor BPJS terbit 0301R0011025K000045 · HH.MM".
+6. Surat ditolak (mis. SPRI Tn. Yusuf Hidayat, alert `BPJS_TANGGAL_TIDAK_VALID`): pilih **Tanggal rencana baru** → **Perbaiki & kirim ulang** → **Proses antrean kirim (simulasi)** sampai nomor terbit.
+7. Gagal kirim ke DLQ (rujukan keluar, `BPJS_UNAVAILABLE`): **Kirim ulang** tanpa mengubah tanggal.
+8. Surat berlaku atau sudah dipakai: **Cetak** (tercatat audit).
+9. **Batalkan** → dialog "Batalkan <jenis> <nomor>?" → isi **Alasan pembatalan** → **Ya, batalkan**. Stempel "… dibatalkan · HH.MM".
+10. **Aktivitas sesi ini** mencatat kiriman, cetak, dan batal.
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Nomor BPJS hanya ada setelah BPJS menjawab (menunggu → berlaku). Pesan tolak memakai teks baku dari kode stabil (`BPJS_REJECTIONS`), bukan teks asli BPJS.
+- Kirim ulang hanya untuk kiriman ditolak atau DLQ ("Tidak ada kiriman yang gagal.").
+- Penolakan soal tanggal (`BPJS_TANGGAL_TIDAK_VALID`, `BPJS_JADWAL_LIBUR`, `BPJS_KUOTA_PENUH`) wajib tanggal rencana baru:
+  - belum dipilih → "Pilih tanggal rencana baru dulu.";
+  - sama dengan yang ditolak → "Tanggal rencana masih sama dengan yang ditolak.";
+  - lampau → "Tanggal rencana tidak boleh sebelum hari ini.".
+- Pilihan tanggal rencana hanya hari praktik Senin–Jumat dalam 7 hari ke depan.
+- Batal ditolak untuk surat yang sudah dipakai kunjungan/SEP, kedaluwarsa, atau sudah dibatalkan. Surat bernomor dihapus di BPJS lewat antrean kirim; surat belum bernomor dibatalkan lokal. Alasan minimal 10 huruf.
+- Jenis, status, dan kode tolak mengikuti kontrak bersama `schemas/referral.ts`; diagnosis contoh diambil dari seed.
+
+**Rencana backend.** Izin rencana `referral.write` (sudah ada di katalog; petugas_pendaftaran memegangnya, tetapi dokter belum punya `referral.*` di matriks bawaan walau ada di `demoRoles`). API fase 2 potongan 7 sudah ada: `POST /referrals/control-letters`, `/referrals/outgoing`, `/referrals/internal`, `GET /referrals[/:id]`, `POST /referrals/:id/cancel`, `POST /referrals/:id/retry`. Bedanya dengan demo:
+
+- Kiriman sungguhan diproses worker (`bpjs.vclaim.*`) dengan pola cari-dulu untuk surat kontrol/SPRI; tombol "Proses antrean kirim (simulasi)" menggantikan worker.
+- API menolak batal saat surat sedang dikirim (`409`); demo membolehkan batal selama status kirim masih menunggu.
+- Nomor rujukan internal API berawalan `RIN-…`; fixture demo memakai `RI-…`.
+- Rujukan SISRUTE (I04) belum ada di kedua sisi.
+
+Rincian: [IGD, admisi rawat inap, SPRI, surat kontrol, rujukan](./02-cara-kerja-kode.md#igd-admisi-rawat-inap-spri-surat-kontrol-rujukan-f03-f06-f07-fase-2-potongan-7).
+
+## Info publik (pratinjau)
+
+![Pratinjau info publik pada kanvas ponsel: header RS dengan chip tanpa login, tab Jadwal dengan pilihan poli dan kartu dokter berisi jam praktik serta sisa kuota JKN dan umum, panel aturan halaman publik di kanan](./gambar/info-publik.png)
+
+| Hal      | Isi                                                                                                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rute     | `/pratinjau/info-publik` (layar penuh, kanvas ponsel)                                                                                                                                                                                                              |
+| Pemakai  | semua posisi (`demoRoles: 'semua'`; gambar diambil sebagai dokter); di produksi: publik tanpa login                                                                                                                                                                |
+| Komponen | F08 Layanan informasi pelanggan                                                                                                                                                                                                                                    |
+| Status   | demo (mode presentasi); gateway API F08 fase 2 sudah ada, situs/aplikasi publiknya belum dibangun                                                                                                                                                                  |
+| Mockup   | tidak ada (gaya mengikuti `design/mockups/Anjungan.dc.html` dan docs/08)                                                                                                                                                                                           |
+| Kode web | `apps/web/src/app/(perangkat)/pratinjau/info-publik/` · data `apps/web/src/lib/server/data/platform.ts` (fixture `lib/demo/fixtures/info-publik.ts`) · aturan `apps/web/src/lib/info-publik.ts` · komponen `apps/web/src/components/info-publik/public-portal.tsx` |
+| Kode API | `apps/api/src/modules/patient-portal-gateway/` (fase 2; belum dipakai layar ini)                                                                                                                                                                                   |
+
+**Tujuan.** Menunjukkan apa yang dilihat pasien di situs atau aplikasi publik RS: jadwal dokter dengan sisa kuota, antrean berjalan, dan status booking, tanpa login dan tanpa data medis.
+
+**Alur.**
+
+1. Buka menu **FRONT OFFICE → Info publik**. Kanvas ponsel **Pratinjau info publik** tampil dengan nama RS dan chip "tanpa login". Panel **Aturan halaman publik** di kanan merangkum batasannya.
+2. Tab **Jadwal**: pilih **Poli**, lalu baca daftar **Jadwal dokter hari ini**: nama dokter, jam praktik, serta chip "JKN sisa N" / "JKN penuh" dan "Umum sisa N" / "Umum penuh".
+3. Tab **Antrean**: daftar **Antrean berjalan** untuk loket pendaftaran, farmasi rawat jalan, dan tiap poli (mis. Poli Penyakit Dalam): nomor yang dipanggil dan "N menunggu · ±M menit".
+4. Tab **Cek booking**: isi **Kode booking (10 digit)** (terisi contoh) dan **Tanggal lahir pasien**, lalu **Cek status**.
+5. Data salah: alert **Data tidak cocok** "Periksa kode booking dan tanggal lahir. Sisa N percobaan dalam 1 menit.".
+6. Data benar: bagian **Status booking** "Booking ditemukan" dengan status, tanggal dan jam sesi, poli dan dokter, "Nomor Anda PD-026 · sedang dilayani PD-025", perkiraan dipanggil, dan stempel "Dicek · HH.MM".
+
+**Gerbang keselamatan dan aturan bisnis.**
+
+- Tanpa PHI: hanya jadwal, sisa kuota, nomor antrean, dan status booking. Nama pasien tidak pernah dikirim ke portal. Data dibentuk lewat skema ketat bersama (`publicScheduleSchema`, `publicQueueSchema`).
+- Kode booking yang tidak ada dan tanggal lahir yang salah dijawab sama ("Data tidak cocok"), sehingga kode tidak bisa ditebak.
+- Format salah (kode bukan 10 digit, tanggal lahir kosong) ditolak tanpa menghitung percobaan.
+- Setelah 5 kali gagal (`MAX_ATTEMPTS`): alert **Diblok sementara** dan **Cek status** nonaktif ("Terlalu banyak percobaan. Coba lagi 1 menit lagi.").
+- Tanggal lahir hanya dipakai untuk mencocokkan, tidak pernah ditampilkan.
+- Jadwal dan antrean memakai data demo yang sama dengan Pendaftaran dan Display antrean, pada keadaan awal hari demo (tidak ikut kemajuan skenario).
+
+**Rencana backend.** Izin rencana `schedule.read` (komentar `screens.ts`: portal publik tanpa login lewat gateway `/api/v1/public`; ini izin katalog terdekat untuk registri). Gateway fase 2 sudah ada: `GET /public/:tenantCode/schedules`, `GET /public/:tenantCode/queues[/:serviceCode]`, `POST /public/:tenantCode/bookings/status`. Bedanya dengan demo:
+
+- API membatasi tanggal lahir salah per kode booking (bawaan 10 kali dalam 1440 menit, `BOOKING_STATUS_MAX_FAILURES`) ditambah batas laju per IP. Demo memakai 5 kali per menit per perangkat.
+- Situs/aplikasi publik RS belum dibangun; layar ini hanya pratinjau di dalam aplikasi staf.
+
+Rincian: [Gateway informasi publik (F08)](./02-cara-kerja-kode.md#gateway-informasi-publik-f08).
+
 ## Tes yang menjaga layar ini
 
-| Layar            | E2E mode api (`apps/web/e2e/`)                                                        | E2E presentasi                                     | Tes lain                                                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pendaftaran      | `pendaftaran.spec.ts`, `dod-anjungan.spec.ts`, `downtime-bpjs.spec.ts`                | `demo/front-office.spec.ts`                        | `apps/api/test/registration.test.ts`, `admission.test.ts`, `referrals.test.ts`, `apps/worker/test/sep-outbox.test.ts`, `apps/web/src/lib/registration-api.test.ts` |
-| Jadwal dokter    | `jadwal.spec.ts`                                                                      | `demo/front-office.spec.ts`                        | `apps/api/test/scheduling.test.ts`, `scheduling-view.test.ts`, `apps/worker/test/scheduling.test.ts`, `apps/web/src/lib/jadwal-api.test.ts`                        |
-| Anjungan mandiri | `kiosk.spec.ts`, `dod-anjungan.spec.ts`, `downtime-bpjs.spec.ts`, `perangkat.spec.ts` | `demo/front-office.spec.ts`                        | `apps/api/test/kiosk.test.ts`, `device-principals.test.ts`, `apps/web/src/lib/kiosk.test.ts`                                                                       |
-| Display antrean  | `antrean.spec.ts`, `dod-anjungan.spec.ts`, `perangkat.spec.ts`                        | `demo/front-office.spec.ts`                        | `apps/api/test/queue.test.ts`, `realtime-sse.test.ts`, `apps/web/src/lib/queue-board.test.ts`                                                                      |
-| Kendali antrean  | `antrean.spec.ts`, `kiosk.spec.ts`, `dod-anjungan.spec.ts`                            | — (`smoke.spec.ts` memeriksa 404 di luar mode api) | `apps/api/test/queue.test.ts`, `apps/worker/test/bpjs-antrean.test.ts`                                                                                             |
+| Layar            | E2E mode api (`apps/web/e2e/`)                                                        | E2E presentasi                                          | Tes lain                                                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pendaftaran      | `pendaftaran.spec.ts`, `dod-anjungan.spec.ts`, `downtime-bpjs.spec.ts`                | `demo/front-office.spec.ts`                             | `apps/api/test/registration.test.ts`, `admission.test.ts`, `referrals.test.ts`, `apps/worker/test/sep-outbox.test.ts`, `apps/web/src/lib/registration-api.test.ts` |
+| Jadwal dokter    | `jadwal.spec.ts`                                                                      | `demo/front-office.spec.ts`                             | `apps/api/test/scheduling.test.ts`, `scheduling-view.test.ts`, `apps/worker/test/scheduling.test.ts`, `apps/web/src/lib/jadwal-api.test.ts`                        |
+| Anjungan mandiri | `kiosk.spec.ts`, `dod-anjungan.spec.ts`, `downtime-bpjs.spec.ts`, `perangkat.spec.ts` | `demo/front-office.spec.ts`                             | `apps/api/test/kiosk.test.ts`, `device-principals.test.ts`, `apps/web/src/lib/kiosk.test.ts`                                                                       |
+| Display antrean  | `antrean.spec.ts`, `dod-anjungan.spec.ts`, `perangkat.spec.ts`                        | `demo/front-office.spec.ts`                             | `apps/api/test/queue.test.ts`, `realtime-sse.test.ts`, `apps/web/src/lib/queue-board.test.ts`                                                                      |
+| Kendali antrean  | `antrean.spec.ts`, `kiosk.spec.ts`, `dod-anjungan.spec.ts`                            | — (`smoke.spec.ts` memeriksa 404 di luar mode api)      | `apps/api/test/queue.test.ts`, `apps/worker/test/bpjs-antrean.test.ts`                                                                                             |
+| Rujukan          | — (layar belum disambungkan)                                                          | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts` | `apps/web/src/lib/rujukan.test.ts` · API: `apps/api/test/referrals.test.ts`                                                                                        |
+| Info publik      | — (layar belum disambungkan)                                                          | `demo/fe1-platform.spec.ts`, `demo/semua-layar.spec.ts` | `apps/web/src/lib/info-publik.test.ts` · API: `apps/api/test/public-info.test.ts`                                                                                  |
 
 Semua layar hibrida juga dijaga `smoke.spec.ts` (tanpa izin → "Akses ditolak"; anjungan/TV tanpa perangkat → pendaftaran perangkat). Mock BPJS dan aturan stack E2E: [Strategi tes](./02-cara-kerja-kode.md#strategi-tes).
 
@@ -254,3 +351,4 @@ Semua layar hibrida juga dijaga `smoke.spec.ts` (tanpa izin → "Akses ditolak";
 - [Fitur klinis](./12-fitur-klinis.md)
 - [Simulasi dan operasional](./18-simulasi-dan-operasional.md)
 - [Peta kode](./19-peta-kode.md)
+- [Peta alur semua fase](./20-peta-alur-semua-fase.md)
