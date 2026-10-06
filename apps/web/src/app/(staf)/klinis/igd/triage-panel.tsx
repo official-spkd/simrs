@@ -1,9 +1,9 @@
 'use client';
 
-import { type EdTrackingItem, formatJam, type TriageLevel } from '@simrs/shared';
-import { Button, cx, Field, SafetyGate } from '@simrs/ui';
+import { type EdTrackingItem, formatJam, SAFETY_REASON_MIN, type TriageLevel } from '@simrs/shared';
+import { Button, cx, Field } from '@simrs/ui';
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { StatusFlag, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { TriageLevelPicker } from '@/components/rawat-inap/triage-level-picker';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
@@ -12,7 +12,9 @@ import {
   edVitalFlag,
   formatTimer,
   TRIAGE_GENERIC,
+  TRIAGE_META,
   TRIAGE_ROLE_REASON,
+  TRIAGE_SAVE_DISABLED,
   triageNeedsReason,
   triageSaveAllowed,
 } from '@/lib/rawat-inap';
@@ -54,12 +56,13 @@ export function TriagePanel({
   const [chosen, setChosenState] = useState<TriageLevel>(
     saved?.level ?? item.triageLevel ?? item.suggestedLevel,
   );
-  const [reason, setReason] = useState<string | null>(null);
+  const [reason, setReason] = useState('');
   const [orders, setOrders] = useState<boolean[]>(() => item.orders.map((o) => o.defaultOn));
   const [cc, setCc] = useState(item.chiefComplaint);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, startTransition] = useTransition();
   const pendingReason = useRef<string | null>(null);
+  const reasonId = useId();
 
   const scn = item.scenario;
   const identified = !scn || taskDone(kd, 'gelang');
@@ -70,7 +73,8 @@ export function TriagePanel({
   const bedDone = scn && taskDone(tr, 'bed');
   const canPick = canTriage && (scn ? taskEnabled(tr, 'level') : true);
   const under = triageNeedsReason(item.suggestedLevel, chosen);
-  const allowed = triageSaveAllowed(item.suggestedLevel, chosen, reason ?? '');
+  const allowed = triageSaveAllowed(item.suggestedLevel, chosen, reason);
+  const reasonOk = reason.trim().length >= SAFETY_REASON_MIN;
   const working = pending || busy;
 
   // Alasan override yang sudah diisi sebelum menyimpan level dikirim begitu tugasnya giliran (skenario).
@@ -84,14 +88,13 @@ export function TriagePanel({
 
   const setChosen = (n: TriageLevel) => {
     setChosenState(n);
-    setReason(null);
     setMessage(null);
   };
 
   const save = () => {
     if (!allowed || !canTriage) return;
     if (scn) {
-      pendingReason.current = under ? reason : null;
+      pendingReason.current = under ? reason.trim() : null;
       runTask(tr, 'level', String(chosen));
       return;
     }
@@ -99,7 +102,7 @@ export function TriagePanel({
       const r = await saveTriageAction({
         encounterId: item.encounterId,
         chosenLevel: chosen,
-        overrideReason: under ? reason : null,
+        overrideReason: under ? reason.trim() : null,
         orders: item.orders.filter((_, i) => orders[i]).map((o) => o.label),
       });
       if (r.ok) {
@@ -121,11 +124,12 @@ export function TriagePanel({
       ? 'Identifikasi pasien dan pasang gelang identitas dulu.'
       : !ttvDone
         ? 'Catat tanda vital dulu; saran sistem dihitung dari tanda vital.'
-        : under && !reason
-          ? `Level ${chosen} di bawah saran sistem: isi alasan klinis di gerbang keselamatan.`
+        : under && !reasonOk
+          ? `Level ${chosen} di bawah saran sistem (triase ${item.suggestedLevel}): isi alasan klinis dulu.`
           : scn && !canPick && !levelDone
             ? 'Menunggu giliran langkah triase di simulasi.'
             : null;
+  const saveDisabled = !allowed || !!blocker || working;
   const savedText = scn
     ? levelDone
       ? `Triase ${item.triageLevel ?? chosen} tersimpan${bedDone ? ' · bed R2 · monitor EKG, SpO2, dan TD terpasang' : ''}`
@@ -205,25 +209,49 @@ export function TriagePanel({
           lockReason="nyeri dada wajib minimal urgen sampai sindrom koroner disingkirkan"
           onChange={setChosen}
         />
+        {/* Saran sistem berwarna sesuai level terpilih (mockup: 1–2 merah, 3 kuning, 4 hijau, 5 biru). */}
         <div
           role="status"
-          className="flex gap-2.5 rounded-control border border-line bg-subtle px-3 py-2.5 text-small"
+          className={cx(
+            'flex gap-2.5 rounded-control border px-3 py-2.5 text-small',
+            TRIAGE_META[chosen].advice.box,
+          )}
         >
-          <span className="font-bold whitespace-nowrap text-brand-700">Saran sistem</span>
+          <span className={cx('font-bold whitespace-nowrap', TRIAGE_META[chosen].advice.label)}>
+            Saran sistem
+          </span>
           <span className="text-ink-700">{advice}</span>
         </div>
         {under && !levelDone && (
-          <SafetyGate
-            title={`Level ${chosen} di bawah saran sistem (triase ${item.suggestedLevel})`}
-            recommendation={`Kembali ke level ${item.suggestedLevel} (saran sistem)`}
-            onFollow={() => setChosen(item.suggestedLevel)}
-            onOverride={(r) => setReason(r)}
-            resolved={reason ? { kind: 'override', text: reason } : null}
-            disabled={!canPick && scn}
-          >
-            Menurunkan level menunda penanganan. Alasan klinis wajib, tercatat di jejak audit, dan ditinjau
-            komite mutu.
-          </SafetyGate>
+          // Gerbang turun level (CLAUDE.md §4.9): alasan wajib ≥ SAFETY_REASON_MIN, simpan tetap nonaktif, server
+          // memeriksa ulang (`triageBlocker`), dan alasan tercatat di jejak audit.
+          <div className="flex flex-col gap-1">
+            <label htmlFor={reasonId} className="text-small font-semibold text-ink-900">
+              Alasan memilih level lebih rendah dari saran (triase {item.suggestedLevel})
+            </label>
+            <input
+              id={reasonId}
+              value={reason}
+              maxLength={500}
+              disabled={scn && !canPick}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Contoh: nyeri dada atipikal, EKG awal normal"
+              aria-describedby={`${reasonId}-info`}
+              aria-invalid={!reasonOk}
+              className={cx(
+                'min-h-11 rounded-control border bg-white px-3 font-[inherit] text-body disabled:bg-muted',
+                reasonOk ? 'border-line-strong' : 'border-[#F04438]',
+              )}
+            />
+            <span
+              id={`${reasonId}-info`}
+              className={cx('text-caption', reasonOk ? 'text-ink-500' : 'font-semibold text-danger')}
+            >
+              {reasonOk
+                ? 'Alasan tercatat di jejak audit triase.'
+                : `Wajib diisi (minimal ${SAFETY_REASON_MIN} karakter) sebelum triase bisa disimpan.`}
+            </span>
+          </div>
         )}
         {scn && levelDone && alasanVisible && !taskDone(tr, 'alasan') && (
           <ReasonForm enabled={alasanOpen && !pending} onSubmit={(r) => runTask(tr, 'alasan', r)} />
@@ -243,16 +271,20 @@ export function TriagePanel({
           ))}
         </fieldset>
         {scn && levelDone ? null : (
-          <Button
-            variant={chosen <= 2 ? 'danger' : 'primary'}
-            className="h-12 font-bold"
-            disabled={!allowed || !!blocker || working}
+          // Tombol simpan berwarna level (mockup), abu bila nonaktif.
+          <button
+            type="button"
+            className={cx(
+              'inline-flex h-12 items-center justify-center rounded-control border px-4 font-[inherit] font-bold',
+              saveDisabled ? TRIAGE_SAVE_DISABLED : TRIAGE_META[chosen].save,
+            )}
+            disabled={saveDisabled}
             aria-describedby={blocker ? 'triase-blocker' : undefined}
             onClick={save}
           >
             Simpan triase {chosen}
-            {!scn && item.bed ? ` dan tempatkan di bed ${item.bed}` : ''}
-          </Button>
+            {item.bed ? ` dan tempatkan di bed ${item.bed}` : ''}
+          </button>
         )}
         {blocker && !levelDone && (
           <span id="triase-blocker" className="text-caption font-semibold text-warning">

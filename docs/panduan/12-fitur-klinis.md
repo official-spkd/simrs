@@ -215,22 +215,25 @@ ATS) dengan saran sistem dari tanda vital.
 
 **Alur.**
 
-1. Buka **IGD**. Kepala layar menunjukkan bed terpakai dan ambulans menuju. Region "Ringkasan IGD" memuat Triase 1–2,
-   Waktu tunggu dokter, Boarding > 4 jam, dan Pulang tanpa diperiksa.
-2. Saring papan dengan **Semua level** atau level tertentu (mis. **Level 4 · Semi-urgen**) dan dengan zona (Area
-   triase, Resusitasi, Akut, Fast track).
+1. Buka **IGD**. Kepala layar menunjukkan kapasitas bed dan ambulans menuju (SISRUTE). Region "Ringkasan IGD" memuat
+   Triase 1–2, Waktu tunggu dokter, Boarding > 4 jam, dan Pulang tanpa diperiksa.
+2. Saring papan dengan **Semua level** atau level tertentu (mis. **Level 4 · Semi-urgen**) dan dengan tab zona (Area
+   triase, Resusitasi, Akut, Fast track; panah kiri/kanan berpindah tab).
 3. Klik pasien, mis. Ny. Lestiani Hapsari. Panel "Triase pasien" menampilkan waktu tiba, penghitung "Lama di IGD",
    keluhan utama, dan ubin tanda vital bertulisan Tinggi atau Rendah.
 
    ![Panel triase dengan saran sistem level 2, pilihan level 1 sampai 5, dan gerbang keselamatan bila level diturunkan](./gambar/igd--triase.png)
 
-4. Pilih level di "Level triase". Saran sistem diberi tanda "(saran sistem)". Teks anjuran menyesuaikan level,
-   misalnya "Urgen: zona akut, dokter ≤ 30 menit, ulang tanda vital tiap 30 menit."
-5. Bila level lebih rendah dari saran, gerbang "Level 3 di bawah saran sistem (triase 2)" muncul. Pilih
-   **Kembali ke level 2 (saran sistem)** atau **Tetap lanjut dengan alasan klinis**, isi alasan, lalu
-   **Simpan alasan dan lanjut**.
-6. Centang order awal yang perlu, lalu tekan **Simpan triase N** (atau "… dan tempatkan di bed …" bila bed sudah
-   ada). Papan langsung menulis level baru, mis. "3 · Urgen".
+4. Pilih level di "Level triase". Saran sistem diberi tanda "(saran sistem)". Kotak "Saran sistem" berwarna sesuai
+   level terpilih (1–2 merah, 3 kuning, 4 hijau, 5 biru) dan teksnya menyesuaikan level, misalnya "Urgen: zona akut,
+   dokter ≤ 30 menit, ulang tanda vital tiap 30 menit."
+5. Bila level lebih rendah dari saran, isian "Alasan memilih level lebih rendah dari saran (triase 2)" muncul di
+   bawah kotak saran dengan keterangan "Wajib diisi (minimal 10 karakter) sebelum triase bisa disimpan." Setelah
+   cukup, keterangannya berubah "Alasan tercatat di jejak audit triase." Kembali ke level saran cukup dengan
+   memilih level itu lagi.
+6. Centang order awal yang perlu, lalu tekan **Simpan triase N dan tempatkan di bed X** (tanpa bagian bed bila
+   pasien belum punya bed). Tombol berwarna level terpilih dan abu selama nonaktif. Papan langsung menulis level
+   baru, mis. "3 · Urgen".
 7. Dari panel, **Minta bed** membuka Tempat tidur dan **Rawat inap** membuka daftar rawat inap.
 8. **Pasien tanpa identitas** dan **+ Triase pasien baru** menambah pasien ke area triase (hanya di layar ini).
 9. Skenario IGD → rawat inap: pasien anonim "Pasien laki-laki ±60 th · identitas belum dicocokkan" diidentifikasi

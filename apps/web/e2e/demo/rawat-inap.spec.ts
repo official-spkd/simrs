@@ -48,6 +48,10 @@ test.describe('IGD', () => {
     ).toContainText('Belum triase');
     await expect(board.getByText('Tn. Hartono Wibisono')).toHaveCount(0);
 
+    const zones = board.getByRole('tablist', { name: 'Zona IGD' });
+    await zones.getByRole('tab', { name: /^Resusitasi · \d+$/ }).click();
+    await expect(zones.getByRole('tab', { name: /^Resusitasi/ })).toHaveAttribute('aria-selected', 'true');
+    await zones.getByRole('tab', { name: /^Semua zona/ }).click();
     await board.getByRole('button', { name: 'Level 4 · Semi-urgen' }).click();
     const rows = board.getByRole('list', { name: 'Pasien di IGD' }).getByRole('listitem');
     await expect(rows).toHaveCount(2);
@@ -60,17 +64,19 @@ test.describe('IGD', () => {
     await panel.locator('label', { has: page.getByRole('radio', { name: /^Level 3 · Urgen/ }) }).click();
     const save = panel.getByRole('button', { name: /^Simpan triase 3/ });
     await expect(save).toBeDisabled();
-    await expect(
-      panel.getByRole('alert').filter({ hasText: 'Level 3 di bawah saran sistem (triase 2)' }),
-    ).toBeVisible();
+    await expect(panel.getByRole('status').filter({ hasText: 'Sistem menyarankan triase 2.' })).toBeVisible();
 
-    await panel.getByRole('button', { name: 'Tetap lanjut dengan alasan klinis' }).click();
-    const reason = panel.getByRole('textbox', { name: /Alasan klinis \(wajib/ });
+    // Alasan turun level: input inline berlabel (mockup), minimal 10 karakter; simpan tetap nonaktif sampai cukup.
+    const reason = panel.getByRole('textbox', {
+      name: 'Alasan memilih level lebih rendah dari saran (triase 2)',
+    });
+    await expect(
+      panel.getByText('Wajib diisi (minimal 10 karakter) sebelum triase bisa disimpan.'),
+    ).toBeVisible();
     await reason.fill('Membaik');
-    await expect(panel.getByRole('button', { name: 'Simpan alasan dan lanjut' })).toBeDisabled();
+    await expect(save).toBeDisabled();
     await reason.fill('Kekuatan motorik kembali penuh, bicara jelas');
-    await panel.getByRole('button', { name: 'Simpan alasan dan lanjut' }).click();
-    await expect(panel.getByText(/Override tercatat/)).toBeVisible();
+    await expect(panel.getByText('Alasan tercatat di jejak audit triase.')).toBeVisible();
     await expect(save).toBeEnabled();
     await save.click();
     await expect(

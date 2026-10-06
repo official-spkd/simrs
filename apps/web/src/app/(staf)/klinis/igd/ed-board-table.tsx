@@ -1,7 +1,8 @@
 'use client';
 
 import type { EdTrackingItem, EdZone, TriageLevel } from '@simrs/shared';
-import { cx } from '@simrs/ui';
+import { cx, TabList, TabPanel } from '@simrs/ui';
+import { useId } from 'react';
 import { StatusFlag } from '@/components/klinis/status-flag';
 import { TriageBadge } from '@/components/rawat-inap/triage-badge';
 import { ED_STATUS_META, ED_ZONE_LABEL, edLosAlert, formatLos, TRIAGE_META } from '@/lib/rawat-inap';
@@ -37,36 +38,25 @@ export function EdBoardTable({
   onLevel: (l: TriageLevel | 0) => void;
   onSelect: (id: string) => void;
 }) {
+  const idBase = useId();
+  const zoneTabs = ZONES.map((z) => {
+    const n = z === 'semua' ? all.length : all.filter((p) => p.zone === z).length;
+    return { id: z, label: `${z === 'semua' ? 'Semua zona' : ED_ZONE_LABEL[z]} · ${n}` };
+  });
   return (
     <section
       aria-label="Papan pasien IGD"
       className="@container min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-white"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-3 py-2.5">
-        <div
-          role="group"
-          aria-label="Zona IGD"
-          className="flex flex-wrap gap-1 rounded-control bg-line-soft p-[3px]"
-        >
-          {ZONES.map((z) => {
-            const n = z === 'semua' ? all.length : all.filter((p) => p.zone === z).length;
-            const on = zone === z;
-            return (
-              <button
-                key={z}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onZone(z)}
-                className={cx(
-                  'min-h-11 cursor-pointer rounded-[8px] border-0 px-3 font-[inherit] text-small',
-                  on ? 'bg-white font-semibold text-ink-900 shadow-tab' : 'bg-transparent text-ink-700',
-                )}
-              >
-                {z === 'semua' ? 'Semua zona' : ED_ZONE_LABEL[z]} · {n}
-              </button>
-            );
-          })}
-        </div>
+        {/* Tab zona (mockup: tablist/tab/aria-selected); panah kiri/kanan berpindah zona. */}
+        <TabList
+          items={zoneTabs}
+          value={zone}
+          onChange={(z) => onZone(z as EdZone | 'semua')}
+          label="Zona IGD"
+          idBase={idBase}
+        />
         <div role="group" aria-label="Filter level triase" className="flex flex-wrap items-center gap-1.5">
           <span className="text-caption font-semibold text-ink-700">Level triase</span>
           {LEVELS.map((n) => {
@@ -93,88 +83,94 @@ export function EdBoardTable({
           })}
         </div>
       </div>
-      <div
-        aria-hidden="true"
-        className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 @4xl:grid', COLS)}
+      <TabPanel
+        idBase={idBase}
+        value={zone}
+        className="focus-visible:outline-2 focus-visible:outline-brand-600"
       >
-        {['Bed', 'Pasien', 'Triase', 'Keluhan utama', 'Dokter', 'Lama', 'Status'].map((h) => (
-          <span key={h} className="px-3 py-2.5">
-            {h}
-          </span>
-        ))}
-      </div>
-      <ul className="m-0 list-none p-0" aria-label="Pasien di IGD">
-        {shown.map((p) => {
-          const mins = p.losMinutes + addMinutes(p.encounterId);
-          const late = edLosAlert(p, mins);
-          const on = p.encounterId === selected;
-          const st = ED_STATUS_META[p.status];
-          return (
-            <li key={p.encounterId} className="border-t border-line-soft">
-              <button
-                type="button"
-                aria-pressed={on}
-                onClick={() => onSelect(p.encounterId)}
-                className={cx(
-                  'grid w-full cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-x-1 border-0 p-0 text-left font-[inherit] text-ink-900',
-                  COLS,
-                  p.triageLevel ? TRIAGE_META[p.triageLevel].rail : 'shadow-[inset_4px_0_0_#CBD3DB]',
-                  on ? 'bg-selected' : p.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
-                )}
-              >
-                <span className="px-3 py-2.5 font-mono font-semibold">{p.bed ?? '—'}</span>
-                <span className="flex min-w-0 flex-col px-3 py-2.5 leading-tight">
-                  <span className="font-semibold">{p.patientName}</span>
-                  <span className="text-caption text-ink-500">
-                    {p.sex} · {p.ageLabel} · {p.guarantor}
-                  </span>
-                </span>
-                <span className="px-3 py-2.5">
-                  <TriageBadge level={p.triageLevel} />
-                </span>
-                <span className="col-span-2 px-3 pb-2 text-small @4xl:col-span-1 @4xl:py-2.5">
-                  {p.chiefComplaint}
-                </span>
-                <span className="hidden px-3 py-2.5 text-small text-ink-700 @4xl:block">
-                  {p.doctor ?? '—'}
-                </span>
-                <span className="flex flex-col items-start gap-1 px-3 pb-2 @4xl:py-2.5">
-                  <span
-                    className={cx(
-                      'font-mono font-semibold whitespace-nowrap',
-                      late ? 'text-danger' : 'text-ink-900',
-                    )}
-                  >
-                    {formatLos(mins)}
-                  </span>
-                  {late && (
-                    <StatusFlag icon="clock" inline>
-                      {late}
-                    </StatusFlag>
+        <div
+          aria-hidden="true"
+          className={cx('hidden bg-subtle text-caption font-semibold text-ink-700 @4xl:grid', COLS)}
+        >
+          {['Bed', 'Pasien', 'Triase', 'Keluhan utama', 'Dokter', 'Lama', 'Status'].map((h) => (
+            <span key={h} className="px-3 py-2.5">
+              {h}
+            </span>
+          ))}
+        </div>
+        <ul className="m-0 list-none p-0" aria-label="Pasien di IGD">
+          {shown.map((p) => {
+            const mins = p.losMinutes + addMinutes(p.encounterId);
+            const late = edLosAlert(p, mins);
+            const on = p.encounterId === selected;
+            const st = ED_STATUS_META[p.status];
+            return (
+              <li key={p.encounterId} className="border-t border-line-soft">
+                <button
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onSelect(p.encounterId)}
+                  className={cx(
+                    'grid w-full cursor-pointer grid-cols-[52px_1fr_auto] items-center gap-x-1 border-0 p-0 text-left font-[inherit] text-ink-900',
+                    COLS,
+                    p.triageLevel ? TRIAGE_META[p.triageLevel].rail : 'shadow-[inset_4px_0_0_#CBD3DB]',
+                    on ? 'bg-selected' : p.scenario ? 'bg-[#FBFDFC]' : 'bg-white',
                   )}
-                </span>
-                <span className="col-span-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2.5 @4xl:col-span-1 @4xl:py-2.5">
-                  <span
-                    className={cx(
-                      'rounded-full px-2.5 py-[3px] text-caption font-semibold whitespace-nowrap',
-                      st.tone,
-                    )}
-                  >
-                    {st.label}
+                >
+                  <span className="px-3 py-2.5 font-mono font-semibold">{p.bed ?? '—'}</span>
+                  <span className="flex min-w-0 flex-col px-3 py-2.5 leading-tight">
+                    <span className="font-semibold">{p.patientName}</span>
+                    <span className="text-caption text-ink-500">
+                      {p.sex} · {p.ageLabel} · {p.guarantor}
+                    </span>
                   </span>
-                  {/* Kartu (papan sempit): kolom Dokter tidak tampil, jadi dokternya ikut di baris status. */}
-                  <span className="text-caption text-ink-500 @4xl:hidden">Dokter: {p.doctor ?? '—'}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {shown.length === 0 && (
-        <p className="m-0 border-t border-line-soft px-3 py-4 text-small text-ink-500">
-          Tidak ada pasien pada zona dan level triase ini.
-        </p>
-      )}
+                  <span className="px-3 py-2.5">
+                    <TriageBadge level={p.triageLevel} />
+                  </span>
+                  <span className="col-span-2 px-3 pb-2 text-small @4xl:col-span-1 @4xl:py-2.5">
+                    {p.chiefComplaint}
+                  </span>
+                  <span className="hidden px-3 py-2.5 text-small text-ink-700 @4xl:block">
+                    {p.doctor ?? '—'}
+                  </span>
+                  <span className="flex flex-col items-start gap-1 px-3 pb-2 @4xl:py-2.5">
+                    <span
+                      className={cx(
+                        'font-mono font-semibold whitespace-nowrap',
+                        late ? 'text-danger' : 'text-ink-900',
+                      )}
+                    >
+                      {formatLos(mins)}
+                    </span>
+                    {late && (
+                      <StatusFlag icon="clock" inline>
+                        {late}
+                      </StatusFlag>
+                    )}
+                  </span>
+                  <span className="col-span-3 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2.5 @4xl:col-span-1 @4xl:py-2.5">
+                    <span
+                      className={cx(
+                        'rounded-full px-2.5 py-[3px] text-caption font-semibold whitespace-nowrap',
+                        st.tone,
+                      )}
+                    >
+                      {st.label}
+                    </span>
+                    {/* Kartu (papan sempit): kolom Dokter tidak tampil, jadi dokternya ikut di baris status. */}
+                    <span className="text-caption text-ink-500 @4xl:hidden">Dokter: {p.doctor ?? '—'}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {shown.length === 0 && (
+          <p className="m-0 border-t border-line-soft px-3 py-4 text-small text-ink-500">
+            Tidak ada pasien pada zona dan level triase ini.
+          </p>
+        )}
+      </TabPanel>
     </section>
   );
 }

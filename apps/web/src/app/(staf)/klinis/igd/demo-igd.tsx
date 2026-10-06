@@ -45,7 +45,7 @@ export async function DemoIgd({ access, pilih }: { access: DemoScreenAccess; pil
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-small text-ink-700">
-            Bed terpakai {used} / {board.capacity} · {board.ambulancesIncoming} ambulans menuju (rujukan)
+            Kapasitas {used} / {board.capacity} bed · {board.ambulancesIncoming} ambulans menuju (SISRUTE)
           </span>
           <WalkInButtons />
         </div>

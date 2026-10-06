@@ -58,7 +58,19 @@ export interface TriageMeta {
   rail: string;
   /** Kelas radio terpilih. */
   selected: string;
+  /** Kotak "Saran sistem" untuk level terpilih (mockup IGD: 1–2 merah, 3 kuning, 4 hijau, 5 biru). */
+  advice: { box: string; label: string };
+  /** Tombol simpan triase aktif (gradasi warna level); nonaktif memakai `TRIAGE_SAVE_DISABLED`. */
+  save: string;
 }
+
+/** Tombol simpan triase nonaktif: abu (mockup IGD), bukan warna level. */
+export const TRIAGE_SAVE_DISABLED = 'cursor-not-allowed border-line bg-[#F1F4F6] text-[#8C99A6]';
+
+const ADVICE_RED = {
+  box: 'border-[#FECDCA] bg-[linear-gradient(90deg,#FEF3F2,#FFFFFF)]',
+  label: 'text-[#B42318]',
+};
 
 /** Nama level dan target waktu dokter dari skala ATS bersama (`@simrs/shared`, keputusan fase 3 no. 6). */
 function atsText(level: TriageLevel): Pick<TriageMeta, 'label' | 'target'> {
@@ -72,30 +84,40 @@ export const TRIAGE_META: Record<TriageLevel, TriageMeta> = {
     badge: 'border-[#9A1E14] bg-triage-1 text-white',
     rail: 'shadow-[inset_4px_0_0_#B42318]',
     selected: 'border-2 border-[#9A1E14] bg-triage-1 text-white ring-3 ring-[rgba(180,35,24,0.18)]',
+    advice: ADVICE_RED,
+    save: 'cursor-pointer border-[#9A1E14] bg-[linear-gradient(180deg,#C8402F,#B42318)] text-white shadow-button',
   },
   2: {
     ...atsText(2),
     badge: 'border-[#A42A08] bg-triage-2 text-white',
     rail: 'shadow-[inset_4px_0_0_#C4320A]',
     selected: 'border-2 border-[#A42A08] bg-triage-2 text-white ring-3 ring-[rgba(196,50,10,0.18)]',
+    advice: ADVICE_RED,
+    save: 'cursor-pointer border-[#A42A08] bg-[linear-gradient(180deg,#D0400F,#C4320A)] text-white shadow-button',
   },
   3: {
     ...atsText(3),
     badge: 'border-[#F5D9A8] bg-triage-3 text-[#7A4300]',
     rail: 'shadow-[inset_4px_0_0_#E9B949]',
     selected: 'border-2 border-[#F5D9A8] bg-triage-3 text-[#7A4300] ring-3 ring-[rgba(181,71,8,0.18)]',
+    advice: { box: 'border-[#F5D9A8] bg-[linear-gradient(90deg,#FFF8EB,#FFFFFF)]', label: 'text-[#8A4B00]' },
+    save: 'cursor-pointer border-[#93370D] bg-[linear-gradient(180deg,#C25A1A,#B54708)] text-white shadow-button',
   },
   4: {
     ...atsText(4),
     badge: 'border-[#BFE3C6] bg-triage-4 text-[#1E6B34]',
     rail: 'shadow-[inset_4px_0_0_#7CC08B]',
     selected: 'border-2 border-[#BFE3C6] bg-triage-4 text-[#1E6B34] ring-3 ring-[rgba(30,107,52,0.18)]',
+    advice: { box: 'border-[#BFE3C6] bg-[linear-gradient(90deg,#EAF6EC,#FFFFFF)]', label: 'text-[#1E6B34]' },
+    save: 'cursor-pointer border-[#17562A] bg-[linear-gradient(180deg,#2A7D42,#1E6B34)] text-white shadow-button',
   },
   5: {
     ...atsText(5),
     badge: 'border-[#C7D7FE] bg-triage-5 text-[#1E3A8A]',
     rail: 'shadow-[inset_4px_0_0_#8DA8F0]',
     selected: 'border-2 border-[#C7D7FE] bg-triage-5 text-[#1E3A8A] ring-3 ring-[rgba(30,58,138,0.18)]',
+    advice: { box: 'border-[#C7D7FE] bg-[linear-gradient(90deg,#EEF4FF,#FFFFFF)]', label: 'text-[#1E3A8A]' },
+    save: 'cursor-pointer border-[#172E6E] bg-[linear-gradient(180deg,#2B4A9E,#1E3A8A)] text-white shadow-button',
   },
 };
 
