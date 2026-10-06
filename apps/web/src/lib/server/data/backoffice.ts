@@ -7,11 +7,7 @@ import {
   RETENTION_BATCHES,
   ROI_REQUESTS,
 } from '../../demo/fixtures/rekam-medis-adm';
-import {
-  GRANTED_PRIVILEGES,
-  ORDER_GUARD_EVENTS,
-  PRIVILEGE_APPLICATIONS,
-} from '../../demo/fixtures/kredensial';
+import { ORDER_GUARD_EVENTS, PRIVILEGE_APPLICATIONS } from '../../demo/fixtures/kredensial';
 import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
 import { ACCREDITATION_CHAPTERS, DISTRIBUTION_UNITS } from '../../demo/fixtures/regulasi';
 import {
@@ -93,9 +89,9 @@ export async function getCredentialing() {
   demoOnly('kredensial dan kewenangan klinis');
   return {
     applications: PRIVILEGE_APPLICATIONS,
-    granted: GRANTED_PRIVILEGES,
     employees: EMPLOYEES,
     guardEvents: ORDER_GUARD_EVENTS,
+    store: await readDomain('kredensial'),
   };
 }
 

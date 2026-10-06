@@ -9,6 +9,7 @@ import { poliDomain } from '../../klinis-poli-toko';
 import { oncologyDomain } from '../../onkologi-toko';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
+import { credentialDomain } from '../../kredensial-toko';
 import { logisticsDomain } from '../../logistik-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
@@ -47,6 +48,7 @@ export const DEMO_DOMAINS = {
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,
+  kredensial: credentialDomain,
   logistik: logisticsDomain,
   onkologi: oncologyDomain,
   pendaftaran: registrationDomain,

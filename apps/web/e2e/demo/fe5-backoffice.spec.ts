@@ -167,10 +167,10 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B04 kredensial: berkas susulan → telaah → komite → RKK terbit, ditegakkan di CPOE', async ({
+  test('B04 kredensial: berkas susulan → telaah (Dokter) → komite oleh pengguna lain; bertahan; ditegakkan di CPOE', async ({
     page,
   }) => {
-    const dokter = await createAccount({ roles: ['dokter'] });
+    const dokter = await createAccount({ roles: ['dokter'], displayName: 'dr. Mitra Bestari Fiktif' });
     await loginAs(page, dokter, '/');
     await page.goto('/manajemen/kredensial');
     await expect(
@@ -186,15 +186,18 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel('Biopsi ginjal perkutan').selectOption('supervisi');
     await page.getByLabel('Catatan mitra bestari').fill('Logbook 24 tindakan, observasi langsung memadai');
     await page.getByRole('button', { name: 'Kirim hasil telaah ke komite' }).click();
-    await page.getByRole('button', { name: 'Setujui rekomendasi komite' }).click();
-    await page.getByRole('button', { name: 'Terbitkan RKK dan SPK (direktur)' }).click();
-    await expect(page.getByText(/KRD-2610-005: RKK\/2026\/10\/014 terbit/)).toBeVisible();
+    await expect(page.getByText(/hasil telaah dikirim ke rapat komite/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+    // Rapat komite diputus pengguna lain dari penelaah (pemisahan tugas memakai pengguna sesi).
+    const committee = page.getByRole('button', { name: 'Setujui rekomendasi komite' });
+    await expect(committee).toBeDisabled();
+    await expect(page.getByText(/Anda penelaah pengajuan ini/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap KRD-2610-005' })).toContainText('dr. Mitra Bestari Fiktif');
+    await expect(committee).toBeDisabled();
 
     const guard = page.getByRole('region', { name: 'Uji penegakan di CPOE' });
-    await guard.getByLabel('Praktisi').selectOption('dr. Sinta Maharani, Sp.PD-KGH');
-    await guard.getByLabel('Tindakan yang dipesan').selectOption('Biopsi ginjal perkutan');
-    await guard.getByRole('button', { name: 'Uji order' }).click();
-    await expect(guard.getByRole('status')).toContainText('Diizinkan dengan supervisi');
     await guard.getByLabel('Praktisi').selectOption('dr. Rina Kusuma');
     await guard.getByLabel('Tindakan yang dipesan').selectOption('Resusitasi jantung paru lanjut');
     await guard.getByRole('button', { name: 'Uji order' }).click();
@@ -204,6 +207,36 @@ test.describe('FE5 · back office', () => {
     await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('B03 → B04: SIP baru di SDM mengalir ke verifikasi kredensial dan uji CPOE; RKK hanya direktur', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/');
+    await page.goto('/manajemen/kredensial');
+    await page.getByRole('button', { name: /KRD-2610-006/ }).click();
+    await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toBeVisible();
+
+    await page.goto('/manajemen/sdm');
+    await page.getByRole('button', { name: /dr\. Rina Kusuma/ }).click();
+    await page.getByLabel('Nomor SIP baru').fill('9999/UM/0533');
+    await page.getByLabel('Berlaku sampai').fill('2031-10-05');
+    await page.getByRole('button', { name: 'Simpan SIP baru' }).click();
+    await expect(page.getByText(/SIP baru dr\. Rina Kusuma dicatat/)).toBeVisible();
+
+    await page.goto('/manajemen/kredensial');
+    await page.getByRole('button', { name: /KRD-2610-006/ }).click();
+    await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toHaveCount(0);
+    const guard = page.getByRole('region', { name: 'Uji penegakan di CPOE' });
+    await guard.getByLabel('Praktisi').selectOption('dr. Rina Kusuma');
+    await guard.getByLabel('Tindakan yang dipesan').selectOption('Resusitasi jantung paru lanjut');
+    await guard.getByRole('button', { name: 'Uji order' }).click();
+    await expect(guard.getByText('LICENSE_EXPIRED')).toHaveCount(0);
+
+    // Manajemen tidak menelaah sebagai mitra bestari (posisi Dokter).
+    await page.getByRole('button', { name: /KRD-2610-004/ }).click();
+    await expect(page.getByText('Telaah oleh mitra bestari (posisi Dokter).')).toBeVisible();
   });
   test('B07 PPI: konfirmasi suspek VAP, bukan HAI beralasan, sensus, 5 momen, bundle, isolasi airborne', async ({
     page,

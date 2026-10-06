@@ -9,6 +9,7 @@ import { credentialVerifyBlock } from '@/lib/kredensial';
 import { licenseStatus } from '@/lib/sdm';
 import { getCredentialing } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { licensesOf } from '@/lib/kredensial-toko';
 
 export const metadata: Metadata = { title: 'Kredensial & kewenangan' };
 
@@ -17,18 +18,19 @@ export const metadata: Metadata = { title: 'Kredensial & kewenangan' };
  * bestari → komite → RKK terbit, RKK berlaku, dan uji kait CPOE. Mode presentasi: data dummy (ADR-0023).
  */
 export default async function KredensialPage() {
-  const { screen, allowed } = await requireDemoScreen('kredensial');
+  const { session, screen, allowed } = await requireDemoScreen('kredensial');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getCredentialing();
-  const byName = new Map(d.employees.map((e) => [e.name, e]));
-  const blocked = d.applications.filter(
+  const st = d.store.state;
+  const open = d.applications.filter((a) => (st.apps[a.id]?.stage ?? 0) < 4);
+  const blocked = open.filter(
     (a) =>
-      a.stage === 0 &&
-      credentialVerifyBlock(byName.get(a.practitioner)?.licenses ?? [], DEMO_TODAY, a.documents),
+      st.apps[a.id]?.stage === 0 &&
+      credentialVerifyBlock(licensesOf(st, a.practitioner), DEMO_TODAY, a.documents),
   ).length;
-  const expiring = d.granted.filter((g) => licenseStatus(g.expiry, DEMO_TODAY).status === 'segera');
+  const expiring = st.granted.filter((g) => licenseStatus(g.expiry, DEMO_TODAY).status === 'segera');
   const noPrivilege = d.guardEvents.filter((e) => e.code === 'PRIVILEGE_REQUIRED').length;
-  const practitioners = new Set(d.granted.map((g) => g.practitioner)).size;
+  const practitioners = new Set(st.granted.map((g) => g.practitioner)).size;
 
   return (
     <div className="flex flex-col gap-4">
@@ -43,7 +45,7 @@ export default async function KredensialPage() {
       >
         <KpiCard
           label="Pengajuan berjalan"
-          value={String(d.applications.length)}
+          value={String(open.length)}
           hint={blocked ? `${blocked} tertahan di verifikasi berkas` : 'semua berjalan'}
           detail="komite medik dan keperawatan"
           tone={blocked ? 'warning' : 'success'}
@@ -60,7 +62,7 @@ export default async function KredensialPage() {
         <KpiCard
           label="Praktisi ber-RKK"
           value={String(practitioners)}
-          detail={`${d.granted.length} butir kewenangan berlaku`}
+          detail={`${st.granted.length} butir kewenangan berlaku`}
         />
         <KpiCard
           label="Order ditahan CPOE bulan ini"
@@ -74,7 +76,9 @@ export default async function KredensialPage() {
       <CredentialBoard
         applications={d.applications}
         employees={d.employees}
-        initialGranted={d.granted}
+        store={st}
+        rev={d.store.rev}
+        viewer={{ userId: session.user.id, name: session.user.displayName, role: session.role?.code ?? null }}
         today={DEMO_TODAY}
       />
     </div>
