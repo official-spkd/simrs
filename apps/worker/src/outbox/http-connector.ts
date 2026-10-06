@@ -32,6 +32,16 @@ export class HttpConnector {
     spec: HttpRequestSpec,
     opts: { sensitive?: boolean } = {},
   ): Promise<SendResult> {
+    // Konektor nyata per sistem belum ada (fase 7): di luar mode mock pesan TIDAK dikirim ke MOCK_BASE_URL (gagal
+    // tertutup; dicoba ulang lalu DLQ, bisa dikirim ulang setelah konektor tersedia).
+    if (this.env.INTEGRATION_MODE !== 'mock') {
+      return {
+        ok: false,
+        permanent: false,
+        durationMs: 0,
+        error: 'Konektor belum dikonfigurasi untuk mode ini',
+      };
+    }
     const base = new URL(this.env.MOCK_BASE_URL);
     const url = new URL(spec.path, base);
     if (url.origin !== base.origin) {

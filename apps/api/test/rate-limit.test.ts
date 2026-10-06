@@ -383,6 +383,7 @@ describe('Redis gagal setelah start (penyimpanan dengan Redis tiruan)', () => {
       TRUST_PROXY: 'loopback',
       // Disk hanya diterima di APP_ENV=local (ADR-0020); di luar itu s3 (tanpa koneksi, tidak dipakai tes ini).
       STORAGE_DRIVER: (overrides.APP_ENV ?? 'local') === 'local' ? 'disk' : 's3',
+      INTEGRATION_MODE: overrides.APP_ENV === 'production' ? 'sandbox' : 'mock',
       ...overrides,
     });
 
