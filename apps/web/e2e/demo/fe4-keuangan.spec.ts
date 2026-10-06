@@ -316,3 +316,53 @@ test.describe('jasa pelayanan (U08)', () => {
     await ctx.close();
   });
 });
+
+test.describe('kas dan bank (U09)', () => {
+  test('tutup laci: selisih wajib alasan, setoran berjurnal; padanan EDC, pengecualian, lepas padanan', async ({
+    page,
+  }) => {
+    const kasir = await createAccount({ roles: ['kasir'] });
+    await loginAs(page, kasir, '/keuangan/kas-bank');
+    await page.goto('/keuangan/kas-bank');
+    await expect(page.getByRole('heading', { name: /Kas & bank · laci kasir/, level: 1 })).toBeVisible();
+
+    const laci = page.getByRole('article', { name: 'Laci Loket 1 · RJ dan RI' });
+    await expect(laci.locator('[data-expected]')).toHaveText('Rp 4.208.400');
+    await laci.getByRole('button', { name: 'Tutup laci…' }).click();
+    const form = laci.getByRole('form', { name: /Tutup laci Loket 1/ });
+    await form.getByLabel('Rp 100.000', { exact: true }).fill('42');
+    await form.getByLabel('Rp 5.000', { exact: true }).fill('1');
+    await form.getByLabel('Rp 2.000', { exact: true }).fill('1');
+    await form.getByLabel('Rp 1.000', { exact: true }).fill('1');
+    await expect(form.getByText('kurang Rp 400')).toBeVisible();
+    const close = form.getByRole('button', { name: 'Tutup laci dan buat setoran' });
+    await expect(close).toBeDisabled();
+    await form.getByLabel(/Alasan selisih/).fill('Kembalian pecahan Rp 200 dua kali tidak dicatat');
+    await journalsBalanced(form);
+    await close.click();
+    await expect(
+      page.getByText(/Laci Loket 1 · RJ dan RI ditutup \d{2}\.\d{2} · setoran STR-2610-0413 Rp 3\.708\.000/),
+    ).toBeVisible();
+
+    await page.getByRole('tab', { name: /Mutasi bank/ }).click();
+    const edc = page.getByRole('listitem', { name: /SETTLEMENT EDC/ });
+    await journalsBalanced(edc);
+    await edc.getByRole('button', { name: /Padankan ke Batch EDC/ }).click();
+    await expect(
+      page.getByText(/dipadankan ke Batch EDC RI-01 .* Dr 1-1120 Rp 9\.850\.000 · Dr 6-1200 Rp 150\.000/),
+    ).toBeVisible();
+    const anon = page.getByRole('listitem', { name: /TANPA BERITA/ });
+    await anon.getByRole('button', { name: 'Tandai pengecualian…' }).click();
+    await anon.getByLabel(/Catatan pengecualian/).fill('Ditelusuri ke pengirim lewat BTN');
+    await anon.getByRole('button', { name: 'Catat pengecualian' }).click();
+    await expect(anon.getByText('Pengecualian', { exact: true })).toBeVisible();
+    await edc.getByRole('button', { name: 'Lepas padanan…' }).click();
+    await edc.getByLabel(/Alasan melepas padanan/).fill('Batch EDC salah terminal');
+    await edc.getByRole('button', { name: 'Lepas padanan' }).click();
+    await expect(page.getByText(/Padanan SETTLEMENT EDC .* dilepas .* jurnal balik Dr 1-1210/)).toBeVisible();
+    await expect(
+      page.getByRole('listitem', { name: /BUNGA JASA GIRO/ }).getByText(/Terkunci: periode September 2026/),
+    ).toBeVisible();
+    await noHorizontalOverflow(page);
+  });
+});

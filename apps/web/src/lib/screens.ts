@@ -419,6 +419,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['akuntan', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'kas-bank',
+    label: 'Kas & bank',
+    route: '/keuangan/kas-bank',
+    mockup: null,
+    components: ['U09'],
+    phase: 5,
+    status: 'demo',
+    plannedPermission: 'cashbank.write',
+    demoRoles: ['kasir', 'akuntan'],
+    layout: 'staf',
+  },
   // FE4 · akhir
   {
     id: 'integrasi',

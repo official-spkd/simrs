@@ -1,5 +1,6 @@
 import 'server-only';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
+import { LACI, MUTASI_BANK, REKENING_KORAN } from '../../demo/fixtures/kas-bank';
 import { ATURAN_JASPEL, JASPEL_START, REKAP_SEPTEMBER, TINDAKAN_JASPEL } from '../../demo/fixtures/jaspel';
 import { AGING } from '../../demo/fixtures/keuangan';
 import { AUDIT_KODING, BERKAS_KODING, BUKTI_RME } from '../../demo/fixtures/koding';
@@ -75,3 +76,9 @@ export function getFeeSharingBoard() {
   return { rule: ATURAN_JASPEL, items: TINDAKAN_JASPEL, september: REKAP_SEPTEMBER, start: JASPEL_START };
 }
 export type FeeSharingBoard = ReturnType<typeof getFeeSharingBoard>;
+
+export function getCashBankBoard() {
+  demoOnly('kas dan bank (U09)');
+  return { drawers: LACI, mutations: MUTASI_BANK, statement: REKENING_KORAN };
+}
+export type CashBankBoard = ReturnType<typeof getCashBankBoard>;
