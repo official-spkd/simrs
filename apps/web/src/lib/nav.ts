@@ -98,6 +98,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'folder',
         available: false,
       },
+      { id: 'sdm', label: 'SDM & kepegawaian', href: '/manajemen/sdm', icon: 'users', available: false },
     ],
   },
   // FE5 · akhir

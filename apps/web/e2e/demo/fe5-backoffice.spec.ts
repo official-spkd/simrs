@@ -92,4 +92,54 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/');
+    await page.goto('/manajemen/sdm');
+    await expect(page.getByRole('heading', { name: 'SDM dan kepegawaian', level: 1 })).toBeVisible();
+
+    await page.getByRole('button', { name: /dr\. Rina Kusuma/ }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Kewenangan klinis ditangguhkan' })).toBeVisible();
+    const save = page.getByRole('button', { name: 'Simpan SIP baru' });
+    await expect(save).toBeDisabled();
+    await page.getByLabel('Nomor SIP baru').fill('9999/UM/0533');
+    await page.getByLabel('Berlaku sampai').fill('2031-10-05');
+    await save.click();
+    await expect(page.getByText(/SIP baru dr\. Rina Kusuma dicatat/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Tampilkan utuh…' }).click();
+    const nik = page.getByRole('alertdialog', { name: 'Buka NIK utuh?' });
+    await nik.getByLabel(/Alasan/).fill('Verifikasi berkas perpanjangan SIP');
+    await nik.getByRole('button', { name: 'Tampilkan NIK' }).click();
+    await expect(page.getByText('9999220200000005')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Proses pegawai keluar…' }).click();
+    const leave = page.getByRole('alertdialog', { name: /Proses dr\. Rina Kusuma keluar/ });
+    await leave.getByLabel(/Alasan/).fill('Mengundurkan diri per 5 Oktober 2026');
+    await leave.getByRole('button', { name: 'Proses keluar' }).click();
+    await expect(page.getByText(/akun SIM RS dinonaktifkan, penugasan diakhiri/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Jadwal dinas' }).click();
+    const roster = page.getByRole('tabpanel', { name: 'Jadwal dinas' });
+    const publish = roster.getByRole('button', { name: 'Terbitkan jadwal' });
+    await expect(publish).toBeDisabled();
+    await expect(roster.getByText('2 dinas di bawah jumlah minimum; isi dulu sebelum terbit.')).toBeVisible();
+    const fill = async (cell: RegExp, id: string) => {
+      await page.getByRole('button', { name: cell }).click();
+      await page.getByLabel('Tambah perawat').selectOption(id);
+      await page.getByRole('button', { name: 'Tambahkan ke dinas' }).click();
+    };
+    await fill(/^Siang Rab 14/, 'peg-0014');
+    await fill(/^Malam Sab 17/, 'peg-0014');
+    await expect(roster.getByText(/1 jeda istirahat malam → pagi dilanggar/)).toBeVisible();
+    await page.getByRole('button', { name: /^Pagi Jum 16/ }).click();
+    await page.getByRole('button', { name: 'Lepas Ns. Maya Sari, S.Kep' }).click();
+    await fill(/^Pagi Jum 16/, 'peg-0011');
+    await publish.click();
+    await expect(page.getByText(/terbit versi 1 · Sen, 5 Okt 2026/).first()).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

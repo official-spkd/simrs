@@ -9,6 +9,7 @@ import {
   ROI_REQUESTS,
 } from '../../demo/fixtures/rekam-medis-adm';
 import { patientById } from '../../demo/fixtures/pasien';
+import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -41,3 +42,10 @@ export async function getRecordsAdmin() {
   };
 }
 export type RecordsAdminData = Awaited<ReturnType<typeof getRecordsAdmin>>;
+
+/** B03 · pegawai + izin praktik, dan draf jadwal dinas minggu depan satu unit. */
+export async function getHr() {
+  demoOnly('SDM dan kepegawaian');
+  return { employees: EMPLOYEES, roster: ROSTER_UNIT, rosterStaff: ROSTER_STAFF, draft: draftRoster() };
+}
+export type HrData = Awaited<ReturnType<typeof getHr>>;

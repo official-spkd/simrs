@@ -443,6 +443,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['petugas_rm', 'petugas_privasi', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'sdm',
+    label: 'SDM & kepegawaian',
+    route: '/manajemen/sdm',
+    mockup: null,
+    components: ['B03'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'hr.read',
+    demoRoles: ['manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
