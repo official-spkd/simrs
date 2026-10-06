@@ -4,6 +4,7 @@ import { type ClinicalResult, type EwsObservation, formatJam } from '@simrs/shar
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
+import { VALUE_FLAG_STYLE, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { useStoreAction } from '@/lib/demo/store/client';
 import {
   ewsRepeatLabel,
@@ -18,10 +19,17 @@ import { ObservationForm, type ObservationEntry } from './observation-form';
 
 const FLAG: Record<ClinicalResult['flag'], { label: string; cls: string }> = {
   normal: { label: 'Normal', cls: 'text-success' },
-  tinggi: { label: 'Tinggi', cls: 'text-danger' },
-  rendah: { label: 'Rendah', cls: 'text-warning' },
-  kritis: { label: 'Kritis', cls: 'font-bold text-danger-strong' },
+  tinggi: { label: 'Tinggi', cls: VALUE_FLAG_STYLE.tinggi.text },
+  rendah: { label: 'Rendah', cls: VALUE_FLAG_STYLE.rendah.text },
+  kritis: { label: 'Kritis', cls: `font-bold ${VALUE_FLAG_STYLE.kritis.text}` },
 };
+
+/** Ubin EWS di atas ambang: sedang = kunyit (perhatian), tinggi = koral (kritis); selalu bertulisan level. */
+const EWS_TILE = {
+  sedang: 'border-kunyit-200 bg-kunyit-50',
+  tinggi: 'border-koral-200 bg-koral-50',
+} as const;
+const EWS_TEXT = { sedang: 'text-kunyit-800', tinggi: 'text-koral-800' } as const;
 
 /** Observasi tanda vital + skor EWS dewasa (mockup Ranap), dengan isian observasi baru (EWS dihitung server). */
 export function EwsPanel({
@@ -122,24 +130,37 @@ export function MonitoringTiles({
   return (
     <ul aria-label="Pantauan terakhir" className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2">
       {last && lv && (
-        <li className="flex flex-col gap-0.5 rounded-card border border-white/95 bg-white/90 shadow-card px-3.5 py-3">
+        <li
+          className={cx(
+            'flex flex-col gap-0.5 rounded-card border px-3.5 py-3 shadow-card',
+            lv.level === 'rendah' ? 'border-white/95 bg-white/90' : EWS_TILE[lv.level],
+          )}
+        >
           <span className="text-caption text-ink-500">EWS dewasa {formatJam(last.at)}</span>
-          <span className={cx('text-h2 font-bold', lv.level === 'rendah' ? 'text-success' : 'text-danger')}>
+          <span
+            className={cx('text-h2 font-bold', lv.level === 'rendah' ? 'text-success' : EWS_TEXT[lv.level])}
+          >
             {last.score} · {lv.level}
           </span>
           <span className="text-caption text-ink-700">{ewsRepeatLabel(lv.level)}</span>
         </li>
       )}
       {gds && (
-        <li className="flex flex-col gap-0.5 rounded-card border border-white/95 bg-white/90 shadow-card px-3.5 py-3">
+        <li
+          className={cx(
+            'flex flex-col gap-0.5 rounded-card border px-3.5 py-3 shadow-card',
+            gds.flag === 'normal' ? 'border-white/95 bg-white/90' : VALUE_FLAG_STYLE[gds.flag].tile,
+          )}
+        >
           <span className="text-caption text-ink-500">GDS terakhir · {formatJam(gds.at)}</span>
           <span
-            className={cx('text-h2 font-bold', gds.flag === 'normal' ? 'text-ink-900' : FLAG[gds.flag].cls)}
+            className={cx(
+              'flex flex-wrap items-center gap-1.5 text-h2 font-bold',
+              gds.flag === 'normal' ? 'text-ink-900' : FLAG[gds.flag].cls,
+            )}
           >
             {gds.value}
-            {gds.flag !== 'normal' && (
-              <span className="ml-1.5 text-caption font-semibold">{FLAG[gds.flag].label}</span>
-            )}
+            {gds.flag !== 'normal' && <ValueFlagBadge flag={gds.flag} />}
           </span>
           {gds.history && <span className="text-caption text-ink-700">{gds.history}</span>}
         </li>
@@ -165,7 +186,13 @@ export function ResultsPanel({ results }: { results: ClinicalResult[] }) {
             <span className="font-mono text-caption text-ink-500">{formatTglJam(r.at)}</span>
             <span className="font-semibold">{r.name}</span>
             <span className="col-span-2 sm:col-span-1">{r.value}</span>
-            <span className={cx('text-caption font-semibold', FLAG[r.flag].cls)}>{FLAG[r.flag].label}</span>
+            {r.flag === 'normal' ? (
+              <span className={cx('text-caption font-semibold', FLAG[r.flag].cls)}>{FLAG[r.flag].label}</span>
+            ) : (
+              <span>
+                <ValueFlagBadge flag={r.flag} />
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -238,7 +265,10 @@ export function NursingPanel({
             aria-valuetext={`${done} dari ${all.length} intervensi selesai`}
             className="h-2 w-[90px] overflow-hidden rounded-full bg-line-soft"
           >
-            <span className="block h-full rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
+            <span
+              className="block h-full origin-left animate-grow rounded-full bg-domain-bar"
+              style={{ width: `${pct}%` }}
+            />
           </span>
           {done}/{all.length} intervensi
         </span>
@@ -317,7 +347,7 @@ export function SummaryPanel({
             <Link
               key={l.href}
               href={l.href}
-              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
             >
               {l.label}
             </Link>

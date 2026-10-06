@@ -212,7 +212,7 @@ export function KonsulWorkspace({
                     {answering === c.id && (
                       <form
                         aria-label="Jawaban konsul"
-                        className="flex flex-col gap-2 rounded-control bg-brand-50 p-3"
+                        className="flex flex-col gap-2 rounded-control bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] p-3"
                         onSubmit={(e) => {
                           e.preventDefault();
                           answer(c);

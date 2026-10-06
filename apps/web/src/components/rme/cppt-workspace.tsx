@@ -460,7 +460,7 @@ function SoapForm({
       {abbr.length > 0 && (
         <div
           role="status"
-          className="rounded-control border border-warning-border bg-white px-3 py-2 text-small"
+          className="rounded-control border border-kunyit-200 bg-alert-warning px-3 py-2 text-small"
         >
           <span className="font-semibold text-warning">
             Singkatan terlarang (peringatan, tidak memblokir):

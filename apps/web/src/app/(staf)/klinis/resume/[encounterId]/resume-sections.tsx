@@ -36,7 +36,10 @@ export function ResumeSections({
     <section aria-label="Isi resume" className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
       <dl className="m-0 grid grid-cols-2 gap-2.5 md:grid-cols-4">
         {facts.map(([k, v]) => (
-          <div key={k} className="flex flex-col rounded-control border border-line bg-white px-3 py-2">
+          <div
+            key={k}
+            className="flex flex-col rounded-control border border-white/95 bg-white/90 px-3 py-2 shadow-card"
+          >
             <dt className="text-caption text-ink-500">{k}</dt>
             <dd className="m-0 text-small font-semibold">{v}</dd>
           </div>

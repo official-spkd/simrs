@@ -51,7 +51,7 @@ export async function DemoRawatInap({
         <Link
           key={x.encounterId}
           href={`/klinis/rawat-inap/${x.encounterId}`}
-          className="inline-flex min-h-11 items-center self-start rounded-control border border-brand-800 bg-white px-3.5 text-small font-semibold text-brand-700 no-underline"
+          className="inline-flex min-h-11 items-center self-start rounded-control border border-brand-600 bg-white/90 px-3.5 text-small font-semibold text-brand-800 hover:bg-brand-50/60 no-underline"
         >
           Buka rekam rawat inap {patientById(x.patientId)?.nama} (langkah simulasi aktif)
         </Link>
@@ -82,7 +82,7 @@ export async function DemoRawatInap({
       {arrivals.length > 0 && (
         <section
           aria-label="Masuk dari IGD"
-          className="flex flex-col gap-1.5 rounded-card border border-brand-100 bg-white px-4 py-3.5"
+          className="flex flex-col gap-1.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3.5 shadow-card"
         >
           <h2 className="m-0 text-body font-semibold">Masuk dari IGD</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
@@ -164,7 +164,7 @@ export async function DemoRawatInap({
                 <Link
                   href={`/klinis/rawat-inap/${x.encounterId}`}
                   className={cx(
-                    'grid grid-cols-[1fr_auto] gap-x-2 px-0 py-1 text-ink-900 no-underline lg:py-0',
+                    'grid grid-cols-[1fr_auto] gap-x-2 px-0 py-1 text-ink-900 no-underline hover:bg-brand-50/60 lg:py-0',
                     COLS,
                   )}
                 >

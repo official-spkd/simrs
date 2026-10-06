@@ -51,7 +51,7 @@ export function DayJumps({
       className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3 shadow-card"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="font-semibold text-brand-700">Perjalanan rawat · pasien simulasi</span>
+        <span className="font-semibold text-brand-800">Perjalanan rawat · pasien simulasi</span>
         <span className="text-caption text-ink-700">
           {emarDone
             ? 'Obat jadwal pertama tercatat per dosis lewat pindai gelang dan label obat.'
@@ -68,7 +68,7 @@ export function DayJumps({
               key={k}
               className={cx(
                 'flex flex-wrap items-center justify-between gap-2 rounded-control border px-3 py-2',
-                done ? 'border-success-border bg-white' : 'border-line bg-white',
+                done ? 'border-zamrud-200 bg-white/90' : 'border-white/95 bg-white/90',
               )}
             >
               <span className="flex min-w-0 flex-1 flex-col">

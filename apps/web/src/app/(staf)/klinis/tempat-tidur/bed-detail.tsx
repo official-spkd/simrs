@@ -48,7 +48,7 @@ export function BedDetail({
   return (
     <section
       aria-label="Bed terpilih"
-      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-white px-4 py-3.5 shadow-[0_0_0_3px_color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent)]"
+      className="flex flex-col gap-2.5 rounded-card border border-brand-200 bg-white/90 px-4 py-3.5 shadow-card"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex flex-col">
@@ -90,7 +90,7 @@ export function BedDetail({
         {ranapHref && (
           <Link
             href={ranapHref}
-            className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+            className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
           >
             Buka rawat inap
           </Link>

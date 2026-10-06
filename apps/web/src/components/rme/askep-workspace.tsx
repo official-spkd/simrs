@@ -197,7 +197,7 @@ export function AskepWorkspace({
                 ) : canNurse ? (
                   <form
                     aria-label={`Evaluasi ${dx.label}`}
-                    className="grid grid-cols-1 gap-2 rounded-control bg-brand-50 p-3 md:grid-cols-2"
+                    className="grid grid-cols-1 gap-2 rounded-control bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] p-3 md:grid-cols-2"
                     onSubmit={(e) => {
                       e.preventDefault();
                       saveEval(dx);

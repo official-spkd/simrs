@@ -89,7 +89,7 @@ export async function DemoCpoe({ access, encounterId }: { access: DemoScreenAcce
             {poliHref && (
               <Link
                 href={poliHref}
-                className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+                className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
               >
                 Kembali ke pemeriksaan
               </Link>

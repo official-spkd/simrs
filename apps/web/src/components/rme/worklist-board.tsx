@@ -361,7 +361,7 @@ function TaskCard({
         </div>
         {a.kind === 'baca-ulang' && readBack && (
           <form
-            className="flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3"
+            className="flex flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical p-3"
             onSubmit={(e) => {
               e.preventDefault();
               setReadBack({ ...readBack, tried: true });

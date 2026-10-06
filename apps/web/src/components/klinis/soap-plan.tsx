@@ -65,14 +65,14 @@ export function SoapPlan({
           <span className="flex flex-wrap gap-2">
             <Link
               href={cpoeHref}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
             >
               <Icon name="flask" size={15} />
               Order penunjang
             </Link>
             <Link
               href={cpoeHref}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white px-3 text-small font-medium text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line-strong bg-white/90 px-3 text-small font-medium text-ink-900 no-underline hover:bg-brand-50/60"
             >
               <Icon name="pill" size={15} />
               Tulis resep (CPOE)

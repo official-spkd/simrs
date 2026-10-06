@@ -159,7 +159,7 @@ export function EmarPanel({
             <table className="w-full min-w-[460px] table-fixed border-collapse text-small">
               <caption className="sr-only">Jadwal pemberian obat hari ini</caption>
               <thead>
-                <tr className="text-left text-caption text-ink-700">
+                <tr className="border-b border-line text-left text-caption text-ink-500">
                   <th scope="col" className="w-[36%] py-2 pr-2 font-semibold">
                     Obat · dosis · rute
                   </th>

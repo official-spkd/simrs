@@ -173,7 +173,7 @@ export async function DemoRawatInapDetail({
             <Link
               key={l.label}
               href={l.href}
-              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+              className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white/90 px-3.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
             >
               {l.label}
             </Link>
@@ -181,7 +181,7 @@ export async function DemoRawatInapDetail({
             <span
               key={l.label}
               aria-disabled="true"
-              className="inline-flex min-h-11 items-center rounded-control border border-line bg-muted px-3.5 text-small text-ink-500"
+              className="inline-flex min-h-11 items-center rounded-control border border-line bg-batu-100 px-3.5 text-small text-ink-500"
             >
               {l.label} · belum tersedia
             </span>

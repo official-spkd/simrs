@@ -120,7 +120,7 @@ export function CpoeSummary({
                 <Link
                   key={l.href}
                   href={l.href}
-                  className="inline-flex min-h-11 items-center rounded-control border border-brand-800 bg-white px-3.5 text-small font-semibold text-brand-700 no-underline"
+                  className="inline-flex min-h-11 items-center rounded-control border border-brand-600 bg-white/90 px-3.5 text-small font-semibold text-brand-800 hover:bg-brand-50/60 no-underline"
                 >
                   {l.label}
                 </Link>

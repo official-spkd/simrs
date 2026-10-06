@@ -71,7 +71,7 @@ export function EmarGate({
   }
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-3 rounded-control border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),var(--color-kunyit-50)_60%)] px-3.5 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-kunyit-200 bg-alert-warning px-3.5 py-3">
         <span role="alert" className="flex min-w-0 flex-1 flex-col">
           <span className="font-semibold text-warning-strong">
             Pemberian obat terkunci sampai gelang pasien cocok

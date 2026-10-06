@@ -196,7 +196,7 @@ export function KelengkapanWorkspace({
               {disposition === 'meninggal' && !hasDeathCertificate && (
                 <form
                   aria-label="Surat keterangan kematian"
-                  className="flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3"
+                  className="flex flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical p-3"
                   onSubmit={(e) => {
                     e.preventDefault();
                     run(
@@ -344,7 +344,7 @@ export function KelengkapanWorkspace({
                   {cancel?.id === d.id && (
                     <form
                       aria-label="Batalkan dokumen"
-                      className="flex flex-col gap-2 rounded-control border border-warning-border p-2.5"
+                      className="flex flex-col gap-2 rounded-control border border-kunyit-200 bg-alert-warning p-2.5"
                       onSubmit={(e) => {
                         e.preventDefault();
                         if (!hasReason(cancel.reason)) return setCancel({ ...cancel, tried: true });

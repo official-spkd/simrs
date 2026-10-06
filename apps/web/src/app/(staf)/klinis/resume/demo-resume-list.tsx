@@ -53,7 +53,7 @@ export async function DemoResumeList({ access }: { access: DemoScreenAccess }) {
               <li key={s.encounterId} className="border-b border-line-soft">
                 <Link
                   href={`/klinis/resume/${s.encounterId}`}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline"
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-ink-900 no-underline hover:bg-brand-50/60"
                 >
                   <span className="flex flex-col">
                     <span className="font-semibold text-brand-700">{p?.nama}</span>

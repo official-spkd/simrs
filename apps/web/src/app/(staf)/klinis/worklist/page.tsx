@@ -56,7 +56,7 @@ export default async function WorklistPage() {
         <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
           Worklist klinis · {session.user.displayName}
         </h1>
-        <span className="text-small text-ink-700">
+        <span className="text-small text-ink-500">
           {role ? WORKLIST_ROLE_TITLE[role] : 'Posisi non-klinis'} · tugas tertunda diurutkan dari yang paling
           mendesak
         </span>

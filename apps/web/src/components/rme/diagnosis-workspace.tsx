@@ -581,7 +581,7 @@ function VoidForm({
   return (
     <form
       aria-label="Tandai salah entri"
-      className="flex flex-col gap-2 rounded-control border border-warning-border bg-white p-3"
+      className="flex flex-col gap-2 rounded-control border border-kunyit-200 bg-alert-warning p-3"
       onSubmit={(e) => {
         e.preventDefault();
         onConfirm();

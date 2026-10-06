@@ -114,7 +114,7 @@ export function ResumeClient({
     <div className="flex flex-wrap items-start gap-4">
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-3">
         {scn && !taskDone(sc, 'resume') && (
-          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-card border border-brand-200 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-card border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] px-4 py-3 shadow-card">
             <span className="text-small text-ink-700">
               Draf terisi otomatis dari CPPT, hasil, dan eMAR. Himpun ringkasan untuk mengisi diagnosis
               berkode dan obat pulang.
@@ -146,10 +146,13 @@ export function ResumeClient({
           aria-valuemin={0}
           aria-valuemax={comp.total}
           aria-valuenow={comp.done}
-          className="h-2 overflow-hidden rounded-full bg-muted"
+          className="h-2 overflow-hidden rounded-full bg-[rgba(23,32,46,0.08)]"
         >
           <span
-            className={cx('block h-2', comp.complete ? 'bg-success' : 'bg-brand-600')}
+            className={cx(
+              'block h-2 origin-left animate-grow rounded-full',
+              comp.complete ? 'bg-success' : 'bg-domain-bar',
+            )}
             style={{ width: `${Math.round((comp.done / comp.total) * 100)}%` }}
           />
         </span>

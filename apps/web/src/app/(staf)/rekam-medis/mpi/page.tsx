@@ -54,7 +54,7 @@ export default async function MpiPage({ searchParams }: { searchParams: SearchPa
           <span className="text-caption text-ink-500">Rekam medis / Master Patient Index</span>
           <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kemungkinan rekam medis ganda</h1>
         </div>
-        <span className="text-small text-ink-700">
+        <span className="text-small text-ink-500">
           {list.openCount} pasangan menunggu tinjauan · terdeteksi otomatis saat registrasi
         </span>
       </header>
