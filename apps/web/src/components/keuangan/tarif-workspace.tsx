@@ -125,7 +125,7 @@ export function TarifWorkspace({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-[13px]">
           <thead>
-            <tr className="bg-subtle text-left text-caption text-ink-500">
+            <tr className="text-left text-caption text-ink-500">
               <th scope="col" className="px-4 py-2 font-semibold">
                 Item
               </th>
