@@ -120,4 +120,48 @@ test.describe('FE1 · platform dan operasional', () => {
     ).toContainText(/Versi 5 terbit · \d{2}\.\d{2}/);
     await expectNoHorizontalOverflow(page);
   });
+
+  test('data rujukan: cari tahan salah ketik, impor CSV uji kering gagal tertutup lalu terapkan', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/terminologi');
+    await expect(
+      page.getByRole('heading', { name: 'Data rujukan · kode baku dan impor versi', level: 1 }),
+    ).toBeVisible();
+
+    const results = page.getByRole('list', { name: 'Hasil pencarian kode' });
+    await expect(results).toContainText('J18.9');
+    await expect(results).toContainText('ejaan mirip');
+    await page.getByLabel('Kode atau kata kunci').fill('troponin');
+    await page.getByRole('radio', { name: 'LOINC' }).click();
+    await expect(page.getByText('Tidak ada kode yang cocok.')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Impor CSV' }).click();
+    await page.getByRole('button', { name: /loinc-2\.77-lab-rsfa\.csv/ }).click();
+    await page.getByRole('button', { name: 'Jalankan uji kering' }).click();
+    await expect(page.getByRole('list', { name: 'Galat impor' })).toContainText(
+      'kode 2823-3 muncul lebih dari sekali',
+    );
+    await expect(page.getByRole('button', { name: 'Terapkan impor' })).toBeDisabled();
+
+    await page.getByRole('button', { name: /loinc-2\.77-lab-rsfa-perbaikan\.csv/ }).click();
+    await page.getByRole('button', { name: 'Jalankan uji kering' }).click();
+    const summary = page.getByRole('region', { name: 'Ringkasan uji kering' });
+    await expect(summary.getByText('Kode baru')).toBeVisible();
+    await page.getByRole('button', { name: 'Terapkan impor' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Terapkan loinc-2.77-lab-rsfa-perbaikan.csv?' })
+      .getByRole('button', { name: 'Ya, terapkan' })
+      .click();
+    await expect(page.getByText(/Diterapkan · \d{2}\.\d{2} · LOINC versi 2\.77-contoh/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Cari kode' }).click();
+    await expect(results).toContainText('10839-9');
+    await page.getByRole('tab', { name: 'Riwayat versi' }).click();
+    await expect(page.getByRole('region', { name: 'Riwayat versi data rujukan' })).toContainText(
+      'Anda (sesi ini)',
+    );
+    await expectNoHorizontalOverflow(page);
+  });
 });

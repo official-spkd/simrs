@@ -455,6 +455,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['admin_tenant'],
     layout: 'staf',
   },
+  {
+    id: 'terminologi',
+    label: 'Data rujukan',
+    route: '/sistem/terminologi',
+    mockup: null,
+    components: ['P06'],
+    phase: 1,
+    status: 'demo',
+    plannedPermission: 'ref.write',
+    demoRoles: ['admin_tenant', 'koder', 'petugas_rm'],
+    layout: 'staf',
+  },
   // FE1 · akhir
 ];
 

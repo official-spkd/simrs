@@ -16,6 +16,13 @@ import {
   type SettingDraft,
 } from '../../platform-pengaturan';
 import type { StructNode } from '../../platform-struktur';
+import type { RefConcept, RefVersion } from '../../platform-terminologi';
+import {
+  DEMO_IMPORT_FILES,
+  DEMO_REF_CONCEPTS,
+  DEMO_REF_VERSIONS,
+  type DemoImportFile,
+} from '../../demo/fixtures/terminologi';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -66,5 +73,18 @@ export async function getTenantSettingsOverview(): Promise<{
     templates: [...DEMO_TEMPLATES],
     // Ny. Endang: beralergi, sehingga penanda alergi di gelang/label terlihat di pratinjau.
     sample: samplePatient(PATIENT_ID.endang),
+  };
+}
+
+export async function getTerminologyOverview(): Promise<{
+  concepts: RefConcept[];
+  versions: RefVersion[];
+  files: DemoImportFile[];
+}> {
+  if (!isDemo()) return notImplemented('data rujukan (layar demo)');
+  return {
+    concepts: [...DEMO_REF_CONCEPTS],
+    versions: [...DEMO_REF_VERSIONS],
+    files: [...DEMO_IMPORT_FILES],
   };
 }

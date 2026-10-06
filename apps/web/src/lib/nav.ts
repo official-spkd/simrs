@@ -124,6 +124,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'menu',
         available: false,
       },
+      {
+        id: 'terminologi',
+        label: 'Data rujukan',
+        href: '/sistem/terminologi',
+        icon: 'book',
+        available: false,
+      },
       // FE1 · akhir
     ],
   },

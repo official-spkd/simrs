@@ -139,7 +139,7 @@ export function Stamp({ children, tone = 'success' }: { children: ReactNode; ton
 export function TableWrap({ label, children }: { label: string; children: ReactNode }) {
   return (
     // Wilayah gulir perlu tabIndex agar bisa digulir dengan keyboard.
-    <div role="region" aria-label={label} tabIndex={0} className="max-w-full overflow-x-auto">
+    <div role="region" aria-label={label} tabIndex={0} className="relative max-w-full overflow-x-auto">
       {children}
     </div>
   );
