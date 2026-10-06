@@ -30,7 +30,8 @@ export function JurnalPasangan({
         {status && <span className="text-caption text-ink-500">{status}</span>}
       </figcaption>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] border-collapse text-[12.5px]">
+        <table className="w-full border-collapse text-[12.5px] [&_td+td]:pl-2 [&_td+td]:whitespace-nowrap">
+          <caption className="sr-only">Debit dan kredit dalam rupiah</caption>
           <thead>
             <tr className="text-left text-caption text-ink-500">
               <th scope="col" className="py-1 font-semibold">

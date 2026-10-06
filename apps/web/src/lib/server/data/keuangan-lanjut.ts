@@ -1,5 +1,6 @@
 import 'server-only';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
+import { ATURAN_JASPEL, JASPEL_START, REKAP_SEPTEMBER, TINDAKAN_JASPEL } from '../../demo/fixtures/jaspel';
 import { AGING } from '../../demo/fixtures/keuangan';
 import { AUDIT_KODING, BERKAS_KODING, BUKTI_RME } from '../../demo/fixtures/koding';
 import {
@@ -68,3 +69,9 @@ export function getCodingBoard() {
   return { berkas: BERKAS_KODING, evidence: BUKTI_RME, audit: AUDIT_KODING };
 }
 export type CodingBoard = ReturnType<typeof getCodingBoard>;
+
+export function getFeeSharingBoard() {
+  demoOnly('jasa pelayanan (U08)');
+  return { rule: ATURAN_JASPEL, items: TINDAKAN_JASPEL, september: REKAP_SEPTEMBER, start: JASPEL_START };
+}
+export type FeeSharingBoard = ReturnType<typeof getFeeSharingBoard>;

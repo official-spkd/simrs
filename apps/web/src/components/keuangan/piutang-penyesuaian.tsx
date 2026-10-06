@@ -61,6 +61,7 @@ export function PiutangPenyesuaian({
         <label className="flex flex-col gap-1 text-small font-semibold text-ink-700">
           Piutang
           <select
+            aria-label="Piutang"
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
             className="h-11 rounded-control border border-line-strong bg-white px-2 font-[inherit] font-normal text-ink-900"
@@ -76,6 +77,7 @@ export function PiutangPenyesuaian({
         <label className="flex flex-col gap-1 text-small font-semibold text-ink-700">
           Jenis penyesuaian
           <select
+            aria-label="Jenis penyesuaian"
             value={kind}
             onChange={(e) => setKind(e.target.value as JenisPenyesuaian)}
             className="h-11 rounded-control border border-line-strong bg-white px-2 font-[inherit] font-normal text-ink-900"

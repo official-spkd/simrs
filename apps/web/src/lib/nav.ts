@@ -80,6 +80,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
       },
       { id: 'piutang', label: 'Piutang', href: '/keuangan/piutang', icon: 'fileCheck', available: false },
       { id: 'koding', label: 'Workbench koder', href: '/keuangan/koding', icon: 'search', available: false },
+      {
+        id: 'jaspel',
+        label: 'Jasa pelayanan',
+        href: '/keuangan/jasa-pelayanan',
+        icon: 'users',
+        available: false,
+      },
       // FE4 · akhir
     ],
   },

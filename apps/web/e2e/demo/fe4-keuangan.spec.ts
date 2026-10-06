@@ -276,3 +276,43 @@ test.describe('workbench koder (U06)', () => {
     await noHorizontalOverflow(page);
   });
 });
+
+test.describe('jasa pelayanan (U08)', () => {
+  test('akuntan tertahan gerbang; manajemen menyetujui → akrual terposting; September terkunci', async ({
+    page,
+    browser,
+  }) => {
+    const akuntan = await createAccount({ roles: ['akuntan'] });
+    await loginAs(page, akuntan, '/keuangan/jasa-pelayanan');
+    await page.goto('/keuangan/jasa-pelayanan');
+    await expect(
+      page.getByRole('heading', { name: 'Jasa pelayanan · rekap per PPA', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Setujui rekap dan posting akrual' })).toBeDisabled();
+    await expect(page.getByText('Persetujuan rekap oleh posisi manajemen.')).toBeVisible();
+    await journalsBalanced(page, 2);
+    await page.getByRole('radio', { name: /September 2026/ }).click();
+    await expect(page.getByRole('button', { name: 'Hitung ulang' })).toBeDisabled();
+    await expect(page.getByText('Terkunci: periode September 2026 ditutup.')).toBeVisible();
+
+    const direktur = await createAccount({ roles: ['manajemen'] });
+    const ctx = await browser.newContext({
+      baseURL: test.info().project.use.baseURL,
+      viewport: test.info().project.use.viewport,
+      locale: 'id-ID',
+      timezoneId: 'Asia/Jakarta',
+    });
+    const mgr = await ctx.newPage();
+    await loginAs(mgr, direktur, '/keuangan/jasa-pelayanan');
+    await mgr.goto('/keuangan/jasa-pelayanan');
+    await mgr.getByRole('button', { name: 'Setujui rekap dan posting akrual' }).click();
+    await expect(
+      mgr.getByText(/Rekap jasa Oktober disetujui manajemen · \d{2}\.\d{2} · Dr 5-1100/),
+    ).toBeVisible();
+    await expect(mgr.getByText('Pembayaran jasa diposting posisi akuntan.')).toBeVisible();
+    await mgr.getByRole('button', { name: 'Ekspor CSV' }).click();
+    await expect(mgr.getByLabel('Pratinjau CSV')).toContainText('PPA;Jumlah tindakan;Bruto;PPh 21;Neto');
+    await noHorizontalOverflow(mgr);
+    await ctx.close();
+  });
+});
