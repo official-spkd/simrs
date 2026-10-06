@@ -275,7 +275,7 @@ describe('ADT dan bed', () => {
 });
 
 /** Order obat aktif + jadwal + gelang + pindaian cocok milik `nurse`. */
-async function medicationSetup(c: Ctx, opts: { highAlert?: boolean } = {}) {
+async function medicationSetup(c: Ctx, opts: { highAlert?: boolean; scheduledAt?: Date } = {}) {
   const e = await admitted(c);
   return inT(c, async (tx) => {
     const drug = await tx.drug.findFirstOrThrow({
@@ -314,7 +314,7 @@ async function medicationSetup(c: Ctx, opts: { highAlert?: boolean } = {}) {
         tenantId: c.tenantId,
         medicationRequestId: med.id,
         encounterId: e.encounterId,
-        scheduledAt: new Date(),
+        scheduledAt: opts.scheduledAt ?? new Date(),
       },
     });
     const band = await tx.patientWristband.create({
@@ -364,10 +364,10 @@ const administer = (
         patientId: s.patientId,
         wristbandScanId: scanId,
         status: 'given',
-        occurredAt: new Date(),
+        occurredAt: new Date(Date.now() + 100),
         userId: c.nurse,
         userRole: 'perawat',
-        labelCode: 'LBL-1',
+        labelCode: s.med.id,
         ...over,
       },
     }),
@@ -434,14 +434,48 @@ describe('eMAR: gerbang gelang', () => {
     await expect(administer(A, s, ok.id, { status: 'held' })).rejects.toThrow(
       /medication_administrations_values_valid/,
     );
-    await expect(administer(A, s, ok.id, { late: true, doubleCheckUserId: A.nurse2 })).rejects.toThrow(
+    const delayed = await medicationSetup(A, { scheduledAt: new Date(Date.now() - 7_200_000) });
+    const delayedScan = await scan(A, delayed, A.nurse);
+    await expect(administer(A, delayed, delayedScan.id, { late: false })).rejects.toThrow(
       /medication_administrations_values_valid/,
     );
     await expect(administer(A, s, ok.id)).rejects.toThrow(/DOUBLE_CHECK_REQUIRED/);
     await expect(administer(A, s, ok.id, { doubleCheckUserId: A.nurse })).rejects.toThrow(
-      /medication_administrations_values_valid/,
+      /DOUBLE_CHECK_REQUIRED/,
     );
-    await administer(A, s, ok.id, { doubleCheckUserId: A.nurse2 });
+    await expect(administer(A, s, ok.id, { doubleCheckUserId: A.nurse2 })).rejects.toThrow(
+      /DOUBLE_CHECK_REQUIRED/,
+    );
+    const occurredAt = new Date(Date.now() + 100);
+    const check = await inT(A, (tx) =>
+      tx.medicationDoubleCheck.create({
+        data: {
+          id: newId(),
+          tenantId: A.tenantId,
+          medicationRequestId: s.med.id,
+          wristbandScanId: ok.id,
+          userId: A.nurse2,
+          userRole: 'perawat',
+          content: {
+            medicationRequestId: s.med.id,
+            scheduleId: s.schedule.id,
+            scanId: ok.id,
+            labelCode: s.med.id,
+            status: 'given',
+            occurredAt: occurredAt.toISOString(),
+            reason: null,
+          },
+        },
+      }),
+    );
+    await administer(A, s, ok.id, { doubleCheckUserId: A.nurse2, doubleCheckId: check.id, occurredAt });
+    await expect(
+      inT(
+        A,
+        (tx) => tx.$executeRaw`DELETE FROM medication_double_checks WHERE id = ${check.id}::uuid`,
+        owner,
+      ),
+    ).rejects.toThrow(/APPEND_ONLY/);
   });
 
   it('pindaian kedaluwarsa (lewat emar.scan_valid_minutes) ditolak', async () => {
