@@ -57,6 +57,7 @@ const paramsSchema = z.object({
     .enum(STATUS_FILTERS.map((f) => f.value) as [string, ...string[]])
     .optional()
     .catch(undefined),
+  unit: z.uuid().optional().catch(undefined),
   kursor: z.uuid().optional().catch(undefined),
   pengguna: z.uuid().optional().catch(undefined),
 });
@@ -92,13 +93,14 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
   if (params.peran) list.set('role', params.peran);
   const status = statusFilterParam(params.status);
   if (status) list.set('status', status);
+  if (params.unit) list.set('unitId', params.unit);
   if (params.kursor) list.set('cursor', params.kursor);
 
   const [summary, page, rolesData, unitOptions, detail] = await Promise.all([
     api('/api/v1/iam/summary', { schema: summarySchema }),
     api(`/api/v1/iam/users?${list.toString()}`, { schema: userPageSchema }),
     canReadRoles ? api('/api/v1/iam/roles', { schema: rolesSchema }) : Promise.resolve(null),
-    canWriteUsers && can(s, 'facility', 'read') ? listActiveUnits() : Promise.resolve([]),
+    can(s, 'facility', 'read') ? listActiveUnits() : Promise.resolve([]),
     params.pengguna
       ? api(`/api/v1/iam/users/${params.pengguna}`, { schema: userDetailSchema }).catch((err: unknown) => {
           if (err instanceof ApiError && err.status === 404) return null;
@@ -107,6 +109,8 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
       : Promise.resolve(null),
   ]);
 
+  // Pilihan unit di formulir ubah (undang, tambah penugasan) hanya untuk admin yang boleh menulis.
+  const writeUnits = canWriteUsers ? unitOptions : [];
   const roleOptions = (rolesData?.roles ?? [])
     .filter((r) => r.active)
     .map((r) => ({ value: r.code, label: r.name }));
@@ -127,7 +131,18 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
           <Link href="/sistem/akses/perangkat" className="text-small font-semibold">
             Perangkat anjungan dan display
           </Link>
-          {canWriteUsers && <InviteUser roles={roleOptions} units={unitOptions} />}
+          {canWriteUsers && (
+            <span className="flex flex-col items-end gap-0.5">
+              {/* Mockup Akses: sinkron akun dari data SDM. Modul SDM (B-lapis) belum punya API: tampil nonaktif. */}
+              <Button disabled aria-describedby="sdm-belum">
+                Sinkron dari data SDM
+              </Button>
+              <span id="sdm-belum" className="text-caption text-ink-500">
+                Belum tersambung ke modul SDM
+              </span>
+            </span>
+          )}
+          {canWriteUsers && <InviteUser roles={roleOptions} units={writeUnits} />}
         </div>
       </header>
 
@@ -169,6 +184,26 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
                   {roleOptions.map((r) => (
                     <option key={r.value} value={r.value}>
                       {r.label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {unitOptions.length > 0 && (
+              <>
+                <label htmlFor="filter-unit" className="sr-only">
+                  Unit
+                </label>
+                <select
+                  id="filter-unit"
+                  name="unit"
+                  defaultValue={params.unit ?? ''}
+                  className={cx(selectClass, 'max-w-[220px]')}
+                >
+                  <option value="">Semua unit</option>
+                  {unitOptions.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
                     </option>
                   ))}
                 </select>
@@ -224,28 +259,25 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
               session={s}
               canWrite={canWriteUsers}
               roles={roleOptions}
-              units={unitOptions}
+              units={writeUnits}
             />
           )}
           {rolesData && catalog.length > 0 && (
-            <Card className="flex flex-col gap-3 p-4">
-              <div className="flex flex-col gap-0.5">
-                <h2 className="m-0 text-h2 font-semibold">Matriks izin per peran</h2>
-                <span className="text-caption text-ink-500">
-                  Klik sel untuk mengganti lingkup. Berlaku di permintaan berikutnya untuk semua pemegang
-                  peran.
-                </span>
-              </div>
-              <RoleMatrix
-                roles={rolesData.roles
-                  .filter((r) => r.active)
-                  .map(({ code, name, isSystem, permissions }) => ({ code, name, isSystem, permissions }))}
-                catalog={catalog}
-                initialCode={matrixInitial}
-                canWrite={can(s, 'iam.roles', 'write')}
-                lockedByRole={lockedByRole}
-              />
-            </Card>
+            <RoleMatrix
+              roles={rolesData.roles
+                .filter((r) => r.active)
+                .map(({ code, name, isSystem, permissions }) => ({ code, name, isSystem, permissions }))}
+              catalog={catalog}
+              initialCode={matrixInitial}
+              canWrite={can(s, 'iam.roles', 'write')}
+              lockedByRole={lockedByRole}
+              selectedUser={
+                detail
+                  ? `${detail.displayName} · ${detail.assignments[0]?.unitName ?? 'Semua unit'}`
+                  : undefined
+              }
+              auditHref={can(s, 'audit', 'read') ? '/sistem/audit?jenis=akun' : null}
+            />
           )}
           {(summary.mfaMissing > 0 || summary.dormant > 0) && (
             <Alert level="warning">

@@ -90,6 +90,36 @@ export function LoginShell({ step, children }: { step: 1 | 2 | 3; children: Reac
   );
 }
 
+/**
+ * Pratinjau langkah 3 selama langkah 1–2 (mockup Login): pengguna tahu bahwa setelah verifikasi ia memilih unit.
+ * Sebelum terverifikasi server belum boleh membuka penugasan akun, jadi isinya contoh bentuk pilihan, bukan data.
+ */
+export function NextStepPreview() {
+  return (
+    <section
+      aria-labelledby="pratinjau-unit"
+      className="hidden flex-col gap-2.5 rounded-card border border-line bg-white/80 px-[18px] py-4 sm:flex"
+    >
+      <h2 id="pratinjau-unit" className="m-0 text-small font-semibold">
+        Langkah berikutnya: pilih unit kerja
+      </h2>
+      <div aria-hidden="true" className="grid grid-cols-2 gap-2">
+        <span className="rounded-control border border-brand-600 bg-selected px-3 py-2.5 text-small">
+          <span className="font-semibold text-brand-700">Posisi dan unit utama</span>
+          <span className="block text-caption text-ink-500">Sesuai penugasan aktif</span>
+        </span>
+        <span className="rounded-control border border-line bg-white px-3 py-2.5 text-small">
+          <span className="font-semibold">Tugas tambahan</span>
+          <span className="block text-caption text-ink-500">Bila ada</span>
+        </span>
+      </div>
+      <span className="text-caption text-ink-500">
+        Hak akses mengikuti unit dan shift yang dipilih (RBAC + relasi pasien).
+      </span>
+    </section>
+  );
+}
+
 /** Kartu putih satu langkah. */
 export function StepCard({
   title,

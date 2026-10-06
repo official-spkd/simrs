@@ -1,8 +1,8 @@
 /** Nilai token untuk kebutuhan JS (mis. halaman /dev/ui, grafik). Sumber: design/tokens.json. */
 export const palettes = [
   {
-    name: 'Brand teal',
-    use: 'Aksi utama, tautan, fokus, status terpilih',
+    name: 'Teal klinis (aksen)',
+    use: 'Navigasi aktif, tombol utama, tautan, fokus',
     swatches: [
       ['brand-50', '#E6F4F1'],
       ['brand-100', '#D5ECE7'],
@@ -11,8 +11,8 @@ export const palettes = [
     ],
   },
   {
-    name: 'Tinta & garis',
-    use: 'Teks, border, latar',
+    name: 'Netral',
+    use: 'Teks, garis, permukaan',
     swatches: [
       ['ink-900', '#14212B'],
       ['ink-700', '#3F4C58'],
@@ -23,7 +23,7 @@ export const palettes = [
   },
   {
     name: 'Semantik',
-    use: 'Blokir, perhatian, berhasil, informasi',
+    use: 'Status dan peringatan klinis',
     swatches: [
       ['danger', '#B42318'],
       ['warning', '#8A4B00'],
@@ -32,8 +32,8 @@ export const palettes = [
     ],
   },
   {
-    name: 'Latar semantik',
-    use: 'Latar alert dan chip',
+    name: 'Permukaan semantik',
+    use: 'Latar badge dan kotak peringatan',
     swatches: [
       ['danger-bg', '#FDECEA'],
       ['warning-bg', '#FFF3E0'],
