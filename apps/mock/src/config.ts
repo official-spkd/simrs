@@ -43,6 +43,24 @@ const schema = envSchemas.mock.extend(envSchemas.host.shape).extend({
     .default('0301R001'),
 });
 
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
+
+/**
+ * Mock tidak berautentikasi dan memakai kredensial/rahasia mock bawaan: hanya untuk mesin pengembang, tes, dan E2E.
+ * Menolak start di produksi (APP_ENV atau NODE_ENV) dan bind ke luar loopback kecuali `MOCK_ALLOW_REMOTE=true`
+ * (mis. kontainer jaringan tertutup). APP_ENV kosong tetap diizinkan (tes, `pnpm start` tanpa .env).
+ */
+export function mockStartupProblem(env: Record<string, string | undefined>): string | null {
+  if (env.APP_ENV === 'production' || env.NODE_ENV === 'production') {
+    return 'Mock integrasi tidak boleh berjalan di produksi (APP_ENV/NODE_ENV=production)';
+  }
+  const host = env.HOST ?? '127.0.0.1';
+  if (!LOOPBACK.has(host) && env.MOCK_ALLOW_REMOTE !== 'true') {
+    return `Mock integrasi hanya bind ke loopback (HOST=${host}); setel MOCK_ALLOW_REMOTE=true bila sengaja`;
+  }
+  return null;
+}
+
 export function loadConfig(env: Record<string, string | undefined> = process.env): MockConfig {
   const e = parseEnv(schema, {
     MOCK_PORT: '4100',

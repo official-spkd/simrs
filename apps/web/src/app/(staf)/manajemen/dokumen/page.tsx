@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: 'Dokumen & akreditasi' };
  * baca, paket bukti akreditasi. Mode presentasi: data dummy (ADR-0023).
  */
 export default async function DokumenPage() {
-  const { screen, allowed } = await requireDemoScreen('dokumen');
+  const { screen, allowed } = await requireDemoScreen('regdok');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getRegDocs();
   const published = d.docs.filter((x) => x.status === 'terbit');

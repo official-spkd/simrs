@@ -19,6 +19,32 @@ export function classifyStatus(status: number): Pick<AttemptResult, 'ok' | 'perm
 export type SendResult = AttemptResult & { responseBody?: string };
 
 /**
+ * Baca badan respons paling banyak `max` byte lalu hentikan aliran: `res.text()` memuat seluruh badan ke memori
+ * sebelum dipotong, sehingga respons raksasa (sistem luar yang salah/jahat) bisa membengkakkan memori worker.
+ */
+async function readCapped(res: Response, max: number): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (size < max) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      size += value.byteLength;
+    }
+  } catch {
+    // Badan terputus: proses yang sudah diterima.
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const all = Buffer.concat(chunks).subarray(0, max);
+  // Potongan bisa memutus karakter multi-byte di ujung; dekoder mengganti sisa yang tidak lengkap.
+  return new TextDecoder().decode(all);
+}
+
+/**
  * Pengirim HTTP generik untuk pesan outbox. Permintaan disiapkan operasi (`operations.ts`).
  * Tujuan selalu base URL dari konfigurasi (bukan dari isi pesan), sehingga pesan tidak bisa mengarahkan
  * worker ke host lain (SSRF). Konektor nyata per sistem menyusul di fase 2–7 (docs/06 §1).
@@ -32,6 +58,16 @@ export class HttpConnector {
     spec: HttpRequestSpec,
     opts: { sensitive?: boolean } = {},
   ): Promise<SendResult> {
+    // Konektor nyata per sistem belum ada (fase 7): di luar mode mock pesan TIDAK dikirim ke MOCK_BASE_URL (gagal
+    // tertutup; dicoba ulang lalu DLQ, bisa dikirim ulang setelah konektor tersedia).
+    if (this.env.INTEGRATION_MODE !== 'mock') {
+      return {
+        ok: false,
+        permanent: false,
+        durationMs: 0,
+        error: 'Konektor belum dikonfigurasi untuk mode ini',
+      };
+    }
     const base = new URL(this.env.MOCK_BASE_URL);
     const url = new URL(spec.path, base);
     if (url.origin !== base.origin) {
@@ -48,14 +84,15 @@ export class HttpConnector {
         redirect: 'manual',
         signal: AbortSignal.timeout(this.env.OUTBOX_HTTP_TIMEOUT_MS),
       });
-      const text = (await res.text().catch(() => '')).slice(0, MAX_RESPONSE_BYTES);
+      const text = await readCapped(res, MAX_RESPONSE_BYTES);
       const c = classifyStatus(res.status);
       return {
         ...c,
         statusCode: res.status,
         durationMs: elapsed(),
-        // Respons berisi data pribadi tidak disimpan di jejak pengiriman.
-        responseExcerpt: opts.sensitive ? undefined : text.slice(0, 300),
+        // Respons bisa berisi data pribadi: potongan hanya disimpan bila operasi menyatakan `sensitive: false`
+        // (bawaan gagal aman, sama dengan operasi BPJS).
+        responseExcerpt: opts.sensitive === false ? text.slice(0, 300) : undefined,
         responseBody: text,
         error: c.ok ? undefined : `HTTP ${res.status}`,
       };

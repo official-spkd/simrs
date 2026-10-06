@@ -16,3 +16,8 @@ allowBuilds:
   '@ibm/plex-sans': false
 minimumReleaseAgeExclude:
   - nestjs-pino@5.3.1
+
+# Keamanan (6 Okt 2026): mysql2 transitif dari CLI prisma (tidak dipakai; DB kita Postgres) rentan
+# GHSA kebocoran kredensial + bom dekompresi; naikkan ke patch aman dalam mayor yang sama.
+overrides:
+  mysql2: ^3.23.1

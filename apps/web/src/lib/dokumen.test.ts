@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCREDITATION_CHAPTERS, REG_DOCS } from './demo/fixtures/dokumen';
+import { ACCREDITATION_CHAPTERS, REG_DOCS } from './demo/fixtures/regulasi';
 import { DEMO_TODAY } from './demo/fixtures/waktu';
 import { addYears, docApproveBlock, nextStatus, pct, publish, reviewStatus } from './dokumen';
 

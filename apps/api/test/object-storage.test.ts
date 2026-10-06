@@ -201,7 +201,7 @@ describe('driver s3 (MinIO lokal, bucket uji)', () => {
 });
 
 describe('aturan driver per APP_ENV', () => {
-  const base = { ...process.env, TRUST_PROXY: 'loopback' };
+  const base = { ...process.env, TRUST_PROXY: 'loopback', INTEGRATION_MODE: 'sandbox' };
 
   it('disk hanya untuk APP_ENV=local; staging dan produksi wajib s3', () => {
     expect(loadApiEnv({ ...base, APP_ENV: 'local', STORAGE_DRIVER: 'disk' }).STORAGE_DRIVER).toBe('disk');

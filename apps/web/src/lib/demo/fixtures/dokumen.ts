@@ -1,111 +1,145 @@
-import type { RegDoc } from '../../dokumen';
-import { PERSONA } from './staf';
+import type { DemoDocument } from '../../platform-dokumen';
+import { PATIENT_ID } from './ids';
+import { STAF } from './staf';
 
 /**
- * B12 · Data dummy dokumen regulasi dan akreditasi (ADR-0023). Nomor dokumen fiktif per jenis; bab akreditasi
- * memakai singkatan bab standar akreditasi RS; jumlah elemen MRMIK = 51 (docs/03).
+ * FE1 · P08 dokumen pasien fiktif (ADR-0023): Ny. Endang (rawat inap Melati, pulang hari ini) dan Tn. Darmawan
+ * (Poli PD). Hash adalah nilai contoh deterministik, bukan hash berkas sungguhan. Id dokumen tanpa nama orang.
  */
 
-export const REG_DOCS: readonly RegDoc[] = [
+/** Hex 64 karakter deterministik dari `seed` (contoh tampilan hash). */
+export function demoHash(seed: string): string {
+  let h = 2166136261;
+  let out = '';
+  while (out.length < 64) {
+    for (const ch of `${seed}${out.length}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    out += h.toString(16).padStart(8, '0');
+  }
+  return out.slice(0, 64);
+}
+
+const PETUGAS_RM = 'Dian Lestari, A.Md.RMIK';
+
+export const DEMO_DOCUMENTS: readonly DemoDocument[] = [
   {
-    id: 'doc-kep-014-v2',
-    code: 'SPO-KEP-014',
-    title: 'SPO pemasangan dan perawatan kateter urine',
-    kind: 'SPO',
-    version: 2,
-    status: 'terbit',
-    owner: 'Komite keperawatan',
-    author: PERSONA.perawat,
-    publishedAt: '2023-11-20',
-    reviewDue: '2026-11-20',
+    id: 'dok-2610-0141',
+    patientId: PATIENT_ID.endang,
+    kind: 'resume',
+    title: 'Resume medis rawat inap · Bangsal Melati',
+    mime: 'application/pdf',
+    sizeBytes: 182_400,
+    sha256: demoHash('dok-2610-0141'),
+    uploadedAt: '2026-10-05T10:12:00+07:00',
+    uploadedBy: STAF.dpjpPenyakitDalam,
+    status: 'pending',
+    needsSignature: true,
+    signer: STAF.dpjpPenyakitDalam,
+    requestedAt: '2026-10-05T10:20:00+07:00',
   },
   {
-    id: 'doc-kep-014-v3',
-    code: 'SPO-KEP-014',
-    title: 'SPO pemasangan dan perawatan kateter urine',
-    kind: 'SPO',
-    version: 3,
-    status: 'draf',
-    owner: 'Komite keperawatan',
-    author: PERSONA.perawat,
-    publishedAt: null,
-    reviewDue: null,
+    id: 'dok-2610-0127',
+    patientId: PATIENT_ID.endang,
+    kind: 'hasil',
+    title: 'Hasil laboratorium · darah lengkap dan kimia klinik',
+    mime: 'application/pdf',
+    sizeBytes: 96_300,
+    sha256: demoHash('dok-2610-0127'),
+    uploadedAt: '2026-10-05T06:31:00+07:00',
+    uploadedBy: 'Fitri Handayani, A.Md.AK',
+    status: 'signed',
+    needsSignature: true,
+    signer: STAF.dokterPatologiKlinik,
+    requestedAt: '2026-10-05T06:32:00+07:00',
+    signedAt: '2026-10-05T06:40:00+07:00',
+    verifyCode: 'sv1-demo-0127',
   },
   {
-    id: 'doc-rm-003-v1',
-    code: 'PAN-RM-003',
-    title: 'Panduan pelepasan informasi rekam medis dan hak subjek data',
-    kind: 'Panduan',
-    version: 1,
-    status: 'telaah',
-    owner: 'Instalasi rekam medis',
-    author: PERSONA.petugasRm,
-    publishedAt: null,
-    reviewDue: null,
+    id: 'dok-2610-0098',
+    patientId: PATIENT_ID.endang,
+    kind: 'consent',
+    title: 'Persetujuan pemasangan infus dan pemberian antibiotik',
+    mime: 'application/pdf',
+    sizeBytes: 64_900,
+    sha256: demoHash('dok-2610-0098'),
+    uploadedAt: '2026-10-02T14:05:00+07:00',
+    uploadedBy: 'Ns. Maya Sari, S.Kep',
+    status: 'signed',
+    needsSignature: true,
+    signer: STAF.dpjpPenyakitDalam,
+    requestedAt: '2026-10-02T14:06:00+07:00',
+    signedAt: '2026-10-02T14:11:00+07:00',
+    verifyCode: 'sv1-demo-0098',
   },
   {
-    id: 'doc-far-022-v4',
-    code: 'SPO-FAR-022',
-    title: 'SPO penyimpanan dan pelabelan obat kewaspadaan tinggi',
-    kind: 'SPO',
-    version: 4,
-    status: 'terbit',
-    owner: 'Instalasi farmasi',
-    author: PERSONA.apoteker,
-    publishedAt: '2023-09-20',
-    reviewDue: '2026-09-20',
+    id: 'dok-2610-0133',
+    patientId: PATIENT_ID.endang,
+    kind: 'surat',
+    title: 'Surat kontrol pasca rawat inap · Poli Penyakit Dalam',
+    mime: 'application/pdf',
+    sizeBytes: 41_200,
+    sha256: demoHash('dok-2610-0133'),
+    uploadedAt: '2026-10-05T09:48:00+07:00',
+    uploadedBy: PETUGAS_RM,
+    status: 'failed',
+    needsSignature: true,
+    signer: STAF.dpjpPenyakitDalam,
+    requestedAt: '2026-10-05T09:50:00+07:00',
+    failReason: 'Penyelenggara TTE tidak menjawab dalam 10 detik (3× dicoba ulang otomatis).',
   },
   {
-    id: 'doc-ppi-001-v2',
-    code: 'KEB-PPI-001',
-    title: 'Kebijakan pencegahan dan pengendalian infeksi',
-    kind: 'Kebijakan',
-    version: 2,
-    status: 'terbit',
-    owner: 'Komite PPI',
-    author: PERSONA.auditorMutu,
-    publishedAt: '2025-01-15',
-    reviewDue: '2028-01-15',
+    id: 'dok-2610-0135',
+    patientId: PATIENT_ID.endang,
+    kind: 'lampiran',
+    title: 'Foto kondisi kulit sakrum saat masuk (pengkajian risiko dekubitus)',
+    mime: 'image/jpeg',
+    sizeBytes: 1_284_000,
+    sha256: demoHash('dok-2610-0135'),
+    uploadedAt: '2026-10-01T21:15:00+07:00',
+    uploadedBy: 'Ns. Maya Sari, S.Kep',
+    status: 'draft',
+    needsSignature: false,
   },
   {
-    id: 'doc-pmkp-001-v2',
-    code: 'PED-PMKP-001',
-    title: 'Pedoman peningkatan mutu dan keselamatan pasien',
-    kind: 'Pedoman',
-    version: 2,
-    status: 'terbit',
-    owner: 'Komite mutu',
-    author: PERSONA.auditorMutu,
-    publishedAt: '2024-06-03',
-    reviewDue: '2027-06-03',
+    id: 'dok-2610-0136',
+    patientId: PATIENT_ID.endang,
+    kind: 'hasil',
+    title: 'Hasil radiologi toraks (salah unggah)',
+    mime: 'application/pdf',
+    sizeBytes: 210_000,
+    sha256: demoHash('dok-2610-0136'),
+    uploadedAt: '2026-10-01T22:02:00+07:00',
+    uploadedBy: PETUGAS_RM,
+    status: 'void',
+    needsSignature: true,
+    voidReason: 'Berkas milik pasien lain, terunggah ke RM yang salah; diunggah ulang ke RM yang benar.',
+  },
+  {
+    id: 'dok-2610-0150',
+    patientId: PATIENT_ID.darmawan,
+    kind: 'surat',
+    title: 'Surat keterangan sakit 3 hari',
+    mime: 'application/pdf',
+    sizeBytes: 38_700,
+    sha256: demoHash('dok-2610-0150'),
+    uploadedAt: '2026-10-05T09:05:00+07:00',
+    uploadedBy: STAF.dpjpPenyakitDalam,
+    status: 'draft',
+    needsSignature: true,
+  },
+  {
+    id: 'dok-2610-0151',
+    patientId: PATIENT_ID.darmawan,
+    kind: 'lampiran',
+    title: 'Scan rujukan FKTP',
+    mime: 'image/png',
+    sizeBytes: 512_000,
+    sha256: demoHash('dok-2610-0151'),
+    uploadedAt: '2026-10-05T07:58:00+07:00',
+    uploadedBy: 'Bambang Kurniawan',
+    status: 'draft',
+    needsSignature: false,
   },
 ];
 
-export const DOC_APPROVERS = [PERSONA.perawat, PERSONA.direktur, PERSONA.auditorMutu] as const;
-
-/** Unit penerima distribusi dan jumlah staf wajib baca. */
-export const DISTRIBUTION_UNITS: ReadonlyArray<{ unit: string; staff: number }> = [
-  { unit: 'Ruang Melati', staff: 18 },
-  { unit: 'ICU', staff: 22 },
-  { unit: 'IGD', staff: 26 },
-  { unit: 'Kamar operasi', staff: 15 },
-];
-
-/** Tanda terima baca dokumen terbit (per dokumen per unit: sudah baca). */
-export const READ_RECEIPTS: Record<string, Record<string, number>> = {
-  'doc-far-022-v4': { 'Ruang Melati': 17, ICU: 22, IGD: 21, 'Kamar operasi': 15 },
-  'doc-ppi-001-v2': { 'Ruang Melati': 18, ICU: 20, IGD: 24, 'Kamar operasi': 15 },
-};
-
-export const ACCREDITATION_CHAPTERS: ReadonlyArray<{
-  code: string;
-  label: string;
-  elements: number;
-  withEvidence: number;
-}> = [
-  { code: 'TKRS', label: 'Tata kelola rumah sakit', elements: 30, withEvidence: 27 },
-  { code: 'PMKP', label: 'Peningkatan mutu dan keselamatan pasien', elements: 20, withEvidence: 17 },
-  { code: 'PPI', label: 'Pencegahan dan pengendalian infeksi', elements: 25, withEvidence: 23 },
-  { code: 'MRMIK', label: 'Manajemen rekam medis dan informasi kesehatan', elements: 51, withEvidence: 44 },
-  { code: 'PKPO', label: 'Pelayanan kefarmasian dan penggunaan obat', elements: 28, withEvidence: 25 },
-];
+/** Pasien yang tampil di pemilih layar Dokumen. */
+export const DOCUMENT_PATIENT_IDS = [PATIENT_ID.endang, PATIENT_ID.darmawan] as const;

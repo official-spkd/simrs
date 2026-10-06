@@ -660,11 +660,15 @@ export type CdsAlert = z.infer<typeof cdsAlertSchema>;
 export const CLINICAL_DRAFT_KIND_PATTERN = /^[a-z][a-z0-9_:-]{1,60}$/;
 /** Batas ukuran isi draf (JSON), cukup untuk SOAP/resume panjang. */
 export const CLINICAL_DRAFT_MAX_BYTES = 64 * 1024;
+/** Batas jumlah draf per penulis × kunjungan (jenis bebas sesuai pola; cegah penimbunan draf 64 KB tanpa batas). */
+export const CLINICAL_DRAFT_MAX_PER_ENCOUNTER = 20;
 
 export const clinicalDraftInputSchema = z.strictObject({
-  content: z
-    .record(z.string(), z.unknown())
-    .refine((v) => JSON.stringify(v).length <= CLINICAL_DRAFT_MAX_BYTES, 'Draf terlalu besar (maks. 64 KB)'),
+  content: z.record(z.string(), z.unknown()).refine(
+    // Byte UTF-8, bukan jumlah karakter (teks non-ASCII bisa 3–4 byte per karakter).
+    (v) => new TextEncoder().encode(JSON.stringify(v)).length <= CLINICAL_DRAFT_MAX_BYTES,
+    'Draf terlalu besar (maks. 64 KB)',
+  ),
 });
 export type ClinicalDraftInput = z.infer<typeof clinicalDraftInputSchema>;
 

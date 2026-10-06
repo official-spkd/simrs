@@ -20,7 +20,7 @@ import {
   DOC_APPROVERS,
   READ_RECEIPTS,
   REG_DOCS,
-} from '../../demo/fixtures/dokumen';
+} from '../../demo/fixtures/regulasi';
 import { patientById } from '../../demo/fixtures/pasien';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';

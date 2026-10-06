@@ -11,7 +11,7 @@ const FE5_SCREENS = [
   'aset',
   'penggajian',
   'ppra',
-  'dokumen',
+  'regdok',
   'pengaduan',
 ] as const;
 

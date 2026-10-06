@@ -219,6 +219,17 @@ export function auditAnchorKeyProblem(env: {
     : null;
 }
 
+/**
+ * Integrasi gagal aman: produksi tidak boleh memakai mock. `INTEGRATION_MODE` yang lupa disetel (bawaan `mock`) di
+ * produksi akan mengirim data pribadi (NIK, nama, tanggal lahir ke Dukcapil; email/WhatsApp) ke `MOCK_BASE_URL`
+ * tanpa TLS. Dipanggil `loadApiEnv`/`loadWorkerEnv` setelah parse.
+ */
+export function integrationModeProblem(env: { APP_ENV: AppEnv; INTEGRATION_MODE: string }): string | null {
+  return env.APP_ENV === 'production' && env.INTEGRATION_MODE === 'mock'
+    ? 'INTEGRATION_MODE=mock tidak boleh di produksi (setel sandbox atau production)'
+    : null;
+}
+
 /** Validasi env sekali saat start; gagal cepat dengan daftar variabel yang salah (tanpa mencetak nilainya). */
 export function parseEnv<T extends z.ZodType>(
   schema: T,

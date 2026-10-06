@@ -20,6 +20,9 @@ export function safeNextPath(raw: string | null | undefined, fallback = '/'): st
     return fallback;
   }
   if (url.origin !== BASE || UNSAFE_CHARS.test(decodedPath)) return fallback;
+  // Segmen titik (`/.//x`, `/a/..//x`, `/%2e//x`) dinormalisasi URL menjadi `//x`: peramban membacanya sebagai
+  // host lain. Periksa ulang path HASIL normalisasi (yang benar-benar dikembalikan), bukan hanya masukan mentah.
+  if (url.pathname.startsWith('//')) return fallback;
   if (url.pathname === '/masuk' || url.pathname.startsWith('/masuk/')) return fallback;
   return `${url.pathname}${url.search}${url.hash}`;
 }
