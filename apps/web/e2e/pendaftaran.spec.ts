@@ -134,7 +134,9 @@ test.describe('layar Pendaftaran mode api (/pendaftaran)', () => {
     await expect(
       page.getByRole('heading', { name: 'Pendaftaran rawat jalan selesai', level: 1 }),
     ).toBeVisible();
-    await expect(page.getByText(/^Terdaftar pukul \d{2}\.\d{2} · RJ-\d{4}-\d{6}$/)).toBeVisible();
+    await expect(
+      page.getByText(/^Terdaftar pukul \d{2}\.\d{2} · antrean PD-\d{3} · RJ-\d{4}-\d{6}$/),
+    ).toBeVisible();
     await expect(page.getByText(/^PD-\d{3}$/)).toBeVisible();
     const status = page.getByRole('region', { name: 'Status SEP dan Antrean BPJS' });
     await expect(status.getByText('SEP menunggu BPJS')).toBeVisible();
