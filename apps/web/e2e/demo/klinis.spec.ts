@@ -52,6 +52,11 @@ test.describe('klinis rawat jalan', () => {
     await expect(vitals.getByText('TANDA VITAL · diukur perawat 07.36')).toBeVisible();
     await expect(vitals.getByText('132/84').first()).toBeVisible();
 
+    // Mockup Main: catatan pasien yang sedang diperiksa, tahapan di "Pemeriksaan", surat kontrol menunggu.
+    const stepper = page.getByRole('list', { name: 'Tahapan kunjungan' });
+    const docs = page.getByRole('region', { name: 'Dokumen kunjungan' });
+    await expect(docs).toContainText(/Surat (kontrol|keterangan)\s*Menunggu/);
+
     const sign = page.getByRole('button', { name: 'Tanda tangani dan selesai' });
     await expect(sign).toBeDisabled();
     await expect(
@@ -67,6 +72,15 @@ test.describe('klinis rawat jalan', () => {
     ).toBeVisible();
     await expect(page.getByText(/Kunjungan selesai · ditandatangani \d{2}\.\d{2}/)).toBeVisible();
     await expect(queue.getByRole('link', { name: /Ny\. Rohana Siregar/ })).toContainText('Selesai');
+    // Setelah tanda tangan: tahapan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat (mockup Main).
+    await expect(stepper.locator('[aria-current="step"]')).toContainText('Kasir');
+    await expect(docs).toContainText(/Surat (kontrol|keterangan)\s*✓ Dibuat/);
+
+    // Panggil berikutnya mengembalikan filter ke "Semua" agar pasien yang dipanggil tetap terlihat.
+    await queue.getByRole('button', { name: /^Hasil \d+$/ }).click();
+    await queue.getByRole('button', { name: /^Panggil berikutnya · / }).click();
+    await expect(queue.getByRole('button', { name: /^Semua \d+$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText(/dibuat \d{2}\.\d{2} · versi 1 \(draf\)/)).toBeVisible();
 
     await noHorizontalOverflowAtTablet(page);
   });
