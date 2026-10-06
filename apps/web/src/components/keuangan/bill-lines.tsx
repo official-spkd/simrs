@@ -40,7 +40,7 @@ export function BillLines({ lines, total }: { lines: readonly ChargeItem[]; tota
       >
         <span>Kategori</span>
         <span>Item</span>
-        <span className="text-right">Jumlah</span>
+        <span className="text-right">Tarif RS</span>
         <span className="text-right">Sumber</span>
       </div>
       {groups.map((g) => {

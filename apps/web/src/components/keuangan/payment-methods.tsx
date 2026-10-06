@@ -49,7 +49,7 @@ export function QrisBox({
         <span>
           {paidAt
             ? `Webhook TPDI masuk ${paidAt} · signature valid · dana langsung ke BTN ${REKENING.operasional}`
-            : 'Diterbitkan via TPDI · acquirer BTN · berlaku 10 menit · status diperbarui otomatis lewat webhook'}
+            : 'Diterbitkan via TPDI · acquirer BTN · berlaku 10 menit · status diperbarui otomatis lewat webhook TPDI'}
         </span>
         {!paidAt && (
           <button type="button" onClick={onSimulate} className={cx(SIM_BTN, 'self-start')}>
@@ -74,11 +74,16 @@ export function VaBox({
 }) {
   return (
     <div className={BOX}>
-      <span className="font-semibold text-ink-900">
-        VA BTN <span className="font-mono">{vaNumber}</span> · via TPDI
+      <span className="flex flex-col">
+        <span className="font-semibold text-ink-900">
+          VA BTN <span className="font-mono">{vaNumber}</span>
+        </span>
+        <span className="text-caption text-ink-500">via TPDI · berlaku 24 jam</span>
       </span>
       <span>1. Berikan nomor VA ke pasien (tercetak di slip dan dikirim lewat WhatsApp).</span>
-      <span>2. Pasien transfer tepat {formatRupiah(due)} lewat m-banking/ATM; berlaku 24 jam.</span>
+      <span>
+        2. Pasien transfer tepat {formatRupiah(due)} lewat m-banking/ATM BTN atau bank lain; berlaku 24 jam.
+      </span>
       <span>
         3. Status lunas otomatis saat webhook TPDI masuk (signature diverifikasi); dana langsung ke BTN{' '}
         {REKENING.operasional}.
@@ -86,9 +91,10 @@ export function VaBox({
       {paidAt ? (
         <span
           role="status"
-          className="rounded-[8px] border border-[#B7DEC0] bg-[#EAF5EC] px-2.5 py-2 font-semibold text-success"
+          className="flex flex-col rounded-[8px] border border-[#B7DEC0] bg-[#EAF5EC] px-2.5 py-2"
         >
-          Webhook TPDI diterima {paidAt} · payment.paid · status lunas
+          <span className="font-semibold text-success">Webhook TPDI diterima {paidAt} · status lunas</span>
+          <span>payment.paid · signature valid</span>
         </span>
       ) : (
         <button type="button" onClick={onSimulate} className={cx(SIM_BTN, 'self-start')}>

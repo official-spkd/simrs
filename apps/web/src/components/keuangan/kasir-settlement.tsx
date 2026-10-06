@@ -17,6 +17,11 @@ export interface GateAction {
   onClick: () => void;
 }
 
+const LINK =
+  'inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3.5 font-semibold text-ink-900 no-underline';
+const LINK_PRIMARY =
+  'inline-flex min-h-11 items-center rounded-control border border-brand-800 bg-white px-3.5 font-semibold text-brand-700 no-underline';
+
 function Gate({ action, primary = true }: { action: GateAction; primary?: boolean }) {
   const id = useId();
   return (
@@ -79,6 +84,7 @@ export function KasirSettlement({
   nextHref: string | null;
 }) {
   const deposit = invoice.payments.filter((p) => p.kind === 'deposit');
+  const bpjs = invoice.split.scheme === 'bpjs';
   return (
     <section
       aria-label="Pembayaran"
@@ -121,16 +127,30 @@ export function KasirSettlement({
               kuitansi {receipt.no} · {receipt.at}
             </span>
           </span>
-          <span className="text-[12.5px] text-ink-700">{receipt.note}</span>
+          <span className="text-[12.5px] text-ink-700">
+            {receipt.note}
+            {patientShare > 0n ? ' · jurnal bank terbentuk otomatis.' : '.'}
+            {bpjs && ` Klaim ${invoice.split.payerLabel} diteruskan ke casemix.`}
+          </span>
+          <nav aria-label="Langkah setelah lunas" className="flex flex-wrap gap-2">
+            {bpjs && (
+              <Link href="/keuangan/klaim" className={LINK_PRIMARY}>
+                Lanjut ke klaim BPJS
+              </Link>
+            )}
+            <Link href="/keuangan/akuntansi" className={LINK}>
+              Lihat jurnal
+            </Link>
+            <Link href="/keuangan/pembayaran" className={LINK}>
+              Pembayaran digital
+            </Link>
+          </nav>
           <span className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => window.print()}>
               Cetak kuitansi
             </Button>
             {nextHref && (
-              <Link
-                href={nextHref}
-                className="inline-flex min-h-11 items-center rounded-control border border-brand-800 bg-white px-3.5 font-semibold text-brand-700 no-underline"
-              >
+              <Link href={nextHref} className={LINK_PRIMARY}>
                 Tagihan berikutnya
               </Link>
             )}

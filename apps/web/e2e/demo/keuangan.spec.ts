@@ -32,7 +32,11 @@ test.describe('kasir', () => {
     const total = await bill.locator('[data-total-amount]').getAttribute('data-total-amount');
     expect(sum).toBe(total);
     await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 17.217.500');
-    await expect(page.getByRole('region', { name: 'Pembagian penjamin' })).toContainText('Rp 1.250.400');
+    const split = page.getByRole('region', { name: 'Pembagian penjamin' });
+    await expect(split).toContainText('Rp 1.250.400');
+    // Mockup Kasir: tarif INA-CBG kelas tujuan tampil; selisih = kelas 1 − kelas 2.
+    await expect(split.getByText('Tarif INA-CBG J-4-15-II (kelas 1)')).toBeVisible();
+    await expect(split).toContainText('Rp 7.863.200');
 
     const pay = page.getByRole('region', { name: 'Pembayaran' });
     const finish = pay.getByRole('button', { name: 'Selesaikan dan cetak kuitansi' });
@@ -43,6 +47,22 @@ test.describe('kasir', () => {
     await finish.click();
     await expect(pay.getByText(/kuitansi KW-2610-02217 · \d{2}\.\d{2}/)).toBeVisible();
     await expect(page.getByText(/\(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(
+      pay.getByText(/jurnal bank terbentuk otomatis\. Klaim BPJS hak kelas 2 diteruskan ke casemix/),
+    ).toBeVisible();
+    const after = pay.getByRole('navigation', { name: 'Langkah setelah lunas' });
+    await expect(after.getByRole('link', { name: 'Lanjut ke klaim BPJS' })).toHaveAttribute(
+      'href',
+      '/keuangan/klaim',
+    );
+    await expect(after.getByRole('link', { name: 'Lihat jurnal' })).toHaveAttribute(
+      'href',
+      '/keuangan/akuntansi',
+    );
+    await expect(after.getByRole('link', { name: 'Pembayaran digital' })).toHaveAttribute(
+      'href',
+      '/keuangan/pembayaran',
+    );
     await noHorizontalOverflow(page);
   });
 
