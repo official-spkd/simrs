@@ -6,18 +6,19 @@ import { appendEvent, emptyLog, type LogFile, parseLog, resetLog, serializeLog }
 import type { AnyDomainDef } from '../../demo/store/registry';
 
 /**
- * Berkas toko demo bersama per RS (ADR-0085): `<DEMO_STATE_DIR>/toko/<KODE-RS>.json`. Pola sama dengan toko skenario
- * (`store.ts`): perubahan diserialkan per RS dalam satu proses web, ditulis atomik (berkas sementara lalu rename),
- * berkas hilang/rusak dianggap kosong. Hanya berisi log kejadian demo (data fiktif).
+ * Berkas toko demo bersama per ruang data (ADR-0085): `<DEMO_STATE_DIR>/toko/<RUANG>.json`, ruang = kode RS untuk
+ * akun presentasi (satu keadaan per RS demo) atau kode RS + id pengguna untuk akun lain. Pola sama dengan toko
+ * skenario (`store.ts`): perubahan diserialkan per ruang dalam satu proses web, ditulis atomik (berkas sementara lalu
+ * rename), berkas hilang/rusak dianggap kosong. Hanya berisi log kejadian demo (data fiktif).
  */
 
-/** Kode RS sebagai nama berkas (huruf, angka, tanda hubung). */
-export function tenantFileKey(code: string): string {
-  if (!/^[A-Za-z0-9][A-Za-z0-9-]{1,29}$/.test(code)) throw new Error('Kode RS toko demo tidak sah');
-  return code.toUpperCase();
+/** Ruang data sebagai nama berkas (huruf, angka, tanda hubung; tidak bisa keluar dari folder). */
+export function spaceFileKey(space: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]{1,79}$/.test(space)) throw new Error('Ruang data demo tidak sah');
+  return space.toUpperCase();
 }
 
-// Kunci per RS disimpan di globalThis: modul bisa termuat lebih dari sekali (bundel action vs halaman, HMR dev).
+// Kunci per ruang data disimpan di globalThis: modul bisa termuat lebih dari sekali (bundel action vs halaman, HMR dev).
 const LOCKS_KEY = Symbol.for('simrs.demo-state-store.locks');
 type LockMap = Map<string, Promise<unknown>>;
 function locks(): LockMap {
@@ -34,12 +35,12 @@ export const STALE_MESSAGE = 'Data demo sudah berubah di tab atau perangkat lain
 export class DemoStateStore {
   constructor(private readonly dir: string) {}
 
-  private file(tenant: string) {
-    return join(this.dir, 'toko', `${tenantFileKey(tenant)}.json`);
+  private file(space: string) {
+    return join(this.dir, 'toko', `${spaceFileKey(space)}.json`);
   }
 
-  async load(tenant: string): Promise<LogFile> {
-    const key = tenantFileKey(tenant);
+  async load(space: string): Promise<LogFile> {
+    const key = spaceFileKey(space);
     try {
       return parseLog(await readFile(this.file(key), 'utf8'), key);
     } catch {
@@ -48,11 +49,11 @@ export class DemoStateStore {
   }
 
   /**
-   * Ubah log RS secara berurutan. `fn` menerima log terkini dan mengembalikan log baru (atau null = tidak menulis).
+   * Ubah log ruang data secara berurutan. `fn` menerima log terkini dan mengembalikan log baru (atau null = tidak menulis).
    * Penulisan atomik: pembaca tidak pernah melihat berkas setengah jadi.
    */
-  async update<T>(tenant: string, fn: (log: LogFile) => { next: LogFile | null; result: T }): Promise<T> {
-    const key = tenantFileKey(tenant);
+  async update<T>(space: string, fn: (log: LogFile) => { next: LogFile | null; result: T }): Promise<T> {
+    const key = spaceFileKey(space);
     const map = locks();
     const lockKey = `${this.dir}\u0000${key}`;
     const prev = map.get(lockKey) ?? Promise.resolve();
@@ -84,18 +85,18 @@ export class DemoStateStore {
 
   /**
    * Catat satu kejadian domain bila revisi yang dilihat pemanggil masih terkini. Urutan: skema → revisi (basi?) →
-   * `validate` domain → reducer menerima → batas ukuran → tulis. Semua di dalam kunci RS, jadi gerbang yang dibaca
+   * `validate` domain → reducer menerima → batas ukuran → tulis. Semua di dalam kunci ruang data, jadi gerbang yang dibaca
    * pemanggil sebelum kunci tetap sah (perubahan di antaranya membuat revisi berbeda).
    */
   async commit(
-    tenant: string,
+    space: string,
     def: AnyDomainDef,
     data: unknown,
     opts: { rev: number; actor: DemoActor; at: string },
   ): Promise<CommitResult> {
     const parsed = def.eventSchema.safeParse(data);
     if (!parsed.success) return { ok: false, error: 'Aksi tidak dikenal untuk data demo ini.' };
-    return this.update<CommitResult>(tenant, (log) => {
+    return this.update<CommitResult>(space, (log) => {
       const current = project(def, log);
       if (opts.rev !== current.rev)
         return { next: null, result: { ok: false, error: STALE_MESSAGE, stale: true } };
@@ -112,9 +113,9 @@ export class DemoStateStore {
     });
   }
 
-  /** Mulai ulang data demo RS: semua kejadian dihapus, semua domain kembali ke fixture awal. */
-  async reset(tenant: string, actor: DemoActor, at: string): Promise<LogFile> {
-    return this.update(tenant, (log) => {
+  /** Mulai ulang data demo ruang ini: semua kejadian dihapus, semua domain kembali ke fixture awal. */
+  async reset(space: string, actor: DemoActor, at: string): Promise<LogFile> {
+    return this.update(space, (log) => {
       const next = resetLog(log, actor, at);
       return { next, result: next };
     });

@@ -36,9 +36,10 @@ test.describe('S09 · pusat hasil kritis', () => {
     await expect(form.getByText(/Read-back wajib/)).toBeVisible();
     await form.getByRole('checkbox', { name: /Read-back terkonfirmasi/ }).check();
     await form.getByRole('button', { name: 'Simpan pelaporan' }).click();
-    await expect(detail.getByRole('status').filter({ hasText: 'read-back terkonfirmasi' })).toContainText(
-      '(simulasi, tidak disimpan)',
-    );
+    const saved = detail.getByRole('status').filter({ hasText: 'read-back terkonfirmasi' });
+    await expect(saved).toBeVisible();
+    // Tersimpan di toko demo bersama (ADR-0085), bukan simulasi.
+    await expect(saved).not.toContainText('tidak disimpan');
     await expect(detail).toContainText('Dilaporkan · read-back');
     await expect(kpi).toContainText('semua sudah dilaporkan');
   });

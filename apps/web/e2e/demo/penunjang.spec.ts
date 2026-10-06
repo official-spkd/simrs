@@ -55,7 +55,12 @@ test.describe('penunjang · laboratorium', () => {
     await kritis.getByRole('button', { name: 'Simpan pelaporan' }).click();
     const dilaporkan = page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Yusuf Hidayat/ });
     await expect(dilaporkan).toContainText('read-back terkonfirmasi');
-    await expect(dilaporkan).toContainText('(simulasi, tidak disimpan)');
+    // Tersimpan di toko demo bersama (ADR-0085): tanpa label simulasi, dan tetap ada setelah dimuat ulang.
+    await expect(dilaporkan).toContainText('Diterima dr. Sinta Maharani, Sp.PD-KGH');
+    await expect(dilaporkan).not.toContainText('tidak disimpan');
+    await expect(kpi.getByText('semua sudah dilaporkan')).toBeVisible();
+    await page.reload();
+    await expect(dilaporkan).toContainText('Diterima dr. Sinta Maharani, Sp.PD-KGH');
     await expect(kpi.getByText('semua sudah dilaporkan')).toBeVisible();
 
     // Validasi teknis lalu klinis (TTE Sp.PK).

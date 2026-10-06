@@ -11,6 +11,7 @@ import {
   type EventOf,
   type StateOf,
 } from '../../demo/store/registry';
+import { PRESENTATION_USERNAME_PREFIX } from '../../demo/personas';
 import { screenById } from '../../screens';
 import { nextLoginStep, type SessionView } from '../../session-view';
 import { assertDemo } from '../demo-mode';
@@ -54,8 +55,19 @@ export function demoActor(s: SessionView): DemoActor {
   };
 }
 
-/** Log RS demo sekali per render (React cache; di Server Action tidak di-cache sehingga selalu terkini). */
-const loadLog = cache(async (tenant: string): Promise<LogFile> => demoStateStore().load(tenant));
+/**
+ * Ruang data demo sesi ini, sama dengan aturan toko skenario (ADR-0023 keputusan 9): semua akun presentasi (satu per
+ * posisi, termasuk Superadmin demo) berbagi satu ruang per RS, sehingga aksi terlihat lintas posisi dan perangkat;
+ * akun lain (akun uji, akun pengembang) punya ruang sendiri agar uji paralel tidak saling mengganggu.
+ */
+export function demoSpace(s: Pick<SessionView, 'tenant' | 'user'>): string {
+  return s.user.username.startsWith(PRESENTATION_USERNAME_PREFIX)
+    ? s.tenant.code
+    : `${s.tenant.code}-${s.user.id.replace(/[^A-Za-z0-9]/g, '')}`;
+}
+
+/** Log ruang data sekali per render (React cache; di Server Action tidak di-cache sehingga selalu terkini). */
+const loadLog = cache(async (space: string): Promise<LogFile> => demoStateStore().load(space));
 
 export interface DomainView<S> {
   state: S;
@@ -63,10 +75,10 @@ export interface DomainView<S> {
   rev: number;
 }
 
-/** Keadaan domain untuk RS demo sesi ini (fixture awal + kejadian tersimpan). */
+/** Keadaan domain untuk ruang data demo sesi ini (fixture awal + kejadian tersimpan). */
 export async function readDomain<N extends DomainName>(name: N): Promise<DomainView<StateOf<N>>> {
   const s = await demoSession();
-  const { state, rev } = project(domainDef(name), await loadLog(s.tenant.code));
+  const { state, rev } = project(domainDef(name), await loadLog(demoSpace(s)));
   return { state: state as StateOf<N>, rev };
 }
 
@@ -75,7 +87,7 @@ export async function demoStoreSummary(
   s: SessionView,
 ): Promise<{ events: number; lastReset: LogFile['lastReset'] }> {
   assertDemo();
-  const log = await loadLog(s.tenant.code);
+  const log = await loadLog(demoSpace(s));
   return { events: log.events.length, lastReset: log.lastReset };
 }
 
@@ -104,7 +116,7 @@ export async function commitEvent<N extends DomainName>(
 ): Promise<CommitResult> {
   assertDemo();
   const s = opts.session ?? (await demoSession());
-  const r = await demoStateStore().commit(s.tenant.code, domainDef(name), event, {
+  const r = await demoStateStore().commit(demoSpace(s), domainDef(name), event, {
     rev: opts.rev,
     actor: demoActor(s),
     at: new Date().toISOString(),
@@ -113,9 +125,9 @@ export async function commitEvent<N extends DomainName>(
   return r;
 }
 
-/** Mulai ulang data demo RS sesi ini (pemanggil wajib memeriksa hak `canResetDemoData`). */
+/** Mulai ulang data demo ruang sesi ini (akun presentasi: seluruh RS) (pemanggil wajib memeriksa hak `canResetDemoData`). */
 export async function resetDemoData(s: SessionView): Promise<void> {
   assertDemo();
-  await demoStateStore().reset(s.tenant.code, demoActor(s), new Date().toISOString());
+  await demoStateStore().reset(demoSpace(s), demoActor(s), new Date().toISOString());
   revalidatePath('/', 'layout');
 }

@@ -8,7 +8,7 @@ import { screenById, screenOpen } from '../../screens';
 import { nextLoginStep } from '../../session-view';
 import { assertDemo } from '../demo-mode';
 import { getSession } from '../session';
-import { commitEvent, demoStoreSummary, resetDemoData } from './state';
+import { commitEvent, demoSpace, demoStoreSummary, resetDemoData } from './state';
 
 /**
  * Server Action toko demo bersama (ADR-0085). Endpoint POST publik: gerbang mode presentasi, sesi lengkap, input
@@ -83,6 +83,8 @@ export async function resetDemoDataAction(confirm: unknown): Promise<{ ok: boole
 
 export interface DemoDataSummary {
   tenantName: string;
+  /** true = ruang bersama akun presentasi RS ini; false = ruang akun ini saja (akun uji/pengembang). */
+  shared: boolean;
   /** Jumlah aksi tersimpan di toko RS ini. */
   events: number;
   lastReset: { at: string; by: string } | null;
@@ -95,6 +97,7 @@ export async function demoDataSummaryAction(): Promise<DemoDataSummary> {
   const sum = await demoStoreSummary(s);
   return {
     tenantName: s.tenant.name,
+    shared: demoSpace(s) === s.tenant.code,
     events: sum.events,
     lastReset: sum.lastReset ? { at: sum.lastReset.at, by: sum.lastReset.actor.name } : null,
     canReset: canResetDemoData(s),

@@ -37,7 +37,8 @@ const lastResetSchema = z.strictObject({ at: z.iso.datetime({ offset: true }), a
 
 export const logFileSchema = z.strictObject({
   format: z.literal(LOG_FORMAT),
-  tenant: z.string().min(2).max(30),
+  /** Ruang data: kode RS (akun presentasi) atau kode RS + id pengguna (akun lain). */
+  space: z.string().min(2).max(80),
   seq: z.number().int().min(0),
   resetSeq: z.number().int().min(0),
   lastReset: lastResetSchema.nullable(),
@@ -46,28 +47,28 @@ export const logFileSchema = z.strictObject({
 
 export interface LogFile extends LogView {
   format: typeof LOG_FORMAT;
-  tenant: string;
+  space: string;
   lastReset: { at: string; actor: DemoActor } | null;
   events: StoredEvent[];
 }
 
-export function emptyLog(tenant: string): LogFile {
-  return { format: LOG_FORMAT, tenant, seq: 0, resetSeq: 0, lastReset: null, events: [] };
+export function emptyLog(space: string): LogFile {
+  return { format: LOG_FORMAT, space, seq: 0, resetSeq: 0, lastReset: null, events: [] };
 }
 
 /**
- * Baca isi berkas. Berkas rusak, format lain, atau milik RS lain dianggap kosong; kejadian yang `seq`-nya tidak naik
+ * Baca isi berkas. Berkas rusak, format lain, atau milik ruang data lain dianggap kosong; kejadian yang `seq`-nya tidak naik
  * berurutan dibuang (berkas diubah tangan), sehingga revisi tetap monoton.
  */
-export function parseLog(raw: string, tenant: string): LogFile {
+export function parseLog(raw: string, space: string): LogFile {
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
-    return emptyLog(tenant);
+    return emptyLog(space);
   }
   const p = logFileSchema.safeParse(json);
-  if (!p.success || p.data.tenant !== tenant) return emptyLog(tenant);
+  if (!p.success || p.data.space !== space) return emptyLog(space);
   const events: StoredEvent[] = [];
   let last = p.data.resetSeq;
   for (const ev of p.data.events) {

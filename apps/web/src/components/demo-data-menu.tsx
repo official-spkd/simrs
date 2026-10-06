@@ -94,11 +94,14 @@ export function DemoDataMenu() {
             Data demo{summary ? ` · ${summary.tenantName}` : ''}
           </span>
           <span>
-            Semua nama, nomor, dan angka fiktif. Aksi di layar yang tersambung data demo bersama tersimpan per
-            RS: tetap ada setelah dimuat ulang dan terlihat di layar serta perangkat lain.
+            Semua nama, nomor, dan angka fiktif. Aksi di layar yang tersambung data demo bersama tetap ada
+            setelah dimuat ulang dan terlihat di layar lain.
           </span>
           {summary ? (
             <span>
+              {summary.shared
+                ? 'Ruang bersama semua akun presentasi RS ini (juga di perangkat lain): '
+                : 'Ruang data akun ini saja (bukan akun presentasi): '}
               <strong className="font-semibold text-ink-900">{summary.events}</strong> aksi tersimpan.
               {summary.lastReset
                 ? ` Terakhir dimulai ulang ${formatTanggalWaktu(summary.lastReset.at)} oleh ${summary.lastReset.by}.`
@@ -132,8 +135,10 @@ export function DemoDataMenu() {
               className="flex flex-col gap-2 rounded-control border border-danger-border bg-danger-bg p-3"
             >
               <span id={`${id}-confirm`} className="text-ink-900">
-                Semua aksi tersimpan di {summary.tenantName} dihapus dan semua layar kembali ke data awal.
-                Skenario Simulasi tidak ikut berubah. Lanjutkan?
+                {summary.shared
+                  ? `Semua aksi tersimpan akun presentasi ${summary.tenantName} dihapus`
+                  : 'Semua aksi tersimpan akun ini dihapus'}{' '}
+                dan semua layar kembali ke data awal. Skenario Simulasi tidak ikut berubah. Lanjutkan?
               </span>
               <span className="flex flex-wrap justify-end gap-2">
                 <Button onClick={() => setConfirming(false)} disabled={pending}>

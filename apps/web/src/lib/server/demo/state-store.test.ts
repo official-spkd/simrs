@@ -15,7 +15,7 @@ import { type DemoActor, defineDomain, project } from '../../demo/store/define';
 import { LOG_LIMITS } from '../../demo/store/log';
 import type { AnyDomainDef } from '../../demo/store/registry';
 import { criticalDomain } from '../../penunjang-kritis';
-import { DemoStateStore, STALE_MESSAGE, tenantFileKey } from './state-store';
+import { DemoStateStore, STALE_MESSAGE, spaceFileKey } from './state-store';
 
 const dir = mkdtempSync(join(tmpdir(), 'simrs-demo-toko-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -102,7 +102,7 @@ describe('toko demo bersama (berkas per RS)', () => {
     const n = LOG_LIMITS.maxEvents;
     const full = {
       format: 1,
-      tenant: 'RSPENUH',
+      space: 'RSPENUH',
       seq: n,
       resetSeq: 0,
       lastReset: null,
@@ -149,9 +149,10 @@ describe('toko demo bersama (berkas per RS)', () => {
     const store = new DemoStateStore(dir);
     writeFileSync(join(dir, 'toko', 'RSRUSAK.json'), '{rusak');
     expect((await store.load('RSRUSAK')).events).toEqual([]);
-    expect(() => tenantFileKey('../..')).toThrow();
-    expect(() => tenantFileKey('RS/CM')).toThrow();
-    expect(tenantFileKey('rscm')).toBe('RSCM');
+    expect(() => spaceFileKey('../..')).toThrow();
+    expect(() => spaceFileKey('RS/CM')).toThrow();
+    expect(spaceFileKey('rscm')).toBe('RSCM');
+    expect(spaceFileKey('RSCM-0199a0000000700080000000000abcd')).toBe('RSCM-0199A0000000700080000000000ABCD');
     expect(existsSync(join(dir, 'RSCM.json'))).toBe(false);
   });
 });

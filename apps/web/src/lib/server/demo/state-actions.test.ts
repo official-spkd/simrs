@@ -22,9 +22,17 @@ const { commitEvent, readDomain } = await import('./state');
 const dir = mkdtempSync(join(tmpdir(), 'simrs-demo-toko-aksi-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-function as(role: string | null, opts: { allAccess?: boolean; tenant?: string } = {}): SessionView {
+function as(
+  role: string | null,
+  opts: { allAccess?: boolean; tenant?: string; username?: string; userId?: string } = {},
+): SessionView {
   return {
-    user: { id: 'u-1', username: 'uji', displayName: 'Akun Uji', initials: 'AU' },
+    user: {
+      id: opts.userId ?? 'u-1',
+      username: opts.username ?? 'uji',
+      displayName: 'Akun Uji',
+      initials: 'AU',
+    },
     tenant: { code: opts.tenant ?? 'RSAKSI', name: 'RS Uji', kind: 'hospital' },
     role: role ? { code: role, name: role } : null,
     unit: null,
@@ -105,7 +113,7 @@ describe('toko demo: tulis, baca, mulai ulang', () => {
     current.session = as('analis_lab', { tenant: 'RSACT', allAccess: true });
     await commitEvent('hasil-kritis', report('kr-A'), { rev: 0 });
     const { demoStateStore } = await import('./state');
-    const log = await demoStateStore().load('RSACT');
+    const log = await demoStateStore().load('RSACT-u1');
     expect(log.events[0]?.actor).toEqual({
       userId: 'u-1',
       name: 'Akun Uji',
@@ -149,6 +157,19 @@ describe('toko demo: tulis, baca, mulai ulang', () => {
       current.session = s;
       expect((await resetDemoDataAction(true)).ok).toBe(true);
     }
+  });
+
+  it('akun presentasi berbagi satu ruang per RS; akun lain punya ruang sendiri', async () => {
+    const presenter = (role: string, userId: string) =>
+      as(role, { tenant: 'RSRUANG', username: `presentasi.${role}`, userId });
+    current.session = presenter('analis_lab', 'p-1');
+    await commitEvent('hasil-kritis', report('kr-A'), { rev: 0 });
+    current.session = presenter('dokter', 'p-2');
+    expect(Object.keys((await readDomain('hasil-kritis')).state.reports)).toEqual(['kr-A']);
+    expect((await demoDataSummaryAction()).shared).toBe(true);
+    current.session = as('analis_lab', { tenant: 'RSRUANG', userId: 'u-uji' });
+    expect((await readDomain('hasil-kritis')).state.reports).toEqual({});
+    expect((await demoDataSummaryAction()).shared).toBe(false);
   });
 
   it('toko per RS: RS lain tidak melihat aksi RS ini', async () => {
