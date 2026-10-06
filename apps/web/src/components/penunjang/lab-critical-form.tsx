@@ -39,7 +39,7 @@ export function CriticalReportForm({
         setTried(true);
         if (name.trim().length >= 5 && readBack) onSubmit(name.trim());
       }}
-      className="mt-1.5 flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3"
+      className="mt-1.5 flex flex-col gap-2 rounded-[12px] border border-koral-200 bg-white/90 p-3"
     >
       <span className="text-caption text-ink-700">
         Bacakan nilai ke penerima (SBAR). Laporan baru sah setelah penerima membacakan ulang nilainya.
@@ -58,7 +58,7 @@ export function CriticalReportForm({
         aria-describedby={nameErr ? `${id}-nama-err` : undefined}
         className={cx(
           'h-11 rounded-control border px-3 font-[inherit] text-ink-900',
-          nameErr ? 'border-danger bg-koral-50' : 'border-line-strong bg-white',
+          nameErr ? 'border-koral-600 bg-koral-50' : 'border-line-strong bg-white',
         )}
       />
       {nameErr && (

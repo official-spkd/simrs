@@ -176,11 +176,11 @@ export function OkClient({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
         <section
           aria-label="Daftar tilik keselamatan"
-          className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <span className="flex min-w-0 flex-col">
-              <h2 className="m-0 text-h2 font-semibold">
+              <h2 className="m-0 text-[15px] font-semibold">
                 {room.name} · {c.procedure}
               </h2>
               <span className="text-small text-ink-700">
@@ -191,7 +191,10 @@ export function OkClient({
             <span className="flex flex-col items-end gap-1">
               {/* Fase daftar tilik berjalan (mockup: "Fase: Time out" di kanan judul kasus). */}
               <span
-                className={cx('text-small font-semibold', phaseIndex < 3 ? 'text-brand-700' : 'text-success')}
+                className={cx(
+                  'text-small font-semibold',
+                  phaseIndex < 3 ? 'text-brand-800' : 'text-zamrud-700',
+                )}
               >
                 Fase: {phase ? PHASE_LABEL[phase.phase] : 'selesai'}
               </span>
@@ -300,7 +303,7 @@ export function OkClient({
           />
           <section
             aria-label="Terhubung otomatis"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-4 text-small text-ink-700"
+            className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small text-ink-700"
           >
             <span className="font-semibold text-ink-900">Terhubung otomatis</span>
             <span>• Laporan operasi dan laporan anestesi (K10)</span>

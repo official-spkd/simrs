@@ -23,7 +23,7 @@ export function FarmasiQueue({
   return (
     <section
       aria-label={label}
-      className="flex min-w-0 flex-[1_1_300px] flex-col overflow-hidden rounded-card border border-line bg-white lg:max-w-[360px]"
+      className="flex min-w-0 flex-[1_1_300px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card lg:max-w-[360px]"
     >
       {rows.length === 0 && <p className="m-0 px-4 py-4 text-small text-ink-500">Antrean ini kosong.</p>}
       <ul className="m-0 list-none p-0">
@@ -37,14 +37,16 @@ export function FarmasiQueue({
                 onClick={() => onSelect(rx.id)}
                 className={cx(
                   'grid min-h-11 w-full cursor-pointer grid-cols-[4px_minmax(0,1fr)_auto] gap-2.5 border-0 border-b border-line-soft py-2.5 pr-3.5 text-left font-[inherit] text-inherit',
-                  sel ? 'bg-selected' : 'bg-white',
+                  sel
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'bg-transparent hover:bg-brand-50/60',
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cx(
                     'self-stretch',
-                    sel ? 'bg-brand-600' : rx.cito ? 'bg-danger' : 'bg-transparent',
+                    sel ? 'bg-brand-600' : rx.cito ? 'bg-koral-600' : 'bg-transparent',
                   )}
                 />
                 <span className="flex min-w-0 flex-col gap-0.5">

@@ -39,7 +39,7 @@ export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev:
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
       <section
         aria-label="Daftar laporan"
-        className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {reports.map((r) => (
@@ -53,8 +53,10 @@ export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev:
                   setMsg(null);
                 }}
                 className={cx(
-                  'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
-                  r.id === selId ? 'border-brand-600 bg-selected' : 'border-line bg-white',
+                  'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
+                  r.id === selId
+                    ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'border-line bg-white/80 hover:bg-brand-50/60',
                 )}
               >
                 <span className="flex flex-wrap items-center justify-between gap-2">
@@ -72,10 +74,10 @@ export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev:
       {sel && (
         <section
           aria-label="Detail laporan"
-          className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <span className="flex flex-col">
-            <h2 className="m-0 text-h2 font-semibold">{sel.name}</h2>
+            <h2 className="m-0 text-[15px] font-semibold">{sel.name}</h2>
             <span className="text-small text-ink-700">
               Periode {sel.period} · sumber: {sel.source}
             </span>
@@ -92,7 +94,10 @@ export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev:
                   <caption className="sr-only">Isi laporan (agregat)</caption>
                   <tbody>
                     {sel.rows.map((row) => (
-                      <tr key={row.label} className="border-b border-line">
+                      <tr
+                        key={row.label}
+                        className="border-b border-line-soft transition-colors hover:bg-brand-50/60"
+                      >
                         <td className="px-2 py-1.5">{row.label}</td>
                         <td className="px-2 py-1.5 text-right font-mono">{formatNumber(row.value)}</td>
                       </tr>
@@ -140,7 +145,7 @@ export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev:
                 <div
                   role="group"
                   aria-label="Konfirmasi kirim laporan"
-                  className="flex flex-col gap-2 rounded-control border border-brand-600 p-3 text-small"
+                  className="flex flex-col gap-2 rounded-[12px] border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
                 >
                   Kirim {sel.name} periode {sel.period} ke Kemenkes? Satu periode hanya dikirim sekali;
                   koreksi lewat kirim ulang dari hub.

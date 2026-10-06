@@ -77,9 +77,9 @@ export function FarmasiWork({
   return (
     <section
       aria-label={prep ? 'Penyiapan obat' : 'Serah terima obat'}
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
-      <h3 className="m-0 text-body font-semibold">{prep ? 'Penyiapan obat' : 'Serah terima obat'}</h3>
+      <h3 className="m-0 text-[15px] font-semibold">{prep ? 'Penyiapan obat' : 'Serah terima obat'}</h3>
       <p className="m-0 text-small text-ink-700">
         {prep
           ? 'Centang setiap obat setelah diambil, dihitung, dan diberi etiket. Obat high alert wajib cek ganda.'
@@ -123,8 +123,8 @@ export function FarmasiWork({
               className={cx(
                 'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 text-small',
                 receiver === r.id
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white',
+                  ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))] font-semibold text-brand-800'
+                  : 'border-line-strong bg-white hover:bg-brand-50/60',
               )}
             >
               <input

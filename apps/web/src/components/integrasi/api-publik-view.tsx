@@ -73,11 +73,11 @@ export function ApiPublicView({
             <article
               key={c.id}
               aria-label={`Klien ${c.name}`}
-              className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+              className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
             >
               <span className="flex flex-wrap items-start justify-between gap-2">
                 <span className="flex flex-col">
-                  <h2 className="m-0 text-base font-semibold">{c.name}</h2>
+                  <h2 className="m-0 text-[15px] font-semibold">{c.name}</h2>
                   <span className="text-small text-ink-700">{c.purpose}</span>
                 </span>
                 <span className="flex flex-wrap gap-2">
@@ -111,7 +111,7 @@ export function ApiPublicView({
                 <div
                   role="group"
                   aria-label={`Konfirmasi rotasi kunci ${c.name}`}
-                  className="flex flex-col gap-2 rounded-control border border-brand-600 p-3 text-small"
+                  className="flex flex-col gap-2 rounded-[12px] border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
                 >
                   Rotasi kunci {c.name}? Kunci lama dicabut seketika; mitra harus memasang kunci baru.
                   <span className="flex gap-2">
@@ -188,7 +188,7 @@ export function ApiPublicView({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <form
           aria-label="Daftarkan klien baru"
-          className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
           onSubmit={(e) => {
             e.preventDefault();
             const errs = registerGate(form);
@@ -197,7 +197,7 @@ export function ApiPublicView({
             act({ kind: 'daftar', ...form });
           }}
         >
-          <h2 className="m-0 text-base font-semibold">Daftarkan klien baru</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Daftarkan klien baru</h2>
           <label className={labelCls}>
             Nama klien
             <input
@@ -262,9 +262,9 @@ export function ApiPublicView({
         </form>
         <section
           aria-label="Log akses API"
-          className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Log akses terbaru</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Log akses terbaru</h2>
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-small">
             {log.map((l) => (
               <li key={`${l.at}-${l.request}`} className="flex flex-col">

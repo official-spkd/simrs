@@ -54,18 +54,18 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
   const items = master.items.filter((i) => batchesIn(state, master, depotId, i.id).length > 0);
   if (items.length === 0)
     return (
-      <p className="m-0 rounded-card border border-line bg-white p-4 text-small">
+      <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small">
         Depo ini belum memegang stok.
       </p>
     );
   return (
-    <div className="overflow-x-auto rounded-card border border-line bg-white">
+    <div className="overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card">
       <table className="w-full min-w-[680px] border-collapse text-small">
         <caption className="sr-only">
           Stok per batch di {depotName(master, depotId)}, urut ED terdekat (FEFO)
         </caption>
         <thead>
-          <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+          <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
             <th className="px-3 py-2 font-semibold">Obat / batch</th>
             <th className="px-3 py-2 font-semibold">Kedaluwarsa</th>
             <th className="px-3 py-2 text-right font-semibold">Jumlah</th>
@@ -76,7 +76,7 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
           {items.map((i) => {
             const usable = usableStock(state, master, depotId, i.id, today);
             return [
-              <tr key={i.id} className="border-b border-line bg-canvas">
+              <tr key={i.id} className="border-b border-line-soft bg-brand-50/60">
                 <th scope="row" colSpan={2} className="px-3 py-2 text-left font-semibold">
                   {i.name}{' '}
                   <span className="font-normal text-ink-500">
@@ -98,7 +98,7 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
               ...batchesIn(state, master, depotId, i.id).map((b, idx) => {
                 const expired = expiryStatus(b.expiry, today).status === 'kedaluwarsa';
                 return (
-                  <tr key={b.id} className={cx('border-b border-line', expired && 'bg-danger-bg')}>
+                  <tr key={b.id} className={cx('border-b border-line-soft', expired && 'bg-danger-bg')}>
                     <td className="px-3 py-2 pl-6">
                       <span className="font-mono">{b.batchNo}</span>
                       {idx === 0 && !expired && (
@@ -185,7 +185,7 @@ export function DispensePanel({
 
   if (items.length === 0)
     return (
-      <p className="m-0 rounded-card border border-line bg-white p-4 text-small">
+      <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small">
         Depo ini belum memegang stok.
       </p>
     );
@@ -193,9 +193,9 @@ export function DispensePanel({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
       <section
         aria-label="Permintaan menunggu"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h3 className="m-0 text-base font-semibold">Permintaan menunggu disiapkan</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Permintaan menunggu disiapkan</h3>
         {waiting.length === 0 ? (
           <p className="m-0 text-small text-ink-700">Tidak ada permintaan untuk depo ini.</p>
         ) : (
@@ -203,7 +203,7 @@ export function DispensePanel({
             {waiting.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line p-2.5 text-small"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-white/80 p-2.5 text-small"
               >
                 <span className="min-w-0 flex-1">
                   <span className="font-semibold">{master.items.find((i) => i.id === r.itemId)?.name}</span> ·{' '}
@@ -228,13 +228,13 @@ export function DispensePanel({
       </section>
       <form
         aria-label="Pengeluaran stok"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           run(action, reset);
         }}
       >
-        <h3 className="m-0 text-base font-semibold">Keluarkan dari {depotName(master, depotId)}</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Keluarkan dari {depotName(master, depotId)}</h3>
         <div className="flex flex-wrap gap-3">
           <div className="flex min-w-[220px] flex-[2] flex-col gap-1">
             <label htmlFor={`${id}-obat`} className={labelCls}>
@@ -279,7 +279,7 @@ export function DispensePanel({
           />
         </div>
         {highAlert && (
-          <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+          <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
             <p className="m-0 text-small">
               Obat high alert: pemeriksa kedua mencatat dari sesinya, kemudian petugas berbeda mengeluarkan.
               Pemeriksa: {recorded.map((c) => c.name).join(', ') || 'belum ada'}.
@@ -292,7 +292,10 @@ export function DispensePanel({
             </Button>
           </div>
         )}
-        <div className="flex flex-col gap-1.5 rounded-control bg-canvas p-3 text-small" aria-live="polite">
+        <div
+          className="flex flex-col gap-1.5 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3 text-small"
+          aria-live="polite"
+        >
           <span className="font-semibold">Rencana FEFO (batch ED terdekat keluar dulu)</span>
           {plan.allocations.length === 0 ? (
             <span className="text-ink-700">Isi jumlah untuk melihat batch yang keluar.</span>
@@ -324,7 +327,7 @@ export function DispensePanel({
           Pilih batch lain (override FEFO, wajib alasan)
         </label>
         {override && (
-          <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+          <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
             <label htmlFor={`${id}-batch`} className={labelCls}>
               Batch pilihan
             </label>
@@ -384,7 +387,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <form
         aria-label="Kirim mutasi"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           run({ type: 'kirim', from: depotId, to: dest, itemId: current, qty: Number(qty) }, () =>
@@ -392,7 +395,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
           );
         }}
       >
-        <h3 className="m-0 text-base font-semibold">Langkah 1 · Kirim dari {depotName(master, depotId)}</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Langkah 1 · Kirim dari {depotName(master, depotId)}</h3>
         <div className="flex flex-col gap-1">
           <label htmlFor={`${id}-tujuan`} className={labelCls}>
             Depo tujuan
@@ -457,9 +460,9 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
       </form>
       <section
         aria-label="Mutasi dalam perjalanan"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h3 className="m-0 text-base font-semibold">Langkah 2 · Terima di depo tujuan</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Langkah 2 · Terima di depo tujuan</h3>
         {state.transfers.length === 0 ? (
           <p className="m-0 text-small text-ink-700">Belum ada mutasi hari ini.</p>
         ) : (
@@ -470,7 +473,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
               return (
                 <li
                   key={t.id}
-                  className="flex flex-col gap-2 rounded-control border border-line p-3 text-small"
+                  className="flex flex-col gap-2 rounded-[12px] border border-line bg-white/80 p-3 text-small"
                 >
                   <span className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">
@@ -533,7 +536,7 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
   return (
     <form
       aria-label="Stok opname"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         run({ type: 'opname', depotId, counts: parsed, reason }, () => {
@@ -542,14 +545,14 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
         });
       }}
     >
-      <h3 className="m-0 text-base font-semibold">Stok opname · {depotName(master, depotId)}</h3>
+      <h3 className="m-0 text-[15px] font-semibold">Stok opname · {depotName(master, depotId)}</h3>
       <span className="text-small text-ink-700">
         Isi hitung fisik per batch. Kosong = sama dengan sistem.
       </span>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-small">
           <thead>
-            <tr className="border-b border-line text-left text-caption text-ink-500">
+            <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
               <th className="px-2 py-2 font-semibold">Batch</th>
               <th className="px-2 py-2 text-right font-semibold">Sistem</th>
               <th className="px-2 py-2 font-semibold">Hitung fisik</th>
@@ -561,7 +564,10 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
               const b = batchOf(master, d.batchId);
               const item = master.items.find((i) => i.id === b?.itemId);
               return (
-                <tr key={d.batchId} className="border-b border-line">
+                <tr
+                  key={d.batchId}
+                  className="border-b border-line-soft transition-colors hover:bg-brand-50/60"
+                >
                   <td className="px-2 py-1.5">
                     {item?.name} · <span className="font-mono">{b?.batchNo}</span>
                     {b && expiryStatus(b.expiry, today).status === 'kedaluwarsa' && (
@@ -620,11 +626,11 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
 export function LedgerPanel({ state, master, depotId }: PanelProps) {
   const rows = state.movements.filter((m) => m.depotId === depotId);
   return (
-    <div className="overflow-x-auto rounded-card border border-line bg-white">
+    <div className="overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card">
       <table className="w-full min-w-[700px] border-collapse text-small">
         <caption className="sr-only">Kartu stok {depotName(master, depotId)}</caption>
         <thead>
-          <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+          <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
             <th className="px-3 py-2 font-semibold">Jam</th>
             <th className="px-3 py-2 font-semibold">Jenis</th>
             <th className="px-3 py-2 font-semibold">Obat / batch</th>
@@ -636,7 +642,10 @@ export function LedgerPanel({ state, master, depotId }: PanelProps) {
           {rows.map((m) => {
             const b = batchOf(master, m.batchId);
             return (
-              <tr key={m.id} className="border-b border-line align-top">
+              <tr
+                key={m.id}
+                className="border-b border-line-soft align-top transition-colors hover:bg-brand-50/60"
+              >
                 <td className="px-3 py-1.5 font-mono">{formatJam(m.at)}</td>
                 <td className="px-3 py-1.5">{MOVEMENT_LABEL[m.kind]}</td>
                 <td className="px-3 py-1.5">

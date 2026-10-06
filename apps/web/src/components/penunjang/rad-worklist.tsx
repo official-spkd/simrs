@@ -33,10 +33,10 @@ export function RadWorklist({
   return (
     <section
       aria-label="Worklist radiologi"
-      className="flex min-w-0 flex-[1_1_300px] flex-col overflow-hidden rounded-card border border-line bg-white lg:max-w-[400px]"
+      className="flex min-w-0 flex-[1_1_300px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card lg:max-w-[400px]"
     >
       <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
-        <h2 className="m-0 text-body font-semibold">Worklist pemeriksaan</h2>
+        <h2 className="m-0 text-[15px] font-semibold">Worklist pemeriksaan</h2>
         <div role="group" aria-label="Filter status" className="flex flex-wrap gap-1.5">
           {filters.map((f) => (
             <FilterChip key={f.id} selected={filter === f.id} onClick={() => onFilter(f.id)}>
@@ -58,7 +58,9 @@ export function RadWorklist({
                 onClick={() => onSelect(e.id)}
                 className={cx(
                   'grid min-h-11 w-full cursor-pointer grid-cols-[4px_minmax(0,1fr)_auto] gap-2.5 border-0 border-b border-line-soft py-2.5 pr-3.5 text-left font-[inherit] text-inherit',
-                  sel ? 'bg-selected' : 'bg-white',
+                  sel
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'bg-transparent hover:bg-brand-50/60',
                 )}
               >
                 <span
@@ -68,7 +70,7 @@ export function RadWorklist({
                     sel
                       ? 'bg-brand-600'
                       : e.priority === 'cito' && e.status !== 'ditandatangani'
-                        ? 'bg-danger'
+                        ? 'bg-koral-600'
                         : 'bg-transparent',
                   )}
                 />
@@ -76,7 +78,7 @@ export function RadWorklist({
                   <span className="flex flex-wrap items-center gap-1.5 font-semibold">
                     {e.patient.name}
                     {e.priority === 'cito' && (
-                      <span className="rounded-full border border-danger-border px-1.5 text-[11px] font-semibold text-danger">
+                      <span className="rounded-full bg-koral-100 px-2 text-[11px] font-semibold text-koral-800">
                         Cito
                       </span>
                     )}

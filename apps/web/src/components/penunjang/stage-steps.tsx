@@ -1,4 +1,5 @@
 import { cx } from '@simrs/ui';
+import { STEP } from './pelangi';
 
 /**
  * Penanda tahap alur kerja penunjang (bank darah, mikrobiologi, diagnostik, …): tahap selesai bertanda ✓, tahap
@@ -24,10 +25,10 @@ export function StageSteps({
             key={s.id}
             aria-current={active ? 'step' : undefined}
             className={cx(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-semibold',
-              done && 'border-success-border bg-success-bg text-success',
-              active && 'border-brand-600 bg-brand-50 text-brand-700',
-              !done && !active && 'border-line bg-white text-ink-500',
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-caption font-semibold',
+              done && STEP.done,
+              active && STEP.active,
+              !done && !active && STEP.todo,
             )}
           >
             <span aria-hidden="true">{done ? '✓' : `${i + 1}.`}</span>

@@ -45,13 +45,13 @@ export default async function KamarOperasiPage({ searchParams }: { searchParams:
           <span className="text-caption text-ink-500">
             Penunjang / Instalasi bedah sentral · {session.tenant.name} · {formatTanggal(data.now)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Kamar operasi · jadwal dan keselamatan</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kamar operasi · jadwal dan keselamatan</h1>
         </div>
         <dl className="m-0 flex flex-wrap gap-2">
           {stats.map((s) => (
             <div
               key={s.label}
-              className="flex items-baseline gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-small"
+              className="flex items-baseline gap-1.5 rounded-full border border-white/95 bg-white/90 px-3 py-1.5 text-small shadow-[0_2px_8px_rgba(23,32,46,0.06)]"
             >
               <dt className="text-ink-700">{s.label}</dt>
               <dd className="m-0 font-mono font-semibold">{s.value}</dd>

@@ -74,10 +74,10 @@ export function OkAnesthesia({
   return (
     <section
       aria-label="Anestesi"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-semibold">Anestesi · {c.anesthesia}</span>
+        <span className="text-[15px] font-semibold">Anestesi · {c.anesthesia}</span>
         <Chip tone={rec.pre.signed ? 'success' : 'warning'}>{asaText(rec.pre)}</Chip>
       </span>
       {msg && <Alert level={msg.ok ? 'success' : 'critical'}>{msg.text}</Alert>}
@@ -202,7 +202,7 @@ export function OkAnesthesia({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[360px] border-collapse text-small">
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-500">
+                <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
                   <th className="px-2 py-1">Jam</th>
                   <th className="px-2 py-1 text-right">TD</th>
                   <th className="px-2 py-1 text-right">Nadi</th>
@@ -214,7 +214,10 @@ export function OkAnesthesia({
                 {rec.vitals.map((x) => {
                   const w = vitalsWarnings(x);
                   return (
-                    <tr key={x.at} className={cx('border-b border-line', w.length > 0 && 'bg-warning-bg')}>
+                    <tr
+                      key={x.at}
+                      className={cx('border-b border-line-soft', w.length > 0 && 'bg-kunyit-50')}
+                    >
                       <td className="px-2 py-1 font-mono">{formatJam(x.at)}</td>
                       <td className="px-2 py-1 text-right font-mono">
                         {x.systolic}/{x.diastolic}

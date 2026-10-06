@@ -33,7 +33,7 @@ export default async function FarmasiPage({ searchParams }: { searchParams: Sear
             <span className="text-caption text-ink-500">
               Penunjang / Farmasi / Telaah resep · {session.tenant.name}
             </span>
-            <h1 className="m-0 text-h1 font-semibold">Farmasi · verifikasi dan penyiapan</h1>
+            <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Farmasi · verifikasi dan penyiapan</h1>
           </div>
         }
         banner={<ScenarioBanner session={session} screen="farmasi" />}

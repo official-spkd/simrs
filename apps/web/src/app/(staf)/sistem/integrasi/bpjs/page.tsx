@@ -23,7 +23,9 @@ export default async function BpjsPage() {
         <span className="text-caption text-ink-500">
           Sistem / Integrasi / BPJS · I03 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Konektor BPJS · VClaim, Antrean, Aplicare, HFIS</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+          Konektor BPJS · VClaim, Antrean, Aplicare, HFIS
+        </h1>
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/bpjs" />
       <ScenarioBanner session={session} screen="bpjs" />

@@ -24,7 +24,7 @@ export default async function PerangkatPage() {
           Sistem / Integrasi / Perangkat medis · I06 · {session.tenant.name} · data per{' '}
           {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Perangkat medis · device gateway HL7</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Perangkat medis · device gateway HL7</h1>
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/perangkat" />
       <ScenarioBanner session={session} screen="perangkat" />

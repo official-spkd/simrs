@@ -1,4 +1,5 @@
 import { cx } from '@simrs/ui';
+import { CARD } from './pelangi';
 
 /** Alur validasi berurutan (mockup Lab) dan konsekuensi setelah rilis. Status ditulis, tidak hanya warna. */
 export function LabFlow({ stage, pending }: { stage: number; pending: number }) {
@@ -12,11 +13,8 @@ export function LabFlow({ stage, pending }: { stage: number; pending: number }) 
   ];
   return (
     <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2">
-      <section
-        aria-label="Alur validasi"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3.5"
-      >
-        <h3 className="m-0 text-body font-semibold">Alur validasi</h3>
+      <section aria-label="Alur validasi" className={cx('flex flex-col gap-2 px-4 py-3.5', CARD)}>
+        <h3 className="m-0 text-[15px] font-semibold">Alur validasi</h3>
         <ol className="m-0 flex list-none flex-col gap-2 p-0">
           {steps.map((t, i) => {
             const done = i < stage;
@@ -32,10 +30,10 @@ export function LabFlow({ stage, pending }: { stage: number; pending: number }) 
                   className={cx(
                     'flex size-[22px] flex-none items-center justify-center rounded-full text-caption font-bold',
                     done
-                      ? 'bg-brand-600 text-white'
+                      ? 'bg-zamrud-100 text-zamrud-700'
                       : cur
-                        ? 'bg-brand-50 text-brand-700'
-                        : 'bg-muted text-ink-500',
+                        ? 'bg-nav-active text-white shadow-[0_4px_10px_rgba(23,32,46,0.18)]'
+                        : 'bg-[rgba(23,32,46,0.06)] text-ink-500',
                   )}
                 >
                   {done ? '✓' : i + 1}
@@ -51,11 +49,8 @@ export function LabFlow({ stage, pending }: { stage: number; pending: number }) 
           })}
         </ol>
       </section>
-      <section
-        aria-label="Setelah validasi klinis"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3.5"
-      >
-        <h3 className="m-0 text-body font-semibold">Setelah validasi klinis</h3>
+      <section aria-label="Setelah validasi klinis" className={cx('flex flex-col gap-2 px-4 py-3.5', CARD)}>
+        <h3 className="m-0 text-[15px] font-semibold">Setelah validasi klinis</h3>
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-small text-ink-700">
           <li>Hasil tampil di CPPT dan notifikasi ke DPJP</li>
           <li>Observation + DiagnosticReport ke SATUSEHAT</li>

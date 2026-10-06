@@ -23,7 +23,7 @@ export default async function MikrobiologiPage() {
           Penunjang / Laboratorium / Mikrobiologi dan PA · S02 · {session.tenant.name} · data per{' '}
           {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Mikrobiologi & patologi anatomi</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Mikrobiologi & patologi anatomi</h1>
       </header>
       <ScenarioBanner session={session} screen="mikro" />
       <MicroWorkspace data={data} userName={session.user.displayName} />

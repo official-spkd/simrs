@@ -22,7 +22,7 @@ export default async function DiagnostikPage() {
         <span className="text-caption text-ink-500">
           Penunjang / Diagnostik lain · S10 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
           Diagnostik lain · EKG, ekokardiografi, endoskopi, rehab medik
         </h1>
       </header>

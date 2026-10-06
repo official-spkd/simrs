@@ -14,12 +14,14 @@ export function IncomingOrders({
   return (
     <section
       aria-label="Order CPOE menunggu kelengkapan"
-      className="rounded-card border border-warning-border bg-warning-bg p-4"
+      className="rounded-card border border-kunyit-200 bg-alert-warning p-4 text-kunyit-900 shadow-card"
     >
-      <h2 className="m-0 text-h2 font-semibold">Order CPOE menunggu kelengkapan · {pending.length}</h2>
+      <h2 className="m-0 text-[15px] font-bold text-kunyit-800">
+        Order CPOE menunggu kelengkapan · {pending.length}
+      </h2>
       <ul className="mb-0 grid list-none gap-3 p-0">
         {pending.map((order) => (
-          <li key={order.lineId} className="min-w-0 border-t border-warning-border pt-3">
+          <li key={order.lineId} className="min-w-0 border-t border-kunyit-200 pt-3">
             <p className="m-0 font-semibold">
               {order.patientName} · {order.rm} · {order.name}
             </p>

@@ -209,7 +209,7 @@ export function FarmasiWorkspace({
       handlers={handlers(rx)}
     />
   ) : (
-    <p className="m-0 rounded-card border border-dashed border-line-strong bg-white p-6 text-small text-ink-500">
+    <p className="m-0 rounded-card border border-dashed border-line-strong bg-white/70 p-6 text-small text-ink-500">
       Tidak ada resep di antrean ini. Pilih tab lain.
     </p>
   );

@@ -32,15 +32,15 @@ export function DoubleCheck({
     return (
       <p
         role="status"
-        className="m-0 rounded-control border border-success-border bg-[#F3FAF5] px-3 py-2 text-small font-semibold text-success"
+        className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small font-semibold text-success"
       >
         ✓ Cek ganda high alert oleh {done.by} pukul {formatJam(done.at)}.
       </p>
     );
   }
   return (
-    <fieldset className="m-0 flex flex-col gap-2 rounded-[12px] border border-warning-border bg-kunyit-50 p-3.5">
-      <legend className="px-1 text-small font-semibold text-warning-strong">
+    <fieldset className="m-0 flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3.5">
+      <legend className="rounded-full bg-kunyit-100 px-2.5 py-0.5 text-small font-semibold text-kunyit-800">
         Cek ganda obat high alert (apoteker kedua)
       </legend>
       <ul className="m-0 list-disc pl-5 text-small text-ink-700">

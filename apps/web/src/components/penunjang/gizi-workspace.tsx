@@ -98,10 +98,10 @@ export function NutritionWorkspace({ data }: { data: NutritionData; userName: st
           <section
             key={w}
             aria-label={`Distribusi ${w}`}
-            className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+            className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
           >
             <span className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="m-0 text-base font-semibold">{w}</h3>
+              <h3 className="m-0 text-[15px] font-semibold">{w}</h3>
               <details className="text-small">
                 <summary className="min-h-11 cursor-pointer py-2 font-semibold text-brand-700">
                   Label baki ({list.filter((o) => !o.npo).length})
@@ -210,7 +210,7 @@ function TrayRow({
     <li
       className={cx(
         'flex flex-col gap-2 rounded-[12px] border p-3',
-        o.npo ? 'border-warning-border bg-warning-bg' : 'border-line',
+        o.npo ? 'border-kunyit-200 bg-alert-warning' : 'border-line bg-white/80',
       )}
     >
       <span className="flex flex-wrap items-start justify-between gap-2">
@@ -336,7 +336,7 @@ function OrderList({
       {orders.map((o) => (
         <li
           key={o.id}
-          className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-line bg-white p-3"
+          className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-3"
         >
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="font-semibold">
@@ -379,7 +379,10 @@ function ScreeningList({
   return (
     <ul aria-label="Skrining gizi pasien" className="m-0 flex list-none flex-col gap-2 p-0">
       {orders.map((o) => (
-        <li key={o.id} className="flex flex-col gap-2 rounded-card border border-line bg-white p-3">
+        <li
+          key={o.id}
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-3"
+        >
           <span className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold">
               {o.patient.name} · {o.ward} {o.bed}

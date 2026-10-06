@@ -51,7 +51,7 @@ export function IssuePanel({
   return (
     <form
       aria-label="Cek ganda pengeluaran kantong"
-      className="flex flex-col gap-3 rounded-[12px] border border-line p-3"
+      className="flex flex-col gap-3 rounded-[12px] border border-white/95 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3"
       onSubmit={(e) => {
         e.preventDefault();
         run(
@@ -156,7 +156,7 @@ export function BedsidePanel({
   return (
     <form
       aria-label="Verifikasi di samping pasien"
-      className="flex flex-col gap-3 rounded-[12px] border border-line p-3"
+      className="flex flex-col gap-3 rounded-[12px] border border-white/95 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3"
       onSubmit={(e) => {
         e.preventDefault();
         run({
@@ -241,7 +241,7 @@ export function BedsidePanel({
         Barcode tidak terbaca: verifikasi manual dua petugas (alasan tercatat)
       </label>
       {manual && (
-        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
           <label className={labelCls}>
             Alasan (minimal 10 karakter)
             <textarea
@@ -333,7 +333,7 @@ export function MonitorPanel({
   return (
     <section
       aria-label="Pemantauan transfusi"
-      className="flex flex-col gap-3 rounded-[12px] border border-line p-3"
+      className="flex flex-col gap-3 rounded-[12px] border border-white/95 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3"
     >
       <span className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">
@@ -361,7 +361,7 @@ export function MonitorPanel({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[460px] border-collapse text-small">
           <thead>
-            <tr className="border-b border-line text-left text-caption text-ink-500">
+            <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
               <th className="px-2 py-1.5">Waktu</th>
               <th className="px-2 py-1.5">Jadwal</th>
               <th className="px-2 py-1.5 text-right">Suhu</th>

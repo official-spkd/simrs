@@ -24,7 +24,7 @@ export default async function ApiPublikPage() {
           Sistem / Integrasi / API publik · I12 · {session.tenant.name} · data per{' '}
           {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">API publik & FHIR · klien mitra</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">API publik & FHIR · klien mitra</h1>
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/api-publik" />
       <ScenarioBanner session={session} screen="api-publik" />

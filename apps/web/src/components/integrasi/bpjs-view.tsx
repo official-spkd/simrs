@@ -68,7 +68,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
         aria-label="Mode downtime BPJS"
         className={cx(
           'flex flex-col gap-2 rounded-card border px-4 py-3',
-          down ? 'border-warning-border bg-warning-bg' : 'border-line bg-white',
+          down ? 'border-kunyit-200 bg-alert-warning shadow-card' : 'border-white/95 bg-white/90 shadow-card',
         )}
       >
         {!!data.synchronized.length && (
@@ -158,8 +158,10 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               aria-pressed={s.id === svc}
               onClick={() => setSvc(s.id)}
               className={cx(
-                'flex cursor-pointer flex-col gap-1.5 rounded-card border bg-white p-3.5 text-left font-[inherit]',
-                s.id === svc ? 'border-brand-600 shadow-[0_0_0_1px_var(--color-brand-600)]' : 'border-line',
+                'flex cursor-pointer flex-col gap-1.5 rounded-card border p-3.5 text-left font-[inherit] shadow-card transition-colors',
+                s.id === svc
+                  ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                  : 'border-white/95 bg-white/90 hover:bg-brand-50/60',
               )}
             >
               <span className="flex items-center justify-between gap-2">
@@ -190,10 +192,10 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
       {service && (
         <section
           aria-label={`Detail ${service.name}`}
-          className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <span className="flex flex-col">
-            <h2 className="m-0 text-h2 font-semibold">{service.name}</h2>
+            <h2 className="m-0 text-[15px] font-semibold">{service.name}</h2>
             <span className="text-caption text-ink-500">Kebijakan kirim: {service.retry}</span>
             {service.lastError && (
               <span className="text-small text-danger">Galat terakhir: {service.lastError}</span>
@@ -203,7 +205,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
             <table className="w-full min-w-[480px] border-collapse text-small">
               <caption className="sr-only">Operasi {service.name} hari ini</caption>
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-500">
+                <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
                   <th className="px-2 py-1.5">Operasi</th>
                   <th className="px-2 py-1.5 text-right">Volume</th>
                   <th className="px-2 py-1.5 text-right">Gagal</th>
@@ -212,7 +214,10 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               </thead>
               <tbody>
                 {service.ops.map((o) => (
-                  <tr key={o.name} className="border-b border-line">
+                  <tr
+                    key={o.name}
+                    className="border-b border-line-soft transition-colors hover:bg-brand-50/60"
+                  >
                     <td className="px-2 py-1.5">{o.name}</td>
                     <td className="px-2 py-1.5 text-right font-mono">{formatNumber(o.count)}</td>
                     <td className={cx('px-2 py-1.5 text-right font-mono', o.failed > 0 && 'text-danger')}>
@@ -235,7 +240,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                   return (
                     <li
                       key={b.bookingCode}
-                      className="flex flex-col gap-2 rounded-control border border-line p-3 text-small"
+                      className="flex flex-col gap-2 rounded-[12px] border border-line bg-white/80 p-3 text-small"
                     >
                       <span className="flex flex-wrap justify-between gap-2">
                         <span className="font-semibold">
@@ -284,7 +289,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                           <span
                             role="group"
                             aria-label="Konfirmasi kirim ulang task"
-                            className="flex flex-wrap items-center gap-2 rounded-control border border-brand-600 p-2"
+                            className="flex flex-wrap items-center gap-2 rounded-[12px] border border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-2"
                           >
                             Kirim task {resendInOrder(b, '').sent.join(' lalu ')} berurutan ke BPJS Antrean?
                             <Button
@@ -326,7 +331,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[420px] border-collapse text-small">
                   <thead>
-                    <tr className="border-b border-line text-left text-caption text-ink-500">
+                    <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
                       <th className="px-2 py-1.5">Kelas</th>
                       <th className="px-2 py-1.5 text-right">Kapasitas</th>
                       <th className="px-2 py-1.5 text-right">Tersedia (SIM RS)</th>
@@ -337,7 +342,10 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                     {beds.map((r) => (
                       <tr
                         key={r.kelas}
-                        className={cx('border-b border-line', r.available !== r.reported && 'bg-warning-bg')}
+                        className={cx(
+                          'border-b border-line-soft',
+                          r.available !== r.reported && 'bg-kunyit-50',
+                        )}
                       >
                         <td className="px-2 py-1.5">{r.kelas}</td>
                         <td className="px-2 py-1.5 text-right font-mono">{r.total}</td>
@@ -370,7 +378,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               {hfis.map((r) => (
                 <li
                   key={r.doctor}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line p-2.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-white/80 p-2.5"
                 >
                   <span>
                     <span className="font-semibold">{r.doctor}</span> · {r.poli}

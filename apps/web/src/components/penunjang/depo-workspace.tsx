@@ -86,18 +86,21 @@ export function DepoWorkspace({
           label="Nilai persediaan"
           value={formatStockValue(stockValue(state, master, depotId))}
           detail="harga pokok per batch"
+          tinted
         />
         <KpiCard
           label="Batch kedaluwarsa"
           value={String(alerts.expired.length)}
           tone={alerts.expired.length ? 'danger' : 'success'}
           hint={alerts.expired.length ? 'wajib karantina, tidak bisa dikeluarkan' : 'tidak ada'}
+          tinted
         />
         <KpiCard
           label="Segera kedaluwarsa (≤ 90 hari)"
           value={String(alerts.near.length)}
           tone={alerts.near.length ? 'warning' : 'neutral'}
           hint={alerts.near.length ? 'keluar lebih dulu (FEFO)' : 'tidak ada'}
+          tinted
         />
         <KpiCard
           label="Di bawah stok minimum"
@@ -105,6 +108,7 @@ export function DepoWorkspace({
           tone={alerts.belowMin.length ? 'warning' : 'neutral'}
           hint={alerts.belowMin.map((i) => i.name.split(' ')[0]).join(', ') || 'aman'}
           detail={inTransit.length ? `${inTransit.length} mutasi dalam perjalanan` : undefined}
+          tinted
         />
       </section>
       {msg && <Alert level={msg.ok ? 'success' : 'critical'}>{msg.text}</Alert>}

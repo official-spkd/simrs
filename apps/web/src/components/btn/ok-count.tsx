@@ -35,9 +35,9 @@ export function OkCount({
   return (
     <section
       aria-label="Hitung kasa dan instrumen"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
-      <span className="font-semibold">Hitung kasa dan instrumen</span>
+      <span className="text-[15px] font-semibold">Hitung kasa dan instrumen</span>
       <div className="grid grid-cols-[1fr_auto_88px_20px] items-center gap-x-2.5 gap-y-1.5 text-small">
         <span className="text-caption text-ink-500">Item</span>
         <span className="text-caption text-ink-500">Awal</span>
@@ -66,11 +66,14 @@ export function OkCount({
                   onChange(x.id, v === '' ? null : Math.max(0, Math.floor(Number(v)) || 0));
                 }}
                 className={cx(
-                  'h-11 w-full rounded-control border px-2 text-right font-mono disabled:bg-subtle',
-                  has ? (match ? 'border-[#7BC08F]' : 'border-danger') : 'border-line-strong',
+                  'h-11 w-full rounded-control border bg-white px-2 text-right font-mono disabled:bg-batu-100',
+                  has ? (match ? 'border-zamrud-400' : 'border-koral-600 bg-koral-50') : 'border-line-strong',
                 )}
               />
-              <span aria-hidden="true" className={cx('font-bold', match ? 'text-success' : 'text-danger')}>
+              <span
+                aria-hidden="true"
+                className={cx('font-bold', match ? 'text-zamrud-600' : 'text-koral-600')}
+              >
                 {has ? (match ? '✓' : '✕') : ''}
               </span>
             </div>
@@ -81,8 +84,8 @@ export function OkCount({
         aria-live="polite"
         className={cx(
           'text-small',
-          tone === 'danger' && 'font-semibold text-danger',
-          tone === 'success' && 'font-semibold text-success',
+          tone === 'danger' && 'font-semibold text-koral-800',
+          tone === 'success' && 'font-semibold text-zamrud-700',
           tone === 'muted' && 'text-ink-700',
         )}
       >

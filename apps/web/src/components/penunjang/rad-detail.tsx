@@ -44,11 +44,11 @@ export function RadDetail({
       />
       <section
         aria-label="Order pemeriksaan"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),rgba(255,255,255,0)_60%)] px-4 py-3"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card bg-card-header px-4 py-3"
       >
         <div className="flex flex-wrap justify-between gap-2.5">
           <div className="flex min-w-0 flex-col">
-            <h2 className="m-0 text-[16px] font-semibold">{e.procedure}</h2>
+            <h2 className="m-0 text-[15px] font-semibold">{e.procedure}</h2>
             <span className="text-[12.5px] text-ink-500">
               {MODALITY_LABEL[e.modality]} · {e.room} · <span className="font-mono">{e.accession}</span> ·
               jadwal {formatWhen(e.scheduledAt, DEMO_TODAY)}
@@ -77,14 +77,18 @@ export function RadDetail({
                 aria-current={i === stage ? 'step' : undefined}
                 className={cx(
                   'flex items-center gap-1.5 text-small',
-                  i <= stage ? 'font-semibold text-brand-700' : 'text-ink-500',
+                  i <= stage ? 'font-semibold text-brand-800' : 'text-ink-500',
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cx(
                     'flex size-[22px] items-center justify-center rounded-full text-caption font-bold',
-                    done ? 'bg-brand-600 text-white' : i === stage ? 'bg-brand-50' : 'bg-muted',
+                    done
+                      ? 'bg-zamrud-100 text-zamrud-700'
+                      : i === stage
+                        ? 'bg-nav-active text-white'
+                        : 'bg-[rgba(23,32,46,0.06)] text-ink-500',
                   )}
                 >
                   {done ? '✓' : i + 1}
@@ -110,7 +114,7 @@ export function RadDetail({
       {feedback && (
         <p
           role="status"
-          className="m-0 rounded-control border border-success-border bg-zamrud-50 px-3 py-2 text-small font-semibold text-success"
+          className="m-0 rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small font-semibold text-zamrud-700 animate-pop"
         >
           {feedback}
         </p>
@@ -127,16 +131,16 @@ export function RadDetail({
       {e.status === 'ditandatangani' && e.report && (
         <section
           aria-label="Laporan radiologi"
-          className="flex flex-col gap-2 rounded-card border border-success-border bg-white px-4 py-3.5"
+          className="flex flex-col gap-2 rounded-card border border-zamrud-200 bg-white/90 px-4 py-3.5 shadow-card"
         >
-          <h3 className="m-0 text-body font-semibold">Laporan radiologi</h3>
+          <h3 className="m-0 text-[15px] font-semibold">Laporan radiologi</h3>
           <p className="m-0 text-small text-ink-700">
             <span className="font-semibold">Temuan:</span> {e.report.findings}
           </p>
           <p className="m-0 text-small text-ink-900">
             <span className="font-semibold">Kesan:</span> {e.report.impression}
           </p>
-          <span className="text-caption font-semibold text-success">
+          <span className="text-caption font-semibold text-zamrud-700">
             ✓ Ditandatangani {e.report.radiologist}
             {e.report.signedAt ? ` · ${formatJam(e.report.signedAt)}` : ''} · hasil final tersimpan dan masuk
             antrean integrasi

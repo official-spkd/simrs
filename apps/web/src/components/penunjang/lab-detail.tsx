@@ -110,11 +110,11 @@ export function LabDetail({
       />
       <section
         aria-label="Hasil pemeriksaan"
-        className="overflow-hidden rounded-card border border-line bg-white"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
-        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)] px-4 py-3">
+        <div className="flex flex-wrap justify-between gap-2.5 border-b border-line bg-card-header px-4 py-3">
           <div className="flex min-w-0 flex-col">
-            <h2 className="m-0 text-[16px] font-semibold">{s.tests}</h2>
+            <h2 className="m-0 text-[15px] font-semibold">{s.tests}</h2>
             <span className="text-[12.5px] text-ink-500">
               {s.location} · no. lab <span className="font-mono">{s.labNo}</span> ·{' '}
               {s.receivedAt
@@ -167,9 +167,9 @@ export function LabDetail({
             role="status"
             className={cx(
               'mx-4 mt-3 rounded-control border px-3 py-2 text-small font-semibold',
-              status.tone === 'warning' && 'border-warning-border bg-[#FFF7EB] text-warning',
-              status.tone === 'success' && 'border-success-border bg-zamrud-50 text-success',
-              status.tone === 'brand' && 'border-brand-100 bg-selected text-brand-700',
+              status.tone === 'warning' && 'border-kunyit-200 bg-alert-warning text-kunyit-800',
+              status.tone === 'success' && 'border-zamrud-200 bg-alert-success text-zamrud-700',
+              status.tone === 'brand' && 'border-brand-200 bg-brand-50 text-brand-800',
             )}
           >
             {status.text}

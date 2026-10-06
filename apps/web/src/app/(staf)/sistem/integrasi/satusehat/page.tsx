@@ -25,7 +25,7 @@ export default async function SatusehatPage() {
           Sistem / Integrasi / SATUSEHAT · I02 · {session.tenant.name} · data per{' '}
           {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">SATUSEHAT · pengiriman per kunjungan</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">SATUSEHAT · pengiriman per kunjungan</h1>
       </header>
       <IntegrasiSubnav current="/sistem/integrasi/satusehat" />
       <ScenarioBanner session={session} screen="satusehat" />
