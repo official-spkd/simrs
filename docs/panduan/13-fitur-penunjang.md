@@ -217,8 +217,9 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
 
 1. Buka **Kamar operasi**. "Jadwal kamar" berbentuk Gantt per kamar. Kasus terpilih bawaan adalah Ny. Ratna Sari,
    "OK 2 · Kolesistektomi laparoskopik" dengan "ICD-9-CM 51.23 · Kolesistektomi laparoskopik".
-2. Region "Daftar tilik keselamatan" memuat tiga fase. Centang butir **Sign in** (sebelum induksi), lalu
-   **Konfirmasi sign in**. Konfirmasi tercatat dengan nama dan jam.
+2. Region "Daftar tilik keselamatan" memuat tiga fase; kanan judul kasus menulis fase berjalan ("Fase: Sign in").
+   Centang butir **Sign in** (sebelum induksi), lalu **Konfirmasi sign in**. Konfirmasi tercatat dengan nama dan
+   jam beserta akibatnya, mis. "· induksi dapat dimulai" atau "· insisi dapat dicatat".
 3. Centang butir **Time out** (sebelum insisi), lalu **Konfirmasi time out**. Tombol **Mulai insisi** baru aktif.
 
    ![Daftar tilik time out lengkap dan terkonfirmasi, tombol Mulai insisi aktif](./gambar/ok--time-out.png)

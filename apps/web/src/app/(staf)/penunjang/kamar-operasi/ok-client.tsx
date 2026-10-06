@@ -1,7 +1,7 @@
 'use client';
 
 import { formatJam, formatTanggalLahir, type OrSchedule } from '@simrs/shared';
-import { Alert, Chip, PatientBanner } from '@simrs/ui';
+import { Alert, Chip, cx, PatientBanner } from '@simrs/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { OkChecklist } from '@/components/btn/ok-checklist';
@@ -12,6 +12,7 @@ import { useDemoClock, useScenarioTask } from '@/components/btn/use-scenario-tas
 import { OkAnesthesia } from '@/components/penunjang/ok-anestesi';
 import {
   CASE_STATUS_LABEL,
+  currentPhase,
   EMPTY_LOCAL,
   type OkLocal,
   PHASE_LABEL,
@@ -20,6 +21,13 @@ import {
 } from '@/lib/btn-ok';
 import type { ScenarioHook } from '@/lib/btn-skenario';
 import { type OkEventInput, recordOkEventAction } from './actions';
+
+/** Akibat konfirmasi tiap fase daftar tilik (mockup OK). */
+const PHASE_NEXT: Record<keyof typeof PHASE_LABEL, string> = {
+  'sign-in': 'induksi dapat dimulai',
+  'time-out': 'insisi dapat dicatat',
+  'sign-out': 'pasien boleh dipindahkan ke ruang pemulihan',
+};
 
 /** S06 · Interaksi layar kamar operasi: pilih kasus, daftar tilik, hitung kasa, gerbang insisi. */
 export function OkClient({
@@ -52,6 +60,8 @@ export function OkClient({
   if (!sel) return null;
   const { room, c } = sel;
   const local = locals[c.id] ?? EMPTY_LOCAL;
+  const phaseIndex = currentPhase(c.checklist);
+  const phase = c.checklist[phaseIndex];
   const nowMin = Math.round(
     (Date.parse(schedule.now) - Date.parse(`${schedule.date}T00:00:00+07:00`)) / 60_000,
   );
@@ -59,7 +69,14 @@ export function OkClient({
   const patch = (fn: (l: OkLocal) => OkLocal) =>
     setLocals((cur) => ({ ...cur, [c.id]: fn(cur[c.id] ?? EMPTY_LOCAL) }));
 
-  const record = (input: OkEventInput, label: string, apply: (at: string) => void, task?: string) =>
+  const record = (
+    input: OkEventInput,
+    label: string,
+    apply: (at: string) => void,
+    task?: string,
+    /** Akibat langkah ini (mockup), mis. "insisi dapat dicatat". */
+    after?: string,
+  ) =>
     startTransition(async () => {
       const r = await recordOkEventAction(input);
       if (r.error) {
@@ -68,7 +85,7 @@ export function OkClient({
       }
       const at = clock();
       apply(at);
-      const done = `${label} · ${formatJam(at)}`;
+      const done = `${label} · ${formatJam(at)}${after ? ` · ${after}` : ''}`;
       setMsg({ text: `${done} (simulasi, tidak disimpan)`, ok: true });
       // Skenario baru dinyatakan maju setelah server menerima perintahnya (bukan saat perintah dikirim).
       if (task && c.scenario) {
@@ -92,6 +109,7 @@ export function OkClient({
       `${PHASE_LABEL[phase]} dikonfirmasi oleh ${userName}`,
       (at) => patch((l) => ({ ...l, confirmed: { ...l.confirmed, [phase]: at } })),
       phase === 'sign-out' ? 'tilik' : undefined,
+      PHASE_NEXT[phase],
     );
   };
 
@@ -127,9 +145,17 @@ export function OkClient({
                 · sirkuler {c.nurses.circulating}
               </span>
             </span>
-            <Chip tone={c.status === 'cito' ? 'danger' : c.status === 'selesai' ? 'success' : 'brand'}>
-              {CASE_STATUS_LABEL[c.status]}
-            </Chip>
+            <span className="flex flex-col items-end gap-1">
+              {/* Fase daftar tilik berjalan (mockup: "Fase: Time out" di kanan judul kasus). */}
+              <span
+                className={cx('text-small font-semibold', phaseIndex < 3 ? 'text-brand-700' : 'text-success')}
+              >
+                Fase: {phase ? PHASE_LABEL[phase.phase] : 'selesai'}
+              </span>
+              <Chip tone={c.status === 'cito' ? 'danger' : c.status === 'selesai' ? 'success' : 'brand'}>
+                {CASE_STATUS_LABEL[c.status]}
+              </Chip>
+            </span>
           </div>
           <PatientBanner
             name={c.patient.name}

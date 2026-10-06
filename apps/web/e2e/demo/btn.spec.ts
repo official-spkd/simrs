@@ -38,10 +38,13 @@ test.describe('kamar operasi', () => {
     await expect(page.getByText('Sign in belum dikonfirmasi; induksi dan insisi terkunci.')).toBeVisible();
 
     // Sign in dulu (lima butir + konfirmasi); baru setelah itu gerbang time out berlaku.
+    await expect(tilik.getByText('Fase: Sign in', { exact: true })).toBeVisible();
     const signIn = tilik.getByRole('group', { name: 'Sign in', exact: true });
     for (const box of await signIn.getByRole('checkbox').all()) await box.check();
     await tilik.getByRole('button', { name: 'Konfirmasi sign in' }).click();
     await expect(tilik.getByText(/Sign in dikonfirmasi oleh .* \(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(tilik.getByText(/· induksi dapat dimulai/)).toBeVisible();
+    await expect(tilik.getByText('Fase: Time out', { exact: true })).toBeVisible();
     await expect(page.getByText('Insisi terkunci: time out belum lengkap')).toBeVisible();
 
     // Override darurat menuntut alasan klinis minimal 15 karakter.
