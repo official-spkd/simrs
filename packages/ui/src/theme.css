@@ -1,5 +1,5 @@
 /*
- * Token Pelangi Klinis (ADR-0086, docs/08-desain-ui.md) sebagai tema Tailwind v4.
+ * Token Pelangi Klinis (ADR-0091, docs/08-desain-ui.md) sebagai tema Tailwind v4.
  * Dipakai lewat `@import '@simrs/ui/theme.css';` setelah `@import 'tailwindcss';`.
  *
  * Tiga lapis warna:
@@ -186,14 +186,16 @@
   --animate-crit: crit-pulse 1.6s ease-out infinite;
   --animate-grow: grow 0.9s 0.2s var(--ease-spring) both;
 
+  /*
+   * Jendela hanya memudar masuk, tanpa transform: jendela membungkus header lengket dan semua kontrol, sehingga
+   * transform di sini menggeser/menskala ukuran terukur (target sentuh 44 px) selama animasi.
+   */
   @keyframes win-in {
     from {
       opacity: 0;
-      transform: translateY(14px) scale(0.985);
     }
     to {
       opacity: 1;
-      transform: none;
     }
   }
   @keyframes rise {
