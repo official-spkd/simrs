@@ -247,6 +247,26 @@ test.describe('S10 · diagnostik lain', () => {
   });
 });
 
+test.describe('S06 · anestesi di layar Kamar operasi', () => {
+  test('induksi terkunci sampai asesmen pra-anestesi ber-TTE lalu sign in WHO', async ({ page }) => {
+    const dokter = await createAccount({ roles: ['dokter'] });
+    await loginAs(page, dokter, '/penunjang/kamar-operasi?pilih=ok3-1');
+    const anestesi = page.getByRole('region', { name: 'Anestesi' });
+    await expect(anestesi.getByRole('button', { name: 'Catat induksi' })).toBeDisabled();
+    await expect(anestesi).toContainText('asesmen pra-anestesi belum ditandatangani');
+    const form = anestesi.getByRole('form', { name: 'Asesmen pra-anestesi' });
+    await expect(form.getByRole('button', { name: /Tandatangani asesmen/ })).toBeDisabled();
+    await form.getByLabel('Kelas ASA').selectOption('II');
+    await form.getByLabel('Jalan napas').selectOption('Mallampati II');
+    await form.getByLabel('Rencana anestesi').fill('Anestesi spinal');
+    await form.getByRole('checkbox', { name: /Persetujuan tindakan anestesi/ }).check();
+    await form.getByRole('button', { name: /Tandatangani asesmen/ }).click();
+    await expect(anestesi).toContainText('ASA IIE');
+    await expect(anestesi).toContainText('konfirmasi sign in daftar tilik WHO lebih dulu');
+    await expect(anestesi.getByRole('button', { name: 'Catat induksi' })).toBeDisabled();
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

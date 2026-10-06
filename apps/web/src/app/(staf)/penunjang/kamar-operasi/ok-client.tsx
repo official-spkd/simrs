@@ -9,6 +9,7 @@ import { OkCount } from '@/components/btn/ok-count';
 import { OkGantt } from '@/components/btn/ok-gantt';
 import { OkIncision } from '@/components/btn/ok-incision';
 import { useDemoClock, useScenarioTask } from '@/components/btn/use-scenario-task';
+import { OkAnesthesia } from '@/components/penunjang/ok-anestesi';
 import {
   CASE_STATUS_LABEL,
   EMPTY_LOCAL,
@@ -171,6 +172,7 @@ export function OkClient({
           />
         </section>
         <div className="flex min-w-0 flex-col gap-4">
+          <OkAnesthesia c={c} />
           <OkIncision
             c={c}
             local={local}
