@@ -443,6 +443,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: CLINICIANS,
     layout: 'staf',
   },
+  {
+    id: 'cppt',
+    label: 'CPPT & serah terima',
+    route: '/klinis/cppt',
+    mockup: 'Ranap',
+    components: ['K07'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'cppt.write',
+    demoRoles: [...CLINICIANS, 'apoteker'],
+    layout: 'staf',
+  },
   // FE2 · akhir
 ];
 

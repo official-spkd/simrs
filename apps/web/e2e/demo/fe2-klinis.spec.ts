@@ -78,3 +78,94 @@ test.describe('K01 · worklist klinis', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Hasil dibaca' })).toBeVisible();
   });
 });
+
+const banner = (page: Page) => page.locator('[aria-label="Identitas pasien"]');
+const notes = (page: Page) => page.getByRole('list', { name: 'Catatan CPPT' });
+const note = (page: Page, text: string) => notes(page).getByRole('listitem').filter({ hasText: text });
+
+test.describe('K07 · CPPT, co-sign, serah terima', () => {
+  test('residen: catatan baru belum final sampai co-sign; singkatan terlarang diperingatkan', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter_residen'], '/klinis/cppt');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'CPPT & serah terima · Ny. Endang Wijaya' }),
+    ).toBeVisible();
+    await expect(banner(page).getByText('Alergi: Amoksisilin')).toBeVisible();
+    await page.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
+    const form = page.getByRole('form', { name: 'Tulis CPPT baru' });
+    await expect(form.getByRole('note')).toContainText('Residen tidak dapat memfinalkan catatannya sendiri');
+    await form.getByLabel('S · Subjektif').fill('Mual berkurang, nafsu makan membaik.');
+    await form.getByLabel('A · Asesmen').fill('Hiperglikemia membaik.');
+    await form.getByLabel('P · Rencana').fill('Insulin aspart 6 U sebelum makan siang.');
+    await expect(form.getByText('Singkatan terlarang (peringatan, tidak memblokir):')).toBeVisible();
+    await form.getByRole('button', { name: 'Simpan dan ajukan co-sign DPJP' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'menunggu co-sign DPJP' })).toHaveText(
+      new RegExp(`Tersimpan · ${JAM} · belum final, menunggu co-sign DPJP`),
+    );
+    const mine = note(page, 'Hiperglikemia membaik.');
+    await expect(mine.getByText('Belum final · menunggu co-sign DPJP')).toBeVisible();
+    await expect(mine.getByRole('button', { name: 'Co-sign DPJP' })).toBeDisabled();
+    await expect(mine.getByText('Hanya DPJP (posisi dokter) yang dapat co-sign.')).toBeVisible();
+  });
+
+  test('DPJP: co-sign residen, verifikasi PPA lain, riwayat versi, koreksi beralasan', async ({ page }) => {
+    await openAs(page, ['dokter'], '/klinis/cppt');
+    const residen = note(page, 'Pneumonia komunitas perbaikan; DM hiperglikemia.');
+    await expect(residen.getByText('Belum final · menunggu co-sign DPJP')).toBeVisible();
+    await residen.getByRole('button', { name: 'Co-sign DPJP' }).click();
+    await expect(residen.getByText(new RegExp(`^Final · co-sign DPJP .+ · ${JAM}$`))).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Co-sign DPJP' })).toContainText('kini final');
+
+    const farmasi = note(page, 'Usul evaluasi de-eskalasi');
+    await expect(farmasi.getByText('Final · menunggu verifikasi DPJP (batas 08.15)')).toBeVisible();
+    await farmasi.getByRole('button', { name: 'Verifikasi DPJP' }).click();
+    await expect(farmasi.getByText(new RegExp(`^Final · diverifikasi DPJP .+ · ${JAM}$`))).toBeVisible();
+
+    const koreksi = note(page, 'SpO2 96% udara bebas, RR 20.');
+    await expect(
+      koreksi.getByText('Versi 2 · koreksi: Salah ketik nilai SpO2', { exact: false }),
+    ).toBeVisible();
+    await koreksi.getByRole('button', { name: 'Riwayat versi (2)' }).click();
+    await expect(koreksi.getByText(/Versi 1 · .+ · digantikan/)).toBeVisible();
+
+    await page.getByRole('button', { name: '+ Tulis CPPT (SOAP)' }).click();
+    const form = page.getByRole('form', { name: 'Tulis CPPT baru' });
+    await form.getByLabel('S · Subjektif').fill('Tidak ada keluhan baru.');
+    await form.getByLabel('A · Asesmen').fill('Siap pulang hari ini.');
+    await form.getByRole('button', { name: 'Simpan dan tanda tangani (final)' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Final · ditandatangani' })).toBeVisible();
+    await note(page, 'Siap pulang hari ini.')
+      .getByRole('button', { name: /^Koreksi CPPT/ })
+      .click();
+    const fix = page.getByRole('form', { name: 'Koreksi CPPT' });
+    await fix.getByLabel('A · Asesmen').fill('Siap pulang hari ini setelah resume ditandatangani.');
+    await fix.getByLabel('Alasan koreksi').fill('kurang');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(fix.getByText('Wajib minimal 10 karakter · 4 karakter lagi.')).toBeVisible();
+    await fix.getByLabel('Alasan koreksi').fill('Melengkapi syarat pulang');
+    await fix.getByRole('button', { name: 'Simpan koreksi (versi baru)' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Koreksi tersimpan' })).toContainText('versi 2');
+    await expect(
+      note(page, 'setelah resume ditandatangani').getByText('Versi 2 · koreksi: Melengkapi syarat pulang'),
+    ).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('perawat: serah terima SBAR wajib penerima, lalu dikonfirmasi penerima', async ({ page }) => {
+    await openAs(page, ['perawat'], '/klinis/cppt');
+    const panel = page.getByRole('region', { name: 'Serah terima SBAR' });
+    await expect(panel.getByText(/Malam → pagi · diserahkan Ns\. Yudi Pratama/)).toBeVisible();
+    await expect(panel.getByText(/^Diterima .+ · 07\.06$/)).toBeVisible();
+    await expect(panel.getByLabel('R · Rekomendasi')).not.toBeEmpty();
+    await panel.getByRole('button', { name: 'Serahkan shift' }).click();
+    await expect(panel.getByRole('alert')).toHaveText('Pilih perawat penerima shift berikutnya.');
+    await panel.getByLabel('Penerima shift berikutnya').selectOption('Ns. Rosa Elvira, S.Kep');
+    await panel.getByRole('button', { name: 'Serahkan shift' }).click();
+    await expect(
+      panel.getByText('Menunggu konfirmasi Ns. Rosa Elvira, S.Kep', { exact: true }),
+    ).toBeVisible();
+    await panel.getByRole('button', { name: 'Konfirmasi penerimaan (simulasi penerima)' }).click();
+    await expect(panel.getByText(new RegExp(`^Diterima Ns\\. Rosa Elvira, S\\.Kep · ${JAM}$`))).toBeVisible();
+  });
+});
