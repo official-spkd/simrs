@@ -15,35 +15,41 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.describe('FE5 · back office', () => {
-  test('B09 RM administratif: hak subjek data berpemisahan tugas, peminjaman berkas, pemusnahan berurutan', async ({
+  test('B09 RM administratif: hak subjek data berpemisahan tugas (sesi), peminjaman berkas, pemusnahan berurutan; bertahan', async ({
     page,
   }) => {
-    const rm = await createAccount({ roles: ['petugas_rm'] });
-    await loginAs(page, rm, '/');
+    const direksi = await createAccount({ roles: ['manajemen'], displayName: 'Direktur RM Fiktif' });
+    await loginAs(page, direksi, '/');
     await page.goto('/rekam-medis/administrasi');
     await expect(page.getByRole('heading', { name: 'Rekam medis administratif', level: 1 })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Ringkasan rekam medis administratif' })).toContainText(
       '1 lewat tenggat',
     );
 
-    // Pelepasan ke asuransi: verifikasi → penyetuju ≠ penerima → kirim bertanda air.
+    // Pelepasan ke asuransi: pengguna sesi memverifikasi → tidak bisa menyetujui sendiri (pemisahan tugas).
     const verify = page.getByRole('button', { name: 'Verifikasi selesai' });
     await expect(verify).toBeDisabled();
     await expect(page.getByText('Centang ketiga pemeriksaan dulu (0/3).')).toBeVisible();
     for (const box of await page.getByRole('checkbox').all()) await box.check();
     await verify.click();
     await expect(
-      page.getByRole('status').filter({ hasText: 'identitas dan dasar diverifikasi' }),
+      page.getByRole('status').filter({ hasText: 'identitas dan dasar diverifikasi oleh Direktur RM Fiktif' }),
     ).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasRm);
     const approve = page.getByRole('button', { name: 'Setujui pelepasan' });
     await expect(approve).toBeDisabled();
-    await expect(page.getByText(/Penyetuju harus berbeda dari penerima/)).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasPrivasi);
-    await approve.click();
-    await page.getByRole('button', { name: 'Kirim berkas bertanda air' }).click();
-    await expect(page.getByText(/tautan sekali pakai berlaku 24 jam/)).toBeVisible();
-    await expect(page.getByRole('button', { name: /ROI-2610-007/ })).toContainText('Dipenuhi');
+    await expect(page.getByText(/penyetuju harus pengguna lain/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+    // Bertahan setelah muat ulang (tahap + pemverifikasi dari sesi).
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap ROI-2610-007' })).toContainText('Direktur RM Fiktif');
+    await expect(approve).toBeDisabled();
+
+    // Koreksi data yang sudah diverifikasi penerima loket: disetujui pengguna sesi → diterapkan sebagai versi baru.
+    await page.getByRole('button', { name: /ROI-2610-009/ }).click();
+    await page.getByRole('button', { name: 'Setujui koreksi' }).click();
+    await page.getByRole('button', { name: 'Terapkan koreksi' }).click();
+    await expect(page.getByText(/koreksi diterapkan sebagai versi baru/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /ROI-2610-009/ })).toContainText('Dipenuhi');
 
     // Permintaan pengadilan ditolak beralasan.
     await page.getByRole('button', { name: /ROI-2610-005/ }).click();
@@ -75,20 +81,21 @@ test.describe('FE5 · back office', () => {
       page.getByText(/Berkas RM 00-17-55-90 keluar .* kembali paling lambat Kam, 8 Okt 2026/),
     ).toBeVisible();
 
-    // Pemusnahan: elektronik ditolak; fisik berurutan sampai berita acara.
+    // Pemusnahan: elektronik ditolak; usulan oleh pengguna sesi, penyetuju direktur harus pengguna lain.
     await page.getByRole('tab', { name: 'Retensi & pemusnahan' }).click();
     await expect(page.getByRole('button', { name: 'Musnahkan data elektronik' })).toBeDisabled();
-    for (const step of [
-      'Usulkan ke komite RM',
-      'Setujui pemusnahan (direktur)',
-      'Terbitkan berita acara (TTE)',
-      'Catat pemusnahan selesai',
-    ]) {
-      await page.getByRole('button', { name: step }).click();
-    }
-    await expect(
-      page.getByText(/Pemusnahan 2\.217 berkas fisik tercatat dengan berita acara BAP-2026-003/),
-    ).toBeVisible();
+    await page.getByRole('button', { name: 'Usulkan ke komite RM' }).click();
+    await expect(page.getByRole('list', { name: 'Jejak persetujuan' })).toContainText('Direktur RM Fiktif');
+    await expect(page.getByRole('button', { name: 'Setujui pemusnahan (direktur)' })).toBeDisabled();
+    await expect(page.getByText(/Anda pengusul: penyetuju harus pengguna lain/)).toBeVisible();
+
+    // Semua aksi bertahan setelah muat ulang.
+    await page.reload();
+    await page.getByRole('tab', { name: /Peminjaman berkas/ }).click();
+    await expect(loans).toContainText('dr. Bagus Santoso, Sp.JP');
+    await expect(loans.getByText('Terlambat 3 hari')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Retensi & pemusnahan' }).click();
+    await expect(page.getByRole('list', { name: 'Jejak persetujuan' })).toContainText('Direktur RM Fiktif');
 
     await expectNoHorizontalOverflow(page);
   });
@@ -305,10 +312,10 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B05 penggajian: impor jasa pelayanan, PPh 21 manual, hitung, setujui (SoD), posting, slip', async ({
+  test('B05 penggajian: impor jasa pelayanan, PPh 21 manual, hitung (penyusun = sesi), penyetuju harus pengguna lain, bertahan', async ({
     page,
   }) => {
-    const akuntan = await createAccount({ roles: ['akuntan'] });
+    const akuntan = await createAccount({ roles: ['akuntan'], displayName: 'Akuntan Gaji Fiktif' });
     await loginAs(page, akuntan, '/');
     await page.goto('/manajemen/penggajian');
     await expect(page.getByRole('heading', { name: 'Penggajian · Oktober 2026', level: 1 })).toBeVisible();
@@ -321,20 +328,24 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel(`PPh 21 ${PERSONA.apoteker}`).fill('118000');
     await calc.click();
     await expect(page.getByText(/PAY-2610-001: gaji 8 pegawai dihitung/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
 
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.akuntan);
+    // Penyusun = pengguna sesi; penyetuju wajib pengguna lain (bukan nama dari dropdown).
+    await expect(page.getByText(/Disusun Akuntan Gaji Fiktif/)).toBeVisible();
     const approve = page.getByRole('button', { name: 'Setujui run gaji' });
     await expect(approve).toBeDisabled();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.direktur);
-    await approve.click();
-    await page.getByRole('button', { name: 'Posting jurnal gaji' }).click();
-    await expect(page.getByText(/jurnal gaji diposting ke buku besar/)).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Jurnal gaji' })).toContainText('Debit = kredit');
+    await expect(page.getByText(/Anda penyusun run ini: penyetuju harus pengguna lain/)).toBeVisible();
 
+    // Bertahan setelah muat ulang: tahap, PPh 21, dan slip dari hasil hitung.
+    await page.reload();
+    await expect(page.getByLabel(`PPh 21 ${PERSONA.perawat}`)).toHaveValue('95000');
+    await expect(page.getByLabel(`PPh 21 ${PERSONA.perawat}`)).toBeDisabled();
     await page.getByLabel('Pegawai', { exact: true }).selectOption({ label: PERSONA.perawat });
     await expect(page.getByLabel(`Slip ${PERSONA.perawat}`)).toContainText('−Rp 95.000');
-    await page.getByRole('button', { name: 'Kirim slip ke pegawai' }).click();
-    await expect(page.getByText(/Slip 8 pegawai terkirim/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Jurnal gaji' })).toContainText('Debit = kredit');
+    await expect(approve).toBeDisabled();
+    await page.getByRole('button', { name: 'Kembali ke draf' }).click();
+    await expect(calc).toBeEnabled();
 
     await expectNoHorizontalOverflow(page);
   });

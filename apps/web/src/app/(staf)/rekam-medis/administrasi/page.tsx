@@ -15,16 +15,21 @@ const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
 /**
  * B09 · Rekam medis administratif (rencana fase 8 §8.6c, tanpa mockup; isi dari prototipe alur): pelepasan
- * informasi/hak subjek data, peminjaman berkas, retensi dan pemusnahan. Mode presentasi: data dummy (ADR-0023).
+ * informasi/hak subjek data, peminjaman berkas, retensi dan pemusnahan. Mode presentasi: data dummy (ADR-0023),
+ * aksi tersimpan di toko demo (domain `rekam-medis-adm`, ADR-0085).
  */
 export default async function RekamMedisAdministrasiPage() {
   const { session, screen, allowed } = await requireDemoScreen('rm-adm');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getRecordsAdmin();
 
-  const active = d.loans.filter((l) => loanStatus(l, DEMO_TODAY) !== 'kembali');
+  const st = d.store.state;
+  const active = st.loans.filter((l) => loanStatus(l, DEMO_TODAY) !== 'kembali');
   const overdue = active.filter((l) => loanStatus(l, DEMO_TODAY) === 'terlambat').length;
-  const open = d.requests.filter((r) => r.stage < 3);
+  const open = d.requests.filter((r) => {
+    const p = st.roi[r.id];
+    return !p || (p.stage < 3 && !p.rejected);
+  });
   const tones = open.map((r) => deadlineTone(hoursLeft(roiDeadline(r.receivedAt), DEMO_NOW)));
   const late = tones.filter((t) => t === 'lewat').length;
   const near = tones.filter((t) => t === 'mendekati').length;
@@ -74,6 +79,8 @@ export default async function RekamMedisAdministrasiPage() {
         today={DEMO_TODAY}
         now={DEMO_NOW}
         operator={session.user.displayName}
+        viewerId={session.user.id}
+        viewerRole={session.role?.code ?? null}
         counts={{ overdue, openRequests: open.length }}
       />
     </div>

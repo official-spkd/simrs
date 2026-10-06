@@ -5,7 +5,6 @@ import {
   RECORD_FILES,
   RECORD_LOANS,
   RETENTION_BATCHES,
-  ROI_APPROVERS,
   ROI_REQUESTS,
 } from '../../demo/fixtures/rekam-medis-adm';
 import {
@@ -82,9 +81,9 @@ export async function getRecordsAdmin() {
       const p = patientById(r.patientId);
       return { ...r, patientName: p?.nama ?? '—', rm: p?.rm ?? '—' };
     }),
-    approvers: ROI_APPROVERS,
     batches: RETENTION_BATCHES,
     destructionActors: DESTRUCTION_ACTORS,
+    store: await readDomain('rekam-medis-adm'),
   };
 }
 export type RecordsAdminData = Awaited<ReturnType<typeof getRecordsAdmin>>;

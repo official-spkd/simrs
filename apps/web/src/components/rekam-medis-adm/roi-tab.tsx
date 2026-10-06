@@ -1,24 +1,22 @@
 'use client';
 
-import { formatJam, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggal, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone } from '@simrs/ui';
 import { useState } from 'react';
 import {
   CheckField,
   ConfirmBox,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
   PickRow,
   ReasonButton,
-  SelectField,
   StageTrack,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { RoiRequest } from '@/lib/demo/fixtures/rekam-medis-adm';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
-  approvalBlock,
   deadlineText,
   deadlineTone,
   hoursLeft,
@@ -29,16 +27,9 @@ import {
   roiDeadline,
   verificationBlock,
 } from '@/lib/rekam-medis-adm';
+import { MIN_ROI_REJECT, ROI_APPROVER_ROLES, type RoiProgress } from '@/lib/rekam-medis-adm-toko';
 
 export type RoiView = RoiRequest & { patientName: string; rm: string };
-
-interface RoiState {
-  stage: number;
-  checks: boolean[];
-  approver: string;
-  at: Record<number, string>;
-  rejected: { reason: string; at: string } | null;
-}
 
 const TONE: Record<ReturnType<typeof deadlineTone>, ChipTone> = {
   aman: 'neutral',
@@ -46,45 +37,36 @@ const TONE: Record<ReturnType<typeof deadlineTone>, ChipTone> = {
   lewat: 'danger',
 };
 
-function initial(r: RoiView): RoiState {
-  return {
-    stage: r.stage,
-    checks: ROI_CHECKS.map(() => r.stage > 0),
-    approver: '',
-    at: r.verifiedAt ? { 1: formatTanggalWaktu(r.verifiedAt) } : {},
-    rejected: null,
-  };
-}
-
 /**
- * B09 · Pelepasan informasi & hak subjek data (UU PDP): diajukan → verifikasi identitas dan dasar (3 centang) →
- * disetujui orang lain dari penerima (pemisahan tugas) → dipenuhi (berkas bertanda air sekali pakai 24 jam, atau
- * koreksi sebagai versi baru). Tenggat 3×24 jam terlihat di daftar; tolak wajib beralasan.
+ * B09 · Pelepasan informasi & hak subjek data (UU PDP): diajukan → verifikasi identitas dan dasar (3 centang, oleh
+ * pengguna sesi) → disetujui PENGGUNA LAIN (posisi Petugas privasi/Manajemen; pemisahan tugas memakai ID sesi) →
+ * dipenuhi (berkas bertanda air sekali pakai 24 jam, atau koreksi sebagai versi baru). Tenggat 3×24 jam terlihat di
+ * daftar; tolak wajib beralasan. Tersimpan di toko demo (domain `rekam-medis-adm`).
  */
 export function RoiTab({
   requests,
-  approvers,
+  progress,
+  rev,
   now,
   operator,
+  viewerId,
+  viewerRole,
 }: {
   requests: readonly RoiView[];
-  approvers: ReadonlyArray<{ name: string; role: string }>;
+  progress: Readonly<Record<string, RoiProgress>>;
+  rev: number;
   /** Jam acuan tenggat saat halaman dibuka (ISO). */
   now: string;
   operator: string;
+  viewerId: string;
+  viewerRole: string | null;
 }) {
   const [sel, setSel] = useState(requests[0]?.id ?? '');
-  const [state, setState] = useState<Record<string, RoiState>>(() =>
-    Object.fromEntries(requests.map((r) => [r.id, initial(r)])),
-  );
+  const [checks, setChecks] = useState<Record<string, boolean[]>>({});
   const [rejecting, setRejecting] = useState(false);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('rekam-medis-adm', rev);
   const r = requests.find((x) => x.id === sel);
-  const s = r ? state[r.id] : undefined;
-
-  const update = (id: string, patch: Partial<RoiState>) =>
-    setState((cur) => ({ ...cur, [id]: { ...(cur[id] as RoiState), ...patch } }));
-  const stamp = () => formatTanggalWaktu(demoNow());
+  const s = r ? progress[r.id] : undefined;
 
   if (!r || !s) {
     return (
@@ -97,40 +79,44 @@ export function RoiTab({
   const deadline = roiDeadline(r.receivedAt);
   const left = hoursLeft(deadline, now);
   const done = s.stage >= 3;
-  const verifyBlock = verificationBlock(s.checks);
-  const approveBlock = approvalBlock(r.receiver, s.approver || null);
+  const myChecks = checks[r.id] ?? ROI_CHECKS.map(() => false);
+  const verifyBlock = pending ? 'Menyimpan…' : verificationBlock(myChecks);
+  const approveBlock = pending
+    ? 'Menyimpan…'
+    : !viewerRole || !(ROI_APPROVER_ROLES as readonly string[]).includes(viewerRole)
+      ? 'Penyetuju: posisi Petugas privasi atau Manajemen.'
+      : s.verifiedBy?.userId === viewerId || operator === r.receiver
+        ? 'Anda yang memverifikasi/menerima permintaan ini: penyetuju harus pengguna lain (pemisahan tugas).'
+        : null;
+  const stamp = (i: number) => {
+    const at = i === 1 ? s.verifiedAt : i === 2 ? s.approvedAt : i === 3 ? s.fulfilledAt : null;
+    return at ? formatTanggalWaktu(at) : null;
+  };
+  const who = (i: number) => (i === 1 ? s.verifiedBy : i === 2 ? s.approvedBy : i === 3 ? s.fulfilledBy : null)?.name;
 
-  const verify = () => {
-    if (verifyBlock) return;
-    update(r.id, { stage: 1, at: { ...s.at, 1: stamp() } });
-    setFlash({
-      ok: true,
-      text: `${r.number}: identitas dan dasar diverifikasi oleh ${operator} · ${formatJam(demoNow())}.`,
-    });
-  };
-  const approve = () => {
-    if (approveBlock) return;
-    update(r.id, { stage: 2, at: { ...s.at, 2: stamp() } });
-    setFlash({ ok: true, text: `${r.number} disetujui ${s.approver} · ${formatJam(demoNow())}.` });
-  };
-  const fulfil = () => {
-    update(r.id, { stage: 3, at: { ...s.at, 3: stamp() } });
-    setFlash({
-      ok: true,
-      text:
-        r.kind === 'koreksi'
-          ? `${r.number}: koreksi diterapkan sebagai versi baru data identitas · ${formatJam(demoNow())}; data lama tetap tersimpan dan pasien diberi tahu (simulasi, tidak disimpan).`
-          : `${r.number}: berkas bertanda air dikirim ke ${r.requester} · ${formatJam(demoNow())}; tautan sekali pakai berlaku 24 jam dan tercatat di log akses pasien (simulasi, tidak disimpan).`,
-    });
-  };
-  const reject = (reason: string) => {
-    update(r.id, { rejected: { reason, at: stamp() } });
-    setRejecting(false);
-    setFlash({
-      ok: false,
-      text: `${r.number} ditolak · ${formatJam(demoNow())}: ${reason}. Pemohon diberi tahu alasannya.`,
-    });
-  };
+  const verify = () =>
+    act(
+      { type: 'roi.diverifikasi', id: r.id, when: demoStamp().when },
+      `${r.number}: identitas dan dasar diverifikasi oleh ${operator} · ${demoStamp().jam}.`,
+    );
+  const approve = () =>
+    act(
+      { type: 'roi.disetujui', id: r.id, when: demoStamp().when },
+      `${r.number} disetujui ${operator} · ${demoStamp().jam}.`,
+    );
+  const fulfil = () =>
+    act(
+      { type: 'roi.dipenuhi', id: r.id, when: demoStamp().when },
+      r.kind === 'koreksi'
+        ? `${r.number}: koreksi diterapkan sebagai versi baru data identitas · ${demoStamp().jam}; data lama tetap tersimpan dan pasien diberi tahu.`
+        : `${r.number}: berkas bertanda air dikirim ke ${r.requester} · ${demoStamp().jam}; tautan sekali pakai berlaku 24 jam dan tercatat di log akses pasien.`,
+    );
+  const reject = (reason: string) =>
+    act(
+      { type: 'roi.ditolak', id: r.id, reason, when: demoStamp().when },
+      null,
+      () => setRejecting(false),
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -143,7 +129,7 @@ export function RoiTab({
             flush
           >
             {requests.map((x) => {
-              const st = state[x.id] as RoiState;
+              const st = progress[x.id] as RoiProgress;
               const h = hoursLeft(roiDeadline(x.receivedAt), now);
               const finished = st.stage >= 3 || st.rejected;
               return (
@@ -186,7 +172,12 @@ export function RoiTab({
               label={`Tahap ${r.number}`}
               stages={ROI_STAGES.map((label, i) => ({
                 label,
-                at: i === 0 ? formatTanggalWaktu(r.receivedAt) : (s.at[i] ?? null),
+                at:
+                  i === 0
+                    ? formatTanggalWaktu(r.receivedAt)
+                    : stamp(i)
+                      ? `${stamp(i)}${who(i) ? ` · ${who(i)}` : ''}`
+                      : null,
               }))}
               current={done ? ROI_STAGES.length : s.stage + 1}
               rejected={!!s.rejected}
@@ -202,7 +193,10 @@ export function RoiTab({
             <hr className="m-0 border-0 border-t border-line" />
 
             {s.rejected ? (
-              <Alert level="critical" title={`Ditolak · ${s.rejected.at}`}>
+              <Alert
+                level="critical"
+                title={`Ditolak · ${formatTanggalWaktu(s.rejected.when)} oleh ${s.rejected.by.name}`}
+              >
                 {s.rejected.reason}
               </Alert>
             ) : s.stage === 0 ? (
@@ -214,8 +208,10 @@ export function RoiTab({
                   <CheckField
                     key={c}
                     label={c}
-                    checked={s.checks[i] ?? false}
-                    onChange={(v) => update(r.id, { checks: s.checks.map((x, j) => (j === i ? v : x)) })}
+                    checked={myChecks[i] ?? false}
+                    onChange={(v) =>
+                      setChecks((cur) => ({ ...cur, [r.id]: myChecks.map((x, j) => (j === i ? v : x)) }))
+                    }
                   />
                 ))}
                 <span className="flex flex-wrap items-start gap-2">
@@ -232,7 +228,7 @@ export function RoiTab({
                   <ConfirmBox
                     title={`Tolak ${r.number}?`}
                     confirmLabel="Tolak permintaan"
-                    minReason={10}
+                    minReason={MIN_ROI_REJECT}
                     reasonLabel="Alasan penolakan (dikirim ke pemohon, tercatat)"
                     danger
                     onCancel={() => setRejecting(false)}
@@ -245,14 +241,10 @@ export function RoiTab({
               </div>
             ) : s.stage === 1 ? (
               <div className="flex flex-col gap-3">
-                <SelectField
-                  label="Penyetuju"
-                  value={s.approver}
-                  onChange={(v) => update(r.id, { approver: v })}
-                  placeholder="Pilih penyetuju…"
-                  options={approvers.map((a) => [a.name, `${a.name} · ${a.role}`])}
-                  hint={`Penerima permintaan: ${r.receiver}. Penyetuju wajib orang lain.`}
-                />
+                <span className="text-small text-ink-700">
+                  Diverifikasi {s.verifiedBy?.name ?? r.receiver}. Penyetuju = pengguna yang masuk (posisi
+                  Petugas privasi atau Manajemen), wajib orang lain.
+                </span>
                 <ReasonButton reason={approveBlock} onClick={approve}>
                   Setujui {r.kind === 'koreksi' ? 'koreksi' : 'pelepasan'}
                 </ReasonButton>
@@ -273,7 +265,7 @@ export function RoiTab({
                     ))}
                   </ul>
                   <span>
-                    <Button variant="primary" onClick={fulfil}>
+                    <Button variant="primary" disabled={pending} onClick={fulfil}>
                       Terapkan koreksi
                     </Button>
                   </span>
@@ -304,14 +296,14 @@ export function RoiTab({
                     jam.
                   </span>
                   <span>
-                    <Button variant="primary" onClick={fulfil}>
+                    <Button variant="primary" disabled={pending} onClick={fulfil}>
                       Kirim berkas bertanda air
                     </Button>
                   </span>
                 </div>
               )
             ) : (
-              <Alert level="success" title={`Dipenuhi · ${s.at[3] ?? ''}`}>
+              <Alert level="success" title={`Dipenuhi · ${stamp(3) ?? ''} · ${who(3) ?? ''}`}>
                 {r.kind === 'koreksi'
                   ? 'Data identitas versi baru berlaku; versi lama tetap tersimpan dan bisa ditelusuri. Pasien menerima pemberitahuan di aplikasi.'
                   : `Tautan sekali pakai terkirim ke ${r.requester}. Pelepasan tercatat di log akses pasien.`}

@@ -56,8 +56,13 @@ export function PayrollBoard({
   const stage = state.stage;
   const imported = state.imported;
   const { act, pending, flash } = useTokoAction('penggajian', rev);
-  const [pph, setPph] = useState<Record<string, string>>(() =>
-    Object.fromEntries(inputs.map((i) => [i.employeeId, i.pph21 === null ? '' : String(i.pph21)])),
+  // Isian PPh 21 yang sedang diketik; selain itu nilai tersimpan run (toko) atau nilai awal fixture.
+  const [pphEdit, setPph] = useState<Record<string, string>>({});
+  const pph = Object.fromEntries(
+    inputs.map((i) => [
+      i.employeeId,
+      pphEdit[i.employeeId] ?? state.pph[i.employeeId] ?? (i.pph21 === null ? '' : String(i.pph21)),
+    ]),
   );
   const [slipFor, setSlipFor] = useState(inputs[0]?.employeeId ?? '');
   const draftPph = Object.fromEntries(
