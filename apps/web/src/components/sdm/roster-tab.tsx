@@ -75,8 +75,9 @@ export function RosterTab({
     act(
       { type: 'dinas.ditambah', day: cell.day, shift: cell.shift, staffId: pick },
       `${who?.name ?? ''} ditambahkan ke dinas ${SHIFT_LABEL[cell.shift].toLowerCase()} ${dayLabels[cell.day]}.`,
-      () => setPick(''),
     );
+    // Pilihan dikosongkan saat itu juga (bukan sesudah server menjawab), agar pilihan sel berikutnya tidak terhapus.
+    setPick('');
   };
   const remove = (id: string) => {
     if (!cell) return;

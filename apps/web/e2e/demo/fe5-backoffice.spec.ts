@@ -201,6 +201,7 @@ test.describe('FE5 · back office', () => {
       await page.getByRole('button', { name: cell }).click();
       await page.getByLabel('Tambah perawat').selectOption(id);
       await page.getByRole('button', { name: 'Tambahkan ke dinas' }).click();
+      await expect(roster.getByRole('status')).toContainText('ditambahkan ke dinas');
     };
     await fill(/^Siang Rab 14/, 'peg-0014');
     await fill(/^Malam Sab 17/, 'peg-0014');
