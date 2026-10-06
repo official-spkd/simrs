@@ -66,4 +66,8 @@
 ## Gerbang
 
 - `pnpm lint`, `pnpm typecheck`, `pnpm test` (apps/web: 143 berkas, 969 tes): hijau.
-- E2E terarah (manajemen, dasbor, fe5-backoffice, fondasi, akses, audit, notifikasi, panduan, smoke): lihat laporan akhir PK-5.
+- E2E terarah (slot cxc; manajemen, dasbor, fe5-backoffice, fondasi, akses, audit, notifikasi, panduan, smoke), putaran 1: 124 lulus, 3 gagal, 1 dilewati.
+  - Dua kegagalan nyata di `/dev/ui` (desktop + tablet): kotak alasan pembatalan diukur saat animasi skala (42 px). Animasi di kotak itu sudah dihapus.
+  - Satu kegagalan B03 SDM [demo-desktop]: NIK tidak tampil. Penyebabnya keadaan toko demo bersama yang dipakai paralel dengan proyek tablet, dan tes yang sama lulus di tablet.
+  - Ulangan terarah ketiga tes itu: 9/9 lulus.
+- Penjalan E2E lokal: `scratchpad/pk5/run-e2e.sh` (memuat `cx3/env.sh`; perlu `pnpm turbo run build --filter='./packages/*'` lebih dulu).

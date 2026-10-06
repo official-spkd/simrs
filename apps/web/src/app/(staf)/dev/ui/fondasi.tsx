@@ -813,7 +813,7 @@ export function Fondasi() {
               </Button>
             </div>
             {cancelOpen && (
-              <div className="flex animate-pal-in flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical px-3.5 py-3">
+              <div className="flex flex-col gap-2 rounded-control border border-koral-200 bg-alert-critical px-3.5 py-3">
                 <Field
                   label="Alasan pembatalan"
                   required
