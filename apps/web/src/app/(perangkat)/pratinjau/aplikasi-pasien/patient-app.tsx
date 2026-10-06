@@ -1,13 +1,21 @@
 'use client';
 
-import type { PatientAppHome } from '@simrs/shared';
+import { formatJam, type PatientAppHome } from '@simrs/shared';
 import { cx, Icon, type IconName } from '@simrs/ui';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { FamilyAccess } from './family-access';
 import { GlucoseCard } from './glucose-card';
-import { buildPatientPages, isSubKey, type SubKey, type TabKey } from './patient-pages';
+import {
+  buildPatientPages,
+  type FeedItem,
+  isSubKey,
+  queueNotification,
+  type SubKey,
+  type TabKey,
+} from './patient-pages';
 import { QueueCard } from './queue-card';
 
 const MENU: Array<{ key: SubKey; label: string; icon: IconName }> = [
@@ -38,13 +46,19 @@ const DOT: Record<PatientAppHome['feed'][number]['tone'], string> = {
 export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: string }) {
   const [tab, setTab] = useState<TabKey>('beranda');
   const [sub, setSub] = useState<SubKey | null>(null);
-  const pages = buildPatientPages(home);
+  /** Notifikasi dari simulasi antrean maju (mockup AppPasien: saat tersisa 3 dan saat giliran tiba). */
+  const [queueNotes, setQueueNotes] = useState<FeedItem[]>([]);
+  const pages = buildPatientPages(home, queueNotes);
   const page = sub ? pages[sub] : tab === 'beranda' ? null : pages[tab];
   const badge: Partial<Record<SubKey, string>> = {
     lab: home.labResults.length ? `${home.labResults.length} baru` : undefined,
     obat: home.medicines.length ? `${home.medicines.length} aktif` : undefined,
   };
   const q = home.queue;
+  const onAdvance = (ahead: number) => {
+    const note = queueNotification(q, ahead, formatJam(demoNow()));
+    if (note) setQueueNotes((cur) => [note, ...cur]);
+  };
 
   return (
     <PhoneFrame time="10.45">
@@ -52,10 +66,10 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[12px] text-ink-500">{rsName}</span>
           <span className="text-[13px] text-ink-700">Selamat pagi,</span>
-          <span className="text-[19px] font-semibold">{home.greeting}</span>
+          <span className="text-[22px] leading-tight font-bold">{home.greeting}</span>
         </span>
         <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 font-semibold text-brand-700"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,#1D7E77,#0B5D56)] font-semibold text-white"
           role="img"
           aria-label={`Akun ${home.fullName}`}
         >
@@ -77,7 +91,12 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
           />
         ) : (
           <>
-            <QueueCard key={`${q.stage}-${q.number}-${q.serving}-${q.ahead}`} queue={q} payer={home.payer} />
+            <QueueCard
+              key={`${q.stage}-${q.number}-${q.serving}-${q.ahead}`}
+              queue={q}
+              payer={home.payer}
+              onAdvance={onAdvance}
+            />
             <section aria-label="Menu" className="grid grid-cols-4 gap-2">
               {MENU.map((m) => (
                 <button
@@ -86,7 +105,7 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
                   onClick={() => setSub(m.key)}
                   className="relative flex min-h-[78px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[14px] border border-line bg-white px-1 font-[inherit] text-[12px] leading-tight text-ink-900"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-brand-50 text-brand-700">
                     <Icon name={m.icon} size={19} />
                   </span>
                   {m.label}
@@ -113,7 +132,7 @@ export function PatientApp({ home, rsName }: { home: PatientAppHome; rsName: str
                 </button>
               </span>
               <ul className="m-0 flex list-none flex-col p-0">
-                {home.feed.slice(0, 3).map((f) => (
+                {home.feed.slice(0, 4).map((f) => (
                   <li
                     key={f.id}
                     className="flex items-start gap-2.5 border-b border-[#EEF1F4] py-2 last:border-0"

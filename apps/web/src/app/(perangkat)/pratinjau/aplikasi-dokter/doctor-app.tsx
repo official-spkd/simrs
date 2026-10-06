@@ -2,6 +2,7 @@
 
 import { type DoctorAppInbox, formatJam } from '@simrs/shared';
 import { Chip, type ChipTone, cx, Icon, type IconName } from '@simrs/ui';
+import Link from 'next/link';
 import { useState } from 'react';
 import { AppPageView } from '@/components/manajemen/app-page-view';
 import { PhoneFrame } from '@/components/manajemen/phone-frame';
@@ -31,16 +32,21 @@ export function DoctorApp({
   inbox,
   rev,
   labOrdered,
+  orderHref,
 }: {
   inbox: DoctorAppInbox;
   rev: number;
   /** Order lab Tn. Hartono sudah dikirim di skenario IGD (lihat `getDoctorAppInbox`). */
   labOrdered: boolean;
+  /** CPOE kunjungan IGD Tn. Hartono, bila kunjungan itu sedang terbuka di CPOE. */
+  orderHref: string | null;
 }) {
   const [tab, setTab] = useState<DoctorTab>('pasien');
   const [pt, setPt] = useState<string | null>(null);
   const [csIdx, setCsIdx] = useState(0);
   const [localAccepted, setLocalAccepted] = useState<string | null>(null);
+  /** "Keluar" di tab Profil (mockup AppDokter): hanya keluar dari pratinjau ponsel, sesi SIM RS tetap. */
+  const [signedOut, setSignedOut] = useState(false);
   const c = inbox.critical;
   const accepted = c.state === 'diterima' ? c.acceptedAt : localAccepted;
   const left = inbox.cosign.length - csIdx;
@@ -57,21 +63,55 @@ export function DoctorApp({
     <PhoneFrame time="10.45">
       <header className="flex shrink-0 flex-col bg-white px-5 pt-1 pb-3">
         <span className="truncate text-[12px] text-ink-500">{inbox.doctorName} · jaga konsulen</span>
-        <span className="text-[19px] font-semibold">{title}</span>
+        <span className="text-[22px] leading-tight font-bold">{title}</span>
       </header>
       <main
         tabIndex={0}
         aria-label="Isi aplikasi"
         className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4 py-4 outline-none *:shrink-0"
       >
-        {tab !== 'pasien' ? (
-          <AppPageView page={pages[tab]} />
+        {signedOut ? (
+          <section
+            aria-label="Keluar"
+            className="flex flex-col items-center gap-3 rounded-[16px] border border-line bg-white p-5 text-center"
+          >
+            <span role="status" className="font-semibold">
+              Anda sudah keluar dari aplikasi dokter
+            </span>
+            <span className="text-[13px] text-ink-700">
+              Notifikasi nilai kritis berhenti dikirim ke ponsel ini sampai Anda masuk lagi (simulasi; sesi
+              SIM RS di komputer tetap aktif).
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSignedOut(false);
+                setTab('pasien');
+              }}
+              className="h-12 w-full cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
+            >
+              Masuk lagi
+            </button>
+          </section>
+        ) : tab !== 'pasien' ? (
+          <>
+            <AppPageView page={pages[tab]} />
+            {tab === 'profil' && (
+              <button
+                type="button"
+                onClick={() => setSignedOut(true)}
+                className="h-12 cursor-pointer rounded-[12px] border border-line-strong bg-white font-[inherit] font-semibold text-danger"
+              >
+                Keluar
+              </button>
+            )}
+          </>
         ) : detail ? (
           <section aria-label="Detail pasien" className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => setPt(null)}
-              className="flex h-11 w-fit cursor-pointer items-center gap-1 border-0 bg-transparent px-0 font-[inherit] font-semibold text-brand-700"
+              className="flex h-11 w-fit cursor-pointer items-center gap-1 rounded-[12px] border border-line bg-white pr-3.5 pl-2 font-[inherit] font-semibold text-brand-700"
             >
               <Icon name="chevronLeft" size={20} />
               Daftar pasien
@@ -112,6 +152,14 @@ export function DoctorApp({
                 </div>
               ))}
             </dl>
+            {detail.id === DOCTOR_APP_PATIENT_ID.hartono && orderHref && (
+              <Link
+                href={orderHref}
+                className="flex h-12 items-center justify-center rounded-[12px] border border-brand-800 bg-brand-600 font-semibold text-white no-underline"
+              >
+                Buka order pasien
+              </Link>
+            )}
           </section>
         ) : (
           <>
@@ -120,20 +168,21 @@ export function DoctorApp({
               rev={rev}
               labOrdered={labOrdered}
               acceptedLocally={localAccepted}
+              orderHref={orderHref}
               onAcceptLocal={() => setLocalAccepted(formatJam(demoNow()))}
               onOpenPatient={() => setPt(DOCTOR_APP_PATIENT_ID.hartono)}
             />
             <section aria-label="Tugas" className="grid grid-cols-3 gap-2">
               {[
-                { n: left, l: 'Co-sign residen' },
-                { n: inbox.orderVerifyCount, l: 'Order perlu verifikasi' },
-                { n: inbox.coderQueryCount, l: 'Query koder' },
+                { n: left, l: 'Co-sign residen', fg: 'text-brand-700' },
+                { n: inbox.orderVerifyCount, l: 'Order perlu verifikasi', fg: 'text-warning' },
+                { n: inbox.coderQueryCount, l: 'Query koder', fg: 'text-info' },
               ].map((t) => (
                 <span
                   key={t.l}
                   className="flex flex-col rounded-[14px] border border-line bg-white px-2.5 py-2"
                 >
-                  <span className="font-mono text-[20px] font-semibold text-brand-700">{t.n}</span>
+                  <span className={cx('font-mono text-[22px] font-bold', t.fg)}>{t.n}</span>
                   <span className="text-[11.5px] leading-tight text-ink-700">{t.l}</span>
                 </span>
               ))}

@@ -48,7 +48,7 @@ export function AppPageView({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-fit cursor-pointer items-center gap-1 border-0 bg-transparent px-0 font-[inherit] font-semibold text-brand-700"
+          className="flex h-11 w-fit cursor-pointer items-center gap-1 rounded-[12px] border border-line bg-white pr-3.5 pl-2 font-[inherit] font-semibold text-brand-700"
         >
           <Icon name="chevronLeft" size={20} />
           {backLabel}
