@@ -7,6 +7,8 @@ export const PO_STAGES = ['usulan', 'persetujuan', 'PO / e-katalog', 'kirim', 't
 export interface ProcurementRow extends PurchaseOrder {
   /** Teks persetujuan lokal ("Disetujui direktur 10.47 · …"), bila ada. */
   approvedText?: string;
+  /** Teks penerimaan lokal (GR, stok, utang), bila barang sudah diterima di layar ini. */
+  receivedText?: string;
 }
 
 /** "Pengadaan berjalan" (mockup Logistik): 5 tahap per PO, tombol Setujui untuk tahap usulan. */
@@ -14,11 +16,14 @@ export function ProcurementList({
   orders,
   canApprove,
   onApprove,
+  onReceive,
 }: {
   orders: ProcurementRow[];
   /** Hanya posisi Manajemen (direktur) yang menyetujui; posisi lain melihat alasannya. */
   canApprove: boolean;
   onApprove: (id: string) => void;
+  /** Tahap "kirim": buka penerimaan barang (PO yang punya baris penerimaan). */
+  onReceive?: (id: string) => void;
 }) {
   return (
     <section
@@ -30,7 +35,7 @@ export function ProcurementList({
       </h2>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {orders.map((p) => {
-          const stage = p.approvedText ? 2 : p.stage;
+          const stage = p.receivedText ? 5 : p.approvedText ? 2 : p.stage;
           return (
             <li
               key={p.id}
@@ -57,9 +62,18 @@ export function ProcurementList({
                 ))}
               </span>
               <span className="flex flex-wrap items-center justify-between gap-2 text-[12.5px]">
-                <span className={cx(p.approvedText ? 'font-semibold text-success' : 'text-ink-700')}>
-                  {p.approvedText ?? p.statusText}
+                <span
+                  className={cx(
+                    p.approvedText || p.receivedText ? 'font-semibold text-success' : 'text-ink-700',
+                  )}
+                >
+                  {p.receivedText ?? p.approvedText ?? p.statusText}
                 </span>
+                {stage === 4 && onReceive && (
+                  <Button onClick={() => onReceive(p.id)}>
+                    Terima barang<span className="sr-only"> {p.id}</span>
+                  </Button>
+                )}
                 {stage === 1 &&
                   (canApprove ? (
                     <Button onClick={() => onApprove(p.id)}>Setujui</Button>

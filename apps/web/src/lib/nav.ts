@@ -60,6 +60,9 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'igd', label: 'IGD', href: '/klinis/igd', icon: 'pulse', available: false },
       { id: 'ranap', label: 'Rawat inap', href: '/klinis/rawat-inap', icon: 'bed', available: false },
       { id: 'bed', label: 'Tempat tidur', href: '/klinis/tempat-tidur', icon: 'layout', available: false },
+      // FE5 · onkologi (B11)
+      { id: 'onkologi', label: 'Onkologi', href: '/klinis/onkologi', icon: 'pulse', available: false },
+      // FE5 · akhir onkologi
     ],
   },
   {
@@ -178,6 +181,73 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],
   },
+  // FE5 · back office fase 8 (B02–B13) dan command center/dataset riset fase 9
+  {
+    title: 'BACK OFFICE',
+    items: [
+      {
+        id: 'rm-adm',
+        label: 'RM administratif',
+        href: '/rekam-medis/administrasi',
+        icon: 'folder',
+        available: false,
+      },
+      { id: 'sdm', label: 'SDM & kepegawaian', href: '/manajemen/sdm', icon: 'users', available: false },
+      {
+        id: 'kredensial',
+        label: 'Kredensial & kewenangan',
+        href: '/manajemen/kredensial',
+        icon: 'idCard',
+        available: false,
+      },
+      { id: 'ppi', label: 'PPI', href: '/manajemen/ppi', icon: 'shield', available: false },
+      { id: 'aset', label: 'Aset & pemeliharaan', href: '/manajemen/aset', icon: 'box', available: false },
+      {
+        id: 'penggajian',
+        label: 'Penggajian',
+        href: '/manajemen/penggajian',
+        icon: 'wallet',
+        available: false,
+      },
+      { id: 'ppra', label: 'PPRA', href: '/manajemen/ppra', icon: 'pill', available: false },
+      {
+        id: 'regdok',
+        label: 'Dokumen & akreditasi',
+        href: '/manajemen/dokumen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      {
+        id: 'pengaduan',
+        label: 'Pengalaman pasien',
+        href: '/manajemen/pengaduan',
+        icon: 'bell',
+        available: false,
+      },
+      {
+        id: 'pendidikan',
+        label: 'Pendidikan klinik',
+        href: '/manajemen/pendidikan',
+        icon: 'book',
+        available: false,
+      },
+      {
+        id: 'command-center',
+        label: 'Command center',
+        href: '/manajemen/command-center',
+        icon: 'layout',
+        available: false,
+      },
+      {
+        id: 'dataset-riset',
+        label: 'Dataset riset',
+        href: '/manajemen/dataset-riset',
+        icon: 'search',
+        available: false,
+      },
+    ],
+  },
+  // FE5 · akhir
   {
     title: 'SISTEM',
     items: [
