@@ -29,6 +29,16 @@ export const NAV_GROUPS: WebNavGroup[] = [
       { id: 'kendali', label: 'Kendali antrean', href: '/antrean', icon: 'list', available: false },
       { id: 'antrean', label: 'Antrean', href: '/display/antrean', icon: 'list', available: false },
       { id: 'jadwal', label: 'Jadwal dokter', href: '/jadwal', icon: 'cal', available: false },
+      // FE1 · front office (mode presentasi)
+      { id: 'rujukan', label: 'Rujukan', href: '/rujukan', icon: 'arrowRight', available: false },
+      {
+        id: 'info-publik',
+        label: 'Info publik',
+        href: '/pratinjau/info-publik',
+        icon: 'info',
+        available: false,
+      },
+      // FE1 · akhir
     ],
   },
   {
@@ -115,6 +125,15 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: true,
         requires: 'patient.merge',
       },
+      // FE1 · dokumen rekam medis (mode presentasi)
+      {
+        id: 'dokumen',
+        label: 'Dokumen & TTE',
+        href: '/rekam-medis/dokumen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      // FE1 · akhir
       { id: 'logistik', label: 'Logistik', href: '/manajemen/logistik', icon: 'box', available: false },
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],
@@ -178,6 +197,39 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       // FE3 · akhir konektor
+      // FE1 · platform dan operasional (mode presentasi)
+      { id: 'struktur', label: 'Struktur RS', href: '/sistem/struktur', icon: 'layout', available: false },
+      {
+        id: 'pengaturan',
+        label: 'Pengaturan RS',
+        href: '/sistem/pengaturan',
+        icon: 'menu',
+        available: false,
+      },
+      {
+        id: 'terminologi',
+        label: 'Data rujukan',
+        href: '/sistem/terminologi',
+        icon: 'book',
+        available: false,
+      },
+      {
+        id: 'penjadwal',
+        label: 'Penjadwal pekerjaan',
+        href: '/sistem/penjadwal',
+        icon: 'clock',
+        available: false,
+      },
+      { id: 'downtime', label: 'Mode downtime', href: '/sistem/downtime', icon: 'alert', available: false },
+      {
+        id: 'cadangan',
+        label: 'Cadangan & pemulihan',
+        href: '/sistem/cadangan',
+        icon: 'box',
+        available: false,
+      },
+      { id: 'golive', label: 'Kesiapan go-live', href: '/sistem/go-live', icon: 'check', available: false },
+      // FE1 · akhir
     ],
   },
 ];

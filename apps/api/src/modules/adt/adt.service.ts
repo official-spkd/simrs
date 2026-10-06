@@ -122,6 +122,7 @@ export class AdtService {
     if (req.status !== 'menunggu' && req.status !== 'dialokasi') {
       throw new AppError('CONFLICT', 'Permintaan bed sudah ditutup', 409);
     }
+    await this.assertRequestScope(req, { openRequestAnyUnit: true });
     const bed = await this.beds.bedByLocation(locationId);
     await this.assertUnitScope(bed.unitId);
     if (bed.status !== 'siap') throw clinicalError('BED_NOT_AVAILABLE');
@@ -164,6 +165,7 @@ export class AdtService {
     if (req.status !== 'menunggu' && req.status !== 'dialokasi') {
       throw new AppError('CONFLICT', 'Permintaan bed sudah ditutup', 409);
     }
+    await this.assertRequestScope(req, { openRequestAnyUnit: false });
     if (req.allocatedLocationId) {
       const bed = await this.beds.bedByLocation(req.allocatedLocationId);
       if (bed.status === 'dipesan' && bed.encounterId === req.encounterId) {
@@ -333,6 +335,8 @@ export class AdtService {
     if (location.unit.kind !== 'rawat_inap') throw invalid('Bed tujuan harus di unit rawat inap');
     const reservedForMe = target.status === 'dipesan' && target.encounterId === enc.id;
     if (target.status !== 'siap' && !reservedForMe) throw clinicalError('BED_NOT_AVAILABLE');
+    // Lingkup unit: bed `siap` di unit lain hanya lewat permintaan + alokasi oleh unit tujuan (bed `dipesan`).
+    if (!reservedForMe) await this.assertUnitScope(target.unitId);
     const now = new Date();
     const from = await this.beds.endOpenAssignment(enc.id, 'transfer', now);
     if (from === input.locationId) throw invalid('Bed tujuan sama dengan bed sekarang');
@@ -569,6 +573,26 @@ export class AdtService {
     if (!enc) throw new AppError('NOT_FOUND', 'Kunjungan tidak ditemukan', 404);
     if (!(ACTIVE as readonly string[]).includes(enc.status)) throw stateInvalid('Kunjungan tidak aktif');
     return enc;
+  }
+
+  /**
+   * Permintaan bed bagi `bed.write` berlingkup unit (ADR-0031): boleh oleh unit TUJUAN (unit bed yang sudah dipesan,
+   * atau unit yang diminta selama belum dialokasi) atau oleh pihak peminta yang berhak atas pasiennya. Tanpa ini
+   * perawat bangsal mana pun bisa membatalkan/memindah pesanan bed pasien unit lain dan membebaskan bed bangsal lain.
+   * `openRequestAnyUnit`: permintaan tanpa unit yang belum dialokasi boleh diambil bangsal mana pun (alokasi).
+   */
+  private async assertRequestScope(
+    req: { patientId: string; unitId: string | null; allocatedLocationId: string | null },
+    opts: { openRequestAnyUnit: boolean },
+  ): Promise<void> {
+    if (this.db.permissionScope() === 'all') return;
+    const myUnit = this.db.actor().unitId;
+    const targetUnit = req.allocatedLocationId
+      ? (await this.beds.bedByLocation(req.allocatedLocationId)).unitId
+      : req.unitId;
+    if (myUnit && targetUnit === myUnit) return;
+    if (opts.openRequestAnyUnit && !req.allocatedLocationId && req.unitId === null) return;
+    await this.access.assert(req.patientId);
   }
 
   /** `bed.write` berlingkup unit: hanya bed di unit penugasan (ADR-0031). */

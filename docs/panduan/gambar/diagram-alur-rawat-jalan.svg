@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="judul ket">
+  <title id="judul">Alur pasien rawat jalan BPJS</title>
+  <desc id="ket">Delapan langkah: anjungan mandiri (task 1), pendaftaran dan SEP (task 2 dan 3), antrean poli, pemeriksaan poli, order dan resep dengan CDS, laboratorium dan farmasi (nilai kritis, telaah resep, task 6 dan 7), kasir, lalu klaim E-Klaim. Di setiap langkah tercatat jejak audit dan pesan ke sistem luar lewat outbox.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .ci{fill:#EEF2FB;stroke:#B9C6EE}.cd{fill:#FDECEA;stroke:#F0C2BD}.cw{fill:#FFF3E0;stroke:#E8C48C}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11px;fill:#0B5D56}
+    .chip{font-size:11px;font-weight:600}.ti{fill:#1E3A8A}.td{fill:#B42318}.tw{fill:#8A4B00}.tb{fill:#0B5D56}
+    .ln{stroke:#5B6B79;stroke-width:1.6;fill:none}.ah{fill:#5B6B79}.num{fill:#0F766E}.numt{fill:#FFFFFF;font-size:12px;font-weight:700}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}
+      .ci{fill:#18223F;stroke:#3B4F86}.cd{fill:#3A1714;stroke:#8C3A31}.cw{fill:#362510;stroke:#8A5A1E}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.mono,.tb{fill:#6FD3C6}.ti{fill:#A9BCF7}.td{fill:#F2877C}.tw{fill:#F0B45A}
+      .ln{stroke:#8FA1B0}.ah{fill:#8FA1B0}.num{fill:#3FB8AA}.numt{fill:#0E161C}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="640" rx="14"/>
+  <text class="h" x="24" y="38">Perjalanan pasien rawat jalan BPJS</text>
+  <text class="sub" x="24" y="60">Anjungan sampai klaim. Chip biru = integrasi (lewat outbox), merah = gerbang keselamatan, oranye = saat gangguan.</text>
+
+  <!-- Baris 1 -->
+  <g>
+    <rect class="card" x="24" y="88" width="220" height="196" rx="12"/>
+    <circle class="num" cx="46" cy="112" r="12"/><text class="numt" x="46" y="116" text-anchor="middle">1</text>
+    <text class="t" x="66" y="117">Anjungan mandiri</text>
+    <text class="s" x="40" y="142">Pasien sendiri</text>
+    <text class="mono" x="40" y="162">/kiosk · F05</text>
+    <text class="s" x="40" y="184">kode booking atau NIK +</text>
+    <text class="s" x="40" y="200">tanggal lahir → tiket loket</text>
+    <rect class="ci" x="40" y="216" width="120" height="22" rx="11"/><text class="chip ti" x="52" y="231">Antrean task 1</text>
+    <rect class="cw" x="40" y="246" width="188" height="22" rx="11"/><text class="chip tw" x="52" y="261">perlu petugas → ke loket</text>
+  </g>
+  <path class="ln" d="M244 186H264" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="268" y="88" width="220" height="196" rx="12"/>
+    <circle class="num" cx="290" cy="112" r="12"/><text class="numt" x="290" y="116" text-anchor="middle">2</text>
+    <text class="t" x="310" y="117">Pendaftaran + SEP</text>
+    <text class="s" x="284" y="142">Petugas pendaftaran</text>
+    <text class="mono" x="284" y="162">/pendaftaran · F03 F06</text>
+    <text class="s" x="284" y="184">cek peserta, rujukan, ICD-10</text>
+    <text class="s" x="284" y="200">awal, persetujuan umum</text>
+    <rect class="ci" x="284" y="216" width="168" height="22" rx="11"/><text class="chip ti" x="296" y="231">VClaim SEP · task 2–3</text>
+    <rect class="cw" x="284" y="246" width="188" height="22" rx="11"/><text class="chip tw" x="296" y="261">gangguan: SEP menunggu</text>
+  </g>
+  <path class="ln" d="M488 186H508" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="512" y="88" width="220" height="196" rx="12"/>
+    <circle class="num" cx="534" cy="112" r="12"/><text class="numt" x="534" y="116" text-anchor="middle">3</text>
+    <text class="t" x="554" y="117">Antrean poli</text>
+    <text class="s" x="528" y="142">TV ruang tunggu · loket</text>
+    <text class="mono" x="528" y="162">/display/antrean · F04</text>
+    <text class="s" x="528" y="184">nomor poli dipanggil, tampil</text>
+    <text class="s" x="528" y="200">dan diumumkan langsung (SSE)</text>
+    <rect class="ci" x="528" y="216" width="150" height="22" rx="11"/><text class="chip ti" x="540" y="231">mulai dilayani: task 4</text>
+  </g>
+  <path class="ln" d="M732 186H752" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="756" y="88" width="220" height="196" rx="12"/>
+    <circle class="num" cx="778" cy="112" r="12"/><text class="numt" x="778" y="116" text-anchor="middle">4</text>
+    <text class="t" x="798" y="117">Pemeriksaan poli</text>
+    <text class="s" x="772" y="142">Perawat (TTV) · dokter (SOAP)</text>
+    <text class="mono" x="772" y="162">/klinis/poli · K01 K02</text>
+    <text class="s" x="772" y="184">banner pasien + alergi,</text>
+    <text class="s" x="772" y="200">tanda vital, asesmen</text>
+    <rect class="cd" x="772" y="216" width="188" height="22" rx="11"/><text class="chip td" x="784" y="231">tanda tangan butuh ICD-10</text>
+    <rect class="ci" x="772" y="246" width="128" height="22" rx="11"/><text class="chip ti" x="784" y="261">selesai poli: task 5</text>
+  </g>
+
+  <!-- Penghubung ke baris 2 -->
+  <path class="ln" d="M866 284V304H134V326" marker-end="url(#a)"/>
+
+  <!-- Baris 2 -->
+  <g>
+    <rect class="card" x="24" y="330" width="220" height="196" rx="12"/>
+    <circle class="num" cx="46" cy="354" r="12"/><text class="numt" x="46" y="358" text-anchor="middle">5</text>
+    <text class="t" x="66" y="359">Order + resep (CPOE)</text>
+    <text class="s" x="40" y="384">Dokter</text>
+    <text class="mono" x="40" y="404">/klinis/order · K09</text>
+    <text class="s" x="40" y="426">order set lab, radiologi,</text>
+    <text class="s" x="40" y="442">obat; estimasi biaya</text>
+    <rect class="cd" x="40" y="458" width="188" height="22" rx="11"/><text class="chip td" x="52" y="473">CDS: alergi, interaksi, dosis</text>
+    <rect class="cd" x="40" y="488" width="168" height="22" rx="11"/><text class="chip td" x="52" y="503">override = alasan ≥ 10</text>
+  </g>
+  <path class="ln" d="M244 428H264" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="268" y="330" width="220" height="196" rx="12"/>
+    <circle class="num" cx="290" cy="354" r="12"/><text class="numt" x="290" y="358" text-anchor="middle">6</text>
+    <text class="t" x="310" y="359">Lab dan farmasi</text>
+    <text class="s" x="284" y="384">Analis lab · apoteker</text>
+    <text class="mono" x="284" y="404">/penunjang/* · S01 S04 S05</text>
+    <text class="s" x="284" y="426">hasil ber-LOINC; telaah resep,</text>
+    <text class="s" x="284" y="442">cek ganda obat high alert</text>
+    <rect class="cd" x="284" y="458" width="188" height="22" rx="11"/><text class="chip td" x="296" y="473">nilai kritis: read-back</text>
+    <rect class="ci" x="284" y="488" width="150" height="22" rx="11"/><text class="chip ti" x="296" y="503">farmasi: task 6–7</text>
+  </g>
+  <path class="ln" d="M488 428H508" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="512" y="330" width="220" height="196" rx="12"/>
+    <circle class="num" cx="534" cy="354" r="12"/><text class="numt" x="534" y="358" text-anchor="middle">7</text>
+    <text class="t" x="554" y="359">Kasir</text>
+    <text class="s" x="528" y="384">Kasir</text>
+    <text class="mono" x="528" y="404">/keuangan/kasir · U02 U03</text>
+    <text class="s" x="528" y="426">tagihan dari charge capture;</text>
+    <text class="s" x="528" y="442">porsi penjamin dan pasien</text>
+    <rect class="cd" x="528" y="458" width="188" height="22" rx="11"/><text class="chip td" x="540" y="473">item manual wajib alasan</text>
+    <rect class="ci" x="528" y="488" width="150" height="22" rx="11"/><text class="chip ti" x="540" y="503">VA / QRIS lewat BTN</text>
+  </g>
+  <path class="ln" d="M732 428H752" marker-end="url(#a)"/>
+  <g>
+    <rect class="card" x="756" y="330" width="220" height="196" rx="12"/>
+    <circle class="num" cx="778" cy="354" r="12"/><text class="numt" x="778" y="358" text-anchor="middle">8</text>
+    <text class="t" x="798" y="359">Klaim dan koding</text>
+    <text class="s" x="772" y="384">Koder</text>
+    <text class="mono" x="772" y="404">/keuangan/klaim · U05 U06</text>
+    <text class="s" x="772" y="426">ICD-10 + ICD-9-CM dari RME,</text>
+    <text class="s" x="772" y="442">grouper, berkas pendukung</text>
+    <rect class="ci" x="772" y="458" width="150" height="22" rx="11"/><text class="chip ti" x="784" y="473">E-Klaim INA-CBG</text>
+  </g>
+
+  <!-- Pita bawah -->
+  <rect class="brandbox" x="24" y="548" width="952" height="60" rx="12"/>
+  <text class="t tb" x="40" y="572">Di setiap langkah</text>
+  <text class="s" x="40" y="593">Jejak audit hash berantai · pesan BPJS/SATUSEHAT/E-Klaim lewat outbox → worker (retry, DLQ) · banner pasien + alergi di layar klinis · entri klinis berversi</text>
+  <text class="xs" x="24" y="628">Mode presentasi: skenario "Rawat jalan BPJS" di /simulasi menjalankan alur ini dengan pasien fiktif Tn. Suryo Adi Nugroho.</text>
+</svg>

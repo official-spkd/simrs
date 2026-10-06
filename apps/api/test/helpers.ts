@@ -75,6 +75,8 @@ export async function createTestApp(
     TRUST_PROXY: 'loopback',
     STORAGE_DRIVER: local ? 'disk' : 's3',
     STORAGE_DISK_ROOT: TEST_STORAGE_ROOT,
+    // Produksi menolak integrasi mock (integrationModeProblem); lookup Dukcapil gagal tertutup di mode lain.
+    ...(resolveAppEnv(overrides.APP_ENV ?? 'local') === 'production' ? { INTEGRATION_MODE: 'sandbox' } : {}),
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({

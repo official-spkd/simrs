@@ -149,8 +149,22 @@ describe('/audit/verify dengan titik periksa', () => {
   });
 
   it('kunci jangkar: wajib di produksi dan harus berbeda dari kunci kolom', () => {
-    const base = { ...process.env, APP_ENV: 'production', TRUST_PROXY: 'loopback', STORAGE_DRIVER: 's3' };
+    const base = {
+      ...process.env,
+      APP_ENV: 'production',
+      TRUST_PROXY: 'loopback',
+      STORAGE_DRIVER: 's3',
+      INTEGRATION_MODE: 'sandbox',
+    };
     expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: '' })).toThrow(/AUDIT_ANCHOR_KEY wajib/);
+    // Integrasi mock (bawaan bila lupa disetel) ditolak di produksi: data pribadi tidak boleh ke MOCK_BASE_URL.
+    const anchor = randomBytes(32).toString('base64');
+    expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: anchor, INTEGRATION_MODE: 'mock' })).toThrow(
+      /INTEGRATION_MODE=mock/,
+    );
+    expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: anchor, INTEGRATION_MODE: undefined })).toThrow(
+      /INTEGRATION_MODE=mock/,
+    );
     expect(() => loadApiEnv({ ...base, AUDIT_ANCHOR_KEY: process.env.FIELD_HASH_KEY ?? '' })).toThrow(
       /harus berbeda/,
     );

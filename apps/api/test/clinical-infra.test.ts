@@ -18,6 +18,7 @@ import {
 } from '@simrs/db';
 import { testDbUrls } from '@simrs/db/testing';
 import {
+  CLINICAL_DRAFT_MAX_PER_ENCOUNTER,
   type CpptCreateInput,
   cpptCreateInputSchema,
   clinicalEnteredInErrorInputSchema,
@@ -484,6 +485,21 @@ describe('draf klinis', () => {
       400,
     );
     expect((await as('daftar').put(url, { content: {} })).status).toBe(403);
+  });
+
+  it('jumlah draf per penulis × kunjungan dibatasi; mengubah draf yang ada tetap boleh', async () => {
+    const e = await inpatient(A.id);
+    for (let i = 0; i < CLINICAL_DRAFT_MAX_PER_ENCOUNTER; i += 1) {
+      await as('dokter').put(`/drafts/${e.encounterId}/asesmen:f${i}`, { content: { i } }).expect(200);
+    }
+    const over = await as('dokter').put(`/drafts/${e.encounterId}/asesmen:lebih`, { content: {} });
+    expect(over.status).toBe(409);
+    expect(over.body.code).toBe('CONFLICT');
+    await as('dokter')
+      .put(`/drafts/${e.encounterId}/asesmen:f0`, { content: { i: 'ubah' } })
+      .expect(200);
+    // Batas per penulis: dokter lain tetap bisa membuat drafnya sendiri.
+    await as('dokter2').put(`/drafts/${e.encounterId}/asesmen:lebih`, { content: {} }).expect(200);
   });
 });
 
