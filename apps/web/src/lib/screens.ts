@@ -445,6 +445,20 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['admin_tenant'],
     layout: 'staf',
   },
+  // FE3 · fase 7 konektor integrasi (mode presentasi, data dummy)
+  {
+    id: 'satusehat',
+    label: 'SATUSEHAT',
+    route: '/sistem/integrasi/satusehat',
+    mockup: null,
+    components: ['I02'],
+    phase: 7,
+    status: 'demo',
+    plannedPermission: 'integration.manage',
+    demoRoles: ['admin_tenant'],
+    layout: 'staf',
+  },
+  // FE3 · akhir fase 7
   {
     id: 'logistik',
     label: 'Logistik',

@@ -267,6 +267,42 @@ test.describe('S06 · anestesi di layar Kamar operasi', () => {
   });
 });
 
+test.describe('I02 · SATUSEHAT', () => {
+  test('galat 422 tanpa IHS: anak ditahan; lookup IHS → kirim ulang berkonfirmasi → dilepas berurutan dan diaudit', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/integrasi/satusehat');
+    await expect(page.getByRole('heading', { name: /SATUSEHAT/, level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Sub-menu integrasi' }).getByRole('link', { name: 'SATUSEHAT' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await page
+      .getByRole('region', { name: 'Kunjungan' })
+      .getByRole('button', { name: /Ny\. Fransiska/ })
+      .click();
+    const detail = page.getByRole('region', { name: 'Detail kunjungan SATUSEHAT' });
+    await expect(detail.getByRole('row', { name: /Condition/ })).toContainText('menunggu Encounter terkirim');
+    const payload = detail.getByRole('region', { name: 'Payload Encounter' });
+    await expect(payload).toContainText('"nik": "•••"');
+    await expect(payload.getByRole('button', { name: 'Kirim ulang' })).toBeDisabled();
+    await payload.getByRole('button', { name: 'Cari IHS lewat NIK' }).click();
+    await expect(detail).toContainText('terverifikasi');
+    await payload.getByRole('button', { name: 'Kirim ulang' }).click();
+    await payload
+      .getByRole('group', { name: 'Konfirmasi kirim ulang' })
+      .getByRole('button', { name: 'Ya, kirim ulang' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: '201 Created' })).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Kunjungan' }).getByRole('button', { name: /Ny\. Fransiska/ }),
+    ).toContainText('4/4 terkirim');
+    await expect(page.getByRole('region', { name: 'Jejak audit integrasi' })).toContainText(
+      'dilepas berurutan',
+    );
+  });
+});
+
 test.describe('tablet 768 px', () => {
   test('layar penunjang lanjutan tanpa scroll horizontal', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });

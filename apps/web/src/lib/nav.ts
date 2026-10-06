@@ -147,6 +147,15 @@ export const NAV_GROUPS: WebNavGroup[] = [
         requires: 'forms.definition.write',
       },
       { id: 'integrasi', label: 'Integrasi', href: '/sistem/integrasi', icon: 'plug', available: false },
+      // FE3 · konektor integrasi
+      {
+        id: 'satusehat',
+        label: 'SATUSEHAT',
+        href: '/sistem/integrasi/satusehat',
+        icon: 'plug',
+        available: false,
+      },
+      // FE3 · akhir konektor
     ],
   },
 ];
