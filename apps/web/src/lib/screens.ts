@@ -503,6 +503,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: CLINICIANS,
     layout: 'staf',
   },
+  {
+    id: 'askep',
+    label: 'Asuhan keperawatan',
+    route: '/klinis/asuhan-keperawatan',
+    mockup: 'Ranap',
+    components: ['K12'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'nursing.write',
+    demoRoles: ['perawat', 'bidan'],
+    layout: 'staf',
+  },
   // FE2 · akhir
 ];
 

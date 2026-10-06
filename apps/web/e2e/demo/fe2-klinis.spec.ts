@@ -397,3 +397,56 @@ test.describe('K11 · edukasi terintegrasi', () => {
     await expect(need.getByRole('status')).toHaveText(/^Persetujuan tindakan siap/);
   });
 });
+
+test.describe('K12 · asuhan keperawatan dan gerbang gelang eMAR', () => {
+  test('perawat: gelang belum cocok = tidak bisa catat obat; terlambat beralasan; high-alert cek ganda; evaluasi shift', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/klinis/asuhan-keperawatan');
+    const ronde = page.getByRole('region', { name: 'Ronde obat shift' });
+    await expect(ronde.getByText('Pemberian obat terkunci: gelang belum terverifikasi')).toBeVisible();
+    const omeprazol = card(page, '08.00 · Omeprazol 40 mg injeksi');
+    await expect(omeprazol.getByRole('button', { name: 'Catat pemberian' })).toBeDisabled();
+    await expect(omeprazol.getByText(/^Pindai gelang pasien dulu/)).toBeVisible();
+
+    await ronde.getByLabel('Kode gelang (hasil pindai)').fill('00-12-45-78');
+    await ronde.getByRole('button', { name: 'Verifikasi gelang' }).click();
+    await expect(ronde.getByRole('alert')).toContainText('Gelang tidak cocok (00-12-45-78)');
+    await expect(omeprazol.getByRole('button', { name: 'Catat pemberian' })).toBeDisabled();
+    await ronde.getByRole('button', { name: 'Pindai gelang (simulasi)' }).click();
+    await ronde.getByRole('button', { name: 'Verifikasi gelang' }).click();
+    await expect(
+      ronde.getByText(/^✓ Pasien benar · gelang terpindai \d{2}\.\d{2} · RM 00-07-61-33$/),
+    ).toBeVisible();
+
+    await omeprazol.getByRole('button', { name: 'Catat pemberian' }).click();
+    await expect(omeprazol.getByRole('alert')).toContainText('alasan keterlambatan wajib');
+    await omeprazol.getByLabel('Alasan keterlambatan').fill('Pasien sedang foto toraks di radiologi');
+    await omeprazol.getByRole('button', { name: 'Catat pemberian' }).click();
+    await expect(
+      omeprazol.getByText(new RegExp(`^✓ Diberikan ${JAM} · .+ · terlambat: Pasien sedang foto toraks`)),
+    ).toBeVisible();
+
+    const insulin = card(page, '12.00 · Insulin aspart sesuai skala');
+    await insulin.getByRole('button', { name: 'Catat pemberian' }).click();
+    await expect(insulin.getByRole('alert')).toContainText('cek ganda oleh perawat kedua wajib');
+    await insulin.getByLabel('Perawat pemeriksa kedua').selectOption('Ns. Yudi Pratama, S.Kep');
+    await insulin.getByRole('button', { name: 'Catat pemberian' }).click();
+    await expect(insulin.getByText(/cek ganda Ns\. Yudi Pratama, S\.Kep$/)).toBeVisible();
+
+    const jatuh = card(page, 'Risiko jatuh (Morse 35)');
+    await jatuh.getByRole('button', { name: 'Simpan evaluasi shift' }).click();
+    await expect(jatuh.getByRole('alert')).toHaveText('Isi O (data objektif) evaluasi.');
+    await jatuh.getByLabel(/^O · Objektif/).fill('Tidak ada kejadian jatuh; bel dalam jangkauan.');
+    await jatuh.getByLabel(/^A · Hasil evaluasi/).selectOption('sebagian');
+    await jatuh
+      .getByLabel(/^P · Rencana lanjut/)
+      .fill('Lanjut bundle pencegahan jatuh; reasesmen Morse sebelum pulang.');
+    await jatuh.getByRole('button', { name: 'Simpan evaluasi shift' }).click();
+    await expect(jatuh.getByText(new RegExp(`^Evaluasi final · ${JAM} · `))).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Rencana asuhan keperawatan' })).toContainText(
+      'evaluasi 1 dari 3 diagnosis shift ini',
+    );
+    await expectNoHorizontalScroll(page);
+  });
+});
