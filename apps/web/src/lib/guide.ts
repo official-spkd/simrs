@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 /**
  * Panduan superadmin: konten Markdown di `docs/panduan/` (sumber yang sama dengan README pengembang).
@@ -10,6 +10,8 @@ export interface GuidePage {
   file: string;
   title: string;
   summary: string;
+  /** `sistem` = cara kerja dan operasional untuk pengembang/operator; `fitur` = penjelasan layar per kelompok. */
+  group: 'sistem' | 'fitur';
 }
 
 export const GUIDE_PAGES = [
@@ -18,18 +20,21 @@ export const GUIDE_PAGES = [
     file: '01-cara-kerja-sistem.md',
     title: 'Cara sistem bekerja',
     summary: 'Gambaran besar: lapisan, multi-tenant, alur data, integrasi lewat outbox, keamanan berlapis.',
+    group: 'sistem',
   },
   {
     slug: 'cara-kerja-kode',
     file: '02-cara-kerja-kode.md',
     title: 'Cara kode bekerja',
     summary: 'Struktur repo, siklus hidup permintaan API, database dan RLS, worker, mock, web, dan pola tes.',
+    group: 'sistem',
   },
   {
     slug: 'tutorial',
     file: '03-tutorial.md',
     title: 'Tutorial',
     summary: 'Menyiapkan mesin, menjalankan layanan, membuat modul API, layar web, endpoint mock, dan tes.',
+    group: 'sistem',
   },
   {
     slug: 'backup-restore',
@@ -37,12 +42,87 @@ export const GUIDE_PAGES = [
     title: 'Backup dan restore',
     summary:
       'Backup terenkripsi tiga lokasi, jadwal, retensi, uji restore di kontainer bersih, dan pemulihan bencana.',
+    group: 'sistem',
   },
   {
     slug: 'rotasi-kunci',
     file: '05-rotasi-kunci.md',
     title: 'Rotasi kunci enkripsi kolom',
     summary: 'Runbook operator: cincin kunci v2, job enkripsi ulang bertahap, verifikasi, PIN, dan rollback.',
+    group: 'sistem',
+  },
+  {
+    slug: 'fitur-platform',
+    file: '10-fitur-platform.md',
+    title: 'Fitur platform',
+    summary: 'Masuk + MFA, pengguna dan akses, audit, MPI, formulir klinis, notifikasi, PIN, verifikasi QR.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-front-office',
+    file: '11-fitur-front-office.md',
+    title: 'Fitur front office',
+    summary: 'Pendaftaran + SEP, jadwal dokter, anjungan mandiri, display dan kendali antrean.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-klinis',
+    file: '12-fitur-klinis.md',
+    title: 'Fitur klinis (RME)',
+    summary:
+      'Pemeriksaan poli, CPOE + CDS, IGD, tempat tidur, rawat inap + eMAR, resume, persetujuan tindakan.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-penunjang',
+    file: '13-fitur-penunjang.md',
+    title: 'Fitur penunjang',
+    summary: 'Laboratorium + nilai kritis, radiologi, farmasi, kamar operasi.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-keuangan',
+    file: '14-fitur-keuangan.md',
+    title: 'Fitur keuangan',
+    summary: 'Kasir, klaim dan koding, akuntansi, pembayaran digital TPDI × BTN, pembiayaan BTN.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-integrasi',
+    file: '15-fitur-integrasi.md',
+    title: 'Fitur integrasi',
+    summary: 'Integration hub, outbox + retry + DLQ, webhook masuk, mock sistem luar.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-back-office',
+    file: '16-fitur-back-office.md',
+    title: 'Fitur back office',
+    summary: 'Logistik dan mutu + keselamatan pasien.',
+    group: 'fitur',
+  },
+  {
+    slug: 'fitur-kanal-dasbor',
+    file: '17-fitur-kanal-dasbor.md',
+    title: 'Fitur kanal dan dasbor',
+    summary: 'Dasbor eksekutif, pratinjau aplikasi pasien dan aplikasi dokter.',
+    group: 'fitur',
+  },
+  {
+    slug: 'simulasi-dan-operasional',
+    file: '18-simulasi-dan-operasional.md',
+    title: 'Simulasi dan operasional',
+    summary:
+      'Mode presentasi, simulasi pasien, akun presentasi, menjalankan demo, dan tangkap layar dokumentasi.',
+    group: 'fitur',
+  },
+  {
+    slug: 'peta-kode',
+    file: '19-peta-kode.md',
+    title: 'Peta kode',
+    summary:
+      'Web mode demo vs api, registri layar, pola menambah layar, dan peta 40 modul API beserta kematangannya.',
+    group: 'sistem',
   },
 ] as const satisfies readonly GuidePage[];
 
@@ -72,6 +152,51 @@ export function loadGuideMarkdown(page: GuidePage, cwd: string = process.cwd()):
   const content = readFileSync(join(findRepoRoot(cwd), 'docs', 'panduan', page.file), 'utf8');
   if (cacheable) cache.set(page.slug, content);
   return content;
+}
+
+/**
+ * Gambar panduan: hanya berkas langsung di `docs/panduan/gambar/` bernama huruf kecil/angka/'-' dengan ekstensi
+ * `.png` atau `.svg`. Nama lain (titik ganda, garis miring, backslash, `%`, huruf besar) ditolak sebelum menyentuh
+ * sistem berkas, jadi tidak ada path traversal. SVG disajikan sebagai `<img>` (skrip di dalamnya tidak pernah jalan).
+ */
+export const GUIDE_IMAGE_TYPES = { png: 'image/png', svg: 'image/svg+xml' } as const;
+export type GuideImageType = (typeof GUIDE_IMAGE_TYPES)[keyof typeof GUIDE_IMAGE_TYPES];
+const GUIDE_IMAGE_NAME = /^[a-z0-9][a-z0-9-]{0,99}\.(png|svg)$/;
+/** Rute aplikasi yang menyajikan gambar panduan (hanya untuk superadmin, sama dengan halamannya). */
+export const GUIDE_IMAGE_ROUTE = '/superadmin/panduan/gambar';
+
+/** Jenis konten untuk nama berkas gambar yang sah, atau null. */
+export function guideImageType(name: string): GuideImageType | null {
+  const m = GUIDE_IMAGE_NAME.exec(name);
+  return m ? GUIDE_IMAGE_TYPES[m[1] as keyof typeof GUIDE_IMAGE_TYPES] : null;
+}
+
+/**
+ * `src` gambar di Markdown (`./gambar/x.png` atau `gambar/x.png`, sama seperti dibaca di GitHub) → URL rute
+ * aplikasi. Selain gambar lokal yang sah (URL luar, data URI, path lain) → null: gambar tidak dirender.
+ */
+export function rewriteGuideImageSrc(src: string): string | null {
+  const m = /^(?:\.\/)?gambar\/([^/]+)$/.exec(src);
+  if (!m?.[1] || !guideImageType(m[1])) return null;
+  return `${GUIDE_IMAGE_ROUTE}/${m[1]}`;
+}
+
+/** Isi berkas gambar panduan, atau null bila nama tidak sah / berkas tidak ada / bukan berkas biasa (symlink). */
+export function loadGuideImage(
+  name: string,
+  cwd: string = process.cwd(),
+): { body: Buffer; contentType: GuideImageType } | null {
+  const contentType = guideImageType(name);
+  if (!contentType) return null;
+  const dir = resolve(findRepoRoot(cwd), 'docs', 'panduan', 'gambar');
+  const file = resolve(dir, name);
+  if (dirname(file) !== dir) return null;
+  try {
+    if (!lstatSync(file).isFile()) return null;
+    return { body: readFileSync(file), contentType };
+  } catch {
+    return null;
+  }
 }
 
 /** Path berkas sumber relatif root repo, ditampilkan agar pengembang tahu di mana menyunting. */
