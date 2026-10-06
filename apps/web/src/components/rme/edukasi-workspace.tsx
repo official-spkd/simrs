@@ -4,7 +4,9 @@ import { formatJam } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { DEMO_TODAY, demoNow } from '@/lib/demo/fixtures/waktu';
+import { saveEducationAction } from '@/app/(staf)/klinis/edukasi/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { at as wibAt } from '@/lib/demo/fixtures/rawat-inap';
 import { formatTglJam } from '@/lib/rawat-inap';
 import {
@@ -37,7 +39,8 @@ const toggle = <T,>(list: readonly T[], v: T): T[] =>
 /**
  * K11 · Edukasi pasien dan keluarga terintegrasi: materi wajib per kunjungan, metode, sasaran, verifikasi pemahaman
  * teach-back (belum paham → jadwal edukasi ulang), tanda tangan penerima (ketik nama) + atestasi edukator. Edukasi
- * tindakan yang terverifikasi paham membuka persetujuan tindakan. Keadaan lokal (simulasi, tidak disimpan).
+ * tindakan yang terverifikasi paham membuka persetujuan tindakan. Catatan diperiksa dan disimpan server (toko demo
+ * `rekam-medis`) atas nama pengguna sesi; daftar catatan datang dari server.
  */
 export function EdukasiWorkspace({
   encounterId,
@@ -45,7 +48,8 @@ export function EdukasiWorkspace({
   user,
   canEducate,
   required,
-  initialRecords,
+  records,
+  rev,
   defaultRecipient,
   consentHref,
 }: {
@@ -54,18 +58,19 @@ export function EdukasiWorkspace({
   user: string;
   canEducate: boolean;
   required: readonly EduTopic[];
-  initialRecords: readonly EduRecord[];
+  records: readonly EduRecord[];
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
   defaultRecipient: string;
   /** Tautan tablet persetujuan tindakan pasien ini, null bila tidak ada dokumen. */
   consentHref: string | null;
 }) {
   const id = useId();
-  const [records, setRecords] = useState<EduRecord[]>([...initialRecords]);
+  const { run, pending } = useStoreAction(rev);
   const [d, setD] = useState<EduDraft>({ ...EMPTY_EDU, recipientName: defaultRecipient });
   const [repeatHm, setRepeatHm] = useState('');
   const [tried, setTried] = useState(false);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
-  const [seq, setSeq] = useState(1);
   const draft: EduDraft = { ...d, repeatAt: repeatHm ? wibAt(DEMO_TODAY, repeatHm.replace(':', '.')) : '' };
   const block = eduBlocker(draft);
   const cov = topicCoverage(records, required);
@@ -75,33 +80,16 @@ export function EdukasiWorkspace({
   const save = () => {
     setTried(true);
     if (block || !draft.understanding) return;
-    const at = demoNow().toISOString();
-    const rec: EduRecord = {
-      id: `${encounterId}-edukasi-baru-${seq}`,
-      topics: draft.topics,
-      methods: draft.methods,
-      educator: user,
-      profession: professionOf(role),
-      recipient: draft.recipient,
-      recipientName: draft.recipientName.trim(),
-      understanding: draft.understanding,
-      teachBack: draft.teachBack.trim(),
-      repeatAt: draft.understanding === 'paham' ? null : draft.repeatAt,
-      signature: draft.signature.trim(),
-      at,
-    };
-    setRecords((cur) => [...cur, rec]);
-    setSeq((n) => n + 1);
-    setD({ ...EMPTY_EDU, recipientName: defaultRecipient });
-    setRepeatHm('');
-    setTried(false);
-    setMsg({
-      ok: true,
-      text:
-        rec.understanding === 'paham'
-          ? `Edukasi final · ${formatJam(at)} · ${rec.topics.length} materi terverifikasi paham (simulasi, tidak disimpan).`
-          : `Edukasi tercatat · ${formatJam(at)} · edukasi ulang dijadwalkan ${rec.repeatAt ? formatJam(rec.repeatAt) : ''} (simulasi, tidak disimpan).`,
-    });
+    run(
+      (r) => saveEducationAction({ encounterId, ...draft }, r),
+      (res) => {
+        setMsg({ ok: res.ok, text: res.message });
+        if (!res.ok) return;
+        setD({ ...EMPTY_EDU, recipientName: defaultRecipient });
+        setRepeatHm('');
+        setTried(false);
+      },
+    );
   };
 
   return (
@@ -257,7 +245,7 @@ export function EdukasiWorkspace({
                 {block}
               </p>
             )}
-            <Button type="submit" variant="primary" className="self-start">
+            <Button type="submit" variant="primary" className="self-start" disabled={pending}>
               Simpan edukasi (final)
             </Button>
           </form>

@@ -9,7 +9,7 @@ export interface FeedbackMsg {
   text: string;
 }
 
-/** Umpan balik aksi berjam ("Final · 10.41 (simulasi, tidak disimpan)"); gagal = `alert`. */
+/** Umpan balik aksi berjam ("Final · 10.41"); gagal = `alert`. */
 export function Feedback({ msg, className }: { msg: FeedbackMsg | null; className?: string }) {
   if (!msg) return null;
   return (

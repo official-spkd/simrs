@@ -1,4 +1,4 @@
-import { formatTanggalLahir } from '@simrs/shared';
+import { formatJam, formatTanggalLahir } from '@simrs/shared';
 import { Chip, cx } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -6,15 +6,16 @@ import type { ReactNode } from 'react';
 import { ValueFlagBadge } from '@/components/klinis/status-flag';
 import { RmeChartHeader } from '@/components/rme/chart-header';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { allergyList, encounterCoding, problemList } from '@/lib/demo/fixtures/rme-diagnosis';
 import { chartPatient } from '@/lib/demo/fixtures/rme-pasien';
 import { EXTRA_RESULTS, OUTPATIENT_MEDS, recentVisits } from '@/lib/demo/fixtures/rme-ringkasan';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { chartHref, openRoute } from '@/lib/rme';
+import { activeAllergies, current } from '@/lib/rme-diagnosis';
 import { lastVitals, latestResults, riskFlags, type SummaryMed } from '@/lib/rme-ringkasan';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { rmeChartFor } from '@/lib/server/data/klinis/rme';
+import { diagnosisListsOf, rmeChart } from '@/lib/server/data/klinis/rme';
+import { criticalNotices } from '@/lib/server/data/klinis/worklist';
 
 export const metadata: Metadata = { title: 'Ringkasan pasien' };
 
@@ -49,26 +50,29 @@ function Box({
 /**
  * K14 · Ringkasan pasien satu halaman (`?pasien=`): identitas, flag risiko, alergi, problem aktif, obat aktif, hasil
  * terbaru (kritis di atas), tanda vital + EWS, kunjungan terakhir, rencana. Hanya baca; setiap blok menyebut
- * sumbernya dan menaut ke layar asal. Mode presentasi (ADR-0023); backend `GET /api/v1/summary/patients/:id`
- * menyusul (rencana fase 3 · 3.2a).
+ * sumbernya dan menaut ke layar asal. Mode presentasi (ADR-0023): rekam dari toko demo (ADR-0085) — alergi, problem,
+ * observasi, dan CPPT (`rekam-medis`), pelaporan nilai kritis dari Laboratorium/Pusat hasil kritis (`hasil-kritis`);
+ * backend `GET /api/v1/summary/patients/:id` menyusul (rencana fase 3 · 3.2a).
  */
 export default async function RingkasanPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('ringkasan');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const chart = rmeChartFor((await searchParams).pasien);
+  const { chart, state } = await rmeChart((await searchParams).pasien);
   const p = chartPatient(chart);
   const role = session.role?.code ?? null;
   const d = chart.inpatient;
-  const { dx } = encounterCoding(chart);
-  const problems = problemList(chart, dx).filter((x) => x.status === 'aktif');
-  const allergies = allergyList(chart, p.alergi);
+  const lists = diagnosisListsOf(chart, state);
+  const dx = current(lists.dx).filter((x) => x.status === 'aktif');
+  const problems = current(lists.problems).filter((x) => x.status === 'aktif');
+  const allergies = { list: activeAllergies(lists.allergies), nkdaAt: lists.nkdaAt };
+  const critical = (await criticalNotices(session)).filter((c) => c.rm === p.rm);
   const results = latestResults([...(d?.results ?? []), ...(EXTRA_RESULTS[chart.encounterId] ?? [])]);
   const vitals = d ? lastVitals(d.observations) : null;
   const meds: SummaryMed[] = d
     ? d.medications.map((m) => ({ name: m.name, sig: m.sig, highAlert: m.highAlert }))
     : [...(OUTPATIENT_MEDS[chart.encounterId] ?? [])];
   const flags = riskFlags({
-    allergies: p.alergi,
+    allergies: allergies.list.map((a) => a.substance),
     results,
     ewsLevel: vitals?.level ?? null,
     risk: d?.summary.risk ?? null,
@@ -181,6 +185,30 @@ export default async function RingkasanPage({ searchParams }: { searchParams: Se
             </ul>
           )}
         </Box>
+        {critical.length > 0 && (
+          <Box
+            title="Pelaporan nilai kritis"
+            source="Laboratorium / Pusat hasil kritis (read-back)"
+            more={link('kritis', 'Pusat hasil kritis')}
+          >
+            <ul aria-label="Nilai kritis" className="m-0 flex list-none flex-col gap-1.5 p-0">
+              {critical.map((c) => (
+                <li key={`${c.test}-${c.valueText}`} className="flex flex-col text-small">
+                  <span className="font-semibold text-danger">
+                    {c.test} · {c.valueText}
+                  </span>
+                  <span
+                    className={cx('text-caption', c.report ? 'text-success' : 'font-semibold text-warning')}
+                  >
+                    {c.report
+                      ? `Dilaporkan ${c.report.reportedBy} ke ${c.report.recipient} (${c.report.recipientRole}) · ${formatJam(c.report.reportedAt)} · read-back`
+                      : 'Belum dilaporkan ke penerima; timer batas lapor berjalan'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Box>
+        )}
         <Box title="Hasil terbaru" source="Laboratorium tervalidasi (nilai kritis di atas)">
           {results.length === 0 ? (
             <p className="m-0 text-small text-ink-500">Belum ada hasil pemeriksaan pada kunjungan ini.</p>

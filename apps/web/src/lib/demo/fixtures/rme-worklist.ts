@@ -103,6 +103,7 @@ const DOKTER: WorklistTask[] = [
   },
   {
     id: id(E.sutan, 'konsul'),
+    ref: { kind: 'konsul', consultId: `${E.sutan}-konsul-1` },
     kind: 'konsul',
     priority: 'tinggi',
     encounterId: E.sutan,
@@ -235,6 +236,7 @@ const PERAWAT: WorklistTask[] = [
   },
   {
     id: id(E.endang, 'morse'),
+    ref: { kind: 'asesmen', formCode: 'morse_dewasa' },
     kind: 'reasesmen',
     priority: 'normal',
     encounterId: E.endang,

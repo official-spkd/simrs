@@ -1,18 +1,70 @@
 import 'server-only';
 import type { CpptEntry } from '@simrs/shared';
 import { patientById } from '../../../demo/fixtures/pasien';
-import { demoRmeCharts } from '../../../demo/fixtures/rme-pasien';
+import { nursingPlan, SHIFT_EVALS } from '../../../demo/fixtures/rme-askep';
+import { CONSULTS } from '../../../demo/fixtures/rme-konsul';
+import { demoRmeCharts, rmeChartByEncounter } from '../../../demo/fixtures/rme-pasien';
+import { resumeFinals } from '../../../rawat-inap-resume-toko';
+import { latestResponse } from '../../../rme-asesmen';
+import { consultAnswered, consultsOf } from '../../../rme-konsul-toko';
+import { askepView } from '../../../rme-toko';
 import type { WorklistTask } from '../../../rme-worklist';
 import type { CriticalNotice, WorklistSources } from '../../../rme-worklist-toko';
 import type { SessionView } from '../../../session-view';
+import { readDomain } from '../../demo/state';
 import { getCriticalCenter } from '../penunjang-lanjut';
-import { readRekam, verifiedOf, withRekam } from './rekam';
+import { readRekam, REKAM_DATE, verifiedOf, withRekam } from './rekam';
+import { assessmentsOf } from './rme';
 
 /**
  * K01 · Sumber status worklist dari toko demo (ADR-0085): rekam `rekam-medis` (co-sign, verifikasi, eMAR, penyelesaian
  * langsung) dan laporan nilai kritis domain `hasil-kritis` (dibaca lewat Pusat hasil kritis, sumber yang sama dengan
  * layar Laboratorium). Domain lain (resume, konsul) ditambahkan pemanggil.
  */
+
+type Extra = Pick<WorklistSources, 'resumeFinal' | 'consultAnswered' | 'assessed' | 'askepEvaluated'>;
+
+/**
+ * Sumber dari domain/layar lain untuk tugas worklist: resume final (`resume-medis`), konsul dijawab, asesmen final
+ * terbaru per formulir, evaluasi askep shift pagi lengkap (semua di `rekam-medis`).
+ */
+export async function worklistExtras(tasks: readonly WorklistTask[]): Promise<{ extra: Extra; rev: number }> {
+  const [{ state, rev }, resume] = await Promise.all([readRekam(), readDomain('resume-medis')]);
+  const assessed: Record<string, { by: string; at: string }> = {};
+  const askepEvaluated: Record<string, { by: string; at: string }> = {};
+  for (const t of tasks) {
+    const chart = rmeChartByEncounter(t.encounterId);
+    if (!chart) continue;
+    if (t.ref?.kind === 'asesmen') {
+      const last = latestResponse(assessmentsOf(chart, state), t.ref.formCode);
+      if (last) assessed[`${t.encounterId}|${t.ref.formCode}`] = { by: last.by, at: last.at };
+    }
+    if (t.ref?.kind === 'askep-evaluasi' && chart.inpatient) {
+      const { dxs, evals } = askepView(
+        {
+          ...nursingPlan(chart.inpatient),
+          evals: SHIFT_EVALS.filter((e) => e.dxId.startsWith(t.encounterId)),
+        },
+        state,
+        t.encounterId,
+      );
+      const today = evals.filter((e) => e.shift === 'pagi' && e.date === REKAM_DATE);
+      const last = [...today].sort((a, b) => a.at.localeCompare(b.at)).at(-1);
+      if (last && dxs.every((d) => today.some((e) => e.dxId === d.id))) {
+        askepEvaluated[t.encounterId] = { by: last.by, at: last.at };
+      }
+    }
+  }
+  return {
+    rev,
+    extra: {
+      resumeFinal: resumeFinals(resume.state),
+      consultAnswered: consultAnswered(consultsOf(CONSULTS, state)),
+      assessed,
+      askepEvaluated,
+    },
+  };
+}
 
 /** Semua entri CPPT bagan RME rawat inap (rekam awal + toko), per id. */
 export async function cpptIndex(): Promise<Map<string, CpptEntry>> {

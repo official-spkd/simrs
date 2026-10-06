@@ -1,4 +1,4 @@
-import { formatTanggalLahir } from '@simrs/shared';
+import { formatJam, formatTanggalLahir } from '@simrs/shared';
 import { Chip, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -12,6 +12,7 @@ import { emarGiven, emarLog } from '@/lib/rme-toko';
 import { screenById } from '@/lib/screens';
 import { getInpatient, inpatientScenarioStep } from '@/lib/server/data/klinis/ranap';
 import { readRekam } from '@/lib/server/data/klinis/rekam';
+import { criticalNotices } from '@/lib/server/data/klinis/worklist';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { InpatientWorkspace } from './inpatient-workspace';
 import { INPATIENT_TABS, type InpatientTab } from './tabs';
@@ -68,7 +69,13 @@ export async function DemoRawatInapDetail({
   if (!p) notFound();
   const ward = BANGSAL.find((w) => w.code === s.wardCode);
   const wardName = ward?.name ?? s.wardCode;
-  const [step, rekam] = await Promise.all([inpatientScenarioStep(session, p.scenario), readRekam()]);
+  const [step, rekam, notices] = await Promise.all([
+    inpatientScenarioStep(session, p.scenario),
+    readRekam(),
+    criticalNotices(session),
+  ]);
+  // Aliran masuk: nilai kritis pasien ini dari Laboratorium / Pusat hasil kritis (domain `hasil-kritis`).
+  const critical = notices.filter((c) => c.rm === p.rm);
   const roleCode = session.role?.code ?? null;
   const tab = INPATIENT_TABS.find((t) => t === wantedTab) ?? 'cppt';
   const guarantor = `${p.penjamin}${p.kelas ? ` ${p.kelas}` : ''}`;
@@ -140,6 +147,26 @@ export async function DemoRawatInapDetail({
           EWS {s.lastEws} · {lv.level}
         </Chip>
       </div>
+      {critical.length > 0 && (
+        <section
+          aria-label="Nilai kritis pasien"
+          className="flex flex-col gap-1 rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3"
+        >
+          {critical.map((c) => (
+            <span key={`${c.test}-${c.valueText}`} className="text-small">
+              <span className="font-semibold text-danger-strong">
+                Nilai kritis: {c.test} · {c.valueText}
+              </span>
+              <span className="text-ink-700">
+                {' · '}
+                {c.report
+                  ? `dilaporkan ${c.report.reportedBy} ke ${c.report.recipient} (${c.report.recipientRole}) ${formatJam(c.report.reportedAt)} · read-back`
+                  : 'belum dilaporkan lab ke penerima'}
+              </span>
+            </span>
+          ))}
+        </section>
+      )}
       <nav aria-label="Tautan cepat pasien" className="flex flex-wrap gap-2">
         {quickLinks.map((l) =>
           l.href ? (

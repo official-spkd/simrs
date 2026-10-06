@@ -12,8 +12,7 @@ import { WORKLIST_ROLE_TITLE, worklistRole } from '@/lib/rme-worklist';
 import { criticalFor, criticalStatusText, worklistDone } from '@/lib/rme-worklist-toko';
 import { screenById } from '@/lib/screens';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { readRekam } from '@/lib/server/data/klinis/rekam';
-import { worklistSources } from '@/lib/server/data/klinis/worklist';
+import { worklistExtras, worklistSources } from '@/lib/server/data/klinis/worklist';
 
 export const metadata: Metadata = { title: 'Worklist klinis' };
 
@@ -34,7 +33,8 @@ export default async function WorklistPage() {
   const routes = Object.fromEntries(TARGETS.map((id) => [id, openRoute(id, roleCode)]));
   const labels = Object.fromEntries(TARGETS.map((id) => [id, screenById(id)?.label ?? id]));
   const tasks = role ? WORKLIST_TASKS[role] : [];
-  const [src, { rev }] = await Promise.all([worklistSources(session, tasks), readRekam()]);
+  const { extra, rev } = await worklistExtras(tasks);
+  const src = await worklistSources(session, tasks, extra);
   const done = worklistDone(tasks, src);
   const notes = Object.fromEntries(
     tasks.flatMap((t) => {

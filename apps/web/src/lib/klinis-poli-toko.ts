@@ -272,7 +272,7 @@ export function applyPoliEncounter(e: PoliEncounter, s: PoliState): PoliEncounte
       })),
       stage: soap.signedAt ? POLI_VISIT_STAGES.length - 1 : out.stage,
       documents: soap.signedAt
-        ? out.documents.map((doc) => ({ ...doc, done: true, value: doc.done ? doc.value : '✓ Dibuat' }))
+        ? out.documents.map((doc) => ({ ...doc, done: true, value: doc.done ? doc.value : 'Dibuat' }))
         : out.documents,
     };
   }

@@ -1,6 +1,7 @@
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
 import { poliDomain } from '../../klinis-poli-toko';
+import { oncologyDomain } from '../../onkologi-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { bedDomain } from '../../rawat-inap-bed-toko';
 import { consentDomain } from '../../rawat-inap-consent-toko';
@@ -20,6 +21,7 @@ export const DEMO_DOMAINS = {
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,
+  onkologi: oncologyDomain,
   persetujuan: consentDomain,
   'rekam-medis': rekamDomain,
   'resume-medis': resumeDomain,

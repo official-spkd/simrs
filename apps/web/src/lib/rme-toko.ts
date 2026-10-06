@@ -20,6 +20,7 @@ import {
   rmeExtraConflict,
   type RmeExtraState,
   RME_EXTRA_INITIAL,
+  VISIT_CLOSED,
 } from './rme-toko-bagan';
 
 /**
@@ -313,7 +314,7 @@ export function rekamCoreConflict(s: RekamCoreState, d: RekamCoreEvent): string 
 
 function reduceCore(s: RekamState, ev: DomainEvent<RekamCoreEvent>): RekamState {
   const d = ev.data;
-  const conflict = rekamCoreConflict(s, d);
+  const conflict = rekamConflict(s, d);
   if (conflict) throw new Error(conflict);
   switch (d.type) {
     case 'cppt.ditulis': {
@@ -449,7 +450,10 @@ const isCore = (d: RekamEvent): d is RekamCoreEvent => rekamCoreEventSchema.safe
 
 /** Konflik kejadian apa pun terhadap keadaan (dipakai `validate` dan reducer). */
 export function rekamConflict(s: RekamState, d: RekamEvent): string | null {
-  return isCore(d) ? rekamCoreConflict(s, d) : rmeExtraConflict(s, d);
+  if (!isCore(d)) return rmeExtraConflict(s, d);
+  // Kunjungan yang sudah ditutup terkunci: catatan baru lewat addendum (tugas worklist tetap bisa diselesaikan).
+  if (s.closed[d.encounterId] && d.type !== 'worklist.selesai') return VISIT_CLOSED;
+  return rekamCoreConflict(s, d);
 }
 
 export const rekamDomain = defineDomain<RekamState, RekamEvent>('rekam-medis', {

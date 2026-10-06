@@ -1,9 +1,10 @@
 'use client';
 
-import { formatJam, formatTanggalLahir } from '@simrs/shared';
+import { formatTanggalLahir } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { diagnosisAction } from '@/app/(staf)/klinis/diagnosis/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatTglJam } from '@/lib/rawat-inap';
 import { hasReason } from '@/lib/rme';
 import {
@@ -21,15 +22,11 @@ import {
   type DxRank,
   type EncounterDx,
   finalizeBlocker,
-  finalizeDx,
-  markAllergyError,
-  markDxError,
   nkdaBlocker,
   type Problem,
   type ProcedureEntry,
-  resolveProblem,
-  setPrimary,
 } from '@/lib/rme-diagnosis';
+import type { DiagnosisOp } from '@/lib/rme-diagnosis-toko';
 import { Feedback, type FeedbackMsg, ReasonField } from './feedback';
 
 type Code = { code: string; display: string };
@@ -46,42 +43,39 @@ const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-whi
 /**
  * K08 · Diagnosis kunjungan (ICD-10, tepat satu utama, kerja → akhir), prosedur ICD-9-CM, problem list lintas
  * kunjungan, dan alergi/NKDA. Setiap perubahan = versi baru; pembatalan = "salah entri" beralasan (tetap tampil
- * dicoret). Keadaan lokal (simulasi, tidak disimpan).
+ * dicoret). Semua perubahan diperiksa dan disimpan server (toko demo `rekam-medis`) atas nama pengguna sesi; daftar
+ * datang dari server (tampil juga di Ringkasan dan Kelengkapan).
  */
 export function DiagnosisWorkspace({
   encounterId,
   role,
-  user,
   today,
   icd10,
   icd9,
-  initialDx,
-  initialProcedures,
-  initialProblems,
-  initialAllergies,
-  initialNkdaAt,
+  dx,
+  procs,
+  problems,
+  allergies,
+  nkdaAt,
+  rev,
 }: {
   encounterId: string;
   role: string | null;
-  user: string;
   /** Tanggal hari demo `YYYY-MM-DD`. */
   today: string;
   icd10: readonly Code[];
   icd9: readonly Code[];
-  initialDx: readonly EncounterDx[];
-  initialProcedures: readonly ProcedureEntry[];
-  initialProblems: readonly Problem[];
-  initialAllergies: readonly AllergyEntry[];
-  initialNkdaAt: string | null;
+  dx: readonly EncounterDx[];
+  procs: readonly ProcedureEntry[];
+  problems: readonly Problem[];
+  allergies: readonly AllergyEntry[];
+  nkdaAt: string | null;
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
 }) {
   const id = useId();
-  const [dx, setDx] = useState<EncounterDx[]>([...initialDx]);
-  const [procs, setProcs] = useState<ProcedureEntry[]>([...initialProcedures]);
-  const [problems, setProblems] = useState<Problem[]>([...initialProblems]);
-  const [allergies, setAllergies] = useState<AllergyEntry[]>([...initialAllergies]);
-  const [nkdaAt, setNkdaAt] = useState<string | null>(initialNkdaAt);
+  const { run, pending } = useStoreAction(rev);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
-  const [seq, setSeq] = useState(1);
   const [newDx, setNewDx] = useState<{ code: string; rank: DxRank; certainty: DxCertainty }>({
     code: '',
     rank: 'sekunder',
@@ -103,14 +97,16 @@ export function DiagnosisWorkspace({
   const [filter, setFilter] = useState<'aktif' | 'teratasi'>('aktif');
   const canDx = canEditDiagnosis(role);
   const canAllergy = canEditAllergy(role);
-  const now = () => demoNow().toISOString();
-  const nextIds = (prefix: string) => {
-    const base = seq;
-    setSeq((n) => n + 10);
-    return (n: number) => `${encounterId}-${prefix}-baru-${base + n}`;
-  };
-  const say = (text: string, ok = true) =>
-    setMsg({ ok, text: ok ? `${text} (simulasi, tidak disimpan).` : text });
+  const say = (text: string, ok = true) => setMsg({ ok, text });
+  /** Kirim operasi ke server; `onOk` dijalankan setelah tersimpan. */
+  const send = (op: DiagnosisOp, onOk?: () => void) =>
+    run(
+      (r) => diagnosisAction({ encounterId, op }, r),
+      (res) => {
+        say(res.message, res.ok);
+        if (res.ok) onOk?.();
+      },
+    );
 
   const shownDx = current(dx).sort(
     (a, b) =>
@@ -125,45 +121,18 @@ export function DiagnosisWorkspace({
 
   const addDx = () => {
     if (dxBlock) return say(dxBlock, false);
-    const at = now();
-    const c = icd10.find((x) => x.code === newDx.code);
-    const entry: EncounterDx = {
-      id: nextIds('dx')(0),
-      version: 1,
-      supersedesId: null,
-      by: user,
-      at,
-      code: newDx.code,
-      display: c?.display ?? newDx.code,
-      rank: newDx.rank,
-      certainty: newDx.certainty,
-      status: 'aktif',
-      reason: null,
-    };
-    setDx((cur) => [...cur, entry]);
-    setNewDx({ code: '', rank: 'sekunder', certainty: 'kerja' });
-    say(
-      `${entry.code} ${entry.display} tercatat sebagai diagnosis ${DX_RANK_LABEL[entry.rank].toLowerCase()} · ${formatJam(at)}`,
-    );
+    send({ op: 'tambah-dx', ...newDx }, () => setNewDx({ code: '', rank: 'sekunder', certainty: 'kerja' }));
   };
 
   const confirmVoid = () => {
     if (!voiding) return;
     if (!hasReason(voiding.reason)) return setVoiding({ ...voiding, tried: true });
-    const at = now();
-    const newId = nextIds(voiding.kind)(0);
-    if (voiding.kind === 'dx') {
-      const prev = current(dx).find((d) => d.id === voiding.id);
-      if (!prev) return;
-      setDx((cur) => [...cur, markDxError(prev, voiding.reason, user, at, newId)]);
-      say(`${prev.code} ditandai salah entri · ${formatJam(at)}; versi lama tetap tersimpan`);
-    } else {
-      const prev = current(allergies).find((a) => a.id === voiding.id);
-      if (!prev) return;
-      setAllergies((cur) => [...cur, markAllergyError(prev, voiding.reason, user, at, newId)]);
-      say(`Alergi ${prev.substance} ditandai salah entri · ${formatJam(at)}`);
-    }
-    setVoiding(null);
+    send(
+      voiding.kind === 'dx'
+        ? { op: 'salah-dx', dxId: voiding.id, reason: voiding.reason }
+        : { op: 'salah-alergi', allergyId: voiding.id, reason: voiding.reason },
+      () => setVoiding(null),
+    );
   };
 
   return (
@@ -180,14 +149,9 @@ export function DiagnosisWorkspace({
             </div>
             <Button
               variant="primary"
-              disabled={!canDx || !!finBlock}
+              disabled={role !== 'dokter' || !!finBlock || pending}
               aria-describedby={`${id}-fin`}
-              onClick={() => {
-                const at = now();
-                const added = finalizeDx(dx, user, at, nextIds('dx'));
-                setDx((cur) => [...cur, ...added]);
-                say(`Diagnosis akhir ditetapkan · ${formatJam(at)} · ${added.length} diagnosis`);
-              }}
+              onClick={() => send({ op: 'akhir' })}
             >
               Tetapkan diagnosis akhir
             </Button>
@@ -195,7 +159,10 @@ export function DiagnosisWorkspace({
           <span id={`${id}-fin`} className={cx('text-caption', finBlock ? 'text-warning' : 'text-success')}>
             {!canDx
               ? 'Diagnosis ditetapkan dokter (DPJP/residen).'
-              : (finBlock ?? 'Siap ditetapkan sebagai diagnosis akhir.')}
+              : (finBlock ??
+                (role !== 'dokter'
+                  ? 'Diagnosis akhir ditetapkan DPJP (posisi dokter).'
+                  : 'Siap ditetapkan sebagai diagnosis akhir.'))}
           </span>
           {shownDx.length === 0 ? (
             <p className="m-0 rounded-control bg-subtle px-3.5 py-3 text-small text-ink-700">
@@ -228,14 +195,8 @@ export function DiagnosisWorkspace({
                           <Button
                             size="sm"
                             aria-label={`Jadikan ${d.code} diagnosis utama`}
-                            onClick={() => {
-                              const at = now();
-                              const ids = nextIds('dx');
-                              setDx((cur) => [...cur, ...setPrimary(cur, d.id, user, at, ids)]);
-                              say(
-                                `${d.code} kini diagnosis utama · ${formatJam(at)}; utama lama menjadi sekunder (versi baru)`,
-                              );
-                            }}
+                            disabled={pending}
+                            onClick={() => send({ op: 'utama', dxId: d.id })}
                           >
                             Jadikan utama
                           </Button>
@@ -244,28 +205,8 @@ export function DiagnosisWorkspace({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => {
-                              const at = now();
-                              const pid = nextIds('masalah')(0);
-                              setProblems((cur) => [
-                                ...cur,
-                                {
-                                  id: pid,
-                                  version: 1,
-                                  supersedesId: null,
-                                  by: user,
-                                  at,
-                                  code: d.code,
-                                  display: d.display,
-                                  onset: today,
-                                  status: 'aktif',
-                                  resolvedOn: null,
-                                  note: null,
-                                },
-                              ]);
-                              setFilter('aktif');
-                              say(`${d.code} masuk problem list · ${formatJam(at)}`);
-                            }}
+                            disabled={pending}
+                            onClick={() => send({ op: 'ke-masalah', dxId: d.id }, () => setFilter('aktif'))}
                           >
                             Masukkan ke problem list
                           </Button>
@@ -405,27 +346,8 @@ export function DiagnosisWorkspace({
               onSubmit={(e) => {
                 e.preventDefault();
                 if (allergyBlock) return say(allergyBlock, false);
-                const at = now();
-                const aid = nextIds('alergi')(0);
-                setAllergies((cur) => [
-                  ...cur,
-                  {
-                    id: aid,
-                    version: 1,
-                    supersedesId: null,
-                    by: user,
-                    at,
-                    substance: newAllergy.substance.trim(),
-                    reaction: newAllergy.reaction.trim(),
-                    severity: newAllergy.severity,
-                    status: 'aktif',
-                    reason: null,
-                  },
-                ]);
-                setNkdaAt(null);
-                setNewAllergy({ substance: '', reaction: '', severity: 'sedang' });
-                say(
-                  `Alergi ${newAllergy.substance.trim()} tercatat · ${formatJam(at)}; banner pasien dan CDS memakai data ini`,
+                send({ op: 'tambah-alergi', ...newAllergy }, () =>
+                  setNewAllergy({ substance: '', reaction: '', severity: 'sedang' }),
                 );
               }}
             >
@@ -469,13 +391,9 @@ export function DiagnosisWorkspace({
                   Catat alergi
                 </Button>
                 <Button
-                  disabled={!!nkdaBlock || !!nkdaAt}
+                  disabled={!!nkdaBlock || !!nkdaAt || pending}
                   aria-describedby={nkdaBlock ? `${id}-nkda` : undefined}
-                  onClick={() => {
-                    const at = now();
-                    setNkdaAt(at);
-                    say(`NKDA diverifikasi · ${formatJam(at)}`);
-                  }}
+                  onClick={() => send({ op: 'nkda' })}
                 >
                   Verifikasi NKDA
                 </Button>
@@ -551,17 +469,10 @@ export function DiagnosisWorkspace({
                     className="flex flex-wrap items-end gap-2 rounded-control bg-subtle p-3"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const at = now();
-                      const resolved = resolveProblem(p, {
-                        resolvedOn: resolving.date,
-                        note: resolving.note,
-                        by: user,
-                        at,
-                        id: nextIds('masalah')(0),
-                      });
-                      setProblems((cur) => [...cur, resolved]);
-                      setResolving(null);
-                      say(`${p.code} ditandai teratasi · ${formatJam(at)} (versi baru)`);
+                      send(
+                        { op: 'teratasi', problemId: p.id, date: resolving.date, note: resolving.note },
+                        () => setResolving(null),
+                      );
                     }}
                   >
                     <div className="flex flex-col gap-1">
@@ -625,11 +536,7 @@ export function DiagnosisWorkspace({
                 e.preventDefault();
                 const c = icd9.find((x) => x.code === newProc);
                 if (!c) return;
-                const at = now();
-                const pid = nextIds('proc')(0);
-                setProcs((cur) => [...cur, { id: pid, code: c.code, display: c.display, by: user, at }]);
-                setNewProc('');
-                say(`Prosedur ${c.code} ${c.display} tercatat · ${formatJam(at)}`);
+                send({ op: 'tambah-prosedur', code: c.code }, () => setNewProc(''));
               }}
             >
               <label htmlFor={`${id}-icd9`} className="text-small font-semibold">

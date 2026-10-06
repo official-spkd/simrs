@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 import { ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
 
 /**
@@ -577,5 +577,277 @@ test.describe('K13 · kelengkapan rekam medis dan gerbang tutup kunjungan', () =
     await cek.getByLabel('Disposisi').selectOption('pulang');
     await expect(cek.getByRole('button', { name: 'Tutup kunjungan' })).toBeDisabled();
     await expect(cek.getByText('Kunjungan ditutup oleh DPJP (posisi dokter).')).toBeVisible();
+  });
+});
+
+/** Masuk dengan akun berposisi ganda, pilih posisi awal, lalu buka `path`. */
+async function loginWithPosition(page: Page, account: Account, roleName: string, path: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+  await page.goto(path);
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
+
+/**
+ * Toko demo bersama (ADR-0085): aksi bagan RME bertahan setelah muat ulang dan mengalir antarlayar (worklist ↔ CPPT
+ * ↔ kelengkapan, asesmen ↔ worklist, konsul ↔ worklist, eMAR askep ↔ rawat inap, nilai kritis lab → worklist,
+ * ringkasan, rawat inap). Setiap akun uji punya ruang data sendiri.
+ */
+test.describe('bagan RME tersimpan dan mengalir', () => {
+  test('co-sign di worklist → CPPT final → kelengkapan; bertahan setelah muat ulang', async ({ page }) => {
+    await openAs(page, ['dokter'], '/klinis/worklist');
+    await card(page, /CPPT residen 07\.40/)
+      .getByRole('button', { name: 'Co-sign sekarang' })
+      .click();
+    await expect(page.getByRole('status').filter({ hasText: 'Co-sign DPJP' })).toBeVisible();
+    await page.reload();
+    await expect(card(page, /CPPT residen 07\.40/)).toHaveCount(0);
+    await page.getByRole('tab', { name: /Selesai/ }).click();
+    await expect(page.getByText(new RegExp(`✓ Co-sign DPJP · CPPT residen final · ${JAM}`))).toBeVisible();
+
+    await page.goto(`/klinis/cppt?pasien=${ENCOUNTER_ID.endang}`);
+    await expect(
+      note(page, 'Pneumonia komunitas perbaikan; DM hiperglikemia.').getByText(
+        new RegExp(`^Final · co-sign DPJP .+ · ${JAM}$`),
+      ),
+    ).toBeVisible();
+    await page.goto(`/klinis/kelengkapan?pasien=${ENCOUNTER_ID.endang}`);
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await expect(cek.getByText('✓ Semua CPPT residen sudah co-sign DPJP')).toBeVisible();
+    await expect(cek.getByText('4 dari 7 terpenuhi · 57%')).toBeVisible();
+    await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.endang}`);
+    await expect(
+      page
+        .getByRole('list', { name: 'Catatan CPPT' })
+        .getByRole('listitem')
+        .filter({ hasText: 'Pneumonia komunitas perbaikan' })
+        .first(),
+    ).toContainText('Co-sign DPJP');
+  });
+
+  test('asesmen, diagnosis, edukasi, dan konsul bertahan; worklist dan kelengkapan membaca hasilnya', async ({
+    page,
+  }) => {
+    const akun = await createAccount({ roles: ['dokter', 'perawat'] });
+    await loginWithPosition(page, akun, 'Dokter (DPJP)', `/klinis/diagnosis?pasien=${ENCOUNTER_ID.endang}`);
+    const sec = page.getByRole('region', { name: 'Diagnosis kunjungan' });
+    await sec.getByRole('button', { name: 'Tetapkan diagnosis akhir' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Diagnosis akhir ditetapkan' })).toBeVisible();
+    await page.reload();
+    await expect(sec.getByText('Diagnosis akhir sudah ditetapkan.')).toBeVisible();
+
+    await page.goto('/klinis/konsultasi');
+    const konsul = card(page, /dr\. Melati Kusumawardani, Sp\.JP → dr\. Andini/);
+    await konsul.getByRole('button', { name: 'Jawab konsul' }).click();
+    const form = konsul.getByRole('form', { name: 'Jawaban konsul' });
+    await form
+      .getByLabel('Kesimpulan / diagnosis konsultan')
+      .fill('CKD stadium 3, risiko nefropati kontras sedang.');
+    await form.getByLabel('Rekomendasi tata laksana').fill('Hidrasi NaCl 0,9% pra dan pasca kontras.');
+    await form.getByRole('button', { name: 'Tanda tangani jawaban' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Konsul dijawab' })).toBeVisible();
+    await page.reload();
+    await expect(
+      card(page, /dr\. Melati Kusumawardani, Sp\.JP → dr\. Andini/).getByText(/^Dijawab .+ · \d{2}\.\d{2}$/),
+    ).toBeVisible();
+    await page.goto('/klinis/worklist');
+    await expect(card(page, /Konsul cito dari dr\. Melati/)).toHaveCount(0);
+    await page.getByRole('tab', { name: /Selesai/ }).click();
+    await expect(page.getByText(new RegExp(`✓ Konsul dijawab · ${JAM}`))).toBeVisible();
+
+    // Perawat: reasesmen Morse → worklist perawat menutup tugasnya; edukasi pulang → kelengkapan.
+    await switchPosition(page, 'Perawat');
+    await page.goto(`/klinis/asesmen?pasien=${ENCOUNTER_ID.endang}`);
+    const morse = page.getByRole('region', { name: 'Risiko jatuh dewasa (Morse)' });
+    await morse.getByRole('button', { name: 'Isi reasesmen' }).click();
+    await choose(morse, 'Riwayat jatuh', /^Tidak/);
+    await choose(morse, 'Diagnosis sekunder', /^Ya/);
+    await choose(morse, 'Alat bantu', /^Tidak ada/);
+    await choose(morse, 'Terpasang infus', /^Tidak/);
+    await choose(morse, 'Cara berjalan', /^Normal/);
+    await choose(morse, 'Status mental', /^Sadar/);
+    await morse.getByRole('button', { name: 'Simpan final' }).click();
+    await expect(morse.getByRole('status').filter({ hasText: /^Final · / })).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole('region', { name: 'Paket asesmen' }).getByText('5 dari 5 final'),
+    ).toBeVisible();
+    await page.goto('/klinis/worklist');
+    await expect(card(page, /Reasesmen risiko jatuh \(Morse\)/)).toHaveCount(0);
+
+    await page.goto(`/klinis/edukasi?pasien=${ENCOUNTER_ID.endang}`);
+    const edu = page.getByRole('form', { name: 'Formulir edukasi' });
+    for (const t of [/^Insulin pen dan tanda hipoglikemia/, /^Perawatan di rumah/, /^Pencegahan jatuh/]) {
+      const box = edu.getByLabel(t);
+      if (!(await box.isChecked())) await box.check();
+    }
+    await edu.getByLabel('Demonstrasi + redemonstrasi').check();
+    await edu.getByLabel('3. Sasaran').selectOption('keluarga');
+    await edu.getByLabel('Paham (mampu menjelaskan ulang)').check();
+    await edu
+      .getByLabel('Ucapan ulang penerima')
+      .fill('Suntik glargine malam; bila gemetar minum teh manis.');
+    await edu.getByLabel(/^5\. Tanda tangan penerima/).fill('Dimas Wijaya');
+    await edu.getByLabel(/memberikan edukasi ini/).check();
+    await edu.getByRole('button', { name: 'Simpan edukasi (final)' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Edukasi final' })).toBeVisible();
+    await page.reload();
+    const need = page.getByRole('region', { name: 'Kebutuhan edukasi' });
+    await expect(need.getByText('6 dari 6 materi wajib terverifikasi paham')).toBeVisible();
+    // Mengalir: butir edukasi di Kelengkapan (layar DPJP/rekam medis) ikut terpenuhi.
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto(`/klinis/kelengkapan?pasien=${ENCOUNTER_ID.endang}`);
+    await expect(
+      page
+        .getByRole('region', { name: 'Kelengkapan rekam medis' })
+        .getByText('✓ Edukasi pulang terverifikasi paham'),
+    ).toBeVisible();
+  });
+
+  test('nilai kritis dilaporkan Lab → worklist, ringkasan, dan rawat inap dokter', async ({ page }) => {
+    const akun = await createAccount({
+      roles: ['analis_lab', 'dokter'],
+      displayName: 'Analis Klinis Fiktif',
+    });
+    await loginWithPosition(page, akun, 'Analis laboratorium', '/penunjang/lab');
+    const kritis = page.getByRole('region', { name: /Nilai kritis terbuka · Tn\. Yusuf Hidayat/ });
+    await kritis.getByRole('button', { name: 'Catat pelaporan' }).click();
+    await kritis
+      .getByRole('textbox', { name: 'Nama penerima laporan (DPJP / dokter jaga)' })
+      .fill('dr. Jaga Penerima Fiktif');
+    await kritis.getByRole('checkbox', { name: /Read-back/ }).check();
+    await kritis.getByRole('button', { name: 'Simpan pelaporan' }).click();
+    await expect(
+      page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Yusuf Hidayat/ }),
+    ).toBeVisible();
+
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto('/klinis/worklist');
+    await expect(card(page, /Kalium 6,4 mmol\/L \(kritis\)/)).toContainText(
+      /Lab: dilaporkan Analis Klinis Fiktif ke dr\. Jaga Penerima Fiktif/,
+    );
+    await page.goto(`/klinis/ringkasan?pasien=${ENCOUNTER_ID.yusuf}`);
+    await expect(page.getByRole('region', { name: 'Pelaporan nilai kritis' })).toContainText(
+      'Dilaporkan Analis Klinis Fiktif ke dr. Jaga Penerima Fiktif',
+    );
+    await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.yusuf}`);
+    await expect(page.getByRole('region', { name: 'Nilai kritis pasien' })).toContainText(
+      'dilaporkan Analis Klinis Fiktif ke dr. Jaga Penerima Fiktif',
+    );
+  });
+
+  test('ronde obat askep + evaluasi + paket + tutup kunjungan bertahan setelah muat ulang', async ({
+    page,
+  }) => {
+    const akun = await createAccount({ roles: ['perawat', 'dokter'] });
+    await loginWithPosition(
+      page,
+      akun,
+      'Perawat',
+      `/klinis/asuhan-keperawatan?pasien=${ENCOUNTER_ID.endang}`,
+    );
+    const ronde = page.getByRole('region', { name: 'Ronde obat shift' });
+    await ronde.getByRole('button', { name: 'Pindai gelang (simulasi)' }).click();
+    await ronde.getByRole('button', { name: 'Verifikasi gelang' }).click();
+    const omeprazol = card(page, '08.00 · Omeprazol 40 mg injeksi');
+    await omeprazol.getByRole('button', { name: 'Catat pemberian' }).click();
+    await omeprazol.getByLabel('Alasan keterlambatan').fill('Pasien sedang foto toraks di radiologi');
+    await omeprazol.getByRole('button', { name: 'Catat pemberian' }).click();
+    await expect(omeprazol.getByText(/^✓ Diberikan/)).toBeVisible();
+    const jatuh = card(page, 'Risiko jatuh (Morse 35)');
+    await jatuh.getByLabel(/^O · Objektif/).fill('Tidak ada kejadian jatuh; bel dalam jangkauan.');
+    await jatuh.getByLabel(/^A · Hasil evaluasi/).selectOption('sebagian');
+    await jatuh.getByLabel(/^P · Rencana lanjut/).fill('Lanjut bundle pencegahan jatuh.');
+    await jatuh.getByRole('button', { name: 'Simpan evaluasi shift' }).click();
+    await expect(jatuh.getByText(new RegExp(`^Evaluasi final · ${JAM} · `))).toBeVisible();
+    await page.reload();
+    await expect(card(page, '08.00 · Omeprazol 40 mg injeksi').getByText(/^✓ Diberikan/)).toBeVisible();
+    await expect(
+      card(page, 'Risiko jatuh (Morse 35)').getByText(new RegExp(`^Evaluasi final · ${JAM} · `)),
+    ).toBeVisible();
+    // Mengalir: eMAR Rawat inap membaca pemberian yang sama.
+    await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.endang}`);
+    await expect(
+      page.getByRole('region', { name: 'eMAR' }).getByRole('list', { name: 'Pemberian tercatat' }),
+    ).toContainText('Omeprazol 40 mg injeksi');
+
+    // Paket layanan: sesi kemoterapi bertahan.
+    await page.goto('/klinis/paket-layanan');
+    await page
+      .getByRole('button', { name: 'Tandai selesai: Verifikasi ganda dosis (apoteker + perawat)' })
+      .click();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: /^Verifikasi ganda dosis \(apoteker \+ perawat\) · selesai/ }),
+    ).toBeVisible();
+    const gate = page.getByRole('region', { name: 'Gerbang sesi' });
+    await gate.getByRole('button', { name: 'Lanjut dengan alasan klinis' }).click();
+    await gate.getByLabel(/^Alasan klinis/).fill('Transfusi PRC 1 unit selesai, Hb ulang 10,2 g/dL');
+    await gate.getByRole('button', { name: 'Simpan alasan dan lanjut' }).click();
+    await gate.getByRole('button', { name: 'Mulai pemberian siklus' }).click();
+    await expect(gate.getByRole('button', { name: 'Selesaikan siklus hari ini' })).toBeVisible();
+    await page.reload();
+    await expect(gate.getByText(/^Override tercatat · Transfusi PRC/)).toBeVisible();
+    await gate.getByRole('button', { name: 'Selesaikan siklus hari ini' }).click();
+    await expect(
+      page.getByRole('list', { name: 'Jadwal sesi' }).getByRole('listitem').filter({ hasText: 'Siklus 4' }),
+    ).toContainText(new RegExp(`Selesai ${JAM}`));
+
+    // Tutup kunjungan rawat jalan (DPJP) bertahan: rekam terkunci.
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto(`/klinis/kelengkapan?pasien=${ENCOUNTER_ID.rohana}`);
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await cek.getByLabel('Disposisi').selectOption('pulang');
+    await cek.getByRole('button', { name: 'Tutup kunjungan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Rekam medis terkunci' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('status').filter({ hasText: 'Rekam medis terkunci' })).toBeVisible();
+    await expect(cek.getByRole('button', { name: 'Tutup kunjungan' })).toHaveCount(0);
+  });
+
+  test('K-1: disposisi meninggal hanya DPJP pasien, dengan surat keterangan kematian ber-TTE', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], `/klinis/kelengkapan?pasien=${ENCOUNTER_ID.rohana}`);
+    const cek = page.getByRole('region', { name: 'Kelengkapan rekam medis' });
+    await cek.getByLabel('Disposisi').selectOption('meninggal');
+    const close = cek.getByRole('button', { name: 'Tutup kunjungan' });
+    await expect(close).toBeDisabled();
+    await expect(cek.getByText(/membutuhkan surat keterangan kematian yang sudah ber-TTE/)).toBeVisible();
+    const skk = cek.getByRole('form', { name: 'Surat keterangan kematian' });
+    await expect(skk).toContainText('menunggu konfirmasi pemilik produk');
+    await skk.getByLabel('Jam kematian (HH.MM)').fill('09.15');
+    await skk.getByLabel('Sebab kematian (ICD-10)').selectOption('J96.0');
+    await skk.getByLabel(/Tanda tangani surat keterangan kematian/).check();
+    await skk.getByRole('button', { name: 'Terbitkan surat keterangan kematian' }).click();
+    const dok = page.getByRole('region', { name: 'Dokumen pasien' });
+    await expect(dok.getByRole('listitem').filter({ hasText: 'Surat keterangan kematian' })).toContainText(
+      'J96.0 Gagal napas akut',
+    );
+    await cek.getByLabel('Disposisi').selectOption('meninggal');
+    await expect(close).toBeEnabled();
+    await close.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Rekam medis terkunci' })).toContainText(
+      'Meninggal',
+    );
   });
 });
