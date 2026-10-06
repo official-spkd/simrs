@@ -97,7 +97,7 @@ function Matrix({ eps }: { eps: MrmikEp[] }) {
         MRMIK.
       </p>
       <TableWrap label="Matriks 51 EP MRMIK">
-        <table className="w-full min-w-[820px] border-collapse">
+        <table className="w-full min-w-[820px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
           <thead>
             <tr>
               {['No', 'EP', 'Inti elemen penilaian', 'Kelas', 'Status', 'Bukti'].map((h) => (

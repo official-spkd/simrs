@@ -103,7 +103,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
   if (!can(s, 'audit', 'read')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Jejak audit</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Jejak audit</h1>
         <Alert level="warning" title="Akses ditolak">
           Peran Anda tidak berizin membaca jejak audit. Hubungi admin SIM RS bila perlu.
         </Alert>
@@ -168,7 +168,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Sistem / Jejak audit</span>
-          <h1 className="m-0 text-h1 font-semibold">Jejak audit rekam medis</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Jejak audit rekam medis</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-caption text-ink-500">Log bersifat append-only dan tidak dapat diubah</span>
@@ -218,7 +218,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
       <div className="flex flex-wrap items-start gap-5">
         <section
           aria-label="Log aktivitas"
-          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-card"
+          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <EventTable rows={page.items} current={current} selected={p.kejadian} />
           <nav aria-label="Halaman log" className="flex justify-between gap-3 px-4 py-3 text-small">
@@ -414,8 +414,8 @@ function Findings({
               !open
                 ? 'border-success-border bg-white'
                 : f.severity === 'tinggi'
-                  ? 'border-danger-border bg-[linear-gradient(180deg,var(--color-koral-50),#FFFFFF)]'
-                  : 'border-warning-border bg-[linear-gradient(180deg,var(--color-kunyit-50),#FFFFFF)]',
+                  ? 'border-danger-border bg-alert-critical'
+                  : 'border-warning-border bg-alert-warning',
             )}
           >
             <span
@@ -435,7 +435,7 @@ function Findings({
           </div>
         );
       })}
-      <div className="flex flex-col gap-1 rounded-card border border-line bg-white px-4 py-3.5">
+      <div className="flex flex-col gap-1 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5">
         <span className="text-caption font-bold text-brand-700">RINGKASAN {days} HARI</span>
         <span className="font-semibold">
           {findings.length} temuan · {pendingCount} belum ditinjau
@@ -467,7 +467,7 @@ function PatientAccessSummary({ rows, more }: { rows: AuditEventRow[]; more: boo
   return (
     <section
       aria-label="Ringkasan pengakses pasien"
-      className="flex flex-col gap-1 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-1 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <span className="text-caption font-bold text-brand-700">PENGAKSES REKAM MEDIS PASIEN INI</span>
       <span className="font-semibold">
@@ -502,8 +502,8 @@ function EventTable({
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left text-small">
-        <thead className="bg-subtle text-caption font-semibold text-ink-700">
+      <table className="w-full min-w-[720px] border-collapse text-left text-small [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
+        <thead className="text-caption font-semibold text-ink-500 [&_th]:border-b [&_th]:border-[rgba(23,32,46,0.08)]">
           <tr>
             <th scope="col" className="px-4 py-2.5">
               Waktu
@@ -531,7 +531,7 @@ function EventTable({
                 className={cx(
                   'border-t border-line-soft',
                   on
-                    ? 'bg-selected shadow-[inset_3px_0_0_var(--color-brand-600)]'
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))] shadow-[inset_3px_0_0_var(--color-brand-600)]'
                     : // Mockup Audit: entri yang patut ditinjau (ditolak, akses darurat) berlatar merah sangat tipis.
                       (e.outcome === 'denied' || e.action === 'break_glass') && 'bg-koral-50',
                 )}
@@ -943,8 +943,8 @@ function BreakGlassReport({
         <p className="m-0 text-small text-ink-500">Tidak ada akses darurat pada tanggal ini.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-left text-small">
-            <thead className="bg-subtle text-caption font-semibold text-ink-700">
+          <table className="w-full min-w-[720px] border-collapse text-left text-small [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
+            <thead className="text-caption font-semibold text-ink-500 [&_th]:border-b [&_th]:border-[rgba(23,32,46,0.08)]">
               <tr>
                 <th scope="col" className="px-3 py-2">
                   Waktu

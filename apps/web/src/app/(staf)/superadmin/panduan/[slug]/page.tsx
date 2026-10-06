@@ -31,7 +31,7 @@ export default async function GuidePageView({ params }: { params: Params }) {
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
-        <article className="min-w-0 rounded-card border border-line bg-card px-5 py-6 shadow-card md:px-8">
+        <article className="min-w-0 rounded-card border border-white/95 bg-white/90 shadow-card px-5 py-6 md:px-8">
           <Markdown source={markdown} />
           <p className="mt-10 border-t border-line pt-4 font-mono text-caption text-ink-500">
             Sumber: {guideSourcePath(page)}

@@ -140,7 +140,7 @@ export function DowntimeBoard({
       <div className="flex flex-wrap items-start gap-4">
         <Panel className="flex-[1_1_360px]" title="Status layanan" sub={`Jam ${jam(s.clock)}`}>
           <TableWrap label="Status layanan">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
               <thead>
                 <tr>
                   <th scope="col" className={TH}>
@@ -338,7 +338,7 @@ export function DowntimeBoard({
             hintTone="muted"
           />
           <TableWrap label="Formulir kertas selama downtime">
-            <table className="w-full min-w-[620px] border-collapse">
+            <table className="w-full min-w-[620px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
               <thead>
                 <tr>
                   {['Formulir', 'Pasien', 'Waktu klinis', 'Pencatat', 'Entri'].map((h) => (

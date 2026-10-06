@@ -45,7 +45,9 @@ export default async function MutuPage() {
           <span className="text-caption text-ink-500">
             Manajemen / Mutu dan keselamatan pasien · B06 · data per {formatJam(d.asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Mutu dan keselamatan pasien · Oktober 2026</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+            Mutu dan keselamatan pasien · Oktober 2026
+          </h1>
         </div>
       </header>
 
@@ -97,7 +99,7 @@ export default async function MutuPage() {
       {q.deaths.length > 0 && (
         <section
           aria-label="Kematian di IGD untuk telaah mutu"
-          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <h2 className="m-0 text-base font-semibold">Kematian di IGD untuk telaah mutu</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">

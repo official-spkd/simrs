@@ -185,7 +185,10 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
       <div className="flex flex-wrap items-start gap-4">
         <nav aria-label="Faskes dan unit" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3">
           {faskes.map((f) => (
-            <div key={f.id} className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-3">
+            <div
+              key={f.id}
+              className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3"
+            >
               <button
                 type="button"
                 onClick={() => select(f.id)}
@@ -329,7 +332,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
             {adding && childKind && (
               <form
                 aria-label={`Tambah ${KIND_LABEL[childKind].toLowerCase()} di ${node.name}`}
-                className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[#F8FCFB] p-3"
+                className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(135deg,var(--color-brand-50),rgba(255,255,255,0.75))] p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
                   submitAdd();
@@ -421,7 +424,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
             {childKind ? (
               kids.length > 0 ? (
                 <TableWrap label={`Daftar ${KIND_LABEL[childKind].toLowerCase()} di ${node.name}`}>
-                  <table className="w-full min-w-[520px] border-collapse">
+                  <table className="w-full min-w-[520px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                     <thead>
                       <tr>
                         <th scope="col" className={TH}>
@@ -504,7 +507,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
               }
             >
               <TableWrap label="Rekap bed per kelas rawat">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                   <thead>
                     <tr>
                       <th scope="col" className={TH}>

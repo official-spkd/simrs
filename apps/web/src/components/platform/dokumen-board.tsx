@@ -227,7 +227,7 @@ export function DokumenBoard({
           {uploading && (
             <form
               aria-label="Unggah dokumen"
-              className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[#F8FCFB] p-3"
+              className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(135deg,var(--color-brand-50),rgba(255,255,255,0.75))] p-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 submitUpload();

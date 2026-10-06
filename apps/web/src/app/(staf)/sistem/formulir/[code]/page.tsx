@@ -22,7 +22,7 @@ export default async function FormEditorPage({ params }: { params: Promise<{ cod
   if (!can(s, 'forms.definition', 'read')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Formulir klinis</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Formulir klinis</h1>
         <Alert level="warning" title="Akses ditolak">
           Pustaka formulir klinis dikelola komite rekam medis. Hubungi admin SIM RS bila perlu.
         </Alert>

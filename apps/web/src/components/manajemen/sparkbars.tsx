@@ -34,7 +34,14 @@ export function Sparkbars({
         const x = i * (bw + gap);
         return (
           <g key={i}>
-            <rect x={x} y={height - h} width={bw} height={h} rx={1.5} fill={err ? '#C9564B' : '#8CC4BC'} />
+            <rect
+              x={x}
+              y={height - h}
+              width={bw}
+              height={h}
+              rx={1.5}
+              fill={err ? 'var(--color-koral-500)' : 'var(--color-brand-300)'}
+            />
             {err && <rect x={x} y={height - h - 4} width={bw} height={2} fill="var(--color-koral-600)" />}
           </g>
         );

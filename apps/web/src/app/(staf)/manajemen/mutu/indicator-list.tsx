@@ -32,7 +32,7 @@ export function IndicatorList({ indicators, months }: { indicators: QualityIndic
   return (
     <section
       aria-labelledby="indikator-judul"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex min-w-0 flex-col">

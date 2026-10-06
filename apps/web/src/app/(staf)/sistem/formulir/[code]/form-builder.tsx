@@ -277,7 +277,7 @@ export function FormBuilder({
           <span className="text-caption text-ink-500">
             Sistem / <Link href="/sistem/formulir">Formulir klinis</Link> / {FORM_CATEGORIES[shown.category]}
           </span>
-          <h1 className="m-0 flex flex-wrap items-center gap-2 text-h1 font-semibold">
+          <h1 className="m-0 flex flex-wrap items-center gap-2 text-h1 font-bold tracking-[-0.02em]">
             {state.title || shown.title}
             <Chip tone={chip.tone} className="text-small">
               {chip.label}
@@ -366,7 +366,7 @@ export function FormBuilder({
         {!preview && (
           <aside
             aria-label="Jenis field"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-card p-3.5 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)]"
+            className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3.5 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)]"
           >
             <span className="pb-1 text-caption font-semibold tracking-[0.08em] text-ink-500">
               JENIS FIELD

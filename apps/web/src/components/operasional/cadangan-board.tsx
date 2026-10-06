@@ -149,7 +149,7 @@ export function CadanganBoard({
         }
       >
         <TableWrap label="Lokasi cadangan">
-          <table className="w-full min-w-[720px] border-collapse">
+          <table className="w-full min-w-[720px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
             <thead>
               <tr>
                 {['Lokasi', 'Jadwal', 'Terakhir berhasil', 'Ukuran', 'Retensi tersimpan', 'Status'].map(
@@ -310,7 +310,7 @@ export function CadanganBoard({
           {passed && (
             <>
               <TableWrap label="Jumlah baris manifest dan hasil pulih">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                   <thead>
                     <tr>
                       <th scope="col" className={TH}>

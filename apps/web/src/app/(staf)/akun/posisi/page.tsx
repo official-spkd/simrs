@@ -16,14 +16,14 @@ export default async function GantiPosisiPage() {
   return (
     <div className="flex max-w-5xl flex-col gap-5">
       <header className="flex flex-col gap-0.5">
-        <h1 className="m-0 text-h1 font-semibold">Ganti posisi</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Ganti posisi</h1>
         <span className="text-small text-ink-700">
           Sekarang: {s.role?.name ?? 'belum memilih posisi'}
           {s.unit ? ` · ${s.unit.name}` : ''}. Menu dan hak akses mengikuti posisi yang dipilih.
         </span>
       </header>
       {options.length < 2 ? (
-        <p className="m-0 rounded-card border border-line bg-card px-4 py-4 text-small text-ink-500">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-4 text-small text-ink-500">
           Akun ini hanya punya satu posisi.
         </p>
       ) : (

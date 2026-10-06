@@ -27,7 +27,7 @@ export function ExpiryPanel({
   return (
     <section
       aria-labelledby="ed-judul"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="ed-judul" className="m-0 text-base font-semibold">

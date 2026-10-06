@@ -30,7 +30,7 @@ export default async function GuideIndexPage() {
         <span className="text-caption font-semibold tracking-[0.08em] text-brand-700">
           SUPERADMIN · PANDUAN
         </span>
-        <h1 className="m-0 text-h1 font-bold">Panduan sistem SIM RS</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Panduan sistem SIM RS</h1>
         <p className="m-0 max-w-3xl text-ink-700">
           Cara sistem dan kode bekerja, tutorial, serta penjelasan fitur setiap layar lengkap dengan gambar.
           Isi halaman ini sama dengan berkas Markdown di folder{' '}

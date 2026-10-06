@@ -75,7 +75,7 @@ export function CommandBoard({
   return (
     <div className="flex flex-col gap-4">
       <DemoPolling intervalMs={5000} />
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3">
         <span className="flex flex-col">
           <span className="font-semibold">Data langsung · hari presentasi {asOf.slice(0, 10)}</span>
           <span className="text-caption text-ink-500">

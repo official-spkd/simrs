@@ -14,7 +14,7 @@ export function DemoAccessDenied({ screen }: { screen: ScreenDef }) {
       : screen.demoRoles.map((r) => SYSTEM_ROLES[r as SystemRoleCode]).join(', ');
   return (
     <div className="flex max-w-3xl flex-col gap-4">
-      <h1 className="m-0 text-h1 font-semibold">{screen.label}</h1>
+      <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">{screen.label}</h1>
       <Alert level="warning" title="Layar ini untuk posisi lain">
         Layar {screen.label} dipakai oleh posisi: {roles}. <Link href="/akun/posisi">Ganti posisi</Link> untuk
         membukanya.

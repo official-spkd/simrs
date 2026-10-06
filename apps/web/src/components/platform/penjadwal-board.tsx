@@ -139,7 +139,7 @@ export function PenjadwalBoard({ jobs, rev }: { jobs: ScheduledJob[]; rev: numbe
           sub={`Data per ${formatTanggalWaktu(DEMO_NOW)}`}
         >
           <TableWrap label="Daftar job berkala">
-            <table className="w-full min-w-[600px] border-collapse">
+            <table className="w-full min-w-[600px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
               <thead>
                 <tr>
                   <th scope="col" className={TH}>

@@ -376,7 +376,7 @@ export function TerminologiBoard({
             label: 'Riwayat versi',
             content: (
               <TableWrap label="Riwayat versi data rujukan">
-                <table className="w-full min-w-[560px] border-collapse">
+                <table className="w-full min-w-[560px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                   <thead>
                     <tr>
                       {['Sistem', 'Versi', 'Sumber', 'Diterapkan', 'Tambah', 'Ubah', 'Nonaktif'].map((h) => (

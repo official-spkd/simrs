@@ -11,11 +11,11 @@ import { useDemoRunner } from './demo-sync';
  * gerbang merah/kuning, galat dari server. Dipakai layar Simulasi dan banner skenario di layar lain.
  */
 const toneBox: Record<'danger' | 'warn' | 'giliran' | 'netral' | 'selesai', string> = {
-  danger: 'border-danger-border bg-[linear-gradient(100deg,rgba(180,35,24,0.09),var(--color-koral-50)_60%)]',
-  warn: 'border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),var(--color-kunyit-50)_60%)]',
-  giliran: 'border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),#FFFFFF_60%)]',
-  netral: 'border-line bg-white',
-  selesai: 'border-brand-100 bg-white',
+  danger: 'border-danger-border bg-alert-critical',
+  warn: 'border-warning-border bg-alert-warning',
+  giliran: 'border-brand-200 bg-[linear-gradient(120deg,var(--color-brand-50),#FFFFFF_60%)]',
+  netral: 'border-white/95 bg-white/90',
+  selesai: 'border-zamrud-200 bg-white/90',
 };
 
 export function ScenarioTaskCard({
@@ -138,7 +138,7 @@ export function ScenarioTaskCard({
                     ? 'border-danger bg-danger-bg'
                     : 'border-brand-600 bg-brand-50'
                   : task.enabled
-                    ? 'cursor-pointer border-[#9FB7B3] bg-white'
+                    ? 'cursor-pointer border-line-strong bg-white hover:border-brand-400 hover:bg-brand-50/60'
                     : 'cursor-default border-line bg-white',
                 done && !o.selected && 'opacity-45',
               )}

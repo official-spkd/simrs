@@ -197,7 +197,7 @@ export function LogisticsBoard({
       <div className="flex flex-wrap items-start gap-4">
         <section
           aria-labelledby="rop-judul"
-          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-line bg-white"
+          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
             <span className="flex min-w-0 flex-[1_1_260px] flex-col">

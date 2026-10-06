@@ -52,7 +52,7 @@ export default async function LogistikPage() {
             <span className="text-caption text-ink-500">
               Manajemen / Logistik / Gudang farmasi dan BHP · data per {formatJam(d.asOf)}
             </span>
-            <h1 className="m-0 text-h1 font-semibold">Rantai pasok · stok dan pengadaan</h1>
+            <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Rantai pasok · stok dan pengadaan</h1>
           </div>
         }
         banner={<ScenarioBanner session={session} screen="logistik" />}
