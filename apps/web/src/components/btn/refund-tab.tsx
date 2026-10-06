@@ -3,7 +3,8 @@
 import { formatRupiah, type Refund, type RefundStage } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
 import { useState } from 'react';
-import type { PaymentEventInput } from '@/app/(staf)/keuangan/pembayaran/actions';
+import type { PaymentInput } from '@/app/(staf)/keuangan/pembayaran/use-payment-state';
+import { REKENING } from '@/lib/demo/fixtures/rs';
 import {
   formatWhen,
   nextRefundStage,
@@ -12,8 +13,6 @@ import {
   REFUND_STAGE_LABEL,
   REFUND_STAGE_TONE,
   refundDraftErrors,
-  type RefundSubmission,
-  refundView,
 } from '@/lib/btn';
 import { refundJournal } from '@/lib/keuangan-jurnal';
 import { JurnalPasangan } from '@/components/keuangan/jurnal-pasangan';
@@ -44,37 +43,23 @@ const ACTION: Partial<Record<RefundStage, { label: string; note: string }>> = {
   },
 };
 
-type Log = Refund['log'][number];
 
 /** Tab Refund: persetujuan 2 tingkat (pembuat ≠ penyetuju), dana didebit dari rekening operasional BTN. */
 export function RefundTab({
   refunds,
-  stages,
-  account,
   busy,
   record,
-  now,
-  onStage,
-  userName,
 }: {
-  /** Nama pemakai layar (penyetuju tingkat 1 yang tercatat di riwayat). */
-  userName: string;
+  /** Refund setelah aksi tersimpan (tahap, isian pengajuan, riwayat beserta pengguna sesi). */
   refunds: readonly Refund[];
-  stages: Readonly<Record<string, RefundStage>>;
-  account: string;
   busy: boolean;
-  record: (input: PaymentEventInput, label: string) => Promise<boolean>;
-  now: () => string;
-  onStage: (id: string, stage: RefundStage) => void;
+  record: (input: PaymentInput) => Promise<boolean>;
 }) {
   const [sel, setSel] = useState(refunds[0]?.id ?? '');
-  const [logs, setLogs] = useState<Record<string, Log[]>>({});
-  // Isian pengajuan yang diterima server: dipakai di semua tahap berikutnya dan di daftar (bukan nilai fixture).
-  const [submitted, setSubmitted] = useState<Record<string, RefundSubmission>>({});
   const first = refunds.find((r) => r.stage === 'draf');
   const [draft, setDraft] = useState<RefundDraft>({ amount: first?.amount ?? '', reason: '', note: '' });
   const [tried, setTried] = useState(false);
-  const view = (r: Refund) => refundView(r, stages[r.id], submitted[r.id]);
+  const view = (r: Refund) => r;
   const picked = refunds.find((r) => r.id === sel) ?? refunds[0];
   if (!picked) return null;
   const f = view(picked);
@@ -83,7 +68,7 @@ export function RefundTab({
   const isDraft = stage === 'draf';
   const amount = isDraft ? (draft.amount ? BigInt(draft.amount) : 0n) : BigInt(f.amount);
   const errors = refundDraftErrors(f, amount, draft.reason, draft.note);
-  const log = [...f.log, ...(logs[f.id] ?? [])];
+  const log = f.log;
   const act = ACTION[stage];
   const stepAt = STEPS.map((_, i) => log.find((g) => STEP_LOG[i]?.test(g.text))?.at ?? null);
   const reasonLabel = f.reason
@@ -93,45 +78,20 @@ export function RefundTab({
       : '';
 
   const advance = async () => {
-    const next = nextRefundStage(stage);
-    if (!next) return;
-    let input: PaymentEventInput;
-    let text: string;
-    let extra: string | null = null;
-    let submission: RefundSubmission | null = null;
+    if (!nextRefundStage(stage)) return;
     if (isDraft) {
       setTried(true);
       if (errors.amount || errors.reason || errors.note) return;
-      submission = {
+      await record({
+        kind: 'refund-ajukan',
+        refundId: f.id,
         amount: draft.amount,
         reason: draft.reason as NonNullable<Refund['reason']>,
         note: draft.note.trim(),
-      };
-      input = { kind: 'refund-ajukan', refundId: f.id, ...submission };
-      text = `Diajukan · ${formatRupiah(amount)} · alasan: ${reasonLabel}`;
-    } else {
-      input = { kind: 'refund-setujui', refundId: f.id, stage };
-      text =
-        stage === 'menunggu-supervisor'
-          ? `Disetujui supervisor kasir (tingkat 1) · ${userName}`
-          : stage === 'menunggu-manajer'
-            ? 'Disetujui manajer keuangan (tingkat 2) · simulasi peran'
-            : 'Dana diterima rekening pasien · webhook refund.completed dari TPDI';
-      if (stage === 'menunggu-manajer') {
-        extra = `Instruksi transfer dikirim via TPDI → BTN, debit ${account}`;
-      }
+      });
+      return;
     }
-    if (!(await record(input, `${f.number}: ${text}`))) return;
-    if (submission) {
-      const sub = submission;
-      setSubmitted((cur) => ({ ...cur, [f.id]: sub }));
-    }
-    const at = now();
-    setLogs((cur) => ({
-      ...cur,
-      [f.id]: [...(cur[f.id] ?? []), { at, text }, ...(extra ? [{ at, text: extra }] : [])],
-    }));
-    onStage(f.id, next);
+    await record({ kind: 'refund-setujui', refundId: f.id, stage });
   };
 
   return (
@@ -230,7 +190,7 @@ export function RefundTab({
           <dt className="text-ink-500">Nominal refund</dt>
           <dd className="m-0 font-mono">{formatRupiah(amount)}</dd>
           <dt className="text-ink-500">Sumber dana</dt>
-          <dd className="m-0">BTN {account} · rekening operasional RS</dd>
+          <dd className="m-0">BTN {REKENING.operasional} · rekening operasional RS</dd>
           <dt className="text-ink-500">Tujuan</dt>
           <dd className="m-0">{f.destination}</dd>
         </dl>
@@ -248,7 +208,7 @@ export function RefundTab({
               {act.label}
             </Button>
             <span className="min-w-0 flex-1 text-caption text-ink-700">
-              {stage === 'menunggu-supervisor' ? `Anda: ${userName} · ${act.note}` : act.note}
+              {act.note} · tercatat atas nama pengguna sesi; pengaju dan penyetuju harus orang berbeda
             </span>
           </span>
         )}
@@ -276,9 +236,10 @@ export function RefundTab({
             </span>
           ))}
           <span className="text-caption text-ink-500">
-            Pembuat ≠ penyetuju: pengajuan berasal dari kasir loket; layar ini menyimulasikan tiap peran
-            secara berurutan. Dana refund didebit dari rekening operasional BTN {account} dan dikirim ke
-            rekening pasien; TPDI hanya meneruskan instruksi.
+            Pembuat ≠ penyetuju (id pengguna sesi): pengaju, penyetuju tingkat 1, dan penyetuju tingkat 2
+            harus orang berbeda (Superadmin demo bisa bertindak sebagai posisi lain). Dana refund didebit dari
+            rekening operasional BTN {REKENING.operasional} dan dikirim ke rekening pasien; TPDI hanya
+            meneruskan instruksi.
           </span>
         </div>
       </section>

@@ -1,81 +1,82 @@
 'use client';
 
-import {
-  type AccountingBoard,
-  formatJam,
-  formatRupiah,
-  formatTanggal,
-  type JournalEntry,
-} from '@simrs/shared';
+import { type AccountingBoard, formatJam, formatRupiah, formatTanggal } from '@simrs/shared';
 import { Button } from '@simrs/ui';
-import { type ReactNode, useId, useState, useTransition } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import { type AkuntansiActionInput, akuntansiAction } from '@/app/(staf)/keuangan/akuntansi/actions';
-import { periodCloseCheck } from '@/lib/keuangan-akuntansi';
+import { GatedButton } from '@/components/gated-button';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { AgingCard } from './aging-card';
 import { BankReconCard } from './bank-recon-card';
 import { JournalTable } from './journal-table';
 import { PeriodClose } from './period-close';
 
+/** Tanda tangan aksi tersimpan (pengguna sesi + jam demo). */
+export interface SignedView {
+  by: string;
+  at: string;
+}
+
+/** Keadaan pemetaan jurnal yang perlu akun lawan (dari toko domain `akuntansi`). */
+export interface MappingView {
+  journalId: string;
+  number: string;
+  description: string;
+  /** Nominal baris tanpa akun lawan. */
+  amount: string;
+  mapped: (SignedView & { code: string; name: string; mine: boolean }) | null;
+  approved: SignedView | null;
+}
+
 /**
- * U04/U07/U09 · Ruang kerja Akuntansi (mockup Akuntansi): jurnal otomatis, pemetaan akun, rekonsiliasi bank, dan
- * tutup periode (mengunci jurnal). Semua tindakan lewat Server Action (simulasi, tidak disimpan).
+ * U04/U07/U09 · Ruang kerja Akuntansi (mockup Akuntansi): jurnal otomatis (termasuk jurnal dari Kasir dan layar
+ * keuangan lain), pemetaan akun + persetujuan penyetuju kedua (pembuat ≠ penyetuju), rekonsiliasi bank, ekspor, dan
+ * tutup periode (mengunci jurnal). Semua tindakan tersimpan di toko demo (domain `akuntansi`) atas nama pengguna sesi.
  */
 export function AccountingWorkspace({
   board,
-  reconJournals,
+  rev,
+  mapping,
+  matched,
+  close,
+  closed,
+  lastExport,
   heading,
   banner,
   kpis,
 }: {
   board: AccountingBoard;
+  /** Revisi domain `akuntansi`. */
+  rev: number;
+  mapping: MappingView | null;
+  /** Rekening yang mutasinya sudah dipadankan (id → tanda tangan). */
+  matched: Record<string, SignedView>;
+  /** Syarat tutup periode dihitung server dari toko. */
+  close: { ready: boolean; reason: string; pendingApproval: string[] };
+  closed: SignedView | null;
+  lastExport: SignedView | null;
   /** Judul halaman; periode, Ekspor, dan Tutup periode tampil sebaris di kanannya (mockup Akuntansi). */
   heading: ReactNode;
   banner?: ReactNode;
-  /** Jurnal yang terposting saat mutasi rekening dipadankan (id rekening → id jurnal). */
-  reconJournals: Record<string, string[]>;
   kpis: ReactNode;
 }) {
   const id = useId();
-  const [mapped, setMapped] = useState<{ journalId: string; code: string; name: string; at: string } | null>(
-    null,
-  );
   const [mapOpen, setMapOpen] = useState(false);
-  const [matchedAt, setMatchedAt] = useState<Record<string, string>>({});
-  const [closedAt, setClosedAt] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const act = (input: AkuntansiActionInput, done?: (at: string) => void) =>
-    startTransition(async () => {
-      const r = await akuntansiAction(input);
-      setMessage(r.message);
-      if (r.ok) done?.(r.at ?? formatJam(new Date()));
-    });
+  const { run, pending } = useStoreAction(rev);
+  const act = (input: AkuntansiActionInput) =>
+    run(
+      (r) => akuntansiAction({ ...input, rev: r }),
+      (res) => setMessage(res.message),
+    );
 
-  const posted = new Set(Object.entries(matchedAt).flatMap(([acc]) => reconJournals[acc] ?? []));
-  const journals: JournalEntry[] = board.journals.map((j) => {
-    if (j.status === 'perlu-pemetaan' && mapped) {
-      return {
-        ...j,
-        status: 'menunggu-persetujuan',
-        lines: j.lines.map((l) =>
-          l.account ? l : { ...l, account: { code: mapped.code, name: mapped.name } },
-        ),
-      };
-    }
-    return posted.has(j.id) ? { ...j, status: 'terposting' } : j;
-  });
-  const toMap = journals.find((j) => j.lines.some((l) => !l.account));
-  const mappingJournal = board.journals.find((j) => j.status === 'perlu-pemetaan');
-  const unmatched = board.bankRecon.filter((b) => b.unmatched.length > 0 && !matchedAt[b.id]);
-  // Yang dikirim ke server hanya id yang sudah dipetakan/dipadankan; server memeriksa ulang syaratnya.
-  const closeInput = {
-    mappedJournalIds: mapped ? [mapped.journalId] : [],
-    matchedAccountIds: Object.keys(matchedAt),
-  };
-  const ready = periodCloseCheck(board, closeInput);
-  const locked = !!closedAt;
+  const locked = !!closed;
   const prev = board.previousPeriod;
-  const unmappedAmount = mappingJournal?.lines.find((l) => !l.account);
+  const unmatched = board.bankRecon.filter((b) => b.unmatched.length > 0 && !matched[b.id]);
+  const matchedAt = Object.fromEntries(
+    Object.entries(matched).map(([k, v]) => [k, `${formatJam(v.at)} oleh ${v.by}`]),
+  );
+  const toMap = mapping && !mapping.mapped ? mapping : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,10 +84,12 @@ export function AccountingWorkspace({
         {heading}
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-[13px] text-ink-700">
-            {closedAt ? (
+            {closed ? (
               <>
                 Periode {board.period.label}:{' '}
-                <span className="font-semibold text-success">ditutup hari ini {closedAt}</span>
+                <span className="font-semibold text-success">
+                  ditutup {formatJam(closed.at)} oleh {closed.by}
+                </span>
               </>
             ) : (
               <>
@@ -99,10 +102,10 @@ export function AccountingWorkspace({
             )}
           </span>
           <span className="flex flex-wrap gap-2">
-            <Button disabled={pending} onClick={() => act({ type: 'ekspor' })}>
+            <Button disabled={pending} onClick={() => act({ type: 'ekspor', rev: 0 })}>
               Ekspor laporan
             </Button>
-            {!closedAt && (
+            {!closed && (
               <PeriodClose
                 periodLabel={board.period.label}
                 prereqs={[
@@ -110,7 +113,13 @@ export function AccountingWorkspace({
                     ok: !toMap,
                     text: toMap
                       ? `${toMap.number} belum dipetakan ke akun lawan`
-                      : `Semua jurnal terpetakan${mappingJournal ? ` (${mappingJournal.number} sudah dipetakan)` : ''}`,
+                      : `Semua jurnal terpetakan${mapping ? ` (${mapping.number} sudah dipetakan)` : ''}`,
+                  },
+                  {
+                    ok: close.pendingApproval.length === 0,
+                    text: close.pendingApproval.length
+                      ? `${close.pendingApproval.join(', ')} menunggu penyetuju kedua (usulan K-2: tutup periode diblokir; menunggu konfirmasi pemilik produk)`
+                      : 'Tidak ada jurnal menunggu penyetuju kedua',
                   },
                   {
                     ok: unmatched.length === 0,
@@ -121,19 +130,17 @@ export function AccountingWorkspace({
                       : 'Rekonsiliasi bank cocok di semua rekening',
                   },
                 ]}
-                ready={ready.ready}
-                reason={ready.reason}
+                ready={close.ready}
+                reason={close.reason}
                 pending={pending}
-                onConfirm={() =>
-                  act({ type: 'tutup-periode', periodId: board.period.id, ...closeInput }, setClosedAt)
-                }
+                onConfirm={() => act({ type: 'tutup-periode', periodId: board.period.id, rev: 0 })}
               />
             )}
           </span>
         </div>
       </header>
       {banner}
-      {closedAt && (
+      {closed && (
         <div
           role="status"
           className="flex gap-2.5 rounded-card border border-[#B7DEC0] bg-[#EAF5EC] px-4 py-3 text-[13px]"
@@ -143,41 +150,57 @@ export function AccountingWorkspace({
           </span>
           <span className="text-ink-700">
             <span className="font-semibold text-success">
-              Periode {board.period.label} ditutup {closedAt}.
+              Periode {board.period.label} ditutup {formatJam(closed.at)}.
             </span>{' '}
-            Jurnal dikunci; pemetaan dan pemadanan tidak bisa diubah lagi.
+            Jurnal dikunci oleh {closed.by}; pemetaan, persetujuan, pemadanan, dan transaksi baru bertanggal
+            periode ini ditolak.
           </span>
         </div>
       )}
       {kpis}
       <div className="flex flex-wrap items-start gap-4">
         <JournalTable
-          journals={journals}
+          journals={board.journals}
           journalCount={board.journalCount}
           footer={
-            mappingJournal &&
-            (mapped ? (
+            mapping &&
+            (mapping.mapped ? (
               <div
                 role="status"
-                className="flex gap-2.5 border-t border-[#B7DEC0] bg-[#F2FAF4] px-4 py-3 text-[13px]"
+                className="flex flex-wrap items-center gap-2.5 border-t border-[#B7DEC0] bg-[#F2FAF4] px-4 py-3 text-[13px]"
               >
                 <span aria-hidden="true" className="font-bold text-success">
                   ✓
                 </span>
-                <span className="text-ink-700">
-                  {mappingJournal.number} dipetakan ke <span className="font-semibold">{mapped.name}</span> ·{' '}
-                  {mapped.at} · siap diposting setelah disetujui penyetuju kedua.
+                <span className="min-w-[240px] flex-1 text-ink-700">
+                  {mapping.number} dipetakan ke <span className="font-semibold">{mapping.mapped.name}</span>{' '}
+                  oleh {mapping.mapped.by} · {formatJam(mapping.mapped.at)} ·{' '}
+                  {mapping.approved
+                    ? `disetujui ${mapping.approved.by} ${formatJam(mapping.approved.at)} dan terposting.`
+                    : 'siap diposting setelah disetujui penyetuju kedua.'}
                 </span>
+                {!mapping.approved && (
+                  <GatedButton
+                    variant="primary"
+                    enabled={!mapping.mapped.mine && !locked && !pending}
+                    reason={
+                      mapping.mapped.mine
+                        ? 'Pemisahan tugas: Anda pembuat pemetaan; penyetuju kedua harus pengguna lain (mis. Superadmin demo bertindak sebagai Akuntan).'
+                        : null
+                    }
+                    reasonClassName="max-w-[320px]"
+                    onClick={() => act({ type: 'setujui', journalId: mapping.journalId, rev: 0 })}
+                  >
+                    Setujui dan posting
+                  </GatedButton>
+                )}
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2.5 border-t border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),#FFFAF2_60%)] px-4 py-3">
                 <span className="min-w-[240px] flex-1 text-[13px] text-ink-700">
                   <span className="font-bold text-warning">! </span>
-                  {mappingJournal.number}: {mappingJournal.description}
-                  {unmappedAmount
-                    ? ` ${formatRupiah(BigInt(unmappedAmount.debit) + BigInt(unmappedAmount.credit))}`
-                    : ''}{' '}
-                  belum punya akun lawan. Pemetaan akun diperlukan sebelum jurnal diposting.
+                  {mapping.number}: {mapping.description} {formatRupiah(BigInt(mapping.amount))} belum punya
+                  akun lawan. Pemetaan akun diperlukan sebelum jurnal diposting.
                 </span>
                 {!mapOpen ? (
                   <Button
@@ -201,10 +224,12 @@ export function AccountingWorkspace({
                       onChange={(e) => {
                         const opt = board.mappingOptions.find((o) => o.code === e.target.value);
                         if (opt) {
-                          act(
-                            { type: 'petakan', journalId: mappingJournal.id, accountCode: opt.code },
-                            (at) => setMapped({ journalId: mappingJournal.id, ...opt, at }),
-                          );
+                          act({
+                            type: 'petakan',
+                            journalId: mapping.journalId,
+                            accountCode: opt.code,
+                            rev: 0,
+                          });
                         }
                       }}
                       className="h-11 max-w-[320px] rounded-control border border-brand-700 bg-white px-2 font-[inherit] text-[13px]"
@@ -235,9 +260,7 @@ export function AccountingWorkspace({
             matchedAt={matchedAt}
             locked={locked}
             pending={pending}
-            onMatch={(acc) =>
-              act({ type: 'padankan', accountId: acc }, (at) => setMatchedAt((m) => ({ ...m, [acc]: at })))
-            }
+            onMatch={(acc) => act({ type: 'padankan', accountId: acc, rev: 0 })}
           />
           <section
             aria-label="Kontrol"
@@ -245,8 +268,13 @@ export function AccountingWorkspace({
           >
             <span className="font-semibold text-ink-900">Kontrol</span>
             <span>• Jurnal terposting tidak bisa diedit, hanya dibalik</span>
-            <span>• Pemisahan tugas: pembuat ≠ penyetuju</span>
+            <span>• Pemisahan tugas: pembuat ≠ penyetuju (dari pengguna sesi)</span>
             <span>• Periode tertutup dikunci; buka ulang butuh direktur keuangan</span>
+            {lastExport && (
+              <span>
+                • Ekspor terakhir {formatJam(lastExport.at)} oleh {lastExport.by}
+              </span>
+            )}
           </section>
         </aside>
       </div>

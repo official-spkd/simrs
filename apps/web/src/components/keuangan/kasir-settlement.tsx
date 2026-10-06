@@ -4,10 +4,9 @@ import { formatRupiah, type Invoice } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useId } from 'react';
-import type { ManualLineInput } from '@/app/(staf)/keuangan/kasir/actions';
 import { REKENING } from '@/lib/demo/fixtures/rs';
 import type { ScenarioFlow } from '@/lib/keuangan-flow';
-import { type PaidInfo, PaymentPanel } from './payment-panel';
+import { PaymentPanel } from './payment-panel';
 import { ScenarioPayment } from './scenario-payment';
 
 export interface GateAction {
@@ -57,7 +56,8 @@ export function KasirSettlement({
   flow,
   busy,
   receipt,
-  manual,
+  rev,
+  shiftClosed,
   finalize,
   close,
   discharge,
@@ -73,14 +73,16 @@ export function KasirSettlement({
   flow: ScenarioFlow | null;
   busy: boolean;
   receipt: { no: string; at: string; note: string } | null;
-  /** Item manual di layar (dihitung ulang server saat bayar). */
-  manual: readonly ManualLineInput[];
+  /** Revisi domain `tagihan` yang dilihat layar. */
+  rev: number;
+  /** Shift kasir ditutup: pembayaran baru menunggu shift dibuka. */
+  shiftClosed: boolean;
   finalize: GateAction;
   close: GateAction;
   /** Tugas skenario setelah lunas (pulangkan pasien), null bila tidak ada. */
   discharge: GateAction | null;
   onTask: (task: string, value: true | string) => void;
-  onPaid: (p: PaidInfo) => void;
+  onPaid: (message: string) => void;
   nextHref: string | null;
 }) {
   const deposit = invoice.payments.filter((p) => p.kind === 'deposit');
@@ -105,13 +107,18 @@ export function KasirSettlement({
       {final && !lunas && due > 0n && flow && (
         <ScenarioPayment flow={flow} due={due} pending={busy} onTask={onTask} />
       )}
-      {final && !lunas && due > 0n && !flow && (
+      {final && !lunas && due > 0n && !flow && shiftClosed && (
+        <span role="status" className="text-center text-small font-medium text-warning">
+          Shift kasir sudah ditutup; buka shift baru di kepala layar untuk menerima pembayaran.
+        </span>
+      )}
+      {final && !lunas && due > 0n && !flow && !shiftClosed && (
         <PaymentPanel
           invoiceId={invoice.id}
           receiptNo={invoice.receiptNo ?? invoice.number.replace('INV', 'KW')}
           due={due}
-          manual={manual}
           final={final}
+          rev={rev}
           onPaid={onPaid}
         />
       )}

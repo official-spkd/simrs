@@ -3,7 +3,8 @@
 import { formatJam, formatRupiah, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, KpiCard, RadioSegmented } from '@simrs/ui';
 import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type JaspelActionInput, jaspelAction } from '@/app/(staf)/keuangan/jasa-pelayanan/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatRupiahRingkas } from '@/lib/keuangan';
 import {
   accrualJournal,
@@ -15,7 +16,8 @@ import {
   TAHAP_JASPEL,
   type TahapJaspel,
 } from '@/lib/keuangan-jaspel';
-import { ringkasJurnal, tanggalPendek } from '@/lib/keuangan-jurnal';
+import { tanggalPendek } from '@/lib/keuangan-jurnal';
+import type { JaspelState } from '@/lib/keuangan-jaspel-toko';
 import type { FeeSharingBoard } from '@/lib/server/data/keuangan-lanjut';
 import { JurnalPasangan } from './jurnal-pasangan';
 
@@ -30,39 +32,37 @@ const NEXT_LABEL: Record<TahapJaspel, string> = {
 /**
  * U08 · Jasa pelayanan: rekap per PPA dari komponen jasa tarif menurut aturan berversi, realisasi BPJS saat klaim
  * dibayar, tahapan verifikasi → persetujuan (pembuat ≠ penyetuju) → bayar dengan jurnal, dan ekspor CSV aman.
- * Periode tertutup hanya baca. Simulasi lokal.
+ * Periode tertutup hanya baca. Tahap dan ekspor tersimpan di toko demo (domain `jasa-pelayanan`, ADR-0085).
  */
 export function JaspelWorkspace({
   board,
+  store,
+  rev,
   viewer,
 }: {
   board: FeeSharingBoard;
-  viewer: { name: string; role: string | null };
+  /** Tahap rekap dan riwayat tersimpan. */
+  store: JaspelState;
+  rev: number;
+  viewer: { id: string; name: string; role: string | null };
 }) {
   const [period, setPeriod] = useState('2026-10');
-  const [stage, setStage] = useState<TahapJaspel>(board.start.stage);
-  const [log, setLog] = useState<Partial<Record<TahapJaspel, { by: string; at: string }>>>(board.start.log);
-  const [csv, setCsv] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
+  const { stage, log } = store;
+  const csv = store.exported ? rekapCsv(rekap(board.items, board.rule)) : null;
   const r = rekap(board.items, board.rule);
   const pools = r.pools.reduce((s, p) => s + p.amount, 0n);
   const sep = board.september;
-  const problem = stepProblem(stage, viewer, log.diverifikasi?.by ?? null);
-  const stageIdx = TAHAP_JASPEL.findIndex((s) => s.id === stage);
-
+  const problem = stepProblem(stage, viewer, log.diverifikasi?.by ?? null, log.diverifikasi?.byId ?? null);
+  const { run, pending } = useStoreAction(rev);
+  const act = (input: JaspelActionInput) =>
+    run(
+      (rv) => jaspelAction({ ...input, rev: rv }),
+      (res) => setFlash({ text: res.message, ok: res.ok }),
+    );
+  const stageIdx = TAHAP_JASPEL.findIndex((x) => x.id === stage);
   const advance = () => {
-    const next = TAHAP_JASPEL[stageIdx + 1]?.id;
-    if (!next || problem) return;
-    const now = demoNow();
-    setLog((l) => ({ ...l, [next]: { by: viewer.name, at: now.toISOString() } }));
-    setStage(next);
-    const j =
-      next === 'disetujui'
-        ? ` · ${ringkasJurnal(accrualJournal(r, 'Oktober 2026'))}`
-        : next === 'dibayar'
-          ? ` · ${ringkasJurnal(paymentJournal(r, 'Oktober 2026'))}`
-          : '';
-    setFlash(`Rekap jasa Oktober ${TAHAP_JASPEL[stageIdx + 1]?.label.toLowerCase()} · ${formatJam(now)}${j}`);
+    if (!problem) act({ type: 'maju', rev: 0 });
   };
 
   return (
@@ -84,9 +84,15 @@ export function JaspelWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
 
@@ -313,7 +319,7 @@ export function JaspelWorkspace({
                   <span className="flex flex-col gap-1">
                     <Button
                       variant="primary"
-                      disabled={!!problem}
+                      disabled={!!problem || pending}
                       aria-describedby={problem ? 'jaspel-gate' : undefined}
                       onClick={advance}
                     >
@@ -327,14 +333,7 @@ export function JaspelWorkspace({
                   </span>
                 )}
                 {(stage === 'disetujui' || stage === 'dibayar') && (
-                  <Button
-                    onClick={() => {
-                      setCsv(rekapCsv(r));
-                      setFlash(
-                        `Ekspor CSV rekap jasa Oktober disiapkan · ${formatJam(demoNow())} · tercatat di jejak audit`,
-                      );
-                    }}
-                  >
+                  <Button disabled={pending} onClick={() => act({ type: 'ekspor', rev: 0 })}>
                     Ekspor CSV
                   </Button>
                 )}

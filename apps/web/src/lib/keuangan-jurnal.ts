@@ -1,4 +1,5 @@
-import { formatRupiah, isoDateJakarta, sumRupiah } from '@simrs/shared';
+import { formatRupiah, isoDateJakarta, JOURNAL_SOURCES, sumRupiah } from '@simrs/shared';
+import { z } from 'zod';
 
 /**
  * Jurnal berpasangan untuk layar keuangan lanjutan (U01–U10, I10; mode presentasi ADR-0023). Murni, dipakai server
@@ -61,17 +62,28 @@ export const AKUN_LANJUT = {
   persediaan: { code: '1-1410', name: 'Persediaan obat dan BHP' },
   utangBelumFaktur: { code: '2-1120', name: 'Utang penerimaan belum difakturkan' },
   utangUsaha: { code: '2-1110', name: 'Utang usaha — pemasok' },
-  utangJaspel: { code: '2-1410', name: 'Utang jasa pelayanan' },
-  utangPph21: { code: '2-1420', name: 'Utang PPh 21 jasa pelayanan' },
+  // 2-1410/2-1420 dipakai Penggajian (utang gaji, iuran BPJS): jasa pelayanan memakai 2-1440, PPh 21 bersama 2-1430.
+  utangJaspel: { code: '2-1440', name: 'Utang jasa pelayanan' },
+  utangPph21: { code: '2-1430', name: 'Utang PPh 21' },
   pendapatanLain: { code: '4-3100', name: 'Pendapatan lain-lain (selisih lebih kas)' },
   bebanJaspel: { code: '5-1100', name: 'Beban jasa pelayanan' },
   bebanMdr: { code: '6-1200', name: 'Beban administrasi bank (MDR EDC)' },
   bebanSelisihKas: { code: '6-1300', name: 'Beban selisih kurang kas' },
   bebanPiutang: { code: '6-3100', name: 'Beban penurunan nilai piutang' },
   potonganPenjualan: { code: '4-1950', name: 'Potongan dan penyesuaian tagihan' },
+  pendapatanNonJkn: { code: '4-1300', name: 'Pendapatan layanan — non-JKN' },
+  uangMuka: { code: '2-1210', name: 'Uang muka pasien' },
+  piutangBpjsRj: { code: '1-1310', name: 'Piutang BPJS — RJ' },
+  piutangBpjsRi: { code: '1-1320', name: 'Piutang BPJS — RI' },
+  pendapatanRj: { code: '4-1100', name: 'Pendapatan RJ — JKN' },
+  pendapatanRi: { code: '4-1200', name: 'Pendapatan RI — JKN' },
+  selisihCbg: { code: '4-1900', name: 'Selisih tarif INA-CBG (pengurang pendapatan)' },
+  bankKlaim: { code: '1-1130', name: 'Bank BTN ••••9021 — penampungan klaim BPJS' },
+  utangPembiayaan: { code: '2-1310', name: 'Utang pembiayaan piutang — BTN' },
+  bebanMargin: { code: '6-2100', name: 'Beban margin pembiayaan' },
 } as const satisfies Record<string, AkunRef>;
 
-const AKUN_UANG_MUKA: AkunRef = { code: '2-1210', name: 'Uang muka pasien' };
+const AKUN_UANG_MUKA: AkunRef = AKUN_LANJUT.uangMuka;
 
 /**
  * Jurnal refund pasien (fase 6, layar Pembayaran digital): dana kembali dari rekening operasional BTN ke rekening
@@ -175,4 +187,152 @@ export function persen(a: bigint, b: bigint): string {
   const tenths = (x * 1000n + y / 2n) / y;
   const s = `${tenths / 10n},${tenths % 10n}%`;
   return neg ? `−${s}` : s;
+}
+
+// ─── Jurnal otomatis toko demo (ADR-0085) ───────────────────────────────────────────────────────────────────
+
+const rupiahDigits = z.string().regex(/^\d{1,15}$/);
+
+/**
+ * Jurnal otomatis yang dibawa kejadian mutasi uang domain keuangan (kasir, piutang, kas & bank, hutang, jasa pelayanan,
+ * pembayaran/pembiayaan BTN). Dihitung server dengan pembentuk jurnal murni di `lib/keuangan-*.ts`, lalu dibaca
+ * domain `akuntansi` lewat langganan. Skema menolak jurnal tidak seimbang (CLAUDE.md prinsip 7).
+ */
+export const autoJurnalSchema = z
+  .strictObject({
+    memo: z.string().min(1).max(200),
+    source: z.enum(JOURNAL_SOURCES),
+    /** Dokumen sumber, mis. "Kasir · INV-2610-02401". */
+    reference: z.string().min(1).max(120),
+    /** Terposting langsung, atau menunggu rekonsiliasi 3 arah (QRIS/VA TPDI × BTN). */
+    status: z.enum(['terposting', 'menunggu-rekonsiliasi']),
+    /** Kunci pemadanan rekonsiliasi (mis. "tpdi:INV-2610-02217"); null = tidak perlu. */
+    reconKey: z.string().min(1).max(80).nullable(),
+    lines: z
+      .array(
+        z.strictObject({
+          code: z.string().regex(/^\d-\d{4}$/),
+          name: z.string().min(1).max(120),
+          debit: rupiahDigits,
+          credit: rupiahDigits,
+        }),
+      )
+      .min(2)
+      .max(12),
+  })
+  .refine(
+    (j) =>
+      jurnalSeimbang(
+        j.lines.map((l) => ({
+          account: { code: l.code, name: l.name },
+          debit: BigInt(l.debit),
+          credit: BigInt(l.credit),
+        })),
+      ),
+    { message: 'Jurnal tidak seimbang (debit ≠ kredit)' },
+  );
+export type AutoJurnal = z.infer<typeof autoJurnalSchema>;
+
+/** Draf jurnal (bigint) → jurnal otomatis berstring untuk kejadian toko. */
+export function toAutoJurnal(
+  d: DrafJurnal,
+  opts: Pick<AutoJurnal, 'source' | 'reference'> & Partial<Pick<AutoJurnal, 'status' | 'reconKey'>>,
+): AutoJurnal {
+  return {
+    memo: d.memo,
+    source: opts.source,
+    reference: opts.reference,
+    status: opts.status ?? 'terposting',
+    reconKey: opts.reconKey ?? null,
+    lines: d.lines.map((l) => ({
+      code: l.account.code,
+      name: l.account.name,
+      debit: l.debit.toString(),
+      credit: l.credit.toString(),
+    })),
+  };
+}
+
+/** Akun kas/bank penerima pembayaran pasien per metode kasir. */
+export function cashAccountOf(method: 'qris' | 'va' | 'debit' | 'tunai' | 'transfer' | 'cicilan'): AkunRef {
+  if (method === 'tunai') return AKUN_LANJUT.kasKasir;
+  if (method === 'debit') return AKUN_LANJUT.piutangEdc;
+  return AKUN_LANJUT.bankOps;
+}
+
+/**
+ * Jurnal pelunasan pasien di Kasir: kas/bank (atau piutang settlement EDC) bertambah, piutang pasien berkurang.
+ * QRIS/VA menunggu rekonsiliasi 3 arah TPDI × BTN (`reconKey`); metode lain langsung terposting.
+ */
+export function patientPaymentJournal(
+  method: 'qris' | 'va' | 'debit' | 'tunai' | 'transfer' | 'cicilan',
+  amount: bigint,
+  invoiceNo: string,
+): AutoJurnal {
+  const label = {
+    qris: 'QRIS via TPDI',
+    va: 'VA BTN via TPDI',
+    debit: 'EDC BTN (menunggu settlement)',
+    tunai: 'tunai di laci kasir',
+    transfer: 'transfer bank',
+    cicilan: 'pencairan cicilan BTN',
+  }[method];
+  const tpdi = method === 'qris' || method === 'va';
+  return toAutoJurnal(
+    jurnal(`Pelunasan pasien ${invoiceNo} · ${label}`, [
+      dr(cashAccountOf(method), amount),
+      cr(AKUN_LANJUT.piutangPasien, amount),
+    ]),
+    {
+      source: tpdi || method === 'cicilan' ? 'tpdi-btn' : 'kasir',
+      reference: `Kasir · ${invoiceNo}`,
+      status: tpdi ? 'menunggu-rekonsiliasi' : 'terposting',
+      reconKey: tpdi ? `tpdi:${invoiceNo}` : null,
+    },
+  );
+}
+
+export interface PengakuanInput {
+  scheme: 'bpjs' | 'asuransi' | 'umum';
+  setting: 'rawat-jalan' | 'igd' | 'rawat-inap';
+  hospitalTotal: bigint;
+  payerPays: bigint;
+  patientShare: bigint;
+  /** Selisih ditanggung RS (negatif = surplus INA-CBG atas tarif RS). */
+  hospitalAbsorbs: bigint;
+  /** Bagian tanggungan pasien yang sudah dibayar sebagai uang muka/deposit. */
+  prepaid: bigint;
+}
+
+/**
+ * Pengakuan pendapatan saat kunjungan ditutup/lunas: piutang penjamin + tanggungan pasien (uang muka diterapkan) +
+ * selisih ditanggung RS = pendapatan tarif RS. BPJS: selisih tarif INA-CBG di akun 4-1900; asuransi: potongan 4-1950.
+ */
+export function recognitionAutoJournal(i: PengakuanInput, invoiceNo: string): AutoJurnal {
+  const inpatient = i.setting !== 'rawat-jalan';
+  const bpjs = i.scheme === 'bpjs';
+  const payerAcc = bpjs
+    ? inpatient
+      ? AKUN_LANJUT.piutangBpjsRi
+      : AKUN_LANJUT.piutangBpjsRj
+    : i.scheme === 'asuransi'
+      ? AKUN_LANJUT.piutangAsuransi
+      : AKUN_LANJUT.piutangPasien;
+  const revenue = bpjs
+    ? inpatient
+      ? AKUN_LANJUT.pendapatanRi
+      : AKUN_LANJUT.pendapatanRj
+    : AKUN_LANJUT.pendapatanNonJkn;
+  const absorbAcc = bpjs ? AKUN_LANJUT.selisihCbg : AKUN_LANJUT.potonganPenjualan;
+  const prepaid = i.prepaid > i.patientShare ? i.patientShare : i.prepaid;
+  return toAutoJurnal(
+    jurnal(`Pengakuan pendapatan ${invoiceNo}`, [
+      dr(payerAcc, i.payerPays),
+      dr(AKUN_LANJUT.piutangPasien, i.patientShare - prepaid),
+      dr(AKUN_LANJUT.uangMuka, prepaid),
+      i.hospitalAbsorbs >= 0n ? dr(absorbAcc, i.hospitalAbsorbs) : cr(absorbAcc, -i.hospitalAbsorbs),
+      cr(revenue, i.hospitalTotal),
+    ]),
+    { source: 'kasir', reference: `Kasir · ${invoiceNo}` },
+  );
 }

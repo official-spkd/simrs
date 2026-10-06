@@ -2,45 +2,34 @@
 
 import type { Claim } from '@simrs/shared';
 import { Chip } from '@simrs/ui';
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 import { type ClaimLocal, localClaimTag, levelTone } from '@/lib/keuangan-klaim';
 
-interface Store {
-  get: (id: string) => ClaimLocal;
-  patch: (id: string, p: Partial<ClaimLocal>) => void;
-}
-
-const Ctx = createContext<Store | null>(null);
+const Ctx = createContext<Readonly<Record<string, ClaimLocal>>>({});
 const EMPTY: ClaimLocal = {};
 
 /**
- * Keadaan kerja koder per klaim selama layar terbuka (mockup Klaim: `queries`, `docs`, `sent` per id): pindah ke
- * klaim lain lalu kembali tidak menghapus query, saran yang diterima, centang berkas, atau status terkirim, dan chip
- * di daftar ikut berubah. Simulasi (tidak disimpan); provider berada di halaman sehingga bertahan saat `?pilih=`
- * berganti.
+ * Tindakan koder per klaim (mockup Klaim: `queries`, `docs`, `sent` per id) yang tersimpan di toko demo (domain
+ * `klaim`, ADR-0085): pindah klaim, muat ulang, atau ganti perangkat tidak menghapus query, saran yang diterima,
+ * centang berkas, atau status terkirim; chip di daftar ikut berubah.
  */
-export function ClaimLocalProvider({ children }: { children: ReactNode }) {
-  const [map, setMap] = useState<Record<string, ClaimLocal>>({});
-  const patch = useCallback(
-    (id: string, p: Partial<ClaimLocal>) => setMap((m) => ({ ...m, [id]: { ...m[id], ...p } })),
-    [],
-  );
-  const store = useMemo<Store>(() => ({ get: (id) => map[id] ?? EMPTY, patch }), [map, patch]);
-  return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
+export function ClaimLocalProvider({
+  locals,
+  children,
+}: {
+  locals: Readonly<Record<string, ClaimLocal>>;
+  children: ReactNode;
+}) {
+  return <Ctx.Provider value={locals}>{children}</Ctx.Provider>;
 }
 
-/** Keadaan lokal satu klaim + pengubahnya; tanpa provider (mis. tes) jatuh ke keadaan komponen biasa. */
-export function useClaimLocal(id: string): [ClaimLocal, (p: Partial<ClaimLocal>) => void] {
-  const store = useContext(Ctx);
-  const [own, setOwn] = useState<ClaimLocal>(EMPTY);
-  const ownPatch = useCallback((p: Partial<ClaimLocal>) => setOwn((s) => ({ ...s, ...p })), []);
-  if (!store) return [own, ownPatch];
-  return [store.get(id), (p) => store.patch(id, p)];
+/** Tindakan tersimpan satu klaim (kosong bila belum ada). */
+export function useClaimLocal(id: string): ClaimLocal {
+  return useContext(Ctx)[id] ?? EMPTY;
 }
 
-/** Chip status klaim di daftar: mengikuti tindakan koder di layar (terkirim, saran diterima, menunggu DPJP). */
+/** Chip status klaim di daftar: mengikuti tindakan koder tersimpan (terkirim, saran diterima, menunggu DPJP). */
 export function ClaimListTag({ claim }: { claim: Pick<Claim, 'id' | 'status' | 'tag'> }) {
-  const store = useContext(Ctx);
-  const tag = localClaimTag(claim, store?.get(claim.id) ?? EMPTY);
+  const tag = localClaimTag(claim, useClaimLocal(claim.id));
   return <Chip tone={levelTone(tag.level)}>{tag.label}</Chip>;
 }

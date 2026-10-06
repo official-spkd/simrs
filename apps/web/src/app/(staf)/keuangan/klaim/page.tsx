@@ -11,7 +11,7 @@ import { ClaimLocalProvider } from '@/components/keuangan/claim-local';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { formatRupiahRingkas } from '@/lib/keuangan';
 import { defaultSelection, scenarioFlow } from '@/lib/keuangan-skenario';
-import { getClaimBoard } from '@/lib/server/data/keuangan';
+import { getClaimStore } from '@/lib/server/data/keuangan';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
@@ -21,12 +21,17 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const num = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
 
-/** U05/U06 · Klaim INA-CBG dan koding (mockup `Klaim.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023). */
+/**
+ * U05/U06 · Klaim INA-CBG dan koding (mockup `Klaim.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023) + toko
+ * demo bersama (domain `klaim`, ADR-0085): klaim dari kunjungan BPJS yang ditutup di Kasir, resume final, tindakan
+ * koder, dan hasil verifikasi (mock) tersimpan.
+ */
 export default async function KlaimPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('klaim');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
-  const [board, runs] = await Promise.all([getClaimBoard(session), scenarioRuns(session)]);
+  const [store, runs] = await Promise.all([getClaimStore(session), scenarioRuns(session)]);
+  const { board } = store;
   const status = z.enum(CLAIM_STATUSES).optional().catch(undefined).parse(sp.status);
   // Klaim yang dipilih tetap tampil apa pun filternya: filter mengikuti statusnya (mis. terkirim → layak bayar).
   let selected: Claim | null = board.claims.find((c) => c.id === sp.pilih) ?? null;
@@ -107,7 +112,7 @@ export default async function KlaimPage({ searchParams }: { searchParams: Search
         />
       </div>
 
-      <ClaimLocalProvider>
+      <ClaimLocalProvider locals={store.state.local}>
         <div className="flex flex-wrap items-start gap-4">
           <ClaimList
             claims={board.claims}
@@ -121,6 +126,7 @@ export default async function KlaimPage({ searchParams }: { searchParams: Search
               claim={selected}
               flow={flow}
               rev={runs.rev}
+              storeRev={store.rev}
             />
           ) : (
             <section

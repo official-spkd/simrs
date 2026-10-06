@@ -7,6 +7,7 @@ import { CicilanTab } from '@/components/btn/cicilan-tab';
 import { KeepTabs } from '@/components/btn/keep-tabs';
 import { PiutangTab } from '@/components/btn/piutang-tab';
 import { useScenarioTask } from '@/components/btn/use-scenario-task';
+import type { PembiayaanState } from '@/lib/btn-pembiayaan-toko';
 import type { ScenarioHook } from '@/lib/btn-skenario';
 import { useFinancingState } from './use-financing-state';
 
@@ -14,13 +15,16 @@ import { useFinancingState } from './use-financing-state';
 export function PembiayaanClient({
   data,
   hook,
+  store,
   initialTab,
 }: {
   data: FinancingOverview;
   hook: ScenarioHook | null;
+  /** Toko demo (domain `pembiayaan-btn`): revisi, jam tahap pencairan, pembayaran BPJS terakhir. */
+  store: { rev: number; stamps: PembiayaanState['stamps']; lastPay: PembiayaanState['lastPay'] };
   initialTab: 'piutang' | 'cicilan';
 }) {
-  const s = useFinancingState(data);
+  const s = useFinancingState(data, store);
   const scenario = useScenarioTask(hook);
   const [tab, setTab] = useState<string>(initialTab);
   const open = s.applications.filter((a) =>

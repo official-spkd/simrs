@@ -2,6 +2,17 @@ import { queueDomain } from '../../front-office-antrean';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
+import { pembayaranDomain } from '../../btn-pembayaran-toko';
+import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
+import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { costingDomain } from '../../keuangan-costing-toko';
+import { hutangDomain } from '../../keuangan-hutang-toko';
+import { jaspelDomain } from '../../keuangan-jaspel-toko';
+import { kasbankDomain } from '../../keuangan-kasbank-toko';
+import { klaimDomain } from '../../keuangan-klaim-toko';
+import { piutangDomain } from '../../keuangan-piutang-toko';
+import { tagihanDomain } from '../../keuangan-tagihan-toko';
+import { tarifDomain } from '../../keuangan-tarif-toko';
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
 import { poliDomain } from '../../klinis-poli-toko';
@@ -31,27 +42,38 @@ import type { DomainDef, DomainSource } from './define';
  * `lib/<domain>.ts` miliknya. Jangan mengubah baris domain lain. Kunci harus sama dengan `name` definisi (diuji).
  */
 export const DEMO_DOMAINS = {
+  akuntansi: akuntansiDomain,
   antrean: queueDomain,
   cadangan: backupDomain,
+  costing: costingDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
+  hutang: hutangDomain,
   integrasi: integrationDomain,
   jadwal: scheduleDomain,
+  'jasa-pelayanan': jaspelDomain,
+  'kas-bank': kasbankDomain,
+  klaim: klaimDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,
   onkologi: oncologyDomain,
+  'pembayaran-btn': pembayaranDomain,
+  'pembiayaan-btn': pembiayaanDomain,
   pendaftaran: registrationDomain,
   pengaturan: settingsDomain,
   penjadwal: jobsDomain,
   persetujuan: consentDomain,
+  piutang: piutangDomain,
   'rekam-medis': rekamDomain,
   'resume-medis': resumeDomain,
   penunjang: supportDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
+  tagihan: tagihanDomain,
+  tarif: tarifDomain,
   'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
 } as const;

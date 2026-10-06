@@ -20,6 +20,8 @@ export type StatusFaktur = 'draf' | 'diverifikasi' | 'disetujui' | 'terjadwal' |
 export interface Persetujuan {
   level: 1 | 2;
   by: string;
+  /** Id pengguna sesi (toko demo); data contoh tanpa id dibandingkan dengan nama. */
+  byId?: string;
   at: string;
 }
 
@@ -39,6 +41,7 @@ export interface FakturPemasok {
   invoiceAmount: bigint;
   status: StatusFaktur;
   verifiedBy: string | null;
+  verifiedById?: string | null;
   approvals: Persetujuan[];
   /** Selisih faktur vs penerimaan diterima dengan alasan (bila ada). */
   varianceNote: string | null;
@@ -101,22 +104,24 @@ export function verifyProblem(f: FakturPemasok, viewer: { role: string | null })
 /** Gerbang persetujuan berjenjang: manajemen, bukan pemverifikasi, tingkat 2 oleh orang berbeda dari tingkat 1. */
 export function approveProblem(
   f: FakturPemasok,
-  viewer: { name: string; role: string | null },
+  viewer: { id?: string; name: string; role: string | null },
 ): string | null {
   if (f.status !== 'diverifikasi')
     return f.status === 'draf' ? 'Faktur belum diverifikasi akuntan.' : 'Faktur sudah disetujui.';
   if (viewer.role !== 'manajemen') return 'Persetujuan faktur oleh posisi manajemen.';
-  if (viewer.name === f.verifiedBy) return 'Pemverifikasi tidak boleh menyetujui faktur yang sama.';
-  if (f.approvals.some((a) => a.by === viewer.name)) {
+  const same = (byId: string | null | undefined, name: string | null) =>
+    byId && viewer.id ? byId === viewer.id : name === viewer.name;
+  if (same(f.verifiedById, f.verifiedBy)) return 'Pemverifikasi tidak boleh menyetujui faktur yang sama.';
+  if (f.approvals.some((a) => same(a.byId, a.by))) {
     return 'Persetujuan tingkat 2 harus oleh orang yang berbeda dari tingkat 1.';
   }
   return null;
 }
 
 /** Terapkan persetujuan; status menjadi disetujui setelah semua tingkat terpenuhi. */
-export function applyApproval(f: FakturPemasok, by: string, at: string): FakturPemasok {
+export function applyApproval(f: FakturPemasok, by: string, at: string, byId?: string): FakturPemasok {
   const level = (f.approvals.length + 1) as 1 | 2;
-  const approvals = [...f.approvals, { level, by, at }];
+  const approvals = [...f.approvals, { level, by, at, ...(byId ? { byId } : {}) }];
   return { ...f, approvals, status: approvals.length >= requiredLevels(f) ? 'disetujui' : 'diverifikasi' };
 }
 

@@ -3,9 +3,12 @@ import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { AccountingWorkspace } from '@/components/keuangan/accounting-workspace';
 import { ScenarioBanner } from '@/components/scenario-banner';
-import { BPJS_TRANSFER_JOURNAL_ID } from '@/lib/demo/fixtures/keuangan';
+import type { MappingView } from '@/components/keuangan/accounting-workspace';
+import { STATIC_JOURNALS } from '@/lib/demo/fixtures/keuangan';
 import { formatRupiahRingkas } from '@/lib/keuangan';
-import { getAccountingBoard } from '@/lib/server/data/keuangan';
+import { needsMapping } from '@/lib/keuangan-akuntansi';
+import { closeCheck } from '@/lib/keuangan-akuntansi-toko';
+import { getAccountingStore } from '@/lib/server/data/keuangan';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
 export const metadata: Metadata = { title: 'Akuntansi' };
@@ -14,13 +17,31 @@ const pct = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1, signDispl
 
 /**
  * U04/U07/U09 · Akuntansi: jurnal otomatis, umur piutang, rekonsiliasi bank, tutup periode (mockup
- * `Akuntansi.dc.html`). Mode presentasi: data dummy fiktif + jurnal dari tonggak pasien skenario (ADR-0023).
+ * `Akuntansi.dc.html`). Mode presentasi: data dummy fiktif + jurnal dari tonggak pasien skenario (ADR-0023) + toko
+ * demo bersama (domain `akuntansi`, ADR-0085): jurnal otomatis dari Kasir dan layar keuangan lain, pemetaan +
+ * persetujuan kedua, pemadanan, ekspor, dan tutup periode.
  */
 export default async function AkuntansiPage() {
   const { session, screen, allowed } = await requireDemoScreen('akuntansi');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const board = await getAccountingBoard(session);
+  const { board, rev, state } = await getAccountingStore(session);
   const k = board.kpis;
+  const toMap = STATIC_JOURNALS.find(needsMapping);
+  const unmapped = toMap?.lines.find((l) => !l.account);
+  const m = toMap ? state.mapped[toMap.id] : undefined;
+  const a = toMap ? state.approved[toMap.id] : undefined;
+  const mapping: MappingView | null = toMap
+    ? {
+        journalId: toMap.id,
+        number: toMap.number,
+        description: toMap.description,
+        amount: unmapped ? (BigInt(unmapped.debit) + BigInt(unmapped.credit)).toString() : '0',
+        mapped: m
+          ? { by: m.by, at: m.at, code: m.code, name: m.name, mine: m.byId === session.user.id }
+          : null,
+        approved: a ? { by: a.by, at: a.at } : null,
+      }
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -35,7 +56,14 @@ export default async function AkuntansiPage() {
         }
         banner={<ScenarioBanner session={session} screen="akuntansi" />}
         board={board}
-        reconJournals={{ 'btn-klaim': [BPJS_TRANSFER_JOURNAL_ID] }}
+        rev={rev}
+        mapping={mapping}
+        matched={Object.fromEntries(
+          Object.entries(state.matched).map(([id, v]) => [id, { by: v.by, at: v.at }]),
+        )}
+        close={closeCheck(state)}
+        closed={state.closed ? { by: state.closed.by, at: state.closed.at } : null}
+        lastExport={state.lastExport ? { by: state.lastExport.by, at: state.lastExport.at } : null}
         kpis={
           <div
             role="region"

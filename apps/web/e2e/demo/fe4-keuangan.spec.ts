@@ -3,7 +3,8 @@ import { createAccount, loginAs } from '../support/accounts';
 
 /**
  * Keuangan lanjutan (mode presentasi, ADR-0023; tanpa mockup): tarif, charge capture, piutang, workbench koder,
- * jasa pelayanan, kas & bank, hutang usaha, costing, dan celah fase 6 di Pembayaran digital.
+ * jasa pelayanan, kas & bank, hutang usaha, costing. Aksi tersimpan di toko demo bersama (ADR-0085): setiap alur
+ * diperiksa bertahan setelah muat ulang; akun uji punya ruang data sendiri.
  */
 
 async function noHorizontalOverflow(page: Page) {
@@ -62,6 +63,10 @@ test.describe('tarif dan paket (U01)', () => {
     const usulan = page.getByRole('listitem', { name: /UT-2610-008/ });
     await expect(usulan.getByRole('button', { name: 'Setujui usulan' })).toBeDisabled();
     await expect(usulan.getByText(/posisi manajemen/)).toBeVisible();
+    // Bertahan: muat ulang → usulan masih tercatat atas nama pengguna sesi.
+    await page.reload();
+    await page.getByRole('tab', { name: /Usulan perubahan/ }).click();
+    await expect(page.getByRole('listitem', { name: /UT-2610-008/ })).toBeVisible();
     await noHorizontalOverflow(page);
   });
 
@@ -85,6 +90,10 @@ test.describe('tarif dan paket (U01)', () => {
     await expect(reject).toBeDisabled();
     await neb.getByLabel(/Alasan penolakan/).fill('Tunggu hasil costing nebulizer bulan depan');
     await reject.click();
+    await expect(neb.getByText(/✗ Ditolak/)).toBeVisible();
+    await page.reload();
+    await page.getByRole('tab', { name: /Usulan perubahan/ }).click();
+    await expect(usg.getByText(/✓ Disetujui/)).toBeVisible();
     await expect(neb.getByText(/✗ Ditolak/)).toBeVisible();
 
     await page.getByRole('tab', { name: 'Paket' }).click();
@@ -143,6 +152,9 @@ test.describe('charge capture (U02)', () => {
       page.getByText(/Baris manual Sewa kursi roda dibatalkan dengan baris pembalik/),
     ).toBeVisible();
     await expect(feed.locator('[data-line-amount="-25000"]')).toBeVisible();
+    // Bertahan: muat ulang → tindak lanjut tetap tersimpan.
+    await page.reload();
+    await expect(page.getByText(/18 event = 11 tertagih \+ 2 tertahan \+ 5 pembalik/)).toBeVisible();
     await noHorizontalOverflow(page);
   });
 });
@@ -183,6 +195,10 @@ test.describe('penjaminan dan piutang (U04)', () => {
     ).toBeVisible();
 
     const old = page.getByRole('article', { name: 'Batch TG-2609-031' });
+    await page.reload();
+    await expect(
+      page.getByRole('article', { name: 'Batch TG-2610-005' }).getByText('Lunas', { exact: true }),
+    ).toBeVisible();
     await expect(old.getByText(/Terkunci: periode September 2026 ditutup/)).toBeVisible();
 
     await page.getByRole('tab', { name: 'Pembagian penjamin' }).click();
@@ -273,6 +289,10 @@ test.describe('workbench koder (U06)', () => {
       .fill('Kalium tunggal tidak bermakna klinis menurut DPJP');
     await save.click();
     await expect(page.getByText(/Versi koding 2 Tn\. Joko Susilo disimpan/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('navigation', { name: 'Worklist koder' })).toContainText(
+      'Tanggapan siap dikirim',
+    );
     await noHorizontalOverflow(page);
   });
 });
@@ -312,6 +332,8 @@ test.describe('jasa pelayanan (U08)', () => {
     await expect(mgr.getByText('Pembayaran jasa diposting posisi akuntan.')).toBeVisible();
     await mgr.getByRole('button', { name: 'Ekspor CSV' }).click();
     await expect(mgr.getByLabel('Pratinjau CSV')).toContainText('PPA;Jumlah tindakan;Bruto;PPh 21;Neto');
+    await mgr.reload();
+    await expect(mgr.getByText('Pembayaran jasa diposting posisi akuntan.')).toBeVisible();
     await noHorizontalOverflow(mgr);
     await ctx.close();
   });
@@ -363,6 +385,10 @@ test.describe('kas dan bank (U09)', () => {
     await expect(
       page.getByRole('listitem', { name: /BUNGA JASA GIRO/ }).getByText(/Terkunci: periode September 2026/),
     ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole('article', { name: 'Laci Loket 1 · RJ dan RI' }).getByText('Laci tertutup'),
+    ).toBeVisible();
     await noHorizontalOverflow(page);
   });
 });
@@ -394,10 +420,20 @@ test.describe('hutang usaha (U10)', () => {
     await page.getByLabel(/INV\/DFA\/2609\/0288/).check();
     await page.getByRole('button', { name: 'Buat batch pembayaran' }).click();
     const batch = page.getByRole('complementary', { name: 'Batch pembayaran' });
+    await expect(batch.getByRole('button', { name: 'Posting pembayaran' })).toBeVisible();
     await journalsBalanced(batch);
     await batch.getByRole('button', { name: 'Posting pembayaran' }).click();
     await expect(
       page.getByText(/BYR-2610-003 dibayar \d{2}\.\d{2} · Dr 2-1110 Rp 61\.050\.000/),
+    ).toBeVisible();
+    await page.reload();
+    await page.getByRole('tab', { name: 'Jadwal bayar' }).click();
+    await expect(page.getByText('Belum ada batch pembayaran terbuka', { exact: false })).toBeVisible();
+    await page.getByRole('tab', { name: 'Faktur pemasok' }).click();
+    await expect(
+      page
+        .getByRole('listitem', { name: 'Faktur INV/DFA/2610/0331' })
+        .getByText(/diverifikasi Pengguna E2E Fiktif/),
     ).toBeVisible();
 
     const direktur = await createAccount({ roles: ['manajemen'] });
@@ -445,6 +481,8 @@ test.describe('costing dan case-mix (I10)', () => {
     await expect(
       page.getByText(/Telaah clinical pathway J-4-15-II .* dikirim ke komite medik · \d{2}\.\d{2}/),
     ).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/Telaah dikirim ke komite medik \d{2}\.\d{2} oleh/)).toBeVisible();
     await noHorizontalOverflow(page);
   });
 });

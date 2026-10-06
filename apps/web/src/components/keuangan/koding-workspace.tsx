@@ -4,10 +4,10 @@ import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx, KpiCard } from '@simrs/ui';
 import Link from 'next/link';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type KodingActionInput, kodingAction, type KodingPatch } from '@/app/(staf)/keuangan/koding/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { persen } from '@/lib/keuangan-jurnal';
 import {
-  applyAnswer,
   type BerkasKoding,
   type Bukti,
   codeStatus,
@@ -43,12 +43,31 @@ const KODE_VIEW: Record<StatusKode, { label: string; tone: ChipTone }> = {
  * ke DPJP, dan versi koding beralasan untuk berkas yang sudah terkirim. Grouping dan kirim E-Klaim tetap di layar
  * Klaim & koding. Koder tidak mengubah RME. Simulasi lokal.
  */
-export function KodingWorkspace({ board, viewer }: { board: CodingBoard; viewer: string }) {
-  const [list, setList] = useState<readonly BerkasKoding[]>(board.berkas);
-  const [sel, setSel] = useState(board.berkas[0]?.id ?? '');
-  const [flash, setFlash] = useState<string | null>(null);
+export function KodingWorkspace({
+  board,
+  berkas: list,
+  reminders,
+  rev,
+}: {
+  board: CodingBoard;
+  /** Berkas setelah tindakan tersimpan (domain `klaim`). */
+  berkas: readonly BerkasKoding[];
+  /** Jam pengingat query terakhir per berkas. */
+  reminders: Readonly<Record<string, string>>;
+  rev: number;
+}) {
+  const [sel, setSel] = useState(list[0]?.id ?? '');
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
   const b = list.find((x) => x.id === sel) ?? list[0];
-  const update = (next: BerkasKoding) => setList((l) => l.map((x) => (x.id === next.id ? next : x)));
+  const { run, pending } = useStoreAction(rev);
+  const act = (input: KodingActionInput, done?: () => void) =>
+    run(
+      (r) => kodingAction({ ...input, rev: r }),
+      (res) => {
+        setFlash({ text: res.message, ok: res.ok });
+        if (res.ok) done?.();
+      },
+    );
   const count = (s: StatusBerkas) => list.filter((x) => x.status === s).length;
   const audit = board.audit;
 
@@ -74,9 +93,15 @@ export function KodingWorkspace({ board, viewer }: { board: CodingBoard; viewer:
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
       <div className="flex flex-wrap items-start gap-4">
@@ -122,9 +147,9 @@ export function KodingWorkspace({ board, viewer }: { board: CodingBoard; viewer:
             key={b.id}
             berkas={b}
             evidence={board.evidence[b.id] ?? []}
-            viewer={viewer}
-            onChange={update}
-            onFlash={setFlash}
+            reminder={reminders[b.id] ?? null}
+            pending={pending}
+            act={act}
           />
         )}
       </div>
@@ -135,15 +160,15 @@ export function KodingWorkspace({ board, viewer }: { board: CodingBoard; viewer:
 function BerkasDetail({
   berkas: b,
   evidence,
-  viewer,
-  onChange,
-  onFlash,
+  reminder,
+  pending,
+  act,
 }: {
   berkas: BerkasKoding;
   evidence: readonly Bukti[];
-  viewer: string;
-  onChange: (b: BerkasKoding) => void;
-  onFlash: (s: string) => void;
+  reminder: string | null;
+  pending: boolean;
+  act: (input: KodingActionInput, done?: () => void) => void;
 }) {
   const id = useId();
   const [versionReason, setVersionReason] = useState('');
@@ -152,29 +177,13 @@ function BerkasDetail({
   const vProblem = versionProblem(b, versionReason);
   const done = b.status === 'siap-grouping' || b.status === 'tanggapan-siap';
   const changed = b.codes.some((c) => c.removed || c.evidence?.source === 'lab' || c.keepReason);
-  const setCode = (cid: string, patch: Partial<KodeBerkas>) =>
-    onChange({ ...b, codes: b.codes.map((c) => (c.id === cid ? { ...c, ...patch } : c)) });
-  const now = () => formatJam(demoNow());
-
-  const finish = () => {
-    const t = demoNow();
-    if (b.sent) {
-      const version = (b.versions.at(-1)?.version ?? 1) + 1;
-      onChange({
-        ...b,
-        status: 'tanggapan-siap',
-        versions: [...b.versions, { version, at: t.toISOString(), by: viewer, note: versionReason.trim() }],
-      });
-      onFlash(
-        `Versi koding ${version} ${b.patient.name} disimpan · ${formatJam(t)} · tanggapan siap dikirim dari Klaim & koding`,
-      );
-    } else {
-      onChange({ ...b, status: 'siap-grouping' });
-      onFlash(
-        `Koding ${b.patient.name} tervalidasi · ${formatJam(t)} · diteruskan ke grouper di Klaim & koding`,
-      );
-    }
-  };
+  const finish = () =>
+    act({
+      type: 'selesai',
+      berkasId: b.id,
+      versionReason: b.sent ? versionReason.trim() : null,
+      rev: 0,
+    });
 
   return (
     <section
@@ -214,26 +223,16 @@ function BerkasDetail({
             <span className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                onClick={() => onFlash(`Pengingat query dikirim ke ${b.query?.to} · ${now()}`)}
+                disabled={pending}
+                onClick={() => act({ type: 'pengingat', berkasId: b.id, rev: 0 })}
               >
-                Kirim pengingat
+                {reminder ? `Pengingat terkirim ${formatJam(reminder)} · kirim lagi` : 'Kirim pengingat'}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => {
-                  const t = demoNow();
-                  onChange(
-                    applyAnswer(
-                      b,
-                      'Ya, syok septik; norepinefrin 2 hari. Addendum resume ditandatangani.',
-                      t.toISOString(),
-                    ),
-                  );
-                  onFlash(
-                    `DPJP menjawab query ${b.patient.name} · ${formatJam(t)} · bukti addendum tertaut ke ${b.query?.confirms}`,
-                  );
-                }}
+                disabled={pending}
+                onClick={() => act({ type: 'jawaban', berkasId: b.id, rev: 0 })}
               >
                 Simulasikan jawaban DPJP
               </Button>
@@ -249,11 +248,8 @@ function BerkasDetail({
             c={c}
             evidence={evidence}
             sent={b.sent}
-            locked={done}
-            onPatch={(patch, msg) => {
-              setCode(c.id, patch);
-              onFlash(`${msg} · ${now()}`);
-            }}
+            locked={done || pending}
+            onPatch={(patch) => act({ type: 'kode', berkasId: b.id, codeId: c.id, patch, rev: 0 })}
             onQuery={() => setAsking(true)}
           />
         ))}
@@ -265,24 +261,9 @@ function BerkasDetail({
           min={20}
           placeholder="mis. Mohon konfirmasi diagnosis gagal ginjal akut; kreatinin naik 1,1 → 2,4 mg/dL"
           onCancel={() => setAsking(false)}
-          onSubmit={(q) => {
-            const t = demoNow();
-            const target = b.codes.find((c) => codeStatus(c) === 'perlu-bukti');
-            setAsking(false);
-            onChange({
-              ...b,
-              status: 'query-dpjp',
-              query: {
-                question: q,
-                to: b.dpjp,
-                askedAt: t.toISOString(),
-                answer: null,
-                answeredAt: null,
-                confirms: target?.code ?? '',
-              },
-            });
-            onFlash(`Query dikirim ke ${b.dpjp} · ${formatJam(t)}`);
-          }}
+          onSubmit={(q) =>
+            act({ type: 'query', berkasId: b.id, question: q, rev: 0 }, () => setAsking(false))
+          }
         />
       )}
 
@@ -349,7 +330,7 @@ function BerkasDetail({
                 </span>
                 <Button
                   variant="primary"
-                  disabled={problems.length > 0}
+                  disabled={problems.length > 0 || pending}
                   aria-describedby={`${id}-gate`}
                   onClick={finish}
                 >
@@ -383,7 +364,7 @@ function KodeRow({
   evidence: readonly Bukti[];
   sent: boolean;
   locked: boolean;
-  onPatch: (patch: Partial<KodeBerkas>, message: string) => void;
+  onPatch: (patch: KodingPatch) => void;
   onQuery: () => void;
 }) {
   const [mode, setMode] = useState<'none' | 'keep' | 'reject'>('none');
@@ -432,11 +413,7 @@ function KodeRow({
               min={KEEP_REASON_MIN}
               onCancel={() => setMode('none')}
               onSubmit={(r) => {
-                if (c.suggestion)
-                  onPatch(
-                    { suggestion: { ...c.suggestion, decided: 'tolak' }, keepReason: r },
-                    `Saran ${c.suggestion.code} ditolak`,
-                  );
+                if (c.suggestion) onPatch({ op: 'tolak', reason: r });
               }}
             />
           ) : (
@@ -445,11 +422,7 @@ function KodeRow({
                 size="sm"
                 variant="primary"
                 onClick={() => {
-                  if (c.suggestion)
-                    onPatch(
-                      { suggestion: { ...c.suggestion, decided: 'terima' } },
-                      `Saran ${c.suggestion.code} diterima menggantikan ${c.code}`,
-                    );
+                  if (c.suggestion) onPatch({ op: 'terima' });
                 }}
               >
                 Terima {c.suggestion.code}
@@ -490,7 +463,7 @@ function KodeRow({
               disabled={!pick}
               onClick={() => {
                 const ev = evidence.find((e) => e.id === pick);
-                if (ev) onPatch({ evidence: ev }, `Bukti tertaut ke ${c.code}: ${ev.label}`);
+                if (ev) onPatch({ op: 'bukti', evidenceId: ev.id });
               }}
             >
               Tautkan bukti
@@ -510,7 +483,7 @@ function KodeRow({
               onCancel={() => setMode('none')}
               onSubmit={(r) => {
                 setMode('none');
-                onPatch({ keepReason: r }, `${c.code} dipertahankan dengan alasan`);
+                onPatch({ op: 'alasan', reason: r });
               }}
             />
           )}
@@ -519,11 +492,7 @@ function KodeRow({
 
       {sent && !locked && !c.removed && c.role === 'sekunder' && (
         <span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onPatch({ removed: true }, `${c.code} dihapus pada versi koding baru`)}
-          >
+          <Button size="sm" variant="ghost" onClick={() => onPatch({ op: 'hapus' })}>
             Hapus {c.code} di versi baru
           </Button>
         </span>

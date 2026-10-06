@@ -8,7 +8,7 @@ import { ShiftClose } from '@/components/keuangan/shift-close';
 import { ScenarioBanner } from '@/components/scenario-banner';
 import { settledCount } from '@/lib/keuangan';
 import { defaultSelection, scenarioFlow } from '@/lib/keuangan-skenario';
-import { getKasirBoard } from '@/lib/server/data/keuangan';
+import { getKasirStore } from '@/lib/server/data/keuangan';
 import { scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 
@@ -16,12 +16,16 @@ export const metadata: Metadata = { title: 'Kasir' };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-/** U02/U03 · Kasir dan tarif (mockup `Kasir.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023). */
+/**
+ * U02/U03 · Kasir dan tarif (mockup `Kasir.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023) + toko demo
+ * bersama (domain `tagihan`, ADR-0085): tagihan baru dari pendaftaran, item manual, final, bayar, tutup, dan shift.
+ */
 export default async function KasirPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('kasir');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
-  const [board, runs] = await Promise.all([getKasirBoard(session), scenarioRuns(session)]);
+  const [store, runs] = await Promise.all([getKasirStore(session), scenarioRuns(session)]);
+  const { board } = store;
   const pick = typeof sp.pilih === 'string' ? sp.pilih : undefined;
   let selected = board.invoices.find((i) => i.id === pick);
   if (!selected) {
@@ -50,7 +54,11 @@ export default async function KasirPage({ searchParams }: { searchParams: Search
             {board.shift.label} · {board.shift.counter} · saldo awal{' '}
             {formatRupiah(BigInt(board.shift.openingCash))}
           </span>
-          <ShiftClose summary={`${done} tagihan lunas di shift ini`} />
+          <ShiftClose
+            summary={`${done} tagihan lunas di shift ini`}
+            shift={store.state.shift}
+            rev={store.rev}
+          />
         </div>
       </header>
 
@@ -63,6 +71,9 @@ export default async function KasirPage({ searchParams }: { searchParams: Search
           invoice={selected}
           flow={flow}
           rev={runs.rev}
+          storeRev={store.rev}
+          held={store.held.get(selected.patient.rm) ?? 0}
+          shiftClosed={!!store.state.shift.closedAt}
           nextHref={next ? `/keuangan/kasir?pilih=${next.id}` : null}
         />
       </div>
