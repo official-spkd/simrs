@@ -3,6 +3,14 @@
 Panduan tetap untuk Claude Code di repo ini. Baca seluruhnya di awal setiap sesi.
 Bahasa: **jawab dan tulis teks UI dalam Bahasa Indonesia**. Kode, nama variabel, dan pesan commit dalam bahasa Inggris.
 
+### Kerja bersama Codex
+
+Baca `docs/12-codex-claude.md` di awal sesi. Aturan proyek dalam dokumen ini berlaku juga untuk Codex melalui `AGENTS.md`.
+Kerja simultan harus memakai worktree dan tugas terpisah. Jangan menimpa perubahan agen lain.
+Untuk melanjutkan tugas, baca `docs/handoff/<id-tugas>.md` di worktree tugas, periksa branch/status/diff, dan pastikan pemilik sebelumnya sudah berhenti.
+Perbarui catatan serah-terima setelah setiap potongan; jangan menunggu kuota habis. Rencana yang sudah disetujui tetap berlaku saat berganti alat.
+Tes yang berbagi database/port berjalan bergiliran. Perubahan status fase di `docs/PROGRESS.md` digabung oleh satu penanggung jawab integrasi.
+
 ## 1. Apa yang dibangun
 
 SIM RS multi-tenant (satu platform untuk banyak RS), deployment hibrida (server edge di RS + cloud).

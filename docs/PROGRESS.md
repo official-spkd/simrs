@@ -1,6 +1,6 @@
 # PROGRESS
 
-Diperbarui oleh Claude Code di akhir setiap potongan kerja. Format: centang kriteria, catat keputusan, utang teknis, dan langkah berikutnya.
+Diperbarui oleh Codex atau Claude Code di akhir setiap potongan kerja. Format: centang kriteria, catat keputusan, utang teknis, dan langkah berikutnya. Saat kerja simultan, satu penanggung jawab menggabungkan status fase; checkpoint tiap tugas ada di `docs/handoff/<id-tugas>.md`. Panduan: `docs/12-codex-claude.md`.
 
 ## Status fase
 
