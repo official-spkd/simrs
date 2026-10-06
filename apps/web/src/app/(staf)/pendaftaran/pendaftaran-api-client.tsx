@@ -157,26 +157,29 @@ export function PendaftaranApiClient({
   const guarantorOk = guarantor.mode !== 'new' || guarantor.name.trim().length >= 2;
   const done = [!!p, payerDone, payerDone && quotaOk, false];
   const active = done.findIndex((d) => !d);
+  // Teks alasan mengikuti mockup Registrasi; gerbang tambahan api (blok BPJS, kuota penuh, penanggung jawab) tetap.
   const reason = !p
-    ? 'Pilih pasien dulu.'
+    ? 'Langkah 1 belum selesai: cari pasien dulu.'
     : !payerDone
       ? payer === 'bpjs'
         ? bpjsBlock
           ? bpjsBlock
           : !eligibleOk
-            ? 'Cek kepesertaan BPJS pasien.'
+            ? 'Cek kepesertaan BPJS dulu.'
             : !reference
-              ? 'Pilih rujukan aktif atau isi nomor rujukan.'
-              : 'Lengkapi diagnosa awal ICD-10.'
+              ? manualMode
+                ? 'Isi nomor rujukan atau surat kontrol dulu.'
+                : 'Pilih rujukan aktif dulu.'
+              : 'Isi diagnosa awal dulu.'
         : 'Lengkapi penjamin.'
       : !quota
-        ? 'Pilih dokter tujuan.'
+        ? 'Pilih dokter dengan kuota tersedia.'
         : !quotaOk
           ? 'Kuota dokter ini penuh; pilih dokter lain.'
           : !guarantorOk
             ? 'Lengkapi nama penanggung jawab.'
             : !consentOk
-              ? 'Persetujuan umum wajib ditandatangani sebelum didaftarkan.'
+              ? 'Persetujuan umum belum ditandatangani pasien.'
               : '';
 
   const steps: RegStepView[] = STEPS.map((label, i) => ({
