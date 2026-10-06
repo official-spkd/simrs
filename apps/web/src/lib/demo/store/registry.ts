@@ -1,18 +1,26 @@
 import { queueDomain } from '../../front-office-antrean';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
-import { backupDomain } from '../../operasional-backup-toko';
-import { downtimeDomain } from '../../operasional-downtime-toko';
 import { goLiveDomain } from '../../golive-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
 import { tagihanDomain } from '../../keuangan-tagihan-toko';
+import { igdDomain } from '../../klinis-igd-toko';
+import { orderDomain } from '../../klinis-order-toko';
+import { poliDomain } from '../../klinis-poli-toko';
+import { oncologyDomain } from '../../onkologi-toko';
+import { backupDomain } from '../../operasional-backup-toko';
+import { downtimeDomain } from '../../operasional-downtime-toko';
 import { criticalDomain } from '../../penunjang-kritis';
-import { referralDomain } from '../../rujukan-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
 import { jobsDomain } from '../../platform-penjadwal-toko';
 import { structureDomain } from '../../platform-struktur-toko';
 import { terminologyDomain } from '../../platform-terminologi-toko';
+import { bedDomain } from '../../rawat-inap-bed-toko';
+import { consentDomain } from '../../rawat-inap-consent-toko';
+import { resumeDomain } from '../../rawat-inap-resume-toko';
+import { rekamDomain } from '../../rme-toko';
+import { referralDomain } from '../../rujukan-toko';
 import type { DomainDef, DomainSource } from './define';
 
 /**
@@ -31,12 +39,20 @@ export const DEMO_DOMAINS = {
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
   jadwal: scheduleDomain,
+  'klinis-igd': igdDomain,
+  'klinis-order': orderDomain,
+  'klinis-poli': poliDomain,
+  onkologi: oncologyDomain,
   pendaftaran: registrationDomain,
   pengaturan: settingsDomain,
   penjadwal: jobsDomain,
+  persetujuan: consentDomain,
+  'rekam-medis': rekamDomain,
+  'resume-medis': resumeDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
   tagihan: tagihanDomain,
+  'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
 } as const;
 

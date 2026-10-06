@@ -3,16 +3,15 @@
 import { type CpptEntry, type CpptRole, formatJam } from '@simrs/shared';
 import { Button, Chip, cx, FilterChip } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { PERSONA } from '@/lib/demo/fixtures/staf';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { saveChartCpptAction, signChartCpptAction } from '@/app/(staf)/klinis/cppt/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   canCorrectCppt,
-  correctCpptEntry,
   CPPT_ROLE_META,
   type CpptFilter,
   cpptMatches,
+  cpptNotePayload,
   formatTglJam,
-  newCpptEntry,
   type SoapText,
   supersededIds,
 } from '@/lib/rawat-inap';
@@ -58,94 +57,105 @@ type FormState =
 
 /**
  * K07 · CPPT terintegrasi lintas PPA: tulis SOAP (residen → belum final sampai co-sign DPJP), co-sign dan verifikasi
- * DPJP, koreksi berversi oleh penulis (alasan wajib, versi lama tetap tampil di riwayat), addendum PPA lain.
- * Keadaan lokal (simulasi, tidak disimpan).
+ * DPJP, koreksi berversi oleh penulis (alasan wajib, versi lama tetap tampil di riwayat), addendum PPA lain. Semua aksi
+ * tersimpan di toko demo (`rekam-medis`, ADR-0085) atas nama pengguna sesi; catatan, co-sign, dan verifikasi datang
+ * dari server (tampil juga di Rawat inap, Worklist, dan Kelengkapan).
  */
 export function CpptWorkspace({
   encounterId,
-  initialEntries,
-  initialVerified,
+  entries,
+  verified,
+  rev,
   user,
   role,
   dpjp,
+  actor,
   writerRole,
   canWrite,
   now,
 }: {
   encounterId: string;
-  initialEntries: readonly CpptEntry[];
-  initialVerified: Readonly<Record<string, CpptSign>>;
+  entries: readonly CpptEntry[];
+  /** Verifikasi DPJP per entri (rekam awal + toko). */
+  verified: Readonly<Record<string, CpptSign>>;
+  /** Revisi toko `rekam-medis` yang dilihat layar. */
+  rev: number;
   user: string;
   /** Kode peran sesi (mis. `dokter`). */
   role: string | null;
   /** DPJP pasien ini: satu-satunya dokter yang co-sign/verifikasi CPPT-nya. */
   dpjp: string;
+  /** Dokter yang diperankan posisi aktif (posisi dokter = DPJP persona demo). */
+  actor: string;
   /** Profesi penulis CPPT dari peran sesi. */
   writerRole: CpptRole;
   canWrite: boolean;
   now: string;
 }) {
-  const [entries, setEntries] = useState<CpptEntry[]>([...initialEntries]);
-  /** Dokter yang diperankan posisi aktif (posisi dokter = DPJP persona demo). */
-  const actor = role === 'dokter' ? PERSONA.dokter : user;
-  const [verified, setVerified] = useState<Record<string, CpptSign>>({ ...initialVerified });
-  const [cosigns, setCosigns] = useState<Record<string, CpptSign>>({});
+  const { run, pending } = useStoreAction(rev);
   const [filter, setFilter] = useState<CpptFilter>('semua');
   const [form, setForm] = useState<FormState | null>(null);
   const [history, setHistory] = useState<string | null>(null);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
-  const [seq, setSeq] = useState(1);
   const old = supersededIds(entries);
   const shown = latestEntries(entries)
     .filter((e) => cpptMatches(e, filter))
     .sort((a, b) => b.writtenAt.localeCompare(a.writtenAt));
-  const pendingCosign = latestEntries(entries).filter(
-    (e) => e.cosignRequired && !e.cosignedBy && !cosigns[e.id],
-  ).length;
+  const pendingCosign = latestEntries(entries).filter((e) => e.cosignRequired && !e.cosignedBy).length;
   const pendingVerify = latestEntries(entries).filter((e) => needsVerification(e) && !verified[e.id]).length;
 
   const save = (soap: SoapText, reason: string | null) => {
     if (!form) return;
-    const at = demoNow().toISOString();
-    const base = { id: `${encounterId}-cppt-baru-${seq}`, author: user, role: writerRole, at, soap };
-    const entry =
-      form.mode === 'koreksi'
-        ? correctCpptEntry(entries, form.target.id, { ...base, reason: reason ?? '' })
-        : newCpptEntry({
-            ...base,
-            encounterId,
-            addendumOf: form.mode === 'addendum' ? form.target.id : null,
-          });
-    setEntries((cur) => [...cur, entry]);
-    setSeq((n) => n + 1);
-    setFilter('semua');
-    setMsg({
-      ok: true,
-      text:
-        form.mode === 'koreksi'
-          ? `Koreksi tersimpan sebagai versi ${entry.version} · ${formatJam(at)}; versi lama tetap tersimpan (simulasi, tidak disimpan).`
-          : form.mode === 'addendum'
-            ? `Addendum tersimpan · ${formatJam(at)}; catatan ${form.target.author} tidak berubah (simulasi, tidak disimpan).`
-            : writerRole === 'residen'
-              ? `Tersimpan · ${formatJam(at)} · belum final, menunggu co-sign DPJP (simulasi, tidak disimpan).`
-              : `Final · ditandatangani ${formatJam(at)} (simulasi, tidak disimpan).`,
-    });
-    setForm(null);
+    const cur = form;
+    const payload = cpptNotePayload(
+      encounterId,
+      soap,
+      cur.mode === 'koreksi'
+        ? { kind: 'koreksi', targetId: cur.target.id, reason: reason ?? '' }
+        : cur.mode === 'addendum'
+          ? { kind: 'addendum', targetId: cur.target.id }
+          : { kind: 'baru' },
+    );
+    run(
+      (r) => saveChartCpptAction(payload, r),
+      (res) => {
+        if (!res.ok || !res.at) return setMsg({ ok: false, text: res.message || 'CPPT belum tersimpan.' });
+        const at = res.at;
+        setFilter('semua');
+        setForm(null);
+        setMsg({
+          ok: true,
+          text:
+            cur.mode === 'koreksi'
+              ? `Koreksi tersimpan sebagai versi ${res.version ?? cur.target.version + 1} · ${formatJam(at)}; versi lama tetap tersimpan.`
+              : cur.mode === 'addendum'
+                ? `Addendum tersimpan · ${formatJam(at)}; catatan ${cur.target.author} tidak berubah.`
+                : res.role === 'residen'
+                  ? `Tersimpan · ${formatJam(at)} · belum final, menunggu co-sign DPJP.`
+                  : `Final · ditandatangani ${formatJam(at)}.`,
+        });
+      },
+    );
   };
 
-  const sign = (e: CpptEntry, kind: 'cosign' | 'verify') => {
-    const at = demoNow().toISOString();
-    const s = { by: user, at };
-    if (kind === 'cosign') setCosigns((cur) => ({ ...cur, [e.id]: s }));
-    else setVerified((cur) => ({ ...cur, [e.id]: s }));
-    setMsg({
-      ok: true,
-      text:
-        kind === 'cosign'
-          ? `Co-sign DPJP · ${formatJam(at)}: CPPT residen ${formatTglJam(e.writtenAt)} kini final (simulasi, tidak disimpan).`
-          : `Diverifikasi DPJP · ${formatJam(at)}: CPPT ${e.author} ${formatTglJam(e.writtenAt)} (simulasi, tidak disimpan).`,
-    });
-  };
+  const sign = (e: CpptEntry, kind: 'cosign' | 'verify') =>
+    run(
+      (r) =>
+        signChartCpptAction(
+          { encounterId, entryId: e.id, kind: kind === 'cosign' ? 'cosign' : 'verifikasi' },
+          r,
+        ),
+      (res) => {
+        if (!res.ok || !res.at) return setMsg({ ok: false, text: res.message || 'Tanda tangan gagal.' });
+        setMsg({
+          ok: true,
+          text:
+            kind === 'cosign'
+              ? `Co-sign DPJP · ${formatJam(res.at)}: CPPT residen ${formatTglJam(e.writtenAt)} kini final.`
+              : `Diverifikasi DPJP · ${formatJam(res.at)}: CPPT ${e.author} ${formatTglJam(e.writtenAt)}.`,
+        });
+      },
+    );
 
   return (
     <section
@@ -197,6 +207,7 @@ export function CpptWorkspace({
           mode={form.mode}
           writerRole={writerRole}
           target={form.mode === 'baru' ? null : form.target}
+          busy={pending}
           onSubmit={save}
           onCancel={() => setForm(null)}
         />
@@ -204,14 +215,13 @@ export function CpptWorkspace({
       <ol className="m-0 list-none p-0" aria-label="Catatan CPPT">
         {shown.map((e) => {
           const chain = versionChain(entries, e.id);
-          const cosign = cosigns[e.id] ?? null;
           const ver = verified[e.id] ?? null;
-          const st = cpptStatus(e, { superseded: false, cosign, verified: ver, nowIso: now });
+          const st = cpptStatus(e, { superseded: false, cosign: null, verified: ver, nowIso: now });
           const who = { role, user, actor, dpjp, superseded: false };
-          const cb = cosignBlocker(e, { ...who, cosigned: !!cosign });
+          const cb = cosignBlocker(e, { ...who, cosigned: false });
           const vb = verifyBlocker(e, { ...who, verified: !!ver });
           const addendumTo = e.addendumOf ? entries.find((x) => x.id === e.addendumOf) : undefined;
-          const waitingCosign = e.cosignRequired && !e.cosignedBy && !cosign;
+          const waitingCosign = e.cosignRequired && !e.cosignedBy;
           return (
             <li key={e.id} className="flex flex-col gap-1.5 border-b border-line-soft px-4 py-3">
               <EntryBody e={e} />
@@ -231,7 +241,7 @@ export function CpptWorkspace({
                   <Button
                     size="sm"
                     variant="primary"
-                    disabled={!!cb}
+                    disabled={!!cb || pending}
                     aria-describedby={cb ? `${e.id}-cb` : undefined}
                     onClick={() => sign(e, 'cosign')}
                   >
@@ -246,7 +256,7 @@ export function CpptWorkspace({
                 {needsVerification(e) && !ver && (
                   <Button
                     size="sm"
-                    disabled={!!vb}
+                    disabled={!!vb || pending}
                     aria-describedby={vb ? `${e.id}-vb` : undefined}
                     onClick={() => sign(e, 'verify')}
                   >
@@ -370,12 +380,14 @@ function SoapForm({
   mode,
   writerRole,
   target,
+  busy,
   onSubmit,
   onCancel,
 }: {
   mode: FormState['mode'];
   writerRole: CpptRole;
   target: CpptEntry | null;
+  busy: boolean;
   onSubmit: (soap: SoapText, reason: string | null) => void;
   onCancel: () => void;
 }) {
@@ -472,7 +484,7 @@ function SoapForm({
         />
       )}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" disabled={busy}>
           {mode === 'koreksi'
             ? 'Simpan koreksi (versi baru)'
             : mode === 'addendum'

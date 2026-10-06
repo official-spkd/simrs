@@ -1,8 +1,9 @@
 'use client';
 
 import type { CpoeContext, CpoeOrderKind } from '@simrs/shared';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { sendOrdersAction } from '@/app/(staf)/klinis/order/actions-demo';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   type CdsFix,
   cdsFixes,
@@ -60,6 +61,8 @@ export function CpoeWorkspace({
   sendTask,
   handoff,
   links,
+  rev,
+  lastSent,
 }: {
   ctx: CpoeContext;
   signer: string;
@@ -69,6 +72,10 @@ export function CpoeWorkspace({
   sendTask: string | null;
   handoff: ScenarioHandoff | null;
   links: ReadonlyArray<{ href: string; label: string }>;
+  /** Revisi toko `klinis-order` yang dilihat layar. */
+  rev: number;
+  /** Kiriman terakhir tersimpan (banner "N order terkirim pukul …" setelah muat ulang). */
+  lastSent: { count: number; at: string; by: string } | null;
 }) {
   const tasks = useScenarioTasks(binding);
   const gateTask = scenarioGate ? tasks.task(scenarioGate.task) : undefined;
@@ -85,9 +92,20 @@ export function CpoeWorkspace({
   const evaluated = evaluateOrders(orders.lines, patient, signer);
   const gate = sendGate(evaluated);
   const cost = costEstimate(evaluated, payer);
-  const [sent, setSent] = useState<(SentInfo & { at: string }) | null>(null);
+  const [localSent, setSent] = useState<(SentInfo & { at: string }) | null>(null);
+  /** Banner kiriman tersimpan ditutup begitu daftar order diubah lagi. */
+  const [showStored, setShowStored] = useState(true);
+  const sent: (SentInfo & { at: string }) | null =
+    localSent ??
+    (showStored && lastSent && !scenarioOwned
+      ? {
+          title: `${lastSent.count} order terkirim pukul ${lastSent.at}`,
+          message: `Ditandatangani ${lastSent.by} dengan TTE. Order sudah masuk antrean unit penerima.`,
+          at: lastSent.at,
+        }
+      : null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
   const igd = ctx.setting === 'igd';
 
   const send = sendTask ? tasks.task(sendTask) : undefined;
@@ -111,6 +129,7 @@ export function CpoeWorkspace({
     <A extends unknown[]>(fn: (...args: A) => void) =>
     (...args: A) => {
       setSent(null);
+      setShowStored(false);
       fn(...args);
     };
 
@@ -122,19 +141,26 @@ export function CpoeWorkspace({
       return;
     }
     const drafts = evaluated.filter((l) => l.status === 'draf');
-    startTransition(async () => {
-      const r = await sendOrdersAction({
-        encounterId: ctx.encounterId,
-        orders: drafts.map((l) => ({ catalogId: l.item.id, override: l.overridden ? l.override : null })),
-      });
-      if (!r.ok) return setError(r.error ?? 'Gagal mengirim order.');
-      orders.markSent();
-      setSent({
-        title: `${gate.count} order terkirim pukul ${r.at ?? ''}`,
-        message: r.message ?? '',
-        at: r.at ?? '',
-      });
-    });
+    const count = gate.count;
+    run(
+      (r) =>
+        sendOrdersAction(
+          {
+            encounterId: ctx.encounterId,
+            orders: drafts.map((l) => ({ catalogId: l.item.id, override: l.overridden ? l.override : null })),
+          },
+          r,
+        ),
+      (r) => {
+        if (!r.ok) return setError(r.error ?? 'Gagal mengirim order.');
+        orders.markSent();
+        setSent({
+          title: `${count} order terkirim pukul ${r.at ?? ''}`,
+          message: r.message ?? '',
+          at: r.at ?? '',
+        });
+      },
+    );
   };
 
   const costNote =

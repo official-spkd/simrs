@@ -3,7 +3,9 @@
 import { type EdTrackingItem, formatJam, SAFETY_REASON_MIN, type TriageLevel } from '@simrs/shared';
 import { Button, cx, Field } from '@simrs/ui';
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { IgdTriage } from '@/lib/klinis-igd-toko';
 import { StatusFlag, ValueFlagBadge } from '@/components/klinis/status-flag';
 import { TriageLevelPicker } from '@/components/rawat-inap/triage-level-picker';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
@@ -22,17 +24,15 @@ import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
 import { saveTriageAction } from './actions-demo';
 import { IdentifyBlock, VitalsEntry } from './scenario-intake';
 
-export interface SavedTriage {
-  level: TriageLevel;
-  message: string;
-}
-
-/** Panel triase pasien terpilih (mockup IGD): tanda vital, level 1–5, saran sistem, gerbang turun level, order. */
+/**
+ * Panel triase pasien terpilih (mockup IGD): tanda vital, level 1–5, saran sistem, gerbang turun level, order.
+ * Triase tersimpan di toko demo (`klinis-igd`) atas nama pengguna sesi; level di papan datang dari server.
+ */
 export function TriagePanel({
   item,
   addSeconds,
-  saved,
-  onSaved,
+  stored,
+  igdRev,
   kd,
   tr,
   rev,
@@ -42,8 +42,10 @@ export function TriagePanel({
 }: {
   item: EdTrackingItem;
   addSeconds: number;
-  saved: SavedTriage | undefined;
-  onSaved: (id: string, s: SavedTriage) => void;
+  /** Triase tersimpan pasien ini (toko demo). */
+  stored: IgdTriage | undefined;
+  /** Revisi toko `klinis-igd`. */
+  igdRev: number;
   kd: ScenarioStepState | undefined;
   tr: ScenarioStepState | undefined;
   rev: number;
@@ -54,13 +56,15 @@ export function TriagePanel({
 }) {
   const { runTask, pending, error } = useScenarioTask(rev);
   const [chosen, setChosenState] = useState<TriageLevel>(
-    saved?.level ?? item.triageLevel ?? item.suggestedLevel,
+    stored?.level ?? item.triageLevel ?? item.suggestedLevel,
   );
   const [reason, setReason] = useState('');
-  const [orders, setOrders] = useState<boolean[]>(() => item.orders.map((o) => o.defaultOn));
+  const [orders, setOrders] = useState<boolean[]>(() =>
+    item.orders.map((o) => (stored ? stored.orders.includes(o.label) : o.defaultOn)),
+  );
   const [cc, setCc] = useState(item.chiefComplaint);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, startTransition] = useTransition();
+  const { run, pending: busy } = useStoreAction(igdRev);
   const pendingReason = useRef<string | null>(null);
   const reasonId = useId();
 
@@ -98,22 +102,22 @@ export function TriagePanel({
       runTask(tr, 'level', String(chosen));
       return;
     }
-    startTransition(async () => {
-      const r = await saveTriageAction({
-        encounterId: item.encounterId,
-        chosenLevel: chosen,
-        overrideReason: under ? reason.trim() : null,
-        orders: item.orders.filter((_, i) => orders[i]).map((o) => o.label),
-      });
-      if (r.ok) {
-        const audit = r.ok.override ? ' · override beralasan tercatat di jejak audit' : '';
-        onSaved(item.encounterId, {
-          level: chosen,
-          message: `Triase ${chosen} tersimpan ${r.ok.at} · bed ${item.bed ?? 'area triase'} · ${r.ok.orders} order dikirim${audit} (simulasi, tidak disimpan)`,
-        });
-        setMessage(null);
-      } else setMessage({ ok: false, text: r.error ?? 'Triase belum tersimpan.' });
-    });
+    run(
+      (r) =>
+        saveTriageAction(
+          {
+            triage: {
+              encounterId: item.encounterId,
+              chosenLevel: chosen,
+              overrideReason: under ? reason.trim() : null,
+              orders: item.orders.filter((_, i) => orders[i]).map((o) => o.label),
+            },
+            chiefComplaint: cc.trim() || item.chiefComplaint,
+          },
+          r,
+        ),
+      (r) => setMessage(r.ok ? null : { ok: false, text: r.message || 'Triase belum tersimpan.' }),
+    );
   };
 
   const secs = item.losMinutes * 60 + addSeconds;
@@ -134,7 +138,9 @@ export function TriagePanel({
     ? levelDone
       ? `Triase ${item.triageLevel ?? chosen} tersimpan${bedDone ? ' · bed R2 · monitor EKG, SpO2, dan TD terpasang' : ''}`
       : null
-    : (saved?.message ?? null);
+    : stored
+      ? `Triase ${stored.level} tersimpan ${formatJam(stored.at)} · bed ${item.bed ?? 'area triase'} · ${stored.orders.length} order dikirim${stored.overrideReason ? ' · override beralasan tercatat di jejak audit' : ''} · ${stored.by}`
+      : null;
   const advice =
     chosen === item.suggestedLevel
       ? item.recommendation

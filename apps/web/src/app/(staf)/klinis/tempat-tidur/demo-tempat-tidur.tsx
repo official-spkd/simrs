@@ -4,13 +4,14 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { SCENARIO_BEDS } from '@/lib/demo/fixtures/rawat-inap';
 import { screenById } from '@/lib/screens';
 import { getBedBoard } from '@/lib/server/data/klinis/bed';
+import { readDomain } from '@/lib/server/demo/state';
 import { scenarioSteps } from '@/lib/server/data/klinis/shared';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { BedWorkspace } from './bed-workspace';
 
 /**
- * K05 · Manajemen tempat tidur mode presentasi (mockup `BedManagement.dc.html`, data fiktif, ADR-0023; dibekukan,
- * jalur api diisi layar W3 di `page.tsx`).
+ * K05 · Manajemen tempat tidur mode presentasi (mockup `BedManagement.dc.html`, data fiktif + toko demo
+ * `tempat-tidur`, ADR-0023/0085; jalur api diisi layar W3 di `page.tsx`).
  */
 export async function DemoTempatTidur({
   access,
@@ -21,7 +22,7 @@ export async function DemoTempatTidur({
 }) {
   const { session, screen, allowed } = access;
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const board = await getBedBoard(session);
+  const [board, bedStore] = await Promise.all([getBedBoard(session), readDomain('tempat-tidur')]);
   const [igd, elektif] = await scenarioSteps(session, [
     ['igd-ranap', 'admisi'],
     ['elektif-btn', 'admisi'],
@@ -56,6 +57,7 @@ export async function DemoTempatTidur({
         reserved={SCENARIO_BEDS}
         steps={{ 'igd-ranap': igd, 'elektif-btn': elektif }}
         rev={igd?.rev ?? 0}
+        bedRev={bedStore.rev}
         ranapRoute={ranap && ranap.status !== 'belum' ? ranap.route : null}
       />
     </div>

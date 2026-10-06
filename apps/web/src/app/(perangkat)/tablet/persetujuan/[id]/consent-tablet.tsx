@@ -3,7 +3,8 @@
 import { type ConsentDocument, formatJam, SAFETY_REASON_MIN } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { type SignatureValue, SignaturePad } from '@/components/rawat-inap/signature-pad';
 import { taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { CONSENT_STATUS_LABEL } from '@/lib/rawat-inap';
@@ -26,6 +27,8 @@ export function ConsentTablet({
   canSign,
   scenario,
   wait,
+  rev,
+  refusal,
 }: {
   doc: ConsentDocument;
   patient: string;
@@ -33,6 +36,10 @@ export function ConsentTablet({
   scenario: ScenarioStepState | null;
   /** Alasan menunggu giliran Simulasi (dokumen milik skenario), null = boleh diproses. */
   wait: string | null;
+  /** Revisi toko `persetujuan`. */
+  rev: number;
+  /** Penolakan tersimpan (dokumen ditolak): jam + alasan. */
+  refusal: { at: string; reason: string } | null;
 }) {
   const { runTask, pending, error: runError } = useScenarioTask(scenario?.rev ?? 0);
   const wasFinal = doc.status === 'final';
@@ -50,7 +57,7 @@ export function ConsentTablet({
   const [reason, setReason] = useState('');
   const [refused, setRefused] = useState<{ at: string; reason: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, start] = useTransition();
+  const { run, pending: busy } = useStoreAction(rev);
   const locked = !!finalAt || !!refused || wasRefused || !!wait;
   const closed = !!finalAt || !!refused || wasRefused;
   const status: ConsentDocument['status'] = finalAt ? 'final' : refused || wasRefused ? 'ditolak' : 'draf';
@@ -84,26 +91,28 @@ export function ConsentTablet({
   const next = () => {
     if (!canNext || locked || busy || pending) return;
     if (step < 3) return setStep(step + 1);
-    start(async () => {
-      try {
-        const r = await finalizeConsentAction({
-          consentId: doc.id,
-          acknowledged: doc.items.map((i) => i.id),
-          patient: { method: pSig?.method ?? 'goresan', name: pSig?.name ?? doc.signerName },
-          witness: { method: wSig?.method ?? 'goresan', name: wSig?.name ?? doc.witness.name },
-          staffWitnessPresent: staff,
-        });
-        if (!r.ok) return setError(r.error ?? 'Dokumen belum final.');
-        const at = r.ok.at;
+    run(
+      (r) =>
+        finalizeConsentAction(
+          {
+            consentId: doc.id,
+            acknowledged: doc.items.map((i) => i.id),
+            patient: { method: pSig?.method ?? 'goresan', name: pSig?.name ?? doc.signerName },
+            witness: { method: wSig?.method ?? 'goresan', name: wSig?.name ?? doc.witness.name },
+            staffWitnessPresent: staff,
+          },
+          r,
+        ),
+      (res) => {
+        if (!res.ok || !res.at) return setError(res.message || FAILED);
+        const at = res.at;
         setError(null);
         // Dokumen milik skenario baru final setelah tugasnya tercatat; galatnya tampil dari `runError`.
-        if (scenario && taskEnabled(scenario, 'consent')) {
+        if (res.scenario && scenario && taskEnabled(scenario, 'consent')) {
           runTask(scenario, 'consent', true, (ok) => ok && setFinalAt(at));
         } else setFinalAt(at);
-      } catch {
-        setError(FAILED);
-      }
-    });
+      },
+    );
   };
 
   const refuse = () => {
@@ -111,17 +120,16 @@ export function ConsentTablet({
       setError(`Alasan penolakan wajib diisi (minimal ${SAFETY_REASON_MIN} karakter).`);
       return;
     }
-    start(async () => {
-      try {
-        const r = await refuseConsentAction({ consentId: doc.id, reason: reason.trim() });
-        if (!r.ok) return setError(r.error ?? 'Penolakan belum tercatat.');
+    const why = reason.trim();
+    run(
+      (r) => refuseConsentAction({ consentId: doc.id, reason: why }, r),
+      (res) => {
+        if (!res.ok || !res.at) return setError(res.message || FAILED);
         setError(null);
         setRefusing(false);
-        setRefused({ at: r.ok.at, reason: reason.trim() });
-      } catch {
-        setError(FAILED);
-      }
-    });
+        setRefused({ at: res.at, reason: why });
+      },
+    );
   };
 
   const signed = (name: string): SignatureValue | null =>
@@ -209,12 +217,13 @@ export function ConsentTablet({
             </span>
           </div>
         )}
-        {wasRefused && (
+        {wasRefused && !refused && (
           <div
             role="status"
             className="rounded-card border border-danger-border bg-[#FFF8F7] px-4 py-3 font-semibold text-danger-strong"
           >
-            Pasien menolak tindakan · penolakan tercatat di rekam medis; dokumen terkunci.
+            Pasien menolak tindakan · penolakan tercatat di rekam medis
+            {refusal ? ` ${formatJam(refusal.at)} · alasan: ${refusal.reason}` : ''}; dokumen terkunci.
           </div>
         )}
         <ConsentParties doc={doc} patient={patient} />
@@ -291,8 +300,8 @@ export function ConsentTablet({
             role="status"
             className="rounded-card border border-success-border bg-success-bg px-4 py-3 font-semibold text-success"
           >
-            ✓ Dokumen final · TTE {doc.doctor} pukul {finalAt}. Salinan dikirim ke rekam medis dan aplikasi
-            pasien (simulasi, tidak disimpan).
+            ✓ Dokumen final · TTE {doc.doctor} pukul {finalAt}. Tersimpan di rekam medis; kamar operasi dan
+            kelengkapan rekam medis membaca persetujuan ini.
           </div>
         )}
         {refusing && !refused && (
@@ -321,8 +330,8 @@ export function ConsentTablet({
               Pasien menolak tindakan · tercatat {refused.at}
             </span>
             <span className="text-ink-700">
-              Alasan: {refused.reason}. DPJP diberi notifikasi untuk edukasi lanjutan dan rencana alternatif
-              (simulasi, tidak disimpan).
+              Alasan: {refused.reason}. Tersimpan di rekam medis; DPJP perlu edukasi lanjutan dan rencana
+              alternatif.
             </span>
           </div>
         )}
@@ -340,7 +349,8 @@ export function ConsentTablet({
       <footer className="flex items-center gap-3 border-t border-line bg-white px-7 py-4">
         <button
           type="button"
-          disabled={locked}
+          disabled={locked || !!scenario}
+          title={scenario ? 'Alur skenario tidak bercabang ke penolakan.' : undefined}
           onClick={() => setRefusing(true)}
           className="min-h-[52px] cursor-pointer rounded-control border border-danger-border bg-white px-4 font-[inherit] font-semibold text-danger disabled:cursor-not-allowed disabled:opacity-45"
         >

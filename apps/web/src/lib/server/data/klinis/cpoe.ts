@@ -7,6 +7,9 @@ import {
 } from '@simrs/shared';
 import { z } from 'zod';
 import { demoCpoeAvailable, demoCpoeContext, demoCpoeEncounters } from '../../../demo/fixtures/klinis';
+import { patientByEncounterId } from '../../../demo/fixtures/pasien';
+import { applySentOrders } from '../../../klinis-order-toko';
+import { readDomain } from '../../demo/state';
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
@@ -14,8 +17,9 @@ import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
 
 /**
- * K09 · Data layar Order & resep (CPOE). Mode presentasi: katalog dummy + proyeksi pasien skenario (Tn. Suryo, Tn.
- * Hartono) dari mesin Simulasi, divalidasi kontrak yang sama dengan API kelak; mode api menunggu backend fase 3
+ * K09 · Data layar Order & resep (CPOE). Mode presentasi: katalog dummy + order tersimpan di toko demo (`klinis-order`,
+ * ADR-0085) + proyeksi pasien skenario (Tn. Suryo, Tn. Hartono) dari mesin Simulasi, divalidasi kontrak yang sama
+ * dengan API kelak; mode api menunggu backend fase 3
  * (potongan 3.4, layar W2; halaman menampilkan "Belum tersambung").
  */
 
@@ -25,7 +29,11 @@ export async function getCpoeContext(session: SessionView, encounterId: string):
     assertDemo();
     const runs = await scenarioRuns(session);
     const c = demoCpoeContext(encounterId, runs.results['rawat-jalan'], runs.results['igd-ranap']);
-    return c ? cpoeContextSchema.parse(c) : null;
+    if (!c) return null;
+    // Order yang sudah ditandatangani tersimpan di toko demo (`klinis-order`); pasien skenario mengikuti Simulasi.
+    if (patientByEncounterId(encounterId)?.scenario) return cpoeContextSchema.parse(c);
+    const { state } = await readDomain('klinis-order');
+    return cpoeContextSchema.parse(applySentOrders(c, state));
   }
   return notImplemented('CPOE');
 }

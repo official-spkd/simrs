@@ -3,16 +3,18 @@
 import { type DischargeSummary, formatJam, type ResumeCheckId } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { resumeCompleteness, resumeSignBlocker } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
-import { signResumeAction } from './actions-demo';
+import { confirmReconciliationAction, signResumeAction, toggleResumeItemAction } from './actions-demo';
 import { ResumeSections } from './resume-sections';
 
 /**
- * K13 · Resume medis (mockup Resume). Pasien biasa: centang dan konfirmasi rekonsiliasi lokal, TTE lewat Server
- * Action. Pasien skenario: butir terisi dari rekam medis Simulasi; tombol asli menjalankan tugas resume/rekon/tte.
+ * K13 · Resume medis (mockup Resume). Pasien biasa: butir, konfirmasi rekonsiliasi, dan TTE tersimpan di toko demo
+ * (`resume-medis`) lewat Server Action; centang tampil segera lalu dikonfirmasi server. Pasien skenario: butir terisi
+ * dari rekam medis Simulasi; tombol asli menjalankan tugas resume/rekon/tte.
  */
 export function ResumeClient({
   summary,
@@ -20,41 +22,60 @@ export function ResumeClient({
   scenario,
   canSign,
   klaimHref,
+  rev,
 }: {
   summary: DischargeSummary;
   los: number;
   scenario: ScenarioStepState | null;
   canSign: boolean;
   klaimHref: string | null;
+  /** Revisi toko `resume-medis`. */
+  rev: number;
 }) {
   const { runTask, pending, error } = useScenarioTask(scenario?.rev ?? 0);
-  const [checks, setChecks] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(summary.checklist.map((c) => [c.id, c.done])),
-  );
-  const [reconAtLocal, setReconAt] = useState<string | null>(summary.reconciliationConfirmedAt);
-  const [signed, setSigned] = useState<{ at: string; by: string } | null>(null);
+  const { run, pending: busy } = useStoreAction(rev);
+  /** Centang yang sudah diklik tetapi belum dikonfirmasi server (tampil segera). */
+  const [optimistic, setOptimistic] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState<string | null>(null);
-  const [busy, start] = useTransition();
+  useEffect(() => setOptimistic({}), [rev]);
 
   const scn = !!scenario;
   const sc = scenario ?? undefined;
-  const reconAt = scn ? summary.reconciliationConfirmedAt : reconAtLocal;
+  const reconAt = summary.reconciliationConfirmedAt;
   const checklist = summary.checklist.map((c) => ({
     ...c,
-    done: scn ? c.done : c.id === 'rekonsiliasi' ? !!reconAt : !!checks[c.id],
+    done: scn || c.id === 'rekonsiliasi' ? c.done : (optimistic[c.id] ?? c.done),
   }));
   const comp = resumeCompleteness(checklist);
-  const final = scn ? summary.signedAt : (signed?.at ?? summary.signedAt);
-  const finalBy = scn ? summary.signedBy : (signed?.by ?? summary.signedBy);
+  const final = summary.signedAt;
+  const finalBy = summary.signedBy;
   const tteOpen = scn ? taskEnabled(sc, 'tte') : true;
   const blocker =
     resumeSignBlocker(comp, canSign, !!final) ??
     (scn && !tteOpen ? 'Menunggu giliran tanda tangan di Simulasi.' : null);
 
+  const recon = (confirmed: boolean) =>
+    run(
+      (r) => confirmReconciliationAction({ encounterId: summary.encounterId, confirmed }, r),
+      (res) => setMsg(res.ok ? null : res.message),
+    );
+
   const toggle = (id: ResumeCheckId) => {
     if (final || scn) return;
-    if (id === 'rekonsiliasi') setReconAt(reconAt ? null : new Date().toISOString());
-    else setChecks((cur) => ({ ...cur, [id]: !cur[id] }));
+    if (id === 'rekonsiliasi') return recon(!reconAt);
+    const done = !checklist.find((c) => c.id === id)?.done;
+    setOptimistic((cur) => ({ ...cur, [id]: done }));
+    run(
+      (r) => toggleResumeItemAction({ encounterId: summary.encounterId, itemId: id, done }, r),
+      (res) => {
+        if (res.ok) return setMsg(null);
+        setOptimistic((cur) => {
+          const { [id]: _drop, ...rest } = cur;
+          return rest;
+        });
+        setMsg(res.message);
+      },
+    );
   };
 
   const sign = () => {
@@ -63,16 +84,10 @@ export function ResumeClient({
       runTask(sc, 'tte', true);
       return;
     }
-    start(async () => {
-      const r = await signResumeAction({
-        encounterId: summary.encounterId,
-        done: checklist.filter((c) => c.done).map((c) => c.id),
-        reconciliationConfirmed: !!reconAt,
-      });
-      if (!r.ok) return setMsg(r.error ?? 'Resume belum ditandatangani.');
-      setSigned(r.ok);
-      setMsg(null);
-    });
+    run(
+      (r) => signResumeAction({ encounterId: summary.encounterId }, r),
+      (res) => setMsg(res.ok ? null : res.message || 'Resume belum ditandatangani.'),
+    );
   };
 
   const reconControls = final ? null : scenario ? (
@@ -82,7 +97,8 @@ export function ResumeClient({
       <Button
         variant={reconAt ? 'secondary' : 'primary'}
         aria-pressed={!!reconAt}
-        onClick={() => setReconAt(reconAt ? null : new Date().toISOString())}
+        disabled={busy || !canSign}
+        onClick={() => recon(!reconAt)}
       >
         {reconAt ? 'Batalkan konfirmasi' : 'Konfirmasi DPJP'}
       </Button>
@@ -144,7 +160,7 @@ export function ResumeClient({
                 <input
                   type="checkbox"
                   checked={c.done}
-                  disabled={!!final || scn}
+                  disabled={!!final || scn || busy || !canSign}
                   onChange={() => toggle(c.id)}
                   className="size-[18px] flex-none accent-brand-600"
                 />
@@ -174,8 +190,8 @@ export function ResumeClient({
           >
             <span className="font-semibold text-success">Resume final · TTE {formatJam(final)}</span>
             <span className="text-small text-ink-700">
-              Ditandatangani {finalBy} pukul {formatJam(final)}. Terkirim ke SATUSEHAT dan masuk antrean koder
-              (simulasi).
+              Ditandatangani {finalBy} pukul {formatJam(final)}. Masuk antrean koder untuk klaim INA-CBG dan
+              kelengkapan rekam medis; kiriman SATUSEHAT lewat outbox saat backend tersambung.
             </span>
             {klaimHref && (
               <Link href={klaimHref} className="text-small font-semibold">

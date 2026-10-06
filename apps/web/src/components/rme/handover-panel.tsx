@@ -3,7 +3,8 @@
 import { formatJam } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { acceptHandoverAction, giveHandoverAction } from '@/app/(staf)/klinis/cppt/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { type Handover, handoverBlocker, handoverStatus, type Sbar } from '@/lib/rme-cppt';
 import { Feedback, type FeedbackMsg } from './feedback';
 
@@ -16,29 +17,41 @@ const PARTS: Array<{ k: keyof Sbar; label: string }> = [
 
 /**
  * K07 · Serah terima antarshift dengan SBAR: draf terisi dari rekam (bisa disunting), pilih penerima, serahkan, lalu
- * penerima mengonfirmasi (tercatat berjam). Tidak dianggap selesai sebelum diterima.
+ * penerima mengonfirmasi (tercatat berjam). Tidak dianggap selesai sebelum diterima. Tersimpan di toko demo
+ * (`rekam-medis`) atas nama pengguna sesi.
  */
 export function HandoverPanel({
   encounterId,
   user,
   shift,
   previous,
+  stored,
   receivers,
   draft,
+  rev,
+  canHandover,
 }: {
   encounterId: string;
   user: string;
   shift: string;
+  /** Serah terima rekam awal (fixture). */
   previous: readonly Handover[];
+  /** Serah terima tersimpan kunjungan ini (urut waktu). */
+  stored: readonly Handover[];
   receivers: readonly string[];
   draft: Sbar;
+  rev: number;
+  /** Posisi perawat/bidan. */
+  canHandover: boolean;
 }) {
   const id = useId();
+  const { run, pending } = useStoreAction(rev);
   const [sbar, setSbar] = useState<Sbar>(draft);
   const [receiver, setReceiver] = useState('');
   const [tried, setTried] = useState(false);
-  const [current, setCurrent] = useState<Handover | null>(null);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
+  const current = stored.find((h) => !h.acceptedAt) ?? null;
+  const done = [...previous, ...stored.filter((h) => h.acceptedAt)];
   const blocker = handoverBlocker(sbar, receiver, user);
 
   return (
@@ -50,7 +63,7 @@ export function HandoverPanel({
         <h2 className="m-0 text-body font-semibold">Serah terima SBAR</h2>
         <span className="text-caption text-ink-500">Shift {shift}</span>
       </div>
-      {previous.map((h) => (
+      {done.map((h) => (
         <div key={h.id} className="flex flex-col gap-0.5 rounded-control bg-subtle px-3 py-2 text-small">
           <span className="font-semibold">
             {h.shift} · diserahkan {h.giver} · {formatJam(h.givenAt)}
@@ -80,14 +93,13 @@ export function HandoverPanel({
           {!current.acceptedAt && (
             <Button
               variant="primary"
-              onClick={() => {
-                const at = demoNow().toISOString();
-                setCurrent({ ...current, acceptedAt: at });
-                setMsg({
-                  ok: true,
-                  text: `Serah terima diterima ${current.receiver} · ${formatJam(at)} (simulasi, tidak disimpan).`,
-                });
-              }}
+              disabled={!canHandover || pending}
+              onClick={() =>
+                run(
+                  (r) => acceptHandoverAction({ encounterId, handoverId: current.id }, r),
+                  (res) => setMsg({ ok: res.ok, text: res.message }),
+                )
+              }
             >
               Konfirmasi penerimaan (simulasi penerima)
             </Button>
@@ -101,20 +113,10 @@ export function HandoverPanel({
             e.preventDefault();
             setTried(true);
             if (blocker) return;
-            const at = demoNow().toISOString();
-            setCurrent({
-              id: `${encounterId}-sbar-baru`,
-              shift,
-              giver: user,
-              receiver,
-              sbar,
-              givenAt: at,
-              acceptedAt: null,
-            });
-            setMsg({
-              ok: true,
-              text: `Diserahkan · ${formatJam(at)} · menunggu konfirmasi ${receiver} (simulasi, tidak disimpan).`,
-            });
+            run(
+              (r) => giveHandoverAction({ encounterId, shift, receiver, sbar }, r),
+              (res) => setMsg({ ok: res.ok, text: res.message }),
+            );
           }}
         >
           {PARTS.map((p) => (
@@ -155,9 +157,12 @@ export function HandoverPanel({
               {blocker}
             </p>
           )}
-          <Button type="submit" variant="primary">
+          <Button type="submit" variant="primary" disabled={!canHandover || pending}>
             Serahkan shift
           </Button>
+          {!canHandover && (
+            <span className="text-caption text-ink-500">Serah terima shift dicatat perawat atau bidan.</span>
+          )}
         </form>
       )}
     </section>

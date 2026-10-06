@@ -4,11 +4,12 @@ import { ScaleToFit } from '@/components/scale-to-fit';
 import { patientById } from '@/lib/demo/fixtures/pasien';
 import { consentTurn, getConsentDocument } from '@/lib/server/data/klinis/consent';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
+import { readDomain } from '@/lib/server/demo/state';
 import { ConsentTablet } from './consent-tablet';
 
 /**
- * K11 · Tablet persetujuan tindakan mode presentasi (mockup `Consent.dc.html`, kanvas 834×1194, data fiktif,
- * ADR-0023; dibekukan, jalur api diisi layar W5a di `page.tsx`). Untuk Tn. Hartono, TTE dokter setelah tanda tangan
+ * K11 · Tablet persetujuan tindakan mode presentasi (mockup `Consent.dc.html`, kanvas 834×1194, data fiktif +
+ * toko demo `persetujuan`, ADR-0023/0085; jalur api diisi layar W5a di `page.tsx`). Untuk Tn. Hartono, TTE dokter setelah tanda tangan
  * pasien + saksi menjalankan tugas `tata-laksana.consent` skenario IGD → rawat inap; di luar gilirannya (dan
  * persetujuan operasi Ny. Ratna, yang final bersama SEP) tablet menampilkan keadaan menunggu.
  */
@@ -25,7 +26,8 @@ export async function DemoPersetujuan({ access, id }: { access: DemoScreenAccess
   if (!doc) notFound();
   const p = patientById(doc.patientId);
   if (!p) notFound();
-  const turn = await consentTurn(session, doc);
+  const [turn, store] = await Promise.all([consentTurn(session, doc), readDomain('persetujuan')]);
+  const rec = store.state.docs[doc.id];
 
   return (
     <ScaleToFit
@@ -40,6 +42,8 @@ export async function DemoPersetujuan({ access, id }: { access: DemoScreenAccess
         canSign={session.role?.code === 'dokter'}
         scenario={turn.step}
         wait={turn.wait}
+        rev={store.rev}
+        refusal={rec?.status === 'ditolak' && rec.reason ? { at: rec.at, reason: rec.reason } : null}
       />
     </ScaleToFit>
   );

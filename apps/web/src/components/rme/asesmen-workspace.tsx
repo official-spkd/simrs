@@ -3,8 +3,9 @@
 import { diffAnswers, type FormAnswers, formatJam, formatTanggal, validateAnswers } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
 import { useState } from 'react';
+import { saveAssessmentAction } from '@/app/(staf)/klinis/asesmen/actions';
 import { FormRenderer } from '@/components/forms/form-renderer';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { hasReason } from '@/lib/rme';
 import {
   type AssessmentForm,
@@ -13,7 +14,6 @@ import {
   canWriteForm,
   formScore,
   latestResponse,
-  newResponse,
   packageProgress,
   responseVersions,
   scoreFollowUp,
@@ -34,28 +34,30 @@ type Mode = { kind: 'lihat' } | { kind: 'isi' } | { kind: 'koreksi'; prev: Asses
 /**
  * K06 · Paket asesmen satu kunjungan: status per formulir (belum diisi / final / reasesmen jatuh tempo), isi lewat
  * penyaji formulir P07 dengan skor otomatis dan saran tindak lanjut, hak tulis per profesi, koreksi = versi baru
- * beralasan (isian lama tetap). Keadaan lokal (simulasi, tidak disimpan).
+ * beralasan (isian lama tetap). Isian diperiksa dan disimpan server (toko demo `rekam-medis`) atas nama pengguna sesi;
+ * daftar isian datang dari server.
  */
 export function AsesmenWorkspace({
   encounterId,
   settingLabel,
   forms,
-  initialResponses,
+  responses,
   startedAt,
   now,
   role,
-  user,
+  rev,
 }: {
   encounterId: string;
   settingLabel: string;
   forms: readonly AssessmentForm[];
-  initialResponses: readonly AssessmentResponse[];
+  responses: readonly AssessmentResponse[];
   startedAt: string;
   now: string;
   role: string | null;
-  user: string;
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
 }) {
-  const [responses, setResponses] = useState<AssessmentResponse[]>([...initialResponses]);
+  const { run, pending } = useStoreAction(rev);
   const statuses = forms.map((f) => assessmentStatus(f, responses, startedAt, now));
   const firstOpen = forms.find((_, i) => statuses[i]?.kind !== 'final') ?? forms[0];
   const [code, setCode] = useState(firstOpen?.code ?? '');
@@ -65,7 +67,6 @@ export function AsesmenWorkspace({
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
-  const [seq, setSeq] = useState(1);
   const progress = packageProgress(statuses);
   const form = forms.find((f) => f.code === code);
   if (!form) return null;
@@ -110,26 +111,23 @@ export function AsesmenWorkspace({
       return;
     }
     if (mode.kind === 'koreksi' && !hasReason(reason)) return;
-    const at = demoNow().toISOString();
-    const res = newResponse({
-      id: `${encounterId}-asesmen-baru-${seq}`,
-      form,
-      encounterId,
-      answers: draft,
-      by: user,
-      at,
-      correct: mode.kind === 'koreksi' ? { prev: mode.prev, reason } : undefined,
-    });
-    const s = formScore(form, draft);
-    setResponses((cur) => [...cur, res]);
-    setSeq((x) => x + 1);
-    setMode({ kind: 'lihat' });
-    setMsg({
-      ok: true,
-      text: `${mode.kind === 'koreksi' ? `Koreksi versi ${res.version}` : 'Final'} · ${formatJam(at)} · ${form.title}${
-        s?.band ? ` · skor ${s.total} ${s.band.label}` : ''
-      } (simulasi, tidak disimpan).`,
-    });
+    run(
+      (r) =>
+        saveAssessmentAction(
+          {
+            encounterId,
+            formCode: form.code,
+            answers: draft,
+            correctsId: mode.kind === 'koreksi' ? mode.prev.id : null,
+            reason: mode.kind === 'koreksi' ? reason.trim() : null,
+          },
+          r,
+        ),
+      (res) => {
+        setMsg({ ok: res.ok, text: res.message });
+        if (res.ok) setMode({ kind: 'lihat' });
+      },
+    );
   };
 
   return (
@@ -271,7 +269,7 @@ export function AsesmenWorkspace({
         <div className="flex flex-wrap items-center gap-2">
           {editing ? (
             <>
-              <Button variant="primary" onClick={save}>
+              <Button variant="primary" disabled={pending} onClick={save}>
                 {mode.kind === 'koreksi' ? `Simpan koreksi (versi ${mode.prev.version + 1})` : 'Simpan final'}
               </Button>
               <Button onClick={() => setMode({ kind: 'lihat' })}>Batal</Button>

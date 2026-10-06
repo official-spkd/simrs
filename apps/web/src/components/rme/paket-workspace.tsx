@@ -1,9 +1,14 @@
 'use client';
 
-import { formatJam, formatTanggalLahir } from '@simrs/shared';
-import { Button, Chip, cx, SafetyGate, type SafetyGateResolution } from '@simrs/ui';
+import { formatTanggalLahir } from '@simrs/shared';
+import { Button, Chip, cx, SafetyGate } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import {
+  markPaketItemAction,
+  paketGateAction,
+  paketSessionAction,
+} from '@/app/(staf)/klinis/paket-layanan/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatTglJam } from '@/lib/rawat-inap';
 import {
   type CarePackage,
@@ -12,12 +17,9 @@ import {
   labFailures,
   markBlocker,
   missingItems,
-  type PackageItem,
-  type PackageSession,
   progressLabel,
   SESSION_STATUS_LABEL,
   type SessionStatus,
-  setTodayStatus,
   startBlocker,
   todaySession,
 } from '@/lib/rme-paket';
@@ -34,22 +36,35 @@ const STATUS_TONE: Record<SessionStatus, 'success' | 'brand' | 'info' | 'neutral
 
 /**
  * K15 · Paket layanan khusus satu pasien: jadwal sesi/siklus, kelengkapan per sesi (hak isi per profesi), gerbang lab
- * pra-tindakan (tunda atau override beralasan), lalu mulai → selesai sesi berjam. Keadaan lokal (simulasi, tidak
- * disimpan).
+ * pra-tindakan (tunda atau override beralasan), lalu mulai → selesai sesi berjam. Semua keputusan diperiksa dan
+ * disimpan server (toko demo `rekam-medis`) atas nama pengguna sesi; paket datang dari server.
  */
-export function PaketWorkspace({ pkg, role, user }: { pkg: CarePackage; role: string | null; user: string }) {
+export function PaketWorkspace({
+  pkg,
+  role,
+  decision,
+  gate,
+  rev,
+}: {
+  pkg: CarePackage;
+  role: string | null;
+  decision: GateDecision;
+  /** Keputusan gerbang tersimpan (untuk kotak gerbang keselamatan). */
+  gate: { kind: 'ikuti' | 'override'; text: string } | null;
+  /** Revisi toko `rekam-medis`. */
+  rev: number;
+}) {
   const id = useId();
-  const [items, setItems] = useState<PackageItem[]>(pkg.items);
-  const [sessions, setSessions] = useState<PackageSession[]>(pkg.sessions);
-  const [decision, setDecision] = useState<GateDecision>(null);
-  const [gate, setGate] = useState<SafetyGateResolution | null>(null);
+  const { run, pending } = useStoreAction(rev);
+  const items = pkg.items;
+  const sessions = pkg.sessions;
   const [msg, setMsg] = useState<FeedbackMsg | null>(null);
   const today = todaySession(sessions);
   const fails = labFailures(pkg.labGates);
   const block = startBlocker({ items, labGates: pkg.labGates }, decision);
   const missing = missingItems(items);
-  const clock = () => demoNow().toISOString();
-  const say = (text: string) => setMsg({ ok: true, text: `${text} (simulasi, tidak disimpan).` });
+  const say = (res: { ok: boolean; message: string }) => setMsg({ ok: res.ok, text: res.message });
+  const enc = pkg.encounterId;
   const oneStep = pkg.kind === 'anc';
 
   return (
@@ -113,16 +128,12 @@ export function PaketWorkspace({ pkg, role, user }: { pkg: CarePackage; role: st
                     <span className="flex flex-col items-end gap-0.5">
                       <Button
                         size="sm"
-                        disabled={!!mb || !today}
+                        disabled={!!mb || !today || pending}
                         aria-describedby={mb ? `${id}-${it.id}` : undefined}
                         aria-label={`Tandai selesai: ${it.label}`}
-                        onClick={() => {
-                          const at = clock();
-                          setItems((cur) =>
-                            cur.map((x) => (x.id === it.id ? { ...x, done: { by: user, at } } : x)),
-                          );
-                          say(`${it.label} · selesai ${formatJam(at)}`);
-                        }}
+                        onClick={() =>
+                          run((r) => markPaketItemAction({ encounterId: enc, itemId: it.id }, r), say)
+                        }
                       >
                         Tandai selesai
                       </Button>
@@ -169,24 +180,12 @@ export function PaketWorkspace({ pkg, role, user }: { pkg: CarePackage; role: st
               overrideLabel="Lanjut dengan alasan klinis"
               resolved={gate}
               tone="danger"
-              onFollow={() => {
-                const at = clock();
-                setSessions((cur) =>
-                  setTodayStatus(
-                    cur,
-                    'ditunda',
-                    `Ditunda ${formatJam(at)} · ${fails[0]?.name} di bawah ambang`,
-                  ),
-                );
-                setGate({ kind: 'ikuti', text: `Sesi ditunda · ${formatJam(at)}` });
-                say(`Sesi ditunda · ${formatJam(at)}; DPJP menjadwalkan ulang`);
-              }}
-              onOverride={(reason) => {
-                const at = clock();
-                setDecision({ kind: 'override', reason, by: user, at });
-                setGate({ kind: 'override', text: `${reason} · ${user} · ${formatJam(at)}` });
-                say(`Override gerbang lab tercatat · ${formatJam(at)}`);
-              }}
+              onFollow={() =>
+                run((r) => paketGateAction({ encounterId: enc, decision: 'tunda', reason: '' }, r), say)
+              }
+              onOverride={(reason) =>
+                run((r) => paketGateAction({ encounterId: enc, decision: 'override', reason }, r), say)
+              }
             >
               Pemberian ditahan sampai ditindaklanjuti. Override memerlukan alasan klinis dan tercatat untuk
               ditinjau.
@@ -197,19 +196,15 @@ export function PaketWorkspace({ pkg, role, user }: { pkg: CarePackage; role: st
               {today.status === 'hari-ini' && (
                 <Button
                   variant="primary"
-                  disabled={!!block}
+                  disabled={!!block || pending}
                   aria-describedby={block ? `${id}-start` : undefined}
-                  onClick={() => {
-                    const at = clock();
-                    setSessions((cur) =>
-                      setTodayStatus(
-                        cur,
-                        oneStep ? 'selesai' : 'berlangsung',
-                        `${oneStep ? 'Ditutup' : 'Mulai'} ${formatJam(at)} · ${user}`,
-                      ),
-                    );
-                    say(`${oneStep ? pkg.finishLabel : `${pkg.title} dimulai`} · ${formatJam(at)}`);
-                  }}
+                  onClick={() =>
+                    run(
+                      (r) =>
+                        paketSessionAction({ encounterId: enc, to: oneStep ? 'selesai' : 'berlangsung' }, r),
+                      say,
+                    )
+                  }
                 >
                   {pkg.startLabel}
                 </Button>
@@ -217,13 +212,8 @@ export function PaketWorkspace({ pkg, role, user }: { pkg: CarePackage; role: st
               {today.status === 'berlangsung' && (
                 <Button
                   variant="primary"
-                  onClick={() => {
-                    const at = clock();
-                    setSessions((cur) =>
-                      setTodayStatus(cur, 'selesai', `Selesai ${formatJam(at)} · ${user}`),
-                    );
-                    say(`${pkg.cycleLabel} selesai · ${formatJam(at)}`);
-                  }}
+                  disabled={pending}
+                  onClick={() => run((r) => paketSessionAction({ encounterId: enc, to: 'selesai' }, r), say)}
                 >
                   {pkg.finishLabel}
                 </Button>

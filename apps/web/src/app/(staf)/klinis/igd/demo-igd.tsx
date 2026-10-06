@@ -3,7 +3,7 @@ import { ScenarioBanner } from '@/components/scenario-banner';
 import { patientByScenario } from '@/lib/demo/fixtures/pasien';
 import { canTriage } from '@/lib/rawat-inap';
 import { screenById } from '@/lib/screens';
-import { getEdBoard } from '@/lib/server/data/klinis/igd';
+import { getIgdView } from '@/lib/server/data/klinis/igd';
 import { scenarioSteps } from '@/lib/server/data/klinis/shared';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { IgdWorkspace, WalkInButtons } from './igd-workspace';
@@ -15,13 +15,14 @@ function routeOf(id: string): string | null {
 }
 
 /**
- * K03 · IGD mode presentasi: papan pelacakan + triase 5 level (mockup `IGD.dc.html`, data fiktif, ADR-0023;
- * dibekukan, jalur api diisi layar W3 di `page.tsx`).
+ * K03 · IGD mode presentasi: papan pelacakan + triase 5 level + disposisi (mockup `IGD.dc.html`, data fiktif + toko
+ * demo `klinis-igd`/`tempat-tidur`, ADR-0023/0085; jalur api diisi layar W3 di `page.tsx`).
  */
 export async function DemoIgd({ access, pilih }: { access: DemoScreenAccess; pilih: string | null }) {
   const { session, screen, allowed } = access;
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const board = await getEdBoard(session);
+  const view = await getIgdView(session);
+  const board = view.board;
   const [kd, tr] = await scenarioSteps(session, [
     ['igd-ranap', 'kedatangan'],
     ['igd-ranap', 'triase'],
@@ -47,7 +48,7 @@ export async function DemoIgd({ access, pilih }: { access: DemoScreenAccess; pil
           <span className="text-small text-ink-700">
             Kapasitas {used} / {board.capacity} bed · {board.ambulancesIncoming} ambulans menuju (SISRUTE)
           </span>
-          <WalkInButtons />
+          <WalkInButtons rev={view.rev} />
         </div>
       </header>
       <ScenarioBanner session={session} screen="igd" />
@@ -57,9 +58,15 @@ export async function DemoIgd({ access, pilih }: { access: DemoScreenAccess; pil
         kd={kd}
         tr={tr}
         rev={kd?.rev ?? 0}
+        igdRev={view.rev}
+        stored={view.state.triage}
+        dispositions={view.dispositions}
+        deaths={view.deaths}
         history={patientByScenario('igd-ranap')?.riwayat ?? ''}
         links={{ bed: routeOf('bed'), ranap: routeOf('ranap') }}
         canTriage={canTriage(session.role?.code)}
+        role={session.role?.code ?? null}
+        user={session.user.displayName}
       />
     </div>
   );

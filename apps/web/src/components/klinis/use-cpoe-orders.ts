@@ -76,7 +76,7 @@ export function useCpoeOrders(ctx: CpoeContext, signer: string, readOnly: boolea
   const override = (lineId: string, reason: string) => {
     if (readOnly) return;
     setLines((cur) => cur.map((l) => (l.lineId === lineId ? { ...l, override: reason } : l)));
-    setNote(`Override tercatat atas nama ${signer} (simulasi, tidak disimpan).`);
+    setNote(`Alasan override atas nama ${signer} tercatat bersama order saat ditandatangani.`);
   };
 
   const markSent = () => setLines((cur) => cur.map((l) => ({ ...l, status: 'terkirim' })));

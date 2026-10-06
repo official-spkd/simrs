@@ -9,7 +9,9 @@ import { patientById } from '@/lib/demo/fixtures/pasien';
 import { demoCarePackages } from '@/lib/demo/fixtures/rme-paket';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { rmeChartFor } from '@/lib/server/data/klinis/rme';
+import { rmeChart } from '@/lib/server/data/klinis/rme';
+import { applyPaket } from '@/lib/rme-paket-toko';
+import { formatJam } from '@simrs/shared';
 
 export const metadata: Metadata = { title: 'Paket layanan khusus' };
 
@@ -17,16 +19,17 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * K15 · Paket layanan khusus (`?pasien=`, bawaan kemoterapi Ny. Maria): hemodialisis, kemoterapi, antenatal; jadwal
- * sesi, kelengkapan per sesi, gerbang lab, mulai/selesai sesi. Mode presentasi (ADR-0023); backend
- * `GET /api/v1/care-packages` menyusul (rencana fase 3 · 3.8).
+ * sesi, kelengkapan per sesi, gerbang lab, mulai/selesai sesi. Mode presentasi (ADR-0023): paket fixture + toko demo
+ * `rekam-medis` (ADR-0085); backend `GET /api/v1/care-packages` menyusul (rencana fase 3 · 3.8).
  */
 export default async function PaketPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('paket');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const chart = rmeChartFor((await searchParams).pasien, ENCOUNTER_ID.maria);
+  const { chart, state, rev } = await rmeChart((await searchParams).pasien, ENCOUNTER_ID.maria);
   const role = session.role?.code ?? null;
   const packages = demoCarePackages();
-  const pkg = packages.find((p) => p.encounterId === chart.encounterId);
+  const base = packages.find((p) => p.encounterId === chart.encounterId);
+  const view = base ? applyPaket(base, state.paket[base.encounterId], formatJam) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,8 +61,15 @@ export default async function PaketPage({ searchParams }: { searchParams: Search
           );
         })}
       </nav>
-      {pkg ? (
-        <PaketWorkspace key={pkg.id} pkg={pkg} role={role} user={session.user.displayName} />
+      {view ? (
+        <PaketWorkspace
+          key={view.pkg.id}
+          pkg={view.pkg}
+          decision={view.decision}
+          gate={view.gate}
+          rev={rev}
+          role={role}
+        />
       ) : (
         <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-700">
           Pasien ini tidak mengikuti paket layanan khusus. Pilih paket aktif di atas.

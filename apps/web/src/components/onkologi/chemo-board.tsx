@@ -1,8 +1,13 @@
 'use client';
 
 import { formatJam, formatTanggal } from '@simrs/shared';
-import { Alert, Chip, SafetyGate, type SafetyGateResolution } from '@simrs/ui';
+import { Alert, Chip, SafetyGate } from '@simrs/ui';
 import { useState } from 'react';
+import {
+  chemoGateAction,
+  lockChemoOrderAction,
+  verifyChemoAction,
+} from '@/app/(staf)/klinis/onkologi/actions';
 import {
   type Flash,
   FlashLine,
@@ -16,10 +21,9 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   addDays,
-  type ChemoOrderLock,
   chemoInputValid,
   chemoVerifyBlock,
   doseMg,
@@ -29,6 +33,7 @@ import {
   mosteller,
   verifierBlock,
 } from '@/lib/onkologi';
+import { cycleStage, type OncologyCycle } from '@/lib/onkologi-toko';
 
 const STAGES = [
   'Order ditulis',
@@ -52,33 +57,67 @@ interface Plan {
   drugs: ReadonlyArray<{ name: string; mgPerM2: number; route: string }>;
 }
 
+/** Jejak siklus dari rekam tersimpan (order, gerbang, verifikasi), urut waktu. */
+function trail(plan: Plan, c: OncologyCycle | undefined): string[] {
+  if (!c?.lock) return [];
+  const out = [
+    `order ditulis ${plan.writer} (LPT ${c.lock.bsa.toLocaleString('id-ID')} m², dosis ${c.lock.pct}%) · ${formatJam(c.lock.at)}`,
+  ];
+  const g = c.gate;
+  if (g) {
+    out.push(
+      g.decision === 'tunda' && g.deferredTo
+        ? `Siklus ditunda ke ${formatTanggal(g.deferredTo)} · ${formatJam(g.at)}`
+        : g.decision === 'override'
+          ? `gerbang lab di-override: ${g.reason ?? ''} · ${formatJam(g.at)}`
+          : `laboratorium memenuhi ambang · ${formatJam(g.at)}`,
+    );
+  }
+  for (const v of c.verify) {
+    out.push(
+      v.n === 1
+        ? `verifikasi 1 oleh ${v.verifier}: dosis cocok · ${formatJam(v.at)}`
+        : `verifikasi 2 oleh ${v.verifier}: dosis cocok; siap diracik di BSC farmasi · ${formatJam(v.at)}`,
+    );
+  }
+  return out;
+}
+
 /**
  * B11 · Satu siklus kemoterapi: dosis dari LPT Mosteller (penyesuaian < 100% beralasan), gerbang lab pra-kemo
- * (tunda atau override beralasan), verifikasi ganda dua pelaku berbeda, lalu siap diracik di farmasi.
+ * (tunda atau override beralasan), verifikasi ganda dua pelaku berbeda, lalu siap diracik di farmasi. Setiap tahap
+ * diperiksa dan disimpan server (toko demo `onkologi`, ADR-0085); tahap dan jejak siklus datang dari server.
  */
 export function ChemoBoard({
   plan,
   labs,
   verifiers,
+  cycle,
+  rev,
 }: {
   plan: Plan;
   labs: readonly LabValue[];
   verifiers: readonly string[];
+  /** Keadaan siklus tersimpan. */
+  cycle: OncologyCycle | undefined;
+  /** Revisi toko `onkologi`. */
+  rev: number;
 }) {
-  const [height, setHeight] = useState(String(plan.heightCm));
-  const [weight, setWeight] = useState(String(plan.weightKg));
-  const [pct, setPct] = useState('100');
-  const [reason, setReason] = useState('');
-  const [stage, setStage] = useState(0);
-  /** Order yang dikunci penulis: dasar dan dosis yang diverifikasi ganda (isian terkunci sesudahnya). */
-  const [locked, setLocked] = useState<ChemoOrderLock | null>(null);
-  const [gate, setGate] = useState<SafetyGateResolution | null>(null);
-  const [deferred, setDeferred] = useState<string | null>(null);
-  const [v1, setV1] = useState('');
+  const { run, pending } = useStoreAction(rev);
+  const lockedSaved = cycle?.lock ?? null;
+  const [height, setHeight] = useState(String(lockedSaved?.heightCm ?? plan.heightCm));
+  const [weight, setWeight] = useState(String(lockedSaved?.weightKg ?? plan.weightKg));
+  const [pct, setPct] = useState(String(lockedSaved?.pct ?? 100));
+  const [reason, setReason] = useState(lockedSaved?.reason ?? '');
+  const [v1, setV1] = useState(cycle?.verify.find((v) => v.n === 1)?.verifier ?? '');
   const [v2, setV2] = useState('');
-  const [log, setLog] = useState<string[]>([]);
   const [flash, setFlash] = useState<Flash | null>(null);
 
+  const stage = cycleStage(cycle);
+  const locked = lockedSaved;
+  const deferred = cycle?.gate?.decision === 'tunda' ? cycle.gate.deferredTo : null;
+  const overridden = cycle?.gate?.decision === 'override';
+  const log = trail(plan, cycle);
   const h = Number(height);
   const w = Number(weight);
   const valid = chemoInputValid(h, w);
@@ -88,13 +127,9 @@ export function ChemoBoard({
   const failures = labFailures(labs);
   const weightShift = Math.abs(w - plan.previousWeightKg) / plan.previousWeightKg;
   const due = addDays(plan.lastCycleDate, plan.intervalDays);
-  const step = (to: number, text: string) => {
-    const at = formatJam(demoNow());
-    setStage(to);
-    setLog((cur) => [...cur, `${text} · ${at}`]);
-    setFlash({ ok: true, text: `Siklus ${plan.cycle}: ${text} · ${at}.` });
-  };
   const orderBlock = 'block' in lockResult ? lockResult.block : null;
+  const say = (res: { ok: boolean; message: string }) => setFlash({ ok: res.ok, text: res.message });
+  const firstVerifier = cycle?.verify.find((v) => v.n === 1)?.verifier ?? (v1 || null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -211,15 +246,10 @@ export function ChemoBoard({
             {stage === 0 && !deferred && (
               <div className="p-4">
                 <ReasonButton
-                  reason={orderBlock}
-                  onClick={() => {
-                    if (!('lock' in lockResult)) return;
-                    setLocked(lockResult.lock);
-                    step(
-                      1,
-                      `order ditulis ${plan.writer} (LPT ${lockResult.lock.bsa.toLocaleString('id-ID')} m², dosis ${p}%)`,
-                    );
-                  }}
+                  reason={orderBlock ?? (pending ? 'Menyimpan…' : null)}
+                  onClick={() =>
+                    run((r) => lockChemoOrderAction({ heightCm: h, weightKg: w, pct: p, reason }, r), say)
+                  }
                 >
                   Kunci order siklus {plan.cycle}
                 </ReasonButton>
@@ -240,28 +270,15 @@ export function ChemoBoard({
           </Panel>
           {stage === 1 &&
             !deferred &&
-            (failures.length > 0 && !gate ? (
+            (failures.length > 0 ? (
               <SafetyGate
                 title={`${failures.map((f) => f.label).join(', ')} di bawah ambang`}
                 recommendation={`Tunda siklus ${plan.intervalDays / 2} hari`}
                 overrideLabel="Tetap berikan dengan alasan klinis"
-                onFollow={() => {
-                  const to = addDays(due, 7);
-                  setGate({ kind: 'ikuti', text: `Siklus ditunda ke ${formatTanggal(to)}` });
-                  setDeferred(to);
-                  setLog((cur) => [
-                    ...cur,
-                    `Siklus ditunda ke ${formatTanggal(to)} · ${formatJam(demoNow())}`,
-                  ]);
-                  setFlash({
-                    ok: true,
-                    text: `Siklus ${plan.cycle} ditunda ke ${formatTanggal(to)}; cek ulang darah lengkap dijadwalkan (simulasi).`,
-                  });
-                }}
-                onOverride={(why) => {
-                  setGate({ kind: 'override', text: why });
-                  step(2, `gerbang lab di-override: ${why}`);
-                }}
+                onFollow={() => run((r) => chemoGateAction({ decision: 'tunda', reason: '' }, r), say)}
+                onOverride={(why) =>
+                  run((r) => chemoGateAction({ decision: 'override', reason: why }, r), say)
+                }
               >
                 {failures
                   .map((f) => `${f.label} ${fmt(f.value)} ${f.unit} (ambang ${fmt(f.min)})`)
@@ -269,7 +286,10 @@ export function ChemoBoard({
                 . Pemberian tertahan sampai ditindaklanjuti.
               </SafetyGate>
             ) : (
-              <ReasonButton reason={null} onClick={() => step(2, 'laboratorium memenuhi ambang')}>
+              <ReasonButton
+                reason={pending ? 'Menyimpan…' : null}
+                onClick={() => run((r) => chemoGateAction({ decision: 'lolos', reason: '' }, r), say)}
+              >
                 Lanjut ke verifikasi
               </ReasonButton>
             ))}
@@ -293,12 +313,15 @@ export function ChemoBoard({
               <ReasonButton
                 reason={
                   chemoVerifyBlock(locked, { heightCm: h, weightKg: w, pct: p }) ??
-                  verifierBlock(plan.writer, v1 || null, v2 || null, stage === 2 ? 1 : 2)
+                  verifierBlock(plan.writer, firstVerifier, v2 || null, stage === 2 ? 1 : 2) ??
+                  (pending ? 'Menyimpan…' : null)
                 }
                 onClick={() =>
-                  stage === 2
-                    ? step(3, `verifikasi 1 oleh ${v1}: dosis cocok`)
-                    : step(4, `verifikasi 2 oleh ${v2}: dosis cocok; siap diracik di BSC farmasi`)
+                  run(
+                    (r) =>
+                      verifyChemoAction(stage === 2 ? { n: 1, verifier: v1 } : { n: 2, verifier: v2 }, r),
+                    say,
+                  )
                 }
               >
                 Dosis cocok, verifikasi
@@ -307,8 +330,9 @@ export function ChemoBoard({
           )}
           {stage >= 4 && (
             <Alert level="success" title="Siap diracik">
-              Verifikasi ganda selesai ({v1} dan {v2}). Order masuk antrean peracikan sitostatika farmasi.
-              {gate?.kind === 'override' ? ' Override gerbang lab tercatat untuk ditinjau.' : ''}
+              Verifikasi ganda selesai ({cycle?.verify.map((v) => v.verifier).join(' dan ')}). Order masuk
+              antrean peracikan sitostatika farmasi.
+              {overridden ? ' Override gerbang lab tercatat untuk ditinjau.' : ''}
             </Alert>
           )}
         </div>

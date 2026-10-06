@@ -1,24 +1,34 @@
 'use client';
 
-import type { CpptEntry, InpatientDetail } from '@simrs/shared';
+import type { InpatientDetail } from '@simrs/shared';
 import { TabList, TabPanel } from '@simrs/ui';
 import { useId, useState } from 'react';
 import { taskDone, taskEnabled, useScenarioTask } from '@/components/rawat-inap/use-scenario-task';
 import { emarTurnBlocker, gdsTrend, nursingShift } from '@/lib/rawat-inap';
 import type { ScenarioStepState } from '@/lib/rawat-inap-scenario';
+import type { EmarLogLine } from '@/lib/rme-toko';
 import { CpptPanel } from './cppt-panel';
 import { DayJumps } from './day-jumps';
 import { type EmarLocal, EmarPanel } from './emar-panel';
 import { EwsPanel, MonitoringTiles, NursingPanel, ResultsPanel, SummaryPanel } from './inpatient-panels';
 import type { InpatientTab } from './tabs';
 
-/** K04/K07/K12 · Lima tab rekam rawat inap; state lokal (CPPT baru, eMAR, centang askep) bertahan antar-tab. */
+/**
+ * K04/K07/K12 · Lima tab rekam rawat inap. CPPT, co-sign, pemberian obat, observasi, dan intervensi askep tersimpan
+ * di toko demo (`rekam-medis`, ADR-0085) lewat Server Action; data baru datang dari server setelah aksi. Yang lokal
+ * hanya keadaan tampilan (tab, pindai gelang di layar ini) dan dosis pasien skenario sebelum tugas Simulasi-nya.
+ */
 export function InpatientWorkspace({
   detail,
   patient,
   user,
   userRole,
   canCosign,
+  canNurse,
+  canObserve,
+  rev,
+  storedGiven,
+  storedLog,
   initialTab,
   scenario,
   summaryRows,
@@ -30,6 +40,15 @@ export function InpatientWorkspace({
   user: string;
   userRole: string | null;
   canCosign: boolean;
+  /** Posisi perawat/bidan: mencatat intervensi keperawatan. */
+  canNurse: boolean;
+  /** Posisi yang mencatat observasi tanda vital (perawat, bidan, dokter). */
+  canObserve: boolean;
+  /** Revisi toko `rekam-medis` yang dilihat layar ini. */
+  rev: number;
+  /** Pemberian tersimpan per slot `<obat>|<jam>` (pasien fixture). */
+  storedGiven: Record<string, string>;
+  storedLog: EmarLogLine[];
   initialTab: InpatientTab;
   scenario: ScenarioStepState | null;
   summaryRows: Array<{ label: string; value: string }>;
@@ -39,31 +58,26 @@ export function InpatientWorkspace({
   const { runTask, pending, error } = useScenarioTask(scenario?.rev ?? 0);
   const tabsId = useId();
   const [tab, setTab] = useState<string>(initialTab);
-  const [added, setAdded] = useState<CpptEntry[]>([]);
-  const [cosigned, setCosigned] = useState<Record<string, { by: string; at: string }>>({});
   const [emar, setEmar] = useState<EmarLocal>({
     scan: { status: 'terkunci', at: null, reason: null },
     given: {},
     log: [],
   });
-  const [askep, setAskep] = useState<Record<string, boolean>>({});
   const enc = detail.summary.encounterId;
+  const scenarioPatient = detail.summary.scenario;
   // Hari rawat berjalan = tanggal observasi terakhir (pasien skenario mengikuti jam Simulasinya).
   const today = detail.observations.at(-1)?.at ?? `${detail.summary.admittedOn}T00:00:00+07:00`;
 
-  const entries = [...detail.cppt, ...added].map((e) => {
-    const c = cosigned[e.id];
-    return c ? { ...e, cosignedBy: c.by, cosignedAt: c.at } : e;
-  });
   // Pasien skenario: gelang dianggap terpindai begitu tugas `emar` selesai di Simulasi.
   const scan =
     scenario && taskDone(scenario, 'emar') && emar.scan.status === 'terkunci'
       ? { status: 'cocok' as const, at: null, reason: null }
       : emar.scan;
-  const nursing = detail.nursing.map((p) => ({
-    diagnosis: p.diagnosis,
-    interventions: p.interventions.map((i) => ({ ...i, done: askep[i.id] ?? i.done })),
-  }));
+  const emarState: EmarLocal = {
+    scan,
+    given: { ...storedGiven, ...emar.given },
+    log: [...storedLog, ...emar.log],
+  };
 
   const items = [
     { id: 'ringkasan', label: 'Ringkasan', content: <SummaryPanel rows={summaryRows} links={links} /> },
@@ -74,14 +88,13 @@ export function InpatientWorkspace({
         <div className="flex flex-wrap items-start gap-4">
           <CpptPanel
             encounterId={enc}
-            entries={entries}
+            entries={detail.cppt}
             user={user}
             userRole={userRole}
             today={today}
             canCosign={canCosign}
+            rev={rev}
             sbar={sbar}
-            onAdd={(e) => setAdded((cur) => [...cur, e])}
-            onCosign={(id, by, at) => setCosigned((cur) => ({ ...cur, [id]: { by, at } }))}
           />
           <EmarPanel
             encounterId={enc}
@@ -91,7 +104,8 @@ export function InpatientWorkspace({
             rm={patient.rm}
             name={patient.name}
             nurse={user}
-            state={{ ...emar, scan }}
+            rev={rev}
+            state={emarState}
             wait={scenario ? emarTurnBlocker(scenario.tasks.emar) : null}
             scenarioTask={taskEnabled(scenario ?? undefined, 'emar')}
             scenarioBusy={pending}
@@ -102,20 +116,31 @@ export function InpatientWorkspace({
         </div>
       ),
     },
-    { id: 'obs', label: 'Observasi & EWS', content: <EwsPanel observations={detail.observations} /> },
+    {
+      id: 'obs',
+      label: 'Observasi & EWS',
+      content: (
+        <EwsPanel
+          observations={detail.observations}
+          entry={scenarioPatient ? null : { encounterId: enc, rev, allowed: canObserve, user }}
+        />
+      ),
+    },
     {
       id: 'askep',
       label: 'Asuhan keperawatan',
       content: (
         <NursingPanel
-          problems={nursing}
+          encounterId={enc}
+          rev={rev}
+          problems={detail.nursing}
           shift={nursingShift(detail.emarNow)}
-          onToggle={(id) =>
-            setAskep((cur) => {
-              const base =
-                detail.nursing.flatMap((p) => p.interventions).find((i) => i.id === id)?.done ?? false;
-              return { ...cur, [id]: !(cur[id] ?? base) };
-            })
+          lockedReason={
+            scenarioPatient
+              ? 'Pasien simulasi: asuhan keperawatannya mengikuti langkah skenario.'
+              : canNurse
+                ? null
+                : 'Intervensi keperawatan dicatat posisi perawat atau bidan.'
           }
         />
       ),

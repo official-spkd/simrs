@@ -1,25 +1,16 @@
 'use client';
 
-import { type Bed, type BedStatus, formatJam, type Ward } from '@simrs/shared';
+import type { Bed, BedStatus, Ward } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import Link from 'next/link';
+import { BED_NEXT } from '@/lib/rawat-inap-bed-toko';
 import { BED_STATUS_META } from '@/lib/rawat-inap';
-
-/** Transisi status bed lokal (mockup): label tombol, status baru, catatan. */
-const NEXT: Partial<
-  Record<BedStatus, { label: string; to: BedStatus; note: (t: string) => string; clear?: boolean }>
-> = {
-  dipesan: { label: 'Pasien tiba · tandai terisi', to: 'terisi', note: (t) => `H1 · masuk ${t}` },
-  pulang: { label: 'Pasien sudah pulang', to: 'kotor', note: (t) => `kosong sejak ${t}`, clear: true },
-  kotor: { label: 'Tandai dibersihkan', to: 'dibersihkan', note: (t) => `mulai dibersihkan ${t}` },
-  dibersihkan: { label: 'Selesai dibersihkan · siap pakai', to: 'siap', note: (t) => `siap ${t}` },
-  rusak: { label: 'Perbaikan selesai · siap pakai', to: 'siap', note: (t) => `diperbaiki ${t}` },
-};
 
 const HINT: Record<BedStatus, (b: Bed) => string> = {
   siap: (b) => `Bed siap. Tekan "Alokasikan ke ${b.code}" pada permintaan di bawah.`,
   terisi: () => 'Bed terisi. Buka rawat inap untuk CPPT dan eMAR pasien.',
-  pulang: () => 'Pasien rencana pulang. Setelah pasien keluar, bed masuk antrean kebersihan.',
+  pulang: () =>
+    'Pasien rencana pulang. Setelah resume final dan pasien keluar, bed masuk antrean kebersihan.',
   dipesan: (b) =>
     b.patientLabel
       ? `Dipesan untuk ${b.patientLabel}. Tandai terisi saat pasien tiba di bangsal.`
@@ -29,16 +20,18 @@ const HINT: Record<BedStatus, (b: Bed) => string> = {
   rusak: () => 'Bed tidak dapat dipakai sampai perbaikan selesai.',
 };
 
-export type BedPatch = Pick<Bed, 'status' | 'note'> & Partial<Pick<Bed, 'patientLabel' | 'encounterId'>>;
-
-/** Kartu bed terpilih: rincian + satu aksi status berikutnya (atau alokasi pasien skenario). */
+/**
+ * Kartu bed terpilih: rincian + satu aksi status berikutnya (atau alokasi pasien skenario). Status baru diperiksa dan
+ * disimpan server (toko demo `tempat-tidur`).
+ */
 export function BedDetail({
   bed,
   ward,
   ranapHref,
   scenarioOwned,
   scenarioAlloc,
-  onChange,
+  busy,
+  onAdvance,
   onClose,
 }: {
   bed: Bed;
@@ -46,11 +39,12 @@ export function BedDetail({
   ranapHref: string | null;
   scenarioOwned: boolean;
   scenarioAlloc: { label: string; enabled: boolean; run: () => void } | null;
-  onChange: (code: string, patch: BedPatch, msg: string) => void;
+  busy: boolean;
+  onAdvance: (code: string) => void;
   onClose: () => void;
 }) {
   const m = BED_STATUS_META[bed.status];
-  const next = scenarioOwned ? undefined : NEXT[bed.status];
+  const next = scenarioOwned ? undefined : BED_NEXT[bed.status];
   return (
     <section
       aria-label="Bed terpilih"
@@ -89,22 +83,7 @@ export function BedDetail({
           </Button>
         )}
         {next && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              const t = formatJam(new Date());
-              onChange(
-                bed.code,
-                {
-                  status: next.to,
-                  note: next.note(t),
-                  ...(next.clear ? { patientLabel: null, encounterId: null } : {}),
-                },
-                `${bed.code} · ${BED_STATUS_META[next.to].label.toLowerCase()} ${t} (simulasi, tidak disimpan)`,
-              );
-            }}
-          >
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => onAdvance(bed.code)}>
             {next.label}
           </Button>
         )}
