@@ -51,7 +51,7 @@ export function PiutangPenyesuaian({
     <div className="flex flex-wrap items-start gap-4">
       <form
         aria-label="Ajukan penyesuaian piutang"
-        className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 rounded-card border border-line bg-white p-4 xl:max-w-[420px]"
+        className="flex min-w-0 flex-[1_1_320px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 xl:max-w-[420px]"
         onSubmit={(e) => {
           e.preventDefault();
           if (problems.length || !item) return;
@@ -139,7 +139,7 @@ export function PiutangPenyesuaian({
             <li
               key={a.id}
               aria-label={a.number}
-              className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+              className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
             >
               <span className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-semibold">

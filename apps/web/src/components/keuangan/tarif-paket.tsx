@@ -47,7 +47,9 @@ export function TarifPaket({
             onClick={() => setSel(p.id)}
             className={cx(
               'flex min-h-11 cursor-pointer flex-col rounded-control border px-3 py-2 text-left font-[inherit]',
-              p.id === pkg.id ? 'border-brand-600 bg-brand-50' : 'border-line bg-white',
+              p.id === pkg.id
+                ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                : 'border-line bg-white hover:bg-brand-50/60',
             )}
           >
             <span className="font-semibold text-ink-900">{p.name}</span>
@@ -59,7 +61,7 @@ export function TarifPaket({
       </nav>
       <section
         aria-label="Isi paket"
-        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="flex flex-col">
@@ -147,7 +149,7 @@ export function TarifPaket({
       </section>
       <section
         aria-label="Aturan selisih naik kelas"
-        className="flex min-w-0 flex-[1_1_280px] flex-col gap-2 rounded-card border border-line bg-white p-4 xl:max-w-[360px]"
+        className="flex min-w-0 flex-[1_1_280px] flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4 xl:max-w-[360px]"
       >
         <span className="font-semibold">Aturan selisih naik kelas JKN</span>
         <span className="text-caption text-ink-500">

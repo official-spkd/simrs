@@ -59,7 +59,7 @@ export default async function KlaimPage({ searchParams }: { searchParams: Search
           <span className="text-caption text-ink-500">
             Keuangan / Casemix / {board.periodLabel} · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Klaim JKN · koding dan grouping</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Klaim JKN · koding dan grouping</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <Chip tone="success">● E-Klaim terhubung · grouper INA-CBG (simulasi)</Chip>
@@ -83,11 +83,13 @@ export default async function KlaimPage({ searchParams }: { searchParams: Search
           label="Klaim bulan ini"
           value={num.format(k.claimsMonth.total)}
           detail={`RJ ${num.format(k.claimsMonth.rj)} · RI ${num.format(k.claimsMonth.ri)}`}
+          tinted
         />
         <KpiCard
           label="Nilai diajukan"
           value={formatRupiahRingkas(BigInt(k.submittedValue))}
           detail="periode berjalan"
+          tinted
         />
         <KpiCard
           label="Rata-rata koding"

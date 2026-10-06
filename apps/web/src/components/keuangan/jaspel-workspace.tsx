@@ -87,8 +87,8 @@ export function JaspelWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}
@@ -99,7 +99,7 @@ export function JaspelWorkspace({
       {period === '2026-09' ? (
         <section
           aria-label="Rekap September"
-          className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <Alert level="info" title="Periode ditutup">
             Rekap jasa {sep.period} dibayar {formatTanggalWaktu(sep.paidAt)} dan periodenya sudah ditutup.
@@ -136,11 +136,13 @@ export function JaspelWorkspace({
               label="Jasa terealisasi"
               value={formatRupiahRingkas(r.realized)}
               detail="1–5 Okt · contoh tindakan"
+              tinted
             />
             <KpiCard
               label="Bruto PPA"
               value={formatRupiahRingkas(r.totalGross)}
               detail={`${r.rows.length} PPA`}
+              tinted
             />
             <KpiCard
               label="Ditahan (klaim BPJS belum dibayar)"
@@ -153,6 +155,7 @@ export function JaspelWorkspace({
               label="Pos kebersamaan + manajemen"
               value={formatRupiahRingkas(pools)}
               detail="dibagi per aturan unit"
+              tinted
             />
           </div>
 
@@ -166,7 +169,7 @@ export function JaspelWorkspace({
                   aria-current={i === stageIdx ? 'step' : undefined}
                   className={cx(
                     'flex min-w-0 flex-[1_1_150px] flex-col rounded-control border px-3 py-2 text-small',
-                    doneStep ? 'border-zamrud-200 bg-zamrud-50' : 'border-line bg-white',
+                    doneStep ? 'border-zamrud-200 bg-alert-success' : 'border-line bg-white',
                   )}
                 >
                   <span className="font-semibold">
@@ -188,7 +191,7 @@ export function JaspelWorkspace({
           <div className="flex flex-wrap items-start gap-4">
             <section
               aria-label="Rekap per PPA"
-              className="flex min-w-0 flex-[999_1_520px] flex-col overflow-hidden rounded-card border border-line bg-white"
+              className="flex min-w-0 flex-[999_1_520px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
             >
               <div className="border-b border-line px-4 py-3">
                 <span className="font-semibold">Rekap per PPA · Oktober 2026 (berjalan)</span>
@@ -196,7 +199,7 @@ export function JaspelWorkspace({
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] border-collapse text-[13px]">
                   <thead>
-                    <tr className="bg-subtle text-left text-caption text-ink-500">
+                    <tr className="text-left text-caption text-ink-500">
                       <th scope="col" className="px-4 py-2 font-semibold">
                         PPA
                       </th>
@@ -299,7 +302,7 @@ export function JaspelWorkspace({
               aria-label="Persetujuan dan jurnal"
               className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 xl:max-w-[460px]"
             >
-              <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4 text-small">
+              <section className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small">
                 <span className="font-semibold">Aturan pembagian</span>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {board.rule.shares.map((s) => (
@@ -314,7 +317,7 @@ export function JaspelWorkspace({
                   {board.rule.pphBp / 100}%
                 </span>
               </section>
-              <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+              <section className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
                 {stage !== 'dibayar' && (
                   <span className="flex flex-col gap-1">
                     <Button

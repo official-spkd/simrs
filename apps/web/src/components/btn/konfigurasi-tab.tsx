@@ -88,7 +88,7 @@ export function KonfigurasiTab({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section
           aria-label="Merchant dan kanal"
-          className="flex min-w-0 flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <span className="font-semibold">Merchant dan rekening tujuan</span>
           <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-small">
@@ -116,7 +116,7 @@ export function KonfigurasiTab({
                 key={k.id}
                 className={cx(
                   'flex flex-wrap items-center gap-3 rounded-control border p-2.5',
-                  on ? 'border-brand-200 bg-[#F7FCFB]' : 'border-line bg-batu-50',
+                  on ? 'border-brand-200 bg-brand-50/60' : 'border-line bg-batu-50',
                 )}
               >
                 <label className="flex min-h-11 min-w-0 flex-[1_1_220px] cursor-pointer items-center gap-2.5">
@@ -166,7 +166,7 @@ export function KonfigurasiTab({
         </section>
         <section
           aria-label="Webhook dan mode"
-          className="flex min-w-0 flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <span className="font-semibold">Mode koneksi</span>
           <RadioSegmented
@@ -218,7 +218,7 @@ export function KonfigurasiTab({
             role="alertdialog"
             aria-labelledby={`${id}-judul`}
             aria-describedby={`${id}-isi`}
-            className="m-auto w-[min(520px,calc(100vw-32px))] rounded-card border border-warning-border p-0 text-ink-900 backdrop:bg-[rgba(20,33,43,0.45)]"
+            className="m-auto w-[min(520px,calc(100vw-32px))] rounded-card border border-warning-border p-0 text-ink-900 backdrop:bg-[rgba(15,23,42,0.28)] backdrop:backdrop-blur-[3px] shadow-float"
           >
             <div className="flex flex-col gap-3 bg-warning-bg p-5">
               <h2 id={`${id}-judul`} className="m-0 text-h2 font-semibold text-warning">

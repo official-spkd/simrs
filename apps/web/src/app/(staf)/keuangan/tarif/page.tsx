@@ -21,7 +21,7 @@ export default async function TarifPage() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Keuangan / Tarif & paket · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Tarif & paket · master tarif berversi</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Tarif & paket · master tarif berversi</h1>
       </header>
       <TarifWorkspace
         board={board}

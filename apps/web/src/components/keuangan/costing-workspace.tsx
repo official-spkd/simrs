@@ -21,7 +21,7 @@ import type { CostingBoard } from '@/lib/server/data/keuangan-lanjut';
 import { AlasanForm } from './alasan-form';
 
 const signed = (v: bigint) => (v < 0n ? `−${formatRupiah(-v)}` : formatRupiah(v));
-const BAR = ['bg-brand-700', 'bg-brand-500', 'bg-[#6E8BC7]', 'bg-[#C7A23A]', 'bg-ink-500'];
+const BAR = ['bg-brand-700', 'bg-brand-500', 'bg-brand-300', 'bg-brand-200', 'bg-ink-500'];
 
 /**
  * I10 · Costing dan case-mix: biaya per kasus berbasis aktivitas vs tarif INA-CBG, margin per kelompok kasus dan per
@@ -55,11 +55,13 @@ export function CostingWorkspace({
           label="Pendapatan INA-CBG"
           value={formatRupiahRingkas(total.revenue)}
           detail={`${total.cases.toLocaleString('id-ID')} kasus`}
+          tinted
         />
         <KpiCard
           label="Biaya pelayanan"
           value={formatRupiahRingkas(total.cost)}
           detail="berbasis aktivitas"
+          tinted
         />
         <KpiCard
           label="Margin"
@@ -79,7 +81,7 @@ export function CostingWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-zamrud-200 bg-zamrud-50 px-3 py-2 text-small text-success"
+          className="rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small text-success"
         >
           ✓ {flash}
         </div>
@@ -87,7 +89,7 @@ export function CostingWorkspace({
       {error && (
         <div
           role="alert"
-          className="rounded-control border border-danger-border bg-danger-bg px-3 py-2 text-small text-danger"
+          className="rounded-control border border-danger-border bg-alert-critical px-3 py-2 text-small text-danger"
         >
           {error}
         </div>
@@ -107,12 +109,12 @@ export function CostingWorkspace({
       <div className="flex flex-wrap items-start gap-4">
         <section
           aria-label="Margin kasus"
-          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-line bg-white"
+          className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] border-collapse text-[13px]">
               <thead>
-                <tr className="bg-subtle text-left text-caption text-ink-500">
+                <tr className="text-left text-caption text-ink-500">
                   <th scope="col" className="px-4 py-2 font-semibold">
                     {by === 'cbg' ? 'Kelompok INA-CBG' : 'DPJP'}
                   </th>
@@ -180,8 +182,8 @@ export function CostingWorkspace({
                   className={cx(
                     'min-h-11 cursor-pointer rounded-full border px-3 text-small font-[inherit]',
                     c.id === k?.id
-                      ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                      : 'border-line-strong bg-white text-ink-700',
+                      ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                      : 'border-[rgba(23,32,46,0.12)] bg-white/90 text-ink-700 hover:bg-white',
                   )}
                 >
                   {c.cbg.code} · {c.dpjp.split(',')[0]}
@@ -240,7 +242,7 @@ function CaseDetail({
   return (
     <aside
       aria-label="Komposisi biaya kasus"
-      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-line bg-white p-4 xl:max-w-[440px]"
+      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 xl:max-w-[440px]"
     >
       <span className="flex flex-col">
         <span className="font-semibold">
@@ -291,7 +293,7 @@ function CaseDetail({
         <div
           className={cx(
             'rounded-control border px-3 py-2 text-small',
-            v ? 'border-warning-border bg-kunyit-50' : 'border-zamrud-200 bg-zamrud-50',
+            v ? 'border-warning-border bg-alert-warning' : 'border-zamrud-200 bg-alert-success',
           )}
         >
           {v ? (

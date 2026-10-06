@@ -25,7 +25,7 @@ export function ClaimList({
   return (
     <section
       aria-label="Daftar klaim"
-      className="flex min-w-0 flex-[1_1_320px] flex-col overflow-hidden rounded-card border border-line bg-white xl:max-w-[380px]"
+      className="flex min-w-0 flex-[1_1_320px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card xl:max-w-[380px]"
     >
       <div
         role="group"
@@ -42,8 +42,8 @@ export function ClaimList({
               className={cx(
                 'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-small no-underline',
                 on
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line-strong bg-white text-ink-700',
+                  ? 'border-transparent bg-nav-active font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : 'border-[rgba(23,32,46,0.12)] bg-white/90 text-ink-700 hover:bg-white',
               )}
             >
               {CLAIM_STATUS_LABEL[s]}
@@ -62,7 +62,9 @@ export function ClaimList({
                 aria-current={sel ? 'page' : undefined}
                 className={cx(
                   'grid min-h-14 grid-cols-[4px_minmax(0,1fr)_auto] gap-3 border-b border-line-soft py-2.5 pr-3 text-ink-900 no-underline',
-                  sel ? 'bg-brand-50' : 'bg-white hover:bg-subtle',
+                  sel
+                    ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                    : 'hover:bg-brand-50/60',
                 )}
               >
                 <span aria-hidden="true" className={sel ? 'bg-brand-600' : ''} />

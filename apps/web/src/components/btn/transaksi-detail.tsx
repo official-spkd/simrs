@@ -95,7 +95,7 @@ export function TransaksiDetail({
     <aside
       aria-label="Detail transaksi"
       aria-live="polite"
-      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-line bg-white p-4 lg:max-w-[440px]"
+      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 lg:max-w-[440px]"
     >
       <span className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">
@@ -172,7 +172,7 @@ export function TransaksiDetail({
         <span className="text-small font-semibold">
           {tx.channel === 'EDC' ? 'Respons EDC (ringkas)' : 'Payload webhook TPDI (ringkas)'}
         </span>
-        <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all rounded-control bg-[#F4F6F8] p-2.5 font-mono text-[11.5px] leading-relaxed text-ink-700">
+        <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-all rounded-control bg-batu-100 p-2.5 font-mono text-[11.5px] leading-relaxed text-ink-700">
           {payload(tx)}
         </pre>
       </div>

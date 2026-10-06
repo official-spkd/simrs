@@ -23,7 +23,9 @@ export default async function KasBankPage() {
         <span className="text-caption text-ink-500">
           Keuangan / Kas & bank / Sen, 5 Okt 2026 · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Kas & bank · laci kasir dan mutasi rekening</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+          Kas & bank · laci kasir dan mutasi rekening
+        </h1>
       </header>
       <KasBankWorkspace board={board} store={state} rev={rev} viewer={session.user.displayName} />
     </div>

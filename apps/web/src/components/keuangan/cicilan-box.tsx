@@ -122,9 +122,9 @@ function ActionButton({ action, id, primary }: { action: CicilanAction; id: stri
         className={cx(
           'min-h-11 rounded-control px-3.5 font-[inherit] font-semibold',
           !action.enabled
-            ? 'cursor-not-allowed border border-line-strong bg-line text-ink-500'
+            ? 'cursor-not-allowed border border-line bg-muted text-ink-400'
             : primary
-              ? 'cursor-pointer border border-brand-800 bg-brand-600 text-white'
+              ? 'cursor-pointer border border-transparent bg-btn-primary text-white shadow-button hover:brightness-[1.07]'
               : 'cursor-pointer border border-dashed border-brand-700 bg-white text-brand-700',
         )}
       >

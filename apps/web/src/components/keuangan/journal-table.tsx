@@ -34,7 +34,7 @@ export function JournalTable({
   return (
     <section
       aria-label="Jurnal otomatis"
-      className="@container flex min-w-0 flex-[999_1_600px] flex-col overflow-hidden rounded-card border border-line bg-white"
+      className="@container flex min-w-0 flex-[999_1_600px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-4 py-3">
         <span className="flex flex-col">
@@ -67,7 +67,7 @@ export function JournalTable({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[13px] @2xl:min-w-[620px]">
           <thead>
-            <tr className="bg-subtle text-left text-caption text-ink-500">
+            <tr className="text-left text-caption text-ink-500">
               <th scope="col" className="hidden px-4 py-2 font-semibold @2xl:table-cell">
                 No. · sumber
               </th>

@@ -44,7 +44,7 @@ export function TarifDetail({
   return (
     <section
       aria-label="Rincian tarif"
-      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-line bg-white p-4 xl:max-w-[460px]"
+      className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 xl:max-w-[460px]"
     >
       <div className="flex flex-col gap-0.5">
         <span className="font-mono text-caption text-ink-500">{item.code}</span>
@@ -137,7 +137,7 @@ export function TarifDetail({
       </div>
 
       {pendingNumber ? (
-        <p className="m-0 rounded-control border border-samudra-200 bg-samudra-50 px-3 py-2 text-small text-ink-700">
+        <p className="m-0 rounded-control border border-samudra-200 bg-alert-info px-3 py-2 text-small text-ink-700">
           Usulan {pendingNumber} untuk item ini masih menunggu persetujuan; satu usulan aktif per item.
         </p>
       ) : open && current ? (

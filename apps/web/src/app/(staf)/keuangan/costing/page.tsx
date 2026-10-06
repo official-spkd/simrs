@@ -22,7 +22,9 @@ export default async function CostingPage() {
         <span className="text-caption text-ink-500">
           Keuangan / Costing & case-mix · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Costing & case-mix · biaya per kasus vs INA-CBG</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+          Costing & case-mix · biaya per kasus vs INA-CBG
+        </h1>
       </header>
       <CostingWorkspace board={board} reviews={state.reviews} rev={rev} />
     </div>

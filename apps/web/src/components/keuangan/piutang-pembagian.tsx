@@ -46,7 +46,9 @@ export function PiutangPembagian({ examples }: { examples: readonly ContohPembag
             onClick={() => setSel(e.id)}
             className={cx(
               'flex min-h-11 cursor-pointer flex-col rounded-control border px-3 py-2 text-left font-[inherit]',
-              e.id === ex.id ? 'border-brand-600 bg-brand-50' : 'border-line bg-white',
+              e.id === ex.id
+                ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                : 'border-line bg-white hover:bg-brand-50/60',
             )}
           >
             <span className="font-semibold text-ink-900">{e.patient.name}</span>
@@ -58,7 +60,7 @@ export function PiutangPembagian({ examples }: { examples: readonly ContohPembag
       </nav>
       <section
         aria-label="Pembagian penjamin"
-        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <span className="flex flex-col">
           <span className="font-semibold">

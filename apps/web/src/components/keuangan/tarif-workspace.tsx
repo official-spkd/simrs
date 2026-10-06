@@ -89,7 +89,7 @@ export function TarifWorkspace({
   const list = (
     <section
       aria-label="Daftar tarif"
-      className="@container flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-line bg-white"
+      className="@container flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-col gap-2.5 border-b border-line px-4 py-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -125,7 +125,7 @@ export function TarifWorkspace({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-[13px]">
           <thead>
-            <tr className="bg-subtle text-left text-caption text-ink-500">
+            <tr className="text-left text-caption text-ink-500">
               <th scope="col" className="px-4 py-2 font-semibold">
                 Item
               </th>
@@ -146,7 +146,15 @@ export function TarifWorkspace({
               const wait = pendingFor(i.code);
               const on = i.code === item?.code;
               return (
-                <tr key={i.code} className={cx('border-t border-line', on && 'bg-brand-50')}>
+                <tr
+                  key={i.code}
+                  className={cx(
+                    'border-t border-line',
+                    on
+                      ? 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                      : 'hover:bg-brand-50/60',
+                  )}
+                >
                   <td className="px-4 py-1.5">
                     <button
                       type="button"
@@ -199,8 +207,9 @@ export function TarifWorkspace({
           label="Item tarif aktif"
           value={board.itemTotal.toLocaleString('id-ID')}
           detail="SK tarif 2026"
+          tinted
         />
-        <KpiCard label="Paket aktif" value={board.packages.length} detail="operasi dan persalinan" />
+        <KpiCard label="Paket aktif" value={board.packages.length} detail="operasi dan persalinan" tinted />
         <KpiCard
           label="Usulan menunggu"
           value={pending.length}
@@ -212,6 +221,7 @@ export function TarifWorkspace({
           label="Perubahan terjadwal"
           value={scheduled.length}
           detail={scheduled.length ? scheduled.map((i) => i.name).join(', ') : 'belum ada'}
+          tinted
         />
       </div>
       {flash && (
@@ -220,8 +230,8 @@ export function TarifWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}

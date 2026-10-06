@@ -40,7 +40,7 @@ export function QrisBox({
   onSimulate: () => void;
 }) {
   return (
-    <div className={cx(BOX, 'flex-row items-center gap-3', paidAt && 'border-zamrud-200 bg-zamrud-50')}>
+    <div className={cx(BOX, 'flex-row items-center gap-3', paidAt && 'border-zamrud-200 bg-alert-success')}>
       <QrSample faded={!!paidAt} />
       <span className="flex min-w-0 flex-col gap-1">
         <span className={cx('font-semibold', paidAt ? 'text-success' : 'text-ink-900')}>
@@ -91,7 +91,7 @@ export function VaBox({
       {paidAt ? (
         <span
           role="status"
-          className="flex flex-col rounded-[8px] border border-zamrud-200 bg-zamrud-50 px-2.5 py-2"
+          className="flex flex-col rounded-[8px] border border-zamrud-200 bg-alert-success px-2.5 py-2"
         >
           <span className="font-semibold text-success">Webhook TPDI diterima {paidAt} · status lunas</span>
           <span>payment.paid · signature valid</span>

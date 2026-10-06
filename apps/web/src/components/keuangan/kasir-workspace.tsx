@@ -118,7 +118,7 @@ export function KasirWorkspace({
           guarantor={invoice.patient.guarantor}
           attending={invoice.encounter.dpjp}
         />
-        <div className="flex flex-wrap justify-between gap-3 rounded-card border border-line bg-white bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_6%,_transparent),rgba(255,255,255,0)_60%)] px-4 py-3">
+        <div className="flex flex-wrap justify-between gap-3 rounded-card border border-white/95 bg-white/90 shadow-card bg-card-header px-4 py-3">
           <span className="flex min-w-0 flex-col">
             <span className="font-semibold">{invoice.encounter.label}</span>
             <span className="text-[12.5px] text-ink-500">

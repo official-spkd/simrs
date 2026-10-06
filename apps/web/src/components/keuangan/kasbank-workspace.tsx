@@ -70,16 +70,19 @@ export function KasBankWorkspace({
           label="Laci terbuka"
           value={open.length}
           detail={open.map((d) => d.counter.split(' · ')[0]).join(', ') || '—'}
+          tinted
         />
         <KpiCard
           label="Kas di laci (seharusnya)"
           value={formatRupiah(open.reduce((s, d) => s + expectedCash(d), 0n))}
           detail="modal + tunai masuk − refund tunai"
+          tinted
         />
         <KpiCard
           label="Saldo rekening koran"
           value={formatRupiahRingkas(board.statement.balance)}
           detail={`${formatRupiah(board.statement.balance)} · sinkron H2H ${formatJam(board.statement.syncedAt)}`}
+          tinted
         />
         <KpiCard
           label="Mutasi belum dipadankan"
@@ -95,8 +98,8 @@ export function KasBankWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}
@@ -144,7 +147,7 @@ export function KasBankWorkspace({
             badge: rec.open ? String(rec.open) : undefined,
             content: (
               <div className="flex flex-col gap-3 pt-3">
-                <p className="m-0 rounded-card border border-line bg-white px-4 py-3 text-small text-ink-700">
+                <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3 text-small text-ink-700">
                   <span className="font-semibold">{board.statement.account}</span> · saldo rekening koran{' '}
                   <span className="font-mono">{formatRupiah(board.statement.balance)}</span> · saldo buku{' '}
                   <span className="font-mono" data-book-balance={rec.bookBalance.toString()}>
@@ -206,7 +209,7 @@ function LaciCard({
   return (
     <article
       aria-label={`Laci ${d.counter}`}
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex flex-col">
@@ -417,8 +420,8 @@ function MutasiRow({
     <li
       aria-label={`Mutasi ${m.description}`}
       className={cx(
-        'flex flex-col gap-2 rounded-card border bg-white p-3',
-        m.status === 'belum' ? 'border-warning-border' : 'border-line',
+        'flex flex-col gap-2 rounded-card border bg-white/90 p-3 shadow-card',
+        m.status === 'belum' ? 'border-warning-border' : 'border-white/95',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">

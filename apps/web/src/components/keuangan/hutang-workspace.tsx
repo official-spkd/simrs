@@ -96,11 +96,13 @@ export function HutangWorkspace({
           label="Menunggu verifikasi/persetujuan"
           value={waiting.length}
           detail="faktur dari penerimaan"
+          tinted
         />
         <KpiCard
           label="Saldo bank mitra"
           value={formatRupiahRingkas(balance)}
           detail="rekening pembayaran pemasok"
+          tinted
         />
       </div>
       {flash && (
@@ -109,8 +111,8 @@ export function HutangWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}
@@ -142,7 +144,7 @@ export function HutangWorkspace({
               <div className="flex flex-wrap items-start gap-4 pt-3">
                 <section
                   aria-label="Faktur siap dibayar"
-                  className="flex min-w-0 flex-[999_1_460px] flex-col overflow-hidden rounded-card border border-line bg-white"
+                  className="flex min-w-0 flex-[999_1_460px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
                     <span className="font-semibold">Faktur disetujui · urut jatuh tempo</span>
@@ -217,7 +219,7 @@ export function HutangWorkspace({
                   className="flex min-w-0 flex-[1_1_340px] flex-col gap-3 xl:max-w-[460px]"
                 >
                   {batch ? (
-                    <section className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+                    <section className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
                       <span className="font-semibold">
                         <span className="font-mono">{batch.number}</span> · {batch.ids.length} faktur ·{' '}
                         {formatRupiah(batch.total)}
@@ -241,7 +243,7 @@ export function HutangWorkspace({
                       )}
                     </section>
                   ) : (
-                    <p className="m-0 rounded-card border border-line bg-white p-4 text-small text-ink-500">
+                    <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small text-ink-500">
                       Belum ada batch pembayaran terbuka. Centang faktur disetujui lalu buat batch.
                     </p>
                   )}
@@ -281,7 +283,7 @@ function FakturCard({
   return (
     <li
       aria-label={`Faktur ${f.invoiceNo}`}
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">

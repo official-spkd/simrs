@@ -171,8 +171,8 @@ export function PaymentPanel({
         className={cx(
           'min-h-12 rounded-control font-[inherit] font-semibold',
           ready
-            ? 'cursor-pointer border border-brand-800 bg-brand-600 text-white'
-            : 'cursor-not-allowed border border-line-strong bg-line text-ink-500',
+            ? 'cursor-pointer border border-transparent bg-btn-primary text-white shadow-button hover:brightness-[1.07]'
+            : 'cursor-not-allowed border border-line bg-muted text-ink-400',
         )}
       >
         Selesaikan dan cetak kuitansi

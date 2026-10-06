@@ -51,7 +51,7 @@ export function PiutangWorkspace({
   return (
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Indikator piutang" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard label="Total piutang" value={formatRupiahRingkas(totalAll)} detail="semua penjamin" />
+        <KpiCard label="Total piutang" value={formatRupiahRingkas(totalAll)} detail="semua penjamin" tinted />
         <KpiCard
           label="Umur > 90 hari"
           value={formatRupiahRingkas(over90)}
@@ -63,6 +63,7 @@ export function PiutangWorkspace({
           label="Belum ditagih (contoh)"
           value={unbilled.length}
           detail={formatRupiah(unbilled.reduce((s, i) => s + outstanding(i), 0n))}
+          tinted
         />
         <KpiCard
           label="Penyesuaian menunggu"
@@ -78,8 +79,8 @@ export function PiutangWorkspace({
           className={cx(
             'rounded-control border px-3 py-2 text-small',
             flash.ok
-              ? 'border-zamrud-200 bg-zamrud-50 text-success'
-              : 'border-danger-border bg-danger-bg text-danger',
+              ? 'border-zamrud-200 bg-alert-success text-success'
+              : 'border-danger-border bg-alert-critical text-danger',
           )}
         >
           {flash.ok ? '✓ ' : ''}

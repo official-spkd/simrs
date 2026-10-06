@@ -51,7 +51,7 @@ export default async function AkuntansiPage() {
             <span className="text-caption text-ink-500">
               Keuangan / Akuntansi / Periode {board.period.label} · {session.tenant.name}
             </span>
-            <h1 className="m-0 text-h1 font-semibold">Akuntansi · jurnal dan piutang</h1>
+            <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Akuntansi · jurnal dan piutang</h1>
           </div>
         }
         banner={<ScenarioBanner session={session} screen="akuntansi" />}
@@ -75,11 +75,13 @@ export default async function AkuntansiPage() {
               value={formatRupiahRingkas(BigInt(k.revenueMtd))}
               hint={`${pct.format(k.revenueDeltaPercent)}% vs bulan lalu (hari sama)`}
               tone="success"
+              tinted
             />
             <KpiCard
               label="Piutang BPJS"
               value={formatRupiahRingkas(BigInt(k.bpjsReceivable))}
               detail={`rata-rata cair ${k.avgCollectionDays} hari`}
+              tinted
             />
             <KpiCard
               label="Kas dan bank"

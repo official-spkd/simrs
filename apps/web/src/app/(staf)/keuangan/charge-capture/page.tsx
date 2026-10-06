@@ -21,7 +21,9 @@ export default async function ChargeCapturePage() {
         <span className="text-caption text-ink-500">
           Keuangan / Charge capture / Sen, 5 Okt 2026 · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Charge capture · event klinis jadi tagihan</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+          Charge capture · event klinis jadi tagihan
+        </h1>
       </header>
       <ChargeWorkspace events={store.events} eventTotal={store.eventTotal} rev={store.rev} />
     </div>
