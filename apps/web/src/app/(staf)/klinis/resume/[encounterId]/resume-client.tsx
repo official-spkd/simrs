@@ -162,7 +162,7 @@ export function ResumeClient({
         )}
         <div className="flex flex-col gap-1 border-t border-line-soft pt-2.5 text-caption text-ink-700">
           <span className="font-semibold">Setelah ditandatangani, otomatis:</span>
-          <span>• Kirim ringkasan pulang dan diagnosis ke SATUSEHAT</span>
+          <span>• Kirim Composition dan Condition ke SATUSEHAT</span>
           <span>• Masuk antrean koder untuk klaim INA-CBG</span>
           <span>• Surat kontrol BPJS dan jadwal kontrol</span>
           <span>• Resume tampil di aplikasi pasien</span>

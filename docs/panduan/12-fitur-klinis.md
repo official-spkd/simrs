@@ -400,8 +400,10 @@ operasi) tanpa input ulang, dengan 12 butir kelengkapan sebelum TTE DPJP.
    Selain itu tampil daftar resume yang sedang disiapkan.
 2. Buka resume, mis. "Resume medis · Ny. Endang Wijaya". Setiap bagian diberi label sumber, mis. "dari CPPT",
    "dari eMAR", "dari hasil lab dan radiologi".
-3. Periksa obat pulang. Bagian rekonsiliasi menulis "Sumber: perlu konfirmasi DPJP" sampai dokter menekan
-   **Konfirmasi DPJP**. Setelah itu daftar obat pulang dikunci untuk resep pulang.
+3. Periksa obat pulang. Bagian rekonsiliasi menulis "perlu konfirmasi DPJP" sampai dokter menekan
+   **Konfirmasi DPJP**; labelnya menjadi "dikonfirmasi DPJP · HH.MM" dan daftar obat pulang dikunci untuk resep
+   pulang. **Batalkan konfirmasi** tersedia selama resume belum final. Kepala layar memuat rencana pulang, batas
+   resume final 24 jam, dan **Pratinjau PDF** (dialog cetak browser).
 4. Panel "Kelengkapan dan tanda tangan" menunjukkan jumlah butir, mis. 12/12, dan daftar centang.
 5. Tekan **Tanda tangani resume (TTE)**. Status menjadi "Resume final · TTE" dan semua centang terkunci.
 6. Pasien skenario memakai **Himpun resume** dan pilihan rekonsiliasi skenario; TTE-nya mengikuti giliran Simulasi.

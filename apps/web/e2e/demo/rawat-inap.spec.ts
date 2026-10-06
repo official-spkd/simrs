@@ -307,8 +307,17 @@ test.describe('resume medis', () => {
     const tte = aside.getByRole('button', { name: 'Tanda tangani resume (TTE)' });
     await expect(tte).toBeDisabled();
     await expect(aside.getByText(/TTE terkunci: lengkapi 1 butir lagi/)).toBeVisible();
-    await expect(page.getByText('Sumber: perlu konfirmasi DPJP')).toBeVisible();
+    await expect(page.getByText('perlu konfirmasi DPJP', { exact: true })).toBeVisible();
 
+    await expect(page.getByRole('button', { name: 'Pratinjau PDF' })).toBeVisible();
+    await expect(page.getByText(/batas resume final 24 jam setelah pulang/)).toBeVisible();
+    await expect(page.getByText('dari eMAR', { exact: true })).toBeVisible();
+
+    // Konfirmasi DPJP berjam dan bisa dibatalkan selama resume belum final.
+    await page.getByRole('button', { name: 'Konfirmasi DPJP' }).click();
+    await expect(page.getByText(/^dikonfirmasi DPJP · \d{2}\.\d{2}$/)).toBeVisible();
+    await page.getByRole('button', { name: 'Batalkan konfirmasi' }).click();
+    await expect(aside.getByText('11/12')).toBeVisible();
     await page.getByRole('button', { name: 'Konfirmasi DPJP' }).click();
     await expect(aside.getByText('12/12')).toBeVisible();
     const edukasi = aside.getByRole('checkbox', { name: 'Edukasi pasien terdokumentasi' });
@@ -318,6 +327,8 @@ test.describe('resume medis', () => {
     await expect(tte).toBeEnabled();
     await tte.click();
     await expect(aside.getByRole('status')).toContainText('Resume final · TTE');
+    await expect(aside.getByText('Setelah final, perubahan hanya lewat addendum berversi.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Batalkan konfirmasi' })).toHaveCount(0);
     await expect(edukasi).toBeDisabled();
     await expectNoHorizontalScroll(page);
   });

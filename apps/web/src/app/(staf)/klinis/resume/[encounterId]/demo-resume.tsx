@@ -76,11 +76,14 @@ export async function DemoResume({ access, encounterId }: { access: DemoScreenAc
             Rawat inap / {s.location} / Pulang · {session.tenant.name}
           </span>
           <h1 className="m-0 text-h1 font-semibold">Resume medis · {p.nama}</h1>
+        </div>
+        {/* Kanan kepala (mockup): rencana pulang + batas final 24 jam, lalu Pratinjau PDF. */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <span className="text-small text-ink-700">
             Rencana pulang {formatTanggalWaktu(s.dischargeAt)} · batas resume final 24 jam setelah pulang
           </span>
+          <PrintButton />
         </div>
-        <PrintButton />
       </header>
       {banner}
       <ScenarioBanner session={session} screen="resume" />
