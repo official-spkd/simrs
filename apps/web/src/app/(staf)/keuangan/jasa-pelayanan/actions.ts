@@ -67,6 +67,6 @@ export async function jaspelAction(input: JaspelActionInput): Promise<KeuanganAc
       at,
       jurnal: j ? [toAutoJurnal(j, { source: 'klaim', reference: `Jasa pelayanan · ${PERIOD}` })] : [],
     },
-    `Rekap jasa Oktober ${label} oleh ${s.user.displayName} · ${jam}${j ? ` · ${ringkasJurnal(j)}` : ''}`,
+    `Rekap jasa Oktober ${label} · ${jam}${j ? ` · ${ringkasJurnal(j)}` : ''}`,
   );
 }

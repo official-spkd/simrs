@@ -292,6 +292,9 @@ function patchCapture(s: TagihanState, id: string, patch: Partial<CaptureOverlay
   return { ...s, capture: { ...s.capture, [id]: { ...(s.capture[id] ?? EMPTY_CAPTURE), ...patch } } };
 }
 
+/** "Penyakit Dalam" → "Poli Penyakit Dalam" (label layar keuangan sama dengan tagihan fixture). */
+export const poliLabel = (name: string) => (/^poli\b/i.test(name) ? name : `Poli ${name}`);
+
 /** Penerapan kunjungan terdaftar (langganan `pendaftaran`). */
 function applyVisit(s: TagihanState, v: VisitRegisteredEvent, at: string, by: string): TagihanState {
   const invoiceId = registeredInvoiceId(v.visitId);
@@ -321,11 +324,11 @@ function applyVisit(s: TagihanState, v: VisitRegisteredEvent, at: string, by: st
     at,
     source: 'pendaftaran',
     event: 'encounter.registered',
-    description: `Kunjungan ${v.poliName} terdaftar · antrean ${v.queueNo}`,
+    description: `Kunjungan ${poliLabel(v.poliName)} terdaftar · antrean ${v.queueNo}`,
     patient: {
       name: v.patientName,
       rm: v.rm,
-      place: v.poliName,
+      place: poliLabel(v.poliName),
       payer: v.payer === 'BPJS' ? 'BPJS' : v.payer,
     },
     status: 'tertagih',
@@ -379,7 +382,7 @@ export const tagihanDomain = defineDomain<TagihanState, TagihanEvent>(TAGIHAN_DO
           at: d.at,
           source: 'kasir',
           event: 'charge.manual_added',
-          description: 'Item manual kasir (alasan tercatat)',
+          description: `Item manual kasir (alasan tercatat) · ${d.name}`,
           patient: d.patient,
           status: 'tertagih',
           line: captureLine('MNL', d.name, d.qty, unit),
@@ -731,7 +734,7 @@ export function registeredInvoice(r: RegisteredInvoice): Invoice {
     },
     encounter: {
       kind: 'rawat-jalan',
-      label: `Rawat jalan ${r.poliName}`,
+      label: `Rawat jalan ${poliLabel(r.poliName)}`,
       location: r.room,
       period: RJ_PERIOD,
       sep: r.sepNo,

@@ -1,8 +1,32 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 import { CLAIM_ID, INVOICE_ID } from '../../src/lib/demo/fixtures/ids';
 
-/** Keuangan (mode presentasi, ADR-0023; mockup Kasir, Klaim, Akuntansi). */
+/**
+ * Keuangan (mode presentasi, ADR-0023; mockup Kasir, Klaim, Akuntansi). Aksi tersimpan di toko demo bersama
+ * (ADR-0085): diperiksa bertahan setelah muat ulang dan mengalir antarlayar (pendaftaran → charge capture → kasir →
+ * klaim → pembiayaan BTN; kasir → pembayaran digital → akuntansi). Akun uji punya ruang data sendiri.
+ */
+
+async function loginWithPosition(page: Page, account: Account, roleName: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName}`))).toBeVisible();
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName}`))).toBeVisible();
+}
 
 async function noHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
@@ -46,7 +70,7 @@ test.describe('kasir', () => {
     await expect(finish).toBeEnabled();
     await finish.click();
     await expect(pay.getByText(/kuitansi KW-2610-02217 · \d{2}\.\d{2}/)).toBeVisible();
-    await expect(page.getByText(/\(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
     await expect(
       pay.getByText(/jurnal bank terbentuk otomatis\. Klaim BPJS hak kelas 2 diteruskan ke casemix/),
     ).toBeVisible();
@@ -64,6 +88,9 @@ test.describe('kasir', () => {
       '/keuangan/pembayaran',
     );
     await noHorizontalOverflow(page);
+    // Bertahan: muat ulang → tetap lunas dengan kuitansi yang sama.
+    await page.reload();
+    await expect(pay.getByText(/kuitansi KW-2610-02217 · \d{2}\.\d{2}/)).toBeVisible();
   });
 
   test('item manual diblokir tanpa alasan tertulis', async ({ page }) => {
@@ -94,6 +121,13 @@ test.describe('kasir', () => {
     await expect(bill.getByText('Nebulisasi tambahan')).toBeVisible();
     await expect(bill.getByText('Manual', { exact: true })).toBeVisible();
     await noHorizontalOverflow(page);
+    // Bertahan + mengalir: item manual tetap setelah muat ulang dan muncul sebagai event di Charge capture.
+    await page.reload();
+    await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 498.500');
+    await page.goto('/keuangan/charge-capture');
+    await expect(
+      page.getByRole('listitem', { name: /Item manual kasir/ }).filter({ hasText: 'Nebulisasi tambahan' }),
+    ).toBeVisible();
   });
 
   test('posisi lain melihat ajakan ganti posisi', async ({ page }) => {
@@ -127,7 +161,8 @@ test.describe('klaim', () => {
 
     await page.getByRole('button', { name: 'Terima J13' }).click();
     await expect(dx.getByText('J13', { exact: true })).toBeVisible();
-    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).check();
+    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).click();
+    await expect(page.getByLabel(/Bukti klinis N17\.9 di CPPT/)).toBeChecked();
     await expect(grouper.getByText('J-4-15-III', { exact: true })).toBeVisible();
     await expect(grouper.getByText('Rp 9.104.300')).toBeVisible();
 
@@ -135,6 +170,9 @@ test.describe('klaim', () => {
     await send.click();
     await expect(page.getByText(/Terkirim ke E-Klaim \d{2}\.\d{2}/)).toBeVisible();
     await noHorizontalOverflow(page);
+    // Bertahan: muat ulang → klaim tetap terkirim (status berkas di verifikator).
+    await page.reload();
+    await expect(page.getByText(/Terkirim ke E-Klaim \d{2}\.\d{2}/)).toBeVisible();
   });
 });
 
@@ -167,7 +205,8 @@ test.describe('klaim · keadaan kerja koder (mockup Klaim)', () => {
     await page.getByRole('button', { name: 'DPJP setuju · terapkan J13' }).click();
     await expect(status).toHaveText('Siap grouping · J13');
     await expect(endang.getByText('Saran diterima')).toBeVisible();
-    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).check();
+    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).click();
+    await expect(page.getByLabel(/Bukti klinis N17\.9 di CPPT/)).toBeChecked();
     await expect(status).toHaveText('Siap final · J-4-15-III');
     await send.click();
     await expect(status).toHaveText('Terkirim ke E-Klaim');
@@ -233,11 +272,118 @@ test.describe('akuntansi', () => {
       0,
     );
 
+    // Pembuat ≠ penyetuju (id pengguna sesi): pembuat pemetaan tidak bisa menyetujui sendiri.
+    const approve = page.getByRole('button', { name: 'Setujui dan posting' });
+    await expect(approve).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByText(/Pemisahan tugas: Anda pembuat pemetaan/)).toBeVisible();
+    // K-2 (usulan, menunggu konfirmasi pemilik produk): tutup periode diblokir selama jurnal menunggu penyetuju kedua.
     await page.getByRole('button', { name: 'Tutup periode Oktober' }).click();
-    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeEnabled();
-    await dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' }).click();
-    await expect(page.getByText(/Periode Oktober 2026 ditutup \d{2}\.\d{2}\./)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Tutup periode Oktober' })).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeDisabled();
+    await expect(dialog.getByText(/JU-26100417 masih menunggu penyetuju kedua/)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Batal' }).click();
+    // Bertahan: muat ulang → pemetaan dan pemadanan masih tercatat atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByText(/dipetakan ke .* oleh Pengguna E2E Fiktif/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Rekonsiliasi bank' }).getByText('2 selisih')).toHaveCount(
+      0,
+    );
     await noHorizontalOverflow(page);
+  });
+});
+
+test.describe('aliran keuangan antarlayar (toko demo)', () => {
+  test('pendaftaran → charge capture → kasir → klaim → pembiayaan BTN; jurnal di Akuntansi', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const akun = await createAccount({
+      roles: ['petugas_pendaftaran', 'kasir', 'koder', 'akuntan'],
+      displayName: 'Staf Alur Keuangan Fiktif',
+    });
+    await loginWithPosition(page, akun, 'Petugas pendaftaran');
+
+    // Pendaftaran pasien BPJS (SEP + kunjungan) → kejadian `kunjungan.terdaftar` membawa charge ADM-RJ.
+    await page.goto('/pendaftaran');
+    await page.getByLabel('Cari pasien (NIK, No. RM, No. BPJS, nama + tgl lahir)').fill('00-12-45-78');
+    await page.getByRole('button', { name: 'Cari pasien', exact: true }).click();
+    await page.getByRole('button', { name: 'Cek kepesertaan', exact: true }).click();
+    await page.getByRole('button', { name: /Surat kontrol · Poli Penyakit Dalam/ }).click();
+    await page.getByRole('button', { name: 'Terbitkan SEP dan daftarkan', exact: true }).click();
+    await expect(page.getByText(/SEP 0301R0011026V000812 terbit pukul \d{2}\.\d{2}/)).toBeVisible();
+    await page.getByRole('button', { name: 'Pakai jadwal ini dan bentuk antrean' }).click();
+    await page.getByLabel(/Persetujuan umum \(general consent\)/).check();
+    await page.getByRole('button', { name: 'Kirim antrean dan selesaikan' }).click();
+    await expect(page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028/)).toBeVisible();
+
+    // Charge capture: event pendaftaran tertagih.
+    await switchPosition(page, 'Kasir');
+    await page.goto('/keuangan/charge-capture');
+    await expect(
+      page.getByRole('listitem', { name: /Siti Rahmawati Kunjungan Poli Penyakit Dalam terdaftar/ }),
+    ).toContainText('Rp 30.000');
+
+    // Kasir: tagihan rawat jalan baru INV-2610-02401 (ADM-RJ), BPJS → final → tutup (pasien Rp 0).
+    await page.goto('/keuangan/kasir?pilih=inv-rj-kj-1');
+    await expect(page.getByText('INV-2610-02401')).toBeVisible();
+    const bill = page.getByRole('region', { name: 'Rincian tagihan' });
+    await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 30.000');
+    await page.getByRole('button', { name: 'Finalkan tagihan' }).click();
+    await page.getByRole('button', { name: 'Tutup kunjungan (pasien bayar Rp 0)' }).click();
+    const pay = page.getByRole('region', { name: 'Pembayaran' });
+    await expect(pay.getByText('Lunas', { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(pay.getByText('Lunas', { exact: true })).toBeVisible();
+
+    // Klaim: berkas BPJS dari Kasir (I10 dari SEP, grouper Q-5-44-0) → kirim → verifikasi (mock) → layak bayar.
+    await switchPosition(page, 'Koder klinis');
+    await page.goto('/keuangan/klaim?pilih=kl-inv-rj-kj-1');
+    await expect(
+      page.getByRole('table', { name: 'Diagnosis ICD-10' }).getByText('I10', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Final dan kirim E-Klaim' }).click();
+    await expect(page.getByText(/Terkirim ke E-Klaim \d{2}\.\d{2}/)).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Catat hasil verifikasi BPJS: layak bayar (mock E-Klaim)' })
+      .click();
+    await expect(page.locator('[data-claim-status]')).toContainText('Layak bayar');
+
+    // Pembiayaan BTN: klaim layak bayar masuk pool; Akuntansi: jurnal pengakuan pendapatan dari Kasir.
+    await switchPosition(page, 'Akuntan');
+    await page.goto('/keuangan/pembiayaan');
+    await expect(page.getByRole('region', { name: 'Pool klaim BPJS' })).toContainText('RJ · Siti Rahmawati');
+    await page.goto('/keuangan/akuntansi');
+    const jurnal = page.locator('tbody[data-journal]').filter({ hasText: 'Kasir · INV-2610-02401' });
+    await expect(jurnal.first()).toContainText('Piutang BPJS — RJ');
+  });
+
+  test('kasir QRIS → pembayaran digital (rekonsiliasi 3 arah) → jurnal Akuntansi terposting', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const akun = await createAccount({ roles: ['kasir', 'akuntan'], displayName: 'Kasir Alur Fiktif' });
+    await loginWithPosition(page, akun, 'Kasir');
+    await page.goto(`/keuangan/kasir?pilih=${INVOICE_ID.endang}`);
+    const pay = page.getByRole('region', { name: 'Pembayaran' });
+    await pay.getByRole('button', { name: 'Simulasikan pembayaran diterima' }).click();
+    await pay.getByRole('button', { name: 'Selesaikan dan cetak kuitansi' }).click();
+    await expect(pay.getByText(/kuitansi KW-2610-02217/)).toBeVisible();
+
+    // Pembayaran digital: tagihan TPDI Endang lunas dari Kasir; rekonsiliasi memadankan tiga sumber.
+    await page.goto('/keuangan/pembayaran');
+    const daftar = page.getByRole('region', { name: 'Daftar transaksi' });
+    await daftar.getByRole('button', { name: /Ny\. Endang Wijaya/ }).click();
+    const detail = page.getByRole('complementary', { name: 'Detail transaksi' });
+    await expect(detail.getByText('✓ HMAC valid').first()).toBeVisible();
+    await page.getByRole('tab', { name: /^Rekonsiliasi/ }).click();
+    await page.getByRole('button', { name: 'Jalankan rekonsiliasi' }).click();
+    await expect(page.getByText(/1 transaksi cocok 3 arah, jurnal terposting/)).toBeVisible();
+
+    await switchPosition(page, 'Akuntan');
+    await page.goto('/keuangan/akuntansi');
+    const jurnal = page
+      .locator('tbody[data-journal]')
+      .filter({ hasText: 'Pelunasan pasien INV-2610-02217 · QRIS via TPDI' });
+    await expect(jurnal.first()).toContainText('Terposting');
+    await expect(page.getByRole('region', { name: 'Jurnal otomatis' })).not.toContainText('tidak disimpan');
   });
 });

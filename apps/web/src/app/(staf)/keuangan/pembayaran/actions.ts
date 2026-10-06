@@ -118,7 +118,7 @@ export async function recordPaymentEventAction(input: PaymentEventInput): Promis
           at,
           jurnal: [simulatedPaymentJournal(tx)],
         },
-        'Webhook TPDI diterima, tagihan lunas · jurnal menunggu rekonsiliasi',
+        'Webhook TPDI diterima, tagihan lunas',
       );
     }
     case 'pengecualian': {

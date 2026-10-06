@@ -11,7 +11,8 @@ import {
   type KeuanganActionResult,
   NOT_YOUR_SCREEN,
 } from '@/lib/server/data/keuangan-toko';
-import { commitEvent } from '@/lib/server/demo/state';
+import { codingList } from '@/lib/keuangan-klaim-toko';
+import { commitEvent, readDomain } from '@/lib/server/demo/state';
 
 /**
  * U06 · Server Action Workbench koder (mode presentasi, ADR-0085): tautan bukti, alasan pertahankan, keputusan saran,
@@ -71,6 +72,8 @@ export async function kodingAction(input: KodingActionInput): Promise<KeuanganAc
     const r = await commitEvent('klaim', event, { rev: c.rev, session: s });
     return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
   };
+  const { state } = await readDomain('klaim');
+  const b = codingList(state).find((x) => x.id === c.berkasId);
   switch (c.type) {
     case 'kode':
       return commit(
@@ -80,17 +83,17 @@ export async function kodingAction(input: KodingActionInput): Promise<KeuanganAc
     case 'query':
       return commit(
         { type: 'koding.query', berkasId: c.berkasId, question: c.question, at },
-        `Query dikirim ke DPJP · ${jam}`,
+        `Query dikirim ke ${b?.dpjp ?? 'DPJP'} · ${jam}`,
       );
     case 'jawaban':
       return commit(
         { type: 'koding.jawaban', berkasId: c.berkasId, at },
-        `DPJP menjawab query (disimulasikan) · ${jam} · bukti addendum tertaut`,
+        `DPJP menjawab query ${b?.patient.name ?? ''} · ${jam} · bukti addendum tertaut ke ${b?.query?.confirms ?? ''}`,
       );
     case 'pengingat':
       return commit(
         { type: 'koding.pengingat', berkasId: c.berkasId, at },
-        `Pengingat query dikirim · ${jam}`,
+        `Pengingat query dikirim ke ${b?.query?.to ?? 'DPJP'} · ${jam}`,
       );
     case 'selesai':
       if (
@@ -102,7 +105,9 @@ export async function kodingAction(input: KodingActionInput): Promise<KeuanganAc
       }
       return commit(
         { type: 'koding.selesai', berkasId: c.berkasId, versionReason: c.versionReason, at },
-        `Koding tervalidasi ${jam} · diteruskan ke Klaim & koding`,
+        b?.sent
+          ? `Versi koding ${(b.versions.at(-1)?.version ?? 1) + 1} ${b.patient.name} disimpan · ${jam} · tanggapan siap dikirim dari Klaim & koding`
+          : `Koding ${b?.patient.name ?? ''} tervalidasi · ${jam} · diteruskan ke grouper di Klaim & koding`,
       );
   }
 }

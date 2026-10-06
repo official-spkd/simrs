@@ -21,6 +21,7 @@ import { assertDemo } from '../demo-guard';
 import { getSession } from '../session';
 import { webEnv } from '../web-env';
 import { readDomain } from '../demo/state';
+import { demoStamp } from './keuangan-toko';
 import { applyPembayaran, type PembayaranState } from '../../btn-pembayaran-toko';
 import { applyPembiayaan, type PembiayaanState } from '../../btn-pembiayaan-toko';
 import { notImplemented } from './not-implemented';
@@ -81,7 +82,8 @@ export async function getPaymentOverview(session: SessionView): Promise<PaymentS
     assertDemo();
     const [runs, pb] = await Promise.all([scenarioRuns(session), readDomain('pembayaran-btn')]);
     const applied = applyPembayaran(demoPaymentOverview(runs.results['elektif-btn']), pb.state);
-    const data = paymentOverviewSchema.parse(applied.data);
+    // Jam demo server saat halaman dibuat: jam layar ("N dtk lalu") sejalan dengan stempel aksi tersimpan.
+    const data = paymentOverviewSchema.parse({ ...applied.data, asOf: demoStamp() });
     return {
       data,
       hook: hookFor(runs, 'pembayaran'),

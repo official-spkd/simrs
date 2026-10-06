@@ -1,6 +1,6 @@
 'use server';
 
-import { formatJam } from '@simrs/shared';
+import { formatJam, formatRupiah } from '@simrs/shared';
 import { z } from 'zod';
 import type { EventOf } from '@/lib/demo/store/registry';
 import { captureActions, KOREKSI_REASON_MIN, SUMBER_LABEL } from '@/lib/keuangan-charge';
@@ -82,7 +82,11 @@ export async function chargeAction(input: ChargeActionInput): Promise<KeuanganAc
     case 'selesaikan': {
       const kelasOk = e.hold?.kind === 'kelas-belum-ada' && !!e.kelasAt;
       if (acts.retry && !kelasOk) return { ok: false, message: acts.retry };
-      const l = e.hold?.reprice ? 'Selisih tarif penjamin baru' : (e.hold?.resolution?.name ?? '');
+      const net = e.hold?.reprice
+        ? e.hold.reprice.reduce((sum, p) => sum + p.after.amount - p.before.amount, 0n)
+        : (e.hold?.resolution?.amount ?? 0n);
+      const name = e.hold?.reprice ? 'Selisih tarif penjamin baru' : (e.hold?.resolution?.name ?? '');
+      const l = `${name} ${formatRupiah(net)}`;
       return commit(
         { type: 'capture.selesaikan', eventId: e.id, at },
         `${l} masuk tagihan ${e.patient.name} · ${jam}`,

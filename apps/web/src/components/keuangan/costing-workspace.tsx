@@ -4,6 +4,7 @@ import { formatJam, formatRupiah } from '@simrs/shared';
 import { Button, Chip, cx, KpiCard, RadioSegmented } from '@simrs/ui';
 import { useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { formatRupiahRingkas } from '@/lib/keuangan';
 import {
   costShares,
@@ -203,7 +204,9 @@ export function CostingWorkspace({
               dispatch({ type: 'telaah.dikirim', caseId: k.id, note }, (ok) => {
                 if (!ok) return;
                 setReviewing(false);
-                setFlash(`Telaah clinical pathway ${k.cbg.code} (${k.dpjp}) dikirim ke komite medik`);
+                setFlash(
+                  `Telaah clinical pathway ${k.cbg.code} (${k.dpjp}) dikirim ke komite medik · ${formatJam(demoNow())}`,
+                );
               })
             }
           />

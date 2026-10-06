@@ -1,6 +1,6 @@
 'use server';
 
-import { formatJam } from '@simrs/shared';
+import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { z } from 'zod';
 import type { EventOf } from '@/lib/demo/store/registry';
 import { tanggalPendek } from '@/lib/keuangan-jurnal';
@@ -64,7 +64,7 @@ export async function tarifAction(input: TarifActionInput): Promise<KeuanganActi
         reason: c.reason,
         at,
       },
-      `Usulan ${number} diajukan ${s.user.displayName} · ${jam} · berlaku mulai ${tanggalPendek(c.validFrom)} setelah disetujui manajemen`,
+      `Usulan ${number} diajukan · ${formatTanggalWaktu(at)} · oleh ${s.user.displayName} · berlaku mulai ${tanggalPendek(c.validFrom)} setelah disetujui manajemen`,
     );
   }
   const u = state.proposals.find((p) => p.id === c.proposalId);
@@ -73,7 +73,7 @@ export async function tarifAction(input: TarifActionInput): Promise<KeuanganActi
   return commit(
     { type: 'usulan.putuskan', proposalId: u.id, approve: c.approve, note: c.approve ? null : c.note, at },
     c.approve
-      ? `${u.number} disetujui ${s.user.displayName} · ${jam} · ${name} versi baru terjadwal berlaku ${tanggalPendek(u.validFrom)}; versi berlaku ditutup sehari sebelumnya`
+      ? `${u.number} disetujui · ${jam} · ${name} versi baru terjadwal berlaku ${tanggalPendek(u.validFrom)}; versi berlaku ditutup sehari sebelumnya`
       : `${u.number} ditolak · ${jam} · alasan dikirim ke ${u.maker}`,
   );
 }

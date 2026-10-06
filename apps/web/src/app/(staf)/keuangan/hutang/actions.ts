@@ -67,7 +67,7 @@ export async function hutangAction(input: HutangActionInput): Promise<KeuanganAc
     case 'verifikasi':
       return commit(
         { type: 'faktur.verifikasi', invoiceId: c.invoiceId, at },
-        `Faktur ${f?.invoiceNo ?? ''} diverifikasi ${s.user.displayName} · ${jam}`,
+        `Faktur ${f?.invoiceNo ?? ''} diverifikasi · ${jam}`,
       );
     case 'setujui': {
       if (!f) return { ok: false, message: 'Faktur tidak ditemukan.' };

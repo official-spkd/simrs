@@ -4,7 +4,7 @@ import { formatJam, formatRupiah } from '@simrs/shared';
 import { z } from 'zod';
 import type { EventOf } from '@/lib/demo/store/registry';
 import { adjustmentJournal, paymentJournal } from '@/lib/keuangan-piutang';
-import { toAutoJurnal } from '@/lib/keuangan-jurnal';
+import { ringkasJurnal, toAutoJurnal } from '@/lib/keuangan-jurnal';
 import { nextBatchNumber } from '@/lib/keuangan-piutang-toko';
 import {
   BAD_INPUT,
@@ -96,7 +96,7 @@ export async function piutangAction(input: PiutangActionInput): Promise<Keuangan
             toAutoJurnal(paymentJournal(b, amount), { source: 'klaim', reference: `Piutang · ${b.number}` }),
           ],
         },
-        `Pelunasan ${c.number} ${formatRupiah(amount)} diposting · jurnal terbentuk di Akuntansi · ${jam}`,
+        `Pelunasan ${c.number} ${formatRupiah(amount)} diposting · ${jam} · ${ringkasJurnal(paymentJournal(b, amount))}`,
       );
     }
     case 'ajukan':
@@ -109,7 +109,7 @@ export async function piutangAction(input: PiutangActionInput): Promise<Keuangan
           reason: c.reason,
           at,
         },
-        `Penyesuaian diajukan ${s.user.displayName} · ${jam} · menunggu persetujuan manajemen`,
+        `Penyesuaian AJ-2610-${String(state.nextAdjSeq).padStart(3, '0')} diajukan · ${jam} · menunggu persetujuan manajemen`,
       );
     case 'putuskan': {
       const a = state.adjustments.find((x) => x.id === c.adjId);
@@ -136,7 +136,7 @@ export async function piutangAction(input: PiutangActionInput): Promise<Keuangan
             : [],
         },
         c.approve
-          ? `${a.number} disetujui ${s.user.displayName} dan diposting · jurnal terbentuk di Akuntansi · ${jam}`
+          ? `${a.number} disetujui dan diposting · ${jam} · ${ringkasJurnal(adjustmentJournal(a, it.payerGroup))}`
           : `${a.number} ditolak ${s.user.displayName} · alasan tercatat · ${jam}`,
       );
     }
