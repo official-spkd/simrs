@@ -1,8 +1,8 @@
 'use client';
 
 import { type DispenseStage, formatJam, type PharmacyPrescription, type PharmacyQueue } from '@simrs/shared';
-import { Tabs } from '@simrs/ui';
-import { useMemo, useState, useTransition } from 'react';
+import { TabList, TabPanel } from '@simrs/ui';
+import { type ReactNode, useId, useMemo, useState, useTransition } from 'react';
 import {
   cdsFollowUpAction,
   dispenseRxAction,
@@ -43,12 +43,18 @@ interface Flash {
  * Tn. Suryo memajukan tugas simulasi `farmasi.telaah → siap → serah` bila sedang giliran.
  */
 export function FarmasiWorkspace({
+  heading,
+  banner,
   data,
   hook,
   userName,
   initialTab,
   initialSelected,
 }: {
+  /** Remah + judul halaman (kiri kepala; kanan = tab antrean). */
+  heading: ReactNode;
+  /** Banner skenario di antara kepala dan panel tab. */
+  banner: ReactNode;
   data: PharmacyQueue;
   hook: ScenarioTaskHook;
   userName: string;
@@ -56,6 +62,7 @@ export function FarmasiWorkspace({
   initialSelected: string | null;
 }) {
   const tasks = useScenarioTasks(hook);
+  const tabsId = useId();
   const [tab, setTab] = useState<FarmasiTab>(initialTab);
   const [sel, setSel] = useState<Partial<Record<FarmasiTab, string>>>(
     initialSelected ? { [initialTab]: initialSelected } : {},
@@ -242,16 +249,26 @@ export function FarmasiWorkspace({
       </div>
     </div>
   );
+  // Tab antrean di kanan kepala halaman (mockup: pil "Antrean"), banner skenario di antara kepala dan panel.
   return (
-    <Tabs
-      label="Antrean resep"
-      value={tab}
-      onChange={pickTab}
-      items={(['telaah', 'siap', 'serah'] as const).map((t) => ({
-        id: t,
-        label: `${TAB_LABEL[t]} · ${rowsOf(t).length}`,
-        content: t === tab ? body : null,
-      }))}
-    />
+    <>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
+        <TabList
+          label="Antrean"
+          idBase={tabsId}
+          value={tab}
+          onChange={(t) => pickTab(t as FarmasiTab)}
+          items={(['telaah', 'siap', 'serah'] as const).map((t) => ({
+            id: t,
+            label: `${TAB_LABEL[t]} · ${rowsOf(t).length}`,
+          }))}
+        />
+      </header>
+      {banner}
+      <TabPanel key={tab} idBase={tabsId} value={tab}>
+        {body}
+      </TabPanel>
+    </>
   );
 }

@@ -165,7 +165,8 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
 
 **Alur.**
 
-1. Buka **Farmasi**. Tab **Telaah · n** aktif. Pilih resep di "Antrean telaah", mis. Tn. Sutan Batubara.
+1. Buka **Farmasi**. Tab antrean di kanan kepala layar (**Telaah · n**, **Penyiapan · n**, **Serah terima · n**);
+   **Telaah · n** aktif. Pilih resep di "Antrean telaah", mis. Tn. Sutan Batubara.
 2. "Item resep" menampilkan obat dengan kode KFA dan status formularium (mis. "KFA 93000387 · Fornas" untuk
    Klopidogrel 75 mg tab). Daftar telaah memuat identitas, SIP dokter, sediaan, stabilitas, interaksi, dosis ginjal,
    duplikasi, dan kontraindikasi.

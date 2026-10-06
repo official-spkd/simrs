@@ -120,6 +120,13 @@ test.describe('penunjang · farmasi', () => {
       page.getByRole('heading', { name: 'Farmasi · verifikasi dan penyiapan', level: 1 }),
     ).toBeVisible();
     await expect(page.getByRole('tab', { name: /^Telaah · \d+$/ })).toHaveAttribute('aria-selected', 'true');
+    // Mockup: tab antrean ada di kepala halaman, sejajar judul.
+    await expect(
+      page
+        .locator('header')
+        .filter({ has: page.getByRole('heading', { name: 'Farmasi · verifikasi dan penyiapan' }) })
+        .getByRole('tablist', { name: 'Antrean' }),
+    ).toBeVisible();
     await page
       .getByRole('region', { name: 'Antrean telaah' })
       .getByRole('button', { name: /Tn\. Sutan Batubara/ })
