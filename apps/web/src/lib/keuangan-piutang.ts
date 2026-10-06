@@ -178,6 +178,25 @@ export function batchPaid(b: Pick<BatchTagihan, 'payments'>): bigint {
   return sumRupiah(b.payments.map((p) => p.amount));
 }
 
+/**
+ * Sisa tagihan batch = Σ sisa piutang di dalamnya. Satu sumber untuk pelunasan DAN penyesuaian: penyesuaian yang
+ * disetujui (potongan/hapus buku) ikut mengurangi sisa, jadi piutang yang sama tidak bisa dikredit dua kali.
+ */
+export function batchRemaining(b: Pick<BatchTagihan, 'itemIds'>, items: readonly PiutangItem[]): bigint {
+  return sumRupiah(items.filter((i) => b.itemIds.includes(i.id)).map(outstanding));
+}
+
+/** Status batch dari sisa piutangnya (pelunasan + penyesuaian). */
+export function batchStatusOf(
+  b: Pick<BatchTagihan, 'itemIds' | 'payments' | 'sentAt'>,
+  items: readonly PiutangItem[],
+): BatchTagihan['status'] {
+  if (!b.sentAt) return 'draf';
+  const remaining = batchRemaining(b, items);
+  if (remaining <= 0n) return 'lunas';
+  return remaining < batchTotal(b, items) || b.payments.length > 0 ? 'sebagian' : 'ditagih';
+}
+
 /** Gerbang batch baru: item terpilih belum ditagih, satu penjamin, dan bukan piutang pasien umum. */
 export function batchProblem(selected: readonly PiutangItem[]): string | null {
   if (selected.length === 0) return 'Centang piutang yang akan ditagih dulu.';
@@ -284,10 +303,13 @@ export function adjustmentProblems(
 
 /** Persetujuan penyesuaian: posisi manajemen dan pembuat ≠ penyetuju. */
 export function adjustmentApprovalProblem(
-  a: Pick<Penyesuaian, 'maker' | 'status'>,
+  a: Pick<Penyesuaian, 'maker' | 'status' | 'amount'>,
   approver: { name: string; role: string | null },
+  item?: Pick<PiutangItem, 'amount' | 'paid'>,
 ): string | null {
   if (a.status !== 'menunggu') return 'Penyesuaian sudah diputuskan.';
+  if (item && a.amount > outstanding(item))
+    return 'Nominal penyesuaian melebihi sisa piutang saat ini (ada pelunasan sesudah diajukan); ajukan ulang.';
   if (approver.role !== 'manajemen')
     return 'Penyesuaian piutang disetujui posisi manajemen (manajer keuangan).';
   if (approver.name === a.maker) return 'Pembuat penyesuaian tidak boleh menyetujui sendiri.';
@@ -301,4 +323,16 @@ export function adjustmentJournal(
 ): DrafJurnal {
   const debitAccount = a.kind === 'hapus-buku' ? A.bebanPiutang : A.potonganPenjualan;
   return jurnal(`Penyesuaian ${a.number}`, [dr(debitAccount, a.amount), cr(payerAccount(group), a.amount)]);
+}
+
+/** Penyesuaian disetujui: sisa piutang item berkurang sebesar nominalnya (tidak pernah di bawah nol). */
+export function approveAdjustment(
+  items: readonly PiutangItem[],
+  a: Pick<Penyesuaian, 'itemId' | 'amount'>,
+): PiutangItem[] {
+  return items.map((i) => {
+    if (i.id !== a.itemId) return i;
+    const take = a.amount < outstanding(i) ? a.amount : outstanding(i);
+    return { ...i, paid: i.paid + take };
+  });
 }

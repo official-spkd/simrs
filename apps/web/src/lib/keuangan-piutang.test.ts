@@ -12,8 +12,11 @@ import {
   allocatePayment,
   batchPaid,
   batchProblem,
+  batchRemaining,
+  batchStatusOf,
   batchStatus,
   batchTotal,
+  approveAdjustment,
   hitungPembagian,
   outstanding,
   paymentJournal,
@@ -144,5 +147,27 @@ describe('penyesuaian piutang', () => {
       ['1-1340', 0n, 3_250_000n],
     ]);
     expect(outstanding(item('pi-06'))).toBe(a.amount);
+  });
+});
+
+describe('penyesuaian disetujui mengurangi sisa batch (regresi kredit ganda)', () => {
+  const a = PENYESUAIAN[0]!;
+  const b = BATCH_TAGIHAN.find((x) => x.number === 'TG-2607-018')!;
+  const director = { name: 'Direktur Keuangan', role: 'manajemen' };
+
+  it('hapus buku pi-06 → sisa batch 0, pelunasan ditolak, batch lunas', () => {
+    expect(batchRemaining(b, PIUTANG_ITEMS)).toBe(3_250_000n);
+    const after = approveAdjustment(PIUTANG_ITEMS, a);
+    expect(outstanding(after.find((i) => i.id === 'pi-06')!)).toBe(0n);
+    expect(batchRemaining(b, after)).toBe(0n);
+    expect(batchStatusOf(b, after)).toBe('lunas');
+    expect(paymentProblem(batchRemaining(b, after), 3_250_000n, 'MUT-261005-01')).toMatch(/melebihi/);
+  });
+
+  it('persetujuan memeriksa ulang sisa piutang (pelunasan masuk sesudah pengajuan)', () => {
+    const paidMeanwhile = allocatePayment(PIUTANG_ITEMS, b, 1_000_000n);
+    const it = paidMeanwhile.find((i) => i.id === 'pi-06');
+    expect(adjustmentApprovalProblem(a, director, it)).toMatch(/sisa piutang/);
+    expect(adjustmentApprovalProblem(a, director, item('pi-06'))).toBeNull();
   });
 });

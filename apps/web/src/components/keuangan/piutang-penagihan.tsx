@@ -13,6 +13,7 @@ import {
   type BatchTagihan,
   batchPaid,
   batchProblem,
+  batchRemaining,
   batchTotal,
   outstanding,
   paymentJournal,
@@ -223,7 +224,7 @@ export function PiutangPenagihan({
             {groupBatches.map((b) => {
               const total = batchTotal(b, items);
               const paid = batchPaid(b);
-              const remaining = total - paid;
+              const remaining = batchRemaining(b, items);
               const st = BATCH_STATUS[b.status];
               const amount = digitsToRupiah(amountRaw);
               const payProblem = paymentProblem(remaining, amount, reference);
