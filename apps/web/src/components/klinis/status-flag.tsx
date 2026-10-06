@@ -67,7 +67,7 @@ export function ValueFlagBadge({ flag, className }: { flag: ValueFlag; className
     <span
       className={cx(
         'inline-flex flex-none items-center gap-0.5 rounded-full px-1.5 text-[11px] leading-[18px] font-bold whitespace-nowrap',
-        flag === 'kritis' ? 'bg-danger text-white' : 'bg-danger-bg text-danger',
+        flag === 'kritis' ? 'bg-danger text-white' : 'bg-koral-100 text-koral-800',
         className,
       )}
     >

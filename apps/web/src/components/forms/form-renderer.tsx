@@ -89,7 +89,7 @@ export function FormRenderer({
     <div className="flex flex-col gap-4">
       {schema.sections.map((section, si) => (
         // Bagian tidak punya id; urutan bagian adalah identitasnya dalam satu versi definisi.
-        <div key={si} className="rounded-card border border-line bg-white px-5 py-4">
+        <div key={si} className="rounded-card border border-white/95 bg-white/90 shadow-card px-5 py-4">
           <fieldset disabled={disabled} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0">
             <legend className="mb-3 p-0">
               <span className="block text-[17px] font-bold">{section.title}</span>
@@ -122,7 +122,7 @@ export function FormRenderer({
         </div>
       ))}
       {score && !hasScoreField && (
-        <div className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-5 py-4">
+        <div className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card px-5 py-4">
           <span className="font-bold">Skor total (otomatis)</span>
           {score}
         </div>
@@ -405,7 +405,10 @@ function ReadOnlyForm({
   return (
     <div className="flex flex-col gap-4">
       {schema.sections.map((section, si) => (
-        <section key={si} className="flex flex-col gap-2 rounded-card border border-line bg-white px-5 py-4">
+        <section
+          key={si}
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-5 py-4"
+        >
           <h3 className="m-0 text-[17px] font-bold">{section.title}</h3>
           <dl className="m-0 grid gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             {section.fields
@@ -422,7 +425,7 @@ function ReadOnlyForm({
         </section>
       ))}
       {score && !hasScoreField && (
-        <section className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-5 py-4">
+        <section className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card px-5 py-4">
           <h3 className="m-0 text-[17px] font-bold">Skor total (otomatis)</h3>
           {score}
         </section>

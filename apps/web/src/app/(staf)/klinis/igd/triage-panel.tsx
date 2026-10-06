@@ -149,9 +149,9 @@ export function TriagePanel({
   return (
     <aside
       aria-label="Triase pasien"
-      className="flex-[1_1_340px] overflow-hidden rounded-card border border-line bg-white lg:max-w-[420px]"
+      className="flex-[1_1_340px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card lg:max-w-[420px]"
     >
-      <div className="flex items-start justify-between gap-2.5 border-b border-line bg-[linear-gradient(100deg,rgba(196,50,10,0.08),#FFFFFF_60%)] px-4 py-3.5">
+      <div className="flex items-start justify-between gap-2.5 border-b border-line bg-card-header px-4 py-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-caption text-ink-500">
             Triase · tiba {formatJam(item.arrivedAt)} · {item.arrivalMode}
@@ -194,14 +194,14 @@ export function TriagePanel({
                   key={v.label}
                   className={cx(
                     'flex min-w-0 flex-col rounded-control border px-2.5 py-2',
-                    flag ? 'border-danger-border bg-koral-50' : 'border-line-soft bg-subtle',
+                    flag ? 'border-koral-200 bg-koral-50' : 'border-line-soft bg-subtle',
                   )}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-1 text-[11.5px] text-ink-500">
                     {v.label}
                     {flag && <ValueFlagBadge flag={flag} />}
                   </span>
-                  <span className={cx('font-bold', flag ? 'text-danger' : 'text-ink-900')}>{v.value}</span>
+                  <span className={cx('font-bold', flag ? 'text-koral-800' : 'text-ink-900')}>{v.value}</span>
                 </li>
               );
             })}
@@ -246,7 +246,7 @@ export function TriagePanel({
               aria-invalid={!reasonOk}
               className={cx(
                 'min-h-11 rounded-control border bg-white px-3 font-[inherit] text-body disabled:bg-muted',
-                reasonOk ? 'border-line-strong' : 'border-[#F04438]',
+                reasonOk ? 'border-line-strong' : 'border-danger',
               )}
             />
             <span
@@ -309,7 +309,7 @@ export function TriagePanel({
         {savedText && (
           <span
             role="status"
-            className="rounded-control border border-success-border bg-success-bg px-3 py-2 text-small font-semibold text-success"
+            className="animate-pop rounded-control border border-zamrud-200 bg-alert-success px-3 py-2 text-small font-semibold text-zamrud-800"
           >
             ✓ {savedText}
           </span>
@@ -334,7 +334,7 @@ function PanelLink({ href, children }: { href: string; children: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center justify-center rounded-control border border-line-strong bg-white px-2.5 text-small font-semibold text-ink-900 no-underline"
+      className="inline-flex min-h-11 items-center justify-center rounded-control border border-line-strong bg-white/90 px-2.5 text-small font-semibold text-ink-900 no-underline hover:bg-brand-50/60"
     >
       {children}
     </Link>
@@ -347,7 +347,7 @@ function ReasonForm({ enabled, onSubmit }: { enabled: boolean; onSubmit: (r: str
   const short = r.trim().length < 10;
   return (
     <form
-      className="flex flex-col gap-1.5 rounded-[12px] border border-danger-border bg-koral-50 p-3"
+      className="flex flex-col gap-1.5 rounded-[14px] border border-koral-200 bg-alert-critical p-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (!short) onSubmit(r.trim());

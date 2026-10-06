@@ -50,7 +50,7 @@ export async function DemoResume({ access, encounterId }: { access: DemoScreenAc
           <span className="text-caption text-ink-500">
             Klinis / Rawat inap / Pulang · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Resume medis · {p.nama}</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Resume medis · {p.nama}</h1>
         </header>
         {banner}
         <Alert level="info" title="Resume belum disiapkan">
@@ -77,7 +77,7 @@ export async function DemoResume({ access, encounterId }: { access: DemoScreenAc
           <span className="text-caption text-ink-500">
             Rawat inap / {s.location} / Pulang · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Resume medis · {p.nama}</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Resume medis · {p.nama}</h1>
         </div>
         {/* Kanan kepala (mockup): rencana pulang + batas final 24 jam, lalu Pratinjau PDF. */}
         <div className="flex flex-wrap items-center gap-2.5">

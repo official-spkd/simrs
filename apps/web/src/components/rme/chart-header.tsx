@@ -48,7 +48,7 @@ export function RmeChartHeader({
           <span className="text-caption text-ink-500">
             Klinis / Rekam medis / {title} · {tenantName} · data per {formatTanggal(asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
             {title} · {p.nama}
           </h1>
         </div>

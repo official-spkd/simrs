@@ -29,7 +29,8 @@ import {
 import { Feedback, type FeedbackMsg } from './feedback';
 
 const INPUT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
+const CARD =
+  'flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5';
 const CHECK =
   'flex min-h-11 cursor-pointer items-center gap-2 rounded-control border px-3 py-2 text-small has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50';
 
@@ -277,8 +278,8 @@ export function EdukasiWorkspace({
               className={cx(
                 'm-0 rounded-control border px-3 py-2 text-small font-semibold',
                 ready
-                  ? 'border-success-border bg-success-bg text-success'
-                  : 'border-warning-border bg-warning-bg text-warning',
+                  ? 'border-zamrud-200 bg-alert-success text-success'
+                  : 'border-kunyit-200 bg-alert-warning text-warning',
               )}
             >
               {ready

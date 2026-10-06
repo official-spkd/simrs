@@ -23,7 +23,7 @@ export function WardGrid({
   return (
     <section
       aria-label={`Peta ${ward.name}`}
-      className="flex flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="m-0 text-body font-bold">
@@ -44,7 +44,8 @@ export function WardGrid({
                 className={cx(
                   'flex min-h-[72px] w-full cursor-pointer flex-col gap-0.5 rounded-control border px-2.5 py-2 text-left font-[inherit] text-ink-900',
                   m.tile,
-                  on && 'border-brand-600 ring-2 ring-[color-mix(in_srgb,_var(--color-brand-600)_35%,_transparent)]',
+                  on &&
+                    'border-brand-600 ring-2 ring-[color-mix(in_srgb,_var(--color-brand-600)_35%,_transparent)]',
                 )}
               >
                 <span className="flex items-baseline justify-between gap-1">
@@ -77,7 +78,10 @@ export function WardOverview({
       {wards.map((w) => {
         const { counts, percent: pct, nearlyFull } = wardSummary(w, beds);
         return (
-          <li key={w.code} className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3">
+          <li
+            key={w.code}
+            className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3"
+          >
             <span className="flex items-baseline justify-between gap-2">
               <span className="font-bold">{w.name}</span>
               <span className="text-caption text-ink-500">{w.kelas}</span>
@@ -122,7 +126,7 @@ export function BedList({
   onSelect: (code: string) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-card border border-line bg-white">
+    <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
       <div
         aria-hidden="true"
         className="hidden grid-cols-[84px_1.3fr_1fr_1.2fr_1.4fr] bg-subtle text-caption font-semibold text-ink-700 lg:grid"

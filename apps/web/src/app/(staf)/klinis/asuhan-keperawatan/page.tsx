@@ -63,7 +63,7 @@ export default async function AskepPage({ searchParams }: { searchParams: Search
           emarHref={ranap ? `${ranap}/${chart.encounterId}?tab=cppt` : null}
         />
       ) : (
-        <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-700">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5 text-small text-ink-700">
           {chart.setting === 'rawat-inap'
             ? 'Rencana asuhan keperawatan pasien ini belum disusun: mulai dari asesmen awal keperawatan, lalu tetapkan diagnosis keperawatan.'
             : 'Rencana asuhan keperawatan per shift dan ronde obat eMAR berlaku untuk pasien rawat inap. Pilih pasien rawat inap di pemilih pasien.'}

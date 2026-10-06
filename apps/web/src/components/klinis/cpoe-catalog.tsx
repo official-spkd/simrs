@@ -60,7 +60,7 @@ export function CpoeCatalog({
           {lockedNote}
         </p>
       )}
-      <div className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-3.5 shadow-card">
+      <div className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3.5">
         <label htmlFor={id} className="text-small font-semibold">
           Cari pemeriksaan, obat, tindakan
         </label>
@@ -121,7 +121,7 @@ export function CpoeCatalog({
       </div>
       <section
         aria-labelledby={`${id}-sets`}
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-3.5 shadow-card"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-3.5"
       >
         <h2 id={`${id}-sets`} className="m-0 text-small font-semibold">
           Order set institusi

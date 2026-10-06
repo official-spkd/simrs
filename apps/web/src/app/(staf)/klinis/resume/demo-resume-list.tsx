@@ -38,12 +38,12 @@ export async function DemoResumeList({ access }: { access: DemoScreenAccess }) {
         <span className="text-caption text-ink-500">
           Klinis / Rawat inap / Pulang · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Resume medis</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Resume medis</h1>
       </header>
       <ScenarioBanner session={session} screen="resume" />
       <section
         aria-label="Resume disiapkan"
-        className="overflow-hidden rounded-card border border-line bg-white"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         <ul className="m-0 list-none p-0">
           {rows.map((s) => {

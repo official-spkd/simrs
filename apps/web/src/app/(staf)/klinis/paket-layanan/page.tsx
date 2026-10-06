@@ -71,7 +71,7 @@ export default async function PaketPage({ searchParams }: { searchParams: Search
           role={role}
         />
       ) : (
-        <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-700">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5 text-small text-ink-700">
           Pasien ini tidak mengikuti paket layanan khusus. Pilih paket aktif di atas.
         </p>
       )}

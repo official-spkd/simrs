@@ -19,7 +19,7 @@ function Box({
     <section
       id={id}
       aria-label={title}
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4 shadow-card"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex items-baseline justify-between gap-2">
         <h3 className="m-0 text-[14px] font-semibold">{title}</h3>

@@ -18,8 +18,8 @@ export function Feedback({ msg, className }: { msg: FeedbackMsg | null; classNam
       className={cx(
         'm-0 rounded-control border px-3.5 py-2.5 text-small font-semibold',
         msg.ok
-          ? 'border-success-border bg-success-bg text-success'
-          : 'border-warning-border bg-warning-bg text-warning',
+          ? 'border-zamrud-200 bg-alert-success text-success'
+          : 'border-kunyit-200 bg-alert-warning text-warning',
         className,
       )}
     >

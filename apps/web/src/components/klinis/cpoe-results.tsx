@@ -9,7 +9,7 @@ export function CpoeResults({ results }: { results: readonly EncounterLab[] }) {
   return (
     <section
       aria-label="Hasil penunjang terbaru"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5 shadow-card"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <h2 className="m-0 text-body font-semibold">Hasil penunjang terbaru</h2>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">

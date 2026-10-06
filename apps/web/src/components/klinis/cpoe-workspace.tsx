@@ -215,7 +215,7 @@ export function CpoeWorkspace({
             <section
               key={g.kind}
               aria-label={`Order ${g.title.toLowerCase()}`}
-              className="overflow-hidden rounded-card border border-line bg-white shadow-card"
+              className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
             >
               <div className="flex flex-wrap justify-between gap-2 border-b border-line bg-[linear-gradient(90deg,var(--color-subtle),#FFFFFF)] px-4 py-2.5">
                 <h2 className="m-0 text-caption font-bold tracking-[0.06em] text-ink-700">{g.title}</h2>

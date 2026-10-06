@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 import { formatTglJam, RESUME_SOURCE_LABEL } from '@/lib/rawat-inap';
 
 const CHANGE: Record<DischargeSummary['medications'][number]['change'], { label: string; tone: string }> = {
-  baru: { label: 'Baru', tone: 'bg-info-bg text-info' },
-  lanjut: { label: 'Lanjut', tone: 'bg-brand-50 text-brand-700' },
-  'ubah-dosis': { label: 'Ubah dosis', tone: 'bg-warning-bg text-warning' },
-  dihentikan: { label: 'Dihentikan', tone: 'bg-danger-bg text-danger' },
+  baru: { label: 'Baru', tone: 'bg-samudra-100 text-samudra-800' },
+  lanjut: { label: 'Lanjut', tone: 'bg-brand-100 text-brand-800' },
+  'ubah-dosis': { label: 'Ubah dosis', tone: 'bg-kunyit-100 text-kunyit-800' },
+  dihentikan: { label: 'Dihentikan', tone: 'bg-koral-100 text-koral-800' },
 };
 
 /** Isi resume (mockup Resume): fakta kunjungan, bagian berlabel sumber, rekonsiliasi obat, kode diagnosis. */
@@ -55,8 +55,8 @@ export function ResumeSections({
             key={s.id}
             aria-label={s.title}
             className={cx(
-              'flex flex-col gap-2 rounded-card border bg-white px-4 py-3',
-              isRecon && !reconAt && !empty ? 'border-warning-border' : 'border-line',
+              'flex flex-col gap-2 rounded-card border bg-white/90 px-4 py-3 shadow-card',
+              isRecon && !reconAt && !empty ? 'border-warning-border' : 'border-white/95',
             )}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -110,7 +110,7 @@ export function ResumeSections({
       })}
       <section
         aria-label="Diagnosis dan prosedur"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white px-4 py-3"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3"
       >
         <h2 className="m-0 text-body font-semibold">Diagnosis dan prosedur (dikode)</h2>
         {summary.codes.length === 0 ? (

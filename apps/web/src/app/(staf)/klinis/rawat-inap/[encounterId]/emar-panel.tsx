@@ -129,7 +129,7 @@ export function EmarPanel({
 
   return (
     <section aria-label="eMAR" className="flex min-w-0 flex-[1_1_520px] flex-col gap-3">
-      <div className="flex flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5">
+      <div className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="m-0 text-body font-semibold">eMAR · jadwal pemberian obat</h2>
           <span className="text-caption text-ink-500">Sumber: resep terverifikasi apoteker</span>

@@ -69,8 +69,8 @@ export interface TriageMeta {
 export const TRIAGE_SAVE_DISABLED = 'cursor-not-allowed border-line bg-batu-100 text-ink-400';
 
 const ADVICE_RED = {
-  box: 'border-koral-200 bg-[linear-gradient(90deg,var(--color-koral-50),#FFFFFF)]',
-  label: 'text-koral-600',
+  box: 'border-koral-200 bg-[linear-gradient(120deg,var(--color-koral-50),var(--color-koral-100))]',
+  label: 'text-koral-800',
 };
 
 /** Nama level dan target waktu dokter dari skala ATS bersama (`@simrs/shared`, keputusan fase 3 no. 6). */
@@ -84,41 +84,55 @@ export const TRIAGE_META: Record<TriageLevel, TriageMeta> = {
     ...atsText(1),
     badge: 'border-koral-700 bg-triage-1 text-white',
     rail: 'shadow-[inset_4px_0_0_var(--color-koral-600)]',
-    selected: 'border-2 border-koral-700 bg-triage-1 text-white ring-3 ring-[rgba(180,35,24,0.18)]',
+    selected:
+      'border-2 border-koral-700 bg-triage-1 text-white ring-3 ring-[color-mix(in_srgb,var(--color-koral-600)_18%,transparent)]',
     advice: ADVICE_RED,
-    save: 'cursor-pointer border-koral-700 bg-[linear-gradient(180deg,var(--color-koral-500),var(--color-koral-600))] text-white shadow-button',
+    save: 'cursor-pointer border-koral-800 bg-[linear-gradient(135deg,var(--color-koral-800),var(--color-koral-600))] text-white shadow-button',
   },
   2: {
     ...atsText(2),
-    badge: 'border-[#A42A08] bg-triage-2 text-white',
-    rail: 'shadow-[inset_4px_0_0_#C4320A]',
-    selected: 'border-2 border-[#A42A08] bg-triage-2 text-white ring-3 ring-[rgba(196,50,10,0.18)]',
+    badge: 'border-[color-mix(in_srgb,var(--color-triage-2)_80%,black)] bg-triage-2 text-white',
+    rail: 'shadow-[inset_4px_0_0_var(--color-triage-2)]',
+    selected:
+      'border-2 border-[color-mix(in_srgb,var(--color-triage-2)_80%,black)] bg-triage-2 text-white ring-3 ring-[color-mix(in_srgb,var(--color-triage-2)_18%,transparent)]',
     advice: ADVICE_RED,
-    save: 'cursor-pointer border-[#A42A08] bg-[linear-gradient(180deg,#D0400F,#C4320A)] text-white shadow-button',
+    save: 'cursor-pointer border-[color-mix(in_srgb,var(--color-triage-2)_80%,black)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--color-triage-2)_75%,black),var(--color-triage-2))] text-white shadow-button',
   },
   3: {
     ...atsText(3),
     badge: 'border-kunyit-200 bg-triage-3 text-kunyit-800',
-    rail: 'shadow-[inset_4px_0_0_#E9B949]',
-    selected: 'border-2 border-kunyit-200 bg-triage-3 text-kunyit-800 ring-3 ring-[rgba(181,71,8,0.18)]',
-    advice: { box: 'border-kunyit-200 bg-[linear-gradient(90deg,var(--color-kunyit-50),#FFFFFF)]', label: 'text-kunyit-700' },
-    save: 'cursor-pointer border-[#93370D] bg-[linear-gradient(180deg,#C25A1A,#B54708)] text-white shadow-button',
+    rail: 'shadow-[inset_4px_0_0_var(--color-kunyit-400)]',
+    selected:
+      'border-2 border-kunyit-200 bg-triage-3 text-kunyit-800 ring-3 ring-[color-mix(in_srgb,var(--color-kunyit-600)_18%,transparent)]',
+    advice: {
+      box: 'border-kunyit-200 bg-[linear-gradient(120deg,var(--color-kunyit-50),var(--color-kunyit-100))]',
+      label: 'text-kunyit-800',
+    },
+    save: 'cursor-pointer border-kunyit-800 bg-[linear-gradient(135deg,var(--color-kunyit-800),var(--color-kunyit-600))] text-white shadow-button',
   },
   4: {
     ...atsText(4),
-    badge: 'border-zamrud-200 bg-triage-4 text-zamrud-700',
-    rail: 'shadow-[inset_4px_0_0_#7CC08B]',
-    selected: 'border-2 border-zamrud-200 bg-triage-4 text-zamrud-700 ring-3 ring-[rgba(30,107,52,0.18)]',
-    advice: { box: 'border-zamrud-200 bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)]', label: 'text-zamrud-700' },
-    save: 'cursor-pointer border-[#17562A] bg-[linear-gradient(180deg,#2A7D42,var(--color-zamrud-700))] text-white shadow-button',
+    badge: 'border-zamrud-200 bg-triage-4 text-zamrud-800',
+    rail: 'shadow-[inset_4px_0_0_var(--color-zamrud-400)]',
+    selected:
+      'border-2 border-zamrud-200 bg-triage-4 text-zamrud-800 ring-3 ring-[color-mix(in_srgb,var(--color-zamrud-600)_18%,transparent)]',
+    advice: {
+      box: 'border-zamrud-200 bg-[linear-gradient(120deg,var(--color-zamrud-50),var(--color-zamrud-100))]',
+      label: 'text-zamrud-800',
+    },
+    save: 'cursor-pointer border-zamrud-800 bg-[linear-gradient(135deg,var(--color-zamrud-800),var(--color-zamrud-600))] text-white shadow-button',
   },
   5: {
     ...atsText(5),
-    badge: 'border-samudra-200 bg-triage-5 text-samudra-700',
-    rail: 'shadow-[inset_4px_0_0_#8DA8F0]',
-    selected: 'border-2 border-samudra-200 bg-triage-5 text-samudra-700 ring-3 ring-[rgba(30,58,138,0.18)]',
-    advice: { box: 'border-samudra-200 bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)]', label: 'text-samudra-700' },
-    save: 'cursor-pointer border-[#172E6E] bg-[linear-gradient(180deg,#2B4A9E,var(--color-samudra-700))] text-white shadow-button',
+    badge: 'border-samudra-200 bg-triage-5 text-samudra-800',
+    rail: 'shadow-[inset_4px_0_0_var(--color-samudra-300)]',
+    selected:
+      'border-2 border-samudra-200 bg-triage-5 text-samudra-800 ring-3 ring-[color-mix(in_srgb,var(--color-samudra-600)_18%,transparent)]',
+    advice: {
+      box: 'border-samudra-200 bg-[linear-gradient(120deg,var(--color-samudra-50),var(--color-samudra-100))]',
+      label: 'text-samudra-800',
+    },
+    save: 'cursor-pointer border-samudra-800 bg-[linear-gradient(135deg,var(--color-samudra-800),var(--color-samudra-600))] text-white shadow-button',
   },
 };
 
@@ -183,15 +197,15 @@ export const ED_ZONE_LABEL: Record<EdZone, string> = {
 };
 
 export const ED_STATUS_META: Record<EdStatus, { label: string; tone: string }> = {
-  registrasi: { label: 'Identifikasi', tone: 'bg-info-bg text-info' },
-  triase: { label: 'Triase', tone: 'bg-warning-bg text-warning' },
-  resusitasi: { label: 'Resusitasi aktif', tone: 'bg-danger-bg text-danger' },
-  pemeriksaan: { label: 'Pemeriksaan', tone: 'bg-brand-50 text-brand-700' },
-  'tunggu-dokter': { label: 'Tunggu dokter', tone: 'bg-info-bg text-info' },
-  'tunggu-lab': { label: 'Tunggu lab', tone: 'bg-warning-bg text-warning' },
-  observasi: { label: 'Observasi', tone: 'bg-muted text-ink-700' },
-  'tunggu-bed': { label: 'Tunggu bed ranap', tone: 'bg-warning-bg text-warning' },
-  'siap-pulang': { label: 'Siap pulang', tone: 'bg-success-bg text-success' },
+  registrasi: { label: 'Identifikasi', tone: 'bg-samudra-100 text-samudra-800' },
+  triase: { label: 'Triase', tone: 'bg-kunyit-100 text-kunyit-800' },
+  resusitasi: { label: 'Resusitasi aktif', tone: 'bg-koral-100 text-koral-800' },
+  pemeriksaan: { label: 'Pemeriksaan', tone: 'bg-brand-100 text-brand-800' },
+  'tunggu-dokter': { label: 'Tunggu dokter', tone: 'bg-samudra-100 text-samudra-800' },
+  'tunggu-lab': { label: 'Tunggu lab', tone: 'bg-kunyit-100 text-kunyit-800' },
+  observasi: { label: 'Observasi', tone: 'bg-batu-200 text-batu-800' },
+  'tunggu-bed': { label: 'Tunggu bed ranap', tone: 'bg-kunyit-100 text-kunyit-800' },
+  'siap-pulang': { label: 'Siap pulang', tone: 'bg-zamrud-100 text-zamrud-800' },
 };
 
 const two = (n: number) => String(n).padStart(2, '0');
@@ -352,11 +366,11 @@ export function walkInFromId(encounterId: string, arrivedAt: string): EdTracking
 // ---------------------------------------------------------------------------------------------------------
 
 export const BED_STATUS_META: Record<BedStatus, { label: string; tile: string; text: string }> = {
-  siap: { label: 'Siap', tile: 'border-success-border bg-[#F3FAF4]', text: 'text-success' },
+  siap: { label: 'Siap', tile: 'border-success-border bg-zamrud-50', text: 'text-success' },
   terisi: { label: 'Terisi', tile: 'border-line bg-white', text: 'text-ink-700' },
   pulang: { label: 'Pulang hari ini', tile: 'border-brand-200 bg-selected', text: 'text-brand-700' },
   dipesan: { label: 'Dipesan', tile: 'border-info-border bg-info-bg', text: 'text-info' },
-  kotor: { label: 'Kotor', tile: 'border-[#D9CDBE] bg-[#F7F3EE]', text: 'text-[#6B4E2E]' },
+  kotor: { label: 'Kotor', tile: 'border-dashed border-batu-400 bg-batu-100', text: 'text-batu-800' },
   dibersihkan: { label: 'Dibersihkan', tile: 'border-warning-border bg-kunyit-50', text: 'text-warning' },
   rusak: { label: 'Rusak', tile: 'border-danger-border bg-koral-50', text: 'text-danger' },
 };
@@ -436,12 +450,12 @@ export function formatWait(minutes: number | null): string {
 // ---------------------------------------------------------------------------------------------------------
 
 export const CPPT_ROLE_META: Record<CpptRole, { tag: string; label: string; tone: string }> = {
-  dpjp: { tag: 'DR', label: 'DPJP', tone: 'bg-brand-50 text-brand-700' },
-  residen: { tag: 'RS', label: 'Residen', tone: 'bg-info-bg text-info' },
-  perawat: { tag: 'NS', label: 'Perawat', tone: 'bg-muted text-ink-700' },
-  bidan: { tag: 'BD', label: 'Bidan', tone: 'bg-[#FCEFF6] text-[#8E2A5E]' },
-  farmasi: { tag: 'FA', label: 'Farmasi klinis', tone: 'bg-warning-bg text-warning' },
-  gizi: { tag: 'GZ', label: 'Dietisien', tone: 'bg-success-bg text-success' },
+  dpjp: { tag: 'DR', label: 'DPJP', tone: 'bg-brand-100 text-brand-800' },
+  residen: { tag: 'RS', label: 'Residen', tone: 'bg-samudra-100 text-samudra-800' },
+  perawat: { tag: 'NS', label: 'Perawat', tone: 'bg-batu-200 text-batu-800' },
+  bidan: { tag: 'BD', label: 'Bidan', tone: 'bg-bougenvil-100 text-bougenvil-800' },
+  farmasi: { tag: 'FA', label: 'Farmasi klinis', tone: 'bg-anggrek-100 text-anggrek-800' },
+  gizi: { tag: 'GZ', label: 'Dietisien', tone: 'bg-toska-100 text-toska-800' },
 };
 
 export type CpptFilter = 'semua' | 'dokter' | 'perawat' | 'lainnya';
@@ -638,9 +652,9 @@ export function ewsLevel(score: number, maxParam = 0): EwsLevel {
 }
 
 const EWS_TONE: Record<EwsLevel['level'], string> = {
-  tinggi: 'bg-danger-bg text-danger',
-  sedang: 'bg-warning-bg text-warning',
-  rendah: 'bg-success-bg text-success',
+  tinggi: 'bg-koral-100 text-koral-800',
+  sedang: 'bg-kunyit-100 text-kunyit-800',
+  rendah: 'bg-zamrud-100 text-zamrud-800',
 };
 
 /** Tingkat EWS satu observasi: skor total + aturan parameter tunggal NEWS2 (dihitung dari parameternya). */
@@ -652,7 +666,7 @@ export const EMAR_STATE_META: Record<EmarSlotState, { label: string; cls: string
   diberikan: { label: 'Diberikan', cls: 'border-success-border bg-success-bg text-success' },
   jadwal: {
     label: 'Jadwal',
-    cls: 'border-brand-600 bg-[linear-gradient(180deg,var(--color-brand-50),#FFFFFF)] text-brand-700',
+    cls: 'border-brand-600 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-brand-100))] text-brand-800',
   },
   terlambat: { label: 'Terlambat', cls: 'border-danger-border bg-koral-50 text-danger' },
   ditunda: { label: 'Ditunda', cls: 'border-warning-border bg-warning-bg text-warning' },

@@ -166,7 +166,7 @@ export function SoapForm({
   return (
     <section
       aria-labelledby={`${ids}-title`}
-      className="flex flex-col gap-4 rounded-card border border-line bg-white p-4 shadow-card md:p-5"
+      className="flex flex-col gap-4 rounded-card border border-white/95 bg-white/90 shadow-card p-4 md:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 id={`${ids}-title`} className="m-0 text-[16px] font-semibold">

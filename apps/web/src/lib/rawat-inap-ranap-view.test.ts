@@ -43,7 +43,7 @@ describe('tampilan rawat inap (mockup Ranap)', () => {
     expect(TRIAGE_META[3].advice.box).toContain('var(--color-kunyit-50)');
     expect(TRIAGE_META[4].advice.box).toContain('var(--color-zamrud-50)');
     expect(TRIAGE_META[5].advice.box).toContain('var(--color-samudra-50)');
-    expect(TRIAGE_META[2].save).toContain('#C4320A');
+    expect(TRIAGE_META[2].save).toContain('var(--color-triage-2)');
     expect(TRIAGE_SAVE_DISABLED).toContain('bg-batu-100');
   });
 });

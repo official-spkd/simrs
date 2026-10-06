@@ -55,7 +55,7 @@ export function PoliQueue({
   return (
     <section
       aria-label="Antrean poli"
-      className="flex min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white shadow-card"
+      className="flex min-w-0 flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-col gap-2.5 border-b border-line px-4 pt-3.5 pb-3">
         <span className="flex items-baseline justify-between gap-2">

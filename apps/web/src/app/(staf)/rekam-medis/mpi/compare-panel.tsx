@@ -80,8 +80,8 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-gradient-to-r from-kunyit-50 to-white px-4 py-3">
-        <span className="font-bold text-warning">
+      <div className="flex flex-wrap items-center gap-3 rounded-[14px] border border-kunyit-200 bg-alert-warning px-4 py-3">
+        <span className="font-bold text-kunyit-800">
           {open ? `Skor kecocokan ${c.score}%` : `Skor kecocokan saat terdeteksi ${c.score}%`}
         </span>
         {/* Setelah diputuskan, tabel berisi data terkini (A bisa sudah memakai nilai dari B): penjelasan memakai
@@ -94,10 +94,10 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-card border border-line bg-card">
+      <div className="overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card">
         <table className="w-full min-w-[560px] border-collapse text-left">
           <caption className="sr-only">Perbandingan atribut rekam medis A dan B</caption>
-          <thead className="bg-subtle text-caption font-semibold text-ink-700">
+          <thead className="border-b border-line text-caption font-semibold text-ink-500">
             <tr>
               <th scope="col" className="w-[18%] px-4 py-3">
                 Atribut
@@ -134,7 +134,7 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                     <span
                       className={cx(
                         'block px-4 py-2.5',
-                        which === 'b' && useB && open && 'bg-brand-50 font-semibold text-brand-700',
+                        which === 'b' && useB && open && 'bg-brand-100 font-semibold text-brand-800',
                         crossed && 'text-ink-400 line-through',
                       )}
                     >
@@ -151,8 +151,8 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                     className={cx(
                       'block min-h-11 w-full cursor-pointer border-0 px-4 py-2.5 text-left font-[inherit]',
                       which === 'b' && chosen
-                        ? 'bg-brand-50 font-semibold text-brand-700'
-                        : 'bg-transparent text-ink-900',
+                        ? 'bg-brand-100 font-semibold text-brand-800'
+                        : 'bg-transparent text-ink-900 hover:bg-brand-50/60',
                       crossed && 'text-ink-400 line-through',
                     )}
                   >
@@ -175,13 +175,13 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
         </table>
       </div>
 
-      <section className="flex flex-col gap-3 rounded-card border border-line bg-card px-[18px] py-4">
+      <section className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-[18px] py-4">
         <h2 className="m-0 text-body font-semibold">
           {c.status === 'merged' ? 'Yang terjadi setelah digabung' : 'Yang akan terjadi saat digabung'}
         </h2>
         <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 text-small sm:grid-cols-3">
           {c.impact.map((m) => (
-            <li key={m.label} className="rounded-control bg-subtle p-3">
+            <li key={m.label} className="rounded-control bg-brand-50/70 p-3">
               <span className="block text-[18px] font-bold">{m.n}</span>
               {m.label}
             </li>
@@ -211,7 +211,7 @@ export function ComparePanel({ c, auditHref }: { c: Comparison; auditHref: strin
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 aria-describedby={ready ? undefined : 'alasanHint'}
-                className="resize-y rounded-control border border-line-strong px-3 py-2.5 font-[inherit]"
+                className="resize-y rounded-control border border-line-strong bg-white px-3 py-2.5 font-[inherit]"
               />
               {/* Mockup MPI: petunjuk hanya selama alasan belum cukup; tombol tetap terlihat nonaktif. */}
               {!ready && (
@@ -260,13 +260,13 @@ function DecisionStatus({ c, auditHref }: { c: Comparison; auditHref: string | n
     <div
       role="status"
       className={cx(
-        'flex flex-col gap-2 rounded-[12px] border px-4 py-3',
+        'flex flex-col gap-2 rounded-[14px] border px-4 py-3',
         merged
-          ? 'border-success-border bg-gradient-to-r from-success-bg to-white'
-          : 'border-line-strong bg-gradient-to-r from-muted to-white',
+          ? 'border-zamrud-200 bg-alert-success'
+          : 'border-line-strong bg-[linear-gradient(120deg,var(--color-batu-50),var(--color-batu-100))]',
       )}
     >
-      <span className={cx('font-bold', merged ? 'text-success' : 'text-ink-700')}>
+      <span className={cx('font-bold', merged ? 'text-zamrud-800' : 'text-ink-700')}>
         {merged ? 'Berhasil digabung' : 'Ditandai bukan orang yang sama'}
         {at ? ` ${formatTanggalWaktu(at)}` : ''}
         {c.decision?.by ? ` oleh ${c.decision.by}` : ''}
@@ -298,7 +298,7 @@ function DecisionStatus({ c, auditHref }: { c: Comparison; auditHref: string | n
             maxLength={500}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="resize-y rounded-control border border-line-strong px-3 py-2 font-[inherit]"
+            className="resize-y rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit]"
           />
           {undoState.error && (
             <p role="alert" className="m-0 text-small text-danger">

@@ -160,7 +160,7 @@ export function CpptWorkspace({
   return (
     <section
       aria-label="CPPT terintegrasi"
-      className="min-w-0 flex-[1_1_520px] overflow-hidden rounded-card border border-line bg-white"
+      className="min-w-0 flex-[1_1_520px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-4 py-3">
         <div className="flex flex-col">
@@ -425,7 +425,7 @@ function SoapForm({
       {mode === 'baru' && writerRole === 'residen' && (
         <p
           role="note"
-          className="m-0 rounded-control border border-warning-border bg-warning-bg px-3 py-2 text-small text-warning"
+          className="m-0 rounded-control border border-kunyit-200 bg-alert-warning px-3 py-2 text-small text-warning"
         >
           <span className="font-semibold">Gerbang co-sign: </span>
           {RESIDENT_GATE}

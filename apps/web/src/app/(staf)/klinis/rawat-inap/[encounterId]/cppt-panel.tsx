@@ -117,7 +117,7 @@ export function CpptPanel({
   return (
     <section
       aria-label="CPPT terintegrasi"
-      className="min-w-0 flex-[1_1_460px] overflow-hidden rounded-card border border-line bg-white"
+      className="min-w-0 flex-[1_1_460px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-line px-4 py-3">
         <h2 className="m-0 text-body font-semibold">CPPT terintegrasi · {formatTglSingkat(today)}</h2>
@@ -155,7 +155,7 @@ export function CpptPanel({
           role={msg.ok ? 'status' : 'alert'}
           className={cx(
             'border-b border-line-soft px-4 py-2.5 text-small font-semibold',
-            msg.ok ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning',
+            msg.ok ? 'bg-alert-success text-zamrud-800' : 'bg-alert-warning text-kunyit-800',
           )}
         >
           {msg.text}

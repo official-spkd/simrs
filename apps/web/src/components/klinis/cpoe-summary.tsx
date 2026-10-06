@@ -47,7 +47,7 @@ export function CpoeSummary({
     <aside aria-label="Ringkasan order" className="flex min-w-0 flex-col gap-3.5">
       <section
         aria-labelledby={`${id}-cek`}
-        className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5 shadow-card"
+        className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
       >
         <h2 id={`${id}-cek`} className="m-0 text-body font-semibold">
           Pemeriksaan sebelum kirim
@@ -102,7 +102,7 @@ export function CpoeSummary({
       {error && (
         <p
           role="alert"
-          className="m-0 rounded-control border border-danger-border bg-danger-bg px-3 py-2 text-small text-danger"
+          className="m-0 rounded-control border border-koral-200 bg-alert-critical px-3 py-2 text-small text-danger"
         >
           {error}
         </p>
@@ -110,7 +110,7 @@ export function CpoeSummary({
       {sent && (
         <div
           role="status"
-          className="flex flex-col gap-2 rounded-card border border-success-border bg-success-bg px-4 py-3.5"
+          className="flex flex-col gap-2 rounded-card border border-zamrud-200 bg-alert-success px-4 py-3.5"
         >
           <span className="font-bold text-success">{sent.title}</span>
           <span className="text-small text-ink-700">{sent.message}</span>

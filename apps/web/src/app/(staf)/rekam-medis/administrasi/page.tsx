@@ -77,7 +77,7 @@ export default async function RekamMedisAdministrasiPage() {
       {st.clinical.length > 0 && (
         <section
           aria-label="Masuk dari layar klinis"
-          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <h2 className="m-0 text-base font-semibold">Masuk dari layar klinis</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">

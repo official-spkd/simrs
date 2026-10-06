@@ -55,7 +55,7 @@ export async function DemoRawatInapDetail({
       <div className="flex flex-col gap-4">
         <header className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Klinis / Rawat inap · {session.tenant.name}</span>
-          <h1 className="m-0 text-h1 font-semibold">Rawat inap · {p.nama}</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Rawat inap · {p.nama}</h1>
         </header>
         <ScenarioBanner session={session} screen="ranap" />
         <NotAdmitted patient={p} links={links} />
@@ -125,7 +125,7 @@ export async function DemoRawatInapDetail({
         <span className="text-caption text-ink-500">
           Klinis / Rawat inap / {wardName} / {s.bed} · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
           Rawat inap · {wardName} {s.bed}
         </h1>
       </header>
@@ -150,7 +150,7 @@ export async function DemoRawatInapDetail({
       {critical.length > 0 && (
         <section
           aria-label="Nilai kritis pasien"
-          className="flex flex-col gap-1 rounded-card border border-danger-border bg-koral-50 px-4 py-3"
+          className="flex flex-col gap-1 rounded-card border border-koral-200 bg-alert-critical px-4 py-3"
         >
           {critical.map((c) => (
             <span key={`${c.test}-${c.valueText}`} className="text-small">

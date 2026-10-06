@@ -71,7 +71,7 @@ export async function DemoCpoe({ access, encounterId }: { access: DemoScreenAcce
         <span className="text-caption text-ink-500">
           {ctx.breadcrumb} · {session.tenant.name}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Order &amp; resep (CPOE)</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Order &amp; resep (CPOE)</h1>
       </header>
       <KlinisPatientHeader
         patient={ctx.patient}

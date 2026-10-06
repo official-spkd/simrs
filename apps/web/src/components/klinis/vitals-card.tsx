@@ -43,7 +43,7 @@ export function VitalsCard({
     <>
       <section
         aria-label="Tanda vital"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white p-4 shadow-card md:px-5"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4 md:px-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="m-0 text-small font-semibold tracking-[0.04em] text-ink-700">

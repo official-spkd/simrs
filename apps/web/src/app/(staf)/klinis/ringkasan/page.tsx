@@ -35,7 +35,7 @@ function Box({
   return (
     <section
       aria-label={title}
-      className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0 text-body font-semibold">{title}</h2>
@@ -219,7 +219,7 @@ export default async function RingkasanPage({ searchParams }: { searchParams: Se
                   key={`${r.name}-${r.at}`}
                   className={cx(
                     'flex flex-wrap items-center gap-2 text-small',
-                    r.flag === 'kritis' && 'rounded-control bg-danger-bg px-2 py-1',
+                    r.flag === 'kritis' && 'rounded-control bg-alert-critical px-2 py-1 text-koral-800',
                   )}
                 >
                   <span className="font-semibold">{r.name}</span>

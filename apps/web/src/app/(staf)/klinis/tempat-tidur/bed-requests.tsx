@@ -31,7 +31,10 @@ export function BedRequests({
 }) {
   const free = selectedBed?.status === 'siap' ? selectedBed : null;
   return (
-    <section aria-label="Permintaan bed" className="overflow-hidden rounded-card border border-line bg-white">
+    <section
+      aria-label="Permintaan bed"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
+    >
       <div className="flex justify-between border-b border-line px-4 py-3.5">
         <h2 className="m-0 text-body font-semibold">Permintaan bed</h2>
         <span className="text-caption text-ink-500">{requests.length} menunggu</span>
@@ -41,7 +44,7 @@ export function BedRequests({
           role="status"
           className={cx(
             'border-b border-line-soft px-4 py-2.5 text-[12.5px] font-semibold',
-            message.ok ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning',
+            message.ok ? 'bg-alert-success text-zamrud-800' : 'bg-alert-warning text-kunyit-800',
           )}
         >
           {message.text}

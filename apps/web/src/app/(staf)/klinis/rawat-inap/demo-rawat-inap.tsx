@@ -44,7 +44,7 @@ export async function DemoRawatInap({
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Klinis / Rawat inap · {session.tenant.name}</span>
-        <h1 className="m-0 text-h1 font-semibold">Pasien rawat inap</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pasien rawat inap</h1>
       </header>
       <ScenarioBanner session={session} screen="ranap" />
       {active.map((x) => (
@@ -106,7 +106,7 @@ export async function DemoRawatInap({
       {discharged.length > 0 && (
         <section
           aria-label="Pulang hari ini"
-          className="flex flex-col gap-1.5 rounded-card border border-line bg-white px-4 py-3.5"
+          className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
         >
           <h2 className="m-0 text-body font-semibold">Sudah pulang hari ini</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
@@ -141,7 +141,7 @@ export async function DemoRawatInap({
       </nav>
       <section
         aria-label="Daftar pasien rawat inap"
-        className="overflow-hidden rounded-card border border-line bg-white"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         <div
           aria-hidden="true"
