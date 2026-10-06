@@ -19,6 +19,9 @@ test.describe('layar Akses (/sistem/akses)', () => {
     // Dua login penuh (admin + pengguna baru: daftar MFA, ganti sandi) dalam satu tes.
     test.setTimeout(90_000);
     const admin = await createAccount({ roles: ['admin_tenant'], displayName: 'Andi Pratama' });
+    // Filter unit butuh pengguna yang pasti ditugaskan di unit itu; unit sendiri agar tidak bergantung pada isi DB tes.
+    const unitName = `Bangsal Uji ${admin.id.slice(-6)}`;
+    await createAccount({ roles: ['perawat'], displayName: 'Perawat Uji Fiktif', unitName });
     await loginAs(page, admin, '/sistem/akses');
     await expect(page.getByRole('heading', { name: 'Pengguna dan peran', level: 1 })).toBeVisible();
     for (const kpi of ['Pengguna aktif', 'MFA aktif', 'Break-the-glass 7 hari', 'Akun dikunci']) {
@@ -32,12 +35,12 @@ test.describe('layar Akses (/sistem/akses)', () => {
     await expect(rules.getByText('Pasien rahasia (VIP, kasus sensitif)')).toBeVisible();
     await expect(rules.getByRole('switch')).toHaveCount(0);
     // Filter unit (mockup Akses) diteruskan ke API (`unitId`): setiap baris punya penugasan di unit itu.
-    await page.getByLabel('Unit', { exact: true }).selectOption({ label: 'Bangsal Melati' });
+    await page.getByLabel('Unit', { exact: true }).selectOption({ label: unitName });
     await page.getByRole('button', { name: 'Terapkan' }).click();
     await expect(page).toHaveURL(/unit=/);
     const rows = page.getByRole('region', { name: 'Daftar pengguna' }).locator('tbody tr');
-    await expect(rows.first()).toContainText('Bangsal Melati');
-    for (const text of await rows.allInnerTexts()) expect(text).toContain('Bangsal Melati');
+    await expect(rows.first()).toContainText(unitName);
+    for (const text of await rows.allInnerTexts()) expect(text).toContain(unitName);
     await page.goto('/sistem/akses');
 
     const username = `undang.${admin.id.slice(-8)}`;
