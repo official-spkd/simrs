@@ -1,12 +1,11 @@
 'use client';
 
-import { formatJam, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
   CheckField,
   ConfirmBox,
-  type Flash,
   FlashLine,
   Panel,
   PickRow,
@@ -16,8 +15,9 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { HaiSuspect } from '@/lib/demo/fixtures/ppi';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   confirmBlock,
   formatRate,
@@ -27,11 +27,7 @@ import {
   haiRate,
   type HaiType,
 } from '@/lib/ppi';
-
-interface SuspectState {
-  checks: boolean[];
-  decision: { kind: 'hai' | 'bukan'; at: string; reason?: string } | null;
-}
+import { MIN_PPI_REASON, type PpiStoreState } from '@/lib/ppi-toko';
 
 const CENSUS: ReadonlyArray<{ type: HaiType; label: string }> = [
   { type: 'isk', label: 'Pasien dengan kateter urine' },
@@ -43,74 +39,78 @@ const CENSUS: ReadonlyArray<{ type: HaiType; label: string }> = [
 /**
  * B07 · Surveilans HAIs bulan berjalan: laju per jenis terhadap sasaran, kasus suspek dari data klinis yang
  * dikonfirmasi IPCN dengan kriteria (atau "Bukan HAI" beralasan), dan sensus harian hari alat sebagai penyebut.
+ * Tersimpan di toko demo (domain `ppi`, ADR-0085).
  */
 export function SurveillanceTab({
-  initialMonth,
+  state: ppi,
+  rev,
   suspects,
 }: {
-  initialMonth: Record<HaiType, { cases: number; denominator: number }>;
+  state: PpiStoreState;
+  rev: number;
   suspects: readonly HaiSuspect[];
 }) {
-  const [month, setMonth] = useState(initialMonth);
+  const month = ppi.month;
   const [sel, setSel] = useState(suspects[0]?.id ?? '');
-  const [state, setState] = useState<Record<string, SuspectState>>(() =>
-    Object.fromEntries(
-      suspects.map((s) => [s.id, { checks: HAI_CRITERIA[s.type].map(() => false), decision: null }]),
-    ),
-  );
+  const [checks, setChecks] = useState<Record<string, boolean[]>>({});
   const [rejecting, setRejecting] = useState(false);
   const [census, setCensus] = useState<Record<HaiType, string>>({ isk: '', vap: '', phlebitis: '', ido: '' });
-  const [censusAt, setCensusAt] = useState<string | null>(null);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('ppi', rev);
   const defOf = (t: HaiType) => HAI_DEFS.find((d) => d.id === t);
 
   const s = suspects.find((x) => x.id === sel);
-  const st = s ? state[s.id] : undefined;
-  const patch = (id: string, p: Partial<SuspectState>) =>
-    setState((cur) => ({ ...cur, [id]: { ...(cur[id] as SuspectState), ...p } }));
+  const st = s
+    ? { checks: checks[s.id] ?? HAI_CRITERIA[s.type].map(() => false), decision: ppi.decisions[s.id] ?? null }
+    : undefined;
 
   const confirm = () => {
     if (!s || !st) return;
     const def = defOf(s.type);
-    const next = { ...month, [s.type]: { ...month[s.type], cases: month[s.type].cases + 1 } };
-    setMonth(next);
-    patch(s.id, { decision: { kind: 'hai', at: formatTanggalWaktu(demoNow()) } });
-    const rate = haiRate(next[s.type].cases, next[s.type].denominator, def?.per ?? 1000);
+    const next = month[s.type].cases + 1;
+    const rate = haiRate(next, month[s.type].denominator, def?.per ?? 1000);
     const over = def ? !haiOnTarget(rate, def.target) : false;
-    setFlash({
-      ok: true,
-      text: `${def?.label ?? ''} RM ${s.rm} dikonfirmasi · ${formatJam(demoNow())}; laju bulan ini ${formatRate(rate, def?.unit ?? '')}${
+    const { jam, when } = demoStamp();
+    act(
+      { type: 'suspek.dikonfirmasi', id: s.id, checks: st.checks, when },
+      `${def?.label ?? ''} RM ${s.rm} dikonfirmasi · ${jam}; laju bulan ini ${formatRate(rate, def?.unit ?? '')}${
         over ? ' (di atas sasaran: audit bundle unit dijadwalkan)' : ''
-      } (simulasi, tidak disimpan).`,
-    });
+      }.`,
+    );
   };
   const reject = (reason: string) => {
     if (!s) return;
-    patch(s.id, { decision: { kind: 'bukan', at: formatTanggalWaktu(demoNow()), reason } });
-    setRejecting(false);
-    setFlash({ ok: true, text: `Suspek RM ${s.rm} diputus bukan HAI · ${formatJam(demoNow())}: ${reason}.` });
+    const { jam, when } = demoStamp();
+    act(
+      { type: 'suspek.ditolak', id: s.id, reason, when },
+      `Suspek RM ${s.rm} diputus bukan HAI · ${jam}: ${reason}.`,
+      () => setRejecting(false),
+    );
   };
 
   const censusValues = CENSUS.map((c) => census[c.type].trim());
-  const censusBlock = censusAt
-    ? 'Sensus hari ini sudah tercatat.'
-    : censusValues.some((v) => !/^\d{1,3}$/.test(v))
-      ? 'Isi keempat angka (bilangan bulat ≥ 0).'
-      : null;
+  const censusBlock = pending
+    ? 'Menyimpan…'
+    : ppi.census
+      ? 'Sensus hari ini sudah tercatat.'
+      : censusValues.some((v) => !/^\d{1,3}$/.test(v))
+        ? 'Isi keempat angka (bilangan bulat ≥ 0).'
+        : null;
   const recordCensus = () => {
     if (censusBlock) return;
-    setMonth((m) => {
-      const next = { ...m };
-      for (const c of CENSUS)
-        next[c.type] = { ...m[c.type], denominator: m[c.type].denominator + Number(census[c.type]) };
-      return next;
-    });
-    const at = formatJam(demoNow());
-    setCensusAt(at);
-    setFlash({
-      ok: true,
-      text: `Sensus harian hari alat tercatat · ${at}; penyebut laju bulan ini diperbarui.`,
-    });
+    const { jam } = demoStamp();
+    act(
+      {
+        type: 'sensus.dicatat',
+        counts: {
+          isk: Number(census.isk),
+          vap: Number(census.vap),
+          phlebitis: Number(census.phlebitis),
+          ido: Number(census.ido),
+        },
+        jam,
+      },
+      `Sensus harian hari alat tercatat · ${jam}; penyebut laju bulan ini diperbarui.`,
+    );
   };
 
   return (
@@ -161,7 +161,7 @@ export function SurveillanceTab({
         <div className="min-w-0 flex-[1_1_300px] xl:max-w-[380px]">
           <Panel title="Kasus suspek" sub="Ditandai otomatis dari data klinis · hanya nomor RM" flush>
             {suspects.map((x) => {
-              const d = state[x.id]?.decision;
+              const d = ppi.decisions[x.id];
               return (
                 <PickRow
                   key={x.id}
@@ -198,8 +198,8 @@ export function SurveillanceTab({
                   level={st.decision.kind === 'hai' ? 'warning' : 'success'}
                   title={
                     st.decision.kind === 'hai'
-                      ? `Dikonfirmasi HAI · ${st.decision.at}`
-                      : `Bukan HAI · ${st.decision.at}`
+                      ? `Dikonfirmasi HAI · ${formatTanggalWaktu(st.decision.when)} · ${st.decision.by.name}`
+                      : `Bukan HAI · ${formatTanggalWaktu(st.decision.when)} · ${st.decision.by.name}`
                   }
                 >
                   {st.decision.kind === 'hai'
@@ -214,11 +214,16 @@ export function SurveillanceTab({
                       key={c}
                       label={c}
                       checked={st.checks[i] ?? false}
-                      onChange={(v) => patch(s.id, { checks: st.checks.map((x, j) => (j === i ? v : x)) })}
+                      onChange={(v) =>
+                        setChecks((cur) => ({ ...cur, [s.id]: st.checks.map((x, j) => (j === i ? v : x)) }))
+                      }
                     />
                   ))}
                   <span className="flex flex-wrap items-start gap-2">
-                    <ReasonButton reason={confirmBlock(s.type, st.checks)} onClick={confirm}>
+                    <ReasonButton
+                      reason={pending ? 'Menyimpan…' : confirmBlock(s.type, st.checks)}
+                      onClick={confirm}
+                    >
                       Konfirmasi HAI
                     </ReasonButton>
                     {!rejecting && (
@@ -231,7 +236,7 @@ export function SurveillanceTab({
                     <ConfirmBox
                       title={`Putuskan RM ${s.rm} bukan HAI?`}
                       confirmLabel="Simpan keputusan"
-                      minReason={10}
+                      minReason={MIN_PPI_REASON}
                       onCancel={() => setRejecting(false)}
                       onConfirm={reject}
                     >
@@ -261,8 +266,10 @@ export function SurveillanceTab({
             />
           ))}
         </div>
-        {censusAt ? (
-          <span className="text-small font-semibold text-success">Sensus hari ini tercatat · {censusAt}</span>
+        {ppi.census ? (
+          <span className="text-small font-semibold text-success">
+            Sensus hari ini tercatat · {ppi.census.jam} oleh {ppi.census.by}
+          </span>
         ) : (
           <ReasonButton reason={censusBlock} onClick={recordCensus}>
             Catat sensus hari ini

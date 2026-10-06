@@ -1,11 +1,9 @@
 'use client';
 
-import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -15,8 +13,10 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { DemoPolling } from '@/components/front-office/demo-polling';
+import { demoStamp } from '@/lib/backoffice-toko';
 import {
-  advance,
   BOR_ALERT,
   boarding,
   type CcState,
@@ -25,6 +25,7 @@ import {
   QUEUE_ALERT,
   wardRows,
 } from '@/lib/command-center';
+import { alertKey, type CommandAck, DECIDER_ROLES } from '@/lib/command-center-toko';
 
 const ED_LABEL: Record<string, string> = {
   registrasi: 'Registrasi',
@@ -38,34 +39,31 @@ const ED_LABEL: Record<string, string> = {
   'siap-pulang': 'Siap pulang',
 };
 
-interface Ack {
-  action: string;
-  note: string;
-  at: string;
-}
-
 /**
  * I09 · Command center: kapasitas bed per ruang, IGD (menunggu bed), antrean poli, dan alert keputusan yang wajib
- * ditindaklanjuti (pilihan tindakan + catatan). "Maju 15 menit" memutar peristiwa simulasi deterministik.
+ * ditindaklanjuti (pilihan tindakan + catatan). Data dibaca langsung dari toko demo layar asalnya (Tempat tidur,
+ * IGD, antrean) dan diperbarui otomatis; keputusan alert tersimpan (domain `command-center`, ADR-0085).
  */
 export function CommandBoard({
   asOf,
   wards,
-  initial,
+  state,
+  acks,
+  rev,
+  viewerRole,
 }: {
   asOf: string;
   wards: readonly CcWard[];
-  initial: CcState;
+  state: CcState;
+  acks: Readonly<Record<string, CommandAck>>;
+  rev: number;
+  viewerRole: string | null;
 }) {
-  const [state, setState] = useState<CcState>(initial);
-  const [step, setStep] = useState(0);
-  const [events, setEvents] = useState<string[]>([]);
-  const [acks, setAcks] = useState<Record<string, Ack>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [action, setAction] = useState('');
   const [note, setNote] = useState('');
-  const [flash, setFlash] = useState<Flash | null>(null);
-  const clock = formatJam(new Date(Date.parse(asOf) + state.minute * 60_000));
+  const { act, pending, flash } = useTokoAction('command-center', rev);
+  const canDecide = !!viewerRole && (DECIDER_ROLES as readonly string[]).includes(viewerRole);
   const rows = wardRows(wards, state.beds);
   const alerts = decisionAlerts(state, wards);
   const waitingBed = boarding(state.ed);
@@ -74,36 +72,30 @@ export function CommandBoard({
     { occ: 0, all: 0, ready: 0 },
   );
 
-  const tick = () => {
-    const r = advance(state, step);
-    setState(r.state);
-    setStep((n) => n + 1);
-    const at = formatJam(new Date(Date.parse(asOf) + r.state.minute * 60_000));
-    setEvents((cur) => [`${at} · ${r.event}`, ...cur].slice(0, 6));
-    setFlash({ ok: true, text: `Data diperbarui ${at}: ${r.event.toLowerCase()} (simulasi).` });
-  };
-
   return (
     <div className="flex flex-col gap-4">
+      <DemoPolling intervalMs={5000} />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white px-4 py-3">
         <span className="flex flex-col">
-          <span className="font-semibold">Data per {clock}</span>
+          <span className="font-semibold">Data langsung · hari presentasi {asOf.slice(0, 10)}</span>
           <span className="text-caption text-ink-500">
-            Bed dari ADT, IGD dari papan triase, antrean dari F04 · simulasi
+            Bed dari Tempat tidur, IGD dari papan triase, antrean dari papan poli · diperbarui otomatis
           </span>
         </span>
-        <Button onClick={tick}>Maju 15 menit</Button>
       </div>
       <FlashLine flash={flash} />
 
       <section aria-label="Alert keputusan" className="flex flex-col gap-2">
+        {!canDecide && alerts.length > 0 && (
+          <span className="text-caption text-ink-500">Keputusan alert diambil posisi Manajemen.</span>
+        )}
         {alerts.length === 0 && (
           <Alert level="success" title="Tidak ada alert">
             Semua indikator dalam ambang.
           </Alert>
         )}
         {alerts.map((a) => {
-          const ack = acks[a.id];
+          const ack = acks[alertKey(a)];
           return (
             <div
               key={a.id}
@@ -139,11 +131,14 @@ export function CommandBoard({
                     {a.hrefLabel}
                   </Link>
                   {ack ? (
-                    <Chip tone="success">Ditindaklanjuti {ack.at}</Chip>
+                    <Chip tone="success">
+                      Ditindaklanjuti {ack.jam} · {ack.by}
+                    </Chip>
                   ) : (
                     open !== a.id && (
                       <Button
                         variant="primary"
+                        disabled={!canDecide}
                         onClick={() => {
                           setOpen(a.id);
                           setAction('');
@@ -174,19 +169,28 @@ export function CommandBoard({
                   <span className="flex flex-wrap gap-2">
                     <ReasonButton
                       reason={
-                        !action
-                          ? 'Pilih tindakan.'
-                          : note.trim().length < 10
-                            ? 'Tulis catatan minimal 10 huruf.'
-                            : null
+                        pending
+                          ? 'Menyimpan…'
+                          : !action
+                            ? 'Pilih tindakan.'
+                            : note.trim().length < 10
+                              ? 'Tulis catatan minimal 10 huruf.'
+                              : null
                       }
                       onClick={() => {
-                        setAcks((cur) => ({ ...cur, [a.id]: { action, note: note.trim(), at: clock } }));
-                        setOpen(null);
-                        setFlash({
-                          ok: true,
-                          text: `Keputusan "${action}" untuk ${a.title.toLowerCase()} tercatat ${clock}; penanggung jawab diberi tahu.`,
-                        });
+                        const { jam } = demoStamp();
+                        act(
+                          {
+                            type: 'alert.ditindaklanjuti',
+                            key: alertKey(a),
+                            title: a.title,
+                            action,
+                            note: note.trim(),
+                            jam,
+                          },
+                          `Keputusan "${action}" untuk ${a.title.toLowerCase()} tercatat ${jam}; penanggung jawab diberi tahu.`,
+                          () => setOpen(null),
+                        );
                       }}
                     >
                       Simpan keputusan
@@ -289,18 +293,6 @@ export function CommandBoard({
               ))}
             </ul>
           </Panel>
-          {events.length > 0 && (
-            <Panel title="Peristiwa terbaru">
-              <ol
-                aria-label="Peristiwa terbaru"
-                className="m-0 flex list-none flex-col gap-1 p-0 text-caption text-ink-700"
-              >
-                {events.map((e) => (
-                  <li key={e}>{e}</li>
-                ))}
-              </ol>
-            </Panel>
-          )}
         </div>
       </div>
     </div>

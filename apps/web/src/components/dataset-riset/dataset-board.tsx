@@ -1,24 +1,22 @@
 'use client';
 
-import { formatJam, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggal, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
   ReasonButton,
-  SelectField,
   StageTrack,
   TableWrap,
   TD,
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow, shiftDate } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import {
-  ACCESS_DAYS,
   allowedRules,
   type CohortRow,
   type DatasetField,
@@ -27,10 +25,10 @@ import {
   type FieldRule,
   K_MIN,
   kAnonymity,
-  privacyApproveBlock,
   RULE_LABEL,
   STAGES,
 } from '@/lib/dataset-riset';
+import { DATASET_APPROVER_ROLES, type DatasetStoreState, datasetExpiry } from '@/lib/dataset-riset-toko';
 
 const KIND_LABEL = {
   pengenal: 'Pengenal langsung',
@@ -40,15 +38,17 @@ const KIND_LABEL = {
 
 /**
  * I11 · Satu permintaan dataset riset dari pengajuan sampai ekstrak: etik → aturan de-identifikasi per kolom dengan
- * uji k-anonimitas langsung → persetujuan petugas privasi (≠ pemohon) → ekstrak bertautan berbatas waktu; setiap
- * langkah dan unduhan masuk jejak akses.
+ * uji k-anonimitas langsung → persetujuan petugas privasi (pengguna sesi ≠ pemohon dan ≠ penyusun
+ * de-identifikasi) → ekstrak bertautan berbatas waktu; setiap langkah dan unduhan masuk jejak akses. Tersimpan di
+ * toko demo (domain `dataset-riset`, ADR-0085).
  */
 export function DatasetBoard({
   request,
   fields,
   rows,
-  approvers,
-  log: initialLog,
+  state,
+  rev,
+  viewer,
   today,
 }: {
   request: {
@@ -62,26 +62,32 @@ export function DatasetBoard({
   };
   fields: readonly DatasetField[];
   rows: readonly CohortRow[];
-  approvers: readonly string[];
-  log: ReadonlyArray<{ at: string; who: string; action: string }>;
+  state: DatasetStoreState;
+  rev: number;
+  viewer: { userId: string; name: string; role: string | null };
   today: string;
 }) {
-  const [stage, setStage] = useState(1);
+  const stage = state.stage;
+  const log = state.log;
   const [ethicsNo, setEthicsNo] = useState('');
   const [ethicsUntil, setEthicsUntil] = useState('');
-  const [rules, setRules] = useState<Record<string, FieldRule | undefined>>({});
-  const [approver, setApprover] = useState('');
-  const [log, setLog] = useState([...initialLog]);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const [draftRules, setRules] = useState<Record<string, FieldRule | undefined>>({});
+  const rules: Record<string, FieldRule | undefined> = stage > 2 ? state.rules : draftRules;
+  const { act, pending, flash } = useTokoAction('dataset-riset', rev);
   const k = kAnonymity(rows, rules as Record<string, FieldRule>);
-  const block = deidBlock(fields, rules, k);
-  const record = (who: string, action: string) => {
-    const at = demoNow().toISOString();
-    setLog((cur) => [...cur, { at, who, action }]);
-    setFlash({ ok: true, text: `${request.number}: ${action} · ${formatJam(at)}.` });
-  };
+  const block = pending ? 'Menyimpan…' : deidBlock(fields, rules, k);
+  const done = (action: string) => `${request.number}: ${action} · ${demoStamp().jam}.`;
   const kept = fields.filter((f) => rules[f.key] && rules[f.key] !== 'hapus');
-  const expiry = shiftDate(today, ACCESS_DAYS);
+  const expiry = datasetExpiry();
+  const approveBlock = pending
+    ? 'Menyimpan…'
+    : !viewer.role || !(DATASET_APPROVER_ROLES as readonly string[]).includes(viewer.role)
+      ? 'Rilis dataset disetujui posisi Petugas privasi.'
+      : viewer.name === request.requester
+        ? 'Penyetuju harus berbeda dari pemohon dataset.'
+        : state.deidBy?.userId === viewer.userId
+          ? 'Anda menyusun de-identifikasi: penyetuju harus pengguna lain (pemisahan tugas).'
+          : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,14 +133,20 @@ export function DatasetBoard({
                 />
               </div>
               <ReasonButton
-                reason={ethicsBlock(ethicsNo, ethicsUntil, today)}
-                onClick={() => {
-                  setStage(2);
-                  record(
-                    'Petugas privasi',
-                    `persetujuan etik ${ethicsNo.trim()} dicatat, berlaku s.d. ${formatTanggal(ethicsUntil)}`,
-                  );
-                }}
+                reason={pending ? 'Menyimpan…' : ethicsBlock(ethicsNo, ethicsUntil, today)}
+                onClick={() =>
+                  act(
+                    {
+                      type: 'etik.dicatat',
+                      number: ethicsNo.trim(),
+                      until: ethicsUntil,
+                      when: demoStamp().when,
+                    },
+                    done(
+                      `persetujuan etik ${ethicsNo.trim()} dicatat, berlaku s.d. ${formatTanggal(ethicsUntil)}`,
+                    ),
+                  )
+                }
               >
                 Catat persetujuan etik
               </ReasonButton>
@@ -170,6 +182,7 @@ export function DatasetBoard({
                         <select
                           aria-label={`Aturan ${f.label}`}
                           value={rules[f.key] ?? ''}
+                          disabled={stage > 2}
                           onChange={(e) =>
                             setRules((cur) => ({
                               ...cur,
@@ -197,13 +210,18 @@ export function DatasetBoard({
               <div className="p-4">
                 <ReasonButton
                   reason={block}
-                  onClick={() => {
-                    setStage(3);
-                    record(
-                      'Petugas privasi',
-                      `de-identifikasi diterapkan (k = ${k}, ${kept.length} kolom dipertahankan)`,
-                    );
-                  }}
+                  onClick={() =>
+                    act(
+                      {
+                        type: 'deid.diterapkan',
+                        rules: Object.fromEntries(
+                          Object.entries(rules).filter((e): e is [string, FieldRule] => !!e[1]),
+                        ),
+                        when: demoStamp().when,
+                      },
+                      done(`de-identifikasi diterapkan (k = ${k}, ${kept.length} kolom dipertahankan)`),
+                    )
+                  }
                 >
                   Terapkan de-identifikasi
                 </ReasonButton>
@@ -212,20 +230,18 @@ export function DatasetBoard({
           )}
           {stage === 3 && (
             <Panel title="Persetujuan rilis" sub="Petugas privasi menilai risiko identifikasi ulang">
-              <SelectField
-                label="Penyetuju"
-                value={approver}
-                onChange={setApprover}
-                placeholder="Pilih penyetuju…"
-                options={approvers.map((a) => [a, a])}
-                hint={`Pemohon: ${request.requester}.`}
-              />
+              <span className="text-small text-ink-700">
+                Pemohon: {request.requester}. De-identifikasi disusun {state.deidBy?.name ?? '—'} (k ={' '}
+                {state.k ?? k}). Penyetuju = pengguna yang masuk (posisi Petugas privasi), wajib orang lain.
+              </span>
               <ReasonButton
-                reason={privacyApproveBlock(request.requester, approver || null)}
-                onClick={() => {
-                  setStage(4);
-                  record(approver, 'rilis dataset disetujui');
-                }}
+                reason={approveBlock}
+                onClick={() =>
+                  act(
+                    { type: 'rilis.disetujui', when: demoStamp().when },
+                    done(`rilis dataset disetujui ${viewer.name}`),
+                  )
+                }
               >
                 Setujui rilis
               </ReasonButton>
@@ -239,13 +255,15 @@ export function DatasetBoard({
               <span>
                 <Button
                   variant="primary"
-                  onClick={() => {
-                    setStage(5);
-                    record(
-                      'Sistem',
-                      `dataset diekstrak; tautan untuk ${request.requester} berlaku s.d. ${formatTanggal(expiry)}`,
-                    );
-                  }}
+                  disabled={pending}
+                  onClick={() =>
+                    act(
+                      { type: 'dataset.diekstrak', when: demoStamp().when },
+                      done(
+                        `dataset diekstrak; tautan untuk ${request.requester} berlaku s.d. ${formatTanggal(expiry)}`,
+                      ),
+                    )
+                  }
                 >
                   Ekstrak dan kirim tautan
                 </Button>
@@ -259,7 +277,15 @@ export function DatasetBoard({
                 diberi tanda air nomor permintaan.
               </Alert>
               <span>
-                <Button onClick={() => record(request.requester, 'mengunduh dataset (CSV bertanda air)')}>
+                <Button
+                  disabled={pending}
+                  onClick={() =>
+                    act(
+                      { type: 'dataset.diunduh', when: demoStamp().when },
+                      done('unduhan peneliti tercatat di jejak akses'),
+                    )
+                  }
+                >
                   Simulasikan unduhan peneliti
                 </Button>
               </span>

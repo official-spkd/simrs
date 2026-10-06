@@ -1,4 +1,10 @@
 import { queueDomain } from '../../front-office-antrean';
+import { doctorAppDomain } from '../../aplikasi-dokter-toko';
+import { patientAppDomain } from '../../aplikasi-pasien-toko';
+import { assetDomain } from '../../aset-toko';
+import { commandDomain } from '../../command-center-toko';
+import { dashboardDomain } from '../../dasbor-toko';
+import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
@@ -19,9 +25,20 @@ import { poliDomain } from '../../klinis-poli-toko';
 import { oncologyDomain } from '../../onkologi-toko';
 import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
+import { credentialDomain } from '../../kredensial-toko';
+import { logisticsDomain } from '../../logistik-toko';
+import { qualityDomain } from '../../mutu-toko';
+import { complaintDomain } from '../../pengaduan-toko';
+import { educationDomain } from '../../pendidikan-toko';
+import { payrollDomain } from '../../penggajian-toko';
 import { integrationDomain } from '../../integrasi-demo';
 import { supportDomain } from '../../penunjang-demo';
 import { criticalDomain } from '../../penunjang-kritis';
+import { ppiDomain } from '../../ppi-toko';
+import { ppraDomain } from '../../ppra-toko';
+import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
+import { hrDomain } from '../../sdm-toko';
+import { regDocsDomain } from '../../dokumen-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
 import { jobsDomain } from '../../platform-penjadwal-toko';
@@ -44,8 +61,14 @@ import type { DomainDef, DomainSource } from './define';
 export const DEMO_DOMAINS = {
   akuntansi: akuntansiDomain,
   antrean: queueDomain,
+  'aplikasi-dokter': doctorAppDomain,
+  'aplikasi-pasien': patientAppDomain,
+  aset: assetDomain,
   cadangan: backupDomain,
+  'command-center': commandDomain,
   costing: costingDomain,
+  dasbor: dashboardDomain,
+  'dataset-riset': datasetDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
   golive: goLiveDomain,
@@ -59,18 +82,29 @@ export const DEMO_DOMAINS = {
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,
+  kredensial: credentialDomain,
+  logistik: logisticsDomain,
+  mutu: qualityDomain,
   onkologi: oncologyDomain,
   'pembayaran-btn': pembayaranDomain,
   'pembiayaan-btn': pembiayaanDomain,
   pendaftaran: registrationDomain,
+  pendidikan: educationDomain,
+  pengaduan: complaintDomain,
   pengaturan: settingsDomain,
+  penggajian: payrollDomain,
   penjadwal: jobsDomain,
   persetujuan: consentDomain,
   piutang: piutangDomain,
+  ppi: ppiDomain,
+  ppra: ppraDomain,
+  regulasi: regDocsDomain,
   'rekam-medis': rekamDomain,
+  'rekam-medis-adm': recordsAdminDomain,
   'resume-medis': resumeDomain,
   penunjang: supportDomain,
   rujukan: referralDomain,
+  sdm: hrDomain,
   struktur: structureDomain,
   tagihan: tagihanDomain,
   tarif: tarifDomain,

@@ -1,11 +1,10 @@
 'use client';
 
-import { formatJam, formatTanggal } from '@simrs/shared';
+import { formatTanggal } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
   ConfirmBox,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -13,8 +12,10 @@ import {
   ReasonButton,
   TextField,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { Trainee } from '@/lib/demo/fixtures/pendidikan';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type EducationStoreState, SUPERVISOR_ROLES } from '@/lib/pendidikan-toko';
 import {
   cosignRule,
   LEVEL_LABEL,
@@ -28,35 +29,40 @@ import {
 
 /**
  * B10 · Peserta didik: tingkat supervisi menentukan aturan co-sign; supervisor memverifikasi atau mengembalikan
- * logbook (umpan balik wajib), lalu menaikkan tingkat bila syarat tindakan terverifikasi terpenuhi.
+ * logbook (umpan balik wajib), lalu menaikkan tingkat bila syarat tindakan terverifikasi terpenuhi. Langkah supervisor
+ * hanya posisi Dokter; tersimpan di toko demo (domain `pendidikan`, ADR-0085).
  */
 export function EducationBoard({
   trainees,
-  logbook,
+  store,
+  rev,
+  viewerRole,
 }: {
   trainees: readonly Trainee[];
-  logbook: readonly LogbookEntry[];
+  store: EducationStoreState;
+  rev: number;
+  viewerRole: string | null;
 }) {
   const [sel, setSel] = useState(trainees[0]?.id ?? '');
-  const [levels, setLevels] = useState<Record<string, SupervisionLevel>>(() =>
-    Object.fromEntries(trainees.map((t) => [t.id, t.level])),
-  );
-  const [entries, setEntries] = useState<LogbookEntry[]>([...logbook]);
+  const levels: Record<string, SupervisionLevel> = store.levels;
+  const entries: readonly LogbookEntry[] = store.entries;
+  const supervisor = !!viewerRole && (SUPERVISOR_ROLES as readonly string[]).includes(viewerRole);
   const [returning, setReturning] = useState<string | null>(null);
   const [feedback, setFeedback] = useState('');
   const [askLevel, setAskLevel] = useState(false);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending: saving, flash } = useTokoAction('pendidikan', rev);
   const t = trainees.find((x) => x.id === sel);
-  const at = () => formatJam(demoNow());
-
-  const setStatus = (id: string, status: LogbookEntry['status'], fb?: string) =>
-    setEntries((cur) => cur.map((e) => (e.id === id ? { ...e, status, feedback: fb } : e)));
+  const at = () => demoStamp().jam;
 
   let detail = null;
   if (t) {
     const level = levels[t.id] ?? t.level;
     const verified = verifiedCount(entries, t.id, t.competency);
-    const block = levelUpBlock(level, verified);
+    const block = saving
+      ? 'Menyimpan…'
+      : !supervisor
+        ? 'Kenaikan tingkat oleh supervisor (posisi Dokter).'
+        : levelUpBlock(level, verified);
     const pending = entries.filter((e) => e.traineeId === t.id && e.status === 'menunggu');
     const next = Math.min(4, level + 1) as SupervisionLevel;
     detail = (
@@ -102,14 +108,13 @@ export function EducationBoard({
             minReason={10}
             reasonLabel="Pernyataan supervisor (wajib, tercatat)"
             onCancel={() => setAskLevel(false)}
-            onConfirm={(why) => {
-              setLevels((cur) => ({ ...cur, [t.id]: next }));
-              setAskLevel(false);
-              setFlash({
-                ok: true,
-                text: `${t.name} naik ke tingkat ${next} (${LEVEL_LABEL[next]}) · ${at()}; aturan co-sign kini: ${cosignRule(next).toLowerCase()}. Alasan: ${why}.`,
-              });
-            }}
+            onConfirm={(why) =>
+              act(
+                { type: 'tingkat.dinaikkan', traineeId: t.id, level: next, reason: why, jam: at() },
+                `${t.name} naik ke tingkat ${next} (${LEVEL_LABEL[next]}) · ${at()}; aturan co-sign kini: ${cosignRule(next).toLowerCase()}. Alasan: ${why}.`,
+                () => setAskLevel(false),
+              )
+            }
           >
             Aturan co-sign di CPPT dan CPOE berubah mulai sekarang.
           </ConfirmBox>
@@ -122,6 +127,11 @@ export function EducationBoard({
         <span className="text-small font-semibold text-ink-700">
           Logbook menunggu verifikasi ({pending.length})
         </span>
+        {!supervisor && pending.length > 0 && (
+          <span className="text-caption text-ink-500">
+            Verifikasi dan pengembalian logbook oleh supervisor (posisi Dokter).
+          </span>
+        )}
         {pending.length === 0 && (
           <p className="m-0 text-small text-ink-500">Tidak ada entri logbook yang menunggu.</p>
         )}
@@ -139,17 +149,18 @@ export function EducationBoard({
                 <TextField label="Umpan balik supervisor" rows={2} value={feedback} onChange={setFeedback} />
                 <span className="flex flex-wrap gap-2">
                   <ReasonButton
-                    reason={returnBlock(feedback)}
+                    reason={saving ? 'Menyimpan…' : returnBlock(feedback)}
                     variant="secondary"
-                    onClick={() => {
-                      setStatus(e.id, 'dikembalikan', feedback.trim());
-                      setReturning(null);
-                      setFeedback('');
-                      setFlash({
-                        ok: true,
-                        text: `Logbook ${e.competency} (${formatTanggal(e.date)}) dikembalikan dengan umpan balik · ${at()}.`,
-                      });
-                    }}
+                    onClick={() =>
+                      act(
+                        { type: 'logbook.dikembalikan', id: e.id, feedback: feedback.trim(), jam: at() },
+                        `Logbook ${e.competency} (${formatTanggal(e.date)}) dikembalikan dengan umpan balik · ${at()}.`,
+                        () => {
+                          setReturning(null);
+                          setFeedback('');
+                        },
+                      )
+                    }
                   >
                     Kembalikan
                   </ReasonButton>
@@ -163,17 +174,17 @@ export function EducationBoard({
                 <Button
                   size="sm"
                   variant="primary"
-                  onClick={() => {
-                    setStatus(e.id, 'terverifikasi');
-                    setFlash({
-                      ok: true,
-                      text: `Logbook ${e.competency} RM ${e.rm} diverifikasi ${t.supervisor} · ${at()}.`,
-                    });
-                  }}
+                  disabled={saving || !supervisor}
+                  onClick={() =>
+                    act(
+                      { type: 'logbook.diverifikasi', id: e.id, jam: at() },
+                      `Logbook ${e.competency} RM ${e.rm} diverifikasi · ${at()}.`,
+                    )
+                  }
                 >
                   Verifikasi<span className="sr-only"> logbook {formatTanggal(e.date)}</span>
                 </Button>
-                <Button size="sm" onClick={() => setReturning(e.id)}>
+                <Button size="sm" disabled={saving || !supervisor} onClick={() => setReturning(e.id)}>
                   Kembalikan…<span className="sr-only"> logbook {formatTanggal(e.date)}</span>
                 </Button>
               </span>

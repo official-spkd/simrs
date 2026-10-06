@@ -1,11 +1,37 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PERSONA } from '../../src/lib/demo/fixtures/staf';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 
 /**
  * FE5 · Alur layar back office fase 8 dan kanal fase 9 di mode presentasi (ADR-0023): setiap layar dijalankan dari
- * keadaan awal sampai tugas utamanya selesai, termasuk gerbang beralasan. Semua aksi simulasi (tidak disimpan).
+ * keadaan awal sampai tugas utamanya selesai, termasuk gerbang beralasan. Sejak CX-3 setiap aksi tersimpan di toko
+ * demo bersama (ADR-0085): tiap alur memeriksa bertahan (muat ulang) dan, bila ada, mengalir ke layar lain.
  */
+
+/** Masuk dengan akun berposisi ganda lalu pilih posisi awal. */
+async function loginWithPosition(page: Page, account: Account, roleName: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
 
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
@@ -15,35 +41,43 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.describe('FE5 · back office', () => {
-  test('B09 RM administratif: hak subjek data berpemisahan tugas, peminjaman berkas, pemusnahan berurutan', async ({
+  test('B09 RM administratif: hak subjek data berpemisahan tugas (sesi), peminjaman berkas, pemusnahan berurutan; bertahan', async ({
     page,
   }) => {
-    const rm = await createAccount({ roles: ['petugas_rm'] });
-    await loginAs(page, rm, '/');
+    const direksi = await createAccount({ roles: ['manajemen'], displayName: 'Direktur RM Fiktif' });
+    await loginAs(page, direksi, '/');
     await page.goto('/rekam-medis/administrasi');
     await expect(page.getByRole('heading', { name: 'Rekam medis administratif', level: 1 })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Ringkasan rekam medis administratif' })).toContainText(
       '1 lewat tenggat',
     );
 
-    // Pelepasan ke asuransi: verifikasi → penyetuju ≠ penerima → kirim bertanda air.
+    // Pelepasan ke asuransi: pengguna sesi memverifikasi → tidak bisa menyetujui sendiri (pemisahan tugas).
     const verify = page.getByRole('button', { name: 'Verifikasi selesai' });
     await expect(verify).toBeDisabled();
     await expect(page.getByText('Centang ketiga pemeriksaan dulu (0/3).')).toBeVisible();
     for (const box of await page.getByRole('checkbox').all()) await box.check();
     await verify.click();
     await expect(
-      page.getByRole('status').filter({ hasText: 'identitas dan dasar diverifikasi' }),
+      page
+        .getByRole('status')
+        .filter({ hasText: 'identitas dan dasar diverifikasi oleh Direktur RM Fiktif' }),
     ).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasRm);
     const approve = page.getByRole('button', { name: 'Setujui pelepasan' });
     await expect(approve).toBeDisabled();
-    await expect(page.getByText(/Penyetuju harus berbeda dari penerima/)).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasPrivasi);
-    await approve.click();
-    await page.getByRole('button', { name: 'Kirim berkas bertanda air' }).click();
-    await expect(page.getByText(/tautan sekali pakai berlaku 24 jam/)).toBeVisible();
-    await expect(page.getByRole('button', { name: /ROI-2610-007/ })).toContainText('Dipenuhi');
+    await expect(page.getByText(/penyetuju harus pengguna lain/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+    // Bertahan setelah muat ulang (tahap + pemverifikasi dari sesi).
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap ROI-2610-007' })).toContainText('Direktur RM Fiktif');
+    await expect(approve).toBeDisabled();
+
+    // Koreksi data yang sudah diverifikasi penerima loket: disetujui pengguna sesi → diterapkan sebagai versi baru.
+    await page.getByRole('button', { name: /ROI-2610-009/ }).click();
+    await page.getByRole('button', { name: 'Setujui koreksi' }).click();
+    await page.getByRole('button', { name: 'Terapkan koreksi' }).click();
+    await expect(page.getByText(/koreksi diterapkan sebagai versi baru/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /ROI-2610-009/ })).toContainText('Dipenuhi');
 
     // Permintaan pengadilan ditolak beralasan.
     await page.getByRole('button', { name: /ROI-2610-005/ }).click();
@@ -75,27 +109,56 @@ test.describe('FE5 · back office', () => {
       page.getByText(/Berkas RM 00-17-55-90 keluar .* kembali paling lambat Kam, 8 Okt 2026/),
     ).toBeVisible();
 
-    // Pemusnahan: elektronik ditolak; fisik berurutan sampai berita acara.
+    // Pemusnahan: elektronik ditolak; usulan oleh pengguna sesi, penyetuju direktur harus pengguna lain.
     await page.getByRole('tab', { name: 'Retensi & pemusnahan' }).click();
     await expect(page.getByRole('button', { name: 'Musnahkan data elektronik' })).toBeDisabled();
-    for (const step of [
-      'Usulkan ke komite RM',
-      'Setujui pemusnahan (direktur)',
-      'Terbitkan berita acara (TTE)',
-      'Catat pemusnahan selesai',
-    ]) {
-      await page.getByRole('button', { name: step }).click();
-    }
-    await expect(
-      page.getByText(/Pemusnahan 2\.217 berkas fisik tercatat dengan berita acara BAP-2026-003/),
-    ).toBeVisible();
+    await page.getByRole('button', { name: 'Usulkan ke komite RM' }).click();
+    await expect(page.getByRole('list', { name: 'Jejak persetujuan' })).toContainText('Direktur RM Fiktif');
+    await expect(page.getByRole('button', { name: 'Setujui pemusnahan (direktur)' })).toBeDisabled();
+    await expect(page.getByText(/Anda pengusul: penyetuju harus pengguna lain/)).toBeVisible();
+
+    // Semua aksi bertahan setelah muat ulang.
+    await page.reload();
+    await page.getByRole('tab', { name: /Peminjaman berkas/ }).click();
+    await expect(loans).toContainText('dr. Bagus Santoso, Sp.JP');
+    await expect(loans.getByText('Terlambat 3 hari')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Retensi & pemusnahan' }).click();
+    await expect(page.getByRole('list', { name: 'Jejak persetujuan' })).toContainText('Direktur RM Fiktif');
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit', async ({
+  test('K-1 → B09: pasien dinyatakan meninggal di IGD → SKK masuk arsip RM administratif', async ({
     page,
   }) => {
-    const direksi = await createAccount({ roles: ['manajemen'] });
+    const akun = await createAccount({ roles: ['dokter', 'petugas_rm'] });
+    await loginWithPosition(page, akun, 'Dokter (DPJP)');
+    await page.goto('/klinis/igd');
+    const board = page.getByRole('region', { name: 'Papan pasien IGD' });
+    await board.getByRole('button', { name: /Tn\. Ahmad Fauzi/ }).click();
+    const disp = page.getByRole('region', { name: 'Disposisi pasien IGD' });
+    await disp.getByRole('button', { name: 'Tangani sebagai dokter penanggung jawab' }).click();
+    await expect(disp.getByRole('status')).toContainText('kini dokter penanggung jawab');
+    await disp.getByRole('button', { name: 'Nyatakan meninggal' }).click();
+    const form = disp.getByRole('form', { name: 'Pernyataan meninggal' });
+    await form.getByLabel('Jam kematian (HH.MM)').fill('10.40');
+    await form.getByLabel('Sebab kematian (ICD-10)').selectOption('I21.4');
+    await form.getByLabel(/Tanda tangani surat keterangan kematian/).check();
+    await form.getByRole('button', { name: 'Simpan pernyataan meninggal' }).click();
+    await expect(page.getByRole('region', { name: 'Disposisi meninggal hari ini' })).toContainText(
+      'Tn. Ahmad Fauzi',
+    );
+
+    await switchPosition(page, 'Petugas rekam medis');
+    await page.goto('/rekam-medis/administrasi');
+    await expect(page.getByRole('region', { name: 'Masuk dari layar klinis' })).toContainText(
+      /Tn\. Ahmad Fauzi .* Meninggal · I21\.4 .* SKK\/RSFA\/0001 diarsip permanen/,
+    );
+  });
+
+  test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit (jeda + 40 jam); bertahan', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'], displayName: 'Direktur SDM Fiktif' });
     await loginAs(page, direksi, '/');
     await page.goto('/manajemen/sdm');
     await expect(page.getByRole('heading', { name: 'SDM dan kepegawaian', level: 1 })).toBeVisible();
@@ -120,6 +183,14 @@ test.describe('FE5 · back office', () => {
     await leave.getByLabel(/Alasan/).fill('Mengundurkan diri per 5 Oktober 2026');
     await leave.getByRole('button', { name: 'Proses keluar' }).click();
     await expect(page.getByText(/akun SIM RS dinonaktifkan, penugasan diakhiri/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: SIP baru dan status keluar atas nama pengguna sesi; NIK kembali tersamar.
+    await page.reload();
+    await page.getByRole('button', { name: 'Semua', exact: true }).click();
+    await page.getByRole('button', { name: /dr\. Rina Kusuma/ }).click();
+    await expect(page.getByText(/Pegawai keluar · .* oleh Direktur SDM Fiktif/)).toBeVisible();
+    await expect(page.getByText('9999220200000005')).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Jadwal dinas' }).click();
     const roster = page.getByRole('tabpanel', { name: 'Jadwal dinas' });
@@ -130,22 +201,33 @@ test.describe('FE5 · back office', () => {
       await page.getByRole('button', { name: cell }).click();
       await page.getByLabel('Tambah perawat').selectOption(id);
       await page.getByRole('button', { name: 'Tambahkan ke dinas' }).click();
+      await expect(roster.getByRole('status')).toContainText('ditambahkan ke dinas');
     };
     await fill(/^Siang Rab 14/, 'peg-0014');
     await fill(/^Malam Sab 17/, 'peg-0014');
-    await expect(roster.getByText(/1 jeda istirahat malam → pagi dilanggar/)).toBeVisible();
+    await expect(roster.getByText(/1 jeda istirahat setelah dinas malam dilanggar/)).toBeVisible();
     await page.getByRole('button', { name: /^Pagi Jum 16/ }).click();
     await page.getByRole('button', { name: 'Lepas Ns. Maya Sari, S.Kep' }).click();
     await fill(/^Pagi Jum 16/, 'peg-0011');
+    // > 40 jam per minggu kini memblokir terbit (dulu hanya warna).
+    await expect(roster.getByText(/1 perawat melebihi 40 jam per minggu/)).toBeVisible();
+    await expect(publish).toBeDisabled();
+    await page.getByRole('button', { name: /^Pagi Rab 14/ }).click();
+    await page.getByRole('button', { name: 'Lepas Ns. Fikri Ananda, S.Kep' }).click();
+    await fill(/^Pagi Rab 14/, 'peg-0008');
     await publish.click();
     await expect(page.getByText(/terbit versi 1 · Sen, 5 Okt 2026/).first()).toBeVisible();
 
+    await page.reload();
+    await page.getByRole('tab', { name: 'Jadwal dinas' }).click();
+    await expect(roster.getByText(/Terbit versi 1 · .* · Direktur SDM Fiktif/)).toBeVisible();
+
     await expectNoHorizontalOverflow(page);
   });
-  test('B04 kredensial: berkas susulan → telaah → komite → RKK terbit, ditegakkan di CPOE', async ({
+  test('B04 kredensial: berkas susulan → telaah (Dokter) → komite oleh pengguna lain; bertahan; ditegakkan di CPOE', async ({
     page,
   }) => {
-    const dokter = await createAccount({ roles: ['dokter'] });
+    const dokter = await createAccount({ roles: ['dokter'], displayName: 'dr. Mitra Bestari Fiktif' });
     await loginAs(page, dokter, '/');
     await page.goto('/manajemen/kredensial');
     await expect(
@@ -161,15 +243,20 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel('Biopsi ginjal perkutan').selectOption('supervisi');
     await page.getByLabel('Catatan mitra bestari').fill('Logbook 24 tindakan, observasi langsung memadai');
     await page.getByRole('button', { name: 'Kirim hasil telaah ke komite' }).click();
-    await page.getByRole('button', { name: 'Setujui rekomendasi komite' }).click();
-    await page.getByRole('button', { name: 'Terbitkan RKK dan SPK (direktur)' }).click();
-    await expect(page.getByText(/KRD-2610-005: RKK\/2026\/10\/014 terbit/)).toBeVisible();
+    await expect(page.getByText(/hasil telaah dikirim ke rapat komite/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+    // Rapat komite diputus pengguna lain dari penelaah (pemisahan tugas memakai pengguna sesi).
+    const committee = page.getByRole('button', { name: 'Setujui rekomendasi komite' });
+    await expect(committee).toBeDisabled();
+    await expect(page.getByText(/Anda penelaah pengajuan ini/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap KRD-2610-005' })).toContainText(
+      'dr. Mitra Bestari Fiktif',
+    );
+    await expect(committee).toBeDisabled();
 
     const guard = page.getByRole('region', { name: 'Uji penegakan di CPOE' });
-    await guard.getByLabel('Praktisi').selectOption('dr. Sinta Maharani, Sp.PD-KGH');
-    await guard.getByLabel('Tindakan yang dipesan').selectOption('Biopsi ginjal perkutan');
-    await guard.getByRole('button', { name: 'Uji order' }).click();
-    await expect(guard.getByRole('status')).toContainText('Diizinkan dengan supervisi');
     await guard.getByLabel('Praktisi').selectOption('dr. Rina Kusuma');
     await guard.getByLabel('Tindakan yang dipesan').selectOption('Resusitasi jantung paru lanjut');
     await guard.getByRole('button', { name: 'Uji order' }).click();
@@ -179,6 +266,36 @@ test.describe('FE5 · back office', () => {
     await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('B03 → B04: SIP baru di SDM mengalir ke verifikasi kredensial dan uji CPOE; RKK hanya direktur', async ({
+    page,
+  }) => {
+    const direksi = await createAccount({ roles: ['manajemen'] });
+    await loginAs(page, direksi, '/');
+    await page.goto('/manajemen/kredensial');
+    await page.getByRole('button', { name: /KRD-2610-006/ }).click();
+    await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toBeVisible();
+
+    await page.goto('/manajemen/sdm');
+    await page.getByRole('button', { name: /dr\. Rina Kusuma/ }).click();
+    await page.getByLabel('Nomor SIP baru').fill('9999/UM/0533');
+    await page.getByLabel('Berlaku sampai').fill('2031-10-05');
+    await page.getByRole('button', { name: 'Simpan SIP baru' }).click();
+    await expect(page.getByText(/SIP baru dr\. Rina Kusuma dicatat/)).toBeVisible();
+
+    await page.goto('/manajemen/kredensial');
+    await page.getByRole('button', { name: /KRD-2610-006/ }).click();
+    await expect(page.getByText(/SIP kedaluwarsa: perbarui dulu di SDM/)).toHaveCount(0);
+    const guard = page.getByRole('region', { name: 'Uji penegakan di CPOE' });
+    await guard.getByLabel('Praktisi').selectOption('dr. Rina Kusuma');
+    await guard.getByLabel('Tindakan yang dipesan').selectOption('Resusitasi jantung paru lanjut');
+    await guard.getByRole('button', { name: 'Uji order' }).click();
+    await expect(guard.getByText('LICENSE_EXPIRED')).toHaveCount(0);
+
+    // Manajemen tidak menelaah sebagai mitra bestari (posisi Dokter).
+    await page.getByRole('button', { name: /KRD-2610-004/ }).click();
+    await expect(page.getByText('Telaah oleh mitra bestari (posisi Dokter).')).toBeVisible();
   });
   test('B07 PPI: konfirmasi suspek VAP, bukan HAI beralasan, sensus, 5 momen, bundle, isolasi airborne', async ({
     page,
@@ -251,6 +368,16 @@ test.describe('FE5 · back office', () => {
       .getByRole('button', { name: 'Tempatkan' })
       .click();
     await expect(page.getByText(/RM 00-47-90-12 ditempatkan di Isolasi 2/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: putusan suspek, sensus, observasi, audit bundle, penempatan isolasi.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^Phlebitis/ })).toContainText('Bukan HAI');
+    await expect(page.getByText(/Sensus hari ini tercatat · .* oleh/)).toBeVisible();
+    await page.getByRole('tab', { name: 'Kebersihan tangan' }).click();
+    await expect(page.getByText(/401 peluang diamati/)).toBeVisible();
+    await page.getByRole('tab', { name: /Isolasi/ }).click();
+    await expect(page.getByText(/Ditempatkan di Isolasi 2 · .* oleh/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });
@@ -294,21 +421,36 @@ test.describe('FE5 · back office', () => {
     await repair.getByRole('checkbox', { name: 'Uji keselamatan listrik lulus' }).check();
     await repair.getByLabel('Tindakan perbaikan').fill('Ganti kabel sensor SpO2 dan kalibrasi alarm');
     await done.click();
-    await repair.getByRole('button', { name: 'Konfirmasi unit dan tutup' }).click();
-    await expect(repair.getByRole('status').filter({ hasText: /^Ditutup/ })).toBeVisible();
+    // Penutupan oleh pengguna unit lain dari petugas yang menyelesaikan (pemisahan tugas memakai pengguna sesi).
+    await expect(repair.getByRole('button', { name: 'Konfirmasi unit dan tutup' })).toBeDisabled();
+    await expect(repair.getByText(/Anda yang menyelesaikan perbaikan/)).toBeVisible();
 
     await repair.getByLabel('Alat', { exact: true }).selectOption('ast-01');
     await repair.getByLabel('Keluhan').fill('Alarm tekanan jalan napas tinggi muncul tanpa sebab');
     await repair.getByLabel('Dampak ke layanan').selectOption('kritis');
     await repair.getByRole('button', { name: 'Kirim laporan' }).click();
     await expect(repair.getByText(/Tiket WO-2610-043 dibuat .* SLA respons 2 jam/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: kalibrasi, tiket otomatis, tahap tiket, dan laporan baru.
+    await page.reload();
+    await expect(
+      page
+        .getByRole('alert')
+        .filter({ hasText: 'Alat lewat jatuh tempo kalibrasi' })
+        .filter({ hasText: 'Defibrilator' }),
+    ).toHaveCount(0);
+    await page.getByRole('tab', { name: /Perbaikan/ }).click();
+    await expect(repair.getByRole('button', { name: /WO-2610-042/ })).toBeVisible();
+    await expect(repair.getByRole('button', { name: /WO-2610-043/ })).toBeVisible();
+    await expect(repair.getByRole('button', { name: /WO-2610-041/ })).toContainText('Selesai diuji');
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B05 penggajian: impor jasa pelayanan, PPh 21 manual, hitung, setujui (SoD), posting, slip', async ({
+  test('B05 penggajian: impor jasa pelayanan, PPh 21 manual, hitung (penyusun = sesi), penyetuju harus pengguna lain, bertahan', async ({
     page,
   }) => {
-    const akuntan = await createAccount({ roles: ['akuntan'] });
+    const akuntan = await createAccount({ roles: ['akuntan'], displayName: 'Akuntan Gaji Fiktif' });
     await loginAs(page, akuntan, '/');
     await page.goto('/manajemen/penggajian');
     await expect(page.getByRole('heading', { name: 'Penggajian · Oktober 2026', level: 1 })).toBeVisible();
@@ -321,27 +463,31 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel(`PPh 21 ${PERSONA.apoteker}`).fill('118000');
     await calc.click();
     await expect(page.getByText(/PAY-2610-001: gaji 8 pegawai dihitung/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
 
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.akuntan);
+    // Penyusun = pengguna sesi; penyetuju wajib pengguna lain (bukan nama dari dropdown).
+    await expect(page.getByText(/Disusun Akuntan Gaji Fiktif/)).toBeVisible();
     const approve = page.getByRole('button', { name: 'Setujui run gaji' });
     await expect(approve).toBeDisabled();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.direktur);
-    await approve.click();
-    await page.getByRole('button', { name: 'Posting jurnal gaji' }).click();
-    await expect(page.getByText(/jurnal gaji diposting ke buku besar/)).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Jurnal gaji' })).toContainText('Debit = kredit');
+    await expect(page.getByText(/Anda penyusun run ini: penyetuju harus pengguna lain/)).toBeVisible();
 
+    // Bertahan setelah muat ulang: tahap, PPh 21, dan slip dari hasil hitung.
+    await page.reload();
+    await expect(page.getByLabel(`PPh 21 ${PERSONA.perawat}`)).toHaveValue('95000');
+    await expect(page.getByLabel(`PPh 21 ${PERSONA.perawat}`)).toBeDisabled();
     await page.getByLabel('Pegawai', { exact: true }).selectOption({ label: PERSONA.perawat });
     await expect(page.getByLabel(`Slip ${PERSONA.perawat}`)).toContainText('−Rp 95.000');
-    await page.getByRole('button', { name: 'Kirim slip ke pegawai' }).click();
-    await expect(page.getByText(/Slip 8 pegawai terkirim/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Jurnal gaji' })).toContainText('Debit = kredit');
+    await expect(approve).toBeDisabled();
+    await page.getByRole('button', { name: 'Kembali ke draf' }).click();
+    await expect(calc).toBeEnabled();
 
     await expectNoHorizontalOverflow(page);
   });
   test('B08 PPRA: setujui/tolak beralasan, kedaluwarsa 24 jam, audit Gyssens, modul dimatikan per RS', async ({
     page,
   }) => {
-    const apoteker = await createAccount({ roles: ['apoteker'] });
+    const apoteker = await createAccount({ roles: ['apoteker'], displayName: 'Apoteker PPRA Fiktif' });
     await loginAs(page, apoteker, '/');
     await page.goto('/manajemen/ppra');
     await expect(
@@ -355,6 +501,7 @@ test.describe('FE5 · back office', () => {
       .fill('Syok septik dengan riwayat ESBL, de-eskalasi setelah kultur');
     await page.getByRole('button', { name: 'Simpan persetujuan' }).click();
     await expect(page.getByText(/AB-2610-021 Meropenem disetujui/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan|\(simulasi\)/)).toHaveCount(0);
 
     await page.getByRole('button', { name: /AB-2610-019/ }).click();
     await page.getByRole('button', { name: 'Tolak…' }).click();
@@ -383,45 +530,79 @@ test.describe('FE5 · back office', () => {
     const meropenem = page.getByRole('row', { name: /Meropenem/ });
     await expect(meropenem).toContainText('Langsung ke farmasi');
 
+    // Bertahan setelah muat ulang: putusan atas nama pengguna sesi, audit, dan modul mati.
+    await page.reload();
+    await expect(page.getByText('Modul PPRA tidak aktif', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Disetujui · .* oleh Apoteker PPRA Fiktif/)).toBeVisible();
+    await page.getByRole('tab', { name: 'Audit Gyssens' }).click();
+    await expect(page.getByText('Kategori IIIA', { exact: true })).toBeVisible();
+
     await expectNoHorizontalOverflow(page);
   });
-  test('B12 dokumen: telaah → setuju (≠ penyusun) → terbit, versi lama tidak berlaku, tinjau ulang, baca, bukti', async ({
+
+  test('B08 PPRA: penulis resep tidak bisa memutus permintaannya sendiri', async ({ page }) => {
+    const dokter = await createAccount({ roles: ['dokter'], displayName: 'dr. Kartika Sari, Sp.P' });
+    await loginAs(page, dokter, '/');
+    await page.goto('/manajemen/ppra');
+    await page.getByRole('button', { name: 'Setujui…' }).click();
+    await page.getByLabel('Pertimbangan klinis tim PPRA').fill('Pertimbangan yang cukup panjang untuk diuji');
+    await expect(page.getByRole('button', { name: 'Simpan persetujuan' })).toBeDisabled();
+    await expect(page.getByText(/Anda penulis resep ini/)).toBeVisible();
+  });
+  test('B12 dokumen: telaah → setuju (sesi ≠ penyusun) → terbit, versi baru disusun pengguna sesi, baca, bukti; bertahan', async ({
     page,
   }) => {
-    const auditor = await createAccount({ roles: ['auditor_mutu'] });
+    const auditor = await createAccount({ roles: ['auditor_mutu'], displayName: 'Auditor Dokumen Fiktif' });
     await loginAs(page, auditor, '/');
     await page.goto('/manajemen/dokumen');
     await expect(
       page.getByRole('heading', { name: 'Dokumen regulasi dan akreditasi', level: 1 }),
     ).toBeVisible();
 
+    // SPO-KEP-014 v3 disusun perawat (fixture): auditor sesi boleh menyetujui setelah catatan telaah.
     await page.getByRole('button', { name: 'Kirim ke telaah' }).click();
-    await page.getByLabel('Catatan telaah').fill('Langkah fiksasi kateter disesuaikan bundle ISK terbaru');
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.perawat);
     const approve = page.getByRole('button', { name: 'Setujui dokumen' });
     await expect(approve).toBeDisabled();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.direktur);
+    await page.getByLabel('Catatan telaah').fill('Langkah fiksasi kateter disesuaikan bundle ISK terbaru');
     await approve.click();
+    await expect(page.getByText(/SPO-KEP-014 v3 disetujui Auditor Dokumen Fiktif/)).toBeVisible();
     await page.getByRole('button', { name: 'Terbitkan dan distribusikan' }).click();
     await expect(page.getByText(/SPO-KEP-014 v3 terbit .* v2 tidak berlaku/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
     await page.getByRole('button', { name: /^SPO-KEP-014 v2/ }).click();
     await expect(
       page.getByRole('img', { name: 'Pratinjau dokumen tidak berlaku bertanda air' }),
     ).toBeVisible();
 
+    // Versi baru disusun pengguna yang memulai tinjau ulang → ia tidak bisa menyetujuinya sendiri.
     await page.getByRole('button', { name: /^SPO-FAR-022 v4/ }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'Lewat tanggal tinjau ulang' })).toBeVisible();
     await page.getByRole('button', { name: 'Mulai tinjau ulang (versi baru)' }).click();
-    await expect(page.getByText(/Draf SPO-FAR-022 v5 dibuat/)).toBeVisible();
+    await expect(
+      page.getByText(/Draf SPO-FAR-022 v5 dibuat untuk tinjau ulang oleh Auditor Dokumen Fiktif/),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Kirim ke telaah' }).click();
+    await page.getByLabel('Catatan telaah').fill('Tinjau ulang tiga tahunan tanpa perubahan isi');
+    await expect(approve).toBeDisabled();
+    await expect(page.getByText(/Anda penyusun dokumen ini: penyetuju harus pengguna lain/)).toBeVisible();
+
+    // Bertahan setelah muat ulang.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^SPO-KEP-014 v3/ })).toContainText('Terbit');
+    await expect(page.getByRole('button', { name: /^SPO-FAR-022 v5/ })).toContainText('Telaah');
 
     await page.getByRole('tab', { name: 'Distribusi & baca' }).click();
     await page.getByRole('button', { name: 'Kirim pengingat ke ICU' }).click();
     await expect(page.getByText(/Pengingat baca SPO-KEP-014 dikirim ke 22 staf ICU/)).toBeVisible();
+    await expect(page.getByText(/Pengingat terkirim .* oleh Auditor Dokumen Fiktif/)).toBeVisible();
 
     await page.getByRole('tab', { name: 'Bukti akreditasi' }).click();
     await page.getByLabel('Bab', { exact: true }).selectOption('MRMIK');
     await page.getByLabel('Dokumen terbit').selectOption('doc-kep-014-v3');
     await page.getByRole('button', { name: 'Tautkan sebagai bukti' }).click();
+    await expect(page.getByRole('row', { name: /MRMIK/ })).toContainText('45/51');
+    await page.reload();
+    await page.getByRole('tab', { name: 'Bukti akreditasi' }).click();
     await expect(page.getByRole('row', { name: /MRMIK/ })).toContainText('45/51');
 
     await expectNoHorizontalOverflow(page);
@@ -429,7 +610,10 @@ test.describe('FE5 · back office', () => {
   test('B13 pengalaman pasien: grading → tindak lanjut → jawab → tutup; skor survei rendah jadi pengaduan', async ({
     page,
   }) => {
-    const loket = await createAccount({ roles: ['petugas_pendaftaran'] });
+    const loket = await createAccount({
+      roles: ['petugas_pendaftaran'],
+      displayName: 'Petugas Pengaduan Fiktif',
+    });
     await loginAs(page, loket, '/');
     await page.goto('/manajemen/pengaduan');
     await expect(page.getByRole('heading', { name: 'Pengalaman pasien', level: 1 })).toBeVisible();
@@ -462,6 +646,16 @@ test.describe('FE5 · back office', () => {
     await expect(page.getByText(/dijadikan pengaduan ADU-2610-025/).first()).toBeVisible();
     await page.getByRole('tab', { name: /Pengaduan/ }).click();
     await expect(page.getByRole('button', { name: /ADU-2610-025/ })).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan + mengalir: jawaban dalam SLA masuk INM-12 (20/23 → 21/24), catatan atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Ringkasan pengalaman pasien' })).toContainText('88%');
+    await expect(page.getByRole('button', { name: /ADU-2610-024/ })).toContainText('Selesai');
+    await page.getByRole('button', { name: /ADU-2610-024/ }).click();
+    await expect(page.getByRole('list', { name: 'Catatan tindakan (tidak bisa diubah)' })).toContainText(
+      'Petugas Pengaduan Fiktif',
+    );
 
     await expectNoHorizontalOverflow(page);
   });
@@ -491,6 +685,13 @@ test.describe('FE5 · back office', () => {
       .fill('Peran observasi tidak dihitung, lengkapi catatan tindakan');
     await page.getByRole('button', { name: 'Kembalikan', exact: true }).click();
     await expect(page.getByText(/dikembalikan dengan umpan balik/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: tingkat baru dan logbook yang diputus.
+    await page.reload();
+    await expect(page.getByText(/Tingkat 3 · /).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Verifikasi logbook Sab, 3 Okt 2026' })).toHaveCount(0);
+    await expect(page.getByText('Dikembalikan ke peserta')).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });
@@ -533,16 +734,20 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('I09 command center: alert kritis ditindaklanjuti beralasan; maju waktu memindahkan pasien IGD ke bed', async ({
+  test('I09 command center: data langsung dari IGD/bed/antrean; keputusan alert tersimpan; permintaan bed IGD mengalir', async ({
     page,
   }) => {
-    const direksi = await createAccount({ roles: ['manajemen'] });
-    await loginAs(page, direksi, '/');
+    const akun = await createAccount({
+      roles: ['manajemen', 'dokter'],
+      displayName: 'Direktur Komando Fiktif',
+    });
+    await loginWithPosition(page, akun, 'Manajemen');
     await page.goto('/manajemen/command-center');
     await expect(page.getByRole('heading', { name: 'Command center', level: 1 })).toBeVisible();
     const alerts = page.getByRole('region', { name: 'Alert keputusan' });
     await expect(alerts).toContainText('Kritis: 1 pasien IGD menunggu bed rawat inap');
     await expect(alerts).toContainText('ICU/ICCU 92%');
+    await expect(page.getByText(/simulasi|tidak disimpan/)).toHaveCount(0);
 
     await alerts.getByRole('button', { name: /Putuskan tindakan.*1 pasien IGD menunggu bed/ }).click();
     const save = alerts.getByRole('button', { name: 'Simpan keputusan' });
@@ -552,18 +757,33 @@ test.describe('FE5 · back office', () => {
       .getByLabel('Catatan dan penanggung jawab')
       .fill('Kepala ruang Kenanga siapkan K-4xx dalam 30 menit');
     await save.click();
-    await expect(alerts.getByText('Ditindaklanjuti 10.45')).toBeVisible();
+    await expect(alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · Direktur Komando Fiktif/)).toBeVisible();
+    await page.reload();
+    await expect(alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · Direktur Komando Fiktif/)).toBeVisible();
 
-    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Maju 15 menit' }).click();
-    await expect(page.getByText('Data per 11.30')).toBeVisible();
-    await expect(alerts).not.toContainText('menunggu bed rawat inap');
-    await expect(page.getByRole('list', { name: 'Peristiwa terbaru' })).toContainText(
-      'Pasien IGD terlama mendapat bed',
-    );
+    // Mengalir: dokter IGD meminta bed untuk Tn. Joko → command center menghitung 2 pasien menunggu bed (alert baru).
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto('/klinis/igd');
+    await page
+      .getByRole('region', { name: 'Papan pasien IGD' })
+      .getByRole('button', { name: /Tn\. Joko Susilo/ })
+      .click();
+    const disp = page.getByRole('region', { name: 'Disposisi pasien IGD' });
+    await disp.getByLabel('Kelas ruang').selectOption('Kelas 2');
+    await disp.getByLabel('Kebutuhan ruang').fill('Ortopedi · pantau nyeri lutut');
+    await disp.getByRole('button', { name: 'Minta bed rawat inap' }).click();
+    await expect(disp.getByRole('status')).toContainText('Permintaan bed Kelas 2 terkirim');
+
+    await switchPosition(page, 'Manajemen');
+    await page.goto('/manajemen/command-center');
+    await expect(alerts).toContainText('2 pasien IGD menunggu bed rawat inap');
+    await expect(
+      alerts.getByRole('button', { name: /Putuskan tindakan.*2 pasien IGD menunggu bed/ }),
+    ).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });
-  test('I11 dataset riset: etik, de-identifikasi dengan k-anonimitas, persetujuan privasi ≠ pemohon, ekstrak dan jejak', async ({
+  test('I11 dataset riset: etik, de-identifikasi dengan k-anonimitas, penyetuju ≠ penyusun (sesi), jejak; bertahan', async ({
     page,
   }) => {
     const privasi = await createAccount({ roles: ['petugas_privasi'] });
@@ -599,13 +819,22 @@ test.describe('FE5 · back office', () => {
     await page.getByLabel('Aturan Kecamatan domisili', { exact: true }).selectOption('hapus');
     await apply.click();
 
-    await page.getByLabel('Penyetuju').selectOption('dr. Andini Prameswari, Sp.PD');
-    await expect(page.getByText('Penyetuju harus berbeda dari pemohon dataset.')).toBeVisible();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.petugasPrivasi);
-    await page.getByRole('button', { name: 'Setujui rilis' }).click();
-    await page.getByRole('button', { name: 'Ekstrak dan kirim tautan' }).click();
-    await page.getByRole('button', { name: 'Simulasikan unduhan peneliti' }).click();
-    await expect(page.getByRole('list', { name: 'Jejak akses dataset' })).toContainText('mengunduh dataset');
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Penyetuju rilis = pengguna sesi (Petugas privasi) yang bukan penyusun de-identifikasi.
+    const approve = page.getByRole('button', { name: 'Setujui rilis' });
+    await expect(approve).toBeDisabled();
+    await expect(
+      page.getByText(/Anda menyusun de-identifikasi: penyetuju harus pengguna lain/),
+    ).toBeVisible();
+
+    // Bertahan setelah muat ulang: tahap, aturan kolom, dan jejak akses atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Tahap DSR-2610-003' })).toBeVisible();
+    await expect(approve).toBeDisabled();
+    const trail = page.getByRole('list', { name: 'Jejak akses dataset' });
+    await expect(trail).toContainText('persetujuan etik KEPK/031/2026 dicatat');
+    await expect(trail).toContainText('de-identifikasi diterapkan (k =');
 
     await expectNoHorizontalOverflow(page);
   });
@@ -633,8 +862,16 @@ test.describe('FE5 · back office', () => {
     );
     await family.getByRole('button', { name: 'Cabut akses Ny. Ratih Nugroho' }).click();
     await expect(family.getByRole('status')).toContainText('Akses Ny. Ratih Nugroho dicabut');
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang (toko demo `aplikasi-pasien`).
+    await page.reload();
+    await phone.getByRole('button', { name: 'Keluarga' }).click();
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).toContainText('Bayu Nugroho');
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).not.toContainText('Ratih');
+    await expect(family.getByRole('button', { name: 'Setujui akses' })).toHaveCount(0);
   });
-  test('B01 logistik: penerimaan barang menambah stok (keluar dari daftar ROP) dan utang usaha', async ({
+  test('B01 logistik: penerimaan barang menambah stok (keluar dari daftar ROP) dan mengalir ke Hutang usaha', async ({
     page,
   }) => {
     const direksi = await createAccount({ roles: ['manajemen'] });
@@ -667,20 +904,47 @@ test.describe('FE5 · back office', () => {
     );
     await expect(kasa).toHaveCount(0);
 
+    // Mengalir ke Hutang usaha (CX-2): kejadian `logistik/penerimaan.dicatat` menjadi faktur draf GRN yang sama.
+    await page.goto('/keuangan/hutang');
+    const invoices = page.getByRole('list', { name: 'Faktur pemasok' });
+    await expect(invoices).toContainText('INV/2610-0145');
+    await expect(invoices).toContainText('Distributor alkes B');
+    await page.reload();
+    await expect(invoices).toContainText('INV/2610-0145');
+
+    await page.goto('/manajemen/logistik');
     await expectNoHorizontalOverflow(page);
   });
 
-  test('B06 mutu: lima indikator dihitung dari data transaksi dengan pembilang/penyebut', async ({
+  test('B06 mutu: lima indikator dihitung dari data toko; observasi PPI mengalir ke pembilang/penyebut; hitung ulang tercatat', async ({
     page,
   }) => {
-    const auditor = await createAccount({ roles: ['auditor_mutu'] });
+    const auditor = await createAccount({ roles: ['auditor_mutu'], displayName: 'Auditor Mutu Fiktif' });
     await loginAs(page, auditor, '/');
     await page.goto('/manajemen/mutu');
     const table = page.getByRole('region', { name: 'Indikator dari data transaksi' });
     await expect(table.getByRole('row')).toHaveCount(6);
     await expect(table.getByRole('row', { name: /kebersihan tangan/ })).toContainText('352 / 400');
     await expect(table.getByRole('row', { name: /Resume medis/ })).toContainText('44 / 50');
+
+    // Observasi kebersihan tangan di PPI mengubah pembilang/penyebut di Mutu (bukan angka ketik).
+    await page.goto('/manajemen/ppi');
+    await page.getByRole('tab', { name: 'Kebersihan tangan' }).click();
+    await page.getByLabel('Profesi yang diamati').selectOption('Dokter');
+    await page.getByLabel('Momen').selectOption('0');
+    await page.getByLabel('Tindakan').selectOption('tidak');
+    await page.getByRole('button', { name: 'Catat peluang' }).click();
+    await expect(page.getByText(/kepatuhan bulan ini 88% \(352\/401\)/)).toBeVisible();
+    await page.goto('/manajemen/mutu');
+    await expect(table.getByRole('row', { name: /kebersihan tangan/ })).toContainText('352 / 401');
+
     await page.getByRole('button', { name: 'Hitung ulang' }).click();
-    await expect(page.getByText(/terakhir dihitung ulang \d{2}\.\d{2}/)).toBeVisible();
+    await expect(
+      page.getByText(/terakhir dihitung ulang \d{2}\.\d{2} oleh Auditor Mutu Fiktif/),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByText(/terakhir dihitung ulang \d{2}\.\d{2} oleh Auditor Mutu Fiktif/),
+    ).toBeVisible();
   });
 });

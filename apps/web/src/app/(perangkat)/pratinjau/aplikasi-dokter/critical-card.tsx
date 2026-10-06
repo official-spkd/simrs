@@ -14,15 +14,14 @@ const norm = (v: string) => v.trim().replace(',', '.');
 /**
  * Nilai kritis kalium Tn. Hartono (I08, skenario IGD langkah `nilai-kritis`). Gerbang read-back: tombol
  * "Read-back benar" aktif hanya bila nilai yang dibacakan ulang sama dengan laporan lab. Bila tugas skenario
- * `readback` sedang giliran, tombol menjalankan tugas itu; tanpa skenario berjalan, penerimaan hanya di layar ini.
+ * `readback` sedang giliran, tombol menjalankan tugas itu; tanpa skenario berjalan tombol nonaktif beralasan (pasien
+ * skenario hanya maju lewat Simulasi). Nilai kritis pasien lain dicatat lewat `OtherCriticals` ke `hasil-kritis`.
  * Selama hasil belum keluar kartu hanya menyebut status order (belum ada order / sedang diproses), tanpa nilai.
  */
 export function CriticalCard({
   critical,
   rev,
   labOrdered,
-  acceptedLocally,
-  onAcceptLocal,
   onOpenPatient,
   orderHref,
 }: {
@@ -30,8 +29,6 @@ export function CriticalCard({
   rev: number;
   /** Order lab skenario sudah dikirim (membedakan "belum ada order" dari "sedang diproses"). */
   labOrdered: boolean;
-  acceptedLocally: string | null;
-  onAcceptLocal: () => void;
   onOpenPatient: () => void;
   /** CPOE kunjungan pasien ("Buka order" setelah diterima), bila tersedia. */
   orderHref: string | null;
@@ -40,7 +37,7 @@ export function CriticalCard({
   const [readback, setReadback] = useState('');
   const [tried, setTried] = useState(false);
   const c = critical;
-  const accepted = c.state === 'diterima' ? c.acceptedAt : acceptedLocally;
+  const accepted = c.state === 'diterima' ? c.acceptedAt : null;
   const head = `${c.analyte} ${c.value} ${c.unit}`;
 
   if (c.state === 'menunggu-hasil') {
@@ -65,10 +62,7 @@ export function CriticalCard({
         aria-label="Nilai kritis"
         className="flex flex-col gap-2 rounded-[16px] border border-[#BFE0C7] bg-[#EAF5EC] p-3.5"
       >
-        <span className="font-semibold text-success">
-          Diterima {accepted} · read-back tercatat
-          {c.state === 'diterima' ? '' : ' (simulasi, tidak disimpan)'}
-        </span>
+        <span className="font-semibold text-success">Diterima {accepted} · read-back tercatat</span>
         <span className="text-[13px] text-ink-700">
           {head} · {c.patientName} · {c.location}. Nilai dibacakan ulang ke analis lab; order tata laksana
           hiperkalemia dilanjutkan ke perawat IGD.
@@ -98,17 +92,17 @@ export function CriticalCard({
   const matches = norm(readback) === norm(c.value);
   const reason = waiting
     ? 'Menunggu laporan telepon dari analis lab sebelum read-back.'
-    : runner.pending
-      ? 'Mencatat read-back…'
-      : !matches
-        ? 'Ketik nilai yang Anda bacakan ulang ke analis lab.'
-        : null;
+    : c.mode !== 'skenario'
+      ? 'Tn. Hartono pasien skenario Simulasi IGD: read-back tersimpan saat skenario sampai langkah nilai kritis (layar Simulasi).'
+      : runner.pending
+        ? 'Mencatat read-back…'
+        : !matches
+          ? 'Ketik nilai yang Anda bacakan ulang ke analis lab.'
+          : null;
   const confirm = () => {
     if (!matches || waiting) return;
     if (c.mode === 'skenario' && c.stepIndex !== null) {
       runner.run({ type: 'task', step: c.stepIndex, task: 'readback', value: true, scenario: 'igd-ranap' });
-    } else {
-      onAcceptLocal();
     }
   };
 
@@ -173,11 +167,7 @@ export function CriticalCard({
           </button>
         </span>
         <span id="readback-alasan" className="text-[12px] text-ink-700">
-          {runner.error?.message ??
-            reason ??
-            (c.mode === 'skenario'
-              ? 'Siap dicatat ke skenario IGD (tugas read-back).'
-              : 'Siap dicatat (simulasi, tidak disimpan).')}
+          {runner.error?.message ?? reason ?? 'Siap dicatat ke skenario IGD (tugas read-back).'}
         </span>
       </form>
       <button

@@ -1,10 +1,9 @@
 'use client';
 
-import { formatJam, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggal, formatTanggalWaktu } from '@simrs/shared';
 import { Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -14,7 +13,9 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import { MIN_LOAN_PURPOSE } from '@/lib/rekam-medis-adm-toko';
 import {
   LOAN_DAYS,
   lendBlock,
@@ -25,7 +26,7 @@ import {
   type RecordLoan,
 } from '@/lib/rekam-medis-adm';
 
-const MIN_PURPOSE = 10;
+const MIN_PURPOSE = MIN_LOAN_PURPOSE;
 
 /**
  * B09 · Peminjaman berkas fisik lama: daftar pinjaman (jatuh tempo `record.loan_days`, terlambat ditandai), catat
@@ -33,21 +34,23 @@ const MIN_PURPOSE = 10;
  */
 export function LoanTab({
   files,
-  initialLoans,
+  loans,
+  rev,
   units,
   today,
 }: {
   files: readonly RecordFile[];
-  initialLoans: readonly RecordLoan[];
+  /** Peminjaman dari toko demo (domain `rekam-medis-adm`). */
+  loans: readonly RecordLoan[];
+  rev: number;
   units: readonly string[];
   today: string;
 }) {
-  const [loans, setLoans] = useState<RecordLoan[]>([...initialLoans]);
   const [fileId, setFileId] = useState('');
   const [unit, setUnit] = useState(units[0] ?? '');
   const [borrower, setBorrower] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('rekam-medis-adm', rev);
   const byId = new Map(files.map((f) => [f.id, f]));
   const file = byId.get(fileId) ?? null;
 
@@ -63,46 +66,43 @@ export function LoanTab({
   const lend = () => {
     if (!file || block) return;
     const due = loanDueDate(today);
-    const at = formatJam(demoNow());
-    setLoans((cur) => [
+    const { jam } = demoStamp();
+    act(
       {
-        id: `pinjam-baru-${cur.length + 1}`,
+        type: 'berkas.dipinjam',
         fileId: file.id,
-        borrower: borrower.trim(),
         unit,
+        borrower: borrower.trim(),
         purpose: purpose.trim(),
-        outDate: today,
-        dueDate: due,
-        returnedAt: null,
+        jam,
       },
-      ...cur,
-    ]);
-    setFlash({
-      ok: true,
-      text: `Berkas RM ${file.rm} keluar ${at} ke ${unit}; kembali paling lambat ${formatTanggal(due)}${
+      `Berkas RM ${file.rm} keluar ${jam} ke ${unit}; kembali paling lambat ${formatTanggal(due)}${
         file.confidential ? ' · petugas privasi diberi tahu (pasien bertanda rahasia)' : ''
-      } (simulasi, tidak disimpan).`,
-    });
-    setFileId('');
-    setBorrower('');
-    setPurpose('');
+      }.`,
+      () => {
+        setFileId('');
+        setBorrower('');
+        setPurpose('');
+      },
+    );
   };
 
   const markReturned = (loanId: string) => {
-    const now = demoNow().toISOString();
-    setLoans((cur) => cur.map((l) => (l.id === loanId ? { ...l, returnedAt: now } : l)));
     const l = loans.find((x) => x.id === loanId);
     const f = l ? byId.get(l.fileId) : undefined;
-    setFlash({
-      ok: true,
-      text: `Berkas RM ${f?.rm ?? ''} kembali ke rak ${f?.rack ?? ''} · ${formatJam(now)}.`,
-    });
+    const { jam, when } = demoStamp();
+    act(
+      { type: 'berkas.kembali', loanId, when },
+      `Berkas RM ${f?.rm ?? ''} kembali ke rak ${f?.rack ?? ''} · ${jam}.`,
+    );
   };
   const remind = (loanId: string) => {
-    const at = formatJam(demoNow());
-    setLoans((cur) => cur.map((l) => (l.id === loanId ? { ...l, remindedAt: at } : l)));
     const l = loans.find((x) => x.id === loanId);
-    setFlash({ ok: true, text: `Pengingat keterlambatan terkirim ke ${l?.unit ?? 'peminjam'} · ${at}.` });
+    const { jam } = demoStamp();
+    act(
+      { type: 'pengingat.dikirim', loanId, jam },
+      `Pengingat keterlambatan terkirim ke ${l?.unit ?? 'peminjam'} · ${jam}.`,
+    );
   };
 
   return (
@@ -174,12 +174,17 @@ export function LoanTab({
                       <td className={TD}>
                         {st !== 'kembali' && (
                           <span className="flex flex-wrap gap-1.5">
-                            <Button size="sm" onClick={() => markReturned(l.id)}>
+                            <Button size="sm" disabled={pending} onClick={() => markReturned(l.id)}>
                               Catat kembali
                               <span className="sr-only"> berkas RM {f?.rm}</span>
                             </Button>
                             {st === 'terlambat' && !l.remindedAt && (
-                              <Button size="sm" variant="ghost" onClick={() => remind(l.id)}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={pending}
+                                onClick={() => remind(l.id)}
+                              >
                                 Kirim pengingat
                                 <span className="sr-only"> untuk berkas RM {f?.rm}</span>
                               </Button>
@@ -219,7 +224,7 @@ export function LoanTab({
             />
             <TextField label="Nama peminjam" value={borrower} onChange={setBorrower} />
             <TextField label="Keperluan" value={purpose} onChange={setPurpose} rows={2} />
-            <ReasonButton reason={block} onClick={lend}>
+            <ReasonButton reason={pending ? 'Menyimpan…' : block} onClick={lend}>
               Catat berkas keluar
             </ReasonButton>
           </Panel>

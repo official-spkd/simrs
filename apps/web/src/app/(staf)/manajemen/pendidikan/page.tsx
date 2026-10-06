@@ -12,13 +12,14 @@ export const metadata: Metadata = { title: 'Pendidikan klinik' };
 
 /**
  * B10 · Pendidikan klinik (rencana fase 8 §8.5, struktur dasar, tanpa mockup): peserta didik, supervisi bertingkat
- * yang menentukan co-sign, logbook terverifikasi. Mode presentasi: data dummy (ADR-0023).
+ * yang menentukan co-sign, logbook terverifikasi. Mode presentasi: data dummy (ADR-0023), aksi tersimpan di toko
+ * demo (domain `pendidikan`, ADR-0085).
  */
 export default async function PendidikanPage() {
-  const { screen, allowed } = await requireDemoScreen('pendidikan');
+  const { session, screen, allowed } = await requireDemoScreen('pendidikan');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getEducation();
-  const pending = d.logbook.filter((e) => e.status === 'menunggu').length;
+  const pending = d.store.state.entries.filter((e) => e.status === 'menunggu').length;
   const cosign = d.trainees.reduce((n, t) => n + t.pendingCosign, 0);
 
   return (
@@ -59,7 +60,12 @@ export default async function PendidikanPage() {
           detail="DPJP dan perawat pembimbing"
         />
       </div>
-      <EducationBoard trainees={d.trainees} logbook={d.logbook} />
+      <EducationBoard
+        trainees={d.trainees}
+        store={d.store.state}
+        rev={d.store.rev}
+        viewerRole={session.role?.code ?? null}
+      />
     </div>
   );
 }

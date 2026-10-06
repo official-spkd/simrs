@@ -14,15 +14,15 @@ export const metadata: Metadata = { title: 'Penggajian' };
 
 /**
  * B05 · Penggajian (struktur, rencana fase 8 §8.3, tanpa mockup): run gaji periode, slip, jurnal gaji berpasangan.
- * Angka simulasi; mode presentasi data dummy (ADR-0023).
+ * Tarif iuran simulasi; mode presentasi data dummy (ADR-0023), run tersimpan di toko demo (domain `penggajian`).
  */
 export default async function PenggajianPage() {
-  const { screen, allowed } = await requireDemoScreen('penggajian');
+  const { session, screen, allowed } = await requireDemoScreen('penggajian');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getPayroll();
   const fixed = d.inputs.map((i) => computeSlip({ ...i, serviceFee: 0n, pph21: i.pph21 ?? 0n }));
   const fees = Object.values(d.serviceFees).reduce((n, v) => n + BigInt(v), 0n);
-  const missing = d.inputs.filter((i) => i.pph21 === null).length;
+  const missing = d.store.state.stage > 0 ? 0 : d.inputs.filter((i) => i.pph21 === null).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -62,9 +62,10 @@ export default async function PenggajianPage() {
       <PayrollBoard
         period={d.period}
         inputs={d.inputs}
-        serviceFees={d.serviceFees}
-        preparer={d.preparer}
-        approvers={d.approvers}
+        state={d.store.state}
+        rev={d.store.rev}
+        viewerId={session.user.id}
+        viewerRole={session.role?.code ?? null}
       />
     </div>
   );

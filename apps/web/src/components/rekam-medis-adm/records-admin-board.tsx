@@ -6,6 +6,7 @@ import type { RecordsAdminData } from '@/lib/server/data/backoffice';
 import { LoanTab } from './loan-tab';
 import { RetentionTab } from './retention-tab';
 import { RoiTab } from './roi-tab';
+import { RETENTION_COMPUTED_AT } from '@/lib/rekam-medis-adm-toko';
 
 type Tab = 'pinjam' | 'roi' | 'retensi';
 
@@ -15,14 +16,19 @@ export function RecordsAdminBoard({
   today,
   now,
   operator,
+  viewerId,
+  viewerRole,
   counts,
 }: {
   data: RecordsAdminData;
   today: string;
   now: string;
   operator: string;
+  viewerId: string;
+  viewerRole: string | null;
   counts: { overdue: number; openRequests: number };
 }) {
+  const { state, rev } = data.store;
   const [tab, setTab] = useState<Tab>('roi');
   return (
     <Tabs
@@ -37,7 +43,15 @@ export function RecordsAdminBoard({
           label: 'Salinan & hak subjek data',
           badge: counts.openRequests ? String(counts.openRequests) : undefined,
           content: (
-            <RoiTab requests={data.requests} approvers={data.approvers} now={now} operator={operator} />
+            <RoiTab
+              requests={data.requests}
+              progress={state.roi}
+              rev={rev}
+              now={now}
+              operator={operator}
+              viewerId={viewerId}
+              viewerRole={viewerRole}
+            />
           ),
         },
         {
@@ -46,7 +60,7 @@ export function RecordsAdminBoard({
           badge: counts.overdue ? `${counts.overdue} terlambat` : undefined,
           badgeTone: 'danger',
           content: (
-            <LoanTab files={data.files} initialLoans={data.loans} units={data.loanUnits} today={today} />
+            <LoanTab files={data.files} loans={state.loans} rev={rev} units={data.loanUnits} today={today} />
           ),
         },
         {
@@ -56,8 +70,13 @@ export function RecordsAdminBoard({
             <RetentionTab
               batches={data.batches}
               today={today}
-              computedAt={`${today}T01:30:00+07:00`}
+              computedAt={RETENTION_COMPUTED_AT}
               actors={data.destructionActors}
+              stage={state.destruction.stage}
+              steps={state.destruction.steps}
+              rev={rev}
+              viewerId={viewerId}
+              viewerRole={viewerRole}
             />
           ),
         },

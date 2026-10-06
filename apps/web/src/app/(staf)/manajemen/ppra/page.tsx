@@ -13,13 +13,17 @@ export const metadata: Metadata = { title: 'PPRA' };
 
 /**
  * B08 · Program pengendalian resistansi antimikroba (rencana fase 8 §8.5, tanpa mockup): persetujuan antibiotik
- * cadangan, audit Gyssens, katalog restriksi; modul dapat dimatikan per RS. Mode presentasi (ADR-0023).
+ * cadangan, audit Gyssens, katalog restriksi; modul dapat dimatikan per RS. Mode presentasi (ADR-0023), putusan
+ * dan audit tersimpan di toko demo (domain `ppra`, ADR-0085).
  */
 export default async function PpraPage() {
-  const { screen, allowed } = await requireDemoScreen('ppra');
+  const { session, screen, allowed } = await requireDemoScreen('ppra');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getAms();
-  const hours = d.requests.map((r) => approvalHoursLeft(r.requestedAt, DEMO_NOW));
+  const st = d.store.state;
+  const hours = d.requests
+    .filter((r) => !st.decisions[r.id])
+    .map((r) => approvalHoursLeft(r.requestedAt, DEMO_NOW));
   const waiting = hours.filter((h) => h >= 0);
   const urgent = waiting.filter((h) => h <= 4).length;
   const expired = hours.length - waiting.length;
@@ -49,8 +53,8 @@ export default async function PpraPage() {
         />
         <KpiCard
           label="Penggunaan tepat (Gyssens 0)"
-          value={`${appropriateRate(d.done)}%`}
-          detail={`${d.done.length} kasus diaudit bulan ini`}
+          value={`${appropriateRate(st.results)}%`}
+          detail={`${st.results.length} kasus diaudit bulan ini`}
         />
         <KpiCard
           label="Antibiotik cadangan"
@@ -62,7 +66,9 @@ export default async function PpraPage() {
         requests={d.requests}
         restrictions={d.restrictions}
         pending={d.pending}
-        done={d.done}
+        state={st}
+        rev={d.store.rev}
+        viewer={{ name: session.user.displayName, role: session.role?.code ?? null }}
         now={DEMO_NOW}
       />
     </div>

@@ -1,10 +1,9 @@
 'use client';
 
-import { formatJam, formatTanggalWaktu } from '@simrs/shared';
+import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Chip, type ChipTone, Tabs } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -17,8 +16,8 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import type { Complaint } from '@/lib/demo/fixtures/pengalaman';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import {
   answerBlock,
   COMPLAINT_STAGES,
@@ -32,51 +31,39 @@ import {
   SURVEY_ASPECTS,
   type SurveyResponse,
 } from '@/lib/pengalaman';
+import { type ComplaintEvent, complaintNumber, type ComplaintStoreState } from '@/lib/pengaduan-toko';
 
 const G_TONE: Record<Grade, ChipTone> = { merah: 'danger', kuning: 'warning', hijau: 'success' };
 
-interface ComplaintState extends Complaint {
-  stageNow: number;
-  answeredAt: string | null;
-  log: Array<{ at: string; by: string; text: string }>;
-}
-
 /**
- * B13 · Pengaduan (diterima → grading → tindak lanjut unit → dijawab → selesai, catatan append-only, SLA per
- * grading) dan survei kepuasan pasca-pulang (indeks per unit; skor rendah dijadikan pengaduan).
+ * B13 · Pengaduan (diterima → grading → tindak lanjut unit → dijawab → selesai, catatan append-only atas nama
+ * pengguna sesi, SLA per grading) dan survei kepuasan pasca-pulang (indeks per unit; skor rendah dijadikan
+ * pengaduan). Tersimpan di toko demo (domain `pengaduan`, ADR-0085); jawaban masuk INM-12 di Mutu.
  */
 export function ExperienceBoard({
-  complaints,
+  store,
+  rev,
   responses,
   now,
-  operator,
 }: {
-  complaints: readonly Complaint[];
+  store: ComplaintStoreState;
+  rev: number;
   responses: readonly SurveyResponse[];
   now: string;
-  operator: string;
 }) {
   const [tab, setTab] = useState('pengaduan');
-  const [list, setList] = useState<ComplaintState[]>(() =>
-    complaints.map((c) => ({ ...c, stageNow: c.stage, answeredAt: null, log: [...c.actions] })),
-  );
-  const [sel, setSel] = useState(complaints[0]?.id ?? '');
+  const list = store.complaints;
+  const converted = store.converted;
+  const [sel, setSel] = useState(list[0]?.id ?? '');
   const [grade, setGrade] = useState('');
   const [followUp, setFollowUp] = useState('');
   const [answer, setAnswer] = useState('');
-  const [converted, setConverted] = useState<Record<string, string>>({});
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('pengaduan', rev);
   const c = list.find((x) => x.id === sel);
 
-  const update = (id: string, patch: Partial<ComplaintState>, entry: string) => {
-    const at = demoNow().toISOString();
-    setList((cur) =>
-      cur.map((x) =>
-        x.id === id ? { ...x, ...patch, log: [...x.log, { at, by: operator, text: entry }] } : x,
-      ),
-    );
-    const num = list.find((x) => x.id === id)?.number ?? '';
-    setFlash({ ok: true, text: `${num}: ${entry} · ${formatJam(at)}.` });
+  const update = (event: ComplaintEvent, entry: string, onOk?: () => void) => {
+    const num = list.find((x) => 'id' in event && x.id === event.id)?.number ?? '';
+    act(event, `${num}: ${entry} · ${demoStamp().jam}.`, onOk);
   };
 
   let detail = null;
@@ -142,15 +129,14 @@ export function ExperienceBoard({
               options={(Object.keys(GRADE_LABEL) as Grade[]).map((g) => [g, GRADE_LABEL[g]])}
             />
             <ReasonButton
-              reason={grade ? null : 'Pilih grading dulu.'}
-              onClick={() => {
+              reason={pending ? 'Menyimpan…' : grade ? null : 'Pilih grading dulu.'}
+              onClick={() =>
                 update(
-                  c.id,
-                  { grade: grade as Grade, stageNow: 1 },
+                  { type: 'aduan.digrading', id: c.id, grade: grade as Grade, when: demoStamp().when },
                   `Digrading ${grade}, diteruskan ke ${c.unit}`,
-                );
-                setGrade('');
-              }}
+                  () => setGrade(''),
+                )
+              }
             >
               Simpan grading dan teruskan
             </ReasonButton>
@@ -160,11 +146,20 @@ export function ExperienceBoard({
           <div className="flex flex-col gap-3">
             <TextField label="Tindak lanjut unit" rows={2} value={followUp} onChange={setFollowUp} />
             <ReasonButton
-              reason={followUp.trim().length < 10 ? 'Tulis tindak lanjut minimal 10 huruf.' : null}
-              onClick={() => {
-                update(c.id, { stageNow: 2 }, followUp.trim());
-                setFollowUp('');
-              }}
+              reason={
+                pending
+                  ? 'Menyimpan…'
+                  : followUp.trim().length < 10
+                    ? 'Tulis tindak lanjut minimal 10 huruf.'
+                    : null
+              }
+              onClick={() =>
+                update(
+                  { type: 'aduan.ditindaklanjuti', id: c.id, text: followUp.trim(), when: demoStamp().when },
+                  followUp.trim(),
+                  () => setFollowUp(''),
+                )
+              }
             >
               Catat tindak lanjut
             </ReasonButton>
@@ -180,15 +175,14 @@ export function ExperienceBoard({
               hint={`Dikirim lewat kanal ${c.channel}; nomor kontak tidak ditampilkan ke unit.`}
             />
             <ReasonButton
-              reason={answerBlock(answer)}
-              onClick={() => {
+              reason={pending ? 'Menyimpan…' : answerBlock(answer)}
+              onClick={() =>
                 update(
-                  c.id,
-                  { stageNow: 3, answeredAt: demoNow().toISOString() },
+                  { type: 'aduan.dijawab', id: c.id, answer: answer.trim(), when: demoStamp().when },
                   'Jawaban dikirim ke pelapor',
-                );
-                setAnswer('');
-              }}
+                  () => setAnswer(''),
+                )
+              }
             >
               Kirim jawaban
             </ReasonButton>
@@ -196,8 +190,13 @@ export function ExperienceBoard({
         )}
         {c.stageNow === 3 && (
           <ReasonButton
-            reason={null}
-            onClick={() => update(c.id, { stageNow: 4 }, 'Pelapor menerima jawaban; pengaduan ditutup')}
+            reason={pending ? 'Menyimpan…' : null}
+            onClick={() =>
+              update(
+                { type: 'aduan.ditutup', id: c.id, when: demoStamp().when },
+                'Pelapor menerima jawaban; pengaduan ditutup',
+              )
+            }
           >
             Tutup pengaduan
           </ReasonButton>
@@ -295,34 +294,13 @@ export function ExperienceBoard({
                   <span>
                     <ReasonButton
                       variant="secondary"
-                      reason={null}
+                      reason={pending ? 'Menyimpan…' : null}
                       onClick={() => {
-                        const number = `ADU-2610-${String(25 + Object.keys(converted).length).padStart(3, '0')}`;
-                        const at = demoNow().toISOString();
-                        setList((cur) => [
-                          {
-                            id: `adu-${r.id}`,
-                            number,
-                            channel: 'Situs web',
-                            unit: r.unit,
-                            reporter: 'Responden survei (anonim)',
-                            contactMasked: 'tanpa kontak',
-                            text: r.comment ?? aspect,
-                            receivedAt: at,
-                            grade: null,
-                            stage: 0,
-                            actions: [],
-                            stageNow: 0,
-                            answeredAt: null,
-                            log: [{ at, by: operator, text: `Dibuat dari survei ${r.id}` }],
-                          },
-                          ...cur,
-                        ]);
-                        setConverted((cur) => ({ ...cur, [r.id]: number }));
-                        setFlash({
-                          ok: true,
-                          text: `Skor rendah ${r.unit} dijadikan pengaduan ${number} · ${formatJam(at)}.`,
-                        });
+                        const number = complaintNumber(store.seq);
+                        act(
+                          { type: 'survei.dijadikan-aduan', responseId: r.id, when: demoStamp().when },
+                          `Skor rendah ${r.unit} dijadikan pengaduan ${number} · ${demoStamp().jam}.`,
+                        );
                       }}
                     >
                       Jadikan pengaduan<span className="sr-only"> dari survei {r.id}</span>

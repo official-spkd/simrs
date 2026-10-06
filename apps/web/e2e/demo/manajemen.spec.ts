@@ -1,7 +1,35 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 
-/** Integrasi, logistik, mutu, dan pratinjau aplikasi pasien/dokter (mode presentasi, ADR-0023). */
+/** Masuk dengan akun berposisi ganda lalu pilih posisi awal. */
+async function loginWithPosition(page: Page, account: Account, roleName: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
+
+/**
+ * Integrasi, logistik, mutu, dan pratinjau aplikasi pasien/dokter (mode presentasi, ADR-0023). Aksi logistik dan
+ * aplikasi tersimpan di toko demo bersama (ADR-0085): tiap alur memeriksa bertahan (muat ulang) dan mengalir.
+ */
 
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
@@ -67,7 +95,7 @@ test.describe('domain manajemen', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('logistik: item tercentang seperti mockup, PO terbuka terkunci, usulan wajib berisi item, ajukan (simulasi)', async ({
+  test('logistik: usulan PO tersimpan, penyetuju ≠ pengusul, PO → kirim → terima menambah stok, bertahan', async ({
     page,
   }) => {
     const direksi = await createAccount({ roles: ['manajemen'] });
@@ -76,9 +104,8 @@ test.describe('domain manajemen', () => {
     await expect(
       page.getByRole('heading', { name: 'Rantai pasok · stok dan pengadaan', level: 1 }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('region', { name: 'Indikator logistik' }).getByText('Rp 4,82 M'),
-    ).toBeVisible();
+    const kpi = page.getByRole('region', { name: 'Indikator logistik' });
+    await expect(kpi.getByText('Rp 4,82 M')).toBeVisible();
 
     // Mockup: semua item yang bisa diusulkan sudah tercentang; item di PO terbuka terkunci (tidak dipesan ganda).
     const make = page.getByRole('button', { name: /^Buat usulan PO/ });
@@ -103,11 +130,47 @@ test.describe('domain manajemen', () => {
     const draft = page.getByRole('region', { name: 'Draf usulan PO-2610-032' });
     await expect(draft).toContainText('Rp 14.700.000');
     await draft.getByRole('button', { name: 'Ajukan ke direktur' }).click();
-    await expect(
-      page.getByText(/Usulan PO-2610-032 diajukan ke direktur .*\(simulasi, tidak disimpan\)/),
-    ).toBeVisible();
+    await expect(page.getByText(/Usulan PO-2610-032 diajukan ke direktur pukul/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
     await expect(table.getByText('Masuk PO-2610-032').filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Pengadaan berjalan' })).toContainText('PO-2610-032');
+    const orders = page.getByRole('region', { name: 'Pengadaan berjalan' });
+    // Pengusul (pengguna sesi yang sama, walau posisinya Manajemen) tidak bisa menyetujui usulannya sendiri.
+    const own = orders.getByRole('listitem', { name: /PO-2610-032/ });
+    await expect(own).toContainText('penyetuju harus pengguna lain');
+    await expect(own.getByRole('button', { name: /Setujui/ })).toHaveCount(0);
+
+    // Bertahan setelah muat ulang.
+    await page.reload();
+    await expect(own).toContainText('Diajukan');
+    await expect(table.getByText('Masuk PO-2610-032').filter({ visible: true }).first()).toBeVisible();
+
+    // PO darurat enoksaparin: setujui → terbit → dikirim → terima barang (stok +300, keluar dari daftar ROP).
+    const enox = orders.getByRole('listitem', { name: /PO-2610-031/ });
+    await enox.getByRole('button', { name: 'Setujui PO-2610-031' }).click();
+    await expect(enox).toContainText(/Disetujui direktur .* oleh/);
+    await enox.getByRole('button', { name: 'Terbitkan PO PO-2610-031' }).click();
+    await expect(enox).toContainText('PO terbit ke Distributor farmasi A');
+    await enox.getByRole('button', { name: 'Konfirmasi dikirim pemasok PO-2610-031' }).click();
+    await enox.getByRole('button', { name: 'Terima barang PO-2610-031' }).click();
+    const gr = page.getByRole('region', { name: 'Penerimaan barang PO-2610-031' });
+    await gr.getByLabel('Batch Enoksaparin 60 mg/0,6 mL').fill('ENX2610B');
+    await gr.getByLabel('Kedaluwarsa Enoksaparin 60 mg/0,6 mL').fill('2028-06-30');
+    await gr.getByRole('button', { name: 'Catat penerimaan' }).click();
+    await expect(page.getByText(/GRN-2610-0145 dicatat .*diteruskan ke Hutang usaha/)).toBeVisible();
+    await expect(enox).toContainText('Diterima GRN-2610-0145');
+    await expect(table.getByRole('checkbox', { name: /Enoksaparin/ })).toHaveCount(0);
+    await expect(kpi.getByText('Rp 4,86 M')).toBeVisible();
+
+    await page.reload();
+    await expect(enox).toContainText('Diterima GRN-2610-0145');
+    await expect(kpi.getByText('Rp 4,86 M')).toBeVisible();
+
+    // Kedaluwarsa FEFO: tindakan tersimpan atas nama pengguna sesi.
+    const ed = page.getByRole('region', { name: 'Kedaluwarsa ≤ 90 hari' });
+    await ed.getByRole('button', { name: 'Pindahkan ke depo ICU' }).first().click();
+    await expect(ed).toContainText(/Dipindahkan ke depo ICU .* oleh/);
+    await page.reload();
+    await expect(ed).toContainText(/Dipindahkan ke depo ICU .* oleh/);
 
     await expectNoHorizontalOverflow(page);
   });
@@ -140,7 +203,7 @@ test.describe('domain manajemen', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('pratinjau aplikasi pasien dan dokter di kanvas ponsel berskala; posisi lain ditolak', async ({
+  test('pratinjau aplikasi pasien: gula darah, booking jadwal, akses keluarga tersimpan; aplikasi dokter: Hartono lewat Simulasi', async ({
     page,
   }) => {
     const perawat = await createAccount({ roles: ['perawat'] });
@@ -160,21 +223,48 @@ test.describe('domain manajemen', () => {
     await glucose.getByRole('button', { name: 'Simpan' }).click();
     await expect(glucose).toContainText('di bawah sasaran');
     await expect(glucose.getByRole('alert')).toContainText('Gula darah rendah');
-    await phone.getByRole('button', { name: /Hasil lab/ }).click();
-    await expect(phone.getByRole('heading', { name: 'Hasil lab' })).toBeVisible();
-    await expect(phone.getByText('Belum ada hasil yang dirilis untuk Anda.')).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Booking jadwal dari Jadwal dokter (kuota JKN tersisa) → kode BK, tampil di Jadwal + Notifikasi.
+    await phone.getByRole('button', { name: /Daftar berobat/ }).click();
+    const booking = phone.getByRole('region', { name: 'Booking jadwal' });
+    await booking
+      .getByRole('button', { name: /^Pesan/ })
+      .first()
+      .click();
+    await expect(booking.getByRole('status')).toContainText('Booking BK-2610-041 terdaftar');
+    await expect(booking.getByRole('list', { name: 'Booking saya' })).toContainText('BK-2610-041');
+
+    // Bertahan setelah muat ulang: gula darah, booking, notifikasi.
+    await page.reload();
+    await expect(glucose).toContainText('65 mg/dL');
+    await expect(glucose.getByRole('alert')).toContainText('Gula darah rendah');
+    await phone.getByRole('button', { name: /Daftar berobat/ }).click();
+    await expect(booking.getByRole('list', { name: 'Booking saya' })).toContainText('BK-2610-041');
+    await phone.getByRole('button', { name: 'Notifikasi' }).click();
+    await expect(phone.getByText('Booking BK-2610-041 terdaftar')).toBeVisible();
+
+    // Akses keluarga: setujui permintaan dengan lingkup + masa berlaku; bertahan.
+    await page.reload();
+    await phone.getByRole('button', { name: /^Keluarga/ }).click();
+    const family = phone.getByRole('region', { name: 'Akses keluarga' });
+    await family.getByText('Sampai saya cabut').click();
+    await family.getByRole('checkbox', { name: /Saya menyetujui/ }).check();
+    await family.getByRole('button', { name: 'Setujui akses' }).click();
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).toContainText('Bayu Nugroho');
+    await page.reload();
+    await phone.getByRole('button', { name: /^Keluarga/ }).click();
+    await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).toContainText('Bayu Nugroho');
 
     await page.goto('/pratinjau/aplikasi-dokter');
     const doctor = page.getByRole('region', { name: 'Pratinjau aplikasi dokter' });
     await expect(doctor).toHaveAttribute('data-scale', /\d/);
     const critical = doctor.getByRole('alert', { name: 'Nilai kritis' });
     await expect(critical).toContainText('Kalium 6,8 mmol/L');
-    const readback = critical.getByRole('button', { name: 'Read-back benar' });
-    await expect(readback).toBeDisabled();
+    // Pasien skenario: read-back tersimpan hanya lewat Simulasi (tidak ada lagi read-back lokal "tidak disimpan").
     await critical.getByLabel(/dibacakan ulang/).fill('6,8');
-    await expect(readback).toBeEnabled();
-    await readback.click();
-    await expect(doctor.getByRole('status', { name: 'Nilai kritis' })).toContainText('read-back tercatat');
+    await expect(critical.getByRole('button', { name: 'Read-back benar' })).toBeDisabled();
+    await expect(critical).toContainText('pasien skenario Simulasi IGD');
 
     // Mockup AppDokter: Profil → Keluar (hanya pratinjau ponsel) → Masuk lagi.
     await doctor.getByRole('button', { name: 'Profil' }).click();
@@ -184,7 +274,49 @@ test.describe('domain manajemen', () => {
     await expect(doctor.getByRole('region', { name: 'Daftar pasien' })).toBeVisible();
   });
 
-  test('pratinjau aplikasi pasien: antrean maju sampai giliran mengirim notifikasi (mockup AppPasien)', async ({
+  test('aplikasi dokter: read-back nilai kritis tersimpan ke Pusat hasil kritis (tampil di Lab); co-sign CPPT residen', async ({
+    page,
+  }) => {
+    const akun = await createAccount({
+      roles: ['dokter', 'analis_lab'],
+      displayName: 'dr. Penerima Aplikasi Fiktif',
+    });
+    await loginWithPosition(page, akun, 'Dokter (DPJP)');
+    await page.goto('/pratinjau/aplikasi-dokter');
+    const doctor = page.getByRole('region', { name: 'Pratinjau aplikasi dokter' });
+    const yusuf = doctor.getByRole('group', { name: 'Nilai kritis Tn. Yusuf Hidayat' });
+    const head = (await yusuf.locator('span').first().textContent()) ?? '';
+    const value = /· ([\d,.]+)/.exec(head)?.[1] ?? '';
+    expect(value).not.toBe('');
+    const ok = yusuf.getByRole('button', { name: /Read-back benar/ });
+    await yusuf.getByRole('textbox').fill('1,0');
+    await expect(ok).toBeDisabled();
+    await yusuf.getByRole('textbox').fill(value);
+    await ok.click();
+    await expect(yusuf.getByRole('status')).toContainText(
+      /Read-back tercatat \d{2}\.\d{2} oleh dr\. Penerima Aplikasi Fiktif/,
+    );
+
+    // Co-sign CPPT residen atas nama pengguna sesi; bertahan setelah muat ulang.
+    const cosign = doctor.getByRole('region', { name: 'Co-sign CPPT residen' });
+    await expect(cosign).toContainText('3 menunggu');
+    await cosign.getByRole('button', { name: 'Setujui (TTE)' }).click();
+    await expect(cosign).toContainText(/Ditandatangani \(TTE\) .* oleh dr\. Penerima Aplikasi Fiktif/);
+    await expect(cosign).toContainText('2 menunggu');
+    await page.reload();
+    await expect(cosign).toContainText('2 menunggu');
+    await expect(yusuf.getByRole('status')).toContainText('Read-back tercatat');
+
+    // Mengalir: Laboratorium melihat nilai kritis sudah dilaporkan ke dokter itu.
+    await page.goto('/');
+    await switchPosition(page, 'Analis laboratorium');
+    await page.goto('/penunjang/lab');
+    await expect(
+      page.getByRole('region', { name: /Nilai kritis dilaporkan · Tn\. Yusuf Hidayat/ }),
+    ).toContainText('dr. Penerima Aplikasi Fiktif');
+  });
+
+  test('pratinjau aplikasi pasien: posisi antrean hidup dari papan antrean (mockup AppPasien)', async ({
     page,
   }) => {
     const perawat = await createAccount({ roles: ['perawat'] });
@@ -197,14 +329,13 @@ test.describe('domain manajemen', () => {
     const phone = page.getByRole('region', { name: 'Pratinjau aplikasi pasien' });
     const queue = phone.getByRole('region', { name: 'Antrean aktif' });
     await expect(queue).toContainText('PD-027');
-    const advance = queue.getByRole('button', { name: 'Simulasi antrean maju satu pasien' });
-    for (let i = 0; i < 20 && (await advance.count()) > 0; i++) await advance.click();
-    await expect(advance).toHaveCount(0);
-    await expect(queue).toContainText('Giliran Anda.');
+    await expect(queue).toContainText(/Sedang dilayani/);
+    await expect(queue.getByRole('button', { name: /Simulasi antrean maju/ })).toHaveCount(0);
+    await expect(queue).toContainText(/\d+ pasien lagi|Giliran Anda/);
 
     await phone.getByRole('button', { name: 'Notifikasi' }).click();
     const notif = phone.getByRole('region', { name: 'Notifikasi' });
-    await expect(notif.getByText('Giliran Anda dipanggil')).toBeVisible();
+    await expect(notif.getByText(/Antrean tersisa \d pasien|Giliran Anda dipanggil/)).toBeVisible();
     await expect(notif.getByText('SEP terbit, antrean poli aktif')).toBeVisible();
   });
 });

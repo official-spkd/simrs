@@ -1,11 +1,10 @@
 'use client';
 
-import { formatJam, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
-import { Alert, Button, Chip, type ChipTone } from '@simrs/ui';
+import { formatTanggal, formatTanggalWaktu } from '@simrs/shared';
+import { Alert, Chip, type ChipTone } from '@simrs/ui';
 import { useState } from 'react';
 import {
   CheckField,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -18,83 +17,82 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { PrivilegeApplication } from '@/lib/demo/fixtures/kredensial';
 import type { Employee } from '@/lib/demo/fixtures/pegawai';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   CRED_STAGES,
   credentialVerifyBlock,
   DECISION_LABEL,
-  type GrantedPrivilege,
   orderGuard,
   type OrderGuardResult,
   type PrivilegeDecision,
   reviewBlock,
-  rkkExpiry,
-  rkkNumber,
 } from '@/lib/kredensial';
+import {
+  COMMITTEE_ROLES,
+  type CredentialStoreState,
+  DIRECTOR_ROLES,
+  licensesOf,
+  REVIEW_ROLES,
+} from '@/lib/kredensial-toko';
 import { licenseStatus, licenseText, type LicenseStatus, worstLicense } from '@/lib/sdm';
 
 const TONE: Record<LicenseStatus, ChipTone> = { aktif: 'success', segera: 'warning', kedaluwarsa: 'danger' };
 
-interface AppState {
-  stage: number;
-  docs: boolean[];
-  decisions: Record<string, PrivilegeDecision | undefined>;
-  note: string;
-  at: Record<number, string>;
-  rkk: { number: string; expiry: string } | null;
-}
-
 /**
  * B04 · Pengajuan kewenangan klinis sampai RKK terbit, daftar RKK berlaku (≤ 60 hari ditandai), dan uji kait CPOE
- * yang memblokir order tanpa kewenangan atau dengan SIP kedaluwarsa.
+ * yang memblokir order tanpa kewenangan atau dengan SIP kedaluwarsa. Langkah telaah/komite oleh posisi Dokter
+ * (rapat komite oleh pengguna lain dari penelaah), RKK oleh posisi Manajemen; izin praktik dari SDM. Tersimpan di toko
+ * demo (domain `kredensial`, ADR-0085).
  */
 export function CredentialBoard({
   applications,
   employees,
-  initialGranted,
+  store,
+  rev,
+  viewer,
   today,
 }: {
   applications: readonly PrivilegeApplication[];
   employees: readonly Employee[];
-  initialGranted: readonly GrantedPrivilege[];
+  store: CredentialStoreState;
+  rev: number;
+  viewer: { userId: string; name: string; role: string | null };
   today: string;
 }) {
   const [sel, setSel] = useState(applications[0]?.id ?? '');
-  const [state, setState] = useState<Record<string, AppState>>(() =>
-    Object.fromEntries(
-      applications.map((a) => [
-        a.id,
-        {
-          stage: a.stage,
-          docs: a.documents.map((d) => d.ok),
-          decisions: {},
-          note: '',
-          at: (a.verifiedAt ? { 1: formatTanggalWaktu(a.verifiedAt) } : {}) as Record<number, string>,
-          rkk: null,
-        },
-      ]),
-    ),
-  );
-  const [granted, setGranted] = useState<GrantedPrivilege[]>([...initialGranted]);
-  const [seq, setSeq] = useState(14);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const [docDraft, setDocDraft] = useState<Record<string, boolean[]>>({});
+  const [decDraft, setDecDraft] = useState<Record<string, Record<string, PrivilegeDecision | undefined>>>({});
+  const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
+  const { act, pending, flash } = useTokoAction('kredensial', rev);
   const [testWho, setTestWho] = useState('');
   const [testItem, setTestItem] = useState('');
   const [testResult, setTestResult] = useState<OrderGuardResult | null>(null);
+  const granted = store.granted;
+  const has = (roles: readonly string[]) => !!viewer.role && roles.includes(viewer.role);
 
   const empByName = new Map(employees.map((e) => [e.name, e]));
   const a = applications.find((x) => x.id === sel);
-  const s = a ? state[a.id] : undefined;
-  const patch = (id: string, p: Partial<AppState>) =>
-    setState((cur) => ({ ...cur, [id]: { ...(cur[id] as AppState), ...p } }));
-  const stamp = () => formatTanggalWaktu(demoNow());
-
-  const advance = (to: number, text: string, extra: Partial<AppState> = {}) => {
-    if (!a || !s) return;
-    patch(a.id, { stage: to, at: { ...s.at, [to]: stamp() }, ...extra });
-    setFlash({ ok: true, text: `${a.number}: ${text} · ${formatJam(demoNow())}.` });
+  const p = a ? store.apps[a.id] : undefined;
+  const s =
+    a && p
+      ? {
+          ...p,
+          docs: docDraft[a.id] ?? p.docs,
+          decisions: p.stage > 1 ? p.decisions : { ...p.decisions, ...(decDraft[a.id] ?? {}) },
+          note: p.stage > 1 ? p.note : (noteDraft[a.id] ?? ''),
+        }
+      : undefined;
+  const stamp = (i: number) => {
+    const at = s?.at[i as 1 | 2 | 3 | 4];
+    const who = s?.by[i as 1 | 2 | 3 | 4];
+    return at ? `${formatTanggalWaktu(at)}${who ? ` · ${who.name}` : ''}` : null;
+  };
+  const advance = (event: Parameters<typeof act>[0], text: string) => {
+    if (!a) return;
+    act(event, `${a.number}: ${text} · ${demoStamp().jam}.`);
   };
 
   const practitioners = [
@@ -109,11 +107,31 @@ export function CredentialBoard({
   );
   if (a && s) {
     const emp = empByName.get(a.practitioner);
-    const licenses = emp?.licenses ?? [];
+    const licenses = licensesOf(store, a.practitioner);
     const w = worstLicense(licenses, today);
     const docs = a.documents.map((d, i) => ({ label: d.label, ok: s.docs[i] ?? false }));
-    const verify = credentialVerifyBlock(licenses, today, docs);
-    const review = reviewBlock(a.items, s.decisions, s.note);
+    const verify = pending ? 'Menyimpan…' : credentialVerifyBlock(licenses, today, docs);
+    const review = pending
+      ? 'Menyimpan…'
+      : !has(REVIEW_ROLES)
+        ? 'Telaah oleh mitra bestari (posisi Dokter).'
+        : viewer.name === a.practitioner
+          ? 'Praktisi tidak bisa menelaah pengajuannya sendiri.'
+          : reviewBlock(a.items, s.decisions, s.note);
+    const committee = pending
+      ? 'Menyimpan…'
+      : !has(COMMITTEE_ROLES)
+        ? `Rekomendasi diputus rapat ${a.committee.toLowerCase()} (posisi Dokter).`
+        : viewer.name === a.practitioner
+          ? 'Praktisi tidak bisa memutus pengajuannya sendiri.'
+          : s.by[2]?.userId === viewer.userId
+            ? 'Anda penelaah pengajuan ini: rapat komite diputus pengguna lain (pemisahan tugas).'
+            : null;
+    const director = pending
+      ? 'Menyimpan…'
+      : has(DIRECTOR_ROLES)
+        ? null
+        : 'RKK dan SPK diterbitkan direktur (posisi Manajemen).';
     const grantedItems = a.items.filter((i) => s.decisions[i] && s.decisions[i] !== 'tidak');
     let body;
     if (s.stage === 0) {
@@ -133,12 +151,19 @@ export function CredentialBoard({
               key={d.label}
               label={`${d.label}${d.ok ? '' : ' (susulan)'}`}
               checked={s.docs[i] ?? false}
-              onChange={(v) => patch(a.id, { docs: s.docs.map((x, j) => (j === i ? v : x)) })}
+              onChange={(v) =>
+                setDocDraft((cur) => ({ ...cur, [a.id]: s.docs.map((x, j) => (j === i ? v : x)) }))
+              }
             />
           ))}
           <ReasonButton
             reason={verify}
-            onClick={() => advance(1, `berkas lengkap, diteruskan ke ${a.reviewer}`)}
+            onClick={() =>
+              advance(
+                { type: 'berkas.diverifikasi', id: a.id, docs: s.docs, when: demoStamp().when },
+                `berkas lengkap, diteruskan ke ${a.reviewer}`,
+              )
+            }
           >
             Berkas lengkap, teruskan ke mitra bestari
           </ReasonButton>
@@ -155,9 +180,10 @@ export function CredentialBoard({
               value={s.decisions[i] ?? ''}
               placeholder="Pilih keputusan…"
               onChange={(v) =>
-                patch(a.id, {
-                  decisions: { ...s.decisions, [i]: (v || undefined) as PrivilegeDecision | undefined },
-                })
+                setDecDraft((cur) => ({
+                  ...cur,
+                  [a.id]: { ...(cur[a.id] ?? {}), [i]: (v || undefined) as PrivilegeDecision | undefined },
+                }))
               }
               options={(Object.keys(DECISION_LABEL) as PrivilegeDecision[]).map((k) => [
                 k,
@@ -169,10 +195,26 @@ export function CredentialBoard({
             label="Catatan mitra bestari"
             rows={3}
             value={s.note}
-            onChange={(v) => patch(a.id, { note: v })}
+            onChange={(v) => setNoteDraft((cur) => ({ ...cur, [a.id]: v }))}
             hint="Dasar penilaian: logbook, hasil evaluasi praktik, observasi langsung."
           />
-          <ReasonButton reason={review} onClick={() => advance(2, 'hasil telaah dikirim ke rapat komite')}>
+          <ReasonButton
+            reason={review}
+            onClick={() =>
+              advance(
+                {
+                  type: 'telaah.dikirim',
+                  id: a.id,
+                  decisions: Object.fromEntries(
+                    Object.entries(s.decisions).filter((e): e is [string, PrivilegeDecision] => !!e[1]),
+                  ),
+                  note: s.note.trim(),
+                  when: demoStamp().when,
+                },
+                'hasil telaah dikirim ke rapat komite',
+              )
+            }
+          >
             Kirim hasil telaah ke komite
           </ReasonButton>
         </div>
@@ -202,14 +244,17 @@ export function CredentialBoard({
               </li>
             ))}
           </ul>
-          <span>
-            <Button
-              variant="primary"
-              onClick={() => advance(3, `${a.committee} merekomendasikan ke direktur`)}
-            >
-              Setujui rekomendasi komite
-            </Button>
-          </span>
+          <ReasonButton
+            reason={committee}
+            onClick={() =>
+              advance(
+                { type: 'komite.disetujui', id: a.id, when: demoStamp().when },
+                `${a.committee} merekomendasikan ke direktur`,
+              )
+            }
+          >
+            Setujui rekomendasi komite
+          </ReasonButton>
         </div>
       );
     } else if (s.stage === 3) {
@@ -219,39 +264,22 @@ export function CredentialBoard({
             Direktur menerbitkan Rincian Kewenangan Klinis (RKK) dan Surat Penugasan Klinis untuk{' '}
             {grantedItems.length} butir, berlaku 3 tahun.
           </span>
-          <span>
-            <Button
-              variant="primary"
-              onClick={() => {
-                const number = rkkNumber(seq);
-                const expiry = rkkExpiry(today);
-                setSeq((n) => n + 1);
-                setGranted((cur) => [
-                  ...cur.filter((g) => !(g.practitioner === a.practitioner && a.items.includes(g.item))),
-                  ...grantedItems.map((item) => ({
-                    practitioner: a.practitioner,
-                    item,
-                    decision: s.decisions[item] as 'diberikan' | 'supervisi',
-                    expiry,
-                  })),
-                ]);
-                advance(
-                  4,
-                  `${number} terbit, berlaku s.d. ${formatTanggal(expiry)}; CPOE menegakkan kewenangan baru`,
-                  {
-                    rkk: { number, expiry },
-                  },
-                );
-              }}
-            >
-              Terbitkan RKK dan SPK (direktur)
-            </Button>
-          </span>
+          <ReasonButton
+            reason={director}
+            onClick={() =>
+              advance(
+                { type: 'rkk.diterbitkan', id: a.id, when: demoStamp().when },
+                'RKK dan SPK terbit; CPOE menegakkan kewenangan baru',
+              )
+            }
+          >
+            Terbitkan RKK dan SPK (direktur)
+          </ReasonButton>
         </div>
       );
     } else {
       body = (
-        <Alert level="success" title={`${s.rkk?.number ?? 'RKK'} terbit · ${s.at[4] ?? ''}`}>
+        <Alert level="success" title={`${s.rkk?.number ?? 'RKK'} terbit · ${stamp(4) ?? ''}`}>
           {grantedItems.length} butir kewenangan berlaku s.d. {s.rkk ? formatTanggal(s.rkk.expiry) : '—'} dan
           langsung ditegakkan saat order di CPOE.
           {a.items.length > grantedItems.length &&
@@ -268,7 +296,7 @@ export function CredentialBoard({
           label={`Tahap ${a.number}`}
           stages={CRED_STAGES.map((label, i) => ({
             label,
-            at: i === 0 ? formatTanggal(a.submittedAt) : (s.at[i] ?? null),
+            at: i === 0 ? formatTanggal(a.submittedAt) : stamp(i),
           }))}
           current={s.stage >= 4 ? CRED_STAGES.length : s.stage + 1}
         />
@@ -291,7 +319,7 @@ export function CredentialBoard({
         <div className="min-w-0 flex-[1_1_300px] xl:max-w-[380px]">
           <Panel title="Pengajuan kewenangan" sub="Komite medik dan komite keperawatan" flush>
             {applications.map((x) => {
-              const st = state[x.id] as AppState;
+              const st = store.apps[x.id] ?? { stage: 0 };
               return (
                 <PickRow
                   key={x.id}
@@ -378,9 +406,7 @@ export function CredentialBoard({
               reason={testWho && testItem ? null : 'Pilih praktisi dan tindakan dulu.'}
               variant="secondary"
               onClick={() =>
-                setTestResult(
-                  orderGuard(testWho, testItem, granted, empByName.get(testWho)?.licenses ?? [], today),
-                )
+                setTestResult(orderGuard(testWho, testItem, granted, licensesOf(store, testWho), today))
               }
             >
               Uji order

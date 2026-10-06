@@ -108,15 +108,36 @@ export function rosterGaps(roster: Roster, days: number, minimum: Record<Shift, 
   return gaps;
 }
 
-/** Dinas malam lalu dinas pagi keesokan harinya (jeda istirahat < 8 jam). */
-export function restViolations(roster: Roster, days: number): Array<{ staffId: string; day: number }> {
-  const out: Array<{ staffId: string; day: number }> = [];
+/** Batas jam dinas per perawat per minggu: melebihi = jadwal tidak bisa terbit (bukan hanya warna). */
+export const MAX_WEEK_HOURS = 40;
+
+export interface RestViolation {
+  staffId: string;
+  /** Hari dinas sesudah dinas malam. */
+  day: number;
+  /** Dinas sesudah malam yang melanggar jeda (pagi atau siang). */
+  shift: Exclude<Shift, 'M'>;
+}
+
+/**
+ * Dinas malam (berakhir 07.00) lalu dinas pagi atau siang keesokan harinya: jeda istirahat < 8 jam (siang mulai
+ * 14.00 = jeda 7 jam). Utang bug 6 Okt: dulu hanya malam → pagi yang diperiksa.
+ */
+export function restViolations(roster: Roster, days: number): RestViolation[] {
+  const out: RestViolation[] = [];
   for (let day = 0; day < days - 1; day++) {
     const night = roster[day]?.M ?? [];
-    const morning = roster[day + 1]?.P ?? [];
-    for (const id of night) if (morning.includes(id)) out.push({ staffId: id, day: day + 1 });
+    for (const shift of ['P', 'S'] as const) {
+      const next = roster[day + 1]?.[shift] ?? [];
+      for (const id of night) if (next.includes(id)) out.push({ staffId: id, day: day + 1, shift });
+    }
   }
   return out;
+}
+
+/** Perawat dengan jam dinas mingguan di atas batas. */
+export function overHours(roster: Roster, staffIds: readonly string[], max = MAX_WEEK_HOURS): string[] {
+  return staffIds.filter((id) => weeklyHours(roster, id) > max);
 }
 
 export function weeklyHours(roster: Roster, staffId: string): number {
@@ -127,10 +148,20 @@ export function weeklyHours(roster: Roster, staffId: string): number {
   return h;
 }
 
-/** Gerbang terbit: semua dinas memenuhi minimum dan tidak ada jeda istirahat yang dilanggar. */
-export function publishBlock(gaps: readonly RosterGap[], violations: readonly unknown[]): string | null {
+/**
+ * Gerbang terbit: semua dinas memenuhi minimum, tidak ada jeda istirahat yang dilanggar, dan tidak ada perawat di atas
+ * batas jam mingguan (utang bug 6 Okt: > 40 jam dulu hanya diberi warna).
+ */
+export function publishBlock(
+  gaps: readonly RosterGap[],
+  violations: readonly unknown[],
+  over: readonly string[] = [],
+): string | null {
   if (gaps.length > 0) return `${gaps.length} dinas di bawah jumlah minimum; isi dulu sebelum terbit.`;
-  if (violations.length > 0) return `${violations.length} jeda istirahat malam → pagi dilanggar; ubah dulu.`;
+  if (violations.length > 0)
+    return `${violations.length} jeda istirahat setelah dinas malam dilanggar; ubah dulu.`;
+  if (over.length > 0)
+    return `${over.length} perawat melebihi ${MAX_WEEK_HOURS} jam per minggu; kurangi dinasnya dulu.`;
   return null;
 }
 

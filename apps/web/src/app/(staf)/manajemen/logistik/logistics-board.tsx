@@ -1,24 +1,27 @@
 'use client';
 
-import {
-  formatJam,
-  formatRupiah,
-  formatTanggal,
-  type LogisticsOverview,
-  type PurchaseOrderDraft,
-} from '@simrs/shared';
+import { formatRupiah, type LogisticsOverview, type PurchaseOrderDraft } from '@simrs/shared';
 import { Alert, Button, cx, FilterChip } from '@simrs/ui';
-import { type ReactNode, useState, useTransition } from 'react';
+import { type ReactNode, useState } from 'react';
 import { GatedButton } from '@/components/gated-button';
 import { ExpiryPanel } from '@/components/manajemen/expiry-panel';
-import { PoDraftPanel } from '@/components/manajemen/po-draft-panel';
-import { ProcurementList, type ProcurementRow } from '@/components/manajemen/procurement-list';
-import { ReorderRow } from '@/components/manajemen/reorder-row';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { GoodsReceiptPanel } from '@/components/manajemen/goods-receipt-panel';
-import { grNumber, payableDue, type ReceiptLine } from '@/lib/logistik-terima';
-import { buildPoDraft, daysOfCover, needsReorder } from '@/lib/manajemen';
-import { submitPoAction } from './actions';
+import { PoDraftPanel } from '@/components/manajemen/po-draft-panel';
+import { ProcurementList } from '@/components/manajemen/procurement-list';
+import { ReorderRow } from '@/components/manajemen/reorder-row';
+import { STALE_TEXT } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import { useStoreAction } from '@/lib/demo/store/client';
+import type { ReceiptLine } from '@/lib/logistik-terima';
+import type { PoView } from '@/lib/logistik-toko';
+import { buildPoDraft, needsReorder } from '@/lib/manajemen';
+import {
+  expiryAction,
+  type LogisticsActionResult,
+  poStepAction,
+  receiveGoodsAction,
+  submitPoAction,
+} from './actions';
 
 type ClassFilter = 'semua' | 'A' | 'V';
 const FILTERS: Array<{ id: ClassFilter; label: string }> = [
@@ -26,19 +29,24 @@ const FILTERS: Array<{ id: ClassFilter; label: string }> = [
   { id: 'A', label: 'ABC-A' },
   { id: 'V', label: 'VEN-V' },
 ];
-const poNumber = (n: number) => `PO-2610-${String(n).padStart(3, '0')}`;
 
 /**
- * B01 · Stok perlu tindakan → draf usulan PO → ajukan (Server Action simulasi), kedaluwarsa FEFO, dan
- * pengadaan berjalan (mockup Logistik). "Buat usulan PO" nonaktif beralasan sampai ada item tercentang.
+ * B01 · Stok perlu tindakan → draf usulan PO → ajukan → setujui (Manajemen, pengusul ≠ penyetuju) → terbit PO →
+ * dikirim → penerimaan barang (stok bertambah, kejadian ke Hutang usaha), kedaluwarsa FEFO (mockup Logistik). Semua
+ * aksi tersimpan di toko demo (domain `logistik`, ADR-0085); "Buat usulan PO" nonaktif beralasan sampai ada item
+ * tercentang.
  */
 export function LogisticsBoard({
   data,
   today,
   canApprove,
-  receiptLines = {},
-  suppliers = {},
-  openPo = {},
+  viewerId,
+  rev,
+  orders,
+  expiryDone,
+  receiptLines,
+  suppliers,
+  openPo,
   heading,
   kpis,
   banner,
@@ -48,48 +56,38 @@ export function LogisticsBoard({
   kpis?: ReactNode;
   banner?: ReactNode;
   /** Item yang sudah masuk PO terbuka (id item -> nomor PO): terkunci agar tidak dipesan ganda. */
-  openPo?: Record<string, string>;
+  openPo: Record<string, string>;
   data: LogisticsOverview;
   today: string;
   canApprove: boolean;
-  /** Baris PO tahap "kirim" untuk penerimaan barang (menambah stok dan utang usaha). */
-  receiptLines?: Record<string, readonly ReceiptLine[]>;
-  suppliers?: Record<string, string>;
+  viewerId: string;
+  /** Revisi domain toko `logistik` yang dilihat layar ini. */
+  rev: number;
+  orders: readonly PoView[];
+  /** Teks tindakan kedaluwarsa tersimpan per batch. */
+  expiryDone: Record<string, string>;
+  /** Baris PO yang bisa diterima (menambah stok dan utang penerimaan). */
+  receiptLines: Record<string, readonly ReceiptLine[]>;
+  suppliers: Record<string, string>;
 }) {
   const [cls, setCls] = useState<ClassFilter>('semua');
   // Mockup: semua item yang bisa diusulkan sudah tercentang saat layar dibuka (kecuali yang sudah ada di PO terbuka).
-  const [picked, setPicked] = useState<Set<string>>(
-    () => new Set(data.reorder.filter((i) => !openPo[i.id]).map((i) => i.id)),
-  );
-  const [inPo, setInPo] = useState<Record<string, string>>(openPo);
+  const [unpicked, setUnpicked] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<PurchaseOrderDraft | null>(null);
-  const [newPos, setNewPos] = useState<ProcurementRow[]>([]);
-  const [approved, setApproved] = useState<Record<string, string>>({});
-  const [nextNo, setNextNo] = useState(() => Number(data.nextPoNumber.slice(-3)));
   const [flash, setFlash] = useState<{ ok: boolean; text: string } | null>(null);
   const [opname, setOpname] = useState(false);
-  const [pending, startTransition] = useTransition();
   const [receiving, setReceiving] = useState<string | null>(null);
-  const [received, setReceived] = useState<Record<string, string>>({});
-  const [stockAdd, setStockAdd] = useState<Record<string, number>>({});
-  // Nomor GRN berikutnya (GRN-2610-0144 = cairan infus pagi ini, lihat hutang usaha).
-  const [grSeq, setGrSeq] = useState(145);
-  // Stok bertambah setelah penerimaan; item yang tidak lagi di bawah ROP keluar dari daftar.
-  const reorder = data.reorder
-    .map((i) =>
-      stockAdd[i.id]
-        ? {
-            ...i,
-            stock: i.stock + (stockAdd[i.id] ?? 0),
-            daysOfCover: daysOfCover(i.stock + (stockAdd[i.id] ?? 0), i.avgDailyUse),
-          }
-        : i,
-    )
-    .filter(needsReorder);
+  const { run, pending } = useStoreAction(rev);
+  const done = (after?: () => void) => (r: LogisticsActionResult) => {
+    setFlash({ ok: r.ok, text: r.stale ? STALE_TEXT : r.message });
+    if (r.ok) after?.();
+  };
+  // Stok sudah termasuk penerimaan barang (toko); item yang tidak lagi di bawah ROP keluar dari daftar.
+  const reorder = data.reorder.filter(needsReorder);
 
   const visible = reorder.filter((i) => cls === 'semua' || (cls === 'A' ? i.abc === 'A' : i.ven === 'V'));
-  const pickable = visible.filter((i) => !inPo[i.id]);
-  const chosen = pickable.filter((i) => picked.has(i.id));
+  const pickable = visible.filter((i) => !openPo[i.id]);
+  const chosen = pickable.filter((i) => !unpicked.has(i.id));
   const allOn = pickable.length > 0 && chosen.length === pickable.length;
   const reason = draft
     ? 'Selesaikan draf yang terbuka dulu.'
@@ -98,65 +96,40 @@ export function LogisticsBoard({
       : null;
 
   const toggle = (id: string) =>
-    setPicked((cur) => {
+    setUnpicked((cur) => {
       const next = new Set(cur);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
   const toggleAll = () =>
-    setPicked((cur) => {
+    setUnpicked((cur) => {
       const next = new Set(cur);
       for (const i of pickable) {
-        if (allOn) next.delete(i.id);
-        else next.add(i.id);
+        if (allOn) next.add(i.id);
+        else next.delete(i.id);
       }
       return next;
     });
 
   const makeDraft = () => {
     setFlash(null);
-    setDraft(buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo)));
+    setDraft(buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), data.nextPoNumber));
   };
   const submit = () => {
     if (!draft) return;
-    const d = draft;
-    startTransition(async () => {
-      const r = await submitPoAction({
-        number: d.number,
-        lines: d.lines.map((l) => ({ itemId: l.itemId, qty: l.qty })),
-      });
-      setFlash({ ok: r.ok, text: r.message });
-      if (!r.ok) return;
-      const first = d.lines[0]?.name ?? 'Item';
-      setInPo((cur) => ({ ...cur, ...Object.fromEntries(d.lines.map((l) => [l.itemId, d.number])) }));
-      setPicked((cur) => new Set([...cur].filter((id) => !d.lines.some((l) => l.itemId === id))));
-      setNewPos((cur) => [
-        {
-          id: d.number,
-          title: d.lines.length > 1 ? `${first} +${d.lines.length - 1} item` : first,
-          total: r.total ?? d.total,
-          stage: 1,
-          statusText: 'Menunggu persetujuan direktur',
-        },
-        ...cur,
-      ]);
-      setNextNo((n) => n + 1);
-      setDraft(null);
-    });
+    const lines = draft.lines.map((l) => ({ itemId: l.itemId, qty: l.qty }));
+    run(
+      (r) => submitPoAction({ lines, jam: demoStamp().jam, rev: r }),
+      done(() => setDraft(null)),
+    );
   };
-  const approve = (id: string) =>
-    setApproved((cur) => ({
-      ...cur,
-      [id]: `Disetujui direktur ${formatJam(demoNow())} · siap diproses PO / e-katalog (simulasi, tidak disimpan)`,
-    }));
+  const step = (po: string, type: 'po.disetujui' | 'po.diterbitkan' | 'po.dikirim') =>
+    run((r) => poStepAction({ type, po, jam: demoStamp().jam, rev: r }), done());
+  const actExpiry = (id: string, action: 'pindah' | 'retur') =>
+    run((r) => expiryAction({ id, action, jam: demoStamp().jam, rev: r }), done());
 
-  const orders: ProcurementRow[] = [...newPos, ...data.purchaseOrders].map((p) => ({
-    ...p,
-    approvedText: approved[p.id],
-    receivedText: received[p.id],
-  }));
-  const estimate = buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), poNumber(nextNo));
+  const estimate = buildPoDraft(reorder, new Set(chosen.map((i) => i.id)), data.nextPoNumber);
   const critical = reorder.filter((i) => i.daysOfCover < 7);
 
   return (
@@ -201,34 +174,19 @@ export function LogisticsBoard({
       )}
       {receiving && receiptLines[receiving] && (
         <GoodsReceiptPanel
+          key={receiving}
           poId={receiving}
           supplier={suppliers[receiving] ?? 'Pemasok'}
           lines={receiptLines[receiving] ?? []}
           today={today}
+          pending={pending}
           onCancel={() => setReceiving(null)}
-          onConfirm={(inputs, value) => {
+          onConfirm={(inputs, coldChainOk) => {
             const po = receiving;
-            const lines = receiptLines[po] ?? [];
-            const gr = grNumber(grSeq);
-            const at = formatJam(demoNow());
-            setGrSeq((n) => n + 1);
-            setStockAdd((cur) => {
-              const next = { ...cur };
-              for (const l of lines)
-                next[l.itemId] = (next[l.itemId] ?? 0) + Number(inputs[l.itemId]?.received ?? 0);
-              return next;
-            });
-            const added = lines
-              .map((l) => `+${Number(inputs[l.itemId]?.received ?? 0).toLocaleString('id-ID')} ${l.unit}`)
-              .join(', ');
-            setReceived((cur) => ({ ...cur, [po]: `Diterima ${gr} · ${at} · stok ${added}` }));
-            // Barang sudah diterima: item boleh diusulkan lagi bila stoknya masih di bawah ROP.
-            setInPo((cur) => Object.fromEntries(Object.entries(cur).filter(([, no]) => no !== po)));
-            setFlash({
-              ok: true,
-              text: `${gr} dicatat ${at}: stok ${added}; persediaan dan utang penerimaan belum difakturkan ${formatRupiah(value)} jatuh tempo ${formatTanggal(payableDue(today))} (simulasi, tidak disimpan).`,
-            });
-            setReceiving(null);
+            run(
+              (r) => receiveGoodsAction({ po, inputs, coldChainOk, jam: demoStamp().jam, rev: r }),
+              done(() => setReceiving(null)),
+            );
           }}
         />
       )}
@@ -293,8 +251,8 @@ export function LogisticsBoard({
             <ReorderRow
               key={i.id}
               item={i}
-              checked={!inPo[i.id] && picked.has(i.id)}
-              inPo={inPo[i.id] ?? null}
+              checked={!openPo[i.id] && !unpicked.has(i.id)}
+              inPo={openPo[i.id] ?? null}
               onToggle={() => toggle(i.id)}
             />
           ))}
@@ -308,12 +266,23 @@ export function LogisticsBoard({
           aria-label="Kedaluwarsa dan pengadaan"
           className="flex min-w-0 flex-[1_1_320px] flex-col gap-4 xl:max-w-[400px]"
         >
-          <ExpiryPanel items={data.expiring} today={today} />
+          <ExpiryPanel
+            items={data.expiring}
+            today={today}
+            done={expiryDone}
+            pending={pending}
+            onAct={actExpiry}
+          />
           <ProcurementList
             orders={orders}
             canApprove={canApprove}
-            onApprove={approve}
-            onReceive={(id) => receiptLines[id] && !received[id] && setReceiving(id)}
+            viewerId={viewerId}
+            pending={pending}
+            onStep={step}
+            onReceive={(id) => {
+              setFlash(null);
+              setReceiving(id);
+            }}
           />
         </aside>
       </div>

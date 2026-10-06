@@ -28,13 +28,16 @@ const MIX_COLOR = {
   'kerja-sama': 'bg-[#C2DEDA]',
 };
 
-/** I09 · Dasbor direksi (mockup `Dasbor.dc.html`). Mode presentasi: data dummy fiktif (ADR-0023). */
+/**
+ * I09 · Dasbor direksi (mockup `Dasbor.dc.html`). Mode presentasi: profil dummy fiktif (ADR-0023) ditimpa keadaan toko
+ * demo yang tersedia (kapasitas bed, IGD, kebersihan tangan, stok); tanda tindak lanjut tersimpan (ADR-0085).
+ */
 export default async function DasborPage({ searchParams }: { searchParams: SearchParams }) {
-  const { screen, allowed } = await requireDemoScreen('dasbor');
+  const { session, screen, allowed } = await requireDemoScreen('dasbor');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
   const period = z.enum(DASHBOARD_PERIODS).catch('bulan').parse(sp.periode);
-  const d = await getExecutiveDashboard(period);
+  const { dashboard: d, store } = await getExecutiveDashboard(period, session);
   const chart = revenueChart(d.revenue);
   const shares = payerShares(d.payerMix);
   const capacity = capacityRows(d.capacity);
@@ -200,7 +203,12 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
           </ul>
         </section>
 
-        <DecisionAlerts alerts={alerts} />
+        <DecisionAlerts
+          alerts={alerts}
+          acks={store.state.acks}
+          rev={store.rev}
+          canDecide={session.role?.code === 'manajemen'}
+        />
       </div>
     </div>
   );

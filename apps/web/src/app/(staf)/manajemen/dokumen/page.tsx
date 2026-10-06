@@ -13,19 +13,24 @@ export const metadata: Metadata = { title: 'Dokumen & akreditasi' };
 
 /**
  * B12 · Dokumen regulasi dan akreditasi (rencana fase 8 §8.7, tanpa mockup): DMS berversi, distribusi + tanda terima
- * baca, paket bukti akreditasi. Mode presentasi: data dummy (ADR-0023).
+ * baca, paket bukti akreditasi. Mode presentasi: data dummy (ADR-0023), aksi tersimpan di toko demo (domain
+ * `regulasi`, ADR-0085).
  */
 export default async function DokumenPage() {
-  const { screen, allowed } = await requireDemoScreen('regdok');
+  const { session, screen, allowed } = await requireDemoScreen('regdok');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getRegDocs();
-  const published = d.docs.filter((x) => x.status === 'terbit');
+  const st = d.store.state;
+  const published = st.docs.filter((x) => x.status === 'terbit');
   const review = published.filter((x) => reviewStatus(x.reviewDue, DEMO_TODAY).status !== 'aman');
-  const process = d.docs.filter((x) => ['draf', 'telaah', 'disetujui'].includes(x.status)).length;
-  const ev = d.chapters.reduce((t, c) => ({ n: t.n + c.withEvidence, total: t.total + c.elements }), {
-    n: 0,
-    total: 0,
-  });
+  const process = st.docs.filter((x) => ['draf', 'telaah', 'disetujui'].includes(x.status)).length;
+  const ev = d.chapters.reduce(
+    (t, c) => ({ n: t.n + (st.evidence[c.code] ?? 0), total: t.total + c.elements }),
+    {
+      n: 0,
+      total: 0,
+    },
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,10 +63,10 @@ export default async function DokumenPage() {
         />
       </div>
       <DocumentBoard
-        initialDocs={d.docs}
-        approvers={d.approvers}
+        state={st}
+        rev={d.store.rev}
+        viewer={{ userId: session.user.id, name: session.user.displayName, role: session.role?.code ?? null }}
         units={d.units}
-        receipts={d.receipts}
         chapters={d.chapters}
         today={DEMO_TODAY}
       />

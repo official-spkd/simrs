@@ -1,20 +1,29 @@
 'use client';
 
-import { type ExpiryAlert, formatJam, formatRupiah, sumRupiah } from '@simrs/shared';
+import { type ExpiryAlert, formatRupiah, sumRupiah } from '@simrs/shared';
 import { Button, Chip } from '@simrs/ui';
-import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { daysUntil, formatRupiahShort } from '@/lib/manajemen';
+
+export type ExpiryAction = 'pindah' | 'retur';
 
 /**
  * Kedaluwarsa ≤ 90 hari (FEFO, mockup Logistik): pindahkan ke depo pemakai terbesar atau retur ke distributor.
- * Tindakan di mode presentasi hanya dicatat di layar ini (simulasi, tidak disimpan).
+ * Tindakan tersimpan di toko demo (domain `logistik`); `done` = teks tindakan tersimpan per batch.
  */
-export function ExpiryPanel({ items, today }: { items: ExpiryAlert[]; today: string }) {
-  const [done, setDone] = useState<Record<string, string>>({});
+export function ExpiryPanel({
+  items,
+  today,
+  done,
+  pending,
+  onAct,
+}: {
+  items: ExpiryAlert[];
+  today: string;
+  done: Readonly<Record<string, string>>;
+  pending: boolean;
+  onAct: (id: string, action: ExpiryAction) => void;
+}) {
   const total = sumRupiah(items.map((e) => BigInt(e.value)));
-  const act = (id: string, text: string) =>
-    setDone((cur) => ({ ...cur, [id]: `${text} · ${formatJam(demoNow())} (simulasi, tidak disimpan)` }));
   return (
     <section
       aria-labelledby="ed-judul"
@@ -54,13 +63,10 @@ export function ExpiryPanel({ items, today }: { items: ExpiryAlert[]; today: str
               </span>
               {!status && (
                 <span className="flex flex-wrap gap-2">
-                  <Button onClick={() => act(e.id, `Dipindahkan ke ${e.moveTo} · stok depo diperbarui`)}>
+                  <Button disabled={pending} onClick={() => onAct(e.id, 'pindah')}>
                     Pindahkan ke {e.moveTo}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => act(e.id, 'Diretur ke distributor · menunggu nota kredit')}
-                  >
+                  <Button variant="ghost" disabled={pending} onClick={() => onAct(e.id, 'retur')}>
                     Retur ke distributor
                   </Button>
                 </span>

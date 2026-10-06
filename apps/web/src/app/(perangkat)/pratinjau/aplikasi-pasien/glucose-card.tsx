@@ -1,9 +1,12 @@
 'use client';
 
-import { formatJam, type PatientAppHome } from '@simrs/shared';
+import type { PatientAppHome } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { type FormEvent, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { STALE_TEXT } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { patientAppAction } from './actions';
 import { GLUCOSE_BAND_LABEL, type GlucoseBand, glucoseBand } from '@/lib/manajemen';
 
 const W = 320;
@@ -19,17 +22,23 @@ const DOT: Record<GlucoseBand, string> = { dalam: '#0F766E', atas: '#C27A1A', ba
 /**
  * Gula darah mandiri 7 hari (mockup AppPasien): garis dengan pita sasaran dokter, catat hasil hari ini dengan
  * validasi jangkauan alat. Nilai di bawah sasaran ditandai bahaya (riwayat hipoglikemia berat) dalam teks, bukan
- * warna saja. Catatan hanya di ponsel ini (simulasi, tidak disimpan).
+ * warna saja. Catatan tersimpan di toko demo (domain `aplikasi-pasien`) dan tampil lagi setelah muat ulang.
  */
 export function GlucoseCard({
   glucose,
   target,
+  recordedAt,
+  rev,
 }: {
   glucose: PatientAppHome['glucose'];
   target: PatientAppHome['glucoseTarget'];
+  /** Jam catatan terakhir di aplikasi (null = data dari glukometer pagi ini). */
+  recordedAt: string | null;
+  rev: number;
 }) {
-  const [values, setValues] = useState(() => glucose.map((g) => g.value));
-  const [when, setWhen] = useState('pagi ini');
+  const values = glucose.map((g) => g.value);
+  const when = recordedAt ? `dicatat ${recordedAt}` : 'pagi ini';
+  const { run, pending } = useStoreAction(rev);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [err, setErr] = useState('');
@@ -43,11 +52,15 @@ export function GlucoseCard({
     const v = Math.round(Number.parseFloat(raw));
     if (!raw || Number.isNaN(v)) return setErr('Isi angka hasil pemeriksaan.');
     if (v < 20 || v > 600) return setErr('Angka di luar jangkauan alat (20–600 mg/dL). Periksa lagi.');
-    setValues((cur) => [...cur.slice(1), v]);
-    setWhen(`dicatat ${formatJam(demoNow())} (simulasi, tidak disimpan)`);
-    setOpen(false);
-    setText('');
-    setErr('');
+    run(
+      (r) => patientAppAction({ event: { type: 'gula.dicatat', value: v, jam: demoStamp().jam }, rev: r }),
+      (res) => {
+        if (!res.ok) return setErr(res.stale ? STALE_TEXT : res.message);
+        setOpen(false);
+        setText('');
+        setErr('');
+      },
+    );
   };
 
   return (
@@ -129,6 +142,7 @@ export function GlucoseCard({
             </button>
             <button
               type="submit"
+              disabled={pending}
               className="h-11 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 px-3 font-[inherit] font-semibold text-white"
             >
               Simpan

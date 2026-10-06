@@ -1,10 +1,9 @@
 'use client';
 
-import { formatJam, formatRupiah, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
+import { formatRupiah, formatTanggal, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   Panel,
   ReasonButton,
@@ -14,81 +13,102 @@ import {
   TD,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import {
   calculateBlock,
   computeSlip,
   journalBalanced,
   type PayInput,
   parseRupiahInput,
-  payrollApproveBlock,
   payrollJournal,
   RUN_STAGES,
 } from '@/lib/penggajian';
+import {
+  PAYROLL_APPROVER_ROLES,
+  type PayrollStoreState,
+  payrollLines,
+  postingEvent,
+} from '@/lib/penggajian-toko';
 
 const rp = (n: bigint) => formatRupiah(n);
 
 /**
- * B05 · Run gaji satu periode: draf (impor jasa pelayanan U08, isi PPh 21 manual) → hitung → setujui (penyetuju ≠
- * penyusun) → posting jurnal berpasangan; slip per pegawai. Angka simulasi, tidak disimpan.
+ * B05 · Run gaji satu periode: draf (impor jasa pelayanan U08, isi PPh 21 manual) → hitung (penyusun = pengguna
+ * sesi) → setujui (pengguna lain, posisi Akuntan/Manajemen) → posting jurnal berpasangan; slip per pegawai. Semua
+ * tahap tersimpan di toko demo (domain `penggajian`, ADR-0085); tarif iuran simulasi.
  */
 export function PayrollBoard({
   period,
   inputs,
-  serviceFees,
-  preparer,
-  approvers,
+  state,
+  rev,
+  viewerId,
+  viewerRole,
 }: {
   period: { label: string; number: string; payDate: string };
   inputs: readonly PayInput[];
-  serviceFees: Record<string, number>;
-  preparer: string;
-  approvers: readonly string[];
+  state: PayrollStoreState;
+  rev: number;
+  viewerId: string;
+  viewerRole: string | null;
 }) {
-  const [stage, setStage] = useState(0);
-  const [at, setAt] = useState<Record<number, string>>({});
-  const [imported, setImported] = useState(false);
-  const [pph, setPph] = useState<Record<string, string>>(() =>
-    Object.fromEntries(inputs.map((i) => [i.employeeId, i.pph21 === null ? '' : String(i.pph21)])),
+  const stage = state.stage;
+  const imported = state.imported;
+  const { act, pending, flash } = useTokoAction('penggajian', rev);
+  // Isian PPh 21 yang sedang diketik; selain itu nilai tersimpan run (toko) atau nilai awal fixture.
+  const [pphEdit, setPph] = useState<Record<string, string>>({});
+  const pph = Object.fromEntries(
+    inputs.map((i) => [
+      i.employeeId,
+      pphEdit[i.employeeId] ?? state.pph[i.employeeId] ?? (i.pph21 === null ? '' : String(i.pph21)),
+    ]),
   );
-  const [approver, setApprover] = useState('');
   const [slipFor, setSlipFor] = useState(inputs[0]?.employeeId ?? '');
-  const [sent, setSent] = useState<string | null>(null);
-  const [flash, setFlash] = useState<Flash | null>(null);
-
-  const lines: PayInput[] = inputs.map((i) => ({
-    ...i,
-    serviceFee: imported ? BigInt(serviceFees[i.name] ?? 0) : 0n,
-    pph21: parseRupiahInput(pph[i.employeeId] ?? ''),
-  }));
+  const draftPph = Object.fromEntries(
+    inputs.map((i) => [i.employeeId, parseRupiahInput(pph[i.employeeId] ?? '')]),
+  );
+  const lines: PayInput[] = payrollLines(state, draftPph);
   const slips = lines.map(computeSlip);
   const totals = slips.reduce(
     (t, s) => ({ gross: t.gross + s.gross, ded: t.ded + s.totalDeductions, net: t.net + s.net }),
     { gross: 0n, ded: 0n, net: 0n },
   );
   const journal = payrollJournal(slips);
-  const go = (to: number, text: string) => {
-    setStage(to);
-    setAt((cur) => ({ ...cur, [to]: formatTanggalWaktu(demoNow()) }));
-    setFlash({ ok: true, text: `${period.number}: ${text} · ${formatJam(demoNow())}.` });
-  };
-  const calcBlock = calculateBlock(lines, imported);
-  const apprBlock = approver ? payrollApproveBlock(preparer, approver) : 'Pilih penyetuju.';
+  const at = (i: 1 | 2 | 3) => (state.at[i] ? formatTanggalWaktu(state.at[i] as string) : null);
+  const calcBlock = pending ? 'Menyimpan…' : calculateBlock(lines, imported);
+  const apprBlock = pending
+    ? 'Menyimpan…'
+    : !viewerRole || !(PAYROLL_APPROVER_ROLES as readonly string[]).includes(viewerRole)
+      ? 'Penyetuju run gaji: posisi Akuntan atau Manajemen.'
+      : state.preparedBy?.userId === viewerId
+        ? 'Anda penyusun run ini: penyetuju harus pengguna lain (pemisahan tugas).'
+        : null;
   const idx = inputs.findIndex((i) => i.employeeId === slipFor);
   const slip = slips[idx];
   const slipLine = lines[idx];
+  const calculate = () => {
+    const values = Object.fromEntries(lines.map((l) => [l.employeeId, (l.pph21 ?? 0n).toString()]));
+    act(
+      { type: 'run.dihitung', pph: values, when: demoStamp().when },
+      `${period.number}: gaji ${inputs.length} pegawai dihitung; neto ${rp(totals.net)} · ${demoStamp().jam}.`,
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <FlashLine flash={flash} />
       <Panel
         title={`Run gaji ${period.label} · ${period.number}`}
-        sub={`Disusun ${preparer} · dibayar ${formatTanggal(period.payDate)} · tarif iuran simulasi`}
+        sub={`${state.preparedBy ? `Disusun ${state.preparedBy.name}` : 'Penyusun = pengguna yang menghitung run'} · dibayar ${formatTanggal(period.payDate)} · tarif iuran simulasi`}
         actions={<Chip tone={stage >= 3 ? 'success' : 'info'}>{RUN_STAGES[Math.min(stage, 3)]}</Chip>}
       >
         <StageTrack
           label="Tahap run gaji"
-          stages={RUN_STAGES.map((label, i) => ({ label, at: (i === 3 ? at[3] : at[i + 1]) ?? null }))}
+          stages={RUN_STAGES.map((label, i) => ({
+            label,
+            at: i === 0 ? null : at(i as 1 | 2 | 3),
+          }))}
           current={stage >= 3 ? RUN_STAGES.length : stage}
         />
         {stage === 0 && (
@@ -97,40 +117,50 @@ export function PayrollBoard({
               <Chip tone="success">Jasa pelayanan diimpor dari modul jasa pelayanan</Chip>
             ) : (
               <Button
-                onClick={() => {
-                  setImported(true);
-                  setFlash({
-                    ok: true,
-                    text: `Jasa pelayanan ${period.label} diimpor untuk ${inputs.length} pegawai · ${formatJam(demoNow())}.`,
-                  });
-                }}
+                disabled={pending}
+                onClick={() =>
+                  act(
+                    { type: 'jaspel.diimpor', when: demoStamp().when },
+                    `Jasa pelayanan ${period.label} diimpor untuk ${inputs.length} pegawai · ${demoStamp().jam}.`,
+                  )
+                }
               >
                 Impor jasa pelayanan
               </Button>
             )}
-            <ReasonButton
-              reason={calcBlock}
-              onClick={() => go(1, `gaji ${inputs.length} pegawai dihitung; neto ${rp(totals.net)}`)}
-            >
+            <ReasonButton reason={calcBlock} onClick={calculate}>
               Hitung gaji
             </ReasonButton>
           </span>
         )}
         {stage === 1 && (
           <div className="flex flex-col gap-3">
-            <SelectField
-              label="Penyetuju"
-              value={approver}
-              onChange={setApprover}
-              placeholder="Pilih penyetuju…"
-              options={approvers.map((a) => [a, a])}
-              hint={`Penyusun: ${preparer}. Penyetuju wajib orang lain.`}
-            />
+            <span className="text-small text-ink-700">
+              Penyusun: {state.preparedBy?.name ?? '—'}. Penyetuju = pengguna yang masuk (posisi Akuntan atau
+              Manajemen), wajib orang lain.
+            </span>
             <span className="flex flex-wrap items-start gap-2">
-              <ReasonButton reason={apprBlock} onClick={() => go(2, `disetujui ${approver}`)}>
+              <ReasonButton
+                reason={apprBlock}
+                onClick={() =>
+                  act(
+                    { type: 'run.disetujui', when: demoStamp().when },
+                    `${period.number}: disetujui · ${demoStamp().jam}.`,
+                  )
+                }
+              >
                 Setujui run gaji
               </ReasonButton>
-              <Button variant="ghost" onClick={() => setStage(0)}>
+              <Button
+                variant="ghost"
+                disabled={pending}
+                onClick={() =>
+                  act(
+                    { type: 'run.dikembalikan', when: demoStamp().when },
+                    `${period.number}: dikembalikan ke draf.`,
+                  )
+                }
+              >
                 Kembali ke draf
               </Button>
             </span>
@@ -139,17 +169,29 @@ export function PayrollBoard({
         {stage === 2 && (
           <span>
             <ReasonButton
-              reason={journalBalanced(journal) ? null : 'Jurnal tidak seimbang; periksa ulang run.'}
-              onClick={() => go(3, 'jurnal gaji diposting ke buku besar')}
+              reason={
+                pending
+                  ? 'Menyimpan…'
+                  : journalBalanced(journal)
+                    ? null
+                    : 'Jurnal tidak seimbang; periksa ulang run.'
+              }
+              onClick={() =>
+                act(
+                  postingEvent(state, demoStamp().when),
+                  `${period.number}: jurnal gaji diposting ke buku besar · ${demoStamp().jam}.`,
+                )
+              }
             >
               Posting jurnal gaji
             </ReasonButton>
           </span>
         )}
         {stage >= 3 && (
-          <Alert level="success" title={`Diposting · ${at[3] ?? ''}`}>
-            Jurnal gaji {rp(totals.gross)} seimbang tercatat; transfer neto {rp(totals.net)} dijadwalkan ke
-            rekening pegawai pada tanggal bayar.
+          <Alert level="success" title={`Diposting · ${at(3) ?? ''}`}>
+            Jurnal gaji {rp(totals.gross)} seimbang tercatat oleh {state.postedBy?.name ?? '—'} (disusun{' '}
+            {state.preparedBy?.name ?? '—'}, disetujui {state.approvedBy?.name ?? '—'}); transfer neto{' '}
+            {rp(totals.net)} dijadwalkan ke rekening pegawai pada tanggal bayar.
           </Alert>
         )}
       </Panel>
@@ -173,7 +215,7 @@ export function PayrollBoard({
           <tbody>
             {lines.map((l, i) => {
               const s = slips[i];
-              const raw = pph[l.employeeId] ?? '';
+              const raw = stage > 0 ? (state.pph[l.employeeId] ?? '') : (pph[l.employeeId] ?? '');
               const bad = raw.trim() !== '' && l.pph21 === null;
               return (
                 <tr key={l.employeeId}>
@@ -284,16 +326,16 @@ export function PayrollBoard({
               </dl>
             )}
             {stage >= 3 &&
-              (sent ? (
-                <span className="text-small font-semibold text-success">{sent}</span>
+              (state.slipsSent ? (
+                <span className="text-small font-semibold text-success">
+                  Slip {inputs.length} pegawai terkirim ke akun masing-masing · {state.slipsSent.jam} oleh{' '}
+                  {state.slipsSent.by.name}
+                </span>
               ) : (
                 <span>
                   <Button
-                    onClick={() =>
-                      setSent(
-                        `Slip ${inputs.length} pegawai terkirim ke akun masing-masing · ${formatJam(demoNow())}`,
-                      )
-                    }
+                    disabled={pending}
+                    onClick={() => act({ type: 'slip.dikirim', jam: demoStamp().jam }, null)}
                   >
                     Kirim slip ke pegawai
                   </Button>

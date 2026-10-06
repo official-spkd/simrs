@@ -1,6 +1,7 @@
 import { sumRupiah } from '@simrs/shared';
 import { z } from 'zod';
-import { type DemoActor, defineDomain } from './demo/store/define';
+import { type DemoActor, defineDomain, on } from './demo/store/define';
+import { logisticsDomain } from './logistik-toko';
 import { FAKTUR_PEMASOK, HUTANG_SUMMARY } from './demo/fixtures/hutang';
 import {
   applyApproval,
@@ -19,7 +20,7 @@ import { autoJurnalSchema } from './keuangan-jurnal';
  *
  * - Aliran masuk Logistik (CX-3): kejadian `logistik` · `penerimaan.dicatat` {grn, po, supplier, title, items, total,
  *   poTotal, tanggal, jatuhTempo} menjadi faktur draf (nilai faktur = nilai penerimaan) lewat `applyReceipt`. Langganan
- *   dipasang setelah domain `logistik` ada di registri (lihat `docs/handoff/CX-2.md`).
+ *   `on(logisticsDomain, …)` di bawah.
  * - Verifikasi akuntan (pencocokan 3 arah), persetujuan berjenjang manajemen (pemverifikasi ≠ penyetuju, tingkat 2 ≠
  *   tingkat 1 dari id pengguna sesi), nota kredit/selisih beralasan, jadwal bayar, dan posting pembayaran (akuntan).
  *   Persetujuan akhir dan pembayaran membawa jurnal otomatis seimbang ke Akuntansi.
@@ -145,6 +146,10 @@ export const hutangDomain = defineDomain<HutangState, HutangEvent>(HUTANG_DOMAIN
   }),
   eventSchema: hutangEventSchema,
   screens: ['hutang'],
+  // Kontrak CX-3: penerimaan barang Logistik → faktur draf (dipasang saat CX-3 bergabung, permintaan handoff CX-2).
+  subscriptions: [
+    on(logisticsDomain, (s, ev) => (ev.data.type === 'penerimaan.dicatat' ? applyReceipt(s, ev.data) : s)),
+  ],
   validate: gate,
   reduce: (s, ev) => {
     const d = ev.data;

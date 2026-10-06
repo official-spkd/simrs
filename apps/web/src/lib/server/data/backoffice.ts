@@ -5,64 +5,30 @@ import {
   RECORD_FILES,
   RECORD_LOANS,
   RETENTION_BATCHES,
-  ROI_APPROVERS,
   ROI_REQUESTS,
 } from '../../demo/fixtures/rekam-medis-adm';
-import {
-  GRANTED_PRIVILEGES,
-  ORDER_GUARD_EVENTS,
-  PRIVILEGE_APPLICATIONS,
-} from '../../demo/fixtures/kredensial';
-import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
-import {
-  ACCREDITATION_CHAPTERS,
-  DISTRIBUTION_UNITS,
-  DOC_APPROVERS,
-  READ_RECEIPTS,
-  REG_DOCS,
-} from '../../demo/fixtures/regulasi';
+import { ORDER_GUARD_EVENTS, PRIVILEGE_APPLICATIONS } from '../../demo/fixtures/kredensial';
+import { ASSETS, CALIBRATION_LABS, TECHNICIANS } from '../../demo/fixtures/aset';
+import { ACCREDITATION_CHAPTERS, DISTRIBUTION_UNITS } from '../../demo/fixtures/regulasi';
 import {
   CHEMO_PLAN,
   CHEMO_VERIFIERS,
   ONCOLOGY_PATIENT_ID,
   PRE_CHEMO_LABS,
 } from '../../demo/fixtures/onkologi';
-import {
-  ACCESS_LOG_SEED,
-  cohort,
-  DATASET_APPROVERS,
-  DATASET_FIELDS,
-  DATASET_REQUEST,
-} from '../../demo/fixtures/dataset-riset';
-import { demoQueueBoard } from '../../demo/fixtures/front-office';
-import { PO_RECEIPT_LINES, PO_SUPPLIER } from '../../demo/fixtures/logistik-terima';
-import { OPEN_PO_ITEMS } from '../../demo/fixtures/manajemen';
-import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
+import { cohort, DATASET_FIELDS, DATASET_REQUEST } from '../../demo/fixtures/dataset-riset';
 import { patientById } from '../../demo/fixtures/pasien';
-import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
-import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
-import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
-import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
-import {
-  PAYROLL_APPROVERS,
-  PAYROLL_INPUTS,
-  PAYROLL_PERIOD,
-  PAYROLL_PREPARER,
-  SERVICE_FEES,
-} from '../../demo/fixtures/penggajian';
-import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
-import {
-  BUNDLE_AUDITS,
-  BUNDLES,
-  HAI_MONTH,
-  HAI_SUSPECTS,
-  handHygieneObservations,
-  ISOLATION_REQUESTS,
-  ISOLATION_ROOMS,
-  ppeAudits,
-} from '../../demo/fixtures/ppi';
-import { computeIndicators } from '../../mutu-transaksi';
+import { TRAINEES } from '../../demo/fixtures/pendidikan';
+import { recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
+import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
+import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
+import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
+import { BUNDLES, HAI_SUSPECTS, ISOLATION_REQUESTS, ppeAudits } from '../../demo/fixtures/ppi';
+import type { SessionView } from '../../session-view';
+import { readDomain } from '../demo/state';
+import { boardOf, frontOfficeStore, loketOf } from './front-office/toko';
+import { liveCapacity, liveComputedIndicators } from './manajemen-live';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -89,9 +55,9 @@ export async function getRecordsAdmin() {
       const p = patientById(r.patientId);
       return { ...r, patientName: p?.nama ?? '—', rm: p?.rm ?? '—' };
     }),
-    approvers: ROI_APPROVERS,
     batches: RETENTION_BATCHES,
     destructionActors: DESTRUCTION_ACTORS,
+    store: await readDomain('rekam-medis-adm'),
   };
 }
 export type RecordsAdminData = Awaited<ReturnType<typeof getRecordsAdmin>>;
@@ -99,7 +65,12 @@ export type RecordsAdminData = Awaited<ReturnType<typeof getRecordsAdmin>>;
 /** B03 · pegawai + izin praktik, dan draf jadwal dinas minggu depan satu unit. */
 export async function getHr() {
   demoOnly('SDM dan kepegawaian');
-  return { employees: EMPLOYEES, roster: ROSTER_UNIT, rosterStaff: ROSTER_STAFF, draft: draftRoster() };
+  return {
+    employees: EMPLOYEES,
+    roster: ROSTER_UNIT,
+    rosterStaff: ROSTER_STAFF,
+    store: await readDomain('sdm'),
+  };
 }
 export type HrData = Awaited<ReturnType<typeof getHr>>;
 
@@ -108,9 +79,9 @@ export async function getCredentialing() {
   demoOnly('kredensial dan kewenangan klinis');
   return {
     applications: PRIVILEGE_APPLICATIONS,
-    granted: GRANTED_PRIVILEGES,
     employees: EMPLOYEES,
     guardEvents: ORDER_GUARD_EVENTS,
+    store: await readDomain('kredensial'),
   };
 }
 
@@ -118,14 +89,11 @@ export async function getCredentialing() {
 export async function getPpi() {
   demoOnly('PPI');
   return {
-    month: HAI_MONTH,
     suspects: HAI_SUSPECTS,
-    handHygiene: handHygieneObservations(),
     ppe: ppeAudits(),
     bundles: BUNDLES,
-    bundleAudits: BUNDLE_AUDITS,
-    rooms: ISOLATION_ROOMS,
     isolationRequests: ISOLATION_REQUESTS,
+    store: await readDomain('ppi'),
   };
 }
 export type PpiData = Awaited<ReturnType<typeof getPpi>>;
@@ -133,80 +101,97 @@ export type PpiData = Awaited<ReturnType<typeof getPpi>>;
 /** B02 · register aset, kalibrasi, dan tiket perbaikan. */
 export async function getAssets() {
   demoOnly('aset dan pemeliharaan');
-  return { assets: ASSETS, labs: CALIBRATION_LABS, tickets: REPAIR_TICKETS, technicians: TECHNICIANS };
+  return {
+    assets: ASSETS,
+    labs: CALIBRATION_LABS,
+    technicians: TECHNICIANS,
+    store: await readDomain('aset'),
+  };
 }
 export type AssetData = Awaited<ReturnType<typeof getAssets>>;
 
-/** B05 · run gaji periode berjalan (angka simulasi). */
+/** B05 · run gaji periode berjalan (tarif iuran simulasi) + keadaan run di toko demo (domain `penggajian`). */
 export async function getPayroll() {
   demoOnly('penggajian');
   return {
     period: PAYROLL_PERIOD,
     inputs: PAYROLL_INPUTS,
     serviceFees: SERVICE_FEES,
-    preparer: PAYROLL_PREPARER,
-    approvers: PAYROLL_APPROVERS,
+    store: await readDomain('penggajian'),
   };
 }
 
 /** B08 · persetujuan antibiotik cadangan, audit Gyssens, katalog restriksi. */
 export async function getAms() {
   demoOnly('PPRA');
-  return { requests: AMS_REQUESTS, restrictions: RESTRICTIONS, pending: GYSSENS_PENDING, done: GYSSENS_DONE };
+  return {
+    requests: AMS_REQUESTS,
+    restrictions: RESTRICTIONS,
+    pending: GYSSENS_PENDING,
+    store: await readDomain('ppra'),
+  };
 }
 
 /** B12 · dokumen regulasi berversi, distribusi baca, dan bukti akreditasi. */
 export async function getRegDocs() {
   demoOnly('dokumen regulasi');
   return {
-    docs: REG_DOCS,
-    approvers: DOC_APPROVERS,
     units: DISTRIBUTION_UNITS,
-    receipts: READ_RECEIPTS,
     chapters: ACCREDITATION_CHAPTERS,
+    store: await readDomain('regulasi'),
   };
 }
 
 /** B13 · pengaduan terbuka, pengaduan 30 hari terakhir (INM-12), dan respons survei (INM-13). */
 export async function getPatientExperience() {
   demoOnly('pengalaman pasien');
-  return { complaints: OPEN_COMPLAINTS, recent: recentComplaints(), responses: surveyResponses() };
+  return { recent: recentComplaints(), responses: surveyResponses(), store: await readDomain('pengaduan') };
 }
 
 /** B10 · peserta didik, supervisor, tingkat supervisi, dan logbook. */
 export async function getEducation() {
   demoOnly('pendidikan klinik');
-  return { trainees: TRAINEES, logbook: LOGBOOK };
+  return { trainees: TRAINEES, store: await readDomain('pendidikan') };
 }
 
 /**
- * I09 · Command center: bed per ruang (sama dengan Tempat tidur dan Dasbor), papan IGD, dan antrean poli dari
- * fixture layar asalnya; IGD hanya label bed + keluhan (tanpa nama pasien).
+ * I09 · Command center: bed per ruang dari papan Tempat tidur (domain `tempat-tidur` + skenario), papan IGD (domain
+ * `klinis-igd`), dan antrean poli + loket dari papan antrean (domain `antrean`/`pendaftaran`): angka yang sama dengan
+ * layar asalnya. IGD hanya label bed + keluhan (tanpa nama pasien). Keputusan alert di domain `command-center`.
  */
-export async function getCommandCenter() {
+export async function getCommandCenter(session: SessionView) {
   demoOnly('command center');
-  const ed = demoEdBoardBase();
+  const [cap, fo, store] = await Promise.all([
+    liveCapacity(session),
+    frontOfficeStore(session),
+    readDomain('command-center'),
+  ]);
+  const board = boardOf(fo);
+  const loket = loketOf(fo);
   return {
     asOf: DEMO_NOW,
-    wards: demoWards().map((w) => ({ code: w.code, name: w.name, beds: w.beds })),
+    wards: cap.wards,
     state: {
       minute: 0,
-      beds: demoBeds().map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status })),
-      ed: ed.items.map((i) => ({
-        id: i.encounterId,
-        label: `${i.bed ?? 'triase'} · ${i.chiefComplaint}`,
-        status: i.status,
-        losMinutes: i.losMinutes,
-        triageLevel: i.triageLevel,
-      })),
-      queues: demoQueueBoard().clinics.map((c) => ({
-        poliCode: c.poliCode,
-        poliName: c.poliName,
-        waiting: c.waiting.length,
-        current: c.current,
-      })),
-      ambulances: ed.ambulancesIncoming,
+      beds: cap.beds,
+      ed: cap.ed,
+      queues: [
+        {
+          poliCode: 'LK',
+          poliName: 'Loket pendaftaran',
+          waiting: loket.waiting,
+          current: loket.current?.ticketNo ?? null,
+        },
+        ...board.clinics.map((c) => ({
+          poliCode: c.poliCode,
+          poliName: c.poliName,
+          waiting: c.waiting.length,
+          current: c.current,
+        })),
+      ],
+      ambulances: cap.ambulances,
     },
+    store,
   };
 }
 
@@ -217,8 +202,7 @@ export async function getResearchDataset() {
     request: DATASET_REQUEST,
     fields: DATASET_FIELDS,
     rows: cohort(),
-    approvers: DATASET_APPROVERS,
-    log: ACCESS_LOG_SEED,
+    store: await readDomain('dataset-riset'),
   };
 }
 
@@ -230,24 +214,12 @@ export async function getOncology() {
   return { patient, plan: CHEMO_PLAN, labs: PRE_CHEMO_LABS, verifiers: CHEMO_VERIFIERS };
 }
 
-/** B01 · baris PO tahap "kirim" untuk penerimaan barang di layar Logistik. */
-export async function getGoodsReceiptLines() {
-  demoOnly('penerimaan barang');
-  // Item yang sedang dikirim (PO tahap "kirim") ikut terkunci di daftar usulan, sama seperti PO yang menunggu.
-  const openPo: Record<string, string> = { ...OPEN_PO_ITEMS };
-  for (const [po, lines] of Object.entries(PO_RECEIPT_LINES)) for (const l of lines) openPo[l.itemId] = po;
-  return { lines: PO_RECEIPT_LINES, suppliers: PO_SUPPLIER, openPo };
-}
-
-/** B06 · indikator mutu yang dihitung dari data transaksi layar PPI, pengalaman pasien, dan rekam medis. */
+/**
+ * B06 · indikator mutu yang dihitung dari data transaksi di toko demo: observasi PPI (domain `ppi`), pengaduan
+ * (`pengaduan`), dan resume final dari klinis (`mutu` ← `resume-medis`).
+ */
 export async function getComputedIndicators() {
   demoOnly('indikator mutu');
-  return computeIndicators({
-    handHygiene: handHygieneObservations(),
-    ppe: ppeAudits(),
-    complaints: recentComplaints(),
-    survey: surveyResponses(),
-    discharges: dischargeRecords(),
-    now: DEMO_NOW,
-  });
+  const { items, quality } = await liveComputedIndicators();
+  return { items, store: quality };
 }
