@@ -3,7 +3,7 @@
 import { type ConnectionMode, formatJam, type PaymentConfig } from '@simrs/shared';
 import { Button, Chip, cx, RadioSegmented } from '@simrs/ui';
 import { useEffect, useId, useRef, useState } from 'react';
-import type { PaymentEventInput } from '@/app/(staf)/keuangan/pembayaran/actions';
+import type { PaymentInput } from '@/app/(staf)/keuangan/pembayaran/use-payment-state';
 import { formatTanggalPendek } from '@/lib/btn';
 
 type ChannelId = PaymentConfig['channels'][number]['id'];
@@ -28,22 +28,22 @@ export function KonfigurasiTab({
   config,
   busy,
   record,
-  now,
-  onSavedMode,
+  savedAt,
+  rotatedAt,
   onDirty,
 }: {
   config: PaymentConfig;
   busy: boolean;
-  record: (input: PaymentEventInput, label: string) => Promise<boolean>;
-  now: () => string;
-  onSavedMode: (mode: ConnectionMode) => void;
+  record: (input: PaymentInput) => Promise<boolean>;
+  /** Jam konfigurasi terakhir disimpan (toko demo), null = belum pernah di demo ini. */
+  savedAt: string | null;
+  /** Jam rotasi secret terakhir (toko demo). */
+  rotatedAt: string | null;
   /** Ada perubahan belum disimpan (lencana tab "belum disimpan", mockup). */
   onDirty?: (dirty: boolean) => void;
 }) {
   const [cfg, setCfg] = useState(() => initial(config));
-  const [saved, setSaved] = useState(() => initial(config));
-  const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [rotatedAt, setRotatedAt] = useState<string | null>(null);
+  const saved = initial(config);
   // Dialog modal asli: fokus masuk ke dialog saat dibuka dan kembali ke tombol pemicu saat ditutup.
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -56,29 +56,21 @@ export function KonfigurasiTab({
     : dirty
       ? 'Ada perubahan yang belum disimpan.'
       : savedAt
-        ? `Perubahan konfigurasi disimpan ${formatJam(savedAt)} · tercatat di jejak audit (simulasi, tidak disimpan).`
+        ? `Perubahan konfigurasi disimpan ${formatJam(savedAt)} · tercatat di jejak audit.`
         : 'Tidak ada perubahan.';
   const save = async () => {
     if (!canSave) return;
-    const ok = await record(
-      {
-        kind: 'konfigurasi',
-        channels: cfg.on,
-        vaExpiry: cfg.va as '12' | '24' | '48',
-        qrisExpiry: cfg.qris as '5' | '10' | '15',
-        mode: cfg.mode,
-      },
-      'Konfigurasi kanal disimpan',
-    );
-    if (!ok) return;
-    setSaved(cfg);
-    setSavedAt(now());
-    onSavedMode(cfg.mode);
+    await record({
+      kind: 'konfigurasi',
+      channels: cfg.on,
+      vaExpiry: cfg.va as '12' | '24' | '48',
+      qrisExpiry: cfg.qris as '5' | '10' | '15',
+      mode: cfg.mode,
+    });
   };
   const rotate = async () => {
-    const ok = await record({ kind: 'rotasi-secret' }, 'Secret webhook dirotasi');
+    await record({ kind: 'rotasi-secret' });
     dialog.current?.close();
-    if (ok) setRotatedAt(now());
   };
   const w = config.webhook;
   const rows: Array<[string, string]> = [

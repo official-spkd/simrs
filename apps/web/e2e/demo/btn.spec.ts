@@ -89,10 +89,26 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await daftar.getByRole('button', { name: /Ny\. Endang Wijaya/ }).click();
     const detail = page.getByRole('complementary', { name: 'Detail transaksi' });
     await expect(detail.getByText('INV-2610-02217 · Rp 250.400', { exact: true })).toBeVisible();
+    // Tagihan yang ada di antrean Kasir dilunasi di Kasir (satu sumber), bukan lewat simulasi webhook di sini.
     await detail.getByRole('button', { name: 'Simulasikan pembayaran (webhook TPDI)' }).click();
     await expect(
-      page.getByText(/Webhook TPDI diterima, tagihan lunas · \d{2}\.\d{2} \(simulasi, tidak disimpan\)/),
+      page.getByText(/INV-2610-02217 ada di antrean Kasir; lunasi dari layar Kasir/),
     ).toBeVisible();
+    await daftar
+      .getByRole('button', { name: /An\. Raka Pratama/ })
+      .first()
+      .click();
+    await expect(detail.getByText('INV-2610-02236 · Rp 1.320.000', { exact: true })).toBeVisible();
+    await detail.getByRole('button', { name: 'Simulasikan pembayaran (webhook TPDI)' }).click();
+    await expect(page.getByText(/Webhook TPDI diterima, tagihan lunas · \d{2}\.\d{2}/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+    await expect(detail.getByText('✓ HMAC valid').first()).toBeVisible();
+    // Bertahan: muat ulang → transaksi tetap lunas.
+    await page.reload();
+    await daftar
+      .getByRole('button', { name: /An\. Raka Pratama/ })
+      .first()
+      .click();
     await expect(detail.getByText('✓ HMAC valid').first()).toBeVisible();
     // Kepala layar: webhook terakhir ikut jam pelunasan simulasi (mockup).
     await expect(page.getByText(/webhook terakhir \d{2}\.\d{2} \(\d+ dtk lalu\)/)).toBeVisible();
@@ -124,6 +140,10 @@ test.describe('pembayaran digital TPDI × BTN', () => {
     await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
     await expect(baris.getByText(/tercatat di jejak audit/)).toBeVisible();
     await expect(page.getByRole('tab', { name: /^Rekonsiliasi\s*2 selisih$/ })).toBeVisible();
+    // Bertahan setelah muat ulang (toko demo `pembayaran-btn`).
+    await page.reload();
+    await page.getByRole('tab', { name: /^Rekonsiliasi/ }).click();
+    await expect(baris.getByText('Ditangani', { exact: true })).toBeVisible();
     // Terapkan tetap bisa difokus; menekannya tanpa tindakan menampilkan alasan (mockup aria-disabled).
     const sumarni = rekon.getByRole('listitem').filter({ hasText: 'Ny. Sumarni Pakpahan' });
     await sumarni.getByRole('button', { name: 'Terapkan' }).click({ force: true });
@@ -165,6 +185,11 @@ test.describe('pembiayaan BTN', () => {
     await expect(pool.getByText('Selesaikan pengajuan PCR-2610-01 dulu.')).toBeVisible();
     await pool.getByRole('button', { name: 'Simulasi: BTN menyetujui' }).click();
     await pool.getByRole('button', { name: 'Simulasi: BTN mencairkan dana' }).click();
+    await expect(
+      pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional ••••4417 pukul \d{2}\.\d{2}/),
+    ).toBeVisible();
+    // Bertahan: muat ulang → pencairan tetap tercatat (toko demo `pembiayaan-btn`).
+    await page.reload();
     await expect(
       pool.getByText(/Rp 3\.690\.000\.000 masuk rekening operasional ••••4417 pukul \d{2}\.\d{2}/),
     ).toBeVisible();

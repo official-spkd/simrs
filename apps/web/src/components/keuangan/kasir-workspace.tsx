@@ -1,60 +1,55 @@
 'use client';
 
-import { type ChargeItem, formatJam, formatRupiah, formatTanggalLahir, type Invoice } from '@simrs/shared';
+import { formatJam, formatRupiah, formatTanggalLahir, type Invoice } from '@simrs/shared';
 import { Alert, Chip, PatientBanner } from '@simrs/ui';
-import { useState, useTransition } from 'react';
-import {
-  type KasirActionInput,
-  kasirAction,
-  type ManualLineInput,
-} from '@/app/(staf)/keuangan/kasir/actions';
+import { useState } from 'react';
+import { type KasirActionInput, kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
 import { useDemoRunner } from '@/components/demo-sync';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { invoiceSettlement, invoiceStatusView, PAYMENT_METHOD_LABEL } from '@/lib/keuangan';
 import { flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
 import { BillLines } from './bill-lines';
 import { KasirSettlement } from './kasir-settlement';
 import { ManualLineForm } from './manual-line-form';
 import { PayerSplitCard } from './payer-split-card';
-import type { PaidInfo } from './payment-panel';
 
 /**
- * U02/U03 · Ruang kerja satu tagihan (mockup Kasir). Tagihan biasa: finalkan, item manual (beralasan), dan bayar
- * berjalan lokal lewat Server Action (simulasi, tidak disimpan). Pasien skenario: tombol menjalankan tugas langkah
+ * U02/U03 · Ruang kerja satu tagihan (mockup Kasir). Tagihan biasa: finalkan, item manual (beralasan), bayar, dan
+ * tutup kunjungan tersimpan di toko demo (domain `tagihan`, ADR-0085) atas nama pengguna sesi, lalu mengalir ke
+ * Akuntansi, Klaim, Piutang, Pembayaran digital, dan Kas & bank. Pasien skenario: tombol menjalankan tugas langkah
  * Kasir skenario hanya saat gilirannya, sehingga layar ini memajukan cerita presentasi.
  */
 export function KasirWorkspace({
   invoice,
   flow,
   rev,
+  storeRev,
+  held,
+  shiftClosed,
   nextHref,
 }: {
   invoice: Invoice;
   flow: ScenarioFlow | null;
+  /** Revisi toko skenario (tugas Simulasi). */
   rev: number;
+  /** Revisi domain toko `tagihan` (aksi kasir). */
+  storeRev: number;
+  /** Event charge capture tertahan pasien ini (finalisasi ditahan). */
+  held: number;
+  /** Shift kasir sudah ditutup: pembayaran ditolak sampai shift baru dibuka. */
+  shiftClosed: boolean;
   nextHref: string | null;
 }) {
   const runner = useDemoRunner(rev);
-  const [manual, setManual] = useState<ChargeItem[]>([]);
-  const [finalAt, setFinalAt] = useState<string | null>(null);
-  const [paid, setPaid] = useState<PaidInfo | null>(null);
-  const [closedAt, setClosedAt] = useState<string | null>(null);
+  const store = useStoreAction(storeRev);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, startTransition] = useTransition();
   const scen = invoice.scenario ? flow : null;
 
-  const lines = manual.length ? [...invoice.lines, ...manual] : invoice.lines;
-  const { total, split, due } = invoiceSettlement(invoice, manual);
-  // Item manual ikut dikirim saat bayar/tutup agar server menghitung ulang sisa tagihan sendiri.
-  const manualInput: ManualLineInput[] = manual.map((l) => ({
-    name: l.name,
-    category: l.category,
-    qty: l.qty,
-    unitPrice: l.unitPrice ?? l.amount,
-    reason: l.reason ?? '',
-  }));
-  const lunas = invoice.status === 'lunas' || !!paid || !!closedAt;
-  const final = lunas || invoice.status === 'final' || !!finalAt;
-  const pending = busy || runner.pending;
+  const lines = invoice.lines;
+  const { total, split, due } = invoiceSettlement(invoice);
+  const lunas = invoice.status === 'lunas';
+  const final = lunas || invoice.status === 'final';
+  const pending = store.pending || runner.pending;
   const status = invoiceStatusView(
     lunas ? 'lunas' : final ? 'final' : 'berjalan',
     due,
@@ -64,38 +59,39 @@ export function KasirWorkspace({
   const task = (id: string, value: true | string = true) => {
     if (scen) runner.run({ type: 'task', step: scen.step, task: id, value, scenario: scen.scenario });
   };
-  const local = (input: KasirActionInput, done: (at: string) => void) =>
-    startTransition(async () => {
-      const r = await kasirAction(input);
-      setMessage(r.message);
-      if (r.ok) done(r.at ?? formatJam(new Date()));
-    });
+  const local = (input: KasirActionInput) =>
+    store.run(
+      (r) => kasirAction({ ...input, rev: r }),
+      (res) => setMessage(res.message),
+    );
 
   const closeTask = invoice.scenario === 'rawat-jalan' ? 'tutup' : 'pulang';
   const finalize = scen
     ? { enabled: !!scen.tasks.final?.enabled && !pending, reason: flowReason(scen, 'final') }
     : {
-        enabled: invoice.encounter.discharged && !pending,
-        reason: invoice.encounter.discharged
-          ? ''
-          : 'Pasien masih dirawat; tagihan berjalan sampai pasien pulang.',
+        enabled: invoice.encounter.discharged && held === 0 && !pending,
+        reason: !invoice.encounter.discharged
+          ? 'Pasien masih dirawat; tagihan berjalan sampai pasien pulang.'
+          : held > 0
+            ? `Finalisasi ditahan: ${held} event charge capture pasien ini masih tertahan (selesaikan di Charge capture).`
+            : '',
       };
   const close = scen
     ? { enabled: !!scen.tasks[closeTask]?.enabled && !pending, reason: flowReason(scen, closeTask) }
-    : { enabled: !pending, reason: '' };
+    : {
+        enabled: !pending && !shiftClosed,
+        reason: shiftClosed ? 'Shift kasir sudah ditutup; buka shift baru di kepala layar.' : '',
+      };
   const lastPayment = invoice.payments.at(-1);
   const receipt = lunas
     ? {
         no: invoice.receiptNo ?? invoice.number.replace('INV', 'KW'),
-        at:
-          paid?.at ??
-          closedAt ??
-          (lastPayment ? formatJam(lastPayment.at) : formatJam(invoice.finalizedAt ?? new Date())),
-        note:
-          paid?.note ??
-          (lastPayment
-            ? `${PAYMENT_METHOD_LABEL[lastPayment.method].name} ${formatRupiah(BigInt(lastPayment.amount))} · ${lastPayment.reference}`
-            : (invoice.note ?? 'Ditanggung penjamin · pasien bayar Rp 0')),
+        at: lastPayment
+          ? formatJam(lastPayment.at)
+          : formatJam(invoice.finalizedAt ?? '2026-10-05T10:45:00+07:00'),
+        note: lastPayment
+          ? `${PAYMENT_METHOD_LABEL[lastPayment.method].name} ${formatRupiah(BigInt(lastPayment.amount))} · ${lastPayment.reference}`
+          : (invoice.note ?? 'Ditanggung penjamin · pasien bayar Rp 0'),
       }
     : null;
   const pulang = scen && invoice.scenario === 'elektif-btn' && lunas ? scen.tasks.pulang : undefined;
@@ -141,6 +137,7 @@ export function KasirWorkspace({
         <BillLines lines={lines} total={total} />
         <ManualLineForm
           invoiceId={invoice.id}
+          rev={storeRev}
           disabledReason={
             final
               ? 'Tagihan sudah final dan terkunci; koreksi lewat unit asal.'
@@ -148,10 +145,7 @@ export function KasirWorkspace({
                 ? 'Tagihan pasien simulasi mengikuti charge capture skenario; koreksi lewat unit asal.'
                 : null
           }
-          onAdded={(l, msg) => {
-            setManual((m) => [...m, l]);
-            setMessage(msg);
-          }}
+          onAdded={setMessage}
         />
         <Alert level="info" title="Charge capture">
           Semua item berasal dari charge capture otomatis (order, eMAR, lab, radiologi, OK, ADT) lengkap
@@ -173,27 +167,21 @@ export function KasirWorkspace({
           flow={scen}
           busy={pending}
           receipt={receipt}
-          manual={manualInput}
+          rev={storeRev}
+          shiftClosed={shiftClosed}
           finalize={{
             label: 'Finalkan tagihan',
             ...finalize,
-            onClick: () =>
-              scen ? task('final') : local({ type: 'final', invoiceId: invoice.id }, setFinalAt),
+            onClick: () => (scen ? task('final') : local({ type: 'final', invoiceId: invoice.id, rev: 0 })),
           }}
           close={{
             label: scen?.tasks[closeTask]?.btn || 'Tutup kunjungan (pasien bayar Rp 0)',
             ...close,
-            onClick: () =>
-              scen
-                ? task(closeTask)
-                : local({ type: 'tutup', invoiceId: invoice.id, manual: manualInput }, setClosedAt),
+            onClick: () => (scen ? task(closeTask) : local({ type: 'tutup', invoiceId: invoice.id, rev: 0 })),
           }}
           discharge={discharge}
           onTask={task}
-          onPaid={(p) => {
-            setPaid(p);
-            setMessage(p.message);
-          }}
+          onPaid={setMessage}
           nextHref={nextHref}
         />
         {(message || runner.error) && (

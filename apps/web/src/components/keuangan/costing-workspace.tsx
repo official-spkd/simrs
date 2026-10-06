@@ -3,6 +3,7 @@
 import { formatJam, formatRupiah } from '@simrs/shared';
 import { Button, Chip, cx, KpiCard, RadioSegmented } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import { formatRupiahRingkas } from '@/lib/keuangan';
 import {
@@ -15,6 +16,7 @@ import {
   totalView,
   unitCost,
 } from '@/lib/keuangan-costing';
+import type { CostingState } from '@/lib/keuangan-costing-toko';
 import type { CostingBoard } from '@/lib/server/data/keuangan-lanjut';
 import { AlasanForm } from './alasan-form';
 
@@ -24,14 +26,23 @@ const BAR = ['bg-brand-700', 'bg-brand-500', 'bg-[#6E8BC7]', 'bg-[#C7A23A]', 'bg
 /**
  * I10 · Costing dan case-mix: biaya per kasus berbasis aktivitas vs tarif INA-CBG, margin per kelompok kasus dan per
  * DPJP, komposisi biaya, dan varians lama rawat terhadap clinical pathway. Telaah dikirim ke komite medik dengan
- * alasan. Data kuartal tertutup (hanya baca); simulasi lokal.
+ * alasan (tersimpan di toko demo, domain `costing`). Data kuartal tertutup (hanya baca).
  */
-export function CostingWorkspace({ board }: { board: CostingBoard }) {
+export function CostingWorkspace({
+  board,
+  reviews,
+  rev,
+}: {
+  board: CostingBoard;
+  /** Telaah tersimpan per kasus (domain `costing`). */
+  reviews: CostingState['reviews'];
+  rev: number;
+}) {
   const [by, setBy] = useState<'cbg' | 'dpjp'>('cbg');
   const [sel, setSel] = useState(board.cases[0]?.id ?? '');
   const [reviewing, setReviewing] = useState(false);
-  const [sent, setSent] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
+  const { dispatch, error } = useDemoDispatch('costing', rev);
   const rows = marginBy(board.cases, by);
   const total = totalView(board.cases);
   const losers = marginBy(board.cases, 'cbg').filter((r) => r.margin < 0n);
@@ -70,7 +81,15 @@ export function CostingWorkspace({ board }: { board: CostingBoard }) {
           role="status"
           className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          ✓ {flash}
+        </div>
+      )}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-control border border-danger-border bg-danger-bg px-3 py-2 text-small text-danger"
+        >
+          {error}
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -121,8 +140,12 @@ export function CostingWorkspace({ board }: { board: CostingBoard }) {
                       </span>
                     </td>
                     <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{r.cases}</td>
-                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{formatRupiahRingkas(r.revenue)}</td>
-                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">{formatRupiahRingkas(r.cost)}</td>
+                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">
+                      {formatRupiahRingkas(r.revenue)}
+                    </td>
+                    <td className="py-1.5 pr-3 text-right font-mono whitespace-nowrap">
+                      {formatRupiahRingkas(r.cost)}
+                    </td>
                     <td
                       className={cx(
                         'py-1.5 pr-4 text-right font-mono font-semibold',
@@ -172,15 +195,20 @@ export function CostingWorkspace({ board }: { board: CostingBoard }) {
             k={k}
             drivers={board.drivers}
             reviewing={reviewing}
-            sentAt={sent[k.id] ?? null}
+            sentAt={
+              reviews[k.id] ? `${formatJam(reviews[k.id]?.at ?? '')} oleh ${reviews[k.id]?.by ?? ''}` : null
+            }
             onReview={() => setReviewing(true)}
             onCancel={() => setReviewing(false)}
-            onSend={() => {
-              const t = formatJam(demoNow());
-              setSent((s) => ({ ...s, [k.id]: t }));
-              setReviewing(false);
-              setFlash(`Telaah clinical pathway ${k.cbg.code} (${k.dpjp}) dikirim ke komite medik · ${t}`);
-            }}
+            onSend={(note) =>
+              dispatch({ type: 'telaah.dikirim', caseId: k.id, note }, (ok) => {
+                if (!ok) return;
+                setReviewing(false);
+                setFlash(
+                  `Telaah clinical pathway ${k.cbg.code} (${k.dpjp}) dikirim ke komite medik · ${formatJam(demoNow())}`,
+                );
+              })
+            }
           />
         )}
       </div>
@@ -203,7 +231,7 @@ function CaseDetail({
   sentAt: string | null;
   onReview: () => void;
   onCancel: () => void;
-  onSend: () => void;
+  onSend: (note: string) => void;
 }) {
   const cost = unitCost(k);
   const margin = k.tariff - cost;

@@ -4,19 +4,25 @@ import { formatJam, formatRupiah } from '@simrs/shared';
 import { Button, Chip, type ChipTone, cx, FilterChip, KpiCard } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type ChargeActionInput, chargeAction } from '@/app/(staf)/keuangan/charge-capture/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   byEncounter,
   captureActions,
   captureReconciliation,
   type EventCapture,
   KOREKSI_REASON_MIN,
-  resolveHold,
   SUMBER_LABEL,
   type SumberEvent,
-  voidManualLine,
 } from '@/lib/keuangan-charge';
+import type { CaptureOverlay } from '@/lib/keuangan-tagihan-toko';
 import { AlasanForm } from './alasan-form';
+
+/** Event monitor + tindak lanjut tersimpan (permintaan ke unit lain, jawaban admisi). */
+export type CaptureView = EventCapture & {
+  requested: CaptureOverlay['requested'];
+  kelasAt: string | null;
+};
 
 type StatusFilter = 'semua' | 'tertahan' | 'dibalik' | 'manual';
 const STATUS_FILTERS: Array<{ id: StatusFilter; label: string }> = [
@@ -41,51 +47,43 @@ const signed = (v: bigint) => (v < 0n ? `−${formatRupiah(-v)}` : formatRupiah(
 /**
  * U02 · Monitor charge capture: event klinis → baris tagihan bersumber; pengecualian ditangani (coba ulang setelah
  * tarif disetujui, minta admisi menetapkan kelas, reprice penjamin baru); koreksi baris klinis diminta ke unit asal,
- * hanya baris manual yang bisa dibatalkan kasir (alasan wajib). Simulasi lokal, tidak disimpan.
+ * hanya baris manual yang bisa dibatalkan kasir (alasan wajib). Tindak lanjut tersimpan di toko demo (domain
+ * `tagihan`) atas nama pengguna sesi; baris yang terbentuk masuk tagihan berjalan pasien di Kasir, event pendaftaran
+ * dan item manual kasir muncul di sini.
  */
 export function ChargeWorkspace({
-  initial,
+  events,
   eventTotal,
-  viewer,
+  rev,
 }: {
-  initial: readonly EventCapture[];
+  events: readonly CaptureView[];
   eventTotal: number;
-  viewer: string;
+  /** Revisi domain `tagihan`. */
+  rev: number;
 }) {
-  const [events, setEvents] = useState<readonly EventCapture[]>(initial);
   const [src, setSrc] = useState<SumberEvent | 'semua'>('semua');
   const [st, setSt] = useState<StatusFilter>('semua');
   const [open, setOpen] = useState<{ id: string; kind: 'koreksi' | 'batal' } | null>(null);
-  const [requested, setRequested] = useState<Record<string, string>>({});
-  const [kelasSet, setKelasSet] = useState<Record<string, string>>({});
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
+  const { run, pending } = useStoreAction(rev);
+  const act = (input: ChargeActionInput, done?: () => void) =>
+    run(
+      (r) => chargeAction({ ...input, rev: r }),
+      (res) => {
+        setFlash({ text: res.message, ok: res.ok });
+        if (res.ok) done?.();
+      },
+    );
 
   const rec = captureReconciliation(events);
   const enc = byEncounter(events);
-  const sources = [...new Set(initial.map((e) => e.source))];
+  const sources = [...new Set(events.map((e) => e.source))];
   const shown = events.filter(
     (e) =>
       (src === 'semua' || e.source === src) &&
       (st === 'semua' ||
         (st === 'manual' ? !!e.manual : st === 'dibalik' ? e.status === 'dibalik' : e.status === st)),
   );
-  const replace = (id: string, next: EventCapture[]) =>
-    setEvents((list) => list.flatMap((e) => (e.id === id ? next : [e])));
-
-  const retry = (e: EventCapture) => {
-    const [done] = resolveHold(e);
-    if (!done?.line) return;
-    replace(e.id, [done]);
-    setFlash(
-      `${done.line.name} ${signed(done.line.amount)} masuk tagihan ${e.patient.name} · ${formatJam(demoNow())}`,
-    );
-  };
-  const request = (e: EventCapture, text: string) => {
-    const t = formatJam(demoNow());
-    setRequested((r) => ({ ...r, [e.id]: t }));
-    setFlash(`${text} · ${t}`);
-  };
-
   return (
     <div className="flex flex-col gap-4">
       <div
@@ -133,9 +131,15 @@ export function ChargeWorkspace({
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
 
@@ -173,7 +177,8 @@ export function ChargeWorkspace({
           <ul aria-label="Event" className="m-0 flex list-none flex-col p-0">
             {shown.map((e) => {
               const acts = captureActions(e);
-              const kelasOk = !!kelasSet[e.id];
+              const kelasOk = !!e.kelasAt;
+              const asked = e.requested ? formatJam(e.requested.at) : null;
               const canRetry = acts.retry === null || (e.hold?.kind === 'kelas-belum-ada' && kelasOk);
               const sv = STATUS_VIEW[e.status];
               const isOpen = open?.id === e.id;
@@ -261,18 +266,18 @@ export function ChargeWorkspace({
                           ; event bisa dicoba ulang.
                         </span>
                       )}
-                      {kelasOk && (
+                      {kelasOk && e.kelasAt && (
                         <span className="text-caption text-success">
-                          ✓ Admisi menetapkan Kelas 2 · {kelasSet[e.id]}; event bisa dicoba ulang.
+                          ✓ Admisi menetapkan Kelas 2 · {formatJam(e.kelasAt)}; event bisa dicoba ulang.
                         </span>
                       )}
                       <span className="flex flex-wrap items-center gap-2">
                         <Button
                           variant="primary"
                           size="sm"
-                          disabled={!canRetry}
+                          disabled={!canRetry || pending}
                           aria-describedby={canRetry ? undefined : `${e.id}-gate`}
-                          onClick={() => retry(e)}
+                          onClick={() => act({ type: 'selesaikan', eventId: e.id, rev: 0 })}
                         >
                           {e.hold.kind === 'penjamin-berubah'
                             ? 'Reprice baris terbuka'
@@ -282,17 +287,10 @@ export function ChargeWorkspace({
                           <>
                             <Button
                               size="sm"
-                              disabled={!!requested[e.id]}
-                              onClick={() =>
-                                request(
-                                  e,
-                                  `Permintaan tarif ${e.hold?.resolution?.name ?? ''} dikirim ke pengelola tarif`,
-                                )
-                              }
+                              disabled={!!asked || pending}
+                              onClick={() => act({ type: 'minta-tarif', eventId: e.id, rev: 0 })}
                             >
-                              {requested[e.id]
-                                ? `Tarif diminta ${requested[e.id]}`
-                                : 'Minta tarif ke pengelola tarif'}
+                              {asked ? `Tarif diminta ${asked}` : 'Minta tarif ke pengelola tarif'}
                             </Button>
                             <Link href="/keuangan/tarif" className="text-small font-semibold">
                               Buka Tarif & paket
@@ -301,28 +299,28 @@ export function ChargeWorkspace({
                         )}
                         {e.hold.kind === 'kelas-belum-ada' &&
                           !kelasOk &&
-                          (requested[e.id] ? (
+                          (asked ? (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setKelasSet((k) => ({ ...k, [e.id]: formatJam(demoNow()) }))}
+                              disabled={pending}
+                              onClick={() => act({ type: 'kelas', eventId: e.id, rev: 0 })}
                             >
                               Simulasikan admisi menetapkan kelas
                             </Button>
                           ) : (
                             <Button
                               size="sm"
-                              onClick={() =>
-                                request(e, `Permintaan penetapan kelas ${e.patient.name} dikirim ke admisi`)
-                              }
+                              disabled={pending}
+                              onClick={() => act({ type: 'minta-kelas', eventId: e.id, rev: 0 })}
                             >
                               Minta admisi menetapkan kelas
                             </Button>
                           ))}
                         {!canRetry && acts.retry && (
                           <span id={`${e.id}-gate`} className="text-caption font-medium text-warning">
-                            {requested[e.id] && e.hold.kind === 'kelas-belum-ada'
-                              ? `Menunggu admisi · diminta ${requested[e.id]}`
+                            {asked && e.hold.kind === 'kelas-belum-ada'
+                              ? `Menunggu admisi · diminta ${asked} oleh ${e.requested?.by ?? '—'}`
                               : acts.retry}
                           </span>
                         )}
@@ -336,11 +334,11 @@ export function ChargeWorkspace({
                         <Button
                           size="sm"
                           variant="ghost"
-                          disabled={!!requested[e.id]}
+                          disabled={!!asked}
                           onClick={() => setOpen({ id: e.id, kind: 'koreksi' })}
                         >
-                          {requested[e.id]
-                            ? `Koreksi diminta ${requested[e.id]}`
+                          {asked
+                            ? `Koreksi diminta ${asked} · ${e.requested?.by ?? ''}`
                             : 'Minta koreksi ke unit asal…'}
                         </Button>
                       )}
@@ -362,13 +360,9 @@ export function ChargeWorkspace({
                       min={KOREKSI_REASON_MIN}
                       placeholder="mis. Kuantitas di eMAR 2, tetapi pasien hanya menerima 1"
                       onCancel={() => setOpen(null)}
-                      onSubmit={() => {
-                        setOpen(null);
-                        request(
-                          e,
-                          `Permintaan koreksi dikirim ke ${SUMBER_LABEL[e.source]}; baris tetap sampai unit asal membalik`,
-                        );
-                      }}
+                      onSubmit={(reason) =>
+                        act({ type: 'koreksi', eventId: e.id, reason, rev: 0 }, () => setOpen(null))
+                      }
                     />
                   )}
                   {isOpen && open.kind === 'batal' && (
@@ -379,14 +373,9 @@ export function ChargeWorkspace({
                       min={KOREKSI_REASON_MIN}
                       placeholder="mis. Kursi roda milik keluarga, bukan sewa RS"
                       onCancel={() => setOpen(null)}
-                      onSubmit={(reason) => {
-                        const now = demoNow();
-                        setOpen(null);
-                        replace(e.id, voidManualLine(e, now.toISOString(), viewer, reason));
-                        setFlash(
-                          `Baris manual ${e.line?.name ?? ''} dibatalkan dengan baris pembalik · ${formatJam(now)}`,
-                        );
-                      }}
+                      onSubmit={(reason) =>
+                        act({ type: 'batal-manual', eventId: e.id, reason, rev: 0 }, () => setOpen(null))
+                      }
                     />
                   )}
                 </li>

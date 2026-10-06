@@ -1,9 +1,10 @@
 'use client';
 
-import { CHARGE_CATEGORIES, type ChargeCategory, type ChargeItem } from '@simrs/shared';
+import { CHARGE_CATEGORIES, type ChargeCategory } from '@simrs/shared';
 import { Button, Field } from '@simrs/ui';
-import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { kasirAction } from '@/app/(staf)/keuangan/kasir/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   CATEGORY_LABEL,
   digitsToRupiah,
@@ -14,17 +15,21 @@ import {
 
 /**
  * Item manual kasir (U03): pengecualian charge capture, jadi wajib alasan tertulis dan tercatat di audit. Tombol
- * ajukan tetap nonaktif (dengan alasan terlihat) sampai nama, harga, dan alasan terisi.
+ * ajukan tetap nonaktif (dengan alasan terlihat) sampai nama, harga, dan alasan terisi. Item tersimpan di toko demo
+ * (domain `tagihan`) atas nama pengguna sesi dan tampil juga di Charge capture.
  */
 export function ManualLineForm({
   invoiceId,
+  rev,
   disabledReason,
   onAdded,
 }: {
   invoiceId: string;
+  /** Revisi domain `tagihan` yang dilihat layar. */
+  rev: number;
   /** Alasan form tidak bisa dipakai (tagihan terkunci, pasien skenario); null = boleh. */
   disabledReason: string | null;
-  onAdded: (line: ChargeItem, message: string) => void;
+  onAdded: (message: string) => void;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -34,7 +39,7 @@ export function ManualLineForm({
   const [price, setPrice] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending } = useStoreAction(rev);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   /** Ke mana fokus dipindah setelah tombol pemicu diganti form (atau sebaliknya). */
@@ -55,44 +60,35 @@ export function ManualLineForm({
   const qtyError = qtyNum === null ? 'Isi bilangan bulat 1–99 tanpa desimal.' : null;
   const problems = manualLineProblems({ name, qty: qtyNum ?? Number.NaN, unitPrice, reason });
 
-  const submit = () =>
-    startTransition(async () => {
-      if (qtyNum === null) return;
-      const r = await kasirAction({
-        type: 'manual',
-        invoiceId,
-        name: name.trim(),
-        category,
-        qty: qtyNum,
-        unitPrice: unitPrice.toString(),
-        reason: reason.trim(),
-      });
-      if (!r.ok) {
-        setError(r.message);
-        return;
-      }
-      onAdded(
-        {
-          id: `manual-${Date.now()}`,
+  const submit = () => {
+    if (qtyNum === null) return;
+    run(
+      (r) =>
+        kasirAction({
+          type: 'manual',
+          invoiceId,
+          rev: r,
           name: name.trim(),
           category,
-          source: 'Kasir (manual)',
-          when: r.at ?? '',
           qty: qtyNum,
           unitPrice: unitPrice.toString(),
-          amount: (unitPrice * BigInt(qtyNum)).toString(),
-          manual: true,
           reason: reason.trim(),
-        },
-        r.message,
-      );
-      toggle(false);
-      setName('');
-      setPrice('');
-      setReason('');
-      setQty('1');
-      setError(null);
-    });
+        }),
+      (res) => {
+        if (!res.ok) {
+          setError(res.message);
+          return;
+        }
+        onAdded(res.message);
+        toggle(false);
+        setName('');
+        setPrice('');
+        setReason('');
+        setQty('1');
+        setError(null);
+      },
+    );
+  };
 
   if (!open) {
     return (

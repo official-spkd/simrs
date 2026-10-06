@@ -4,6 +4,7 @@ import { HutangWorkspace } from '@/components/keuangan/hutang-workspace';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { getPayablesBoard } from '@/lib/server/data/keuangan-lanjut';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { readDomain } from '@/lib/server/demo/state';
 
 export const metadata: Metadata = { title: 'Hutang usaha' };
 
@@ -15,6 +16,7 @@ export default async function HutangPage() {
   const { session, screen, allowed } = await requireDemoScreen('hutang');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const board = getPayablesBoard();
+  const { state, rev } = await readDomain('hutang');
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-0.5">
@@ -23,8 +25,10 @@ export default async function HutangPage() {
       </header>
       <HutangWorkspace
         board={board}
+        store={state}
+        rev={rev}
         today={DEMO_TODAY}
-        viewer={{ name: session.user.displayName, role: session.role?.code ?? null }}
+        viewer={{ id: session.user.id, name: session.user.displayName, role: session.role?.code ?? null }}
       />
     </div>
   );

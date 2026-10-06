@@ -129,13 +129,16 @@ export const TAHAP_JASPEL: ReadonlyArray<{ id: TahapJaspel; label: string }> = [
 /** Gerbang tahap berikut: verifikasi oleh akuntan; persetujuan oleh manajemen yang bukan pemverifikasi; bayar oleh akuntan. */
 export function stepProblem(
   stage: TahapJaspel,
-  viewer: { name: string; role: string | null },
+  viewer: { id?: string; name: string; role: string | null },
   verifiedBy: string | null,
+  /** Id pengguna pemverifikasi (toko demo); tanpa id (data contoh) dibandingkan dengan nama. */
+  verifiedById?: string | null,
 ): string | null {
   if (stage === 'dihitung') return viewer.role === 'akuntan' ? null : 'Verifikasi rekap oleh posisi akuntan.';
   if (stage === 'diverifikasi') {
     if (viewer.role !== 'manajemen') return 'Persetujuan rekap oleh posisi manajemen.';
-    return viewer.name === verifiedBy ? 'Pemverifikasi tidak boleh menyetujui rekap yang sama.' : null;
+    const same = verifiedById && viewer.id ? verifiedById === viewer.id : viewer.name === verifiedBy;
+    return same ? 'Pemverifikasi tidak boleh menyetujui rekap yang sama.' : null;
   }
   if (stage === 'disetujui')
     return viewer.role === 'akuntan' ? null : 'Pembayaran jasa diposting posisi akuntan.';

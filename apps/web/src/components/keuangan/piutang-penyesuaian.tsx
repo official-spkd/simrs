@@ -14,6 +14,8 @@ import {
   PENYESUAIAN_LABEL,
   type PiutangItem,
 } from '@/lib/keuangan-piutang';
+import type { StoredAdjustment } from '@/lib/keuangan-piutang-toko';
+import { AlasanForm } from './alasan-form';
 import { JurnalPasangan } from './jurnal-pasangan';
 
 /**
@@ -28,12 +30,14 @@ export function PiutangPenyesuaian({
   onDecide,
 }: {
   items: readonly PiutangItem[];
-  adjustments: readonly Penyesuaian[];
-  viewer: { name: string; role: string | null };
+  adjustments: readonly StoredAdjustment[];
+  viewer: { id: string; name: string; role: string | null };
   onSubmit: (a: { itemId: string; kind: JenisPenyesuaian; amount: bigint; reason: string }) => void;
-  onDecide: (a: Penyesuaian, approve: boolean) => void;
+  /** Tolak wajib beralasan (`reason`). */
+  onDecide: (a: Penyesuaian, approve: boolean, reason: string | null) => void;
 }) {
   const id = useId();
+  const [rejecting, setRejecting] = useState<string | null>(null);
   const open = items.filter((i) => outstanding(i) > 0n);
   const [itemId, setItemId] = useState('');
   const [kind, setKind] = useState<JenisPenyesuaian>('potongan');
@@ -159,19 +163,34 @@ export function PiutangPenyesuaian({
                 Diajukan {a.maker} · {formatTanggalWaktu(a.createdAt)} · alasan: “{a.reason}”
               </span>
               {a.status === 'menunggu' ? (
-                <span className="flex flex-wrap items-center gap-2">
-                  <Button variant="primary" disabled={!!gate} onClick={() => onDecide(a, true)}>
-                    Setujui dan posting
-                  </Button>
-                  <Button disabled={!!gate} onClick={() => onDecide(a, false)}>
-                    Tolak
-                  </Button>
-                  {gate && <span className="text-caption font-medium text-warning">{gate}</span>}
-                </span>
+                rejecting === a.id ? (
+                  <AlasanForm
+                    label={`Alasan menolak ${a.number} (wajib)`}
+                    submitLabel="Tolak penyesuaian"
+                    variant="danger"
+                    min={10}
+                    onCancel={() => setRejecting(null)}
+                    onSubmit={(r) => {
+                      setRejecting(null);
+                      onDecide(a, false, r);
+                    }}
+                  />
+                ) : (
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Button variant="primary" disabled={!!gate} onClick={() => onDecide(a, true, null)}>
+                      Setujui dan posting
+                    </Button>
+                    <Button disabled={!!gate} onClick={() => setRejecting(a.id)}>
+                      Tolak…
+                    </Button>
+                    {gate && <span className="text-caption font-medium text-warning">{gate}</span>}
+                  </span>
+                )
               ) : (
                 <span className={cx('text-small', a.status === 'disetujui' ? 'text-success' : 'text-danger')}>
                   {a.status === 'disetujui' ? '✓ Disetujui' : '✗ Ditolak'} {a.decidedBy} ·{' '}
                   {a.decidedAt ? formatJam(a.decidedAt) : ''}
+                  {a.rejectReason ? ` · alasan: “${a.rejectReason}”` : ''}
                 </span>
               )}
               {it && (

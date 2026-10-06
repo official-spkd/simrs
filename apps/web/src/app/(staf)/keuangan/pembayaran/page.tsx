@@ -1,3 +1,4 @@
+import { formatJam } from '@simrs/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MoneyFlow } from '@/components/btn/money-flow';
@@ -18,12 +19,19 @@ function routeOf(id: string): string | null {
 
 /**
  * I05 + U09 · Pembayaran digital TPDI × BTN dan rekonsiliasi 3 arah (mockup `PembayaranBTN.dc.html`). Mode
- * presentasi: data dummy fiktif; deposit dan rekonsiliasi Ny. Ratna Sari mengikuti skenario elektif (ADR-0023).
+ * presentasi: data dummy fiktif; deposit dan rekonsiliasi Ny. Ratna Sari mengikuti skenario elektif (ADR-0023);
+ * aksi lain dan pelunasan QRIS/VA dari Kasir tersimpan di toko demo (domain `pembayaran-btn`, ADR-0085).
  */
 export default async function PembayaranPage() {
   const { session, screen, allowed } = await requireDemoScreen('pembayaran');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const { data, hook } = await getPaymentOverview(session);
+  const { data, hook, rev, state, localPaid } = await getPaymentOverview(session);
+  const left = data.recon.rows.filter((r) => r.exception && !r.exception.resolution).length;
+  const flash = state.recon
+    ? `Rekonsiliasi dijalankan ${formatJam(state.recon.at)} oleh ${state.recon.by}: mutasi BTN ditarik ulang lewat H2H, settlement EDC cocok · ${
+        left ? `${left} pengecualian masih perlu tindakan.` : 'tidak ada pengecualian tersisa.'
+      }`
+    : null;
   const related = [
     { id: 'kasir', label: 'Kasir' },
     { id: 'akuntansi', label: 'Akuntansi' },
@@ -64,7 +72,14 @@ export default async function PembayaranPage() {
         moneyFlow={<MoneyFlow operational={data.config.operationalAccount} />}
         data={data}
         hook={hook}
-        userName={session.user.displayName}
+        store={{
+          rev,
+          localPaid,
+          reconRunAt: state.recon?.at ?? null,
+          flash,
+          configSavedAt: state.config?.savedAt ?? null,
+          rotatedAt: state.rotated?.at ?? null,
+        }}
         kasirHref={routeOf('kasir')}
         journalHref={routeOf('akuntansi')}
       />

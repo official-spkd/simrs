@@ -3,21 +3,15 @@
 import { formatJam, formatRupiah, formatTanggalWaktu } from '@simrs/shared';
 import { Button, Chip, cx, KpiCard, Tabs } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { type KasBankActionInput, kasBankAction } from '@/app/(staf)/keuangan/kas-bank/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { formatRupiahRingkas } from '@/lib/keuangan';
-import {
-  type DrafJurnal,
-  labelPeriode,
-  periodeOf,
-  PERIODE_TERTUTUP,
-  ringkasJurnal,
-} from '@/lib/keuangan-jurnal';
+import { type DrafJurnal, labelPeriode, periodeOf, PERIODE_TERTUTUP } from '@/lib/keuangan-jurnal';
 import {
   candidateFits,
   closeJournal,
   closeProblems,
   countTotal,
-  exceptionJournal,
   expectedCash,
   type Laci,
   matchJournal,
@@ -26,9 +20,9 @@ import {
   PECAHAN,
   PENGECUALIAN_NOTE_MIN,
   reconSummary,
-  reverseJournal,
   SELISIH_SUPERVISOR,
 } from '@/lib/keuangan-kasbank';
+import type { KasbankState } from '@/lib/keuangan-kasbank-toko';
 import type { CashBankBoard } from '@/lib/server/data/keuangan-lanjut';
 import { AlasanForm } from './alasan-form';
 import { JurnalPasangan } from './jurnal-pasangan';
@@ -41,55 +35,29 @@ const num = (v: bigint) => v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
  * mutasi BTN (padanan dasar dengan jurnal, pengecualian bercatatan, lepas padanan dengan jurnal balik). Mutasi
  * periode tertutup terkunci. Simulasi lokal.
  */
-export function KasBankWorkspace({ board, viewer }: { board: CashBankBoard; viewer: string }) {
+export function KasBankWorkspace({
+  board,
+  store,
+  rev,
+  viewer,
+}: {
+  board: CashBankBoard;
+  /** Laci, mutasi, dan jurnal setelah aksi tersimpan (domain `kas-bank`). */
+  store: KasbankState;
+  rev: number;
+  viewer: string;
+}) {
   const [tab, setTab] = useState('kas');
-  const [drawers, setDrawers] = useState<readonly Laci[]>(board.drawers);
-  const [mutations, setMutations] = useState<readonly MutasiBank[]>(board.mutations);
-  const [journals, setJournals] = useState<Record<string, DrafJurnal>>({});
-  const [flash, setFlash] = useState<string | null>(null);
-  const [depositSeq, setDepositSeq] = useState(413);
+  const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
+  const { drawers, mutations, journals } = store;
+  const { run } = useStoreAction(rev);
+  const act = (input: KasBankActionInput) =>
+    run(
+      (r) => kasBankAction({ ...input, rev: r }),
+      (res) => setFlash({ text: res.message, ok: res.ok }),
+    );
   const rec = reconSummary(board.statement.balance, mutations);
   const open = drawers.filter((d) => d.status === 'buka');
-
-  const closeDrawer = (d: Laci, physical: bigint, reason: string | null) => {
-    const now = demoNow();
-    const expected = expectedCash(d);
-    const j = closeJournal(d.counter, physical, expected, d.float);
-    const no = `STR-2610-${String(depositSeq).padStart(4, '0')}`;
-    setDepositSeq((n) => n + 1);
-    setDrawers((list) =>
-      list.map((x) =>
-        x.id === d.id
-          ? { ...x, status: 'tutup', lastClose: { at: now.toISOString(), physical, expected, reason } }
-          : x,
-      ),
-    );
-    setJournals((m) => ({ ...m, [d.id]: j }));
-    setFlash(
-      `Laci ${d.counter} ditutup ${formatJam(now)} · setoran ${no} ${formatRupiah(physical - d.float)} ke ${board.statement.account} · ${ringkasJurnal(j)}`,
-    );
-  };
-  const openDrawer = (d: Laci) => {
-    const now = demoNow();
-    setDrawers((list) =>
-      list.map((x) =>
-        x.id === d.id ? { ...x, status: 'buka', openedAt: now.toISOString(), transactions: [] } : x,
-      ),
-    );
-    setFlash(
-      `Laci ${d.counter} dibuka ${formatJam(now)} dengan modal ${formatRupiah(d.float)} (dihitung dua orang)`,
-    );
-  };
-  const setMutation = (id: string, patch: Partial<MutasiBank>, j: DrafJurnal | null, msg: string) => {
-    setMutations((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
-    setJournals((m) => {
-      const next = { ...m };
-      if (j) next[id] = j;
-      else delete next[id];
-      return next;
-    });
-    setFlash(msg);
-  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -124,9 +92,15 @@ export function KasBankWorkspace({ board, viewer }: { board: CashBankBoard; view
       {flash && (
         <div
           role="status"
-          className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
+          className={cx(
+            'rounded-control border px-3 py-2 text-small',
+            flash.ok
+              ? 'border-[#B7DEC0] bg-[#EAF5EC] text-success'
+              : 'border-danger-border bg-danger-bg text-danger',
+          )}
         >
-          ✓ {flash} (simulasi, tidak disimpan)
+          {flash.ok ? '✓ ' : ''}
+          {flash.text}
         </div>
       )}
       <Tabs
@@ -147,8 +121,18 @@ export function KasBankWorkspace({ board, viewer }: { board: CashBankBoard; view
                     d={d}
                     mine={d.cashier === viewer || d.id === board.drawers[0]?.id}
                     journal={journals[d.id] ?? null}
-                    onClose={(p, r) => closeDrawer(d, p, r)}
-                    onOpen={() => openDrawer(d)}
+                    by={store.by[d.id] ?? null}
+                    onClose={(p, r, w) =>
+                      act({
+                        type: 'tutup',
+                        drawerId: d.id,
+                        physical: p.toString(),
+                        reason: r,
+                        witnessed: w,
+                        rev: 0,
+                      })
+                    }
+                    onOpen={() => act({ type: 'buka', drawerId: d.id, rev: 0 })}
                   />
                 ))}
               </div>
@@ -177,34 +161,9 @@ export function KasBankWorkspace({ board, viewer }: { board: CashBankBoard; view
                       key={m.id}
                       m={m}
                       journal={journals[m.id] ?? null}
-                      onMatch={(c) => {
-                        const j = matchJournal(m, c);
-                        setMutation(
-                          m.id,
-                          { status: 'cocok', matchedTo: c.label },
-                          j,
-                          `${m.description} dipadankan ke ${c.label} · ${formatJam(demoNow())} · ${ringkasJurnal(j)}`,
-                        );
-                      }}
-                      onException={(note) => {
-                        const j = exceptionJournal(m);
-                        setMutation(
-                          m.id,
-                          { status: 'pengecualian', note },
-                          j,
-                          `${m.description} dicatat sebagai pengecualian · ${formatJam(demoNow())} · ${ringkasJurnal(j)}`,
-                        );
-                      }}
-                      onUnmatch={(reason) => {
-                        const prev = journals[m.id];
-                        const back = prev ? reverseJournal(prev, `Jurnal balik ${m.description}`) : null;
-                        setMutation(
-                          m.id,
-                          { status: 'belum', matchedTo: null, note: null },
-                          null,
-                          `Padanan ${m.description} dilepas · ${formatJam(demoNow())} · alasan: ${reason}${back ? ` · jurnal balik ${ringkasJurnal(back)}` : ''}`,
-                        );
-                      }}
+                      onMatch={(c) => act({ type: 'padan', mutationId: m.id, candidateId: c.id, rev: 0 })}
+                      onException={(note) => act({ type: 'pengecualian', mutationId: m.id, note, rev: 0 })}
+                      onUnmatch={(reason) => act({ type: 'lepas', mutationId: m.id, reason, rev: 0 })}
                     />
                   ))}
                 </ul>
@@ -221,13 +180,16 @@ function LaciCard({
   d,
   mine,
   journal,
+  by,
   onClose,
   onOpen,
 }: {
   d: Laci;
   mine: boolean;
   journal: DrafJurnal | null;
-  onClose: (physical: bigint, reason: string | null) => void;
+  /** Jejak tindakan tersimpan terakhir (pengguna sesi). */
+  by: string | null;
+  onClose: (physical: bigint, reason: string | null, witnessed: boolean) => void;
   onOpen: () => void;
 }) {
   const id = useId();
@@ -305,7 +267,7 @@ function LaciCard({
               className="flex flex-col gap-3 rounded-control border border-brand-600 bg-[#F4FBFA] p-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (problems.length === 0) onClose(physical, diff === 0n ? null : reason.trim());
+                if (problems.length === 0) onClose(physical, diff === 0n ? null : reason.trim(), witness);
               }}
             >
               <span className="text-small font-semibold">Hitung fisik per pecahan (lembar/keping)</span>
@@ -424,8 +386,9 @@ function LaciCard({
             : ' · cocok'}
         </span>
       )}
+      {by && <span className="text-caption text-ink-500">Terakhir {by}</span>}
       {d.status === 'tutup' && journal && <JurnalPasangan jurnal={journal} status="terposting" />}
-      {d.status === 'tutup' && !journal && (
+      {d.status === 'tutup' && (
         <span>
           <Button onClick={onOpen}>Buka laci dengan modal {formatRupiah(d.float)}</Button>
         </span>

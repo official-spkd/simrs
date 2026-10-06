@@ -40,7 +40,7 @@ export function PembayaranClient({
   moneyFlow,
   data,
   hook,
-  userName,
+  store,
   kasirHref,
   journalHref,
 }: {
@@ -48,11 +48,19 @@ export function PembayaranClient({
   moneyFlow: ReactNode;
   data: PaymentOverview;
   hook: ScenarioHook | null;
-  userName: string;
+  /** Keadaan toko demo (domain `pembayaran-btn`) untuk aksi dan KPI. */
+  store: {
+    rev: number;
+    localPaid: readonly string[];
+    reconRunAt: string | null;
+    flash: string | null;
+    configSavedAt: string | null;
+    rotatedAt: string | null;
+  };
   kasirHref: string | null;
   journalHref: string | null;
 }) {
-  const s = usePaymentState(data, userName);
+  const s = usePaymentState(data, store);
   const scenario = useScenarioTask(hook);
   const busy = s.pending || scenario.pending;
   const [tab, setTab] = useState(hook?.stepId === 'rekonsiliasi' ? 'rekonsiliasi' : 'transaksi');
@@ -66,10 +74,9 @@ export function PembayaranClient({
   }, []);
   const ago = agoLabel(s.clock(), s.lastWebhookAt);
   const tx = s.txs.find((t) => t.id === sel) ?? s.txs[0];
-  const refundsOpen = data.refunds.filter((r) => {
-    const st = s.refundStages[r.id] ?? r.stage;
-    return st !== 'diproses-btn' && st !== 'dana-kembali';
-  }).length;
+  const refundsOpen = data.refunds.filter(
+    (r) => r.stage !== 'diproses-btn' && r.stage !== 'dana-kembali',
+  ).length;
   const reconTask = RECON_TASKS.find((t) => scenario.can('rekonsiliasi', t.task));
   const conn = data.connection;
 
@@ -211,18 +218,7 @@ export function PembayaranClient({
             id: 'refund',
             label: 'Refund',
             badge: refundsOpen ? `${refundsOpen} proses` : undefined,
-            content: (
-              <RefundTab
-                refunds={data.refunds}
-                stages={s.refundStages}
-                account={data.config.operationalAccount}
-                busy={busy}
-                record={s.record}
-                now={s.clock}
-                onStage={s.setRefundStage}
-                userName={userName}
-              />
-            ),
+            content: <RefundTab refunds={data.refunds} busy={busy} record={s.record} />,
           },
           {
             id: 'konfigurasi',
@@ -233,8 +229,8 @@ export function PembayaranClient({
                 config={data.config}
                 busy={busy}
                 record={s.record}
-                now={s.clock}
-                onSavedMode={s.setSavedMode}
+                savedAt={store.configSavedAt}
+                rotatedAt={store.rotatedAt}
                 onDirty={setCfgDirty}
               />
             ),

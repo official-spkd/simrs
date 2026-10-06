@@ -8,6 +8,17 @@ import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
+import { pembayaranDomain } from '../../btn-pembayaran-toko';
+import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
+import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { costingDomain } from '../../keuangan-costing-toko';
+import { hutangDomain } from '../../keuangan-hutang-toko';
+import { jaspelDomain } from '../../keuangan-jaspel-toko';
+import { kasbankDomain } from '../../keuangan-kasbank-toko';
+import { klaimDomain } from '../../keuangan-klaim-toko';
+import { piutangDomain } from '../../keuangan-piutang-toko';
+import { tagihanDomain } from '../../keuangan-tagihan-toko';
+import { tarifDomain } from '../../keuangan-tarif-toko';
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
 import { poliDomain } from '../../klinis-poli-toko';
@@ -48,20 +59,26 @@ import type { DomainDef, DomainSource } from './define';
  * `lib/<domain>.ts` miliknya. Jangan mengubah baris domain lain. Kunci harus sama dengan `name` definisi (diuji).
  */
 export const DEMO_DOMAINS = {
+  akuntansi: akuntansiDomain,
   antrean: queueDomain,
   'aplikasi-dokter': doctorAppDomain,
   'aplikasi-pasien': patientAppDomain,
   aset: assetDomain,
   cadangan: backupDomain,
   'command-center': commandDomain,
+  costing: costingDomain,
   dasbor: dashboardDomain,
   'dataset-riset': datasetDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
+  hutang: hutangDomain,
   integrasi: integrationDomain,
   jadwal: scheduleDomain,
+  'jasa-pelayanan': jaspelDomain,
+  'kas-bank': kasbankDomain,
+  klaim: klaimDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,
@@ -69,6 +86,8 @@ export const DEMO_DOMAINS = {
   logistik: logisticsDomain,
   mutu: qualityDomain,
   onkologi: oncologyDomain,
+  'pembayaran-btn': pembayaranDomain,
+  'pembiayaan-btn': pembiayaanDomain,
   pendaftaran: registrationDomain,
   pendidikan: educationDomain,
   pengaduan: complaintDomain,
@@ -76,6 +95,7 @@ export const DEMO_DOMAINS = {
   penggajian: payrollDomain,
   penjadwal: jobsDomain,
   persetujuan: consentDomain,
+  piutang: piutangDomain,
   ppi: ppiDomain,
   ppra: ppraDomain,
   regulasi: regDocsDomain,
@@ -86,6 +106,8 @@ export const DEMO_DOMAINS = {
   rujukan: referralDomain,
   sdm: hrDomain,
   struktur: structureDomain,
+  tagihan: tagihanDomain,
+  tarif: tarifDomain,
   'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
 } as const;

@@ -25,7 +25,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
         ? 'Plafon fasilitas sudah terpakai penuh.'
         : '';
   const a = s.active;
-  const at = a ? s.stampsOf(a.id) : {};
+  const at: { aju?: string; ok?: string; cair?: string } = a ? s.stampsOf(a.id) : {};
   const steps = a
     ? [
         { t: 'Diajukan ke BTN', done: true, at: at.aju },
