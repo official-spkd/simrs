@@ -848,17 +848,31 @@ test.describe('FE5 · back office', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('B06 mutu: lima indikator dihitung dari data transaksi dengan pembilang/penyebut', async ({
+  test('B06 mutu: lima indikator dihitung dari data toko; observasi PPI mengalir ke pembilang/penyebut; hitung ulang tercatat', async ({
     page,
   }) => {
-    const auditor = await createAccount({ roles: ['auditor_mutu'] });
+    const auditor = await createAccount({ roles: ['auditor_mutu'], displayName: 'Auditor Mutu Fiktif' });
     await loginAs(page, auditor, '/');
     await page.goto('/manajemen/mutu');
     const table = page.getByRole('region', { name: 'Indikator dari data transaksi' });
     await expect(table.getByRole('row')).toHaveCount(6);
     await expect(table.getByRole('row', { name: /kebersihan tangan/ })).toContainText('352 / 400');
     await expect(table.getByRole('row', { name: /Resume medis/ })).toContainText('44 / 50');
+
+    // Observasi kebersihan tangan di PPI mengubah pembilang/penyebut di Mutu (bukan angka ketik).
+    await page.goto('/manajemen/ppi');
+    await page.getByRole('tab', { name: 'Kebersihan tangan' }).click();
+    await page.getByLabel('Profesi yang diamati').selectOption('Dokter');
+    await page.getByLabel('Momen').selectOption('0');
+    await page.getByLabel('Tindakan').selectOption('tidak');
+    await page.getByRole('button', { name: 'Catat peluang' }).click();
+    await expect(page.getByText(/kepatuhan bulan ini 88% \(352\/401\)/)).toBeVisible();
+    await page.goto('/manajemen/mutu');
+    await expect(table.getByRole('row', { name: /kebersihan tangan/ })).toContainText('352 / 401');
+
     await page.getByRole('button', { name: 'Hitung ulang' }).click();
-    await expect(page.getByText(/terakhir dihitung ulang \d{2}\.\d{2}/)).toBeVisible();
+    await expect(page.getByText(/terakhir dihitung ulang \d{2}\.\d{2} oleh Auditor Mutu Fiktif/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/terakhir dihitung ulang \d{2}\.\d{2} oleh Auditor Mutu Fiktif/)).toBeVisible();
   });
 });

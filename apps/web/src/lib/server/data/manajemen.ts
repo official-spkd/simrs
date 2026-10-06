@@ -31,6 +31,7 @@ import {
   supplierOf,
 } from '../../logistik-toko';
 import { readDomain } from '../demo/state';
+import { liveComputedIndicators } from './manajemen-live';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
 import { assertDemo } from '../demo-guard';
@@ -91,9 +92,22 @@ export async function getLogisticsBoard() {
 }
 export type LogisticsBoardData = Awaited<ReturnType<typeof getLogisticsBoard>>;
 
+/**
+ * B06 · indikator mutu: indikator yang dihitung mesin indikator (kebersihan tangan, APD, tanggap komplain, kepuasan,
+ * resume ≤ 24 jam) memakai nilai dari keadaan toko (titik terakhir tren = bulan berjalan), sisanya profil fixture.
+ */
 export async function getQualityOverview(): Promise<QualityOverview> {
   if (!isDemo()) return notImplemented('mutu dan keselamatan pasien');
-  return qualityOverviewSchema.parse(demoQualityOverview());
+  const base = demoQualityOverview();
+  const { items } = await liveComputedIndicators();
+  const live = new Map(items.map((c) => [c.id, c.value]));
+  return qualityOverviewSchema.parse({
+    ...base,
+    indicators: base.indicators.map((q) => {
+      const v = live.get(q.id);
+      return v === undefined ? q : { ...q, value: v, trend: [...q.trend.slice(0, -1), v] };
+    }),
+  });
 }
 
 /** I07 · beranda aplikasi Tn. Suryo (skenario rawat jalan). */

@@ -17,7 +17,6 @@ import {
   PRE_CHEMO_LABS,
 } from '../../demo/fixtures/onkologi';
 import { cohort, DATASET_FIELDS, DATASET_REQUEST } from '../../demo/fixtures/dataset-riset';
-import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import { TRAINEES } from '../../demo/fixtures/pendidikan';
@@ -28,16 +27,13 @@ import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawa
 import {
   BUNDLES,
   HAI_SUSPECTS,
-  handHygieneObservations,
   ISOLATION_REQUESTS,
   ppeAudits,
 } from '../../demo/fixtures/ppi';
-import { computeIndicators } from '../../mutu-transaksi';
 import type { SessionView } from '../../session-view';
 import { readDomain } from '../demo/state';
 import { boardOf, frontOfficeStore, loketOf } from './front-office/toko';
-import { getBedBoard } from './klinis/bed';
-import { getEdBoard } from './klinis/igd';
+import { liveCapacity, liveComputedIndicators } from './manajemen-live';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -165,9 +161,8 @@ export async function getEducation() {
  */
 export async function getCommandCenter(session: SessionView) {
   demoOnly('command center');
-  const [bed, ed, fo, store] = await Promise.all([
-    getBedBoard(session),
-    getEdBoard(session),
+  const [cap, fo, store] = await Promise.all([
+    liveCapacity(session),
     frontOfficeStore(session),
     readDomain('command-center'),
   ]);
@@ -175,21 +170,11 @@ export async function getCommandCenter(session: SessionView) {
   const loket = loketOf(fo);
   return {
     asOf: DEMO_NOW,
-    wards: bed.wards.map((w) => ({
-      code: w.code,
-      name: w.name,
-      beds: bed.beds.filter((b) => b.wardCode === w.code).length,
-    })),
+    wards: cap.wards,
     state: {
       minute: 0,
-      beds: bed.beds.map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status })),
-      ed: ed.items.map((i) => ({
-        id: i.encounterId,
-        label: `${i.bed ?? 'triase'} · ${i.chiefComplaint}`,
-        status: i.status,
-        losMinutes: i.losMinutes,
-        triageLevel: i.triageLevel,
-      })),
+      beds: cap.beds,
+      ed: cap.ed,
       queues: [
         {
           poliCode: 'LK',
@@ -204,7 +189,7 @@ export async function getCommandCenter(session: SessionView) {
           current: c.current,
         })),
       ],
-      ambulances: ed.ambulancesIncoming,
+      ambulances: cap.ambulances,
     },
     store,
   };
@@ -229,15 +214,12 @@ export async function getOncology() {
   return { patient, plan: CHEMO_PLAN, labs: PRE_CHEMO_LABS, verifiers: CHEMO_VERIFIERS };
 }
 
-/** B06 · indikator mutu yang dihitung dari data transaksi layar PPI, pengalaman pasien, dan rekam medis. */
+/**
+ * B06 · indikator mutu yang dihitung dari data transaksi di toko demo: observasi PPI (domain `ppi`), pengaduan
+ * (`pengaduan`), dan resume final dari klinis (`mutu` ← `resume-medis`).
+ */
 export async function getComputedIndicators() {
   demoOnly('indikator mutu');
-  return computeIndicators({
-    handHygiene: handHygieneObservations(),
-    ppe: ppeAudits(),
-    complaints: recentComplaints(),
-    survey: surveyResponses(),
-    discharges: dischargeRecords(),
-    now: DEMO_NOW,
-  });
+  const { items, quality } = await liveComputedIndicators();
+  return { items, store: quality };
 }

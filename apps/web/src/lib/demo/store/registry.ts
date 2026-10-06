@@ -1,6 +1,7 @@
 import { queueDomain } from '../../front-office-antrean';
 import { assetDomain } from '../../aset-toko';
 import { commandDomain } from '../../command-center-toko';
+import { dashboardDomain } from '../../dasbor-toko';
 import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
@@ -13,6 +14,7 @@ import { backupDomain } from '../../operasional-backup-toko';
 import { downtimeDomain } from '../../operasional-downtime-toko';
 import { credentialDomain } from '../../kredensial-toko';
 import { logisticsDomain } from '../../logistik-toko';
+import { qualityDomain } from '../../mutu-toko';
 import { complaintDomain } from '../../pengaduan-toko';
 import { educationDomain } from '../../pendidikan-toko';
 import { payrollDomain } from '../../penggajian-toko';
@@ -46,6 +48,7 @@ export const DEMO_DOMAINS = {
   aset: assetDomain,
   cadangan: backupDomain,
   'command-center': commandDomain,
+  dasbor: dashboardDomain,
   'dataset-riset': datasetDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
@@ -57,6 +60,7 @@ export const DEMO_DOMAINS = {
   'klinis-poli': poliDomain,
   kredensial: credentialDomain,
   logistik: logisticsDomain,
+  mutu: qualityDomain,
   onkologi: oncologyDomain,
   pendaftaran: registrationDomain,
   pendidikan: educationDomain,

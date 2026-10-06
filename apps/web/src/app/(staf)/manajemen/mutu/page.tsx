@@ -17,13 +17,15 @@ export const metadata: Metadata = { title: 'Mutu & keselamatan' };
 
 /**
  * B06 · Mutu dan keselamatan pasien (tanpa mockup; gaya Dasbor direksi). Indikator yang juga tampil di Dasbor
- * memakai nilai yang sama. Mode presentasi: data dummy fiktif (ADR-0023).
+ * memakai nilai yang sama. Mode presentasi: data dummy fiktif (ADR-0023); indikator dari data transaksi dihitung dari
+ * toko demo (PPI, pengaduan, resume final klinis; ADR-0085).
  */
 export default async function MutuPage() {
   const { session, screen, allowed } = await requireDemoScreen('mutu');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const d = await getQualityOverview();
   const computed = await getComputedIndicators();
+  const q = computed.store.state;
 
   const onTarget = d.indicators.filter(indicatorOnTarget).length;
   const month = DEMO_TODAY.slice(0, 7);
@@ -86,7 +88,27 @@ export default async function MutuPage() {
 
       <ScenarioBanner session={session} screen="mutu" />
       <IndicatorList indicators={d.indicators} months={d.months} />
-      <ComputedIndicators items={computed} computedAt="01.30" />
+      <ComputedIndicators
+        items={computed.items}
+        computedAt={q.recomputed ? `ulang ${q.recomputed.jam} oleh ${q.recomputed.by}` : '01.30'}
+        rev={computed.store.rev}
+        fromClinical={q.discharges.length}
+      />
+      {q.deaths.length > 0 && (
+        <section
+          aria-label="Kematian di IGD untuk telaah mutu"
+          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        >
+          <h2 className="m-0 text-base font-semibold">Kematian di IGD untuk telaah mutu</h2>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+            {q.deaths.map((x) => (
+              <li key={x.encounterId}>
+                {x.patientName} · {formatJam(x.diedAt)} · {x.causeCode} {x.causeLabel}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-[1_1_420px]">
           <IncidentList incidents={d.incidents} today={DEMO_TODAY} />

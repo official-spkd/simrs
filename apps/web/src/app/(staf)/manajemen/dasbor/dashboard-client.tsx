@@ -4,7 +4,10 @@ import { formatJam } from '@simrs/shared';
 import { cx, RadioSegmented } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useTransition } from 'react';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { dashboardAlertKey } from '@/lib/dasbor-toko';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
 
 /** Pilihan rentang KPI (Hari ini / Bulan berjalan / YTD) lewat URL `?periode=`. */
 export function PeriodSwitch({ value }: { value: string }) {
@@ -34,34 +37,32 @@ export interface DashboardAlertView {
   link: { href: string; label: string } | null;
 }
 
-const ACK_KEY = 'simrs-dasbor-tindak-lanjut';
-
 /**
- * "Perlu keputusan direksi" (mockup Dasbor): tiap butir bisa ditandai ditindaklanjuti. Di mode presentasi tanda
- * hanya disimpan di browser ini (simulasi); versi produksi mencatatnya di log direksi.
+ * "Perlu keputusan direksi" (mockup Dasbor): tiap butir bisa ditandai ditindaklanjuti oleh posisi Manajemen; tanda
+ * tersimpan di log direksi (toko demo, domain `dasbor`) atas nama pengguna sesi. Butir yang isinya berubah terbuka
+ * lagi.
  */
-export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
-  const [done, setDone] = useState<Record<string, string>>({});
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(ACK_KEY);
-      if (raw) setDone(JSON.parse(raw) as Record<string, string>);
-    } catch {
-      // tanpa penyimpanan sesi: mulai kosong
-    }
-  }, []);
-  const toggle = (id: string) =>
-    setDone((cur) => {
-      const next = { ...cur };
-      if (next[id]) delete next[id];
-      else next[id] = formatJam(new Date());
-      try {
-        sessionStorage.setItem(ACK_KEY, JSON.stringify(next));
-      } catch {
-        // abaikan
-      }
-      return next;
-    });
+export function DecisionAlerts({
+  alerts,
+  acks,
+  rev,
+  canDecide,
+}: {
+  alerts: DashboardAlertView[];
+  acks: Readonly<Record<string, { title: string; jam: string; by: string }>>;
+  rev: number;
+  canDecide: boolean;
+}) {
+  const { act, pending, flash } = useTokoAction('dasbor', rev);
+  const done: Record<string, { jam: string; by: string } | undefined> = Object.fromEntries(
+    alerts.map((a) => [a.id, acks[dashboardAlertKey(a)]]),
+  );
+  const toggle = (a: DashboardAlertView) => {
+    const jam = formatJam(demoNow());
+    const key = dashboardAlertKey(a);
+    if (done[a.id]) act({ type: 'alert.dibatalkan', key, jam }, null);
+    else act({ type: 'alert.ditandai', key, title: a.title, jam }, null);
+  };
   const open = alerts.filter((a) => !done[a.id]).length;
 
   return (
@@ -78,9 +79,16 @@ export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
           {open ? `${open} terbuka` : 'semua ditindaklanjuti'}
         </span>
       </span>
+      {flash && !flash.ok && (
+        <span role="status" className="text-caption font-medium text-warning">
+          {flash.text}
+        </span>
+      )}
+      {!canDecide && <span className="text-caption text-ink-500">Tanda tindak lanjut oleh posisi Manajemen.</span>}
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {alerts.map((a) => {
-          const at = done[a.id];
+          const ack = done[a.id];
+          const at = ack?.jam;
           return (
             <li key={a.id} className="flex gap-2.5 text-small">
               <span
@@ -100,7 +108,7 @@ export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
                 </span>
                 {at && (
                   <span className="text-caption font-semibold text-success">
-                    Ditindaklanjuti {at} · tercatat di log direksi (simulasi)
+                    Ditindaklanjuti {at} · {ack?.by} · tercatat di log direksi
                   </span>
                 )}
                 <span className="flex flex-wrap gap-1.5">
@@ -115,7 +123,8 @@ export function DecisionAlerts({ alerts }: { alerts: DashboardAlertView[] }) {
                   <button
                     type="button"
                     aria-pressed={!!at}
-                    onClick={() => toggle(a.id)}
+                    disabled={pending || !canDecide}
+                    onClick={() => toggle(a)}
                     className={cx(
                       'min-h-11 cursor-pointer rounded-[9px] border border-line-strong px-2.5 font-[inherit] text-[12.5px] font-medium text-ink-900',
                       at ? 'bg-muted' : 'bg-white',
