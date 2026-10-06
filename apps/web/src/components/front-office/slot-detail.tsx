@@ -29,12 +29,14 @@ function Stepper({
   sub,
   value,
   floor,
+  busy,
   onChange,
 }: {
   label: string;
   sub: string;
   value: number;
   floor: number;
+  busy: boolean;
   onChange: (delta: number) => void;
 }) {
   const atFloor = value <= floor;
@@ -49,7 +51,7 @@ function Stepper({
         <button
           type="button"
           aria-label={`Kurangi ${name}`}
-          disabled={atFloor}
+          disabled={atFloor || busy}
           onClick={() => onChange(-1)}
           className="size-11 cursor-pointer rounded-control border border-line-strong bg-white font-[inherit] text-h2 font-semibold text-ink-900 disabled:cursor-not-allowed disabled:bg-muted disabled:text-ink-400"
         >
@@ -61,8 +63,9 @@ function Stepper({
         <button
           type="button"
           aria-label={`Tambah ${name}`}
+          disabled={busy}
           onClick={() => onChange(1)}
-          className="size-11 cursor-pointer rounded-control border border-line-strong bg-white font-[inherit] text-h2 font-semibold text-ink-900"
+          className="size-11 cursor-pointer rounded-control border border-line-strong bg-white font-[inherit] text-h2 font-semibold text-ink-900 disabled:cursor-not-allowed disabled:bg-muted disabled:text-ink-400"
         >
           +
         </button>
@@ -76,10 +79,13 @@ export function SlotDetail({
   view,
   onClose,
   onAdjust,
+  busy = false,
 }: {
   view: SlotDetailView;
   onClose: () => void;
   onAdjust: (pool: QuotaPool, delta: number) => void;
+  /** Perubahan kuota sebelumnya masih disimpan (mode presentasi: toko demo). */
+  busy?: boolean;
 }) {
   const q = view.quota;
   const u = q ? slotUsage(q) : null;
@@ -115,6 +121,7 @@ export function SlotDetail({
             sub="Mobile JKN dan loket"
             value={q.jkn}
             floor={quotaFloor(q, 'jkn')}
+            busy={busy}
             onChange={(d) => onAdjust('jkn', d)}
           />
           <Stepper
@@ -122,6 +129,7 @@ export function SlotDetail({
             sub="Umum dan asuransi"
             value={q.nonJkn}
             floor={quotaFloor(q, 'nonJkn')}
+            busy={busy}
             onChange={(d) => onAdjust('nonJkn', d)}
           />
           <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">

@@ -37,7 +37,8 @@ import { GOLIVE_CHECKLIST, GOLIVE_OWNERS, MRMIK_EPS } from '../../demo/fixtures/
 import type { ChecklistArea, MrmikEp } from '../../golive';
 import type { PaperForm } from '../../operasional-downtime';
 import type { PublicQueue, PublicSchedule } from '@simrs/shared';
-import { demoQueueBoard, demoWeeklySchedule, todayQuotas } from '../../demo/fixtures/front-office';
+import type { SessionView } from '../../session-view';
+import { boardOf, frontOfficeStore, loketOf, quotasOf } from './front-office/toko';
 import {
   DEMO_PUBLIC_BOOKINGS,
   PUBLIC_BOOKING_HINT,
@@ -152,7 +153,7 @@ export async function getReferralsOverview(): Promise<{ referrals: DemoReferral[
   return { referrals: [...DEMO_REFERRALS], planDates };
 }
 
-export async function getPublicInfo(): Promise<{
+export async function getPublicInfo(session: SessionView): Promise<{
   schedule: PublicSchedule;
   queue: PublicQueue;
   bookings: PublicBookingRecord[];
@@ -160,11 +161,30 @@ export async function getPublicInfo(): Promise<{
 }> {
   if (!isDemo()) return notImplemented('portal informasi publik (layar demo)');
   const avg = Number(DEMO_SETTINGS['queue.avg_service_minutes'] ?? 10);
+  // Toko demo (jadwal, pendaftaran, antrean) tanpa kemajuan skenario: portal publik tidak bergantung pada langkah
+  // Simulasi presenter, tetapi cuti, kuota, kunjungan baru, dan panggilan dari layar front office langsung tampil.
+  const fo = await frontOfficeStore(session, { scenario: false });
+  const board = boardOf(fo);
+  const loket = loketOf(fo);
+  const extra = PUBLIC_EXTRA_SERVICES.map((s) =>
+    s.code === 'A'
+      ? {
+          ...s,
+          current: loket.current?.ticketNo ?? s.current,
+          waiting: loket.waiting,
+          estimatedWaitMinutes: loket.waiting * 4,
+        }
+      : s,
+  );
+  const pd = board.clinics.find((c) => c.poliCode === 'PD');
   return {
-    // Keadaan awal hari demo (tanpa kemajuan skenario): portal publik tidak bergantung pada akun presenter.
-    schedule: publicScheduleFrom(todayQuotas(demoWeeklySchedule()), DEMO_TODAY, DEMO_NOW),
-    queue: publicQueueFrom(demoQueueBoard(), PUBLIC_EXTRA_SERVICES, avg),
-    bookings: [...DEMO_PUBLIC_BOOKINGS],
+    schedule: publicScheduleFrom(quotasOf(fo), DEMO_TODAY, DEMO_NOW),
+    queue: publicQueueFrom(board, extra, avg),
+    bookings: DEMO_PUBLIC_BOOKINGS.map((b) =>
+      b.status.serviceDate === DEMO_TODAY && b.status.currentQueueNo && pd?.current
+        ? { ...b, status: { ...b.status, currentQueueNo: pd.current } }
+        : b,
+    ),
     hint: PUBLIC_BOOKING_HINT,
   };
 }

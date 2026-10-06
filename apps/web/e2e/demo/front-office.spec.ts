@@ -5,7 +5,9 @@ import { createAccount, loginAs } from '../support/accounts';
 
 /**
  * Front office mode presentasi (ADR-0023; mockup Registrasi, Jadwal, Anjungan, DisplayAntrean). Akun uji baru
- * punya keadaan simulasi sendiri: skenario rawat jalan mulai di langkah kedatangan (anjungan).
+ * punya keadaan simulasi dan ruang toko demo sendiri (ADR-0085): skenario rawat jalan mulai di langkah kedatangan
+ * (anjungan), dan aksi front office (tiket, panggilan, SEP, kunjungan, kuota, cuti) bertahan setelah muat ulang serta
+ * mengalir ke layar lain.
  */
 
 async function noHorizontalOverflow(page: Page) {
@@ -68,10 +70,32 @@ test.describe('pendaftaran rawat jalan', () => {
     await expect(
       page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028 · SEP 0301R0011026V000812/),
     ).toBeVisible();
+    await expect(page.getByText(/simulasi, tidak disimpan/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Cetak tiket, SEP, dan gelang' }).click();
     await expect(page.getByRole('button', { name: /Tercetak \d{2}\.\d{2} · cetak ulang/ })).toBeVisible();
     await expect(steps.locator('li').last()).toContainText(/Terdaftar \d{2}\.\d{2}/);
     await noHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → kunjungan, SEP, dan cetak masih ada; pendaftaran kedua ditolak (sudah terdaftar).
+    await page.reload();
+    await expect(
+      page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028 · SEP 0301R0011026V000812/),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /Tercetak \d{2}\.\d{2} · cetak ulang/ })).toBeVisible();
+
+    // Mengalir: kuota dr. Andini hari ini bertambah satu booking di Jadwal; PD-028 menunggu di papan TV.
+    await page.goto('/jadwal');
+    await expect(
+      page
+        .getByRole('region', { name: 'Grid jadwal' })
+        .getByRole('button', { name: /^dr\. Andini Prameswari, Sp\.PD, Senin 5 Okt, 07\.30–12, 23\/30/ }),
+    ).toBeVisible();
+    await page.goto('/display/antrean');
+    await expect(
+      page
+        .getByRole('region', { name: 'Antrean per poli' })
+        .getByRole('group', { name: 'Poli Penyakit Dalam' }),
+    ).toContainText('PD-028');
   });
 
   test('kuota JKN penuh: dokter tidak bisa dipilih pasien BPJS', async ({ page }) => {
@@ -122,12 +146,16 @@ test('jadwal dokter: pilih slot, ubah kuota (tidak di bawah booking), kirim ke H
   ).toBeVisible();
 
   await page.getByRole('button', { name: 'Perbarui jadwal ke HFIS' }).click();
-  await expect(
-    page.getByText(/Jadwal terkirim ke HFIS \(1 perubahan kuota\) · \d{2}\.\d{2} \(simulasi/),
-  ).toBeVisible();
+  await expect(page.getByText(/Jadwal terkirim ke HFIS \(1 perubahan kuota\) · \d{2}\.\d{2}$/)).toBeVisible();
   await expect(page.getByRole('status', { name: 'Sinkron HFIS' })).toContainText('Tersinkron dengan HFIS');
   await expect(grid.getByRole('button', { name: /Rabu 7 Okt, Cuti/ })).toContainText('HFIS diperbarui');
   await expect(detail.getByText('Perubahan kuota belum dikirim ke HFIS.')).toHaveCount(0);
+
+  // Bertahan: muat ulang → kuota baru dan status sinkron HFIS masih ada.
+  await page.reload();
+  await expect(page.getByRole('status', { name: 'Sinkron HFIS' })).toContainText('Tersinkron dengan HFIS');
+  await expect(detail.getByText('22 pasien booking dari 30 kuota · 73% terisi')).toBeVisible();
+  await expect(detail.getByText('Kuota non-JKN tidak bisa di bawah')).toBeVisible();
 
   // ≥ 80% "hampir penuh"; kuota diturunkan sampai habis (100%) → "Kuota penuh" di chip dan label sel.
   await grid
@@ -203,26 +231,115 @@ test('anjungan: keypad kode booking → biometrik → konfirmasi → tiket (loka
 
   await kiosk.getByRole('button', { name: 'Panggil petugas' }).click();
   await expect(kiosk.getByText(/Petugas dipanggil pukul \d{2}\.\d{2}/)).toBeVisible();
+
+  // Bertahan: muat ulang → permintaan bantuan masih terbuka; pasien yang sama tidak bisa check-in dua kali.
+  await page.reload();
+  await expect(kiosk.getByText(/Petugas dipanggil pukul \d{2}\.\d{2}/)).toBeVisible();
+  await typeCode('1234567890');
+  await kiosk.getByRole('button', { name: /Pengenalan wajah/ }).click();
+  await kiosk.getByRole('button', { name: 'Ya, data saya benar · cetak tiket' }).click();
+  await expect(kiosk.getByText('Anda sudah check-in. Nomor antrean Anda A-032.')).toBeVisible();
+
+  // Mengalir: meja pendaftaran melihat permintaan bantuan (A-031 skenario tetap didahulukan di loket).
+  await page.goto('/pendaftaran');
+  await expect(page.getByRole('button', { name: 'Panggil berikutnya · A-031', exact: true })).toBeVisible();
+  const help = page.getByRole('status').filter({ hasText: 'Anjungan minta bantuan' });
+  await expect(help).toContainText('Anjungan 1 · lobi');
+  await help.getByRole('button', { name: 'Tandai ditangani' }).click();
+  await expect(page.getByText('Anjungan minta bantuan')).toHaveCount(0);
 });
 
-test('display antrean: SEDANG DIPANGGIL, jeda, panggil manual', async ({ page }) => {
+test('display antrean: SEDANG DIPANGGIL, panggil berikutnya bertahan, panggilan otomatis', async ({
+  page,
+}) => {
   const petugas = await createAccount({ roles: ['petugas_pendaftaran'] });
   await loginAs(page, petugas, '/display/antrean');
   await page.goto('/display/antrean');
   const calling = page.getByRole('region', { name: 'Sedang dipanggil' });
   await expect(calling).toContainText('SEDANG DIPANGGIL');
-  await expect(calling).toContainText(/PD-025|JT-010/);
+  await expect(calling).toContainText('PD-025');
   const clinics = page.getByRole('region', { name: 'Antrean per poli' });
   await expect(clinics.getByRole('group', { name: 'Poli Saraf' })).toContainText(
     'Dokter mulai praktik 09.30',
   );
-  await page.getByRole('button', { name: 'Jeda' }).click();
-  await expect(page.getByText('Panggilan otomatis dijeda')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Lanjut' })).toHaveAttribute('aria-pressed', 'true');
-  const before = await calling.textContent();
+  await expect(page.getByText('Panggilan otomatis mati')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Panggilan otomatis' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  // Bergiliran: sesudah Poli PD (panggilan terakhir) giliran Poli Jantung, nomor terdepan JT-010.
   await page.getByRole('button', { name: 'Panggil berikutnya' }).click();
-  await expect(calling).not.toHaveText(before ?? '');
-  await expect(calling.getByLabel('Panggilan sebelumnya')).toContainText(/[A-Z]{2}-\d{3}/);
+  await expect(calling).toContainText('JT-010');
+  await expect(calling).toContainText('Poli Jantung');
+  await expect(calling.getByLabel('Panggilan sebelumnya')).toContainText('PD-025');
+  await expect(clinics.getByRole('group', { name: 'Poli Jantung' })).toContainText('JT-010');
+
+  // Bertahan: muat ulang → panggilan yang sama.
+  await page.reload();
+  await expect(calling).toContainText('JT-010');
+  await page.getByRole('button', { name: 'Panggilan otomatis' }).click();
+  await expect(page.getByRole('button', { name: 'Panggilan otomatis' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByText(/Otomatis · berikutnya \d dtk/)).toBeVisible();
+  await expect(calling).toContainText('SR-005', { timeout: 15_000 });
+  await page.getByRole('button', { name: 'Panggilan otomatis' }).click();
+});
+
+test('anjungan → papan TV tanpa muat ulang → loket memanggil → kunjungan baru di papan', async ({
+  page,
+  context,
+}) => {
+  const petugas = await createAccount({ roles: ['petugas_pendaftaran'] });
+  await loginAs(page, petugas, '/display/antrean');
+  // Papan TV di tab kedua (perangkat lain): tidak pernah dimuat ulang selama tes.
+  const tv = await context.newPage();
+  await tv.goto('/display/antrean');
+  const loket = tv.getByRole('group', { name: 'Loket pendaftaran' });
+  await expect(loket).toContainText('A-028');
+  await expect(loket).not.toContainText('A-032');
+
+  await page.goto('/kiosk');
+  const kiosk = page.getByRole('region', { name: 'Anjungan pendaftaran mandiri' });
+  await kiosk.getByRole('button', { name: /Saya sudah punya booking/ }).click();
+  await kiosk.getByRole('button', { name: /^Kode booking/ }).click();
+  for (const d of '1234567890') await kiosk.getByRole('button', { name: `Angka ${d}`, exact: true }).click();
+  await kiosk.getByRole('button', { name: 'Lanjut', exact: true }).click();
+  await kiosk.getByRole('button', { name: /Sidik jari/ }).click();
+  await kiosk.getByRole('button', { name: 'Ya, data saya benar · cetak tiket' }).click();
+  await expect(kiosk.getByRole('region', { name: 'Tiket antrean' })).toContainText('A-032');
+
+  // Tiket booking anjungan langsung tampil di papan (didahulukan dari walk-in).
+  await expect(loket).toContainText('Berikutnya: A-032');
+
+  // Loket memanggil A-032 → papan "SEDANG DIPANGGIL A-032 · Loket pendaftaran"; formulir memuat pasien tiket itu.
+  await page.goto('/pendaftaran');
+  await page.getByRole('button', { name: 'Panggil berikutnya · A-032', exact: true }).click();
+  await expect(page.getByRole('status', { name: 'Sedang dilayani di loket' })).toContainText(
+    'A-032 · Siti Rahmawati',
+  );
+  const calling = tv.getByRole('region', { name: 'Sedang dipanggil' });
+  await expect(calling).toContainText('A-032');
+  await expect(calling).toContainText('Loket pendaftaran');
+
+  const identity = page.getByRole('region', { name: 'Identitas pasien' });
+  await expect(identity.getByText('Siti Rahmawati')).toBeVisible();
+  await page.getByRole('button', { name: 'Cek kepesertaan', exact: true }).click();
+  await page.getByRole('button', { name: /Surat kontrol · Poli Penyakit Dalam/ }).click();
+  await page.getByRole('button', { name: 'Terbitkan SEP dan daftarkan', exact: true }).click();
+  await expect(page.getByText(/SEP 0301R0011026V000812 terbit pukul/)).toBeVisible();
+  await page.getByRole('button', { name: 'Pakai jadwal ini dan bentuk antrean' }).click();
+  await page.getByLabel(/Persetujuan umum \(general consent\)/).check();
+  await page.getByRole('button', { name: 'Kirim antrean dan selesaikan' }).click();
+  await expect(page.getByText(/Terdaftar pukul \d{2}\.\d{2} · antrean PD-028/)).toBeVisible();
+
+  // Kunjungan baru masuk "Berikutnya" Poli PD di papan, tetap tanpa muat ulang; tiket loket selesai.
+  await expect(
+    tv.getByRole('region', { name: 'Antrean per poli' }).getByRole('group', { name: 'Poli Penyakit Dalam' }),
+  ).toContainText('PD-028');
+  await expect(loket).not.toContainText('Berikutnya: A-032');
+  await tv.close();
 });
 
 test('skenario rawat jalan: anjungan → panggil A-031 → cek → SEP → PD-027 di papan antrean', async ({
@@ -255,7 +372,6 @@ test('skenario rawat jalan: anjungan → panggil A-031 → cek → SEP → PD-02
   await expect(page.getByRole('region', { name: 'Antrean poli' })).toContainText('PD-027');
 
   await page.goto('/display/antrean');
-  await page.getByRole('button', { name: 'Jeda' }).click();
   await expect(
     page
       .getByRole('region', { name: 'Antrean per poli' })

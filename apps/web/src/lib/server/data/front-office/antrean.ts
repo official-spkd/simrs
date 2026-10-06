@@ -10,14 +10,13 @@ import {
 import { cookies, headers } from 'next/headers';
 import { z } from 'zod';
 import { clientInfo } from '../../../client-info';
-import { demoQueueBoard } from '../../../demo/fixtures/front-office';
 import type { SessionView } from '../../../session-view';
 import { api } from '../../api';
 import { callApi } from '../../api-core';
 import { cookieNames, parseDeviceToken } from '../../cookies';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
-import { demoProgress } from './shared';
+import { boardOf, frontOfficeStore } from './toko';
 
 /**
  * F04 · Data antrean. Mode presentasi: papan dummy (`getQueueBoard`). Mode api: papan TV dibaca PERANGKAT display
@@ -26,7 +25,7 @@ import { demoProgress } from './shared';
 
 export async function getQueueBoard(session: SessionView): Promise<QueueBoard> {
   if (webEnv().dataSource === 'demo') {
-    return queueBoardSchema.parse(demoQueueBoard(await demoProgress(session)));
+    return queueBoardSchema.parse(boardOf(await frontOfficeStore(session)));
   }
   return notImplemented('papan antrean (pakai getDisplayBoard)');
 }

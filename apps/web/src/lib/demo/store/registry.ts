@@ -1,3 +1,6 @@
+import { queueDomain } from '../../front-office-antrean';
+import { scheduleDomain } from '../../front-office-jadwal';
+import { registrationDomain } from '../../front-office-pendaftaran';
 import { criticalDomain } from '../../penunjang-kritis';
 import type { DomainDef, DomainSource } from './define';
 
@@ -9,7 +12,10 @@ import type { DomainDef, DomainSource } from './define';
  * `lib/<domain>.ts` miliknya. Jangan mengubah baris domain lain. Kunci harus sama dengan `name` definisi (diuji).
  */
 export const DEMO_DOMAINS = {
+  antrean: queueDomain,
   'hasil-kritis': criticalDomain,
+  jadwal: scheduleDomain,
+  pendaftaran: registrationDomain,
 } as const;
 
 export type DemoDomains = typeof DEMO_DOMAINS;

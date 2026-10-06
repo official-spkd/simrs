@@ -18,7 +18,9 @@ import {
 } from '@/components/front-office/kiosk-screens';
 import { KioskNotice } from '@/components/front-office/kiosk-ui';
 import { useDemoClock } from '@/components/front-office/use-demo-clock';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { addMinutes, greeting } from '@/lib/front-office';
+import { requestKioskAssistAction, takeKioskTicketAction } from './actions-demo';
 
 type Screen = 'home' | 'metode' | 'input' | 'bio' | 'konfirmasi' | 'tiket';
 
@@ -39,7 +41,8 @@ const BASIS = [
 /**
  * F05 · Anjungan pendaftaran mandiri (mockup Anjungan): tujuan → cara identifikasi → keypad → (biometrik JKN) →
  * konfirmasi → tiket. Kode booking Tn. Suryo saat langkah `kedatangan` aktif menjalankan tugas skenario
- * (scan → bio → tiket A-031); selain itu alur lokal dengan Siti Rahmawati (tidak menyimpan apa pun).
+ * (scan → bio → tiket A-031); selain itu pasien lokal Siti Rahmawati: nomor tiket dihitung server dan tersimpan di
+ * toko demo (antrean loket/farmasi), lalu tampil di meja pendaftaran dan papan TV.
  */
 export function KioskClient({
   tenantName,
@@ -48,10 +51,10 @@ export function KioskClient({
   local,
   scenarioPatient,
   doctor,
-  localSep,
   tickets,
   bookingCode,
   scenario,
+  assistAt,
 }: {
   tenantName: string;
   nowIso: string;
@@ -59,10 +62,11 @@ export function KioskClient({
   local: RegistrationPatient;
   scenarioPatient: RegistrationPatient;
   doctor: { name: string; time: string };
-  localSep: string;
   tickets: KioskTickets;
   bookingCode: string;
   scenario: KioskScenarioView;
+  /** Jam permintaan bantuan yang belum ditangani petugas (toko demo), null bila tidak ada. */
+  assistAt: string | null;
 }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [purpose, setPurpose] = useState(0);
@@ -72,7 +76,11 @@ export function KioskClient({
   const [forScenario, setForScenario] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [printedAt, setPrintedAt] = useState('');
-  const [calledAt, setCalledAt] = useState<string | null>(null);
+  /** Nomor tiket lokal yang dicetak server (toko demo). */
+  const [ticketNo, setTicketNo] = useState<string | null>(null);
+  const [storeError, setStoreError] = useState<string | null>(null);
+  const store = useStoreAction(0);
+  const assist = useStoreAction(0);
   const [english, setEnglish] = useState(false);
   const [large, setLarge] = useState(false);
   const { run, pending, error, clearError } = useDemoRunner(scenario.rev);
@@ -87,6 +95,7 @@ export function KioskClient({
   const task = (id: string) => scenario.tasks.find((t) => t.id === id);
   const go = (s: Screen) => {
     clearError();
+    setStoreError(null);
     setScreen(s);
   };
   const runTask = (id: string, value: true | string, then: () => void) => {
@@ -181,7 +190,19 @@ export function KioskClient({
       setPrintedAt(time);
       go('tiket');
     };
-    const t = forScenario ? task('tiket') : undefined;
+    if (!forScenario) {
+      store.run(
+        () => takeKioskTicketAction({ purpose, jam: time }),
+        (r) => {
+          if (r.ok && r.ticketNo) {
+            setTicketNo(r.ticketNo);
+            done();
+          } else setStoreError(r.message);
+        },
+      );
+      return;
+    }
+    const t = task('tiket');
     if (t && !t.done) {
       if (t.enabled) runTask('tiket', true, done);
       else notYourTurn(t);
@@ -214,21 +235,24 @@ export function KioskClient({
       }
     : farmasi
       ? {
-          no: tickets.farmasi.no,
+          no: ticketNo ?? tickets.farmasi.no,
           tujuan: 'Farmasi rawat jalan',
           lokasi: `Lantai 1 · loket 2 · perkiraan dipanggil ${addMinutes(at, tickets.farmasi.waitMin)}`,
           sep: null,
           note: null,
         }
       : {
-          no: purpose === 2 ? tickets.umum.no : tickets.bpjs.no,
-          tujuan: 'Poli Penyakit Dalam',
-          lokasi: `Lantai 2 · Ruang 2 · perkiraan dipanggil ${addMinutes(
+          no: ticketNo ?? (purpose === 2 ? tickets.umum.no : tickets.bpjs.no),
+          tujuan: 'Loket pendaftaran',
+          lokasi: `Lantai 1 · loket 1–4 · perkiraan dipanggil ${addMinutes(
             at,
             purpose === 2 ? tickets.umum.waitMin : tickets.bpjs.waitMin,
           )}`,
-          sep: purpose === 2 ? null : localSep,
-          note: null,
+          sep: null,
+          note:
+            purpose === 2
+              ? 'Petugas loket mendaftarkan Anda ke poli tujuan.'
+              : 'Booking Anda didahulukan. SEP dan nomor antrean poli diterbitkan petugas loket.',
         };
 
   const root = {
@@ -243,9 +267,9 @@ export function KioskClient({
     <div className="flex h-full w-full flex-col text-ink-900" style={root}>
       <KioskHeader tenantName={tenantName} time={time} date={dateLabel} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-4">
-        {error && (
+        {(error || storeError) && (
           <div className="px-16 pt-8">
-            <KioskNotice tone="warning">{error.message}</KioskNotice>
+            <KioskNotice tone="warning">{error?.message ?? storeError}</KioskNotice>
           </div>
         )}
         {screen === 'home' && (
@@ -293,7 +317,7 @@ export function KioskClient({
             patient={{ name: pt.name, birthDate: pt.birthDate, rm: pt.rm }}
             rows={rows}
             step={stepLabel}
-            busy={pending}
+            busy={pending || store.pending}
             onBack={back}
             onConfirm={print}
             onNotMe={() => {
@@ -305,12 +329,20 @@ export function KioskClient({
         {screen === 'tiket' && <KioskTicket ticket={ticket} onDone={reset} />}
       </div>
       <KioskFooter
-        calledAt={calledAt}
+        calledAt={assistAt}
+        cancelable={false}
+        calling={assist.pending}
         english={english}
         large={large}
         onEnglish={() => setEnglish((e) => !e)}
         onLarge={() => setLarge((l) => !l)}
-        onCall={() => setCalledAt((c) => (c ? null : time))}
+        onCall={() => {
+          if (assistAt) return;
+          assist.run(
+            () => requestKioskAssistAction({ jam: time }),
+            (r) => setStoreError(r.ok ? null : r.message),
+          );
+        }}
       />
     </div>
   );
