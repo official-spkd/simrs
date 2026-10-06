@@ -338,4 +338,51 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B08 PPRA: setujui/tolak beralasan, kedaluwarsa 24 jam, audit Gyssens, modul dimatikan per RS', async ({
+    page,
+  }) => {
+    const apoteker = await createAccount({ roles: ['apoteker'] });
+    await loginAs(page, apoteker, '/');
+    await page.goto('/manajemen/ppra');
+    await expect(
+      page.getByRole('heading', { name: 'Pengendalian resistansi antimikroba (PPRA)', level: 1 }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Setujui…' }).click();
+    await expect(page.getByRole('button', { name: 'Simpan persetujuan' })).toBeDisabled();
+    await page
+      .getByLabel('Pertimbangan klinis tim PPRA')
+      .fill('Syok septik dengan riwayat ESBL, de-eskalasi setelah kultur');
+    await page.getByRole('button', { name: 'Simpan persetujuan' }).click();
+    await expect(page.getByText(/AB-2610-021 Meropenem disetujui/)).toBeVisible();
+
+    await page.getByRole('button', { name: /AB-2610-019/ }).click();
+    await page.getByRole('button', { name: 'Tolak…' }).click();
+    await page
+      .getByLabel('Pertimbangan klinis tim PPRA')
+      .fill('Sensitif linezolid oral, bisa pulang lebih cepat');
+    await expect(page.getByText('Sebutkan antibiotik alternatif yang disarankan.')).toBeVisible();
+    await page.getByLabel('Antibiotik alternatif yang disarankan').fill('Linezolid oral');
+    await page.getByRole('button', { name: 'Simpan penolakan' }).click();
+    await expect(page.getByText(/AB-2610-019 Vankomisin ditolak .* saran Linezolid oral/)).toBeVisible();
+
+    await page.getByRole('button', { name: /AB-2610-017/ }).click();
+    await expect(page.getByText(/Tidak diputus dalam 24 jam/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Audit Gyssens' }).click();
+    for (let i = 0; i < 6; i++)
+      await page.getByRole('button', { name: 'Tidak untuk RM 00-58-02-41' }).click();
+    await page.getByRole('button', { name: 'Ya untuk RM 00-58-02-41' }).click();
+    await expect(page.getByText('Kategori IIIA', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Matikan modul…' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Matikan modul PPRA untuk RS ini?' });
+    await dialog.getByLabel(/Alasan/).fill('Uji coba konfigurasi RS tipe C tanpa tim PPRA');
+    await dialog.getByRole('button', { name: 'Matikan' }).click();
+    await page.getByRole('tab', { name: 'Katalog restriksi' }).click();
+    const meropenem = page.getByRole('row', { name: /Meropenem/ });
+    await expect(meropenem).toContainText('Langsung ke farmasi');
+
+    await expectNoHorizontalOverflow(page);
+  });
 });

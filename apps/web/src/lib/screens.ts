@@ -503,6 +503,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['akuntan', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'ppra',
+    label: 'PPRA',
+    route: '/manajemen/ppra',
+    mockup: null,
+    components: ['B08'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'ams.approve',
+    demoRoles: ['apoteker', 'dokter'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 

@@ -15,6 +15,7 @@ import {
 } from '../../demo/fixtures/kredensial';
 import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
 import { patientById } from '../../demo/fixtures/pasien';
+import { AMS_REQUESTS, GYSSENS_DONE, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import {
   PAYROLL_APPROVERS,
   PAYROLL_INPUTS,
@@ -117,4 +118,10 @@ export async function getPayroll() {
     preparer: PAYROLL_PREPARER,
     approvers: PAYROLL_APPROVERS,
   };
+}
+
+/** B08 · persetujuan antibiotik cadangan, audit Gyssens, katalog restriksi. */
+export async function getAms() {
+  demoOnly('PPRA');
+  return { requests: AMS_REQUESTS, restrictions: RESTRICTIONS, pending: GYSSENS_PENDING, done: GYSSENS_DONE };
 }
