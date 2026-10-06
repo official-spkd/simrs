@@ -467,6 +467,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: CLINICIANS,
     layout: 'staf',
   },
+  {
+    id: 'diagnosis',
+    label: 'Diagnosis & problem list',
+    route: '/klinis/diagnosis',
+    mockup: null,
+    components: ['K08'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'diagnosis.write',
+    demoRoles: CLINICIANS,
+    layout: 'staf',
+  },
   // FE2 · akhir
 ];
 

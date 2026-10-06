@@ -233,3 +233,58 @@ test.describe('K06 · asesmen dan skrining', () => {
     await expect(medis.getByText('Riwayat versi (2)')).toBeVisible();
   });
 });
+
+test.describe('K08 · diagnosis dan problem list', () => {
+  test('DPJP: satu diagnosis utama, jadikan utama berversi, salah entri beralasan, diagnosis akhir', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], '/klinis/diagnosis');
+    const sec = page.getByRole('region', { name: 'Diagnosis kunjungan' });
+    const list = sec.getByRole('list', { name: 'Daftar diagnosis' });
+    const first = list.getByRole('listitem').first();
+    await expect(first).toContainText('J18.9');
+    await expect(first.getByText('Utama', { exact: true })).toBeVisible();
+
+    const add = sec.getByRole('form', { name: 'Tambah diagnosis' });
+    await add.getByLabel('Kode ICD-10').selectOption('E87.5');
+    await add.getByLabel('Jenis').selectOption('utama');
+    await expect(add.getByRole('alert')).toContainText('Diagnosis utama sudah ada (J18.9)');
+    await add.getByLabel('Jenis').selectOption('sekunder');
+    await add.getByRole('button', { name: 'Tambahkan' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'E87.5 Hiperkalemia tercatat' })).toBeVisible();
+
+    await sec.getByRole('button', { name: 'Jadikan E11.9 diagnosis utama' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'E11.9 kini diagnosis utama' })).toBeVisible();
+    await expect(list.getByRole('listitem').filter({ hasText: 'J18.9' })).toContainText('Sekunder');
+    await expect(list.getByRole('listitem').filter({ hasText: 'J18.9' })).toContainText('versi 2');
+
+    await sec.getByRole('button', { name: 'Salah entri E87.5' }).click();
+    const voidForm = sec.getByRole('form', { name: 'Tandai salah entri' });
+    await voidForm.getByLabel('Alasan salah entri').fill('salah');
+    await voidForm.getByRole('button', { name: 'Tandai salah entri' }).click();
+    await expect(voidForm.getByText(/Wajib minimal 10 karakter/)).toBeVisible();
+    await voidForm.getByLabel('Alasan salah entri').fill('Kalium normal, bukan pasien ini');
+    await voidForm.getByRole('button', { name: 'Tandai salah entri' }).click();
+    await expect(list.getByRole('listitem').filter({ hasText: 'E87.5' })).toContainText(
+      'Salah entri · Kalium normal, bukan pasien ini',
+    );
+
+    await sec.getByRole('button', { name: 'Tetapkan diagnosis akhir' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Diagnosis akhir ditetapkan' })).toBeVisible();
+    await expect(sec.getByText('Diagnosis akhir sudah ditetapkan.')).toBeVisible();
+
+    const problems = page.getByRole('region', { name: 'Problem list' });
+    await problems.getByRole('button', { name: 'Tandai J18.9 teratasi' }).click();
+    await problems
+      .getByRole('form', { name: 'Masalah J18.9 teratasi' })
+      .getByRole('button', { name: 'Simpan' })
+      .click();
+    await problems.getByRole('button', { name: /^Teratasi/ }).click();
+    await expect(problems.getByRole('list', { name: 'Daftar masalah' })).toContainText('J18.9');
+
+    const alergi = page.getByRole('region', { name: 'Alergi' });
+    await expect(alergi.getByText('Amoksisilin · Sedang')).toBeVisible();
+    await expect(alergi.getByRole('button', { name: 'Verifikasi NKDA' })).toBeDisabled();
+    await expectNoHorizontalScroll(page);
+  });
+});
