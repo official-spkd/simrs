@@ -1,11 +1,10 @@
 'use client';
 
-import { formatJam, formatTanggal } from '@simrs/shared';
+import { formatTanggal } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, FilterChip } from '@simrs/ui';
 import { useState } from 'react';
 import {
   ConfirmBox,
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -13,66 +12,48 @@ import {
   ReasonButton,
   TextField,
 } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import { type Employee, GROUP_LABEL } from '@/lib/demo/fixtures/pegawai';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
-import {
-  daysBetween,
-  type License,
-  licenseStatus,
-  licenseText,
-  type LicenseStatus,
-  maskNik,
-  worstLicense,
-} from '@/lib/sdm';
+import { licenseStatus, licenseText, type LicenseStatus, maskNik, worstLicense } from '@/lib/sdm';
+import { type EmployeeProgress, MIN_HR_REASON, sipBlock as sipGate } from '@/lib/sdm-toko';
 
 const TONE: Record<LicenseStatus, ChipTone> = { aktif: 'success', segera: 'warning', kedaluwarsa: 'danger' };
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-interface EmpState {
-  licenses: License[];
-  remindedAt: string | null;
-  leftAt: string | null;
-  nikOpen: boolean;
-}
 
 /**
  * B03 · Data pegawai + izin praktik: daftar kiri (penanda STR/SIP), detail kanan. NIK tersamar; buka utuh wajib
- * beralasan (tercatat). SIP ≤ 60 hari → pengingat; SIP kedaluwarsa → kewenangan order ditangguhkan sampai SIP baru
- * dicatat. Pegawai keluar → akun dan penugasan berakhir otomatis (MRMIK 2.1b).
+ * beralasan (tercatat di jejak toko atas nama pengguna sesi). SIP ≤ 60 hari → pengingat; SIP kedaluwarsa →
+ * kewenangan order ditangguhkan sampai SIP baru dicatat (dilanggan Kredensial). Pegawai keluar → akun dan penugasan
+ * berakhir otomatis (MRMIK 2.1b). Tersimpan di toko demo (domain `sdm`, ADR-0085).
  */
-export function EmployeeTab({ employees, today }: { employees: readonly Employee[]; today: string }) {
+export function EmployeeTab({
+  employees,
+  progress,
+  rev,
+  today,
+}: {
+  employees: readonly Employee[];
+  progress: Readonly<Record<string, EmployeeProgress>>;
+  rev: number;
+  today: string;
+}) {
   const [filter, setFilter] = useState<'semua' | 'tindakan'>('tindakan');
-  const [state, setState] = useState<Record<string, EmpState>>(() =>
-    Object.fromEntries(
-      employees.map((e) => [
-        e.id,
-        { licenses: [...e.licenses], remindedAt: null, leftAt: null, nikOpen: false },
-      ]),
-    ),
-  );
+  const state = progress;
   const worst = (id: string) => worstLicense(state[id]?.licenses ?? [], today);
   const visible = employees.filter((e) => filter === 'semua' || worst(e.id).status !== 'aktif');
   const [sel, setSel] = useState(visible[0]?.id ?? employees[0]?.id ?? '');
   const [askNik, setAskNik] = useState(false);
+  const [nikOpen, setNikOpen] = useState<Record<string, boolean>>({});
   const [askLeave, setAskLeave] = useState(false);
   const [sipNo, setSipNo] = useState('');
   const [sipUntil, setSipUntil] = useState('');
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('sdm', rev);
 
   const e = employees.find((x) => x.id === sel);
-  const s = e ? state[e.id] : undefined;
-  const patch = (id: string, p: Partial<EmpState>) =>
-    setState((cur) => ({ ...cur, [id]: { ...(cur[id] as EmpState), ...p } }));
-  const at = () => formatJam(demoNow());
+  const s = e ? { ...(state[e.id] as EmployeeProgress), nikOpen: !!nikOpen[e.id] } : undefined;
+  const at = () => demoStamp().jam;
 
-  const sipBlock =
-    sipNo.trim().length < 6
-      ? 'Isi nomor SIP baru.'
-      : !ISO_DATE.test(sipUntil)
-        ? 'Isi masa berlaku dengan format TTTT-BB-HH.'
-        : daysBetween(today, sipUntil) <= 0
-          ? 'Masa berlaku harus setelah hari ini.'
-          : null;
+  const sipBlock = pending ? 'Menyimpan…' : sipGate(sipNo, sipUntil, today);
 
   const detail =
     !e || !s ? (
@@ -83,7 +64,7 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
       <Panel
         title={e.name}
         sub={`${e.position} · ${e.unit}`}
-        actions={s.leftAt ? <Chip tone="neutral">Keluar {s.leftAt}</Chip> : <Chip tone="success">Aktif</Chip>}
+        actions={s.left ? <Chip tone="neutral">Keluar {s.left.jam}</Chip> : <Chip tone="success">Aktif</Chip>}
       >
         <KeyValues
           rows={[
@@ -112,16 +93,18 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
           <ConfirmBox
             title="Buka NIK utuh?"
             confirmLabel="Tampilkan NIK"
-            minReason={10}
+            minReason={MIN_HR_REASON}
             onCancel={() => setAskNik(false)}
-            onConfirm={(reason) => {
-              patch(e.id, { nikOpen: true });
-              setAskNik(false);
-              setFlash({
-                ok: true,
-                text: `Akses NIK utuh ${e.name} tercatat di jejak audit · ${at()} · alasan: ${reason}.`,
-              });
-            }}
+            onConfirm={(reason) =>
+              act(
+                { type: 'nik.dibuka', employeeId: e.id, reason, jam: at() },
+                `Akses NIK utuh ${e.name} tercatat di jejak audit · ${at()} · alasan: ${reason}.`,
+                () => {
+                  setNikOpen((cur) => ({ ...cur, [e.id]: true }));
+                  setAskNik(false);
+                },
+              )
+            }
           >
             Data pribadi pegawai. Pembukaan tercatat atas nama Anda beserta alasannya.
           </ConfirmBox>
@@ -152,7 +135,7 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
         )}
         {(() => {
           const w = worstLicense(s.licenses, today);
-          if (s.leftAt) return null;
+          if (s.left) return null;
           if (w.status === 'kedaluwarsa') {
             return (
               <div className="flex flex-col gap-3">
@@ -170,20 +153,16 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
                 />
                 <ReasonButton
                   reason={sipBlock}
-                  onClick={() => {
-                    const next = s.licenses.map((l) =>
-                      l.kind === 'SIP'
-                        ? { kind: 'SIP' as const, number: `SIP ${sipNo.trim()}`, expiry: sipUntil }
-                        : l,
-                    );
-                    patch(e.id, { licenses: next });
-                    setFlash({
-                      ok: true,
-                      text: `SIP baru ${e.name} dicatat · ${at()}; kewenangan klinis aktif kembali setelah verifikasi komite medik.`,
-                    });
-                    setSipNo('');
-                    setSipUntil('');
-                  }}
+                  onClick={() =>
+                    act(
+                      { type: 'sip.diperbarui', employeeId: e.id, number: sipNo.trim(), until: sipUntil, jam: at() },
+                      `SIP baru ${e.name} dicatat · ${at()}; kewenangan klinis aktif kembali setelah verifikasi komite medik.`,
+                      () => {
+                        setSipNo('');
+                        setSipUntil('');
+                      },
+                    )
+                  }
                 >
                   Simpan SIP baru
                 </ReasonButton>
@@ -199,13 +178,13 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
               <span>
                 <Button
                   variant="primary"
-                  onClick={() => {
-                    patch(e.id, { remindedAt: at() });
-                    setFlash({
-                      ok: true,
-                      text: `Pengingat perpanjangan ${w.license?.kind} dikirim ke ${e.name} · ${at()}.`,
-                    });
-                  }}
+                  disabled={pending}
+                  onClick={() =>
+                    act(
+                      { type: 'pengingat.dikirim', employeeId: e.id, jam: at() },
+                      `Pengingat perpanjangan ${w.license?.kind} dikirim ke ${e.name} · ${at()}.`,
+                    )
+                  }
                 >
                   Kirim pengingat perpanjangan
                 </Button>
@@ -215,25 +194,24 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
           return null;
         })()}
         <hr className="m-0 border-0 border-t border-line" />
-        {s.leftAt ? (
-          <Alert level="info" title={`Pegawai keluar · ${s.leftAt}`}>
-            Akun dinonaktifkan, semua penugasan diakhiri, dan sesi aktif dicabut otomatis.
+        {s.left ? (
+          <Alert level="info" title={`Pegawai keluar · ${s.left.jam} oleh ${s.left.by}`}>
+            Akun dinonaktifkan, semua penugasan diakhiri, dan sesi aktif dicabut otomatis. Alasan: {s.left.reason}.
           </Alert>
         ) : askLeave ? (
           <ConfirmBox
             title={`Proses ${e.name} keluar?`}
             confirmLabel="Proses keluar"
-            minReason={10}
+            minReason={MIN_HR_REASON}
             danger
             onCancel={() => setAskLeave(false)}
-            onConfirm={(reason) => {
-              patch(e.id, { leftAt: at() });
-              setAskLeave(false);
-              setFlash({
-                ok: true,
-                text: `${e.name} diproses keluar · ${at()} (${reason}): akun SIM RS dinonaktifkan, penugasan diakhiri, sesi dicabut (simulasi, tidak disimpan).`,
-              });
-            }}
+            onConfirm={(reason) =>
+              act(
+                { type: 'pegawai.keluar', employeeId: e.id, reason, jam: at() },
+                `${e.name} diproses keluar · ${at()} (${reason}): akun SIM RS dinonaktifkan, penugasan diakhiri, sesi dicabut.`,
+                () => setAskLeave(false),
+              )
+            }
           >
             Akun SIM RS dan semua penugasan berakhir saat itu juga (MRMIK 2.1b). Riwayat kepegawaian tetap
             tersimpan.
@@ -270,7 +248,7 @@ export function EmployeeTab({ employees, today }: { employees: readonly Employee
           >
             {visible.map((x) => {
               const w = worst(x.id);
-              const left = state[x.id]?.leftAt;
+              const left = state[x.id]?.left;
               return (
                 <PickRow
                   key={x.id}

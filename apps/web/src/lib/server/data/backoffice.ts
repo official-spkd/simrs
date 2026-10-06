@@ -30,7 +30,7 @@ import { LOGBOOK, TRAINEES } from '../../demo/fixtures/pendidikan';
 import { OPEN_COMPLAINTS, recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
 import { AMS_REQUESTS, GYSSENS_PENDING, RESTRICTIONS } from '../../demo/fixtures/ppra';
 import { PAYROLL_INPUTS, PAYROLL_PERIOD, SERVICE_FEES } from '../../demo/fixtures/penggajian';
-import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
+import { EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
 import {
   BUNDLE_AUDITS,
   BUNDLES,
@@ -79,7 +79,12 @@ export type RecordsAdminData = Awaited<ReturnType<typeof getRecordsAdmin>>;
 /** B03 · pegawai + izin praktik, dan draf jadwal dinas minggu depan satu unit. */
 export async function getHr() {
   demoOnly('SDM dan kepegawaian');
-  return { employees: EMPLOYEES, roster: ROSTER_UNIT, rosterStaff: ROSTER_STAFF, draft: draftRoster() };
+  return {
+    employees: EMPLOYEES,
+    roster: ROSTER_UNIT,
+    rosterStaff: ROSTER_STAFF,
+    store: await readDomain('sdm'),
+  };
 }
 export type HrData = Awaited<ReturnType<typeof getHr>>;
 

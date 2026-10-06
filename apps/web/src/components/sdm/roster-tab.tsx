@@ -3,20 +3,13 @@
 import { formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
 import { useState } from 'react';
-import {
-  type Flash,
-  FlashLine,
-  Panel,
-  ReasonButton,
-  SelectField,
-  TableWrap,
-  TD,
-  TH,
-} from '@/components/backoffice/kit';
+import { FlashLine, Panel, ReasonButton, SelectField, TableWrap, TD, TH } from '@/components/backoffice/kit';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
 import type { Employee } from '@/lib/demo/fixtures/pegawai';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
-  assign,
+  MAX_WEEK_HOURS,
+  overHours,
   publishBlock,
   restViolations,
   type Roster,
@@ -26,15 +19,14 @@ import {
   SHIFT_LABEL,
   SHIFTS,
   shortName,
-  unassign,
   weeklyHours,
 } from '@/lib/sdm';
-
-const MAX_WEEK_HOURS = 40;
+import type { HrStoreState } from '@/lib/sdm-toko';
 
 /**
- * B03 · Jadwal dinas satu unit (draf → terbit): grid hari × dinas dengan kekurangan per dinas dan jeda istirahat
- * malam → pagi yang dilanggar. Klik sel untuk menambah/melepas perawat; "Terbitkan" nonaktif beralasan sampai bersih.
+ * B03 · Jadwal dinas satu unit (draf → terbit → revisi): grid hari × dinas dengan kekurangan per dinas, jeda
+ * istirahat setelah malam (pagi/siang) yang dilanggar, dan beban > 40 jam. Klik sel untuk menambah/melepas perawat;
+ * "Terbitkan" nonaktif beralasan sampai bersih. Tersimpan di toko demo (domain `sdm`, ADR-0085).
  */
 export function RosterTab({
   unit,
@@ -42,29 +34,36 @@ export function RosterTab({
   dayLabels,
   minimum,
   staff,
-  initial,
+  roster,
+  version,
+  published,
+  rev,
 }: {
   unit: string;
   weekLabel: string;
   dayLabels: readonly string[];
   minimum: Record<Shift, number>;
   staff: readonly Employee[];
-  initial: Roster;
+  roster: Roster;
+  version: number;
+  published: HrStoreState['published'];
+  rev: number;
 }) {
   const days = dayLabels.length;
-  const [roster, setRoster] = useState<Roster>(initial);
   const [cell, setCell] = useState<{ day: number; shift: Shift } | null>(null);
   const [pick, setPick] = useState('');
-  const [published, setPublished] = useState<{ version: number; at: string } | null>(null);
-  const [version, setVersion] = useState(1);
-  const [flash, setFlash] = useState<Flash | null>(null);
+  const { act, pending, flash } = useTokoAction('sdm', rev);
   const byId = new Map(staff.map((e) => [e.id, e]));
   const gaps = rosterGaps(roster, days, minimum);
   const violations = restViolations(roster, days);
-  const block = publishBlock(gaps, violations);
+  const over = overHours(
+    roster,
+    staff.map((e) => e.id),
+  );
+  const block = pending ? 'Menyimpan…' : publishBlock(gaps, violations, over);
   const gapAt = (d: number, s: Shift) => gaps.find((g) => g.day === d && g.shift === s);
   const violAt = (d: number, s: Shift, id: string) =>
-    s === 'P' && violations.some((v) => v.day === d && v.staffId === id);
+    violations.some((v) => v.day === d && v.shift === s && v.staffId === id);
 
   const onDay = (d: number) => new Set(SHIFTS.flatMap((s) => roster[d]?.[s] ?? []));
   const selected = cell ? (roster[cell.day]?.[cell.shift] ?? []) : [];
@@ -73,30 +72,27 @@ export function RosterTab({
   const add = () => {
     if (!cell || !pick) return;
     const who = byId.get(pick);
-    setRoster((r) => assign(r, cell.day, cell.shift, pick));
-    setFlash({
-      ok: true,
-      text: `${who?.name ?? ''} ditambahkan ke dinas ${SHIFT_LABEL[cell.shift].toLowerCase()} ${dayLabels[cell.day]}.`,
-    });
-    setPick('');
+    act(
+      { type: 'dinas.ditambah', day: cell.day, shift: cell.shift, staffId: pick },
+      `${who?.name ?? ''} ditambahkan ke dinas ${SHIFT_LABEL[cell.shift].toLowerCase()} ${dayLabels[cell.day]}.`,
+      () => setPick(''),
+    );
   };
   const remove = (id: string) => {
     if (!cell) return;
-    setRoster((r) => unassign(r, cell.day, cell.shift, id));
-    setFlash({
-      ok: true,
-      text: `${byId.get(id)?.name ?? ''} dilepas dari dinas ${SHIFT_LABEL[cell.shift].toLowerCase()} ${dayLabels[cell.day]}.`,
-    });
+    act(
+      { type: 'dinas.dilepas', day: cell.day, shift: cell.shift, staffId: id },
+      `${byId.get(id)?.name ?? ''} dilepas dari dinas ${SHIFT_LABEL[cell.shift].toLowerCase()} ${dayLabels[cell.day]}.`,
+    );
   };
   const publish = () => {
     if (block) return;
-    const at = formatTanggalWaktu(demoNow());
-    setPublished({ version, at });
-    setCell(null);
-    setFlash({
-      ok: true,
-      text: `Jadwal ${unit} ${weekLabel} terbit versi ${version} · ${at}; ${staff.filter((e) => weeklyHours(roster, e.id) > 0).length} perawat menerima notifikasi (simulasi, tidak disimpan).`,
-    });
+    const { when } = demoStamp();
+    act(
+      { type: 'jadwal.diterbitkan', when },
+      `Jadwal ${unit} ${weekLabel} terbit versi ${version} · ${formatTanggalWaktu(when)}; ${staff.filter((e) => weeklyHours(roster, e.id) > 0).length} perawat menerima notifikasi.`,
+      () => setCell(null),
+    );
   };
 
   return (
@@ -109,17 +105,16 @@ export function RosterTab({
           published ? (
             <>
               <Chip tone="success">
-                Terbit versi {published.version} · {published.at}
+                Terbit versi {published.version} · {formatTanggalWaktu(published.when)} · {published.by.name}
               </Chip>
               <Button
-                onClick={() => {
-                  setPublished(null);
-                  setVersion((v) => v + 1);
-                  setFlash({
-                    ok: true,
-                    text: `Revisi versi ${version + 1} dibuka sebagai draf; versi terbit tetap berlaku sampai revisi terbit.`,
-                  });
-                }}
+                disabled={pending}
+                onClick={() =>
+                  act(
+                    { type: 'jadwal.direvisi', when: demoStamp().when },
+                    `Revisi versi ${version + 1} dibuka sebagai draf; versi terbit tetap berlaku sampai revisi terbit.`,
+                  )
+                }
               >
                 Buat revisi
               </Button>
@@ -215,7 +210,7 @@ export function RosterTab({
                         <span className="ml-2 font-semibold text-danger">dinas malam kemarin</span>
                       )}
                     </span>
-                    <Button size="sm" variant="ghost" onClick={() => remove(id)}>
+                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => remove(id)}>
                       Lepas<span className="sr-only"> {byId.get(id)?.name}</span>
                     </Button>
                   </li>
@@ -238,7 +233,7 @@ export function RosterTab({
                   `${e.name} · ${e.unit} · ${weeklyHours(roster, e.id)} jam minggu ini`,
                 ])}
               />
-              <ReasonButton reason={pick ? null : 'Pilih perawat dulu.'} onClick={add}>
+              <ReasonButton reason={pending ? 'Menyimpan…' : pick ? null : 'Pilih perawat dulu.'} onClick={add}>
                 Tambahkan ke dinas
               </ReasonButton>
             </Panel>
@@ -267,7 +262,9 @@ export function RosterTab({
                       {e.name}
                       <span className="block text-caption text-ink-500">{e.unit}</span>
                     </span>
-                    <Chip tone={h > MAX_WEEK_HOURS ? 'danger' : h === 0 ? 'neutral' : 'brand'}>{h} jam</Chip>
+                    <Chip tone={h > MAX_WEEK_HOURS ? 'danger' : h === 0 ? 'neutral' : 'brand'}>
+                      {h} jam{h > MAX_WEEK_HOURS ? ' · melebihi batas' : ''}
+                    </Chip>
                   </li>
                 );
               })}

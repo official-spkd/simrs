@@ -22,7 +22,14 @@ export function HrBoard({ data, today, alerts }: { data: HrData; today: string; 
           label: 'Pegawai & izin praktik',
           badge: alerts ? String(alerts) : undefined,
           badgeTone: 'danger',
-          content: <EmployeeTab employees={data.employees} today={today} />,
+          content: (
+            <EmployeeTab
+              employees={data.employees}
+              progress={data.store.state.employees}
+              rev={data.store.rev}
+              today={today}
+            />
+          ),
         },
         {
           id: 'jadwal',
@@ -34,7 +41,10 @@ export function HrBoard({ data, today, alerts }: { data: HrData; today: string; 
               dayLabels={data.roster.dayLabels}
               minimum={data.roster.minimum}
               staff={data.rosterStaff}
-              initial={data.draft}
+              roster={data.store.state.roster}
+              version={data.store.state.version}
+              published={data.store.state.published}
+              rev={data.store.rev}
             />
           ),
         },

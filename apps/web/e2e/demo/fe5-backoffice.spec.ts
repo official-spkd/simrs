@@ -99,10 +99,10 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit', async ({
+  test('B03 SDM: SIP kedaluwarsa diperbarui, NIK dibuka beralasan, pegawai keluar, jadwal dinas terbit (jeda + 40 jam); bertahan', async ({
     page,
   }) => {
-    const direksi = await createAccount({ roles: ['manajemen'] });
+    const direksi = await createAccount({ roles: ['manajemen'], displayName: 'Direktur SDM Fiktif' });
     await loginAs(page, direksi, '/');
     await page.goto('/manajemen/sdm');
     await expect(page.getByRole('heading', { name: 'SDM dan kepegawaian', level: 1 })).toBeVisible();
@@ -127,6 +127,14 @@ test.describe('FE5 · back office', () => {
     await leave.getByLabel(/Alasan/).fill('Mengundurkan diri per 5 Oktober 2026');
     await leave.getByRole('button', { name: 'Proses keluar' }).click();
     await expect(page.getByText(/akun SIM RS dinonaktifkan, penugasan diakhiri/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
+
+    // Bertahan setelah muat ulang: SIP baru dan status keluar atas nama pengguna sesi; NIK kembali tersamar.
+    await page.reload();
+    await page.getByRole('button', { name: 'Semua', exact: true }).click();
+    await page.getByRole('button', { name: /dr\. Rina Kusuma/ }).click();
+    await expect(page.getByText(/Pegawai keluar · .* oleh Direktur SDM Fiktif/)).toBeVisible();
+    await expect(page.getByText('9999220200000005')).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Jadwal dinas' }).click();
     const roster = page.getByRole('tabpanel', { name: 'Jadwal dinas' });
@@ -140,12 +148,22 @@ test.describe('FE5 · back office', () => {
     };
     await fill(/^Siang Rab 14/, 'peg-0014');
     await fill(/^Malam Sab 17/, 'peg-0014');
-    await expect(roster.getByText(/1 jeda istirahat malam → pagi dilanggar/)).toBeVisible();
+    await expect(roster.getByText(/1 jeda istirahat setelah dinas malam dilanggar/)).toBeVisible();
     await page.getByRole('button', { name: /^Pagi Jum 16/ }).click();
     await page.getByRole('button', { name: 'Lepas Ns. Maya Sari, S.Kep' }).click();
     await fill(/^Pagi Jum 16/, 'peg-0011');
+    // > 40 jam per minggu kini memblokir terbit (dulu hanya warna).
+    await expect(roster.getByText(/1 perawat melebihi 40 jam per minggu/)).toBeVisible();
+    await expect(publish).toBeDisabled();
+    await page.getByRole('button', { name: /^Pagi Rab 14/ }).click();
+    await page.getByRole('button', { name: 'Lepas Ns. Fikri Ananda, S.Kep' }).click();
+    await fill(/^Pagi Rab 14/, 'peg-0008');
     await publish.click();
     await expect(page.getByText(/terbit versi 1 · Sen, 5 Okt 2026/).first()).toBeVisible();
+
+    await page.reload();
+    await page.getByRole('tab', { name: 'Jadwal dinas' }).click();
+    await expect(roster.getByText(/Terbit versi 1 · .* · Direktur SDM Fiktif/)).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });

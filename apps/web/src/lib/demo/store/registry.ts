@@ -14,6 +14,7 @@ import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { ppraDomain } from '../../ppra-toko';
 import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
+import { hrDomain } from '../../sdm-toko';
 import { regDocsDomain } from '../../dokumen-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
@@ -59,6 +60,7 @@ export const DEMO_DOMAINS = {
   'rekam-medis-adm': recordsAdminDomain,
   'resume-medis': resumeDomain,
   rujukan: referralDomain,
+  sdm: hrDomain,
   struktur: structureDomain,
   'tempat-tidur': bedDomain,
   terminologi: terminologyDomain,
