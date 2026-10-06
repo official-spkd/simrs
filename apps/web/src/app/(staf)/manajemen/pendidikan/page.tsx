@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -7,6 +6,7 @@ import { EducationBoard } from '@/components/pendidikan/education-board';
 import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { getEducation } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Pendidikan klinik' };
 
@@ -33,28 +33,30 @@ export default async function PendidikanPage() {
         aria-label="Ringkasan pendidikan klinik"
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Peserta didik aktif"
           value={String(d.trainees.length)}
           detail="residen, koas, mahasiswa profesi"
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Logbook menunggu verifikasi"
           value={String(pending)}
           hint={pending ? 'supervisor diingatkan harian' : 'tidak ada'}
           detail="verifikasi oleh supervisor"
           tone={pending ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Menunggu co-sign"
           value={String(cosign)}
           hint="CPPT dan order peserta didik"
           detail="dirutekan ke supervisor"
           tone={cosign ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Supervisor"
           value={String(new Set(d.trainees.map((t) => t.supervisor)).size)}
           detail="DPJP dan perawat pembimbing"

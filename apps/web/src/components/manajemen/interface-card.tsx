@@ -5,7 +5,11 @@ import { Sparkbars } from './sparkbars';
 
 const STATUS: Record<InterfaceCardData['status'] | 'antre', { label: string; tone: ChipTone; tint: string }> =
   {
-    normal: { label: 'Normal', tone: 'success', tint: 'color-mix(in srgb, var(--color-brand-600) 5%, transparent)' },
+    normal: {
+      label: 'Normal',
+      tone: 'success',
+      tint: 'color-mix(in srgb, var(--color-brand-600) 5%, transparent)',
+    },
     lambat: { label: 'Lambat', tone: 'warning', tint: 'rgba(138,75,0,0.06)' },
     gangguan: { label: 'Gangguan', tone: 'danger', tint: 'rgba(180,35,24,0.06)' },
     antre: { label: 'Antre lokal', tone: 'neutral', tint: 'rgba(63,76,88,0.06)' },

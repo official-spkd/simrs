@@ -2,6 +2,7 @@
 
 import { Button, Chip, type ChipTone, cx, Icon } from '@simrs/ui';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { CARD_BASE, H1, H2, TABLE_HOVER, TH_BASE } from '../backoffice/styles';
 
 /**
  * Potongan UI bersama layar demo platform dan operasional (FE1: P01, P06, P08, P10–P13, F07, F08, backup, go-live).
@@ -22,7 +23,7 @@ export function ScreenHeader({
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-caption text-ink-500">{trail}</span>
-        <h1 className="m-0 text-h1 font-semibold">{title}</h1>
+        <h1 className={H1}>{title}</h1>
       </div>
       {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </header>
@@ -50,20 +51,21 @@ export function Panel({
     <section
       aria-labelledby={id}
       className={cx(
-        'flex min-w-0 flex-col gap-3 rounded-card border bg-white p-4',
+        'flex min-w-0 flex-col gap-3 p-4',
+        CARD_BASE,
         tone === 'danger'
           ? 'border-koral-200'
           : tone === 'warning'
             ? 'border-kunyit-200'
             : tone === 'success'
               ? 'border-zamrud-200'
-              : 'border-line',
+              : 'border-white/95',
         className,
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex min-w-0 flex-col">
-          <h2 id={id} className="m-0 text-base font-semibold">
+          <h2 id={id} className={H2}>
             {title}
           </h2>
           {sub && <span className="text-[12.5px] text-ink-500">{sub}</span>}
@@ -93,8 +95,10 @@ export function FlowSteps({ label, steps, current }: { label: string; steps: Flo
             className={cx(
               'flex min-w-[150px] flex-1 items-center gap-2 rounded-control border px-3 py-2',
               state === 'aktif'
-                ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-50),#FFFFFF)]'
-                : 'border-line bg-white',
+                ? 'border-transparent bg-nav-active text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                : state === 'selesai'
+                  ? 'border-zamrud-200 bg-zamrud-50'
+                  : 'border-transparent bg-[rgba(23,32,46,0.05)]',
             )}
           >
             <span
@@ -102,10 +106,10 @@ export function FlowSteps({ label, steps, current }: { label: string; steps: Flo
               className={cx(
                 'flex size-7 flex-none items-center justify-center rounded-full text-small font-bold',
                 state === 'selesai'
-                  ? 'bg-brand-50 text-brand-700'
+                  ? 'bg-zamrud-100 text-zamrud-700'
                   : state === 'aktif'
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-muted text-ink-500',
+                    ? 'bg-white text-brand-800'
+                    : 'bg-white/80 text-ink-500',
               )}
             >
               {state === 'selesai' ? <Icon name="check" size={14} strokeWidth={2.6} /> : i + 1}
@@ -117,7 +121,16 @@ export function FlowSteps({ label, steps, current }: { label: string; steps: Flo
                   {state === 'selesai' ? ' (selesai)' : state === 'aktif' ? ' (tahap aktif)' : ' (belum)'}
                 </span>
               </span>
-              {s.note && <span className="truncate text-caption text-ink-500">{s.note}</span>}
+              {s.note && (
+                <span
+                  className={cx(
+                    'truncate text-caption',
+                    state === 'aktif' ? 'text-white/90' : 'text-ink-500',
+                  )}
+                >
+                  {s.note}
+                </span>
+              )}
             </span>
           </li>
         );
@@ -139,13 +152,18 @@ export function Stamp({ children, tone = 'success' }: { children: ReactNode; ton
 export function TableWrap({ label, children }: { label: string; children: ReactNode }) {
   return (
     // Wilayah gulir perlu tabIndex agar bisa digulir dengan keyboard.
-    <div role="region" aria-label={label} tabIndex={0} className="relative max-w-full overflow-x-auto">
+    <div
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className={cx('relative max-w-full overflow-x-auto', TABLE_HOVER)}
+    >
       {children}
     </div>
   );
 }
 
-export const TH = 'border-b border-line px-2.5 py-2 text-left text-caption font-semibold text-ink-500';
+export const TH = `${TH_BASE} px-2.5 py-2`;
 export const TD = 'border-b border-line-soft px-2.5 py-2 align-top text-small';
 
 export interface ConfirmRequest {
@@ -194,8 +212,8 @@ export function ConfirmDialog({
       aria-describedby={`${id}-isi`}
       onClose={onClose}
       className={cx(
-        'm-auto w-[min(560px,calc(100vw-32px))] rounded-card border p-0 text-ink-900 backdrop:bg-[rgba(20,33,43,0.45)]',
-        request?.danger ? 'border-koral-200' : 'border-line',
+        'm-auto w-[min(560px,calc(100vw-32px))] animate-pal-in rounded-card border bg-white p-0 text-ink-900 shadow-float backdrop:bg-[rgba(15,23,42,0.28)] backdrop:backdrop-blur-[3px]',
+        request?.danger ? 'border-koral-200' : 'border-white/95',
       )}
     >
       {request && (

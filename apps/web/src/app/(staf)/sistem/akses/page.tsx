@@ -5,7 +5,7 @@ import {
   permissionAllowedFor,
   PROTECTED_ROLES,
 } from '@simrs/shared';
-import { Alert, Button, Card, Chip, cx, Icon, KpiCard } from '@simrs/ui';
+import { Alert, Button, Card, Chip, cx, Icon } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { z } from 'zod';
@@ -41,6 +41,7 @@ import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
 import { ContactForm } from './contact-form';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Pengguna dan akses' };
 
@@ -304,20 +305,23 @@ function Kpis({ summary }: { summary: AccessSummary }) {
   const mfaPct = summary.active > 0 ? ((summary.active - summary.mfaMissing) / summary.active) * 100 : 100;
   return (
     <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-      <KpiCard label="Pengguna aktif" value={summary.active} hint={`dari ${summary.total} akun`} />
-      <KpiCard
+      <KpiTile index={3} label="Pengguna aktif" value={summary.active} hint={`dari ${summary.total} akun`} />
+      <KpiTile
+        index={0}
         label="MFA aktif"
         value={`${percent.format(mfaPct)}%`}
         hint={summary.mfaMissing > 0 ? `${summary.mfaMissing} akun belum` : 'semua akun aktif'}
         tone={summary.mfaMissing > 0 ? 'warning' : 'success'}
       />
-      <KpiCard
+      <KpiTile
+        index={1}
         label="Break-the-glass 7 hari"
         value={summary.breakGlass7d}
         hint={`${summary.breakGlassPending} belum ditinjau`}
         tone={summary.breakGlassPending > 0 ? 'warning' : 'neutral'}
       />
-      <KpiCard
+      <KpiTile
+        index={2}
         label="Akun dikunci"
         value={summary.locked}
         hint="gagal login berulang"

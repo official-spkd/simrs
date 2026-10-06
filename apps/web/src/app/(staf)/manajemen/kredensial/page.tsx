@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { CredentialBoard } from '@/components/kredensial/credential-board';
@@ -10,6 +9,7 @@ import { licenseStatus } from '@/lib/sdm';
 import { getCredentialing } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { licensesOf } from '@/lib/kredensial-toko';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Kredensial & kewenangan' };
 
@@ -43,34 +43,35 @@ export default async function KredensialPage() {
         aria-label="Ringkasan kredensial"
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Pengajuan berjalan"
           value={String(open.length)}
           hint={blocked ? `${blocked} tertahan di verifikasi berkas` : 'semua berjalan'}
           detail="komite medik dan keperawatan"
           tone={blocked ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="RKK berakhir ≤ 60 hari"
           value={String(expiring.length)}
           hint={expiring.length ? 'rekredensial perlu diputus sebelum berakhir' : 'tidak ada'}
           detail="butir kewenangan"
           tone={expiring.length ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Praktisi ber-RKK"
           value={String(practitioners)}
           detail={`${st.granted.length} butir kewenangan berlaku`}
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Order ditahan CPOE bulan ini"
           value={String(d.guardEvents.length)}
           hint={`${noPrivilege} tanpa kewenangan · ${d.guardEvents.length - noPrivilege} SIP kedaluwarsa`}
           detail="ditinjau komite medik"
           tone={d.guardEvents.length ? 'warning' : 'success'}
-          tinted
         />
       </div>
       <CredentialBoard

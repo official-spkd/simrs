@@ -12,7 +12,15 @@ export function PhoneFrame({ time, children }: { time: string; children: ReactNo
         <span className="flex items-center gap-1.5" aria-hidden="true">
           <svg width="18" height="12" viewBox="0 0 18 12">
             {[0, 1, 2, 3].map((i) => (
-              <rect key={i} x={i * 4.5} y={9 - i * 3} width={3} height={3 + i * 3} rx={0.8} fill="var(--color-ink-900)" />
+              <rect
+                key={i}
+                x={i * 4.5}
+                y={9 - i * 3}
+                width={3}
+                height={3 + i * 3}
+                rx={0.8}
+                fill="var(--color-ink-900)"
+              />
             ))}
           </svg>
           <svg width="16" height="12" viewBox="0 0 16 12">

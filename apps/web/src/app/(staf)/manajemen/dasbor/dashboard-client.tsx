@@ -5,6 +5,7 @@ import { cx, RadioSegmented } from '@simrs/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTransition } from 'react';
+import { CARD, H2, SOFT } from '@/components/backoffice/styles';
 import { useTokoAction } from '@/components/backoffice/use-toko';
 import { dashboardAlertKey } from '@/lib/dasbor-toko';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
@@ -66,12 +67,9 @@ export function DecisionAlerts({
   const open = alerts.filter((a) => !done[a.id]).length;
 
   return (
-    <section
-      aria-label="Perlu keputusan direksi"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white bg-[linear-gradient(160deg,#FFFFFF_60%,rgba(180,35,24,0.05))] p-4"
-    >
+    <section aria-label="Perlu keputusan direksi" className={cx('flex flex-col gap-2.5 p-4', CARD)}>
       <span className="flex items-baseline justify-between gap-2">
-        <span className="font-semibold">Perlu keputusan direksi</span>
+        <h2 className={H2}>Perlu keputusan direksi</h2>
         <span
           aria-live="polite"
           className={cx('text-caption font-semibold', open ? 'text-danger' : 'text-success')}
@@ -87,12 +85,12 @@ export function DecisionAlerts({
       {!canDecide && (
         <span className="text-caption text-ink-500">Tanda tindak lanjut oleh posisi Manajemen.</span>
       )}
-      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {alerts.map((a) => {
           const ack = done[a.id];
           const at = ack?.jam;
           return (
-            <li key={a.id} className="flex gap-2.5 text-small">
+            <li key={a.id} className={cx('flex gap-2.5 p-3 text-small', SOFT)}>
               <span
                 aria-hidden="true"
                 className={cx(
@@ -117,7 +115,7 @@ export function DecisionAlerts({
                   {a.link && (
                     <Link
                       href={a.link.href}
-                      className="inline-flex min-h-11 items-center rounded-[9px] border border-brand-800 bg-white px-2.5 text-[12.5px] font-semibold text-brand-700 no-underline"
+                      className="inline-flex min-h-11 items-center rounded-control border border-[rgba(23,32,46,0.12)] bg-white/95 px-3 text-[12.5px] font-semibold text-brand-700 no-underline hover:shadow-[0_6px_16px_rgba(23,32,46,0.12)]"
                     >
                       {a.link.label}
                     </Link>
@@ -128,8 +126,10 @@ export function DecisionAlerts({
                     disabled={pending || !canDecide}
                     onClick={() => toggle(a)}
                     className={cx(
-                      'min-h-11 cursor-pointer rounded-[9px] border border-line-strong px-2.5 font-[inherit] text-[12.5px] font-medium text-ink-900',
-                      at ? 'bg-muted' : 'bg-white',
+                      'min-h-11 cursor-pointer rounded-control border px-3 font-[inherit] text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:border-batu-200 disabled:bg-batu-200 disabled:bg-none disabled:text-ink-500 disabled:shadow-none',
+                      at
+                        ? 'border-[rgba(23,32,46,0.12)] bg-white/95 text-ink-900'
+                        : 'border-transparent bg-btn-primary text-white shadow-button',
                     )}
                   >
                     {at ? 'Batalkan tanda' : 'Tandai ditindaklanjuti'}

@@ -1,7 +1,7 @@
 'use client';
 
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
-import { Alert, Button, Chip, cx, KpiCard } from '@simrs/ui';
+import { Alert, Button, Chip, cx } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
 import type { BackupStoreState } from '@/lib/operasional-backup-toko';
@@ -27,6 +27,7 @@ import {
   RTO_TARGET_MINUTES,
   RUN_LABEL,
 } from '@/lib/operasional-backup';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const nf = new Intl.NumberFormat('id-ID');
 const CLASSES = Object.keys(RETENTION_LIMIT) as RetentionClass[];
@@ -108,27 +109,30 @@ export function CadanganBoard({
   return (
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Ringkasan cadangan" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="RPO"
           value="≤ 1 jam"
           detail={`backup terakhir ${formatJam(history[0]?.at ?? DEMO_NOW)}`}
           tone="success"
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="RTO uji terakhir"
           value={`${test.rtoMinutes} menit`}
           hint={`target ≤ ${RTO_TARGET_MINUTES / 60} jam`}
           detail={formatTanggalWaktu(test.at)}
           tone={test.rtoMinutes <= RTO_TARGET_MINUTES ? 'success' : 'danger'}
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Lokasi berhasil"
           value={`${locs.length - stale.length}/${locs.length}`}
           hint={stale.length ? `${stale.length} terlambat` : 'edge · cloud · offsite'}
           tone={stale.length ? 'danger' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Uji restore"
           value={restoreTestStale(test.at, now) ? 'Terlambat' : 'Terjadwal'}
           detail="mingguan Minggu 03.00 + bulanan dari offsite"

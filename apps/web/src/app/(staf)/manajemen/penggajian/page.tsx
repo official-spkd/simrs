@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -9,6 +8,7 @@ import { formatRupiahShort } from '@/lib/manajemen';
 import { computeSlip } from '@/lib/penggajian';
 import { getPayroll } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Penggajian' };
 
@@ -35,28 +35,31 @@ export default async function PenggajianPage() {
         aria-label="Ringkasan penggajian"
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Pegawai dalam run"
           value={String(d.inputs.length)}
           detail="contoh unit klinis dan administrasi"
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Gaji tetap bruto"
           value={formatRupiahShort(fixed.reduce((n, s) => n + s.gross, 0n))}
           detail="gaji pokok + tunjangan"
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Jasa pelayanan siap impor"
           value={formatRupiahShort(fees)}
           detail="dari modul jasa pelayanan"
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="PPh 21 belum diisi"
           value={String(missing)}
           hint={missing ? 'run belum bisa dihitung' : 'lengkap'}
           detail="diisi manual oleh bagian keuangan"
           tone={missing ? 'warning' : 'success'}
-          tinted
         />
       </div>
       <PayrollBoard

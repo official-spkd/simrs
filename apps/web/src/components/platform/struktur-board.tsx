@@ -1,7 +1,7 @@
 'use client';
 
 import { CARE_CLASSES, type CareClass, formatJam, UNIT_KINDS, type UnitKind } from '@simrs/shared';
-import { Alert, Button, Chip, cx, Field, KpiCard } from '@simrs/ui';
+import { Alert, Button, Chip, cx, Field } from '@simrs/ui';
 import { useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/platform-struktur';
 import type { StructureStoreState } from '@/lib/platform-struktur-toko';
 import { ActivityLog, type ConfirmRequest, ConfirmDialog, Panel, Stamp, TableWrap, TD, TH } from './parts';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const SELECT =
   'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-ink-900 disabled:bg-muted';
@@ -158,19 +159,22 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
   return (
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Ringkasan struktur" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Unit aktif"
           value={`${units.filter((u) => u.active).length}/${units.length}`}
           detail={`${faskes.length} faskes`}
         />
-        <KpiCard label="Bed tersedia" value={String(beds)} detail="contoh sebagian bangsal" />
-        <KpiCard
+        <KpiTile index={3} label="Bed tersedia" value={String(beds)} detail="contoh sebagian bangsal" />
+        <KpiTile
+          index={1}
           label="Bed terisi"
           value={String(occupied)}
           hint={`${beds - occupied} kosong`}
           tone={beds - occupied < 5 ? 'warning' : 'neutral'}
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Bed nonaktif"
           value={String(inactiveBeds)}
           detail="renovasi / perbaikan"

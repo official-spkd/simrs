@@ -2,6 +2,7 @@
 
 import { Button, type ButtonVariant, cx, Icon } from '@simrs/ui';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { CARD_BASE, H1, H2, ROW_SELECTED, TABLE_HOVER, TH_BASE } from './styles';
 
 /**
  * Perangkat kecil layar back office fase 8–9 (mode presentasi, ADR-0023): panel berjudul, umpan balik berjam,
@@ -23,8 +24,8 @@ export function FlashLine({ flash, className }: { flash: Flash | null; className
       className={cx(
         'rounded-card border px-4 py-2.5 text-small font-medium',
         flash.ok
-          ? 'border-success-border bg-success-bg text-success'
-          : 'border-warning-border bg-warning-bg text-warning',
+          ? 'animate-pop border-success-border bg-alert-success text-success'
+          : 'border-warning-border bg-alert-warning text-warning',
         className,
       )}
     >
@@ -56,20 +57,21 @@ export function Panel({
     <section
       aria-labelledby={id}
       className={cx(
-        'flex min-w-0 flex-col overflow-hidden rounded-card border bg-white',
+        'flex min-w-0 flex-col overflow-hidden',
+        CARD_BASE,
         tone === 'danger'
           ? 'border-danger-border'
           : tone === 'warning'
             ? 'border-warning-border'
             : tone === 'success'
               ? 'border-success-border'
-              : 'border-line',
+              : 'border-white/95',
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(23,32,46,0.06)] px-4 py-3">
         <span className="flex min-w-0 flex-[1_1_220px] flex-col">
-          <h2 id={id} className="m-0 text-base font-semibold">
+          <h2 id={id} className={H2}>
             {title}
           </h2>
           {sub && <span className="text-[12.5px] text-ink-500">{sub}</span>}
@@ -116,10 +118,12 @@ export function StageTrack({
             className={cx(
               'flex min-w-[150px] flex-1 items-center gap-2 rounded-control border px-2.5 py-1.5',
               active && rejected
-                ? 'border-danger-border bg-danger-bg'
+                ? 'border-danger-border bg-alert-critical'
                 : active
-                  ? 'border-brand-600 bg-[linear-gradient(90deg,var(--color-brand-50),#FFFFFF)]'
-                  : 'border-line bg-white',
+                  ? 'border-transparent bg-nav-active shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : done
+                    ? 'border-zamrud-200 bg-zamrud-50'
+                    : 'border-transparent bg-[rgba(23,32,46,0.05)]',
             )}
           >
             <span
@@ -127,22 +131,27 @@ export function StageTrack({
               className={cx(
                 'flex size-6 flex-none items-center justify-center rounded-full text-caption font-bold',
                 done
-                  ? 'bg-brand-50 text-brand-700'
+                  ? 'bg-zamrud-100 text-zamrud-700'
                   : active && rejected
                     ? 'bg-danger text-white'
                     : active
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-muted text-ink-500',
+                      ? 'bg-white text-brand-800'
+                      : 'bg-white/80 text-ink-500',
               )}
             >
               {done ? <Icon name="check" size={12} strokeWidth={2.6} /> : i + 1}
             </span>
             <span className="flex min-w-0 flex-col">
-              <span className="text-caption font-semibold text-ink-900">
+              <span
+                className={cx(
+                  'text-caption font-semibold',
+                  active && !rejected ? 'text-white' : 'text-ink-900',
+                )}
+              >
                 {s.label}
                 <span className="sr-only"> ({state})</span>
               </span>
-              <span className="text-[11.5px] text-ink-500">
+              <span className={cx('text-[11.5px]', active && !rejected ? 'text-white/90' : 'text-ink-500')}>
                 {done
                   ? s.at
                     ? `selesai ${s.at}`
@@ -307,15 +316,14 @@ export function TableWrap({
 }) {
   return (
     <div role="region" aria-label={label} tabIndex={0} className="relative max-w-full overflow-x-auto">
-      <table className="w-full border-collapse text-small" style={{ minWidth }}>
+      <table className={cx('w-full border-collapse text-small', TABLE_HOVER)} style={{ minWidth }}>
         {children}
       </table>
     </div>
   );
 }
 
-export const TH =
-  'border-b border-line bg-subtle px-3 py-2 text-left text-caption font-semibold text-ink-500';
+export const TH = `${TH_BASE} px-3 py-2`;
 export const TD = 'border-b border-line-soft px-3 py-2 align-top';
 
 /** Baris yang bisa dipilih di worklist kiri (tombol penuh, `aria-pressed`). */
@@ -339,7 +347,9 @@ export function PickRow({
       onClick={onClick}
       className={cx(
         'flex min-h-touch w-full cursor-pointer items-center justify-between gap-3 border-0 border-b border-line-soft px-4 py-2.5 text-left font-[inherit]',
-        selected ? 'bg-selected shadow-[inset_3px_0_0_var(--color-brand-600)]' : 'bg-white',
+        selected
+          ? cx(ROW_SELECTED, 'shadow-[inset_3px_0_0_var(--color-brand-600)]')
+          : 'bg-transparent transition-colors hover:bg-brand-50/60',
       )}
     >
       <span className="flex min-w-0 flex-col">
@@ -497,7 +507,7 @@ export function PageHead({ crumb, title, actions }: { crumb: string; title: stri
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-caption text-ink-500">{crumb}</span>
-        <h1 className="m-0 text-h1 font-semibold">{title}</h1>
+        <h1 className={H1}>{title}</h1>
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </header>

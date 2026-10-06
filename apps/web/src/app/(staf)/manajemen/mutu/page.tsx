@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ComputedIndicators } from '@/components/manajemen/computed-indicators';
@@ -12,6 +11,7 @@ import { getComputedIndicators } from '@/lib/server/data/backoffice';
 import { getQualityOverview } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { IndicatorList } from './indicator-list';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Mutu & keselamatan' };
 
@@ -50,15 +50,16 @@ export default async function MutuPage() {
       </header>
 
       <div role="region" aria-label="Ringkasan mutu" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Indikator memenuhi sasaran"
           value={`${onTarget}/${d.indicators.length}`}
           hint={`${d.indicators.length - onTarget} di bawah sasaran`}
           detail="INM dan IMP-RS bulan berjalan"
           tone={onTarget === d.indicators.length ? 'success' : 'warning'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="IKP bulan ini"
           value={String(thisMonth.length)}
           hint={`${harm} KTD · ${thisMonth.length - harm} tanpa cedera/nyaris`}
@@ -66,23 +67,22 @@ export default async function MutuPage() {
             reporting ? `pelaporan ≤ 2×24 jam ${formatPercent(reporting.value)}` : 'IKP tercatat bulan ini'
           }
           tone={harm > 0 ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Investigasi terbuka"
           value={String(open.length)}
           hint={overdue > 0 ? `${overdue} lewat batas waktu` : 'semua dalam batas waktu'}
           detail={`${rca} RCA berjalan`}
           tone={overdue > 0 ? 'danger' : 'neutral'}
-          tinted={overdue > 0}
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Risiko tinggi/ekstrem"
           value={String(high.length)}
           hint={`${extreme} ekstrem`}
           detail={`dari ${d.risks.length} risiko di register`}
           tone={extreme > 0 ? 'danger' : 'warning'}
-          tinted
         />
       </div>
 

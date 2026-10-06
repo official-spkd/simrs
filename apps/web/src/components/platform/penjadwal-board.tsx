@@ -1,7 +1,7 @@
 'use client';
 
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
-import { Alert, Button, Chip, type ChipTone, cx, KpiCard } from '@simrs/ui';
+import { Alert, Button, Chip, type ChipTone, cx } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
 import { DEMO_NOW, demoNow } from '@/lib/demo/fixtures/waktu';
@@ -15,6 +15,7 @@ import {
   type ScheduledJob,
 } from '@/lib/platform-penjadwal';
 import { type ConfirmRequest, ConfirmDialog, Panel, Stamp, TableWrap, TD, TH } from './parts';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const TONE: Record<JobHealth, ChipTone> = {
   berhasil: 'success',
@@ -108,21 +109,27 @@ export function PenjadwalBoard({ jobs, rev }: { jobs: ScheduledJob[]; rev: numbe
   return (
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Ringkasan job" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard label="Job aktif" value={`${sum.active}/${sum.total}`} detail={`${sum.paused} dijeda`} />
-        <KpiCard
+        <KpiTile
+          index={2}
+          label="Job aktif"
+          value={`${sum.active}/${sum.total}`}
+          detail={`${sum.paused} dijeda`}
+        />
+        <KpiTile
+          index={0}
           label="Gagal saat ini"
           value={String(sum.failing)}
           hint={sum.failing > 0 ? 'perlu ditindaklanjuti' : 'semua berhasil'}
           tone={sum.failing > 0 ? 'danger' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Jalan gagal 24 jam"
           value={String(sum.failedRuns24h)}
           detail="termasuk coba ulang otomatis"
           tone={sum.failedRuns24h > 0 ? 'warning' : 'neutral'}
         />
-        <KpiCard label="Terlambat" value={String(sum.late)} detail="lebih dari 2× selang jadwal" />
+        <KpiTile index={3} label="Terlambat" value={String(sum.late)} detail="lebih dari 2× selang jadwal" />
       </div>
 
       <div className="flex flex-wrap items-start gap-4">

@@ -1,7 +1,7 @@
 'use client';
 
 import { formatJam } from '@simrs/shared';
-import { Alert, Button, Chip, type ChipTone, cx, FilterChip, KpiCard, Tabs } from '@simrs/ui';
+import { Alert, Button, Chip, type ChipTone, cx, FilterChip, Tabs } from '@simrs/ui';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -29,6 +29,7 @@ import {
   STATUS_LABEL,
 } from '@/lib/golive';
 import { DECIDER_ONLY, type GoLiveStoreState } from '@/lib/golive-toko';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const STATUS_TONE: Record<EpStatus, ChipTone> = {
   terpenuhi: 'success',
@@ -47,25 +48,28 @@ function Matrix({ eps }: { eps: MrmikEp[] }) {
   return (
     <div className="flex flex-col gap-3">
       <div role="region" aria-label="Ringkasan MRMIK" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Elemen penilaian"
           value={String(sum.total)}
           detail={`${sum.kunci} kunci · ${sum.pendukung} pendukung · ${sum.tataKelola} tata kelola`}
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="EP sistem terpenuhi"
           value={`${sum.persenSistem}%`}
           hint={`${sum.terpenuhi} terpenuhi · ${sum.sebagian} sebagian`}
           tone={sum.persenSistem >= 80 ? 'success' : 'warning'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="EP kunci terbuka"
           value={String(sum.kunciTerbuka)}
           hint="belum terpenuhi penuh"
           tone={sum.kunciTerbuka > 0 ? 'warning' : 'success'}
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Belum ada bukti"
           value={String(sum.belum)}
           detail="masuk rencana fase berikut"
@@ -230,15 +234,16 @@ function Checklist({
   return (
     <div className="flex flex-col gap-3">
       <div role="region" aria-label="Ringkasan ceklis" className="grid grid-cols-2 gap-3.5 xl:grid-cols-3">
-        <KpiCard label="Item selesai" value={`${done}/${all.length}`} detail="semua area" />
-        <KpiCard
+        <KpiTile index={6} label="Item selesai" value={`${done}/${all.length}`} detail="semua area" />
+        <KpiTile
+          index={4}
           label="Kritis terbuka"
           value={String(open.length)}
           hint={open.length ? 'mengunci keputusan GO' : 'siap diputuskan'}
           tone={open.length ? 'danger' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={5}
           label="Keputusan"
           value={decision ? (decision.kind === 'go' ? 'GO' : 'NO-GO') : 'Belum'}
           detail={decision ? `diputuskan ${decision.at}` : 'oleh direktur'}

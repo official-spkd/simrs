@@ -56,7 +56,12 @@ export function TrendSparkline({
         strokeLinecap="round"
       />
       {last >= 0 && (
-        <circle cx={x(last)} cy={y(values[last] ?? 0)} r={3.2} fill={ok ? 'var(--color-zamrud-700)' : 'var(--color-koral-600)'} />
+        <circle
+          cx={x(last)}
+          cy={y(values[last] ?? 0)}
+          r={3.2}
+          fill={ok ? 'var(--color-zamrud-700)' : 'var(--color-koral-600)'}
+        />
       )}
     </svg>
   );

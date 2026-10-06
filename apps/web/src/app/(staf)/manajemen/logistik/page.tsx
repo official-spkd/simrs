@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ScenarioBanner } from '@/components/scenario-banner';
@@ -8,6 +7,7 @@ import { formatNumber, formatRupiahShort } from '@/lib/manajemen';
 import { getLogisticsBoard } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { LogisticsBoard } from './logistics-board';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Logistik' };
 
@@ -72,36 +72,38 @@ export default async function LogistikPage() {
             aria-label="Indikator logistik"
             className="grid grid-cols-2 gap-3.5 @xl:grid-cols-3 @5xl:grid-cols-5"
           >
-            <KpiCard
+            <KpiTile
+              index={0}
               label="Nilai persediaan"
               value={formatRupiahShort(BigInt(k.inventoryValue))}
               detail={`${formatNumber(k.activeSku)} SKU aktif`}
             />
-            <KpiCard
+            <KpiTile
+              index={1}
               label="Perputaran"
               value={`${num(k.turnoverPerYear)}×/thn`}
               hint={k.turnoverPerYear >= k.turnoverTarget ? 'memenuhi target' : 'di bawah target'}
               detail={`target ≥ ${num(k.turnoverTarget)}`}
               tone={k.turnoverPerYear >= k.turnoverTarget ? 'success' : 'danger'}
-              tinted
             />
-            <KpiCard
+            <KpiTile
+              index={2}
               label="Stockout bulan ini"
               value={`${k.stockoutsThisMonth} item`}
               hint={`${k.stockoutsVital} item VEN-V`}
               detail="sasaran 0 item vital"
               tone={k.stockoutsVital > 0 ? 'danger' : 'success'}
-              tinted
             />
-            <KpiCard
+            <KpiTile
+              index={3}
               label="Akurasi opname"
               value={`${num(k.opnameAccuracy)}%`}
               hint="sasaran ≥ 98%"
               detail={`opname ${tanggal(k.opnameDate)}`}
               tone={k.opnameAccuracy >= 98 ? 'success' : 'warning'}
-              tinted
             />
-            <KpiCard
+            <KpiTile
+              index={4}
               label="Lead time rata-rata"
               value={`${num(k.leadTimeDays)} hari`}
               detail={`e-katalog ${num(k.leadTimeEkatalogDays)} hari`}
