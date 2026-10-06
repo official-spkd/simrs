@@ -2,20 +2,17 @@
 
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
-import { useState, useTransition } from 'react';
-import { bpjsAction } from '@/app/(staf)/sistem/integrasi/bpjs/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useState } from 'react';
+import { bpjsAction, deferBpjsAction } from '@/app/(staf)/sistem/integrasi/bpjs/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import {
   aplicareDiffs,
-  type BookingTasks,
+  resendInOrder,
   type BpjsServiceId,
   downtimeGate,
   hfisMismatch,
-  type PendingTx,
-  resendInOrder,
   serviceStatus,
   serviceTotals,
-  syncOrder,
   TASK_LABEL,
   taskOrderGate,
 } from '@/lib/integrasi-bpjs';
@@ -34,28 +31,36 @@ const STATUS = {
  */
 export function BpjsView({ data, userName }: { data: BpjsData; userName: string }) {
   const [svc, setSvc] = useState<BpjsServiceId>('antrean');
-  const [bookings, setBookings] = useState<BookingTasks[]>(data.bookings);
-  const [beds, setBeds] = useState(data.beds);
-  const [lastSync, setLastSync] = useState(data.aplicareLastSync);
-  const [hfis, setHfis] = useState(data.hfis);
+  const bookings = data.bookings;
+  const beds = data.beds;
+  const lastSync = data.aplicareLastSync;
+  const hfis = data.hfis;
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [down, setDown] = useState<{ since: string; reason: string } | null>(null);
+  const down = data.down;
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState('');
-  const [backlog, setBacklog] = useState<PendingTx[]>([]);
+  const backlog = data.backlog;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(data.rev);
   const service = data.services.find((s) => s.id === svc);
 
-  const act = (payload: Parameters<typeof bpjsAction>[0], apply: () => void) =>
-    startTransition(async () => {
-      const r = await bpjsAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply();
-    });
-
-  const addPending = (kind: PendingTx['kind'], label: string) =>
-    setBacklog((cur) => [...cur, { at: formatJam(demoNow()), kind, label }]);
+  const act = (payload: Parameters<typeof bpjsAction>[0]) =>
+    save(
+      (rev) => bpjsAction(payload, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) {
+          setConfirm(null);
+          setAsking(false);
+          setReason('');
+        }
+      },
+    );
+  const addPending = (kind: 'SEP' | 'Task ID' | 'Aplicare', label: string) =>
+    save(
+      (rev) => deferBpjsAction(kind, label, rev),
+      (result) => setMsg({ ok: result.ok, text: result.message }),
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,10 +71,15 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
           down ? 'border-warning-border bg-warning-bg' : 'border-line bg-white',
         )}
       >
+        {!!data.synchronized.length && (
+          <span role="status" className="text-small text-success">
+            {data.synchronized.length} transaksi tertunda disinkronkan
+          </span>
+        )}
         {down ? (
           <>
             <span className="font-semibold text-warning">
-              Mode downtime BPJS aktif sejak {down.since} · {down.reason}
+              Mode downtime BPJS aktif sejak {formatJam(down.since)} · {down.reason}
             </span>
             <span className="text-small text-ink-700">
               Pelayanan tetap jalan: SEP dibuat lokal (nomor menyusul), task ID dan Aplicare diantre dengan
@@ -92,17 +102,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                 variant="primary"
                 size="sm"
                 disabled={pending}
-                onClick={() =>
-                  act({ kind: 'downtime-akhiri', backlog: backlog.length }, () => {
-                    const order = syncOrder(backlog);
-                    setDown(null);
-                    setBacklog([]);
-                    setMsg((m) => ({
-                      ok: true,
-                      text: `${m?.text ?? ''}${order.length ? ` Urutan: ${order.map((o) => `${o.at} ${o.label}`).join(' → ')}.` : ''}`,
-                    }));
-                  })
-                }
+                onClick={() => act({ kind: 'downtime-akhiri', backlog: backlog.length })}
               >
                 Pulihkan & sinkronkan
               </Button>
@@ -115,11 +115,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               e.preventDefault();
               const err = downtimeGate(reason);
               if (err) return setMsg({ ok: false, text: err });
-              act({ kind: 'downtime-mulai', reason }, () => {
-                setDown({ since: formatJam(demoNow()), reason: reason.trim() });
-                setAsking(false);
-                setReason('');
-              });
+              act({ kind: 'downtime-mulai', reason });
             }}
           >
             <label className="flex flex-col gap-1 text-small font-semibold text-ink-700">
@@ -296,16 +292,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                               variant="primary"
                               disabled={pending}
                               onClick={() =>
-                                act({ kind: 'task', bookingCode: b.bookingCode, confirmed: true }, () => {
-                                  setBookings((cur) =>
-                                    cur.map((x) =>
-                                      x.bookingCode === b.bookingCode
-                                        ? resendInOrder(x, demoNow().toISOString()).next
-                                        : x,
-                                    ),
-                                  );
-                                  setConfirm(null);
-                                })
+                                act({ kind: 'task', bookingCode: b.bookingCode, confirmed: true })
                               }
                             >
                               Ya, kirim berurutan
@@ -369,12 +356,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
               <Button
                 className="self-start"
                 disabled={pending || !!down || aplicareDiffs(beds).length === 0}
-                onClick={() =>
-                  act({ kind: 'aplicare' }, () => {
-                    setBeds((cur) => cur.map((r) => ({ ...r, reported: r.available })));
-                    setLastSync(demoNow().toISOString());
-                  })
-                }
+                onClick={() => act({ kind: 'aplicare' })}
               >
                 {aplicareDiffs(beds).length
                   ? `Sinkronkan sekarang (${aplicareDiffs(beds).length} kelas beda)`
@@ -400,13 +382,7 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
                     <Button
                       size="sm"
                       disabled={pending || !!down}
-                      onClick={() =>
-                        act({ kind: 'hfis', doctor: r.doctor }, () =>
-                          setHfis((cur) =>
-                            cur.map((x) => (x.doctor === r.doctor ? { ...x, hfis: x.simrs } : x)),
-                          ),
-                        )
-                      }
+                      onClick={() => act({ kind: 'hfis', doctor: r.doctor })}
                     >
                       Kirim jadwal ke HFIS
                     </Button>

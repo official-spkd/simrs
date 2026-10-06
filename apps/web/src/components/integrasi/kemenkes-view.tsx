@@ -2,17 +2,10 @@
 
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { kemenkesAction } from '@/app/(staf)/sistem/integrasi/kemenkes/actions';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
-import {
-  applyFix,
-  type KemenkesReport,
-  receiptNo,
-  SEND_BLOCK_TEXT,
-  sendGate,
-  validateReport,
-} from '@/lib/integrasi-kemenkes';
+import { useStoreAction } from '@/lib/demo/store/client';
+import { type KemenkesReport, SEND_BLOCK_TEXT, sendGate, validateReport } from '@/lib/integrasi-kemenkes';
 import { formatNumber } from '@/lib/manajemen';
 
 const STATUS = {
@@ -26,21 +19,21 @@ const STATUS = {
  * I04 · Kemenkes: RS Online (real-time) dan laporan SIRS bulanan. Alur susun → validasi bentuk → kirim berkonfirmasi →
  * tanda terima; laporan tanpa sumber data ditandai belum tersedia.
  */
-export function KemenkesView({ reports: initial }: { reports: KemenkesReport[] }) {
-  const [reports, setReports] = useState(initial);
-  const [fixed, setFixed] = useState<Record<string, string[]>>({});
-  const [selId, setSelId] = useState(initial.find((r) => r.status === 'siap')?.id ?? initial[0]?.id ?? '');
+export function KemenkesView({ reports, rev }: { reports: KemenkesReport[]; rev: number }) {
+  const [selId, setSelId] = useState(reports.find((r) => r.status === 'siap')?.id ?? reports[0]?.id ?? '');
   const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const sel = reports.find((r) => r.id === selId);
 
-  const act = (payload: Parameters<typeof kemenkesAction>[0], apply: () => void) =>
-    startTransition(async () => {
-      const r = await kemenkesAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply();
-    });
+  const act = (payload: Parameters<typeof kemenkesAction>[0]) =>
+    save(
+      (rev) => kemenkesAction(payload, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) setConfirming(false);
+      },
+    );
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
@@ -128,16 +121,7 @@ export function KemenkesView({ reports: initial }: { reports: KemenkesReport[] }
                         <Button
                           size="sm"
                           disabled={pending}
-                          onClick={() =>
-                            act({ kind: 'perbaiki', reportId: sel.id, checkId: c.id }, () => {
-                              setFixed((cur) => ({ ...cur, [sel.id]: [...(cur[sel.id] ?? []), c.id] }));
-                              setReports((cur) =>
-                                cur.map((x) =>
-                                  x.id === sel.id ? { ...applyFix(x, c.id), status: 'siap' } : x,
-                                ),
-                              );
-                            })
-                          }
+                          onClick={() => act({ kind: 'perbaiki', reportId: sel.id, checkId: c.id })}
                         >
                           Lengkapi dari rekam medis
                         </Button>
@@ -165,28 +149,12 @@ export function KemenkesView({ reports: initial }: { reports: KemenkesReport[] }
                       variant="primary"
                       disabled={pending}
                       onClick={() =>
-                        act(
-                          {
-                            kind: 'kirim',
-                            reportId: sel.id,
-                            confirmed: true,
-                            fixedChecks: fixed[sel.id] ?? [],
-                          },
-                          () => {
-                            setReports((cur) =>
-                              cur.map((x, i) =>
-                                x.id === sel.id
-                                  ? {
-                                      ...x,
-                                      status: 'terkirim',
-                                      sent: { at: demoNow().toISOString(), receipt: receiptNo(x, 412 + i) },
-                                    }
-                                  : x,
-                              ),
-                            );
-                            setConfirming(false);
-                          },
-                        )
+                        act({
+                          kind: 'kirim',
+                          reportId: sel.id,
+                          confirmed: true,
+                          fixedChecks: [],
+                        })
                       }
                     >
                       Ya, kirim

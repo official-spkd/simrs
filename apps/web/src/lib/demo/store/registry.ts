@@ -18,6 +18,8 @@ import { qualityDomain } from '../../mutu-toko';
 import { complaintDomain } from '../../pengaduan-toko';
 import { educationDomain } from '../../pendidikan-toko';
 import { payrollDomain } from '../../penggajian-toko';
+import { integrationDomain } from '../../integrasi-demo';
+import { supportDomain } from '../../penunjang-demo';
 import { criticalDomain } from '../../penunjang-kritis';
 import { ppiDomain } from '../../ppi-toko';
 import { ppraDomain } from '../../ppra-toko';
@@ -54,6 +56,7 @@ export const DEMO_DOMAINS = {
   downtime: downtimeDomain,
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
+  integrasi: integrationDomain,
   jadwal: scheduleDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
@@ -75,6 +78,7 @@ export const DEMO_DOMAINS = {
   'rekam-medis': rekamDomain,
   'rekam-medis-adm': recordsAdminDomain,
   'resume-medis': resumeDomain,
+  penunjang: supportDomain,
   rujukan: referralDomain,
   sdm: hrDomain,
   struktur: structureDomain,

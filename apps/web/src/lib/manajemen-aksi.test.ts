@@ -31,7 +31,7 @@ function as(role: string | null): SessionView {
   };
 }
 
-const resend = () => resendDeadLettersAction({ ids: [DEAD_LETTERS[0]?.id ?? ''] });
+const resend = () => resendDeadLettersAction({ ids: [DEAD_LETTERS[0]?.id ?? ''] }, 0);
 // Item di bawah ROP yang tidak sedang di PO terbuka (enoksaparin sudah di PO-2610-031).
 const low = INVENTORY.find((i) => i.id === 'seftriakson-1g');
 const submit = () => submitPoAction({ lines: [{ itemId: low?.id ?? '', qty: 2 }], jam: '10.50', rev: 0 });

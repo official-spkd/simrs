@@ -2,7 +2,7 @@
 
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, cx, KpiCard } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { satusehatAction } from '@/app/(staf)/sistem/integrasi/satusehat/actions';
 import {
   type AuditEntry,
@@ -13,12 +13,13 @@ import {
   holdText,
   maskId,
   maskPayload,
-  resend,
   resendGate,
   STATUS_VIEW,
   type Visit,
   visitSummary,
 } from '@/lib/integrasi-satusehat';
+
+import { useStoreAction } from '@/lib/demo/store/client';
 
 const NO_FIX: FixState = { ihs: false, loinc: false, kfa: false };
 
@@ -26,20 +27,28 @@ const NO_FIX: FixState = { ihs: false, loinc: false, kfa: false };
  * I02 · Pengiriman SATUSEHAT per kunjungan: urutan Encounter → anak → Encounter selesai, resource ditahan/terkirim/
  * gagal, payload tersamar, perbaikan data (IHS, pemetaan LOINC) lalu kirim ulang berkonfirmasi yang diaudit.
  */
-export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; userName: string }) {
-  const [visits, setVisits] = useState(initial);
+export function SatusehatView({
+  visits,
+  fixed,
+  audit,
+  rev,
+}: {
+  visits: Visit[];
+  fixed: Record<string, FixState>;
+  audit: AuditEntry[];
+  rev: number;
+  userName: string;
+}) {
   const [visitId, setVisitId] = useState(
-    initial.find((v) => visitSummary(v).failed > 0)?.id ?? initial[0]?.id ?? '',
+    visits.find((v) => visitSummary(v).failed > 0)?.id ?? visits[0]?.id ?? '',
   );
   const [resId, setResId] = useState<string | null>(null);
-  const [fixed, setFixed] = useState<Record<string, FixState>>({});
   const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const v = visits.find((x) => x.id === visitId);
   const st = v ? effectiveStatus(v) : {};
-  const sel = v?.resources.find((r) => r.id === (resId ?? v.resources.find((x) => x.error)?.id));
+  const sel = v?.resources.find((r) => r.id === (resId ?? v.resources.find((x) => !x.sent)?.id));
   const fix = fixed[visitId] ?? { ...NO_FIX, ihs: !!v?.patient.ihs };
   const totals = visits.map(visitSummary).reduce(
     (a, s) => ({
@@ -51,40 +60,21 @@ export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; 
     { total: 0, sent: 0, failed: 0, held: 0 },
   );
 
-  const log = (action: string, at: string) => setAudit((cur) => [{ at, by: userName, action }, ...cur]);
-  const act = (payload: Parameters<typeof satusehatAction>[0], apply: (at: string) => void) =>
-    startTransition(async () => {
-      const r = await satusehatAction(payload);
-      setMsg({ ok: r.ok, text: r.message });
-      if (r.ok) apply(r.at ?? '');
-    });
+  const act = (payload: Parameters<typeof satusehatAction>[0]) =>
+    save(
+      (rev) => satusehatAction(payload, rev),
+      (result) => {
+        setMsg({ ok: result.ok, text: result.message });
+        if (result.ok) setConfirming(false);
+      },
+    );
 
   if (!v) return <p className="m-0">Belum ada kunjungan.</p>;
 
-  const lookupIhs = () =>
-    act({ kind: 'ihs', visitId: v.id }, (at) => {
-      setVisits((cur) =>
-        cur.map((x) => (x.id === v.id ? { ...x, patient: { ...x.patient, ihs: x.patient.ihsFound } } : x)),
-      );
-      setFixed((cur) => ({ ...cur, [v.id]: { ...fix, ihs: true } }));
-      log(`Lookup IHS ${v.patient.name} lewat NIK (ditemukan)`, at);
-    });
+  const lookupIhs = () => act({ kind: 'ihs', visitId: v.id });
 
   const doResend = (r: FhirResource) =>
-    act({ kind: 'kirim-ulang', visitId: v.id, resourceId: r.id, confirmed: true, fixed: fix }, (at) => {
-      let seq = 0;
-      const out = resend(
-        v,
-        r.id,
-        (t) => `${t.split(' ')[0]}/${v.id.slice(-2)}${Date.now().toString(36).slice(-4)}${++seq}`,
-      );
-      setVisits((cur) => cur.map((x) => (x.id === v.id ? out.visit : x)));
-      setConfirming(false);
-      log(
-        `Kirim ulang ${r.type} ${v.encounterNo} (${r.error?.dlqId ?? ''})${out.released.length ? ` · dilepas berurutan: ${out.released.join(', ')}` : ''}`,
-        at,
-      );
-    });
+    act({ kind: 'kirim-ulang', visitId: v.id, resourceId: r.id, confirmed: true, fixed: fix });
 
   return (
     <div className="flex flex-col gap-4">
@@ -107,7 +97,7 @@ export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; 
           hint="menunggu urutan atau dokumen"
         />
         <KpiCard
-          label="Kirim ulang (sesi ini)"
+          label="Kirim ulang tercatat"
           value={String(audit.filter((a) => a.action.startsWith('Kirim ulang')).length)}
           detail="setiap kirim ulang diaudit"
         />
@@ -252,6 +242,20 @@ export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; 
               <span className="font-semibold">
                 {sel.type} · {sel.label}
               </span>
+              {!sel.sent && !sel.error && (
+                <>
+                  <Button
+                    variant="primary"
+                    disabled={pending || st[sel.id] !== 'antre' || !v.patient.ihs}
+                    onClick={() => act({ kind: 'kirim', visitId: v.id, resourceId: sel.id, confirmed: true })}
+                  >
+                    Kirim antrean demo
+                  </Button>
+                  {!v.patient.ihs && (
+                    <span className="text-small text-warning">Verifikasi IHS pasien sebelum pengiriman.</span>
+                  )}
+                </>
+              )}
               <pre className="m-0 max-h-56 overflow-auto rounded-control bg-ink-900 p-3 font-mono text-caption text-white">
                 {`${sel.error ? `POST /fhir/${sel.type.split(' ')[0]} → ${sel.error.httpStatus} (galat permanen, langsung DLQ ${sel.error.dlqId})\n` : sel.resourceId ? `← 201 Created · ${maskId(sel.resourceId)}\n` : ''}${JSON.stringify(maskPayload(Object.keys(sel.payload).length ? sel.payload : { resourceType: sel.type.split(' ')[0], subject: { reference: v.patient.ihs ? `Patient/${v.patient.ihs}` : null } }), null, 2)}${sel.error ? `\n\nOperationOutcome: ${sel.error.code} · ${sel.error.message}` : ''}`}
               </pre>
@@ -261,12 +265,7 @@ export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; 
                   fix={fix}
                   busy={pending}
                   confirming={confirming}
-                  onMap={() =>
-                    act({ kind: 'petakan', visitId: v.id, resourceId: sel.id }, (at) => {
-                      setFixed((cur) => ({ ...cur, [v.id]: { ...fix, loinc: true } }));
-                      log(`Pemetaan ${sel.error?.fixLabel ?? ''}`, at);
-                    })
-                  }
+                  onMap={() => act({ kind: 'petakan', visitId: v.id, resourceId: sel.id })}
                   onLookupIhs={lookupIhs}
                   onAsk={() => setConfirming(true)}
                   onCancel={() => setConfirming(false)}
@@ -283,7 +282,7 @@ export function SatusehatView({ visits: initial, userName }: { visits: Visit[]; 
           aria-label="Jejak audit integrasi"
           className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Jejak audit (sesi ini)</h2>
+          <h2 className="m-0 text-base font-semibold">Jejak audit demo</h2>
           {audit.length === 0 ? (
             <p className="m-0 text-small text-ink-700">
               Belum ada tindakan. Kirim ulang dan lookup IHS tercatat di sini dan di jejak audit.

@@ -259,7 +259,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 4,
     status: 'demo',
     plannedPermission: 'lab.write',
-    demoRoles: ['analis_lab'],
+    demoRoles: ['analis_lab', 'dokter'],
     layout: 'staf',
   },
   {
@@ -271,7 +271,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 4,
     status: 'demo',
     plannedPermission: 'radiology.write',
-    demoRoles: ['radiografer'],
+    demoRoles: ['radiografer', 'dokter'],
     layout: 'staf',
   },
   {
@@ -283,7 +283,7 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 4,
     status: 'demo',
     plannedPermission: 'pharmacy.write',
-    demoRoles: ['apoteker'],
+    demoRoles: ['apoteker', 'dokter'],
     layout: 'staf',
   },
   {

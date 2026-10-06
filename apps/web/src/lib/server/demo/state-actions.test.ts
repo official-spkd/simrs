@@ -2,6 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { affectedBy } from '../../demo/store/define';
+import { allDomains } from '../../demo/store/registry';
+import { screenById } from '../../screens';
 import type { SessionView } from '../../session-view';
 
 const current = vi.hoisted(() => ({ session: null as SessionView | null, revalidated: [] as string[] }));
@@ -105,7 +108,22 @@ describe('toko demo: tulis, baca, mulai ulang', () => {
     const view = await readDomain('hasil-kritis');
     expect(view.rev).toBe(1);
     expect(view.state.reports['kr-A']?.reportedBy).toBe('Akun Uji');
-    expect(current.revalidated).toEqual(['/penunjang/lab', '/penunjang/hasil-kritis']);
+    const domains = allDomains();
+    const expected = [
+      ...new Set(
+        affectedBy('hasil-kritis', domains).flatMap(
+          (name) =>
+            domains
+              .find((d) => d.name === name)
+              ?.screens.map((id) => screenById(id)?.route)
+              .filter(Boolean) ?? [],
+        ),
+      ),
+    ];
+    expect(current.revalidated).toEqual(expected);
+    expect(current.revalidated).toEqual(
+      expect.arrayContaining(['/penunjang/lab', '/penunjang/hasil-kritis']),
+    );
     expect(await commitEvent('hasil-kritis', report('kr-B'), { rev: 0 })).toMatchObject({ stale: true });
   });
 

@@ -2,6 +2,7 @@
 
 import { formatJam, formatTanggalLahir, type LabSample } from '@simrs/shared';
 import { Button, cx, PatientBanner } from '@simrs/ui';
+import { useState } from 'react';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
@@ -22,6 +23,7 @@ interface PrimaryAction {
  * buka hasil kritis, validasi dan rilis) bila sedang giliran.
  */
 export function LabDetail({
+  role,
   sample: s,
   resample,
   scenario,
@@ -29,18 +31,26 @@ export function LabDetail({
   busy,
   feedback,
   onValidate,
+  onReceive,
   onResample,
 }: {
+  role: string | null;
   sample: LabSample;
   resample: string | null;
   scenario: ScenarioId | null;
   tasks: ScenarioTasks;
   busy: boolean;
   feedback: string | null;
+  onReceive: (specimen: string, identityConfirmed: boolean) => void;
   onValidate: (level: 'teknis' | 'klinis') => void;
   onResample: () => void;
 }) {
-  const block = validationBlock(s, !!resample);
+  const [specimen, setSpecimen] = useState('');
+  const [identity, setIdentity] = useState(false);
+  const block =
+    nextValidation(s) === 'klinis' && role !== 'dokter'
+      ? 'Validasi klinis wajib posisi Dokter; ganti posisi untuk melanjutkan.'
+      : validationBlock(s, !!resample);
   const next = nextValidation(s);
   const step = (label: string, task: string): PrimaryAction => {
     const turn = tasks.enabled(scenario, task);
@@ -73,12 +83,12 @@ export function LabDetail({
     resample !== null
       ? {
           tone: 'warning',
-          text: `Permintaan sampel ulang dikirim ke ruangan pukul ${resample}. Hasil lama ditandai tidak valid.`,
+          text: `Permintaan sampel ulang dikirim ke ruangan pukul ${formatJam(resample)}. Hasil lama ditandai tidak valid.`,
         }
       : s.status === 'selesai' && s.clinical
         ? {
             tone: 'success',
-            text: `Validasi klinis selesai pukul ${formatJam(s.clinical.at)} (TTE ${s.clinical.by}) · hasil dirilis ke CPPT, DPJP, dan SATUSEHAT.`,
+            text: `Validasi klinis selesai pukul ${formatJam(s.clinical.at)} (TTE ${s.clinical.by}) · hasil final tersimpan dan masuk antrean integrasi.`,
           }
         : s.status === 'validasi-teknis' && s.technical
           ? {
@@ -116,6 +126,35 @@ export function LabDetail({
             Pengirim: {s.sender} · cito: {s.priority === 'cito' ? 'ya' : 'tidak'}
           </span>
         </div>
+        {!scenario && s.status === 'order' && (
+          <form
+            className="flex flex-col gap-2 border-b border-line p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onReceive(specimen, identity);
+            }}
+          >
+            <label className="flex flex-col gap-1 text-small">
+              Jenis spesimen yang diterima
+              <input
+                className="min-h-11 rounded-control border border-line-strong px-3"
+                value={specimen}
+                onChange={(e) => setSpecimen(e.target.value)}
+                required
+                minLength={3}
+                maxLength={120}
+              />
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-small">
+              <input type="checkbox" checked={identity} onChange={(e) => setIdentity(e.target.checked)} />
+              Nama, RM, dan label tabung sudah dicocokkan
+            </label>
+            <Button type="submit" disabled={busy || !identity || specimen.trim().length < 3}>
+              Terima spesimen
+            </Button>
+            <p className="m-0 text-small">Terima spesimen dengan dua pengenal sebelum hasil alat diproses.</p>
+          </form>
+        )}
         {s.results.length > 0 ? (
           <LabResultsTable results={s.results} caption={`Hasil ${s.tests} · ${s.patient.name}`} />
         ) : (

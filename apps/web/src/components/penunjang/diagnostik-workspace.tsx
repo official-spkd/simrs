@@ -3,8 +3,9 @@
 import { formatJam, formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, FilterChip, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { recordDiagAction } from '@/app/(staf)/penunjang/diagnostik/actions';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   applyDiag,
@@ -23,20 +24,21 @@ type Msg = { ok: boolean; text: string; critical?: boolean } | null;
 
 /**
  * S10 · Penunjang diagnostik lain (EKG, ekokardiografi, endoskopi, rehabilitasi medik): worklist per jenis, order →
- * jadwal → pelaksanaan dengan cek identitas → ekspertise terstruktur ber-TTE. Keadaan lokal sesi (simulasi).
+ * jadwal → pelaksanaan dengan cek identitas → ekspertise terstruktur ber-TTE. Keadaan tersimpan di toko demo bersama.
  */
 export function DiagnosticWorkspace({
-  orders: initial,
+  orders,
+  rev,
   userName,
 }: {
   orders: DiagOrder[];
+  rev: number;
   userName: string;
 }) {
-  const [orders, setOrders] = useState(initial);
   const [kind, setKind] = useState<DiagKind | 'semua'>('semua');
-  const [selectedId, setSelectedId] = useState(initial[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState(orders[0]?.id ?? '');
   const [msg, setMsg] = useState<Msg>(null);
-  const [pending, startTransition] = useTransition();
+  const { run: save, pending } = useStoreAction(rev);
   const shown = orders.filter((o) => kind === 'semua' || o.kind === kind);
   const sel = orders.find((o) => o.id === selectedId);
 
@@ -49,16 +51,15 @@ export function DiagnosticWorkspace({
         : action.type === 'laksana'
           ? { kind: 'laksana', orderId: o.id, identityConfirmed: action.identityConfirmed }
           : { kind: 'tte', orderId: o.id, findings: action.findings, critical: action.critical };
-    startTransition(async () => {
-      const r = await recordDiagAction(payload);
-      if (!r.ok) return setMsg({ ok: false, text: r.message });
-      setOrders((cur) => cur.map((x) => (x.id === o.id ? local.next : x)));
-      setMsg({
-        ok: true,
-        text: `${local.message} · ${r.at} (simulasi, tidak disimpan)`,
-        critical: action.type === 'tte' && action.critical,
-      });
-    });
+    save(
+      (rev) => recordDiagAction(payload, rev),
+      (result) =>
+        setMsg({
+          ok: result.ok,
+          text: result.message,
+          critical: result.ok && action.type === 'tte' && action.critical,
+        }),
+    );
   };
 
   const kinds: Array<[DiagKind | 'semua', string]> = [
