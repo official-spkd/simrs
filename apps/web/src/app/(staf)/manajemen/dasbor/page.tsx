@@ -1,8 +1,18 @@
 import { DASHBOARD_PERIODS, formatJam } from '@simrs/shared';
-import { cx, KpiCard, LineChart } from '@simrs/ui';
+import { cx, LineChart } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { z } from 'zod';
+import {
+  CARD,
+  CATEGORY_FILLS,
+  H1,
+  H2,
+  PROGRESS_FILL,
+  PROGRESS_FILL_DANGER,
+  PROGRESS_TRACK,
+} from '@/components/backoffice/styles';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 import {
   capacityRows,
   formatKpiDelta,
@@ -21,11 +31,12 @@ export const metadata: Metadata = { title: 'Dasbor eksekutif' };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
+/** Warna kategori tetap (papan F5): JKN samudra, umum zamrud, asuransi anggrek, kerja sama kunyit muda. */
 const MIX_COLOR = {
-  jkn: 'bg-brand-600',
-  asuransi: 'bg-[#4A9B92]',
-  umum: 'bg-[#8CC4BC]',
-  'kerja-sama': 'bg-[#C2DEDA]',
+  jkn: CATEGORY_FILLS[0],
+  umum: CATEGORY_FILLS[1],
+  asuransi: CATEGORY_FILLS[2],
+  'kerja-sama': CATEGORY_FILLS[3],
 };
 
 /**
@@ -54,13 +65,13 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="stagger-rise flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">
             Manajemen / Dasbor direksi · data per {formatJam(d.asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">{PERIOD_TITLES[period]}</h1>
+          <h1 className={H1}>{PERIOD_TITLES[period]}</h1>
         </div>
         <PeriodSwitch value={period} />
       </header>
@@ -71,29 +82,26 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
         aria-live="polite"
         className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-6"
       >
-        {d.kpis.map((k) => {
+        {d.kpis.map((k, i) => {
           const good = kpiOnTrack(k);
           return (
-            <KpiCard
+            <KpiTile
               key={k.id}
+              index={i}
               label={k.label}
               value={formatKpiValue(k)}
               hint={formatKpiDelta(k)}
               detail={[k.note, k.target.label].filter(Boolean).join(' · ')}
               tone={good ? 'success' : 'danger'}
-              tinted
             />
           );
         })}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.5fr_1fr]">
-        <section
-          aria-label="Pendapatan"
-          className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
-        >
+        <section aria-label="Pendapatan" className={cx('flex flex-col gap-2.5 p-4', CARD)}>
           <span className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="font-semibold">Pendapatan harian vs anggaran (Rp juta)</span>
+            <h2 className={H2}>Pendapatan harian vs anggaran (Rp juta)</h2>
             <span className="text-[12.5px] text-ink-500">
               realisasi {chart.realizationPercent}% dari anggaran berjalan
             </span>
@@ -121,11 +129,8 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
           </div>
         </section>
 
-        <section
-          aria-label="Bauran penjamin"
-          className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
-        >
-          <span className="font-semibold">Bauran penjamin dan margin</span>
+        <section aria-label="Bauran penjamin" className={cx('flex flex-col gap-3 p-4', CARD)}>
+          <h2 className={H2}>Bauran penjamin dan margin</h2>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {shares.map((m) => (
               <li
@@ -133,8 +138,14 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
                 className="grid grid-cols-[1.2fr_2fr_48px_64px] items-center gap-2.5 text-small"
               >
                 <span>{m.label}</span>
-                <span className="h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                  <span className={cx('block h-2.5', MIX_COLOR[m.payer])} style={{ width: `${m.share}%` }} />
+                <span
+                  className="h-2.5 overflow-hidden rounded-full bg-[rgba(23,32,46,0.08)]"
+                  aria-hidden="true"
+                >
+                  <span
+                    className={cx('block h-2.5 rounded-full', MIX_COLOR[m.payer])}
+                    style={{ width: `${m.share}%` }}
+                  />
                 </span>
                 <span className="text-right font-mono">{m.share}%</span>
                 <span
@@ -153,11 +164,8 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <section
-          aria-label="Mutu"
-          className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
-        >
-          <span className="font-semibold">Indikator nasional mutu</span>
+        <section aria-label="Mutu" className={cx('flex flex-col gap-2.5 p-4', CARD)}>
+          <h2 className={H2}>Indikator nasional mutu</h2>
           <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
             {d.quality.map((q) => {
               const ok = q.value >= q.target.min;
@@ -175,11 +183,8 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
           </ul>
         </section>
 
-        <section
-          aria-label="Kapasitas"
-          className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
-        >
-          <span className="font-semibold">Kapasitas saat ini</span>
+        <section aria-label="Kapasitas" className={cx('flex flex-col gap-2.5 p-4', CARD)}>
+          <h2 className={H2}>Kapasitas saat ini</h2>
           <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
             {capacity.map((c) => (
               <li key={c.id} className="flex flex-col gap-1">
@@ -192,9 +197,9 @@ export default async function DasborPage({ searchParams }: { searchParams: Searc
                     </span>
                   </span>
                 </span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <span className={PROGRESS_TRACK} aria-hidden="true">
                   <span
-                    className={cx('block h-1.5', c.high ? 'bg-danger' : 'bg-brand-600')}
+                    className={c.high ? PROGRESS_FILL_DANGER : PROGRESS_FILL}
                     style={{ width: `${c.percent}%` }}
                   />
                 </span>

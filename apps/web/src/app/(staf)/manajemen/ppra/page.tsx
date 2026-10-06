@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -8,6 +7,7 @@ import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
 import { appropriateRate, approvalHoursLeft } from '@/lib/ppra';
 import { getAms } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'PPRA' };
 
@@ -35,28 +35,30 @@ export default async function PpraPage() {
         title="Pengendalian resistansi antimikroba (PPRA)"
       />
       <div role="region" aria-label="Ringkasan PPRA" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Menunggu persetujuan"
           value={String(waiting.length)}
           hint={urgent ? `${urgent} kedaluwarsa ≤ 4 jam` : 'semua > 4 jam'}
           detail="order antibiotik cadangan"
           tone={urgent ? 'danger' : 'warning'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Kedaluwarsa tanpa putusan"
           value={String(expired)}
           hint="order dibatalkan otomatis"
           detail="batas 24 jam"
           tone={expired ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Penggunaan tepat (Gyssens 0)"
           value={`${appropriateRate(st.results)}%`}
           detail={`${st.results.length} kasus diaudit bulan ini`}
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Antibiotik cadangan"
           value={String(d.restrictions.filter((r) => r.restriction === 'cadangan').length)}
           detail="wajib persetujuan tim PPRA"

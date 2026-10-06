@@ -1,7 +1,7 @@
 'use client';
 
 import { CARE_CLASSES, type CareClass, formatJam, UNIT_KINDS, type UnitKind } from '@simrs/shared';
-import { Alert, Button, Chip, cx, Field, KpiCard } from '@simrs/ui';
+import { Alert, Button, Chip, cx, Field } from '@simrs/ui';
 import { useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/platform-struktur';
 import type { StructureStoreState } from '@/lib/platform-struktur-toko';
 import { ActivityLog, type ConfirmRequest, ConfirmDialog, Panel, Stamp, TableWrap, TD, TH } from './parts';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const SELECT =
   'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-ink-900 disabled:bg-muted';
@@ -158,19 +159,22 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
   return (
     <div className="flex flex-col gap-4">
       <div role="region" aria-label="Ringkasan struktur" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Unit aktif"
           value={`${units.filter((u) => u.active).length}/${units.length}`}
           detail={`${faskes.length} faskes`}
         />
-        <KpiCard label="Bed tersedia" value={String(beds)} detail="contoh sebagian bangsal" />
-        <KpiCard
+        <KpiTile index={3} label="Bed tersedia" value={String(beds)} detail="contoh sebagian bangsal" />
+        <KpiTile
+          index={1}
           label="Bed terisi"
           value={String(occupied)}
           hint={`${beds - occupied} kosong`}
           tone={beds - occupied < 5 ? 'warning' : 'neutral'}
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Bed nonaktif"
           value={String(inactiveBeds)}
           detail="renovasi / perbaikan"
@@ -181,7 +185,10 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
       <div className="flex flex-wrap items-start gap-4">
         <nav aria-label="Faskes dan unit" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3">
           {faskes.map((f) => (
-            <div key={f.id} className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-3">
+            <div
+              key={f.id}
+              className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3"
+            >
               <button
                 type="button"
                 onClick={() => select(f.id)}
@@ -325,7 +332,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
             {adding && childKind && (
               <form
                 aria-label={`Tambah ${KIND_LABEL[childKind].toLowerCase()} di ${node.name}`}
-                className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[#F8FCFB] p-3"
+                className="flex flex-col gap-3 rounded-control border border-brand-100 bg-[linear-gradient(135deg,var(--color-brand-50),rgba(255,255,255,0.75))] p-3"
                 onSubmit={(e) => {
                   e.preventDefault();
                   submitAdd();
@@ -417,7 +424,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
             {childKind ? (
               kids.length > 0 ? (
                 <TableWrap label={`Daftar ${KIND_LABEL[childKind].toLowerCase()} di ${node.name}`}>
-                  <table className="w-full min-w-[520px] border-collapse">
+                  <table className="w-full min-w-[520px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                     <thead>
                       <tr>
                         <th scope="col" className={TH}>
@@ -500,7 +507,7 @@ export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev:
               }
             >
               <TableWrap label="Rekap bed per kelas rawat">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                   <thead>
                     <tr>
                       <th scope="col" className={TH}>

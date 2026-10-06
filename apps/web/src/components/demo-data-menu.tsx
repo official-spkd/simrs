@@ -88,7 +88,7 @@ export function DemoDataMenu() {
           id={`${id}-panel`}
           role="region"
           aria-label="Data demo"
-          className="absolute top-full left-0 z-40 mt-1.5 flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2.5 rounded-card border border-line bg-white p-3.5 text-small text-ink-700 shadow-lg"
+          className="absolute top-full left-0 z-40 mt-1.5 flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2.5 animate-pal-in rounded-card border border-white/95 bg-white/95 p-3.5 text-small text-ink-700 shadow-float backdrop-blur-xl"
         >
           <span className="font-semibold text-ink-900">
             Data demo{summary ? ` · ${summary.tenantName}` : ''}

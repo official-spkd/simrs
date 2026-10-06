@@ -277,7 +277,7 @@ export function FormBuilder({
           <span className="text-caption text-ink-500">
             Sistem / <Link href="/sistem/formulir">Formulir klinis</Link> / {FORM_CATEGORIES[shown.category]}
           </span>
-          <h1 className="m-0 flex flex-wrap items-center gap-2 text-h1 font-semibold">
+          <h1 className="m-0 flex flex-wrap items-center gap-2 text-h1 font-bold tracking-[-0.02em]">
             {state.title || shown.title}
             <Chip tone={chip.tone} className="text-small">
               {chip.label}
@@ -366,7 +366,7 @@ export function FormBuilder({
         {!preview && (
           <aside
             aria-label="Jenis field"
-            className="flex flex-col gap-1.5 rounded-card border border-line bg-card p-3.5 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)]"
+            className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-3.5 xl:sticky xl:top-[calc(var(--app-sticky-top,0px)_+_1rem)]"
           >
             <span className="pb-1 text-caption font-semibold tracking-[0.08em] text-ink-500">
               JENIS FIELD
@@ -414,7 +414,7 @@ export function FormBuilder({
                 <Fragment key={si}>
                   <div
                     className={cx(
-                      'flex flex-col gap-1 rounded-card bg-card px-5 py-4',
+                      'flex flex-col gap-1 rounded-card bg-white/90 px-5 py-4 shadow-card',
                       sectionOn
                         ? 'border-2 border-brand-600 shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
                         : 'border border-line',
@@ -473,7 +473,7 @@ export function FormBuilder({
             })}
 
             {showScore && (
-              <div className="flex flex-col gap-1 rounded-card border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-3.5">
+              <div className="flex flex-col gap-1 rounded-card border border-brand-200 bg-card-header px-[18px] py-3.5">
                 <span className="font-bold">Skor total (otomatis)</span>
                 {summary}
               </div>
@@ -562,10 +562,10 @@ function FieldCard({
       className={cx(
         'flex flex-col gap-2.5 rounded-card px-[18px] py-3.5',
         on
-          ? 'border-2 border-brand-600 bg-card shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_12%,_transparent)]'
+          ? 'border-2 border-brand-600 bg-white/95 shadow-[0_0_0_4px_color-mix(in_srgb,_var(--color-brand-600)_14%,_transparent)]'
           : f.type === 'score'
-            ? 'border border-brand-200 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)]'
-            : 'border border-line bg-card',
+            ? 'border border-brand-200 bg-card-header'
+            : 'border border-white/95 bg-white/90 shadow-card',
       )}
     >
       {preview ? (

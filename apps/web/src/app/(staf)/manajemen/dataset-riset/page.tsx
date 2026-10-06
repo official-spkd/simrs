@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DatasetBoard } from '@/components/dataset-riset/dataset-board';
@@ -8,6 +7,7 @@ import { K_MIN } from '@/lib/dataset-riset';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { getResearchDataset } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Dataset riset' };
 
@@ -33,17 +33,18 @@ export default async function DatasetRisetPage() {
         aria-label="Ringkasan dataset riset"
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
-        <KpiCard label="Permintaan aktif" value="1" detail={d.request.number} />
-        <KpiCard label="Ukuran kohort" value={String(d.rows.length)} detail={d.request.period} />
-        <KpiCard
+        <KpiTile index={2} label="Permintaan aktif" value="1" detail={d.request.number} />
+        <KpiTile index={3} label="Ukuran kohort" value={String(d.rows.length)} detail={d.request.period} />
+        <KpiTile
+          index={0}
           label="Pengenal langsung diminta"
           value={String(ids)}
           hint="wajib dihapus atau disamarkan"
           detail="nama, RM, NIK, telepon"
           tone="warning"
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Ambang k-anonimitas"
           value={`k ≥ ${K_MIN}`}
           detail="pada umur, jenis kelamin, wilayah"

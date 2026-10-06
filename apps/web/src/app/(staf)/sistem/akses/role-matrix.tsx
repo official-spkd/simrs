@@ -55,7 +55,7 @@ const SCOPE_MEANING: Record<PermissionScope | 'none', string> = {
 /** Kolom tetap matriks; aksi lain (ekspor, cetak, tanda tangan, …) tampil sebagai chip di kolom terakhir. */
 const MAIN_ACTIONS = ['read', 'write'] as const;
 
-const CHANGED = 'bg-[#FFF4E5]';
+const CHANGED = 'bg-kunyit-50';
 
 function Editor({
   role,
@@ -118,7 +118,7 @@ function Editor({
       ? cx(
           'inline-flex min-h-11 items-center rounded-full border px-2.5 text-caption font-semibold',
           SCOPE_CHIP[tone],
-          changed ? 'border-[#F5B450] ring-2 ring-[#F5B450]/40' : 'border-line-strong',
+          changed ? 'border-kunyit-400 ring-2 ring-kunyit-400/40' : 'border-line-strong',
         )
       : cx(
           'flex min-h-11 w-full items-center justify-center px-1.5 font-semibold',
@@ -155,9 +155,9 @@ function Editor({
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto rounded-control border border-line">
-        <table className="w-full min-w-[300px] border-collapse text-small">
+        <table className="w-full min-w-[300px] border-collapse text-small [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
           <caption className="sr-only">Matriks izin peran {role.name} per modul</caption>
-          <thead className="bg-subtle text-caption font-semibold text-ink-700">
+          <thead className="text-caption font-semibold text-ink-500 [&_th]:border-b [&_th]:border-[rgba(23,32,46,0.08)]">
             <tr>
               <th scope="col" className="px-2.5 py-2 text-left">
                 Modul <span className="font-normal text-ink-500">· aksi lain di bawahnya</span>
@@ -287,7 +287,7 @@ function ContextRules({ role }: { role: MatrixRole }) {
   return (
     <section
       aria-labelledby="aturan-kontekstual"
-      className="flex flex-col gap-3 rounded-card border border-line bg-card px-[18px] py-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-[18px] py-4"
     >
       <h3 id="aturan-kontekstual" className="m-0 text-body font-semibold">
         Aturan kontekstual
@@ -357,8 +357,8 @@ export function RoleMatrix({
     .join(' · ');
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-card border border-line bg-card">
-        <div className="flex flex-col gap-1.5 border-b border-line bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_8%,_transparent),#FFFFFF_60%)] px-[18px] py-4">
+      <div className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card">
+        <div className="flex flex-col gap-1.5 border-b border-[rgba(23,32,46,0.06)] bg-card-header px-[18px] py-4">
           {/* Label terpisah (htmlFor): nama aksesibel tepat "Peran", tanpa ikut teks opsi terpilih. */}
           <label htmlFor="matriks-peran" className="text-caption text-ink-500">
             Peran
@@ -405,7 +405,7 @@ export function RoleMatrix({
       {saved?.code === role.code && dirty === 0 && (
         <div
           role="status"
-          className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] px-4 py-3"
+          className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-alert-success px-4 py-3"
         >
           <span className="font-bold text-success">Tersimpan pukul {saved.at}</span>
           <span className="text-small text-ink-700">

@@ -21,7 +21,7 @@ export function NewFormCard({ roles }: { roles: Array<{ code: string; label: str
   return (
     <form
       action={action}
-      className="flex flex-col gap-3 rounded-card border border-line bg-card px-[18px] py-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-[18px] py-4"
     >
       <h2 className="m-0 text-body font-semibold">Formulir baru</h2>
       <Field

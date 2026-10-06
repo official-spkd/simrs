@@ -32,9 +32,9 @@ export function ProcurementList({
   return (
     <section
       aria-labelledby="pengadaan-judul"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
-      <h2 id="pengadaan-judul" className="m-0 text-base font-semibold">
+      <h2 id="pengadaan-judul" className="m-0 text-[15px] font-semibold">
         Pengadaan berjalan
       </h2>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">

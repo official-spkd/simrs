@@ -72,7 +72,7 @@ export function DemoGuide({ guide, rev }: { guide: GuideView; rev: number }) {
       {open && (
         <div
           id="panduan-simulasi"
-          className="absolute top-full right-0 z-40 mt-2 flex w-[360px] max-w-[calc(100vw-3rem)] flex-col gap-2.5 rounded-card border border-line bg-white p-4 shadow-[0_12px_32px_rgba(16,24,40,0.18)]"
+          className="absolute top-full right-0 z-40 mt-2 flex w-[360px] max-w-[calc(100vw-3rem)] flex-col gap-2.5 animate-pal-in rounded-card border border-white/95 bg-white/95 p-4 shadow-float backdrop-blur-xl"
         >
           <span className="text-caption text-ink-500">
             {guide.scenarioLabel} · {guide.patientName}

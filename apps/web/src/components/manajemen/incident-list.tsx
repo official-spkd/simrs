@@ -28,10 +28,10 @@ export function IncidentList({ incidents, today }: { incidents: IncidentReport[]
   return (
     <section
       aria-labelledby="ikp-judul"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex min-w-0 flex-col">
-        <h2 id="ikp-judul" className="m-0 text-base font-semibold">
+        <h2 id="ikp-judul" className="m-0 text-[15px] font-semibold">
           Laporan insiden keselamatan pasien
         </h2>
         <span className="text-[12.5px] text-ink-500">

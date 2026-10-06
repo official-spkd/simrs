@@ -7,7 +7,7 @@ import {
   REF_CODE_SYSTEMS,
   type RefCodeSystem,
 } from '@simrs/shared';
-import { Alert, Button, Chip, cx, Field, KpiCard, RadioSegmented, Tabs } from '@simrs/ui';
+import { Alert, Button, Chip, cx, Field, RadioSegmented, Tabs } from '@simrs/ui';
 import { useState } from 'react';
 import { useDemoDispatch } from '@/lib/demo/store/client';
 import type { TerminologyStoreState } from '@/lib/platform-terminologi-toko';
@@ -23,6 +23,7 @@ import {
   searchConcepts,
 } from '@/lib/platform-terminologi';
 import { type ConfirmRequest, ConfirmDialog, FlowSteps, Panel, Stamp, TableWrap, TD, TH } from './parts';
+import { KpiTile } from '../manajemen/kpi-tile';
 
 const SYSTEM_ITEMS = REF_CODE_SYSTEM_IDS.map((s) => ({ id: s, label: REF_CODE_SYSTEMS[s].label }));
 const SYSTEM_SHORT: Record<RefCodeSystem, string> = {
@@ -107,11 +108,18 @@ function ReportView({ report, replace }: { report: ImportReport; replace: boolea
   return (
     <div className="flex flex-col gap-3">
       <div role="region" aria-label="Ringkasan uji kering" className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-        <KpiCard label="Baris dibaca" value={String(report.rows)} />
-        <KpiCard label="Kode baru" value={String(report.inserted)} tone="success" hint="akan ditambahkan" />
-        <KpiCard label="Label berubah" value={String(report.updated)} hint="akan diperbarui" />
-        <KpiCard label="Tetap" value={String(report.unchanged)} />
-        <KpiCard
+        <KpiTile index={2} label="Baris dibaca" value={String(report.rows)} />
+        <KpiTile
+          index={3}
+          label="Kode baru"
+          value={String(report.inserted)}
+          tone="success"
+          hint="akan ditambahkan"
+        />
+        <KpiTile index={4} label="Label berubah" value={String(report.updated)} hint="akan diperbarui" />
+        <KpiTile index={5} label="Tetap" value={String(report.unchanged)} />
+        <KpiTile
+          index={0}
           label="Dinonaktifkan"
           value={String(report.deactivated)}
           tone={report.deactivated > 0 ? 'warning' : 'neutral'}
@@ -342,7 +350,8 @@ export function TerminologiBoard({
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
         {counts.map((c) => (
-          <KpiCard
+          <KpiTile
+            index={1}
             key={c.s}
             label={REF_CODE_SYSTEMS[c.s].label}
             value={`${c.active} kode`}
@@ -367,7 +376,7 @@ export function TerminologiBoard({
             label: 'Riwayat versi',
             content: (
               <TableWrap label="Riwayat versi data rujukan">
-                <table className="w-full min-w-[560px] border-collapse">
+                <table className="w-full min-w-[560px] border-collapse [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                   <thead>
                     <tr>
                       {['Sistem', 'Versi', 'Sumber', 'Diterapkan', 'Tambah', 'Ubah', 'Nonaktif'].map((h) => (

@@ -35,7 +35,7 @@ export default async function PerangkatPage() {
   if (!can(s, 'iam.users', 'read')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Perangkat anjungan dan display</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Perangkat anjungan dan display</h1>
         <Alert level="warning" title="Akses ditolak">
           Peran Anda tidak berizin melihat perangkat. Hubungi admin SIM RS bila perlu.
         </Alert>
@@ -55,7 +55,7 @@ export default async function PerangkatPage() {
         <span className="text-caption text-ink-500">
           <Link href="/sistem/akses">Sistem / Pengguna dan akses</Link> / Perangkat
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Perangkat anjungan dan display</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Perangkat anjungan dan display</h1>
         <p className="m-0 max-w-3xl text-small text-ink-700">
           Anjungan mandiri dan TV antrean masuk sebagai perangkat terdaftar per unit, bukan dengan akun staf.
           Perangkat hanya bisa membuka layar jenisnya dan tidak bisa membuka data pasien di layar staf.
@@ -66,12 +66,12 @@ export default async function PerangkatPage() {
 
       <section
         aria-label="Daftar perangkat"
-        className="overflow-hidden rounded-card border border-line bg-card"
+        className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
       >
         {rows.length === 0 ? (
           <p className="m-0 p-4 text-small text-ink-500">Belum ada perangkat terdaftar.</p>
         ) : (
-          <table className="w-full border-collapse text-small">
+          <table className="w-full border-collapse text-small [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
             <thead>
               <tr className="border-b border-line text-left text-caption text-ink-500">
                 <th className="px-4 py-2.5 font-semibold">Perangkat</th>

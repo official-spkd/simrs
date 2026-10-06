@@ -13,7 +13,7 @@ export function CreateDevice({ units }: { units: Array<{ value: string; label: s
   return (
     <section
       aria-labelledby="daftar-perangkat"
-      className="flex flex-col gap-3 rounded-card border border-line bg-card p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <h2 id="daftar-perangkat" className="m-0 text-h3 font-semibold">
         Daftarkan perangkat

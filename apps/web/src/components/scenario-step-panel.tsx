@@ -15,9 +15,9 @@ export function ScenarioStepPanel({ here, rev }: { here: ScenarioHere; rev: numb
   return (
     <section
       aria-label={`Simulasi ${here.label}`}
-      className="overflow-hidden rounded-card border border-brand-200 bg-white shadow-[0_4px_16px_color-mix(in_srgb,_var(--color-brand-600)_10%,_transparent)]"
+      className="overflow-hidden rounded-card border border-brand-200 bg-white/90 shadow-card"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-[linear-gradient(100deg,color-mix(in_srgb,_var(--color-brand-600)_10%,_transparent),#FFFFFF_60%)] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-card-header px-4 py-3">
         <span className="flex min-w-0 flex-col">
           <span className="text-caption font-semibold text-brand-700">
             Simulasi · {here.label} · Langkah {step.no}

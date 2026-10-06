@@ -20,7 +20,7 @@ export default async function FormulirPage() {
   if (!can(s, 'forms.definition', 'read')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Formulir klinis</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Formulir klinis</h1>
         <Alert level="warning" title="Akses ditolak">
           Pustaka formulir klinis dikelola komite rekam medis. Hubungi admin SIM RS bila perlu.
         </Alert>
@@ -36,7 +36,7 @@ export default async function FormulirPage() {
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-0.5">
         <span className="text-caption text-ink-500">Sistem / Formulir klinis</span>
-        <h1 className="m-0 text-h1 font-semibold">Formulir klinis</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Formulir klinis</h1>
         <p className="m-0 max-w-3xl text-small text-ink-700">
           Perubahan formulir dibuat sebagai draf, diajukan ke Komite RM, lalu diterbitkan sebagai versi baru.
           Entri lama tetap ditampilkan dengan versi formulir saat diisi.
@@ -46,7 +46,7 @@ export default async function FormulirPage() {
       <div className="flex flex-wrap items-start gap-5">
         <section
           aria-labelledby="pustaka-judul"
-          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-card"
+          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <h2 id="pustaka-judul" className="m-0 border-b border-line px-4 py-3.5 text-body font-semibold">
             Pustaka formulir · {forms.length}
@@ -55,9 +55,9 @@ export default async function FormulirPage() {
             <p className="m-0 px-4 py-4 text-small text-ink-500">Belum ada formulir.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left">
+              <table className="w-full min-w-[640px] border-collapse text-left [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
                 <caption className="sr-only">Daftar formulir klinis</caption>
-                <thead className="bg-subtle text-caption font-semibold text-ink-700">
+                <thead className="text-caption font-semibold text-ink-500 [&_th]:border-b [&_th]:border-[rgba(23,32,46,0.08)]">
                   <tr>
                     <th scope="col" className="px-4 py-2.5">
                       Formulir

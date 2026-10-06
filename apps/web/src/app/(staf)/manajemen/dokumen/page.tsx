@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -8,6 +7,7 @@ import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
 import { pct, reviewStatus } from '@/lib/dokumen';
 import { getRegDocs } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Dokumen & akreditasi' };
 
@@ -39,27 +39,33 @@ export default async function DokumenPage() {
         title="Dokumen regulasi dan akreditasi"
       />
       <div role="region" aria-label="Ringkasan dokumen" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Dokumen berlaku"
           value={String(published.length)}
           detail="kebijakan, pedoman, panduan, SPO"
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Perlu tinjau ulang"
           value={String(review.length)}
           hint={review.map((x) => x.code).join(', ') || 'tidak ada'}
           detail="≤ 60 hari atau lewat"
           tone={review.length ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard label="Dalam proses" value={String(process)} detail="draf, telaah, menunggu terbit" />
-        <KpiCard
+        <KpiTile
+          index={3}
+          label="Dalam proses"
+          value={String(process)}
+          detail="draf, telaah, menunggu terbit"
+        />
+        <KpiTile
+          index={2}
           label="Bukti akreditasi"
           value={`${pct(ev.n, ev.total)}%`}
           hint={`${ev.total - ev.n} elemen belum berbukti`}
           detail={`${d.chapters.length} bab dipantau`}
           tone="warning"
-          tinted
         />
       </div>
       <DocumentBoard

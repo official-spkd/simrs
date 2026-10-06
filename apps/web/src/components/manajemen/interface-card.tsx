@@ -3,12 +3,29 @@ import { Chip, type ChipTone, cx } from '@simrs/ui';
 import { formatLatency, formatNumber, hourLabel } from '@/lib/manajemen';
 import { Sparkbars } from './sparkbars';
 
+/** Rona tipis di sudut kartu = rona status (satu rona, 50 → putih); status tetap tertulis di chip. */
 const STATUS: Record<InterfaceCardData['status'] | 'antre', { label: string; tone: ChipTone; tint: string }> =
   {
-    normal: { label: 'Normal', tone: 'success', tint: 'color-mix(in srgb, var(--color-brand-600) 5%, transparent)' },
-    lambat: { label: 'Lambat', tone: 'warning', tint: 'rgba(138,75,0,0.06)' },
-    gangguan: { label: 'Gangguan', tone: 'danger', tint: 'rgba(180,35,24,0.06)' },
-    antre: { label: 'Antre lokal', tone: 'neutral', tint: 'rgba(63,76,88,0.06)' },
+    normal: {
+      label: 'Normal',
+      tone: 'success',
+      tint: 'bg-[linear-gradient(160deg,#FFFFFF_55%,var(--color-brand-50))]',
+    },
+    lambat: {
+      label: 'Lambat',
+      tone: 'warning',
+      tint: 'bg-[linear-gradient(160deg,#FFFFFF_55%,var(--color-kunyit-50))]',
+    },
+    gangguan: {
+      label: 'Gangguan',
+      tone: 'danger',
+      tint: 'bg-[linear-gradient(160deg,#FFFFFF_55%,var(--color-koral-50))]',
+    },
+    antre: {
+      label: 'Antre lokal',
+      tone: 'neutral',
+      tint: 'bg-[linear-gradient(160deg,#FFFFFF_55%,var(--color-batu-100))]',
+    },
   };
 
 function sparkLabel(card: InterfaceCardData): string {
@@ -52,12 +69,12 @@ export function InterfaceCard({
       aria-pressed={pressed}
       title={`Saring dead-letter queue ke ${card.name}`}
       className={cx(
-        'flex w-full cursor-pointer flex-col gap-1.5 rounded-card border bg-white p-3.5 text-left font-[inherit] text-ink-900',
+        'flex w-full cursor-pointer flex-col gap-1.5 rounded-card border p-3.5 text-left font-[inherit] text-ink-900 transition-shadow',
+        s.tint,
         pressed
-          ? 'border-brand-600 shadow-[0_0_0_1px_var(--color-brand-600),0_4px_12px_color-mix(in_srgb,_var(--color-brand-600)_18%,_transparent)]'
-          : 'border-line',
+          ? 'border-brand-600 shadow-[0_0_0_1px_var(--color-brand-600),0_8px_22px_color-mix(in_srgb,_var(--color-brand-600)_20%,_transparent)]'
+          : 'border-white/95 shadow-card hover:shadow-[0_10px_30px_rgba(23,32,46,0.12)]',
       )}
-      style={{ backgroundImage: `linear-gradient(160deg, #FFFFFF 60%, ${s.tint})` }}
     >
       <span className="flex w-full items-center justify-between gap-2">
         <span className="font-semibold">{card.name}</span>

@@ -135,7 +135,7 @@ export function InviteUser({ roles, units }: { roles: Option[]; units: Option[] 
         ref={dialog}
         aria-labelledby="undang-judul"
         onClose={() => setRound((n) => n + 1)}
-        className="m-auto w-[min(520px,calc(100vw-32px))] rounded-card border border-line bg-card p-6 shadow-card backdrop:bg-ink-900/40"
+        className="m-auto w-[min(520px,calc(100vw-32px))] animate-pal-in rounded-card border border-white/95 bg-white p-6 shadow-float backdrop:bg-[rgba(15,23,42,0.28)] backdrop:backdrop-blur-[3px]"
       >
         <InviteForm key={round} roles={roles} units={units} onClose={close} />
       </dialog>

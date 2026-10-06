@@ -20,7 +20,7 @@ export default async function NotifikasiPage() {
     <div className="flex max-w-3xl flex-col gap-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
-          <h1 className="m-0 text-h1 font-semibold">Notifikasi</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Notifikasi</h1>
           <span className="text-small text-ink-700">
             {data.unread > 0 ? `${data.unread} belum dibaca` : 'Semua sudah dibaca'}
           </span>
@@ -35,7 +35,7 @@ export default async function NotifikasiPage() {
       </header>
 
       {data.items.length === 0 ? (
-        <p className="m-0 rounded-card border border-line bg-card px-4 py-6 text-small text-ink-500">
+        <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-6 text-small text-ink-500">
           Belum ada notifikasi.
         </p>
       ) : (
@@ -50,7 +50,9 @@ export default async function NotifikasiPage() {
                     type="submit"
                     className={cx(
                       'flex w-full cursor-pointer flex-col gap-1 rounded-card border px-4 py-3 text-left font-[inherit] text-ink-900',
-                      unread ? 'border-brand-200 bg-selected' : 'border-line bg-card',
+                      unread
+                        ? 'border-brand-200 bg-[linear-gradient(120deg,var(--color-brand-50),#FFFFFF_70%)] shadow-card'
+                        : 'border-white/95 bg-white/90 shadow-card',
                     )}
                   >
                     <span className="flex flex-wrap items-baseline justify-between gap-2">

@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { ComputedIndicators } from '@/components/manajemen/computed-indicators';
@@ -12,6 +11,7 @@ import { getComputedIndicators } from '@/lib/server/data/backoffice';
 import { getQualityOverview } from '@/lib/server/data/manajemen';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { IndicatorList } from './indicator-list';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Mutu & keselamatan' };
 
@@ -45,20 +45,23 @@ export default async function MutuPage() {
           <span className="text-caption text-ink-500">
             Manajemen / Mutu dan keselamatan pasien · B06 · data per {formatJam(d.asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Mutu dan keselamatan pasien · Oktober 2026</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">
+            Mutu dan keselamatan pasien · Oktober 2026
+          </h1>
         </div>
       </header>
 
       <div role="region" aria-label="Ringkasan mutu" className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Indikator memenuhi sasaran"
           value={`${onTarget}/${d.indicators.length}`}
           hint={`${d.indicators.length - onTarget} di bawah sasaran`}
           detail="INM dan IMP-RS bulan berjalan"
           tone={onTarget === d.indicators.length ? 'success' : 'warning'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="IKP bulan ini"
           value={String(thisMonth.length)}
           hint={`${harm} KTD · ${thisMonth.length - harm} tanpa cedera/nyaris`}
@@ -66,23 +69,22 @@ export default async function MutuPage() {
             reporting ? `pelaporan ≤ 2×24 jam ${formatPercent(reporting.value)}` : 'IKP tercatat bulan ini'
           }
           tone={harm > 0 ? 'warning' : 'success'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Investigasi terbuka"
           value={String(open.length)}
           hint={overdue > 0 ? `${overdue} lewat batas waktu` : 'semua dalam batas waktu'}
           detail={`${rca} RCA berjalan`}
           tone={overdue > 0 ? 'danger' : 'neutral'}
-          tinted={overdue > 0}
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Risiko tinggi/ekstrem"
           value={String(high.length)}
           hint={`${extreme} ekstrem`}
           detail={`dari ${d.risks.length} risiko di register`}
           tone={extreme > 0 ? 'danger' : 'warning'}
-          tinted
         />
       </div>
 
@@ -97,9 +99,9 @@ export default async function MutuPage() {
       {q.deaths.length > 0 && (
         <section
           aria-label="Kematian di IGD untuk telaah mutu"
-          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Kematian di IGD untuk telaah mutu</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Kematian di IGD untuk telaah mutu</h2>
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
             {q.deaths.map((x) => (
               <li key={x.encounterId}>

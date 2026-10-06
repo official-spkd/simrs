@@ -5,7 +5,7 @@ import {
   permissionAllowedFor,
   PROTECTED_ROLES,
 } from '@simrs/shared';
-import { Alert, Button, Card, Chip, cx, Icon, KpiCard } from '@simrs/ui';
+import { Alert, Button, Card, Chip, cx, Icon } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { z } from 'zod';
@@ -41,6 +41,7 @@ import { inputClass, selectClass } from './styles';
 import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
 import { ContactForm } from './contact-form';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Pengguna dan akses' };
 
@@ -73,7 +74,7 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
   if (!can(s, 'iam.users', 'read')) {
     return (
       <div className="flex max-w-3xl flex-col gap-3">
-        <h1 className="m-0 text-h1 font-semibold">Pengguna dan peran</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pengguna dan peran</h1>
         <Alert level="warning" title="Akses ditolak">
           Peran Anda tidak berizin melihat daftar pengguna. Hubungi admin SIM RS bila perlu.
         </Alert>
@@ -125,7 +126,7 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-caption text-ink-500">Sistem / Pengguna dan akses</span>
-          <h1 className="m-0 text-h1 font-semibold">Pengguna dan peran</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pengguna dan peran</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link href="/sistem/akses/perangkat" className="text-small font-semibold">
@@ -151,7 +152,7 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
       <div className="flex flex-wrap items-start gap-5">
         <section
           aria-label="Daftar pengguna"
-          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-line bg-card"
+          className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
         >
           <form
             method="get"
@@ -304,20 +305,23 @@ function Kpis({ summary }: { summary: AccessSummary }) {
   const mfaPct = summary.active > 0 ? ((summary.active - summary.mfaMissing) / summary.active) * 100 : 100;
   return (
     <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-      <KpiCard label="Pengguna aktif" value={summary.active} hint={`dari ${summary.total} akun`} />
-      <KpiCard
+      <KpiTile index={3} label="Pengguna aktif" value={summary.active} hint={`dari ${summary.total} akun`} />
+      <KpiTile
+        index={0}
         label="MFA aktif"
         value={`${percent.format(mfaPct)}%`}
         hint={summary.mfaMissing > 0 ? `${summary.mfaMissing} akun belum` : 'semua akun aktif'}
         tone={summary.mfaMissing > 0 ? 'warning' : 'success'}
       />
-      <KpiCard
+      <KpiTile
+        index={1}
         label="Break-the-glass 7 hari"
         value={summary.breakGlass7d}
         hint={`${summary.breakGlassPending} belum ditinjau`}
         tone={summary.breakGlassPending > 0 ? 'warning' : 'neutral'}
       />
-      <KpiCard
+      <KpiTile
+        index={2}
         label="Akun dikunci"
         value={summary.locked}
         hint="gagal login berulang"
@@ -363,8 +367,8 @@ function UserTable({
   const now = new Date();
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-left text-small">
-        <thead className="bg-subtle text-caption font-semibold text-ink-700">
+      <table className="w-full min-w-[640px] border-collapse text-left text-small [&_tbody_tr]:transition-colors [&_tbody_tr:hover>td]:bg-brand-50/60">
+        <thead className="text-caption font-semibold text-ink-500 [&_th]:border-b [&_th]:border-[rgba(23,32,46,0.08)]">
           <tr>
             <th scope="col" className="px-4 py-2.5">
               Pengguna
@@ -392,7 +396,13 @@ function UserTable({
             const st = accountStatus(u);
             const { roles, units } = roleSummary(u);
             return (
-              <tr key={u.id} className={cx('border-t border-line-soft', on && 'bg-selected')}>
+              <tr
+                key={u.id}
+                className={cx(
+                  'border-t border-line-soft',
+                  on && 'bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]',
+                )}
+              >
                 <td className="px-4 py-2.5">
                   <Link
                     href={aksesHref(current, { pengguna: u.id })}

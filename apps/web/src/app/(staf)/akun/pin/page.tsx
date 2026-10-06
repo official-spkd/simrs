@@ -33,7 +33,7 @@ export default async function PinPage() {
   return (
     <div className="flex max-w-3xl flex-col gap-5">
       <header className="flex flex-col gap-1">
-        <h1 className="m-0 text-h1 font-semibold">PIN masuk cepat</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">PIN masuk cepat</h1>
         <p className="m-0 text-small text-ink-700">
           Di komputer unit yang sering dipakai bergantian, masuk cukup dengan memilih nama lalu mengetik PIN 6
           digit. PIN hanya berlaku di perangkat tempat ia didaftarkan, untuk posisi saat didaftarkan, selama{' '}
@@ -45,7 +45,7 @@ export default async function PinPage() {
 
       <section
         aria-labelledby="pin-daftar"
-        className="flex flex-col gap-4 rounded-card border border-line bg-card p-5"
+        className="flex flex-col gap-4 rounded-card border border-white/95 bg-white/90 shadow-card p-5"
       >
         <div className="flex flex-col gap-0.5">
           <h2 id="pin-daftar" className="m-0 text-h2 font-semibold">
@@ -73,7 +73,7 @@ export default async function PinPage() {
           Perangkat ber-PIN
         </h2>
         {devices.length === 0 ? (
-          <p className="m-0 rounded-card border border-line bg-card px-4 py-4 text-small text-ink-500">
+          <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-4 text-small text-ink-500">
             Belum ada perangkat ber-PIN yang berlaku.
           </p>
         ) : (
@@ -81,7 +81,7 @@ export default async function PinPage() {
             {devices.map((d) => (
               <li
                 key={d.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-line bg-card px-4 py-3"
+                className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3"
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-semibold text-ink-900">

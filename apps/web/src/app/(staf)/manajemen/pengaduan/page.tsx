@@ -1,5 +1,4 @@
 import { formatJam } from '@simrs/shared';
-import { KpiCard } from '@simrs/ui';
 import type { Metadata } from 'next';
 import { PageHead } from '@/components/backoffice/kit';
 import { DemoAccessDenied } from '@/components/demo-access-denied';
@@ -9,6 +8,7 @@ import { needsFollowUp, responseRate, satisfactionIndex, slaState } from '@/lib/
 import { getPatientExperience } from '@/lib/server/data/backoffice';
 import { requireDemoScreen } from '@/lib/server/demo-guard';
 import { complaintRecords } from '@/lib/pengaduan-toko';
+import { KpiTile } from '@/components/manajemen/kpi-tile';
 
 export const metadata: Metadata = { title: 'Pengalaman pasien' };
 
@@ -41,37 +41,37 @@ export default async function PengaduanPage() {
         aria-label="Ringkasan pengalaman pasien"
         className="grid grid-cols-2 gap-3.5 xl:grid-cols-4"
       >
-        <KpiCard
+        <KpiTile
+          index={0}
           label="Pengaduan terbuka"
           value={String(open.length)}
           hint={late ? `${late} lewat SLA` : 'semua dalam SLA'}
           detail={`${ungraded} belum digrading`}
           tone={late ? 'danger' : 'warning'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={1}
           label="Tanggap komplain (INM-12)"
           value={`${rate.pct}%`}
           hint={(rate.pct ?? 0) >= 80 ? 'memenuhi sasaran ≥ 80%' : 'di bawah sasaran ≥ 80%'}
           detail={`${rate.within}/${rate.total} dijawab dalam SLA · 30 hari`}
           tone={(rate.pct ?? 0) >= 80 ? 'success' : 'danger'}
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={2}
           label="Kepuasan pasien (INM-13)"
           value={String(satisfactionIndex(d.responses))}
           hint="indeks 0–100 · sasaran ≥ 80"
           detail={`${d.responses.length} respons survei pasca-pulang`}
           tone="success"
-          tinted
         />
-        <KpiCard
+        <KpiTile
+          index={3}
           label="Skor rendah"
           value={String(low)}
           hint="perlu ditindaklanjuti"
           detail="aspek bernilai ≤ 2 dari 4"
           tone={low ? 'warning' : 'success'}
-          tinted
         />
       </div>
       <ExperienceBoard store={st} rev={d.store.rev} responses={d.responses} now={DEMO_NOW} />
