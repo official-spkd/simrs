@@ -15,6 +15,9 @@ import {
   type SamplePatient,
   type SettingDraft,
 } from '../../platform-pengaturan';
+import { DEMO_DOCUMENTS, DOCUMENT_PATIENT_IDS } from '../../demo/fixtures/dokumen';
+import { STAF } from '../../demo/fixtures/staf';
+import type { DemoDocument, DocPatient } from '../../platform-dokumen';
 import type { StructNode } from '../../platform-struktur';
 import type { RefConcept, RefVersion } from '../../platform-terminologi';
 import {
@@ -87,4 +90,27 @@ export async function getTerminologyOverview(): Promise<{
     versions: [...DEMO_REF_VERSIONS],
     files: [...DEMO_IMPORT_FILES],
   };
+}
+
+export async function getDocumentsOverview(): Promise<{
+  patients: DocPatient[];
+  documents: DemoDocument[];
+}> {
+  if (!isDemo()) return notImplemented('dokumen pasien (layar demo)');
+  const patients = DOCUMENT_PATIENT_IDS.map((id): DocPatient => {
+    const p = PASIEN.find((x) => x.id === id);
+    if (!p) throw new Error('Pasien dokumen tidak ada di fixture');
+    return {
+      id: p.id,
+      nama: p.nama,
+      rm: p.rm,
+      jk: p.jk,
+      umur: p.umur,
+      tanggalLahir: p.tanggalLahir,
+      alergi: [...p.alergi],
+      penjamin: p.kelas ? `${p.penjamin} · ${p.kelas}` : p.penjamin,
+      dpjp: STAF.dpjpPenyakitDalam,
+    };
+  });
+  return { patients, documents: [...DEMO_DOCUMENTS] };
 }

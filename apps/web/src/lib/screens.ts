@@ -467,6 +467,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['admin_tenant', 'koder', 'petugas_rm'],
     layout: 'staf',
   },
+  {
+    id: 'dokumen',
+    label: 'Dokumen & TTE',
+    route: '/rekam-medis/dokumen',
+    mockup: null,
+    components: ['P08'],
+    phase: 1,
+    status: 'demo',
+    plannedPermission: 'documents.write',
+    demoRoles: ['petugas_rm', 'dokter'],
+    layout: 'staf',
+  },
   // FE1 · akhir
 ];
 

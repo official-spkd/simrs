@@ -83,6 +83,15 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: true,
         requires: 'patient.merge',
       },
+      // FE1 · dokumen rekam medis (mode presentasi)
+      {
+        id: 'dokumen',
+        label: 'Dokumen & TTE',
+        href: '/rekam-medis/dokumen',
+        icon: 'fileCheck',
+        available: false,
+      },
+      // FE1 · akhir
       { id: 'logistik', label: 'Logistik', href: '/manajemen/logistik', icon: 'box', available: false },
       { id: 'mutu', label: 'Mutu & keselamatan', href: '/manajemen/mutu', icon: 'award', available: false },
     ],

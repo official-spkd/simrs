@@ -164,4 +164,57 @@ test.describe('FE1 · platform dan operasional', () => {
     );
     await expectNoHorizontalOverflow(page);
   });
+
+  test('dokumen & TTE: kirim ulang TTE gagal sampai QR verifikasi, unggah tervalidasi, batal beralasan', async ({
+    page,
+  }) => {
+    const rm = await createAccount({ roles: ['petugas_rm'] });
+    await loginAs(page, rm, '/rekam-medis/dokumen');
+    await expect(
+      page.getByRole('heading', { name: 'Dokumen pasien dan tanda tangan elektronik', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Identitas pasien')).toContainText('Amoksisilin');
+
+    const list = page.getByRole('list', { name: 'Daftar dokumen' });
+    await list.getByRole('button', { name: /Surat kontrol pasca rawat inap/ }).click();
+    const detail = page.getByRole('region', { name: /^Surat kontrol pasca rawat inap/ });
+    await expect(detail.getByRole('alert')).toContainText('Penyelenggara TTE tidak menjawab');
+    await detail.getByRole('button', { name: 'Kirim ulang permintaan TTE' }).click();
+    await detail.getByRole('button', { name: /^Setujui sebagai dr\. Andini/ }).click();
+    await expect(detail.getByText(/^Ditandatangani dr\. Andini.* · \d{2}\.\d{2}$/)).toBeVisible();
+    await expect(detail.getByText('Terkunci', { exact: true })).toBeVisible();
+    const verify = page.getByRole('region', { name: 'Pratinjau halaman verifikasi' });
+    await expect(verify).toContainText('Dokumen asli · tanda tangan sah');
+    await expect(verify).toContainText('Ny. E***** W*****');
+    await page.getByLabel('Uji dengan berkas yang sudah diubah (hash berbeda)').check();
+    await expect(verify).toContainText('Tidak cocok');
+
+    await page.getByRole('button', { name: 'Unggah dokumen' }).click();
+    const form = page.getByRole('form', { name: 'Unggah dokumen' });
+    await form.getByLabel('Jenis dokumen').selectOption('hasil');
+    await form.getByLabel('Judul').fill('Hasil spirometri');
+    const fileInput = form.getByLabel('Berkas (PDF, PNG, JPEG · maks. 10 MB)');
+    await fileInput.setInputFiles({
+      name: 'catatan.docx',
+      mimeType: 'application/msword',
+      buffer: Buffer.from('x'),
+    });
+    await form.getByRole('button', { name: 'Simpan dokumen' }).click();
+    await expect(form.getByText(/Jenis berkas ditolak/)).toBeVisible();
+    await fileInput.setInputFiles({
+      name: 'spirometri.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 contoh fiktif'),
+    });
+    await expect(form.getByText(/spirometri\.pdf · \d+ B · SHA-256/)).toBeVisible();
+    await form.getByRole('button', { name: 'Simpan dokumen' }).click();
+    const fresh = page.getByRole('region', { name: /^Hasil spirometri/ });
+    await expect(fresh.getByRole('status')).toContainText(/Tersimpan · \d{2}\.\d{2} · SHA-256/);
+    await fresh.getByRole('button', { name: 'Batalkan dokumen' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Batalkan Hasil spirometri?' });
+    await dialog.getByLabel('Alasan pembatalan').fill('Berkas terunggah ke RM yang salah');
+    await dialog.getByRole('button', { name: 'Ya, batalkan dokumen' }).click();
+    await expect(fresh.getByRole('status')).toContainText('Dibatalkan: Hasil spirometri');
+    await expectNoHorizontalOverflow(page);
+  });
 });
