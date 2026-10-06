@@ -276,10 +276,12 @@ dan perputaran status bed (pulang, kotor, dibersihkan, siap).
 
 **Alur.**
 
-1. Buka **Tempat tidur**. Kepala layar menulis "Ketersediaan bed terkirim ke BPJS dan Kemenkes · <jam>".
-2. Region "Ringkasan status bed" memuat Terisi, Siap pakai, Dipesan, Kotor · dibersihkan, dan Rusak.
+1. Buka **Tempat tidur**. Kepala layar menulis "Aplicare & SIRANAP diperbarui <jam>" dan memuat tab tampilan
+   **Peta bed** / **Daftar**.
+2. Region "Ringkasan status bed" memuat Total bed (keterangan: bed rusak), Terisi (keterangan: bed dipesan), Siap
+   pakai, Dibersihkan (kotor + sedang dibersihkan), dan Rencana pulang hari ini.
 3. Saring dengan **Bangsal**, **Kelas**, dan **Status**. Layar menulis jumlah yang tampil, mis. "1 dari 286 bed
-   ditampilkan". Ganti tampilan **Peta bed** atau **Daftar**.
+   ditampilkan".
 4. Pilih bed berstatus Siap di peta. Kartu "Bed terpilih" menampilkan rincian dan satu aksi status berikutnya.
 5. Di "Permintaan bed", tekan **Alokasikan Ny. Maria ke bed M-xxx**. Layar menulis "… dialokasikan ke M-xxx ·
    dipesan …". Chip kandidat bed (**Tampilkan bed … di peta**) memilih bed itu di peta.

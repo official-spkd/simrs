@@ -92,9 +92,10 @@ test.describe('tempat tidur', () => {
     await openAs(page, ['perawat'], '/klinis/tempat-tidur');
     await expect(page.getByRole('heading', { name: 'Manajemen tempat tidur', level: 1 })).toBeVisible();
     const tiles = page.getByRole('region', { name: 'Ringkasan status bed' });
-    for (const t of ['Terisi', 'Siap pakai', 'Dipesan', 'Kotor · dibersihkan', 'Rusak']) {
+    for (const t of ['Total bed', 'Terisi', 'Siap pakai', 'Dibersihkan', 'Rencana pulang hari ini']) {
       await expect(tiles.getByText(t, { exact: true })).toBeVisible();
     }
+    await expect(page.getByText(/^Aplicare & SIRANAP diperbarui \d{2}\.\d{2}$/)).toBeVisible();
 
     const filters = page.getByRole('group', { name: 'Filter tempat tidur' });
     await filters.getByLabel('Bangsal').selectOption('ICU');

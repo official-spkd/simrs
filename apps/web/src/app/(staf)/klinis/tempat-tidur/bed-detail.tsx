@@ -16,14 +16,17 @@ const NEXT: Partial<
   rusak: { label: 'Perbaikan selesai · siap pakai', to: 'siap', note: (t) => `diperbaiki ${t}` },
 };
 
-const HINT: Record<BedStatus, string> = {
-  siap: 'Bed siap. Tekan "Alokasikan ke" pada permintaan di bawah.',
-  terisi: 'Bed terisi. Buka rawat inap untuk CPPT dan eMAR pasien.',
-  pulang: 'Pasien rencana pulang. Setelah pasien keluar, bed masuk antrean kebersihan.',
-  dipesan: 'Bed dipesan. Tandai terisi saat pasien tiba di ruang.',
-  kotor: 'Bed kotor. Tandai saat petugas kebersihan mulai bekerja.',
-  dibersihkan: 'Sedang dibersihkan. Tandai siap setelah verifikasi kebersihan.',
-  rusak: 'Bed tidak dapat dipakai sampai perbaikan selesai.',
+const HINT: Record<BedStatus, (b: Bed) => string> = {
+  siap: (b) => `Bed siap. Tekan "Alokasikan ke ${b.code}" pada permintaan di bawah.`,
+  terisi: () => 'Bed terisi. Buka rawat inap untuk CPPT dan eMAR pasien.',
+  pulang: () => 'Pasien rencana pulang. Setelah pasien keluar, bed masuk antrean kebersihan.',
+  dipesan: (b) =>
+    b.patientLabel
+      ? `Dipesan untuk ${b.patientLabel}. Tandai terisi saat pasien tiba di bangsal.`
+      : 'Bed dipesan. Tandai terisi saat pasien tiba di bangsal.',
+  kotor: () => 'Bed kotor. Tandai saat petugas kebersihan mulai bekerja.',
+  dibersihkan: () => 'Sedang dibersihkan. Tandai siap setelah verifikasi kebersihan.',
+  rusak: () => 'Bed tidak dapat dipakai sampai perbaikan selesai.',
 };
 
 export type BedPatch = Pick<Bed, 'status' | 'note'> & Partial<Pick<Bed, 'patientLabel' | 'encounterId'>>;
@@ -75,7 +78,9 @@ export function BedDetail({
         <dd className="m-0">{bed.note || '—'}</dd>
       </dl>
       <span className="text-[12.5px] text-ink-700">
-        {scenarioOwned ? 'Status bed pasien simulasi mengikuti alur admisi di Simulasi.' : HINT[bed.status]}
+        {scenarioOwned
+          ? 'Status bed pasien simulasi mengikuti alur admisi di Simulasi.'
+          : HINT[bed.status](bed)}
       </span>
       <div className="flex flex-wrap gap-2">
         {scenarioAlloc && (
