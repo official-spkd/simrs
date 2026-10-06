@@ -1218,7 +1218,7 @@ Aturan:
 ## Daftar periksa keamanan per perubahan
 
 - [ ] Controller data tenant memakai `@TenantScoped()`; repository memakai `TenantDb`; kode di luar permintaan (worker, seed) memakai `withTenant`. Tidak ada koneksi role migrator di runtime.
-- [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`.
+- [ ] Setiap endpoint bertenant diberi `@RequirePermission(resource, action)`; data pasien dibuka lewat `PatientAccessService.assert()`. Dijaga `apps/api/test/route-security.test.ts` (ADR-0076): endpoint tanpa izin, publik tanpa batas laju, atau POST berizin `read` gagal kecuali didaftarkan dengan alasan.
 - [ ] Endpoint anjungan/TV memakai `@DeviceScoped(izin)`, bukan `@TenantScoped()`; perangkat tidak pernah memegang izin manusia (ADR-0027).
 - [ ] `@NoRequestTransaction()` hanya untuk lookup baca-saja lewat `LookupGateway` (ADR-0025), aliran `SseService` (ADR-0026), dan penolakan yang wajib tetap tercatat (ADR-0030: satu `TenantDb.transaction()` mengembalikan hasil "ditolak" tanpa menulis data bisnis, galat dilempar setelah commit); akses data di dalamnya lewat `TenantDb.transaction()`.
 - [ ] Aturan yang menghitung banyak baris (mis. "minimal satu admin") memakai `lockTenantScope` agar aman saat paralel.

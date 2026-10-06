@@ -15,6 +15,8 @@ Mock semua integrasi eksternal (ADR-0006) di `http://localhost:4100`, dengan pan
 
 `pnpm dev` (tsx watch, membaca `../../.env`), `pnpm test`.
 
+Mock tanpa autentikasi dan memakai rahasia mock bawaan, jadi menolak start bila `APP_ENV`/`NODE_ENV` = `production` dan bila `HOST` bukan loopback (kecuali `MOCK_ALLOW_REMOTE=true`, mis. jaringan kontainer tertutup).
+
 ## BPJS (I03)
 
 Kontrak kabel (path, body, amplop, kode penolakan) ada di `@simrs/shared` → `integrations/bpjs/{common,vclaim,antrean,hfis}.ts`; dekode + validasi respons di `@simrs/shared/node` (`decodeVclaimResponse`, `decodeAntreanResponse`). Prefiks layanan: `/bpjs/vclaim`, `/bpjs/antrean`, `/bpjs/aplicare` (`BPJS_SERVICE_PREFIX`).

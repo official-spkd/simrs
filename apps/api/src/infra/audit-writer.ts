@@ -1,6 +1,6 @@
 import type { TenantTx } from '@simrs/db';
 import { newId } from '@simrs/shared';
-import type { PendingAudit } from '../common/request-context';
+import type { PendingAudit, TenantRequestContext } from '../common/request-context';
 
 export interface AuditMeta {
   actorUserId: string | null;
@@ -13,6 +13,20 @@ export interface AuditMeta {
    * jenis perangkat masuk ke `details` setiap entri sebagai `deviceId`/`deviceKind`.
    */
   device?: { id: string; kind: string } | null;
+}
+
+/** Metadata audit dari konteks permintaan bertenant (pelaku, IP, agen, request id, perangkat). */
+export function auditMetaOf(ctx: TenantRequestContext): AuditMeta {
+  return {
+    actorUserId: ctx.actor.userId,
+    actorRole: ctx.actor.role,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    requestId: ctx.requestId,
+    device: ctx.actor.devicePrincipal
+      ? { id: ctx.actor.devicePrincipal.id, kind: ctx.actor.devicePrincipal.kind }
+      : null,
+  };
 }
 
 /**
