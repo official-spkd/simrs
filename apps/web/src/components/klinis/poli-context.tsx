@@ -31,8 +31,14 @@ function Box({
 }
 
 /** Kolom kanan pemeriksaan poli: hasil lab terakhir, obat aktif, riwayat kunjungan, dokumen kunjungan. */
-export function PoliContext({ encounter }: { encounter: PoliEncounter }) {
+export function PoliContext({ encounter, signed = false }: { encounter: PoliEncounter; signed?: boolean }) {
   const e = encounter;
+  // Mockup Main: surat kontrol/keterangan berubah dari "Menunggu" menjadi "Dibuat" begitu kunjungan ditandatangani.
+  const documents = e.documents.map((d) =>
+    signed && !d.done && /^Surat (kontrol|keterangan)$/.test(d.name)
+      ? { ...d, value: 'Dibuat', done: true }
+      : d,
+  );
   return (
     <aside aria-label="Konteks pasien" className="flex min-w-0 flex-col gap-4">
       <Box title="Hasil lab terakhir" aside={e.labDate ?? '—'}>
@@ -102,7 +108,7 @@ export function PoliContext({ encounter }: { encounter: PoliEncounter }) {
       </Box>
       <Box title="Dokumen kunjungan">
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-small">
-          {e.documents.map((d) => (
+          {documents.map((d) => (
             <li key={d.name} className="flex justify-between gap-2">
               <span>{d.name}</span>
               <span className={cx(d.done ? 'font-semibold text-success' : 'text-ink-500')}>
