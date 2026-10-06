@@ -871,7 +871,7 @@ test.describe('FE5 · back office', () => {
     await expect(family.getByRole('list', { name: 'Keluarga dengan akses' })).not.toContainText('Ratih');
     await expect(family.getByRole('button', { name: 'Setujui akses' })).toHaveCount(0);
   });
-  test('B01 logistik: penerimaan barang menambah stok (keluar dari daftar ROP) dan utang usaha', async ({
+  test('B01 logistik: penerimaan barang menambah stok (keluar dari daftar ROP) dan mengalir ke Hutang usaha', async ({
     page,
   }) => {
     const direksi = await createAccount({ roles: ['manajemen'] });
@@ -904,6 +904,15 @@ test.describe('FE5 · back office', () => {
     );
     await expect(kasa).toHaveCount(0);
 
+    // Mengalir ke Hutang usaha (CX-2): kejadian `logistik/penerimaan.dicatat` menjadi faktur draf GRN yang sama.
+    await page.goto('/keuangan/hutang');
+    const invoices = page.getByRole('list', { name: 'Faktur pemasok' });
+    await expect(invoices).toContainText('INV/2610-0145');
+    await expect(invoices).toContainText('Distributor alkes B');
+    await page.reload();
+    await expect(invoices).toContainText('INV/2610-0145');
+
+    await page.goto('/manajemen/logistik');
     await expectNoHorizontalOverflow(page);
   });
 

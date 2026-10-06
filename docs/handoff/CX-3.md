@@ -7,7 +7,7 @@
 - Branch dan commit terakhir: `cd/cx-3` (lihat `git log -1 cd/cx-3`; `master` CD-2 + CX-1 sudah digabung)
 - Tujuan dan kriteria selesai: `docs/13-pembagian-tugas-cd-cx.md` §1 dan §7 CX-3.
 - Rencana/otorisasi pengguna: tugas CX-3 dari orkestrator (front end mode presentasi saja; tanpa API backend, migrasi, dependensi baru; `docs/PROGRESS.md` tidak diubah).
-- Kepemilikan file/modul: §2 baris "Back office + manajemen + aplikasi". Di luar milik sendiri hanya: satu baris per domain di `lib/demo/store/registry.ts`, satu baris PO-2610-031 di fixture `logistik-terima.ts` (fixture milik domain), bagian "Aliran back office, manajemen, dan aplikasi (CX-3)" + dua kalimat di `docs/panduan/19-peta-kode.md`.
+- Kepemilikan file/modul: §2 baris "Back office + manajemen + aplikasi". Di luar milik sendiri hanya: satu baris per domain di `lib/demo/store/registry.ts`, satu langganan `on(logisticsDomain, …)` di `lib/keuangan-hutang-toko.ts` (izin orkestrator), satu baris PO-2610-031 di fixture `logistik-terima.ts` (fixture milik domain), bagian "Aliran back office, manajemen, dan aplikasi (CX-3)" + dua kalimat di `docs/panduan/19-peta-kode.md`.
 - Sumber daya: DB `simrs_test_codex_c` (Postgres 127.0.0.1:5433), slot E2E 4530/3530/3531/4630, `E2E_TMP_NAME=simrs-demo-e2e-cxc`. Skrip env di scratchpad sesi (`cx3/env.sh`, `cx3/run-e2e.sh`), tanpa `.env`, kunci kolom acak lokal.
 
 ## Sudah dikerjakan
@@ -65,7 +65,7 @@ Rinci di `docs/panduan/19-peta-kode.md` → "Aliran back office, manajemen, dan 
 ### Permintaan untuk pemilik domain lain
 
 1. **CX-1:** tambah nilai `via: 'aplikasi'` pada `criticalEventSchema` (`lib/penunjang-kritis.ts`); kini read-back aplikasi dokter memakai `via: 'pusat'` dengan `recipientRole` "Dokter · read-back aplikasi dokter". Stok gudang Logistik belum disatukan dengan saldo batch Depo.
-2. **CX-2:** langgani `logistik/penerimaan.dicatat` untuk faktur Hutang (GRN-2610-0145 dst.). Tagihan di aplikasi pasien masih fixture; jasa pelayanan Penggajian masih `SERVICE_FEES` fixture (belum dari layar Jasa pelayanan).
+2. **CX-2:** langganan Hutang `on(logisticsDomain, …)` → `applyReceipt` **sudah dipasang** di `lib/keuangan-hutang-toko.ts` (satu baris, diizinkan orkestrator sesuai permintaan handoff CX-2); E2E B01 membuktikan GRN-2610-0145 → faktur draf `INV/2610-0145`. Tagihan di aplikasi pasien masih fixture; jasa pelayanan Penggajian masih `SERVICE_FEES` fixture (belum dari layar Jasa pelayanan).
 3. **CD-2:** langgani `aplikasi-dokter/cosign.ditandatangani`, `pendidikan/tingkat.dinaikkan`, dan baca `kredensial.granted`/`ppra.moduleOn` di CPOE.
 4. **CD-3:** langgani `aplikasi-pasien/booking.dibuat` untuk kuota slot dan check-in anjungan dengan kode `BK-…`.
 5. **CD-0:** tidak ada perubahan registri layar/menu yang wajib.
