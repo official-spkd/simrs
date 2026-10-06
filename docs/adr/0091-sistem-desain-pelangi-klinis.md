@@ -44,9 +44,11 @@ Pemilik lalu meminta desain itu diterapkan ke aplikasi dan menyetujui penggantia
    - Tidak ada gradien lintas rona.
 5. **Tipografi.** Poppins 400–700 (`next/font`, variabel `--font-poppins`) untuk seluruh teks, dengan angka tabular. IBM Plex Mono tetap hanya untuk pengenal (RM, ICD, SEP, kode barang) agar verifikasi per karakter mudah. PDF klinis tetap IBM Plex (ADR-0029).
 6. **Kerangka.**
-   - Jendela kaca dengan radius 20 dan garis domain 3 px. Mulai 1024 px jendela melayang di atas latar radial samudra.
+   - Jendela kaca dengan garis domain 3 px. Mulai 1024 px jendela menempel di tepi atas layar (header lengket mode presentasi tetap di y = 0), dengan celah kiri/kanan/bawah di atas latar radial samudra dan sudut bawah radius 20.
+   - Jendela hanya memudar masuk, tanpa transform: semua kontrol ada di dalamnya, sehingga transform akan mengubah ukuran terukur (target sentuh 44 px) selama animasi.
+   - Jendela memotong luapan horizontal (`overflow-x: clip`, tidak memutus `sticky`): tabel `sr-only` dan elemen absolut tidak menimbulkan scroll horizontal.
    - Sidebar kaca 236 px: titik rona per grup, item aktif bergradien rona grupnya.
-   - Bila menu lebih dari 24 layar (mis. Superadmin demo), grup lain dilipat menjadi "N layar" dan grup layar aktif tetap terbuka. Grup dengan dua menu atau kurang tidak dilipat. Semua tautan tetap di DOM.
+   - Bila menu yang bisa dibuka lebih dari 24 layar (mis. Superadmin demo), grup lain dilipat menjadi "N layar" dan grup layar aktif tetap terbuka. Menu redup (layar belum dibangun) tidak dihitung. Grup dengan dua menu atau kurang tidak dilipat. Semua tautan tetap di DOM.
    - Header kaca berisi label domain dan pemicu palet perintah.
 7. **Palet perintah ⌘K / Ctrl K** (`CommandPalette`).
    - Pola combobox + listbox dengan `aria-activedescendant`.
