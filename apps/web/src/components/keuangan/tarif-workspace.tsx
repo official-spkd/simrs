@@ -43,7 +43,7 @@ export function TarifWorkspace({
   const [cat, setCat] = useState<ChargeCategory | 'semua'>('semua');
   const [q, setQ] = useState('');
   const [payer, setPayer] = useState<string>('umum');
-  const [sel, setSel] = useState(board.items[0]?.code ?? '');
+  const [sel, setSel] = useState('AKM-KMR');
   const [flash, setFlash] = useState<string | null>(null);
   const [seq, setSeq] = useState(8);
 
@@ -190,7 +190,7 @@ export function TarifWorkspace({
                     {sch ? (
                       <Chip tone="info">Terjadwal {tanggalPendek(sch.validFrom)}</Chip>
                     ) : wait ? (
-                      <Chip tone="warning">Usulan {wait}</Chip>
+                      <Chip tone="warning">Ada usulan</Chip>
                     ) : (
                       <Chip tone="success">Berlaku v{v?.version}</Chip>
                     )}

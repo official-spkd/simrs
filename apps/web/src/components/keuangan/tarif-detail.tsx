@@ -64,7 +64,7 @@ export function TarifDetail({
 
       {current && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[360px] border-collapse text-[12.5px]">
+          <table className="w-full border-collapse text-[11.5px]">
             <caption className="pb-1.5 text-left text-small font-semibold">
               Komponen tarif (Rp) · tarif dasar
             </caption>

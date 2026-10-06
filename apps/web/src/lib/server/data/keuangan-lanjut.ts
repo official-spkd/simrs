@@ -1,4 +1,5 @@
 import 'server-only';
+import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
 import {
   ATURAN_NAIK_KELAS,
   TARIF_ITEM_TOTAL,
@@ -34,3 +35,8 @@ export function getTariffBoard() {
   };
 }
 export type TariffBoard = ReturnType<typeof getTariffBoard>;
+
+export function getChargeCaptureBoard() {
+  demoOnly('charge capture (U02)');
+  return { events: CAPTURE_EVENTS, eventTotal: CAPTURE_EVENT_TOTAL };
+}
