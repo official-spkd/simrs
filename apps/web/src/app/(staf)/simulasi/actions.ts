@@ -12,6 +12,7 @@ import { api } from '@/lib/server/api';
 import { ApiError } from '@/lib/server/api-core';
 import { assertDemo } from '@/lib/server/demo-guard';
 import { loadPresentationAccounts } from '@/lib/server/demo/accounts';
+import { writeActingRole } from '@/lib/server/demo/all-access';
 import { presentationLogin } from '@/lib/server/demo/login';
 import { type DemoCommand, runDemoCommand } from '@/lib/server/demo/scenario';
 import { assignmentsSchema, okSchema } from '@/lib/server/schemas';
@@ -85,6 +86,14 @@ export async function openScreenAsAction(screenId: string, role: string | null):
   const screen = screenById(screenId);
   if (!screen || screen.status === 'belum') return { error: 'Layar ini belum tersedia di presentasi.' };
   if (role !== null && !Object.hasOwn(SYSTEM_ROLES, role)) return { error: 'Posisi tidak dikenal.' };
+  if (s.demoAllAccess) {
+    // Superadmin demo (ADR-0023 keputusan 10): tidak berpindah akun; cukup bertindak sebagai posisi itu di layar ini.
+    if (role && (screen.demoRoles === 'semua' || screen.demoRoles.some((r) => r === role))) {
+      await writeActingRole(role as SystemRoleCode);
+    }
+    revalidatePath('/', 'layout');
+    redirect(screen.route);
+  }
   if (role && s.role?.code !== role) {
     let assignmentId: string | undefined;
     try {
@@ -104,7 +113,8 @@ export async function openScreenAsAction(screenId: string, role: string | null):
     if (!assignmentId) {
       // Akun presentasi hanya memegang satu posisi: pindah ke akun presentasi untuk posisi itu (login biasa).
       const accounts = await loadPresentationAccounts();
-      const persona = accounts?.accounts.find((a) => a.role === role);
+      // Superadmin demo juga berperan asli `manajemen`, tetapi bukan "akun posisi itu": lewati.
+      const persona = accounts?.accounts.find((a) => a.role === role && !a.allAccess);
       if (!accounts || !persona) {
         return {
           error: `Akun ini tidak punya posisi ${SYSTEM_ROLES[role as SystemRoleCode]}. Buat akun presentasi dengan \`pnpm db:akun-presentasi\`.`,

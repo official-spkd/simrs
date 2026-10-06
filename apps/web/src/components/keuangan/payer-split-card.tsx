@@ -35,6 +35,15 @@ export function PayerSplitCard({
         : { label: 'Tarif INA-CBG · menunggu diagnosis kerja', value: '—', tone: 'muted' },
     );
   }
+  // Naik kelas 1/2 JKN: selisih = tarif INA-CBG kelas tujuan − kelas hak, jadi tarif kelas tujuan ikut tampil
+  // (mockup Kasir). Naik ke VIP memakai rumus lain (bukan selisih dua tarif), jadi tidak diturunkan di sini.
+  const target = split.classUpgrade?.label.match(/^Naik (kelas \d)\b/i)?.[1];
+  if (split.scheme === 'bpjs' && split.inacbg && split.classUpgrade && target) {
+    rows.push({
+      label: `Tarif INA-CBG ${split.inacbg.code} (${target})`,
+      value: formatRupiah(BigInt(split.inacbg.tariff) + BigInt(split.classUpgrade.amount)),
+    });
+  }
   if (split.scheme !== 'umum') {
     rows.push({
       label: `Ditanggung ${split.payerLabel}`,

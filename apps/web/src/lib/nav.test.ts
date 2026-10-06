@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeNavId, NAV_GROUPS, navGroups, SUPERADMIN_GROUP } from './nav';
+import { activeNavId, ALL_ACCESS_NAV, NAV_GROUPS, navGroups, SUPERADMIN_GROUP } from './nav';
 import { SCREENS } from './screens';
 
 describe('activeNavId', () => {
@@ -120,8 +120,81 @@ describe('navGroups', () => {
 
   it('setiap menu layar fase 2–10 terdaftar di registri SCREENS dengan rute yang sama', () => {
     const screenIds = new Set(SCREENS.map((s) => s.id));
-    for (const item of NAV_GROUPS.flatMap((g) => g.items).filter((i) => screenIds.has(i.id))) {
+    for (const item of [...NAV_GROUPS, ...ALL_ACCESS_NAV]
+      .flatMap((g) => g.items)
+      .filter((i) => screenIds.has(i.id))) {
       expect(SCREENS.find((s) => s.id === item.id)?.route).toBe(item.href);
     }
+  });
+});
+
+describe('navGroups · Superadmin demo (ADR-0023 keputusan 10)', () => {
+  const ids = (groups: ReturnType<typeof navGroups>) => groups.flatMap((g) => g.items.map((i) => i.id));
+  const manajemen = {
+    kind: 'hospital' as const,
+    superadmin: false,
+    role: 'manajemen',
+    permissions: ['audit.read', 'schedule.read', 'bed.read', 'tenant.settings.read', 'facility.read'],
+  };
+  const reachable = SCREENS.filter((s) => s.status !== 'belum' && !s.apiOnly);
+
+  it('mode presentasi: setiap layar registri (kecuali khusus api) tampil terbuka, sekali saja, plus panduan', () => {
+    const groups = navGroups({ ...manajemen, dataSource: 'demo', allAccess: true });
+    const all = ids(groups);
+    expect(new Set(all).size).toBe(all.length);
+    for (const s of reachable) {
+      const item = groups.flatMap((g) => g.items).find((i) => i.id === s.id);
+      expect(item, s.id).toMatchObject({ href: s.route, available: true });
+    }
+    expect(all).not.toContain('kendali');
+    expect(all).toContain('panduan');
+    expect(groups.map((g) => g.title)).toEqual([
+      'UMUM',
+      'FRONT OFFICE',
+      'KLINIS',
+      'PENUNJANG',
+      'KEUANGAN',
+      'MANAJEMEN',
+      'BACK OFFICE',
+      'PERANGKAT & PRATINJAU',
+      'SISTEM',
+      'PANDUAN',
+    ]);
+    // Menu berizin API tetap mengikuti izin sungguhan peran asli (tanpa kuasa tambahan).
+    expect(all).toContain('audit');
+    for (const id of ['akses', 'formulir', 'rm', 'devui']) expect(all).not.toContain(id);
+  });
+
+  it('mode api: tanda diabaikan total, menu sama persis dengan akun manajemen biasa', () => {
+    const plain = navGroups({ ...manajemen, dataSource: 'api' });
+    const flagged = navGroups({ ...manajemen, dataSource: 'api', allAccess: true });
+    expect(flagged).toEqual(plain);
+    expect(ids(flagged)).not.toContain('panduan');
+    // Layar data dummy di mode api tetap redup (tidak bisa dibuka), tanda atau tidak.
+    const open = flagged.flatMap((g) => g.items).filter((i) => i.available);
+    expect(open.map((i) => i.id)).not.toContain('simulasi');
+    expect(open.map((i) => i.id)).not.toContain('kasir');
+  });
+
+  it('tanpa tanda di mode presentasi: hanya layar posisi aslinya; tenant PLATFORM tidak pernah mendapat menu ini', () => {
+    const plain = ids(navGroups({ ...manajemen, dataSource: 'demo' }));
+    expect(plain).toContain('dasbor');
+    expect(plain).not.toContain('kasir');
+    expect(plain).not.toContain('panduan');
+    const platform = navGroups({
+      ...manajemen,
+      kind: 'platform',
+      dataSource: 'demo',
+      allAccess: true,
+      permissions: [],
+    });
+    expect(ids(platform)).toEqual(['beranda']);
+  });
+
+  it('menu tambahan: id unik terhadap menu dasar dan menu aktif dikenali', () => {
+    const base = new Set(NAV_GROUPS.flatMap((g) => g.items.map((i) => i.id)));
+    for (const item of ALL_ACCESS_NAV.flatMap((g) => g.items)) expect(base.has(item.id), item.id).toBe(false);
+    expect(activeNavId('/klinis/cppt')).toBe('cppt');
+    expect(activeNavId('/tablet/persetujuan/x')).toBe('consent');
   });
 });

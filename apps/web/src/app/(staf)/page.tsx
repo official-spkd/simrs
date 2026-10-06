@@ -23,7 +23,8 @@ export default async function BerandaPage() {
       <Card className="flex flex-col gap-1 p-5">
         <span className="text-h2 font-semibold">Selamat datang, {s.user.displayName}</span>
         <span className="text-ink-700">
-          Anda masuk sebagai <strong>{s.role?.name}</strong>
+          Anda masuk sebagai{' '}
+          <strong>{s.demoAllAccess ? 'Superadmin demo · semua layar' : s.role?.name}</strong>
           {s.unit ? (
             <>
               {' '}

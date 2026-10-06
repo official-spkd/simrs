@@ -37,13 +37,13 @@ Keenam layar berbagi sub-menu `IntegrasiSubnav` (`apps/web/src/components/integr
 
 **Alur.**
 
-1. Buka **Sistem › Integrasi**. Judul "Integrasi · pemantauan antarmuka" dengan tautan **Jejak audit**.
-2. Baris "Server edge" menunjukkan status online dan keterlambatan replikasi ke cloud.
+1. Buka **Sistem › Integrasi**. Judul "Integrasi · pemantauan antarmuka"; di kanannya (seperti mockup) status "Server edge" (online dan keterlambatan replikasi ke cloud), tombol **Uji mode downtime**, dan tautan **Log audit**.
+2. Di bawah kepala layar ada sub-menu integrasi (SATUSEHAT, BPJS, Kemenkes, perangkat, API publik).
 3. Wilayah "Status antarmuka" berisi sembilan kartu: SATUSEHAT, BPJS VClaim, BPJS Antrean, E-Klaim INA-CBG, LIS analyzer, PACS radiologi, TPDI · VA BTN, QRIS, API BTN (mutasi H2H), dan Notifikasi pasien. Tiap kartu memuat protokol, status teks (Normal, Lambat, Gangguan, Antre lokal), volume hari ini, jumlah gagal, latensi p95, dan grafik batang 24 jam dengan jam galat ditandai.
 4. Volume kartu ikut bertambah oleh pesan keluar skenario Simulasi ("+N dari skenario Simulasi").
-5. Klik kartu untuk menyaring dead-letter queue ke tujuan itu, mis. "Tujuan: PACS radiologi · 2 pesan". Klik lagi atau **Tampilkan semua tujuan** untuk melepas saringan.
+5. Klik kartu untuk menyaring dead-letter queue ke tujuan itu, mis. "Tujuan: PACS radiologi · 2 pesan". Klik lagi atau **Tampilkan semua tujuan** untuk melepas saringan. Ganti saringan mengosongkan pesan hasil dan payload terpilih.
 6. Di "Dead-letter queue", centang pesan (atau "Pilih semua yang tampil"), lalu **Kirim ulang terpilih (N)**.
-7. Konfirmasi "Kirim ulang N pesan ke …?" muncul. Tekan **Ya, kirim ulang** atau **Batal**. Pesan yang terkirim keluar dari antrean dan jumlah gagal di kartu berkurang.
+7. Konfirmasi "Kirim ulang N pesan ke …?" muncul. Tekan **Ya, kirim ulang** atau **Batal**; fokus kembali ke tombol **Kirim ulang terpilih**. Pesan yang terkirim keluar dari antrean dan jumlah gagal di kartu berkurang.
 8. Pilih baris pesan untuk membaca "Payload galat · pengenal saja, tanpa data pribadi".
 9. Tekan **Uji mode downtime**. Kartu eksternal berubah "Antre lokal" dan penghitung "Transaksi tersimpan lokal selama uji" naik tiap 2 detik. Tekan **Pulihkan**; pesan "Koneksi pulih pukul … disinkronkan ulang berurutan tanpa duplikasi" muncul.
 10. Panel kanan: "Kepatuhan SATUSEHAT hari ini" per resource (sasaran ≥ 95%), "Kredensial dan sertifikat" (mis. sertifikat TTE habis 23 hari ditandai), dan "Backup (aturan 3-2-1)".
@@ -53,12 +53,13 @@ Keenam layar berbagi sub-menu `IntegrasiSubnav` (`apps/web/src/components/integr
 **Gerbang keselamatan dan aturan bisnis.**
 
 - **Kirim ulang terpilih** nonaktif sampai minimal satu pesan dicentang ("Centang minimal satu pesan untuk dikirim ulang.").
+- Galat permanen (HTTP 4xx atau penolakan bisnis, mis. IHS number belum ada, kode LOINC/KFA belum dipetakan, task BPJS belum lengkap) tidak bisa dicentang: barisnya menulis "Galat permanen: perbaiki datanya dulu, kirim ulang tanpa perbaikan akan gagal lagi." dan menautkan **Perbaiki di SATUSEHAT/BPJS** (sama dengan aturan sub-layar SATUSEHAT). Mockup membolehkan semua pesan dikirim ulang; itu sengaja tidak ditiru. Server Action menolak id semacam itu (`dlqNeedsFix`).
 - Kirim ulang selalu lewat konfirmasi. Selama uji downtime kirim ulang ditahan: konfirmasi yang terbuka ditutup dan alasannya tertulis.
 - Pesan dikirim ulang dengan kunci idempotensi yang sama, jadi tujuan tidak menerima data ganda. Versi produksi mencatat tindakan ini di log audit.
 - Payload DLQ hanya berisi pengenal teknis (mis. id pesan, kunci idempotensi, kode galat), tanpa nama, NIK, atau isi klinis. Tes menolak fixture yang melanggar.
 - Server Action `resendDeadLettersAction` memeriksa gerbang demo, sesi lengkap, posisi pemakai layar, dan id pesan yang dikenal. Id tak dikenal ditolak dengan "Muat ulang halaman".
 - Status tidak hanya lewat warna: chip bertulisan, dan persen kepatuhan diberi teks "memenuhi sasaran" atau "di bawah sasaran" untuk pembaca layar.
-- Angka di layar adalah data dummy. Teks DLQ menyebut "gagal setelah 5× retry" (nilai fixture). Worker nyata memakai 8 percobaan bawaan, dan operasi BPJS SEP/task ID dicoba sampai akhir hari layanan.
+- Angka di layar adalah data dummy. Mockup menyebut "gagal setelah 5× retry"; layar mengikuti worker nyata: 8 percobaan bawaan untuk galat sementara, galat permanen langsung masuk DLQ, dan operasi BPJS SEP/task ID dicoba sampai akhir hari layanan.
 
 **Rencana backend.** Izin terencana `integration.read`. Fase 7 membangun lajur kirim per tujuan (tanpa head-of-line blocking), circuit breaker, status/volume/latensi/DLQ per tujuan, kirim ulang dan abaikan yang diaudit, kredensial per RS terenkripsi dengan rotasi, dan kepatuhan SATUSEHAT per resource. Layar disambungkan ke API; jalur demo tetap hidup.
 

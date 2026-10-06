@@ -2,7 +2,9 @@
 
 import { formatRupiah, type InstalmentApplication, type InstalmentStage } from '@simrs/shared';
 import { Button, Chip, cx } from '@simrs/ui';
+import Link from 'next/link';
 import { useId, useState } from 'react';
+import { GatedButton } from '@/components/gated-button';
 import { formatWhen } from '@/lib/btn';
 import {
   canReject,
@@ -18,6 +20,7 @@ const FLOW_TEXT: Record<InstalmentStage, [string, string]> = {
   verifikasi: ['Verifikasi BTN', 'NIK, penghasilan, dan skor kredit oleh BTN'],
   disetujui: ['Disetujui BTN', 'limit dan tenor ditetapkan BTN'],
   akad: ['Akad digital (TTE)', 'pasien menandatangani akad secara elektronik'],
+  // Keterangan "dicairkan" memuat nomor rekening RS, disisipkan saat render.
   dicairkan: ['Dicairkan ke RS', 'BTN mentransfer pelunasan ke rekening operasional RS'],
   ditolak: ['Ditolak BTN', ''],
 };
@@ -72,7 +75,6 @@ export function CicilanDetail({
   return (
     <section
       aria-label="Detail pengajuan"
-      aria-live="polite"
       className="flex min-w-0 flex-[999_1_420px] flex-col gap-3 rounded-card border border-line bg-white p-4"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -130,7 +132,11 @@ export function CicilanDetail({
                     </span>
                   </span>
                   <span className="text-caption text-ink-500">
-                    {rejected ? app.rejectReason : FLOW_TEXT[st][1]}
+                    {rejected
+                      ? app.rejectReason
+                      : st === 'dicairkan'
+                        ? `BTN mentransfer pelunasan ke ${account}`
+                        : FLOW_TEXT[st][1]}
                   </span>
                 </span>
                 <span className="font-mono text-caption text-ink-500">
@@ -146,8 +152,9 @@ export function CicilanDetail({
           role="status"
           className="rounded-control border border-[#B7DEC0] bg-[#EAF5EC] px-3 py-2 text-small text-success"
         >
-          ✓ BTN mencairkan {formatRupiah(amount)} ke rekening operasional {account}. Tagihan {app.invoiceNo}{' '}
-          lunas; angsuran berikutnya dibayar pasien langsung ke BTN.
+          ✓ BTN mencairkan {formatRupiah(amount)} ke rekening operasional {account}
+          {at('dicairkan') ? ` (${formatWhen(at('dicairkan') ?? '')})` : ''}. Tagihan {app.invoiceNo} lunas;
+          angsuran berikutnya dibayar pasien langsung ke BTN.
         </div>
       )}
       {app.stage === 'ditolak' && (
@@ -166,11 +173,29 @@ export function CicilanDetail({
       ) : (
         NEXT_LABEL[app.stage] && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" disabled={busy} onClick={onNext}>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={() => {
+                // Tahap maju: form penolakan ditutup dan dikosongkan (mockup).
+                setOpen(false);
+                setReason('');
+                setTried(false);
+                onNext();
+              }}
+            >
               {NEXT_LABEL[app.stage]}
             </Button>
             {canReject(app) && (
-              <Button aria-expanded={open} disabled={busy} onClick={() => setOpen((o) => !o)}>
+              <Button
+                aria-expanded={open}
+                disabled={busy}
+                onClick={() => {
+                  setOpen((o) => !o);
+                  setTried(false);
+                }}
+                className="border-danger-border text-danger"
+              >
                 Tolak
               </Button>
             )}
@@ -203,7 +228,10 @@ export function CicilanDetail({
             aria-describedby={`${id}-tolak-msg`}
             onChange={(e) => setReason(e.target.value)}
             placeholder="mis. Data penghasilan tidak dapat diverifikasi"
-            className="rounded-control border border-line-strong bg-white px-3 py-2 font-[inherit]"
+            className={cx(
+              'rounded-control border bg-white px-3 py-2 font-[inherit]',
+              tried && short ? 'border-danger' : 'border-line-strong',
+            )}
           />
           <span
             id={`${id}-tolak-msg`}
@@ -211,21 +239,44 @@ export function CicilanDetail({
           >
             {tried && short
               ? `Alasan wajib diisi, minimal ${REJECT_REASON_MIN} karakter.`
-              : `Minimal ${REJECT_REASON_MIN} karakter (${len}/${REJECT_REASON_MIN}) · tercatat di jejak audit dan dikirim ke pasien.`}
+              : short
+                ? `Minimal ${REJECT_REASON_MIN} karakter (${len}/${REJECT_REASON_MIN}).`
+                : 'Alasan tercatat di jejak audit dan dikirim ke pasien.'}
           </span>
           <span className="flex flex-wrap gap-2">
-            <Button onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" variant="danger" disabled={short || busy}>
-              Konfirmasi tolak
+            <Button
+              onClick={() => {
+                setOpen(false);
+                setReason('');
+                setTried(false);
+              }}
+            >
+              Batal
             </Button>
+            <GatedButton
+              type="submit"
+              variant="danger"
+              enabled={!short && !busy}
+              onBlocked={() => setTried(true)}
+            >
+              Konfirmasi tolak
+            </GatedButton>
           </span>
         </form>
       )}
-      <span className="text-caption text-ink-500">
-        Angsuran dibayar pasien langsung ke BTN, bukan ke RS. RS menerima pelunasan penuh ke rekening
-        operasional {account}
-        saat pencairan. Keputusan kredit sepenuhnya milik BTN.
-      </span>
+      <div className="flex gap-2.5 rounded-control border border-[#C9D3EE] bg-[#F6F8FD] px-3 py-2.5 text-[12.5px] text-ink-700">
+        <span aria-hidden="true" className="font-bold text-info">
+          i
+        </span>
+        <span>
+          Angsuran dibayar pasien <b>langsung ke BTN</b>, bukan ke RS. RS menerima pelunasan penuh ke rekening
+          operasional {account} saat pencairan, dan tidak menanggung risiko gagal bayar kecuali diatur lain di
+          perjanjian. Keputusan kredit sepenuhnya oleh BTN.
+        </span>
+      </div>
+      <Link href="/keuangan/pembayaran" className="self-start text-small font-semibold text-brand-700">
+        Lihat penerimaan di Pembayaran via BTN
+      </Link>
     </section>
   );
 }

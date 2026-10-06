@@ -131,7 +131,7 @@ export function codingView(
               ? `Jika ${sug.to} diterima`
               : `Jika ${sug.to} + ${needsEvidence}`,
           v: up.cbg,
-          s: `${rp(up.tariff)} · ${opts.accepted ? 'lengkapi bukti CPPT' : evidence ? 'tunggu konfirmasi' : 'butuh bukti'}`,
+          s: `${rp(up.tariff)} · ${opts.accepted ? 'lengkapi bukti CPPT' : evidence ? `tunggu konfirmasi ${sug.to}` : 'butuh bukti'}`,
           tone: 'warn',
         };
   }
@@ -139,7 +139,17 @@ export function codingView(
     diagnoses,
     grouper,
     tiles: [
-      { k: 'Kode CBG', v: grouper.cbg, s: grouper.name, tone: upgraded ? 'ok' : undefined },
+      {
+        k: 'Kode CBG',
+        v: grouper.cbg,
+        s:
+          sug && upgraded
+            ? `${grouper.name} · ${sug.to} + ${needsEvidence}`
+            : sug && opts.accepted
+              ? `${grouper.name} · dx utama ${sug.to}`
+              : grouper.name,
+        tone: upgraded ? 'ok' : undefined,
+      },
       {
         k: `Tarif ${grouper.classLabel}`,
         v: rp(grouper.tariff),
@@ -155,4 +165,55 @@ export function codingView(
 /** Jumlah berkas lengkap, mis. "6/7 lengkap". */
 export function docCount(docs: ReadonlyArray<{ ok: boolean }>): string {
   return `${docs.filter((d) => d.ok).length}/${docs.length} lengkap`;
+}
+
+/** Tindakan koder di layar untuk satu klaim (simulasi, tidak disimpan; mockup Klaim `queries`/`docs`/`sent`). */
+export interface ClaimLocal {
+  docs?: Claim['documents'];
+  acceptedAt?: string | null;
+  queryAt?: string | null;
+  sentAt?: string | null;
+}
+
+/** Chip daftar klaim setelah tindakan koder (mockup Klaim `tagFor`). */
+export function localClaimTag(claim: Pick<Claim, 'status' | 'tag'>, local: ClaimLocal): Claim['tag'] {
+  if (local.sentAt) {
+    return {
+      label:
+        claim.status === 'pending'
+          ? 'Tanggapan terkirim'
+          : claim.status === 'dispute'
+            ? 'Banding diajukan'
+            : 'Terkirim',
+      level: 'ok',
+    };
+  }
+  if (local.acceptedAt) return { label: 'Saran diterima', level: 'ok' };
+  if (local.queryAt) return { label: 'Menunggu DPJP', level: 'info' };
+  return claim.tag;
+}
+
+/**
+ * Status di kepala berkas klaim (mockup Klaim): berubah mengikuti query, saran yang diterima, kelengkapan berkas, dan
+ * pengiriman, beserta nadanya (biru = menunggu pihak lain, hijau = terkirim).
+ */
+export function claimHeaderStatus(
+  claim: Pick<Claim, 'status' | 'tag' | 'suggestion'>,
+  local: ClaimLocal,
+  view: { grouper: Claim['grouper']; missing: number },
+): { label: string; tone: 'brand' | 'info' | 'success' } {
+  if (local.sentAt) {
+    return {
+      label: claim.status === 'draft' ? 'Terkirim ke E-Klaim' : localClaimTag(claim, local).label,
+      tone: 'success',
+    };
+  }
+  const sug = claim.suggestion;
+  if (sug && local.acceptedAt) {
+    return view.missing === 0 && view.grouper
+      ? { label: `Siap final · ${view.grouper.cbg}`, tone: 'brand' }
+      : { label: `Siap grouping · ${sug.to}`, tone: 'brand' };
+  }
+  if (sug && local.queryAt) return { label: 'Menunggu jawaban DPJP', tone: 'info' };
+  return { label: `${CLAIM_STATUS_LABEL[claim.status]} · ${claim.tag.label}`, tone: 'brand' };
 }

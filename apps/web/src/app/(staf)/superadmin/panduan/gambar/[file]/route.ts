@@ -1,7 +1,8 @@
 import { STATIC_FILE_CSP } from '@/lib/csp';
 import { loadGuideImage } from '@/lib/guide';
 import { getSession } from '@/lib/server/session';
-import { isSuperadmin, nextLoginStep } from '@/lib/session-view';
+import { webEnv } from '@/lib/server/web-env';
+import { canReadGuide, nextLoginStep } from '@/lib/session-view';
 
 type Params = Promise<{ file: string }>;
 
@@ -12,8 +13,8 @@ const notFound = () =>
   });
 
 /**
- * Gambar panduan superadmin (`docs/panduan/gambar/*.png|svg`). Gerbangnya sama dengan halaman panduan: selain
- * operator platform yang sudah masuk penuh → 404 (tidak membocorkan rute). Nama berkas dicocokkan pola ketat di
+ * Gambar panduan superadmin (`docs/panduan/gambar/*.png|svg`). Gerbangnya sama dengan halaman panduan (`canReadGuide`:
+ * operator platform, atau Superadmin demo hanya di mode presentasi); selain itu → 404 (tidak membocorkan rute). Nama berkas dicocokkan pola ketat di
  * `loadGuideImage` sebelum menyentuh sistem berkas (tanpa path traversal, tanpa symlink).
  *
  * SVG dikirim dengan jenis konten yang benar + `nosniff`, dan CSP `sandbox` tanpa skrip: dipakai sebagai `<img>`
@@ -21,7 +22,7 @@ const notFound = () =>
  */
 export async function GET(_req: Request, { params }: { params: Params }): Promise<Response> {
   const s = await getSession();
-  if (!s || nextLoginStep(s, false) !== 'selesai' || !isSuperadmin(s)) return notFound();
+  if (!s || nextLoginStep(s, false) !== 'selesai' || !canReadGuide(s, webEnv().dataSource)) return notFound();
   const image = loadGuideImage((await params).file);
   if (!image) return notFound();
   return new Response(new Uint8Array(image.body), {

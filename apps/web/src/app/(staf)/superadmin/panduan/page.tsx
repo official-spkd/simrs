@@ -2,7 +2,7 @@ import { Card } from '@simrs/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GUIDE_PAGES, type GuidePage, guideSourcePath } from '@/lib/guide';
-import { requireSuperadmin } from '@/lib/server/session';
+import { requireGuideReader } from '@/lib/server/session';
 
 export const metadata: Metadata = { title: 'Panduan sistem' };
 
@@ -23,7 +23,7 @@ const GROUPS: ReadonlyArray<{ id: GuidePage['group']; title: string; lead: strin
 const pageNumber = (page: GuidePage) => page.file.slice(0, 2);
 
 export default async function GuideIndexPage() {
-  await requireSuperadmin();
+  await requireGuideReader();
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div className="flex flex-col gap-1">

@@ -99,11 +99,19 @@ export function creditedAmount(events: readonly WebhookEvent[]): bigint {
   const seen = new Set<string>();
   let total = 0n;
   for (const e of events) {
-    if (e.event !== 'payment.paid' || !e.signatureValid || seen.has(e.id)) continue;
+    if (e.event !== 'payment.paid' || !e.signatureValid || !webhookDelivered(e) || seen.has(e.id)) continue;
     seen.add(e.id);
     total += BigInt(e.amount);
   }
   return total;
+}
+
+/**
+ * Webhook benar-benar sampai dan dibalas 2xx oleh SIM RS. Event yang timeout (TPDI masih me-retry) belum diterima,
+ * jadi belum diverifikasi tanda tangannya dan belum dikreditkan.
+ */
+export function webhookDelivered(e: Pick<WebhookEvent, 'response'>): boolean {
+  return /^2\d\d\b/.test(e.response);
 }
 
 export type WebhookOutcome = 'diproses' | 'diabaikan-duplikat' | 'ditolak-signature';
@@ -200,7 +208,15 @@ export function resolveRow(row: ReconRow, res: Resolution): ReconRow {
   const adj = BigInt(ex.adjustment);
   let { kasir, bank } = row;
   if (ex.kind === 'webhook-gagal') kasir = { amount: row.tpdi.amount, note: 'dilunasi lewat rekonsiliasi' };
-  if (ex.kind === 'nominal-beda') bank = { amount: bank.amount, note: `+ ${digits(-adj)} beban MDR` };
+  if (ex.kind === 'nominal-beda') {
+    bank = {
+      amount: bank.amount,
+      note:
+        res.actionId === 'koreksi'
+          ? `+ ${digits(-adj)} koreksi diajukan ke BTN`
+          : `+ ${digits(-adj)} beban MDR`,
+    };
+  }
   if (ex.kind === 'hanya-di-bank') {
     kasir =
       res.actionId === 'padan'
@@ -262,20 +278,105 @@ export function reconTotals(
   return { bankIn, recorded, unexplained: bankIn - recorded, exceptionsLeft: left };
 }
 
-/** Transaksi yang pengecualiannya ditangani di rekonsiliasi menjadi lunas di kasir (jejak status diperbarui). */
+/**
+ * Pengecualian rekonsiliasi yang ditangani ikut memperbarui transaksi asal (mockup Pembayaran: tab Transaksi
+ * mencerminkan tab Rekonsiliasi): kasir lunas, webhook yang gagal diganti keterangan penyelesaiannya, selisih MDR
+ * di langkah mutasi BTN dijelaskan, dan transfer tanpa referensi yang dipadankan tercatat di tagihan tujuannya.
+ */
 export function settleByResolution(tx: PaymentTransaction, row: ReconRow): PaymentTransaction {
-  const res = row.exception?.resolution;
-  if (!res || row.transactionId !== tx.id || tx.status === 'lunas') return tx;
-  const label = row.exception?.actions.find((a) => a.id === res.actionId)?.label ?? 'ditangani';
+  const ex = row.exception;
+  const res = ex?.resolution;
+  if (!ex || !res) return tx;
+  const label = ex.actions.find((a) => a.id === res.actionId)?.label ?? 'ditangani';
+  if (ex.kind === 'hanya-di-bank') {
+    // Baris tanpa referensi: tagihan tujuan disebut di label tindakan "padankan".
+    const inv = res.actionId === 'padan' ? /INV-\d{4}-\d{5}/.exec(label)?.[0] : null;
+    if (!inv || inv !== tx.invoiceNo || tx.trail.some((s) => s.label === 'Dibayar lewat transfer manual')) {
+      return tx;
+    }
+    return {
+      ...tx,
+      trail: [
+        ...tx.trail,
+        {
+          label: 'Dibayar lewat transfer manual',
+          at: res.at,
+          note: `${formatRupiah(BigInt(row.bank.amount ?? '0'))} dipadankan saat rekonsiliasi · tagihan lunas`,
+          state: 'info',
+        },
+      ],
+    };
+  }
+  if (row.transactionId !== tx.id || tx.status === 'lunas') return tx;
+  const resent = ex.kind === 'webhook-gagal' && res.actionId === 'ulang';
   return {
     ...tx,
     status: 'lunas',
     paidAt: tx.paidAt ?? res.at,
+    webhooks: resent
+      ? tx.webhooks.map((w) =>
+          webhookDelivered(w) ? w : { ...w, response: '200 OK · dikirim ulang TPDI atas permintaan' },
+        )
+      : tx.webhooks,
+    trail: tx.trail.map((s) => {
+      if (s.label === 'Kasir lunas') {
+        return { ...s, at: res.at, state: 'selesai', note: `diselesaikan lewat rekonsiliasi: ${label}` };
+      }
+      if (ex.kind === 'webhook-gagal' && s.state === 'peringatan' && s.label.startsWith('Webhook gagal')) {
+        return {
+          label: 'Webhook diterima · signature valid',
+          at: res.at,
+          state: 'selesai',
+          note: resent
+            ? 'dikirim ulang oleh TPDI atas permintaan'
+            : 'dilewati: dilunasi dari laporan TPDI + mutasi BTN',
+        };
+      }
+      if (ex.kind === 'nominal-beda' && s.state === 'peringatan' && s.label.startsWith('Masuk mutasi BTN')) {
+        return {
+          ...s,
+          state: 'selesai',
+          note: `${s.note} · ${res.actionId === 'koreksi' ? 'koreksi diajukan ke BTN' : 'dicatat sebagai beban MDR'}`,
+        };
+      }
+      return s;
+    }),
+  };
+}
+
+/** Settlement batch EDC yang masuk mutasi BTN saat rekonsiliasi dijalankan menuntaskan langkah bank transaksinya. */
+export function settleEdcTx(tx: PaymentTransaction, at: string | null): PaymentTransaction {
+  if (!at || tx.channel !== 'EDC' || tx.status !== 'lunas') return tx;
+  return {
+    ...tx,
     trail: tx.trail.map((s) =>
-      s.label === 'Kasir lunas'
-        ? { ...s, at: res.at, state: 'selesai', note: `diselesaikan lewat rekonsiliasi: ${label}` }
+      s.label.startsWith('Masuk mutasi BTN') && s.state === 'menunggu'
+        ? { ...s, at, state: 'selesai', note: 'settlement batch EDC cocok saat rekonsiliasi' }
         : s,
     ),
+  };
+}
+
+/**
+ * Refund yang dananya sudah kembali ke pasien memperbarui transaksi asal: refund penuh mengubah status menjadi
+ * dikembalikan; langkah "Refund … diajukan" diganti "Refund … selesai".
+ */
+export function applyRefund(
+  tx: PaymentTransaction,
+  refund: Pick<Refund, 'number' | 'transactionRef' | 'amount'>,
+  doneAt: string | null,
+): PaymentTransaction {
+  if (!doneAt || !tx.externalRef || !refund.transactionRef.includes(tx.externalRef)) return tx;
+  const label = `Refund ${refund.number} selesai`;
+  if (tx.trail.some((s) => s.label === label)) return tx;
+  const step = { label, at: doneAt, note: 'dana kembali ke rekening pasien', state: 'info' as const };
+  const has = tx.trail.some((s) => s.label.startsWith(`Refund ${refund.number}`));
+  return {
+    ...tx,
+    status: tx.status === 'lunas' && BigInt(refund.amount) === BigInt(tx.amount) ? 'dikembalikan' : tx.status,
+    trail: has
+      ? tx.trail.map((s) => (s.label.startsWith(`Refund ${refund.number}`) ? step : s))
+      : [...tx.trail, step],
   };
 }
 

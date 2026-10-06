@@ -73,17 +73,25 @@ export function ReorderRow({
           </span>
         </span>
       </span>
+      {/* Kepala kolom hanya visual; tiap sel membawa labelnya sendiri untuk pembaca layar. */}
       <span className="hidden font-mono xl:block">
+        <span className="sr-only">Kelas </span>
         {item.abc} · {item.ven}
       </span>
-      <span className="hidden font-mono xl:block">
+      <span className="hidden text-right font-mono xl:block">
+        <span className="sr-only">Stok </span>
         {formatNumber(item.stock)} <span className="font-sans text-caption text-ink-500">{item.unit}</span>
       </span>
-      <span className="hidden font-mono xl:block">{formatNumber(item.reorderPoint)}</span>
-      <span className="hidden xl:block">
+      <span className="hidden text-right font-mono xl:block">
+        <span className="sr-only">ROP </span>
+        {formatNumber(item.reorderPoint)}
+      </span>
+      <span className="hidden text-right xl:block">
+        <span className="sr-only">Cukup </span>
         <Cover days={item.daysOfCover} />
       </span>
       <span className={cx('hidden xl:block', inPo ? 'font-semibold text-success' : 'text-ink-700')}>
+        <span className="sr-only">Usulan </span>
         {inPo ? `Masuk ${inPo}` : suggestionText(item)}
       </span>
     </label>

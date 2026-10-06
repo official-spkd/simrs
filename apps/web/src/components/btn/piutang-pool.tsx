@@ -2,7 +2,7 @@
 
 import { type FinancingOverview, formatRupiah, type ReceivableBatch } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx } from '@simrs/ui';
-import { useId } from 'react';
+import { GatedButton } from '@/components/gated-button';
 import type { FinancingState } from '@/app/(staf)/keuangan/pembiayaan/use-financing-state';
 import { advanceAmount, formatRingkas } from '@/lib/btn-pembiayaan';
 
@@ -14,7 +14,6 @@ const BASE: Record<ReceivableBatch['status'], [string, ChipTone]> = {
 
 /** Pool klaim BPJS: pilih batch layak bayar → advance 90% (dibatasi sisa plafon) → ajukan pencairan ke BTN. */
 export function PiutangPool({ data, s }: { data: FinancingOverview; s: FinancingState }) {
-  const id = useId();
   const rate = data.facility.advanceRatePercent;
   const freeIds = new Set(s.free.map((b) => b.id));
   const allPicked = s.free.length > 0 && s.free.every((b) => s.selected[b.id]);
@@ -26,16 +25,21 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
         ? 'Plafon fasilitas sudah terpakai penuh.'
         : '';
   const a = s.active;
+  const at = a ? s.stampsOf(a.id) : {};
   const steps = a
     ? [
-        { t: 'Diajukan ke BTN', done: true },
-        { t: 'Disetujui BTN', done: a.stage !== 'diajukan' },
+        { t: 'Diajukan ke BTN', done: true, at: at.aju },
+        { t: 'Disetujui BTN', done: a.stage !== 'diajukan', at: at.ok },
         {
           t: `Dana cair ke ${data.facility.operationalAccount}`,
           done: a.stage === 'cair' || a.stage === 'lunas',
+          at: at.cair,
         },
       ]
     : [];
+  const nextStep = steps.findIndex((st) => !st.done);
+  const GRID =
+    'grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 @2xl:grid-cols-[44px_minmax(0,1.5fr)_64px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]';
   return (
     <section
       aria-label="Pool klaim BPJS"
@@ -57,6 +61,20 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
           {allPicked ? 'Kosongkan pilihan' : 'Pilih semua layak bayar'}
         </Button>
       </div>
+      <div
+        aria-hidden="true"
+        className={cx(
+          GRID,
+          'hidden border-b border-line bg-[#F8FAFB] py-1.5 text-caption font-semibold text-ink-500 @2xl:grid',
+        )}
+      >
+        <span />
+        <span>Bulan pelayanan · jenis</span>
+        <span className="text-right">Berkas</span>
+        <span className="text-right">Nilai klaim</span>
+        <span>Status</span>
+        <span className="text-right">Advance {rate}%</span>
+      </div>
       <ul className="m-0 flex list-none flex-col p-0">
         {data.pool.map((b) => {
           const draw = s.draws.find((d) => d.batchIds.includes(b.id));
@@ -67,13 +85,7 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
           else if (draw?.stage === 'cair') chip = [`Dibiayai · ${draw.id}`, 'brand'];
           else if (draw) chip = [`Diajukan · ${draw.id}`, 'info'];
           return (
-            <li
-              key={b.id}
-              className={cx(
-                'grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-b border-line py-1.5 @3xl:grid-cols-[44px_minmax(0,1.5fr)_64px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)]',
-                chk && 'bg-[#F3FAF8]',
-              )}
-            >
+            <li key={b.id} className={cx(GRID, 'border-b border-line py-1.5', chk && 'bg-[#F3FAF8]')}>
               {can ? (
                 // Seluruh sel 44 × 44 px menjadi target sentuh kotak centang.
                 <label className="flex size-11 cursor-pointer items-center justify-center">
@@ -86,7 +98,10 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                   />
                 </label>
               ) : (
-                <span aria-hidden="true" className="size-11" />
+                <span
+                  aria-hidden="true"
+                  className="m-auto size-5 rounded-[5px] border border-dashed border-line-strong"
+                />
               )}
               <span className="flex min-w-0 flex-col">
                 <span className="font-semibold">
@@ -94,13 +109,14 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                 </span>
                 <span className="text-caption text-ink-500">{b.note}</span>
               </span>
-              <span className="text-right font-mono text-small text-ink-700 @max-3xl:hidden">
+              <span className="text-right font-mono text-small text-ink-700 @max-2xl:hidden">
                 {b.files.toLocaleString('id-ID')}
+                <span className="sr-only"> berkas</span>
               </span>
               <span className="text-right font-mono whitespace-nowrap">
                 {formatRingkas(BigInt(b.amount))}
               </span>
-              <span className="col-start-2 @3xl:col-start-auto">
+              <span className="col-start-2 @2xl:col-start-auto">
                 <Chip tone={chip[1]}>{chip[0]}</Chip>
               </span>
               <span
@@ -109,7 +125,14 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                   chk ? 'text-brand-700' : 'text-ink-500',
                 )}
               >
-                {can ? `adv. ${formatRingkas(advanceAmount(BigInt(b.amount), rate))}` : '—'}
+                {can ? (
+                  <>
+                    <span className="@2xl:sr-only">adv. </span>
+                    {formatRingkas(advanceAmount(BigInt(b.amount), rate))}
+                  </>
+                ) : (
+                  '—'
+                )}
               </span>
             </li>
           );
@@ -142,18 +165,15 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
             </span>
             <span className="font-mono text-h2 font-bold">{formatRupiah(s.quote.disburse)}</span>
           </span>
-          <span className="flex flex-wrap items-center gap-2">
-            <span id={`${id}-alasan`} className="text-caption text-ink-700">
-              {reason}
-            </span>
-            <Button
+          <span className="flex flex-col items-end gap-1">
+            <GatedButton
               variant="primary"
-              disabled={!!reason || s.pending}
-              aria-describedby={`${id}-alasan`}
+              enabled={!reason && !s.pending}
+              reason={reason}
               onClick={s.submitDrawdown}
             >
               Ajukan pencairan
-            </Button>
+            </GatedButton>
           </span>
         </div>
         {a && a.stage !== 'lunas' && (
@@ -163,15 +183,23 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
           >
             <span className="font-semibold">
               Pengajuan {a.id} · <span className="font-mono">{formatRupiah(BigInt(a.principal))}</span>
-              <span className="font-normal text-ink-500"> · dasar: {s.basisOf(a)}</span>
+              <span className="font-normal text-ink-500">
+                {' '}
+                · dasar: {s.basisOf(a)} · {formatRingkas(s.basisTotalOf(a))}
+              </span>
             </span>
-            <ol className="m-0 flex list-none flex-wrap gap-2 p-0">
+            <ol className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-3">
               {steps.map((st, i) => (
                 <li
                   key={st.t}
+                  aria-current={i === nextStep ? 'step' : undefined}
                   className={cx(
-                    'flex items-center gap-1.5 text-small',
-                    st.done ? 'text-ink-900' : 'text-ink-500',
+                    'flex items-center gap-1.5 rounded-control border px-2.5 py-2 text-small',
+                    st.done
+                      ? 'border-line bg-white text-ink-900'
+                      : i === nextStep
+                        ? 'border-[#9DB7E8] bg-[#F4F8FE] text-info'
+                        : 'border-line bg-white text-ink-500',
                   )}
                 >
                   <span
@@ -183,18 +211,27 @@ export function PiutangPool({ data, s }: { data: FinancingOverview; s: Financing
                   >
                     {st.done ? '✓' : i + 1}
                   </span>
-                  {st.t}
-                  <span className="sr-only">{st.done ? ' (selesai)' : ' (menunggu)'}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span>{st.t}</span>
+                    <span className="text-caption text-ink-500">
+                      {st.done ? (st.at ? `pukul ${st.at}` : 'selesai') : i === nextStep ? 'menunggu' : '—'}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ol>
             {a.stage === 'cair' ? (
               <span className="text-small font-semibold text-success">
                 {formatRupiah(BigInt(a.principal))} masuk rekening operasional{' '}
-                {data.facility.operationalAccount}. Outstanding dan sisa plafon diperbarui.
+                {data.facility.operationalAccount}
+                {at.cair ? ` pukul ${at.cair}` : ''}. Outstanding dan sisa plafon diperbarui.
               </span>
             ) : (
-              <Button className="self-start" disabled={s.pending} onClick={() => s.advanceDrawdown(a)}>
+              <Button
+                className="self-start border-dashed border-[#9DB7E8] text-info"
+                disabled={s.pending}
+                onClick={() => s.advanceDrawdown(a)}
+              >
                 {a.stage === 'diajukan' ? 'Simulasi: BTN menyetujui' : 'Simulasi: BTN mencairkan dana'}
               </Button>
             )}

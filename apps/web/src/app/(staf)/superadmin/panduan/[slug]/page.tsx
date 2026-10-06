@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Markdown } from '@/components/markdown';
 import { extractToc, findGuidePage, GUIDE_PAGES, guideSourcePath, loadGuideMarkdown } from '@/lib/guide';
-import { requireSuperadmin } from '@/lib/server/session';
+import { requireGuideReader } from '@/lib/server/session';
 
 type Params = Promise<{ slug: string }>;
 
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function GuidePageView({ params }: { params: Params }) {
-  await requireSuperadmin();
+  await requireGuideReader();
   const page = findGuidePage((await params).slug);
   if (!page) notFound();
   const markdown = loadGuideMarkdown(page);

@@ -96,12 +96,12 @@ Kode akun yang dipakai layar lanjutan berikut ini fiktif dan hanya ada di kode w
 
 1. Buka **Keuangan › Kasir**. Kolom kiri "Antrean tagihan" berisi nomor loket (`K-…`), penjamin, porsi pasien, dan status teks: Masih dirawat, Belum final, Siap dibayar, Siap ditutup, atau Lunas.
 2. Pilih tagihan. Kanan atas tampil banner pasien (nama, umur, RM, alergi, penjamin, DPJP) dan kartu kunjungan dengan chip penjamin, naik kelas, SEP, dan status.
-3. Periksa "Rincian tagihan". Baris dikelompokkan per kategori (kolom Kategori, Item, Jumlah, Sumber). Tekan **Buka semua kategori** untuk melihat semua baris. Baris paling bawah: **Total tarif RS**.
+3. Periksa "Rincian tagihan". Baris dikelompokkan per kategori (kolom Kategori, Item, Tarif RS, Sumber). Tekan **Buka semua kategori** untuk melihat semua baris. Baris paling bawah: **Total tarif RS**.
 4. Bila ada layanan yang belum tertangkap otomatis, tekan **Tambah item manual**. Isi Nama item, Kategori, Kuantitas, Harga satuan (Rp), dan "Alasan item manual (wajib, minimal 15 karakter)", lalu **Ajukan item manual**. Baris baru berlabel "Manual" dan menampilkan alasannya.
-5. Baca kartu "Pembagian penjamin": tarif RS, tarif INA-CBG, porsi penjamin, tanggungan pasien, dan sisa bayar.
+5. Baca kartu "Pembagian penjamin": tarif RS, tarif INA-CBG hak kelas (dan kelas tujuan bila naik kelas 1/2), porsi penjamin, tanggungan pasien, dan sisa bayar.
 6. Tekan **Finalkan tagihan**. Tombol ini aktif hanya bila pasien sudah pulang. Setelah final, tagihan terkunci.
 7. Di panel "Pembayaran", pilih metode lalu penuhi syaratnya (tabel di bawah). Tombol **Selesaikan dan cetak kuitansi** aktif setelah syarat metode terpenuhi.
-8. Hasilnya kotak "Lunas" dengan nomor kuitansi `KW-…` dan jam. Pilih **Cetak kuitansi** atau **Tagihan berikutnya**.
+8. Hasilnya kotak "Lunas" dengan nomor kuitansi `KW-…`, jam, dan catatan bahwa jurnal bank terbentuk (pasien BPJS: klaim diteruskan ke casemix). Langkah lanjut seperti mockup: **Lanjut ke klaim BPJS** (pasien BPJS), **Lihat jurnal**, **Pembayaran digital**; lalu **Cetak kuitansi** atau **Tagihan berikutnya**. Layar posisi lain menawarkan "Ganti posisi".
 9. Bila pasien tidak membayar apa pun (mis. JKN sesuai hak kelas), tekan **Tutup kunjungan (pasien bayar Rp 0)**.
 10. Di akhir shift, tekan **Tutup shift** di kepala layar, lalu **Ya, tutup shift**. Rekap kas dikirim ke akuntansi (simulasi).
 
@@ -154,16 +154,16 @@ Contoh data dummy: Ny. Endang Wijaya, `INV-2610-02217`, rawat inap pneumonia 5 h
 2. Saring daftar per status: Perlu koding, Terkirim, Pending BPJS, Layak bayar, Dispute, Dibayar.
 3. Pilih berkas. Kepala berkas memuat pasien, SEP, kelas, DPJP, dan status resume.
 4. Periksa tabel "Diagnosis ICD-10" (peran utama, sekunder, perlu bukti, sementara) dan "Prosedur ICD-9-CM".
-5. Bila ada catatan "Saran koding", pilih tombol terima kode saran (mis. **Terima J13**) atau **Kirim query ke DPJP**.
+5. Bila ada catatan "Saran koding", pilih tombol terima kode saran (mis. **Terima J13**) atau **Kirim query ke DPJP**. Status di kepala berkas dan chip di daftar ikut berubah: Menunggu jawaban DPJP (chip "Menunggu DPJP") → Siap grouping · J13 (chip "Saran diterima") → Siap final · J-4-15-III → Terkirim ke E-Klaim (chip "Terkirim"; pending: "Tanggapan terkirim"; dispute: "Banding diajukan"). Tindakan ini bertahan saat koder membuka berkas lain lalu kembali (simulasi, selama layar terbuka).
 6. Baca "Hasil grouper INA-CBG (simulasi)": kode CBG, tarif kelas, perbandingan tarif RS vs INA-CBG, dan special CMG.
 7. Di "Kelengkapan berkas", centang berkas yang sudah ada.
-8. Kirim dengan tombol sesuai status: **Final dan kirim E-Klaim** (perlu koding), **Kirim tanggapan ke verifikator** (pending), atau **Ajukan penyelesaian dispute** (dispute). Hasilnya "Terkirim ke E-Klaim HH.MM" dan berkas terkunci.
+8. Kirim dengan tombol sesuai status: **Final dan kirim E-Klaim** (perlu koding), **Kirim tanggapan ke verifikator** (pending), atau **Ajukan penyelesaian dispute** (dispute). Hasilnya "Terkirim ke E-Klaim HH.MM", berkas terkunci, dan tautan **Lihat jurnal piutang di Akuntansi** (kepala layar juga punya tautan **Jurnal piutang BPJS**).
 
 Contoh data dummy: klaim Ny. Endang berisi J18.9 (utama), E11.9 (sekunder), N17.9 (perlu bukti), prosedur 89.65 dan 99.18. Grouper awal J-4-15-II kelas 2 Rp 6.612.800 (estimasi). Berkas 6/7 lengkap; yang kurang "Bukti klinis N17.9 di CPPT". Saran koding: kultur sputum mendukung J13. Setelah **Terima J13** dan bukti N17.9 dicentang, grouper naik ke J-4-15-III Rp 9.104.300 (naik Rp 2.491.500). Kode CBG di data dummy web bergaya INA-CBG dengan tarif berlabel simulasi; mock E-Klaim di `apps/mock` memakai kode `SIM-*`.
 
 **Gerbang keselamatan dan aturan bisnis.**
 
-- Tombol kirim nonaktif sampai semua berkas lengkap. Alasannya tertulis, mis. "Belum bisa dikirim: lengkapi 1 berkas (…)".
+- Tombol kirim nonaktif (`aria-disabled`, tetap bisa difokus) sampai semua berkas lengkap. Alasannya tertulis dan dibacakan, mis. "Belum bisa dikirim: lengkapi 1 berkas (…)".
 - Grouping ditahan bila pasien masih dirawat, resume medis belum final ber-TTE, atau kode utama tidak sesuai bukti klinis.
 - Skenario IGD (Tn. Hartono): sistem menandai I20.0 (angina) yang tidak cocok dengan troponin dan EKG. Pilihannya ikuti saran "Kembali ke I21.4", atau "Kirim query ke DPJP (klaim ditahan)" dengan alasan tertulis (minimal 10 karakter di server).
 - Kode hanya dari daftar contoh seed (`ICD10_NAME`, `ICD9_NAME` di fixture). Kode di luar daftar membuat fixture gagal dibangun.
@@ -193,9 +193,9 @@ Contoh data dummy: klaim Ny. Endang berisi J18.9 (utama), E11.9 (sekunder), N17.
 1. Buka **Keuangan › Akuntansi**. Wilayah "Indikator keuangan": Pendapatan MTD, Piutang BPJS, Kas dan bank, Utang jatuh tempo 7 hari.
 2. Baca "Jurnal otomatis periode berjalan". Tiap jurnal menampilkan baris debit/kredit dan totalnya. Saring lewat tombol Sumber: Semua, Kasir, Klaim, TPDI/BTN, Logistik.
 3. Status jurnal tertulis: Terposting, Menunggu rekonsiliasi, Menunggu penyetuju kedua, atau Perlu pemetaan akun.
-4. Jurnal `JU-26100417` (penurunan nilai piutang klaim dispute) belum punya akun lawan. Pilih akun di "Akun lawan (kredit)", mis. `1-1390` Cadangan kerugian penurunan nilai — piutang BPJS. Pesannya: "siap diposting setelah disetujui penyetuju kedua".
-5. Di samping, baca "Umur piutang" (Rp juta) dan "Rekonsiliasi bank otomatis". Rekening BTN penampungan klaim ••••9021 punya 2 transfer BPJS yang belum dipadankan; tekan **Padankan 2 mutasi**.
-6. Tekan **Tutup periode Oktober**. Dialog "Tutup periode Oktober 2026?" menampilkan syarat sebagai daftar teks. Tekan **Tutup periode** bila semua syarat terpenuhi, atau **Batal**.
+4. Jurnal `JU-26100417` (penurunan nilai piutang klaim dispute) belum punya akun lawan. Tekan **Petakan akun** (atau **Batal** untuk menutupnya lagi), lalu pilih akun di "Akun lawan (kredit)", mis. `1-1390` Cadangan kerugian penurunan nilai — piutang BPJS. Pesannya: "siap diposting setelah disetujui penyetuju kedua".
+5. Di samping, baca "Umur piutang" (Rp juta) dan "Rekonsiliasi bank otomatis". Rekening BTN penampungan klaim ••••9021 punya 2 transfer BPJS yang belum dipadankan; tekan **Padankan 2 transfer ke batch klaim**. Tautan **Rekonsiliasi 3 arah TPDI × BTN** membuka Pembayaran digital.
+6. Tekan **Tutup periode Oktober**. Dialog "Tutup periode Oktober 2026?" menampilkan syarat sebagai daftar teks. Tekan **Ya, tutup dan kunci periode** bila semua syarat terpenuhi, atau **Batal**. Selama syarat belum terpenuhi tombol itu tetap bisa difokus dan alasannya dibacakan.
 7. Setelah ditutup, banner menyatakan periode ditutup dan jurnal dikunci. **Ekspor laporan** mengekspor jurnal dan neraca saldo (simulasi).
 
 **Gerbang keselamatan dan aturan bisnis.**
@@ -228,15 +228,15 @@ Contoh data dummy: klaim Ny. Endang berisi J18.9 (utama), E11.9 (sekunder), N17.
 
 **Alur.**
 
-1. Buka **Keuangan › Pembayaran digital**. Bagian "Alur dana" menunjukkan Pasien → Kanal BTN (VA BTN, QRIS · acquirer BTN, EDC BTN) → Rekening operasional RS BTN ••••4417. Kotak "TPDI · orkestrasi" berlabel "tidak menampung dana".
-2. Baris status menampilkan koneksi TPDI (webhook terakhir, latensi p95), API BTN mutasi H2H, dan mode SANDBOX atau PRODUKSI.
+1. Buka **Keuangan › Pembayaran digital**. Bagian "Alur dana" menunjukkan Pasien → Kanal BTN (VA BTN, QRIS · acquirer BTN, EDC BTN) → Rekening operasional RS BTN ••••4417. Kotak "TPDI · orkestrasi" berlabel "TPDI tidak menampung dana". Urutan seperti mockup: baris status, indikator, alur dana, lalu tab.
+2. Baris status menampilkan koneksi TPDI (webhook terakhir dengan "N dtk lalu" yang diperbarui tiap 5 detik dan ikut maju saat webhook simulasi masuk, latensi p95), API BTN mutasi H2H, dan mode SANDBOX (chip kuning) atau PRODUKSI.
 3. Wilayah "Indikator pembayaran": Penerimaan digital hari ini, Transaksi berhasil, Menunggu bayar, Pengecualian rekonsiliasi.
-4. Tab **Transaksi**: pilih baris di "Daftar transaksi". "Detail transaksi" menampilkan jejak status, webhook TPDI yang diterima, dan payload ringkas.
+4. Tab **Transaksi**: pilih baris di "Daftar transaksi". "Detail transaksi" menampilkan jejak status, webhook TPDI, dan payload ringkas (tagihan menunggu menyebut `expires_at`, yang sudah dibayar `settled_to` + `paid_at`; terminal EDC diambil dari jejaknya). Webhook yang timeout ditandai "belum sampai" dan tidak dikreditkan (`webhookDelivered`).
 5. Untuk VA/QRIS yang menunggu, tekan **Simulasikan pembayaran (webhook TPDI)**. Hasilnya "Webhook TPDI diterima, tagihan lunas" dan tanda "✓ HMAC valid". Contoh: Ny. Endang `INV-2610-02217 · Rp 250.400`.
 6. Contoh callback ganda: transaksi Tn. Sutan Batubara menampilkan event kedua sebagai "duplikat · diabaikan" dan "Dikreditkan sekali per event id: Rp 5.000.000".
-7. Tab **Rekonsiliasi** (lencana "3 selisih"): tabel "Rekonsiliasi 3 arah · hari ini" membandingkan Kasir SIM RS, Laporan TPDI, dan Mutasi BTN. **Jalankan rekonsiliasi** menarik ulang data. Untuk tiap pengecualian, pilih tindakan, isi "Catatan penyelesaian (wajib)", lalu **Terapkan**. Baris berubah menjadi "Ditangani".
-8. Tab **Refund**: lima tahap Diajukan → Supervisor kasir → Manajer keuangan → Transfer BTN → Dana kembali. Tombolnya **Ajukan refund**, **Setujui sebagai supervisor kasir**, **Setujui sebagai manajer keuangan**, dan **Simulasikan dana diterima pasien**.
-9. Tab **Konfigurasi**: merchant dan rekening tujuan, kanal aktif, masa berlaku VA (12/24/48 jam) dan QRIS (5/10/15 menit), mode koneksi TPDI (Sandbox/Produksi), serta webhook TPDI → SIM RS (HMAC-SHA256, timestamp ditolak bila selisih > 5 menit). **Rotasi secret** meminta konfirmasi **Ya, rotasi sekarang**. Simpan dengan **Simpan konfigurasi**.
+7. Tab **Rekonsiliasi** (lencana "3 selisih"): tabel "Rekonsiliasi 3 arah · hari ini" membandingkan Kasir SIM RS, Laporan TPDI, dan Mutasi BTN. **Jalankan rekonsiliasi** menarik ulang data. Untuk tiap pengecualian, pilih tindakan, isi "Catatan penyelesaian (wajib)", lalu **Terapkan** (tetap bisa difokus; menekannya sebelum lengkap menampilkan alasannya). Sel yang berselisih ditandai merah. Baris berubah menjadi "Ditangani", dan tab Transaksi ikut berubah: webhook gagal menjadi "dikirim ulang" atau "dilewati", langkah mutasi BTN selisih MDR dijelaskan, transfer tanpa referensi yang dipadankan tercatat di tagihan tujuannya, dan **Jalankan rekonsiliasi** menuntaskan langkah settlement EDC.
+8. Tab **Refund**: lima tahap Diajukan → Supervisor kasir → Manajer keuangan → Transfer BTN → Dana kembali. Tombolnya **Ajukan refund**, **Setujui sebagai supervisor kasir**, **Setujui sebagai manajer keuangan**, dan **Simulasikan dana diterima pasien**. Bilah tahapan menampilkan jam tiap langkah dan "berikutnya"; riwayat mencatat nama penyetuju tingkat 1 (pemakai layar) dan memisahkan persetujuan tingkat 2 dari instruksi transfer. Refund penuh yang dananya kembali mengubah transaksi asal menjadi "Dikembalikan".
+9. Tab **Konfigurasi**: merchant dan rekening tujuan, kanal aktif, masa berlaku VA (12/24/48 jam) dan QRIS (5/10/15 menit), mode koneksi TPDI (Sandbox/Produksi), serta webhook TPDI → SIM RS (HMAC-SHA256, timestamp ditolak bila selisih > 5 menit). **Rotasi secret** meminta konfirmasi **Ya, rotasi sekarang**. Simpan dengan **Simpan konfigurasi**. Selama ada perubahan belum disimpan, tab Konfigurasi berlencana "belum disimpan".
 
 Contoh tindakan pengecualian dari data dummy: "Tandai lunas di kasir (TPDI + BTN cocok)", "Minta TPDI kirim ulang webhook", "Catat Rp 14.000 sebagai beban MDR QRIS", dan "Catat sebagai titipan tak teridentifikasi".
 
@@ -272,11 +272,11 @@ Contoh tindakan pengecualian dari data dummy: "Tandai lunas di kasir (TPDI + BTN
 
 1. Buka **Keuangan › Pembiayaan BTN**. Judul "Pembiayaan BTN · fasilitas kesehatan (simulasi)" dengan nomor perjanjian fiktif.
 2. Tab **A · Pembiayaan piutang BPJS**. Wilayah "Indikator fasilitas": Plafon fasilitas (Rp 15,00 M), Outstanding, Sisa plafon, Klaim layak bayar eligible, Rata-rata hari cair BPJS, Margin berjalan.
-3. Di "Pool klaim BPJS", centang batch layak bayar (atau **Pilih semua layak bayar**), lalu **Ajukan pencairan**. Lanjutkan **Simulasi: BTN menyetujui** dan **Simulasi: BTN mencairkan dana**. Dana masuk rekening operasional.
-4. Panel "Alur dana pelunasan": BPJS membayar ke rekening penampungan ••••9021, pokok + margin didebit otomatis ke BTN, sisanya diteruskan ke operasional ••••4417. Tekan **BPJS membayar klaim** untuk menyimulasikan.
+3. Di "Pool klaim BPJS", centang batch layak bayar (atau **Pilih semua layak bayar**), lalu **Ajukan pencairan**. Lanjutkan **Simulasi: BTN menyetujui** dan **Simulasi: BTN mencairkan dana**. Tiap langkah bertanda "pukul HH.MM", langkah berikutnya "menunggu"; dasar pengajuan menyebut batch dan nilai klaimnya. Dana masuk rekening operasional. Selama ada pengajuan berjalan, **Ajukan pencairan** tetap bisa difokus dengan alasan "Selesaikan pengajuan … dulu."
+4. Panel "Alur dana pelunasan" (wilayah "Pelunasan dan parameter fasilitas"): BPJS membayar ke rekening penampungan ••••9021, pokok + margin didebit otomatis ke BTN, sisanya diteruskan ke operasional ••••4417. Tekan **BPJS membayar klaim** untuk menyimulasikan.
 5. Tab **B · Cicilan biaya pasien**. Pilih pengajuan di "Daftar pengajuan cicilan". "Detail pengajuan" menampilkan nilai pembiayaan, estimasi angsuran, dan timeline.
 6. Majukan tahap: **Simulasi: teruskan ke verifikasi BTN**, **Simulasi: BTN menyetujui**, **Simulasi: pasien tanda tangan akad (TTE)**, **Simulasi: BTN mencairkan dana**. Contoh: Ny. Wulan Sari Dewi berakhir "✓ BTN mencairkan Rp 14.200.000".
-7. Untuk menolak, tekan **Tolak**, isi "Alasan penolakan dari BTN (wajib)", lalu **Konfirmasi tolak**.
+7. Untuk menolak, tekan **Tolak**, isi "Alasan penolakan dari BTN (wajib)", lalu **Konfirmasi tolak**. Menekannya saat alasan kurang dari 10 karakter menampilkan "Alasan wajib diisi, minimal 10 karakter." Setelah dicairkan, tautan **Lihat penerimaan di Pembayaran via BTN** membuka Pembayaran digital.
 
 **Gerbang keselamatan dan aturan bisnis.**
 

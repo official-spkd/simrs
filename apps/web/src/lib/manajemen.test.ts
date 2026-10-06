@@ -25,6 +25,7 @@ import {
   CRITICAL_COVER_DAYS,
   daysOfCover,
   daysUntil,
+  dlqNeedsFix,
   dlqPayloadText,
   formatLatency,
   formatRupiahShort,
@@ -123,6 +124,20 @@ describe('logistik', () => {
     expect(needsReorder({ stock: 3, reorderPoint: 2 })).toBe(false);
   });
 
+  it('ROP item sama dengan mockup Logistik', () => {
+    const rop = Object.fromEntries(demoLogisticsOverview().reorder.map((i) => [i.id, i.reorderPoint]));
+    expect(rop).toMatchObject({
+      'enoksaparin-60': 120,
+      'seftriakson-1g': 400,
+      'infus-rl-500': 900,
+      'kateter-iv-20g': 600,
+      'insulin-glargine': 40,
+      'kasa-steril': 2000,
+      'benang-pga': 70,
+      'reagen-hba1c': 2,
+    });
+  });
+
   it('semua item di tabel di bawah ROP; enoksaparin < 7 hari paling atas', () => {
     const d = demoLogisticsOverview();
     expect(d.reorder).toHaveLength(12);
@@ -218,5 +233,21 @@ describe('aplikasi pasien: pita gula darah', () => {
     expect(GLUCOSE_BAND_LABEL[glucoseBand(65, GLUCOSE_TARGET)]).toBe('di bawah sasaran');
     expect(GLUCOSE_BAND_LABEL[glucoseBand(146, GLUCOSE_TARGET)]).toBe('di atas sasaran');
     expect(GLUCOSE_BAND_LABEL[glucoseBand(GLUCOSE_TARGET.min, GLUCOSE_TARGET)]).toBe('dalam sasaran');
+  });
+});
+
+describe('dead-letter queue: galat permanen', () => {
+  it('4xx dan penolakan bisnis menunggu perbaikan data; galat sementara boleh dikirim ulang', () => {
+    const fix = Object.fromEntries(
+      DEAD_LETTERS.map((d) => [d.id, dlqNeedsFix(d)?.fix?.label ?? !!dlqNeedsFix(d)]),
+    );
+    expect(fix).toMatchObject({
+      'dlq-0103': 'SATUSEHAT',
+      'dlq-0099': 'SATUSEHAT',
+      'dlq-0087': 'SATUSEHAT',
+      'dlq-0072': 'BPJS',
+      'dlq-0035': false,
+      'dlq-0041': false,
+    });
   });
 });

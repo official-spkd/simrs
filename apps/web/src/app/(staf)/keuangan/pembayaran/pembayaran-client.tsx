@@ -2,7 +2,7 @@
 
 import { formatRupiah, type PaymentOverview } from '@simrs/shared';
 import { Alert, Button, KpiCard } from '@simrs/ui';
-import { useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { DepositControls } from '@/components/btn/deposit-controls';
 import { KeepTabs } from '@/components/btn/keep-tabs';
 import { KonfigurasiTab } from '@/components/btn/konfigurasi-tab';
@@ -28,14 +28,24 @@ const RECON_TASKS: ReadonlyArray<{ task: string; label: string; note: string }> 
   },
 ];
 
+/** "N dtk lalu" / "N mnt lalu" dari jam demo; kosong bila lebih dari satu jam atau di masa depan. */
+function agoLabel(nowIso: string, atIso: string): string {
+  const sec = Math.floor((Date.parse(nowIso) - Date.parse(atIso)) / 1000);
+  if (!Number.isFinite(sec) || sec < 0 || sec >= 3600) return '';
+  return sec < 60 ? `${sec} dtk lalu` : `${Math.floor(sec / 60)} mnt lalu`;
+}
+
 /** I05/U09 · Bagian interaktif layar pembayaran digital: KPI, tab Transaksi/Rekonsiliasi/Refund/Konfigurasi. */
 export function PembayaranClient({
+  moneyFlow,
   data,
   hook,
   userName,
   kasirHref,
   journalHref,
 }: {
+  /** Alur dana (server component), tampil di bawah KPI seperti urutan mockup. */
+  moneyFlow: ReactNode;
   data: PaymentOverview;
   hook: ScenarioHook | null;
   userName: string;
@@ -47,6 +57,14 @@ export function PembayaranClient({
   const busy = s.pending || scenario.pending;
   const [tab, setTab] = useState(hook?.stepId === 'rekonsiliasi' ? 'rekonsiliasi' : 'transaksi');
   const [sel, setSel] = useState(s.txs[0]?.id ?? '');
+  const [cfgDirty, setCfgDirty] = useState(false);
+  // Kepala layar: "webhook terakhir HH.MM (N dtk lalu)" diperbarui tiap 5 detik (mockup).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
+  const ago = agoLabel(s.clock(), s.lastWebhookAt);
   const tx = s.txs.find((t) => t.id === sel) ?? s.txs[0];
   const refundsOpen = data.refunds.filter((r) => {
     const st = s.refundStages[r.id] ?? r.stage;
@@ -65,7 +83,8 @@ export function PembayaranClient({
         <span>
           <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-success" />
           <span className="font-semibold text-ink-900">TPDI</span> terhubung · webhook terakhir{' '}
-          <span className="font-mono">{formatWhen(conn.lastWebhookAt)}</span> · latensi p95{' '}
+          <span className="font-mono">{formatWhen(s.lastWebhookAt)}</span>
+          {ago && <span className="text-ink-500"> ({ago})</span>} · latensi p95{' '}
           <span className="font-mono">{conn.latencyP95Ms} ms</span>
         </span>
         <span>
@@ -74,7 +93,13 @@ export function PembayaranClient({
           {conn.pullEveryMin} mnt · terakhir{' '}
           <span className="font-mono">{formatWhen(s.reconRunAt ?? conn.lastBankPullAt)}</span>
         </span>
-        <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-caption font-bold tracking-wide text-brand-700">
+        <span
+          className={
+            s.savedMode === 'sandbox'
+              ? 'rounded-full border border-warning-border bg-warning-bg px-2.5 py-0.5 text-caption font-bold tracking-wide text-warning'
+              : 'rounded-full bg-brand-50 px-2.5 py-0.5 text-caption font-bold tracking-wide text-brand-700'
+          }
+        >
           Mode {s.savedMode === 'sandbox' ? 'SANDBOX' : 'PRODUKSI'}
         </span>
       </div>
@@ -114,6 +139,7 @@ export function PembayaranClient({
           tinted
         />
       </div>
+      {moneyFlow}
       {s.msg && <Alert level={s.msg.ok ? 'success' : 'critical'}>{s.msg.text}</Alert>}
       <KeepTabs
         label="Bagian pembayaran digital"
@@ -194,12 +220,14 @@ export function PembayaranClient({
                 record={s.record}
                 now={s.clock}
                 onStage={s.setRefundStage}
+                userName={userName}
               />
             ),
           },
           {
             id: 'konfigurasi',
             label: 'Konfigurasi',
+            badge: cfgDirty ? 'belum disimpan' : undefined,
             content: (
               <KonfigurasiTab
                 config={data.config}
@@ -207,6 +235,7 @@ export function PembayaranClient({
                 record={s.record}
                 now={s.clock}
                 onSavedMode={s.setSavedMode}
+                onDirty={setCfgDirty}
               />
             ),
           },

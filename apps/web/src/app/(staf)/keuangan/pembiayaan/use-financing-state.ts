@@ -30,6 +30,10 @@ export function useFinancingState(data: FinancingOverview) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lastPay, setLastPay] = useState<(BpjsPayment & { at: string; basis: string }) | null>(null);
   const [apps, setApps] = useState<Record<string, AppPatch>>({});
+  /** Jam tiap tahap pencairan yang diajukan di layar ini (mockup: "pukul HH.MM" per langkah). */
+  const [stamps, setStamps] = useState<Record<string, { aju?: string; ok?: string; cair?: string }>>({});
+  const stamp = (id: string, k: 'aju' | 'ok' | 'cair') =>
+    setStamps((cur) => ({ ...cur, [id]: { ...cur[id], [k]: formatJam(clock()) } }));
 
   const position = facilityPosition(data.facility, draws, DEMO_TODAY);
   const free = eligibleBatches(data.pool, draws);
@@ -43,6 +47,9 @@ export function useFinancingState(data: FinancingOverview) {
       .filter((b) => d.batchIds.includes(b.id))
       .map((b) => `${b.period.replace(' 2026', '')} ${b.kind}`)
       .join(', ');
+  /** Nilai klaim dasar suatu pencairan (bigint). */
+  const basisTotalOf = (d: Drawdown) =>
+    data.pool.filter((b) => d.batchIds.includes(b.id)).reduce((sum, b) => sum + BigInt(b.amount), 0n);
 
   const record = (input: FinancingEventInput, label: string): Promise<boolean> =>
     new Promise((resolve) => {
@@ -80,6 +87,7 @@ export function useFinancingState(data: FinancingOverview) {
       },
     ]);
     setActiveId(id);
+    stamp(id, 'aju');
     setSelected({});
   };
 
@@ -87,6 +95,7 @@ export function useFinancingState(data: FinancingOverview) {
     const label =
       d.stage === 'diajukan' ? `${d.id} disetujui BTN` : `${d.id} dicairkan ke rekening operasional`;
     if (!(await record({ kind: 'pencairan-lanjut', drawdownId: d.id }, label))) return;
+    stamp(d.id, d.stage === 'diajukan' ? 'ok' : 'cair');
     setDraws((cur) =>
       cur.map((x) => {
         if (x.id !== d.id) return x;
@@ -168,6 +177,8 @@ export function useFinancingState(data: FinancingOverview) {
     target,
     lastPay,
     basisOf,
+    basisTotalOf,
+    stampsOf: (id: string) => stamps[id] ?? {},
     applications,
     submitDrawdown,
     advanceDrawdown,

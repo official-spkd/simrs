@@ -66,12 +66,19 @@ export const DEMO_POSITIONS: ReadonlyArray<readonly [role: string, unitCode: str
  * Akun presentasi (mode presentasi ADR-0023, permintaan pengguna 4 Okt 2026): satu akun per posisi dengan nama
  * fiktif, dipilih sekali klik di layar masuk saat `pnpm dev:demo`. Dibuat lewat `pnpm db:akun-presentasi` (hanya
  * APP_ENV=local); kredensialnya hanya di `.local/demo-accounts.json`. Nama tidak merujuk staf RS mana pun.
+ *
+ * `allAccess` (ADR-0023 keputusan 10, permintaan pemilik produk 6 Okt 2026): posisi "Superadmin demo" yang di mode
+ * presentasi melihat semua layar tanpa ganti posisi. Tanda ini hanya ditulis ke berkas kredensial lokal dan dibaca
+ * web di mode presentasi; di database akun ini akun biasa dengan satu penugasan peran bawaan yang hanya-baca
+ * (`manajemen`, tanpa akses data pasien), tanpa peran atau izin baru di API. Diletakkan paling akhir agar pencarian
+ * persona per peran (`find((p) => p.role === …)`) tetap menemukan persona posisi itu sendiri.
  */
 export const PRESENTATION_PERSONAS: ReadonlyArray<{
   slug: string;
   role: string;
   unitCode: string | null;
   displayName: string;
+  allAccess?: true;
 }> = [
   { slug: 'pendaftaran', role: 'petugas_pendaftaran', unitCode: null, displayName: 'Bambang Kurniawan' },
   { slug: 'perawat', role: 'perawat', unitCode: 'MELATI', displayName: 'Ns. Maya Sari, S.Kep' },
@@ -94,7 +101,17 @@ export const PRESENTATION_PERSONAS: ReadonlyArray<{
   { slug: 'mutu', role: 'auditor_mutu', unitCode: null, displayName: 'Ns. Lina Marlina, M.Kep' },
   { slug: 'privasi', role: 'petugas_privasi', unitCode: null, displayName: 'Teguh Prasetyo, S.H.' },
   { slug: 'admin', role: 'admin_tenant', unitCode: null, displayName: 'Admin SIM RS (presentasi)' },
+  {
+    slug: 'superadmin-demo',
+    role: 'manajemen',
+    unitCode: null,
+    displayName: 'Superadmin demo (presentasi)',
+    allAccess: true,
+  },
 ];
+
+/** Label posisi Superadmin demo di layar masuk dan berkas kredensial (`roleName`). */
+export const PRESENTATION_ALL_ACCESS_LABEL = 'Superadmin demo · semua layar';
 
 /** Awalan nama pengguna akun presentasi (web memakainya untuk berbagi keadaan simulasi antar-persona). */
 export const PRESENTATION_USERNAME_PREFIX = 'presentasi.';

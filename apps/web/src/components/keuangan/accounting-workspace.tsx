@@ -1,10 +1,16 @@
 'use client';
 
-import { type AccountingBoard, formatJam, formatTanggal, type JournalEntry } from '@simrs/shared';
+import {
+  type AccountingBoard,
+  formatJam,
+  formatRupiah,
+  formatTanggal,
+  type JournalEntry,
+} from '@simrs/shared';
 import { Button } from '@simrs/ui';
 import { type ReactNode, useId, useState, useTransition } from 'react';
 import { type AkuntansiActionInput, akuntansiAction } from '@/app/(staf)/keuangan/akuntansi/actions';
-import { periodCloseCheck, reconLabel } from '@/lib/keuangan-akuntansi';
+import { periodCloseCheck } from '@/lib/keuangan-akuntansi';
 import { AgingCard } from './aging-card';
 import { BankReconCard } from './bank-recon-card';
 import { JournalTable } from './journal-table';
@@ -17,9 +23,14 @@ import { PeriodClose } from './period-close';
 export function AccountingWorkspace({
   board,
   reconJournals,
+  heading,
+  banner,
   kpis,
 }: {
   board: AccountingBoard;
+  /** Judul halaman; periode, Ekspor, dan Tutup periode tampil sebaris di kanannya (mockup Akuntansi). */
+  heading: ReactNode;
+  banner?: ReactNode;
   /** Jurnal yang terposting saat mutasi rekening dipadankan (id rekening → id jurnal). */
   reconJournals: Record<string, string[]>;
   kpis: ReactNode;
@@ -28,6 +39,7 @@ export function AccountingWorkspace({
   const [mapped, setMapped] = useState<{ journalId: string; code: string; name: string; at: string } | null>(
     null,
   );
+  const [mapOpen, setMapOpen] = useState(false);
   const [matchedAt, setMatchedAt] = useState<Record<string, string>>({});
   const [closedAt, setClosedAt] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -63,57 +75,64 @@ export function AccountingWorkspace({
   const ready = periodCloseCheck(board, closeInput);
   const locked = !!closedAt;
   const prev = board.previousPeriod;
+  const unmappedAmount = mappingJournal?.lines.find((l) => !l.account);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white px-4 py-3">
-        <span className="text-[13px] text-ink-700">
-          {closedAt ? (
-            <>
-              Periode {board.period.label}:{' '}
-              <span className="font-semibold text-success">ditutup hari ini {closedAt}</span>
-            </>
-          ) : (
-            <>
-              Periode {prev.label}:{' '}
-              <span className="font-semibold text-success">
-                ditutup {prev.closedAt ? formatTanggal(prev.closedAt) : '—'}
-              </span>{' '}
-              · periode {board.period.label} terbuka
-            </>
-          )}
-        </span>
-        <span className="flex flex-wrap gap-2">
-          <Button disabled={pending} onClick={() => act({ type: 'ekspor' })}>
-            Ekspor laporan
-          </Button>
-          {!closedAt && (
-            <PeriodClose
-              periodLabel={board.period.label}
-              prereqs={[
-                {
-                  ok: !toMap,
-                  text: toMap
-                    ? `${toMap.number} belum dipetakan ke akun lawan`
-                    : `Semua jurnal terpetakan${mappingJournal ? ` (${mappingJournal.number} sudah dipetakan)` : ''}`,
-                },
-                {
-                  ok: unmatched.length === 0,
-                  text: unmatched.length
-                    ? `Rekonsiliasi ${unmatched.map(reconLabel).join(', ')} masih ada selisih`
-                    : 'Rekonsiliasi bank cocok di semua rekening',
-                },
-              ]}
-              ready={ready.ready}
-              reason={ready.reason}
-              pending={pending}
-              onConfirm={() =>
-                act({ type: 'tutup-periode', periodId: board.period.id, ...closeInput }, setClosedAt)
-              }
-            />
-          )}
-        </span>
-      </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-[13px] text-ink-700">
+            {closedAt ? (
+              <>
+                Periode {board.period.label}:{' '}
+                <span className="font-semibold text-success">ditutup hari ini {closedAt}</span>
+              </>
+            ) : (
+              <>
+                Periode {prev.label}:{' '}
+                <span className="font-semibold text-success">
+                  ditutup {prev.closedAt ? formatTanggal(prev.closedAt) : '—'}
+                </span>{' '}
+                · periode {board.period.label} terbuka
+              </>
+            )}
+          </span>
+          <span className="flex flex-wrap gap-2">
+            <Button disabled={pending} onClick={() => act({ type: 'ekspor' })}>
+              Ekspor laporan
+            </Button>
+            {!closedAt && (
+              <PeriodClose
+                periodLabel={board.period.label}
+                prereqs={[
+                  {
+                    ok: !toMap,
+                    text: toMap
+                      ? `${toMap.number} belum dipetakan ke akun lawan`
+                      : `Semua jurnal terpetakan${mappingJournal ? ` (${mappingJournal.number} sudah dipetakan)` : ''}`,
+                  },
+                  {
+                    ok: unmatched.length === 0,
+                    text: unmatched.length
+                      ? `Rekonsiliasi ${unmatched
+                          .map((b) => `${b.label} ${b.account} masih ${b.unmatched.length} selisih`)
+                          .join('; ')}`
+                      : 'Rekonsiliasi bank cocok di semua rekening',
+                  },
+                ]}
+                ready={ready.ready}
+                reason={ready.reason}
+                pending={pending}
+                onConfirm={() =>
+                  act({ type: 'tutup-periode', periodId: board.period.id, ...closeInput }, setClosedAt)
+                }
+              />
+            )}
+          </span>
+        </div>
+      </header>
+      {banner}
       {closedAt && (
         <div
           role="status"
@@ -154,33 +173,54 @@ export function AccountingWorkspace({
               <div className="flex flex-wrap items-center gap-2.5 border-t border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.08),#FFFAF2_60%)] px-4 py-3">
                 <span className="min-w-[240px] flex-1 text-[13px] text-ink-700">
                   <span className="font-bold text-warning">! </span>
-                  {mappingJournal.number}: {mappingJournal.description} belum punya akun lawan. Pemetaan akun
-                  diperlukan sebelum jurnal diposting.
+                  {mappingJournal.number}: {mappingJournal.description}
+                  {unmappedAmount
+                    ? ` ${formatRupiah(BigInt(unmappedAmount.debit) + BigInt(unmappedAmount.credit))}`
+                    : ''}{' '}
+                  belum punya akun lawan. Pemetaan akun diperlukan sebelum jurnal diposting.
                 </span>
-                <label htmlFor={`${id}-akun`} className="text-[12.5px] font-semibold text-warning-strong">
-                  Akun lawan (kredit)
-                </label>
-                <select
-                  id={`${id}-akun`}
-                  value=""
-                  disabled={locked || pending}
-                  onChange={(e) => {
-                    const opt = board.mappingOptions.find((o) => o.code === e.target.value);
-                    if (opt) {
-                      act({ type: 'petakan', journalId: mappingJournal.id, accountCode: opt.code }, (at) =>
-                        setMapped({ journalId: mappingJournal.id, ...opt, at }),
-                      );
-                    }
-                  }}
-                  className="h-11 max-w-[320px] rounded-control border border-brand-700 bg-white px-2 font-[inherit] text-[13px]"
-                >
-                  <option value="">Pilih akun…</option>
-                  {board.mappingOptions.map((o) => (
-                    <option key={o.code} value={o.code}>
-                      {o.code} · {o.name}
-                    </option>
-                  ))}
-                </select>
+                {!mapOpen ? (
+                  <Button
+                    aria-expanded={false}
+                    aria-controls={`${id}-peta`}
+                    disabled={locked}
+                    onClick={() => setMapOpen(true)}
+                    className="border-brand-700 font-semibold text-brand-700"
+                  >
+                    Petakan akun
+                  </Button>
+                ) : (
+                  <span id={`${id}-peta`} className="flex flex-wrap items-center gap-2">
+                    <label htmlFor={`${id}-akun`} className="text-[12.5px] font-semibold text-warning-strong">
+                      Akun lawan (kredit)
+                    </label>
+                    <select
+                      id={`${id}-akun`}
+                      value=""
+                      disabled={locked || pending}
+                      onChange={(e) => {
+                        const opt = board.mappingOptions.find((o) => o.code === e.target.value);
+                        if (opt) {
+                          act(
+                            { type: 'petakan', journalId: mappingJournal.id, accountCode: opt.code },
+                            (at) => setMapped({ journalId: mappingJournal.id, ...opt, at }),
+                          );
+                        }
+                      }}
+                      className="h-11 max-w-[320px] rounded-control border border-brand-700 bg-white px-2 font-[inherit] text-[13px]"
+                    >
+                      <option value="">Pilih akun…</option>
+                      {board.mappingOptions.map((o) => (
+                        <option key={o.code} value={o.code}>
+                          {o.code} · {o.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button aria-expanded onClick={() => setMapOpen(false)}>
+                      Batal
+                    </Button>
+                  </span>
+                )}
               </div>
             ))
           }

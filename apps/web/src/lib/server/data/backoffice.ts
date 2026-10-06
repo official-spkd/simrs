@@ -36,6 +36,7 @@ import {
 } from '../../demo/fixtures/dataset-riset';
 import { demoQueueBoard } from '../../demo/fixtures/front-office';
 import { PO_RECEIPT_LINES, PO_SUPPLIER } from '../../demo/fixtures/logistik-terima';
+import { OPEN_PO_ITEMS } from '../../demo/fixtures/manajemen';
 import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
 import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
@@ -232,7 +233,10 @@ export async function getOncology() {
 /** B01 · baris PO tahap "kirim" untuk penerimaan barang di layar Logistik. */
 export async function getGoodsReceiptLines() {
   demoOnly('penerimaan barang');
-  return { lines: PO_RECEIPT_LINES, suppliers: PO_SUPPLIER };
+  // Item yang sedang dikirim (PO tahap "kirim") ikut terkunci di daftar usulan, sama seperti PO yang menunggu.
+  const openPo: Record<string, string> = { ...OPEN_PO_ITEMS };
+  for (const [po, lines] of Object.entries(PO_RECEIPT_LINES)) for (const l of lines) openPo[l.itemId] = po;
+  return { lines: PO_RECEIPT_LINES, suppliers: PO_SUPPLIER, openPo };
 }
 
 /** B06 · indikator mutu yang dihitung dari data transaksi layar PPI, pengalaman pasien, dan rekam medis. */

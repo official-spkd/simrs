@@ -24,8 +24,11 @@ import {
   resolutionError,
   resolveRow,
   scenarioTag,
+  applyRefund,
   settleByResolution,
   settleEdc,
+  settleEdcTx,
+  webhookDelivered,
   webhookOutcome,
 } from './btn';
 import { HARIAN, KONFIGURASI, REFUND, REKONSILIASI, TRANSAKSI } from './demo/fixtures/btn';
@@ -271,5 +274,65 @@ describe('pelunasan simulasi dan angka hari layar', () => {
     expect(dayPaidExtra([paid], new Set(['t1']), '2026-10-05')).toBe(250_400n);
     expect(dayPaidExtra([paid], new Set(['t1']), '2026-10-12')).toBe(0n);
     expect(dayPaidExtra([paid], new Set(), '2026-10-05')).toBe(0n);
+  });
+});
+
+describe('tab Transaksi mencerminkan rekonsiliasi dan refund (mockup Pembayaran)', () => {
+  const at = '2026-10-05T10:50:00+07:00';
+  it('webhook yang timeout belum diterima: tidak dikreditkan', () => {
+    const hook = tx('t4').webhooks[0];
+    expect(hook && webhookDelivered(hook)).toBe(false);
+    expect(creditedAmount(tx('t4').webhooks)).toBe(0n);
+  });
+
+  it('x1 kirim ulang: langkah webhook menjadi diterima dan webhook terkredit sekali', () => {
+    const t4 = settleByResolution(tx('t4'), resolveRow(row('x1'), { ...res('ulang'), at }));
+    const step = t4.trail.find((s) => s.label === 'Webhook diterima · signature valid');
+    expect(step).toMatchObject({ state: 'selesai', note: 'dikirim ulang oleh TPDI atas permintaan', at });
+    expect(t4.trail.some((s) => s.state === 'peringatan')).toBe(false);
+    expect(creditedAmount(t4.webhooks)).toBe(640_000n);
+    const lunas = settleByResolution(tx('t4'), resolveRow(row('x1'), res('lunas')));
+    expect(lunas.trail.find((s) => s.label.startsWith('Webhook'))?.note).toMatch(/dilewati/);
+  });
+
+  it('x2: langkah mutasi BTN dijelaskan sesuai tindakan (MDR atau koreksi)', () => {
+    const mdr = settleByResolution(tx('t10'), resolveRow(row('x2'), res('mdr')));
+    expect(mdr.trail.find((s) => s.label.startsWith('Masuk mutasi BTN'))).toMatchObject({
+      state: 'selesai',
+      note: expect.stringMatching(/dicatat sebagai beban MDR$/),
+    });
+    const koreksi = resolveRow(row('x2'), res('koreksi'));
+    expect(koreksi.bank.note).toBe('+ 14.000 koreksi diajukan ke BTN');
+  });
+
+  it('x3 dipadankan: tagihan kedaluwarsa tujuan mendapat langkah transfer manual', () => {
+    const t5 = settleByResolution(tx('t5'), resolveRow(row('x3'), { ...res('padan'), at }));
+    expect(t5.trail.at(-1)).toMatchObject({ label: 'Dibayar lewat transfer manual', state: 'info', at });
+    expect(settleByResolution(tx('t5'), resolveRow(row('x3'), res('titip')))).toBe(tx('t5'));
+    expect(() => paymentTransactionSchema.parse(t5)).not.toThrow();
+  });
+
+  it('rekonsiliasi dijalankan: settlement EDC menuntaskan langkah bank transaksi EDC', () => {
+    expect(settleEdcTx(tx('t3'), null)).toBe(tx('t3'));
+    const t3 = settleEdcTx(tx('t3'), at);
+    expect(t3.trail.find((s) => s.label.startsWith('Masuk mutasi BTN'))).toMatchObject({
+      state: 'selesai',
+      at,
+    });
+  });
+
+  it('refund penuh selesai → transaksi asal dikembalikan; refund sebagian hanya menambah jejak', () => {
+    const rf13 = REFUND.find((r) => r.id === 'rf13');
+    const rf14 = REFUND.find((r) => r.id === 'rf14');
+    if (!rf13 || !rf14) throw new Error('fixture');
+    expect(applyRefund(tx('t7'), rf13, null)).toBe(tx('t7'));
+    const t7 = applyRefund(tx('t7'), rf13, at);
+    expect(t7.status).toBe('dikembalikan');
+    expect(t7.trail.filter((s) => s.label.startsWith('Refund RF-2610-0013'))).toEqual([
+      { label: 'Refund RF-2610-0013 selesai', at, note: 'dana kembali ke rekening pasien', state: 'info' },
+    ]);
+    const t2 = applyRefund(tx('t2'), rf14, at);
+    expect(t2.status).toBe(tx('t2').status);
+    expect(t2.trail.at(-1)?.label).toBe('Refund RF-2610-0014 selesai');
   });
 });

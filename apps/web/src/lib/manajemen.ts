@@ -71,6 +71,29 @@ export function formatLatency(ms: number | null): string {
   return ms >= 1000 ? `${num(ms / 1000)} dtk` : `${ms} ms`;
 }
 
+/** Layar tempat data penyebab galat permanen diperbaiki (sub-layar integrasi). */
+const FIX_SCREEN: Partial<Record<DlqMessage['target'], { label: string; href: string }>> = {
+  satusehat: { label: 'SATUSEHAT', href: '/sistem/integrasi/satusehat' },
+  'bpjs-antrean': { label: 'BPJS', href: '/sistem/integrasi/bpjs' },
+  'bpjs-vclaim': { label: 'BPJS', href: '/sistem/integrasi/bpjs' },
+};
+
+/**
+ * Galat permanen (HTTP 4xx atau penolakan bisnis) tidak boleh dikirim ulang tanpa perbaikan data: kirim ulang
+ * dengan isi yang sama pasti gagal lagi (sama dengan aturan sub-layar SATUSEHAT). Null = boleh dikirim ulang.
+ */
+export function dlqNeedsFix(m: Pick<DlqMessage, 'errorCode' | 'target'>): {
+  reason: string;
+  fix: { label: string; href: string } | null;
+} | null {
+  const permanent = /^HTTP 4\d\d\b/.test(m.errorCode) || /^metadata\b/i.test(m.errorCode);
+  if (!permanent) return null;
+  return {
+    reason: 'Galat permanen: perbaiki datanya dulu, kirim ulang tanpa perbaikan akan gagal lagi.',
+    fix: FIX_SCREEN[m.target] ?? null,
+  };
+}
+
 /** Penampil payload galat: baris transport, pengenal, dan galat (tanpa data pribadi). */
 export function dlqPayloadText(m: DlqMessage): string {
   return [

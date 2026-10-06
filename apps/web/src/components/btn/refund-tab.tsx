@@ -20,15 +20,23 @@ import { JurnalPasangan } from '@/components/keuangan/jurnal-pasangan';
 import { type RefundDraft, RefundForm } from './refund-form';
 
 const STEPS = ['Diajukan', 'Supervisor kasir', 'Manajer keuangan', 'Transfer BTN', 'Dana kembali'];
+/** Entri riwayat yang menandai selesainya tiap langkah (jam di bilah tahapan, mockup). */
+const STEP_LOG: readonly RegExp[] = [
+  /^Diajukan/,
+  /supervisor kasir/i,
+  /manajer keuangan/i,
+  /^Instruksi transfer/,
+  /^Dana diterima/,
+];
 const ACTION: Partial<Record<RefundStage, { label: string; note: string }>> = {
   draf: { label: 'Ajukan refund', note: 'Nominal, alasan, dan keterangan wajib diisi sebelum diajukan.' },
   'menunggu-supervisor': {
     label: 'Setujui sebagai supervisor kasir',
-    note: 'Penyetuju tingkat 1 (simulasi peran). Periksa alasan dan nominal terhadap transaksi asal.',
+    note: 'penyetuju tingkat 1. Periksa alasan dan nominal terhadap transaksi asal.',
   },
   'menunggu-manajer': {
     label: 'Setujui sebagai manajer keuangan',
-    note: 'Penyetuju tingkat 2 (simulasi peran). Setelah disetujui, instruksi transfer dikirim via TPDI ke BTN.',
+    note: 'Simulasi peran: manajer keuangan · penyetuju tingkat 2. Setelah disetujui, instruksi transfer dikirim via TPDI ke BTN.',
   },
   'diproses-btn': {
     label: 'Simulasikan dana diterima pasien',
@@ -47,7 +55,10 @@ export function RefundTab({
   record,
   now,
   onStage,
+  userName,
 }: {
+  /** Nama pemakai layar (penyetuju tingkat 1 yang tercatat di riwayat). */
+  userName: string;
   refunds: readonly Refund[];
   stages: Readonly<Record<string, RefundStage>>;
   account: string;
@@ -74,6 +85,7 @@ export function RefundTab({
   const errors = refundDraftErrors(f, amount, draft.reason, draft.note);
   const log = [...f.log, ...(logs[f.id] ?? [])];
   const act = ACTION[stage];
+  const stepAt = STEPS.map((_, i) => log.find((g) => STEP_LOG[i]?.test(g.text))?.at ?? null);
   const reasonLabel = f.reason
     ? REFUND_REASON_LABEL[f.reason]
     : draft.reason
@@ -85,6 +97,7 @@ export function RefundTab({
     if (!next) return;
     let input: PaymentEventInput;
     let text: string;
+    let extra: string | null = null;
     let submission: RefundSubmission | null = null;
     if (isDraft) {
       setTried(true);
@@ -100,17 +113,24 @@ export function RefundTab({
       input = { kind: 'refund-setujui', refundId: f.id, stage };
       text =
         stage === 'menunggu-supervisor'
-          ? 'Disetujui supervisor kasir (tingkat 1)'
+          ? `Disetujui supervisor kasir (tingkat 1) · ${userName}`
           : stage === 'menunggu-manajer'
-            ? `Disetujui manajer keuangan (tingkat 2) · instruksi transfer via TPDI → BTN, debit ${account}`
+            ? 'Disetujui manajer keuangan (tingkat 2) · simulasi peran'
             : 'Dana diterima rekening pasien · webhook refund.completed dari TPDI';
+      if (stage === 'menunggu-manajer') {
+        extra = `Instruksi transfer dikirim via TPDI → BTN, debit ${account}`;
+      }
     }
     if (!(await record(input, `${f.number}: ${text}`))) return;
     if (submission) {
       const sub = submission;
       setSubmitted((cur) => ({ ...cur, [f.id]: sub }));
     }
-    setLogs((cur) => ({ ...cur, [f.id]: [...(cur[f.id] ?? []), { at: now(), text }] }));
+    const at = now();
+    setLogs((cur) => ({
+      ...cur,
+      [f.id]: [...(cur[f.id] ?? []), { at, text }, ...(extra ? [{ at, text: extra }] : [])],
+    }));
     onStage(f.id, next);
   };
 
@@ -173,7 +193,11 @@ export function RefundTab({
             const done = stage === 'dana-kembali' || i < idx;
             const cur = !done && i === idx;
             return (
-              <li key={l} className="flex flex-col gap-1 text-caption">
+              <li
+                key={l}
+                aria-current={cur ? 'step' : undefined}
+                className="flex flex-col gap-1 text-caption"
+              >
                 <span
                   aria-hidden="true"
                   className={cx(
@@ -192,6 +216,9 @@ export function RefundTab({
                 >
                   {done ? '✓ ' : cur ? '→ ' : ''}
                   {l}
+                </span>
+                <span className="font-mono text-ink-500">
+                  {done ? (stepAt[i] ? formatWhen(stepAt[i] ?? '') : '') : cur ? 'berikutnya' : ''}
                 </span>
               </li>
             );
@@ -220,7 +247,9 @@ export function RefundTab({
             <Button variant="primary" disabled={busy} onClick={advance}>
               {act.label}
             </Button>
-            <span className="min-w-0 flex-1 text-caption text-ink-700">{act.note}</span>
+            <span className="min-w-0 flex-1 text-caption text-ink-700">
+              {stage === 'menunggu-supervisor' ? `Anda: ${userName} · ${act.note}` : act.note}
+            </span>
           </span>
         )}
         {stage === 'dana-kembali' && (

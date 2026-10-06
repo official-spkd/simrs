@@ -32,7 +32,11 @@ test.describe('kasir', () => {
     const total = await bill.locator('[data-total-amount]').getAttribute('data-total-amount');
     expect(sum).toBe(total);
     await expect(bill.locator('[data-total-amount]')).toHaveText('Rp 17.217.500');
-    await expect(page.getByRole('region', { name: 'Pembagian penjamin' })).toContainText('Rp 1.250.400');
+    const split = page.getByRole('region', { name: 'Pembagian penjamin' });
+    await expect(split).toContainText('Rp 1.250.400');
+    // Mockup Kasir: tarif INA-CBG kelas tujuan tampil; selisih = kelas 1 − kelas 2.
+    await expect(split.getByText('Tarif INA-CBG J-4-15-II (kelas 1)')).toBeVisible();
+    await expect(split).toContainText('Rp 7.863.200');
 
     const pay = page.getByRole('region', { name: 'Pembayaran' });
     const finish = pay.getByRole('button', { name: 'Selesaikan dan cetak kuitansi' });
@@ -43,6 +47,22 @@ test.describe('kasir', () => {
     await finish.click();
     await expect(pay.getByText(/kuitansi KW-2610-02217 · \d{2}\.\d{2}/)).toBeVisible();
     await expect(page.getByText(/\(simulasi, tidak disimpan\)/)).toBeVisible();
+    await expect(
+      pay.getByText(/jurnal bank terbentuk otomatis\. Klaim BPJS hak kelas 2 diteruskan ke casemix/),
+    ).toBeVisible();
+    const after = pay.getByRole('navigation', { name: 'Langkah setelah lunas' });
+    await expect(after.getByRole('link', { name: 'Lanjut ke klaim BPJS' })).toHaveAttribute(
+      'href',
+      '/keuangan/klaim',
+    );
+    await expect(after.getByRole('link', { name: 'Lihat jurnal' })).toHaveAttribute(
+      'href',
+      '/keuangan/akuntansi',
+    );
+    await expect(after.getByRole('link', { name: 'Pembayaran digital' })).toHaveAttribute(
+      'href',
+      '/keuangan/pembayaran',
+    );
     await noHorizontalOverflow(page);
   });
 
@@ -118,6 +138,47 @@ test.describe('klaim', () => {
   });
 });
 
+test.describe('klaim · keadaan kerja koder (mockup Klaim)', () => {
+  test('query, saran, dan kirim bertahan saat pindah klaim; chip daftar dan status berkas ikut berubah', async ({
+    page,
+  }) => {
+    const koder = await createAccount({ roles: ['koder'] });
+    await loginAs(page, koder, '/keuangan/klaim');
+    await page.goto(`/keuangan/klaim?status=draft&pilih=${CLAIM_ID.endang}`);
+    const list = page.getByRole('region', { name: 'Daftar klaim' });
+    const rows = list.getByRole('listitem');
+    const endang = rows.filter({ hasText: 'Ny. Endang Wijaya' });
+    const status = page.locator('[data-claim-status]');
+
+    await page.getByRole('button', { name: 'Kirim query ke DPJP' }).first().click();
+    await expect(status).toHaveText('Menunggu jawaban DPJP');
+    await expect(endang.getByText('Menunggu DPJP')).toBeVisible();
+
+    // Pindah ke berkas lain lalu kembali: query tetap tercatat.
+    await rows.filter({ hasNotText: 'Ny. Endang Wijaya' }).first().getByRole('link').click();
+    await expect(page).not.toHaveURL(new RegExp(CLAIM_ID.endang));
+    await endang.getByRole('link').click();
+    await expect(page).toHaveURL(new RegExp(CLAIM_ID.endang));
+    await expect(status).toHaveText('Menunggu jawaban DPJP');
+
+    const send = page.getByRole('button', { name: 'Final dan kirim E-Klaim' });
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveAttribute('aria-describedby', /.+/);
+    await page.getByRole('button', { name: 'DPJP setuju · terapkan J13' }).click();
+    await expect(status).toHaveText('Siap grouping · J13');
+    await expect(endang.getByText('Saran diterima')).toBeVisible();
+    await page.getByLabel(/Bukti klinis N17\.9 di CPPT/).check();
+    await expect(status).toHaveText('Siap final · J-4-15-III');
+    await send.click();
+    await expect(status).toHaveText('Terkirim ke E-Klaim');
+    await expect(endang.getByText('Terkirim', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Lihat jurnal piutang di Akuntansi' })).toHaveAttribute(
+      'href',
+      '/keuangan/akuntansi',
+    );
+  });
+});
+
 test.describe('akuntansi', () => {
   test('jurnal seimbang, dialog tutup periode menahan sampai syarat terpenuhi', async ({ page }) => {
     const akuntan = await createAccount({ roles: ['akuntan'] });
@@ -146,21 +207,35 @@ test.describe('akuntansi', () => {
     await page.getByRole('button', { name: 'Tutup periode Oktober' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Tutup periode Oktober 2026?' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Tutup periode', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeDisabled();
     await expect(dialog.getByText(/Belum bisa ditutup: petakan akun JU-26100417/)).toBeVisible();
+    await expect(dialog.getByText(/BTN penampungan klaim BPJS ••••9021 masih 2 selisih/)).toBeVisible();
     await dialog.getByRole('button', { name: 'Batal' }).click();
     await expect(dialog).toBeHidden();
 
+    // Pemetaan dua langkah (mockup): Petakan akun → pilih akun, atau Batal.
+    await expect(page.getByLabel('Akun lawan (kredit)')).toHaveCount(0);
+    const mapBtn = page.getByRole('button', { name: 'Petakan akun' });
+    await expect(mapBtn).toHaveAttribute('aria-expanded', 'false');
+    await mapBtn.click();
+    await page.getByRole('button', { name: 'Batal' }).click();
+    await expect(page.getByLabel('Akun lawan (kredit)')).toHaveCount(0);
+    await mapBtn.click();
     await page.getByLabel('Akun lawan (kredit)').selectOption('1-1390');
     await expect(page.getByText(/siap diposting setelah disetujui penyetuju kedua/)).toBeVisible();
-    await page.getByRole('button', { name: 'Padankan 2 mutasi' }).click();
+    const recon = page.getByRole('region', { name: 'Rekonsiliasi bank' });
+    await expect(recon.getByRole('link', { name: 'Rekonsiliasi 3 arah TPDI × BTN' })).toHaveAttribute(
+      'href',
+      '/keuangan/pembayaran',
+    );
+    await page.getByRole('button', { name: 'Padankan 2 transfer ke batch klaim' }).click();
     await expect(page.getByRole('region', { name: 'Rekonsiliasi bank' }).getByText('2 selisih')).toHaveCount(
       0,
     );
 
     await page.getByRole('button', { name: 'Tutup periode Oktober' }).click();
-    await expect(dialog.getByRole('button', { name: 'Tutup periode', exact: true })).toBeEnabled();
-    await dialog.getByRole('button', { name: 'Tutup periode', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' }).click();
     await expect(page.getByText(/Periode Oktober 2026 ditutup \d{2}\.\d{2}\./)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Tutup periode Oktober' })).toHaveCount(0);
     await noHorizontalOverflow(page);

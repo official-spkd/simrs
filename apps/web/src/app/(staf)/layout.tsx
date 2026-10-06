@@ -1,5 +1,6 @@
 import { AppShell } from '@simrs/ui';
 import type { ReactNode } from 'react';
+import { ActingRolePicker } from '@/components/acting-role-picker';
 import { DemoBadge } from '@/components/demo-badge';
 import { DemoGuide } from '@/components/demo-guide';
 import { DemoSync } from '@/components/demo-sync';
@@ -37,6 +38,8 @@ export default async function StaffLayout({ children }: { children: ReactNode })
   ]);
   // PIN masuk cepat: posisi yang boleh mendaftarkannya, atau sesi yang dibuka dengan PIN (untuk menghapusnya).
   const pin = canRegisterPin(s) || Boolean(s.quickLogin);
+  // Superadmin demo (ADR-0023 keputusan 10): hanya ada bila server memverifikasinya di mode presentasi.
+  const allAccess = dataSource === 'demo' ? s.demoAllAccess : undefined;
   return (
     <AppShell
       tenantName={s.tenant.name}
@@ -45,6 +48,9 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       header={
         <>
           {dataSource === 'demo' && <DemoBadge />}
+          {allAccess && (
+            <ActingRolePicker preferred={allAccess.preferredRole} base={allAccess.baseRole?.code ?? null} />
+          )}
           <NotificationBell unread={unread} />
           {demo && (
             <DemoGuide
@@ -52,6 +58,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
               guide={guideView(
                 runScenario(SCENARIOS[demo.active], demo.runs[demo.active]),
                 s.role?.code ?? null,
+                Boolean(allAccess),
               )}
             />
           )}
@@ -61,13 +68,18 @@ export default async function StaffLayout({ children }: { children: ReactNode })
         <StaffSidebar
           tenantName={s.tenant.name}
           unitName={s.unit?.name ?? 'Semua unit'}
-          user={{ name: s.user.displayName, role: s.role?.name ?? '—', initials: s.user.initials }}
+          user={{
+            name: s.user.displayName,
+            role: allAccess ? 'Superadmin demo · semua layar' : (s.role?.name ?? '—'),
+            initials: s.user.initials,
+          }}
           groups={navGroups({
             kind: s.tenant.kind,
             superadmin: isSuperadmin(s),
             permissions: s.permissions,
             dataSource,
             role: s.role?.code ?? null,
+            allAccess: Boolean(allAccess),
           })}
           userActions={
             positions > 1 || pin ? (

@@ -2,6 +2,7 @@
 
 import { dlqResendInputSchema, formatJam } from '@simrs/shared';
 import { DEAD_LETTERS, INTERFACE_NAME } from '@/lib/demo/fixtures/manajemen';
+import { dlqNeedsFix } from '@/lib/manajemen';
 import { DENIED_MESSAGE, manajemenSession } from '@/lib/manajemen-aksi';
 
 /**
@@ -26,10 +27,17 @@ export async function resendDeadLettersAction(input: unknown): Promise<ResendRes
   if (picked.some((d) => d === undefined)) {
     return { ok: false, message: 'Sebagian pesan sudah tidak ada di antrean. Muat ulang halaman.', ids: [] };
   }
+  if (picked.some((d) => d && dlqNeedsFix(d))) {
+    return {
+      ok: false,
+      message: 'Pesan bergalat permanen tidak dikirim ulang sebelum datanya diperbaiki.',
+      ids: [],
+    };
+  }
   const targets = [...new Set(picked.flatMap((d) => (d ? [INTERFACE_NAME[d.target]] : [])))].join(', ');
   return {
     ok: true,
     ids,
-    message: `${ids.length} pesan dikirim ulang ke ${targets} pukul ${formatJam(new Date())} · diterima tujuan, dikeluarkan dari antrean, dan tercatat di log audit (simulasi, tidak disimpan).`,
+    message: `${ids.length} pesan dikirim ulang ke ${targets} pukul ${formatJam(new Date())} lewat outbox dengan kunci idempotensi yang sama · diterima tujuan, dikeluarkan dari antrean, dan tercatat di log audit (simulasi, tidak disimpan).`,
   };
 }

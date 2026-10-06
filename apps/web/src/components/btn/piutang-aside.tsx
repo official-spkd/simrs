@@ -1,8 +1,8 @@
 'use client';
 
 import { type FinancingOverview, formatRupiah } from '@simrs/shared';
-import { Button, cx } from '@simrs/ui';
-import { useId } from 'react';
+import { cx } from '@simrs/ui';
+import { GatedButton } from '@/components/gated-button';
 import type { FinancingState } from '@/app/(staf)/keuangan/pembiayaan/use-financing-state';
 import { formatWhen } from '@/lib/btn';
 import { formatRingkas } from '@/lib/btn-pembiayaan';
@@ -24,13 +24,12 @@ function Box({ title, sub, value, active }: { title: string; sub: string; value:
 
 /** Alur dana pelunasan: BPJS → penampungan → auto-debit pokok + margin ke BTN, sisa ke operasional RS. */
 export function PiutangAside({ data, s }: { data: FinancingOverview; s: FinancingState }) {
-  const id = useId();
   const f = data.facility;
   const p = s.lastPay;
   const t = s.target;
   return (
     <aside
-      aria-label="Alur dana pelunasan"
+      aria-label="Pelunasan dan parameter fasilitas"
       className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
     >
       <span className="flex justify-between gap-2">
@@ -77,20 +76,17 @@ export function PiutangAside({ data, s }: { data: FinancingOverview; s: Financin
         <span className="font-semibold">Simulasi pembayaran BPJS</span>
         <span className="text-small text-ink-700">
           {t
-            ? `Pembayaran berikutnya: klaim ${s.basisOf(t)} untuk ${t.id}. Dana masuk ${f.claimAccount}, pokok + margin didebit otomatis, sisanya diteruskan ke ${f.operationalAccount}.`
+            ? `Pembayaran berikutnya: klaim ${s.basisOf(t)} (${formatRingkas(s.basisTotalOf(t))}) untuk ${t.id}. Dana masuk ${f.claimAccount}, pokok + margin didebit otomatis, sisanya diteruskan ke ${f.operationalAccount}.`
             : 'Tidak ada pencairan berjalan untuk dilunasi.'}
         </span>
-        <Button
+        <GatedButton
           variant="primary"
-          disabled={!t || s.pending}
-          aria-describedby={`${id}-bayar`}
+          enabled={!!t && !s.pending}
+          reason={t ? null : 'Belum ada pencairan berstatus berjalan.'}
           onClick={s.payBpjs}
         >
           BPJS membayar klaim
-        </Button>
-        <span id={`${id}-bayar`} className="text-caption text-ink-500">
-          {t ? '' : 'Belum ada pencairan berstatus berjalan.'}
-        </span>
+        </GatedButton>
         {p && (
           <div
             role="status"

@@ -28,7 +28,10 @@ describe('hutang usaha', () => {
   it('PO sama dengan layar Logistik (nilai PO cairan infus dan reagen)', () => {
     for (const id of ['fp-01', 'fp-02']) {
       const f = fk(id);
-      expect(PURCHASE_ORDERS.find((p) => p.id === f.poNumber)?.total).toBe(f.poAmount.toString());
+      const po = PURCHASE_ORDERS.find((p) => p.id === f.poNumber);
+      expect(po?.total).toBe(f.poAmount.toString());
+      // Judul PO sama di kedua layar (faktur boleh menambah keterangan tiba).
+      expect(f.title.startsWith(po?.title ?? '?')).toBe(true);
     }
   });
 

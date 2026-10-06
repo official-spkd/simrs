@@ -41,8 +41,21 @@ test.describe('domain manajemen', () => {
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: 'Ya, kirim ulang' }).click();
     await expect(dlq.getByRole('status')).toContainText('(simulasi, tidak disimpan)');
+    // Fokus kembali ke tombol pemicu setelah konfirmasi tertutup.
+    await expect(resend).toBeFocused();
     await expect(dlq.getByText('Tujuan: PACS radiologi · 1 pesan')).toBeVisible();
     await expect(dlq.getByLabel('Payload galat')).toContainText('RAD-2610-117');
+
+    // Galat permanen (4xx / penolakan bisnis) tidak bisa dikirim ulang tanpa perbaikan data; ada tautan perbaikan.
+    await cards.getByRole('button', { name: /SATUSEHAT/ }).click();
+    await expect(dlq.getByText(/Tujuan: SATUSEHAT/)).toBeVisible();
+    await expect(dlq.getByRole('checkbox', { name: /Encounter/ })).toBeDisabled();
+    await expect(dlq.getByText(/Galat permanen: perbaiki datanya dulu/).first()).toBeVisible();
+    await expect(dlq.getByRole('link', { name: /Perbaiki di SATUSEHAT/ }).first()).toHaveAttribute(
+      'href',
+      '/sistem/integrasi/satusehat',
+    );
+    await expect(page.getByRole('link', { name: 'Log audit' })).toHaveAttribute('href', '/sistem/audit');
 
     await page.getByRole('button', { name: 'Uji mode downtime' }).click();
     await expect(page.getByText(/Mode downtime aktif sejak/)).toBeVisible();
@@ -54,7 +67,7 @@ test.describe('domain manajemen', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('logistik: Buat usulan PO nonaktif sampai item dipilih, draf PO, ajukan (simulasi)', async ({
+  test('logistik: item tercentang seperti mockup, PO terbuka terkunci, usulan wajib berisi item, ajukan (simulasi)', async ({
     page,
   }) => {
     const direksi = await createAccount({ roles: ['manajemen'] });
@@ -67,18 +80,28 @@ test.describe('domain manajemen', () => {
       page.getByRole('region', { name: 'Indikator logistik' }).getByText('Rp 4,82 M'),
     ).toBeVisible();
 
+    // Mockup: semua item yang bisa diusulkan sudah tercentang; item di PO terbuka terkunci (tidak dipesan ganda).
     const make = page.getByRole('button', { name: /^Buat usulan PO/ });
-    await expect(make).toBeDisabled();
-    await expect(page.getByText('Centang item dulu untuk membuat usulan.')).toBeVisible();
-
     const table = page.getByRole('region', { name: 'Item di bawah titik pesan ulang' });
     await expect(table.getByText('Kritis · 4 hari').filter({ visible: true }).first()).toBeVisible();
-    await table.getByRole('checkbox', { name: 'Masukkan Enoksaparin 60 mg/0,6 mL ke usulan PO' }).check();
+    await expect(table.getByText('Masuk PO-2610-031').filter({ visible: true }).first()).toBeVisible();
+    await expect(
+      table.getByRole('checkbox', { name: 'Masukkan Enoksaparin 60 mg/0,6 mL ke usulan PO' }),
+    ).toBeDisabled();
+    await expect(table.getByText('Masuk PO-2610-024').filter({ visible: true }).first()).toBeVisible();
+    await expect(make).toHaveText('Buat usulan PO (7)');
+    await expect(make).toBeEnabled();
+
+    const all = table.getByRole('checkbox', { name: 'Pilih semua item yang tampil untuk usulan PO' });
+    await all.uncheck();
+    await expect(make).toBeDisabled();
+    await expect(page.getByText('Centang item dulu untuk membuat usulan.')).toBeVisible();
+    await table.getByRole('checkbox', { name: 'Masukkan Seftriakson 1 g inj ke usulan PO' }).check();
     await expect(make).toBeEnabled();
     await make.click();
 
     const draft = page.getByRole('region', { name: 'Draf usulan PO-2610-032' });
-    await expect(draft).toContainText('Rp 41.400.000');
+    await expect(draft).toContainText('Rp 14.700.000');
     await draft.getByRole('button', { name: 'Ajukan ke direktur' }).click();
     await expect(
       page.getByText(/Usulan PO-2610-032 diajukan ke direktur .*\(simulasi, tidak disimpan\)/),
