@@ -27,7 +27,7 @@ Desain (rinci di ADR-0085 dan `docs/panduan/19-peta-kode.md` bagian "Toko keadaa
 - `pnpm --filter @simrs/web lint` · lolos.
 - `pnpm --filter @simrs/web typecheck` · lolos.
 - `pnpm --filter @simrs/web test` · lolos (122 berkas, 866 tes). Tes baru: `lib/demo/store/{define,log,registry}.test.ts`, `lib/server/demo/{state-store,state-actions}.test.ts` (atomik, rev basi, paralel diserialkan, batas ukuran/penuh, mulai ulang, berkas rusak, kunci berkas aman, mode api menolak, pelaku "Bertindak sebagai", hak mulai ulang, ruang presentasi vs akun lain, isolasi RS, aksi generik menolak domain non-generik).
-- E2E slot CD-1, proyek `demo-desktop` + `demo-tablet`: `e2e/demo/toko-demo.spec.ts` (baru: aksi → muat ulang → layar kedua → ganti posisi → mulai ulang → kembali awal; mode api 404 + toko tak tersentuh), `penunjang.spec.ts`, `fe3-penunjang-integrasi.spec.ts` · 48 lolos. Hasil gerbang akhir (+ `semua-layar.spec.ts`) di bawah.
+- E2E slot CD-1, proyek `demo-desktop` + `demo-tablet`: `e2e/demo/toko-demo.spec.ts` (baru: aksi → muat ulang → layar kedua → ganti posisi → mulai ulang → kembali awal; mode api 404 + toko tak tersentuh), `penunjang.spec.ts`, `fe3-penunjang-integrasi.spec.ts` · 48 lolos. Gerbang akhir setelah `git merge master` (sudah terbaru): `toko-demo` + `penunjang` + `fe3-penunjang-integrasi` + `semua-layar` di `demo-desktop` + `demo-tablet` · **84 lolos, 0 gagal** (termasuk 4 tes tangkap layar sementara untuk QA visual menu data demo dan banner Lab, tidak di-commit).
 
 ## Kendala dan langkah berikutnya
 
