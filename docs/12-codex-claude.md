@@ -4,6 +4,8 @@ Tujuan: dua alat bisa mengerjakan tugas berbeda secara simultan, dan salah satun
 
 ## Aturan dan status bersama
 
+- `docs/13-pembagian-tugas-cd-cx.md`: papan tugas aktif (CD = Claude Code, CX = Codex), batas berkas, sumber daya, dan integrator tunggal.
+
 - `CLAUDE.md`: aturan proyek yang juga dibaca Codex melalui `AGENTS.md`.
 - `docs/PROGRESS.md`: status fase dan bukti selesai; baca status ini sebelum memilih pekerjaan.
 - `docs/handoff/<id-tugas>.md`: checkpoint tugas di worktree tugas. Salin `docs/handoff/TEMPLATE.md`; perbarui setelah tiap potongan dan sebelum berhenti.
