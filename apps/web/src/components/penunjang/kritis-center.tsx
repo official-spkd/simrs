@@ -27,6 +27,7 @@ import {
 } from '@/lib/penunjang-kritis';
 import type { CriticalCenter } from '@/lib/server/data/penunjang-lanjut';
 import { CriticalReportCenterForm } from './kritis-report-form';
+import { CRIT_DOT } from './pelangi';
 import { useElapsed } from './use-elapsed';
 
 type Filter = 'semua' | 'terbuka' | 'dilaporkan';
@@ -98,6 +99,7 @@ export function CriticalCenterView({
           label="Belum dilaporkan"
           value={String(today.open)}
           tone={today.overdue ? 'danger' : today.open ? 'warning' : 'success'}
+          tinted
           hint={
             today.overdue
               ? `${today.overdue} lewat batas 30 menit`
@@ -110,12 +112,14 @@ export function CriticalCenterView({
           label="Dilaporkan ≤ 30 menit (hari ini)"
           value={formatPercentId(today.percent)}
           tone={today.percent !== null && today.percent < 100 ? 'warning' : 'success'}
+          tinted
           hint={`${today.withinLimit} dari ${today.reported} laporan`}
         />
         <KpiCard
           label="Median · p90 durasi lapor"
           value={`${today.medianMinutes ?? '—'} · ${today.p90Minutes ?? '—'} mnt`}
           detail="hari ini, dari hasil terbit sampai read-back"
+          tinted
         />
         <KpiCard
           label="Kepatuhan 7 hari"
@@ -123,16 +127,17 @@ export function CriticalCenterView({
           tone={week.percent !== null && week.percent < 95 ? 'warning' : 'success'}
           hint={`${week.withinLimit}/${week.total} ≤ 30 mnt · median ${week.medianMinutes} · p90 ${week.p90Minutes} mnt`}
           detail="sasaran ≥ 95% (indikator mutu)"
+          tinted
         />
       </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
         <section
           aria-label="Daftar hasil kritis"
-          className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="m-0 text-h2 font-semibold">Hasil kritis hari ini</h2>
+            <h2 className="m-0 text-[15px] font-semibold">Hasil kritis hari ini</h2>
             <span className="text-caption text-ink-500">semua unit · batas lapor 30 menit</span>
           </div>
           <div role="group" aria-label="Saring status" className="flex flex-wrap gap-2">
@@ -149,7 +154,7 @@ export function CriticalCenterView({
             ))}
           </div>
           {shown.length === 0 ? (
-            <p className="m-0 rounded-control bg-canvas p-4 text-small text-ink-700">
+            <p className="m-0 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-4 text-small text-ink-700">
               {filter === 'terbuka'
                 ? 'Tidak ada hasil kritis yang menunggu dilaporkan. Semua sudah dibacakan ulang penerimanya.'
                 : 'Belum ada hasil kritis pada saringan ini.'}
@@ -167,18 +172,25 @@ export function CriticalCenterView({
                       aria-pressed={i.id === sel?.id}
                       onClick={() => select(i.id)}
                       className={cx(
-                        'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
-                        i.id === sel?.id ? 'border-brand-600 bg-selected' : 'border-line bg-white',
-                        st === 'lewat-batas' && i.id !== sel?.id && 'border-danger-border',
+                        'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit] transition-colors',
+                        i.id === sel?.id
+                          ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                          : 'border-line bg-white hover:bg-brand-50/60',
+                        st === 'lewat-batas' && i.id !== sel?.id && 'border-koral-200',
                       )}
                     >
                       <span className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold">{i.patient.name}</span>
-                        <Chip tone={STATE_VIEW[st].tone}>{STATE_VIEW[st].label}</Chip>
+                        <Chip
+                          tone={STATE_VIEW[st].tone}
+                          icon={i.report ? undefined : <span aria-hidden="true" className={CRIT_DOT} />}
+                        >
+                          {STATE_VIEW[st].label}
+                        </Chip>
                       </span>
                       <span className="text-small text-ink-700">
                         {SOURCE_LABEL[i.source]} · {i.test.split(' · ')[0]}{' '}
-                        <span className="font-mono font-semibold text-danger">{i.valueText}</span>
+                        <span className="font-mono font-semibold text-koral-800">{i.valueText}</span>
                       </span>
                       <span className="flex flex-wrap gap-x-3 text-caption text-ink-500">
                         <span>{i.location}</span>
@@ -191,7 +203,7 @@ export function CriticalCenterView({
                           <span
                             className={cx(
                               'font-mono font-semibold',
-                              st === 'lewat-batas' ? 'text-danger' : 'text-warning',
+                              st === 'lewat-batas' ? 'text-koral-800' : 'text-kunyit-800',
                             )}
                           >
                             {formatMmSs(e)} berjalan
@@ -220,7 +232,7 @@ export function CriticalCenterView({
 
         <section
           aria-label="Detail hasil kritis"
-          className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           {sel ? (
             <CriticalDetail
@@ -291,10 +303,15 @@ function CriticalDetail({
     <>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex flex-col">
-          <h2 className="m-0 text-h2 font-semibold">{item.test.split(' · ')[0]}</h2>
+          <h2 className="m-0 text-[15px] font-semibold">{item.test.split(' · ')[0]}</h2>
           <span className="text-small text-ink-700">{item.test}</span>
         </span>
-        <Chip tone={STATE_VIEW[st].tone}>{STATE_VIEW[st].label}</Chip>
+        <Chip
+          tone={STATE_VIEW[st].tone}
+          icon={item.report ? undefined : <span aria-hidden="true" className={CRIT_DOT} />}
+        >
+          {STATE_VIEW[st].label}
+        </Chip>
       </div>
       <PatientBanner
         name={item.patient.name}
@@ -308,7 +325,9 @@ function CriticalDetail({
       />
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-small">
         <dt className="text-ink-500">Nilai / temuan</dt>
-        <dd className="m-0 font-mono font-semibold text-danger">{item.valueText}</dd>
+        <dd className="m-0 w-fit rounded-[8px] bg-alert-critical px-2 font-mono font-semibold text-koral-800">
+          {item.valueText}
+        </dd>
         <dt className="text-ink-500">Batas kritis</dt>
         <dd className="m-0">{item.limitText}</dd>
         <dt className="text-ink-500">Lokasi pasien</dt>
@@ -324,7 +343,10 @@ function CriticalDetail({
             <span
               role="timer"
               aria-live="off"
-              className={cx('font-mono font-semibold', st === 'lewat-batas' ? 'text-danger' : 'text-warning')}
+              className={cx(
+                'font-mono font-semibold',
+                st === 'lewat-batas' ? 'text-koral-800' : 'text-kunyit-800',
+              )}
             >
               {formatMmSs(elapsed)}
             </span>
@@ -334,7 +356,7 @@ function CriticalDetail({
 
       <ol
         aria-label="Jenjang eskalasi"
-        className="m-0 flex list-none flex-col gap-1.5 border-l-2 border-line p-0 pl-3"
+        className="m-0 flex list-none flex-col gap-1.5 border-l-2 border-brand-200 p-0 pl-3"
       >
         {steps.map((s) => (
           <li key={s.label} className="text-small">
@@ -346,7 +368,7 @@ function CriticalDetail({
           </li>
         ))}
         {item.report && (
-          <li className="text-small font-semibold text-success">
+          <li className="text-small font-semibold text-zamrud-700">
             ● {formatJam(item.report.reportedAt)} · Dilaporkan ke {item.report.recipient} (
             {item.report.recipientRole}) · {CHANNEL_LABEL[item.report.channel]} · read-back terkonfirmasi ·
             oleh {item.report.reportedBy}

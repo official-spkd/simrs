@@ -28,7 +28,7 @@ export default async function HasilKritisPage({ searchParams }: { searchParams: 
         <span className="text-caption text-ink-500">
           Penunjang / Hasil kritis · S09 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Pusat hasil kritis</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Pusat hasil kritis</h1>
       </header>
       <ScenarioBanner session={session} screen="kritis" />
       <CriticalCenterView data={data} initialSelected={pilih} rev={rev} />

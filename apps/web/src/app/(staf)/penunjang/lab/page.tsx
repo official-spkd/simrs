@@ -32,7 +32,7 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
           <span className="text-caption text-ink-500">
             Penunjang / Laboratorium / Worklist · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Laboratorium · validasi hasil</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Laboratorium · validasi hasil</h1>
         </div>
         <ul aria-label="Koneksi analyzer" className="m-0 flex list-none flex-wrap gap-2 p-0">
           {data.analyzers.map((a) => (
@@ -40,8 +40,8 @@ export default async function LabPage({ searchParams }: { searchParams: SearchPa
               key={a.name}
               className={
                 a.online
-                  ? 'rounded-full bg-success-bg px-2.5 py-1.5 text-small font-medium text-success'
-                  : 'rounded-full bg-danger-bg px-2.5 py-1.5 text-small font-medium text-danger'
+                  ? 'rounded-full bg-zamrud-100 px-2.5 py-1.5 text-small font-semibold text-zamrud-700'
+                  : 'rounded-full bg-koral-100 px-2.5 py-1.5 text-small font-semibold text-koral-800'
               }
             >
               <span aria-hidden="true">● </span>

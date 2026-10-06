@@ -28,7 +28,7 @@ export function ReadBackConfirm({
   const [tried, setTried] = useState(false);
   const err = tried && !checked ? 'Read-back wajib dikonfirmasi sebelum disimpan.' : '';
   return (
-    <div className="mt-1.5 flex flex-col gap-2 rounded-control border border-danger-border bg-white p-3">
+    <div className="mt-1.5 flex flex-col gap-2 rounded-[12px] border border-koral-200 bg-white/90 p-3">
       <span className="text-small text-ink-700">
         Dilaporkan ke <strong>{recipient}</strong>
         {reportedAt ? ` pukul ${formatJam(reportedAt)}` : ''}. Laporan belum sah sampai penerima membacakan

@@ -78,9 +78,9 @@ export function BloodBankWorkspace({
       <div className="flex min-w-0 flex-col gap-4">
         <section
           aria-label="Permintaan darah"
-          className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
-          <h2 className="m-0 text-h2 font-semibold">Permintaan darah</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Permintaan darah</h2>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {state.requests.map((r) => {
               const st = stageOf(r);
@@ -96,7 +96,9 @@ export function BloodBankWorkspace({
                     }}
                     className={cx(
                       'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
-                      r.id === selectedId ? 'border-brand-600 bg-selected' : 'border-line bg-white',
+                      r.id === selectedId
+                        ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                        : 'border-line bg-white hover:bg-brand-50/60',
                     )}
                   >
                     <span className="flex flex-wrap items-center justify-between gap-2">
@@ -120,7 +122,7 @@ export function BloodBankWorkspace({
       </div>
       <section
         aria-label="Detail permintaan darah"
-        className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         {sel ? (
           <RequestDetail
@@ -175,7 +177,7 @@ function RequestDetail({
     <>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex flex-col">
-          <h2 className="m-0 text-h2 font-semibold">
+          <h2 className="m-0 text-[15px] font-semibold">
             {COMPONENT_LABEL[r.component]} · {r.units} kantong
           </h2>
           <span className="text-small text-ink-700">
@@ -379,9 +381,9 @@ function StockPanel({ units, today }: { units: readonly BloodUnit[]; today: stri
   return (
     <section
       aria-label="Stok kantong darah"
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
-      <h2 className="m-0 text-base font-semibold">Stok kantong</h2>
+      <h2 className="m-0 text-[15px] font-semibold">Stok kantong</h2>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-small">
         {groups.map((c) => {
           const list = units.filter((u) => u.component === c);

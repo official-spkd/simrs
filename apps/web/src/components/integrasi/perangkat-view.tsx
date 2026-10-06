@@ -32,7 +32,10 @@ export function GatewayView({ data }: { data: GatewayData }) {
     <div className="flex flex-col gap-4">
       <section aria-label="Perangkat terdaftar" className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {data.devices.map((d) => (
-          <div key={d.id} className="flex flex-col gap-1 rounded-card border border-line bg-white p-3.5">
+          <div
+            key={d.id}
+            className="flex flex-col gap-1 rounded-card border border-white/95 bg-white/90 shadow-card p-3.5"
+          >
             <span className="flex items-center justify-between gap-2">
               <span className="font-semibold">
                 {d.name} · <span className="font-mono">{d.id}</span>
@@ -51,13 +54,13 @@ export function GatewayView({ data }: { data: GatewayData }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <form
           aria-label="Simulasi pesan masuk"
-          className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
-          <h2 className="m-0 text-base font-semibold">Simulasi pesan masuk analyzer</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Simulasi pesan masuk analyzer</h2>
           <label htmlFor={`${id}-preset`} className="text-small font-semibold text-ink-700">
             Pesan contoh
           </label>
@@ -100,9 +103,9 @@ export function GatewayView({ data }: { data: GatewayData }) {
         </form>
         <section
           aria-label="Log pesan gateway"
-          className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+          className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
-          <h2 className="m-0 text-base font-semibold">Log pesan tersimpan</h2>
+          <h2 className="m-0 text-[15px] font-semibold">Log pesan tersimpan</h2>
           {msg && <Alert level={msg.ok ? 'success' : 'warning'}>{msg.text}</Alert>}
           {log.length === 0 ? (
             <p className="m-0 text-small text-ink-700">

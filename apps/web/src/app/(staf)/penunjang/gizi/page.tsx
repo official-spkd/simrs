@@ -23,7 +23,7 @@ export default async function GiziPage() {
         <span className="text-caption text-ink-500">
           Penunjang / Instalasi gizi · S07 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Gizi · diet dan distribusi makan</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Gizi · diet dan distribusi makan</h1>
       </header>
       <ScenarioBanner session={session} screen="gizi" />
       <NutritionWorkspace data={data} userName={session.user.displayName} />

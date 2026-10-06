@@ -36,13 +36,16 @@ export function FarmasiTelaah({
     <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-[1.3fr_1fr]">
       <section
         aria-label="Telaah resep"
-        className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
+        className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
       >
-        <h3 className="m-0 text-body font-semibold">Telaah resep (administratif, farmasetik, klinis)</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Telaah resep (administratif, farmasetik, klinis)</h3>
         <ul className="m-0 grid list-none grid-cols-1 gap-x-3.5 gap-y-2 p-0 @lg:grid-cols-2">
           {telaahChecklist(blocking).map((t) => (
             <li key={t.text} className="flex gap-2 text-small">
-              <span aria-hidden="true" className={cx('font-bold', t.ok ? 'text-success' : 'text-danger')}>
+              <span
+                aria-hidden="true"
+                className={cx('font-bold', t.ok ? 'text-zamrud-600' : 'text-koral-600')}
+              >
                 {t.ok ? '✓' : '!'}
               </span>
               <span className="text-ink-700">
@@ -55,9 +58,9 @@ export function FarmasiTelaah({
       </section>
       <section
         aria-label="Keputusan apoteker"
-        className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
+        className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
       >
-        <h3 className="m-0 text-body font-semibold">Keputusan apoteker</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Keputusan apoteker</h3>
         <p role="status" className="m-0 text-small text-ink-700">
           {text}
         </p>

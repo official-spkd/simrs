@@ -29,13 +29,13 @@ export default async function RadiologiPage({ searchParams }: { searchParams: Se
           <span className="text-caption text-ink-500">
             Penunjang / Radiologi / Worklist · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Radiologi · pemeriksaan dan ekspertise</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Radiologi · pemeriksaan dan ekspertise</h1>
         </div>
         <ul aria-label="Koneksi sistem citra" className="m-0 flex list-none flex-wrap gap-2 p-0">
-          <li className="rounded-full bg-success-bg px-2.5 py-1.5 text-small font-medium text-success">
+          <li className="rounded-full bg-zamrud-100 px-2.5 py-1.5 text-small font-semibold text-zamrud-700">
             <span aria-hidden="true">● </span>PACS terhubung (DICOM)
           </li>
-          <li className="rounded-full bg-success-bg px-2.5 py-1.5 text-small font-medium text-success">
+          <li className="rounded-full bg-zamrud-100 px-2.5 py-1.5 text-small font-semibold text-zamrud-700">
             <span aria-hidden="true">● </span>Worklist modalitas (DICOM MWL) aktif
           </li>
         </ul>

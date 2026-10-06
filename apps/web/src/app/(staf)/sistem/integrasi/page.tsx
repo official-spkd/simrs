@@ -26,7 +26,7 @@ export default async function IntegrasiPage() {
     <>
       <section
         aria-labelledby="fhir-judul"
-        className="flex flex-col gap-2.5 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <h2 id="fhir-judul" className="m-0 text-base font-semibold">
           Kepatuhan SATUSEHAT hari ini
@@ -46,7 +46,10 @@ export default async function IntegrasiPage() {
                   {formatPercent(f.percent)}
                   <span className="sr-only">{ok ? ', memenuhi sasaran' : ', di bawah sasaran'}</span>
                 </span>
-                <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <span
+                  className="col-span-2 h-1.5 overflow-hidden rounded-full bg-[rgba(23,32,46,0.08)]"
+                  aria-hidden="true"
+                >
                   <span
                     className={cx('block h-1.5', ok ? 'bg-brand-600' : 'bg-kunyit-300')}
                     style={{ width: `${f.percent}%` }}
@@ -62,7 +65,7 @@ export default async function IntegrasiPage() {
       </section>
       <section
         aria-labelledby="kred-judul"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <h2 id="kred-judul" className="m-0 text-base font-semibold">
           Kredensial dan sertifikat
@@ -80,7 +83,7 @@ export default async function IntegrasiPage() {
       </section>
       <section
         aria-labelledby="backup-judul"
-        className="flex flex-col gap-1.5 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-1.5 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <h2 id="backup-judul" className="m-0 text-base font-semibold">
           Backup (aturan 3-2-1)
@@ -105,7 +108,7 @@ export default async function IntegrasiPage() {
           <span className="text-caption text-ink-500">
             Sistem / Integration hub · I01–I06 · data per {formatJam(d.asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Integrasi · pemantauan antarmuka</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Integrasi · pemantauan antarmuka</h1>
         </div>
       }
       subnav={

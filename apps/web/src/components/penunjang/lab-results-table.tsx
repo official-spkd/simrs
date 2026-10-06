@@ -1,6 +1,7 @@
 import type { LabResult } from '@simrs/shared';
 import { cx } from '@simrs/ui';
 import { type FlagView, flagView, formatRange, resultText, sparkPoints, trendText } from '@/lib/penunjang';
+import { CRIT_DOT, ROW_HOVER, STATUS_CHIP, TABLE_HEAD } from './pelangi';
 
 /**
  * Tabel hasil laboratorium (mockup Lab): kode LOINC, nilai, satuan, rujukan, flag H/L/KRITIS/Δ, dan tren kecil.
@@ -8,14 +9,14 @@ import { type FlagView, flagView, formatRange, resultText, sparkPoints, trendTex
  */
 
 const VALUE_TONE: Record<FlagView['tone'], string> = {
-  danger: 'text-danger',
-  warning: 'text-warning',
+  danger: 'text-koral-800',
+  warning: 'text-kunyit-800',
   neutral: 'text-ink-900',
 };
 const CHIP_TONE: Record<FlagView['tone'], string> = {
-  danger: 'bg-danger-bg text-danger',
-  warning: 'bg-warning-bg text-warning',
-  neutral: 'bg-muted text-ink-700',
+  danger: STATUS_CHIP.danger,
+  warning: STATUS_CHIP.warning,
+  neutral: STATUS_CHIP.neutral,
 };
 const STROKE: Record<FlagView['tone'], string> = {
   danger: 'var(--color-koral-600)',
@@ -46,7 +47,7 @@ export function LabResultsTable({ results, caption }: { results: readonly LabRes
     <table className="w-full border-collapse text-small">
       <caption className="sr-only">{caption}</caption>
       <thead>
-        <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+        <tr className={TABLE_HEAD}>
           <th scope="col" className="px-4 py-2 font-semibold">
             Pemeriksaan
           </th>
@@ -76,8 +77,12 @@ export function LabResultsTable({ results, caption }: { results: readonly LabRes
             <tr
               key={r.loinc}
               className={cx(
-                'border-b border-line-soft align-middle',
-                r.flag === 'KRITIS' ? 'bg-[#FFF5F4]' : r.delta ? 'bg-kunyit-50' : 'bg-white',
+                'border-b border-line-soft align-middle transition-colors',
+                r.flag === 'KRITIS'
+                  ? 'bg-koral-50'
+                  : r.delta
+                    ? 'bg-kunyit-50'
+                    : cx('bg-transparent', ROW_HOVER),
               )}
             >
               <th scope="row" className="px-4 py-2 text-left font-normal">
@@ -106,8 +111,12 @@ export function LabResultsTable({ results, caption }: { results: readonly LabRes
               <td className="hidden px-2 py-2 font-mono text-ink-700 @lg:table-cell">{ref}</td>
               <td className="px-2 py-2">
                 <span
-                  className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-semibold', CHIP_TONE[f.tone])}
+                  className={cx(
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold whitespace-nowrap',
+                    CHIP_TONE[f.tone],
+                  )}
                 >
+                  {r.flag === 'KRITIS' && <span aria-hidden="true" className={CRIT_DOT} />}
                   <span aria-hidden="true">{f.label}</span>
                   <span className="sr-only">{f.sr}</span>
                 </span>

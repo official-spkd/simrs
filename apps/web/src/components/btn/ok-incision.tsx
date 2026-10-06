@@ -47,11 +47,11 @@ export function OkIncision({
   return (
     <section
       aria-label="Insisi dan penutupan operasi"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
-      <span className="font-semibold">Insisi dan penutupan operasi</span>
+      <span className="text-[15px] font-semibold">Insisi dan penutupan operasi</span>
       {c.incisionAt ? (
-        <span role="status" className="text-small font-semibold text-success">
+        <span role="status" className="animate-pop text-small font-semibold text-zamrud-700">
           ✓ Insisi dicatat {formatWhen(c.incisionAt)}
           {local.overrideReason
             ? ` · override tanpa time out lengkap tercatat: “${local.overrideReason}”`
@@ -89,9 +89,9 @@ export function OkIncision({
           )}
         </>
       )}
-      <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <div className="flex flex-col gap-2 border-t border-line-soft pt-3">
         {finished ? (
-          <span role="status" className="text-small font-semibold text-success">
+          <span role="status" className="animate-pop text-small font-semibold text-zamrud-700">
             ✓ Operasi {c.statusNote}
           </span>
         ) : (

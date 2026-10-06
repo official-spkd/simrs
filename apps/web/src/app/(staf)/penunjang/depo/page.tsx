@@ -25,7 +25,7 @@ export default async function DepoPage() {
             Penunjang / Farmasi / Depo dan stok · S05 · {session.tenant.name} · data per{' '}
             {formatTanggalWaktu(data.asOf)}
           </span>
-          <h1 className="m-0 text-h1 font-semibold">Depo & stok farmasi</h1>
+          <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Depo & stok farmasi</h1>
         </div>
         <Link
           href="/penunjang/farmasi"

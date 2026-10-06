@@ -50,7 +50,7 @@ export function CriticalReportCenterForm({
   return (
     <form
       aria-label="Catat pelaporan hasil kritis"
-      className="flex flex-col gap-3 rounded-[12px] border border-line bg-white p-3.5"
+      className="flex flex-col gap-3 rounded-[12px] border border-koral-200 bg-white/90 p-3.5"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -155,7 +155,9 @@ export function CriticalReportCenterForm({
       <label
         className={cx(
           'flex min-h-11 cursor-pointer items-start gap-2 rounded-control border p-2.5 text-small',
-          err('readBack') ? 'border-danger-border bg-danger-bg' : 'border-line bg-canvas',
+          err('readBack')
+            ? 'border-koral-200 bg-koral-50'
+            : 'border-brand-100 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))]',
         )}
       >
         <input

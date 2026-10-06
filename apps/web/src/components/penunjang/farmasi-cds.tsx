@@ -13,8 +13,8 @@ function Note({ tone, mark, children }: { tone: 'success' | 'warning'; mark: str
       className={cx(
         'flex items-start gap-2.5 rounded-[12px] border px-3.5 py-2.5 text-small',
         tone === 'success'
-          ? 'border-success-border bg-[#F3FAF5] text-success'
-          : 'border-warning-border bg-kunyit-50 text-warning-strong',
+          ? 'border-zamrud-200 bg-alert-success text-zamrud-700'
+          : 'border-kunyit-200 bg-alert-warning text-kunyit-800',
       )}
     >
       <span aria-hidden="true" className="font-bold">
@@ -61,17 +61,17 @@ export function FarmasiCds({
             <div
               key={a.id}
               role="status"
-              className="flex flex-wrap items-center gap-3 rounded-[12px] border border-warning-border bg-[linear-gradient(100deg,rgba(138,75,0,0.09),var(--color-kunyit-50)_60%)] p-3.5"
+              className="flex flex-wrap items-center gap-3 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3.5"
             >
               <span className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
-                <span className="font-semibold text-warning-strong">{a.title}</span>
+                <span className="font-bold text-kunyit-800">{a.title}</span>
                 <span className="text-small text-ink-700">
                   Usulan terkirim {formatJam(l.at)} ke {rx.prescriber}: {a.recommendation}. Resep tertahan
                   sampai dokter merespons.
                 </span>
               </span>
               <span className="flex flex-col items-end gap-1.5">
-                <span className="rounded-full bg-warning-bg px-2.5 py-0.5 text-caption font-semibold text-warning">
+                <span className="rounded-full bg-kunyit-100 px-2.5 py-0.5 text-caption font-semibold text-kunyit-800">
                   Menunggu dokter · {formatJam(l.at)}
                 </span>
                 <Button disabled={busy || role !== 'dokter'} onClick={() => onAction(a, 'setuju')}>

@@ -241,7 +241,7 @@ export function BedsidePanel({
         Barcode tidak terbaca: verifikasi manual dua petugas (alasan tercatat)
       </label>
       {manual && (
-        <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+        <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
           <label className={labelCls}>
             Alasan (minimal 10 karakter)
             <textarea

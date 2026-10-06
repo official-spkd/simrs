@@ -5,7 +5,7 @@ import { Button, cx } from '@simrs/ui';
 import { useId, useState } from 'react';
 import { doseError, parseDecimal, startError } from '@/lib/penunjang-radiologi';
 
-const box = 'flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5';
+const box = 'flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5';
 
 function Check({
   checked,
@@ -46,7 +46,7 @@ export function RadStart({
   const reason = startError(exam, identity, contrast);
   return (
     <section aria-label="Mulai pemeriksaan" className={box}>
-      <h3 className="m-0 text-body font-semibold">Mulai pemeriksaan</h3>
+      <h3 className="m-0 text-[15px] font-semibold">Mulai pemeriksaan</h3>
       <Check checked={identity} onChange={setIdentity}>
         Identitas dicek dengan 2 penanda (nama dan tanggal lahir) dan cocok dengan order
       </Check>
@@ -94,7 +94,7 @@ export function RadFinish({
     );
   return (
     <section aria-label="Selesai pemeriksaan" className={box}>
-      <h3 className="m-0 text-body font-semibold">Akuisisi citra</h3>
+      <h3 className="m-0 text-[15px] font-semibold">Akuisisi citra</h3>
       <p className="m-0 text-small text-ink-700">
         Citra dikirim ke PACS (DICOM) lalu masuk antrean ekspertise radiolog.
         {ct ? ' Dosis radiasi CT wajib dicatat.' : ''}

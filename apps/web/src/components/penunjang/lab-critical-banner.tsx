@@ -19,6 +19,7 @@ import { CriticalReportForm } from './lab-critical-form';
 import { NOT_YOUR_TURN, type ScenarioTasks } from './use-scenario-tasks';
 import { useElapsed } from './use-elapsed';
 import { ReadBackConfirm } from './lab-readback-confirm';
+import { CRIT_DOT } from './pelangi';
 
 /**
  * S09 · Banner nilai kritis (mockup Lab): alarm + timer 30 menit berjalan sampai laporan sah (read-back). Pasien
@@ -90,23 +91,23 @@ export function CriticalBanner({
     return (
       <section
         aria-label={`Nilai kritis dilaporkan · ${sample.patient.name}`}
-        className="flex gap-3 rounded-card border border-success-border bg-[linear-gradient(100deg,rgba(30,107,52,0.10),#F3FAF5_60%)] px-4 py-3.5"
+        className="flex gap-3 rounded-card border border-zamrud-200 bg-alert-success px-4 py-3.5 shadow-card"
       >
         <span
           aria-hidden="true"
-          className="flex size-7 flex-none items-center justify-center rounded-full bg-success font-bold text-white"
+          className="flex size-7 flex-none animate-pop items-center justify-center rounded-full bg-zamrud-600 font-bold text-white"
         >
           ✓
         </span>
         <span role="status" className="flex flex-col gap-1">
-          <span className="font-semibold text-success">
+          <span className="font-semibold text-zamrud-700">
             Nilai kritis dilaporkan: {valueText} · {where}
           </span>
           <span className="text-small text-ink-700">
             Diterima {c.recipient} pukul {c.reportedAt ? formatJam(c.reportedAt) : '—'} · read-back
             terkonfirmasi · waktu lapor {took} (target ≤ {c.limitMinutes} menit, timer berhenti).
           </span>
-          {feedback && <span className="text-caption font-semibold text-success">{feedback}</span>}
+          {feedback && <span className="text-caption font-semibold text-zamrud-700">{feedback}</span>}
         </span>
       </section>
     );
@@ -115,16 +116,17 @@ export function CriticalBanner({
   return (
     <section
       aria-label={`Nilai kritis terbuka · ${sample.patient.name}`}
-      className="flex flex-wrap gap-3 rounded-card border border-danger-border bg-[linear-gradient(100deg,rgba(180,35,24,0.10),#FFF5F4_60%)] px-4 py-3.5"
+      className="flex flex-wrap gap-3 rounded-card border border-koral-200 bg-alert-critical px-4 py-3.5 text-koral-900 shadow-card"
     >
       <span
         aria-hidden="true"
-        className="flex size-7 flex-none items-center justify-center rounded-full bg-danger font-bold text-white"
+        className="flex size-7 flex-none items-center justify-center rounded-full bg-koral-600 font-bold text-white animate-crit"
       >
         !
       </span>
       <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1">
-        <span role="alert" className="font-semibold text-danger-strong">
+        <span role="alert" className="inline-flex flex-wrap items-center gap-2 font-bold text-koral-800">
+          <span aria-hidden="true" className={CRIT_DOT} />
           Nilai kritis: {valueText} · {where}
         </span>
         <span className="text-small text-ink-700">
@@ -135,7 +137,7 @@ export function CriticalBanner({
           <span
             role="timer"
             aria-live="off"
-            className={cx('font-mono font-semibold', timer.over && 'text-danger')}
+            className={cx('font-mono font-bold', timer.over && 'text-koral-800')}
           >
             {formatMmSs(elapsed)}
           </span>

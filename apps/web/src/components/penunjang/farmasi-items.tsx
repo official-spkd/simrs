@@ -17,13 +17,16 @@ export function FarmasiItems({
   showDispense: boolean;
 }) {
   return (
-    <section aria-label="Item resep" className="overflow-hidden rounded-card border border-line bg-white">
+    <section
+      aria-label="Item resep"
+      className="overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
+    >
       <table className="w-full border-collapse text-small">
         <caption className="sr-only">
           Item resep {rx.no} · {rx.patient.name}
         </caption>
         <thead>
-          <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+          <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
             <th scope="col" className="px-4 py-2 font-semibold">
               Obat
             </th>
@@ -50,12 +53,12 @@ export function FarmasiItems({
               <tr
                 key={i.id}
                 className={cx(
-                  'border-b border-line-soft align-middle',
+                  'border-b border-line-soft align-middle transition-colors',
                   cds.tone === 'danger'
                     ? 'bg-koral-50'
                     : cds.tone === 'warning'
-                      ? 'bg-[#FFFCF7]'
-                      : 'bg-white',
+                      ? 'bg-kunyit-50/60'
+                      : 'bg-transparent hover:bg-brand-50/60',
                 )}
               >
                 <th scope="row" className="px-4 py-2.5 text-left font-normal">
@@ -78,7 +81,7 @@ export function FarmasiItems({
                   {i.dose} {i.route}
                 </td>
                 <td className="hidden px-2 py-2.5 @2xl:table-cell">{i.frequency}</td>
-                <td className={cx('px-2 py-2.5 font-mono', low ? 'text-warning' : 'text-ink-900')}>
+                <td className={cx('px-2 py-2.5 font-mono', low ? 'text-kunyit-800' : 'text-ink-900')}>
                   {showDispense ? `${formatQty(i.stock)} → ${formatQty(after)}` : formatQty(i.stock)}
                   {low && (
                     <span className="block font-sans text-[11.5px] font-semibold">di bawah minimum</span>

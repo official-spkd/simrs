@@ -114,7 +114,7 @@ export function DeadLetterQueue({
   return (
     <section
       aria-labelledby="dlq-judul"
-      className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-line bg-white"
+      className="flex min-w-0 flex-[999_1_560px] flex-col overflow-hidden rounded-card border border-white/95 bg-white/90 shadow-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">

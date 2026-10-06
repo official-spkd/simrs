@@ -22,7 +22,7 @@ export default async function BankDarahPage() {
         <span className="text-caption text-ink-500">
           Penunjang / Bank darah RS · S08 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
         </span>
-        <h1 className="m-0 text-h1 font-semibold">Bank darah · permintaan dan transfusi</h1>
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Bank darah · permintaan dan transfusi</h1>
       </header>
       <ScenarioBanner session={session} screen="bank-darah" />
       <BloodBankWorkspace userId={session.user.id} data={data} userName={session.user.displayName} />

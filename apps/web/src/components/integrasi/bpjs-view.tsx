@@ -190,10 +190,10 @@ export function BpjsView({ data, userName }: { data: BpjsData; userName: string 
       {service && (
         <section
           aria-label={`Detail ${service.name}`}
-          className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+          className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         >
           <span className="flex flex-col">
-            <h2 className="m-0 text-h2 font-semibold">{service.name}</h2>
+            <h2 className="m-0 text-[15px] font-semibold">{service.name}</h2>
             <span className="text-caption text-ink-500">Kebijakan kirim: {service.retry}</span>
             {service.lastError && (
               <span className="text-small text-danger">Galat terakhir: {service.lastError}</span>

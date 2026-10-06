@@ -6,17 +6,18 @@ import { formatTanggalPendek } from '@/lib/btn';
 import { CASE_STATUS_LABEL, ganttBox, minutesLabel, scenarioCaseNote } from '@/lib/btn-ok';
 
 const BLOCK: Record<OrCaseStatus, string> = {
-  berjalan: 'border-brand-800 bg-brand-600 text-white',
-  terjadwal: 'border-brand-200 bg-brand-50 text-brand-800',
-  selesai: 'border-line bg-line-soft text-ink-700',
-  cito: 'border-koral-200 bg-danger-bg text-danger',
+  berjalan: 'border-transparent bg-nav-active text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]',
+  terjadwal:
+    'border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] text-brand-800',
+  selesai: 'border-zamrud-200 bg-zamrud-100 text-zamrud-700',
+  cito: 'border-koral-200 bg-koral-100 text-koral-800',
 };
 
 const SWATCH: Record<OrCaseStatus, string> = {
-  berjalan: 'bg-brand-600',
-  terjadwal: 'border border-brand-200 bg-brand-50',
-  selesai: 'bg-line',
-  cito: 'border border-koral-200 bg-danger-bg',
+  berjalan: 'bg-nav-active',
+  terjadwal: 'border border-brand-200 bg-brand-100',
+  selesai: 'border border-zamrud-200 bg-zamrud-100',
+  cito: 'border border-koral-200 bg-koral-100',
 };
 
 function blockSub(c: OrCase): string {
@@ -48,7 +49,7 @@ export function OkGantt({
   return (
     <section
       aria-label="Jadwal kamar"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <div className="overflow-x-auto">
         <div className="min-w-[680px]">
@@ -67,7 +68,7 @@ export function OkGantt({
             </span>
           </div>
           {rooms.map((room) => (
-            <div key={room.id} className="grid grid-cols-[112px_1fr] border-t border-line">
+            <div key={room.id} className="grid grid-cols-[112px_1fr] border-t border-line-soft">
               <span className="flex flex-col justify-center py-2 pr-2">
                 <span className="font-semibold">{room.name}</span>
                 <span className="text-caption text-ink-500">{room.kind}</span>
@@ -92,9 +93,9 @@ export function OkGantt({
                       onClick={() => onSelect(c.id)}
                       title={`Pilih kasus ${room.name}: ${c.procedure}`}
                       className={cx(
-                        'absolute inset-y-1.5 flex min-h-11 cursor-pointer flex-col justify-center overflow-hidden rounded-[9px] border px-2 text-left font-[inherit]',
+                        'absolute inset-y-1.5 flex min-h-11 cursor-pointer flex-col justify-center overflow-hidden rounded-[10px] border px-2 text-left font-[inherit] hover:brightness-[1.04]',
                         BLOCK[c.status],
-                        selected && 'shadow-[0_0_0_2px_#FFFFFF,0_0_0_4px_var(--color-brand-700)]',
+                        selected && 'shadow-[0_0_0_2px_white,0_0_0_4px_var(--color-brand-700)]',
                       )}
                       style={{ left: `${box.left}%`, width: `calc(${box.width}% - 4px)` }}
                     >
@@ -110,7 +111,7 @@ export function OkGantt({
                 })}
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 w-0.5 bg-danger"
+                  className="pointer-events-none absolute inset-y-0 w-0.5 rounded-full bg-koral-600"
                   style={{ left: `${nowLeft}%` }}
                 />
               </div>
@@ -126,7 +127,7 @@ export function OkGantt({
           </span>
         ))}
         <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-danger" />
+          <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-koral-600" />
           Garis merah = sekarang {minutesLabel(nowMin)}
         </span>
       </div>

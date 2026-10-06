@@ -42,9 +42,9 @@ export function RadExpertise({
   return (
     <section
       aria-label="Ekspertise"
-      className="flex flex-col gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
+      className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-white/90 shadow-card px-4 py-3.5"
     >
-      <h3 className="m-0 text-body font-semibold">Ekspertise radiologi</h3>
+      <h3 className="m-0 text-[15px] font-semibold">Ekspertise radiologi</h3>
       <div className="flex flex-wrap items-end gap-2">
         <span className="flex min-w-0 flex-[1_1_220px] flex-col gap-1">
           <label htmlFor={`${id}-tpl`} className="text-small font-semibold text-ink-700">

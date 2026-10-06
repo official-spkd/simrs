@@ -86,7 +86,7 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
   ) => (
     <section
       aria-label={label}
-      className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex min-w-0 flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {items.map((x) => (
@@ -100,7 +100,9 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
               }}
               className={cx(
                 'flex w-full cursor-pointer flex-col gap-1 rounded-[12px] border p-3 text-left font-[inherit]',
-                x.id === selected ? 'border-brand-600 bg-selected' : 'border-line bg-white',
+                x.id === selected
+                  ? 'border-brand-300 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                  : 'border-line bg-white hover:bg-brand-50/60',
               )}
             >
               <span className="flex flex-wrap items-center justify-between gap-2">
@@ -158,7 +160,7 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
               )}
               <section
                 aria-label="Detail kultur"
-                className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+                className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
               >
                 {selC && (
                   <CultureDetail
@@ -191,7 +193,7 @@ export function MicroWorkspace({ data, userName }: { data: MicroData; userName: 
               )}
               <section
                 aria-label="Detail patologi anatomi"
-                className="flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white p-4"
+                className="flex min-w-0 flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
               >
                 {selP && (
                   <PaDetail
@@ -250,7 +252,7 @@ function CultureDetail({
     <>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="flex flex-col">
-          <h2 className="m-0 text-h2 font-semibold">{c.specimen}</h2>
+          <h2 className="m-0 text-[15px] font-semibold">{c.specimen}</h2>
           <span className="text-small text-ink-700">
             {c.labNo} · diambil {formatTanggalWaktu(c.takenAt)} · {c.location}
           </span>
@@ -451,7 +453,7 @@ function PaDetail({
   return (
     <>
       <div className="flex flex-col">
-        <h2 className="m-0 text-h2 font-semibold">
+        <h2 className="m-0 text-[15px] font-semibold">
           {p.paNo} · {p.specimen}
         </h2>
         <span className="text-small text-ink-700">

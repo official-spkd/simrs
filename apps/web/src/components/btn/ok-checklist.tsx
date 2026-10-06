@@ -81,7 +81,11 @@ export function OkChecklist({
               key={p.phase}
               className={cx(
                 'm-0 flex min-w-0 flex-col gap-1 rounded-[12px] border p-3',
-                isCur ? 'border-brand-200 bg-brand-50' : 'border-line bg-white',
+                isCur
+                  ? 'border-brand-200 bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] shadow-[0_6px_16px_rgba(23,32,46,0.06)]'
+                  : confirmed
+                    ? 'border-zamrud-200 bg-white/80'
+                    : 'border-line bg-white/80',
               )}
             >
               <legend className="sr-only">{PHASE_LABEL[p.phase]}</legend>
@@ -126,14 +130,14 @@ export function OkChecklist({
           );
         })}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-3">
         <span
           id={`${id}-alasan`}
           aria-live="polite"
           className={cx(
             'min-w-0 flex-1 text-small',
-            foot.tone === 'danger' && 'font-semibold text-danger',
-            foot.tone === 'success' && 'font-semibold text-success',
+            foot.tone === 'danger' && 'font-semibold text-koral-800',
+            foot.tone === 'success' && 'animate-pop font-semibold text-zamrud-700',
             foot.tone === 'muted' && 'text-ink-700',
           )}
         >

@@ -54,18 +54,18 @@ export function StockPanel({ state, master, today, depotId, busy, run }: PanelPr
   const items = master.items.filter((i) => batchesIn(state, master, depotId, i.id).length > 0);
   if (items.length === 0)
     return (
-      <p className="m-0 rounded-card border border-line bg-white p-4 text-small">
+      <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small">
         Depo ini belum memegang stok.
       </p>
     );
   return (
-    <div className="overflow-x-auto rounded-card border border-line bg-white">
+    <div className="overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card">
       <table className="w-full min-w-[680px] border-collapse text-small">
         <caption className="sr-only">
           Stok per batch di {depotName(master, depotId)}, urut ED terdekat (FEFO)
         </caption>
         <thead>
-          <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+          <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
             <th className="px-3 py-2 font-semibold">Obat / batch</th>
             <th className="px-3 py-2 font-semibold">Kedaluwarsa</th>
             <th className="px-3 py-2 text-right font-semibold">Jumlah</th>
@@ -185,7 +185,7 @@ export function DispensePanel({
 
   if (items.length === 0)
     return (
-      <p className="m-0 rounded-card border border-line bg-white p-4 text-small">
+      <p className="m-0 rounded-card border border-white/95 bg-white/90 shadow-card p-4 text-small">
         Depo ini belum memegang stok.
       </p>
     );
@@ -193,9 +193,9 @@ export function DispensePanel({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
       <section
         aria-label="Permintaan menunggu"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h3 className="m-0 text-base font-semibold">Permintaan menunggu disiapkan</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Permintaan menunggu disiapkan</h3>
         {waiting.length === 0 ? (
           <p className="m-0 text-small text-ink-700">Tidak ada permintaan untuk depo ini.</p>
         ) : (
@@ -228,13 +228,13 @@ export function DispensePanel({
       </section>
       <form
         aria-label="Pengeluaran stok"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           run(action, reset);
         }}
       >
-        <h3 className="m-0 text-base font-semibold">Keluarkan dari {depotName(master, depotId)}</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Keluarkan dari {depotName(master, depotId)}</h3>
         <div className="flex flex-wrap gap-3">
           <div className="flex min-w-[220px] flex-[2] flex-col gap-1">
             <label htmlFor={`${id}-obat`} className={labelCls}>
@@ -279,7 +279,7 @@ export function DispensePanel({
           />
         </div>
         {highAlert && (
-          <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+          <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
             <p className="m-0 text-small">
               Obat high alert: pemeriksa kedua mencatat dari sesinya, kemudian petugas berbeda mengeluarkan.
               Pemeriksa: {recorded.map((c) => c.name).join(', ') || 'belum ada'}.
@@ -324,7 +324,7 @@ export function DispensePanel({
           Pilih batch lain (override FEFO, wajib alasan)
         </label>
         {override && (
-          <div className="flex flex-col gap-2 rounded-control border border-warning-border bg-warning-bg p-3">
+          <div className="flex flex-col gap-2 rounded-[12px] border border-kunyit-200 bg-alert-warning p-3">
             <label htmlFor={`${id}-batch`} className={labelCls}>
               Batch pilihan
             </label>
@@ -384,7 +384,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <form
         aria-label="Kirim mutasi"
-        className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
         onSubmit={(e) => {
           e.preventDefault();
           run({ type: 'kirim', from: depotId, to: dest, itemId: current, qty: Number(qty) }, () =>
@@ -392,7 +392,7 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
           );
         }}
       >
-        <h3 className="m-0 text-base font-semibold">Langkah 1 · Kirim dari {depotName(master, depotId)}</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Langkah 1 · Kirim dari {depotName(master, depotId)}</h3>
         <div className="flex flex-col gap-1">
           <label htmlFor={`${id}-tujuan`} className={labelCls}>
             Depo tujuan
@@ -457,9 +457,9 @@ export function TransferPanel({ state, master, today, depotId, busy, run, userNa
       </form>
       <section
         aria-label="Mutasi dalam perjalanan"
-        className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+        className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
-        <h3 className="m-0 text-base font-semibold">Langkah 2 · Terima di depo tujuan</h3>
+        <h3 className="m-0 text-[15px] font-semibold">Langkah 2 · Terima di depo tujuan</h3>
         {state.transfers.length === 0 ? (
           <p className="m-0 text-small text-ink-700">Belum ada mutasi hari ini.</p>
         ) : (
@@ -533,7 +533,7 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
   return (
     <form
       aria-label="Stok opname"
-      className="flex flex-col gap-3 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       onSubmit={(e) => {
         e.preventDefault();
         run({ type: 'opname', depotId, counts: parsed, reason }, () => {
@@ -542,7 +542,7 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
         });
       }}
     >
-      <h3 className="m-0 text-base font-semibold">Stok opname · {depotName(master, depotId)}</h3>
+      <h3 className="m-0 text-[15px] font-semibold">Stok opname · {depotName(master, depotId)}</h3>
       <span className="text-small text-ink-700">
         Isi hitung fisik per batch. Kosong = sama dengan sistem.
       </span>
@@ -620,11 +620,11 @@ export function OpnamePanel({ state, master, depotId, busy, run, today }: PanelP
 export function LedgerPanel({ state, master, depotId }: PanelProps) {
   const rows = state.movements.filter((m) => m.depotId === depotId);
   return (
-    <div className="overflow-x-auto rounded-card border border-line bg-white">
+    <div className="overflow-x-auto rounded-card border border-white/95 bg-white/90 shadow-card">
       <table className="w-full min-w-[700px] border-collapse text-small">
         <caption className="sr-only">Kartu stok {depotName(master, depotId)}</caption>
         <thead>
-          <tr className="border-b border-line bg-subtle text-left text-caption text-ink-500">
+          <tr className="border-b border-line text-left text-caption font-semibold text-ink-500">
             <th className="px-3 py-2 font-semibold">Jam</th>
             <th className="px-3 py-2 font-semibold">Jenis</th>
             <th className="px-3 py-2 font-semibold">Obat / batch</th>
