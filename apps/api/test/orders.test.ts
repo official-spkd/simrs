@@ -583,6 +583,16 @@ describe('laporan override CDS', () => {
     expect(item).toMatchObject({ decision: 'override', level: 'block', overrideReason: expect.any(String) });
     expect(item.mrn).toMatch(/^\d{2}-\d{2}-\d{2}-\d{2}$/);
     expect(JSON.stringify(r.body)).not.toContain('Pasien Order Fiktif');
+    // RM + alasan klinis per pasien: setiap pasien di halaman tercatat di jejak akses rekam medisnya.
+    const audited = await run(A.id, (tx) =>
+      tx.auditEvent.findMany({
+        where: { resourceType: 'cds_alert', action: 'read', patientId: { not: null } },
+        select: { patientId: true },
+      }),
+    );
+    for (const p of new Set(r.body.items.map((i: { patientId: string }) => i.patientId))) {
+      expect(audited.some((a) => a.patientId === p)).toBe(true);
+    }
     const blocked = await as('auditor').get('/cds/overrides?decision=diblokir&limit=1').expect(200);
     expect(blocked.body.items[0]).toMatchObject({ decision: 'diblokir', orderGroupId: null });
     await as('dokter').get('/cds/overrides').expect(403);
