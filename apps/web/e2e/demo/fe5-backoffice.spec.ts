@@ -396,43 +396,58 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('B12 dokumen: telaah → setuju (≠ penyusun) → terbit, versi lama tidak berlaku, tinjau ulang, baca, bukti', async ({
+  test('B12 dokumen: telaah → setuju (sesi ≠ penyusun) → terbit, versi baru disusun pengguna sesi, baca, bukti; bertahan', async ({
     page,
   }) => {
-    const auditor = await createAccount({ roles: ['auditor_mutu'] });
+    const auditor = await createAccount({ roles: ['auditor_mutu'], displayName: 'Auditor Dokumen Fiktif' });
     await loginAs(page, auditor, '/');
     await page.goto('/manajemen/dokumen');
     await expect(
       page.getByRole('heading', { name: 'Dokumen regulasi dan akreditasi', level: 1 }),
     ).toBeVisible();
 
+    // SPO-KEP-014 v3 disusun perawat (fixture): auditor sesi boleh menyetujui setelah catatan telaah.
     await page.getByRole('button', { name: 'Kirim ke telaah' }).click();
-    await page.getByLabel('Catatan telaah').fill('Langkah fiksasi kateter disesuaikan bundle ISK terbaru');
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.perawat);
     const approve = page.getByRole('button', { name: 'Setujui dokumen' });
     await expect(approve).toBeDisabled();
-    await page.getByLabel('Penyetuju').selectOption(PERSONA.direktur);
+    await page.getByLabel('Catatan telaah').fill('Langkah fiksasi kateter disesuaikan bundle ISK terbaru');
     await approve.click();
+    await expect(page.getByText(/SPO-KEP-014 v3 disetujui Auditor Dokumen Fiktif/)).toBeVisible();
     await page.getByRole('button', { name: 'Terbitkan dan distribusikan' }).click();
     await expect(page.getByText(/SPO-KEP-014 v3 terbit .* v2 tidak berlaku/)).toBeVisible();
+    await expect(page.getByText(/tidak disimpan/)).toHaveCount(0);
     await page.getByRole('button', { name: /^SPO-KEP-014 v2/ }).click();
     await expect(
       page.getByRole('img', { name: 'Pratinjau dokumen tidak berlaku bertanda air' }),
     ).toBeVisible();
 
+    // Versi baru disusun pengguna yang memulai tinjau ulang → ia tidak bisa menyetujuinya sendiri.
     await page.getByRole('button', { name: /^SPO-FAR-022 v4/ }).click();
     await expect(page.getByRole('alert').filter({ hasText: 'Lewat tanggal tinjau ulang' })).toBeVisible();
     await page.getByRole('button', { name: 'Mulai tinjau ulang (versi baru)' }).click();
-    await expect(page.getByText(/Draf SPO-FAR-022 v5 dibuat/)).toBeVisible();
+    await expect(page.getByText(/Draf SPO-FAR-022 v5 dibuat untuk tinjau ulang oleh Auditor Dokumen Fiktif/)).toBeVisible();
+    await page.getByRole('button', { name: 'Kirim ke telaah' }).click();
+    await page.getByLabel('Catatan telaah').fill('Tinjau ulang tiga tahunan tanpa perubahan isi');
+    await expect(approve).toBeDisabled();
+    await expect(page.getByText(/Anda penyusun dokumen ini: penyetuju harus pengguna lain/)).toBeVisible();
+
+    // Bertahan setelah muat ulang.
+    await page.reload();
+    await expect(page.getByRole('button', { name: /^SPO-KEP-014 v3/ })).toContainText('Terbit');
+    await expect(page.getByRole('button', { name: /^SPO-FAR-022 v5/ })).toContainText('Telaah');
 
     await page.getByRole('tab', { name: 'Distribusi & baca' }).click();
     await page.getByRole('button', { name: 'Kirim pengingat ke ICU' }).click();
     await expect(page.getByText(/Pengingat baca SPO-KEP-014 dikirim ke 22 staf ICU/)).toBeVisible();
+    await expect(page.getByText(/Pengingat terkirim .* oleh Auditor Dokumen Fiktif/)).toBeVisible();
 
     await page.getByRole('tab', { name: 'Bukti akreditasi' }).click();
     await page.getByLabel('Bab', { exact: true }).selectOption('MRMIK');
     await page.getByLabel('Dokumen terbit').selectOption('doc-kep-014-v3');
     await page.getByRole('button', { name: 'Tautkan sebagai bukti' }).click();
+    await expect(page.getByRole('row', { name: /MRMIK/ })).toContainText('45/51');
+    await page.reload();
+    await page.getByRole('tab', { name: 'Bukti akreditasi' }).click();
     await expect(page.getByRole('row', { name: /MRMIK/ })).toContainText('45/51');
 
     await expectNoHorizontalOverflow(page);

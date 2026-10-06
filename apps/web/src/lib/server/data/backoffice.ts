@@ -13,13 +13,7 @@ import {
   PRIVILEGE_APPLICATIONS,
 } from '../../demo/fixtures/kredensial';
 import { ASSETS, CALIBRATION_LABS, REPAIR_TICKETS, TECHNICIANS } from '../../demo/fixtures/aset';
-import {
-  ACCREDITATION_CHAPTERS,
-  DISTRIBUTION_UNITS,
-  DOC_APPROVERS,
-  READ_RECEIPTS,
-  REG_DOCS,
-} from '../../demo/fixtures/regulasi';
+import { ACCREDITATION_CHAPTERS, DISTRIBUTION_UNITS } from '../../demo/fixtures/regulasi';
 import {
   CHEMO_PLAN,
   CHEMO_VERIFIERS,
@@ -150,11 +144,9 @@ export async function getAms() {
 export async function getRegDocs() {
   demoOnly('dokumen regulasi');
   return {
-    docs: REG_DOCS,
-    approvers: DOC_APPROVERS,
     units: DISTRIBUTION_UNITS,
-    receipts: READ_RECEIPTS,
     chapters: ACCREDITATION_CHAPTERS,
+    store: await readDomain('regulasi'),
   };
 }
 

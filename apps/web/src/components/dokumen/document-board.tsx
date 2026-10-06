@@ -1,10 +1,9 @@
 'use client';
 
-import { formatJam, formatTanggal } from '@simrs/shared';
+import { formatTanggal } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, Tabs } from '@simrs/ui';
 import { useState } from 'react';
 import {
-  type Flash,
   FlashLine,
   KeyValues,
   Panel,
@@ -17,17 +16,16 @@ import {
   TextField,
   TH,
 } from '@/components/backoffice/kit';
-import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { useTokoAction } from '@/components/backoffice/use-toko';
+import { demoStamp } from '@/lib/backoffice-toko';
+import { DOC_FLOW, DOC_STATUS_LABEL, type DocStatus, pct, reviewStatus } from '@/lib/dokumen';
 import {
-  DOC_FLOW,
-  DOC_STATUS_LABEL,
-  type DocStatus,
-  docApproveBlock,
-  pct,
-  publish,
-  type RegDoc,
-  reviewStatus,
-} from '@/lib/dokumen';
+  DOC_APPROVER_ROLES,
+  isAuthor,
+  MIN_REVIEW_NOTE,
+  type RegDocsStoreState,
+  remindKey,
+} from '@/lib/dokumen-toko';
 
 const S_TONE: Record<DocStatus, ChipTone> = {
   draf: 'neutral',
@@ -39,47 +37,40 @@ const S_TONE: Record<DocStatus, ChipTone> = {
 
 /**
  * B12 · DMS berversi + distribusi baca + paket bukti akreditasi. Hanya versi terbit yang tampil ke unit; versi lama
- * usang tetap tersimpan bertanda "TIDAK BERLAKU". Semua aksi simulasi.
+ * usang tetap tersimpan bertanda "TIDAK BERLAKU". Penyetuju = pengguna sesi (Auditor mutu/Manajemen) yang bukan
+ * penyusun; versi baru disusun pengguna yang memulainya. Tersimpan di toko demo (domain `regulasi`, ADR-0085).
  */
 export function DocumentBoard({
-  initialDocs,
-  approvers,
+  state,
+  rev,
+  viewer,
   units,
-  receipts,
   chapters,
   today,
 }: {
-  initialDocs: readonly RegDoc[];
-  approvers: readonly string[];
+  state: RegDocsStoreState;
+  rev: number;
+  viewer: { userId: string; name: string; role: string | null };
   units: ReadonlyArray<{ unit: string; staff: number }>;
-  receipts: Record<string, Record<string, number>>;
   chapters: ReadonlyArray<{ code: string; label: string; elements: number; withEvidence: number }>;
   today: string;
 }) {
+  const docs = state.docs;
+  const reads = state.reads;
+  const evidence = state.evidence;
   const [tab, setTab] = useState('dokumen');
-  const [docs, setDocs] = useState<RegDoc[]>([...initialDocs]);
-  const [sel, setSel] = useState(
-    initialDocs.find((d) => d.status === 'draf')?.id ?? initialDocs[0]?.id ?? '',
-  );
+  const [sel, setSel] = useState(docs.find((d) => d.status === 'draf')?.id ?? docs[0]?.id ?? '');
   const [note, setNote] = useState('');
-  const [approver, setApprover] = useState('');
-  const [reads, setReads] = useState(receipts);
-  const [reminded, setReminded] = useState<Record<string, string>>({});
-  const [distDoc, setDistDoc] = useState(initialDocs.find((d) => d.status === 'terbit')?.id ?? '');
-  const [evidence, setEvidence] = useState(() =>
-    Object.fromEntries(chapters.map((c) => [c.code, c.withEvidence])),
-  );
+  const [distPick, setDistDoc] = useState('');
   const [chapter, setChapter] = useState('');
   const [evDoc, setEvDoc] = useState('');
-  const [flash, setFlash] = useState<Flash | null>(null);
-  const at = () => formatJam(demoNow());
+  const { act, pending, flash } = useTokoAction('regulasi', rev);
+  const at = () => demoStamp().jam;
 
   const doc = docs.find((d) => d.id === sel);
   const published = docs.filter((d) => d.status === 'terbit');
-  const setStatus = (id: string, status: DocStatus, text: string) => {
-    setDocs((cur) => cur.map((d) => (d.id === id ? { ...d, status } : d)));
-    setFlash({ ok: true, text: `${text} · ${at()}.` });
-  };
+  const distDoc = published.some((d) => d.id === distPick) ? distPick : (published[0]?.id ?? '');
+  const canApproveRole = !!viewer.role && (DOC_APPROVER_ROLES as readonly string[]).includes(viewer.role);
 
   let detail = null;
   if (doc) {
@@ -102,6 +93,9 @@ export function DocumentBoard({
           rows={[
             ['Jenis', `${doc.kind} · pemilik ${doc.owner}`],
             ['Penyusun', doc.author],
+            ...(doc.approval
+              ? ([['Disetujui', `${doc.approval.by.name} · ${doc.approval.jam} · ${doc.approval.note}`]] as const)
+              : []),
             ['Terbit', doc.publishedAt ? formatTanggal(doc.publishedAt) : 'belum'],
             ['Tinjau ulang', doc.reviewDue ? formatTanggal(doc.reviewDue) : '—'],
           ]}
@@ -111,7 +105,13 @@ export function DocumentBoard({
           <span>
             <Button
               variant="primary"
-              onClick={() => setStatus(doc.id, 'telaah', `${doc.code} v${doc.version} dikirim ke telaah`)}
+              disabled={pending}
+              onClick={() =>
+                act(
+                  { type: 'dokumen.ditelaah', id: doc.id, jam: at() },
+                  `${doc.code} v${doc.version} dikirim ke telaah · ${at()}.`,
+                )
+              }
             >
               Kirim ke telaah
             </Button>
@@ -120,25 +120,29 @@ export function DocumentBoard({
         {doc.status === 'telaah' && (
           <div className="flex flex-col gap-3">
             <TextField label="Catatan telaah" rows={2} value={note} onChange={setNote} />
-            <SelectField
-              label="Penyetuju"
-              value={approver}
-              onChange={setApprover}
-              placeholder="Pilih penyetuju…"
-              options={approvers.map((a) => [a, a])}
-              hint={`Penyusun: ${doc.author}.`}
-            />
+            <span className="text-small text-ink-700">
+              Penyusun: {doc.author}. Penyetuju = pengguna yang masuk (posisi Auditor mutu atau Manajemen), wajib
+              orang lain.
+            </span>
             <ReasonButton
               reason={
-                note.trim().length < 10
-                  ? 'Tulis catatan telaah minimal 10 huruf.'
-                  : docApproveBlock(doc.author, approver || null)
+                pending
+                  ? 'Menyimpan…'
+                  : !canApproveRole
+                    ? 'Penyetuju dokumen: posisi Auditor mutu atau Manajemen.'
+                    : isAuthor(doc, viewer)
+                      ? 'Anda penyusun dokumen ini: penyetuju harus pengguna lain (pemisahan tugas).'
+                      : note.trim().length < MIN_REVIEW_NOTE
+                        ? `Tulis catatan telaah minimal ${MIN_REVIEW_NOTE} huruf.`
+                        : null
               }
-              onClick={() => {
-                setStatus(doc.id, 'disetujui', `${doc.code} v${doc.version} disetujui ${approver}`);
-                setNote('');
-                setApprover('');
-              }}
+              onClick={() =>
+                act(
+                  { type: 'dokumen.disetujui', id: doc.id, note: note.trim(), jam: at() },
+                  `${doc.code} v${doc.version} disetujui ${viewer.name} · ${at()}.`,
+                  () => setNote(''),
+                )
+              }
             >
               Setujui dokumen
             </ReasonButton>
@@ -148,15 +152,14 @@ export function DocumentBoard({
           <span>
             <Button
               variant="primary"
+              disabled={pending}
               onClick={() => {
                 const old = docs.find((d) => d.code === doc.code && d.status === 'terbit');
-                setDocs((cur) => publish(cur, doc.id, today));
-                setReads((cur) => ({ ...cur, [doc.id]: {} }));
-                setDistDoc(doc.id);
-                setFlash({
-                  ok: true,
-                  text: `${doc.code} v${doc.version} terbit · ${at()}; didistribusikan ke ${units.length} unit${old ? `, v${old.version} tidak berlaku (bertanda air)` : ''}.`,
-                });
+                act(
+                  { type: 'dokumen.diterbitkan', id: doc.id, jam: at() },
+                  `${doc.code} v${doc.version} terbit · ${at()}; didistribusikan ke ${units.length} unit${old ? `, v${old.version} tidak berlaku (bertanda air)` : ''}.`,
+                  () => setDistDoc(doc.id),
+                );
               }}
             >
               Terbitkan dan distribusikan
@@ -178,24 +181,14 @@ export function DocumentBoard({
               {!docs.some((d) => d.code === doc.code && d.version > doc.version) && (
                 <span>
                   <Button
+                    disabled={pending}
                     onClick={() => {
                       const id = `${doc.id}-r${doc.version + 1}`;
-                      setDocs((cur) => [
-                        ...cur,
-                        {
-                          ...doc,
-                          id,
-                          version: doc.version + 1,
-                          status: 'draf',
-                          publishedAt: null,
-                          reviewDue: null,
-                        },
-                      ]);
-                      setSel(id);
-                      setFlash({
-                        ok: true,
-                        text: `Draf ${doc.code} v${doc.version + 1} dibuat untuk tinjau ulang · ${at()}.`,
-                      });
+                      act(
+                        { type: 'dokumen.versi-baru', id: doc.id, jam: at() },
+                        `Draf ${doc.code} v${doc.version + 1} dibuat untuk tinjau ulang oleh ${viewer.name} · ${at()}.`,
+                        () => setSel(id),
+                      );
                     }}
                   >
                     Mulai tinjau ulang (versi baru)
@@ -288,7 +281,7 @@ export function DocumentBoard({
             {units.map((u) => {
               const n = reads[dist.id]?.[u.unit] ?? 0;
               const p = pct(n, u.staff) ?? 0;
-              const key = `${dist.id}-${u.unit}`;
+              const key = remindKey(dist.id, u.unit);
               return (
                 <tr key={u.unit}>
                   <td className={TD}>{u.unit}</td>
@@ -300,18 +293,20 @@ export function DocumentBoard({
                   </td>
                   <td className={TD}>
                     {p < 100 &&
-                      (reminded[key] ? (
-                        <span className="text-caption text-ink-500">Pengingat terkirim {reminded[key]}</span>
+                      (state.reminded[key] ? (
+                        <span className="text-caption text-ink-500">
+                          Pengingat terkirim {state.reminded[key].jam} oleh {state.reminded[key].by}
+                        </span>
                       ) : (
                         <Button
                           size="sm"
-                          onClick={() => {
-                            setReminded((cur) => ({ ...cur, [key]: at() }));
-                            setFlash({
-                              ok: true,
-                              text: `Pengingat baca ${dist.code} dikirim ke ${u.staff - n} staf ${u.unit} · ${at()}.`,
-                            });
-                          }}
+                          disabled={pending}
+                          onClick={() =>
+                            act(
+                              { type: 'baca.diingatkan', docId: dist.id, unit: u.unit, jam: at() },
+                              `Pengingat baca ${dist.code} dikirim ke ${u.staff - n} staf ${u.unit} · ${at()}.`,
+                            )
+                          }
                         >
                           Kirim pengingat<span className="sr-only"> ke {u.unit}</span>
                         </Button>
@@ -328,7 +323,9 @@ export function DocumentBoard({
     </Panel>
   );
 
-  const evidenceBlock = !chapter
+  const evidenceBlock = pending
+    ? 'Menyimpan…'
+    : !chapter
     ? 'Pilih bab.'
     : !evDoc
       ? 'Pilih dokumen terbit sebagai bukti.'
@@ -390,9 +387,11 @@ export function DocumentBoard({
             reason={evidenceBlock}
             onClick={() => {
               const d = docs.find((x) => x.id === evDoc);
-              setEvidence((cur) => ({ ...cur, [chapter]: (cur[chapter] ?? 0) + 1 }));
-              setFlash({ ok: true, text: `${d?.code ?? ''} ditautkan sebagai bukti ${chapter} · ${at()}.` });
-              setEvDoc('');
+              act(
+                { type: 'bukti.ditautkan', chapter, docId: evDoc, jam: at() },
+                `${d?.code ?? ''} ditautkan sebagai bukti ${chapter} · ${at()}.`,
+                () => setEvDoc(''),
+              );
             }}
           >
             Tautkan sebagai bukti

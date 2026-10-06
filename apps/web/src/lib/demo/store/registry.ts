@@ -8,6 +8,7 @@ import { logisticsDomain } from '../../logistik-toko';
 import { payrollDomain } from '../../penggajian-toko';
 import { criticalDomain } from '../../penunjang-kritis';
 import { recordsAdminDomain } from '../../rekam-medis-adm-toko';
+import { regDocsDomain } from '../../dokumen-toko';
 import { referralDomain } from '../../rujukan-toko';
 import { documentDomain } from '../../platform-dokumen-toko';
 import { settingsDomain } from '../../platform-pengaturan-toko';
@@ -36,6 +37,7 @@ export const DEMO_DOMAINS = {
   pengaturan: settingsDomain,
   penggajian: payrollDomain,
   penjadwal: jobsDomain,
+  regulasi: regDocsDomain,
   'rekam-medis-adm': recordsAdminDomain,
   rujukan: referralDomain,
   struktur: structureDomain,
