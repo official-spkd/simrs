@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600" role="img" aria-labelledby="judul ket">
+  <title id="judul">Model otorisasi berlapis</title>
+  <desc id="ket">Permintaan staf melewati lapis RBAC (penugasan peran di unit dan matriks izin per RS), lalu lapis ABAC (relasi dengan pasien, lingkup unit, hak tulis per formulir). Bila relasi belum tercatat dan keadaan mendesak, staf dapat memakai akses darurat dengan alasan wajib, berbatas waktu, memberi tahu petugas privasi, dan wajib ditinjau. Penolakan menghasilkan 403 dan tercatat di audit. Di bawah semuanya, PostgreSQL RLS mengisolasi data antar-RS.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .okbox{fill:#EAF5EC;stroke:#1E6B34;stroke-width:1.4}.warnbox{fill:#FFF3E0;stroke:#8A4B00;stroke-width:1.4}.dangerbox{fill:#FDECEA;stroke:#B42318;stroke-width:1.4}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+    .tb{fill:#0B5D56}.tok{fill:#1E6B34}.tw{fill:#8A4B00}.td{fill:#B42318}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnk{stroke:#1E6B34;stroke-width:1.7;fill:none}.lnd{stroke:#B42318;stroke-width:1.5;fill:none}.lnw{stroke:#8A4B00;stroke-width:1.5;fill:none}.dash{stroke-dasharray:5 4}
+    .ah{fill:#5B6B79}.ahk{fill:#1E6B34}.ahd{fill:#B42318}.ahw{fill:#8A4B00}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}
+      .okbox{fill:#12301D;stroke:#6FCF8A}.warnbox{fill:#362510;stroke:#F0B45A}.dangerbox{fill:#3A1714;stroke:#F2877C}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tok{fill:#6FCF8A}.tw{fill:#F0B45A}.td{fill:#F2877C}
+      .ln{stroke:#8FA1B0}.lnk{stroke:#6FCF8A}.lnd{stroke:#F2877C}.lnw{stroke:#F0B45A}.ah{fill:#8FA1B0}.ahk{fill:#6FCF8A}.ahd{fill:#F2877C}.ahw{fill:#F0B45A}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahk" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahd" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahw" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="600" rx="14"/>
+  <text class="h" x="24" y="38">Siapa boleh apa: otorisasi berlapis</text>
+  <text class="sub" x="24" y="60">Setiap lapis harus lolos. Menyembunyikan menu hanya kenyamanan; izin selalu ditegakkan API dan database.</text>
+
+  <!-- Permintaan -->
+  <rect class="card" x="24" y="110" width="160" height="96" rx="12"/>
+  <text class="t" x="40" y="134">Permintaan staf</text>
+  <text class="s" x="40" y="156">sesi + MFA</text>
+  <text class="s" x="40" y="174">satu penugasan aktif:</text>
+  <text class="s" x="40" y="192">peran × unit</text>
+  <path class="ln" d="M184 158H212" marker-end="url(#a)"/>
+
+  <!-- RBAC -->
+  <rect class="brandbox" x="216" y="96" width="236" height="196" rx="12"/>
+  <text class="t tb" x="232" y="120">1 · RBAC (peran)</text>
+  <text class="s" x="232" y="144">penugasan: peran di unit</text>
+  <text class="s" x="232" y="162">dengan masa berlaku</text>
+  <text class="s" x="232" y="184">16 peran sistem per RS,</text>
+  <text class="s" x="232" y="202">matriks izin hak minimum</text>
+  <text class="mono" x="232" y="226">sumber.aksi  (order.write)</text>
+  <text class="s" x="232" y="250">admin RS menyesuaikan matriks;</text>
+  <text class="s" x="232" y="268">setiap perubahan diaudit</text>
+  <path class="ln" d="M452 158H484" marker-end="url(#a)"/>
+  <text class="xs" x="460" y="150">lolos</text>
+
+  <!-- ABAC -->
+  <rect class="brandbox" x="488" y="96" width="256" height="196" rx="12"/>
+  <text class="t tb" x="504" y="120">2 · ABAC (relasi dengan pasien)</text>
+  <text class="s" x="504" y="144">DPJP, perawat penanggung jawab,</text>
+  <text class="s" x="504" y="162">rawat bersama, konsultan</text>
+  <text class="s" x="504" y="184">lingkup unit: kunjungan aktif di</text>
+  <text class="s" x="504" y="202">unit penugasan (ADR-0031)</text>
+  <text class="s" x="504" y="226">hak tulis per formulir (profesi)</text>
+  <text class="s" x="504" y="250">peran administratif (pendaftaran,</text>
+  <text class="s" x="504" y="268">rekam medis): seluruh pasien</text>
+  <path class="lnk" d="M744 150H778" marker-end="url(#ak)"/>
+  <text class="xs tok" x="750" y="142">lolos</text>
+
+  <!-- Diizinkan -->
+  <rect class="okbox" x="782" y="96" width="194" height="108" rx="12"/>
+  <text class="t tok" x="798" y="120">Diizinkan</text>
+  <text class="s" x="798" y="144">dijalankan di transaksi</text>
+  <text class="s" x="798" y="162">bertenant (RLS)</text>
+  <text class="s" x="798" y="184">baca dan ubah dicatat</text>
+  <text class="s" x="798" y="200">di jejak audit</text>
+
+  <!-- Ditolak -->
+  <rect class="dangerbox" x="216" y="340" width="236" height="122" rx="12"/>
+  <text class="t td" x="232" y="364">Ditolak · 403</text>
+  <text class="s" x="232" y="388">penolakan dicatat di audit_events</text>
+  <text class="s" x="232" y="408">kode galat stabil, tanpa detail</text>
+  <text class="s" x="232" y="426">internal; gagal berulang muncul</text>
+  <text class="s" x="232" y="444">sebagai temuan anomali</text>
+  <path class="lnd" d="M300 292V336" marker-end="url(#ad)"/>
+  <text class="xs td" x="308" y="320">izin tidak ada</text>
+  <path class="lnd" d="M530 292V316H404V336" marker-end="url(#ad)"/>
+  <text class="xs td" x="538" y="312">tanpa relasi</text>
+
+  <!-- Break the glass -->
+  <rect class="warnbox" x="560" y="340" width="236" height="140" rx="12"/>
+  <text class="t tw" x="576" y="364">Akses darurat</text>
+  <text class="xs tw" x="680" y="364">(break-the-glass)</text>
+  <text class="s" x="576" y="388">alasan klinis wajib ditulis</text>
+  <text class="s" x="576" y="408">berlaku sementara (bawaan 60 mnt)</text>
+  <text class="s" x="576" y="428">petugas privasi segera diberi tahu</text>
+  <text class="s" x="576" y="448">setiap akses wajib ditinjau di</text>
+  <text class="s" x="576" y="466">layar Audit (sah / klarifikasi)</text>
+  <path class="lnw" d="M680 292V336" marker-end="url(#aw)"/>
+  <text class="xs tw" x="688" y="312">mendesak, relasi belum tercatat</text>
+  <path class="lnw dash" d="M796 410H880V208" marker-end="url(#aw)"/>
+  <text class="xs tw" x="806" y="400">akses sementara</text>
+
+  <!-- Lapis dasar -->
+  <rect class="card" x="24" y="500" width="952" height="72" rx="12"/>
+  <text class="t" x="40" y="524">Lapis dasar: database dan pengaman admin</text>
+  <text class="s" x="40" y="546">PostgreSQL RLS: data RS lain tidak terbaca atau tertulis walau ID-nya ditebak. Role aplikasi tanpa BYPASSRLS.</text>
+  <text class="s" x="40" y="564">RS tidak bisa kehilangan admin terakhir; admin tidak mengubah aksesnya sendiri lewat menu admin (ADR-0012).</text>
+</svg>
