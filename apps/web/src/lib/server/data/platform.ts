@@ -18,6 +18,8 @@ import {
 import { DEMO_DOCUMENTS, DOCUMENT_PATIENT_IDS } from '../../demo/fixtures/dokumen';
 import { STAF } from '../../demo/fixtures/staf';
 import type { DemoDocument, DocPatient } from '../../platform-dokumen';
+import { DEMO_JOBS } from '../../demo/fixtures/penjadwal';
+import type { ScheduledJob } from '../../platform-penjadwal';
 import type { StructNode } from '../../platform-struktur';
 import type { RefConcept, RefVersion } from '../../platform-terminologi';
 import {
@@ -113,4 +115,9 @@ export async function getDocumentsOverview(): Promise<{
     };
   });
   return { patients, documents: [...DEMO_DOCUMENTS] };
+}
+
+export async function getScheduledJobs(): Promise<ScheduledJob[]> {
+  if (!isDemo()) return notImplemented('penjadwal pekerjaan (layar demo)');
+  return DEMO_JOBS.map((j) => ({ ...j, runs: [...j.runs] }));
 }

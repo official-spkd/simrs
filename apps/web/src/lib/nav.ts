@@ -140,6 +140,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'book',
         available: false,
       },
+      {
+        id: 'penjadwal',
+        label: 'Penjadwal pekerjaan',
+        href: '/sistem/penjadwal',
+        icon: 'clock',
+        available: false,
+      },
       // FE1 · akhir
     ],
   },

@@ -217,4 +217,44 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(fresh.getByRole('status')).toContainText('Dibatalkan: Hasil spirometri');
     await expectNoHorizontalOverflow(page);
   });
+
+  test('penjadwal: job gagal dijalankan ulang berkonfirmasi, job berisiko wajib alasan, jeda beralasan', async ({
+    page,
+  }) => {
+    const admin = await createAccount({ roles: ['admin_tenant'] });
+    await loginAs(page, admin, '/sistem/penjadwal');
+    await expect(
+      page.getByRole('heading', { name: 'Penjadwal pekerjaan · job berkala', level: 1 }),
+    ).toBeVisible();
+    const summary = page.getByRole('region', { name: 'Ringkasan job' });
+    await expect(summary).toContainText('Gagal saat ini');
+
+    const detail = page.getByRole('region', { name: 'Sinkron ketersediaan bed ke Aplicare' });
+    await expect(detail.getByRole('alert')).toContainText('Aplicare menjawab 503');
+    await detail.getByRole('button', { name: 'Jalankan ulang' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Jalankan Sinkron ketersediaan bed ke Aplicare sekarang?' })
+      .getByRole('button', { name: 'Ya, jalankan' })
+      .click();
+    await expect(detail.getByRole('status')).toContainText(/selesai · \d{2}\.\d{2} · berhasil/);
+    await expect(detail.getByRole('list', { name: /^Riwayat jalan/ })).toContainText('Aplicare pulih');
+
+    await page.getByRole('button', { name: 'Detail Laporan RL/SIRS Online bulanan' }).click();
+    const rl = page.getByRole('region', { name: 'Laporan RL/SIRS Online bulanan' });
+    await rl.getByRole('button', { name: 'Jalankan ulang' }).click();
+    const dialog = page.getByRole('alertdialog', { name: /^Jalankan Laporan RL/ });
+    await expect(dialog.getByRole('button', { name: 'Ya, jalankan' })).toBeDisabled();
+    await dialog.getByLabel('Alasan menjalankan manual').fill('Koreksi koding RL 3.1 selesai');
+    await dialog.getByRole('button', { name: 'Ya, jalankan' }).click();
+    await expect(rl.getByRole('status')).toContainText(/selesai · \d{2}\.\d{2}/);
+
+    await page.getByRole('button', { name: 'Detail Pengingat jadwal kontrol pasien (WhatsApp)' }).click();
+    const wa = page.getByRole('region', { name: 'Pengingat jadwal kontrol pasien (WhatsApp)' });
+    await expect(wa.getByRole('button', { name: 'Jalankan sekarang' })).toBeDisabled();
+    await expect(wa.getByText('Job dijeda; lanjutkan dulu sebelum menjalankan.')).toBeVisible();
+    await wa.getByRole('button', { name: 'Lanjutkan' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Ya, lanjutkan' }).click();
+    await expect(wa.getByRole('status')).toContainText(/dilanjutkan · \d{2}\.\d{2}/);
+    await expectNoHorizontalOverflow(page);
+  });
 });
