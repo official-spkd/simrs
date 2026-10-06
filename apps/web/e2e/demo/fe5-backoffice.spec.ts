@@ -641,35 +641,33 @@ test.describe('FE5 · back office', () => {
     await loginAs(page, direksi, '/');
     await page.goto('/manajemen/logistik');
     const rop = page.getByRole('region', { name: 'Item di bawah titik pesan ulang' });
-    await expect(rop.getByRole('checkbox', { name: 'Masukkan Infus RL 500 mL ke usulan PO' })).toHaveCount(1);
+    const kasa = rop.getByRole('checkbox', { name: 'Masukkan Kasa steril 16×16 ke usulan PO' });
+    await expect(kasa).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'Terima barang PO-2610-028' }).click();
-    const receipt = page.getByRole('region', { name: 'Penerimaan barang PO-2610-028' });
+    await page.getByRole('button', { name: 'Terima barang PO-2610-024' }).click();
+    const receipt = page.getByRole('region', { name: 'Penerimaan barang PO-2610-024' });
     const record = receipt.getByRole('button', { name: 'Catat penerimaan' });
     await expect(record).toBeDisabled();
-    for (const [name, batch] of [
-      ['Infus RL 500 mL', 'RL2610A'],
-      ['Parasetamol infus 1 g/100 mL', 'PCT2610B'],
-    ] as const) {
-      await receipt.getByLabel(`Batch ${name}`).fill(batch);
+    const names = ['Kasa steril 16×16', 'Benang PGA 2-0', 'Sarung tangan steril 7,5', 'Spuit 3 mL'];
+    for (const [i, name] of names.entries()) {
+      await receipt.getByLabel(`Batch ${name}`).fill(`BT2610${i}`);
       await receipt.getByLabel(`Kedaluwarsa ${name}`).fill('2027-02-28');
     }
     await expect(receipt.getByText(/kurang dari 6 bulan/)).toBeVisible();
-    for (const name of ['Infus RL 500 mL', 'Parasetamol infus 1 g/100 mL']) {
-      await receipt.getByLabel(`Kedaluwarsa ${name}`).fill('2028-03-31');
-    }
-    await expect(receipt).toContainText('D Rp 95.400.000');
+    for (const name of names) await receipt.getByLabel(`Kedaluwarsa ${name}`).fill('2028-03-31');
+    await expect(receipt).toContainText('D Rp 22.700.000');
     await record.click();
     await expect(
-      page.getByText(/GR-2610-0001 dicatat .* utang usaha Rp 95\.400\.000 jatuh tempo Rab, 4 Nov 2026/),
+      page.getByText(/GRN-2610-0145 dicatat .* utang usaha Rp 22\.700\.000 jatuh tempo Rab, 4 Nov 2026/),
     ).toBeVisible();
     await expect(page.getByRole('region', { name: 'Pengadaan berjalan' })).toContainText(
-      'Diterima GR-2610-0001',
+      'Diterima GRN-2610-0145',
     );
-    await expect(rop.getByRole('checkbox', { name: 'Masukkan Infus RL 500 mL ke usulan PO' })).toHaveCount(0);
+    await expect(kasa).toHaveCount(0);
 
     await expectNoHorizontalOverflow(page);
   });
+
   test('B06 mutu: lima indikator dihitung dari data transaksi dengan pembilang/penyebut', async ({
     page,
   }) => {

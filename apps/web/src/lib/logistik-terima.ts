@@ -85,6 +85,7 @@ export function payableDue(today: string, days = PAYABLE_TERM_DAYS): string {
   return shiftDate(today, days);
 }
 
+/** Nomor penerimaan barang per periode (format sama dengan hutang usaha, mis. `GRN-2610-0144`). */
 export function grNumber(seq: number, period = '2610'): string {
-  return `GR-${period}-${String(seq).padStart(4, '0')}`;
+  return `GRN-${period}-${String(seq).padStart(4, '0')}`;
 }

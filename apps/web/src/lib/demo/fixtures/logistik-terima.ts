@@ -20,7 +20,12 @@ function line(itemId: string, ordered: number): ReceiptLine {
 }
 
 export const PO_RECEIPT_LINES: Record<string, readonly ReceiptLine[]> = {
-  'PO-2610-028': [line('infus-rl-500', 9_000), line('parasetamol-infus', 900)],
+  'PO-2610-024': [
+    line('kasa-steril', 7_000),
+    line('benang-pga', 200),
+    line('sarung-tangan-steril', 1_000),
+    line('spuit-3ml', 1_000),
+  ],
 };
 
-export const PO_SUPPLIER: Record<string, string> = { 'PO-2610-028': 'Penyedia e-katalog' };
+export const PO_SUPPLIER: Record<string, string> = { 'PO-2610-024': 'Distributor alkes B' };

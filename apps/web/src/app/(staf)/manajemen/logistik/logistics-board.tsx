@@ -58,7 +58,8 @@ export function LogisticsBoard({
   const [receiving, setReceiving] = useState<string | null>(null);
   const [received, setReceived] = useState<Record<string, string>>({});
   const [stockAdd, setStockAdd] = useState<Record<string, number>>({});
-  const [grSeq, setGrSeq] = useState(1);
+  // Nomor GRN berikutnya (GRN-2610-0144 = cairan infus pagi ini, lihat hutang usaha).
+  const [grSeq, setGrSeq] = useState(145);
   // Stok bertambah setelah penerimaan; item yang tidak lagi di bawah ROP keluar dari daftar.
   const reorder = data.reorder
     .map((i) =>
