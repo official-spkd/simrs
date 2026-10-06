@@ -515,6 +515,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['apoteker', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'dokumen',
+    label: 'Dokumen & akreditasi',
+    route: '/manajemen/dokumen',
+    mockup: null,
+    components: ['B12'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'regdoc.approve',
+    demoRoles: ['auditor_mutu', 'manajemen'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 
