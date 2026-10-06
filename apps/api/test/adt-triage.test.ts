@@ -701,6 +701,14 @@ describe('SSE papan IGD dan papan bed', () => {
         s.events.some((e) => e.event === 'ed.status' && e.data.encounterId === mine.encounterId),
       );
       expect(s.events.some((e) => e.data.encounterId === theirs.encounterId)).toBe(false);
+      // Potret awal memuat nama + RM pasien: setiap pasien yang tampil diaudit seperti `GET /triage/board`.
+      expect(
+        await run(A.id, (tx) =>
+          tx.auditEvent.count({
+            where: { patientId: mine.patientId, resourceType: 'ed_board', action: 'search' },
+          }),
+        ),
+      ).toBeGreaterThanOrEqual(1);
     } finally {
       s.close();
     }

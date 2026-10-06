@@ -1,6 +1,6 @@
 import type { TenantTx } from '@simrs/db';
 import { newId } from '@simrs/shared';
-import type { PendingAudit } from '../common/request-context';
+import type { PendingAudit, TenantRequestContext } from '../common/request-context';
 
 export interface AuditMeta {
   actorUserId: string | null;
@@ -48,4 +48,18 @@ export async function writeAudit(
           : (e.details as object),
     })),
   });
+}
+
+/** Metadata audit dari konteks permintaan bertenant (transaksi pendek di luar interceptor: `TenantDb`, SSE). */
+export function auditMetaOf(ctx: TenantRequestContext): AuditMeta {
+  return {
+    actorUserId: ctx.actor.userId,
+    actorRole: ctx.actor.role,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    requestId: ctx.requestId,
+    device: ctx.actor.devicePrincipal
+      ? { id: ctx.actor.devicePrincipal.id, kind: ctx.actor.devicePrincipal.kind }
+      : null,
+  };
 }
