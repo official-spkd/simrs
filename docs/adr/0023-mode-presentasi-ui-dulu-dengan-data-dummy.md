@@ -1,6 +1,6 @@
 # ADR-0023 · Mode presentasi: layar fase 2–10 dibangun lebih dulu dengan data dummy
 
-Status: diterima · 4 Okt 2026 · Komponen: lintas (F, K, S, U, B, I)
+Status: diterima · 4 Okt 2026 · diperbarui 6 Okt 2026 · Komponen: lintas (P, F, K, S, U, B, I)
 
 ## Konteks
 Pengguna perlu mempresentasikan seluruh layar SIM RS ke klien (RSCM) dan direksi sebelum backend fase 2–10 dibangun, dan ingin memantapkan UI/UX lebih dulu. docs/09 mensyaratkan fase berikut dimulai setelah DoD fase sebelumnya (backend + tes), dan docs/08 §1 meminta data contoh mockup menjadi fixture/seed, bukan hard-code. Pengguna memilih (4 Okt 2026): seluruh layar, **layar asli di rute finalnya + lapisan data dummy** yang kelak ditukar ke API, dan presentasi berupa panduan langkah + navigasi bebas memakai tiga skenario `design/mockups/Simulasi.dc.html`.
@@ -22,3 +22,15 @@ Pengguna perlu mempresentasikan seluruh layar SIM RS ke klien (RSCM) dan direksi
 − Risiko salah kira data dummy sebagai fitur jadi: dicegah lencana tetap, gerbang env, dan status "belum tersambung" di PROGRESS.
 − Kontrak dummy bisa menyimpang dari kebutuhan backend nyata: dimitigasi skema bersama di `packages/shared` yang dipakai API nanti.
 − Berkas `.local/demo-accounts.json` memuat sandi dan rahasia TOTP akun presentasi lokal: siapa pun yang membaca berkas itu bisa masuk sebagai akun-akun tersebut di database lokal. Akun itu hanya ada di database pengembangan (data fiktif), CLI menolak berjalan di luar lokal, dan menjalankan ulang CLI mengganti semua kredensial.
+
+## Pembaruan 6 Okt 2026 · semua fase front end dulu
+
+Pemilik produk meminta seluruh fase (0–10) punya alur front end yang jelas dan bisa diklik, tanpa menghabiskan waktu di backend. Cakupan pengecualian urutan fase (keputusan 1) diperluas ke **semua komponen katalog docs/02 yang belum punya layar**, termasuk platform (P01, P06, P08, P10–P13), back office B02–B13, dan konektor I02–I12. Pekerjaan dibagi ke lima agen per domain di git worktree terpisah, ditambah agen dokumentasi, pemeriksa bug, dan keamanan.
+
+Penyimpangan yang diterima sementara, dicatat sebagai utang di PROGRESS:
+
+- **Tipe di web.** Tipe respons layar baru ditulis di `apps/web/src/lib/<domain>.ts`, bukan skema zod di `packages/shared` (keputusan 4). Alasannya agar lima agen paralel tidak bentrok di paket bersama. Skema dipindah ke `packages/shared` saat backend domain itu dibangun.
+- **Aksi hanya di klien.** Sebagian layar baru menjalankan aksi hanya di keadaan klien, berlabel "(simulasi, tidak disimpan)", tanpa Server Action. Keadaannya hilang saat halaman dimuat ulang atau posisi berganti, dan tidak tercermin di layar lain. Keputusan 7 (keadaan skenario per akun di server) tetap berlaku untuk tiga skenario Simulasi.
+- **Katalog belum lengkap.** Izin rencana (`plannedPermission`), peran baru, dan kode akun COA yang dipakai layar baru belum ada di katalog bersama. Semuanya ditambahkan bersama backend domainnya.
+
+Gerbang env (keputusan 2) dan gerbang keselamatan (keputusan 6) berlaku sama untuk layar baru.
