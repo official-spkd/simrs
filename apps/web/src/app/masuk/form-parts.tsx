@@ -117,7 +117,7 @@ export function OtpInput({
               'h-[52px] rounded-control border text-center font-mono text-[22px]',
               d ? 'border-brand-600 bg-selected' : 'bg-white',
               !d && i === firstEmpty ? (error ? 'border-2 border-danger' : 'border-2 border-brand-600') : '',
-              !d && i !== firstEmpty ? (error ? 'border-[#F04438]' : 'border-line-strong') : '',
+              !d && i !== firstEmpty ? (error ? 'border-koral-400' : 'border-line-strong') : '',
             )}
           />
         ))}

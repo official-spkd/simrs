@@ -17,7 +17,11 @@ const y = (v: number) =>
   Math.round((H - 6 - ((Math.min(Math.max(v, LO), HI) - LO) / (HI - LO)) * (H - 12)) * 10) / 10;
 const x = (i: number, n: number) => 10 + (i * (W - 20)) / Math.max(n - 1, 1);
 /** Titik terakhir per pita: brand = dalam sasaran, oranye = di atas, merah = di bawah (status juga dalam teks). */
-const DOT: Record<GlucoseBand, string> = { dalam: 'var(--color-brand-600)', atas: '#C27A1A', bawah: 'var(--color-koral-600)' };
+const DOT: Record<GlucoseBand, string> = {
+  dalam: 'var(--color-brand-600)',
+  atas: 'var(--color-kunyit-600)',
+  bawah: 'var(--color-koral-600)',
+};
 
 /**
  * Gula darah mandiri 7 hari (mockup AppPasien): garis dengan pita sasaran dokter, catat hasil hari ini dengan
@@ -66,7 +70,7 @@ export function GlucoseCard({
   return (
     <section
       aria-label="Gula darah"
-      className="flex flex-col gap-2 rounded-[18px] border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-[18px] border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="flex items-baseline justify-between">
         <span className="font-semibold">Gula darah mandiri</span>
@@ -79,7 +83,13 @@ export function GlucoseCard({
         role="img"
         aria-label={`Gula darah 7 hari dari ${values[0]} ke ${last} mg/dL, ${GLUCOSE_BAND_LABEL[band]}; sasaran dokter ${target.min}–${target.max} mg/dL`}
       >
-        <rect x={0} y={y(target.max)} width={W} height={y(target.min) - y(target.max)} fill="var(--color-zamrud-50)" />
+        <rect
+          x={0}
+          y={y(target.max)}
+          width={W}
+          height={y(target.min) - y(target.max)}
+          fill="var(--color-zamrud-50)"
+        />
         <path d={d} fill="none" stroke="var(--color-brand-600)" strokeWidth={2.2} strokeLinejoin="round" />
         <circle cx={x(values.length - 1, values.length)} cy={y(last)} r={4.5} fill={DOT[band]} />
       </svg>
@@ -143,7 +153,7 @@ export function GlucoseCard({
             <button
               type="submit"
               disabled={pending}
-              className="h-11 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 px-3 font-[inherit] font-semibold text-white"
+              className="h-11 cursor-pointer rounded-[12px] border border-transparent bg-btn-primary px-3 font-[inherit] font-semibold text-white shadow-button"
             >
               Simpan
             </button>

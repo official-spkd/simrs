@@ -48,7 +48,7 @@ export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; pa
   return (
     <section
       aria-label="Antrean aktif"
-      className="flex flex-col gap-3 rounded-[18px] bg-[linear-gradient(150deg,var(--color-brand-600),var(--color-brand-700))] p-4 text-white"
+      className="flex flex-col gap-3 rounded-[22px] bg-btn-primary p-4 text-white shadow-button"
     >
       <span className="flex items-center justify-between gap-2 text-[12.5px]">
         <span className="font-semibold">{queue.title}</span>
@@ -57,7 +57,9 @@ export function QueueCard({ queue, payer }: { queue: PatientAppHome['queue']; pa
       <span className="flex items-end justify-between gap-3">
         <span className="flex flex-col">
           <span className="text-[12px] text-white/80">{queue.numberLabel}</span>
-          <span className="font-mono text-[34px] leading-tight font-bold">{queue.number}</span>
+          <span className="font-mono text-[34px] leading-tight font-bold tracking-[-0.03em]">
+            {queue.number}
+          </span>
         </span>
         {queue.stage === 'booking' ? (
           <CodePattern code={queue.number} />

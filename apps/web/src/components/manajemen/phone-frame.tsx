@@ -6,13 +6,21 @@ import type { ReactNode } from 'react';
  */
 export function PhoneFrame({ time, children }: { time: string; children: ReactNode }) {
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-[44px] border-[6px] border-ink-900 bg-canvas text-[14px] text-ink-900 shadow-[0_24px_60px_rgba(20,33,43,0.28)]">
-      <div className="flex h-9 shrink-0 items-center justify-between bg-white px-6 text-[13px] font-semibold">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-[44px] border-[6px] border-ink-900 bg-canvas bg-[radial-gradient(400px_300px_at_0%_0%,var(--color-samudra-100)_0%,transparent_60%),radial-gradient(400px_300px_at_100%_40%,var(--color-samudra-50)_0%,transparent_60%)] text-[14px] text-ink-900 shadow-[0_24px_60px_rgba(23,32,46,0.28)]">
+      <div className="flex h-9 shrink-0 items-center justify-between px-6 text-[13px] font-semibold">
         <span>{time}</span>
         <span className="flex items-center gap-1.5" aria-hidden="true">
           <svg width="18" height="12" viewBox="0 0 18 12">
             {[0, 1, 2, 3].map((i) => (
-              <rect key={i} x={i * 4.5} y={9 - i * 3} width={3} height={3 + i * 3} rx={0.8} fill="var(--color-ink-900)" />
+              <rect
+                key={i}
+                x={i * 4.5}
+                y={9 - i * 3}
+                width={3}
+                height={3 + i * 3}
+                rx={0.8}
+                fill="var(--color-ink-900)"
+              />
             ))}
           </svg>
           <svg width="16" height="12" viewBox="0 0 16 12">

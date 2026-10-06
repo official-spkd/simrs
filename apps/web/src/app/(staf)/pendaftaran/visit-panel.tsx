@@ -65,7 +65,7 @@ export function QuotaPanel({
   return (
     <section
       aria-label="Kuota dokter hari ini"
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <span className="font-semibold">Tujuan dan kuota dokter hari ini</span>
       <label htmlFor={`${id}-poli`} className="text-small font-semibold text-ink-700">
@@ -107,15 +107,15 @@ export function QuotaPanel({
                 {q.start}–{q.end}
               </span>
             </span>
-            <span className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <span className="h-1.5 overflow-hidden rounded-full bg-ink-900/8" aria-hidden="true">
               <span
                 className={cx(
-                  'block h-1.5',
+                  'block h-1.5 rounded-full',
                   u.level === 'penuh'
                     ? 'bg-danger'
                     : u.level === 'hampir-penuh'
                       ? 'bg-kunyit-500'
-                      : 'bg-brand-600',
+                      : 'bg-domain-bar',
                 )}
                 style={{ width: `${u.percent}%` }}
               />
@@ -157,7 +157,7 @@ export function GuarantorPanel({
   return (
     <fieldset
       disabled={!enabled}
-      className="m-0 flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="m-0 flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
     >
       <legend className="px-1 font-semibold">Penanggung jawab</legend>
       {contacts.map((c) => (
@@ -248,7 +248,7 @@ export function ConsentPanel({
   const id = useId();
   if (activeSince) {
     return (
-      <div className="flex flex-col gap-1 rounded-control border border-success-border bg-success-bg/60 p-3 text-small">
+      <div className="flex flex-col gap-1 rounded-[12px] border border-success-border bg-alert-success p-3 text-small">
         <span className="font-semibold">Persetujuan umum rawat jalan berlaku</span>
         <span className="text-ink-700">Ditandatangani {activeSince}; berlaku sampai dicabut.</span>
       </div>

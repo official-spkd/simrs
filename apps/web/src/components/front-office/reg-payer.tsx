@@ -43,10 +43,14 @@ export function RegPayer({
 }) {
   const bpjs = payer === 'BPJS';
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-line bg-white p-4">
+    <div className="flex flex-col gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 text-h2 font-semibold">Penjamin: {PAYER_LABEL[payer]}</h2>
-        <div role="group" aria-label="Pilih penjamin" className="flex gap-1.5">
+        <div
+          role="group"
+          aria-label="Pilih penjamin"
+          className="flex gap-1 rounded-control bg-ink-900/6 p-[3px]"
+        >
           {PAYERS.map((p) => (
             <button
               key={p}
@@ -55,10 +59,10 @@ export function RegPayer({
               disabled={payerLocked}
               onClick={() => onPayer(p)}
               className={cx(
-                'h-11 cursor-pointer rounded-control border px-3.5 font-[inherit] text-small disabled:cursor-not-allowed disabled:opacity-60',
+                'h-11 cursor-pointer rounded-[9px] border-0 px-3.5 font-[inherit] text-small disabled:cursor-not-allowed disabled:opacity-60',
                 p === payer
-                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
-                  : 'border-line bg-white text-ink-900',
+                  ? 'bg-white font-semibold text-ink-900 shadow-tab'
+                  : 'bg-transparent text-ink-700 hover:bg-white/60',
               )}
             >
               {p}
@@ -68,7 +72,7 @@ export function RegPayer({
       </div>
       {payerNote && <span className="text-caption text-ink-500">{payerNote}</span>}
       {!bpjs && (
-        <div className="flex flex-col gap-1 rounded-control border border-line bg-subtle p-3">
+        <div className="flex flex-col gap-1 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3">
           <span className="font-semibold">
             {payer === 'Umum' ? 'Pasien umum · tanpa SEP' : 'Asuransi swasta · tanpa SEP'}
           </span>
@@ -82,7 +86,7 @@ export function RegPayer({
       {bpjs && checked && eligibility && (
         <dl
           aria-label="Hasil cek kepesertaan"
-          className="m-0 grid grid-cols-2 gap-2 rounded-control border border-success-border bg-success-bg/60 p-3 sm:grid-cols-4"
+          className="m-0 grid grid-cols-2 gap-2 rounded-[12px] border border-success-border bg-alert-success p-3 sm:grid-cols-4"
         >
           {[
             { k: 'Status peserta', v: eligibility.status === 'aktif' ? 'AKTIF' : 'TIDAK AKTIF' },
@@ -100,7 +104,7 @@ export function RegPayer({
         </dl>
       )}
       {bpjs && !checked && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line bg-subtle p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] bg-[linear-gradient(135deg,var(--color-brand-50),var(--color-batu-50))] p-3">
           <span className="flex flex-col">
             <span className="text-caption text-ink-500">Status peserta</span>
             <span className="text-small font-semibold">
@@ -130,7 +134,9 @@ export function RegPayer({
                 onClick={() => onReferral(r.id)}
                 className={cx(
                   'flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-control px-3 py-2 text-left font-[inherit] disabled:cursor-not-allowed',
-                  sel ? 'border-2 border-brand-600 bg-selected' : 'border border-line bg-white',
+                  sel
+                    ? 'border-2 border-brand-600 bg-selected'
+                    : 'border border-line bg-white hover:bg-brand-50/60',
                   expired && 'bg-subtle',
                 )}
               >

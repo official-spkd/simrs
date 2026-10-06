@@ -8,7 +8,7 @@ import type { CSSProperties, ReactNode } from 'react';
 export const fs = (px: number): CSSProperties => ({ fontSize: `calc(${px}px * var(--k, 1))` });
 
 export const KIOSK_PRIMARY =
-  'border-2 border-brand-800 bg-[linear-gradient(180deg,var(--color-brand-500),var(--color-brand-600))] text-white shadow-[0_6px_16px_color-mix(in_srgb,_var(--color-brand-600)_25%,_transparent)] disabled:border-line disabled:bg-none disabled:bg-muted disabled:text-ink-400 disabled:shadow-none disabled:cursor-not-allowed';
+  'border-2 border-transparent bg-btn-primary text-white shadow-button disabled:border-line disabled:bg-none disabled:bg-muted disabled:text-ink-400 disabled:shadow-none disabled:cursor-not-allowed';
 export const KIOSK_SECONDARY = 'border-2 border-line-strong bg-white text-ink-900';
 
 export function KioskOption({
@@ -40,18 +40,20 @@ export function KioskOption({
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        'flex cursor-pointer items-center gap-8 rounded-[28px] border-2 px-10 text-left font-[inherit] shadow-[0_2px_4px_rgba(16,24,40,0.05),0_10px_30px_rgba(16,24,40,0.07)] disabled:cursor-wait disabled:opacity-70',
+        'flex cursor-pointer items-center gap-8 rounded-[32px] border-2 px-10 text-left font-[inherit] disabled:cursor-wait disabled:opacity-70',
         large ? 'min-h-[188px] py-9' : 'min-h-[168px] py-8',
         primary
-          ? 'border-brand-700 bg-[linear-gradient(135deg,#12807A_0%,var(--color-brand-600)_55%,var(--color-brand-700)_100%)] text-white'
-          : 'border-line bg-white text-ink-900',
+          ? 'border-transparent bg-btn-primary text-white shadow-button'
+          : 'border-white bg-white text-ink-900 shadow-card',
       )}
     >
       <span
         className={cx(
           'flex flex-none items-center justify-center rounded-[26px]',
           large ? 'size-28' : 'size-[104px]',
-          primary ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700',
+          primary
+            ? 'bg-white/15 text-white'
+            : 'bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] text-brand-700',
         )}
       >
         <Icon name={icon} size={large ? 56 : 52} strokeWidth={1.6} />
@@ -109,7 +111,7 @@ export function KioskTitle({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="m-0 leading-[1.15] font-bold tracking-[-0.01em]" style={fs(size)}>
+      <h1 className="m-0 leading-[1.1] font-bold tracking-[-0.02em]" style={fs(size)}>
         {title}
       </h1>
       <p className="m-0 text-ink-700" style={fs(24)}>
@@ -128,9 +130,9 @@ export function KioskNotice({
   children: ReactNode;
 }) {
   const box = {
-    success: 'border-success-border bg-[linear-gradient(90deg,var(--color-zamrud-50),#FFFFFF)] text-success',
-    info: 'border-info-border bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)] text-info',
-    warning: 'border-warning-border bg-[linear-gradient(90deg,var(--color-kunyit-50),#FFFFFF)] text-warning',
+    success: 'border-success-border bg-alert-success text-success',
+    info: 'border-info-border bg-alert-info text-info',
+    warning: 'border-warning-border bg-alert-warning text-warning',
   }[tone];
   const icon: IconName = tone === 'success' ? 'check' : tone === 'info' ? 'info' : 'alert';
   return (

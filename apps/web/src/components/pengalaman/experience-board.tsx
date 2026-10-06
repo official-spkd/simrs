@@ -263,7 +263,7 @@ export function ExperienceBoard({
             </thead>
             <tbody>
               {indexByUnit(responses).map((u) => (
-                <tr key={u.unit}>
+                <tr key={u.unit} className="transition-colors hover:bg-brand-50/60">
                   <td className={TD}>{u.unit}</td>
                   <td className={`${TD} text-right font-mono`}>{u.n}</td>
                   <td className={`${TD} text-right`}>
@@ -282,7 +282,7 @@ export function ExperienceBoard({
             return (
               <div
                 key={r.id}
-                className="flex flex-col gap-1.5 rounded-control border border-line px-3 py-2 text-small"
+                className="flex flex-col gap-1.5 rounded-[12px] border border-line bg-white/90 px-3 py-2 text-small transition-colors hover:bg-brand-50/60"
               >
                 <span className="font-semibold">
                   {r.unit} · {aspect}

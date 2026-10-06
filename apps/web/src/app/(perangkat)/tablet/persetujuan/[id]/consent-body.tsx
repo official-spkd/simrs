@@ -13,7 +13,7 @@ export function ConsentParties({ doc, patient }: { doc: ConsentDocument; patient
     ['Pemberi informasi', doc.informer],
   ];
   return (
-    <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-line bg-white p-4">
+    <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 rounded-card border border-white/95 bg-white/90 p-4 shadow-card">
       {rows.map(([k, v]) => (
         <div key={k} className="flex flex-col">
           <dt className="text-[0.8em] text-ink-500">{k}</dt>
@@ -40,7 +40,7 @@ export function ConsentInfo({
   return (
     <section
       aria-label="Informasi tindakan"
-      className="flex flex-col gap-2 rounded-card border border-line bg-white p-4"
+      className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 p-4 shadow-card"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="m-0 text-[1.1em] font-semibold">Informasi tindakan</h2>
@@ -71,7 +71,7 @@ export function ConsentInfo({
         ))}
       </ol>
       {/* Pita catatan penjelasan (mockup: gradasi biru). */}
-      <p className="m-0 rounded-control border border-info-border bg-[linear-gradient(90deg,var(--color-samudra-50),#FFFFFF)] px-3 py-2 text-[0.85em] text-info">
+      <p className="m-0 rounded-control border border-info-border bg-alert-info px-3 py-2 text-[0.85em] text-info">
         Dibacakan dan dijelaskan oleh {doc.informer} pada {formatTglJam(doc.explainedAt)} · durasi penjelasan{' '}
         {doc.explanationMinutes} menit · pasien diberi kesempatan bertanya
       </p>
@@ -99,7 +99,7 @@ export function RefusalForm({
   return (
     <section
       aria-label="Konfirmasi penolakan"
-      className="flex flex-col gap-2 rounded-card border border-danger-border bg-koral-50 p-4"
+      className="flex flex-col gap-2 rounded-card border border-danger-border bg-alert-critical p-4"
     >
       <h2 className="m-0 text-[1.05em] font-semibold text-danger-strong">Konfirmasi penolakan tindakan</h2>
       <span className="text-ink-700">
@@ -140,7 +140,7 @@ export function RefusalForm({
           type="button"
           disabled={busy}
           onClick={onConfirm}
-          className="min-h-12 cursor-pointer rounded-control border border-koral-700 bg-danger px-5 font-[inherit] font-semibold text-white disabled:opacity-60"
+          className="min-h-12 cursor-pointer rounded-control border border-transparent bg-btn-danger px-5 font-[inherit] font-semibold text-white disabled:opacity-60"
         >
           Catat penolakan
         </button>

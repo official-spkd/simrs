@@ -321,7 +321,7 @@ export function UnitStep({ lanjut, akun, options }: { lanjut: string; akun: stri
                 key={o.id}
                 className={cx(
                   'flex min-h-14 cursor-pointer flex-col justify-center rounded-control border px-3 py-2.5 text-small has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-600',
-                  on ? 'border-brand-600 bg-selected' : 'border-line bg-white',
+                  on ? 'border-brand-600 bg-selected' : 'border-line bg-white hover:bg-brand-50/60',
                 )}
               >
                 <input

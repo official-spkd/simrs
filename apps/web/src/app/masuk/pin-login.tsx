@@ -41,7 +41,7 @@ export function PinLogin({ lanjut, accounts }: { lanjut: string; accounts: PinAc
                   key={a.id}
                   className={cx(
                     'flex min-h-14 cursor-pointer flex-col justify-center rounded-control border px-3 py-2.5 text-small has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-600',
-                    on ? 'border-brand-600 bg-selected' : 'border-line bg-white',
+                    on ? 'border-brand-600 bg-selected' : 'border-line bg-white hover:bg-brand-50/60',
                   )}
                 >
                   <input

@@ -37,14 +37,14 @@ export async function DemoPersetujuanList({ access }: { access: DemoScreenAccess
       width={834}
       height={1194}
       label="Tablet persetujuan tindakan"
-      className="overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(20,33,43,0.18)]"
+      className="overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(23,32,46,0.18)]"
     >
-      <div className="flex h-full flex-col bg-canvas text-ink-900">
-        <header className="flex flex-col border-b border-line bg-white px-7 py-[18px]">
+      <div className="flex h-full flex-col bg-canvas bg-[radial-gradient(600px_400px_at_0%_0%,var(--color-samudra-100)_0%,transparent_60%),radial-gradient(600px_400px_at_100%_100%,var(--color-samudra-50)_0%,transparent_60%)] text-ink-900">
+        <header className="glass flex flex-col border-b border-white/70 px-7 py-[18px]">
           <span className="text-[13px] text-ink-500">
             Persetujuan tindakan kedokteran · {session.tenant.name}
           </span>
-          <h1 className="m-0 text-[22px] font-semibold">Dokumen di tablet ini</h1>
+          <h1 className="m-0 text-[24px] font-bold tracking-[-0.02em]">Dokumen di tablet ini</h1>
         </header>
         <ul className="m-0 flex list-none flex-col gap-3 p-7 text-[17px]">
           {docs.map((d) => {
@@ -53,7 +53,7 @@ export async function DemoPersetujuanList({ access }: { access: DemoScreenAccess
               <li key={d.id}>
                 <Link
                   href={`/tablet/persetujuan/${d.id}`}
-                  className="flex min-h-20 items-center justify-between gap-4 rounded-card border border-line bg-white px-5 py-4 text-ink-900 no-underline"
+                  className="flex min-h-20 items-center justify-between gap-4 rounded-card border border-white/95 bg-white/90 px-5 py-4 text-ink-900 no-underline shadow-card transition-colors hover:bg-white hover:text-ink-900"
                 >
                   <span className="flex flex-col">
                     <span className="font-semibold">{d.procedure}</span>
@@ -64,10 +64,10 @@ export async function DemoPersetujuanList({ access }: { access: DemoScreenAccess
                   <span
                     className={
                       d.status === 'final'
-                        ? 'rounded-full bg-success-bg px-3 py-1 text-[13px] font-semibold text-success'
+                        ? 'rounded-full bg-zamrud-100 px-3 py-1 text-[13px] font-semibold text-zamrud-700'
                         : d.status === 'ditolak'
-                          ? 'rounded-full bg-danger-bg px-3 py-1 text-[13px] font-semibold text-danger'
-                          : 'rounded-full bg-warning-bg px-3 py-1 text-[13px] font-semibold text-warning'
+                          ? 'rounded-full bg-koral-100 px-3 py-1 text-[13px] font-semibold text-koral-800'
+                          : 'rounded-full bg-kunyit-100 px-3 py-1 text-[13px] font-semibold text-kunyit-800'
                     }
                   >
                     {d.wait ? 'Menunggu giliran simulasi' : CONSENT_STATUS_LABEL[d.status]}

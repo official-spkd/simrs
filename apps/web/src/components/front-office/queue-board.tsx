@@ -31,16 +31,16 @@ export function CallingPanel({
     <section
       aria-label="Sedang dipanggil"
       aria-live="polite"
-      className="flex flex-[1.15] flex-col justify-between rounded-[32px] p-12 text-white shadow-[0_16px_40px_rgba(11,93,86,0.25)]"
+      className="flex flex-[1.15] flex-col justify-between rounded-[36px] p-12 text-white shadow-[0_16px_40px_rgba(44,85,196,0.3)]"
       style={{
+        // Gradien satu rona domain (800 → 600) + cahaya putih lembut; tanpa gradien lintas rona.
         backgroundColor: 'var(--color-brand-700)',
         backgroundImage:
-          'radial-gradient(700px 400px at 100% 0%, rgba(255,255,255,0.14), rgba(255,255,255,0) 70%), radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1.2px, rgba(255,255,255,0) 1.8px), linear-gradient(150deg, #12807A, var(--color-brand-700))',
-        backgroundSize: 'auto, 26px 26px, auto',
+          'radial-gradient(700px 400px at 100% 0%, rgba(255,255,255,0.14), rgba(255,255,255,0) 70%), linear-gradient(150deg, var(--color-brand-800), var(--color-brand-600))',
       }}
     >
       <span className="text-[32px] font-semibold tracking-[0.06em] text-brand-100">SEDANG DIPANGGIL</span>
-      <span className="font-mono text-[260px] leading-none font-bold tracking-[-0.02em]">{queueNo}</span>
+      <span className="font-mono text-[260px] leading-none font-bold tracking-[-0.04em]">{queueNo}</span>
       <div className="flex flex-col gap-2">
         <span className="text-[56px] font-bold">
           {place ?? (poliName ? `Poli ${poliName}` : 'Belum ada panggilan')}
@@ -69,11 +69,11 @@ export function ClinicCard({ c }: { c: BoardClinicView }) {
     <div
       aria-label={`Poli ${c.name}`}
       role="group"
-      className="flex flex-col gap-2.5 rounded-[26px] border border-line bg-white/95 px-[30px] py-7 shadow-[0_4px_14px_rgba(16,24,40,0.06)]"
+      className="flex flex-col gap-2.5 rounded-[28px] border border-white/95 bg-white/90 px-[30px] py-7 shadow-card"
     >
       <span className="text-[26px] font-bold">{c.name}</span>
       <span className="text-[20px] text-ink-700">{c.room}</span>
-      <span className="font-mono text-[86px] leading-[1.05] font-bold text-brand-700">
+      <span className="font-mono text-[86px] leading-[1.05] font-bold tracking-[-0.03em] text-brand-700">
         <span className="sr-only">Dilayani </span>
         {c.current}
       </span>

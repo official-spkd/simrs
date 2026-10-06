@@ -55,7 +55,7 @@ export function PatientPanel({
       className="flex min-w-0 flex-[1_1_300px] flex-col gap-4 lg:max-w-[360px]"
     >
       {!p && (
-        <div className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+        <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
           <form
             className="flex flex-col gap-2"
             onSubmit={(e) => {
@@ -106,7 +106,7 @@ export function PatientPanel({
       )}
 
       {!p && results && (
-        <div className="flex flex-col gap-2 rounded-card border border-line bg-white p-4">
+        <div className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 shadow-card p-4">
           <span className="text-small font-semibold text-ink-700">
             {results.length === 0 ? 'Pasien tidak ditemukan' : `${results.length} pasien ditemukan`}
           </span>
@@ -126,7 +126,7 @@ export function PatientPanel({
                     disabled={busy || merged}
                     onClick={() => onPick(r.id)}
                     aria-label={`Pilih ${r.name}, RM ${r.mrn}`}
-                    className="flex min-h-14 w-full cursor-pointer flex-col gap-0.5 rounded-control border border-line bg-white px-3 py-2 text-left font-[inherit] disabled:cursor-not-allowed disabled:bg-subtle"
+                    className="flex min-h-14 w-full cursor-pointer flex-col gap-0.5 rounded-control border border-line bg-white px-3 py-2 text-left font-[inherit] hover:bg-brand-50/60 disabled:cursor-not-allowed disabled:bg-subtle"
                   >
                     <span className="text-small font-semibold text-ink-900">{r.name}</span>
                     <span className="text-caption text-ink-700">
@@ -148,11 +148,11 @@ export function PatientPanel({
       )}
 
       {p ? (
-        <div className="flex flex-col gap-2.5 rounded-card border border-brand-100 bg-card-header p-4">
+        <div className="flex flex-col gap-2.5 rounded-card border border-white/95 bg-card-header p-4 shadow-card">
           <div className="flex items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex size-11 flex-none items-center justify-center rounded-full bg-brand-50 font-bold text-brand-700"
+              className="flex size-11 flex-none items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--color-brand-100),var(--color-brand-50))] font-bold text-brand-700"
             >
               {initials(p.name)}
             </span>
@@ -208,7 +208,7 @@ export function PatientPanel({
         </div>
       ) : (
         !results && (
-          <div className="flex flex-col gap-1.5 rounded-card border border-dashed border-line-strong bg-white p-4">
+          <div className="flex flex-col gap-1.5 rounded-card border border-dashed border-line-strong bg-white/70 p-4">
             <span className="font-semibold">Belum ada pasien dipilih</span>
             <span className="text-small text-ink-700">
               Panggil nomor loket berikutnya, atau cari pasien lewat NIK, No. RM, No. BPJS, atau nama. Langkah

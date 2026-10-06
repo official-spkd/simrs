@@ -131,6 +131,7 @@ export function RujukanBoard({
           value={String(counts.pending)}
           detail="di antrean kirim"
           tone={counts.pending > 0 ? 'warning' : 'neutral'}
+          tinted
         />
         <KpiCard
           label="Ditolak / gagal kirim"
@@ -139,8 +140,13 @@ export function RujukanBoard({
           tone={counts.rejected > 0 ? 'danger' : 'success'}
           tinted
         />
-        <KpiCard label="Berlaku" value={String(counts.active)} detail="siap dipakai SEP/kunjungan" />
-        <KpiCard label="Rujukan masuk dipakai" value={String(counts.incomingToday)} detail="hari ini" />
+        <KpiCard label="Berlaku" value={String(counts.active)} detail="siap dipakai SEP/kunjungan" tinted />
+        <KpiCard
+          label="Rujukan masuk dipakai"
+          value={String(counts.incomingToday)}
+          detail="hari ini"
+          tinted
+        />
       </div>
 
       <span role="group" aria-label="Saring rujukan" className="flex flex-wrap gap-2">
@@ -169,7 +175,9 @@ export function RujukanBoard({
                     onClick={() => pick(x.id)}
                     className={cx(
                       'flex min-h-11 w-full cursor-pointer flex-col items-start gap-1 rounded-control border px-3 py-2 text-left font-[inherit]',
-                      x.id === r?.id ? 'border-brand-600 bg-brand-50' : 'border-line bg-white',
+                      x.id === r?.id
+                        ? 'border-brand-200 bg-[linear-gradient(90deg,var(--color-brand-100),rgba(255,255,255,0.4))]'
+                        : 'border-line bg-white hover:bg-brand-50/60',
                     )}
                   >
                     <span className="text-small font-semibold">

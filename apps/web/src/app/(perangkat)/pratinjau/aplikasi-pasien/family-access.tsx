@@ -155,7 +155,7 @@ export function FamilyAccess({
               }
               className={cx(
                 BTN,
-                'border border-brand-800 bg-brand-600 text-white disabled:border-line disabled:bg-muted disabled:text-ink-400',
+                'border border-transparent bg-btn-primary text-white shadow-button disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400 disabled:shadow-none',
               )}
             >
               Setujui akses
@@ -173,7 +173,10 @@ export function FamilyAccess({
       )}
       <ul aria-label="Keluarga dengan akses" className="m-0 flex list-none flex-col gap-2 p-0">
         {grants.map((g) => (
-          <li key={g.name} className="flex flex-col gap-1 rounded-[16px] border border-line bg-white p-3">
+          <li
+            key={g.name}
+            className="flex flex-col gap-1 rounded-[16px] border border-white/95 bg-white/90 shadow-card p-3"
+          >
             <span className="text-[14px] font-semibold">
               {g.name} · {g.relation}
             </span>

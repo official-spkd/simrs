@@ -107,10 +107,12 @@ export function KendaliClient({
   const row = (t: QueueTicket) => (
     <li
       key={t.id}
-      className="flex flex-wrap items-center gap-3 rounded-control border border-line bg-white px-4 py-2.5"
+      className="flex flex-wrap items-center gap-3 rounded-[12px] border border-white/95 bg-white/90 px-4 py-2.5 shadow-[0_2px_8px_rgba(23,32,46,0.06)] transition-colors hover:bg-brand-50/60"
       aria-label={`${t.queueNo} · ${QUEUE_TICKET_STATUS_LABEL[t.status]}`}
     >
-      <span className="min-w-20 font-mono text-[20px] font-semibold">{t.queueNo}</span>
+      <span className="min-w-20 font-mono text-[20px] font-bold tracking-[-0.02em] text-brand-800">
+        {t.queueNo}
+      </span>
       <StatusChip status={t.status} />
       <span className="text-small text-ink-500">
         {t.counter ? `${t.counter} · ` : ''}
@@ -145,7 +147,7 @@ export function KendaliClient({
 
   const section = (title: string, list: QueueTicket[], empty: string) => (
     <section aria-label={title} className="flex flex-col gap-2">
-      <h2 className="m-0 text-h3 font-semibold">
+      <h2 className="m-0 text-[15px] font-semibold">
         {title} <span className="text-ink-500">· {list.length}</span>
       </h2>
       {list.length === 0 ? (
@@ -159,24 +161,27 @@ export function KendaliClient({
   return (
     <div className="flex max-w-5xl flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <h1 className="m-0 text-h1 font-semibold">Kendali antrean</h1>
-        <p className="m-0 text-small text-ink-700">
+        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Kendali antrean</h1>
+        <p className="m-0 text-small text-ink-500">
           Panggilan tampil langsung di display ruang tunggu dan diumumkan suara. Nomor booking dipanggil dari
           daftarnya, bukan lewat “Panggil berikutnya”.
         </p>
       </div>
 
-      <nav aria-label="Layanan antrean" className="flex flex-wrap gap-2">
+      <nav
+        aria-label="Layanan antrean"
+        className="flex flex-wrap gap-1 self-start rounded-control bg-ink-900/6 p-[3px]"
+      >
         {services.map((s) => (
           <Link
             key={s.id}
             href={`/antrean?layanan=${s.id}`}
             aria-current={s.id === selected.id ? 'page' : undefined}
             className={cx(
-              'inline-flex min-h-11 items-center gap-2 rounded-control border px-3.5 font-medium no-underline',
+              'inline-flex min-h-11 items-center gap-2 rounded-[9px] px-3.5 font-medium no-underline transition-colors',
               s.id === selected.id
-                ? 'border-brand-700 bg-brand-50 text-brand-800'
-                : 'border-line-strong bg-white text-ink-900',
+                ? 'bg-white font-semibold text-ink-900 shadow-tab'
+                : 'text-ink-700 hover:bg-white/60 hover:text-ink-900',
             )}
           >
             <span className="font-mono font-semibold">{s.code}</span>
@@ -187,11 +192,11 @@ export function KendaliClient({
 
       <section
         aria-label="Panggilan"
-        className="flex flex-wrap items-end gap-3 rounded-card border border-line bg-white p-4"
+        className="flex flex-wrap items-end gap-3 rounded-card border border-white/95 bg-white/90 shadow-card p-4"
       >
         <div className="flex flex-col gap-1">
           <span className="text-caption text-ink-500">{QUEUE_SERVICE_KIND_LABEL[selected.kind]}</span>
-          <span className="text-h3 font-semibold">
+          <span className="text-[15px] font-semibold">
             {selected.name}
             {selected.room ? ` · ${selected.room}` : ''}
           </span>

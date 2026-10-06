@@ -68,7 +68,7 @@ export function CosignCard({
   return (
     <section
       aria-label="Co-sign CPPT residen"
-      className="flex flex-col gap-2.5 rounded-[16px] border border-line bg-white p-3.5"
+      className="flex flex-col gap-2.5 rounded-[16px] border border-white/95 bg-white/90 shadow-card p-3.5"
     >
       <span className="font-semibold">Co-sign CPPT residen · {left} menunggu</span>
       {signedText && (
@@ -130,7 +130,7 @@ export function CosignCard({
                 <button
                   type="submit"
                   disabled={pending}
-                  className="h-11 flex-1 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
+                  className="h-11 flex-1 cursor-pointer rounded-[12px] border border-transparent bg-btn-primary font-[inherit] font-semibold text-white shadow-button"
                 >
                   Kirim catatan
                 </button>
@@ -149,7 +149,7 @@ export function CosignCard({
                 type="button"
                 disabled={pending}
                 onClick={approve}
-                className="h-11 flex-1 cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
+                className="h-11 flex-1 cursor-pointer rounded-[12px] border border-transparent bg-btn-primary font-[inherit] font-semibold text-white shadow-button"
               >
                 Setujui (TTE)
               </button>

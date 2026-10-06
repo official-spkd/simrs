@@ -24,8 +24,8 @@ const LEVEL: Record<
   { tone: ChipTone; bar: string; label: string }
 > = {
   tinggi: { tone: 'danger', bar: 'bg-danger', label: 'tinggi' },
-  sedang: { tone: 'warning', bar: 'bg-[#C27A1A]', label: 'sedang' },
-  rendah: { tone: 'success', bar: 'bg-brand-600', label: 'rendah' },
+  sedang: { tone: 'warning', bar: 'bg-kunyit-600', label: 'sedang' },
+  rendah: { tone: 'success', bar: 'bg-zamrud-600', label: 'rendah' },
 };
 
 /** I08 · Pratinjau aplikasi dokter (mockup AppDokter): nilai kritis + read-back, daftar pasien EWS, co-sign. */
@@ -70,9 +70,9 @@ export function DoctorApp({
 
   return (
     <PhoneFrame time="10.45">
-      <header className="flex shrink-0 flex-col bg-white px-5 pt-1 pb-3">
+      <header className="flex shrink-0 flex-col px-5 pt-1 pb-3">
         <span className="truncate text-[12px] text-ink-500">{inbox.doctorName} · jaga konsulen</span>
-        <span className="text-[22px] leading-tight font-bold">{title}</span>
+        <span className="text-[22px] leading-tight font-bold tracking-[-0.02em]">{title}</span>
       </header>
       <main
         tabIndex={0}
@@ -82,7 +82,7 @@ export function DoctorApp({
         {signedOut ? (
           <section
             aria-label="Keluar"
-            className="flex flex-col items-center gap-3 rounded-[16px] border border-line bg-white p-5 text-center"
+            className="flex flex-col items-center gap-3 rounded-[16px] border border-white/95 bg-white/90 shadow-card p-5 text-center"
           >
             <span role="status" className="font-semibold">
               Anda sudah keluar dari aplikasi dokter
@@ -97,7 +97,7 @@ export function DoctorApp({
                 setSignedOut(false);
                 setTab('pasien');
               }}
-              className="h-12 w-full cursor-pointer rounded-[12px] border border-brand-800 bg-brand-600 font-[inherit] font-semibold text-white"
+              className="h-12 w-full cursor-pointer rounded-[12px] border border-transparent bg-btn-primary font-[inherit] font-semibold text-white shadow-button"
             >
               Masuk lagi
             </button>
@@ -125,7 +125,7 @@ export function DoctorApp({
               <Icon name="chevronLeft" size={20} />
               Daftar pasien
             </button>
-            <div className="flex flex-col gap-1 rounded-[16px] border border-line bg-white p-3.5">
+            <div className="flex flex-col gap-1 rounded-[16px] border border-white/95 bg-white/90 shadow-card p-3.5">
               <span className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[16px] font-semibold">
                   {detail.name}, {detail.age}
@@ -138,7 +138,7 @@ export function DoctorApp({
                 RM {detail.rm} · {detail.location}
               </span>
             </div>
-            <dl className="m-0 flex flex-col overflow-hidden rounded-[16px] border border-line bg-white">
+            <dl className="m-0 flex flex-col overflow-hidden rounded-[16px] border border-white/95 bg-white/90 shadow-card">
               {[
                 ...(detail.id === DOCTOR_APP_PATIENT_ID.hartono
                   ? [criticalDetailRow(c, accepted, labOrdered)]
@@ -164,7 +164,7 @@ export function DoctorApp({
             {detail.id === DOCTOR_APP_PATIENT_ID.hartono && orderHref && (
               <Link
                 href={orderHref}
-                className="flex h-12 items-center justify-center rounded-[12px] border border-brand-800 bg-brand-600 font-semibold text-white no-underline"
+                className="flex h-12 items-center justify-center rounded-[12px] border border-transparent bg-btn-primary font-semibold text-white shadow-button no-underline"
               >
                 Buka order pasien
               </Link>
@@ -188,7 +188,7 @@ export function DoctorApp({
               ].map((t) => (
                 <span
                   key={t.l}
-                  className="flex flex-col rounded-[14px] border border-line bg-white px-2.5 py-2"
+                  className="flex flex-col rounded-[14px] border border-white/95 bg-white/90 shadow-card px-2.5 py-2"
                 >
                   <span className={cx('font-mono text-[22px] font-bold', t.fg)}>{t.n}</span>
                   <span className="text-[11.5px] leading-tight text-ink-700">{t.l}</span>
@@ -197,7 +197,7 @@ export function DoctorApp({
             </section>
             <section
               aria-label="Daftar pasien"
-              className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-white"
+              className="flex flex-col overflow-hidden rounded-[16px] border border-white/95 bg-white/90 shadow-card"
             >
               {inbox.patients.map((p) => {
                 const note =
@@ -209,7 +209,7 @@ export function DoctorApp({
                     key={p.id}
                     type="button"
                     onClick={() => setPt(p.id)}
-                    className="flex min-h-16 w-full cursor-pointer items-stretch gap-3 border-0 border-b border-line-soft bg-transparent py-2.5 pr-3 pl-0 text-left font-[inherit] last:border-b-0"
+                    className="flex min-h-16 w-full cursor-pointer items-stretch gap-3 border-0 border-b border-line-soft bg-transparent py-2.5 pr-3 pl-0 text-left font-[inherit] transition-colors last:border-b-0 hover:bg-brand-50/60"
                   >
                     <span
                       className={cx('w-1 shrink-0 rounded-r-full', LEVEL[p.level].bar)}
@@ -243,7 +243,7 @@ export function DoctorApp({
       </main>
       <nav
         aria-label="Navigasi aplikasi"
-        className="grid shrink-0 grid-cols-4 border-t border-line bg-white pb-3"
+        className="mx-3 mb-3 grid shrink-0 grid-cols-4 gap-1 rounded-[18px] border border-white/95 bg-white p-1.5 shadow-card"
       >
         {TABS.map((t) => {
           const on = tab === t.key;
@@ -257,8 +257,8 @@ export function DoctorApp({
                 setPt(null);
               }}
               className={cx(
-                'flex h-14 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent font-[inherit] text-[11.5px]',
-                on ? 'font-semibold text-brand-700' : 'text-ink-500',
+                'flex h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[12px] border-0 font-[inherit] text-[11.5px]',
+                on ? 'bg-brand-100 font-semibold text-brand-700' : 'bg-transparent text-ink-500',
               )}
             >
               <Icon name={t.icon} size={22} />

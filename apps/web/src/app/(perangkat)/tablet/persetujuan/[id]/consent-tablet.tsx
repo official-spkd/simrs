@@ -136,19 +136,19 @@ export function ConsentTablet({
     finalAt ? { method: 'nama', name, at: finalAt } : null;
 
   return (
-    <div className="flex h-full flex-col bg-canvas text-ink-900">
-      <header className="flex items-center justify-between gap-3 border-b border-line bg-white/90 px-7 py-[18px]">
+    <div className="flex h-full flex-col bg-canvas bg-[radial-gradient(600px_400px_at_0%_0%,var(--color-samudra-100)_0%,transparent_60%),radial-gradient(600px_400px_at_100%_100%,var(--color-samudra-50)_0%,transparent_60%)] text-ink-900">
+      <header className="glass flex items-center justify-between gap-3 border-b border-white/70 px-7 py-[18px]">
         <div className="flex flex-col">
           <span className="text-[13px] text-ink-500">Persetujuan tindakan kedokteran · K11</span>
-          <h1 className="m-0 text-[20px] font-semibold">{doc.procedure}</h1>
+          <h1 className="m-0 text-[24px] font-bold tracking-[-0.02em]">{doc.procedure}</h1>
           <span
             className={cx(
               'mt-1 self-start rounded-full px-3 py-0.5 text-[13px] font-semibold',
               status === 'final'
-                ? 'bg-success-bg text-success'
+                ? 'bg-zamrud-100 text-zamrud-700'
                 : status === 'ditolak'
-                  ? 'bg-danger-bg text-danger'
-                  : 'bg-warning-bg text-warning',
+                  ? 'bg-koral-100 text-koral-800'
+                  : 'bg-kunyit-100 text-kunyit-800',
             )}
           >
             Status: {CONSENT_STATUS_LABEL[status]}
@@ -175,7 +175,7 @@ export function ConsentTablet({
           </button>
         </div>
       </header>
-      <nav aria-label="Langkah" className="grid grid-cols-4 gap-2 bg-white px-7 pt-3 pb-4">
+      <nav aria-label="Langkah" className="grid grid-cols-4 gap-1.5 px-7 pt-4 pb-1">
         {STEPS.map((label, i) => {
           const isDone = !!finalAt || i < step;
           const cur = !locked && i === step;
@@ -184,18 +184,14 @@ export function ConsentTablet({
               key={label}
               aria-current={cur ? 'step' : undefined}
               className={cx(
-                'flex flex-col gap-1.5 text-[13px]',
-                cur ? 'font-semibold' : 'font-medium',
-                isDone || cur ? 'text-brand-700' : 'text-ink-500',
+                'flex items-center rounded-control px-3 py-2.5 text-[13px]',
+                cur
+                  ? 'bg-btn-primary font-semibold text-white shadow-[0_6px_16px_rgba(23,32,46,0.18)]'
+                  : isDone
+                    ? 'bg-zamrud-100 font-semibold text-zamrud-700'
+                    : 'bg-ink-900/5 font-medium text-ink-700',
               )}
             >
-              <span
-                aria-hidden="true"
-                className={cx(
-                  'h-1.5 rounded-full',
-                  isDone ? 'bg-brand-600' : cur ? 'bg-[linear-gradient(90deg,var(--color-brand-600),var(--color-brand-400))]' : 'bg-line',
-                )}
-              />
               {i + 1}. {label}
               {isDone && <span className="sr-only"> (selesai)</span>}
             </span>
@@ -206,7 +202,7 @@ export function ConsentTablet({
         {wait && !closed && (
           <div
             role="status"
-            className="flex flex-col gap-1 rounded-card border border-warning-border bg-warning-bg px-4 py-3"
+            className="flex flex-col gap-1 rounded-[14px] border border-warning-border bg-alert-warning px-4 py-3"
           >
             <span className="font-semibold text-warning-strong">{wait}</span>
             <span className="text-ink-700">
@@ -220,7 +216,7 @@ export function ConsentTablet({
         {wasRefused && !refused && (
           <div
             role="status"
-            className="rounded-card border border-danger-border bg-koral-50 px-4 py-3 font-semibold text-danger-strong"
+            className="rounded-[14px] border border-danger-border bg-alert-critical px-4 py-3 font-semibold text-danger-strong"
           >
             Pasien menolak tindakan · penolakan tercatat di rekam medis
             {refusal ? ` ${formatJam(refusal.at)} · alasan: ${refusal.reason}` : ''}; dokumen terkunci.
@@ -235,7 +231,7 @@ export function ConsentTablet({
         />
         {/* Dua kartu tanda tangan terpisah (mockup: radius 14, padding 14). */}
         <section aria-label="Tanda tangan" className="grid grid-cols-2 gap-4">
-          <div className="rounded-[14px] border border-line bg-white p-[14px]">
+          <div className="rounded-card border border-white/95 bg-white/90 p-[14px] shadow-card">
             <SignaturePad
               label="Tanda tangan pasien/keluarga"
               signerName={doc.signerName}
@@ -245,7 +241,7 @@ export function ConsentTablet({
               location={doc.location}
             />
           </div>
-          <div className="rounded-[14px] border border-line bg-white p-[14px]">
+          <div className="rounded-card border border-white/95 bg-white/90 p-[14px] shadow-card">
             <SignaturePad
               label="Saksi (keluarga)"
               signerName={doc.witness.name}
@@ -259,7 +255,7 @@ export function ConsentTablet({
           </div>
         </section>
         {step >= 2 && !refused && !wasRefused && (
-          <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-card border border-line bg-white px-4">
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-card border border-white/95 bg-white/90 px-4 shadow-card">
             <input
               type="checkbox"
               checked={staff}
@@ -271,7 +267,7 @@ export function ConsentTablet({
           </label>
         )}
         {!closed && !wait && step < 3 && (
-          <p className="m-0 flex gap-2.5 rounded-card border border-warning-border bg-warning-bg px-4 py-3 text-ink-700">
+          <p className="m-0 flex gap-2.5 rounded-[14px] border border-warning-border bg-alert-warning px-4 py-3 text-ink-700">
             <span aria-hidden="true" className="font-bold text-warning">
               !
             </span>
@@ -282,7 +278,7 @@ export function ConsentTablet({
         {!closed && !wait && step === 3 && (
           // Kotak TTE (mockup): putih, garis brand-600, ajakan di kanan. Penyedia sertifikat belum ditetapkan di
           // dokumen (docs/03 menyebut BSrE atau PSrE swasta), jadi keduanya ditulis.
-          <div className="flex flex-wrap items-center gap-3 rounded-card border-2 border-brand-600 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-card border-2 border-brand-600 bg-white/95 px-4 py-3 shadow-card">
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-semibold">TTE dokter pelaksana</span>
               <span className="text-ink-700">
@@ -298,7 +294,7 @@ export function ConsentTablet({
         {finalAt && (
           <div
             role="status"
-            className="rounded-card border border-success-border bg-success-bg px-4 py-3 font-semibold text-success"
+            className="animate-pop rounded-[14px] border border-success-border bg-alert-success px-4 py-3 font-semibold text-success"
           >
             ✓ Dokumen final · TTE {doc.doctor} pukul {finalAt}. Tersimpan di rekam medis; kamar operasi dan
             kelengkapan rekam medis membaca persetujuan ini.
@@ -324,7 +320,7 @@ export function ConsentTablet({
         {refused && (
           <div
             role="status"
-            className="flex flex-col gap-1 rounded-card border border-danger-border bg-koral-50 px-4 py-3"
+            className="flex flex-col gap-1 rounded-[14px] border border-danger-border bg-alert-critical px-4 py-3"
           >
             <span className="font-semibold text-danger-strong">
               Pasien menolak tindakan · tercatat {refused.at}
@@ -346,7 +342,7 @@ export function ConsentTablet({
           </span>
         )}
       </main>
-      <footer className="flex items-center gap-3 border-t border-line bg-white px-7 py-4">
+      <footer className="glass flex items-center gap-3 border-t border-white/70 px-7 py-4">
         <button
           type="button"
           disabled={locked || !!scenario}
@@ -372,7 +368,7 @@ export function ConsentTablet({
           disabled={!canNext || busy || pending}
           aria-describedby={hint ? 'consent-hint' : undefined}
           onClick={next}
-          className="min-h-[52px] cursor-pointer rounded-control border border-brand-800 bg-btn-primary px-6 font-[inherit] font-semibold text-white disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400"
+          className="min-h-[52px] cursor-pointer rounded-control border border-transparent bg-btn-primary px-6 font-[inherit] font-semibold text-white shadow-button disabled:cursor-not-allowed disabled:border-line disabled:bg-muted disabled:bg-none disabled:text-ink-400 disabled:shadow-none"
         >
           {nextLabel}
         </button>
