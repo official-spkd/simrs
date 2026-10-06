@@ -1,4 +1,4 @@
-import { type ConsoleMessage, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, type ConsoleMessage, expect, type Page, test } from '@playwright/test';
 import { CONSENT_ID, ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 
@@ -7,7 +7,11 @@ import { SCREENS, type ScreenDef } from '../../src/lib/screens';
  * registri dari satu sidebar tanpa ganti posisi, plus panduan sistem. Masuk lewat "Masuk cepat" (login biasa: sandi +
  * TOTP oleh server). Akun presentasi berbagi satu keadaan simulasi, jadi spesifikasi ini hanya membaca layar dan
  * berjalan di proyek demo-desktop saja (diabaikan demo-tablet di playwright.config.ts).
+ *
+ * Masuk SEKALI untuk semua tes (berurutan, satu halaman): API menolak kode TOTP yang langkahnya tidak lebih baru dari
+ * kode terakhir akun itu, jadi beberapa login paralel akun yang sama dalam 30 detik saling menggagalkan.
  */
+test.describe.configure({ mode: 'serial' });
 
 /** Layar yang bisa dibuka di mode presentasi (layar khusus api seperti Kendali antrean memang 404 di sini). */
 const reachable = SCREENS.filter((s) => s.status !== 'belum' && !s.apiOnly);
@@ -24,8 +28,18 @@ async function loginSuperadminDemo(page: Page): Promise<void> {
   const quick = page.getByRole('region', { name: 'Masuk cepat · mode presentasi' });
   // Paling atas di daftar akun.
   await expect(quick.getByRole('button').first()).toContainText('Superadmin demo · semua layar');
-  await quick.getByRole('button', { name: /^Superadmin demo · semua layar/ }).click();
-  await expect(page.getByRole('heading', { name: 'Beranda', level: 1 })).toBeVisible();
+  const home = page.getByRole('heading', { name: 'Beranda', level: 1 });
+  // Kode TOTP langkah ini bisa sudah dipakai spesifikasi mode api (akun yang sama): tunggu langkah berikutnya.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await quick.getByRole('button', { name: /^Superadmin demo · semua layar/ }).click();
+    const ok = await home.waitFor({ timeout: 10_000 }).then(
+      () => true,
+      () => false,
+    );
+    if (ok) break;
+    await page.waitForTimeout(31_000);
+  }
+  await expect(home).toBeVisible();
   await expect(page.getByText(/Anda masuk sebagai\s*Superadmin demo · semua layar/)).toBeVisible();
 }
 
@@ -56,8 +70,19 @@ async function checkScreen(page: Page, screen: ScreenDef, path: string): Promise
 }
 
 test.describe('mode presentasi · Superadmin demo', () => {
-  test('sidebar memuat semua layar registri sekali, plus panduan; panduan terbuka', async ({ page }) => {
+  let context: BrowserContext;
+  let page: Page;
+  test.beforeAll(async ({ browser }, testInfo) => {
+    testInfo.setTimeout(120_000);
+    const { baseURL, viewport, locale, timezoneId } = testInfo.project.use;
+    context = await browser.newContext({ baseURL, viewport, locale, timezoneId });
+    page = await context.newPage();
     await loginSuperadminDemo(page);
+  });
+  test.afterAll(async () => context.close());
+
+  test('sidebar memuat semua layar registri sekali, plus panduan; panduan terbuka', async () => {
+    await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
     const hrefs = await nav.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
     for (const s of reachable) expect(hrefs, `menu ${s.id}`).toContain(s.route);
@@ -77,10 +102,7 @@ test.describe('mode presentasi · Superadmin demo', () => {
     expect((await page.goto('/dev/ui'))?.status()).toBe(404);
   });
 
-  test('"Bertindak sebagai": bawaan pemakai pertama layar, pilihan presenter berlaku di layar yang memakainya', async ({
-    page,
-  }) => {
-    await loginSuperadminDemo(page);
+  test('"Bertindak sebagai": bawaan pemakai pertama layar, pilihan presenter berlaku di layar yang memakainya', async () => {
     await page.goto('/klinis/poli');
     const picker = page.getByLabel('Bertindak sebagai');
     await expect(picker).toBeVisible();
@@ -97,13 +119,13 @@ test.describe('mode presentasi · Superadmin demo', () => {
     await expect(page.getByLabel('Bertindak sebagai')).toHaveValue('dokter');
   });
 
-  // Dibagi beberapa tes agar berjalan paralel; satu akun boleh punya beberapa sesi.
+  // Dibagi beberapa tes (berurutan, sesi yang sama) agar laporan kegagalan lebih mudah dibaca.
   const CHUNKS = 4;
   for (let i = 0; i < CHUNKS; i++) {
     const screens = reachable.filter((_, n) => n % CHUNKS === i);
-    test(`setiap layar terbuka tanpa ganti posisi (${i + 1}/${CHUNKS})`, async ({ page }) => {
+    test(`setiap layar terbuka tanpa ganti posisi (${i + 1}/${CHUNKS})`, async () => {
       test.setTimeout(60_000 + screens.length * 20_000);
-      await loginSuperadminDemo(page);
+      expect(screens.length).toBeGreaterThan(15);
       for (const screen of screens) {
         await test.step(`${screen.id} ${screen.route}`, async () => {
           await checkScreen(page, screen, screen.route);

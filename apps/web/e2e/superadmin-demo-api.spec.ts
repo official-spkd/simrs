@@ -27,6 +27,7 @@ test('mode api: akun Superadmin demo tanpa kuasa tambahan (menu = manajemen bias
   page: demo,
   browser,
 }) => {
+  test.setTimeout(180_000);
   const file = JSON.parse(readFileSync(DEMO_ACCOUNTS_FILE, 'utf8')) as CredentialFile;
   const cred = file.accounts.find((a) => a.allAccess);
   expect(cred?.username).toBe(ALL_ACCESS_USERNAME);
@@ -42,10 +43,22 @@ test('mode api: akun Superadmin demo tanpa kuasa tambahan (menu = manajemen bias
     cred.password,
   );
   await expect(demo.getByRole('heading', { name: 'Verifikasi dua langkah' })).toBeVisible();
-  // Langkah berikutnya: tidak bentrok dengan kode yang dipakai Masuk cepat di spesifikasi mode presentasi.
-  await typeCode(demo, totpCode(base32Decode(cred.totpSecret), totpStep() + 1));
-  await demo.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
-  await expect(demo.getByRole('heading', { name: 'Beranda', level: 1 })).toBeVisible();
+  // API menolak kode yang langkahnya tidak lebih baru dari kode terakhir akun ini; Masuk cepat di spesifikasi mode
+  // presentasi memakai akun yang sama. Bila bentrok, tunggu langkah berikutnya lalu ulangi dengan kode baru.
+  const home = demo.getByRole('heading', { name: 'Beranda', level: 1 });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const digits = demo.getByRole('group', { name: 'Kode verifikasi' }).getByRole('textbox');
+    for (const box of await digits.all()) await box.fill('');
+    await typeCode(demo, totpCode(base32Decode(cred.totpSecret), totpStep() + 1));
+    await demo.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+    const ok = await home.waitFor({ timeout: 10_000 }).then(
+      () => true,
+      () => false,
+    );
+    if (ok) break;
+    await demo.waitForTimeout(31_000);
+  }
+  await expect(home).toBeVisible();
   await expect(demo.getByText(/Anda masuk sebagai\s*Manajemen/)).toBeVisible();
   await expect(demo.getByLabel('Bertindak sebagai')).toHaveCount(0);
 
