@@ -1,0 +1,70 @@
+import { cx } from '@simrs/ui';
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { RmeChartHeader } from '@/components/rme/chart-header';
+import { PaketWorkspace } from '@/components/rme/paket-workspace';
+import { DemoAccessDenied } from '@/components/demo-access-denied';
+import { ENCOUNTER_ID } from '@/lib/demo/fixtures/ids';
+import { patientById } from '@/lib/demo/fixtures/pasien';
+import { demoCarePackages } from '@/lib/demo/fixtures/rme-paket';
+import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
+import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { rmeChartFor } from '@/lib/server/data/klinis/rme';
+
+export const metadata: Metadata = { title: 'Paket layanan khusus' };
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+/**
+ * K15 · Paket layanan khusus (`?pasien=`, bawaan kemoterapi Ny. Maria): hemodialisis, kemoterapi, antenatal; jadwal
+ * sesi, kelengkapan per sesi, gerbang lab, mulai/selesai sesi. Mode presentasi (ADR-0023); backend
+ * `GET /api/v1/care-packages` menyusul (rencana fase 3 · 3.8).
+ */
+export default async function PaketPage({ searchParams }: { searchParams: SearchParams }) {
+  const { session, screen, allowed } = await requireDemoScreen('paket');
+  if (!allowed) return <DemoAccessDenied screen={screen} />;
+  const chart = rmeChartFor((await searchParams).pasien, ENCOUNTER_ID.maria);
+  const role = session.role?.code ?? null;
+  const packages = demoCarePackages();
+  const pkg = packages.find((p) => p.encounterId === chart.encounterId);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <RmeChartHeader
+        chart={chart}
+        screenId="paket"
+        title="Paket layanan khusus"
+        tenantName={session.tenant.name}
+        role={role}
+        asOf={DEMO_NOW}
+      />
+      <nav aria-label="Paket aktif" className="flex flex-wrap gap-1.5">
+        {packages.map((p) => {
+          const on = p.encounterId === chart.encounterId;
+          return (
+            <Link
+              key={p.id}
+              href={`${screen.route}?pasien=${p.encounterId}`}
+              aria-current={on ? 'page' : undefined}
+              className={cx(
+                'inline-flex h-11 items-center rounded-full border px-3.5 text-small no-underline',
+                on
+                  ? 'border-brand-600 bg-brand-50 font-semibold text-brand-700'
+                  : 'border-line-strong bg-white text-ink-700',
+              )}
+            >
+              {p.title} · {patientById(p.patientId)?.nama}
+            </Link>
+          );
+        })}
+      </nav>
+      {pkg ? (
+        <PaketWorkspace key={pkg.id} pkg={pkg} role={role} user={session.user.displayName} />
+      ) : (
+        <p className="m-0 rounded-card border border-line bg-white px-4 py-3.5 text-small text-ink-700">
+          Pasien ini tidak mengikuti paket layanan khusus. Pilih paket aktif di atas.
+        </p>
+      )}
+    </div>
+  );
+}

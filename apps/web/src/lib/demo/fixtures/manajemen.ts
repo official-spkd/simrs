@@ -14,6 +14,7 @@ import type {
   QualityOverview,
   RiskEntry,
 } from '@simrs/shared';
+import { OUTBOX_MAX_ATTEMPTS } from '@simrs/shared';
 import type { LogEntry } from '../engine/types';
 import { countInterfaceLogs, daysOfCover, reorderPoint } from '../../manajemen';
 import { demoExecutiveDashboard } from './dasbor';
@@ -162,7 +163,11 @@ export const INTERFACE_NAME: Record<InterfaceId, string> = Object.fromEntries(
   INTERFACES.map((i) => [i.id, i.name]),
 ) as Record<InterfaceId, string>;
 
-/** Pesan gagal setelah 5× retry eksponensial (terbaru dulu). Payload = pengenal saja. */
+/**
+ * Dead-letter queue (terbaru dulu). Galat sementara (koneksi, 5xx) habis setelah `OUTBOX_MAX_ATTEMPTS` percobaan
+ * (bawaan worker, ADR-0003); galat permanen (4xx, penolakan bisnis BPJS) langsung DLQ pada percobaan pertama
+ * (`classifyStatus` di worker). Payload = pengenal saja.
+ */
 export const DEAD_LETTERS: readonly DlqMessage[] = [
   {
     id: 'dlq-0118',
@@ -171,10 +176,10 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'ORM^O01 · RAD-2610-118',
     errorCode: 'ECONNREFUSED',
     errorMessage: 'Koneksi MLLP ke PACS ditolak (port 2575)',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: OUTBOX_MAX_ATTEMPTS,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: true,
-    request: 'MLLP 10.20.4.15:2575 → ECONNREFUSED (backoff terakhir 16 dtk)',
+    request: 'MLLP 10.20.4.15:2575 → ECONNREFUSED (percobaan ke-8, backoff terakhir ≤ 64 dtk)',
     payload: {
       messageControlId: 'RAD-2610-118',
       encounterId: 'ENC-2610-0841',
@@ -189,10 +194,10 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'ORM^O01 · RAD-2610-117',
     errorCode: 'ECONNREFUSED',
     errorMessage: 'Koneksi MLLP ke PACS ditolak (port 2575)',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: OUTBOX_MAX_ATTEMPTS,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: true,
-    request: 'MLLP 10.20.4.15:2575 → ECONNREFUSED (backoff terakhir 16 dtk)',
+    request: 'MLLP 10.20.4.15:2575 → ECONNREFUSED (percobaan ke-8, backoff terakhir ≤ 64 dtk)',
     payload: {
       messageControlId: 'RAD-2610-117',
       encounterId: 'ENC-2610-0836',
@@ -207,8 +212,8 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'Encounter',
     errorCode: 'HTTP 422',
     errorMessage: 'IHS number pasien belum ada (identitas belum tervalidasi)',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: 1,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
     request: 'POST /fhir/Encounter → 422 Unprocessable Entity',
     payload: {
@@ -225,8 +230,8 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'Observation',
     errorCode: 'HTTP 400',
     errorMessage: 'Kode lab lokal belum dipetakan ke LOINC',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: 1,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
     request: 'POST /fhir/Observation → 400 Bad Request',
     payload: {
@@ -243,8 +248,8 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'MedicationRequest',
     errorCode: 'HTTP 400',
     errorMessage: 'Racikan wajib Medication dengan daftar bahan (KFA)',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: 1,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
     request: 'POST /fhir/MedicationRequest → 400 Bad Request',
     payload: {
@@ -261,10 +266,11 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'updatewaktu · task 5',
     errorCode: 'metadata 201',
     errorMessage: 'Task 4 belum dikirim untuk kode booking ini',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: 1,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
-    request: 'POST /antreanrs/antrean/updatewaktu → 200 OK (ditolak di level bisnis)',
+    request:
+      'POST /antreanrs/antrean/updatewaktu → 200 OK (ditolak di level bisnis; retry BPJS sampai akhir hari layanan, penolakan bisnis langsung DLQ)',
     payload: { bookingCode: '2610050093', taskId: '5', pendingTask: '4' },
   },
   {
@@ -275,7 +281,7 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     errorCode: 'NO_PUSH_TOKEN',
     errorMessage: 'Aplikasi belum terpasang di perangkat → dialihkan ke SMS',
     attempts: 1,
-    maxAttempts: 5,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
     request: 'POST /push/messages → 404 token tidak terdaftar · SMS 202 Accepted 08.13',
     payload: { template: 'pengingat_kontrol', messageId: 'NTF-2610-2231', fallback: 'sms' },
@@ -287,8 +293,8 @@ export const DEAD_LETTERS: readonly DlqMessage[] = [
     operation: 'POST /v1/invoices · VA BTN',
     errorCode: 'HTTP 504',
     errorMessage: 'API VA BTN tidak merespons 30 dtk (via TPDI)',
-    attempts: 5,
-    maxAttempts: 5,
+    attempts: OUTBOX_MAX_ATTEMPTS,
+    maxAttempts: OUTBOX_MAX_ATTEMPTS,
     critical: false,
     request: 'POST /v1/invoices (TPDI) → 504 Gateway Timeout',
     payload: {

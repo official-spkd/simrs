@@ -593,6 +593,132 @@ describe('lingkup unit permintaan bed dan transfer (review keamanan 6 Okt 2026)'
   });
 });
 
+describe('permintaan bed terbuka saat admisi, transfer, dan pulang (regresi)', () => {
+  const requestBody = (encounterId: string, unitId = unit.MELATI, careClass = 'kelas_2') => ({
+    encounterId,
+    origin: 'igd',
+    careClass,
+    unitId,
+    isolation: false,
+    note: null,
+  });
+  const requestRow = (id: string) => run(A.id, (tx) => tx.bedRequest.findUniqueOrThrow({ where: { id } }));
+
+  it('admisi langsung ke bed siap walau permintaan bed IGD masih menunggu: 201, permintaan selesai di bed itu', async () => {
+    const e = await igd();
+    const req = (await as('perawatIgd').post('/adt/bed-requests', requestBody(e.encounterId)).expect(201))
+      .body.id as string;
+    const imp = await planned(e);
+    const bed = await freeBed('MELATI');
+    await as('daftar')
+      .post('/adt/admissions', { encounterId: imp, locationId: bed, initialDiagnosis: null })
+      .expect(201);
+    expect(await requestRow(req)).toMatchObject({ status: 'selesai', allocatedLocationId: bed });
+  });
+
+  it('admisi ke bed lain dari yang dialokasikan: bed pesanan kembali siap (tidak tersangkut dipesan)', async () => {
+    const e = await igd();
+    const req = (await as('perawatIgd').post('/adt/bed-requests', requestBody(e.encounterId)).expect(201))
+      .body.id as string;
+    const reserved = await freeBed('MELATI');
+    await as('daftar').post(`/adt/bed-requests/${req}/allocate`, { locationId: reserved }).expect(200);
+    const imp = await planned(e);
+    const other = await freeBed('MELATI');
+    expect(other).not.toBe(reserved);
+    await as('daftar')
+      .post('/adt/admissions', { encounterId: imp, locationId: other, initialDiagnosis: null })
+      .expect(201);
+    expect(await bedStatus(reserved)).toMatchObject({ status: 'siap', encounterId: null });
+    expect(await requestRow(req)).toMatchObject({ status: 'selesai', allocatedLocationId: other });
+  });
+
+  it('transfer ke bed yang dialokasikan menutup permintaannya; permintaan baru bisa dibuat', async () => {
+    const e = await igd();
+    const imp = await planned(e);
+    await as('daftar')
+      .post('/adt/admissions', {
+        encounterId: imp,
+        locationId: await freeBed('MELATI'),
+        initialDiagnosis: null,
+      })
+      .expect(201);
+    const req = (
+      await as('daftar')
+        .post('/adt/bed-requests', { ...requestBody(imp, unit.ANGGREK, 'kelas_1'), origin: 'lainnya' })
+        .expect(201)
+    ).body.id as string;
+    const target = await freeBed('ANGGREK');
+    await as('daftar').post(`/adt/bed-requests/${req}/allocate`, { locationId: target }).expect(200);
+    await as('daftar')
+      .post('/adt/transfers', { encounterId: imp, locationId: target, reason: 'Pindah kelas 1' })
+      .expect(201);
+    expect(await requestRow(req)).toMatchObject({ status: 'selesai', allocatedLocationId: target });
+    await as('daftar')
+      .post('/adt/bed-requests', { ...requestBody(imp, unit.MELATI), origin: 'lainnya' })
+      .expect(201);
+  });
+
+  it('pasien IGD pulang sebelum masuk bed: bed pesanan kembali siap, permintaan batal beralasan', async () => {
+    const e = await igd();
+    const req = (await as('perawatIgd').post('/adt/bed-requests', requestBody(e.encounterId)).expect(201))
+      .body.id as string;
+    const reserved = await freeBed('MELATI');
+    await as('daftar').post(`/adt/bed-requests/${req}/allocate`, { locationId: reserved }).expect(200);
+    await as('daftar')
+      .post('/adt/discharges', { encounterId: e.encounterId, disposition: 'pulang' })
+      .expect(201);
+    expect(await bedStatus(reserved)).toMatchObject({ status: 'siap', encounterId: null });
+    const row = await requestRow(req);
+    expect(row.status).toBe('batal');
+    expect(row.closeReason?.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('batal kunjungan IGD salah daftar: bed IGD tidak tersangkut terisi, bed pesanan siap, permintaan batal', async () => {
+    const e = await igd();
+    const edBed = await run(A.id, async (tx) => {
+      const rows = await tx.bedStatus.findMany({ where: { unitId: unit.IGD, status: 'siap' } });
+      return rows[rows.length - 1]?.locationId as string;
+    });
+    await as('perawatIgd')
+      .post(`/encounters/${e.encounterId}/ed-status`, { status: 'pemeriksaan', zone: 'K', locationId: edBed })
+      .expect(201);
+    const req = (await as('perawatIgd').post('/adt/bed-requests', requestBody(e.encounterId)).expect(201))
+      .body.id as string;
+    const reserved = await freeBed('MELATI');
+    await as('daftar').post(`/adt/bed-requests/${req}/allocate`, { locationId: reserved }).expect(200);
+
+    await as('daftar')
+      .post(`/registration/encounters/${e.encounterId}/cancel`, { reason: 'Salah daftar pasien IGD' })
+      .expect(200);
+    expect(await bedStatus(edBed)).toMatchObject({ status: 'kotor', encounterId: null });
+    expect(await bedStatus(reserved)).toMatchObject({ status: 'siap', encounterId: null });
+    expect((await requestRow(req)).status).toBe('batal');
+    expect(
+      await run(A.id, (tx) =>
+        tx.bedAssignment.count({ where: { encounterId: e.encounterId, endedAt: null } }),
+      ),
+    ).toBe(0);
+  });
+
+  it('pulang dikirim dua kali bersamaan: satu 201, satu 409 (bukan 500, tanpa event ganda)', async () => {
+    const e = await igd();
+    const statuses = (
+      await Promise.all([
+        as('daftar').post('/adt/discharges', { encounterId: e.encounterId, disposition: 'pulang' }),
+        as('daftar').post('/adt/discharges', { encounterId: e.encounterId, disposition: 'pulang' }),
+      ])
+    ).map((r) => r.status);
+    expect(statuses.sort()).toEqual([201, 409]);
+    expect(
+      await run(A.id, (tx) =>
+        tx.domainEvent.count({
+          where: { name: 'encounter.finished', payload: { path: ['encounterId'], equals: e.encounterId } },
+        }),
+      ),
+    ).toBe(1);
+  });
+});
+
 /** Klien SSE minimal (fetch + frame `\n\n`). */
 async function openStream(who: string, path: string) {
   const controller = new AbortController();

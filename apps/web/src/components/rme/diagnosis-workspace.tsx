@@ -1,0 +1,697 @@
+'use client';
+
+import { formatJam, formatTanggalLahir } from '@simrs/shared';
+import { Button, Chip, cx } from '@simrs/ui';
+import { useId, useState } from 'react';
+import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { formatTglJam } from '@/lib/rawat-inap';
+import { hasReason } from '@/lib/rme';
+import {
+  activeAllergies,
+  addAllergyBlocker,
+  addDxBlocker,
+  type AllergyEntry,
+  type AllergySeverity,
+  canAddToProblems,
+  canEditAllergy,
+  canEditDiagnosis,
+  current,
+  DX_RANK_LABEL,
+  type DxCertainty,
+  type DxRank,
+  type EncounterDx,
+  finalizeBlocker,
+  finalizeDx,
+  markAllergyError,
+  markDxError,
+  nkdaBlocker,
+  type Problem,
+  type ProcedureEntry,
+  resolveProblem,
+  setPrimary,
+} from '@/lib/rme-diagnosis';
+import { Feedback, type FeedbackMsg, ReasonField } from './feedback';
+
+type Code = { code: string; display: string };
+
+const SEVERITY_LABEL: Record<AllergySeverity, string> = {
+  ringan: 'Ringan',
+  sedang: 'Sedang',
+  berat: 'Berat',
+};
+const SELECT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit] text-small';
+const INPUT = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
+const CARD = 'flex min-w-0 flex-col gap-3 rounded-card border border-line bg-white px-4 py-3.5';
+
+/**
+ * K08 · Diagnosis kunjungan (ICD-10, tepat satu utama, kerja → akhir), prosedur ICD-9-CM, problem list lintas
+ * kunjungan, dan alergi/NKDA. Setiap perubahan = versi baru; pembatalan = "salah entri" beralasan (tetap tampil
+ * dicoret). Keadaan lokal (simulasi, tidak disimpan).
+ */
+export function DiagnosisWorkspace({
+  encounterId,
+  role,
+  user,
+  today,
+  icd10,
+  icd9,
+  initialDx,
+  initialProcedures,
+  initialProblems,
+  initialAllergies,
+  initialNkdaAt,
+}: {
+  encounterId: string;
+  role: string | null;
+  user: string;
+  /** Tanggal hari demo `YYYY-MM-DD`. */
+  today: string;
+  icd10: readonly Code[];
+  icd9: readonly Code[];
+  initialDx: readonly EncounterDx[];
+  initialProcedures: readonly ProcedureEntry[];
+  initialProblems: readonly Problem[];
+  initialAllergies: readonly AllergyEntry[];
+  initialNkdaAt: string | null;
+}) {
+  const id = useId();
+  const [dx, setDx] = useState<EncounterDx[]>([...initialDx]);
+  const [procs, setProcs] = useState<ProcedureEntry[]>([...initialProcedures]);
+  const [problems, setProblems] = useState<Problem[]>([...initialProblems]);
+  const [allergies, setAllergies] = useState<AllergyEntry[]>([...initialAllergies]);
+  const [nkdaAt, setNkdaAt] = useState<string | null>(initialNkdaAt);
+  const [msg, setMsg] = useState<FeedbackMsg | null>(null);
+  const [seq, setSeq] = useState(1);
+  const [newDx, setNewDx] = useState<{ code: string; rank: DxRank; certainty: DxCertainty }>({
+    code: '',
+    rank: 'sekunder',
+    certainty: 'kerja',
+  });
+  const [newProc, setNewProc] = useState('');
+  const [newAllergy, setNewAllergy] = useState({
+    substance: '',
+    reaction: '',
+    severity: 'sedang' as AllergySeverity,
+  });
+  const [voiding, setVoiding] = useState<{
+    kind: 'dx' | 'alergi';
+    id: string;
+    reason: string;
+    tried: boolean;
+  } | null>(null);
+  const [resolving, setResolving] = useState<{ id: string; date: string; note: string } | null>(null);
+  const [filter, setFilter] = useState<'aktif' | 'teratasi'>('aktif');
+  const canDx = canEditDiagnosis(role);
+  const canAllergy = canEditAllergy(role);
+  const now = () => demoNow().toISOString();
+  const nextIds = (prefix: string) => {
+    const base = seq;
+    setSeq((n) => n + 10);
+    return (n: number) => `${encounterId}-${prefix}-baru-${base + n}`;
+  };
+  const say = (text: string, ok = true) =>
+    setMsg({ ok, text: ok ? `${text} (simulasi, tidak disimpan).` : text });
+
+  const shownDx = current(dx).sort(
+    (a, b) =>
+      Number(b.status === 'aktif') - Number(a.status === 'aktif') ||
+      (a.rank === 'utama' ? -1 : b.rank === 'utama' ? 1 : 0),
+  );
+  const dxBlock = addDxBlocker(dx, newDx.code, newDx.rank);
+  const finBlock = finalizeBlocker(dx);
+  const shownProblems = current(problems).filter((p) => p.status === filter);
+  const allergyBlock = addAllergyBlocker(allergies, newAllergy.substance, newAllergy.reaction);
+  const nkdaBlock = nkdaBlocker(allergies);
+
+  const addDx = () => {
+    if (dxBlock) return say(dxBlock, false);
+    const at = now();
+    const c = icd10.find((x) => x.code === newDx.code);
+    const entry: EncounterDx = {
+      id: nextIds('dx')(0),
+      version: 1,
+      supersedesId: null,
+      by: user,
+      at,
+      code: newDx.code,
+      display: c?.display ?? newDx.code,
+      rank: newDx.rank,
+      certainty: newDx.certainty,
+      status: 'aktif',
+      reason: null,
+    };
+    setDx((cur) => [...cur, entry]);
+    setNewDx({ code: '', rank: 'sekunder', certainty: 'kerja' });
+    say(
+      `${entry.code} ${entry.display} tercatat sebagai diagnosis ${DX_RANK_LABEL[entry.rank].toLowerCase()} · ${formatJam(at)}`,
+    );
+  };
+
+  const confirmVoid = () => {
+    if (!voiding) return;
+    if (!hasReason(voiding.reason)) return setVoiding({ ...voiding, tried: true });
+    const at = now();
+    const newId = nextIds(voiding.kind)(0);
+    if (voiding.kind === 'dx') {
+      const prev = current(dx).find((d) => d.id === voiding.id);
+      if (!prev) return;
+      setDx((cur) => [...cur, markDxError(prev, voiding.reason, user, at, newId)]);
+      say(`${prev.code} ditandai salah entri · ${formatJam(at)}; versi lama tetap tersimpan`);
+    } else {
+      const prev = current(allergies).find((a) => a.id === voiding.id);
+      if (!prev) return;
+      setAllergies((cur) => [...cur, markAllergyError(prev, voiding.reason, user, at, newId)]);
+      say(`Alergi ${prev.substance} ditandai salah entri · ${formatJam(at)}`);
+    }
+    setVoiding(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Feedback msg={msg} />
+      <div className="flex flex-wrap items-start gap-4">
+        <section aria-label="Diagnosis kunjungan" className={cx(CARD, 'flex-[2_1_560px]')}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex flex-col">
+              <h2 className="m-0 text-body font-semibold">Diagnosis kunjungan ini (ICD-10)</h2>
+              <span className="text-caption text-ink-500">
+                Tepat satu diagnosis utama · kode dari rujukan terminologi RS
+              </span>
+            </div>
+            <Button
+              variant="primary"
+              disabled={!canDx || !!finBlock}
+              aria-describedby={`${id}-fin`}
+              onClick={() => {
+                const at = now();
+                const added = finalizeDx(dx, user, at, nextIds('dx'));
+                setDx((cur) => [...cur, ...added]);
+                say(`Diagnosis akhir ditetapkan · ${formatJam(at)} · ${added.length} diagnosis`);
+              }}
+            >
+              Tetapkan diagnosis akhir
+            </Button>
+          </div>
+          <span id={`${id}-fin`} className={cx('text-caption', finBlock ? 'text-warning' : 'text-success')}>
+            {!canDx
+              ? 'Diagnosis ditetapkan dokter (DPJP/residen).'
+              : (finBlock ?? 'Siap ditetapkan sebagai diagnosis akhir.')}
+          </span>
+          {shownDx.length === 0 ? (
+            <p className="m-0 rounded-control bg-subtle px-3.5 py-3 text-small text-ink-700">
+              Belum ada diagnosis pada kunjungan ini. Tambahkan diagnosis kerja di bawah.
+            </p>
+          ) : (
+            <ul aria-label="Daftar diagnosis" className="m-0 flex list-none flex-col p-0">
+              {shownDx.map((d) => {
+                const err = d.status === 'salah-entri';
+                return (
+                  <li key={d.id} className="flex flex-col gap-1.5 border-b border-line-soft py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Chip tone={err ? 'neutral' : d.rank === 'utama' ? 'brand' : 'neutral'}>
+                        {DX_RANK_LABEL[d.rank]}
+                      </Chip>
+                      <span className={cx('font-mono font-semibold', err && 'line-through')}>{d.code}</span>
+                      <span className={cx(err && 'text-ink-500 line-through')}>{d.display}</span>
+                      <Chip tone={d.certainty === 'akhir' ? 'success' : 'warning'}>
+                        {d.certainty === 'akhir' ? 'Diagnosis akhir' : 'Diagnosis kerja'}
+                      </Chip>
+                    </div>
+                    <span className="text-caption text-ink-500">
+                      {err ? `Salah entri · ${d.reason} · ` : ''}
+                      {d.by} · {formatTglJam(d.at)}
+                      {d.version > 1 ? ` · versi ${d.version}` : ''}
+                    </span>
+                    {!err && canDx && (
+                      <span className="flex flex-wrap gap-2">
+                        {d.rank !== 'utama' && (
+                          <Button
+                            size="sm"
+                            aria-label={`Jadikan ${d.code} diagnosis utama`}
+                            onClick={() => {
+                              const at = now();
+                              const ids = nextIds('dx');
+                              setDx((cur) => [...cur, ...setPrimary(cur, d.id, user, at, ids)]);
+                              say(
+                                `${d.code} kini diagnosis utama · ${formatJam(at)}; utama lama menjadi sekunder (versi baru)`,
+                              );
+                            }}
+                          >
+                            Jadikan utama
+                          </Button>
+                        )}
+                        {canAddToProblems(problems, d.code) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const at = now();
+                              const pid = nextIds('masalah')(0);
+                              setProblems((cur) => [
+                                ...cur,
+                                {
+                                  id: pid,
+                                  version: 1,
+                                  supersedesId: null,
+                                  by: user,
+                                  at,
+                                  code: d.code,
+                                  display: d.display,
+                                  onset: today,
+                                  status: 'aktif',
+                                  resolvedOn: null,
+                                  note: null,
+                                },
+                              ]);
+                              setFilter('aktif');
+                              say(`${d.code} masuk problem list · ${formatJam(at)}`);
+                            }}
+                          >
+                            Masukkan ke problem list
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Salah entri ${d.code}`}
+                          onClick={() => setVoiding({ kind: 'dx', id: d.id, reason: '', tried: false })}
+                        >
+                          Salah entri
+                        </Button>
+                      </span>
+                    )}
+                    {voiding?.kind === 'dx' && voiding.id === d.id && (
+                      <VoidForm
+                        v={voiding}
+                        onChange={setVoiding}
+                        onConfirm={confirmVoid}
+                        onCancel={() => setVoiding(null)}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {canDx && (
+            <form
+              aria-label="Tambah diagnosis"
+              className="flex flex-wrap items-end gap-2 rounded-control bg-subtle p-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                addDx();
+              }}
+            >
+              <div className="flex min-w-0 flex-[2_1_240px] flex-col gap-1">
+                <label htmlFor={`${id}-icd`} className="text-small font-semibold">
+                  Kode ICD-10
+                </label>
+                <select
+                  id={`${id}-icd`}
+                  value={newDx.code}
+                  onChange={(e) => setNewDx({ ...newDx, code: e.target.value })}
+                  className={SELECT}
+                >
+                  <option value="">Pilih kode…</option>
+                  {icd10.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} · {c.display}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-[1_1_130px] flex-col gap-1">
+                <label htmlFor={`${id}-rank`} className="text-small font-semibold">
+                  Jenis
+                </label>
+                <select
+                  id={`${id}-rank`}
+                  value={newDx.rank}
+                  onChange={(e) => setNewDx({ ...newDx, rank: e.target.value as DxRank })}
+                  className={SELECT}
+                >
+                  {(Object.keys(DX_RANK_LABEL) as DxRank[]).map((r) => (
+                    <option key={r} value={r}>
+                      {DX_RANK_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button type="submit" variant="primary" disabled={!newDx.code}>
+                Tambahkan
+              </Button>
+              {newDx.code && dxBlock && (
+                <span role="alert" className="basis-full text-caption font-semibold text-warning">
+                  {dxBlock}
+                </span>
+              )}
+            </form>
+          )}
+        </section>
+
+        <section aria-label="Alergi" className={cx(CARD, 'flex-[1_1_320px]')}>
+          <h2 className="m-0 text-body font-semibold">Alergi</h2>
+          {nkdaAt && activeAllergies(allergies).length === 0 && (
+            <p className="m-0 text-small font-semibold text-success">
+              Tidak ada alergi yang diketahui (NKDA) · diverifikasi {formatTglJam(nkdaAt)}
+            </p>
+          )}
+          <ul aria-label="Daftar alergi" className="m-0 flex list-none flex-col gap-2 p-0">
+            {current(allergies).map((a) => {
+              const err = a.status === 'salah-entri';
+              return (
+                <li
+                  key={a.id}
+                  className={cx(
+                    'flex flex-col gap-1 rounded-control border px-3 py-2',
+                    err ? 'border-line bg-subtle' : 'border-danger-border',
+                  )}
+                >
+                  <span className={cx('font-semibold', err ? 'text-ink-500 line-through' : 'text-danger')}>
+                    {a.substance} · {SEVERITY_LABEL[a.severity]}
+                  </span>
+                  <span className={cx('text-small', err && 'line-through')}>{a.reaction}</span>
+                  <span className="text-caption text-ink-500">
+                    {err ? `Salah entri · ${a.reason} · ` : ''}
+                    {a.by} · {formatTglJam(a.at)}
+                  </span>
+                  {!err && canAllergy && voiding?.id !== a.id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="self-start"
+                      aria-label={`Salah entri alergi ${a.substance}`}
+                      onClick={() => setVoiding({ kind: 'alergi', id: a.id, reason: '', tried: false })}
+                    >
+                      Salah entri
+                    </Button>
+                  )}
+                  {voiding?.kind === 'alergi' && voiding.id === a.id && (
+                    <VoidForm
+                      v={voiding}
+                      onChange={setVoiding}
+                      onConfirm={confirmVoid}
+                      onCancel={() => setVoiding(null)}
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {canAllergy ? (
+            <form
+              aria-label="Tambah alergi"
+              className="flex flex-col gap-2 rounded-control bg-subtle p-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (allergyBlock) return say(allergyBlock, false);
+                const at = now();
+                const aid = nextIds('alergi')(0);
+                setAllergies((cur) => [
+                  ...cur,
+                  {
+                    id: aid,
+                    version: 1,
+                    supersedesId: null,
+                    by: user,
+                    at,
+                    substance: newAllergy.substance.trim(),
+                    reaction: newAllergy.reaction.trim(),
+                    severity: newAllergy.severity,
+                    status: 'aktif',
+                    reason: null,
+                  },
+                ]);
+                setNkdaAt(null);
+                setNewAllergy({ substance: '', reaction: '', severity: 'sedang' });
+                say(
+                  `Alergi ${newAllergy.substance.trim()} tercatat · ${formatJam(at)}; banner pasien dan CDS memakai data ini`,
+                );
+              }}
+            >
+              <label htmlFor={`${id}-zat`} className="text-small font-semibold">
+                Zat/obat penyebab
+              </label>
+              <input
+                id={`${id}-zat`}
+                value={newAllergy.substance}
+                onChange={(e) => setNewAllergy({ ...newAllergy, substance: e.target.value })}
+                className={INPUT}
+              />
+              <label htmlFor={`${id}-reaksi`} className="text-small font-semibold">
+                Reaksi
+              </label>
+              <input
+                id={`${id}-reaksi`}
+                value={newAllergy.reaction}
+                onChange={(e) => setNewAllergy({ ...newAllergy, reaction: e.target.value })}
+                className={INPUT}
+              />
+              <label htmlFor={`${id}-berat`} className="text-small font-semibold">
+                Tingkat keparahan
+              </label>
+              <select
+                id={`${id}-berat`}
+                value={newAllergy.severity}
+                onChange={(e) =>
+                  setNewAllergy({ ...newAllergy, severity: e.target.value as AllergySeverity })
+                }
+                className={SELECT}
+              >
+                {(Object.keys(SEVERITY_LABEL) as AllergySeverity[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEVERITY_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+              <span className="flex flex-wrap gap-2">
+                <Button type="submit" variant="primary">
+                  Catat alergi
+                </Button>
+                <Button
+                  disabled={!!nkdaBlock || !!nkdaAt}
+                  aria-describedby={nkdaBlock ? `${id}-nkda` : undefined}
+                  onClick={() => {
+                    const at = now();
+                    setNkdaAt(at);
+                    say(`NKDA diverifikasi · ${formatJam(at)}`);
+                  }}
+                >
+                  Verifikasi NKDA
+                </Button>
+              </span>
+              {nkdaBlock && (
+                <span id={`${id}-nkda`} className="text-caption text-ink-500">
+                  {nkdaBlock}
+                </span>
+              )}
+            </form>
+          ) : (
+            <span className="text-caption text-ink-500">Alergi dicatat dokter, perawat, atau bidan.</span>
+          )}
+        </section>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-4">
+        <section aria-label="Problem list" className={cx(CARD, 'flex-[2_1_560px]')}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col">
+              <h2 className="m-0 text-body font-semibold">Problem list (lintas kunjungan)</h2>
+              <span className="text-caption text-ink-500">Masalah aktif terbawa ke kunjungan berikutnya</span>
+            </div>
+            <div role="group" aria-label="Filter masalah" className="flex gap-1.5">
+              {(['aktif', 'teratasi'] as const).map((f) => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={filter === f ? 'primary' : 'secondary'}
+                  aria-pressed={filter === f}
+                  onClick={() => setFilter(f)}
+                >
+                  {f === 'aktif' ? 'Aktif' : 'Teratasi'} (
+                  {current(problems).filter((p) => p.status === f).length})
+                </Button>
+              ))}
+            </div>
+          </div>
+          {shownProblems.length === 0 && (
+            <p className="m-0 text-small text-ink-500">
+              Tidak ada masalah {filter === 'aktif' ? 'aktif' : 'teratasi'}.
+            </p>
+          )}
+          <ul aria-label="Daftar masalah" className="m-0 flex list-none flex-col p-0">
+            {shownProblems.map((p) => (
+              <li key={p.id} className="flex flex-col gap-1.5 border-b border-line-soft py-2.5">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono font-semibold">{p.code}</span>
+                  <span>{p.display}</span>
+                  <Chip tone={p.status === 'aktif' ? 'warning' : 'success'}>
+                    {p.status === 'aktif' ? 'Aktif' : 'Teratasi'}
+                  </Chip>
+                </span>
+                <span className="text-caption text-ink-500">
+                  Sejak {formatTanggalLahir(p.onset)}
+                  {p.resolvedOn ? ` · teratasi ${formatTanggalLahir(p.resolvedOn)}` : ''}
+                  {p.note ? ` · ${p.note}` : ''}
+                  {p.version > 1 ? ` · versi ${p.version} oleh ${p.by}` : ''}
+                </span>
+                {p.status === 'aktif' && canDx && resolving?.id !== p.id && (
+                  <Button
+                    size="sm"
+                    className="self-start"
+                    aria-label={`Tandai ${p.code} teratasi`}
+                    onClick={() => setResolving({ id: p.id, date: today, note: '' })}
+                  >
+                    Tandai teratasi
+                  </Button>
+                )}
+                {resolving?.id === p.id && (
+                  <form
+                    aria-label={`Masalah ${p.code} teratasi`}
+                    className="flex flex-wrap items-end gap-2 rounded-control bg-subtle p-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const at = now();
+                      const resolved = resolveProblem(p, {
+                        resolvedOn: resolving.date,
+                        note: resolving.note,
+                        by: user,
+                        at,
+                        id: nextIds('masalah')(0),
+                      });
+                      setProblems((cur) => [...cur, resolved]);
+                      setResolving(null);
+                      say(`${p.code} ditandai teratasi · ${formatJam(at)} (versi baru)`);
+                    }}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor={`${id}-tgl`} className="text-small font-semibold">
+                        Tanggal teratasi
+                      </label>
+                      <input
+                        id={`${id}-tgl`}
+                        type="date"
+                        max={today}
+                        value={resolving.date}
+                        required
+                        onChange={(e) => setResolving({ ...resolving, date: e.target.value })}
+                        className={INPUT}
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-1">
+                      <label htmlFor={`${id}-cat`} className="text-small font-semibold">
+                        Catatan
+                      </label>
+                      <input
+                        id={`${id}-cat`}
+                        value={resolving.note}
+                        onChange={(e) => setResolving({ ...resolving, note: e.target.value })}
+                        className={INPUT}
+                      />
+                    </div>
+                    <Button type="submit" variant="primary">
+                      Simpan
+                    </Button>
+                    <Button onClick={() => setResolving(null)}>Batal</Button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-label="Prosedur" className={cx(CARD, 'flex-[1_1_320px]')}>
+          <h2 className="m-0 text-body font-semibold">Prosedur (ICD-9-CM)</h2>
+          {procs.length === 0 && (
+            <p className="m-0 text-small text-ink-500">Belum ada prosedur pada kunjungan ini.</p>
+          )}
+          <ul aria-label="Daftar prosedur" className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {procs.map((p) => (
+              <li key={p.id} className="flex flex-col text-small">
+                <span>
+                  <span className="font-mono font-semibold">{p.code}</span> {p.display}
+                </span>
+                <span className="text-caption text-ink-500">
+                  {p.by} · {formatTglJam(p.at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {canDx && (
+            <form
+              aria-label="Tambah prosedur"
+              className="flex flex-col gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const c = icd9.find((x) => x.code === newProc);
+                if (!c) return;
+                const at = now();
+                const pid = nextIds('proc')(0);
+                setProcs((cur) => [...cur, { id: pid, code: c.code, display: c.display, by: user, at }]);
+                setNewProc('');
+                say(`Prosedur ${c.code} ${c.display} tercatat · ${formatJam(at)}`);
+              }}
+            >
+              <label htmlFor={`${id}-icd9`} className="text-small font-semibold">
+                Kode ICD-9-CM
+              </label>
+              <select
+                id={`${id}-icd9`}
+                value={newProc}
+                onChange={(e) => setNewProc(e.target.value)}
+                className={SELECT}
+              >
+                <option value="">Pilih kode…</option>
+                {icd9.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} · {c.display}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" disabled={!newProc} className="self-start">
+                Tambahkan prosedur
+              </Button>
+            </form>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function VoidForm({
+  v,
+  onChange,
+  onConfirm,
+  onCancel,
+}: {
+  v: { kind: 'dx' | 'alergi'; id: string; reason: string; tried: boolean };
+  onChange: (v: { kind: 'dx' | 'alergi'; id: string; reason: string; tried: boolean }) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      aria-label="Tandai salah entri"
+      className="flex flex-col gap-2 rounded-control border border-warning-border bg-white p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onConfirm();
+      }}
+    >
+      <ReasonField
+        label="Alasan salah entri"
+        value={v.reason}
+        onChange={(reason) => onChange({ ...v, reason })}
+        showError={v.tried}
+        hint="Entri tidak dihapus: tetap tampil dicoret dan tercatat di jejak audit."
+      />
+      <span className="flex gap-2">
+        <Button type="submit" variant="danger">
+          Tandai salah entri
+        </Button>
+        <Button onClick={onCancel}>Batal</Button>
+      </span>
+    </form>
+  );
+}

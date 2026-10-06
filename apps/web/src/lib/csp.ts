@@ -29,3 +29,18 @@ export function contentSecurityPolicy(nonce: string, opts: { dev: boolean }): st
     "object-src 'none'",
   ].join('; ');
 }
+
+/**
+ * Berkas statis yang dilayani route handler (gambar panduan superadmin, termasuk SVG): tanpa skrip sama sekali dan
+ * `sandbox` walau dibuka langsung. Proxy menimpa header CSP respons, jadi kebijakan ini dipilih di proxy menurut path
+ * (`responsePolicy`), bukan hanya di route handler.
+ */
+export const STATIC_FILE_CSP =
+  "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; sandbox";
+
+const STATIC_FILE_PREFIXES = ['/superadmin/panduan/gambar/'];
+
+/** CSP respons untuk `pathname`: kebijakan berkas statis untuk rute berkas, selain itu kebijakan halaman ber-nonce. */
+export function responsePolicy(pathname: string, pagePolicy: string): string {
+  return STATIC_FILE_PREFIXES.some((p) => pathname.startsWith(p)) ? STATIC_FILE_CSP : pagePolicy;
+}
