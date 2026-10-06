@@ -13,12 +13,13 @@ export const metadata: Metadata = { title: 'Command center' };
 
 /**
  * I09 · Command center (melengkapi Dasbor direksi, tanpa mockup): kapasitas bed real-time, IGD, antrean, alert
- * keputusan. Data dari fixture layar asalnya (Tempat tidur, IGD, Display antrean), mode presentasi (ADR-0023).
+ * keputusan. Data dibaca dari toko demo layar asalnya (Tempat tidur, IGD, papan antrean), mode presentasi
+ * (ADR-0023/0085); keputusan alert tersimpan (domain `command-center`).
  */
 export default async function CommandCenterPage() {
-  const { screen, allowed } = await requireDemoScreen('command-center');
+  const { session, screen, allowed } = await requireDemoScreen('command-center');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const d = await getCommandCenter();
+  const d = await getCommandCenter(session);
   const rows = wardRows(d.wards, d.state.beds);
   const occ = rows.reduce((n, r) => n + r.occupied, 0);
   const all = rows.reduce((n, r) => n + r.total, 0);
@@ -58,7 +59,7 @@ export default async function CommandCenterPage() {
         <KpiCard
           label="Antrean poli"
           value={String(d.state.queues.reduce((n, q) => n + q.waiting, 0))}
-          detail={`${d.state.queues.length} poli lantai 2`}
+          detail={`loket + ${d.state.queues.length - 1} poli lantai 2`}
         />
         <KpiCard
           label="Alert keputusan"
@@ -69,7 +70,14 @@ export default async function CommandCenterPage() {
           tinted
         />
       </div>
-      <CommandBoard asOf={d.asOf} wards={d.wards} initial={d.state} />
+      <CommandBoard
+        asOf={d.asOf}
+        wards={d.wards}
+        state={d.state}
+        acks={d.store.state.acks}
+        rev={d.store.rev}
+        viewerRole={session.role?.code ?? null}
+      />
     </div>
   );
 }

@@ -1,11 +1,37 @@
 import { expect, type Page, test } from '@playwright/test';
 import { PERSONA } from '../../src/lib/demo/fixtures/staf';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 
 /**
  * FE5 · Alur layar back office fase 8 dan kanal fase 9 di mode presentasi (ADR-0023): setiap layar dijalankan dari
- * keadaan awal sampai tugas utamanya selesai, termasuk gerbang beralasan. Semua aksi simulasi (tidak disimpan).
+ * keadaan awal sampai tugas utamanya selesai, termasuk gerbang beralasan. Sejak CX-3 setiap aksi tersimpan di toko
+ * demo bersama (ADR-0085): tiap alur memeriksa bertahan (muat ulang) dan, bila ada, mengalir ke layar lain.
  */
+
+/** Masuk dengan akun berposisi ganda lalu pilih posisi awal. */
+async function loginWithPosition(page: Page, account: Account, roleName: string) {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(
+    page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName.replace(/[()]/g, '\\$&')}`)),
+  ).toBeVisible();
+}
 
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
@@ -667,16 +693,17 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
-  test('I09 command center: alert kritis ditindaklanjuti beralasan; maju waktu memindahkan pasien IGD ke bed', async ({
+  test('I09 command center: data langsung dari IGD/bed/antrean; keputusan alert tersimpan; permintaan bed IGD mengalir', async ({
     page,
   }) => {
-    const direksi = await createAccount({ roles: ['manajemen'] });
-    await loginAs(page, direksi, '/');
+    const akun = await createAccount({ roles: ['manajemen', 'dokter'], displayName: 'Direktur Komando Fiktif' });
+    await loginWithPosition(page, akun, 'Manajemen');
     await page.goto('/manajemen/command-center');
     await expect(page.getByRole('heading', { name: 'Command center', level: 1 })).toBeVisible();
     const alerts = page.getByRole('region', { name: 'Alert keputusan' });
     await expect(alerts).toContainText('Kritis: 1 pasien IGD menunggu bed rawat inap');
     await expect(alerts).toContainText('ICU/ICCU 92%');
+    await expect(page.getByText(/simulasi|tidak disimpan/)).toHaveCount(0);
 
     await alerts.getByRole('button', { name: /Putuskan tindakan.*1 pasien IGD menunggu bed/ }).click();
     const save = alerts.getByRole('button', { name: 'Simpan keputusan' });
@@ -686,14 +713,24 @@ test.describe('FE5 · back office', () => {
       .getByLabel('Catatan dan penanggung jawab')
       .fill('Kepala ruang Kenanga siapkan K-4xx dalam 30 menit');
     await save.click();
-    await expect(alerts.getByText('Ditindaklanjuti 10.45')).toBeVisible();
+    await expect(alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · Direktur Komando Fiktif/)).toBeVisible();
+    await page.reload();
+    await expect(alerts.getByText(/Ditindaklanjuti \d{2}\.\d{2} · Direktur Komando Fiktif/)).toBeVisible();
 
-    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Maju 15 menit' }).click();
-    await expect(page.getByText('Data per 11.30')).toBeVisible();
-    await expect(alerts).not.toContainText('menunggu bed rawat inap');
-    await expect(page.getByRole('list', { name: 'Peristiwa terbaru' })).toContainText(
-      'Pasien IGD terlama mendapat bed',
-    );
+    // Mengalir: dokter IGD meminta bed untuk Tn. Joko → command center menghitung 2 pasien menunggu bed (alert baru).
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto('/klinis/igd');
+    await page.getByRole('region', { name: 'Papan pasien IGD' }).getByRole('button', { name: /Tn\. Joko Susilo/ }).click();
+    const disp = page.getByRole('region', { name: 'Disposisi pasien IGD' });
+    await disp.getByLabel('Kelas ruang').selectOption('Kelas 2');
+    await disp.getByLabel('Kebutuhan ruang').fill('Ortopedi · pantau nyeri lutut');
+    await disp.getByRole('button', { name: 'Minta bed rawat inap' }).click();
+    await expect(disp.getByRole('status')).toContainText('Permintaan bed Kelas 2 terkirim');
+
+    await switchPosition(page, 'Manajemen');
+    await page.goto('/manajemen/command-center');
+    await expect(alerts).toContainText('2 pasien IGD menunggu bed rawat inap');
+    await expect(alerts.getByRole('button', { name: /Putuskan tindakan.*2 pasien IGD menunggu bed/ })).toBeVisible();
 
     await expectNoHorizontalOverflow(page);
   });

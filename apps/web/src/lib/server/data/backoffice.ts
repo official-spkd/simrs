@@ -17,10 +17,8 @@ import {
   PRE_CHEMO_LABS,
 } from '../../demo/fixtures/onkologi';
 import { cohort, DATASET_FIELDS, DATASET_REQUEST } from '../../demo/fixtures/dataset-riset';
-import { demoQueueBoard } from '../../demo/fixtures/front-office';
 import { dischargeRecords } from '../../demo/fixtures/mutu-transaksi';
 import { patientById } from '../../demo/fixtures/pasien';
-import { demoBeds, demoEdBoardBase, demoWards } from '../../demo/fixtures/rawat-inap';
 import { DEMO_NOW } from '../../demo/fixtures/waktu';
 import { TRAINEES } from '../../demo/fixtures/pendidikan';
 import { recentComplaints, surveyResponses } from '../../demo/fixtures/pengalaman';
@@ -35,7 +33,11 @@ import {
   ppeAudits,
 } from '../../demo/fixtures/ppi';
 import { computeIndicators } from '../../mutu-transaksi';
+import type { SessionView } from '../../session-view';
 import { readDomain } from '../demo/state';
+import { boardOf, frontOfficeStore, loketOf } from './front-office/toko';
+import { getBedBoard } from './klinis/bed';
+import { getEdBoard } from './klinis/igd';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -157,18 +159,30 @@ export async function getEducation() {
 }
 
 /**
- * I09 · Command center: bed per ruang (sama dengan Tempat tidur dan Dasbor), papan IGD, dan antrean poli dari
- * fixture layar asalnya; IGD hanya label bed + keluhan (tanpa nama pasien).
+ * I09 · Command center: bed per ruang dari papan Tempat tidur (domain `tempat-tidur` + skenario), papan IGD (domain
+ * `klinis-igd`), dan antrean poli + loket dari papan antrean (domain `antrean`/`pendaftaran`): angka yang sama dengan
+ * layar asalnya. IGD hanya label bed + keluhan (tanpa nama pasien). Keputusan alert di domain `command-center`.
  */
-export async function getCommandCenter() {
+export async function getCommandCenter(session: SessionView) {
   demoOnly('command center');
-  const ed = demoEdBoardBase();
+  const [bed, ed, fo, store] = await Promise.all([
+    getBedBoard(session),
+    getEdBoard(session),
+    frontOfficeStore(session),
+    readDomain('command-center'),
+  ]);
+  const board = boardOf(fo);
+  const loket = loketOf(fo);
   return {
     asOf: DEMO_NOW,
-    wards: demoWards().map((w) => ({ code: w.code, name: w.name, beds: w.beds })),
+    wards: bed.wards.map((w) => ({
+      code: w.code,
+      name: w.name,
+      beds: bed.beds.filter((b) => b.wardCode === w.code).length,
+    })),
     state: {
       minute: 0,
-      beds: demoBeds().map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status })),
+      beds: bed.beds.map((b) => ({ code: b.code, wardCode: b.wardCode, status: b.status })),
       ed: ed.items.map((i) => ({
         id: i.encounterId,
         label: `${i.bed ?? 'triase'} · ${i.chiefComplaint}`,
@@ -176,14 +190,23 @@ export async function getCommandCenter() {
         losMinutes: i.losMinutes,
         triageLevel: i.triageLevel,
       })),
-      queues: demoQueueBoard().clinics.map((c) => ({
-        poliCode: c.poliCode,
-        poliName: c.poliName,
-        waiting: c.waiting.length,
-        current: c.current,
-      })),
+      queues: [
+        {
+          poliCode: 'LK',
+          poliName: 'Loket pendaftaran',
+          waiting: loket.waiting,
+          current: loket.current?.ticketNo ?? null,
+        },
+        ...board.clinics.map((c) => ({
+          poliCode: c.poliCode,
+          poliName: c.poliName,
+          waiting: c.waiting.length,
+          current: c.current,
+        })),
+      ],
       ambulances: ed.ambulancesIncoming,
     },
+    store,
   };
 }
 

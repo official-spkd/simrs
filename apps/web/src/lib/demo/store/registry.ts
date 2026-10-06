@@ -1,5 +1,6 @@
 import { queueDomain } from '../../front-office-antrean';
 import { assetDomain } from '../../aset-toko';
+import { commandDomain } from '../../command-center-toko';
 import { datasetDomain } from '../../dataset-riset-toko';
 import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
@@ -44,6 +45,7 @@ export const DEMO_DOMAINS = {
   antrean: queueDomain,
   aset: assetDomain,
   cadangan: backupDomain,
+  'command-center': commandDomain,
   'dataset-riset': datasetDomain,
   dokumen: documentDomain,
   downtime: downtimeDomain,
