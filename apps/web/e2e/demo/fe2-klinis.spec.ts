@@ -288,3 +288,58 @@ test.describe('K08 · diagnosis dan problem list', () => {
     await expectNoHorizontalScroll(page);
   });
 });
+
+test.describe('K10 · konsultasi dan rawat bersama', () => {
+  test('DPJP konsultan: jawab konsul cito terstruktur → rawat bersama; kirim konsul baru', async ({
+    page,
+  }) => {
+    await openAs(page, ['dokter'], '/klinis/konsultasi');
+    await expect(banner(page).getByText('Tn. Sutan Batubara')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Konsul masuk' })).toContainText(
+      'Tn. Sutan Batubara · Cito',
+    );
+    const konsul = card(page, /dr\. Melati Kusumawardani, Sp\.JP → dr\. Andini/);
+    await expect(konsul.getByText('Belum dijawab · lewat batas 10.30')).toBeVisible();
+    await konsul.getByRole('button', { name: 'Jawab konsul' }).click();
+    const form = konsul.getByRole('form', { name: 'Jawaban konsul' });
+    await form.getByRole('button', { name: 'Tanda tangani jawaban' }).click();
+    await expect(form.getByRole('alert')).toHaveText('Isi kesimpulan/diagnosis konsultan.');
+    await form
+      .getByLabel('Kesimpulan / diagnosis konsultan')
+      .fill('CKD stadium 3, risiko nefropati kontras sedang.');
+    await form
+      .getByLabel('Rekomendasi tata laksana')
+      .fill('Hidrasi NaCl 0,9% pra dan pasca kontras; kreatinin ulang 48 jam.');
+    await form.getByLabel('Tindak lanjut').selectOption('rawat-bersama');
+    await form.getByRole('button', { name: 'Tanda tangani jawaban' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Konsul dijawab' })).toHaveText(
+      new RegExp(`Konsul dijawab · ${JAM} · Rawat bersama`),
+    );
+    await expect(konsul.getByText(/^Dijawab .+ · \d{2}\.\d{2}$/)).toBeVisible();
+    const tim = page.getByRole('region', { name: 'Tim perawatan' });
+    await expect(tim.getByText(/^DPJP rawat bersama · sejak/)).toBeVisible();
+
+    const kirim = page.getByRole('form', { name: 'Kirim konsul baru' });
+    await kirim.getByLabel('Dokter konsultan').selectOption({ label: 'dr. Kartika Sari, Sp.P · Paru' });
+    await kirim.getByLabel('Pertanyaan klinis').fill('Sesak?');
+    await kirim.getByRole('button', { name: 'Kirim konsul' }).click();
+    await expect(kirim.getByRole('alert')).toContainText('minimal 20 karakter');
+    await kirim
+      .getByLabel('Pertanyaan klinis')
+      .fill('Mohon evaluasi sesak napas saat berbaring sebelum angiografi.');
+    await kirim.getByRole('button', { name: 'Kirim konsul' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Konsul terkirim' })).toContainText(
+      'Konsul terkirim ke dr. Kartika Sari, Sp.P',
+    );
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('residen: jawaban konsul hanya oleh dokter konsultan', async ({ page }) => {
+    await openAs(page, ['dokter_residen'], '/klinis/konsultasi');
+    const konsul = card(page, /dr\. Melati Kusumawardani, Sp\.JP → dr\. Andini/);
+    await expect(konsul.getByRole('button', { name: 'Jawab konsul' })).toBeDisabled();
+    await expect(
+      konsul.getByText('Jawaban konsul ditandatangani dokter konsultan (posisi dokter).'),
+    ).toBeVisible();
+  });
+});

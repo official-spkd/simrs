@@ -10,9 +10,12 @@ import { assertDemo } from '../../demo-guard';
  */
 
 /** Bagan pasien dari `?pasien=`: kosong → pasien bawaan; id tak dikenal → 404. */
-export function rmeChartFor(pasien: string | string[] | undefined): RmeChart {
+export function rmeChartFor(
+  pasien: string | string[] | undefined,
+  fallback: string = DEFAULT_RME_ENCOUNTER,
+): RmeChart {
   assertDemo();
-  const wanted = typeof pasien === 'string' && pasien ? pasien : DEFAULT_RME_ENCOUNTER;
+  const wanted = typeof pasien === 'string' && pasien ? pasien : fallback;
   const chart = rmeChartByEncounter(wanted);
   if (!chart) notFound();
   return chart;

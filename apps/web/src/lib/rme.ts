@@ -13,6 +13,7 @@ export const RME_CHART_SCREENS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'cppt', label: 'CPPT & serah terima' },
   { id: 'asesmen', label: 'Asesmen' },
   { id: 'diagnosis', label: 'Diagnosis' },
+  { id: 'konsul', label: 'Konsultasi' },
   { id: 'edukasi', label: 'Edukasi' },
   { id: 'askep', label: 'Asuhan keperawatan' },
   { id: 'kelengkapan', label: 'Kelengkapan RM' },
