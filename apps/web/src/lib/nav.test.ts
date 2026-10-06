@@ -198,3 +198,31 @@ describe('navGroups · Superadmin demo (ADR-0023 keputusan 10)', () => {
     expect(activeNavId('/tablet/persetujuan/x')).toBe('consent');
   });
 });
+
+describe('navGroups · modul aktif (mode presentasi)', () => {
+  const ids = (groups: ReturnType<typeof navGroups>) => groups.flatMap((g) => g.items.map((i) => i.id));
+  const demo = { kind: 'hospital' as const, superadmin: false, permissions: [], role: null, allAccess: true };
+
+  it('layar yang semua komponennya dimatikan hilang dari menu; Pengaturan tetap ada', () => {
+    const on = navGroups({ ...demo, dataSource: 'demo' });
+    expect(ids(on)).toContain('lab');
+    const off = navGroups({
+      ...demo,
+      dataSource: 'demo',
+      modules: { S01: false, S09: false, P10: false, P12: false },
+    });
+    expect(ids(off)).not.toContain('lab');
+    expect(ids(off)).toContain('pengaturan');
+  });
+
+  it('mode api mengabaikan modul dari toko demo', () => {
+    const api = navGroups({
+      ...demo,
+      dataSource: 'api',
+      permissions: ['patient.read'],
+      modules: { S01: false },
+    });
+    const apiTanpa = navGroups({ ...demo, dataSource: 'api', permissions: ['patient.read'] });
+    expect(ids(api)).toEqual(ids(apiTanpa));
+  });
+});

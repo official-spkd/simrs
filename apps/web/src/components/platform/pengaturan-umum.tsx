@@ -3,6 +3,7 @@
 import { formatJam, TENANT_SETTINGS, type TenantSettingKey } from '@simrs/shared';
 import { Button, Field } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   changedSettings,
@@ -18,13 +19,22 @@ type Hours = { open: string; close: string };
 /**
  * P10 · Pengaturan umum RS dari registri `TENANT_SETTINGS` (skema yang sama dengan API): angka divalidasi batas
  * min/maks skemanya, jam layanan buka < tutup. Simpan nonaktif beralasan bila tidak ada perubahan atau ada galat.
+ * Tersimpan di toko demo bersama (domain `pengaturan`) dan dibaca layar lain (mis. rata-rata layanan di info publik).
  */
-export function PengaturanUmum({ initial }: { initial: SettingDraft }) {
-  const [saved, setSaved] = useState<SettingDraft>(initial);
+export function PengaturanUmum({
+  saved,
+  lastSaved,
+  rev,
+}: {
+  saved: SettingDraft;
+  lastSaved: { jam: string; by: string; keys: TenantSettingKey[] } | null;
+  rev: number;
+}) {
   const [draft, setDraft] = useState<Record<string, unknown>>(() =>
-    Object.fromEntries(Object.entries(initial).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])),
+    Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, typeof v === 'number' ? String(v) : v])),
   );
   const [flash, setFlash] = useState<string | null>(null);
+  const { dispatch, pending, error } = useDemoDispatch('pengaturan', rev);
 
   const errors = validateSettings(draft as SettingDraft);
   const changed = changedSettings(saved, draft as SettingDraft);
@@ -41,15 +51,14 @@ export function PengaturanUmum({ initial }: { initial: SettingDraft }) {
   };
 
   const save = () => {
-    if (reason) return;
-    const next: SettingDraft = { ...saved };
-    for (const k of changed) next[k] = coerceSetting(k, draft[k]);
-    setSaved(next);
-    setFlash(
-      `Tersimpan · ${formatJam(demoNow())} · ${changed.length} pengaturan berubah (${changed
-        .map((k) => TENANT_SETTINGS[k].label.toLowerCase())
-        .join('; ')})`,
-    );
+    if (reason || pending) return;
+    const values: Record<string, unknown> = {};
+    for (const k of changed) values[k] = coerceSetting(k, draft[k]);
+    const t = formatJam(demoNow());
+    const text = `Tersimpan · ${t} · ${changed.length} pengaturan berubah (${changed
+      .map((k) => TENANT_SETTINGS[k].label.toLowerCase())
+      .join('; ')})`;
+    dispatch({ type: 'pengaturan.disimpan', values, jam: t }, (ok) => ok && setFlash(text));
   };
 
   return (
@@ -111,7 +120,7 @@ export function PengaturanUmum({ initial }: { initial: SettingDraft }) {
         <Button
           type="submit"
           variant="primary"
-          disabled={!!reason}
+          disabled={!!reason || pending}
           aria-describedby={reason ? 'umum-alasan' : undefined}
         >
           Simpan pengaturan
@@ -121,9 +130,13 @@ export function PengaturanUmum({ initial }: { initial: SettingDraft }) {
             {reason}
           </span>
         )}
-        {flash && (
+        {(flash || error || lastSaved) && (
           <span role="status">
-            <Stamp>{flash}</Stamp>
+            <Stamp>
+              {error ??
+                flash ??
+                `Terakhir disimpan ${lastSaved?.jam ?? ''} oleh ${lastSaved?.by ?? ''} · ${lastSaved?.keys.length ?? 0} pengaturan`}
+            </Stamp>
           </span>
         )}
       </div>

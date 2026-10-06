@@ -3,7 +3,14 @@
 import { formatJam } from '@simrs/shared';
 import { Alert, Button, Chip, type ChipTone, cx, FilterChip, KpiCard, Tabs } from '@simrs/ui';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  decideGoLiveAction,
+  reopenGoLiveAction,
+  setGoLiveItemAction,
+} from '@/app/(staf)/sistem/go-live/actions';
+import { announceDemoChange } from '@/components/demo-sync';
 import { type ConfirmRequest, ConfirmDialog, Panel, TableWrap, TD, TH } from '@/components/platform/parts';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
@@ -15,12 +22,13 @@ import {
   type EpStatus,
   epGroup,
   GROUP_LABEL,
-  itemStateFrom,
+  type ItemState,
   matrixSummary,
   type MrmikEp,
   openCritical,
   STATUS_LABEL,
 } from '@/lib/golive';
+import { DECIDER_ONLY, type GoLiveStoreState } from '@/lib/golive-toko';
 
 const STATUS_TONE: Record<EpStatus, ChipTone> = {
   terpenuhi: 'success',
@@ -134,21 +142,77 @@ function Checklist({
   areas,
   owners,
   director,
+  store,
+  canDecideRole,
+  userName,
 }: {
   areas: ChecklistArea[];
   owners: readonly string[];
   director: string;
+  store: GoLiveStoreState;
+  canDecideRole: boolean;
+  userName: string;
 }) {
-  const [state, setState] = useState(() => itemStateFrom(areas));
+  // Centang/pemilik tampil seketika (optimistis) lalu disimpan berurutan; hapus timpaan setelah server menyusul.
+  const [overlay, setOverlay] = useState<ItemState>({});
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [inFlight, setInFlight] = useState(0);
+  const router = useRouter();
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  /** Simpan berurutan (centang beruntun lalu keputusan tidak saling mendahului). */
+  const enqueue = (send: () => Promise<{ ok: boolean; message: string }>, onFail?: () => void) => {
+    setInFlight((n) => n + 1);
+    queue.current = queue.current.then(async () => {
+      try {
+        const r = await send();
+        if (r.ok) announceDemoChange();
+        else {
+          setItemError(r.message);
+          onFail?.();
+          router.refresh();
+        }
+      } finally {
+        setInFlight((n) => n - 1);
+      }
+    });
+  };
+  useEffect(() => {
+    setOverlay((cur) => {
+      const left = Object.entries(cur).filter(
+        ([id, v]) => store.items[id]?.done !== v.done || store.items[id]?.owner !== v.owner,
+      );
+      return left.length === Object.keys(cur).length ? cur : Object.fromEntries(left);
+    });
+  }, [store.items]);
+  const state: ItemState = { ...store.items, ...overlay };
+  const setItem = (id: string, next: { done: boolean; owner: string }) => {
+    setItemError(null);
+    setOverlay((cur) => ({ ...cur, [id]: next }));
+    const jam = formatJam(demoNow());
+    enqueue(
+      () => setGoLiveItemAction({ id, done: next.done, owner: next.owner, jam }),
+      () =>
+        setOverlay((cur) => {
+          const copy = { ...cur };
+          delete copy[id];
+          return copy;
+        }),
+    );
+  };
+  const decision: (Decision & { by: string }) | null = store.decision;
   const [note, setNote] = useState('');
-  const [decision, setDecision] = useState<Decision | null>(null);
   const [confirming, setConfirming] = useState(false);
   const open = openCritical(areas, state);
   const all = areas.flatMap((a) => a.items);
   const done = all.filter((i) => state[i.id]?.done).length;
-  const go = canDecide('go', note, areas, state);
-  const nogo = canDecide('nogo', note, areas, state);
-  const decide = (kind: 'go' | 'nogo') => setDecision({ kind, note: note.trim(), at: formatJam(demoNow()) });
+  const roleCheck = canDecideRole ? null : { ok: false as const, reason: DECIDER_ONLY };
+  const go = roleCheck ?? canDecide('go', note, areas, state);
+  const nogo = roleCheck ?? canDecide('nogo', note, areas, state);
+  const decide = (kind: 'go' | 'nogo') => {
+    setItemError(null);
+    const input = { kind, note: note.trim(), jam: formatJam(demoNow()) };
+    enqueue(() => decideGoLiveAction(input));
+  };
 
   const request: ConfirmRequest | null = confirming
     ? {
@@ -156,7 +220,7 @@ function Checklist({
         body: (
           <>
             Pilot dimulai sesuai rencana; hypercare dan jadwal jaga TI aktif. Keputusan tercatat atas nama{' '}
-            {director}.
+            {userName} ({director}).
           </>
         ),
         confirmLabel: 'Ya, putuskan GO',
@@ -201,9 +265,7 @@ function Checklist({
                         className="mt-1 size-5 flex-none accent-brand-600"
                         checked={st.done}
                         disabled={!!decision}
-                        onChange={(e) =>
-                          setState((cur) => ({ ...cur, [i.id]: { ...st, done: e.target.checked } }))
-                        }
+                        onChange={(e) => setItem(i.id, { ...st, done: e.target.checked })}
                       />
                       <span className="flex flex-wrap items-center gap-1.5">
                         {i.text}
@@ -216,9 +278,7 @@ function Checklist({
                       <select
                         value={st.owner}
                         disabled={!!decision}
-                        onChange={(e) =>
-                          setState((cur) => ({ ...cur, [i.id]: { ...st, owner: e.target.value } }))
-                        }
+                        onChange={(e) => setItem(i.id, { ...st, owner: e.target.value })}
                         className="h-11 min-w-0 flex-1 rounded-control border border-line-strong bg-white px-2 font-[inherit] text-small text-ink-900"
                         aria-label={`Pemilik: ${i.text}`}
                       >
@@ -246,12 +306,20 @@ function Checklist({
               level={decision.kind === 'go' ? 'success' : 'warning'}
               title={`Keputusan ${decision.kind === 'go' ? 'GO' : 'NO-GO'} · ${decision.at}`}
             >
-              {decision.note} — {director}
+              {decision.note} — {decision.by} ({director})
             </Alert>
-            <span>
-              <Button variant="ghost" onClick={() => setDecision(null)}>
+            <span className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                disabled={!canDecideRole}
+                onClick={() => {
+                  const input = { jam: formatJam(demoNow()) };
+                  enqueue(() => reopenGoLiveAction(input));
+                }}
+              >
                 Buka kembali keputusan
               </Button>
+              {!canDecideRole && <span className="text-caption text-ink-500">{DECIDER_ONLY}</span>}
             </span>
           </>
         ) : (
@@ -295,6 +363,16 @@ function Checklist({
                 </span>
               )}
             </span>
+            {inFlight > 0 && (
+              <span role="status" className="text-caption text-ink-500">
+                Menyimpan ceklis…
+              </span>
+            )}
+            {itemError && (
+              <Alert level="warning" title="Tidak tersimpan">
+                {itemError}
+              </Alert>
+            )}
           </>
         )}
       </Panel>
@@ -309,11 +387,18 @@ export function GoLiveBoard({
   areas,
   owners,
   director,
+  state,
+  canDecideRole,
+  userName,
 }: {
   eps: MrmikEp[];
   areas: ChecklistArea[];
   owners: readonly string[];
   director: string;
+  state: GoLiveStoreState;
+  /** Posisi aktif = Manajemen (direksi): boleh memutuskan go/no-go (gerbang ulang di toko). */
+  canDecideRole: boolean;
+  userName: string;
 }) {
   const [tab, setTab] = useState('ceklis');
   return (
@@ -326,7 +411,16 @@ export function GoLiveBoard({
         {
           id: 'ceklis',
           label: 'Ceklis & keputusan',
-          content: <Checklist areas={areas} owners={owners} director={director} />,
+          content: (
+            <Checklist
+              areas={areas}
+              owners={owners}
+              director={director}
+              store={state}
+              canDecideRole={canDecideRole}
+              userName={userName}
+            />
+          ),
         },
         { id: 'mrmik', label: 'Matriks 51 EP MRMIK', content: <Matrix eps={eps} /> },
       ]}

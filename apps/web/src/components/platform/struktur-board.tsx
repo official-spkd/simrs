@@ -3,6 +3,7 @@
 import { CARE_CLASSES, type CareClass, formatJam, UNIT_KINDS, type UnitKind } from '@simrs/shared';
 import { Alert, Button, Chip, cx, Field, KpiCard } from '@simrs/ui';
 import { useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {
   addChild,
@@ -13,13 +14,12 @@ import {
   CARE_CLASS_LABEL,
   CHILD_KIND,
   childrenOf,
-  deactivate,
   KIND_LABEL,
   pathOf,
-  reactivate,
   type StructNode,
   UNIT_KIND_LABEL,
 } from '@/lib/platform-struktur';
+import type { StructureStoreState } from '@/lib/platform-struktur-toko';
 import { ActivityLog, type ConfirmRequest, ConfirmDialog, Panel, Stamp, TableWrap, TD, TH } from './parts';
 
 const SELECT =
@@ -37,18 +37,14 @@ type Pending = { kind: 'off' | 'on'; node: StructNode } | null;
 /**
  * P01 · Struktur RS: daftar faskes + unit di kiri, detail simpul terpilih di kanan (telusur ruang → kamar → bed),
  * tambah simpul anak dengan validasi kode bersama API, nonaktifkan berkonfirmasi + alasan (diblok bila bed masih
- * terisi), rekap bed per kelas rawat untuk Aplicare. Simulasi: tidak disimpan.
+ * terisi), rekap bed per kelas rawat untuk Aplicare. Tersimpan di toko demo bersama (domain `struktur`) atas nama
+ * pengguna sesi.
  */
-export function StrukturBoard({
-  initial,
-  initialLog,
-}: {
-  initial: StructNode[];
-  initialLog: Array<{ t: string; text: string }>;
-}) {
-  const [nodes, setNodes] = useState(initial);
+export function StrukturBoard({ state, rev }: { state: StructureStoreState; rev: number }) {
+  const nodes = state.nodes;
+  const log = [...state.log];
+  const { dispatch, pending: saving, error: saveError } = useDemoDispatch('struktur', rev);
   const [selected, setSelected] = useState<string>('u-melati');
-  const [log, setLog] = useState(initialLog);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<{ code: string; name: string; unitKind: string; careClass: string }>({
     code: '',
@@ -59,7 +55,6 @@ export function StrukturBoard({
   const [error, setError] = useState<{ field: string; message: string } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
-  const [aplicare, setAplicare] = useState<string | null>(null);
 
   const node = nodes.find((n) => n.id === selected) ?? nodes[0];
   if (!node) return null;
@@ -75,11 +70,9 @@ export function StrukturBoard({
   const inactiveBeds = summary.reduce((s, r) => s + r.inactive, 0);
   const inUnitRanap = path.some((p) => p.kind === 'unit' && p.unitKind === 'rawat_inap');
 
-  const record = (text: string) => {
-    const t = formatJam(demoNow());
-    setLog((cur) => [{ t, text }, ...cur]);
-    return t;
-  };
+  const aplicare = state.aplicare
+    ? `Masuk antrean kirim Aplicare · ${state.aplicare.jam} oleh ${state.aplicare.by}`
+    : null;
   const select = (id: string) => {
     setSelected(id);
     setAdding(false);
@@ -103,13 +96,25 @@ export function StrukturBoard({
       setError({ field: r.field, message: r.message });
       return;
     }
-    setNodes(r.nodes);
-    const t = record(
-      `${KIND_LABEL[r.node.kind]} ${r.node.code} (${r.node.name}) ditambahkan di ${node.name}`,
+    const t = formatJam(demoNow());
+    const added = r.node;
+    dispatch(
+      {
+        type: 'simpul.ditambah',
+        parentId: node.id,
+        code: form.code,
+        name: form.name,
+        ...(form.unitKind ? { unitKind: form.unitKind as UnitKind } : {}),
+        ...(form.careClass ? { careClass: form.careClass as CareClass } : {}),
+        jam: t,
+      },
+      (ok) => {
+        if (!ok) return;
+        setFlash(`${KIND_LABEL[added.kind]} ${added.code} ditambahkan · ${t}`);
+        setAdding(false);
+        setError(null);
+      },
     );
-    setFlash(`${KIND_LABEL[r.node.kind]} ${r.node.code} ditambahkan · ${t}`);
-    setAdding(false);
-    setError(null);
   };
 
   const request: ConfirmRequest | null = pending
@@ -136,14 +141,15 @@ export function StrukturBoard({
   const confirm = (reason: string) => {
     if (!pending) return;
     const n = pending.node;
+    const t = formatJam(demoNow());
     if (pending.kind === 'off') {
-      setNodes((cur) => deactivate(cur, n.id));
-      const t = record(`${KIND_LABEL[n.kind]} ${n.code} dinonaktifkan · ${reason}`);
-      setFlash(`${KIND_LABEL[n.kind]} ${n.code} dinonaktifkan · ${t}`);
+      dispatch({ type: 'simpul.dinonaktifkan', id: n.id, reason, jam: t }, (ok) => {
+        if (ok) setFlash(`${KIND_LABEL[n.kind]} ${n.code} dinonaktifkan · ${t}`);
+      });
     } else {
-      setNodes((cur) => reactivate(cur, n.id));
-      const t = record(`${KIND_LABEL[n.kind]} ${n.code} diaktifkan kembali`);
-      setFlash(`${KIND_LABEL[n.kind]} ${n.code} aktif kembali · ${t}`);
+      dispatch({ type: 'simpul.diaktifkan', id: n.id, jam: t }, (ok) => {
+        if (ok) setFlash(`${KIND_LABEL[n.kind]} ${n.code} aktif kembali · ${t}`);
+      });
     }
   };
 
@@ -310,9 +316,9 @@ export function StrukturBoard({
                 {on.reason}
               </span>
             )}
-            {flash && (
+            {(flash || saveError) && (
               <span role="status">
-                <Stamp>{flash}</Stamp>
+                <Stamp>{saveError ?? flash}</Stamp>
               </span>
             )}
 
@@ -486,10 +492,8 @@ export function StrukturBoard({
               actions={
                 <Button
                   size="sm"
-                  onClick={() => {
-                    const t = record('Ketersediaan bed per kelas dikirim ke antrean Aplicare');
-                    setAplicare(`Masuk antrean kirim Aplicare · ${t} (simulasi)`);
-                  }}
+                  disabled={saving}
+                  onClick={() => dispatch({ type: 'aplicare.dikirim', jam: formatJam(demoNow()) })}
                 >
                   Kirim ke Aplicare
                 </Button>

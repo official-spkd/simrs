@@ -1,9 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createAccount, loginAs } from '../support/accounts';
+import { type Account, createAccount, loginAs, submitPassword, totpFor, typeCode } from '../support/accounts';
 
 /**
  * FE1 · Layar demo platform fase 1–2 dan operasional fase 10 (mode presentasi, ADR-0023): alur utama tiap layar
- * diklik sampai umpan balik berjam muncul. Tidak ada yang disimpan; tiap tes memakai akun baru.
+ * diklik sampai umpan balik berjam muncul. Aksi tersimpan di toko demo bersama (ADR-0085): tiap tes memakai akun
+ * baru (ruang data sendiri) dan memeriksa aksi bertahan setelah muat ulang serta mengalir ke layar lain.
  */
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -19,6 +20,29 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 const JAM = /\d{2}\.\d{2}/;
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Masuk dengan memilih posisi (akun berperan ganda), pola `toko-demo.spec.ts`. */
+async function loginWithPosition(page: Page, account: Account, roleName: string, path = '/') {
+  await page.goto(path);
+  await expect(page).toHaveURL(/\/masuk/);
+  await submitPassword(page, account, account.password);
+  await typeCode(page, totpFor(account.totpSecret as string));
+  await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
+  await expect(page.getByRole('heading', { name: 'Pilih posisi dan unit kerja' })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  await expect(page.getByText(new RegExp(`Anda masuk sebagai\\s*${escapeRe(roleName)}`))).toBeVisible();
+}
+
+async function switchPosition(page: Page, roleName: string) {
+  await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
+  await page.getByText(roleName, { exact: true }).click();
+  await page.getByRole('button', { name: `Pindah ke ${roleName}` }).click();
+  await expect(page.getByText(new RegExp(`Anda masuk sebagai\\s*${escapeRe(roleName)}`))).toBeVisible();
+}
 
 test.describe('FE1 · platform dan operasional', () => {
   test('struktur RS: telusur ke kamar, tambah kamar berkelas, nonaktifkan berkonfirmasi + alasan', async ({
@@ -119,6 +143,30 @@ test.describe('FE1 · platform dan operasional', () => {
       page.getByRole('region', { name: 'Ubah Gelang pasien dewasa' }).getByRole('status'),
     ).toContainText(/Versi 5 terbit · \d{2}\.\d{2}/);
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → modul, pengaturan, dan versi template tetap; riwayat mencatat pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('switch', { name: 'S08 Bank darah' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByRole('switch', { name: 'S07 Gizi' })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('list', { name: 'Riwayat perubahan modul' })).toContainText(
+      'Bank darah mulai memakai SIM RS 12 Okt',
+    );
+    await page.getByRole('tab', { name: 'Pengaturan umum' }).click();
+    await expect(
+      page.getByRole('form', { name: 'Pengaturan umum' }).getByLabel('Batas sesi idle (menit)'),
+    ).toHaveValue('20');
+    await page.getByRole('tab', { name: 'Template cetak' }).click();
+    await expect(page.getByRole('navigation', { name: 'Daftar template' })).toContainText(
+      'Gelang pasien dewasa',
+    );
+    await expect(
+      page
+        .getByRole('region', { name: 'Ubah Gelang pasien dewasa' })
+        .getByRole('list', { name: 'Riwayat versi' }),
+    ).toContainText('Catatan kaki gelang ditambahkan');
   });
 
   test('data rujukan: cari tahan salah ketik, impor CSV uji kering gagal tertutup lalu terapkan', async ({
@@ -126,6 +174,7 @@ test.describe('FE1 · platform dan operasional', () => {
   }) => {
     const admin = await createAccount({ roles: ['admin_tenant'] });
     await loginAs(page, admin, '/sistem/terminologi');
+    const name = admin.displayName;
     await expect(
       page.getByRole('heading', { name: 'Data rujukan · kode baku dan impor versi', level: 1 }),
     ).toBeVisible();
@@ -159,17 +208,26 @@ test.describe('FE1 · platform dan operasional', () => {
     await page.getByRole('tab', { name: 'Cari kode' }).click();
     await expect(results).toContainText('10839-9');
     await page.getByRole('tab', { name: 'Riwayat versi' }).click();
-    await expect(page.getByRole('region', { name: 'Riwayat versi data rujukan' })).toContainText(
-      'Anda (sesi ini)',
-    );
+    await expect(page.getByRole('region', { name: 'Riwayat versi data rujukan' })).toContainText(name);
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → versi baru dan kode baru masih ada.
+    await page.reload();
+    await page.getByRole('tab', { name: 'Riwayat versi' }).click();
+    await expect(page.getByRole('region', { name: 'Riwayat versi data rujukan' })).toContainText(
+      'loinc-2.77-lab-rsfa-perbaikan.csv',
+    );
+    await expect(page.getByRole('region', { name: 'Ringkasan data rujukan' })).toContainText(
+      'versi 2.77-contoh',
+    );
   });
 
   test('dokumen & TTE: kirim ulang TTE gagal sampai QR verifikasi, unggah tervalidasi, batal beralasan', async ({
     page,
   }) => {
-    const rm = await createAccount({ roles: ['petugas_rm'] });
-    await loginAs(page, rm, '/rekam-medis/dokumen');
+    const rm = await createAccount({ roles: ['petugas_rm', 'dokter'], displayName: 'dr. Penanda Fiktif' });
+    await loginWithPosition(page, rm, 'Petugas rekam medis');
+    await page.goto('/rekam-medis/dokumen');
     await expect(
       page.getByRole('heading', { name: 'Dokumen pasien dan tanda tangan elektronik', level: 1 }),
     ).toBeVisible();
@@ -180,8 +238,14 @@ test.describe('FE1 · platform dan operasional', () => {
     const detail = page.getByRole('region', { name: /^Surat kontrol pasca rawat inap/ });
     await expect(detail.getByRole('alert')).toContainText('Penyelenggara TTE tidak menjawab');
     await detail.getByRole('button', { name: 'Kirim ulang permintaan TTE' }).click();
-    await detail.getByRole('button', { name: /^Setujui sebagai dr\. Andini/ }).click();
-    await expect(detail.getByText(/^Ditandatangani dr\. Andini.* · \d{2}\.\d{2}$/)).toBeVisible();
+    // Gerbang: petugas RM tidak bisa menandatangani; TTE atas nama pengguna sesi berposisi Dokter (DPJP).
+    await expect(detail.getByRole('button', { name: /^Tandatangani \(TTE\)/ })).toBeDisabled();
+    await expect(detail.getByText(/Hanya Dokter \(DPJP\) yang bisa menandatangani/)).toBeVisible();
+    await switchPosition(page, 'Dokter (DPJP)');
+    await page.goto('/rekam-medis/dokumen');
+    await list.getByRole('button', { name: /Surat kontrol pasca rawat inap/ }).click();
+    await detail.getByRole('button', { name: 'Tandatangani (TTE) sebagai dr. Penanda Fiktif' }).click();
+    await expect(detail.getByText(/^Ditandatangani dr\. Penanda Fiktif · \d{2}\.\d{2}$/)).toBeVisible();
     await expect(detail.getByText('Terkunci', { exact: true })).toBeVisible();
     const verify = page.getByRole('region', { name: 'Pratinjau halaman verifikasi' });
     await expect(verify).toContainText('Dokumen asli · tanda tangan sah');
@@ -216,6 +280,16 @@ test.describe('FE1 · platform dan operasional', () => {
     await dialog.getByRole('button', { name: 'Ya, batalkan dokumen' }).click();
     await expect(fresh.getByRole('status')).toContainText('Dibatalkan: Hasil spirometri');
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → dokumen bertanda tangan terkunci dan unggahan yang dibatalkan tetap tersimpan.
+    await page.reload();
+    await list.getByRole('button', { name: /Surat kontrol pasca rawat inap/ }).click();
+    await expect(detail.getByText('Terkunci', { exact: true })).toBeVisible();
+    await expect(detail).toContainText('dr. Penanda Fiktif');
+    await expect(list.getByRole('button', { name: /Hasil spirometri/ })).toContainText('Dibatalkan');
+    await expect(page.getByRole('list', { name: 'Aktivitas dokumen' })).toContainText(
+      'Ditandatangani dr. Penanda Fiktif',
+    );
   });
 
   test('penjadwal: job gagal dijalankan ulang berkonfirmasi, job berisiko wajib alasan, jeda beralasan', async ({
@@ -254,8 +328,18 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(wa.getByText('Job dijeda; lanjutkan dulu sebelum menjalankan.')).toBeVisible();
     await wa.getByRole('button', { name: 'Lanjutkan' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Ya, lanjutkan' }).click();
-    await expect(wa.getByRole('status')).toContainText(/dilanjutkan · \d{2}\.\d{2}/);
+    await expect(wa.getByRole('status').filter({ hasText: 'dilanjutkan' })).toContainText(
+      /dilanjutkan · \d{2}\.\d{2}/,
+    );
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → jalan manual tercatat atas nama pengguna sesi, job WhatsApp tidak lagi dijeda.
+    await page.reload();
+    await expect(detail.getByRole('list', { name: /^Riwayat jalan/ })).toContainText(
+      `Aplicare pulih) · dijalankan ${admin.displayName}`,
+    );
+    await page.getByRole('button', { name: 'Detail Pengingat jadwal kontrol pasien (WhatsApp)' }).click();
+    await expect(wa.getByRole('button', { name: 'Jalankan sekarang' })).toBeEnabled();
   });
 
   test('rujukan: surat kontrol terbit, SPRI ditolak diperbaiki lalu terbit, rujukan internal dibatalkan', async ({
@@ -270,7 +354,7 @@ test.describe('FE1 · platform dan operasional', () => {
     const list = page.getByRole('list', { name: 'Daftar rujukan' });
     await list.getByRole('button', { name: /Surat kontrol · Ny\. Endang Wijaya/ }).click();
     const kontrol = page.getByRole('region', { name: 'Surat kontrol · Ny. Endang Wijaya' });
-    await kontrol.getByRole('button', { name: 'Proses antrean kirim (simulasi)' }).click();
+    await kontrol.getByRole('button', { name: 'Proses antrean kirim (mock BPJS)' }).click();
     await expect(kontrol.getByRole('status')).toContainText(
       /Nomor BPJS terbit 0301R0011025K000045 · \d{2}\.\d{2}/,
     );
@@ -289,7 +373,7 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(spri.getByText('Pilih tanggal rencana baru dulu.')).toBeVisible();
     await spri.getByLabel('Tanggal rencana baru').selectOption('2026-10-06');
     await fix.click();
-    await spri.getByRole('button', { name: 'Proses antrean kirim (simulasi)' }).click();
+    await spri.getByRole('button', { name: 'Proses antrean kirim (mock BPJS)' }).click();
     await expect(spri.getByRole('status')).toContainText('Nomor BPJS terbit 0301R0011025S000019');
 
     await page
@@ -304,6 +388,17 @@ test.describe('FE1 · platform dan operasional', () => {
     await dialog.getByRole('button', { name: 'Ya, batalkan' }).click();
     await expect(internal.getByRole('status')).toContainText(/dibatalkan · \d{2}\.\d{2}/);
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → nomor terbit, SPRI diperbaiki, dan pembatalan tetap; aktivitas atas nama sesi.
+    await page.reload();
+    await expect(list.getByRole('button', { name: /Rujukan internal antarpoli/ })).toContainText(
+      'Dibatalkan',
+    );
+    await list.getByRole('button', { name: /Surat kontrol · Ny\. Endang Wijaya/ }).click();
+    await expect(kontrol).toContainText('0301R0011025K000045');
+    await expect(page.getByRole('list', { name: 'Aktivitas rujukan' })).toContainText(
+      `Nomor BPJS terbit 0301R0011025K000045 (${petugas.displayName})`,
+    );
   });
 
   test('info publik: jadwal + sisa kuota, antrean nomor saja, cek booking tanpa nama dan bergerbang percobaan', async ({
@@ -352,6 +447,12 @@ test.describe('FE1 · platform dan operasional', () => {
       .getByRole('button', { name: 'Ya, aktifkan' })
       .click();
     await expect(page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' })).toBeVisible();
+    // Bertahan: muat ulang → downtime masih aktif dan tercatat atas nama pengguna sesi.
+    await page.reload();
+    await expect(page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Log insiden downtime' })).toContainText(
+      'Mode downtime diaktifkan · BPJS tidak menjawab',
+    );
 
     const recover = page.getByRole('button', { name: 'Layanan pulih · akhiri downtime' });
     await expect(recover).toBeDisabled();
@@ -376,12 +477,40 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(enter).toHaveCount(0);
     await sync.click();
     const batch = page.getByRole('button', { name: /^Kirim batch berikutnya/ });
-    while (await batch.isVisible()) await batch.click();
+    await expect(batch).toBeVisible();
+    for (let i = 0; i < 10 && (await batch.isVisible()); i++) {
+      const label = (await batch.textContent()) ?? '';
+      await batch.click();
+      // Label berubah (sisa berkurang) atau tombol hilang (selesai) setelah server menyimpan.
+      await expect(page.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+    }
     await expect(
       page.getByRole('status').filter({ hasText: 'Downtime selesai · antrean kirim kosong' }),
     ).toContainText('data hilang 0');
     await expect(page.getByRole('list', { name: 'Log insiden downtime' })).toContainText('Layanan pulih');
     await expectNoHorizontalOverflow(page);
+  });
+
+  test('downtime aktif → banner di layar pendaftaran (posisi lain)', async ({ page }) => {
+    const akun = await createAccount({ roles: ['admin_tenant', 'petugas_pendaftaran'] });
+    await loginWithPosition(page, akun, 'Admin SIM RS');
+    await page.goto('/sistem/downtime');
+    await page.getByRole('radio', { name: 'Jaringan ke server pusat putus' }).click();
+    await page
+      .getByLabel('Alasan dan dampak (tercatat di log insiden)')
+      .fill('Jaringan ke pusat putus sejak 10.40');
+    await page.getByRole('button', { name: 'Aktifkan mode downtime' }).click();
+    await page
+      .getByRole('alertdialog', { name: 'Aktifkan mode downtime?' })
+      .getByRole('button', { name: 'Ya, aktifkan' })
+      .click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' })).toBeVisible();
+
+    await switchPosition(page, 'Petugas pendaftaran');
+    await page.goto('/pendaftaran');
+    const banner = page.getByRole('alert').filter({ hasText: 'Mode downtime aktif sejak' });
+    await expect(banner).toContainText('Jaringan ke server pusat putus');
+    await expect(banner).toContainText('Server edge melayani baca dan pendaftaran');
   });
 
   test('cadangan: backup manual beralasan, uji restore gagal aman dengan kunci salah lalu lulus', async ({
@@ -408,6 +537,7 @@ test.describe('FE1 · platform dan operasional', () => {
       'sebelum ada plaintext',
     );
     await page.getByRole('button', { name: 'Ulang uji' }).click();
+    await expect(page.getByRole('button', { name: 'Mulai uji restore' })).toBeVisible();
     await page.getByLabel('Simulasikan kunci privat yang salah').uncheck();
     await page.getByRole('button', { name: 'Mulai uji restore' }).click();
     for (let n = 2; n <= 8; n++) await page.getByRole('button', { name: `Jalankan langkah ${n}` }).click();
@@ -418,6 +548,16 @@ test.describe('FE1 · platform dan operasional', () => {
       '1.284.551',
     );
     await expectNoHorizontalOverflow(page);
+
+    // Bertahan: muat ulang → backup manual dan hasil uji restore (RTO baru) tetap.
+    await page.reload();
+    await expect(page.getByRole('status').filter({ hasText: 'Uji restore lulus' })).toContainText(
+      'RTO 36 menit',
+    );
+    await expect(page.getByRole('list', { name: 'Riwayat backup' })).toContainText(
+      `Manual: Sebelum migrasi data tarif (${admin.displayName})`,
+    );
+    await expect(page.getByRole('region', { name: 'Ringkasan cadangan' })).toContainText('36 menit');
   });
 
   test('go-live: GO terkunci sampai item kritis selesai berpemilik, keputusan tercatat, matriks 51 EP tersaring', async ({
@@ -452,6 +592,15 @@ test.describe('FE1 · platform dan operasional', () => {
     await expect(page.getByRole('status').filter({ hasText: /Keputusan GO · \d{2}\.\d{2}/ })).toContainText(
       'Pilot mulai Senin 12 Okt',
     );
+
+    // Bertahan: muat ulang → keputusan dan ceklis tetap, atas nama pengguna sesi (posisi Manajemen).
+    await page.reload();
+    await expect(page.getByRole('status').filter({ hasText: /Keputusan GO · \d{2}\.\d{2}/ })).toContainText(
+      `Pilot mulai Senin 12 Okt, hypercare 2 minggu — ${direksi.displayName}`,
+    );
+    await expect(
+      page.getByRole('checkbox', { name: /Kunci cadangan dipegang dua orang terpisah/ }),
+    ).toBeChecked();
 
     await page.getByRole('tab', { name: 'Matriks 51 EP MRMIK' }).click();
     await expect(page.getByRole('region', { name: 'Ringkasan MRMIK' })).toContainText(

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { DemoSync } from '@/components/demo-sync';
+import { DowntimeBanner } from '@/components/operasional/downtime-banner';
 import { requireSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 
@@ -26,6 +27,11 @@ export default async function PerangkatLayout({ children }: { children: ReactNod
             ← Kembali ke SIM RS
           </Link>
         </nav>
+      )}
+      {demo && (
+        <div className="shrink-0 px-3 pt-2">
+          <DowntimeBanner />
+        </div>
       )}
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
       {demo && <DemoSync />}

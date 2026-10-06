@@ -1,5 +1,6 @@
 import { type BrowserContext, type ConsoleMessage, expect, type Page, test } from '@playwright/test';
 import { CONSENT_ID, ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
+import { screenHiddenByModules, settingsDomain } from '../../src/lib/platform-pengaturan-toko';
 import { SCREENS, type ScreenDef } from '../../src/lib/screens';
 
 /**
@@ -15,6 +16,9 @@ test.describe.configure({ mode: 'serial' });
 
 /** Layar yang bisa dibuka di mode presentasi (layar khusus api seperti Kendali antrean memang 404 di sini). */
 const reachable = SCREENS.filter((s) => s.status !== 'belum' && !s.apiOnly);
+/** Menu: layar modul yang nonaktif di keadaan awal Pengaturan (mis. S08 bank darah) tersembunyi sampai dinyalakan. */
+const initialModules = settingsDomain.initial().modules;
+const offByDefault = (s: ScreenDef) => s.id !== 'pengaturan' && screenHiddenByModules(s, initialModules);
 
 /** Contoh data bawaan untuk layar berparameter: pasien biasa (bukan pasien skenario yang bergantung tahap). */
 const PARAM_PATHS: Record<string, readonly string[]> = {
@@ -85,7 +89,10 @@ test.describe('mode presentasi · Superadmin demo', () => {
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
     const hrefs = await nav.locator('a[href]').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
-    for (const s of reachable) expect(hrefs, `menu ${s.id}`).toContain(s.route);
+    for (const s of reachable) {
+      if (offByDefault(s)) expect(hrefs, `menu ${s.id} (modul nonaktif)`).not.toContain(s.route);
+      else expect(hrefs, `menu ${s.id}`).toContain(s.route);
+    }
     expect(hrefs).toContain('/superadmin/panduan');
     const menu = hrefs.filter((h) => h !== '/');
     expect(new Set(menu).size, 'tanpa duplikasi').toBe(menu.length);

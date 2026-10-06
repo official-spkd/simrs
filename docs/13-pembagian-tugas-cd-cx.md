@@ -7,6 +7,8 @@ Papan tugas kerja simultan. Aturan koordinasi umum ada di `docs/12-codex-claude.
 
 > **Keputusan pemilik produk 6 Okt 2026 (revisi):** backend **ditunda**. Kedua alat fokus ke **front end mode presentasi yang sudah interaktif**. Tugas backend lama dipindah ke §9 (backlog, belum dijadwalkan).
 
+> **Pembaruan 6 Okt 2026:** atas permintaan pemilik produk agar semua layar segera interaktif, **CX-2 dan CX-3 diambil alih Claude Code** (branch `cd/cx-2`, `cd/cx-3`, slot dan database tetap seperti §4). Codex melanjutkan **CX-1** (sedang berjalan), lalu **CX-0** dan **CX-4**. Jangan memulai CX-2/CX-3 di Codex.
+
 ## 1. Arti "interaktif"
 
 Layar demo dianggap interaktif bila memenuhi lima syarat. Kelimanya menjadi kriteria selesai setiap tugas.
@@ -207,7 +209,7 @@ CD-0 juga memegang berkas registri (`screens.ts`, `nav.ts`, personas, sidebar). 
   - "diteruskan ke Pusat hasil kritis" kini benar-benar diteruskan.
 - **Selesai bila:** tidak ada label "tidak disimpan" di domainnya, dan E2E bertahan + mengalir.
 
-### CX-2 · Keuangan + BTN interaktif (gelombang 1)
+### CX-2 · Keuangan + BTN interaktif (gelombang 1) · diambil alih Claude Code
 
 - **Layar:** Kasir, Klaim, Koding, Akuntansi, Tarif, Charge capture, Piutang, Jasa pelayanan, Kas & bank, Hutang, Costing, Pembayaran BTN, Pembiayaan BTN.
 - **Aliran masuk:** charge dari klinis/penunjang/front office; PO diterima dari Logistik (CX-3).
@@ -222,7 +224,7 @@ CD-0 juga memegang berkas registri (`screens.ts`, `nav.ts`, personas, sidebar). 
   - Tutup periode dengan jurnal yang menunggu persetujuan mengikuti keputusan K-2 (§8).
 - **Utang bug 6 Okt:** kode akun penggajian bentrok jaspel (koordinasi dengan CX-3); INV-02203/02209 konsisten dengan Kasir/BTN.
 
-### CX-3 · Back office + manajemen + aplikasi interaktif (gelombang 1)
+### CX-3 · Back office + manajemen + aplikasi interaktif (gelombang 1) · diambil alih Claude Code
 
 - **Layar:** Logistik, Mutu, Dasbor, Command center, RM administratif, SDM, Kredensial, PPI, Aset, Penggajian, PPRA, Dokumen regulasi, Pengaduan, Pendidikan, Dataset riset, pratinjau Aplikasi pasien dan Aplikasi dokter.
 - **Aliran:**

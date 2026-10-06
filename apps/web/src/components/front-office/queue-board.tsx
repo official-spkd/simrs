@@ -16,11 +16,14 @@ const HISTORY_OPACITY = [1, 0.9, 0.8, 0.7];
 export function CallingPanel({
   queueNo,
   poliName,
+  place,
   room,
   history,
 }: {
   queueNo: string;
   poliName: string;
+  /** Tujuan panggilan lengkap (mis. "Loket pendaftaran"); bawaan "Poli <poliName>". */
+  place?: string;
   room: string;
   history: string[];
 }) {
@@ -39,7 +42,9 @@ export function CallingPanel({
       <span className="text-[32px] font-semibold tracking-[0.06em] text-[#CDEBE5]">SEDANG DIPANGGIL</span>
       <span className="font-mono text-[260px] leading-none font-bold tracking-[-0.02em]">{queueNo}</span>
       <div className="flex flex-col gap-2">
-        <span className="text-[56px] font-bold">{poliName ? `Poli ${poliName}` : 'Belum ada panggilan'}</span>
+        <span className="text-[56px] font-bold">
+          {place ?? (poliName ? `Poli ${poliName}` : 'Belum ada panggilan')}
+        </span>
         <span className="text-[40px] text-[#DDF2EE]">{room}</span>
       </div>
       <div aria-label="Panggilan sebelumnya" className="flex flex-wrap items-center gap-3.5">

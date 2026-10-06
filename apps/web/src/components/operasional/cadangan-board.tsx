@@ -3,6 +3,8 @@
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, KpiCard } from '@simrs/ui';
 import { useEffect, useRef, useState } from 'react';
+import { useDemoDispatch } from '@/lib/demo/store/client';
+import type { BackupStoreState } from '@/lib/operasional-backup-toko';
 import {
   ActivityLog,
   type ConfirmRequest,
@@ -15,10 +17,6 @@ import {
 } from '@/components/platform/parts';
 import { DEMO_NOW, demoNow } from '@/lib/demo/fixtures/waktu';
 import {
-  addManualCopy,
-  type BackupLocation,
-  type BackupRun,
-  initialRestore,
   locationStale,
   RESTORE_STEPS,
   restorePassed,
@@ -28,7 +26,6 @@ import {
   type RetentionClass,
   RTO_TARGET_MINUTES,
   RUN_LABEL,
-  stepRestore,
 } from '@/lib/operasional-backup';
 
 const nf = new Intl.NumberFormat('id-ID');
@@ -37,28 +34,30 @@ const CLASSES = Object.keys(RETENTION_LIMIT) as RetentionClass[];
 /**
  * Fase 10 · Cadangan dan pemulihan (ADR-0071): status tiga lokasi + retensi, riwayat run, backup manual
  * berkonfirmasi + alasan, dan uji restore langkah demi langkah ke database bersih (bisa disimulasikan kunci salah)
- * sampai jumlah baris cocok dengan manifest dan RTO terukur.
+ * sampai jumlah baris cocok dengan manifest dan RTO terukur. Tersimpan di toko demo bersama (domain `cadangan`) atas
+ * nama pengguna sesi.
  */
 export function CadanganBoard({
-  locations,
-  runs,
-  lastTest,
+  state,
+  rev,
   manifest,
 }: {
-  locations: BackupLocation[];
-  runs: BackupRun[];
-  lastTest: { at: string; rtoMinutes: number; source: string };
+  state: BackupStoreState;
+  rev: number;
   manifest: Array<readonly [string, number]>;
 }) {
-  const [locs, setLocs] = useState(locations);
-  const [history, setHistory] = useState(runs);
+  const locs = state.locations;
+  const history = state.runs;
+  const restore = state.restore;
+  const restoreLog = [...state.restoreLog];
+  const test = state.lastTest;
+  const lastTest = state.lastTest;
+  const { dispatch, pending, error } = useDemoDispatch('cadangan', rev);
   const [running, setRunning] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const [restore, setRestore] = useState(initialRestore);
-  const [restoreLog, setRestoreLog] = useState<Array<{ t: string; text: string }>>([]);
-  const [wrongKey, setWrongKey] = useState(false);
-  const [test, setTest] = useState(lastTest);
+  const [wrongKeyDraft, setWrongKey] = useState(false);
+  const wrongKey = restore.next > 0 || restore.failedAt !== null ? state.wrongKey : wrongKeyDraft;
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
@@ -74,38 +73,21 @@ export function CadanganBoard({
     timers.current.push(
       window.setTimeout(() => {
         const t1 = demoNow();
-        setHistory((cur) => [
-          {
-            id: `bk-manual-${cur.length + 1}`,
-            at: t1.toISOString(),
-            kind: 'manual',
-            status: 'success',
-            durationSec: 2,
-            note: `Manual: ${reason}`,
-          },
-          ...cur,
-        ]);
-        setLocs((cur) => cur.map((l) => ({ ...addManualCopy(l), lastOkAt: t1.toISOString() })));
-        setRunning(null);
-        setFlash(
-          `Backup manual selesai · ${formatJam(t1)} · tersimpan di 3 lokasi, manifest berisi hash + jumlah baris`,
-        );
+        dispatch({ type: 'backup.manual', reason, at: t1.toISOString(), jam: formatJam(t1) }, (ok) => {
+          setRunning(null);
+          setFlash(
+            ok
+              ? `Backup manual selesai · ${formatJam(t1)} · tersimpan di 3 lokasi, manifest berisi hash + jumlah baris`
+              : null,
+          );
+        });
       }, 1200),
     );
   };
 
   const nextStep = () => {
-    const step = RESTORE_STEPS[restore.next];
-    const next = stepRestore(restore, wrongKey);
-    setRestore(next);
-    const t = formatJam(demoNow());
-    if (next.failedAt !== null && step) {
-      setRestoreLog((cur) => [{ t, text: `Gagal di “${step.label}”` }, ...cur]);
-    } else if (step) {
-      setRestoreLog((cur) => [{ t, text: `Lulus: ${step.label}` }, ...cur]);
-    }
-    if (restorePassed(next))
-      setTest({ at: demoNow().toISOString(), rtoMinutes: next.minutes, source: 'cloud utama' });
+    const now = demoNow();
+    dispatch({ type: 'restore.langkah', wrongKey, at: now.toISOString(), jam: formatJam(now) });
   };
 
   const request: ConfirmRequest | null = confirming
@@ -206,9 +188,9 @@ export function CadanganBoard({
           </table>
         </TableWrap>
         {running && <Chip tone="info">Backup manual berjalan sejak {running}</Chip>}
-        {flash && (
+        {(flash || error) && (
           <span role="status">
-            <Stamp tone={running ? 'info' : 'success'}>{flash}</Stamp>
+            <Stamp tone={error ? 'danger' : running ? 'info' : 'success'}>{error ?? flash}</Stamp>
           </span>
         )}
         <ul aria-label="Riwayat backup" className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -237,9 +219,10 @@ export function CadanganBoard({
             started ? (
               <Button
                 size="sm"
+                disabled={pending}
                 onClick={() => {
-                  setRestore(initialRestore());
-                  setRestoreLog([]);
+                  setWrongKey(false);
+                  dispatch({ type: 'restore.ulang', jam: formatJam(demoNow()) });
                 }}
               >
                 Ulang uji
@@ -315,7 +298,7 @@ export function CadanganBoard({
           )}
           {!passed && restore.failedAt === null && (
             <span>
-              <Button variant="primary" onClick={nextStep}>
+              <Button variant="primary" disabled={pending} onClick={nextStep}>
                 {started ? `Jalankan langkah ${restore.next + 1}` : 'Mulai uji restore'}
               </Button>
             </span>

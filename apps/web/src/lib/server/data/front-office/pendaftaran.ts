@@ -14,17 +14,13 @@ import {
   registrationResultSchema,
 } from '@simrs/shared';
 import { z } from 'zod';
-import {
-  demoRegistrationDesk,
-  registrationPatients,
-  scenarioRegistrationPatient,
-} from '../../../demo/fixtures/front-office';
+import { registrationPatients, scenarioRegistrationPatient } from '../../../demo/fixtures/front-office';
 import type { SessionView } from '../../../session-view';
 import { api } from '../../api';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
-import { demoProgress } from './shared';
+import { deskOf, frontOfficeStore } from './toko';
 
 /**
  * F03/F06 · Data meja pendaftaran. Mode presentasi: data dummy; mode api (fase 2 potongan 5b): meja, layanan loket,
@@ -33,7 +29,7 @@ import { demoProgress } from './shared';
 
 export async function getRegistrationDesk(session: SessionView): Promise<RegistrationDesk> {
   if (webEnv().dataSource === 'demo') {
-    return registrationDeskSchema.parse(demoRegistrationDesk(await demoProgress(session)));
+    return registrationDeskSchema.parse(deskOf(await frontOfficeStore(session)));
   }
   return notImplemented('pendaftaran (pakai getRegistrationDeskApi)');
 }

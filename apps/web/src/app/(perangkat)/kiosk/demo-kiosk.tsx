@@ -1,22 +1,23 @@
 import { DemoAccessDenied } from '@/components/demo-access-denied';
 import { KioskPresenterHint, type KioskScenarioView } from '@/components/front-office/kiosk-hint';
 import { ScaleToFit } from '@/components/scale-to-fit';
-import { kioskTickets, LOCAL_SEP, SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
+import { SCENARIO_RJ } from '@/lib/demo/fixtures/front-office';
 import { DEMO_NOW, DEMO_TODAY } from '@/lib/demo/fixtures/waktu';
-import { dateFull, frontOfficeProgress } from '@/lib/front-office';
+import { dateFull } from '@/lib/front-office';
 import { getKioskDefaultPatient } from '@/lib/server/data/front-office/kiosk';
 import {
   getRegistrationDesk,
   getScenarioRegistrationPatient,
 } from '@/lib/server/data/front-office/pendaftaran';
+import { frontOfficeStore, nextKioskTicket } from '@/lib/server/data/front-office/toko';
 import { milestone, milestoneValue, scenarioRuns, scenariosHere } from '@/lib/server/demo/scenario-context';
 import type { DemoScreenAccess } from '@/lib/server/demo-guard';
 import { KioskClient } from './kiosk-client';
 
 /**
  * F05 · Anjungan pendaftaran mandiri mode presentasi (mockup `Anjungan.dc.html`, kanvas potret 1080×1920, data dummy
- * fiktif, ADR-0023). Jalur demo dibekukan dan tetap diuji E2E demo (keputusan fase 2 #4); jalur api diisi potongan 6
- * di `page.tsx`.
+ * fiktif, ADR-0023): tiket dan permintaan bantuan tersimpan di toko demo bersama (ADR-0085, domain `antrean`). Jalur
+ * api diisi potongan 6 di `page.tsx` dan tidak membaca toko.
  */
 export async function DemoKiosk({ access }: { access: DemoScreenAccess }) {
   const { session, screen, allowed } = access;
@@ -30,11 +31,19 @@ export async function DemoKiosk({ access }: { access: DemoScreenAccess }) {
   const runs = await scenarioRuns(session);
   const rj = runs.results['rawat-jalan'];
   const here = scenariosHere(runs, 'kiosk').find((h) => h.scenario === 'rawat-jalan') ?? null;
-  const [local, suryo, desk] = await Promise.all([
+  const [local, suryo, desk, fo] = await Promise.all([
     getKioskDefaultPatient(),
     getScenarioRegistrationPatient(),
     getRegistrationDesk(session),
+    frontOfficeStore(session),
   ]);
+  const loketNo = nextKioskTicket(fo, 'loket');
+  const tickets = {
+    bpjs: { no: loketNo, waitMin: 14 },
+    umum: { no: loketNo, waitMin: 26 },
+    farmasi: { no: nextKioskTicket(fo, 'farmasi'), waitMin: 9 },
+    skenario: { no: SCENARIO_RJ.ticket, waitMin: 12 },
+  };
   const bio = milestoneValue(rj, 'kedatangan', 'bio');
   const scenario: KioskScenarioView = {
     rev: runs.rev,
@@ -66,10 +75,10 @@ export async function DemoKiosk({ access }: { access: DemoScreenAccess }) {
             name: andini?.doctorName ?? '',
             time: andini ? `${andini.start}–${andini.end}` : '',
           }}
-          localSep={LOCAL_SEP}
-          tickets={kioskTickets(frontOfficeProgress(rj))}
+          tickets={tickets}
           bookingCode={SCENARIO_RJ.bookingCode}
           scenario={scenario}
+          assistAt={fo.queue.state.assist?.jam ?? null}
         />
       </ScaleToFit>
       {(here || (scenario.ticketDone && !milestone(rj, 'pendaftaran', 'panggil'))) && (
