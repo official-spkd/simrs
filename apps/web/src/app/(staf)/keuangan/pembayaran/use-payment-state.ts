@@ -4,6 +4,7 @@ import { formatJam, isoDateJakarta, type PaymentOverview, type RefundStage } fro
 import { useState, useTransition } from 'react';
 import { useDemoClock } from '@/components/btn/use-scenario-task';
 import {
+  applyRefund,
   dayPaidExtra,
   markPaid,
   paymentKpis,
@@ -12,6 +13,7 @@ import {
   resolveRow,
   settleByResolution,
   settleEdc,
+  settleEdcTx,
 } from '@/lib/btn';
 import { type PaymentEventInput, recordPaymentEventAction } from './actions';
 
@@ -28,6 +30,10 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
   const [reconRunAt, setReconRunAt] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [refundStages, setRefundStages] = useState<Record<string, RefundStage>>({});
+  /** Jam dana refund kembali ke pasien (memperbarui transaksi asal di tab Transaksi). */
+  const [refundDoneAt, setRefundDoneAt] = useState<Record<string, string>>({});
+  /** Jam webhook terakhir yang diterima di layar ini (kepala layar). */
+  const [lastWebhookAt, setLastWebhookAt] = useState<string | null>(null);
   const [savedMode, setSavedMode] = useState(data.config.mode);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -39,6 +45,8 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
   const txs = data.transactions.map((t) => {
     let tx = paid[t.id] ? markPaid(t, paid[t.id] ?? data.asOf, `evt-sim-${t.id}`) : t;
     for (const r of rows) tx = settleByResolution(tx, r);
+    tx = settleEdcTx(tx, reconRunAt);
+    for (const rf of data.refunds) tx = applyRefund(tx, rf, refundDoneAt[rf.id] ?? null);
     return tx;
   });
   // Angka "hari ini" hanya memuat kejadian pada hari layar (pasien skenario berjalan di 12–14 Okt).
@@ -67,7 +75,9 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
     if (
       await record({ kind: 'bayar-simulasi', transactionId: txId }, 'Webhook TPDI diterima, tagihan lunas')
     ) {
-      setPaid((cur) => ({ ...cur, [txId]: clock() }));
+      const at = clock();
+      setPaid((cur) => ({ ...cur, [txId]: at }));
+      setLastWebhookAt(at);
     }
   };
 
@@ -75,7 +85,9 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
     if (
       await record({ kind: 'pengecualian', rowId, actionId, note }, 'Pengecualian rekonsiliasi ditangani')
     ) {
-      setResolutions((cur) => ({ ...cur, [rowId]: { actionId, note, at: clock(), by: userName } }));
+      const at = clock();
+      setResolutions((cur) => ({ ...cur, [rowId]: { actionId, note, at, by: userName } }));
+      if (actionId === 'ulang') setLastWebhookAt(at);
     }
   };
 
@@ -103,7 +115,15 @@ export function usePaymentState(data: PaymentOverview, userName: string) {
     reconRunAt,
     flash,
     refundStages,
-    setRefundStage: (id: string, stage: RefundStage) => setRefundStages((cur) => ({ ...cur, [id]: stage })),
+    setRefundStage: (id: string, stage: RefundStage) => {
+      setRefundStages((cur) => ({ ...cur, [id]: stage }));
+      if (stage === 'dana-kembali') {
+        const at = clock();
+        setRefundDoneAt((cur) => ({ ...cur, [id]: at }));
+        setLastWebhookAt(at); // webhook refund.completed dari TPDI
+      }
+    },
+    lastWebhookAt: lastWebhookAt ?? data.connection.lastWebhookAt,
     savedMode,
     setSavedMode,
     record,

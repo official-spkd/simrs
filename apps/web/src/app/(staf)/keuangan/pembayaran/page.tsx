@@ -47,7 +47,11 @@ export default async function PembayaranPage() {
               <Link
                 key={r.id}
                 href={r.href}
-                className="inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3 font-medium text-ink-900 no-underline"
+                className={
+                  r.id === 'pembiayaan'
+                    ? 'inline-flex min-h-11 items-center rounded-control border border-brand-700 bg-white px-3 font-semibold text-brand-700 no-underline'
+                    : 'inline-flex min-h-11 items-center rounded-control border border-line-strong bg-white px-3 font-medium text-ink-900 no-underline'
+                }
               >
                 {r.label}
               </Link>
@@ -56,8 +60,8 @@ export default async function PembayaranPage() {
         )}
       </header>
       <ScenarioBanner session={session} screen="pembayaran" />
-      <MoneyFlow operational={data.config.operationalAccount} />
       <PembayaranClient
+        moneyFlow={<MoneyFlow operational={data.config.operationalAccount} />}
         data={data}
         hook={hook}
         userName={session.user.displayName}

@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReconRow } from '@simrs/shared';
-import { Button, cx } from '@simrs/ui';
+import { cx } from '@simrs/ui';
+import { GatedButton } from '@/components/gated-button';
 import { useId, useState } from 'react';
 import { RESOLUTION_NOTE_MIN, resolutionError } from '@/lib/btn';
 
@@ -36,14 +37,14 @@ export function RekonException({
         if (!error) onApply(actionId, note.trim());
       }}
     >
-      <span className="text-small text-ink-700">{ex.explanation}</span>
+      <span className="text-small font-medium text-warning">{ex.explanation}</span>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 text-small font-semibold text-ink-700">
           Tindakan penyelesaian
           <select
             value={actionId}
             onChange={(e) => setActionId(e.target.value)}
-            aria-label={`Tindakan untuk selisih ${row.label}`}
+            aria-label={`Tindakan penyelesaian untuk selisih ${row.label}`}
             className="h-11 rounded-control border border-line-strong bg-white px-2 font-[inherit] font-normal text-ink-900"
           >
             <option value="">Pilih tindakan…</option>
@@ -76,9 +77,16 @@ export function RekonException({
         >
           {hint}
         </span>
-        <Button type="submit" variant="primary" size="sm" disabled={busy || !!error} className="min-h-11">
+        <GatedButton
+          type="submit"
+          variant="primary"
+          size="sm"
+          enabled={!busy && !error}
+          onBlocked={() => setTried(true)}
+          className="min-h-11"
+        >
           Terapkan
-        </Button>
+        </GatedButton>
       </span>
     </form>
   );
