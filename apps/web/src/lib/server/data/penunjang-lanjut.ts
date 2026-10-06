@@ -6,12 +6,14 @@ import {
   demoOtherCriticals,
 } from '../../demo/fixtures/penunjang-kritis';
 import { demoBloodRequests, demoBloodUnits } from '../../demo/fixtures/penunjang-bank-darah';
+import { demoCultures, demoPaCases } from '../../demo/fixtures/penunjang-mikro';
 import { DEFAULT_MEAL, demoDeliveries, demoDietOrders } from '../../demo/fixtures/penunjang-gizi';
 import { DEPO_MASTER, DEPO_REQUESTS, demoDepoState } from '../../demo/fixtures/penunjang-depo';
 import { DEMO_NOW, DEMO_TODAY } from '../../demo/fixtures/waktu';
 import type { BloodState } from '../../penunjang-bank-darah';
 import type { DepoMaster, DepoState } from '../../penunjang-depo';
 import type { Delivery, DietOrder, MealTime } from '../../penunjang-gizi';
+import type { CultureCase, PaCase } from '../../penunjang-mikro';
 import { type CriticalItem, sortCritical } from '../../penunjang-kritis';
 import type { SessionView } from '../../session-view';
 import { scenarioRuns } from '../demo/scenario-context';
@@ -111,4 +113,17 @@ export interface NutritionData {
 export async function getNutrition(): Promise<NutritionData> {
   if (!isDemo()) return notImplemented('gizi');
   return { asOf: DEMO_NOW, orders: demoDietOrders(), deliveries: demoDeliveries(), meal: DEFAULT_MEAL };
+}
+
+// ─── S02 · Mikrobiologi dan patologi anatomi ─────────────────────────────────────────────────────────────────
+
+export interface MicroData {
+  asOf: string;
+  cultures: CultureCase[];
+  pa: PaCase[];
+}
+
+export async function getMicroPa(): Promise<MicroData> {
+  if (!isDemo()) return notImplemented('mikrobiologi dan patologi anatomi');
+  return { asOf: DEMO_NOW, cultures: demoCultures(), pa: demoPaCases() };
 }

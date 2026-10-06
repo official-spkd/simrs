@@ -348,6 +348,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['perawat', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'mikro',
+    label: 'Mikrobiologi & PA',
+    route: '/penunjang/mikrobiologi',
+    mockup: null,
+    components: ['S02'],
+    phase: 4,
+    status: 'demo',
+    plannedPermission: 'lab.write',
+    demoRoles: ['analis_lab', 'dokter'],
+    layout: 'staf',
+  },
   // FE3 · akhir
   {
     id: 'kasir',

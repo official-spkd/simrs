@@ -95,7 +95,9 @@ test.describe('S08 · bank darah', () => {
       .click();
     const detail = page.getByRole('region', { name: 'Detail permintaan darah' });
     const cross = detail.getByRole('region', { name: 'Crossmatch' });
-    await expect(cross.getByRole('listitem').filter({ hasText: 'KD-260830-007' })).toContainText('Kedaluwarsa');
+    await expect(cross.getByRole('listitem').filter({ hasText: 'KD-260830-007' })).toContainText(
+      'Kedaluwarsa',
+    );
     await cross
       .getByRole('listitem')
       .filter({ hasText: 'KD-261001-044' })
@@ -112,7 +114,9 @@ test.describe('S08 · bank darah', () => {
     await expect(detail.getByRole('alert').filter({ hasText: 'butir cek ganda' })).toBeVisible();
     for (const box of await issue.getByRole('checkbox').all()) await box.check();
     await issue.getByRole('button', { name: 'Keluarkan kantong' }).click();
-    await expect(detail.getByRole('status').filter({ hasText: 'dikeluarkan setelah cek ganda' })).toBeVisible();
+    await expect(
+      detail.getByRole('status').filter({ hasText: 'dikeluarkan setelah cek ganda' }),
+    ).toBeVisible();
 
     // Di samping pasien: gelang salah memblokir; pindai benar → transfusi berjalan.
     const bed = detail.getByRole('form', { name: 'Verifikasi di samping pasien' });
@@ -176,6 +180,46 @@ test.describe('S07 · gizi', () => {
         .filter({ hasText: 'An. Raka Pratama' })
         .getByRole('button', { name: 'Antar ke bangsal' }),
     ).toBeEnabled();
+  });
+});
+
+test.describe('S02 · mikrobiologi dan PA', () => {
+  test('kultur bertahap sampai uji kepekaan lengkap dan TTE; laporan PA terkunci setelah TTE', async ({
+    page,
+  }) => {
+    const analis = await createAccount({ roles: ['analis_lab'] });
+    await loginAs(page, analis, '/penunjang/mikrobiologi');
+    await expect(page.getByRole('heading', { name: /Mikrobiologi/, level: 1 })).toBeVisible();
+    const detail = page.getByRole('region', { name: 'Detail kultur' });
+    await expect(detail).toContainText('L2610040398');
+    await detail.getByLabel(/Organisme \(daftar lokal/).selectOption('Escherichia coli');
+    await detail.getByRole('button', { name: 'Simpan identifikasi' }).click();
+    const ast = detail.getByRole('form', { name: 'Uji kepekaan antibiotik' });
+    await expect(ast.getByRole('row', { name: /Kotrimoksazol/ })).toContainText('alergi pasien');
+    await ast.getByRole('button', { name: 'Simpan uji kepekaan' }).click();
+    await expect(detail.getByRole('alert')).toContainText('Semua antibiotik di panel wajib diisi');
+    for (const select of await ast.getByRole('combobox').all()) await select.selectOption('S');
+    await ast.getByRole('button', { name: 'Simpan uji kepekaan' }).click();
+    await detail.getByRole('button', { name: /Validasi & TTE/ }).click();
+    await expect(detail.getByText(/Laporan akhir ditandatangani/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Patologi anatomi' }).click();
+    await page
+      .getByRole('region', { name: 'Daftar patologi anatomi' })
+      .getByRole('button', { name: /Ny\. Maria Ulfa/ })
+      .click();
+    const pa = page.getByRole('region', { name: 'Detail patologi anatomi' });
+    await pa.getByRole('button', { name: /Tandatangani/ }).click();
+    await expect(pa.getByRole('alert')).toContainText('minimal 10 karakter');
+    await pa.getByLabel('Diagnosis (kesimpulan)').fill('Adenokarsinoma kolon berdiferensiasi sedang');
+    await pa.getByRole('button', { name: /Tandatangani/ }).click();
+    await expect(pa.getByText(/terkunci$/)).toBeVisible();
+    await expect(pa.getByLabel('Diagnosis (kesimpulan)')).toHaveAttribute('readonly', '');
+    await pa
+      .getByLabel('Addendum (laporan asli tidak diubah)')
+      .fill('Imunohistokimia MMR menyusul 7 hari kerja');
+    await pa.getByRole('button', { name: 'Tambah addendum' }).click();
+    await expect(pa).toContainText('Imunohistokimia MMR menyusul');
   });
 });
 

@@ -64,6 +64,13 @@ export const NAV_GROUPS: WebNavGroup[] = [
         available: false,
       },
       { id: 'gizi', label: 'Gizi', href: '/penunjang/gizi', icon: 'list', available: false },
+      {
+        id: 'mikro',
+        label: 'Mikrobiologi & PA',
+        href: '/penunjang/mikrobiologi',
+        icon: 'flask',
+        available: false,
+      },
       // FE3 · akhir
     ],
   },
