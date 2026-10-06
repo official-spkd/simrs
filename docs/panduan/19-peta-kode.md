@@ -64,6 +64,7 @@ Layar klinis yang jalur api-nya belum dibangun (W1–W5) menampilkan `ScreenNotC
 | Aturan bisnis murni   | `lib/<domain>.ts` (mis. `klinis-cds.ts`, `rawat-inap.ts`, `keuangan.ts`, `btn-ok.ts`) | Tanpa I/O, diuji unit; aturan klinis memanggil mesin `@simrs/shared/clinical`      |
 | Mesin skenario        | `lib/demo/engine/` (`run.ts` putar ulang murni)                                       | Tiga skenario di `lib/demo/skenario/` (rawat jalan, IGD → rawat inap, elektif BTN) |
 | Keadaan simulasi      | `lib/server/demo/store.ts`                                                            | Berkas JSON per akun demo (`DEMO_STATE_DIR`), berisi urutan aksi saja              |
+| Toko demo bersama     | `lib/demo/store/` (murni), `lib/server/demo/state*.ts` (berkas, Server Action)        | Log kejadian per ruang data, reducer per domain; lihat bagian toko di bawah        |
 | Akun presentasi       | `lib/server/demo/accounts.ts`, `login.ts`                                             | "Masuk cepat · mode presentasi" di `/masuk`                                        |
 | Komponen bersama demo | `components/{klinis,rawat-inap,penunjang,keuangan,btn,manajemen,front-office}/`       | Dipakai layar demo per domain                                                      |
 
@@ -98,6 +99,78 @@ Layar demo putaran 2 memakai beberapa bagian bersama. Pakai ulang bagian ini unt
 9. **Saat backend jadi**: tambahkan izin ke `PERMISSION_CATALOG`, isi `permission` di registri, buat `api-<layar>.tsx` + `actions.ts`, pindahkan jalur demo ke `demo-<layar>.tsx`, lalu ubah `status` ke `api` bila jalur demo tidak dipertahankan.
 
 Langkah membangun layar dari mockup dijelaskan juga di [Tutorial](./03-tutorial.md#5-membuat-layar-web-dari-mockup).
+
+## Toko keadaan demo bersama (ADR-0085)
+
+Pola untuk membuat aksi layar demo **bertahan** (muat ulang, ganti posisi, perangkat lain), **mengalir** ke layar lain, dan **bisa diulang** ("Mulai ulang data demo"). Hanya mode presentasi; tanpa API backend, migrasi, atau dependensi baru.
+
+![Diagram toko demo bersama: Server Action domain memeriksa gerbang lalu commitEvent menulis kejadian ke log ruang data; pengambil data membaca readDomain = fixture + kejadian; domain pelanggan membaca kejadian domain sumber](./gambar/diagram-toko-demo.svg)
+
+| Bagian                  | Lokasi                                       | Isi                                                                                                  |
+| ----------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Definisi domain (murni) | `lib/demo/store/define.ts`                   | `defineDomain`, `on` (langganan), `project` (putar ulang log → `{ state, rev }`)                     |
+| Format log + batas      | `lib/demo/store/log.ts`                      | Berkas per ruang, `appendEvent` (5.000 kejadian, 16 KB/kejadian, 4 MB/berkas), `resetLog`            |
+| Registri                | `lib/demo/store/registry.ts`                 | Nama → definisi; tipe `StateOf<N>`, `EventOf<N>`                                                     |
+| Hak mulai ulang         | `lib/demo/store/access.ts`                   | `canResetDemoData`: admin SIM RS, manajemen, Superadmin demo                                         |
+| Klien                   | `lib/demo/store/client.ts`                   | `useStoreAction(rev)`, `useDemoDispatch(name, rev)`                                                  |
+| Berkas + kunci          | `lib/server/demo/state-store.ts`             | `DemoStateStore`: baca, tulis atomik, `commit` (skema → rev → `validate` → reducer → batas), `reset` |
+| API server              | `lib/server/demo/state.ts`                   | `readDomain`, `commitEvent`, `demoSpace`, `demoActor`, `revalidateDomain`                            |
+| Server Action           | `lib/server/demo/state-actions.ts`           | `dispatchDemoEventAction` (generik), `resetDemoDataAction`, `demoDataSummaryAction`                  |
+| Menu "Data demo"        | `components/demo-data-menu.tsx`              | Lencana "Mode presentasi · data fiktif" → ringkasan + "Mulai ulang data demo" berkonfirmasi          |
+| Contoh domain           | `lib/penunjang-kritis.ts` (`criticalDomain`) | `hasil-kritis`: `laporan.dicatat` dari Lab dan Pusat hasil kritis                                    |
+
+Aturan dasar:
+
+- **Ruang data**: semua akun presentasi (`presentasi.*`, termasuk Superadmin demo) berbagi satu ruang per RS; akun lain (akun uji, akun pengembang) punya ruang sendiri. Berkas: `<DEMO_STATE_DIR>/toko/<RUANG>.json` (lokal `.local/demo-state`, E2E folder `E2E_TMP_NAME`).
+- **Pelaku selalu dari sesi** (`ev.actor`: id, nama, posisi yang dibawakan, penugasan asli bila "Bertindak sebagai"). Jangan menerima nama pelaku dari klien.
+- **Revisi**: halaman meneruskan `rev` dari `readDomain` ke komponen; aksi membawa `rev` itu. Berbeda dari revisi terkini → ditolak basi, layar dimuat ulang.
+- **Skenario Simulasi tetap terpisah**: pasien skenario diproyeksikan dari mesin skenario dan dimajukan lewat tugas skenario; Server Action toko menolak pasien skenario. Data fixture lain disimpan di toko.
+
+### Menambah domain
+
+1. Di `lib/<domain>.ts` milik Anda, tulis skema kejadian zod (union berdiskriminan `type`, `strictObject`), tipe keadaan, lalu:
+
+   ```ts
+   export const bedDomain = defineDomain<BedState, BedEvent>('tempat-tidur', {
+     initial: () => ({ status: {} }), // fixture awal; jangan mengubah fixture bersama
+     eventSchema: bedEventSchema,
+     screens: ['bed', 'ranap'], // id registri layar: dasar revalidatePath + hak aksi generik
+     validate: (s, ev, actor) =>
+       s.status[ev.bedId] === 'kotor' && ev.type === 'bed.diisi' ? 'Bed masih kotor.' : null,
+     reduce: (s, ev) => ({ status: { ...s.status, [ev.data.bedId]: next(ev.data) } }),
+   });
+   ```
+
+   Reducer murni: tanpa `Date.now()`, tanpa I/O; waktu dari `ev.at` atau dari isi kejadian yang dihitung server. Melempar galat = kejadian tidak sah (dilewati saat diputar ulang, ditolak saat dicatat).
+
+2. Tambah **satu baris** di `DEMO_DOMAINS` (`lib/demo/store/registry.ts`), urut abjad. Jangan mengubah baris domain lain.
+3. Tes unit reducer + gerbang di `lib/<domain>.test.ts` (pakai `project(def, { seq, resetSeq: 0, events })`).
+
+### Menambah kejadian (aksi layar)
+
+1. **Pengambil data** (`lib/server/data/<domain>.ts`) menerapkan keadaan toko ke fixture: `const { state } = await readDomain('<nama>')`, lalu gabungkan. Halaman, Server Action (`find*`), dan layar lain membaca jalur yang sama.
+2. **Halaman** meneruskan `rev` (`(await readDomain('<nama>')).rev`) ke komponen klien.
+3. **Server Action** domain: `assertDemo` + sesi + posisi (pola `penunjangSession`), validasi zod input, cari rekaman di server, jalankan gerbang, lalu `commitEvent('<nama>', kejadian, { rev, session })`. Kembalikan `{ ok, message, stale }`; umpan balik tanpa label "(simulasi, tidak disimpan)". Contoh: `app/(staf)/penunjang/lab/actions.ts` (`reportCriticalAction`).
+4. **Komponen klien**: `const { run, pending } = useStoreAction(rev)`, lalu `run((r) => aksiServer({ ..., rev: r }), (hasil) => …)`. Jangan menyimpan hasil aksi di `useState` sebagai sumber kebenaran: data baru datang dari server setelah `revalidatePath`.
+5. Domain yang aturannya cukup skema + `validate` boleh memakai `generic: true` dan `useDemoDispatch('<nama>', rev).dispatch(kejadian)` tanpa Server Action sendiri. Jangan memakai `generic` bila gerbangnya butuh data server: klien bisa mengirim kejadian apa pun ke aksi generik.
+
+### Menambah aliran antardomain
+
+Domain tujuan melanggan domain sumber, tanpa mengimpor komponen sumber:
+
+```ts
+export const chargeDomain = defineDomain<ChargeState, ChargeEvent>('tagihan', {
+  // …
+  subscriptions: [on(orderDomain, (s, ev) => (ev.data.type === 'order.dibuat' ? addCharge(s, ev) : s))],
+});
+```
+
+Kejadian sumber memajukan revisi pelanggan dan memuat ulang layar pelanggan. Pelanggan tidak menulis ke domain sumber; bila perlu balasan, terbitkan kejadian di domain sendiri.
+
+### Tes
+
+- Unit: reducer dan gerbang domain; pola toko di `lib/demo/store/*.test.ts`, `lib/server/demo/state-*.test.ts` (atomik, rev basi, ukuran, mulai ulang, mode api menolak).
+- E2E: aksi → `page.reload()` → masih ada → layar kedua → (opsional) mulai ulang. Akun uji (`createAccount`) punya ruang data sendiri, jadi tes paralel aman. Acuan: `e2e/demo/toko-demo.spec.ts`.
 
 ## Peta modul API
 
@@ -277,7 +350,7 @@ Layar FE4 memakai 16 kode akun yang belum ada di fixture akuntansi sebelumnya. B
 
 - Aksi di 49 layar demo baru hanya mengubah keadaan React di peramban (`useState`), ditandai "(simulasi, tidak disimpan)". Muat ulang halaman mengembalikan data awal.
 - Keadaan tidak mengalir antarlayar. Contoh: co-sign di CPPT tidak mengubah butir di Kelengkapan rekam medis; pemberian obat di Asuhan keperawatan tidak tercatat di Rawat inap; penerimaan barang di Logistik tidak menambah stok Depo; jurnal kas-bank tidak masuk buku besar Akuntansi; alert command center tidak mengubah papan Tempat tidur.
-- Satu-satunya keadaan bersama tetap mesin skenario Simulasi (`lib/server/demo/store.ts`); dari layar baru hanya Pusat hasil kritis yang membacanya (`scenarioRuns` di `lib/server/data/penunjang-lanjut.ts`).
+- Keadaan bersama: mesin skenario Simulasi (`lib/server/demo/store.ts`) dan, sejak CD-1, toko demo bersama (ADR-0085, bagian [Toko keadaan demo bersama](#toko-keadaan-demo-bersama-adr-0085)). Alur pertama yang sudah tersimpan: pelaporan nilai kritis Laboratorium → Pusat hasil kritis. Domain lain dimigrasikan per tugas CD-2, CD-3, CX-1–CX-3 (`docs/13-pembagian-tugas-cd-cx.md`).
 - Contoh lain: penerimaan barang di Logistik tidak sampai ke Hutang usaha; observasi PPI tidak masuk Mutu; jasa pelayanan di Penggajian ditulis tetap di fixture, bukan dari layar Jasa pelayanan; kenaikan tingkat supervisi di Pendidikan klinik tidak mengubah aturan co-sign CPPT; lingkup akses keluarga di Aplikasi pasien belum membatasi apa pun; validasi koding tidak sampai ke Klaim; event charge capture yang ditahan tidak menahan finalisasi di Kasir; layar Mode downtime memakai jam simulasinya sendiri.
 - Saat backend dibangun, aliran ini menjadi event domain (mis. `MedicationAdministered` → charge capture, lihat `docs/01-arsitektur.md` §2), bukan panggilan antarlayar.
 

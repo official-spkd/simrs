@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600" role="img" aria-labelledby="judul ket">
+  <title id="judul">Toko keadaan demo bersama</title>
+  <desc id="ket">Komponen klien mengirim aksi beserta revisi ke Server Action domain. Server Action memeriksa mode presentasi, sesi, input zod, dan gerbang domain, lalu memanggil commitEvent. Toko memeriksa skema, revisi, validate, reducer, dan batas ukuran di dalam kunci ruang data, lalu menulis kejadian ke berkas log secara atomik dan memuat ulang layar terkait. Saat dibaca, readDomain memutar ulang log: keadaan sama dengan fixture awal ditambah kejadian. Domain pelanggan membaca kejadian domain sumber lewat langganan on. Mulai ulang data demo mengosongkan log ruang itu.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}.warnbox{fill:#FFF3E0;stroke:#8A4B00;stroke-width:1.3}.infobox{fill:#EEF2FB;stroke:#1E3A8A;stroke-width:1.3}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}.cap{font-size:11px;font-weight:700;letter-spacing:.08em}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+    .tb{fill:#0B5D56}.tw{fill:#8A4B00}.ti{fill:#1E3A8A}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnw{stroke:#8A4B00;stroke-width:1.6;fill:none}.lni{stroke:#1E3A8A;stroke-width:1.6;fill:none}
+    .ah{fill:#5B6B79}.ahw{fill:#8A4B00}.ahi{fill:#1E3A8A}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.warnbox{fill:#362510;stroke:#F0B45A}.infobox{fill:#18223F;stroke:#93ACF5}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tw{fill:#F0B45A}.ti{fill:#A9BCF7}
+      .ln{stroke:#8FA1B0}.lnw{stroke:#F0B45A}.lni{stroke:#93ACF5}.ah{fill:#8FA1B0}.ahw{fill:#F0B45A}.ahi{fill:#93ACF5}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="aw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahw" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ai" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahi" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="600" rx="16"/>
+  <text class="h" x="32" y="42">Toko keadaan demo bersama (ADR-0085)</text>
+  <text class="sub" x="32" y="64">Keadaan domain = fixture awal + kejadian berurutan. Hanya mode presentasi (APP_ENV=local + DATA_SOURCE=demo).</text>
+
+  <!-- Jalur tulis -->
+  <text class="cap tw" x="32" y="102">TULIS</text>
+  <rect class="card" x="32" y="114" width="210" height="96" rx="12"/>
+  <text class="t" x="48" y="140">Komponen klien</text>
+  <text class="mono" x="48" y="162">useStoreAction(rev)</text>
+  <text class="s" x="48" y="182">aksi + rev yang dilihat</text>
+  <text class="s" x="48" y="198">tab lain diberi tahu</text>
+
+  <rect class="warnbox" x="282" y="114" width="230" height="96" rx="12"/>
+  <text class="t tw" x="298" y="140">Server Action domain</text>
+  <text class="s" x="298" y="162">assertDemo · sesi · posisi · zod</text>
+  <text class="s" x="298" y="180">cari rekaman di server → gerbang</text>
+  <text class="mono" x="298" y="200">commitEvent(nama, kejadian)</text>
+
+  <rect class="warnbox" x="552" y="114" width="250" height="96" rx="12"/>
+  <text class="t tw" x="568" y="140">DemoStateStore (kunci ruang)</text>
+  <text class="s" x="568" y="162">skema → rev basi? → validate</text>
+  <text class="s" x="568" y="180">→ reducer menerima → batas ukuran</text>
+  <text class="s" x="568" y="198">pelaku dari sesi (ev.actor)</text>
+
+  <rect class="brandbox" x="842" y="114" width="130" height="96" rx="12"/>
+  <text class="t tb" x="856" y="140">Berkas log</text>
+  <text class="mono" x="856" y="162">toko/&lt;RUANG&gt;</text>
+  <text class="mono" x="856" y="178">.json</text>
+  <text class="xs" x="856" y="198">tulis atomik</text>
+
+  <path class="lnw" d="M242 162H278" marker-end="url(#aw)"/>
+  <path class="lnw" d="M512 162H548" marker-end="url(#aw)"/>
+  <path class="lnw" d="M802 162H838" marker-end="url(#aw)"/>
+  <text class="xs" x="560" y="232">berhasil → revalidatePath layar domain + pelanggan</text>
+
+  <!-- Jalur baca -->
+  <text class="cap ti" x="32" y="282">BACA</text>
+  <rect class="infobox" x="612" y="294" width="360" height="96" rx="12"/>
+  <text class="t ti" x="628" y="320">readDomain(nama) → { state, rev }</text>
+  <text class="s" x="628" y="342">project(): initial() lalu putar ulang kejadian</text>
+  <text class="s" x="628" y="360">kejadian domain sendiri + kejadian yang dilanggan</text>
+  <text class="xs" x="628" y="378">kejadian tak sah dilewati · sekali per render</text>
+
+  <rect class="card" x="312" y="294" width="260" height="96" rx="12"/>
+  <text class="t" x="328" y="320">Pengambil data</text>
+  <text class="mono" x="328" y="342">lib/server/data/&lt;domain&gt;.ts</text>
+  <text class="s" x="328" y="362">fixture + keadaan toko → satu jalur</text>
+  <text class="s" x="328" y="380">untuk halaman dan Server Action</text>
+
+  <rect class="card" x="32" y="294" width="240" height="96" rx="12"/>
+  <text class="t" x="48" y="320">Halaman (server component)</text>
+  <text class="s" x="48" y="342">data + rev ke komponen klien</text>
+  <text class="s" x="48" y="360">layar kedua membaca domain</text>
+  <text class="s" x="48" y="378">yang sama → hasil mengalir</text>
+
+  <path class="lni" d="M907 210V290" marker-end="url(#ai)"/>
+  <path class="lni" d="M612 342H576" marker-end="url(#ai)"/>
+  <path class="lni" d="M312 342H276" marker-end="url(#ai)"/>
+  <path class="ln" d="M137 294V214" marker-end="url(#a)"/>
+
+  <!-- Langganan + mulai ulang -->
+  <text class="cap tb" x="32" y="440">LANGGANAN LINTAS DOMAIN</text>
+  <rect class="brandbox" x="32" y="452" width="440" height="116" rx="12"/>
+  <text class="t tb" x="48" y="478">Domain pelanggan</text>
+  <text class="mono" x="48" y="500">subscriptions: [on(domainSumber, reducer)]</text>
+  <text class="s" x="48" y="522">hanya mengimpor definisi domain sumber (lib),</text>
+  <text class="s" x="48" y="540">bukan komponen layarnya; revisi pelanggan ikut maju</text>
+  <text class="xs" x="48" y="558">contoh: order CPOE → worklist penunjang + tagihan</text>
+
+  <text class="cap tw" x="512" y="440">BISA DIULANG</text>
+  <rect class="warnbox" x="512" y="452" width="460" height="116" rx="12"/>
+  <text class="t tw" x="528" y="478">"Mulai ulang data demo" (lencana header)</text>
+  <text class="s" x="528" y="500">admin SIM RS, manajemen, Superadmin demo · berkonfirmasi</text>
+  <text class="s" x="528" y="520">log ruang dikosongkan; seq tetap naik (tampilan lama basi)</text>
+  <text class="s" x="528" y="540">ruang: akun presentasi berbagi satu per RS; akun lain sendiri</text>
+  <text class="xs" x="528" y="558">skenario Simulasi tetap di tokonya sendiri</text>
+</svg>
