@@ -395,6 +395,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['akuntan', 'manajemen'],
     layout: 'staf',
   },
+  {
+    id: 'koding',
+    label: 'Workbench koder',
+    route: '/keuangan/koding',
+    mockup: null,
+    components: ['U06'],
+    phase: 5,
+    status: 'demo',
+    plannedPermission: 'claim.write',
+    demoRoles: ['koder'],
+    layout: 'staf',
+  },
   // FE4 · akhir
   {
     id: 'integrasi',

@@ -1,6 +1,7 @@
 import 'server-only';
 import { CAPTURE_EVENT_TOTAL, CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
 import { AGING } from '../../demo/fixtures/keuangan';
+import { AUDIT_KODING, BERKAS_KODING, BUKTI_RME } from '../../demo/fixtures/koding';
 import {
   BATCH_TAGIHAN,
   CONTOH_PEMBAGIAN,
@@ -61,3 +62,9 @@ export function getReceivablesBoard() {
   };
 }
 export type ReceivablesBoard = ReturnType<typeof getReceivablesBoard>;
+
+export function getCodingBoard() {
+  demoOnly('workbench koder (U06)');
+  return { berkas: BERKAS_KODING, evidence: BUKTI_RME, audit: AUDIT_KODING };
+}
+export type CodingBoard = ReturnType<typeof getCodingBoard>;

@@ -205,9 +205,7 @@ test.describe('penjaminan dan piutang (U04)', () => {
     await expect(pending.getByRole('button', { name: 'Setujui dan posting' })).toBeDisabled();
     await expect(pending.getByText(/posisi manajemen/)).toBeVisible();
     const form = page.getByRole('form', { name: 'Ajukan penyesuaian piutang' });
-    await form
-      .getByLabel('Piutang', { exact: true })
-      .selectOption({ label: 'INV-2609-01950 · Ny. Sumarni Pakpahan · sisa Rp 1.875.000' });
+    await form.getByLabel('Piutang', { exact: true }).selectOption('pi-07');
     await form.getByLabel('Nominal (Rp)').fill('93.750');
     const submit = form.getByRole('button', { name: 'Ajukan penyesuaian' });
     await expect(submit).toBeDisabled();
@@ -234,5 +232,47 @@ test.describe('penjaminan dan piutang (U04)', () => {
     ).toBeVisible();
     await journalsBalanced(aj);
     await ctx.close();
+  });
+});
+
+test.describe('workbench koder (U06)', () => {
+  test('saran diterima, bukti ditautkan, query DPJP dijawab, versi baru beralasan', async ({ page }) => {
+    const koder = await createAccount({ roles: ['koder'] });
+    await loginAs(page, koder, '/keuangan/koding');
+    await page.goto('/keuangan/koding');
+    await expect(page.getByRole('heading', { name: /Workbench koder · validasi/, level: 1 })).toBeVisible();
+
+    const detail = page.getByRole('region', { name: 'Berkas koding' });
+    const go = detail.getByRole('button', { name: 'Validasi dan teruskan ke grouping' });
+    await expect(go).toBeDisabled();
+    await expect(detail.getByText(/putuskan saran kode J18\.9/)).toBeVisible();
+    await detail.getByRole('button', { name: 'Terima J13' }).click();
+    const n17 = detail.getByRole('listitem', { name: 'Kode N17.9' });
+    await n17.getByLabel('Bukti dari RME untuk N17.9').selectOption({ index: 1 });
+    await n17.getByRole('button', { name: 'Tautkan bukti' }).click();
+    await expect(n17.getByText(/✓ Bukti: Kreatinin serial/)).toBeVisible();
+    await go.click();
+    await expect(page.getByText(/Koding Tn\. Yusuf Hidayat tervalidasi · \d{2}\.\d{2}/)).toBeVisible();
+
+    const nav = page.getByRole('navigation', { name: 'Worklist koder' });
+    await nav.getByRole('button', { name: /Ny\. Siti Aminah/ }).click();
+    await detail.getByRole('button', { name: 'Simulasikan jawaban DPJP' }).click();
+    await expect(detail.getByText(/✓ Dijawab/)).toBeVisible();
+    await expect(detail.getByRole('button', { name: 'Validasi dan teruskan ke grouping' })).toBeEnabled();
+
+    await nav.getByRole('button', { name: /Tn\. Joko Susilo/ }).click();
+    await expect(detail.getByText('Pertanyaan verifikator', { exact: true })).toBeVisible();
+    await detail
+      .getByRole('listitem', { name: 'Kode E87.5' })
+      .getByRole('button', { name: 'Hapus E87.5 di versi baru' })
+      .click();
+    const save = detail.getByRole('button', { name: 'Simpan versi 2 dan siapkan tanggapan' });
+    await expect(save).toBeDisabled();
+    await detail
+      .getByLabel(/Alasan versi koding baru/)
+      .fill('Kalium tunggal tidak bermakna klinis menurut DPJP');
+    await save.click();
+    await expect(page.getByText(/Versi koding 2 Tn\. Joko Susilo disimpan/)).toBeVisible();
+    await noHorizontalOverflow(page);
   });
 });
