@@ -24,16 +24,16 @@ export default async function AkuntansiPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-0.5">
-        <span className="text-caption text-ink-500">
-          Keuangan / Akuntansi / Periode {board.period.label} · {session.tenant.name}
-        </span>
-        <h1 className="m-0 text-h1 font-semibold">Akuntansi · jurnal dan piutang</h1>
-      </header>
-
-      <ScenarioBanner session={session} screen="akuntansi" />
-
       <AccountingWorkspace
+        heading={
+          <div className="flex flex-col gap-0.5">
+            <span className="text-caption text-ink-500">
+              Keuangan / Akuntansi / Periode {board.period.label} · {session.tenant.name}
+            </span>
+            <h1 className="m-0 text-h1 font-semibold">Akuntansi · jurnal dan piutang</h1>
+          </div>
+        }
+        banner={<ScenarioBanner session={session} screen="akuntansi" />}
         board={board}
         reconJournals={{ 'btn-klaim': [BPJS_TRANSFER_JOURNAL_ID] }}
         kpis={

@@ -207,21 +207,35 @@ test.describe('akuntansi', () => {
     await page.getByRole('button', { name: 'Tutup periode Oktober' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Tutup periode Oktober 2026?' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Tutup periode', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeDisabled();
     await expect(dialog.getByText(/Belum bisa ditutup: petakan akun JU-26100417/)).toBeVisible();
+    await expect(dialog.getByText(/BTN penampungan klaim BPJS ••••9021 masih 2 selisih/)).toBeVisible();
     await dialog.getByRole('button', { name: 'Batal' }).click();
     await expect(dialog).toBeHidden();
 
+    // Pemetaan dua langkah (mockup): Petakan akun → pilih akun, atau Batal.
+    await expect(page.getByLabel('Akun lawan (kredit)')).toHaveCount(0);
+    const mapBtn = page.getByRole('button', { name: 'Petakan akun' });
+    await expect(mapBtn).toHaveAttribute('aria-expanded', 'false');
+    await mapBtn.click();
+    await page.getByRole('button', { name: 'Batal' }).click();
+    await expect(page.getByLabel('Akun lawan (kredit)')).toHaveCount(0);
+    await mapBtn.click();
     await page.getByLabel('Akun lawan (kredit)').selectOption('1-1390');
     await expect(page.getByText(/siap diposting setelah disetujui penyetuju kedua/)).toBeVisible();
-    await page.getByRole('button', { name: 'Padankan 2 mutasi' }).click();
+    const recon = page.getByRole('region', { name: 'Rekonsiliasi bank' });
+    await expect(recon.getByRole('link', { name: 'Rekonsiliasi 3 arah TPDI × BTN' })).toHaveAttribute(
+      'href',
+      '/keuangan/pembayaran',
+    );
+    await page.getByRole('button', { name: 'Padankan 2 transfer ke batch klaim' }).click();
     await expect(page.getByRole('region', { name: 'Rekonsiliasi bank' }).getByText('2 selisih')).toHaveCount(
       0,
     );
 
     await page.getByRole('button', { name: 'Tutup periode Oktober' }).click();
-    await expect(dialog.getByRole('button', { name: 'Tutup periode', exact: true })).toBeEnabled();
-    await dialog.getByRole('button', { name: 'Tutup periode', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' })).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Ya, tutup dan kunci periode' }).click();
     await expect(page.getByText(/Periode Oktober 2026 ditutup \d{2}\.\d{2}\./)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Tutup periode Oktober' })).toHaveCount(0);
     await noHorizontalOverflow(page);

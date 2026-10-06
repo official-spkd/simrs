@@ -2,6 +2,7 @@
 
 import { type BankRecon, formatJam, formatRupiah } from '@simrs/shared';
 import { Button, Chip } from '@simrs/ui';
+import Link from 'next/link';
 
 /**
  * Rekonsiliasi bank otomatis (mockup Akuntansi): mutasi H2H BTN dicocokkan dengan transaksi kasir/klaim; selisih
@@ -44,7 +45,7 @@ export function BankReconCard({
               </span>
               <span className="text-caption text-ink-500">
                 {done
-                  ? `${a.unmatched.length} mutasi ${formatRupiah(total)} dipadankan ke batch klaim · ${matchedAt[a.id]}`
+                  ? `${a.unmatched.length} transfer ${formatRupiah(total)} dipadankan ke batch klaim · ${matchedAt[a.id]}`
                   : `${a.note} · ${a.mutations} mutasi · sinkron ${formatJam(a.syncedAt)}`}
               </span>
               {open && (
@@ -58,7 +59,7 @@ export function BankReconCard({
                     ))}
                   </ul>
                   <Button className="self-start" disabled={locked || pending} onClick={() => onMatch(a.id)}>
-                    Padankan {a.unmatched.length} mutasi
+                    Padankan {a.unmatched.length} transfer ke batch klaim
                   </Button>
                 </>
               )}
@@ -66,6 +67,12 @@ export function BankReconCard({
           );
         })}
       </ul>
+      <Link
+        href="/keuangan/pembayaran"
+        className="inline-flex min-h-11 items-center self-start rounded-control border border-line-strong bg-white px-3.5 text-small font-semibold text-ink-900 no-underline"
+      >
+        Rekonsiliasi 3 arah TPDI × BTN
+      </Link>
     </section>
   );
 }
