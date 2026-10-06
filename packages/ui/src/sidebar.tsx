@@ -49,7 +49,7 @@ export interface SidebarProps {
   /** Aksi akun di bawah identitas pengguna (mis. tombol Keluar). */
   userActions?: ReactNode;
   /**
-   * Menu lebih panjang dari ini (mis. Superadmin demo): grup domain lain dilipat menjadi satu baris "N layar",
+   * Menu yang bisa dibuka lebih banyak dari ini (mis. Superadmin demo): grup domain lain dilipat menjadi satu baris "N layar",
    * grup layar aktif tetap terbuka. Grup ≤ 2 menu tidak pernah dilipat.
    */
   collapseAfter?: number;
@@ -61,7 +61,7 @@ const dot = {
   'tidak-diketahui': 'bg-batu-500',
 } as const;
 
-/** Navigasi samping kaca 236 px (Pelangi Klinis, ADR-0086): titik rona per grup, item aktif bergradien domain. */
+/** Navigasi samping kaca 236 px (Pelangi Klinis, ADR-0091): titik rona per grup, item aktif bergradien domain. */
 export function Sidebar({
   groups,
   activeId,
@@ -74,7 +74,8 @@ export function Sidebar({
   userActions,
   collapseAfter = 24,
 }: SidebarProps) {
-  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  // Hanya menu yang bisa dibuka yang dihitung: menu redup (layar belum dibangun) tidak membuat sidebar terlipat.
+  const total = groups.reduce((n, g) => n + g.items.filter((i) => i.available).length, 0);
   return (
     <nav
       aria-label="Navigasi utama"

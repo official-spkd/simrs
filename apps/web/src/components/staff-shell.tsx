@@ -6,7 +6,7 @@ import { type ReactNode, useMemo } from 'react';
 import { navContext, type WebNavGroup } from '@/lib/nav';
 
 /**
- * Kerangka staf Pelangi Klinis (ADR-0086). Menu, header, dan isi dihitung di server; komponen klien ini hanya
+ * Kerangka staf Pelangi Klinis (ADR-0091). Menu, header, dan isi dihitung di server; komponen klien ini hanya
  * membaca URL untuk memilih rona domain jendela (`data-domain`) dan memasang palet perintah ⌘K berisi layar yang
  * boleh dibuka sesi ini (sama dengan menu).
  */

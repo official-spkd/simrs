@@ -509,7 +509,7 @@ export function navGroups(opts: {
 }
 
 /**
- * Rona domain per grup menu (Pelangi Klinis, ADR-0086): front office samudra, klinis zamrud, penunjang anggrek,
+ * Rona domain per grup menu (Pelangi Klinis, ADR-0091): front office samudra, klinis zamrud, penunjang anggrek,
  * keuangan toska, manajemen + back office bougenvil, sistem batu. Grup umum/perangkat memakai samudra (bawaan).
  */
 const GROUP_DOMAIN: Readonly<Record<string, DomainKey>> = {
