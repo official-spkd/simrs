@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { createAccount, loginAs } from '../support/accounts';
+import { ENCOUNTER_ID } from '../../src/lib/demo/fixtures/ids';
 
 /**
  * FE2 · Layar rekam medis elektronik fase 3 (mode presentasi, ADR-0023): worklist (K01), CPPT + co-sign + serah
@@ -341,5 +342,58 @@ test.describe('K10 · konsultasi dan rawat bersama', () => {
     await expect(
       konsul.getByText('Jawaban konsul ditandatangani dokter konsultan (posisi dokter).'),
     ).toBeVisible();
+  });
+});
+
+test.describe('K11 · edukasi terintegrasi', () => {
+  test('perawat: edukasi pulang dengan teach-back, tanda tangan penerima, dan atestasi', async ({ page }) => {
+    await openAs(page, ['perawat'], '/klinis/edukasi');
+    const need = page.getByRole('region', { name: 'Kebutuhan edukasi' });
+    await expect(need.getByText('3 dari 6 materi wajib terverifikasi paham')).toBeVisible();
+    const form = page.getByRole('form', { name: 'Formulir edukasi' });
+    await form.getByLabel(/^Insulin pen dan tanda hipoglikemia/).check();
+    await form.getByLabel(/^Perawatan di rumah/).check();
+    await form.getByLabel('Demonstrasi + redemonstrasi').check();
+    await form.getByLabel('3. Sasaran').selectOption('keluarga');
+    await expect(form.getByLabel('Nama penerima', { exact: true })).toHaveValue('Sdr. Dimas Wijaya');
+    await form.getByLabel('Paham (mampu menjelaskan ulang)').check();
+    await form
+      .getByLabel('Ucapan ulang penerima')
+      .fill('Suntik glargine 16 unit jam 10 malam; bila gemetar dan keringat dingin minum teh manis.');
+    await form.getByLabel(/^5\. Tanda tangan penerima/).fill('Budi');
+    await form.getByRole('button', { name: 'Simpan edukasi (final)' }).click();
+    await expect(form.getByRole('alert')).toHaveText(
+      'Tanda tangan penerima: ketik nama yang sama dengan nama penerima.',
+    );
+    await form.getByLabel(/^5\. Tanda tangan penerima/).fill('Dimas Wijaya');
+    await form.getByRole('button', { name: 'Simpan edukasi (final)' }).click();
+    await expect(form.getByRole('alert')).toHaveText('Centang atestasi edukator.');
+    await form.getByLabel(/memberikan edukasi ini/).check();
+    await form.getByRole('button', { name: 'Simpan edukasi (final)' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Edukasi final' })).toHaveText(
+      new RegExp(`Edukasi final · ${JAM} · 2 materi terverifikasi paham`),
+    );
+    await expect(need.getByText('5 dari 6 materi wajib terverifikasi paham')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('bidan: persetujuan tindakan SC baru siap setelah edukasi tindakan terverifikasi', async ({
+    page,
+  }) => {
+    await openAs(page, ['bidan'], `/klinis/edukasi?pasien=${ENCOUNTER_ID.anisa}`);
+    const need = page.getByRole('region', { name: 'Kebutuhan edukasi' });
+    await expect(need.getByRole('status')).toHaveText(/belum siap/);
+    const form = page.getByRole('form', { name: 'Formulir edukasi' });
+    await form.getByLabel(/^Tindakan yang direncanakan/).check();
+    await form.getByLabel('Lisan / diskusi').check();
+    await form.getByLabel('3. Sasaran').selectOption('pasien-keluarga');
+    await form.getByLabel('Paham (mampu menjelaskan ulang)').check();
+    await form
+      .getByLabel('Ucapan ulang penerima')
+      .fill('Bayi dilahirkan lewat operasi karena detak jantungnya turun.');
+    await form.getByLabel(/^5\. Tanda tangan penerima/).fill('Anisa Rahmadani');
+    await form.getByLabel(/memberikan edukasi ini/).check();
+    await form.getByRole('button', { name: 'Simpan edukasi (final)' }).click();
+    await expect(need.getByRole('status')).toHaveText(/^Persetujuan tindakan siap/);
   });
 });

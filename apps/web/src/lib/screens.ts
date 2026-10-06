@@ -491,6 +491,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['dokter', 'dokter_residen'],
     layout: 'staf',
   },
+  {
+    id: 'edukasi',
+    label: 'Edukasi pasien',
+    route: '/klinis/edukasi',
+    mockup: 'Consent',
+    components: ['K11'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'education.write',
+    demoRoles: CLINICIANS,
+    layout: 'staf',
+  },
   // FE2 · akhir
 ];
 
