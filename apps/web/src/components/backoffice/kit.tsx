@@ -306,7 +306,7 @@ export function TableWrap({
   minWidth?: number;
 }) {
   return (
-    <div role="region" aria-label={label} tabIndex={0} className="max-w-full overflow-x-auto">
+    <div role="region" aria-label={label} tabIndex={0} className="relative max-w-full overflow-x-auto">
       <table className="w-full border-collapse text-small" style={{ minWidth }}>
         {children}
       </table>
