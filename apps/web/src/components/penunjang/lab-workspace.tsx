@@ -17,6 +17,7 @@ import {
   sampleStatusView,
   sortWorklist,
 } from '@/lib/penunjang';
+import { criticalIdOfLab } from '@/lib/penunjang-kritis';
 import type { ScenarioTaskHook } from '@/lib/penunjang-skenario';
 import { CriticalBanner } from './lab-critical-banner';
 import { LabDetail } from './lab-detail';
@@ -26,19 +27,26 @@ import { useScenarioTasks } from './use-scenario-tasks';
 
 /**
  * S01/S09 · Ruang kerja Laboratorium (mockup Lab): KPI, banner nilai kritis, worklist, hasil terpilih, alur
- * validasi. Tindakan di luar skenario disimulasikan (Server Action, tidak disimpan) dan diingat selama halaman
- * terbuka; pasien skenario mengikuti mesin simulasi.
+ * validasi. Pelaporan nilai kritis tersimpan di toko demo bersama (ADR-0085) dan datang kembali lewat `data`;
+ * validasi dan sampel ulang masih disimulasikan (Server Action, tidak disimpan) dan diingat selama halaman terbuka;
+ * pasien skenario mengikuti mesin simulasi.
  */
 export function LabWorkspace({
   data,
   hook,
   initialSelected,
   userName,
+  criticalRev,
+  storedCritical,
 }: {
   data: LabWorklist;
   hook: ScenarioTaskHook;
   initialSelected: string | null;
   userName: string;
+  /** Revisi domain toko `hasil-kritis` (dikirim bersama pelaporan). */
+  criticalRev: number;
+  /** Id hasil kritis yang laporannya tersimpan di toko (banner "dilaporkan" tetap tampil setelah muat ulang). */
+  storedCritical: readonly string[];
 }) {
   const tasks = useScenarioTasks(hook);
   const [local, setLocal] = useState<Record<string, LabLocal>>({});
@@ -90,11 +98,12 @@ export function LabWorkspace({
   };
 
   const open = samples.filter(criticalOpen).length;
+  const stored = new Set(storedCritical);
   const banners = samples.filter(
     (s) =>
       s.critical &&
       (criticalOpen(s) ||
-        local[s.id]?.critical ||
+        stored.has(criticalIdOfLab(s)) ||
         (criticalStage(s.critical) === 'selesai' && tasks.scenarioOf(s.patient.id))),
   );
   const st = data.stats;
@@ -152,7 +161,7 @@ export function LabWorkspace({
               sample={s}
               scenario={tasks.scenarioOf(s.patient.id)}
               tasks={tasks}
-              onLocalReport={(id, report) => patch(id, (cur) => ({ ...cur, critical: report }))}
+              rev={criticalRev}
             />
           ))}
           {sel && (

@@ -1,4 +1,6 @@
-import type { SupportPatient } from '@simrs/shared';
+import { formatJam, type LabSample, type SupportPatient } from '@simrs/shared';
+import { z } from 'zod';
+import { defineDomain } from './demo/store/define';
 
 /**
  * S09 · Pusat hasil kritis (mode presentasi, ADR-0023): nilai kritis lintas unit (laboratorium, mikrobiologi,
@@ -232,4 +234,138 @@ export function applyReports(
   local: Readonly<Record<string, CriticalReport>>,
 ): CriticalItem[] {
   return items.map((i) => (i.report || !local[i.id] ? i : { ...i, report: local[i.id] ?? null }));
+}
+
+// ─── Toko demo bersama (ADR-0085): laporan nilai kritis yang tersimpan ───────────────────────────────────────
+
+/** Hasil Server Action pelaporan yang tersimpan (bentuk sama dengan `PenunjangActionResult` + tanda basi). */
+export interface CriticalStoreActionResult {
+  ok: boolean;
+  message: string;
+  at?: string;
+  field?: string;
+  /** Tampilan basi (data berubah di tab/perangkat lain): halaman dimuat ulang. */
+  stale?: boolean;
+}
+
+/** Umpan balik aksi yang tersimpan: "… · 10.52" (jam demo saat read-back), tanpa label simulasi. */
+export function storedFeedback(text: string, atIso: string): CriticalStoreActionResult {
+  const at = formatJam(atIso);
+  return { ok: true, at, message: `${text} · ${at}` };
+}
+
+export const SCENARIO_CRITICAL_ELSEWHERE =
+  'Pasien skenario Simulasi dilaporkan lewat tugas skenario di layar Laboratorium agar alurnya ikut maju.';
+
+/** Batas atas durasi lapor yang diterima dari timer layar (detik di atas durasi saat data dibuka). */
+export const MAX_REPORT_DELAY_SECONDS = 12 * 3600;
+
+/** Id hasil kritis turunan sampel laboratorium (sama dengan fixture `criticalFromLab`). */
+export const criticalIdOfLab = (s: Pick<LabSample, 'labNo'>) => `kr-${s.labNo}`;
+
+export const criticalEventSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    /** Pelaporan sah: penerima + peran + saluran + read-back (read-back wajib, jadi tidak ada isian boolean). */
+    type: z.literal('laporan.dicatat'),
+    itemId: z.string().regex(/^kr-[A-Za-z0-9-]{1,40}$/),
+    recipient: z.string().trim().min(5).max(120),
+    recipientRole: z.string().trim().min(3).max(60),
+    channel: z.enum(['telepon', 'langsung']),
+    /** Saat read-back (ISO), dihitung server dari waktu terbit + timer layar yang dibatasi. */
+    reportedAt: z.iso.datetime({ offset: true }),
+    /** Layar asal: Laboratorium atau Pusat hasil kritis. */
+    via: z.enum(['lab', 'pusat']),
+  }),
+]);
+export type CriticalEvent = z.infer<typeof criticalEventSchema>;
+
+export interface StoredCriticalReport extends CriticalReport {
+  via: 'lab' | 'pusat';
+}
+
+export interface CriticalStoreState {
+  /** Laporan tersimpan per id hasil kritis. */
+  reports: Readonly<Record<string, StoredCriticalReport>>;
+}
+
+const ALREADY_REPORTED = 'Hasil kritis ini sudah dilaporkan dengan read-back.';
+
+/**
+ * Domain toko `hasil-kritis`: laporan nilai kritis dari layar Laboratorium dan Pusat hasil kritis. Pelapor
+ * (`reportedBy`) selalu pengguna sesi yang mencatat, bukan nama kiriman klien. Satu hasil kritis hanya dilaporkan
+ * sekali (tidak ada jalan menutup atau menimpa laporan).
+ */
+export const criticalDomain = defineDomain<CriticalStoreState, CriticalEvent>('hasil-kritis', {
+  initial: () => ({ reports: {} }),
+  eventSchema: criticalEventSchema,
+  screens: ['lab', 'kritis'],
+  validate: (state, ev) => (state.reports[ev.itemId] ? ALREADY_REPORTED : null),
+  reduce: (state, ev) => {
+    const d = ev.data;
+    if (state.reports[d.itemId]) throw new Error(ALREADY_REPORTED);
+    return {
+      reports: {
+        ...state.reports,
+        [d.itemId]: {
+          recipient: d.recipient,
+          recipientRole: d.recipientRole,
+          channel: d.channel,
+          reportedBy: ev.actor.name,
+          reportedAt: d.reportedAt,
+          readBackConfirmed: true,
+          via: d.via,
+        },
+      },
+    };
+  },
+});
+
+/**
+ * Saat read-back yang dicatat: waktu terbit + timer layar, dibatasi tidak lebih awal dari durasi saat data dibuka
+ * (`asOf`) dan tidak lebih dari `MAX_REPORT_DELAY_SECONDS` sesudahnya. Timer berasal dari layar, jadi hanya
+ * memengaruhi angka durasi demo, tidak membuka gerbang apa pun.
+ */
+export function reportedAtFromTimer(raisedAt: string, asOf: string, timerSeconds: number): string {
+  const base = Math.max(0, Math.floor((Date.parse(asOf) - Date.parse(raisedAt)) / 1000));
+  const s = Math.min(Math.max(Math.floor(timerSeconds), base), base + MAX_REPORT_DELAY_SECONDS);
+  return new Date(Date.parse(raisedAt) + s * 1000).toISOString();
+}
+
+/** Terapkan laporan tersimpan ke daftar Pusat hasil kritis (laporan toko lebih rinci dari turunan sampel lab). */
+export function applyStoredReports(
+  items: readonly CriticalItem[],
+  state: CriticalStoreState,
+): CriticalItem[] {
+  return items.map((i) => {
+    const r = state.reports[i.id];
+    if (!r) return i;
+    const report: CriticalReport = {
+      recipient: r.recipient,
+      recipientRole: r.recipientRole,
+      channel: r.channel,
+      reportedBy: r.reportedBy,
+      reportedAt: r.reportedAt,
+      readBackConfirmed: true,
+    };
+    return { ...i, report };
+  });
+}
+
+/** Terapkan laporan tersimpan ke sampel laboratorium (nilai kritis selesai: penerima + read-back + durasi). */
+export function applyStoredReportToSample(s: LabSample, state: CriticalStoreState): LabSample {
+  const r = state.reports[criticalIdOfLab(s)];
+  const c = s.critical;
+  if (!r || !c || c.readBackAt) return s;
+  const took = Math.max(0, Math.floor((Date.parse(r.reportedAt) - Date.parse(c.resultAt)) / 1000));
+  return {
+    ...s,
+    critical: {
+      ...c,
+      recipient: r.recipient,
+      reportedAt: r.reportedAt,
+      readBackAt: r.reportedAt,
+      elapsedSeconds: took,
+      minutesToReport: Math.floor(took / 60),
+    },
+  };
 }
