@@ -7,10 +7,18 @@ test.describe('panduan superadmin (peran superadmin_platform)', () => {
     await loginAs(page, operator, '/superadmin/panduan');
   });
 
-  test('indeks menampilkan tiga panduan dan menu superadmin', async ({ page, viewport }) => {
+  test('indeks menampilkan panduan sistem dan panduan fitur, serta menu superadmin', async ({
+    page,
+    viewport,
+  }) => {
     await expect(page.getByRole('heading', { name: 'Panduan sistem SIM RS', level: 1 })).toBeVisible();
-    for (const title of ['Cara sistem bekerja', 'Cara kode bekerja', 'Tutorial']) {
-      await expect(page.getByRole('link', { name: new RegExp(title) })).toBeVisible();
+    const sistem = page.getByRole('region', { name: 'Cara kerja dan operasional' });
+    for (const title of ['Cara sistem bekerja', 'Cara kode bekerja', 'Tutorial', 'Peta kode']) {
+      await expect(sistem.getByRole('link', { name: new RegExp(title) })).toBeVisible();
+    }
+    const fitur = page.getByRole('region', { name: 'Panduan fitur per layar' });
+    for (const title of ['Fitur platform', 'Fitur klinis', 'Fitur keuangan', 'Simulasi dan operasional']) {
+      await expect(fitur.getByRole('link', { name: new RegExp(title) })).toBeVisible();
     }
     if ((viewport?.width ?? 1280) >= 768) {
       const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
@@ -34,6 +42,47 @@ test.describe('panduan superadmin (peran superadmin_platform)', () => {
     await page.goto('/superadmin/panduan/cara-kerja-sistem');
     await page.getByRole('article').getByRole('link', { name: 'Cara kode bekerja' }).first().click();
     await expect(page).toHaveURL(/\/superadmin\/panduan\/cara-kerja-kode$/);
+  });
+
+  test('panduan fitur menampilkan tangkapan layar dan diagram dari rute gambar', async ({ page }) => {
+    await page.goto('/superadmin/panduan/fitur-klinis');
+    await expect(page.getByRole('heading', { name: 'Fitur klinis (RME)', level: 1 })).toBeVisible();
+    const article = page.getByRole('article');
+    const shot = article.locator('img[src="/superadmin/panduan/gambar/poli.png"]');
+    await expect(shot).toHaveAttribute('alt', /.{10,}/);
+    await shot.scrollIntoViewIfNeeded();
+    await expect.poll(() => shot.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1366);
+    const diagram = article.locator('img[src$=".svg"]').first();
+    await diagram.scrollIntoViewIfNeeded();
+    await expect.poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    // Tautan gambar membuka ukuran penuh di rute yang sama.
+    await expect(article.getByRole('link', { name: (await shot.getAttribute('alt')) ?? '' })).toHaveAttribute(
+      'href',
+      '/superadmin/panduan/gambar/poli.png',
+    );
+  });
+
+  test('rute gambar: jenis konten benar + nosniff; nama tidak sah → 404', async ({ page }) => {
+    const png = await page.request.get('/superadmin/panduan/gambar/poli.png');
+    expect(png.status()).toBe(200);
+    expect(png.headers()['content-type']).toBe('image/png');
+    expect(png.headers()['x-content-type-options']).toBe('nosniff');
+    const svg = await page.request.get('/superadmin/panduan/gambar/diagram-outbox.svg');
+    expect(svg.status()).toBe(200);
+    expect(svg.headers()['content-type']).toBe('image/svg+xml');
+    expect(svg.headers()['x-content-type-options']).toBe('nosniff');
+    expect(svg.headers()['content-security-policy']).toContain('sandbox');
+    for (const name of [
+      'tidak-ada.png',
+      '..%2F02-cara-kerja-kode.md',
+      '..%2F..%2F..%2F.env',
+      '%2E%2E%2F.env',
+      'POLI.png',
+      'poli.png.html',
+    ]) {
+      const res = await page.request.get(`/superadmin/panduan/gambar/${name}`);
+      expect(res.status(), name).toBe(404);
+    }
   });
 
   test('slug tak dikenal dan upaya path traversal → 404', async ({ page }) => {
@@ -63,7 +112,12 @@ test.describe('area superadmin tertutup bagi akun RS', () => {
         page.getByRole('navigation', { name: 'Navigasi utama' }).getByText('SUPERADMIN', { exact: true }),
       ).toHaveCount(0);
     }
-    for (const path of ['/superadmin/panduan', '/superadmin/panduan/tutorial', '/dev/ui']) {
+    for (const path of [
+      '/superadmin/panduan',
+      '/superadmin/panduan/tutorial',
+      '/superadmin/panduan/gambar/poli.png',
+      '/dev/ui',
+    ]) {
       const res = await page.goto(path);
       expect(res?.status(), path).toBe(404);
       await expect(page.getByText('Cara kode bekerja')).toHaveCount(0);

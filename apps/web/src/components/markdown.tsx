@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Children, isValidElement, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { rewriteGuideHref, slugify } from '@/lib/guide';
+import { rewriteGuideHref, rewriteGuideImageSrc, slugify } from '@/lib/guide';
 
 /** Teks polos dari children React (untuk id anchor heading; harus sama dengan `extractToc`). */
 function nodeText(node: ReactNode): string {
@@ -50,6 +50,42 @@ const components: Components = {
     return (
       <a href={target} target="_blank" rel="noopener noreferrer">
         {children}
+      </a>
+    );
+  },
+  /**
+   * Gambar hanya dari `docs/panduan/gambar/` (lewat rute superadmin) dan wajib ber-`alt`. Selain itu tidak ada
+   * permintaan ke luar: yang tampil hanya keterangan bahwa gambar ditolak. Teks alt juga tampil sebagai keterangan
+   * (disembunyikan dari pembaca layar agar tidak terbaca dua kali). Klik membuka ukuran penuh.
+   */
+  img: ({ src, alt }) => {
+    const url = typeof src === 'string' ? rewriteGuideImageSrc(src) : null;
+    const text = (alt ?? '').trim();
+    if (!url || !text) {
+      return (
+        <span className="my-3 block rounded-control border border-danger-border bg-danger-bg px-3 py-2 text-small text-danger">
+          Gambar tidak ditampilkan: hanya berkas di docs/panduan/gambar/ dengan teks alt yang diizinkan.
+        </span>
+      );
+    }
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="my-4 block rounded-card border border-line bg-subtle p-2 no-underline hover:border-brand-200"
+      >
+        {/* Bukan next/image: berkas datang dari rute ber-sesi, bukan aset statis yang bisa dioptimasi. */}
+        <img
+          src={url}
+          alt={text}
+          loading="lazy"
+          decoding="async"
+          className="block h-auto w-full rounded-control border border-line-soft bg-white"
+        />
+        <span aria-hidden="true" className="mt-2 block px-1 text-caption text-ink-500">
+          {text}
+        </span>
       </a>
     );
   },

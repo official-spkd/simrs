@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" role="img" aria-labelledby="judul ket">
+  <title id="judul">Pembayaran pasien TPDI × BTN</title>
+  <desc id="ket">SIM RS membuat tagihan dan meminta TPDI menerbitkan VA atau QRIS lewat outbox. TPDI meminta BTN menerbitkan VA atau QR dan mengembalikan nomornya. Pasien membayar ke BTN; dana masuk langsung ke rekening operasional RS di BTN dan tidak pernah transit di TPDI. BTN memberi tahu TPDI, TPDI mengirim webhook bertanda tangan HMAC ke SIM RS. Worker menandai lunas dan membuat jurnal. Rekonsiliasi tiga arah memakai data kasir, laporan TPDI, dan mutasi BTN.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}.okbox{fill:#EAF5EC;stroke:#1E6B34;stroke-width:1.4}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11px}
+    .tb{fill:#0B5D56}.tok{fill:#1E6B34}.big{font-size:15px;font-weight:700}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.money{stroke:#1E6B34;stroke-width:4;fill:none}.dash{stroke-dasharray:5 4}.ah{fill:#5B6B79}.ahk{fill:#1E6B34}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}.okbox{fill:#12301D;stroke:#6FCF8A}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tok{fill:#6FCF8A}
+      .ln{stroke:#8FA1B0}.money{stroke:#6FCF8A}.ah{fill:#8FA1B0}.ahk{fill:#6FCF8A}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ak" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path class="ahk" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="560" rx="14"/>
+  <text class="h" x="24" y="38">Pembayaran digital TPDI × BTN</text>
+  <text class="sub" x="24" y="60">Garis hijau tebal = aliran dana. Garis abu-abu = data dan notifikasi. Nomor = urutan kejadian.</text>
+
+  <!-- SIM RS -->
+  <rect class="brandbox" x="24" y="96" width="290" height="270" rx="12"/>
+  <text class="t tb" x="40" y="120">SIM RS (kasir, API, worker)</text>
+  <text class="s" x="40" y="146">1  kasir membuat tagihan → payment_intent</text>
+  <text class="s" x="58" y="164">pending + pesan outbox</text>
+  <text class="s" x="40" y="190">5  VA/QR ditampilkan, dikirim ke pasien</text>
+  <text class="s" x="40" y="216">8  webhook: verifikasi HMAC, simpan</text>
+  <text class="s" x="58" y="234">inbound_events (dedup), jawab 200</text>
+  <text class="s" x="40" y="260">9  worker: lunas, payment, jurnal</text>
+  <text class="mono" x="58" y="278">D Bank BTN / K uang muka|piutang</text>
+  <text class="s" x="40" y="304">10 rekonsiliasi 3 arah harian:</text>
+  <text class="s" x="58" y="322">kasir · laporan TPDI · mutasi BTN</text>
+  <text class="xs" x="40" y="348">selisih nominal → pengecualian, bukan lunas</text>
+
+  <!-- TPDI -->
+  <rect class="card" x="420" y="96" width="230" height="130" rx="12"/>
+  <text class="t" x="436" y="120">TPDI</text>
+  <text class="s" x="436" y="142">agregator teknologi: API tagihan,</text>
+  <text class="s" x="436" y="160">halaman bayar, webhook, laporan</text>
+  <text class="t tok" x="436" y="190">tidak menampung dana</text>
+  <text class="xs" x="436" y="210">lokal: apps/mock</text>
+
+  <path class="ln" d="M314 132H416" marker-end="url(#a)"/>
+  <text class="xs" x="320" y="124">2 create invoice</text>
+  <path class="ln" d="M420 176H318" marker-end="url(#a)"/>
+  <text class="xs" x="322" y="170">4 nomor VA / QR</text>
+  <path class="ln" d="M420 210H318" marker-end="url(#a)"/>
+  <text class="xs" x="322" y="204">8 webhook HMAC</text>
+
+  <!-- Prinsip -->
+  <rect class="okbox" x="690" y="96" width="286" height="130" rx="12"/>
+  <text class="big tok" x="706" y="124">Dana pasien tidak pernah</text>
+  <text class="big tok" x="706" y="146">transit di TPDI</text>
+  <text class="s" x="706" y="172">pasien membayar langsung ke rekening</text>
+  <text class="s" x="706" y="190">RS di BTN (ADR-0005, prinsip no. 8)</text>
+  <text class="xs" x="706" y="212">uang = bigint rupiah, jurnal berpasangan</text>
+
+  <!-- BTN -->
+  <rect class="okbox" x="420" y="300" width="230" height="150" rx="12"/>
+  <text class="t tok" x="436" y="324">BTN</text>
+  <text class="s" x="436" y="346">VA, QRIS (10 mnt), EDC</text>
+  <text class="s" x="436" y="368">rekening operasional RS</text>
+  <text class="mono" x="436" y="386">••••4417</text>
+  <text class="s" x="436" y="408">penampungan klaim BPJS</text>
+  <text class="mono" x="436" y="426">••••9021</text>
+  <path class="ln" d="M500 226V296" marker-end="url(#a)"/>
+  <text class="xs" x="440" y="262">3 terbitkan</text>
+  <text class="xs" x="440" y="276">VA / QR</text>
+  <path class="ln" d="M600 300V230" marker-end="url(#a)"/>
+  <text class="xs" x="608" y="262">7 notifikasi</text>
+  <text class="xs" x="608" y="276">pembayaran</text>
+
+  <!-- Pasien -->
+  <rect class="card" x="720" y="330" width="256" height="90" rx="12"/>
+  <text class="t" x="736" y="354">Pasien</text>
+  <text class="s" x="736" y="376">m-banking, e-wallet, atau EDC</text>
+  <text class="s" x="736" y="396">tunai tidak lewat TPDI</text>
+  <path class="money" d="M720 375H660" marker-end="url(#ak)"/>
+  <text class="xs tok" x="664" y="364">6 bayar</text>
+
+  <!-- Mutasi -->
+  <path class="ln dash" d="M420 430H170V370" marker-end="url(#a)"/>
+  <text class="xs" x="180" y="422">mutasi H2H untuk rekonsiliasi</text>
+
+  <rect class="card" x="24" y="476" width="952" height="60" rx="12"/>
+  <text class="s" x="40" y="500">Webhook ganda diabaikan (unik per X-TPDI-Event-Id, umur maks. 5 menit). Status: draft → pending → paid / expired / failed; paid → refund.</text>
+  <text class="xs" x="40" y="520">Rujukan: docs/07-pembayaran-btn-tpdi.md. Di mode presentasi alur ini disimulasikan di layar Pembayaran digital (/keuangan/pembayaran).</text>
+</svg>

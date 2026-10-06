@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="judul ket">
+  <title id="judul">Outbox, retry, dan DLQ</title>
+  <desc id="ket">Transaksi domain menulis data, pesan outbox berstatus pending, dan audit lalu commit bersama. Worker mengklaim pesan menjadi processing. HTTP 2xx menjadi sent. 5xx, 408, 425, 429, atau galat jaringan menjadi failed lalu dijadwalkan ulang dengan jeda eksponensial; gagal ke-8 menjadi dead (DLQ). 4xx lain langsung dead. Webhook masuk: verifikasi HMAC, simpan inbound_events, jawab 2xx, proses async.</desc>
+  <style>
+    .bg{fill:#F5F7F9}.card{fill:#FFFFFF;stroke:#E3E8EE;stroke-width:1.2}.brandbox{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.4}
+    .pn{fill:#FFFFFF;stroke:#5B6B79;stroke-width:1.4}.pp{fill:#E6F4F1;stroke:#0F766E;stroke-width:1.6}.ps{fill:#EAF5EC;stroke:#1E6B34;stroke-width:1.4}
+    .pf{fill:#FFF3E0;stroke:#8A4B00;stroke-width:1.4}.pd{fill:#FDECEA;stroke:#B42318;stroke-width:1.6}.dlq{fill:#FDECEA;stroke:#F0C2BD;stroke-width:1.2}
+    text{font-family:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;fill:#14212B;font-size:13px}
+    .h{font-size:19px;font-weight:700}.sub{font-size:13px;fill:#3F4C58}.t{font-size:14px;font-weight:700}.st{font-size:13px;font-weight:700}
+    .s{font-size:12px;fill:#3F4C58}.xs{font-size:11px;fill:#5B6B79}.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+    .tb{fill:#0B5D56}.tok{fill:#1E6B34}.tw{fill:#8A4B00}.td{fill:#B42318}
+    .ln{stroke:#5B6B79;stroke-width:1.5;fill:none}.lnd{stroke:#B42318;stroke-width:1.5;fill:none}.lnk{stroke:#1E6B34;stroke-width:1.6;fill:none}.dash{stroke-dasharray:5 4}
+    .ah{fill:#5B6B79}.ahd{fill:#B42318}.ahk{fill:#1E6B34}
+    @media (prefers-color-scheme: dark){
+      .bg{fill:#0E161C}.card{fill:#15212A;stroke:#2A3945}.brandbox{fill:#0F302D;stroke:#3FB8AA}
+      .pn{fill:#15212A;stroke:#8FA1B0}.pp{fill:#0F302D;stroke:#3FB8AA}.ps{fill:#12301D;stroke:#6FCF8A}.pf{fill:#362510;stroke:#F0B45A}.pd{fill:#3A1714;stroke:#F2877C}.dlq{fill:#2A1412;stroke:#8C3A31}
+      text{fill:#E6EDF3}.sub,.s{fill:#B8C4CE}.xs{fill:#8FA1B0}.tb{fill:#6FD3C6}.tok{fill:#6FCF8A}.tw{fill:#F0B45A}.td{fill:#F2877C}
+      .ln{stroke:#8FA1B0}.lnd{stroke:#F2877C}.lnk{stroke:#6FCF8A}.ah{fill:#8FA1B0}.ahd{fill:#F2877C}.ahk{fill:#6FCF8A}
+    }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahd" d="M0 0L10 5L0 10z"/></marker>
+    <marker id="ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ahk" d="M0 0L10 5L0 10z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="640" rx="14"/>
+  <text class="h" x="24" y="38">Integrasi lewat outbox: retry, idempotensi, DLQ</text>
+  <text class="sub" x="24" y="60">API tidak memanggil sistem luar di dalam transaksi database. Pendaftaran tetap jalan walau BPJS sedang gangguan.</text>
+
+  <!-- Transaksi domain -->
+  <rect class="brandbox" x="24" y="96" width="256" height="150" rx="12"/>
+  <text class="t tb" x="40" y="120">Transaksi domain (API)</text>
+  <text class="mono" x="40" y="144">BEGIN · app.tenant_id</text>
+  <text class="mono" x="40" y="164">INSERT data domain</text>
+  <text class="mono" x="40" y="184">INSERT outbox_messages</text>
+  <text class="xs" x="52" y="200">pending + idempotency_key</text>
+  <text class="mono" x="40" y="220">INSERT audit_events</text>
+  <text class="mono" x="40" y="238">COMMIT (bersama)</text>
+  <path class="ln" d="M280 160H316" marker-end="url(#a)"/>
+
+  <!-- Status -->
+  <text class="xs" x="485" y="96" text-anchor="middle">defer: tunda tanpa menambah percobaan</text>
+  <path class="ln dash" d="M560 140C560 106 410 106 410 136" marker-end="url(#a)"/>
+  <rect class="pn" x="320" y="140" width="130" height="40" rx="20"/><text class="st" x="385" y="165" text-anchor="middle">pending</text>
+  <text class="xs" x="483" y="178" text-anchor="middle">klaim</text>
+  <path class="ln" d="M450 160H516" marker-end="url(#a)"/>
+  <rect class="pp" x="520" y="140" width="130" height="40" rx="20"/><text class="st tb" x="585" y="165" text-anchor="middle">processing</text>
+  <path class="lnk" d="M650 160H756" marker-end="url(#ak)"/>
+  <text class="xs tok" x="703" y="152" text-anchor="middle">HTTP 2xx</text>
+  <rect class="ps" x="760" y="140" width="130" height="40" rx="20"/><text class="st tok" x="825" y="165" text-anchor="middle">sent</text>
+
+  <path class="ln" d="M565 180V286" marker-end="url(#a)"/>
+  <text class="xs" x="557" y="222" text-anchor="end">5xx, 408, 425, 429,</text>
+  <text class="xs" x="557" y="238" text-anchor="end">galat jaringan</text>
+  <path class="ln dash" d="M605 290V184" marker-end="url(#a)"/>
+  <rect class="pf" x="520" y="290" width="130" height="40" rx="20"/><text class="st tw" x="585" y="315" text-anchor="middle">failed</text>
+  <text class="xs" x="520" y="352">jadwal ulang: 1, 2, 4 … 64 dtk</text>
+  <text class="xs" x="520" y="368">+ jitter, maksimum 5 menit</text>
+
+  <path class="lnd" d="M640 180L762 288" marker-end="url(#ad)"/>
+  <text class="xs td" x="716" y="222">4xx lain / operasi</text>
+  <text class="xs td" x="716" y="238">belum didukung</text>
+  <path class="lnd" d="M650 310H756" marker-end="url(#ad)"/>
+  <text class="xs td" x="703" y="328" text-anchor="middle">percobaan ke-8</text>
+  <rect class="pd" x="760" y="290" width="130" height="40" rx="20"/><text class="st td" x="825" y="315" text-anchor="middle">dead (DLQ)</text>
+
+  <rect class="dlq" x="716" y="350" width="260" height="86" rx="10"/>
+  <text class="s" x="730" y="372">berhenti dicoba; log tanpa isi pesan</text>
+  <text class="s" x="730" y="390">onDead: status domain jadi "gagal"</text>
+  <text class="s" x="730" y="408">kirim ulang manual dari layar domain</text>
+  <text class="s" x="730" y="426">atau Integration hub, tercatat audit</text>
+
+  <!-- Catatan -->
+  <rect class="card" x="24" y="266" width="440" height="170" rx="12"/>
+  <text class="t" x="40" y="290">Aturan yang selalu berlaku</text>
+  <text class="s" x="40" y="314">• idempotency key unik per tenant + tujuan: tulis ulang tidak menggandakan</text>
+  <text class="s" x="40" y="334">• klaim FOR UPDATE SKIP LOCKED + lease 60 dtk: worker mati → diambil ulang</text>
+  <text class="s" x="40" y="354">• setiap percobaan dicatat di delivery_attempts (kode HTTP, durasi)</text>
+  <text class="s" x="40" y="374">• SEP dan task ID BPJS: dicoba sampai akhir hari layanan (00.00 WIB)</text>
+  <text class="s" x="40" y="394">• task ID berurutan: pesan ditunda sampai task sebelumnya terkirim</text>
+  <text class="s" x="40" y="414">• payload outbox tanpa PHI; worker membaca data saat kirim</text>
+
+  <!-- Webhook masuk -->
+  <text class="t" x="24" y="476">Webhook masuk (TPDI, BTN): pola kebalikannya</text>
+  <rect class="card" x="24" y="488" width="148" height="72" rx="10"/>
+  <text class="b st" x="36" y="512">Sistem luar</text><text class="xs" x="36" y="530">TPDI, BTN</text><text class="xs" x="36" y="546">(lokal: mock)</text>
+  <path class="ln" d="M172 524H181" marker-end="url(#a)"/>
+  <rect class="card" x="185" y="488" width="148" height="72" rx="10"/>
+  <text class="st" x="197" y="512">POST webhook</text><text class="mono" x="197" y="532">/api/v1/webhooks/</text><text class="mono" x="197" y="548">&lt;sumber&gt;</text>
+  <path class="ln" d="M333 524H342" marker-end="url(#a)"/>
+  <rect class="card" x="346" y="488" width="148" height="72" rx="10"/>
+  <text class="st" x="358" y="512">Verifikasi HMAC</text><text class="xs" x="358" y="530">umur maks. 5 menit</text><text class="xs" x="358" y="546">salah → ditolak</text>
+  <path class="ln" d="M494 524H503" marker-end="url(#a)"/>
+  <rect class="card" x="507" y="488" width="148" height="72" rx="10"/>
+  <text class="st" x="519" y="512">Simpan mentah</text><text class="mono" x="519" y="532">inbound_events</text><text class="xs" x="519" y="548">unik per id event</text>
+  <path class="ln" d="M655 524H664" marker-end="url(#a)"/>
+  <rect class="card" x="668" y="488" width="148" height="72" rx="10"/>
+  <text class="st" x="680" y="512">Jawab 2xx</text><text class="xs" x="680" y="530">secepatnya</text><text class="xs" x="680" y="546">ganda: diabaikan</text>
+  <path class="ln" d="M816 524H825" marker-end="url(#a)"/>
+  <rect class="brandbox" x="829" y="488" width="147" height="72" rx="10"/>
+  <text class="st tb" x="841" y="512">Worker proses</text><text class="xs" x="841" y="530">async, sekali saja</text><text class="xs" x="841" y="546">per tenant (RLS)</text>
+
+  <text class="xs" x="24" y="600">Rujukan: ADR-0003 (outbox), ADR-0017 (operasi tanpa PHI, hasil atomik), docs/panduan/02-cara-kerja-kode.md bagian Worker.</text>
+</svg>
