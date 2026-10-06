@@ -4,7 +4,7 @@
 - Status: selesai (menunggu integrasi)
 - Pemilik sesi: Claude Code
 - Worktree: `/Users/godam/PROYEK/simrs/.claude/worktrees/agent-adab48bb2f0abc352`
-- Branch: `worktree-agent-adab48bb2f0abc352` (turunan 51aa3ed)
+- Branch: `worktree-agent-adab48bb2f0abc352` (turunan 51aa3ed; origin/master ddc3397 sudah digabung)
 - Tujuan: fase 2 Pelangi Klinis (ADR-0091) untuk domain KEUANGAN (rona toska): menyelaraskan tampilan layar keuangan dengan papan C12-Kasir, C13-Klaim, C35-Pembayaran, C36-Pembiayaan, dan C37-Akuntansi.
 - Lingkup: hanya gaya dan tata letak. Tidak ada perubahan perilaku, reducer, Server Action, data demo, atau teks.
 - Kepemilikan file:
@@ -59,7 +59,7 @@
 
 - `turbo run typecheck lint --filter=@simrs/web`: lolos.
 - `apps/web pnpm test`: 969 lolos.
-- E2E terarah (`keuangan.spec`, `fe4-keuangan.spec`, `btn.spec`, slot `simrs_test_codex_b`, port 4520/3520/3521/4620): 42 lolos (1,5 mnt).
+- E2E terarah (`keuangan.spec`, `fe4-keuangan.spec`, `btn.spec`, slot `simrs_test_codex_b`, port 4520/3520/3521/4620): 42 lolos (1,5 mnt); diulang setelah merge ddc3397: 42 lolos (46 dtk).
 - Catatan lingkungan:
   - Worktree tidak punya `.env`, sehingga API E2E gagal start. Variabel dimuat baca-saja dari `.env` checkout utama ke environment proses tes. `.env` tidak disalin atau diubah.
   - `@simrs/pdf` perlu dibangun sekali (`turbo run build --filter=./packages/*`).
