@@ -52,10 +52,16 @@ describe('konsultasi dan rawat bersama (K10)', () => {
 
   it('jawab konsul: hanya posisi dokter, kesimpulan + rekomendasi wajib', () => {
     const a = { conclusion: 'x', recommendation: 'y' };
-    expect(answerBlocker(sutan, a, 'dokter')).toBeNull();
-    expect(answerBlocker(sutan, a, 'dokter_residen')).toMatch(/residen menyiapkan draf/);
-    expect(answerBlocker(sutan, { ...a, recommendation: ' ' }, 'dokter')).toMatch(/rekomendasi/);
-    expect(answerBlocker({ ...sutan, answer: answer('selesai') }, a, 'dokter')).toBe('Konsul sudah dijawab.');
+    const me = sutan.to;
+    expect(answerBlocker(sutan, a, 'dokter', me)).toBeNull();
+    expect(answerBlocker(sutan, a, 'dokter_residen', me)).toMatch(/residen menyiapkan draf/);
+    expect(answerBlocker(sutan, { ...a, recommendation: ' ' }, 'dokter', me)).toMatch(/rekomendasi/);
+    expect(answerBlocker({ ...sutan, answer: answer('selesai') }, a, 'dokter', me)).toBe(
+      'Konsul sudah dijawab.',
+    );
+    // Hanya dokter yang dituju yang menjawab: bukan dokter lain, bukan pengirim konsul (alih rawat ke diri sendiri).
+    expect(answerBlocker(sutan, a, 'dokter', 'dr. Lain Fiktif, Sp.B')).toMatch(/dokter yang dituju/);
+    expect(answerBlocker({ ...sutan, from: me }, a, 'dokter', me)).toMatch(/Pengirim konsul/);
   });
 
   it('tindak lanjut: rawat bersama menambah anggota; alih rawat menutup DPJP lama (bukan menghapus)', () => {

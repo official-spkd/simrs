@@ -106,15 +106,21 @@ export function sendBlocker(d: ConsultDraft, role: string | null, user: string):
   return null;
 }
 
-/** Gerbang jawab konsul: hanya dokter konsultan (posisi dokter), konsul belum dijawab, isian terstruktur lengkap. */
+/**
+ * Gerbang jawab konsul: hanya dokter konsultan yang DITUJU (`actor` = dokter posisi aktif), bukan pengirim konsul,
+ * konsul belum dijawab, isian terstruktur lengkap.
+ */
 export function answerBlocker(
   c: ConsultRequest,
   a: Pick<ConsultAnswer, 'conclusion' | 'recommendation'>,
   role: string | null,
+  actor: string,
 ): string | null {
   if (c.answer) return 'Konsul sudah dijawab.';
   if (role !== 'dokter')
     return 'Jawaban konsul ditandatangani dokter konsultan (posisi dokter); residen menyiapkan draf.';
+  if (c.from === actor) return 'Pengirim konsul tidak menjawab konsulnya sendiri.';
+  if (c.to !== actor) return `Konsul ini dijawab dokter yang dituju (${c.to}).`;
   if (!a.conclusion.trim()) return 'Isi kesimpulan/diagnosis konsultan.';
   if (!a.recommendation.trim()) return 'Isi rekomendasi tata laksana.';
   return null;
