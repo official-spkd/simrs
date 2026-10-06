@@ -15,6 +15,16 @@ import {
 } from '../../demo/fixtures/kredensial';
 import { patientById } from '../../demo/fixtures/pasien';
 import { draftRoster, EMPLOYEES, ROSTER_STAFF, ROSTER_UNIT } from '../../demo/fixtures/pegawai';
+import {
+  BUNDLE_AUDITS,
+  BUNDLES,
+  HAI_MONTH,
+  HAI_SUSPECTS,
+  handHygieneObservations,
+  ISOLATION_REQUESTS,
+  ISOLATION_ROOMS,
+  ppeAudits,
+} from '../../demo/fixtures/ppi';
 import { assertDemo } from '../demo-guard';
 import { webEnv } from '../web-env';
 import { notImplemented } from './not-implemented';
@@ -65,3 +75,19 @@ export async function getCredentialing() {
     guardEvents: ORDER_GUARD_EVENTS,
   };
 }
+
+/** B07 · surveilans HAIs, observasi kebersihan tangan, audit bundle/APD, dan isolasi bulan berjalan. */
+export async function getPpi() {
+  demoOnly('PPI');
+  return {
+    month: HAI_MONTH,
+    suspects: HAI_SUSPECTS,
+    handHygiene: handHygieneObservations(),
+    ppe: ppeAudits(),
+    bundles: BUNDLES,
+    bundleAudits: BUNDLE_AUDITS,
+    rooms: ISOLATION_ROOMS,
+    isolationRequests: ISOLATION_REQUESTS,
+  };
+}
+export type PpiData = Awaited<ReturnType<typeof getPpi>>;

@@ -467,6 +467,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: ['manajemen', 'dokter'],
     layout: 'staf',
   },
+  {
+    id: 'ppi',
+    label: 'PPI',
+    route: '/manajemen/ppi',
+    mockup: null,
+    components: ['B07'],
+    phase: 8,
+    status: 'demo',
+    plannedPermission: 'ipc.read',
+    demoRoles: ['auditor_mutu', 'perawat'],
+    layout: 'staf',
+  },
   // FE5 · akhir
 ];
 

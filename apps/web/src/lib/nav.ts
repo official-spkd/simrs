@@ -106,6 +106,7 @@ export const NAV_GROUPS: WebNavGroup[] = [
         icon: 'idCard',
         available: false,
       },
+      { id: 'ppi', label: 'PPI', href: '/manajemen/ppi', icon: 'shield', available: false },
     ],
   },
   // FE5 · akhir

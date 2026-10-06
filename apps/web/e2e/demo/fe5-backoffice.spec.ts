@@ -180,4 +180,78 @@ test.describe('FE5 · back office', () => {
 
     await expectNoHorizontalOverflow(page);
   });
+  test('B07 PPI: konfirmasi suspek VAP, bukan HAI beralasan, sensus, 5 momen, bundle, isolasi airborne', async ({
+    page,
+  }) => {
+    const perawat = await createAccount({ roles: ['perawat'] });
+    await loginAs(page, perawat, '/');
+    await page.goto('/manajemen/ppi');
+    await expect(
+      page.getByRole('heading', { name: 'Pencegahan dan pengendalian infeksi', level: 1 }),
+    ).toBeVisible();
+
+    const confirm = page.getByRole('button', { name: 'Konfirmasi HAI' });
+    await expect(confirm).toBeDisabled();
+    for (const box of await page
+      .getByRole('tabpanel', { name: 'Surveilans HAIs' })
+      .getByRole('checkbox')
+      .all()) {
+      await box.check();
+    }
+    await confirm.click();
+    await expect(
+      page.getByText(/dikonfirmasi .* \(di atas sasaran: audit bundle unit dijadwalkan\)/),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: /^Phlebitis/ }).click();
+    await page.getByRole('button', { name: 'Bukan HAI…' }).click();
+    await page.getByLabel(/Alasan/).fill('Kemerahan karena plester, skor VIP turun ke 0');
+    await page.getByRole('button', { name: 'Simpan keputusan' }).click();
+    await expect(page.getByText(/diputus bukan HAI/)).toBeVisible();
+
+    for (const label of [
+      'Pasien dengan kateter urine',
+      'Pasien dengan ventilator',
+      'Pasien dengan infus perifer',
+      'Operasi bersih hari ini',
+    ]) {
+      await page.getByLabel(label).fill('4');
+    }
+    await page.getByRole('button', { name: 'Catat sensus hari ini' }).click();
+    await expect(page.getByText(/Sensus hari ini tercatat/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Kebersihan tangan' }).click();
+    await page.getByLabel('Profesi yang diamati').selectOption('Dokter');
+    await page.getByLabel('Momen').selectOption('0');
+    await page.getByLabel('Tindakan').selectOption('tidak');
+    await page.getByRole('button', { name: 'Catat peluang' }).click();
+    await expect(page.getByText(/kepatuhan bulan ini 88% \(352\/401\)/)).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Bundle' }).click();
+    const bundle = page.getByRole('tabpanel', { name: 'Bundle' });
+    await bundle.getByLabel('Nomor RM').fill('00-50-11-36');
+    for (const el of [
+      'Elevasi kepala 30–45°',
+      'Kebersihan mulut dengan klorheksidin',
+      'Evaluasi sedasi harian',
+      'Profilaksis ulkus peptikum',
+    ]) {
+      await bundle.getByRole('checkbox', { name: el }).check();
+    }
+    await bundle.getByRole('button', { name: 'Simpan audit' }).click();
+    await expect(bundle.getByText(/tidak patuh .* terlewat profilaksis trombosis vena dalam/)).toBeVisible();
+
+    await page.getByRole('tab', { name: /Isolasi/ }).click();
+    const room = page.getByLabel('Ruang isolasi untuk RM 00-47-90-12');
+    await room.selectOption('iso-3');
+    await expect(page.getByText('Kewaspadaan airborne wajib ruang bertekanan negatif.')).toBeVisible();
+    await room.selectOption('iso-2');
+    await page
+      .getByRole('region', { name: 'Permintaan isolasi · RM 00-47-90-12' })
+      .getByRole('button', { name: 'Tempatkan' })
+      .click();
+    await expect(page.getByText(/RM 00-47-90-12 ditempatkan di Isolasi 2/)).toBeVisible();
+
+    await expectNoHorizontalOverflow(page);
+  });
 });
