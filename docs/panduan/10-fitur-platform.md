@@ -319,7 +319,7 @@ Rincian: [Notifikasi](./01-cara-kerja-sistem.md#notifikasi).
 
 ## PIN masuk cepat
 
-![Layar PIN masuk cepat: penjelasan aturan PIN, kartu Daftarkan perangkat ini (posisi tanpa unit sehingga formulir tidak tampil), daftar Perangkat ber-PIN yang masih kosong](./gambar/pin.png)
+![Layar PIN masuk cepat untuk posisi Perawat · Bangsal Melati: penjelasan aturan PIN, formulir Daftarkan perangkat ini (nama perangkat, PIN baru, ulangi PIN, kata sandi saat ini), dan daftar Perangkat ber-PIN yang masih kosong](./gambar/pin.png)
 
 | Hal      | Isi                                                                                                             |
 | -------- | --------------------------------------------------------------------------------------------------------------- |

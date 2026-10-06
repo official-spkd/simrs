@@ -81,12 +81,18 @@ export default defineConfig({
     timezoneId: 'Asia/Jakarta',
   },
   projects: [
-    { name: 'desktop', testIgnore: 'demo/**', use: { ...devices['Desktop Chrome'], channel } },
+    { name: 'desktop', testIgnore: ['demo/**', 'docs/**'], use: { ...devices['Desktop Chrome'], channel } },
     {
       name: 'tablet',
       // Spesifikasi yang mengubah skenario mock (keadaan bersama) cukup di proyek desktop. Di-skip di dalam tes saja
       // tidak cukup: `afterEach` proyek ini tetap jalan dan mengembalikan skenario saat tes desktop sedang memakainya.
-      testIgnore: ['demo/**', 'infrastruktur.spec.ts', 'pendaftaran.spec.ts', 'downtime-bpjs.spec.ts'],
+      testIgnore: [
+        'demo/**',
+        'docs/**',
+        'infrastruktur.spec.ts',
+        'pendaftaran.spec.ts',
+        'downtime-bpjs.spec.ts',
+      ],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
     },
     {
@@ -105,6 +111,23 @@ export default defineConfig({
         baseURL: DEMO_URL,
         viewport: { width: 768, height: 1024 },
       },
+    },
+    // Tangkap layar dokumentasi (`pnpm docs:gambar`, DOCS_CAPTURE=1; tanpa itu dilewati): 1366×768 ke
+    // docs/panduan/gambar/. `docs` = layar mode presentasi, `docs-api` = layar yang tersambung API.
+    {
+      name: 'docs',
+      testMatch: 'docs/tangkap-layar.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel,
+        baseURL: DEMO_URL,
+        viewport: { width: 1366, height: 768 },
+      },
+    },
+    {
+      name: 'docs-api',
+      testMatch: 'docs/tangkap-layar-api.spec.ts',
+      use: { ...devices['Desktop Chrome'], channel, viewport: { width: 1366, height: 768 } },
     },
   ],
   // Dinyalakan berurutan sesuai daftar ini, sebelum global setup.
