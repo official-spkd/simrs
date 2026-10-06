@@ -2,10 +2,11 @@
 
 import { type Claim, formatJam, formatTanggal } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { GatedButton } from '@/components/gated-button';
 import { type KlaimActionInput, klaimAction } from '@/app/(staf)/keuangan/klaim/actions';
 import { useDemoRunner } from '@/components/demo-sync';
+import { useStoreAction } from '@/lib/demo/store/client';
 import { flowReason, type ScenarioFlow } from '@/lib/keuangan-flow';
 import {
   CLAIM_STATUS_LABEL,
@@ -33,30 +34,39 @@ const NOTE = {
  * U05/U06 · Berkas klaim terpilih (mockup Klaim): kode ICD-10/ICD-9-CM, saran koding, hasil grouper vs tarif RS,
  * kelengkapan berkas, lalu final → kirim E-Klaim. Pasien skenario: validasi dan kirim menjalankan tugas skenario.
  */
-export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: ScenarioFlow | null; rev: number }) {
+export function ClaimDetail({
+  claim,
+  flow,
+  rev,
+  storeRev,
+}: {
+  claim: Claim;
+  flow: ScenarioFlow | null;
+  /** Revisi toko skenario (tugas Simulasi). */
+  rev: number;
+  /** Revisi domain toko `klaim`. */
+  storeRev: number;
+}) {
   const runner = useDemoRunner(rev);
-  // Per klaim, bertahan saat koder pindah ke klaim lain lalu kembali (mockup Klaim).
-  const [local, patch] = useClaimLocal(claim.id);
-  const docs = local.docs ?? claim.documents;
-  const acceptedAt = local.acceptedAt ?? null;
-  const queryAt = local.queryAt ?? null;
-  const sentAt = local.sentAt ?? null;
-  const setAcceptedAt = (at: string) => patch({ acceptedAt: at });
-  const setQueryAt = (at: string) => patch({ queryAt: at });
-  const setSentAt = (at: string) => patch({ sentAt: at });
+  const store = useStoreAction(storeRev);
+  // Per klaim, tersimpan di toko demo: bertahan saat pindah klaim, muat ulang, dan di perangkat lain.
+  const local = useClaimLocal(claim.id);
+  const docs = claim.documents;
+  const fmt = (v: string | null | undefined) => (v ? formatJam(v) : null);
+  const acceptedAt = fmt(local.acceptedAt);
+  const queryAt = fmt(local.queryAt);
+  const sentAt = fmt(local.sentAt);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, startTransition] = useTransition();
-  const pending = busy || runner.pending;
+  const pending = store.pending || runner.pending;
   const scen = claim.scenario ? flow : null;
   const task = (id: string, value: true | string = true) => {
     if (scen) runner.run({ type: 'task', step: scen.step, task: id, value, scenario: scen.scenario });
   };
-  const run = (input: KlaimActionInput, done?: (at: string) => void) =>
-    startTransition(async () => {
-      const r = await klaimAction(input);
-      setMessage(r.message);
-      if (r.ok) done?.(r.at ?? formatJam(new Date()));
-    });
+  const run = (input: KlaimActionInput) =>
+    store.run(
+      (r) => klaimAction({ ...input, rev: r }),
+      (res) => setMessage(res.message),
+    );
 
   const view = codingView(claim, { accepted: !!acceptedAt, docs });
   const sug = claim.suggestion;
@@ -84,33 +94,40 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
           onClick: () =>
             kirimTask
               ? task('kirim')
-              : run(
-                  {
-                    type:
-                      claim.status === 'pending'
-                        ? 'tanggapan'
-                        : claim.status === 'dispute'
-                          ? 'banding'
-                          : 'kirim',
-                    claimId: claim.id,
-                  },
-                  setSentAt,
-                ),
+              : run({
+                  type:
+                    claim.status === 'pending'
+                      ? 'tanggapan'
+                      : claim.status === 'dispute'
+                        ? 'banding'
+                        : 'kirim',
+                  claimId: claim.id,
+                  rev: 0,
+                }),
         }
       : null;
+  const firstSend = local.sentKind === 'kirim' || claim.status === 'draft';
+  const verify =
+    !scen && claim.status === 'sent' ? (
+      <GatedButton enabled={!pending} onClick={() => run({ type: 'verifikasi', claimId: claim.id, rev: 0 })}>
+        Catat hasil verifikasi BPJS: layak bayar (mock E-Klaim)
+      </GatedButton>
+    ) : undefined;
   const sent = sentAt
     ? {
-        title:
-          claim.status === 'draft'
-            ? `Terkirim ke E-Klaim ${sentAt}`
-            : claim.status === 'pending'
-              ? `Tanggapan terkirim ke verifikator ${sentAt}`
-              : `Banding diajukan ${sentAt}`,
+        title: firstSend
+          ? `Terkirim ke E-Klaim ${sentAt}`
+          : local.sentKind === 'tanggapan' || claim.status === 'pending'
+            ? `Tanggapan terkirim ke verifikator ${sentAt}`
+            : `Banding diajukan ${sentAt}`,
         note:
-          claim.status === 'draft'
-            ? 'Berkas dikunci untuk verifikasi BPJS. Jurnal piutang BPJS terbentuk otomatis di Akuntansi.'
-            : 'Berkas tambahan dikunci dan tercatat di audit. Piutang BPJS tetap terbuka sampai dana cair.',
-        journalLink: claim.status === 'draft',
+          claim.status === 'payable'
+            ? (claim.note?.text ?? 'Layak bayar.')
+            : firstSend
+              ? 'Berkas dikunci untuk verifikasi BPJS. Piutang BPJS sudah diakui saat kunjungan ditutup di Kasir.'
+              : 'Berkas tambahan dikunci dan tercatat di audit. Piutang BPJS tetap terbuka sampai dana cair.',
+        journalLink: firstSend,
+        extra: verify,
       }
     : atVerifier
       ? {
@@ -125,7 +142,9 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
               pending={pending}
               onRun={(t) => task(t)}
             />
-          ) : undefined,
+          ) : (
+            verify
+          ),
         }
       : null;
   const note =
@@ -158,15 +177,12 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
           <GatedButton
             variant="primary"
             enabled={!pending}
-            onClick={() => run({ type: 'terima-saran', claimId: claim.id, code: sug.to }, setAcceptedAt)}
+            onClick={() => run({ type: 'terima-saran', claimId: claim.id, code: sug.to, rev: 0 })}
           >
             {queryAt ? `DPJP setuju · terapkan ${sug.to}` : `Terima ${sug.to}`}
           </GatedButton>
           {!queryAt && (
-            <GatedButton
-              enabled={!pending}
-              onClick={() => run({ type: 'query', claimId: claim.id }, setQueryAt)}
-            >
+            <GatedButton enabled={!pending} onClick={() => run({ type: 'query', claimId: claim.id, rev: 0 })}>
               Kirim query ke DPJP
             </GatedButton>
           )}
@@ -219,7 +235,7 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
                   flow={scen}
                   pending={pending}
                   onTask={task}
-                  onReason={(reason) => run({ type: 'alasan-bukti', claimId: claim.id, reason })}
+                  onReason={(reason) => run({ type: 'alasan-bukti', claimId: claim.id, reason, rev: 0 })}
                 />
               )}
             </>
@@ -237,14 +253,22 @@ export function ClaimDetail({ claim, flow, rev }: { claim: Claim; flow: Scenario
         <ClaimDocs
           docs={docs}
           locked={locked}
-          onToggle={(id) => patch({ docs: docs.map((d) => (d.id === id ? { ...d, ok: !d.ok } : d)) })}
+          onToggle={(id) =>
+            run({
+              type: 'berkas',
+              claimId: claim.id,
+              docId: id,
+              ok: !docs.find((d) => d.id === id)?.ok,
+              rev: 0,
+            })
+          }
           query={
             !scen && !locked
               ? {
                   label: queryAt ? `Query terkirim ${queryAt}` : 'Kirim query ke DPJP',
                   enabled: !queryAt && !pending,
                   reason: '',
-                  onClick: () => run({ type: 'query', claimId: claim.id }, setQueryAt),
+                  onClick: () => run({ type: 'query', claimId: claim.id, rev: 0 }),
                 }
               : null
           }

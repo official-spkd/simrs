@@ -173,16 +173,19 @@ export interface ClaimLocal {
   acceptedAt?: string | null;
   queryAt?: string | null;
   sentAt?: string | null;
+  /** Jenis pengiriman: berkas awal ke E-Klaim, tanggapan pending, atau banding dispute. */
+  sentKind?: 'kirim' | 'tanggapan' | 'banding';
 }
 
 /** Chip daftar klaim setelah tindakan koder (mockup Klaim `tagFor`). */
 export function localClaimTag(claim: Pick<Claim, 'status' | 'tag'>, local: ClaimLocal): Claim['tag'] {
+  if (claim.status === 'payable' || claim.status === 'paid') return claim.tag;
   if (local.sentAt) {
     return {
       label:
-        claim.status === 'pending'
+        local.sentKind === 'tanggapan' || claim.status === 'pending'
           ? 'Tanggapan terkirim'
-          : claim.status === 'dispute'
+          : local.sentKind === 'banding' || claim.status === 'dispute'
             ? 'Banding diajukan'
             : 'Terkirim',
       level: 'ok',
@@ -202,9 +205,15 @@ export function claimHeaderStatus(
   local: ClaimLocal,
   view: { grouper: Claim['grouper']; missing: number },
 ): { label: string; tone: 'brand' | 'info' | 'success' } {
+  if (claim.status === 'payable' || claim.status === 'paid') {
+    return { label: `${CLAIM_STATUS_LABEL[claim.status]} · ${claim.tag.label}`, tone: 'success' };
+  }
   if (local.sentAt) {
     return {
-      label: claim.status === 'draft' ? 'Terkirim ke E-Klaim' : localClaimTag(claim, local).label,
+      label:
+        claim.status === 'draft' || local.sentKind === 'kirim'
+          ? 'Terkirim ke E-Klaim'
+          : localClaimTag(claim, local).label,
       tone: 'success',
     };
   }

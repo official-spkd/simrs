@@ -9,6 +9,7 @@ import {
 } from '@simrs/shared';
 import { CAPTURE_EVENTS } from '../../demo/fixtures/charge-capture';
 import { type AkuntansiState, applyAkuntansi } from '../../keuangan-akuntansi-toko';
+import { applyKlaim, type KlaimState } from '../../keuangan-klaim-toko';
 import { demoAccountingBoard, demoClaimBoard, demoKasirBoard } from '../../keuangan-skenario';
 import {
   applyCaptures,
@@ -53,13 +54,23 @@ export async function getKasirBoard(session: SessionView): Promise<KasirBoard> {
   return (await getKasirStore(session)).board;
 }
 
+export interface ClaimStore {
+  board: ClaimBoard;
+  /** Revisi domain `klaim`. */
+  rev: number;
+  state: KlaimState;
+}
+
+export async function getClaimStore(session: SessionView): Promise<ClaimStore> {
+  if (webEnv().dataSource !== 'demo') return notImplemented('klaim');
+  assertDemo();
+  const [runs, kl] = await Promise.all([scenarioRuns(session), readDomain('klaim')]);
+  const board = claimBoardSchema.parse(applyKlaim(demoClaimBoard(runs.results), kl.state));
+  return { board, rev: kl.rev, state: kl.state };
+}
+
 export async function getClaimBoard(session: SessionView): Promise<ClaimBoard> {
-  if (webEnv().dataSource === 'demo') {
-    assertDemo();
-    const runs = await scenarioRuns(session);
-    return claimBoardSchema.parse(demoClaimBoard(runs.results));
-  }
-  return notImplemented('klaim');
+  return (await getClaimStore(session)).board;
 }
 
 export interface AccountingStore {

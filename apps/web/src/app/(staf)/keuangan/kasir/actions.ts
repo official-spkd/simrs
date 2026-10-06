@@ -73,7 +73,7 @@ export type KasirActionInput = z.infer<typeof inputSchema>;
 export type ManualLineInput = z.infer<typeof manualLine>;
 
 /** Pembagian penjamin saat lunas (dasar jurnal pengakuan, klaim, dan piutang). */
-function settlementOf(inv: Invoice): Settlement {
+function settlementOf(inv: Invoice, diagnosis: string | null): Settlement {
   const s = inv.split;
   const prepaid = sumRupiah(inv.payments.map((p) => BigInt(p.amount)));
   return {
@@ -86,6 +86,10 @@ function settlementOf(inv: Invoice): Settlement {
     hospitalAbsorbs: s.hospitalAbsorbs,
     prepaid: prepaid.toString(),
     cbg: s.inacbg?.code ?? null,
+    sep: inv.encounter.sep,
+    dpjp: inv.encounter.dpjp,
+    label: inv.encounter.label,
+    diagnosis,
   };
 }
 
@@ -184,7 +188,7 @@ export async function kasirAction(input: KasirActionInput): Promise<KasirActionR
   const lock = await periodLock(at);
   if (lock) return { ok: false, message: lock };
   const { due } = invoiceSettlement(inv);
-  const st = settlementOf(inv);
+  const st = settlementOf(inv, store.state.registered.find((r) => r.invoiceId === inv.id)?.diagnosis ?? null);
   const patient = { id: inv.patient.id, name: inv.patient.name, rm: inv.patient.rm };
 
   if (c.type === 'bayar') {

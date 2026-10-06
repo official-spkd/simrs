@@ -3,6 +3,7 @@ import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
+import { klaimDomain } from '../../keuangan-klaim-toko';
 import { tagihanDomain } from '../../keuangan-tagihan-toko';
 import { igdDomain } from '../../klinis-igd-toko';
 import { orderDomain } from '../../klinis-order-toko';
@@ -39,6 +40,7 @@ export const DEMO_DOMAINS = {
   golive: goLiveDomain,
   'hasil-kritis': criticalDomain,
   jadwal: scheduleDomain,
+  klaim: klaimDomain,
   'klinis-igd': igdDomain,
   'klinis-order': orderDomain,
   'klinis-poli': poliDomain,

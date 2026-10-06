@@ -1,4 +1,4 @@
-import { journalBalanced, kasirBoardSchema } from '@simrs/shared';
+import { claimBoardSchema, journalBalanced, kasirBoardSchema } from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { type DemoActor, project, type StoredEvent } from './demo/store/define';
 import { CAPTURE_EVENTS } from './demo/fixtures/charge-capture';
@@ -22,7 +22,8 @@ import {
   tagihanDomain,
   type TagihanEvent,
 } from './keuangan-tagihan-toko';
-import { demoAccountingBoard, type ScenarioResults } from './keuangan-skenario';
+import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keuangan-skenario';
+import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
 import { runScenario } from './demo/engine/run';
 import { SCENARIO_ORDER, SCENARIOS } from './demo/skenario';
 import { invoiceSettlement } from './keuangan';
@@ -198,6 +199,10 @@ describe('domain tagihan (Kasir + Charge capture)', () => {
         hospitalAbsorbs: '0',
         prepaid: '0',
         cbg: null,
+        sep: null,
+        dpjp: 'dr. Andini Prameswari, Sp.PD',
+        label: 'Rawat jalan Poli Penyakit Dalam',
+        diagnosis: null,
       },
       jurnal: [
         patientPaymentJournal('qris', 65_000n, 'INV-2610-02401'),
@@ -260,6 +265,10 @@ describe('domain tagihan (Kasir + Charge capture)', () => {
         hospitalAbsorbs: '-174300',
         prepaid: '0',
         cbg: 'Q-5-44-0',
+        sep: '0301R0011026V005096',
+        dpjp: 'dr. Andini Prameswari, Sp.PD',
+        label: 'Rawat jalan Poli Penyakit Dalam',
+        diagnosis: null,
       },
       jurnal: [],
     } as unknown as TagihanEvent;
@@ -363,6 +372,111 @@ describe('aliran klinis (CD-2) → charge capture + kasir', () => {
     const caps = applyCaptures(CAPTURE_EVENTS, p.state);
     expect(caps.find((c) => c.id === 'cc-or-enc-rj-1-o1-baru')?.status).toBe('tertahan');
     expect(heldByRm(caps).get('00-12-45-78')).toBe(1);
+  });
+});
+
+describe('domain klaim · Kasir → Klaim → verifikasi; koding → klaim', () => {
+  const tutupBpjs = (invoiceId: string) => ({
+    type: 'tagihan.tutup',
+    invoiceId,
+    invoiceNo: 'INV-2610-02401',
+    patient: { id: PATIENT_ID.ayu, name: 'Pasien Daftar Fiktif', rm: '00-12-45-78' },
+    at: AT,
+    settlement: {
+      scheme: 'bpjs',
+      payerLabel: 'BPJS hak kelas 2',
+      setting: 'rawat-jalan',
+      hospitalTotal: '30000',
+      payerPays: '412300',
+      patientShare: '0',
+      hospitalAbsorbs: '-382300',
+      prepaid: '0',
+      cbg: 'Q-5-44-0',
+      sep: '0301R0011026V000812',
+      dpjp: 'dr. Andini Prameswari, Sp.PD',
+      label: 'Rawat jalan Poli Penyakit Dalam',
+      diagnosis: 'I10 · Hipertensi esensial (primer)',
+    },
+    jurnal: [
+      recognitionAutoJournal(
+        {
+          scheme: 'bpjs',
+          setting: 'rawat-jalan',
+          hospitalTotal: 30_000n,
+          payerPays: 412_300n,
+          patientShare: 0n,
+          hospitalAbsorbs: -382_300n,
+          prepaid: 0n,
+        },
+        'INV-2610-02401',
+      ),
+    ],
+  });
+  const koder: DemoActor = { userId: 'u-koder', name: 'Koder Sesi', role: 'koder', baseRole: null };
+
+  it('kunjungan BPJS ditutup di Kasir → berkas klaim siap; kirim → terkirim; verifikasi → layak bayar', () => {
+    const id = registeredInvoiceId('kj-1');
+    const events = [visit(1, 'BPJS'), ev('tagihan', tutupBpjs(id))];
+    let p = project(klaimDomain, log(events));
+    const claimId = `kl-${id}`;
+    const board = () => applyKlaim(demoClaimBoard(emptyScenarioResults()), p.state);
+    let c = board().claims.find((x) => x.id === claimId);
+    expect(c).toMatchObject({ status: 'draft', grouper: { cbg: 'Q-5-44-0', tariff: '412300' } });
+    expect(c?.diagnoses[0]).toMatchObject({ code: 'I10', role: 'utama' });
+    expect(claimBoardSchema.safeParse(board()).success).toBe(true);
+    events.push(ev('klaim', { type: 'klaim.kirim', claimId, kind: 'kirim', at: AT }, koder));
+    p = project(klaimDomain, log(events));
+    c = board().claims.find((x) => x.id === claimId);
+    expect(c?.status).toBe('sent');
+    const verifikasi = {
+      type: 'klaim.verifikasi',
+      claimId,
+      patient: { id: PATIENT_ID.ayu, name: 'Pasien Daftar Fiktif', rm: '00-12-45-78' },
+      sep: '0301R0011026V000812',
+      kind: 'rawat-jalan',
+      amount: '412300',
+      at: AT,
+    } as const;
+    expect(klaimDomain.validate?.(p.state, verifikasi, koder)).toBeNull();
+    events.push(ev('klaim', verifikasi, koder));
+    p = project(klaimDomain, log(events));
+    expect(board().claims.find((x) => x.id === claimId)?.status).toBe('payable');
+    expect(board().totals.payable).toBe(demoClaimBoard(emptyScenarioResults()).totals.payable + 1);
+  });
+
+  it('workbench koder: validasi butuh saran diputuskan + bukti; selesai → tag klaim pasien ikut', () => {
+    const fin = { type: 'koding.selesai', berkasId: 'kb-yusuf', versionReason: null, at: AT } as const;
+    expect(klaimDomain.validate?.(klaimDomain.initial(), fin, koder)).toMatch(/putuskan saran/);
+    const p = project(
+      klaimDomain,
+      log([
+        ev(
+          'klaim',
+          { type: 'koding.kode', berkasId: 'kb-yusuf', codeId: 'y-1', patch: { op: 'terima' }, at: AT },
+          koder,
+        ),
+        ev(
+          'klaim',
+          {
+            type: 'koding.kode',
+            berkasId: 'kb-yusuf',
+            codeId: 'y-3',
+            patch: { op: 'bukti', evidenceId: 'b-y1' },
+            at: AT,
+          },
+          koder,
+        ),
+        ev('klaim', fin, koder),
+      ]),
+    );
+    expect(codingList(p.state).find((b) => b.id === 'kb-yusuf')?.status).toBe('siap-grouping');
+    expect(
+      klaimDomain.validate?.(
+        p.state,
+        { type: 'koding.kode', berkasId: 'kb-yusuf', codeId: 'y-2', patch: { op: 'hapus' }, at: AT },
+        koder,
+      ),
+    ).toMatch(/tervalidasi/);
   });
 });
 

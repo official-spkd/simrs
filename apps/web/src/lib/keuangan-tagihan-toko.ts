@@ -74,6 +74,11 @@ export const settlementSchema = z.strictObject({
   prepaid: rupiah,
   /** Kode CBG estimasi/final (BPJS) untuk klaim; null bila bukan BPJS. */
   cbg: z.string().min(1).max(20).nullable(),
+  /** Data kunjungan untuk berkas klaim (SEP, DPJP, label, diagnosa awal SEP). */
+  sep: z.string().min(1).max(30).nullable(),
+  dpjp: z.string().min(1).max(120),
+  label: z.string().min(1).max(120),
+  diagnosis: z.string().min(3).max(120).nullable(),
 });
 export type Settlement = z.infer<typeof settlementSchema>;
 
