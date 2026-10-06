@@ -22,6 +22,7 @@ import { getSession } from '../session';
 import { webEnv } from '../web-env';
 import { readDomain } from '../demo/state';
 import { applyPembayaran, type PembayaranState } from '../../btn-pembayaran-toko';
+import { applyPembiayaan, type PembiayaanState } from '../../btn-pembiayaan-toko';
 import { notImplemented } from './not-implemented';
 
 /**
@@ -81,17 +82,31 @@ export async function getPaymentOverview(session: SessionView): Promise<PaymentS
     const [runs, pb] = await Promise.all([scenarioRuns(session), readDomain('pembayaran-btn')]);
     const applied = applyPembayaran(demoPaymentOverview(runs.results['elektif-btn']), pb.state);
     const data = paymentOverviewSchema.parse(applied.data);
-    return { data, hook: hookFor(runs, 'pembayaran'), rev: pb.rev, state: pb.state, localPaid: applied.localPaid };
+    return {
+      data,
+      hook: hookFor(runs, 'pembayaran'),
+      rev: pb.rev,
+      state: pb.state,
+      localPaid: applied.localPaid,
+    };
   }
   return notImplemented('pembayaran digital');
 }
 
-export async function getFinancingOverview(session: SessionView): Promise<WithScenario<FinancingOverview>> {
+export interface FinancingStore extends WithScenario<FinancingOverview> {
+  rev: number;
+  state: PembiayaanState;
+}
+
+/** Pembiayaan BTN: fixture + skenario elektif + toko demo (domain `pembiayaan-btn`, ADR-0085). */
+export async function getFinancingOverview(session: SessionView): Promise<FinancingStore> {
   if (webEnv().dataSource === 'demo') {
     assertDemo();
-    const runs = await scenarioRuns(session);
-    const data = financingOverviewSchema.parse(demoFinancingOverview(runs.results['elektif-btn']));
-    return { data, hook: hookFor(runs, 'pembiayaan') };
+    const [runs, pb] = await Promise.all([scenarioRuns(session), readDomain('pembiayaan-btn')]);
+    const data = financingOverviewSchema.parse(
+      applyPembiayaan(demoFinancingOverview(runs.results['elektif-btn']), pb.state),
+    );
+    return { data, hook: hookFor(runs, 'pembiayaan'), rev: pb.rev, state: pb.state };
   }
   return notImplemented('pembiayaan BTN');
 }

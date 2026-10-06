@@ -3,6 +3,7 @@ import { scheduleDomain } from '../../front-office-jadwal';
 import { registrationDomain } from '../../front-office-pendaftaran';
 import { goLiveDomain } from '../../golive-toko';
 import { pembayaranDomain } from '../../btn-pembayaran-toko';
+import { pembiayaanDomain } from '../../btn-pembiayaan-toko';
 import { akuntansiDomain } from '../../keuangan-akuntansi-toko';
 import { klaimDomain } from '../../keuangan-klaim-toko';
 import { piutangDomain } from '../../keuangan-piutang-toko';
@@ -48,6 +49,7 @@ export const DEMO_DOMAINS = {
   'klinis-poli': poliDomain,
   onkologi: oncologyDomain,
   'pembayaran-btn': pembayaranDomain,
+  'pembiayaan-btn': pembiayaanDomain,
   pendaftaran: registrationDomain,
   pengaturan: settingsDomain,
   penjadwal: jobsDomain,

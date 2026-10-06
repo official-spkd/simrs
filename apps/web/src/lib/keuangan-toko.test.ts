@@ -1,4 +1,10 @@
-import { claimBoardSchema, journalBalanced, kasirBoardSchema, paymentOverviewSchema } from '@simrs/shared';
+import {
+  claimBoardSchema,
+  financingOverviewSchema,
+  journalBalanced,
+  kasirBoardSchema,
+  paymentOverviewSchema,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import { type DemoActor, project, type StoredEvent } from './demo/store/define';
 import { CAPTURE_EVENTS } from './demo/fixtures/charge-capture';
@@ -27,7 +33,14 @@ import { demoAccountingBoard, demoClaimBoard, type ScenarioResults } from './keu
 import { applyKlaim, codingList, klaimDomain } from './keuangan-klaim-toko';
 import { piutangDomain } from './keuangan-piutang-toko';
 import { applyPembayaran, pembayaranDomain, pendingReconKeys } from './btn-pembayaran-toko';
-import { demoPaymentOverview } from './btn-skenario';
+import { demoFinancingOverview, demoPaymentOverview } from './btn-skenario';
+import {
+  applyPembiayaan,
+  bpjsPaymentFor,
+  bpjsRepaymentJournals,
+  disbursementJournal,
+  pembiayaanDomain,
+} from './btn-pembiayaan-toko';
 import { paymentJournal } from './keuangan-piutang';
 import { NEXT_BATCH_SEQ } from './demo/fixtures/piutang';
 import { runScenario } from './demo/engine/run';
@@ -631,6 +644,72 @@ describe('domain pembayaran-btn · kasir QRIS → rekonsiliasi 3 arah → jurnal
     };
     expect(pembayaranDomain.validate?.(p.state, t1, a)).toMatch(/pengaju refund/);
     expect(pembayaranDomain.validate?.(p.state, t1, b)).toBeNull();
+  });
+});
+
+describe('domain pembiayaan-btn · klaim layak → pool → pencairan → BPJS membayar (jurnal seimbang)', () => {
+  it('alur penuh', () => {
+    const verif = ev('klaim', {
+      type: 'klaim.verifikasi',
+      claimId: 'kl-inv-rj-kj-1',
+      patient: { id: PATIENT_ID.ayu, name: 'Pasien Daftar Fiktif', rm: '00-12-45-78' },
+      sep: '0301R0011026V000812',
+      kind: 'rawat-jalan',
+      amount: '412300',
+      at: AT,
+    });
+    const events: StoredEvent[] = [verif];
+    let pb = project(pembiayaanDomain, log(events));
+    const base = () => demoFinancingOverview(emptyScenarioResults()['elektif-btn']);
+    let data = applyPembiayaan(base(), pb.state);
+    expect(data.pool[0]).toMatchObject({ id: 'p-kl-inv-rj-kj-1', status: 'layak', amount: '412300' });
+    expect(financingOverviewSchema.safeParse(data).success).toBe(true);
+    events.push(
+      ev('pembiayaan-btn', {
+        type: 'pencairan.ajukan',
+        batchIds: ['p-kl-inv-rj-kj-1'],
+        principal: '371070',
+        at: AT,
+      }),
+    );
+    expect(project(pembiayaanDomain, log(events)).state.drawdowns['PCR-2610-01']?.stage).toBe('diajukan');
+    const idNew = 'PCR-2610-01';
+    events.push(ev('pembiayaan-btn', { type: 'pencairan.lanjut', drawdownId: idNew, at: AT, jurnal: [] }));
+    pb = project(pembiayaanDomain, log(events));
+    data = applyPembiayaan(base(), pb.state);
+    const dd = data.drawdowns.find((d) => d.id === idNew);
+    expect(dd?.stage).toBe('disetujui');
+    events.push(
+      ev('pembiayaan-btn', {
+        type: 'pencairan.lanjut',
+        drawdownId: idNew,
+        at: AT,
+        jurnal: [disbursementJournal({ id: idNew, principal: '371070' })],
+      }),
+    );
+    pb = project(pembiayaanDomain, log(events));
+    data = applyPembiayaan(base(), pb.state);
+    const p = bpjsPaymentFor(data, idNew);
+    expect(p?.drawdown.stage).toBe('cair');
+    const js = p ? bpjsRepaymentJournals(p.drawdown, p.pay, p.inpatient) : [];
+    for (const j of js) expect(balanced(j)).toBe(true);
+    events.push(
+      ev('pembiayaan-btn', {
+        type: 'bpjs.bayar',
+        drawdownId: idNew,
+        claims: p?.pay.claims.toString(),
+        principal: p?.pay.principal.toString(),
+        margin: p?.pay.margin.toString(),
+        forwarded: p?.pay.forwarded.toString(),
+        days: p?.pay.days,
+        basis: 'Okt RJ',
+        at: AT,
+        jurnal: js,
+      }),
+    );
+    pb = project(pembiayaanDomain, log(events));
+    expect(applyPembiayaan(base(), pb.state).drawdowns.find((d) => d.id === idNew)?.stage).toBe('lunas');
+    expect(project(akuntansiDomain, log(events)).state.journals).toHaveLength(3);
   });
 });
 

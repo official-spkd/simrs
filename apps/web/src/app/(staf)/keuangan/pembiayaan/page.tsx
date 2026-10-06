@@ -14,13 +14,14 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * U04 · Pembiayaan BTN: piutang klaim BPJS dan cicilan biaya pasien (mockup `PembiayaanBTN.dc.html`). Mode
- * presentasi: data dummy fiktif; klaim dan cicilan Ny. Ratna Sari mengikuti skenario elektif (ADR-0023).
+ * presentasi: data dummy fiktif; klaim dan cicilan Ny. Ratna Sari mengikuti skenario elektif (ADR-0023); klaim
+ * layak bayar dari Klaim, cicilan dari Kasir, dan aksi layar tersimpan di toko demo (domain `pembiayaan-btn`).
  */
 export default async function PembiayaanPage({ searchParams }: { searchParams: SearchParams }) {
   const { session, screen, allowed } = await requireDemoScreen('pembiayaan');
   if (!allowed) return <DemoAccessDenied screen={screen} />;
   const sp = await searchParams;
-  const { data, hook } = await getFinancingOverview(session);
+  const { data, hook, rev, state } = await getFinancingOverview(session);
   const f = data.facility;
   const related = [
     { id: 'klaim', label: 'Klaim BPJS' },
@@ -59,7 +60,12 @@ export default async function PembiayaanPage({ searchParams }: { searchParams: S
         )}
       </header>
       <ScenarioBanner session={session} screen="pembiayaan" />
-      <PembiayaanClient data={data} hook={hook} initialTab={sp.tab === 'cicilan' ? 'cicilan' : 'piutang'} />
+      <PembiayaanClient
+        data={data}
+        hook={hook}
+        store={{ rev, stamps: state.stamps, lastPay: state.lastPay }}
+        initialTab={sp.tab === 'cicilan' ? 'cicilan' : 'piutang'}
+      />
     </div>
   );
 }

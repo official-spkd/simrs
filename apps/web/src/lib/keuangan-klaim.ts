@@ -167,7 +167,7 @@ export function docCount(docs: ReadonlyArray<{ ok: boolean }>): string {
   return `${docs.filter((d) => d.ok).length}/${docs.length} lengkap`;
 }
 
-/** Tindakan koder di layar untuk satu klaim (simulasi, tidak disimpan; mockup Klaim `queries`/`docs`/`sent`). */
+/** Tindakan koder tersimpan untuk satu klaim (toko demo domain `klaim`; mockup Klaim `queries`/`docs`/`sent`). */
 export interface ClaimLocal {
   docs?: Claim['documents'];
   acceptedAt?: string | null;
