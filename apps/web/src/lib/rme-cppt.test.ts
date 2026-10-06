@@ -75,7 +75,7 @@ describe('CPPT (K07): status, co-sign, verifikasi', () => {
     });
     const fresh = entry({ role: 'farmasi', writtenAt: '2026-10-05T08:15:00+07:00' });
     expect(cpptStatus(fresh, { ...o, nowIso: NOW }).label).toBe(
-      'Final · menunggu verifikasi DPJP (batas 08.15)',
+      'Final · menunggu verifikasi DPJP (batas 6 Okt · 08.15)',
     );
     expect(verifyBlocker(fresh, { role: 'perawat', user: 'x', superseded: false, verified: false })).toMatch(
       /Hanya DPJP/,

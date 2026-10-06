@@ -455,6 +455,18 @@ export const SCREENS: readonly ScreenDef[] = [
     demoRoles: [...CLINICIANS, 'apoteker'],
     layout: 'staf',
   },
+  {
+    id: 'asesmen',
+    label: 'Asesmen & skrining',
+    route: '/klinis/asesmen',
+    mockup: 'Formulir',
+    components: ['K06'],
+    phase: 3,
+    status: 'demo',
+    plannedPermission: 'forms.response.write',
+    demoRoles: CLINICIANS,
+    layout: 'staf',
+  },
   // FE2 · akhir
 ];
 

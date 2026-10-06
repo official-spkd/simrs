@@ -1,3 +1,5 @@
+import { formatJam, isoDateJakarta } from '@simrs/shared';
+import { formatTglJam } from './rawat-inap';
 import { screenById, screenOpen } from './screens';
 
 /**
@@ -41,6 +43,11 @@ export function chartLinks(role: string | null, encounterId: string, currentId: 
 export function openRoute(id: string, role: string | null): string | null {
   const s = screenById(id);
   return s && screenOpen(s, { dataSource: 'demo', role }) ? s.route : null;
+}
+
+/** Jam saja bila hari yang sama dengan `refIso` (WIB), selain itu "6 Okt · 08.15" (tenggat esok hari tidak ambigu). */
+export function shortWhen(iso: string, refIso: string): string {
+  return isoDateJakarta(iso) === isoDateJakarta(refIso) ? formatJam(iso) : formatTglJam(iso);
 }
 
 /** Teks bebas minimal `min` karakter (alasan koreksi/override/pembatalan; aturan docs/08). */

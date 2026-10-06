@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useId, useState } from 'react';
 import { StatusFlag } from '@/components/klinis/status-flag';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
+import { shortWhen } from '@/lib/rme';
 import {
   completionBlocker,
   completionNote,
@@ -249,7 +250,9 @@ function TaskCard({
               </StatusFlag>
             ) : (
               <StatusFlag icon="clock" tone="neutral" inline>
-                {task.dueAt ? `Batas ${formatJam(task.dueAt)} · ${dueLabel(task, now)}` : dueLabel(task, now)}
+                {task.dueAt
+                  ? `Batas ${shortWhen(task.dueAt, now)} · ${dueLabel(task, now)}`
+                  : dueLabel(task, now)}
               </StatusFlag>
             )}
           </span>

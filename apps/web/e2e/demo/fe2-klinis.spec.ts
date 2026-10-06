@@ -118,7 +118,7 @@ test.describe('K07 · CPPT, co-sign, serah terima', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Co-sign DPJP' })).toContainText('kini final');
 
     const farmasi = note(page, 'Usul evaluasi de-eskalasi');
-    await expect(farmasi.getByText('Final · menunggu verifikasi DPJP (batas 08.15)')).toBeVisible();
+    await expect(farmasi.getByText('Final · menunggu verifikasi DPJP (batas 6 Okt · 08.15)')).toBeVisible();
     await farmasi.getByRole('button', { name: 'Verifikasi DPJP' }).click();
     await expect(farmasi.getByText(new RegExp(`^Final · diverifikasi DPJP .+ · ${JAM}$`))).toBeVisible();
 
@@ -167,5 +167,69 @@ test.describe('K07 · CPPT, co-sign, serah terima', () => {
     ).toBeVisible();
     await panel.getByRole('button', { name: 'Konfirmasi penerimaan (simulasi penerima)' }).click();
     await expect(panel.getByText(new RegExp(`^Diterima Ns\\. Rosa Elvira, S\\.Kep · ${JAM}$`))).toBeVisible();
+  });
+});
+
+/** Pilih opsi radio/centang di kelompok field penyaji formulir (legend diawali `field`). */
+async function choose(scope: Locator, field: string, option: RegExp) {
+  await scope
+    .getByRole('group', { name: new RegExp(`^${field}`) })
+    .getByLabel(option)
+    .check();
+}
+
+test.describe('K06 · asesmen dan skrining', () => {
+  test('perawat: reasesmen Morse jatuh tempo, wajib lengkap, skor otomatis + tindak lanjut', async ({
+    page,
+  }) => {
+    await openAs(page, ['perawat'], '/klinis/asesmen');
+    const pkg = page.getByRole('region', { name: 'Paket asesmen' });
+    await expect(pkg.getByText('4 dari 5 final')).toBeVisible();
+    const morseItem = pkg.getByRole('button', { name: /Risiko jatuh dewasa \(Morse\)/ });
+    await expect(morseItem).toHaveAttribute('aria-pressed', 'true');
+    await expect(morseItem).toContainText('Reasesmen jatuh tempo sejak');
+    await expect(morseItem).toContainText('Skor 35 · Risiko sedang');
+
+    const morse = page.getByRole('region', { name: 'Risiko jatuh dewasa (Morse)' });
+    await expect(morse.getByText(/^Final · Kam, 1 Okt 2026 · 10\.10 · Ns\. Yudi Pratama/)).toBeVisible();
+    await morse.getByRole('button', { name: 'Isi reasesmen' }).click();
+    await morse.getByRole('button', { name: 'Simpan final' }).click();
+    await expect(morse.getByRole('alert')).toHaveText(/^6 isian belum lengkap/);
+    await choose(morse, 'Riwayat jatuh', /^Ya/);
+    await choose(morse, 'Diagnosis sekunder', /^Ya/);
+    await choose(morse, 'Alat bantu', /^Kruk/);
+    await choose(morse, 'Terpasang infus', /^Ya/);
+    await choose(morse, 'Cara berjalan', /^Lemah/);
+    await choose(morse, 'Status mental', /^Sadar/);
+    await expect(morse.getByRole('status').filter({ hasText: 'Tindak lanjut:' })).toContainText(
+      'Risiko jatuh tinggi',
+    );
+    await morse.getByRole('button', { name: 'Simpan final' }).click();
+    await expect(morse.getByRole('status').filter({ hasText: /^Final · / })).toHaveText(
+      new RegExp(`^Final · ${JAM} · Risiko jatuh dewasa \\(Morse\\) · skor 85 Risiko tinggi`),
+    );
+    await expect(pkg.getByText('5 dari 5 final')).toBeVisible();
+    await expect(morseItem).toContainText('Skor 85 · Risiko tinggi');
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('dokter: hak tulis per profesi; koreksi asesmen medis = versi baru beralasan', async ({ page }) => {
+    await openAs(page, ['dokter'], '/klinis/asesmen');
+    const morse = page.getByRole('region', { name: 'Risiko jatuh dewasa (Morse)' });
+    await expect(morse.getByText('Formulir ini diisi oleh Perawat, Bidan.', { exact: false })).toBeVisible();
+    await expect(morse.getByRole('button', { name: 'Isi reasesmen' })).toBeDisabled();
+
+    await page
+      .getByRole('region', { name: 'Paket asesmen' })
+      .getByRole('button', { name: /Asesmen awal medis/ })
+      .click();
+    const medis = page.getByRole('region', { name: 'Asesmen awal medis' });
+    await medis.getByRole('button', { name: 'Koreksi isian' }).click();
+    await choose(medis, 'Keadaan umum', /^Tampak sakit berat/);
+    await expect(medis.getByText('Perubahan dari versi 1 (1)')).toBeVisible();
+    await medis.getByLabel('Alasan koreksi').fill('Keadaan umum saat masuk tercatat keliru');
+    await medis.getByRole('button', { name: 'Simpan koreksi (versi 2)' }).click();
+    await expect(medis.getByRole('status').filter({ hasText: 'Koreksi versi 2' })).toBeVisible();
+    await expect(medis.getByText('Riwayat versi (2)')).toBeVisible();
   });
 });

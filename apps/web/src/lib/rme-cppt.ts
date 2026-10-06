@@ -6,6 +6,7 @@ import {
   SAMPLE_FORBIDDEN_ABBREVIATIONS,
 } from '@simrs/shared';
 import { type SoapText, supersededIds } from './rawat-inap';
+import { shortWhen } from './rme';
 
 /**
  * K07 · CPPT terintegrasi lintas PPA, co-sign residen, verifikasi DPJP, dan serah terima SBAR antarshift. Entri
@@ -60,7 +61,10 @@ export function cpptStatus(
   const late = Date.parse(verifyDeadline(e)) < Date.parse(o.nowIso);
   return late
     ? { label: `Final · verifikasi DPJP lewat ${VERIFY_WITHIN_HOURS} jam`, tone: 'danger' }
-    : { label: `Final · menunggu verifikasi DPJP (batas ${formatJam(verifyDeadline(e))})`, tone: 'info' };
+    : {
+        label: `Final · menunggu verifikasi DPJP (batas ${shortWhen(verifyDeadline(e), o.nowIso)})`,
+        tone: 'info',
+      };
 }
 
 /** Gerbang co-sign: hanya catatan residen yang belum di-co-sign, oleh DPJP (posisi dokter), bukan catatan sendiri. */
