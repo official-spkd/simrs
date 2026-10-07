@@ -52,4 +52,5 @@ Potongan 3.0a sudah menyediakan mesin murni `evaluateCdsItem` di `@simrs/shared`
   - menulis atestasi `review_order` (`clinical_attestations`, append-only);
   - menerbitkan resep ber-TTE peninjau bila kiriman memuat obat aktif.
 - `order_groups` tidak diubah. "Sudah ditinjau" dibaca dari atestasinya: `needsReview` = perlu tinjauan dan belum ada atestasi.
+- Tugas worklist K01 "Tinjau order residen" (3.2b) dibaca dari atestasi yang sama, jadi ikut tertutup begitu tinjauan tercatat. Tinjauan serentak diserialkan advisory lock per kiriman: satu 200, sisanya 409. Layar W2 menampilkan tombol tinjau hanya bagi pemegang `clinical.sign`; aturan tim perawatan tetap ditegakkan API.
 - Keputusan orkestrator: impor KB (CLI) + layar kelola KB, dosis per berat badan, dan eGFR dari hasil lab menjadi utang fase 4/PFT. `order.manage` tidak masuk peran bawaan; RS memberikannya lewat layar Akses ke komite PFT.
