@@ -1,5 +1,11 @@
 import 'server-only';
-import { type EdBoard, edBoardSchema, type EdTrackingItem } from '@simrs/shared';
+import {
+  type EdBoard,
+  type EdBoardApi,
+  edBoardApiSchema,
+  edBoardSchema,
+  type EdTrackingItem,
+} from '@simrs/shared';
 import { demoBedRequests, demoBeds, demoEdBoardBase } from '../../../demo/fixtures/rawat-inap';
 import { BANGSAL } from '../../../demo/fixtures/rs';
 import { DEMO_NOW } from '../../../demo/fixtures/waktu';
@@ -9,6 +15,7 @@ import { hartonoEdItem } from '../../../rawat-inap-scenario';
 import type { SessionView } from '../../../session-view';
 import { scenarioRuns } from '../../demo/scenario-context';
 import { readDomain } from '../../demo/state';
+import { api } from '../../api';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
@@ -16,9 +23,14 @@ import { notImplemented } from '../not-implemented';
 /**
  * K03 · Data layar IGD. Mode presentasi: papan fiktif + keadaan toko demo (`klinis-igd`: pasien datang sendiri,
  * triase, dokter penanggung jawab, permintaan bed, disposisi meninggal; `tempat-tidur`: bed yang dialokasikan) +
- * proyeksi pasien skenario IGD → rawat inap (Tn. Hartono), divalidasi kontrak yang sama dengan API kelak; mode api
- * menunggu backend fase 3 (potongan 3.3, layar W3; halaman menampilkan "Belum tersambung").
+ * proyeksi pasien skenario IGD → rawat inap (Tn. Hartono), divalidasi kontrak yang sama dengan API kelak. Mode api
+ * (layar W3): `getEdBoardLive` = papan IGD API (`GET /triage/board`, unit penugasan; diaudit per pasien oleh API).
  */
+
+/** K03 · Papan IGD mode api (layar W3, ADR-0104). Galat API (`ApiError`) diteruskan ke halaman. */
+export async function getEdBoardLive(): Promise<EdBoardApi> {
+  return api('/api/v1/triage/board', { schema: edBoardApiSchema });
+}
 
 /** Papan IGD + toko (tanpa yang sudah tiba di bangsal atau meninggal). */
 function boardWith(base: EdBoard, igd: IgdState, bed: BedState): EdBoard {
