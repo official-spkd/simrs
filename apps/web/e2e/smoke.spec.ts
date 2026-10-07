@@ -137,6 +137,14 @@ test.describe('smoke', () => {
       'ranap',
       'resume',
     ]);
+    // Bagan RME yang tersambung API di 3.8 (Konsultasi, Edukasi, Paket layanan): alurnya di `konsultasi-api.spec.ts`
+    // dan `persetujuan.spec.ts`; di sini cukup halaman api terbuka tanpa "Belum tersambung".
+    for (const id of ['konsul', 'edukasi', 'paket']) {
+      const screen = clinical.find((s) => s.id === id);
+      expect((await page.goto(screen?.route ?? '/'))?.status(), id).toBe(200);
+      await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+      await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
+    }
     // Rawat inap sudah tersambung API (layar W4, `rawat-inap-api.spec.ts`): daftar terbuka, ID demo = tidak ditemukan.
     await page.goto('/klinis/rawat-inap');
     await expect(page.getByRole('heading', { name: 'Pasien rawat inap', level: 1 })).toBeVisible();

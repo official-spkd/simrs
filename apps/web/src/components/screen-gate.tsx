@@ -15,45 +15,12 @@ interface Copy {
   byRole?: Readonly<Record<string, string>>;
 }
 
+/**
+ * Teks "Belum tersambung" hanya untuk layar hibrida yang jalur api-nya belum dibangun (penunjang fase 4). Layar yang
+ * sudah tersambung (front office fase 2, semua layar klinis fase 3 W1–W5b dan 3.8) tidak ada di sini; layar tanpa entri
+ * memakai kalimat umum.
+ */
 const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
-  jadwal: {
-    body: 'Jadwal praktik dan kuota dokter akan tampil di sini setelah modul jadwal tersambung ke server SIM RS. Sementara itu, ikuti prosedur jadwal yang berlaku di rumah sakit.',
-    byRole: {
-      dokter:
-        'Jadwal praktik Anda dan jumlah pasien yang sudah booking akan tampil di sini setelah modul jadwal tersambung ke server SIM RS.',
-    },
-  },
-  daftar: {
-    body: 'Pencarian pasien, cek kepesertaan BPJS, rujukan, dan penerbitan SEP akan tersedia di sini setelah modul pendaftaran tersambung ke server SIM RS. Sementara itu, layani pendaftaran dengan prosedur cadangan rumah sakit.',
-  },
-  kiosk: {
-    body: 'Anjungan pendaftaran mandiri belum dapat dipakai. Silakan ambil nomor antrean di loket pendaftaran.',
-  },
-  antrean: {
-    body: 'Papan antrean belum tersambung. Nomor antrean dipanggil langsung oleh petugas.',
-  },
-  // Layar klinis fase 3: jalur api diisi layar W1–W5 setelah modul API klinisnya tergabung.
-  poli: {
-    body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
-  },
-  order: {
-    body: 'Buka CPOE dari kunjungan pasien (tautan Order di layar klinis). Daftar kunjungan untuk CPOE tersedia setelah layar Pemeriksaan poli dan Rawat inap tersambung ke server SIM RS.',
-  },
-  igd: {
-    body: 'Papan pelacakan IGD dan triase akan tersedia di sini setelah modul IGD tersambung ke server SIM RS. Sementara itu, lakukan triase dengan prosedur cadangan rumah sakit.',
-  },
-  bed: {
-    body: 'Papan tempat tidur, permintaan bed, dan admisi rawat inap akan tersedia di sini setelah modul tempat tidur tersambung ke server SIM RS. Sementara itu, ikuti prosedur admisi cadangan rumah sakit.',
-  },
-  ranap: {
-    body: 'CPPT, eMAR dengan pindai gelang, observasi EWS, dan asuhan keperawatan pasien rawat inap akan tersedia di sini setelah modul rawat inap tersambung ke server SIM RS. Sementara itu, catat asuhan dengan prosedur cadangan rumah sakit.',
-  },
-  resume: {
-    body: 'Resume medis pulang, rekonsiliasi obat, dan TTE DPJP akan tersedia di sini setelah modul resume tersambung ke server SIM RS. Sementara itu, ikuti prosedur resume cadangan rumah sakit.',
-  },
-  consent: {
-    body: 'Persetujuan tindakan di tablet belum tersambung ke server SIM RS. Gunakan formulir persetujuan tindakan kertas sesuai prosedur rumah sakit.',
-  },
   // Layar penunjang fase 4 (potongan 4.0c): jalur api diisi potongan 4.2–4.9 setelah modul API penunjangnya tergabung.
   lab: {
     body: 'Worklist laboratorium, penerimaan spesimen, input hasil, validasi, dan pelaporan nilai kritis akan tersedia di sini setelah modul laboratorium tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',

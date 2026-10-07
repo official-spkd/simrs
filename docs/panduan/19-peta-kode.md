@@ -2,7 +2,7 @@
 
 Halaman ini memetakan **di mana kode tiap fitur berada** dan **seberapa matang** tiap bagian. Bacalah setelah [Cara kerja backend](./07-cara-kerja-backend.md) (gambaran lintas modul) dan [Cara kode bekerja](./02-cara-kerja-kode.md), yang menjelaskan mekanismenya (permintaan API, RLS, outbox, sesi web). Penjelasan per layar ada di halaman fitur, mulai dari [Fitur platform](./10-fitur-platform.md).
 
-> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.5 dan 3.7 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
+> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.8 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
 
 ## Gambaran besar
 
@@ -52,21 +52,21 @@ Contoh lengkap: `apps/web/src/app/(staf)/pendaftaran/`.
 | `actions.ts` / `actions-api.ts` | Server Action api: cek sesi + input sendiri, panggil API lewat BFF                         |
 | `*-client.tsx`, panel           | Bagian interaktif (`'use client'`); tidak membaca env atau rahasia                         |
 
-Layar klinis yang jalur api-nya belum dibangun (W1–W5) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/klinis/poli/page.tsx`.
+Layar hibrida yang jalur api-nya belum dibangun (kini hanya sepuluh layar penunjang fase 4, 4.0c) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/penunjang/lab/page.tsx`. Semua layar klinis fase 3 sudah tersambung (W1–W5b). Layar yang sudah tersambung tetap berstatus `demo` + `permission` di registri (jalur demo dipertahankan), contohnya Pendaftaran, CPOE (W2: `components/klinis/cpoe-api-*.tsx`), tablet Persetujuan (W5a: `tablet/persetujuan/api-*.tsx`), dan Rawat inap (W4: `app/(staf)/klinis/rawat-inap/api-*.tsx`, `[encounterId]/actions-api.ts`, BFF SSE `events/route.ts`).
 
 ### Data dummy dan aturan murni
 
-| Lapisan               | Lokasi                                                                                | Catatan                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Pengambil data        | `lib/server/data/<domain>.ts`, `front-office/*`, `klinis/*`                           | Memilih fixture (demo) atau API; divalidasi skema `packages/shared/src/schemas/`   |
-| Fixture               | `lib/demo/fixtures/*.ts`                                                              | Pasien fiktif (`pasien.ts`, roster satu tempat per pasien), staf, RS, waktu demo   |
-| ID fixture            | `lib/demo/fixtures/ids.ts`                                                            | UUID v7 konstan; layar dan E2E mengimpornya, tidak menulis literal                 |
+| Lapisan               | Lokasi                                                                                      | Catatan                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Pengambil data        | `lib/server/data/<domain>.ts`, `front-office/*`, `klinis/*`                                 | Memilih fixture (demo) atau API; divalidasi skema `packages/shared/src/schemas/`   |
+| Fixture               | `lib/demo/fixtures/*.ts`                                                                    | Pasien fiktif (`pasien.ts`, roster satu tempat per pasien), staf, RS, waktu demo   |
+| ID fixture            | `lib/demo/fixtures/ids.ts`                                                                  | UUID v7 konstan; layar dan E2E mengimpornya, tidak menulis literal                 |
 | Aturan bisnis murni   | `lib/<domain>.ts` (mis. `klinis-cds.ts`, `rawat-inap.ts`, `keuangan.ts`, `penunjang-ok.ts`) | Tanpa I/O, diuji unit; aturan klinis memanggil mesin `@simrs/shared/clinical`      |
-| Mesin skenario        | `lib/demo/engine/` (`run.ts` putar ulang murni)                                       | Tiga skenario di `lib/demo/skenario/` (rawat jalan, IGD → rawat inap, elektif BTN) |
-| Keadaan simulasi      | `lib/server/demo/store.ts`                                                            | Berkas JSON per akun demo (`DEMO_STATE_DIR`), berisi urutan aksi saja              |
-| Toko demo bersama     | `lib/demo/store/` (murni), `lib/server/demo/state*.ts` (berkas, Server Action)        | Log kejadian per ruang data, reducer per domain; lihat bagian toko di bawah        |
-| Akun presentasi       | `lib/server/demo/accounts.ts`, `login.ts`                                             | "Masuk cepat · mode presentasi" di `/masuk`                                        |
-| Komponen bersama demo | `components/{klinis,rawat-inap,penunjang,keuangan,btn,manajemen,front-office}/`       | Dipakai layar demo per domain                                                      |
+| Mesin skenario        | `lib/demo/engine/` (`run.ts` putar ulang murni)                                             | Tiga skenario di `lib/demo/skenario/` (rawat jalan, IGD → rawat inap, elektif BTN) |
+| Keadaan simulasi      | `lib/server/demo/store.ts`                                                                  | Berkas JSON per akun demo (`DEMO_STATE_DIR`), berisi urutan aksi saja              |
+| Toko demo bersama     | `lib/demo/store/` (murni), `lib/server/demo/state*.ts` (berkas, Server Action)              | Log kejadian per ruang data, reducer per domain; lihat bagian toko di bawah        |
+| Akun presentasi       | `lib/server/demo/accounts.ts`, `login.ts`                                                   | "Masuk cepat · mode presentasi" di `/masuk`                                        |
+| Komponen bersama demo | `components/{klinis,rawat-inap,penunjang,keuangan,btn,manajemen,front-office}/`             | Dipakai layar demo per domain                                                      |
 
 Penjelasan pemakaian mode presentasi untuk presentasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasional.md).
 
@@ -82,7 +82,7 @@ Layar demo putaran 2 memakai beberapa bagian bersama. Pakai ulang bagian ini unt
 | Jurnal berpasangan       | `components/keuangan/jurnal-pasangan.tsx` (`JurnalPasangan`), `alasan-form.tsx`                                                                                                                     | Setiap mutasi uang menampilkan akun, debit, kredit, total, dan "Seimbang (debit = kredit)" dalam teks; nilai `bigint` rupiah                                     |
 | Bagian platform          | `components/platform/parts.tsx`, `codes.tsx`                                                                                                                                                        | Papan struktur, pengaturan, data rujukan, dokumen, penjadwal                                                                                                     |
 | Tahap penunjang          | `components/penunjang/stage-steps.tsx`                                                                                                                                                              | Tahap berurutan (kultur, ekspertise, crossmatch) di layar penunjang lanjutan                                                                                     |
-| Data server per kelompok | `lib/server/data/penunjang/<layar>.ts`, `keuangan-lanjut.ts`, `integrasi-lanjut.ts`, `backoffice.ts`, `platform.ts`, `klinis/rme.ts`                                                                 | Pengambil data mode presentasi; setiap fungsi memanggil `assertDemo()`. Hasil kritis membaca keadaan skenario (`scenarioRuns`)                                   |
+| Data server per kelompok | `lib/server/data/penunjang/<layar>.ts`, `keuangan-lanjut.ts`, `integrasi-lanjut.ts`, `backoffice.ts`, `platform.ts`, `klinis/rme.ts`                                                                | Pengambil data mode presentasi; setiap fungsi memanggil `assertDemo()`. Hasil kritis membaca keadaan skenario (`scenarioRuns`)                                   |
 | Aturan murni per layar   | `lib/rme-*.ts`, `lib/penunjang-*.ts`, `lib/keuangan-*.ts`, `lib/integrasi-*.ts`, `lib/platform-*.ts`, `lib/operasional-*.ts`, dan satu berkas per layar back office (`lib/sdm.ts`, `lib/ppi.ts`, …) | Gerbang dan perhitungan tanpa I/O, masing-masing dengan `*.test.ts`                                                                                              |
 | Fixture per layar        | `lib/demo/fixtures/<layar>.ts` (mis. `rme-cppt.ts`, `penunjang-depo.ts`, `kas-bank.ts`, `golive.ts`)                                                                                                | Data dummy fiktif; ID tetap dari `ids.ts`                                                                                                                        |
 
@@ -301,31 +301,31 @@ Tingkat kematangan:
 
 ### Klinis RME (fase 3)
 
-| Modul           | Komponen | Endpoint utama                | Kematangan | Catatan                                                                                                      |
-| --------------- | -------- | ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `encounter`     | K02      | `/encounters`                 | API jadi   | Konteks kunjungan + banner; SEP IGD otomatis                                                                 |
-| `drafts`        | K        | `/drafts`                     | API jadi   | Draf klinis per penulis (ADR-0028), dibersihkan job worker                                                   |
-| `diagnosis`     | K08      | `/encounters/…`, `/diagnosis` | API jadi   | ICD-10, ICD-9-CM, problem list, alergi + NKDA                                                                |
-| `results`       | K08      | `/results`                    | API jadi   | Muara hasil penunjang (observasi, laporan)                                                                   |
-| `summary`       | K14      | `/summary`, `/encounters/…`   | API jadi   | Ringkasan pasien (hanya membaca modul lain)                                                                  |
-| `nursing`       | K12      | `/nursing`, `/encounters/…`   | API jadi   | Tanda vital + NEWS2 + eskalasi; eMAR, cek ganda, askep, balans cairan (3.5, ADR-0077)                        |
-| `cppt`          | K07      | `/cppt`, `/encounters/…`      | API jadi   | CPPT multi-PPA, co-sign residen, verifikasi DPJP, serah terima SBAR                                          |
-| `assessment`    | K06      | `/encounters/…`               | API jadi   | Asesmen lewat formulir P07 dengan `encounterId`                                                              |
-| `worklist`      | K01      | `/worklist`                   | API jadi   | Pasien per DPJP/unit/shift + tugas pribadi                                                                   |
-| `adt`           | K04/K05  | `/adt`, `/encounters/…`       | API jadi   | Admisi, transfer, papan bed, gelang, Aplicare (potongan 3.3)                                                 |
-| `triage`        | K03      | `/triage`, `/encounters/…`    | API jadi   | Saran ATS dari server, triase berversi, papan IGD + SSE                                                      |
-| `orders`        | K09      | `/orders`, `/encounters/…`    | API jadi   | Katalog, order set, pratinjau CDS, kirim (Idempotency-Key), batal, resep PDF ber-TTE                         |
-| `cds`           | K09      | `/cds`                        | API jadi   | Evaluasi CDS dengan basis pengetahuan per RS (ADR-0030)                                                      |
-| `consent`       | K11      | `/consents`, `/encounters/…`  | API jadi   | Draf tablet, tanda tangan PNG, saksi petugas, final/penolakan/pencabutan ber-TTE (3.7, ADR-0058)             |
-| `discharge`     | K13      | —                             | Kerangka   | Isi di potongan 3.6 (resume, rekonsiliasi obat, tutup kunjungan); kontrak `DischargeGate` sementara di `adt` |
-| `consult`       | K10      | —                             | Kerangka   | Isi di potongan 3.8 (konsultasi, rawat bersama, ganti DPJP)                                                  |
-| `care-packages` | K15      | —                             | Kerangka   | Isi di potongan 3.8 (paket formulir + kelengkapan)                                                           |
+| Modul           | Komponen | Endpoint utama                    | Kematangan | Catatan                                                                                                                        |
+| --------------- | -------- | --------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `encounter`     | K02      | `/encounters`                     | API jadi   | Konteks kunjungan + banner; SEP IGD otomatis                                                                                   |
+| `drafts`        | K        | `/drafts`                         | API jadi   | Draf klinis per penulis (ADR-0028), dibersihkan job worker                                                                     |
+| `diagnosis`     | K08      | `/encounters/…`, `/diagnosis`     | API jadi   | ICD-10, ICD-9-CM, problem list, alergi + NKDA                                                                                  |
+| `results`       | K08      | `/results`                        | API jadi   | Muara hasil penunjang (observasi, laporan)                                                                                     |
+| `summary`       | K14      | `/summary`, `/encounters/…`       | API jadi   | Ringkasan pasien (hanya membaca modul lain)                                                                                    |
+| `nursing`       | K12      | `/nursing`, `/encounters/…`       | Selesai    | Tanda vital + NEWS2 + eskalasi; eMAR, cek ganda, askep, balans cairan (3.5, ADR-0077); dipakai layar Rawat inap (W4, ADR-0096) |
+| `cppt`          | K07      | `/cppt`, `/encounters/…`          | API jadi   | CPPT multi-PPA, co-sign residen, verifikasi DPJP, serah terima SBAR                                                            |
+| `assessment`    | K06      | `/encounters/…`                   | API jadi   | Asesmen lewat formulir P07 dengan `encounterId`                                                                                |
+| `worklist`      | K01/K04  | `/worklist`, `/inpatients`        | API jadi   | Pasien per DPJP/unit/shift + tugas pribadi; daftar rawat inap ber-ABAC untuk layar W4                                          |
+| `adt`           | K04/K05  | `/adt`, `/encounters/…`           | API jadi   | Admisi, transfer, papan bed, gelang, Aplicare (potongan 3.3)                                                                   |
+| `triage`        | K03      | `/triage`, `/encounters/…`        | API jadi   | Saran ATS dari server, triase berversi, papan IGD + SSE                                                                        |
+| `orders`        | K09      | `/orders`, `/encounters/…`        | Selesai    | Katalog, order set, pratinjau CDS, kirim (Idempotency-Key), batal, tinjauan DPJP order residen, resep PDF ber-TTE; layar W2    |
+| `cds`           | K09      | `/cds`                            | API jadi   | Evaluasi CDS dengan basis pengetahuan per RS (ADR-0030)                                                                        |
+| `consent`       | K11      | `/consents`, `/encounters/…`      | API jadi   | Draf tablet, tanda tangan PNG, saksi petugas, final/penolakan/pencabutan ber-TTE (3.7, ADR-0058)                               |
+| `discharge`     | K13      | `/discharge`, `/encounters/…`     | API jadi   | Resume + rekonsiliasi + addendum ber-TTE, surat kematian, tutup kunjungan, `FullDischargeGate` (3.6, ADR-0093)                 |
+| `consult`       | K10      | `/consults`, `/encounters/…`      | API jadi   | Konsul berversi, jawab hanya konsultan, akses konsultan 24 jam, rawat bersama/alih rawat/serah DPJP (3.8, ADR-0059)            |
+| `care-packages` | K15      | `/care-packages`, `/encounters/…` | API jadi   | Paket formulir per setting + kelengkapan kunjungan (3.8, ADR-0059)                                                             |
 
 Fondasi klinis bersama ada di `apps/api/src/infra/clinical/` (`ClinicalRecordService`: versi, koreksi, salah entri, addendum, kunci TTE; `ClinicalSigningService`; `CareTeamService`; staging SATUSEHAT `held` dan `billable_events`). Penjelasannya: [Cara kerja backend](./07-cara-kerja-backend.md#pola-entri-klinis-berversi) dan ADR-0028.
 
 ### Lapisan berikutnya (fase 4–9)
 
-Belum ada modul API. Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
+Belum ada modul API. Fase 4 sudah punya kontrak bersama (4.0a) di `packages/shared`: izin + matriks bawaan (termasuk peran `ahli_gizi`), event domain, `SUPPORT_ERRORS`, `schemas/penunjang-api.ts`, `schemas/kamar-operasi.ts`, aturan murni `rules/*`, dan parser HL7 ORU `integrations/lis/hl7.ts` (PID/NK1 diredaksi sebelum disimpan, perangkat ber-HMAC). Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
 
 | Lapisan     | Modul rencana                                                                                                                                                                  | Layar mode presentasi                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
