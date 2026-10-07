@@ -59,11 +59,11 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
 | Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
 | Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API ada (3.8); layar belum              |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API lewat P07 ada (3.7)                 |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                              |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7/3.8)                     |
 | Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
 | Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API paket + kelengkapan ada (3.8)       |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket + kelengkapan, 3.8)         |
 | Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API ada (3.6, 3.8); layar belum         |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
@@ -876,12 +876,12 @@ ke endpoint versi baru perlu dipastikan saat penyambungan.
 | Rute     | `/klinis/konsultasi` (`?pasien=<encounterId>`; bawaan Tn. Sutan Batubara)                                                                                                                                  |
 | Pemakai  | dokter, dokter residen                                                                                                                                                                                     |
 | Komponen | K10 konsultasi dan rawat bersama                                                                                                                                                                           |
-| Status   | demo (mode presentasi); API potongan 3.8 ada (ADR-0059); layar belum disambung                                                                                                                             |
+| Status   | demo (mode presentasi) + api (3.8, ADR-0059): konsul masuk/keluar, jawab, rawat bersama/alih rawat, tim                                                                                                    |
 | Mockup   | tidak ada (gaya mengikuti kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                                     |
 | Kode web | `apps/web/src/app/(staf)/klinis/konsultasi/` · data `apps/web/src/lib/demo/fixtures/rme-konsul.ts` · aturan `apps/web/src/lib/rme-konsul.ts` · komponen `apps/web/src/components/rme/konsul-workspace.tsx` |
 | Kode API | `apps/api/src/modules/consult/` (`/api/v1/consults/*`, `/encounters/:id/consults`, `/encounters/:id/care-team`)                                                                                            |
 
-**API (potongan 3.8, ADR-0059).** Konsultasi dan tim perawatan sudah ada di API; layar ini belum memanggilnya.
+**API (potongan 3.8, ADR-0059).** Di mode api layar ini memanggil endpoint berikut; konsultasi juga tampil di tab Dokumen & konsultasi layar Rawat inap.
 
 - `POST /api/v1/consults/requests` (`clinical.write`): pengirim dokter/residen, tujuan dokter tertentu (bukan diri
   sendiri) dan/atau unit, pertanyaan ≥ 20 karakter, urgensi `segera`/`biasa`. Dokter tujuan mendapat akses konsultan
@@ -940,7 +940,7 @@ di potongan 3.8 (`docs/rencana/fase-3-klinis-rme.md`). Akses berbatas waktu kons
 | Rute     | `/klinis/edukasi` (`?pasien=<encounterId>`)                                                                                                                                                                |
 | Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                     |
 | Komponen | K11 persetujuan dan edukasi                                                                                                                                                                                |
-| Status   | demo (mode presentasi); API edukasi lewat formulir P07 `edukasi_terintegrasi` (potongan 3.7) ada; layar belum disambung                                                                                    |
+| Status   | demo (mode presentasi) + api: `GET /encounters/:id/education`, isian P07 `edukasi_terintegrasi`, tautan dari tablet ke Edukasi                                                                             |
 | Mockup   | `design/mockups/Consent.dc.html`                                                                                                                                                                           |
 | Kode web | `apps/web/src/app/(staf)/klinis/edukasi/` · data `apps/web/src/lib/demo/fixtures/rme-edukasi.ts` · aturan `apps/web/src/lib/rme-edukasi.ts` · komponen `apps/web/src/components/rme/edukasi-workspace.tsx` |
 | Kode API | formulir P07 `edukasi_terintegrasi` dengan `encounterId` (`apps/api/src/modules/forms/`), dibaca lewat `GET /api/v1/encounters/:id/assessments`                                                            |
@@ -1097,7 +1097,7 @@ membaca modul lain; layar tinggal disambung. Flag nilai kritis menunggu sumber h
 | Rute     | `/klinis/paket-layanan` (`?pasien=<encounterId>`; bawaan kemoterapi Ny. Maria Ulfa)                                                                                                                        |
 | Pemakai  | dokter, perawat, bidan                                                                                                                                                                                     |
 | Komponen | K15 paket layanan khusus                                                                                                                                                                                   |
-| Status   | demo (mode presentasi); API paket formulir per setting + kelengkapan (3.8) ada; jadwal sesi paket belum di API                                                                                             |
+| Status   | demo (mode presentasi) + api: paket formulir per setting + kelengkapan (3.8); jadwal sesi paket belum di API                                                                                               |
 | Mockup   | tidak ada (gaya mengikuti `SafetyGate` dan kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                    |
 | Kode web | `apps/web/src/app/(staf)/klinis/paket-layanan/` · data `apps/web/src/lib/demo/fixtures/rme-paket.ts` · aturan `apps/web/src/lib/rme-paket.ts` · komponen `apps/web/src/components/rme/paket-workspace.tsx` |
 | Kode API | `apps/api/src/modules/care-packages/` (`GET/PUT /api/v1/care-packages`, `GET /encounters/:id/completeness`)                                                                                                |
