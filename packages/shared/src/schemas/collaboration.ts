@@ -115,7 +115,23 @@ export const consultInboxItemSchema = z.strictObject({
 });
 export type ConsultInboxItem = z.infer<typeof consultInboxItemSchema>;
 
-/** `GET /api/v1/consults/consultants`: dokter aktif yang bisa dituju konsul (selain pelaku), dengan unit penugasan. */
+/** Batas hasil pencarian konsultan (bawaan dan maksimum). */
+export const CONSULTANT_SEARCH_LIMIT = 20;
+export const CONSULTANT_SEARCH_MAX = 50;
+
+/**
+ * `GET /api/v1/consults/consultants?q=&unitId=&limit=`: pencarian dokter tujuan konsul / penerima DPJP utama. `q` =
+ * potongan nama dokter atau nama unit (≥ 2 huruf); `unitId` = hanya dokter yang bertugas di unit itu. Tanpa `q` dan
+ * `unitId` daftar tetap dibatasi `limit`. Urutan stabil (nama, lalu id).
+ */
+export const consultantSearchQuerySchema = z.strictObject({
+  q: z.string().trim().min(2, 'Ketik minimal 2 huruf nama dokter atau unit.').max(80).optional(),
+  unitId: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(CONSULTANT_SEARCH_MAX).default(CONSULTANT_SEARCH_LIMIT),
+});
+export type ConsultantSearchQuery = z.infer<typeof consultantSearchQuerySchema>;
+
+/** Hasil pencarian konsultan: dokter aktif (selain pelaku) + unit penugasan dokternya. */
 export const consultantOptionSchema = z.strictObject({
   userId: uuid,
   nama: z.string(),

@@ -7,6 +7,7 @@ import {
   CONSULT_ACCESS_HOURS,
   CONSULT_ANSWER_HOURS,
   type ConsultantOption,
+  type ConsultantSearchQuery,
   type ConsultInboxItem,
   type ConsultRequestInput,
   type ConsultRequestRecord,
@@ -53,9 +54,6 @@ type ResponseRow = ClinicalRowLike & {
   recommendation: string;
   acceptComanagement: boolean;
 };
-
-/** Batas penugasan dokter yang dibaca untuk daftar tujuan konsul (RS besar < 2.000 dokter aktif). */
-const CONSULTANT_LIMIT = 2000;
 
 /**
  * K10 · Konsultasi, rawat bersama, dan alih rawat (rencana fase 3 §3.8, ADR-0059):
@@ -242,33 +240,62 @@ export class ConsultService {
   }
 
   /**
-   * Dokter aktif selain pelaku (tujuan konsul), dengan nama unit penugasan aktifnya; tanpa data pasien. Paling banyak
-   * `CONSULTANT_LIMIT` penugasan (terbaru dulu), diurutkan nama.
+   * Pencarian dokter tujuan konsul / penerima DPJP utama (tanpa data pasien): pengguna aktif selain pelaku dengan
+   * penugasan `dokter` yang berlaku, disaring nama dokter atau nama unit (`q`) dan/atau unit (`unitId`). Disaring dan
+   * dibatasi di database per PENGGUNA (bukan per penugasan) dengan urutan stabil nama → id, jadi tidak ada dokter yang
+   * hilang acak karena batas; daftar lengkap dicapai dengan mempersempit pencarian.
    */
-  async consultants(): Promise<ConsultantOption[]> {
+  async consultants(query: ConsultantSearchQuery): Promise<ConsultantOption[]> {
     const me = this.records.author().userId;
     const now = new Date();
-    const rows = await this.db.tx().staffAssignment.findMany({
+    const activeDoctor = {
+      role: { code: CONSULTANT_ROLE },
+      validFrom: { lte: now },
+      OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+    };
+    const q = query.q;
+    const users = await this.db.tx().user.findMany({
       where: {
-        userId: { not: me },
-        user: { status: 'active' },
-        role: { code: CONSULTANT_ROLE },
-        validFrom: { lte: now },
-        OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+        id: { not: me },
+        status: 'active',
+        AND: [
+          { assignments: { some: { ...activeDoctor, ...(query.unitId ? { unitId: query.unitId } : {}) } } },
+          ...(q
+            ? [
+                {
+                  OR: [
+                    { displayName: { contains: q, mode: 'insensitive' as const } },
+                    {
+                      assignments: {
+                        some: {
+                          ...activeDoctor,
+                          unit: { name: { contains: q, mode: 'insensitive' as const } },
+                        },
+                      },
+                    },
+                  ],
+                },
+              ]
+            : []),
+        ],
       },
-      select: { userId: true, user: { select: { displayName: true } }, unit: { select: { name: true } } },
-      // Batas pengaman daftar pilihan; urutan tetap (penugasan terbaru dulu) agar batas tidak memotong secara acak
-      // (tanpa `orderBy` dokter baru bisa hilang dari daftar begitu penugasan dokter > batas).
-      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-      take: CONSULTANT_LIMIT,
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
+      take: query.limit,
+      select: {
+        id: true,
+        displayName: true,
+        assignments: {
+          where: activeDoctor,
+          orderBy: { unit: { name: 'asc' } },
+          select: { unit: { select: { name: true } } },
+        },
+      },
     });
-    const byUser = new Map<string, ConsultantOption>();
-    for (const r of rows) {
-      const o = byUser.get(r.userId) ?? { userId: r.userId, nama: r.user.displayName, units: [] };
-      if (r.unit && !o.units.includes(r.unit.name)) o.units.push(r.unit.name);
-      byUser.set(r.userId, o);
-    }
-    return [...byUser.values()].sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+    return users.map((u) => ({
+      userId: u.id,
+      nama: u.displayName,
+      units: [...new Set(u.assignments.flatMap((a) => (a.unit ? [a.unit.name] : [])))],
+    }));
   }
 
   /** Permintaan terbuka untuk saya atau unit penugasan saya (tanpa jawaban final), kunjungan masih berjalan. */

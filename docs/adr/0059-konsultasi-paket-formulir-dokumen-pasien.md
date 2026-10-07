@@ -17,6 +17,20 @@ Rencana fase 3 §3.8 meminta konsultasi dengan jawaban terstruktur, ganti DPJP u
 7. **Paket formulir** dibaca `forms.definition.read` dan diubah `forms.definition.write`. Kelengkapan kunjungan (`GET /encounters/:id/completeness`) memetakan kelas kunjungan ke setting (AMB → rawat jalan, EMER → IGD, IMP → rawat inap). Kelengkapan = setiap formulir wajib aktif punya isian final terkini dengan `encounterId` kunjungan itu. Rute kanonik per kunjungan dipakai menggantikan `/assessment/encounters/:id/completeness` di rencana.
 8. **Dokumen pasien di layar klinis** memakai API P08 yang sudah ada (daftar, unggah biner, batal beralasan, minta TTE) lewat BFF web. Unduhan diteruskan Route Handler, sehingga token tetap di server.
 
+## Pembaruan 7 Oktober 2026 · Sambungan layar
+
+- Tab "Dokumen & konsultasi" Rawat inap (W4) memuat kelengkapan paket rawat inap, konsul + jawaban, tim perawatan, dan dokumen pasien; tiap bagian hanya bila sesi memegang izinnya (403/404 = bagian disembunyikan).
+- Layar Konsultasi hibrida (izin layar `clinical.write`): kotak masuk konsultan dan, dengan `?kunjungan=`, panel konsul + tim yang sama dengan tab Rawat inap. Pilihan dokter tujuan dari `GET /consults/consultants` (dokter aktif + unit, tanpa data pasien).
+- Layar Paket layanan hibrida (izin layar `forms.definition.read`): mode api = paket formulir per setting, diubah pemegang `forms.definition.write`. Paket layanan khusus (HD/kemo/ANC) tetap mode presentasi.
+
+## Pembaruan 7 Oktober 2026 · Pencarian konsultan (temuan agen BUG)
+
+Daftar konsultan semula dibatasi 500 penugasan tanpa urutan, sehingga di RS dengan lebih banyak penugasan dokter
+sebagian dokter hilang acak dari pilihan. Kini `GET /consults/consultants` adalah pencarian: `q` (≥ 2 huruf, nama dokter
+atau nama unit, tidak peka huruf besar), `unitId`, `limit` (bawaan 20, maks. 50); disaring dan dibatasi per pengguna di
+database dengan urutan nama → id. Pemilih "Dokter konsultan" dan "Dokter penerima" di layar mencari di server
+(`searchConsultantsAction`), tidak lagi memuat seluruh dokter.
+
 ## Konsekuensi
 
 - Kode galat baru `CONSULT_NOT_RECIPIENT` (403).

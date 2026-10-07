@@ -8,6 +8,9 @@ import {
   CONSULT_KINDS,
   CONSULT_QUESTION_MIN,
   CONSULT_URGENCIES,
+  type ConsultantOption,
+  consultantOptionSchema,
+  consultantSearchQuerySchema,
   consultRequestRecordSchema,
   SAFETY_REASON_MIN,
 } from '@simrs/shared';
@@ -54,6 +57,30 @@ const invalid = (e: z.ZodError): KonsulActionResult => ({
 });
 
 const uuid = z.uuid();
+
+/**
+ * Pencarian dokter tujuan konsul / penerima DPJP utama (`GET /consults/consultants?q=`), dibatasi dan berurutan stabil
+ * di API; pemilih di layar tidak memuat seluruh dokter RS.
+ */
+export async function searchConsultantsAction(
+  q: unknown,
+): Promise<{ ok: true; data: ConsultantOption[] } | { ok: false; message: string }> {
+  const denied = await authorize('clinical', 'write', 'Peran Anda tidak berizin mengirim konsul.');
+  if (denied) return { ok: false, message: denied.message };
+  const query = consultantSearchQuerySchema.safeParse({ q });
+  if (!query.success || !query.data.q)
+    return { ok: false, message: 'Ketik minimal 2 huruf nama dokter atau unit.' };
+  try {
+    const data = await api(`/api/v1/consults/consultants?q=${encodeURIComponent(query.data.q)}`, {
+      schema: consultantOptionSchema.array(),
+    });
+    return { ok: true, data };
+  } catch (err) {
+    const f = failure(err);
+    return { ok: false, message: f.message };
+  }
+}
+
 const NOT_CLINICIAN = 'Peran Anda tidak berizin menulis rekam klinis pasien ini.';
 
 const sendInput = z.strictObject({

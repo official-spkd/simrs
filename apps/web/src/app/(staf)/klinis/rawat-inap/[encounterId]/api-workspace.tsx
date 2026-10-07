@@ -186,7 +186,6 @@ export function ApiInpatientWorkspace({
                     encounterId={enc}
                     consults={ext.consults.requests}
                     team={ext.consults.team}
-                    consultants={ext.consults.consultants}
                     me={ext38.me}
                     now={ext38.now}
                     canWrite={perms.write}
