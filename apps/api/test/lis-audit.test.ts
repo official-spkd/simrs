@@ -41,7 +41,6 @@ const unitB: Record<string, string> = {};
 const tok: Record<string, Tokens> = {};
 const userId: Record<string, string> = {};
 let analyzer: { id: string; token: string; hmacKey: string };
-let kioskToken: string;
 
 const http = () => request(app.getHttpServer());
 const run = <R>(tenantId: string, fn: (tx: TenantTx) => Promise<R>) => withTenant(testDb(), tenantId, fn);
@@ -134,10 +133,6 @@ beforeAll(async () => {
     .send({ tenantCode: T.code, code: dev.code })
     .expect(200);
   analyzer = { id: dev.id, token: enrolled.body.token, hmacKey: enrolled.body.hmacKey };
-  const kiosk = await createDevice('kiosk', unit.LAB as string);
-  kioskToken = (
-    await http().post('/api/v1/devices/enrol').send({ tenantCode: T.code, code: kiosk.code }).expect(200)
-  ).body.token;
 }, 120_000);
 
 afterAll(async () => {
