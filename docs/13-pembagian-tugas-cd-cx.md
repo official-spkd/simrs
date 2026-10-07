@@ -5,9 +5,48 @@ Papan tugas kerja simultan. Aturan koordinasi umum ada di `docs/12-codex-claude.
 - **CD-n** dikerjakan Claude Code.
 - **CX-n** dikerjakan Codex.
 
-> **Keputusan pemilik produk 6 Okt 2026 (revisi):** backend **ditunda**. Kedua alat fokus ke **front end mode presentasi yang sudah interaktif**. Tugas backend lama dipindah ke §9 (backlog, belum dijadwalkan).
+> **Keputusan pemilik produk 7 Okt 2026 (berlaku sekarang):** backend SIM RS **dilanjutkan penuh**: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10 sesuai `docs/rencana/fase-<n>-*.md`. Keputusan ini **mencabut** "backend ditunda" 6 Okt 2026. Pembagian agen, slot, dan aturan kerjanya ada di [§0](#0-backend-penuh-mulai-7-okt-2026). §1–§7 dan §10 tetap berlaku sebagai catatan gelombang front end mode presentasi yang sudah selesai.
 
-> **Pembaruan 6 Okt 2026:** atas permintaan pemilik produk agar semua layar segera interaktif, **CX-2 dan CX-3 diambil alih Claude Code** (branch `cd/cx-2`, `cd/cx-3`, slot dan database tetap seperti §4). Codex melanjutkan **CX-1** (sedang berjalan), lalu **CX-0** dan **CX-4**. Jangan memulai CX-2/CX-3 di Codex.
+> _Riwayat:_ 6 Okt 2026 (revisi) backend ditunda dan kedua alat fokus ke front end mode presentasi interaktif; pada hari yang sama CX-2 dan CX-3 diambil alih Claude Code. Keduanya sudah selesai dan digabung (lihat `docs/PROGRESS.md`).
+
+## 0. Backend penuh (mulai 7 Okt 2026)
+
+### Syarat kualitas
+
+- Seluruh jalur terhubung tanpa galat. Setiap layar mode api memanggil API sungguhan: tidak ada tombol mati, respons 500, atau galat konsol.
+- Jalur demo (`DATA_SOURCE=demo`) tetap jalan; toko demo (`apps/web/src/lib/demo/store/**`, ADR-0023 keputusan 4) menjadi acuan bentuk respons API. Layar mode api memakai komponen yang sama dengan mode demo bila memungkinkan.
+- Setelah tiap fase lulus tes, demo publik `https://demo.spkd.store/demo-simrs` diperbarui (`APP_ENV=demo`, panduan operator `docs/panduan/06-demo-publik.md`).
+
+### Agen dan slot
+
+| Agen | Tugas | DB tes | Port E2E (API / web / demo / mock) | Rentang migrasi |
+| ---- | ----- | ------ | ---------------------------------- | --------------- |
+| A1   | 3.6 (resume, rekonsiliasi obat, pulang, `DischargeGate` + K-1) → W1 (Poli) → W5b (Resume) | `simrs_test_fe1` | 4020 / 3020 / 3021 / 4120 | 20261007100000–20261007199999 |
+| A2   | 3.7 (persetujuan tindakan + edukasi) → 3.8 (konsultasi, paket layanan, dokumen pasien) | `simrs_test_fe2` | 4030 / 3030 / 3031 / 4130 | 20261007200000–20261007299999 |
+| A3   | W2 (CPOE) + tinjau order residen → W5a (tablet Persetujuan) | `simrs_test_fe3` | 4040 / 3040 / 3041 / 4140 | 20261007300000–20261007399999 |
+| A4   | W3 (IGD + Tempat tidur) + perbaikan ADT (deadlock transfer, urutan status IGD) | `simrs_test_fe4` | 4050 / 3050 / 3051 / 4150 | 20261007400000–20261007499999 |
+| A5   | W4 (Rawat inap: CPPT, eMAR, observasi, askep) | `simrs_test_fe5` | 4060 / 3060 / 3061 / 4160 | 20261007500000–20261007599999 |
+| BUG  | Pemburu bug lintas jalur (demo + api) | `simrs_test_bug` | 4070 / 3070 / 3071 / 4170 | 20261007600000–20261007699999 |
+| DOC  | Dokumentasi cara kerja + peninjau setiap hasil agen sebelum dianggap selesai; satu-satunya penyunting `docs/PROGRESS.md` | `simrs_test_docs` | 4080 / 3080 / 3081 / 4180 | — |
+
+- Variabel E2E per slot: `E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_MOCK_PORT`, dan `E2E_TMP_NAME=<agen>`. `.env` worktree (salinan `.env` checkout utama, tidak di-commit) mengarah ke DB tes slot sendiri.
+- Port 3000/4000/4100 milik server dev pemilik produk; jangan dipakai.
+- Nama migrasi hanya di rentang slot. Fase 3 berikutnya dan fase 4–10 mendapat rentang baru dari orkestrator.
+- Slot §4 lama (CD-n/CX-n) tidak dipakai lagi untuk tugas backend ini.
+
+### Alur integrasi
+
+1. Agen bekerja di worktree dan branch sendiri, tidak push, tidak menggabung ke `master`.
+2. Sebelum lapor, agen menggabung `master` terbaru dan menjalankan gerbang: `pnpm build && pnpm lint && pnpm typecheck` exit 0, `pnpm test` hijau, `prisma migrate diff` kosong, E2E domainnya (mode api) + `e2e/demo/semua-layar.spec.ts` hijau di slotnya.
+3. Orkestrator menggabung ke `master`, lalu mengirim pesan ke **DOC**.
+4. **DOC** menggabung `master` ke branch-nya dan meninjau perubahan: konvensi, keamanan (RLS, ABAC, izin, audit, PHI), kecukupan tes, kesesuaian dengan rencana fase. Bagian kecil dirapikan dengan commit sendiri. DOC mengisi baris potongan di `docs/PROGRESS.md` beserta buktinya, memperbarui panduan fitur (`docs/panduan/10–20`) dan [cara kerja backend](./panduan/07-cara-kerja-backend.md), menjalankan `pnpm test` dan E2E penuh, lalu melaporkan HEAD.
+5. Temuan yang butuh keputusan diajukan DOC ke pemilik produk sebagai pilihan dengan rekomendasi.
+
+### Pola yang wajib dipakai ulang
+
+`ClinicalRecordService` (versi, koreksi, addendum, salah entri), `ClinicalSigningService` + `ClinicalPdfService` (PDF + TTE), `SatusehatRecorder` (`held`) dan `BillableRecorder`, `PatientAccessService` (ABAC tingkat bed), `CareTeamService`, `IdempotencyService`, `SseService`, kode galat `CLINICAL_ERRORS`, dan rute per kunjungan kanonik `/api/v1/encounters/:id/<sumber>`. Penjelasannya: [Cara kerja backend](./panduan/07-cara-kerja-backend.md).
+
+Aturan database tetap: tabel baru RLS FORCE + `tenant_isolation`, FK komposit dibungkus NO FORCE/FORCE, grant minimal; setiap fungsi SECURITY DEFINER memakai `SET search_path = <skema>, pg_temp`; indeks manual masuk `MANUAL_INDEXES` (schema-guard).
 
 ## 1. Arti "interaktif"
 
@@ -42,8 +81,8 @@ Semua tugas bekerja di `apps/web`. Kepemilikan dibagi **per domain**, agar dua a
 | **Keuangan + pembayaran BTN**: `app/(staf)/keuangan/**`, `components/{keuangan,btn}/**`, `lib/{keuangan*,btn*}.ts`                                                                                   | **CX-2** |
 | **Back office + manajemen + aplikasi**: `app/(staf)/manajemen/**`, `app/(perangkat)/pratinjau/aplikasi-*/**`, `components/{manajemen,backoffice,sdm,ppi,penggajian,rekam-medis-adm,…}/**`, `lib/{manajemen*,dasbor,sdm,backoffice*}.ts` | **CX-3** |
 | `src/lib/screens.ts`, `nav.ts`, `demo/personas.ts`, `staff-sidebar.tsx`, `playwright.config.ts`                                                                                                       | **CD-0** (tugas lain: permintaan lewat handoff) |
-| `docs/panduan/**`, `docs/PROGRESS.md`, `docs/adr/README.md`, dokumen ini                                                                                                                              | **CD-0** |
-| `apps/api`, `apps/worker`, `packages/db`, `packages/shared`, `package.json`, `pnpm-lock.yaml`                                                                                                         | **tidak ada** (ditunda; butuh izin pemilik produk) |
+| `docs/panduan/**`, `docs/PROGRESS.md`, `docs/adr/README.md`, dokumen ini                                                                                                                              | **CD-0**; sejak 7 Okt 2026 **DOC** (§0). `docs/PROGRESS.md` hanya DOC |
+| `apps/api`, `apps/worker`, `packages/db`, `packages/shared`, `package.json`, `pnpm-lock.yaml`                                                                                                         | sejak 7 Okt 2026: agen backend sesuai tugas §0 (dulu: tidak ada, ditunda) |
 | `CLAUDE.md`, `AGENTS.md`, `design/**`, `docs/03-regulasi-mrmik.md`                                                                                                                                    | **pemilik produk** |
 
 Fixture bersama (`src/lib/demo/fixtures/{pasien,rs,staf,ids,waktu}.ts`) hanya boleh **ditambah**, tidak diubah, kecuali oleh CD-0.
@@ -242,16 +281,16 @@ CD-0 juga memegang berkas registri (`screens.ts`, `nav.ts`, personas, sidebar). 
   2. Pemeriksaan aksesibilitas: label, kontras ≥ 4,5:1, target ≥ 44 px (anjungan ≥ 64 px), status tidak hanya warna. Pakai Playwright + aturan sederhana, tanpa dependensi baru.
 - **Perbaikan:** dikirim ke pemilik domain lewat handoff. Bila pemilik domain sudah selesai dan sepakat, CX-4 boleh memperbaiki sendiri dengan diff kecil.
 
-## 8. Keputusan pemilik produk yang ditunggu
+## 8. Keputusan pemilik produk
 
-| ID  | Pertanyaan                                                                                                   | Menghambat           | Usulan bawaan                                                                                                                                                  |
+| ID  | Pertanyaan                                                                                                   | Menghambat           | Status                                                                                                                                                  |
 | --- | ------------------------------------------------------------------------------------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| K-1 | Siapa yang boleh memulangkan pasien dengan disposisi **meninggal**?                                          | CD-2 (alur demo), backend 3.6 | Hanya dokter yang berelasi dengan pasien; wajib jam kematian + sebab kematian ICD-10 + surat keterangan kematian ber-TTE; admisi ditolak. |
-| K-2 | Bolehkah periode akuntansi ditutup bila masih ada jurnal yang menunggu penyetuju kedua?                      | CX-2                 | Tidak boleh; tutup periode diblokir sampai antrean persetujuan kosong.                                                                                         |
+| K-1 | Siapa yang boleh memulangkan pasien dengan disposisi **meninggal**?                                          | CD-2 (alur demo), backend 3.6 (A1) | **Diputuskan 7 Okt 2026** (usulan bawaan diterima): hanya dokter yang berelasi dengan pasien (DPJP, rawat bersama, atau dokter jaga yang punya akses) boleh menyelesaikannya. Wajib jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE (`clinical.sign`). Admisi ditolak untuk disposisi ini. `DischargeGate` menegakkan aturan ini. |
+| K-2 | Bolehkah periode akuntansi ditutup bila masih ada jurnal yang menunggu penyetuju kedua?                      | CX-2, backend fase 5 | Belum diputuskan. Usulan bawaan: tidak boleh; tutup periode diblokir sampai antrean persetujuan kosong.                                                  |
 
-## 9. Backlog backend (ditunda)
+## 9. Backlog backend (dijadwalkan 7 Okt 2026)
 
-Belum dijadwalkan. Urutan dan rinciannya mengikuti `docs/rencana/fase-3-klinis-rme.md` §2 dan rencana fase 4–10.
+Tidak lagi ditunda: dijadwalkan lewat §0. Daftar di bawah dipertahankan sebagai cakupan; urutan dan rinciannya mengikuti `docs/rencana/fase-3-klinis-rme.md` §2 dan rencana fase 4–10.
 
 - **3.7** Persetujuan tindakan + edukasi.
 - **3.8** Konsultasi, paket layanan, dokumen pasien.
