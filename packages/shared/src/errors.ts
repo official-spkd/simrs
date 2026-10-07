@@ -124,6 +124,8 @@ export const CLINICAL_ERRORS = {
     status: 409,
     message: 'Syarat pulang belum lengkap (disposisi, resume final, atau surat)',
   },
+  // K13 · Resume medis: butir wajib server (12 butir rawat inap, ringkas rawat jalan) sebelum TTE
+  RESUME_INCOMPLETE: { status: 422, message: 'Resume belum lengkap; lengkapi butir wajib sebelum TTE' },
   // K12 · eMAR
   WRISTBAND_MISMATCH: { status: 422, message: 'Gelang tidak cocok dengan pasien kunjungan ini' },
   WRISTBAND_SCAN_REQUIRED: {
@@ -135,6 +137,21 @@ export const CLINICAL_ERRORS = {
   LATE_REASON_REQUIRED: {
     status: 422,
     message: 'Dosis terlambat wajib disertai alasan (minimal 10 karakter)',
+  },
+  // K11 · Persetujuan tindakan (draf tablet → final ber-TTE)
+  CONSENT_SIGNATURES_REQUIRED: {
+    status: 422,
+    message:
+      'Persetujuan wajib tanda tangan pasien/wali dan atestasi saksi petugas (orang lain dari dokter yang memfinalkan)',
+  },
+  CONSENT_CLOSED: {
+    status: 409,
+    message: 'Draf persetujuan sudah final, ditolak, atau dibatalkan; tidak bisa diubah',
+  },
+  // K10 · Konsultasi
+  CONSULT_NOT_RECIPIENT: {
+    status: 403,
+    message: 'Konsultasi ini hanya dijawab dokter tujuan atau dokter unit tujuan',
   },
 } as const satisfies Record<string, { status: number; message: string }>;
 
@@ -154,11 +171,15 @@ export const CLINICAL_ERROR_CODES = [
   'BED_NOT_AVAILABLE',
   'BED_VERSION_CONFLICT',
   'DISCHARGE_BLOCKED',
+  'RESUME_INCOMPLETE',
   'WRISTBAND_MISMATCH',
   'WRISTBAND_SCAN_REQUIRED',
   'MEDICATION_ALREADY_GIVEN',
   'DOUBLE_CHECK_REQUIRED',
   'LATE_REASON_REQUIRED',
+  'CONSENT_SIGNATURES_REQUIRED',
+  'CONSENT_CLOSED',
+  'CONSULT_NOT_RECIPIENT',
 ] as const satisfies readonly ClinicalErrorCode[];
 
 /** Kode galat stabil. Klien boleh bergantung pada kode ini; pesan boleh berubah. */

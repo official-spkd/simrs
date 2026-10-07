@@ -31,7 +31,8 @@ model FormDefinition {
   tenant    Tenant         @relation(fields: [tenantId], references: [id])
   responses FormResponse[]
 
-  consents Consent[]
+  consents      Consent[]
+  consentDrafts ConsentDraft[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code, version])

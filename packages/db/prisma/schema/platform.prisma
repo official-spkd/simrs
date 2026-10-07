@@ -98,7 +98,9 @@ model Tenant {
   consultResponses        ConsultResponse[]
   consents                Consent[]
   consentSignatures       ConsentSignature[]
+  consentDrafts           ConsentDraft[]
   dischargeSummaries      DischargeSummary[]
+  deathCertificates       DeathCertificate[]
   dischargeMedications    DischargeMedication[]
   dischargeSummarySources DischargeSummarySource[]
 
