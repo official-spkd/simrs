@@ -64,6 +64,7 @@ export function ApiPoliClient({
   rujukHref,
   resumeHref,
   canCall,
+  query = '',
 }: {
   worklist: PoliWorklistApi;
   visit: PoliVisit;
@@ -74,6 +75,8 @@ export function ApiPoliClient({
   rujukHref: string | null;
   resumeHref: string | null;
   canCall: boolean;
+  /** Parameter tautan pasien (`&poli=<layanan>`). */
+  query?: string;
 }) {
   const ops = useApiPoliOps(worklist);
   const router = useRouter();
@@ -152,11 +155,17 @@ export function ApiPoliClient({
         ops={ops}
         apiFields={
           a.draft
-            ? { plan: a.draft.plan, followUp: a.draft.followUp, condition: a.draft.condition }
-            : { plan: '', followUp: '', condition: '' }
+            ? {
+                plan: a.draft.plan,
+                followUp: a.draft.followUp,
+                condition: a.draft.condition,
+                disposition: a.draft.disposition,
+              }
+            : { plan: '', followUp: '', condition: '', disposition: '' }
         }
         finishedLabel={cpptFinal && !finished && a.canSign ? 'Selesaikan kunjungan' : null}
         extraActions={ticketButtons}
+        query={query}
       />
     </div>
   );

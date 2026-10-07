@@ -88,6 +88,17 @@ izin = { sumber: "cppt", aksi: "write", lingkup: { unit: "melati", relasi: "pera
 - **Pulang/meninggal lewat `bed.write`** (ditutup potongan 3.6, ADR-0093). `FullDischargeGate` menolak pulang rawat
   inap tanpa resume final ber-TTE, rujuk tanpa surat rujukan keluar, dan disposisi `meninggal` oleh pelaku tanpa
   `clinical.sign` + relasi dengan pasien (admisi → 403, keputusan K-1) atau tanpa surat keterangan kematian ber-TTE.
+- **Temuan review keamanan fase 3 yang belum ditutup (3.9, 7 Okt 2026; menunggu keputusan pemilik produk):**
+  - Petugas pendaftaran memegang `clinical.read` (lingkup unit IGD) untuk papan IGD, sehingga juga bisa membaca CPPT,
+    diagnosis, eMAR, dan ringkasan pasien IGD; `triage.write` membuatnya bisa menulis triase. Usulan: izin sempit papan
+    IGD (`ed_board.read`) dan keputusan tertulis soal triase oleh pendaftaran.
+  - Kode gelang (rahasia gerbang eMAR) dikembalikan `GET /encounters/:id/wristband` ke pemegang `bed.write`; perawat
+    bisa mengetik kode tanpa memindai gelang. Usulan: kode hanya saat terbit/cetak ulang (izin cetak terpisah) dan
+    penanda "pindai oleh pencetak" di laporan tinjauan.
+  - Serah DPJP utama tanpa DPJP aktif dan konsul ke penerima baru memberi relasi akses tanpa persetujuan penerima
+    (modul consult). Usulan: syarat tambahan untuk penetapan DPJP pertama dan pencabutan akses penerima lama.
+  - Middleware unggah membaca hingga 10 MB sebelum token diverifikasi; papan IGD/bed untuk peran berlingkup
+    `relationship` belum memakai saringan ABAC per pasien; papan bed menampilkan catatan permintaan bed bebas.
 - **Infra lokal.** Docker Compose memakai kata sandi lokal yang diketahui, Redis tanpa kata sandi, dan kredensial root
   MinIO juga dipakai aplikasi; semua port hanya di loopback (ADR-0076). Lingkungan bersama/edge wajib memakai rahasia
   sendiri, Redis ber-`requirepass`, dan pengguna MinIO berkebijakan terbatas ke bucket aplikasi.

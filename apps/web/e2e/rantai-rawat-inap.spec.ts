@@ -281,6 +281,10 @@ test('rantai IGD → rawat inap (api): triase → admisi + gelang → CPPT/TTV/e
     doc.getByRole('article', { name: 'Alasan masuk dan anamnesis singkat' }).getByText(/Demam 4 hari/),
   ).toBeVisible();
   await expect(doc.getByRole('article', { name: 'Terapi selama dirawat' })).toContainText('1× diberikan');
+  // Diagnosis utama ICD-10 dicatat dari layar Resume (butir "diagnosis berkode").
+  await doc.getByLabel('Kode ICD-10').selectOption('J18.9');
+  await doc.getByRole('button', { name: 'Catat diagnosis' }).click();
+  await expect(doc.getByText('Diagnosis J18.9 tercatat.')).toBeVisible();
   await doc.getByRole('combobox', { name: 'Cara pulang' }).selectOption('pulang');
   await doc.getByRole('textbox', { name: 'Kondisi pulang' }).fill('Membaik');
   await doc

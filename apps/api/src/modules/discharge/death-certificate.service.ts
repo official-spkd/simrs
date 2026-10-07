@@ -149,7 +149,8 @@ export class DeathCertificateService {
       resourceId: fields.id,
       patientId: enc.patientId,
       reason: input.revision.kind === 'koreksi' ? input.revision.correctionReason : null,
-      details: { encounterId: enc.id, cause: concept.code, version: fields.version },
+      // Sebab kematian tidak disalin ke audit (data kesehatan; tersimpan di tabelnya).
+      details: { encounterId: enc.id, version: fields.version },
     });
     return this.present(await tx.deathCertificate.findUniqueOrThrow({ where: { id: fields.id } }));
   }

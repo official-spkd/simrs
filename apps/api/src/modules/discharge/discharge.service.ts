@@ -212,7 +212,9 @@ export class DischargeService {
     // Tanda tangan ulang (TTE versi sebelumnya gagal): isian DPJP diambil dari versi itu bila draf sudah dibersihkan.
     const draft =
       (await this.loadDraft(enc.id)) ??
-      (input.revision.kind === 'koreksi' ? await this.draftFromFinal(input.revision.supersedesId, enc.id) : null);
+      (input.revision.kind === 'koreksi'
+        ? await this.draftFromFinal(input.revision.supersedesId, enc.id)
+        : null);
     if (!draft) throw new AppError('CONFLICT', 'Himpun dan simpan draf resume dulu', 409);
     if (input.revision.kind === 'baru' && (await this.currentFinal(enc.id))) {
       const final = (await this.currentFinal(enc.id)) as { id: string };
@@ -350,9 +352,7 @@ export class DischargeService {
         422,
       );
     }
-    if (!(await this.authority.canSign())) {
-      throw new AppError('FORBIDDEN', 'Addendum resume ber-TTE hanya oleh dokter berizin tanda tangan', 403);
-    }
+    await this.assertSigner(enc.id, 'Addendum resume ber-TTE ditandatangani DPJP pasien ini');
     const now = new Date();
     const fields = await this.records.prepare('discharge_summaries', {
       patientId: enc.patientId,

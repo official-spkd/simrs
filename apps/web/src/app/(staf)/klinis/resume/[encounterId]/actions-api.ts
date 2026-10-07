@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  conditionRecordSchema,
   deathCertificateSchema,
   dischargeAddendumInputSchema,
   type DischargeDraftInput,
@@ -195,6 +196,45 @@ export async function issueDeathCertificateAction(
       schema: deathCertificateSchema,
     });
     return { ok: true, message: 'Surat keterangan kematian terbit · TTE dokter diminta.' };
+  } catch (err) {
+    return failed(err);
+  }
+}
+
+/**
+ * Diagnosis kunjungan ICD-10 dari layar Resume (butir "diagnosis berkode"): pertama = utama, berikutnya sekunder.
+ * Kode hanya dari data rujukan (diperiksa API + trigger).
+ */
+export async function addDiagnosisAction(
+  encounterId: unknown,
+  code: unknown,
+  primary: unknown,
+): Promise<ResumeActionResult> {
+  const denied = await gate('clinical', 'write', 'Peran Anda tidak berizin mencatat diagnosis.');
+  if (denied) return { ok: false, message: denied };
+  const id = uuid.safeParse(encounterId);
+  const c = z
+    .string()
+    .regex(/^[A-Z]\d{2}(\.\d{1,2})?$/)
+    .safeParse(code);
+  const p = z.boolean().safeParse(primary);
+  if (!id.success || !c.success || !p.success) return { ok: false, message: 'Kode ICD-10 tidak valid.' };
+  try {
+    await api('/api/v1/diagnosis/conditions', {
+      method: 'POST',
+      body: {
+        encounterId: id.data,
+        kind: 'encounter',
+        role: p.data ? 'utama' : 'sekunder',
+        code: c.data,
+        clinicalStatus: 'active',
+        note: null,
+        occurredAt: new Date().toISOString(),
+        revision: { kind: 'baru' },
+      },
+      schema: conditionRecordSchema,
+    });
+    return { ok: true, message: `Diagnosis ${c.data} tercatat.` };
   } catch (err) {
     return failed(err);
   }

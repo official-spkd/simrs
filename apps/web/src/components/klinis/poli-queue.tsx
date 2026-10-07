@@ -34,6 +34,7 @@ export function PoliQueue({
   onCallNext,
   called,
   canCall,
+  query = '',
 }: {
   title: string;
   items: readonly PoliQueueItem[];
@@ -45,6 +46,8 @@ export function PoliQueue({
   called: string | null;
   /** Posisi aktif boleh memanggil pasien (dokter). */
   canCall: boolean;
+  /** Parameter tambahan tautan pasien (mode api: `&poli=<layanan>` agar pilihan poli tetap). */
+  query?: string;
 }) {
   const [filter, setFilter] = useState<QueueFilter>('semua');
   const [q, setQ] = useState('');
@@ -90,7 +93,7 @@ export function PoliQueue({
           return (
             <li key={p.patientId} className="border-b border-line-soft">
               <Link
-                href={`/klinis/poli?pasien=${p.patientId}`}
+                href={`/klinis/poli?pasien=${p.patientId}${query}`}
                 scroll={false}
                 aria-current={on ? 'true' : undefined}
                 className={cx(

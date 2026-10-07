@@ -1,6 +1,7 @@
 import { formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
+import { z } from 'zod';
 import { ApiError } from '@/lib/server/api-core';
 import { getEncounterContextApi } from '@/lib/server/data/klinis/encounters-api';
 import { getDeathCertificateApi, getDischargeSummaryApi } from '@/lib/server/data/klinis/resume';
@@ -19,6 +20,10 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
   let view;
   let ctx;
   try {
+    // Id dari URL tidak pernah masuk path API mentah: bukan UUID = kunjungan tidak ditemukan (sama dengan 404).
+    if (!z.uuid().safeParse(encounterId).success) {
+      throw new ApiError(404, 'NOT_FOUND', 'Kunjungan tidak ditemukan');
+    }
     [view, ctx] = await Promise.all([
       getDischargeSummaryApi(encounterId),
       getEncounterContextApi(encounterId),

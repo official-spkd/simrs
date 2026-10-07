@@ -11,7 +11,8 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 /**
  * K01/K02 · Pemeriksaan poli + CPPT/SOAP (mockup `Main.dc.html`). Layar hibrida (`requireScreen`): mode presentasi
  * memakai data dummy (`demo-poli.tsx`, dibekukan); mode api (W1) untuk peran ber-izin `clinical.write` lewat API
- * (`api-poli.tsx`). `?pasien=<id>` = pasien yang dibuka di antrean hari ini.
+ * (`api-poli.tsx`). `?pasien=<id>` = pasien yang dibuka di antrean hari ini; `?poli=<layanan>` = satu poli/sesi
+ * (tanpa itu: gabungan poli unit + pasien yang DPJP-nya saya).
  */
 export default async function PoliPage({ searchParams }: { searchParams: SearchParams }) {
   const access = await requireScreen('poli');
@@ -19,5 +20,6 @@ export default async function PoliPage({ searchParams }: { searchParams: SearchP
   const pasien = typeof sp.pasien === 'string' ? sp.pasien : null;
   if (access.mode === 'demo') return <DemoPoli access={access} pasien={pasien} />;
   if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
-  return <ApiPoli session={access.session} pasien={pasien} />;
+  const poli = typeof sp.poli === 'string' && /^[0-9a-f-]{36}$/.test(sp.poli) ? sp.poli : null;
+  return <ApiPoli session={access.session} pasien={pasien} poli={poli} />;
 }

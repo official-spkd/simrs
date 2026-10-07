@@ -38,6 +38,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         'content-disposition': `attachment; filename="dokumen-${id.data}.${ext}"`,
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',
+        // Berkas dari luar (PDF/gambar unggahan) tidak pernah dijalankan sebagai halaman aplikasi.
+        'content-security-policy': "default-src 'none'; sandbox",
       },
     });
   } catch (err) {

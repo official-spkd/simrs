@@ -5,7 +5,7 @@ import { Alert, Button, Field } from '@simrs/ui';
 import { type ChangeEvent, useState } from 'react';
 import type { PoliOps } from './poli-ops';
 
-type FormKey = 'td' | 'nadi' | 'suhu' | 'spo2' | 'napas' | 'berat';
+type FormKey = 'td' | 'nadi' | 'suhu' | 'spo2' | 'napas' | 'berat' | 'kesadaran';
 
 function initial(vitals: readonly PoliVital[]): Record<FormKey, string> {
   const get = (id: FormKey) => {
@@ -19,6 +19,7 @@ function initial(vitals: readonly PoliVital[]): Record<FormKey, string> {
     spo2: get('spo2'),
     napas: get('napas'),
     berat: get('berat'),
+    kesadaran: '',
   };
 }
 
@@ -41,6 +42,7 @@ export function NurseVitalsForm({
   const [result, setResult] = useState<{ ok: boolean; text: string; field?: string } | null>(null);
   const { pending } = ops;
   const full = ops.vitalsMode === 'lengkap';
+  const [oksigen, setOksigen] = useState(false);
   const set = (k: FormKey) => (e: ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
   const err = (k: FormKey) => (result && !result.ok && result.field === k ? result.text : null);
@@ -50,8 +52,11 @@ export function NurseVitalsForm({
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        const { napas, berat, ...core } = form;
-        ops.recordVitals(full ? { encounterId, ...core, napas, berat } : { encounterId, ...core }, (r) => {
+        const { napas, berat, kesadaran, ...core } = form;
+        const input = full
+          ? { encounterId, ...core, napas, berat, kesadaran, oksigen }
+          : { encounterId, ...core };
+        ops.recordVitals(input, (r) => {
           if (r.ok && r.at) {
             onSaved(r.message ?? `Tanda vital tersimpan ${r.at}`);
             setResult({ ok: true, text: r.message ?? 'Tersimpan' });
@@ -111,6 +116,33 @@ export function NurseVitalsForm({
               inputMode="decimal"
               error={err('berat')}
             />
+            <label className="flex flex-col gap-1.5 text-small font-semibold">
+              Kesadaran (ACVPU)
+              <select
+                value={form.kesadaran}
+                required
+                onChange={(e) => setForm((f) => ({ ...f, kesadaran: e.target.value }))}
+                aria-invalid={err('kesadaran') ? true : undefined}
+                className="h-11 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-small font-normal"
+              >
+                <option value="">Pilih…</option>
+                <option value="A">A · sadar penuh</option>
+                <option value="C">C · bingung baru</option>
+                <option value="V">V · respons suara</option>
+                <option value="P">P · respons nyeri</option>
+                <option value="U">U · tidak respons</option>
+              </select>
+              {err('kesadaran') && <span className="text-caption text-danger">{err('kesadaran')}</span>}
+            </label>
+            <label className="flex min-h-11 items-center gap-2 self-end text-small">
+              <input
+                type="checkbox"
+                checked={oksigen}
+                onChange={(e) => setOksigen(e.target.checked)}
+                className="size-[18px] accent-brand-600"
+              />
+              Dengan oksigen tambahan
+            </label>
           </>
         )}
       </div>

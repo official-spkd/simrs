@@ -136,7 +136,7 @@ export class VitalsService {
   }
 
   async enteredInError(encounterId: string, id: string, reason: string): Promise<ClinicalEntryMeta> {
-    const enc = await clinicalEncounter(this.db, this.access, encounterId, 'read');
+    const enc = await clinicalEncounter(this.db, this.access, encounterId, 'write');
     const target = await this.db.tx().observation.findUnique({
       where: { id },
       select: { encounterId: true, category: true },
