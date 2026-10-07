@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import type { NextConfig } from 'next';
+import { normalizeBasePath } from './src/lib/base-path';
 
 /**
  * Next.js hanya membaca .env di folder apps/web. Dari .env root kita ambil daftar putih variabel server saja
@@ -18,6 +19,8 @@ const ROOT_ENV_ALLOWLIST = [
   'REFRESH_REDIS_PREFIX',
   // Kunci Server Action bersama antar-instans web (ADR-0073); hanya disalin bila diisi.
   'NEXT_SERVER_ACTIONS_ENCRYPTION_KEY',
+  // Prefiks path saat dipasang di bawah path (mis. demo `/demo-simrs`); dibakukan saat build.
+  'WEB_BASE_PATH',
 ] as const;
 const rootEnvPath = resolve(process.cwd(), '../../.env');
 if (existsSync(rootEnvPath)) {
@@ -45,7 +48,12 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
 ];
 
+/** `WEB_BASE_PATH` kosong = akar domain. Diteruskan ke klien sebagai `NEXT_PUBLIC_BASE_PATH` (`src/lib/base-path.ts`). */
+const basePath = normalizeBasePath(process.env.WEB_BASE_PATH);
+
 const nextConfig: NextConfig = {
+  ...(basePath ? { basePath } : {}),
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   transpilePackages: ['@simrs/ui'],
   // Klien Redis peta refresh sesi (proxy, ADR-0073): dimuat dari node_modules, tidak dibundel.
   serverExternalPackages: ['ioredis'],

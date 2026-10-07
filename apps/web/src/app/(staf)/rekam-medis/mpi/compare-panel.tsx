@@ -15,6 +15,7 @@ import {
 } from '@/lib/mpi';
 import type { Comparison } from '@/lib/server/mpi';
 import { type DecisionResult, distinctAction, mergeAction, undoAction } from './actions';
+import { withBasePath } from '@/lib/base-path';
 
 const REASON_MIN = 10;
 
@@ -278,7 +279,7 @@ function DecisionStatus({ c, auditHref }: { c: Comparison; auditHref: string | n
       </span>
       {c.decision?.reason && <span className="text-small text-ink-700">Alasan: {c.decision.reason}</span>}
       {auditHref && (
-        <a href={auditHref} className="text-small font-semibold">
+        <a href={withBasePath(auditHref)} className="text-small font-semibold">
           Lihat di jejak audit
         </a>
       )}

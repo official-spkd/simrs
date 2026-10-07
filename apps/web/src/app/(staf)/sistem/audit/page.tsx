@@ -52,6 +52,7 @@ import {
 import { requireSession } from '@/lib/server/session';
 import { can, type SessionView } from '@/lib/session-view';
 import { ReopenReview, ReviewForm } from './review-form';
+import { withBasePath } from '@/lib/base-path';
 
 export const metadata: Metadata = { title: 'Jejak audit' };
 
@@ -180,7 +181,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Search
           </Link>
           {can(s, 'audit', 'export') && (
             <a
-              href={exportHref(p)}
+              href={withBasePath(exportHref(p))}
               className="inline-flex h-11 items-center rounded-control border border-line-strong bg-white px-3.5 font-semibold text-ink-900 no-underline"
             >
               Unduh paket bukti akreditasi
@@ -309,7 +310,11 @@ function Filters({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <form method="get" action="/sistem/audit" className="flex flex-wrap items-center gap-2.5">
+      <form
+        method="get"
+        action={withBasePath('/sistem/audit')}
+        className="flex flex-wrap items-center gap-2.5"
+      >
         {p.jenis && <input type="hidden" name="jenis" value={p.jenis} />}
         {p.pengguna && <input type="hidden" name="pengguna" value={p.pengguna} />}
         <label htmlFor="audit-pasien" className="sr-only">
@@ -915,7 +920,7 @@ function BreakGlassReport({
             {formatTanggal(`${date}T12:00:00+07:00`)} · {grants.length} akses · semua wajib ditinjau
           </span>
         </div>
-        <form method="get" action="/sistem/audit" className="flex items-center gap-2">
+        <form method="get" action={withBasePath('/sistem/audit')} className="flex items-center gap-2">
           {Object.entries(current)
             .filter(([k, v]) => v && !['laporan', 'kejadian', 'tinjau', 'temuan', 'kursor'].includes(k))
             .map(([k, v]) => (

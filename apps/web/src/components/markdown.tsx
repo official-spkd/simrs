@@ -3,6 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { rewriteGuideHref, rewriteGuideImageSrc, slugify } from '@/lib/guide';
+import { withBasePath } from '@/lib/base-path';
 
 /** Teks polos dari children React (untuk id anchor heading; harus sama dengan `extractToc`). */
 function nodeText(node: ReactNode): string {
@@ -59,7 +60,8 @@ const components: Components = {
    * (disembunyikan dari pembaca layar agar tidak terbaca dua kali). Klik membuka ukuran penuh.
    */
   img: ({ src, alt }) => {
-    const url = typeof src === 'string' ? rewriteGuideImageSrc(src) : null;
+    const rewritten = typeof src === 'string' ? rewriteGuideImageSrc(src) : null;
+    const url = rewritten ? withBasePath(rewritten) : null;
     const text = (alt ?? '').trim();
     if (!url || !text) {
       return (

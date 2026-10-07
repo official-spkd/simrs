@@ -13,6 +13,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { RegQueuePreview } from '@/components/front-office/reg-quota';
 import { sepSettled, sepStatusView, type StatusView, taskChips, tasksSettled } from '@/lib/registration-api';
 import { retrySepAction } from './actions-api';
+import { withBasePath } from '@/lib/base-path';
 
 /** Selang pembaruan otomatis selama SEP/task masih menunggu kirim (worker outbox). */
 const REFRESH_MS = 3_000;
@@ -121,7 +122,7 @@ export function RegistrationDone({
           <div className="flex flex-col gap-2">
             {canPrint ? (
               <a
-                href={`/cetak/pendaftaran/${encounter.id}`}
+                href={withBasePath(`/cetak/pendaftaran/${encounter.id}`)}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-line-strong bg-white px-4 font-semibold text-ink-900 no-underline"
