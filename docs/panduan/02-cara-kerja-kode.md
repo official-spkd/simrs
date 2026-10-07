@@ -614,7 +614,8 @@ medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/peno
 - PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, TTE dokter pemberi
   penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (`setuju`/`tolak`/`dicabut`).
 - Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
-  `GET encounters/:id/assessments`. Final persetujuan menunggu isian terkini bertopik `tindakan` berevaluasi
+  `GET encounters/:id/assessments`. Layar Edukasi mode api membaca `GET encounters/:id/education` (`clinical.read`:
+  formulir terbit, `supportsConsent`, `ready`, riwayat isian) dan menyimpan lewat endpoint isian formulir P07. Final persetujuan menunggu isian terkini bertopik `tindakan` berevaluasi
   `paham` (`consentEducationReady`, aturan yang sama dengan layar Edukasi demo). Seed menaikkan versi formulir edukasi
   lama yang belum punya topik `tindakan` (`upgradePublishedForm`).
 
@@ -623,17 +624,18 @@ medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/peno
 Modul `consult` dan `care-packages`, kontrak `schemas/collaboration.ts`, ADR-0059. Tanpa migrasi baru: tabel 3.0b
 lewat `ClinicalRecordService` dan `CareTeamService`.
 
-| Endpoint `/api/v1/…`                    | Izin                     | Isi                                                                                                         |
-| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `POST consults/requests`                | `clinical.write`         | Konsul (dokter/residen) ke dokter dan/atau unit; berversi (`revision`); dokter tujuan dapat akses 24 jam    |
-| `POST consults/requests/:id/responses`  | `clinical.write`         | Jawaban terstruktur HANYA oleh dokter tujuan (atau dokter unit tujuan); lainnya 403 `CONSULT_NOT_RECIPIENT` |
-| `GET consults/inbox`                    | `clinical.read`          | Konsul terbuka untuk saya / unit saya (bukan kiriman sendiri), dengan `dueAt` (cito 1 jam, biasa 24 jam)    |
-| `GET encounters/:id/consults`           | `clinical.read`          | Konsul kunjungan + jawaban (`followUp` selesai/rawat_bersama/alih_rawat)                                    |
-| `GET encounters/:id/care-team`          | `clinical.read`          | Tim perawatan aktif + riwayat                                                                               |
-| `POST encounters/:id/care-team/primary` | `clinical.write`         | Serah DPJP utama (hanya DPJP utama aktif, alasan ≥ 10): keanggotaan lama diakhiri, yang baru ditambah       |
-| `GET care-packages?setting=`            | `forms.definition.read`  | Paket formulir per setting (`rawat_jalan`, `igd`, `rawat_inap`)                                             |
-| `PUT care-packages/:setting/:formCode`  | `forms.definition.write` | Pasang/ubah butir paket (wajib, urutan, aktif)                                                              |
-| `GET encounters/:id/completeness`       | `clinical.read`          | Kelengkapan asesmen kunjungan menurut paket setting-nya (EP 6b/7a)                                          |
+| Endpoint `/api/v1/…`                         | Izin                     | Isi                                                                                                         |
+| -------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `POST consults/requests`                     | `clinical.write`         | Konsul (dokter/residen) ke dokter dan/atau unit; berversi (`revision`); dokter tujuan dapat akses 24 jam    |
+| `POST consults/requests/:id/responses`       | `clinical.write`         | Jawaban terstruktur HANYA oleh dokter tujuan (atau dokter unit tujuan); lainnya 403 `CONSULT_NOT_RECIPIENT` |
+| `GET consults/consultants?q=&unitId=&limit=` | `clinical.write`         | Cari dokter aktif selain pelaku (nama/unit, ≥ 2 huruf) + unit; urut nama → id, bawaan 20, maks. 50          |
+| `GET consults/inbox`                         | `clinical.read`          | Konsul terbuka untuk saya / unit saya (bukan kiriman sendiri), dengan `dueAt` (cito 1 jam, biasa 24 jam)    |
+| `GET encounters/:id/consults`                | `clinical.read`          | Konsul kunjungan + jawaban (`followUp` selesai/rawat_bersama/alih_rawat)                                    |
+| `GET encounters/:id/care-team`               | `clinical.read`          | Tim perawatan aktif + riwayat                                                                               |
+| `POST encounters/:id/care-team/primary`      | `clinical.write`         | Serah DPJP utama (hanya DPJP utama aktif, alasan ≥ 10): keanggotaan lama diakhiri, yang baru ditambah       |
+| `GET care-packages?setting=`                 | `forms.definition.read`  | Paket formulir per setting (`rawat_jalan`, `igd`, `rawat_inap`)                                             |
+| `PUT care-packages/:setting/:formCode`       | `forms.definition.write` | Pasang/ubah butir paket (wajib, urutan, aktif)                                                              |
+| `GET encounters/:id/completeness`            | `clinical.read`          | Kelengkapan asesmen kunjungan menurut paket setting-nya (EP 6b/7a)                                          |
 
 - Jawaban konsul sekali membatasi akses konsultan sampai 24 jam setelah jawaban. Rawat bersama/alih rawat yang
   diterima memakai relasi tim perawatan (berlaku selama dirawat; setelah diakhiri sampai akhir hari berikutnya).

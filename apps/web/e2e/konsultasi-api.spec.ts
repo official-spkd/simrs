@@ -61,7 +61,14 @@ test.describe('Konsultasi, tim perawatan, dan dokumen pasien mode api (3.8)', ()
     // Gerbang tertulis sebelum isian lengkap.
     await send.getByRole('button', { name: 'Kirim konsul' }).click();
     await expect(send.getByRole('alert')).toHaveText('Pilih dokter konsultan.');
-    await send.getByLabel('Dokter konsultan').selectOption({ label: konsultan.displayName });
+    // Pemilih konsultan mencari di server (bukan memuat seluruh dokter RS): kata kunci khas tes ini.
+    const picker = send.getByRole('group', { name: 'Dokter konsultan' });
+    await picker.getByLabel('Cari nama dokter atau unit (minimal 2 huruf)').fill(`Jantung ${tag}`);
+    await picker
+      .getByRole('list', { name: 'Hasil pencarian dokter konsultan' })
+      .getByRole('button', { name: new RegExp(konsultan.displayName.replace(/[.,]/g, '.')) })
+      .click();
+    await expect(picker).toContainText(`Dipilih: ${konsultan.displayName}`);
     await send.getByLabel('Jenis').selectOption({ label: 'Rawat bersama' });
     await send.getByLabel('Urgensi').selectOption({ label: 'Cito (≤ 1 jam)' });
     await send

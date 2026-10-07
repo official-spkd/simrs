@@ -204,6 +204,17 @@ test.describe('smoke', () => {
     await expect(page.getByRole('heading', { name: 'Persetujuan tindakan', level: 1 })).toBeVisible();
     await expect(page.getByText('Draf tidak ditemukan')).toBeVisible();
 
+    // Konsultasi, Edukasi, Paket layanan sudah tersambung (3.7/3.8, `konsultasi-api.spec.ts`, `persetujuan.spec.ts`).
+    await page.goto('/klinis/konsultasi');
+    await expect(page.getByRole('heading', { name: 'Konsultasi & rawat bersama', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Konsul masuk' })).toBeVisible();
+    await page.goto('/klinis/edukasi');
+    await expect(page.getByRole('heading', { name: 'Edukasi pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Pilih kunjungan pasien')).toBeVisible();
+    await page.goto('/klinis/paket-layanan');
+    await expect(page.getByRole('heading', { name: 'Paket formulir per setting', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+
     // Tersambung API: dokter tanpa unit poli melihat antrean kosong; daftar resume kosong; id demo = tidak ditemukan.
     await page.goto('/klinis/poli');
     await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
