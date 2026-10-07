@@ -46,11 +46,14 @@ test.describe('smoke', () => {
       'bed',
       'consent',
       'daftar',
+      'edukasi',
       'igd',
       'jadwal',
       'kendali',
       'kiosk',
+      'konsul',
       'order',
+      'paket',
       'poli',
       'ranap',
       'resume',
@@ -91,8 +94,11 @@ test.describe('smoke', () => {
     expect(clinical.map((s) => s.id).sort()).toEqual([
       'bed',
       'consent',
+      'edukasi',
       'igd',
+      'konsul',
       'order',
+      'paket',
       'poli',
       'ranap',
       'resume',
@@ -105,8 +111,19 @@ test.describe('smoke', () => {
     expect(demoId?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
     // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan, W1: poli, W5b: resume, W3: IGD + tempat
-    // tidur di `igd-ranap.spec.ts`) diperiksa terpisah di bawah.
-    const connected = new Set(['ranap', 'order', 'consent', 'poli', 'resume', 'igd', 'bed']);
+    // tidur di `igd-ranap.spec.ts`, 3.8: edukasi, konsultasi, paket layanan) diperiksa terpisah di bawah.
+    const connected = new Set([
+      'ranap',
+      'order',
+      'consent',
+      'poli',
+      'resume',
+      'igd',
+      'bed',
+      'edukasi',
+      'konsul',
+      'paket',
+    ]);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
     ];
