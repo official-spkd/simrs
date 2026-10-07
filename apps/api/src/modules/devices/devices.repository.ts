@@ -92,12 +92,19 @@ export class DevicesRepository {
     return r.count;
   }
 
-  /** Perangkat yang menunggu pendaftaran dengan HMAC kode ini (dipakai di luar permintaan bertenant). */
-  static findPendingByCode(tx: TenantTx, codeHash: string) {
+  /**
+   * Perangkat yang menunggu pendaftaran dengan HMAC kode ini (dipakai di luar permintaan bertenant). `kinds` membatasi
+   * jalur: kode analyzer tidak berlaku di pendaftaran peramban dan sebaliknya (kode tidak terpakai).
+   */
+  static findPendingByCode(
+    tx: TenantTx,
+    codeHash: string,
+    kinds: readonly string[] = DEVICE_PRINCIPAL_KINDS,
+  ) {
     return tx.registeredDevice.findFirst({
       where: {
         enrolCodeHash: codeHash,
-        kind: { in: [...DEVICE_PRINCIPAL_KINDS] },
+        kind: { in: [...kinds] },
         enrolledAt: null,
         revokedAt: null,
       },
@@ -109,7 +116,7 @@ export class DevicesRepository {
   static async completeEnrolment(
     tx: TenantTx,
     id: string,
-    data: { tokenHash: string; userAgent: string | null },
+    data: { tokenHash: string; userAgent: string | null; hmacKeyEnc?: string | null },
   ): Promise<boolean> {
     const r = await tx.registeredDevice.updateMany({
       where: { id, enrolledAt: null, revokedAt: null },

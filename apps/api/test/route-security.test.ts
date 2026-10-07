@@ -75,6 +75,8 @@ const PUBLIC = new Set([
   'POST auth/pin/login',
   'POST auth/pin/accounts',
   'POST devices/enrol',
+  // Fase 4 §4.1a · gateway analyzer lab menukar kode pendaftaran (batas laju kredensial).
+  'POST devices/lis/enrol',
   'GET verification/signatures/:code',
   'GET public/:tenantCode/schedules',
   'GET public/:tenantCode/queues',
