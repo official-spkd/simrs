@@ -4,14 +4,11 @@ import {
   cpoeContextSchema,
   type CpoeEncounterRef,
   cpoeEncounterRefSchema,
-  type EncounterContext,
-  encounterContextSchema,
   type OrderGroup,
   orderGroupSchema,
   type OrderSetView,
   orderSetViewSchema,
   type WorklistPatient,
-  worklistSchema,
 } from '@simrs/shared';
 import { z } from 'zod';
 import { demoCpoeAvailable, demoCpoeContext, demoCpoeEncounters } from '../../../demo/fixtures/klinis';
@@ -24,6 +21,7 @@ import { scenarioRuns } from '../../demo/scenario-context';
 import { assertDemo } from '../../demo-guard';
 import { webEnv } from '../../web-env';
 import { notImplemented } from '../not-implemented';
+import { getRunningEncountersApi } from './encounters-api';
 
 /**
  * K09 · Data layar Order & resep (CPOE). Mode presentasi: katalog dummy + order tersimpan di toko demo (`klinis-order`,
@@ -73,11 +71,6 @@ export async function hasCpoeContext(session: SessionView, encounterId: string):
   return z.uuid().safeParse(encounterId).success && can(session, 'order', 'read');
 }
 
-/** Mode api: banner pasien + kunjungan (`id` sudah divalidasi UUID oleh pemanggil). */
-export function getEncounterContextApi(encounterId: string): Promise<EncounterContext> {
-  return api(`/api/v1/encounters/${encounterId}/context`, { schema: encounterContextSchema });
-}
-
 /** Mode api: order set institusi aktif. */
 export function getOrderSetsApi(): Promise<OrderSetView[]> {
   return api('/api/v1/orders/order-sets', { schema: z.array(orderSetViewSchema) });
@@ -99,22 +92,14 @@ export interface CpoeApiEncounter extends WorklistPatient {
  * menunggu tinjauan saya tampil teratas.
  */
 export async function getCpoeEncountersApi(): Promise<CpoeApiEncounter[]> {
-  const [mine, unit] = await Promise.all([
-    api('/api/v1/worklist?view=dpjp', { schema: worklistSchema }),
-    api('/api/v1/worklist?view=unit', { schema: worklistSchema }),
-  ]);
+  const { patients, tasks } = await getRunningEncountersApi();
   const reviews = new Map<string, number>();
-  for (const task of mine.tasks) {
+  for (const task of tasks) {
     if (task.kind === 'review_order' && task.encounterId) {
       reviews.set(task.encounterId, (reviews.get(task.encounterId) ?? 0) + 1);
     }
   }
-  const byId = new Map<string, CpoeApiEncounter>();
-  for (const p of [...mine.patients, ...unit.patients]) {
-    if (!byId.has(p.encounterId))
-      byId.set(p.encounterId, { ...p, reviewTasks: reviews.get(p.encounterId) ?? 0 });
-  }
-  return [...byId.values()].sort(
-    (a, b) => b.reviewTasks - a.reviewTasks || a.name.localeCompare(b.name, 'id'),
-  );
+  return patients
+    .map((p) => ({ ...p, reviewTasks: reviews.get(p.encounterId) ?? 0 }))
+    .sort((a, b) => b.reviewTasks - a.reviewTasks || a.name.localeCompare(b.name, 'id'));
 }

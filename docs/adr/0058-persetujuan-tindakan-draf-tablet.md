@@ -23,3 +23,16 @@ Rencana fase 3 §3.7 meminta templat P07 tujuh butir, draf, tanda tangan pasien/
 - Draf yang tidak pernah difinalkan tetap tersimpan berstatus `draf` (bukan rekam medis). Belum ada job pembersihan; layar menampilkan dan membatalkannya.
 - Gambar tanda tangan tidak ditanam di PDF. PDF mencantumkan nama + cara tanda tangan, berkasnya tetap di dokumen pasien.
 - Jalur demo (`DATA_SOURCE=demo`) tidak berubah. Layar tablet mode api (W5a) memakai endpoint ini.
+
+## Pembaruan 7 Okt 2026 · layar tablet mode api (W5a)
+
+- **Rute.** `/tablet/persetujuan` memilih kunjungan dari worklist K01 (dpjp + unit); `?kunjungan=<encounterId>` memuat
+  draf, persetujuan tercatat, dan draf baru. `/tablet/persetujuan/<id>` di mode api = id **draf** (mode presentasi tetap
+  memakai id dokumen fiktif).
+- **Gambar goresan** dikirim Server Action sebagai PNG data URL dari bantalan, didekode di server web, lalu diteruskan
+  biner (`application/octet-stream`) ke `signature-image`. Pemanggil API web (`callApi`) kini menerima body biner.
+- **Tombol mengikuti izin.** Tolak dan TTE hanya tampil bagi pemegang `consent.sign`; pemegang `consent.write` melihat
+  langkah tanda tangan, atestasi saksi dengan sesinya sendiri, dan pembatalan draf. Dokter yang menjadi saksi petugas
+  melihat alasan tertulis mengapa TTE tidak bisa dilakukannya.
+- **Pencabutan dari tablet** memakai tanda tangan ketik nama pasien/wali (tanpa bantalan) agar formulirnya ringkas;
+  API tetap menerima goresan bila kelak dibutuhkan.

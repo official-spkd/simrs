@@ -26,6 +26,7 @@ import {
   sentSummary,
   submitInput,
 } from '@/lib/cpoe-api';
+import { useRefreshWhilePending } from '@/lib/use-refresh-while-pending';
 import { CpoeApiDraftRow } from './cpoe-api-draft-row';
 import { CpoeApiOrders } from './cpoe-api-orders';
 
@@ -137,27 +138,6 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
       )}
     </section>
   );
-}
-
-/**
- * Selama ada resep yang TTE-nya masih diproses worker (outbox `tte.sign`), muat ulang data server berkala agar status
- * berubah sendiri menjadi sah/gagal tanpa muat ulang manual. Berhenti setelah ±1 menit.
- */
-function useRefreshWhilePending(pending: boolean) {
-  const router = useRouter();
-  const rounds = useRef(0);
-  useEffect(() => {
-    if (!pending) {
-      rounds.current = 0;
-      return;
-    }
-    if (rounds.current >= 20) return;
-    const t = setTimeout(() => {
-      rounds.current += 1;
-      router.refresh();
-    }, 3_000);
-    return () => clearTimeout(t);
-  });
 }
 
 /**

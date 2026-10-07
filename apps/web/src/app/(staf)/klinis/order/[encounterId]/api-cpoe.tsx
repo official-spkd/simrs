@@ -3,11 +3,8 @@ import Link from 'next/link';
 import { EncounterBanner } from '@/components/klinis/encounter-banner';
 import { CpoeApiWorkspace } from '@/components/klinis/cpoe-api-workspace';
 import { ApiError } from '@/lib/server/api-core';
-import {
-  getEncounterContextApi,
-  getEncounterOrdersApi,
-  getOrderSetsApi,
-} from '@/lib/server/data/klinis/cpoe';
+import { getEncounterOrdersApi, getOrderSetsApi } from '@/lib/server/data/klinis/cpoe';
+import { getEncounterContextApi } from '@/lib/server/data/klinis/encounters-api';
 import { can, type SessionView } from '@/lib/session-view';
 
 /**

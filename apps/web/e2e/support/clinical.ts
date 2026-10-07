@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  ensurePublishedForm,
   insertPatient,
   type PrismaClient,
   seedClinicalMasters,
@@ -8,13 +9,14 @@ import {
   type TenantTx,
   withTenant,
 } from '@simrs/db';
-import { newId } from '@simrs/shared';
+import { CONSENT_TEMPLATE_SAMPLE, newId } from '@simrs/shared';
 import { encryptField, generateTotpSecret, hashPassword, PatientCrypto } from '@simrs/shared/node';
 import type { Account } from './accounts';
 import { e2eFieldKeys } from './field-keys';
 
 /**
- * Fase 3 · fixture E2E klinis (potongan 3.1): struktur RS + master klinis RSFA (bed, obat, order set, KB CDS), akun
+ * Fase 3 · fixture E2E klinis (potongan 3.1): struktur RS + master klinis RSFA (bed, obat, order set, KB CDS, templat
+ * persetujuan tindakan), akun
  * DPJP (Melati), residen (IGD), perawat (Melati), admisi (pendaftaran), dan satu pasien beralergi amoksisilin
  * (alergi terkode, dicatat DPJP). Akun baru setiap run (nama pengguna unik); kredensial di berkas folder sementara E2E
  * (mode 0600), tidak pernah di repo. Dibaca spesifikasi klinis lewat `clinicalFixtures()`.
@@ -77,6 +79,8 @@ export async function ensureClinicalFixtures(prisma: PrismaClient, tenantId: str
   const fixtures = await withTenant(prisma, tenantId, async (tx) => {
     await seedHospitalStructure(tx, tenantId);
     await seedClinicalMasters(tx, tenantId);
+    // K11: templat persetujuan tindakan (tujuh butir) untuk tablet persetujuan mode api.
+    await ensurePublishedForm(tx, tenantId, CONSENT_TEMPLATE_SAMPLE);
     const accounts = {
       dpjp: await account(tx, tenantId, 'dokter', 'MELATI', 'dr. DPJP E2E Fiktif, Sp.PD'),
       residen: await account(tx, tenantId, 'dokter_residen', 'IGD', 'dr. Residen E2E Fiktif'),
