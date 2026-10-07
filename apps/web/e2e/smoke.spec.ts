@@ -104,9 +104,9 @@ test.describe('smoke', () => {
     const demoId = await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`);
     expect(demoId?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
-    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan, W1: poli, W5b: resume) diperiksa
-    // terpisah di bawah.
-    const connected = new Set(['ranap', 'order', 'consent', 'poli', 'resume']);
+    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan, W1: poli, W5b: resume, W3: IGD + tempat
+    // tidur di `igd-ranap.spec.ts`) diperiksa terpisah di bawah.
+    const connected = new Set(['ranap', 'order', 'consent', 'poli', 'resume', 'igd', 'bed']);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
     ];
@@ -150,8 +150,8 @@ test.describe('smoke', () => {
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
-    await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
-    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
   });
