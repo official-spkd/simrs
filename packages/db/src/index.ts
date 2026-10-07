@@ -132,6 +132,7 @@ export {
 export { seedStaff, type SeedStaffResult } from './seed-staff';
 export {
   SEED_LAB_TESTS,
+  SEED_RADIOLOGY_PROCEDURES,
   SEED_WHO_CHECKLIST,
   seedSupportMasters,
   seedSupportStock,
