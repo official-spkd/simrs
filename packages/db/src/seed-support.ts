@@ -357,16 +357,17 @@ export async function seedSupportMasters(tx: TenantTx, tenantId: string): Promis
       create: { id: newId(), tenantId, code, name },
     });
   }
-  for (const [code, name, shelfLifeDays] of [
-    ['PRC', 'Packed red cells', 42],
-    ['TC', 'Trombosit konsentrat', 5],
-    ['FFP', 'Fresh frozen plasma', 365],
-    ['WB', 'Whole blood', 35],
+  // Aturan ABO per komponen (ADR-0105): sel darah merah, plasma (FFP/TC), identik (darah lengkap).
+  for (const [code, name, shelfLifeDays, aboRule] of [
+    ['PRC', 'Packed red cells', 42, 'sel_darah_merah'],
+    ['TC', 'Trombosit konsentrat', 5, 'plasma'],
+    ['FFP', 'Fresh frozen plasma', 365, 'plasma'],
+    ['WB', 'Whole blood', 35, 'identik'],
   ] as const) {
     await tx.bloodComponent.upsert({
       where: { tenantId_code: { tenantId, code } },
       update: {},
-      create: { id: newId(), tenantId, code, name, shelfLifeDays },
+      create: { id: newId(), tenantId, code, name, shelfLifeDays, aboRule },
     });
   }
   return result;

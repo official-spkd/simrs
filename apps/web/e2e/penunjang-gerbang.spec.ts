@@ -5,11 +5,12 @@ import { createAccount, loginAs } from './support/accounts';
 /**
  * Fase 4 potongan 4.0c · layar penunjang hibrida di mode api (pola 3.0d klinis): peran pelaksana yang memegang izin
  * layar (matriks bawaan 4.0a) melihat "Belum tersambung", bukan 404 dan bukan data presentasi; peran tanpa izin
- * melihat "Akses ditolak". Jalur api tiap layar diisi potongan 4.2–4.9.
+ * melihat "Akses ditolak". Jalur api tiap layar diisi potongan 4.2–4.9; yang sudah tersambung (`CONNECTED`) membuka
+ * layar api tanpa "Belum tersambung".
  */
 
-/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo). */
-const CONNECTED = new Set(['depo']);
+/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo; 4.9: Bank darah + Gizi, `gizi-bank-darah-api.spec.ts`). */
+const CONNECTED = new Set(['depo', 'bank-darah', 'gizi']);
 
 const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = [
   { role: 'analis_lab', screens: ['lab', 'mikro', 'bank-darah', 'kritis'] },
@@ -21,7 +22,9 @@ const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = 
 ];
 
 test.describe('layar penunjang hibrida di mode api (4.0c)', () => {
-  test('pelaksana berizin melihat "Belum tersambung"; peran lain "Akses ditolak"', async ({ page }) => {
+  test('pelaksana berizin melihat "Belum tersambung" (atau layar api); peran lain "Akses ditolak"', async ({
+    page,
+  }) => {
     const support = SCREENS.filter((s) => s.phase === 4 && s.permission);
     expect(support.map((s) => s.id).sort()).toEqual(
       PERFORMERS.flatMap((p) => p.screens).sort((a, b) => a.localeCompare(b)),
@@ -35,7 +38,7 @@ test.describe('layar penunjang hibrida di mode api (4.0c)', () => {
         const res = await page.goto(s.route);
         expect(res?.status(), `${role} ${s.route}`).toBe(200);
         if (CONNECTED.has(id)) {
-          // Sudah tersambung API (Depo, 4.6a): halaman api, tanpa "Belum tersambung".
+          // Sudah tersambung API (Depo 4.6a, Bank darah + Gizi 4.9): halaman api, tanpa "Belum tersambung".
           await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
           await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
           continue;
