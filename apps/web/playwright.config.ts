@@ -149,6 +149,8 @@ export default defineConfig({
         MOCK_PORT: String(E2E_MOCK_PORT),
         HOST: '127.0.0.1',
         TPDI_WEBHOOK_TARGET: `http://127.0.0.1:${API_PORT}/api/v1/webhooks/tpdi`,
+        // Fase 4 §4.1b: analyzer mock mengirim ORU^R01 ke API slot ini.
+        LIS_HL7_TARGET: `http://127.0.0.1:${API_PORT}/api/v1/devices/lis/hl7`,
       },
     },
     {

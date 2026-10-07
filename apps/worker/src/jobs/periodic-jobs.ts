@@ -1,3 +1,4 @@
+import { boardSignalsCleanupJob } from './board-jobs';
 import { bookingNoShowJob, bookingReminderJob } from './booking-jobs';
 import { clinicalDraftsCleanupJob } from './clinical-jobs';
 import type { PeriodicJob } from './periodic-job-types';
@@ -26,4 +27,6 @@ export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, P
   ['scheduling.hfis-pull', hfisPullJob],
   // Fase 3 · draf klinis kunjungan yang sudah selesai (ADR-0028 butir 5).
   ['clinical.drafts-cleanup', clinicalDraftsCleanupJob],
+  // Fase 3 · W3: sinyal papan IGD/bed lebih dari 1 jam (ADR-0104).
+  ['board.signals-cleanup', boardSignalsCleanupJob],
 ]);

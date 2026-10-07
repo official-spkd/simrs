@@ -106,3 +106,42 @@ export async function mockEchoCount(idempotencyKey: string): Promise<number> {
   const { echoes } = await mockState();
   return echoes.find((e) => e.idempotencyKey === idempotencyKey)?.count ?? 0;
 }
+
+export type LisTemplate = 'dl' | 'kimia' | 'elektrolit' | 'lipid';
+export type LisScenario = 'normal' | 'kritis' | 'delta-kreatinin' | 'sebagian-tertunda';
+
+export interface LisSendResult {
+  controlId: string;
+  barcode: string;
+  /** ORU^R01 mentah yang dikirim (tanpa PID). */
+  message: string;
+  deliveries: Array<{
+    attempt: number;
+    status: number | 'error';
+    ack: string | null;
+    signatureValid: boolean;
+  }>;
+}
+
+/**
+ * Fase 4 §4.1b · Mock analyzer mengirim ORU^R01 ber-HMAC perangkat ke endpoint ingest SIM RS slot ini
+ * (`LIS_HL7_TARGET`, disetel playwright.config.ts). Gangguan: `duplicate`, `badSignature`, `unknownBarcode`, `latencyMs`.
+ */
+export const mockLis = {
+  send(
+    barcode: string,
+    template: LisTemplate,
+    opts: {
+      scenario?: LisScenario;
+      duplicate?: boolean;
+      badSignature?: boolean;
+      unknownBarcode?: boolean;
+      latencyMs?: number;
+    } = {},
+  ): Promise<LisSendResult> {
+    return panel<LisSendResult>('POST', 'lis/send', { barcode, template, ...opts });
+  },
+  reset(): Promise<{ ok: true }> {
+    return panel<{ ok: true }>('POST', 'lis/reset', {});
+  },
+};

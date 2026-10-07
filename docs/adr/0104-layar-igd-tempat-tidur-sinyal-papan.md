@@ -1,6 +1,6 @@
 # ADR-0104 · Layar IGD dan Tempat tidur mode api: sinyal papan, admisi dari IGD satu langkah, ambil pasien
 
-Status: diterima · 7 Okt 2026 (layar W3, agen A4)
+Status: diterima · 7 Okt 2026 (layar W3, agen A4) · diperbarui 8 Okt 2026
 
 ## Konteks
 
@@ -45,9 +45,16 @@ jendela. Backend 3.3 sudah menyediakan papan + SSE, tetapi:
 
 ## Konsekuensi
 
-- `board_signals` tumbuh satu-dua baris per perubahan papan; perlu pembersihan berjadwal (mis. > 7 hari) di worker
-  (utang, belum dibuat).
+- `board_signals` tumbuh satu-dua baris per perubahan papan; dibersihkan job worker `board.signals-cleanup`
+  (lihat pembaruan di bawah).
 - Layar IGD tidak lagi menulis `?pilih=` saat memilih pasien: perubahan query memasang ulang segmen halaman pada muat
   ulang SSE berikutnya dan menghapus isian triase. `?pilih=` tetap dibaca untuk tautan langsung.
 - Pulang dari layar Tempat tidur menampilkan alasan `DISCHARGE_BLOCKED` dari `DischargeGate` 3.6; disposisi meninggal
   tetap di jalur dokter (surat kematian).
+
+## Pembaruan 8 Okt 2026 · Pembersihan sinyal
+
+Job berkala `board.signals-cleanup` (P11, tiap 15 menit per tenant) menghapus sinyal lebih tua dari 1 jam per batch
+1.000 baris (maks. 20 batch per putaran) lewat fungsi sempit `app_purge_board_signals(before, limit)` (SECURITY
+DEFINER, `search_path = public, pg_temp`, hanya tenant aktif, batch 1–5000, tidak pernah menghapus sinyal < 10
+menit). Role aplikasi tetap tanpa DELETE pada `board_signals`.
