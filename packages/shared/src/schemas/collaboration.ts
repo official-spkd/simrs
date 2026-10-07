@@ -115,6 +115,14 @@ export const consultInboxItemSchema = z.strictObject({
 });
 export type ConsultInboxItem = z.infer<typeof consultInboxItemSchema>;
 
+/** `GET /api/v1/consults/consultants`: dokter aktif yang bisa dituju konsul (selain pelaku), dengan unit penugasan. */
+export const consultantOptionSchema = z.strictObject({
+  userId: uuid,
+  nama: z.string(),
+  units: z.array(z.string()),
+});
+export type ConsultantOption = z.infer<typeof consultantOptionSchema>;
+
 // ---------------------------------------------------------------------------------------------------------------
 // Tim perawatan
 // ---------------------------------------------------------------------------------------------------------------

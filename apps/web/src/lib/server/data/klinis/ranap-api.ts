@@ -1,6 +1,11 @@
 import 'server-only';
 import {
   type ActiveWristbandScan,
+  type CareTeamMember,
+  type ConsultantOption,
+  type ConsultRequestRecord,
+  type EncounterCompleteness,
+  type PatientDocumentView,
   CONSENT_DECISIONS,
   activeWristbandScanSchema,
   type ConditionRecord,
@@ -32,6 +37,8 @@ import { z } from 'zod';
 import { can, type SessionView } from '../../../session-view';
 import { api } from '../../api';
 import { ApiError } from '../../api-core';
+import { patientDocuments } from './dokumen';
+import { careTeam, completeness, consultants, encounterConsults, optional } from './konsul';
 
 /**
  * K04/K07/K12 · Data layar Rawat inap mode api (fase 3 layar W4). Satu-satunya pintu layar ini ke API (Data Access
@@ -48,20 +55,39 @@ export function getInpatientCensus(unitId: string | null): Promise<InpatientCens
 }
 
 /**
- * Titik sambung potongan 3.8 (konsultasi/rawat bersama, paket formulir + kelengkapan, dokumen pasien). Diisi setelah
- * modul 3.8 tergabung di master; sampai itu `null` dan tab "Dokumen & konsultasi" tidak tampil (tidak ada tombol mati).
+ * Bagian potongan 3.8 (ADR-0059) di tab "Dokumen & konsultasi": konsultasi + tim perawatan (K10), kelengkapan paket
+ * formulir rawat inap (K15, EP 6b/7a), dan dokumen pasien + status TTE (utang P08). Tiap bagian null bila sesi tidak
+ * memegang izinnya atau API menolak (403/404); tab tampil bila salah satu bagian ada.
  */
 export interface InpatientExtensions {
-  /** Permintaan/jawaban konsultasi dan tim rawat bersama (K10). */
-  consults: null;
-  /** Kelengkapan paket formulir rawat inap (K15, EP 6b/7a). */
-  completeness: null;
-  /** Dokumen pasien + status TTE (utang P08). */
-  documents: null;
+  consults: {
+    requests: ConsultRequestRecord[];
+    team: CareTeamMember[];
+    /** Pilihan dokter tujuan/penerima; null bila sesi tanpa `clinical.write`. */
+    consultants: ConsultantOption[] | null;
+  } | null;
+  completeness: EncounterCompleteness | null;
+  documents: PatientDocumentView[] | null;
 }
 
-async function loadExtensions(_encounterId: string): Promise<InpatientExtensions> {
-  return { consults: null, completeness: null, documents: null };
+async function loadExtensions(
+  session: SessionView,
+  encounterId: string,
+  patientId: string,
+): Promise<InpatientExtensions> {
+  const read = can(session, 'clinical', 'read');
+  const [requests, team, consultantList, completenessView, documents] = await Promise.all([
+    read ? optional(() => encounterConsults(encounterId)) : null,
+    read ? optional(() => careTeam(encounterId)) : null,
+    can(session, 'clinical', 'write') ? optional(() => consultants()) : null,
+    read ? optional(() => completeness(encounterId)) : null,
+    can(session, 'documents', 'read') ? optional(() => patientDocuments(patientId)) : null,
+  ]);
+  return {
+    consults: requests && team ? { requests, team, consultants: consultantList } : null,
+    completeness: completenessView,
+    documents,
+  };
 }
 
 /**
@@ -87,16 +113,6 @@ const consentStatusSchema = z.object({
   document: z.object({ signatureStatus: z.enum(['pending', 'signed', 'failed']).nullable() }).nullable(),
 });
 export type ConsentStatus = z.infer<typeof consentStatusSchema>;
-
-/** Bacaan pelengkap: 403/404 (izin/modul RS mati) = tidak ditampilkan, bukan galat halaman. */
-async function optional<T>(read: () => Promise<T>): Promise<T | null> {
-  try {
-    return await read();
-  } catch (err) {
-    if (err instanceof ApiError && (err.status === 403 || err.status === 404)) return null;
-    throw err;
-  }
-}
 
 export interface InpatientRecordView {
   context: EncounterContext;
@@ -183,7 +199,7 @@ export async function getInpatientRecord(
     can(session, 'consent', 'read')
       ? optional(() => api(`${enc(encounterId)}/consents`, { schema: consentStatusSchema.array() }))
       : null,
-    loadExtensions(encounterId),
+    loadExtensions(session, encounterId, context.patient.id),
   ]);
   return {
     kind: 'ok',

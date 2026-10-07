@@ -8,8 +8,10 @@ import { createAccount, createPatient, inTenant, loginAs, TENANTS } from './supp
  * 1. DPJP memilih kunjungan, menyusun draf dari templat (tujuh butir), pasien menyatakan paham lalu menandatangani
  *    (goresan PNG), saksi keluarga mengetik nama.
  * 2. Perawat penanggung jawab membuka draf yang sama dengan sesinya sendiri dan beratestasi sebagai saksi petugas.
- * 3. DPJP menandatangani (TTE): persetujuan final, PDF ber-TTE sah (worker + mock TTE).
- * 4. Draf kedua ditolak pasien dengan alasan → entri `tolak` + TTE; persetujuan pertama dicabut → entri `dicabut`.
+ * 3. TTE terkunci sampai edukasi tindakan paham: DPJP membuka layar Edukasi dari tablet, mencatat edukasi (perlu ulang
+ *    lalu paham), kembali ke draf.
+ * 4. DPJP menandatangani (TTE): persetujuan final, PDF ber-TTE sah (worker + mock TTE).
+ * 5. Draf kedua ditolak pasien dengan alasan → entri `tolak` + TTE; persetujuan pertama dicabut → entri `dicabut`.
  */
 
 /** Pasien rawat inap Melati dengan tim perawatan: DPJP utama + perawat penanggung jawab (relasi akses ABAC). */
@@ -143,9 +145,43 @@ test.describe('Tablet persetujuan mode api (W5a)', () => {
       await nurseContext.close();
     }
 
-    // --- 3. DPJP: TTE → final, PDF ber-TTE sah ---
+    // --- 3. DPJP: edukasi tindakan belum paham → TTE terkunci, tautan ke layar Edukasi (bukan jalan buntu) ---
     await page.reload();
     const sign = next('Tanda tangani (TTE)');
+    await expect(sign).toBeDisabled();
+    await expect(
+      page.getByText(
+        'Menunggu edukasi tindakan dinyatakan paham (isi Edukasi terintegrasi, topik tindakan).',
+      ),
+    ).toBeVisible();
+    await page.getByRole('link', { name: 'Isi edukasi tindakan' }).click();
+    await expect(page.getByRole('heading', { name: 'Edukasi pasien', level: 1 })).toBeVisible();
+    await expect(page.getByLabel('Identitas pasien')).toContainText(patientName);
+    const status = page.getByRole('region', { name: 'Status edukasi tindakan' });
+    await expect(status).toContainText('Belum dinyatakan paham');
+    const edu = page.getByRole('form', { name: 'Catat edukasi' });
+    // Edukasi tindakan yang belum paham tidak memenuhi syarat.
+    await edu
+      .getByRole('checkbox', { name: 'Tindakan yang direncanakan: manfaat, risiko, alternatif' })
+      .check();
+    await edu.getByRole('radio', { name: 'Pasien dan keluarga' }).check();
+    await edu.getByRole('radio', { name: 'Perlu edukasi ulang' }).check();
+    await edu.getByRole('button', { name: 'Simpan edukasi' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Edukasi tercatat' })).toBeVisible();
+    await expect(status).toContainText('Belum dinyatakan paham');
+    // Edukasi ulang: paham → syarat terpenuhi.
+    await edu
+      .getByRole('checkbox', { name: 'Tindakan yang direncanakan: manfaat, risiko, alternatif' })
+      .check();
+    await edu.getByRole('radio', { name: 'Pasien dan keluarga' }).check();
+    await edu.getByRole('radio', { name: 'Memahami, bisa mengulang' }).check();
+    await edu.getByRole('button', { name: 'Simpan edukasi' }).click();
+    await expect(status).toContainText('Terverifikasi paham');
+    await expect(page.getByRole('region', { name: 'Riwayat edukasi' }).getByRole('listitem')).toHaveCount(2);
+    await status.getByRole('link', { name: 'Kembali ke tablet persetujuan' }).click();
+    await expect(page).toHaveURL(draftUrl);
+
+    // --- 4. DPJP: TTE → final, PDF ber-TTE sah ---
     await expect(sign).toBeEnabled();
     await sign.click();
     const done = page.getByRole('status').filter({ hasText: 'Dokumen final' });
@@ -165,7 +201,7 @@ test.describe('Tablet persetujuan mode api (W5a)', () => {
       'saksi_petugas:nama',
     ]);
 
-    // --- 4. Penolakan beralasan pada draf kedua, lalu pencabutan persetujuan pertama ---
+    // --- 5. Penolakan beralasan pada draf kedua, lalu pencabutan persetujuan pertama ---
     await page.getByRole('link', { name: 'Daftar persetujuan' }).click();
     const records = page.getByRole('region', { name: 'Persetujuan tercatat' });
     await expect(records.getByText('Pemasangan kateter vena sentral')).toBeVisible();
