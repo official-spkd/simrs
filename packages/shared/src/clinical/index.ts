@@ -6,6 +6,7 @@ export * from './abbreviations';
 export * from './cds';
 export * from './emar';
 export * from './entries';
+export * from './medication-route';
 export * from './ews';
 export * from './resume';
 export * from './triage';

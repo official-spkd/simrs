@@ -5,6 +5,7 @@ import {
   clinicalError,
   frontOfficeError,
   idempotencyKeySchema,
+  medicationRouteConflict,
   newId,
   type OrderEvaluation,
   type OrderGroup,
@@ -149,6 +150,20 @@ export class OrdersService {
     }
 
     const { lines, patient } = await this.cds.evaluate(enc, input.items);
+    // Keselamatan resep: rute obat tunggal tidak boleh bertentangan dengan bentuk sediaannya (injeksi + oral).
+    for (const [i, line] of input.items.entries()) {
+      const r = lines[i]?.resolved;
+      if (line.type !== 'obat' || line.compound || r?.type !== 'obat') continue;
+      const drug = r.drugs[0];
+      if (drug && medicationRouteConflict(drug.dosageForm, line.route)) {
+        throw clinicalError('MEDICATION_ROUTE_INVALID', {
+          line: i,
+          drug: drug.name,
+          dosageForm: drug.dosageForm,
+          route: line.route,
+        });
+      }
+    }
     if (lines.some((l) => l.blocked)) {
       await this.recordAlerts(enc, author, lines, null);
       this.db.audit({

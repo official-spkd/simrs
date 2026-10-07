@@ -88,6 +88,7 @@ export function CpoeApiDraftRow({
               onChange={(e) => onChange({ route: e.target.value })}
               className={FIELD}
             >
+              {line.route === '' && <option value="">Pilih rute…</option>}
               {ROUTE_OPTIONS.map((r) => (
                 <option key={r} value={r}>
                   {r}

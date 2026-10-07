@@ -14,5 +14,10 @@ export async function saveIntegration(screen: string, event: IntegrationEvent, r
   const r = await commitEvent('integrasi', p.data, { rev, session });
   if (!r.ok) return { ok: false, message: r.error, stale: r.stale };
   const at = formatJam(new Date());
-  return { ok: true, at, message: `Perubahan demo tersimpan atas nama ${session.user.displayName} · ${at}` };
+  return {
+    ok: true,
+    at,
+    rev: r.rev,
+    message: `Perubahan demo tersimpan atas nama ${session.user.displayName} · ${at}`,
+  };
 }

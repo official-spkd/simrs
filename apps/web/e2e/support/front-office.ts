@@ -141,6 +141,26 @@ export async function createJknBooking(
   return (await res.json()) as Booking;
 }
 
+/**
+ * Booking umum/asuransi (non-JKN) hari ini lewat API dengan token petugas yang login di konteks itu, seperti
+ * `createJknBooking`: kuota sesi dan nomor poli cadangan dibuat layanan booking (tanpa outbox Antrean BPJS).
+ */
+export async function createNonJknBooking(
+  staff: BrowserContext,
+  input: { patientId: string; sessionId: string },
+): Promise<Booking> {
+  const token = (await staff.cookies()).find((c) => c.name.endsWith('simrs_at'))?.value;
+  if (!token) throw new Error('Petugas belum login di konteks ini (cookie simrs_at tidak ada)');
+  const res = await fetch(`${API_URL}/api/v1/booking/appointments`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ patientId: input.patientId, sessionId: input.sessionId, quotaBucket: 'non_jkn' }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (res.status !== 201) throw new Error(`Booking gagal: HTTP ${res.status} ${await res.text()}`);
+  return (await res.json()) as Booking;
+}
+
 /** Nomor rujukan FKTP aktif mock milik kartu (`<PPK FKTP><9 digit akhir kartu><urut>`). */
 export const rujukanNo = (card: string, urut = '01') => `9999P001${card.slice(-9)}${urut}`;
 
