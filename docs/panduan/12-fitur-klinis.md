@@ -8,8 +8,8 @@ keselamatan yang tidak bisa dilewati diam-diam (CLAUDE.md §4.9) dan mengikuti p
 menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 
 > Status 7 Okt 2026: ketujuh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Di mode api
-> CPOE (W2), rawat inap (W4), dan tablet persetujuan (W5a) sudah tersambung; layar lain masih "Belum tersambung" (W1,
-> W3, W5b). Backend yang sudah
+> CPOE (W2), IGD + tempat tidur (W3), rawat inap (W4), dan tablet persetujuan (W5a) sudah tersambung; pemeriksaan poli
+> dan resume masih "Belum tersambung" (W1, W5b). Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
 > (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), persetujuan tindakan + edukasi

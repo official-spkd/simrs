@@ -2,7 +2,7 @@
 
 Halaman ini untuk pembaca baru yang ingin memahami **bagaimana backend SIM RS bekerja**: bagian-bagiannya, perjalanan satu permintaan dari layar sampai database, lapisan keamanannya, dan pola bersama yang wajib dipakai ulang setiap modul baru. Gambaran sistem tanpa kode ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md). Rincian per modul dan per potongan ada di [Cara kode bekerja](./02-cara-kerja-kode.md). Letak berkas ada di [Peta kode](./19-peta-kode.md).
 
-> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.8. Di mode api, CPOE (W2), Rawat inap (W4), dan tablet Persetujuan (W5a) sudah tersambung; Poli, IGD, Tempat tidur, dan Resume masih "Belum tersambung" sampai W1, W3, W5b. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
+> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.8. Di mode api, CPOE (W2), IGD + Tempat tidur (W3), Rawat inap (W4), dan tablet Persetujuan (W5a) sudah tersambung; Poli dan Resume masih "Belum tersambung" sampai W1 dan W5b. Kontrak fase 4 (4.0a) sudah ada di `packages/shared`; modul API penunjang belum. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
 
 ## Arsitektur ringkas
 
@@ -276,8 +276,8 @@ Perubahan yang perlu tampil seketika dialirkan dengan Server-Sent Events (ADR-00
 | Aliran           | Endpoint                                | Izin                                                | Pemakai web                |
 | ---------------- | --------------------------------------- | --------------------------------------------------- | -------------------------- |
 | Papan antrean TV | `GET /api/v1/queue/displays/:id/events` | perangkat display                                   | Display antrean (mode api) |
-| Papan IGD        | `GET /api/v1/triage/board/events`       | `clinical.read`                                     | belum (W3)                 |
-| Papan bed        | `GET /api/v1/adt/beds/events`           | `bed.read`, disaring unit untuk lingkup bukan `all` | belum (W3)                 |
+| Papan IGD        | `GET /api/v1/triage/board/events`       | `clinical.read`                                     | IGD (W3)                   |
+| Papan bed        | `GET /api/v1/adt/beds/events`           | `bed.read`, disaring unit untuk lingkup bukan `all` | Tempat tidur (W3)          |
 | Eskalasi EWS     | `GET /api/v1/clinical/streams/ews`      | `clinical.read`                                     | Rawat inap (W4)            |
 
 Berlangganan aliran staf dicatat di audit (`read`).
@@ -303,7 +303,7 @@ Semua modul ada di `apps/api/src/modules/<modul>/` dan didaftarkan sekali di `Ap
 | 0 Fondasi       | `src/common`, `src/infra` (sesi, audit, RLS, outbox, SSE, event domain, lookup, penyimpanan objek, batas laju); `dev-tools`                                                                 | Selesai                                                                           |
 | 1 Platform      | `tenancy`, `facility`, `auth`, `iam`, `authz`, `devices`, `audit`, `mpi`, `ref`, `forms`, `documents`, `numbering`, `notifications`, `settings`                                             | Selesai, dipakai layar mode api                                                   |
 | 2 Front office  | `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, `patient-portal-gateway`                                                                                      | Selesai. `booking` belum punya layar web; dipakai lewat API.                      |
-| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`, `consult`, `care-packages` | API jadi (3.1–3.8). Layar mode api: W2, W4, W5a tersambung; W1, W3, W5b menyusul. |
+| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`, `consult`, `care-packages` | API jadi (3.1–3.8). Layar mode api: W2, W3, W4, W5a tersambung; W1, W5b menyusul. |
 | 4–9             | belum ada modul. Nama rencana di `docs/01-arsitektur.md` §2 dan [Peta kode](./19-peta-kode.md#lapisan-berikutnya-fase-4-9)                                                                  | Layar hanya mode presentasi                                                       |
 | 10 (lebih awal) | bukan modul API: backup terenkripsi (`infra/backup`), jangkar audit (`apps/worker/src/audit`), rotasi kunci kolom (`apps/worker/src/key-rotation`, `pnpm db:rotate-keys`)                   | Selesai                                                                           |
 

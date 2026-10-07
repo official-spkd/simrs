@@ -82,8 +82,8 @@ Backend: 🟨 berjalan. Layar: 17.
 | -------------------------- | ---------------------------- | ----------- | ---------------------------------------- | ------------------------------ |
 | Pemeriksaan poli           | `/klinis/poli`               | K01 K02     | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
 | Order & resep (CPOE)       | `/klinis/order`              | K09         | hibrida (demo + api, api tersambung W2)  | [Klinis](./12-fitur-klinis.md) |
-| IGD                        | `/klinis/igd`                | K03         | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
-| Tempat tidur               | `/klinis/tempat-tidur`       | K05         | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
+| IGD                        | `/klinis/igd`                | K03         | hibrida (demo + api, api tersambung W3)  | [Klinis](./12-fitur-klinis.md) |
+| Tempat tidur               | `/klinis/tempat-tidur`       | K05         | hibrida (demo + api, api tersambung W3)  | [Klinis](./12-fitur-klinis.md) |
 | Rawat inap                 | `/klinis/rawat-inap`         | K04 K07 K12 | hibrida (demo + api, api tersambung W4)  | [Klinis](./12-fitur-klinis.md) |
 | Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api)                     | [Klinis](./12-fitur-klinis.md) |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | K11         | hibrida (demo + api, api tersambung W5a) | [Klinis](./12-fitur-klinis.md) |
@@ -100,7 +100,7 @@ Backend: 🟨 berjalan. Layar: 17.
 
 ## Fase 4 · Penunjang
 
-Backend: ⬜ belum. Layar: 10.
+Backend: 🟨 berjalan (4.0a kontrak bersama di `packages/shared`: izin, event, kode galat `SUPPORT_ERRORS`, skema API penunjang dan kamar operasi, aturan murni, parser HL7 ORU; belum ada modul API). Layar: 10.
 
 | Layar               | Rute                       | Komponen | Sumber data | Panduan                              |
 | ------------------- | -------------------------- | -------- | ----------- | ------------------------------------ |

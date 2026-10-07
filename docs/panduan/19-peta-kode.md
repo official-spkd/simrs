@@ -52,7 +52,7 @@ Contoh lengkap: `apps/web/src/app/(staf)/pendaftaran/`.
 | `actions.ts` / `actions-api.ts` | Server Action api: cek sesi + input sendiri, panggil API lewat BFF                         |
 | `*-client.tsx`, panel           | Bagian interaktif (`'use client'`); tidak membaca env atau rahasia                         |
 
-Layar klinis yang jalur api-nya belum dibangun (W1 Poli, W3 IGD + Tempat tidur, W5b Resume) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/klinis/poli/page.tsx`. Layar yang sudah tersambung tetap berstatus `demo` + `permission` di registri (jalur demo dipertahankan), contohnya Pendaftaran, CPOE (W2: `components/klinis/cpoe-api-*.tsx`), tablet Persetujuan (W5a: `tablet/persetujuan/api-*.tsx`), dan Rawat inap (W4: `app/(staf)/klinis/rawat-inap/api-*.tsx`, `[encounterId]/actions-api.ts`, BFF SSE `events/route.ts`).
+Layar klinis yang jalur api-nya belum dibangun (W1 Poli, W5b Resume) menampilkan `ScreenNotConnected` ("Belum tersambung", `components/screen-gate.tsx`), contohnya `app/(staf)/klinis/poli/page.tsx`. Layar yang sudah tersambung tetap berstatus `demo` + `permission` di registri (jalur demo dipertahankan), contohnya Pendaftaran, CPOE (W2: `components/klinis/cpoe-api-*.tsx`), tablet Persetujuan (W5a: `tablet/persetujuan/api-*.tsx`), dan Rawat inap (W4: `app/(staf)/klinis/rawat-inap/api-*.tsx`, `[encounterId]/actions-api.ts`, BFF SSE `events/route.ts`).
 
 ### Data dummy dan aturan murni
 
@@ -325,7 +325,7 @@ Fondasi klinis bersama ada di `apps/api/src/infra/clinical/` (`ClinicalRecordSer
 
 ### Lapisan berikutnya (fase 4–9)
 
-Belum ada modul API. Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
+Belum ada modul API. Fase 4 sudah punya kontrak bersama (4.0a) di `packages/shared`: izin + matriks bawaan (termasuk peran `ahli_gizi`), event domain, `SUPPORT_ERRORS`, `schemas/penunjang-api.ts`, `schemas/kamar-operasi.ts`, aturan murni `rules/*`, dan parser HL7 ORU `integrations/lis/hl7.ts` (PID/NK1 diredaksi sebelum disimpan, perangkat ber-HMAC). Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
 
 | Lapisan     | Modul rencana                                                                                                                                                                  | Layar mode presentasi                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
