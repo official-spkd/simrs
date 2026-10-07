@@ -159,6 +159,16 @@ describe('konsultasi (K10)', () => {
     const e = await visit();
     // Sebelum konsul: konsultan (unit lain, tanpa relasi) tidak bisa membuka pasien.
     await as('konsultan').get(`/encounters/${e.encounterId}/consults`).expect(403);
+    // Pilihan konsultan: dokter aktif selain pengirim, dengan unitnya; tenant lain tidak terlihat; tanpa
+    // `clinical.write` 403.
+    const opts = await as('dokter').get('/consults/consultants').expect(200);
+    const ids = opts.body.map((o: { userId: string }) => o.userId);
+    expect(ids).toContain(users.konsultan);
+    expect(ids).not.toContain(users.dokter);
+    expect(ids).not.toContain(users.dokterB);
+    expect(ids).not.toContain(users.perawat);
+    expect(opts.body.find((o: { userId: string }) => o.userId === users.konsultan).units).toEqual(['Poli Jantung']);
+    await as('rm').get('/consults/consultants').expect(403);
     const r = await as('dokter').post('/consults/requests', ask(e.encounterId)).expect(201);
     expect(r.body).toMatchObject({ state: 'menunggu', toUser: { userId: users.konsultan }, responses: [] });
     expect(Date.parse(r.body.dueAt) - Date.parse(r.body.occurredAt)).toBe(24 * 3_600_000);

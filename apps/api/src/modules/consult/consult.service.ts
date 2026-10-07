@@ -6,6 +6,7 @@ import {
   clinicalError,
   CONSULT_ACCESS_HOURS,
   CONSULT_ANSWER_HOURS,
+  type ConsultantOption,
   type ConsultInboxItem,
   type ConsultRequestInput,
   type ConsultRequestRecord,
@@ -235,6 +236,30 @@ export class ConsultService {
       details: { encounterId: enc.id, count: rows.length },
     });
     return this.present(rows);
+  }
+
+  /** Dokter aktif selain pelaku (tujuan konsul), dengan nama unit penugasan aktifnya; tanpa data pasien. */
+  async consultants(): Promise<ConsultantOption[]> {
+    const me = this.records.author().userId;
+    const now = new Date();
+    const rows = await this.db.tx().staffAssignment.findMany({
+      where: {
+        userId: { not: me },
+        user: { status: 'active' },
+        role: { code: CONSULTANT_ROLE },
+        validFrom: { lte: now },
+        OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+      },
+      select: { userId: true, user: { select: { displayName: true } }, unit: { select: { name: true } } },
+      take: 500,
+    });
+    const byUser = new Map<string, ConsultantOption>();
+    for (const r of rows) {
+      const o = byUser.get(r.userId) ?? { userId: r.userId, nama: r.user.displayName, units: [] };
+      if (r.unit && !o.units.includes(r.unit.name)) o.units.push(r.unit.name);
+      byUser.set(r.userId, o);
+    }
+    return [...byUser.values()].sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
   }
 
   /** Permintaan terbuka untuk saya atau unit penugasan saya (tanpa jawaban final), kunjungan masih berjalan. */

@@ -123,6 +123,7 @@ export class AdtService {
       throw new AppError('CONFLICT', 'Permintaan bed sudah ditutup', 409);
     }
     await this.assertRequestScope(req, { openRequestAnyUnit: true });
+    await this.lockBedRooms([req.encounterId], [locationId]);
     const bed = await this.beds.bedByLocation(locationId);
     await this.assertUnitScope(bed.unitId);
     if (bed.status !== 'siap') throw clinicalError('BED_NOT_AVAILABLE');
@@ -199,6 +200,10 @@ export class AdtService {
     });
     if (location.unit.kind !== 'rawat_inap') throw invalid('Bed admisi harus di unit rawat inap');
     if (enc.sourceEncounterId) await this.lockEncounter(enc.sourceEncounterId);
+    await this.lockBedRooms(
+      [enc.id, ...(enc.sourceEncounterId ? [enc.sourceEncounterId] : [])],
+      [input.locationId],
+    );
     const reservedForMe =
       bed.status === 'dipesan' &&
       bed.encounterId !== null &&
@@ -320,6 +325,8 @@ export class AdtService {
       throw stateInvalid('Transfer hanya untuk pasien rawat inap yang sedang dirawat');
     }
     await this.access.assert(enc.patientId);
+    // Ruang Aplicare bed asal + tujuan dikunci berurutan dulu: transfer berlawanan arah tidak lagi deadlock (utang 3.3).
+    await this.lockBedRooms([enc.id], [input.locationId]);
     const target = await this.beds.bedByLocation(input.locationId);
     const location = await tx.location.findUniqueOrThrow({
       where: { id: input.locationId },
@@ -390,6 +397,7 @@ export class AdtService {
       if (gate.forbidden) throw new AppError('FORBIDDEN', gate.reasons.join('; '), 403);
       throw clinicalError('DISCHARGE_BLOCKED', { reasons: gate.reasons });
     }
+    await this.lockBedRooms([enc.id], []);
     const now = new Date();
     const bedId = await this.finishEncounter(
       enc.id,
@@ -567,6 +575,33 @@ export class AdtService {
    */
   private async lockEncounter(id: string): Promise<void> {
     await this.db.tx().$queryRaw`SELECT id FROM encounters WHERE id = ${id}::uuid FOR UPDATE`;
+  }
+
+  /**
+   * Kunci ruang Aplicare semua bed yang bisa berubah status pada langkah ini (bed yang ditempati kunjungan, bed yang
+   * dipesan untuknya, bed tujuan) dalam urutan tetap, setelah kunci kunjungan dan sebelum status bed diubah (ADR-0104).
+   */
+  private async lockBedRooms(encounterIds: string[], extra: string[]): Promise<void> {
+    const tx = this.db.tx();
+    const [open, reserved] = await Promise.all([
+      tx.bedAssignment.findMany({
+        where: { encounterId: { in: encounterIds }, endedAt: null },
+        select: { locationId: true },
+      }),
+      tx.bedRequest.findMany({
+        where: {
+          encounterId: { in: encounterIds },
+          status: { in: ['menunggu', 'dialokasi'] },
+          allocatedLocationId: { not: null },
+        },
+        select: { allocatedLocationId: true },
+      }),
+    ]);
+    await this.beds.lockRooms([
+      ...open.map((o) => o.locationId),
+      ...reserved.flatMap((r) => (r.allocatedLocationId ? [r.allocatedLocationId] : [])),
+      ...extra,
+    ]);
   }
 
   /** Bed yang masih `dipesan` untuk kunjungan ini kembali `siap`. */

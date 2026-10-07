@@ -556,6 +556,18 @@ describe('persetujuan tindakan (K11)', () => {
       code: 'CONSENT_EDUCATION_REQUIRED',
       details: { formCode: 'edukasi_terintegrasi', topic: 'tindakan' },
     });
+    // Layar Edukasi mode api membaca formulir terbit + status syarat + riwayat kunjungan.
+    const empty = await as('perawat').get(`/encounters/${e.encounterId}/education`).expect(200);
+    expect(empty.body).toMatchObject({
+      encounterId: e.encounterId,
+      patientId: e.patientId,
+      form: { code: 'edukasi_terintegrasi' },
+      supportsConsent: true,
+      ready: false,
+      records: [],
+    });
+    await as('kasir').get(`/encounters/${e.encounterId}/education`).expect(403);
+    await as('dokterB').get(`/encounters/${e.encounterId}/education`).expect(404);
     // Edukasi topik lain tidak cukup; tindakan "perlu ulang" tidak cukup.
     await educate(e, ['obat', 'nyeri'], 'paham');
     await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
@@ -567,6 +579,9 @@ describe('persetujuan tindakan (K11)', () => {
     await educate(e, ['tindakan'], 'perlu_ulang');
     await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
     await educate(e, ['tindakan'], 'paham');
+    const edu = await as('dokter').get(`/encounters/${e.encounterId}/education`).expect(200);
+    expect(edu.body.ready).toBe(true);
+    expect(edu.body.records.at(-1)).toMatchObject({ answers: { topik: ['tindakan'], evaluasi: 'paham' } });
     await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(201);
     // Penolakan tidak menunggu edukasi.
     const e2 = await inpatient({ educated: false });

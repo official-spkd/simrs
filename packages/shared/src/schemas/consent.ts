@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { allFields, type CreateFormDefinitionInput, type FormSchema } from '../forms';
+import {
+  allFields,
+  type CreateFormDefinitionInput,
+  formAnswersSchema,
+  type FormSchema,
+  formSchemaSchema,
+} from '../forms';
 import { clinicalAuthorSchema, clinicalEntryMetaSchema, SAFETY_REASON_MIN } from './klinis';
 
 /**
@@ -344,3 +350,30 @@ export const consentRecordSchema = clinicalEntryMetaSchema.extend({
     .nullable(),
 });
 export type ConsentRecord = z.infer<typeof consentRecordSchema>;
+
+/**
+ * `GET /api/v1/encounters/:id/education` (izin `clinical.read`): edukasi terintegrasi kunjungan untuk layar Edukasi mode
+ * api. `form` = versi terbit formulir `edukasi_terintegrasi` (diisi lewat `POST /patients/:id/forms/:code/responses`
+ * dengan `encounterId`); `ready` = syarat final persetujuan terpenuhi (`consentEducationReady`); `records` = isian final
+ * terkini, urut waktu naik.
+ */
+export const encounterEducationSchema = z.strictObject({
+  encounterId: uuid,
+  patientId: uuid,
+  form: z
+    .strictObject({ code: z.string(), title: z.string(), version: z.int().min(1), schema: formSchemaSchema })
+    .nullable(),
+  /** Formulir terbit memuat topik `tindakan` + evaluasi `paham` (bisa memenuhi syarat persetujuan). */
+  supportsConsent: z.boolean(),
+  ready: z.boolean(),
+  records: z.array(
+    z.strictObject({
+      id: uuid,
+      version: z.int().min(1),
+      createdAt: instant,
+      author: z.string().nullable(),
+      answers: formAnswersSchema,
+    }),
+  ),
+});
+export type EncounterEducation = z.infer<typeof encounterEducationSchema>;

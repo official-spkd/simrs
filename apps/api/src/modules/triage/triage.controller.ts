@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  CLINICAL_SSE_EVENTS,
   type EdStatusInput,
   edStatusInputSchema,
   type TriageAssessmentInput,
   triageAssessmentInputSchema,
+  type TriageSuggestionInput,
+  triageSuggestionInputSchema,
 } from '@simrs/shared';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -23,7 +26,8 @@ const boardQuery = z.strictObject({ unitId: z.uuid().optional() });
 
 /**
  * K03 · Triase IGD dan papan IGD (`/api/v1/triage`, rencana fase 3 §3.3). Triase `triage.write` (perawat, bidan,
- * dokter, residen, pendaftaran IGD); papan `clinical.read`; SSE `/triage/board/events` (potret `ed.board` + `ed.status`). Status alur per kunjungan
+ * dokter, residen, pendaftaran IGD); papan `clinical.read`; SSE `/triage/board/events` (potret `ed.board` + `ed.status` +
+ * `ed.changed`, ADR-0104). Status alur per kunjungan
  * di `TriageEncounterController`.
  */
 @ApiTags('klinis · triase IGD (K03)')
@@ -43,6 +47,14 @@ export class TriageController {
     return this.triage.assess(body);
   }
 
+  /** Pratinjau saran ATS dari server (tanpa menyimpan); gerbang ditegakkan ulang saat asesmen disimpan. */
+  @RequirePermission('triage', 'write')
+  @Post('suggestions')
+  @HttpCode(200)
+  suggest(@Body(new ZodValidationPipe(triageSuggestionInputSchema)) body: TriageSuggestionInput) {
+    return this.triage.suggest(body);
+  }
+
   @RequirePermission('clinical', 'read')
   @Get('board')
   board(@Query(new ZodValidationPipe(boardQuery)) q: z.infer<typeof boardQuery>) {
@@ -58,14 +70,15 @@ export class TriageController {
     const unitId = scope === 'all' ? null : (this.db.actor().unitId ?? '');
     this.sse.stream(req, res, edBoardChannel, {
       filter: (e) => unitId === null || e.data.unitId === unitId,
-      initial: async () => [{ event: 'ed.board', data: await this.triage.board() }],
+      initial: async () => [{ event: CLINICAL_SSE_EVENTS.edBoard, data: await this.triage.board() }],
     });
   }
 }
 
 /**
  * K03 · Status alur IGD per kunjungan (`POST /api/v1/encounters/:id/ed-status`, bentuk rute per-kunjungan kanonik
- * fase 3): status + zona + penempatan bed IGD, `triage.write` berlingkup unit.
+ * fase 3): status + zona + penempatan bed IGD, `triage.write` berlingkup unit; "Ambil pasien" dokter jaga
+ * (`/care-team/claim`).
  */
 @ApiTags('klinis · triase IGD (K03)')
 @TenantScoped()
@@ -73,6 +86,14 @@ export class TriageController {
 @Controller('encounters')
 export class TriageEncounterController {
   constructor(private readonly triage: TriageService) {}
+
+  /** "Ambil pasien" IGD: dokter jaga masuk tim perawatan sebagai penanggung jawab (`clinical.write` + peran dokter). */
+  @RequirePermission('clinical', 'write')
+  @Post(':id/care-team/claim')
+  @HttpCode(200)
+  claim(@Param('id', ParseUUIDPipe) encounterId: string) {
+    return this.triage.claim(encounterId);
+  }
 
   @RequirePermission('triage', 'write')
   @Post(':id/ed-status')
