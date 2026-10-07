@@ -5,8 +5,13 @@ import {
   type AdmissionInput,
   AppError,
   type CancelEncounterInput,
+  COVERAGE_CARE_CLASSES,
+  type CoverageCareClass,
+  type EmergencyAdmissionInput,
+  type EmergencyAdmissionResult,
   type EmergencyRegistrationInput,
   type EncounterList,
+  type PractitionerOption,
   type EncounterListQuery,
   encounterClassToken,
   frontOfficeError,
@@ -29,6 +34,7 @@ import { RegistrationService, toEncounter } from './registration.service';
 
 export const EMERGENCY_SCOPE = 'registration.emergency';
 export const ADMISSION_SCOPE = 'registration.admission';
+export const EMERGENCY_ADMISSION_SCOPE = 'registration.emergency_admission';
 
 const invalid = (message: string, details?: unknown) =>
   new AppError('VALIDATION_FAILED', message, 422, details);
@@ -187,33 +193,145 @@ export class AdmissionService {
     return this.registration.result(id, { replay: false });
   }
 
+  // ------------------------------------------------------------------------------------------------------------
+  // Admisi dari IGD (W3, keputusan fase 3 no. 7)
+  // ------------------------------------------------------------------------------------------------------------
+
+  /**
+   * Keputusan rawat inap pasien IGD yang bed-nya sudah dialokasikan (`bed_requests` `dialokasi`): admisi `IMP`
+   * ber-`sourceEncounterId` IGD (penjaminan IGD dibawa apa adanya, kelas rawat dari permintaan bed), lalu masuk bed lewat
+   * `AdtService.admit` (gelang terbit, DPJP di tim, IGD selesai disposisi rawat inap, SEP rawat inap BPJS). Satu
+   * transaksi permintaan; admisi `planned` yang sudah ada untuk IGD ini dipakai ulang. `Idempotency-Key` wajib.
+   */
+  async admitFromEmergency(input: EmergencyAdmissionInput, key: unknown): Promise<EmergencyAdmissionResult> {
+    const claim = await this.idempotency.claim(EMERGENCY_ADMISSION_SCOPE, key, input);
+    if (claim.existingResourceId) return this.emergencyAdmissionResult(claim.existingResourceId);
+    const tx = this.db.tx();
+    const req = await tx.bedRequest.findUnique({ where: { id: input.bedRequestId } });
+    if (!req) throw new AppError('NOT_FOUND', 'Permintaan bed tidak ditemukan', 404);
+    if (req.status !== 'dialokasi' || !req.allocatedLocationId) {
+      throw frontOfficeError(
+        'ENCOUNTER_STATE_INVALID',
+        undefined,
+        req.status === 'menunggu' ? 'Alokasikan bed dulu sebelum admisi' : 'Permintaan bed ini sudah ditutup',
+      );
+    }
+    const source = await this.repo.findEncounter(req.encounterId);
+    if (!source || source.encounterClass !== 'EMER') {
+      throw invalid('Admisi dari IGD hanya untuk permintaan bed kunjungan IGD');
+    }
+    if (source.status !== 'arrived' && source.status !== 'in_progress') {
+      throw frontOfficeError('ENCOUNTER_STATE_INVALID', undefined, 'Kunjungan IGD sudah tidak aktif');
+    }
+    const bed = await tx.location.findUniqueOrThrow({
+      where: { id: req.allocatedLocationId },
+      select: { unitId: true },
+    });
+    const existing = await tx.encounter.findFirst({
+      where: { sourceEncounterId: source.id, encounterClass: 'IMP', status: 'planned' },
+      select: { id: true },
+    });
+    const admissionId =
+      existing?.id ?? (await this.createAdmissionFromEmergency(input, source, bed.unitId, req.careClass));
+    await this.adt.admit({
+      encounterId: admissionId,
+      locationId: req.allocatedLocationId,
+      initialDiagnosis: input.initialDiagnosis,
+    });
+    await this.idempotency.record(claim, 'encounter', admissionId);
+    return this.emergencyAdmissionResult(admissionId);
+  }
+
+  private async createAdmissionFromEmergency(
+    input: EmergencyAdmissionInput,
+    source: { id: string; patientId: string },
+    unitId: string,
+    requestedClass: string,
+  ): Promise<string> {
+    await this.assertWriteScope(unitId, source.patientId);
+    const coverages = await this.db.tx().coverage.findMany({
+      where: { encounterId: source.id, status: 'active' },
+      orderBy: { priority: 'asc' },
+      include: { payer: { select: { kind: true } } },
+    });
+    const primary = coverages[0];
+    if (!primary) throw invalid('Kunjungan IGD ini belum berpenjamin; lengkapi penjamin sebelum admisi');
+    const careClass = (COVERAGE_CARE_CLASSES as readonly string[]).includes(requestedClass)
+      ? (requestedClass as CoverageCareClass)
+      : null;
+    return this.insertPlannedAdmission(
+      {
+        patientId: source.patientId,
+        unitId,
+        practitionerId: input.practitionerId,
+        plannedAt: new Date(),
+        sourceEncounterId: source.id,
+        referralId: null,
+        generalConsent: input.generalConsent,
+        guarantor: undefined,
+        payer: primary.payer.kind as AdmissionInput['coverage']['payer'],
+      },
+      async (encounterId) => {
+        for (const c of coverages) {
+          await this.repo.createCoverage({
+            id: newId(),
+            encounterId,
+            payerId: c.payerId,
+            patientIdentifierId: c.patientIdentifierId,
+            priority: c.priority,
+            status: 'active',
+            classEntitlement: c.classEntitlement,
+            careClass: c.priority === primary.priority ? (careClass ?? c.careClass) : c.careClass,
+            memberNoEnc: c.memberNoEnc,
+            guaranteeLetterNo: c.guaranteeLetterNo,
+          });
+        }
+      },
+    );
+  }
+
+  /** Dokter aktif (pilihan DPJP admisi). */
+  async doctors(): Promise<{ items: PractitionerOption[] }> {
+    const rows = await this.db.tx().practitioner.findMany({
+      where: { active: true, profession: 'dokter' },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, specialty: true },
+    });
+    return { items: rows };
+  }
+
+  private async emergencyAdmissionResult(encounterId: string): Promise<EmergencyAdmissionResult> {
+    const tx = this.db.tx();
+    const enc = await tx.encounter.findUniqueOrThrow({
+      where: { id: encounterId },
+      select: { id: true, number: true, sourceEncounterId: true },
+    });
+    const [assignment, band, sep] = await Promise.all([
+      tx.bedAssignment.findFirst({
+        where: { encounterId },
+        orderBy: { startedAt: 'desc' },
+        include: { location: { select: { code: true } } },
+      }),
+      tx.patientWristband.findFirst({ where: { encounterId, voidedAt: null }, select: { code: true } }),
+      tx.sep.findFirst({ where: { encounterId }, orderBy: { createdAt: 'desc' }, select: { id: true } }),
+    ]);
+    if (!assignment || !enc.sourceEncounterId) throw new Error('admisi IGD tanpa bed/kunjungan asal');
+    return {
+      encounterId: enc.id,
+      number: enc.number,
+      bedId: assignment.locationId,
+      bedCode: assignment.location.code,
+      wristbandCode: band?.code ?? '',
+      sepId: sep?.id ?? null,
+      sourceEncounterId: enc.sourceEncounterId,
+    };
+  }
+
   private async createAdmission(input: AdmissionInput, claim: IdempotencyClaim): Promise<string> {
     await this.assertWriteScope(input.unitId, input.patientId);
     const patient = await this.activePatient(input.patientId);
-    const unit = await this.repo.findUnit(input.unitId);
-    if (!unit || !unit.active || unit.kind !== 'rawat_inap') {
-      throw invalid('Unit tujuan bukan unit rawat inap yang aktif');
-    }
-    const dpjp = await this.repo.findPractitioner(input.practitionerId);
-    if (!dpjp || !dpjp.active || dpjp.profession !== 'dokter')
-      throw invalid('DPJP tidak ditemukan atau nonaktif');
-    if (new Date(input.plannedAt).getTime() < Date.now() - 24 * 3_600_000) {
-      throw invalid('Rencana masuk tidak boleh lebih dari sehari yang lalu');
-    }
-
-    if (input.sourceEncounterId) {
-      const source = await this.repo.findEncounter(input.sourceEncounterId);
-      if (!source || source.patientId !== patient.id)
-        throw invalid('Kunjungan asal tidak ditemukan untuk pasien ini');
-      if (source.encounterClass === 'IMP' || source.status === 'cancelled') {
-        throw frontOfficeError(
-          'ENCOUNTER_STATE_INVALID',
-          undefined,
-          'Kunjungan asal harus rawat jalan/IGD yang tidak batal',
-        );
-      }
-    }
-    if (input.spriReferralId) {
+    const checkSpri = async () => {
+      if (!input.spriReferralId) return;
       const spri = await this.repo.findReferralById(input.spriReferralId);
       if (!spri || spri.kind !== 'spri' || spri.patientId !== patient.id) {
         throw invalid('SPRI tidak ditemukan untuk pasien ini');
@@ -228,7 +346,79 @@ export class AdmissionService {
       if (await this.repo.admissionForReferral(spri.id)) {
         throw frontOfficeError('REFERRAL_STATE_INVALID', undefined, 'SPRI ini sudah dipakai admisi lain');
       }
+    };
+    const bpjsIdentifier = this.registration.bpjsIdentifierFor(patient, input.coverage);
+    const encounterId = await this.insertPlannedAdmission(
+      {
+        patientId: patient.id,
+        unitId: input.unitId,
+        practitionerId: input.practitionerId,
+        plannedAt: new Date(input.plannedAt),
+        sourceEncounterId: input.sourceEncounterId ?? null,
+        referralId: input.spriReferralId ?? null,
+        generalConsent: input.generalConsent,
+        guarantor: input.guarantor,
+        payer: input.coverage.payer,
+        extraChecks: checkSpri,
+      },
+      async (id) => {
+        await this.registration.createCoverage(
+          id,
+          input.coverage,
+          bpjsIdentifier?.id ?? null,
+          input.careClass,
+        );
+      },
+    );
+    await this.idempotency.record(claim, 'encounter', encounterId);
+    return encounterId;
+  }
+
+  /**
+   * Admisi `planned` bersama (registrasi admisi + admisi dari IGD; lingkup tulis sudah diperiksa pemanggil): unit rawat inap, DPJP, kunjungan
+   * asal, satu admisi aktif per pasien, nomor RI, riwayat status, persetujuan umum per admisi, penanggung jawab,
+   * penjaminan (`createCoverages`), relasi DPJP, event `encounter.registered`.
+   */
+  private async insertPlannedAdmission(
+    a: {
+      patientId: string;
+      unitId: string;
+      practitionerId: string;
+      plannedAt: Date;
+      sourceEncounterId: string | null;
+      referralId: string | null;
+      generalConsent: AdmissionInput['generalConsent'];
+      guarantor: AdmissionInput['guarantor'];
+      payer: AdmissionInput['coverage']['payer'];
+      /** Pemeriksaan tambahan setelah unit/DPJP/kunjungan asal, sebelum cek admisi aktif (mis. SPRI). */
+      extraChecks?: () => Promise<void>;
+    },
+    createCoverages: (encounterId: string) => Promise<void>,
+  ): Promise<string> {
+    const patient = await this.activePatient(a.patientId);
+    const unit = await this.repo.findUnit(a.unitId);
+    if (!unit || !unit.active || unit.kind !== 'rawat_inap') {
+      throw invalid('Unit tujuan bukan unit rawat inap yang aktif');
     }
+    const dpjp = await this.repo.findPractitioner(a.practitionerId);
+    if (!dpjp || !dpjp.active || dpjp.profession !== 'dokter')
+      throw invalid('DPJP tidak ditemukan atau nonaktif');
+    if (a.plannedAt.getTime() < Date.now() - 24 * 3_600_000) {
+      throw invalid('Rencana masuk tidak boleh lebih dari sehari yang lalu');
+    }
+    if (a.sourceEncounterId) {
+      const source = await this.repo.findEncounter(a.sourceEncounterId);
+      if (!source || source.patientId !== patient.id)
+        throw invalid('Kunjungan asal tidak ditemukan untuk pasien ini');
+      if (source.encounterClass === 'IMP' || source.status === 'cancelled') {
+        throw frontOfficeError(
+          'ENCOUNTER_STATE_INVALID',
+          undefined,
+          'Kunjungan asal harus rawat jalan/IGD yang tidak batal',
+        );
+      }
+    }
+    await a.extraChecks?.();
     if (await this.repo.activeEncounterOfClass(patient.id, 'IMP')) {
       throw frontOfficeError(
         'ENCOUNTER_DUPLICATE',
@@ -236,7 +426,6 @@ export class AdmissionService {
         'Pasien masih punya admisi rawat inap yang aktif',
       );
     }
-    const bpjsIdentifier = this.registration.bpjsIdentifierFor(patient, input.coverage);
 
     const number = await allocateNumber(this.db.tx(), this.db.tenantId(), 'encounter_ri');
     const encounterId = newId();
@@ -248,35 +437,24 @@ export class AdmissionService {
       status: 'planned',
       unitId: unit.id,
       practitionerId: dpjp.id,
-      plannedAt: new Date(input.plannedAt),
-      sourceEncounterId: input.sourceEncounterId ?? null,
-      referralId: input.spriReferralId ?? null,
+      plannedAt: a.plannedAt,
+      sourceEncounterId: a.sourceEncounterId,
+      referralId: a.referralId,
     });
     await this.repo.addStatusHistory(encounterId, null, 'planned');
     // Persetujuan umum rawat inap berlaku per admisi (keputusan fase 2 #9).
-    await this.registration.createConsent(patient.id, input.generalConsent, encounterId);
-    if (input.guarantor) await this.contacts.resolveGuarantor(patient.id, input.guarantor);
-    await this.registration.createCoverage(
-      encounterId,
-      input.coverage,
-      bpjsIdentifier?.id ?? null,
-      input.careClass,
-    );
-    await this.registration.grantDpjpAccess(
-      dpjp.id,
-      patient.id,
-      encounterId,
-      isoDateJakarta(input.plannedAt),
-    );
+    await this.registration.createConsent(patient.id, a.generalConsent, encounterId);
+    if (a.guarantor) await this.contacts.resolveGuarantor(patient.id, a.guarantor);
+    await createCoverages(encounterId);
+    await this.registration.grantDpjpAccess(dpjp.id, patient.id, encounterId, isoDateJakarta(a.plannedAt));
     await this.events.publish('encounter.registered', {
       encounterId,
       patientId: patient.id,
       encounterClass: encounterClassToken('IMP'),
       unitId: unit.id,
       appointmentId: null,
-      payer: input.coverage.payer,
+      payer: a.payer,
     });
-    await this.idempotency.record(claim, 'encounter', encounterId);
     return encounterId;
   }
 

@@ -1,11 +1,18 @@
 'use client';
 
-import type { EdTrackingItem, EdZone, TriageLevel } from '@simrs/shared';
+import type { EdZone, TriageLevel } from '@simrs/shared';
 import { cx, TabList, TabPanel } from '@simrs/ui';
 import { useId } from 'react';
 import { StatusFlag } from '@/components/klinis/status-flag';
 import { TriageBadge } from '@/components/rawat-inap/triage-badge';
-import { ED_STATUS_META, ED_ZONE_LABEL, edLosAlert, formatLos, TRIAGE_META } from '@/lib/rawat-inap';
+import {
+  ED_STATUS_META,
+  ED_ZONE_LABEL,
+  type EdBoardRow,
+  edLosAlert,
+  formatLos,
+  TRIAGE_META,
+} from '@/lib/rawat-inap';
 
 const ZONES: Array<EdZone | 'semua'> = ['semua', 'T', 'R', 'B', 'K'];
 const LEVELS: Array<TriageLevel | 0> = [0, 1, 2, 3, 4, 5];
@@ -27,8 +34,8 @@ export function EdBoardTable({
   onLevel,
   onSelect,
 }: {
-  all: EdTrackingItem[];
-  shown: EdTrackingItem[];
+  all: readonly EdBoardRow[];
+  shown: readonly EdBoardRow[];
   zone: EdZone | 'semua';
   level: TriageLevel | 0;
   selected: string;

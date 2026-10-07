@@ -66,6 +66,11 @@ export class BedOpsService {
     return { ...bed, status: to, version: base + 1, encounterId: opts.encounterId };
   }
 
+  /** Kunci ruang Aplicare bed-bed ini dalam urutan tetap sebelum status bed diubah (anti-deadlock, ADR-0104). */
+  lockRooms(locationIds: readonly string[]): Promise<void> {
+    return this.aplicare.lockRooms(locationIds);
+  }
+
   /** Penempatan baru (periode terbuka). Hunian ganda ditolak database. */
   async assign(encounterId: string, patientId: string, locationId: string, at: Date): Promise<string> {
     const id = newId();

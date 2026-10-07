@@ -92,6 +92,8 @@ export default defineConfig({
         'infrastruktur.spec.ts',
         'pendaftaran.spec.ts',
         'downtime-bpjs.spec.ts',
+        // Alur IGD → rawat inap memakai bed bersama RSFA (alokasi bed siap pertama yang cocok).
+        'igd-ranap.spec.ts',
         // Satu akun presentasi bersama (cukup sekali, di proyek desktop).
         'superadmin-demo-api.spec.ts',
       ],
