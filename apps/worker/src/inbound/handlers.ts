@@ -1,5 +1,5 @@
 import type { InboundEvent, TenantTx } from '@simrs/db';
-import type { DomainEventName, DomainEventPayload, InboundSource } from '@simrs/shared';
+import type { DomainEventPayload, InboundSource, WorkerEmittedEvent } from '@simrs/shared';
 
 /**
  * Konteks penangan pesan masuk. `tx` = transaksi tenant yang SAMA dengan penanda `processed` (ADR-0017): hasil
@@ -12,10 +12,10 @@ export interface InboundHandlerContext {
   now: Date;
   /**
    * Simpan event domain ke `domain_events` (muatan divalidasi skema bersama, tanpa PHI; pelaku = perangkat pengirim).
-   * Catatan: penangan event dalam proses milik API TIDAK berjalan di worker; reaksi lintas modul yang wajib langsung
-   * (mis. notifikasi) ditulis penangan sendiri di transaksi ini (outbox/notifikasi).
+   * Hanya `WORKER_EMITTED_EVENTS`: penangan in-process milik API TIDAK berjalan untuk event worker, jadi reaksi wajib
+   * ditulis penangan sendiri di transaksi ini (outbox/notifikasi) atau lewat `pg_notify`/SSE tabel sumber.
    */
-  recordEvent<N extends DomainEventName>(name: N, payload: DomainEventPayload<N>): Promise<string>;
+  recordEvent<N extends WorkerEmittedEvent>(name: N, payload: DomainEventPayload<N>): Promise<string>;
 }
 
 /** Penangan satu sumber (`inbound_events.source`). Lempar galat = gagal (dicoba lagi dengan backoff). */

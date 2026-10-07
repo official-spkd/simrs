@@ -45,4 +45,10 @@
   kebijakan; chip "analyzer terhubung" bisa membaca `registered_devices.last_used_at` atau `inbound_events.received_at`.
 - 4.3: endpoint daftar/lapor/metrik; kanal SSE kritis sudah memancarkan `raised`/`reported`/`escalated`.
 - "Kepala unit/ruangan" belum dimodelkan di struktur RS; penerima eskalasi memakai peran/tim yang ada (lihat di atas).
-- Penangan event domain milik API tidak berjalan untuk event yang dicatat worker (`recordDomainEvent`).
+- **Event yang ditulis worker** (`WORKER_EMITTED_EVENTS` di `@simrs/shared`: `critical_result.raised`,
+  `critical_result.escalated`): worker hanya menyimpan baris `domain_events`; penangan in-process API tidak berjalan
+  untuknya. Supaya tidak ada jalur yang diam-diam mati: `DomainEvents.on()` API MENOLAK (galat saat start) penangan
+  untuk event di daftar itu, dan `recordDomainEvent` worker menolak event di luar daftar. Reaksi atas event ini wajib
+  lewat jalur yang berlaku untuk kedua penulis: outbox/notifikasi di transaksi penulis, `pg_notify`/SSE dari tabel
+  sumber (`support_critical`), atau pembaca ulang `domain_events` (fase 5/7). Menambah nama ke daftar = pastikan belum
+  ada penangan in-process untuknya.

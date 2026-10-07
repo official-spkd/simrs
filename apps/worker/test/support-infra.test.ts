@@ -38,6 +38,7 @@ import {
   stockExpiryJob,
 } from '../src/jobs/support-jobs';
 import { WORKER_ENV } from '../src/config/env';
+import { recordDomainEvent } from '../src/infra/domain-events';
 import { freshTenant, loadTestEnvFile, tenantDb, testEnv } from './helpers';
 import { Test } from '@nestjs/testing';
 import { WorkerModule } from '../src/worker.module';
@@ -51,12 +52,12 @@ let processor: InboundProcessor;
 /** Penangan uji: perilaku dari isi pesan. */
 const handler: InboundHandler = {
   async handle(event, ctx) {
-    await ctx.recordEvent('lab.test_voided', {
-      labOrderId: newId(),
-      serviceRequestId: newId(),
+    await ctx.recordEvent('critical_result.escalated', {
+      criticalResultId: event.id,
       encounterId: newId(),
       patientId: newId(),
       unitId: newId(),
+      level: 1,
     });
     if (event.rawBody === 'GAGAL') throw new Error('Siti Rahmawati RM00123 tidak ditemukan');
     if (event.rawBody === 'PERMANEN') throw new PermanentInboundError('Format pesan tidak dikenal');
@@ -112,7 +113,36 @@ async function inbound(
 const getEvent = (tenantId: string, id: string) =>
   tenantDb(db, tenantId)((tx) => tx.inboundEvent.findUniqueOrThrow({ where: { id } }));
 const eventCount = (tenantId: string) =>
-  tenantDb(db, tenantId)((tx) => tx.domainEvent.count({ where: { name: 'lab.test_voided' } }));
+  tenantDb(
+    db,
+    tenantId,
+  )((tx) => tx.domainEvent.count({ where: { name: 'critical_result.escalated', actorDeviceId: null } }));
+
+describe('event yang ditulis worker (WORKER_EMITTED_EVENTS)', () => {
+  it('worker hanya boleh menulis event di daftar; event lain ditolak (penangannya hanya ada di API)', async () => {
+    const t = await freshTenant('Event worker');
+    await expect(
+      tenantDb(
+        db,
+        t,
+      )((tx) =>
+        recordDomainEvent(
+          tx,
+          t,
+          'lab.test_voided' as never,
+          {
+            labOrderId: newId(),
+            serviceRequestId: newId(),
+            encounterId: newId(),
+            patientId: newId(),
+            unitId: newId(),
+          } as never,
+          { occurredAt: new Date() },
+        ),
+      ),
+    ).rejects.toThrow(/tidak boleh ditulis worker/);
+  });
+});
 
 describe('pemroses pesan masuk generik', () => {
   it('berhasil → processed + hasil penangan commit bersama; gagal → failed + backoff, hasil batal, galat tanpa PHI', async () => {
