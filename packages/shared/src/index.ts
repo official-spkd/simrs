@@ -40,6 +40,7 @@ export * from './schemas/nursing';
 export * from './schemas/inpatient';
 export * from './schemas/penunjang';
 export * from './schemas/penunjang-api';
+export * from './schemas/gizi-darah';
 export * from './schemas/kamar-operasi';
 export * from './schemas/keuangan';
 export * from './schemas/rawat-inap';

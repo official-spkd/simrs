@@ -53,6 +53,8 @@ import { DischargeModule } from './modules/discharge/discharge.module';
 import { SummaryModule } from './modules/summary/summary.module';
 import { CarePackagesModule } from './modules/care-packages/care-packages.module';
 import { ResultsModule } from './modules/results/results.module';
+import { NutritionModule } from './modules/nutrition/nutrition.module';
+import { BloodBankModule } from './modules/blood-bank/blood-bank.module';
 
 /**
  * Akar aplikasi. Env diteruskan eksplisit (bukan dibaca saat impor) agar tes dan runtime memakai
@@ -140,6 +142,9 @@ export class AppModule {
         SummaryModule,
         CarePackagesModule,
         ResultsModule,
+        // Fase 4 · penunjang S07 Gizi + S08 Bank darah (potongan 4.9).
+        NutritionModule,
+        BloodBankModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),
       ],

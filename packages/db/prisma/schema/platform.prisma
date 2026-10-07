@@ -62,6 +62,9 @@ model Tenant {
   crossmatches                        Crossmatch[]
   bloodIssues                         BloodIssue[]
   transfusionReactions                TransfusionReaction[]
+  bloodIssueChecks                    BloodIssueCheck[]
+  transfusions                        Transfusion[]
+  transfusionVitals                   TransfusionVital[]
   medicationDoubleChecks              MedicationDoubleCheck[]
   id                                  String                              @id @db.Uuid
   code                                String                              @unique
