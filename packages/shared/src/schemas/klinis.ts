@@ -571,6 +571,8 @@ export const orderCatalogItemSchema = z.strictObject({
   substance: z.string().nullable(),
   classes: z.array(nonEmpty),
   highAlert: z.boolean(),
+  /** Bentuk sediaan obat (`drugs.dosage_form`, mis. "tablet", "injeksi"); null untuk non-obat. Rute bawaan CPOE. */
+  dosageForm: z.string().nullable(),
   /** Unit tujuan (lab/radiologi/farmasi); null = ditentukan saat order. */
   unitId: uuid.nullable(),
 });

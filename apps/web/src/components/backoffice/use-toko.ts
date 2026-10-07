@@ -13,7 +13,7 @@ export const STALE_TEXT = 'Data berubah di tempat lain; tampilan dimuat ulang. U
  * ditolak = pesan gerbang dari server. Hasil aksi datang dari server (`revalidatePath`), bukan dari `useState`.
  */
 export function useTokoAction<N extends DomainName>(name: N, rev: number) {
-  const { run, pending } = useStoreAction(rev);
+  const { run, pending } = useStoreAction(rev, name);
   const [flash, setFlash] = useState<Flash | null>(null);
   const act = useCallback(
     (event: EventOf<N>, okText: string | null, onOk?: () => void) =>

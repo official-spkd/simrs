@@ -137,6 +137,8 @@ export const orderSetViewSchema = z.strictObject({
       id: uuid,
       kind: z.enum(CPOE_ORDER_KINDS),
       name: nonEmpty,
+      /** Bentuk sediaan obat; null untuk layanan. */
+      dosageForm: z.string().nullable(),
       active: z.boolean(),
     }),
   ),

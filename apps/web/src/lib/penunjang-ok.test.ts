@@ -14,8 +14,8 @@ import {
   scenarioCaseNote,
   timeOutComplete,
   withLocal,
-} from './btn-ok';
-import { KAMAR_OK, KASUS_SKENARIO_OK } from './demo/fixtures/btn';
+} from './penunjang-ok';
+import { KAMAR_OK, KASUS_SKENARIO_OK } from './demo/fixtures/kamar-operasi';
 import { DOKTER, STAF_LAIN } from './demo/fixtures/staf';
 
 const icd10 = new Set(SEED_REF_SAMPLES.icd10.map((c) => c.code));

@@ -52,6 +52,8 @@ export type ResolvedLine =
         code: string | null;
         coverage: CpoeCoverage;
         highAlert: boolean;
+        /** Bentuk sediaan (`drugs.dosage_form`): penilaian rute saat kirim order. */
+        dosageForm: string;
       }>;
       name: string;
     };
@@ -255,6 +257,7 @@ export class CdsService {
           code: true,
           coverage: true,
           highAlert: true,
+          dosageForm: true,
           substance: { select: { code: true, classes: true } },
         },
       }),
@@ -294,6 +297,7 @@ export class CdsService {
           code: d.code,
           coverage: d.coverage as CpoeCoverage,
           highAlert: d.highAlert,
+          dosageForm: d.dosageForm,
         };
       });
       return {

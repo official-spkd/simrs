@@ -266,6 +266,10 @@ describe('eMAR', () => {
     });
     const board = await as().get(`/nursing/emar/${f.enc.id}`).expect(200);
     expect(emarBoardSchema.safeParse(board.body).success).toBe(true);
+    // Aturan pakai tampil berlabel di layar perawat, bukan kode frekuensi mentah.
+    expect(
+      board.body.orders.find((m: { medicationRequestId: string }) => m.medicationRequestId === f.med.id).sig,
+    ).toMatch(/ · 3×1 \(tiap 8 jam\)$/);
     expect(
       board.body.orders
         .find((m: { medicationRequestId: string }) => m.medicationRequestId === f.med.id)

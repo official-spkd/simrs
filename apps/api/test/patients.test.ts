@@ -43,6 +43,13 @@ const nik = () => `99990154037${String(Math.floor(Math.random() * 100_000)).padS
 const audits = (where: Record<string, unknown>) =>
   withTenant(testDb(), T.id, (tx) => tx.auditEvent.findMany({ where, orderBy: { seq: 'asc' } }));
 
+/**
+ * Kolom isian bebas baris audit (tempat PHI bisa bocor): `details` dan `reason`. Kolom acak (id, `requestId`, hash)
+ * tidak ikut, agar pola angka pendek (mis. 4 digit akhir telepon) tidak cocok secara kebetulan dengan UUID acak.
+ */
+const auditFreeText = (row: { details: unknown; reason: string | null } | undefined) =>
+  jsonText({ details: row?.details ?? null, reason: row?.reason ?? null });
+
 beforeAll(async () => {
   app = await createTestApp();
   T = await createTestTenant();
@@ -111,7 +118,7 @@ describe('pendaftaran pasien', () => {
       fields: ['address', 'birthDate', 'identifiers', 'motherName', 'name', 'phone', 'sex'],
       identifiers: ['bpjs', 'nik'],
     });
-    expect(jsonText(created)).not.toMatch(/Rahmawati|Kenanga|4567/);
+    expect(auditFreeText(created)).not.toMatch(/Rahmawati|Kenanga|4567/);
   });
 
   it('NIK yang sudah terdaftar → 409 berisi RM pemiliknya; dua pendaftaran serentak hanya satu lolos', async () => {
@@ -298,7 +305,7 @@ describe('perubahan identitas', () => {
     expect(res.body).toMatchObject({ name: 'Hendra Wijaya Kusuma', phoneMasked: '0812•••1111' });
     const [upd] = await audits({ action: 'update', resourceType: 'patient', patientId: p.id });
     expect(upd?.details).toEqual({ fields: ['name', 'phone'] });
-    expect(jsonText(upd)).not.toMatch(/Kusuma|1111/);
+    expect(auditFreeText(upd)).not.toMatch(/Kusuma|1111/);
   });
 
   it('ganti NIK wajib alasan; nilai lama disimpan nonaktif; NIK milik pasien lain ditolak', async () => {

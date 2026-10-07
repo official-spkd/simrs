@@ -12,7 +12,7 @@ import type { WorklistTask } from '../../../rme-worklist';
 import type { CriticalNotice, WorklistSources } from '../../../rme-worklist-toko';
 import type { SessionView } from '../../../session-view';
 import { readDomain } from '../../demo/state';
-import { getCriticalCenter } from '../penunjang-lanjut';
+import { getCriticalCenter } from '../penunjang/kritis';
 import { readRekam, REKAM_DATE, verifiedOf, withRekam } from './rekam';
 import { assessmentsOf } from './rme';
 

@@ -127,7 +127,15 @@ function CatalogSearch({ disabled, onAdd }: { disabled: boolean; onAdd: (item: D
                 size="sm"
                 disabled={disabled}
                 aria-label={`Tambah ${c.name}`}
-                onClick={() => onAdd({ id: c.id, kind: c.kind, name: c.name, highAlert: c.highAlert })}
+                onClick={() =>
+                  onAdd({
+                    id: c.id,
+                    kind: c.kind,
+                    name: c.name,
+                    highAlert: c.highAlert,
+                    dosageForm: c.dosageForm,
+                  })
+                }
                 className="shrink-0 text-small"
               >
                 Tambah
@@ -264,7 +272,9 @@ export function CpoeApiWorkspace({
                 disabled={!editable || pending}
                 onClick={() =>
                   add(
-                    s.items.filter((i) => i.active).map((i) => ({ id: i.id, kind: i.kind, name: i.name })),
+                    s.items
+                      .filter((i) => i.active)
+                      .map((i) => ({ id: i.id, kind: i.kind, name: i.name, dosageForm: i.dosageForm })),
                     s.id,
                   )
                 }

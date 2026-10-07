@@ -1,6 +1,8 @@
 import {
   type CpoeOrderKind,
+  defaultMedicationRoute,
   MEDICATION_FREQUENCIES,
+  MEDICATION_ROUTE_OPTIONS,
   type MedicationFrequency,
   type OrderEvaluation,
   type OrderGroup,
@@ -20,6 +22,8 @@ export interface DraftItem {
   kind: CpoeOrderKind;
   name: string;
   highAlert?: boolean;
+  /** Bentuk sediaan obat dari katalog (`drugs.dosage_form`); menentukan rute bawaan. */
+  dosageForm?: string | null;
 }
 
 export interface DraftLine {
@@ -45,15 +49,7 @@ export const FREQUENCY_OPTIONS = (Object.keys(MEDICATION_FREQUENCIES) as Medicat
   }),
 );
 
-export const ROUTE_OPTIONS = [
-  'oral',
-  'intravena',
-  'intramuskular',
-  'subkutan',
-  'sublingual',
-  'inhalasi',
-  'topikal',
-];
+export const ROUTE_OPTIONS = MEDICATION_ROUTE_OPTIONS;
 
 export function newDraftLine(item: DraftItem, key: string): DraftLine {
   return {
@@ -61,7 +57,8 @@ export function newDraftLine(item: DraftItem, key: string): DraftLine {
     item,
     priority: 'rutin',
     dose: '',
-    route: item.kind === 'obat' ? 'oral' : '',
+    // Keselamatan resep: rute bawaan hanya untuk sediaan oral; injeksi/infus/lainnya wajib dipilih dokter.
+    route: item.kind === 'obat' ? defaultMedicationRoute(item.dosageForm) : '',
     frequency: '',
     durationDays: null,
     instructions: '',

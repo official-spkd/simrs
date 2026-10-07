@@ -63,6 +63,7 @@ export class OrderCatalogService {
         substance: null,
         classes: [],
         highAlert: false,
+        dosageForm: null,
         unitId: o.unitId,
       })),
       ...drugs.map((d) => ({
@@ -76,6 +77,7 @@ export class OrderCatalogService {
         substance: d.substance?.code ?? null,
         classes: d.substance?.classes ?? [],
         highAlert: d.highAlert,
+        dosageForm: d.dosageForm,
         unitId: null,
       })),
     ];
@@ -91,7 +93,7 @@ export class OrderCatalogService {
           orderBy: { sortOrder: 'asc' },
           include: {
             orderable: { select: { id: true, kind: true, name: true, active: true } },
-            drug: { select: { id: true, name: true, active: true } },
+            drug: { select: { id: true, name: true, dosageForm: true, active: true } },
           },
         },
       },
@@ -158,7 +160,7 @@ export class OrderCatalogService {
     description: string;
     items: Array<{
       orderable: { id: string; kind: string; name: string; active: boolean } | null;
-      drug: { id: string; name: string; active: boolean } | null;
+      drug: { id: string; name: string; dosageForm: string; active: boolean } | null;
     }>;
   }): OrderSetView {
     return {
@@ -172,6 +174,7 @@ export class OrderCatalogService {
             {
               type: 'layanan' as const,
               ...i.orderable,
+              dosageForm: null,
               kind: i.orderable.kind as Exclude<CpoeOrderKind, 'obat'>,
             },
           ];

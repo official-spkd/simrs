@@ -229,11 +229,22 @@ describe('katalog dan order set', () => {
         classes: ['sefalosporin-1'],
         tariff: null,
         highAlert: false,
+        // Bentuk sediaan untuk rute bawaan CPOE (kapsul → oral; injeksi → dokter memilih).
+        dosageForm: 'kapsul',
       }),
+    ]);
+    const inj = await as('dokter').get('/orders/catalog?q=seftriakson').expect(200);
+    expect(inj.body).toEqual([
+      expect.objectContaining({ name: 'Seftriakson 2 g injeksi', dosageForm: 'injeksi' }),
     ]);
     const lab = await as('dokter').get('/orders/catalog?q=hemo&kind=lab').expect(200);
     expect(lab.body).toEqual([
-      expect.objectContaining({ name: 'Hemoglobin', kind: 'lab', code: { system: 'LOINC', code: '718-7' } }),
+      expect.objectContaining({
+        name: 'Hemoglobin',
+        kind: 'lab',
+        code: { system: 'LOINC', code: '718-7' },
+        dosageForm: null,
+      }),
     ]);
     await as('perawat').get('/orders/catalog').expect(200);
   });
@@ -251,8 +262,8 @@ describe('katalog dan order set', () => {
     expect(created.body).toMatchObject({
       code: 'pneumonia-awal',
       items: [
-        { type: 'layanan', kind: 'lab', name: 'Darah lengkap' },
-        { type: 'obat', kind: 'obat', name: 'Seftriakson 2 g injeksi' },
+        { type: 'layanan', kind: 'lab', name: 'Darah lengkap', dosageForm: null },
+        { type: 'obat', kind: 'obat', name: 'Seftriakson 2 g injeksi', dosageForm: 'injeksi' },
       ],
     });
     await as('apoteker').post('/orders/order-sets', input).expect(409);
@@ -410,6 +421,40 @@ describe('CDS dan kirim order', () => {
     expect(dup.body.cdsAlerts).toEqual([
       expect.objectContaining({ rule: 'duplikasi', level: 'warn', decision: 'diterima' }),
     ]);
+  });
+
+  it('keselamatan resep: rute bertentangan dengan bentuk sediaan ditolak 422 MEDICATION_ROUTE_INVALID', async () => {
+    const e = await inpatient(A);
+    const seftriakson = drug(A, 'Seftriakson 2 g injeksi');
+    const wrong = await as('dokter')
+      .post(
+        '/orders/submit',
+        body(e.encounterId, [med(seftriakson, null, { dose: '2 g', route: 'oral' })]),
+        newId(),
+      )
+      .expect(422);
+    expect(wrong.body).toMatchObject({
+      code: 'MEDICATION_ROUTE_INVALID',
+      details: { line: 0, dosageForm: 'injeksi', route: 'oral' },
+    });
+    await as('dokter')
+      .post(
+        '/orders/submit',
+        body(e.encounterId, [med(drug(A, 'Amlodipin 5 mg tablet'), null, { route: 'intravena' })]),
+        newId(),
+      )
+      .expect(422);
+    const none = await run(A.id, (tx) => tx.orderGroup.count({ where: { encounterId: e.encounterId } }));
+    expect(none).toBe(0);
+    // Rute yang sesuai (termasuk singkatan IV) diterima.
+    const ok = await as('dokter')
+      .post(
+        '/orders/submit',
+        body(e.encounterId, [med(seftriakson, null, { dose: '2 g', route: 'IV' })]),
+        newId(),
+      )
+      .expect(201);
+    expect(ok.body.medicationRequests).toEqual([expect.objectContaining({ route: 'IV' })]);
   });
 
   it('order residen langsung aktif, menunggu tinjauan DPJP; tinjauan DPJP menerbitkan resep ber-TTE peninjau', async () => {

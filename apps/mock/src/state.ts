@@ -1,5 +1,6 @@
 import { INTEGRATION_TARGETS, type IntegrationTarget } from '@simrs/shared';
 import { BpjsState } from './systems/bpjs/state';
+import { LisState } from './systems/lis';
 
 export const SYSTEMS = INTEGRATION_TARGETS;
 export type MockSystem = IntegrationTarget;
@@ -98,6 +99,8 @@ export class MockState {
   echoes = new Map<string, EchoRecord>();
   messages: OutgoingMessage[] = [];
   bpjs = new BpjsState();
+  /** Analyzer LIS (fase 4 §4.1b): riwayat kirim ORU^R01. Bukan sistem tujuan outbox, jadi tanpa skenario. */
+  lis = new LisState();
   private seq = 0;
 
   constructor() {
@@ -113,6 +116,7 @@ export class MockState {
     this.echoes.clear();
     this.messages = [];
     this.bpjs.reset();
+    this.lis.reset();
     this.seq = 0;
   }
 

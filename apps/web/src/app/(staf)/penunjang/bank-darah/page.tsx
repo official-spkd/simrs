@@ -1,31 +1,18 @@
-import { formatTanggalWaktu } from '@simrs/shared';
 import type { Metadata } from 'next';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { BloodBankWorkspace } from '@/components/penunjang/bank-darah-workspace';
-import { ScenarioBanner } from '@/components/scenario-banner';
-import { getBloodBank } from '@/lib/server/data/penunjang-lanjut';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { DemoBankDarah } from './demo-bank-darah';
 
 export const metadata: Metadata = { title: 'Bank darah' };
 
 /**
- * S08 · Bank darah: permintaan, golongan dan crossmatch, pengeluaran kantong dengan cek ganda dua petugas, pindai
- * gelang + kantong di samping pasien, dan pemantauan reaksi transfusi. Mode presentasi: data dummy (ADR-0023).
+ * S08 · Layar hibrida Bank darah (rencana fase 4 potongan 4.0c, pola 3.0d klinis): mode presentasi memakai data dummy
+ * (`demo-bank-darah.tsx` + `actions-demo.ts`, dibekukan); mode api untuk peran yang memegang izin layar, jalur API diisi
+ * potongan 4.9 (sampai itu "Belum tersambung").
  */
 export default async function BankDarahPage() {
-  const { session, screen, allowed } = await requireDemoScreen('bank-darah');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const data = await getBloodBank();
-  return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-0.5">
-        <span className="text-caption text-ink-500">
-          Penunjang / Bank darah RS · S08 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
-        </span>
-        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Bank darah · permintaan dan transfusi</h1>
-      </header>
-      <ScenarioBanner session={session} screen="bank-darah" />
-      <BloodBankWorkspace userId={session.user.id} data={data} userName={session.user.displayName} />
-    </div>
-  );
+  const access = await requireScreen('bank-darah');
+  if (access.mode === 'demo') return <DemoBankDarah access={access} />;
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
 }

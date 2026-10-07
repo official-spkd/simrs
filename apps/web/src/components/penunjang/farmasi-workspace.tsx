@@ -10,9 +10,9 @@ import {
   doubleCheckAction,
   prepareRxAction,
   reviewRxAction,
-} from '@/app/(staf)/penunjang/farmasi/actions';
+} from '@/app/(staf)/penunjang/farmasi/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
-import type { StoredPharmacyQueue } from '@/lib/server/data/penunjang';
+import type { StoredPharmacyQueue } from '@/lib/server/data/penunjang/farmasi';
 import type { PenunjangActionResult } from '@/lib/penunjang-aksi';
 import { applyRxLocal, dispenseLines, rxTag, type RxLocal, type RxReceiver } from '@/lib/penunjang-farmasi';
 import type { ScenarioTaskHook } from '@/lib/penunjang-skenario';
