@@ -161,6 +161,7 @@ export class VitalsService {
 
   async present(rows: VitalRow[]): Promise<VitalSignsRecord[]> {
     const meta = await this.records.meta('observations', rows);
+    const threshold = await readTenantSetting(this.db.tx(), 'ews.escalation_score');
     return rows.map((r) => {
       const score = r.ewsScore ?? 0;
       const maxParam = r.ewsMaxParam ?? 0;
@@ -168,7 +169,12 @@ export class VitalsService {
         ...(meta.get(r.id) as ClinicalEntryMeta),
         encounterId: r.encounterId,
         values: r.components as VitalValues,
-        ews: { score, maxParam, risk: ewsRisk(score, maxParam).level },
+        ews: {
+          score,
+          maxParam,
+          risk: ewsRisk(score, maxParam).level,
+          escalated: ewsNeedsEscalation(score, maxParam, threshold),
+        },
       };
     });
   }

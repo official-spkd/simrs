@@ -2,7 +2,7 @@
 
 Halaman ini untuk pembaca baru yang ingin memahami **bagaimana backend SIM RS bekerja**: bagian-bagiannya, perjalanan satu permintaan dari layar sampai database, lapisan keamanannya, dan pola bersama yang wajib dipakai ulang setiap modul baru. Gambaran sistem tanpa kode ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md). Rincian per modul dan per potongan ada di [Cara kode bekerja](./02-cara-kerja-kode.md). Letak berkas ada di [Peta kode](./19-peta-kode.md).
 
-> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.5. Layar klinis mode api masih "Belum tersambung" sampai potongan W. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
+> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.5 serta 3.7. Layar klinis mode api masih "Belum tersambung" sampai potongan W. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
 
 ## Arsitektur ringkas
 
@@ -165,9 +165,19 @@ Jadi aturan tetap berlaku walau ada bug di service.
 
 **Konkurensi.** `lockVersion()` (advisory lock per versi) menyerialkan koreksi dengan permintaan TTE atas versi yang sama. Satu diagnosis utama per kunjungan dijaga kunci per kunjungan (`PRIMARY_DIAGNOSIS_EXISTS`).
 
-**Rute.** Bacaan per kunjungan memakai bentuk kanonik `/api/v1/encounters/:id/<sumber>` (mis. `observations`, `cppt`, `conditions`, `assessments`, `context`). Tulisan memakai awalan modul (`/api/v1/cppt/entries`, `/api/v1/diagnosis/conditions`). Rute eMAR 3.5 masih berbentuk `/api/v1/nursing/emar/:encounterId`.
+**Rute.** Bacaan per kunjungan memakai bentuk kanonik `/api/v1/encounters/:id/<sumber>` (mis. `observations`, `cppt`, `conditions`, `assessments`, `context`). Tulisan memakai awalan modul (`/api/v1/cppt/entries`, `/api/v1/diagnosis/conditions`). Rute eMAR, rencana asuhan, dan balans cairan 3.5 juga punya alias kanonik `/api/v1/encounters/:id/{emar,care-plans,fluid-balances}` (W4); rute `/api/v1/nursing/...` lama tetap berlaku.
 
 **Draf** (`/api/v1/drafts/:encounterId/:kind`) bukan rekam medis. Draf hanya milik penulisnya, boleh diubah dan dihapus, dan dibersihkan job worker 48 jam setelah kunjungan selesai atau batal.
+
+**Draf kerja multi-pengguna (3.7).** Draf klinis umum hanya milik penulisnya, jadi alur yang dikerjakan beberapa orang berurutan memakai tabel kerja sendiri. Contohnya `consent_drafts`: perawat menyiapkan, pasien menandatangani di tablet, saksi petugas beratestasi, lalu dokter memfinalkan. Polanya (ADR-0058):
+
+- tabel kerja ber-RLS, tanpa hak DELETE, UPDATE hanya kolom kerja;
+- **tutup-sekali**: trigger menolak perubahan setelah status keluar dari `draf` (`CONSENT_CLOSED`), juga bagi pemilik tabel, dan mengisi waktu tanda tangan/atestasi/penutupan dari jam server;
+- langkah yang mengubah draf mengunci barisnya (`FOR UPDATE`), sehingga finalisasi serentak hanya terjadi sekali;
+- bukti berurutan: mengubah isi menghapus tanda tangan dan atestasi;
+- hasil final ditulis sebagai entri berversi biasa (`consents`) lewat `ClinicalRecordService` + `ClinicalSigningService`.
+
+**Unggahan biner** (dokumen pasien, gambar tanda tangan) dibaca middleware `rawUpload` (`apps/api/src/common/raw-upload.middleware.ts`) sebelum transaksi dibuka, dengan batas ukuran per rute (dokumen 10 MB, tanda tangan 512 KB → 413). Service memeriksa jenis dari isi berkas (mis. tanda tangan wajib berawalan tanda tangan PNG; SVG dan lainnya → 415), bukan dari nama atau header.
 
 **eMAR (3.5)** memakai tabel append-only sendiri (`medication_administrations`, dijaga trigger). Gerbangnya:
 
@@ -193,7 +203,10 @@ Dokumen klinis legal (resep, kelak resume dan persetujuan) diterbitkan sebagai P
 3. **Worker** (`apps/worker/src/outbox/tte.ts`) mengirim **hash** dokumen ke penyelenggara TTE (lokal: mock `/tte/sign`), bukan isinya. Sertifikat dan tanda tangan disimpan atomik. Gagal permanen menandai tanda tangan `failed`.
 4. **Verifikasi QR** (`/verification`) bersifat publik dan tanpa PHI: RS, jenis dokumen, penanda tangan, waktu, dan sidik digital.
 
-Pemakai saat ini: resep di modul `orders` memanggil `ClinicalPdfService.issue()`. TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review`.
+Pemakai saat ini:
+
+- persetujuan, penolakan, dan pencabutan tindakan (`consent`) lewat `issueSigned('consents', …)`, TTE dokter pemberi penjelasan, izin `consent.sign` di endpoint;
+- resep di modul `orders` memanggil `ClinicalPdfService.issue()` langsung (sumber `order_groups`, bukan tabel berversi). TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review`.
 
 ## Staging SATUSEHAT dan peristiwa biaya
 
@@ -262,7 +275,7 @@ Perubahan yang perlu tampil seketika dialirkan dengan Server-Sent Events (ADR-00
 | Papan antrean TV | `GET /api/v1/queue/displays/:id/events` | perangkat display                                   | Display antrean (mode api) |
 | Papan IGD        | `GET /api/v1/triage/board/events`       | `clinical.read`                                     | belum (W3)                 |
 | Papan bed        | `GET /api/v1/adt/beds/events`           | `bed.read`, disaring unit untuk lingkup bukan `all` | belum (W3)                 |
-| Eskalasi EWS     | `GET /api/v1/clinical/streams/ews`      | `clinical.read`                                     | belum (W4)                 |
+| Eskalasi EWS     | `GET /api/v1/clinical/streams/ews`      | `clinical.read`                                     | Rawat inap (W4)            |
 
 Berlangganan aliran staf dicatat di audit (`read`).
 

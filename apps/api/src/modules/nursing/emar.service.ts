@@ -17,7 +17,11 @@ import {
   type MedicationDoubleCheckInput,
   type MedicationFrequency,
   type WristbandScanInput,
+  type ActiveWristbandScan,
+  type DoubleCheckView,
+  MEDICATION_ADMINISTRATION_STATUSES,
 } from '@simrs/shared';
+import { z } from 'zod';
 import { clinicalEncounter } from '../../infra/clinical/clinical-context';
 import { ClinicalRecordService } from '../../infra/clinical/clinical-record.service';
 import { BillableRecorder, SatusehatRecorder } from '../../infra/clinical/staging';
@@ -25,6 +29,15 @@ import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
 import { PatientAccessService } from '../authz/patient-access.service';
 import { MedicationSchedulesService } from './medication-schedules.service';
+
+/** Isi dosis beku atestasi cek ganda (`medication_double_checks.content`, ditulis `doubleCheck`). */
+const doubleCheckContentSchema = z.object({
+  scheduleId: z.uuid().nullable(),
+  labelCode: z.string(),
+  status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+  occurredAt: z.iso.datetime({ offset: true }),
+  reason: z.string().nullable(),
+});
 
 const invalid = (message: string) => new AppError('VALIDATION_FAILED', message, 422);
 const conflict = (message: string) => new AppError('CONFLICT', message, 409);
@@ -264,13 +277,11 @@ export class EmarService {
   }
 
   private async present(ids: string[]): Promise<MedicationAdministrationRecord[]> {
-    const rows = await this.db
-      .tx()
-      .medicationAdministration.findMany({
-        where: { id: { in: ids } },
-        include: { user: true, doubleCheck: { include: { user: true } } },
-        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      });
+    const rows = await this.db.tx().medicationAdministration.findMany({
+      where: { id: { in: ids } },
+      include: { user: true, doubleCheck: { include: { user: true } } },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    });
     return rows.map((r) => ({
       id: r.id,
       status: r.status as MedicationAdministrationRecord['status'],
@@ -290,6 +301,91 @@ export class EmarService {
       scanId: r.wristbandScanId,
       labelCode: r.labelCode,
     }));
+  }
+
+  /**
+   * Pindaian gelang cocok yang masih berlaku untuk kunjungan ini (gelang aktif, umur ≤ `emar.scan_valid_minutes`), dari
+   * petugas mana pun. Dipakai perawat kedua memilih pindaian rekan yang akan ia periksa (cek ganda dua sesi, ADR-0077);
+   * pindaian tetap hanya berlaku untuk pemberian oleh pemiliknya.
+   */
+  async activeScans(encounterId: string): Promise<ActiveWristbandScan[]> {
+    const enc = await clinicalEncounter(this.db, this.access, encounterId, 'read');
+    const tx = this.db.tx();
+    const [{ now }] = await tx.$queryRaw<[{ now: Date }]>`SELECT clock_timestamp() AS now`;
+    const validMinutes = await readTenantSetting(tx, 'emar.scan_valid_minutes');
+    const rows = await tx.wristbandScan.findMany({
+      where: {
+        encounterId: enc.id,
+        matched: true,
+        scannedAt: { gte: new Date(now.getTime() - validMinutes * 60_000), lte: now },
+        wristband: { voidedAt: null },
+      },
+      include: { user: { select: { id: true, displayName: true } } },
+      orderBy: [{ scannedAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+    });
+    this.db.audit({
+      action: 'read',
+      resourceType: 'wristband_scan',
+      patientId: enc.patientId,
+      details: { encounterId: enc.id, count: rows.length },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      by: { userId: r.user.id, nama: r.user.displayName },
+      scannedAt: r.scannedAt.toISOString(),
+      validUntil: new Date(r.scannedAt.getTime() + validMinutes * 60_000).toISOString(),
+    }));
+  }
+
+  /**
+   * Atestasi cek ganda atas pindaian kunjungan ini yang masih berlaku. Pemberi obat memakai isi dosis beku di sini
+   * (waktu, label, alasan) agar pemberiannya cocok dengan atestasi (ADR-0077); `used` = sudah dipakai pemberian.
+   */
+  async doubleChecks(encounterId: string): Promise<DoubleCheckView[]> {
+    const enc = await clinicalEncounter(this.db, this.access, encounterId, 'read');
+    const tx = this.db.tx();
+    const [{ now }] = await tx.$queryRaw<[{ now: Date }]>`SELECT clock_timestamp() AS now`;
+    const validMinutes = await readTenantSetting(tx, 'emar.scan_valid_minutes');
+    const rows = await tx.medicationDoubleCheck.findMany({
+      where: {
+        wristbandScan: {
+          encounterId: enc.id,
+          scannedAt: { gte: new Date(now.getTime() - validMinutes * 60_000) },
+        },
+      },
+      include: {
+        user: { select: { id: true, displayName: true } },
+        administrations: { select: { id: true }, take: 1 },
+      },
+      orderBy: [{ checkedAt: 'desc' }, { id: 'desc' }],
+      take: 100,
+    });
+    this.db.audit({
+      action: 'read',
+      resourceType: 'medication_double_check',
+      patientId: enc.patientId,
+      details: { encounterId: enc.id, count: rows.length },
+    });
+    return rows.flatMap((r) => {
+      const c = doubleCheckContentSchema.safeParse(r.content);
+      if (!c.success) return [];
+      return [
+        {
+          id: r.id,
+          scanId: r.wristbandScanId,
+          medicationRequestId: r.medicationRequestId,
+          scheduleId: c.data.scheduleId,
+          labelCode: c.data.labelCode,
+          status: c.data.status,
+          occurredAt: c.data.occurredAt,
+          reason: c.data.reason,
+          checkedBy: { userId: r.user.id, nama: r.user.displayName, peran: r.userRole },
+          checkedAt: r.checkedAt.toISOString(),
+          used: r.administrations.length > 0,
+        },
+      ];
+    });
   }
 
   async board(encounterId: string, date = isoDateJakarta(new Date())): Promise<EmarBoard> {

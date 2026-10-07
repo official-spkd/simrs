@@ -6,7 +6,7 @@ import { getDischargeSummaryApi, getEncounterContextApi } from '@/lib/server/dat
 import { can, type SessionView } from '@/lib/session-view';
 import { ApiResumeClient } from './api-resume-client';
 
-const SEX = { male: 'L', female: 'P', unknown: '-' } as const;
+const SEX = { male: 'L', female: 'P', unknown: '–' } as const;
 
 /**
  * K13 · Resume medis mode api (W5b, mockup `Resume.dc.html`): `GET /encounters/:id/discharge-summary` + banner
@@ -51,7 +51,7 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
       <PatientBanner
         name={p.name}
         sex={SEX[p.sex]}
-        ageYears={p.ageYears ?? 0}
+        ageYears={p.ageYears}
         birthDate={p.birthDate ? formatTanggalLahir(p.birthDate) : '—'}
         mrn={p.mrn}
         allergies={ctx.allergy.labels}

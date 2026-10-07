@@ -32,8 +32,8 @@ export const poliQueueItemSchema = z.strictObject({
   queueNo: z.string().regex(/^[A-Z]{1,2}-\d{3}$/),
   name: nonEmpty,
   rm: z.string().regex(/^\d{2}-\d{2}-\d{2}-\d{2}$/),
-  /** `-` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
-  sex: z.enum(['L', 'P', '-']),
+  /** `–` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
+  sex: z.enum(['L', 'P', '–']),
   ageYears: z.number().int().min(0).max(130),
   payer: z.enum(PAYERS),
   status: z.enum(POLI_QUEUE_STATUSES),
@@ -112,8 +112,8 @@ export type EncounterLab = z.infer<typeof encounterLabSchema>;
 export const klinisPatientSchema = z.strictObject({
   id: nonEmpty,
   name: nonEmpty,
-  /** `-` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
-  sex: z.enum(['L', 'P', '-']),
+  /** `–` = jenis kelamin tidak diketahui (data api; pasien tanpa identitas). */
+  sex: z.enum(['L', 'P', '–']),
   ageYears: z.number().int().min(0).max(130),
   /** Null bila tanggal lahir tidak tercatat (data api). */
   birthDate: z.iso.date().nullable(),
@@ -468,6 +468,8 @@ export const vitalSignsRecordSchema = clinicalEntryMetaSchema.extend({
     score: z.int().min(0).max(20),
     maxParam: z.int().min(0).max(3),
     risk: z.enum(['rendah', 'sedang', 'tinggi']),
+    /** Melewati ambang eskalasi RS (`ews.escalation_score`) atau satu parameter bernilai 3 (dihitung server). */
+    escalated: z.boolean(),
   }),
 });
 export type VitalSignsRecord = z.infer<typeof vitalSignsRecordSchema>;

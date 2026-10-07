@@ -32,7 +32,7 @@ const PAYER: Record<string, 'BPJS' | 'Umum' | 'Asuransi'> = {
   umum: 'Umum',
   asuransi: 'Asuransi',
 };
-const SEX = (s: string | null): 'L' | 'P' | '-' => (s === 'male' ? 'L' : s === 'female' ? 'P' : '-');
+const SEX = (s: string | null): 'L' | 'P' | '–' => (s === 'male' ? 'L' : s === 'female' ? 'P' : '–');
 const LAB_FLAG: Record<string, EncounterLab['flag']> = {
   tinggi: 'H',
   rendah: 'L',
@@ -170,7 +170,7 @@ export class PoliService {
         queueNo: e.queueTicket?.ticketNo ?? '—',
         name: e.patient.name,
         rm: e.patient.mrn,
-        sex: SEX(e.patient.sex) === '-' ? 'L' : (SEX(e.patient.sex) as 'L' | 'P'),
+        sex: SEX(e.patient.sex),
         ageYears: ageYears(e.patient.birthDate, today) ?? 0,
         payer: PAYER[e.coverages[0]?.payer.kind ?? 'umum'] ?? 'Umum',
         status,

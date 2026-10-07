@@ -11,9 +11,10 @@ menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 > semuanya masih "Belum tersambung" (potongan W1–W5b, dikerjakan agen backend mulai 7 Okt 2026). Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
-> (3.5). Resume (3.6) dan persetujuan tindakan (3.7) belum. Sepuluh layar bagan RME (FE2) berstatus `demo` saja:
-> hanya ada di mode presentasi dan belum hibrida. API worklist, CPPT, asesmen, diagnosis, ringkasan, dan askep/eMAR
-> untuk layar itu sudah ada; konsultasi, edukasi, paket layanan, dan gerbang tutup kunjungan belum (3.6–3.8). Cara
+> (3.5), serta persetujuan tindakan + edukasi lewat P07 (3.7). Resume (3.6) belum. Sepuluh layar bagan RME (FE2)
+> berstatus `demo` saja: hanya ada di mode presentasi dan belum hibrida. API worklist, CPPT, asesmen, diagnosis,
+> ringkasan, askep/eMAR, dan edukasi untuk layar itu sudah ada; konsultasi, paket layanan, dan gerbang tutup kunjungan
+> belum (3.6, 3.8). Cara
 > kerja API klinis: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
@@ -50,15 +51,15 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)                |
 | IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)        |
 | Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)           |
-| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT + eMAR ada (3.5); W4 belum     |
+| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
 | Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                         |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API belum (3.7, modul kerangka)         |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API ada (3.7); W5a belum                |
 | Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
 | Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
 | Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
 | Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API belum (3.8, modul kerangka)         |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API belum (3.7)                         |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API lewat P07 ada (3.7)                 |
 | Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
 | Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
 | Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API belum (3.8, modul kerangka)         |
@@ -327,15 +328,15 @@ tersambung". Detail API ada di
 
 ![Daftar pasien rawat inap dengan filter bangsal dan kolom bed, pasien, diagnosis, DPJP, hari rawat, EWS, dan penanda](./gambar/ranap.png)
 
-| Hal      | Isi                                                                                                                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/klinis/rawat-inap` (daftar) · `/klinis/rawat-inap/<encounterId>?tab=ringkasan\|cppt\|obs\|askep\|hasil`                                                                                               |
-| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                  |
-| Komponen | K04 rawat inap, K07 CPPT dan serah terima, K12 asuhan keperawatan dan eMAR                                                                                                                              |
-| Status   | demo (mode presentasi); API CPPT + co-sign + serah terima (3.2b), tanda vital + EWS (3.2a), gelang (3.3), eMAR + askep (3.5) ada; layar belum disambung (W4)                                            |
-| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                          |
-| Kode web | `apps/web/src/app/(staf)/klinis/rawat-inap/` (`cppt-panel.tsx`, `emar-gate.tsx`, `emar-dose.tsx`, `emar-panel.tsx`) · `apps/web/src/lib/rawat-inap.ts` · `apps/web/src/lib/server/data/klinis/ranap.ts` |
-| Kode API | `apps/api/src/modules/cppt/` · `nursing/` (tanda vital + EWS) · `adt/` (gelang) · mesin `packages/shared/src/clinical/{emar,ews}.ts`                                                                    |
+| Hal      | Isi                                                                                                                                                                                                                                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/rawat-inap` (daftar) · `/klinis/rawat-inap/<encounterId>?tab=ringkasan\|cppt\|obs\|askep\|hasil`                                                                                                                                                                                                              |
+| Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                                                                                                                                 |
+| Komponen | K04 rawat inap, K07 CPPT dan serah terima, K12 asuhan keperawatan dan eMAR                                                                                                                                                                                                                                             |
+| Status   | demo (mode presentasi) + api (layar W4): daftar per unit/bed, CPPT + co-sign + SBAR, TTV + NEWS2 + eskalasi SSE, eMAR dua sesi, askep + balans cairan, hasil                                                                                                                                                           |
+| Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                                                                                                                                         |
+| Kode web | `apps/web/src/app/(staf)/klinis/rawat-inap/` (demo: `demo-*.tsx`, `cppt-panel.tsx`, `emar-*.tsx`; api: `api-*.tsx`, `[encounterId]/actions-api.ts`, `events/route.ts`, `ews-live.tsx`) · `apps/web/src/lib/rawat-inap.ts` · `apps/web/src/lib/ews-sse.ts` · `apps/web/src/lib/server/data/klinis/{ranap,ranap-api}.ts` |
+| Kode API | `apps/api/src/modules/worklist/inpatient-census.*` (daftar) · `cppt/` · `nursing/` (tanda vital + EWS, eMAR, askep) · `adt/` (gelang) · `summary/` (banner) · mesin `packages/shared/src/clinical/{emar,ews}.ts`                                                                                                       |
 
 **Tujuan.** Rekam rawat inap per pasien dalam lima tab: Ringkasan, CPPT & eMAR, Observasi & EWS, Asuhan keperawatan,
 dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
@@ -392,8 +393,45 @@ dan Hasil. Pemberian obat terkunci sampai gelang pasien terpindai.
 - EWS dewasa: 0–4 rendah, 5–6 sedang (atau satu parameter bernilai 3), ≥ 7 tinggi.
 - Fakta dosis (terlambat, kewaspadaan tinggi) dibaca dari rekam server, bukan dari klien.
 
-**Mode api.** Izin layar `clinical.write`. Sampai potongan W4 halaman daftar dan detail menampilkan "Belum
-tersambung" (rute detail mode api memberi 200, bukan 404). Endpoint eMAR sudah ada (potongan 3.5, lihat [Asuhan keperawatan](#asuhan-keperawatan)).
+**Mode api (layar W4).** Izin layar `clinical.write`; semua data dari API sungguhan, penegakan izin + ABAC + audit di
+API. Rute detail dengan ID yang tidak ada memberi 200 dengan "Kunjungan tidak ditemukan"; pasien di luar akses
+memberi "Akses ke pasien ini ditolak" (tercatat di audit).
+
+1. **Daftar** (`GET /api/v1/inpatients?unitId=`): pasien rawat inap yang sedang dirawat per unit tempat pasien kini
+   (unit bed, atau unit kunjungan sebelum ber-bed), disaring ABAC sebelum batas baris (lingkup unit tingkat bed,
+   relasi tim perawatan, akses darurat). Kolom: bed, pasien, diagnosis utama, DPJP, hari rawat, EWS. Penanda:
+   "Eskalasi EWS", "Co-sign DPJP (n)", "Obat terlambat (n)", "Alergi"/"Alergi belum dikaji". Saring dengan
+   "Filter bangsal" (`?unit=<id>`). Tautan notifikasi eskalasi `?kunjungan=<id>` membuka tab Observasi pasien itu.
+2. **Eskalasi EWS langsung.** Baris "Pemantauan EWS langsung aktif" menandai aliran SSE `ews` (BFF
+   `/klinis/rawat-inap/events` → `GET /api/v1/clinical/streams/ews`). Saat ada eskalasi tampil "Eskalasi EWS HH.MM ·
+   skor n (risiko …)" dengan nama pasien dari daftar yang sudah lolos ABAC (muatan aliran tanpa PHI) dan tombol
+   **Buka rekam pasien**.
+3. **Rekam pasien**: banner dari `GET /encounters/:id/context`; tab Ringkasan, **CPPT & SBAR**, **eMAR**,
+   **Observasi & EWS**, **Asuhan keperawatan**, **Hasil** (`?tab=ringkasan|cppt|emar|obs|askep|hasil`).
+4. **CPPT**: PPA dan penulis dari sesi. Catatan residen tersimpan "belum final, menunggu co-sign DPJP"; DPJP
+   (DPJP utama/rawat bersama/DPJP kunjungan) menekan **Setujui co-sign DPJP**. Catatan PPA lain bisa
+   **Verifikasi DPJP**. **Koreksi** (penulis, alasan wajib, versi baru) dan **Addendum** (PPA lain). Peringatan
+   singkatan terlarang tampil tanpa memblokir. **Serah terima SBAR** terisi awal dari CPPT terakhir, diagnosis, dan
+   EWS; riwayat "Serah terima terakhir" di bawahnya.
+5. **Observasi & EWS**: isi enam tanda vital + kesadaran + oksigen; pratinjau skor dari mesin bersama, skor resmi dan
+   keputusan eskalasi dari server. Eskalasi → peringatan "Eskalasi EWS: skor n (risiko …)" dan notifikasi tanpa PHI
+   ke DPJP + tim perawatan.
+6. **eMAR** (perawat/bidan): grid jam dinamis dari order aktif + kolom PRN/stat. Terkunci sampai kode gelang
+   dipindai ke kotak "Kode gelang pasien" dan cocok; kode salah ditolak, tercatat, dan diaudit. **Gelang tidak
+   terbaca** → verifikasi manual dua identitas + alasan → gelang lama dibatalkan, gelang baru terbit (**Cetak gelang**)
+   dan tetap wajib dipindai (tidak ada jalur melewati pindai, ADR-0096). Pilih satu slot → pindai "Kode label obat"
+   (fase 3: label lokal = ID baris order) → **Diberikan**/**Ditunda**/**Ditolak pasien** (alasan wajib bila
+   ditunda/ditolak/terlambat) → catat. Pemberian `given` membuat biaya obat di `billable_events` (tanpa harga).
+7. **Cek ganda obat kewaspadaan tinggi** (dua sesi, ADR-0077): pemberi obat memindai gelang dan label, lalu perawat
+   kedua membuka eMAR pasien yang sama di sesinya sendiri, mengisi "Cek ganda untuk rekan" (dosis, pindaian gelang
+   rekan, label) dan **Catat cek ganda**. Pemberi menekan **Periksa cek ganda** ("✓ Cek ganda oleh …") lalu
+   **Catat pemberian**; waktu dan alasan dosis mengikuti atestasi.
+8. **Asuhan keperawatan**: rencana asuhan per diagnosis keperawatan (master RS), **Perbarui evaluasi** = versi baru
+   beralasan; **Balans cairan** hari ini (masuk/keluar/balans) dengan catatan baru.
+9. **Hasil**: laporan dan hasil lab/radiologi kunjungan ini (`GET /results?patientId=&encounterId=`), penanda
+   bertulisan.
+10. Titik sambung potongan 3.8 (konsultasi, kelengkapan paket formulir, dokumen pasien) ada di
+    `ranap-api.ts` (`InpatientExtensions`); tab "Dokumen & konsultasi" muncul setelah diisi.
 
 ## Resume medis
 
@@ -474,10 +512,10 @@ Rujuk: surat rujukan keluar F07. Syarat yang kurang dikembalikan sebagai 409 `DI
 | Rute     | `/tablet/persetujuan` (dokumen di tablet ini) · `/tablet/persetujuan/<consentId>` (layar penuh, kerangka `perangkat`)                                          |
 | Pemakai  | dokter, perawat                                                                                                                                                |
 | Komponen | K11 persetujuan dan edukasi                                                                                                                                    |
-| Status   | demo (mode presentasi); API belum (potongan 3.7; modul `consent` masih kerangka), layar belum disambung (W5a)                                                  |
+| Status   | demo (mode presentasi); API potongan 3.7 ada (ADR-0058); layar belum disambung (W5a)                                                                           |
 | Mockup   | `design/mockups/Consent.dc.html`                                                                                                                               |
 | Kode web | `apps/web/src/app/(perangkat)/tablet/persetujuan/` · `apps/web/src/components/rawat-inap/signature-pad.tsx` · `apps/web/src/lib/server/data/klinis/consent.ts` |
-| Kode API | `apps/api/src/modules/consent/` (kerangka)                                                                                                                     |
+| Kode API | `apps/api/src/modules/consent/` (draf tablet, tanda tangan PNG, saksi petugas, final/penolakan ber-TTE, pencabutan)                                            |
 
 **Tujuan.** Pasien atau keluarga membaca informasi tindakan di tablet, menyatakan paham per butir, lalu
 menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga bisa menolak tindakan dengan alasan.
@@ -512,8 +550,28 @@ menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga b
   tablet hanya bisa dibaca dengan status "Menunggu giliran persetujuan di Simulasi." Persetujuan operasi Ny. Ratna
   final bersama SEP rawat inap pada langkah Admisi elektif.
 
-**Mode api.** Izin layar `consent.write`, dibuka dengan sesi staf di tablet (tanpa prinsipal perangkat). TTE di API
-kelak memakai `consent.sign`. Sampai potongan 3.7 dan W5a halaman menampilkan "Belum tersambung".
+**Mode api.** Izin layar `consent.write`, dibuka dengan sesi staf di tablet (tanpa prinsipal perangkat). Sampai W5a
+halaman menampilkan "Belum tersambung".
+
+**API (potongan 3.7, ADR-0058).** Alur di API sama dengan tablet demo, dengan identitas selalu dari sesi:
+
+1. Perawat/bidan/dokter (`consent.write`) membuat **draf** dari templat P07 tujuh butir:
+   `POST /api/v1/encounters/:id/consent-drafts`. Draf (`consent_drafts`) belum rekam medis.
+2. Pasien/wali menyatakan memahami ketujuh butir dan menandatangani: ketik nama, atau **gores** di tablet. Goresan
+   diunggah sebagai PNG biner (maks. 512 KB; tipe lain, termasuk SVG, ditolak 415) ke
+   `POST /api/v1/consents/drafts/:id/signature-image?slot=signer|familyWitness`, lalu dirujuk di
+   `PUT /api/v1/consents/drafts/:id/signatures`. Mengubah isi draf menghapus tanda tangan dan atestasi.
+3. **Saksi petugas** beratestasi dari sesinya sendiri setelah tanda tangan (`POST …/witness`); berlaku 30 menit dan
+   harus orang lain dari dokter yang memfinalkan.
+4. **Dokter berelasi** (`consent.sign`, hanya dokter, lingkup relasi) memfinalkan (`POST …/finalize`) atau mencatat
+   penolakan beralasan (`POST …/refuse`). Hasilnya entri `consents` versi 1 + PDF + TTE, langsung terkunci. Perawat dan
+   residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`.
+5. Draf **tutup-sekali**: setelah final, ditolak, atau dibatalkan (`POST …/cancel`, alasan ≥ 10) setiap perubahan → 409
+   `CONSENT_CLOSED`, dijaga juga trigger database. Finalisasi serentak hanya terjadi sekali.
+6. **Pencabutan** (`POST /api/v1/consents/:id/revoke`, `consent.sign`) membuat entri baru `dicabut` ber-TTE dengan
+   tanda tangan pasien/wali; persetujuan asal tampil "dicabut". Hanya sekali.
+
+Setiap langkah tercatat di audit dengan pasiennya. Rincian endpoint: [Cara kode bekerja](./02-cara-kerja-kode.md#persetujuan-tindakan-tablet-edukasi-k11-fase-3-potongan-3-7).
 
 ## Worklist klinis
 
@@ -806,10 +864,10 @@ di potongan 3.8 (`docs/rencana/fase-3-klinis-rme.md`). Akses berbatas waktu kons
 | Rute     | `/klinis/edukasi` (`?pasien=<encounterId>`)                                                                                                                                                                |
 | Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                     |
 | Komponen | K11 persetujuan dan edukasi                                                                                                                                                                                |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.7 belum dibangun                                                                                                                                         |
+| Status   | demo (mode presentasi); API edukasi lewat formulir P07 `edukasi_terintegrasi` (potongan 3.7) ada; layar belum disambung                                                                                    |
 | Mockup   | `design/mockups/Consent.dc.html`                                                                                                                                                                           |
 | Kode web | `apps/web/src/app/(staf)/klinis/edukasi/` · data `apps/web/src/lib/demo/fixtures/rme-edukasi.ts` · aturan `apps/web/src/lib/rme-edukasi.ts` · komponen `apps/web/src/components/rme/edukasi-workspace.tsx` |
-| Kode API | belum ada (rencana lewat formulir P07 `apps/api/src/modules/forms/` dan modul `consent` yang masih kerangka, docs/01-arsitektur.md §2)                                                                     |
+| Kode API | formulir P07 `edukasi_terintegrasi` dengan `encounterId` (`apps/api/src/modules/forms/`), dibaca lewat `GET /api/v1/encounters/:id/assessments`                                                            |
 
 **Tujuan.** Edukasi pasien dan keluarga terintegrasi lintas PPA dengan verifikasi pemahaman (teach-back), tanda
 tangan penerima, dan atestasi edukator. Edukasi tindakan menjadi syarat persetujuan tindakan di tablet.
@@ -845,15 +903,15 @@ tangan penerima, dan atestasi edukator. Edukasi tindakan menjadi syarat persetuj
   terverifikasi paham (`consentReady`).
 - Edukator: dokter, residen, perawat, dan bidan. Catatan final tidak bisa diubah.
 
-**Rencana backend.** Izin rencana `education.write` belum ada di katalog. Rencana fase 3 potongan 3.7 menyimpan
-edukasi lewat formulir P07 bersama tablet persetujuan (modul `consent`, izin `consent.write` dan `consent.sign`).
-Syarat "edukasi tindakan paham sebelum persetujuan" baru ada di layar ini; tablet persetujuan belum memeriksanya.
+**Backend.** Potongan 3.7 menyimpan edukasi sebagai isian formulir P07 `edukasi_terintegrasi` (seed) dengan
+`encounterId`; izin rencana `education.write` tidak dipakai. Syarat "edukasi tindakan paham sebelum persetujuan" baru
+ada di layar demo ini; API persetujuan (3.7) dan tablet belum memeriksanya.
 
 ## Asuhan keperawatan
 
 API K12 (potongan 3.5): `GET /api/v1/nursing/emar/:encounterId?date=YYYY-MM-DD` membaca papan dosis WIB. `POST /nursing/wristband-scans` mencatat hasil pindai; kode salah tetap disimpan dan diaudit sebelum 422. `POST /nursing/administrations` memerlukan pindaian aktif milik pemberi obat dan label UUID baris order lokal. Obat high-alert memerlukan `doubleCheckId` dari `POST /nursing/double-checks` oleh sesi perawat/bidan kedua atas isi dosis yang sama. ID petugas yang dikirim sendiri belum memenuhi cek ganda. Dosis telat/ditunda/ditolak wajib alasan; jadwal ganda dan stat ganda ditolak. Dosis PRN berikutnya perlu pindaian baru. Detail: [ADR-0077](../adr/0077-emar-cek-ganda-terikat-dosis.md).
 
-Diagnosis master lokal: `GET /nursing/diagnoses`. Asuhan: `POST /nursing/care-plans`, `GET /nursing/care-plans/:encounterId`; koreksi membuat versi baru oleh penulis, tidak menimpa catatan. Balans cairan: `POST /nursing/fluid-balances`, `GET /nursing/fluid-balances/:encounterId?date=YYYY-MM-DD`; total hanya menjumlahkan versi observasi terkini. Semua rute memakai awalan `/api/v1`, izin klinis/pemberian, isolasi tenant, dan ABAC pasien. Layar di bawah tetap menggambarkan mode presentasi sampai W4 disambungkan.
+Diagnosis master lokal: `GET /nursing/diagnoses`. Asuhan: `POST /nursing/care-plans`, `GET /nursing/care-plans/:encounterId`; koreksi membuat versi baru oleh penulis, tidak menimpa catatan. Balans cairan: `POST /nursing/fluid-balances`, `GET /nursing/fluid-balances/:encounterId?date=YYYY-MM-DD`; total hanya menjumlahkan versi observasi terkini. Semua rute memakai awalan `/api/v1`, izin klinis/pemberian, isolasi tenant, dan ABAC pasien. Rute per kunjungan kanonik (W4) dengan layanan, izin, dan audit yang sama: `GET /encounters/:id/emar`, `/encounters/:id/care-plans`, `/encounters/:id/fluid-balances`; rute `/nursing/...` lama tetap berlaku. Alur dua sesi cek ganda memakai `GET /nursing/wristband-scans?encounterId=` (pindaian cocok yang masih berlaku) dan `GET /nursing/double-checks?encounterId=` (isi dosis beku + `used`). Layar mode api: [Rawat inap](#rawat-inap); gambar di bawah dari mode presentasi.
 
 ![Asuhan keperawatan Ny. Endang Wijaya: rencana asuhan shift pagi dengan diagnosis Risiko jatuh (Morse 35) dan intervensinya, serta ronde obat eMAR terkunci karena gelang belum terverifikasi](./gambar/askep.png)
 
