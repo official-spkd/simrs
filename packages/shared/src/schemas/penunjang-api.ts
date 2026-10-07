@@ -530,7 +530,8 @@ export const STOCK_MOVEMENT_KINDS = [
   'write_off',
 ] as const;
 export type StockMovementKind = (typeof STOCK_MOVEMENT_KINDS)[number];
-export const STOCK_TRANSFER_STAGES = ['dikirim', 'diterima'] as const;
+/** `dibatalkan` (4.6a-2) = mutasi tersangkut dibatalkan pengirim; stok kembali ke depo asal lewat ledger pembalik. */
+export const STOCK_TRANSFER_STAGES = ['dikirim', 'diterima', 'dibatalkan'] as const;
 
 /** `POST /api/v1/stock/receipts`: penerimaan tanpa PO (keputusan fase 4 no. 10). Harga pokok per satuan bigint. */
 export const stockReceiptInputSchema = z.strictObject({

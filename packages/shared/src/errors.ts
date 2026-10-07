@@ -233,6 +233,10 @@ export const SUPPORT_ERRORS = {
     message: 'Stok yang sama sedang diubah transaksi lain; muat ulang lalu ulangi aksi',
   },
   BATCH_EXPIRED: { status: 409, message: 'Batch sudah kedaluwarsa dan tidak boleh dikeluarkan ke pasien' },
+  STOCK_LOCATION_IN_TRANSIT: {
+    status: 409,
+    message: 'Lokasi stok masih punya mutasi dalam perjalanan; terima atau batalkan mutasinya dulu',
+  },
   DOUBLE_CHECK_SAME_USER: { status: 409, message: 'Cek ganda harus oleh apoteker lain, bukan penyiap' },
   HIGH_ALERT_DOUBLE_CHECK_REQUIRED: {
     status: 409,

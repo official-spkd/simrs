@@ -75,6 +75,8 @@ export const stockMovementViewSchema = z.strictObject({
   refNo: z.string().nullable(),
   refType: z.string(),
   reason: z.string().nullable(),
+  /** Harga pokok per satuan baris penerimaan (`receipt`); null untuk jenis lain. */
+  unitCost: rupiah.nullable(),
   by: person,
 });
 export type StockMovementView = z.infer<typeof stockMovementViewSchema>;
@@ -88,7 +90,10 @@ const docItem = z.strictObject({
   quantity: z.int(),
 });
 
-/** Jawaban `POST /api/v1/stock/receipts`. */
+/**
+ * Jawaban `POST /api/v1/stock/receipts` (Idempotency-Key wajib; ulangan kunci + isi sama = dokumen yang sama).
+ * `unitCost` = harga baris faktur ini; `batchUnitCost` = harga pokok batch rata-rata tertimbang setelah penerimaan.
+ */
 export const stockReceiptViewSchema = z.strictObject({
   id: uuid,
   receiptNo: z.string(),
@@ -97,7 +102,7 @@ export const stockReceiptViewSchema = z.strictObject({
   invoiceNo: z.string(),
   receivedAt: instant,
   receivedBy: person,
-  items: z.array(docItem.extend({ unitCost: rupiah })),
+  items: z.array(docItem.extend({ unitCost: rupiah, batchUnitCost: rupiah })),
 });
 export type StockReceiptView = z.infer<typeof stockReceiptViewSchema>;
 
@@ -114,8 +119,13 @@ export const stockTransferViewSchema = z.strictObject({
   sentBy: person,
   receivedAt: instant.nullable(),
   receivedBy: person.nullable(),
+  cancelledAt: instant.nullable(),
+  cancelledBy: person.nullable(),
+  cancelReason: z.string().nullable(),
   /** Sesi ini boleh menerima (lingkup atas depo tujuan dan izin `stock.transfer`). */
   canReceive: z.boolean(),
+  /** Sesi ini boleh membatalkan mutasi `dikirim` (lingkup atas depo asal dan izin `stock.transfer`). */
+  canCancel: z.boolean(),
 });
 export type StockTransferView = z.infer<typeof stockTransferViewSchema>;
 
@@ -129,3 +139,16 @@ export const stockAdjustmentViewSchema = z.strictObject({
   items: z.array(docItem),
 });
 export type StockAdjustmentView = z.infer<typeof stockAdjustmentViewSchema>;
+
+/** `POST /api/v1/stock/transfers/:id/cancel`: batalkan mutasi `dikirim` beralasan; stok kembali ke depo asal. */
+export const stockTransferCancelInputSchema = z.strictObject({
+  reason: z.string().trim().min(10).max(500),
+});
+export type StockTransferCancelInput = z.infer<typeof stockTransferCancelInputSchema>;
+
+/**
+ * `POST /api/v1/stock/locations/:id/active` (izin `facility.write`): aktifkan/nonaktifkan lokasi stok; menonaktifkan
+ * lokasi yang masih punya mutasi `dikirim` (masuk/keluar) → 409 `STOCK_LOCATION_IN_TRANSIT`.
+ */
+export const stockLocationActiveInputSchema = z.strictObject({ active: z.boolean() });
+export type StockLocationActiveInput = z.infer<typeof stockLocationActiveInputSchema>;

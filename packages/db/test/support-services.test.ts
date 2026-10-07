@@ -190,6 +190,7 @@ const move = (
         refType: 'uji',
         refId: newId(),
         reason: data.reason ?? null,
+        unitCost: data.kind === 'receipt' ? 100n : null,
         encounterId: ['dispense', 'usage'].includes(data.kind) ? c.encounterId : null,
         patientId: ['dispense', 'usage'].includes(data.kind) ? c.patientId : null,
         createdBy: c.pharmacist,

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { knownDbError, Prisma, raisedDbCode, readTenantSetting } from '@simrs/db';
+import { knownDbError, Prisma, raisedDbCode, readTenantSetting, uniqueViolationTarget } from '@simrs/db';
 import {
   AppError,
   batchExpired,
@@ -13,6 +13,7 @@ import {
   type StockBalance,
   type StockBalanceQuery,
   type StockDrugView,
+  type StockLocationActiveInput,
   type StockLocationView,
   type StockMovementKind,
   type StockMovementQuery,
@@ -24,6 +25,7 @@ import {
   type SupplierView,
   supportError,
 } from '@simrs/shared';
+import { type IdempotencyClaim, IdempotencyService } from '../../common/idempotency';
 import { DomainEvents } from '../../infra/events/domain-events';
 import { PermissionMatrix } from '../../infra/permission-matrix';
 import { TenantDb } from '../../infra/tenant-db';
@@ -72,6 +74,12 @@ function stockConflict(err: unknown, details: Record<string, unknown>): AppError
   return knownDbError(err)?.code === 'P2034' ? supportError('STOCK_CONFLICT', details) : null;
 }
 
+/** Hasil tulisan ber-Idempotency-Key: `created` = baru (201), selain itu ulangan kunci + isi sama (200). */
+export interface Written<T> {
+  view: T;
+  created: boolean;
+}
+
 /** Item transfer beku di `stock_transfers.items` (JSON). */
 interface TransferItem {
   stockBatchId: string;
@@ -92,6 +100,7 @@ export class StockService {
     private readonly numbering: NumberingService,
     private readonly events: DomainEvents,
     private readonly matrix: PermissionMatrix,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   private tx(): Tx {
@@ -137,14 +146,6 @@ export class StockService {
     return loc;
   }
 
-  private async user(id: string): Promise<{ userId: string; nama: string }> {
-    const u = await this.tx().user.findUniqueOrThrow({
-      where: { id },
-      select: { id: true, displayName: true },
-    });
-    return { userId: u.id, nama: u.displayName };
-  }
-
   /** Tulis satu baris ledger; galat trigger dipetakan ke kode stabil (`STOCK_INSUFFICIENT`, `BATCH_EXPIRED`). */
   private async move(data: {
     stockLocationId: string;
@@ -154,6 +155,8 @@ export class StockService {
     refType: string;
     refId: string;
     reason?: string | null;
+    /** Harga pokok per satuan baris penerimaan (wajib untuk `receipt`). */
+    unitCost?: bigint | null;
     detail?: Record<string, unknown>;
   }): Promise<string> {
     const id = newId();
@@ -169,6 +172,7 @@ export class StockService {
           refType: data.refType,
           refId: data.refId,
           reason: data.reason ?? null,
+          unitCost: data.unitCost ?? null,
           createdBy: this.me(),
         },
       });
@@ -325,6 +329,7 @@ export class StockService {
         refType: true,
         refId: true,
         reason: true,
+        unitCost: true,
         stockBatch: { select: { batchNo: true, drug: { select: { name: true } } } },
         creator: { select: { id: true, displayName: true } },
       },
@@ -356,12 +361,13 @@ export class StockService {
       refNo: refNo.get(r.refId) ?? null,
       refType: r.refType,
       reason: r.reason,
+      unitCost: r.unitCost?.toString() ?? null,
       by: { userId: r.creator.id, nama: r.creator.displayName },
     }));
   }
 
   /** Mutasi yang menyentuh lokasi dalam lingkup (asal atau tujuan), terbaru dulu. */
-  async transfers(status?: 'dikirim' | 'diterima'): Promise<StockTransferView[]> {
+  async transfers(status?: StockTransferView['status']): Promise<StockTransferView[]> {
     const where = this.locationWhere(this.db.permissionScope());
     const rows = await this.tx().stockTransfer.findMany({
       where: { ...(status ? { status } : {}), OR: [{ from: where }, { to: where }] },
@@ -385,10 +391,13 @@ export class StockService {
         items: true,
         sentAt: true,
         receivedAt: true,
-        from: { select: { id: true, name: true } },
+        cancelledAt: true,
+        cancelReason: true,
+        from: { select: { id: true, name: true, unitId: true } },
         to: { select: { id: true, name: true, unitId: true } },
         sender: { select: { id: true, displayName: true } },
         receiver: { select: { id: true, displayName: true } },
+        canceller: { select: { id: true, displayName: true } },
       },
     });
     const items = t.items as unknown as TransferItem[];
@@ -397,14 +406,18 @@ export class StockService {
       id: t.id,
       transferNo: t.transferNo,
       status: t.status as StockTransferView['status'],
-      from: t.from,
+      from: { id: t.from.id, name: t.from.name },
       to: { id: t.to.id, name: t.to.name },
       items: items.map((i) => this.docItem(this.batchOrThrow(batches, i.stockBatchId), i.quantity)),
       sentAt: t.sentAt.toISOString(),
       sentBy: { userId: t.sender.id, nama: t.sender.displayName },
       receivedAt: t.receivedAt?.toISOString() ?? null,
       receivedBy: t.receiver ? { userId: t.receiver.id, nama: t.receiver.displayName } : null,
+      cancelledAt: t.cancelledAt?.toISOString() ?? null,
+      cancelledBy: t.canceller ? { userId: t.canceller.id, nama: t.canceller.displayName } : null,
+      cancelReason: t.cancelReason,
       canReceive: t.status === 'dikirim' && this.inScope(t.to, transferScope),
+      canCancel: t.status === 'dikirim' && this.inScope(t.from, transferScope),
     };
   }
 
@@ -414,7 +427,14 @@ export class StockService {
    * Penerimaan barang tanpa PO: batch baru dibuat (ED, harga pokok, pemasok) atau batch yang sama dipakai ulang bila
    * nomor batch + ED cocok. Batch yang sudah kedaluwarsa ditolak (`BATCH_EXPIRED`).
    */
-  async receive(input: StockReceiptInput): Promise<StockReceiptView> {
+  async receive(rawKey: unknown, input: StockReceiptInput): Promise<Written<StockReceiptView>> {
+    const claim = await this.idempotency.claim('stock.receipt', rawKey, input);
+    if (claim.existingResourceId)
+      return { view: await this.receiptView(claim.existingResourceId), created: false };
+    return { view: await this.createReceipt(input, claim), created: true };
+  }
+
+  private async createReceipt(input: StockReceiptInput, claim: IdempotencyClaim): Promise<StockReceiptView> {
     const me = this.me();
     const loc = await this.location(input.stockLocationId);
     const supplier = await this.tx().supplier.findUnique({
@@ -440,21 +460,38 @@ export class StockService {
       }
     }
 
+    // Satu faktur pemasok diterima sekali (indeks unik tenant × pemasok × nomor faktur); kunci menyerialkan dua
+    // penerimaan serentak faktur yang sama dengan kunci idempotensi berbeda.
+    const invoiceNo = input.invoiceNo.trim();
+    await this.tx()
+      .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${this.db.tenantId()}:stock.invoice:${supplier.id}:${invoiceNo}`}, 0))`;
+    const duplicate = await this.tx().stockReceipt.findUnique({
+      where: {
+        tenantId_supplierId_invoiceNo: { tenantId: this.db.tenantId(), supplierId: supplier.id, invoiceNo },
+      },
+      select: { receiptNo: true },
+    });
+    if (duplicate) throw this.invoiceTaken(invoiceNo, supplier.name, duplicate.receiptNo);
     const receiptId = newId();
     const { number: receiptNo } = await this.numbering.next('stock_receipt');
-    await this.tx().stockReceipt.create({
-      data: {
-        id: receiptId,
-        tenantId: this.db.tenantId(),
-        receiptNo,
-        stockLocationId: loc.id,
-        supplierId: supplier.id,
-        invoiceNo: input.invoiceNo,
-        receivedBy: me,
-      },
-    });
+    try {
+      await this.tx().stockReceipt.create({
+        data: {
+          id: receiptId,
+          tenantId: this.db.tenantId(),
+          receiptNo,
+          stockLocationId: loc.id,
+          supplierId: supplier.id,
+          invoiceNo,
+          receivedBy: me,
+        },
+      });
+    } catch (err) {
+      if (/invoice_no/.test(uniqueViolationTarget(err)))
+        throw this.invoiceTaken(invoiceNo, supplier.name, null);
+      throw err;
+    }
     const movementIds: string[] = [];
-    const items: StockReceiptView['items'] = [];
     // Kunci per obat + nomor batch: dua penerimaan serentak batch yang sama tidak bentrok di indeks unik. Semua kunci
     // diambil di depan dalam urutan tetap (penerimaan multi-item dengan urutan berbeda tidak saling menunggu).
     const lockKeys = [
@@ -463,7 +500,7 @@ export class StockService {
     for (const key of lockKeys) {
       await this.tx().$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
     }
-    const lines: Array<{ batch: BatchRow; quantity: number }> = [];
+    const lines: Array<{ batch: BatchRow; quantity: number; unitCost: bigint }> = [];
     for (const [index, item] of input.items.entries()) {
       const batchNo = item.batchNo.trim();
       let batch = await this.tx().stockBatch.findUnique({
@@ -493,8 +530,7 @@ export class StockService {
           select: BATCH_SELECT,
         });
       }
-      lines.push({ batch, quantity: item.quantity });
-      items.push({ ...this.docItem(batch, item.quantity), unitCost: batch.unitCost.toString() });
+      lines.push({ batch, quantity: item.quantity, unitCost: BigInt(item.unitCost) });
     }
     for (const line of byBatch(lines.map((l) => ({ ...l, stockBatchId: l.batch.id })))) {
       movementIds.push(
@@ -505,6 +541,8 @@ export class StockService {
           quantity: line.quantity,
           refType: 'stock_receipts',
           refId: receiptId,
+          // Harga baris faktur; trigger ledger memperbarui harga pokok batch (rata-rata tertimbang).
+          unitCost: line.unitCost,
         }),
       );
     }
@@ -517,21 +555,57 @@ export class StockService {
       action: 'create',
       resourceType: 'stock_receipt',
       resourceId: receiptId,
-      details: { stockLocationId: loc.id, items: items.length },
+      details: { stockLocationId: loc.id, items: lines.length },
     });
-    const saved = await this.tx().stockReceipt.findUniqueOrThrow({
-      where: { id: receiptId },
-      select: { receivedAt: true },
+    await this.idempotency.record(claim, 'stock_receipt', receiptId);
+    return this.receiptView(receiptId);
+  }
+
+  private invoiceTaken(invoiceNo: string, supplierName: string, receiptNo: string | null): AppError {
+    return new AppError(
+      'CONFLICT',
+      `Faktur ${invoiceNo} dari ${supplierName} sudah diterima${receiptNo ? ` (${receiptNo})` : ''}`,
+      409,
+      { invoiceNo, receiptNo },
+    );
+  }
+
+  /** Dokumen penerimaan dari ledger: harga per baris (`unit_cost` baris receipt) + harga pokok batch kini. */
+  private async receiptView(id: string): Promise<StockReceiptView> {
+    const r = await this.tx().stockReceipt.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        receiptNo: true,
+        stockLocationId: true,
+        invoiceNo: true,
+        receivedAt: true,
+        supplier: { select: { id: true, code: true, name: true } },
+        receiver: { select: { id: true, displayName: true } },
+      },
     });
+    const lines = await this.tx().stockMovement.findMany({
+      where: { refType: 'stock_receipts', refId: id, kind: 'receipt' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { stockBatchId: true, quantity: true, unitCost: true },
+    });
+    const batches = await this.batches(lines.map((l) => l.stockBatchId));
     return {
-      id: receiptId,
-      receiptNo,
-      stockLocationId: loc.id,
-      supplier: { id: supplier.id, code: supplier.code, name: supplier.name },
-      invoiceNo: input.invoiceNo,
-      receivedAt: saved.receivedAt.toISOString(),
-      receivedBy: await this.user(me),
-      items,
+      id: r.id,
+      receiptNo: r.receiptNo,
+      stockLocationId: r.stockLocationId,
+      supplier: r.supplier,
+      invoiceNo: r.invoiceNo,
+      receivedAt: r.receivedAt.toISOString(),
+      receivedBy: { userId: r.receiver.id, nama: r.receiver.displayName },
+      items: lines.map((l) => {
+        const b = this.batchOrThrow(batches, l.stockBatchId);
+        return {
+          ...this.docItem(b, l.quantity),
+          unitCost: (l.unitCost ?? b.unitCost).toString(),
+          batchUnitCost: b.unitCost.toString(),
+        };
+      }),
     };
   }
 
@@ -539,7 +613,21 @@ export class StockService {
    * Mutasi langkah 1 (kirim): stok keluar dari depo asal (`transfer_out`) dan berstatus `dikirim` sampai diterima.
    * Selama di perjalanan stok tidak ada di kedua depo (tidak tergandakan). Batch kedaluwarsa tidak boleh dimutasi.
    */
-  async sendTransfer(input: StockTransferInput): Promise<StockTransferView> {
+  async sendTransfer(rawKey: unknown, input: StockTransferInput): Promise<Written<StockTransferView>> {
+    const claim = await this.idempotency.claim('stock.transfer', rawKey, input);
+    if (claim.existingResourceId) {
+      return {
+        view: await this.transferView(claim.existingResourceId, this.db.permissionScope()),
+        created: false,
+      };
+    }
+    return { view: await this.createTransfer(input, claim), created: true };
+  }
+
+  private async createTransfer(
+    input: StockTransferInput,
+    claim: IdempotencyClaim,
+  ): Promise<StockTransferView> {
     const me = this.me();
     const from = await this.location(input.fromStockLocationId);
     const to = await this.tx().stockLocation.findUnique({
@@ -595,14 +683,26 @@ export class StockService {
       stage: 'dikirim',
     });
     this.db.audit({ action: 'create', resourceType: 'stock_transfer', resourceId: transferId });
+    await this.idempotency.record(claim, 'stock_transfer', transferId);
     return this.transferView(transferId, this.db.permissionScope());
   }
 
   /** Mutasi langkah 2 (terima) oleh petugas berlingkup atas depo tujuan; sekali saja (baris dikunci). */
-  async receiveTransfer(id: string): Promise<StockTransferView> {
-    const me = this.me();
-    // Dokumen mutasi dikunci lebih dulu (penerima serentak dokumen yang sama antre di sini → satu 200, sisanya 409),
-    // lalu saldo depo tujuan ditulis urut batch.
+  async receiveTransfer(rawKey: unknown, id: string): Promise<Written<StockTransferView>> {
+    const claim = await this.idempotency.claim('stock.transfer.receive', rawKey, { stockTransferId: id });
+    if (claim.existingResourceId) {
+      return {
+        view: await this.transferView(claim.existingResourceId, this.db.permissionScope()),
+        created: false,
+      };
+    }
+    const view = await this.acceptTransfer(id);
+    await this.idempotency.record(claim, 'stock_transfer', id);
+    return { view, created: true };
+  }
+
+  /** Kunci dokumen mutasi (penulis serentak antre di sini); deadlock/serialisasi Postgres → `STOCK_CONFLICT`. */
+  private async lockTransfer(id: string) {
     try {
       await this.tx().$queryRaw`SELECT id FROM stock_transfers WHERE id = ${id}::uuid FOR UPDATE`;
     } catch (err) {
@@ -613,8 +713,25 @@ export class StockService {
       select: { id: true, status: true, items: true, fromStockLocationId: true, toStockLocationId: true },
     });
     if (!t) throw new AppError('NOT_FOUND', 'Mutasi stok tidak ditemukan', 404);
+    return t;
+  }
+
+  private notInTransit(status: string): AppError {
+    return new AppError(
+      'CONFLICT',
+      status === 'dibatalkan' ? 'Mutasi ini sudah dibatalkan' : 'Mutasi ini sudah diterima',
+      409,
+      { status },
+    );
+  }
+
+  private async acceptTransfer(id: string): Promise<StockTransferView> {
+    const me = this.me();
+    // Dokumen mutasi dikunci lebih dulu (penerima serentak dokumen yang sama antre di sini → satu 200, sisanya 409),
+    // lalu saldo depo tujuan ditulis urut batch.
+    const t = await this.lockTransfer(id);
     const to = await this.location(t.toStockLocationId);
-    if (t.status !== 'dikirim') throw new AppError('CONFLICT', 'Mutasi ini sudah diterima', 409);
+    if (t.status !== 'dikirim') throw this.notInTransit(t.status);
     for (const i of byBatch(t.items as unknown as TransferItem[])) {
       await this.move({
         stockLocationId: to.id,
@@ -645,10 +762,101 @@ export class StockService {
   }
 
   /**
+   * Batalkan mutasi yang tersangkut `dikirim` (beralasan, sekali) oleh petugas berlingkup atas depo asal: stok kembali
+   * ke depo asal lewat baris ledger pembalik (`transfer_in` di asal, beralasan), status `dibatalkan`.
+   */
+  async cancelTransfer(id: string, reason: string): Promise<StockTransferView> {
+    const me = this.me();
+    const t = await this.lockTransfer(id);
+    const from = await this.location(t.fromStockLocationId);
+    if (t.status !== 'dikirim') throw this.notInTransit(t.status);
+    const why = reason.trim();
+    for (const i of byBatch(t.items as unknown as TransferItem[])) {
+      await this.move({
+        stockLocationId: from.id,
+        stockBatchId: i.stockBatchId,
+        kind: 'transfer_in',
+        quantity: i.quantity,
+        refType: 'stock_transfers',
+        refId: t.id,
+        reason: `Pembatalan mutasi: ${why}`.slice(0, 500),
+      });
+    }
+    try {
+      await this.tx().stockTransfer.update({
+        where: { id },
+        data: { status: 'dibatalkan', cancelledBy: me, cancelReason: why },
+      });
+    } catch (err) {
+      if (raisedDbCode(err) === 'CONFLICT') throw this.notInTransit('diterima');
+      throw err;
+    }
+    await this.events.publish('stock.transferred', {
+      stockTransferId: t.id,
+      fromStockLocationId: t.fromStockLocationId,
+      toStockLocationId: t.toStockLocationId,
+      stage: 'dibatalkan',
+    });
+    this.db.audit({
+      action: 'update',
+      resourceType: 'stock_transfer',
+      resourceId: t.id,
+      reason: why,
+      details: { stage: 'dibatalkan' },
+    });
+    return this.transferView(t.id, this.db.permissionScope());
+  }
+
+  /**
+   * Aktifkan/nonaktifkan lokasi stok (izin `facility.write`). Lokasi yang masih punya mutasi `dikirim` (masuk atau
+   * keluar) tidak bisa dinonaktifkan: dijaga trigger `stock_locations_transit_guard` → 409 `STOCK_LOCATION_IN_TRANSIT`.
+   */
+  async setLocationActive(id: string, input: StockLocationActiveInput): Promise<StockLocationView> {
+    const me = this.me();
+    const loc = await this.tx().stockLocation.findUnique({ where: { id }, select: LOCATION_SELECT });
+    if (!loc) throw new AppError('NOT_FOUND', 'Lokasi stok tidak ditemukan', 404);
+    try {
+      await this.tx().stockLocation.update({
+        where: { id },
+        data: { active: input.active, updatedBy: me },
+      });
+    } catch (err) {
+      if (raisedDbCode(err) === 'STOCK_LOCATION_IN_TRANSIT') {
+        throw supportError('STOCK_LOCATION_IN_TRANSIT', { stockLocationId: id });
+      }
+      throw err;
+    }
+    this.db.audit({
+      action: 'update',
+      resourceType: 'stock_location',
+      resourceId: id,
+      details: { active: input.active },
+    });
+    return {
+      id: loc.id,
+      code: loc.code,
+      name: loc.name,
+      kind: loc.kind as StockLocationView['kind'],
+      unit: loc.unit,
+    };
+  }
+
+  /**
    * Penyesuaian stok beralasan (opname, rusak, hilang, hapus buku kedaluwarsa). Selisih negatif tidak boleh melebihi
    * saldo (`STOCK_INSUFFICIENT`); batch kedaluwarsa hanya boleh dikurangi (hapus buku `write_off`).
    */
-  async adjust(input: StockAdjustmentInput): Promise<StockAdjustmentView> {
+  async adjust(rawKey: unknown, input: StockAdjustmentInput): Promise<Written<StockAdjustmentView>> {
+    const claim = await this.idempotency.claim('stock.adjustment', rawKey, input);
+    if (claim.existingResourceId) {
+      return { view: await this.adjustmentView(claim.existingResourceId), created: false };
+    }
+    return { view: await this.createAdjustment(input, claim), created: true };
+  }
+
+  private async createAdjustment(
+    input: StockAdjustmentInput,
+    claim: IdempotencyClaim,
+  ): Promise<StockAdjustmentView> {
     const me = this.me();
     const loc = await this.location(input.stockLocationId);
     const batches = await this.batches(input.items.map((i) => i.stockBatchId));
@@ -664,9 +872,6 @@ export class StockService {
       },
     });
     const movementIds: string[] = [];
-    const items: StockAdjustmentView['items'] = input.items.map((item) =>
-      this.docItem(this.batchOrThrow(batches, item.stockBatchId), item.quantityDelta),
-    );
     for (const item of byBatch(input.items)) {
       const b = this.batchOrThrow(batches, item.stockBatchId);
       const expired = batchExpired(dateOnly(b.expiryDate), today);
@@ -700,19 +905,36 @@ export class StockService {
       resourceType: 'stock_adjustment',
       resourceId: adjustmentId,
       reason: input.reason,
-      details: { stockLocationId: loc.id, items: items.length },
+      details: { stockLocationId: loc.id, items: input.items.length },
     });
-    const saved = await this.tx().stockAdjustment.findUniqueOrThrow({
-      where: { id: adjustmentId },
-      select: { adjustedAt: true },
+    await this.idempotency.record(claim, 'stock_adjustment', adjustmentId);
+    return this.adjustmentView(adjustmentId);
+  }
+
+  private async adjustmentView(id: string): Promise<StockAdjustmentView> {
+    const a = await this.tx().stockAdjustment.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        stockLocationId: true,
+        reason: true,
+        adjustedAt: true,
+        adjuster: { select: { id: true, displayName: true } },
+      },
     });
+    const lines = await this.tx().stockMovement.findMany({
+      where: { refType: 'stock_adjustments', refId: id },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { stockBatchId: true, quantity: true },
+    });
+    const batches = await this.batches(lines.map((l) => l.stockBatchId));
     return {
-      id: adjustmentId,
-      stockLocationId: loc.id,
-      reason: input.reason,
-      adjustedAt: saved.adjustedAt.toISOString(),
-      adjustedBy: await this.user(me),
-      items,
+      id: a.id,
+      stockLocationId: a.stockLocationId,
+      reason: a.reason,
+      adjustedAt: a.adjustedAt.toISOString(),
+      adjustedBy: { userId: a.adjuster.id, nama: a.adjuster.displayName },
+      items: lines.map((l) => this.docItem(this.batchOrThrow(batches, l.stockBatchId), l.quantity)),
     };
   }
 }

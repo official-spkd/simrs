@@ -21,6 +21,7 @@ model User {
   stockReceiptReceivers        StockReceipt[]                   @relation("StockReceiptReceiver")
   stockTransferSenders         StockTransfer[]                  @relation("StockTransferSender")
   stockTransferReceivers       StockTransfer[]                  @relation("StockTransferReceiver")
+  stockTransferCancellers      StockTransfer[]                  @relation("StockTransferCanceller")
   stockAdjustmentAdjusters     StockAdjustment[]                @relation("StockAdjustmentAdjuster")
   prescriptionAcceptors        PharmacyPrescription[]           @relation("PrescriptionAcceptor")
   prescriptionReviewers        PrescriptionReview[]             @relation("PrescriptionReviewer")
