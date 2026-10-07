@@ -22,6 +22,8 @@ export interface PenunjangActionResult {
   /** Isian yang galat (untuk menandai field). */
   field?: string;
   stale?: boolean;
+  /** Revisi toko setelah aksi berhasil; aksi berikutnya memakainya (`useStoreAction`). */
+  rev?: number;
 }
 
 /** Sesi lengkap yang boleh memakai layar `screenId`; null bila posisinya bukan pemakai layar ini. */
@@ -58,5 +60,10 @@ export async function saveSupport(
   const r = await commitEvent('penunjang', event, { rev, session });
   if (!r.ok) return { ok: false, message: r.error, stale: r.stale };
   const at = formatJam(new Date());
-  return { ok: true, at, message: `Tindakan tersimpan atas nama ${session.user.displayName} · ${at}` };
+  return {
+    ok: true,
+    at,
+    rev: r.rev,
+    message: `Tindakan tersimpan atas nama ${session.user.displayName} · ${at}`,
+  };
 }

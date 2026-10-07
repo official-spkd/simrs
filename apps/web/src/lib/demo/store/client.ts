@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useRef, useState, useTransition } from 'r
 import { announceDemoChange } from '@/components/demo-sync';
 import { dispatchDemoEventAction } from '@/lib/server/demo/state-actions';
 import type { DomainName, EventOf } from './registry';
+import { revAfterAction } from './rev';
 
 /**
  * Sisi klien toko demo bersama (ADR-0085). Komponen menerima `rev` dari server component (`readDomain`) dan
@@ -17,11 +18,14 @@ export interface StoreActionResult {
   ok: boolean;
   /** Tampilan basi: halaman dimuat ulang otomatis. */
   stale?: boolean;
+  /** Revisi toko setelah aksi berhasil (bila Server Action mengembalikannya); dipakai aksi berikutnya. */
+  rev?: number;
 }
 
 /**
  * Jalankan Server Action yang menulis ke toko dengan revisi terkini. Satu aksi sekaligus; `rev` diambil dari prop
- * terakhir (layout effect, agar aksi berantai tidak memakai rev lama). Basi → `router.refresh()`.
+ * terakhir (layout effect) atau dari hasil aksi berhasil sebelumnya (`revAfterAction`), agar aksi berantai tidak
+ * memakai rev lama sebelum halaman yang dimuat ulang tiba. Basi → `router.refresh()`.
  */
 export function useStoreAction(rev: number) {
   const router = useRouter();
@@ -39,6 +43,7 @@ export function useStoreAction(rev: number) {
       startTransition(async () => {
         try {
           const r = await action(revRef.current);
+          revRef.current = revAfterAction(revRef.current, r);
           if (r.ok) {
             announceDemoChange();
           } else if (r.stale) {
