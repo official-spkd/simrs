@@ -37,7 +37,7 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
     body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
   },
   order: {
-    body: 'Order laboratorium, radiologi, tindakan, dan resep dengan pemeriksaan keamanan obat (CDS) akan tersedia di sini setelah modul order tersambung ke server SIM RS. Sementara itu, gunakan formulir order dan resep cadangan rumah sakit.',
+    body: 'Buka CPOE dari kunjungan pasien (tautan Order di layar klinis). Daftar kunjungan untuk CPOE tersedia setelah layar Pemeriksaan poli dan Rawat inap tersambung ke server SIM RS.',
   },
   igd: {
     body: 'Papan pelacakan IGD dan triase akan tersedia di sini setelah modul IGD tersambung ke server SIM RS. Sementara itu, lakukan triase dengan prosedur cadangan rumah sakit.',

@@ -3,6 +3,7 @@ import { uniqueViolationTarget } from '@simrs/db';
 import {
   AppError,
   type CpoeCoverage,
+  type CpoeOrderKind,
   newId,
   type OrderCatalogItem,
   type OrderCatalogQuery,
@@ -89,7 +90,7 @@ export class OrderCatalogService {
         items: {
           orderBy: { sortOrder: 'asc' },
           include: {
-            orderable: { select: { id: true, name: true, active: true } },
+            orderable: { select: { id: true, kind: true, name: true, active: true } },
             drug: { select: { id: true, name: true, active: true } },
           },
         },
@@ -156,7 +157,7 @@ export class OrderCatalogService {
     name: string;
     description: string;
     items: Array<{
-      orderable: { id: string; name: string; active: boolean } | null;
+      orderable: { id: string; kind: string; name: string; active: boolean } | null;
       drug: { id: string; name: string; active: boolean } | null;
     }>;
   }): OrderSetView {
@@ -166,8 +167,16 @@ export class OrderCatalogService {
       name: s.name,
       description: s.description,
       items: s.items.flatMap((i): OrderSetView['items'] => {
-        if (i.orderable) return [{ type: 'layanan' as const, ...i.orderable }];
-        if (i.drug) return [{ type: 'obat' as const, ...i.drug }];
+        if (i.orderable) {
+          return [
+            {
+              type: 'layanan' as const,
+              ...i.orderable,
+              kind: i.orderable.kind as Exclude<CpoeOrderKind, 'obat'>,
+            },
+          ];
+        }
+        if (i.drug) return [{ type: 'obat' as const, kind: 'obat' as const, ...i.drug }];
         return [];
       }),
     };
