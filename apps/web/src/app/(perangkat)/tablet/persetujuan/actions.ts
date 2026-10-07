@@ -77,12 +77,19 @@ export async function createConsentDraftAction(
   }
 }
 
-/** PNG data URL dari bantalan tanda tangan; batas ukuran sama dengan API (512 KB biner). */
+/**
+ * PNG data URL dari bantalan tanda tangan (600 × 150, goresan ≈ puluhan KB). Batas web 256 KB biner per gambar (di
+ * bawah batas API 512 KB) supaya dua tanda tangan + isian muat di batas body Server Action bawaan (1 MB).
+ */
 const PNG_PREFIX = 'data:image/png;base64,';
+const TABLET_SIGNATURE_MAX_BYTES = Math.min(256 * 1024, CONSENT_SIGNATURE_MAX_BYTES);
 const pngDataUrl = z
   .string()
   .startsWith(PNG_PREFIX)
-  .max(PNG_PREFIX.length + Math.ceil((CONSENT_SIGNATURE_MAX_BYTES * 4) / 3) + 4);
+  .max(
+    PNG_PREFIX.length + Math.ceil((TABLET_SIGNATURE_MAX_BYTES * 4) / 3) + 4,
+    'Gambar tanda tangan terlalu besar; hapus lalu tanda tangani ulang, atau ketik nama.',
+  );
 
 const signatureInput = z
   .strictObject({

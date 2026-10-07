@@ -14,6 +14,7 @@ import {
   CONSENT_TEMPLATE_SAMPLE,
   EDUCATION_FORM_SAMPLE,
   educationFormSupportsConsent,
+  MORSE_FALL_SCALE,
   newId,
 } from '@simrs/shared';
 import { encryptField, generateTotpSecret, hashPassword, PatientCrypto } from '@simrs/shared/node';
@@ -89,6 +90,9 @@ export async function ensureClinicalFixtures(prisma: PrismaClient, tenantId: str
     // bertopik tindakan (syarat final persetujuan; versi lama tanpa topik itu dinaikkan seperti seed).
     await ensurePublishedForm(tx, tenantId, CONSENT_TEMPLATE_SAMPLE);
     await upgradePublishedForm(tx, tenantId, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
+    // K06/K15: asesmen Morse wajib di paket rawat inap; pastikan ada versi berlaku (tes Formulir bisa meninggalkan
+    // hanya draf/arsip).
+    await upgradePublishedForm(tx, tenantId, MORSE_FALL_SCALE, () => true);
     const accounts = {
       dpjp: await account(tx, tenantId, 'dokter', 'MELATI', 'dr. DPJP E2E Fiktif, Sp.PD'),
       residen: await account(tx, tenantId, 'dokter_residen', 'IGD', 'dr. Residen E2E Fiktif'),

@@ -40,7 +40,7 @@
   <text class="t tb" x="232" y="120">1 · RBAC (peran)</text>
   <text class="s" x="232" y="144">penugasan: peran di unit</text>
   <text class="s" x="232" y="162">dengan masa berlaku</text>
-  <text class="s" x="232" y="184">16 peran sistem per RS,</text>
+  <text class="s" x="232" y="184">17 peran sistem per RS,</text>
   <text class="s" x="232" y="202">matriks izin hak minimum</text>
   <text class="mono" x="232" y="226">sumber.aksi  (order.write)</text>
   <text class="s" x="232" y="250">admin RS menyesuaikan matriks;</text>
