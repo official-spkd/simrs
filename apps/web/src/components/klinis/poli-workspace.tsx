@@ -4,9 +4,7 @@ import { POLI_VISIT_STAGES, type PoliEncounter, type PoliQueueItem, type PoliWor
 import { Button, Icon } from '@simrs/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { callNextAction } from '@/app/(staf)/klinis/poli/actions-demo';
-import { useStoreAction } from '@/lib/demo/store/client';
+import { type ReactNode, useState } from 'react';
 import {
   canRecordVitals,
   canWriteDoctorNote,
@@ -16,6 +14,7 @@ import {
 } from '@/lib/klinis';
 import { KlinisPatientHeader } from './patient-header';
 import { PoliContext } from './poli-context';
+import { type PoliOps, useDemoPoliOps } from './poli-ops';
 import { PoliQueue } from './poli-queue';
 import { SoapForm } from './soap-form';
 import { type ScenarioBinding, useScenarioTasks } from './use-scenario-tasks';
@@ -24,8 +23,8 @@ import { VitalsCard } from './vitals-card';
 
 /**
  * Tiga kolom pemeriksaan poli (mockup Main): antrean | rekam medis kunjungan | konteks pasien. Panggil pasien,
- * tanda vital, dan CPPT tersimpan di toko demo (`klinis-poli`, ADR-0085); status antrean dan tahapan kunjungan datang
- * dari server. Setelah tanda tangan tahapan kunjungan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat
+ * tanda vital, dan CPPT lewat `ops`: toko demo (`klinis-poli`, ADR-0085) di mode presentasi atau API di mode api (W1);
+ * status antrean dan tahapan kunjungan datang dari server. Setelah tanda tangan tahapan kunjungan maju ke Kasir dan surat kontrol/keterangan tercatat dibuat
  * (mockup: `activeIdx = signed ? 5`).
  */
 export function PoliWorkspace({
@@ -38,12 +37,17 @@ export function PoliWorkspace({
   rujukHref,
   rev,
   pendingCosign,
+  ops: apiOps,
+  apiFields = null,
+  finishedLabel = null,
+  extraActions = null,
 }: {
   worklist: PoliWorklist;
   encounter: PoliEncounter;
   role: string | null;
   binding: ScenarioBinding | null;
-  cpoeHref: string;
+  /** Null bila layar CPOE belum terbuka untuk peran ini (mode api). */
+  cpoeHref: string | null;
   kasirHref: string | null;
   /** Layar rujukan (tombol "Rujuk" di banner pasien), null bila layar belum tersedia. */
   rujukHref: string | null;
@@ -51,10 +55,20 @@ export function PoliWorkspace({
   rev: number;
   /** CPPT residen kunjungan ini yang menunggu co-sign DPJP (server). */
   pendingCosign: { at: string; author: string } | null;
+  /** Mode api: aksi lewat API (bawaan: toko demo). */
+  ops?: PoliOps;
+  /** Mode api: isian resume rawat jalan ringkas di SOAP. */
+  apiFields?: { plan: string; followUp: string; condition: string } | null;
+  /** Mode api: CPPT final tetapi kunjungan belum ditutup. */
+  finishedLabel?: string | null;
+  /** Mode api: tombol antrean pasien terpilih (panggil, mulai periksa) dan tautan resume. */
+  extraActions?: ReactNode;
 }) {
   const router = useRouter();
   const tasks = useScenarioTasks(binding);
-  const { run, pending } = useStoreAction(rev);
+  const demoOps = useDemoPoliOps(rev);
+  const ops = apiOps ?? demoOps;
+  const { pending } = ops;
   const [called, setCalled] = useState<string | null>(null);
   const statusOf = (i: PoliQueueItem) => i.status;
   const waitOf = (i: PoliQueueItem) => i.waitNote;
@@ -76,18 +90,16 @@ export function PoliWorkspace({
       router.push(`/klinis/poli?pasien=${next.patientId}`, { scroll: false });
       return;
     }
-    run(
-      (r) => callNextAction(r),
-      (res) => {
-        setCalled(res.ok ? (res.message ?? null) : (res.error ?? 'Pasien belum dipanggil.'));
-        if (res.patientId) router.push(`/klinis/poli?pasien=${res.patientId}`, { scroll: false });
-      },
-    );
+    ops.callNext((res) => {
+      setCalled(res.ok ? (res.message ?? null) : (res.error ?? 'Pasien belum dipanggil.'));
+      if (res.patientId) router.push(`/klinis/poli?pasien=${res.patientId}`, { scroll: false });
+    });
   };
 
   const panggil = tasks.task('panggil');
   const actions = (
     <>
+      {extraActions}
       {isDoctor && panggil && panggil.status !== 'selesai' && (
         <Button
           type="button"
@@ -115,7 +127,7 @@ export function PoliWorkspace({
           Rujuk
         </Link>
       )}
-      {canOrder && (
+      {canOrder && cpoeHref && (
         <Link
           href={cpoeHref}
           className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-brand-600 bg-white/90 px-3 text-small font-semibold text-brand-800 hover:bg-brand-50/60 no-underline"
@@ -150,7 +162,7 @@ export function PoliWorkspace({
         <VisitStepper stage={signedNow ? POLI_VISIT_STAGES.length - 1 : encounter.stage} />
         <VitalsCard
           key={`tanda-vital-${encounter.encounterId}${scenarioPatient ? `-${encounter.vitalsAt ?? ''}` : ''}`}
-          rev={rev}
+          ops={ops}
           encounterId={encounter.encounterId}
           vitals={encounter.vitals}
           vitalsAt={encounter.vitalsAt}
@@ -167,7 +179,9 @@ export function PoliWorkspace({
               ? `soap-${encounter.encounterId}-${encounter.diagnoses.map((d) => d.code).join()}-${encounter.soap.savedAt ?? ''}-${encounter.soap.signedAt ?? ''}`
               : `soap-${encounter.encounterId}`
           }
-          rev={rev}
+          ops={ops}
+          apiFields={apiFields}
+          finishedLabel={finishedLabel}
           pendingCosign={pendingCosign}
           canCosign={role === 'dokter'}
           encounter={encounter}

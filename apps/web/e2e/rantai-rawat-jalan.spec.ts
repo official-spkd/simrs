@@ -88,7 +88,13 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
   });
   await inTenant(TENANTS.RSFA, (tx) =>
     tx.privacyConsent.create({
-      data: { id: newId(), tenantId: TENANTS.RSFA, patientId: patient.id, kind: 'umum', note: 'Persetujuan uji' },
+      data: {
+        id: newId(),
+        tenantId: TENANTS.RSFA,
+        patientId: patient.id,
+        kind: 'umum',
+        note: 'Persetujuan uji',
+      },
     }),
   );
 
@@ -162,7 +168,10 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
 
   // 3) Poli memanggil nomor poli pasien.
   await page.goto('/antrean');
-  await page.getByRole('navigation', { name: 'Layanan antrean' }).getByRole('link', { name: /^PD\s/ }).click();
+  await page
+    .getByRole('navigation', { name: 'Layanan antrean' })
+    .getByRole('link', { name: /^PD\s/ })
+    .click();
   await page
     .getByRole('listitem', { name: `${poliNo} · Menunggu` })
     .getByRole('button', { name: `Panggil ${poliNo}` })
@@ -187,13 +196,19 @@ test('rantai rawat jalan (api): booking → anjungan → loket → pendaftaran �
     await expect(doc).toHaveURL(new RegExp(`/klinis/order/${encounterId}$`));
     await expect(doc.getByLabel('Identitas pasien')).toContainText(patientName);
     await doc.getByLabel('Cari pemeriksaan, obat, tindakan').fill('hemoglobin');
-    await doc.getByRole('button', { name: /^Tambah Hemoglobin/ }).first().click();
+    await doc
+      .getByRole('button', { name: /^Tambah Hemoglobin/ })
+      .first()
+      .click();
     const send = doc.getByRole('button', { name: 'Kirim 1 order' });
     await expect(send).toBeEnabled();
     await send.click();
     await expect(doc.getByRole('status').filter({ hasText: '1 order terkirim' })).toBeVisible();
     await expect(
-      doc.getByRole('region', { name: 'Order kunjungan ini' }).getByText(/Hemoglobin/).first(),
+      doc
+        .getByRole('region', { name: 'Order kunjungan ini' })
+        .getByText(/Hemoglobin/)
+        .first(),
     ).toBeVisible();
     const orders = await inTenant(TENANTS.RSFA, (tx) =>
       tx.orderGroup.count({ where: { encounterId, orderedBy: doctor.id } }),

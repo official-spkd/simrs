@@ -21,7 +21,8 @@ async function as(browser: Browser, acc: Account, path: string): Promise<Page> {
   });
   page.on('pageerror', (e) => errors.push(`${acc.displayName}: ${e.message}`));
   page.on('response', (r) => {
-    if (r.status() >= 500) errors.push(`${acc.displayName}: ${r.status()} ${r.request().method()} ${r.url()}`);
+    if (r.status() >= 500)
+      errors.push(`${acc.displayName}: ${r.status()} ${r.request().method()} ${r.url()}`);
   });
   await loginAs(page, acc, path);
   return page;
@@ -85,7 +86,9 @@ test('rantai rawat inap (api): admisi → rekam Rawat inap → CPOE resep → eM
   await ns.getByRole('tab', { name: 'eMAR' }).click();
   const emar = ns.getByRole('region', { name: 'eMAR' });
   await expect(emar.getByText('Pemberian obat terkunci sampai gelang pasien cocok')).toBeVisible();
-  await expect(emar.getByRole('rowheader', { name: /Seftriakson 2 g injeksi 2 g · intravena/ })).toBeVisible();
+  await expect(
+    emar.getByRole('rowheader', { name: /Seftriakson 2 g injeksi 2 g · intravena/ }),
+  ).toBeVisible();
   const slots = emar.getByRole('button', { name: /^Seftriakson 2 g injeksi/ });
   await expect(slots.first()).toBeVisible();
   await expect(slots.first()).toBeDisabled();

@@ -19,6 +19,22 @@
   rawat inap dan memeriksa 409 tanpa resume.
 - Keputusan: ADR-0093.
 
-## Berikutnya
+HEAD 3.6 dikirim ke orkestrator: `08b2ba49` (master `718880b6` sudah digabung).
 
-W1 (layar Poli mode api), lalu W5b (layar Resume mode api).
+## W1 · layar Poli mode api
+
+- API: `GET /api/v1/poli/worklist`, `GET /api/v1/encounters/:id/poli-visit` (`apps/api/src/modules/encounter/poli.*`),
+  kontrak `packages/shared/src/schemas/poli.ts`; tes di `apps/api/test/discharge.test.ts` (describe W1).
+- Web: `app/(staf)/klinis/poli/{api-poli,api-poli-client,actions-api}.tsx|ts`; komponen bersama memakai `PoliOps`.
+- E2E: `apps/web/e2e/klinis-poli.spec.ts`.
+
+## W5b · layar Resume mode api
+
+- Web: `app/(staf)/klinis/resume/{api-resume-list}.tsx`, `[encounterId]/{api-resume,api-resume-client,actions-api}`;
+  cetak PDF lewat rute unduh dokumen bersama `/klinis/dokumen/:id/unduh`.
+- E2E: `apps/web/e2e/klinis-resume.spec.ts`.
+
+## Utang
+
+- TTE resume/surat kematian yang gagal: API mendukung koreksi beralasan, layar belum punya tombol "tanda tangani ulang"
+  (sementara lewat `POST /documents/:id/signatures`).
