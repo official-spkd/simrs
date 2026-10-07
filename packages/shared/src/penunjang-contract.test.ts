@@ -361,6 +361,41 @@ describe('HL7 ORU^R01 dan tanda tangan perangkat', () => {
     expect(() => parseOru('MSH|^~\\&|A|B|C|D|x||ORU^R01|1|P|2.5\rOBX|1|NM|x||1')).toThrow(/OBR/);
   });
 
+  it('redaksi daftar izin: hanya MSH/SFT/ORC/OBR/OBX/NTE/SPM/TQ1 tersimpan; PD1/PV1/GT1/IN1/MRG/segmen Z dan PID berawalan spasi jadi SEG|1', () => {
+    const msg = [
+      'MSH|^~\\&|ALAT|LAB|SIMRS|RS|20261007100000||ORU^R01|MSG-9|P|2.5',
+      '  PID|1||RM-777||WULANDARI^RINA||19900101|F',
+      'pd1|||PUSKESMAS KENANGA',
+      'PV1|1|I|MELATI^M-205||||9999^dr. Fiktif|||||||||||VN-00777',
+      'GT1|1||WULANDARI^BUDI||Jl. Kenanga 12||081200001111',
+      'IN1|1|BPJS|0001|BPJS||||||||||||WULANDARI^RINA|||19900101',
+      'MRG|RM-111',
+      'ZPI|1|WULANDARI',
+      'ORC|RE|PL1|L2610070014',
+      'OBR|1||L2610070014|ELEK',
+      'obx|1|NM|2823-3^Kalium^LN||4,1|mmol/L|3.5-5.1|N|||F',
+      'SPM|1|L2610070014',
+    ].join('\r');
+    const red = redactHl7(msg);
+    expect(red).not.toMatch(/WULANDARI|RM-777|RM-111|KENANGA|Kenanga|081200001111|19900101|VN-00777|M-205/);
+    expect(red.split('\r').map((s) => s.slice(0, 5))).toEqual([
+      'MSH|^',
+      'PID|1',
+      'PD1|1',
+      'PV1|1',
+      'GT1|1',
+      'IN1|1',
+      'MRG|1',
+      'ZPI|1',
+      'ORC|R',
+      'OBR|1',
+      'OBX|1',
+      'SPM|1',
+    ]);
+    // Segmen hasil tetap terbaca (id dinormalisasi huruf besar).
+    expect(parseOru(red).orders[0]?.observations[0]).toMatchObject({ code: '2823-3', numeric: 4.1 });
+  });
+
   it('bangun ORU/ACK bolak-balik', () => {
     const built = buildOru({
       controlId: 'MSG-2',
