@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  CLINICAL_SSE_EVENTS,
   type AdmitInput,
   admitInputSchema,
   bedAllocateInputSchema,
@@ -46,7 +47,7 @@ const boardQuery = z.strictObject({ unitId: z.uuid().optional() });
 
 /**
  * K04/K05 · ADT dan papan bed (`/api/v1/adt`, rencana fase 3 §3.3). Izin `bed.read|write` (pendaftaran/admisi lingkup
- * `all`, perawat lingkup unit). Papan bed real-time lewat SSE (`/adt/beds/events`, potret awal + `bed.status`).
+ * `all`, perawat lingkup unit). Papan bed real-time lewat SSE (`/adt/beds/events`, potret awal + `bed.status` + `bed.request`, ADR-0104).
  */
 @ApiTags('klinis · ADT dan papan bed (K04/K05)')
 @TenantScoped()
@@ -67,7 +68,7 @@ export class AdtController {
     return this.board.board(q.unitId);
   }
 
-  /** SSE papan bed: potret `bed.board` (tanpa id) lalu perubahan `bed.status` sesuai lingkup. */
+  /** SSE papan bed: potret `bed.board` (tanpa id) lalu perubahan `bed.status`/`bed.request` sesuai lingkup. */
   @RequirePermission('bed', 'read')
   @NoRequestTransaction()
   @Audited({ action: 'read', resource: 'bed_board_stream' })
@@ -76,8 +77,9 @@ export class AdtController {
     const scope = this.db.permissionScope();
     const unitId = scope === 'all' ? null : (this.db.actor().unitId ?? '');
     this.sse.stream(req, res, bedBoardChannel, {
-      filter: (e) => unitId === null || e.data.unitId === unitId,
-      initial: async () => [{ event: 'bed.board', data: await this.board.board() }],
+      // Permintaan bed tanpa unit tujuan (bangsal mana pun) relevan bagi semua bangsal (sinyal tanpa PHI).
+      filter: (e) => unitId === null || e.data.unitId === unitId || e.data.unitId === null,
+      initial: async () => [{ event: CLINICAL_SSE_EVENTS.bedBoard, data: await this.board.board() }],
     });
   }
 

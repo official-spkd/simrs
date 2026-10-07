@@ -6,8 +6,10 @@ import {
 } from '../clinical/emar';
 import { NEWS2_CONSCIOUSNESS } from '../clinical/ews';
 import { TRIAGE_DISCRIMINATOR_CODES, triageVitalsSchema } from '../clinical/triage';
+import { PATIENT_SEXES } from '../patient';
 import { CARE_CLASSES } from './facility';
 import { icd10CodingSchema } from './front-office';
+import { ARRIVAL_MODES, generalConsentInputSchema, PAYER_KINDS, SEP_STATUSES } from './registration';
 import {
   clinicalAttestationSchema,
   clinicalAuthorSchema,
@@ -782,10 +784,30 @@ export const CLINICAL_NOTIFY_CHANNELS = {
 } as const;
 
 export const CLINICAL_SSE_EVENTS = {
+  /** Potret papan IGD saat (sambung ulang) berlangganan, tanpa `id:`. */
+  edBoard: 'ed.board',
   edStatus: 'ed.status',
+  /** Isi papan IGD berubah selain status alur: kunjungan masuk/keluar, triase, permintaan bed, tim (ADR-0104). */
+  edChanged: 'ed.changed',
+  /** Potret papan bed saat (sambung ulang) berlangganan, tanpa `id:`. */
+  bedBoard: 'bed.board',
   bedStatus: 'bed.status',
+  /** Permintaan bed dibuat/dialokasikan/ditutup (ADR-0104). */
+  bedRequest: 'bed.request',
   ewsEscalation: 'ews.escalation',
 } as const;
+
+/** Sumber perubahan papan IGD di event `ed.changed`. */
+export const ED_CHANGE_SOURCES = ['encounter', 'triage', 'bed_request', 'care_team'] as const;
+export const edChangedSseEventSchema = z.strictObject({
+  /** Id baris sumber (kunjungan, asesmen triase, atau permintaan bed). */
+  sourceId: uuid,
+  source: z.enum(ED_CHANGE_SOURCES),
+  encounterId: uuid,
+  unitId: uuid,
+  at: instant,
+});
+export type EdChangedSseEvent = z.infer<typeof edChangedSseEventSchema>;
 
 export const edStatusSseEventSchema = z.strictObject({
   eventId: uuid,
@@ -841,6 +863,15 @@ export type EncounterDisposition = (typeof ENCOUNTER_DISPOSITIONS)[number];
 export const BED_REQUEST_ORIGINS = ['igd', 'ok', 'poli', 'lainnya'] as const;
 export const BED_REQUEST_STATUSES = ['menunggu', 'dialokasi', 'selesai', 'batal'] as const;
 export type BedRequestStatus = (typeof BED_REQUEST_STATUSES)[number];
+
+export const bedRequestSseEventSchema = z.strictObject({
+  requestId: uuid,
+  /** Unit tujuan (bed yang dialokasikan, atau unit yang diminta); null = bangsal mana pun. */
+  unitId: uuid.nullable(),
+  status: z.enum(BED_REQUEST_STATUSES),
+  at: instant,
+});
+export type BedRequestSseEvent = z.infer<typeof bedRequestSseEventSchema>;
 
 /**
  * Perubahan status bed manual di papan (`PATCH /adt/beds/:id/status`). `dipesan`/`terisi` hanya lewat alokasi/admisi,
@@ -919,6 +950,58 @@ export const edStatusInputSchema = z.strictObject({
 });
 export type EdStatusInput = z.infer<typeof edStatusInputSchema>;
 
+/**
+ * `POST /api/v1/triage/suggestions`: pratinjau saran ATS dari server (tanpa menyimpan) untuk tanda vital +
+ * diskriminator yang sedang diisi petugas. Gerbang tetap ditegakkan ulang saat `POST /triage/assessments`.
+ */
+export const triageSuggestionInputSchema = z.strictObject({
+  encounterId: uuid,
+  vitals: triageVitalsSchema,
+  discriminators: z.array(z.enum(TRIAGE_DISCRIMINATOR_CODES)).max(6),
+});
+export type TriageSuggestionInput = z.infer<typeof triageSuggestionInputSchema>;
+export const triageSuggestionSchema = z.strictObject({
+  level: triageLevelSchema,
+  maxLevel: triageLevelSchema,
+  reasons: z.array(z.string()),
+  ageYears: z.int().min(0).max(150).nullable(),
+});
+export type TriageSuggestionApi = z.infer<typeof triageSuggestionSchema>;
+
+/**
+ * `POST /api/v1/registration/emergency-admissions`: keputusan rawat inap pasien IGD yang bed-nya sudah dialokasikan →
+ * admisi rawat inap (`IMP`, `part_of` IGD, penjaminan IGD dibawa) + masuk bed + gelang terbit, satu transaksi
+ * (keputusan fase 3 no. 7). BPJS tanpa SEP rawat inap wajib diagnosa awal.
+ */
+export const emergencyAdmissionInputSchema = z.strictObject({
+  bedRequestId: uuid,
+  /** DPJP rawat inap (praktisi dokter aktif). */
+  practitionerId: uuid,
+  generalConsent: generalConsentInputSchema,
+  initialDiagnosis: icd10CodingSchema.nullable(),
+});
+export type EmergencyAdmissionInput = z.infer<typeof emergencyAdmissionInputSchema>;
+
+/** `GET /api/v1/registration/practitioners`: dokter aktif untuk pilihan DPJP admisi (tanpa STR/SIP). */
+export const practitionerOptionSchema = z.strictObject({
+  id: uuid,
+  name: z.string(),
+  specialty: z.string().nullable(),
+});
+export const practitionerOptionListSchema = z.strictObject({ items: z.array(practitionerOptionSchema) });
+export type PractitionerOption = z.infer<typeof practitionerOptionSchema>;
+
+/** Hasil `POST /encounters/:id/care-team/claim` ("Ambil pasien" IGD oleh dokter jaga). */
+export const careTeamClaimResultSchema = z.strictObject({
+  encounterId: uuid,
+  participantId: uuid,
+  /** true = sudah penanggung jawab sebelumnya (tidak ada perubahan). */
+  unchanged: z.boolean(),
+  /** Dokter penanggung jawab sebelumnya yang digantikan (serah terima), null bila belum ada. */
+  replacedUserId: uuid.nullable(),
+});
+export type CareTeamClaimResult = z.infer<typeof careTeamClaimResultSchema>;
+
 /** SEP IGD (VClaim rawat jalan, poli IGD): diagnosa awal dari dokter jaga bila belum diisi saat registrasi. */
 export const emergencySepInputSchema = z.strictObject({
   initialDiagnosis: icd10CodingSchema,
@@ -941,6 +1024,10 @@ export const bedBoardBedSchema = z.strictObject({
 export const bedBoardRequestSchema = z.strictObject({
   id: uuid,
   encounterId: uuid,
+  /** Kelas kunjungan asal: `EMER` = admisi dari IGD (`/registration/emergency-admissions`), `IMP` = admisi terencana. */
+  encounterClass: z.enum(['AMB', 'EMER', 'IMP']),
+  /** Admisi rawat inap `planned` yang menunggu bed ini (kunjungan IMP sendiri, atau IMP ber-`source` IGD/RJ ini). */
+  plannedAdmissionId: uuid.nullable(),
   patientLabel: z.string(),
   origin: z.enum(BED_REQUEST_ORIGINS),
   careClass: z.string(),
@@ -952,10 +1039,28 @@ export const bedBoardRequestSchema = z.strictObject({
   /** Menunggu lebih dari `bed.boarding_alert_hours` (boarding IGD). */
   boarding: z.boolean(),
   allocatedBedId: uuid.nullable(),
+  note: z.string().nullable(),
 });
+
+/** Status kirim Aplicare per ruang (bangsal × kelas): revisi papan vs revisi yang sudah diterima BPJS. */
+export const APLICARE_SYNC_STATES = ['terkirim', 'menunggu', 'gagal'] as const;
+export type AplicareSyncState = (typeof APLICARE_SYNC_STATES)[number];
+export const bedBoardAplicareSchema = z.strictObject({
+  unitId: uuid,
+  careClass: z.string(),
+  roomCode: z.string(),
+  state: z.enum(APLICARE_SYNC_STATES),
+  revision: z.int().min(0),
+  sentRevision: z.int().min(0),
+  lastErrorCode: z.string().nullable(),
+  updatedAt: instant,
+});
+export type BedBoardAplicare = z.infer<typeof bedBoardAplicareSchema>;
+
 export const bedBoardApiSchema = z.strictObject({
   asOf: instant,
   boardingAlertHours: z.int().min(1),
+  aplicare: z.array(bedBoardAplicareSchema),
   units: z.array(
     z.strictObject({
       unitId: uuid,
@@ -976,31 +1081,69 @@ export const edBoardItemSchema = z.strictObject({
   patientName: z.string(),
   rm: z.string(),
   unidentified: z.boolean(),
+  sex: z.enum(PATIENT_SEXES),
+  /** Umur (tahun, tanggal WIB); null bila tanggal lahir tidak diketahui. */
+  ageYears: z.int().min(0).max(150).nullable(),
+  arrivalMode: z.enum(ARRIVAL_MODES).nullable(),
+  /** Penjamin utama aktif kunjungan IGD. */
+  payer: z.strictObject({ kind: z.enum(PAYER_KINDS), name: z.string() }).nullable(),
+  /**
+   * Dokter penanggung jawab IGD: anggota tim `dpjp_utama` aktif (lewat "Ambil pasien"), atau praktisi kunjungan; null =
+   * belum ada. `doctorUserId` = akun dokter tim (null bila hanya dari praktisi kunjungan).
+   */
+  doctor: z.string().nullable(),
+  doctorUserId: uuid.nullable(),
   arrivedAt: instant.nullable(),
   losMinutes: z.int().min(0),
   status: z.enum(ED_STATUSES).nullable(),
   zone: z.enum(ED_ZONES).nullable(),
   bedId: uuid.nullable(),
+  bedCode: z.string().nullable(),
+  /** Triase final terkini (versi terbaru rantai); `id` = dasar koreksi (`revision.kind = koreksi`). */
   triage: z
     .strictObject({
+      id: uuid,
       level: triageLevelSchema,
       suggestedLevel: triageLevelSchema,
       maxLevel: triageLevelSchema,
       at: instant,
+      vitals: triageVitalsSchema,
+      discriminators: z.array(z.enum(TRIAGE_DISCRIMINATOR_CODES)),
+      reasons: z.array(z.string()),
+      overrideReason: z.string().nullable(),
     })
     .nullable(),
   bedRequest: z
     .strictObject({
+      id: uuid,
       status: z.enum(BED_REQUEST_STATUSES),
       waitMinutes: z.int().min(0),
       boarding: z.boolean(),
+      allocatedBedCode: z.string().nullable(),
     })
     .nullable(),
+  /** SEP IGD (BPJS); null bila belum ada atau bukan BPJS. */
+  sep: z.strictObject({ id: uuid, status: z.enum(SEP_STATUSES), number: z.string().nullable() }).nullable(),
 });
+export type EdBoardItem = z.infer<typeof edBoardItemSchema>;
+
+/** Bed unit IGD (penempatan pasien + status bertulisan berversi). */
+export const edBoardBedSchema = z.strictObject({
+  bedId: uuid,
+  code: z.string(),
+  room: z.string(),
+  status: z.enum(BED_STATUSES),
+  version: z.int().min(1),
+  encounterId: uuid.nullable(),
+});
+export type EdBoardBed = z.infer<typeof edBoardBedSchema>;
+
 export const edBoardApiSchema = z.strictObject({
   asOf: instant,
   unitId: uuid,
+  unitName: z.string(),
   items: z.array(edBoardItemSchema),
+  beds: z.array(edBoardBedSchema),
 });
 export type EdBoardApi = z.infer<typeof edBoardApiSchema>;
 
@@ -1012,6 +1155,15 @@ export const admissionResultApiSchema = z.strictObject({
   sepId: uuid.nullable(),
 });
 export type AdmissionResultApi = z.infer<typeof admissionResultApiSchema>;
+
+/** Hasil `POST /registration/emergency-admissions` (juga untuk ulangan dengan Idempotency-Key yang sama). */
+export const emergencyAdmissionResultSchema = admissionResultApiSchema.extend({
+  /** Nomor kunjungan rawat inap (`RI-…`). */
+  number: z.string(),
+  bedCode: z.string(),
+  sourceEncounterId: uuid,
+});
+export type EmergencyAdmissionResult = z.infer<typeof emergencyAdmissionResultSchema>;
 
 export const wristbandPrintSchema = z.strictObject({
   encounterId: uuid,
