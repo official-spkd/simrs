@@ -478,6 +478,7 @@ model Encounter {
   consents             Consent[]
   consentDrafts        ConsentDraft[]
   dischargeSummaries   DischargeSummary[]
+  deathCertificates    DeathCertificate[]
 
   bedStatuses               BedStatus[]
   bedRequests               BedRequest[]

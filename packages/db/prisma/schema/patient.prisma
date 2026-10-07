@@ -70,6 +70,7 @@ model Patient {
   clinicalConsents     Consent[]
   consentDrafts        ConsentDraft[]
   dischargeSummaries   DischargeSummary[]
+  deathCertificates    DeathCertificate[]
 
   bedRequests               BedRequest[]
   bedAssignments            BedAssignment[]

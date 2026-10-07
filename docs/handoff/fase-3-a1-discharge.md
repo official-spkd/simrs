@@ -1,0 +1,24 @@
+# Serah-terima · fase-3-a1 (3.6 → W1 → W5b)
+
+- Pemilik: Claude Code, agen A1 (brief backend penuh 7 Okt 2026).
+- Worktree: `/Users/godam/PROYEK/simrs/.claude/worktrees/agent-a1979c2452dadb582`, branch `worktree-agent-a1979c2452dadb582`.
+- Slot: DB `simrs_test_fe1` (port 5433), E2E 4020/3020/3021/4120, migrasi 20261007100000–20261007199999.
+- `.env` worktree (tidak di-commit) mengarah ke `simrs_test_fe1` untuk semua URL DB; port API/WEB/MOCK 4020/3020/4120.
+
+## Potongan 3.6 · resume, rekonsiliasi, pulang, gerbang (K13, EP 5c)
+
+- Kontrak `packages/shared/src/schemas/discharge.ts`; galat `RESUME_INCOMPLETE`; `resumeCompleteness(checklist, required)`.
+- Migrasi `20261007100000_death_certificates` (entri klinis berversi; indeks manual `death_certificates_supersedes_once`,
+  `death_certificates_one_per_encounter` terdaftar di schema-guard).
+- Modul `apps/api/src/modules/discharge/`: `DischargeSourcesService` (himpun sumber), `DischargeService` (draf,
+  rekonsiliasi, finalisasi, addendum), `DeathCertificateService` (K-1), `EncounterCloseService`, `FullDischargeGate`
+  dan `DischargeAuthority` (disediakan `AdtModule` sebagai `DISCHARGE_GATE`, menggantikan `BasicDischargeGate`).
+- Semua TTE lewat `ClinicalSigningService.issueSigned` (catatan peninjau).
+- Draf generik jenis `resume` ditolak (`drafts.service.ts`).
+- Tes: `apps/api/test/discharge.test.ts`; `adt-triage.test.ts` kini menanam resume final ber-TTE sebelum memulangkan
+  rawat inap dan memeriksa 409 tanpa resume.
+- Keputusan: ADR-0093.
+
+## Berikutnya
+
+W1 (layar Poli mode api), lalu W5b (layar Resume mode api).

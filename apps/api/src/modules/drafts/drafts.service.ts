@@ -12,6 +12,9 @@ import { ClinicalRecordService } from '../../infra/clinical/clinical-record.serv
 import { TenantDb } from '../../infra/tenant-db';
 import { PatientAccessService } from '../authz/patient-access.service';
 
+/** Jenis draf yang dikelola modul lain lewat endpoint khususnya (isi tervalidasi), bukan API draf generik. */
+const RESERVED_DRAFT_KINDS: readonly string[] = ['resume'];
+
 /**
  * ADR-0028 butir 5 · Draf klinis (bukan rekam medis): satu per penulis × kunjungan × jenis, hanya penulisnya yang
  * melihat, mengubah, dan menghapus (kunci baris = pengguna sesi; tidak ada endpoint untuk draf orang lain). Akses ke
@@ -98,6 +101,14 @@ export class DraftsService {
   private async context(encounterId: string, kind: string) {
     if (!CLINICAL_DRAFT_KIND_PATTERN.test(kind)) {
       throw new AppError('VALIDATION_FAILED', 'Jenis draf tidak valid', 400);
+    }
+    if (RESERVED_DRAFT_KINDS.includes(kind)) {
+      // Draf resume (K13) memuat konfirmasi rekonsiliasi DPJP: hanya lewat `/discharge/summaries` (divalidasi).
+      throw new AppError(
+        'VALIDATION_FAILED',
+        'Draf resume disimpan lewat layar Resume (/discharge/summaries)',
+        422,
+      );
     }
     const { userId } = this.records.author();
     const enc = await this.db.tx().encounter.findUnique({

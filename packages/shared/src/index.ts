@@ -30,6 +30,7 @@ export * from './schemas/klinis';
 export * from './schemas/clinical-records';
 export * from './schemas/clinical-notes';
 export * from './schemas/consent';
+export * from './schemas/discharge';
 export * from './schemas/orders';
 export * from './schemas/nursing';
 export * from './schemas/penunjang';
