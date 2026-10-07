@@ -13,7 +13,7 @@ Nomor 0024–0075 sudah dipesan oleh rencana fase di `docs/rencana/` (5 Okt 2026
 | 0025–0027 | Fase 2 · lookup sinkron, SSE, prinsipal perangkat                  | 0025, 0026, 0027                        |
 | 0028–0032 | Fase 3 · entri klinis berversi, PDF + TTE, CDS, ABAC unit, staging | 0028 (3.0b), 0029 (PDF klinis + TTE), 0030 (CDS deklaratif, 3.4), 0031 (fase 2 potongan 7 + pembaruan 3.1), 0032 (3.1) |
 | 0033      | Batas laju Redis (di luar rencana fase)                            | 0033                                    |
-| 0034–0037 | Fase 4 · penunjang                                                 | –                                       |
+| 0034–0037 | Fase 4 · penunjang                                                 | 0034 (worklist + ABAC penunjang), 0035 (ingest analyzer lab), 0036 (ledger stok + FEFO), 0037 (gerbang keselamatan penunjang di DB) |
 | 0038–0041 | Fase 5 · keuangan                                                  | –                                       |
 | 0042–0045 | Cadangan fase 4–5                                                  | –                                       |
 | 0046–0050 | Fase 6 · pembayaran TPDI × BTN, pembiayaan                         | –                                       |
