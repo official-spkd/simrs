@@ -21,14 +21,19 @@
   `/encounters/:id/completeness`; komponen dokumen pasien web (BFF unggah/batal/minta TTE/unduh).
 - Cadangan WIP lama (`wip/3.7-persetujuan-3.8-konsultasi`) dipakai sebagai bahan; tidak digabung utuh.
 
+- Sambungan layar 3.8: tab "Dokumen & konsultasi" Rawat inap (kelengkapan, konsul + tim, dokumen pasien), layar
+  Konsultasi dan Paket layanan hibrida, `GET /consults/consultants`; E2E `konsultasi-api.spec.ts`.
+- Prioritas 1 (temuan BUG): layar Edukasi hibrida + `GET /encounters/:id/education`, tautan tablet → Edukasi, label
+  `edukasi_tindakan` diperbaiki, `e2e/persetujuan.spec.ts` + fixture E2E edukasi.
+
 ## Validasi
 
 Lihat laporan akhir A2 (angka tes, migrate diff, E2E).
 
 ## Kendala dan langkah berikutnya
 
-- Komponen dokumen pasien belum dipasang di layar mana pun: dipasang tab Dokumen layar Rawat inap (W4).
-- Layar demo Konsultasi dan Paket layanan tetap mode presentasi; sambungan api ikut W4 atau gelombang layar berikutnya.
+- Paket layanan khusus (HD/kemo/ANC) tetap mode presentasi (keputusan fase 3 no. 18).
+- Layar Asesmen (`/klinis/asesmen`) masih demo saja; isian P07 lain lewat API sudah ada.
 - Tablet persetujuan mode api (W5a) memakai `consentDraftSchema`.
 
 ## Pengambilalihan

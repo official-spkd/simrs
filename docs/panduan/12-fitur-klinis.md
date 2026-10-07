@@ -14,8 +14,8 @@ menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
 > (3.5), serta persetujuan tindakan + edukasi lewat P07 (3.7). Resume (3.6) belum. Sepuluh layar bagan RME (FE2)
 > berstatus `demo` saja: hanya ada di mode presentasi dan belum hibrida. API worklist, CPPT, asesmen, diagnosis,
-> ringkasan, askep/eMAR, dan edukasi untuk layar itu sudah ada; konsultasi, paket layanan, dan gerbang tutup kunjungan
-> belum (3.6, 3.8). Cara
+> ringkasan, askep/eMAR, dan edukasi untuk layar itu sudah ada. Konsultasi, Edukasi, dan Paket layanan kini hibrida
+> (potongan 3.7/3.8). Cara
 > kerja API klinis: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
@@ -59,11 +59,11 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
 | Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
 | Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API belum (3.8, modul kerangka)         |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API lewat P07 ada (3.7)                 |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                              |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7)                         |
 | Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
 | Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API belum (3.8, modul kerangka)         |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket formulir, 3.8)              |
 | Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API belum (3.6, 3.8)                    |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
@@ -439,8 +439,11 @@ memberi "Akses ke pasien ini ditolak" (tercatat di audit).
    beralasan; **Balans cairan** hari ini (masuk/keluar/balans) dengan catatan baru.
 9. **Hasil**: laporan dan hasil lab/radiologi kunjungan ini (`GET /results?patientId=&encounterId=`), penanda
    bertulisan.
-10. Titik sambung potongan 3.8 (konsultasi, kelengkapan paket formulir, dokumen pasien) ada di
-    `ranap-api.ts` (`InpatientExtensions`); tab "Dokumen & konsultasi" muncul setelah diisi.
+10. **Dokumen & konsultasi** (potongan 3.8, `loadExtensions` di `ranap-api.ts`): kartu "Kelengkapan paket formulir ·
+    Rawat inap" (formulir wajib "Belum diisi"/"Diisi <jam>"), konsul kunjungan beserta jawaban, kirim konsul, tim
+    perawatan + **Serahkan DPJP utama** (hanya DPJP utama aktif, alasan wajib), dan "Dokumen pasien" (unggah
+    PDF/PNG/JPEG, **Minta TTE**, **Batalkan** beralasan, **Unduh** lewat BFF). Bagian yang izinnya tidak dipegang sesi
+    tidak tampil. Tautan cepat memuat **Edukasi pasien** dan **Konsultasi** untuk kunjungan ini.
 
 ## Resume medis
 
@@ -594,7 +597,9 @@ Galat API tampil tertulis, mis. `CONSENT_SIGNATURES_REQUIRED` (tanda tangan/saks
    residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`. Final juga menunggu
    **edukasi tindakan**: isian P07 `edukasi_terintegrasi` terkini di kunjungan itu dengan topik "Tindakan yang
    direncanakan" harus berevaluasi "paham" (sama dengan layar Edukasi); bila belum → 422 `CONSENT_EDUCATION_REQUIRED`
-   dan draf menampilkan `edukasi_tindakan` di daftar kekurangan. Penolakan tidak menunggu edukasi.
+   dan draf menampilkan `edukasi_tindakan` di daftar kekurangan. Tablet menampilkan tautan **Isi edukasi tindakan**
+   ke layar Edukasi kunjungan itu (lalu **Kembali ke tablet persetujuan**), jadi tidak ada jalan buntu. Penolakan
+   tidak menunggu edukasi.
 5. Draf **tutup-sekali**: setelah final, ditolak, atau dibatalkan (`POST …/cancel`, alasan ≥ 10) setiap perubahan → 409
    `CONSENT_CLOSED`, dijaga juga trigger database. Finalisasi serentak hanya terjadi sekali.
 6. **Pencabutan** (`POST /api/v1/consents/:id/revoke`, `consent.sign`) membuat entri baru `dicabut` ber-TTE dengan
@@ -777,7 +782,8 @@ isian final yang tidak bisa diubah (koreksi menjadi versi baru, reasesmen menjad
 
 **Rencana backend.** Izin rencana `forms.response.write` (sudah ada di katalog; koreksi memakai
 `forms.response.correct`). Pembacaan per kunjungan dan penyimpanan isian sudah ada di API; layar tinggal disambung.
-Kelengkapan paket per setting (`GET /api/v1/assessment/encounters/:id/completeness`) direncanakan di potongan 3.8.
+Kelengkapan paket per setting ada di `GET /api/v1/encounters/:id/completeness` (3.8) dan tampil di tab Dokumen &
+konsultasi Rawat inap.
 
 ## Diagnosis & problem list
 
@@ -842,10 +848,10 @@ ke endpoint versi baru perlu dipastikan saat penyambungan.
 | Rute     | `/klinis/konsultasi` (`?pasien=<encounterId>`; bawaan Tn. Sutan Batubara)                                                                                                                                  |
 | Pemakai  | dokter, dokter residen                                                                                                                                                                                     |
 | Komponen | K10 konsultasi dan rawat bersama                                                                                                                                                                           |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.8 belum dibangun                                                                                                                                         |
+| Status   | demo + api (hibrida, izin `clinical.write`; potongan 3.8, ADR-0059)                                                                                                                                        |
 | Mockup   | tidak ada (gaya mengikuti kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                                     |
 | Kode web | `apps/web/src/app/(staf)/klinis/konsultasi/` · data `apps/web/src/lib/demo/fixtures/rme-konsul.ts` · aturan `apps/web/src/lib/rme-konsul.ts` · komponen `apps/web/src/components/rme/konsul-workspace.tsx` |
-| Kode API | `apps/api/src/modules/consult/` (kerangka; isi di potongan 3.8)                                                                                                                                            |
+| Kode API | `apps/api/src/modules/consult/` (`/api/v1/consults/*`, `/encounters/:id/{consults,care-team}`); web api `api-konsultasi.tsx` + `components/klinis/consult-panel.tsx`                                       |
 
 **Tujuan.** Permintaan konsul antar-DPJP dengan batas jawab per urgensi, jawaban terstruktur, penetapan rawat bersama
 atau alih rawat, dan tim perawatan yang berubah sebagai versi baru.
@@ -880,9 +886,14 @@ atau alih rawat, dan tim perawatan yang berubah sebagai versi baru.
 - Tim perawatan tidak dihapus: anggota lama ditutup dengan tanggal berakhir, alih rawat dicatat "Alih rawat ke …
   (konsul <jam>)" (`applyFollowUp`).
 
-**Rencana backend.** Izin rencana `consult.write` belum ada di katalog. Modul API `consult` masih kerangka; isinya
-(permintaan + jawaban terstruktur, ganti DPJP utama sebagai versi baru dengan relasi akses ikut berpindah) dijadwalkan
-di potongan 3.8 (`docs/rencana/fase-3-klinis-rme.md`). Akses berbatas waktu konsultan perlu dipetakan ke relasi ABAC.
+**Mode api (potongan 3.8).** Kartu "Konsul masuk belum dijawab" memuat konsul untuk Anda atau unit Anda dengan
+tautan **Buka konsul <pasien>** (`?kunjungan=<id>`). Halaman kunjungan menampilkan banner pasien, kartu "Konsul pasien
+ini", formulir "Kirim konsul baru" (dokter tujuan dari daftar dokter aktif RS), dan "Tim perawatan" dengan **Serahkan
+DPJP utama**. Jawaban hanya oleh dokter yang dituju: pengirim membaca "Pengirim konsul tidak menjawab konsulnya
+sendiri.", dokter lain "Konsul ini dijawab dokter yang dituju (…)." (API: 403 `CONSULT_NOT_RECIPIENT`). Konsul rawat
+bersama/alih rawat menampilkan centang **Terima rawat bersama** / **Terima alih rawat**; bila dicentang tim perawatan
+dan relasi akses ikut berubah. Dokter tujuan mendapat akses rekam 24 jam sejak konsul dikirim; konsul sekali yang
+dijawab berakhir 24 jam setelah jawaban. Panel yang sama ada di tab Dokumen & konsultasi Rawat inap.
 
 ## Edukasi pasien
 
@@ -893,10 +904,10 @@ di potongan 3.8 (`docs/rencana/fase-3-klinis-rme.md`). Akses berbatas waktu kons
 | Rute     | `/klinis/edukasi` (`?pasien=<encounterId>`)                                                                                                                                                                |
 | Pemakai  | dokter, dokter residen, perawat, bidan                                                                                                                                                                     |
 | Komponen | K11 persetujuan dan edukasi                                                                                                                                                                                |
-| Status   | demo (mode presentasi); API edukasi lewat formulir P07 `edukasi_terintegrasi` (potongan 3.7) ada; layar belum disambung                                                                                    |
+| Status   | demo + api (hibrida, izin `clinical.write`; formulir P07 `edukasi_terintegrasi`, potongan 3.7)                                                                                                             |
 | Mockup   | `design/mockups/Consent.dc.html`                                                                                                                                                                           |
 | Kode web | `apps/web/src/app/(staf)/klinis/edukasi/` · data `apps/web/src/lib/demo/fixtures/rme-edukasi.ts` · aturan `apps/web/src/lib/rme-edukasi.ts` · komponen `apps/web/src/components/rme/edukasi-workspace.tsx` |
-| Kode API | formulir P07 `edukasi_terintegrasi` dengan `encounterId` (`apps/api/src/modules/forms/`), dibaca lewat `GET /api/v1/encounters/:id/assessments`                                                            |
+| Kode API | simpan `POST /api/v1/patients/:id/forms/edukasi_terintegrasi/responses` + `encounterId`; baca `GET /api/v1/encounters/:id/education` (formulir, syarat, riwayat)                                           |
 
 **Tujuan.** Edukasi pasien dan keluarga terintegrasi lintas PPA dengan verifikasi pemahaman (teach-back), tanda
 tangan penerima, dan atestasi edukator. Edukasi tindakan menjadi syarat persetujuan tindakan di tablet.
@@ -932,9 +943,13 @@ tangan penerima, dan atestasi edukator. Edukasi tindakan menjadi syarat persetuj
   terverifikasi paham (`consentReady`).
 - Edukator: dokter, residen, perawat, dan bidan. Catatan final tidak bisa diubah.
 
-**Backend.** Potongan 3.7 menyimpan edukasi sebagai isian formulir P07 `edukasi_terintegrasi` (seed) dengan
-`encounterId`; izin rencana `education.write` tidak dipakai. Syarat "edukasi tindakan paham sebelum persetujuan" baru
-ada di layar demo ini; API persetujuan (3.7) dan tablet belum memeriksanya.
+**Mode api.** Buka dari tablet persetujuan (tautan **Isi edukasi tindakan** saat draf menunggu edukasi) atau dari
+tautan cepat Rawat inap; `?kunjungan=<id>` wajib, `?draf=<id>` menampilkan **Kembali ke tablet persetujuan**. Kartu
+"Edukasi tindakan" menulis "Terverifikasi paham" atau "Belum dinyatakan paham". Formulir "Catat edukasi" memakai
+penyaji formulir P07 (topik, sasaran, evaluasi pemahaman, catatan) lalu **Simpan edukasi**; riwayat edukasi kunjungan
+tampil dengan label opsi. API persetujuan menolak final (422 `CONSENT_EDUCATION_REQUIRED`) sampai isian terkini
+bertopik "Tindakan yang direncanakan" berevaluasi "Memahami, bisa mengulang"; evaluasi "Perlu edukasi ulang" yang
+lebih baru mengunci lagi. Hak tulis mengikuti formulir (dokter, perawat, bidan, apoteker) dan relasi pasien.
 
 ## Asuhan keperawatan
 
@@ -1050,10 +1065,10 @@ membaca modul lain; layar tinggal disambung. Flag nilai kritis menunggu sumber h
 | Rute     | `/klinis/paket-layanan` (`?pasien=<encounterId>`; bawaan kemoterapi Ny. Maria Ulfa)                                                                                                                        |
 | Pemakai  | dokter, perawat, bidan                                                                                                                                                                                     |
 | Komponen | K15 paket layanan khusus                                                                                                                                                                                   |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.8 belum dibangun                                                                                                                                         |
+| Status   | demo + api (hibrida, izin `forms.definition.read`; mode api = paket formulir per setting, potongan 3.8)                                                                                                    |
 | Mockup   | tidak ada (gaya mengikuti `SafetyGate` dan kartu Klinis Bersih, `docs/08-desain-ui.md`)                                                                                                                    |
 | Kode web | `apps/web/src/app/(staf)/klinis/paket-layanan/` · data `apps/web/src/lib/demo/fixtures/rme-paket.ts` · aturan `apps/web/src/lib/rme-paket.ts` · komponen `apps/web/src/components/rme/paket-workspace.tsx` |
-| Kode API | `apps/api/src/modules/care-packages/` (kerangka; isi di potongan 3.8)                                                                                                                                      |
+| Kode API | `apps/api/src/modules/care-packages/` (`GET/PUT /api/v1/care-packages`, `GET /encounters/:id/completeness`); web api `api-paket.tsx`                                                                       |
 
 **Tujuan.** Paket layanan berulang (hemodialisis, kemoterapi, antenatal) dengan jadwal sesi, daftar kelengkapan per
 sesi yang diisi sesuai profesi, gerbang lab pra-tindakan, dan alur mulai sampai selesai sesi.
@@ -1088,9 +1103,13 @@ sesi yang diisi sesuai profesi, gerbang lab pra-tindakan, dan alur mulai sampai 
 - Butir hanya bisa ditandai bila paket punya sesi hari ini. Mulai dan selesai hanya mengubah sesi hari ini; sesi
   lain tidak berubah (`setTodayStatus`).
 
-**Rencana backend.** Izin rencana `care-package.write` belum ada di katalog. Modul API `care-packages` masih kerangka;
-potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme paket formulir + kelengkapan
-(keputusan fase 3 no. 18). Ambang gerbang lab perlu menjadi pengaturan protokol per RS, bukan konstanta.
+**Mode api (potongan 3.8, keputusan fase 3 no. 18: hanya mekanisme).** Layar menampilkan "Paket formulir per
+setting" dengan pilihan Rawat jalan, IGD, Rawat inap (`?setting=`). Tabel memuat formulir, status Aktif/Nonaktif dan
+Wajib/Opsional. Pengelola formulir (`forms.definition.write`, mis. petugas rekam medis) mengubah centang Wajib/Aktif dan
+urutan lalu **Simpan**, atau menambah formulir terbit lewat **Tambah ke paket**; butir tidak dihapus, hanya
+dinonaktifkan. Peran lain membaca saja. Formulir wajib menjadi syarat kelengkapan asesmen kunjungan (EP 6b/7a) yang
+tampil di tab Dokumen & konsultasi Rawat inap. Paket layanan khusus (HD, kemoterapi, ANC) tetap mode presentasi; ambang
+gerbang lab perlu menjadi pengaturan protokol per RS, bukan konstanta.
 
 ## Kelengkapan rekam medis
 

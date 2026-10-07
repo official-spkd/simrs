@@ -21,6 +21,10 @@ Rencana fase 3 §3.7 meminta templat P07 tujuh butir, draf, tanda tangan pasien/
 
 Final persetujuan ditolak 422 `CONSENT_EDUCATION_REQUIRED` bila isian `edukasi_terintegrasi` terkini di kunjungan itu yang memuat topik `tindakan` belum berevaluasi `paham`, sama dengan `consentReady` di layar Edukasi demo (edukasi ulang terbaru menggantikan evaluasi sebelumnya). Penolakan tidak terkena syarat ini. Templat contoh edukasi mendapat opsi topik `tindakan`. Seed menaikkan versi formulir edukasi lama yang belum memilikinya (`upgradePublishedForm`, versi lama diarsipkan). Draf menampilkan `edukasi_tindakan` di `missing`.
 
+## Pembaruan 7 Oktober 2026 · Tanpa jalan buntu di mode api (temuan agen BUG)
+
+Syarat edukasi butuh layar mode api untuk mengisinya. Layar Edukasi kini hibrida (`clinical.write`): formulir P07 `edukasi_terintegrasi` per kunjungan lewat penyaji formulir, status syarat, dan riwayat (`GET /encounters/:id/education`). Tablet menautkan ke layar itu bila `edukasi_tindakan` kurang; langkah saksi tidak lagi tertahan edukasi, dan draf yang hanya kurang edukasi dibuka di langkah TTE.
+
 ## Konsekuensi
 
 - Kode galat baru: `CONSENT_SIGNATURES_REQUIRED` (422, `details.missing`), `CONSENT_EDUCATION_REQUIRED` (422) dan `CONSENT_CLOSED` (409).
