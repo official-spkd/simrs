@@ -53,7 +53,8 @@ export function SoapPlan({
   canOrder,
 }: {
   plan: readonly SoapPlanRow[];
-  cpoeHref: string;
+  /** Null bila layar CPOE belum terbuka untuk peran ini (mode api). */
+  cpoeHref: string | null;
   tasks: ScenarioTasks;
   canOrder: boolean;
 }) {
@@ -61,7 +62,7 @@ export function SoapPlan({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <span className="text-small font-semibold">P · Rencana</span>
-        {canOrder && (
+        {canOrder && cpoeHref && (
           <span className="flex flex-wrap gap-2">
             <Link
               href={cpoeHref}
