@@ -13,7 +13,7 @@ import { loadPresentationAccounts } from './accounts';
  * mode presentasi membuka semua layar registri tanpa ganti posisi.
  *
  * Gagal aman:
- * - hanya bila `APP_ENV=local` DAN `DATA_SOURCE=demo`; di luar itu fungsi ini tidak membaca apa pun dan sesi tidak
+ * - hanya bila `APP_ENV=local`/`demo` DAN `DATA_SOURCE=demo`; di luar itu fungsi ini tidak membaca apa pun dan sesi tidak
  *   berubah sedikit pun;
  * - akun dikenali dari data yang tidak bisa dipalsukan klien: nama pengguna + RS dari `/auth/me` (API) harus sama
  *   dengan entri bertanda `allAccess` di berkas kredensial lokal (`.local/demo-accounts.json`, ditulis CLI lokal);

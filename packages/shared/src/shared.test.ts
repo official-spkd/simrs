@@ -4,6 +4,8 @@ import {
   COMPONENTS,
   devToolsAllowed,
   envSchemas,
+  integrationModeProblem,
+  presentationModeAllowed,
   formatRupiah,
   formatTanggalWaktu,
   isUuidV7,
@@ -105,6 +107,28 @@ describe('devToolsAllowed (gagal aman)', () => {
     expect(devToolsAllowed({ APP_ENV: 'local', NODE_ENV: 'production' })).toBe(false);
     expect(devToolsAllowed({ NODE_ENV: 'development' })).toBe(false);
     expect(devToolsAllowed({ APP_ENV: 'lokal-salah-ketik', NODE_ENV: 'development' })).toBe(false);
+  });
+
+  it('demo publik tidak pernah membuka fitur pengembang', () => {
+    expect(devToolsAllowed({ APP_ENV: 'demo', NODE_ENV: 'development' })).toBe(false);
+    expect(devToolsAllowed({ APP_ENV: 'demo', NODE_ENV: 'production' })).toBe(false);
+  });
+});
+
+describe('APP_ENV=demo (demo publik ber-data fiktif)', () => {
+  it('mode presentasi hanya lokal dan demo', () => {
+    expect(presentationModeAllowed('local')).toBe(true);
+    expect(presentationModeAllowed('demo')).toBe(true);
+    expect(presentationModeAllowed('staging')).toBe(false);
+    expect(presentationModeAllowed('production')).toBe(false);
+  });
+
+  it('integrasi wajib mock di demo; produksi tetap menolak mock', () => {
+    expect(integrationModeProblem({ APP_ENV: 'demo', INTEGRATION_MODE: 'mock' })).toBeNull();
+    expect(integrationModeProblem({ APP_ENV: 'demo', INTEGRATION_MODE: 'sandbox' })).toMatch(/demo/);
+    expect(integrationModeProblem({ APP_ENV: 'demo', INTEGRATION_MODE: 'production' })).toMatch(/demo/);
+    expect(integrationModeProblem({ APP_ENV: 'production', INTEGRATION_MODE: 'mock' })).toMatch(/produksi/);
+    expect(integrationModeProblem({ APP_ENV: 'staging', INTEGRATION_MODE: 'sandbox' })).toBeNull();
   });
 });
 

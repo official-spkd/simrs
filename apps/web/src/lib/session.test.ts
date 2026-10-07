@@ -112,6 +112,8 @@ describe('webEnv (gagal aman)', () => {
     }
     expect(webEnv({ APP_ENV: 'local' })).toMatchObject({ tenantCodeField: true, secureCookies: false });
     expect(webEnv({ APP_ENV: 'staging' })).toMatchObject({ tenantCodeField: true, secureCookies: true });
+    // Demo publik selalu lewat HTTPS: cookie Secure seperti staging.
+    expect(webEnv({ APP_ENV: 'demo' })).toMatchObject({ tenantCodeField: true, secureCookies: true });
   });
 
   it('kode RS awal: env bila sah, RSCM di lokal, kosong di luar lokal', () => {
@@ -122,8 +124,10 @@ describe('webEnv (gagal aman)', () => {
     expect(webEnv({ APP_ENV: 'production', LOGIN_TENANT_CODE: 'RSCM' }).loginTenantCode).toBe('RSCM');
   });
 
-  it('mode presentasi (data dummy) hanya lokal + DATA_SOURCE=demo; staging/produksi selalu api', () => {
+  it('mode presentasi (data dummy) hanya lokal/demo + DATA_SOURCE=demo; staging/produksi selalu api', () => {
     expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: 'demo' }).dataSource).toBe('demo');
+    expect(webEnv({ APP_ENV: 'demo', DATA_SOURCE: 'demo' }).dataSource).toBe('demo');
+    expect(webEnv({ APP_ENV: 'demo' }).dataSource).toBe('api');
     expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: ' DEMO ' }).dataSource).toBe('demo');
     expect(webEnv({ APP_ENV: 'local' }).dataSource).toBe('api');
     expect(webEnv({ APP_ENV: 'local', DATA_SOURCE: 'demo-ish' }).dataSource).toBe('api');

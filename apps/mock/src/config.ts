@@ -48,10 +48,11 @@ const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
 /**
  * Mock tidak berautentikasi dan memakai kredensial/rahasia mock bawaan: hanya untuk mesin pengembang, tes, dan E2E.
  * Menolak start di produksi (APP_ENV atau NODE_ENV) dan bind ke luar loopback kecuali `MOCK_ALLOW_REMOTE=true`
- * (mis. kontainer jaringan tertutup). APP_ENV kosong tetap diizinkan (tes, `pnpm start` tanpa .env).
+ * (mis. kontainer jaringan tertutup). APP_ENV kosong tetap diizinkan (tes, `pnpm start` tanpa .env). Demo publik
+ * (`APP_ENV=demo`) berjalan dengan build produksi (`NODE_ENV=production`) tetapi wajib memakai mock, jadi diizinkan.
  */
 export function mockStartupProblem(env: Record<string, string | undefined>): string | null {
-  if (env.APP_ENV === 'production' || env.NODE_ENV === 'production') {
+  if (env.APP_ENV === 'production' || (env.NODE_ENV === 'production' && env.APP_ENV !== 'demo')) {
     return 'Mock integrasi tidak boleh berjalan di produksi (APP_ENV/NODE_ENV=production)';
   }
   const host = env.HOST ?? '127.0.0.1';
