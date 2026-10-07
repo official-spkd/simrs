@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
+import { AuthzModule } from '../authz/authz.module';
+import { DiagnosisModule } from '../diagnosis/diagnosis.module';
+import { EncounterNutritionController, NutritionController } from './nutrition.controller';
+import { NutritionService } from './nutrition.service';
 
-/**
- * S07 · Gizi (rencana fase 4 §4.9): order diet dan distribusi makan, cetak HTML (tanpa layar).
- * Kerangka potongan 4.1a (didaftarkan sekali di `AppModule`); controller/service ditambah potongan pemiliknya.
- */
-@Module({})
+/** S07 · Gizi (potongan 4.9, ADR-0105). Didaftarkan sekali di `AppModule`. */
+@Module({
+  imports: [AuthzModule, DiagnosisModule],
+  controllers: [NutritionController, EncounterNutritionController],
+  providers: [NutritionService],
+})
 export class NutritionModule {}

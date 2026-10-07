@@ -79,8 +79,8 @@ export const PERMISSION_CATALOG = {
   },
   nutrition: { label: 'Gizi (order diet, layanan makan)', actions: ['read', 'write'] },
   blood_bank: {
-    label: 'Bank darah (permintaan, crossmatch, pengeluaran)',
-    actions: ['read', 'crossmatch', 'issue'],
+    label: 'Bank darah (permintaan, crossmatch, pengeluaran, transfusi di samping pasien)',
+    actions: ['read', 'request', 'crossmatch', 'issue', 'transfuse'],
   },
   diagnostics: {
     label: 'Diagnostik lain (EKG, USG, echo, endoskopi): laporan + TTE',
@@ -370,6 +370,12 @@ const DOCTOR_SUPPORT: Grant[] = [
   ['surgery', 'report', 'relationship'],
   ['surgery', 'checklist', 'relationship'],
   ['surgery', 'override', 'relationship'],
+  // S07/S08 (4.9, ADR-0105): DPJP mengorder diet dan meminta darah untuk pasiennya; ikut memverifikasi transfusi.
+  ['nutrition', 'read', 'relationship'],
+  ['nutrition', 'write', 'relationship'],
+  ['blood_bank', 'read', 'relationship'],
+  ['blood_bank', 'request', 'relationship'],
+  ['blood_bank', 'transfuse', 'relationship'],
 ];
 
 /** Apoteker: telaah, dispensing, stok depo penugasannya (penyesuaian hanya depo sendiri), formularium. */
@@ -387,16 +393,23 @@ const PHARMACIST: Grant[] = [
   ['formulary', 'write', 'unit'],
 ];
 
-/** Perawat/bidan: ambil spesimen, terima nilai kritis, gizi, retur obat pasiennya; daftar tilik + hitung di unit OK. */
+/**
+ * Perawat/bidan: ambil spesimen, terima nilai kritis, retur obat pasiennya; daftar tilik + hitung di unit OK. Gizi dan
+ * transfusi di samping pasien berlingkup unit bangsal (4.9, ADR-0105, mengikuti `clinical.write`).
+ */
 const NURSE_SUPPORT: Grant[] = [
   ['lab.specimen', 'collect', 'relationship'],
   ['critical_result', 'read', 'relationship'],
-  ['nutrition', 'read', 'relationship'],
-  ['nutrition', 'write', 'relationship'],
+  ['nutrition', 'read', 'unit'],
+  ['nutrition', 'write', 'unit'],
+  ['blood_bank', 'read', 'unit'],
+  ['blood_bank', 'transfuse', 'unit'],
   ['pharmacy.dispense', 'return', 'relationship'],
   ['surgery', 'read', 'unit'],
   ['surgery', 'checklist', 'unit'],
   ['surgery', 'count', 'unit'],
+  // 4.7 · Jadwal kamar operasi oleh perawat unit OK (kepala ruang/penjadwal IBS); lingkup unit = kamar unit OK.
+  ['surgery', 'schedule', 'unit'],
 ];
 
 /**

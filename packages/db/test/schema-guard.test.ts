@@ -75,6 +75,8 @@ const MANUAL_INDEXES = [
   'critical_results_one_per_lab_result',
   'critical_results_one_per_imaging_report',
   'surgery_cases_no_room_overlap',
+  // 4.9 · satu order diet aktif per kunjungan (ADR-0105).
+  'diet_orders_one_active',
 ];
 
 /** Registri tanpa FORCE (dibaca fungsi SECURITY DEFINER; ADR-0008/0011). */
@@ -300,6 +302,9 @@ describe('penjaga skema', () => {
       'crossmatches',
       'blood_issues',
       'transfusion_reactions',
+      'blood_issue_checks',
+      'transfusions',
+      'transfusion_vitals',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete
