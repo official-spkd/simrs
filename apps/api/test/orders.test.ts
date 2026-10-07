@@ -450,7 +450,28 @@ describe('CDS dan kirim order', () => {
     });
     const notTeam = await as('dokterAnggrek').post(`/orders/${r.body.id}/review`).expect(403);
     expect(notTeam.body.code).toBe('COSIGN_NOT_ALLOWED');
-    const reviewed = await as('dokter').post(`/orders/${r.body.id}/review`).expect(200);
+    // Tugas worklist DPJP (3.2b) terbuka sampai ditinjau.
+    const reviewTask = { kind: 'review_order', targetId: r.body.id, encounterId: e.encounterId };
+    const before = await as('dokter').get('/worklist?view=tugas').expect(200);
+    expect(before.body.tasks).toContainEqual(expect.objectContaining(reviewTask));
+    // Tinjauan serentak (klik ganda / dua tab): satu atestasi, satu resep; yang lain 409.
+    const [first, second] = await Promise.all([
+      as('dokter').post(`/orders/${r.body.id}/review`),
+      as('dokter').post(`/orders/${r.body.id}/review`),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+    const reviewed = first.status === 200 ? first : second;
+    const after = await as('dokter').get('/worklist?view=tugas').expect(200);
+    expect(after.body.tasks).not.toContainEqual(expect.objectContaining(reviewTask));
+    const stored = await run(A.id, async (tx) => ({
+      attestations: await tx.clinicalAttestation.count({
+        where: { targetType: 'order_groups', targetId: r.body.id, kind: 'review_order' },
+      }),
+      prescriptions: await tx.document.count({
+        where: { sourceType: 'order_groups', sourceId: r.body.id },
+      }),
+    }));
+    expect(stored).toEqual({ attestations: 1, prescriptions: 1 });
     expect(reviewed.body).toMatchObject({
       needsReview: false,
       review: { by: { userId: users.dokter, peran: 'dokter' } },
