@@ -46,3 +46,15 @@ Yang ditandatangani TTE adalah SHA-256 berkas (ADR-0020 butir 7). Hash itu harus
 - − PDF/A, tanda tangan PAdES di dalam berkas (TTE tersertifikasi di sini atas hash, ADR-0020), dan watermark "SALINAN" untuk cetak ulang belum ada.
 - − Gambar (logo RS, tanda tangan tulisan tangan PNG dari tablet ADR-0020) belum didukung templat. Penanda tangan non-TTE untuk sementara tampil sebagai nama di bawah garis tanda tangan.
 - − `@ibm/plex-*` 1.1.0 hanya memuat WOFF/WOFF2. Bila suatu saat fontkit gagal membaca WOFF, gantinya berkas TTF resmi yang disalin ke `packages/pdf` beserta lisensi OFL.
+
+## Pembaruan 7 Okt 2026 · penutup fase 3 (potongan 3.9)
+
+- **Pemakai** (semua dokumen klinis legal lewat `ClinicalSigningService.issueSigned`, kunci advisory versi sumber):
+  resume medis + addendum dan surat keterangan kematian (3.6, ADR-0093), persetujuan/penolakan/pencabutan tindakan
+  (3.7, ADR-0058). Resep (3.4) tetap `ClinicalPdfService.issue` dengan sumber `order_groups` (bukan entri berversi);
+  TTE-nya hanya bila penulis memegang `clinical.sign`.
+- **TTE gagal** (`failed` lewat `onDead`) tidak mengunci versi dan tidak dihitung `DischargeGate`; layar Resume
+  menampilkan "Tanda tangani ulang (TTE)" (resume dan surat kematian) yang membuat versi koreksi beralasan dengan PDF +
+  permintaan TTE baru. Worklist DPJP tetap memuat tugas `tte_failed`.
+- **Cetak** dokumen klinis dari layar memakai rute BFF bersama `/klinis/dokumen/:id/unduh` (cek same-origin, izin
+  `documents.read`, hash dicek API, pembukaan diaudit).

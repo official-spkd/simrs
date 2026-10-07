@@ -21,6 +21,12 @@ integrasi, dan hasil mesin tidak boleh langsung menjadi rekam medis tanpa verifi
    autoverifikasi. Validasi dua tahap oleh manusia (`lab_validations`: teknis lalu klinis, dijaga trigger).
 4. **Mock** `apps/mock` meniru analyzer (ORU^R01 ber-HMAC, skenario, panel kendali) untuk lokal dan E2E (4.1b).
 5. **Organisme mikrobiologi** memakai daftar lokal; pemetaan SNOMED setelah P06 punya SNOMED.
+6. **Izin perangkat.** `lab.analyzer.ingest` hanya bisa dipegang prinsipal perangkat (4.0a). Jenis perangkat
+   `lab_analyzer`, entri `DEVICE_GRANTS`, CHECK `registered_devices.kind`, dan layar pendaftaran perangkatnya ditunda
+   ke 4.1a bersama endpoint ingest.
+7. **Status hasil diturunkan, tidak disimpan.** `resultStatus` di API (`preliminary`, `final`, `entered_in_error`)
+   dihitung dari baris `lab_validations` (validasi klinis putaran berjalan) dan status versi hasil terkini, sehingga tidak ada kolom status yang bisa
+   berbeda dengan jejak validasinya.
 
 ## Konsekuensi
 

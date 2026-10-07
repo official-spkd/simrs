@@ -31,6 +31,10 @@ Papan tugas kerja simultan. Aturan koordinasi umum ada di `docs/12-codex-claude.
 
 - Variabel E2E per slot: `E2E_API_PORT`, `E2E_WEB_PORT`, `E2E_DEMO_PORT`, `E2E_MOCK_PORT`, dan `E2E_TMP_NAME=<agen>`. `.env` worktree (salinan `.env` checkout utama, tidak di-commit) mengarah ke DB tes slot sendiri.
 - Port 3000/4000/4100 milik server dev pemilik produk; jangan dipakai.
+- DB tes slot mengumpulkan tenant tes dari setiap putaran (dry-run sinkron izin 7 Okt 2026: ±1.560 tenant). Setelah
+  katalog izin atau matriks bawaan berubah, tenant lama tidak ikut tersinkron: jalankan `pnpm db:test:recreate -- --yes`
+  (hanya DB di `TEST_DATABASE_URL`) atau `pnpm db:sync-permissions --reconcile` di slot sendiri. Ini bukan masalah
+  produksi; DB pengembangan dan produksi disinkron orkestrator/operator.
 - Nama migrasi hanya di rentang slot. Fase 3 berikutnya dan fase 4–10 mendapat rentang baru dari orkestrator.
 - Slot §4 lama (CD-n/CX-n) tidak dipakai lagi untuk tugas backend ini.
 

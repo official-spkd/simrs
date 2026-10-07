@@ -31,7 +31,10 @@ export type PoliWorklistItemApi = z.infer<typeof poliWorklistItemApiSchema>;
 
 /** `GET /api/v1/poli/worklist`: antrean poli hari ini untuk unit penugasan (atau `serviceId`). */
 export const poliWorklistApiSchema = poliWorklistSchema.extend({
+  /** Layanan untuk "Panggil berikutnya" (poli terpilih, atau poli unit/sesi pertama). */
   serviceId: uuid.nullable(),
+  /** Pilihan poli/sesi: layanan poli unit penugasan + sesi praktik saya hari ini. */
+  options: z.array(z.strictObject({ serviceId: uuid, label: z.string() })),
   items: z.array(poliWorklistItemApiSchema),
 });
 export type PoliWorklistApi = z.infer<typeof poliWorklistApiSchema>;
@@ -76,6 +79,7 @@ export const poliVisitSchema = z.strictObject({
         plan: z.string(),
         followUp: z.string(),
         condition: z.string(),
+        disposition: z.string(),
       })
       .nullable(),
     /** Resume RJ: belum/draf/final + status TTE. */
@@ -100,5 +104,7 @@ export const poliSoapDraftSchema = z.strictObject({
   plan: z.string().max(2000).default(''),
   followUp: z.string().max(1000).default(''),
   condition: z.string().max(40).default(''),
+  /** Cara pulang rawat jalan: kosong sampai dokter memilih. */
+  disposition: z.enum(['', 'pulang', 'pulang_paksa', 'rujuk']).default(''),
 });
 export type PoliSoapDraft = z.infer<typeof poliSoapDraftSchema>;

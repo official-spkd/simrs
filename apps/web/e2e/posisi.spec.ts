@@ -17,7 +17,7 @@ test.describe('banyak posisi dalam satu akun (fokus RSCM)', () => {
     await page.getByText('Perawat', { exact: true }).click();
     await page.getByRole('button', { name: 'Masuk sebagai Perawat' }).click();
     await expect(page.getByText(/Anda masuk sebagai\s*Perawat/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Rekam medis' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Rekam medis', exact: true })).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ganti posisi', level: 1 })).toBeVisible();
@@ -25,7 +25,7 @@ test.describe('banyak posisi dalam satu akun (fokus RSCM)', () => {
     await page.getByText('Petugas rekam medis', { exact: true }).click();
     await page.getByRole('button', { name: 'Pindah ke Petugas rekam medis' }).click();
     await expect(page.getByText(/Anda masuk sebagai\s*Petugas rekam medis/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Rekam medis' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Rekam medis', exact: true }).first()).toBeVisible();
   });
 
   test('akun satu posisi: tanpa menu Ganti posisi', async ({ page }) => {

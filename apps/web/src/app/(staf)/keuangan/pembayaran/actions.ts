@@ -35,6 +35,8 @@ export interface PaymentActionResult {
   error?: string;
   message?: string;
   stale?: boolean;
+  /** Revisi toko setelah aksi berhasil; aksi berikutnya memakainya (`useStoreAction`). */
+  rev?: number;
 }
 
 const id = z.string().regex(/^[a-z0-9-]{1,40}$/);
@@ -99,7 +101,9 @@ export async function recordPaymentEventAction(input: PaymentEventInput): Promis
   const { data, state } = await getPaymentOverview(s);
   const commit = async (event: EventOf<'pembayaran-btn'>, message: string): Promise<PaymentActionResult> => {
     const r = await commitEvent('pembayaran-btn', event, { rev: e.rev, session: s });
-    return r.ok ? { ok: true, message: `${message} · ${formatJam(at)}` } : { error: r.error, stale: r.stale };
+    return r.ok
+      ? { ok: true, message: `${message} · ${formatJam(at)}`, rev: r.rev }
+      : { error: r.error, stale: r.stale };
   };
   switch (e.kind) {
     case 'bayar-simulasi': {

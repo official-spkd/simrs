@@ -69,8 +69,12 @@ test('mode api: akun Superadmin demo tanpa kuasa tambahan (menu = manajemen bias
   expect(await sidebarLinks(demo)).toEqual(await sidebarLinks(manajemen));
   expect(await sidebarLinks(demo)).not.toContain('/superadmin/panduan');
 
-  for (const path of ['/superadmin/panduan', '/klinis/cppt', '/simulasi', '/keuangan/kasir']) {
+  // Layar yang hanya punya jalur presentasi (CPPT kini tersambung API, jadi tidak lagi contoh 404).
+  for (const path of ['/superadmin/panduan', '/manajemen/sdm', '/simulasi', '/keuangan/kasir']) {
     expect((await demo.goto(path))?.status(), path).toBe(404);
   }
+  // Layar klinis hibrida terbuka sesuai izin sungguhan: akun demo (manajemen) ditolak, bukan diberi kuasa tambahan.
+  expect((await demo.goto('/klinis/cppt'))?.status()).toBe(200);
+  await expect(demo.getByText('Akses ditolak')).toBeVisible();
   await other.close();
 });

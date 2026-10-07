@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, raisedDbCode, readTenantSetting } from '@simrs/db';
+import { knownDbError, Prisma, raisedDbCode, readTenantSetting } from '@simrs/db';
 import {
   AppError,
   batchExpired,
@@ -58,6 +58,19 @@ const dateOnly = (d: Date) => d.toISOString().slice(0, 10);
 
 const kfaOf = (d: { codeSystem: string | null; code: string | null }) =>
   d.codeSystem === 'kfa' && d.code && KFA_PATTERN.test(d.code) ? d.code : null;
+
+/**
+ * Urutan kunci tetap (anti-deadlock): setiap tulisan saldo mengunci baris `stock_balances` lokasi × batch lewat trigger,
+ * jadi beberapa baris dalam satu transaksi selalu ditulis urut `stockBatchId`. Tanpa ini dua mutasi/penyesuaian
+ * serentak dengan item berurutan terbalik saling menunggu sampai Postgres membatalkan salah satunya (deadlock → 500).
+ */
+const byBatch = <T extends { stockBatchId: string }>(items: readonly T[]): T[] =>
+  [...items].sort((a, b) => (a.stockBatchId < b.stockBatchId ? -1 : a.stockBatchId > b.stockBatchId ? 1 : 0));
+
+/** Deadlock / konflik serentak Postgres (Prisma P2034): transaksi dibatalkan utuh → `STOCK_CONFLICT` (409). */
+function stockConflict(err: unknown, details: Record<string, unknown>): AppError | null {
+  return knownDbError(err)?.code === 'P2034' ? supportError('STOCK_CONFLICT', details) : null;
+}
 
 /** Item transfer beku di `stock_transfers.items` (JSON). */
 interface TransferItem {
@@ -164,7 +177,7 @@ export class StockService {
       if (code === 'STOCK_INSUFFICIENT' || code === 'BATCH_EXPIRED') {
         throw supportError(code, { stockLocationId: data.stockLocationId, ...data.detail });
       }
-      throw err;
+      throw stockConflict(err, { stockLocationId: data.stockLocationId }) ?? err;
     }
     return id;
   }
@@ -442,11 +455,17 @@ export class StockService {
     });
     const movementIds: string[] = [];
     const items: StockReceiptView['items'] = [];
+    // Kunci per obat + nomor batch: dua penerimaan serentak batch yang sama tidak bentrok di indeks unik. Semua kunci
+    // diambil di depan dalam urutan tetap (penerimaan multi-item dengan urutan berbeda tidak saling menunggu).
+    const lockKeys = [
+      ...new Set(input.items.map((i) => `${this.db.tenantId()}:stock.batch:${i.drugId}:${i.batchNo.trim()}`)),
+    ].sort();
+    for (const key of lockKeys) {
+      await this.tx().$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+    }
+    const lines: Array<{ batch: BatchRow; quantity: number }> = [];
     for (const [index, item] of input.items.entries()) {
       const batchNo = item.batchNo.trim();
-      // Kunci per obat + nomor batch: dua penerimaan serentak batch yang sama tidak bentrok di indeks unik.
-      await this.tx()
-        .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${this.db.tenantId()}:stock.batch:${item.drugId}:${batchNo}`}, 0))`;
       let batch = await this.tx().stockBatch.findUnique({
         where: { tenantId_drugId_batchNo: { tenantId: this.db.tenantId(), drugId: item.drugId, batchNo } },
         select: BATCH_SELECT,
@@ -474,17 +493,20 @@ export class StockService {
           select: BATCH_SELECT,
         });
       }
+      lines.push({ batch, quantity: item.quantity });
+      items.push({ ...this.docItem(batch, item.quantity), unitCost: batch.unitCost.toString() });
+    }
+    for (const line of byBatch(lines.map((l) => ({ ...l, stockBatchId: l.batch.id })))) {
       movementIds.push(
         await this.move({
           stockLocationId: loc.id,
-          stockBatchId: batch.id,
+          stockBatchId: line.stockBatchId,
           kind: 'receipt',
-          quantity: item.quantity,
+          quantity: line.quantity,
           refType: 'stock_receipts',
           refId: receiptId,
         }),
       );
-      items.push({ ...this.docItem(batch, item.quantity), unitCost: batch.unitCost.toString() });
     }
     await this.events.publish('stock.received', {
       stockReceiptId: receiptId,
@@ -541,7 +563,9 @@ export class StockService {
     }
     const transferId = newId();
     const { number: transferNo } = await this.numbering.next('stock_transfer');
-    const items: TransferItem[] = [...merged].map(([stockBatchId, quantity]) => ({ stockBatchId, quantity }));
+    const items: TransferItem[] = byBatch(
+      [...merged].map(([stockBatchId, quantity]) => ({ stockBatchId, quantity })),
+    );
     await this.tx().stockTransfer.create({
       data: {
         id: transferId,
@@ -577,7 +601,13 @@ export class StockService {
   /** Mutasi langkah 2 (terima) oleh petugas berlingkup atas depo tujuan; sekali saja (baris dikunci). */
   async receiveTransfer(id: string): Promise<StockTransferView> {
     const me = this.me();
-    await this.tx().$queryRaw`SELECT id FROM stock_transfers WHERE id = ${id}::uuid FOR UPDATE`;
+    // Dokumen mutasi dikunci lebih dulu (penerima serentak dokumen yang sama antre di sini → satu 200, sisanya 409),
+    // lalu saldo depo tujuan ditulis urut batch.
+    try {
+      await this.tx().$queryRaw`SELECT id FROM stock_transfers WHERE id = ${id}::uuid FOR UPDATE`;
+    } catch (err) {
+      throw stockConflict(err, { stockTransferId: id }) ?? err;
+    }
     const t = await this.tx().stockTransfer.findUnique({
       where: { id },
       select: { id: true, status: true, items: true, fromStockLocationId: true, toStockLocationId: true },
@@ -585,7 +615,7 @@ export class StockService {
     if (!t) throw new AppError('NOT_FOUND', 'Mutasi stok tidak ditemukan', 404);
     const to = await this.location(t.toStockLocationId);
     if (t.status !== 'dikirim') throw new AppError('CONFLICT', 'Mutasi ini sudah diterima', 409);
-    for (const i of t.items as unknown as TransferItem[]) {
+    for (const i of byBatch(t.items as unknown as TransferItem[])) {
       await this.move({
         stockLocationId: to.id,
         stockBatchId: i.stockBatchId,
@@ -634,8 +664,10 @@ export class StockService {
       },
     });
     const movementIds: string[] = [];
-    const items: StockAdjustmentView['items'] = [];
-    for (const item of input.items) {
+    const items: StockAdjustmentView['items'] = input.items.map((item) =>
+      this.docItem(this.batchOrThrow(batches, item.stockBatchId), item.quantityDelta),
+    );
+    for (const item of byBatch(input.items)) {
       const b = this.batchOrThrow(batches, item.stockBatchId);
       const expired = batchExpired(dateOnly(b.expiryDate), today);
       if (expired && item.quantityDelta > 0) {
@@ -657,7 +689,6 @@ export class StockService {
           detail: { stockBatchId: b.id },
         }),
       );
-      items.push(this.docItem(b, item.quantityDelta));
     }
     await this.events.publish('stock.adjusted', {
       stockAdjustmentId: adjustmentId,

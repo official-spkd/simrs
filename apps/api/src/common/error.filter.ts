@@ -29,7 +29,7 @@ function isBodyParserError(e: unknown): e is { type: string; status: number } {
  * Galat Prisma yang punya makna untuk klien. Hanya nama field (bukan nilai) yang dikembalikan.
  * Kode lain jatuh ke INTERNAL_ERROR (dan tercatat di log tanpa pesan).
  */
-function mapDbError(e: KnownDbError): [number, ErrorBody] | null {
+export function mapDbError(e: KnownDbError): [number, ErrorBody] | null {
   switch (e.code) {
     case 'P2002':
       return [
@@ -47,6 +47,15 @@ function mapDbError(e: KnownDbError): [number, ErrorBody] | null {
       return [400, { code: 'VALIDATION_FAILED', message: 'Data melanggar aturan validasi' }];
     case 'P2025':
       return [404, { code: 'NOT_FOUND', message: 'Data tidak ditemukan' }];
+    case 'P2034':
+      // Deadlock / konflik tulis serentak (Postgres 40P01/40001): transaksi sudah dibatalkan utuh, aman diulang.
+      return [
+        409,
+        { code: 'CONFLICT', message: 'Data sedang diubah oleh transaksi lain; muat ulang lalu ulangi aksi' },
+      ];
+    case 'P2028':
+      // Transaksi tidak bisa dimulai dalam batas tunggu (pool penuh di bawah beban): bukan galat program.
+      return [503, { code: 'SERVICE_BUSY', message: 'Layanan sedang sibuk; ulangi beberapa saat lagi' }];
     default:
       return null;
   }

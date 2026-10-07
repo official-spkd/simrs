@@ -63,7 +63,7 @@ export async function piutangAction(input: PiutangActionInput): Promise<Keuangan
   const jam = formatJam(at);
   const commit = async (event: EventOf<'piutang'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('piutang', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   const { state } = await readDomain('piutang');
   switch (c.type) {
