@@ -39,6 +39,8 @@ export interface PoliSoapInput {
   plan?: string;
   followUp?: string;
   condition?: string;
+  /** Cara pulang rawat jalan (pulang, pulang_paksa, rujuk); dipilih dokter, tanpa nilai bawaan. */
+  disposition?: string;
 }
 
 export interface PoliVitalsFormInput {
@@ -47,9 +49,11 @@ export interface PoliVitalsFormInput {
   nadi: string;
   suhu: string;
   spo2: string;
-  /** Mode api (NEWS2 dihitung server): frekuensi napas dan berat badan. */
+  /** Mode api (NEWS2 dihitung server): frekuensi napas, berat badan, kesadaran ACVPU, oksigen tambahan. */
   napas?: string;
   berat?: string;
+  kesadaran?: string;
+  oksigen?: boolean;
 }
 
 type Done = (r: PoliActionResult) => void;

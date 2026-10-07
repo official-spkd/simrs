@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { allocateQueueNumber } from '@simrs/db';
 import { isoDateJakarta, newId } from '@simrs/shared';
 import { type Account, createAccount, createPatient, inTenant, loginAs, TENANTS } from './support/accounts';
 import { ensureRsfaSchedule } from './support/schedule';
@@ -20,22 +21,13 @@ async function assign(account: Account, role: string, unitCode: string) {
 }
 
 /** Kunjungan rawat jalan hari ini di Poli Penyakit Dalam dengan tiket menunggu; dokter = DPJP kunjungan. */
-async function poliVisit(doctor: Account) {
+async function poliVisit(doctor: Account, practitionerId: string | null = null) {
   const p = await createPatient('RSFA', { name: `Tn. Poli Api ${newId().slice(-4)} Fiktif`, sex: 'male' });
   return inTenant(TENANTS.RSFA, async (tx) => {
     const svc = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
     const today = new Date(`${isoDateJakarta(new Date())}T00:00:00.000Z`);
-    // Nomor acak 600–999 (dua proyek Playwright berjalan paralel di hari yang sama); bentrok → nomor lain.
-    const used = new Set(
-      (
-        await tx.queueTicket.findMany({
-          where: { serviceId: svc.id, serviceDate: today },
-          select: { seq: true },
-        })
-      ).map((t) => t.seq),
-    );
-    let seq = 600 + Math.floor(Math.random() * 400);
-    while (used.has(seq)) seq = 600 + Math.floor(Math.random() * 400);
+    // Nomor dari layanan penomoran yang sama dengan API (tidak berebut dengan booking/anjungan spesifikasi lain).
+    const { seq, ticketNo } = await allocateQueueNumber(tx, TENANTS.RSFA, svc.id, isoDateJakarta(new Date()));
     const ticketId = newId();
     await tx.queueTicket.create({
       data: {
@@ -44,7 +36,7 @@ async function poliVisit(doctor: Account) {
         serviceId: svc.id,
         serviceDate: today,
         seq,
-        ticketNo: `PD-${String(seq).padStart(3, '0')}`,
+        ticketNo,
         patientId: p.id,
         source: 'loket',
       },
@@ -60,6 +52,7 @@ async function poliVisit(doctor: Account) {
         unitId: svc.unitId as string,
         serviceId: svc.id,
         queueTicketId: ticketId,
+        practitionerId,
         arrivedAt: new Date(Date.now() - 10 * 60_000),
       },
     });
@@ -79,7 +72,7 @@ async function poliVisit(doctor: Account) {
         sourceId: pid,
       },
     });
-    return { patientId: p.id, encounterId: enc.id, ticketId, ticketNo: `PD-${String(seq).padStart(3, '0')}` };
+    return { patientId: p.id, encounterId: enc.id, ticketId, ticketNo };
   });
 }
 
@@ -119,6 +112,7 @@ test('poli mode api: TTV perawat → panggil → SOAP + ICD-10 → tanda tangani
   await np.getByLabel('Suhu (°C)').fill('36,8');
   await np.getByLabel('SpO2 (%)').fill('98');
   await np.getByLabel('Napas (x/mnt)').fill('18');
+  await np.getByLabel('Kesadaran (ACVPU)').selectOption('A');
   await np.getByRole('button', { name: 'Simpan tanda vital' }).click();
   await expect(np.getByText(/Tanda vital tersimpan/)).toBeVisible();
   await expect(np.getByText(/diukur perawat \d{2}\.\d{2}/)).toBeVisible();
@@ -145,6 +139,8 @@ test('poli mode api: TTV perawat → panggil → SOAP + ICD-10 → tanda tangani
   await page.getByLabel('Pilih kode ICD-10').selectOption('I10');
   await page.getByLabel('Catatan rencana (P)').fill('Amlodipin 5 mg 1×1, diet rendah garam');
   await page.getByLabel('Tindak lanjut / kontrol').fill('Kontrol Poli Penyakit Dalam 2 minggu');
+  await page.getByLabel('Kondisi pulang').selectOption('Stabil');
+  await page.getByLabel('Cara pulang').selectOption('pulang');
   await page.getByRole('button', { name: 'Simpan draf' }).click();
   await expect(page.getByText(/Draf disimpan \d{2}\.\d{2}/).first()).toBeVisible();
   await page.getByRole('button', { name: 'Tanda tangani dan selesai' }).click();
@@ -158,5 +154,59 @@ test('poli mode api: TTV perawat → panggil → SOAP + ICD-10 → tanda tangani
     dx: await tx.condition.count({ where: { encounterId: v.encounterId, code: 'I10', role: 'utama' } }),
   }));
   expect(state).toEqual({ enc: { status: 'finished' }, ticket: { status: 'done' }, resume: 1, dx: 1 });
+  expect(errors).toEqual([]);
+});
+
+test('poli mode api: dokter "Semua unit" melihat pasien yang DPJP-nya dirinya + pemilih poli/sesi dari jadwalnya', async ({
+  page,
+}) => {
+  // Tanpa penugasan unit: antrean bawaan = kunjungan rawat jalan hari ini dengan praktisi terikat akun ini.
+  const doctor = await createAccount({
+    roles: ['dokter'],
+    displayName: `dr. Semua Unit ${newId().slice(-4)} Fiktif`,
+  });
+  const today = isoDateJakarta(new Date());
+  const practitionerId = await inTenant(TENANTS.RSFA, async (tx) => {
+    const id = newId();
+    await tx.practitioner.create({
+      data: { id, tenantId: TENANTS.RSFA, name: doctor.displayName, userId: doctor.id },
+    });
+    for (const [code, hour] of [
+      ['PD', '05'],
+      ['JT', '13'],
+    ] as const) {
+      const svc = await tx.queueService.findFirstOrThrow({ where: { code } });
+      await tx.scheduleSession.create({
+        data: {
+          id: newId(),
+          tenantId: TENANTS.RSFA,
+          practitionerId: id,
+          serviceId: svc.id,
+          sessionDate: new Date(`${today}T00:00:00.000Z`),
+          startTime: new Date(`1970-01-01T${hour}:00:00Z`),
+          endTime: new Date(`1970-01-01T${hour === '05' ? '12' : '16'}:00:00Z`),
+          quotaJkn: 5,
+          quotaNonJkn: 5,
+        },
+      });
+    }
+    return id;
+  });
+  const v = await poliVisit(doctor, practitionerId);
+  const errors = noConsoleErrors(page);
+  await loginAs(page, doctor, '/klinis/poli');
+  await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien' })).toBeVisible();
+  const queue = page.getByRole('region', { name: 'Antrean poli' });
+  await expect(queue.getByRole('link', { name: new RegExp(v.ticketNo) })).toBeVisible();
+  const picker = page.getByRole('navigation', { name: 'Pilih poli atau sesi' });
+  await expect(picker.getByRole('link', { name: 'Semua pasien saya' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await picker.getByRole('link', { name: /Jantung · praktik 13\.00–16\.00/ }).click();
+  await expect(page).toHaveURL(/\?poli=[0-9a-f-]{36}$/);
+  await expect(page.getByText('Antrean kosong')).toBeVisible();
+  await picker.getByRole('link', { name: /Penyakit Dalam · praktik/ }).click();
+  await expect(queue.getByRole('link', { name: new RegExp(v.ticketNo) })).toBeVisible();
   expect(errors).toEqual([]);
 });

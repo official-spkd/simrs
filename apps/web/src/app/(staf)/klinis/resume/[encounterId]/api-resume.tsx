@@ -1,11 +1,13 @@
 import { formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
+import { z } from 'zod';
 import { ApiError } from '@/lib/server/api-core';
 import { getEncounterContextApi } from '@/lib/server/data/klinis/encounters-api';
-import { getDischargeSummaryApi } from '@/lib/server/data/klinis/resume';
+import { getDeathCertificateApi, getDischargeSummaryApi } from '@/lib/server/data/klinis/resume';
 import { can, type SessionView } from '@/lib/session-view';
 import { ApiResumeClient } from './api-resume-client';
+import { DeathCertificatePanel } from './death-certificate-panel';
 
 const SEX = { male: 'L', female: 'P', unknown: '–' } as const;
 
@@ -18,6 +20,10 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
   let view;
   let ctx;
   try {
+    // Id dari URL tidak pernah masuk path API mentah: bukan UUID = kunjungan tidak ditemukan (sama dengan 404).
+    if (!z.uuid().safeParse(encounterId).success) {
+      throw new ApiError(404, 'NOT_FOUND', 'Kunjungan tidak ditemukan');
+    }
     [view, ctx] = await Promise.all([
       getDischargeSummaryApi(encounterId),
       getEncounterContextApi(encounterId),
@@ -44,6 +50,9 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
   }
   const p = ctx.patient;
   const s = view.summary;
+  // Disposisi meninggal (resume final atau draf): surat keterangan kematian ber-TTE (keputusan K-1).
+  const died = (view.disposition ?? view.draft?.disposition) === 'meninggal';
+  const certificate = died ? await getDeathCertificateApi(view.encounterId) : null;
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -69,6 +78,14 @@ export async function ApiResume({ session, encounterId }: { session: SessionView
         guarantor={ctx.coverage?.name ?? 'Umum'}
         attending={ctx.dpjp?.name}
       />
+      {died && (
+        <DeathCertificatePanel
+          encounterId={view.encounterId}
+          certificate={certificate}
+          canSign={can(session, 'clinical', 'sign')}
+          pdfBase="/klinis/dokumen"
+        />
+      )}
       <ApiResumeClient view={view} canWrite={can(session, 'clinical', 'write')} pdfBase="/klinis/dokumen" />
     </div>
   );

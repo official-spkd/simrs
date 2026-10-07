@@ -276,6 +276,7 @@ beforeAll(async () => {
     ['analis', A, 'analis_lab', undefined],
     ['daftar', A, 'petugas_pendaftaran', undefined],
     ['dokterB', B, 'dokter', 'MELATI'],
+    ['dokterSemua', A, 'dokter', undefined],
   ] as const) {
     const unitId = unitCode
       ? (await run(t.id, (tx) => tx.unit.findFirstOrThrow({ where: { code: unitCode } }))).id
@@ -400,6 +401,19 @@ describe('resume medis rawat inap (K13)', () => {
     ]);
 
     const summaryId = final.final?.id as string;
+    // Jalan pintas TTE ditutup: endpoint dokumen generik menolak dokumen bersumber klinis (DPJP maupun dokter lain).
+    // (dokter berelasi: 409; dokter tanpa relasi: 403 ABAC lebih dulu).
+    await as('dokter').post(`/documents/${final.final?.document?.id}/signatures`).expect(409);
+    await as('dokterLain').post(`/documents/${final.final?.document?.id}/signatures`).expect(403);
+    // Unggahan generik tidak boleh berlabel resume/persetujuan (jenis itu hanya terbit dari alur klinis).
+    await request(app.getHttpServer())
+      .post(`/api/v1/patients/${e.patientId}/documents`)
+      .set(bearer(tok.dokter as Tokens))
+      .set('content-type', 'application/octet-stream')
+      .set('x-document-kind', 'resume')
+      .set('x-document-title', 'Resume palsu')
+      .send(Buffer.from('%PDF-1.4\n%uji\n'))
+      .expect(422);
     const row = await run(A.id, (tx) =>
       tx.dischargeSummary.findUniqueOrThrow({
         where: { id: summaryId },
@@ -480,6 +494,88 @@ describe('resume medis rawat inap (K13)', () => {
         }),
       ),
     ).toBeGreaterThan(0);
+  });
+
+  it('TTE gagal: resume tidak dihitung gerbang; tanda tangan ulang beralasan = versi 2 terkunci; surat kematian juga', async () => {
+    const e = await encounter('IMP');
+    await sources(e.encounterId);
+    await as('dokter').post('/discharge/summaries', { encounterId: e.encounterId }).expect(201);
+    await as('dokter').put(`/discharge/summaries/${e.encounterId}/draft`, draftBody()).expect(200);
+    await as('dokter')
+      .post(`/discharge/summaries/${e.encounterId}/reconciliation`, { confirmed: true })
+      .expect(200);
+    const v1 = dischargeSummaryViewSchema.parse(
+      (
+        await as('dokter')
+          .post(`/discharge/summaries/${e.encounterId}/finalize`, { revision: baru })
+          .expect(201)
+      ).body,
+    );
+    const owner = createPrismaClient({ connectionString: testDbUrls().migrator, max: 1 });
+    const failTte = (documentId: string) =>
+      withTenant(owner, A.id, (tx) =>
+        tx.documentSignature.updateMany({ where: { documentId }, data: { status: 'failed' } }),
+      );
+    try {
+      await failTte(v1.final?.document?.id as string);
+      const failed = dischargeSummaryViewSchema.parse(
+        (await as('dokter').get(`/encounters/${e.encounterId}/discharge-summary`).expect(200)).body,
+      );
+      expect(failed.final).toMatchObject({ locked: false, document: { signatureStatus: 'failed' } });
+      // Gerbang pulang tidak menghitung resume dengan TTE gagal.
+      const blocked = await as('dokter').post(`/encounters/${e.encounterId}/close`, {
+        disposition: 'pulang',
+      });
+      expect(blocked.status).toBe(409);
+      // Tanda tangan ulang tanpa alasan ditolak; dengan alasan → versi 2 (isian DPJP dari versi 1, tanpa draf).
+      await as('dokter')
+        .post(`/discharge/summaries/${e.encounterId}/finalize`, {
+          revision: { kind: 'koreksi', supersedesId: v1.final?.id, correctionReason: 'ulang' },
+        })
+        .expect(400);
+      const v2 = dischargeSummaryViewSchema.parse(
+        (
+          await as('dokter')
+            .post(`/discharge/summaries/${e.encounterId}/finalize`, {
+              revision: {
+                kind: 'koreksi',
+                supersedesId: v1.final?.id,
+                correctionReason: 'TTE ditolak penyelenggara, tanda tangan ulang',
+              },
+            })
+            .expect(201)
+        ).body,
+      );
+      expect(v2.final).toMatchObject({ version: 2, locked: true, rootId: v1.final?.rootId });
+      expect(v2.summary.sections.find((x) => x.id === 'instruksi')?.body).toContain('Kembali ke IGD');
+      expect(v2.reconciliation).not.toBeNull();
+
+      // Surat kematian: TTE gagal → koreksi beralasan → versi 2.
+      const cert = await as('dokter')
+        .post(`/encounters/${e.encounterId}/death-certificate`, {
+          revision: baru,
+          diedAt: minutesAgo(10),
+          cause: { code: 'J18.9', display: 'Pneumonia' },
+          note: null,
+        })
+        .expect(201);
+      await failTte(cert.body.document.id);
+      const again = await as('dokter')
+        .post(`/encounters/${e.encounterId}/death-certificate`, {
+          revision: {
+            kind: 'koreksi',
+            supersedesId: cert.body.id,
+            correctionReason: 'TTE surat kematian gagal, tanda tangan ulang',
+          },
+          diedAt: minutesAgo(10),
+          cause: { code: 'J18.9', display: 'Pneumonia' },
+          note: null,
+        })
+        .expect(201);
+      expect(deathCertificateSchema.parse(again.body)).toMatchObject({ version: 2, locked: true });
+    } finally {
+      await owner.$disconnect();
+    }
   });
 
   it('izin + isolasi: perawat tidak bisa TTE; dokter tenant lain 404; IGD tanpa resume', async () => {
@@ -718,6 +814,97 @@ describe('layar poli mode api (W1)', () => {
     await as('perawat').get(`/encounters/${e.encounterId}/poli-visit`).expect(403);
     const imp = await encounter('IMP');
     await as('dokter').get(`/encounters/${imp.encounterId}/poli-visit`).expect(422);
+  });
+
+  it('worklist bawaan dokter: gabungan antrean unit + pasien yang DPJP-nya saya (semua unit, lintas poli); pemilih sesi', async () => {
+    // Praktisi terikat akun: dokter "Semua unit" dan dokter Poli Dalam yang juga praktik di Poli Jantung hari ini.
+    const today = new Date().toISOString().slice(0, 10);
+    const ids = await run(A.id, async (tx) => {
+      const jt = await tx.queueService.findFirstOrThrow({ where: { code: 'JT' } });
+      const pd = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
+      const mk = async (userId: string) => {
+        const id = newId();
+        await tx.practitioner.create({
+          data: { id, tenantId: A.id, name: `dr. Uji ${id.slice(-5)}`, userId },
+        });
+        return id;
+      };
+      const semua = await mk(users.dokterSemua as string);
+      const poli = await mk(users.dokterPoli as string);
+      await tx.scheduleSession.create({
+        data: {
+          id: newId(),
+          tenantId: A.id,
+          practitionerId: poli,
+          serviceId: jt.id,
+          sessionDate: new Date(`${today}T00:00:00.000Z`),
+          startTime: new Date('1970-01-01T13:00:00Z'),
+          endTime: new Date('1970-01-01T16:00:00Z'),
+          quotaJkn: 5,
+          quotaNonJkn: 5,
+        },
+      });
+      return { semua, poli, jt: jt.id, pd: pd.id };
+    });
+    const visit = async (practitionerId: string, serviceId: string, unitCode: string, team: string) => {
+      const p = await createTestPatient(A.id, { name: `Pasien Poli ${newId().slice(-4)} Fiktif` });
+      return run(A.id, async (tx) => {
+        const unit = await tx.unit.findFirstOrThrow({ where: { code: unitCode } });
+        const enc = await tx.encounter.create({
+          data: {
+            id: newId(),
+            tenantId: A.id,
+            number: `RJ-W-${newId().slice(-10)}`,
+            patientId: p.id,
+            encounterClass: 'AMB',
+            status: 'arrived',
+            unitId: unit.id,
+            serviceId,
+            practitionerId,
+            arrivedAt: new Date(),
+          },
+        });
+        // Relasi akses DPJP dari pendaftaran (registration.grantDpjpAccess).
+        await tx.accessRelationship.create({
+          data: {
+            id: newId(),
+            tenantId: A.id,
+            userId: users[team] as string,
+            patientId: p.id,
+            kind: 'dpjp',
+            validFrom: new Date(Date.now() - 60_000),
+            sourceType: 'encounter',
+            sourceId: enc.id,
+          },
+        });
+        return enc.id;
+      });
+    };
+    const semuaEnc = await visit(ids.semua, ids.pd, 'POLI-DALAM', 'dokterSemua');
+    const jtEnc = await visit(ids.poli, ids.jt, 'POLI-JANTUNG', 'dokterPoli');
+
+    // Dokter semua unit: pasiennya tampil walau tanpa unit penugasan.
+    const semua = poliWorklistApiSchema.parse(
+      (await as('dokterSemua').get('/poli/worklist').expect(200)).body,
+    );
+    expect(semua.items.map((i) => i.encounterId)).toContain(semuaEnc);
+    expect(semua.items.map((i) => i.encounterId)).not.toContain(jtEnc);
+    await as('dokterSemua').get(`/encounters/${semuaEnc}/poli-visit`).expect(200);
+
+    // Dokter Poli Dalam yang juga praktik di Poli Jantung: bawaan = gabungan; pilihan sesi; filter per layanan.
+    const gabung = poliWorklistApiSchema.parse(
+      (await as('dokterPoli').get('/poli/worklist').expect(200)).body,
+    );
+    expect(gabung.items.map((i) => i.encounterId)).toContain(jtEnc);
+    expect(gabung.options.map((o) => o.serviceId)).toEqual(expect.arrayContaining([ids.pd, ids.jt]));
+    const hanyaJt = poliWorklistApiSchema.parse(
+      (await as('dokterPoli').get(`/poli/worklist?serviceId=${ids.jt}`).expect(200)).body,
+    );
+    expect(hanyaJt.items.map((i) => i.encounterId)).toEqual([jtEnc]);
+    expect(hanyaJt.serviceId).toBe(ids.jt);
+    // Pasien poli lain yang bukan pasien saya tidak bocor ke dokter lain.
+    const lain = poliWorklistApiSchema.parse((await as('dokter').get('/poli/worklist').expect(200)).body);
+    expect(lain.items.map((i) => i.encounterId)).not.toContain(jtEnc);
   });
 
   it('CPPT residen: menunggu co-sign sampai DPJP co-sign (atestasi), lalu final', async () => {

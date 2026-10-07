@@ -84,6 +84,15 @@ export class DocumentsController {
     if (!meta.success) {
       throw new AppError('VALIDATION_FAILED', meta.error.issues[0]?.message ?? 'Metadata tidak valid', 400);
     }
+    // Resume dan persetujuan hanya terbit dari alur klinis (PDF server + TTE; gambar tanda tangan persetujuan lewat
+    // modul consent), tidak lewat unggahan generik yang kemudian bisa dimintakan TTE.
+    if (meta.data.kind === 'resume' || meta.data.kind === 'consent') {
+      throw new AppError(
+        'VALIDATION_FAILED',
+        'Resume dan persetujuan tindakan diterbitkan dari layarnya, tidak diunggah',
+        422,
+      );
+    }
     const fileName = header(req, 'x-document-filename') || meta.data.title;
     return this.docs.upload(patientId, { ...meta.data, fileName }, req.body);
   }

@@ -1,5 +1,6 @@
 import { formatJam, formatTanggal } from '@simrs/shared';
-import { Alert, Chip } from '@simrs/ui';
+import { Alert, Chip, cx } from '@simrs/ui';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { screenById, screenOpen } from '@/lib/screens';
 import { ApiError } from '@/lib/server/api-core';
@@ -24,10 +25,18 @@ function LoadError({ title, err }: { title: string; err: unknown }) {
  * panggil antrean (task 4/5). `?pasien=<id>` memilih pasien di antrean hari ini; pasien yang tidak ada di antrean →
  * 404 (cegah salah pasien). Izin ditegakkan ulang API.
  */
-export async function ApiPoli({ session, pasien }: { session: SessionView; pasien: string | null }) {
+export async function ApiPoli({
+  session,
+  pasien,
+  poli,
+}: {
+  session: SessionView;
+  pasien: string | null;
+  poli: string | null;
+}) {
   let worklist;
   try {
-    worklist = await getPoliWorklistApi();
+    worklist = await getPoliWorklistApi(poli);
   } catch (err) {
     return <LoadError title="Antrean poli tidak bisa dimuat" err={err} />;
   }
@@ -72,6 +81,30 @@ export async function ApiPoli({ session, pasien }: { session: SessionView; pasie
           </Chip>
         </span>
       </header>
+      {worklist.options.length > 1 && (
+        <nav aria-label="Pilih poli atau sesi" className="flex flex-wrap gap-2">
+          {[{ serviceId: null as string | null, label: 'Semua pasien saya' }, ...worklist.options].map(
+            (o) => {
+              const on = (o.serviceId ?? null) === poli;
+              return (
+                <Link
+                  key={o.serviceId ?? 'semua'}
+                  href={o.serviceId ? `/klinis/poli?poli=${o.serviceId}` : '/klinis/poli'}
+                  aria-current={on ? 'page' : undefined}
+                  className={cx(
+                    'inline-flex min-h-11 items-center rounded-control border px-3 text-small font-semibold no-underline',
+                    on
+                      ? 'border-brand-600 bg-brand-100 text-brand-800'
+                      : 'border-line-strong bg-white/90 text-ink-900 hover:bg-brand-50/60',
+                  )}
+                >
+                  {o.label}
+                </Link>
+              );
+            },
+          )}
+        </nav>
+      )}
       {visit && selected ? (
         <ApiPoliClient
           key={selected.encounterId}
@@ -83,6 +116,7 @@ export async function ApiPoli({ session, pasien }: { session: SessionView; pasie
           rujukHref={routeOf('rujukan')}
           resumeHref={resume ? `${resume}/${selected.encounterId}` : null}
           canCall={can(session, 'queue', 'call') && Boolean(worklist.serviceId)}
+          query={poli ? `&poli=${poli}` : ''}
         />
       ) : (
         <Alert level="info" title="Antrean kosong">

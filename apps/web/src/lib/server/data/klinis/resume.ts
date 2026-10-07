@@ -1,5 +1,7 @@
 import 'server-only';
 import {
+  type DeathCertificate,
+  deathCertificateSchema,
   type DischargeSummary,
   dischargeSummarySchema,
   type DischargeSummaryView,
@@ -8,6 +10,7 @@ import {
   worklistSchema,
 } from '@simrs/shared';
 import { api } from '../../api';
+import { ApiError } from '../../api-core';
 import { ENCOUNTER_ID } from '../../../demo/fixtures/ids';
 import { patientByEncounterId } from '../../../demo/fixtures/pasien';
 import { demoEndangResume, demoInpatients } from '../../../demo/fixtures/rawat-inap';
@@ -87,4 +90,16 @@ export function getDischargeSummaryApi(encounterId: string): Promise<DischargeSu
 /** Mode api · pasien yang saya rawat sebagai DPJP/rawat bersama (pintu daftar resume). */
 export function getResumeWorklistApi(): Promise<Worklist> {
   return api('/api/v1/worklist?view=dpjp', { schema: worklistSchema });
+}
+
+/** Mode api · surat keterangan kematian kunjungan (keputusan K-1); null bila belum dibuat. */
+export async function getDeathCertificateApi(encounterId: string): Promise<DeathCertificate | null> {
+  try {
+    return await api(`/api/v1/encounters/${encodeURIComponent(encounterId)}/death-certificate`, {
+      schema: deathCertificateSchema,
+    });
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
 }

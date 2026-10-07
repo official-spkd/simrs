@@ -2,7 +2,7 @@
 
 Halaman ini memetakan **di mana kode tiap fitur berada** dan **seberapa matang** tiap bagian. Bacalah setelah [Cara kerja backend](./07-cara-kerja-backend.md) (gambaran lintas modul) dan [Cara kode bekerja](./02-cara-kerja-kode.md), yang menjelaskan mekanismenya (permintaan API, RLS, outbox, sesi web). Penjelasan per layar ada di halaman fitur, mulai dari [Fitur platform](./10-fitur-platform.md).
 
-> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.8 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
+> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.8 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 48 demo, 31 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
 
 ## Gambaran besar
 
@@ -31,11 +31,11 @@ Setiap layar fase 2–10 tinggal di **rute finalnya**. Sumber datanya ditentukan
 
 ### Tiga jenis layar
 
-| Jenis          | Gerbang di `page.tsx`                                | Contoh                                                                                                                 | Mode api                                    |
-| -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Hibrida (11)   | `requireScreen(id)` (`lib/server/screen-guard.ts`)   | Pendaftaran, Jadwal, Anjungan, Display, 7 layar klinis pertama (poli, CPOE, IGD, bed, rawat inap, resume, persetujuan) | Sesi + izin; tanpa izin → "Akses ditolak"   |
-| Demo saja (68) | `requireDemoScreen(id)` (`lib/server/demo-guard.ts`) | Semua layar fase 4–10, 10 layar RME FE2, 5 layar platform FE1, Rujukan, Info publik                                    | 404, menu redup                             |
-| Api saja (1)   | `requireScreen(id)` + `apiOnly: true` di registri    | Kendali antrean (`/antrean`)                                                                                           | Terbuka sesuai izin; di mode presentasi 404 |
+| Jenis          | Gerbang di `page.tsx`                                | Contoh                                                                                                                                               | Mode api                                    |
+| -------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Hibrida (31)   | `requireScreen(id)` (`lib/server/screen-guard.ts`)   | Pendaftaran, Jadwal, Anjungan, Display; 17 layar klinis fase 3 (semua tersambung API); 10 layar penunjang fase 4 ("Belum tersambung" sampai 4.2–4.9) | Sesi + izin; tanpa izin → "Akses ditolak"   |
+| Demo saja (48) | `requireDemoScreen(id)` (`lib/server/demo-guard.ts`) | Semua layar fase 5–10, 5 layar platform FE1, Rujukan, Info publik                                                                                    | 404, menu redup                             |
+| Api saja (1)   | `requireScreen(id)` + `apiOnly: true` di registri    | Kendali antrean (`/antrean`)                                                                                                                         | Terbuka sesuai izin; di mode presentasi 404 |
 
 Layar fase 1 (Akses, Audit, MPI, Formulir, Notifikasi, PIN) bukan bagian registri: halamannya langsung memanggil `requireSession()` dan API.
 
@@ -325,7 +325,7 @@ Fondasi klinis bersama ada di `apps/api/src/infra/clinical/` (`ClinicalRecordSer
 
 ### Lapisan berikutnya (fase 4–9)
 
-Belum ada modul API. Fase 4 sudah punya kontrak bersama (4.0a) di `packages/shared`: izin + matriks bawaan (termasuk peran `ahli_gizi`), event domain, `SUPPORT_ERRORS`, `schemas/penunjang-api.ts`, `schemas/kamar-operasi.ts`, aturan murni `rules/*`, dan parser HL7 ORU `integrations/lis/hl7.ts` (PID/NK1 diredaksi sebelum disimpan, perangkat ber-HMAC). Skema DB fase 4 (4.0b) juga sudah ada: 59 tabel di `packages/db/prisma/schema/{support-master,lab,radiology,pharmacy,surgery,nutrition-blood}.prisma`, migrasi `20261008100000_support_services`, seed `seed-support.ts`; gerbang keselamatannya di database (ADR-0034–0037). Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
+Fase 4 baru punya satu modul API: `stock` (4.6a, `/api/v1/stock`, layar Depo mode api, ADR-0036). Fase 4 juga sudah punya kontrak bersama (4.0a) di `packages/shared`: izin + matriks bawaan (termasuk peran `ahli_gizi`), event domain, `SUPPORT_ERRORS`, `schemas/penunjang-api.ts`, `schemas/kamar-operasi.ts`, aturan murni `rules/*`, dan parser HL7 ORU `integrations/lis/hl7.ts` (PID/NK1 diredaksi sebelum disimpan, perangkat ber-HMAC). Skema DB fase 4 (4.0b) juga sudah ada: 59 tabel di `packages/db/prisma/schema/{support-master,lab,radiology,pharmacy,surgery,nutrition-blood}.prisma`, migrasi `20261008100000_support_services`, seed `seed-support.ts`; gerbang keselamatannya di database (ADR-0034–0037). Layarnya sudah ada di mode presentasi; nama modul yang direncanakan ada di `docs/01-arsitektur.md` §2:
 
 | Lapisan     | Modul rencana                                                                                                                                                                  | Layar mode presentasi                                                                                            |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |

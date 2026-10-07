@@ -73,38 +73,72 @@ export class PoliService {
     private readonly authority: DischargeAuthority,
   ) {}
 
+  /**
+   * Antrean poli hari ini. Tanpa `serviceId` (bawaan dokter): gabungan antrean layanan poli unit penugasan + kunjungan
+   * rawat jalan hari ini yang DPJP-nya praktisi terikat akun saya (dokter "Semua unit" dan dokter yang berpraktik di
+   * poli lain tetap melihat pasiennya). Dengan `serviceId`: satu layanan saja. `options` = pilihan poli/sesi untuk
+   * layar: layanan poli unit + sesi praktik saya hari ini.
+   */
   async worklist(serviceId?: string): Promise<PoliWorklistApi> {
     const tx = this.db.tx();
     const actor = this.db.actor();
-    const service = serviceId
-      ? await tx.queueService.findUnique({ where: { id: serviceId }, include: { unit: true } })
-      : actor.unitId
-        ? await tx.queueService.findFirst({
+    const today = isoDateJakarta();
+    const me = this.db.actorUserId();
+    const [unitServices, mySessions, meRow] = await Promise.all([
+      actor.unitId
+        ? tx.queueService.findMany({
             where: { kind: 'poli', unitId: actor.unitId, active: true },
             orderBy: { code: 'asc' },
             include: { unit: true },
           })
-        : null;
-    if (serviceId && !service) throw new AppError('NOT_FOUND', 'Layanan poli tidak ditemukan', 404);
+        : Promise.resolve([]),
+      me
+        ? tx.scheduleSession.findMany({
+            where: {
+              sessionDate: new Date(`${today}T00:00:00.000Z`),
+              service: { kind: 'poli', active: true },
+              // Praktik sendiri, atau sesi dokter cuti yang saya gantikan.
+              OR: [{ practitioner: { userId: me }, kind: { not: 'cuti' } }, { substitute: { userId: me } }],
+            },
+            orderBy: [{ startTime: 'asc' }, { id: 'asc' }],
+            select: { startTime: true, endTime: true, service: { include: { unit: true } } },
+          })
+        : Promise.resolve([]),
+      me ? tx.user.findUnique({ where: { id: me }, select: { displayName: true } }) : Promise.resolve(null),
+    ]);
+    const hhmm = (d: Date) => d.toISOString().slice(11, 16).replace(':', '.');
+    const options: PoliWorklistApi['options'] = [];
+    for (const svc of unitServices) {
+      options.push({ serviceId: svc.id, label: `${svc.name} · unit Anda` });
+    }
+    for (const s of mySessions) {
+      if (options.some((o) => o.serviceId === s.service.id)) continue;
+      options.push({
+        serviceId: s.service.id,
+        label: `${s.service.name} · praktik ${hhmm(s.startTime)}–${hhmm(s.endTime)}`,
+      });
+    }
+    const chosen = serviceId
+      ? await tx.queueService.findUnique({ where: { id: serviceId }, include: { unit: true } })
+      : null;
+    if (serviceId && (!chosen || chosen.kind !== 'poli')) {
+      throw new AppError('NOT_FOUND', 'Layanan poli tidak ditemukan', 404);
+    }
+    const head = chosen ?? unitServices[0] ?? mySessions[0]?.service ?? null;
     const unit =
-      service?.unit ?? (actor.unitId ? await tx.unit.findUnique({ where: { id: actor.unitId } }) : null);
-    const today = isoDateJakarta();
-    const me = this.db.actorUserId();
-    const doctorName = me
-      ? ((await tx.user.findUnique({ where: { id: me }, select: { displayName: true } }))?.displayName ?? '-')
-      : '-';
+      head?.unit ?? (actor.unitId ? await tx.unit.findUnique({ where: { id: actor.unitId } }) : null);
     const base: PoliWorklistApi = {
       poli: {
-        code: service?.code ?? unit?.code ?? '-',
-        name: service?.name ?? unit?.name ?? 'Poli',
+        code: head?.code ?? unit?.code ?? '-',
+        name: chosen ? chosen.name : head && options.length <= 1 ? head.name : 'Poli saya',
         room: unit?.name ?? '-',
       },
-      doctor: doctorName,
+      doctor: meRow?.displayName ?? '-',
       date: today,
-      serviceId: service?.id ?? null,
+      serviceId: head?.id ?? null,
+      options,
       items: [],
     };
-    if (!service && !unit) return base;
 
     const scope = this.db.permissionScope();
     const scoped = this.access.scopedActor();
@@ -114,9 +148,16 @@ export class PoliService {
         : scope === 'unit' && scoped.unitId
           ? Prisma.sql`AND (e.unit_id = ${scoped.unitId}::uuid OR ${patientAccessSql(scoped, new Date())})`
           : Prisma.sql`AND ${patientAccessSql(scoped, new Date())}`;
-    const where = service
-      ? Prisma.sql`e.service_id = ${service.id}::uuid`
-      : Prisma.sql`e.unit_id = ${(unit as { id: string }).id}::uuid`;
+    const unitServiceIds = unitServices.map((s) => s.id);
+    const where = chosen
+      ? Prisma.sql`e.service_id = ${chosen.id}::uuid`
+      : Prisma.sql`(${
+          unitServiceIds.length > 0
+            ? Prisma.sql`e.service_id = ANY(${unitServiceIds}::uuid[])`
+            : actor.unitId
+              ? Prisma.sql`e.unit_id = ${actor.unitId}::uuid`
+              : Prisma.sql`FALSE`
+        } OR EXISTS (SELECT 1 FROM practitioners pr WHERE pr.id = e.practitioner_id AND pr.user_id = ${me}::uuid))`;
     const rows = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT e.id::text FROM encounters e JOIN patients p ON p.id = e.patient_id
       WHERE e.class = 'AMB' AND ${where} AND e.status IN ('arrived', 'in_progress', 'finished')
@@ -183,12 +224,15 @@ export class PoliService {
       };
     });
     items.sort((a, b) => a.sortKey - b.sortKey);
-    this.db.audit({
-      action: 'read',
-      resourceType: 'poli_worklist',
-      resourceId: service?.id ?? unit?.id ?? null,
-      details: { patients: items.length },
-    });
+    // Daftar berisi PHI: audit per pasien yang tampil (docs/05 §5), seperti census/worklist/papan IGD.
+    for (const i of items) {
+      this.db.audit({
+        action: 'read',
+        resourceType: 'poli_worklist',
+        resourceId: chosen?.id ?? head?.id ?? unit?.id ?? null,
+        patientId: i.patientId,
+      });
+    }
     return { ...base, items: items.map(({ sortKey: _s, ...i }) => i) };
   }
 

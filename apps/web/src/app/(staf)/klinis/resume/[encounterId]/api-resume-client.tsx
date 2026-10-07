@@ -16,6 +16,7 @@ import { Alert, Button, cx, Field } from '@simrs/ui';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
 import {
+  addDiagnosisAction,
   addendumAction,
   createResumeDraftAction,
   finalizeResumeAction,
@@ -23,6 +24,7 @@ import {
   type ResumeActionResult,
   saveResumeDraftAction,
 } from './actions-api';
+import { ICD10_OPTIONS } from '@/lib/klinis';
 import { ResumeSections } from './resume-sections';
 
 const CHANGE_LABEL: Record<DischargeMedicationLine['change'], string> = {
@@ -88,6 +90,8 @@ export function ApiResumeClient({
     change: 'baru' as DischargeMedicationLine['change'],
   });
   const [addendum, setAddendum] = useState('');
+  const [resignReason, setResignReason] = useState('');
+  const [dxCode, setDxCode] = useState('');
   const set = (patch: Partial<DischargeDraftInput>) => {
     setForm((f) => ({ ...f, ...patch }));
     setDirty(true);
@@ -167,6 +171,53 @@ export function ApiResumeClient({
           </div>
         )}
         <ResumeSections summary={s} los={los} reconAt={reconAt} reconControls={reconControls} />
+        {canWrite && !final && view.state !== 'belum' && (
+          <section
+            aria-labelledby={`${ids}-dx`}
+            className="flex flex-col gap-2 rounded-card border border-white/95 bg-white/90 px-4 py-3 shadow-card"
+          >
+            <h2 id={`${ids}-dx`} className="m-0 text-body font-semibold">
+              Tambah diagnosis kunjungan (ICD-10)
+            </h2>
+            <span className="text-caption text-ink-500">
+              Diagnosis tersimpan sebagai entri klinis berversi dan langsung masuk bagian "Diagnosis dan
+              prosedur".
+              {s.codes.some((c) => c.primary)
+                ? ' Diagnosis berikutnya dicatat sebagai sekunder.'
+                : ' Yang pertama menjadi diagnosis utama.'}
+            </span>
+            <span className="flex flex-wrap items-end gap-2">
+              <label htmlFor={`${ids}-dxcode`} className="flex flex-col gap-1 text-small font-semibold">
+                Kode ICD-10
+                <select
+                  id={`${ids}-dxcode`}
+                  value={dxCode}
+                  onChange={(e) => setDxCode(e.target.value)}
+                  className="h-11 max-w-full rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-small"
+                >
+                  <option value="">Pilih kode ICD-10…</option>
+                  {ICD10_OPTIONS.filter((o) => !s.codes.some((c) => c.code === o.code)).map((o) => (
+                    <option key={o.code} value={o.code}>
+                      {o.code} · {o.display}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                variant="secondary"
+                disabled={pending || !dxCode}
+                onClick={() =>
+                  run(
+                    () => addDiagnosisAction(view.encounterId, dxCode, !s.codes.some((c) => c.primary)),
+                    () => setDxCode(''),
+                  )
+                }
+              >
+                Catat diagnosis
+              </Button>
+            </span>
+          </section>
+        )}
         {editable && (
           <section
             aria-labelledby={`${ids}-dpjp`}
@@ -498,6 +549,41 @@ export function ApiResumeClient({
               >
                 Cetak PDF resume
               </a>
+            )}
+            {final.document?.signatureStatus === 'failed' && view.canSign && (
+              <div className="flex flex-col gap-1.5 border-t border-zamrud-200 pt-2">
+                <label htmlFor={`${ids}-resign`} className="text-small font-semibold text-danger">
+                  TTE gagal · alasan tanda tangan ulang
+                </label>
+                <textarea
+                  id={`${ids}-resign`}
+                  rows={2}
+                  maxLength={500}
+                  value={resignReason}
+                  onChange={(e) => setResignReason(e.target.value)}
+                  placeholder="Mis. TTE ditolak penyelenggara, ditandatangani ulang"
+                  className={textArea}
+                />
+                <span>
+                  <Button
+                    variant="primary"
+                    disabled={pending || resignReason.trim().length < 10}
+                    onClick={() =>
+                      run(
+                        () =>
+                          finalizeResumeAction(view.encounterId, {
+                            kind: 'koreksi',
+                            supersedesId: final.id,
+                            correctionReason: resignReason.trim(),
+                          }),
+                        () => setResignReason(''),
+                      )
+                    }
+                  >
+                    Tanda tangani ulang (TTE)
+                  </Button>
+                </span>
+              </div>
             )}
           </div>
         ) : (

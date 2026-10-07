@@ -29,7 +29,19 @@ untuk analis lab atau apoteker yang tidak pernah berada di bangsal pasien.
    dengan mekanisme fase 3 (ADR-0029). Kewenangan Sp.PK spesifik menunggu B04.
 5. **Penomoran** lab per hari (`day`) lewat layanan penomoran P08; **nilai lab** `numeric` di DB, angka di API.
 6. **Aturan gerbang** penunjang di `packages/shared/src/rules/*` (lab, radiologi, farmasi, OK, darah): satu sumber
-   untuk API, web, dan jalur demo.
+   untuk API, web, dan jalur demo; modul web lama (`penunjang*.ts`, `btn-ok.ts`) hanya me-re-export.
+7. **Letak kontrak (4.0a).** Kontrak API penunjang di `schemas/penunjang-api.ts`; kontrak mode presentasi
+   `schemas/penunjang.ts` tidak diubah (jalur demo dibekukan). Skema kamar operasi pindah ke `schemas/kamar-operasi.ts`;
+   `btn.ts` me-re-export agar impor lama tetap jalan.
+8. **Event domain penunjang** (25 event, `domain-events.ts`) bermuatan datar: ID + token enum, **tanpa kode baku**
+   (LOINC/KFA/ICD). Pendengar membaca kode dari baris sumber lewat RLS, sesuai penjaga PHI event fase 2.
+9. **Panel lab** dipetakan lewat `lab_test_definitions.panel_code` (`DL`, `KIMIA`, `ELEKTROLIT`, `LIPID`); orderable
+   fase 3 belum punya kolom panel.
+10. **S10 diagnostik lain** memakai `diagnostic_reports` fase 3 (muara hasil, keputusan fase 3 no. 12); kolom tambahan
+    (jenis S10, isian P07) bila perlu ditambah di 4.8.
+
+_Sumber butir 7–10 dan butir 3 (`ahli_gizi`, bukan `nutrisionis` seperti rencana awal no. 21; kode yang sama dengan PPA
+CPPT fase 3): laporan A5 kepada orkestrator, 7 Okt 2026._
 
 ## Konsekuensi
 

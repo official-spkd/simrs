@@ -64,7 +64,7 @@ export function SoapForm({
   /** Posisi dokter (DPJP) yang boleh co-sign catatan residen. */
   canCosign: boolean;
   /** Mode api: nilai awal rencana (P), tindak lanjut/kontrol, kondisi pulang; null = mode presentasi. */
-  apiFields?: { plan: string; followUp: string; condition: string } | null;
+  apiFields?: { plan: string; followUp: string; condition: string; disposition: string } | null;
   /** Mode api: CPPT sudah final tetapi kunjungan belum ditutup (mis. resume belum lengkap): tombol jadi "Selesaikan kunjungan". */
   finishedLabel?: string | null;
 }) {
@@ -84,7 +84,8 @@ export function SoapForm({
   const { pending } = ops;
   const [plan, setPlan] = useState(apiFields?.plan ?? '');
   const [followUp, setFollowUp] = useState(apiFields?.followUp ?? '');
-  const [condition, setCondition] = useState(apiFields?.condition || 'Stabil');
+  const [condition, setCondition] = useState(apiFields?.condition ?? '');
+  const [disposition, setDisposition] = useState(apiFields?.disposition ?? '');
 
   const signed = Boolean(signedAt);
   const editable = canWrite && !signed && !cosignAt;
@@ -98,7 +99,7 @@ export function SoapForm({
     subjective: s,
     objective: o,
     diagnosisCodes: dx.map((d) => d.code),
-    ...(apiFields ? { plan, followUp, condition } : {}),
+    ...(apiFields ? { plan, followUp, condition, disposition } : {}),
   });
   const touch = () => setDirty(true);
 
@@ -141,7 +142,7 @@ export function SoapForm({
     if (!apiFields || !dirty || !editable) return;
     const t = setTimeout(() => autosaveRef.current(), 4000);
     return () => clearTimeout(t);
-  }, [apiFields, dirty, editable, s, o, dx, plan, followUp, condition]);
+  }, [apiFields, dirty, editable, s, o, dx, plan, followUp, condition, disposition]);
 
   let draftLabel = 'Belum ada draf';
   let draftTone = 'bg-line-strong';
@@ -158,7 +159,9 @@ export function SoapForm({
     ? null
     : dx.length === 0
       ? 'Isi minimal satu diagnosis (A · Asesmen ICD-10) agar kunjungan bisa diselesaikan.'
-      : null;
+      : apiFields && !resident && (!condition || !disposition)
+        ? 'Pilih kondisi pulang dan cara pulang: keduanya masuk resume rawat jalan ber-TTE.'
+        : null;
   const dxWhy =
     !dxTask || dxTask.status === 'selesai'
       ? null
@@ -245,7 +248,7 @@ export function SoapForm({
       />
       <SoapPlan plan={e.plan} cpoeHref={cpoeHref} tasks={tasks} canOrder={canOrder} />
       {apiFields && (
-        <div className="grid gap-3.5 md:grid-cols-[2fr_2fr_1fr]">
+        <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-[2fr_2fr_1fr_1fr]">
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${ids}-p`} className="text-small font-semibold">
               Catatan rencana (P)
@@ -294,6 +297,7 @@ export function SoapForm({
               }}
               className="h-11 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-small"
             >
+              <option value="">Pilih kondisi…</option>
               {['Stabil', 'Membaik', 'Sembuh', 'Belum membaik'].map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -301,7 +305,27 @@ export function SoapForm({
               ))}
             </select>
           </div>
-          <span className="text-caption text-ink-500 md:col-span-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={`${ids}-cara`} className="text-small font-semibold">
+              Cara pulang
+            </label>
+            <select
+              id={`${ids}-cara`}
+              value={disposition}
+              disabled={!editable && !finishedLabel}
+              onChange={(ev) => {
+                setDisposition(ev.target.value);
+                touch();
+              }}
+              className="h-11 rounded-control border border-line-strong bg-white px-2.5 font-[inherit] text-small"
+            >
+              <option value="">Pilih cara pulang…</option>
+              <option value="pulang">Pulang atas persetujuan dokter</option>
+              <option value="pulang_paksa">Pulang atas permintaan sendiri</option>
+              <option value="rujuk">Dirujuk (butuh surat rujukan F07)</option>
+            </select>
+          </div>
+          <span className="text-caption text-ink-500 md:col-span-2 xl:col-span-4">
             &quot;Tanda tangani dan selesai&quot; menyimpan CPPT final, diagnosis ICD-10, resume rawat jalan
             ber-TTE, lalu menutup kunjungan (antrean BPJS task 5).
           </span>
@@ -370,7 +394,7 @@ export function SoapForm({
             <Button
               variant="primary"
               type="button"
-              disabled={signed || Boolean(cosignAt) || pending || dx.length === 0}
+              disabled={signed || Boolean(cosignAt) || pending || Boolean(finishWhy)}
               aria-describedby={finishWhy ? `${ids}-why` : undefined}
               onClick={sign}
             >
