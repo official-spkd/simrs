@@ -356,10 +356,10 @@ job eskalasi P11 sekali per level, dan `GET metrics` untuk peninjau mutu. Di mod
 | Rute     | `/penunjang/depo`                                                                                                                                                                                                         |
 | Pemakai  | apoteker                                                                                                                                                                                                                  |
 | Komponen | S05 dispensing dan depo                                                                                                                                                                                                   |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.6a belum dibangun                                                                                                                                                       |
+| Status   | demo (mode presentasi) dan api (4.6a): saldo per batch + ED, penerimaan, mutasi dua langkah, penyesuaian, kartu stok; pengeluaran ke pasien menyusul 4.6b                                                                 |
 | Mockup   | tidak ada (gaya mengikuti layar Farmasi dan Logistik)                                                                                                                                                                     |
 | Kode web | `apps/web/src/app/(staf)/penunjang/depo/` · data `apps/web/src/lib/server/data/penunjang/depo.ts` (`getDepoData`) · aturan `apps/web/src/lib/penunjang-depo.ts` · komponen `apps/web/src/components/penunjang/depo-*.tsx` |
-| Kode API | belum ada (rencana modul `dispensing` dengan `/api/v1/stock`, docs/01-arsitektur.md §2)                                                                                                                                   |
+| Kode API | `apps/api/src/modules/stock/` (`/api/v1/stock`, ADR-0036) · kontrak `packages/shared/src/schemas/stock.ts` + `penunjang-api.ts`                                                                                           |
 
 **Tujuan.** Apoteker mengelola saldo obat per depo dan per batch: mengeluarkan obat dengan urutan FEFO (first expired,
 first out), memindahkan stok antar depo dua langkah, mengarantina batch kedaluwarsa, dan menutup stok opname.
@@ -408,10 +408,27 @@ first out), memindahkan stok antar depo dua langkah, mengarantina batch kedaluwa
   keadaan lokal sesi; server belum memeriksa kecukupan saldo.
 - Kode KFA hanya dari seed; Seftriakson 1 g tertulis "KFA belum dipetakan".
 
-**Rencana backend.** Izin rencana `stock.write`. Fase 4 potongan 4.6a membangun `/api/v1/stock`: ledger append-only,
-saldo dijaga trigger + CHECK ≥ 0, FEFO otomatis dengan override beralasan, `POST transfers` dua langkah, dan
-`POST adjustments` beralasan (keputusan fase 4 #9–#10). Rencana itu menaruh stok depo sebagai kolom di layar Farmasi;
-opname penuh baru di fase 8. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
+**Mode api (4.6a).** Izin layar `stock.read`; tulisan memakai `stock.receive`, `stock.transfer`, dan `stock.adjust`
+(apoteker, lingkup unit penugasan). Kode web `api-depo.tsx`, `actions.ts`, `components/penunjang/depo-api-*.tsx`,
+logika murni `lib/depo-api.ts`.
+
+1. "Pilih depo" hanya berisi depo/gudang di unit penugasan (apoteker FARMASI: Gudang farmasi, Depo farmasi rawat jalan,
+   Depo farmasi rawat inap). Ringkasan: Batch tersedia, Batch kedaluwarsa, Segera kedaluwarsa (pengaturan
+   `stock.expiry_warning_days`), dan Mutasi masuk menunggu.
+2. **Stok & kedaluwarsa**: saldo per batch urut ED terdekat dengan status bertulisan (Kedaluwarsa, Segera kedaluwarsa,
+   Aman).
+3. **Penerimaan barang**: pemasok, nomor faktur, lalu per baris obat (cari minimal 2 huruf), nomor batch, tanggal
+   kedaluwarsa, jumlah, dan harga pokok per satuan. Batch yang sudah kedaluwarsa ditahan ("… sudah kedaluwarsa dan
+   tidak boleh diterima") dan ditolak API (`BATCH_EXPIRED`). Hasilnya nomor `TRM-YYMM-NNNN`.
+4. **Mutasi antar depo**: pilih Depo tujuan, Obat, dan Jumlah; layar menulis "Batch FEFO: …" (batch layak ED terdekat
+   dulu, batch kedaluwarsa tidak pernah ditawarkan), lalu **Kirim mutasi** (`MUT-YYMM-NNNN`). Petugas berlingkup atas
+   depo tujuan menekan **Terima MUT-…**; selama dalam perjalanan stok tidak tercatat di kedua depo.
+5. **Penyesuaian**: pilih batch, isi selisih (negatif = berkurang) dan alasan minimal 10 karakter. Batch kedaluwarsa
+   hanya bisa dikurangi (hapus buku).
+6. **Kartu stok**: ledger terbaru dulu dengan jenis, nomor dokumen, alasan, dan petugas.
+
+Saldo hanya berubah lewat ledger dan trigger database; saldo kurang ditolak `STOCK_INSUFFICIENT`. Pengeluaran ke pasien
+(FEFO dispensing, retur) menyusul potongan 4.6b; stok opname penuh di fase 8.
 
 ## Bank darah
 
