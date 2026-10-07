@@ -23,6 +23,14 @@ export const UPLOAD_ACCEPT = Object.keys(DOCUMENT_TYPES).join(',');
 
 export const MIN_VOID_REASON = 10;
 
+/** Header wajib unggahan BFF (`/klinis/dokumen/unggah`): header khusus memaksa preflight CORS (anti-CSRF). */
+export const UPLOAD_HEADER = 'x-simrs-upload';
+
+/** Rute BFF unggah dokumen pasien (Route Handler; sesi diperiksa sebelum body dibaca). */
+export function uploadPath(patientId: string): string {
+  return `/klinis/dokumen/unggah?patientId=${encodeURIComponent(patientId)}`;
+}
+
 export function kindLabel(kind: DocumentKind): string {
   return DOCUMENT_KINDS[kind];
 }

@@ -399,8 +399,8 @@ memakai satu pola berversi:
 `apps/api/src/infra/clinical/` (`ClinicalInfraModule`, global) dipakai semua modul klinis. Kerangka modul
 `worklist`, `encounter`, `triage`, `adt`, `assessment`, `cppt`, `diagnosis`, `orders`, `cds`, `consult`, `consent`,
 `nursing`, `discharge`, `summary`, `care-packages`, `results` sudah terdaftar di `AppModule`. Potongan 3.2–3.8 mengisi
-foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.5 dan 3.7 sudah terisi; `discharge`, `consult`,
-`care-packages` masih kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
+foldernya tanpa mengubah daftar modul (per 7 Okt 2026 3.2–3.7 sudah terisi; `consult` dan `care-packages` masih
+kerangka kosong). Gambaran lintas modul: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 | Bagian                              | Guna                                                                                                                                                                                                                                                              |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -584,6 +584,35 @@ order, PRN berikutnya butuh pindaian baru. Pemberian memakai kunci per order yan
 Setiap pemberian membuat SATUSEHAT `held` (MedicationAdministration); hanya dosis `given` membuat `billable_events`
 jenis `obat`. Layar Rawat inap/Asuhan keperawatan disambungkan di W4.
 
+### Resume, rekonsiliasi obat, pulang, surat kematian (K13, fase 3 potongan 3.6)
+
+Modul `discharge` (`discharge.service.ts`, `discharge-sources.ts`, `death-certificate.service.ts`,
+`encounter-close.service.ts`, `discharge-gate.service.ts`, `discharge-authority.ts`), kontrak `schemas/discharge.ts`,
+ADR-0093. Endpoint: [Fitur klinis: resume medis](./12-fitur-klinis.md#resume-medis).
+
+- **Draf** = `clinical_drafts` jenis `resume` per penulis, hanya berisi isian DPJP. API draf generik menolak jenis ini
+  (422), jadi konfirmasi rekonsiliasi hanya lewat endpoint yang memvalidasi.
+- **Isi = data sumber** (`discharge-sources.ts`): anamnesis dari S CPPT dokter pertama, fisik dari TTV pertama + terakhir
+  dan O CPPT, penunjang dari observasi + laporan, terapi dari eMAR `given` (rawat inap) atau order obat (rawat jalan),
+  diagnosis/prosedur berkode, surat kontrol. Selalu dihimpun ulang dari versi final terkini; rawat inap ikut membaca
+  kunjungan asal (`source_encounter_id`). Ref sumber per bagian disimpan di `discharge_summary_sources` saat final.
+- **Butir wajib** diperiksa server dengan `resumeCompleteness(checklist, required)`: rawat inap 12 (`RESUME_CHECK_IDS`),
+  rawat jalan 8 (`RESUME_RJ_CHECK_IDS`). Kurang → 422 `RESUME_INCOMPLETE` (`details.missing`).
+- **Rekonsiliasi** (rawat inap): konfirmasi `clinical.sign` oleh DPJP utama/rawat bersama/dokter kunjungan, mengikat
+  hash daftar obat; mengubah daftar membatalkannya.
+- **Final/addendum** lewat `ClinicalRecordService` + `ClinicalSigningService.issueSigned('discharge_summaries', …)`;
+  versi ber-TTE → koreksi 409 `RECORD_LOCKED` (koreksi beralasan hanya bila TTE gagal). Staging SATUSEHAT `held`
+  Composition per versi; event `discharge.signed`.
+- **Surat kematian** (`death_certificates`, migrasi `20261007100000_death_certificates`): tabel berversi baru dengan
+  `app_clinical_guard`, `_current`, append-only, RLS FORCE; sebab kematian diperiksa `app_clinical_code_guard`
+  (ICD-10 dari `ref`); satu rantai per kunjungan. Penulis wajib lolos `DischargeAuthority.mayCertifyDeath` (K-1).
+- **`FullDischargeGate`** menggantikan `BasicDischargeGate` di provider `DISCHARGE_GATE` (`AdtModule`); dipanggil
+  `POST /adt/discharges` dan `POST /encounters/:id/close`. Pelaku tidak berwenang untuk disposisi meninggal →
+  `forbidden` → 403; syarat kurang → 409 `DISCHARGE_BLOCKED` (`details.reasons`).
+- **Tutup kunjungan** (`POST /encounters/:id/close`, `clinical.write`): rawat inap/IGD diteruskan ke
+  `AdtService.discharge`; rawat jalan menyelesaikan kunjungan + tiket poli (`queue.ticket_finished` → task 5 Antrean
+  BPJS; tiket yang belum dimulai dimulai dulu agar task 4 → 5 berurutan) + staging SATUSEHAT `held` Encounter.
+
 ### Persetujuan tindakan tablet + edukasi (K11, fase 3 potongan 3.7)
 
 Modul `consent`, kontrak `schemas/consent.ts`, ADR-0058. Tablet memakai sesi staf (keputusan fase 3 no. 20). Alurnya
@@ -642,9 +671,35 @@ lewat `ClinicalRecordService` dan `CareTeamService`.
 - Jawaban pertama mencatat biaya `konsultasi` sekali per rantai. Notifikasi permintaan/jawaban tanpa PHI.
 - Dokumen pasien di layar klinis (utang P08): komponen `components/klinis/patient-documents.tsx` (daftar, unggah,
   batal beralasan, minta TTE, unduh) memakai data `lib/server/data/klinis/dokumen.ts`, Server Action
-  `dokumen-actions.ts` (unggah biner lewat `apiUpload`, batas body Server Action 11 MB di `next.config.ts`), dan
-  Route Handler unduh `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di
-  `lib/patient-documents.ts`. Dipasang di tab Dokumen layar Rawat inap (W4).
+  `dokumen-actions.ts` (batal, minta TTE), Route Handler unggah `POST /klinis/dokumen/unggah?patientId=` dan unduh
+  `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di `lib/patient-documents.ts`. Dipasang di
+  tab Dokumen layar Rawat inap (W4).
+- **Unggah berkas tidak lewat Server Action** (tinjauan keamanan DOC): body Server Action dibaca sebelum sesi
+  diperiksa, jadi batasnya dibiarkan bawaan Next (1 MB). Route Handler unggah memeriksa header `x-simrs-upload: 1` +
+  `sec-fetch-site` (anti-CSRF), sesi (401), dan izin `documents.write` (403) SEBELUM membaca body; lalu membaca body
+  dengan batas 10 MB (413, aliran dihentikan), mengenali jenis dari isi (PDF/PNG/JPEG, selain itu 415), dan meneruskan
+  ke API (`apiUpload`) yang menegakkan ulang semuanya. Tanda tangan tablet (W5a) tetap Server Action tetapi dibatasi
+  256 KB per gambar sehingga muat di 1 MB.
+
+### Stok depo (S05, fase 4 potongan 4.6a)
+
+Modul `stock` (`/api/v1/stock`, modul RS `S05`), ADR-0036. Masukan + saldo di `schemas/penunjang-api.ts`, bentuk
+jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`; saldo hanya diubah trigger
+`app_stock_apply_movement` (galat trigger `STOCK_INSUFFICIENT`/`BATCH_EXPIRED` dipetakan ke `SUPPORT_ERRORS`).
+
+| Endpoint `/api/v1/stock/…`                      | Izin             | Isi                                                                                                           |
+| ----------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET locations?purpose=own\|destination`        | `stock.read`     | Lokasi dalam lingkup (unit penugasan; manajemen semua) atau semua tujuan mutasi                               |
+| `GET balances?stockLocationId=&expiring=1`      | `stock.read`     | Saldo per batch (qty > 0), urut obat lalu ED; `expired`/`expiringSoon` dari jam WIB server                    |
+| `GET movements?stockLocationId=&stockBatchId=`  | `stock.read`     | Kartu stok terbaru dulu dengan nomor dokumen (TRM/MUT) dan alasan                                             |
+| `GET transfers?status=`                         | `stock.read`     | Mutasi yang menyentuh lokasi dalam lingkup; `canReceive` dari lingkup `stock.transfer`                        |
+| `GET suppliers`, `GET drugs?q=`                 | `stock.receive`  | Pemasok aktif, obat formularium aktif (maks. 30)                                                              |
+| `POST receipts`                                 | `stock.receive`  | Nomor `TRM-YYMM-NNNN`, batch baru/ulang (ED sama), ledger `receipt`, event `stock.received`; batch ED ditolak |
+| `POST transfers` → `POST transfers/:id/receive` | `stock.transfer` | Kirim (`transfer_out`) lalu terima sekali di tujuan (`transfer_in`); event `stock.transferred` per langkah    |
+| `POST adjustments`                              | `stock.adjust`   | Selisih bertanda + alasan ≥ 10; batch ED hanya dikurangi (`write_off`); event `stock.adjusted`                |
+
+Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
+tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
 
 ### Booking (F02, fase 2 potongan 3)
 

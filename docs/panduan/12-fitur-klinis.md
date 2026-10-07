@@ -8,14 +8,15 @@ keselamatan yang tidak bisa dilewati diam-diam (CLAUDE.md §4.9) dan mengikuti p
 menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 
 > Status 7 Okt 2026: ketujuh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Di mode api
-> CPOE (W2), rawat inap (W4), dan tablet persetujuan (W5a) sudah tersambung; layar lain masih "Belum tersambung" (W1,
-> W3, W5b). Backend yang sudah
+> ketujuh layar sudah tersambung ke API: pemeriksaan poli (W1), CPOE (W2), IGD + tempat tidur (W3), rawat inap (W4),
+> tablet persetujuan (W5a), dan resume (W5b). Fase 3 tinggal potongan penutup 3.9. Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
-> (3.5), serta persetujuan tindakan + edukasi lewat P07 (3.7). Resume (3.6) belum. Sepuluh layar bagan RME (FE2)
-> berstatus `demo` saja: hanya ada di mode presentasi dan belum hibrida. API worklist, CPPT, asesmen, diagnosis,
-> ringkasan, askep/eMAR, dan edukasi untuk layar itu sudah ada. Konsultasi, Edukasi, dan Paket layanan kini hibrida
-> (potongan 3.7/3.8). Cara
+> (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), persetujuan tindakan + edukasi
+> lewat P07 (3.7), serta konsultasi, tim perawatan, paket formulir + kelengkapan, dan dokumen pasien (3.8). Dari
+> sepuluh layar bagan RME (FE2) semuanya kini hibrida: mode api memilih kunjungan dari worklist (`?kunjungan=<id>`),
+> menampilkan banner pasien, dan memakai API worklist, CPPT, asesmen P07, diagnosis, ringkasan, askep, kelengkapan +
+> tutup kunjungan, konsultasi, edukasi, dan paket formulir. Cara
 > kerja API klinis: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
@@ -46,25 +47,25 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 
 ## Ringkasan layar
 
-| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                           |
-| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada       |
-| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                               |
-| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                               |
-| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                               |
-| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
-| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                         |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                              |
-| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
-| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
-| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
-| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                              |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7)                         |
-| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
-| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket formulir, 3.8)              |
-| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API belum (3.6, 3.8)                    |
+| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                   |
+| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ---------------------------------------- |
+| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | ✅ demo + api (W1)                       |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                       |
+| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                       |
+| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                       |
+| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                       |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | ✅ demo + api (W5b)                      |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                      |
+| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | ✅ demo + api (worklist 3.2b)            |
+| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | ✅ demo + api (CPPT 3.2b)                |
+| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | ✅ demo + api (P07 + paket)              |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | ✅ demo + api (3.2a)                     |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                      |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7/3.8)             |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | ✅ demo + api (askep 3.5)                |
+| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | ✅ demo + api (3.2a)                     |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket + kelengkapan, 3.8) |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | ✅ demo + api (3.6, 3.8)                 |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -908,6 +909,19 @@ ke endpoint versi baru perlu dipastikan saat penyambungan.
 | Kode web | `apps/web/src/app/(staf)/klinis/konsultasi/` · data `apps/web/src/lib/demo/fixtures/rme-konsul.ts` · aturan `apps/web/src/lib/rme-konsul.ts` · komponen `apps/web/src/components/rme/konsul-workspace.tsx` |
 | Kode API | `apps/api/src/modules/consult/` (`/api/v1/consults/*`, `/encounters/:id/{consults,care-team}`); web api `api-konsultasi.tsx` + `components/klinis/consult-panel.tsx`                                       |
 
+**API (potongan 3.8, ADR-0059).** Di mode api layar ini memanggil endpoint berikut; konsultasi juga tampil di tab Dokumen & konsultasi layar Rawat inap.
+
+- `POST /api/v1/consults/requests` (`clinical.write`): pengirim dokter/residen, tujuan dokter tertentu (bukan diri
+  sendiri) dan/atau unit, pertanyaan ≥ 20 karakter, urgensi `segera`/`biasa`. Dokter tujuan mendapat akses konsultan
+  24 jam; notifikasi tanpa PHI.
+- `POST /api/v1/consults/requests/:id/responses`: hanya dokter tujuan, atau dokter unit tujuan bila tanpa dokter
+  tertentu; residen dan pengirim ditolak 403 `CONSULT_NOT_RECIPIENT` sebelum data pasien dibuka. Jawaban berversi
+  (`ClinicalRecordService`); jawaban pertama mencatat biaya `konsultasi`. Rawat bersama yang diterima menambah tim;
+  alih rawat mengganti DPJP utama lewat `CareTeamService` (relasi lama berlaku sampai akhir hari berikutnya).
+- `GET /api/v1/consults/inbox`, `GET /api/v1/encounters/:id/consults`, `GET /api/v1/encounters/:id/care-team`.
+- `POST /api/v1/encounters/:id/care-team/primary`: serah DPJP utama langsung, hanya oleh DPJP utama aktif, alasan
+  ≥ 10.
+
 **Tujuan.** Permintaan konsul antar-DPJP dengan batas jawab per urgensi, jawaban terstruktur, penetapan rawat bersama
 atau alih rawat, dan tim perawatan yang berubah sebagai versi baru.
 
@@ -1176,10 +1190,10 @@ gerbang lab perlu menjadi pengaturan protokol per RS, bukan konstanta.
 | Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
 | Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
 | Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
+| Status   | demo (mode presentasi); API gerbang tutup kunjungan (3.6), kelengkapan formulir + dokumen pasien (3.8) ada; layar belum disambung                                                                                          |
 | Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
 | Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
-| Kode API | `DischargeGate` penuh di `apps/api/src/modules/discharge/discharge-gate.service.ts` (3.6, ADR-0093); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi)                            |
+| Kode API | `DischargeGate` penuh di `apps/api/src/modules/discharge/discharge-gate.service.ts` (3.6, ADR-0093); kelengkapan `GET /encounters/:id/completeness` (3.8); dokumen lewat `apps/api/src/modules/documents/` (P08)           |
 
 **Tujuan.** Daftar periksa DPJP sebelum menutup kunjungan (gerbang tutup encounter, EP 5c) dan daftar dokumen pasien
 per kunjungan dengan status TTE. Dokumen tidak pernah dihapus.

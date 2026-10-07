@@ -400,6 +400,22 @@ describe('asesmen per kunjungan (K06)', () => {
     q_mental: 'sadar',
   };
 
+  it('perawat/bidan: isian P07 berlingkup unit (tanpa relasi) — perawat Melati mengisi, perawat Anggrek 403', async () => {
+    // Tim perawatan hanya DPJP: perawat Melati tidak punya relasi dengan pasien ini.
+    const e = await inpatient([['dokter', 'dpjp_utama']]);
+    const url = `/patients/${e.patientId}/forms/morse_dewasa/responses`;
+    const created = await as('perawat').post(url, { answers: MORSE, encounterId: e.encounterId }).expect(201);
+    expect(created.body.encounterId).toBe(e.encounterId);
+    await as('perawat')
+      .post(`/form-responses/${created.body.id}/corrections`, {
+        answers: { ...MORSE, q_infus: 'ya' },
+        reason: 'Infus terpasang sejak pagi, terlewat dicatat',
+      })
+      .expect(201);
+    // Perawat bangsal lain: pasien tidak di unitnya → 403 (diaudit).
+    await as('perawatAnggrek').post(url, { answers: MORSE, encounterId: e.encounterId }).expect(403);
+  });
+
   it('formulir P07 + encounterId (hak tulis per profesi); daftar asesmen kunjungan; kunjungan pasien lain 422', async () => {
     const e = await inpatient();
     const other = await inpatient();

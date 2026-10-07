@@ -1,18 +1,18 @@
 'use server';
 
-import { DOCUMENT_KIND_IDS, patientDocumentSchema, voidDocumentSchema } from '@simrs/shared';
+import { patientDocumentSchema, voidDocumentSchema } from '@simrs/shared';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { CLINICAL_UPLOAD_KINDS, uploadProblem } from '@/lib/patient-documents';
-import { api, apiUpload } from '@/lib/server/api';
+import { api } from '@/lib/server/api';
 import { ApiError } from '@/lib/server/api-core';
 import { getSession } from '@/lib/server/session';
 import { webEnv } from '@/lib/server/web-env';
 import { can, nextLoginStep } from '@/lib/session-view';
 
 /**
- * P08 · Server Action dokumen pasien di layar klinis (fase 3 · 3.8, ADR-0059): unggah, batal beralasan, minta TTE.
+ * P08 · Server Action dokumen pasien di layar klinis (fase 3 · 3.8, ADR-0059): batal beralasan dan minta TTE. Unggah
+ * berkas lewat Route Handler `/klinis/dokumen/unggah` (sesi diperiksa sebelum body dibaca), bukan Server Action.
  * Sesi + izin diperiksa di sini untuk pesan yang jelas; API menegakkan izin `documents.write`, ABAC pasien, status
  * dokumen, dan mencatat audit. Hanya mode api (mode presentasi memakai toko demo dokumen).
  */
@@ -24,7 +24,6 @@ export interface DocumentActionResult {
 }
 
 const uuid = z.uuid();
-const kindSchema = z.enum(CLINICAL_UPLOAD_KINDS);
 /** Jalur halaman pemanggil untuk revalidasi: path internal saja. */
 const pathSchema = z
   .string()
@@ -49,38 +48,6 @@ function failure(err: unknown): DocumentActionResult {
 function revalidate(formData: FormData): void {
   const path = pathSchema.safeParse(formData.get('path'));
   if (path.success) revalidatePath(path.data);
-}
-
-export async function uploadDocumentAction(
-  _prev: DocumentActionResult,
-  formData: FormData,
-): Promise<DocumentActionResult> {
-  const denied = await authorize();
-  if (denied) return { error: denied };
-  const patientId = uuid.safeParse(formData.get('patientId'));
-  const kind = kindSchema.safeParse(formData.get('kind'));
-  const title = String(formData.get('title') ?? '').trim();
-  const file = formData.get('file');
-  if (!patientId.success) return { error: 'Pasien tidak valid.' };
-  if (!kind.success || !DOCUMENT_KIND_IDS.includes(kind.data)) return { error: 'Pilih jenis dokumen.' };
-  const blob = file instanceof Blob ? file : null;
-  const problem = uploadProblem(blob, title);
-  if (problem || !blob) return { error: problem ?? 'Pilih berkas.' };
-  try {
-    await apiUpload(`/api/v1/patients/${patientId.data}/documents`, {
-      bytes: new Uint8Array(await blob.arrayBuffer()),
-      headers: {
-        'x-document-kind': kind.data,
-        'x-document-title': title.slice(0, 200),
-        'x-document-filename': (file instanceof File ? file.name : title).slice(0, 120),
-      },
-      schema: patientDocumentSchema,
-    });
-  } catch (err) {
-    return failure(err);
-  }
-  revalidate(formData);
-  return { ok: true, message: `Dokumen "${title}" tersimpan.` };
 }
 
 export async function voidDocumentAction(

@@ -447,16 +447,20 @@ export const DEFAULT_ROLE_GRANTS: Record<SystemRoleCode, readonly Grant[]> = {
   ],
   perawat: [
     ...CLINICAL_READ,
-    ['forms.response', 'write', 'relationship'],
-    ['forms.response', 'correct', 'relationship'],
+    // Isian formulir P07 (asesmen, skrining, edukasi) untuk pasien di unit penugasan, mengikuti `clinical.write`
+    // (keputusan orkestrator 7 Okt 2026): perawat/bidan bangsal tidak perlu relasi per pasien.
+    ['forms.response', 'write', 'unit'],
+    ['forms.response', 'correct', 'unit'],
     ...CLINICAL_FRONT_OFFICE,
     ...NURSE_CLINICAL,
     ...NURSE_SUPPORT,
   ],
   bidan: [
     ...CLINICAL_READ,
-    ['forms.response', 'write', 'relationship'],
-    ['forms.response', 'correct', 'relationship'],
+    // Isian formulir P07 (asesmen, skrining, edukasi) untuk pasien di unit penugasan, mengikuti `clinical.write`
+    // (keputusan orkestrator 7 Okt 2026): perawat/bidan bangsal tidak perlu relasi per pasien.
+    ['forms.response', 'write', 'unit'],
+    ['forms.response', 'correct', 'unit'],
     ...CLINICAL_FRONT_OFFICE,
     ...NURSE_CLINICAL,
     ...NURSE_SUPPORT,

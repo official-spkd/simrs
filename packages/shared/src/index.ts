@@ -42,6 +42,7 @@ export * from './schemas/penunjang';
 export * from './schemas/penunjang-api';
 export * from './schemas/kamar-operasi';
 export * from './schemas/surgery-board';
+export * from './schemas/stock';
 export * from './schemas/keuangan';
 export * from './schemas/rawat-inap';
 export * from './schemas/btn';
