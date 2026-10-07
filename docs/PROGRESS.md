@@ -4,19 +4,19 @@ Diperbarui oleh Codex atau Claude Code di akhir setiap potongan kerja. Format: c
 
 ## Status fase
 
-| Fase | Nama                               | Status                                                                                                   |
-| ---- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 0    | Fondasi repo dan infrastruktur     | ✅ selesai 5 Okt 2026 (macOS + Docker/OrbStack: BullMQ hijau, `/ready` hijau)                            |
-| 1    | Platform inti                      | ✅ selesai 5 Okt 2026 (6/6 kriteria diverifikasi ulang di kode tergabung; potongan 1–11)                 |
-| 2    | Front office                       | ✅ selesai 5 Okt 2026 (4/4 kriteria; potongan 0a–9; E2E rantai anjungan → SEP → display + downtime BPJS) |
+| Fase | Nama                               | Status                                                                                                                        |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Fondasi repo dan infrastruktur     | ✅ selesai 5 Okt 2026 (macOS + Docker/OrbStack: BullMQ hijau, `/ready` hijau)                                                 |
+| 1    | Platform inti                      | ✅ selesai 5 Okt 2026 (6/6 kriteria diverifikasi ulang di kode tergabung; potongan 1–11)                                      |
+| 2    | Front office                       | ✅ selesai 5 Okt 2026 (4/4 kriteria; potongan 0a–9; E2E rantai anjungan → SEP → display + downtime BPJS)                      |
 | 3    | Klinis RME                         | 🟨 berjalan: rencana disetujui 5 Okt 2026 (`docs/rencana/fase-3-klinis-rme.md`); backend dilanjutkan penuh 7 Okt 2026 (A1–A5) |
-| 4    | Penunjang                          | ⬜                                                                                                       |
-| 5    | Keuangan                           | ⬜                                                                                                       |
-| 6    | Pembayaran TPDI × BTN + pembiayaan | ⬜                                                                                                       |
-| 7    | Integration hub + SATUSEHAT        | ⬜                                                                                                       |
-| 8    | Back office                        | ⬜                                                                                                       |
-| 9    | Dasbor + aplikasi mobile           | ⬜                                                                                                       |
-| 10   | Simulasi E2E, ketahanan, pilot     | ⬜                                                                                                       |
+| 4    | Penunjang                          | ⬜                                                                                                                            |
+| 5    | Keuangan                           | ⬜                                                                                                                            |
+| 6    | Pembayaran TPDI × BTN + pembiayaan | ⬜                                                                                                                            |
+| 7    | Integration hub + SATUSEHAT        | ⬜                                                                                                                            |
+| 8    | Back office                        | ⬜                                                                                                                            |
+| 9    | Dasbor + aplikasi mobile           | ⬜                                                                                                                            |
+| 10   | Simulasi E2E, ketahanan, pilot     | ⬜                                                                                                                            |
 
 Legenda: ⬜ belum · 🟨 berjalan · ✅ selesai · ⛔ terhambat
 
@@ -137,7 +137,7 @@ Utang fase 2 yang dikerjakan di awal fase 3:
 | 3.2b | CPPT + co-sign residen + verifikasi DPJP + serah terima, asesmen, worklist (K07, K06, K01)                                                                                                       | ✅     | Merge `9d932a3` (K3, tanpa migrasi): kontrak `schemas/clinical-notes.ts`; `/api/v1/cppt/*` CPPT multi-PPA (PPA dari sesi, residen → `menunggu_cosign`, singkatan terlarang = peringatan, biaya visite DPJP di-staging, event `cppt.finalized`), co-sign dan verifikasi (`clinical.cosign`, hanya DPJP utama/rawat bersama/DPJP kunjungan, bukan atas catatan sendiri, serentak → [201, 409]), serah terima SBAR berversi + notifikasi tanpa PHI; asesmen P07 dengan `encounterId` (modul `forms`); worklist 4 tampilan (`/api/v1/worklist`, ABAC + audit `read` per pasien); kode stabil `PRIMARY_DIAGNOSIS_EXISTS`/`PRIMARY_DPJP_EXISTS`; rute per kunjungan kanonik `/api/v1/encounters/:id/<sumber>` (tanda vital, konteks, diagnosis, CPPT, asesmen, order); api CPPT 7 (api 477)                                                                                                                                                                                                                                                                                                                       |
 | 3.3  | ADT, papan bed, triase IGD, gelang, Aplicare (K03, K04, K05)                                                                                                                                     | ✅     | Merge `6af6ec5` (K1): ADT, papan bed, triase IGD, gelang, Aplicare, SEP IGD/ranap. Ditinjau 6 Okt 2026 (agen bug): perbaikan `e117523` (admisi dengan permintaan bed `menunggu` → 500; bed tersangkut `dipesan` saat admisi ke bed lain/transfer/pulang IGD; pulang serentak ganda → kini `FOR UPDATE`, kedua 409), `6233abc` (batal kunjungan IGD/admisi membebaskan bed), `42a11af` (umur saran triase dari tanggal WIB); agen keamanan `6b85458` (batal/alokasi/transfer bed dibatasi lingkup unit). Dicatat: deadlock dua transfer berlawanan arah, urutan event IGD satu milidetik.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 3.4  | CPOE + CDS + resep (K09)                                                                                                                                                                         | ✅     | Merge `6aa2769` (K2, tanpa migrasi), ADR-0030: kontrak `schemas/orders.ts`; `/api/v1/orders` katalog (LOINC/ICD-9-CM/KFA, tarif `null` sampai U01), order set institusi (`order.manage`), pratinjau CDS server, kirim order dengan Idempotency-Key (`requestFingerprint` bersama), batal beralasan; CDS server `CdsService` (mesin murni shared + KB per RS versi tertinggi per kode, konteks dari kelompok RM: alergi terkode, obat aktif, diagnosis `icd10-*`, eGFR, order 30 hari); penolakan CDS di-commit sebagai `cds_alerts` `diblokir` + audit `denied` lalu 422 `CDS_BLOCKED` (pola ketiga `@NoRequestTransaction`; peninjau: tes kini memastikan tidak ada `order_groups`, order, `billable_events`, dokumen yang tersisa); resep PDF ber-TTE hanya bila penulis punya `clinical.sign`, residen → `needs_review`; `GET /cds/overrides` lingkup seluruh RS, pasien lewat RM saja; api order 11 (api 470)                                                                                                                                                                                           |
-| 3.5 | eMAR + asuhan keperawatan (K12) | ✅ | 6 Okt 2026, commit `05bb516` di master, ADR-0077: API `/nursing` untuk jadwal WIB dari order aktif, pindai gelang (salah tetap diaudit), pemberian obat, atestasi cek ganda dari sesi petugas kedua, askep berversi dan balans cairan. Pengaman API + DB: pindaian milik pemberi, masih berlaku dan gelang aktif; label lokal sesuai order; dosis/jadwal tunggal, PRN pindai baru, stat sekali; alasan terlambat/ditunda/ditolak; cek ganda terikat isi dosis; kunci bersama pembatalan order. SATUSEHAT `held`, biaya hanya `given`. API nursing 12/12; regresi clinical-ADT/schema-guard 26/26; seluruh repo lint/typecheck 21/21 tugas, tes 2071/2071 (API 516, DB 216, web 802); migrate diff kosong di DB tes terisolasi. Pemeriksaan ulang master setelah integrasi juga lolos: 30/30 tugas lint/typecheck/test, 2071/2071 tes dengan Node 26.10.0. Layar W4 belum disambungkan; DB pengembangan belum dimigrasikan. |
+| 3.5  | eMAR + asuhan keperawatan (K12)                                                                                                                                                                  | ✅     | 6 Okt 2026, commit `05bb516` di master, ADR-0077: API `/nursing` untuk jadwal WIB dari order aktif, pindai gelang (salah tetap diaudit), pemberian obat, atestasi cek ganda dari sesi petugas kedua, askep berversi dan balans cairan. Pengaman API + DB: pindaian milik pemberi, masih berlaku dan gelang aktif; label lokal sesuai order; dosis/jadwal tunggal, PRN pindai baru, stat sekali; alasan terlambat/ditunda/ditolak; cek ganda terikat isi dosis; kunci bersama pembatalan order. SATUSEHAT `held`, biaya hanya `given`. API nursing 12/12; regresi clinical-ADT/schema-guard 26/26; seluruh repo lint/typecheck 21/21 tugas, tes 2071/2071 (API 516, DB 216, web 802); migrate diff kosong di DB tes terisolasi. Pemeriksaan ulang master setelah integrasi juga lolos: 30/30 tugas lint/typecheck/test, 2071/2071 tes dengan Node 26.10.0. Layar W4 belum disambungkan; DB pengembangan belum dimigrasikan.                                                                                                                                                                                  |
 | 3.6  | Resume, rekonsiliasi obat, pulang, gerbang tutup encounter (K13)                                                                                                                                 | ⬜     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 3.7  | Persetujuan tindakan tablet + edukasi (K11)                                                                                                                                                      | ⬜     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 3.8  | Konsultasi/rawat bersama, paket formulir + kelengkapan, dokumen pasien (K10, K15, utang P08)                                                                                                     | ⬜     |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -214,6 +214,7 @@ Gerbang di master setelah semua merge termasuk DOCS-2 dan BUG-2 (6 Okt 2026, `8d
 ## Sistem desain Pelangi Klinis (7 Okt 2026, ADR-0091)
 
 Pemilik produk menyetujui penggantian "Klinis Bersih" dengan Pelangi Klinis:
+
 - Poppins sebagai font utama;
 - aksen per domain lewat `data-domain`;
 - gradien satu rona;
@@ -222,21 +223,23 @@ Pemilik produk menyetujui penggantian "Klinis Bersih" dengan Pelangi Klinis:
 
 Fondasinya ada di `packages/ui` dan kerangka staf. Lima agen lalu menyelaraskan gaya layar per domain; perilaku dan teks tidak diubah.
 
-| Agen  | Cakupan                                                                                                                         | Merge     |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| CD-0  | Token, ramp, domain → `brand-*`, AppShell kaca, Sidebar lipat, CommandPalette, Poppins, pemetaan hex teal/lama ke token          | `ddc3397` |
-| PK-1  | Front office + perangkat (masuk, pendaftaran, antrean, jadwal, rujukan, anjungan, display, tablet, pratinjau aplikasi, simulasi) | `bb08a5b` |
-| PK-2  | Klinis + rekam medis (`VALUE_FLAG_STYLE` nilai abnormal bertulisan ↑/↓, triase tetap 5 warna baku)                                | `185bb62` |
-| PK-3  | Penunjang + integrasi (titik kritis berdenyut hanya untuk kritis, Gantt OK)                                                     | `106d020` |
-| PK-4  | Keuangan (baris terpilih bergradien, alur dana tanpa gradien)                                                                    | `8f7f524` |
-| PK-5  | Manajemen, back office, sistem, kit `backoffice/kit.tsx` + `platform/parts.tsx`, `KpiTile`, galeri `/dev/ui` Pelangi             | `ccdb966` |
+| Agen | Cakupan                                                                                                                          | Merge     |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| CD-0 | Token, ramp, domain → `brand-*`, AppShell kaca, Sidebar lipat, CommandPalette, Poppins, pemetaan hex teal/lama ke token          | `ddc3397` |
+| PK-1 | Front office + perangkat (masuk, pendaftaran, antrean, jadwal, rujukan, anjungan, display, tablet, pratinjau aplikasi, simulasi) | `bb08a5b` |
+| PK-2 | Klinis + rekam medis (`VALUE_FLAG_STYLE` nilai abnormal bertulisan ↑/↓, triase tetap 5 warna baku)                               | `185bb62` |
+| PK-3 | Penunjang + integrasi (titik kritis berdenyut hanya untuk kritis, Gantt OK)                                                      | `106d020` |
+| PK-4 | Keuangan (baris terpilih bergradien, alur dana tanpa gradien)                                                                    | `8f7f524` |
+| PK-5 | Manajemen, back office, sistem, kit `backoffice/kit.tsx` + `platform/parts.tsx`, `KpiTile`, galeri `/dev/ui` Pelangi             | `ccdb966` |
 
 Gerbang di master setelah semua merge (7 Okt 2026, `ccdb966`):
+
 - build, lint, typecheck: hijau;
 - `pnpm test`: hijau (web 969, ui 34);
 - E2E penuh: 503 lolos / 0 gagal / 122 dilewati sengaja.
 
 Sisa pekerjaan:
+
 - Usulan agen untuk `packages/ui`:
   - satukan pola baris terpilih (`bg-row-selected`) yang kini ditulis di `components/penunjang/pelangi.ts`, `components/backoffice/styles.ts`, dan kelas lokal;
   - tambah prop `ramp` di `KpiCard` untuk menggantikan `KpiTile` lokal;
@@ -248,11 +251,13 @@ Sisa pekerjaan:
 ### Navigasi dock + layar penuh (7 Okt 2026, ADR-0092)
 
 Mockup "Dock · layar penuh" disetujui, lalu diterapkan:
+
 - `Dock` di `@simrs/ui`: ikon per grup, stack layar di atas ikon, Cari → palet, stack Akun; di ponsel menjadi bilah bawah;
 - pilihan Dock/Sidebar di toolbar, disimpan di cookie `simrs_nav` (bawaan server `NAV_LAYOUT`, default `dock`);
 - kaca selebar layar di kedua tampilan.
 
 Gerbang:
+
 - build, lint, typecheck: hijau;
 - test: hijau (ui 37, web 971);
 - E2E penuh: 509 lolos / 0 gagal / 122 dilewati, termasuk `e2e/demo/dock.spec.ts`.
@@ -262,6 +267,7 @@ Suite E2E lama tetap memakai `NAV_LAYOUT=sidebar`.
 ## Backend penuh (mulai 7 Okt 2026)
 
 Keputusan pemilik produk 7 Okt 2026:
+
 - Backend SIM RS dibangun **penuh**: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10 sesuai `docs/rencana/fase-<n>-*.md`. Ini mencabut "backend ditunda" 6 Okt 2026.
 - **Syarat kualitas:** seluruh jalur terhubung tanpa galat. Setiap layar mode api memanggil API sungguhan; tidak ada tombol mati, 500, atau galat konsol. Jalur demo (`DATA_SOURCE=demo`) tetap jalan.
 - **K-1 diputuskan:** disposisi meninggal hanya oleh dokter yang berelasi dengan pasien (DPJP/rawat bersama/dokter jaga yang punya akses); wajib jam kematian, sebab kematian ICD-10, dan surat keterangan kematian ber-TTE (`clinical.sign`); admisi ditolak; ditegakkan `DischargeGate` (3.6).
@@ -269,14 +275,14 @@ Keputusan pemilik produk 7 Okt 2026:
 
 Pembagian agen, slot DB/port, dan rentang migrasi: `docs/13-pembagian-tugas-cd-cx.md` §0. Cara kerja backend untuk pembaca baru: `docs/panduan/07-cara-kerja-backend.md`.
 
-| Agen | Potongan                                              | Status      | Merge | Bukti (diisi DOC setelah tinjauan) |
-| ---- | ----------------------------------------------------- | ----------- | ----- | ---------------------------------- |
-| A1   | 3.6 → W1 → W5b                                        | 🟨 berjalan |       |                                    |
-| A2   | 3.7 → 3.8                                             | 🟨 berjalan |       |                                    |
-| A3   | W2 + tinjau order residen → W5a                       | 🟨 berjalan |       |                                    |
-| A4   | W3 (IGD + Tempat tidur) + perbaikan ADT               | 🟨 berjalan |       |                                    |
-| A5   | W4 (Rawat inap)                                       | 🟨 berjalan |       |                                    |
-| BUG  | Pemburu bug lintas jalur                              | 🟨 berjalan |       |                                    |
+| Agen | Potongan                                                            | Status      | Merge | Bukti (diisi DOC setelah tinjauan)                                                            |
+| ---- | ------------------------------------------------------------------- | ----------- | ----- | --------------------------------------------------------------------------------------------- |
+| A1   | 3.6 → W1 → W5b                                                      | 🟨 berjalan |       |                                                                                               |
+| A2   | 3.7 → 3.8                                                           | 🟨 berjalan |       |                                                                                               |
+| A3   | W2 + tinjau order residen → W5a                                     | 🟨 berjalan |       |                                                                                               |
+| A4   | W3 (IGD + Tempat tidur) + perbaikan ADT                             | 🟨 berjalan |       |                                                                                               |
+| A5   | W4 (Rawat inap)                                                     | 🟨 berjalan |       |                                                                                               |
+| BUG  | Pemburu bug lintas jalur                                            | 🟨 berjalan |       |                                                                                               |
 | DOC  | Dokumentasi cara kerja + peninjau; satu-satunya penyunting PROGRESS | 🟨 berjalan |       | Tugas awal: papan tugas §0, K-1, `07-cara-kerja-backend.md` + diagram, perbaikan dokumen lama |
 
 Alur per hasil agen: orkestrator menggabung ke `master` → DOC menggabung `master`, meninjau (konvensi, RLS/ABAC/izin/audit/PHI, kecukupan tes, kesesuaian rencana), merapikan bagian kecil, mengisi baris potongan fase dengan bukti, memperbarui panduan, menjalankan `pnpm test` + E2E penuh.

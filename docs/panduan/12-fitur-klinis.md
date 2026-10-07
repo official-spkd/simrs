@@ -44,25 +44,25 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 
 ## Ringkasan layar
 
-| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                     |
-| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada |
-| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)          |
-| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)  |
-| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)     |
-| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT + eMAR ada (3.5); W4 belum    |
-| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                   |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API belum (3.7, modul kerangka)   |
-| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)           |
-| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)               |
-| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada        |
-| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)          |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API belum (3.8, modul kerangka)   |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API belum (3.7)                   |
-| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum      |
-| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)          |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API belum (3.8, modul kerangka)   |
-| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API belum (3.6, 3.8)              |
+| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                           |
+| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
+| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada       |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)                |
+| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)        |
+| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)           |
+| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT + eMAR ada (3.5); W4 belum     |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                         |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API belum (3.7, modul kerangka)         |
+| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
+| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
+| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | 🟨 demo; API belum (3.8, modul kerangka)         |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | 🟨 demo; API belum (3.7)                         |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
+| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | 🟨 demo; API belum (3.8, modul kerangka)         |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API belum (3.6, 3.8)                    |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
@@ -815,7 +815,6 @@ API K12 (potongan 3.5): `GET /api/v1/nursing/emar/:encounterId?date=YYYY-MM-DD` 
 
 Diagnosis master lokal: `GET /nursing/diagnoses`. Asuhan: `POST /nursing/care-plans`, `GET /nursing/care-plans/:encounterId`; koreksi membuat versi baru oleh penulis, tidak menimpa catatan. Balans cairan: `POST /nursing/fluid-balances`, `GET /nursing/fluid-balances/:encounterId?date=YYYY-MM-DD`; total hanya menjumlahkan versi observasi terkini. Semua rute memakai awalan `/api/v1`, izin klinis/pemberian, isolasi tenant, dan ABAC pasien. Layar di bawah tetap menggambarkan mode presentasi sampai W4 disambungkan.
 
-
 ![Asuhan keperawatan Ny. Endang Wijaya: rencana asuhan shift pagi dengan diagnosis Risiko jatuh (Morse 35) dan intervensinya, serta ronde obat eMAR terkunci karena gelang belum terverifikasi](./gambar/askep.png)
 
 | Hal      | Isi                                                                                                                                                                                                                                 |
@@ -823,10 +822,10 @@ Diagnosis master lokal: `GET /nursing/diagnoses`. Asuhan: `POST /nursing/care-pl
 | Rute     | `/klinis/asuhan-keperawatan` (`?pasien=<encounterId>`, pasien rawat inap)                                                                                                                                                           |
 | Pemakai  | perawat, bidan                                                                                                                                                                                                                      |
 | Komponen | K12 asuhan keperawatan dan eMAR                                                                                                                                                                                                     |
-| Status   | demo (mode presentasi); API fase 3 potongan 3.5 (eMAR + askep) tersedia; layar masih demo, sambungan API mengikuti W4; tanda vital + EWS tersedia                                                                                                                      |
+| Status   | demo (mode presentasi); API fase 3 potongan 3.5 (eMAR + askep) tersedia; layar masih demo, sambungan API mengikuti W4; tanda vital + EWS tersedia                                                                                   |
 | Mockup   | `design/mockups/Ranap.dc.html`                                                                                                                                                                                                      |
 | Kode web | `apps/web/src/app/(staf)/klinis/asuhan-keperawatan/` · data `apps/web/src/lib/demo/fixtures/rme-askep.ts` dan `rawat-inap.ts` · aturan `apps/web/src/lib/rme-askep.ts` · komponen `apps/web/src/components/rme/askep-workspace.tsx` |
-| Kode API | `apps/api/src/modules/nursing/` (tanda vital + NEWS2, eMAR, cek ganda, askep, balans cairan; potongan 3.5, ADR-0077)                                                                                                                 |
+| Kode API | `apps/api/src/modules/nursing/` (tanda vital + NEWS2, eMAR, cek ganda, askep, balans cairan; potongan 3.5, ADR-0077)                                                                                                                |
 
 **Tujuan.** Rencana asuhan keperawatan per shift (diagnosis keperawatan, luaran, intervensi, evaluasi SOAP) dan ronde
 obat shift dengan gerbang gelang eMAR.
@@ -970,14 +969,14 @@ potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme pak
 
 ![Kelengkapan rekam medis Ny. Endang Wijaya: daftar periksa 3 dari 7 terpenuhi 43 persen dengan butir co-sign residen dan edukasi pulang belum terpenuhi, serta daftar dokumen pasien dengan status TTE](./gambar/kelengkapan.png)
 
-| Hal      | Isi                                                                                                                                                                                                                        |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
-| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
-| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
-| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
-| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
+| Hal      | Isi                                                                                                                                                                                                                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                                                             |
+| Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                                                 |
+| Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                                                               |
+| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                                                  |
+| Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                                                             |
+| Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx`                                  |
 | Kode API | kontrak `DischargeGate` + `BasicDischargeGate` sementara di `apps/api/src/modules/adt/discharge-gate.ts` (aturan lengkap 3.6; modul `discharge` masih kerangka); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi) |
 
 **Tujuan.** Daftar periksa DPJP sebelum menutup kunjungan (gerbang tutup encounter, EP 5c) dan daftar dokumen pasien
