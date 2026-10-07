@@ -25,7 +25,7 @@ import {
   hartonoLabOrdered,
   patientAppHome,
 } from '../../manajemen-aplikasi';
-import { getCriticalCenter } from './penunjang-lanjut';
+import { getCriticalCenter } from './penunjang/kritis';
 import type { ReceiptLine } from '../../logistik-terima';
 import {
   inventoryNow,

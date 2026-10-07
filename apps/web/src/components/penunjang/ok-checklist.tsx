@@ -13,7 +13,7 @@ import {
   PHASE_LABEL,
   PHASE_WHEN,
   phaseRemaining,
-} from '@/lib/btn-ok';
+} from '@/lib/penunjang-ok';
 
 function footText(c: OrCase, cur: number): { text: string; tone: 'muted' | 'danger' | 'success' } {
   if (cur >= 3) return { text: 'Ketiga fase lengkap. Laporan operasi dapat ditutup.', tone: 'success' };

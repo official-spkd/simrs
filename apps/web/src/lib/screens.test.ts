@@ -1,6 +1,12 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { isPermission, isPermissionKey, SYSTEM_ROLES } from '@simrs/shared';
+import {
+  DEFAULT_ROLE_GRANTS,
+  isPermission,
+  isPermissionKey,
+  SYSTEM_ROLES,
+  type SystemRoleCode,
+} from '@simrs/shared';
 import { describe, expect, it } from 'vitest';
 import {
   CLINICAL_PERMISSIONS,
@@ -12,6 +18,7 @@ import {
   actingRoleOptions,
   screenForPath,
   screenOpen,
+  SUPPORT_PERMISSIONS,
 } from './screens';
 
 describe('posisi yang dibawakan Superadmin demo (ADR-0023 keputusan 10)', () => {
@@ -78,6 +85,7 @@ describe('registri layar (ADR-0023)', () => {
     }
     for (const key of FRONT_OFFICE_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
     for (const key of CLINICAL_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
+    for (const key of SUPPORT_PERMISSIONS) expect(isPermissionKey(key), key).toBe(true);
     // Layar hibrida fase 3: izin layar juga kunci katalog (potongan 3.0a).
     for (const s of SCREENS.filter((x) => x.permission))
       expect(isPermissionKey(s.permission ?? ''), s.id).toBe(true);
@@ -199,14 +207,51 @@ describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
       konsul: 'clinical.write',
       edukasi: 'clinical.write',
       paket: 'forms.definition.read',
+      lab: 'lab.worklist.read',
+      rad: 'radiology.read',
+      farmasi: 'pharmacy.review.read',
+      ok: 'surgery.read',
+      kritis: 'critical_result.read',
+      depo: 'stock.read',
+      'bank-darah': 'blood_bank.read',
+      gizi: 'nutrition.read',
+      mikro: 'lab.worklist.read',
+      diagnostik: 'diagnostics.write',
     });
-    const known: readonly string[] = [...FRONT_OFFICE_PERMISSIONS, ...CLINICAL_PERMISSIONS];
+    const known: readonly string[] = [
+      ...FRONT_OFFICE_PERMISSIONS,
+      ...CLINICAL_PERMISSIONS,
+      ...SUPPORT_PERMISSIONS,
+    ];
     for (const s of SCREENS) {
       if (s.permission) {
         expect(known, s.id).toContain(s.permission);
         expect(s.plannedPermission, s.id).toBe(s.permission);
-        expect(s.phase === 2 || s.phase === 3, s.id).toBe(true);
+        expect(s.phase >= 2 && s.phase <= 4, s.id).toBe(true);
       }
+    }
+  });
+
+  it('layar penunjang hibrida (4.0c): izin layar dipegang peran pelaksananya di matriks bawaan 4.0a', () => {
+    const holds = (role: SystemRoleCode, key: string) =>
+      DEFAULT_ROLE_GRANTS[role].some(([resource, action]) => `${resource}.${action}` === key);
+    const performer: Record<string, SystemRoleCode> = {
+      lab: 'analis_lab',
+      rad: 'radiografer',
+      farmasi: 'apoteker',
+      ok: 'perawat',
+      kritis: 'perawat',
+      depo: 'apoteker',
+      'bank-darah': 'analis_lab',
+      gizi: 'ahli_gizi',
+      mikro: 'analis_lab',
+      diagnostik: 'dokter',
+    };
+    for (const [id, role] of Object.entries(performer)) {
+      const s = screenById(id);
+      expect(s?.permission, id).toBeDefined();
+      expect(holds(role, s?.permission ?? ''), `${id}: ${role}`).toBe(true);
+      expect(screenOpen(s!, { dataSource: 'api', role: 'kasir', permissions: [] }), id).toBe(false);
     }
   });
 

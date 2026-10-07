@@ -19,8 +19,8 @@ import {
   SCENARIO_CRITICAL_ELSEWHERE,
   storedFeedback,
 } from '@/lib/penunjang-kritis';
-import { findLabSample } from '@/lib/server/data/penunjang';
-import { findCriticalItem } from '@/lib/server/data/penunjang-lanjut';
+import { findLabSample } from '@/lib/server/data/penunjang/lab';
+import { findCriticalItem } from '@/lib/server/data/penunjang/kritis';
 import { commitEvent } from '@/lib/server/demo/state';
 
 /**
