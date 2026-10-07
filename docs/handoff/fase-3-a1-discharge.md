@@ -74,3 +74,30 @@ HEAD 3.6 dikirim ke orkestrator: `08b2ba49` (master `718880b6` sudah digabung).
 | Residen tidak bisa memfinalkan CPPT tanpa co-sign DPJP                                          | `clinical-notes.test.ts`, `discharge.test.ts` (status co-sign poli)                                                  | `rawat-inap-api.spec.ts` (residen → menunggu co-sign → DPJP co-sign)                                                                                          |
 | Aturan umum (migrasi + seed, izin/isolasi/ABAC, audit, teks Indonesia, gerbang hijau, E2E demo) | seluruh `pnpm test`                                                                                                  | `demo/semua-layar.spec.ts`, `smoke.spec.ts`                                                                                                                   |
 | Staging SATUSEHAT `held` + `billable_events` (rencana §3.9)                                     | `clinical-records.test.ts`, `discharge.test.ts` (Composition/Encounter held)                                         | kedua rantai lewat `support/staging.ts`                                                                                                                       |
+
+## Perbaikan keamanan pasca 3.9 (A1, 7 Okt 2026, ADR-0109)
+
+Keputusan orkestrator atas temuan review keamanan fase 3. Rincian keputusan di ADR-0109.
+
+- **Pendaftaran tanpa isi klinis.**
+  - `petugas_pendaftaran` kehilangan `clinical.read` dan `triage.write`.
+  - Papan IGD administratif: `GET /triage/board/admission` (+ `/events`, izin `encounter.read`, `view: 'administratif'`,
+    `triage` null).
+  - Layar IGD terbuka lewat `alsoPermissions: ['encounter.write']`.
+  - RS berjalan wajib menjalankan `pnpm db:sync-permissions --reconcile`. RSFA di DB slot fe1 sudah disesuaikan.
+- **Kode gelang.**
+  - `GET /encounters/:id/wristband` tanpa kode.
+  - `POST .../wristband/print` (audit `print`) dan `.../reprint` memuat kode.
+  - Respons admisi tanpa kode.
+  - Halaman cetak meminta kode saat tombol "Cetak gelang" ditekan.
+- **Konsultasi.**
+  - `changePrimary` hanya oleh DPJP utama aktif atau `care_team.assign` (izin baru, tanpa pemegang bawaan).
+  - Akses konsultan berakhir saat konsul dijawab/ditolak/dialihkan/DPJP berganti.
+  - `GET /consults/consultants` memakai izin baru `consult.request` (dokter, residen).
+- **Temuan kecil.**
+  - Sesi unggahan diperiksa sebelum body dibaca.
+  - Maks 5 gambar tanda tangan per draf persetujuan (migrasi `20261008700000_consent_signature_upload_limit`).
+  - Catatan permintaan bed hanya untuk peminta/pelaku berelasi.
+  - Papan IGD/bed lingkup `relationship` disaring per pasien.
+- **Fixture antrean.** Global setup E2E menyamakan `number_sequences` dengan tiket yang ada (`support/queue.ts`) dan
+  memperingatkan bila sisa nomor < 150.
