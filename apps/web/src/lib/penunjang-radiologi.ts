@@ -1,5 +1,9 @@
 import type { RadModality, RadStatus, RadiologyExam, RadiologyModality } from '@simrs/shared';
+import { doseError, reportError, startError } from '@simrs/shared';
 import type { GateDenial, StatusTone } from './penunjang';
+
+/** Aturan murni dipindah ke `@simrs/shared` (rencana fase 4 §4.0a); diekspor ulang untuk pemakai lama. */
+export { doseError, reportError, startError };
 
 /**
  * S03 · Fungsi murni tampilan radiologi (mode presentasi, ADR-0023): status worklist, kode ICD-9-CM, templat
@@ -100,34 +104,6 @@ export function templateFor(e: Pick<RadiologyExam, 'procedure' | 'modality'>): E
           ? 'angiografi'
           : 'kosong';
   return EXPERTISE_TEMPLATES.find((t) => t.id === id) ?? (EXPERTISE_TEMPLATES.at(-1) as ExpertiseTemplate);
-}
-
-/** Gerbang mulai pemeriksaan: identitas 2 penanda; kontras wajib skrining (eGFR, alergi). */
-export function startError(
-  e: Pick<RadiologyExam, 'contrast'>,
-  identity: boolean,
-  contrast: boolean,
-): string | null {
-  if (!identity) return 'Cek identitas pasien dengan 2 penanda lebih dulu.';
-  if (e.contrast && !contrast) return 'Skrining kontras (eGFR, riwayat alergi, puasa) wajib sebelum mulai.';
-  return null;
-}
-
-/** Dosis CT wajib sebelum dikirim ke ekspertise: CTDIvol 0–200 mGy, DLP 0–5.000 mGy·cm. */
-export function doseError(modality: RadModality, ctdiVol: number | null, dlp: number | null): string | null {
-  if (modality !== 'CT') return null;
-  if (ctdiVol === null || !(ctdiVol > 0 && ctdiVol <= 200)) return 'Isi CTDIvol (mGy) antara 0 dan 200.';
-  if (dlp === null || !(dlp > 0 && dlp <= 5000)) return 'Isi DLP (mGy·cm) antara 0 dan 5.000.';
-  return null;
-}
-
-/** Syarat tanda tangan ekspertise: temuan ≥ 20 karakter, kesan ≥ 10 karakter, tanpa isian templat "__". */
-export function reportError(findings: string, impression: string): string | null {
-  if (findings.trim().length < 20) return 'Temuan wajib diisi (minimal 20 karakter).';
-  if (impression.trim().length < 10) return 'Kesan wajib diisi (minimal 10 karakter).';
-  if (findings.includes('__') || impression.includes('__'))
-    return 'Lengkapi isian templat yang masih kosong (__).';
-  return null;
 }
 
 export const RAD_EXAM_UNKNOWN = 'Pemeriksaan tidak ditemukan di worklist radiologi.';

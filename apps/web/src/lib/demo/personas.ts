@@ -29,7 +29,7 @@ export interface PersonaView {
 const GROUPS: ReadonlyArray<{ title: string; roles: readonly string[] }> = [
   { title: 'Front office', roles: ['petugas_pendaftaran'] },
   { title: 'Klinis', roles: ['dokter', 'dokter_residen', 'perawat', 'bidan'] },
-  { title: 'Penunjang', roles: ['analis_lab', 'radiografer', 'apoteker'] },
+  { title: 'Penunjang', roles: ['analis_lab', 'radiografer', 'apoteker', 'ahli_gizi'] },
   { title: 'Keuangan & rekam medis', roles: ['kasir', 'koder', 'akuntan', 'petugas_rm'] },
   { title: 'Manajemen & sistem', roles: ['manajemen', 'auditor_mutu', 'petugas_privasi', 'admin_tenant'] },
 ];
