@@ -4,7 +4,7 @@ import { formatJam, formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared
 import { Alert, Button, Chip, cx, PatientBanner, Tabs } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
-import { recordMicroAction } from '@/app/(staf)/penunjang/mikrobiologi/actions';
+import { recordMicroAction } from '@/app/(staf)/penunjang/mikrobiologi/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
@@ -28,7 +28,7 @@ import {
   type Sir,
   SIR_LABEL,
 } from '@/lib/penunjang-mikro';
-import type { MicroData } from '@/lib/server/data/penunjang-lanjut';
+import type { MicroData } from '@/lib/server/data/penunjang/mikro';
 import { StageSteps } from './stage-steps';
 
 type Msg = { ok: boolean; text: string; critical?: boolean } | null;

@@ -12,7 +12,7 @@ import {
 } from '@/lib/penunjang-bank-darah';
 import type { BloodCheck, BloodRun } from './bank-darah-workspace';
 
-import type { BloodBankData } from '@/lib/server/data/penunjang-lanjut';
+import type { BloodBankData } from '@/lib/server/data/penunjang/bank-darah';
 
 const inputCls = 'h-11 rounded-control border border-line-strong bg-white px-3 font-[inherit]';
 const labelCls = 'flex flex-col gap-1 text-small font-semibold text-ink-700';

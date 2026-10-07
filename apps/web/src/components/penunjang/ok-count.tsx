@@ -2,7 +2,7 @@
 
 import type { OrCase } from '@simrs/shared';
 import { cx } from '@simrs/ui';
-import { checkCounts, currentPhase } from '@/lib/btn-ok';
+import { checkCounts, currentPhase } from '@/lib/penunjang-ok';
 
 /** Hitung kasa, jarum, dan instrumen: hitung awal tercatat; hitung akhir diisi saat sign out dan harus cocok. */
 export function OkCount({

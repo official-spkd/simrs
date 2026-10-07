@@ -22,7 +22,7 @@ import { applyDepo, dispenseGate, usableStock, DEPO_ERROR_TEXT } from './penunja
 import { deliveryGate, GIZI_GATE_TEXT, mstScore } from './penunjang-gizi';
 import { applyCulture, MICRO_GATE_TEXT, paSignGate, paAddendumGate } from './penunjang-mikro';
 import { applyDiag, DIAG_GATE_TEXT } from './penunjang-diagnostik';
-import { KAMAR_OK } from './demo/fixtures/btn';
+import { KAMAR_OK } from './demo/fixtures/kamar-operasi';
 import { demoAnesthesia } from './demo/fixtures/penunjang-anestesi';
 import {
   canConfirmPhase,
@@ -33,7 +33,7 @@ import {
   COUNT_ITEM,
   checkCounts,
   type OkLocal,
-} from './btn-ok';
+} from './penunjang-ok';
 import {
   EMPTY_PRE,
   preAnesthesiaMissing,
