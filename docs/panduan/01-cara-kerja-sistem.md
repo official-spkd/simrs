@@ -2,7 +2,7 @@
 
 Halaman ini menjelaskan SIM RS dari sudut pandang sistem: apa yang dibangun, bagaimana bagian-bagiannya saling bicara, dan pengaman apa yang menjaga data pasien. Detail kode ada di [Cara kode bekerja](./02-cara-kerja-kode.md); langkah praktis ada di [Tutorial](./03-tutorial.md).
 
-> Status (7 Okt 2026): fase 0–2 selesai (fondasi; platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office: jadwal, booking, registrasi + SEP, antrean, anjungan). Fase 3 (klinis RME) berjalan: API potongan 3.1–3.7 sudah tergabung, dan pemilik produk memutuskan backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Semua 80 layar fase 1–10 di registri sudah bisa dicoba di mode presentasi dengan data dummy; backend-nya menyusul per fase. Cara backend bekerja dijelaskan di [Cara kerja backend](./07-cara-kerja-backend.md). Lihat [Peta fase](#peta-fase) dan [Peta alur semua fase](./20-peta-alur-semua-fase.md).
+> Status (7 Okt 2026): fase 0–2 selesai (fondasi; platform inti: tenant, login + MFA, otorisasi, audit, indeks pasien, data rujukan, formulir, dokumen + TTE, notifikasi, PIN perangkat; front office: jadwal, booking, registrasi + SEP, antrean, anjungan). Fase 3 (klinis RME) berjalan: API potongan 3.1–3.8 sudah tergabung, dan pemilik produk memutuskan backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Semua 80 layar fase 1–10 di registri sudah bisa dicoba di mode presentasi dengan data dummy; backend-nya menyusul per fase. Cara backend bekerja dijelaskan di [Cara kerja backend](./07-cara-kerja-backend.md). Lihat [Peta fase](#peta-fase) dan [Peta alur semua fase](./20-peta-alur-semua-fase.md).
 
 ## Apa yang dibangun
 

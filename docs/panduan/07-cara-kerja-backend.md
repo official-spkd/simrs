@@ -2,7 +2,7 @@
 
 Halaman ini untuk pembaca baru yang ingin memahami **bagaimana backend SIM RS bekerja**: bagian-bagiannya, perjalanan satu permintaan dari layar sampai database, lapisan keamanannya, dan pola bersama yang wajib dipakai ulang setiap modul baru. Gambaran sistem tanpa kode ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md). Rincian per modul dan per potongan ada di [Cara kode bekerja](./02-cara-kerja-kode.md). Letak berkas ada di [Peta kode](./19-peta-kode.md).
 
-> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.7. Layar klinis mode api masih "Belum tersambung" sampai potongan W. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
+> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.8. Di mode api, CPOE (W2), Rawat inap (W4), dan tablet Persetujuan (W5a) sudah tersambung; Poli, IGD, Tempat tidur, dan Resume masih "Belum tersambung" sampai W1, W3, W5b. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
 
 ## Arsitektur ringkas
 
@@ -209,7 +209,7 @@ Pemakai saat ini:
 
 - resume medis, addendum resume, dan surat keterangan kematian (`discharge`, 3.6) lewat `issueSigned`, izin `clinical.sign` di endpoint;
 - persetujuan, penolakan, dan pencabutan tindakan (`consent`) lewat `issueSigned('consents', …)`, TTE dokter pemberi penjelasan, izin `consent.sign` di endpoint;
-- resep di modul `orders` memanggil `ClinicalPdfService.issue()` langsung (sumber `order_groups`, bukan tabel berversi). TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review`.
+- resep di modul `orders` memanggil `ClinicalPdfService.issue()` langsung (sumber `order_groups`, bukan tabel berversi). TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review` sampai DPJP tim (bukan penulis) meninjaunya lewat `POST /orders/:id/review`, yang menerbitkan resep ber-TTE atas nama peninjau (tinjauan serentak: satu 200, lainnya 409).
 
 ## Staging SATUSEHAT dan peristiwa biaya
 
@@ -298,15 +298,14 @@ Syarat yang kurang → 409 `DISCHARGE_BLOCKED` dengan `details.reasons`; pelaku 
 
 Semua modul ada di `apps/api/src/modules/<modul>/` dan didaftarkan sekali di `AppModule`. Polanya `controller` (tipis) → `service` (aturan) → `repository` (Prisma). Tes integrasi ada di `apps/api/test/*.test.ts`. Tabel lengkap per modul, termasuk endpoint dan tingkat kematangan, ada di [Peta kode: peta modul API](./19-peta-kode.md#peta-modul-api).
 
-| Fase            | Modul API                                                                                                                                                                 | Status di `master`                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 0 Fondasi       | `src/common`, `src/infra` (sesi, audit, RLS, outbox, SSE, event domain, lookup, penyimpanan objek, batas laju); `dev-tools`                                               | Selesai                                                                           |
-| 1 Platform      | `tenancy`, `facility`, `auth`, `iam`, `authz`, `devices`, `audit`, `mpi`, `ref`, `forms`, `documents`, `numbering`, `notifications`, `settings`                           | Selesai, dipakai layar mode api                                                   |
-| 2 Front office  | `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, `patient-portal-gateway`                                                                    | Selesai. `booking` belum punya layar web; dipakai lewat API.                      |
-| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`           | API jadi (3.1–3.7). Layar mode api: W4 Rawat inap tersambung; W1–W3, W5 menyusul. |
-| 3 Klinis RME    | `consult`, `care-packages` (3.8)                                                                                                                                          | Kerangka modul kosong; menyusul 3.8.                                              |
-| 4–9             | belum ada modul. Nama rencana di `docs/01-arsitektur.md` §2 dan [Peta kode](./19-peta-kode.md#lapisan-berikutnya-fase-4-9)                                                | Layar hanya mode presentasi                                                       |
-| 10 (lebih awal) | bukan modul API: backup terenkripsi (`infra/backup`), jangkar audit (`apps/worker/src/audit`), rotasi kunci kolom (`apps/worker/src/key-rotation`, `pnpm db:rotate-keys`) | Selesai                                                                           |
+| Fase            | Modul API                                                                                                                                                                                   | Status di `master`                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 0 Fondasi       | `src/common`, `src/infra` (sesi, audit, RLS, outbox, SSE, event domain, lookup, penyimpanan objek, batas laju); `dev-tools`                                                                 | Selesai                                                                           |
+| 1 Platform      | `tenancy`, `facility`, `auth`, `iam`, `authz`, `devices`, `audit`, `mpi`, `ref`, `forms`, `documents`, `numbering`, `notifications`, `settings`                                             | Selesai, dipakai layar mode api                                                   |
+| 2 Front office  | `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, `patient-portal-gateway`                                                                                      | Selesai. `booking` belum punya layar web; dipakai lewat API.                      |
+| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `discharge`, `consent`, `consult`, `care-packages` | API jadi (3.1–3.8). Layar mode api: W2, W4, W5a tersambung; W1, W3, W5b menyusul. |
+| 4–9             | belum ada modul. Nama rencana di `docs/01-arsitektur.md` §2 dan [Peta kode](./19-peta-kode.md#lapisan-berikutnya-fase-4-9)                                                                  | Layar hanya mode presentasi                                                       |
+| 10 (lebih awal) | bukan modul API: backup terenkripsi (`infra/backup`), jangkar audit (`apps/worker/src/audit`), rotasi kunci kolom (`apps/worker/src/key-rotation`, `pnpm db:rotate-keys`)                   | Selesai                                                                           |
 
 ## Daftar periksa modul backend baru
 
