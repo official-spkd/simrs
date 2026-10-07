@@ -2,7 +2,8 @@
 
 import { formatTanggalWaktu, type PatientDocumentView } from '@simrs/shared';
 import { Button, Chip, type ChipTone } from '@simrs/ui';
-import { useActionState, useId, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useId, useState } from 'react';
 import { EmptyNote, FlashLine, Panel, TableWrap, TD, TH } from '@/components/backoffice/kit';
 import { withBasePath } from '@/lib/base-path';
 import {
@@ -15,13 +16,14 @@ import {
   signatureState,
   signBlocker,
   UPLOAD_ACCEPT,
+  UPLOAD_HEADER,
+  uploadPath,
   uploadProblem,
   voidBlocker,
 } from '@/lib/patient-documents';
 import {
   type DocumentActionResult,
   requestSignatureAction,
-  uploadDocumentAction,
   voidDocumentAction,
 } from '@/lib/server/data/klinis/dokumen-actions';
 
@@ -53,9 +55,7 @@ export function PatientDocuments({
   /** Jalur halaman pemanggil (revalidasi setelah aksi). */
   path: string;
 }) {
-  const [uploadState, upload, uploading] = useActionState(uploadDocumentAction, {} as DocumentActionResult);
-  const [rowState, setRowState] = useState<DocumentActionResult | null>(null);
-  const flash = rowState ?? uploadState;
+  const [flash, setFlash] = useState<DocumentActionResult>({});
   return (
     <Panel
       title="Dokumen pasien"
@@ -86,19 +86,13 @@ export function PatientDocuments({
             </thead>
             <tbody>
               {documents.map((d) => (
-                <DocumentRow key={d.id} doc={d} canWrite={canWrite} path={path} onResult={setRowState} />
+                <DocumentRow key={d.id} doc={d} canWrite={canWrite} path={path} onResult={setFlash} />
               ))}
             </tbody>
           </TableWrap>
         )}
         {canWrite ? (
-          <UploadForm
-            patientId={patientId}
-            path={path}
-            action={upload}
-            pending={uploading}
-            onSubmit={() => setRowState(null)}
-          />
+          <UploadForm patientId={patientId} path={path} onResult={setFlash} />
         ) : (
           <p className="m-0 text-caption text-ink-500">
             Peran Anda hanya bisa membaca dan mengunduh dokumen.
@@ -263,41 +257,77 @@ function VoidBox({ onConfirm, onCancel }: { onConfirm: (reason: string) => void;
   );
 }
 
+/**
+ * Unggah lewat Route Handler BFF (`uploadPath`), bukan Server Action: sesi dan izin diperiksa sebelum body dibaca,
+ * batas 10 MB + jenis berkas ditegakkan BFF dan API. Berhasil → `router.refresh()`.
+ */
 function UploadForm({
   patientId,
-  path,
-  action,
-  pending,
-  onSubmit,
+  onResult,
 }: {
   patientId: string;
   path: string;
-  action: (fd: FormData) => void;
-  pending: boolean;
-  onSubmit: () => void;
+  onResult: (r: DocumentActionResult) => void;
 }) {
   const id = useId();
+  const router = useRouter();
   const [title, setTitle] = useState('');
+  const [kind, setKind] = useState<string>('lampiran');
   const [file, setFile] = useState<File | null>(null);
+  const [pending, setPending] = useState(false);
+  const [formKey, setFormKey] = useState(0);
   const problem = uploadProblem(file, title);
+  const submit = async () => {
+    if (problem || !file) return;
+    setPending(true);
+    onResult({});
+    try {
+      const res = await fetch(withBasePath(uploadPath(patientId)), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/octet-stream',
+          [UPLOAD_HEADER]: '1',
+          'x-document-kind': encodeURIComponent(kind),
+          'x-document-title': encodeURIComponent(title.trim()),
+          'x-document-filename': encodeURIComponent(file.name),
+        },
+        body: file,
+      });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; message?: string } | null;
+      if (res.ok && body?.ok) {
+        onResult({ ok: true, message: body.message ?? 'Dokumen tersimpan.' });
+        setTitle('');
+        setFile(null);
+        setFormKey((k) => k + 1);
+        router.refresh();
+      } else {
+        onResult({ error: body?.message ?? 'Unggahan gagal. Coba lagi.' });
+      }
+    } catch {
+      onResult({ error: 'Layanan SIM RS tidak terjangkau. Coba lagi.' });
+    } finally {
+      setPending(false);
+    }
+  };
   return (
     <form
-      action={action}
-      onSubmit={onSubmit}
+      key={formKey}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
       aria-labelledby={`${id}-h`}
       className="flex flex-col gap-3 rounded-card border border-line-soft p-3"
     >
       <h3 id={`${id}-h`} className="m-0 text-body font-semibold text-ink-900">
         Unggah dokumen
       </h3>
-      <input type="hidden" name="patientId" value={patientId} />
-      <input type="hidden" name="path" value={path} />
       <div className="grid gap-3 sm:grid-cols-3">
         <span className="flex min-w-0 flex-col gap-1.5">
           <label htmlFor={`${id}-k`} className="text-small font-semibold text-ink-700">
             Jenis
           </label>
-          <select id={`${id}-k`} name="kind" defaultValue="lampiran" className={CONTROL}>
+          <select id={`${id}-k`} value={kind} onChange={(e) => setKind(e.target.value)} className={CONTROL}>
             {CLINICAL_UPLOAD_KINDS.map((k) => (
               <option key={k} value={k}>
                 {kindLabel(k)}
