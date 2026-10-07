@@ -1,5 +1,6 @@
 import { loginRole, sharedAccount, resetShared, switchRole } from './penunjang-support';
 import { expect, type Page, test } from '@playwright/test';
+import { OR_CASE_ID } from '../../src/lib/demo/fixtures/ids';
 import { createAccount, loginAs } from '../support/accounts';
 
 /**
@@ -277,7 +278,7 @@ test.describe('S10 · diagnostik lain', () => {
 test.describe('S06 · anestesi di layar Kamar operasi', () => {
   test('induksi terkunci sampai asesmen pra-anestesi ber-TTE lalu sign in WHO', async ({ page }) => {
     const dokter = await createAccount({ roles: ['dokter'] });
-    await loginAs(page, dokter, '/penunjang/kamar-operasi?pilih=ok3-1');
+    await loginAs(page, dokter, `/penunjang/kamar-operasi?pilih=${OR_CASE_ID.anisa}`);
     const anestesi = page.getByRole('region', { name: 'Anestesi' });
     await expect(anestesi.getByRole('button', { name: 'Catat induksi' })).toBeDisabled();
     await expect(anestesi).toContainText('asesmen pra-anestesi belum ditandatangani');

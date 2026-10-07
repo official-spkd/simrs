@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OR_CASE_ID } from './demo/fixtures/ids';
 import { demoAnesthesia } from './demo/fixtures/penunjang-anestesi';
 import { demoOrSchedule } from './btn-skenario';
 import { advanceTo, runScenario } from './demo/engine/run';
@@ -42,13 +43,13 @@ describe('anestesi', () => {
 
   it('induksi terkunci sampai asesmen ber-TTE dan sign in WHO', () => {
     const recs = demoAnesthesia();
-    const anisa = recs['ok3-1'];
-    const ratna = recs['ok2-2'];
+    const anisa = recs[OR_CASE_ID.anisa];
+    const ratna = recs[OR_CASE_ID.ratna];
     if (!anisa || !ratna) throw new Error('kasus');
     expect(inductionGate(anisa, true)).toBe('PRE_ANESTHESIA');
     expect(inductionGate(ratna, false)).toBe('SIGN_IN');
     expect(inductionGate(ratna, true)).toBeNull();
-    expect(inductionGate(recs['ok4-1'] ?? ratna, true)).toBe('ALREADY');
+    expect(inductionGate(recs[OR_CASE_ID.rizky] ?? ratna, true)).toBe('ALREADY');
   });
 
   it('peringatan monitoring intraoperasi', () => {

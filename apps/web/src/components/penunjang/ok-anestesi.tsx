@@ -3,7 +3,7 @@
 import { formatJam, formatTanggalWaktu, type OrCase } from '@simrs/shared';
 import { Alert, Button, Chip, cx } from '@simrs/ui';
 import { useId, useState } from 'react';
-import { recordAnesthesiaAction } from '@/app/(staf)/penunjang/kamar-operasi/anestesi-actions';
+import { recordAnesthesiaAction } from '@/app/(staf)/penunjang/kamar-operasi/anestesi-actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import {
   AIRWAY_OPTIONS,

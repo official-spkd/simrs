@@ -7,9 +7,9 @@ import {
   finishExamAction,
   signReportAction,
   startExamAction,
-} from '@/app/(staf)/penunjang/radiologi/actions';
+} from '@/app/(staf)/penunjang/radiologi/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
-import type { StoredRadiologyWorklist } from '@/lib/server/data/penunjang';
+import type { StoredRadiologyWorklist } from '@/lib/server/data/penunjang/radiologi';
 import type { PenunjangActionResult } from '@/lib/penunjang-aksi';
 import { sortExams } from '@/lib/penunjang-radiologi';
 import { RadBoard } from './rad-board';

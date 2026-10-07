@@ -3,7 +3,7 @@
 import { formatJam, formatTanggalWaktu } from '@simrs/shared';
 import { Alert, Button, Chip, cx, RadioSegmented, SafetyGate, Tabs } from '@simrs/ui';
 import { useState } from 'react';
-import { recordGiziAction } from '@/app/(staf)/penunjang/gizi/actions';
+import { recordGiziAction } from '@/app/(staf)/penunjang/gizi/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import {
   allergyConflict,
@@ -21,7 +21,7 @@ import {
   type WeightLoss,
   wardSummary,
 } from '@/lib/penunjang-gizi';
-import type { NutritionData } from '@/lib/server/data/penunjang-lanjut';
+import type { NutritionData } from '@/lib/server/data/penunjang/gizi';
 
 const key = (orderId: string, meal: MealTime) => `${orderId}|${meal}`;
 const EMPTY: Delivery = {

@@ -4,7 +4,7 @@ import { formatJam, formatTanggalLahir, formatTanggalWaktu } from '@simrs/shared
 import { Alert, Button, Chip, cx, FilterChip, PatientBanner } from '@simrs/ui';
 import Link from 'next/link';
 import { useState } from 'react';
-import { recordDiagAction } from '@/app/(staf)/penunjang/diagnostik/actions';
+import { recordDiagAction } from '@/app/(staf)/penunjang/diagnostik/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import { demoNow } from '@/lib/demo/fixtures/waktu';
 import {

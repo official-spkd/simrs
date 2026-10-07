@@ -3,7 +3,7 @@
 import { formatJam, formatTanggal, formatTanggalLahir } from '@simrs/shared';
 import { Alert, Button, Chip, cx, PatientBanner } from '@simrs/ui';
 import { useState } from 'react';
-import { recordBloodAction, checkBloodAction } from '@/app/(staf)/penunjang/bank-darah/actions';
+import { recordBloodAction, checkBloodAction } from '@/app/(staf)/penunjang/bank-darah/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import {
   type Abo,
@@ -18,7 +18,7 @@ import {
   STAGES,
   unitGate,
 } from '@/lib/penunjang-bank-darah';
-import type { BloodBankData } from '@/lib/server/data/penunjang-lanjut';
+import type { BloodBankData } from '@/lib/server/data/penunjang/bank-darah';
 import { BedsidePanel, IssuePanel, MonitorPanel } from './bank-darah-panels';
 import { StageSteps } from './stage-steps';
 
