@@ -15,6 +15,9 @@ model Orderable {
   code                String?
   /// Unit penerima (lab, radiologi, …).
   unitId              String?              @map("unit_id") @db.Uuid
+  /// Fase 4 §4.2 · order lab panel (mis. "Darah lengkap") → tes lab ber-`panel_code` ini; null = tes tunggal
+  /// (`lab_test_definitions.orderable_id`).
+  labPanelCode        String?              @map("lab_panel_code")
   /// ditanggung | fornas | tidak-ditanggung
   coverage            String               @default("ditanggung")
   /// rutin | cito

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { readTenantSetting } from '@simrs/db';
-import { AppError, newId } from '@simrs/shared';
+import { raiseCriticalResult } from '@simrs/db';
+import { AppError } from '@simrs/shared';
 import { DomainEvents } from '../../infra/events/domain-events';
 import { TenantDb } from '../../infra/tenant-db';
 
@@ -36,43 +36,34 @@ export class CriticalResultsService {
 
   async raise(input: RaiseCriticalInput): Promise<RaisedCritical> {
     const tx = this.db.tx();
-    const source = await this.sourceOf(input);
-    const existing = await tx.criticalResult.findFirst({
-      where:
-        input.source === 'lab'
-          ? { labResultId: input.labResultId }
-          : { imagingReportId: input.imagingReportId },
-      select: { id: true, limitMinutes: true },
+    // Sumber ada & dalam tenant (404 yang jelas sebelum inti `@simrs/db`, yang juga dipakai worker analyzer).
+    const found =
+      input.source === 'lab'
+        ? await tx.labResult.count({ where: { id: input.labResultId } })
+        : await tx.imagingReport.count({ where: { id: input.imagingReportId } });
+    if (found === 0) {
+      throw new AppError(
+        'NOT_FOUND',
+        input.source === 'lab' ? 'Hasil lab tidak ditemukan' : 'Ekspertise radiologi tidak ditemukan',
+        404,
+      );
+    }
+    const row = await raiseCriticalResult(tx, this.db.tenantId(), {
+      ...input,
+      raisedBy: this.db.actorUserId(),
     });
-    if (existing) return { id: existing.id, created: false, limitMinutes: existing.limitMinutes };
-    const limitMinutes = await readTenantSetting(tx, 'critical.report_limit_minutes');
-    const id = newId();
-    await tx.criticalResult.create({
-      data: {
-        id,
-        tenantId: this.db.tenantId(),
+    if (row.created) {
+      await this.events.publish('critical_result.raised', {
+        criticalResultId: row.id,
         source: input.source,
-        labResultId: input.source === 'lab' ? input.labResultId : null,
-        imagingReportId: input.source === 'radiology' ? input.imagingReportId : null,
-        encounterId: source.encounterId,
-        patientId: source.patientId,
-        unitId: source.unitId,
-        analyte: input.analyte.slice(0, 120),
-        valueText: input.valueText.slice(0, 200),
-        limitMinutes,
-        raisedBy: this.db.actorUserId(),
-      },
-    });
-    await this.events.publish('critical_result.raised', {
-      criticalResultId: id,
-      source: input.source,
-      sourceId: input.source === 'lab' ? input.labResultId : input.imagingReportId,
-      encounterId: source.encounterId,
-      patientId: source.patientId,
-      unitId: source.unitId,
-      limitMinutes,
-    });
-    return { id, created: true, limitMinutes };
+        sourceId: input.source === 'lab' ? input.labResultId : input.imagingReportId,
+        encounterId: row.encounterId,
+        patientId: row.patientId,
+        unitId: row.unitId,
+        limitMinutes: row.limitMinutes,
+      });
+    }
+    return { id: row.id, created: row.created, limitMinutes: row.limitMinutes };
   }
 
   /** Gerbang validasi teknis lab: masih ada nilai kritis terbuka untuk hasil order lab ini (versi mana pun). */
@@ -89,23 +80,5 @@ export class CriticalResultsService {
       where: { status: 'terbuka', imagingReport: { imagingStudyId } },
     });
     return n > 0;
-  }
-
-  private async sourceOf(input: RaiseCriticalInput) {
-    const tx = this.db.tx();
-    if (input.source === 'lab') {
-      const r = await tx.labResult.findUnique({
-        where: { id: input.labResultId },
-        select: { encounterId: true, patientId: true, labOrder: { select: { unitId: true } } },
-      });
-      if (!r) throw new AppError('NOT_FOUND', 'Hasil lab tidak ditemukan', 404);
-      return { encounterId: r.encounterId, patientId: r.patientId, unitId: r.labOrder.unitId };
-    }
-    const r = await tx.imagingReport.findUnique({
-      where: { id: input.imagingReportId },
-      select: { encounterId: true, patientId: true, imagingStudy: { select: { unitId: true } } },
-    });
-    if (!r) throw new AppError('NOT_FOUND', 'Ekspertise radiologi tidak ditemukan', 404);
-    return { encounterId: r.encounterId, patientId: r.patientId, unitId: r.imagingStudy.unitId };
   }
 }

@@ -251,6 +251,11 @@ export async function seedSupportMasters(tx: TenantTx, tenantId: string): Promis
     }
     result.labTests += 1;
   }
+  // Order panel "Darah lengkap" (tanpa LOINC tunggal) → tes ber-panel DL (fase 4 §4.2).
+  await tx.orderable.updateMany({
+    where: { kind: 'lab', name: 'Darah lengkap', labPanelCode: null },
+    data: { labPanelCode: 'DL' },
+  });
   const lab = await unitId('LAB');
   for (const [code, name] of [
     ['HEM-01', 'Analyzer hematologi 1'],

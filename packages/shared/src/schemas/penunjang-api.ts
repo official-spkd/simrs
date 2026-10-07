@@ -16,7 +16,13 @@ const instant = z.iso.datetime({ offset: true });
 const isoDate = z.iso.date();
 const text = (min: number, max: number) => z.string().trim().min(min).max(max);
 const reason = z.string().trim().min(SAFETY_REASON_MIN).max(500);
-const optionalNote = z.string().trim().max(500).nullable();
+/** Catatan opsional: boleh tidak dikirim (→ null). */
+const optionalNote = z
+  .string()
+  .trim()
+  .max(500)
+  .nullish()
+  .transform((v) => v ?? null);
 /** Rupiah bulat tak bertanda sebagai string (bigint tidak didukung JSON). */
 const rupiahString = z.string().regex(/^\d{1,18}$/);
 
@@ -248,6 +254,37 @@ export const labWorklistItemSchema = z.strictObject({
 });
 export type LabWorklistItem = z.infer<typeof labWorklistItemSchema>;
 
+/** `GET /api/v1/lab/worklist`: `aktif` = order baru + belum dirilis; `selesai` = dirilis/batal ≤ 7 hari. */
+export const labWorklistQuerySchema = z.object({
+  view: z.enum(['aktif', 'selesai']).default('aktif'),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+export type LabWorklistQuery = z.infer<typeof labWorklistQuerySchema>;
+
+/** Tes yang diharapkan dari order (untuk input hasil manual): definisi tes + spesimennya. */
+export const labTestSlotSchema = z.strictObject({
+  testDefinitionId: uuid,
+  code: z.string().min(1),
+  loinc: z.string().nullable(),
+  name: z.string().min(1),
+  unit: z.string(),
+  decimals: z.int().min(0).max(3),
+  resultType: z.enum(LAB_RESULT_TYPES),
+  specimenType: z.string().min(1),
+});
+export type LabTestSlot = z.infer<typeof labTestSlotSchema>;
+
+/** Pesan analyzer yang gagal/berhenti diproses (tampil di layar Lab, bukan DLQ diam). Tanpa isi pesan. */
+export const labInboundIssueSchema = z.strictObject({
+  id: uuid,
+  controlId: z.string(),
+  status: z.enum(['failed', 'dead']),
+  attempts: z.int().min(0),
+  error: z.string().nullable(),
+  receivedAt: instant,
+});
+export type LabInboundIssue = z.infer<typeof labInboundIssueSchema>;
+
 export const labOrderDetailSchema = serverTimeSchema.extend({
   id: uuid,
   labNo: z.string(),
@@ -261,6 +298,12 @@ export const labOrderDetailSchema = serverTimeSchema.extend({
   previous: z.record(z.string(), z.array(z.strictObject({ at: instant, valueNumeric: z.number() })).max(5)),
   validations: z.array(labValidationSchema),
   criticalResultIds: z.array(uuid),
+  /** Tes yang diharapkan dari order aktif (urut tampilan). */
+  tests: z.array(labTestSlotSchema),
+  /** Putaran validasi berjalan (naik setelah hasil yang sudah divalidasi dikoreksi). */
+  round: z.int().min(1),
+  receivedAt: instant.nullable(),
+  releasedAt: instant.nullable(),
 });
 export type LabOrderDetail = z.infer<typeof labOrderDetailSchema>;
 
