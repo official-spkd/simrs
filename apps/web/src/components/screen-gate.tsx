@@ -17,15 +17,12 @@ interface Copy {
 
 /**
  * Teks "Belum tersambung" hanya untuk layar yang jalur api-nya belum dibangun. Layar yang sudah tersambung (front office
- * fase 2, Rawat inap W4) dihapus dari sini; layar tanpa entri memakai kalimat umum.
+ * fase 2, CPOE W2, Rawat inap W4, tablet Persetujuan W5a) dihapus dari sini; layar tanpa entri memakai kalimat umum.
  */
 const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
-  // Layar klinis fase 3: jalur api diisi layar W1–W5 setelah modul API klinisnya tergabung.
+  // Layar klinis fase 3 yang belum tersambung: Poli (W1), IGD + Tempat tidur (W3), Resume (W5b).
   poli: {
     body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
-  },
-  order: {
-    body: 'Buka CPOE dari kunjungan pasien (tautan Order di layar klinis). Daftar kunjungan untuk CPOE tersedia setelah layar Pemeriksaan poli dan Rawat inap tersambung ke server SIM RS.',
   },
   igd: {
     body: 'Papan pelacakan IGD dan triase akan tersedia di sini setelah modul IGD tersambung ke server SIM RS. Sementara itu, lakukan triase dengan prosedur cadangan rumah sakit.',
@@ -35,9 +32,6 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
   },
   resume: {
     body: 'Resume medis pulang, rekonsiliasi obat, dan TTE DPJP akan tersedia di sini setelah modul resume tersambung ke server SIM RS. Sementara itu, ikuti prosedur resume cadangan rumah sakit.',
-  },
-  consent: {
-    body: 'Persetujuan tindakan di tablet belum tersambung ke server SIM RS. Gunakan formulir persetujuan tindakan kertas sesuai prosedur rumah sakit.',
   },
 };
 
