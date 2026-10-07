@@ -42,6 +42,7 @@ import { RoleMatrix } from './role-matrix';
 import { UserActions } from './user-actions';
 import { ContactForm } from './contact-form';
 import { KpiTile } from '@/components/manajemen/kpi-tile';
+import { withBasePath } from '@/lib/base-path';
 
 export const metadata: Metadata = { title: 'Pengguna dan akses' };
 
@@ -156,7 +157,7 @@ export default async function AksesPage({ searchParams }: { searchParams: Search
         >
           <form
             method="get"
-            action="/sistem/akses"
+            action={withBasePath('/sistem/akses')}
             className="flex flex-wrap items-center gap-2.5 border-b border-line px-4 py-3.5"
           >
             <label htmlFor="cari-pengguna" className="sr-only">

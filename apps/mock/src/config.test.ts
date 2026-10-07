@@ -5,6 +5,7 @@ describe('gerbang start mock (tanpa autentikasi, kredensial mock bawaan)', () =>
   it('menolak APP_ENV/NODE_ENV production', () => {
     expect(mockStartupProblem({ APP_ENV: 'production' })).toMatch(/produksi/);
     expect(mockStartupProblem({ APP_ENV: 'local', NODE_ENV: 'production' })).toMatch(/produksi/);
+    expect(mockStartupProblem({ NODE_ENV: 'production' })).toMatch(/produksi/);
   });
 
   it('menolak bind ke luar loopback kecuali diizinkan eksplisit', () => {
@@ -16,6 +17,11 @@ describe('gerbang start mock (tanpa autentikasi, kredensial mock bawaan)', () =>
   it('lokal di loopback diizinkan (juga tanpa APP_ENV, seperti tes)', () => {
     expect(mockStartupProblem({ APP_ENV: 'local' })).toBeNull();
     expect(mockStartupProblem({ APP_ENV: 'staging', HOST: '127.0.0.1' })).toBeNull();
+    // Demo publik: build produksi tetapi integrasi wajib mock.
+    expect(mockStartupProblem({ APP_ENV: 'demo', NODE_ENV: 'production' })).toBeNull();
+    expect(mockStartupProblem({ APP_ENV: 'demo', NODE_ENV: 'production', HOST: '0.0.0.0' })).toMatch(
+      /loopback/,
+    );
     expect(mockStartupProblem({ HOST: 'localhost' })).toBeNull();
     expect(mockStartupProblem({ HOST: '::1' })).toBeNull();
   });

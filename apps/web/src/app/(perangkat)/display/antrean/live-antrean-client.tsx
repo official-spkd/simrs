@@ -8,6 +8,7 @@ import { useDemoClock } from '@/components/front-office/use-demo-clock';
 import { dateFull } from '@/lib/front-office';
 import { applyQueueEvent, callAnnouncement } from '@/lib/queue-board';
 import { connectQueueStream, type QueueStreamStatus } from '@/lib/queue-sse';
+import { withBasePath } from '@/lib/base-path';
 
 const SOUND_KEY = 'simrs.display.suara';
 
@@ -79,7 +80,7 @@ export function LiveAntreanClient({
 
   useEffect(() => {
     const conn = connectQueueStream({
-      url: '/display/antrean/events',
+      url: withBasePath('/display/antrean/events'),
       onStatus: setStatus,
       onEvent: (ev: QueueDisplayEvent) => {
         setBoard((b) => applyQueueEvent(b, ev));

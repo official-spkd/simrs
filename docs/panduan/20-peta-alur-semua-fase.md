@@ -2,7 +2,7 @@
 
 Halaman ini memetakan **setiap fase** rencana kerja ke **layar web**, rutenya, dan sumber datanya hari ini. Gunakan sebagai daftar isi seluruh aplikasi: dari sini buka halaman fitur untuk alur dan gerbang keselamatan tiap layar.
 
-> Status 6 Okt 2026: registri `apps/web/src/lib/screens.ts` berisi 80 layar (68 demo, 11 hibrida demo + api, 1 khusus api), ditambah 11 layar platform yang langsung tersambung API di luar registri. Backend fase 0–2 selesai, fase 3 berjalan, fase 4–9 belum dibangun; semua layarnya sudah bisa dicoba di mode presentasi (`pnpm demo`). Status resmi tiap potongan ada di `docs/PROGRESS.md`; kriteria selesai fase di `docs/09-rencana-fase.md`.
+> Status 6 Okt 2026: registri `apps/web/src/lib/screens.ts` berisi 80 layar (68 demo, 11 hibrida demo + api, 1 khusus api), ditambah 11 layar platform yang langsung tersambung API di luar registri. Backend fase 0–2 selesai, fase 3 berjalan (API 3.1–3.5 tergabung; sejak 7 Okt 2026 backend dilanjutkan penuh, lihat [Cara kerja backend](./07-cara-kerja-backend.md)), fase 4–9 belum dibangun; semua layarnya sudah bisa dicoba di mode presentasi (`pnpm demo`). Status resmi tiap potongan ada di `docs/PROGRESS.md`; kriteria selesai fase di `docs/09-rencana-fase.md`.
 
 ![Peta fase: sebelas baris fase 0 sampai 10, masing-masing dengan status backend (selesai, berjalan, belum, sebagian), jumlah layar per sumber data, dan kelompok layarnya](./gambar/diagram-peta-fase.svg)
 

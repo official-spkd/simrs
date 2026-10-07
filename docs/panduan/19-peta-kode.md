@@ -1,8 +1,8 @@
 # Peta kode
 
-Halaman ini memetakan **di mana kode tiap fitur berada** dan **seberapa matang** tiap bagian. Bacalah setelah [Cara kode bekerja](./02-cara-kerja-kode.md), yang menjelaskan mekanismenya (permintaan API, RLS, outbox, sesi web). Penjelasan per layar ada di halaman fitur, mulai dari [Fitur platform](./10-fitur-platform.md).
+Halaman ini memetakan **di mana kode tiap fitur berada** dan **seberapa matang** tiap bagian. Bacalah setelah [Cara kerja backend](./07-cara-kerja-backend.md) (gambaran lintas modul) dan [Cara kode bekerja](./02-cara-kerja-kode.md), yang menjelaskan mekanismenya (permintaan API, RLS, outbox, sesi web). Penjelasan per layar ada di halaman fitur, mulai dari [Fitur platform](./10-fitur-platform.md).
 
-> Status 6 Okt 2026 (putaran 2): fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.4 tergabung. Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
+> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.5 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
 
 ## Gambaran besar
 
@@ -301,27 +301,27 @@ Tingkat kematangan:
 
 ### Klinis RME (fase 3)
 
-| Modul           | Komponen | Endpoint utama                | Kematangan | Catatan                                                                              |
-| --------------- | -------- | ----------------------------- | ---------- | ------------------------------------------------------------------------------------ |
-| `encounter`     | K02      | `/encounters`                 | API jadi   | Konteks kunjungan + banner; SEP IGD otomatis                                         |
-| `drafts`        | K        | `/drafts`                     | API jadi   | Draf klinis per penulis (ADR-0028), dibersihkan job worker                           |
-| `diagnosis`     | K08      | `/encounters/…`, `/diagnosis` | API jadi   | ICD-10, ICD-9-CM, problem list, alergi + NKDA                                        |
-| `results`       | K08      | `/results`                    | API jadi   | Muara hasil penunjang (observasi, laporan)                                           |
-| `summary`       | K14      | `/summary`, `/encounters/…`   | API jadi   | Ringkasan pasien (hanya membaca modul lain)                                          |
-| `nursing`       | K12      | `/encounters/…`               | Sebagian   | Tanda vital + NEWS2 + eskalasi; eMAR dan askep menyusul potongan 3.5                 |
-| `cppt`          | K07      | `/cppt`, `/encounters/…`      | API jadi   | CPPT multi-PPA, co-sign residen, verifikasi DPJP, serah terima SBAR                  |
-| `assessment`    | K06      | `/encounters/…`               | API jadi   | Asesmen lewat formulir P07 dengan `encounterId`                                      |
-| `worklist`      | K01      | `/worklist`                   | API jadi   | Pasien per DPJP/unit/shift + tugas pribadi                                           |
-| `adt`           | K04/K05  | `/adt`, `/encounters/…`       | API jadi   | Admisi, transfer, papan bed, gelang, Aplicare (potongan 3.3)                         |
-| `triage`        | K03      | `/triage`, `/encounters/…`    | API jadi   | Saran ATS dari server, triase berversi, papan IGD + SSE                              |
-| `orders`        | K09      | `/orders`, `/encounters/…`    | API jadi   | Katalog, order set, pratinjau CDS, kirim (Idempotency-Key), batal, resep PDF ber-TTE |
-| `cds`           | K09      | `/cds`                        | API jadi   | Evaluasi CDS dengan basis pengetahuan per RS (ADR-0030)                              |
-| `consent`       | K11      | —                             | Kerangka   | Isi di potongan 3.7 (tablet persetujuan + TTE)                                       |
-| `discharge`     | K13      | —                             | Kerangka   | Isi di potongan 3.6 (resume, rekonsiliasi obat, tutup kunjungan)                     |
-| `consult`       | K10      | —                             | Kerangka   | Isi di potongan 3.8 (konsultasi, rawat bersama, ganti DPJP)                          |
-| `care-packages` | K15      | —                             | Kerangka   | Isi di potongan 3.8 (paket formulir + kelengkapan)                                   |
+| Modul           | Komponen | Endpoint utama                | Kematangan | Catatan                                                                                                      |
+| --------------- | -------- | ----------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------ |
+| `encounter`     | K02      | `/encounters`                 | API jadi   | Konteks kunjungan + banner; SEP IGD otomatis                                                                 |
+| `drafts`        | K        | `/drafts`                     | API jadi   | Draf klinis per penulis (ADR-0028), dibersihkan job worker                                                   |
+| `diagnosis`     | K08      | `/encounters/…`, `/diagnosis` | API jadi   | ICD-10, ICD-9-CM, problem list, alergi + NKDA                                                                |
+| `results`       | K08      | `/results`                    | API jadi   | Muara hasil penunjang (observasi, laporan)                                                                   |
+| `summary`       | K14      | `/summary`, `/encounters/…`   | API jadi   | Ringkasan pasien (hanya membaca modul lain)                                                                  |
+| `nursing`       | K12      | `/nursing`, `/encounters/…`   | API jadi   | Tanda vital + NEWS2 + eskalasi; eMAR, cek ganda, askep, balans cairan (3.5, ADR-0077)                        |
+| `cppt`          | K07      | `/cppt`, `/encounters/…`      | API jadi   | CPPT multi-PPA, co-sign residen, verifikasi DPJP, serah terima SBAR                                          |
+| `assessment`    | K06      | `/encounters/…`               | API jadi   | Asesmen lewat formulir P07 dengan `encounterId`                                                              |
+| `worklist`      | K01      | `/worklist`                   | API jadi   | Pasien per DPJP/unit/shift + tugas pribadi                                                                   |
+| `adt`           | K04/K05  | `/adt`, `/encounters/…`       | API jadi   | Admisi, transfer, papan bed, gelang, Aplicare (potongan 3.3)                                                 |
+| `triage`        | K03      | `/triage`, `/encounters/…`    | API jadi   | Saran ATS dari server, triase berversi, papan IGD + SSE                                                      |
+| `orders`        | K09      | `/orders`, `/encounters/…`    | API jadi   | Katalog, order set, pratinjau CDS, kirim (Idempotency-Key), batal, resep PDF ber-TTE                         |
+| `cds`           | K09      | `/cds`                        | API jadi   | Evaluasi CDS dengan basis pengetahuan per RS (ADR-0030)                                                      |
+| `consent`       | K11      | —                             | Kerangka   | Isi di potongan 3.7 (tablet persetujuan + TTE)                                                               |
+| `discharge`     | K13      | —                             | Kerangka   | Isi di potongan 3.6 (resume, rekonsiliasi obat, tutup kunjungan); kontrak `DischargeGate` sementara di `adt` |
+| `consult`       | K10      | —                             | Kerangka   | Isi di potongan 3.8 (konsultasi, rawat bersama, ganti DPJP)                                                  |
+| `care-packages` | K15      | —                             | Kerangka   | Isi di potongan 3.8 (paket formulir + kelengkapan)                                                           |
 
-Fondasi klinis bersama ada di `apps/api/src/infra/clinical/` (`ClinicalRecordService`: versi, koreksi, salah entri, addendum, kunci TTE; staging SATUSEHAT `held` dan `billable_events`). Lihat [diagram rekam medis immutable](./12-fitur-klinis.md) dan ADR-0028.
+Fondasi klinis bersama ada di `apps/api/src/infra/clinical/` (`ClinicalRecordService`: versi, koreksi, salah entri, addendum, kunci TTE; `ClinicalSigningService`; `CareTeamService`; staging SATUSEHAT `held` dan `billable_events`). Penjelasannya: [Cara kerja backend](./07-cara-kerja-backend.md#pola-entri-klinis-berversi) dan ADR-0028.
 
 ### Lapisan berikutnya (fase 4–9)
 

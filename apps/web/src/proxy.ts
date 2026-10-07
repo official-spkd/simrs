@@ -7,6 +7,7 @@ import { loginUrl } from '@/lib/safe-path';
 import { clearCookies, cookieNames, parseDeviceToken, writeSessionCookies } from '@/lib/server/cookies';
 import { refreshSession } from '@/lib/server/refresh';
 import { webEnv } from '@/lib/server/web-env';
+import { withBasePath } from '@/lib/base-path';
 
 /**
  * Proxy (Next 16, runtime Node) di depan semua halaman:
@@ -72,7 +73,7 @@ async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextRes
 
   if (env.dataSource === 'api' && deviceRouteKind(req.nextUrl.pathname)) {
     if (navigation && !parseDeviceToken(req.cookies.get(names.device)?.value)) {
-      return NextResponse.redirect(new URL(enrolUrl(path), req.url));
+      return NextResponse.redirect(new URL(withBasePath(enrolUrl(path)), req.url));
     }
     return NextResponse.next({ request: { headers } });
   }
@@ -95,14 +96,14 @@ async function sessionProxy(req: NextRequest, headers: Headers): Promise<NextRes
       headers.set('cookie', cookieHeader(req, {}, [names.access, names.refresh]));
       const res =
         protectedPage && navigation
-          ? NextResponse.redirect(new URL(loginUrl(path, 'sesi-berakhir'), req.url))
+          ? NextResponse.redirect(new URL(withBasePath(loginUrl(path, 'sesi-berakhir')), req.url))
           : NextResponse.next({ request: { headers } });
       clearCookies(res.cookies, env.secureCookies, ['access', 'refresh']);
       return res;
     }
     // API tidak terjangkau atau sedang membatasi laju: biarkan lewat, halaman menampilkan galatnya.
   } else if (!access && !refresh && protectedPage && navigation) {
-    return NextResponse.redirect(new URL(loginUrl(path), req.url));
+    return NextResponse.redirect(new URL(withBasePath(loginUrl(path)), req.url));
   }
   return NextResponse.next({ request: { headers } });
 }

@@ -565,12 +565,65 @@ model Consent {
   addendumTarget Consent?           @relation("ConsentAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
   addenda        Consent[]          @relation("ConsentAddendum")
   signatures     ConsentSignature[]
+  drafts         ConsentDraft[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
   @@index([tenantId, encounterId])
   @@index([tenantId, patientId])
   @@map("consents")
+}
+
+/// K11 · Draf persetujuan tindakan di tablet (BUKAN rekam medis, rencana fase 3 §3.7): disiapkan dokter/perawat dari
+/// templat P07 (tujuh butir), ditandatangani pasien/wali (+ saksi keluarga), diatestasi saksi petugas dengan sesinya
+/// sendiri, lalu difinalkan dokter (`consent.sign`) menjadi `consents` ber-PDF + TTE (`final`) atau penolakan
+/// (`ditolak`), atau dibatalkan beralasan (`batal`). Tutup-sekali: setelah keluar dari `draf` baris tidak berubah lagi
+/// (trigger `consent_drafts_guard`). Mengubah isi menghapus tanda tangan dan atestasi; mengubah tanda tangan menghapus
+/// atestasi (saksi menyaksikan penandatanganan yang berlaku).
+model ConsentDraft {
+  id                 String    @id @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  patientId          String    @map("patient_id") @db.Uuid
+  encounterId        String    @map("encounter_id") @db.Uuid
+  /// Templat P07 terbit yang memuat ketujuh butir informasi.
+  formDefinitionId   String    @map("form_definition_id") @db.Uuid
+  procedure          String
+  /// pasien | wali
+  signerKind         String    @map("signer_kind")
+  /// Tujuh butir informasi `[{key, title, body}]` (urutan `CONSENT_INFORMATION_ITEMS`).
+  information        Json
+  explainedAt        DateTime? @map("explained_at") @db.Timestamptz(3)
+  /// Tanda tangan pemberi persetujuan `{name, relation, method, imageDocumentId}`; null = belum.
+  signer             Json?
+  familyWitness      Json?     @map("family_witness")
+  /// Waktu server saat tanda tangan pasien/wali disimpan (ketujuh butir dinyatakan dipahami).
+  signedAt           DateTime? @map("signed_at") @db.Timestamptz(3)
+  staffWitnessUserId String?   @map("staff_witness_user_id") @db.Uuid
+  staffWitnessedAt   DateTime? @map("staff_witnessed_at") @db.Timestamptz(3)
+  /// draf | final | ditolak | batal
+  status             String    @default("draf")
+  /// Entri `consents` hasil final/penolakan.
+  consentId          String?   @map("consent_id") @db.Uuid
+  closedAt           DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedBy           String?   @map("closed_by") @db.Uuid
+  cancelReason       String?   @map("cancel_reason")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String    @map("created_by") @db.Uuid
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?   @map("updated_by") @db.Uuid
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  patient        Patient        @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter      @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  formDefinition FormDefinition @relation(fields: [tenantId, formDefinitionId], references: [tenantId, id])
+  consent        Consent?       @relation(fields: [tenantId, consentId], references: [tenantId, id])
+  creator        User           @relation("ConsentDraftCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  staffWitness   User?          @relation("ConsentDraftWitness", fields: [tenantId, staffWitnessUserId], references: [tenantId, id])
+  closer         User?          @relation("ConsentDraftCloser", fields: [tenantId, closedBy], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, encounterId])
+  @@map("consent_drafts")
 }
 
 /// K11 · Tanda tangan persetujuan (pasien/wali, saksi keluarga, saksi petugas). Append-only; satu per jenis per versi.

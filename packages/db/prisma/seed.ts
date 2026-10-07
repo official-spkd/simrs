@@ -6,7 +6,7 @@
  * Staf seed TIDAK punya kata sandi: tidak bisa masuk sampai admin SIM RS mereset sandinya di layar Akses. Akun yang
  * bisa langsung dipakai hanya lewat CLI: `pnpm db:create-admin` / `pnpm db:create-demo` mencetak sandi sementara sekali.
  */
-import { MORSE_FALL_SCALE } from '@simrs/shared';
+import { CONSENT_TEMPLATE_SAMPLE, EDUCATION_FORM_SAMPLE, MORSE_FALL_SCALE } from '@simrs/shared';
 import { loadFieldKeys, PatientCrypto } from '@simrs/shared/node';
 import { ensureSystemRoles } from '../src/authz';
 import { createPrismaClient, type PrismaClient, withTenant } from '../src/client';
@@ -84,7 +84,10 @@ try {
       // P03: izin yang baru di katalog (mis. izin fase 2) sampai ke peran RS yang sudah ada, seperti
       // `pnpm db:sync-permissions` (tidak mengembalikan izin yang dicabut admin).
       const sync = await syncRolePermissions(tx, t.id, 'hospital', { via: 'seed' });
-      // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku.
+      // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku. K11 (fase 3): templat persetujuan
+      // tindakan (tujuh butir informasi) dan edukasi terintegrasi.
+      await ensurePublishedForm(tx, t.id, CONSENT_TEMPLATE_SAMPLE);
+      await ensurePublishedForm(tx, t.id, EDUCATION_FORM_SAMPLE);
       return {
         ...(await ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE)),
         permissionsAdded: sync.added.length,

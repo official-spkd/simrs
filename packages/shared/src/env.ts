@@ -24,16 +24,27 @@ const keyRingSpec = z
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
 
-export const APP_ENVS = ['local', 'staging', 'production'] as const;
+/**
+ * Lingkungan deploy. `demo` = demo publik ber-data fiktif (mis. demo.spkd.store/demo-simrs): pengamanan setara
+ * staging (fitur pengembang mati, cookie Secure) tetapi mode presentasi (ADR-0023) boleh aktif dan integrasi wajib
+ * mock. Lihat `presentationModeAllowed` dan `integrationModeProblem`.
+ */
+export const APP_ENVS = ['local', 'demo', 'staging', 'production'] as const;
 export type AppEnv = (typeof APP_ENVS)[number];
 
 /**
  * Fitur khusus pengembangan (Swagger, endpoint `/dev`, tenant dari header, panduan superadmin tanpa login)
- * hanya aktif bila APP_ENV eksplisit `local`/`staging` DAN NODE_ENV bukan `production`.
- * APP_ENV yang tidak disetel dianggap `production` (gagal aman).
+ * hanya aktif bila APP_ENV eksplisit `local`/`staging` DAN NODE_ENV bukan `production`. `demo` terbuka ke publik,
+ * jadi selalu mati. APP_ENV yang tidak disetel dianggap `production` (gagal aman).
  */
 export function devToolsAllowed(env: { APP_ENV?: string; NODE_ENV?: string }): boolean {
-  return resolveAppEnv(env.APP_ENV) !== 'production' && env.NODE_ENV !== 'production';
+  const appEnv = resolveAppEnv(env.APP_ENV);
+  return (appEnv === 'local' || appEnv === 'staging') && env.NODE_ENV !== 'production';
+}
+
+/** Mode presentasi (data dummy, akun presentasi) hanya di mesin pengembang (`local`) dan demo publik (`demo`). */
+export function presentationModeAllowed(appEnv: AppEnv): boolean {
+  return appEnv === 'local' || appEnv === 'demo';
 }
 
 /** APP_ENV gagal aman: tidak disetel, kosong, atau tak dikenal → `production`. */
@@ -225,9 +236,14 @@ export function auditAnchorKeyProblem(env: {
  * tanpa TLS. Dipanggil `loadApiEnv`/`loadWorkerEnv` setelah parse.
  */
 export function integrationModeProblem(env: { APP_ENV: AppEnv; INTEGRATION_MODE: string }): string | null {
-  return env.APP_ENV === 'production' && env.INTEGRATION_MODE === 'mock'
-    ? 'INTEGRATION_MODE=mock tidak boleh di produksi (setel sandbox atau production)'
-    : null;
+  if (env.APP_ENV === 'production' && env.INTEGRATION_MODE === 'mock') {
+    return 'INTEGRATION_MODE=mock tidak boleh di produksi (setel sandbox atau production)';
+  }
+  // Demo publik hanya berisi data fiktif: kredensial BPJS/SATUSEHAT sungguhan tidak boleh ikut terpakai.
+  if (env.APP_ENV === 'demo' && env.INTEGRATION_MODE !== 'mock') {
+    return 'APP_ENV=demo hanya boleh INTEGRATION_MODE=mock (demo publik ber-data fiktif)';
+  }
+  return null;
 }
 
 /** Validasi env sekali saat start; gagal cepat dengan daftar variabel yang salah (tanpa mencetak nilainya). */

@@ -7,14 +7,14 @@
  *   pnpm db:akun-presentasi                # RS bawaan RSCM
  *   pnpm db:akun-presentasi --tenant RSFA
  *
- * Hanya APP_ENV=local. Sandi acak + rahasia TOTP disimpan di `.local/demo-accounts.json` (diabaikan git, izin
+ * Hanya APP_ENV=local/demo. Sandi acak + rahasia TOTP disimpan di `.local/demo-accounts.json` (diabaikan git, izin
  * berkas hanya pemilik) agar web bisa masuk otomatis lewat alur login biasa (sandi + kode verifikasi); API tidak
  * diberi jalan pintas. Menjalankan ulang mengganti semua kredensial. Jangan menyalin berkas itu ke tempat lain.
  */
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { resolveAppEnv } from '@simrs/shared';
+import { presentationModeAllowed, resolveAppEnv } from '@simrs/shared';
 import { type KeyRing, loadFieldKeys } from '@simrs/shared/node';
 import { createPrismaClient } from '../src/client';
 import { upsertPresentationAccounts } from '../src/presentation';
@@ -24,8 +24,8 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-if (resolveAppEnv(process.env.APP_ENV) !== 'local') {
-  fail('akun presentasi hanya untuk pengembangan lokal (APP_ENV=local)');
+if (!presentationModeAllowed(resolveAppEnv(process.env.APP_ENV))) {
+  fail('akun presentasi hanya untuk pengembangan lokal atau demo publik (APP_ENV=local/demo)');
 }
 
 const { values } = parseArgs({

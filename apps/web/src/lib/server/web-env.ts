@@ -1,4 +1,4 @@
-import { type AppEnv, resolveAppEnv } from '@simrs/shared';
+import { type AppEnv, presentationModeAllowed, resolveAppEnv } from '@simrs/shared';
 import type { NavLayout } from '@simrs/ui';
 import { parseNavLayout } from '../nav-layout';
 
@@ -21,9 +21,9 @@ export interface WebEnv {
   tenantCodeField: boolean;
   /** Isi awal kolom "Kode RS" (`LOGIN_TENANT_CODE`; lokal bawaan RSCM, keputusan pengguna 4 Okt 2026). */
   loginTenantCode: string;
-  /** Cookie Secure + `__Host-` di luar lokal (lokal memakai http://localhost). */
+  /** Cookie Secure + `__Host-` di luar lokal (lokal memakai http://localhost; demo publik selalu HTTPS). */
   secureCookies: boolean;
-  /** Mode presentasi hanya bila `APP_ENV=local` DAN `DATA_SOURCE=demo`; staging/produksi selalu `api`. */
+  /** Mode presentasi hanya bila `APP_ENV=local`/`demo` DAN `DATA_SOURCE=demo`; staging/produksi selalu `api`. */
   dataSource: DataSource;
   /** Redis bersama (`REDIS_URL`) untuk peta refresh sesi antar-instans; null = tidak disetel. */
   redisUrl: string | null;
@@ -57,7 +57,8 @@ export function webEnv(source: Record<string, string | undefined> = process.env)
     tenantCodeField: appEnv !== 'production',
     loginTenantCode: tenantCodeDefault(source.LOGIN_TENANT_CODE, appEnv),
     secureCookies: appEnv !== 'local',
-    dataSource: appEnv === 'local' && source.DATA_SOURCE?.trim().toLowerCase() === 'demo' ? 'demo' : 'api',
+    dataSource:
+      presentationModeAllowed(appEnv) && source.DATA_SOURCE?.trim().toLowerCase() === 'demo' ? 'demo' : 'api',
     redisUrl: source.REDIS_URL?.trim() || null,
     refreshStore: refreshStoreOf(source.REFRESH_STORE, appEnv),
     refreshRedisPrefix: source.REFRESH_REDIS_PREFIX?.trim() || 'simrs:web:refresh:',

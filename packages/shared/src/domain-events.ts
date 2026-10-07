@@ -150,12 +150,12 @@ export const DOMAIN_EVENT_SCHEMAS = {
     encounterId: z.uuid(),
     patientId: z.uuid(),
   }),
-  /** K11 · Persetujuan atau penolakan tindakan final (TTE diminta). */
+  /** K11 · Persetujuan, penolakan, atau pencabutan tindakan final (TTE diminta). */
   'consent.signed': z.strictObject({
     consentId: z.uuid(),
     encounterId: z.uuid(),
     patientId: z.uuid(),
-    outcome: z.enum(['setuju', 'tolak']),
+    outcome: z.enum(['setuju', 'tolak', 'dicabut']),
   }),
 } as const;
 
