@@ -266,6 +266,9 @@ model BloodComponent {
   code          String
   name          String
   shelfLifeDays Int      @map("shelf_life_days")
+  /// Aturan kompatibilitas ABO (migrasi 20261008500000): `sel_darah_merah` (PRC: antigen donor ⊆ pasien), `plasma`
+  /// (FFP/TC: antibodi donor tidak menyerang sel pasien, AB = donor universal), `identik` (darah lengkap).
+  aboRule       String   @default("sel_darah_merah") @map("abo_rule")
   active        Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   createdBy     String?  @map("created_by") @db.Uuid

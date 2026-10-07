@@ -545,16 +545,16 @@ akses perawat unit.
 Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSchema` (`schemas/klinis.ts`), jawaban di
 `schemas/orders.ts`.
 
-| Endpoint                                  | Izin            | Isi                                                                                                                                                      |
-| ----------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                         |
-| `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                   |
-| `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
+| Endpoint                                  | Izin            | Isi                                                                                                                                                                                                                                     |
+| ----------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /orders/catalog?q=&kind=`            | `order.read`    | Orderable + obat aktif RS (kode LOINC/ICD-9-CM/KFA, zat + golongan, kewaspadaan tinggi); tarif `null` sampai U01                                                                                                                        |
+| `GET/POST /orders/order-sets`             | `read`/`manage` | Order set institusi; dibuat oleh pemegang `order.manage` (komite farmasi, diberikan lewat layar Akses)                                                                                                                                  |
+| `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                                                                                                     |
 | `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`), 422 `MEDICATION_ROUTE_INVALID` (rute bertentangan dengan `drugs.dosage_form`) |
-| `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
-| `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                    |
-| `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
-| `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                       |
+| `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                                                                                                    |
+| `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                                                                                                   |
+| `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                                                                                                             |
+| `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                                                                                                      |
 
 Kiriman yang lolos menulis `order_groups` + order beku + status `aktif` + `cds_alerts`, staging biaya (lab/radiologi/
 tindakan) dan SATUSEHAT `held` (ServiceRequest, MedicationRequest), event `order.activated`. Penulis tanpa
@@ -700,6 +700,34 @@ jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`;
 
 Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
 tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
+
+### Kamar operasi (S06, fase 4 potongan 4.7)
+
+Modul `surgery` (`/api/v1/surgery`, modul RS `S06`), ADR-0106 di atas skema 4.0b (ADR-0037). Masukan di
+`schemas/penunjang-api.ts`, bentuk jawaban (papan, kasus, kandidat, staf, BHP) di `schemas/surgery-board.ts`. Lingkup
+di `surgery-access.ts`: `unit` = unit berjenis `kamar_operasi`; `relationship` = anggota tim kasus atau relasi pasien
+(`PatientAccessService`). Galat trigger 4.0b (`CHECKLIST_ORDER`, `CHECKLIST_INCOMPLETE`, `TIMEOUT_REQUIRED`,
+`COUNT_MISMATCH`, stok) dan EXCLUDE kamar (23P01 → `ROOM_OVERLAP`) dipetakan `mapSurgeryDb` ke `SUPPORT_ERRORS`.
+
+| Endpoint `/api/v1/surgery/…`                     | Izin                | Isi                                                                                                       |
+| ------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------- |
+| `GET board?date=`                                | `surgery.read`      | Kamar `ruang` unit OK, kasus yang beririsan dengan hari WIB, KPI, daftar tunggu 14 hari; audit per pasien |
+| `GET cases/:id`                                  | `surgery.read`      | Satu kasus (bentuk sama dengan papan)                                                                     |
+| `GET candidates?q=`, `GET staff`                 | `surgery.schedule`  | Kunjungan aktif menurut No. RM/nomor kunjungan (maks. 10, diaudit); staf klinis aktif untuk pilihan tim   |
+| `GET supplies/options`                           | `surgery.read`      | Saldo DEPO-OK (qty > 0, belum ED)                                                                         |
+| `POST cases`, `POST cases/:id/cancel`            | `surgery.schedule`  | Jadwal (nomor `OK-YYMM-NNNN`, templat daftar tilik terbaru, dokter tim → rawat bersama); batal beralasan  |
+| `POST cases/:id/checklist/items`                 | `surgery.checklist` | Centang butir manual; butir sistem (persetujuan, hitung) ditolak                                          |
+| `POST cases/:id/checklist/confirm`               | `surgery.checklist` | Sign in/time out memeriksa persetujuan tindakan 3.7 yang berlaku; sign out mengisi butir hitung           |
+| `POST cases/:id/events`                          | `surgery.checklist` | Induksi/insisi/tutup/keluar; override insisi butuh `surgery.override` + alasan ≥ setelan RS               |
+| `POST cases/:id/counts`, `…/count-discrepancies` | `surgery.count`     | Hitung awal/tambahan/akhir; tindak lanjut selisih; terkunci setelah sign out                              |
+| `POST cases/:id/supplies`                        | `surgery.checklist` | BHP/implan: ledger `usage` DEPO-OK + `surgery_supply_usages`                                              |
+| `POST cases/:id/reports`                         | `surgery.report`    | Laporan operasi berversi (`ClinicalRecordService`), TTE operator lewat `issueSigned`; hanya operator      |
+
+Event: `surgery.case_scheduled`, `surgery.incision_recorded`, `surgery.case_completed`. Layar berlangganan SSE 4.1a
+`GET /support/streams/surgery-board?date=` lewat BFF `/penunjang/kamar-operasi/events` (hanya perubahan status kasus). Override insisi memberi
+notifikasi `surgery_override` (tanpa PHI) ke `auditor_mutu` dan `manajemen`. Tes: `apps/api/test/surgery.test.ts`
+(urutan juga lewat SQL langsung, konfirmasi serentak, bentrok kamar, persetujuan dicabut, 403 kasir/apoteker, isolasi),
+E2E `apps/web/e2e/kamar-operasi-api.spec.ts`.
 
 ### Booking (F02, fase 2 potongan 3)
 
