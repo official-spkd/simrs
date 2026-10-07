@@ -19,8 +19,6 @@ import {
   CICILAN,
   FASILITAS,
   HARIAN,
-  JADWAL_OK_STATS,
-  KAMAR_OK,
   KONEKSI,
   KONFIGURASI,
   PENCAIRAN,
@@ -31,6 +29,7 @@ import {
   REKONSILIASI,
   TRANSAKSI,
 } from './demo/fixtures/btn';
+import { JADWAL_OK_STATS, KAMAR_OK } from './demo/fixtures/kamar-operasi';
 import { PATIENT_ID } from './demo/fixtures/ids';
 import { REKENING } from './demo/fixtures/rs';
 import { DEMO_NOW, DEMO_TODAY } from './demo/fixtures/waktu';

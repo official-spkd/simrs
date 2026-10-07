@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { MockConfig } from '../config';
 import { SCENARIO_MODES, SYSTEM_LABEL, SYSTEMS, type MockState } from '../state';
 import { bpjsPanelSummary, registerBpjsPanel } from '../systems/bpjs/panel';
+import { lisPanelSummary, registerLisPanel } from '../systems/lis';
 import { deliverTpdiWebhook } from '../systems/tpdi';
 import { PANEL_HTML } from './html';
 
@@ -26,6 +27,7 @@ const resetSchema = z.object({ system: z.enum(SYSTEMS).optional() }).optional();
  * - `POST /_panel/api/reset`    → body kosong = reset semua; `{ system }` = reset satu sistem (skenario + data)
  * - `POST /_panel/api/bpjs-encryption` → `{ enabled }`
  * - BPJS: lihat `systems/bpjs/panel.ts`; TPDI: `POST /_panel/api/tpdi/invoices/:id/(pay|resend|expire)`
+ * - Analyzer LIS: `POST /_panel/api/lis/send`, `POST /_panel/api/lis/reset` (lihat `systems/lis.ts`)
  */
 export function registerPanel(app: FastifyInstance, config: MockConfig, state: MockState): void {
   app.get('/', async (_req, reply) => reply.type('text/html; charset=utf-8').send(PANEL_HTML));
@@ -39,6 +41,7 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
     log: state.log,
     messages: state.messages.slice(0, 30),
     bpjs: bpjsPanelSummary(state.bpjs, 20),
+    lis: lisPanelSummary(config, state),
   }));
 
   app.post('/_panel/api/scenario', async (req, reply) => {
@@ -71,6 +74,7 @@ export function registerPanel(app: FastifyInstance, config: MockConfig, state: M
   });
 
   registerBpjsPanel(app, config, state);
+  registerLisPanel(app, config, state);
 
   app.post<{ Params: { id: string; action: string }; Body: { amountOverride?: number } | undefined }>(
     '/_panel/api/tpdi/invoices/:id/:action',

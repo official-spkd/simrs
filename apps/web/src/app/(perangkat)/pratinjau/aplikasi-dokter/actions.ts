@@ -9,7 +9,7 @@ import {
   reportedAtFromTimer,
   SCENARIO_CRITICAL_ELSEWHERE,
 } from '@/lib/penunjang-kritis';
-import { findCriticalItem } from '@/lib/server/data/penunjang-lanjut';
+import { findCriticalItem } from '@/lib/server/data/penunjang/kritis';
 import { commitEvent } from '@/lib/server/demo/state';
 
 /**

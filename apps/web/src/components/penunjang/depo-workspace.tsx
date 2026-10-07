@@ -2,10 +2,10 @@
 
 import { Alert, FilterChip, KpiCard, Tabs } from '@simrs/ui';
 import { useState } from 'react';
-import { recordDepoAction, checkDepoAction } from '@/app/(staf)/penunjang/depo/actions';
+import { recordDepoAction, checkDepoAction } from '@/app/(staf)/penunjang/depo/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import { type DepoAction, depotAlerts, formatStockValue, stockValue } from '@/lib/penunjang-depo';
-import type { DepoData } from '@/lib/server/data/penunjang-lanjut';
+import type { DepoData } from '@/lib/server/data/penunjang/depo';
 import { DispensePanel, LedgerPanel, OpnamePanel, StockPanel, TransferPanel } from './depo-panels';
 
 export interface DepoRun {

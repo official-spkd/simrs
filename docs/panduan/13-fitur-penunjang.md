@@ -22,7 +22,7 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 | Layar               | Rute                       | Peran (mode presentasi)                  | Komponen | Status                                   |
 | ------------------- | -------------------------- | ---------------------------------------- | -------- | ---------------------------------------- |
-| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; API lab belum (fase 4)          |
+| Laboratorium        | `/penunjang/lab`           | analis lab                               | S01, S09 | 🟨 demo; api: belum tersambung (4.2)     |
 | Radiologi           | `/penunjang/radiologi`     | radiografer                              | S03      | 🟨 demo tanpa mockup; API belum (fase 4) |
 | Farmasi             | `/penunjang/farmasi`       | apoteker                                 | S04, S05 | 🟨 demo; API belum (fase 4)              |
 | Kamar operasi       | `/penunjang/kamar-operasi` | dokter, perawat                          | S06      | 🟨 demo; API belum (fase 4)              |
@@ -35,9 +35,30 @@ skenario Simulasi ada di [Simulasi dan operasional](./18-simulasi-dan-operasiona
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
-Berbeda dengan layar klinis, layar penunjang belum hibrida. Halamannya memakai `requireDemoScreen` dan registri
-`SCREENS` belum memberi `permission`, hanya `plannedPermission`. Server Action-nya mencari rekaman di server (klien
-hanya mengirim id), memeriksa gerbang, lalu membalas "… (simulasi, tidak disimpan)". Atribut keselamatan seperti
+Sejak fase 4 potongan 4.0c, kesepuluh layar penunjang **hibrida** dengan pola yang sama dengan layar klinis 3.0d:
+
+- `page.tsx` memanggil `requireScreen(<id>)`. Mode presentasi merender `demo-<layar>.tsx` dengan Server Action
+  `actions-demo.ts` (dibekukan, setiap action lewat `assertDemo`).
+- Mode api membuka layar bagi peran yang memegang izin layarnya (katalog dan matriks bawaan 4.0a), lalu menampilkan
+  "Belum tersambung" sampai potongan 4.2–4.9 mengisi jalur API. Peran tanpa izin melihat "Akses ditolak", dan menunya
+  tidak tampil.
+- Data per layar di `apps/web/src/lib/server/data/penunjang/<layar>.ts` (`lab`, `farmasi`, `radiologi`,
+  `kamar-operasi`, `kritis`, `depo`, `bank-darah`, `gizi`, `mikro`, `diagnostik`) + `shared.ts`.
+
+| Layar                           | Izin layar (mode api)  | Pelaksana di matriks bawaan                        |
+| ------------------------------- | ---------------------- | -------------------------------------------------- |
+| Laboratorium, Mikrobiologi & PA | `lab.worklist.read`    | analis lab                                         |
+| Radiologi                       | `radiology.read`       | radiografer, dokter berpenugasan di unit Radiologi |
+| Farmasi                         | `pharmacy.review.read` | apoteker                                           |
+| Kamar operasi                   | `surgery.read`         | perawat unit OK, dokter berelasi                   |
+| Pusat hasil kritis              | `critical_result.read` | analis lab, radiografer, dokter, perawat           |
+| Depo & stok farmasi             | `stock.read`           | apoteker, manajemen                                |
+| Bank darah                      | `blood_bank.read`      | analis lab                                         |
+| Gizi                            | `nutrition.read`       | ahli gizi, perawat                                 |
+| Diagnostik lain                 | `diagnostics.write`    | dokter berpenugasan di unit Diagnostik             |
+
+Server Action mode presentasi mencari rekaman di server (klien hanya mengirim id), memeriksa gerbang, lalu menyimpan
+ke toko demo. Atribut keselamatan seperti
 nilai kritis, kontras, modalitas, peringatan CDS, dan obat high alert dibaca dari data server, bukan dari kiriman
 klien.
 
@@ -45,15 +66,15 @@ klien.
 
 ![Layar Laboratorium: status koneksi analyzer di kepala layar, indikator laboratorium, worklist sampel di kiri, dan tabel hasil berkode LOINC dengan bendera di kanan](./gambar/lab.png)
 
-| Hal      | Isi                                                                                                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rute     | `/penunjang/lab` (`?pilih=<sampleId>` = sampel yang dibuka)                                                                                                              |
-| Pemakai  | analis lab                                                                                                                                                               |
-| Komponen | S01 laboratorium patologi klinik, S09 hasil kritis                                                                                                                       |
-| Status   | demo (mode presentasi); API lab belum (fase 4 potongan 4.2–4.3); modul `results` fase 3 sudah menerima observasi berkode                                                 |
-| Mockup   | `design/mockups/Lab.dc.html`                                                                                                                                             |
-| Kode web | `apps/web/src/app/(staf)/penunjang/lab/` · `apps/web/src/components/penunjang/lab-*.tsx` · `apps/web/src/lib/penunjang.ts` · `apps/web/src/lib/server/data/penunjang.ts` |
-| Kode API | belum ada modul lab · `apps/api/src/modules/results/` (observasi dan laporan hasil, fase 3)                                                                              |
+| Hal      | Isi                                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/lab` (`?pilih=<sampleId>` = sampel yang dibuka)                                                                                                                  |
+| Pemakai  | analis lab                                                                                                                                                                   |
+| Komponen | S01 laboratorium patologi klinik, S09 hasil kritis                                                                                                                           |
+| Status   | demo (mode presentasi); API lab belum (fase 4 potongan 4.2–4.3); modul `results` fase 3 sudah menerima observasi berkode                                                     |
+| Mockup   | `design/mockups/Lab.dc.html`                                                                                                                                                 |
+| Kode web | `apps/web/src/app/(staf)/penunjang/lab/` · `apps/web/src/components/penunjang/lab-*.tsx` · `apps/web/src/lib/penunjang.ts` · `apps/web/src/lib/server/data/penunjang/lab.ts` |
+| Kode API | belum ada modul lab · `apps/api/src/modules/results/` (observasi dan laporan hasil, fase 3)                                                                                  |
 
 **Tujuan.** Analis memantau worklist sampel, membaca hasil analyzer berkode LOINC dengan bendera dan delta check,
 melaporkan nilai kritis dengan read-back dalam batas waktu, lalu memvalidasi hasil secara teknis dan klinis.
@@ -96,22 +117,21 @@ melaporkan nilai kritis dengan read-back dalam batas waktu, lalu memvalidasi has
   dalam rentang. Status tidak hanya lewat warna.
 - Koreksi setelah rilis hanya lewat hasil revisi berversi.
 
-**Mode api.** `ScreenDef` belum punya `permission` (rencana `lab.write`). Di mode api rute 404 dan menu redup sampai
-fase 4 membangun backend dan layar hibridanya.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Radiologi
 
 ![Layar Radiologi: papan modalitas dengan slot hari ini, indikator radiologi, worklist pemeriksaan, dan panel ekspertise](./gambar/rad.png)
 
-| Hal      | Isi                                                                                                                                                                                      |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/radiologi` (`?pilih=<examId>`)                                                                                                                                               |
-| Pemakai  | radiografer                                                                                                                                                                              |
-| Komponen | S03 radiologi (RIS)                                                                                                                                                                      |
-| Status   | demo (mode presentasi, tanpa mockup); API belum (fase 4 potongan 4.4)                                                                                                                    |
-| Mockup   | tidak ada (dibangun tanpa mockup)                                                                                                                                                        |
-| Kode web | `apps/web/src/app/(staf)/penunjang/radiologi/` · `apps/web/src/components/penunjang/rad-*.tsx` · `apps/web/src/lib/penunjang-radiologi.ts` · `apps/web/src/lib/server/data/penunjang.ts` |
-| Kode API | belum ada                                                                                                                                                                                |
+| Hal      | Isi                                                                                                                                                                                                |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/radiologi` (`?pilih=<examId>`)                                                                                                                                                         |
+| Pemakai  | radiografer                                                                                                                                                                                        |
+| Komponen | S03 radiologi (RIS)                                                                                                                                                                                |
+| Status   | demo (mode presentasi, tanpa mockup); API belum (fase 4 potongan 4.4)                                                                                                                              |
+| Mockup   | tidak ada (dibangun tanpa mockup)                                                                                                                                                                  |
+| Kode web | `apps/web/src/app/(staf)/penunjang/radiologi/` · `apps/web/src/components/penunjang/rad-*.tsx` · `apps/web/src/lib/penunjang-radiologi.ts` · `apps/web/src/lib/server/data/penunjang/radiologi.ts` |
+| Kode API | belum ada                                                                                                                                                                                          |
 
 **Tujuan.** Menjadwalkan dan menjalankan pemeriksaan per modalitas, mencatat dosis radiasi, lalu menulis ekspertise
 dengan templat yang ditandatangani radiolog.
@@ -143,22 +163,21 @@ dengan templat yang ditandatangani radiolog.
 - Di mode presentasi, posisi radiografer menjalankan TTE atas nama radiolog fiktif di data dummy. Pemisahan peran
   radiografer dan radiolog dibangun di fase 4.
 
-**Mode api.** `ScreenDef` belum punya `permission` (rencana `radiology.write`). Di mode api rute 404 dan menu redup
-sampai fase 4.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Farmasi
 
 ![Layar Farmasi: tab Telaah, Penyiapan, dan Serah terima dengan antrean resep di kiri dan item resep berkode KFA di kanan](./gambar/farmasi.png)
 
-| Hal      | Isi                                                                                                                                                                                      |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/farmasi`                                                                                                                                                                     |
-| Pemakai  | apoteker                                                                                                                                                                                 |
-| Komponen | S04 farmasi klinis, S05 dispensing dan depo                                                                                                                                              |
-| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.5, 4.6a, 4.6b)                                                                                                                      |
-| Mockup   | `design/mockups/Farmasi.dc.html`                                                                                                                                                         |
-| Kode web | `apps/web/src/app/(staf)/penunjang/farmasi/` · `apps/web/src/components/penunjang/farmasi-*.tsx` · `apps/web/src/lib/penunjang-farmasi.ts` · `apps/web/src/lib/server/data/penunjang.ts` |
-| Kode API | belum ada modul farmasi · sumber resep: `apps/api/src/modules/orders/` (3.4)                                                                                                             |
+| Hal      | Isi                                                                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rute     | `/penunjang/farmasi`                                                                                                                                                                             |
+| Pemakai  | apoteker                                                                                                                                                                                         |
+| Komponen | S04 farmasi klinis, S05 dispensing dan depo                                                                                                                                                      |
+| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.5, 4.6a, 4.6b)                                                                                                                              |
+| Mockup   | `design/mockups/Farmasi.dc.html`                                                                                                                                                                 |
+| Kode web | `apps/web/src/app/(staf)/penunjang/farmasi/` · `apps/web/src/components/penunjang/farmasi-*.tsx` · `apps/web/src/lib/penunjang-farmasi.ts` · `apps/web/src/lib/server/data/penunjang/farmasi.ts` |
+| Kode API | belum ada modul farmasi · sumber resep: `apps/api/src/modules/orders/` (3.4)                                                                                                                     |
 
 **Tujuan.** Apoteker menelaah resep (administratif, farmasetik, klinis), menindaklanjuti peringatan CDS, menyiapkan
 obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurangi stok depo.
@@ -198,22 +217,21 @@ obat dengan cek ganda untuk obat high alert, lalu menyerahkan obat dan mengurang
   tangan penerima.
 - Stok di bawah minimum ditandai "di bawah minimum".
 
-**Mode api.** `ScreenDef` belum punya `permission` (rencana `pharmacy.write`). Di mode api rute 404 dan menu redup
-sampai fase 4.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Kamar operasi
 
 ![Layar Kamar operasi: Gantt jadwal kamar OK 1 sampai OK 4, kasus terpilih, daftar tilik keselamatan WHO, dan hitung kasa](./gambar/ok.png)
 
-| Hal      | Isi                                                                                                                                                                                       |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/kamar-operasi` (`?pilih=<caseId>`, mis. `ok3-1`)                                                                                                                              |
-| Pemakai  | dokter, perawat                                                                                                                                                                           |
-| Komponen | S06 kamar operasi dan anestesi                                                                                                                                                            |
-| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.7)                                                                                                                                   |
-| Mockup   | `design/mockups/OK.dc.html`                                                                                                                                                               |
-| Kode web | `apps/web/src/app/(staf)/penunjang/kamar-operasi/` · `apps/web/src/components/btn/ok-*.tsx` · `apps/web/src/lib/btn-ok.ts` · data `apps/web/src/lib/server/data/btn.ts` (`getOrSchedule`) |
-| Kode API | belum ada                                                                                                                                                                                 |
+| Hal      | Isi                                                                                                                                                                                                                                                                                   |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/kamar-operasi` (`?pilih=<caseId>`, mis. `ok3-1`)                                                                                                                                                                                                                          |
+| Pemakai  | dokter, perawat                                                                                                                                                                                                                                                                       |
+| Komponen | S06 kamar operasi dan anestesi                                                                                                                                                                                                                                                        |
+| Status   | demo (mode presentasi); API belum (fase 4 potongan 4.7)                                                                                                                                                                                                                               |
+| Mockup   | `design/mockups/OK.dc.html`                                                                                                                                                                                                                                                           |
+| Kode web | `apps/web/src/app/(staf)/penunjang/kamar-operasi/` · `apps/web/src/components/penunjang/ok-*.tsx` · `apps/web/src/lib/penunjang-ok.ts` · data `apps/web/src/lib/server/data/penunjang/kamar-operasi.ts` (`getOrSchedule`) · fixture `apps/web/src/lib/demo/fixtures/kamar-operasi.ts` |
+| Kode API | belum ada                                                                                                                                                                                                                                                                             |
 
 **Tujuan.** Jadwal kamar operasi hari ini dan daftar tilik keselamatan bedah WHO (Sign in, Time out, Sign out) yang
 terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
@@ -259,8 +277,7 @@ terkunci berurutan, dengan hitung kasa dan instrumen sebelum operasi ditutup.
   "ASA IIE" setelah ditandatangani. Monitoring intraoperasi memberi peringatan bila SpO₂ di bawah 92%, sistolik di
   bawah 90 atau di atas 180 mmHg, nadi di bawah 50 atau di atas 120, atau EtCO₂ di luar 30–45.
 
-**Mode api.** `ScreenDef` belum punya `permission` (rencana `surgery.write`). Di mode api rute 404 dan menu redup
-sampai fase 4.
+**Mode api.** Layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Pusat hasil kritis
 
@@ -273,7 +290,7 @@ sampai fase 4.
 | Komponen | S09 hasil kritis                                                                                                                                                                                                                              |
 | Status   | demo (mode presentasi); backend fase 4 potongan 4.3 belum dibangun                                                                                                                                                                            |
 | Mockup   | tidak ada (gaya mengikuti banner nilai kritis di layar Laboratorium)                                                                                                                                                                          |
-| Kode web | `apps/web/src/app/(staf)/penunjang/hasil-kritis/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getCriticalCenter`) · aturan `apps/web/src/lib/penunjang-kritis.ts` · komponen `apps/web/src/components/penunjang/kritis-*.tsx` |
+| Kode web | `apps/web/src/app/(staf)/penunjang/hasil-kritis/` · data `apps/web/src/lib/server/data/penunjang/kritis.ts` (`getCriticalCenter`) · aturan `apps/web/src/lib/penunjang-kritis.ts` · komponen `apps/web/src/components/penunjang/kritis-*.tsx` |
 | Kode API | belum ada (rencana modul `critical-results`, docs/01-arsitektur.md §2)                                                                                                                                                                        |
 
 **Tujuan.** Satu tempat untuk semua nilai kritis lintas unit (laboratorium, POCT, mikrobiologi, radiologi, diagnostik
@@ -333,15 +350,15 @@ job eskalasi P11 sekali per level, dan `GET metrics` untuk peninjau mutu. Di mod
 
 ![Layar Depo dan stok farmasi: pilihan depo, empat kartu ringkasan (nilai persediaan, batch kedaluwarsa, segera kedaluwarsa, di bawah minimum), dan tab Stok dan kedaluwarsa dengan tabel batch per obat](./gambar/depo.png)
 
-| Hal      | Isi                                                                                                                                                                                                                         |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/depo`                                                                                                                                                                                                           |
-| Pemakai  | apoteker                                                                                                                                                                                                                    |
-| Komponen | S05 dispensing dan depo                                                                                                                                                                                                     |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.6a belum dibangun                                                                                                                                                         |
-| Mockup   | tidak ada (gaya mengikuti layar Farmasi dan Logistik)                                                                                                                                                                       |
-| Kode web | `apps/web/src/app/(staf)/penunjang/depo/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getDepoData`) · aturan `apps/web/src/lib/penunjang-depo.ts` · komponen `apps/web/src/components/penunjang/depo-*.tsx` |
-| Kode API | belum ada (rencana modul `dispensing` dengan `/api/v1/stock`, docs/01-arsitektur.md §2)                                                                                                                                     |
+| Hal      | Isi                                                                                                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/depo`                                                                                                                                                                                                         |
+| Pemakai  | apoteker                                                                                                                                                                                                                  |
+| Komponen | S05 dispensing dan depo                                                                                                                                                                                                   |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.6a belum dibangun                                                                                                                                                       |
+| Mockup   | tidak ada (gaya mengikuti layar Farmasi dan Logistik)                                                                                                                                                                     |
+| Kode web | `apps/web/src/app/(staf)/penunjang/depo/` · data `apps/web/src/lib/server/data/penunjang/depo.ts` (`getDepoData`) · aturan `apps/web/src/lib/penunjang-depo.ts` · komponen `apps/web/src/components/penunjang/depo-*.tsx` |
+| Kode API | belum ada (rencana modul `dispensing` dengan `/api/v1/stock`, docs/01-arsitektur.md §2)                                                                                                                                   |
 
 **Tujuan.** Apoteker mengelola saldo obat per depo dan per batch: mengeluarkan obat dengan urutan FEFO (first expired,
 first out), memindahkan stok antar depo dua langkah, mengarantina batch kedaluwarsa, dan menutup stok opname.
@@ -399,15 +416,15 @@ opname penuh baru di fase 8. Di mode api rute 404 dan menu redup.
 
 ![Layar Bank darah: daftar permintaan darah dan stok kantong per komponen di kiri, detail permintaan dengan tahap terima, golongan, crossmatch, cek ganda, dan di samping pasien di kanan](./gambar/bank-darah.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                            |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/bank-darah`                                                                                                                                                                                                                        |
-| Pemakai  | analis lab, perawat, bidan, dokter                                                                                                                                                                                                             |
-| Komponen | S08 bank darah                                                                                                                                                                                                                                 |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                             |
-| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                  |
-| Kode web | `apps/web/src/app/(staf)/penunjang/bank-darah/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getBloodBank`) · aturan `apps/web/src/lib/penunjang-bank-darah.ts` · komponen `apps/web/src/components/penunjang/bank-darah-*.tsx` |
-| Kode API | belum ada (rencana modul `blood-bank`, docs/01-arsitektur.md §2)                                                                                                                                                                               |
+| Hal      | Isi                                                                                                                                                                                                                                                |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/bank-darah`                                                                                                                                                                                                                            |
+| Pemakai  | analis lab, perawat, bidan, dokter                                                                                                                                                                                                                 |
+| Komponen | S08 bank darah                                                                                                                                                                                                                                     |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                                 |
+| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                      |
+| Kode web | `apps/web/src/app/(staf)/penunjang/bank-darah/` · data `apps/web/src/lib/server/data/penunjang/bank-darah.ts` (`getBloodBank`) · aturan `apps/web/src/lib/penunjang-bank-darah.ts` · komponen `apps/web/src/components/penunjang/bank-darah-*.tsx` |
+| Kode API | belum ada (rencana modul `blood-bank`, docs/01-arsitektur.md §2)                                                                                                                                                                                   |
 
 **Tujuan.** Mengikuti satu permintaan darah dari penerimaan sampel sampai transfusi selesai: golongan darah,
 crossmatch, pengeluaran kantong dengan cek ganda dua petugas, pindai gelang dan kantong di samping pasien, lalu
@@ -466,15 +483,15 @@ dan menu redup.
 
 ![Layar Gizi: tab Distribusi makan dengan pilihan jam makan, chip jumlah baki, puasa, konflik alergi, dan order belum diverifikasi, lalu kartu distribusi per bangsal berisi baki pasien](./gambar/gizi.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Rute     | `/penunjang/gizi`                                                                                                                                                                                                                    |
-| Pemakai  | perawat, dokter (peran `nutrisionis` belum ada di katalog peran)                                                                                                                                                                     |
-| Komponen | S07 gizi                                                                                                                                                                                                                             |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                   |
-| Mockup   | tidak ada (gaya mengikuti layar penunjang lain)                                                                                                                                                                                      |
-| Kode web | `apps/web/src/app/(staf)/penunjang/gizi/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getNutrition`) · aturan `apps/web/src/lib/penunjang-gizi.ts` · komponen `apps/web/src/components/penunjang/gizi-workspace.tsx` |
-| Kode API | belum ada (rencana modul `nutrition`, docs/01-arsitektur.md §2)                                                                                                                                                                      |
+| Hal      | Isi                                                                                                                                                                                                                                |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/gizi`                                                                                                                                                                                                                  |
+| Pemakai  | perawat, dokter (peran `nutrisionis` belum ada di katalog peran)                                                                                                                                                                   |
+| Komponen | S07 gizi                                                                                                                                                                                                                           |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.9 belum dibangun                                                                                                                                                                 |
+| Mockup   | tidak ada (gaya mengikuti layar penunjang lain)                                                                                                                                                                                    |
+| Kode web | `apps/web/src/app/(staf)/penunjang/gizi/` · data `apps/web/src/lib/server/data/penunjang/gizi.ts` (`getNutrition`) · aturan `apps/web/src/lib/penunjang-gizi.ts` · komponen `apps/web/src/components/penunjang/gizi-workspace.tsx` |
+| Kode API | belum ada (rencana modul `nutrition`, docs/01-arsitektur.md §2)                                                                                                                                                                    |
 
 **Tujuan.** Instalasi gizi memverifikasi order diet dari DPJP, melakukan skrining gizi, lalu mendistribusikan makan
 per bangsal dan jam makan dengan label baki, tanpa mengantar makanan beralergen atau makanan untuk pasien puasa.
@@ -523,15 +540,15 @@ rute 404 dan menu redup.
 
 ![Layar Mikrobiologi dan patologi anatomi: tab Kultur dan uji kepekaan dengan daftar kultur di kiri, detail kultur dengan tahap inkubasi sampai laporan akhir dan pilihan organisme di kanan](./gambar/mikro.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                          |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/mikrobiologi`                                                                                                                                                                                                                    |
-| Pemakai  | analis lab, dokter                                                                                                                                                                                                                           |
-| Komponen | S02 mikrobiologi dan patologi anatomi                                                                                                                                                                                                        |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                           |
-| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                                |
-| Kode web | `apps/web/src/app/(staf)/penunjang/mikrobiologi/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getMicroPa`) · aturan `apps/web/src/lib/penunjang-mikro.ts` · komponen `apps/web/src/components/penunjang/mikro-workspace.tsx` |
-| Kode API | belum ada (rencana modul `micro-pa`, docs/01-arsitektur.md §2)                                                                                                                                                                               |
+| Hal      | Isi                                                                                                                                                                                                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/mikrobiologi`                                                                                                                                                                                                                   |
+| Pemakai  | analis lab, dokter                                                                                                                                                                                                                          |
+| Komponen | S02 mikrobiologi dan patologi anatomi                                                                                                                                                                                                       |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                          |
+| Mockup   | tidak ada (gaya mengikuti layar Laboratorium)                                                                                                                                                                                               |
+| Kode web | `apps/web/src/app/(staf)/penunjang/mikrobiologi/` · data `apps/web/src/lib/server/data/penunjang/mikro.ts` (`getMicroPa`) · aturan `apps/web/src/lib/penunjang-mikro.ts` · komponen `apps/web/src/components/penunjang/mikro-workspace.tsx` |
+| Kode API | belum ada (rencana modul `micro-pa`, docs/01-arsitektur.md §2)                                                                                                                                                                              |
 
 **Tujuan.** Menjalankan kultur bertahap sampai uji kepekaan antibiotik dan laporan akhir ber-TTE, serta laporan
 patologi anatomi yang terkunci setelah ditandatangani. Kultur darah positif diteruskan sebagai nilai kritis.
@@ -577,15 +594,15 @@ tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mo
 
 ![Layar Diagnostik lain: saringan jenis pemeriksaan, worklist EKG, ekokardiografi, endoskopi, dan rehabilitasi medik di kiri, detail pemeriksaan dengan tahap order sampai ekspertise ber-TTE di kanan](./gambar/diagnostik.png)
 
-| Hal      | Isi                                                                                                                                                                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/penunjang/diagnostik`                                                                                                                                                                                                                                 |
-| Pemakai  | dokter, perawat                                                                                                                                                                                                                                         |
-| Komponen | S10 penunjang diagnostik lain                                                                                                                                                                                                                           |
-| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                                      |
-| Mockup   | tidak ada (gaya mengikuti layar Radiologi)                                                                                                                                                                                                              |
-| Kode web | `apps/web/src/app/(staf)/penunjang/diagnostik/` · data `apps/web/src/lib/server/data/penunjang-lanjut.ts` (`getDiagOrders`) · aturan `apps/web/src/lib/penunjang-diagnostik.ts` · komponen `apps/web/src/components/penunjang/diagnostik-workspace.tsx` |
-| Kode API | belum ada (rencana modul `diagnostics`, docs/01-arsitektur.md §2)                                                                                                                                                                                       |
+| Hal      | Isi                                                                                                                                                                                                                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rute     | `/penunjang/diagnostik`                                                                                                                                                                                                                                     |
+| Pemakai  | dokter, perawat                                                                                                                                                                                                                                             |
+| Komponen | S10 penunjang diagnostik lain                                                                                                                                                                                                                               |
+| Status   | demo (mode presentasi); backend fase 4 potongan 4.8 belum dibangun                                                                                                                                                                                          |
+| Mockup   | tidak ada (gaya mengikuti layar Radiologi)                                                                                                                                                                                                                  |
+| Kode web | `apps/web/src/app/(staf)/penunjang/diagnostik/` · data `apps/web/src/lib/server/data/penunjang/diagnostik.ts` (`getDiagOrders`) · aturan `apps/web/src/lib/penunjang-diagnostik.ts` · komponen `apps/web/src/components/penunjang/diagnostik-workspace.tsx` |
+| Kode API | belum ada (rencana modul `diagnostics`, docs/01-arsitektur.md §2)                                                                                                                                                                                           |
 
 **Tujuan.** Menjalankan pemeriksaan EKG, ekokardiografi, endoskopi, dan rehabilitasi medik dari order sampai
 ekspertise terstruktur per templat yang ditandatangani dokter pembaca. Temuan kritis diteruskan ke jalur S09.
@@ -642,7 +659,7 @@ Unit:
 
 - `apps/web/src/lib/penunjang.test.ts`, `penunjang-farmasi.test.ts`, `penunjang-radiologi.test.ts`,
   `penunjang-skenario.test.ts` (gerbang server per aksi dan skenario).
-- `apps/web/src/lib/btn-ok.test.ts` (gerbang time out, hitung kasa).
+- `apps/web/src/lib/penunjang-ok.test.ts` (gerbang time out, hitung kasa).
 - `apps/web/src/lib/penunjang-kritis.test.ts`, `penunjang-depo.test.ts`, `penunjang-bank-darah.test.ts`,
   `penunjang-gizi.test.ts`, `penunjang-mikro.test.ts`, `penunjang-diagnostik.test.ts`, `penunjang-anestesi.test.ts`
   (gerbang murni layar penunjang lanjutan).

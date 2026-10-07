@@ -17,7 +17,7 @@ import {
   usableStock,
 } from '@/lib/penunjang-depo';
 import { depotCheckKey } from '@/lib/penunjang-demo';
-import type { DepoData } from '@/lib/server/data/penunjang-lanjut';
+import type { DepoData } from '@/lib/server/data/penunjang/depo';
 import type { DepoRun } from './depo-workspace';
 
 interface PanelProps {

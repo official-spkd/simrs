@@ -2,17 +2,10 @@ import 'server-only';
 import {
   type FinancingOverview,
   financingOverviewSchema,
-  type OrSchedule,
-  orScheduleSchema,
   type PaymentOverview,
   paymentOverviewSchema,
 } from '@simrs/shared';
-import {
-  demoFinancingOverview,
-  demoOrSchedule,
-  demoPaymentOverview,
-  type ScenarioHook,
-} from '../../btn-skenario';
+import { demoFinancingOverview, demoPaymentOverview, type ScenarioHook } from '../../btn-skenario';
 import { redirect } from 'next/navigation';
 import { screenById, screenOpen } from '../../screens';
 import { nextLoginStep, type SessionView } from '../../session-view';
@@ -44,7 +37,8 @@ export async function btnActionSession(
 }
 
 /**
- * I05/U09/U04/S06 · Satu-satunya pintu data layar pembayaran digital, pembiayaan BTN, dan kamar operasi. Mode
+ * I05/U09/U04 · Satu-satunya pintu data layar pembayaran digital dan pembiayaan BTN (kamar operasi S06 di
+ * `penunjang/kamar-operasi.ts`). Mode
  * presentasi: fixture + proyeksi pasien skenario elektif, divalidasi kontrak yang sama dengan API kelak; mode api
  * menunggu backend fase 4/6.
  */
@@ -55,7 +49,8 @@ export interface WithScenario<T> {
   hook: ScenarioHook | null;
 }
 
-function hookFor(runs: ScenarioRuns, screenId: string): ScenarioHook | null {
+/** Kait tugas skenario elektif yang sedang dibawakan layar `screenId` (juga dipakai data Kamar operasi). */
+export function hookFor(runs: ScenarioRuns, screenId: string): ScenarioHook | null {
   const here = scenariosHere(runs, screenId).find((h) => h.scenario === 'elektif-btn');
   if (!here) return null;
   const step = runs.results['elektif-btn'].def.steps[here.step.index];
@@ -111,14 +106,4 @@ export async function getFinancingOverview(session: SessionView): Promise<Financ
     return { data, hook: hookFor(runs, 'pembiayaan'), rev: pb.rev, state: pb.state };
   }
   return notImplemented('pembiayaan BTN');
-}
-
-export async function getOrSchedule(session: SessionView): Promise<WithScenario<OrSchedule>> {
-  if (webEnv().dataSource === 'demo') {
-    assertDemo();
-    const runs = await scenarioRuns(session);
-    const data = orScheduleSchema.parse(demoOrSchedule(runs.results['elektif-btn']));
-    return { data, hook: hookFor(runs, 'ok') };
-  }
-  return notImplemented('kamar operasi');
 }

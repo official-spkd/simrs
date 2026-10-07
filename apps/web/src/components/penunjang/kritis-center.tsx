@@ -5,7 +5,7 @@ import { Alert, Button, Chip, cx, FilterChip, KpiCard, PatientBanner } from '@si
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { reportCriticalCenterAction } from '@/app/(staf)/penunjang/hasil-kritis/actions';
+import { reportCriticalCenterAction } from '@/app/(staf)/penunjang/hasil-kritis/actions-demo';
 import { useStoreAction } from '@/lib/demo/store/client';
 import { formatMmSs } from '@/lib/penunjang';
 import {
@@ -25,7 +25,7 @@ import {
   SOURCE_LABEL,
   STATE_VIEW,
 } from '@/lib/penunjang-kritis';
-import type { CriticalCenter } from '@/lib/server/data/penunjang-lanjut';
+import type { CriticalCenter } from '@/lib/server/data/penunjang/kritis';
 import { CriticalReportCenterForm } from './kritis-report-form';
 import { CRIT_DOT } from './pelangi';
 import { useElapsed } from './use-elapsed';

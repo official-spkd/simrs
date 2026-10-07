@@ -4,10 +4,10 @@ import { formatJam, formatTanggalLahir, type OrSchedule } from '@simrs/shared';
 import { Alert, Chip, cx, PatientBanner } from '@simrs/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { startTransition, useOptimistic, useState } from 'react';
-import { OkChecklist } from '@/components/btn/ok-checklist';
-import { OkCount } from '@/components/btn/ok-count';
-import { OkGantt } from '@/components/btn/ok-gantt';
-import { OkIncision } from '@/components/btn/ok-incision';
+import { OkChecklist } from '@/components/penunjang/ok-checklist';
+import { OkCount } from '@/components/penunjang/ok-count';
+import { OkGantt } from '@/components/penunjang/ok-gantt';
+import { OkIncision } from '@/components/penunjang/ok-incision';
 import { useDemoClock, useScenarioTask } from '@/components/btn/use-scenario-task';
 import { useStoreAction } from '@/lib/demo/store/client';
 import type { SupportState } from '@/lib/penunjang-demo';
@@ -21,9 +21,9 @@ import {
   PHASE_LABEL,
   scenarioCaseNote,
   withLocal,
-} from '@/lib/btn-ok';
+} from '@/lib/penunjang-ok';
 import type { ScenarioHook } from '@/lib/btn-skenario';
-import { type OkEventInput, recordOkEventAction, recordOkChecklistAction } from './actions';
+import { type OkEventInput, recordOkEventAction, recordOkChecklistAction } from './actions-demo';
 
 /** Akibat konfirmasi tiap fase daftar tilik (mockup OK). */
 const PHASE_NEXT: Record<keyof typeof PHASE_LABEL, string> = {

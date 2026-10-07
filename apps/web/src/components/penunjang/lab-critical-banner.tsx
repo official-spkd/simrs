@@ -4,7 +4,7 @@ import type { LabSample } from '@simrs/shared';
 import { formatJam } from '@simrs/shared';
 import { Button, cx } from '@simrs/ui';
 import { useEffect, useState } from 'react';
-import { reportCriticalAction } from '@/app/(staf)/penunjang/lab/actions';
+import { reportCriticalAction } from '@/app/(staf)/penunjang/lab/actions-demo';
 import type { ScenarioId } from '@/lib/demo/engine/types';
 import { STAF } from '@/lib/demo/fixtures/staf';
 import { useStoreAction } from '@/lib/demo/store/client';

@@ -2,7 +2,8 @@ import { PRESENTATION_PERSONAS } from '@simrs/db';
 import { describe, expect, it } from 'vitest';
 import { runScenario } from '../engine/run';
 import { SCENARIOS } from '../skenario';
-import { CICILAN, KAMAR_OK, KASUS_SKENARIO_OK, REFUND, REKONSILIASI, TRANSAKSI } from './btn';
+import { CICILAN, REFUND, REKONSILIASI, TRANSAKSI } from './btn';
+import { KAMAR_OK, KASUS_SKENARIO_OK } from './kamar-operasi';
 import { demoExecutiveDashboard } from './dasbor';
 import {
   DEFAULT_PATIENT_ID,
