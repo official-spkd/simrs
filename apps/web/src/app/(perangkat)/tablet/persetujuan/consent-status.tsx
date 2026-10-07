@@ -11,7 +11,6 @@ export const DRAFT_STATUS: Record<ConsentDraft['status'], { label: string; tone:
 
 /** Syarat final yang belum terpenuhi (`missing` dari API). */
 export const MISSING_LABEL: Record<ConsentDraft['missing'][number], string> = {
-  edukasi_tindakan: 'edukasi tindakan yang dinyatakan paham (formulir edukasi terintegrasi)',
   tanda_tangan: 'tanda tangan pasien/wali',
   saksi_petugas: 'atestasi saksi petugas',
   saksi_kedaluwarsa: 'atestasi saksi petugas kedaluwarsa (lebih dari 30 menit), ulangi atestasi',
