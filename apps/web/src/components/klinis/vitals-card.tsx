@@ -5,6 +5,7 @@ import { Button, Icon } from '@simrs/ui';
 import { useState } from 'react';
 import { NurseScenarioForm } from './nurse-scenario-form';
 import { NurseVitalsForm } from './nurse-vitals-form';
+import type { PoliOps } from './poli-ops';
 import type { ScenarioTasks } from './use-scenario-tasks';
 import { VitalTiles } from './visit-panels';
 
@@ -20,7 +21,7 @@ export function VitalsCard({
   scenarioPatient,
   tasks,
   cdsNote,
-  rev,
+  ops,
 }: {
   encounterId: string;
   vitals: readonly PoliVital[];
@@ -29,8 +30,8 @@ export function VitalsCard({
   scenarioPatient: boolean;
   tasks: ScenarioTasks;
   cdsNote: string;
-  /** Revisi toko `klinis-poli`. */
-  rev: number;
+  /** Aksi simpan tanda vital (mode presentasi atau api). */
+  ops: PoliOps;
 }) {
   const [saved, setSaved] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -61,7 +62,7 @@ export function VitalsCard({
           <NurseVitalsForm
             encounterId={encounterId}
             vitals={shown}
-            rev={rev}
+            ops={ops}
             onSaved={(message) => {
               setSaved(message);
               setEditing(false);

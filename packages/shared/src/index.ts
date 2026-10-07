@@ -34,6 +34,7 @@ export * from './schemas/clinical-notes';
 export * from './schemas/consent';
 export * from './schemas/collaboration';
 export * from './schemas/discharge';
+export * from './schemas/poli';
 export * from './schemas/orders';
 export * from './schemas/nursing';
 export * from './schemas/inpatient';

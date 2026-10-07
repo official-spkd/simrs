@@ -118,7 +118,7 @@ test.describe('smoke', () => {
     await expect(nav.getByText('Rawat inap', { exact: true })).toHaveCount(0);
   });
 
-  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" (rencana fase 3 potongan 3.0d)', async ({
+  test('layar klinis hibrida di mode api: peran berizin melihat "Belum tersambung" atau layar api (W1/W5b)', async ({
     page,
   }) => {
     // Dokter memegang clinical.read/write, order.write, bed.read, consent.write (matriks bawaan 3.0a).
@@ -153,7 +153,6 @@ test.describe('smoke', () => {
       await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     }
-    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
     // Edukasi, Konsultasi, dan Paket layanan tersambung API sejak 3.8 (A2): terbuka tanpa "Belum tersambung".
     for (const id of ['edukasi', 'konsul', 'paket']) {
       const s = clinical.find((x) => x.id === id);
@@ -163,10 +162,22 @@ test.describe('smoke', () => {
       await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
     }
-    const connected = new Set(['ranap', 'order', 'consent', 'igd', 'bed', 'edukasi', 'konsul', 'paket']);
+    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan, W1: poli, W5b: resume, 3.8: edukasi,
+    // konsultasi, paket layanan) diperiksa terpisah di bawah.
+    const connected = new Set([
+      'ranap',
+      'order',
+      'consent',
+      'poli',
+      'resume',
+      'igd',
+      'bed',
+      'edukasi',
+      'konsul',
+      'paket',
+    ]);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
-      { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
     ];
     for (const r of routes) {
       const res = await page.goto(r.route);
@@ -193,12 +204,23 @@ test.describe('smoke', () => {
     await expect(page.getByRole('heading', { name: 'Persetujuan tindakan', level: 1 })).toBeVisible();
     await expect(page.getByText('Draf tidak ditemukan')).toBeVisible();
 
+    // Tersambung API: dokter tanpa unit poli melihat antrean kosong; daftar resume kosong; id demo = tidak ditemukan.
+    await page.goto('/klinis/poli');
+    await expect(page.getByRole('heading', { name: 'Pemeriksaan pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Antrean kosong')).toBeVisible();
+    await page.goto('/klinis/resume');
+    await expect(page.getByRole('heading', { name: 'Resume medis', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum ada pasien')).toBeVisible();
+    expect((await page.goto(`/klinis/resume/${ENCOUNTER_ID.hartono}`))?.status()).toBe(200);
+    await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
+
     // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
     await page.context().clearCookies();
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
     await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Akses ditolak')).toHaveCount(0);
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
