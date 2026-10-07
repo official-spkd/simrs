@@ -221,13 +221,17 @@ dikirim dengan TTE.
 **Mode api (W2).** Izin layar `order.write`; API menegakkan ulang izin dan ABAC pasien. Komponen
 `components/klinis/cpoe-api-*.tsx`, logika murni `lib/cpoe-api.ts`, Server Action `app/(staf)/klinis/order/actions.ts`.
 
-1. **Order & resep (CPOE)** menampilkan "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
+1. **Order & resep (CPOE)** (menu Klinis, juga dari tautan cepat Rawat inap dan Pemeriksaan poli) menampilkan
+   "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
    bersama, ditambah pasien di unit penugasan. Kunjungan dengan order residen yang menunggu tinjauan Anda tampil
    teratas dengan chip "N order residen menunggu tinjauan".
 2. Banner pasien diambil dari `GET /encounters/:id/context`. Alergi selalu bertulisan: daftar alergi, "Tidak ada alergi
    obat (NKDA)", atau "Alergi belum dikaji".
 3. Cari katalog RS (minimal 2 huruf, bisa disaring per jenis) atau terapkan order set. Baris obat wajib dosis, rute,
-   dan aturan pakai; penunjang memilih prioritas rutin/cito.
+   dan aturan pakai; penunjang memilih prioritas rutin/cito. Rute terisi "oral" hanya untuk sediaan oral (tablet,
+   kapsul, sirup, …). Sediaan injeksi, infus, dan bentuk lain mulai dengan "Pilih rute…", dan baris belum bisa dikirim
+   sebelum rute dipilih. Server menolak rute yang bertentangan dengan sediaan, misalnya injeksi + oral atau tablet +
+   intravena (422 `MEDICATION_ROUTE_INVALID`).
 4. Setiap perubahan daftar menjalankan pratinjau CDS server (`POST /orders/evaluate`) dengan KB RS. Temuan blok
    memunculkan gerbang **CDS memblokir …**: **Hapus …**, atau **Override dengan alasan** (minimal 10 karakter).
    Alasan ikut dikirim dan tercatat di `cds_alerts`.
