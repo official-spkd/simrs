@@ -182,6 +182,74 @@ export const CLINICAL_ERROR_CODES = [
   'CONSULT_NOT_RECIPIENT',
 ] as const satisfies readonly ClinicalErrorCode[];
 
+/**
+ * S01–S10 · Kode galat penunjang (fase 4, rencana §4.0a): gerbang keselamatan lab, nilai kritis, farmasi, stok,
+ * radiologi, kamar operasi, bank darah. Gerbang yang juga dijaga database (CHECK/trigger) memakai kode yang sama
+ * lewat pemetaan galat DB di API.
+ */
+export const SUPPORT_ERRORS = {
+  // S01/S09 · Laboratorium dan nilai kritis
+  RESULT_INCOMPLETE: { status: 409, message: 'Hasil pemeriksaan belum lengkap untuk divalidasi' },
+  VALIDATION_ORDER: { status: 409, message: 'Validasi klinis hanya setelah validasi teknis' },
+  CRITICAL_OPEN: {
+    status: 409,
+    message: 'Nilai kritis belum dilaporkan ke dokter dengan read-back; validasi diblokir',
+  },
+  QC_REJECTED: {
+    status: 409,
+    message: 'QC hari ini ditolak (Westgard 1-3s/2-2s); validasi butuh override beralasan',
+  },
+  CRITICAL_RECIPIENT_REQUIRED: {
+    status: 422,
+    message: 'Penerima laporan nilai kritis wajib: pilih staf atau isi nama (≥ 5 karakter) dan peran',
+  },
+  CRITICAL_READBACK_REQUIRED: { status: 422, message: 'Read-back penerima wajib dikonfirmasi' },
+  SPECIMEN_STATE_INVALID: { status: 409, message: 'Status spesimen tidak mengizinkan tindakan ini' },
+  // S03 · Radiologi
+  SLOT_CONFLICT: { status: 409, message: 'Slot modalitas pada jam itu sudah terisi' },
+  CONTRAST_SCREENING_REQUIRED: {
+    status: 422,
+    message:
+      'Skrining kontras (alergi kontras, eGFR, kehamilan) belum lolos; override hanya dokter beralasan',
+  },
+  CT_DOSE_REQUIRED: { status: 422, message: 'Pemeriksaan CT wajib mencatat CTDIvol dan DLP' },
+  // S04/S05 · Farmasi dan stok
+  CDS_UNRESOLVED: {
+    status: 409,
+    message: 'Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti',
+  },
+  STOCK_INSUFFICIENT: { status: 409, message: 'Stok batch di depo ini tidak mencukupi' },
+  BATCH_EXPIRED: { status: 409, message: 'Batch sudah kedaluwarsa dan tidak boleh dikeluarkan ke pasien' },
+  DOUBLE_CHECK_SAME_USER: { status: 409, message: 'Cek ganda harus oleh apoteker lain, bukan penyiap' },
+  HIGH_ALERT_DOUBLE_CHECK_REQUIRED: {
+    status: 409,
+    message: 'Obat kewaspadaan tinggi wajib cek ganda apoteker kedua sebelum diserahkan',
+  },
+  // S06 · Kamar operasi
+  ROOM_OVERLAP: { status: 409, message: 'Jadwal kamar operasi bertumpang tindih dengan kasus lain' },
+  CHECKLIST_INCOMPLETE: { status: 409, message: 'Semua butir fase ini wajib dicentang sebelum dikonfirmasi' },
+  CHECKLIST_ORDER: { status: 409, message: 'Urutan daftar tilik: sign in → time out → sign out' },
+  TIMEOUT_REQUIRED: {
+    status: 409,
+    message: 'Insisi terkunci sampai time out dikonfirmasi (override dokter beralasan ≥ 15 karakter)',
+  },
+  COUNT_MISMATCH: {
+    status: 409,
+    message: 'Hitung akhir kasa/instrumen belum cocok atau selisih belum ditindaklanjuti',
+  },
+  // S08 · Bank darah
+  BLOOD_INCOMPATIBLE: { status: 409, message: 'Golongan darah kantong tidak kompatibel dengan pasien' },
+  CROSSMATCH_REQUIRED: {
+    status: 409,
+    message: 'Crossmatch cocok wajib sebelum kantong dikeluarkan (darurat: golongan O beralasan dokter)',
+  },
+} as const satisfies Record<string, { status: number; message: string }>;
+
+export type SupportErrorCode = keyof typeof SUPPORT_ERRORS;
+
+/** Urutan tetap (bagian dari `ERROR_CODES`). */
+export const SUPPORT_ERROR_CODES = Object.keys(SUPPORT_ERRORS) as [SupportErrorCode, ...SupportErrorCode[]];
+
 /** Kode galat stabil. Klien boleh bergantung pada kode ini; pesan boleh berubah. */
 export const ERROR_CODES = [
   'VALIDATION_FAILED',
@@ -207,6 +275,7 @@ export const ERROR_CODES = [
   // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,
   ...CLINICAL_ERROR_CODES,
+  ...SUPPORT_ERROR_CODES,
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -241,5 +310,11 @@ export function frontOfficeError(code: FrontOfficeErrorCode, details?: unknown, 
 /** Galat klinis dengan status dan pesan bawaan. */
 export function clinicalError(code: ClinicalErrorCode, details?: unknown, message?: string): AppError {
   const def = CLINICAL_ERRORS[code];
+  return new AppError(code, message ?? def.message, def.status, details);
+}
+
+/** Galat penunjang (fase 4) dengan status dan pesan bawaan. */
+export function supportError(code: SupportErrorCode, details?: unknown, message?: string): AppError {
+  const def = SUPPORT_ERRORS[code];
   return new AppError(code, message ?? def.message, def.status, details);
 }
