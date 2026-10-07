@@ -59,8 +59,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['ioredis'],
   poweredByHeader: false,
   typedRoutes: false,
-  // Unggah dokumen pasien lewat Server Action (P08, maks. 10 MB per berkas + metadata formulir).
-  experimental: { serverActions: { bodySizeLimit: '11mb' } },
   // Hanya `next dev`: izinkan membuka lewat 127.0.0.1 (mis. bila localhost:3000 di IPv6 dipakai aplikasi lain).
   allowedDevOrigins: ['127.0.0.1'],
   // Panduan superadmin (Markdown + gambar) dibaca dari docs/panduan saat runtime; sertakan saat output standalone.

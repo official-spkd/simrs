@@ -22,6 +22,14 @@ type Range = readonly [
   critHigh: number | null,
 ];
 
+/** Prosedur radiologi contoh: [kode, nama, modalitas, ICD-9-CM (dari `SEED_REF_SAMPLES`), orderable fase 3, kontras, templat]. */
+export const SEED_RADIOLOGY_PROCEDURES = [
+  ['RAD-TORAKS', 'Foto toraks PA', 'DR', null, 'Foto toraks', false, 'toraks'],
+  ['RAD-CT-KEPALA', 'CT scan kepala tanpa kontras', 'CT', '87.03', 'CT scan kepala', false, 'ct-kepala'],
+  ['RAD-CT-KEPALA-K', 'CT scan kepala dengan kontras', 'CT', '87.03', null, true, 'ct-kepala'],
+  ['RAD-USG-ABD', 'USG abdomen', 'USG', '88.76', 'USG abdomen', false, 'usg-abdomen'],
+] as const;
+
 /** [kode, nama, LOINC, spesimen, satuan, desimal, panel, nama orderable fase 3, batas delta, rentang dewasa]. */
 export const SEED_LAB_TESTS: ReadonlyArray<
   readonly [
@@ -268,12 +276,15 @@ export async function seedSupportMasters(tx: TenantTx, tenantId: string): Promis
     await tx.radiologyModality.create({ data: { id: newId(), tenantId, code, modality, name, locationId } });
     result.modalities += 1;
   }
-  for (const [code, name, modality, icd9cm, orderableName, contrast, templateCode] of [
-    ['RAD-TORAKS', 'Foto toraks PA', 'DR', null, 'Foto toraks', false, 'toraks'],
-    ['RAD-CT-KEPALA', 'CT scan kepala tanpa kontras', 'CT', '87.03', 'CT scan kepala', false, 'ct-kepala'],
-    ['RAD-CT-KEPALA-K', 'CT scan kepala dengan kontras', 'CT', '87.03', null, true, 'ct-kepala'],
-    ['RAD-USG-ABD', 'USG abdomen', 'USG', '88.76', 'USG abdomen', false, 'usg-abdomen'],
-  ] as const) {
+  for (const [
+    code,
+    name,
+    modality,
+    icd9cm,
+    orderableName,
+    contrast,
+    templateCode,
+  ] of SEED_RADIOLOGY_PROCEDURES) {
     await tx.radiologyProcedure.upsert({
       where: { tenantId_code: { tenantId, code } },
       update: {},

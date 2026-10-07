@@ -5,11 +5,12 @@ kamar operasi dan anestesi, pusat hasil kritis, depo dan stok farmasi, bank dara
 anatomi, serta diagnostik lain. Layar-layar ini menerima order dari CPOE dan mengembalikan hasil, obat, atau laporan operasi ke rekam
 medis pasien. Setiap layar punya gerbang keselamatan yang ditegakkan ulang di Server Action, bukan hanya di tombol.
 
-> Status 6 Okt 2026: kesepuluh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Enam layar
-> (pusat hasil kritis, depo, bank darah, gizi, mikrobiologi dan PA, diagnostik lain) serta region Anestesi di Kamar
-> operasi ditambahkan agen FE3 tanpa mockup. Fase 4 belum dimulai, jadi belum ada modul API penunjang. Yang sudah ada
-> di API hanya modul `results` (fase 3 potongan 3.2a: observasi dan laporan hasil berkode, izin `result`) dan CPOE +
-> CDS (3.4) sebagai sumber order. Di mode api kesepuluh rute ini 404.
+> Status 7 Okt 2026: kesepuluh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`) dan sejak
+> potongan 4.0c berstatus hibrida: di mode api peran berizin melihat "Belum tersambung" sampai potongan 4.2–4.9 mengisi
+> jalur API, peran lain "Akses ditolak". Kontrak bersama fase 4 (4.0a: izin, event, `SUPPORT_ERRORS`, skema API,
+> aturan murni, parser HL7 ORU), skema DB + gerbang keselamatan di database (4.0b, ADR-0034–0037), dan mock analyzer
+> LIS (4.1b) sudah ada; modul API penunjang belum. Sumber order tetap
+> CPOE + CDS (3.4); hasil berkode masuk modul `results` (3.2a).
 
 Posisi layar penunjang dalam perjalanan pasien rawat jalan (CPOE → lab dan farmasi → kasir):
 
@@ -71,7 +72,7 @@ klien.
 | Rute     | `/penunjang/lab` (`?pilih=<sampleId>` = sampel yang dibuka)                                                                                                                  |
 | Pemakai  | analis lab                                                                                                                                                                   |
 | Komponen | S01 laboratorium patologi klinik, S09 hasil kritis                                                                                                                           |
-| Status   | demo (mode presentasi); API lab belum (fase 4 potongan 4.2–4.3); modul `results` fase 3 sudah menerima observasi berkode                                                     |
+| Status   | demo + hibrida api "Belum tersambung" (4.0c); API lab belum (4.2–4.3); modul `results` fase 3 menerima observasi berkode                                                     |
 | Mockup   | `design/mockups/Lab.dc.html`                                                                                                                                                 |
 | Kode web | `apps/web/src/app/(staf)/penunjang/lab/` · `apps/web/src/components/penunjang/lab-*.tsx` · `apps/web/src/lib/penunjang.ts` · `apps/web/src/lib/server/data/penunjang/lab.ts` |
 | Kode API | belum ada modul lab · `apps/api/src/modules/results/` (observasi dan laporan hasil, fase 3)                                                                                  |
@@ -344,7 +345,7 @@ durasi lapor sebagai indikator mutu.
 **Rencana backend.** Izin rencana `critical_result.report`. Fase 4 potongan 4.3 membangun `/api/v1/critical-results`:
 `POST :id/reports` dengan penerima, saluran, dan `readBackConfirmed: true` wajib (422
 `CRITICAL_RECIPIENT_REQUIRED` / `CRITICAL_READBACK_REQUIRED`, ditegakkan juga oleh CHECK DB), durasi dari jam server,
-job eskalasi P11 sekali per level, dan `GET metrics` untuk peninjau mutu. Di mode api rute 404 dan menu redup.
+job eskalasi P11 sekali per level, dan `GET metrics` untuk peninjau mutu. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Depo & stok farmasi
 
@@ -410,7 +411,7 @@ first out), memindahkan stok antar depo dua langkah, mengarantina batch kedaluwa
 **Rencana backend.** Izin rencana `stock.write`. Fase 4 potongan 4.6a membangun `/api/v1/stock`: ledger append-only,
 saldo dijaga trigger + CHECK ≥ 0, FEFO otomatis dengan override beralasan, `POST transfers` dua langkah, dan
 `POST adjustments` beralasan (keputusan fase 4 #9–#10). Rencana itu menaruh stok depo sebagai kolom di layar Farmasi;
-opname penuh baru di fase 8. Di mode api rute 404 dan menu redup.
+opname penuh baru di fase 8. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Bank darah
 
@@ -476,8 +477,7 @@ pemantauan reaksi transfusi.
 **Rencana backend.** Izin rencana `blood.write`. Fase 4 potongan 4.9 membangun modul `blood-bank` (stok kantong,
 crossmatch, pengeluaran, reaksi transfusi, event `blood.unit_issued`). Rencana memakai nama izin `blood_bank` untuk
 analis lab dan menetapkan bank darah tanpa layar (keputusan fase 4 #1), jadi layar demo ini mendahului rencana.
-Keputusan #22 (darah darurat golongan O tanpa crossmatch dengan alasan dokter) belum ada di demo. Di mode api rute 404
-dan menu redup.
+Keputusan #22 (darah darurat golongan O tanpa crossmatch dengan alasan dokter) belum ada di demo. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Gizi
 
@@ -534,7 +534,7 @@ per bangsal dan jam makan dengan label baki, tanpa mengantar makanan beralergen 
 daftar makan per ruang × jam makan, label, sisa makanan; asuhan gizi lewat formulir P07). Komentar `screens.ts`
 mencatat peran `nutrisionis` (keputusan fase 4 #21) belum ada di katalog, jadi sementara layar dipakai perawat dan
 dokter. Rencana fase 4 #1 menetapkan gizi tanpa layar (cetak HTML); layar demo ini mendahului rencana. Di mode api
-rute 404 dan menu redup.
+layar hibrida (4.0c) menampilkan "Belum tersambung" bagi peran berizin.
 
 ## Mikrobiologi & PA
 
@@ -588,7 +588,7 @@ patologi anatomi yang terkunci setelah ditandatangani. Kultur darah positif dite
 
 **Rencana backend.** Izin rencana `lab.write`. Fase 4 potongan 4.8 membangun modul `micro-pa`: kultur bertahap, isolat,
 S/I/R + MIC, PA dengan gambar (P08) + TTE, dan `GET micro/antibiogram` untuk PPRA. Rencana menaruh mikrobiologi sebagai
-tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mode api rute 404 dan menu redup.
+tab di layar Laboratorium (keputusan fase 4 #1); di demo ia layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Diagnostik lain
 
@@ -637,7 +637,7 @@ ekspertise terstruktur per templat yang ditandatangani dokter pembaca. Temuan kr
 
 **Rencana backend.** Izin rencana `diagnostic.write`. Fase 4 potongan 4.8 membangun modul `diagnostics`: order F3-1 +
 isian formulir P07 (lima formulir diseed) + lampiran P08 + TTE, event `diagnostic.report_signed`. Rencana menampilkan
-hasil S10 di panel hasil fase 3 (keputusan fase 4 #1), bukan layar sendiri. Di mode api rute 404 dan menu redup.
+hasil S10 di panel hasil fase 3 (keputusan fase 4 #1), bukan layar sendiri. Di mode api layar hibrida (4.0c): peran berizin melihat "Belum tersambung" sampai potongan fase 4 layar ini tergabung.
 
 ## Tes yang menjaga layar ini
 

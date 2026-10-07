@@ -3,7 +3,13 @@
  * mengarang kode). Tanpa database: membandingkan konstanta seed dengan daftar contoh.
  */
 import { describe, expect, it } from 'vitest';
-import { SEED_DRUGS, SEED_ORDERABLES, SEED_REF_SAMPLES } from '../src/index';
+import {
+  SEED_DRUGS,
+  SEED_LAB_TESTS,
+  SEED_ORDERABLES,
+  SEED_RADIOLOGY_PROCEDURES,
+  SEED_REF_SAMPLES,
+} from '../src/index';
 
 const sampleCodes = (system: keyof typeof SEED_REF_SAMPLES) =>
   new Set(SEED_REF_SAMPLES[system].map((s) => s.code));
@@ -22,5 +28,17 @@ describe('kode seed klinis', () => {
       (d) => `${d.name} (${d.kfa})`,
     );
     expect(unknown).toEqual([]);
+  });
+
+  it('seed penunjang fase 4: LOINC tes lab dan ICD-9-CM prosedur radiologi dari contoh seed rujukan', () => {
+    const loinc = sampleCodes('loinc');
+    const icd9 = sampleCodes('icd9cm');
+    const lab = SEED_LAB_TESTS.filter(([, , code]) => !loinc.has(code)).map(
+      ([, name, code]) => `${name} (${code})`,
+    );
+    const rad = SEED_RADIOLOGY_PROCEDURES.filter(([, , , code]) => code !== null && !icd9.has(code)).map(
+      ([, name, , code]) => `${name} (${code})`,
+    );
+    expect([...lab, ...rad]).toEqual([]);
   });
 });

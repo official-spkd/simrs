@@ -93,8 +93,19 @@ try {
       // P07: formulir pustaka contoh (Morse dari mockup Formulir), versi 1 berlaku. K11 (fase 3): templat persetujuan
       // tindakan (tujuh butir informasi) dan edukasi terintegrasi.
       await ensurePublishedForm(tx, t.id, CONSENT_TEMPLATE_SAMPLE);
-      // Edukasi: versi lama tanpa topik `tindakan` dinaikkan (syarat final persetujuan, ADR-0058).
-      await upgradePublishedForm(tx, t.id, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
+      // Edukasi: versi pustaka lama tanpa topik `tindakan` dinaikkan (syarat final persetujuan, ADR-0058). Versi
+      // buatan RS tidak ditimpa; operator diberi tahu agar komite RM menambah topik itu lewat Formulir klinis.
+      const education = await upgradePublishedForm(
+        tx,
+        t.id,
+        EDUCATION_FORM_SAMPLE,
+        educationFormSupportsConsent,
+      );
+      if (education.skippedLocal) {
+        console.warn(
+          `${t.code}: formulir ${EDUCATION_FORM_SAMPLE.code} versi buatan RS belum punya topik "tindakan"; persetujuan tindakan akan tertahan CONSENT_EDUCATION_REQUIRED sampai komite menerbitkan versi baru`,
+        );
+      }
       return {
         ...(await ensurePublishedForm(tx, t.id, MORSE_FALL_SCALE)),
         permissionsAdded: sync.added.length,
