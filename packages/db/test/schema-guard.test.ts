@@ -228,6 +228,7 @@ describe('penjaga skema', () => {
       'nursing_care_plans',
       'abbreviations',
       'billable_events',
+      'aplicare_rooms',
     ];
     const rows = await owner.$queryRaw<Array<{ table: string; can_delete: boolean }>>`
       SELECT t AS table, has_table_privilege('simrs_app', 'public.' || t, 'DELETE') AS can_delete

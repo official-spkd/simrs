@@ -32,6 +32,7 @@ Yang ditandatangani TTE adalah SHA-256 berkas (ADR-0020 butir 7). Hash itu harus
    - Render, simpan berkas (berkas sebelum metadata, ADR-0020 butir 4), tulis baris `documents`, audit `create`.
    - Bila diminta, catat TTE `pending` untuk pengguna sesi + outbox `tte.sign` + audit `sign` (`DocumentsService.recordSignatureRequest`, dipakai juga oleh permintaan TTE manual).
    - Izin tanda tangan (`clinical.sign`, `consent.sign`) diperiksa endpoint pemanggil, bukan oleh layanan ini.
+   - Pembaruan 5 Okt 2026 (keputusan orkestrator, potongan 3.4): TTE resep adalah tanda tangan penulis. Cukup peran penulis punya `clinical.sign` di matriks (lingkupnya tidak dinilai) dan lolos ABAC `order.write` atas pasien. Tinjauan order residen oleh DPJP (`POST /orders/:id/review`, yang membuat TTE resep residen) wajib relasi DPJP utama/rawat bersama.
 7. **Hasil TTE tetap lewat worker yang ada** (`outbox/tte.ts`):
    - 2xx → `signed` (sertifikat dan tanda tangan disimpan atomik).
    - 4xx dari penyelenggara (ditolak) → langsung DLQ, lalu `onDead` mengubah tanda tangan menjadi `failed` + audit `sign` berstatus `failed`.
