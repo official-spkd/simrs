@@ -27,8 +27,8 @@ export function hl7Instant(v: string | null): Date | null {
 const ORDER_LOCKED = new Set(['validasi_teknis', 'selesai', 'batal']);
 
 /**
- * S01 · Penangan pesan analyzer `lis-hl7` (rencana fase 4 §4.2, ADR-0035): ORU^R01 yang sudah diredaksi dicocokkan HANYA
- * lewat barcode spesimen (OBR-3/OBR-2), lalu tiap OBX yang kodenya dikenali (kode analyzer atau LOINC tes order itu)
+ * S01 · Penangan pesan analyzer `lis-hl7` (rencana fase 4 §4.2, ADR-0035): ORU^R01 yang sudah diredaksi (daftar izin
+ * segmen) dicocokkan HANYA lewat pengenal order/spesimen (OBR-3/OBR-2, ORC-3/ORC-2, SPM-2), lalu tiap OBX yang kodenya dikenali (kode analyzer atau LOINC tes order itu)
  * menjadi hasil lab bersumber `analyzer` (merujuk pesan ini), berstatus awal sampai divalidasi manusia (tanpa
  * autoverifikasi). Flag/rentang/delta dihitung inti `@simrs/db` yang sama dengan input manual; hasil kritis memunculkan
  * nilai kritis + event `critical_result.raised` (event worker, reaksinya lewat SSE `support_critical`).
@@ -54,8 +54,11 @@ export const lisHl7Handler: InboundHandler = {
     let valued = 0;
     let matched = 0;
     for (const o of msg.orders) {
-      const specimen = await tx.specimen.findUnique({
-        where: { tenantId_barcode: { tenantId, barcode: o.specimenBarcode.toUpperCase() } },
+      // Cocok hanya lewat pengenal order/spesimen (OBR-3/OBR-2, ORC, SPM-2), tidak pernah lewat PID/PV1.
+      const candidates = [...new Set(o.identifiers.map((id) => id.toUpperCase()))];
+      const specimen = await tx.specimen.findFirst({
+        where: { barcode: { in: candidates } },
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           barcode: true,
@@ -66,7 +69,11 @@ export const lisHl7Handler: InboundHandler = {
           labOrder: { select: { id: true, status: true, patientId: true, encounterId: true } },
         },
       });
-      if (!specimen) throw new PermanentInboundError(`Barcode spesimen ${o.specimenBarcode} tidak dikenal`);
+      if (!specimen) {
+        throw new PermanentInboundError(
+          `Barcode spesimen ${candidates.join('/').slice(0, 120)} tidak dikenal`,
+        );
+      }
       // Label belum dicetak saat pesan diterima = pesan lama/salah barcode (nomor lab harian bisa terpakai ulang).
       if (event.receivedAt.getTime() < specimen.createdAt.getTime()) {
         throw new PermanentInboundError(
