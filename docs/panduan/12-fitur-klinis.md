@@ -11,10 +11,10 @@ menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 > semuanya masih "Belum tersambung" (potongan W1–W5b, dikerjakan agen backend mulai 7 Okt 2026). Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
-> (3.5), serta persetujuan tindakan + edukasi lewat P07 (3.7). Resume (3.6) belum. Sepuluh layar bagan RME (FE2)
-> berstatus `demo` saja: hanya ada di mode presentasi dan belum hibrida. API worklist, CPPT, asesmen, diagnosis,
-> ringkasan, askep/eMAR, dan edukasi untuk layar itu sudah ada; konsultasi, paket layanan, dan gerbang tutup kunjungan
-> belum (3.6, 3.8). Cara
+> (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), serta persetujuan tindakan +
+> edukasi lewat P07 (3.7). Sepuluh layar bagan RME (FE2) berstatus `demo` saja: hanya ada di mode presentasi dan belum
+> hibrida. API worklist, CPPT, asesmen, diagnosis, ringkasan, askep/eMAR, edukasi, dan gerbang tutup kunjungan untuk
+> layar itu sudah ada; konsultasi dan paket layanan belum (3.8). Cara
 > kerja API klinis: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
@@ -52,7 +52,7 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)        |
 | Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)           |
 | Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | 🟨 demo; API CPPT + eMAR ada (3.5); W4 belum     |
-| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API belum (3.6)                         |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API ada (3.6); W5b belum                |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API ada (3.7); W5a belum                |
 | Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
@@ -1014,7 +1014,7 @@ potongan 3.8 merencanakan `GET /api/v1/care-packages?setting=` dan mekanisme pak
 | Rute     | `/klinis/kelengkapan` (`?pasien=<encounterId>`)                                                                                                                                                                            |
 | Pemakai  | dokter, dokter residen, petugas rekam medis                                                                                                                                                                                |
 | Komponen | K13 resume dan dokumen pulang                                                                                                                                                                                              |
-| Status   | demo (mode presentasi); backend fase 3 potongan 3.6 dan 3.8 belum dibangun                                                                                                                                                 |
+| Status   | demo (mode presentasi); gerbang tutup kunjungan API ada (3.6); daftar kelengkapan + dokumen pasien menunggu 3.8                                                                                                            |
 | Mockup   | `design/mockups/Resume.dc.html`                                                                                                                                                                                            |
 | Kode web | `apps/web/src/app/(staf)/klinis/kelengkapan/` · data `apps/web/src/lib/demo/fixtures/rme-kelengkapan.ts` · aturan `apps/web/src/lib/rme-kelengkapan.ts` · komponen `apps/web/src/components/rme/kelengkapan-workspace.tsx` |
 | Kode API | `DischargeGate` penuh di `apps/api/src/modules/discharge/discharge-gate.service.ts` (3.6, ADR-0093); kelengkapan rencana 3.8; dokumen lewat `apps/api/src/modules/documents/` (P08, sudah jadi)                            |
