@@ -9,12 +9,12 @@ export const DRAFT_STATUS: Record<ConsentDraft['status'], { label: string; tone:
   batal: { label: 'Draf dibatalkan', tone: 'neutral' },
 };
 
-/** Syarat final yang belum terpenuhi (`missing` dari API). */
+/** Syarat final yang belum terpenuhi (`missing` dari API); dibaca setelah kata "Menunggu …". */
 export const MISSING_LABEL: Record<ConsentDraft['missing'][number], string> = {
   tanda_tangan: 'tanda tangan pasien/wali',
   saksi_petugas: 'atestasi saksi petugas',
   saksi_kedaluwarsa: 'atestasi saksi petugas kedaluwarsa (lebih dari 30 menit), ulangi atestasi',
-  edukasi_tindakan: 'edukasi tindakan belum dinyatakan paham (isi Edukasi terintegrasi, topik tindakan)',
+  edukasi_tindakan: 'edukasi tindakan dinyatakan paham (isi Edukasi terintegrasi, topik tindakan)',
 };
 
 export const DECISION: Record<ConsentDecision, { label: string; tone: ChipTone }> = {
@@ -48,4 +48,9 @@ export function TteChip({ consent }: { consent: ConsentRecord }) {
   if (!status) return null;
   const s = TTE_LABEL[status];
   return <Chip tone={s.tone}>{s.label}</Chip>;
+}
+
+/** Layar Edukasi kunjungan draf ini (syarat `edukasi_tindakan`), dengan tautan kembali ke draf. */
+export function educationHref(draft: Pick<ConsentDraft, 'id' | 'encounterId'>): string {
+  return `/klinis/edukasi?kunjungan=${draft.encounterId}&draf=${draft.id}`;
 }

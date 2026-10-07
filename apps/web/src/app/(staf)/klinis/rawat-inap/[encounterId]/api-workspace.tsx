@@ -3,6 +3,9 @@
 import { formatJam, type PatientResults, type ResultObservationRecord } from '@simrs/shared';
 import { cx, TabList, TabPanel } from '@simrs/ui';
 import { useId, useState } from 'react';
+import { CompletenessCard } from '@/components/klinis/completeness-card';
+import { type ConsultMe, ConsultPanel } from '@/components/klinis/consult-panel';
+import { PatientDocuments } from '@/components/klinis/patient-documents';
 import { ValueFlagBadge } from '@/components/klinis/status-flag';
 import { formatTglJam } from '@/lib/rawat-inap';
 import type { InpatientRecordView } from '@/lib/server/data/klinis/ranap-api';
@@ -40,6 +43,7 @@ export function ApiInpatientWorkspace({
   me,
   perms,
   active,
+  ext38,
 }: {
   record: InpatientRecordView;
   initialTab: ApiTab;
@@ -48,6 +52,8 @@ export function ApiInpatientWorkspace({
   perms: Perms;
   /** Kunjungan sedang berjalan (eMAR hanya untuk kunjungan aktif). */
   active: boolean;
+  /** Konteks sesi untuk tab "Dokumen & konsultasi" (3.8): posisi + unit, izin dokumen, jam server render. */
+  ext38: { me: ConsultMe; documentsWrite: boolean; now: string };
 }) {
   const tabsId = useId();
   const [tab, setTab] = useState<string>(initialTab);
@@ -167,7 +173,38 @@ export function ApiInpatientWorkspace({
       ),
     },
     { id: 'hasil', label: 'Hasil', content: <ApiResults results={record.results} /> },
-    ...(hasExtensions ? [{ id: 'dokumen', label: 'Dokumen & konsultasi', content: null }] : []),
+    ...(hasExtensions
+      ? [
+          {
+            id: 'dokumen',
+            label: 'Dokumen & konsultasi',
+            content: (
+              <div className="flex flex-col gap-4">
+                {ext.completeness && <CompletenessCard data={ext.completeness} />}
+                {ext.consults && (
+                  <ConsultPanel
+                    encounterId={enc}
+                    consults={ext.consults.requests}
+                    team={ext.consults.team}
+                    consultants={ext.consults.consultants}
+                    me={ext38.me}
+                    now={ext38.now}
+                    canWrite={perms.write}
+                  />
+                )}
+                {ext.documents && (
+                  <PatientDocuments
+                    patientId={c.patient.id}
+                    documents={ext.documents}
+                    canWrite={ext38.documentsWrite}
+                    path={`/klinis/rawat-inap/${enc}`}
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const current = items.find((t) => t.id === tab) ?? items[1] ?? items[0];
