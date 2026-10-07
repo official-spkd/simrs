@@ -136,6 +136,21 @@ export const CLINICAL_ERRORS = {
     status: 422,
     message: 'Dosis terlambat wajib disertai alasan (minimal 10 karakter)',
   },
+  // K11 · Persetujuan tindakan (draf tablet → final ber-TTE)
+  CONSENT_SIGNATURES_REQUIRED: {
+    status: 422,
+    message:
+      'Persetujuan wajib tanda tangan pasien/wali dan atestasi saksi petugas (orang lain dari dokter yang memfinalkan)',
+  },
+  CONSENT_CLOSED: {
+    status: 409,
+    message: 'Draf persetujuan sudah final, ditolak, atau dibatalkan; tidak bisa diubah',
+  },
+  // K10 · Konsultasi
+  CONSULT_NOT_RECIPIENT: {
+    status: 403,
+    message: 'Konsultasi ini hanya dijawab dokter tujuan atau dokter unit tujuan',
+  },
 } as const satisfies Record<string, { status: number; message: string }>;
 
 export type ClinicalErrorCode = keyof typeof CLINICAL_ERRORS;
@@ -159,6 +174,9 @@ export const CLINICAL_ERROR_CODES = [
   'MEDICATION_ALREADY_GIVEN',
   'DOUBLE_CHECK_REQUIRED',
   'LATE_REASON_REQUIRED',
+  'CONSENT_SIGNATURES_REQUIRED',
+  'CONSENT_CLOSED',
+  'CONSULT_NOT_RECIPIENT',
 ] as const satisfies readonly ClinicalErrorCode[];
 
 /** Kode galat stabil. Klien boleh bergantung pada kode ini; pesan boleh berubah. */

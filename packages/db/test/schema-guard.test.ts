@@ -197,6 +197,7 @@ describe('penjaga skema', () => {
       'consult_responses',
       'consents',
       'consent_signatures',
+      'consent_drafts',
       'discharge_summaries',
       'discharge_medications',
       'discharge_summary_sources',

@@ -2,25 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   CONSENT_INFORMATION_KEYS,
   CONSENT_TEMPLATE_SAMPLE,
-  consentCreateInputSchema,
+  consentDraftCreateInputSchema,
+  consentDraftRefuseInputSchema,
+  consentDraftSignaturesInputSchema,
+  consentRevokeInputSchema,
   EDUCATION_FORM_SAMPLE,
   formReadyProblems,
   formSchemaSchema,
 } from './index';
 
-const base = {
-  encounterId: '0199a000-0000-7000-8000-0000000000aa',
-  templateCode: 'persetujuan_tindakan',
-  procedure: 'Pemasangan kateter vena sentral',
-  explainedAt: '2026-10-06T02:00:00.000Z',
-  information: {},
-  decision: 'setuju',
-  refusalReason: null,
-  signerKind: 'pasien',
-  signer: { name: 'Pasien Fiktif', relation: null, method: 'nama', imageDocumentId: null },
-  familyWitness: null,
-  staffWitnessUserId: '0199a000-0000-7000-8000-0000000000bb',
-};
+const signer = { name: 'Pasien Fiktif', relation: null, method: 'nama', imageDocumentId: null };
 
 describe('K11 · kontrak persetujuan tindakan', () => {
   it('templat contoh lolos skema formulir dan memuat ketujuh butir wajib', () => {
@@ -34,22 +25,42 @@ describe('K11 · kontrak persetujuan tindakan', () => {
     expect(keys).toEqual([...CONSENT_INFORMATION_KEYS]);
   });
 
-  it('penolakan wajib alasan ≥ 10; persetujuan tanpa alasan; goresan wajib berkas; wali wajib hubungan', () => {
-    expect(consentCreateInputSchema.safeParse(base).success).toBe(true);
-    expect(consentCreateInputSchema.safeParse({ ...base, decision: 'tolak' }).success).toBe(false);
+  it('draf: templat + tindakan + isian; waktu penjelasan boleh kosong', () => {
+    const draft = {
+      templateCode: 'persetujuan_tindakan',
+      procedure: 'Pemasangan kateter vena sentral',
+      signerKind: 'pasien',
+      information: {},
+      explainedAt: null,
+    };
+    expect(consentDraftCreateInputSchema.safeParse(draft).success).toBe(true);
+    expect(consentDraftCreateInputSchema.safeParse({ ...draft, signerKind: 'dokter' }).success).toBe(false);
+  });
+
+  it('tanda tangan: ketujuh butir dipahami, goresan wajib berkas, saksi keluarga wajib hubungan', () => {
+    const base = { acknowledged: [...CONSENT_INFORMATION_KEYS], signer, familyWitness: null };
+    expect(consentDraftSignaturesInputSchema.safeParse(base).success).toBe(true);
     expect(
-      consentCreateInputSchema.safeParse({
+      consentDraftSignaturesInputSchema.safeParse({
         ...base,
-        decision: 'tolak',
-        refusalReason: 'Ingin pendapat kedua',
+        acknowledged: CONSENT_INFORMATION_KEYS.slice(1),
       }).success,
-    ).toBe(true);
-    expect(
-      consentCreateInputSchema.safeParse({ ...base, refusalReason: 'Alasan yang tidak perlu' }).success,
     ).toBe(false);
     expect(
-      consentCreateInputSchema.safeParse({ ...base, signer: { ...base.signer, method: 'goresan' } }).success,
+      consentDraftSignaturesInputSchema.safeParse({ ...base, signer: { ...signer, method: 'goresan' } })
+        .success,
     ).toBe(false);
-    expect(consentCreateInputSchema.safeParse({ ...base, signerKind: 'wali' }).success).toBe(false);
+    expect(
+      consentDraftSignaturesInputSchema.safeParse({ ...base, familyWitness: { ...signer, relation: null } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('penolakan dan pencabutan wajib alasan ≥ 10; wali wajib hubungan', () => {
+    expect(consentDraftRefuseInputSchema.safeParse({ reason: 'pendek' }).success).toBe(false);
+    expect(consentDraftRefuseInputSchema.safeParse({ reason: 'Ingin pendapat kedua' }).success).toBe(true);
+    const revoke = { reason: 'Pasien berubah pikiran', signerKind: 'pasien', signer, familyWitness: null };
+    expect(consentRevokeInputSchema.safeParse(revoke).success).toBe(true);
+    expect(consentRevokeInputSchema.safeParse({ ...revoke, signerKind: 'wali' }).success).toBe(false);
   });
 });

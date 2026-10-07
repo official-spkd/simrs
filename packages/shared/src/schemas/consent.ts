@@ -3,11 +3,12 @@ import type { CreateFormDefinitionInput } from '../forms';
 import { clinicalAuthorSchema, clinicalEntryMetaSchema, SAFETY_REASON_MIN } from './klinis';
 
 /**
- * K11 · Persetujuan/penolakan tindakan di tablet (fase 3 potongan 3.7, keputusan fase 3 no. 2 dan 20) dan edukasi
- * pasien (lewat formulir P07). Persetujuan dicatat SAAT FINAL (draf pengisian memakai draf klinis); tanda tangan
- * pasien/wali + saksi keluarga (gambar PNG unggahan biner ADR-0020 atau ketik nama) + atestasi saksi petugas (sesi
- * petugas itu sendiri); PDF bertanda tangan + TTE dokter pemberi penjelasan (ADR-0029). Pencabutan = addendum
- * `dicabut` atas persetujuan final (versi ber-TTE tidak bisa digantikan, ADR-0028 butir 4), juga dengan PDF + TTE.
+ * K11 · Persetujuan/penolakan tindakan di tablet (fase 3 potongan 3.7, keputusan fase 3 no. 2 dan 20, ADR-0058) dan
+ * edukasi pasien (lewat formulir P07). Alur: draf dari templat P07 (`consent_drafts`, bukan rekam medis) → tanda
+ * tangan pasien/wali + saksi keluarga (gambar PNG unggahan biner ADR-0020 atau ketik nama) → atestasi saksi petugas
+ * (sesi petugas itu sendiri) → final oleh dokter (`consent.sign`) = entri `consents` + PDF bertanda tangan + TTE
+ * dokter pemberi penjelasan (ADR-0029), atau penolakan beralasan (juga PDF + TTE). Pencabutan = entri baru `dicabut`
+ * (addendum atas persetujuan final; versi ber-TTE tidak bisa digantikan, ADR-0028 butir 4), juga dengan PDF + TTE.
  */
 
 const uuid = z.uuid();
@@ -114,6 +115,7 @@ export const EDUCATION_FORM_SAMPLE: CreateFormDefinitionInput = {
 
 /** Pemberi persetujuan: pasien sendiri (kompeten) atau wali/keluarga terdekat. */
 export const CONSENT_SIGNER_KINDS = ['pasien', 'wali'] as const;
+export type ConsentSignerKind = (typeof CONSENT_SIGNER_KINDS)[number];
 export const CONSENT_DECISIONS = ['setuju', 'tolak', 'dicabut'] as const;
 export type ConsentDecision = (typeof CONSENT_DECISIONS)[number];
 
@@ -131,14 +133,10 @@ export const consentSignatureInputSchema = z
   });
 export type ConsentSignatureInput = z.infer<typeof consentSignatureInputSchema>;
 
-const signerFields = {
-  signerKind: z.enum(CONSENT_SIGNER_KINDS),
-  signer: consentSignatureInputSchema,
-  /** Saksi keluarga (opsional). */
-  familyWitness: consentSignatureInputSchema.nullable(),
-  /** Petugas saksi yang sudah beratestasi lewat `POST /encounters/:id/consent-witness` (≤ 30 menit). */
-  staffWitnessUserId: uuid,
-};
+/** Batas ukuran PNG tanda tangan (unggahan biner ke draf). */
+export const CONSENT_SIGNATURE_MAX_BYTES = 512 * 1024;
+/** Atestasi saksi petugas berlaku sekian menit sampai finalisasi (lewat dari itu saksi beratestasi ulang). */
+export const CONSENT_WITNESS_VALID_MINUTES = 30;
 
 function refineSigner(
   v: {
@@ -164,57 +162,85 @@ function refineSigner(
   }
 }
 
+const draftContentFields = {
+  procedure: z.string().trim().min(1).max(200),
+  signerKind: z.enum(CONSENT_SIGNER_KINDS),
+  /** Isian templat: ketujuh kunci `CONSENT_INFORMATION_KEYS` wajib terisi (diperiksa terhadap templat terbit). */
+  information: z.record(z.string(), z.string().trim().max(2000)),
+  /** Waktu penjelasan; null = dipakai waktu tanda tangan pasien/wali saat final. */
+  explainedAt: instant.nullable(),
+};
+
 /**
- * `POST /api/v1/consents` (izin `consent.sign`, hanya dokter): persetujuan atau penolakan final + PDF + TTE dokter.
- * `information` = isian templat (ketujuh kunci wajib). Penolakan wajib alasan ≥ 10 karakter.
+ * `POST /api/v1/encounters/:id/consent-drafts` (izin `consent.write`: dokter, perawat, bidan): draf baru dari templat
+ * P07 terbit. Draf bukan rekam medis; isinya bisa diubah sampai difinalkan, ditolak, atau dibatalkan.
  */
-export const consentCreateInputSchema = z
+export const consentDraftCreateInputSchema = z.strictObject({
+  templateCode: z.string().regex(/^[a-z][a-z0-9_]{2,40}$/),
+  ...draftContentFields,
+});
+export type ConsentDraftCreateInput = z.infer<typeof consentDraftCreateInputSchema>;
+
+/** `PUT /api/v1/consents/drafts/:id` (`consent.write`): ganti isi draf. Tanda tangan + atestasi saksi dihapus. */
+export const consentDraftUpdateInputSchema = z.strictObject(draftContentFields);
+export type ConsentDraftUpdateInput = z.infer<typeof consentDraftUpdateInputSchema>;
+
+/**
+ * `PUT /api/v1/consents/drafts/:id/signatures` (`consent.write`, di tablet): pasien/wali menyatakan memahami ketujuh
+ * butir (`acknowledged` = ketujuh kunci) lalu menandatangani; saksi keluarga opsional. Atestasi saksi petugas
+ * sebelumnya dihapus (saksi menyaksikan penandatanganan yang berlaku).
+ */
+export const consentDraftSignaturesInputSchema = z
   .strictObject({
-    encounterId: uuid,
-    templateCode: z.string().regex(/^[a-z][a-z0-9_]{2,40}$/),
-    procedure: z.string().trim().min(1).max(200),
-    explainedAt: instant,
-    information: z.record(z.string(), z.string().trim().max(2000)),
-    decision: z.enum(['setuju', 'tolak']),
-    refusalReason: z.string().trim().max(500).nullable(),
-    ...signerFields,
+    acknowledged: z.array(
+      z.enum(CONSENT_INFORMATION_KEYS as [ConsentInformationKey, ...ConsentInformationKey[]]),
+    ),
+    signer: consentSignatureInputSchema,
+    familyWitness: consentSignatureInputSchema.nullable(),
   })
   .superRefine((v, ctx) => {
-    refineSigner(v, ctx);
-    if (v.decision === 'tolak' && (v.refusalReason ?? '').length < SAFETY_REASON_MIN) {
+    if (v.familyWitness && !v.familyWitness.relation) {
       ctx.addIssue({
         code: 'custom',
-        path: ['refusalReason'],
-        message: `Penolakan wajib beralasan (minimal ${SAFETY_REASON_MIN} karakter).`,
+        path: ['familyWitness', 'relation'],
+        message: 'Hubungan saksi wajib diisi.',
       });
     }
-    if (v.decision === 'setuju' && v.refusalReason !== null) {
+    if (new Set(v.acknowledged).size !== CONSENT_INFORMATION_KEYS.length) {
       ctx.addIssue({
         code: 'custom',
-        path: ['refusalReason'],
-        message: 'Persetujuan tanpa alasan penolakan.',
+        path: ['acknowledged'],
+        message: 'Ketujuh butir informasi wajib dinyatakan dipahami.',
       });
     }
   });
-export type ConsentCreateInput = z.infer<typeof consentCreateInputSchema>;
+export type ConsentDraftSignaturesInput = z.infer<typeof consentDraftSignaturesInputSchema>;
 
-/** `POST /api/v1/consents/:id/revoke`: pencabutan persetujuan final oleh pasien/wali (addendum `dicabut`). */
+/** `POST /api/v1/consents/drafts/:id/refuse` (`consent.sign`): penolakan beralasan ≥ 10 → dokumen penolakan + TTE. */
+export const consentDraftRefuseInputSchema = z.strictObject({ reason: safetyReason });
+export type ConsentDraftRefuseInput = z.infer<typeof consentDraftRefuseInputSchema>;
+
+/** `POST /api/v1/consents/drafts/:id/cancel` (`consent.write`): draf dibuang beralasan (tidak menjadi rekam medis). */
+export const consentDraftCancelInputSchema = z.strictObject({ reason: safetyReason });
+export type ConsentDraftCancelInput = z.infer<typeof consentDraftCancelInputSchema>;
+
+/** Slot gambar tanda tangan untuk unggahan biner `POST /api/v1/consents/drafts/:id/signature-image?slot=`. */
+export const CONSENT_SIGNATURE_SLOTS = ['signer', 'familyWitness'] as const;
+export const consentSignatureSlotQuerySchema = z.strictObject({ slot: z.enum(CONSENT_SIGNATURE_SLOTS) });
+
+/**
+ * `POST /api/v1/consents/:id/revoke` (`consent.sign`): pencabutan persetujuan final oleh pasien/wali = entri baru
+ * `dicabut` (addendum, karena versi ber-TTE terkunci) dengan PDF + TTE.
+ */
 export const consentRevokeInputSchema = z
-  .strictObject({ reason: safetyReason, ...signerFields })
+  .strictObject({
+    reason: safetyReason,
+    signerKind: z.enum(CONSENT_SIGNER_KINDS),
+    signer: consentSignatureInputSchema,
+    familyWitness: consentSignatureInputSchema.nullable(),
+  })
   .superRefine((v, ctx) => refineSigner(v, ctx));
 export type ConsentRevokeInput = z.infer<typeof consentRevokeInputSchema>;
-
-/** `POST /api/v1/encounters/:id/consent-witness`: atestasi saksi petugas (sesi petugas itu), berlaku 30 menit. */
-export const consentWitnessInputSchema = z.strictObject({ procedure: z.string().trim().min(1).max(200) });
-export type ConsentWitnessInput = z.infer<typeof consentWitnessInputSchema>;
-export const CONSENT_WITNESS_VALID_MINUTES = 30;
-
-export const consentWitnessSchema = z.strictObject({
-  witnessUserId: uuid,
-  procedure: z.string(),
-  attestedAt: instant,
-  expiresAt: instant,
-});
 
 export const consentTemplateSchema = z.strictObject({
   code: z.string(),
@@ -223,6 +249,44 @@ export const consentTemplateSchema = z.strictObject({
   items: z.array(z.strictObject({ key: z.string(), label: z.string() })),
 });
 export type ConsentTemplate = z.infer<typeof consentTemplateSchema>;
+
+const signatureView = z.strictObject({
+  name: z.string(),
+  relation: z.string().nullable(),
+  method: z.enum(['goresan', 'nama']),
+  imageDocumentId: uuid.nullable(),
+});
+const person = z.strictObject({ userId: uuid, nama: z.string() });
+
+export const CONSENT_DRAFT_STATUSES = ['draf', 'final', 'ditolak', 'batal'] as const;
+export type ConsentDraftStatus = (typeof CONSENT_DRAFT_STATUSES)[number];
+
+/** Draf persetujuan (jawaban API; dibaca tablet). `missing` = syarat final yang belum terpenuhi. */
+export const consentDraftSchema = z.strictObject({
+  id: uuid,
+  patientId: uuid,
+  encounterId: uuid,
+  templateCode: z.string(),
+  templateTitle: z.string(),
+  procedure: z.string(),
+  signerKind: z.enum(CONSENT_SIGNER_KINDS),
+  information: z.array(z.strictObject({ key: z.string(), title: z.string(), body: z.string() })),
+  explainedAt: instant.nullable(),
+  signer: signatureView.nullable(),
+  familyWitness: signatureView.nullable(),
+  signedAt: instant.nullable(),
+  staffWitness: person.extend({ attestedAt: instant, expiresAt: instant }).nullable(),
+  status: z.enum(CONSENT_DRAFT_STATUSES),
+  missing: z.array(z.enum(['tanda_tangan', 'saksi_petugas', 'saksi_kedaluwarsa'])),
+  consentId: uuid.nullable(),
+  cancelReason: z.string().nullable(),
+  createdBy: person,
+  createdAt: instant,
+  updatedAt: instant,
+  closedAt: instant.nullable(),
+  closedBy: person.nullable(),
+});
+export type ConsentDraft = z.infer<typeof consentDraftSchema>;
 
 export const consentRecordSchema = clinicalEntryMetaSchema.extend({
   patientId: uuid,
