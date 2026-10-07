@@ -60,7 +60,7 @@ export async function kasBankAction(input: KasBankActionInput): Promise<Keuangan
   const { state } = await readDomain('kas-bank');
   const commit = async (event: EventOf<'kas-bank'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('kas-bank', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   const ref = (reference: string) => ({ source: 'kasir' as const, reference });
   if (c.type !== 'buka') {
