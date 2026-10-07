@@ -13,6 +13,9 @@ async function login(page: Page, roleName: string) {
   await page.getByRole('button', { name: 'Verifikasi dan lanjut' }).click();
   await page.getByText(roleName, { exact: true }).click();
   await page.getByRole('button', { name: `Masuk sebagai ${roleName}` }).click();
+  // Tunggu posisi tersimpan: `page.goto` berikutnya yang menyusul terlalu cepat membatalkan Server Action pemilihan
+  // posisi (di bawah beban, halaman tujuan lalu kembali ke "Pilih posisi dan unit kerja").
+  await expect(page.getByText(new RegExp(`Anda masuk sebagai\\s*${roleName}`))).toBeVisible();
 }
 async function switchRole(page: Page, roleName: string) {
   await page.getByRole('link', { name: 'Ganti posisi' }).first().click();
