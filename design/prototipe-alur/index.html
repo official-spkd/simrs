@@ -1,0 +1,747 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prototipe Alur SIM RS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Tata letak: sidebar fase 248 px + area kerja; header kecil berisi tur alur. Satu tema terang (Klinis Bersih, docs/08). */
+:root {
+  color-scheme: light;
+  --brand-50: #E6F4F1; --brand-100: #D5ECE7; --brand-200: #BFDDD8; --brand-500: #1D7E77; --brand-600: #0F766E; --brand-700: #0B5D56;
+  --ink-900: #14212B; --ink-700: #3F4C58; --ink-500: #5B6B79; --ink-400: #8C99A6;
+  --line: #E3E8EE; --line-strong: #CBD3DB; --line-soft: #EEF1F4;
+  --canvas: #F5F7F9; --card: #FFFFFF; --subtle: #F8FAFB; --selected: #F2FAF8;
+  --danger: #B42318; --danger-strong: #8E1B13; --danger-bg: #FDECEA; --danger-border: #F0C2BD;
+  --warning: #8A4B00; --warning-strong: #6B3A00; --warning-bg: #FFF3E0; --warning-border: #F1D3A8;
+  --success: #1E6B34; --success-bg: #EAF5EC; --success-border: #BFE3C6;
+  --info: #1E3A8A; --info-bg: #EEF2FB; --info-border: #C9D3EE;
+  --triage-1: #B42318; --triage-2: #C4320A; --triage-3: #FEF0C7; --triage-4: #EAF6EC; --triage-5: #EEF4FF;
+  --device: #101A22; --device-ink: #F2F6F8;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --r-control: 10px; --r-card: 14px;
+  --shadow: 0 1px 2px rgba(20,33,43,.05), 0 4px 14px rgba(20,33,43,.05);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 1.5; color: var(--ink-900);
+  background-color: var(--canvas);
+  background-image: radial-gradient(900px 360px at 88% -8%, rgba(15,118,110,.09), rgba(15,118,110,0) 70%),
+    radial-gradient(circle at 1px 1px, rgba(20,33,43,.07) 1px, rgba(20,33,43,0) 1.5px);
+  background-size: auto, 22px 22px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--brand-600); outline-offset: 2px; }
+.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+
+/* ---------- kerangka ---------- */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100%; }
+.side {
+  position: sticky; top: env(safe-area-inset-top, 0px); height: 100vh; overflow-y: auto;
+  background: var(--card); border-right: 1px solid var(--line); padding: 14px 10px 24px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.brandmark { display: flex; align-items: center; gap: 10px; padding: 4px 8px 12px; border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; }
+.brandmark .logo { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(180deg, var(--brand-500), var(--brand-600)); display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+.brandmark b { display: block; font-size: 14px; }
+.brandmark span { display: block; font-size: 12px; color: var(--ink-500); }
+.navhome { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 0; background: none; cursor: pointer; text-align: left; font-weight: 600; color: var(--ink-900); }
+.navhome:hover, .navitem:hover { background: var(--subtle); }
+.navhome.on, .navitem.on { background: var(--brand-50); color: var(--brand-700); }
+.phase { margin-top: 8px; }
+.phase > button { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; text-align: left; }
+.phase > button:hover { background: var(--subtle); }
+.phase .pn { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink-500); min-width: 22px; }
+.phase .pt { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--ink-700); letter-spacing: .02em; text-transform: uppercase; }
+.phase .pdot { width: 8px; height: 8px; border-radius: 99px; background: var(--line-strong); }
+.phase .pdot.selesai { background: var(--success); }
+.phase .pdot.berjalan { background: #D98A00; }
+.navitem { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; background: none; cursor: pointer; padding: 6px 10px 6px 40px; border-radius: 8px; text-align: left; font-size: 13.5px; color: var(--ink-700); }
+.navitem .tick { margin-left: auto; color: var(--success); font-size: 12px; }
+.navitem .dev { margin-left: auto; font-size: 10.5px; color: var(--ink-400); font-family: var(--font-mono); }
+.navitem .tick + .dev { margin-left: 4px; }
+
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+}
+.top .menu-btn { display: none; }
+.crumb { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
+.crumb .ph { font-family: var(--font-mono); font-size: 12px; color: var(--brand-700); background: var(--brand-50); border: 1px solid var(--brand-100); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.crumb b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumb .codes { font-family: var(--font-mono); font-size: 12px; color: var(--ink-500); white-space: nowrap; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crumb .ph { flex: none; }
+.who { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-700); }
+.who .av { width: 28px; height: 28px; border-radius: 99px; background: var(--brand-50); color: var(--brand-700); display: grid; place-items: center; font-weight: 700; font-size: 11px; border: 1px solid var(--brand-100); }
+.clock { font-family: var(--font-mono); font-size: 13px; color: var(--ink-700); padding: 3px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+
+.tour { display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--selected); border-bottom: 1px solid var(--brand-100); flex-wrap: wrap; }
+.tour .step { font-family: var(--font-mono); font-size: 12px; color: var(--brand-700); white-space: nowrap; }
+.tour .bar { flex: 0 0 120px; height: 6px; border-radius: 99px; background: var(--brand-100); overflow: hidden; }
+.tour .bar i { display: block; height: 100%; background: var(--brand-600); }
+.tour .hint { flex: 1 1 280px; min-width: 0; font-size: 13px; color: var(--ink-700); }
+.tour .hint b { color: var(--ink-900); }
+.tour .nav { display: flex; gap: 6px; }
+
+.content { padding: 20px 24px 64px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.pagehead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.pagehead h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.pagehead p { margin: 4px 0 0; color: var(--ink-500); font-size: 13.5px; max-width: 70ch; }
+.pagehead .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- komponen ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-900); font-weight: 600; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--subtle); }
+.btn.primary { background: linear-gradient(180deg, var(--brand-500), var(--brand-600)); border-color: var(--brand-700); color: #fff; }
+.btn.primary:hover { background: var(--brand-700); }
+.btn.danger { background: var(--danger); border-color: var(--danger-strong); color: #fff; }
+.btn.danger:hover { background: var(--danger-strong); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--brand-700); }
+.btn.ghost:hover { background: var(--brand-50); }
+.btn.sm { min-height: 30px; padding: 0 10px; font-size: 12.5px; }
+.btn.lg { min-height: 46px; padding: 0 20px; font-size: 15px; }
+.btn.xl { min-height: 72px; padding: 0 28px; font-size: 22px; border-radius: 16px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btnwrap { display: inline-flex; flex-direction: column; gap: 4px; }
+.reason { font-size: 12px; color: var(--ink-500); max-width: 42ch; white-space: normal; }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--subtle); color: var(--ink-700); white-space: nowrap; }
+.chip.brand { background: var(--brand-50); border-color: var(--brand-100); color: var(--brand-700); }
+.chip.success { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.chip.warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
+.chip.danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
+.chip.info { background: var(--info-bg); border-color: var(--info-border); color: var(--info); }
+.chip.solid-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow); min-width: 0; }
+.card > .ch { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
+.card > .ch > * { min-width: 0; max-width: 100%; }
+.card > .ch h3 { font-size: 14.5px; font-weight: 600; }
+.card > .ch .sub { font-size: 12.5px; color: var(--ink-500); font-weight: 400; }
+.card > .cb { padding: 14px 16px; min-width: 0; }
+.card > .cb.flush { padding: 0; }
+.card.tone-danger { border-color: var(--danger-border); }
+.card.tone-warning { border-color: var(--warning-border); }
+.card.tone-success { border-color: var(--success-border); }
+
+.grid { display: grid; gap: 16px; min-width: 0; }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.split { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.row.between { justify-content: space-between; }
+.row > * { max-width: 100%; }
+.stack { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.muted { color: var(--ink-500); }
+.small { font-size: 12.5px; }
+.label { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-500); font-weight: 600; }
+hr.sep { border: 0; border-top: 1px solid var(--line-soft); margin: 4px 0; }
+
+.kpi { padding: 14px 16px; }
+.kpi .k { font-size: 12.5px; color: var(--ink-500); }
+.kpi .v { font-family: var(--font-mono); font-size: 24px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.kpi .f { font-size: 12px; margin-top: 2px; color: var(--ink-500); }
+.kpi .f.up { color: var(--success); } .kpi .f.down { color: var(--danger); }
+
+.alert { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--r-control); border: 1px solid; font-size: 13.5px; }
+.alert .ai { font-weight: 700; font-family: var(--font-mono); }
+.alert b { display: block; }
+.alert.info { background: var(--info-bg); border-color: var(--info-border); color: var(--info); }
+.alert.success { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.alert.warning { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning-strong); }
+.alert.danger { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-strong); }
+.alert .ab { color: var(--ink-700); }
+
+.gate { border: 2px solid var(--danger); border-radius: var(--r-card); background: linear-gradient(100deg, rgba(180,35,24,.06), #fff 60%); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.gate .gt { display: flex; gap: 8px; align-items: center; color: var(--danger-strong); font-weight: 700; }
+.gate .gt .pulse { width: 10px; height: 10px; border-radius: 99px; background: var(--danger); box-shadow: 0 0 0 0 rgba(180,35,24,.5); animation: pulse 1.6s infinite; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(180,35,24,0); } 100% { box-shadow: 0 0 0 0 rgba(180,35,24,0); } }
+
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.tbl th { text-align: left; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-500); font-weight: 600; padding: 9px 12px; background: var(--subtle); border-bottom: 1px solid var(--line); position: sticky; top: 0; white-space: nowrap; }
+table.tbl td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+table.tbl tr.click { cursor: pointer; }
+table.tbl tr.click:hover td { background: var(--subtle); }
+table.tbl tr.sel td { background: var(--selected); }
+table.tbl td.r, table.tbl th.r { text-align: right; }
+
+.list { display: flex; flex-direction: column; }
+.li { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); cursor: pointer; background: none; border-left: 3px solid transparent; text-align: left; width: 100%; border-top: 0; border-right: 0; }
+.li:hover { background: var(--subtle); }
+.li.sel { background: var(--selected); border-left-color: var(--brand-600); }
+.li .lt { font-weight: 600; font-size: 13.5px; }
+.li .ls { font-size: 12.5px; color: var(--ink-500); }
+.li .lr { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field > label { font-size: 12.5px; font-weight: 600; color: var(--ink-700); }
+.field .help { font-size: 12px; color: var(--ink-500); }
+.inp { width: 100%; min-height: 38px; padding: 7px 11px; border-radius: var(--r-control); border: 1px solid var(--line-strong); background: var(--card); }
+textarea.inp { min-height: 76px; resize: vertical; }
+.inp:focus { outline: 2px solid var(--brand-600); outline-offset: 0; border-color: var(--brand-600); }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--brand-600); width: 16px; height: 16px; }
+
+.tabs { display: flex; max-width: 100%; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { border: 0; background: none; padding: 9px 14px; font-weight: 600; font-size: 13.5px; color: var(--ink-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab.on { color: var(--brand-700); border-bottom-color: var(--brand-600); }
+.seg { display: inline-flex; max-width: 100%; border: 1px solid var(--line-strong); border-radius: var(--r-control); overflow-x: auto; background: var(--card); }
+.seg button { flex: none; white-space: nowrap; }
+.seg button { border: 0; background: none; padding: 7px 12px; font-weight: 600; font-size: 13px; cursor: pointer; color: var(--ink-700); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--brand-600); color: #fff; }
+
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow); }
+.banner .pav { width: 40px; height: 40px; border-radius: 12px; background: var(--brand-50); color: var(--brand-700); display: grid; place-items: center; font-weight: 700; border: 1px solid var(--brand-100); }
+.pav-s { flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--brand-50); color: var(--brand-700); display: grid; place-items: center; font-weight: 700; border: 1px solid var(--brand-100); }
+.banner .pn { font-weight: 700; font-size: 15.5px; }
+.banner .pm { font-size: 12.5px; color: var(--ink-500); }
+.banner .kv { display: flex; flex-direction: column; font-size: 12.5px; }
+.banner .kv span:first-child { color: var(--ink-500); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.stp { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-500); padding: 4px 10px 4px 4px; border-radius: 99px; background: var(--subtle); border: 1px solid var(--line); }
+.stp i { width: 20px; height: 20px; border-radius: 99px; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; background: var(--card); border: 1px solid var(--line-strong); font-family: var(--font-mono); }
+.stp.done { color: var(--success); background: var(--success-bg); border-color: var(--success-border); }
+.stp.done i { background: var(--success); color: #fff; border-color: var(--success); }
+.stp.cur { color: var(--brand-700); background: var(--brand-50); border-color: var(--brand-100); font-weight: 600; }
+.stp.cur i { background: var(--brand-600); color: #fff; border-color: var(--brand-600); }
+
+.tl { display: flex; flex-direction: column; gap: 0; }
+.tli { display: grid; grid-template-columns: 52px 14px minmax(0,1fr); gap: 8px; font-size: 13px; }
+.tli .tt { font-family: var(--font-mono); color: var(--ink-500); font-size: 12px; padding-top: 1px; }
+.tli .td { position: relative; }
+.tli .td::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 2px; background: var(--line); }
+.tli .td::after { content: ''; position: absolute; left: 2px; top: 5px; width: 10px; height: 10px; border-radius: 99px; background: var(--card); border: 2px solid var(--brand-600); }
+.tli.success .td::after { border-color: var(--success); background: var(--success); }
+.tli.warning .td::after { border-color: #D98A00; }
+.tli.danger .td::after { border-color: var(--danger); background: var(--danger); }
+.tli .tx { padding-bottom: 12px; }
+
+.nextcta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: var(--r-card); border: 1px dashed var(--brand-200); background: var(--selected); }
+.nextcta .nt { font-size: 13.5px; color: var(--ink-700); }
+.nextcta .nt b { color: var(--success); }
+
+.empty { padding: 28px 16px; text-align: center; color: var(--ink-500); font-size: 13.5px; }
+
+.sig { height: 110px; border: 2px dashed var(--line-strong); border-radius: var(--r-control); display: grid; place-items: center; color: var(--ink-500); cursor: pointer; background: var(--subtle); width: 100%; }
+.sig.on { border-style: solid; border-color: var(--success-border); background: var(--success-bg); color: var(--success); font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 30px; }
+
+.code { font-family: var(--font-mono); font-size: 12px; background: var(--subtle); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; white-space: pre; color: var(--ink-700); }
+
+/* ---------- perangkat (anjungan, TV, tablet, ponsel) ---------- */
+.devwrap { display: flex; justify-content: safe center; padding: 8px 0 12px; overflow-x: auto; max-width: 100%; }
+.device { background: var(--device); border-radius: 28px; padding: 14px; box-shadow: 0 20px 50px rgba(20,33,43,.25); max-width: 100%; }
+.device .screen { background: var(--card); border-radius: 16px; overflow: hidden; position: relative; }
+.device.kiosk { width: 620px; border-radius: 34px; padding: 22px 18px 40px; }
+.device.kiosk .screen { min-height: 760px; font-size: 20px; }
+.device.tv { width: 1000px; border-radius: 14px; padding: 12px; }
+.device.tv .screen { aspect-ratio: 16 / 9; background: #0B2A33; color: var(--device-ink); }
+.device.tablet { width: 820px; border-radius: 30px; padding: 20px; }
+.device.tablet .screen { min-height: 600px; }
+.device.phone { width: 380px; border-radius: 42px; padding: 12px; }
+.device.phone .screen { min-height: 720px; border-radius: 32px; font-size: 14.5px; }
+.devcap { text-align: center; font-size: 12px; color: var(--ink-500); margin-top: 8px; }
+
+/* ---------- toast & laci jejak ---------- */
+.toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; z-index: 60; max-width: min(380px, calc(100vw - 32px)); }
+.toast { background: var(--ink-900); color: #fff; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; box-shadow: 0 8px 24px rgba(0,0,0,.2); display: flex; gap: 8px; animation: tin .2s ease-out; }
+.toast.success { background: var(--success); } .toast.warning { background: var(--warning); } .toast.danger { background: var(--danger); }
+@keyframes tin { from { transform: translateY(8px); opacity: .4; } to { transform: none; opacity: 1; } }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100vw); background: var(--card); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgba(20,33,43,.12); z-index: 50; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); }
+.drawer .dh { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.drawer .db { padding: 14px 16px; overflow-y: auto; flex: 1; }
+.scrim { position: fixed; inset: 0; background: rgba(20,33,43,.3); z-index: 40; }
+
+/* ---------- beranda: peta fase ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+.hero .card .cb { padding: 20px; }
+.hero h1 { font-size: 26px; letter-spacing: -.015em; }
+.journey { display: flex; flex-wrap: wrap; gap: 6px; }
+.journey .jn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--subtle); color: var(--ink-700); cursor: pointer; }
+.journey .jn:hover { border-color: var(--brand-200); background: var(--brand-50); }
+.journey .jn.done { background: var(--success-bg); border-color: var(--success-border); color: var(--success); }
+.phasecards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.pc { display: flex; flex-direction: column; }
+.pc .ch .pnum { font-family: var(--font-mono); font-size: 12px; color: var(--brand-700); }
+.pc .cb { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.pc .cb p { margin: 0; font-size: 13px; color: var(--ink-700); }
+.pc .scr { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+.pc .scr button { font-size: 12.5px; border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 4px 9px; cursor: pointer; color: var(--ink-900); }
+.pc .scr button:hover { border-color: var(--brand-600); color: var(--brand-700); }
+.pc .scr button.done { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+
+@media (max-width: 1180px) { .crumb .codes { display: none; } .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hero { grid-template-columns: 1fr; } }
+@media (max-width: 960px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: fixed; z-index: 45; left: 0; top: 0; bottom: 0; width: 280px; height: auto; transform: translateX(-100%); transition: transform .2s; padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+  .side.open { transform: none; box-shadow: 10px 0 30px rgba(20,33,43,.15); }
+  .top .menu-btn { display: inline-flex; }
+  .split, .g2, .g3 { grid-template-columns: 1fr; }
+  .top, .tour, .content { padding-left: 16px; padding-right: 16px; }
+  .who .nm { display: none; }
+}
+@media (max-width: 560px) { .crumb { order: 5; flex: 1 1 100%; } .crumb .ph, .who { display: none; } .btn { white-space: normal; text-align: center; max-width: 100%; } .g4 { grid-template-columns: 1fr; } .crumb .codes { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="app">
+  <nav class="side" id="side" aria-label="Fase dan layar"></nav>
+  <div class="main">
+    <header class="top" id="top"></header>
+    <div class="tour" id="tour"></div>
+    <main class="content" id="content" tabindex="-1"></main>
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="layer"></div>
+
+<script>
+/* =====================================================================
+ * Inti prototipe: registri layar, state, router, komponen string.
+ * Layar didaftarkan di berkas screens-*.js lewat SIM.register({...}).
+ * Tidak ada backend: semua data fiktif, tersimpan di memori (+ localStorage).
+ * ===================================================================== */
+(function () {
+  'use strict';
+
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const attr = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== false)
+    .map(([k, v]) => (v === true ? k : `${k}="${esc(v)}"`)).join(' ');
+
+  const PHASES = [
+    { n: 0, title: 'Fondasi', status: 'selesai', desc: 'Repo monorepo, database dengan isolasi per RS, CI, layanan lokal, dan komponen UI bersama.' },
+    { n: 1, title: 'Platform inti', status: 'selesai', desc: 'Masuk + MFA, peran dan izin, audit, MPI pasien, formulir, notifikasi, rotasi kunci.' },
+    { n: 2, title: 'Front office', status: 'berjalan', desc: 'Jadwal dokter, booking, anjungan, pendaftaran + SEP BPJS, antrean dan display TV.' },
+    { n: 3, title: 'Klinis RME', status: 'rencana', desc: 'Pemeriksaan poli, CPOE + peringatan klinis, IGD, tempat tidur, rawat inap, eMAR, persetujuan, resume.' },
+    { n: 4, title: 'Penunjang', status: 'rencana', desc: 'Laboratorium + nilai kritis, radiologi, farmasi dan stok depo, kamar operasi.' },
+    { n: 5, title: 'Keuangan', status: 'rencana', desc: 'Tarif, kasir, koding dan grouping INA-CBG, klaim BPJS, piutang, buku besar.' },
+    { n: 6, title: 'Pembayaran BTN', status: 'rencana', desc: 'QRIS dan VA lewat TPDI × BTN, rekonsiliasi tiga arah, cicilan, pembiayaan piutang BPJS.' },
+    { n: 7, title: 'Integrasi', status: 'rencana', desc: 'Integration hub: SATUSEHAT, BPJS lengkap, Kemenkes, antrean kirim ulang dan pemantauan.' },
+    { n: 8, title: 'Back office', status: 'rencana', desc: 'Logistik dan pengadaan, SDM, mutu dan keselamatan pasien, rekam medis administratif.' },
+    { n: 9, title: 'Kanal', status: 'rencana', desc: 'Dasbor eksekutif, aplikasi pasien, aplikasi dokter.' },
+    { n: 10, title: 'Simulasi & pilot', status: 'rencana', desc: 'Simulasi ujung ke ujung, mode downtime, cadangan terenkripsi, hardening, kesiapan go-live.' },
+  ];
+  const PHASE_LABEL = { selesai: 'Selesai dibangun', berjalan: 'Sedang dibangun', rencana: 'Rencana' };
+
+  /** Data bersama lintas layar (pasien skenario sama dengan mode presentasi, ADR-0023). */
+  const PEOPLE = {
+    rs: { name: 'RS Fiktif Andalas', code: 'RSFA', kelas: 'Tipe C', kota: 'Jakarta Pusat' },
+    suryo: { key: 'suryo', name: 'Tn. Suryo Adi Nugroho', short: 'Suryo', rm: '00-28-44-17', jk: 'L', dob: '18-06-1972', age: 54, nik: '9999••••••••0617', bpjs: '0000281•••417', payer: 'BPJS', kelas: 'Kelas 2', allergy: [], phone: '0812-0000-2844', addr: 'Jl. Melati Raya 8, Jakarta Pusat', history: 'DM tipe 2 sejak 2018 · hipoglikemia berat 2025', scenario: 'Rawat jalan BPJS', poli: 'Poli Penyakit Dalam', dokter: 'dr. Andi Wiratama, Sp.PD', dx: 'E11.9 Diabetes melitus tipe 2' },
+    hartono: { key: 'hartono', name: 'Tn. Hartono Wibisono', short: 'Hartono', rm: '00-61-30-05', jk: 'L', dob: '12-04-1965', age: 61, nik: '9999••••••••0412', bpjs: '0000613•••005', payer: 'BPJS', kelas: 'Kelas 1', allergy: [], phone: '0812-0000-6130', addr: 'Jl. Cempaka Putih 21, Jakarta Pusat', history: 'Hipertensi · CKD st. 3 · obat rutin amlodipin, omeprazol', scenario: 'IGD → rawat inap', poli: 'IGD → Ruang Melati', dokter: 'dr. Yusuf Hakim, Sp.P', dx: 'J18.9 Pneumonia' },
+    ratna: { key: 'ratna', name: 'Ny. Ratna Sari', short: 'Ratna', rm: '00-52-03-19', jk: 'P', dob: '20-02-1981', age: 45, nik: '9999••••••••0220', bpjs: '0000520•••319', payer: 'BPJS', kelas: 'Kelas 2', allergy: ['Amoksisilin (ruam)'], phone: '0812-0000-5203', addr: 'Jl. Kenari 3, Jakarta Pusat', history: 'Kolelitiasis simptomatik · rencana laparoskopi elektif', scenario: 'Operasi elektif + pembiayaan BTN', poli: 'Poli Bedah → Kamar operasi', dokter: 'dr. Bambang Prasetyo, Sp.B', dx: 'K80.2 Kolelitiasis' },
+  };
+  const STAFF = {
+    admin: { name: 'Admin Sistem', role: 'Administrator sistem' },
+    daftar: { name: 'Dewi Lestari', role: 'Petugas pendaftaran' },
+    dokter: { name: 'dr. Andi Wiratama, Sp.PD', role: 'Dokter spesialis' },
+    dokterigd: { name: 'dr. Maya Kartika', role: 'Dokter IGD' },
+    perawat: { name: 'Ns. Fitri Handayani', role: 'Perawat' },
+    lab: { name: 'Agus Pratama, A.Md.AK', role: 'Analis laboratorium' },
+    rad: { name: 'Rudi Hartanto, A.Md.Rad', role: 'Radiografer' },
+    apoteker: { name: 'apt. Rina Kusuma', role: 'Apoteker' },
+    ok: { name: 'Ns. Bayu Saputra', role: 'Perawat kamar operasi' },
+    kasir: { name: 'Sri Wahyuni', role: 'Kasir' },
+    koder: { name: 'Maya Puspita', role: 'Koder & klaim' },
+    akuntan: { name: 'Hendra Saputra, S.E.', role: 'Akuntansi' },
+    logistik: { name: 'Teguh Santoso', role: 'Logistik & gudang' },
+    mutu: { name: 'Ns. Lina Marlina', role: 'Komite mutu' },
+    rm: { name: 'Anisa Rahma, A.Md.RMIK', role: 'Rekam medis' },
+    direktur: { name: 'dr. Hendra Gunawan, MARS', role: 'Direktur' },
+    pasien: { name: 'Pasien', role: 'Pasien (aplikasi)' },
+    perangkat: { name: 'Perangkat terdaftar', role: 'Perangkat' },
+  };
+
+  const STORE_KEY = 'simrs-prototipe-alur-v1';
+  const START_CLOCK = 7 * 60 + 30;
+
+  const SIM = {
+    PHASES, PEOPLE, STAFF, esc, attr,
+    screens: new Map(),
+    order: [],          // urutan pendaftaran layar
+    TOUR: [],           // alur utama: [{id, hint}]
+    st: {},             // state lokal per layar
+    j: {},              // fakta perjalanan lintas layar (SIM.j.<kunci>)
+    log: [],            // jejak alur [{t, phase, screen, text, tone}]
+    cur: 'peta',
+    clock: START_CLOCK,
+    drawer: false,
+
+    register(def) {
+      if (!def || !def.id) throw new Error('layar tanpa id');
+      def.phase = def.phase ?? 0;
+      def.actions = def.actions ?? {};
+      this.screens.set(def.id, def);
+      this.order.push(def.id);
+    },
+    local(id = this.cur) {
+      if (!this.st[id]) {
+        const def = this.screens.get(id);
+        this.st[id] = def && def.init ? JSON.parse(JSON.stringify(typeof def.init === 'function' ? def.init() : def.init)) : {};
+      }
+      return this.st[id];
+    },
+    /** Waktu sekarang "HH.MM"; `advance` menit memajukan jam simulasi. */
+    now(advance = 2) {
+      this.clock += advance;
+      return this.time();
+    },
+    time() {
+      const m = ((this.clock % 1440) + 1440) % 1440;
+      return `${String(Math.floor(m / 60)).padStart(2, '0')}.${String(m % 60).padStart(2, '0')}`;
+    },
+    /** Catat langkah perjalanan pasien (tampil di laci "Jejak alur"). */
+    note(text, tone = 'brand') {
+      const def = this.screens.get(this.cur);
+      this.log.push({ t: this.time(), phase: def ? def.phase : 0, screen: this.cur, text, tone });
+    },
+    done(id = this.cur) { this.local(id).done = true; },
+    isDone(id) { return !!(this.st[id] && this.st[id].done); },
+    toast(text, tone = '') {
+      const box = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = `toast ${tone}`;
+      el.textContent = text;
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 3600);
+    },
+    go(id) {
+      if (!this.screens.has(id) && id !== 'peta') { this.toast(`Layar "${id}" belum tersedia`, 'warning'); return; }
+      this.cur = id;
+      const def = this.screens.get(id);
+      if (def && def.onEnter) def.onEnter(this.local(id), this.j);
+      document.getElementById('side').classList.remove('open');
+      this.render();
+      window.scrollTo({ top: 0 });
+      document.getElementById('content').focus({ preventScroll: true });
+      try { history.replaceState(null, '', `#${id}`); } catch (e) { /* bingkai bisa menolak */ }
+    },
+    reset() {
+      this.st = {}; this.j = {}; this.log = []; this.clock = START_CLOCK;
+      try { localStorage.removeItem(STORE_KEY); } catch (e) { /* abaikan */ }
+      this.go('peta');
+      this.toast('Alur diulang dari awal. Jam kembali ke 07.30.', 'success');
+    },
+    save() {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({ st: this.st, j: this.j, log: this.log, clock: this.clock, cur: this.cur })); } catch (e) { /* abaikan */ }
+    },
+    load() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        Object.assign(this, { st: d.st || {}, j: d.j || {}, log: d.log || [], clock: d.clock || START_CLOCK, cur: d.cur || 'peta' });
+      } catch (e) { /* abaikan */ }
+    },
+
+    /* ---------------- render ---------------- */
+    render() {
+      this.renderSide();
+      this.renderTop();
+      this.renderTour();
+      const content = document.getElementById('content');
+      if (this.cur === 'peta') {
+        content.innerHTML = this.renderHome();
+      } else {
+        const def = this.screens.get(this.cur);
+        const L = this.local();
+        let body;
+        try { body = def.render(L, this.j, SIM); }
+        catch (err) { console.error(err); body = ui.alert('danger', 'Layar gagal dirender', esc(err.message)); }
+        const head = def.noHead ? '' : `<div class="pagehead"><div><h1>${esc(def.title)}</h1>${def.desc ? `<p>${esc(def.desc)}</p>` : ''}</div>${def.headActions ? `<div class="acts">${def.headActions(L, this.j, SIM)}</div>` : ''}</div>`;
+        content.innerHTML = head + body;
+      }
+      this.renderLayer();
+      this.syncNeeds();
+      this.save();
+    },
+    renderSide() {
+      const side = document.getElementById('side');
+      const items = PHASES.map((p) => {
+        const list = this.order.map((id) => this.screens.get(id)).filter((s) => s.phase === p.n && !s.hidden);
+        if (!list.length) return '';
+        return `<div class="phase"><button type="button" data-go="${list[0].id}" title="${esc(PHASE_LABEL[p.status])}"><span class="pn">F${p.n}</span><span class="pt">${esc(p.title)}</span><span class="pdot ${p.status}"></span></button>
+          ${list.map((s) => `<button type="button" class="navitem${s.id === this.cur ? ' on' : ''}" data-go="${s.id}">${esc(s.nav || s.title)}${this.isDone(s.id) ? '<span class="tick" aria-label="sudah dicoba">✓</span>' : ''}${s.device ? `<span class="dev">${esc(s.device)}</span>` : ''}</button>`).join('')}</div>`;
+      }).join('');
+      side.innerHTML = `<div class="brandmark"><div class="logo">RS</div><div><b>SIM RS</b><span>Prototipe alur · tanpa backend</span></div></div>
+        <button type="button" class="navhome${this.cur === 'peta' ? ' on' : ''}" data-go="peta">Peta fase & alur</button>${items}
+        <div style="margin-top:auto;padding:14px 8px 0;display:flex;flex-direction:column;gap:8px">
+          <button type="button" class="btn sm" data-act="__reset">Ulang alur dari awal</button>
+          <span class="small muted">Semua data fiktif. Tidak ada yang dikirim ke server mana pun.</span></div>`;
+    },
+    renderTop() {
+      const def = this.screens.get(this.cur);
+      const st = def ? (STAFF[def.role] || { name: def.role || '', role: '' }) : { name: 'Pemilik produk', role: 'Tinjauan alur' };
+      const initials = st.name.replace(/^(dr\.|Ns\.|apt\.|Tn\.|Ny\.)\s*/i, '').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+      const ph = def ? PHASES[def.phase] : null;
+      document.getElementById('top').innerHTML = `
+        <button type="button" class="btn sm menu-btn" data-act="__menu" aria-label="Buka menu">Menu</button>
+        <div class="crumb">${ph ? `<span class="ph">Fase ${ph.n} · ${esc(ph.title)}</span>` : '<span class="ph">Beranda</span>'}<b>${esc(def ? def.title : 'Peta fase & alur')}</b>${def && def.codes ? `<span class="codes">${esc(def.codes)}</span>` : ''}</div>
+        <span class="clock" title="Jam simulasi">${this.time()} WIB</span>
+        <button type="button" class="btn sm" data-act="__drawer">Jejak alur <span class="chip brand">${this.log.length}</span></button>
+        <div class="who"><div class="av">${esc(initials || 'RS')}</div><div class="nm"><div style="font-weight:600;color:var(--ink-900)">${esc(st.name)}</div><div class="small muted">${esc(st.role)} · ${esc(PEOPLE.rs.name)}</div></div></div>`;
+    },
+    renderTour() {
+      const tour = document.getElementById('tour');
+      const idx = this.TOUR.findIndex((t) => t.id === this.cur);
+      if (idx < 0) {
+        const first = this.TOUR[0];
+        tour.innerHTML = `<span class="hint">${this.cur === 'peta'
+          ? '<b>Mulai tur:</b> ikuti tiga pasien fiktif dari booking sampai klaim terbayar, melewati semua fase.'
+          : '<b>Layar di luar tur utama.</b> Bebas dicoba; kembali ke tur kapan saja.'}</span>
+          <div class="nav">${first ? `<button type="button" class="btn primary sm" data-go="${first.id}">${this.cur === 'peta' ? 'Mulai tur alur' : 'Ke awal tur'}</button>` : ''}</div>`;
+        return;
+      }
+      const t = this.TOUR[idx];
+      const prev = this.TOUR[idx - 1];
+      const next = this.TOUR[idx + 1];
+      const pct = Math.round(((idx + 1) / this.TOUR.length) * 100);
+      tour.innerHTML = `<span class="step">Langkah ${idx + 1}/${this.TOUR.length}</span><span class="bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
+        <span class="hint"><b>Coba:</b> ${esc(t.hint || this.screens.get(t.id).hint || '')}</span>
+        <div class="nav">${prev ? `<button type="button" class="btn sm" data-go="${prev.id}">← ${esc(this.screens.get(prev.id).nav || this.screens.get(prev.id).title)}</button>` : ''}
+        ${next ? `<button type="button" class="btn sm primary" data-go="${next.id}">${esc(this.screens.get(next.id).nav || this.screens.get(next.id).title)} →</button>` : '<button type="button" class="btn sm primary" data-go="peta">Selesai · ke peta</button>'}</div>`;
+    },
+    renderHome() {
+      const tourChips = this.TOUR.map((t, i) => {
+        const s = this.screens.get(t.id);
+        return `<button type="button" class="jn${this.isDone(t.id) ? ' done' : ''}" data-go="${t.id}"><span class="mono">${i + 1}</span>${esc(s.nav || s.title)}</button>`;
+      }).join('');
+      const doneCount = this.order.filter((id) => this.isDone(id)).length;
+      const cards = PHASES.map((p) => {
+        const list = this.order.map((id) => this.screens.get(id)).filter((s) => s.phase === p.n && !s.hidden);
+        return `<section class="card pc"><div class="ch"><div><div class="pnum">FASE ${p.n}</div><h3>${esc(p.title)}</h3></div>${ui.chip(PHASE_LABEL[p.status], p.status === 'selesai' ? 'success' : p.status === 'berjalan' ? 'warning' : '')}</div>
+          <div class="cb"><p>${esc(p.desc)}</p><div class="scr">${list.map((s) => `<button type="button" class="${this.isDone(s.id) ? 'done' : ''}" data-go="${s.id}">${esc(s.nav || s.title)}</button>`).join('') || '<span class="small muted">Belum ada layar</span>'}</div></div></section>`;
+      }).join('');
+      const pts = ['suryo', 'hartono', 'ratna'].map((k) => {
+        const p = PEOPLE[k];
+        return `<div class="li" style="cursor:default"><div class="pav-s">${esc(p.short[0])}</div><div style="min-width:0"><div class="lt">${esc(p.name)} <span class="mono small muted">${esc(p.rm)}</span></div><div class="ls">${esc(p.scenario)} · ${esc(p.poli)}</div></div></div>`;
+      }).join('');
+      return `<div class="hero">
+        <section class="card"><div class="cb stack">
+          <span class="label">${esc(PEOPLE.rs.name)} · ${esc(PEOPLE.rs.kota)}</span>
+          <h1>Semua alur SIM RS, dari fase 0 sampai pilot, bisa diklik tanpa server</h1>
+          <p class="muted" style="margin:0;max-width:62ch">Prototipe ini menirukan layar yang dibangun di repo, memakai data fiktif yang sama dengan mode presentasi. Ikuti tur di atas, atau buka layar mana saja dari menu kiri. Jam simulasi maju setiap ada aksi, dan setiap langkah penting tercatat di <b>Jejak alur</b>.</p>
+          <div class="row"><button type="button" class="btn primary lg" data-go="${this.TOUR[0] ? this.TOUR[0].id : 'peta'}">Mulai tur alur</button><button type="button" class="btn lg" data-act="__drawer">Lihat jejak alur</button><span class="small muted">${doneCount} dari ${this.order.length} layar sudah dicoba</span></div>
+          <div class="label" style="margin-top:6px">Tur alur utama · ${this.TOUR.length} langkah</div>
+          <div class="journey">${tourChips}</div>
+        </div></section>
+        <section class="card"><div class="ch"><h3>Tiga pasien skenario</h3><span class="sub">sama dengan mode presentasi</span></div><div class="cb flush"><div class="list">${pts}</div></div>
+          <div class="cb small muted" style="border-top:1px solid var(--line-soft)">Status fase mengikuti docs/PROGRESS.md per 5 Okt 2026: fase 0–1 selesai, fase 2 sedang dibangun, fase 3–10 masih rencana. Layar fase rencana di sini adalah rancangan alur, belum kode jadi.</div></section>
+      </div>
+      <div class="phasecards">${cards}</div>`;
+    },
+    renderLayer() {
+      const layer = document.getElementById('layer');
+      if (!this.drawer) { layer.innerHTML = ''; return; }
+      const items = this.log.slice().reverse();
+      layer.innerHTML = `<div class="scrim" data-act="__drawer"></div><aside class="drawer" aria-label="Jejak alur"><div class="dh"><div><b>Jejak alur</b><div class="small muted">${items.length} langkah tercatat</div></div><button type="button" class="btn sm" data-act="__drawer">Tutup</button></div>
+        <div class="db">${items.length ? `<div class="tl">${items.map((e) => `<div class="tli ${e.tone}"><span class="tt">${esc(e.t)}</span><span class="td"></span><div class="tx"><div>${esc(e.text)}</div><button type="button" class="btn ghost sm" style="padding:0;min-height:0" data-go="${esc(e.screen)}">F${e.phase} · ${esc((this.screens.get(e.screen) || {}).title || e.screen)}</button></div></div>`).join('')}</div>` : ui.empty('Belum ada langkah. Mulai dari tur alur.')}</div></aside>`;
+    },
+    /** Tombol ber-`data-needs="kunci:min"` aktif bila teks state lokal cukup panjang (mis. alasan override). */
+    syncNeeds() {
+      const L = this.cur === 'peta' ? {} : this.local();
+      document.querySelectorAll('[data-needs]').forEach((el) => {
+        const ok = el.dataset.needs.split(',').every((rule) => {
+          const [k, min] = rule.split(':');
+          return String(L[k] ?? '').trim().length >= Number(min || 1);
+        });
+        el.disabled = !ok || el.hasAttribute('data-hard-off');
+      });
+    },
+  };
+
+  /* ---------------- komponen string ---------------- */
+  const ui = {
+    esc,
+    /** o: {act, arg, go, set, variant, size, disabled, reason, needs, title, id} */
+    btn(label, o = {}) {
+      const cls = ['btn', o.variant || '', o.size || ''].filter(Boolean).join(' ');
+      const a = attr({ type: 'button', class: cls, 'data-act': o.act, 'data-arg': o.arg, 'data-go': o.go, 'data-set': o.set, 'data-needs': o.needs, disabled: !!o.disabled, 'data-hard-off': !!o.disabled && !!o.needs, title: o.title, id: o.id });
+      const b = `<button ${a}>${o.html ? label : esc(label)}</button>`;
+      return o.reason && o.disabled ? `<span class="btnwrap">${b}<span class="reason">${esc(o.reason)}</span></span>` : b;
+    },
+    chip(text, tone = '') { return `<span class="chip ${tone}">${esc(text)}</span>`; },
+    card(o) {
+      const head = o.title ? `<div class="ch"><div><h3>${esc(o.title)}</h3>${o.sub ? `<div class="sub">${o.html ? o.sub : esc(o.sub)}</div>` : ''}</div>${o.actions ? `<div class="row">${o.actions}</div>` : ''}</div>` : '';
+      return `<section class="card ${o.tone ? `tone-${o.tone}` : ''} ${o.cls || ''}">${head}<div class="cb ${o.flush ? 'flush' : ''}">${o.body || ''}</div></section>`;
+    },
+    kpi(label, value, foot = '', trend = '') {
+      return `<section class="card kpi"><div class="k">${esc(label)}</div><div class="v">${esc(value)}</div>${foot ? `<div class="f ${trend}">${esc(foot)}</div>` : ''}</section>`;
+    },
+    alert(tone, title, body = '') {
+      const icon = { info: 'i', success: '✓', warning: '!', danger: '!!' }[tone] || 'i';
+      return `<div class="alert ${tone}" role="${tone === 'danger' ? 'alert' : 'status'}"><span class="ai">${icon}</span><div><b>${esc(title)}</b>${body ? `<span class="ab">${body}</span>` : ''}</div></div>`;
+    },
+    /** Gerbang keselamatan: aksi utama ditahan; override wajib alasan (L[reasonKey] ≥ 10 huruf). */
+    gate(o) {
+      const rk = o.reasonKey || 'overrideReason';
+      return `<div class="gate" role="alert"><div class="gt"><span class="pulse"></span>${esc(o.title)}</div>
+        <div class="small" style="color:var(--ink-700)">${o.body || ''}</div>
+        <div class="row">${o.follow ? ui.btn(o.follow.label, { act: o.follow.act, arg: o.follow.arg, variant: 'primary' }) : ''}</div>
+        ${o.override ? `<div class="field"><label for="g-${rk}">Alasan override (wajib, tercatat dan ditinjau)</label><textarea class="inp" id="g-${rk}" data-bind="${rk}" placeholder="Tulis alasan klinis minimal 10 huruf">${esc(o.reasonValue || '')}</textarea></div>
+        <div>${ui.btn(o.override.label, { act: o.override.act, arg: o.override.arg, variant: 'danger', needs: `${rk}:10` })}</div>` : ''}</div>`;
+    },
+    field(label, control, help = '', id = '') {
+      return `<div class="field"><label ${id ? `for="${esc(id)}"` : ''}>${esc(label)}</label>${control}${help ? `<span class="help">${esc(help)}</span>` : ''}</div>`;
+    },
+    /** Input teks terikat ke state lokal (tanpa render ulang saat mengetik). */
+    input(key, value, o = {}) {
+      const id = o.id || `f-${key}`;
+      if (o.area) return `<textarea class="inp" id="${esc(id)}" data-bind="${esc(key)}" placeholder="${esc(o.placeholder || '')}" ${o.rows ? `rows="${o.rows}"` : ''}>${esc(value)}</textarea>`;
+      return `<input class="inp ${o.mono ? 'mono' : ''}" id="${esc(id)}" data-bind="${esc(key)}" value="${esc(value ?? '')}" placeholder="${esc(o.placeholder || '')}" type="${esc(o.type || 'text')}" ${o.inputmode ? `inputmode="${esc(o.inputmode)}"` : ''} ${o.rerender ? 'data-rerender' : ''}>`;
+    },
+    /** Pilihan terikat; perubahan merender ulang. options: ['a', 'b'] atau [{value, label}] */
+    select(key, value, options, o = {}) {
+      const id = o.id || `f-${key}`;
+      return `<select class="inp" id="${esc(id)}" data-bind="${esc(key)}" data-rerender>${options.map((op) => {
+        const v = typeof op === 'object' ? op.value : op; const l = typeof op === 'object' ? op.label : op;
+        return `<option value="${esc(v)}" ${String(v) === String(value) ? 'selected' : ''}>${esc(l)}</option>`;
+      }).join('')}</select>`;
+    },
+    check(key, checked, label, o = {}) {
+      const id = o.id || `f-${key}`;
+      return `<label class="check" for="${esc(id)}"><input type="checkbox" id="${esc(id)}" data-bind="${esc(key)}" data-rerender ${checked ? 'checked' : ''}><span>${o.html ? label : esc(label)}</span></label>`;
+    },
+    /** Tab: klik menyetel L[key] = value lalu render ulang. */
+    tabs(key, value, tabs) {
+      return `<div class="tabs" role="tablist">${tabs.map((t) => {
+        const v = typeof t === 'object' ? t.value : t; const l = typeof t === 'object' ? t.label : t;
+        return `<button type="button" role="tab" aria-selected="${v === value}" class="tab ${v === value ? 'on' : ''}" data-set="${esc(key)}=${esc(v)}">${esc(l)}</button>`;
+      }).join('')}</div>`;
+    },
+    seg(key, value, opts) {
+      return `<div class="seg">${opts.map((t) => {
+        const v = typeof t === 'object' ? t.value : t; const l = typeof t === 'object' ? t.label : t;
+        return `<button type="button" class="${v === value ? 'on' : ''}" data-set="${esc(key)}=${esc(v)}">${esc(l)}</button>`;
+      }).join('')}</div>`;
+    },
+    /** cols: ['Nama', {label:'Jumlah', r:true}] · rows: [[sel, sel], …] (sel boleh HTML) · o: {act, sel, rowArgs} */
+    table(cols, rows, o = {}) {
+      const th = cols.map((c) => (typeof c === 'object' ? `<th class="${c.r ? 'r' : ''}">${esc(c.label)}</th>` : `<th>${esc(c)}</th>`)).join('');
+      const tr = rows.map((r, i) => {
+        const click = o.act ? ` class="click ${o.sel === i ? 'sel' : ''}" data-act="${esc(o.act)}" data-arg="${esc(o.rowArgs ? o.rowArgs[i] : i)}"` : '';
+        return `<tr${click}>${r.map((c, ci) => `<td class="${typeof cols[ci] === 'object' && cols[ci].r ? 'r num' : ''}">${c}</td>`).join('')}</tr>`;
+      }).join('');
+      return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${th}</tr></thead><tbody>${tr || `<tr><td colspan="${cols.length}">${ui.empty(o.empty || 'Belum ada data')}</td></tr>`}</tbody></table></div>`;
+    },
+    /** items: [{title, sub, right, arg, sel}] · klik → actions[act](L, J, el) dengan el.dataset.arg */
+    list(items, act) {
+      return `<div class="list">${items.map((it) => `<button type="button" class="li ${it.sel ? 'sel' : ''}" ${act ? `data-act="${esc(act)}" data-arg="${esc(it.arg)}"` : ''}><div style="min-width:0"><div class="lt">${it.htmlTitle ? it.title : esc(it.title)}</div>${it.sub ? `<div class="ls">${it.htmlSub ? it.sub : esc(it.sub)}</div>` : ''}</div>${it.right ? `<div class="lr">${it.right}</div>` : ''}</button>`).join('')}</div>`;
+    },
+    /** Banner pasien: p = SIM.PEOPLE.x; extra = HTML chip tambahan */
+    banner(p, extra = '') {
+      const allergy = p.allergy && p.allergy.length ? ui.chip(`Alergi: ${p.allergy.join(', ')}`, 'solid-danger') : ui.chip('Tidak ada alergi tercatat', 'success');
+      return `<div class="banner"><div class="pav">${esc(p.short[0])}</div><div style="min-width:0"><div class="pn">${esc(p.name)}</div><div class="pm"><span class="mono">RM ${esc(p.rm)}</span> · ${p.jk === 'L' ? 'Laki-laki' : 'Perempuan'} · ${p.age} th · lahir ${esc(p.dob)}</div></div>
+        <div class="kv"><span>Penjamin</span><b>${esc(p.payer)} ${esc(p.kelas || '')}</b></div><div class="kv"><span>DPJP</span><b>${esc(p.dokter)}</b></div><div class="row">${allergy}${extra}</div></div>`;
+    },
+    steps(labels, current) {
+      return `<div class="steps">${labels.map((l, i) => `<span class="stp ${i < current ? 'done' : i === current ? 'cur' : ''}"><i>${i < current ? '✓' : i + 1}</i>${esc(l)}</span>`).join('')}</div>`;
+    },
+    timeline(items) {
+      return `<div class="tl">${items.map((e) => `<div class="tli ${e.tone || ''}"><span class="tt">${esc(e.t || '')}</span><span class="td"></span><div class="tx">${e.html ? e.text : esc(e.text)}${e.sub ? `<div class="small muted">${esc(e.sub)}</div>` : ''}</div></div>`).join('')}</div>`;
+    },
+    /** Ajakan lanjut alur setelah tugas layar selesai. */
+    next(id, text = '') {
+      const s = SIM.screens.get(id);
+      if (!s) return '';
+      return `<div class="nextcta"><span class="nt">${text ? `<b>✓</b> ${esc(text)}` : 'Langkah ini selesai.'}</span>${ui.btn(`Lanjut: ${s.nav || s.title} →`, { go: id, variant: 'primary' })}</div>`;
+    },
+    /** Bingkai perangkat: kind = kiosk | tv | tablet | phone */
+    device(kind, inner, caption = '') {
+      return `<div class="devwrap"><div><div class="device ${esc(kind)}"><div class="screen">${inner}</div></div>${caption ? `<div class="devcap">${esc(caption)}</div>` : ''}</div></div>`;
+    },
+    empty(text) { return `<div class="empty">${esc(text)}</div>`; },
+    split(left, right) { return `<div class="split">${left}${right}</div>`; },
+    /** Kotak tanda tangan: klik menyetel L[key] = true. */
+    sig(key, signed, name) {
+      return `<button type="button" class="sig ${signed ? 'on' : ''}" data-set="${esc(key)}=${signed ? '' : '1'}">${signed ? esc(name) : 'Ketuk untuk tanda tangan'}</button>`;
+    },
+    rupiah(n) { return `Rp${Math.round(n).toLocaleString('id-ID')}`; },
+  };
+  SIM.ui = ui;
+
+  /* ---------------- event ---------------- */
+  function handle(ev) {
+    const t = ev.target.closest('[data-go],[data-act],[data-set]');
+    if (!t || t.disabled) return;
+    if (t.dataset.go) { SIM.go(t.dataset.go); return; }
+    if (t.dataset.set !== undefined && t.dataset.set !== '') {
+      const i = t.dataset.set.indexOf('=');
+      const k = t.dataset.set.slice(0, i); const v = t.dataset.set.slice(i + 1);
+      SIM.local()[k] = v === '' ? '' : v;
+      SIM.render();
+      return;
+    }
+    const act = t.dataset.act;
+    if (!act) return;
+    if (act === '__reset') { SIM.reset(); return; }
+    if (act === '__drawer') { SIM.drawer = !SIM.drawer; SIM.renderLayer(); return; }
+    if (act === '__menu') { document.getElementById('side').classList.toggle('open'); return; }
+    const def = SIM.screens.get(SIM.cur);
+    const fn = def && def.actions[act];
+    if (!fn) { SIM.toast(`Aksi "${act}" belum ada`, 'warning'); return; }
+    const res = fn(SIM.local(), SIM.j, t, SIM);
+    if (res !== false) SIM.render();
+  }
+  document.addEventListener('click', handle);
+  document.addEventListener('input', (ev) => {
+    const el = ev.target;
+    if (!el.dataset || !el.dataset.bind || SIM.cur === 'peta') return;
+    if (el.type === 'checkbox') return;
+    SIM.local()[el.dataset.bind] = el.value;
+    if (!el.hasAttribute('data-rerender')) { SIM.syncNeeds(); SIM.save(); }
+  });
+  document.addEventListener('change', (ev) => {
+    const el = ev.target;
+    if (!el.dataset || !el.dataset.bind || SIM.cur === 'peta') return;
+    SIM.local()[el.dataset.bind] = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.hasAttribute('data-rerender')) {
+      const def = SIM.screens.get(SIM.cur);
+      if (def.onChange) def.onChange(el.dataset.bind, SIM.local(), SIM.j, SIM);
+      SIM.render();
+    }
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && SIM.drawer) { SIM.drawer = false; SIM.renderLayer(); }
+  });
+
+  window.SIM = SIM;
+  window.ui = ui;
+})();
+</script>
+
+<script src="screens-f0-2.js"></script>
+<script src="screens-f3-4.js"></script>
+<script src="screens-f5-7.js"></script>
+<script src="screens-f8-10.js"></script>
+
+<script>
+/* Tur alur utama: urutan layar yang menceritakan perjalanan tiga pasien. Layar yang tidak ada dilewati. */
+(function () {
+  const TOUR = [
+    'fondasi', 'masuk', 'akses', 'audit', 'mpi', 'formulir',
+    'jadwal', 'app-pasien', 'layanan-publik', 'anjungan', 'pendaftaran', 'kendali', 'display',
+    'poli', 'cpoe', 'lab', 'radiologi', 'farmasi',
+    'kasir', 'pembayaran', 'klaim',
+    'igd', 'bed', 'ranap', 'consent', 'ok', 'resume', 'pembiayaan',
+    'integrasi', 'akuntansi', 'logistik', 'mutu', 'rekam-medis', 'dasbor', 'app-dokter',
+    'simulasi', 'downtime', 'backup', 'golive',
+  ];
+  SIM.TOUR = TOUR.filter((id) => SIM.screens.has(id)).map((id) => ({ id, hint: SIM.screens.get(id).hint || '' }));
+  SIM.load();
+  let start = SIM.cur;
+  try { const h = (location.hash || '').slice(1); if (h && (SIM.screens.has(h) || h === 'peta')) start = h; } catch (e) { /* abaikan */ }
+  if (!SIM.screens.has(start)) start = 'peta';
+  SIM.go(start);
+  window.addEventListener('hashchange', () => {
+    const h = (location.hash || '').slice(1);
+    if (h && h !== SIM.cur && (SIM.screens.has(h) || h === 'peta')) SIM.go(h);
+  });
+})();
+</script>
