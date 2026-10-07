@@ -89,7 +89,7 @@ export const PERMISSION_CATALOG = {
   // Khusus perangkat terdaftar (lihat DEVICE_ONLY_RESOURCES): tidak pernah bisa diberikan ke peran.
   kiosk: { label: 'Anjungan mandiri (khusus perangkat)', actions: ['use'] },
   'queue.display': { label: 'Display antrean (khusus perangkat)', actions: ['read'] },
-  // S01 · Analyzer lab (fase 4): jenis perangkat `lab_analyzer` + `DEVICE_GRANTS` ditambahkan potongan 4.1a (ingest).
+  // S01 · Analyzer lab (fase 4 §4.1a): dipegang perangkat jenis `lab_analyzer` (`DEVICE_GRANTS`).
   'lab.analyzer': { label: 'Kirim hasil analyzer laboratorium (khusus perangkat)', actions: ['ingest'] },
   'dev.tools': { label: 'Alat pengembang (non-produksi)', actions: ['use'] },
   'platform.guide': { label: 'Panduan sistem (operator platform)', actions: ['read'] },
@@ -637,6 +637,8 @@ export function isDeviceOnlyResource(resource: string): boolean {
 export const DEVICE_KINDS = {
   kiosk: 'Anjungan mandiri',
   queue_display: 'Display antrean (TV)',
+  /** S01 · Analyzer/gateway laboratorium yang mengirim ORU^R01 (fase 4 §4.1a); bukan peramban. */
+  lab_analyzer: 'Analyzer laboratorium',
 } as const;
 export type DeviceKind = keyof typeof DEVICE_KINDS;
 
@@ -644,6 +646,7 @@ export type DeviceKind = keyof typeof DEVICE_KINDS;
 export const DEVICE_GRANTS: Record<DeviceKind, readonly Grant[]> = {
   kiosk: [['kiosk', 'use', 'unit']],
   queue_display: [['queue.display', 'read', 'unit']],
+  lab_analyzer: [['lab.analyzer', 'ingest', 'unit']],
 };
 
 /**
