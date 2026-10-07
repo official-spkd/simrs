@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ensurePublishedForm,
+  upgradePublishedForm,
   insertPatient,
   type PrismaClient,
   seedClinicalMasters,
@@ -9,7 +10,12 @@ import {
   type TenantTx,
   withTenant,
 } from '@simrs/db';
-import { CONSENT_TEMPLATE_SAMPLE, newId } from '@simrs/shared';
+import {
+  CONSENT_TEMPLATE_SAMPLE,
+  EDUCATION_FORM_SAMPLE,
+  educationFormSupportsConsent,
+  newId,
+} from '@simrs/shared';
 import { encryptField, generateTotpSecret, hashPassword, PatientCrypto } from '@simrs/shared/node';
 import type { Account } from './accounts';
 import { e2eFieldKeys } from './field-keys';
@@ -81,6 +87,8 @@ export async function ensureClinicalFixtures(prisma: PrismaClient, tenantId: str
     await seedClinicalMasters(tx, tenantId);
     // K11: templat persetujuan tindakan (tujuh butir) untuk tablet persetujuan mode api.
     await ensurePublishedForm(tx, tenantId, CONSENT_TEMPLATE_SAMPLE);
+    // K11 (3.8): edukasi terintegrasi bertopik tindakan = syarat final persetujuan (`CONSENT_EDUCATION_REQUIRED`).
+    await upgradePublishedForm(tx, tenantId, EDUCATION_FORM_SAMPLE, educationFormSupportsConsent);
     const accounts = {
       dpjp: await account(tx, tenantId, 'dokter', 'MELATI', 'dr. DPJP E2E Fiktif, Sp.PD'),
       residen: await account(tx, tenantId, 'dokter_residen', 'IGD', 'dr. Residen E2E Fiktif'),
