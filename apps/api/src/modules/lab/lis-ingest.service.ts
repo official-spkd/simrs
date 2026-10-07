@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { storeInboundEvent } from '@simrs/db';
-import { AppError, buildAck, Hl7ParseError, parseOru, redactHl7 } from '@simrs/shared';
+import { AppError, buildAck, Hl7ParseError, lisHl7Encoding, parseOru, redactHl7 } from '@simrs/shared';
 import { decryptField, verifyLisSignature } from '@simrs/shared/node';
 import { requestContext } from '../../common/request-context';
 import { API_ENV, type ApiEnv } from '../../config/env';
@@ -54,8 +54,13 @@ export class LisIngestService {
       throw new AppError('FORBIDDEN', 'Hanya analyzer laboratorium terdaftar', 403);
     }
     const tenantId = this.db.tenantId();
-    const raw = body.toString('utf8');
-    await this.verifySignature(tenantId, device.id, raw, h);
+    const encoding = lisHl7Encoding(h.contentType);
+    if (!encoding) {
+      throw new AppError('UNSUPPORTED_MEDIA_TYPE', 'Charset HL7 harus utf-8 atau iso-8859-1', 415);
+    }
+    // Tanda tangan atas byte mentah (sebelum decode), lalu teks sesuai charset yang dideklarasikan perangkat.
+    await this.verifySignature(tenantId, device.id, body, h);
+    const raw = body.toString(encoding);
 
     const sentAt = hl7Now();
     let controlId: string;
@@ -113,7 +118,7 @@ export class LisIngestService {
   }
 
   /** Tanda tangan salah/kedaluwarsa: catat penolakan (commit terpisah dari transaksi permintaan) lalu 401. */
-  private async verifySignature(tenantId: string, deviceId: string, raw: string, h: LisIngestHeaders) {
+  private async verifySignature(tenantId: string, deviceId: string, raw: Buffer, h: LisIngestHeaders) {
     const row = await this.db.tx().registeredDevice.findUnique({
       where: { id: deviceId },
       select: { hmacKeyEnc: true },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  lisHl7Encoding,
   aboCompatible,
   bloodIssueBlock,
   buildAck,
@@ -427,5 +428,28 @@ describe('HL7 ORU^R01 dan tanda tangan perangkat', () => {
         new Date(now.getTime() + 6 * 60_000),
       ),
     ).toEqual({ ok: false, reason: 'TIMESTAMP_EXPIRED' });
+  });
+
+  it('HMAC atas byte mentah: string UTF-8 = Buffer yang sama; byte ISO-8859-1 diverifikasi tanpa decode', () => {
+    const now = new Date('2026-10-07T03:00:00Z');
+    const ts = String(Math.floor(now.getTime() / 1000));
+    expect(lisSignature(ts, raw, 'k')).toBe(lisSignature(ts, Buffer.from(raw, 'utf8'), 'k'));
+    const latin = Buffer.from('MSH|^~\\&|ALAT|LAB\rNTE|1||s\u00e9rum', 'latin1');
+    const sig = lisSignature(ts, latin, 'k');
+    expect(verifyLisSignature({ timestamp: ts, signature: sig, rawBody: latin, secret: 'k' }, now)).toEqual({
+      ok: true,
+    });
+    // Decode UTF-8 lebih dulu (perilaku lama) merusak byte é → tanda tangan tidak cocok.
+    expect(
+      verifyLisSignature({ timestamp: ts, signature: sig, rawBody: latin.toString('utf8'), secret: 'k' }, now)
+        .ok,
+    ).toBe(false);
+  });
+
+  it('charset Content-Type HL7: tanpa parameter/utf-8 → utf8, iso-8859-1 → latin1, lainnya → null (415)', () => {
+    expect(lisHl7Encoding('application/hl7-v2')).toBe('utf8');
+    expect(lisHl7Encoding('application/hl7-v2; charset=UTF-8')).toBe('utf8');
+    expect(lisHl7Encoding('application/hl7-v2; charset="ISO-8859-1"')).toBe('latin1');
+    expect(lisHl7Encoding('text/plain; charset=utf-16')).toBeNull();
   });
 });
