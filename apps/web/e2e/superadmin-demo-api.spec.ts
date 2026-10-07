@@ -73,5 +73,8 @@ test('mode api: akun Superadmin demo tanpa kuasa tambahan (menu = manajemen bias
   for (const path of ['/superadmin/panduan', '/manajemen/sdm', '/simulasi', '/keuangan/kasir']) {
     expect((await demo.goto(path))?.status(), path).toBe(404);
   }
+  // Layar klinis hibrida terbuka sesuai izin sungguhan: akun demo (manajemen) ditolak, bukan diberi kuasa tambahan.
+  expect((await demo.goto('/klinis/cppt'))?.status()).toBe(200);
+  await expect(demo.getByText('Akses ditolak')).toBeVisible();
   await other.close();
 });

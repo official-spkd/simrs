@@ -2,7 +2,7 @@
 
 Halaman ini memetakan **setiap fase** rencana kerja ke **layar web**, rutenya, dan sumber datanya hari ini. Gunakan sebagai daftar isi seluruh aplikasi: dari sini buka halaman fitur untuk alur dan gerbang keselamatan tiap layar.
 
-> Status 6 Okt 2026: registri `apps/web/src/lib/screens.ts` berisi 80 layar (68 demo, 11 hibrida demo + api, 1 khusus api), ditambah 11 layar platform yang langsung tersambung API di luar registri. Backend fase 0–2 selesai, fase 3 berjalan (API 3.1–3.8 tergabung; sejak 7 Okt 2026 backend dilanjutkan penuh, lihat [Cara kerja backend](./07-cara-kerja-backend.md)), fase 4–9 belum dibangun; semua layarnya sudah bisa dicoba di mode presentasi (`pnpm demo`). Status resmi tiap potongan ada di `docs/PROGRESS.md`; kriteria selesai fase di `docs/09-rencana-fase.md`.
+> Status 7 Okt 2026: registri `apps/web/src/lib/screens.ts` berisi 80 layar (48 demo, 31 hibrida demo + api, 1 khusus api), ditambah 11 layar platform yang langsung tersambung API di luar registri. Backend fase 0–2 selesai, fase 3 berjalan (API 3.1–3.8 tergabung; sejak 7 Okt 2026 backend dilanjutkan penuh, lihat [Cara kerja backend](./07-cara-kerja-backend.md)), fase 4–9 belum dibangun; semua layarnya sudah bisa dicoba di mode presentasi (`pnpm demo`). Status resmi tiap potongan ada di `docs/PROGRESS.md`; kriteria selesai fase di `docs/09-rencana-fase.md`.
 
 ![Peta fase: sebelas baris fase 0 sampai 10, masing-masing dengan status backend (selesai, berjalan, belum, sebagian), jumlah layar per sumber data, dan kelompok layarnya](./gambar/diagram-peta-fase.svg)
 
@@ -76,7 +76,7 @@ Backend: ✅ selesai. Layar: 7.
 
 ## Fase 3 · Klinis RME
 
-Backend: 🟨 berjalan. Layar: 17.
+Backend: 🟨 berjalan (3.0–3.8 + W1–W5b selesai; tinggal penutup 3.9). Layar: 17, semuanya hibrida dan tersambung API.
 
 | Layar                      | Rute                         | Komponen    | Sumber data                              | Panduan                        |
 | -------------------------- | ---------------------------- | ----------- | ---------------------------------------- | ------------------------------ |
@@ -87,16 +87,16 @@ Backend: 🟨 berjalan. Layar: 17.
 | Rawat inap                 | `/klinis/rawat-inap`         | K04 K07 K12 | hibrida (demo + api, api tersambung W4)  | [Klinis](./12-fitur-klinis.md) |
 | Resume medis               | `/klinis/resume`             | K13         | hibrida (demo + api, api tersambung W5b) | [Klinis](./12-fitur-klinis.md) |
 | Persetujuan tindakan       | `/tablet/persetujuan`        | K11         | hibrida (demo + api, api tersambung W5a) | [Klinis](./12-fitur-klinis.md) |
-| Worklist klinis            | `/klinis/worklist`           | K01         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| CPPT & serah terima        | `/klinis/cppt`               | K07         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Asesmen & skrining         | `/klinis/asesmen`            | K06         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Diagnosis & problem list   | `/klinis/diagnosis`          | K08         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | K10         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Edukasi pasien             | `/klinis/edukasi`            | K11         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | K12         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Ringkasan pasien           | `/klinis/ringkasan`          | K14         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | K15         | demo                                     | [Klinis](./12-fitur-klinis.md) |
-| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | K13         | demo                                     | [Klinis](./12-fitur-klinis.md) |
+| Worklist klinis            | `/klinis/worklist`           | K01         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| CPPT & serah terima        | `/klinis/cppt`               | K07         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Asesmen & skrining         | `/klinis/asesmen`            | K06         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | K08         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | K10         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Edukasi pasien             | `/klinis/edukasi`            | K11         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | K12         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Ringkasan pasien           | `/klinis/ringkasan`          | K14         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | K15         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | K13         | hibrida (demo + api, api tersambung)     | [Klinis](./12-fitur-klinis.md) |
 
 ## Fase 4 · Penunjang
 
@@ -110,8 +110,8 @@ Backend: 🟨 berjalan (4.0a kontrak bersama di `packages/shared`: izin, event, 
 | Kamar operasi       | `/penunjang/kamar-operasi` | S06      | demo        | [Penunjang](./13-fitur-penunjang.md) |
 | Pusat hasil kritis  | `/penunjang/hasil-kritis`  | S09      | demo        | [Penunjang](./13-fitur-penunjang.md) |
 | Depo & stok farmasi | `/penunjang/depo`          | S05      | demo        | [Penunjang](./13-fitur-penunjang.md) |
-| Bank darah          | `/penunjang/bank-darah`    | S08      | demo        | [Penunjang](./13-fitur-penunjang.md) |
-| Gizi                | `/penunjang/gizi`          | S07      | demo        | [Penunjang](./13-fitur-penunjang.md) |
+| Bank darah          | `/penunjang/bank-darah`    | S08      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
+| Gizi                | `/penunjang/gizi`          | S07      | demo + api  | [Penunjang](./13-fitur-penunjang.md) |
 | Mikrobiologi & PA   | `/penunjang/mikrobiologi`  | S02      | demo        | [Penunjang](./13-fitur-penunjang.md) |
 | Diagnostik lain     | `/penunjang/diagnostik`    | S10      | demo        | [Penunjang](./13-fitur-penunjang.md) |
 

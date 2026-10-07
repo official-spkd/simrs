@@ -776,9 +776,39 @@ describe('bank darah', () => {
       });
     });
   }
-  const issue = (c: Ctx, requestId: string, bagNo: string, emergencyReason: string | null = null) =>
+  const CHECKLIST = { identitas: true, nomor: true, golongan: true, kedaluwarsa: true, kantong_utuh: true };
+  /** Cek ganda pertama (migrasi 20261008500000): pemeriksa pertama = `checker`. */
+  const firstCheck = (
+    c: Ctx,
+    requestId: string,
+    unitId: string,
+    emergencyReason: string | null,
+    checker = c.nurse,
+  ) =>
+    inT(c, (tx) =>
+      tx.bloodIssueCheck.create({
+        data: {
+          id: newId(),
+          tenantId: c.tenantId,
+          bloodRequestId: requestId,
+          bloodUnitId: unitId,
+          checklist: CHECKLIST,
+          emergencyReason,
+          checkedBy: checker,
+        },
+      }),
+    );
+  /** Pengeluaran oleh analis setelah cek ganda pertama petugas lain (`checker`, bawaan perawat uji). */
+  const issue = (
+    c: Ctx,
+    requestId: string,
+    bagNo: string,
+    emergencyReason: string | null = null,
+    checker: string | null = c.nurse,
+  ) =>
     inT(c, async (tx) => {
       const unit = await tx.bloodUnit.findFirstOrThrow({ where: { bagNo } });
+      const check = checker ? await firstCheck(c, requestId, unit.id, emergencyReason, checker) : null;
       return tx.bloodIssue.create({
         data: {
           id: newId(),
@@ -789,6 +819,7 @@ describe('bank darah', () => {
           patientId: c.patientId,
           emergencyReason,
           issuedBy: c.analyst,
+          issueCheckId: check?.id ?? null,
         },
       });
     });
@@ -835,5 +866,210 @@ describe('bank darah', () => {
       owner,
     );
     expect(await dbError(issue(B, ab.id, 'KTG-0005'))).toMatch(/BATCH_EXPIRED/);
+  });
+
+  // 4.9 · ADR-0105: cek ganda dua petugas, aturan ABO per komponen, transfusi gelang ↔ kantong + petugas kedua.
+  const unit = (c: Ctx, bagNo: string, code: string, abo: string, rh: string) =>
+    inT(c, async (tx) => {
+      const comp = await tx.bloodComponent.findFirstOrThrow({ where: { code } });
+      return tx.bloodUnit.create({
+        data: {
+          id: newId(),
+          tenantId: c.tenantId,
+          bagNo,
+          componentId: comp.id,
+          abo,
+          rh,
+          collectedAt: new Date(Date.now() - 86_400_000),
+          expiresAt: new Date(Date.now() + 30 * 86_400_000),
+        },
+      });
+    });
+
+  it('kantong keluar hanya lewat cek ganda dua petugas berbeda; cek ganda append-only dan lima butir wajib', async () => {
+    const rq = await request(A, 'O', 'pos');
+    const u = await unit(A, `KTG-DC-${newId().slice(-6)}`, 'PRC', 'O', 'pos');
+    await crossmatch(A, rq.id, u.bagNo, 'cocok');
+    expect(await dbError(issue(A, rq.id, u.bagNo, null, null))).toMatch(/BLOOD_DOUBLE_CHECK_REQUIRED/);
+    expect(await dbError(issue(A, rq.id, u.bagNo, null, A.analyst))).toMatch(/BLOOD_SECOND_CHECKER_SAME/);
+    expect(
+      await dbError(
+        inT(A, (tx) =>
+          tx.bloodIssueCheck.create({
+            data: {
+              id: newId(),
+              tenantId: A.tenantId,
+              bloodRequestId: rq.id,
+              bloodUnitId: u.id,
+              checklist: { ...CHECKLIST, kantong_utuh: false },
+              checkedBy: A.nurse,
+            },
+          }),
+        ),
+      ),
+    ).toMatch(/blood_issue_checks_values_valid/);
+    const check = await firstCheck(A, rq.id, u.id, null);
+    expect(
+      await dbError(
+        inT(A, (tx) =>
+          tx.bloodIssueCheck.update({ where: { id: check.id }, data: { emergencyReason: null } }),
+        ),
+      ),
+    ).toMatch(/APPEND_ONLY|permission denied/);
+    await issue(A, rq.id, u.bagNo);
+    // Golongan pasien terkunci setelah crossmatch.
+    expect(
+      await dbError(
+        inT(A, (tx) => tx.bloodRequest.update({ where: { id: rq.id }, data: { patientAbo: 'A' } })),
+      ),
+    ).toMatch(/BLOOD_GROUP_LOCKED/);
+  });
+
+  it('aturan ABO per komponen: plasma O tidak untuk pasien A; plasma AB universal; darurat tanpa crossmatch hanya PRC', async () => {
+    const ffp = await inT(A, (tx) => tx.bloodComponent.findFirstOrThrow({ where: { code: 'FFP' } }));
+    expect(ffp.aboRule).toBe('plasma');
+    const rq = await inT(A, (tx) =>
+      tx.bloodRequest.create({
+        data: {
+          id: newId(),
+          tenantId: A.tenantId,
+          requestNo: `BD-2610-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
+          encounterId: A.encounterId,
+          patientId: A.patientId,
+          componentId: ffp.id,
+          units: 2,
+          urgency: 'cito',
+          indication: 'Koagulopati',
+          patientAbo: 'A',
+          patientRh: 'pos',
+          requestedBy: A.doctor,
+        },
+      }),
+    );
+    const o = await unit(A, `FFP-O-${newId().slice(-6)}`, 'FFP', 'O', 'pos');
+    await crossmatch(A, rq.id, o.bagNo, 'cocok');
+    expect(await dbError(issue(A, rq.id, o.bagNo))).toMatch(/BLOOD_INCOMPATIBLE/);
+    const ab = await unit(A, `FFP-AB-${newId().slice(-6)}`, 'FFP', 'AB', 'pos');
+    await crossmatch(A, rq.id, ab.bagNo, 'cocok');
+    await issue(A, rq.id, ab.bagNo);
+    const on = await unit(A, `FFP-ON-${newId().slice(-6)}`, 'FFP', 'O', 'neg');
+    expect(await dbError(issue(A, rq.id, on.bagNo, 'Perdarahan masif, tidak sempat crossmatch'))).toMatch(
+      /BLOOD_INCOMPATIBLE|CROSSMATCH_REQUIRED/,
+    );
+  });
+
+  it('transfusi: gelang ↔ kantong wajib cocok; berjalan hanya setelah petugas kedua memindai; tidak dihapus', async () => {
+    const rq = await request(A, 'B', 'pos');
+    const u = await unit(A, `KTG-TF-${newId().slice(-6)}`, 'PRC', 'B', 'pos');
+    await crossmatch(A, rq.id, u.bagNo, 'cocok');
+    const bi = await issue(A, rq.id, u.bagNo);
+    const band = await inT(A, (tx) =>
+      tx.patientWristband.create({
+        data: {
+          id: newId(),
+          tenantId: A.tenantId,
+          encounterId: A.encounterId,
+          patientId: A.patientId,
+          code: `GL${newId().replace(/-/g, '').slice(-12).toUpperCase()}`,
+        },
+      }),
+    );
+    const scan = (userId: string, matched = true) =>
+      inT(A, (tx) =>
+        tx.wristbandScan.create({
+          data: {
+            id: newId(),
+            tenantId: A.tenantId,
+            encounterId: A.encounterId,
+            patientId: A.patientId,
+            wristbandId: matched ? band.id : null,
+            matched,
+            scannedCode: matched ? band.code : 'GL-LAIN',
+            userId,
+          },
+        }),
+      );
+    const start = (scanId: string, bag: string) =>
+      inT(A, (tx) =>
+        tx.transfusion.create({
+          data: {
+            id: newId(),
+            tenantId: A.tenantId,
+            bloodIssueId: bi.id,
+            encounterId: A.encounterId,
+            patientId: A.patientId,
+            startScanId: scanId,
+            startBagNo: bag,
+            startedBy: A.nurse,
+          },
+        }),
+      );
+    expect(await dbError(start((await scan(A.nurse, false)).id, u.bagNo))).toMatch(/BLOOD_WRONG_PATIENT/);
+    expect(await dbError(start((await scan(A.nurse)).id, 'KTG-SALAH'))).toMatch(/BLOOD_WRONG_BAG/);
+    expect(await dbError(start((await scan(A.doctor)).id, u.bagNo))).toMatch(/WRISTBAND_SCAN_REQUIRED/);
+    const t = await start((await scan(A.nurse)).id, u.bagNo.toLowerCase());
+    expect(t.status).toBe('menunggu_verifikasi');
+    const verify = (userId: string, scanId: string, bag: string) =>
+      inT(A, (tx) =>
+        tx.transfusion.update({
+          where: { id: t.id },
+          data: {
+            status: 'berjalan',
+            verifiedBy: userId,
+            verifyScanId: scanId,
+            verifyBagNo: bag,
+            verifiedAt: new Date(),
+          },
+        }),
+      );
+    expect(await dbError(verify(A.nurse, (await scan(A.nurse)).id, u.bagNo))).toMatch(
+      /BLOOD_SECOND_CHECKER_SAME|transfusions_values_valid/,
+    );
+    expect(await dbError(verify(A.doctor, (await scan(A.nurse)).id, u.bagNo))).toMatch(
+      /WRISTBAND_SCAN_REQUIRED/,
+    );
+    expect(await dbError(verify(A.doctor, (await scan(A.doctor)).id, 'KTG-SALAH'))).toMatch(
+      /BLOOD_WRONG_BAG/,
+    );
+    const ok = await verify(A.doctor, (await scan(A.doctor)).id, u.bagNo);
+    expect(ok.status).toBe('berjalan');
+    expect(
+      await dbError(
+        inT(A, (tx) =>
+          tx.transfusion.update({ where: { id: t.id }, data: { status: 'menunggu_verifikasi' } }),
+        ),
+      ),
+    ).toMatch(/TRANSFUSION_STATE|transfusions_values_valid/);
+    expect(await dbError(inT(A, (tx) => tx.transfusion.delete({ where: { id: t.id } }), owner))).toMatch(
+      /APPEND_ONLY/,
+    );
+  });
+});
+
+describe('pesan masuk generik (fase 4 §4.1a)', () => {
+  const insert = (c: Ctx, over: Record<string, unknown>) =>
+    inT(c, (tx) =>
+      tx.inboundEvent.create({
+        data: {
+          id: newId(),
+          tenantId: c.tenantId,
+          source: 'uji',
+          idempotencyKey: newId(),
+          headers: {},
+          rawBody: 'MSH|^~\\&|X',
+          ...over,
+        },
+      }),
+    );
+
+  it('HL7 analyzer wajib tanpa PID/NK1 berisi dan bertanda perangkat; status baku; processed_at hanya untuk processed', async () => {
+    expect(await dbError(insert(A, { source: 'lis-hl7', rawBody: 'MSH|^~\\&|X\rPID|1||RM1||Siti' }))).toMatch(
+      /inbound_events_hl7_redacted|inbound_events_lis_device/,
+    );
+    expect(await dbError(insert(A, { status: 'selesai' }))).toMatch(/inbound_events_values_valid/);
+    expect(await dbError(insert(A, { status: 'processed' }))).toMatch(/inbound_events_values_valid/);
+    const ok = await insert(A, { rawBody: 'MSH|^~\\&|X\rPID|1\rNK1|1\rOBR|1' });
+    expect(ok.status).toBe('received');
+    expect(await inT(B, (tx) => tx.inboundEvent.count({ where: { id: ok.id } }))).toBe(0);
   });
 });

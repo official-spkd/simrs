@@ -3,6 +3,7 @@ import { bookingNoShowJob, bookingReminderJob } from './booking-jobs';
 import { clinicalDraftsCleanupJob } from './clinical-jobs';
 import type { PeriodicJob } from './periodic-job-types';
 import { generateSessionsJob, hfisPullJob } from './scheduling-jobs';
+import { criticalEscalationJob, stockBelowMinimumJob, stockExpiryJob } from './support-jobs';
 
 export type {
   PeriodicJob,
@@ -29,4 +30,8 @@ export const PERIODIC_JOBS: ReadonlyMap<string, PeriodicJob> = new Map<string, P
   ['clinical.drafts-cleanup', clinicalDraftsCleanupJob],
   // Fase 3 · W3: sinyal papan IGD/bed lebih dari 1 jam (ADR-0104).
   ['board.signals-cleanup', boardSignalsCleanupJob],
+  // Fase 4 · 4.1a: eskalasi nilai kritis (tiap menit), batch dekat ED dan stok di bawah minimum (harian 00.05 WIB).
+  ['critical.escalation', criticalEscalationJob],
+  ['stock.expiry', stockExpiryJob],
+  ['stock.below-minimum', stockBelowMinimumJob],
 ]);

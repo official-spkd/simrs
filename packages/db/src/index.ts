@@ -27,6 +27,16 @@ export {
 } from './outbox';
 export type { AuditEvent, InboundEvent, OutboxMessage, Tenant } from './generated/prisma/client';
 export {
+  claimDueInbound,
+  markInboundProcessed,
+  recordInboundFailure,
+  storeInboundEvent,
+  type InboundFailureOptions,
+  type StoreInboundInput,
+  type StoreInboundResult,
+} from './inbound';
+export { notifyStaff, type StaffNotificationInput } from './notifications';
+export {
   auditChainHead,
   type AuditAnchorRow,
   type AuditChainSegment,

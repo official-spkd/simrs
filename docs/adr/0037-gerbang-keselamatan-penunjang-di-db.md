@@ -26,7 +26,8 @@ database (ADR-0028, ADR-0077).
 4. **Radiologi:** dosis CT wajib (CHECK); tanpa PACS/DICOM MWL di fase 4, accession siap untuk itu.
 5. **Kamar operasi:** jadwal tanpa tumpang tindih per kamar (`EXCLUDE USING gist`, `btree_gist`); daftar tilik WHO
    berversi per RS dengan urutan sign in → time out → sign out dan kelengkapan dijaga trigger (`CHECKLIST_ORDER`,
-   `CHECKLIST_INCOMPLETE`), butir persetujuan diisi sistem; peristiwa berurutan induksi → insisi → tutup → keluar;
+   `CHECKLIST_INCOMPLETE`); templat seed sign in berisi 6 butir, termasuk butir sistem `sign-in-consent` yang diisi
+   dari data persetujuan tindakan dan tidak bisa dicentang manual; peristiwa berurutan induksi → insisi → tutup → keluar;
    insisi terkunci sampai time out kecuali override beralasan ≥ 15 karakter (pengaturan RS; hanya pemegang izin
    `surgery.override`, ditinjau mutu, diperiksa API); sign out butuh insisi tercatat + hitung akhir cocok atau
    ditindaklanjuti (`COUNT_MISMATCH`).
@@ -39,3 +40,11 @@ database (ADR-0028, ADR-0077).
 - Kode `RAISE` database dipetakan ke `SUPPORT_ERRORS` (`@simrs/shared`) oleh modul API, seperti `CLINICAL_ERRORS`.
 - Override yang sah selalu meninggalkan alasan di baris yang sama (tidak ada jalur diam-diam).
 - Tiga fungsi SECURITY DEFINER baru (stok + dua nilai kritis) masuk daftar tinjauan keamanan migrasi.
+
+## Pembaruan 7 Oktober 2026 · aturan ABO per komponen dan cek ganda (4.9)
+
+Butir 6 memakai aturan sel darah merah untuk semua komponen, sehingga plasma golongan O lolos ke pasien A/B/AB.
+Migrasi `20261008500000_blood_bank_safety` (ADR-0105) mengganti `app_blood_issue_guard` dengan aturan per komponen
+(`blood_components.abo_rule`: sel darah merah, plasma, identik). Komponen non-sel-darah-merah wajib golongan pasien.
+Jalur darurat hanya PRC golongan O. Kantong yang dicadangkan permintaan lain tidak keluar. Pengeluaran wajib cek ganda
+dua petugas (`blood_issue_checks`), dan transfusi wajib gelang ↔ kantong + verifikasi petugas kedua (`transfusions`).

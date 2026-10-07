@@ -46,6 +46,11 @@ model User {
   crossmatchTesters            Crossmatch[]                     @relation("CrossmatchTester")
   bloodIssuers                 BloodIssue[]                     @relation("BloodIssuer")
   transfusionReactionReporters TransfusionReaction[]            @relation("TransfusionReactionReporter")
+  bloodIssueCheckers           BloodIssueCheck[]                @relation("BloodIssueChecker")
+  transfusionStarters          Transfusion[]                    @relation("TransfusionStarter")
+  transfusionVerifiers         Transfusion[]                    @relation("TransfusionVerifier")
+  transfusionEnders            Transfusion[]                    @relation("TransfusionEnder")
+  transfusionVitalRecorders    TransfusionVital[]               @relation("TransfusionVitalRecorder")
   medicationDoseChecks         MedicationDoubleCheck[]
   id                           String                           @id @db.Uuid
   tenantId                     String                           @map("tenant_id") @db.Uuid
@@ -419,19 +424,23 @@ model RegisteredDevice {
   enrolCodeHash  String?       @map("enrol_code_hash")
   enrolExpiresAt DateTime?     @map("enrol_expires_at") @db.Timestamptz(3)
   enrolledAt     DateTime?     @map("enrolled_at") @db.Timestamptz(3)
+  /// lab_analyzer: kunci HMAC perangkat terenkripsi (`device_hmac`, ADR-0015) untuk `X-Device-Signature`; diisi saat
+  /// mendaftar (CHECK `registered_devices_hmac_key`), hanya berubah oleh rotasi kunci kolom.
+  hmacKeyEnc     String?       @map("hmac_key_enc")
   /// Admin yang mendaftarkan perangkat (kiosk/display).
   createdBy      String?       @map("created_by") @db.Uuid
 
-  tenant       Tenant           @relation(fields: [tenantId], references: [id])
-  unit         Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
-  creator      User?            @relation("RegisteredDeviceCreator", fields: [tenantId, createdBy], references: [tenantId, id])
-  queueDisplay QueueDisplay?    @relation(fields: [tenantId, queueDisplayId], references: [tenantId, id])
-  user         User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
-  assignment   StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
-  revoker      User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
-  sessions     AuthSession[]
-  kioskLookups KioskLookup[]
-  kioskTickets KioskTicket[]
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  unit          Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  creator       User?            @relation("RegisteredDeviceCreator", fields: [tenantId, createdBy], references: [tenantId, id])
+  queueDisplay  QueueDisplay?    @relation(fields: [tenantId, queueDisplayId], references: [tenantId, id])
+  user          User?            @relation("RegisteredDeviceUser", fields: [tenantId, userId], references: [tenantId, id])
+  assignment    StaffAssignment? @relation(fields: [tenantId, assignmentId], references: [tenantId, id])
+  revoker       User?            @relation("RegisteredDeviceRevoker", fields: [tenantId, revokedBy], references: [tenantId, id])
+  sessions      AuthSession[]
+  kioskLookups  KioskLookup[]
+  kioskTickets  KioskTicket[]
+  inboundEvents InboundEvent[]
 
   @@unique([tenantId, id])
   @@index([tenantId, userId])

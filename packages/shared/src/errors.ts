@@ -228,6 +228,10 @@ export const SUPPORT_ERRORS = {
     message: 'Masih ada peringatan CDS mayor/sedang yang belum ditindaklanjuti',
   },
   STOCK_INSUFFICIENT: { status: 409, message: 'Stok batch di depo ini tidak mencukupi' },
+  STOCK_CONFLICT: {
+    status: 409,
+    message: 'Stok yang sama sedang diubah transaksi lain; muat ulang lalu ulangi aksi',
+  },
   BATCH_EXPIRED: { status: 409, message: 'Batch sudah kedaluwarsa dan tidak boleh dikeluarkan ke pasien' },
   DOUBLE_CHECK_SAME_USER: { status: 409, message: 'Cek ganda harus oleh apoteker lain, bukan penyiap' },
   HIGH_ALERT_DOUBLE_CHECK_REQUIRED: {
@@ -252,6 +256,34 @@ export const SUPPORT_ERRORS = {
     status: 409,
     message: 'Crossmatch cocok wajib sebelum kantong dikeluarkan (darurat: golongan O beralasan dokter)',
   },
+  // S08 · Gerbang 4.9 (ADR-0105)
+  BLOOD_GROUP_REQUIRED: {
+    status: 409,
+    message: 'Golongan darah pasien (ABO dan Rh) belum diperiksa; isi golongan sebelum crossmatch',
+  },
+  BLOOD_GROUP_LOCKED: { status: 409, message: 'Golongan pasien terkunci setelah crossmatch pertama' },
+  BLOOD_UNIT_UNAVAILABLE: {
+    status: 409,
+    message: 'Kantong tidak tersedia (kedaluwarsa, sudah keluar, atau dicadangkan untuk permintaan lain)',
+  },
+  BLOOD_COMPONENT_MISMATCH: { status: 409, message: 'Komponen kantong tidak sesuai permintaan' },
+  BLOOD_DOUBLE_CHECK_REQUIRED: {
+    status: 409,
+    message: 'Cek ganda pertama tidak ada, tidak cocok, atau lewat 30 menit; ulangi cek ganda',
+  },
+  BLOOD_SECOND_CHECKER_SAME: {
+    status: 409,
+    message: 'Petugas kedua harus orang lain dari sesinya sendiri, bukan pemeriksa pertama/pemasang',
+  },
+  BLOOD_WRONG_PATIENT: {
+    status: 422,
+    message: 'Gelang pasien tidak cocok dengan permintaan darah. Hentikan: jangan pasang kantong',
+  },
+  BLOOD_WRONG_BAG: {
+    status: 422,
+    message: 'Nomor kantong tidak cocok dengan kantong yang dikeluarkan untuk pasien ini',
+  },
+  TRANSFUSION_STATE: { status: 409, message: 'Status transfusi tidak mengizinkan tindakan ini' },
 } as const satisfies Record<string, { status: number; message: string }>;
 
 export type SupportErrorCode = keyof typeof SUPPORT_ERRORS;
@@ -280,6 +312,8 @@ export const ERROR_CODES = [
   'WEBHOOK_SIGNATURE_INVALID',
   'WEBHOOK_TIMESTAMP_EXPIRED',
   'INTEGRATION_UNAVAILABLE',
+  // Basis data sibuk: transaksi tidak bisa dimulai dalam batas tunggu (HTTP 503, aman untuk diulang).
+  'SERVICE_BUSY',
   'INTERNAL_ERROR',
   // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,

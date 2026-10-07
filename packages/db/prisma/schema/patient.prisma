@@ -19,6 +19,7 @@ model Patient {
   dietOrders            DietOrder[]
   bloodRequests         BloodRequest[]
   bloodIssues           BloodIssue[]
+  transfusions          Transfusion[]
   id                    String                 @id @db.Uuid
   tenantId              String                 @map("tenant_id") @db.Uuid
   /// Nomor rekam medis `00-41-27-88` dari layanan penomoran (P08, jenis `mrn`). Tidak bisa diubah (hak kolom).
