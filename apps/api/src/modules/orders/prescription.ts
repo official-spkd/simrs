@@ -1,44 +1,36 @@
 import type { ClinicalPdfInput } from '@simrs/pdf';
-import { MEDICATION_FREQUENCIES, type MedicationFrequency, type OrderLineInput } from '@simrs/shared';
-import type { EvaluatedLine } from '../cds/cds.service';
-
-type MedicationLine = Extract<OrderLineInput, { type: 'obat' }>;
+import { MEDICATION_FREQUENCIES, type OrderGroup } from '@simrs/shared';
 
 /**
- * Isi PDF resep (ADR-0029) dari baris obat kiriman: tabel obat (racikan dengan komponennya), alergi tercatat, dan
- * peringatan CDS yang di-override beserta alasannya, sehingga apoteker melihat keputusan dokter di lembar yang sama.
- * Hanya data yang tersimpan di order (isi beku), tanpa jam render.
+ * Isi PDF resep (ADR-0029) dari kiriman order TERSIMPAN (isi beku, bukan masukan klien): tabel obat aktif (racikan
+ * dengan komponennya), alergi tercatat, dan peringatan CDS yang di-override beserta alasannya, sehingga apoteker
+ * melihat keputusan dokter di lembar yang sama. Dipakai saat kirim (penulis berwenang TTE) dan saat DPJP meninjau order
+ * residen; tanpa jam render.
  */
 export function prescriptionSections(
-  lines: ReadonlyArray<{ input: MedicationLine; evaluated: EvaluatedLine }>,
+  group: OrderGroup,
   allergies: readonly string[],
+  /** Override CDS atas obat kiriman ini: `{ name, message, reason }` (`OrdersView.medicationOverrides`). */
+  overrides: ReadonlyArray<{ name: string; message: string; reason: string | null }>,
 ): ClinicalPdfInput['sections'] {
-  const rows = lines.map(({ input, evaluated }) => {
-    const r = evaluated.resolved;
-    const name =
-      r.type === 'obat' && input.compound
-        ? `${input.compound.name} (racikan ${input.compound.quantity} ${input.compound.dosageForm}): ${input.compound.components
-            .map((c) => `${r.drugs.find((d) => d.id === c.drugId)?.name ?? 'obat'} ${c.amount}`)
-            .join(', ')}`
-        : evaluated.name;
-    const freq = MEDICATION_FREQUENCIES[input.frequency as MedicationFrequency].label;
-    const times = input.customTimes?.length ? ` (${input.customTimes.join(', ')} WIB)` : '';
+  const meds = group.medicationRequests.filter((m) => m.status !== 'dibatalkan');
+  const rows = meds.map((m) => {
+    const name = m.compound
+      ? `${m.name} (racikan ${m.compound.quantity} ${m.compound.dosageForm}): ${m.compound.components
+          .map((c) => `${c.name} ${c.amount}`)
+          .join(', ')}`
+      : m.name;
+    const freq = MEDICATION_FREQUENCIES[m.frequency].label;
+    const times = m.customTimes.length ? ` (${m.customTimes.join(', ')} WIB)` : '';
     return [
       name,
-      input.dose,
-      input.route,
+      m.dose,
+      m.route,
       `${freq}${times}`,
-      input.durationDays ? `${input.durationDays} hari` : '—',
-      input.instructions ?? '—',
+      m.durationDays ? `${m.durationDays} hari` : '—',
+      m.instructions ?? '—',
     ];
   });
-  const overridden = lines.flatMap(({ input, evaluated }) =>
-    evaluated.overridden
-      ? evaluated.findings
-          .filter((f) => f.level === 'block')
-          .map((f) => `${evaluated.name}: ${f.message} Alasan dokter: ${input.override ?? '—'}`)
-      : [],
-  );
   return [
     {
       title: 'Resep',
@@ -58,10 +50,21 @@ export function prescriptionSections(
           kind: 'fields',
           rows: [{ label: 'Alergi tercatat', value: allergies.length ? allergies.join(', ') : 'Tidak ada' }],
         },
-        ...(overridden.length
-          ? [{ kind: 'list' as const, items: overridden.map((o) => `Override CDS · ${o}`) }]
+        ...(overrides.length
+          ? [
+              {
+                kind: 'list' as const,
+                items: overrides.map(
+                  (o) => `Override CDS · ${o.name}: ${o.message} Alasan: ${o.reason ?? '—'}`,
+                ),
+              },
+            ]
           : []),
       ],
     },
   ];
 }
+
+/** Ada obat aktif yang perlu lembar resep. */
+export const hasPrescription = (group: OrderGroup) =>
+  group.medicationRequests.some((m) => m.status !== 'dibatalkan');

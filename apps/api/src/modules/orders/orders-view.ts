@@ -60,7 +60,7 @@ export class OrdersView {
         m.compound ? (m.compound as unknown as StoredCompound).components.map((c) => c.drugId) : [],
       ),
     );
-    const [events, drugNames, docs] = await Promise.all([
+    const [events, drugNames, docs, reviews] = await Promise.all([
       tx.orderStatusEvent.findMany({
         where: {
           OR: [{ serviceRequestId: { in: serviceIds } }, { medicationRequestId: { in: medicationIds } }],
@@ -76,7 +76,23 @@ export class OrdersView {
         orderBy: { createdAt: 'asc' },
         select: { id: true, sourceId: true, signatures: { select: { id: true, status: true } } },
       }),
+      tx.clinicalAttestation.findMany({
+        where: {
+          targetType: 'order_groups',
+          targetId: { in: groups.map((g) => g.id) },
+          kind: 'review_order',
+        },
+        orderBy: { attestedAt: 'asc' },
+        select: {
+          targetId: true,
+          userId: true,
+          userRole: true,
+          attestedAt: true,
+          user: { select: { displayName: true } },
+        },
+      }),
     ]);
+    const reviewByGroup = new Map(reviews.map((r) => [r.targetId, r]));
     // Status terkini = peristiwa terakhir per order.
     const status = new Map<string, { status: OrderStatus; reason: string | null }>();
     for (const e of events) {
@@ -97,7 +113,16 @@ export class OrdersView {
         orderSetId: g.orderSetId,
         orderedAt: g.orderedAt.toISOString(),
         orderedBy: { userId: g.orderedBy, nama: g.orderer.displayName, peran: g.orderedRole },
-        needsReview: g.needsReview,
+        needsReview: g.needsReview && !reviewByGroup.has(g.id),
+        review: (() => {
+          const r = reviewByGroup.get(g.id);
+          return r
+            ? {
+                by: { userId: r.userId, nama: r.user.displayName, peran: r.userRole },
+                at: r.attestedAt.toISOString(),
+              }
+            : null;
+        })(),
         serviceRequests: g.serviceRequests.map((r) => ({
           id: r.id,
           orderableId: r.orderableId,
@@ -162,6 +187,22 @@ export class OrdersView {
           : null,
       };
     });
+  }
+
+  /** Override CDS atas obat satu kiriman (untuk lembar resep): nama obat, pesan temuan, alasan dokter. */
+  async medicationOverrides(
+    groupId: string,
+  ): Promise<Array<{ name: string; message: string; reason: string | null }>> {
+    const rows = await this.db.tx().cdsAlert.findMany({
+      where: { orderGroupId: groupId, decision: 'override', medicationRequestId: { not: null } },
+      orderBy: [{ lineIndex: 'asc' }, { id: 'asc' }],
+      select: { message: true, overrideReason: true, medicationRequest: { select: { name: true } } },
+    });
+    return rows.map((r) => ({
+      name: r.medicationRequest?.name ?? 'Obat',
+      message: r.message,
+      reason: r.overrideReason,
+    }));
   }
 
   async group(id: string): Promise<OrderGroup | null> {

@@ -8,7 +8,8 @@ keselamatan yang tidak bisa dilewati diam-diam (CLAUDE.md §4.9) dan mengikuti p
 menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 
 > Status 7 Okt 2026: ketujuh layar berjalan di mode presentasi dengan data fiktif (`pnpm dev:demo`). Di mode api
-> semuanya masih "Belum tersambung" (potongan W1–W5b, dikerjakan agen backend mulai 7 Okt 2026). Backend yang sudah
+> CPOE (W2), rawat inap (W4), dan tablet persetujuan (W5a) sudah tersambung; layar lain masih "Belum tersambung" (W1,
+> W3, W5b). Backend yang sudah
 > ada: infrastruktur entri klinis (3.1), diagnosis, tanda vital, hasil, ringkasan (3.2a), CPPT + co-sign + worklist
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
 > (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), serta persetujuan tindakan +
@@ -48,12 +49,12 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 | Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                           |
 | -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
 | Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | 🟨 demo; API worklist, CPPT, diagnosis ada       |
-| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | 🟨 demo; API CPOE + CDS ada (3.4)                |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                               |
 | IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | 🟨 demo; API triase + papan IGD ada (3.3)        |
 | Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | 🟨 demo; API ADT + papan bed ada (3.3)           |
 | Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
 | Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | 🟨 demo; API ada (3.6); W5b belum                |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | 🟨 demo; API ada (3.7); W5a belum                |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                              |
 | Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
 | CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
 | Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
@@ -145,7 +146,7 @@ peran lain melihat "Akses ditolak". TTE CPPT di API tetap memakai izin `clinical
 | Rute     | `/klinis/order` (pilih kunjungan) · `/klinis/order/<encounterId>` (CPOE satu kunjungan)                                                                                  |
 | Pemakai  | dokter, dokter residen                                                                                                                                                   |
 | Komponen | K09 CPOE dan order set                                                                                                                                                   |
-| Status   | demo (mode presentasi); API katalog, order set, pratinjau CDS, kirim, dan batal ada (3.4), layar belum disambung (W2)                                                    |
+| Status   | demo (mode presentasi) dan api (W2): katalog, order set, pratinjau CDS server, kirim, batal, tinjauan DPJP atas order residen, status TTE resep                          |
 | Mockup   | `design/mockups/CPOE.dc.html`                                                                                                                                            |
 | Kode web | `apps/web/src/app/(staf)/klinis/order/` · `apps/web/src/components/klinis/cpoe-*.tsx` · `apps/web/src/lib/klinis-cds.ts` · `apps/web/src/lib/server/data/klinis/cpoe.ts` |
 | Kode API | `apps/api/src/modules/orders/` · `apps/api/src/modules/cds/` · mesin aturan `packages/shared/src/clinical/cds.ts`                                                        |
@@ -195,8 +196,33 @@ dikirim dengan TTE.
   **Kirim resep (TTE)** setelah rencana terapi, gerbang CDS skenario, dan PRB selesai.
 - Kunjungan tak dikenal menghasilkan 404.
 
-**Mode api.** Izin layar `order.write`. Sampai potongan W2 halaman menampilkan "Belum tersambung". Di API, resep
-penulis tanpa `clinical.sign` (residen) berstatus `needs_review` untuk DPJP.
+**Mode api (W2).** Izin layar `order.write`; API menegakkan ulang izin dan ABAC pasien. Komponen
+`components/klinis/cpoe-api-*.tsx`, logika murni `lib/cpoe-api.ts`, Server Action `app/(staf)/klinis/order/actions.ts`.
+
+1. **Order & resep (CPOE)** menampilkan "Kunjungan berjalan" dari worklist K01: pasien tempat Anda DPJP atau rawat
+   bersama, ditambah pasien di unit penugasan. Kunjungan dengan order residen yang menunggu tinjauan Anda tampil
+   teratas dengan chip "N order residen menunggu tinjauan".
+2. Banner pasien diambil dari `GET /encounters/:id/context`. Alergi selalu bertulisan: daftar alergi, "Tidak ada alergi
+   obat (NKDA)", atau "Alergi belum dikaji".
+3. Cari katalog RS (minimal 2 huruf, bisa disaring per jenis) atau terapkan order set. Baris obat wajib dosis, rute,
+   dan aturan pakai; penunjang memilih prioritas rutin/cito.
+4. Setiap perubahan daftar menjalankan pratinjau CDS server (`POST /orders/evaluate`) dengan KB RS. Temuan blok
+   memunculkan gerbang **CDS memblokir …**: **Hapus …**, atau **Override dengan alasan** (minimal 10 karakter).
+   Alasan ikut dikirim dan tercatat di `cds_alerts`.
+5. **Kirim N order** aktif setelah semua baris lengkap dan tidak ada blok tersisa. Kiriman memakai Idempotency-Key
+   yang dipakai ulang selama daftar tidak berubah, sehingga klik ganda tidak menggandakan order. Bila server tetap
+   menolak (`CDS_BLOCKED`), hasil evaluasi server tampil di gerbang.
+6. "Order kunjungan ini" memuat setiap kiriman: penulis, waktu, isi beku, status per baris, override tercatat, dan
+   status resep ("Resep · TTE diproses/sah/gagal"). Layar memuat ulang sendiri selama TTE diproses.
+7. **Batalkan** meminta alasan minimal 10 karakter; baris menjadi "Dibatalkan" dengan alasannya.
+8. Order dokter residen langsung aktif, tetapi resepnya belum ditandatangani: kiriman berlabel "Menunggu tinjauan
+   DPJP". DPJP utama, DPJP rawat bersama, atau DPJP kunjungan menekan **Tinjau dan tandatangani resep**
+   (`POST /orders/:id/review`). Tinjauan mencatat atestasi `review_order`, menerbitkan resep PDF ber-TTE atas nama
+   peninjau, dan menutup tugas worklist "Tinjau order residen". Dokter lain ditolak `COSIGN_NOT_ALLOWED`; penulis order
+   tidak bisa meninjau order sendiri; tinjauan ganda ditolak 409.
+
+Nominal tidak ditampilkan di mode api sampai master tarif U01. Kunjungan yang tidak ada atau di luar akses menampilkan
+"Kunjungan tidak ditemukan" atau "Akses ditolak" dengan tautan kembali ke daftar kunjungan.
 
 ## IGD
 
@@ -488,10 +514,10 @@ Rujuk: surat rujukan keluar F07. Syarat yang kurang dikembalikan sebagai 409 `DI
 
 | Hal      | Isi                                                                                                                                                            |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rute     | `/tablet/persetujuan` (dokumen di tablet ini) · `/tablet/persetujuan/<consentId>` (layar penuh, kerangka `perangkat`)                                          |
+| Rute     | `/tablet/persetujuan` (mode api: pilih kunjungan, `?kunjungan=<encounterId>`) · `/tablet/persetujuan/<id>` (mode api: draf; layar penuh `perangkat`)           |
 | Pemakai  | dokter, perawat                                                                                                                                                |
 | Komponen | K11 persetujuan dan edukasi                                                                                                                                    |
-| Status   | demo (mode presentasi); API potongan 3.7 ada (ADR-0058); layar belum disambung (W5a)                                                                           |
+| Status   | demo (mode presentasi) dan api (W5a): draf dari templat, tanda tangan, saksi petugas, TTE dokter, penolakan, pembatalan draf, pencabutan                       |
 | Mockup   | `design/mockups/Consent.dc.html`                                                                                                                               |
 | Kode web | `apps/web/src/app/(perangkat)/tablet/persetujuan/` · `apps/web/src/components/rawat-inap/signature-pad.tsx` · `apps/web/src/lib/server/data/klinis/consent.ts` |
 | Kode API | `apps/api/src/modules/consent/` (draf tablet, tanda tangan PNG, saksi petugas, final/penolakan ber-TTE, pencabutan)                                            |
@@ -529,8 +555,29 @@ menandatangani bersama saksi. Dokter pelaksana menutup dengan TTE. Pasien juga b
   tablet hanya bisa dibaca dengan status "Menunggu giliran persetujuan di Simulasi." Persetujuan operasi Ny. Ratna
   final bersama SEP rawat inap pada langkah Admisi elektif.
 
-**Mode api.** Izin layar `consent.write`, dibuka dengan sesi staf di tablet (tanpa prinsipal perangkat). Sampai W5a
-halaman menampilkan "Belum tersambung".
+**Mode api (W5a).** Izin layar `consent.write`, dibuka dengan sesi staf di tablet (tanpa prinsipal perangkat). Final,
+penolakan, dan pencabutan memakai `consent.sign` (dokter berelasi dengan pasien). Kode: `api-persetujuan-list.tsx`,
+`api-persetujuan-forms.tsx`, `[id]/consent-tablet-api.tsx`, Server Action `actions.ts`.
+
+1. **Pilih kunjungan pasien** menampilkan kunjungan berjalan dari worklist K01 (pasien tempat Anda DPJP/rawat
+   bersama + unit penugasan). Halaman kunjungan memuat banner pasien, "Draf di tablet" (status dan syarat yang belum
+   terpenuhi), "Persetujuan tercatat" (keputusan berlaku + status TTE), dan **Draf persetujuan baru**.
+2. Draf baru: tindakan, pemberi persetujuan (pasien sendiri atau wali), dan ketujuh butir informasi templat P07.
+   **Simpan draf dan buka di tablet** membuka draf itu.
+3. Langkah 1: pasien/wali mencentang ketujuh butir **Saya memahami: …**.
+4. Langkah 2: nama (dan hubungan untuk wali), lalu tanda tangan di bantalan (gambar PNG diunggah ke dokumen pasien)
+   atau ketik nama lengkap.
+5. Langkah 3: saksi keluarga opsional (nama, hubungan, tanda tangan), lalu **Simpan tanda tangan**. Petugas yang hadir
+   menekan **Saya (<nama>) hadir sebagai saksi petugas** dengan sesinya sendiri; atestasi berlaku 30 menit.
+6. Langkah 4: dokter berelasi menekan **Tanda tangani (TTE)**. Dokter yang menjadi saksi petugas tidak bisa
+   memfinalkan. Hasilnya entri persetujuan + PDF bertanda tangan; layar memuat ulang sendiri sampai "TTE sah".
+7. **Pasien menolak tindakan** (hanya dokter) meminta alasan minimal 10 karakter → entri penolakan + PDF + TTE.
+   **Batalkan draf ini** (alasan minimal 10 karakter) membuang draf tanpa menjadi rekam medis.
+8. Di halaman kunjungan, dokter mencatat **Pasien mencabut persetujuan** (alasan + nama lengkap yang mencabut, tanda
+   tangan ketik nama) → entri `dicabut` + PDF + TTE; persetujuan awal tetap terkunci.
+
+Galat API tampil tertulis, mis. `CONSENT_SIGNATURES_REQUIRED` (tanda tangan/saksi belum lengkap) atau `CONSENT_CLOSED`
+(draf sudah ditutup di perangkat lain).
 
 **API (potongan 3.7, ADR-0058).** Alur di API sama dengan tablet demo, dengan identitas selalu dari sesi:
 
@@ -544,7 +591,10 @@ halaman menampilkan "Belum tersambung".
    harus orang lain dari dokter yang memfinalkan.
 4. **Dokter berelasi** (`consent.sign`, hanya dokter, lingkup relasi) memfinalkan (`POST …/finalize`) atau mencatat
    penolakan beralasan (`POST …/refuse`). Hasilnya entri `consents` versi 1 + PDF + TTE, langsung terkunci. Perawat dan
-   residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`.
+   residen ditolak 403. Tanpa tanda tangan atau atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`. Final juga menunggu
+   **edukasi tindakan**: isian P07 `edukasi_terintegrasi` terkini di kunjungan itu dengan topik "Tindakan yang
+   direncanakan" harus berevaluasi "paham" (sama dengan layar Edukasi); bila belum → 422 `CONSENT_EDUCATION_REQUIRED`
+   dan draf menampilkan `edukasi_tindakan` di daftar kekurangan. Penolakan tidak menunggu edukasi.
 5. Draf **tutup-sekali**: setelah final, ditolak, atau dibatalkan (`POST …/cancel`, alasan ≥ 10) setiap perubahan → 409
    `CONSENT_CLOSED`, dijaga juga trigger database. Finalisasi serentak hanya terjadi sekali.
 6. **Pencabutan** (`POST /api/v1/consents/:id/revoke`, `consent.sign`) membuat entri baru `dicabut` ber-TTE dengan

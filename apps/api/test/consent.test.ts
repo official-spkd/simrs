@@ -20,6 +20,7 @@ import {
   CONSENT_TEMPLATE_SAMPLE,
   EDUCATION_FORM_SAMPLE,
   newId,
+  patientDocumentSchema,
 } from '@simrs/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
@@ -82,11 +83,14 @@ async function clinicalTenant() {
 }
 
 let seq = 0;
-/** Pasien rawat inap Melati; tim: dokter = DPJP utama, perawat = perawat PJ (relasi akses). */
-async function inpatient() {
+/**
+ * Pasien rawat inap Melati; tim: dokter = DPJP utama, perawat = perawat PJ (relasi akses). `educated` = perawat sudah
+ * mencatat edukasi tindakan berevaluasi paham (syarat final persetujuan).
+ */
+async function inpatient(opts: { educated?: boolean } = {}) {
   const p = await createTestPatient(A.id, { name: 'Pasien Persetujuan Fiktif' });
   seq += 1;
-  return run(A.id, async (tx) => {
+  const e = await run(A.id, async (tx) => {
     const u = (await tx.unit.findFirstOrThrow({ where: { code: 'MELATI' } })).id;
     const enc = await tx.encounter.create({
       data: {
@@ -123,6 +127,22 @@ async function inpatient() {
     }
     return { patientId: p.id, encounterId: enc.id };
   });
+  if (opts.educated ?? true) await educate(e, ['tindakan'], 'paham');
+  return e;
+}
+
+/** Edukasi terintegrasi P07 oleh perawat PJ dengan `encounterId`. */
+async function educate(
+  e: { patientId: string; encounterId: string },
+  topik: string[],
+  evaluasi: 'paham' | 'perlu_ulang',
+) {
+  return as('perawat')
+    .post(`/patients/${e.patientId}/forms/edukasi_terintegrasi/responses`, {
+      answers: { topik, sasaran: 'keduanya', evaluasi },
+      encounterId: e.encounterId,
+    })
+    .expect(201);
 }
 
 const PROCEDURE = 'Pemasangan kateter vena sentral';
@@ -310,6 +330,12 @@ describe('persetujuan tindakan (K11)', () => {
     ).rejects.toThrow(/RECORD_LOCKED/);
     const list = await as('perawat').get(`/encounters/${e.encounterId}/consents`).expect(200);
     expect(list.body.map((c: { id: string }) => c.id)).toEqual([r.body.id]);
+    // Dokumen pasien (P08) yang dibaca komponen dokumen klinis web: PDF persetujuan + PNG tanda tangan, bentuk
+    // sesuai kontrak `patientDocumentSchema`.
+    const docs = await as('dokter').get(`/patients/${e.patientId}/documents`).expect(200);
+    const parsed = patientDocumentSchema.array().parse(docs.body);
+    expect(parsed.map((x) => x.kind).sort()).toEqual(['consent', 'consent']);
+    expect(parsed.find((x) => x.id === doc.id)?.signatures[0]?.status).toBe('pending');
   });
 
   it('gambar tanda tangan hanya PNG ≤ 512 KB (SVG 415, besar 413); finalisasi serentak hanya sekali', async () => {
@@ -520,8 +546,40 @@ describe('persetujuan tindakan (K11)', () => {
     expect((await as('perawat').get(`/encounters/${e.encounterId}/consents`).expect(200)).body).toEqual([]);
   });
 
+  it('final wajib edukasi tindakan terkini paham (seperti layar Edukasi demo); penolakan tidak', async () => {
+    const e = await inpatient({ educated: false });
+    const id = await readyDraft(e.encounterId);
+    const draft = await as('dokter').get(`/consents/drafts/${id}`).expect(200);
+    expect(draft.body.missing).toEqual(['edukasi_tindakan']);
+    const none = await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
+    expect(none.body).toMatchObject({
+      code: 'CONSENT_EDUCATION_REQUIRED',
+      details: { formCode: 'edukasi_terintegrasi', topic: 'tindakan' },
+    });
+    // Edukasi topik lain tidak cukup; tindakan "perlu ulang" tidak cukup.
+    await educate(e, ['obat', 'nyeri'], 'paham');
+    await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
+    await educate(e, ['tindakan'], 'perlu_ulang');
+    await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
+    // Edukasi ulang terbaru paham → final; sebaliknya paham lalu diulang "perlu ulang" → kembali terblokir.
+    await educate(e, ['tindakan', 'penyakit'], 'paham');
+    expect((await as('dokter').get(`/consents/drafts/${id}`).expect(200)).body.missing).toEqual([]);
+    await educate(e, ['tindakan'], 'perlu_ulang');
+    await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(422);
+    await educate(e, ['tindakan'], 'paham');
+    await as('dokter').post(`/consents/drafts/${id}/finalize`).expect(201);
+    // Penolakan tidak menunggu edukasi.
+    const e2 = await inpatient({ educated: false });
+    const d2 = await as('perawat')
+      .post(`/encounters/${e2.encounterId}/consent-drafts`, draftBody())
+      .expect(201);
+    await as('dokter')
+      .post(`/consents/drafts/${d2.body.id}/refuse`, { reason: 'Pasien menolak sebelum edukasi selesai' })
+      .expect(201);
+  });
+
   it('isolasi tenant + izin baca: kasir 403, tenant lain 404; edukasi lewat P07 dengan encounterId', async () => {
-    const e = await inpatient();
+    const e = await inpatient({ educated: false });
     const id = await readyDraft(e.encounterId);
     await as('kasir').get(`/encounters/${e.encounterId}/consents`).expect(403);
     await as('kasir').get(`/consents/drafts/${id}`).expect(403);
@@ -532,12 +590,7 @@ describe('persetujuan tindakan (K11)', () => {
     await as('dokterB').post(`/encounters/${e.encounterId}/consent-drafts`, draftBody()).expect(404);
     const fromB = await run(B.id, (tx) => tx.consentDraft.count({ where: { id } }));
     expect(fromB).toBe(0);
-    const edu = await as('perawat')
-      .post(`/patients/${e.patientId}/forms/edukasi_terintegrasi/responses`, {
-        answers: { topik: ['obat', 'nyeri'], sasaran: 'keduanya', evaluasi: 'paham' },
-        encounterId: e.encounterId,
-      })
-      .expect(201);
+    const edu = await educate(e, ['obat', 'nyeri'], 'paham');
     expect(edu.body.encounterId).toBe(e.encounterId);
     const assessments = await as('dokter').get(`/encounters/${e.encounterId}/assessments`).expect(200);
     expect(assessments.body.map((a: { formCode: string }) => a.formCode)).toEqual(['edukasi_terintegrasi']);
