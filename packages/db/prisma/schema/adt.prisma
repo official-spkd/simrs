@@ -141,16 +141,19 @@ model PatientWristband {
 /// K12 · Setiap pindaian gelang (cocok atau tidak), append-only; waktu dari server. Pemberian obat wajib menunjuk
 /// pindaian cocok milik perawat yang sama yang belum kedaluwarsa (trigger `medication_administrations`).
 model WristbandScan {
-  id          String   @id @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  encounterId String   @map("encounter_id") @db.Uuid
-  patientId   String   @map("patient_id") @db.Uuid
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  encounterId    String   @map("encounter_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
   /// Gelang yang cocok; null bila kode tidak cocok dengan gelang aktif kunjungan ini.
-  wristbandId String?  @map("wristband_id") @db.Uuid
-  matched     Boolean
-  scannedCode String   @map("scanned_code")
-  userId      String   @map("user_id") @db.Uuid
-  scannedAt   DateTime @default(now()) @map("scanned_at") @db.Timestamptz(3)
+  wristbandId    String?  @map("wristband_id") @db.Uuid
+  matched        Boolean
+  scannedCode    String   @map("scanned_code")
+  /// scan | dua_identitas (gelang tidak terbaca: verifikasi nama + tanggal lahir/RM oleh server, beralasan).
+  method         String   @default("scan")
+  overrideReason String?  @map("override_reason")
+  userId         String   @map("user_id") @db.Uuid
+  scannedAt      DateTime @default(now()) @map("scanned_at") @db.Timestamptz(3)
 
   tenant          Tenant                     @relation(fields: [tenantId], references: [id])
   encounter       Encounter                  @relation(fields: [tenantId, encounterId], references: [tenantId, id])

@@ -492,6 +492,7 @@ model Encounter {
   medicationSchedules       MedicationSchedule[]
   medicationAdministrations MedicationAdministration[]
   nursingCarePlans          NursingCarePlan[]
+  nursingCareActivities     NursingCareActivity[]
   billableEvents            BillableEvent[]
 
   @@unique([tenantId, id])
@@ -523,29 +524,32 @@ model EncounterStatusHistory {
 
 /// F06 · Penjaminan per kunjungan. Terkunci (`locked_at`, trigger) begitu SEP untuknya terbit.
 model Coverage {
-  id                  String    @id @db.Uuid
-  tenantId            String    @map("tenant_id") @db.Uuid
-  encounterId         String    @map("encounter_id") @db.Uuid
-  payerId             String    @map("payer_id") @db.Uuid
+  id                      String    @id @db.Uuid
+  tenantId                String    @map("tenant_id") @db.Uuid
+  encounterId             String    @map("encounter_id") @db.Uuid
+  payerId                 String    @map("payer_id") @db.Uuid
   /// Identifier peserta (mis. no. BPJS) di MPI; null untuk umum.
-  patientIdentifierId String?   @map("patient_identifier_id") @db.Uuid
+  patientIdentifierId     String?   @map("patient_identifier_id") @db.Uuid
   /// 1 = utama, 2–3 = pendamping (koordinasi manfaat).
-  priority            Int       @default(1) @db.SmallInt
+  priority                Int       @default(1) @db.SmallInt
   /// Hak kelas peserta: kelas_1 | kelas_2 | kelas_3
-  classEntitlement    String?   @map("class_entitlement")
+  classEntitlement        String?   @map("class_entitlement")
   /// Kelas rawat yang dipakai (bisa naik kelas).
-  careClass           String?   @map("care_class")
+  careClass               String?   @map("care_class")
   /// active | cancelled
-  status              String    @default("active")
-  lockedAt            DateTime? @map("locked_at") @db.Timestamptz(3)
+  status                  String    @default("active")
+  lockedAt                DateTime? @map("locked_at") @db.Timestamptz(3)
   /// No. anggota asuransi / no. karyawan (terenkripsi `encryptField`); BPJS lewat `patient_identifier_id`.
-  memberNoEnc         String?   @map("member_no_enc")
+  memberNoEnc             String?   @map("member_no_enc")
   /// No. surat jaminan asuransi.
-  guaranteeLetterNo   String?   @map("guarantee_letter_no")
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy           String?   @map("created_by") @db.Uuid
-  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy           String?   @map("updated_by") @db.Uuid
+  guaranteeLetterNo       String?   @map("guarantee_letter_no")
+  /// Diagnosa awal ICD-10 yang diisi saat registrasi BPJS (dipakai ulang SEP rawat inap saat admisi nyata, 3.5).
+  initialDiagnosisCode    String?   @map("initial_diagnosis_code")
+  initialDiagnosisDisplay String?   @map("initial_diagnosis_display")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy               String?   @map("created_by") @db.Uuid
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy               String?   @map("updated_by") @db.Uuid
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id])
   encounter         Encounter          @relation(fields: [tenantId, encounterId], references: [tenantId, id])

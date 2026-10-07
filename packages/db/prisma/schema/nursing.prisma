@@ -100,20 +100,51 @@ model NursingCarePlan {
   interventions    Json
   evaluation       String?
 
-  tenant         Tenant            @relation(fields: [tenantId], references: [id])
-  patient        Patient           @relation(fields: [tenantId, patientId], references: [tenantId, id])
-  encounter      Encounter         @relation(fields: [tenantId, encounterId], references: [tenantId, id])
-  author         User              @relation("NursingCarePlanAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
-  diagnosis      NursingDiagnosis  @relation(fields: [tenantId, diagnosisId], references: [tenantId, id])
-  supersedes     NursingCarePlan?  @relation("NursingCarePlanVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
-  supersededBy   NursingCarePlan[] @relation("NursingCarePlanVersion")
-  addendumTarget NursingCarePlan?  @relation("NursingCarePlanAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
-  addenda        NursingCarePlan[] @relation("NursingCarePlanAddendum")
+  tenant         Tenant                @relation(fields: [tenantId], references: [id])
+  patient        Patient               @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter      Encounter             @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  author         User                  @relation("NursingCarePlanAuthor", fields: [tenantId, authorUserId], references: [tenantId, id])
+  diagnosis      NursingDiagnosis      @relation(fields: [tenantId, diagnosisId], references: [tenantId, id])
+  activities     NursingCareActivity[]
+  supersedes     NursingCarePlan?      @relation("NursingCarePlanVersion", fields: [tenantId, supersedesId], references: [tenantId, id])
+  supersededBy   NursingCarePlan[]     @relation("NursingCarePlanVersion")
+  addendumTarget NursingCarePlan?      @relation("NursingCarePlanAddendum", fields: [tenantId, addendumOf], references: [tenantId, id])
+  addenda        NursingCarePlan[]     @relation("NursingCarePlanAddendum")
 
   @@unique([tenantId, id])
   @@unique([tenantId, rootId, version])
   @@index([tenantId, encounterId])
   @@map("nursing_care_plans")
+}
+
+/// K12 · Implementasi dan evaluasi asuhan keperawatan (append-only) atas satu rantai rencana (`care_plan_root_id`).
+/// Evaluasi membawa hasil (teratasi, teratasi sebagian, belum teratasi). Waktu catat dari server.
+model NursingCareActivity {
+  id             String   @id @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
+  encounterId    String   @map("encounter_id") @db.Uuid
+  carePlanRootId String   @map("care_plan_root_id") @db.Uuid
+  /// implementasi | evaluasi
+  kind           String
+  text           String
+  /// Hanya evaluasi: teratasi | teratasi_sebagian | belum_teratasi
+  outcome        String?
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  userId         String   @map("user_id") @db.Uuid
+  userRole       String   @map("user_role")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  patient   Patient         @relation(fields: [tenantId, patientId], references: [tenantId, id])
+  encounter Encounter       @relation(fields: [tenantId, encounterId], references: [tenantId, id])
+  carePlan  NursingCarePlan @relation(fields: [tenantId, carePlanRootId], references: [tenantId, id])
+  user      User            @relation("NursingCareActivityUser", fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, carePlanRootId])
+  @@index([tenantId, encounterId])
+  @@map("nursing_care_activities")
 }
 
 /// K07/K09 · Daftar singkatan terlarang per RS ("Do Not Use", EP 9a): peringatan, tidak memblokir.

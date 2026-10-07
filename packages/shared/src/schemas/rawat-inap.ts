@@ -593,6 +593,7 @@ export const consentRefusalInputSchema = z.strictObject({
 const uuid = z.uuid();
 const instant = z.iso.datetime({ offset: true });
 const longText = (max: number) => z.string().trim().max(max);
+const safetyReasonText = () => z.string().trim().min(SAFETY_REASON_MIN).max(500);
 
 /**
  * Status tampilan CPPT: catatan residen `menunggu_cosign` sampai DPJP co-sign (keputusan fase 3 no. 4); di database
@@ -697,11 +698,39 @@ export type TriageAssessmentRecord = z.infer<typeof triageAssessmentRecordSchema
  * `POST /api/v1/nursing/wristband-scans`: kode gelang hasil pindai. Tidak ada jalur melewati pindai (keputusan fase 3
  * no. 8); tidak cocok → tercatat + 422 `WRISTBAND_MISMATCH`.
  */
-export const wristbandScanInputSchema = z.strictObject({
-  encounterId: uuid,
-  code: z.string().trim().min(1).max(64),
-});
+export const wristbandScanInputSchema = z.union([
+  z.strictObject({
+    encounterId: uuid,
+    code: z.string().trim().min(1).max(64),
+  }),
+  /**
+   * Gelang rusak/tidak terbaca (keputusan orkestrator 3.5): verifikasi dua identitas. Server mencocokkan nama lengkap +
+   * tanggal lahir ATAU No. RM dengan pasien kunjungan; tetap tercatat sebagai pindaian bertanggal server (berlaku sama
+   * dengan pindai biasa) dengan alasan ≥ 10. Bukan jalur melewati verifikasi identitas.
+   */
+  z.strictObject({
+    encounterId: uuid,
+    method: z.literal('dua_identitas'),
+    name: z.string().trim().min(1).max(120),
+    secondIdentifier: z.discriminatedUnion('kind', [
+      z.strictObject({ kind: z.literal('tanggal_lahir'), value: z.iso.date() }),
+      z.strictObject({ kind: z.literal('rm'), value: z.string().trim().min(1).max(20) }),
+    ]),
+    reason: safetyReasonText(),
+  }),
+]);
 export type WristbandScanInput = z.infer<typeof wristbandScanInputSchema>;
+
+/** Jawaban pindaian cocok (pindaian tidak cocok tetap tercatat, jawabannya 422 `WRISTBAND_MISMATCH`). */
+export const wristbandScanResultSchema = z.strictObject({
+  scanId: uuid,
+  encounterId: uuid,
+  method: z.enum(['scan', 'dua_identitas']),
+  scannedAt: instant,
+  /** Batas pakai pindaian (`emar.scan_valid_minutes`), untuk perawat yang sama. */
+  validUntil: instant,
+});
+export type WristbandScanResult = z.infer<typeof wristbandScanResultSchema>;
 
 /**
  * `POST /api/v1/nursing/administrations`. Wajib `scanId` pindaian cocok ≤ `emar.scan_valid_minutes` oleh perawat yang
@@ -752,6 +781,23 @@ export const emarScheduleSlotSchema = z.strictObject({
 });
 export type EmarScheduleSlot = z.infer<typeof emarScheduleSlotSchema>;
 
+/** Satu pemberian obat tercatat (jawaban `POST /nursing/administrations` dan isi grid eMAR). */
+export const medicationAdministrationRecordSchema = z.strictObject({
+  id: uuid,
+  medicationRequestId: uuid,
+  scheduleId: uuid.nullable(),
+  status: z.enum(MEDICATION_ADMINISTRATION_STATUSES),
+  occurredAt: instant,
+  recordedAt: instant,
+  late: z.boolean(),
+  reason: z.string().nullable(),
+  by: clinicalAuthorSchema,
+  doubleCheckedBy: clinicalAuthorSchema.nullable(),
+  /** Identitas diverifikasi lewat pindai gelang atau dua identitas (gelang tidak terbaca). */
+  identification: z.enum(['scan', 'dua_identitas']),
+});
+export type MedicationAdministrationRecord = z.infer<typeof medicationAdministrationRecordSchema>;
+
 export const emarOrderSchema = z.strictObject({
   medicationRequestId: uuid,
   name: z.string().min(1).max(120),
@@ -763,9 +809,97 @@ export const emarOrderSchema = z.strictObject({
     .regex(/^\d{8}$/)
     .nullable(),
   highAlert: z.boolean(),
+  /**
+   * Kode label obat yang diterima saat pindai label: id order (label farmasi) atau kode KFA obat tunggal. Dicocokkan
+   * server tanpa memedulikan huruf besar/pemisah.
+   */
+  labelCode: z.string().min(1).max(64),
+  /** `aktif`, atau berhenti (dibatalkan/selesai/lewat lama pemberian) → tidak ada slot baru. */
+  status: z.enum(['aktif', 'dihentikan']),
   slots: z.array(emarScheduleSlotSchema),
+  /** PRN/stat: pemberian tercatat (tanpa jadwal). */
+  unscheduled: z.array(medicationAdministrationRecordSchema),
 });
 export type EmarOrder = z.infer<typeof emarOrderSchema>;
+
+/** `GET /api/v1/encounters/:id/emar?date=YYYY-MM-DD` (hari WIB). */
+export const emarApiSchema = z.strictObject({
+  encounterId: uuid,
+  date: z.iso.date(),
+  asOf: instant,
+  lateMinutes: z.int().min(1),
+  scanValidMinutes: z.int().min(1),
+  orders: z.array(emarOrderSchema),
+  /** Perawat/bidan lain di unit pasien yang bisa menjadi pemeriksa kedua obat kewaspadaan tinggi. */
+  doubleCheckers: z.array(z.strictObject({ userId: uuid, nama: z.string() })),
+});
+export type EmarApi = z.infer<typeof emarApiSchema>;
+
+// ---------------------------------------------------------------------------------------------------------------
+// K12 · Asuhan keperawatan (potongan 3.5): diagnosis keperawatan master lokal, rencana berversi (ADR-0028),
+// implementasi/evaluasi append-only.
+// ---------------------------------------------------------------------------------------------------------------
+
+export const nursingInterventionSchema = z.strictObject({
+  text: z.string().trim().min(1).max(300),
+  /** Frekuensi/jadwal intervensi bebas (mis. "tiap 4 jam"). */
+  schedule: z.string().trim().max(60).nullable(),
+});
+export type NursingIntervention = z.infer<typeof nursingInterventionSchema>;
+
+export const nursingCarePlanInputSchema = z.strictObject({
+  encounterId: uuid,
+  occurredAt: instant,
+  diagnosisId: uuid,
+  goals: z.string().trim().min(1).max(2000),
+  interventions: z.array(nursingInterventionSchema).min(1).max(30),
+  evaluation: z.string().trim().max(2000).nullable(),
+  revision: clinicalRevisionSchema,
+});
+export type NursingCarePlanInput = z.infer<typeof nursingCarePlanInputSchema>;
+
+export const NURSING_CARE_OUTCOMES = ['teratasi', 'teratasi_sebagian', 'belum_teratasi'] as const;
+export type NursingCareOutcome = (typeof NURSING_CARE_OUTCOMES)[number];
+
+export const nursingCareActivityInputSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('implementasi'),
+    occurredAt: instant,
+    text: z.string().trim().min(1).max(2000),
+  }),
+  z.strictObject({
+    kind: z.literal('evaluasi'),
+    occurredAt: instant,
+    text: z.string().trim().min(1).max(2000),
+    outcome: z.enum(NURSING_CARE_OUTCOMES),
+  }),
+]);
+export type NursingCareActivityInput = z.infer<typeof nursingCareActivityInputSchema>;
+
+export const nursingCareActivitySchema = z.strictObject({
+  id: uuid,
+  kind: z.enum(['implementasi', 'evaluasi']),
+  text: z.string(),
+  outcome: z.enum(NURSING_CARE_OUTCOMES).nullable(),
+  occurredAt: instant,
+  recordedAt: instant,
+  by: clinicalAuthorSchema,
+});
+export type NursingCareActivity = z.infer<typeof nursingCareActivitySchema>;
+
+export const nursingCarePlanRecordSchema = clinicalEntryMetaSchema.extend({
+  encounterId: uuid,
+  diagnosis: z.strictObject({ id: uuid, code: z.string(), name: z.string() }),
+  goals: z.string(),
+  interventions: z.array(nursingInterventionSchema),
+  evaluation: z.string().nullable(),
+  /** Implementasi/evaluasi atas rantai rencana ini (terbaru dulu); hanya di daftar. */
+  activities: z.array(nursingCareActivitySchema),
+});
+export type NursingCarePlanRecord = z.infer<typeof nursingCarePlanRecordSchema>;
+
+export const nursingDiagnosisSchema = z.strictObject({ id: uuid, code: z.string(), name: z.string() });
+export type NursingDiagnosisItem = z.infer<typeof nursingDiagnosisSchema>;
 
 // ---------------------------------------------------------------------------------------------------------------
 // Kanal SSE klinis (potongan 3.1, ADR-0026): papan IGD, papan bed, eskalasi EWS. Muatan hanya ID, kode status, dan

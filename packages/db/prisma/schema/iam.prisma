@@ -66,6 +66,7 @@ model User {
   medicationAdministrations MedicationAdministration[] @relation("MedicationAdministrationUser")
   medicationDoubleChecks    MedicationAdministration[] @relation("MedicationAdministrationDoubleCheck")
   authoredNursingCarePlans  NursingCarePlan[]          @relation("NursingCarePlanAuthor")
+  nursingCareActivities     NursingCareActivity[]      @relation("NursingCareActivityUser")
 
   @@unique([tenantId, id])
   @@unique([tenantId, username])

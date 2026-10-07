@@ -3,6 +3,7 @@ import type { TenantTx } from '@simrs/db';
 import type { Request, Response } from 'express';
 import { sanitizeForLog } from '../../common/error.filter';
 import { requestContext, type TenantRequestContext } from '../../common/request-context';
+import { type AuditMeta, writeAudit } from '../audit-writer';
 import { PrismaService } from '../prisma.service';
 import { type NotificationSubscription, NOTIFY_CHANNEL, PgNotificationHub } from './pg-notification-hub';
 
@@ -132,11 +133,17 @@ export class SseService implements OnModuleDestroy {
       heartbeatMs: options.heartbeatMs ?? SSE_HEARTBEAT_MS,
       maxDurationMs: options.maxDurationMs ?? SSE_MAX_DURATION_MS,
       replayLimit: options.replayLimit ?? SSE_REPLAY_LIMIT,
+      // Potret awal boleh mencatat audit (mis. `search` per pasien di papan IGD): ditulis di transaksi pendek yang sama.
       initial: initial
         ? () =>
-            this.prisma.forTenant(tenantId, (tx) =>
-              requestContext.run({ ...ctx, tx, audit: [], afterCommit: [] }, initial),
-            )
+            this.prisma.forTenant(tenantId, (tx) => {
+              const inner: TenantRequestContext = { ...ctx, tx, audit: [], afterCommit: [] };
+              return requestContext.run(inner, async () => {
+                const events = await initial();
+                await writeAudit(tx, tenantId, auditMetaOf(ctx), inner.audit);
+                return events;
+              });
+            })
         : null,
       load: (id) => this.loadShared(channel, tenantId, id),
       replay: replay
@@ -421,4 +428,18 @@ class RecentIds {
       if (oldest !== undefined) this.ids.delete(oldest);
     }
   }
+}
+
+/** Metadata audit pelanggan (sama dengan `TenantDb.transaction`). */
+function auditMetaOf(ctx: TenantRequestContext): AuditMeta {
+  return {
+    actorUserId: ctx.actor.userId,
+    actorRole: ctx.actor.role,
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    requestId: ctx.requestId,
+    device: ctx.actor.devicePrincipal
+      ? { id: ctx.actor.devicePrincipal.id, kind: ctx.actor.devicePrincipal.kind }
+      : null,
+  };
 }

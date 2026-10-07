@@ -136,6 +136,14 @@ export const CLINICAL_ERRORS = {
     status: 422,
     message: 'Dosis terlambat wajib disertai alasan (minimal 10 karakter)',
   },
+  MEDICATION_LABEL_MISMATCH: {
+    status: 422,
+    message: 'Label obat yang dipindai bukan obat order ini; periksa ulang obat sebelum diberikan',
+  },
+  MEDICATION_ORDER_INACTIVE: {
+    status: 409,
+    message: 'Order obat ini sudah dihentikan atau di luar lama pemberian',
+  },
 } as const satisfies Record<string, { status: number; message: string }>;
 
 export type ClinicalErrorCode = keyof typeof CLINICAL_ERRORS;
@@ -159,6 +167,8 @@ export const CLINICAL_ERROR_CODES = [
   'MEDICATION_ALREADY_GIVEN',
   'DOUBLE_CHECK_REQUIRED',
   'LATE_REASON_REQUIRED',
+  'MEDICATION_LABEL_MISMATCH',
+  'MEDICATION_ORDER_INACTIVE',
 ] as const satisfies readonly ClinicalErrorCode[];
 
 /** Kode galat stabil. Klien boleh bergantung pada kode ini; pesan boleh berubah. */

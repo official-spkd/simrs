@@ -81,6 +81,7 @@ model Patient {
   cdsAlerts                 CdsAlert[]
   medicationAdministrations MedicationAdministration[]
   nursingCarePlans          NursingCarePlan[]
+  nursingCareActivities     NursingCareActivity[]
   billableEvents            BillableEvent[]
 
   @@unique([tenantId, id])

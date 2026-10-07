@@ -124,6 +124,7 @@ model Tenant {
   medicationAdministrations MedicationAdministration[]
   nursingDiagnoses          NursingDiagnosis[]
   nursingCarePlans          NursingCarePlan[]
+  nursingCareActivities     NursingCareActivity[]
   abbreviations             Abbreviation[]
   billableEvents            BillableEvent[]
 
