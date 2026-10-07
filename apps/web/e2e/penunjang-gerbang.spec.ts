@@ -9,8 +9,8 @@ import { createAccount, loginAs } from './support/accounts';
  * layar api tanpa "Belum tersambung".
  */
 
-/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo; 4.9: Bank darah + Gizi, `gizi-bank-darah-api.spec.ts`). */
-const CONNECTED = new Set(['depo', 'bank-darah', 'gizi']);
+/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo; 4.7: Kamar operasi; 4.9: Bank darah + Gizi, `gizi-bank-darah-api.spec.ts`). */
+const CONNECTED = new Set(['depo', 'ok', 'bank-darah', 'gizi']);
 
 const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = [
   { role: 'analis_lab', screens: ['lab', 'mikro', 'bank-darah', 'kritis'] },
@@ -38,7 +38,7 @@ test.describe('layar penunjang hibrida di mode api (4.0c)', () => {
         const res = await page.goto(s.route);
         expect(res?.status(), `${role} ${s.route}`).toBe(200);
         if (CONNECTED.has(id)) {
-          // Sudah tersambung API (Depo 4.6a, Bank darah + Gizi 4.9): halaman api, tanpa "Belum tersambung".
+          // Sudah tersambung API (Depo 4.6a, Kamar operasi 4.7, Bank darah + Gizi 4.9): halaman api, tanpa "Belum tersambung".
           await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
           await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
           continue;

@@ -408,6 +408,8 @@ const NURSE_SUPPORT: Grant[] = [
   ['surgery', 'read', 'unit'],
   ['surgery', 'checklist', 'unit'],
   ['surgery', 'count', 'unit'],
+  // 4.7 · Jadwal kamar operasi oleh perawat unit OK (kepala ruang/penjadwal IBS); lingkup unit = kamar unit OK.
+  ['surgery', 'schedule', 'unit'],
 ];
 
 /**

@@ -87,7 +87,7 @@ export async function ensureClinicalFixtures(prisma: PrismaClient, tenantId: str
   const fixtures = await withTenant(prisma, tenantId, async (tx) => {
     await seedHospitalStructure(tx, tenantId);
     await seedClinicalMasters(tx, tenantId);
-    // S07/S08 (4.9): jenis diet + komponen darah untuk layar Gizi dan Bank darah mode api.
+    // Fase 4: master penunjang (kamar operasi OK-1..4, templat WHO, depo, jenis diet, komponen darah) untuk layar penunjang mode api.
     await seedSupportMasters(tx, tenantId);
     // K11: templat persetujuan tindakan (tujuh butir) untuk tablet persetujuan mode api, dan edukasi terintegrasi
     // bertopik tindakan (syarat final persetujuan; versi lama tanpa topik itu dinaikkan seperti seed).
