@@ -3,8 +3,10 @@ import { Icon } from './icons';
 
 export interface PatientBannerProps {
   name: string;
-  sex: 'L' | 'P';
-  ageYears: number;
+  /** `–` = jenis kelamin tidak diketahui (pasien tanpa identitas). */
+  sex: 'L' | 'P' | '–';
+  /** null = tanggal lahir tidak diketahui. */
+  ageYears: number | null;
   birthDate: string;
   mrn: string;
   allergies: string[];
@@ -31,7 +33,8 @@ export function PatientBanner(p: PatientBannerProps) {
         <div className="flex flex-col">
           <span className="text-h2 font-bold">{p.name}</span>
           <span className="text-small text-ink-700">
-            {p.sex} · {p.ageYears} th · {p.birthDate} · RM <span className="font-mono">{p.mrn}</span>
+            {p.sex} · {p.ageYears === null ? 'umur tidak diketahui' : `${p.ageYears} th`} · {p.birthDate} · RM{' '}
+            <span className="font-mono">{p.mrn}</span>
           </span>
         </div>
       </div>
