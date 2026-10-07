@@ -681,6 +681,26 @@ lewat `ClinicalRecordService` dan `CareTeamService`.
   ke API (`apiUpload`) yang menegakkan ulang semuanya. Tanda tangan tablet (W5a) tetap Server Action tetapi dibatasi
   256 KB per gambar sehingga muat di 1 MB.
 
+### Stok depo (S05, fase 4 potongan 4.6a)
+
+Modul `stock` (`/api/v1/stock`, modul RS `S05`), ADR-0036. Masukan + saldo di `schemas/penunjang-api.ts`, bentuk
+jawaban lain di `schemas/stock.ts`. Semua mutasi stok = baris `stock_movements`; saldo hanya diubah trigger
+`app_stock_apply_movement` (galat trigger `STOCK_INSUFFICIENT`/`BATCH_EXPIRED` dipetakan ke `SUPPORT_ERRORS`).
+
+| Endpoint `/api/v1/stock/…`                      | Izin             | Isi                                                                                                           |
+| ----------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET locations?purpose=own\|destination`        | `stock.read`     | Lokasi dalam lingkup (unit penugasan; manajemen semua) atau semua tujuan mutasi                               |
+| `GET balances?stockLocationId=&expiring=1`      | `stock.read`     | Saldo per batch (qty > 0), urut obat lalu ED; `expired`/`expiringSoon` dari jam WIB server                    |
+| `GET movements?stockLocationId=&stockBatchId=`  | `stock.read`     | Kartu stok terbaru dulu dengan nomor dokumen (TRM/MUT) dan alasan                                             |
+| `GET transfers?status=`                         | `stock.read`     | Mutasi yang menyentuh lokasi dalam lingkup; `canReceive` dari lingkup `stock.transfer`                        |
+| `GET suppliers`, `GET drugs?q=`                 | `stock.receive`  | Pemasok aktif, obat formularium aktif (maks. 30)                                                              |
+| `POST receipts`                                 | `stock.receive`  | Nomor `TRM-YYMM-NNNN`, batch baru/ulang (ED sama), ledger `receipt`, event `stock.received`; batch ED ditolak |
+| `POST transfers` → `POST transfers/:id/receive` | `stock.transfer` | Kirim (`transfer_out`) lalu terima sekali di tujuan (`transfer_in`); event `stock.transferred` per langkah    |
+| `POST adjustments`                              | `stock.adjust`   | Selisih bertanda + alasan ≥ 10; batch ED hanya dikurangi (`write_off`); event `stock.adjusted`                |
+
+Tes: `apps/api/test/stock.test.ts` (saldo = Σ ledger, penyesuaian serentak tidak pernah negatif, mutasi setengah jalan
+tidak menggandakan stok, batch ED ditolak, lingkup + isolasi), E2E `apps/web/e2e/depo-api.spec.ts`.
+
 ### Booking (F02, fase 2 potongan 3)
 
 API `modules/booking/` di `/api/v1/booking/appointments` (kontrak `@simrs/shared` `schemas/booking.ts`; izin

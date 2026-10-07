@@ -8,6 +8,9 @@ import { createAccount, loginAs } from './support/accounts';
  * melihat "Akses ditolak". Jalur api tiap layar diisi potongan 4.2–4.9.
  */
 
+/** Layar penunjang yang jalur api-nya sudah diisi (4.6a: Depo). */
+const CONNECTED = new Set(['depo']);
+
 const PERFORMERS: ReadonlyArray<{ role: string; screens: readonly string[] }> = [
   { role: 'analis_lab', screens: ['lab', 'mikro', 'bank-darah', 'kritis'] },
   { role: 'radiografer', screens: ['rad'] },
@@ -31,6 +34,12 @@ test.describe('layar penunjang hibrida di mode api (4.0c)', () => {
         if (!s) throw new Error(`layar ${id} tidak ada`);
         const res = await page.goto(s.route);
         expect(res?.status(), `${role} ${s.route}`).toBe(200);
+        if (CONNECTED.has(id)) {
+          // Sudah tersambung API (Depo, 4.6a): halaman api, tanpa "Belum tersambung".
+          await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+          await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+          continue;
+        }
         await expect(page.getByRole('heading', { name: s.label, level: 1 })).toBeVisible();
         await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
         await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
