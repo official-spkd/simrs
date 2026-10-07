@@ -3,19 +3,78 @@
 /// P01 · Tenant = satu RS, atau satu tenant khusus operator platform (kind = platform, ADR-0013).
 /// RLS: baris hanya terlihat oleh tenant itu sendiri.
 model Tenant {
-  medicationDoubleChecks MedicationDoubleCheck[]
-  id                     String                  @id @db.Uuid
-  code                   String                  @unique
-  name                   String
-  kemenkesCode           String?                 @map("kemenkes_code")
-  bpjsPpkCode            String?                 @map("bpjs_ppk_code")
-  satusehatOrgId         String?                 @map("satusehat_org_id")
-  hospitalClass          String?                 @map("hospital_class")
-  status                 String                  @default("active")
+  labTestDefinitions                  LabTestDefinition[]
+  labReferenceRanges                  LabReferenceRange[]
+  labAnalyzers                        LabAnalyzer[]
+  radiologyModalities                 RadiologyModality[]
+  radiologyProcedures                 RadiologyProcedure[]
+  stockLocations                      StockLocation[]
+  formularyStockProfiles              FormularyStockProfile[]
+  suppliers                           Supplier[]
+  surgeryChecklistTemplates           SurgeryChecklistTemplate[]
+  dietTypes                           DietType[]
+  bloodComponents                     BloodComponent[]
+  labOrders                           LabOrder[]
+  labOrderItems                       LabOrderItem[]
+  labOrderStatusHistories             LabOrderStatusHistory[]
+  specimens                           Specimen[]
+  specimenEvents                      SpecimenEvent[]
+  labResults                          LabResult[]
+  labValidations                      LabValidation[]
+  labQcRuns                           LabQcRun[]
+  criticalResults                     CriticalResult[]
+  criticalResultReports               CriticalResultReport[]
+  criticalResultEscalations           CriticalResultEscalation[]
+  microIsolates                       MicroIsolate[]
+  microSusceptibilities               MicroSusceptibility[]
+  imagingStudies                      ImagingStudy[]
+  imagingStudyStatusHistories         ImagingStudyStatusHistory[]
+  imagingReports                      ImagingReport[]
+  paReports                           PaReport[]
+  stockBatches                        StockBatch[]
+  stockBalances                       StockBalance[]
+  stockMovements                      StockMovement[]
+  stockReceipts                       StockReceipt[]
+  stockTransfers                      StockTransfer[]
+  stockAdjustments                    StockAdjustment[]
+  pharmacyPrescriptions               PharmacyPrescription[]
+  pharmacyPrescriptionStatusHistories PharmacyPrescriptionStatusHistory[]
+  prescriptionReviews                 PrescriptionReview[]
+  pharmacistInterventions             PharmacistIntervention[]
+  pharmacistInterventionResponses     PharmacistInterventionResponse[]
+  dispenses                           Dispense[]
+  dispenseItems                       DispenseItem[]
+  dispenseReturns                     DispenseReturn[]
+  surgeryCases                        SurgeryCase[]
+  surgeryCaseStatusHistories          SurgeryCaseStatusHistory[]
+  surgeryCaseTeams                    SurgeryCaseTeam[]
+  surgicalSafetyChecks                SurgicalSafetyCheck[]
+  surgicalSafetyConfirmations         SurgicalSafetyConfirmation[]
+  surgeryEvents                       SurgeryEvent[]
+  surgicalCounts                      SurgicalCount[]
+  surgeryCountDiscrepancies           SurgeryCountDiscrepancy[]
+  operativeReports                    OperativeReport[]
+  surgerySupplyUsages                 SurgerySupplyUsage[]
+  dietOrders                          DietOrder[]
+  mealServices                        MealService[]
+  bloodUnits                          BloodUnit[]
+  bloodRequests                       BloodRequest[]
+  crossmatches                        Crossmatch[]
+  bloodIssues                         BloodIssue[]
+  transfusionReactions                TransfusionReaction[]
+  medicationDoubleChecks              MedicationDoubleCheck[]
+  id                                  String                              @id @db.Uuid
+  code                                String                              @unique
+  name                                String
+  kemenkesCode                        String?                             @map("kemenkes_code")
+  bpjsPpkCode                         String?                             @map("bpjs_ppk_code")
+  satusehatOrgId                      String?                             @map("satusehat_org_id")
+  hospitalClass                       String?                             @map("hospital_class")
+  status                              String                              @default("active")
   /// hospital | platform (hanya satu tenant platform; indeks unik parsial di migrasi).
-  kind                   String                  @default("hospital")
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  kind                                String                              @default("hospital")
+  createdAt                           DateTime                            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                           DateTime                            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outboxMessages        OutboxMessage[]
   deliveryAttempts      DeliveryAttempt[]
@@ -183,19 +242,21 @@ model DeliveryAttempt {
 
 /// Webhook masuk mentah (TPDI, BTN). Unik per sumber + idempotency key; diproses async.
 model InboundEvent {
-  id             String    @id @db.Uuid
-  tenantId       String    @map("tenant_id") @db.Uuid
+  labResults     LabResult[]
+  id             String      @id @db.Uuid
+  tenantId       String      @map("tenant_id") @db.Uuid
   source         String
-  idempotencyKey String    @map("idempotency_key")
+  idempotencyKey String      @map("idempotency_key")
   headers        Json
-  rawBody        String    @map("raw_body")
-  status         String    @default("received")
-  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
-  processedAt    DateTime? @map("processed_at") @db.Timestamptz(3)
+  rawBody        String      @map("raw_body")
+  status         String      @default("received")
+  receivedAt     DateTime    @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt    DateTime?   @map("processed_at") @db.Timestamptz(3)
   error          String?
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
+  @@unique([tenantId, id])
   @@unique([tenantId, source, idempotencyKey])
   @@map("inbound_events")
 }
@@ -328,18 +389,23 @@ model Facility {
 
 /// P01 · Unit layanan (instalasi, poli, IGD, bangsal, penunjang, farmasi, OK, administrasi).
 model Unit {
-  id         String   @id @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
-  facilityId String   @map("facility_id") @db.Uuid
-  parentId   String?  @map("parent_id") @db.Uuid
-  code       String
-  name       String
-  kind       String
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy  String?  @map("created_by") @db.Uuid
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy  String?  @map("updated_by") @db.Uuid
+  labAnalyzers    LabAnalyzer[]
+  stockLocations  StockLocation[]
+  labOrders       LabOrder[]
+  criticalResults CriticalResult[]
+  imagingStudies  ImagingStudy[]
+  id              String           @id @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  facilityId      String           @map("facility_id") @db.Uuid
+  parentId        String?          @map("parent_id") @db.Uuid
+  code            String
+  name            String
+  kind            String
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String?          @map("created_by") @db.Uuid
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String?          @map("updated_by") @db.Uuid
 
   tenant        Tenant             @relation(fields: [tenantId], references: [id])
   /// FK komposit: unit hanya bisa menunjuk faskes milik tenant yang sama (FK tidak tunduk RLS).
@@ -369,20 +435,22 @@ model Unit {
 
 /// P01 · Lokasi fisik: ruang → kamar → bed. Kelas perawatan dipakai Aplicare/BPJS dan tarif.
 model Location {
-  id                  String   @id @db.Uuid
-  tenantId            String   @map("tenant_id") @db.Uuid
-  unitId              String   @map("unit_id") @db.Uuid
-  parentId            String?  @map("parent_id") @db.Uuid
+  radiologyModalities RadiologyModality[]
+  surgeryCases        SurgeryCase[]
+  id                  String              @id @db.Uuid
+  tenantId            String              @map("tenant_id") @db.Uuid
+  unitId              String              @map("unit_id") @db.Uuid
+  parentId            String?             @map("parent_id") @db.Uuid
   kind                String
   code                String
   name                String
-  careClass           String?  @map("care_class")
-  satusehatLocationId String?  @map("satusehat_location_id")
-  active              Boolean  @default(true)
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy           String?  @map("created_by") @db.Uuid
-  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy           String?  @map("updated_by") @db.Uuid
+  careClass           String?             @map("care_class")
+  satusehatLocationId String?             @map("satusehat_location_id")
+  active              Boolean             @default(true)
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?             @map("created_by") @db.Uuid
+  updatedAt           DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?             @map("updated_by") @db.Uuid
 
   tenant   Tenant     @relation(fields: [tenantId], references: [id])
   unit     Unit       @relation(fields: [tenantId, unitId], references: [tenantId, id])

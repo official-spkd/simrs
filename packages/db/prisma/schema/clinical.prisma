@@ -527,31 +527,32 @@ model ConsultResponse {
 /// K11 · Persetujuan/penolakan tindakan (berversi; pencabutan = versi baru `dicabut`). Dicatat saat final; dokumen
 /// PDF bertanda tangan + TTE lewat P08 (`document_id`, `documents.source_type = 'consents'`).
 model Consent {
-  id               String   @id @db.Uuid
-  tenantId         String   @map("tenant_id") @db.Uuid
-  patientId        String   @map("patient_id") @db.Uuid
-  encounterId      String   @map("encounter_id") @db.Uuid
-  rootId           String   @map("root_id") @db.Uuid
-  version          Int      @default(1)
-  supersedesId     String?  @map("supersedes_id") @db.Uuid
-  addendumOf       String?  @map("addendum_of") @db.Uuid
-  status           String   @default("final")
-  correctionReason String?  @map("correction_reason")
-  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
-  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
-  authorUserId     String   @map("author_user_id") @db.Uuid
-  authorRole       String   @map("author_role")
+  surgeryCases     SurgeryCase[]
+  id               String        @id @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  patientId        String        @map("patient_id") @db.Uuid
+  encounterId      String        @map("encounter_id") @db.Uuid
+  rootId           String        @map("root_id") @db.Uuid
+  version          Int           @default(1)
+  supersedesId     String?       @map("supersedes_id") @db.Uuid
+  addendumOf       String?       @map("addendum_of") @db.Uuid
+  status           String        @default("final")
+  correctionReason String?       @map("correction_reason")
+  occurredAt       DateTime      @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime      @default(now()) @map("recorded_at") @db.Timestamptz(3)
+  authorUserId     String        @map("author_user_id") @db.Uuid
+  authorRole       String        @map("author_role")
   /// Templat formulir P07 (7 butir informasi wajib).
-  formDefinitionId String?  @map("form_definition_id") @db.Uuid
+  formDefinitionId String?       @map("form_definition_id") @db.Uuid
   procedure        String
   /// setuju | tolak | dicabut
   decision         String
-  refusalReason    String?  @map("refusal_reason")
+  refusalReason    String?       @map("refusal_reason")
   /// Tujuh butir informasi yang dijelaskan (larik JSON).
   information      Json
-  informerUserId   String   @map("informer_user_id") @db.Uuid
-  explainedAt      DateTime @map("explained_at") @db.Timestamptz(3)
-  documentId       String?  @map("document_id") @db.Uuid
+  informerUserId   String        @map("informer_user_id") @db.Uuid
+  explainedAt      DateTime      @map("explained_at") @db.Timestamptz(3)
+  documentId       String?       @map("document_id") @db.Uuid
 
   tenant         Tenant             @relation(fields: [tenantId], references: [id])
   patient        Patient            @relation(fields: [tenantId, patientId], references: [tenantId, id])

@@ -82,28 +82,29 @@ model FormResponse {
 /// unggah ditandai batal sekali dengan alasan, dan dokumen bertanda tangan tidak bisa dibatalkan (trigger,
 /// ADR-0020).
 model Document {
-  id         String    @id @db.Uuid
-  tenantId   String    @map("tenant_id") @db.Uuid
-  patientId  String    @map("patient_id") @db.Uuid
+  labValidations LabValidation[]
+  id             String          @id @db.Uuid
+  tenantId       String          @map("tenant_id") @db.Uuid
+  patientId      String          @map("patient_id") @db.Uuid
   /// lampiran | hasil | surat | resume | consent | lainnya
-  kind       String
-  title      String
+  kind           String
+  title          String
   /// Nama untuk tampilan/unduhan saja (sudah disaring).
-  fileName   String    @map("file_name")
+  fileName       String          @map("file_name")
   /// Dikenali dari isi berkas: application/pdf | image/png | image/jpeg
-  mimeType   String    @map("mime_type")
-  sizeBytes  Int       @map("size_bytes")
-  sha256     String
-  storageKey String    @unique @map("storage_key")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy  String?   @map("created_by") @db.Uuid
-  voidedAt   DateTime? @map("voided_at") @db.Timestamptz(3)
-  voidedBy   String?   @map("voided_by") @db.Uuid
-  voidReason String?   @map("void_reason")
+  mimeType       String          @map("mime_type")
+  sizeBytes      Int             @map("size_bytes")
+  sha256         String
+  storageKey     String          @unique @map("storage_key")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy      String?         @map("created_by") @db.Uuid
+  voidedAt       DateTime?       @map("voided_at") @db.Timestamptz(3)
+  voidedBy       String?         @map("voided_by") @db.Uuid
+  voidReason     String?         @map("void_reason")
   /// K · Entri klinis asal dokumen (nama tabel + id versi, mis. `discharge_summaries`). Dokumen ber-TTE mengunci versi
   /// itu (`app_clinical_guard`: tidak bisa digantikan, hanya addendum). Keduanya null untuk lampiran biasa.
-  sourceType String?   @map("source_type")
-  sourceId   String?   @map("source_id") @db.Uuid
+  sourceType     String?         @map("source_type")
+  sourceId       String?         @map("source_id") @db.Uuid
 
   tenant     Tenant              @relation(fields: [tenantId], references: [id])
   patient    Patient             @relation(fields: [tenantId, patientId], references: [tenantId, id])

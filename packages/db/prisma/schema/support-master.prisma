@@ -1,0 +1,282 @@
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Fase 4 · Penunjang (S01–S10) · master (rencana fase 4 §4.0b). Model penunjang baru ditambah di akhir bagian
+// domainnya oleh potongan berikutnya, dengan migrasi di bloknya sendiri.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// S01 · Definisi pemeriksaan lab (katalog F3-1 `orderables` → satu atau beberapa tes; panel lewat `panel_code`).
+model LabTestDefinition {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String
+  /// Kode LOINC dari data rujukan (null = belum dipetakan).
+  loinc        String?
+  name         String
+  /// Orderable CPOE yang memicu tes ini (panel: banyak tes satu orderable).
+  orderableId  String?  @map("orderable_id") @db.Uuid
+  /// darah_edta | serum | plasma_sitrat | urin | swab | lainnya (teks bebas master)
+  specimenType String   @map("specimen_type")
+  unit         String   @default("")
+  decimals     Int      @default(0)
+  /// numeric | text
+  resultType   String   @default("numeric") @map("result_type")
+  panelCode    String?  @map("panel_code")
+  /// Kode tes di analyzer (OBX-3 bila bukan LOINC).
+  analyzerCode String?  @map("analyzer_code")
+  /// Batas delta check (selisih absolut terhadap hasil sebelumnya).
+  deltaLimit   Decimal? @map("delta_limit") @db.Decimal(14, 4)
+  sortOrder    Int      @default(0) @map("sort_order")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  tenant          Tenant              @relation(fields: [tenantId], references: [id])
+  orderable       Orderable?          @relation(fields: [tenantId, orderableId], references: [tenantId, id])
+  referenceRanges LabReferenceRange[]
+  results         LabResult[]
+  qcRuns          LabQcRun[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, orderableId])
+  @@map("lab_test_definitions")
+}
+
+/// S01 · Rentang rujukan + batas kritis per jenis kelamin × rentang umur (hari, `age_max_days` eksklusif).
+model LabReferenceRange {
+  id               String   @id @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  testDefinitionId String   @map("test_definition_id") @db.Uuid
+  /// male | female | any
+  sex              String   @default("any")
+  ageMinDays       Int      @default(0) @map("age_min_days")
+  ageMaxDays       Int?     @map("age_max_days")
+  refLow           Decimal? @map("ref_low") @db.Decimal(14, 4)
+  refHigh          Decimal? @map("ref_high") @db.Decimal(14, 4)
+  criticalLow      Decimal? @map("critical_low") @db.Decimal(14, 4)
+  criticalHigh     Decimal? @map("critical_high") @db.Decimal(14, 4)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy        String?  @map("created_by") @db.Uuid
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  testDefinition LabTestDefinition @relation(fields: [tenantId, testDefinitionId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, testDefinitionId, sex, ageMinDays])
+  @@map("lab_reference_ranges")
+}
+
+/// S01 · Analyzer lab (tanpa merek di seed). `registered_device_id` = prinsipal perangkat ingest HL7 (4.1a).
+model LabAnalyzer {
+  id                 String   @id @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  code               String
+  name               String
+  unitId             String   @map("unit_id") @db.Uuid
+  registeredDeviceId String?  @map("registered_device_id") @db.Uuid
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy          String?  @map("created_by") @db.Uuid
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy          String?  @map("updated_by") @db.Uuid
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  unit             Unit              @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  registeredDevice RegisteredDevice? @relation(fields: [tenantId, registeredDeviceId], references: [tenantId, id])
+  qcRuns           LabQcRun[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("lab_analyzers")
+}
+
+/// S03 · Modalitas radiologi (ruang di `locations`), slot per hari.
+model RadiologyModality {
+  id          String   @id @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String
+  /// CT | DR | USG | MRI | ANGIO
+  modality    String
+  name        String
+  locationId  String   @map("location_id") @db.Uuid
+  slotsPerDay Int      @default(16) @map("slots_per_day")
+  slotMinutes Int      @default(30) @map("slot_minutes")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  location Location       @relation(fields: [tenantId, locationId], references: [tenantId, id])
+  studies  ImagingStudy[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("radiology_modalities")
+}
+
+/// S03 · Prosedur radiologi: ICD-9-CM, butuh kontras, templat ekspertise.
+model RadiologyProcedure {
+  id           String   @id @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  code         String
+  /// ICD-9-CM dari data rujukan (null = belum dipetakan).
+  icd9cm       String?
+  name         String
+  modality     String
+  orderableId  String?  @map("orderable_id") @db.Uuid
+  contrast     Boolean  @default(false)
+  templateCode String?  @map("template_code")
+  template     String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String?  @map("created_by") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy    String?  @map("updated_by") @db.Uuid
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  orderable Orderable?     @relation(fields: [tenantId, orderableId], references: [tenantId, id])
+  studies   ImagingStudy[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("radiology_procedures")
+}
+
+/// S05 · Lokasi stok: depo farmasi, gudang, stok ruangan, depo OK (milik satu unit).
+model StockLocation {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  /// depo | gudang | ruang | ok
+  kind      String
+  unitId    String   @map("unit_id") @db.Uuid
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id])
+  unit          Unit                    @relation(fields: [tenantId, unitId], references: [tenantId, id])
+  profiles      FormularyStockProfile[]
+  balances      StockBalance[]
+  movements     StockMovement[]
+  receipts      StockReceipt[]
+  transfersFrom StockTransfer[]         @relation("StockTransferFrom")
+  transfersTo   StockTransfer[]         @relation("StockTransferTo")
+  adjustments   StockAdjustment[]
+  prescriptions PharmacyPrescription[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("stock_locations")
+}
+
+/// S04/S05 · Profil formularium per depo: satuan, LASA, stok min/maks (dipakai U10/B01).
+model FormularyStockProfile {
+  id              String   @id @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  drugId          String   @map("drug_id") @db.Uuid
+  stockLocationId String   @map("stock_location_id") @db.Uuid
+  unit            String
+  lasa            Boolean  @default(false)
+  minQuantity     Int      @default(0) @map("min_quantity")
+  maxQuantity     Int?     @map("max_quantity")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  drug          Drug          @relation(fields: [tenantId, drugId], references: [tenantId, id])
+  stockLocation StockLocation @relation(fields: [tenantId, stockLocationId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, drugId, stockLocationId])
+  @@map("formulary_stock_profiles")
+}
+
+/// S05 · Pemasok (minimal; dilengkapi U10/B01).
+model Supplier {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  batches  StockBatch[]
+  receipts StockReceipt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("suppliers")
+}
+
+/// S06 · Templat daftar tilik keselamatan operasi WHO per RS, berversi; beku (append-only) setelah dibuat.
+model SurgeryChecklistTemplate {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  version   Int
+  /// `{ "sign-in": [{code,label,system?}], "time-out": [...], "sign-out": [...] }`
+  items     Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id])
+  cases  SurgeryCase[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, version])
+  @@map("surgery_checklist_templates")
+}
+
+/// S07 · Jenis diet.
+model DietType {
+  id        String   @id @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+  orders DietOrder[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("diet_types")
+}
+
+/// S08 · Komponen darah (PRC, TC, FFP, WB) dan masa simpan.
+model BloodComponent {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  code          String
+  name          String
+  shelfLifeDays Int      @map("shelf_life_days")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy     String?  @map("created_by") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy     String?  @map("updated_by") @db.Uuid
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  units    BloodUnit[]
+  requests BloodRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("blood_components")
+}

@@ -3,26 +3,28 @@
 /// K09 · Master item order penunjang/tindakan. Kode LOINC/ICD-9-CM hanya dari `ref` (trigger); tanpa kode = "belum
 /// dipetakan". Master: diubah/dinonaktifkan, tidak dihapus.
 model Orderable {
-  id         String   @id @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
+  labTestDefinitions  LabTestDefinition[]
+  radiologyProcedures RadiologyProcedure[]
+  id                  String               @id @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
   /// lab | radiologi | tindakan | kontrol
-  kind       String
-  name       String
+  kind                String
+  name                String
   /// loinc | icd9cm, atau null (belum dipetakan).
-  codeSystem String?  @map("code_system")
-  code       String?
+  codeSystem          String?              @map("code_system")
+  code                String?
   /// Unit penerima (lab, radiologi, …).
-  unitId     String?  @map("unit_id") @db.Uuid
+  unitId              String?              @map("unit_id") @db.Uuid
   /// ditanggung | fornas | tidak-ditanggung
-  coverage   String   @default("ditanggung")
+  coverage            String               @default("ditanggung")
   /// rutin | cito
-  priority   String   @default("rutin")
-  keywords   String   @default("")
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy  String?  @map("created_by") @db.Uuid
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy  String?  @map("updated_by") @db.Uuid
+  priority            String               @default("rutin")
+  keywords            String               @default("")
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy           String?              @map("created_by") @db.Uuid
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy           String?              @map("updated_by") @db.Uuid
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id])
   unit            Unit?            @relation(fields: [tenantId, unitId], references: [tenantId, id])
@@ -37,24 +39,27 @@ model Orderable {
 /// K09 · Master obat per RS: KFA (nullable = belum dipetakan), sediaan, golongan dari zat aktif, Fornas, kewaspadaan
 /// tinggi (cek ganda eMAR).
 model Drug {
-  id          String   @id @db.Uuid
-  tenantId    String   @map("tenant_id") @db.Uuid
-  name        String
-  substanceId String?  @map("substance_id") @db.Uuid
+  formularyStockProfiles FormularyStockProfile[]
+  stockBatches           StockBatch[]
+  stockBalances          StockBalance[]
+  id                     String                  @id @db.Uuid
+  tenantId               String                  @map("tenant_id") @db.Uuid
+  name                   String
+  substanceId            String?                 @map("substance_id") @db.Uuid
   /// `kfa` bila berkode.
-  codeSystem  String?  @map("code_system")
-  code        String?
-  dosageForm  String   @map("dosage_form")
-  strength    String?
-  fornas      Boolean  @default(false)
-  highAlert   Boolean  @default(false) @map("high_alert")
-  coverage    String   @default("ditanggung")
-  keywords    String   @default("")
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy   String?  @map("created_by") @db.Uuid
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedBy   String?  @map("updated_by") @db.Uuid
+  codeSystem             String?                 @map("code_system")
+  code                   String?
+  dosageForm             String                  @map("dosage_form")
+  strength               String?
+  fornas                 Boolean                 @default(false)
+  highAlert              Boolean                 @default(false) @map("high_alert")
+  coverage               String                  @default("ditanggung")
+  keywords               String                  @default("")
+  active                 Boolean                 @default(true)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy              String?                 @map("created_by") @db.Uuid
+  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedBy              String?                 @map("updated_by") @db.Uuid
 
   tenant               Tenant                @relation(fields: [tenantId], references: [id])
   substance            DrugSubstance?        @relation(fields: [tenantId, substanceId], references: [tenantId, id])
@@ -110,19 +115,20 @@ model OrderSetItem {
 
 /// K09 · Satu kiriman order (Idempotency-Key unik per RS). Append-only.
 model OrderGroup {
-  id             String   @id @db.Uuid
-  tenantId       String   @map("tenant_id") @db.Uuid
-  encounterId    String   @map("encounter_id") @db.Uuid
-  patientId      String   @map("patient_id") @db.Uuid
-  idempotencyKey String   @map("idempotency_key")
+  pharmacyPrescription PharmacyPrescription?
+  id                   String                @id @db.Uuid
+  tenantId             String                @map("tenant_id") @db.Uuid
+  encounterId          String                @map("encounter_id") @db.Uuid
+  patientId            String                @map("patient_id") @db.Uuid
+  idempotencyKey       String                @map("idempotency_key")
   /// SHA-256 isi kiriman: key sama + isi beda → 409 `IDEMPOTENCY_KEY_REUSED`.
-  requestHash    String   @map("request_hash")
-  orderSetId     String?  @map("order_set_id") @db.Uuid
-  orderedBy      String   @map("ordered_by") @db.Uuid
-  orderedRole    String   @map("ordered_role")
+  requestHash          String                @map("request_hash")
+  orderSetId           String?               @map("order_set_id") @db.Uuid
+  orderedBy            String                @map("ordered_by") @db.Uuid
+  orderedRole          String                @map("ordered_role")
   /// Order residen: wajib ditinjau DPJP (atestasi `review_order`).
-  needsReview    Boolean  @default(false) @map("needs_review")
-  orderedAt      DateTime @default(now()) @map("ordered_at") @db.Timestamptz(3)
+  needsReview          Boolean               @default(false) @map("needs_review")
+  orderedAt            DateTime              @default(now()) @map("ordered_at") @db.Timestamptz(3)
 
   tenant             Tenant              @relation(fields: [tenantId], references: [id])
   encounter          Encounter           @relation(fields: [tenantId, encounterId], references: [tenantId, id])
@@ -141,19 +147,21 @@ model OrderGroup {
 
 /// K09 · Order penunjang/tindakan. Isi beku (append-only); status lewat `order_status_events`.
 model ServiceRequest {
-  id           String   @id @db.Uuid
-  tenantId     String   @map("tenant_id") @db.Uuid
-  orderGroupId String   @map("order_group_id") @db.Uuid
-  encounterId  String   @map("encounter_id") @db.Uuid
-  patientId    String   @map("patient_id") @db.Uuid
-  orderableId  String   @map("orderable_id") @db.Uuid
+  labOrderItem LabOrderItem?
+  imagingStudy ImagingStudy?
+  id           String        @id @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  orderGroupId String        @map("order_group_id") @db.Uuid
+  encounterId  String        @map("encounter_id") @db.Uuid
+  patientId    String        @map("patient_id") @db.Uuid
+  orderableId  String        @map("orderable_id") @db.Uuid
   /// Salinan saat order (master boleh berubah sesudahnya).
   name         String
-  codeSystem   String?  @map("code_system")
+  codeSystem   String?       @map("code_system")
   code         String?
   priority     String
   instructions String?
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant       Tenant             @relation(fields: [tenantId], references: [id])
   orderGroup   OrderGroup         @relation(fields: [tenantId, orderGroupId], references: [tenantId, id])
@@ -173,26 +181,27 @@ model ServiceRequest {
 
 /// K09/K12 · Resep/order obat. Isi beku; racikan didukung (`compound`); jadwal eMAR dari frekuensi.
 model MedicationRequest {
-  doubleChecks MedicationDoubleCheck[]
-  id           String                  @id @db.Uuid
-  tenantId     String                  @map("tenant_id") @db.Uuid
-  orderGroupId String                  @map("order_group_id") @db.Uuid
-  encounterId  String                  @map("encounter_id") @db.Uuid
-  patientId    String                  @map("patient_id") @db.Uuid
+  dispenseItems DispenseItem[]
+  doubleChecks  MedicationDoubleCheck[]
+  id            String                  @id @db.Uuid
+  tenantId      String                  @map("tenant_id") @db.Uuid
+  orderGroupId  String                  @map("order_group_id") @db.Uuid
+  encounterId   String                  @map("encounter_id") @db.Uuid
+  patientId     String                  @map("patient_id") @db.Uuid
   /// Obat tunggal; null bila racikan.
-  drugId       String?                 @map("drug_id") @db.Uuid
+  drugId        String?                 @map("drug_id") @db.Uuid
   /// Racikan: { name, dosageForm, quantity, components: [{ drugId, amount }] }.
-  compound     Json?
-  name         String
-  dose         String
-  route        String
+  compound      Json?
+  name          String
+  dose          String
+  route         String
   /// Kode `MEDICATION_FREQUENCIES` (@simrs/shared).
-  frequency    String
-  customTimes  String[]                @map("custom_times")
-  durationDays Int?                    @map("duration_days")
-  instructions String?
-  highAlert    Boolean                 @default(false) @map("high_alert")
-  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  frequency     String
+  customTimes   String[]                @map("custom_times")
+  durationDays  Int?                    @map("duration_days")
+  instructions  String?
+  highAlert     Boolean                 @default(false) @map("high_alert")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
 
   tenant          Tenant                     @relation(fields: [tenantId], references: [id])
   orderGroup      OrderGroup                 @relation(fields: [tenantId, orderGroupId], references: [tenantId, id])
