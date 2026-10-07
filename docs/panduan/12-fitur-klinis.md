@@ -943,7 +943,8 @@ atau alih rawat, dan tim perawatan yang berubah sebagai versi baru.
 
 **Mode api (potongan 3.8).** Kartu "Konsul masuk belum dijawab" memuat konsul untuk Anda atau unit Anda dengan
 tautan **Buka konsul <pasien>** (`?kunjungan=<id>`). Halaman kunjungan menampilkan banner pasien, kartu "Konsul pasien
-ini", formulir "Kirim konsul baru" (dokter tujuan dari daftar dokter aktif RS), dan "Tim perawatan" dengan **Serahkan
+ini", formulir "Kirim konsul baru" (dokter tujuan dicari di server: ketik minimal 2 huruf nama dokter atau unit, pilih dari
+hasil), dan "Tim perawatan" dengan **Serahkan
 DPJP utama**. Jawaban hanya oleh dokter yang dituju: pengirim membaca "Pengirim konsul tidak menjawab konsulnya
 sendiri.", dokter lain "Konsul ini dijawab dokter yang dituju (…)." (API: 403 `CONSULT_NOT_RECIPIENT`). Konsul rawat
 bersama/alih rawat menampilkan centang **Terima rawat bersama** / **Terima alih rawat**; bila dicentang tim perawatan
