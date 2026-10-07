@@ -2,7 +2,7 @@
 
 Halaman ini untuk pembaca baru yang ingin memahami **bagaimana backend SIM RS bekerja**: bagian-bagiannya, perjalanan satu permintaan dari layar sampai database, lapisan keamanannya, dan pola bersama yang wajib dipakai ulang setiap modul baru. Gambaran sistem tanpa kode ada di [Cara sistem bekerja](./01-cara-kerja-sistem.md). Rincian per modul dan per potongan ada di [Cara kode bekerja](./02-cara-kerja-kode.md). Letak berkas ada di [Peta kode](./19-peta-kode.md).
 
-> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.5. Layar klinis mode api masih "Belum tersambung" sampai potongan W. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
+> Status 7 Okt 2026: pemilik produk memutuskan backend dilanjutkan penuh. Urutannya: sisa fase 3 (3.6, 3.7, 3.8, W1–W5b, 3.9), lalu fase 4 → 10. Yang sudah ada di `master`: fondasi (fase 0), platform inti (fase 1), front office (fase 2), dan API klinis fase 3 potongan 3.0–3.5 serta 3.7. Layar klinis mode api masih "Belum tersambung" sampai potongan W. Halaman ini hanya menjelaskan yang sudah ada di kode; rencana ditandai **(rencana)**.
 
 ## Arsitektur ringkas
 
@@ -169,6 +169,16 @@ Jadi aturan tetap berlaku walau ada bug di service.
 
 **Draf** (`/api/v1/drafts/:encounterId/:kind`) bukan rekam medis. Draf hanya milik penulisnya, boleh diubah dan dihapus, dan dibersihkan job worker 48 jam setelah kunjungan selesai atau batal.
 
+**Draf kerja multi-pengguna (3.7).** Draf klinis umum hanya milik penulisnya, jadi alur yang dikerjakan beberapa orang berurutan memakai tabel kerja sendiri. Contohnya `consent_drafts`: perawat menyiapkan, pasien menandatangani di tablet, saksi petugas beratestasi, lalu dokter memfinalkan. Polanya (ADR-0058):
+
+- tabel kerja ber-RLS, tanpa hak DELETE, UPDATE hanya kolom kerja;
+- **tutup-sekali**: trigger menolak perubahan setelah status keluar dari `draf` (`CONSENT_CLOSED`), juga bagi pemilik tabel, dan mengisi waktu tanda tangan/atestasi/penutupan dari jam server;
+- langkah yang mengubah draf mengunci barisnya (`FOR UPDATE`), sehingga finalisasi serentak hanya terjadi sekali;
+- bukti berurutan: mengubah isi menghapus tanda tangan dan atestasi;
+- hasil final ditulis sebagai entri berversi biasa (`consents`) lewat `ClinicalRecordService` + `ClinicalSigningService`.
+
+**Unggahan biner** (dokumen pasien, gambar tanda tangan) dibaca middleware `rawUpload` (`apps/api/src/common/raw-upload.middleware.ts`) sebelum transaksi dibuka, dengan batas ukuran per rute (dokumen 10 MB, tanda tangan 512 KB → 413). Service memeriksa jenis dari isi berkas (mis. tanda tangan wajib berawalan tanda tangan PNG; SVG dan lainnya → 415), bukan dari nama atau header.
+
 **eMAR (3.5)** memakai tabel append-only sendiri (`medication_administrations`, dijaga trigger). Gerbangnya:
 
 - pindaian gelang milik pemberi yang masih berlaku;
@@ -189,11 +199,14 @@ Dokumen klinis legal (resep, kelak resume dan persetujuan) diterbitkan sebagai P
    - me-render PDF dengan `@simrs/pdf`;
    - menyimpan berkas (SHA-256) dan baris `documents`;
    - bila diminta TTE, menulis `document_signatures` `pending` + outbox `tte.sign` atas nama **pengguna sesi**.
-2. **`ClinicalSigningService.issueSigned(tabel, versionId, …)`** (`apps/api/src/infra/clinical/clinical-signing.service.ts`) menjalankan langkah 1 di bawah `lockForSigning`. Versi yang sudah digantikan tidak bisa ditandatangani. Setelah dokumen bertanda tangan tersimpan, versi sumber terkunci: koreksi → `RECORD_LOCKED`, perubahan lewat addendum. Ini titik sambung untuk entri berversi seperti resume (3.6) dan persetujuan (3.7). Di `master`, layanan ini belum punya pemanggil.
+2. **`ClinicalSigningService.issueSigned(tabel, versionId, …)`** (`apps/api/src/infra/clinical/clinical-signing.service.ts`) menjalankan langkah 1 di bawah `lockForSigning`. Versi yang sudah digantikan tidak bisa ditandatangani. Setelah dokumen bertanda tangan tersimpan, versi sumber terkunci: koreksi → `RECORD_LOCKED`, perubahan lewat addendum. Ini titik sambung untuk entri berversi: persetujuan tindakan (3.7, modul `consent`) sudah memakainya, resume (3.6) menyusul.
 3. **Worker** (`apps/worker/src/outbox/tte.ts`) mengirim **hash** dokumen ke penyelenggara TTE (lokal: mock `/tte/sign`), bukan isinya. Sertifikat dan tanda tangan disimpan atomik. Gagal permanen menandai tanda tangan `failed`.
 4. **Verifikasi QR** (`/verification`) bersifat publik dan tanpa PHI: RS, jenis dokumen, penanda tangan, waktu, dan sidik digital.
 
-Pemakai saat ini: resep di modul `orders` memanggil `ClinicalPdfService.issue()`. TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review`.
+Pemakai saat ini:
+
+- persetujuan, penolakan, dan pencabutan tindakan (`consent`) lewat `issueSigned('consents', …)`, TTE dokter pemberi penjelasan, izin `consent.sign` di endpoint;
+- resep di modul `orders` memanggil `ClinicalPdfService.issue()` langsung (sumber `order_groups`, bukan tabel berversi). TTE hanya dibuat bila penulis memegang `clinical.sign`; resep residen berstatus `needs_review`.
 
 ## Staging SATUSEHAT dan peristiwa biaya
 
@@ -287,8 +300,8 @@ Semua modul ada di `apps/api/src/modules/<modul>/` dan didaftarkan sekali di `Ap
 | 0 Fondasi       | `src/common`, `src/infra` (sesi, audit, RLS, outbox, SSE, event domain, lookup, penyimpanan objek, batas laju); `dev-tools`                                               | Selesai                                                        |
 | 1 Platform      | `tenancy`, `facility`, `auth`, `iam`, `authz`, `devices`, `audit`, `mpi`, `ref`, `forms`, `documents`, `numbering`, `notifications`, `settings`                           | Selesai, dipakai layar mode api                                |
 | 2 Front office  | `scheduling`, `booking`, `registration`, `queue`, `kiosk`, `sep`, `referral`, `patient-portal-gateway`                                                                    | Selesai. `booking` belum punya layar web; dipakai lewat API.   |
-| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`                                   | API jadi (3.1–3.5). Layar mode api menyusul W1–W5b.            |
-| 3 Klinis RME    | `discharge` (3.6), `consent` (3.7), `consult`, `care-packages` (3.8)                                                                                                      | Kerangka modul kosong. `DischargeGate` sementara ada di `adt`. |
+| 3 Klinis RME    | `encounter`, `drafts`, `diagnosis`, `results`, `summary`, `nursing`, `cppt`, `assessment`, `worklist`, `adt`, `triage`, `orders`, `cds`, `consent`                        | API jadi (3.1–3.5, 3.7). Layar mode api menyusul W1–W5b.       |
+| 3 Klinis RME    | `discharge` (3.6), `consult`, `care-packages` (3.8)                                                                                                                       | Kerangka modul kosong. `DischargeGate` sementara ada di `adt`. |
 | 4–9             | belum ada modul. Nama rencana di `docs/01-arsitektur.md` §2 dan [Peta kode](./19-peta-kode.md#lapisan-berikutnya-fase-4-9)                                                | Layar hanya mode presentasi                                    |
 | 10 (lebih awal) | bukan modul API: backup terenkripsi (`infra/backup`), jangkar audit (`apps/worker/src/audit`), rotasi kunci kolom (`apps/worker/src/key-rotation`, `pnpm db:rotate-keys`) | Selesai                                                        |
 
