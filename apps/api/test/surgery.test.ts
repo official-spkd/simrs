@@ -220,6 +220,20 @@ describe('papan dan izin', () => {
     await as('kasir').get('/surgery/board').expect(403);
     await as('apoteker').get('/surgery/board').expect(403);
     await as('perawatMelati').get('/surgery/board').expect(403);
+    // Calon kasus: kunjungan aktif dicari No. RM (perawat OK, izin jadwal).
+    const e = await encounter();
+    const mrn = (await run(A.id, (tx) => tx.patient.findUniqueOrThrow({ where: { id: e.patientId } }))).mrn;
+    const found = await as('perawatOk')
+      .get(`/surgery/candidates?q=${encodeURIComponent(mrn)}`)
+      .expect(200);
+    expect(found.body.items[0]).toMatchObject({
+      encounterId: e.encounterId,
+      rm: mrn,
+      encounterClass: 'EMER',
+    });
+    await as('dokterOp')
+      .get(`/surgery/candidates?q=${encodeURIComponent(mrn)}`)
+      .expect(403);
   });
 });
 

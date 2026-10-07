@@ -177,3 +177,20 @@ export const COUNT_KIND_LABEL: Record<(typeof COUNT_KINDS)[number], string> = {
   tambahan: 'Tambahan',
   akhir: 'Hitung akhir',
 };
+
+/**
+ * `GET /surgery/candidates?q=`: kunjungan aktif (rawat inap, IGD, rawat jalan) untuk dijadwalkan operasi, dicari dengan
+ * No. RM atau nomor kunjungan (min. 3 karakter). Hanya nama + RM + nomor; diaudit per pasien.
+ */
+export const surgeryCandidatesSchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      encounterId: uuid,
+      number: z.string(),
+      encounterClass: z.string(),
+      patientName: z.string(),
+      rm: z.string(),
+    }),
+  ),
+});
+export type SurgeryCandidate = z.infer<typeof surgeryCandidatesSchema>['items'][number];

@@ -26,6 +26,7 @@ import { SurgeryService } from './surgery.service';
 
 const uuid = new ParseUUIDPipe();
 const boardQuery = z.strictObject({ date: z.iso.date().optional() });
+const candidateQuery = z.strictObject({ q: z.string().trim().min(3).max(40) });
 
 /**
  * S06 · Kamar operasi (`/api/v1/surgery`, rencana fase 4 §4.7). Izin `surgery.*`: perawat unit OK (lingkup unit:
@@ -53,6 +54,12 @@ export class SurgeryController {
   async getCase(@Param('id', uuid) id: string) {
     await this.surgeryAccessCheck(id);
     return this.board.one(id);
+  }
+
+  @RequirePermission('surgery', 'schedule')
+  @Get('candidates')
+  candidates(@Query(new ZodValidationPipe(candidateQuery)) q: z.infer<typeof candidateQuery>) {
+    return this.surgery.candidates(q.q);
   }
 
   @RequirePermission('surgery', 'schedule')

@@ -670,6 +670,37 @@ export class SurgeryService {
     return this.board.one(c.id);
   }
 
+  /** Kunjungan aktif untuk dijadwalkan (cari No. RM / nomor kunjungan); diaudit `search` per pasien. */
+  async candidates(q: string) {
+    await this.scope.assertUnit();
+    const term = q.trim();
+    const rows = await this.db.tx().encounter.findMany({
+      where: {
+        status: { in: ACTIVE_ENCOUNTER },
+        OR: [{ number: { contains: term.toUpperCase() } }, { patient: { mrn: { contains: term } } }],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        number: true,
+        encounterClass: true,
+        patient: { select: { id: true, name: true, mrn: true } },
+      },
+    });
+    for (const r of rows)
+      this.db.audit({ action: 'search', resourceType: 'surgery_candidate', patientId: r.patient.id });
+    return {
+      items: rows.map((r) => ({
+        encounterId: r.id,
+        number: r.number,
+        encounterClass: r.encounterClass,
+        patientName: r.patient.name,
+        rm: r.patient.mrn,
+      })),
+    };
+  }
+
   /** Kasus boleh dibuka pelaku (lingkup `surgery.read`); diaudit `read`. */
   async assertReadable(id: string): Promise<void> {
     const c = await this.scope.loadCase(id);
@@ -689,7 +720,8 @@ export class SurgeryService {
       },
       select: { userId: true, user: { select: { displayName: true } }, role: { select: { code: true } } },
       orderBy: [{ user: { displayName: 'asc' } }],
-      take: 300,
+      // Tanpa batas: daftar nama staf klinis satu RS (ratusan), dipakai pilihan tim operasi.
+      take: 2000,
     });
     const seen = new Set<string>();
     const items: Array<{ userId: string; name: string; role: string }> = [];
