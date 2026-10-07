@@ -34,6 +34,8 @@ export const KEY_ROTATION_TARGETS = [
   'patient_links',
   'patient_contacts',
   'coverages',
+  // Fase 4 §4.1a · kunci HMAC analyzer lab (`device_hmac`).
+  'registered_devices',
 ] as const;
 export type KeyRotationTarget = (typeof KEY_ROTATION_TARGETS)[number];
 
@@ -109,7 +111,7 @@ async function columnUsage(
 
 /** Kolom terenkripsi tunggal tanpa blind index (no. HP staf, rahasia MFA, kode cadangan login). */
 function simpleTarget(
-  target: 'users' | 'mfa_factors' | 'login_challenges',
+  target: 'users' | 'mfa_factors' | 'login_challenges' | 'registered_devices',
   column: string,
   purpose: FieldPurpose,
 ): TargetSpec<Row & { value: string }> {
@@ -411,6 +413,11 @@ const SPECS: Record<KeyRotationTarget, TargetSpec<Row>> = {
   patient_links: linksTarget as unknown as TargetSpec<Row>,
   patient_contacts: contactsTarget as unknown as TargetSpec<Row>,
   coverages: coveragesTarget as unknown as TargetSpec<Row>,
+  registered_devices: simpleTarget(
+    'registered_devices',
+    'hmac_key_enc',
+    'device_hmac',
+  ) as unknown as TargetSpec<Row>,
 };
 
 const context = (tenantId: string, keys: FieldKeys): Ctx => ({

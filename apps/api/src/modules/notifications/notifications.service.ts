@@ -1,13 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { enqueueOutbox } from '@simrs/db';
-import {
-  AppError,
-  newId,
-  type NotificationChannel,
-  NOTIFY_EMAIL_OPERATION,
-  NOTIFY_WHATSAPP_OPERATION,
-  notificationLinkSchema,
-} from '@simrs/shared';
+import { notifyStaff } from '@simrs/db';
+import { AppError, type NotificationChannel } from '@simrs/shared';
 import { TenantDb } from '../../infra/tenant-db';
 
 export interface NotifyInput {
@@ -31,8 +24,8 @@ const READ_SELECT = {
 
 /**
  * P09 · Notifikasi staf. `notify` menulis notifikasi in-app di transaksi pemanggil dan mengantrekan salinan
- * email/WhatsApp lewat outbox (payload hanya ID; alamat dibaca/didekripsi worker saat mengirim). Endpoint baca
- * hanya untuk notifikasi milik pengguna yang login.
+ * email/WhatsApp lewat outbox (inti di `@simrs/db` `notifyStaff`, dipakai juga job worker). Endpoint baca hanya untuk
+ * notifikasi milik pengguna yang login.
  */
 @Injectable()
 export class NotificationsService {
@@ -43,46 +36,8 @@ export class NotificationsService {
     input: NotifyInput,
     channels: NotificationChannel[] = ['in_app', 'email'],
   ): Promise<number> {
-    if (input.link !== undefined) notificationLinkSchema.parse(input.link);
-    const tx = this.db.tx();
-    const tenantId = this.db.tenantId();
-    const ids = [...new Set(recipientUserIds)];
-    if (ids.length === 0) return 0;
-    const users = await tx.user.findMany({
-      where: { id: { in: ids }, status: 'active' },
-      select: { id: true, email: true, phoneEnc: true },
-    });
-    for (const u of users) {
-      const id = newId();
-      await tx.notification.create({
-        data: {
-          id,
-          tenantId,
-          recipientUserId: u.id,
-          kind: input.kind,
-          title: input.title,
-          body: input.body,
-          link: input.link ?? null,
-        },
-      });
-      if (channels.includes('email') && u.email) {
-        await enqueueOutbox(tx, tenantId, {
-          target: 'email',
-          operation: NOTIFY_EMAIL_OPERATION,
-          idempotencyKey: `notify-email:${id}`,
-          payload: { notificationId: id },
-        });
-      }
-      if (channels.includes('whatsapp') && u.phoneEnc) {
-        await enqueueOutbox(tx, tenantId, {
-          target: 'whatsapp',
-          operation: NOTIFY_WHATSAPP_OPERATION,
-          idempotencyKey: `notify-wa:${id}`,
-          payload: { notificationId: id },
-        });
-      }
-    }
-    return users.length;
+    const sent = await notifyStaff(this.db.tx(), this.db.tenantId(), recipientUserIds, input, channels);
+    return sent.length;
   }
 
   private me(): string {

@@ -1,8 +1,9 @@
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { resolveTenantByCode, resolveTenantByHost } from '@simrs/db';
 import {
   AppError,
+  BROWSER_DEVICE_KINDS,
   type CreateDeviceInput,
   DEVICE_ENROLMENT_MINUTES,
   DEVICE_PRINCIPAL_DAYS,
@@ -14,10 +15,12 @@ import {
   ENROLMENT_CODE_LENGTH,
   type EnrolDeviceInput,
   formatEnrolmentCode,
+  GATEWAY_DEVICE_KINDS,
+  LIS_INGEST_PATH,
   newId,
   normalizeEnrolmentCode,
 } from '@simrs/shared';
-import { blindIndex } from '@simrs/shared/node';
+import { blindIndex, encryptField } from '@simrs/shared/node';
 import { toPage } from '../../common/pagination';
 import { API_ENV, type ApiEnv } from '../../config/env';
 import { type AuditMeta, writeAudit } from '../../infra/audit-writer';
@@ -167,10 +170,33 @@ export class DevicesService {
   }
 
   /**
-   * Perangkat menukar kode pendaftaran dengan token `dv1`. Di luar transaksi permintaan (tenant baru diketahui dari
-   * kode RS/host). Kegagalan dicatat dan DI-COMMIT sebelum 401; tanpa kode atau token di jejak.
+   * Perangkat peramban (anjungan/display) menukar kode pendaftaran dengan token `dv1`. Di luar transaksi permintaan
+   * (tenant baru diketahui dari kode RS/host). Kegagalan dicatat dan DI-COMMIT sebelum 401; tanpa kode atau token di
+   * jejak. Kode analyzer lab tidak berlaku di sini (`enrolAnalyzer`).
    */
   async enrol(input: EnrolDeviceInput, m: EnrolMeta) {
+    const r = await this.enrolKinds(input, m, BROWSER_DEVICE_KINDS);
+    return { token: r.token, expiresAt: r.expiresAt, device: r.device, permissions: r.permissions };
+  }
+
+  /**
+   * S01 · Gateway analyzer lab menukar kode dengan token `dv1` + kunci HMAC perangkat (fase 4 §4.1a). Kunci 32 bita
+   * acak dari CSPRNG, disimpan terenkripsi (`device_hmac`), ditampilkan sekali di jawaban ini.
+   */
+  async enrolAnalyzer(input: EnrolDeviceInput, m: EnrolMeta) {
+    const r = await this.enrolKinds(input, m, GATEWAY_DEVICE_KINDS);
+    if (!r.hmacKey) throw enrolFailed();
+    return {
+      token: r.token,
+      expiresAt: r.expiresAt,
+      device: r.device,
+      permissions: r.permissions,
+      hmacKey: r.hmacKey,
+      ingestPath: LIS_INGEST_PATH,
+    };
+  }
+
+  private async enrolKinds(input: EnrolDeviceInput, m: EnrolMeta, kinds: readonly DevicePrincipalKind[]) {
     const tenantId = await this.resolveTenant(input, m.host);
     const code = normalizeEnrolmentCode(input.code);
     if (!tenantId) throw enrolFailed();
@@ -200,14 +226,18 @@ export class DevicesService {
     }
     const hash = this.codeHash(tenantId, code);
     const result = await this.prisma.forTenant(tenantId, async (tx) => {
-      const d = await DevicesRepository.findPendingByCode(tx, hash);
+      const d = await DevicesRepository.findPendingByCode(tx, hash, kinds);
       if (!d) return { kind: 'unknown' as const };
       const device = { id: d.id, kind: d.kind };
       if (!d.enrolExpiresAt || d.enrolExpiresAt <= new Date()) return { kind: 'expired' as const, device };
       const t = issueToken('dv1', tenantId, d.id);
+      const hmacKey = d.kind === 'lab_analyzer' ? randomBytes(32).toString('base64url') : null;
       const ok = await DevicesRepository.completeEnrolment(tx, d.id, {
         tokenHash: t.hash,
         userAgent: m.userAgent?.slice(0, 200) ?? null,
+        hmacKeyEnc: hmacKey
+          ? encryptField(hmacKey, { ring: this.env.fieldKeys.enc, tenantId, purpose: 'device_hmac' })
+          : null,
       });
       if (!ok) return { kind: 'unknown' as const };
       await writeAudit(tx, tenantId, meta(device), [
@@ -225,6 +255,7 @@ export class DevicesService {
       return {
         kind: 'ok' as const,
         token: t.token,
+        hmacKey,
         expiresAt: row.expiresAt.toISOString(),
         device: { id: d.id, kind: d.kind as DevicePrincipalKind, name: d.name },
       };
@@ -238,6 +269,7 @@ export class DevicesService {
     }
     return {
       token: result.token,
+      hmacKey: result.hmacKey,
       expiresAt: result.expiresAt,
       device: result.device,
       permissions: [...devicePermissions(result.device.kind)],

@@ -20,7 +20,9 @@ export type FieldPurpose =
   /** Lada (HMAC) PIN masuk cepat sebelum argon2id: hash PIN yang bocor tidak bisa ditebak tanpa kunci. */
   | 'login_pin'
   /** Kode pendaftaran perangkat anjungan/TV sekali pakai (ADR-0027): dicari lewat HMAC, tidak disimpan. */
-  | 'device_enrolment';
+  | 'device_enrolment'
+  /** Kunci HMAC analyzer lab (fase 4 §4.1a): diperlukan server untuk memeriksa `X-Device-Signature`. */
+  | 'device_hmac';
 
 /**
  * Sumber kunci enkripsi: cincin (`ring`, dari env lewat `fieldKeysFromEnv`) atau satu kunci format lama

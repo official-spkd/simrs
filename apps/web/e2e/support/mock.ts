@@ -144,4 +144,8 @@ export const mockLis = {
   reset(): Promise<{ ok: true }> {
     return panel<{ ok: true }>('POST', 'lis/reset', {});
   },
+  /** Pasang token `dv1` + kunci HMAC hasil `POST /api/v1/devices/lis/enrol` (analyzer terdaftar di tenant uji). */
+  configure(deviceToken: string, deviceSecret: string): Promise<{ ok: true }> {
+    return panel<{ ok: true }>('POST', 'lis/credentials', { deviceToken, deviceSecret });
+  },
 };

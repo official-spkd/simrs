@@ -106,6 +106,8 @@ const STATIC = {
   memberNo: 'ASR-ROT-000123',
   phone: '62812555000111',
   otp: '482913',
+  analyzerId: newId(),
+  hmacKey: 'HmacAnalyzerFiktif_0123456789abcdefghijklmn',
 };
 const A: { id: string; records: Array<NewPatientRecord & { id: string }> } = { id: '', records: [] };
 let B = '';
@@ -130,6 +132,7 @@ const v1Rows = (tenantId: string) =>
         + (SELECT count(*) FROM patient_contacts
            WHERE name_enc LIKE 'v1.%' OR phone_enc LIKE 'v1.%' OR address_enc LIKE 'v1.%')
         + (SELECT count(*) FROM coverages WHERE member_no_enc LIKE 'v1.%')
+        + (SELECT count(*) FROM registered_devices WHERE hmac_key_enc LIKE 'v1.%')
       )::int AS n`,
   );
 
@@ -202,6 +205,27 @@ async function seedTenantA(): Promise<void> {
         pinKeyId: 'v1',
         createdAt,
         expiresAt: new Date(createdAt.getTime() + 30 * 86_400_000),
+      },
+    });
+    // Analyzer lab terdaftar (fase 4 §4.1a) dengan kunci HMAC terenkripsi v1.
+    const lab = await tx.unit.findFirstOrThrow({ select: { id: true } });
+    await tx.registeredDevice.create({
+      data: {
+        id: STATIC.analyzerId,
+        tenantId: A.id,
+        kind: 'lab_analyzer',
+        name: 'Analyzer kimia uji',
+        unitId: lab.id,
+        tokenHash: hashToken(randomToken()),
+        createdAt,
+        expiresAt: new Date(createdAt.getTime() + 365 * 86_400_000),
+        enrolExpiresAt: new Date(createdAt.getTime() + 15 * 60_000),
+        enrolledAt: createdAt,
+        hmacKeyEnc: encryptField(STATIC.hmacKey, {
+          ring: before.enc,
+          tenantId: A.id,
+          purpose: 'device_hmac',
+        }),
       },
     });
     // Keluarga/penanggung jawab (F03, append-only) dengan nama + HP terenkripsi v1.
@@ -303,6 +327,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
       patient_links: 1,
       patient_contacts: 1,
       coverages: 1,
+      registered_devices: 1,
     });
     const ids = plan.targets.find((t) => t.target === 'patient_identifiers');
     expect(ids?.columns).toEqual([
@@ -397,10 +422,26 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(by.patient_contacts).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
     // Penjaminan terkunci tetap ikut diputar (pengecualian sempit penjaga kunci penjaminan).
     expect(by.coverages).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
+    // Kunci HMAC analyzer ikut diputar (penjaga perangkat hanya mengizinkan pergantian ID kunci).
+    expect(by.registered_devices).toMatchObject({ rewritten: 1, failed: 0, remaining: 0 });
+    const analyzer = await withTenant(app, A.id, (tx) =>
+      tx.registeredDevice.findUniqueOrThrow({
+        where: { id: STATIC.analyzerId },
+        select: { hmacKeyEnc: true },
+      }),
+    );
+    expect(analyzer.hmacKeyEnc?.startsWith('v2.')).toBe(true);
+    expect(
+      decryptField(analyzer.hmacKeyEnc as string, {
+        ring: during.enc,
+        tenantId: A.id,
+        purpose: 'device_hmac',
+      }),
+    ).toBe(STATIC.hmacKey);
     expect(await v1Rows(A.id)).toBe(0);
 
     const statuses = await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.findMany());
-    expect(statuses).toHaveLength(8);
+    expect(statuses).toHaveLength(9);
     expect(statuses.every((s) => s.finishedAt !== null && s.remaining === 0 && s.failed === 0)).toBe(true);
 
     const audits = await withTenant(app, A.id, (tx) =>
@@ -491,7 +532,7 @@ describe('rotasi kunci kolom v2 (P05, ADR-0015)', () => {
     expect(row?.valueEnc.startsWith('v1.')).toBe(true);
     expect(row?.valueHash).toMatch(/^[0-9a-f]{64}$/);
     expect(await withTenant(app, B, (tx) => tx.fieldKeyRotation.count())).toBe(0);
-    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(8);
+    expect(await withTenant(app, A.id, (tx) => tx.fieldKeyRotation.count())).toBe(9);
   });
 
   it('gagal tertutup: kunci lama hilang atau salah → masalah dilaporkan, job tidak menulis apa pun', async () => {

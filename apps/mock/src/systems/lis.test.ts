@@ -157,6 +157,27 @@ describe('mock analyzer LIS (ORU^R01)', () => {
     expect(html).toContain("post('/_panel/api/lis/send'");
   });
 
+  it('kredensial hasil pendaftaran analyzer dipasang saat jalan; kiriman berikutnya memakainya', async () => {
+    const token = 'dv1.uji-token-perangkat-analyzer';
+    const secret = 'kunci-hmac-hasil-pendaftaran-0123456789';
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/_panel/api/lis/credentials',
+      payload: { deviceToken: token, deviceSecret: 'pendek' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/_panel/api/lis/credentials',
+      payload: { deviceToken: token, deviceSecret: secret },
+    });
+    expect(ok.json()).toEqual({ ok: true });
+    await send({ barcode: 'L0000000011', template: 'dl' });
+    const last = sent.at(-1) as { headers: Record<string, string>; body: string };
+    expect(last.headers.authorization).toBe(`Bearer ${token}`);
+    expect(verify(last, secret)).toEqual({ ok: true });
+  });
+
   it('SIM RS tidak terjangkau: tercatat error tanpa ACK', async () => {
     config.sendWebhook = async () => ({ status: 'error' });
     await send({ barcode: 'L0000000010', template: 'dl' });

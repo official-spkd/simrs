@@ -4,7 +4,7 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type TenantTx, withTenant } from '@simrs/db';
-import { AppError, isUuidV7, newId } from '@simrs/shared';
+import { AppError, isUuidV7, newId, WORKER_EMITTED_EVENTS } from '@simrs/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NoRequestTransaction } from '../src/common/no-request-transaction.decorator';
@@ -46,6 +46,13 @@ const ticketPayload = () => ({
 });
 
 describe('DomainEvents (unit)', () => {
+  it('event yang juga ditulis worker tidak boleh punya penangan in-process (jalur yang diam-diam tidak jalan)', () => {
+    const events = new DomainEvents();
+    for (const name of WORKER_EMITTED_EVENTS) {
+      expect(() => events.on(name, () => undefined)).toThrow(/juga ditulis worker/);
+    }
+  });
+
   it('menjalankan penangan berurutan dengan transaksi yang sama dan amplop event lengkap', async () => {
     const events = new DomainEvents();
     const seen: string[] = [];
