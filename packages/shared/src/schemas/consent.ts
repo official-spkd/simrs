@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { CreateFormDefinitionInput } from '../forms';
+import {
+  allFields,
+  type CreateFormDefinitionInput,
+  formAnswersSchema,
+  type FormSchema,
+  formSchemaSchema,
+} from '../forms';
 import { clinicalAuthorSchema, clinicalEntryMetaSchema, SAFETY_REASON_MIN } from './klinis';
 
 /**
@@ -81,6 +87,7 @@ export const EDUCATION_FORM_SAMPLE: CreateFormDefinitionInput = {
               { value: 'rehabilitasi', label: 'Rehabilitasi' },
               { value: 'infeksi', label: 'Pencegahan infeksi' },
               { value: 'alat', label: 'Penggunaan alat medis' },
+              { value: 'tindakan', label: 'Tindakan yang direncanakan: manfaat, risiko, alternatif' },
             ],
           },
           {
@@ -112,6 +119,32 @@ export const EDUCATION_FORM_SAMPLE: CreateFormDefinitionInput = {
     ],
   },
 };
+
+/**
+ * Syarat final persetujuan (sama dengan layar Edukasi mode demo, `consentReady`): isian P07 `edukasi_terintegrasi`
+ * terkini di kunjungan itu yang memuat topik `tindakan` harus berevaluasi `paham`. Edukasi ulang terbaru menggantikan
+ * evaluasi sebelumnya. Penolakan tindakan tidak terkena syarat ini.
+ */
+export const CONSENT_EDUCATION_FORM = EDUCATION_FORM_SAMPLE.code;
+export const CONSENT_EDUCATION_TOPIC = 'tindakan';
+
+/** Formulir edukasi yang bisa memenuhi syarat final: punya opsi topik `tindakan` dan evaluasi `paham`. */
+export function educationFormSupportsConsent(schema: FormSchema): boolean {
+  const fields = allFields(schema);
+  const has = (key: string, value: string) =>
+    fields.some((f) => f.key === key && (f.options ?? []).some((o) => o.value === value));
+  return has('topik', CONSENT_EDUCATION_TOPIC) && has('evaluasi', 'paham');
+}
+
+/** Isian edukasi (urut waktu naik) → apakah edukasi tindakan terkini terverifikasi paham. */
+export function consentEducationReady(responses: ReadonlyArray<{ answers: unknown }>): boolean {
+  let latest: unknown = undefined;
+  for (const r of responses) {
+    const a = r.answers as { topik?: unknown; evaluasi?: unknown } | null;
+    if (Array.isArray(a?.topik) && a.topik.includes(CONSENT_EDUCATION_TOPIC)) latest = a.evaluasi;
+  }
+  return latest === 'paham';
+}
 
 /** Pemberi persetujuan: pasien sendiri (kompeten) atau wali/keluarga terdekat. */
 export const CONSENT_SIGNER_KINDS = ['pasien', 'wali'] as const;
@@ -277,7 +310,7 @@ export const consentDraftSchema = z.strictObject({
   signedAt: instant.nullable(),
   staffWitness: person.extend({ attestedAt: instant, expiresAt: instant }).nullable(),
   status: z.enum(CONSENT_DRAFT_STATUSES),
-  missing: z.array(z.enum(['tanda_tangan', 'saksi_petugas', 'saksi_kedaluwarsa'])),
+  missing: z.array(z.enum(['edukasi_tindakan', 'tanda_tangan', 'saksi_petugas', 'saksi_kedaluwarsa'])),
   consentId: uuid.nullable(),
   cancelReason: z.string().nullable(),
   createdBy: person,
@@ -317,3 +350,30 @@ export const consentRecordSchema = clinicalEntryMetaSchema.extend({
     .nullable(),
 });
 export type ConsentRecord = z.infer<typeof consentRecordSchema>;
+
+/**
+ * `GET /api/v1/encounters/:id/education` (izin `clinical.read`): edukasi terintegrasi kunjungan untuk layar Edukasi mode
+ * api. `form` = versi terbit formulir `edukasi_terintegrasi` (diisi lewat `POST /patients/:id/forms/:code/responses`
+ * dengan `encounterId`); `ready` = syarat final persetujuan terpenuhi (`consentEducationReady`); `records` = isian final
+ * terkini, urut waktu naik.
+ */
+export const encounterEducationSchema = z.strictObject({
+  encounterId: uuid,
+  patientId: uuid,
+  form: z
+    .strictObject({ code: z.string(), title: z.string(), version: z.int().min(1), schema: formSchemaSchema })
+    .nullable(),
+  /** Formulir terbit memuat topik `tindakan` + evaluasi `paham` (bisa memenuhi syarat persetujuan). */
+  supportsConsent: z.boolean(),
+  ready: z.boolean(),
+  records: z.array(
+    z.strictObject({
+      id: uuid,
+      version: z.int().min(1),
+      createdAt: instant,
+      author: z.string().nullable(),
+      answers: formAnswersSchema,
+    }),
+  ),
+});
+export type EncounterEducation = z.infer<typeof encounterEducationSchema>;

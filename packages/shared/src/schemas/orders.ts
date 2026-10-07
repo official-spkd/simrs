@@ -114,8 +114,10 @@ export const orderGroupSchema = z.strictObject({
   orderSetId: uuid.nullable(),
   orderedAt: instant,
   orderedBy: clinicalAuthorSchema,
-  /** Order residen: menunggu tinjauan DPJP (keputusan fase 3 no. 4). */
+  /** Order residen yang BELUM ditinjau DPJP (keputusan fase 3 no. 4); false setelah atestasi `review_order`. */
   needsReview: z.boolean(),
+  /** Tinjauan DPJP atas order residen (`POST /orders/:id/review`), null bila belum/tidak perlu. */
+  review: z.strictObject({ by: clinicalAuthorSchema, at: instant }).nullable(),
   serviceRequests: z.array(serviceRequestViewSchema),
   medicationRequests: z.array(medicationRequestViewSchema),
   cdsAlerts: z.array(cdsAlertSchema),
@@ -130,7 +132,13 @@ export const orderSetViewSchema = z.strictObject({
   name: nonEmpty,
   description: z.string(),
   items: z.array(
-    z.strictObject({ type: z.enum(['layanan', 'obat']), id: uuid, name: nonEmpty, active: z.boolean() }),
+    z.strictObject({
+      type: z.enum(['layanan', 'obat']),
+      id: uuid,
+      kind: z.enum(CPOE_ORDER_KINDS),
+      name: nonEmpty,
+      active: z.boolean(),
+    }),
   ),
 });
 export type OrderSetView = z.infer<typeof orderSetViewSchema>;

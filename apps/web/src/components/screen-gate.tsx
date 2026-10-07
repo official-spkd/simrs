@@ -37,7 +37,7 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
     body: 'Antrean poli, tanda vital, CPPT/SOAP, diagnosis ICD-10, dan resume rawat jalan akan tersedia di sini setelah modul rekam medis klinis tersambung ke server SIM RS. Sementara itu, catat pemeriksaan dengan prosedur cadangan rumah sakit.',
   },
   order: {
-    body: 'Order laboratorium, radiologi, tindakan, dan resep dengan pemeriksaan keamanan obat (CDS) akan tersedia di sini setelah modul order tersambung ke server SIM RS. Sementara itu, gunakan formulir order dan resep cadangan rumah sakit.',
+    body: 'Buka CPOE dari kunjungan pasien (tautan Order di layar klinis). Daftar kunjungan untuk CPOE tersedia setelah layar Pemeriksaan poli dan Rawat inap tersambung ke server SIM RS.',
   },
   igd: {
     body: 'Papan pelacakan IGD dan triase akan tersedia di sini setelah modul IGD tersambung ke server SIM RS. Sementara itu, lakukan triase dengan prosedur cadangan rumah sakit.',
@@ -53,6 +53,37 @@ const NOT_CONNECTED: Readonly<Record<string, Copy>> = {
   },
   consent: {
     body: 'Persetujuan tindakan di tablet belum tersambung ke server SIM RS. Gunakan formulir persetujuan tindakan kertas sesuai prosedur rumah sakit.',
+  },
+  // Layar penunjang fase 4 (potongan 4.0c): jalur api diisi potongan 4.2–4.9 setelah modul API penunjangnya tergabung.
+  lab: {
+    body: 'Worklist laboratorium, penerimaan spesimen, input hasil, validasi, dan pelaporan nilai kritis akan tersedia di sini setelah modul laboratorium tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',
+  },
+  rad: {
+    body: 'Jadwal modalitas, pelaksanaan pemeriksaan, dan ekspertise radiologi ber-TTE akan tersedia di sini setelah modul radiologi tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan radiologi.',
+  },
+  farmasi: {
+    body: 'Telaah resep, penyiapan dengan cek ganda, dan serah terima obat akan tersedia di sini setelah modul farmasi tersambung ke server SIM RS. Sementara itu, layani resep dengan prosedur cadangan farmasi.',
+  },
+  ok: {
+    body: 'Jadwal kamar operasi, daftar tilik keselamatan WHO, hitung kasa, dan laporan operasi akan tersedia di sini setelah modul kamar operasi tersambung ke server SIM RS. Sementara itu, gunakan daftar tilik kertas sesuai prosedur rumah sakit.',
+  },
+  kritis: {
+    body: 'Nilai kritis lintas unit dengan batas waktu lapor, read-back, dan eskalasi akan tersedia di sini setelah modul nilai kritis tersambung ke server SIM RS. Sementara itu, laporkan nilai kritis lewat telepon dengan read-back sesuai prosedur.',
+  },
+  depo: {
+    body: 'Stok depo per batch dan kedaluwarsa, mutasi antardepo, dan penyesuaian stok akan tersedia di sini setelah modul stok tersambung ke server SIM RS. Sementara itu, catat mutasi stok dengan prosedur cadangan farmasi.',
+  },
+  'bank-darah': {
+    body: 'Permintaan darah, crossmatch, dan pengeluaran kantong dengan cek ganda akan tersedia di sini setelah modul bank darah tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan bank darah.',
+  },
+  gizi: {
+    body: 'Order diet, skrining gizi, dan distribusi makan per bangsal akan tersedia di sini setelah modul gizi tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan instalasi gizi.',
+  },
+  mikro: {
+    body: 'Kultur, uji kepekaan, dan ekspertise patologi anatomi akan tersedia di sini setelah modul mikrobiologi dan PA tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan laboratorium.',
+  },
+  diagnostik: {
+    body: 'Order, jadwal, dan laporan diagnostik lain (EKG, ekokardiografi, endoskopi) ber-TTE akan tersedia di sini setelah modulnya tersambung ke server SIM RS. Sementara itu, ikuti prosedur cadangan unit diagnostik.',
   },
 };
 

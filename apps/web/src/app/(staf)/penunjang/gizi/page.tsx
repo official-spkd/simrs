@@ -1,32 +1,18 @@
-import { formatTanggalWaktu } from '@simrs/shared';
 import type { Metadata } from 'next';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { NutritionWorkspace } from '@/components/penunjang/gizi-workspace';
-import { ScenarioBanner } from '@/components/scenario-banner';
-import { getNutrition } from '@/lib/server/data/penunjang-lanjut';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
+import { ScreenAccessDenied, ScreenNotConnected } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { DemoGizi } from './demo-gizi';
 
 export const metadata: Metadata = { title: 'Gizi' };
 
 /**
- * S07 · Gizi: order diet dari DPJP, skrining gizi, dan distribusi makan per bangsal dengan alergi makanan dan puasa
- * sebagai gerbang. Mode presentasi: data dummy fiktif (ADR-0023). Peran ahli gizi (`nutrisionis`, keputusan fase 4
- * #21) belum ada di katalog peran; sementara dibuka untuk perawat dan dokter.
+ * S07 · Layar hibrida Gizi (rencana fase 4 potongan 4.0c, pola 3.0d klinis): mode presentasi memakai data dummy
+ * (`demo-gizi.tsx` + `actions-demo.ts`, dibekukan); mode api untuk peran yang memegang izin layar, jalur API diisi
+ * potongan 4.9 (sampai itu "Belum tersambung").
  */
 export default async function GiziPage() {
-  const { session, screen, allowed } = await requireDemoScreen('gizi');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const data = await getNutrition();
-  return (
-    <div className="flex flex-col gap-4">
-      <header className="flex flex-col gap-0.5">
-        <span className="text-caption text-ink-500">
-          Penunjang / Instalasi gizi · S07 · {session.tenant.name} · data per {formatTanggalWaktu(data.asOf)}
-        </span>
-        <h1 className="m-0 text-h1 font-bold tracking-[-0.02em]">Gizi · diet dan distribusi makan</h1>
-      </header>
-      <ScenarioBanner session={session} screen="gizi" />
-      <NutritionWorkspace data={data} userName={session.user.displayName} />
-    </div>
-  );
+  const access = await requireScreen('gizi');
+  if (access.mode === 'demo') return <DemoGizi access={access} />;
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ScreenNotConnected screen={access.screen} role={access.session.role?.code ?? null} />;
 }

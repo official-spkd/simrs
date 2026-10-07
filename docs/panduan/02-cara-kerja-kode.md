@@ -494,18 +494,21 @@ Aturan penting:
 Modul `triage` (K03), `adt` (K04/K05), dan `encounter` (bagian SEP IGD). Rute per kunjungan memakai bentuk kanonik
 fase 3 `/api/v1/encounters/:id/<sumber>`; sisanya berprefiks `adt/…` dan `triage/…`.
 
-| Rute                                                         | Guna                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /triage/assessments`                                   | Triase ATS (`triage.write`): saran dihitung server (`suggestTriage`); turun dari saran tanpa alasan ≥ 10 → 422 `TRIAGE_REASON_REQUIRED`; di bawah batas protokol → 422 `TRIAGE_LEVEL_NOT_ALLOWED`. Triase pertama: `in_progress`, `encounter.started`, biaya `igd`, SATUSEHAT Encounter `held` |
-| `GET /triage/board` (+ `/triage/board/events`)               | Papan IGD unit penugasan (`clinical.read`): LOS, status alur, zona, bed IGD, triase terkini, permintaan bed + boarding. SSE: potret `ed.board` lalu `ed.status`                                                                                                                                |
-| `POST /encounters/:id/ed-status`                             | Status alur + zona + penempatan bed IGD (bed lama → kotor), `triage.write`                                                                                                                                                                                                                     |
-| `GET /adt/beds` (+ `/adt/beds/events`)                       | Papan bed per unit (`bed.read`, lingkup unit): status + versi, inisial pasien saja, permintaan bed (`boarding` bila asal IGD menunggu ≥ `bed.boarding_alert_hours`). SSE: potret `bed.board` lalu `bed.status`                                                                                 |
-| `PATCH /adt/beds/:id/status`                                 | Status manual dengan `baseVersion` (beda → 409 `BED_VERSION_CONFLICT`); transisi sah di `MANUAL_BED_TRANSITIONS`                                                                                                                                                                               |
-| `POST /adt/bed-requests` · `/:id/allocate` · `/:id/cancel`   | Permintaan bed (satu terbuka per kunjungan); alokasi → bed `dipesan` (bed tidak siap → 409 `BED_NOT_AVAILABLE`); batal mengembalikan bed ke `siap`                                                                                                                                             |
-| `POST /adt/admissions`                                       | Admisi `planned` → bed (`siap` atau dipesan untuk admisi/IGD asalnya): `bed_assignments` (EXCLUDE → 409 hunian ganda), gelang terbit, DPJP masuk tim, IGD asal `finished` + disposisi `rawat_inap`, SEP rawat inap BPJS                                                                        |
-| `POST /adt/transfers` · `POST /adt/discharges`               | Transfer (lingkup unit ABAC ikut bed baru, bed lama `kotor`, biaya `transfer`); pulang lewat `DISCHARGE_GATE` (dasar di 3.3, aturan lengkap 3.6): bed `kotor`, gelang batal, tim berakhir, `adt.discharged`                                                                                    |
-| `GET /encounters/:id/wristband` · `POST …/wristband/reprint` | Data cetak gelang (audit `print`); cetak ulang wajib alasan, kode lama batal. Kode gelang acak `GL` + 10 karakter, bukan No. RM                                                                                                                                                                |
-| `POST /encounters/:id/emergency-sep`                         | SEP IGD menyusul diagnosa dokter jaga (`coverage.write`); registrasi IGD BPJS dengan `initialDiagnosis` langsung membuat SEP IGD `pending`                                                                                                                                                     |
+| Rute                                                          | Guna                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /triage/assessments`                                    | Triase ATS (`triage.write`): saran dihitung server (`suggestTriage`); turun dari saran tanpa alasan ≥ 10 → 422 `TRIAGE_REASON_REQUIRED`; di bawah batas protokol → 422 `TRIAGE_LEVEL_NOT_ALLOWED`. Triase pertama: `in_progress`, `encounter.started`, biaya `igd`, SATUSEHAT Encounter `held` |
+| `GET /triage/board` (+ `/triage/board/events`)                | Papan IGD unit penugasan (`clinical.read`): LOS, status alur, zona, bed IGD, triase terkini, permintaan bed + boarding. SSE: potret `ed.board` lalu `ed.status`                                                                                                                                |
+| `POST /encounters/:id/ed-status`                              | Status alur + zona + penempatan bed IGD (bed lama → kotor), `triage.write`                                                                                                                                                                                                                     |
+| `GET /adt/beds` (+ `/adt/beds/events`)                        | Papan bed per unit (`bed.read`, lingkup unit): status + versi, inisial pasien saja, permintaan bed (`boarding` bila asal IGD menunggu ≥ `bed.boarding_alert_hours`). SSE: potret `bed.board` lalu `bed.status`                                                                                 |
+| `PATCH /adt/beds/:id/status`                                  | Status manual dengan `baseVersion` (beda → 409 `BED_VERSION_CONFLICT`); transisi sah di `MANUAL_BED_TRANSITIONS`                                                                                                                                                                               |
+| `POST /adt/bed-requests` · `/:id/allocate` · `/:id/cancel`    | Permintaan bed (satu terbuka per kunjungan); alokasi → bed `dipesan` (bed tidak siap → 409 `BED_NOT_AVAILABLE`); batal mengembalikan bed ke `siap`                                                                                                                                             |
+| `POST /adt/admissions`                                        | Admisi `planned` → bed (`siap` atau dipesan untuk admisi/IGD asalnya): `bed_assignments` (EXCLUDE → 409 hunian ganda), gelang terbit, DPJP masuk tim, IGD asal `finished` + disposisi `rawat_inap`, SEP rawat inap BPJS                                                                        |
+| `POST /adt/transfers` · `POST /adt/discharges`                | Transfer (lingkup unit ABAC ikut bed baru, bed lama `kotor`, biaya `transfer`); pulang lewat `DISCHARGE_GATE` (dasar di 3.3, aturan lengkap 3.6): bed `kotor`, gelang batal, tim berakhir, `adt.discharged`                                                                                    |
+| `GET /encounters/:id/wristband` · `POST …/wristband/reprint`  | Data cetak gelang (audit `print`); cetak ulang wajib alasan, kode lama batal. Kode gelang acak `GL` + 10 karakter, bukan No. RM                                                                                                                                                                |
+| `POST /encounters/:id/emergency-sep`                          | SEP IGD menyusul diagnosa dokter jaga (`coverage.write`); registrasi IGD BPJS dengan `initialDiagnosis` langsung membuat SEP IGD `pending`                                                                                                                                                     |
+| `POST /triage/suggestions`                                    | (W3) Pratinjau saran ATS dari server tanpa menyimpan (`triage.write`)                                                                                                                                                                                                                          |
+| `POST /encounters/:id/care-team/claim`                        | (W3) "Ambil pasien": dokter (`clinical.write` + peran ber-`clinical.sign`) masuk tim `dpjp_utama` kunjungan IGD lewat `CareTeamService` (relasi resmi untuk resume/surat kematian); penanggung jawab lama diakhiri beralasan; diaudit `care_team`                                              |
+| `POST /registration/emergency-admissions` + `Idempotency-Key` | (W3) Permintaan bed IGD `dialokasi` → admisi `IMP` (`sourceEncounterId` IGD, penjaminan IGD disalin, kelas dari permintaan) + `AdtService.admit` (bed, gelang, IGD selesai `rawat_inap`) dalam satu transaksi (`encounter.write`); `GET /registration/practitioners` = dokter aktif untuk DPJP |
 
 **SEP IGD dan rawat inap (utang fase 2).** Pola SEP 5a (`SepService.createPending` + outbox `bpjs.vclaim.sep.insert`).
 IGD = rawat jalan (`jnsPelayanan` 2) poli `VCLAIM_POLI_IGD` (`IGD`), tanpa rujukan, DPJP boleh kosong. Kode poli IGD
@@ -522,6 +525,18 @@ kode kelas resmi dari `refKelas` (dicocokkan nama kelas) → `bed/create` → `b
 daftar ulang, "sudah terdaftar" → lanjut update, paling banyak 4 langkah per revisi. Hasil: `class_code`,
 `registered_at`, `sent_revision`, `last_error_code`.
 
+**Sinyal papan (W3, ADR-0104).** Kanal `ed_board`/`bed_board` juga menerima baris `board_signals` (ditulis trigger
+`encounters` kelas EMER, `triage_assessments`, `bed_requests`, `encounter_participants`; id baru per perubahan, append
+only) sebagai event `ed.changed`/`bed.request` tanpa nama. Layar memakai event sebagai sinyal lalu memuat ulang data
+papan dari server; potret awal tiap sambung ulang adalah kebenarannya. Papan IGD kini membawa jenis kelamin, umur,
+cara datang, penjamin, dokter penanggung jawab (tim), kode bed IGD, triase terkini (tanda vital, alasan), SEP IGD, dan
+daftar bed IGD; papan bed membawa status Aplicare per ruang dan kelas kunjungan asal permintaan.
+
+**Urutan dan kunci (utang 3.3).** Status alur IGD terkini diurutkan `changedAt desc, id desc`; `changedAt` dibuat naik
+ketat per kunjungan di bawah kunci baris kunjungan. Langkah ADT yang mengubah lebih dari satu bed (transfer, admisi,
+pulang, alokasi) mengunci baris `aplicare_rooms` yang terlibat dalam urutan tetap (`AplicareSyncService.lockRooms`)
+sebelum status bed diubah: dua transfer berlawanan arah tidak lagi deadlock.
+
 **Lingkup unit tingkat kamar/bed (ADR-0031)** sudah dari 3.1 (`app_patient_location`); transfer otomatis memindah
 akses perawat unit.
 
@@ -537,6 +552,7 @@ Modul `orders` (CPOE) dan `cds` (ADR-0030). Kontrak masukan `orderSubmitInputSch
 | `POST /orders/evaluate`                   | `order.write`   | Pratinjau CDS server per baris (semua temuan, temuan teratas, `blocked`/`overridden`); tidak menyimpan, baca konteks pasien diaudit                      |
 | `POST /orders/submit` + `Idempotency-Key` | `order.write`   | 201 kiriman baru, 200 ulangan isi sama, 409 kunci dipakai isi lain, 422 `CDS_BLOCKED` (penolakan tetap dicatat `cds_alerts` `diblokir` + audit `denied`) |
 | `POST /orders/:id/cancel`                 | `order.cancel`  | Batal beralasan ≥ 10 (status `dibatalkan` append-only, SATUSEHAT revisi 2, event `order.cancelled`); batal ulang 409                                     |
+| `POST /orders/:id/review`                 | `clinical.sign` | Tinjauan order residen oleh DPJP utama/rawat bersama/DPJP kunjungan: atestasi `review_order` + resep ber-TTE peninjau                                    |
 | `GET /encounters/:encounterId/orders`     | `order.read`    | Semua kiriman kunjungan: isi beku, status terkini, temuan CDS, resep (dokumen + status TTE)                                                              |
 | `GET /cds/overrides?from&to&decision`     | `order.read`    | Laporan tinjauan override/penolakan, hanya lingkup seluruh RS (auditor mutu); pasien lewat RM saja                                                       |
 
@@ -574,20 +590,20 @@ Modul `consent`, kontrak `schemas/consent.ts`, ADR-0058. Tablet memakai sesi sta
 draf → tanda tangan → atestasi saksi petugas → final (atau penolakan/batal). Draf (`consent_drafts`) bukan rekam
 medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/penolakan.
 
-| Endpoint `/api/v1/…`                                           | Izin                    | Isi                                                                                                                      |
-| -------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GET consents/templates`                                       | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`) |
-| `POST encounters/:id/consent-drafts`                           | `consent.write`         | Draf baru dari templat: tindakan, pemberi persetujuan (pasien/wali), tujuh butir, waktu penjelasan (boleh kosong)        |
-| `GET encounters/:id/consent-drafts`, `GET consents/drafts/:id` | `consent.read`          | Draf + `missing` (`tanda_tangan`, `saksi_petugas`, `saksi_kedaluwarsa`) untuk tablet                                     |
-| `PUT consents/drafts/:id`                                      | `consent.write`         | Ganti isi; tanda tangan + atestasi dihapus                                                                               |
-| `POST consents/drafts/:id/signature-image?slot=`               | `consent.write`         | PNG tanda tangan (body biner, maks. 512 KB) → dokumen pasien P08; jawab `imageDocumentId`                                |
-| `PUT consents/drafts/:id/signatures`                           | `consent.write`         | Ketujuh butir dinyatakan dipahami + tanda tangan pasien/wali (+ saksi keluarga); atestasi saksi sebelumnya dihapus       |
-| `POST consents/drafts/:id/witness`                             | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri, setelah tanda tangan; berlaku 30 menit                                    |
-| `POST consents/drafts/:id/finalize`                            | `consent.sign` (dokter) | Tanpa tanda tangan/atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`; saksi = dokter itu sendiri → 422; hasil = PDF + TTE     |
-| `POST consents/drafts/:id/refuse`                              | `consent.sign`          | Penolakan beralasan ≥ 10 → entri `tolak` + PDF + TTE (tanda tangan yang sudah ada ikut tercantum)                        |
-| `POST consents/drafts/:id/cancel`                              | `consent.write`         | Draf dibatalkan beralasan ≥ 10                                                                                           |
-| `POST consents/:id/revoke`                                     | `consent.sign`          | Pencabutan = entri baru `dicabut` (addendum; versi ber-TTE tidak bisa digantikan) + tanda tangan pasien/wali + PDF + TTE |
-| `GET encounters/:id/consents`                                  | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada pencabutan               |
+| Endpoint `/api/v1/…`                                           | Izin                    | Isi                                                                                                                                                                                   |
+| -------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET consents/templates`                                       | `consent.read`          | Templat = formulir P07 terbit yang memuat ketujuh butir `CONSENT_INFORMATION_ITEMS` (contoh seed `persetujuan_tindakan`)                                                              |
+| `POST encounters/:id/consent-drafts`                           | `consent.write`         | Draf baru dari templat: tindakan, pemberi persetujuan (pasien/wali), tujuh butir, waktu penjelasan (boleh kosong)                                                                     |
+| `GET encounters/:id/consent-drafts`, `GET consents/drafts/:id` | `consent.read`          | Draf + `missing` (`tanda_tangan`, `saksi_petugas`, `saksi_kedaluwarsa`) untuk tablet                                                                                                  |
+| `PUT consents/drafts/:id`                                      | `consent.write`         | Ganti isi; tanda tangan + atestasi dihapus                                                                                                                                            |
+| `POST consents/drafts/:id/signature-image?slot=`               | `consent.write`         | PNG tanda tangan (body biner, maks. 512 KB) → dokumen pasien P08; jawab `imageDocumentId`                                                                                             |
+| `PUT consents/drafts/:id/signatures`                           | `consent.write`         | Ketujuh butir dinyatakan dipahami + tanda tangan pasien/wali (+ saksi keluarga); atestasi saksi sebelumnya dihapus                                                                    |
+| `POST consents/drafts/:id/witness`                             | `consent.write`         | Atestasi saksi petugas dengan sesinya sendiri, setelah tanda tangan; berlaku 30 menit                                                                                                 |
+| `POST consents/drafts/:id/finalize`                            | `consent.sign` (dokter) | Edukasi tindakan belum paham → 422 `CONSENT_EDUCATION_REQUIRED`; tanpa tanda tangan/atestasi → 422 `CONSENT_SIGNATURES_REQUIRED`; saksi = dokter itu sendiri → 422; hasil = PDF + TTE |
+| `POST consents/drafts/:id/refuse`                              | `consent.sign`          | Penolakan beralasan ≥ 10 → entri `tolak` + PDF + TTE (tanda tangan yang sudah ada ikut tercantum)                                                                                     |
+| `POST consents/drafts/:id/cancel`                              | `consent.write`         | Draf dibatalkan beralasan ≥ 10                                                                                                                                                        |
+| `POST consents/:id/revoke`                                     | `consent.sign`          | Pencabutan = entri baru `dicabut` (addendum; versi ber-TTE tidak bisa digantikan) + tanda tangan pasien/wali + PDF + TTE                                                              |
+| `GET encounters/:id/consents`                                  | `consent.read`          | Persetujuan final + tanda tangan + status TTE dokumen; `effectiveDecision` = `dicabut` bila ada pencabutan                                                                            |
 
 - Draf tutup-sekali (trigger `consent_drafts_guard`): setelah `final`/`ditolak`/`batal` setiap perubahan → 409
   `CONSENT_CLOSED`. Langkah yang mengubah draf mengunci barisnya (`FOR UPDATE`), jadi final ganda serentak hanya sekali.
@@ -598,7 +614,35 @@ medis; yang menjadi rekam medis berversi adalah entri `consents` saat final/peno
 - PDF lewat `ClinicalSigningService.issueSigned('consents', …)`: dokumen `kind = consent`, TTE dokter pemberi
   penjelasan; versi langsung terkunci (`RECORD_LOCKED`). Event `consent.signed` (`setuju`/`tolak`/`dicabut`).
 - Edukasi pasien = formulir P07 `edukasi_terintegrasi` (seed) diisi dengan `encounterId`, tampil di
-  `GET encounters/:id/assessments`.
+  `GET encounters/:id/assessments`. Final persetujuan menunggu isian terkini bertopik `tindakan` berevaluasi
+  `paham` (`consentEducationReady`, aturan yang sama dengan layar Edukasi demo). Seed menaikkan versi formulir edukasi
+  lama yang belum punya topik `tindakan` (`upgradePublishedForm`).
+
+### Konsultasi, tim perawatan, paket formulir (K10, K15, fase 3 potongan 3.8)
+
+Modul `consult` dan `care-packages`, kontrak `schemas/collaboration.ts`, ADR-0059. Tanpa migrasi baru: tabel 3.0b
+lewat `ClinicalRecordService` dan `CareTeamService`.
+
+| Endpoint `/api/v1/…`                    | Izin                     | Isi                                                                                                         |
+| --------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `POST consults/requests`                | `clinical.write`         | Konsul (dokter/residen) ke dokter dan/atau unit; berversi (`revision`); dokter tujuan dapat akses 24 jam    |
+| `POST consults/requests/:id/responses`  | `clinical.write`         | Jawaban terstruktur HANYA oleh dokter tujuan (atau dokter unit tujuan); lainnya 403 `CONSULT_NOT_RECIPIENT` |
+| `GET consults/inbox`                    | `clinical.read`          | Konsul terbuka untuk saya / unit saya (bukan kiriman sendiri), dengan `dueAt` (cito 1 jam, biasa 24 jam)    |
+| `GET encounters/:id/consults`           | `clinical.read`          | Konsul kunjungan + jawaban (`followUp` selesai/rawat_bersama/alih_rawat)                                    |
+| `GET encounters/:id/care-team`          | `clinical.read`          | Tim perawatan aktif + riwayat                                                                               |
+| `POST encounters/:id/care-team/primary` | `clinical.write`         | Serah DPJP utama (hanya DPJP utama aktif, alasan ≥ 10): keanggotaan lama diakhiri, yang baru ditambah       |
+| `GET care-packages?setting=`            | `forms.definition.read`  | Paket formulir per setting (`rawat_jalan`, `igd`, `rawat_inap`)                                             |
+| `PUT care-packages/:setting/:formCode`  | `forms.definition.write` | Pasang/ubah butir paket (wajib, urutan, aktif)                                                              |
+| `GET encounters/:id/completeness`       | `clinical.read`          | Kelengkapan asesmen kunjungan menurut paket setting-nya (EP 6b/7a)                                          |
+
+- Jawaban konsul sekali membatasi akses konsultan sampai 24 jam setelah jawaban. Rawat bersama/alih rawat yang
+  diterima memakai relasi tim perawatan (berlaku selama dirawat; setelah diakhiri sampai akhir hari berikutnya).
+- Jawaban pertama mencatat biaya `konsultasi` sekali per rantai. Notifikasi permintaan/jawaban tanpa PHI.
+- Dokumen pasien di layar klinis (utang P08): komponen `components/klinis/patient-documents.tsx` (daftar, unggah,
+  batal beralasan, minta TTE, unduh) memakai data `lib/server/data/klinis/dokumen.ts`, Server Action
+  `dokumen-actions.ts` (unggah biner lewat `apiUpload`, batas body Server Action 11 MB di `next.config.ts`), dan
+  Route Handler unduh `/klinis/dokumen/:id/unduh` (BFF, token tetap di server). Aturan tombol di
+  `lib/patient-documents.ts`. Dipasang di tab Dokumen layar Rawat inap (W4).
 
 ### Booking (F02, fase 2 potongan 3)
 

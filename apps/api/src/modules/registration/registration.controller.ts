@@ -18,6 +18,9 @@ import {
   cancelEncounterSchema,
   type DukcapilLookupResult,
   dukcapilLookupSchema,
+  type EmergencyAdmissionInput,
+  emergencyAdmissionInputSchema,
+  type EmergencyAdmissionResult,
   type EmergencyRegistrationInput,
   emergencyRegistrationSchema,
   type EncounterList,
@@ -26,6 +29,7 @@ import {
   type OutpatientRegistrationInput,
   type PrintableVisit,
   outpatientRegistrationSchema,
+  type PractitionerOption,
   type RegistrationDesk,
   type RegistrationResult,
 } from '@simrs/shared';
@@ -91,6 +95,26 @@ export class RegistrationController {
     @Headers('idempotency-key') key: string | undefined,
   ): Promise<RegistrationResult> {
     return this.admissions.admit(body, key);
+  }
+
+  /**
+   * Admisi dari IGD (W3): permintaan bed IGD yang sudah dialokasikan → admisi rawat inap + masuk bed + gelang, satu
+   * transaksi. Header `Idempotency-Key` (UUID) wajib.
+   */
+  @RequirePermission('encounter', 'write')
+  @Post('emergency-admissions')
+  emergencyAdmission(
+    @Body(new ZodValidationPipe(emergencyAdmissionInputSchema)) body: EmergencyAdmissionInput,
+    @Headers('idempotency-key') key: string | undefined,
+  ): Promise<EmergencyAdmissionResult> {
+    return this.admissions.admitFromEmergency(body, key);
+  }
+
+  /** Dokter aktif untuk pilihan DPJP admisi rawat inap (nama + spesialisasi saja). */
+  @RequirePermission('encounter', 'write')
+  @Get('practitioners')
+  practitioners(): Promise<{ items: PractitionerOption[] }> {
+    return this.admissions.doctors();
   }
 
   /** Daftar kunjungan (ABAC: lingkup unit = unit penugasan, relasi = pasien berelasi). */

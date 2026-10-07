@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 export interface WebhookResult {
   status: number | 'error';
+  /** Isi balasan (mis. ACK HL7 dari endpoint analyzer), bila terbaca. */
+  body?: string;
 }
 
 export type WebhookSender = (
@@ -18,6 +20,17 @@ export interface MockConfig {
   /** Kredensial BPJS yang diterima mock + kode PPK untuk nomor SPRI (permintaannya tidak membawa PPK). */
   bpjs: { consId: string; secretKey: string; userKey: string; ppkCode: string };
   tpdi: { apiKey: string; merchantId: string; webhookSecret: string; webhookTarget: string };
+  /**
+   * Mock analyzer LIS (fase 4 §4.1b): endpoint perangkat SIM RS tujuan ORU^R01, token prinsipal perangkat (`dv1…`,
+   * ADR-0027) dan kunci HMAC perangkat dari env lokal (bawaan = nilai mock, tidak pernah kunci nyata).
+   */
+  lis: {
+    target: string;
+    deviceToken: string;
+    deviceSecret: string;
+    sendingApplication: string;
+    sendingFacility: string;
+  };
   /** Dapat diganti di tes. */
   sendWebhook: WebhookSender;
   now: () => Date;
@@ -27,7 +40,8 @@ export interface MockConfig {
 export const fetchWebhookSender: WebhookSender = async (url, headers, body) => {
   try {
     const res = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(5000) });
-    return { status: res.status };
+    const text = await res.text().catch(() => '');
+    return { status: res.status, body: text.slice(0, 4096) };
   } catch {
     return { status: 'error' };
   }
@@ -41,6 +55,9 @@ const schema = envSchemas.mock.extend(envSchemas.host.shape).extend({
     .string()
     .regex(/^[0-9A-Z]{8}$/)
     .default('0301R001'),
+  LIS_HL7_TARGET: z.url().default('http://localhost:4000/api/v1/devices/lis/hl7'),
+  LIS_DEVICE_TOKEN: z.string().min(1).default('mock-lis-device-token'),
+  LIS_DEVICE_SECRET: z.string().min(16).default('mock-lis-device-secret'),
 });
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -85,6 +102,13 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
       merchantId: e.TPDI_MERCHANT_ID,
       webhookSecret: e.TPDI_WEBHOOK_SECRET,
       webhookTarget: e.TPDI_WEBHOOK_TARGET,
+    },
+    lis: {
+      target: e.LIS_HL7_TARGET,
+      deviceToken: e.LIS_DEVICE_TOKEN,
+      deviceSecret: e.LIS_DEVICE_SECRET,
+      sendingApplication: 'MOCK-ANALYZER',
+      sendingFacility: 'LAB-PK',
     },
     sendWebhook: fetchWebhookSender,
     now: () => new Date(),

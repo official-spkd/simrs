@@ -111,6 +111,17 @@ export class OrdersController {
     return outcome.group;
   }
 
+  /**
+   * Tinjauan DPJP atas kiriman order residen (`:id` = kiriman): atestasi `review_order` + resep ber-TTE peninjau. Izin
+   * endpoint `clinical.sign` (ABAC relasi DPJP); layanan memeriksanya ulang di matriks peran.
+   */
+  @RequirePermission('clinical', 'sign')
+  @Post(':id/review')
+  @HttpCode(200)
+  review(@Param('id', uuid) id: string): Promise<OrderGroup> {
+    return this.orders.completeReview(id);
+  }
+
   @RequirePermission('order', 'cancel')
   @Post(':id/cancel')
   @HttpCode(200)

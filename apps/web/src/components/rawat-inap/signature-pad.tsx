@@ -10,6 +10,8 @@ export interface SignatureValue {
   method: 'goresan' | 'nama';
   name: string;
   at: string;
+  /** Goresan sebagai PNG (data URL) untuk diunggah ke API (mode api); mode presentasi tidak memakainya. */
+  image?: string;
 }
 
 const W = 600;
@@ -59,8 +61,14 @@ export function SignaturePad({
   const end = (e: PointerEvent<HTMLCanvasElement>) => {
     const c = e.currentTarget;
     if (c.hasPointerCapture(e.pointerId)) c.releasePointerCapture(e.pointerId);
-    if (stroke.current.end(e.pointerId) && !value) {
-      onChange({ method: 'goresan', name: signerName, at: formatJam(new Date()) });
+    // Setiap goresan selesai memperbarui gambar PNG (tanda tangan bisa terdiri atas beberapa goresan).
+    if (stroke.current.end(e.pointerId) && value?.method !== 'nama') {
+      onChange({
+        method: 'goresan',
+        name: signerName,
+        at: value?.at ?? formatJam(new Date()),
+        image: c.toDataURL('image/png'),
+      });
     }
   };
   const clear = () => {

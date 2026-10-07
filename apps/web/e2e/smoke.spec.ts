@@ -25,9 +25,12 @@ test.describe('smoke', () => {
     await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     if ((viewport?.width ?? 1280) < 768) return;
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
-    const lab = nav.getByTitle('Laboratorium · layar belum tersedia').first();
-    await expect(lab).toHaveAttribute('aria-disabled', 'true');
-    await expect(nav.getByRole('link', { name: 'Laboratorium' })).toHaveCount(0);
+    // Layar yang hanya ada di mode presentasi tampil redup; layar hibrida berizin (Laboratorium, fase 4 4.0c) tidak
+    // tampil bagi perawat yang tidak memegang izinnya.
+    const onkologi = nav.getByTitle('Onkologi · layar belum tersedia').first();
+    await expect(onkologi).toHaveAttribute('aria-disabled', 'true');
+    await expect(nav.getByRole('link', { name: 'Onkologi' })).toHaveCount(0);
+    await expect(nav.getByText('Laboratorium', { exact: true })).toHaveCount(0);
     // Perawat tidak memegang izin kelola pengguna: menunya tidak tampil.
     await expect(nav.getByText('Pengguna & akses')).toHaveCount(0);
     await expect(nav.getByText('Perawat', { exact: true })).toHaveCount(1);
@@ -43,21 +46,30 @@ test.describe('smoke', () => {
     const hybrid = SCREENS.filter((s) => s.permission);
     expect(hybrid.map((s) => s.id).sort()).toEqual([
       'antrean',
+      'bank-darah',
       'bed',
       'consent',
       'daftar',
+      'depo',
+      'diagnostik',
+      'farmasi',
+      'gizi',
       'igd',
       'jadwal',
       'kendali',
       'kiosk',
+      'kritis',
+      'lab',
+      'mikro',
+      'ok',
       'order',
       'poli',
+      'rad',
       'ranap',
       'resume',
     ]);
     // Rute detail layar klinis ikut gerbang layarnya (bukan 404 seperti layar presentasi).
     const details = [
-      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
       { route: `/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`, label: 'Rawat inap' },
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
       { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
@@ -105,11 +117,20 @@ test.describe('smoke', () => {
     const demoId = await page.goto(`/klinis/rawat-inap/${ENCOUNTER_ID.hartono}`);
     expect(demoId?.status()).toBe(200);
     await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
+    // IGD dan Tempat tidur sudah tersambung API (layar W3): halaman api terbuka tanpa "Belum tersambung".
+    for (const [route, heading] of [
+      ['/klinis/igd', 'Instalasi Gawat Darurat'],
+      ['/klinis/tempat-tidur', 'Manajemen tempat tidur'],
+    ] as const) {
+      expect((await page.goto(route))?.status(), route).toBe(200);
+      await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
+      await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    }
+    // Layar lain yang sudah tersambung API (W2: CPOE, W5a: tablet persetujuan) diperiksa terpisah di bawah.
+    const connected = new Set(['ranap', 'order', 'consent', 'igd', 'bed']);
     const routes = [
-      ...clinical.filter((s) => s.id !== 'ranap').map((s) => ({ route: s.route, label: s.label })),
-      { route: `/klinis/order/${ENCOUNTER_ID.suryo}`, label: 'Order & resep (CPOE)' },
+      ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),
       { route: `/klinis/resume/${ENCOUNTER_ID.hartono}`, label: 'Resume medis' },
-      { route: `/tablet/persetujuan/${CONSENT_ID.hartono}`, label: 'Persetujuan tindakan' },
     ];
     for (const r of routes) {
       const res = await page.goto(r.route);
@@ -119,14 +140,30 @@ test.describe('smoke', () => {
       await expect(page.getByText('Akses ditolak')).toHaveCount(0);
       await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     }
+    // CPOE sudah tersambung (W2): daftar kunjungan dari worklist; id fixture presentasi bukan kunjungan sungguhan →
+    // kunjungan tidak ditemukan.
+    expect((await page.goto('/klinis/order'))?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Kunjungan berjalan' })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    await page.goto(`/klinis/order/${ENCOUNTER_ID.suryo}`);
+    await expect(page.getByRole('heading', { name: 'Order & resep (CPOE)', level: 1 })).toBeVisible();
+    await expect(page.getByText('Kunjungan tidak ditemukan')).toBeVisible();
+    // Tablet persetujuan sudah tersambung (W5a): pilih kunjungan; id fixture presentasi bukan draf sungguhan.
+    expect((await page.goto('/tablet/persetujuan'))?.status()).toBe(200);
+    await expect(page.getByRole('heading', { name: 'Pilih kunjungan pasien', level: 1 })).toBeVisible();
+    await expect(page.getByText('Belum tersambung', { exact: true })).toHaveCount(0);
+    await page.goto(`/tablet/persetujuan/${CONSENT_ID.hartono}`);
+    await expect(page.getByRole('heading', { name: 'Persetujuan tindakan', level: 1 })).toBeVisible();
+    await expect(page.getByText('Draf tidak ditemukan')).toBeVisible();
 
     // Petugas pendaftaran (admisi IGD): papan IGD terbuka (`clinical.read`), Pemeriksaan poli tidak.
     await page.context().clearCookies();
     const admisi = await createAccount({ roles: ['petugas_pendaftaran'] });
     await loginAs(page, admisi);
     await page.goto('/klinis/igd');
-    await expect(page.getByRole('heading', { name: 'IGD', level: 1 })).toBeVisible();
-    await expect(page.getByText('Belum tersambung', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Instalasi Gawat Darurat', level: 1 })).toBeVisible();
+    await expect(page.getByText('Akses ditolak')).toHaveCount(0);
     await page.goto('/klinis/poli');
     await expect(page.getByText('Akses ditolak')).toBeVisible();
   });

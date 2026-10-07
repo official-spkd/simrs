@@ -1,5 +1,5 @@
 import { type AnesthesiaRecord, EMPTY_PRE } from '../../penunjang-anestesi';
-import { DOCTOR_ID } from './ids';
+import { DOCTOR_ID, OR_CASE_ID } from './ids';
 import { at, doctorName } from './penunjang';
 
 /**
@@ -39,32 +39,40 @@ const done = (
 
 export function demoAnesthesia(): Record<string, AnesthesiaRecord> {
   return {
-    'ok1-2': done(signedPre('III', '00.00', 'Anestesi lokal + sedasi ringan', at('07.40')), '09.05', [
-      ['09.05', 128, 76, 88, 98, 36],
-      ['09.20', 122, 74, 84, 99, 35],
-    ]),
-    'ok1-3': {
+    [OR_CASE_ID.maria]: done(
+      signedPre('III', '00.00', 'Anestesi lokal + sedasi ringan', at('07.40')),
+      '09.05',
+      [
+        ['09.05', 128, 76, 88, 98, 36],
+        ['09.20', 122, 74, 84, 99, 35],
+      ],
+    ),
+    [OR_CASE_ID.yusuf]: {
       pre: signedPre('III', '05.00', 'Anestesi lokal, monitoring standar', at('08.10')),
       inductionAt: null,
       vitals: [],
     },
-    'ok2-1': done(signedPre('II', '22.00', 'Anestesi umum, intubasi ETT', at('16.00', -1)), '07.32', [
-      ['07.35', 132, 80, 86, 99, 35],
-      ['08.00', 118, 70, 78, 99, 36],
-      ['08.30', 116, 72, 76, 100, 35],
-    ]),
-    'ok2-2': {
+    [OR_CASE_ID.fajar]: done(
+      signedPre('II', '22.00', 'Anestesi umum, intubasi ETT', at('16.00', -1)),
+      '07.32',
+      [
+        ['07.35', 132, 80, 86, 99, 35],
+        ['08.00', 118, 70, 78, 99, 36],
+        ['08.30', 116, 72, 76, 100, 35],
+      ],
+    ),
+    [OR_CASE_ID.ratna]: {
       pre: signedPre('II', '22.00', 'Anestesi umum, intubasi ETT, PONV profilaksis', at('15.30', -1)),
       inductionAt: null,
       vitals: [],
     },
-    'ok2-3': { pre: { ...EMPTY_PRE }, inductionAt: null, vitals: [] },
-    'ok3-0': done(signedPre('II', '22.00', 'Anestesi spinal', at('17.00', -1)), '07.10', [
+    [OR_CASE_ID.sumarni]: { pre: { ...EMPTY_PRE }, inductionAt: null, vitals: [] },
+    [OR_CASE_ID.wulan]: done(signedPre('II', '22.00', 'Anestesi spinal', at('17.00', -1)), '07.10', [
       ['07.12', 118, 72, 96, 99, 34],
       ['07.27', 104, 64, 102, 98, 34],
     ]),
-    'ok3-1': { pre: { ...EMPTY_PRE, emergency: true }, inductionAt: null, vitals: [] },
-    'ok4-1': done(signedPre('II', '23.00', 'Anestesi spinal', at('16.30', -1)), '08.45', [
+    [OR_CASE_ID.anisa]: { pre: { ...EMPTY_PRE, emergency: true }, inductionAt: null, vitals: [] },
+    [OR_CASE_ID.rizky]: done(signedPre('II', '23.00', 'Anestesi spinal', at('16.30', -1)), '08.45', [
       ['08.48', 126, 78, 82, 99, 35],
       ['09.15', 120, 74, 78, 99, 35],
     ]),

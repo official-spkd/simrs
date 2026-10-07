@@ -278,6 +278,27 @@ export function edVitalFlag(
   return n > mid ? 'tinggi' : 'rendah';
 }
 
+/**
+ * Baris papan IGD yang dibutuhkan tabel papan (`EdBoardTable`): dipenuhi item toko demo (`EdTrackingItem`) dan item
+ * API yang dipetakan (`edRowFromApi`, layar W3).
+ */
+export interface EdBoardRow {
+  encounterId: string;
+  bed: string | null;
+  zone: EdZone;
+  patientName: string;
+  /** "L" / "P" (demo) atau "L" / "P" / "?" (API, jenis kelamin tidak diketahui). */
+  sex: string;
+  ageLabel: string;
+  guarantor: string;
+  triageLevel: TriageLevel | null;
+  chiefComplaint: string;
+  doctor: string | null;
+  losMinutes: number;
+  status: EdStatus;
+  scenario: boolean;
+}
+
 export function filterEdItems<T extends Pick<EdTrackingItem, 'zone' | 'triageLevel'>>(
   items: readonly T[],
   zone: EdZone | 'semua',
@@ -293,7 +314,7 @@ export interface EdKpis {
   boarding: number;
 }
 
-export function edKpis(items: readonly EdTrackingItem[]): EdKpis {
+export function edKpis(items: readonly Pick<EdBoardRow, 'triageLevel' | 'status' | 'losMinutes'>[]): EdKpis {
   return {
     total: items.length,
     high: items.filter((p) => p.triageLevel !== null && p.triageLevel <= 2).length,

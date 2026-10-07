@@ -8,7 +8,7 @@ import { ASA_CLASSES } from './penunjang-anestesi';
 
 import { CHECKLIST_PHASES, checklistPhaseSchema } from '@simrs/shared';
 
-import { OVERRIDE_REASON_MIN } from './btn-ok';
+import { OVERRIDE_REASON_MIN } from './penunjang-ok';
 
 export const bloodInput = (() => {
   const id = z.string().min(1).max(40);
@@ -128,7 +128,7 @@ export const diagnosticInput = (() => {
 })();
 
 export const anesthesiaInput = (() => {
-  const caseId = z.string().regex(/^ok\d-\d$/);
+  const caseId = z.uuid();
   const pre = z.strictObject({
     asa: z.enum(ASA_CLASSES).nullable(),
     emergency: z.boolean(),
@@ -161,7 +161,7 @@ export const anesthesiaInput = (() => {
 })();
 
 export const operatingInput = (() => {
-  const caseId = z.string().regex(/^ok\d-\d$/);
+  const caseId = z.uuid();
   return z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('konfirmasi'), caseId, phase: z.enum(CHECKLIST_PHASES) }),
     // Bukti time out: daftar tilik efektif layar saat insisi dicatat (diperiksa terhadap kasus di server).
