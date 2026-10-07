@@ -54,6 +54,16 @@ import { SurgeryModule } from './modules/surgery/surgery.module';
 import { SummaryModule } from './modules/summary/summary.module';
 import { CarePackagesModule } from './modules/care-packages/care-packages.module';
 import { ResultsModule } from './modules/results/results.module';
+import { SupportInfraModule } from './infra/support/support-infra.module';
+import { LabModule } from './modules/lab/lab.module';
+import { CriticalResultsModule } from './modules/critical-results/critical-results.module';
+import { RadiologyModule } from './modules/radiology/radiology.module';
+import { PharmacyClinicalModule } from './modules/pharmacy-clinical/pharmacy-clinical.module';
+import { DispensingModule } from './modules/dispensing/dispensing.module';
+import { MicroPaModule } from './modules/micro-pa/micro-pa.module';
+import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
+import { NutritionModule } from './modules/nutrition/nutrition.module';
+import { BloodBankModule } from './modules/blood-bank/blood-bank.module';
 import { StockModule } from './modules/stock/stock.module';
 
 /**
@@ -143,7 +153,19 @@ export class AppModule {
         SummaryModule,
         CarePackagesModule,
         ResultsModule,
-        // Fase 4 · penunjang.
+        // Fase 4 · infrastruktur penunjang (potongan 4.1a): SSE penunjang; modul S01–S10 (kerangka dulu, isi per
+        // potongan 4.2–4.9). Stok (4.6a) dan kamar operasi (4.7) didaftarkan potongannya sendiri.
+        SupportInfraModule,
+        LabModule,
+        CriticalResultsModule,
+        RadiologyModule,
+        PharmacyClinicalModule,
+        DispensingModule,
+        MicroPaModule,
+        DiagnosticsModule,
+        NutritionModule,
+        BloodBankModule,
+        // Fase 4 · 4.6a stok depo.
         StockModule,
         // Endpoint bantu pengembangan tidak terdaftar sama sekali di produksi (rute tidak ada → 404).
         ...(env.devTools ? [DevToolsModule] : []),

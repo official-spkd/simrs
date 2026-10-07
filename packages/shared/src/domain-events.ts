@@ -360,6 +360,26 @@ export function isDomainEventName(name: string): name is DomainEventName {
   return Object.hasOwn(DOMAIN_EVENT_SCHEMAS, name);
 }
 
+/**
+ * Event yang juga DITULIS WORKER (fase 4 §4.1a: job eskalasi nilai kritis, penangan pesan masuk analyzer). Worker
+ * hanya menyimpan baris `domain_events`; penangan in-process milik API (`DomainEvents.on`) TIDAK berjalan untuk
+ * event yang ditulis worker. Agar tidak ada jalur yang diam-diam tidak jalan:
+ * - API menolak mendaftarkan penangan in-process untuk event di daftar ini (galat program saat start),
+ * - worker hanya boleh menulis event di daftar ini,
+ * - reaksi atas event ini wajib lewat jalur yang berlaku untuk kedua penulis: outbox di transaksi penulis
+ *   (efek luar, notifikasi), `pg_notify`/SSE (trigger tabel sumber), atau pembaca ulang `domain_events` (fase 5/7).
+ * Menambah nama ke daftar ini = memastikan belum ada penangan in-process untuknya.
+ */
+export const WORKER_EMITTED_EVENTS = [
+  'critical_result.raised',
+  'critical_result.escalated',
+] as const satisfies readonly DomainEventName[];
+export type WorkerEmittedEvent = (typeof WORKER_EMITTED_EVENTS)[number];
+
+export function isWorkerEmittedEvent(name: string): name is WorkerEmittedEvent {
+  return (WORKER_EMITTED_EVENTS as readonly string[]).includes(name);
+}
+
 /** Validasi muatan event (dipakai publisher sebelum menerbitkan dan pada tes). Melempar ZodError bila salah. */
 export function parseDomainEvent<N extends DomainEventName>(
   name: N,

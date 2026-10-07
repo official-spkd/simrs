@@ -4,6 +4,9 @@ import { AuditAnchorJob } from './audit/audit-anchor.job';
 import { auditPeriodicJobs } from './audit/audit-periodic-jobs';
 import { AuditSummaryJob } from './audit/audit-summary.job';
 import { loadWorkerEnv, WORKER_ENV, type WorkerEnv } from './config/env';
+import { INBOUND_HANDLER_REGISTRY, INBOUND_HANDLERS } from './inbound/handlers';
+import { InboundProcessor } from './inbound/inbound.processor';
+import { InboundScheduler } from './inbound/inbound.scheduler';
 import { PERIODIC_JOB_REGISTRY, PERIODIC_JOBS } from './jobs/periodic-jobs';
 import { PeriodicScheduler } from './jobs/periodic.scheduler';
 import { KeyRotationJob } from './key-rotation/key-rotation.job';
@@ -17,6 +20,10 @@ import { OutboxScheduler } from './outbox/outbox.scheduler';
   providers: [
     { provide: WORKER_ENV, useFactory: () => loadWorkerEnv() },
     { provide: OUTBOX_OPERATION_REGISTRY, useValue: OUTBOX_OPERATIONS },
+    // Fase 4 §4.1a · pemroses pesan masuk generik (penangan per sumber).
+    { provide: INBOUND_HANDLER_REGISTRY, useValue: INBOUND_HANDLERS },
+    InboundProcessor,
+    InboundScheduler,
     // Peta job berkala P11 + job P04 yang butuh env (kunci jangkar, bucket WORM).
     {
       provide: PERIODIC_JOB_REGISTRY,
@@ -42,6 +49,8 @@ import { OutboxScheduler } from './outbox/outbox.scheduler';
   exports: [
     OutboxDispatcher,
     OutboxScheduler,
+    InboundProcessor,
+    InboundScheduler,
     PeriodicScheduler,
     AuditAnchorJob,
     AuditSummaryJob,

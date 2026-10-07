@@ -98,6 +98,8 @@ export default defineConfig({
         'kamar-operasi-api.spec.ts',
         // Satu akun presentasi bersama (cukup sekali, di proyek desktop).
         'superadmin-demo-api.spec.ts',
+        // Kredensial analyzer di mock = keadaan bersama (fase 4 §4.1a).
+        'penunjang-ingest.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'], channel, viewport: { width: 768, height: 1024 } },
     },

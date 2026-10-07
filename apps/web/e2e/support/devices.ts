@@ -2,7 +2,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrowserContext } from '@playwright/test';
 import { type PrismaClient, withTenant } from '@simrs/db';
-import { DEVICE_PRINCIPAL_DAYS, type DevicePrincipalKind, newId } from '@simrs/shared';
+import { type BROWSER_DEVICE_KINDS, DEVICE_PRINCIPAL_DAYS, newId } from '@simrs/shared';
+
+/** Perangkat peramban yang dipakai E2E (anjungan, display TV). */
+type DevicePrincipalKind = (typeof BROWSER_DEVICE_KINDS)[number];
 import { hashToken, randomToken } from '@simrs/shared/node';
 import { DEMO_ACCOUNTS_FILE } from '../demo-accounts-file';
 
