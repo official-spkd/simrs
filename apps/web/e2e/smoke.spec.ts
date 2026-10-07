@@ -67,17 +67,22 @@ test.describe('smoke', () => {
     const hybrid = SCREENS.filter((s) => s.permission);
     expect(hybrid.map((s) => s.id).sort()).toEqual([
       'antrean',
+      'asesmen',
+      'askep',
       'bank-darah',
       'bed',
       'consent',
+      'cppt',
       'daftar',
       'depo',
+      'diagnosis',
       'diagnostik',
       'edukasi',
       'farmasi',
       'gizi',
       'igd',
       'jadwal',
+      'kelengkapan',
       'kendali',
       'kiosk',
       'konsul',
@@ -91,6 +96,8 @@ test.describe('smoke', () => {
       'rad',
       'ranap',
       'resume',
+      'ringkasan',
+      'worklist',
     ]);
     // Rute detail layar klinis ikut gerbang layarnya (bukan 404 seperti layar presentasi).
     const details = [
@@ -126,16 +133,23 @@ test.describe('smoke', () => {
     await loginAs(page, dokter);
     const clinical = SCREENS.filter((s) => s.phase === 3 && s.permission);
     expect(clinical.map((s) => s.id).sort()).toEqual([
+      'asesmen',
+      'askep',
       'bed',
       'consent',
+      'cppt',
+      'diagnosis',
       'edukasi',
       'igd',
+      'kelengkapan',
       'konsul',
       'order',
       'paket',
       'poli',
       'ranap',
       'resume',
+      'ringkasan',
+      'worklist',
     ]);
     // Bagan RME yang tersambung API di 3.8 (Konsultasi, Edukasi, Paket layanan): alurnya di `konsultasi-api.spec.ts`
     // dan `persetujuan.spec.ts`; di sini cukup halaman api terbuka tanpa "Belum tersambung".
@@ -183,6 +197,13 @@ test.describe('smoke', () => {
       'edukasi',
       'konsul',
       'paket',
+      'asesmen',
+      'askep',
+      'cppt',
+      'diagnosis',
+      'kelengkapan',
+      'ringkasan',
+      'worklist',
     ]);
     const routes = [
       ...clinical.filter((s) => !connected.has(s.id)).map((s) => ({ route: s.route, label: s.label })),

@@ -1,57 +1,21 @@
 import type { Metadata } from 'next';
-import { AsesmenWorkspace } from '@/components/rme/asesmen-workspace';
-import { RmeChartHeader } from '@/components/rme/chart-header';
-import { DemoAccessDenied } from '@/components/demo-access-denied';
-import { ASSESSMENT_PACKAGES, assessmentForm, ENCOUNTER_START_HM } from '@/lib/demo/fixtures/rme-asesmen';
-import { RME_SETTING_LABEL } from '@/lib/demo/fixtures/rme-pasien';
-import { at } from '@/lib/demo/fixtures/rawat-inap';
-import { DEMO_NOW } from '@/lib/demo/fixtures/waktu';
-import type { AssessmentForm } from '@/lib/rme-asesmen';
-import { requireDemoScreen } from '@/lib/server/demo-guard';
-import { assessmentsOf, rmeChart } from '@/lib/server/data/klinis/rme';
+import { ScreenAccessDenied } from '@/components/screen-gate';
+import { requireScreen } from '@/lib/server/screen-guard';
+import { ApiAsesmen } from './api-asesmen';
+import { DemoAsesmen } from './demo-asesmen';
 
 export const metadata: Metadata = { title: 'Asesmen & skrining' };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
- * K06 · Asesmen dan skrining per kunjungan (`?pasien=`): paket formulir per setting lewat penyaji formulir P07, skor
- * otomatis, hak tulis per profesi, koreksi berversi. Mode presentasi (ADR-0023): isian rekam awal + toko demo
- * `rekam-medis` (ADR-0085); backend `POST /api/v1/forms/responses` dengan `encounterId` menyusul (rencana fase 3 ·
- * 3.2b).
+ * Asesmen & skrining. Layar hibrida (`requireScreen`): mode presentasi = rekam fiktif + toko demo (`demo-asesmen.tsx`, `?pasien=`); mode api
+ * untuk peran berizin layar (`api-asesmen.tsx`, data dan aksi dari API; `?kunjungan=<id>`).
  */
-export default async function AsesmenPage({ searchParams }: { searchParams: SearchParams }) {
-  const { session, screen, allowed } = await requireDemoScreen('asesmen');
-  if (!allowed) return <DemoAccessDenied screen={screen} />;
-  const { chart, state, rev } = await rmeChart((await searchParams).pasien);
-  const role = session.role?.code ?? null;
-  const forms = ASSESSMENT_PACKAGES[chart.setting].flatMap((c): AssessmentForm[] => {
-    const f = assessmentForm(c);
-    return f ? [f] : [];
-  });
-  const startedAt = at(chart.startedOn, ENCOUNTER_START_HM[chart.encounterId] ?? '08.00');
-
-  return (
-    <div className="flex flex-col gap-4">
-      <RmeChartHeader
-        chart={chart}
-        screenId="asesmen"
-        title="Asesmen & skrining"
-        tenantName={session.tenant.name}
-        role={role}
-        asOf={DEMO_NOW}
-      />
-      <AsesmenWorkspace
-        key={chart.encounterId}
-        encounterId={chart.encounterId}
-        settingLabel={RME_SETTING_LABEL[chart.setting]}
-        forms={forms}
-        responses={assessmentsOf(chart, state)}
-        startedAt={startedAt}
-        now={DEMO_NOW}
-        role={role}
-        rev={rev}
-      />
-    </div>
-  );
+export default async function Page({ searchParams }: { searchParams: SearchParams }) {
+  const access = await requireScreen('asesmen');
+  const sp = await searchParams;
+  if (access.mode === 'demo') return <DemoAsesmen access={access} pasien={sp.pasien} />;
+  if (!access.allowed) return <ScreenAccessDenied screen={access.screen} />;
+  return <ApiAsesmen session={access.session} searchParams={sp} />;
 }

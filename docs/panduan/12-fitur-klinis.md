@@ -14,8 +14,9 @@ menjadi versi baru, data final terkunci, perubahan sesudah TTE lewat addendum.
 > (3.2b), ADT, papan bed, triase, gelang, Aplicare (3.3), CPOE + CDS + resep (3.4), dan eMAR + asuhan keperawatan
 > (3.5), resume + rekonsiliasi obat + gerbang tutup kunjungan + surat kematian (3.6), persetujuan tindakan + edukasi
 > lewat P07 (3.7), serta konsultasi, tim perawatan, paket formulir + kelengkapan, dan dokumen pasien (3.8). Dari
-> sepuluh layar bagan RME (FE2), Konsultasi, Edukasi, dan Paket layanan kini hibrida (3.7/3.8); tujuh lainnya masih
-> `demo` saja walau API worklist, CPPT, asesmen, diagnosis, ringkasan, askep/eMAR, dan kelengkapan sudah ada. Cara
+> sepuluh layar bagan RME (FE2) semuanya kini hibrida: mode api memilih kunjungan dari worklist (`?kunjungan=<id>`),
+> menampilkan banner pasien, dan memakai API worklist, CPPT, asesmen P07, diagnosis, ringkasan, askep, kelengkapan +
+> tutup kunjungan, konsultasi, edukasi, dan paket formulir. Cara
 > kerja API klinis: [Cara kerja backend](./07-cara-kerja-backend.md).
 
 ![Diagram rekam medis immutable: entri versi 1, koreksi menjadi versi 2 yang menggantikan versi 1, dan addendum setelah TTE](./gambar/diagram-rekam-medis-immutable.svg)
@@ -46,25 +47,25 @@ Sepuluh layar bagan RME memakai pola bersama di `apps/web/src/components/rme/` d
 
 ## Ringkasan layar
 
-| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                           |
-| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ------------------------------------------------ |
-| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | ✅ demo + api (W1)                               |
-| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                               |
-| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                               |
-| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                               |
-| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                               |
-| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | ✅ demo + api (W5b)                              |
-| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                              |
-| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | 🟨 demo; API worklist ada (3.2b)                 |
-| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | 🟨 demo; API CPPT ada (3.2b)                     |
-| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | 🟨 demo; API asesmen + formulir ada              |
-| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | 🟨 demo; API diagnosis ada (3.2a)                |
-| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                              |
-| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7/3.8)                     |
-| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | 🟨 demo; API eMAR + askep ada (3.5); layar belum |
-| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | 🟨 demo; API ringkasan ada (3.2a)                |
-| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket + kelengkapan, 3.8)         |
-| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | 🟨 demo; API ada (3.6, 3.8); layar belum         |
+| Layar                      | Rute                         | Peran (mode presentasi)                              | Komponen      | Status                                   |
+| -------------------------- | ---------------------------- | ---------------------------------------------------- | ------------- | ---------------------------------------- |
+| Pemeriksaan poli           | `/klinis/poli`               | dokter, dokter residen, perawat, bidan               | K01, K02      | ✅ demo + api (W1)                       |
+| Order dan resep (CPOE)     | `/klinis/order`              | dokter, dokter residen                               | K09           | ✅ demo + api (W2)                       |
+| IGD                        | `/klinis/igd`                | dokter, dokter residen, perawat, petugas pendaftaran | K03           | ✅ demo + api (W3)                       |
+| Tempat tidur               | `/klinis/tempat-tidur`       | perawat, petugas pendaftaran, manajemen              | K05           | ✅ demo + api (W3)                       |
+| Rawat inap                 | `/klinis/rawat-inap`         | dokter, dokter residen, perawat, bidan               | K04, K07, K12 | ✅ demo + api (W4)                       |
+| Resume medis               | `/klinis/resume`             | dokter, dokter residen                               | K13           | ✅ demo + api (W5b)                      |
+| Persetujuan tindakan       | `/tablet/persetujuan`        | dokter, perawat                                      | K11           | ✅ demo + api (W5a)                      |
+| Worklist klinis            | `/klinis/worklist`           | dokter, dokter residen, perawat, bidan               | K01           | ✅ demo + api (worklist 3.2b)            |
+| CPPT & serah terima        | `/klinis/cppt`               | dokter, dokter residen, perawat, bidan, apoteker     | K07           | ✅ demo + api (CPPT 3.2b)                |
+| Asesmen & skrining         | `/klinis/asesmen`            | dokter, dokter residen, perawat, bidan               | K06           | ✅ demo + api (P07 + paket)              |
+| Diagnosis & problem list   | `/klinis/diagnosis`          | dokter, dokter residen, perawat, bidan               | K08           | ✅ demo + api (3.2a)                     |
+| Konsultasi & rawat bersama | `/klinis/konsultasi`         | dokter, dokter residen                               | K10           | ✅ demo + api (3.8)                      |
+| Edukasi pasien             | `/klinis/edukasi`            | dokter, dokter residen, perawat, bidan               | K11           | ✅ demo + api (P07, 3.7/3.8)             |
+| Asuhan keperawatan         | `/klinis/asuhan-keperawatan` | perawat, bidan                                       | K12           | ✅ demo + api (askep 3.5)                |
+| Ringkasan pasien           | `/klinis/ringkasan`          | dokter, dokter residen, perawat, bidan               | K14           | ✅ demo + api (3.2a)                     |
+| Paket layanan khusus       | `/klinis/paket-layanan`      | dokter, perawat, bidan                               | K15           | ✅ demo + api (paket + kelengkapan, 3.8) |
+| Kelengkapan rekam medis    | `/klinis/kelengkapan`        | dokter, dokter residen, petugas rekam medis          | K13           | ✅ demo + api (3.6, 3.8)                 |
 
 Legenda: 🟨 berjalan di mode presentasi, belum tersambung ke API · ✅ tersambung · ⬜ belum dibangun.
 
