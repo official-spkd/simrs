@@ -280,6 +280,8 @@ export const ERROR_CODES = [
   'WEBHOOK_SIGNATURE_INVALID',
   'WEBHOOK_TIMESTAMP_EXPIRED',
   'INTEGRATION_UNAVAILABLE',
+  // Basis data sibuk: transaksi tidak bisa dimulai dalam batas tunggu (HTTP 503, aman untuk diulang).
+  'SERVICE_BUSY',
   'INTERNAL_ERROR',
   // Termasuk `BPJS_UNAVAILABLE` (lookup sinkron ADR-0025 gagal/lewat 5 detik, HTTP 503).
   ...FRONT_OFFICE_ERROR_CODES,
