@@ -2,7 +2,7 @@
 
 Halaman ini memetakan **di mana kode tiap fitur berada** dan **seberapa matang** tiap bagian. Bacalah setelah [Cara kerja backend](./07-cara-kerja-backend.md) (gambaran lintas modul) dan [Cara kode bekerja](./02-cara-kerja-kode.md), yang menjelaskan mekanismenya (permintaan API, RLS, outbox, sesi web). Penjelasan per layar ada di halaman fitur, mulai dari [Fitur platform](./10-fitur-platform.md).
 
-> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.5 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
+> Status 7 Okt 2026: fase 0–2 selesai, fase 3 (klinis RME) berjalan dengan API potongan 3.1–3.5 dan 3.7 tergabung; backend dilanjutkan penuh (sisa fase 3, lalu fase 4–10). Registri `SCREENS` berisi **80 layar**: 68 demo, 11 hibrida (demo + api), 1 khusus api. 49 layar demo baru (FE1–FE5) menutup semua komponen katalog yang punya layar; backend-nya menyusul per fase. Peta per fase: [Peta alur semua fase](./20-peta-alur-semua-fase.md). Status resmi selalu di `docs/PROGRESS.md`.
 
 ## Gambaran besar
 
@@ -316,7 +316,7 @@ Tingkat kematangan:
 | `triage`        | K03      | `/triage`, `/encounters/…`    | API jadi   | Saran ATS dari server, triase berversi, papan IGD + SSE                                                      |
 | `orders`        | K09      | `/orders`, `/encounters/…`    | API jadi   | Katalog, order set, pratinjau CDS, kirim (Idempotency-Key), batal, resep PDF ber-TTE                         |
 | `cds`           | K09      | `/cds`                        | API jadi   | Evaluasi CDS dengan basis pengetahuan per RS (ADR-0030)                                                      |
-| `consent`       | K11      | —                             | Kerangka   | Isi di potongan 3.7 (tablet persetujuan + TTE)                                                               |
+| `consent`       | K11      | `/consents`, `/encounters/…`  | API jadi   | Draf tablet, tanda tangan PNG, saksi petugas, final/penolakan/pencabutan ber-TTE (3.7, ADR-0058)             |
 | `discharge`     | K13      | —                             | Kerangka   | Isi di potongan 3.6 (resume, rekonsiliasi obat, tutup kunjungan); kontrak `DischargeGate` sementara di `adt` |
 | `consult`       | K10      | —                             | Kerangka   | Isi di potongan 3.8 (konsultasi, rawat bersama, ganti DPJP)                                                  |
 | `care-packages` | K15      | —                             | Kerangka   | Isi di potongan 3.8 (paket formulir + kelengkapan)                                                           |
