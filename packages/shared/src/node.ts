@@ -2,6 +2,7 @@
 export * from './integrations/bpjs-client';
 export * from './integrations/bpjs-crypto';
 export * from './integrations/bpjs/decode';
+export * from './integrations/lis/signature';
 export * from './integrations/tpdi-signature';
 export * from './security/audit-anchor';
 export * from './security/document-crypto';

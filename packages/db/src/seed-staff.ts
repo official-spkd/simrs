@@ -21,7 +21,7 @@ export interface SeedStaffResult {
  * Idempoten dengan kunci alami NIP (= nama pengguna, unik per RS): akun yang sudah ada dilewati utuh, jadi
  * perubahan admin (nonaktif, reset, penugasan diakhiri) tidak pernah ditimpa seed. Satu transaksi per staf
  * (akun + penugasan + jejak audit `create` atomik); dua seed yang berjalan bersamaan tidak menggandakan akun.
- * Dipanggil sebagai pemilik tabel (simrs_migrator) lewat `withTenant` karena FORCE RLS; 16 peran bawaan
+ * Dipanggil sebagai pemilik tabel (simrs_migrator) lewat `withTenant` karena FORCE RLS; 17 peran bawaan
  * (`ensureSystemRoles`) dan struktur RS (`seedHospitalStructure`) harus sudah ada.
  */
 export async function seedStaff(

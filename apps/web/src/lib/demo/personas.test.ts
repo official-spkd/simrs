@@ -8,7 +8,7 @@ describe('akun presentasi', () => {
     expect(PRESENTATION_USERNAME_PREFIX).toBe(DB_PREFIX);
   });
 
-  it('16 persona = 16 peran sistem + Superadmin demo paling atas, semuanya di kelompok yang dikenal', () => {
+  it('17 persona = 17 peran sistem + Superadmin demo paling atas, semuanya di kelompok yang dikenal', () => {
     expect(new Set(PRESENTATION_PERSONAS.map((p) => p.role))).toEqual(new Set(Object.keys(SYSTEM_ROLES)));
     const groups = groupPersonas(
       PRESENTATION_PERSONAS.map((p) => ({
@@ -28,7 +28,7 @@ describe('akun presentasi', () => {
       'Keuangan & rekam medis',
       'Manajemen & sistem',
     ]);
-    expect(groups.flatMap((g) => g.personas)).toHaveLength(17);
+    expect(groups.flatMap((g) => g.personas)).toHaveLength(18);
     expect(groups[0]?.personas.map((p) => p.username)).toEqual([ALL_ACCESS_USERNAME]);
     // Tidak diulang di kelompok Manajemen: posisi manajemen tetap satu akun (direksi).
     expect(groups.flatMap((g) => g.personas).filter((p) => p.role === 'manajemen')).toHaveLength(2);
