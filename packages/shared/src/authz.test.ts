@@ -58,8 +58,8 @@ describe('katalog izin dan matriks bawaan', () => {
     expect(holders('platform.guide', 'read')).toEqual([]);
   });
 
-  it('16 peran RS dan 1 peran platform; peran pelindung memegang izin kelola akses', () => {
-    expect(Object.keys(SYSTEM_ROLES)).toHaveLength(16);
+  it('17 peran RS (fase 4: ahli gizi) dan 1 peran platform; peran pelindung memegang izin kelola akses', () => {
+    expect(Object.keys(SYSTEM_ROLES)).toHaveLength(17);
     expect(defaultRolesFor('hospital').map((r) => r.code)).toContain('admin_tenant');
     expect(defaultRolesFor('platform').map((r) => r.code)).toEqual(['superadmin_platform']);
     for (const role of PROTECTED_ROLES) {
@@ -171,7 +171,7 @@ describe('izin front office (fase 2)', () => {
   });
 
   it('izin perangkat tidak pernah ada di matriks peran dan tidak bisa diberikan ke peran', () => {
-    expect([...DEVICE_ONLY_RESOURCES].sort()).toEqual(['kiosk', 'queue.display']);
+    expect([...DEVICE_ONLY_RESOURCES].sort()).toEqual(['kiosk', 'lab.analyzer', 'queue.display']);
     for (const [role, grants] of Object.entries(allDefaults)) {
       expect(
         grants.filter(([r]) => isDeviceOnlyResource(r)),

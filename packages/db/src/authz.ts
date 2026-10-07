@@ -9,7 +9,7 @@ import {
 import type { TenantTx } from './client';
 
 /**
- * P03 · Pastikan peran bawaan ada untuk tenant ini: 16 peran RS, atau peran platform untuk tenant PLATFORM.
+ * P03 · Pastikan peran bawaan ada untuk tenant ini: 17 peran RS, atau peran platform untuk tenant PLATFORM.
  * Matriks bawaan hanya diisi saat peran BARU dibuat, sehingga matriks yang sudah disesuaikan tidak pernah
  * ditimpa. Idempoten. Izin yang kemudian ditambahkan ke katalog sampai ke peran yang sudah ada lewat
  * `syncRolePermissions` (`pnpm db:sync-permissions`).

@@ -5,8 +5,12 @@ import {
   type PharmacyItem,
   type PharmacyPrescription,
 } from '@simrs/shared';
+import { alertBlocks } from '@simrs/shared';
 import { z } from 'zod';
 import type { GateDenial, StatusTone } from './penunjang';
+
+/** Aturan murni dipindah ke `@simrs/shared` (rencana fase 4 §4.0a); diekspor ulang untuk pemakai lama. */
+export { alertBlocks };
 
 /**
  * S04/S05 · Fungsi murni tampilan farmasi (mode presentasi, ADR-0023): KFA, gerbang CDS telaah, daftar telaah,
@@ -42,14 +46,6 @@ export interface RxLocal {
   handover?: Record<number, boolean>;
   doubleCheck?: { by: string; at: string };
   receiver?: RxReceiver;
-}
-
-/**
- * Peringatan yang menahan telaah: mayor/sedang yang masih terbuka, dan override dokter atas peringatan mayor
- * (apoteker tetap wajib meninjau). Info tidak menahan.
- */
-export function alertBlocks(a: Pick<PharmacyCdsAlert, 'status' | 'level'>): boolean {
-  return (a.status === 'terbuka' && a.level !== 'info') || (a.status === 'override' && a.level === 'mayor');
 }
 
 /** Peringatan yang masih menahan setelah tindak lanjut di layar (usulan yang belum disetujui tetap menahan). */

@@ -344,8 +344,8 @@ export const SCREENS: readonly ScreenDef[] = [
     phase: 4,
     status: 'demo',
     plannedPermission: 'nutrition.write',
-    // Peran `nutrisionis` (keputusan fase 4 #21) belum ada di katalog; sementara perawat dan dokter.
-    demoRoles: ['perawat', 'dokter'],
+    // Peran ahli gizi (`ahli_gizi`, keputusan fase 4 #21; kode sama dengan PPA CPPT fase 3) + perawat dan dokter.
+    demoRoles: ['ahli_gizi', 'perawat', 'dokter'],
     layout: 'staf',
   },
   {
