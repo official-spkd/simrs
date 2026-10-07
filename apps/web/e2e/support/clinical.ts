@@ -38,7 +38,7 @@ export interface ClinicalFixtures {
   allergicPatient: { id: string; mrn: string; allergy: string };
 }
 
-async function account(
+export async function account(
   tx: TenantTx,
   tenantId: string,
   role: string,

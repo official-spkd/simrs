@@ -69,8 +69,8 @@ test('mode api: akun Superadmin demo tanpa kuasa tambahan (menu = manajemen bias
   expect(await sidebarLinks(demo)).toEqual(await sidebarLinks(manajemen));
   expect(await sidebarLinks(demo)).not.toContain('/superadmin/panduan');
 
-  // Layar khusus presentasi dan panduan superadmin tidak ada di mode api. (CPPT kini hibrida: lihat smoke.spec.)
-  for (const path of ['/superadmin/panduan', '/simulasi', '/keuangan/kasir', '/manajemen/sdm']) {
+  // Layar yang hanya punya jalur presentasi (CPPT kini tersambung API, jadi tidak lagi contoh 404).
+  for (const path of ['/superadmin/panduan', '/manajemen/sdm', '/simulasi', '/keuangan/kasir']) {
     expect((await demo.goto(path))?.status(), path).toBe(404);
   }
   // Layar klinis hibrida terbuka sesuai izin sungguhan: akun demo (manajemen) ditolak, bukan diberi kuasa tambahan.

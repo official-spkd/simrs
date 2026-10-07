@@ -41,7 +41,7 @@ export async function jaspelAction(input: JaspelActionInput): Promise<KeuanganAc
   const jam = formatJam(at);
   const commit = async (event: EventOf<'jasa-pelayanan'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('jasa-pelayanan', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   if (c.type === 'ekspor') {
     return commit(

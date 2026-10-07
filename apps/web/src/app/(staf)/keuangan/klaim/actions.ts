@@ -64,7 +64,7 @@ export async function klaimAction(input: KlaimActionInput): Promise<KlaimActionR
   const jam = formatJam(at);
   const commit = async (event: EventOf<'klaim'>, message: string): Promise<KlaimActionResult> => {
     const r = await commitEvent('klaim', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   if (c.type === 'alasan-bukti') {
     return commit(

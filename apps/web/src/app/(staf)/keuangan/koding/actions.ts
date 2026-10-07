@@ -70,7 +70,7 @@ export async function kodingAction(input: KodingActionInput): Promise<KeuanganAc
   const jam = formatJam(at);
   const commit = async (event: EventOf<'klaim'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('klaim', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   const { state } = await readDomain('klaim');
   const b = codingList(state).find((x) => x.id === c.berkasId);

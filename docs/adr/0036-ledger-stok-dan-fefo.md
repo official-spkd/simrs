@@ -30,3 +30,21 @@ mengeluarkan batch kedaluwarsa, dan bisa diaudit (setiap perubahan saldo punya s
 - Penyerahan serentak atas batch yang sama berurutan pada kunci baris saldo; satu gagal bila saldo habis.
 - Koreksi stok selalu lewat ledger (penyesuaian beralasan), tidak pernah lewat UPDATE saldo.
 - Fungsi SECURITY DEFINER ini termasuk daftar yang wajib ditinjau setiap perubahan migrasi (docs/05).
+
+## Pembaruan 7 Okt 2026 · API stok 4.6a
+
+- **Lingkup.** `stock.*` berlingkup `unit` = lokasi stok yang unitnya sama dengan unit penugasan sesi (apoteker FARMASI:
+  gudang + depo RJ/RI; apoteker IGD: depo IGD); `all` (manajemen `stock.read`) = semua lokasi. Penugasan tanpa unit
+  tidak melihat lokasi mana pun. Tujuan mutasi boleh di luar unit (`GET /stock/locations?purpose=destination`, nama
+  saja); penerimaan mutasi wajib berlingkup atas depo tujuan.
+- **Kedaluwarsa (ED ≤ hari ini WIB).** Ditolak saat penerimaan dan mutasi (`BATCH_EXPIRED`), tidak boleh ditambah lewat
+  penyesuaian; pengurangannya tercatat `write_off` (hapus buku). Trigger tetap menjadi penjaga terakhir untuk
+  `dispense`/`usage`.
+- **Batch.** Nomor batch per obat unik; penerimaan ulang nomor batch yang sama wajib ED yang sama (409 bila beda), harga
+  pokok batch beku dari penerimaan pertama.
+- **Mutasi dua langkah.** Kirim = `transfer_out` di asal (stok dalam perjalanan tidak ada di kedua depo); terima =
+  `transfer_in` di tujuan, sekali (baris mutasi dikunci `FOR UPDATE`, terima ganda 409). FEFO mutasi diusulkan layar
+  dengan `pickFefo`; API memeriksa ulang ED dan saldo. Pengirim dan penerima boleh orang yang sama bila berlingkup atas
+  kedua depo (B01 minimal); pemisahan tugas menunggu fase 8.
+- **Kontrak baca** (lokasi, pemasok, obat, kartu stok, dokumen stok) di `packages/shared/src/schemas/stock.ts`; masukan
+  dan saldo tetap di `penunjang-api.ts` (4.0a).

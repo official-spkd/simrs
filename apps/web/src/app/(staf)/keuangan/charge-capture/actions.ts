@@ -48,7 +48,7 @@ export async function chargeAction(input: ChargeActionInput): Promise<KeuanganAc
   const acts = captureActions(e);
   const commit = async (event: EventOf<'tagihan'>, message: string): Promise<KeuanganActionResult> => {
     const r = await commitEvent('tagihan', event, { rev: c.rev, session: s });
-    return r.ok ? { ok: true, message } : { ok: false, message: r.error, stale: r.stale };
+    return r.ok ? { ok: true, message, rev: r.rev } : { ok: false, message: r.error, stale: r.stale };
   };
   switch (c.type) {
     case 'minta-tarif':
