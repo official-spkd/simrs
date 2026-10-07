@@ -1,9 +1,12 @@
 import type { TenantTx } from '@simrs/db';
 import {
+  type BedRequestSseEvent,
+  type BedRequestStatus,
   type BedStatus,
   type BedStatusSseEvent,
   CLINICAL_NOTIFY_CHANNELS,
   CLINICAL_SSE_EVENTS,
+  type EdChangedSseEvent,
   type EdStatus,
   type EdStatusSseEvent,
   type EdZone,
@@ -53,12 +56,61 @@ function edEvent(r: EdRow): SseEvent<EdStatusSseEvent> {
   };
 }
 
-/** Papan IGD: `ed_status_events` (id UUID v7 dari aplikasi, terurut → replay `id > Last-Event-ID`). */
-export const edBoardChannel: SseChannel<EdStatusSseEvent> = {
+function edChanged(
+  id: string,
+  source: EdChangedSseEvent['source'],
+  encounterId: string,
+  unitId: string,
+  at: Date,
+): SseEvent<EdChangedSseEvent> {
+  return {
+    id,
+    event: CLINICAL_SSE_EVENTS.edChanged,
+    data: { sourceId: id, source, encounterId, unitId, at: at.toISOString() },
+  };
+}
+
+/**
+ * Sinyal isi papan IGD selain status alur (ADR-0104): trigger `encounters` (kelas EMER), `triage_assessments`, dan
+ * `bed_requests` mengirim id barisnya ke kanal yang sama. Id dicari berurutan di ketiga tabel (kunci primer, RLS);
+ * permintaan bed kunjungan non-IGD diabaikan.
+ */
+async function loadEdChange(tx: TenantTx, id: string): Promise<SseEvent<EdChangedSseEvent> | null> {
+  const triage = await tx.triageAssessment.findUnique({
+    where: { id },
+    select: { encounterId: true, recordedAt: true, encounter: { select: { unitId: true } } },
+  });
+  if (triage) return edChanged(id, 'triage', triage.encounterId, triage.encounter.unitId, triage.recordedAt);
+  const enc = await tx.encounter.findUnique({
+    where: { id },
+    select: { encounterClass: true, unitId: true, updatedAt: true },
+  });
+  if (enc)
+    return enc.encounterClass === 'EMER' ? edChanged(id, 'encounter', id, enc.unitId, enc.updatedAt) : null;
+  const req = await tx.bedRequest.findUnique({
+    where: { id },
+    select: {
+      encounterId: true,
+      requestedAt: true,
+      allocatedAt: true,
+      closedAt: true,
+      encounter: { select: { encounterClass: true, unitId: true } },
+    },
+  });
+  if (!req || req.encounter.encounterClass !== 'EMER') return null;
+  const at = req.closedAt ?? req.allocatedAt ?? req.requestedAt;
+  return edChanged(id, 'bed_request', req.encounterId, req.encounter.unitId, at);
+}
+
+/**
+ * Papan IGD: `ed_status_events` (id UUID v7 dari aplikasi, terurut → replay `id > Last-Event-ID`) + sinyal `ed.changed`
+ * (tanpa replay; potret awal yang dikirim setiap sambung ulang adalah kebenarannya).
+ */
+export const edBoardChannel: SseChannel<EdStatusSseEvent | EdChangedSseEvent> = {
   name: CLINICAL_NOTIFY_CHANNELS.edBoard,
   async load(tx: TenantTx, id: string) {
     const row = await tx.edStatusEvent.findUnique({ where: { id }, select: edSelect });
-    return row ? edEvent(row) : null;
+    return row ? edEvent(row) : loadEdChange(tx, id);
   },
   async replay(tx: TenantTx, afterId: string, limit: number) {
     if (!isUuid(afterId)) return [];
@@ -103,15 +155,41 @@ function bedEvent(r: BedRow): SseEvent<BedStatusSseEvent> {
   };
 }
 
+/** Permintaan bed (ADR-0104): unit tujuan = unit bed yang dialokasikan, atau unit yang diminta (null = mana pun). */
+async function loadBedRequest(tx: TenantTx, id: string): Promise<SseEvent<BedRequestSseEvent> | null> {
+  const r = await tx.bedRequest.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      unitId: true,
+      requestedAt: true,
+      allocatedAt: true,
+      closedAt: true,
+      allocatedLocation: { select: { unitId: true } },
+    },
+  });
+  if (!r) return null;
+  return {
+    id,
+    event: CLINICAL_SSE_EVENTS.bedRequest,
+    data: {
+      requestId: id,
+      unitId: r.allocatedLocation?.unitId ?? r.unitId,
+      status: r.status as BedRequestStatus,
+      at: (r.closedAt ?? r.allocatedAt ?? r.requestedAt).toISOString(),
+    },
+  };
+}
+
 /**
  * Papan bed: `bed_status_events` (ditulis trigger; id acak, jadi replay berurutan menurut waktu ubah + id setelah
- * event `Last-Event-ID`).
+ * event `Last-Event-ID`) + sinyal `bed.request` dari `bed_requests` (tanpa replay; potret awal tiap sambung ulang).
  */
-export const bedBoardChannel: SseChannel<BedStatusSseEvent> = {
+export const bedBoardChannel: SseChannel<BedStatusSseEvent | BedRequestSseEvent> = {
   name: CLINICAL_NOTIFY_CHANNELS.bedBoard,
   async load(tx: TenantTx, id: string) {
     const row = await tx.bedStatusEvent.findUnique({ where: { id }, select: bedSelect });
-    return row ? bedEvent(row) : null;
+    return row ? bedEvent(row) : loadBedRequest(tx, id);
   },
   async replay(tx: TenantTx, afterId: string, limit: number) {
     if (!isUuid(afterId)) return [];
