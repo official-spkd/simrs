@@ -196,6 +196,8 @@ describe('izin layar front office (rencana fase 2 · 0c, 4b)', () => {
       ranap: 'clinical.write',
       resume: 'clinical.write',
       consent: 'consent.write',
+      konsul: 'clinical.write',
+      paket: 'forms.definition.read',
     });
     const known: readonly string[] = [...FRONT_OFFICE_PERMISSIONS, ...CLINICAL_PERMISSIONS];
     for (const s of SCREENS) {

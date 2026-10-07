@@ -42,6 +42,12 @@ export class ConsultController {
     return this.consult.respond(id, body);
   }
 
+  @RequirePermission('clinical', 'write')
+  @Get('consultants')
+  consultants() {
+    return this.consult.consultants();
+  }
+
   @RequirePermission('clinical', 'read')
   @Get('inbox')
   inbox() {

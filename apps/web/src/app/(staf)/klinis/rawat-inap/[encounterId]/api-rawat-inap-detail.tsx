@@ -197,6 +197,11 @@ export async function ApiRawatInapDetail({
           replaceBand: can(session, 'medication', 'administer') && can(session, 'bed', 'write'),
         }}
         active={active}
+        ext38={{
+          me: { id: session.user.id, role: session.role?.code ?? null, unitId: session.unit?.id ?? null },
+          documentsWrite: can(session, 'documents', 'write'),
+          now: new Date().toISOString(),
+        }}
       />
     </Shell>
   );

@@ -29,6 +29,7 @@ export const CLINICAL_PERMISSIONS = [
   'order.write',
   'bed.read',
   'consent.write',
+  'forms.definition.read',
 ] as const satisfies readonly PermissionKey[];
 export type ScreenPermission =
   (typeof FRONT_OFFICE_PERMISSIONS)[number] | (typeof CLINICAL_PERMISSIONS)[number];
@@ -722,7 +723,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['K10'],
     phase: 3,
     status: 'demo',
-    plannedPermission: 'consult.write',
+    plannedPermission: 'clinical.write',
+    permission: 'clinical.write',
     demoRoles: ['dokter', 'dokter_residen'],
     layout: 'staf',
   },
@@ -770,7 +772,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['K15'],
     phase: 3,
     status: 'demo',
-    plannedPermission: 'care-package.write',
+    plannedPermission: 'forms.definition.read',
+    permission: 'forms.definition.read',
     demoRoles: ['dokter', 'perawat', 'bidan'],
     layout: 'staf',
   },
