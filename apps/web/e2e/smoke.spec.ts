@@ -25,9 +25,12 @@ test.describe('smoke', () => {
     await expect(page.getByText('Mode presentasi · data fiktif')).toHaveCount(0);
     if ((viewport?.width ?? 1280) < 768) return;
     const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
-    const lab = nav.getByTitle('Laboratorium · layar belum tersedia').first();
-    await expect(lab).toHaveAttribute('aria-disabled', 'true');
-    await expect(nav.getByRole('link', { name: 'Laboratorium' })).toHaveCount(0);
+    // Layar yang hanya ada di mode presentasi tampil redup; layar hibrida berizin (Laboratorium, fase 4 4.0c) tidak
+    // tampil bagi perawat yang tidak memegang izinnya.
+    const onkologi = nav.getByTitle('Onkologi · layar belum tersedia').first();
+    await expect(onkologi).toHaveAttribute('aria-disabled', 'true');
+    await expect(nav.getByRole('link', { name: 'Onkologi' })).toHaveCount(0);
+    await expect(nav.getByText('Laboratorium', { exact: true })).toHaveCount(0);
     // Perawat tidak memegang izin kelola pengguna: menunya tidak tampil.
     await expect(nav.getByText('Pengguna & akses')).toHaveCount(0);
     await expect(nav.getByText('Perawat', { exact: true })).toHaveCount(1);
@@ -43,15 +46,25 @@ test.describe('smoke', () => {
     const hybrid = SCREENS.filter((s) => s.permission);
     expect(hybrid.map((s) => s.id).sort()).toEqual([
       'antrean',
+      'bank-darah',
       'bed',
       'consent',
       'daftar',
+      'depo',
+      'diagnostik',
+      'farmasi',
+      'gizi',
       'igd',
       'jadwal',
       'kendali',
       'kiosk',
+      'kritis',
+      'lab',
+      'mikro',
+      'ok',
       'order',
       'poli',
+      'rad',
       'ranap',
       'resume',
     ]);

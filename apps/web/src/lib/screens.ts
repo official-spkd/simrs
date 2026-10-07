@@ -30,8 +30,29 @@ export const CLINICAL_PERMISSIONS = [
   'bed.read',
   'consent.write',
 ] as const satisfies readonly PermissionKey[];
+
+/**
+ * Izin layar penunjang fase 4 (potongan 4.0c, katalog dan matriks bawaan 4.0a): izin baca inti tiap layar, sehingga
+ * peran pelaksana membuka layarnya dan aksi lebih lanjut diperiksa API. Laboratorium dan Mikrobiologi
+ * `lab.worklist.read` (analis), Radiologi `radiology.read`, Farmasi `pharmacy.review.read` (apoteker), Kamar operasi
+ * `surgery.read`, Pusat hasil kritis `critical_result.read`, Depo `stock.read`, Bank darah `blood_bank.read`, Gizi
+ * `nutrition.read`, Diagnostik lain `diagnostics.write` (katalog tidak punya aksi baca diagnostik).
+ */
+export const SUPPORT_PERMISSIONS = [
+  'lab.worklist.read',
+  'radiology.read',
+  'pharmacy.review.read',
+  'surgery.read',
+  'critical_result.read',
+  'stock.read',
+  'blood_bank.read',
+  'nutrition.read',
+  'diagnostics.write',
+] as const satisfies readonly PermissionKey[];
 export type ScreenPermission =
-  (typeof FRONT_OFFICE_PERMISSIONS)[number] | (typeof CLINICAL_PERMISSIONS)[number];
+  | (typeof FRONT_OFFICE_PERMISSIONS)[number]
+  | (typeof CLINICAL_PERMISSIONS)[number]
+  | (typeof SUPPORT_PERMISSIONS)[number];
 
 /**
  * Registri layar fase 2–10 (ADR-0023, peta docs/08 §4). Satu tempat yang menentukan sumber data tiap layar:
@@ -258,7 +279,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S01', 'S09'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'lab.write',
+    plannedPermission: 'lab.worklist.read',
+    permission: 'lab.worklist.read',
     demoRoles: ['analis_lab', 'dokter'],
     layout: 'staf',
   },
@@ -270,7 +292,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S03'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'radiology.write',
+    plannedPermission: 'radiology.read',
+    permission: 'radiology.read',
     demoRoles: ['radiografer', 'dokter'],
     layout: 'staf',
   },
@@ -282,7 +305,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S04', 'S05'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'pharmacy.write',
+    plannedPermission: 'pharmacy.review.read',
+    permission: 'pharmacy.review.read',
     demoRoles: ['apoteker', 'dokter'],
     layout: 'staf',
   },
@@ -294,7 +318,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S06'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'surgery.write',
+    plannedPermission: 'surgery.read',
+    permission: 'surgery.read',
     demoRoles: ['dokter', 'perawat'],
     layout: 'staf',
   },
@@ -307,7 +332,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S09'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'critical_result.report',
+    plannedPermission: 'critical_result.read',
+    permission: 'critical_result.read',
     demoRoles: ['analis_lab', 'radiografer', 'dokter', 'perawat'],
     layout: 'staf',
   },
@@ -319,7 +345,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S05'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'stock.write',
+    plannedPermission: 'stock.read',
+    permission: 'stock.read',
     demoRoles: ['apoteker'],
     layout: 'staf',
   },
@@ -331,7 +358,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S08'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'blood.write',
+    plannedPermission: 'blood_bank.read',
+    permission: 'blood_bank.read',
     demoRoles: ['analis_lab', 'perawat', 'bidan', 'dokter'],
     layout: 'staf',
   },
@@ -343,7 +371,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S07'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'nutrition.write',
+    plannedPermission: 'nutrition.read',
+    permission: 'nutrition.read',
     // Peran ahli gizi (`ahli_gizi`, keputusan fase 4 #21; kode sama dengan PPA CPPT fase 3) + perawat dan dokter.
     demoRoles: ['ahli_gizi', 'perawat', 'dokter'],
     layout: 'staf',
@@ -356,7 +385,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S02'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'lab.write',
+    plannedPermission: 'lab.worklist.read',
+    permission: 'lab.worklist.read',
     demoRoles: ['analis_lab', 'dokter'],
     layout: 'staf',
   },
@@ -368,7 +398,8 @@ export const SCREENS: readonly ScreenDef[] = [
     components: ['S10'],
     phase: 4,
     status: 'demo',
-    plannedPermission: 'diagnostic.write',
+    plannedPermission: 'diagnostics.write',
+    permission: 'diagnostics.write',
     demoRoles: ['dokter', 'perawat'],
     layout: 'staf',
   },
