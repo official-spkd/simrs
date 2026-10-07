@@ -41,3 +41,23 @@ pencatatan dilakukan sekarang.
 - `billable_events` menumpuk sampai fase 5 tanpa nilai uang, sehingga tidak ada risiko jurnal.
 - Modul klinis tidak memanggil outbox atau tabel biaya langsung. Jenis resource dan jenis biaya baru harus ditambah di
   registri shared (`SATUSEHAT_RESOURCES`) dan CHECK `billable_events_values_valid`.
+
+## Pembaruan 7 Okt 2026 · inventaris staging penutup fase 3 (potongan 3.9)
+
+Perekam per modul, diverifikasi E2E rantai `rantai-rawat-jalan.spec.ts` dan `rantai-rawat-inap.spec.ts` lewat
+`e2e/support/staging.ts` (semua pesan SATUSEHAT kunjungan berstatus `held`, tidak satu pun terkirim):
+
+| Modul | SATUSEHAT `held` | `billable_events` |
+| --- | --- | --- |
+| triage (IGD) | Encounter | `igd` |
+| adt | Encounter (admisi, transfer, pulang) | `admisi`, `transfer`, `pulang` |
+| nursing | Observation (TTV), MedicationAdministration | `obat` (dosis `given`) |
+| diagnosis | Condition, Procedure, AllergyIntolerance | `tindakan` (prosedur) |
+| results | Observation, DiagnosticReport | – |
+| orders | ServiceRequest, MedicationRequest | `lab`, `radiologi`, `tindakan` (order layanan) |
+| cppt | – | `visite` (CPPT DPJP versi 1) |
+| consult | – | `konsultasi` |
+| discharge | Composition (resume + addendum), Encounter (tutup rawat jalan) | – |
+
+CPPT, persetujuan, dan surat kematian belum punya resource SATUSEHAT di registri; dipetakan fase 7 bila diwajibkan.
+Rawat jalan tidak membuat `pulang` (tutup poli bukan peristiwa biaya ADT).

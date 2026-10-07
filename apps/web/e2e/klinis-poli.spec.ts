@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { allocateQueueNumber } from '@simrs/db';
 import { isoDateJakarta, newId } from '@simrs/shared';
 import { type Account, createAccount, createPatient, inTenant, loginAs, TENANTS } from './support/accounts';
 import { ensureRsfaSchedule } from './support/schedule';
@@ -25,17 +26,8 @@ async function poliVisit(doctor: Account) {
   return inTenant(TENANTS.RSFA, async (tx) => {
     const svc = await tx.queueService.findFirstOrThrow({ where: { code: 'PD' } });
     const today = new Date(`${isoDateJakarta(new Date())}T00:00:00.000Z`);
-    // Nomor acak 600–999 (dua proyek Playwright berjalan paralel di hari yang sama); bentrok → nomor lain.
-    const used = new Set(
-      (
-        await tx.queueTicket.findMany({
-          where: { serviceId: svc.id, serviceDate: today },
-          select: { seq: true },
-        })
-      ).map((t) => t.seq),
-    );
-    let seq = 600 + Math.floor(Math.random() * 400);
-    while (used.has(seq)) seq = 600 + Math.floor(Math.random() * 400);
+    // Nomor dari layanan penomoran yang sama dengan API (tidak berebut dengan booking/anjungan spesifikasi lain).
+    const { seq, ticketNo } = await allocateQueueNumber(tx, TENANTS.RSFA, svc.id, isoDateJakarta(new Date()));
     const ticketId = newId();
     await tx.queueTicket.create({
       data: {
@@ -44,7 +36,7 @@ async function poliVisit(doctor: Account) {
         serviceId: svc.id,
         serviceDate: today,
         seq,
-        ticketNo: `PD-${String(seq).padStart(3, '0')}`,
+        ticketNo,
         patientId: p.id,
         source: 'loket',
       },
@@ -79,7 +71,7 @@ async function poliVisit(doctor: Account) {
         sourceId: pid,
       },
     });
-    return { patientId: p.id, encounterId: enc.id, ticketId, ticketNo: `PD-${String(seq).padStart(3, '0')}` };
+    return { patientId: p.id, encounterId: enc.id, ticketId, ticketNo };
   });
 }
 
